@@ -211,9 +211,6 @@ dbus_bool_t
 bus_selinux_pre_init (void)
 {
 #ifdef HAVE_SELINUX
-  int r;
-  char *bus_context;
-
   _dbus_assert (bus_sid == SECSID_WILD);
   
   /* Determine if we are running an SELinux kernel. */

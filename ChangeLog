@@ -1,5 +1,10 @@
 2004-11-03  Colin Walters  <walters@verbum.org>
 
+	* bus/selinux.c (bus_selinux_pre_init): Kill some unused
+	variables.
+	
+2004-11-03  Colin Walters  <walters@verbum.org>
+
 	* bus/test-main.c (test_pre_hook): Fix test logic,
 	thanks Joerg Barfurth <Joerg.Barfurth@Sun.COM>.
 
