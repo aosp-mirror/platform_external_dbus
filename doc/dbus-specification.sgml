@@ -3,8 +3,8 @@
 <article id="index">
   <artheader>
     <title>D-BUS Specification</title>
-    <releaseinfo>Version 0.7</releaseinfo>
-    <date>26 March 2003</date>
+    <releaseinfo>Version 0.8</releaseinfo>
+    <date>06 September 2003</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -65,10 +65,10 @@
           <para>
             D-BUS is <emphasis>easy to use</emphasis> because it works in terms
             of <firstterm>messages</firstterm> rather than byte streams, and
-            does not require users to understand any complex concepts such as a
-            new type system or elaborate APIs. Libraries implementing D-BUS 
-            may choose to abstract messages as "method calls" (see 
-            <xref linkend="message-conventions-method">).
+            automatically handles a lot of the hard IPC issues. Also, the D-BUS
+            library is designed to be wrapped in a way that lets users use their
+            framework's existing object/type system, rather than learning a new 
+            one specifically for IPC.
           </para>
         </listitem>
       </itemizedlist>
@@ -83,11 +83,10 @@
       forwards messages among them.
     </para>
     <para>
-      Things that D-BUS can be used for is for example notification of
-      system changes (notification of when a camera is plugged in to a
-      computer, or a new version of some software has been installed),
-      or desktop interoperablity, for example a file monitoring
-      service or a configuration service.
+      Uses of D-BUS include notification of system changes (notification of when
+      a camera is plugged in to a computer, or a new version of some software
+      has been installed), or desktop interoperablity, for example a file
+      monitoring service or a configuration service.
     </para>
   </sect1>
 
@@ -279,9 +278,27 @@
             </thead>
             <tbody>
               <row>
-                <entry>name</entry>
+                <entry>path</entry>
                 <entry>STRING</entry>
-                <entry>The name of the message, such as org.freedesktop.Peer.Ping</entry>
+                <entry>The object to send the message to; objects are identified by 
+                a path, "/foo/bar"</entry>
+              </row>
+              <row>
+                <entry>ifce</entry>
+                <entry>STRING</entry>
+                <entry>The interface to invoke a method call on, or 
+                that a signal is emitted from. e.g. "org.freedesktop.Introspectable"</entry>
+              </row>
+              <row>
+                <entry>mebr</entry>
+                <entry>STRING</entry>
+                <entry>The member, either the method name or signal name. 
+                e.g. "Frobate"</entry>
+              </row>
+              <row>
+                <entry>ernm</entry>
+                <entry>STRING</entry>
+                <entry>The name of the error that occurred, for errors</entry>
               </row>
               <row>
                 <entry>rply</entry>
@@ -298,10 +315,10 @@
                 <xref linkend="message-bus">.</entry>
               </row>
               <row>
-                <entry>sndr</entry>
+                <entry>sdrs</entry>
                 <entry>STRING</entry>
-                <entry>The name of the base service that sent this message. 
-                The message bus fills in this field; the field is 
+                <entry>Sender service. The name of the base service that sent
+                this message.  The message bus fills in this field; the field is
                 only meaningful in combination with the message bus.</entry>
               </row>
             </tbody>
@@ -480,9 +497,9 @@
     <sect2 id="message-protocol-names">
       <title>Valid names</title>
       <para>
-        Messages and services have names with type STRING, meaning that 
+        Services have names with type STRING, meaning that 
         they must be valid UTF-8. However, there are also some 
-        additional restrictions that apply to message and service names 
+        additional restrictions that apply to service names 
         specifically:
         <itemizedlist>
 	  <listitem><para>They must contain at least one '.' (period) character</para></listitem>

@@ -1,5 +1,18 @@
 2003-09-06  Havoc Pennington  <hp@pobox.com>
 
+	* doc/dbus-specification.sgml: partial updates
+
+	* bus/dbus-daemon-1.1.in: fix the config file docs for the
+	zillionth time; hopefully I edited the right file this time.
+
+	* bus/config-parser.c (append_rule_from_element): support
+	send_type, send_path, receive_type, receive_path
+
+	* bus/policy.c: add message type and path to the list of things
+	that can be "firewalled"
+
+2003-09-06  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-connection.c (dbus_connection_register_fallback): add this
 	(dbus_connection_register_object_path): make this not handle
 	messages to paths below the given path

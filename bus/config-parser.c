@@ -808,6 +808,21 @@ start_busconfig_child (BusConfigParser   *parser,
     }
 }
 
+static int
+message_type_from_string (const char *type_str)
+{
+  if (strcmp (type_str, "method_call") == 0)
+    return DBUS_MESSAGE_TYPE_METHOD_CALL;
+  if (strcmp (type_str, "method_return") == 0)
+    return DBUS_MESSAGE_TYPE_METHOD_RETURN;
+  else if (strcmp (type_str, "signal") == 0)
+    return DBUS_MESSAGE_TYPE_SIGNAL;
+  else if (strcmp (type_str, "error") == 0)
+    return DBUS_MESSAGE_TYPE_ERROR;
+  else
+    return DBUS_MESSAGE_TYPE_INVALID;
+}
+
 static dbus_bool_t
 append_rule_from_element (BusConfigParser   *parser,
                           const char        *element_name,
@@ -820,10 +835,14 @@ append_rule_from_element (BusConfigParser   *parser,
   const char *send_member;
   const char *send_error;
   const char *send_service;
+  const char *send_path;
+  const char *send_type;
   const char *receive_interface;
   const char *receive_member;
   const char *receive_error;
   const char *receive_service;
+  const char *receive_path;
+  const char *receive_type;
   const char *own;
   const char *user;
   const char *group;
@@ -837,10 +856,14 @@ append_rule_from_element (BusConfigParser   *parser,
                           "send_member", &send_member,
                           "send_error", &send_error,
                           "send_service", &send_service,
+                          "send_path", &send_path,
+                          "send_type", &send_type,
                           "receive_interface", &receive_interface,
                           "receive_member", &receive_member,
                           "receive_error", &receive_error,
                           "receive_service", &receive_service,
+                          "receive_path", &receive_path,
+                          "receive_type", &receive_type,
                           "own", &own,
                           "user", &user,
                           "group", &group,
@@ -848,7 +871,9 @@ append_rule_from_element (BusConfigParser   *parser,
     return FALSE;
 
   if (!(send_interface || send_member || send_error || send_service ||
+        send_type || send_path ||
         receive_interface || receive_member || receive_error || receive_service ||
+        receive_type || receive_path ||
         own || user || group))
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
@@ -857,11 +882,11 @@ append_rule_from_element (BusConfigParser   *parser,
       return FALSE;
     }
 
-  if ((send_member && send_interface == NULL) ||
-      (receive_member && receive_interface == NULL))
+  if ((send_member && (send_interface == NULL && send_path == NULL)) ||
+      (receive_member && (receive_interface == NULL && receive_path == NULL)))
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "On element <%s>, if you specify a member you must specify an interface",
+                      "On element <%s>, if you specify a member you must specify an interface or a path. Keep in mind that not all messages have an interface field.",
                       element_name);
       return FALSE;
     }
@@ -869,12 +894,13 @@ append_rule_from_element (BusConfigParser   *parser,
   /* Allowed combinations of elements are:
    *
    *   base, must be all send or all receive:
+   *     nothing
    *     interface
    *     interface + member
    *     error
    * 
-   *   base send_ can combine with send_service,
-   *   base receive_ with receive_service
+   *   base send_ can combine with send_service, send_path, send_type
+   *   base receive_ with receive_service, receive_path, receive_type
    *
    *   user, group, own must occur alone
    */
@@ -913,6 +939,22 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_service && user) ||
        (send_service && group)) ||
 
+      ((send_type && receive_interface) ||
+       (send_type && receive_member) ||
+       (send_type && receive_error) ||
+       (send_type && receive_service) ||
+       (send_type && own) ||
+       (send_type && user) ||
+       (send_type && group)) ||
+
+      ((send_path && receive_interface) ||
+       (send_path && receive_member) ||
+       (send_path && receive_error) ||
+       (send_path && receive_service) ||
+       (send_path && own) ||
+       (send_path && user) ||
+       (send_path && group)) ||
+      
       ((receive_interface && receive_error) ||
        (receive_interface && own) ||
        (receive_interface && user) ||
@@ -938,7 +980,7 @@ append_rule_from_element (BusConfigParser   *parser,
                       element_name);
       return FALSE;
     }
-       
+  
   rule = NULL;
 
   /* In BusPolicyRule, NULL represents wildcard.
@@ -946,11 +988,10 @@ append_rule_from_element (BusConfigParser   *parser,
    */
 #define IS_WILDCARD(str) ((str) && ((str)[0]) == '*' && ((str)[1]) == '\0')
 
-  if (send_interface || send_member || send_error || send_service)
+  if (send_interface || send_member || send_error || send_service ||
+      send_path || send_type)
     {
-      rule = bus_policy_rule_new (BUS_POLICY_RULE_SEND, allow); 
-      if (rule == NULL)
-        goto nomem;
+      int message_type;
       
       if (IS_WILDCARD (send_interface))
         send_interface = NULL;
@@ -960,11 +1001,36 @@ append_rule_from_element (BusConfigParser   *parser,
         send_error = NULL;
       if (IS_WILDCARD (send_service))
         send_service = NULL;
+      if (IS_WILDCARD (send_path))
+        send_path = NULL;
+      if (IS_WILDCARD (send_type))
+        send_type = NULL;
+
+      message_type = DBUS_MESSAGE_TYPE_INVALID;
+      if (send_type != NULL)
+        {
+          message_type = message_type_from_string (send_type);
+          if (message_type == DBUS_MESSAGE_TYPE_INVALID)
+            {
+              dbus_set_error (error, DBUS_ERROR_FAILED,
+                              "Bad message type \"%s\"",
+                              send_type);
+              return FALSE;
+            }
+        }
       
+      rule = bus_policy_rule_new (BUS_POLICY_RULE_SEND, allow); 
+      if (rule == NULL)
+        goto nomem;
+
+      rule->d.send.message_type = message_type;
+      rule->d.send.path = _dbus_strdup (send_path);
       rule->d.send.interface = _dbus_strdup (send_interface);
       rule->d.send.member = _dbus_strdup (send_member);
       rule->d.send.error = _dbus_strdup (send_error);
       rule->d.send.destination = _dbus_strdup (send_service);
+      if (send_path && rule->d.send.path == NULL)
+        goto nomem;
       if (send_interface && rule->d.send.interface == NULL)
         goto nomem;
       if (send_member && rule->d.send.member == NULL)
@@ -974,11 +1040,10 @@ append_rule_from_element (BusConfigParser   *parser,
       if (send_service && rule->d.send.destination == NULL)
         goto nomem;
     }
-  else if (receive_interface || receive_member || receive_error || receive_service)
+  else if (receive_interface || receive_member || receive_error || receive_service ||
+           receive_path || receive_type)
     {
-      rule = bus_policy_rule_new (BUS_POLICY_RULE_RECEIVE, allow); 
-      if (rule == NULL)
-        goto nomem;
+      int message_type;
       
       if (IS_WILDCARD (receive_interface))
         receive_interface = NULL;
@@ -988,11 +1053,37 @@ append_rule_from_element (BusConfigParser   *parser,
         receive_error = NULL;
       if (IS_WILDCARD (receive_service))
         receive_service = NULL;
+      if (IS_WILDCARD (receive_path))
+        receive_path = NULL;
+      if (IS_WILDCARD (receive_type))
+        receive_type = NULL;
 
+
+      message_type = DBUS_MESSAGE_TYPE_INVALID;
+      if (receive_type != NULL)
+        {
+          message_type = message_type_from_string (receive_type);
+          if (message_type == DBUS_MESSAGE_TYPE_INVALID)
+            {
+              dbus_set_error (error, DBUS_ERROR_FAILED,
+                              "Bad message type \"%s\"",
+                              receive_type);
+              return FALSE;
+            }
+        }
+      
+      rule = bus_policy_rule_new (BUS_POLICY_RULE_RECEIVE, allow); 
+      if (rule == NULL)
+        goto nomem;
+
+      rule->d.receive.message_type = message_type;
+      rule->d.receive.path = _dbus_strdup (receive_path);
       rule->d.receive.interface = _dbus_strdup (receive_interface);
       rule->d.receive.member = _dbus_strdup (receive_member);
       rule->d.receive.error = _dbus_strdup (receive_error);
       rule->d.receive.origin = _dbus_strdup (receive_service);
+      if (receive_path && rule->d.receive.path == NULL)
+        goto nomem;
       if (receive_interface && rule->d.receive.interface == NULL)
         goto nomem;
       if (receive_member && rule->d.receive.member == NULL)

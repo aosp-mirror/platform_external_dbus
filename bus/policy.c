@@ -52,7 +52,11 @@ bus_policy_rule_new (BusPolicyRuleType type,
       rule->d.group.gid = DBUS_GID_UNSET;
       break;
     case BUS_POLICY_RULE_SEND:
+      rule->d.send.message_type = DBUS_MESSAGE_TYPE_INVALID;
+      break;
     case BUS_POLICY_RULE_RECEIVE:
+      rule->d.receive.message_type = DBUS_MESSAGE_TYPE_INVALID;
+      break;
     case BUS_POLICY_RULE_OWN:
       break;
     }
@@ -80,12 +84,14 @@ bus_policy_rule_unref (BusPolicyRule *rule)
       switch (rule->type)
         {
         case BUS_POLICY_RULE_SEND:
+          dbus_free (rule->d.send.path);
           dbus_free (rule->d.send.interface);
           dbus_free (rule->d.send.member);
           dbus_free (rule->d.send.error);
           dbus_free (rule->d.send.destination);
           break;
         case BUS_POLICY_RULE_RECEIVE:
+          dbus_free (rule->d.receive.path);
           dbus_free (rule->d.receive.interface);
           dbus_free (rule->d.receive.member);
           dbus_free (rule->d.receive.error);
@@ -717,6 +723,8 @@ bus_client_policy_optimize (BusClientPolicy *policy)
         {
         case BUS_POLICY_RULE_SEND:
           remove_preceding =
+            rule->d.send.message_type == DBUS_MESSAGE_TYPE_INVALID &&
+            rule->d.send.path == NULL &&
             rule->d.send.interface == NULL &&
             rule->d.send.member == NULL &&
             rule->d.send.error == NULL &&
@@ -724,6 +732,8 @@ bus_client_policy_optimize (BusClientPolicy *policy)
           break;
         case BUS_POLICY_RULE_RECEIVE:
           remove_preceding =
+            rule->d.receive.message_type == DBUS_MESSAGE_TYPE_INVALID &&
+            rule->d.receive.path == NULL &&
             rule->d.receive.interface == NULL &&
             rule->d.receive.member == NULL &&
             rule->d.receive.error == NULL &&
@@ -799,6 +809,26 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
           continue;
         }
 
+      if (rule->d.send.message_type != DBUS_MESSAGE_TYPE_INVALID)
+        {
+          if (dbus_message_get_type (message) != rule->d.send.message_type)
+            {
+              _dbus_verbose ("  (policy) skipping rule for different message type\n");
+              continue;
+            }
+        }
+      
+      if (rule->d.send.path != NULL)
+        {
+          if (dbus_message_get_path (message) != NULL &&
+              strcmp (dbus_message_get_path (message),
+                      rule->d.send.path) != 0)
+            {
+              _dbus_verbose ("  (policy) skipping rule for different path\n");
+              continue;
+            }
+        }
+      
       if (rule->d.send.interface != NULL)
         {
           if (dbus_message_get_interface (message) != NULL &&
@@ -910,6 +940,26 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
         {
           _dbus_verbose ("  (policy) skipping non-receive rule\n");
           continue;
+        }
+
+      if (rule->d.receive.message_type != DBUS_MESSAGE_TYPE_INVALID)
+        {
+          if (dbus_message_get_type (message) != rule->d.receive.message_type)
+            {
+              _dbus_verbose ("  (policy) skipping rule for different message type\n");
+              continue;
+            }
+        }
+      
+      if (rule->d.receive.path != NULL)
+        {
+          if (dbus_message_get_path (message) != NULL &&
+              strcmp (dbus_message_get_path (message),
+                      rule->d.receive.path) != 0)
+            {
+              _dbus_verbose ("  (policy) skipping rule for different path\n");
+              continue;
+            }
         }
       
       if (rule->d.receive.interface != NULL)

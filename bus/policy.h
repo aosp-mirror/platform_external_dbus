@@ -54,7 +54,10 @@ struct BusPolicyRule
   {
     struct
     {
+      /* message type can be DBUS_MESSAGE_TYPE_INVALID meaning "any" */
+      int   message_type;
       /* any of these can be NULL meaning "any" */
+      char *path;
       char *interface;
       char *member;
       char *error;
@@ -63,7 +66,10 @@ struct BusPolicyRule
 
     struct
     {
+      /* message type can be DBUS_MESSAGE_TYPE_INVALID meaning "any" */
+      int   message_type;
       /* any of these can be NULL meaning "any" */
+      char *path;
       char *interface;
       char *member;
       char *error;
