@@ -1,3 +1,16 @@
+2004-09-28  Jon Trowbridge  <trow@ximian.com>
+
+	* mono/BusDriver.cs: Changed BusDriver struct to remove
+	the ServiceCreated and ServiceDeleted events and replace them
+	with the new ServiceOwnerChanged event.
+
+	* mono/example/BusListener.cs: Added a new example program,
+	which listens for and reports any ServiceOwnerChanged events
+	on the bus driver.
+
+	* mono/example/Makefile.am (DESTDIR): Build changes for the
+	new BusListener.cs example.
+
 2004-09-27  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* bus/signals.c (bus_match_rule_parse): validate the components of
