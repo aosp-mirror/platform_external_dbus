@@ -1,3 +1,16 @@
+2004-06-05  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* dbus/dbus-connection.h, dbus/dbus-connection.c: have object path
+	registration functions take the path argument as char* instead of
+	char**.
+
+	* dbus/dbus-marshal.h, dbus/dbus-marshal.c (_dbus_decompose_path):
+	split off the path decompostion part of
+	_dbus_demarshal_object_path. Some misc. fixes to silence compiler
+	warnings. 
+
+	* glib/dbus-gobject.c, test/test-service.c: update accordingly.
+	
 2004-06-02  Kristian Høgsberg  <krh@redhat.com>
  
 	* dbus/dbus-auth.c: Rewrite auth protocol handling to use a state

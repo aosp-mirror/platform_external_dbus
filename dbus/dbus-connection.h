@@ -232,18 +232,18 @@ struct DBusObjectPathVTable
 };
 
 dbus_bool_t dbus_connection_register_object_path   (DBusConnection              *connection,
-                                                    const char                 **path,
+                                                    const char                  *path,
                                                     const DBusObjectPathVTable  *vtable,
                                                     void                        *user_data);
 dbus_bool_t dbus_connection_register_fallback      (DBusConnection              *connection,
-                                                    const char                 **path,
+                                                    const char                  *path,
                                                     const DBusObjectPathVTable  *vtable,
                                                     void                        *user_data);
-void        dbus_connection_unregister_object_path (DBusConnection              *connection,
-                                                    const char                 **path);
+dbus_bool_t dbus_connection_unregister_object_path (DBusConnection              *connection,
+                                                    const char                  *path);
 
 dbus_bool_t dbus_connection_list_registered        (DBusConnection              *connection,
-                                                    const char                 **parent_path,
+                                                    const char                  *parent_path,
                                                     char                      ***child_entries);
 
 DBUS_END_DECLS;

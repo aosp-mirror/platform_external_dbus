@@ -37,6 +37,7 @@
 #include "dbus-string.h"
 #include "dbus-pending-call.h"
 #include "dbus-object-tree.h"
+#include "dbus-marshal.h"
 
 #if 0
 #define CONNECTION_LOCK(connection)   do {                      \
@@ -3151,32 +3152,38 @@ dbus_connection_remove_filter (DBusConnection            *connection,
  *
  *
  * @param connection the connection
- * @param path #NULL-terminated array of path elements
+ * @param path a '/' delimited string of path elements
  * @param vtable the virtual table
  * @param user_data data to pass to functions in the vtable
  * @returns #FALSE if not enough memory
  */
 dbus_bool_t
 dbus_connection_register_object_path (DBusConnection              *connection,
-                                      const char                 **path,
+                                      const char                  *path,
                                       const DBusObjectPathVTable  *vtable,
                                       void                        *user_data)
 {
+  char **decomposed_path;
   dbus_bool_t retval;
   
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (path != NULL, FALSE);
-  _dbus_return_val_if_fail (path[0] != NULL, FALSE);
+  _dbus_return_val_if_fail (path[0] == '/', FALSE);
   _dbus_return_val_if_fail (vtable != NULL, FALSE);
+
+  if (!_dbus_decompose_path (path, strlen (path), &decomposed_path, NULL))
+    return FALSE;
 
   CONNECTION_LOCK (connection);
 
   retval = _dbus_object_tree_register (connection->objects,
                                        FALSE,
-                                       path, vtable,
+                                       (const char **) decomposed_path, vtable,
                                        user_data);
 
   CONNECTION_UNLOCK (connection);
+
+  dbus_free_string_array (decomposed_path);
 
   return retval;
 }
@@ -3188,32 +3195,38 @@ dbus_connection_register_object_path (DBusConnection              *connection,
  * policy for a whole "subdirectory."
  *
  * @param connection the connection
- * @param path #NULL-terminated array of path elements
+ * @param path a '/' delimited string of path elements
  * @param vtable the virtual table
  * @param user_data data to pass to functions in the vtable
  * @returns #FALSE if not enough memory
  */
 dbus_bool_t
 dbus_connection_register_fallback (DBusConnection              *connection,
-                                   const char                 **path,
+                                   const char                  *path,
                                    const DBusObjectPathVTable  *vtable,
                                    void                        *user_data)
 {
+  char **decomposed_path;
   dbus_bool_t retval;
   
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (path != NULL, FALSE);
-  _dbus_return_val_if_fail (path[0] != NULL, FALSE);
+  _dbus_return_val_if_fail (path[0] == '/', FALSE);
   _dbus_return_val_if_fail (vtable != NULL, FALSE);
+
+  if (!_dbus_decompose_path (path, strlen (path), &decomposed_path, NULL))
+    return FALSE;
 
   CONNECTION_LOCK (connection);
 
   retval = _dbus_object_tree_register (connection->objects,
                                        TRUE,
-                                       path, vtable,
+				       (const char **) decomposed_path, vtable,
                                        user_data);
 
   CONNECTION_UNLOCK (connection);
+
+  dbus_free_string_array (decomposed_path);
 
   return retval;
 }
@@ -3224,19 +3237,29 @@ dbus_connection_register_fallback (DBusConnection              *connection,
  * Can unregister both fallback paths and object paths.
  *
  * @param connection the connection
- * @param path the #NULL-terminated array of path elements
+ * @param path a '/' delimited string of path elements
+ * @returns #FALSE if not enough memory
  */
-void
+dbus_bool_t
 dbus_connection_unregister_object_path (DBusConnection              *connection,
-                                        const char                 **path)
+                                        const char                  *path)
 {
-  _dbus_return_if_fail (connection != NULL);
-  _dbus_return_if_fail (path != NULL);
-  _dbus_return_if_fail (path[0] != NULL);
+  char **decomposed_path;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (path != NULL, FALSE);
+  _dbus_return_val_if_fail (path[0] == '/', FALSE);
+
+  if (!_dbus_decompose_path (path, strlen (path), &decomposed_path, NULL))
+      return FALSE;
 
   CONNECTION_LOCK (connection);
 
-  _dbus_object_tree_unregister_and_unlock (connection->objects, path);
+  _dbus_object_tree_unregister_and_unlock (connection->objects, (const char **) decomposed_path);
+
+  dbus_free_string_array (decomposed_path);
+
+  return TRUE;
 }
 
 /**
@@ -3251,18 +3274,27 @@ dbus_connection_unregister_object_path (DBusConnection              *connection,
  */
 dbus_bool_t
 dbus_connection_list_registered (DBusConnection              *connection,
-                                 const char                 **parent_path,
+                                 const char                  *parent_path,
                                  char                      ***child_entries)
 {
+  char **decomposed_path;
+  dbus_bool_t retval;
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (parent_path != NULL, FALSE);
+  _dbus_return_val_if_fail (parent_path[0] == '/', FALSE);
   _dbus_return_val_if_fail (child_entries != NULL, FALSE);
+
+  if (!_dbus_decompose_path (parent_path, strlen (parent_path), &decomposed_path, NULL))
+    return FALSE;
 
   CONNECTION_LOCK (connection);
 
-  return _dbus_object_tree_list_registered_and_unlock (connection->objects,
-                                                       parent_path,
-                                                       child_entries);
+  retval = _dbus_object_tree_list_registered_and_unlock (connection->objects,
+							 (const char **) decomposed_path,
+							 child_entries);
+  dbus_free_string_array (decomposed_path);
+
+  return retval;
 }
 
 static DBusDataSlotAllocator slot_allocator;

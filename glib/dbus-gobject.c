@@ -280,13 +280,10 @@ handle_introspect (DBusConnection *connection,
   GString *xml;
   unsigned int i;
   DBusMessage *ret;
-  char **path;
   char **children;
   
-  if (!dbus_message_get_path_decomposed (message, &path))
-    g_error ("Out of memory");
-
-  if (!dbus_connection_list_registered (connection, (const char**) path,
+  if (!dbus_connection_list_registered (connection, 
+                                        dbus_message_get_path (message),
                                         &children))
     g_error ("Out of memory");
   
@@ -318,7 +315,6 @@ handle_introspect (DBusConnection *connection,
 
   g_string_free (xml, TRUE);
 
-  dbus_free_string_array (path);
   dbus_free_string_array (children);
   
   return DBUS_HANDLER_RESULT_HANDLED;
@@ -548,21 +544,15 @@ dbus_connection_register_g_object (DBusConnection        *connection,
                                    const char            *at_path,
                                    GObject               *object)
 {
-  char **split;
-
   g_return_if_fail (connection != NULL);
   g_return_if_fail (at_path != NULL);
   g_return_if_fail (G_IS_OBJECT (object));
 
-  split = _dbus_gutils_split_path (at_path);
-
   if (!dbus_connection_register_object_path (connection,
-                                             (const char**) split,
+                                             at_path,
                                              &gobject_dbus_vtable,
                                              object))
     g_error ("Failed to register GObject with DBusConnection");
-
-  g_strfreev (split);
 
   /* FIXME set up memory management (so we break the
    * registration if object or connection vanishes)

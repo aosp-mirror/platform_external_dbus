@@ -311,6 +311,10 @@ dbus_bool_t   _dbus_demarshal_string_array (const DBusString      *str,
 					    int                   *new_pos,
 					    char                ***array,
 					    int                   *array_len);
+dbus_bool_t   _dbus_decompose_path         (const char*            data,
+					    int                    len,
+					    char                ***path,
+					    int                   *path_len);
 dbus_bool_t   _dbus_demarshal_object_path  (const DBusString      *str,
 					    int                    byte_order,
 					    int                    pos,

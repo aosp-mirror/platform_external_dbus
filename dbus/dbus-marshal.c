@@ -1478,7 +1478,7 @@ _dbus_demarshal_basic_type_array (const DBusString      *str,
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
       return demarshal_4_octets_array (str, byte_order, *pos, pos,
-				       (dbus_uint32_t *) array, array_len);
+				       (dbus_uint32_t **)array, array_len);
       break;
 #ifdef DBUS_HAVE_INT64
     case DBUS_TYPE_INT64:
@@ -1584,32 +1584,24 @@ _dbus_demarshal_string_array (const DBusString   *str,
 #define VERBOSE_DECOMPOSE 0
 
 /**
- * Demarshals an object path.  A path of just "/" is
+ * Decompose an object path.  A path of just "/" is
  * represented as an empty vector of strings.
  * 
- * @param str the string containing the data
- * @param byte_order the byte order
- * @param pos the position in the string
- * @param new_pos the new position of the string
+ * @param data the path data
+ * @param len  the length of the path string
  * @param path address to store new object path
  * @param path_len length of stored path
  */
 dbus_bool_t
-_dbus_demarshal_object_path (const DBusString *str,
-                             int               byte_order,
-                             int               pos,
-                             int              *new_pos,
-                             char           ***path,
-                             int              *path_len)
+_dbus_decompose_path (const char*     data,
+                      int             len,
+                      char         ***path,
+                      int            *path_len)
 {
-  int len;
   char **retval;
-  const char *data;
   int n_components;
   int i, j, comp;
-  
-  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
-  data = _dbus_string_get_const_data_len (str, pos, len + 1);
+
   _dbus_assert (data != NULL);
 
 #if VERBOSE_DECOMPOSE
@@ -1673,9 +1665,40 @@ _dbus_demarshal_object_path (const DBusString *str,
   if (path_len)
     *path_len = n_components;
   
+  return TRUE;
+}
+
+/**
+ * Demarshals an object path.  A path of just "/" is
+ * represented as an empty vector of strings.
+ * 
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @param path address to store new object path
+ * @param path_len length of stored path
+ */
+dbus_bool_t
+_dbus_demarshal_object_path (const DBusString *str,
+                             int               byte_order,
+                             int               pos,
+                             int              *new_pos,
+                             char           ***path,
+                             int              *path_len)
+{
+  int len;
+  const char *data;
+  
+  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+  data = _dbus_string_get_const_data_len (str, pos, len + 1);
+
+  if (!_dbus_decompose_path (data, len, path, path_len))
+    return FALSE;
+
   if (new_pos)
     *new_pos = pos + len + 1;
-  
+
   return TRUE;
 }
 
@@ -2562,7 +2585,9 @@ _dbus_marshal_test (void)
   int pos = 0, len;
   dbus_int32_t array1[3] = { 0x123, 0x456, 0x789 }, *array2;
 #ifdef DBUS_HAVE_INT64
-  dbus_int64_t array3[3] = { 0x123ffffffff, 0x456ffffffff, 0x789ffffffff }, *array4;
+  dbus_int64_t array3[3] = { DBUS_INT64_CONSTANT (0x123ffffffff), 
+                             DBUS_INT64_CONSTANT (0x456ffffffff), 
+                             DBUS_INT64_CONSTANT (0x789ffffffff) }, *array4;
 #endif
   char *s;
   DBusString t;
@@ -2607,12 +2632,12 @@ _dbus_marshal_test (void)
   /* Marshal signed integers */
   if (!_dbus_marshal_int64 (&str, DBUS_BIG_ENDIAN, DBUS_INT64_CONSTANT (-0x123456789abc7)))
     _dbus_assert_not_reached ("could not marshal signed integer value");
-  if (!_dbus_demarshal_int64 (&str, DBUS_BIG_ENDIAN, pos, &pos) == DBUS_INT64_CONSTANT (-0x123456789abc7))
+  if (_dbus_demarshal_int64 (&str, DBUS_BIG_ENDIAN, pos, &pos) != DBUS_INT64_CONSTANT (-0x123456789abc7))
     _dbus_assert_not_reached ("demarshal failed");
 
   if (!_dbus_marshal_int64 (&str, DBUS_LITTLE_ENDIAN, DBUS_INT64_CONSTANT (-0x123456789abc7)))
     _dbus_assert_not_reached ("could not marshal signed integer value");
-  if (!_dbus_demarshal_int64 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == DBUS_INT64_CONSTANT (-0x123456789abc7))
+  if (_dbus_demarshal_int64 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) != DBUS_INT64_CONSTANT (-0x123456789abc7))
     _dbus_assert_not_reached ("demarshal failed");
   
   /* Marshal unsigned integers */

@@ -134,8 +134,8 @@ echo_vtable = {
   NULL,
 };
 
-/* Pre-exploded path, "/org/freedesktop/TestSuite" */
-static const char* echo_path[] = { "org", "freedesktop", "TestSuite", NULL };
+
+static const char* echo_path = "/org/freedesktop/TestSuite" ;
 
 static DBusHandlerResult
 filter_func (DBusConnection     *connection,
@@ -195,7 +195,7 @@ main (int    argc,
                                      0, &error);
   if (dbus_error_is_set (&error))
     {
-      fprintf (stderr, "Error %s", error.message);
+      fprintf (stderr, "Error %s\n", error.message);
       _dbus_verbose ("*** Failed to acquire service: %s\n",
                      error.message);
       dbus_error_free (&error);
