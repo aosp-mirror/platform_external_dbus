@@ -32,6 +32,7 @@
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-sysdeps.h>
 #include <dbus/dbus-marshal.h>
+#include <dbus/dbus-hash.h>
 #undef DBUS_COMPILATION
 #include <stdio.h>
 #include <stdlib.h>
@@ -1761,6 +1762,53 @@ print_untested_functions (File *f)
   printf ("\n");
 }
 
+static void
+print_stats (Stats      *stats,
+             const char *of_what)
+{
+  int completely;
+  
+  printf ("Summary (%s)\n", of_what);
+  printf ("=======\n");
+  printf ("  %g%% blocks executed (%d of %d)\n",
+          (stats->n_blocks_executed / (double) stats->n_blocks) * 100.0,
+          stats->n_blocks_executed,
+          stats->n_blocks);
+
+  printf ("     (ignored %d blocks inside DBUS_BUILD_TESTS)\n",
+          stats->n_blocks_inside_dbus_build_tests);
+      
+  printf ("  %g%% functions executed (%d of %d)\n",
+          (stats->n_functions_executed / (double) stats->n_functions) * 100.0,
+          stats->n_functions_executed,
+          stats->n_functions);
+
+  completely = stats->n_functions_executed - stats->n_functions_partial;
+  printf ("  %g%% functions completely executed (%d of %d)\n",
+          (completely / (double) stats->n_functions) * 100.0,
+          completely,
+          stats->n_functions);
+
+  printf ("     (ignored %d functions inside DBUS_BUILD_TESTS)\n",
+          stats->n_functions_inside_dbus_build_tests);
+      
+  printf ("  %g%% lines executed (%d of %d)\n",
+          (stats->n_lines_executed / (double) stats->n_lines) * 100.0,
+          stats->n_lines_executed,
+          stats->n_lines);
+
+  completely = stats->n_lines_executed - stats->n_lines_partial;
+  printf ("  %g%% lines completely executed (%d of %d)\n",
+          (completely / (double) stats->n_lines) * 100.0,
+          completely,
+          stats->n_lines);
+
+  printf ("     (ignored %d lines inside DBUS_BUILD_TESTS)\n",
+          stats->n_lines_inside_dbus_build_tests);
+
+  printf ("\n");
+}
+
 typedef enum
 {
   MODE_PRINT,
@@ -1842,7 +1890,8 @@ main (int argc, char **argv)
       Stats stats = { 0, };
       DBusList *files;
       DBusList *link;
-      int completely;
+      DBusHashTable *stats_by_dir;
+      DBusHashIter iter;
       
       files = NULL;
       while (i < argc)
@@ -1878,46 +1927,57 @@ main (int argc, char **argv)
           link = _dbus_list_get_next_link (&files, link);
         }
 
-      printf ("Summary\n");
-      printf ("=======\n");
-      printf ("  %g%% blocks executed (%d of %d)\n",
-              (stats.n_blocks_executed / (double) stats.n_blocks) * 100.0,
-              stats.n_blocks_executed,
-              stats.n_blocks);
+      print_stats (&stats, "all files");
 
-      printf ("     (ignored %d blocks inside DBUS_BUILD_TESTS)\n",
-              stats.n_blocks_inside_dbus_build_tests);
+      stats_by_dir = _dbus_hash_table_new (DBUS_HASH_STRING,
+                                           dbus_free, dbus_free);
       
-      printf ("  %g%% functions executed (%d of %d)\n",
-              (stats.n_functions_executed / (double) stats.n_functions) * 100.0,
-              stats.n_functions_executed,
-              stats.n_functions);
+      link = _dbus_list_get_first_link (&files);
+      while (link != NULL)
+        {
+          File *f = link->data;
+          DBusString dirname;
+          char *dirname_c;
+          Stats *dir_stats;
+          
+          _dbus_string_init_const (&filename, f->name);
+            
+          if (!_dbus_string_init (&dirname))
+            die ("no memory\n");
 
-      completely = stats.n_functions_executed - stats.n_functions_partial;
-      printf ("  %g%% functions completely executed (%d of %d)\n",
-              (completely / (double) stats.n_functions) * 100.0,
-              completely,
-              stats.n_functions);
+          if (!_dbus_string_get_dirname (&filename, &dirname) ||
+              !_dbus_string_copy_data (&dirname, &dirname_c))
+            die ("no memory\n");
 
-      printf ("     (ignored %d functions inside DBUS_BUILD_TESTS)\n",
-              stats.n_functions_inside_dbus_build_tests);
-      
-      printf ("  %g%% lines executed (%d of %d)\n",
-              (stats.n_lines_executed / (double) stats.n_lines) * 100.0,
-              stats.n_lines_executed,
-              stats.n_lines);
+          dir_stats = _dbus_hash_table_lookup_string (stats_by_dir,
+                                                      dirname_c);
 
-      completely = stats.n_lines_executed - stats.n_lines_partial;
-      printf ("  %g%% lines completely executed (%d of %d)\n",
-              (completely / (double) stats.n_lines) * 100.0,
-              completely,
-              stats.n_lines);
+          if (dir_stats == NULL)
+            {
+              dir_stats = dbus_new0 (Stats, 1);
+              if (!_dbus_hash_table_insert_string (stats_by_dir, dirname_c,
+                                                   dir_stats))
+                die ("no memory\n");
+            }
+          else
+            dbus_free (dirname_c);
+          
+          merge_stats_for_file (dir_stats, f);
+          
+          link = _dbus_list_get_next_link (&files, link);
+        }
 
-      printf ("     (ignored %d lines inside DBUS_BUILD_TESTS)\n",
-              stats.n_lines_inside_dbus_build_tests);
+      _dbus_hash_iter_init (stats_by_dir, &iter);
+      while (_dbus_hash_iter_next (&iter))
+        {
+          const char *dirname = _dbus_hash_iter_get_string_key (&iter);
+          Stats *dir_stats = _dbus_hash_iter_get_value (&iter);
 
-      printf ("\n");
-      
+          print_stats (dir_stats, dirname);
+        }
+
+      _dbus_hash_table_unref (stats_by_dir);
+
       link = _dbus_list_get_first_link (&files);
       while (link != NULL)
         {
@@ -1926,7 +1986,7 @@ main (int argc, char **argv)
           print_untested_functions (f);
           
           link = _dbus_list_get_next_link (&files, link);
-        }      
+        }
     }
   
   return 0;

@@ -1,5 +1,11 @@
 2003-04-05  Havoc Pennington  <hp@pobox.com>
 
+	* test/decode-gcov.c (main): print per-directory stats in the report
+
+	* Makefile.am (coverage-report.txt): don't include test/* in gcov stats
+
+2003-04-05  Havoc Pennington  <hp@pobox.com>
+
 	* Makefile.am (coverage-report.txt): add target "coverage-report.txt"
 
 	* test/decode-gcov.c: hack up a little program to suck data 
