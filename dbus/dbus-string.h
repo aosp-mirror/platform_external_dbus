@@ -51,6 +51,8 @@ void          _dbus_string_init_const            (DBusString        *str,
 void          _dbus_string_init_const_len        (DBusString        *str,
                                                   const char        *value,
                                                   int                len);
+dbus_bool_t   _dbus_string_init_preallocated     (DBusString        *str,
+                                                  int                allocate_size);
 void          _dbus_string_free                  (DBusString        *str);
 void          _dbus_string_lock                  (DBusString        *str);
 char*         _dbus_string_get_data              (DBusString        *str);
@@ -105,6 +107,10 @@ dbus_bool_t   _dbus_string_append_byte           (DBusString        *str,
                                                   unsigned char      byte);
 dbus_bool_t   _dbus_string_append_unichar        (DBusString        *str,
                                                   dbus_unichar_t     ch);
+dbus_bool_t   _dbus_string_append_4_aligned      (DBusString        *str,
+                                                  const unsigned char octets[4]);
+dbus_bool_t   _dbus_string_append_8_aligned      (DBusString        *str,
+                                                  const unsigned char octets[8]);
 void          _dbus_string_delete                (DBusString        *str,
                                                   int                start,
                                                   int                len);

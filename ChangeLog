@@ -1,5 +1,56 @@
 2003-05-11  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-marshal.c (_dbus_marshal_validate_arg): fix to avoid 
+	calling _dbus_marshal_validate_arg() for every byte in a byte
+	array, etc.
+
+	* dbus/dbus-message-handler.c: use atomic reference counting to 
+	reduce number of locks slightly; the global lock in here sucks
+
+	* dbus/dbus-connection.c
+	(_dbus_connection_update_dispatch_status_and_unlock): variant of
+	update_dispatch_status that can be called with lock held; then use
+	in a couple places to reduce locking/unlocking
+	(dbus_connection_send): hold the lock over the whole function 
+	instead of acquiring it twice.
+
+	* dbus/dbus-timeout.c (_dbus_timeout_new): handle OOM
+
+	* bus/connection.c (bus_connections_setup_connection): fix access
+	to already-freed memory.
+
+	* dbus/dbus-connection.c: keep a little cache of linked list
+	nodes, to avoid using the global linked list alloc lock in the
+	normal send-message case. Instead we just use the connection lock
+	that we already have to take.
+
+	* dbus/dbus-list.c (_dbus_list_find_last): new function
+
+	* dbus/dbus-sysdeps.c (_dbus_atomic_inc, _dbus_atomic_dec):
+	change to use a struct for the atomic type; fix docs, 
+	they return value before increment, not after increment.
+
+	* dbus/dbus-string.c (_dbus_string_append_4_aligned)
+	(_dbus_string_append_8_aligned): new functions to try to
+	microoptimize this operation.
+	(reallocate_for_length): break this out of set_length(), to
+	improve profile info, and also so we can consider inlining the
+	set_length() part.
+
+	* dbus/dbus-message.c (dbus_message_new_empty_header): init data
+	strings with some preallocation, cuts down on our calls to realloc
+	a fair bit. Though if we can get the "move entire string to empty
+	string" optimization below to kick in here, it would be better.
+
+	* dbus/dbus-string.c (_dbus_string_move): just call
+	_dbus_string_move_len
+	(_dbus_string_move_len): add a special case for moving 
+	an entire string into an empty string; we can just 
+	swap the string data instead of doing any reallocs.
+	(_dbus_string_init_preallocated): new function
+
+2003-05-11  Havoc Pennington  <hp@pobox.com>
+
 	Write a "test-profile" that does echo client-server with threads;
 	profile reveals lock contention, memcpy/realloc of buffers, and
 	UTF-8 validation as hot spots. 20% of lock contention eliminated

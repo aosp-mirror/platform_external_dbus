@@ -64,6 +64,9 @@ _dbus_timeout_new (int                 interval,
   DBusTimeout *timeout;
 
   timeout = dbus_new0 (DBusTimeout, 1);
+  if (timeout == NULL)
+    return NULL;
+  
   timeout->refcount = 1;
   timeout->interval = interval;
 

@@ -430,13 +430,11 @@ marshal_4_octets (DBusString   *str,
 {
   _dbus_assert (sizeof (value) == 4);
   
-  if (!_dbus_string_align_length (str, sizeof (dbus_uint32_t)))
-    return FALSE;
-  
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
     value = DBUS_UINT32_SWAP_LE_BE (value);
 
-  return _dbus_string_append_len (str, (const char *)&value, sizeof (dbus_uint32_t));
+  return _dbus_string_append_4_aligned (str,
+                                        (const unsigned char *)&value);
 }
 
 static dbus_bool_t
@@ -445,14 +443,12 @@ marshal_8_octets (DBusString *str,
                   DBusOctets8 value)
 {
   _dbus_assert (sizeof (value) == 8);
-
-  if (!_dbus_string_align_length (str, 8))
-    return FALSE;
   
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
     pack_8_octets (value, byte_order, (unsigned char*) &value); /* pack into self, swapping as we go */
 
-  return _dbus_string_append_len (str, (const char *)&value, 8);
+  return _dbus_string_append_8_aligned (str,
+                                        (const unsigned char *)&value);
 }
 
 /**
@@ -1646,6 +1642,99 @@ _dbus_marshal_validate_type   (const DBusString *str,
   return FALSE;
 }
 
+/* Faster validator for array data that doesn't call
+ * validate_arg for each value
+ */
+static dbus_bool_t
+validate_array_data (const DBusString *str,
+                     int	       byte_order,
+                     int               depth,
+                     int               type,
+                     int               array_type_pos,
+                     int               pos,
+                     int              *new_pos,
+                     int               end)
+{
+  switch (type)
+    {
+    case DBUS_TYPE_INVALID:
+      return FALSE;
+      break;
+
+    case DBUS_TYPE_NIL:
+      break;
+
+    case DBUS_TYPE_STRING:
+    case DBUS_TYPE_NAMED:      
+    case DBUS_TYPE_ARRAY:
+    case DBUS_TYPE_DICT:
+      /* This clean recursion to validate_arg is what we
+       * are doing logically for all types, but we don't
+       * really want to call validate_arg for every byte
+       * in a byte array, so the primitive types are
+       * special-cased.
+       */
+      while (pos < end)
+        {
+          if (!_dbus_marshal_validate_arg (str, byte_order, depth,
+                                           type, array_type_pos, pos, &pos))
+            return FALSE;
+        }
+      break;
+      
+    case DBUS_TYPE_BYTE:
+      pos = end;
+      break;
+      
+    case DBUS_TYPE_BOOLEAN:
+      while (pos < end)
+        {
+          unsigned char c;
+          
+          c = _dbus_string_get_byte (str, pos);
+          
+          if (!(c == 0 || c == 1))
+            {
+              _dbus_verbose ("boolean value must be either 0 or 1, not %d\n", c);
+              return FALSE;
+            }
+          
+          ++pos;
+        }
+      break;
+      
+    case DBUS_TYPE_INT32:
+    case DBUS_TYPE_UINT32:
+      /* Call validate arg one time to check alignment padding
+       * at start of array
+       */
+      if (!_dbus_marshal_validate_arg (str, byte_order, depth,
+                                       type, array_type_pos, pos, &pos))
+        return FALSE;
+      pos = _DBUS_ALIGN_VALUE (end, 4);
+      break;
+
+    case DBUS_TYPE_INT64:
+    case DBUS_TYPE_UINT64:
+    case DBUS_TYPE_DOUBLE:
+      /* Call validate arg one time to check alignment padding
+       * at start of array
+       */
+      if (!_dbus_marshal_validate_arg (str, byte_order, depth,
+                                       type, array_type_pos, pos, &pos))
+        return FALSE;
+      pos = _DBUS_ALIGN_VALUE (end, 8);
+      break;
+      
+    default:
+      _dbus_verbose ("Unknown message arg type %d\n", type);
+      return FALSE;
+    }
+
+  *new_pos = pos;
+
+  return TRUE;
+}
 
 /** 
  * Validates an argument of a specific type, checking that it
@@ -1726,7 +1815,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
         
 	c = _dbus_string_get_byte (str, pos);
 
-	if (c != 0 && c != 1)
+	if (!(c == 0 || c == 1))
 	  {
 	    _dbus_verbose ("boolean value must be either 0 or 1, not %d\n", c);
 	    return FALSE;
@@ -1874,13 +1963,11 @@ _dbus_marshal_validate_arg (const DBusString *str,
           }
 	
 	end = pos + len;
-        
-	while (pos < end)
-	  {
-	    if (!_dbus_marshal_validate_arg (str, byte_order, depth + 1,
-					     array_type, array_type_pos, pos, &pos))
-	      return FALSE;
-	  }
+
+        if (!validate_array_data (str, byte_order, depth + 1,
+                                  array_type, array_type_pos,
+                                  pos, &pos, end))
+          return FALSE;
 
         if (pos < end)
           {
@@ -1888,7 +1975,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
              * but the check is here just to be paranoid.
              */
             _dbus_verbose ("array length %d specified was longer than actual array contents by %d\n",
-                    len, end - pos);
+                           len, end - pos);
             return FALSE;
           }
         

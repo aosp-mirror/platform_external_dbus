@@ -81,7 +81,7 @@ typedef struct
  */
 struct DBusMessage
 {
-  volatile dbus_atomic_t refcount; /**< Reference count */
+  DBusAtomic refcount; /**< Reference count */
 
   DBusString header; /**< Header network data, stored
                       * separately from body so we can
@@ -772,15 +772,26 @@ _dbus_message_add_size_counter (DBusMessage *message,
  * the counter by the size of this message.
  *
  * @param message the message
+ * @param link_return return the link used
  * @param counter the counter
  */
 void
 _dbus_message_remove_size_counter (DBusMessage  *message,
-                                   DBusCounter  *counter)
+                                   DBusCounter  *counter,
+                                   DBusList    **link_return)
 {
-  if (!_dbus_list_remove_last (&message->size_counters,
-                               counter))
-    _dbus_assert_not_reached ("Removed a message size counter that was not added");
+  DBusList *link;
+
+  link = _dbus_list_find_last (&message->size_counters,
+                               counter);
+  _dbus_assert (link != NULL);
+
+  _dbus_list_unlink (&message->size_counters,
+                     link);
+  if (link_return)
+    *link_return = link;
+  else
+    _dbus_list_free_link (link);
 
   _dbus_counter_adjust (counter, message->size_counter_delta);
 
@@ -898,7 +909,7 @@ dbus_message_new_empty_header (void)
   if (message == NULL)
     return NULL;
   
-  message->refcount = 1;
+  message->refcount.value = 1;
   message->byte_order = DBUS_COMPILER_BYTE_ORDER;
   message->client_serial = 0;
   message->reply_serial = 0;
@@ -910,13 +921,13 @@ dbus_message_new_empty_header (void)
       ++i;
     }
   
-  if (!_dbus_string_init (&message->header))
+  if (!_dbus_string_init_preallocated (&message->header, 64))
     {
       dbus_free (message);
       return NULL;
     }
   
-  if (!_dbus_string_init (&message->body))
+  if (!_dbus_string_init_preallocated (&message->body, 64))
     {
       _dbus_string_free (&message->header);
       dbus_free (message);
@@ -1076,7 +1087,7 @@ dbus_message_copy (const DBusMessage *message)
   if (retval == NULL)
     return NULL;
   
-  retval->refcount = 1;
+  retval->refcount.value = 1;
   retval->byte_order = message->byte_order;
   retval->client_serial = message->client_serial;
   retval->reply_serial = message->reply_serial;
@@ -1134,12 +1145,12 @@ dbus_message_copy (const DBusMessage *message)
 void
 dbus_message_ref (DBusMessage *message)
 {
-  volatile dbus_atomic_t refcount;
+  dbus_int32_t old_refcount;
 
   _dbus_return_if_fail (message != NULL);
   
-  refcount = _dbus_atomic_inc (&message->refcount);
-  _dbus_assert (refcount > 1);
+  old_refcount = _dbus_atomic_inc (&message->refcount);
+  _dbus_assert (old_refcount >= 1);
 }
 
 static void
@@ -1163,15 +1174,15 @@ free_size_counter (void *element,
 void
 dbus_message_unref (DBusMessage *message)
 {
-  volatile dbus_atomic_t refcount;
+ dbus_int32_t old_refcount;
 
   _dbus_return_if_fail (message != NULL);
   
-  refcount = _dbus_atomic_dec (&message->refcount);
+  old_refcount = _dbus_atomic_dec (&message->refcount);
   
-  _dbus_assert (refcount >= 0);
+  _dbus_assert (old_refcount >= 0);
 
-  if (refcount == 0)
+  if (old_refcount == 1)
     {
       _dbus_list_foreach (&message->size_counters,
                           free_size_counter, message);

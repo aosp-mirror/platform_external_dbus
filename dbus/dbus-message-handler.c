@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-message-handler.c Sender/receiver of messages.
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003 Red Hat Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -47,7 +47,7 @@ _DBUS_DEFINE_GLOBAL_LOCK (message_handler);
  */
 struct DBusMessageHandler
 {
-  int refcount;                                   /**< reference count */
+  DBusAtomic refcount;                            /**< reference count */
 
   DBusHandleMessageFunction function;             /**< handler function */
   void                     *user_data;            /**< user data for function */
@@ -176,7 +176,7 @@ dbus_message_handler_new (DBusHandleMessageFunction function,
   if (handler == NULL)
     return NULL;
   
-  handler->refcount = 1;
+  handler->refcount.value = 1;
   handler->function = function;
   handler->user_data = user_data;
   handler->free_user_data = free_user_data;
@@ -194,12 +194,8 @@ void
 dbus_message_handler_ref (DBusMessageHandler *handler)
 {
   _dbus_return_if_fail (handler != NULL);
-  
-  _DBUS_LOCK (message_handler);
-  _dbus_assert (handler != NULL);
-  
-  handler->refcount += 1;
-  _DBUS_UNLOCK (message_handler);
+
+  _dbus_atomic_inc (&handler->refcount);
 }
 
 /**
@@ -211,21 +207,13 @@ dbus_message_handler_ref (DBusMessageHandler *handler)
 void
 dbus_message_handler_unref (DBusMessageHandler *handler)
 {
-  int refcount;
+  dbus_bool_t last_unref;
 
   _dbus_return_if_fail (handler != NULL);
-  
-  _DBUS_LOCK (message_handler);
-  
-  _dbus_assert (handler != NULL);
-  _dbus_assert (handler->refcount > 0);
 
-  handler->refcount -= 1;
-  refcount = handler->refcount;
+  last_unref = (_dbus_atomic_dec (&handler->refcount) == 1);
   
-  _DBUS_UNLOCK (message_handler);
-  
-  if (refcount == 0)
+  if (last_unref)
     {
       DBusList *link;
       

@@ -169,14 +169,17 @@ undo_alignment (DBusRealString *real)
 }
 
 /**
- * Initializes a string. The string starts life with zero length.  The
- * string must eventually be freed with _dbus_string_free().
+ * Initializes a string that can be up to the given allocation size
+ * before it has to realloc. The string starts life with zero length.
+ * The string must eventually be freed with _dbus_string_free().
  * 
  * @param str memory to hold the string
+ * @param allocate_size amount to preallocate
  * @returns #TRUE on success, #FALSE if no memory
  */
 dbus_bool_t
-_dbus_string_init (DBusString *str)
+_dbus_string_init_preallocated (DBusString *str,
+                                int         allocate_size)
 {
   DBusRealString *real;
   
@@ -192,11 +195,11 @@ _dbus_string_init (DBusString *str)
    * an existing string, e.g. in _dbus_string_steal_data()
    */
   
-  real->str = dbus_malloc (ALLOCATION_PADDING);
+  real->str = dbus_malloc (ALLOCATION_PADDING + allocate_size);
   if (real->str == NULL)
     return FALSE;  
   
-  real->allocated = ALLOCATION_PADDING;
+  real->allocated = ALLOCATION_PADDING + allocate_size;
   real->len = 0;
   real->str[real->len] = '\0';
   
@@ -209,6 +212,19 @@ _dbus_string_init (DBusString *str)
   fixup_alignment (real);
   
   return TRUE;
+}
+
+/**
+ * Initializes a string. The string starts life with zero length.  The
+ * string must eventually be freed with _dbus_string_free().
+ * 
+ * @param str memory to hold the string
+ * @returns #TRUE on success, #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_string_init (DBusString *str)
+{
+  return _dbus_string_init_preallocated (str, 0);
 }
 
 /* The max length thing is sort of a historical artifact
@@ -345,53 +361,62 @@ _dbus_string_lock (DBusString *str)
 #endif /* DBUS_BUILD_TESTS */
 
 static dbus_bool_t
+reallocate_for_length (DBusRealString *real,
+                       int             new_length)
+{
+  int new_allocated;
+  char *new_str;
+
+  /* at least double our old allocation to avoid O(n), avoiding
+   * overflow
+   */
+  if (real->allocated > (MAX_MAX_LENGTH + ALLOCATION_PADDING) / 2)
+    new_allocated = MAX_MAX_LENGTH + ALLOCATION_PADDING;
+  else
+    new_allocated = real->allocated * 2;
+
+  /* if you change the code just above here, run the tests without
+   * the following before you commit
+   */
+#ifdef DBUS_BUILD_TESTS
+  new_allocated = 0; /* ensure a realloc every time so that we go
+                      * through all malloc failure codepaths
+                      */
+#endif
+      
+  /* But be sure we always alloc at least space for the new length */
+  new_allocated = MAX (new_allocated, new_length + ALLOCATION_PADDING);
+
+  _dbus_assert (new_allocated >= real->allocated); /* code relies on this */
+  new_str = dbus_realloc (real->str - real->align_offset, new_allocated);
+  if (new_str == NULL)
+    return FALSE;
+
+  real->str = new_str + real->align_offset;
+  real->allocated = new_allocated;
+  fixup_alignment (real);
+
+  return TRUE;
+}
+
+static dbus_bool_t
 set_length (DBusRealString *real,
             int             new_length)
 {
-  /* Note, we are setting the length without nul termination */
+  /* Note, we are setting the length not including nul termination */
 
   /* exceeding max length is the same as failure to allocate memory */
   if (new_length > real->max_length)
     return FALSE;
-  
-  if (new_length > (real->allocated - ALLOCATION_PADDING))
+  else if (new_length > (real->allocated - ALLOCATION_PADDING) &&
+           !reallocate_for_length (real, new_length))
+    return FALSE;
+  else
     {
-      int new_allocated;
-      char *new_str;
-
-      /* at least double our old allocation to avoid O(n), avoiding
-       * overflow
-       */
-      if (real->allocated > (MAX_MAX_LENGTH + ALLOCATION_PADDING) / 2)
-        new_allocated = MAX_MAX_LENGTH + ALLOCATION_PADDING;
-      else
-        new_allocated = real->allocated * 2;
-
-      /* if you change the code just above here, run the tests without
-       * the following before you commit
-       */
-#ifdef DBUS_BUILD_TESTS
-      new_allocated = 0; /* ensure a realloc every time so that we go
-                          * through all malloc failure codepaths
-                          */
-#endif
-      
-      /* But be sure we always alloc at least space for the new length */
-      new_allocated = MAX (new_allocated, new_length + ALLOCATION_PADDING);
-        
-      new_str = dbus_realloc (real->str - real->align_offset, new_allocated);
-      if (new_str == NULL)
-        return FALSE;
-
-      real->str = new_str + real->align_offset;
-      real->allocated = new_allocated;
-      fixup_alignment (real);
+      real->len = new_length;
+      real->str[real->len] = '\0';
+      return TRUE;
     }
-
-  real->len = new_length;
-  real->str[real->len] = '\0';
-
-  return TRUE;
 }
 
 static dbus_bool_t
@@ -795,6 +820,48 @@ _dbus_string_set_length (DBusString *str,
   return set_length (real, length);
 }
 
+static dbus_bool_t
+align_length_then_lengthen (DBusString *str,
+                            int         alignment,
+                            int         then_lengthen_by)
+{
+  unsigned long new_len; /* ulong to avoid _DBUS_ALIGN_VALUE overflow */
+  int delta;
+  DBUS_STRING_PREAMBLE (str);
+  _dbus_assert (alignment >= 1);
+  _dbus_assert (alignment <= 8); /* it has to be a bug if > 8 */
+
+  new_len = _DBUS_ALIGN_VALUE (real->len, alignment);
+  if (new_len > (unsigned long) real->max_length - then_lengthen_by)
+    return FALSE;
+  new_len += then_lengthen_by;
+  
+  delta = new_len - real->len;
+  _dbus_assert (delta >= 0);
+
+  if (delta == 0)
+    return TRUE;
+
+  if (!set_length (real, new_len))
+    return FALSE;
+
+  /* delta == padding + then_lengthen_by
+   * new_len == old_len + padding + then_lengthen_by
+   */
+  if (then_lengthen_by < delta)
+    {
+      unsigned int i;
+      i = new_len - delta;
+      while (i < (new_len - then_lengthen_by))
+        {
+          real->str[i] = '\0';
+          ++i;
+        }
+    }
+      
+  return TRUE;
+}
+
 /**
  * Align the length of a string to a specific alignment (typically 4 or 8)
  * by appending nul bytes to the string.
@@ -807,29 +874,7 @@ dbus_bool_t
 _dbus_string_align_length (DBusString *str,
                            int         alignment)
 {
-  unsigned long new_len; /* ulong to avoid _DBUS_ALIGN_VALUE overflow */
-  int delta;
-  DBUS_STRING_PREAMBLE (str);
-  _dbus_assert (alignment >= 1);
-  _dbus_assert (alignment <= 8); /* it has to be a bug if > 8 */
-
-  new_len = _DBUS_ALIGN_VALUE (real->len, alignment);
-  if (new_len > (unsigned long) real->max_length)
-    return FALSE;
-  
-  delta = new_len - real->len;
-  _dbus_assert (delta >= 0);
-
-  if (delta == 0)
-    return TRUE;
-
-  if (!set_length (real, new_len))
-    return FALSE;
-
-  memset (real->str + (new_len - delta),
-          '\0', delta);
-
-  return TRUE;
+  return align_length_then_lengthen (str, alignment, 0);
 }
 
 static dbus_bool_t
@@ -871,6 +916,74 @@ _dbus_string_append (DBusString *str,
     return FALSE;
   
   return append (real, buffer, buffer_len);
+}
+
+/**
+ * Appends 4 bytes aligned on a 4 byte boundary
+ * with any alignment padding initialized to 0.
+ *
+ * @param str the DBusString
+ * @param octets 4 bytes to append
+ * @returns #FALSE if not enough memory.
+ */
+dbus_bool_t
+_dbus_string_append_4_aligned (DBusString         *str,
+                               const unsigned char octets[4])
+{
+  dbus_uint32_t *p;
+  DBUS_STRING_PREAMBLE (str);
+  
+  if (!align_length_then_lengthen (str, 4, 4))
+    return FALSE;
+
+  p = (dbus_uint32_t*) (real->str + (real->len - 4));
+  *p = *((dbus_uint32_t*)octets);
+
+  return TRUE;
+}
+
+/**
+ * Appends 8 bytes aligned on an 8 byte boundary
+ * with any alignment padding initialized to 0.
+ *
+ * @param str the DBusString
+ * @param octets 4 bytes to append
+ * @returns #FALSE if not enough memory.
+ */
+dbus_bool_t
+_dbus_string_append_8_aligned (DBusString         *str,
+                               const unsigned char octets[8])
+{
+#ifdef DBUS_HAVE_INT64
+  dbus_uint64_t *p;
+  DBUS_STRING_PREAMBLE (str);
+  
+  if (!align_length_then_lengthen (str, 8, 8))
+    return FALSE;
+
+  p = (dbus_uint64_t*) (real->str + (real->len - 8));
+  *p = *((dbus_uint64_t*)octets);
+#else
+  char *p;
+  DBUS_STRING_PREAMBLE (str);
+  
+  if (!align_length_then_lengthen (str, 8, 8))
+    return FALSE;
+
+  p = real->str + (real->len - 8);
+  
+  *p++ = octets[0];
+  *p++ = octets[1];
+  *p++ = octets[2];
+  *p++ = octets[3];
+  *p++ = octets[4];
+  *p++ = octets[5];
+  *p++ = octets[6];
+  *p++ = octets[7];
+  _dbus_assert (p == (real->str + real->len));
+#endif
+
+  return TRUE;
 }
 
 /**
@@ -1080,18 +1193,12 @@ _dbus_string_move (DBusString       *source,
                    DBusString       *dest,
                    int               insert_at)
 {
-  DBUS_STRING_COPY_PREAMBLE (source, start, dest, insert_at);
+  DBusRealString *real_source = (DBusRealString*) source;
+  _dbus_assert (start <= real_source->len);
   
-  if (!copy (real_source, start,
-             real_source->len - start,
-             real_dest,
-             insert_at))
-    return FALSE;
-
-  delete (real_source, start,
-          real_source->len - start);
-
-  return TRUE;
+  return _dbus_string_move_len (source, start,
+                                real_source->len - start,
+                                dest, insert_at);
 }
 
 /**
@@ -1121,6 +1228,9 @@ _dbus_string_copy (const DBusString *source,
 /**
  * Like _dbus_string_move(), but can move a segment from
  * the middle of the source string.
+ *
+ * @todo this doesn't do anything with max_length field.
+ * we should probably just kill the max_length field though.
  * 
  * @param source the source string
  * @param start first byte of source string to move
@@ -1141,15 +1251,48 @@ _dbus_string_move_len (DBusString       *source,
   _dbus_assert (len >= 0);
   _dbus_assert ((start + len) <= real_source->len);
 
-  if (!copy (real_source, start, len,
-             real_dest,
-             insert_at))
-    return FALSE;
 
-  delete (real_source, start,
-          len);
+  if (len == 0)
+    {
+      return TRUE;
+    }
+  else if (start == 0 &&
+           len == real_source->len &&
+           real_dest->len == 0)
+    {
+      /* Short-circuit moving an entire existing string to an empty string
+       * by just swapping the buffers.
+       */
+      /* we assume ->constant doesn't matter as you can't have
+       * a constant string involved in a move.
+       */
+#define ASSIGN_DATA(a, b) do {                  \
+        (a)->str = (b)->str;                    \
+        (a)->len = (b)->len;                    \
+        (a)->allocated = (b)->allocated;        \
+        (a)->align_offset = (b)->align_offset;  \
+      } while (0)
+      
+      DBusRealString tmp;
 
-  return TRUE;
+      ASSIGN_DATA (&tmp, real_source);
+      ASSIGN_DATA (real_source, real_dest);
+      ASSIGN_DATA (real_dest, &tmp);
+
+      return TRUE;
+    }
+  else
+    {
+      if (!copy (real_source, start, len,
+                 real_dest,
+                 insert_at))
+        return FALSE;
+      
+      delete (real_source, start,
+              len);
+      
+      return TRUE;
+    }
 }
 
 /**

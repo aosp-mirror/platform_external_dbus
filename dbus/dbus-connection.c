@@ -132,7 +132,7 @@ static dbus_bool_t _dbus_modify_sigpipe = TRUE;
  */
 struct DBusConnection
 {
-  dbus_atomic_t refcount; /**< Reference count. */
+  DBusAtomic refcount; /**< Reference count. */
 
   DBusMutex *mutex; /**< Lock on the entire DBusConnection */
 
@@ -176,6 +176,10 @@ struct DBusConnection
   DBusFreeFunction free_dispatch_status_data; /**< free dispatch_status_data */
 
   DBusDispatchStatus last_dispatch_status; /**< The last dispatch status we reported to the application. */
+
+  DBusList *link_cache; /**< A cache of linked list links to prevent contention
+                         *   for the global linked list mempool lock
+                         */
 };
 
 typedef struct
@@ -193,11 +197,12 @@ typedef struct
 
 static void reply_handler_data_free (ReplyHandlerData *data);
 
-static void               _dbus_connection_remove_timeout_locked         (DBusConnection     *connection,
-                                                                          DBusTimeout        *timeout);
-static DBusDispatchStatus _dbus_connection_get_dispatch_status_unlocked  (DBusConnection     *connection);
-static void               _dbus_connection_update_dispatch_status_locked (DBusConnection     *connection,
-                                                                          DBusDispatchStatus  new_status);
+static void               _dbus_connection_remove_timeout_locked             (DBusConnection     *connection,
+                                                                              DBusTimeout        *timeout);
+static DBusDispatchStatus _dbus_connection_get_dispatch_status_unlocked      (DBusConnection     *connection);
+static void               _dbus_connection_update_dispatch_status_and_unlock (DBusConnection     *connection,
+                                                                              DBusDispatchStatus  new_status);
+
 
 
 /**
@@ -365,6 +370,7 @@ _dbus_connection_get_message_to_send (DBusConnection *connection)
 /**
  * Notifies the connection that a message has been sent, so the
  * message can be removed from the outgoing queue.
+ * Called with the connection lock held.
  *
  * @param connection the connection.
  * @param message the message that was sent.
@@ -373,10 +379,18 @@ void
 _dbus_connection_message_sent (DBusConnection *connection,
                                DBusMessage    *message)
 {
-  _dbus_assert (_dbus_transport_get_is_authenticated (connection->transport));
-  _dbus_assert (message == _dbus_list_get_last (&connection->outgoing_messages));
+  DBusList *link;
   
-  _dbus_list_pop_last (&connection->outgoing_messages);
+  _dbus_assert (_dbus_transport_get_is_authenticated (connection->transport));
+  
+  link = _dbus_list_get_last_link (&connection->outgoing_messages);
+  _dbus_assert (link != NULL);
+  _dbus_assert (link->data == message);
+
+  /* Save this link in the link cache */
+  _dbus_list_unlink (&connection->outgoing_messages,
+                     link);
+  _dbus_list_prepend_link (&connection->link_cache, link);
   
   connection->n_outgoing -= 1;
 
@@ -384,7 +398,10 @@ _dbus_connection_message_sent (DBusConnection *connection,
                  message, dbus_message_get_name (message),
                  connection, connection->n_outgoing);
 
-  _dbus_message_remove_size_counter (message, connection->outgoing_counter);
+  /* Save this link in the link cache also */
+  _dbus_message_remove_size_counter (message, connection->outgoing_counter,
+                                     &link);
+  _dbus_list_prepend_link (&connection->link_cache, link);
   
   dbus_message_unref (message);
   
@@ -724,7 +741,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   if (_dbus_modify_sigpipe)
     _dbus_disable_sigpipe ();
   
-  connection->refcount = 1;
+  connection->refcount.value = 1;
   connection->mutex = mutex;
   connection->dispatch_cond = dispatch_cond;
   connection->io_path_cond = io_path_cond;
@@ -800,8 +817,12 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
 void
 _dbus_connection_ref_unlocked (DBusConnection *connection)
 {
-  _dbus_assert (connection->refcount > 0);
-  connection->refcount += 1;
+#ifdef DBUS_HAVE_ATOMIC_INT
+  _dbus_atomic_inc (&connection->refcount);
+#else
+  _dbus_assert (connection->refcount.value > 0);
+  connection->refcount.value += 1;
+#endif
 }
 
 static dbus_uint32_t
@@ -892,10 +913,9 @@ _dbus_connection_handle_watch (DBusWatch                   *watch,
   _dbus_connection_release_io_path (connection);
 
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
-  
-  CONNECTION_UNLOCK (connection);
 
-  _dbus_connection_update_dispatch_status_locked (connection, status);
+  /* this calls out to user code */
+  _dbus_connection_update_dispatch_status_and_unlock (connection, status);
   
   return retval;
 }
@@ -972,9 +992,9 @@ dbus_connection_ref (DBusConnection *connection)
   _dbus_atomic_inc (&connection->refcount);
 #else
   CONNECTION_LOCK (connection);
-  _dbus_assert (connection->refcount > 0);
+  _dbus_assert (connection->refcount.value > 0);
 
-  connection->refcount += 1;
+  connection->refcount.value += 1;
   CONNECTION_UNLOCK (connection);
 #endif
 }
@@ -987,7 +1007,8 @@ free_outgoing_message (void *element,
   DBusConnection *connection = data;
 
   _dbus_message_remove_size_counter (message,
-                                     connection->outgoing_counter);
+                                     connection->outgoing_counter,
+                                     NULL);
   dbus_message_unref (message);
 }
 
@@ -1003,7 +1024,7 @@ _dbus_connection_last_unref (DBusConnection *connection)
 
   _dbus_verbose ("Finalizing connection %p\n", connection);
   
-  _dbus_assert (connection->refcount == 0);
+  _dbus_assert (connection->refcount.value == 0);
   
   /* You have to disconnect the connection before unref:ing it. Otherwise
    * you won't get the disconnected message.
@@ -1071,10 +1092,12 @@ _dbus_connection_last_unref (DBusConnection *connection)
       dbus_message_unref (message);
       _dbus_list_free_link (connection->disconnect_message_link);
     }
+
+  _dbus_list_clear (&connection->link_cache);
   
   dbus_condvar_free (connection->dispatch_cond);
   dbus_condvar_free (connection->io_path_cond);
-  dbus_condvar_free (connection->message_returned_cond);
+  dbus_condvar_free (connection->message_returned_cond);  
   
   dbus_mutex_free (connection->mutex);
   
@@ -1104,17 +1127,17 @@ dbus_connection_unref (DBusConnection *connection)
    */
   
 #ifdef DBUS_HAVE_ATOMIC_INT
-  last_unref = (_dbus_atomic_dec (&connection->refcount) == 0);
+  last_unref = (_dbus_atomic_dec (&connection->refcount) == 1);
 #else
   CONNECTION_LOCK (connection);
   
-  _dbus_assert (connection->refcount > 0);
+  _dbus_assert (connection->refcount.value > 0);
 
-  connection->refcount -= 1;
-  last_unref = (connection->refcount == 0);
+  connection->refcount.value -= 1;
+  last_unref = (connection->refcount.value == 0);
 
 #if 0
-  printf ("unref() connection %p count = %d\n", connection, connection->refcount);
+  printf ("unref() connection %p count = %d\n", connection, connection->refcount.value);
 #endif
   
   CONNECTION_UNLOCK (connection);
@@ -1203,6 +1226,56 @@ struct DBusPreallocatedSend
   DBusList *counter_link;
 };
 
+static DBusPreallocatedSend*
+_dbus_connection_preallocate_send_unlocked (DBusConnection *connection)
+{
+  DBusPreallocatedSend *preallocated;
+
+  _dbus_return_val_if_fail (connection != NULL, NULL);
+  
+  preallocated = dbus_new (DBusPreallocatedSend, 1);
+  if (preallocated == NULL)
+    return NULL;
+
+  if (connection->link_cache != NULL)
+    {
+      preallocated->queue_link =
+        _dbus_list_pop_first_link (&connection->link_cache);
+      preallocated->queue_link->data = NULL;
+    }
+  else
+    {
+      preallocated->queue_link = _dbus_list_alloc_link (NULL);
+      if (preallocated->queue_link == NULL)
+        goto failed_0;
+    }
+  
+  if (connection->link_cache != NULL)
+    {
+      preallocated->counter_link =
+        _dbus_list_pop_first_link (&connection->link_cache);
+      preallocated->counter_link->data = connection->outgoing_counter;
+    }
+  else
+    {
+      preallocated->counter_link = _dbus_list_alloc_link (connection->outgoing_counter);
+      if (preallocated->counter_link == NULL)
+        goto failed_1;
+    }
+
+  _dbus_counter_ref (preallocated->counter_link->data);
+
+  preallocated->connection = connection;
+  
+  return preallocated;
+  
+ failed_1:
+  _dbus_list_free_link (preallocated->queue_link);
+ failed_0:
+  dbus_free (preallocated);
+  
+  return NULL;
+}
 
 /**
  * Preallocates resources needed to send a message, allowing the message 
@@ -1219,37 +1292,15 @@ dbus_connection_preallocate_send (DBusConnection *connection)
   DBusPreallocatedSend *preallocated;
 
   _dbus_return_val_if_fail (connection != NULL, NULL);
-  
-  preallocated = dbus_new (DBusPreallocatedSend, 1);
-  if (preallocated == NULL)
-    return NULL;
 
   CONNECTION_LOCK (connection);
   
-  preallocated->queue_link = _dbus_list_alloc_link (NULL);
-  if (preallocated->queue_link == NULL)
-    goto failed_0;
-  
-  preallocated->counter_link = _dbus_list_alloc_link (connection->outgoing_counter);
-  if (preallocated->counter_link == NULL)
-    goto failed_1;
-
-  _dbus_counter_ref (preallocated->counter_link->data);
-
-  preallocated->connection = connection;
+  preallocated =
+    _dbus_connection_preallocate_send_unlocked (connection);
 
   CONNECTION_UNLOCK (connection);
-  
+
   return preallocated;
-  
- failed_1:
-  _dbus_list_free_link (preallocated->queue_link);
- failed_0:
-  dbus_free (preallocated);
-
-  CONNECTION_UNLOCK (connection);
-  
-  return NULL;
 }
 
 /**
@@ -1266,42 +1317,22 @@ dbus_connection_free_preallocated_send (DBusConnection       *connection,
                                         DBusPreallocatedSend *preallocated)
 {
   _dbus_return_if_fail (connection != NULL);
-  _dbus_return_if_fail (preallocated != NULL);
+  _dbus_return_if_fail (preallocated != NULL);  
   _dbus_return_if_fail (connection == preallocated->connection);
-  
+
   _dbus_list_free_link (preallocated->queue_link);
   _dbus_counter_unref (preallocated->counter_link->data);
   _dbus_list_free_link (preallocated->counter_link);
   dbus_free (preallocated);
 }
 
-/**
- * Sends a message using preallocated resources. This function cannot fail.
- * It works identically to dbus_connection_send() in other respects.
- * Preallocated resources comes from dbus_connection_preallocate_send().
- * This function "consumes" the preallocated resources, they need not
- * be freed separately.
- *
- * @param connection the connection
- * @param preallocated the preallocated resources
- * @param message the message to send
- * @param client_serial return location for client serial assigned to the message
- */
-void
-dbus_connection_send_preallocated (DBusConnection       *connection,
-                                   DBusPreallocatedSend *preallocated,
-                                   DBusMessage          *message,
-                                   dbus_uint32_t        *client_serial)
+static void
+_dbus_connection_send_preallocated_unlocked (DBusConnection       *connection,
+                                             DBusPreallocatedSend *preallocated,
+                                             DBusMessage          *message,
+                                             dbus_uint32_t        *client_serial)
 {
   dbus_uint32_t serial;
-
-  _dbus_return_if_fail (connection != NULL);
-  _dbus_return_if_fail (preallocated != NULL);
-  _dbus_return_if_fail (message != NULL);
-  _dbus_return_if_fail (preallocated->connection == connection);
-  _dbus_return_if_fail (dbus_message_get_name (message) != NULL);
-  
-  CONNECTION_LOCK (connection);
 
   preallocated->queue_link->data = message;
   _dbus_list_prepend_link (&connection->outgoing_messages,
@@ -1343,8 +1374,37 @@ dbus_connection_send_preallocated (DBusConnection       *connection,
 				      connection->n_outgoing);
   
   _dbus_connection_wakeup_mainloop (connection);
+}
 
-  CONNECTION_UNLOCK (connection);
+/**
+ * Sends a message using preallocated resources. This function cannot fail.
+ * It works identically to dbus_connection_send() in other respects.
+ * Preallocated resources comes from dbus_connection_preallocate_send().
+ * This function "consumes" the preallocated resources, they need not
+ * be freed separately.
+ *
+ * @param connection the connection
+ * @param preallocated the preallocated resources
+ * @param message the message to send
+ * @param client_serial return location for client serial assigned to the message
+ */
+void
+dbus_connection_send_preallocated (DBusConnection       *connection,
+                                   DBusPreallocatedSend *preallocated,
+                                   DBusMessage          *message,
+                                   dbus_uint32_t        *client_serial)
+{
+  _dbus_return_if_fail (connection != NULL);
+  _dbus_return_if_fail (preallocated != NULL);
+  _dbus_return_if_fail (message != NULL);
+  _dbus_return_if_fail (preallocated->connection == connection);
+  _dbus_return_if_fail (dbus_message_get_name (message) != NULL);
+  
+  CONNECTION_LOCK (connection);
+  _dbus_connection_send_preallocated_unlocked (connection,
+                                               preallocated,
+                                               message, client_serial);
+  CONNECTION_UNLOCK (connection);  
 }
 
 /**
@@ -1374,15 +1434,22 @@ dbus_connection_send (DBusConnection *connection,
 
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (message != NULL, FALSE);
+
+  CONNECTION_LOCK (connection);
   
-  preallocated = dbus_connection_preallocate_send (connection);
+  preallocated = _dbus_connection_preallocate_send_unlocked (connection);
   if (preallocated == NULL)
     {
+      CONNECTION_UNLOCK (connection);
       return FALSE;
     }
   else
     {
-      dbus_connection_send_preallocated (connection, preallocated, message, client_serial);
+      _dbus_connection_send_preallocated_unlocked (connection,
+                                                   preallocated,
+                                                   message,
+                                                   client_serial);
+      CONNECTION_UNLOCK (connection);
       return TRUE;
     }
 }
@@ -1409,10 +1476,9 @@ reply_handler_timeout (void *data)
   reply_handler_data->timeout_added = FALSE;
 
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
-  
-  CONNECTION_UNLOCK (connection);
 
-  _dbus_connection_update_dispatch_status_locked (connection, status);
+  /* Unlocks, and calls out to user code */
+  _dbus_connection_update_dispatch_status_and_unlock (connection, status);
   
   return TRUE;
 }
@@ -1711,13 +1777,12 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
       if (reply != NULL)
         {          
           status = _dbus_connection_get_dispatch_status_unlocked (connection);
-          
-          CONNECTION_UNLOCK (connection);
 
           _dbus_verbose ("dbus_connection_send_with_reply_and_block(): got reply %s\n",
                          dbus_message_get_name (reply));
 
-          _dbus_connection_update_dispatch_status_locked (connection, status);
+          /* Unlocks, and calls out to user code */
+          _dbus_connection_update_dispatch_status_and_unlock (connection, status);
           
           return reply;
         }
@@ -1771,10 +1836,9 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
     dbus_set_error (error, DBUS_ERROR_NO_REPLY, "Message did not receive a reply");
   else
     dbus_set_error (error, DBUS_ERROR_DISCONNECTED, "Disconnected prior to receiving a reply");
-  
-  CONNECTION_UNLOCK (connection);
 
-  _dbus_connection_update_dispatch_status_locked (connection, status);
+  /* unlocks and calls out to user code */
+  _dbus_connection_update_dispatch_status_and_unlock (connection, status);
 
   return NULL;
 }
@@ -1806,10 +1870,9 @@ dbus_connection_flush (DBusConnection *connection)
                                    -1);
 
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
-  
-  CONNECTION_UNLOCK (connection);
 
-  _dbus_connection_update_dispatch_status_locked (connection, status);
+  /* Unlocks and calls out to user code */
+  _dbus_connection_update_dispatch_status_and_unlock (connection, status);
 }
 
 /* Call with mutex held. Will drop it while waiting and re-acquire
@@ -2052,7 +2115,7 @@ _dbus_connection_release_dispatch (DBusConnection *connection)
 
 static void
 _dbus_connection_failed_pop (DBusConnection *connection,
-			     DBusList *message_link)
+			     DBusList       *message_link)
 {
   _dbus_list_prepend_link (&connection->incoming_messages,
 			   message_link);
@@ -2082,14 +2145,15 @@ _dbus_connection_get_dispatch_status_unlocked (DBusConnection *connection)
 }
 
 static void
-_dbus_connection_update_dispatch_status_locked (DBusConnection    *connection,
-                                                DBusDispatchStatus new_status)
+_dbus_connection_update_dispatch_status_and_unlock (DBusConnection    *connection,
+                                                    DBusDispatchStatus new_status)
 {
   dbus_bool_t changed;
   DBusDispatchStatusFunction function;
   void *data;
-  
-  CONNECTION_LOCK (connection);
+
+  /* We have the lock */
+
   _dbus_connection_ref_unlocked (connection);
 
   changed = new_status != connection->last_dispatch_status;
@@ -2098,7 +2162,8 @@ _dbus_connection_update_dispatch_status_locked (DBusConnection    *connection,
 
   function = connection->dispatch_status_function;
   data = connection->dispatch_status_data;
-  
+
+  /* We drop the lock */
   CONNECTION_UNLOCK (connection);
   
   if (changed && function)
@@ -2166,15 +2231,15 @@ dbus_connection_dispatch (DBusConnection *connection)
   DBusDispatchStatus status;
 
   _dbus_return_val_if_fail (connection != NULL, DBUS_DISPATCH_COMPLETE);
-  
-  status = dbus_connection_get_dispatch_status (connection);
-  if (status != DBUS_DISPATCH_DATA_REMAINS)
-    {
-      _dbus_connection_update_dispatch_status_locked (connection, status);
-      return status;
-    }
 
   CONNECTION_LOCK (connection);
+  status = _dbus_connection_get_dispatch_status_unlocked (connection);
+  if (status != DBUS_DISPATCH_DATA_REMAINS)
+    {
+      /* unlocks and calls out to user code */
+      _dbus_connection_update_dispatch_status_and_unlock (connection, status);
+      return status;
+    }
   
   /* We need to ref the connection since the callback could potentially
    * drop the last ref to it
@@ -2195,11 +2260,10 @@ dbus_connection_dispatch (DBusConnection *connection)
       /* another thread dispatched our stuff */
 
       _dbus_connection_release_dispatch (connection);
-      CONNECTION_UNLOCK (connection);
 
-      status = dbus_connection_get_dispatch_status (connection);
+      status = _dbus_connection_get_dispatch_status_unlocked (connection);
 
-      _dbus_connection_update_dispatch_status_locked (connection, status);
+      _dbus_connection_update_dispatch_status_and_unlock (connection, status);
       
       dbus_connection_unref (connection);
       
@@ -2217,10 +2281,12 @@ dbus_connection_dispatch (DBusConnection *connection)
   if (!_dbus_list_copy (&connection->filter_list, &filter_list_copy))
     {
       _dbus_connection_release_dispatch (connection);
-      CONNECTION_UNLOCK (connection);
+
       _dbus_connection_failed_pop (connection, message_link);
 
-      _dbus_connection_update_dispatch_status_locked (connection, DBUS_DISPATCH_NEED_MEMORY);
+      /* unlocks and calls user code */
+      _dbus_connection_update_dispatch_status_and_unlock (connection,
+                                                          DBUS_DISPATCH_NEED_MEMORY);
 
       dbus_connection_unref (connection);
       
@@ -2320,15 +2386,16 @@ dbus_connection_dispatch (DBusConnection *connection)
   
  out:
   _dbus_connection_release_dispatch (connection);
-  CONNECTION_UNLOCK (connection);
+
   _dbus_list_free_link (message_link);
   dbus_message_unref (message); /* don't want the message to count in max message limits
                                  * in computing dispatch status
                                  */
   
-  status = dbus_connection_get_dispatch_status (connection);
+  status = _dbus_connection_get_dispatch_status_unlocked (connection);
 
-  _dbus_connection_update_dispatch_status_locked (connection, status);
+  /* unlocks and calls user code */
+  _dbus_connection_update_dispatch_status_and_unlock (connection, status);
   
   dbus_connection_unref (connection);
   

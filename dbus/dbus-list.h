@@ -60,6 +60,8 @@ dbus_bool_t _dbus_list_remove_last        (DBusList **list,
                                            void      *data);
 void        _dbus_list_remove_link        (DBusList **list,
                                            DBusList  *link);
+DBusList*   _dbus_list_find_last          (DBusList **list,
+                                           void      *data);
 void        _dbus_list_clear              (DBusList **list);
 DBusList*   _dbus_list_get_first_link     (DBusList **list);
 DBusList*   _dbus_list_get_last_link      (DBusList **list);

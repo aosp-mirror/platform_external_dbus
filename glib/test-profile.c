@@ -27,9 +27,11 @@
 #include <stdlib.h>
 
 #define N_CLIENT_THREADS 1
-#define N_ITERATIONS 2000
+#define N_ITERATIONS 100
+#define PAYLOAD_SIZE 1000
 #define ECHO_MESSAGE "org.freedesktop.DBus.Test.EchoProfile"
 static const char *address;
+static unsigned char *payload;
 
 static void
 send_echo_message (DBusConnection *connection)
@@ -40,7 +42,12 @@ send_echo_message (DBusConnection *connection)
   dbus_message_append_args (message,
                             DBUS_TYPE_STRING, "Hello World!",
                             DBUS_TYPE_INT32, 123456,
+#if 1
+                            DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE,
+                            payload, PAYLOAD_SIZE,
+#endif
                             DBUS_TYPE_INVALID);
+  
   dbus_connection_send (connection, message, NULL);
   dbus_message_unref (message);
   dbus_connection_flush (connection);
@@ -63,12 +70,12 @@ client_filter (DBusMessageHandler *handler,
                                   ECHO_MESSAGE))
     {
       *iterations += 1;
-      send_echo_message (connection);
-      if (*iterations > N_ITERATIONS)
+      if (*iterations >= N_ITERATIONS)
         {
           g_print ("Completed %d iterations\n", N_ITERATIONS);
           exit (0);
         }
+      send_echo_message (connection);
     }
   
   return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
@@ -95,7 +102,7 @@ thread_func (void *data)
       exit (1);
     }
 
-  iterations = 0;
+  iterations = 1;
   
   handler = dbus_message_handler_new (client_filter,
                                       &iterations, NULL);
@@ -188,6 +195,7 @@ main (int argc, char *argv[])
     }
 
   address = dbus_server_get_address (server);
+  payload = g_malloc (PAYLOAD_SIZE);
   
   dbus_server_set_new_connection_function (server,
                                            new_connection_callback,

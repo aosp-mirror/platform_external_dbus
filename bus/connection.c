@@ -533,7 +533,7 @@ bus_connections_setup_connection (BusConnections *connections,
 
   d->connections = connections;
   d->connection = connection;
-
+  
   _dbus_get_current_time (&d->connection_tv_sec,
                           &d->connection_tv_usec);
   
@@ -643,18 +643,21 @@ bus_connections_setup_connection (BusConnections *connections,
 
       dbus_connection_set_dispatch_status_function (connection,
                                                     NULL, NULL, NULL);
-      
-      if (!dbus_connection_set_data (connection,
-                                     connection_data_slot,
-                                     NULL, NULL))
-        _dbus_assert_not_reached ("failed to set connection data to null");
 
       if (d->link_in_connection_list != NULL)
         {
           _dbus_assert (d->link_in_connection_list->next == NULL);
           _dbus_assert (d->link_in_connection_list->prev == NULL);
           _dbus_list_free_link (d->link_in_connection_list);
+          d->link_in_connection_list = NULL;
         }
+      
+      if (!dbus_connection_set_data (connection,
+                                     connection_data_slot,
+                                     NULL, NULL))
+        _dbus_assert_not_reached ("failed to set connection data to null");
+
+      /* "d" has now been freed */
     }
   
   return retval;
