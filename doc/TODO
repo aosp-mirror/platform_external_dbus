@@ -38,13 +38,6 @@ Important for 1.0
    (though they are kind of a pita to pass in as size_t with the 
     varargs, so maybe not - what does glib do with g_object_get()?)
 
- - it's probably obnoxious that reading/writing bools doesn't return
-   dbus_bool_t; solution is probably to change bool to 32 bits on the
-   wire
-
- - maybe change and don't align variant bodies to 8-boundary, it uses
-   up lots of space in a typical header
-
  - rename the service thing. unique service names (":1") and well-known
    ("org.foo.bar") should have different names probably; something like 
    "address" for the unique and "alias" for the well-known, or 

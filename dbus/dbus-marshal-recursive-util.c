@@ -31,20 +31,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static int
-first_type_in_signature (const DBusString *str,
-                         int               pos)
-{
-  unsigned char t;
-
-  t = _dbus_string_get_byte (str, pos);
-
-  if (t == DBUS_STRUCT_BEGIN_CHAR)
-    return DBUS_TYPE_STRUCT;
-  else
-    return t;
-}
-
 /* Whether to do the OOM stuff (only with other expensive tests) */
 #define TEST_OOM_HANDLING 0
 /* We do start offset 0 through 9, to get various alignment cases. Still this
@@ -2678,7 +2664,7 @@ array_write_value (TestTypeNode   *node,
                              &element_signature))
     goto oom;
 
-  element_type = first_type_in_signature (&element_signature, 0);
+  element_type = _dbus_first_type_in_signature (&element_signature, 0);
 
   if (!_dbus_type_writer_recurse (writer, DBUS_TYPE_ARRAY,
                                   &element_signature, 0,

@@ -1389,6 +1389,30 @@ _dbus_verbose_bytes_of_string (const DBusString    *str,
   _dbus_verbose_bytes (d, len, start);
 }
 
+/**
+ * Get the first type in the signature. The difference between this
+ * and just getting the first byte of the signature is that you won't
+ * get DBUS_STRUCT_BEGIN_CHAR, you'll get DBUS_TYPE_STRUCT
+ * instead.
+ *
+ * @param str string containing signature
+ * @param pos where the signature starts
+ * @returns the first type in the signature
+ */
+int
+_dbus_first_type_in_signature (const DBusString *str,
+                               int               pos)
+{
+  unsigned char t;
+
+  t = _dbus_string_get_byte (str, pos);
+
+  if (t == DBUS_STRUCT_BEGIN_CHAR)
+    return DBUS_TYPE_STRUCT;
+  else
+    return t;
+}
+
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS

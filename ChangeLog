@@ -1,5 +1,16 @@
 2005-01-17  Havoc Pennington  <hp@redhat.com>
 
+        * Throughout, align variant bodies according to the contained
+	type, rather than always to 8. Should save a fair bit of space in
+	message headers.
+	
+	* dbus/dbus-marshal-validate.c (_dbus_validate_body_with_reason):
+	fix handling of case where p == end
+
+	* doc/TODO: remove the dbus_bool_t item and variant alignment items
+
+2005-01-17  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-types.h: hardcode dbus_bool_t to 32 bits
 
 	* Throughout: modify DBUS_TYPE_BOOLEAN to be a 32-bit type instead

@@ -123,24 +123,10 @@ struct DBusTypeReaderClass
 };
 
 static int
-first_type_in_signature (const DBusString *str,
-                         int               pos)
-{
-  unsigned char t;
-
-  t = _dbus_string_get_byte (str, pos);
-
-  if (t == DBUS_STRUCT_BEGIN_CHAR)
-    return DBUS_TYPE_STRUCT;
-  else
-    return t;
-}
-
-static int
 element_type_get_alignment (const DBusString *str,
                             int               pos)
 {
-  return _dbus_type_get_alignment (first_type_in_signature (str, pos));
+  return _dbus_type_get_alignment (_dbus_first_type_in_signature (str, pos));
 }
 
 static void
@@ -265,7 +251,7 @@ array_reader_recurse (DBusTypeReader *sub,
                  sub->u.array.start_pos,
                  sub->array_len_offset,
                  array_reader_get_array_len (sub),
-                 _dbus_type_to_string (first_type_in_signature (sub->type_str,
+                 _dbus_type_to_string (_dbus_first_type_in_signature (sub->type_str,
                                                                 sub->type_pos)));
 #endif
 }
@@ -275,6 +261,7 @@ variant_reader_recurse (DBusTypeReader *sub,
                         DBusTypeReader *parent)
 {
   int sig_len;
+  int contained_alignment;
 
   base_reader_recurse (sub, parent);
 
@@ -289,7 +276,10 @@ variant_reader_recurse (DBusTypeReader *sub,
 
   sub->value_pos = sub->type_pos + sig_len + 1;
 
-  sub->value_pos = _DBUS_ALIGN_VALUE (sub->value_pos, 8);
+  contained_alignment = _dbus_type_get_alignment (_dbus_first_type_in_signature (sub->type_str,
+                                                                           sub->type_pos));
+  
+  sub->value_pos = _DBUS_ALIGN_VALUE (sub->value_pos, contained_alignment);
 
 #if RECURSIVE_MARSHAL_READ_TRACE
   _dbus_verbose ("    type reader %p variant containing '%s'\n",
@@ -429,7 +419,7 @@ base_reader_next (DBusTypeReader *reader,
       {
         if (!reader->klass->types_only)
           _dbus_marshal_skip_array (reader->value_str,
-                                    first_type_in_signature (reader->type_str,
+                                    _dbus_first_type_in_signature (reader->type_str,
                                                              reader->type_pos + 1),
                                     reader->byte_order,
                                     &reader->value_pos);
@@ -502,7 +492,7 @@ array_reader_next (DBusTypeReader *reader,
   _dbus_assert (reader->value_pos < end_pos);
   _dbus_assert (reader->value_pos >= reader->u.array.start_pos);
 
-  switch (first_type_in_signature (reader->type_str,
+  switch (_dbus_first_type_in_signature (reader->type_str,
                                    reader->type_pos))
     {
     case DBUS_TYPE_STRUCT:
@@ -527,7 +517,7 @@ array_reader_next (DBusTypeReader *reader,
     case DBUS_TYPE_ARRAY:
       {
         _dbus_marshal_skip_array (reader->value_str,
-                                  first_type_in_signature (reader->type_str,
+                                  _dbus_first_type_in_signature (reader->type_str,
                                                            reader->type_pos + 1),
                                   reader->byte_order,
                                   &reader->value_pos);
@@ -807,7 +797,7 @@ _dbus_type_reader_get_current_type (const DBusTypeReader *reader)
        (* reader->klass->check_finished) (reader)))
     t = DBUS_TYPE_INVALID;
   else
-    t = first_type_in_signature (reader->type_str,
+    t = _dbus_first_type_in_signature (reader->type_str,
                                  reader->type_pos);
 
   _dbus_assert (t != DBUS_STRUCT_END_CHAR);
@@ -837,7 +827,7 @@ _dbus_type_reader_get_element_type (const DBusTypeReader  *reader)
 
   _dbus_assert (_dbus_type_reader_get_current_type (reader) == DBUS_TYPE_ARRAY);
 
-  element_type = first_type_in_signature (reader->type_str,
+  element_type = _dbus_first_type_in_signature (reader->type_str,
                                           reader->type_pos + 1);
 
   return element_type;
@@ -932,7 +922,7 @@ _dbus_type_reader_read_fixed_multi (const DBusTypeReader  *reader,
   _dbus_assert (!reader->klass->types_only);
   _dbus_assert (reader->klass == &array_reader_class);
 
-  element_type = first_type_in_signature (reader->type_str,
+  element_type = _dbus_first_type_in_signature (reader->type_str,
                                           reader->type_pos);
 
   _dbus_assert (element_type != DBUS_TYPE_INVALID); /* why we don't use get_current_type() */
@@ -989,7 +979,7 @@ _dbus_type_reader_recurse (DBusTypeReader *reader,
 {
   int t;
 
-  t = first_type_in_signature (reader->type_str, reader->type_pos);
+  t = _dbus_first_type_in_signature (reader->type_str, reader->type_pos);
 
   switch (t)
     {
@@ -1649,7 +1639,7 @@ writer_recurse_init_and_check (DBusTypeWriter *writer,
     {
       int expected;
 
-      expected = first_type_in_signature (writer->type_str, writer->type_pos);
+      expected = _dbus_first_type_in_signature (writer->type_str, writer->type_pos);
 
       if (expected != sub->container_type)
         {
@@ -1937,7 +1927,7 @@ writer_recurse_array (DBusTypeWriter   *writer,
 /* Variant value will normally have:
  *   1 byte signature length not including nul
  *   signature typecodes (nul terminated)
- *   padding to 8-boundary
+ *   padding to alignment of contained type
  *   body according to signature
  *
  * The signature string can only have a single type
@@ -1945,21 +1935,12 @@ writer_recurse_array (DBusTypeWriter   *writer,
  *
  * So a typical variant type with the integer 3 will have these
  * octets:
- *   0x1 'i' '\0' [padding to 8-boundary] 0x0 0x0 0x0 0x3
- *
- * For an array of 4-byte types stuffed into variants, the padding to
- * 8-boundary is only the 1 byte that is required for the 4-boundary
- * anyhow for all array elements after the first one. And for single
- * variants in isolation, wasting a few bytes is hardly a big deal.
+ *   0x1 'i' '\0' [1 byte padding to alignment boundary] 0x0 0x0 0x0 0x3
  *
  * The main world of hurt for writing out a variant is that the type
  * string is the same string as the value string. Which means
  * inserting to the type string will move the value_pos; and it means
  * that inserting to the type string could break type alignment.
- *
- * This type alignment issue is why the body of the variant is always
- * 8-aligned. Then we know that re-8-aligning the start of the body
- * will always correctly align the full contents of the variant type.
  */
 static dbus_bool_t
 writer_recurse_variant (DBusTypeWriter   *writer,
@@ -1968,6 +1949,8 @@ writer_recurse_variant (DBusTypeWriter   *writer,
                         int               contained_type_len,
                         DBusTypeWriter   *sub)
 {
+  int contained_alignment;
+  
   if (writer->enabled)
     {
       /* Allocate space for the worst case, which is 1 byte sig
@@ -2018,12 +2001,14 @@ writer_recurse_variant (DBusTypeWriter   *writer,
 
   sub->value_pos += 1;
 
+  contained_alignment = _dbus_type_get_alignment (_dbus_first_type_in_signature (contained_type, contained_type_start));
+  
   if (!_dbus_string_insert_bytes (sub->value_str,
                                   sub->value_pos,
-                                  _DBUS_ALIGN_VALUE (sub->value_pos, 8) - sub->value_pos,
+                                  _DBUS_ALIGN_VALUE (sub->value_pos, contained_alignment) - sub->value_pos,
                                   '\0'))
     _dbus_assert_not_reached ("should not have failed to insert alignment padding for variant body");
-  sub->value_pos = _DBUS_ALIGN_VALUE (sub->value_pos, 8);
+  sub->value_pos = _DBUS_ALIGN_VALUE (sub->value_pos, contained_alignment);
 
   return TRUE;
 }

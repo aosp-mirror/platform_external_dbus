@@ -215,6 +215,7 @@ dbus_bool_t   _dbus_type_is_container         (int               typecode);
 dbus_bool_t   _dbus_type_is_fixed             (int               typecode);
 const char*   _dbus_type_to_string            (int               typecode);
 
-
+int           _dbus_first_type_in_signature   (const DBusString *str,
+                                               int               pos);
 
 #endif /* DBUS_MARSHAL_BASIC_H */

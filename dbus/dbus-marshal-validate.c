@@ -304,7 +304,10 @@ validate_body_helper (DBusTypeReader       *reader,
 
         case DBUS_TYPE_VARIANT:
           {
-            /* 1 byte sig len, sig typecodes, align to 8-boundary, values. */
+            /* 1 byte sig len, sig typecodes, align to
+             * contained-type-boundary, values.
+             */
+
             /* In addition to normal signature validation, we need to be sure
              * the signature contains only a single (possibly container) type.
              */
@@ -312,6 +315,7 @@ validate_body_helper (DBusTypeReader       *reader,
             DBusString sig;
             DBusTypeReader sub;
             DBusValidity validity;
+            int contained_alignment;
 
             claimed_len = *p;
             ++p;
@@ -331,7 +335,9 @@ validate_body_helper (DBusTypeReader       *reader,
               return DBUS_INVALID_VARIANT_SIGNATURE_MISSING_NUL;
             ++p;
 
-            a = _DBUS_ALIGN_ADDRESS (p, 8);
+            contained_alignment = _dbus_type_get_alignment (_dbus_first_type_in_signature (&sig, 0));
+            
+            a = _DBUS_ALIGN_ADDRESS (p, contained_alignment);
             if (a > end)
               return DBUS_INVALID_NOT_ENOUGH_DATA;
             while (p != a)
@@ -460,16 +466,19 @@ _dbus_validate_body_with_reason (const DBusString *expected_signature,
   validity = validate_body_helper (&reader, byte_order, TRUE, p, end, &p);
   if (validity != DBUS_VALID)
     return validity;
-
-  if (p < end)
+  
+  if (bytes_remaining)
     {
-      if (bytes_remaining)
-        *bytes_remaining = end - p;
-      else
-        return DBUS_INVALID_TOO_MUCH_DATA;
+      *bytes_remaining = end - p;
+      return DBUS_VALID;
     }
-
-  return DBUS_VALID;
+  else if (p < end)
+    return DBUS_INVALID_TOO_MUCH_DATA;
+  else
+    {
+      _dbus_assert (p == end);
+      return DBUS_VALID;
+    }
 }
 
 /**
