@@ -1,5 +1,11 @@
 2003-03-31  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-keyring.c (_dbus_keyring_new_homedir): allow setting
+	DBUS_TEST_HOMEDIR when tests are enabled, so we can test without
+	having a real home directory available.
+
+2003-03-31  Havoc Pennington  <hp@redhat.com>
+
 	* bus/Makefile.am (install-data-hook): create /var/run/dbus
 
 	* bus/messagebus.in: add init script for Red Hat /etc/init.d
