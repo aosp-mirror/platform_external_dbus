@@ -1,3 +1,23 @@
+2005-03-08  Joe Shaw  <joeshaw@novell.com>
+                                                                                
+        * dbus/dbus-connection.c (dbus_connection_send_with_reply):
+        After we attach our pending call to the connection, unref
+        it.  Fixes a leak.
+ 
+        * mono/Connection.cs (set_RawConnection): Disconnect our
+        filter and match callbacks from the old connection and
+        reconnect them to the new connection, if any.
+
+	* mono/DBusType/Array.cs: "Code" is a static member, so
+	don't use "this" to refer to it.  Fix for stricter checking
+	in Mono 1.1.4.
+ 
+        * mono/DBusType/ObjectPath.cs (Append): Don't leak the
+	object path that we pass into unmanaged code.
+ 
+        * mono/DBusType/String.cs (Append): Don't leak the string
+	that we pass into unmanged code.
+
 2005-03-07  John (J5) Palmieri  <johnp@redhat.com>
 	* NEWS: Update for 0.31
 

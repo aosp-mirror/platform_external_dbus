@@ -2459,7 +2459,9 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
   if (!_dbus_connection_attach_pending_call_unlocked (connection,
 						      pending))
     goto error;
-  
+ 
+  dbus_pending_call_unref (pending);
+ 
   if (!_dbus_connection_send_unlocked_no_update (connection, message, NULL))
     {
       _dbus_connection_detach_pending_call_and_unlock (connection,

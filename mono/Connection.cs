@@ -171,6 +171,13 @@ namespace DBus
 	  
 	  if (rawConnection != IntPtr.Zero) 
 	    {
+              // Remove our callbacks from this connection
+              foreach (DBusHandleMessageFunction func in this.filters)
+                dbus_connection_remove_filter (rawConnection, func, IntPtr.Zero);
+
+              foreach (string match_rule in this.matches)
+                dbus_bus_remove_match (rawConnection, match_rule, IntPtr.Zero);
+
 	      // Get the reference to this
 	      IntPtr rawThis = dbus_connection_get_data (rawConnection, Slot);
 	      Debug.Assert (rawThis != IntPtr.Zero);
@@ -197,6 +204,18 @@ namespace DBus
 	      rawThis = GCHandle.Alloc (this, GCHandleType.WeakTrackResurrection);
 	      
 	      dbus_connection_set_data(rawConnection, Slot, (IntPtr) rawThis, IntPtr.Zero);
+
+              // Add the callbacks to this new connection
+              foreach (DBusHandleMessageFunction func in this.filters)
+                dbus_connection_add_filter (rawConnection, func, IntPtr.Zero, IntPtr.Zero);
+
+              foreach (string match_rule in this.matches)
+                dbus_bus_add_match (rawConnection, match_rule, IntPtr.Zero);
+	    }
+	  else
+	    {
+	      this.filters.Clear ();
+              this.matches.Clear ();
 	    }
 	}
     }

@@ -36,7 +36,10 @@ namespace DBus.DBusType
     {
       IntPtr marshalVal = Marshal.StringToHGlobalAnsi (val);
 
-      if (!dbus_message_iter_append_basic (iter, (int) Code, ref marshalVal))
+      bool success = dbus_message_iter_append_basic (iter, (int) Code, ref marshalVal);
+      Marshal.FreeHGlobal (marshalVal);
+
+      if (!success)
 	throw new ApplicationException("Failed to append STRING argument:" + val);
     }
 

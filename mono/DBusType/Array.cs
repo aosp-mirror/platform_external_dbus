@@ -59,7 +59,7 @@ namespace DBus.DBusType
       IntPtr arrayIter = Marshal.AllocCoTaskMem (Arguments.DBusMessageIterSize);
 
       if (!dbus_message_iter_open_container (iter,
-					     (int) this.Code,
+					     (int) Code,
 					     Arguments.GetCodeAsString (elementType),
 					     arrayIter)) {
 	throw new ApplicationException("Failed to append array argument: " + val);
