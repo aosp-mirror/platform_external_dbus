@@ -2355,6 +2355,8 @@ _dbus_message_loader_unref (DBusMessageLoader *loader)
  * it can probably always return a buffer size to read exactly
  * the body of the next message, thus avoiding any memory wastage
  * or reallocs.
+ *
+ * @todo we need to enforce a max length on strings in header fields.
  * 
  * @param loader the message loader.
  * @param buffer the buffer
@@ -2399,6 +2401,7 @@ _dbus_message_loader_get_buffer (DBusMessageLoader  *loader,
 #define DBUS_HEADER_FIELD_SENDER_AS_UINT32  \
   FOUR_CHARS_TO_UINT32 ('s', 'n', 'd', 'r')
 
+/* FIXME impose max length on name, srvc, sndr */
 static dbus_bool_t
 decode_header_data (const DBusString   *data,
 		    int		        header_len,
@@ -2533,10 +2536,10 @@ decode_header_data (const DBusString   *data,
           _dbus_verbose ("header alignment padding is not nul\n");
           return FALSE;
         }
-
-      if (message_padding)
-	*message_padding = header_len - pos;
     }
+
+  if (message_padding)
+    *message_padding = header_len - pos;  
   
   return TRUE;
 }

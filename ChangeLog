@@ -1,5 +1,10 @@
 2003-03-02  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-message.c (decode_header_data): fix to always init
+	message_padding, from Benjamin Dauvergne
+
+2003-03-02  Havoc Pennington  <hp@pobox.com>
+
 	* configure.in: 0.5
 
 	* NEWS: Update.
