@@ -40,10 +40,6 @@ Important for 1.0
    (though they are kind of a pita to pass in as size_t with the 
     varargs, so maybe not - what does glib do with g_object_get()?)
 
- - things are broken now when mixing endianness, because DBusMessage
-   doesn't autoswap itself when you access a message of alternate
-   endian.
-
  - add string array support back to append_args()
 
  - just before 1.0, try a HAVE_INT64=0 build and be sure it runs
