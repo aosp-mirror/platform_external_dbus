@@ -827,7 +827,7 @@ handle_signal_and_unlock (DBusObjectRegistry *registry,
       object_entry = validate_id (registry, &objects[i].id);
       if (object_entry != NULL)
         {
-          DBusObjectVTable *vtable;
+          const DBusObjectVTable *vtable;
           DBusObjectInfo info;
 
           info_from_entry (registry, &info, object_entry);

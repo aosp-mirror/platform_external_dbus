@@ -42,6 +42,9 @@ handle_test_message (DBusMessageHandler *handler,
   char *str, *expected_str;
   GString *counter_str;
   int i;
+
+  if (!dbus_message_has_name (message, "org.freedesktop.ThreadTest"))
+    return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
   
   dbus_message_iter_init (message, &iter);
   
@@ -124,7 +127,7 @@ handle_test_message (DBusMessageHandler *handler,
   g_string_free (counter_str, TRUE);
   
  out:
-  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  return DBUS_HANDLER_RESULT_REMOVE_MESSAGE;
 }
 
 static DBusHandlerResult
@@ -132,7 +135,7 @@ handle_filter (DBusMessageHandler *handler,
 	       DBusConnection     *connection,
 	       DBusMessage        *message,
 	       void               *user_data)
-{
+{  
   return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
 }
 
@@ -142,20 +145,20 @@ handle_disconnect (DBusMessageHandler *handler,
                    DBusMessage        *message,
                    void               *user_data)
 {
+  if (!dbus_message_has_name (message, DBUS_MESSAGE_LOCAL_DISCONNECT))
+    return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+
   g_print ("connection disconnected\n");
   dbus_connection_unref (connection);
-
-  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  
+  return DBUS_HANDLER_RESULT_REMOVE_MESSAGE;
 }
-
 
 static void
 new_connection_callback (DBusServer     *server,
                          DBusConnection *new_connection,
                          void           *user_data)
 {
-  const char *test_messages[] = { "org.freedesktop.ThreadTest" };
-  const char *disconnect_messages[] = { "org.freedesktop.Local.Disconnect" };
   DBusMessageHandler *test_message_handler;
   ThreadTestData * data;
 
@@ -170,9 +173,8 @@ new_connection_callback (DBusServer     *server,
     dbus_message_handler_new (handle_test_message,
 			      data, (DBusFreeFunction)thread_test_data_free);
   
-  if (!dbus_connection_register_handler (new_connection,
-                                         test_message_handler,
-                                         test_messages, 1))
+  if (!dbus_connection_add_filter (new_connection,
+                                   test_message_handler))
     goto nomem;
 
   if (!dbus_connection_set_data (new_connection,
@@ -181,9 +183,8 @@ new_connection_callback (DBusServer     *server,
 				 (DBusFreeFunction)dbus_message_handler_unref))
     goto nomem;
   
-  if (!dbus_connection_register_handler (new_connection,
-                                         disconnect_handler,
-                                         disconnect_messages, 1))
+  if (!dbus_connection_add_filter (new_connection,
+                                   disconnect_handler))
     goto nomem;
   
   if (!dbus_connection_add_filter (new_connection,

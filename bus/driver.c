@@ -49,8 +49,8 @@ bus_driver_send_service_deleted (const char     *service_name,
   
   _dbus_verbose ("sending service deleted: %s\n", service_name);
 
-  message = dbus_message_new (DBUS_MESSAGE_SERVICE_DELETED,
-                              DBUS_SERVICE_BROADCAST);
+  message = dbus_message_new_signal (DBUS_MESSAGE_SERVICE_DELETED);
+  
   if (message == NULL)
     {
       BUS_SET_OOM (error);
@@ -83,8 +83,8 @@ bus_driver_send_service_created (const char     *service_name,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  message = dbus_message_new (DBUS_MESSAGE_SERVICE_CREATED,
-                              DBUS_SERVICE_BROADCAST);
+  message = dbus_message_new_signal (DBUS_MESSAGE_SERVICE_CREATED);
+  
   if (message == NULL)
     {
       BUS_SET_OOM (error);
@@ -123,15 +123,16 @@ bus_driver_send_service_lost (DBusConnection *connection,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  message = dbus_message_new (DBUS_MESSAGE_SERVICE_LOST,
-                              bus_connection_get_name (connection));
+  message = dbus_message_new_signal (DBUS_MESSAGE_SERVICE_LOST);
+  
   if (message == NULL)
     {
       BUS_SET_OOM (error);
       return FALSE;
     }
   
-  if (!dbus_message_append_args (message,
+  if (!dbus_message_set_destination (message, bus_connection_get_name (connection)) ||
+      !dbus_message_append_args (message,
                                  DBUS_TYPE_STRING, service_name,
                                  DBUS_TYPE_INVALID))
     {
@@ -163,8 +164,7 @@ bus_driver_send_service_acquired (DBusConnection *connection,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  message = dbus_message_new (DBUS_MESSAGE_SERVICE_ACQUIRED,
-                              bus_connection_get_name (connection));
+  message = dbus_message_new_signal (DBUS_MESSAGE_SERVICE_ACQUIRED);
 
   if (message == NULL)
     {
@@ -172,7 +172,8 @@ bus_driver_send_service_acquired (DBusConnection *connection,
       return FALSE;
     }
   
-  if (!dbus_message_append_args (message,
+  if (!dbus_message_set_destination (message, bus_connection_get_name (connection)) ||
+      !dbus_message_append_args (message,
                                  DBUS_TYPE_STRING, service_name,
                                  DBUS_TYPE_INVALID))
     {
@@ -343,7 +344,7 @@ bus_driver_send_welcome_message (DBusConnection *connection,
   name = bus_connection_get_name (connection);
   _dbus_assert (name != NULL);
   
-  welcome = dbus_message_new_reply (hello_message);
+  welcome = dbus_message_new_method_return (hello_message);
   if (welcome == NULL)
     {
       BUS_SET_OOM (error);
@@ -387,7 +388,7 @@ bus_driver_handle_list_services (DBusConnection *connection,
   
   registry = bus_connection_get_registry (connection);
   
-  reply = dbus_message_new_reply (message);
+  reply = dbus_message_new_method_return (message);
   if (reply == NULL)
     {
       BUS_SET_OOM (error);
@@ -463,7 +464,7 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
                                      error))
     goto out;
   
-  reply = dbus_message_new_reply (message);
+  reply = dbus_message_new_method_return (message);
   if (reply == NULL)
     {
       BUS_SET_OOM (error);
@@ -518,7 +519,7 @@ bus_driver_handle_service_exists (DBusConnection *connection,
   _dbus_string_init_const (&service_name, name);
   service = bus_registry_lookup (registry, &service_name);
  
-  reply = dbus_message_new_reply (message);
+  reply = dbus_message_new_method_return (message);
   if (reply == NULL)
     {
       BUS_SET_OOM (error);

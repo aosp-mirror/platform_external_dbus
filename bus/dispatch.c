@@ -674,8 +674,8 @@ check_hello_message (BusContext     *context,
   acquired = NULL;
   message = NULL;
   
-  message = dbus_message_new (DBUS_MESSAGE_HELLO,
-                              DBUS_SERVICE_DBUS);
+  message = dbus_message_new_method_call (DBUS_MESSAGE_HELLO,
+                                          DBUS_SERVICE_DBUS);
 
   if (message == NULL)
     return TRUE;
@@ -725,7 +725,7 @@ check_hello_message (BusContext     *context,
       goto out;
     }
   
-  if (dbus_message_get_is_error (message))
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
     {
       if (dbus_message_has_name (message,
                                  DBUS_ERROR_NO_MEMORY))
@@ -906,8 +906,8 @@ check_nonexistent_service_activation (BusContext     *context,
   
   dbus_error_init (&error);
   
-  message = dbus_message_new (DBUS_MESSAGE_ACTIVATE_SERVICE,
-                              DBUS_SERVICE_DBUS);
+  message = dbus_message_new_method_call (DBUS_MESSAGE_ACTIVATE_SERVICE,
+                                          DBUS_SERVICE_DBUS);
 
   if (message == NULL)
     return TRUE;
@@ -953,7 +953,7 @@ check_nonexistent_service_activation (BusContext     *context,
   _dbus_verbose ("Received %s on %p\n",
                  dbus_message_get_name (message), connection);
 
-  if (dbus_message_get_is_error (message))
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
     {
       if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
         {
@@ -1287,8 +1287,8 @@ check_send_exit_to_service (BusContext     *context,
   retval = FALSE;
   
   /* Kill off the test service by sending it a quit message */
-  message = dbus_message_new ("org.freedesktop.DBus.TestSuiteExit",
-                              service_name);
+  message = dbus_message_new_method_call ("org.freedesktop.DBus.TestSuiteExit",
+                                          service_name);
       
   if (message == NULL)
     {
@@ -1324,7 +1324,7 @@ check_send_exit_to_service (BusContext     *context,
   /* see if we got an error during message bus dispatching */
   bus_test_run_clients_loop (FALSE);
   message = dbus_connection_borrow_message (connection);
-  got_error = message != NULL && dbus_message_get_is_error (message);
+  got_error = message != NULL && dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR;
   if (message)
     {
       dbus_connection_return_message (connection, message);
@@ -1344,7 +1344,7 @@ check_send_exit_to_service (BusContext     *context,
       message = pop_message_waiting_for_memory (connection);
       _dbus_assert (message != NULL);
 
-      if (!dbus_message_get_is_error (message))
+      if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_ERROR)
         {
           _dbus_warn ("expecting an error reply to asking test service to exit, got %s\n",
                       dbus_message_get_name (message));
@@ -1402,7 +1402,7 @@ check_got_error (BusContext     *context,
       goto out;
     }
 
-  if (!dbus_message_get_is_error (message))
+  if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_ERROR)
     {
       _dbus_warn ("Expected an error, got %s\n",
                   dbus_message_get_name (message));
@@ -1460,8 +1460,8 @@ check_existent_service_activation (BusContext     *context,
   
   dbus_error_init (&error);
   
-  message = dbus_message_new (DBUS_MESSAGE_ACTIVATE_SERVICE,
-                              DBUS_SERVICE_DBUS);
+  message = dbus_message_new_method_call (DBUS_MESSAGE_ACTIVATE_SERVICE,
+                                          DBUS_SERVICE_DBUS);
 
   if (message == NULL)
     return TRUE;
@@ -1513,7 +1513,7 @@ check_existent_service_activation (BusContext     *context,
                  dbus_message_get_name (message), connection,
                  DBUS_MESSAGE_ACTIVATE_SERVICE);
 
-  if (dbus_message_get_is_error (message))
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
     {
       if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
         {
@@ -1563,7 +1563,7 @@ check_existent_service_activation (BusContext     *context,
         }
 
       got_service_deleted = dbus_message_has_name (message, DBUS_MESSAGE_SERVICE_DELETED);
-      got_error = dbus_message_get_is_error (message);
+      got_error = dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR;
       
       dbus_connection_return_message (connection, message);
       message = NULL;
@@ -1668,8 +1668,8 @@ check_segfault_service_activation (BusContext     *context,
   
   dbus_error_init (&error);
   
-  message = dbus_message_new (DBUS_MESSAGE_ACTIVATE_SERVICE,
-                              DBUS_SERVICE_DBUS);
+  message = dbus_message_new_method_call (DBUS_MESSAGE_ACTIVATE_SERVICE,
+                                          DBUS_SERVICE_DBUS);
 
   if (message == NULL)
     return TRUE;
@@ -1716,7 +1716,7 @@ check_segfault_service_activation (BusContext     *context,
   _dbus_verbose ("Received %s on %p\n",
                  dbus_message_get_name (message), connection);
 
-  if (dbus_message_get_is_error (message))
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
     {
       if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
         {

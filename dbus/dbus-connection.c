@@ -753,6 +753,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection->outgoing_counter = outgoing_counter;
   connection->filter_list = NULL;
   connection->last_dispatch_status = DBUS_DISPATCH_COMPLETE; /* so we're notified first time there's data */
+  connection->objects = objects;
   
   _dbus_data_slot_list_init (&connection->slot_list);
 

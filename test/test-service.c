@@ -37,9 +37,9 @@ handle_echo (DBusConnection     *connection,
                               DBUS_TYPE_STRING, &s,
                               DBUS_TYPE_INVALID))
     {
-      reply = dbus_message_new_error_reply (message,
-                                            error.name,
-                                            error.message);
+      reply = dbus_message_new_error (message,
+                                      error.name,
+                                      error.message);
 
       if (reply == NULL)
         die ("No memory\n");
@@ -52,7 +52,7 @@ handle_echo (DBusConnection     *connection,
       return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
     }
 
-  reply = dbus_message_new_reply (message);
+  reply = dbus_message_new_method_return (message);
   if (reply == NULL)
     die ("No memory\n");
 
@@ -99,11 +99,6 @@ main (int    argc,
   DBusConnection *connection;
   DBusError error;
   DBusMessageHandler *handler;
-  const char *to_handle[] = {
-    "org.freedesktop.DBus.TestSuiteEcho",
-    "org.freedesktop.DBus.TestSuiteExit",
-    DBUS_MESSAGE_LOCAL_DISCONNECT,
-  };
   int result;
   
   dbus_error_init (&error);
@@ -127,8 +122,7 @@ main (int    argc,
   if (handler == NULL)
     die ("No memory");
   
-  if (!dbus_connection_register_handler (connection, handler, to_handle,
-                                         _DBUS_N_ELEMENTS (to_handle)))
+  if (!dbus_connection_add_filter (connection, handler))
     die ("No memory");
 
   result = dbus_bus_acquire_service (connection, "org.freedesktop.DBus.TestSuiteEchoService",

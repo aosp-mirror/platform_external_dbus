@@ -201,7 +201,6 @@
                 <entry>1</entry>
                 <entry>Method call.</entry>
               </row>
-              </row>
               <row>
                 <entry>2</entry>
                 <entry>Method reply with returned data.</entry>

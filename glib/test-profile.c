@@ -38,7 +38,7 @@ send_echo_message (DBusConnection *connection)
 {
   DBusMessage *message;
 
-  message = dbus_message_new (ECHO_MESSAGE, NULL);
+  message = dbus_message_new_method_call (ECHO_MESSAGE, NULL);
   dbus_message_append_args (message,
                             DBUS_TYPE_STRING, "Hello World!",
                             DBUS_TYPE_INT32, 123456,

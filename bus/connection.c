@@ -963,18 +963,18 @@ bus_connection_preallocate_oom_error (DBusConnection *connection)
   if (preallocated == NULL)
     return FALSE;
 
-  /* d->name may be NULL, but that is OK */
-  message = dbus_message_new (DBUS_ERROR_NO_MEMORY,
-                              d->name);
+  message = dbus_message_new (DBUS_MESSAGE_TYPE_ERROR);
+
   if (message == NULL)
     {
       dbus_connection_free_preallocated_send (connection, preallocated);
       return FALSE;
     }
 
-  dbus_message_set_is_error (message, TRUE);
-
-  if (!dbus_message_set_sender (message,
+  /* d->name may be NULL, but that is OK */
+  if (!dbus_message_set_name (message, DBUS_ERROR_NO_MEMORY) ||
+      !dbus_message_set_destination (message, d->name) ||
+      !dbus_message_set_sender (message,
                                 DBUS_SERVICE_DBUS))
     {
       dbus_connection_free_preallocated_send (connection, preallocated);
@@ -1338,7 +1338,7 @@ bus_transaction_send (BusTransaction *transaction,
   DBusList *link;
 
   _dbus_verbose ("  trying to add %s %s to transaction%s\n",
-                 dbus_message_get_is_error (message) ? "error" :
+                 dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR ? "error" :
                  dbus_message_get_reply_serial (message) != 0 ? "reply" :
                  "message",
                  dbus_message_get_name (message),
@@ -1554,9 +1554,9 @@ bus_transaction_send_error_reply (BusTransaction  *transaction,
   _dbus_verbose ("Sending error reply %s \"%s\"\n",
                  error->name, error->message);
 
-  reply = dbus_message_new_error_reply (in_reply_to,
-                                        error->name,
-                                        error->message);
+  reply = dbus_message_new_error (in_reply_to,
+                                  error->name,
+                                  error->message);
   if (reply == NULL)
     return FALSE;
 

@@ -8,7 +8,7 @@ dbus-send \- Send a message to a message bus
 .SH SYNOPSIS
 .PP
 .B dbus-send
-[\-\-system | \-\-session] [\-\-dest=SERVICE] [\-\-print-reply] <message name> [contents ...]
+[\-\-system | \-\-session] [\-\-dest=SERVICE] [\-\-print-reply] [\-\-type=TYPE] <message name> [contents ...]
 
 .SH DESCRIPTION
 
@@ -62,6 +62,9 @@ Send to the system message bus.
 .TP
 .I "--session"
 Send to the session message bus.  (This is the default.)
+.TP
+.I "--type=TYPE"
+Specify "method_call" or "signal" (defaults to "signal").
 
 .SH AUTHOR
 dbus-send was written by Philip Blundell.

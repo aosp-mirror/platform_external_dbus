@@ -593,6 +593,14 @@ set_string_field (DBusMessage *message,
           return append_string_field (message, field,
                                       DBUS_HEADER_FIELD_SENDER,
                                       value);
+        case FIELD_NAME:
+          return append_string_field (message, field,
+                                      DBUS_HEADER_FIELD_NAME,
+                                      value);
+        case FIELD_SERVICE:
+          return append_string_field (message, field,
+                                      DBUS_HEADER_FIELD_SERVICE,
+                                      value);
         default:
           _dbus_assert_not_reached ("appending a string field we don't support appending");
           return FALSE;
@@ -849,12 +857,14 @@ dbus_message_create_header (DBusMessage *message,
         return FALSE;
     }
 
-  _dbus_assert (name != NULL);
-  if (!append_string_field (message,
-                            FIELD_NAME,
-                            DBUS_HEADER_FIELD_NAME,
-                            name))
-    return FALSE;
+  if (name != NULL)
+    {
+      if (!append_string_field (message,
+                                FIELD_NAME,
+                                DBUS_HEADER_FIELD_NAME,
+                                name))
+        return FALSE;
+    }
   
   return TRUE;
 }
@@ -948,6 +958,35 @@ dbus_message_new_empty_header (void)
   return message;
 }
 
+/**
+ * Constructs a new message of the given message type.
+ * Types include #DBUS_MESSAGE_TYPE_METHOD_CALL,
+ * #DBUS_MESSAGE_TYPE_SIGNAL, and so forth.
+ *
+ * @param message_type type of message
+ * @returns new message or #NULL If no memory
+ */
+DBusMessage*
+dbus_message_new (int message_type)
+{
+  DBusMessage *message;
+
+  _dbus_return_val_if_fail (message_type != DBUS_MESSAGE_TYPE_INVALID, NULL);
+  
+  message = dbus_message_new_empty_header ();
+  if (message == NULL)
+    return NULL;
+  
+  if (!dbus_message_create_header (message,
+                                   message_type,
+                                   NULL, NULL))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+  
+  return message;
+}
 
 /**
  * Constructs a new message to invoke a method on a remote
@@ -1273,6 +1312,34 @@ dbus_message_get_type (DBusMessage *message)
   return type;
 }
 
+
+/**
+ * Sets the message name.
+ *
+ * @param message the message
+ * @param name the name
+ * @returns #FALSE if not enough memory
+ */
+dbus_bool_t
+dbus_message_set_name (DBusMessage  *message,
+                       const char   *name)
+{
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (!message->locked, FALSE);
+  
+  if (name == NULL)
+    {
+      delete_string_field (message, FIELD_NAME);
+      return TRUE;
+    }
+  else
+    {
+      return set_string_field (message,
+                               FIELD_NAME,
+                               name);
+    }
+}
+
 /**
  * Gets the name of a message.
  *
@@ -1285,6 +1352,33 @@ dbus_message_get_name (DBusMessage *message)
   _dbus_return_val_if_fail (message != NULL, NULL);
   
   return get_string_field (message, FIELD_NAME, NULL);
+}
+
+/**
+ * Sets the message's destination service.
+ *
+ * @param message the message
+ * @param destination the destination service name
+ * @returns #FALSE if not enough memory
+ */
+dbus_bool_t
+dbus_message_set_destination (DBusMessage  *message,
+                              const char   *destination)
+{
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (!message->locked, FALSE);
+  
+  if (destination == NULL)
+    {
+      delete_string_field (message, FIELD_SERVICE);
+      return TRUE;
+    }
+  else
+    {
+      return set_string_field (message,
+                               FIELD_SERVICE,
+                               destination);
+    }
 }
 
 /**

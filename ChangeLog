@@ -1,3 +1,25 @@
+2003-08-10  Havoc Pennington  <hp@pobox.com>
+
+	* tools/dbus-send.c (main): add --type argument, for now
+	supporting only method_call and signal types.
+
+	* tools/dbus-print-message.c: print message type
+
+	* dbus/dbus-connection.c (_dbus_connection_new_for_transport):
+	init connection->objects
+
+	* doc/dbus-specification.sgml: fix sgml
+
+	* bus/*.c: port over to object-instance API changes
+
+	* test/test-service.c: ditto
+	
+	* dbus/dbus-message.c (dbus_message_create_header): allow #NULL
+	name, we will have to fix up the rest of the code to also handle
+	this
+	(dbus_message_new): generic message-creation call
+	(set_string_field): allow appending name field
+
 2003-08-06  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-object-registry.c: implement signal connection 

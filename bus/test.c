@@ -107,6 +107,10 @@ client_disconnect_handler (DBusMessageHandler *handler,
                            DBusMessage        *message,
                            void               *user_data)
 {
+  if (!dbus_message_has_name (message,
+                              DBUS_MESSAGE_LOCAL_DISCONNECT))
+    return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+    
   _dbus_verbose ("Removing client %p in disconnect handler\n",
                  connection);
   
@@ -138,7 +142,6 @@ dbus_bool_t
 bus_setup_debug_client (DBusConnection *connection)
 {
   DBusMessageHandler *disconnect_handler;
-  const char *to_handle[] = { DBUS_MESSAGE_LOCAL_DISCONNECT };
   dbus_bool_t retval;
   
   disconnect_handler = dbus_message_handler_new (client_disconnect_handler,
@@ -147,10 +150,8 @@ bus_setup_debug_client (DBusConnection *connection)
   if (disconnect_handler == NULL)
     return FALSE;
 
-  if (!dbus_connection_register_handler (connection,
-                                         disconnect_handler,
-                                         to_handle,
-                                         _DBUS_N_ELEMENTS (to_handle)))
+  if (!dbus_connection_add_filter (connection,
+                                   disconnect_handler))
     {
       dbus_message_handler_unref (disconnect_handler);
       return FALSE;

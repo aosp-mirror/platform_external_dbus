@@ -586,7 +586,7 @@ bus_activation_service_created (BusActivation  *activation,
       
       if (dbus_connection_get_is_connected (entry->connection))
 	{
-	  message = dbus_message_new_reply (entry->activation_message);
+	  message = dbus_message_new_method_return (entry->activation_message);
 	  if (!message)
 	    {
 	      BUS_SET_OOM (error);
@@ -866,7 +866,7 @@ bus_activation_activate_service (BusActivation  *activation,
     {
       _dbus_verbose ("Service \"%s\" is already active\n", service_name);
       
-      message = dbus_message_new_reply (activation_message);
+      message = dbus_message_new_method_return (activation_message);
 
       if (!message)
 	{

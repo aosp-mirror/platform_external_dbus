@@ -844,6 +844,7 @@ echo "
 	cflags:		          ${CFLAGS}
 	cppflags:		  ${CPPFLAGS}
 	cxxflags:		  ${CXXFLAGS}
+	64-bit int:		  ${DBUS_INT64_TYPE}
         Doxygen:                  ${DOXYGEN}
         db2html:                  ${DB2HTML}"
 
