@@ -870,20 +870,21 @@ bus_context_check_security_policy (BusContext     *context,
            * the hello message to the bus driver
            */
           if (recipient == NULL &&
-              dbus_message_has_name (message, DBUS_MESSAGE_HELLO))
+              dbus_message_has_interface (message, DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS) &&
+              dbus_message_has_member (message, "Hello"))
             {
               _dbus_verbose ("security check allowing %s message\n",
-                             DBUS_MESSAGE_HELLO);
+                             "Hello");
               return TRUE;
             }
           else
             {
               _dbus_verbose ("security check disallowing non-%s message\n",
-                             DBUS_MESSAGE_HELLO);
+                             "Hello");
 
               dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
                               "Client tried to send a message other than %s without being registered",
-                              DBUS_MESSAGE_HELLO);
+                              "Hello");
               
               return FALSE;
             }
@@ -934,9 +935,14 @@ bus_context_check_security_policy (BusContext     *context,
                       "A security policy in place prevents this sender "
                       "from sending this message to this recipient, "
                       "see message bus configuration file (rejected message "
-                      "had name \"%s\" destination \"%s\")",
-                      dbus_message_get_name (message),
-                      dest ? dest : DBUS_SERVICE_DBUS);
+                      "had interface \"%s\" member \"%s\" error name \"%s\" destination \"%s\")",
+                      dbus_message_get_interface (message) ?
+                      dbus_message_get_interface (message) : "(unset)",
+                      dbus_message_get_member (message) ?
+                      dbus_message_get_member (message) : "(unset)",
+                      dbus_message_get_error_name (message) ?
+                      dbus_message_get_error_name (message) : "(unset)",
+                      dest ? dest : DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
       _dbus_verbose ("security policy disallowing message due to sender policy\n");
       return FALSE;
     }
@@ -951,9 +957,14 @@ bus_context_check_security_policy (BusContext     *context,
                       "A security policy in place prevents this recipient "
                       "from receiving this message from this sender, "
                       "see message bus configuration file (rejected message "
-                      "had name \"%s\" destination \"%s\")",
-                      dbus_message_get_name (message),
-                      dest ? dest : DBUS_SERVICE_DBUS);
+                      "had interface \"%s\" member \"%s\" error name \"%s\" destination \"%s\")",
+                      dbus_message_get_interface (message) ?
+                      dbus_message_get_interface (message) : "(unset)",
+                      dbus_message_get_member (message) ?
+                      dbus_message_get_member (message) : "(unset)",
+                      dbus_message_get_error_name (message) ?
+                      dbus_message_get_error_name (message) : "(unset)",
+                      dest ? dest : DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
       _dbus_verbose ("security policy disallowing message due to recipient policy\n");
       return FALSE;
     }
@@ -966,7 +977,7 @@ bus_context_check_security_policy (BusContext     *context,
       const char *dest = dbus_message_get_destination (message);
       dbus_set_error (error, DBUS_ERROR_LIMITS_EXCEEDED,
                       "The destination service \"%s\" has a full message queue",
-                      dest ? dest : DBUS_SERVICE_DBUS);
+                      dest ? dest : DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
       _dbus_verbose ("security policy disallowing message due to full message queue\n");
       return FALSE;
     }

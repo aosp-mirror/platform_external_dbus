@@ -80,11 +80,15 @@ bus_policy_rule_unref (BusPolicyRule *rule)
       switch (rule->type)
         {
         case BUS_POLICY_RULE_SEND:
-          dbus_free (rule->d.send.message_name);
+          dbus_free (rule->d.send.interface);
+          dbus_free (rule->d.send.member);
+          dbus_free (rule->d.send.error);
           dbus_free (rule->d.send.destination);
           break;
         case BUS_POLICY_RULE_RECEIVE:
-          dbus_free (rule->d.receive.message_name);
+          dbus_free (rule->d.receive.interface);
+          dbus_free (rule->d.receive.member);
+          dbus_free (rule->d.receive.error);
           dbus_free (rule->d.receive.origin);
           break;
         case BUS_POLICY_RULE_OWN:
@@ -680,8 +684,8 @@ bus_client_policy_optimize (BusClientPolicy *policy)
 
   /* The idea here is that if we have:
    * 
-   * <allow send="foo"/>
-   * <deny send="*"/>
+   * <allow send_interface="foo.bar"/>
+   * <deny send_interface="*"/>
    *
    * (for example) the deny will always override the allow.  So we
    * delete the allow. Ditto for deny followed by allow, etc. This is
@@ -713,12 +717,16 @@ bus_client_policy_optimize (BusClientPolicy *policy)
         {
         case BUS_POLICY_RULE_SEND:
           remove_preceding =
-            rule->d.send.message_name == NULL &&
+            rule->d.send.interface == NULL &&
+            rule->d.send.member == NULL &&
+            rule->d.send.error == NULL &&
             rule->d.send.destination == NULL;
           break;
         case BUS_POLICY_RULE_RECEIVE:
           remove_preceding =
-            rule->d.receive.message_name == NULL &&
+            rule->d.receive.interface == NULL &&
+            rule->d.receive.member == NULL &&
+            rule->d.receive.error == NULL &&
             rule->d.receive.origin == NULL;
           break;
         case BUS_POLICY_RULE_OWN:
@@ -791,16 +799,34 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
           continue;
         }
 
-      if (rule->d.send.message_name != NULL)
+      if (rule->d.send.interface != NULL)
         {
-          if (!dbus_message_has_name (message,
-                                      rule->d.send.message_name))
+          if (!dbus_message_has_interface (message,
+                                           rule->d.send.interface))
             {
-              _dbus_verbose ("  (policy) skipping rule for different message name\n");
+              _dbus_verbose ("  (policy) skipping rule for different interface\n");
               continue;
             }
         }
-
+      else if (rule->d.send.member != NULL)
+        {
+          if (!dbus_message_has_member (message,
+                                        rule->d.send.member))
+            {
+              _dbus_verbose ("  (policy) skipping rule for different member\n");
+              continue;
+            }
+        }
+      else if (rule->d.send.error != NULL)
+        {
+          if (!dbus_message_has_error_name (message,
+                                            rule->d.send.error))
+            {
+              _dbus_verbose ("  (policy) skipping rule for different error name\n");
+              continue;
+            }
+        }
+      
       if (rule->d.send.destination != NULL)
         {
           /* receiver can be NULL for messages that are sent to the
@@ -886,16 +912,34 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
           continue;
         }
 
-      if (rule->d.receive.message_name != NULL)
+      if (rule->d.receive.interface != NULL)
         {
-          if (!dbus_message_has_name (message,
-                                      rule->d.receive.message_name))
+          if (!dbus_message_has_interface (message,
+                                           rule->d.receive.interface))
             {
-              _dbus_verbose ("  (policy) skipping rule for different message name\n");
+              _dbus_verbose ("  (policy) skipping rule for different interface\n");
               continue;
             }
         }
-
+      else if (rule->d.receive.member != NULL)
+        {
+          if (!dbus_message_has_member (message,
+                                        rule->d.receive.member))
+            {
+              _dbus_verbose ("  (policy) skipping rule for different member\n");
+              continue;
+            }
+        }
+      else if (rule->d.receive.error != NULL)
+        {
+          if (!dbus_message_has_error_name (message,
+                                            rule->d.receive.error))
+            {
+              _dbus_verbose ("  (policy) skipping rule for different error name\n");
+              continue;
+            }
+        }
+      
       if (rule->d.receive.origin != NULL)
         {          
           /* sender can be NULL for messages that originate from the

@@ -972,10 +972,10 @@ bus_connection_preallocate_oom_error (DBusConnection *connection)
     }
 
   /* d->name may be NULL, but that is OK */
-  if (!dbus_message_set_name (message, DBUS_ERROR_NO_MEMORY) ||
+  if (!dbus_message_set_error_name (message, DBUS_ERROR_NO_MEMORY) ||
       !dbus_message_set_destination (message, d->name) ||
       !dbus_message_set_sender (message,
-                                DBUS_SERVICE_DBUS))
+                                DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
     {
       dbus_connection_free_preallocated_send (connection, preallocated);
       dbus_message_unref (message);
@@ -1312,10 +1312,15 @@ bus_transaction_send_from_driver (BusTransaction *transaction,
    * to check security policy since it was not done in
    * dispatch.c
    */
-  _dbus_verbose ("Sending %s from driver\n",
-                 dbus_message_get_name (message));
-  
-  if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS))
+  _dbus_verbose ("Sending %s %s %s from driver\n",
+                 dbus_message_get_interface (message) ?
+                 dbus_message_get_interface (message) : "(no interface)",
+                 dbus_message_get_member (message) ?
+                 dbus_message_get_member (message) : "(no member)",
+                 dbus_message_get_error_name (message) ?
+                 dbus_message_get_error_name (message) : "(no error name)");
+                 
+  if (!dbus_message_set_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
     return FALSE;
 
   /* If security policy doesn't allow the message, we silently
@@ -1337,11 +1342,16 @@ bus_transaction_send (BusTransaction *transaction,
   BusConnectionData *d;
   DBusList *link;
 
-  _dbus_verbose ("  trying to add %s %s to transaction%s\n",
+  _dbus_verbose ("  trying to add %s interface=%s member=%s error=%s to transaction%s\n",
                  dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR ? "error" :
                  dbus_message_get_reply_serial (message) != 0 ? "reply" :
                  "message",
-                 dbus_message_get_name (message),
+                 dbus_message_get_interface (message) ?
+                 dbus_message_get_interface (message) : "(unset)",
+                 dbus_message_get_member (message) ?
+                 dbus_message_get_member (message) : "(unset)",
+                 dbus_message_get_error_name (message) ?
+                 dbus_message_get_error_name (message) : "(unset)",
                  dbus_connection_get_is_connected (connection) ?
                  "" : " (disconnected)");
 

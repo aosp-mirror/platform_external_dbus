@@ -1,3 +1,33 @@
+2003-08-17  Havoc Pennington  <hp@pobox.com>
+
+	This doesn't compile yet, but syncing up so I can hack on it from
+	work. What are branches for if not broken code? ;-)
+	
+	* dbus/dbus-protocol.h: remove DBUS_HEADER_FIELD_NAME, add
+	DBUS_HEADER_FIELD_INTERFACE, DBUS_HEADER_FIELD_MEMBER,
+	DBUS_HEADER_FIELD_ERROR_NAME
+	
+	* dbus/dbus-hash.c: Introduce DBUS_HASH_TWO_STRINGS as hack to use
+	for the interface+member pairs
+	(string_hash): change to use g_str_hash algorithm
+	(find_direct_function, find_string_function): refactor these to
+	share most code.
+	
+	* dbus/dbus-message.c: port all of this over to support 
+	interface/member fields instead of name field
+
+	* dbus/dbus-object-registry.c: port over
+	
+	* dbus/dbus-string.c (_dbus_string_validate_interface): rename
+	from _dbus_string_validate_name
+
+	* bus/dbus-daemon-1.1: change file format for the 
+	<deny>/<allow> stuff to match new message naming scheme
+
+	* bus/policy.c: port over
+
+	* bus/config-parser.c: parse new format
+	
 2003-08-16  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-object-registry.c (add_and_remove_objects): remove

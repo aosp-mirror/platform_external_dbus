@@ -57,7 +57,7 @@ extern "C" {
   
 #define DBUS_TYPE_LAST DBUS_TYPE_OBJECT_ID
 
-/* Max length in bytes of a service or message name */
+/* Max length in bytes of a service or interface or member name */
 #define DBUS_MAXIMUM_NAME_LENGTH 256
 
 /* Types of message */
@@ -71,14 +71,16 @@ extern "C" {
 #define DBUS_HEADER_FLAG_NO_REPLY_EXPECTED 0x1
   
 /* Header fields */
-#define DBUS_HEADER_FIELD_NAME    "name"
-#define DBUS_HEADER_FIELD_SERVICE "srvc"
-#define DBUS_HEADER_FIELD_REPLY	  "rply"
-#define DBUS_HEADER_FIELD_SENDER  "sndr"
+#define DBUS_HEADER_FIELD_INTERFACE  "ifce"
+#define DBUS_HEADER_FIELD_MEMBER     "mebr"
+#define DBUS_HEADER_FIELD_ERROR_NAME "ernm"
+#define DBUS_HEADER_FIELD_SERVICE    "srvc"
+#define DBUS_HEADER_FIELD_REPLY	     "rply"
+#define DBUS_HEADER_FIELD_SENDER     "sndr"
 
 /* Services */
-#define DBUS_SERVICE_DBUS      "org.freedesktop.DBus"
-#define DBUS_SERVICE_BROADCAST "org.freedesktop.DBus.Broadcast"
+#define DBUS_SERVICE_ORG_FREEDESKTOP_DBUS      "org.freedesktop.DBus"
+#define DBUS_SERVICE_ORG_FREEDESKTOP_BROADCAST "org.freedesktop.Broadcast"
 
 /* Service owner flags */
 #define DBUS_SERVICE_FLAG_PROHIBIT_REPLACEMENT 0x1
@@ -94,23 +96,30 @@ extern "C" {
 #define DBUS_ACTIVATION_REPLY_ACTIVATED      0x0
 #define DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE 0x1
   
-/* Messages */
-#define DBUS_MESSAGE_ACTIVATE_SERVICE      "org.freedesktop.DBus.ActivateService"  
-#define DBUS_MESSAGE_SERVICE_EXISTS        "org.freedesktop.DBus.ServiceExists"
-#define DBUS_MESSAGE_HELLO                 "org.freedesktop.DBus.Hello"
-#define DBUS_MESSAGE_LIST_SERVICES         "org.freedesktop.DBus.ListServices"
-#define DBUS_MESSAGE_ACQUIRE_SERVICE       "org.freedesktop.DBus.AcquireService"
-#define DBUS_MESSAGE_SERVICE_ACQUIRED      "org.freedesktop.DBus.ServiceAcquired"
-#define DBUS_MESSAGE_SERVICE_CREATED       "org.freedesktop.DBus.ServiceCreated"
-#define DBUS_MESSAGE_SERVICE_DELETED       "org.freedesktop.DBus.ServiceDeleted"
-#define DBUS_MESSAGE_SERVICE_LOST          "org.freedesktop.DBus.ServiceLost"
-
-
-/* This namespace is reserved for locally-synthesized messages, you can't
- * send messages that have this namespace.
+/* Interfaces, these #define don't do much other than
+ * catch typos at compile time
  */
-#define DBUS_NAMESPACE_LOCAL_MESSAGE       "org.freedesktop.Local."
-#define DBUS_MESSAGE_LOCAL_DISCONNECT      DBUS_NAMESPACE_LOCAL_MESSAGE"Disconnect"
+#define DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS  "org.freedesktop.DBus"
+
+/* This is a special interface whose methods can only be invoked
+ * by the local implementation (messages from remote apps aren't
+ * allowed to specify this interface).
+ */
+#define DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL "org.freedesktop.Local"
+
+#if 0
+  /* these are a bad idea, FIXME */
+#define DBUS_METHOD_ORG_FREEDESKTOP_DBUS_ACTIVATE_SERVICE      "ActivateService"  
+#define DBUS_METHOD_ORG_FREEDESKTOP_DBUS_SERVICE_EXISTS        "ServiceExists"
+#define DBUS_METHOD_ORG_FREEDESKTOP_DBUS_HELLO                 "Hello"
+#define DBUS_METHOD_ORG_FREEDESKTOP_DBUS_LIST_SERVICES         "ListServices"
+#define DBUS_METHOD_ORG_FREEDESKTOP_DBUS_ACQUIRE_SERVICE       "AcquireService"
+
+#define DBUS_SIGNAL_ORG_FREEDESKTOP_DBUS_SERVICE_ACQUIRED      "ServiceAcquired"
+#define DBUS_SIGNAL_ORG_FREEDESKTOP_DBUS_SERVICE_CREATED       "ServiceCreated"
+#define DBUS_SIGNAL_ORG_FREEDESKTOP_DBUS_SERVICE_DELETED       "ServiceDeleted"
+#define DBUS_SIGNAL_ORG_FREEDESKTOP_DBUS_SERVICE_LOST          "ServiceLost"
+#endif /* #if 0 */
   
 #ifdef __cplusplus
 }

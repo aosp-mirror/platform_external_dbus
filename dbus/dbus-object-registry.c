@@ -63,7 +63,7 @@ struct DBusSignalEntry
   dbus_uint16_t *connections;      /**< Index of each object connected (can have dups for multiple
                                     * connections)
                                     */
-  char name[4];                    /**< Name of signal (actually allocated larger) */
+  char name[4];                    /**< Interface of signal, nul, then name of signal (actually allocated larger) */
 };
 
  /* 14 bits for object index, 32K objects */
@@ -144,8 +144,8 @@ _dbus_object_registry_new (DBusConnection *connection)
   if (interface_table == NULL)
     goto oom;
 
-  signal_table = _dbus_hash_table_new (DBUS_HASH_STRING,
-                                          NULL, free_signal_entry);
+  signal_table = _dbus_hash_table_new (DBUS_HASH_TWO_STRINGS,
+                                       NULL, free_signal_entry);
   if (signal_table == NULL)
     goto oom;
   
@@ -431,32 +431,45 @@ object_remove_from_interfaces (DBusObjectRegistry *registry,
 
 static DBusSignalEntry*
 lookup_signal (DBusObjectRegistry *registry,
-               const char         *name,
+               const char         *signal_interface,
+               const char         *signal_name,
                dbus_bool_t         create_if_not_found)
 {
   DBusSignalEntry *entry;
   int sz;
-  int len;
+  size_t len_interface, len_name;
+  char buf[2 * DBUS_MAXIMUM_NAME_LENGTH + 2];
+
+  /* This is all a little scary and maybe we shouldn't jump
+   * through these hoops just to save some bytes.
+   */
   
-  entry = _dbus_hash_table_lookup_string (registry->signal_table,
-                                          name);
+  len_interface = strlen (signal_interface);
+  len_name = strlen (signal_name);
+  
+  _dbus_assert (len_interface + len_name + 2 <= sizeof (buf));
+
+  memcpy (buf, signal_interface, len_interface + 1);
+  memcpy (buf + len_interface + 1, signal_name, len_name + 1);
+  
+  entry = _dbus_hash_table_lookup_two_strings (registry->signal_table,
+                                               buf);
   if (entry != NULL || !create_if_not_found)
     return entry;
   
   _dbus_assert (create_if_not_found);
 
-  len = strlen (name);
-  sz = _DBUS_STRUCT_OFFSET (DBusSignalEntry, name) + len + 1;
+  sz = _DBUS_STRUCT_OFFSET (DBusSignalEntry, name) + len_interface + len_name + 2;
   entry = dbus_malloc (sz);
   if (entry == NULL)
     return NULL;
   entry->n_connections = 0;
   entry->n_allocated = 0;
   entry->connections = NULL;
-  memcpy (entry->name, name, len + 1);
+  memcpy (entry->name, buf, len_interface + len_name + 2);
 
-  if (!_dbus_hash_table_insert_string (registry->signal_table,
-                                       entry->name, entry))
+  if (!_dbus_hash_table_insert_two_strings (registry->signal_table,
+                                            entry->name, entry))
     {
       dbus_free (entry);
       return NULL;
@@ -469,8 +482,8 @@ static void
 delete_signal (DBusObjectRegistry *registry,
                DBusSignalEntry *entry)
 {
-  _dbus_hash_table_remove_string (registry->signal_table,
-                                  entry->name);
+  _dbus_hash_table_remove_two_strings (registry->signal_table,
+                                       entry->name);
 }
 
 static dbus_bool_t
@@ -553,11 +566,11 @@ object_remove_from_signals (DBusObjectRegistry *registry,
       i = 0;
       while (entry->signals[i] != NULL)
         {
-          DBusSignalEntry *iface = entry->signals[i];
+          DBusSignalEntry *signal = entry->signals[i];
           
-          signal_entry_remove_object (iface, entry->id_index);
-          if (iface->n_connections == 0)
-            delete_signal (registry, iface);
+          signal_entry_remove_object (signal, entry->id_index);
+          if (signal->n_connections == 0)
+            delete_signal (registry, signal);
           ++i;
         }
     }
@@ -573,19 +586,24 @@ object_remove_from_signals (DBusObjectRegistry *registry,
  * 
  * @param registry the object registry
  * @param object_id object that would like to see the signal
- * @param signal signal name
+ * @param signal_interface signal interface name
+ * @param signal_name signal member name
  *
  * @returns #FALSE if no memory
  */
 dbus_bool_t
 _dbus_object_registry_connect_locked (DBusObjectRegistry *registry,
                                       const DBusObjectID *object_id,
+                                      const char         *signal_interface,
                                       const char         *signal_name)
 {
   DBusSignalEntry **new_signals;
   DBusSignalEntry *signal;
   DBusObjectEntry *entry;
   int i;
+
+  _dbus_assert (signal_interface != NULL);
+  _dbus_assert (signal_name != NULL);
   
   entry = validate_id (registry, object_id);
   if (entry == NULL)
@@ -617,7 +635,7 @@ _dbus_object_registry_connect_locked (DBusObjectRegistry *registry,
 
   entry->signals = new_signals;
   
-  signal = lookup_signal (registry, signal_name, TRUE); 
+  signal = lookup_signal (registry, signal_interface, signal_name, TRUE); 
   if (signal == NULL)
     goto oom;
 
@@ -642,30 +660,35 @@ _dbus_object_registry_connect_locked (DBusObjectRegistry *registry,
  *
  * @param registry the object registry
  * @param object_id object that would like to see the signal
- * @param signal signal name
+ * @param signal_interface signal interface
+ * @param signal_name signal name
  */
 void
 _dbus_object_registry_disconnect_locked (DBusObjectRegistry      *registry,
                                          const DBusObjectID      *object_id,
+                                         const char              *signal_interface,
                                          const char              *signal_name)
 {
   DBusObjectEntry *entry;
   DBusSignalEntry *signal;
+
+  _dbus_assert (signal_interface != NULL);
+  _dbus_assert (signal_name != NULL);
   
   entry = validate_id (registry, object_id);
   if (entry == NULL)
     {
-      _dbus_warn ("Tried to disconnect signal \"%s\" from a nonexistent D-BUS object ID\n",
-                  signal_name);
+      _dbus_warn ("Tried to disconnect signal \"%s\"::\"%s\" from a nonexistent D-BUS object ID\n",
+                  signal_interface, signal_name);
       
       return;
     }
 
-  signal = lookup_signal (registry, signal_name, FALSE);
+  signal = lookup_signal (registry, signal_interface, signal_name, FALSE);
   if (signal == NULL)
     {
-      _dbus_warn ("Tried to disconnect signal \"%s\" but no such signal is connected\n",
-                  signal_name);
+      _dbus_warn ("Tried to disconnect signal \"%s\"::\"%s\" but no such signal is connected\n",
+                  signal_interface, signal_name);
       return;
     }
   
@@ -695,7 +718,7 @@ handle_method_call_and_unlock (DBusObjectRegistry *registry,
    * it to the first object that supports the given interface.
    */
   iface_entry = lookup_interface (registry,
-                                  dbus_message_get_name (message),
+                                  dbus_message_get_interface (message),
                                   FALSE);
   
   if (iface_entry == NULL)
@@ -750,7 +773,8 @@ handle_signal_and_unlock (DBusObjectRegistry *registry,
   _dbus_assert (message != NULL);
 
   signal_entry = lookup_signal (registry,
-                                dbus_message_get_name (message),
+                                dbus_message_get_interface (message),
+                                dbus_message_get_member (message),
                                 FALSE);
   
   if (signal_entry == NULL)
@@ -1291,7 +1315,8 @@ add_and_remove_objects (DBusObjectRegistry *registry)
       ++i;
     }
 
-  message = dbus_message_new_method_call ("org.freedesktop.Test.Foo", NULL);
+  message = dbus_message_new_method_call ("org.freedesktop.Test.Foo",
+                                          "Bar", NULL);
   if (message != NULL)
     {
       if (_dbus_object_registry_handle_and_unlock (registry, message) !=
@@ -1300,7 +1325,8 @@ add_and_remove_objects (DBusObjectRegistry *registry)
       dbus_message_unref (message);
     }
 
-  message = dbus_message_new_method_call ("org.freedesktop.Test.Blah", NULL);
+  message = dbus_message_new_method_call ("org.freedesktop.Test.Blah",
+                                          "Baz", NULL);
   if (message != NULL)
     {
       if (_dbus_object_registry_handle_and_unlock (registry, message) !=
@@ -1309,7 +1335,8 @@ add_and_remove_objects (DBusObjectRegistry *registry)
       dbus_message_unref (message);
     }
 
-  message = dbus_message_new_method_call ("org.freedesktop.Test.NotRegisteredIface", NULL);
+  message = dbus_message_new_method_call ("org.freedesktop.Test.NotRegisteredIface",
+                                          "Boo", NULL);
   if (message != NULL)
     {
       if (_dbus_object_registry_handle_and_unlock (registry, message) !=

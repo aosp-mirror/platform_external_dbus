@@ -58,10 +58,12 @@ struct DBusMessageIter
 };
 
 DBusMessage* dbus_message_new               (int          message_type);
-DBusMessage* dbus_message_new_method_call   (const char  *name,
+DBusMessage* dbus_message_new_method_call   (const char  *interface,
+                                             const char  *method,
                                              const char  *destination_service);
 DBusMessage* dbus_message_new_method_return (DBusMessage *method_call);
-DBusMessage* dbus_message_new_signal        (const char  *name);
+DBusMessage* dbus_message_new_signal        (const char  *interface,
+                                             const char  *name);
 DBusMessage* dbus_message_new_error         (DBusMessage *reply_to,
                                              const char  *error_name,
                                              const char  *error_message);
@@ -71,9 +73,15 @@ DBusMessage *dbus_message_copy              (const DBusMessage *message);
 void          dbus_message_ref              (DBusMessage   *message);
 void          dbus_message_unref            (DBusMessage   *message);
 int           dbus_message_get_type         (DBusMessage   *message);
-dbus_bool_t   dbus_message_set_name         (DBusMessage   *message,
+dbus_bool_t   dbus_message_set_interface    (DBusMessage   *message,
+                                             const char    *interface);
+const char*   dbus_message_get_interface    (DBusMessage   *message);
+dbus_bool_t   dbus_message_set_member       (DBusMessage   *message,
+                                             const char    *member);
+const char*   dbus_message_get_member       (DBusMessage   *message);
+dbus_bool_t   dbus_message_set_error_name   (DBusMessage   *message,
                                              const char    *name);
-const char*   dbus_message_get_name         (DBusMessage   *message);
+const char*   dbus_message_get_error_name   (DBusMessage   *message);
 dbus_bool_t   dbus_message_set_destination  (DBusMessage   *message,
                                              const char    *destination);
 const char*   dbus_message_get_destination  (DBusMessage   *message);
@@ -83,7 +91,11 @@ const char*   dbus_message_get_sender       (DBusMessage   *message);
 void          dbus_message_set_no_reply     (DBusMessage   *message,
                                              dbus_bool_t    no_reply);
 dbus_bool_t   dbus_message_get_no_reply     (DBusMessage   *message);
-dbus_bool_t   dbus_message_has_name         (DBusMessage   *message,
+dbus_bool_t   dbus_message_has_interface    (DBusMessage   *message,
+                                             const char    *interface);
+dbus_bool_t   dbus_message_has_member       (DBusMessage   *message,
+                                             const char    *member);
+dbus_bool_t   dbus_message_has_error_name   (DBusMessage   *message,
                                              const char    *name);
 dbus_bool_t   dbus_message_has_destination  (DBusMessage   *message,
                                              const char    *service);

@@ -296,9 +296,11 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
 
   _dbus_connection_wakeup_mainloop (connection);
   
-  _dbus_assert (dbus_message_get_name (message) != NULL);
   _dbus_verbose ("Message %p (%s) added to incoming queue %p, %d incoming\n",
-                 message, dbus_message_get_name (message),
+                 message,
+                 dbus_message_get_interface (message) ?
+                 dbus_message_get_interface (message) :
+                 "no interface",
                  connection,
                  connection->n_incoming);
 }
@@ -381,7 +383,10 @@ _dbus_connection_message_sent (DBusConnection *connection,
   connection->n_outgoing -= 1;
 
   _dbus_verbose ("Message %p (%s) removed from outgoing queue %p, %d left to send\n",
-                 message, dbus_message_get_name (message),
+                 message,
+                 dbus_message_get_interface (message) ?
+                 dbus_message_get_interface (message) :
+                 "no interface",
                  connection, connection->n_outgoing);
 
   /* Save this link in the link cache also */
@@ -820,7 +825,9 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   if (io_path_cond == NULL)
     goto error;
 
-  disconnect_message = dbus_message_new_signal (DBUS_MESSAGE_LOCAL_DISCONNECT);
+  disconnect_message = dbus_message_new_signal (DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                                                "Disconnect");
+  
   if (disconnect_message == NULL)
     goto error;
 
@@ -1482,7 +1489,9 @@ _dbus_connection_send_preallocated_unlocked (DBusConnection       *connection,
 
   _dbus_verbose ("Message %p (%s) added to outgoing queue %p, %d pending to send\n",
                  message,
-                 dbus_message_get_name (message),
+                 dbus_message_get_interface (message) ?
+                 dbus_message_get_interface (message) :
+                 "no interface",
                  connection,
                  connection->n_outgoing);
 
@@ -1530,7 +1539,12 @@ dbus_connection_send_preallocated (DBusConnection       *connection,
   _dbus_return_if_fail (preallocated != NULL);
   _dbus_return_if_fail (message != NULL);
   _dbus_return_if_fail (preallocated->connection == connection);
-  _dbus_return_if_fail (dbus_message_get_name (message) != NULL);
+  _dbus_return_if_fail (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_METHOD_CALL ||
+                        (dbus_message_get_interface (message) != NULL &&
+                         dbus_message_get_member (message) != NULL));
+  _dbus_return_if_fail (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_SIGNAL ||
+                        (dbus_message_get_interface (message) != NULL &&
+                         dbus_message_get_member (message) != NULL));
   
   CONNECTION_LOCK (connection);
   _dbus_connection_send_preallocated_unlocked (connection,
@@ -1854,8 +1868,7 @@ _dbus_connection_block_for_reply (DBusConnection     *connection,
         {          
           status = _dbus_connection_get_dispatch_status_unlocked (connection);
 
-          _dbus_verbose ("dbus_connection_send_with_reply_and_block(): got reply %s\n",
-                         dbus_message_get_name (reply));
+          _dbus_verbose ("dbus_connection_send_with_reply_and_block(): got reply\n");
 
           /* Unlocks, and calls out to user code */
           _dbus_connection_update_dispatch_status_and_unlock (connection, status);
@@ -2148,7 +2161,10 @@ _dbus_connection_pop_message_link_unlocked (DBusConnection *connection)
       connection->n_incoming -= 1;
 
       _dbus_verbose ("Message %p (%s) removed from incoming queue %p, %d incoming\n",
-                     link->data, dbus_message_get_name (link->data),
+                     link->data,
+                     dbus_message_get_interface (link->data) ?
+                     dbus_message_get_interface (link->data) :
+                     "no interface",
                      connection, connection->n_incoming);
 
       return link;
@@ -2194,7 +2210,10 @@ _dbus_connection_putback_message_link_unlocked (DBusConnection *connection,
   connection->n_incoming += 1;
 
   _dbus_verbose ("Message %p (%s) put back into queue %p, %d incoming\n",
-                 message_link->data, dbus_message_get_name (message_link->data),
+                 message_link->data,
+                 dbus_message_get_interface (message_link->data) ?
+                 dbus_message_get_interface (message_link->data) :
+                 "no interface",
                  connection, connection->n_incoming);
 }
 
@@ -2523,7 +2542,10 @@ dbus_connection_dispatch (DBusConnection *connection)
    * since we acquired the dispatcher
    */
   _dbus_verbose ("  running object handler on message %p (%s)\n",
-                 message, dbus_message_get_name (message));
+                 message,
+                 dbus_message_get_interface (message) ?
+                 dbus_message_get_interface (message) :
+                 "no interface");
   
   result = _dbus_object_registry_handle_and_unlock (connection->objects,
                                                     message);
@@ -2549,8 +2571,9 @@ dbus_connection_dispatch (DBusConnection *connection)
         }
               
       if (!_dbus_string_append_printf (&str,
-                                       "Method \"%s\" doesn't exist\n",
-                                       dbus_message_get_name (message)))
+                                       "Method \"%s\" on interface \"%s\" doesn't exist\n",
+                                       dbus_message_get_member (message),
+                                       dbus_message_get_interface (message)))
         {
           _dbus_string_free (&str);
           result = DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -2586,7 +2609,10 @@ dbus_connection_dispatch (DBusConnection *connection)
     }
   
   _dbus_verbose ("  done dispatching %p (%s) on connection %p\n", message,
-                 dbus_message_get_name (message), connection);
+                 dbus_message_get_interface (message) ?
+                 dbus_message_get_interface (message) :
+                 "no interface",
+                 connection);
   
  out:
   if (result == DBUS_HANDLER_RESULT_NEED_MEMORY)

@@ -816,11 +816,15 @@ append_rule_from_element (BusConfigParser   *parser,
                           dbus_bool_t        allow,
                           DBusError         *error)
 {
-  const char *send;
-  const char *receive;
+  const char *send_interface;
+  const char *send_member;
+  const char *send_error;
+  const char *send_service;
+  const char *receive_interface;
+  const char *receive_member;
+  const char *receive_error;
+  const char *receive_service;
   const char *own;
-  const char *send_to;
-  const char *receive_from;
   const char *user;
   const char *group;
   BusPolicyRule *rule;
@@ -829,57 +833,112 @@ append_rule_from_element (BusConfigParser   *parser,
                           attribute_names,
                           attribute_values,
                           error,
-                          "send", &send,
-                          "receive", &receive,
+                          "send_interface", &send_interface,
+                          "send_member", &send_member,
+                          "send_error", &send_error,
+                          "send_service", &send_service,
+                          "receive_interface", &receive_interface,
+                          "receive_member", &receive_member,
+                          "receive_error", &receive_error,
+                          "receive_service", &receive_service,
                           "own", &own,
-                          "send_to", &send_to,
-                          "receive_from", &receive_from,
                           "user", &user,
                           "group", &group,
                           NULL))
     return FALSE;
 
-  if (!(send || receive || own || send_to || receive_from ||
-        user || group))
+  if (!(send_interface || send_member || send_error || send_service ||
+        receive_interface || receive_member || receive_error || receive_service ||
+        own || user || group))
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "Element <%s> must have one or more attributes",
                       element_name);
       return FALSE;
     }
-  
-  if (((send && own) ||
-       (send && receive) ||
-       (send && receive_from) ||
-       (send && user) ||
-       (send && group)) ||
 
-      ((receive && own) ||
-       (receive && send_to) ||
-       (receive && user) ||
-       (receive && group)) ||
-
-      ((own && send_to) ||
-       (own && receive_from) ||
-       (own && user) ||
-       (own && group)) ||
-
-      ((send_to && receive_from) ||
-       (send_to && user) ||
-       (send_to && group)) ||
-
-      ((receive_from && user) ||
-       (receive_from && group)) ||
-
-      (user && group))
+  if ((send_member && send_interface == NULL) ||
+      (receive_member && receive_interface == NULL))
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Invalid combination of attributes on element <%s>, "
-                      "only send/send_to or receive/receive_from may be paired",
+                      "On element <%s>, if you specify a member you must specify an interface",
                       element_name);
       return FALSE;
     }
+  
+  /* Allowed combinations of elements are:
+   *
+   *   base, must be all send or all receive:
+   *     interface
+   *     interface + member
+   *     error
+   * 
+   *   base send_ can combine with send_service,
+   *   base receive_ with receive_service
+   *
+   *   user, group, own must occur alone
+   */
 
+  if (((send_interface && send_error) ||
+       (send_interface && receive_interface) ||
+       (send_interface && receive_member) ||
+       (send_interface && receive_error) ||
+       (send_interface && receive_service) ||
+       (send_interface && own) ||
+       (send_interface && user) ||
+       (send_interface && group)) ||
+
+      ((send_member && send_error) ||
+       (send_member && receive_interface) ||
+       (send_member && receive_member) ||
+       (send_member && receive_error) ||
+       (send_member && receive_service) ||
+       (send_member && own) ||
+       (send_member && user) ||
+       (send_member && group)) ||
+      
+      ((send_error && receive_interface) ||
+       (send_error && receive_member) ||
+       (send_error && receive_error) ||
+       (send_error && receive_service) ||
+       (send_error && own) ||
+       (send_error && user) ||
+       (send_error && group)) ||
+
+      ((send_service && receive_interface) ||
+       (send_service && receive_member) ||
+       (send_service && receive_error) ||
+       (send_service && receive_service) ||
+       (send_service && own) ||
+       (send_service && user) ||
+       (send_service && group)) ||
+
+      ((receive_interface && receive_error) ||
+       (receive_interface && own) ||
+       (receive_interface && user) ||
+       (receive_interface && group)) ||
+
+      ((receive_member && receive_error) ||
+       (receive_member && own) ||
+       (receive_member && user) ||
+       (receive_member && group)) ||
+
+      ((receive_error && own) ||
+       (receive_error && user) ||
+       (receive_error && group)) ||
+
+      ((own && user) ||
+       (own && group)) ||
+
+      ((user && group)))
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Invalid combination of attributes on element <%s>, "
+                      "only send_foo/send_service or receive_foo/receive_service may be paired",
+                      element_name);
+      return FALSE;
+    }
+       
   rule = NULL;
 
   /* In BusPolicyRule, NULL represents wildcard.
@@ -887,41 +946,60 @@ append_rule_from_element (BusConfigParser   *parser,
    */
 #define IS_WILDCARD(str) ((str) && ((str)[0]) == '*' && ((str)[1]) == '\0')
 
-  if (send || send_to)
+  if (send_interface || send_member || send_error || send_service)
     {
       rule = bus_policy_rule_new (BUS_POLICY_RULE_SEND, allow); 
       if (rule == NULL)
         goto nomem;
-
-      if (IS_WILDCARD (send))
-        send = NULL;
-      if (IS_WILDCARD (send_to))
-        send_to = NULL;
       
-      rule->d.send.message_name = _dbus_strdup (send);
-      rule->d.send.destination = _dbus_strdup (send_to);
-      if (send && rule->d.send.message_name == NULL)
+      if (IS_WILDCARD (send_interface))
+        send_interface = NULL;
+      if (IS_WILDCARD (send_member))
+        send_member = NULL;
+      if (IS_WILDCARD (send_error))
+        send_error = NULL;
+      if (IS_WILDCARD (send_service))
+        send_service = NULL;
+      
+      rule->d.send.interface = _dbus_strdup (send_interface);
+      rule->d.send.member = _dbus_strdup (send_member);
+      rule->d.send.error = _dbus_strdup (send_error);
+      rule->d.send.destination = _dbus_strdup (send_service);
+      if (send_interface && rule->d.send.interface == NULL)
         goto nomem;
-      if (send_to && rule->d.send.destination == NULL)
+      if (send_member && rule->d.send.member == NULL)
+        goto nomem;
+      if (send_error && rule->d.send.error == NULL)
+        goto nomem;
+      if (send_service && rule->d.send.destination == NULL)
         goto nomem;
     }
-  else if (receive || receive_from)
+  else if (receive_interface || receive_member || receive_error || receive_service)
     {
       rule = bus_policy_rule_new (BUS_POLICY_RULE_RECEIVE, allow); 
       if (rule == NULL)
         goto nomem;
-
-      if (IS_WILDCARD (receive))
-        receive = NULL;
-
-      if (IS_WILDCARD (receive_from))
-        receive_from = NULL;
       
-      rule->d.receive.message_name = _dbus_strdup (receive);
-      rule->d.receive.origin = _dbus_strdup (receive_from);
-      if (receive && rule->d.receive.message_name == NULL)
+      if (IS_WILDCARD (receive_interface))
+        receive_interface = NULL;
+      if (IS_WILDCARD (receive_member))
+        receive_member = NULL;
+      if (IS_WILDCARD (receive_error))
+        receive_error = NULL;
+      if (IS_WILDCARD (receive_service))
+        receive_service = NULL;
+
+      rule->d.receive.interface = _dbus_strdup (receive_interface);
+      rule->d.receive.member = _dbus_strdup (receive_member);
+      rule->d.receive.error = _dbus_strdup (receive_error);
+      rule->d.receive.origin = _dbus_strdup (receive_service);
+      if (receive_interface && rule->d.receive.interface == NULL)
         goto nomem;
-      if (receive_from && rule->d.receive.origin == NULL)
+      if (receive_member && rule->d.receive.member == NULL)
+        goto nomem;
+      if (receive_error && rule->d.receive.error == NULL)
+        goto nomem;
+      if (receive_service && rule->d.receive.origin == NULL)
         goto nomem;
     }
   else if (own)

@@ -45,10 +45,12 @@ DBusHandlerResult _dbus_object_registry_handle_and_unlock (DBusObjectRegistry   
 void              _dbus_object_registry_free_all_unlocked (DBusObjectRegistry      *registry);
 dbus_bool_t       _dbus_object_registry_connect_locked    (DBusObjectRegistry      *registry,
                                                            const DBusObjectID      *object_id,
-                                                           const char              *signal);
+                                                           const char              *signal_interface,
+                                                           const char              *signal_name);
 void              _dbus_object_registry_disconnect_locked (DBusObjectRegistry      *registry,
                                                            const DBusObjectID      *object_id,
-                                                           const char              *signal);
+                                                           const char              *signal_interface,
+                                                           const char              *signal_name);
 
 DBUS_END_DECLS;
 

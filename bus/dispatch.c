@@ -104,7 +104,7 @@ static DBusHandlerResult
 bus_dispatch (DBusConnection *connection,
               DBusMessage    *message)
 {
-  const char *sender, *service_name, *message_name;
+  const char *sender, *service_name;
   DBusError error;
   BusTransaction *transaction;
   BusContext *context;
@@ -126,14 +126,24 @@ bus_dispatch (DBusConnection *connection,
   
   /* Ref connection in case we disconnect it at some point in here */
   dbus_connection_ref (connection);
-
+  
   service_name = dbus_message_get_destination (message);
-  message_name = dbus_message_get_name (message);
 
-  _dbus_assert (message_name != NULL); /* DBusMessageLoader is supposed to check this */
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+  {
+    const char *interface_name, *member_name, *error_name;
 
-  _dbus_verbose ("DISPATCH: %s to %s\n",
-                 message_name, service_name ? service_name : "peer");
+    interface_name = dbus_message_get_interface (message);
+    member_name = dbus_message_get_member (message);
+    error_name = dbus_message_get_error_name (message);
+    
+    _dbus_verbose ("DISPATCH: %s %s %s to %s\n",
+                   interface_name ? interface_name : "(no interface)",
+                   member_name ? member_name : "(no member)",
+                   error_name ? error_name : "(no error name)",
+                   service_name ? service_name : "peer");
+  }
+#endif /* DBUS_ENABLE_VERBOSE_MODE */
   
   /* If service_name is NULL, this is a message to the bus daemon, not
    * intended to actually go "on the bus"; e.g. a peer-to-peer
@@ -142,7 +152,8 @@ bus_dispatch (DBusConnection *connection,
    */
   if (service_name == NULL)
     {      
-      if (strcmp (message_name, DBUS_MESSAGE_LOCAL_DISCONNECT) == 0)
+      if (dbus_message_has_interface (message, DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL) &&
+          dbus_message_has_member (message, "Disconnect"))
         bus_connection_disconnected (connection);
 
       /* DBusConnection also handles some of these automatically, we leave
@@ -182,7 +193,7 @@ bus_dispatch (DBusConnection *connection,
       service_name = dbus_message_get_destination (message);
     }
 
-  if (strcmp (service_name, DBUS_SERVICE_DBUS) == 0) /* to bus driver */
+  if (strcmp (service_name, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) == 0) /* to bus driver */
     {
       if (!bus_context_check_security_policy (context,
                                               connection, NULL, message, &error))
@@ -191,7 +202,7 @@ bus_dispatch (DBusConnection *connection,
           goto out;
         }
 
-      _dbus_verbose ("Giving message to %s\n", DBUS_SERVICE_DBUS);
+      _dbus_verbose ("Giving message to %s\n", DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
       if (!bus_driver_handle_message (connection, transaction, message, &error))
         goto out;
     }
@@ -679,7 +690,7 @@ check_hello_message (BusContext     *context,
   message = NULL;
   
   message = dbus_message_new_method_call (DBUS_MESSAGE_HELLO,
-                                          DBUS_SERVICE_DBUS);
+                                          DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
 
   if (message == NULL)
     return TRUE;
@@ -721,7 +732,7 @@ check_hello_message (BusContext     *context,
   _dbus_verbose ("Received %s on %p\n",
                  dbus_message_get_name (message), connection);
 
-  if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
+  if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
     {
       _dbus_warn ("Message has wrong sender %s\n",
                   dbus_message_get_sender (message) ?
@@ -911,7 +922,7 @@ check_nonexistent_service_activation (BusContext     *context,
   dbus_error_init (&error);
   
   message = dbus_message_new_method_call (DBUS_MESSAGE_ACTIVATE_SERVICE,
-                                          DBUS_SERVICE_DBUS);
+                                          DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
 
   if (message == NULL)
     return TRUE;
@@ -959,7 +970,7 @@ check_nonexistent_service_activation (BusContext     *context,
 
   if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
     {
-      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
         {
           _dbus_warn ("Message has wrong sender %s\n",
                       dbus_message_get_sender (message) ?
@@ -1465,7 +1476,7 @@ check_existent_service_activation (BusContext     *context,
   dbus_error_init (&error);
   
   message = dbus_message_new_method_call (DBUS_MESSAGE_ACTIVATE_SERVICE,
-                                          DBUS_SERVICE_DBUS);
+                                          DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
 
   if (message == NULL)
     return TRUE;
@@ -1519,7 +1530,7 @@ check_existent_service_activation (BusContext     *context,
 
   if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
     {
-      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
         {
           _dbus_warn ("Message has wrong sender %s\n",
                       dbus_message_get_sender (message) ?
@@ -1673,7 +1684,7 @@ check_segfault_service_activation (BusContext     *context,
   dbus_error_init (&error);
   
   message = dbus_message_new_method_call (DBUS_MESSAGE_ACTIVATE_SERVICE,
-                                          DBUS_SERVICE_DBUS);
+                                          DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
 
   if (message == NULL)
     return TRUE;
@@ -1722,7 +1733,7 @@ check_segfault_service_activation (BusContext     *context,
 
   if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
     {
-      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
         {
           _dbus_warn ("Message has wrong sender %s\n",
                       dbus_message_get_sender (message) ?

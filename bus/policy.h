@@ -54,15 +54,19 @@ struct BusPolicyRule
   {
     struct
     {
-      /* either can be NULL meaning "any" */
-      char *message_name;
+      /* any of these can be NULL meaning "any" */
+      char *interface;
+      char *member;
+      char *error;
       char *destination;
     } send;
 
     struct
     {
-      /* either can be NULL meaning "any" */
-      char *message_name;
+      /* any of these can be NULL meaning "any" */
+      char *interface;
+      char *member;
+      char *error;
       char *origin;
     } receive;
 

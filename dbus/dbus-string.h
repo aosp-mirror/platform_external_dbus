@@ -223,7 +223,13 @@ dbus_bool_t   _dbus_string_validate_utf8         (const DBusString  *str,
 dbus_bool_t   _dbus_string_validate_nul          (const DBusString  *str,
                                                   int                start,
                                                   int                len);
-dbus_bool_t   _dbus_string_validate_name         (const DBusString  *str,
+dbus_bool_t   _dbus_string_validate_interface    (const DBusString  *str,
+                                                  int                start,
+                                                  int                len);
+dbus_bool_t   _dbus_string_validate_member       (const DBusString  *str,
+                                                  int                start,
+                                                  int                len);
+dbus_bool_t   _dbus_string_validate_error_name   (const DBusString  *str,
                                                   int                start,
                                                   int                len);
 dbus_bool_t   _dbus_string_validate_service      (const DBusString  *str,
