@@ -1,5 +1,13 @@
 2003-02-02  Anders Carlsson  <andersca@codefactory.se>
 
+	* test/Makefile.am:
+	* test/bus-test.c: (get_time), (add_timeout), (remove_timeout),
+	(message_handler), (new_connection_callback), (loop_quit),
+	(loop_run), (main):
+	Add bus test.
+	
+2003-02-02  Anders Carlsson  <andersca@codefactory.se>
+
 	* bus/driver.c: (bus_driver_handle_service_exists):
 	Simplify the code a bit.
 	
