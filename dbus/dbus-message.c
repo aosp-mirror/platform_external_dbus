@@ -949,9 +949,6 @@ dbus_message_new_empty_header (void)
  * no service is set; this is appropriate when using D-BUS in a
  * peer-to-peer context (no message bus).
  *
- * @todo reverse the arguments, first 'name' then 'service'
- * as 'name' is more fundamental
- *
  * @param name name of the message
  * @param destination_service service that the message should be sent to or #NULL
  * @returns a new DBusMessage, free with dbus_message_unref()
@@ -4243,8 +4240,8 @@ decode_header_data (const DBusString   *data,
 	  break;
 
         default:
-	  _dbus_verbose ("Ignoring an unknown header field: %c%c%c%c at offset %d\n",
-			 field[0], field[1], field[2], field[3], pos);
+	  _dbus_verbose ("Ignoring an unknown header field: %.4s at offset %d\n",
+			 field, pos);
 	}
       
       pos = new_pos;
