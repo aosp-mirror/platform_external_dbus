@@ -29,6 +29,7 @@
 
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-types.h>
+#include <stdarg.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -43,19 +44,30 @@ void         dbus_message_unref (DBusMessage *message);
 
 const char*  dbus_message_get_name (DBusMessage *message);
 
-dbus_bool_t dbus_message_append_int32      (DBusMessage         *message,
-					    dbus_int32_t         value);
-dbus_bool_t dbus_message_append_uint32     (DBusMessage         *message,
-					    dbus_uint32_t        value);
-dbus_bool_t dbus_message_append_double     (DBusMessage         *message,
-					    double               value);
-dbus_bool_t dbus_message_append_string     (DBusMessage         *message,
-					    const char          *value);
-dbus_bool_t dbus_message_append_byte_array (DBusMessage         *message,
-					    unsigned const char *value,
-					    int                  len);
+
+dbus_bool_t dbus_message_append_fields        (DBusMessage         *message,
+					       ...);
+dbus_bool_t dbus_message_append_fields_valist (DBusMessage         *message,
+					       va_list              var_args);
+dbus_bool_t dbus_message_append_int32         (DBusMessage         *message,
+					       dbus_int32_t         value);
+dbus_bool_t dbus_message_append_uint32        (DBusMessage         *message,
+					       dbus_uint32_t        value);
+dbus_bool_t dbus_message_append_double        (DBusMessage         *message,
+					       double               value);
+dbus_bool_t dbus_message_append_string        (DBusMessage         *message,
+					       const char          *value);
+dbus_bool_t dbus_message_append_byte_array    (DBusMessage         *message,
+					       unsigned const char *value,
+					       int                  len);
+
 
 DBusMessageIter *dbus_message_get_fields_iter     (DBusMessage     *message);
+
+dbus_bool_t dbus_message_get_fields          (DBusMessage *message,
+					      ...);
+dbus_bool_t dbus_message_get_fields_valist   (DBusMessage *message,
+					      va_list      var_args);
 
 void        dbus_message_iter_ref            (DBusMessageIter *iter);
 void        dbus_message_iter_unref          (DBusMessageIter *iter);

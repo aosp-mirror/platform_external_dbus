@@ -119,6 +119,7 @@ void _dbus_verbose_bytes_of_string (const DBusString    *str,
                                     int                  len);
 
 
+const char* _dbus_type_to_string (int type);
 
 DBUS_END_DECLS;
 

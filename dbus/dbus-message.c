@@ -304,6 +304,95 @@ dbus_message_get_name (DBusMessage *message)
 }
 
 /**
+ * Appends fields to a message given a variable argument
+ * list. The variable argument list should contain the type
+ * of the field followed by the value to add.
+ * The list is terminated with 0.
+ *
+ * @param message the message
+ * @param ... list of fields.
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_fields (DBusMessage *message,
+			    ...)
+{
+  dbus_bool_t retval;
+  va_list var_args;
+
+  va_start (var_args, message);
+  retval = dbus_message_append_fields_valist (message, var_args);
+  va_end (var_args);
+
+  return retval;
+}
+
+/**
+ * This function takes a va_list for use by language bindings
+ *
+ * @see dbus_message_append_fields.  
+ * @param message the message
+ * @param var_args list of type/value pairs
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_fields_valist (DBusMessage *message,
+				   va_list      var_args)
+{
+  int type, old_len;
+
+  old_len = _dbus_string_get_length (&message->body);
+  
+  type = va_arg (var_args, int);
+
+  while (type != 0)
+    {
+      switch (type)
+	{
+	case DBUS_TYPE_INT32:
+	  if (!dbus_message_append_int32 (message, va_arg (var_args, dbus_int32_t)))
+	    goto enomem;
+	  break;
+	case DBUS_TYPE_UINT32:
+	  if (!dbus_message_append_uint32 (message, va_arg (var_args, dbus_uint32_t)))
+	    goto enomem;	    
+	  break;
+	case DBUS_TYPE_DOUBLE:
+	  if (!dbus_message_append_double (message, va_arg (var_args, double)))
+	    goto enomem;
+	  break;
+	case DBUS_TYPE_STRING:
+	  if (!dbus_message_append_string (message, va_arg (var_args, const char *)))
+	    goto enomem;
+	  break;
+	case DBUS_TYPE_BYTE_ARRAY:
+	  {
+	    int len;
+	    unsigned char *data;
+
+	    data = va_arg (var_args, unsigned char *);
+	    len = va_arg (var_args, int);
+
+	    if (!dbus_message_append_byte_array (message, data, len))
+	      goto enomem;
+
+	    break;
+	  }
+	default:
+	  _dbus_warn ("Unknown field type %d\n", type);
+	}
+
+      type = va_arg (var_args, int);
+    }
+
+  return TRUE;
+
+ enomem:
+  _dbus_string_set_length (&message->body, old_len);
+  return FALSE;
+}
+
+/**
  * Appends a 32 bit signed integer to the message.
  *
  * @param message the message
@@ -418,6 +507,128 @@ dbus_message_append_byte_array (DBusMessage         *message,
   
   return _dbus_marshal_byte_array (&message->body,
 				   DBUS_COMPILER_BYTE_ORDER, value, len);
+}
+
+/**
+ * Gets fields from a message given a variable argument list.
+ * The variable argument list should contain the type of the
+ * field followed by a pointer to where the value should be
+ * stored. The list is terminated with 0.
+ *
+ * @param message the message
+ * @param ... list of fields.
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_get_fields (DBusMessage *message,
+			 ...)
+{
+  dbus_bool_t retval;
+  va_list var_args;
+
+  va_start (var_args, message);
+  retval = dbus_message_get_fields_valist (message, var_args);
+  va_end (var_args);
+
+  return retval;
+}
+
+/**
+ * This function takes a va_list for use by language bindings
+ *
+ * @see dbus_message_get_fields
+ * @param message the message
+ * @param var_args list of type/pointer pairs
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_get_fields_valist (DBusMessage *message,
+				va_list      var_args)
+{
+  int spec_type, msg_type, i;
+  DBusMessageIter *iter;
+
+  iter = dbus_message_get_fields_iter (message);
+
+  if (iter == NULL)
+    return FALSE;
+  
+  spec_type = va_arg (var_args, int);
+  i = 0;
+  
+  while (spec_type != 0)
+    {
+      msg_type = dbus_message_iter_get_field_type (iter);      
+
+      if (msg_type != spec_type)
+	{
+	  _dbus_warn ("Field %d is specified to be of type \"%s\", but "
+		      "is actually of type \"%s\"\n", i,
+		      _dbus_type_to_string (spec_type),
+		      _dbus_type_to_string (msg_type));
+	  dbus_message_iter_unref (iter);
+
+	  return FALSE;
+	}
+
+      switch (spec_type)
+	{
+	case DBUS_TYPE_INT32:
+	  {
+	    dbus_int32_t *ptr;
+
+	    ptr = va_arg (var_args, dbus_int32_t *);
+
+	    *ptr = dbus_message_iter_get_int32 (iter);
+	    break;
+	  }
+	case DBUS_TYPE_UINT32:
+	  {
+	    dbus_uint32_t *ptr;
+
+	    ptr = va_arg (var_args, dbus_uint32_t *);
+
+	    *ptr = dbus_message_iter_get_uint32 (iter);
+	    break;
+	  }
+
+	case DBUS_TYPE_DOUBLE:
+	  {
+	    double *ptr;
+
+	    ptr = va_arg (var_args, double *);
+
+	    *ptr = dbus_message_iter_get_double (iter);
+	    break;
+	  }
+
+	case DBUS_TYPE_STRING:
+	  {
+	    char **ptr;
+
+	    ptr = va_arg (var_args, char **);
+
+	    *ptr = dbus_message_iter_get_string (iter);
+	    break;
+	  }
+	  
+	default:
+	  _dbus_warn ("Unknown field type %d\n", spec_type);
+	}
+      
+      spec_type = va_arg (var_args, int);
+      if (spec_type != 0 && !dbus_message_iter_next (iter))
+	{
+	  _dbus_warn ("More fields than exists in the message were specified");
+
+	  dbus_message_iter_unref (iter);	  
+	  return FALSE;
+	}
+      i++;
+    }
+
+  dbus_message_iter_unref (iter);
+  return TRUE;
 }
 
 /**
@@ -989,11 +1200,38 @@ dbus_bool_t
 _dbus_message_test (void)
 {
   DBusMessage *message;
-
   DBusMessageLoader *loader;
   int i;
   const char *data;
+  dbus_int32_t our_int;
+  char *our_str;
+  double our_double;
+  
+  /* Test the vararg functions */
+  message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");
+  message->client_serial = 1;
+  dbus_message_append_fields (message,
+			      DBUS_TYPE_INT32, -0x12345678,
+			      DBUS_TYPE_STRING, "Test string",
+			      DBUS_TYPE_DOUBLE, 3.14159,
+			      0);
 
+  if (!dbus_message_get_fields (message,
+				DBUS_TYPE_INT32, &our_int,
+				DBUS_TYPE_STRING, &our_str,
+				DBUS_TYPE_DOUBLE, &our_double,
+				0))
+    _dbus_assert_not_reached ("Could not get fields");
+
+  if (our_int != -0x12345678)
+    _dbus_assert_not_reached ("integers differ!");
+
+  if (our_double != 3.14159)
+    _dbus_assert_not_reached ("doubles differ!");
+
+  if (strcmp (our_str, "Test string") != 0)
+    _dbus_assert_not_reached ("strings differ!");
+  
   message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");
   message->client_serial = 1;
   dbus_message_append_string (message, "Test string");

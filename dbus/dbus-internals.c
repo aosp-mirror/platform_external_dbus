@@ -21,6 +21,7 @@
  *
  */
 #include "dbus-internals.h"
+#include "dbus-protocol.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -335,6 +336,30 @@ _dbus_set_fd_nonblocking (int             fd,
     }
 
   return TRUE;
+}
+
+/**
+ * Returns a string describing the given type.
+ *
+ * @param type the type to describe
+ * @returns a constant string describing the type
+ */
+const char *
+_dbus_type_to_string (int type)
+{
+  switch (type)
+    {
+    case DBUS_TYPE_INT32:
+      return "int32";
+    case DBUS_TYPE_UINT32:
+      return "uint32";
+    case DBUS_TYPE_DOUBLE:
+      return "double";
+    case DBUS_TYPE_STRING:
+      return "string";
+    default:
+      return "unknown";
+    }
 }
 
 /** @} */
