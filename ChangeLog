@@ -1,3 +1,11 @@
+2004-12-26  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/dbus_bindings.pyx.in (bus_activate_service): Bind
+	dbus_bus_activate_service
+
+	* python/dbus.py (Bus.activate_service): activate a service on the
+	bus.
+
 2004-12-24  Havoc Pennington  <hp@redhat.com>
 
 	* test/decode-gcov.c: change to use .gcno and .gcda files, but the
