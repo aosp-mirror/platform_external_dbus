@@ -798,7 +798,6 @@ _dbus_type_writer_recurse_array (DBusTypeWriter *writer,
                        * should be the expected type for further writes
                        */
   sub->u.array.element_type_pos = sub->type_pos;
-  sub->u.array.element_type_len = element_type_len;
 
   if (!writer->type_pos_is_expectation)
     {

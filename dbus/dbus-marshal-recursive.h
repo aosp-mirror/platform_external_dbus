@@ -74,8 +74,7 @@ struct DBusTypeWriter
     struct {
       int start_pos; /* first element */
       int len_pos;
-      int element_type_pos; /* position in type_str of array element type */
-      int element_type_len;
+      int element_type_pos; /* position of array element type in type_str */
     } array;
   } u;
 };
