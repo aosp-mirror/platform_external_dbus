@@ -283,8 +283,6 @@ allow_user_function (DBusConnection *connection,
   d = BUS_CONNECTION_DATA (connection);
 
   _dbus_assert (d != NULL);
-
-  return TRUE; /* FIXME - this is just until we can parse a config file */
   
   return bus_context_allow_user (d->connections->context, uid);
 }
@@ -504,7 +502,7 @@ bus_connection_get_groups  (DBusConnection       *connection,
       
       if (dbus_connection_get_unix_user (connection, &uid))
         {
-          if (!_dbus_get_groups (uid, &d->group_ids, &d->n_group_ids))
+          if (!_dbus_get_groups (uid, &d->group_ids, &d->n_group_ids, NULL))
             {
               _dbus_verbose ("Did not get any groups for UID %lu\n",
                              uid);
@@ -924,9 +922,34 @@ bus_transaction_get_connections (BusTransaction  *transaction)
 }
 
 dbus_bool_t
-bus_transaction_send_message (BusTransaction *transaction,
-                              DBusConnection *connection,
-                              DBusMessage    *message)
+bus_transaction_send_from_driver (BusTransaction *transaction,
+                                  DBusConnection *connection,
+                                  DBusMessage    *message)
+{
+  /* We have to set the sender to the driver, and have
+   * to check security policy since it was not done in
+   * dispatch.c
+   */
+  _dbus_verbose ("Sending %s from driver\n",
+                 dbus_message_get_name (message));
+  
+  if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS))
+    return FALSE;
+
+  /* If security policy doesn't allow the message, we silently
+   * eat it; the driver doesn't care about getting a reply.
+   */
+  if (!bus_context_check_security_policy (bus_transaction_get_context (transaction),
+                                          NULL, connection, message, NULL))
+    return TRUE;
+
+  return bus_transaction_send (transaction, connection, message);
+}
+
+dbus_bool_t
+bus_transaction_send (BusTransaction *transaction,
+                      DBusConnection *connection,
+                      DBusMessage    *message)
 {
   MessageToSend *to_send;
   BusConnectionData *d;
@@ -934,7 +957,7 @@ bus_transaction_send_message (BusTransaction *transaction,
 
   _dbus_verbose ("  trying to add %s %s to transaction%s\n",
                  dbus_message_get_is_error (message) ? "error" :
-                 dbus_message_get_reply_serial (message) != 0 ? "reply" :
+                 dbus_message_get_reply_serial (message) != -1 ? "reply" :
                  "message",
                  dbus_message_get_name (message),
                  dbus_connection_get_is_connected (connection) ?
@@ -1152,8 +1175,7 @@ bus_transaction_send_error_reply (BusTransaction  *transaction,
   if (reply == NULL)
     return FALSE;
 
-  if (!dbus_message_set_sender (reply, DBUS_SERVICE_DBUS) ||
-      !bus_transaction_send_message (transaction, connection, reply))
+  if (!bus_transaction_send_from_driver (transaction, connection, reply))
     {
       dbus_message_unref (reply);
       return FALSE;

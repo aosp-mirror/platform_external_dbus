@@ -67,7 +67,7 @@ bus_driver_send_service_deleted (const char     *service_name,
       return FALSE;
     }
 
-  retval = bus_dispatch_broadcast_message (transaction, message, error);
+  retval = bus_dispatch_broadcast_message (transaction, NULL, message, error);
   dbus_message_unref (message);
 
   return retval;
@@ -107,7 +107,7 @@ bus_driver_send_service_created (const char     *service_name,
       return FALSE;
     }
   
-  retval = bus_dispatch_broadcast_message (transaction, message, error);
+  retval = bus_dispatch_broadcast_message (transaction, NULL, message, error);
   dbus_message_unref (message);
 
   return retval;
@@ -131,13 +131,6 @@ bus_driver_send_service_lost (DBusConnection *connection,
       return FALSE;
     }
   
-  if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS))
-    {
-      dbus_message_unref (message);
-      BUS_SET_OOM (error);
-      return FALSE;
-    }
-  
   if (!dbus_message_append_args (message,
                                  DBUS_TYPE_STRING, service_name,
                                  0))
@@ -147,7 +140,7 @@ bus_driver_send_service_lost (DBusConnection *connection,
       return FALSE;
     }
 
-  if (!bus_transaction_send_message (transaction, connection, message))
+  if (!bus_transaction_send_from_driver (transaction, connection, message))
     {
       dbus_message_unref (message);
       BUS_SET_OOM (error);
@@ -178,13 +171,6 @@ bus_driver_send_service_acquired (DBusConnection *connection,
       return FALSE;
     }
   
-  if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS))
-    {
-      dbus_message_unref (message);
-      BUS_SET_OOM (error);
-      return FALSE;
-    }
-  
   if (!dbus_message_append_args (message,
                                  DBUS_TYPE_STRING, service_name,
                                  0))
@@ -194,7 +180,7 @@ bus_driver_send_service_acquired (DBusConnection *connection,
       return FALSE;
     }
 
-  if (!bus_transaction_send_message (transaction, connection, message))
+  if (!bus_transaction_send_from_driver (transaction, connection, message))
     {
       dbus_message_unref (message);
       BUS_SET_OOM (error);
@@ -347,13 +333,6 @@ bus_driver_send_welcome_message (DBusConnection *connection,
       return FALSE;
     }
   
-  if (!dbus_message_set_sender (welcome, DBUS_SERVICE_DBUS))
-    {
-      dbus_message_unref (welcome);
-      BUS_SET_OOM (error);
-      return FALSE;
-    }
-  
   if (!dbus_message_append_args (welcome,
                                  DBUS_TYPE_STRING, name,
                                  NULL))
@@ -363,7 +342,7 @@ bus_driver_send_welcome_message (DBusConnection *connection,
       return FALSE;
     }
 
-  if (!bus_transaction_send_message (transaction, connection, welcome))
+  if (!bus_transaction_send_from_driver (transaction, connection, welcome))
     {
       dbus_message_unref (welcome);
       BUS_SET_OOM (error);
@@ -417,7 +396,7 @@ bus_driver_handle_list_services (DBusConnection *connection,
 
   dbus_free_string_array (services);
   
-  if (!bus_transaction_send_message (transaction, connection, reply))
+  if (!bus_transaction_send_from_driver (transaction, connection, reply))
     {
       dbus_message_unref (reply);
       BUS_SET_OOM (error);
@@ -474,19 +453,13 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
       goto out;
     }
 
-  if (!dbus_message_set_sender (reply, DBUS_SERVICE_DBUS))
-    {
-      BUS_SET_OOM (error);
-      goto out;
-    }
-
   if (!dbus_message_append_args (reply, DBUS_TYPE_UINT32, service_reply, DBUS_TYPE_INVALID))
     {
       BUS_SET_OOM (error);
       goto out;
     }
 
-  if (!bus_transaction_send_message (transaction, connection, reply))
+  if (!bus_transaction_send_from_driver (transaction, connection, reply))
     {
       BUS_SET_OOM (error);
       goto out;
@@ -534,12 +507,6 @@ bus_driver_handle_service_exists (DBusConnection *connection,
       BUS_SET_OOM (error);
       goto out;
     }
-  
-  if (!dbus_message_set_sender (reply, DBUS_SERVICE_DBUS))
-    {
-      BUS_SET_OOM (error);
-      goto out;
-    }
 
   if (!dbus_message_append_args (reply,
                                  DBUS_TYPE_UINT32, service != NULL,
@@ -549,7 +516,7 @@ bus_driver_handle_service_exists (DBusConnection *connection,
       goto out;
     }
 
-  if (!bus_transaction_send_message (transaction, connection, reply))
+  if (!bus_transaction_send_from_driver (transaction, connection, reply))
     {
       BUS_SET_OOM (error);
       goto out;
@@ -653,6 +620,12 @@ bus_driver_handle_message (DBusConnection *connection,
       return FALSE;
     }
 
+  if (dbus_message_get_reply_serial (message) != -1)
+    {
+      _dbus_verbose ("Client sent a reply to the bus driver, ignoring it\n");
+      return TRUE;
+    }
+  
   i = 0;
   while (i < _DBUS_N_ELEMENTS (message_handlers))
     {

@@ -57,6 +57,11 @@ dbus_bool_t      bus_context_allow_user             (BusContext       *context,
 BusClientPolicy* bus_context_create_client_policy   (BusContext       *context,
                                                      DBusConnection   *connection);
 int              bus_context_get_activation_timeout (BusContext       *context);
+dbus_bool_t      bus_context_check_security_policy  (BusContext       *context,
+                                                     DBusConnection   *sender,
+                                                     DBusConnection   *recipient,
+                                                     DBusMessage      *message,
+                                                     DBusError        *error);
 
 
 #endif /* BUS_BUS_H */

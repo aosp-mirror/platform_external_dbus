@@ -74,13 +74,13 @@ struct BusPolicyRule
 
     struct
     {
-      char *user;
+      /* can be DBUS_UID_UNSET meaning "any" */
       dbus_uid_t uid;
     } user;
 
     struct
     {
-      char *group;
+      /* can be DBUS_GID_UNSET meaning "any" */
       dbus_gid_t gid;
     } group;
     

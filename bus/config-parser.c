@@ -859,7 +859,7 @@ append_rule_from_element (BusConfigParser   *parser,
           if (rule == NULL)
             goto nomem;
 
-          /* FIXME the wildcard needs storing in the rule somehow */
+          rule->d.user.uid = DBUS_UID_UNSET;
         }
       else
         {
@@ -873,10 +873,7 @@ append_rule_from_element (BusConfigParser   *parser,
               rule = bus_policy_rule_new (BUS_POLICY_RULE_USER, allow); 
               if (rule == NULL)
                 goto nomem;
-              
-              rule->d.user.user = _dbus_strdup (user);
-              if (rule->d.user.user == NULL)
-                goto nomem;
+
               rule->d.user.uid = uid;
             }
           else
@@ -894,7 +891,7 @@ append_rule_from_element (BusConfigParser   *parser,
           if (rule == NULL)
             goto nomem;
 
-          /* FIXME the wildcard needs storing in the rule somehow */
+          rule->d.group.gid = DBUS_GID_UNSET;
         }
       else
         {
@@ -908,10 +905,7 @@ append_rule_from_element (BusConfigParser   *parser,
               rule = bus_policy_rule_new (BUS_POLICY_RULE_GROUP, allow); 
               if (rule == NULL)
                 goto nomem;
-              
-              rule->d.group.group = _dbus_strdup (group);
-              if (rule->d.group.group == NULL)
-                goto nomem;
+
               rule->d.group.gid = gid;
             }
           else

@@ -459,9 +459,21 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
       
       maybe_authenticated =
         (!(transport->send_credentials_pending ||
-           transport->receive_credentials_pending)) &&
-        _dbus_auth_do_work (transport->auth) == DBUS_AUTH_STATE_AUTHENTICATED;
+           transport->receive_credentials_pending));
 
+      if (maybe_authenticated)
+        {
+          switch (_dbus_auth_do_work (transport->auth))
+            {
+            case DBUS_AUTH_STATE_AUTHENTICATED:
+            case DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES:
+              /* leave as maybe_authenticated */
+              break;
+            default:
+              maybe_authenticated = FALSE;
+            }
+        }
+      
       /* If we've authenticated as some identity, check that the auth
        * identity is the same as our own identity.  In the future, we
        * may have API allowing applications to specify how this is
@@ -768,18 +780,18 @@ _dbus_transport_get_dispatch_status (DBusTransport *transport)
 
   if (!_dbus_transport_get_is_authenticated (transport))
     {
-      switch (_dbus_auth_do_work (transport->auth))
-        {
-        case DBUS_AUTH_STATE_WAITING_FOR_MEMORY:
-          return DBUS_DISPATCH_NEED_MEMORY;
-        case DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES:
-          if (!recover_unused_bytes (transport))
-            return DBUS_DISPATCH_NEED_MEMORY;
-          break;
-        default:
-          break;
-        }
+      if (_dbus_auth_do_work (transport->auth) ==
+          DBUS_AUTH_STATE_WAITING_FOR_MEMORY)
+        return DBUS_DISPATCH_NEED_MEMORY;
+      else
+        return DBUS_DISPATCH_COMPLETE;
     }
+
+  if (!transport->unused_bytes_recovered &&
+      !recover_unused_bytes (transport))
+    return DBUS_DISPATCH_NEED_MEMORY;
+
+  transport->unused_bytes_recovered = TRUE;
   
   if (!_dbus_message_loader_queue_messages (transport->loader))
     return DBUS_DISPATCH_NEED_MEMORY;

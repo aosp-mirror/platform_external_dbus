@@ -2082,8 +2082,8 @@ dbus_connection_dispatch (DBusConnection *connection)
         }
     }
 
-  _dbus_verbose ("  done dispatching %p (%s)\n", message,
-                 dbus_message_get_name (message));
+  _dbus_verbose ("  done dispatching %p (%s) on connection %p\n", message,
+                 dbus_message_get_name (message), connection);
   
  out:
   _dbus_connection_release_dispatch (connection);

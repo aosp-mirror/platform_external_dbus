@@ -10,5 +10,6 @@
     <allow send="*"/>
     <allow receive="*"/>
     <allow own="*"/>
+    <allow user="*"/>
   </policy>
 </busconfig>

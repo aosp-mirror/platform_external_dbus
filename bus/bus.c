@@ -796,3 +796,66 @@ bus_context_get_activation_timeout (BusContext *context)
   
   return context->activation_timeout;
 }
+
+dbus_bool_t
+bus_context_check_security_policy (BusContext     *context,
+                                   DBusConnection *sender,
+                                   DBusConnection *recipient,
+                                   DBusMessage    *message,
+                                   DBusError      *error)
+{
+  BusClientPolicy *sender_policy;
+  BusClientPolicy *recipient_policy;
+
+  /* NULL sender/receiver means the bus driver */
+  
+  if (sender != NULL)
+    {
+      _dbus_assert (dbus_connection_get_is_authenticated (sender));
+      sender_policy = bus_connection_get_policy (sender);
+    }
+  else
+    sender_policy = NULL;
+
+  if (recipient != NULL)
+    {
+      _dbus_assert (dbus_connection_get_is_authenticated (recipient));
+      recipient_policy = bus_connection_get_policy (recipient);
+    }
+  else
+    recipient_policy = NULL;
+
+  if (sender_policy &&
+      !bus_client_policy_check_can_send (sender_policy,
+                                         context->registry, recipient,
+                                         message))
+    {
+      const char *dest = dbus_message_get_service (message);
+      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                      "A security policy in place prevents this sender "
+                      "from sending this message to this recipient, "
+                      "see message bus configuration file (rejected message "
+                      "had name \"%s\" destination \"%s\")",
+                      dbus_message_get_name (message),
+                      dest ? dest : DBUS_SERVICE_DBUS);
+      return FALSE;
+    }
+
+  if (recipient_policy &&
+      !bus_client_policy_check_can_receive (recipient_policy,
+                                            context->registry, sender,
+                                            message))
+    {
+      const char *dest = dbus_message_get_service (message);
+      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                      "A security policy in place prevents this recipient "
+                      "from receiving this message from this sender, "
+                      "see message bus configuration file (rejected message "
+                      "had name \"%s\" destination \"%s\")",
+                      dbus_message_get_name (message),
+                      dest ? dest : DBUS_SERVICE_DBUS);
+      return FALSE;
+    }
+
+  return TRUE;
+}

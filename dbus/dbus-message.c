@@ -585,7 +585,7 @@ _dbus_message_set_serial (DBusMessage  *message,
  */
 dbus_bool_t
 dbus_message_set_reply_serial (DBusMessage  *message,
-                                dbus_int32_t  reply_serial)
+                               dbus_int32_t  reply_serial)
 {
   _dbus_assert (!message->locked);
 

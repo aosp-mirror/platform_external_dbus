@@ -37,6 +37,8 @@ static int message_handler_slot_refcount;
 
 typedef struct
 {
+  BusContext     *context;
+  DBusConnection *sender;
   DBusMessage    *message;
   BusTransaction *transaction;
   DBusError      *error;
@@ -50,9 +52,16 @@ send_one_message (DBusConnection *connection, void *data)
   if (!bus_connection_is_active (connection))
     return TRUE;
 
-  if (!bus_transaction_send_message (d->transaction,
-                                     connection,
-                                     d->message))
+  if (!bus_context_check_security_policy (d->context,
+                                          d->sender,
+                                          connection,
+                                          d->message,
+                                          NULL))
+    return TRUE; /* silently don't send it */
+  
+  if (!bus_transaction_send (d->transaction,
+                             connection,
+                             d->message))
     {
       BUS_SET_OOM (d->error);
       return FALSE;
@@ -63,6 +72,7 @@ send_one_message (DBusConnection *connection, void *data)
 
 dbus_bool_t
 bus_dispatch_broadcast_message (BusTransaction *transaction,
+                                DBusConnection *sender,
                                 DBusMessage    *message,
                                 DBusError      *error)
 {
@@ -77,6 +87,8 @@ bus_dispatch_broadcast_message (BusTransaction *transaction,
   connections = bus_transaction_get_connections (transaction);
   
   dbus_error_init (&tmp_error);
+  d.sender = sender;
+  d.context = bus_transaction_get_context (transaction);
   d.message = message;
   d.transaction = transaction;
   d.error = &tmp_error;
@@ -90,70 +102,6 @@ bus_dispatch_broadcast_message (BusTransaction *transaction,
     }
   else
     return TRUE;
-}
-
-static dbus_bool_t
-send_service_nonexistent_error (BusTransaction *transaction,
-                                DBusConnection *connection,
-                                const char     *service_name,
-                                DBusMessage    *in_reply_to,
-                                DBusError      *error)
-{
-  DBusMessage *error_reply;
-  DBusString error_message;
-  const char *error_str;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  /* Trying to send a message to a non-existant service,
-   * bounce back an error message.
-   */
-	  
-  if (!_dbus_string_init (&error_message))
-    {
-      BUS_SET_OOM (error);
-      return FALSE;
-    }
-
-  if (!_dbus_string_append (&error_message, "Service \"") ||
-      !_dbus_string_append (&error_message, service_name) ||
-      !_dbus_string_append (&error_message, "\" does not exist"))
-    {
-      _dbus_string_free (&error_message);
-      BUS_SET_OOM (error);
-      return FALSE;
-    }
-              
-  error_str = _dbus_string_get_const_data (&error_message);
-  error_reply = dbus_message_new_error_reply (in_reply_to,
-                                              DBUS_ERROR_SERVICE_DOES_NOT_EXIST,
-                                              error_str);
-
-  _dbus_string_free (&error_message);
-              
-  if (error_reply == NULL)
-    {
-      BUS_SET_OOM (error);
-      return FALSE;
-    }
-
-  if (!dbus_message_set_sender (error_reply, DBUS_SERVICE_DBUS))
-    {
-      dbus_message_unref (error_reply);
-      BUS_SET_OOM (error);
-      return FALSE;
-    }      
-  
-  if (!bus_transaction_send_message (transaction, connection, error_reply))
-    {
-      dbus_message_unref (error_reply);
-      BUS_SET_OOM (error);
-      return FALSE;
-    }
-              
-  dbus_message_unref (error_reply);
-
-  return TRUE;
 }
 
 static void
@@ -188,9 +136,10 @@ bus_dispatch (DBusConnection *connection,
   _dbus_verbose ("DISPATCH: %s to %s\n",
                  message_name, service_name ? service_name : "peer");
   
-  /* If service_name is NULL, this is a message to the bus daemon, not intended
-   * to actually go "on the bus"; e.g. a peer-to-peer ping. Handle these
-   * immediately, especially disconnection messages.
+  /* If service_name is NULL, this is a message to the bus daemon, not
+   * intended to actually go "on the bus"; e.g. a peer-to-peer
+   * ping. Handle these immediately, especially disconnection
+   * messages. There are no security policy checks on these.
    */
   if (service_name == NULL)
     {      
@@ -235,6 +184,10 @@ bus_dispatch (DBusConnection *connection,
 
   if (strcmp (service_name, DBUS_SERVICE_DBUS) == 0) /* to bus driver */
     {
+      if (!bus_context_check_security_policy (context,
+                                              connection, NULL, message, &error))
+        goto out;
+      
       if (!bus_driver_handle_message (connection, transaction, message, &error))
       	goto out;
     }
@@ -249,7 +202,7 @@ bus_dispatch (DBusConnection *connection,
    */
   else if (strcmp (service_name, DBUS_SERVICE_BROADCAST) == 0) /* spam! */
     {
-      if (!bus_dispatch_broadcast_message (transaction, message, &error))
+      if (!bus_dispatch_broadcast_message (transaction, connection, message, &error))
         goto out;
     }
   else  /* route to named service */
@@ -265,19 +218,25 @@ bus_dispatch (DBusConnection *connection,
 
       if (service == NULL)
         {
-          if (!send_service_nonexistent_error (transaction, connection,
-                                               service_name,
-                                               message, &error))
-            goto out;
+          dbus_set_error (&error,
+                          DBUS_ERROR_SERVICE_DOES_NOT_EXIST,
+                          "Service \"%s\" does not exist",
+                          service_name);
+          goto out;
         }
       else
         {
-          _dbus_assert (bus_service_get_primary_owner (service) != NULL);
-      
+          DBusConnection *recipient;
+          
+          recipient = bus_service_get_primary_owner (service);
+          _dbus_assert (recipient != NULL);
+          
+          if (!bus_context_check_security_policy (context,
+                                                  connection, recipient, message, &error))
+            goto out;
+          
           /* Dispatch the message */
-          if (!bus_transaction_send_message (transaction,
-                                             bus_service_get_primary_owner (service),
-                                             message))
+          if (!bus_transaction_send (transaction, recipient, message))
             {
               BUS_SET_OOM (&error);
               goto out;
@@ -316,7 +275,7 @@ bus_dispatch (DBusConnection *connection,
                                                  &error, message))
             {
               bus_connection_send_oom_error (connection, message);
-
+              
               /* cancel transaction due to OOM */
               if (transaction != NULL)
                 {
@@ -608,8 +567,9 @@ kill_client_connection_unchecked (DBusConnection *connection)
   /* dispatching disconnect handler will unref once */
   if (bus_connection_dispatch_one_message (connection))
     _dbus_assert_not_reached ("message other than disconnect dispatched after failure to register");
-  dbus_connection_unref (connection);
+
   _dbus_assert (!bus_test_client_listed (connection));
+  dbus_connection_unref (connection);
 }
 
 typedef struct
@@ -740,10 +700,12 @@ check_hello_message (BusContext     *context,
   DBusError error;
   char *name;
   char *acquired;
-  
+
+  retval = FALSE;
   dbus_error_init (&error);
   name = NULL;
   acquired = NULL;
+  message = NULL;
   
   message = dbus_message_new (DBUS_SERVICE_DBUS,
 			      DBUS_MESSAGE_HELLO);
@@ -760,15 +722,22 @@ check_hello_message (BusContext     *context,
   dbus_message_unref (message);
   message = NULL;
 
-  bus_test_run_everything (context);
+  /* send our message */
+  bus_test_run_clients_loop (TRUE);
+
+  dbus_connection_ref (connection); /* because we may get disconnected */
+  block_connection_until_message_from_bus (context, connection);
 
   if (!dbus_connection_get_is_connected (connection))
     {
       _dbus_verbose ("connection was disconnected\n");
+
+      dbus_connection_unref (connection);
+      
       return TRUE;
     }
-  
-  retval = FALSE;
+
+  dbus_connection_unref (connection);
   
   message = pop_message_waiting_for_memory (connection);
   if (message == NULL)
@@ -1390,7 +1359,10 @@ check_send_exit_to_service (BusContext     *context,
   message = dbus_connection_borrow_message (connection);
   got_error = message != NULL && dbus_message_get_is_error (message);
   if (message)
-    dbus_connection_return_message (connection, message);
+    {
+      dbus_connection_return_message (connection, message);
+      message = NULL;
+    }
           
   if (!got_error)
     {
@@ -1944,6 +1916,12 @@ bus_dispatch_test (const DBusString *test_data_dir)
   if (!check_hello_message (context, baz))
     _dbus_assert_not_reached ("hello message failed");
 
+  if (!check_no_leftovers (context))
+    {
+      _dbus_warn ("Messages were left over after setting up initial connections");
+      _dbus_assert_not_reached ("initial connection setup failed");
+    }
+  
   check1_try_iterations (context, "create_and_hello",
                          check_hello_connection);
   

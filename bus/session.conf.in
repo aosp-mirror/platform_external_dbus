@@ -15,6 +15,7 @@
     <allow send="*"/>
     <allow receive="*"/>
     <allow own="*"/>
+    <allow user="*"/>  
   </policy>
 
   <!-- This is included last so local configuration can override what's 

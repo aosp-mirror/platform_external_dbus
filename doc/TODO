@@ -82,3 +82,7 @@
    after the message bus has processed your message but before the service has replied, 
    it would be nice if the message bus sent you an error reply.
 
+ - We have a limit on the number of messages a connection can send, but 
+   not on how many can be buffered for a given connection.
+
+ - make client serial and reply serial unsigned and add dbus_message_get_is_reply()

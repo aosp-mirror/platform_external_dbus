@@ -100,6 +100,7 @@ struct DBusTransport
   unsigned int send_credentials_pending : 1;  /**< #TRUE if we need to send credentials */
   unsigned int receive_credentials_pending : 1; /**< #TRUE if we need to receive credentials */
   unsigned int is_server : 1;                 /**< #TRUE if on the server side */
+  unsigned int unused_bytes_recovered : 1;    /**< #TRUE if we've recovered unused bytes from auth */
 };
 
 dbus_bool_t _dbus_transport_init_base     (DBusTransport             *transport,

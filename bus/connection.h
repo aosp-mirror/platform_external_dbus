@@ -84,7 +84,10 @@ typedef void (* BusTransactionCancelFunction) (void *data);
 BusTransaction* bus_transaction_new              (BusContext                   *context);
 BusContext*     bus_transaction_get_context      (BusTransaction               *transaction);
 BusConnections* bus_transaction_get_connections  (BusTransaction               *transaction);
-dbus_bool_t     bus_transaction_send_message     (BusTransaction               *transaction,
+dbus_bool_t     bus_transaction_send             (BusTransaction               *transaction,
+                                                  DBusConnection               *connection,
+                                                  DBusMessage                  *message);
+dbus_bool_t     bus_transaction_send_from_driver (BusTransaction               *transaction,
                                                   DBusConnection               *connection,
                                                   DBusMessage                  *message);
 dbus_bool_t     bus_transaction_send_error_reply (BusTransaction               *transaction,

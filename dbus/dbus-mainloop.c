@@ -47,6 +47,7 @@ typedef enum
 
 typedef struct
 {
+  int refcount;
   CallbackType type;
   void *data;
   DBusFreeFunction free_data_func;
@@ -74,10 +75,10 @@ typedef struct
 #define TIMEOUT_CALLBACK(callback) ((TimeoutCallback*)callback)
 
 static WatchCallback*
-watch_callback_new (DBusWatch        *watch,
+watch_callback_new (DBusWatch         *watch,
                     DBusWatchFunction  function,
-                    void             *data,
-                    DBusFreeFunction  free_data_func)
+                    void              *data,
+                    DBusFreeFunction   free_data_func)
 {
   WatchCallback *cb;
 
@@ -88,18 +89,19 @@ watch_callback_new (DBusWatch        *watch,
   cb->watch = watch;
   cb->function = function;
   cb->last_iteration_oom = FALSE;
+  cb->callback.refcount = 1;
   cb->callback.type = CALLBACK_WATCH;
   cb->callback.data = data;
   cb->callback.free_data_func = free_data_func;
-
+  
   return cb;
 }
 
 static TimeoutCallback*
-timeout_callback_new (DBusTimeout        *timeout,
+timeout_callback_new (DBusTimeout         *timeout,
                       DBusTimeoutFunction  function,
-                      void               *data,
-                      DBusFreeFunction    free_data_func)
+                      void                *data,
+                      DBusFreeFunction     free_data_func)
 {
   TimeoutCallback *cb;
 
@@ -111,6 +113,7 @@ timeout_callback_new (DBusTimeout        *timeout,
   cb->function = function;
   _dbus_get_current_time (&cb->last_tv_sec,
                           &cb->last_tv_usec);
+  cb->callback.refcount = 1;    
   cb->callback.type = CALLBACK_TIMEOUT;
   cb->callback.data = data;
   cb->callback.free_data_func = free_data_func;
@@ -119,12 +122,27 @@ timeout_callback_new (DBusTimeout        *timeout,
 }
 
 static void
-callback_free (Callback *cb)
+callback_ref (Callback *cb)
 {
-  if (cb->free_data_func)
-    (* cb->free_data_func) (cb->data);
+  _dbus_assert (cb->refcount > 0);
+  
+  cb->refcount += 1;
+}
 
-  dbus_free (cb);
+static void
+callback_unref (Callback *cb)
+{
+  _dbus_assert (cb->refcount > 0);
+
+  cb->refcount -= 1;
+
+  if (cb->refcount == 0)
+    {
+      if (cb->free_data_func)
+        (* cb->free_data_func) (cb->data);
+      
+      dbus_free (cb);
+    }
 }
 
 static dbus_bool_t
@@ -165,7 +183,7 @@ remove_callback (DBusLoop  *loop,
       break;
     }
   
-  callback_free (cb);
+  callback_unref (cb);
   _dbus_list_remove_link (&loop->callbacks, link);
   loop->callback_list_serial += 1;
 }
@@ -229,7 +247,7 @@ _dbus_loop_add_watch (DBusLoop          *loop,
   if (!add_callback (loop, (Callback*) wcb))
     {
       wcb->callback.free_data_func = NULL; /* don't want to have this side effect */
-      callback_free ((Callback*) wcb);
+      callback_unref ((Callback*) wcb);
       return FALSE;
     }
   
@@ -283,7 +301,7 @@ _dbus_loop_add_timeout (DBusLoop            *loop,
   if (!add_callback (loop, (Callback*) tcb))
     {
       tcb->callback.free_data_func = NULL; /* don't want to have this side effect */
-      callback_free ((Callback*) tcb);
+      callback_unref ((Callback*) tcb);
       return FALSE;
     }
   
@@ -490,6 +508,7 @@ _dbus_loop_iterate (DBusLoop     *loop,
       
   fds = NULL;
   watches_for_fds = NULL;
+  n_fds = 0;
   oom_watch_pending = FALSE;
   orig_depth = loop->depth;
   
@@ -578,6 +597,8 @@ _dbus_loop_iterate (DBusLoop     *loop,
               else if (dbus_watch_get_enabled (wcb->watch))
                 {
                   watches_for_fds[i] = wcb;
+
+                  callback_ref (cb);
                   
                   flags = dbus_watch_get_flags (wcb->watch);
                   
@@ -726,7 +747,7 @@ _dbus_loop_iterate (DBusLoop     *loop,
               unsigned int condition;
                   
               wcb = watches_for_fds[i];
-                  
+              
               condition = 0;
               if (fds[i].revents & _DBUS_POLLIN)
                 condition |= DBUS_WATCH_READABLE;
@@ -765,8 +786,18 @@ _dbus_loop_iterate (DBusLoop     *loop,
  next_iteration:
   if (fds && fds != static_fds)
     dbus_free (fds);
-  if (watches_for_fds && watches_for_fds != static_watches_for_fds)
-    dbus_free (watches_for_fds);
+  if (watches_for_fds)
+    {
+      i = 0;
+      while (i < n_fds)
+        {
+          callback_unref (&watches_for_fds[i]->callback);
+          ++i;
+        }
+      
+      if (watches_for_fds != static_watches_for_fds)
+        dbus_free (watches_for_fds);
+    }
   
   if (_dbus_loop_dispatch (loop))
     retval = TRUE;

@@ -148,7 +148,8 @@ dbus_bool_t _dbus_get_group_id (const DBusString  *group_name,
                                 dbus_gid_t        *gid);
 dbus_bool_t _dbus_get_groups   (dbus_uid_t         uid,
                                 dbus_gid_t       **group_ids,
-                                int               *n_group_ids);
+                                int               *n_group_ids,
+                                DBusError         *error);
 
 unsigned long _dbus_getpid (void);
 

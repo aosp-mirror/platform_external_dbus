@@ -30,6 +30,7 @@
 dbus_bool_t bus_dispatch_add_connection    (DBusConnection *connection);
 void        bus_dispatch_remove_connection (DBusConnection *connection);
 dbus_bool_t bus_dispatch_broadcast_message (BusTransaction *transaction,
+                                            DBusConnection *sender,
                                             DBusMessage    *message,
                                             DBusError      *error);
 

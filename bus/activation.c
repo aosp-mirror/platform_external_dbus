@@ -582,8 +582,7 @@ bus_activation_service_created (BusActivation  *activation,
 	      goto error;
 	    }
 
-	  if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS) ||
-              !dbus_message_append_args (message,
+	  if (!dbus_message_append_args (message,
 					 DBUS_TYPE_UINT32, DBUS_ACTIVATION_REPLY_ACTIVATED,
 					 0))
 	    {
@@ -592,7 +591,7 @@ bus_activation_service_created (BusActivation  *activation,
 	      goto error;
 	    }
           
-	  if (!bus_transaction_send_message (transaction, entry->connection, message))
+	  if (!bus_transaction_send_from_driver (transaction, entry->connection, message))
 	    {
 	      dbus_message_unref (message);
 	      BUS_SET_OOM (error);
@@ -654,14 +653,8 @@ try_send_activation_failure (BusPendingActivation *pending_activation,
                                                   how->message);
 	  if (!message)
             goto error;
-
-	  if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS))
-            {
-	      dbus_message_unref (message);
-	      goto error;
-	    }
           
-	  if (!bus_transaction_send_message (transaction, entry->connection, message))
+	  if (!bus_transaction_send_from_driver (transaction, entry->connection, message))
 	    {
 	      dbus_message_unref (message);
 	      goto error;
@@ -861,8 +854,7 @@ bus_activation_activate_service (BusActivation  *activation,
 	  return FALSE;
 	}
 
-      if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS) ||
-          !dbus_message_append_args (message,
+      if (!dbus_message_append_args (message,
 				     DBUS_TYPE_UINT32, DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE, 
 				     0))
 	{
@@ -872,7 +864,7 @@ bus_activation_activate_service (BusActivation  *activation,
 	  return FALSE;
 	}
 
-      retval = bus_transaction_send_message (transaction, connection, message);
+      retval = bus_transaction_send_from_driver (transaction, connection, message);
       dbus_message_unref (message);
       if (!retval)
         {

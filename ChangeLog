@@ -1,5 +1,34 @@
 2003-04-13  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-mainloop.c: fix some reentrancy issues by refcounting 
+	callbacks
+
+	* test/data/valid-config-files/debug-allow-all.conf.in: allow all
+	users
+
+	* dbus/dbus-transport.c (_dbus_transport_get_dispatch_status):
+	fix to only recover unused bytes if we're already authenticated
+	(_dbus_transport_get_is_authenticated): fix to still mark us 
+	authenticated if there are unused bytes.
+
+	* bus/dispatch.c: implement security policy checking
+	
+	* bus/connection.c (bus_transaction_send_from_driver): new
+
+	* bus/bus.c (bus_context_check_security_policy): new
+
+	* bus/dispatch.c (send_service_nonexistent_error): delete this,
+	now we just set the DBusError and it gets converted to an error
+	reply.
+
+	* bus/connection.c (allow_user_function): enable code using actual
+	data from the config file
+
+	* bus/policy.c (list_allows_user): handle wildcard rules for
+	user/group connection perms
+
+2003-04-13  Havoc Pennington  <hp@pobox.com>
+
 	* bus/config-parser.c: Load up the BusPolicy and BusPolicyRules
 	
 	* dbus/dbus-sysdeps.c (_dbus_get_user_id): new function

@@ -1315,7 +1315,8 @@ static dbus_bool_t
 store_user_info (struct passwd    *p,
                  DBusCredentials  *credentials,
                  DBusString       *homedir,
-                 DBusString       *username_out)
+                 DBusString       *username_out,
+                 DBusError        *error)
 {
   int old_homedir_len;
   
@@ -1332,7 +1333,7 @@ store_user_info (struct passwd    *p,
       
       if (!_dbus_string_append (homedir, p->pw_dir))
         {
-          _dbus_verbose ("No memory to get homedir\n");
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           return FALSE;
         }
     }
@@ -1342,7 +1343,7 @@ store_user_info (struct passwd    *p,
     {
       if (homedir)
         _dbus_string_set_length (homedir, old_homedir_len);
-      _dbus_verbose ("No memory to get username\n");
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return FALSE;
     }
       
@@ -1363,6 +1364,7 @@ store_user_info (struct passwd    *p,
  * @param credentials to fill in or #NULL
  * @param homedir string to append homedir to or #NULL
  * @param username_out string to append username to or #NULL
+ * @param error return location for reason for failure
  *
  * @returns #TRUE on success
  */
@@ -1371,7 +1373,8 @@ get_user_info (const DBusString *username,
                dbus_uid_t        uid,
                DBusCredentials  *credentials,
                DBusString       *homedir,
-               DBusString       *username_out)
+               DBusString       *username_out,
+               DBusError        *error)
 {
   const char *username_c_str;
       
@@ -1417,10 +1420,13 @@ get_user_info (const DBusString *username,
     if (result == 0 && p == &p_str)
       {
         return store_user_info (p, credentials, homedir,
-                                username_out);
+                                username_out, error);
       }
     else
       {
+        dbus_set_error (error, DBUS_ERROR_FAILED,
+                        "User \"%s\" unknown or no memory to allocate password entry\n",
+                        username_c_str);
         _dbus_verbose ("User %s unknown\n", username_c_str);
         return FALSE;
       }
@@ -1438,10 +1444,13 @@ get_user_info (const DBusString *username,
     if (p != NULL)
       {
         return store_user_info (p, credentials, homedir,
-                                username_out);
+                                username_out, error);
       }
     else
       {
+        dbus_set_error (error, DBUS_ERROR_FAILED,
+                        "User \"%s\" unknown or no memory to allocate password entry\n",
+                        username_c_str);
         _dbus_verbose ("User %s unknown\n", username_c_str);
         return FALSE;
       }
@@ -1474,7 +1483,7 @@ dbus_bool_t
 _dbus_credentials_from_username (const DBusString *username,
                                  DBusCredentials  *credentials)
 {
-  return get_user_info (username, -1, credentials, NULL, NULL);
+  return get_user_info (username, -1, credentials, NULL, NULL, NULL);
 }
 
 /**
@@ -1512,7 +1521,7 @@ dbus_bool_t
 _dbus_credentials_from_user_id (unsigned long     user_id,
                                 DBusCredentials  *credentials)
 {
-  return get_user_info (NULL, user_id, credentials, NULL, NULL);
+  return get_user_info (NULL, user_id, credentials, NULL, NULL, NULL);
 }
 
 _DBUS_DEFINE_GLOBAL_LOCK (user_info);
@@ -1570,7 +1579,7 @@ _dbus_user_info_from_current_process (const DBusString      **username,
       _dbus_credentials_clear (&u.creds);
 
       if (!get_user_info (NULL, getuid (),
-                          &u.creds, &u.dir, &u.name))
+                          &u.creds, &u.dir, &u.name, NULL))
         goto fail_init;
       
       if (!_dbus_register_shutdown_func (shutdown_user_info,
@@ -1611,7 +1620,7 @@ dbus_bool_t
 _dbus_homedir_from_username (const DBusString *username,
                              DBusString       *homedir)
 {
-  return get_user_info (username, -1, NULL, homedir, NULL);
+  return get_user_info (username, -1, NULL, homedir, NULL, NULL);
 }
 
 /**
@@ -1773,21 +1782,20 @@ _dbus_get_group_id (const DBusString *group_name,
 /**
  * Gets all groups for a particular user. Returns #FALSE
  * if no memory, or user isn't known, but always initializes
- * group_ids to a NULL array.
- *
- * @todo failing to distinguish "out of memory" from
- * "unknown user" is kind of bogus and would probably
- * result in a failure in a comprehensive test suite.
+ * group_ids to a NULL array. Sets error to the reason
+ * for returning #FALSE.
  *
  * @param uid the user ID
  * @param group_ids return location for array of group IDs
  * @param n_group_ids return location for length of returned array
+ * @param error return location for error
  * @returns #TRUE on success
  */
 dbus_bool_t
 _dbus_get_groups (unsigned long   uid,
                   unsigned long **group_ids,
-                  int            *n_group_ids)
+                  int            *n_group_ids,
+                  DBusError      *error)
 {
   DBusCredentials creds;
   DBusString username;
@@ -1800,10 +1808,13 @@ _dbus_get_groups (unsigned long   uid,
   retval = FALSE;
 
   if (!_dbus_string_init (&username))
-    return FALSE;
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return FALSE;
+    }
 
   if (!get_user_info (NULL, uid, &creds,
-                      NULL, &username) ||
+                      NULL, &username, error) ||
       creds.gid == DBUS_GID_UNSET)
     goto out;
 
@@ -1818,7 +1829,10 @@ _dbus_get_groups (unsigned long   uid,
     buf_count = 17;
     buf = dbus_new (gid_t, buf_count);
     if (buf == NULL)
-      goto out;
+      {
+        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+        goto out;
+      }
     
     if (getgrouplist (username_c,
                       creds.gid,
@@ -1827,6 +1841,7 @@ _dbus_get_groups (unsigned long   uid,
         gid_t *new = dbus_realloc (buf, buf_count * sizeof (buf[0]));
         if (new == NULL)
           {
+            dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
             dbus_free (buf);
             goto out;
           }
@@ -1839,6 +1854,7 @@ _dbus_get_groups (unsigned long   uid,
     *group_ids = dbus_new (unsigned long, buf_count);
     if (*group_ids == NULL)
       {
+        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
         dbus_free (buf);
         goto out;
       }
@@ -1855,19 +1871,28 @@ _dbus_get_groups (unsigned long   uid,
     /* We just get the one group ID */
     *group_ids = dbus_new (unsigned long, 1);
     if (*group_ids == NULL)
-      goto out;
+      {
+        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+        goto out;
+      }
 
     *n_group_ids = 1;
 
     (*group_ids)[0] = creds.gid;
   }
 #endif /* HAVE_GETGROUPLIST */
+  
+  retval = TRUE;
+  
+ out:
+  _dbus_string_free (&username);
 
-    retval = TRUE;
-    
-  out:
-    _dbus_string_free (&username);
-    return retval;
+  if (retval)
+    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  else
+    _DBUS_ASSERT_ERROR_IS_SET (error);
+  
+  return retval;
 }
 
 /**

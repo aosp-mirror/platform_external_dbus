@@ -73,7 +73,7 @@ bus_policy_rule_unref (BusPolicyRule *rule)
   _dbus_assert (rule->refcount > 0);
 
   rule->refcount -= 1;
-
+  
   if (rule->refcount == 0)
     {
       switch (rule->type)
@@ -90,10 +90,8 @@ bus_policy_rule_unref (BusPolicyRule *rule)
           dbus_free (rule->d.own.service_name);
           break;
         case BUS_POLICY_RULE_USER:
-          dbus_free (rule->d.user.user);
           break;
         case BUS_POLICY_RULE_GROUP:
-          dbus_free (rule->d.group.group);
           break;
         }
       
@@ -239,7 +237,6 @@ bus_policy_create_client_policy (BusPolicy      *policy,
 {
   BusClientPolicy *client;
   unsigned long uid;
-  DBusList **list;
 
   _dbus_assert (dbus_connection_get_is_authenticated (connection));
   
@@ -266,6 +263,8 @@ bus_policy_create_client_policy (BusPolicy      *policy,
       i = 0;
       while (i < n_groups)
         {
+          DBusList **list;
+          
           list = _dbus_hash_table_lookup_ulong (policy->rules_by_gid,
                                                 groups[i]);
           
@@ -282,12 +281,20 @@ bus_policy_create_client_policy (BusPolicy      *policy,
   if (!dbus_connection_get_unix_user (connection, &uid))
     goto failed;
 
-  list = _dbus_hash_table_lookup_ulong (policy->rules_by_uid,
-                                        uid);
+  if (_dbus_hash_table_get_n_entries (policy->rules_by_uid) > 0)
+    {
+      DBusList **list;
+      
+      list = _dbus_hash_table_lookup_ulong (policy->rules_by_uid,
+                                            uid);
 
-  if (!add_list_to_client (list, client))
-    goto failed;
-  
+      if (list != NULL)
+        {
+          if (!add_list_to_client (list, client))
+            goto failed;
+        }
+    }
+
   if (!add_list_to_client (&policy->mandatory_rules,
                            client))
     goto failed;
@@ -310,9 +317,6 @@ list_allows_user (dbus_bool_t           def,
 {
   DBusList *link;
   dbus_bool_t allowed;
-
-  /* FIXME there's currently no handling of wildcard user/group rules.
-   */
   
   allowed = def;
 
@@ -324,23 +328,36 @@ list_allows_user (dbus_bool_t           def,
       
       if (rule->type == BUS_POLICY_RULE_USER)
         {
-          if (rule->d.user.uid != uid)
+          _dbus_verbose ("List %p user rule uid="DBUS_UID_FORMAT"\n",
+                         list, rule->d.user.uid);
+          
+          if (rule->d.user.uid == DBUS_UID_UNSET)
+            ; /* '*' wildcard */
+          else if (rule->d.user.uid != uid)
             continue;
         }
       else if (rule->type == BUS_POLICY_RULE_GROUP)
         {
-          int i;
-
-          i = 0;
-          while (i < n_group_ids)
+          _dbus_verbose ("List %p group rule uid="DBUS_UID_FORMAT"\n",
+                         list, rule->d.user.uid);
+          
+          if (rule->d.group.gid == DBUS_GID_UNSET)
+            ;  /* '*' wildcard */
+          else
             {
-              if (rule->d.group.gid == group_ids[i])
-                break;
-              ++i;
+              int i;
+              
+              i = 0;
+              while (i < n_group_ids)
+                {
+                  if (rule->d.group.gid == group_ids[i])
+                    break;
+                  ++i;
+                }
+              
+              if (i == n_group_ids)
+                continue;
             }
-
-          if (i == n_group_ids)
-            continue;
         }
       else
         continue;
@@ -360,7 +377,7 @@ bus_policy_allow_user (BusPolicy    *policy,
   int n_group_ids;
 
   /* On OOM or error we always reject the user */
-  if (!_dbus_get_groups (uid, &group_ids, &n_group_ids))
+  if (!_dbus_get_groups (uid, &group_ids, &n_group_ids, NULL))
     {
       _dbus_verbose ("Did not get any groups for UID %lu\n",
                      uid);
@@ -381,6 +398,8 @@ bus_policy_allow_user (BusPolicy    *policy,
 
   dbus_free (group_ids);
 
+  _dbus_verbose ("UID %lu allowed = %d\n", uid, allowed);
+  
   return allowed;
 }
 
@@ -536,15 +555,18 @@ remove_rules_by_type_up_to (BusClientPolicy   *policy,
 {
   DBusList *link;
 
-  link = _dbus_list_get_first (&policy->rules);
+  link = _dbus_list_get_first_link (&policy->rules);
   while (link != up_to)
     {
       BusPolicyRule *rule = link->data;
       DBusList *next = _dbus_list_get_next_link (&policy->rules, link);
 
-      bus_policy_rule_unref (rule);
-      _dbus_list_remove_link (&policy->rules, link);
-
+      if (rule->type == type)
+        {
+          _dbus_list_remove_link (&policy->rules, link);
+          bus_policy_rule_unref (rule);
+        }
+      
       link = next;
     }
 }
@@ -571,14 +593,19 @@ bus_client_policy_optimize (BusClientPolicy *policy)
   _dbus_verbose ("Optimizing policy with %d rules\n",
                  _dbus_list_get_length (&policy->rules));
   
-  link = _dbus_list_get_first (&policy->rules);
+  link = _dbus_list_get_first_link (&policy->rules);
   while (link != NULL)
     {
-      BusPolicyRule *rule = link->data;
-      DBusList *next = _dbus_list_get_next_link (&policy->rules, link);
+      BusPolicyRule *rule;
+      DBusList *next;
       dbus_bool_t remove_preceding;
 
+      next = _dbus_list_get_next_link (&policy->rules, link);
+      rule = link->data;
+      
       remove_preceding = FALSE;
+
+      _dbus_assert (rule != NULL);
       
       switch (rule->type)
         {
@@ -601,7 +628,7 @@ bus_client_policy_optimize (BusClientPolicy *policy)
           _dbus_assert_not_reached ("invalid rule");
           break;
         }
-                
+
       if (remove_preceding)
         remove_rules_by_type_up_to (policy, rule->type,
                                     link);
@@ -617,6 +644,9 @@ dbus_bool_t
 bus_client_policy_append_rule (BusClientPolicy *policy,
                                BusPolicyRule   *rule)
 {
+  _dbus_verbose ("Appending rule %p with type %d to policy %p\n",
+                 rule, rule->type, policy);
+  
   if (!_dbus_list_append (&policy->rules, rule))
     return FALSE;
 
@@ -639,7 +669,7 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
    */
 
   allowed = FALSE;
-  link = _dbus_list_get_first (&policy->rules);
+  link = _dbus_list_get_first_link (&policy->rules);
   while (link != NULL)
     {
       BusPolicyRule *rule = link->data;
@@ -711,7 +741,7 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
    */
 
   allowed = FALSE;
-  link = _dbus_list_get_first (&policy->rules);
+  link = _dbus_list_get_first_link (&policy->rules);
   while (link != NULL)
     {
       BusPolicyRule *rule = link->data;
@@ -783,7 +813,7 @@ bus_client_policy_check_can_own (BusClientPolicy  *policy,
    */
 
   allowed = FALSE;
-  link = _dbus_list_get_first (&policy->rules);
+  link = _dbus_list_get_first_link (&policy->rules);
   while (link != NULL)
     {
       BusPolicyRule *rule = link->data;
