@@ -1,5 +1,9 @@
 2003-02-02  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/dbus.h: Add dbus-address.h and dbus-bus.h
+
+2003-02-02  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-server.c: (dbus_server_listen):
 	* dbus/dbus-transport.c: (_dbus_transport_open):
 	ifdef out the calls to the debug transport and server.

@@ -26,6 +26,8 @@
 
 #define DBUS_INSIDE_DBUS_H 1
 
+#include <dbus/dbus-address.h>
+#include <dbus/dbus-bus.h>
 #include <dbus/dbus-connection.h>
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-macros.h>
