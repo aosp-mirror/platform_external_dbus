@@ -1,5 +1,11 @@
 2003-01-26  Anders Carlsson  <andersca@codefactory.se>
 
+	* bus/driver.c: (bus_driver_handle_hello),
+	(bus_driver_send_welcome_message):
+	Plug leaks
+	
+2003-01-26  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-auth.c: (process_auth), (_dbus_auth_unref):
 	* dbus/dbus-connection.c: (_dbus_connection_new_for_transport),
 	(dbus_connection_unref):

@@ -144,11 +144,16 @@ bus_driver_handle_hello (DBusConnection *connection,
 						       0)) != DBUS_RESULT_NO_MEMORY);
 
   if (result != DBUS_RESULT_SUCCESS)
-    dbus_connection_disconnect (connection);
-
+    {
+      dbus_free (name);
+      dbus_connection_disconnect (connection);
+    }
+  
   _DBUS_HANDLE_OOM (_dbus_string_init (&unique_name, _DBUS_INT_MAX));
 
   _DBUS_HANDLE_OOM (create_unique_client_name (name, &unique_name));
+  
+  dbus_free (name);
   
   /* Create the service */
   _DBUS_HANDLE_OOM (service = bus_service_lookup (&unique_name, TRUE));
@@ -188,6 +193,8 @@ bus_driver_send_welcome_message (DBusConnection *connection,
 						NULL));
   
   _DBUS_HANDLE_OOM (dbus_connection_send_message (connection, welcome, NULL, NULL));
+
+  dbus_message_unref (welcome);
 }
 
 static void
