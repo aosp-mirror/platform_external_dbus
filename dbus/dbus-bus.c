@@ -549,7 +549,7 @@ dbus_bus_get_base_service (DBusConnection *connection)
  * Asks the bus to return the uid of a service.
  *
  * @param connection the connection
- * @param service_name the service name
+ * @param service the service name
  * @param error location to store the error
  * @returns a result code, -1 if error is set
  */ 

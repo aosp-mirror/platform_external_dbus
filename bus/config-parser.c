@@ -346,9 +346,6 @@ bus_config_parser_new (const DBusString      *basedir,
       
       _dbus_string_free (&parser->basedir);
 
-      if (parser->service_sid_table == NULL)
-        _dbus_hash_table_unref (parser->service_sid_table);
-      
       dbus_free (parser);
       return NULL;
     }

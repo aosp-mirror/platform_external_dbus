@@ -8,7 +8,8 @@
                      auth |
                      include |
                      policy |
-                     limit)*>
+                     limit |
+                     selinux)*>
 
 <!ELEMENT user (#PCDATA)>
 <!ELEMENT listen (#PCDATA)>
@@ -50,3 +51,8 @@
 <!ELEMENT limit (#PCDATA)>
 <!ATTLIST limit name CDATA #REQUIRED>
 
+<!ELEMENT selinux (associate)*>
+<!ELEMENT associate EMPTY>
+<!ATTLIST associate
+          own CDATA #REQUIRED
+          context CDATA #REQUIRED>

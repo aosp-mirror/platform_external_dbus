@@ -1,3 +1,17 @@
+2004-07-31  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* bus/config-parser.c (bus_config_parser_new): fix an invalid
+	_unref in the SELinux support.
+
+	* doc/busconfig.dtd: update DTD for SELinux support.
+
+	* bus/config-loader-libxml.c: fix error handler and parser
+	initialisation/cleanup. OOM test now works with libxml2 HEAD.
+
+	* configure.in: remove the warning about libxml2.
+
+	* dbus/dbus-bus.c: silence doxygen warning.
+
 2004-07-31  Colin Walters  <walters@redhat.com>
 
 	* configure.in: Move #error in SELinux check to its own line.

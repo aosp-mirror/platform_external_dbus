@@ -122,13 +122,12 @@ xml_text_reader_error (void *arg, xmlErrorPtr xml_error)
                  xml_error->code, xml_error->message);
 #endif
 
-  if (!dbus_error_is_set (error) && 
-      (xml_error->level == XML_ERR_ERROR ||
-       xml_error->level == XML_ERR_FATAL))
+  if (!dbus_error_is_set (error))
     {
-      if (xml_error->code != XML_ERR_NO_MEMORY)
+      if (xml_error->code == XML_ERR_NO_MEMORY)
         _DBUS_SET_OOM (error);
-      else
+      else if (xml_error->level == XML_ERR_ERROR ||
+               xml_error->level == XML_ERR_FATAL)
         dbus_set_error (error, DBUS_ERROR_FAILED,
                         "Error loading config file: '%s'",
                         xml_error->message);
@@ -146,7 +145,6 @@ bus_config_load (const DBusString      *file,
   xmlTextReader *reader;
   BusConfigParser *parser;
   DBusString dirname, data;
-  const char *data_str;
   DBusError tmp_error;
   int ret;
   
@@ -154,17 +152,6 @@ bus_config_load (const DBusString      *file,
   
   parser = NULL;
   reader = NULL;
-
-  if (is_toplevel)
-    {
-      /* xmlMemSetup only fails if one of the functions is NULL */
-      xmlMemSetup (dbus_free,
-                   dbus_malloc,
-                   dbus_realloc,
-                   _dbus_strdup);
-      xmlInitParser ();
-      xmlSetGenericErrorFunc (NULL, xml_shut_up);
-    }
 
   if (!_dbus_string_init (&dirname))
     {
@@ -177,6 +164,17 @@ bus_config_load (const DBusString      *file,
       _DBUS_SET_OOM (error);
       _dbus_string_free (&dirname);
       return NULL;
+    }
+
+  if (is_toplevel)
+    {
+      /* xmlMemSetup only fails if one of the functions is NULL */
+      xmlMemSetup (dbus_free,
+                   dbus_malloc,
+                   dbus_realloc,
+                   _dbus_strdup);
+      xmlInitParser ();
+      xmlSetGenericErrorFunc (NULL, xml_shut_up);
     }
 
   if (!_dbus_string_get_dirname (file, &dirname))
@@ -195,9 +193,8 @@ bus_config_load (const DBusString      *file,
   if (!_dbus_file_get_contents (&data, file, error))
     goto failed;
 
-  data_str = _dbus_string_get_const_data (&data);
-
-  reader = xmlReaderForMemory (data_str, _dbus_string_get_length (&data),
+  reader = xmlReaderForMemory (_dbus_string_get_const_data (&data), 
+                               _dbus_string_get_length (&data),
 			       NULL, NULL, 0);
   if (reader == NULL)
     {
@@ -295,8 +292,6 @@ bus_config_load (const DBusString      *file,
 
  reader_out:
   xmlFreeTextReader (reader);
-  if (is_toplevel)
-    xmlCleanupParser(); 
   reader = NULL;
   if (dbus_error_is_set (&tmp_error))
     {
@@ -308,6 +303,8 @@ bus_config_load (const DBusString      *file,
     goto failed;
   _dbus_string_free (&dirname);
   _dbus_string_free (&data);
+  if (is_toplevel)
+    xmlCleanupParser();
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   return parser;
   
@@ -315,6 +312,8 @@ bus_config_load (const DBusString      *file,
   _DBUS_ASSERT_ERROR_IS_SET (error);
   _dbus_string_free (&dirname);
   _dbus_string_free (&data);
+  if (is_toplevel)
+    xmlCleanupParser();
   if (parser)
     bus_config_parser_unref (parser);
   _dbus_assert (reader == NULL); /* must go to reader_out first */

@@ -672,12 +672,6 @@ else
         fi
 fi
 
-if $dbus_use_libxml ; then
-	dnl libxml OOM handling is a bit broken
-	AC_MSG_WARN([libxml loader is not as robust as the expat one wrt. OOM handling])
-fi
-
-
 AM_CONDITIONAL(DBUS_USE_EXPAT, $dbus_use_expat)
 AM_CONDITIONAL(DBUS_USE_LIBXML, $dbus_use_libxml)
 
