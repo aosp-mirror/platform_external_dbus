@@ -1,3 +1,9 @@
+2004-10-17  Colin Walters  <walters@verbum.org>
+
+	* dbus/dbus-memory.c (_dbus_initialize_malloc_debug, check_guards)
+	(dbus_malloc, dbus_malloc0, dbus_realloc): Fix up printf
+	format specifier mismatches.
+
 2004-10-07  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* dbus/dbus-sysdeps.c (_dbus_file_get_contents): fix an incorrect

@@ -137,8 +137,8 @@ _dbus_initialize_malloc_debug (void)
       if (_dbus_getenv ("DBUS_MALLOC_FAIL_GREATER_THAN") != NULL)
         {
           fail_size = atoi (_dbus_getenv ("DBUS_MALLOC_FAIL_GREATER_THAN"));
-          _dbus_verbose ("Will fail mallocs over %d bytes\n",
-                         fail_size);
+          _dbus_verbose ("Will fail mallocs over %ld bytes\n",
+                         (long) fail_size);
         }
 
       if (_dbus_getenv ("DBUS_MALLOC_GUARDS") != NULL)
@@ -340,8 +340,8 @@ check_guards (void *free_block)
           dbus_uint32_t value = *(dbus_uint32_t*) &block[i];
           if (value != GUARD_VALUE)
             {
-              _dbus_warn ("Block of %u bytes from %s had start guard value 0x%x at %d expected 0x%x\n",
-                          requested_bytes, source_string (source),
+              _dbus_warn ("Block of %lu bytes from %s had start guard value 0x%ux at %d expected 0x%x\n",
+                          (long) requested_bytes, source_string (source),
                           value, i, GUARD_VALUE);
               failed = TRUE;
             }
@@ -355,8 +355,8 @@ check_guards (void *free_block)
           dbus_uint32_t value = *(dbus_uint32_t*) &block[i];
           if (value != GUARD_VALUE)
             {
-              _dbus_warn ("Block of %u bytes from %s had end guard value 0x%x at %d expected 0x%x\n",
-                          requested_bytes, source_string (source),
+              _dbus_warn ("Block of %lu bytes from %s had end guard value 0x%ux at %d expected 0x%x\n",
+                          (long) requested_bytes, source_string (source),
                           value, i, GUARD_VALUE);
               failed = TRUE;
             }
@@ -434,7 +434,7 @@ dbus_malloc (size_t bytes)
   
   if (_dbus_decrement_fail_alloc_counter ())
     {
-      _dbus_verbose (" FAILING malloc of %d bytes\n", bytes);
+      _dbus_verbose (" FAILING malloc of %ld bytes\n", (long) bytes);
       
       return NULL;
     }
@@ -485,7 +485,7 @@ dbus_malloc0 (size_t bytes)
   
   if (_dbus_decrement_fail_alloc_counter ())
     {
-      _dbus_verbose (" FAILING malloc0 of %d bytes\n", bytes);
+      _dbus_verbose (" FAILING malloc0 of %ld bytes\n", (long) bytes);
       
       return NULL;
     }
@@ -537,7 +537,7 @@ dbus_realloc (void  *memory,
   
   if (_dbus_decrement_fail_alloc_counter ())
     {
-      _dbus_verbose (" FAILING realloc of %d bytes\n", bytes);
+      _dbus_verbose (" FAILING realloc of %ld bytes\n", (long) bytes);
       
       return NULL;
     }
