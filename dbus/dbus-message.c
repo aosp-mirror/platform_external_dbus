@@ -1934,7 +1934,8 @@ static dbus_bool_t
 decode_header_data (const DBusString   *data,
 		    int		        header_len,
 		    int                 byte_order,
-                    HeaderField         fields[FIELD_LAST])
+                    HeaderField         fields[FIELD_LAST],
+		    int                *message_padding)
 {
   const char *field;
   int pos, new_pos;
@@ -2033,8 +2034,8 @@ decode_header_data (const DBusString   *data,
 	  break;
 
         default:
-	  _dbus_verbose ("Ignoring an unknown header field: %c%c%c%c\n",
-			 field[0], field[1], field[2], field[3]);
+	  _dbus_verbose ("Ignoring an unknown header field: %c%c%c%c at offset %d\n",
+			 field[0], field[1], field[2], field[3], pos);
 	}
 
       if (!_dbus_marshal_validate_arg (data, byte_order, pos, &new_pos))
@@ -2063,6 +2064,9 @@ decode_header_data (const DBusString   *data,
           _dbus_verbose ("header alignment padding is not nul\n");
           return FALSE;
         }
+
+      if (message_padding)
+	*message_padding = header_len - pos;
     }
   
   return TRUE;
@@ -2101,7 +2105,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
     {
       DBusMessage *message;      
       const char *header_data;
-      int byte_order, header_len, body_len;
+      int byte_order, header_len, body_len, header_padding;
       dbus_uint32_t header_len_unsigned, body_len_unsigned;
       
       _dbus_string_get_const_data_len (&loader->data, &header_data, 0, 16);
@@ -2176,8 +2180,9 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
           int i;
           int next_arg;          
 
+	  _dbus_verbose_bytes_of_string (&loader->data, 0, header_len);
  	  if (!decode_header_data (&loader->data, header_len, byte_order,
-                                   fields))
+                                   fields, &header_padding))
 	    {
               _dbus_verbose ("Header was invalid\n");
 	      loader->corrupted = TRUE;
@@ -2215,7 +2220,8 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
             break; /* ugh, postpone this I guess. */
 
           message->byte_order = byte_order;
-          
+          message->header_padding = header_padding;
+	  
           /* Copy in the offsets we found */
           i = 0;
           while (i < FIELD_LAST)

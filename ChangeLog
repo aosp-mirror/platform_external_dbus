@@ -1,3 +1,9 @@
+2003-02-17  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-message.c: (decode_header_data),
+	(_dbus_message_loader_return_buffer):
+	Set the header padding amount when loading a message.
+
 2003-02-16  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/dispatch.c: (send_one_message):
