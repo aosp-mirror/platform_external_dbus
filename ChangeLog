@@ -1,5 +1,28 @@
 2003-02-21  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/dbus-marshal.c: (_dbus_demarshal_string_array):
+	Make string arrays NULL-terminated.
+	
+	* dbus/dbus-memory.c: (dbus_free_string_array):
+	* dbus/dbus-memory.h:
+	New function for freeing NULL-terminated string arrays.
+	
+	* dbus/dbus-message-builder.c: (append_quoted_string),
+	(_dbus_message_data_load):
+	Add support for array types.
+	
+	* dbus/dbus-message.c: (check_message_handling):
+	Add more types as test cases.
+	
+	* dbus/dbus-sysdeps.c: (_dbus_string_parse_int),
+	(_dbus_string_parse_double):
+	Add the start offset to the end offset.
+	
+	* test/data/valid-messages/lots-of-arguments.message:
+	New test message with lots of arguments.
+	
+2003-02-21  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-message.c: (dbus_message_append_nil),
 	(dbus_message_append_int32), (dbus_message_append_uint32),
 	(dbus_message_append_double), (dbus_message_append_string),

@@ -1909,9 +1909,6 @@ dbus_message_iter_get_byte_array (DBusMessageIter  *iter,
  * Note that you need to check that the iterator points
  * to a byte array prior to using this function.
  *
- * @todo this function should probably take "char **" as
- * an out param argument, and return boolean or result code.
- *
  * @param iter the iterator
  * @param len return location for length of byte array
  * @returns the byte array
@@ -2715,6 +2712,17 @@ check_message_handling (DBusMessage *message)
     {
       switch (type)
         {
+	case DBUS_TYPE_NIL:
+	  break;
+	case DBUS_TYPE_INT32:
+	  dbus_message_iter_get_int32 (iter);
+	  break;
+	case DBUS_TYPE_UINT32:
+	  dbus_message_iter_get_uint32 (iter);
+	  break;
+	case DBUS_TYPE_DOUBLE:
+	  dbus_message_iter_get_double (iter);
+	  break;
         case DBUS_TYPE_STRING:
           {
             char *str;
@@ -2722,6 +2730,53 @@ check_message_handling (DBusMessage *message)
             dbus_free (str);
           }
           break;
+        case DBUS_TYPE_INT32_ARRAY:
+          {
+	    dbus_int32_t *values;
+	    int len;
+	    
+            if (!dbus_message_iter_get_int32_array (iter, &values, &len))
+	      return FALSE;
+
+	    dbus_free (values);
+          }
+          break;
+        case DBUS_TYPE_UINT32_ARRAY:
+          {
+	    dbus_uint32_t *values;
+	    int len;
+	    
+            if (!dbus_message_iter_get_uint32_array (iter, &values, &len))
+	      return FALSE;
+
+	    dbus_free (values);
+          }
+          break;
+        case DBUS_TYPE_DOUBLE_ARRAY:
+          {
+	    double *values;
+	    int len;
+	    
+            if (!dbus_message_iter_get_double_array (iter, &values, &len))
+	      return FALSE;
+
+	    dbus_free (values);
+          }
+	  break;
+	case DBUS_TYPE_STRING_ARRAY:
+          {
+	    char **values;
+	    int len;
+	    
+            if (!dbus_message_iter_get_string_array (iter, &values, &len))
+	      return FALSE;
+
+	    dbus_free_string_array (values);
+          }
+          break;
+	  
+	default:
+	  break;
         }
       
       if (!dbus_message_iter_next (iter))

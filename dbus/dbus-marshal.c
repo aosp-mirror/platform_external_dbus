@@ -813,11 +813,13 @@ _dbus_demarshal_string_array (const DBusString *str,
 
   len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
 
-  retval = dbus_new (char *, len);
+  retval = dbus_new (char *, len + 1);
 
   if (!retval)
     return NULL;
 
+  retval[len] = NULL;
+  
   for (i = 0; i < len; i++)
     {
       retval[i] = _dbus_demarshal_string (str, byte_order, pos, &pos);

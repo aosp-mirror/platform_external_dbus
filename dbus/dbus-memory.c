@@ -220,4 +220,28 @@ dbus_free (void  *memory)
     free (memory);
 }
 
+/**
+ * Frees a #NULL-terminated array of strings.
+ * If passed #NULL, does nothing.
+ *
+ * @param str_array the array to be freed
+ */
+void
+dbus_free_string_array (char **str_array)
+{
+  if (str_array)
+    {
+      int i;
+
+      i = 0;
+      while (str_array[i])
+	{
+	  dbus_free (str_array[i]);
+	  i++;
+	}
+
+      dbus_free (str_array);
+    }
+}
+
 /** @} */

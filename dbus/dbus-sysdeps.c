@@ -925,7 +925,7 @@ _dbus_string_parse_int (const DBusString *str,
   if (value_return)
     *value_return = v;
   if (end_return)
-    *end_return = (end - p);
+    *end_return = start + (end - p);
 
   return TRUE;
 }
@@ -970,7 +970,7 @@ _dbus_string_parse_double (const DBusString *str,
   if (value_return)
     *value_return = v;
   if (end_return)
-    *end_return = (end - p);
+    *end_return = start + (end - p);
 
   return TRUE;
 }

@@ -189,12 +189,18 @@ save_offset (DBusHashTable    *hash,
 
 static dbus_bool_t
 append_quoted_string (DBusString       *dest,
-                      const DBusString *quoted)
+                      const DBusString *quoted,
+		      int               start_pos,
+		      int              *new_pos)
 {
   dbus_bool_t in_quotes = FALSE;
   int i;
 
-  i = 0;
+  /* FIXME: We might want to add escaping in case we want to put '
+   * characters in our strings.
+   */
+  
+  i = start_pos;
   while (i < _dbus_string_get_length (quoted))
     {
       unsigned char b;
@@ -204,7 +210,7 @@ append_quoted_string (DBusString       *dest,
       if (in_quotes)
         {
           if (b == '\'')
-            in_quotes = FALSE;
+	    break;
           else
             {
               if (!_dbus_string_append_byte (dest, b))
@@ -227,6 +233,9 @@ append_quoted_string (DBusString       *dest,
       ++i;
     }
 
+  if (new_pos)
+    *new_pos = i;
+  
   if (!_dbus_string_append_byte (dest, '\0'))
     return FALSE;
   return TRUE;
@@ -288,6 +297,9 @@ append_saved_length (DBusString       *dest,
  *   UINT32 <N> marshals a UINT32
  *   DOUBLE <N> marshals a double
  *   STRING 'Foo' marshals a string
+ *   INT32_ARRAY { 3, 4, 5, 6} marshals an INT32 array
+ *   UINT32_ARRAY { 3, 4, 5, 6} marshals an UINT32 array
+ *   DOUBLE_ARRAY { 1.0, 2.0, 3.0, 4.0} marshals a DOUBLE array  
  * @endcode
  *
  * @todo add support for array types INT32_ARRAY { 3, 4, 5, 6 }
@@ -585,14 +597,6 @@ _dbus_message_data_load (DBusString       *dest,
             code = DBUS_TYPE_INVALID;
           else if (_dbus_string_starts_with_c_str (&line, "NIL"))
             code = DBUS_TYPE_NIL;
-          else if (_dbus_string_starts_with_c_str (&line, "INT32"))
-            code = DBUS_TYPE_INT32;
-          else if (_dbus_string_starts_with_c_str (&line, "UINT32"))
-            code = DBUS_TYPE_UINT32;
-          else if (_dbus_string_starts_with_c_str (&line, "DOUBLE"))
-            code = DBUS_TYPE_DOUBLE;
-          else if (_dbus_string_starts_with_c_str (&line, "STRING"))
-            code = DBUS_TYPE_STRING;
           else if (_dbus_string_starts_with_c_str (&line, "INT32_ARRAY"))
             code = DBUS_TYPE_INT32_ARRAY;
           else if (_dbus_string_starts_with_c_str (&line, "UINT32_ARRAY"))
@@ -603,6 +607,14 @@ _dbus_message_data_load (DBusString       *dest,
             code = DBUS_TYPE_BYTE_ARRAY;
           else if (_dbus_string_starts_with_c_str (&line, "STRING_ARRAY"))
             code = DBUS_TYPE_STRING_ARRAY;
+          else if (_dbus_string_starts_with_c_str (&line, "INT32"))
+            code = DBUS_TYPE_INT32;
+          else if (_dbus_string_starts_with_c_str (&line, "UINT32"))
+            code = DBUS_TYPE_UINT32;
+          else if (_dbus_string_starts_with_c_str (&line, "DOUBLE"))
+            code = DBUS_TYPE_DOUBLE;
+          else if (_dbus_string_starts_with_c_str (&line, "STRING"))
+            code = DBUS_TYPE_STRING;
           else
             {
               const char *s;
@@ -617,6 +629,289 @@ _dbus_message_data_load (DBusString       *dest,
               goto parse_failed;
             }
         }
+      else if (_dbus_string_starts_with_c_str (&line,
+					       "INT32_ARRAY"))
+	{
+	  SAVE_FOR_UNALIGN (dest, 4);
+	  int i, len, allocated;
+	  dbus_int32_t *values;
+	  long val;
+	  unsigned char b;
+
+	  allocated = 4;
+	  values = dbus_new (dbus_int32_t, allocated);
+	  if (!values)
+	    {
+	      _dbus_warn ("could not allocate memory for INT32_ARRAY\n");
+	      goto parse_failed;
+	    }
+	  
+	  len = 0;
+	  
+	  _dbus_string_delete_first_word (&line);
+	  _dbus_string_skip_blank (&line, 0, &i);
+	  b = _dbus_string_get_byte (&line, i++);
+
+	  if (b != '{')
+	    goto parse_failed;
+
+	  while (i < _dbus_string_get_length (&line))
+	    {
+	      _dbus_string_skip_blank (&line, i, &i);
+
+	      if (!_dbus_string_parse_int (&line, i, &val, &i))
+		{
+		  _dbus_warn ("could not parse integer for INT32_ARRAY\n");
+		  goto parse_failed;
+		}
+
+	      values[len++] = val;
+	      if (len == allocated)
+		{
+		  allocated *= 2;
+		  values = dbus_realloc (values, allocated * sizeof (dbus_int32_t));
+		  if (!values)
+		    {
+		      _dbus_warn ("could not allocate memory for INT32_ARRAY\n");
+		      goto parse_failed;
+		    }
+		}
+	      
+	      _dbus_string_skip_blank (&line, i, &i);
+	      
+	      b = _dbus_string_get_byte (&line, i++);
+
+	      if (b == '}')
+		break;
+	      else if (b != ',')
+		goto parse_failed;
+	    }
+
+          if (!_dbus_marshal_int32_array (dest, endian, values, len))
+            {
+              _dbus_warn ("failed to append INT32_ARRAY\n");
+              goto parse_failed;
+            }
+	  dbus_free (values);
+	  
+	  PERFORM_UNALIGN (dest);
+	}
+      else if (_dbus_string_starts_with_c_str (&line,
+					       "UINT32_ARRAY"))
+	{
+	  SAVE_FOR_UNALIGN (dest, 4);
+	  int i, len, allocated;
+	  dbus_uint32_t *values;
+	  long val;
+	  unsigned char b;
+
+	  allocated = 4;
+	  values = dbus_new (dbus_uint32_t, allocated);
+	  if (!values)
+	    {
+	      _dbus_warn ("could not allocate memory for UINT32_ARRAY\n");
+	      goto parse_failed;
+	    }
+	  
+	  len = 0;
+	  
+	  _dbus_string_delete_first_word (&line);
+	  _dbus_string_skip_blank (&line, 0, &i);
+	  b = _dbus_string_get_byte (&line, i++);
+
+	  if (b != '{')
+	    goto parse_failed;
+
+	  while (i < _dbus_string_get_length (&line))
+	    {
+	      _dbus_string_skip_blank (&line, i, &i);
+
+	      if (!_dbus_string_parse_int (&line, i, &val, &i))
+		{
+		  _dbus_warn ("could not parse integer for UINT32_ARRAY\n");
+		  goto parse_failed;
+		}
+
+	      values[len++] = val;
+	      if (len == allocated)
+		{
+		  allocated *= 2;
+		  values = dbus_realloc (values, allocated * sizeof (dbus_uint32_t));
+		  if (!values)
+		    {
+		      _dbus_warn ("could not allocate memory for UINT32_ARRAY\n");
+		      goto parse_failed;
+		    }
+		}
+	      
+	      _dbus_string_skip_blank (&line, i, &i);
+	      
+	      b = _dbus_string_get_byte (&line, i++);
+
+	      if (b == '}')
+		break;
+	      else if (b != ',')
+		goto parse_failed;
+	    }
+
+          if (!_dbus_marshal_uint32_array (dest, endian, values, len))
+            {
+              _dbus_warn ("failed to append UINT32_ARRAY\n");
+              goto parse_failed;
+            }
+	  dbus_free (values);
+	  
+	  PERFORM_UNALIGN (dest);
+	}
+      else if (_dbus_string_starts_with_c_str (&line,
+					       "DOUBLE_ARRAY"))
+	{
+	  SAVE_FOR_UNALIGN (dest, 8);
+	  int i, len, allocated;
+	  double *values;
+	  double val;
+	  unsigned char b;
+
+	  allocated = 4;
+	  values = dbus_new (double, allocated);
+	  if (!values)
+	    {
+	      _dbus_warn ("could not allocate memory for DOUBLE_ARRAY\n");
+	      goto parse_failed;
+	    }
+	  
+	  len = 0;
+	  
+	  _dbus_string_delete_first_word (&line);
+	  _dbus_string_skip_blank (&line, 0, &i);
+	  b = _dbus_string_get_byte (&line, i++);
+
+	  if (b != '{')
+	    goto parse_failed;
+
+	  while (i < _dbus_string_get_length (&line))
+	    {
+	      _dbus_string_skip_blank (&line, i, &i);
+
+	      if (!_dbus_string_parse_double (&line, i, &val, &i))
+		{
+		  _dbus_warn ("could not parse double for DOUBLE_ARRAY\n");
+		  goto parse_failed;
+		}
+
+	      values[len++] = val;
+	      if (len == allocated)
+		{
+		  allocated *= 2;
+		  values = dbus_realloc (values, allocated * sizeof (double));
+		  if (!values)
+		    {
+		      _dbus_warn ("could not allocate memory for DOUBLE_ARRAY\n");
+		      goto parse_failed;
+		    }
+		}
+	      
+	      _dbus_string_skip_blank (&line, i, &i);
+	      
+	      b = _dbus_string_get_byte (&line, i++);
+
+	      if (b == '}')
+		break;
+	      else if (b != ',')
+		goto parse_failed;
+	    }
+
+          if (!_dbus_marshal_double_array (dest, endian, values, len))
+            {
+              _dbus_warn ("failed to append DOUBLE_ARRAY\n");
+              goto parse_failed;
+            }
+	  dbus_free (values);
+	  
+	  PERFORM_UNALIGN (dest);
+	}
+      else if (_dbus_string_starts_with_c_str (&line,
+					       "STRING_ARRAY"))
+	{
+	  SAVE_FOR_UNALIGN (dest, 4);
+	  int i, len, allocated;
+	  char **values;
+	  char *val;
+	  DBusString val_str;
+	  unsigned char b;
+
+	  allocated = 4;
+	  values = dbus_new (char *, allocated);
+	  if (!values)
+	    {
+	      _dbus_warn ("could not allocate memory for DOUBLE_ARRAY\n");
+	      goto parse_failed;
+	    }
+	  
+	  len = 0;
+	  
+	  _dbus_string_delete_first_word (&line);
+	  _dbus_string_skip_blank (&line, 0, &i);
+	  b = _dbus_string_get_byte (&line, i++);
+
+	  if (b != '{')
+	    goto parse_failed;
+
+	  _dbus_string_init (&val_str, _DBUS_INT_MAX);
+	  while (i < _dbus_string_get_length (&line))
+	    {
+	      _dbus_string_skip_blank (&line, i, &i);
+
+	      if (!append_quoted_string (&val_str, &line, i, &i))
+		{
+		  _dbus_warn ("could not parse quoted string for STRING_ARRAY\n");
+		  goto parse_failed;
+		}
+	      i++;
+
+	      if (!_dbus_string_steal_data (&val_str, &val))
+		{
+		  _dbus_warn ("could not allocate memory for STRING_ARRAY string\n");
+		  goto parse_failed;
+		}
+	      
+	      values[len++] = val;
+	      if (len == allocated)
+		{
+		  allocated *= 2;
+		  values = dbus_realloc (values, allocated * sizeof (char *));
+		  if (!values)
+		    {
+		      _dbus_warn ("could not allocate memory for STRING_ARRAY\n");
+		      goto parse_failed;
+		    }
+		}
+	      
+	      _dbus_string_skip_blank (&line, i, &i);
+	      
+	      b = _dbus_string_get_byte (&line, i++);
+
+	      if (b == '}')
+		break;
+	      else if (b != ',')
+		{
+		  _dbus_warn ("missing comma when parsing STRING_ARRAY\n");
+		  goto parse_failed;
+		}
+	    }
+	  _dbus_string_free (&val_str);
+	  
+          if (!_dbus_marshal_string_array (dest, endian, (const char **)values, len))
+            {
+              _dbus_warn ("failed to append STRING_ARRAY\n");
+              goto parse_failed;
+            }
+
+	  values[len] = NULL;
+	  dbus_free_string_array (values);
+	  
+	  PERFORM_UNALIGN (dest);
+	}
       else if (_dbus_string_starts_with_c_str (&line,
                                                "INT32"))
         {
@@ -699,7 +994,7 @@ _dbus_message_data_load (DBusString       *dest,
             }
 
           old_len = _dbus_string_get_length (dest);
-          if (!append_quoted_string (dest, &line))
+          if (!append_quoted_string (dest, &line, 0, NULL))
             {
               _dbus_warn ("Failed to append quoted string\n");
               goto parse_failed;
