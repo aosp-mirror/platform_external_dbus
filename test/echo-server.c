@@ -9,6 +9,9 @@ new_connection_callback (DBusServer     *server,
 {
   printf ("Got new connection\n");
 
+  dbus_connection_set_max_live_messages_size (new_connection,
+                                              10);
+  
   setup_connection (new_connection);
 }
 

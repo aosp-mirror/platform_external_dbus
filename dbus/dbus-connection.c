@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-connection.c DBusConnection object
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -1272,6 +1272,76 @@ _dbus_connection_free_data_slots (DBusConnection *connection)
   dbus_free (connection->data_slots);
   connection->data_slots = NULL;
   connection->n_slots = 0;
+}
+
+/**
+ * Specifies the maximum size message this connection is allowed to
+ * receive. Larger messages will result in disconnecting the
+ * connection.
+ * 
+ * @param connection a #DBusConnection
+ * @param size maximum message size the connection can receive, in bytes
+ */
+void
+dbus_connection_set_max_message_size (DBusConnection *connection,
+                                      long            size)
+{
+  _dbus_transport_set_max_message_size (connection->transport,
+                                        size);
+}
+
+/**
+ * Gets the value set by dbus_connection_set_max_message_size().
+ *
+ * @param connection the connection
+ * @returns the max size of a single message
+ */
+long
+dbus_connection_get_max_message_size (DBusConnection *connection)
+{
+  return _dbus_transport_get_max_message_size (connection->transport);
+}
+
+/**
+ * Sets the maximum total number of bytes that can be used for all messages
+ * received on this connection. Messages count toward the maximum until
+ * they are finalized. When the maximum is reached, the connection will
+ * not read more data until some messages are finalized.
+ *
+ * The semantics of the maximum are: if outstanding messages are
+ * already above the maximum, additional messages will not be read.
+ * The semantics are not: if the next message would cause us to exceed
+ * the maximum, we don't read it. The reason is that we don't know the
+ * size of a message until after we read it.
+ *
+ * Thus, the max live messages size can actually be exceeded
+ * by up to the maximum size of a single message.
+ * 
+ * Also, if we read say 1024 bytes off the wire in a single read(),
+ * and that contains a half-dozen small messages, we may exceed the
+ * size max by that amount. But this should be inconsequential.
+ *
+ * @param connection the connection
+ * @param size the maximum size in bytes of all outstanding messages
+ */
+void
+dbus_connection_set_max_live_messages_size (DBusConnection *connection,
+                                            long            size)
+{
+  _dbus_transport_set_max_live_messages_size (connection->transport,
+                                              size);
+}
+
+/**
+ * Gets the value set by dbus_connection_set_max_live_messages_size().
+ *
+ * @param connection the connection
+ * @returns the max size of all live messages
+ */
+long
+dbus_connection_get_max_live_messages_size (DBusConnection *connection)
+{
+  return _dbus_transport_get_max_live_messages_size (connection->transport);
 }
 
 /** @} */

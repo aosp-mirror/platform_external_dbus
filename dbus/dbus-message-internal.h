@@ -24,6 +24,7 @@
 #define DBUS_MESSAGE_INTERNAL_H
 
 #include <dbus/dbus-message.h>
+#include <dbus/dbus-resources.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -38,6 +39,9 @@ void _dbus_message_lock              (DBusMessage       *message);
 void _dbus_message_set_client_serial (DBusMessage       *message,
 				      dbus_int32_t       client_serial);
 
+void _dbus_message_add_size_counter  (DBusMessage       *message,
+                                      DBusCounter       *counter);
+
 DBusMessageLoader* _dbus_message_loader_new                   (void);
 void               _dbus_message_loader_ref                   (DBusMessageLoader  *loader);
 void               _dbus_message_loader_unref                 (DBusMessageLoader  *loader);
@@ -51,6 +55,10 @@ void               _dbus_message_loader_return_buffer         (DBusMessageLoader
 DBusMessage*       _dbus_message_loader_pop_message           (DBusMessageLoader  *loader);
 
 dbus_bool_t        _dbus_message_loader_get_is_corrupted      (DBusMessageLoader  *loader);
+
+void               _dbus_message_loader_set_max_message_size  (DBusMessageLoader  *loader,
+                                                               long                size);
+long               _dbus_message_loader_get_max_message_size  (DBusMessageLoader  *loader);
 
 DBUS_END_DECLS;
 

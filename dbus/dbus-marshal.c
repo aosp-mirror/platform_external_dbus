@@ -401,6 +401,19 @@ _dbus_demarshal_string (DBusString *str,
   return retval;
 }
 
+/**
+ * Demarshals a byte array.
+ *
+ * @todo Should probably demarshal to a DBusString,
+ * having memcpy() in here is Evil(tm).
+ *
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @param array_len length of the demarshaled data
+ * @returns the demarshaled data.
+ */
 unsigned char *
 _dbus_demarshal_byte_array (DBusString *str,
 			    int         byte_order,

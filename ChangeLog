@@ -1,5 +1,32 @@
 2003-01-18  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-transport-unix.c (unix_do_iteration): only do the
+	reading/writing if read_watch != NULL or write_watch != NULL.
+
+	* dbus/dbus-message.c (_dbus_message_loader_return_buffer): fix
+	the message loader code to actually load message->header and
+	message->body into the newly-created message.
+
+	* dbus/dbus-transport-unix.c (check_write_watch): fix a mem leak
+	in OOM case
+
+	* dbus/dbus-connection.c (dbus_connection_set_max_message_size) 
+	(dbus_connection_get_max_message_size) 
+	(dbus_connection_set_max_live_messages_size) 
+	(dbus_connection_get_max_live_messages_size): implement some
+	resource limitation functions
+
+	* dbus/dbus-resources.c: new file implementing some of the
+	resource limits stuff
+
+	* dbus/dbus-message.c (dbus_message_iter_get_byte_array): add
+	missing docs, add @todo to handle OOM etc.
+
+	* dbus/dbus-marshal.c (_dbus_demarshal_byte_array): add missing
+	docs
+	
+2003-01-18  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-connection.c (dbus_connection_unref): disconnect the 
 	connection if it hasn't been already.
 

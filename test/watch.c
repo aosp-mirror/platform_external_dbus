@@ -146,7 +146,7 @@ check_messages (void)
         {
           DBusMessage *reply;
 
-          printf ("Received message %d, sending reply\n", count);
+          fprintf (stderr, "Received message %d, sending reply\n", count);
           
           reply = dbus_message_new ("org.freedesktop.DBus.Test", "org.freedesktop.DBus.Test");
           dbus_connection_send_message (connection,

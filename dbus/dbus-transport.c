@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-transport.c DBusTransport object (internal to D-BUS implementation)
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -66,6 +66,27 @@
 #define DBUS_TRANSPORT_RELEASE_REF(t) \
   if ((t)->connection) dbus_connection_unref ((t)->connection); _dbus_transport_unref (t)
 
+static void
+live_messages_size_notify (DBusCounter *counter,
+                           void        *user_data)
+{
+  DBusTransport *transport = user_data;
+
+  DBUS_TRANSPORT_HOLD_REF (transport);
+
+#if 0
+  _dbus_verbose ("Counter value is now %d\n",
+                 (int) _dbus_counter_get_value (counter));
+#endif
+  
+  /* disable or re-enable the read watch for the transport if
+   * required.
+   */
+  if (* transport->vtable->live_messages_changed)
+    (* transport->vtable->live_messages_changed) (transport);
+
+  DBUS_TRANSPORT_RELEASE_REF (transport);
+}
 
 /**
  * Initializes the base class members of DBusTransport.
@@ -83,11 +104,12 @@ _dbus_transport_init_base (DBusTransport             *transport,
 {
   DBusMessageLoader *loader;
   DBusAuth *auth;
+  DBusCounter *counter;
   
   loader = _dbus_message_loader_new ();
   if (loader == NULL)
     return FALSE;
-
+  
   if (server)
     auth = _dbus_auth_server_new ();
   else
@@ -97,21 +119,40 @@ _dbus_transport_init_base (DBusTransport             *transport,
       _dbus_message_loader_unref (loader);
       return FALSE;
     }
+
+  counter = _dbus_counter_new ();
+  if (counter == NULL)
+    {
+      _dbus_auth_unref (auth);
+      _dbus_message_loader_unref (loader);
+      return FALSE;
+    }
   
   transport->refcount = 1;
   transport->vtable = vtable;
   transport->loader = loader;
   transport->auth = auth;
+  transport->live_messages_size = counter;
   transport->authenticated = FALSE;
   transport->messages_need_sending = FALSE;
   transport->disconnected = FALSE;
   transport->send_credentials_pending = !server;
   transport->receive_credentials_pending = server;
   transport->is_server = server;
+
+  /* Try to default to something that won't totally hose the system,
+   * but doesn't impose too much of a limitation.
+   */
+  transport->max_live_messages_size = _DBUS_ONE_MEGABYTE * 63;
   
   transport->credentials.pid = -1;
   transport->credentials.uid = -1;
   transport->credentials.gid = -1;
+
+  _dbus_counter_set_notify (transport->live_messages_size,
+                            transport->max_live_messages_size,
+                            live_messages_size_notify,
+                            transport);
   
   return TRUE;
 }
@@ -127,9 +168,12 @@ _dbus_transport_finalize_base (DBusTransport *transport)
 {
   if (!transport->disconnected)
     _dbus_transport_disconnect (transport);
-
+  
   _dbus_message_loader_unref (transport->loader);
   _dbus_auth_unref (transport->auth);
+  _dbus_counter_set_notify (transport->live_messages_size,
+                            0, NULL, NULL);
+  _dbus_counter_unref (transport->live_messages_size);
 }
 
 /**
@@ -401,6 +445,61 @@ _dbus_transport_do_iteration (DBusTransport  *transport,
   (* transport->vtable->do_iteration) (transport, flags,
                                        timeout_milliseconds);
   DBUS_TRANSPORT_RELEASE_REF (transport);
+}
+
+/**
+ * See dbus_connection_set_max_message_size().
+ *
+ * @param transport the transport
+ * @param size the max size of a single message
+ */
+void
+_dbus_transport_set_max_message_size (DBusTransport  *transport,
+                                      long            size)
+{
+  _dbus_message_loader_set_max_message_size (transport->loader, size);
+}
+
+/**
+ * See dbus_connection_get_max_message_size().
+ *
+ * @param transport the transport
+ * @returns max message size
+ */
+long
+_dbus_transport_get_max_message_size (DBusTransport  *transport)
+{
+  return _dbus_message_loader_get_max_message_size (transport->loader);
+}
+
+/**
+ * See dbus_connection_set_max_live_messages_size().
+ *
+ * @param transport the transport
+ * @param size the max size of all incoming messages
+ */
+void
+_dbus_transport_set_max_live_messages_size (DBusTransport  *transport,
+                                            long            size)
+{
+  transport->max_live_messages_size = size;
+  _dbus_counter_set_notify (transport->live_messages_size,
+                            transport->max_live_messages_size,
+                            live_messages_size_notify,
+                            transport);
+}
+
+
+/**
+ * See dbus_connection_get_max_live_messages_size().
+ *
+ * @param transport the transport
+ * @returns max bytes for all live messages
+ */
+long
+_dbus_transport_get_max_live_messages_size (DBusTransport  *transport)
+{
+  return transport->max_live_messages_size;
 }
 
 /** @} */

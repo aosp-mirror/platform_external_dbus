@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-message.c  DBusMessage object
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003  Red Hat Inc.
  * Copyright (C) 2002, 2003  CodeFactory AB
  *
  * Licensed under the Academic Free License version 1.2
@@ -41,13 +41,6 @@
  */
 
 /**
- * The largest-length message we allow
- *
- * @todo match this up with whatever the protocol spec says.
- */
-#define _DBUS_MAX_MESSAGE_LENGTH (_DBUS_INT_MAX/16)
-
-/**
  * @brief Internals of DBusMessage
  * 
  * Object representing a message received from or to be sent to
@@ -72,6 +65,9 @@ struct DBusMessage
   
   dbus_int32_t client_serial; /**< Client serial or -1 if not set */
   dbus_int32_t reply_serial; /**< Reply serial or -1 if not set */
+
+  DBusCounter *size_counter; /**< Counter for the size of the message, or #NULL */
+  long size_counter_delta;   /**< Size we incremented the size counter by. */
   
   unsigned int locked : 1; /**< Message being sent, no modifications allowed. */
 };
@@ -125,6 +121,39 @@ _dbus_message_set_client_serial (DBusMessage  *message,
   _dbus_assert (message->client_serial == -1);
   
   message->client_serial = client_serial;
+}
+
+/**
+ * Adds a counter to be incremented immediately with the
+ * size of this message, and decremented by the size
+ * of this message when this message if finalized.
+ *
+ * @param message the message
+ * @param counter the counter
+ */
+void
+_dbus_message_add_size_counter (DBusMessage *message,
+                                DBusCounter *counter)
+{
+  _dbus_assert (message->size_counter == NULL); /* If this fails we may need to keep a list of
+                                                 * counters instead of just one
+                                                 */
+
+  message->size_counter = counter;
+  _dbus_counter_ref (message->size_counter);
+
+  /* When we can change message size, we may want to
+   * update this each time we do so, or we may want to
+   * just KISS like this.
+   */
+  message->size_counter_delta =
+    _dbus_string_get_length (&message->header) +
+    _dbus_string_get_length (&message->body);
+
+  _dbus_verbose ("message has size %ld\n",
+                 message->size_counter_delta);
+  
+  _dbus_counter_adjust (message->size_counter, message->size_counter_delta);
 }
 
 static void
@@ -253,7 +282,7 @@ dbus_message_new (const char *service,
   message->client_serial = -1;
   message->reply_serial = -1;
   
-  if (!_dbus_string_init (&message->header, _DBUS_MAX_MESSAGE_LENGTH))
+  if (!_dbus_string_init (&message->header, _DBUS_INT_MAX))
     {
       dbus_free (message->service);
       dbus_free (message->name);
@@ -261,7 +290,7 @@ dbus_message_new (const char *service,
       return NULL;
     }
 
-  if (!_dbus_string_init (&message->body, _DBUS_MAX_MESSAGE_LENGTH))
+  if (!_dbus_string_init (&message->body, _DBUS_INT_MAX))
     {
       dbus_free (message->service);
       dbus_free (message->name);
@@ -302,6 +331,13 @@ dbus_message_unref (DBusMessage *message)
   message->refcount -= 1;
   if (message->refcount == 0)
     {
+      if (message->size_counter != NULL)
+        {
+          _dbus_counter_adjust (message->size_counter,
+                                - message->size_counter_delta);
+          _dbus_counter_unref (message->size_counter);
+        }
+      
       _dbus_string_free (&message->header);
       _dbus_string_free (&message->body);
 
@@ -330,7 +366,7 @@ dbus_message_get_name (DBusMessage *message)
  * The list is terminated with 0.
  *
  * @param message the message
- * @param type of the first field
+ * @param first_field_type type of the first field
  * @param ... value of first field, list of additional type-value pairs
  * @returns #TRUE on success
  */
@@ -886,8 +922,21 @@ dbus_message_iter_get_double (DBusMessageIter *iter)
 				 iter->pos + 1, NULL);
 }
 
+/**
+ * Returns the byte array that the iterator may point to.
+ * Note that you need to check that the iterator points
+ * to a byte array prior to using this function.
+ *
+ * @todo this function should probably take "unsigned char **" as
+ * an out param argument, and return boolean or result code.
+ *
+ * @param iter the iterator
+ * @param len return location for length of byte array
+ * @returns the byte array
+ */
 unsigned char *
-dbus_message_iter_get_byte_array (DBusMessageIter *iter, int *len)
+dbus_message_iter_get_byte_array (DBusMessageIter *iter,
+                                  int             *len)
 {
   _dbus_assert (dbus_message_iter_get_field_type (iter) == DBUS_TYPE_BYTE_ARRAY);
 
@@ -926,6 +975,8 @@ struct DBusMessageLoader
   DBusString data;     /**< Buffered data */
   
   DBusList *messages;  /**< Complete messages. */
+
+  long max_message_size; /**< Maximum size of a message */
   
   unsigned int buffer_outstanding : 1; /**< Someone is using the buffer to read */
 
@@ -959,8 +1010,13 @@ _dbus_message_loader_new (void)
   if (loader == NULL)
     return NULL;
   
-  loader->refcount = 1;  
+  loader->refcount = 1;
 
+  /* Try to cap message size at something that won't *totally* hose
+   * the system if we have a couple of them.
+   */
+  loader->max_message_size = _DBUS_ONE_MEGABYTE * 32;
+  
   if (!_dbus_string_init (&loader->data, _DBUS_INT_MAX))
     {
       dbus_free (loader);
@@ -1190,10 +1246,10 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
       header_len = _dbus_unpack_int32 (byte_order, header_data + 4);
       body_len = _dbus_unpack_int32 (byte_order, header_data + 8);
 
-      if (header_len + body_len > _DBUS_MAX_MESSAGE_LENGTH)
+      if (header_len + body_len > loader->max_message_size)
 	{
           _dbus_verbose ("Message claimed length header = %d body = %d exceeds max message length %d\n",
-                         header_len, body_len, _DBUS_MAX_MESSAGE_LENGTH);
+                         header_len, body_len, loader->max_message_size);
 	  loader->corrupted = TRUE;
 	  return;
 	}
@@ -1220,13 +1276,40 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 	  
 	  if (message == NULL)
             break; /* ugh, postpone this I guess. */
+          	  
+	  if (!_dbus_list_append (&loader->messages, message))
+            {
+              dbus_message_unref (message);
+              break;
+            }
 
-	  _dbus_string_copy (&loader->data, header_len, &message->body, 0);
-	  _dbus_message_set_client_serial (message, client_serial);
-	  
-	  _dbus_list_append (&loader->messages, message);
-	  _dbus_string_delete (&loader->data, 0, header_len + body_len);
+          _dbus_assert (_dbus_string_get_length (&message->header) == 0);
+          _dbus_assert (_dbus_string_get_length (&message->body) == 0);
+          
+	  if (!_dbus_string_move_len (&loader->data, 0, header_len, &message->header, 0))
+            {
+              _dbus_list_remove_last (&loader->messages, message);
+              dbus_message_unref (message);
+              break;
+            }
 
+	  if (!_dbus_string_move_len (&loader->data, 0, body_len, &message->body, 0))
+            {
+              dbus_bool_t result;
+
+              /* put the header back, we'll try again later */
+              result = _dbus_string_copy_len (&message->header, 0, header_len,
+                                              &loader->data, 0);
+              _dbus_assert (result); /* because DBusString never reallocs smaller */
+
+              _dbus_list_remove_last (&loader->messages, message);
+              dbus_message_unref (message);
+              break;
+            }
+
+          _dbus_assert (_dbus_string_get_length (&message->header) == header_len);
+          _dbus_assert (_dbus_string_get_length (&message->body) == body_len);
+          
 	  _dbus_verbose ("Loaded message %p\n", message);	  
 	}
       else
@@ -1262,6 +1345,31 @@ dbus_bool_t
 _dbus_message_loader_get_is_corrupted (DBusMessageLoader *loader)
 {
   return loader->corrupted;
+}
+
+/**
+ * Sets the maximum size message we allow.
+ *
+ * @param loader the loader
+ * @param size the max message size in bytes
+ */
+void
+_dbus_message_loader_set_max_message_size (DBusMessageLoader  *loader,
+                                           long                size)
+{
+  loader->max_message_size = size;
+}
+
+/**
+ * Gets the maximum allowed message size in bytes.
+ *
+ * @param loader the loader
+ * @returns max size in bytes
+ */
+long
+_dbus_message_loader_get_max_message_size (DBusMessageLoader  *loader)
+{
+  return loader->max_message_size;
 }
 
 /** @} */

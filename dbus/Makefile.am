@@ -28,6 +28,8 @@ libdbus_1_la_SOURCES=				\
 	dbus-message.c				\
 	dbus-message-handler.c			\
 	dbus-message-internal.h			\
+	dbus-resources.c			\
+	dbus-resources.h			\
 	dbus-server.c				\
 	dbus-server-protected.h			\
 	dbus-server-unix.c			\

@@ -28,6 +28,7 @@
 #include <dbus/dbus-transport.h>
 #include <dbus/dbus-message-internal.h>
 #include <dbus/dbus-auth.h>
+#include <dbus/dbus-resources.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -63,6 +64,9 @@ struct DBusTransportVTable
   /**< Called to do a single "iteration" (block on select/poll
    * followed by reading or writing data).
    */
+
+  void (* live_messages_changed) (DBusTransport *transport);
+  /**< Outstanding messages counter changed */
 };
 
 struct DBusTransport
@@ -77,7 +81,11 @@ struct DBusTransport
 
   DBusAuth *auth;                             /**< Authentication conversation */
 
-  DBusCredentials credentials;                /**< Credentials of other end */
+  DBusCredentials credentials;                /**< Credentials of other end */  
+
+  long max_live_messages_size;                /**< Max total size of received messages. */
+
+  DBusCounter *live_messages_size;            /**< Counter for size of all live messages. */
   
   unsigned int disconnected : 1;              /**< #TRUE if we are disconnected. */
   unsigned int authenticated : 1;             /**< Cache of auth state; use _dbus_transport_get_is_authenticated() to query value */
