@@ -138,8 +138,9 @@ void _dbus_sleep_milliseconds (int milliseconds);
 void _dbus_get_current_time (long *tv_sec,
                              long *tv_usec);
 
-DBusResultCode _dbus_file_get_contents   (DBusString       *str,
-                                          const DBusString *filename);
+dbus_bool_t _dbus_file_get_contents   (DBusString       *str,
+                                       const DBusString *filename,
+                                       DBusError        *error);
 DBusResultCode _dbus_string_save_to_file (const DBusString *str,
                                           const DBusString *filename);
 
@@ -156,17 +157,18 @@ dbus_bool_t _dbus_concat_dir_and_file (DBusString       *dir,
 typedef struct DBusDirIter DBusDirIter;
 
 DBusDirIter* _dbus_directory_open          (const DBusString *filename,
-                                            DBusResultCode   *result);
+                                            DBusError        *error);
 dbus_bool_t  _dbus_directory_get_next_file (DBusDirIter      *iter,
                                             DBusString       *filename,
-                                            DBusResultCode   *result);
+                                            DBusError        *error);
 void         _dbus_directory_close         (DBusDirIter      *iter);
 
 
 dbus_bool_t _dbus_generate_random_bytes (DBusString *str,
                                          int         n_bytes);
 
-const char *_dbus_errno_to_string (int         errnum);
+const char *_dbus_errno_to_string  (int errnum);
+const char* _dbus_error_from_errno (int error_number);
 
 typedef void (* DBusSpawnChildSetupFunc) (void *user_data);
 
@@ -179,6 +181,24 @@ dbus_bool_t _dbus_spawn_async (char                    **argv,
 void _dbus_disable_sigpipe (void);
 
 void _dbus_fd_set_close_on_exec (int fd);
+
+void _dbus_exit (int code);
+
+typedef struct
+{
+  unsigned long mode;
+  unsigned long nlink;
+  unsigned long uid;
+  unsigned long gid;
+  unsigned long size;
+  unsigned long atime;
+  unsigned long mtime;
+  unsigned long ctime;
+} DBusStat;
+
+dbus_bool_t _dbus_stat (const DBusString *filename,
+                        DBusStat         *statbuf,
+                        DBusError        *error);
 
 DBUS_END_DECLS;
 

@@ -678,6 +678,19 @@ _dbus_list_foreach (DBusList          **list,
     }
 }
 
+/**
+ * Check whether length is exactly one.
+ *
+ * @param list the list
+ * @returns #TRUE if length is exactly one
+ */
+dbus_bool_t
+_dbus_list_length_is_one (DBusList **list)
+{
+  return (*list != NULL &&
+          (*list)->next == *list);
+}
+
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS
@@ -713,6 +726,11 @@ verify_list (DBusList **list)
   while (link != *list);
 
   _dbus_assert (length == _dbus_list_get_length (list));
+
+  if (length == 1)
+    _dbus_assert (_dbus_list_length_is_one (list));
+  else
+    _dbus_assert (!_dbus_list_length_is_one (list));
 }
 
 static dbus_bool_t

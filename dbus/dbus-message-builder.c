@@ -314,7 +314,7 @@ _dbus_message_data_load (DBusString       *dest,
                          const DBusString *filename)
 {
   DBusString file;
-  DBusResultCode result;
+  DBusError error;
   DBusString line;
   dbus_bool_t retval;
   int line_no;
@@ -340,14 +340,15 @@ _dbus_message_data_load (DBusString       *dest,
     _dbus_string_get_const_data (filename, &s);
     _dbus_verbose ("Loading %s\n", s);
   }
-  
-  if ((result = _dbus_file_get_contents (&file, filename)) != DBUS_RESULT_SUCCESS)
+
+  dbus_error_init (&error);
+  if (!_dbus_file_get_contents (&file, filename, &error))
     {
       const char *s;
       _dbus_string_get_const_data (filename, &s);
       _dbus_warn ("Getting contents of %s failed: %s\n",
-                  s, dbus_result_to_string (result));
-                     
+                  s, error.message);
+      dbus_error_free (&error);
       goto out;
     }
 

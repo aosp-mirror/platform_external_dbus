@@ -97,9 +97,18 @@ main (int argc, char **argv)
     }
   else
     {
-      char *paths[] = { argv[2], NULL };
+      const char *paths[] = { argv[2], NULL };
+      DBusError error;
 
-      bus_activation_init (argv[1], paths);
+      dbus_error_init (&error);
+      if (!bus_activation_init (argv[1], paths,
+                                &error))
+        {
+          _dbus_warn ("Could not initialize service activation: %s\n",
+                      error.message);
+          dbus_error_free (&error);
+          return 1;
+        }
     }
   
   setup_server (server);

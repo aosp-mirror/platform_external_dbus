@@ -62,24 +62,34 @@ test_hello_client1_handler (DBusMessageHandler *handler,
 
   if (!test_hello_succeeding)
     goto out;
+
+#if 1
+  printf ("In stage %d got message %s\n",
+          client1_stage, dbus_message_get_name (message));
+#endif
   
   if (dbus_message_name_is (message, DBUS_MESSAGE_HELLO))
     {
       TEST_HELLO_HANDLE_FAIL (client1_stage == 0);
 
-      TEST_HELLO_HANDLE_FAIL ((dbus_message_get_args (message,
-						      DBUS_TYPE_STRING, &client1_name,
-						      0) == DBUS_RESULT_SUCCESS));
+      TEST_HELLO_HANDLE_FAIL (dbus_message_get_args (message, NULL,
+                                                     DBUS_TYPE_STRING, &client1_name,
+                                                     0));
 
       client1_stage += 1;
     }
   else if (dbus_message_name_is (message, DBUS_MESSAGE_SERVICE_CREATED))
     {
-      TEST_HELLO_HANDLE_FAIL (client1_stage == 1 || client1_stage == 3);
+      TEST_HELLO_HANDLE_FAIL (dbus_message_get_args (message, NULL,
+                                                     DBUS_TYPE_STRING, &tmp,
+                                                     0));
 
-      TEST_HELLO_HANDLE_FAIL ((dbus_message_get_args (message,
-						      DBUS_TYPE_STRING, &tmp,
-						      0) == DBUS_RESULT_SUCCESS));
+#if 0
+      printf ("ServiceCreated is %s\n", tmp);
+#endif
+      
+      TEST_HELLO_HANDLE_FAIL (client1_stage == 1 || client1_stage == 3);
+              
       if (client1_stage == 1)
 	TEST_HELLO_HANDLE_FAIL (strcmp (client1_name, tmp) == 0);
       else
@@ -94,9 +104,9 @@ test_hello_client1_handler (DBusMessageHandler *handler,
     {
       TEST_HELLO_HANDLE_FAIL (client1_stage == 2);
 
-      TEST_HELLO_HANDLE_FAIL ((dbus_message_get_args (message,
-						      DBUS_TYPE_STRING, &tmp,
-						      0) == DBUS_RESULT_SUCCESS));
+      TEST_HELLO_HANDLE_FAIL (dbus_message_get_args (message, NULL,
+                                                     DBUS_TYPE_STRING, &tmp,
+                                                     0));
       TEST_HELLO_HANDLE_FAIL (strcmp (client1_name, tmp) == 0);
 
       client1_stage += 1;
@@ -132,9 +142,9 @@ test_hello_client2_handler (DBusMessageHandler *handler,
     {
       TEST_HELLO_HANDLE_FAIL (client2_stage == 0);
 
-      TEST_HELLO_HANDLE_FAIL ((dbus_message_get_args (message,
-						      DBUS_TYPE_STRING, &client2_name,
-						      0) == DBUS_RESULT_SUCCESS));
+      TEST_HELLO_HANDLE_FAIL (dbus_message_get_args (message, NULL,
+                                                     DBUS_TYPE_STRING, &client2_name,
+                                                     0));
 
       client2_stage += 1;
     }
@@ -142,9 +152,9 @@ test_hello_client2_handler (DBusMessageHandler *handler,
     {
       TEST_HELLO_HANDLE_FAIL (client2_stage == 1);
 
-      TEST_HELLO_HANDLE_FAIL ((dbus_message_get_args (message,
-						      DBUS_TYPE_STRING, &tmp,
-						      0) == DBUS_RESULT_SUCCESS));
+      TEST_HELLO_HANDLE_FAIL (dbus_message_get_args (message, NULL,
+                                                     DBUS_TYPE_STRING, &tmp,
+                                                     0));
       TEST_HELLO_HANDLE_FAIL (strcmp (client2_name, tmp) == 0);
       
       client2_stage += 1;
@@ -153,9 +163,9 @@ test_hello_client2_handler (DBusMessageHandler *handler,
     {
       TEST_HELLO_HANDLE_FAIL (client2_stage == 2);
 
-      TEST_HELLO_HANDLE_FAIL ((dbus_message_get_args (message,
-						      DBUS_TYPE_STRING, &tmp,
-						      0) == DBUS_RESULT_SUCCESS));
+      TEST_HELLO_HANDLE_FAIL (dbus_message_get_args (message, NULL,
+                                                     DBUS_TYPE_STRING, &tmp,
+                                                     0));
       TEST_HELLO_HANDLE_FAIL (strcmp (client2_name, tmp) == 0);
 
       client2_stage += 1;
@@ -177,9 +187,9 @@ static dbus_bool_t
 test_hello_replies (void)
 {
   DBusConnection *connection;
-  DBusResultCode result;
   DBusMessage *message;
   DBusMessageHandler *handler;
+  DBusResultCode result;
   
   /* First start client 1 */
   connection = dbus_connection_open ("debug:name=test-server", &result);
@@ -188,7 +198,8 @@ test_hello_replies (void)
 			      DBUS_MESSAGE_HELLO);
   handler = dbus_message_handler_new (test_hello_client1_handler, NULL, NULL);
   dbus_connection_add_filter (connection, handler);
-  dbus_connection_send_message (connection, message, NULL, NULL);
+  if (!dbus_connection_send (connection, message, NULL))
+    die ("no memory to send message");
   dbus_message_unref (message);
 
   /* Then start client 2 */
@@ -198,7 +209,8 @@ test_hello_replies (void)
 			      DBUS_MESSAGE_HELLO);
   handler = dbus_message_handler_new (test_hello_client2_handler, NULL, NULL);
   dbus_connection_add_filter (connection, handler);
-  dbus_connection_send_message (connection, message, NULL, NULL);
+  if (!dbus_connection_send (connection, message, NULL))
+    die ("no memory to send message");
   dbus_message_unref (message);
 
   bus_test_loop_run ();

@@ -27,12 +27,18 @@
 #include <dbus/dbus.h>
 #include "services.h"
 
-typedef void (* BusConnectionForeachFunction) (DBusConnection *connection, 
-					       void           *data);
+typedef dbus_bool_t (* BusConnectionForeachFunction) (DBusConnection *connection, 
+                                                      void           *data);
 
 dbus_bool_t bus_connection_init (void);
 
 dbus_bool_t bus_connection_setup (DBusConnection *connection);
+
+dbus_bool_t bus_connection_is_active (DBusConnection *connection);
+
+dbus_bool_t bus_connection_preallocate_oom_error (DBusConnection *connection);
+void        bus_connection_send_oom_error        (DBusConnection *connection,
+                                                  DBusMessage    *in_reply_to);
 
 /* called by services.c */
 dbus_bool_t bus_connection_add_owned_service    (DBusConnection *connection,
@@ -47,8 +53,20 @@ const char *bus_connection_get_name (DBusConnection               *connection);
 void        bus_connection_foreach  (BusConnectionForeachFunction  function,
 				     void                         *data);
 
-/* called by dispatch.c */
-void        bus_connection_disconnect (DBusConnection *connection);
+/* called by dispatch.c when the connection is dropped */
+void        bus_connection_disconnected (DBusConnection *connection);
+
+/* transaction API so we can send or not send a block of messages as a whole */
+BusTransaction* bus_transaction_new              (void);
+dbus_bool_t     bus_transaction_send_message     (BusTransaction  *transaction,
+                                                  DBusConnection  *connection,
+                                                  DBusMessage     *message);
+dbus_bool_t     bus_transaction_send_error_reply (BusTransaction  *transaction,
+                                                  DBusConnection  *connection,
+                                                  const DBusError *error,
+                                                  DBusMessage     *in_reply_to);
+void            bus_transaction_cancel_and_free  (BusTransaction  *transaction);
+void            bus_transaction_execute_and_free (BusTransaction  *transaction);
 
 
 #endif /* BUS_CONNECTION_H */

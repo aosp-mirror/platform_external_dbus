@@ -27,9 +27,9 @@
 #include "dbus-list.h"
 
 /**
- * @defgroup DBusAddress address parsing
+ * @defgroup DBusAddress Address parsing
  * @ingroup  DBus
- * @brief Parsing addresses to DBus servers.
+ * @brief Parsing addresses of D-BUS servers.
  *
  * @{
  */

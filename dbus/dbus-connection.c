@@ -187,7 +187,7 @@ _dbus_connection_queue_received_message (DBusConnection *connection,
     return FALSE;
 
   /* If this is a reply we're waiting on, remove timeout for it */
-  reply_serial = _dbus_message_get_reply_serial (message);
+  reply_serial = dbus_message_get_reply_serial (message);
   if (reply_serial != -1)
     {
       reply_handler_data = _dbus_hash_table_lookup_int (connection->pending_replies,
@@ -205,9 +205,11 @@ _dbus_connection_queue_received_message (DBusConnection *connection,
   connection->n_incoming += 1;
 
   _dbus_connection_wakeup_mainloop (connection);
-  
-  _dbus_verbose ("Incoming message %p added to queue, %d incoming\n",
-                 message, connection->n_incoming);
+
+  _dbus_assert (dbus_message_get_name (message) != NULL);
+  _dbus_verbose ("Incoming message %p (%s) added to queue, %d incoming\n",
+                 message, dbus_message_get_name (message),
+                 connection->n_incoming);
   
   return TRUE;
 }
@@ -963,54 +965,88 @@ dbus_connection_get_is_authenticated (DBusConnection *connection)
 }
 
 /**
- * Adds a message to the outgoing message queue. Does not block to
- * write the message to the network; that happens asynchronously. to
- * force the message to be written, call dbus_connection_flush().
+ * Preallocates resources needed to send a message, allowing the message 
+ * to be sent without the possibility of memory allocation failure.
+ * Allows apps to create a future guarantee that they can send
+ * a message regardless of memory shortages.
  *
- * If the function fails, it returns #FALSE and returns the
- * reason for failure via the result parameter.
- * The result parameter can be #NULL if you aren't interested
- * in the reason for the failure.
- * 
- * @param connection the connection.
- * @param message the message to write.
- * @param client_serial return location for client serial.
- * @param result address where result code can be placed.
- * @returns #TRUE on success.
+ * @param connection the connection we're preallocating for.
+ * @returns the preallocated resources, or #NULL
  */
-dbus_bool_t
-dbus_connection_send_message (DBusConnection *connection,
-                              DBusMessage    *message,
-			      dbus_int32_t   *client_serial,
-                              DBusResultCode *result)
-
+DBusPreallocatedSend*
+dbus_connection_preallocate_send (DBusConnection *connection)
 {
-  dbus_int32_t serial;
+  /* we store "connection" in the link just to enforce via
+   * assertion that preallocated links are only used
+   * with the connection they were created for.
+   */
+  return (DBusPreallocatedSend*) _dbus_list_alloc_link (connection);
+}
 
+/**
+ * Frees preallocated message-sending resources from
+ * dbus_connection_preallocate_send(). Should only
+ * be called if the preallocated resources are not used
+ * to send a message.
+ *
+ * @param connection the connection
+ * @param preallocated the resources
+ */
+void
+dbus_connection_free_preallocated_send (DBusConnection       *connection,
+                                        DBusPreallocatedSend *preallocated)
+{
+  DBusList *link = (DBusList*) preallocated;
+  _dbus_assert (link->data == connection);
+  _dbus_list_free_link (link);
+}
+
+/**
+ * Sends a message using preallocated resources. This function cannot fail.
+ * It works identically to dbus_connection_send() in other respects.
+ * Preallocated resources comes from dbus_connection_preallocate_send().
+ * This function "consumes" the preallocated resources, they need not
+ * be freed separately.
+ *
+ * @param connection the connection
+ * @param preallocated the preallocated resources
+ * @param message the message to send
+ * @param client_serial return location for client serial assigned to the message
+ */
+void
+dbus_connection_send_preallocated (DBusConnection       *connection,
+                                   DBusPreallocatedSend *preallocated,
+                                   DBusMessage          *message,
+                                   dbus_int32_t         *client_serial)
+{
+  DBusList *link = (DBusList*) preallocated;
+  dbus_int32_t serial;
+  
+  _dbus_assert (link->data == connection);
+  _dbus_assert (dbus_message_get_name (message) != NULL);
+  
   dbus_mutex_lock (connection->mutex);
 
-  if (!_dbus_list_prepend (&connection->outgoing_messages,
-                           message))
-    {
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
-      dbus_mutex_unlock (connection->mutex);
-      return FALSE;
-    }
+  link->data = message;
+  _dbus_list_prepend_link (&connection->outgoing_messages,
+                           link);
 
   dbus_message_ref (message);
   connection->n_outgoing += 1;
 
-  _dbus_verbose ("Message %p added to outgoing queue, %d pending to send\n",
-                 message, connection->n_outgoing);
+  _dbus_verbose ("Message %p (%s) added to outgoing queue, %d pending to send\n",
+                 message,
+                 dbus_message_get_name (message),
+                 connection->n_outgoing);
 
-  if (_dbus_message_get_client_serial (message) == -1)
+  if (dbus_message_get_serial (message) == -1)
     {
       serial = _dbus_connection_get_next_client_serial (connection);
-      _dbus_message_set_client_serial (message, serial);
+      _dbus_message_set_serial (message, serial);
     }
   
   if (client_serial)
-    *client_serial = _dbus_message_get_client_serial (message);
+    *client_serial = dbus_message_get_serial (message);
   
   _dbus_message_lock (message);
 
@@ -1021,8 +1057,43 @@ dbus_connection_send_message (DBusConnection *connection,
   _dbus_connection_wakeup_mainloop (connection);
 
   dbus_mutex_unlock (connection->mutex);
-  
-  return TRUE;
+}
+
+/**
+ * Adds a message to the outgoing message queue. Does not block to
+ * write the message to the network; that happens asynchronously. To
+ * force the message to be written, call dbus_connection_flush().
+ * Because this only queues the message, the only reason it can
+ * fail is lack of memory. Even if the connection is disconnected,
+ * no error will be returned.
+ *
+ * If the function fails, it returns #FALSE and returns the
+ * reason for failure via the result parameter.
+ * The result parameter can be #NULL if you aren't interested
+ * in the reason for the failure.
+ * 
+ * @param connection the connection.
+ * @param message the message to write.
+ * @param client_serial return location for client serial.
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+dbus_connection_send (DBusConnection *connection,
+                      DBusMessage    *message,
+                      dbus_int32_t   *client_serial)
+{
+  DBusPreallocatedSend *preallocated;
+
+  preallocated = dbus_connection_preallocate_send (connection);
+  if (preallocated == NULL)
+    {
+      return FALSE;
+    }
+  else
+    {
+      dbus_connection_send_preallocated (connection, preallocated, message, client_serial);
+      return TRUE;
+    }
 }
 
 static void
@@ -1100,25 +1171,19 @@ reply_handler_data_free (ReplyHandlerData *data)
  * you want a very short or very long timeout.  There is no way to
  * avoid a timeout entirely, other than passing INT_MAX for the
  * timeout to postpone it indefinitely.
- *
- * @todo I think we should rename this function family
- * dbus_connection_send(), send_with_reply(), etc. (i.e.
- * drop the "message" part), the names are too long.
  * 
  * @param connection the connection
  * @param message the message to send
  * @param reply_handler message handler expecting the reply, or #NULL
  * @param timeout_milliseconds timeout in milliseconds or -1 for default
- * @param result return location for result code
  * @returns #TRUE if the message is successfully queued, #FALSE if no memory.
  *
  */
 dbus_bool_t
-dbus_connection_send_message_with_reply (DBusConnection     *connection,
-                                         DBusMessage        *message,
-                                         DBusMessageHandler *reply_handler,
-                                         int                 timeout_milliseconds,
-                                         DBusResultCode     *result)
+dbus_connection_send_with_reply (DBusConnection     *connection,
+                                 DBusMessage        *message,
+                                 DBusMessageHandler *reply_handler,
+                                 int                 timeout_milliseconds)
 {
   DBusTimeout *timeout;
   ReplyHandlerData *data;
@@ -1132,10 +1197,7 @@ dbus_connection_send_message_with_reply (DBusConnection     *connection,
   data = dbus_new0 (ReplyHandlerData, 1);
 
   if (!data)
-    {
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
-      return FALSE;
-    }
+    return FALSE;
   
   timeout = _dbus_timeout_new (timeout_milliseconds, reply_handler_timeout,
 			       data, NULL);
@@ -1143,7 +1205,6 @@ dbus_connection_send_message_with_reply (DBusConnection     *connection,
   if (!timeout)
     {
       reply_handler_data_free (data);
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
       return FALSE;
     }
 
@@ -1155,8 +1216,6 @@ dbus_connection_send_message_with_reply (DBusConnection     *connection,
       reply_handler_data_free (data);
       _dbus_timeout_unref (timeout);
       dbus_mutex_unlock (connection->mutex);
-      
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
       return FALSE;
     }
 
@@ -1171,17 +1230,15 @@ dbus_connection_send_message_with_reply (DBusConnection     *connection,
     {
       dbus_mutex_unlock (connection->mutex);
       reply_handler_data_free (data);
-      
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
       return FALSE;
     }
   data->connection_added = TRUE;
   
   /* Assign a serial to the message */
-  if (_dbus_message_get_client_serial (message) == -1)
+  if (dbus_message_get_serial (message) == -1)
     {
       serial = _dbus_connection_get_next_client_serial (connection);
-      _dbus_message_set_client_serial (message, serial);
+      _dbus_message_set_serial (message, serial);
     }
 
   data->handler = reply_handler;
@@ -1195,8 +1252,6 @@ dbus_connection_send_message_with_reply (DBusConnection     *connection,
     {
       dbus_mutex_unlock (connection->mutex);
       reply_handler_data_free (data);
-      
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
       return FALSE;
     }
 
@@ -1206,8 +1261,6 @@ dbus_connection_send_message_with_reply (DBusConnection     *connection,
       dbus_mutex_unlock (connection->mutex);
       dbus_message_unref (reply);
       reply_handler_data_free (data);
-      
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
       return FALSE;
     }
 
@@ -1216,23 +1269,20 @@ dbus_connection_send_message_with_reply (DBusConnection     *connection,
   /* Insert the serial in the pending replies hash. */
   if (!_dbus_hash_table_insert_int (connection->pending_replies, serial, data))
     {
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
       dbus_mutex_unlock (connection->mutex);
-      reply_handler_data_free (data);
-      
+      reply_handler_data_free (data);      
       return FALSE;
     }
 
   dbus_mutex_unlock (connection->mutex);
   
-  if (!dbus_connection_send_message (connection, message, NULL, result))
+  if (!dbus_connection_send (connection, message, NULL))
     {
       /* This will free the handler data too */
       _dbus_hash_table_remove_int (connection->pending_replies, serial);
       return FALSE;
     }
 
-  dbus_set_result (result, DBUS_RESULT_SUCCESS);  
   return TRUE;
 }
 
@@ -1242,9 +1292,9 @@ dbus_connection_send_message_with_reply (DBusConnection     *connection,
  * has been reached. This function is used to do non-reentrant "method calls."
  * If a reply is received, it is returned, and removed from the incoming
  * message queue. If it is not received, #NULL is returned and the
- * result is set to #DBUS_RESULT_NO_REPLY. If something else goes
+ * error is set to #DBUS_ERROR_NO_REPLY. If something else goes
  * wrong, result is set to whatever is appropriate, such as
- * #DBUS_RESULT_NO_MEMORY.
+ * #DBUS_ERROR_NO_MEMORY or #DBUS_ERROR_DISCONNECTED.
  *
  * @todo could use performance improvements (it keeps scanning
  * the whole message queue for example) and has thread issues,
@@ -1253,15 +1303,15 @@ dbus_connection_send_message_with_reply (DBusConnection     *connection,
  * @param connection the connection
  * @param message the message to send
  * @param timeout_milliseconds timeout in milliseconds or -1 for default
- * @param result return location for result code
+ * @param error return location for error message
  * @returns the message that is the reply or #NULL with an error code if the
  * function fails.
  */
 DBusMessage *
-dbus_connection_send_message_with_reply_and_block (DBusConnection     *connection,
-						   DBusMessage        *message,
-						   int                 timeout_milliseconds,
-						   DBusResultCode     *result)
+dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
+                                           DBusMessage        *message,
+                                           int                 timeout_milliseconds,
+                                           DBusError          *error)
 {
   dbus_int32_t client_serial;
   DBusList *link;
@@ -1279,8 +1329,11 @@ dbus_connection_send_message_with_reply_and_block (DBusConnection     *connectio
   if (timeout_milliseconds > _DBUS_ONE_HOUR_IN_MILLISECONDS * 6)
     timeout_milliseconds = _DBUS_ONE_HOUR_IN_MILLISECONDS * 6;
   
-  if (!dbus_connection_send_message (connection, message, &client_serial, result))
-    return NULL;
+  if (!dbus_connection_send (connection, message, &client_serial))
+    {
+      _DBUS_SET_OOM (error);
+      return NULL;
+    }
 
   message = NULL;
   
@@ -1318,13 +1371,10 @@ dbus_connection_send_message_with_reply_and_block (DBusConnection     *connectio
     {
       DBusMessage *reply = link->data;
 
-      if (_dbus_message_get_reply_serial (reply) == client_serial)
+      if (dbus_message_get_reply_serial (reply) == client_serial)
 	{
 	  _dbus_list_remove_link (&connection->incoming_messages, link);
 	  dbus_message_ref (reply);
-
-	  if (result)
-	    *result = DBUS_RESULT_SUCCESS;
 	  
 	  dbus_mutex_unlock (connection->mutex);
 	  return reply;
@@ -1345,14 +1395,14 @@ dbus_connection_send_message_with_reply_and_block (DBusConnection     *connectio
         (end_tv_usec - tv_usec) / 1000;
       _dbus_verbose ("%d milliseconds remain\n", timeout_milliseconds);
       _dbus_assert (timeout_milliseconds > 0);
-
+      
       goto block_again; /* not expired yet */
     }
-
+  
   if (dbus_connection_get_is_connected (connection))
-    dbus_set_result (result, DBUS_RESULT_NO_REPLY);
+    dbus_set_error (error, DBUS_ERROR_NO_REPLY, "Message did not receive a reply");
   else
-    dbus_set_result (result, DBUS_RESULT_DISCONNECTED);
+    dbus_set_error (error, DBUS_ERROR_DISCONNECTED, "Disconnected prior to receiving a reply");
 
   dbus_mutex_unlock (connection->mutex);
 
@@ -1631,7 +1681,7 @@ dbus_connection_dispatch_message (DBusConnection *connection)
   
   result = DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
 
-  reply_serial = _dbus_message_get_reply_serial (message);
+  reply_serial = dbus_message_get_reply_serial (message);
   reply_handler_data = _dbus_hash_table_lookup_int (connection->pending_replies,
 						    reply_serial);
   

@@ -125,7 +125,7 @@ bus_desktop_file_free (BusDesktopFile *desktop_file)
   dbus_free (desktop_file);
 }
 
-static void
+static dbus_bool_t
 grow_lines_in_section (BusDesktopFileSection *section)
 {
   BusDesktopFileLine *lines;
@@ -137,14 +137,19 @@ grow_lines_in_section (BusDesktopFileSection *section)
   else
     new_n_lines = section->n_allocated_lines*2;
 
-  BUS_HANDLE_OOM (lines = dbus_realloc (section->lines,
-					sizeof (BusDesktopFileLine) * new_n_lines));
-  section->lines = lines;
+  lines = dbus_realloc (section->lines,
+                        sizeof (BusDesktopFileLine) * new_n_lines);
+
+  if (lines == NULL)
+    return FALSE;
   
+  section->lines = lines;
   section->n_allocated_lines = new_n_lines;
+
+  return TRUE;
 }
 
-static void
+static dbus_bool_t
 grow_sections (BusDesktopFile *desktop_file)
 {
   int new_n_sections;
@@ -155,21 +160,36 @@ grow_sections (BusDesktopFile *desktop_file)
   else
     new_n_sections = desktop_file->n_allocated_sections*2;
 
-  BUS_HANDLE_OOM (sections = dbus_realloc (desktop_file->sections,
-					   sizeof (BusDesktopFileSection) * new_n_sections));
+  sections = dbus_realloc (desktop_file->sections,
+                           sizeof (BusDesktopFileSection) * new_n_sections);
+  if (sections == NULL)
+    return FALSE;
+  
   desktop_file->sections = sections;
   
   desktop_file->n_allocated_sections = new_n_sections;
+
+  return TRUE;
 }
 
 static char *
-unescape_string (const DBusString *str, int pos, int end_pos)
+unescape_string (BusDesktopFileParser *parser,
+                 const DBusString     *str,
+                 int                   pos,
+                 int                   end_pos,
+                 DBusError            *error)
 {
   char *retval, *q;
   
   /* len + 1 is enough, because unescaping never makes the
-   * string longer */
-  BUS_HANDLE_OOM (retval = dbus_malloc (end_pos - pos + 1));
+   * string longer
+   */
+  retval = dbus_malloc (end_pos - pos + 1);
+  if (retval == NULL)
+    {
+      BUS_SET_OOM (error);
+      return NULL;
+    }
 
   q = retval;
   
@@ -179,6 +199,8 @@ unescape_string (const DBusString *str, int pos, int end_pos)
 	{
 	  /* Found an embedded null */
 	  dbus_free (retval);
+          report_error (parser, "Text to be unescaped contains embedded nul",
+                        BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES, error);
 	  return NULL;
 	}
 
@@ -190,6 +212,8 @@ unescape_string (const DBusString *str, int pos, int end_pos)
 	    {
 	      /* Escape at end of string */
 	      dbus_free (retval);
+              report_error (parser, "Text to be unescaped ended in \\",
+                            BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES, error);
 	      return NULL;
 	    }
 
@@ -213,7 +237,9 @@ unescape_string (const DBusString *str, int pos, int end_pos)
            default:
 	     /* Invalid escape code */
 	     dbus_free (retval);
-	     return NULL;
+             report_error (parser, "Text to be unescaped had invalid escape sequence",
+                           BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES, error);
+             return NULL;
 	    }
 	  pos++;
 	}
@@ -235,20 +261,34 @@ new_section (BusDesktopFile *desktop_file,
              const char     *name)
 {
   int n;
+  char *name_copy;
   
   if (desktop_file->n_allocated_sections == desktop_file->n_sections)
-    grow_sections (desktop_file);
+    {
+      if (!grow_sections (desktop_file))
+        return NULL;
+    }
 
-  n = desktop_file->n_sections++;
-
-  BUS_HANDLE_OOM (desktop_file->sections[n].section_name = _dbus_strdup (name));
+  name_copy = _dbus_strdup (name);
+  if (name_copy == NULL)
+    return NULL;
+  
+  n = desktop_file->n_sections + 1;
+  desktop_file->sections[n].section_name = name_copy;
 
   desktop_file->sections[n].n_lines = 0;
   desktop_file->sections[n].lines = NULL;
   desktop_file->sections[n].n_allocated_lines = 0;
 
-  grow_lines_in_section (&desktop_file->sections[n]);
+  if (!grow_lines_in_section (&desktop_file->sections[n]))
+    {
+      dbus_free (desktop_file->sections[n].section_name);
+      desktop_file->sections[n].section_name = NULL;
+      return NULL;
+    }
 
+  desktop_file->n_sections = n;
+  
   return &desktop_file->sections[n];  
 }
 
@@ -277,7 +317,10 @@ new_line (BusDesktopFileParser *parser)
   section = &parser->desktop_file->sections[parser->current_section];
 
   if (section->n_allocated_lines == section->n_lines)
-    grow_lines_in_section (section);
+    {
+      if (!grow_lines_in_section (section))
+        return NULL;
+    }
 
   line = &section->lines[section->n_lines++];
 
@@ -358,11 +401,12 @@ parse_section_start (BusDesktopFileParser *parser, DBusError *error)
       return FALSE;
     }
 
-  section_name = unescape_string (&parser->data, parser->pos + 1, line_end - 1);
+  section_name = unescape_string (parser,
+                                  &parser->data, parser->pos + 1, line_end - 1,
+                                  error);
 
   if (section_name == NULL)
     {
-      report_error (parser, "Invalid escaping in section name", BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES, error);
       parser_free (parser);
       return FALSE;
     }
@@ -450,20 +494,39 @@ parse_key_value (BusDesktopFileParser *parser, DBusError *error)
 
   value_start = p;
   
-  value = unescape_string (&parser->data, value_start, line_end);
+  value = unescape_string (parser, &parser->data, value_start, line_end, error);
   if (value == NULL)
     {
-      report_error (parser, "Invalid escaping in value", BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES, error);
       parser_free (parser);
       return FALSE;
     }
 
   line = new_line (parser);
-
-  BUS_HANDLE_OOM (_dbus_string_init (&key, key_end - key_start));
-  BUS_HANDLE_OOM (_dbus_string_copy_len (&parser->data, key_start, key_end - key_start,
-					 &key, 0));
-  BUS_HANDLE_OOM (_dbus_string_steal_data (&key, &tmp));
+  if (line == NULL)
+    {
+      parser_free (parser);
+      return FALSE;
+    }
+  
+  if (!_dbus_string_init (&key, key_end - key_start))
+    {
+      parser_free (parser);
+      return FALSE;
+    }
+  
+  if (!_dbus_string_copy_len (&parser->data, key_start, key_end - key_start,
+                              &key, 0))
+    {
+      parser_free (parser);
+      return FALSE;
+    }
+  
+  if (!_dbus_string_steal_data (&key, &tmp))
+    {
+      parser_free (parser);
+      return FALSE;
+    }
+  
   _dbus_string_free (&key);
   
   line->key = tmp;
@@ -491,11 +554,11 @@ report_error (BusDesktopFileParser *parser,
     section_name = parser->desktop_file->sections[parser->current_section].section_name;
 
   if (section_name)
-    BUS_HANDLE_OOM (dbus_set_error (error, error_name,
-				    "Error in section %s at line %d: %s\n", section_name, parser->line_num, message));
+    dbus_set_error (error, error_name,
+                    "Error in section %s at line %d: %s\n", section_name, parser->line_num, message);
   else
-    BUS_HANDLE_OOM (dbus_set_error (error, error_name,
-				    "Error at line %d: %s\n", parser->line_num, message));
+    dbus_set_error (error, error_name,
+                    "Error at line %d: %s\n", parser->line_num, message);
 }
 
 #if 0
@@ -519,39 +582,52 @@ dump_desktop_file (BusDesktopFile *file)
 }
 #endif
 
-BusDesktopFile *
+BusDesktopFile*
 bus_desktop_file_load (DBusString *filename,
 		       DBusError  *error)
 {
   DBusString str;
-  DBusResultCode result_code;
   BusDesktopFileParser parser;
+  DBusStat sb;
   
-  /* FIXME: Check file size so we don't try to load a ridicously large file. */
+  /* Clearly there's a race here, but it's just to make it unlikely
+   * that we do something silly, we still handle doing it below.
+   */
+  if (!_dbus_stat (filename, &sb, error))
+    return NULL;
 
-  BUS_HANDLE_OOM (_dbus_string_init (&str, _DBUS_INT_MAX));
+  if (sb.size > _DBUS_ONE_KILOBYTE * 128)
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Desktop file size (%ld bytes) is too large", (long) sb.size);
+      return NULL;
+    }
   
-  BUS_HANDLE_OOM ((result_code = _dbus_file_get_contents (&str, filename)) !=
-		  DBUS_RESULT_NO_MEMORY);
+  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+    return NULL;
   
-  if (result_code != DBUS_RESULT_SUCCESS)
+  if (!_dbus_file_get_contents (&str, filename, error))
     {
       _dbus_string_free (&str);
-
-      /* FIXME: Set error */
       return NULL;
     }
 
   if (!_dbus_string_validate_utf8 (&str, 0, _dbus_string_get_length (&str)))
     {
       _dbus_string_free (&str);
-      
-      /* FIXME: Set error */
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "invalid UTF-8");   
       return NULL;
     }
   
-  BUS_HANDLE_OOM (parser.desktop_file = dbus_malloc0 (sizeof (BusDesktopFile)));
-
+  parser.desktop_file = dbus_new0 (BusDesktopFile, 1);
+  if (parser.desktop_file == NULL)
+    {
+      _dbus_string_free (&str);
+      BUS_SET_OOM (error);
+      return NULL;
+    }
+  
   parser.data = str;
   parser.line_num = 1;
   parser.pos = 0;
@@ -563,7 +639,10 @@ bus_desktop_file_load (DBusString *filename,
       if (_dbus_string_get_byte (&parser.data, parser.pos) == '[')
 	{
 	  if (!parse_section_start (&parser, error))
-	    return NULL;
+            {
+              _dbus_string_free (&parser.data);
+              return NULL;
+            }
 	}
       else if (is_blank_line (&parser) ||
 	       _dbus_string_get_byte (&parser.data, parser.pos) == '#')
@@ -571,7 +650,10 @@ bus_desktop_file_load (DBusString *filename,
       else
 	{
 	  if (!parse_key_value (&parser, error))
-	    return NULL;
+            {
+              _dbus_string_free (&parser.data);
+              return NULL;
+            }
 	}
     }
 
@@ -661,7 +743,13 @@ bus_desktop_file_get_string (BusDesktopFile  *desktop_file,
   if (!bus_desktop_file_get_raw (desktop_file, section, keyname, &raw))
     return FALSE;
 
-  BUS_HANDLE_OOM (*val = _dbus_strdup (raw));
+  *val = _dbus_strdup (raw);
+
+  /* FIXME we don't distinguish "key not found" from "out of memory" here,
+   * which is broken.
+   */
+  if (*val == NULL)
+    return FALSE;
   
   return TRUE;
 }

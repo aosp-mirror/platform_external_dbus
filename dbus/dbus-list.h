@@ -73,6 +73,8 @@ void        _dbus_list_append_link    (DBusList **list,
 void        _dbus_list_prepend_link   (DBusList **list,
 				       DBusList  *link);
 
+dbus_bool_t _dbus_list_length_is_one  (DBusList **list);
+
 void _dbus_list_foreach (DBusList            **list,
                          DBusForeachFunction   function,
                          void                 *data);

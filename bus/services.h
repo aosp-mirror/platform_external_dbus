@@ -26,6 +26,10 @@
 
 #include <dbus/dbus.h>
 #include <dbus/dbus-string.h>
+#include "connection.h"
+
+/* forward decl that probably shouldn't be in this file */
+typedef struct BusTransaction BusTransaction;
 
 /* Each service can have multiple owners; one owner is the "real
  * owner" and the others are queued up. For example, if I have
@@ -38,12 +42,19 @@ typedef struct BusService BusService;
 typedef void (* BusServiceForeachFunction) (BusService       *service,
                                             void             *data);
 
-BusService*     bus_service_lookup                   (const DBusString          *service_name,
-						      dbus_bool_t                create_if_not_found);
+BusService*     bus_service_lookup                   (const DBusString          *service_name);
+BusService*     bus_service_ensure                   (const DBusString          *service_name,
+                                                      DBusConnection            *owner_if_created,
+                                                      BusTransaction            *transaction,
+                                                      DBusError                 *error);
 dbus_bool_t     bus_service_add_owner                (BusService                *service,
-						      DBusConnection            *owner);
-void            bus_service_remove_owner             (BusService                *service,
-						      DBusConnection            *owner);
+						      DBusConnection            *owner,
+                                                      BusTransaction            *transaction,
+                                                      DBusError                 *error);
+dbus_bool_t     bus_service_remove_owner             (BusService                *service,
+						      DBusConnection            *owner,
+                                                      BusTransaction            *transaction,
+                                                      DBusError                 *error);
 dbus_bool_t     bus_service_has_owner                (BusService                *service,
 						      DBusConnection            *owner);
 DBusConnection* bus_service_get_primary_owner        (BusService                *service);

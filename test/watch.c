@@ -168,10 +168,10 @@ check_messages (void)
 	      fprintf (stderr, "Received message %d, sending reply\n", count);
 	      
 	      reply = dbus_message_new ("org.freedesktop.DBus.Test", "org.freedesktop.DBus.Test");
-	      dbus_connection_send_message (connection,
-					    reply,
-					    NULL, 
-					    NULL);
+	      if (!dbus_connection_send (connection,
+                                         reply,
+                                         NULL))
+                fprintf (stderr, "No memory to send reply\n");
 	      dbus_message_unref (reply);
 	      
 	      dbus_message_unref (message);

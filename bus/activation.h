@@ -26,8 +26,9 @@
 
 #include <dbus/dbus.h>
 
-void        bus_activation_init             (const char  *address,
-					     const char **paths);
+dbus_bool_t bus_activation_init             (const char  *address,
+					     const char **paths,
+                                             DBusError   *error);
 dbus_bool_t bus_activation_activate_service (const char  *service_name,
 					     DBusError   *error);
 

@@ -399,6 +399,7 @@ _dbus_keyring_reload (DBusKeyring *keyring,
   int n_keys;
   int i;
   long now;
+  DBusError tmp_error;
   
   if (!_dbus_string_init (&contents, _DBUS_INT_MAX))
     {
@@ -434,14 +435,15 @@ _dbus_keyring_reload (DBusKeyring *keyring,
       have_lock = TRUE;
     }
 
-  result = _dbus_file_get_contents (&contents, 
-                                    &keyring->filename);
-
-  if (result != DBUS_RESULT_SUCCESS)
+  dbus_error_init (&tmp_error);
+  if (!_dbus_file_get_contents (&contents, 
+                                &keyring->filename,
+                                &tmp_error))
     {
       _dbus_verbose ("Failed to load keyring file: %s\n",
-                     dbus_result_to_string (result));
+                     tmp_error.message);
       /* continue with empty keyring file, so we recreate it */
+      dbus_error_free (&tmp_error);
     }
 
   if (!_dbus_string_validate_ascii (&contents, 0,

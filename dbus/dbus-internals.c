@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-internals.c  random utility stuff (internal to D-BUS implementation)
  *
- * Copyright (C) 2002  Red Hat, Inc.
+ * Copyright (C) 2002, 2003  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -128,6 +128,13 @@
  */
 
 /**
+ * Fixed "out of memory" error message, just to avoid
+ * making up a different string every time and wasting
+ * space.
+ */
+const char _dbus_no_memory_message[] = "Not enough memory";
+
+/**
  * Prints a warning message to stderr.
  *
  * @param format printf-style format string.
@@ -178,104 +185,6 @@ _dbus_verbose_real (const char *format,
   va_start (args, format);
   vfprintf (stderr, format, args);
   va_end (args);
-}
-
-/**
- * Converts a UNIX errno into a DBusResultCode.
- *
- * @todo should cover more errnos, specifically those
- * from open().
- * 
- * @param error_number the errno.
- * @returns the result code.
- */
-DBusResultCode
-_dbus_result_from_errno (int error_number)
-{
-  switch (error_number)
-    {
-    case 0:
-      return DBUS_RESULT_SUCCESS;
-      
-#ifdef EPROTONOSUPPORT
-    case EPROTONOSUPPORT:
-      return DBUS_RESULT_NOT_SUPPORTED;
-#endif
-#ifdef EAFNOSUPPORT
-    case EAFNOSUPPORT:
-      return DBUS_RESULT_NOT_SUPPORTED;
-#endif
-#ifdef ENFILE
-    case ENFILE:
-      return DBUS_RESULT_LIMITS_EXCEEDED; /* kernel out of memory */
-#endif
-#ifdef EMFILE
-    case EMFILE:
-      return DBUS_RESULT_LIMITS_EXCEEDED;
-#endif
-#ifdef EACCES
-    case EACCES:
-      return DBUS_RESULT_ACCESS_DENIED;
-#endif
-#ifdef EPERM
-    case EPERM:
-      return DBUS_RESULT_ACCESS_DENIED;
-#endif
-#ifdef ENOBUFS
-    case ENOBUFS:
-      return DBUS_RESULT_NO_MEMORY;
-#endif
-#ifdef ENOMEM
-    case ENOMEM:
-      return DBUS_RESULT_NO_MEMORY;
-#endif
-#ifdef EINVAL
-    case EINVAL:
-      return DBUS_RESULT_FAILED;
-#endif
-#ifdef EBADF
-    case EBADF:
-      return DBUS_RESULT_FAILED;
-#endif
-#ifdef EFAULT
-    case EFAULT:
-      return DBUS_RESULT_FAILED;
-#endif
-#ifdef ENOTSOCK
-    case ENOTSOCK:
-      return DBUS_RESULT_FAILED;
-#endif
-#ifdef EISCONN
-    case EISCONN:
-      return DBUS_RESULT_FAILED;
-#endif
-#ifdef ECONNREFUSED
-    case ECONNREFUSED:
-      return DBUS_RESULT_NO_SERVER;
-#endif
-#ifdef ETIMEDOUT
-    case ETIMEDOUT:
-      return DBUS_RESULT_TIMEOUT;
-#endif
-#ifdef ENETUNREACH
-    case ENETUNREACH:
-      return DBUS_RESULT_NO_NETWORK;
-#endif
-#ifdef EADDRINUSE
-    case EADDRINUSE:
-      return DBUS_RESULT_ADDRESS_IN_USE;
-#endif
-#ifdef EEXIST
-    case EEXIST:
-      return DBUS_RESULT_FILE_NOT_FOUND;
-#endif
-#ifdef ENOENT
-    case ENOENT:
-      return DBUS_RESULT_FILE_NOT_FOUND;
-#endif
-    }
-
-  return DBUS_RESULT_FAILED;
 }
 
 /**

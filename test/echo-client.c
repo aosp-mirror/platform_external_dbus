@@ -28,10 +28,10 @@ main (int    argc,
 
   /* Send a message to get things going */
   message = dbus_message_new ("org.freedesktop.DBus.Test", "org.freedesktop.DBus.Test");
-  dbus_connection_send_message (connection,
-                                message,
-				NULL, 
-                                NULL);
+  if (!dbus_connection_send (connection,
+                             message,
+                             NULL))
+    fprintf (stderr, "No memory to send reply\n");
   dbus_message_unref (message);
   
   do_mainloop ();

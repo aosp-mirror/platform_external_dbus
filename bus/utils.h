@@ -25,8 +25,9 @@
 #ifndef BUS_UTILS_H
 #define BUS_UTILS_H
 
-#define BUS_HANDLE_OOM(stat) (stat)
-
 void bus_wait_for_memory (void);
+
+extern const char bus_no_memory_message[];
+#define BUS_SET_OOM(error) dbus_set_error ((error), DBUS_ERROR_NO_MEMORY, bus_no_memory_message)
 
 #endif /* BUS_ACTIVATION_H */

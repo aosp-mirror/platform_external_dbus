@@ -7,13 +7,13 @@ main (int argc, char **argv)
 {
   DBusConnection *connection;
   DBusResultCode result;
-  DBusMessage *message, *reply;
-  
+  DBusMessage *message, *reply;  
   GMainLoop *loop;
+  DBusError error;
   
   if (argc < 2)
     {
-      fprintf (stderr, "Give the server address as an argument\n");
+      g_printerr ("Give the server address as an argument\n");
       return 1;
     }
 
@@ -22,8 +22,8 @@ main (int argc, char **argv)
   connection = dbus_connection_open (argv[1], &result);
   if (connection == NULL)
     {
-      fprintf (stderr, "Failed to open connection to %s: %s\n", argv[1],
-	       dbus_result_to_string (result));
+      g_printerr ("Failed to open connection to %s: %s\n", argv[1],
+                  dbus_result_to_string (result));
       return 1;
     }
 
@@ -31,7 +31,15 @@ main (int argc, char **argv)
 
   message = dbus_message_new ("org.freedesktop.DBus", "org.freedesktop.DBus.Hello");
 
-  reply = dbus_connection_send_message_with_reply_and_block (connection, message, -1, &result);
+  dbus_error_init (&error);
+  reply = dbus_connection_send_with_reply_and_block (connection, message, -1, &error);
+  if (reply == NULL)
+    {
+      g_printerr ("Error on hello message: %s\n", error.message);
+      dbus_error_free (&error);
+      return 1;
+    }
+  
   g_print ("reply name: %s\n", dbus_message_get_name (reply));
   
   g_main_loop_run (loop);

@@ -56,6 +56,20 @@ struct DBusError
 #define DBUS_ERROR_NO_MEMORY                  "org.freedesktop.DBus.Error.NoMemory"
 #define DBUS_ERROR_SERVICE_DOES_NOT_EXIST     "org.freedesktop.DBus.Error.ServiceDoesNotExist"
 #define DBUS_ERROR_NO_REPLY                   "org.freedesktop.DBus.Error.NoReply"
+#define DBUS_ERROR_IO_ERROR                   "org.freedesktop.DBus.Error.IOError"
+#define DBUS_ERROR_BAD_ADDRESS                "org.freedesktop.DBus.Error.BadAddress"
+#define DBUS_ERROR_NOT_SUPPORTED              "org.freedesktop.DBus.Error.NotSupported"
+#define DBUS_ERROR_LIMITS_EXCEEDED            "org.freedesktop.DBus.Error.LimitsExceeded"
+#define DBUS_ERROR_ACCESS_DENIED              "org.freedesktop.DBus.Error.AccessDenied"
+#define DBUS_ERROR_AUTH_FAILED                "org.freedesktop.DBus.Error.AuthFailed"
+#define DBUS_ERROR_NO_SERVER                  "org.freedesktop.DBus.Error.NoServer"
+#define DBUS_ERROR_TIMEOUT                    "org.freedesktop.DBus.Error.Timeout"
+#define DBUS_ERROR_NO_NETWORK                 "org.freedesktop.DBus.Error.NoNetwork"
+#define DBUS_ERROR_ADDRESS_IN_USE             "org.freedesktop.DBus.Error.AddressInUse"
+#define DBUS_ERROR_DISCONNECTED               "org.freedesktop.DBus.Error.Disconnected"
+#define DBUS_ERROR_INVALID_ARGS               "org.freedesktop.DBus.Error.InvalidArgs"
+#define DBUS_ERROR_FILE_NOT_FOUND             "org.freedesktop.DBus.Error.FileNotFound"
+#define DBUS_ERROR_UNKNOWN_MESSAGE            "org.freedesktop.DBus.Error.UnknownMessage"
 
 typedef enum
 {
@@ -90,6 +104,8 @@ void        dbus_set_error       (DBusError       *error,
 void        dbus_set_error_const (DBusError       *error,
                                   const char      *name,
                                   const char      *message);
+void        dbus_move_error      (DBusError       *src,
+                                  DBusError       *dest);
 dbus_bool_t dbus_error_has_name  (const DBusError *error,
                                   const char      *name);
 dbus_bool_t dbus_error_is_set    (const DBusError *error);

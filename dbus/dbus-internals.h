@@ -94,6 +94,8 @@ do {                                                                            
 #define _DBUS_STRUCT_OFFSET(struct_type, member)	\
     ((long) ((unsigned char*) &((struct_type*) 0)->member))
 
+#define _DBUS_ASSERT_ERROR_IS_SET(error) _dbus_assert ((error) == NULL || dbus_error_is_set ((error)))
+
 /* This alignment thing is from ORBit2 */
 /* Align a value upward to a boundary, expressed as a number of bytes.
  * E.g. align to an 8-byte boundary with argument of 8.
@@ -145,6 +147,9 @@ void _dbus_verbose_bytes_of_string (const DBusString    *str,
 
 
 const char* _dbus_type_to_string (int type);
+
+extern const char _dbus_no_memory_message[];
+#define _DBUS_SET_OOM(error) dbus_set_error ((error), DBUS_ERROR_NO_MEMORY, _dbus_no_memory_message)
 
 #ifdef DBUS_BUILD_TESTS
 /* Memory debugging */

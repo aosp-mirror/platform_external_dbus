@@ -14,6 +14,7 @@ main (int    argc,
   DBusString decoded;
   DBusString filename;
   const char *s;
+  DBusError error;
   
   if (argc < 2)
     {
@@ -29,8 +30,13 @@ main (int    argc,
   if (!_dbus_string_init (&decoded, _DBUS_INT_MAX))
     return 1;
 
-  if (_dbus_file_get_contents (&contents, &filename) != DBUS_RESULT_SUCCESS)
-    return 1;
+  dbus_error_init (&error);
+  if (!_dbus_file_get_contents (&contents, &filename, &error))
+    {
+      fprintf (stderr, "Failed to load file: %s\n", error.message);
+      dbus_error_free (&error);
+      return 1;
+    }
 
   if (!_dbus_string_base64_decode (&contents, 0,
                                    &decoded, 0))

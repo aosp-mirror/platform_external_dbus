@@ -37,12 +37,13 @@ thread_func (gpointer data)
 	}
       g_free (str);
 
-      if (!dbus_connection_send_message (connection,
-					 message,
-					 NULL, NULL))
+      if (!dbus_connection_send (connection,
+                                 message,
+                                 NULL))
 	{
-	  g_print ("thread %d: send message failerd\n", threadnr);
+	  g_print ("thread %d: send message failed\n", threadnr);
 	}
+      
       dbus_message_unref (message);
       
       counter ++;

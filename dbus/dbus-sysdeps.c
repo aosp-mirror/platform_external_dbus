@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-sysdeps.c Wrappers around system/libc features (internal to D-BUS implementation)
  * 
- * Copyright (C) 2002  Red Hat, Inc.
+ * Copyright (C) 2002, 2003  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -1604,11 +1604,13 @@ _dbus_get_current_time (long *tv_sec,
  *
  * @param str the string to append to
  * @param filename filename to load
- * @returns result
+ * @param error place to set an error
+ * @returns #FALSE if error was set
  */
-DBusResultCode
+dbus_bool_t
 _dbus_file_get_contents (DBusString       *str,
-                         const DBusString *filename)
+                         const DBusString *filename,
+                         DBusError        *error)
 {
   int fd;
   struct stat sb;
@@ -1621,28 +1623,32 @@ _dbus_file_get_contents (DBusString       *str,
   /* O_BINARY useful on Cygwin */
   fd = open (filename_c, O_RDONLY | O_BINARY);
   if (fd < 0)
-    return _dbus_result_from_errno (errno);
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "%s", _dbus_strerror (errno));
+      return FALSE;
+    }
 
   if (fstat (fd, &sb) < 0)
     {
-      DBusResultCode result;      
-
-      result = _dbus_result_from_errno (errno); /* prior to close() */
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "%s", _dbus_strerror (errno));
 
       _dbus_verbose ("fstat() failed: %s",
                      _dbus_strerror (errno));
       
       close (fd);
       
-      return result;
+      return FALSE;
     }
 
   if (sb.st_size > _DBUS_ONE_MEGABYTE)
     {
-      _dbus_verbose ("File size %lu is too large.\n",
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "File size %lu is too large.\n",
                      (unsigned long) sb.st_size);
       close (fd);
-      return DBUS_RESULT_FAILED;
+      return FALSE;
     }
   
   total = 0;
@@ -1657,34 +1663,35 @@ _dbus_file_get_contents (DBusString       *str,
                                    sb.st_size - total);
           if (bytes_read <= 0)
             {
-              DBusResultCode result;
-              
-              result = _dbus_result_from_errno (errno); /* prior to close() */
+              dbus_set_error (error, _dbus_error_from_errno (errno),
+                              "%s", _dbus_strerror (errno));
 
               _dbus_verbose ("read() failed: %s",
                              _dbus_strerror (errno));
               
               close (fd);
               _dbus_string_set_length (str, orig_len);
-              return result;
+              return FALSE;
             }
           else
             total += bytes_read;
         }
 
       close (fd);
-      return DBUS_RESULT_SUCCESS;
+      return TRUE;
     }
   else if (sb.st_size != 0)
     {
       _dbus_verbose ("Can only open regular files at the moment.\n");
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Not a regular file");
       close (fd);
-      return DBUS_RESULT_FAILED;
+      return FALSE;
     }
   else
     {
       close (fd);
-      return DBUS_RESULT_SUCCESS;
+      return TRUE;
     }
 }
 
@@ -1972,12 +1979,12 @@ struct DBusDirIter
  * Open a directory to iterate over.
  *
  * @param filename the directory name
- * @param result return location for error code if #NULL returned
+ * @param error exception return object or #NULL
  * @returns new iterator, or #NULL on error
  */
 DBusDirIter*
 _dbus_directory_open (const DBusString *filename,
-                      DBusResultCode   *result)
+                      DBusError        *error)
 {
   DIR *d;
   DBusDirIter *iter;
@@ -1988,15 +1995,16 @@ _dbus_directory_open (const DBusString *filename,
   d = opendir (filename_c);
   if (d == NULL)
     {
-      dbus_set_result (result, _dbus_result_from_errno (errno));
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "%s", _dbus_strerror (errno));
       return NULL;
     }
-  
   iter = dbus_new0 (DBusDirIter, 1);
   if (iter == NULL)
     {
       closedir (d);
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                      "Could not allocate memory for directory iterator");
       return NULL;
     }
 
@@ -2006,39 +2014,38 @@ _dbus_directory_open (const DBusString *filename,
 }
 
 /**
- * Get next file in the directory. Will not return "." or ".."
- * on UNIX. If an error occurs, the contents of "filename"
- * are undefined. #DBUS_RESULT_SUCCESS is always returned
- * in result if no error occurs.
+ * Get next file in the directory. Will not return "." or ".."  on
+ * UNIX. If an error occurs, the contents of "filename" are
+ * undefined. The error is never set if the function succeeds.
  *
  * @todo for thread safety, I think we have to use
  * readdir_r(). (GLib has the same issue, should file a bug.)
  *
  * @param iter the iterator
  * @param filename string to be set to the next file in the dir
- * @param result return location for error, or #DBUS_RESULT_SUCCESS
+ * @param error return location for error
  * @returns #TRUE if filename was filled in with a new filename
  */
 dbus_bool_t
 _dbus_directory_get_next_file (DBusDirIter      *iter,
                                DBusString       *filename,
-                               DBusResultCode   *result)
+                               DBusError        *error)
 {
   /* we always have to put something in result, since return
    * value means whether there's a filename and doesn't
    * reliably indicate whether an error was set.
    */
   struct dirent *ent;
-  
-  dbus_set_result (result, DBUS_RESULT_SUCCESS);
 
  again:
   errno = 0;
   ent = readdir (iter->d);
   if (ent == NULL)
     {
-      dbus_set_result (result,
-                       _dbus_result_from_errno (errno));
+      if (errno != 0)
+        dbus_set_error (error,
+                        _dbus_error_from_errno (errno),
+                        "%s", _dbus_strerror (errno));
       return FALSE;
     }
   else if (ent->d_name[0] == '.' &&
@@ -2050,7 +2057,8 @@ _dbus_directory_get_next_file (DBusDirIter      *iter,
       _dbus_string_set_length (filename, 0);
       if (!_dbus_string_append (filename, ent->d_name))
         {
-          dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                          "No memory to read directory entry");
           return FALSE;
         }
       else
@@ -2499,6 +2507,251 @@ _dbus_fd_set_close_on_exec (int fd)
   val |= FD_CLOEXEC;
   
   fcntl (fd, F_SETFD, val);
+}
+
+
+/**
+ * Converts a UNIX errno into a DBusResultCode.
+ *
+ * @todo should cover more errnos, specifically those
+ * from open().
+ * 
+ * @param error_number the errno.
+ * @returns the result code.
+ */
+DBusResultCode
+_dbus_result_from_errno (int error_number)
+{
+  switch (error_number)
+    {
+    case 0:
+      return DBUS_RESULT_SUCCESS;
+      
+#ifdef EPROTONOSUPPORT
+    case EPROTONOSUPPORT:
+      return DBUS_RESULT_NOT_SUPPORTED;
+#endif
+#ifdef EAFNOSUPPORT
+    case EAFNOSUPPORT:
+      return DBUS_RESULT_NOT_SUPPORTED;
+#endif
+#ifdef ENFILE
+    case ENFILE:
+      return DBUS_RESULT_LIMITS_EXCEEDED; /* kernel out of memory */
+#endif
+#ifdef EMFILE
+    case EMFILE:
+      return DBUS_RESULT_LIMITS_EXCEEDED;
+#endif
+#ifdef EACCES
+    case EACCES:
+      return DBUS_RESULT_ACCESS_DENIED;
+#endif
+#ifdef EPERM
+    case EPERM:
+      return DBUS_RESULT_ACCESS_DENIED;
+#endif
+#ifdef ENOBUFS
+    case ENOBUFS:
+      return DBUS_RESULT_NO_MEMORY;
+#endif
+#ifdef ENOMEM
+    case ENOMEM:
+      return DBUS_RESULT_NO_MEMORY;
+#endif
+#ifdef EINVAL
+    case EINVAL:
+      return DBUS_RESULT_FAILED;
+#endif
+#ifdef EBADF
+    case EBADF:
+      return DBUS_RESULT_FAILED;
+#endif
+#ifdef EFAULT
+    case EFAULT:
+      return DBUS_RESULT_FAILED;
+#endif
+#ifdef ENOTSOCK
+    case ENOTSOCK:
+      return DBUS_RESULT_FAILED;
+#endif
+#ifdef EISCONN
+    case EISCONN:
+      return DBUS_RESULT_FAILED;
+#endif
+#ifdef ECONNREFUSED
+    case ECONNREFUSED:
+      return DBUS_RESULT_NO_SERVER;
+#endif
+#ifdef ETIMEDOUT
+    case ETIMEDOUT:
+      return DBUS_RESULT_TIMEOUT;
+#endif
+#ifdef ENETUNREACH
+    case ENETUNREACH:
+      return DBUS_RESULT_NO_NETWORK;
+#endif
+#ifdef EADDRINUSE
+    case EADDRINUSE:
+      return DBUS_RESULT_ADDRESS_IN_USE;
+#endif
+#ifdef EEXIST
+    case EEXIST:
+      return DBUS_RESULT_FILE_NOT_FOUND;
+#endif
+#ifdef ENOENT
+    case ENOENT:
+      return DBUS_RESULT_FILE_NOT_FOUND;
+#endif
+    }
+
+  return DBUS_RESULT_FAILED;
+}
+
+/**
+ * Converts a UNIX errno into a #DBusError name.
+ *
+ * @todo should cover more errnos, specifically those
+ * from open().
+ * 
+ * @param error_number the errno.
+ * @returns an error name
+ */
+const char*
+_dbus_error_from_errno (int error_number)
+{
+  switch (error_number)
+    {
+    case 0:
+      return DBUS_ERROR_FAILED;
+      
+#ifdef EPROTONOSUPPORT
+    case EPROTONOSUPPORT:
+      return DBUS_ERROR_NOT_SUPPORTED;
+#endif
+#ifdef EAFNOSUPPORT
+    case EAFNOSUPPORT:
+      return DBUS_ERROR_NOT_SUPPORTED;
+#endif
+#ifdef ENFILE
+    case ENFILE:
+      return DBUS_ERROR_LIMITS_EXCEEDED; /* kernel out of memory */
+#endif
+#ifdef EMFILE
+    case EMFILE:
+      return DBUS_ERROR_LIMITS_EXCEEDED;
+#endif
+#ifdef EACCES
+    case EACCES:
+      return DBUS_ERROR_ACCESS_DENIED;
+#endif
+#ifdef EPERM
+    case EPERM:
+      return DBUS_ERROR_ACCESS_DENIED;
+#endif
+#ifdef ENOBUFS
+    case ENOBUFS:
+      return DBUS_ERROR_NO_MEMORY;
+#endif
+#ifdef ENOMEM
+    case ENOMEM:
+      return DBUS_ERROR_NO_MEMORY;
+#endif
+#ifdef EINVAL
+    case EINVAL:
+      return DBUS_ERROR_FAILED;
+#endif
+#ifdef EBADF
+    case EBADF:
+      return DBUS_ERROR_FAILED;
+#endif
+#ifdef EFAULT
+    case EFAULT:
+      return DBUS_ERROR_FAILED;
+#endif
+#ifdef ENOTSOCK
+    case ENOTSOCK:
+      return DBUS_ERROR_FAILED;
+#endif
+#ifdef EISCONN
+    case EISCONN:
+      return DBUS_ERROR_FAILED;
+#endif
+#ifdef ECONNREFUSED
+    case ECONNREFUSED:
+      return DBUS_ERROR_NO_SERVER;
+#endif
+#ifdef ETIMEDOUT
+    case ETIMEDOUT:
+      return DBUS_ERROR_TIMEOUT;
+#endif
+#ifdef ENETUNREACH
+    case ENETUNREACH:
+      return DBUS_ERROR_NO_NETWORK;
+#endif
+#ifdef EADDRINUSE
+    case EADDRINUSE:
+      return DBUS_ERROR_ADDRESS_IN_USE;
+#endif
+#ifdef EEXIST
+    case EEXIST:
+      return DBUS_ERROR_FILE_NOT_FOUND;
+#endif
+#ifdef ENOENT
+    case ENOENT:
+      return DBUS_ERROR_FILE_NOT_FOUND;
+#endif
+    }
+
+  return DBUS_ERROR_FAILED;
+}
+
+/**
+ * Exit the process, returning the given value.
+ *
+ * @param code the exit code
+ */
+void
+_dbus_exit (int code)
+{
+  _exit (code);
+}
+
+/**
+ * stat() wrapper.
+ *
+ * @param filename the filename to stat
+ * @param statbuf the stat info to fill in
+ * @param error return location for error
+ * @returns #FALSE if error was set
+ */
+dbus_bool_t
+_dbus_stat (const DBusString *filename,
+            DBusStat         *statbuf,
+            DBusError        *error)
+{
+  const char *filename_c;
+  struct stat sb;
+  
+  _dbus_string_get_const_data (filename, &filename_c);
+
+  if (stat (filename_c, &sb) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "%s", _dbus_strerror (errno));
+      return FALSE;
+    }
+
+  statbuf->mode = sb.st_mode;
+  statbuf->nlink = sb.st_nlink;
+  statbuf->uid = sb.st_uid;
+  statbuf->gid = sb.st_gid;
+  statbuf->size = sb.st_size;
+  statbuf->atime = sb.st_atime;
+  statbuf->mtime = sb.st_mtime;
+  statbuf->ctime = sb.st_ctime;
+
+  return TRUE;
 }
 
 /** @} end of sysdeps */

@@ -37,6 +37,7 @@ typedef struct DBusConnection DBusConnection;
 typedef struct DBusWatch DBusWatch;
 typedef struct DBusTimeout DBusTimeout;
 typedef struct DBusMessageHandler DBusMessageHandler;
+typedef struct DBusPreallocatedSend DBusPreallocatedSend;
 
 typedef enum
 {
@@ -85,19 +86,18 @@ DBusMessage*    dbus_connection_pop_message            (DBusConnection *connecti
 dbus_bool_t     dbus_connection_dispatch_message       (DBusConnection *connection);
 
 
-dbus_bool_t  dbus_connection_send_message                      (DBusConnection     *connection,
-								DBusMessage        *message,
-								dbus_int32_t       *client_serial,
-								DBusResultCode     *result);
-dbus_bool_t  dbus_connection_send_message_with_reply           (DBusConnection     *connection,
-								DBusMessage        *message,
-								DBusMessageHandler *reply_handler,
-								int                 timeout_milliseconds,
-								DBusResultCode     *result);
-DBusMessage *dbus_connection_send_message_with_reply_and_block (DBusConnection     *connection,
-								DBusMessage        *message,
-								int                 timeout_milliseconds,
-								DBusResultCode     *result);
+dbus_bool_t  dbus_connection_send                      (DBusConnection     *connection,
+                                                        DBusMessage        *message,
+                                                        dbus_int32_t       *client_serial);
+dbus_bool_t  dbus_connection_send_with_reply           (DBusConnection     *connection,
+                                                        DBusMessage        *message,
+                                                        DBusMessageHandler *reply_handler,
+                                                        int                 timeout_milliseconds);
+DBusMessage *dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
+                                                        DBusMessage        *message,
+                                                        int                 timeout_milliseconds,
+                                                        DBusError          *error);
+
 
 
 void dbus_connection_set_watch_functions      (DBusConnection            *connection,
@@ -168,6 +168,14 @@ long dbus_connection_get_max_message_size       (DBusConnection *connection);
 void dbus_connection_set_max_live_messages_size (DBusConnection *connection,
                                                  long            size);
 long dbus_connection_get_max_live_messages_size (DBusConnection *connection);
+
+DBusPreallocatedSend* dbus_connection_preallocate_send       (DBusConnection       *connection);
+void                  dbus_connection_free_preallocated_send (DBusConnection       *connection,
+                                                              DBusPreallocatedSend *preallocated);
+void                  dbus_connection_send_preallocated      (DBusConnection       *connection,
+                                                              DBusPreallocatedSend *preallocated,
+                                                              DBusMessage          *message,
+                                                              dbus_int32_t         *client_serial);
 
 
 DBUS_END_DECLS;

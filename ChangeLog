@@ -1,3 +1,65 @@
+2003-03-12  Havoc Pennington  <hp@redhat.com>
+
+        Mega-patch that gets the message bus daemon initially handling 
+	out-of-memory. Work still needed. Also lots of random 
+	moving stuff to DBusError instead of ResultCode.
+	
+	* dbus/dbus-list.c (_dbus_list_length_is_one): new function
+
+	* dbus/dbus-connection.c
+	(dbus_connection_send_with_reply_and_block): use DBusError
+
+	* dbus/dbus-bus.c: adapt to API changes, make it use DBusError not
+	DBusResultCode
+
+	* dbus/dbus-connection.c (dbus_connection_send): drop the result
+	code here, as the only failure possible is OOM.
+
+	* bus/connection.c (bus_connection_disconnect):
+	rename bus_connection_disconnected as it's a notification only
+
+	* bus/driver.c (bus_driver_handle_acquire_service): don't free
+	"name" on get_args failure, should be done by get_args; 
+	don't disconnect client for bad args, just return an error.
+	(bus_driver_handle_service_exists): ditto
+
+	* bus/services.c (bus_services_list): NULL-terminate returned array
+
+	* bus/driver.c (bus_driver_send_service_lost)
+	(bus_driver_send_service_acquired): send messages from driver to a
+	specific client to the client's unique name, not to the broadcast
+	service.
+
+	* dbus/dbus-message.c (decode_header_data): reject messages that
+	contain no name field
+	(_dbus_message_get_client_serial): rename to
+	dbus_message_get_serial and make public
+	(_dbus_message_set_serial): rename from set_client_serial
+	(_dbus_message_set_reply_serial): make public
+	(_dbus_message_get_reply_serial): make public
+
+	* bus/connection.c (bus_connection_foreach): allow stopping
+	iteration by returning FALSE from foreach function.
+
+	* dbus/dbus-connection.c (dbus_connection_send_preallocated) 
+	(dbus_connection_free_preallocated_send) 
+	(dbus_connection_preallocate_send): new API for sending a message
+	without possibility of malloc failure.
+	(dbus_connection_send_message): rename to just
+	dbus_connection_send (and same for whole function family)
+
+	* dbus/dbus-errors.c (dbus_error_free): make this reinit the error
+
+	* dbus/dbus-sysdeps.c (_dbus_exit): new function
+
+	* bus/activation.c: handle/return errors
+
+	* dbus/dbus-errors.h: add more DBUS_ERROR #define
+
+	* dbus/dbus-sysdeps.c (_dbus_directory_open) (_dbus_file_get_contents)
+	(_dbus_directory_get_next_file): use DBusError instead of DBusResultCode
+	(_dbus_result_from_errno): move to this file
+
 2003-03-10  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-marshal.c: 

@@ -514,7 +514,7 @@ sha1_handle_first_client_response (DBusAuth         *auth,
             }
           else
             {
-              _dbus_assert (dbus_error_is_set (&error));
+              _DBUS_ASSERT_ERROR_IS_SET (&error);
               _dbus_verbose ("Error loading keyring: %s\n",
                              error.message);
               if (send_rejected (auth))
@@ -535,7 +535,7 @@ sha1_handle_first_client_response (DBusAuth         *auth,
   auth->cookie_id = _dbus_keyring_get_best_key (auth->keyring, &error);
   if (auth->cookie_id < 0)
     {
-      _dbus_assert (dbus_error_is_set (&error));
+      _DBUS_ASSERT_ERROR_IS_SET (&error);
       _dbus_verbose ("Could not get a cookie ID to send to client: %s\n",
                      error.message);
       if (send_rejected (auth))
@@ -844,7 +844,8 @@ handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
             }
           else
             {
-              _dbus_assert (dbus_error_is_set (&error));
+              _DBUS_ASSERT_ERROR_IS_SET (&error);
+
               _dbus_verbose ("Error loading keyring: %s\n",
                              error.message);
               
@@ -2238,7 +2239,7 @@ process_test_subdir (const DBusString          *test_base_dir,
   DBusString filename;
   DBusDirIter *dir;
   dbus_bool_t retval;
-  DBusResultCode result;
+  DBusError error;
 
   retval = FALSE;
   dir = NULL;
@@ -2258,22 +2259,23 @@ process_test_subdir (const DBusString          *test_base_dir,
   _dbus_string_free (&filename);
   if (!_dbus_string_init (&filename, _DBUS_INT_MAX))
     _dbus_assert_not_reached ("didn't allocate filename string\n");
-  
-  dir = _dbus_directory_open (&test_directory, &result);
+
+  dbus_error_init (&error);
+  dir = _dbus_directory_open (&test_directory, &error);
   if (dir == NULL)
     {
       const char *s;
       _dbus_string_get_const_data (&test_directory, &s);
       _dbus_warn ("Could not open %s: %s\n", s,
-                  dbus_result_to_string (result));
+                  error.message);
+      dbus_error_free (&error);
       goto failed;
     }
 
   printf ("Testing:\n");
   
-  result = DBUS_RESULT_SUCCESS;
  next:
-  while (_dbus_directory_get_next_file (dir, &filename, &result))
+  while (_dbus_directory_get_next_file (dir, &filename, &error))
     {
       DBusString full_path;
       
@@ -2311,12 +2313,13 @@ process_test_subdir (const DBusString          *test_base_dir,
         _dbus_string_free (&full_path);
     }
 
-  if (result != DBUS_RESULT_SUCCESS)
+  if (dbus_error_is_set (&error))
     {
       const char *s;
       _dbus_string_get_const_data (&test_directory, &s);
       _dbus_warn ("Could not get next file in %s: %s\n",
-                  s, dbus_result_to_string (result));
+                  s, error.message);
+      dbus_error_free (&error);
       goto failed;
     }
     

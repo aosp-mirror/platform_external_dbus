@@ -1,8 +1,11 @@
 # Dict with different values
 
 VALID_HEADER
-END_LENGTH Header
+FIELD_NAME name
+TYPE STRING
+STRING 'org.freedesktop.Foo'
 ALIGN 8
+END_LENGTH Header
 START_LENGTH Body
 TYPE DICT
 STRING_ARRAY { 'boolean', 'int32', 'uint32', 'double', 'string', 'boolean_array', 'int32_array', 'uint32_array', 'double_array', 'string_array' }

@@ -44,9 +44,6 @@
  * @endcode
  *
  * @todo add docs with DBusError
- *
- * @todo add dbus_error_is_set() to check
- * whether an error is set.
  * 
  * @{
  */
@@ -138,11 +135,9 @@ dbus_result_to_string (DBusResultCode code)
 }
 
 /**
- * Initializes a DBusError structure.
- * 
- * @todo calling dbus_error_init() in here is no good,
- * for the same reason a GError* has to be set to NULL
- * before you pass it in.
+ * Initializes a DBusError structure. Does not allocate
+ * any memory; the error only needs to be freed
+ * if it is set at some point. 
  *
  * @param error the DBusError.
  */
@@ -164,7 +159,8 @@ dbus_error_init (DBusError *error)
 }
 
 /**
- * Frees an error created by dbus_error_init().
+ * Frees an error that's been set (or just initialized),
+ * then reinitializes the error as in dbus_error_init().
  *
  * @param error memory where the error is stored.
  */
@@ -177,6 +173,8 @@ dbus_error_free (DBusError *error)
 
   if (!real->const_message)
     dbus_free (real->message);
+
+  dbus_error_init (error);
 }
 
 /**
@@ -208,6 +206,32 @@ dbus_set_error_const (DBusError  *error,
   real->name = name;
   real->message = (char *)message;
   real->const_message = TRUE;
+}
+
+/**
+ * Moves an error src into dest, freeing src and
+ * overwriting dest. Both src and dest must be initialized.
+ * src is reinitialized to an empty error. dest may not
+ * contain an existing error. If the destination is
+ * #NULL, just frees and reinits the source error.
+ *
+ * @param src the source error
+ * @param dest the destination error or #NULL
+ */
+void
+dbus_move_error (DBusError *src,
+                 DBusError *dest)
+{
+  _dbus_assert (!dbus_error_is_set (dest));
+
+  if (dest)
+    {
+      dbus_error_free (dest);
+      *dest = *src;
+      dbus_error_init (src);
+    }
+  else
+    dbus_error_free (src);
 }
 
 /**
@@ -246,7 +270,7 @@ dbus_error_has_name (const DBusError *error,
 dbus_bool_t
 dbus_error_is_set (const DBusError *error)
 {
-  _dbus_assert (error != NULL);
+  _dbus_assert (error != NULL);  
   _dbus_assert ((error->name != NULL && error->message != NULL) ||
                 (error->name == NULL && error->message == NULL));
   return error->name != NULL;

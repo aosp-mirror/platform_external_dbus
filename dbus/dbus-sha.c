@@ -752,6 +752,7 @@ process_test_data (const char *test_data_dir)
   int line_no;
   dbus_bool_t retval;
   int success_count;
+  DBusError error;
   
   retval = FALSE;
   
@@ -784,21 +785,24 @@ process_test_data (const char *test_data_dir)
   if (!_dbus_concat_dir_and_file (&results_file, &tmp))
     _dbus_assert_not_reached ("no memory");
 
-  if (_dbus_file_get_contents (&tests, &tests_file) != DBUS_RESULT_SUCCESS)
+  dbus_error_init (&error);
+  if (!_dbus_file_get_contents (&tests, &tests_file, &error))
     {
       const char *s;
       _dbus_string_get_const_data (&tests_file, &s);
-      fprintf (stderr, "could not load test data file %s\n",
-               s);
+      fprintf (stderr, "could not load test data file %s: %s\n",
+               s, error.message);
+      dbus_error_free (&error);
       goto out;
     }
 
-  if (_dbus_file_get_contents (&results, &results_file) != DBUS_RESULT_SUCCESS)
+  if (!_dbus_file_get_contents (&results, &results_file, &error))
     {
       const char *s;
       _dbus_string_get_const_data (&results_file, &s);
-      fprintf (stderr, "could not load results data file %s\n",
-               s);
+      fprintf (stderr, "could not load results data file %s: %s\n",
+               s, error.message);
+      dbus_error_free (&error);
       goto out;
     }
 

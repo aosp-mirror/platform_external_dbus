@@ -25,17 +25,26 @@
 #define BUS_DRIVER_H
 
 #include <dbus/dbus.h>
+#include "connection.h"
 
-void bus_driver_remove_connection     (DBusConnection *connection);
-void bus_driver_handle_message        (DBusConnection *connection,
-				       DBusMessage    *message);
-void bus_driver_send_service_deleted  (const char     *service_name);
-void bus_driver_send_service_lost     (DBusConnection *connection,
-				       const char     *service_name);
-void bus_driver_send_service_acquired (DBusConnection *connection,
-				       const char     *service_name);
-void bus_driver_send_service_created  (const char     *service_name);
-
-
+void        bus_driver_remove_connection     (DBusConnection *connection);
+dbus_bool_t bus_driver_handle_message        (DBusConnection *connection,
+                                              BusTransaction *transaction,
+                                              DBusMessage    *message,
+                                              DBusError      *error);
+dbus_bool_t bus_driver_send_service_deleted  (const char     *service_name,
+                                              BusTransaction *transaction,
+                                              DBusError      *error);
+dbus_bool_t bus_driver_send_service_lost     (DBusConnection *connection,
+                                              const char     *service_name,
+                                              BusTransaction *transaction,
+                                              DBusError      *error);
+dbus_bool_t bus_driver_send_service_acquired (DBusConnection *connection,
+                                              const char     *service_name,
+                                              BusTransaction *transaction,
+                                              DBusError      *error);
+dbus_bool_t bus_driver_send_service_created  (const char     *service_name,
+                                              BusTransaction *transaction,
+                                              DBusError      *error);
 
 #endif /* BUS_DRIVER_H */

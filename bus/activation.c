@@ -59,18 +59,24 @@ bus_activation_entry_free (BusActivationEntry *entry)
 }
 
 static dbus_bool_t
-add_desktop_file_entry (BusDesktopFile *desktop_file)
+add_desktop_file_entry (BusDesktopFile *desktop_file,
+                        DBusError      *error)
 {
   char *name, *exec;
   BusActivationEntry *entry;
+
+  name = NULL;
+  exec = NULL;
+  entry = NULL;
   
   if (!bus_desktop_file_get_string (desktop_file,
 				    DBUS_SERVICE_SECTION,
 				    DBUS_SERVICE_NAME,
 				    &name))
     {
-      _dbus_verbose ("No \""DBUS_SERVICE_NAME"\" key in .service file\n");
-      return FALSE;
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "No \""DBUS_SERVICE_NAME"\" key in .service file\n");
+      goto failed;
     }
 
   if (!bus_desktop_file_get_string (desktop_file,
@@ -78,57 +84,104 @@ add_desktop_file_entry (BusDesktopFile *desktop_file)
 				    DBUS_SERVICE_EXEC,
 				    &exec))
     {
-      _dbus_verbose ("No \""DBUS_SERVICE_EXEC"\" key in .service file\n");
-      
-      dbus_free (name);
-      return FALSE;
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "No \""DBUS_SERVICE_EXEC"\" key in .service file\n");
+      goto failed;
     }
 
+  /* FIXME we need a better-defined algorithm for which service file to
+   * pick than "whichever one is first in the directory listing"
+   */
   if (_dbus_hash_table_lookup_string (activation_entries, name))
     {
-      _dbus_verbose ("Service %s already exists in activation entry list\n", name);
-      dbus_free (name);
-      dbus_free (exec);
-
-      return FALSE;
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Service %s already exists in activation entry list\n", name);
+      goto failed;
     }
   
-  BUS_HANDLE_OOM (entry = dbus_malloc0 (sizeof (BusActivationEntry)));
+  entry = dbus_new0 (BusActivationEntry, 1);
+  if (entry == NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+  
   entry->name = name;
   entry->exec = exec;
 
-  BUS_HANDLE_OOM (_dbus_hash_table_insert_string (activation_entries, entry->name, entry));
+  if (!_dbus_hash_table_insert_string (activation_entries, entry->name, entry))
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
 
   _dbus_verbose ("Added \"%s\" to list of services\n", entry->name);
   
   return TRUE;
+
+ failed:
+  dbus_free (name);
+  dbus_free (exec);
+  dbus_free (entry);
+  
+  return FALSE;
 }
 
-static void
-load_directory (const char *directory)
+/* warning: this doesn't fully "undo" itself on failure, i.e. doesn't strip
+ * hash entries it already added.
+ */
+static dbus_bool_t
+load_directory (const char *directory,
+                DBusError  *error)
 {
   DBusDirIter *iter;
   DBusString dir, filename;
-  DBusResultCode result;
-
-  _dbus_string_init_const (&dir, directory);
+  DBusString full_path;
+  BusDesktopFile *desktop_file;
+  DBusError tmp_error;
   
-  iter = _dbus_directory_open (&dir, &result);
-  if (iter == NULL)
+  _dbus_string_init_const (&dir, directory);
+
+  iter = NULL;
+  desktop_file = NULL;
+  
+  if (!_dbus_string_init (&filename, _DBUS_INT_MAX))
     {
-      _dbus_verbose ("Failed to open directory %s: &s\n", directory,
-		     result);
-    return;
+      BUS_SET_OOM (error);
+      return FALSE;
     }
 
-  BUS_HANDLE_OOM (_dbus_string_init (&filename, _DBUS_INT_MAX));
+  if (!_dbus_string_init (&full_path, _DBUS_INT_MAX))
+    {
+      BUS_SET_OOM (error);
+      _dbus_string_free (&filename);
+      return FALSE;
+    }
+
+  /* from this point it's safe to "goto failed" */
+  
+  iter = _dbus_directory_open (&dir, error);
+  if (iter == NULL)
+    {
+      _dbus_verbose ("Failed to open directory %s: %s\n",
+                     directory, error ? error->message : "unknown");
+      goto failed;
+    }
   
   /* Now read the files */
-  while (_dbus_directory_get_next_file (iter, &filename, &result))
+  dbus_error_init (&tmp_error);
+  while (_dbus_directory_get_next_file (iter, &filename, &tmp_error))
     {
-      DBusString full_path;
-      BusDesktopFile *desktop_file;
-      DBusError error;
+      _dbus_assert (!dbus_error_is_set (&tmp_error));
+      
+      _dbus_string_set_length (&full_path, 0);
+      
+      if (!_dbus_string_append (&full_path, directory) ||
+          !_dbus_concat_dir_and_file (&full_path, &filename))
+        {
+          BUS_SET_OOM (error);
+          goto failed;
+        }
       
       if (!_dbus_string_ends_with_c_str (&filename, ".service"))
 	{
@@ -136,71 +189,133 @@ load_directory (const char *directory)
           _dbus_string_get_const_data (&filename, &filename_c);
           _dbus_verbose ("Skipping non-.service file %s\n",
                          filename_c);
-	  continue;
+          continue;
 	}
       
-      BUS_HANDLE_OOM (_dbus_string_init (&full_path, _DBUS_INT_MAX));
-      BUS_HANDLE_OOM (_dbus_string_append (&full_path, directory));
+      desktop_file = bus_desktop_file_load (&full_path, &tmp_error);
 
-      BUS_HANDLE_OOM (_dbus_concat_dir_and_file (&full_path, &filename));
-
-      desktop_file = bus_desktop_file_load (&full_path, &error);
-
-      if (!desktop_file)
+      if (desktop_file == NULL)
 	{
 	  const char *full_path_c;
 
           _dbus_string_get_const_data (&full_path, &full_path_c);
 	  
 	  _dbus_verbose ("Could not load %s: %s\n", full_path_c,
-			 error.message);
-	  dbus_error_free (&error);
-	  _dbus_string_free (&full_path);
+			 tmp_error.message);
+
+          if (dbus_error_has_name (&tmp_error, DBUS_ERROR_NO_MEMORY))
+            {
+              dbus_move_error (&tmp_error, error);
+              goto failed;
+            }
+          
+	  dbus_error_free (&tmp_error);
 	  continue;
 	}
 
-      if (!add_desktop_file_entry (desktop_file))
+      if (!add_desktop_file_entry (desktop_file, &tmp_error))
 	{
 	  const char *full_path_c;
 
+          bus_desktop_file_free (desktop_file);
+          desktop_file = NULL;
+          
           _dbus_string_get_const_data (&full_path, &full_path_c);
 	  
-	  _dbus_verbose ("Could not add %s to activation entry list.\n", full_path_c);
-	}
+	  _dbus_verbose ("Could not add %s to activation entry list: %s\n",
+                         full_path_c, tmp_error.message);
 
-      bus_desktop_file_free (desktop_file);
-      _dbus_string_free (&full_path);
+          if (dbus_error_has_name (&tmp_error, DBUS_ERROR_NO_MEMORY))
+            {
+              dbus_move_error (&tmp_error, error);
+              goto failed;
+            }
+
+          dbus_error_free (&tmp_error);
+	  continue;
+	}
+      else
+        {
+          bus_desktop_file_free (desktop_file);
+          desktop_file = NULL;
+          continue;
+        }
     }
+
+  if (dbus_error_is_set (&tmp_error))
+    {
+      dbus_move_error (&tmp_error, error);
+      goto failed;
+    }
+  
+  return TRUE;
+  
+ failed:
+  _DBUS_ASSERT_ERROR_IS_SET (error);
+  
+  if (iter != NULL)
+    _dbus_directory_close (iter);
+  if (desktop_file)
+    bus_desktop_file_free (desktop_file);
+  _dbus_string_free (&filename);
+  _dbus_string_free (&full_path);
+  
+  return FALSE;
 }
 
-
-void
-bus_activation_init (const char *address,
-		     const char **directories)
+dbus_bool_t
+bus_activation_init (const char  *address,
+		     const char **directories,
+                     DBusError   *error)
 {
   int i;
 
-  /* FIXME: We should split up the server addresses. */
-  BUS_HANDLE_OOM (server_address = _dbus_strdup (address));
+  _dbus_assert (server_address == NULL);
+  _dbus_assert (activation_entries == NULL);
   
-  BUS_HANDLE_OOM (activation_entries = _dbus_hash_table_new (DBUS_HASH_STRING, NULL,
-							     (DBusFreeFunction)bus_activation_entry_free));
-
-  i = 0;
+  /* FIXME: We should split up the server addresses. */
+  server_address = _dbus_strdup (address);
+  if (server_address == NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+  
+  activation_entries = _dbus_hash_table_new (DBUS_HASH_STRING, NULL,
+                                             (DBusFreeFunction)bus_activation_entry_free);
+  if (activation_entries == NULL)
+    {      
+      BUS_SET_OOM (error);
+      goto failed;
+    }
 
   /* Load service files */
+  i = 0;
   while (directories[i] != NULL)
     {
-      load_directory (directories[i]);
-      i++;
+      if (!load_directory (directories[i], error))
+        goto failed;
+      ++i;
     }
+
+  return TRUE;
+  
+ failed:
+  dbus_free (server_address);
+  if (activation_entries)
+    _dbus_hash_table_unref (activation_entries);
+  
+  return FALSE;
 }
 
 static void
 child_setup (void *data)
 {
-  /* FIXME: Check return value in case of OOM */
-  _dbus_setenv ("DBUS_ADDRESS", server_address);
+  /* If no memory, we simply have the child exit, so it won't try
+   * to connect to the wrong thing.
+   */
+  if (!_dbus_setenv ("DBUS_ADDRESS", server_address))
+    _dbus_exit (1);
 }
 
 dbus_bool_t
@@ -220,6 +335,10 @@ bus_activation_activate_service (const char  *service_name,
       return FALSE;
     }
 
+  /* FIXME we need to support a full command line, not just a single
+   * argv[0]
+   */
+  
   /* Now try to spawn the process */
   argv[0] = entry->exec;
   argv[1] = NULL;

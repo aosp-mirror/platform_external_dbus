@@ -25,10 +25,12 @@
 #define BUS_DISPATCH_H
 
 #include <dbus/dbus.h>
+#include "connection.h"
 
 dbus_bool_t bus_dispatch_add_connection    (DBusConnection *connection);
 void        bus_dispatch_remove_connection (DBusConnection *connection);
-void        bus_dispatch_broadcast_message (DBusMessage    *message);
-
+dbus_bool_t bus_dispatch_broadcast_message (BusTransaction *transaction,
+                                            DBusMessage    *message,
+                                            DBusError      *error);
 
 #endif /* BUS_DISPATCH_H */

@@ -532,28 +532,22 @@ set_string_field (DBusMessage *message,
 }
 
 /**
- * Sets the client serial of a message. 
+ * Sets the serial number of a message. 
  * This can only be done once on a message.
- *
- * @todo client_serial should be called simply
- * "serial"; it's in outgoing messages for both
- * the client and the server, it's only client-specific
- * in the message bus case. It's more like origin_serial
- * or something.
  * 
  * @param message the message
- * @param client_serial the client serial
+ * @param serial the serial
  */
 void
-_dbus_message_set_client_serial (DBusMessage  *message,
-				 dbus_int32_t  client_serial)
+_dbus_message_set_serial (DBusMessage  *message,
+                          dbus_int32_t  serial)
 {
   _dbus_assert (!message->locked);
-  _dbus_assert (_dbus_message_get_client_serial (message) < 0);
+  _dbus_assert (dbus_message_get_serial (message) < 0);
   
   set_int_field (message, FIELD_CLIENT_SERIAL,
-                 client_serial);
-  message->client_serial = client_serial;
+                 serial);
+  message->client_serial = serial;
 }
 
 /**
@@ -565,7 +559,7 @@ _dbus_message_set_client_serial (DBusMessage  *message,
  * @returns #FALSE if not enough memory
  */
 dbus_bool_t
-_dbus_message_set_reply_serial (DBusMessage  *message,
+dbus_message_set_reply_serial (DBusMessage  *message,
                                 dbus_int32_t  reply_serial)
 {
   _dbus_assert (!message->locked);
@@ -581,19 +575,15 @@ _dbus_message_set_reply_serial (DBusMessage  *message,
 }
 
 /**
- * Returns the client serial of a message or
- * -1 if none has been specified.
- *
- * @todo see note in _dbus_message_set_client_serial()
- * about how client_serial is a misnomer
- *
- * @todo this function should be public, after renaming it.
+ * Returns the serial of a message or -1 if none has been specified.
+ * The message's serial number is provided by the application sending
+ * the message and is used to identify replies to this message.
  *
  * @param message the message
  * @returns the client serial
  */
 dbus_int32_t
-_dbus_message_get_client_serial (DBusMessage *message)
+dbus_message_get_serial (DBusMessage *message)
 {
   return message->client_serial;
 }
@@ -606,7 +596,7 @@ _dbus_message_get_client_serial (DBusMessage *message)
  * @returns the reply serial
  */
 dbus_int32_t
-_dbus_message_get_reply_serial  (DBusMessage *message)
+dbus_message_get_reply_serial  (DBusMessage *message)
 {
   return message->reply_serial;
 }
@@ -845,8 +835,8 @@ dbus_message_new_reply (DBusMessage *original_message)
   if (message == NULL)
     return NULL;
 
-  if (!_dbus_message_set_reply_serial (message,
-                                       _dbus_message_get_client_serial (original_message)))
+  if (!dbus_message_set_reply_serial (message,
+                                      dbus_message_get_serial (original_message)))
     {
       dbus_message_unref (message);
       return NULL;
@@ -881,8 +871,8 @@ dbus_message_new_error_reply (DBusMessage *original_message,
   if (message == NULL)
     return NULL;
 
-  if (!_dbus_message_set_reply_serial (message,
-                                       _dbus_message_get_client_serial (original_message)))
+  if (!dbus_message_set_reply_serial (message,
+                                      dbus_message_get_serial (original_message)))
     {
       dbus_message_unref (message);
       return NULL;
@@ -1542,12 +1532,14 @@ dbus_message_append_dict (DBusMessage *message,
  * stored. The list is terminated with 0.
  *
  * @param message the message
+ * @param error error to be filled in on failure
  * @param first_arg_type the first argument type
  * @param ... location for first argument value, then list of type-location pairs
- * @returns result code
+ * @returns #FALSE if the error was set
  */
-DBusResultCode
+dbus_bool_t
 dbus_message_get_args (DBusMessage *message,
+                       DBusError   *error,
 		       int          first_arg_type,
 		       ...)
 {
@@ -1555,7 +1547,7 @@ dbus_message_get_args (DBusMessage *message,
   va_list var_args;
 
   va_start (var_args, first_arg_type);
-  retval = dbus_message_get_args_valist (message, first_arg_type, var_args);
+  retval = dbus_message_get_args_valist (message, error, first_arg_type, var_args);
   va_end (var_args);
 
   return retval;
@@ -1575,22 +1567,31 @@ dbus_message_get_args (DBusMessage *message,
  *
  * @see dbus_message_get_args
  * @param message the message
+ * @param error error to be filled in
  * @param first_arg_type type of the first argument
  * @param var_args return location for first argument, followed by list of type/location pairs
- * @returns result code
+ * @returns #FALSE if error was set
  */
-DBusResultCode
+dbus_bool_t
 dbus_message_get_args_valist (DBusMessage *message,
+                              DBusError   *error,
 			      int          first_arg_type,
 			      va_list      var_args)
 {
   int spec_type, msg_type, i;
   DBusMessageIter *iter;
-
+  dbus_bool_t retval;
+  
   iter = dbus_message_get_args_iter (message);
 
   if (iter == NULL)
-    return DBUS_RESULT_NO_MEMORY;
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                      "No memory to get message arguments");
+      return FALSE;
+    }
+
+  retval = FALSE;
   
   spec_type = first_arg_type;
   i = 0;
@@ -1601,13 +1602,13 @@ dbus_message_get_args_valist (DBusMessage *message,
       
       if (msg_type != spec_type)
 	{
-	  _dbus_verbose ("Argument %d is specified to be of type \"%s\", but "
-			 "is actually of type \"%s\"\n", i,
-			 _dbus_type_to_string (spec_type),
-			 _dbus_type_to_string (msg_type));
-	  dbus_message_iter_unref (iter);
+          dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
+                          "Argument %d is specified to be of type \"%s\", but "
+                          "is actually of type \"%s\"\n", i,
+                          _dbus_type_to_string (spec_type),
+                          _dbus_type_to_string (msg_type));
 
-	  return DBUS_RESULT_INVALID_ARGS;
+          goto out;
 	}
 
       switch (spec_type)
@@ -1661,7 +1662,11 @@ dbus_message_get_args_valist (DBusMessage *message,
 	    *ptr = dbus_message_iter_get_string (iter);
 
 	    if (!*ptr)
-	      return DBUS_RESULT_NO_MEMORY;
+              {
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                                "No memory for argument %d", i);
+                goto out;
+              }
 	    
 	    break;
 	  }
@@ -1675,8 +1680,11 @@ dbus_message_get_args_valist (DBusMessage *message,
 	    len = va_arg (var_args, int *);
 
 	    if (!dbus_message_iter_get_boolean_array (iter, ptr, len))
-	      return DBUS_RESULT_NO_MEMORY;
-	    
+              {
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                                "No memory for argument %d", i);
+                goto out;
+              }
 	    break;
 	  }
 	  
@@ -1689,7 +1697,11 @@ dbus_message_get_args_valist (DBusMessage *message,
 	    len = va_arg (var_args, int *);
 
 	    if (!dbus_message_iter_get_int32_array (iter, ptr, len))
-	      return DBUS_RESULT_NO_MEMORY;
+              {
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                                "No memory for argument %d", i);
+                goto out;
+              }
 	    
 	    break;
 	  }
@@ -1703,7 +1715,11 @@ dbus_message_get_args_valist (DBusMessage *message,
 	    len = va_arg (var_args, int *);
 
 	    if (!dbus_message_iter_get_uint32_array (iter, ptr, len))
-	      return DBUS_RESULT_NO_MEMORY;
+              {
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                                "No memory for argument %d", i);
+                goto out;
+              }
 	    
 	    break;
 	  }
@@ -1717,8 +1733,11 @@ dbus_message_get_args_valist (DBusMessage *message,
 	    len = va_arg (var_args, int *);
 
 	    if (!dbus_message_iter_get_double_array (iter, ptr, len))
-	      return DBUS_RESULT_NO_MEMORY;
-	    
+              {
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                                "No memory for argument %d", i);
+                goto out;
+              }
 	    break;
 	  }
 	  
@@ -1731,8 +1750,11 @@ dbus_message_get_args_valist (DBusMessage *message,
 	    len = va_arg (var_args, int *);
 
 	    if (!dbus_message_iter_get_byte_array (iter, ptr, len))
-	      return DBUS_RESULT_NO_MEMORY;
-	    
+              {
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                                "No memory for argument %d", i);
+                goto out;
+              }
 	    break;
 	  }
 	case DBUS_TYPE_STRING_ARRAY:
@@ -1744,7 +1766,11 @@ dbus_message_get_args_valist (DBusMessage *message,
 	    len = va_arg (var_args, int *);
 
 	    if (!dbus_message_iter_get_string_array (iter, ptr, len))
-	      return DBUS_RESULT_NO_MEMORY;
+              {
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                                "No memory for argument %d", i);
+                goto out;
+              }
 	    break;
 	  }
 	case DBUS_TYPE_DICT:
@@ -1754,7 +1780,11 @@ dbus_message_get_args_valist (DBusMessage *message,
 	    dict = va_arg (var_args, DBusDict **);
 
 	    if (!dbus_message_iter_get_dict (iter, dict))
-	      return DBUS_RESULT_NO_MEMORY;
+              {
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                                "No memory for argument %d", i);
+                goto out;
+              }
 	    break;
 	  }
 	default:	  
@@ -1763,17 +1793,20 @@ dbus_message_get_args_valist (DBusMessage *message,
       
       spec_type = va_arg (var_args, int);
       if (spec_type != 0 && !dbus_message_iter_next (iter))
-	{
-	  _dbus_verbose ("More fields than exist in the message were specified or field is corrupt\n");
+        {
+          dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
+                          "Message has only %d arguments, but more were expected", i);
+          goto out;
+        }
 
-	  dbus_message_iter_unref (iter);  
-	  return DBUS_RESULT_INVALID_ARGS;
-	}
       i++;
     }
-
+  
+  retval = TRUE;
+  
+ out:
   dbus_message_iter_unref (iter);
-  return DBUS_RESULT_SUCCESS;
+  return retval;
 }
 
 /**
@@ -2318,6 +2351,10 @@ dbus_message_name_is (DBusMessage *message,
  * DBusTransport implementation. The DBusTransport then hands off
  * the loaded messages to a DBusConnection, making the messages
  * visible to the application.
+ *
+ * @todo write tests for break-loader that a) randomly delete header
+ * fields and b) set string fields to zero-length and other funky
+ * values.
  * 
  */
 
@@ -2624,6 +2661,13 @@ decode_header_data (const DBusString   *data,
         }
     }
 
+ if (fields[FIELD_NAME].offset < 0)
+   {
+     _dbus_verbose ("No %s field provided\n",
+                    DBUS_HEADER_FIELD_NAME);
+     return FALSE;
+   }
+  
   if (message_padding)
     *message_padding = header_len - pos;  
   
@@ -2970,13 +3014,13 @@ check_message_handling (DBusMessage *message)
   retval = FALSE;
   iter = NULL;
   
-  client_serial = _dbus_message_get_client_serial (message);
+  client_serial = dbus_message_get_serial (message);
 
-  /* can't use set_client_serial due to the assertions at the start of it */
+  /* can't use set_serial due to the assertions at the start of it */
   set_int_field (message, FIELD_CLIENT_SERIAL,
                  client_serial);
-
-  if (client_serial != _dbus_message_get_client_serial (message))
+  
+  if (client_serial != dbus_message_get_serial (message))
     {
       _dbus_warn ("get/set cycle for client_serial did not succeed\n");
       goto failed;
@@ -3215,14 +3259,15 @@ dbus_internal_do_not_use_load_message_file (const DBusString    *filename,
 
   if (is_raw)
     {
-      DBusResultCode result;
+      DBusError error;
 
-      result = _dbus_file_get_contents (data, filename);
-      if (result != DBUS_RESULT_SUCCESS)
+      dbus_error_init (&error);
+      if (!_dbus_file_get_contents (data, filename, &error))
         {
           const char *s;      
           _dbus_string_get_const_data (filename, &s);
-          _dbus_warn ("Could not load message file %s\n", s);
+          _dbus_warn ("Could not load message file %s: %s\n", s, error.message);
+          dbus_error_free (&error);
           goto failed;
         }
     }
@@ -3397,7 +3442,7 @@ process_test_subdir (const DBusString          *test_base_dir,
   DBusString filename;
   DBusDirIter *dir;
   dbus_bool_t retval;
-  DBusResultCode result;
+  DBusError error;
 
   retval = FALSE;
   dir = NULL;
@@ -3417,22 +3462,23 @@ process_test_subdir (const DBusString          *test_base_dir,
   _dbus_string_free (&filename);
   if (!_dbus_string_init (&filename, _DBUS_INT_MAX))
     _dbus_assert_not_reached ("didn't allocate filename string\n");
-  
-  dir = _dbus_directory_open (&test_directory, &result);
+
+  dbus_error_init (&error);
+  dir = _dbus_directory_open (&test_directory, &error);
   if (dir == NULL)
     {
       const char *s;
       _dbus_string_get_const_data (&test_directory, &s);
       _dbus_warn ("Could not open %s: %s\n", s,
-                  dbus_result_to_string (result));
+                  error.message);
+      dbus_error_free (&error);
       goto failed;
     }
 
   printf ("Testing:\n");
   
-  result = DBUS_RESULT_SUCCESS;
  next:
-  while (_dbus_directory_get_next_file (dir, &filename, &result))
+  while (_dbus_directory_get_next_file (dir, &filename, &error))
     {
       DBusString full_path;
       dbus_bool_t is_raw;
@@ -3480,12 +3526,13 @@ process_test_subdir (const DBusString          *test_base_dir,
         _dbus_string_free (&full_path);
     }
 
-  if (result != DBUS_RESULT_SUCCESS)
+  if (dbus_error_is_set (&error))
     {
       const char *s;
       _dbus_string_get_const_data (&test_directory, &s);
       _dbus_warn ("Could not get next file in %s: %s\n",
-                  s, dbus_result_to_string (result));
+                  s, error.message);
+      dbus_error_free (&error);
       goto failed;
     }
     
@@ -3563,7 +3610,7 @@ _dbus_message_test (const char *test_data_dir)
   
   /* Test the vararg functions */
   message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");
-  _dbus_message_set_client_serial (message, 1);
+  _dbus_message_set_serial (message, 1);
   dbus_message_append_args (message,
 			    DBUS_TYPE_INT32, -0x12345678,
 			    DBUS_TYPE_STRING, "Test string",
@@ -3574,13 +3621,13 @@ _dbus_message_test (const char *test_data_dir)
                                  _dbus_string_get_length (&message->header));
   _dbus_verbose_bytes_of_string (&message->body, 0,
                                  _dbus_string_get_length (&message->body));
-  
-  if (dbus_message_get_args (message,
-			     DBUS_TYPE_INT32, &our_int,
-			     DBUS_TYPE_STRING, &our_str,
-			     DBUS_TYPE_DOUBLE, &our_double,
-			     DBUS_TYPE_BOOLEAN, &our_bool,
-			     0) != DBUS_RESULT_SUCCESS)
+
+  if (!dbus_message_get_args (message, NULL,
+                              DBUS_TYPE_INT32, &our_int,
+                              DBUS_TYPE_STRING, &our_str,
+                              DBUS_TYPE_DOUBLE, &our_double,
+                              DBUS_TYPE_BOOLEAN, &our_bool,
+                              0))
     _dbus_assert_not_reached ("Could not get arguments");
 
   if (our_int != -0x12345678)
@@ -3599,8 +3646,8 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_unref (message);
   
   message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");
-  _dbus_message_set_client_serial (message, 1);
-  _dbus_message_set_reply_serial (message, 0x12345678);
+  _dbus_message_set_serial (message, 1);
+  dbus_message_set_reply_serial (message, 0x12345678);
 
   dbus_message_append_string (message, "Test string");
   dbus_message_append_int32 (message, -0x12345678);
@@ -3645,7 +3692,7 @@ _dbus_message_test (const char *test_data_dir)
   if (!message)
     _dbus_assert_not_reached ("received a NULL message");
 
-  if (_dbus_message_get_reply_serial (message) != 0x12345678)
+  if (dbus_message_get_reply_serial (message) != 0x12345678)
     _dbus_assert_not_reached ("reply serial fields differ");
   
   message_iter_test (message);

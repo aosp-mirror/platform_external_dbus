@@ -21,31 +21,29 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#include "driver.h"
-#include "services.h"
-#include "connection.h"
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-mempool.h>
+
+#include "driver.h"
+#include "services.h"
+#include "connection.h"
+#include "utils.h"
 
 struct BusService
 {
   char *name;
   DBusList *owners;
-
-  unsigned int prohibit_replacement:1;
+  
+  unsigned int prohibit_replacement : 1;
 };
 
 static DBusHashTable *service_hash = NULL;
 static DBusMemPool   *service_pool = NULL;
 
-BusService*
-bus_service_lookup (const DBusString *service_name,
-                    dbus_bool_t       create_if_not_found)
+static dbus_bool_t
+init_hash (void)
 {
-  const char *c_name;
-  BusService *service;
-  
   if (service_hash == NULL)
     {
       service_hash = _dbus_hash_table_new (DBUS_HASH_STRING,
@@ -65,9 +63,43 @@ bus_service_lookup (const DBusString *service_name,
               _dbus_mem_pool_free (service_pool);
               service_pool = NULL;
             }
-          return NULL;
+          return FALSE;
         }
     }
+  return TRUE;
+}
+
+BusService*
+bus_service_lookup (const DBusString *service_name)
+{
+  const char *c_name;
+  BusService *service;
+  
+  if (!init_hash ())
+    return NULL;
+  
+  _dbus_string_get_const_data (service_name, &c_name);
+
+  service = _dbus_hash_table_lookup_string (service_hash,
+                                            c_name);
+
+  return service;
+}
+
+BusService*
+bus_service_ensure (const DBusString          *service_name,
+                    DBusConnection            *owner_if_created,
+                    BusTransaction            *transaction,
+                    DBusError                 *error)
+{
+  const char *c_name;
+  BusService *service;
+
+  _dbus_assert (owner_if_created != NULL);
+  _dbus_assert (transaction != NULL);
+  
+  if (!init_hash ())
+    return NULL;
   
   _dbus_string_get_const_data (service_name, &c_name);
 
@@ -75,83 +107,138 @@ bus_service_lookup (const DBusString *service_name,
                                             c_name);
   if (service != NULL)
     return service;
-
-  if (!create_if_not_found)
-    return NULL;
   
   service = _dbus_mem_pool_alloc (service_pool);
   if (service == NULL)
-    return NULL;
+    {
+      BUS_SET_OOM (error);
+      return NULL;
+    }
 
   service->name = _dbus_strdup (c_name);
   if (service->name == NULL)
     {
       _dbus_mem_pool_dealloc (service_pool, service);
+      BUS_SET_OOM (error);
       return NULL;
     }
 
-  if (!_dbus_hash_table_insert_string (service_hash,
-                                       service->name,
-                                       service))
+  if (!bus_driver_send_service_created (service->name, transaction, error))
     {
       dbus_free (service->name);
       _dbus_mem_pool_dealloc (service_pool, service);
       return NULL;
     }
 
-  bus_driver_send_service_created (service->name);
+  if (!bus_service_add_owner (service, owner_if_created,
+                              transaction, error))
+    {
+      dbus_free (service->name);
+      _dbus_mem_pool_dealloc (service_pool, service);
+      return NULL;
+    }
+  
+  if (!_dbus_hash_table_insert_string (service_hash,
+                                       service->name,
+                                       service))
+    {
+      _dbus_list_clear (&service->owners);
+      dbus_free (service->name);
+      _dbus_mem_pool_dealloc (service_pool, service);
+      BUS_SET_OOM (error);
+      return NULL;
+    }
   
   return service;
 }
 
 dbus_bool_t
 bus_service_add_owner (BusService     *service,
-                       DBusConnection *owner)
+                       DBusConnection *owner,
+                       BusTransaction *transaction,
+                       DBusError      *error)
 {
+ /* Send service acquired message first, OOM will result
+  * in cancelling the transaction
+  */
+  if (service->owners == NULL)
+    {
+      if (!bus_driver_send_service_acquired (owner, service->name, transaction, error))
+        return FALSE;
+    }
+  
   if (!_dbus_list_append (&service->owners,
                           owner))
-    return FALSE;
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
 
   if (!bus_connection_add_owned_service (owner, service))
     {
       _dbus_list_remove_last (&service->owners, owner);
+      BUS_SET_OOM (error);
       return FALSE;
     }
-
- /* Send service acquired message */
-  if (bus_service_get_primary_owner (service) == owner)
-    bus_driver_send_service_acquired (owner, service->name);
   
   return TRUE;
 }
 
-void
+dbus_bool_t
 bus_service_remove_owner (BusService     *service,
-                          DBusConnection *owner)
+                          DBusConnection *owner,
+                          BusTransaction *transaction,
+                          DBusError      *error)
 {
+  /* We send out notifications before we do any work we
+   * might have to undo if the notification-sending failed
+   */
+  
   /* Send service lost message */
   if (bus_service_get_primary_owner (service) == owner)
-    bus_driver_send_service_lost (owner, service->name);
+    {
+      if (!bus_driver_send_service_lost (owner, service->name,
+                                         transaction, error))
+        return FALSE;
+    }
+
+  if (_dbus_list_length_is_one (&service->owners))
+    {
+      /* We are the only owner - send service deleted */
+      if (!bus_driver_send_service_deleted (service->name,
+                                            transaction, error))
+        return FALSE;
+    }
+  else
+    {
+      DBusList *link;
+      link = _dbus_list_get_first (&service->owners);
+      link = _dbus_list_get_next_link (&service->owners, link);
+
+      if (link != NULL)
+        {
+          /* This will be our new owner */
+          if (!bus_driver_send_service_acquired (link->data,
+                                                 service->name,
+                                                 transaction,
+                                                 error))
+            return FALSE;
+        }
+    }
   
   _dbus_list_remove_last (&service->owners, owner);
   bus_connection_remove_owned_service (owner, service);
 
   if (service->owners == NULL)
     {
-      /* Delete service */
-      bus_driver_send_service_deleted (service->name);
-      
+      /* Delete service (already sent message that it was deleted above) */
       _dbus_hash_table_remove_string (service_hash, service->name);
       
       dbus_free (service->name);
       _dbus_mem_pool_dealloc (service_pool, service);
     }
-  else 
-    {
-      /* Send service acquired to the new owner */
-      bus_driver_send_service_acquired (bus_service_get_primary_owner (service),
-					service->name);
-    }
+
+  return TRUE;
 }
 
 DBusConnection*
@@ -192,7 +279,7 @@ bus_services_list (int *array_len)
   DBusHashIter iter;
    
   len = _dbus_hash_table_get_n_entries (service_hash);
-  retval = dbus_new (char *, len);
+  retval = dbus_new (char *, len + 1);
 
   if (retval == NULL)
     return NULL;
@@ -210,6 +297,8 @@ bus_services_list (int *array_len)
       i++;
     }
 
+  retval[i] = NULL;
+  
   if (array_len)
     *array_len = len;
   
@@ -227,8 +316,6 @@ void
 bus_service_set_prohibit_replacement (BusService  *service,
 				      dbus_bool_t  prohibit_replacement)
 {
-  _dbus_assert (service->owners == NULL);
-  
   service->prohibit_replacement = prohibit_replacement != FALSE;
 }
 
