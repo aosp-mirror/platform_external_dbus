@@ -26,28 +26,40 @@
 
 #include <dbus/dbus.h>
 
+typedef struct BusLoop BusLoop;
+
 typedef dbus_bool_t (* BusWatchFunction)   (DBusWatch     *watch,
                                             unsigned int   condition,
                                             void          *data);
 typedef void        (* BusTimeoutFunction) (DBusTimeout   *timeout,
                                             void          *data);
 
-dbus_bool_t bus_loop_add_watch      (DBusWatch          *watch,
+
+BusLoop*    bus_loop_new            (void);
+void        bus_loop_ref            (BusLoop            *loop);
+void        bus_loop_unref          (BusLoop            *loop);
+dbus_bool_t bus_loop_add_watch      (BusLoop            *loop,
+                                     DBusWatch          *watch,
                                      BusWatchFunction    function,
                                      void               *data,
                                      DBusFreeFunction    free_data_func);
-void        bus_loop_remove_watch   (DBusWatch          *watch,
+void        bus_loop_remove_watch   (BusLoop            *loop,
+                                     DBusWatch          *watch,
                                      BusWatchFunction    function,
                                      void               *data);
-dbus_bool_t bus_loop_add_timeout    (DBusTimeout        *timeout,
+dbus_bool_t bus_loop_add_timeout    (BusLoop            *loop,
+                                     DBusTimeout        *timeout,
                                      BusTimeoutFunction  function,
                                      void               *data,
                                      DBusFreeFunction    free_data_func);
-void        bus_loop_remove_timeout (DBusTimeout        *timeout,
+void        bus_loop_remove_timeout (BusLoop            *loop,
+                                     DBusTimeout        *timeout,
                                      BusTimeoutFunction  function,
                                      void               *data);
-void        bus_loop_run            (void);
-void        bus_loop_quit           (void);
-dbus_bool_t bus_loop_iterate        (dbus_bool_t         block);
+void        bus_loop_run            (BusLoop            *loop);
+void        bus_loop_quit           (BusLoop            *loop);
+dbus_bool_t bus_loop_iterate        (BusLoop            *loop,
+                                     dbus_bool_t         block);
+
 
 #endif /* BUS_LOOP_H */

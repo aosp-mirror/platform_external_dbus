@@ -89,6 +89,16 @@ connection_data_slot_unref (void)
     }
 }
 
+static BusLoop*
+connection_get_loop (DBusConnection *connection)
+{
+  BusConnectionData *d;
+
+  d = BUS_CONNECTION_DATA (connection);
+
+  return bus_context_get_loop (d->connections->context);
+}
+
 void
 bus_connection_disconnected (DBusConnection *connection)
 {
@@ -195,17 +205,23 @@ connection_watch_callback (DBusWatch     *watch,
 
 static dbus_bool_t
 add_connection_watch (DBusWatch      *watch,
-                      DBusConnection *connection)
+                      void           *data)
 {
-  return bus_loop_add_watch (watch, connection_watch_callback, connection,
+  DBusConnection *connection = data;
+
+  return bus_loop_add_watch (connection_get_loop (connection),
+                             watch, connection_watch_callback, connection,
                              NULL);
 }
 
 static void
 remove_connection_watch (DBusWatch      *watch,
-                         DBusConnection *connection)
+                         void           *data)
 {
-  bus_loop_remove_watch (watch, connection_watch_callback, connection);
+  DBusConnection *connection = data;
+  
+  bus_loop_remove_watch (connection_get_loop (connection),
+                         watch, connection_watch_callback, connection);
 }
 
 static void
@@ -226,16 +242,22 @@ connection_timeout_callback (DBusTimeout   *timeout,
 
 static dbus_bool_t
 add_connection_timeout (DBusTimeout    *timeout,
-                        DBusConnection *connection)
+                        void           *data)
 {
-  return bus_loop_add_timeout (timeout, connection_timeout_callback, connection, NULL);
+  DBusConnection *connection = data;
+  
+  return bus_loop_add_timeout (connection_get_loop (connection),
+                               timeout, connection_timeout_callback, connection, NULL);
 }
 
 static void
 remove_connection_timeout (DBusTimeout    *timeout,
-                           DBusConnection *connection)
+                           void           *data)
 {
-  bus_loop_remove_timeout (timeout, connection_timeout_callback, connection);
+  DBusConnection *connection = data;
+  
+  bus_loop_remove_timeout (connection_get_loop (connection),
+                           timeout, connection_timeout_callback, connection);
 }
 
 static dbus_bool_t
@@ -366,16 +388,16 @@ bus_connections_setup_connection (BusConnections *connections,
   d->group_ids = NULL;
   
   if (!dbus_connection_set_watch_functions (connection,
-                                            (DBusAddWatchFunction) add_connection_watch,
-                                            (DBusRemoveWatchFunction) remove_connection_watch,
+                                            add_connection_watch,
+                                            remove_connection_watch,
                                             NULL,
                                             connection,
                                             NULL))
     goto out;
   
   if (!dbus_connection_set_timeout_functions (connection,
-                                              (DBusAddTimeoutFunction) add_connection_timeout,
-                                              (DBusRemoveTimeoutFunction) remove_connection_timeout,
+                                              add_connection_timeout,
+                                              remove_connection_timeout,
                                               NULL,
                                               connection, NULL))
     goto out;
@@ -400,12 +422,7 @@ bus_connections_setup_connection (BusConnections *connections,
 
  out:
   if (!retval)
-    {
-      if (!dbus_connection_set_data (connection,
-                                     connection_data_slot,
-                                     NULL, NULL))
-        _dbus_assert_not_reached ("failed to set connection data to null");
-        
+    {        
       if (!dbus_connection_set_watch_functions (connection,
                                                 NULL, NULL, NULL,
                                                 connection,
@@ -420,6 +437,11 @@ bus_connections_setup_connection (BusConnections *connections,
 
       dbus_connection_set_unix_user_function (connection,
                                               NULL, NULL, NULL);
+
+      if (!dbus_connection_set_data (connection,
+                                     connection_data_slot,
+                                     NULL, NULL))
+        _dbus_assert_not_reached ("failed to set connection data to null");
     }
   
   return retval;

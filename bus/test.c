@@ -34,11 +34,12 @@
  * are different from the real handlers in connection.c
  */
 static DBusList *clients = NULL;
+static BusLoop *client_loop = NULL;
 
 static dbus_bool_t
 client_watch_callback (DBusWatch     *watch,
-                           unsigned int   condition,
-                           void          *data)
+                       unsigned int   condition,
+                       void          *data)
 {
   DBusConnection *connection = data;
   dbus_bool_t retval;
@@ -54,22 +55,28 @@ client_watch_callback (DBusWatch     *watch,
 
 static dbus_bool_t
 add_client_watch (DBusWatch      *watch,
-                      DBusConnection *connection)
+                  void           *data)
 {
-  return bus_loop_add_watch (watch, client_watch_callback, connection,
+  DBusConnection *connection = data;
+  
+  return bus_loop_add_watch (client_loop,
+                             watch, client_watch_callback, connection,
                              NULL);
 }
 
 static void
 remove_client_watch (DBusWatch      *watch,
-                         DBusConnection *connection)
+                     void           *data)
 {
-  bus_loop_remove_watch (watch, client_watch_callback, connection);
+  DBusConnection *connection = data;
+  
+  bus_loop_remove_watch (client_loop,
+                         watch, client_watch_callback, connection);
 }
 
 static void
 client_timeout_callback (DBusTimeout   *timeout,
-                             void          *data)
+                         void          *data)
 {
   DBusConnection *connection = data;
 
@@ -83,16 +90,20 @@ client_timeout_callback (DBusTimeout   *timeout,
 
 static dbus_bool_t
 add_client_timeout (DBusTimeout    *timeout,
-                        DBusConnection *connection)
+                    void           *data)
 {
-  return bus_loop_add_timeout (timeout, client_timeout_callback, connection, NULL);
+  DBusConnection *connection = data;
+  
+  return bus_loop_add_timeout (client_loop, timeout, client_timeout_callback, connection, NULL);
 }
 
 static void
 remove_client_timeout (DBusTimeout    *timeout,
-                           DBusConnection *connection)
+                       void           *data)
 {
-  bus_loop_remove_timeout (timeout, client_timeout_callback, connection);
+  DBusConnection *connection = data;
+  
+  bus_loop_remove_timeout (client_loop, timeout, client_timeout_callback, connection);
 }
 
 static DBusHandlerResult
@@ -105,8 +116,14 @@ client_disconnect_handler (DBusMessageHandler *handler,
                  connection);
   
   _dbus_list_remove (&clients, connection);
-  
+
   dbus_connection_unref (connection);
+  
+  if (clients == NULL)
+    {
+      bus_loop_unref (client_loop);
+      client_loop = NULL;
+    }
   
   return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
 }
@@ -179,18 +196,25 @@ bus_setup_debug_client (DBusConnection *connection)
     }
 
   retval = FALSE;
+
+  if (client_loop == NULL)
+    {
+      client_loop = bus_loop_new ();
+      if (client_loop == NULL)
+        goto out;
+    }
   
   if (!dbus_connection_set_watch_functions (connection,
-                                            (DBusAddWatchFunction) add_client_watch,
-                                            (DBusRemoveWatchFunction) remove_client_watch,
+                                            add_client_watch,
+                                            remove_client_watch,
                                             NULL,
                                             connection,
                                             NULL))
     goto out;
       
   if (!dbus_connection_set_timeout_functions (connection,
-                                              (DBusAddTimeoutFunction) add_client_timeout,
-                                              (DBusRemoveTimeoutFunction) remove_client_timeout,
+                                              add_client_timeout,
+                                              remove_client_timeout,
                                               NULL,
                                               connection, NULL))
     goto out;
@@ -223,6 +247,12 @@ bus_setup_debug_client (DBusConnection *connection)
                                              NULL, NULL, NULL, NULL, NULL);
 
       _dbus_list_remove_last (&clients, connection);
+
+      if (clients == NULL)
+        {
+          bus_loop_unref (client_loop);
+          client_loop = NULL;
+        }
     }
       
   return retval;
@@ -268,23 +298,43 @@ bus_test_client_listed (DBusConnection *connection)
 }
 
 void
-bus_test_flush_bus (BusContext *context)
+bus_test_run_clients_loop (void)
 {
-  /* This is race condition city, obviously. since we're all in one
-   * process we can't block, we just have to wait for data we put in
-   * one end of the debug pipe to come out the other end...
-   * a more robust setup would be good. Blocking on the other
-   * end of pipes we've pushed data into or something.
-   * A simple hack might be to just make the debug server always
-   * poll for read on the other end of the pipe after writing.
-   */
-  while (bus_loop_iterate (FALSE))
+  if (client_loop == NULL)
+    return;
+  
+  /* Do one blocking wait, since we're expecting data */
+  bus_loop_iterate (client_loop, TRUE);
+
+  /* Then mop everything up */
+  while (bus_loop_iterate (client_loop, FALSE))
     ;
-#if 0
-  _dbus_sleep_milliseconds (15);
-#endif
-  while (bus_loop_iterate (FALSE))
+}
+
+void
+bus_test_run_bus_loop (BusContext *context)
+{
+  /* Do one blocking wait, since we're expecting data */
+  bus_loop_iterate (bus_context_get_loop (context), TRUE);
+
+  /* Then mop everything up */
+  while (bus_loop_iterate (bus_context_get_loop (context), FALSE))
     ;
+}
+
+void
+bus_test_run_everything (BusContext *context)
+{
+  int i;
+
+  i = 0;
+  while (i < 2)
+    {
+      while (bus_loop_iterate (bus_context_get_loop (context), FALSE) ||
+             (client_loop == NULL || bus_loop_iterate (client_loop, FALSE)))
+        ;
+      ++i;
+    }
 }
 
 BusContext*

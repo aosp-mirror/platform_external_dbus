@@ -32,17 +32,19 @@
 #include <dbus/dbus-string.h>
 #include "connection.h"
 
-dbus_bool_t bus_dispatch_test        (const DBusString             *test_data_dir);
-dbus_bool_t bus_policy_test          (const DBusString             *test_data_dir);
-dbus_bool_t bus_config_parser_test   (const DBusString             *test_data_dir);
-dbus_bool_t bus_setup_debug_client   (DBusConnection               *connection);
-void        bus_test_clients_foreach (BusConnectionForeachFunction  function,
-                                      void                         *data);
-dbus_bool_t bus_test_client_listed   (DBusConnection               *connection);
-void        bus_test_flush_bus       (BusContext                   *context);
+dbus_bool_t bus_dispatch_test         (const DBusString             *test_data_dir);
+dbus_bool_t bus_policy_test           (const DBusString             *test_data_dir);
+dbus_bool_t bus_config_parser_test    (const DBusString             *test_data_dir);
+dbus_bool_t bus_setup_debug_client    (DBusConnection               *connection);
+void        bus_test_clients_foreach  (BusConnectionForeachFunction  function,
+                                       void                         *data);
+dbus_bool_t bus_test_client_listed    (DBusConnection               *connection);
+void        bus_test_run_bus_loop     (BusContext                   *context);
+void        bus_test_run_clients_loop (void);
+void        bus_test_run_everything   (BusContext                   *context);
+BusContext* bus_context_new_test      (const DBusString             *test_data_dir,
+                                       const char                   *filename);
 
-BusContext* bus_context_new_test     (const DBusString             *test_data_dir,
-                                      const char                   *filename);
 
 #endif
 

@@ -38,6 +38,7 @@ struct BusContext
   int refcount;
   char *type;
   char *address;
+  BusLoop *loop;
   DBusList *servers;
   BusConnections *connections;
   BusActivation *activation;
@@ -47,6 +48,68 @@ struct BusContext
   DBusHashTable *rules_by_uid;  /**< per-UID policy rules */
   DBusHashTable *rules_by_gid;  /**< per-GID policy rules */
 };
+
+static int server_data_slot = -1;
+static int server_data_slot_refcount = 0;
+
+typedef struct
+{
+  BusContext *context;
+} BusServerData;
+
+#define BUS_SERVER_DATA(server) (dbus_server_get_data ((server), server_data_slot))
+
+static dbus_bool_t
+server_data_slot_ref (void)
+{
+  if (server_data_slot < 0)
+    {
+      server_data_slot = dbus_server_allocate_data_slot ();
+      
+      if (server_data_slot < 0)
+        return FALSE;
+
+      _dbus_assert (server_data_slot_refcount == 0);
+    }  
+
+  server_data_slot_refcount += 1;
+
+  return TRUE;
+}
+
+static void
+server_data_slot_unref (void)
+{
+  _dbus_assert (server_data_slot_refcount > 0);
+
+  server_data_slot_refcount -= 1;
+  
+  if (server_data_slot_refcount == 0)
+    {
+      dbus_server_free_data_slot (server_data_slot);
+      server_data_slot = -1;
+    }
+}
+
+static BusContext*
+server_get_context (DBusServer *server)
+{
+  BusContext *context;
+  BusServerData *bd;
+  
+  if (!server_data_slot_ref ())
+    return NULL;
+
+  bd = BUS_SERVER_DATA (server);
+  if (bd == NULL)
+    return NULL;
+
+  context = bd->context;
+
+  server_data_slot_unref ();
+
+  return context;
+}
 
 static dbus_bool_t
 server_watch_callback (DBusWatch     *watch,
@@ -62,7 +125,13 @@ static dbus_bool_t
 add_server_watch (DBusWatch  *watch,
                   void       *data)
 {
-  return bus_loop_add_watch (watch, server_watch_callback, data,
+  DBusServer *server = data;
+  BusContext *context;
+  
+  context = server_get_context (server);
+  
+  return bus_loop_add_watch (context->loop,
+                             watch, server_watch_callback, server,
                              NULL);
 }
 
@@ -70,7 +139,13 @@ static void
 remove_server_watch (DBusWatch  *watch,
                      void       *data)
 {
-  bus_loop_remove_watch (watch, server_watch_callback, data);
+  DBusServer *server = data;
+  BusContext *context;
+  
+  context = server_get_context (server);
+  
+  bus_loop_remove_watch (context->loop,
+                         watch, server_watch_callback, server);
 }
 
 
@@ -86,14 +161,26 @@ static dbus_bool_t
 add_server_timeout (DBusTimeout *timeout,
                     void        *data)
 {
-  return bus_loop_add_timeout (timeout, server_timeout_callback, data, NULL);
+  DBusServer *server = data;
+  BusContext *context;
+  
+  context = server_get_context (server);
+
+  return bus_loop_add_timeout (context->loop,
+                               timeout, server_timeout_callback, server, NULL);
 }
 
 static void
 remove_server_timeout (DBusTimeout *timeout,
                        void        *data)
 {
-  bus_loop_remove_timeout (timeout, server_timeout_callback, data);
+  DBusServer *server = data;
+  BusContext *context;
+  
+  context = server_get_context (server);
+  
+  bus_loop_remove_timeout (context->loop,
+                           timeout, server_timeout_callback, server);
 }
 
 static void
@@ -139,12 +226,22 @@ free_rule_list_func (void *data)
   dbus_free (list);
 }
 
+static void
+free_server_data (void *data)
+{
+  BusServerData *bd = data;  
+  
+  dbus_free (bd);
+}
+
 static dbus_bool_t
 setup_server (BusContext *context,
               DBusServer *server,
               char      **auth_mechanisms,
               DBusError  *error)
 {
+  BusServerData *bd;
+  
   if (!dbus_server_set_auth_mechanisms (server, (const char**) auth_mechanisms))
     {
       BUS_SET_OOM (error);
@@ -175,7 +272,18 @@ setup_server (BusContext *context,
       BUS_SET_OOM (error);
       return FALSE;
     }
+  
+  bd = dbus_new0 (BusServerData, 1);
+  if (!dbus_server_set_data (server,
+                             server_data_slot,
+                             bd, free_server_data))
+    {
+      dbus_free (bd);
+      return FALSE;
+    }
 
+  bd->context = context;
+  
   return TRUE;
 }
 
@@ -196,8 +304,18 @@ bus_context_new (const DBusString *config_file,
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   if (!_dbus_string_init (&full_address))
-    return NULL;
-
+    {
+      BUS_SET_OOM (error);
+      return NULL;
+    }
+  
+  if (!server_data_slot_ref ())
+    {
+      BUS_SET_OOM (error);
+      _dbus_string_free (&full_address);
+      return NULL;
+    }
+  
   parser = NULL;
   context = NULL;
   auth_mechanisms = NULL;
@@ -215,6 +333,13 @@ bus_context_new (const DBusString *config_file,
   
   context->refcount = 1;
 
+  context->loop = bus_loop_new ();
+  if (context->loop == NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+  
   /* Build an array of auth mechanisms */
   
   auth_mechanisms_list = bus_config_parser_get_mechanisms (parser);
@@ -401,6 +526,9 @@ bus_context_new (const DBusString *config_file,
 
   _dbus_string_free (&full_address);
   dbus_free_string_array (auth_mechanisms);
+
+  server_data_slot_unref ();
+  
   return NULL;
 }
 
@@ -501,9 +629,17 @@ bus_context_unref (BusContext *context)
           context->rules_by_gid = NULL;
         }
 
+      if (context->loop)
+        {
+          bus_loop_unref (context->loop);
+          context->loop = NULL;
+        }
+      
       dbus_free (context->type);
       dbus_free (context->address);
       dbus_free (context);
+
+      server_data_slot_unref ();
     }
 }
 
@@ -530,6 +666,12 @@ BusActivation*
 bus_context_get_activation (BusContext  *context)
 {
   return context->activation;
+}
+
+BusLoop*
+bus_context_get_loop (BusContext *context)
+{
+  return context->loop;
 }
 
 static dbus_bool_t

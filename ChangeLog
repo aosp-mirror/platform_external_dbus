@@ -1,5 +1,12 @@
 2003-04-03  Havoc Pennington  <hp@redhat.com>
 
+	* bus/loop.h, bus/loop.c: make the mainloop an object so we can
+	have multiple ones
+
+	* bus/*.[hc]: adapt to mainloop change
+
+2003-04-03  Havoc Pennington  <hp@redhat.com>
+
 	* bus/activation.c (load_directory): fix up memleaks
 	(bus_activation_entry_free): free the entry
 

@@ -143,7 +143,7 @@ main (int argc, char **argv)
     }
   
   _dbus_verbose ("We are on D-Bus...\n");
-  bus_loop_run ();
+  bus_loop_run (bus_context_get_loop (context));
   
   bus_context_shutdown (context);
   bus_context_unref (context);

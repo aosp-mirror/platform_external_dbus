@@ -59,3 +59,9 @@
    to return an error that automatically gets turned into a message; most likely 
    some basic spec'ing out of the GLib/Qt level stubs/skels stuff will be 
    needed to understand the right approach.
+
+ - sync up DBusWatch and DBusTimeout so that handle_watch() is a method on DBusWatch 
+   similar to the way timeouts work
+
+ - there are various bits of code to manage ref/unref of data slots, that should 
+   be merged into a generic facility

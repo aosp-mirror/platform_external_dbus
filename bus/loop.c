@@ -26,11 +26,15 @@
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-sysdeps.h>
 
-static DBusList *callbacks = NULL;
-static int callback_list_serial = 0;
-static int watch_count = 0;
-static int timeout_count = 0;
-static dbus_bool_t exited = FALSE;
+struct BusLoop
+{
+  int refcount;
+  DBusList *callbacks;
+  int callback_list_serial;
+  int watch_count;
+  int timeout_count;
+  int depth; /**< number of recursive runs */
+};
 
 typedef enum
 {
@@ -121,20 +125,21 @@ callback_free (Callback *cb)
 }
 
 static dbus_bool_t
-add_callback (Callback *cb)
+add_callback (BusLoop  *loop,
+              Callback *cb)
 {
-  if (!_dbus_list_append (&callbacks, cb))
+  if (!_dbus_list_append (&loop->callbacks, cb))
     return FALSE;
 
-  callback_list_serial += 1;
+  loop->callback_list_serial += 1;
 
   switch (cb->type)
     {
     case CALLBACK_WATCH:
-      watch_count += 1;
+      loop->watch_count += 1;
       break;
     case CALLBACK_TIMEOUT:
-      timeout_count += 1;
+      loop->timeout_count += 1;
       break;
     }
   
@@ -142,27 +147,66 @@ add_callback (Callback *cb)
 }
 
 static void
-remove_callback (DBusList *link)
+remove_callback (BusLoop  *loop,
+                 DBusList *link)
 {
   Callback *cb = link->data;
   
   switch (cb->type)
     {
     case CALLBACK_WATCH:
-      watch_count -= 1;
+      loop->watch_count -= 1;
       break;
     case CALLBACK_TIMEOUT:
-      timeout_count -= 1;
+      loop->timeout_count -= 1;
       break;
     }
   
   callback_free (cb);
-  _dbus_list_remove_link (&callbacks, link);
-  callback_list_serial += 1;
+  _dbus_list_remove_link (&loop->callbacks, link);
+  loop->callback_list_serial += 1;
+}
+
+BusLoop*
+bus_loop_new (void)
+{
+  BusLoop *loop;
+
+  loop = dbus_new0 (BusLoop, 1);
+  if (loop == NULL)
+    return NULL;
+
+  loop->refcount = 1;
+  
+  return loop;
+}
+
+void
+bus_loop_ref (BusLoop *loop)
+{
+  _dbus_assert (loop != NULL);
+  _dbus_assert (loop->refcount > 0);
+
+  loop->refcount += 1;
+}
+
+void
+bus_loop_unref (BusLoop *loop)
+{
+  _dbus_assert (loop != NULL);
+  _dbus_assert (loop->refcount > 0);
+
+  loop->refcount -= 1;
+  if (loop->refcount == 0)
+    {
+      
+      dbus_free (loop);
+    }
 }
 
 dbus_bool_t
-bus_loop_add_watch (DBusWatch        *watch,
+bus_loop_add_watch (BusLoop          *loop,
+                    DBusWatch        *watch,
                     BusWatchFunction  function,
                     void             *data,
                     DBusFreeFunction  free_data_func)
@@ -173,7 +217,7 @@ bus_loop_add_watch (DBusWatch        *watch,
   if (wcb == NULL)
     return FALSE;
 
-  if (!add_callback ((Callback*) wcb))
+  if (!add_callback (loop, (Callback*) wcb))
     {
       wcb->callback.free_data_func = NULL; /* don't want to have this side effect */
       callback_free ((Callback*) wcb);
@@ -184,16 +228,17 @@ bus_loop_add_watch (DBusWatch        *watch,
 }
 
 void
-bus_loop_remove_watch (DBusWatch        *watch,
+bus_loop_remove_watch (BusLoop          *loop,
+                       DBusWatch        *watch,
                        BusWatchFunction  function,
                        void             *data)
 {
   DBusList *link;
   
-  link = _dbus_list_get_first_link (&callbacks);
+  link = _dbus_list_get_first_link (&loop->callbacks);
   while (link != NULL)
     {
-      DBusList *next = _dbus_list_get_next_link (&callbacks, link);
+      DBusList *next = _dbus_list_get_next_link (&loop->callbacks, link);
       Callback *this = link->data;
 
       if (this->type == CALLBACK_WATCH &&
@@ -201,7 +246,7 @@ bus_loop_remove_watch (DBusWatch        *watch,
           this->data == data &&
           WATCH_CALLBACK (this)->function == function)
         {
-          remove_callback (link);
+          remove_callback (loop, link);
           
           return;
         }
@@ -214,7 +259,8 @@ bus_loop_remove_watch (DBusWatch        *watch,
 }
 
 dbus_bool_t
-bus_loop_add_timeout (DBusTimeout        *timeout,
+bus_loop_add_timeout (BusLoop            *loop,
+                      DBusTimeout        *timeout,
                       BusTimeoutFunction  function,
                       void               *data,
                       DBusFreeFunction    free_data_func)
@@ -225,7 +271,7 @@ bus_loop_add_timeout (DBusTimeout        *timeout,
   if (tcb == NULL)
     return FALSE;
 
-  if (!add_callback ((Callback*) tcb))
+  if (!add_callback (loop, (Callback*) tcb))
     {
       tcb->callback.free_data_func = NULL; /* don't want to have this side effect */
       callback_free ((Callback*) tcb);
@@ -236,16 +282,17 @@ bus_loop_add_timeout (DBusTimeout        *timeout,
 }
 
 void
-bus_loop_remove_timeout (DBusTimeout        *timeout,
+bus_loop_remove_timeout (BusLoop            *loop,
+                         DBusTimeout        *timeout,
                          BusTimeoutFunction  function,
                          void               *data)
 {
   DBusList *link;
   
-  link = _dbus_list_get_first_link (&callbacks);
+  link = _dbus_list_get_first_link (&loop->callbacks);
   while (link != NULL)
     {
-      DBusList *next = _dbus_list_get_next_link (&callbacks, link);
+      DBusList *next = _dbus_list_get_next_link (&loop->callbacks, link);
       Callback *this = link->data;
 
       if (this->type == CALLBACK_TIMEOUT &&
@@ -253,7 +300,7 @@ bus_loop_remove_timeout (DBusTimeout        *timeout,
           this->data == data &&
           TIMEOUT_CALLBACK (this)->function == function)
         {
-          remove_callback (link);
+          remove_callback (loop, link);
           
           return;
         }
@@ -270,7 +317,8 @@ bus_loop_remove_timeout (DBusTimeout        *timeout,
  */
 
 dbus_bool_t
-bus_loop_iterate (dbus_bool_t block)
+bus_loop_iterate (BusLoop     *loop,
+                  dbus_bool_t  block)
 {
   dbus_bool_t retval;
   DBusPollFD *fds;
@@ -282,30 +330,32 @@ bus_loop_iterate (dbus_bool_t block)
   int initial_serial;
   long timeout;
   dbus_bool_t oom_watch_pending;
+  int orig_depth;
   
   retval = FALSE;
       
   fds = NULL;
   watches_for_fds = NULL;
   oom_watch_pending = FALSE;
-
+  orig_depth = loop->depth;
+  
 #if 0
   _dbus_verbose (" iterate %d timeouts %d watches\n",
-                 timeout_count, watch_count);
+                 loop->timeout_count, loop->watch_count);
 #endif
   
-  if (callbacks == NULL)
+  if (loop->callbacks == NULL)
     {
-      bus_loop_quit ();
+      bus_loop_quit (loop);
       goto next_iteration;
     }
 
   /* count enabled watches */
   n_fds = 0;
-  link = _dbus_list_get_first_link (&callbacks);
+  link = _dbus_list_get_first_link (&loop->callbacks);
   while (link != NULL)
     {
-      DBusList *next = _dbus_list_get_next_link (&callbacks, link);
+      DBusList *next = _dbus_list_get_next_link (&loop->callbacks, link);
       Callback *cb = link->data;
       if (cb->type == CALLBACK_WATCH)
         {
@@ -337,10 +387,10 @@ bus_loop_iterate (dbus_bool_t block)
         }
       
       i = 0;
-      link = _dbus_list_get_first_link (&callbacks);
+      link = _dbus_list_get_first_link (&loop->callbacks);
       while (link != NULL)
         {
-          DBusList *next = _dbus_list_get_next_link (&callbacks, link);
+          DBusList *next = _dbus_list_get_next_link (&loop->callbacks, link);
           Callback *cb = link->data;
           if (cb->type == CALLBACK_WATCH)
             {
@@ -378,7 +428,7 @@ bus_loop_iterate (dbus_bool_t block)
     }
 
   timeout = -1;
-  if (timeout_count > 0)
+  if (loop->timeout_count > 0)
     {
       unsigned long tv_sec;
       unsigned long tv_usec;
@@ -387,10 +437,10 @@ bus_loop_iterate (dbus_bool_t block)
       
       _dbus_get_current_time (&tv_sec, &tv_usec);
           
-      link = _dbus_list_get_first_link (&callbacks);
+      link = _dbus_list_get_first_link (&loop->callbacks);
       while (link != NULL)
         {
-          DBusList *next = _dbus_list_get_next_link (&callbacks, link);
+          DBusList *next = _dbus_list_get_next_link (&loop->callbacks, link);
           Callback *cb = link->data;
 
           if (cb->type == CALLBACK_TIMEOUT &&
@@ -446,9 +496,9 @@ bus_loop_iterate (dbus_bool_t block)
   
   n_ready = _dbus_poll (fds, n_fds, timeout);
 
-  initial_serial = callback_list_serial;
+  initial_serial = loop->callback_list_serial;
 
-  if (timeout_count > 0)
+  if (loop->timeout_count > 0)
     {
       unsigned long tv_sec;
       unsigned long tv_usec;
@@ -456,16 +506,16 @@ bus_loop_iterate (dbus_bool_t block)
       _dbus_get_current_time (&tv_sec, &tv_usec);
 
       /* It'd be nice to avoid this O(n) thingy here */
-      link = _dbus_list_get_first_link (&callbacks);
+      link = _dbus_list_get_first_link (&loop->callbacks);
       while (link != NULL)
         {
-          DBusList *next = _dbus_list_get_next_link (&callbacks, link);
+          DBusList *next = _dbus_list_get_next_link (&loop->callbacks, link);
           Callback *cb = link->data;
 
-          if (initial_serial != callback_list_serial)
+          if (initial_serial != loop->callback_list_serial)
             goto next_iteration;
 
-          if (exited)
+          if (loop->depth != orig_depth)
             goto next_iteration;
               
           if (cb->type == CALLBACK_TIMEOUT &&
@@ -528,10 +578,10 @@ bus_loop_iterate (dbus_bool_t block)
            * approach could result in starving watches
            * toward the end of the list.
            */
-          if (initial_serial != callback_list_serial)
+          if (initial_serial != loop->callback_list_serial)
             goto next_iteration;
 
-          if (exited)
+          if (loop->depth != orig_depth)
             goto next_iteration;
 
           if (fds[i].revents != 0)
@@ -578,16 +628,26 @@ bus_loop_iterate (dbus_bool_t block)
   return retval;
 }
 
-
 void
-bus_loop_run (void)
+bus_loop_run (BusLoop *loop)
 {
-  while (!exited)
-    bus_loop_iterate (TRUE);
+  int our_exit_depth;
+
+  bus_loop_ref (loop);
+  
+  our_exit_depth = loop->depth;
+  loop->depth += 1;
+  
+  while (loop->depth != our_exit_depth)
+    bus_loop_iterate (loop, TRUE);
+
+  bus_loop_unref (loop);
 }
 
 void
-bus_loop_quit (void)
+bus_loop_quit (BusLoop *loop)
 {
-  exited = TRUE;
+  _dbus_assert (loop->depth > 0);
+  
+  loop->depth -= 1;
 }
