@@ -4,6 +4,7 @@
  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
   <listen>debug-pipe:name=test-server</listen>
+  <servicedir>@TEST_SERVICE_DIR@</servicedir>
   <policy context="default">
     <allow send="*"/>
     <allow receive="*"/>
