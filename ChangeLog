@@ -1,5 +1,10 @@
 2003-12-02  Richard Hult  <richard@imendio.com>
 
+	* Update AFL version to 2.0 throughout the source files to reflect
+	the update that was done a while ago.
+
+2003-12-02  Richard Hult  <richard@imendio.com>
+
 	* dbus/dbus-message.c (dbus_message_iter_append_dict): Set
 	wrote_dict_key to FALSE on the iter that the dict is appended to,
 	just like when appending other types. Fixes a bug where a dict

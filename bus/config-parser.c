@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2003 Red Hat, Inc.
  *
- * Licensed under the Academic Free License version 1.2
+ * Licensed under the Academic Free License version 2.0
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
