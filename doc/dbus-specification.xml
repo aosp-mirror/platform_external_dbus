@@ -7,8 +7,8 @@
 <article id="index">
   <articleinfo>
     <title>D-BUS Specification</title>
-    <releaseinfo>Version 0.8</releaseinfo>
-    <date>06 September 2003</date>
+    <releaseinfo>Version 0.9</releaseinfo>
+    <date>17 January 2005</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -77,25 +77,30 @@
         </listitem>
       </itemizedlist>
     </para>
+
     <para>
-      The base D-BUS protocol is a peer-to-peer protocol, specified in <xref
-      linkend="message-protocol"/>. That is, it is a system for one application
-      to talk to a single other application. However, the primary intended
-      application of D-BUS is the D-BUS <firstterm>message bus</firstterm>,
-      specified in <xref linkend="message-bus"/>. The message bus is a special
-      application that accepts connections from multiple other applications, and
-      forwards messages among them.
+      The base D-BUS protocol is a one-to-one (peer-to-peer or client-server)
+      protocol, specified in <xref linkend="message-protocol"/>. That is, it is
+      a system for one application to talk to a single other
+      application. However, the primary intended application of D-BUS is the
+      D-BUS <firstterm>message bus</firstterm>, specified in <xref
+      linkend="message-bus"/>. The message bus is a special application that
+      accepts connections from multiple other applications, and forwards
+      messages among them.
     </para>
+
     <para>
       Uses of D-BUS include notification of system changes (notification of when
       a camera is plugged in to a computer, or a new version of some software
-      has been installed), or desktop interoperablity, for example a file
+      has been installed), or desktop interoperability, for example a file
       monitoring service or a configuration service.
     </para>
+
   </sect1>
 
   <sect1 id="message-protocol">
     <title>Message Protocol</title>
+
     <para>
       A <firstterm>message</firstterm> consists of a
       <firstterm>header</firstterm> and a <firstterm>body</firstterm>. If you
@@ -107,79 +112,434 @@
     
     <para>
       The body of the message is made up of zero or more
-      <firstterm>arguments</firstterm>, which are typed 
-      values, such as an integer or a byte array.
+      <firstterm>arguments</firstterm>, which are typed values, such as an
+      integer or a byte array.
     </para>
 
-    <sect2 id="message-protocol-header-encoding">
-      <title>Header Encoding</title>
+    <para>
+      Both header and body use the same type system and format for 
+      serializing data. Each type of value has a wire format. 
+      Converting a value from some other representation into the wire
+      format is called <firstterm>marshaling</firstterm> and converting
+      it back from the wire format is <firstterm>unmarshaling</firstterm>.
+    </para>
+
+    <sect2 id="message-protocol-signatures">
+      <title>Type Signatures</title>
+
       <para>
-        Following the mandatory fields, there are zero or more named fields (see
-        <xref linkend="message-protocol-header-fields"/>), and then nul bytes
-        padding the header such that its total length in bytes is a multiple of
-        8.
+        The D-BUS protocol does not include type tags in the marshaled data; a
+        block of marshaled values must have a known <firstterm>type
+        signature</firstterm>.  The type signature is made up of <firstterm>type
+        codes</firstterm>. A type code is an ASCII character representing the
+        type of a value. Because ASCII characters are used, the type signature
+        will always form a valid ASCII string. A simple string compare 
+        determines whether two type signatures are equivalent.
       </para>
+
       <para>
-        The header MUST begin with the following mandatory fields in the following
-        order:
+        As a simple example, the type code for 32-bit integer (INT32) is
+        the ASCII character 'i'. So the signature for a block of values 
+        containing a single INT32 would be:
+        <programlisting>
+          "i"
+        </programlisting>
+        A block of values containing two INT32 would have this signature:
+        <programlisting>
+          "ii"
+        </programlisting>        
+      </para>
+
+      <para>
+        All <firstterm>basic</firstterm> types work like 
+        INT32 in this example. To marshal and unmarshal 
+        basic types, you simply read one value from the data
+        block corresponding to each type code in the signature.
+        In addition to basic types, there are three <firstterm>container</firstterm> 
+        types: STRUCT, ARRAY, and VARIANT.
+      </para>
+
+      <para>
+        STRUCT has a type code, ASCII character 'r', but this type 
+        code does not appear in signatures. Instead, ASCII characters
+        '(' and ')' are used to mark the beginning and end of the struct.
+        So for example, a struct containing two integers would have this 
+        signature:
+        <programlisting>
+          "(ii)"
+        </programlisting>
+        Structs can be nested, so for example a struct containing 
+        an integer and another struct:
+        <programlisting>
+          "(i(ii))"
+        </programlisting>
+        The value block storing that struct would contain three integers; the
+        type signature allows you to distinguish "(i(ii))" from "((ii)i)" or
+        "(iii)" or "iii".
+      </para>
+      
+      <para>
+        ARRAY has ASCII character 'a' as type code. The array type code must be
+        followed by a <firstterm>single complete type</firstterm>. The single
+        complete type following the array is the type of each array element. So
+        the simple example is:
+        <programlisting>
+          "ai"
+        </programlisting>
+        which is an array of 32-bit integers. But an array can be of any type, 
+        such as this array-of-struct-with-two-int32-fields:
+        <programlisting>
+          "a(ii)"
+        </programlisting>
+        Or this array of array of integer:
+        <programlisting>
+          "aai"
+        </programlisting>
+      </para>
+
+      <para>
+        The phrase <firstterm>single complete type</firstterm> deserves some 
+        definition. A single complete type is a basic type code, a variant type code, 
+        an array with its element type, or a struct with its fields. 
+        So the following signatures are not single complete types:
+        <programlisting>
+          "aa"
+        </programlisting>
+        <programlisting>
+          "(ii"
+        </programlisting>
+        <programlisting>
+          "ii)"
+        </programlisting>
+        And the following signatures contain multiple complete types:
+        <programlisting>
+          "ii"
+        </programlisting>
+        <programlisting>
+          "aiai"
+        </programlisting>
+        <programlisting>
+          "(ii)(ii)"
+        </programlisting>
+        Note however that a single complete type may <emphasis>contain</emphasis>
+        multiple other single complete types.
+      </para>
+
+      <para>
+        VARIANT has ASCII character 'v' as its type code. A marshaled value of
+        type VARIANT will have the signature of a single complete type as part
+        of the <emphasis>value</emphasis>.  This signature will be followed by a
+        marshaled value of that type.
+      </para>
+
+      <para>
+        The following table summarizes the D-BUS types.
         <informaltable>
-          <tgroup cols="2">
+          <tgroup cols="3">
             <thead>
               <row>
-                <entry>Size</entry>
+                <entry>Type name</entry>
+                <entry>Code</entry>
                 <entry>Description</entry>
               </row>
             </thead>
             <tbody>
               <row>
-                <entry>1 byte</entry>
+                <entry>INVALID</entry>
+                <entry>0 (ASCII NUL)</entry>
+                <entry>Not a valid type code, used to terminate signatures</entry>
+              </row><row>
+		<entry>BYTE</entry>
+		<entry>121 (ASCII 'y')</entry>
+		<entry>8-bit unsigned integer</entry>
+              </row><row>
+		<entry>BOOLEAN</entry>
+		<entry>98 (ASCII 'b')</entry>
+		<entry>Boolean value, 0 is FALSE and 1 is TRUE. Everything else is invalid.</entry>
+	      </row><row>
+                <entry>INT32</entry>
+                <entry>105 (ASCII 'i')</entry>
+                <entry>32-bit signed integer</entry>
+              </row><row>
+                <entry>UINT32</entry>
+                <entry>117 (ASCII 'u')</entry>
+                <entry>32-bit unsigned integer</entry>
+	      </row><row>
+                <entry>INT64</entry>
+                <entry>120 (ASCII 'x')</entry>
+                <entry>64-bit signed integer</entry>
+              </row><row>
+                <entry>UINT64</entry>
+                <entry>116 (ASCII 't')</entry>
+                <entry>64-bit unsigned integer</entry>
+              </row><row>
+                <entry>DOUBLE</entry>
+                <entry>100 (ASCII 'd')</entry>
+                <entry>IEEE 754 double</entry>
+              </row><row>
+                <entry>STRING</entry>
+                <entry>115 (ASCII 's')</entry>
+                <entry>UTF-8 string (<emphasis>must</emphasis> be valid UTF-8). Must be nul terminated.</entry>
+              </row><row>
+                <entry>OBJECT_PATH</entry>
+                <entry>111 (ASCII 'o')</entry>
+                <entry>Name of an object instance</entry>
+              </row><row>
+                <entry>SIGNATURE</entry>
+                <entry>103 (ASCII 'g')</entry>
+                <entry>A type signature</entry>
+              </row><row>
+                <entry>ARRAY</entry>
+                <entry>97 (ASCII 'a')</entry>
+                <entry>Array</entry>
+              </row><row>
+                <entry>STRUCT</entry>
+                <entry>114 (ASCII 'r'), 40 (ASCII '('), 41 (ASCII ')')</entry>
+                <entry>Struct</entry>
+              </row><row>
+                <entry>VARIANT</entry>
+                <entry>118 (ASCII 'v') </entry>
+                <entry>Variant type (the type of the value is part of the value itself)</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </para>
+
+    </sect2>
+
+    <sect2 id="message-protocol-marshaling">
+      <title>Marshaling (Wire Format)</title>
+
+      <para>
+        Given a type signature, a block of bytes can be converted into typed
+        values. This section describes the format of the block of bytes.  Byte
+        order and alignment issues are handled uniformly for all D-BUS types.
+      </para>
+
+      <para>
+        A block of bytes has an associated byte order. The byte order 
+        has to be discovered in some way; for D-BUS messages, the 
+        byte order is part of the message header as described in 
+        <xref linkend="message-protocol-messages"/>. For now, assume 
+        that the byte order is known to be either little endian or big 
+          endian.
+      </para>
+
+      <para>
+        Each value in a block of bytes is aligned "naturally," for example
+        4-byte values are aligned to a 4-byte boundary, and 8-byte values to an
+        8-byte boundary. To properly align a value, <firstterm>alignment
+        padding</firstterm> may be necessary. The alignment padding must always
+        be the minimum required padding to properly align the following value;
+        and it must always be made up of nul bytes. The alignment padding must
+        not be left uninitialized (it can't contain garbage), and more padding
+        than required must not be used.
+      </para>
+
+      <para>
+        Given all this, the types are marshaled on the wire as follows:
+        <informaltable>
+          <tgroup cols="3">
+            <thead>
+              <row>
+                <entry>Type name</entry>
+                <entry>Encoding</entry>
+                <entry>Alignment</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>INVALID</entry>
+                <entry>Not applicable; cannot be marshaled.</entry>
+                <entry>N/A</entry>
+              </row><row>
+                <entry>BYTE</entry>
+                <entry>A single 8-bit byte.</entry>
+                <entry>1</entry>
+              </row><row>
+                <entry>BOOLEAN</entry>
+                <entry>As for UINT32, but only 0 and 1 are valid values.</entry>
+                <entry>4</entry>
+              </row><row>
+                <entry>INT32</entry>
+                <entry>32-bit signed integer in the message's byte order.</entry>
+                <entry>4</entry>
+              </row><row>
+                <entry>UINT32</entry>
+                <entry>32-bit unsigned integer in the message's byte order.</entry>
+                <entry>4</entry>
+              </row><row>
+                <entry>INT64</entry>
+                <entry>64-bit signed integer in the message's byte order.</entry>
+                <entry>8</entry>
+              </row><row>
+                <entry>UINT64</entry>
+                <entry>64-bit unsigned integer in the message's byte order.</entry>
+                <entry>8</entry>
+              </row><row>
+                <entry>DOUBLE</entry>
+                <entry>64-bit IEEE 754 double in the message's byte order.</entry>
+                <entry>8</entry>
+              </row><row>
+                <entry>STRING</entry>
+                <entry>A UINT32 indicating the string's 
+                  length in bytes excluding its terminating nul, followed by 
+                  string data of the given length, followed by a terminating nul 
+                  byte.
+                </entry>
+                <entry>
+                  4 (for the length)
+                </entry>
+              </row><row>
+                <entry>OBJECT_PATH</entry>
+                <entry>Exactly the same as STRING.
+                </entry>
+                <entry>
+                  4 (for the length)
+                </entry>
+              </row><row>
+                <entry>SIGNATURE</entry>
+                <entry>The same as STRING except the length is a single 
+                  byte (thus signatures have a maximum length of 255).
+                </entry>
+                <entry>
+                  1
+                </entry>
+              </row><row>
+                <entry>ARRAY</entry>
+                <entry>
+                  A UINT32 giving the length of the array data in bytes, followed by 
+                  alignment padding to the alignment boundary of the array element type, 
+                  followed by each array element. The array length is from the 
+                  end of the alignment padding to the end of the last element,
+                  i.e. it does not include the padding after the length,
+                  or any padding after the last element.
+                </entry>
+                <entry>
+                  4 (for the length)
+                </entry>
+              </row><row>
+                <entry>STRUCT</entry>
+                <entry>
+                  A struct must start on an 8-byte boundary regardless of the
+                  type of the struct fields. The struct value consists of each
+                  field marshaled in sequence starting from that 8-byte
+                  alignment boundary.
+                </entry>
+                <entry>
+                  8
+                </entry>
+	      </row><row>
+                <entry>VARIANT</entry>
+                <entry>
+                  A variant type has a marshaled SIGNATURE
+                  followed by a marshaled value with the type
+                  given in the signature.
+                  Unlike a message signature, the variant signature 
+                  can contain only a single complete type.
+                  So "i" is OK, "ii" is not.
+                </entry>
+                <entry>
+                  1 (alignment of the signature)
+                </entry>
+	      </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </para>
+    </sect2>
+
+    <sect2 id="message-protocol-messages">
+      <title>Message Format</title>
+
+      <para>
+        A message consists of a header and a body. The header is a block of
+        values with a fixed signature and meaning.  The body is a separate block
+        of values, with a signature specified in the header.
+      </para>
+
+      <para>
+        The length of the header must be a multiple of 8, allowing the body to
+        begin on an 8-byte boundary when storing the entire message in a single
+        buffer. If the header does not naturally end on an 8-byte boundary 
+        up to 7 bytes of nul-initialized alignment padding must be added.
+      </para>
+
+      <para>
+        The message body need not end on an 8-byte boundary.
+      </para>
+      
+      <para>
+        The signature of the header is:
+        <programlisting>
+          "yyyyuua(yv)"
+        </programlisting>
+        Written out more readably, this is:
+        <programlisting>
+          BYTE, BYTE, BYTE, BYTE, UINT32, UINT32, ARRAY of STRUCT of (BYTE,VARIANT)
+        </programlisting>
+      </para>
+
+      <para>
+        These values have the following meanings:
+        <informaltable>
+          <tgroup cols="2">
+            <thead>
+              <row>
+                <entry>Value</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>1st BYTE</entry>
                 <entry>Endianness flag; ASCII 'l' for little-endian 
                   or ASCII 'B' for big-endian.</entry>
               </row>
               <row>
-                <entry>1 byte</entry>
-                <entry>Type of message. Unknown types MUST be ignored. 
+                <entry>2nd BYTE</entry>
+                <entry><firstterm>Message type</firstterm>. Unknown types MUST be ignored. 
                   Currently-defined types are described below.
                 </entry>
               </row>
               <row>
-                <entry>1 byte</entry>
+                <entry>3rd BYTE</entry>
                 <entry>Bitwise OR of flags. Unknown flags
                   MUST be ignored. Currently-defined flags are described below.
                 </entry>
               </row>
               <row>
-                <entry>1 byte</entry>
+                <entry>4th BYTE</entry>
                 <entry>Major protocol version of the sending application.  If
                 the major protocol version of the receiving application does not
                 match, the applications will not be able to communicate and the
                 D-BUS connection MUST be disconnected. The major protocol
                 version for this version of the specification is 0.
+                  FIXME this field is stupid and pointless to put in 
+                  every message.
                 </entry>
               </row>
               <row>
-                <entry>4 bytes</entry>
-                <entry>An unsigned 32-bit integer in the
-                  message's byte order, indicating the total length in bytes of
-                  the header including named fields and any alignment padding.
-                  MUST be a multiple of 8.
+                <entry>1st UINT32</entry>
+                <entry>Length in bytes of the message body, starting 
+                  from the end of the header. The header ends after 
+                  its alignment padding to an 8-boundary.
                 </entry>
               </row>
               <row>
-                <entry>4 bytes</entry>
-                <entry>An unsigned 32-bit integer in the
-                  message's byte order, indicating the total length in bytes of
-                  the message body.
+                <entry>2nd UINT32</entry>
+                <entry>The serial of this message, used as a cookie 
+                  by the sender to identify the reply corresponding
+                  to this request.
                 </entry>
               </row>      
               <row>
-                <entry>4 bytes</entry>
-                <entry>The message's serial number, an unsigned 32-bit integer in
-                  the message's byte order. The serial number is a cookie used to 
-                  identify message replies; thus all outstanding unreplied-to messages 
-                  from the same connection MUST have a different serial number.
-                  Zero is not a valid serial number, but all other numbers are 
-                  allowed.
+                <entry>ARRAY of STRUCT of (BYTE,VARIANT)</entry>
+                <entry>An array of zero or more <firstterm>header
+                  fields</firstterm> where the byte is the field code, and the
+                  variant is the field value. The message type determines 
+                  which fields are required.
                 </entry>
               </row>
             </tbody>
@@ -187,7 +547,8 @@
         </informaltable>
       </para>
       <para>
-        Types that can appear in the second byte of the header:
+        <firstterm>Message types</firstterm> that can appear in the second byte
+        of the header are:
         <informaltable>
           <tgroup cols="3">
             <thead>
@@ -259,130 +620,122 @@
           </tgroup>
         </informaltable>
       </para>
+
+      <sect3 id="message-protocol-header-fields">
+        <title>Header Fields</title>
+
+        <para>
+          A header must contain the required named header fields for the given
+          message type, and zero or more of any optional named header
+          fields. Future versions of this protocol specification may add new
+          fields. Implementations must ignore fields they do not
+          understand. Implementations must not invent their own header fields;
+          only changes to this specification may introduce new header fields.
+        </para>
+
+        <para>
+          Again, if an implementation sees a header field name that it does not
+          understand, it MUST ignore that field, as it will be part of a new
+          (but compatible) version of this specification.
+        </para>
+
+        <para>
+          Here are the currently-defined named header fields:
+          <informaltable>
+            <tgroup cols="5">
+              <thead>
+                <row>
+                  <entry>Conventional Name</entry>
+                  <entry>Decimal Value</entry>
+                  <entry>Type</entry>
+                  <entry>Required In</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>INVALID</entry>
+                  <entry>0</entry>
+                  <entry>INVALID</entry>
+                  <entry>not allowed</entry>
+                  <entry>Not a valid field name (error if it appears in a message)</entry>
+                </row>
+                <row>
+                  <entry>PATH</entry>
+                  <entry>1</entry>
+                  <entry>OBJECT_PATH</entry>
+                  <entry>METHOD_CALL, SIGNAL</entry>
+                  <entry>The object to send a call to, 
+                    or the object a signal is emitted from.
+                  </entry>
+                </row>
+                <row>
+                  <entry>INTERFACE</entry>
+                  <entry>2</entry>
+                  <entry>STRING</entry>
+                  <entry>SIGNAL</entry>
+                  <entry>
+                    The interface to invoke a method call on, or 
+                    that a signal is emitted from. Optional for 
+                    method calls, required for signals.
+                  </entry>
+                </row>
+                <row>
+                  <entry>MEMBER</entry>
+                  <entry>3</entry>
+                  <entry>STRING</entry>
+                  <entry>METHOD_CALL, SIGNAL</entry>
+                  <entry>The member, either the method name or signal name.</entry>
+                </row>
+                <row>
+                  <entry>ERROR_NAME</entry>
+                  <entry>4</entry>
+                  <entry>STRING</entry>
+                  <entry>ERROR</entry>
+                  <entry>The name of the error that occurred, for errors</entry>
+                </row>
+                <row>
+                  <entry>REPLY_SERIAL</entry>
+                  <entry>5</entry>
+                  <entry>UINT32</entry>
+                  <entry>ERROR, METHOD_RETURN</entry>
+                  <entry>The serial number of the message this message is a reply
+                    to. (The serial number is the second UINT32 in the header.)</entry>
+                </row>
+                <row>
+                  <entry>DESTINATION</entry>
+                  <entry>6</entry>
+                  <entry>STRING</entry>
+                  <entry>optional</entry>
+                  <entry>The name of the service this message should be routed to. 
+                    Only used in combination with the message bus, see 
+                    <xref linkend="message-bus"/>.</entry>
+                </row>
+                <row>
+                  <entry>SENDER</entry>
+                  <entry>7</entry>
+                  <entry>STRING</entry>
+                  <entry>optional</entry>
+                  <entry>Sender service. The name of the base service that sent
+                    this message.  The message bus fills in this field; the field is
+                    only meaningful in combination with the message bus.</entry>
+                </row>
+                <row>
+                  <entry>SIGNATURE</entry>
+                  <entry>8</entry>
+                  <entry>SIGNATURE</entry>
+                  <entry>optional</entry>
+                  <entry>The signature of the message body.
+                  If omitted, it is assumed to be the 
+                  empty signature "" (i.e. the body is 0-length).</entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </informaltable>
+        </para>
+      </sect3>
     </sect2>
-
-    <sect2 id="message-protocol-header-fields">
-      <title>Header Fields</title>
-      <para>
-        In addition to the required header information mentioned 
-        in <xref linkend="message-protocol-header-encoding"/>, 
-          the header must contain the required named header
-          fields and zero or more of the optional named 
-          header fields. Future versions of this protocol
-          specification may add new fields. Implementations must
-          ignore fields they do not understand. Implementations
-          must not invent their own header fields; only changes to 
-          this specification may introduce new header fields.
-      </para>
-
-      <para>
-        Header field names MUST consist of a single byte, possible values
-        of which are defined below. Following the name, the field MUST have
-        a type code represented as a single unsigned byte, and then a
-        properly-aligned value of that type.  See <xref
-        linkend="message-protocol-arguments"/> for a description of how each
-        type is encoded. If an implementation sees a header field name that
-        it does not understand, it MUST ignore that field.
-      </para>
-
-      <para>
-        Here are the currently-defined named header fields:
-        <informaltable>
-          <tgroup cols="5">
-            <thead>
-              <row>
-                <entry>Conventional Name</entry>
-		<entry>Decimal Value</entry>
-                <entry>Type</entry>
-                <entry>Required</entry>
-                <entry>Description</entry>
-              </row>
-            </thead>
-            <tbody>
-              <row>
-                <entry>INVALID</entry>
-		<entry>0</entry>
-                <entry>INVALID</entry>
-                <entry>no</entry>
-                <entry>Not a valid field name (error if it appears in a message)</entry>
-              </row>
-              <row>
-                <entry>PATH</entry>
-		<entry>1</entry>
-                <entry>OBJECT_PATH</entry>
-                <entry>yes</entry>
-                <entry>The object to send the message to; objects are identified by 
-                a path, "/foo/bar"</entry>
-              </row>
-              <row>
-                <entry>INTERFACE</entry>
-		<entry>2</entry>
-                <entry>STRING</entry>
-                <entry>yes</entry>
-                <entry>The interface to invoke a method call on, or 
-                that a signal is emitted from. e.g. "org.freedesktop.Introspectable"</entry>
-              </row>
-              <row>
-                <entry>MEMBER</entry>
-		<entry>3</entry>
-                <entry>STRING</entry>
-                <entry>yes</entry>
-                <entry>The member, either the method name or signal name. 
-                e.g. "Frobate"</entry>
-              </row>
-              <row>
-                <entry>ERROR_NAME</entry>
-		<entry>4</entry>
-                <entry>STRING</entry>
-                <entry>no</entry>
-                <entry>The name of the error that occurred, for errors</entry>
-              </row>
-              <row>
-                <entry>REPLY_SERIAL</entry>
-		<entry>5</entry>
-                <entry>UINT32</entry>
-                <entry>no</entry>
-                <entry>The serial number of the message this message is a reply
-                to. (The serial number is one of the mandatory header fields,
-                see <xref linkend="message-protocol-header-encoding"/>.)</entry>
-              </row>
-              <row>
-                <entry>DESTINATION</entry>
-		<entry>6</entry>
-                <entry>STRING</entry>
-                <entry>no</entry>
-                <entry>The name of the service this message should be routed to. 
-                Only used in combination with the message bus, see 
-                <xref linkend="message-bus"/>.</entry>
-              </row>
-              <row>
-                <entry>SENDER</entry>
-		<entry>7</entry>
-                <entry>STRING</entry>
-                <entry>no</entry>
-                <entry>Sender service. The name of the base service that sent
-                this message.  The message bus fills in this field; the field is
-                only meaningful in combination with the message bus.</entry>
-              </row>
-            </tbody>
-          </tgroup>
-        </informaltable>
-      </para>
-      
-    </sect2>
-    <sect2 id="message-protocol-header-padding">
-      <title>Header Alignment Padding</title>
-      <para>
-        To allow implementations to keep the header and the body in a single
-        buffer while keeping data types aligned, the total length of the header
-        must be a multiple of 8 bytes.  To achieve this, the header MUST be padded
-        with nul bytes to align its total length on an 8-byte boundary. 
-        The minimum number of padding bytes MUST be used. Because zero is an
-        invalid field name, implementations can distinguish padding (which must be
-        zero initialized) from additional named fields.
-      </para>
-    </sect2>
-
+    
     <sect2 id="message-protocol-arguments">
       <title>Message Arguments</title>
       <para>

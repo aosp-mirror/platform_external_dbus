@@ -1,5 +1,9 @@
 2005-01-17  Havoc Pennington  <hp@redhat.com>
 
+	* doc/dbus-specification.xml: partially update spec
+
+2005-01-17  Havoc Pennington  <hp@redhat.com>
+
         * Throughout, align variant bodies according to the contained
 	type, rather than always to 8. Should save a fair bit of space in
 	message headers.
