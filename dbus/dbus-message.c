@@ -2150,7 +2150,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
                          body_len_unsigned);
           loader->corrupted = TRUE;
           return;
-        }      
+        }
 
       /* Now that we know the values are in signed range, get
        * rid of stupid unsigned, just causes bugs
