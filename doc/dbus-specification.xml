@@ -2441,7 +2441,7 @@
                     then ownership of the name can't be transferred until the application
                     disconnects. If this flag is not set, then any application trying to become
                     the owner of the name will succeed and the previous owner will be
-                    sent a <literal>org.freedesktop.DBus.NameOwnerChanged</literal> signal.
+                    sent a <literal>org.freedesktop.DBus.NameLost</literal> signal.
                   </entry>
 	        </row>
 	        <row>
