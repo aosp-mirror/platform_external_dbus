@@ -23,15 +23,58 @@
 
 #include "dbus-message.h"
 
+/**
+ * @defgroup DBusMessage
+ * @ingroup  DBus
+ * @brief DBusMessage object
+ *
+ * Types and functions related to the DBusMessage object.
+ *
+ * @{
+ */
+
 struct DBusMessage
 {
   int refcount;
 
 };
 
+/**
+ * Constructs a new message.
+ * @return a new DBusMessage, free with dbus_message_unref()
+ * @see dbus_message_unref()
+ */
 DBusMessage*
 dbus_message_new (void)
 {
   
   return NULL;
 }
+
+
+/**
+ * Increments the reference count of a DBusMessage.
+ *
+ * @arg message The message
+ * @see dbus_message_unref
+ */
+void
+dbus_message_ref (DBusMessage *message)
+{
+  
+}
+
+/**
+ * Decrements the reference count of a DBusMessage.
+ *
+ * @arg message The message
+ * @see dbus_message_ref
+ */
+void
+dbus_message_unref (DBusMessage *message)
+{
+
+
+}
+
+/** @} */

@@ -1,3 +1,15 @@
+2002-11-22  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-message.c: move inline docs into .c file
+
+	* Doxyfile (OUTPUT_DIRECTORY): move output to doc/api
+	so all docs are under doc/
+	(MAN_EXTENSION): generate man pages. Use extension 
+	".3dbus" which matches ".3qt" on my system, 
+	I guess this is OK, I don't know really.
+	(FILE_PATTERNS): look for .c files not .h, makes sense
+	for plain C I think
+
 2002-11-22  Havoc Pennington  <hp@pobox.com>
 
 	* Makefile.am (SUBDIRS): rename subdir "server" to "bus" 
