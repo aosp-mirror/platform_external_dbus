@@ -33,6 +33,7 @@
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-sysdeps.h>
+#include <dbus/dbus-threads.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -152,6 +153,12 @@ dbus_bool_t _dbus_decrement_fail_alloc_counter (void);
 #define _dbus_get_fail_alloc_counter _DBUS_INT_MAX
 #define _dbus_decrement_fail_alloc_counter() FALSE
 #endif /* !DBUS_BUILD_TESTS */
+
+/* Thread initializers */
+DBusMutex *_dbus_list_init_lock            (void);
+DBusMutex *_dbus_allocated_slots_init_lock (void);
+DBusMutex *_dbus_atomic_init_lock          (void);
+DBusMutex *_dbus_message_handler_init_lock (void);
 
 DBUS_END_DECLS;
 

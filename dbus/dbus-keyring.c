@@ -77,8 +77,8 @@ typedef struct
  */
 struct DBusKeyring
 {
-  DBusString filename;
-  DBusString lock_filename;
+  DBusString filename;      /**< File containing keyring */
+  DBusString lock_filename; /**< Lock file for changing keyring */
   
   
 };

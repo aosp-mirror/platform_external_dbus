@@ -154,6 +154,8 @@ dbus_condvar_wait (DBusCondVar *cond,
  * mutex again before returning.
  * Does nothing if passed a #NULL pointer.
  *
+ * @param cond the condition variable
+ * @param mutex the mutex
  * @param timeout_milliseconds the maximum time to wait
  * @returns TRUE if the condition was reached, or FALSE if the
  * timeout was reached.
@@ -192,12 +194,6 @@ dbus_condvar_wake_all (DBusCondVar *cond)
   if (cond && thread_functions.condvar_wake_all)
     (* thread_functions.condvar_wake_all) (cond);
 }
-
-
-DBusMutex * _dbus_list_init_lock (void);
-DBusMutex * _dbus_allocated_slots_init_lock (void);
-DBusMutex *_dbus_atomic_init_lock (void);
-DBusMutex *_dbus_message_handler_init_lock (void);
 
 static dbus_bool_t
 init_static_locks(void)

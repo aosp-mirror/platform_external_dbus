@@ -59,13 +59,13 @@
  *
  * @{
  */
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
 /*
  * For reference, here is the program that computed the T values.
  */
 #ifdef COMPUTE_T_VALUES
 #include <math.h>
-/* static main is a hack so doxygen won't pick it up */
-static int
+int
 main(int argc, char **argv)
 {
   int i;
@@ -157,6 +157,7 @@ main(int argc, char **argv)
 #define T62 /* 0xbd3af235 */ (T_MASK ^ 0x42c50dca)
 #define T63    0x2ad7d2bb
 #define T64 /* 0xeb86d391 */ (T_MASK ^ 0x14792c6e)
+#endif /* DOXYGEN_SHOULD_SKIP_THIS */
 
 static void
 md5_process(DBusMD5Context *context, const unsigned char *data /*[64]*/)

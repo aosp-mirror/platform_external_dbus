@@ -37,7 +37,11 @@
 static DBusMemPool *list_pool;
 static DBusMutex *list_pool_lock = NULL;
 
-DBusMutex *_dbus_list_init_lock (void);
+/**
+ * Initializes the global mutex used for allocating list nodes.
+ *
+ * @returns the mutex
+ */
 DBusMutex *
 _dbus_list_init_lock (void)
 {

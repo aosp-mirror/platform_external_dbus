@@ -170,6 +170,16 @@ auth_state_to_string (DBusAuthState state)
   return "unknown";
 }
 
+/**
+ * Runs an "auth script" which is a script for testing the
+ * authentication protocol. Scripts send and receive data, and then
+ * include assertions about the state of both ends of the connection
+ * after processing the data. A script succeeds if these assertions
+ * hold.
+ *
+ * @param filename the file containing the script to run
+ * @returns #TRUE if the script succeeds, #FALSE otherwise
+ */
 dbus_bool_t
 _dbus_auth_script_run (const DBusString *filename)
 {

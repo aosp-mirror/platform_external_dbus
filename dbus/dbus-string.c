@@ -2166,7 +2166,7 @@ _dbus_string_validate_nul (const DBusString *str,
 /**
  * Clears all allocated bytes in the string to zero.
  *
- * @param the string
+ * @param str the string
  */
 void
 _dbus_string_zero (DBusString *str)

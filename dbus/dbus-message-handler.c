@@ -38,7 +38,13 @@
  */
 
 static DBusMutex *message_handler_lock = NULL;
-DBusMutex *_dbus_message_handler_init_lock (void);
+
+/**
+ * Initializes the mutex used for threadsafe access to
+ * #DBusMessageHandler objects.
+ *
+ * @returns the mutex
+ */
 DBusMutex *
 _dbus_message_handler_init_lock (void)
 {

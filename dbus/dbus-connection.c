@@ -82,21 +82,19 @@ struct DBusConnection
 {
   int refcount; /**< Reference count. */
 
-  DBusMutex *mutex;
+  DBusMutex *mutex; /**< Lock on the entire DBusConnection */
 
-  /* Protects dispatch_message */
-  dbus_bool_t dispatch_acquired;
-  DBusCondVar *dispatch_cond;
-  
-  /* Protects transport io path */
-  dbus_bool_t io_path_acquired;
-  DBusCondVar *io_path_cond;
+  dbus_bool_t dispatch_acquired; /**< Protects dispatch_message */
+  DBusCondVar *dispatch_cond;    /**< Protects dispatch_message */
+
+  dbus_bool_t io_path_acquired;  /**< Protects transport io path */
+  DBusCondVar *io_path_cond;     /**< Protects transport io path */
   
   DBusList *outgoing_messages; /**< Queue of messages we need to send, send the end of the list first. */
   DBusList *incoming_messages; /**< Queue of messages we have received, end of the list received most recently. */
 
   DBusMessage *message_borrowed; /**< True if the first incoming message has been borrowed */
-  DBusCondVar *message_returned_cond;
+  DBusCondVar *message_returned_cond; /**< Used with dbus_connection_borrow_message() */
   
   int n_outgoing;              /**< Length of outgoing queue. */
   int n_incoming;              /**< Length of incoming queue. */
@@ -114,7 +112,7 @@ struct DBusConnection
   DBusCounter *connection_counter; /**< Counter that we decrement when finalized */
   
   int client_serial;            /**< Client serial. Increments each time a message is sent  */
-  DBusList *disconnect_message_link;
+  DBusList *disconnect_message_link; /**< Preallocated list node for queueing the disconnection message */
 };
 
 typedef struct
@@ -1955,7 +1953,12 @@ static int  n_allocated_slots = 0;
 static int  n_used_slots = 0;
 static DBusMutex *allocated_slots_lock = NULL;
 
-DBusMutex *_dbus_allocated_slots_init_lock (void);
+/**
+ * Initialize the mutex used for #DBusConnecton data
+ * slot reservations.
+ *
+ * @returns the mutex
+ */
 DBusMutex *
 _dbus_allocated_slots_init_lock (void)
 {

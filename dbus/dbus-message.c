@@ -1001,7 +1001,7 @@ dbus_message_get_service (DBusMessage *message)
  * with 0.
  *
  * @param message the message
- * @param first_argument_type type of the first argument
+ * @param first_arg_type type of the first argument
  * @param ... value of first argument, list of additional type-value pairs
  * @returns #TRUE on success
  */
@@ -1735,12 +1735,27 @@ dbus_message_get_sender (DBusMessage *message)
   return get_string_field (message, FIELD_SENDER, NULL);
 }
 
+/**
+ * Checks whether the message has the given name.
+ * If the message has no name or has a different
+ * name, returns #FALSE.
+ *
+ * @param message the message
+ * @param name the name to check (must not be #NULL)
+ * 
+ * @returns #TRUE if the message has the given name
+ */
 dbus_bool_t
 dbus_message_name_is (DBusMessage *message,
 		      const char  *name)
 {
-  if (dbus_message_get_name (message) &&
-      strcmp (dbus_message_get_name (message), name) == 0)
+  const char *n;
+
+  _dbus_assert (name != NULL);
+  
+  n = dbus_message_get_name (message);
+
+  if (n && strcmp (n, name) == 0)
     return TRUE;
   else
     return FALSE;

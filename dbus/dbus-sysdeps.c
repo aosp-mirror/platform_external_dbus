@@ -790,6 +790,13 @@ _dbus_string_parse_double (const DBusString *str,
   return TRUE;
 }
 
+/** @} */ /* DBusString group */
+
+/**
+ * @addtogroup DBusInternalsUtils
+ * @{
+ */
+
 /**
  * Gets the credentials corresponding to the given username.
  *
@@ -956,7 +963,12 @@ _dbus_string_append_our_uid (DBusString *str)
 
 
 static DBusMutex *atomic_lock = NULL;
-DBusMutex *_dbus_atomic_init_lock (void);
+/**
+ * Initializes the global mutex for the fallback implementation
+ * of atomic integers.
+ *
+ * @returns the mutex
+ */
 DBusMutex *
 _dbus_atomic_init_lock (void)
 {
@@ -1512,10 +1524,22 @@ _dbus_generate_random_bytes (DBusString *str,
   return FALSE;
 }
 
+/**
+ * A wrapper around strerror()
+ *
+ * @param errnum the errno
+ * @returns an error message (never #NULL)
+ */
 const char *
 _dbus_errno_to_string (int errnum)
 {
-  return strerror (errnum);
+  const char *msg;
+  
+  msg = strerror (errnum);
+  if (msg == NULL)
+    msg = "unknown";
+
+  return msg;
 }
 
 /* Avoids a danger in threaded situations (calling close()
@@ -1636,9 +1660,9 @@ do_exec (int                       child_err_report_fd,
 
   if (child_setup)
     (* child_setup) (user_data);
+
 #ifdef DBUS_BUILD_TESTS
   max_open = sysconf (_SC_OPEN_MAX);
-
   
   for (i = 3; i < max_open; i++)
     {
@@ -1651,7 +1675,7 @@ do_exec (int                       child_err_report_fd,
     }
 #endif
   
-  execvp (argv[0], argv);
+  execv (argv[0], argv);
 
   /* Exec failed */
   write_err_and_exit (child_err_report_fd,
@@ -1659,6 +1683,21 @@ do_exec (int                       child_err_report_fd,
   
 }
 
+/**
+ * Spawns a new process. The executable name and argv[0]
+ * are the same, both are provided in argv[0]. The child_setup
+ * function is passed the given user_data and is run in the child
+ * just before calling exec().
+ *
+ * @todo this code should be reviewed/double-checked as it's fairly
+ * complex and no one has reviewed it yet.
+ *
+ * @param argv the executable and arguments
+ * @param child_setup function to call in child pre-exec()
+ * @param user_data user data for setup function
+ * @param error error object to be filled in if function fails
+ * @returns #TRUE on success, #FALSE if error is filled in
+ */
 dbus_bool_t
 _dbus_spawn_async (char                    **argv,
 		   DBusSpawnChildSetupFunc   child_setup,
@@ -1805,6 +1844,13 @@ _dbus_disable_sigpipe (void)
   signal (SIGPIPE, SIG_IGN);
 }
 
+/**
+ * Sets the file descriptor to be close
+ * on exec. Should be called for all file
+ * descriptors in D-BUS code.
+ *
+ * @param fd the file descriptor
+ */
 void
 _dbus_fd_set_close_on_exec (int fd)
 {
