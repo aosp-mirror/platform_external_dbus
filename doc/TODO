@@ -1,4 +1,4 @@
-
+ 
  - How we will handle DCOP needs sorting out. Among other things, we
    need to check that service and service-ownership semantics map to DCOP 
    reasonably well.
@@ -118,3 +118,10 @@
 
  - the max_replies_per_connection resource limit isn't implemented
 
+ - the pending reply tracking isn't quite right. It currently simply 
+   blocks any reply if one wasn't pending. Instead, it needs to 
+   allow any reply if one was pending, and block otherwise. 
+   Suggest changing the check_reply() call to just get a boolean 
+   was_pending_reply value, pass that in to the policy 
+   engine, and allow <allow>/<deny> elements to match based on 
+   whether it was a pending reply.
