@@ -1039,7 +1039,7 @@ _dbus_message_remove_size_counter (DBusMessage  *message,
   else
     _dbus_list_free_link (link);
 
-  _dbus_counter_adjust (counter, message->size_counter_delta);
+  _dbus_counter_adjust (counter, - message->size_counter_delta);
 
   _dbus_counter_unref (counter);
 }
