@@ -33,6 +33,7 @@ main (int    argc,
       char **argv)
 {
   const char *test_data_dir;
+  const char *specific_test;
 
   setlocale(LC_ALL, "");
 
@@ -41,8 +42,13 @@ main (int    argc,
     test_data_dir = argv[1];
   else
     test_data_dir = NULL;
+
+  if (argc > 2)
+    specific_test = argv[2];
+  else
+    specific_test = NULL;
   
-  dbus_internal_do_not_use_run_tests (test_data_dir);
+  dbus_internal_do_not_use_run_tests (test_data_dir, specific_test);
   
   return 0;
 }

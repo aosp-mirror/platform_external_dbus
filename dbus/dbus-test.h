@@ -53,7 +53,8 @@ dbus_bool_t _dbus_memory_test            (void);
 dbus_bool_t _dbus_object_tree_test       (void);
 dbus_bool_t _dbus_pending_call_test      (const char *test_data_dir);
 
-void        dbus_internal_do_not_use_run_tests         (const char          *test_data_dir);
+void        dbus_internal_do_not_use_run_tests         (const char          *test_data_dir,
+							const char          *specific_test);
 dbus_bool_t dbus_internal_do_not_use_try_message_file  (const DBusString    *filename,
                                                         DBusValidity         expected_validity);
 dbus_bool_t dbus_internal_do_not_use_try_message_data  (const DBusString    *data,

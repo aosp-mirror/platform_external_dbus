@@ -1,3 +1,18 @@
+2005-02-21  Colin Walters  <walters@verbum.org>
+
+	* dbus/dbus-test-main.c (main): Take optional specific test
+	argument.
+
+	* dbus/dbus-test.c (run_test): New function, runs a test function
+	with no data directory.
+	(run_data_test): Like above, but takes data directory.
+	(dbus_internal_do_not_use_run_tests): Take
+	specific test argument.  Replace lots of cut n' paste code
+	with run_test and run_data_test.
+
+	* dbus/dbus-test.h: Update prototype for
+	dbus_internal_do_not_use_run_tests.
+
 2005-02-20  Havoc Pennington  <hp@redhat.com>
 
         Fix bugs reported by Daniel P. Berrange
