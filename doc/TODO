@@ -75,3 +75,5 @@
    size. Not sure how to fix, really.
 
  - dbus_error_has_name(), dbus_message_name_is()
+
+ - add DBUS_TYPE_INT64 ? 
