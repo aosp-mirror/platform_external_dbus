@@ -401,7 +401,6 @@ process_config_every_time (BusContext      *context,
 {
   DBusString full_address;
   DBusList *link;
-  DBusHashTable *service_sid_table;
   
   dbus_bool_t retval;
 
@@ -479,11 +478,6 @@ process_config_every_time (BusContext      *context,
       goto failed;
     }
 
-  service_sid_table = bus_config_parser_steal_service_sid_table (parser);
-  bus_registry_set_service_sid_table (context->registry,
-                                      service_sid_table);
-  _dbus_hash_table_unref (service_sid_table);
-  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = TRUE;
 
@@ -493,46 +487,22 @@ process_config_every_time (BusContext      *context,
 }
 
 static dbus_bool_t
-load_config (BusContext *context,
-	     dbus_bool_t is_reload,
-	     DBusError  *error)
+process_config_postinit (BusContext *context,
+			 BusConfigParser *parser,
+			 DBusError *error)
 {
-  BusConfigParser *parser;
-  DBusString config_file;
-  dbus_bool_t retval;
+  DBusHashTable *service_context_table;
 
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  retval = FALSE;
-  parser = NULL;
-
-  _dbus_string_init_const (&config_file, context->config_file);
-  parser = bus_config_load (&config_file, TRUE, NULL, error);
-  if (parser == NULL)
+  service_context_table = bus_config_parser_steal_service_context_table (parser);
+  if (!bus_registry_set_service_context_table (context->registry,
+					       service_context_table))
     {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
-      goto failed;
-    }
-  
-  if (!is_reload && !process_config_first_time_only (context, parser, error))
-    {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
-      goto failed;
+      BUS_SET_OOM (error);
+      return FALSE;
     }
 
-  if (!process_config_every_time (context, parser, is_reload, error))
-    {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
-      goto failed;
-    }
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  retval = TRUE;
-
- failed:
-  if (parser)
-    bus_config_parser_unref (parser);
-  return retval;
+  _dbus_hash_table_unref (service_context_table);
+  return TRUE;
 }
 
 BusContext*
@@ -543,8 +513,12 @@ bus_context_new (const DBusString *config_file,
                  DBusError        *error)
 {
   BusContext *context;
+  BusConfigParser *parser;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  context = NULL;
+  parser = NULL;
 
   if (!dbus_server_allocate_data_slot (&server_data_slot))
     {
@@ -579,8 +553,20 @@ bus_context_new (const DBusString *config_file,
       BUS_SET_OOM (error);
       goto failed;
     }
+
+  parser = bus_config_load (config_file, TRUE, NULL, error);
+  if (parser == NULL)
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      goto failed;
+    }
   
-  if (!load_config (context, FALSE, error))
+  if (!process_config_first_time_only (context, parser, error))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      goto failed;
+    }
+  if (!process_config_every_time (context, parser, FALSE, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
       goto failed;
@@ -723,6 +709,19 @@ bus_context_new (const DBusString *config_file,
       
       _dbus_string_free (&pid);
     }
+
+  if (!bus_selinux_full_init ())
+    {
+      _dbus_warn ("SELinux initialization failed\n");
+    }
+
+  if (!process_config_postinit (context, parser, error))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      goto failed;
+    }
+  if (parser != NULL)
+    bus_config_parser_unref (parser);
   
   /* Here we change our credentials if required,
    * as soon as we've set up our sockets and pidfile
@@ -756,6 +755,8 @@ bus_context_new (const DBusString *config_file,
   return context;
   
  failed:  
+  if (parser != NULL)
+    bus_config_parser_unref (parser);
   if (context != NULL)
     bus_context_unref (context);
 
@@ -769,9 +770,35 @@ dbus_bool_t
 bus_context_reload_config (BusContext *context,
 			   DBusError  *error)
 {
-  return load_config (context,
-		      TRUE, /* yes, we are re-loading */
-		      error);
+  BusConfigParser *parser;
+  DBusString config_file;
+  dbus_bool_t ret;
+
+  ret = FALSE;
+  _dbus_string_init_const (&config_file, context->config_file);
+  parser = bus_config_load (&config_file, TRUE, NULL, error);
+  if (parser == NULL)
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      goto failed;
+    }
+  
+  if (!process_config_every_time (context, parser, TRUE, error))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      goto failed;
+    }
+  if (!process_config_postinit (context, parser, error))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      goto failed;
+    }
+  ret = TRUE;
+
+ failed:  
+  if (parser != NULL)
+    bus_config_parser_unref (parser);
+  return ret;
 }
 
 static void

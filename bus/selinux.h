@@ -42,8 +42,6 @@ BusSELinuxID*  bus_selinux_id_table_lookup (DBusHashTable    *service_table,
 dbus_bool_t    bus_selinux_id_table_insert (DBusHashTable    *service_table,
                                             const char       *service_name,
                                             const char       *service_context);
-DBusHashTable* bus_selinux_id_table_union  (DBusHashTable    *base,
-                                            DBusHashTable    *override);
 void           bus_selinux_id_table_print  (DBusHashTable    *service_table);
 const char*    bus_selinux_get_policy_root (void);
 

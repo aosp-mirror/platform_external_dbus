@@ -1,3 +1,44 @@
+2004-11-07  Colin Walters  <walters@verbum.org>
+
+	* bus/bus.c (load_config): Break into three
+	separate functions: process_config_first_time_only,
+	process_config_every_time, and process_config_postinit.
+	(process_config_every_time): Move call of
+	bus_registry_set_service_context_table into
+	process_config_postinit.
+	(process_config_postinit): New function, does
+	any processing that needs to happen late
+	in initialization (and also on reload).
+	(bus_context_new): Instead of calling load_config,
+	open config parser here and call process_config_first_time_only
+	and process_config_every_time directly.  Later, after
+	we have forked but before changing UID,
+	invoke bus_selinux_full_init, and then call
+	process_config_postinit.
+	(bus_context_reload_config): As in bus_context_new,
+	load parse file inside here, and call process_config_every_time
+	and process_config_postinit.
+
+	* bus/services.h, bus/services.c
+	(bus_registry_set_service_context_table): Rename
+	from bus_registry_set_sid_table.  Take string hash from config
+	parser, and convert them here into SIDs.
+
+	* bus/config-parser.c (struct BusConfigParser): Have
+	config parser only store a mapping of service->context
+	string.
+	(merge_service_context_hash): New function.
+	(merge_included): Merge context string hashes instead
+	of using bus_selinux_id_table_union.
+	(bus_config_parser_new): Don't use bus_selinux_id_table_new;
+	simply create a new string hash.
+	(bus_config_parser_unref): Unref it.
+	(start_selinux_child): Simply insert strings into hash,
+	don't call bus_selinux_id_table_copy_over.
+
+	* bus/selinux.h, bus/selinux.c (bus_selinux_id_table_union)
+	(bus_selinux_id_table_copy_over): Delete.
+
 2004-11-03  Colin Walters  <walters@verbum.org>
 
 	* bus/selinux.c (bus_selinux_pre_init): Kill some unused

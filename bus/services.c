@@ -417,17 +417,33 @@ bus_registry_acquire_service (BusRegistry      *registry,
   return retval;
 }
 
-void
-bus_registry_set_service_sid_table (BusRegistry   *registry,
-                                    DBusHashTable *table)
+dbus_bool_t
+bus_registry_set_service_context_table (BusRegistry   *registry,
+					DBusHashTable *table)
 {
-  _dbus_assert (registry->service_sid_table != table);
+  DBusHashTable *new_table;
+  DBusHashIter iter;
+  
+  new_table = bus_selinux_id_table_new ();
+  if (!new_table)
+    return FALSE;
+
+  _dbus_hash_iter_init (table, &iter);
+  while (_dbus_hash_iter_next (&iter))
+    {
+      const char *service = _dbus_hash_iter_get_string_key (&iter);
+      const char *context = _dbus_hash_iter_get_value (&iter);
+
+      if (!bus_selinux_id_table_insert (new_table,
+					service,
+					context))
+	return FALSE;
+    }
   
   if (registry->service_sid_table)
     _dbus_hash_table_unref (registry->service_sid_table);
-
-  registry->service_sid_table = table;
-  _dbus_hash_table_ref (table);
+  registry->service_sid_table = new_table;
+  return TRUE;
 }
 
 static void

@@ -396,12 +396,6 @@ main (int argc, char **argv)
       exit (1);
     }
 
-  if (!bus_selinux_full_init ())
-    {
-      _dbus_warn ("SELinux initialization failed\n");
-      exit (1);
-    }
-
   setup_reload_pipe (bus_context_get_loop (context));
  
   _dbus_set_signal_handler (SIGHUP, signal_handler);

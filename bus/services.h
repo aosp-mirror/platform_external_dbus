@@ -56,8 +56,8 @@ dbus_bool_t  bus_registry_acquire_service (BusRegistry                 *registry
                                            dbus_uint32_t               *result,
                                            BusTransaction              *transaction,
                                            DBusError                   *error);
-void         bus_registry_set_service_sid_table (BusRegistry           *registry,
-                                                 DBusHashTable         *table);
+dbus_bool_t  bus_registry_set_service_context_table (BusRegistry           *registry,
+						     DBusHashTable         *table);
 
 BusService*     bus_service_ref                      (BusService     *service);
 void            bus_service_unref                    (BusService     *service);

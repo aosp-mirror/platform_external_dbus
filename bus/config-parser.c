@@ -123,7 +123,7 @@ struct BusConfigParser
 
   DBusList *included_files;  /**< Included files stack */
 
-  DBusHashTable *service_sid_table; /**< Map service names to SELinux contexts */
+  DBusHashTable *service_context_table; /**< Map service names to SELinux contexts */
 
   unsigned int fork : 1; /**< TRUE to fork into daemon mode */
 
@@ -242,12 +242,39 @@ top_element_type (BusConfigParser *parser)
 }
 
 static dbus_bool_t
+merge_service_context_hash (DBusHashTable *dest,
+			    DBusHashTable *from)
+{
+  DBusHashIter iter;
+  
+  _dbus_hash_iter_init (from, &iter);
+  while (_dbus_hash_iter_next (&iter))
+    {
+      const char *service = _dbus_hash_iter_get_string_key (&iter);
+      const char *context = _dbus_hash_iter_get_value (&iter);
+      char *service_copy;
+      char *context_copy;
+
+      service_copy = _dbus_strdup (service);
+      if (service_copy == NULL)
+        return FALSE;
+      context_copy = _dbus_strdup (context);
+      if (context_copy == NULL)
+        return FALSE;
+      
+      if (!_dbus_hash_table_insert_string (dest, service_copy, context_copy))
+	return FALSE;
+    }
+
+  return TRUE;
+}
+
+static dbus_bool_t
 merge_included (BusConfigParser *parser,
                 BusConfigParser *included,
                 DBusError       *error)
 {
   DBusList *link;
-  DBusHashTable *table;
 
   if (!bus_policy_merge (parser->policy,
                          included->policy))
@@ -256,16 +283,12 @@ merge_included (BusConfigParser *parser,
       return FALSE;
     }
 
-  table = bus_selinux_id_table_union (parser->service_sid_table,
-                                      included->service_sid_table);
-  if (table == NULL)
+  if (!merge_service_context_hash (parser->service_context_table,
+				   included->service_context_table))
     {
       BUS_SET_OOM (error);
       return FALSE;
     }
-
-  _dbus_hash_table_unref (parser->service_sid_table);
-  parser->service_sid_table = table;
   
   if (included->user != NULL)
     {
@@ -342,7 +365,9 @@ bus_config_parser_new (const DBusString      *basedir,
 
   if (((parser->policy = bus_policy_new ()) == NULL) ||
       !_dbus_string_copy (basedir, 0, &parser->basedir, 0) ||
-      ((parser->service_sid_table = bus_selinux_id_table_new ()) == NULL))
+      ((parser->service_context_table = _dbus_hash_table_new (DBUS_HASH_STRING,
+							      dbus_free,
+							      dbus_free)) == NULL))
     {
       if (parser->policy)
         bus_policy_unref (parser->policy);
@@ -454,8 +479,8 @@ bus_config_parser_unref (BusConfigParser *parser)
       if (parser->policy)
         bus_policy_unref (parser->policy);
 
-      if (parser->service_sid_table)
-        _dbus_hash_table_unref (parser->service_sid_table);
+      if (parser->service_context_table)
+        _dbus_hash_table_unref (parser->service_context_table);
       
       dbus_free (parser);
     }
@@ -1510,6 +1535,8 @@ start_selinux_child (BusConfigParser   *parser,
     {
       const char *own;
       const char *context;
+      char *own_copy;
+      char *context_copy;
       
       if (!locate_attributes (parser, "associate",
                               attribute_names,
@@ -1533,8 +1560,15 @@ start_selinux_child (BusConfigParser   *parser,
           return FALSE;
         }
 
-      if (!bus_selinux_id_table_insert (parser->service_sid_table,
-                                        own, context))
+      own_copy = _dbus_strdup (own);
+      if (own_copy == NULL)
+        return FALSE;
+      context_copy = _dbus_strdup (context);
+      if (context_copy == NULL)
+        return FALSE;
+
+      if (!_dbus_hash_table_insert_string (parser->service_context_table,
+					   own_copy, context_copy))
         {
           BUS_SET_OOM (error);
           return FALSE;
@@ -2359,15 +2393,15 @@ bus_config_parser_get_limits (BusConfigParser *parser,
 }
 
 DBusHashTable*
-bus_config_parser_steal_service_sid_table (BusConfigParser *parser)
+bus_config_parser_steal_service_context_table (BusConfigParser *parser)
 {
   DBusHashTable *table;
 
-  _dbus_assert (parser->service_sid_table != NULL); /* can only steal once */
+  _dbus_assert (parser->service_context_table != NULL); /* can only steal once */
 
-  table = parser->service_sid_table;
+  table = parser->service_context_table;
 
-  parser->service_sid_table = NULL;
+  parser->service_context_table = NULL;
 
   return table;
 }

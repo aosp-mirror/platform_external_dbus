@@ -504,11 +504,11 @@ bus_selinux_init_connection_id (DBusConnection *connection,
         BUS_SET_OOM (error);
       else
         dbus_set_error (error, DBUS_ERROR_FAILED,
-                        "Error getting SID from context: %s\n",
-                        _dbus_strerror (errno));
+                        "Error getting SID from context \"%s\": %s\n",
+			con, _dbus_strerror (errno));
       
-      _dbus_warn ("Error getting SID from context: %s\n",
-                  _dbus_strerror (errno));
+      _dbus_warn ("Error getting SID from context \"%s\": %s\n",
+		  con, _dbus_strerror (errno));
       
       freecon (con);
       return NULL;
@@ -582,7 +582,11 @@ bus_selinux_id_table_insert (DBusHashTable *service_table,
   
   if (avc_context_to_sid ((char *) service_context, &sid) < 0)
     {
-      _dbus_assert (errno == ENOMEM);
+      if (errno == ENOMEM)
+        return FALSE;
+      _dbus_warn ("Error getting SID from context \"%s\": %s\n",
+		  (char *) service_context,
+                  _dbus_strerror (errno));
       goto out;
     }
 
@@ -654,88 +658,6 @@ bus_selinux_id_table_lookup (DBusHashTable    *service_table,
   return BUS_SID_FROM_SELINUX (sid);
 #endif /* HAVE_SELINUX */
   return NULL;
-}
-
-/**
- * Copy security ID table mapping from one table into another.
- *
- * @param dest the table to copy into
- * @param override the table to copy from
- * @returns #FALSE if out of memory
- */
-#ifdef HAVE_SELINUX
-static dbus_bool_t
-bus_selinux_id_table_copy_over (DBusHashTable    *dest,
-                                DBusHashTable    *override)
-{
-  const char *key;
-  char *key_copy;
-  BusSELinuxID *sid;
-  DBusHashIter iter;
-  
-  _dbus_hash_iter_init (override, &iter);
-  while (_dbus_hash_iter_next (&iter))
-    {
-      key = _dbus_hash_iter_get_string_key (&iter);
-      sid = _dbus_hash_iter_get_value (&iter);
-
-      key_copy = _dbus_strdup (key);
-      if (key_copy == NULL)
-        return FALSE;
-
-      if (!_dbus_hash_table_insert_string (dest,
-                                           key_copy,
-                                           sid))
-        {
-          dbus_free (key_copy);
-          return FALSE;
-        }
-
-      bus_selinux_id_ref (sid);
-    }
-
-  return TRUE;
-}
-#endif /* HAVE_SELINUX */
-
-/**
- * Creates the union of the two tables (each table maps a service
- * name to a security ID). In case of the same service name in
- * both tables, the security ID from "override" will be used.
- *
- * @param base the base table
- * @param override the table that takes precedence in the merge
- * @returns the new table, or #NULL if out of memory
- */
-DBusHashTable*
-bus_selinux_id_table_union (DBusHashTable    *base,
-                            DBusHashTable    *override)
-{
-  DBusHashTable *combined_table;
-
-  combined_table = bus_selinux_id_table_new ();
-
-  if (combined_table == NULL)
-    return NULL;
-  
-#ifdef HAVE_SELINUX 
-  if (!selinux_enabled)
-    return combined_table;
-
-  if (!bus_selinux_id_table_copy_over (combined_table, base))
-    {
-      _dbus_hash_table_unref (combined_table);
-      return NULL;
-    }
-
-  if (!bus_selinux_id_table_copy_over (combined_table, override))
-    {
-      _dbus_hash_table_unref (combined_table);
-      return NULL;
-    }
-#endif /* HAVE_SELINUX */
-  
-  return combined_table;
 }
 
 /**
