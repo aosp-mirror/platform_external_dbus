@@ -1,5 +1,9 @@
 2005-01-01  Havoc Pennington  <hp@redhat.com>
 
+	* configure.in: add -Wfloat-equal
+
+2005-01-01  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-sysdeps.h: add _DBUS_DOUBLES_BITWISE_EQUAL macro, 
 	for a variety of reasons '==' doesn't do this.
 
