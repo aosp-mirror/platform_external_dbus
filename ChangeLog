@@ -1,3 +1,20 @@
+2005-01-16  Havoc Pennington  <hp@redhat.com>
+
+        * Add and fix docs according to Doxygen warnings throughout
+	source.
+	
+	* dbus/dbus-marshal-recursive.c
+	(_dbus_type_reader_array_is_empty): change this to just call
+	array_reader_get_array_len() and make it static
+
+	* dbus/dbus-message.c (dbus_message_iter_get_element_type): rename
+	from get_array_type
+	(dbus_message_iter_init_append): rename from append_iter_init
+
+	* dbus/dbus-marshal-recursive.c
+	(_dbus_type_reader_get_element_type): rename from
+	_dbus_type_reader_get_array_type
+
 2005-01-15  Havoc Pennington  <hp@redhat.com>
 
 	* test/glib/test-profile.c (with_bus_server_filter): fix crash

@@ -397,7 +397,7 @@ bus_driver_handle_list_services (DBusConnection *connection,
       return FALSE;
     }
 
-  dbus_message_append_iter_init (reply, &iter);
+  dbus_message_iter_init_append (reply, &iter);
   
   if (!dbus_message_iter_open_container (&iter, DBUS_TYPE_ARRAY,
                                          DBUS_TYPE_STRING_AS_STRING,

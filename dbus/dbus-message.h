@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-message.h DBusMessage object
  *
- * Copyright (C) 2002, 2003 Red Hat Inc.
+ * Copyright (C) 2002, 2003, 2005 Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -146,21 +146,22 @@ dbus_bool_t dbus_message_get_args_valist      (DBusMessage     *message,
 					       va_list          var_args);
 
 
-dbus_bool_t            dbus_message_iter_init            (DBusMessage      *message,
-                                                          DBusMessageIter  *iter);
-dbus_bool_t            dbus_message_iter_has_next        (DBusMessageIter  *iter);
-dbus_bool_t            dbus_message_iter_next            (DBusMessageIter  *iter);
-int                    dbus_message_iter_get_arg_type    (DBusMessageIter  *iter);
-int                    dbus_message_iter_get_array_type  (DBusMessageIter  *iter);
-void                   dbus_message_iter_recurse         (DBusMessageIter  *iter,
-                                                          DBusMessageIter  *sub);
-void                   dbus_message_iter_get_basic       (DBusMessageIter  *iter,
-                                                          void             *value);
-void                   dbus_message_iter_get_fixed_array (DBusMessageIter  *iter,
-                                                          void             *value,
-                                                          int              *n_elements);
+dbus_bool_t dbus_message_iter_init             (DBusMessage     *message,
+                                                DBusMessageIter *iter);
+dbus_bool_t dbus_message_iter_has_next         (DBusMessageIter *iter);
+dbus_bool_t dbus_message_iter_next             (DBusMessageIter *iter);
+int         dbus_message_iter_get_arg_type     (DBusMessageIter *iter);
+int         dbus_message_iter_get_element_type (DBusMessageIter *iter);
+void        dbus_message_iter_recurse          (DBusMessageIter *iter,
+                                                DBusMessageIter *sub);
+void        dbus_message_iter_get_basic        (DBusMessageIter *iter,
+                                                void            *value);
+void        dbus_message_iter_get_fixed_array  (DBusMessageIter *iter,
+                                                void            *value,
+                                                int             *n_elements);
 
-void        dbus_message_append_iter_init        (DBusMessage     *message,
+
+void        dbus_message_iter_init_append        (DBusMessage     *message,
                                                   DBusMessageIter *iter);
 dbus_bool_t dbus_message_iter_append_basic       (DBusMessageIter *iter,
                                                   int              type,

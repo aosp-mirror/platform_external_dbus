@@ -1173,6 +1173,7 @@ _dbus_type_is_valid (int typecode)
     }
 }
 
+/** macro that checks whether a typecode is a container type */
 #define TYPE_IS_CONTAINER(typecode)             \
     ((typecode) == DBUS_TYPE_STRUCT ||          \
      (typecode) == DBUS_TYPE_VARIANT ||         \

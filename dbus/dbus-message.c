@@ -55,8 +55,10 @@ static dbus_bool_t dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 
 /* Not thread locked, but strictly const/read-only so should be OK
  */
+/** An static string representing an empty signature */
 _DBUS_STRING_DEFINE_STATIC(_dbus_empty_signature_str,  "");
 
+/** How many bits are in the changed_stamp used to validate iterators */
 #define CHANGED_STAMP_BITS 21
 
 /**
@@ -114,9 +116,9 @@ struct DBusMessageRealIter
   dbus_uint32_t sig_refcount : 8;   /**< depth of open_signature() */
   union
   {
-    DBusTypeWriter writer;
-    DBusTypeReader reader;
-  } u;
+    DBusTypeWriter writer; /**< writer */
+    DBusTypeReader reader; /**< reader */
+  } u; /**< the type writer or reader that does all the work */
 };
 
 /**
@@ -515,9 +517,10 @@ dbus_message_finalize (DBusMessage *message)
  * mempool).
  */
 
-/* Avoid caching huge messages */
+/** Avoid caching huge messages */
 #define MAX_MESSAGE_SIZE_TO_CACHE _DBUS_ONE_MEGABYTE
-/* Avoid caching too many messages */
+
+/** Avoid caching too many messages */
 #define MAX_MESSAGE_CACHE_SIZE    5
 
 _DBUS_DEFINE_GLOBAL_LOCK (message_cache);
@@ -949,7 +952,7 @@ dbus_message_new_error (DBusMessage *reply_to,
 
   if (error_message != NULL)
     {
-      dbus_message_append_iter_init (message, &iter);
+      dbus_message_iter_init_append (message, &iter);
       if (!dbus_message_iter_append_basic (&iter,
                                            DBUS_TYPE_STRING,
                                            &error_message))
@@ -1232,7 +1235,7 @@ dbus_message_append_args_valist (DBusMessage *message,
 
   type = first_arg_type;
 
-  dbus_message_append_iter_init (message, &iter);
+  dbus_message_iter_init_append (message, &iter);
 
   while (type != DBUS_TYPE_INVALID)
     {
@@ -1574,7 +1577,7 @@ dbus_message_iter_get_arg_type (DBusMessageIter *iter)
  * @returns the array element type
  */
 int
-dbus_message_iter_get_array_type (DBusMessageIter *iter)
+dbus_message_iter_get_element_type (DBusMessageIter *iter)
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
@@ -1582,7 +1585,7 @@ dbus_message_iter_get_array_type (DBusMessageIter *iter)
   _dbus_return_val_if_fail (real->iter_type == DBUS_MESSAGE_ITER_TYPE_READER, DBUS_TYPE_INVALID);
   _dbus_return_val_if_fail (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_ARRAY, DBUS_TYPE_INVALID);
 
-  return _dbus_type_reader_get_array_type (&real->u.reader);
+  return _dbus_type_reader_get_element_type (&real->u.reader);
 }
 
 /**
@@ -1685,7 +1688,7 @@ dbus_message_iter_get_fixed_array (DBusMessageIter  *iter,
 
   _dbus_return_if_fail (_dbus_message_iter_check (real));
   _dbus_return_if_fail (value != NULL);
-  _dbus_return_if_fail (_dbus_type_is_fixed (_dbus_type_reader_get_array_type (&real->u.reader)));
+  _dbus_return_if_fail (_dbus_type_is_fixed (_dbus_type_reader_get_element_type (&real->u.reader)));
 
   _dbus_type_reader_read_fixed_multi (&real->u.reader,
                                       value, n_elements);
@@ -1760,7 +1763,7 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
           DBusTypeReader array;
 
           spec_element_type = va_arg (var_args, int);
-          element_type = _dbus_type_reader_get_array_type (&real->u.reader);
+          element_type = _dbus_type_reader_get_element_type (&real->u.reader);
 
           if (spec_element_type != element_type)
             {
@@ -1894,7 +1897,7 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
  * @param iter pointer to an iterator to initialize
  */
 void
-dbus_message_append_iter_init (DBusMessage     *message,
+dbus_message_iter_init_append (DBusMessage     *message,
 			       DBusMessageIter *iter)
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
@@ -2115,7 +2118,7 @@ dbus_message_iter_append_basic (DBusMessageIter *iter,
  * you have to start over building the whole message.
  *
  * @param iter the append iterator
- * @param type the type of the array elements
+ * @param element_type the type of the array elements
  * @param value the address of the array
  * @param n_elements the number of elements to append
  * @returns #FALSE if not enough memory
@@ -4596,7 +4599,7 @@ _dbus_message_test (const char *test_data_dir)
   _dbus_message_set_serial (message, 1);
   dbus_message_set_reply_serial (message, 0x12345678);
 
-  dbus_message_append_iter_init (message, &iter);
+  dbus_message_iter_init_append (message, &iter);
   dbus_message_iter_append_string (&iter, "Test string");
   dbus_message_iter_append_int32 (&iter, -0x12345678);
   dbus_message_iter_append_uint32 (&iter, 0xedd1e);

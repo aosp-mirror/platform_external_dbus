@@ -57,75 +57,88 @@ typedef struct DBusTypeWriter      DBusTypeWriter;
 typedef struct DBusTypeReaderClass DBusTypeReaderClass;
 typedef struct DBusArrayLenFixup   DBusArrayLenFixup;
 
-/* The mark is a way to compress a TypeReader; it isn't all that
+/** The mark is a way to compress a #DBusTypeReader; it isn't all that
  * successful though. The idea was to use this for caching header
  * fields in dbus-message.c. However now I'm thinking why not cache
  * the actual values (e.g. char*) and if the field needs to be set or
  * deleted, just linear search for it. Those operations are uncommon,
  * and getting the values should be fast and not involve all this type
  * reader nonsense.
+ *
+ * @todo DBusTypeMark isn't used right now and probably won't be, we should delete it
  */
 struct DBusTypeMark
 {
-  dbus_uint32_t type_pos_in_value_str : 1;
-  dbus_uint32_t container_type : 3;
-  dbus_uint32_t array_len_offset : 3; /* bytes back from start_pos that len ends */
-  dbus_uint32_t type_pos : DBUS_MAXIMUM_MESSAGE_LENGTH_BITS;
-  dbus_uint32_t value_pos : DBUS_MAXIMUM_MESSAGE_LENGTH_BITS;
-  dbus_uint32_t array_start_pos : DBUS_MAXIMUM_MESSAGE_LENGTH_BITS;
+  dbus_uint32_t type_pos_in_value_str : 1; /**< true if the type_pos is in value_str and not type_str */
+  dbus_uint32_t container_type : 3; /**< the "id" of the container type */
+  dbus_uint32_t array_len_offset : 3; /**< bytes back from start_pos that len ends */
+  dbus_uint32_t type_pos : DBUS_MAXIMUM_MESSAGE_LENGTH_BITS; /**< position in type_str */
+  dbus_uint32_t value_pos : DBUS_MAXIMUM_MESSAGE_LENGTH_BITS; /**< position in value_str */
+  dbus_uint32_t array_start_pos : DBUS_MAXIMUM_MESSAGE_LENGTH_BITS; /**< start of the array the reader was iterating over */
 };
 
+/**
+ * The type reader is an iterator for reading values from a block of
+ * values.
+ */
 struct DBusTypeReader
 {
-  dbus_uint32_t byte_order : 8;
+  dbus_uint32_t byte_order : 8; /**< byte order of the block */
 
-  dbus_uint32_t finished : 1;   /* marks we're at end iterator for cases
+  dbus_uint32_t finished : 1;   /**< marks we're at end iterator for cases
                                  * where we don't have another way to tell
                                  */
-  dbus_uint32_t array_len_offset : 3; /* bytes back from start_pos that len ends */
-  const DBusString *type_str;
-  int type_pos;
-  const DBusString *value_str;
-  int value_pos;
+  dbus_uint32_t array_len_offset : 3; /**< bytes back from start_pos that len ends */
+  const DBusString *type_str;   /**< string containing signature of block */
+  int type_pos;                 /**< current position in signature */
+  const DBusString *value_str;  /**< string containing values of block */
+  int value_pos;                /**< current position in values */
 
-  const DBusTypeReaderClass *klass;
+  const DBusTypeReaderClass *klass; /**< the vtable for the reader */
   union
   {
     struct {
-      int start_pos;
+      int start_pos;                /**< for array readers, the start of the array values */
     } array;
-  } u;
+  } u; /**< class-specific data */
 };
 
+/**
+ * The type writer is an iterator for writing to a block of values.
+ */
 struct DBusTypeWriter
 {
-  dbus_uint32_t byte_order : 8;
+  dbus_uint32_t byte_order : 8;            /**< byte order to write values with */
 
-  dbus_uint32_t container_type : 8;
+  dbus_uint32_t container_type : 8;        /**< what are we inside? (e.g. struct, variant, array) */
 
-  dbus_uint32_t type_pos_is_expectation : 1; /* type_pos is an insertion point or an expected next type */
+  dbus_uint32_t type_pos_is_expectation : 1; /**< type_pos can be either an insertion point for or an expected next type */
 
-  dbus_uint32_t enabled : 1; /* whether to write values */
+  dbus_uint32_t enabled : 1; /**< whether to write values */
 
-  DBusString *type_str;
-  int type_pos;
-  DBusString *value_str;
-  int value_pos;
+  DBusString *type_str; /**< where to write typecodes (or read type expectations) */
+  int type_pos;         /**< current pos in type_str */
+  DBusString *value_str; /**< where to write values */
+  int value_pos;         /**< next position to write */
 
   union
   {
     struct {
-      int start_pos; /* first element */
-      int len_pos;
-      int element_type_pos; /* position of array element type in type_str */
+      int start_pos; /**< position of first element in the array */
+      int len_pos;   /**< position of length of the array */
+      int element_type_pos; /**< position of array element type in type_str */
     } array;
-  } u;
+  } u; /**< class-specific data */
 };
 
+/**
+ * When modifying an existing block of values, array lengths may need
+ * to be adjusted; those adjustments are described by this struct.
+ */
 struct DBusArrayLenFixup
 {
-  int len_pos_in_reader;
-  int new_len;
+  int len_pos_in_reader; /**< where the length was in the original block */
+  int new_len;           /**< the new value of the length in the written-out block */
 };
 
 void        _dbus_type_reader_init                      (DBusTypeReader        *reader,
@@ -148,9 +161,8 @@ void        _dbus_type_reader_init_types_only_from_mark (DBusTypeReader        *
 void        _dbus_type_reader_save_mark                 (const DBusTypeReader  *reader,
                                                          DBusTypeMark          *mark);
 int         _dbus_type_reader_get_current_type          (const DBusTypeReader  *reader);
-int         _dbus_type_reader_get_array_type            (const DBusTypeReader  *reader);
+int         _dbus_type_reader_get_element_type          (const DBusTypeReader  *reader);
 int         _dbus_type_reader_get_value_pos             (const DBusTypeReader  *reader);
-dbus_bool_t _dbus_type_reader_array_is_empty            (const DBusTypeReader  *reader);
 void        _dbus_type_reader_read_basic                (const DBusTypeReader  *reader,
                                                          void                  *value);
 void        _dbus_type_reader_read_fixed_multi          (const DBusTypeReader  *reader,

@@ -233,7 +233,7 @@ Message::iterator::fillVar()
     d->var = marshallBaseType( d->iter );
     break;
   case DBUS_TYPE_ARRAY: {
-    switch ( dbus_message_iter_get_array_type( d->iter ) ) {
+    switch ( dbus_message_iter_get_element_type( d->iter ) ) {
     case DBUS_TYPE_STRING: {
       QStringList tempList;
       DBusMessageIter sub;

@@ -203,7 +203,7 @@ validate_body_helper (DBusTypeReader       *reader,
 
             if (current_type == DBUS_TYPE_ARRAY)
               {
-                int array_elem_type = _dbus_type_reader_get_array_type (reader);
+                int array_elem_type = _dbus_type_reader_get_element_type (reader);
                 alignment = _dbus_type_get_alignment (array_elem_type);
                 p = _DBUS_ALIGN_ADDRESS (p, alignment);
               }
@@ -419,6 +419,7 @@ validate_body_helper (DBusTypeReader       *reader,
  * @param expected_signature_start where in expected_signature is the signature
  * @param byte_order the byte order
  * @param bytes_remaining place to store leftover bytes
+ * @param value_str the string containing the body
  * @param value_pos where the values start
  * @param len length of values after value_pos
  * @returns #DBUS_VALID if valid, reason why invalid otherwise
@@ -814,14 +815,17 @@ _dbus_validate_signature (const DBusString  *str,
   return _dbus_validate_signature_with_reason (str, start, len) == DBUS_VALID;
 }
 
-/* If the compiler hates these semicolons, add "extern int
- * allow_parens" at the end in the the macro perhaps
- */
+/** define _dbus_check_is_valid_path() */
 DEFINE_DBUS_NAME_CHECK(path);
+/** define _dbus_check_is_valid_interface() */
 DEFINE_DBUS_NAME_CHECK(interface);
+/** define _dbus_check_is_valid_member() */
 DEFINE_DBUS_NAME_CHECK(member);
+/** define _dbus_check_is_valid_error_name() */
 DEFINE_DBUS_NAME_CHECK(error_name);
+/** define _dbus_check_is_valid_service() */
 DEFINE_DBUS_NAME_CHECK(service);
+/** define _dbus_check_is_valid_signature() */
 DEFINE_DBUS_NAME_CHECK(signature);
 
 /** @} */

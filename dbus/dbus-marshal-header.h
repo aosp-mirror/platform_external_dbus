@@ -46,6 +46,9 @@ struct DBusHeaderField
   int            value_pos; /**< Position of field value, or -1/-2 */
 };
 
+/**
+ * Message header data and some cached details of it.
+ */
 struct DBusHeader
 {
   DBusString data; /**< Header network data, stored

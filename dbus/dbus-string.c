@@ -809,7 +809,7 @@ _dbus_string_copy_data_len (const DBusString  *str,
  * 
  * @param str a string
  * @param buffer a C buffer to copy data to
- * @param len maximum length of C buffer
+ * @param avail_len maximum length of C buffer
  */
 void
 _dbus_string_copy_to_buffer (const DBusString  *str,
@@ -1046,13 +1046,16 @@ _dbus_string_append (DBusString *str,
   return append (real, buffer, buffer_len);
 }
 
+/** assign 4 bytes from one string to another */
 #define ASSIGN_4_OCTETS(p, octets) \
   *((dbus_uint32_t*)(p)) = *((dbus_uint32_t*)(octets));
 
 #ifdef DBUS_HAVE_INT64
+/** assign 8 bytes from one string to another */
 #define ASSIGN_8_OCTETS(p, octets) \
   *((dbus_uint64_t*)(p)) = *((dbus_uint64_t*)(octets));
 #else
+/** assign 8 bytes from one string to another */
 #define ASSIGN_8_OCTETS(p, octets)              \
 do {                                            \
   unsigned char *b;                             \
@@ -1120,6 +1123,7 @@ _dbus_string_append_8_aligned (DBusString         *str,
  * with any alignment padding initialized to 0.
  *
  * @param str the DBusString
+ * @param insert_at where to insert
  * @param octets 4 bytes to insert
  * @returns #FALSE if not enough memory.
  */
@@ -1143,6 +1147,7 @@ _dbus_string_insert_4_aligned (DBusString         *str,
  * with any alignment padding initialized to 0.
  *
  * @param str the DBusString
+ * @param insert_at where to insert
  * @param octets 8 bytes to insert
  * @returns #FALSE if not enough memory.
  */

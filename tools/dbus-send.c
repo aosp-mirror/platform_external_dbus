@@ -168,7 +168,7 @@ main (int argc, char *argv[])
       exit (1);
     }
   
-  dbus_message_append_iter_init (message, &iter);
+  dbus_message_iter_init_append (message, &iter);
 
   while (i < argc)
     {

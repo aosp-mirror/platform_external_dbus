@@ -29,7 +29,11 @@
  * @addtogroup DBusMarshal
  * @{
  */
+
+/** turn this on to get deluged in TypeReader verbose spam */
 #define RECURSIVE_MARSHAL_READ_TRACE  0
+
+/** turn this on to get deluged in TypeWriter verbose spam */
 #define RECURSIVE_MARSHAL_WRITE_TRACE 0
 
 static void
@@ -101,18 +105,21 @@ apply_and_free_fixups (DBusList      **fixups,
   *fixups = NULL;
 }
 
+/**
+ * Virtual table for a type reader.
+ */
 struct DBusTypeReaderClass
 {
-  const char *name;
-  int         id;         /* index in all_reader_classes */
-  dbus_bool_t types_only; /* only iterates over types, not values */
+  const char *name;       /**< name for debugging */
+  int         id;         /**< index in all_reader_classes */
+  dbus_bool_t types_only; /**< only iterates over types, not values */
   void        (* recurse)          (DBusTypeReader        *sub,
-                                    DBusTypeReader        *parent);
-  dbus_bool_t (* check_finished)   (const DBusTypeReader  *reader);
+                                    DBusTypeReader        *parent); /**< recurse with this reader as sub */
+  dbus_bool_t (* check_finished)   (const DBusTypeReader  *reader); /**< check whether reader is at the end */
   void        (* next)             (DBusTypeReader        *reader,
-                                    int                    current_type);
+                                    int                    current_type); /**< go to the next value */
   void        (* init_from_mark)   (DBusTypeReader        *reader,
-                                    const DBusTypeMark    *mark);
+                                    const DBusTypeMark    *mark);  /**< uncompress from a mark */
 };
 
 static int
@@ -201,7 +208,8 @@ array_types_only_reader_recurse (DBusTypeReader *sub,
   sub->array_len_offset = 7;
 }
 
-/* array_len_offset is the offset back from start_pos to end of the len */
+/** compute position of array length given array_len_offset, which is
+    the offset back from start_pos to end of the len */
 #define ARRAY_READER_LEN_POS(reader) \
   ((reader)->u.array.start_pos - ((int)(reader)->array_len_offset) - 4)
 
@@ -216,7 +224,7 @@ array_reader_get_array_len (const DBusTypeReader *reader)
   _dbus_assert (_DBUS_ALIGN_VALUE (len_pos, 4) == (unsigned) len_pos);
   array_len = _dbus_unpack_uint32 (reader->byte_order,
                                    _dbus_string_get_const_data_len (reader->value_str, len_pos, 4));
-  
+
 #if RECURSIVE_MARSHAL_READ_TRACE
   _dbus_verbose ("   reader %p len_pos %d array len %u len_offset %d\n",
                  reader, len_pos, array_len, reader->array_len_offset);
@@ -315,27 +323,27 @@ skip_one_complete_type (const DBusString *type_str,
 {
   const unsigned char *p;
   const unsigned char *start;
-  
+
   start = _dbus_string_get_const_data (type_str);
   p = start + *type_pos;
 
   while (*p == DBUS_TYPE_ARRAY)
     ++p;
-  
+
   if (*p == DBUS_STRUCT_BEGIN_CHAR)
     {
       int depth;
-      
+
       depth = 1;
-      
+
       while (TRUE)
         {
           _dbus_assert (*p != DBUS_TYPE_INVALID);
-          
+
           ++p;
 
           _dbus_assert (*p != DBUS_TYPE_INVALID);
-          
+
           if (*p == DBUS_STRUCT_BEGIN_CHAR)
             depth += 1;
           else if (*p == DBUS_STRUCT_END_CHAR)
@@ -632,6 +640,16 @@ all_reader_classes[] = {
   &variant_reader_class
 };
 
+/**
+ * Initializes a type reader.
+ *
+ * @param reader the reader
+ * @param byte_order the byte order of the block to read
+ * @param type_str the signature of the block to read
+ * @param type_pos location of signature
+ * @param value_str the string containing values block
+ * @param value_pos start of values block
+ */
 void
 _dbus_type_reader_init (DBusTypeReader    *reader,
                         int                byte_order,
@@ -652,6 +670,17 @@ _dbus_type_reader_init (DBusTypeReader    *reader,
 #endif
 }
 
+/**
+ * Initializes a type reader that's been compressed into a
+ * DBusTypeMark.  The args have to be the same as those passed in to
+ * create the original #DBusTypeReader.
+ *
+ * @param reader the reader
+ * @param byte_order the byte order of the value block
+ * @param type_str string containing the type signature
+ * @param value_str string containing the values block
+ * @param mark the mark to decompress from
+ */
 void
 _dbus_type_reader_init_from_mark (DBusTypeReader     *reader,
                                   int                 byte_order,
@@ -676,6 +705,14 @@ _dbus_type_reader_init_from_mark (DBusTypeReader     *reader,
 #endif
 }
 
+/**
+ * Like _dbus_type_reader_init() but the iteration is over the
+ * signature, not over values.
+ *
+ * @param reader the reader
+ * @param type_str the signature string
+ * @param type_pos location in the signature string
+ */
 void
 _dbus_type_reader_init_types_only (DBusTypeReader    *reader,
                                    const DBusString  *type_str,
@@ -693,6 +730,14 @@ _dbus_type_reader_init_types_only (DBusTypeReader    *reader,
 #endif
 }
 
+/**
+ * Like _dbus_type_reader_init_from_mark() but only iterates over
+ * the signature, not the values.
+ *
+ * @param reader the reader
+ * @param type_str the signature string
+ * @param mark the mark to decompress from
+ */
 void
 _dbus_type_reader_init_types_only_from_mark (DBusTypeReader     *reader,
                                              const DBusString   *type_str,
@@ -716,6 +761,13 @@ _dbus_type_reader_init_types_only_from_mark (DBusTypeReader     *reader,
 #endif
 }
 
+/**
+ * Compresses a type reader into a #DBusTypeMark, useful for example
+ * if you want to cache a bunch of positions in a block of values.
+ *
+ * @param reader the reader
+ * @param mark the mark to init
+ */
 void
 _dbus_type_reader_save_mark (const DBusTypeReader *reader,
                              DBusTypeMark         *mark)
@@ -732,6 +784,14 @@ _dbus_type_reader_save_mark (const DBusTypeReader *reader,
   mark->array_start_pos = reader->u.array.start_pos;
 }
 
+/**
+ * Gets the type of the value the reader is currently pointing to;
+ * or for a types-only reader gets the type it's currently pointing to.
+ * If the reader is at the end of a block or end of a container such
+ * as an array, returns #DBUS_TYPE_INVALID.
+ *
+ * @param reader the reader
+ */
 int
 _dbus_type_reader_get_current_type (const DBusTypeReader *reader)
 {
@@ -757,8 +817,16 @@ _dbus_type_reader_get_current_type (const DBusTypeReader *reader)
   return t;
 }
 
+/**
+ * Gets the type of an element of the array the reader is currently
+ * pointing to. It's an error to call this if
+ * _dbus_type_reader_get_current_type() doesn't return #DBUS_TYPE_ARRAY
+ * for this reader.
+ *
+ * @param reader the reader
+ */
 int
-_dbus_type_reader_get_array_type (const DBusTypeReader  *reader)
+_dbus_type_reader_get_element_type (const DBusTypeReader  *reader)
 {
   int element_type;
 
@@ -770,36 +838,25 @@ _dbus_type_reader_get_array_type (const DBusTypeReader  *reader)
   return element_type;
 }
 
+/**
+ * Gets the current position in the value block
+ * @param reader the reader
+ */
 int
 _dbus_type_reader_get_value_pos (const DBusTypeReader  *reader)
 {
   return reader->value_pos;
 }
 
-dbus_bool_t
+/**
+ * Checks whether an array has any elements.
+ *
+ * @param reader the reader
+ */
+static dbus_bool_t
 _dbus_type_reader_array_is_empty (const DBusTypeReader *reader)
 {
-  dbus_uint32_t array_len;
-
-  _dbus_assert (_dbus_type_reader_get_current_type (reader) == DBUS_TYPE_ARRAY);
-  _dbus_assert (!reader->klass->types_only);
-
-  /* reader is supposed to be at an array child */
-#if RECURSIVE_MARSHAL_READ_TRACE
-   _dbus_verbose ("checking array len at %d\n", reader->value_pos);
-#endif
-
-   _dbus_marshal_read_basic (reader->value_str,
-                             reader->value_pos,
-                             DBUS_TYPE_UINT32,
-                             &array_len,
-                             reader->byte_order,
-                             NULL);
-#if RECURSIVE_MARSHAL_READ_TRACE
-  _dbus_verbose (" ... array len = %d\n", array_len);
-#endif
-
-  return array_len == 0;
+  return array_reader_get_array_len (reader) == 0;
 }
 
 /**
@@ -822,6 +879,12 @@ _dbus_type_reader_read_raw (const DBusTypeReader  *reader,
                                                      0);
 }
 
+/**
+ * Reads a basic-typed value, as with _dbus_marshal_read_basic().
+ *
+ * @param reader the reader
+ * @param value the address of the value
+ */
 void
 _dbus_type_reader_read_basic (const DBusTypeReader    *reader,
                               void                    *value)
@@ -1852,7 +1915,7 @@ writer_recurse_array (DBusTypeWriter   *writer,
                                      _dbus_string_get_const_data_len (sub->value_str,
                                                                       sub->u.array.len_pos,
                                                                       4));
-          
+
           sub->value_pos += len;
         }
     }
@@ -2006,6 +2069,16 @@ _dbus_type_writer_recurse_contained_len (DBusTypeWriter   *writer,
     }
 }
 
+/**
+ * Opens a new container and writes out the initial information for that container.
+ *
+ * @param writer the writer
+ * @param container_type the type of the container to open
+ * @param contained_type the array element type or variant content type
+ * @param contained_type_start position to look for the type
+ * @param sub the new sub-writer to write container contents
+ * @returns #FALSE if no memory
+ */
 dbus_bool_t
 _dbus_type_writer_recurse (DBusTypeWriter   *writer,
                            int               container_type,
@@ -2068,6 +2141,14 @@ writer_get_array_len (DBusTypeWriter *writer)
   return writer->value_pos - writer->u.array.start_pos;
 }
 
+/**
+ * Closes a container created by _dbus_type_writer_recurse()
+ * and writes any additional information to the values block.
+ *
+ * @param writer the writer
+ * @param sub the sub-writer created by _dbus_type_writer_recurse()
+ * @returns #FALSE if no memory
+ */
 dbus_bool_t
 _dbus_type_writer_unrecurse (DBusTypeWriter *writer,
                              DBusTypeWriter *sub)
@@ -2182,6 +2263,14 @@ _dbus_type_writer_unrecurse (DBusTypeWriter *writer,
   return TRUE;
 }
 
+/**
+ * Writes out a basic type.
+ *
+ * @param writer the writer
+ * @param type the type to write
+ * @param value the address of the value to write
+ * @returns #FALSE if no memory
+ */
 dbus_bool_t
 _dbus_type_writer_write_basic (DBusTypeWriter *writer,
                                int             type,
@@ -2452,7 +2541,7 @@ writer_write_reader_helper (DBusTypeWriter       *writer,
 
               _dbus_assert (_DBUS_ALIGN_VALUE (fixup.len_pos_in_reader, 4) ==
                             (unsigned) fixup.len_pos_in_reader);
-              
+
               old_len = _dbus_unpack_uint32 (reader->byte_order,
                                              _dbus_string_get_const_data_len (reader->value_str,
                                                                               fixup.len_pos_in_reader, 4));
@@ -3514,7 +3603,6 @@ typedef struct
   TestTypeNode      **nodes;
   int                 n_nodes;
 } NodeIterationData;
-
 
 static dbus_bool_t
 run_test_copy (NodeIterationData *nid)
@@ -5345,7 +5433,7 @@ array_read_or_set_value (TestTypeNode   *node,
       _dbus_type_reader_recurse (reader, &sub);
 
       if (realign_root == NULL && arrays_write_fixed_in_blocks &&
-          _dbus_type_is_fixed (_dbus_type_reader_get_array_type (reader)) &&
+          _dbus_type_is_fixed (_dbus_type_reader_get_element_type (reader)) &&
           child->klass->read_multi)
         {
           if (!node_read_multi (child, &sub, seed, n_copies))
@@ -5365,7 +5453,7 @@ array_read_or_set_value (TestTypeNode   *node,
                   DBusList *next = _dbus_list_get_next_link (&container->children, link);
 
                   _dbus_assert (child->klass->typecode ==
-                                _dbus_type_reader_get_array_type (reader));
+                                _dbus_type_reader_get_element_type (reader));
 
                   if (realign_root == NULL)
                     {

@@ -24,7 +24,7 @@ thread_func (gpointer data)
                                               "org.freedesktop.ThreadTest",
                                               "TestMethod");
 
-      dbus_message_append_iter_init (message, &iter);
+      dbus_message_iter_init_append (message, &iter);
 
       if (!dbus_message_iter_append_basic (&iter, DBUS_TYPE_INT32, &threadnr))
 	{

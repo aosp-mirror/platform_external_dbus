@@ -112,28 +112,37 @@
 #define DBUS_UINT64_FROM_BE(val) (DBUS_UINT64_TO_BE (val))
 #endif /* DBUS_HAVE_INT64 */
 
-#ifdef DBUS_HAVE_INT64
+#ifndef DBUS_HAVE_INT64
+/**
+ * An 8-byte struct you could use to access int64 without having
+ * int64 support
+ */
 typedef struct
 {
-  dbus_uint32_t first32;
-  dbus_uint32_t second32;
+  dbus_uint32_t first32;  /**< first 32 bits in the 8 bytes (beware endian issues) */
+  dbus_uint32_t second32; /**< second 32 bits in the 8 bytes (beware endian issues) */
 } DBus8ByteStruct;
 #endif /* DBUS_HAVE_INT64 */
 
+/**
+ * A simple 8-byte value union that lets you access 8 bytes as if they
+ * were various types; useful when dealing with basic types via
+ * void pointers and varargs.
+ */
 typedef union
 {
-  dbus_int32_t  i32;
-  dbus_uint32_t u32;
+  dbus_int32_t  i32;   /**< as int32 */
+  dbus_uint32_t u32;   /**< as int32 */
 #ifdef DBUS_HAVE_INT64
-  dbus_int64_t  i64;
-  dbus_uint64_t u64;
+  dbus_int64_t  i64;   /**< as int32 */
+  dbus_uint64_t u64;   /**< as int32 */
 #else
-  DBus8ByteStruct u64;
+  DBus8ByteStruct u64; /**< as 8-byte-struct */
 #endif
-  double dbl;
-  unsigned char byt;
-  unsigned char boo;
-  char *str;
+  double dbl;          /**< as double */
+  unsigned char byt;   /**< as byte */
+  unsigned char boo;   /**< as boolean */
+  char *str;           /**< as char* */
 } DBusBasicValue;
 
 #ifdef DBUS_DISABLE_ASSERT

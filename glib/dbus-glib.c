@@ -32,7 +32,7 @@
 #define N_(x) x
 
 /**
- * @ingroup DBusGLib
+ * @addtogroup DBusGLib
  * @{
  */
 

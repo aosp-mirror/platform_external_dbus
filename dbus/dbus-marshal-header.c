@@ -33,11 +33,16 @@
 
 /* Not thread locked, but strictly const/read-only so should be OK
  */
+/** Static #DBusString containing the signature of a message header */
 _DBUS_STRING_DEFINE_STATIC(_dbus_header_signature_str, DBUS_HEADER_SIGNATURE);
+/** Static #DBusString containing the local interface */
 _DBUS_STRING_DEFINE_STATIC(_dbus_local_interface_str,  DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL);
+/** Static #DBusString containing the local path */
 _DBUS_STRING_DEFINE_STATIC(_dbus_local_path_str,       DBUS_PATH_ORG_FREEDESKTOP_LOCAL);
 
+/** Offset from start of _dbus_header_signature_str to the signature of the fields array */
 #define FIELDS_ARRAY_SIGNATURE_OFFSET 6
+/** Offset from start of _dbus_header_signature_str to the signature of an element of the fields array */
 #define FIELDS_ARRAY_ELEMENT_SIGNATURE_OFFSET 7
 
 
@@ -77,8 +82,10 @@ _dbus_header_field_types[DBUS_HEADER_FIELD_LAST+1] = {
   { DBUS_HEADER_FIELD_SIGNATURE, DBUS_TYPE_SIGNATURE }
 };
 
+/** Macro to look up the correct type for a field */
 #define EXPECTED_TYPE_OF_FIELD(field) (_dbus_header_field_types[field].type)
 
+/** The most padding we could ever need for a header */
 #define MAX_POSSIBLE_HEADER_PADDING 7
 static dbus_bool_t
 reserve_header_padding (DBusHeader *header)
@@ -108,6 +115,7 @@ correct_header_padding (DBusHeader *header)
   header->padding = _dbus_string_get_length (&header->data) - unpadded_len;
 }
 
+/** Compute the end of the header, ignoring padding */
 #define HEADER_END_BEFORE_PADDING(header) \
   (_dbus_string_get_length (&(header)->data) - (header)->padding)
 
@@ -635,6 +643,7 @@ _dbus_header_create (DBusHeader  *header,
  * contain the entire message (assuming the claimed lengths are
  * accurate). Also checks that the lengths are in sanity parameters.
  *
+ * @param max_message_length maximum length of a valid message
  * @param validity return location for why the data is invalid if it is
  * @param byte_order return location for byte order
  * @param fields_array_len return location for claimed fields array length

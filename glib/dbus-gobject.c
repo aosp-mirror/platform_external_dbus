@@ -384,7 +384,7 @@ get_object_property (DBusConnection *connection,
 
   value_type = G_VALUE_TYPE (&value);
 
-  dbus_message_append_iter_init (message, &iter);
+  dbus_message_iter_init_append (message, &iter);
 
   if (!dbus_gvalue_marshal (&iter, &value))
     {
