@@ -1,5 +1,29 @@
 2004-05-30  Seth Nickell  <seth@gnome.org>
 
+	* python/dbus.py:
+
+	Add a nicer-but-less-flexible alternate API for handling 
+	calls to virtual objects in dbus.ObjectTree.
+
+	Screw up the argument order to the dbus.Object constructor
+	for consistency with dbus.ObjectTree (and to make dbus_methods
+	optional for future extension)
+	
+	* python/examples/Makefile.am:
+	* python/examples/gconf-proxy-service.py:
+	* python/examples/gconf-proxy-service2.py:
+
+	Alternate implementation of gconf-proxy-service using the
+	nicer dbus.ObjectTree API.
+	
+	* python/examples/example-service.py:
+	* python/tests/test-server.py
+
+	Reverse the argument order to deal with dbus.Object constructor
+	changes.
+	
+2004-05-30  Seth Nickell  <seth@gnome.org>
+
 	* python/examples/example-client.py:
 	* python/examples/example-service.py:
 
