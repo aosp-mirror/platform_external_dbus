@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-message-builder.c Build messages from text files for testing (internal to D-BUS implementation)
  * 
- * Copyright (C) 2003 Red Hat, Inc.
+ * Copyright (C) 2003, 2004 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.0
  * 
@@ -723,6 +723,15 @@ _dbus_message_data_load (DBusString       *dest,
                                     DBUS_TYPE_OBJECT_PATH,
                                     "/blah/blah/path"))
             goto parse_failed;
+
+          /* FIXME later we'll validate this, and then it will break
+           * and the .message files will have to include the right thing
+           */
+          if (!append_string_field (dest, endian,
+                                    DBUS_HEADER_FIELD_SIGNATURE,
+                                    DBUS_TYPE_STRING,
+                                    "iii"))
+            goto parse_failed;
         }
       else if (_dbus_string_starts_with_c_str (&line,
                                                "BIG_ENDIAN"))
@@ -884,6 +893,8 @@ _dbus_message_data_load (DBusString       *dest,
 	    field = DBUS_HEADER_FIELD_DESTINATION;
           else if (_dbus_string_starts_with_c_str (&line, "SENDER"))
 	    field = DBUS_HEADER_FIELD_SENDER;
+          else if (_dbus_string_starts_with_c_str (&line, "SIGNATURE"))
+	    field = DBUS_HEADER_FIELD_SIGNATURE;
 	  else if (_dbus_string_starts_with_c_str (&line, "UNKNOWN"))
 	    field = 22; /* random unknown header field */
           else

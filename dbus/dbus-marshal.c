@@ -2,7 +2,7 @@
 /* dbus-marshal.c  Marshalling routines
  *
  * Copyright (C) 2002 CodeFactory AB
- * Copyright (C) 2003 Red Hat, Inc.
+ * Copyright (C) 2003, 2004 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.0
  * 
@@ -605,6 +605,46 @@ _dbus_marshal_string (DBusString    *str,
     }
 
   return _dbus_string_append_len (str, value, len + 1);
+}
+
+/**
+ * Marshals a UTF-8 string
+ *
+ * @todo: If the string append fails we need to restore
+ * the old length. (also for other marshallers)
+ * 
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param value the string
+ * @param len length of string to marshal in bytes
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_marshal_string_len (DBusString    *str,
+                          int            byte_order,
+                          const char    *value,
+                          int            len)
+{
+  int old_string_len;
+
+  old_string_len = _dbus_string_get_length (str);
+
+  if (!_dbus_marshal_uint32 (str, byte_order, len))
+    {
+      /* Restore the previous length */
+      _dbus_string_set_length (str, old_string_len);
+
+      return FALSE;
+    }
+
+  if (!_dbus_string_append_len (str, value, len))
+    return FALSE;
+
+  /* add a nul byte */
+  if (!_dbus_string_lengthen (str, 1))
+    return FALSE;
+
+  return TRUE;
 }
 
 /**

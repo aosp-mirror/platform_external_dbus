@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-message.c  DBusMessage object
  *
- * Copyright (C) 2002, 2003  Red Hat Inc.
+ * Copyright (C) 2002, 2003, 2004  Red Hat Inc.
  * Copyright (C) 2002, 2003  CodeFactory AB
  *
  * Licensed under the Academic Free License version 2.0
@@ -104,8 +104,6 @@ struct DBusMessage
   unsigned int locked : 1; /**< Message being sent, no modifications allowed. */
 
   DBusDataSlotList slot_list;   /**< Data stored by allocated integer ID */
-
-  DBusString signature; /**< Signature */
 };
 
 enum {
@@ -394,14 +392,17 @@ append_uint_field (DBusMessage *message,
   return FALSE;
 }
 
-/** The maximum number of bytes of overhead to append to a string */
-#define MAX_BYTES_OVERHEAD_TO_APPEND_A_STRING (1 + 1 + 3 + 1 + 8)
+/** The maximum number of bytes of overhead to append to a string
+ * (fieldcode + typecode + alignment + length + nul + headerpadding)
+ */
+#define MAX_BYTES_OVERHEAD_TO_APPEND_A_STRING (1 + 1 + 3 + 4 + 1 + 8)
 
 static dbus_bool_t
-append_string_field (DBusMessage *message,
-                     int          field,
-                     int          type,
-                     const char  *value)
+append_string_field_len (DBusMessage *message,
+                         int          field,
+                         int          type,
+                         const char  *value,
+                         int          value_len)
 {
   _dbus_assert (!message->locked);
 
@@ -422,8 +423,8 @@ append_string_field (DBusMessage *message,
   message->header_fields[field].value_offset =
     _dbus_string_get_length (&message->header);
   
-  if (!_dbus_marshal_string (&message->header, message->byte_order,
-                             value))
+  if (!_dbus_marshal_string_len (&message->header, message->byte_order,
+                                 value, value_len))
     goto failed;
 
   if (!append_header_padding (message))
@@ -444,6 +445,19 @@ append_string_field (DBusMessage *message,
     _dbus_assert_not_reached ("failed to reappend header padding");
   
   return FALSE;
+}
+
+static dbus_bool_t
+append_string_field (DBusMessage *message,
+                     int          field,
+                     int          type,
+                     const char  *value)
+{
+  int value_len;
+
+  value_len = strlen (value);
+
+  return append_string_field_len (message, field, type, value, value_len);
 }
 
 static int
@@ -833,13 +847,16 @@ set_string_field (DBusMessage *message,
                   const char  *value)
 {
   int prealloc;
+  int value_len;
   
   _dbus_assert (!message->locked);
 
+  value_len = value ? strlen (value) : 0;
+  
   /* the prealloc is so the append_string_field()
    * below won't fail, leaving us in inconsistent state
    */
-  prealloc = (value ? strlen (value) : 0) + MAX_BYTES_OVERHEAD_TO_APPEND_A_STRING;
+  prealloc = value_len + MAX_BYTES_OVERHEAD_TO_APPEND_A_STRING;
 
   _dbus_verbose ("set_string_field() field %d prealloc %d\n",
                  field, prealloc);
@@ -850,7 +867,7 @@ set_string_field (DBusMessage *message,
   if (value != NULL)
     {
       /* need to append the field */
-      if (!append_string_field (message, field, type, value))
+      if (!append_string_field_len (message, field, type, value, value_len))
         _dbus_assert_not_reached ("Appending string field shouldn't have failed, due to preallocation");
     }
   
@@ -1114,6 +1131,15 @@ dbus_message_create_header (DBusMessage *message,
                                 error_name))
         return FALSE;
     }
+
+  /* @todo if we make signature optional when body is empty, we don't
+   * need to do this here.
+   */
+  if (!append_string_field (message,
+                            DBUS_HEADER_FIELD_SIGNATURE,
+                            DBUS_TYPE_STRING,
+                            ""))
+    return FALSE;
   
   return TRUE;
 }
@@ -1163,6 +1189,141 @@ _dbus_message_lock (DBusMessage  *message)
  */
 
 /**
+ * Sets the signature of the message, i.e. the arguments in the
+ * message payload. The signature includes only "in" arguments for
+ * #DBUS_MESSAGE_TYPE_METHOD_CALL and only "out" arguments for
+ * #DBUS_MESSAGE_TYPE_METHOD_RETURN, so is slightly different from
+ * what you might expect (it does not include the signature of the
+ * entire C++-style method).
+ *
+ * The signature is a string made up of type codes such
+ * as #DBUS_TYPE_STRING. The string is terminated with nul
+ * (nul is also the value of #DBUS_TYPE_INVALID).
+ * 
+ * @param message the message
+ * @param signature the type signature or #NULL to unset
+ * @returns #FALSE if no memory
+ */
+static dbus_bool_t
+dbus_message_set_signature (DBusMessage *message,
+                            const char  *signature)
+{
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (!message->locked, FALSE);
+  
+  return set_string_field (message,
+                           DBUS_HEADER_FIELD_SIGNATURE,
+                           DBUS_TYPE_STRING,
+                           signature);
+}
+
+/**
+ * Appends to the signature of the message.
+ * (currently a static function, maybe should be public?)
+ * 
+ * @param message the message
+ * @param append_bytes nul-terminated bytes to append to the type signature
+ * @returns #FALSE if no memory
+ */
+static dbus_bool_t
+dbus_message_append_to_signature (DBusMessage *message,
+                                  const char  *append_bytes)
+{
+  const char *signature;
+  DBusString append_str;
+  dbus_bool_t retval;
+  
+  _dbus_return_val_if_fail (append_bytes != NULL, FALSE);
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (!message->locked, FALSE);
+
+  retval = FALSE;
+  
+  /* FIXME Just really inefficient for the moment; later we could
+   * speed it up a lot by poking more directly at the header data
+   */
+  signature = dbus_message_get_signature (message);
+
+  if (!_dbus_string_init (&append_str))
+    return FALSE;
+
+  if (signature && !_dbus_string_append (&append_str, signature))
+    goto out;
+
+  if (!_dbus_string_append (&append_str, append_bytes))
+    goto out;
+  
+  if (!set_string_field (message,
+                         DBUS_HEADER_FIELD_SIGNATURE,
+                         DBUS_TYPE_STRING,
+                         _dbus_string_get_const_data (&append_str)))
+    goto out;
+
+  retval = TRUE;
+  
+ out:
+  
+  _dbus_string_free (&append_str);
+
+  return retval;
+}
+
+/**
+ * Appends one byte to the signature of the message.
+ * Internal function.
+ * 
+ * @param message the message
+ * @param append_byte the byte 
+ * @returns #FALSE if no memory
+ */
+static dbus_bool_t
+_dbus_message_append_byte_to_signature (DBusMessage  *message,
+                                        unsigned char append_byte)
+{
+  char buf[2];
+  
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (!message->locked, FALSE);
+  
+  buf[0] = append_byte;
+  buf[1] = '\0';
+
+  return dbus_message_append_to_signature (message, buf);
+}
+
+/**
+ * Removes the last byte from the signature of the message.
+ * Internal function.
+ * 
+ * @param message the message
+ */
+static void
+_dbus_message_remove_byte_from_signature (DBusMessage  *message)
+{
+  const char *signature;
+  
+  _dbus_return_if_fail (message != NULL);
+  _dbus_return_if_fail (!message->locked);
+
+  signature = dbus_message_get_signature (message);
+
+  _dbus_return_if_fail (signature != NULL);
+  
+  if (!delete_field (message,
+                     DBUS_HEADER_FIELD_SIGNATURE,
+                     0))
+    _dbus_assert_not_reached ("failed to delete signature field");
+
+  /* reappend one shorter (could this be any less efficient? the code will
+   * go away later anyhow)
+   */
+  if (!append_string_field_len (message, DBUS_HEADER_FIELD_SIGNATURE,
+                                DBUS_TYPE_STRING, signature,
+                                strlen (signature) - 1))
+    _dbus_assert_not_reached ("reappending shorter signature shouldn't have failed");
+}
+
+/**
  * @typedef DBusMessage
  *
  * Opaque data type representing a message received from or to be
@@ -1203,14 +1364,6 @@ dbus_message_new_empty_header (void)
   if (!_dbus_string_init_preallocated (&message->body, 64))
     {
       _dbus_string_free (&message->header);
-      dbus_free (message);
-      return NULL;
-    }
-
-  if (!_dbus_string_init_preallocated (&message->signature, 4))
-    {
-      _dbus_string_free (&message->header);
-      _dbus_string_free (&message->body);
       dbus_free (message);
       return NULL;
     }
@@ -1525,15 +1678,6 @@ dbus_message_copy (const DBusMessage *message)
       dbus_free (retval);
       return NULL;
     }
-
-  if (!_dbus_string_init_preallocated (&retval->signature,
-                                       _dbus_string_get_length (&message->signature)))
-    {
-      _dbus_string_free (&retval->header);
-      _dbus_string_free (&retval->body);
-      dbus_free (retval);
-      return NULL;
-    }
   
   if (!_dbus_string_copy (&message->header, 0,
 			  &retval->header, 0))
@@ -1541,10 +1685,6 @@ dbus_message_copy (const DBusMessage *message)
 
   if (!_dbus_string_copy (&message->body, 0,
 			  &retval->body, 0))
-    goto failed_copy;
-
-  if (!_dbus_string_copy (&message->signature, 0,
-			  &retval->signature, 0))
     goto failed_copy;
   
   for (i = 0; i <= DBUS_HEADER_FIELD_LAST; i++)
@@ -1557,7 +1697,6 @@ dbus_message_copy (const DBusMessage *message)
  failed_copy:
   _dbus_string_free (&retval->header);
   _dbus_string_free (&retval->body);
-  _dbus_string_free (&retval->signature);
   dbus_free (retval);
   
   return NULL;  
@@ -1624,7 +1763,6 @@ dbus_message_unref (DBusMessage *message)
       
       _dbus_string_free (&message->header);
       _dbus_string_free (&message->body);
-      _dbus_string_free (&message->signature);
       
       dbus_free (message);
     }
@@ -1658,7 +1796,7 @@ dbus_message_get_type (DBusMessage *message)
  * emitted from (for DBUS_MESSAGE_TYPE_SIGNAL).
  *
  * @param message the message
- * @param object_path the path
+ * @param object_path the path or #NULL to unset
  * @returns #FALSE if not enough memory
  */
 dbus_bool_t
@@ -1724,7 +1862,7 @@ dbus_message_get_path_decomposed (DBusMessage   *message,
  * (for DBUS_MESSAGE_TYPE_SIGNAL).
  *
  * @param message the message
- * @param interface the interface
+ * @param interface the interface or #NULL to unset
  * @returns #FALSE if not enough memory
  */
 dbus_bool_t
@@ -1764,7 +1902,7 @@ dbus_message_get_interface (DBusMessage *message)
  * The interface name is fully-qualified (namespaced).
  *
  * @param message the message
- * @param member the member
+ * @param member the member or #NULL to unset
  * @returns #FALSE if not enough memory
  */
 dbus_bool_t
@@ -1803,7 +1941,7 @@ dbus_message_get_member (DBusMessage *message)
  * The name is fully-qualified (namespaced).
  *
  * @param message the message
- * @param error_name the name
+ * @param error_name the name or #NULL to unset
  * @returns #FALSE if not enough memory
  */
 dbus_bool_t
@@ -1812,8 +1950,7 @@ dbus_message_set_error_name (DBusMessage  *message,
 {
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_fail (!message->locked, FALSE);
-  _dbus_return_val_if_fail (error_name != NULL, FALSE);
-  _dbus_return_val_if_fail (is_valid_error_name (error_name), FALSE);
+  _dbus_return_val_if_fail (error_name == NULL || is_valid_error_name (error_name), FALSE);
   
   return set_string_field (message,
                            DBUS_HEADER_FIELD_ERROR_NAME,
@@ -1841,7 +1978,7 @@ dbus_message_get_error_name (DBusMessage *message)
  * Sets the message's destination service.
  *
  * @param message the message
- * @param destination the destination service name
+ * @param destination the destination service name or #NULL to unset
  * @returns #FALSE if not enough memory
  */
 dbus_bool_t
@@ -3219,15 +3356,16 @@ dbus_message_iter_append_type (DBusMessageRealIter *iter,
 			       int                  type)
 {
   const char *data;
+
   switch (iter->type)
     {
     case DBUS_MESSAGE_ITER_TYPE_MESSAGE:
-      if (!_dbus_string_append_byte (&iter->message->signature, type))
-        return FALSE;
-      
       if (!_dbus_string_append_byte (&iter->message->body, type))
+        return FALSE;
+
+      if (!_dbus_message_append_byte_to_signature (iter->message, type))
         {
-          _dbus_string_shorten (&iter->message->signature, 1);
+          _dbus_string_shorten (&iter->message->body, 1);
           return FALSE;
         }
       break;
@@ -3642,7 +3780,7 @@ append_array_type (DBusMessageRealIter *real,
 	*array_type_pos = _dbus_string_get_length (&real->message->body);
 
 
-      if (!_dbus_string_append_byte (&real->message->signature, element_type))
+      if (!_dbus_message_append_byte_to_signature (real->message, element_type))
         {
           _dbus_string_set_length (&real->message->body, real->pos);
           return FALSE;
@@ -3651,7 +3789,7 @@ append_array_type (DBusMessageRealIter *real,
       /* Append element type */
       if (!_dbus_string_append_byte (&real->message->body, element_type))
 	{
-          _dbus_string_shorten (&real->message->signature, 1);
+          _dbus_message_remove_byte_from_signature (real->message);
 	  _dbus_string_set_length (&real->message->body, real->pos);
 	  return FALSE;
 	}
@@ -3662,9 +3800,9 @@ append_array_type (DBusMessageRealIter *real,
       if (element_type != DBUS_TYPE_ARRAY &&
 	  !array_iter_type_mark_done (real))
         {
-          _dbus_string_shorten (&real->message->signature, 1);
+          _dbus_message_remove_byte_from_signature (real->message);
           return FALSE;
-        }        
+        }
     }
 
   return TRUE;
@@ -4159,7 +4297,7 @@ dbus_message_iter_append_object_path_array (DBusMessageIter *iter,
  * Sets the message sender.
  *
  * @param message the message
- * @param sender the sender
+ * @param sender the sender or #NULL to unset
  * @returns #FALSE if not enough memory
  */
 dbus_bool_t
@@ -4303,8 +4441,10 @@ const char*
 dbus_message_get_signature (DBusMessage *message)
 {
   _dbus_return_val_if_fail (message != NULL, NULL);
-  
-  return _dbus_string_get_const_data (&message->signature);
+
+  return get_string_field (message, 
+			   DBUS_HEADER_FIELD_SIGNATURE,
+			   NULL);
 }
 
 static dbus_bool_t
@@ -4493,10 +4633,17 @@ dbus_bool_t
 dbus_message_has_signature (DBusMessage   *message,
                             const char    *signature)
 {
+  const char *s;
+
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_fail (signature != NULL, FALSE);
+  
+  s = dbus_message_get_signature (message);
 
-  return _dbus_string_equal_c_str (&message->signature, signature);
+  if (s && strcmp (s, signature) == 0)
+    return TRUE;
+  else
+    return FALSE;
 }
 
 /**
@@ -4779,6 +4926,7 @@ decode_header_data (const DBusString   *data,
   int i;
   int field;
   int type;
+  dbus_bool_t signature_required;
   
   if (header_len < 16)
     {
@@ -4964,6 +5112,23 @@ decode_header_data (const DBusString   *data,
                          fields[field].value_offset);
 	  break;
 
+	case DBUS_HEADER_FIELD_SIGNATURE:
+          if (!decode_string_field (data, field, &fields[field],
+				    &field_data, pos, type))
+            return FALSE;
+
+#if 0
+          /* FIXME */
+	  if (!_dbus_string_validate_signature (&field_data, 0,
+                                                _dbus_string_get_length (&field_data)))
+	    {
+	      _dbus_verbose ("signature field has invalid content \"%s\"\n",
+			     _dbus_string_get_const_data (&field_data));
+	      return FALSE;
+	    }
+#endif
+	  break;
+          
         default:
 	  _dbus_verbose ("Ignoring an unknown header field: %d at offset %d\n",
 			 field, pos);
@@ -4990,6 +5155,8 @@ decode_header_data (const DBusString   *data,
     }
 
   /* Depending on message type, enforce presence of certain fields. */
+  signature_required = TRUE;
+  
   switch (message_type)
     {
     case DBUS_MESSAGE_TYPE_SIGNAL:
@@ -5032,7 +5199,18 @@ decode_header_data (const DBusString   *data,
       break;
     default:
       /* An unknown type, spec requires us to ignore it */
+      signature_required = FALSE;
       break;
+    }
+
+  /* FIXME allow omitting signature field for a message with no arguments? */
+  if (signature_required)
+    {
+      if (fields[DBUS_HEADER_FIELD_SIGNATURE].value_offset < 0)
+        {
+          _dbus_verbose ("No signature field provided\n");
+          return FALSE;
+        }
     }
   
   if (message_padding)
@@ -5201,60 +5379,7 @@ load_one_message (DBusMessageLoader *loader,
       loader->corrupted = TRUE;
       goto failed;
     }
-          
-  /* Fill in signature (FIXME should do this during validation,
-   * but I didn't want to spend time on it since we want to change
-   * the wire format to contain the signature anyway)
-   */
-  {
-    DBusMessageIter iter;
-
-    dbus_message_iter_init (message, &iter);
-
-    do
-      {
-        int t;
-
-        t = dbus_message_iter_get_arg_type (&iter);
-        if (t == DBUS_TYPE_INVALID)
-          break;
-
-        if (!_dbus_string_append_byte (&message->signature,
-                                       t))
-          {
-            _dbus_verbose ("failed to append type byte to signature\n");
-            oom = TRUE;
-            goto failed;
-          }
-
-        if (t == DBUS_TYPE_ARRAY)
-          {
-            DBusMessageIter child_iter;
-            int array_type = t;
-
-            child_iter = iter;
-                    
-            while (array_type == DBUS_TYPE_ARRAY)
-              {
-                DBusMessageIter parent_iter = child_iter;
-                dbus_message_iter_init_array_iterator (&parent_iter,
-                                                       &child_iter,
-                                                       &array_type);
-                                            
-                if (!_dbus_string_append_byte (&message->signature,
-                                               array_type))
-                  {
-                    _dbus_verbose ("failed to append array type byte to signature\n");
-
-                    oom = TRUE;
-                    goto failed;
-                  }
-              }
-          }
-      }
-    while (dbus_message_iter_next (&iter));
-  }
-          
+  
   _dbus_verbose ("Loaded message %p\n", message);
 
   _dbus_assert (!oom);
@@ -6988,9 +7113,6 @@ _dbus_message_test (const char *test_data_dir)
 
   _dbus_assert (_dbus_string_get_length (&message->body) ==
                 _dbus_string_get_length (&copy->body));
-
-  _dbus_assert (_dbus_string_get_length (&message->signature) ==
-                _dbus_string_get_length (&copy->signature));
   
   verify_test_message (copy);
 

@@ -1,3 +1,22 @@
+2004-06-07  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-message-builder.c (_dbus_message_data_load): append
+	random signature when using REQUIRED_FIELDS (this hack won't work
+	in the long term)
+
+	* dbus/dbus-message.c: change the signature to be a header field,
+	instead of message->signature special-case string. Incremental
+	step forward. Then we can fix up code to send the signature in the
+	message, then fix up code to validate said signature, then fix up
+	code to not put the typecodes inline, etc.
+	(load_one_message): don't make up the signature after the fact
+	(decode_header_data): require signature field for the known
+	message types
+
+	* dbus/dbus-marshal.c (_dbus_marshal_string_len): new
+
+	* dbus/dbus-protocol.h: add DBUS_HEADER_FIELD_SIGNATURE
+
 2004-06-07  Owen Fraser-Green  <owen@discobabe.net>
 
 	* mono/DBusType/ObjectPath.cs: Renamed PathName argument to Path

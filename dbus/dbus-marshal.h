@@ -184,6 +184,10 @@ dbus_bool_t   _dbus_marshal_double         (DBusString            *str,
 dbus_bool_t   _dbus_marshal_string         (DBusString            *str,
 					    int                    byte_order,
 					    const char            *value);
+dbus_bool_t   _dbus_marshal_string_len     (DBusString            *str,
+					    int                    byte_order,
+					    const char            *value,
+                                            int                    len);
 dbus_bool_t   _dbus_marshal_basic_type     (DBusString            *str,
 					    char                   type,
 					    void                  *value,

@@ -17,7 +17,7 @@ quit (void)
 static void
 die (const char *message)
 {
-  fprintf (stderr, "*** %s", message);
+  fprintf (stderr, "*** test-service: %s", message);
   exit (1);
 }
 
