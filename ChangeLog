@@ -1,5 +1,10 @@
 2004-07-24  Havoc Pennington  <hp@redhat.com>
 
+	* AUTHORS: add some people, not really comprehensively, let me
+	know if I missed you
+
+2004-07-24  Havoc Pennington  <hp@redhat.com>
+
 	* Makefile.am (DIST_SUBDIRS): add DIST_SUBDIRS, problem solved by
 	Owen
 
