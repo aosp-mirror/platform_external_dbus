@@ -1,3 +1,10 @@
+2003-02-12  Anders Carlsson  <andersca@codefactory.se>
+
+	* bus/Makefile.am:
+	* bus/desktop-file.c:
+	* bus/desktop-file.h:
+	Add a desktop file parser.
+
 2003-02-11  Zack Rusin  <zack@kde.org>
 
 	* qt/message.[h|cpp]: sample implementation
