@@ -71,14 +71,17 @@ extern "C" {
 #define DBUS_HEADER_FLAG_NO_REPLY_EXPECTED 0x1
   
 /* Header fields */
-#define DBUS_HEADER_FIELD_PATH           "path"
-#define DBUS_HEADER_FIELD_INTERFACE      "ifce"
-#define DBUS_HEADER_FIELD_MEMBER         "mebr"
-#define DBUS_HEADER_FIELD_ERROR_NAME     "ernm"
-#define DBUS_HEADER_FIELD_SERVICE        "srvc"
-#define DBUS_HEADER_FIELD_REPLY	         "rply"
-#define DBUS_HEADER_FIELD_SENDER_SERVICE "sdrs"
+#define DBUS_HEADER_FIELD_INVALID        0
+#define DBUS_HEADER_FIELD_PATH           1
+#define DBUS_HEADER_FIELD_INTERFACE      2
+#define DBUS_HEADER_FIELD_MEMBER         3
+#define DBUS_HEADER_FIELD_ERROR_NAME     4
+#define DBUS_HEADER_FIELD_REPLY_SERIAL   5
+#define DBUS_HEADER_FIELD_SERVICE        6
+#define DBUS_HEADER_FIELD_SENDER_SERVICE 7
 
+#define DBUS_HEADER_FIELD_LAST DBUS_HEADER_FIELD_SENDER_SERVICE
+  
 /* Services */
 #define DBUS_SERVICE_ORG_FREEDESKTOP_DBUS      "org.freedesktop.DBus"
 #define DBUS_SERVICE_ORG_FREEDESKTOP_BROADCAST "org.freedesktop.Broadcast"

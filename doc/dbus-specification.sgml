@@ -257,22 +257,22 @@
         In addition to the required header information mentioned 
         in <xref linkend="message-protocol-header-encoding">, 
           the header may contain zero or more named 
-          header fields. These fields are named to allow 
-          future versions of this protocol specification to 
-          add new fields; implementations must ignore fields 
-          they do not understand. Implementations must not 
-          invent their own header fields; only changes to 
+          header fields. Future versions of this protocol
+          specification may add new fields. Implementations must
+          ignore fields they do not understand. Implementations
+          must not invent their own header fields; only changes to 
           this specification may introduce new header fields.
       </para>
 
       <para>
-        Header field names MUST consist of 4 non-nul bytes.  The field name is
-        NOT nul terminated; it occupies exactly 4 bytes. Following the name, the
-        field MUST have a type code represented as a single unsigned byte, and
-        then a properly-aligned value of that type.  See <xref
-        linkend="message-protocol-arguments"> for a description of how each type
-        is encoded. If an implementation sees a header field name that it does
-        not understand, it MUST ignore that field.
+        Header fields MUST be aligned to a 4-byte boundary. Header field
+        names MUST consist of a single byte, possible values of which are
+        defined below. Following the name, the field MUST have a type code
+        represented as a single unsigned byte, and then a properly-aligned
+        value of that type.  See <xref
+        linkend="message-protocol-arguments"> for a description of how each
+        type is encoded. If an implementation sees a header field name that
+        it does not understand, it MUST ignore that field.
       </para>
 
       <para>
@@ -281,51 +281,65 @@
           <tgroup cols=3>
             <thead>
               <row>
-                <entry>Name</entry>
+                <entry>Conventional Name</entry>
+		<entry>Decimal Value</entry>
                 <entry>Type</entry>
                 <entry>Description</entry>
               </row>
             </thead>
             <tbody>
               <row>
-                <entry>path</entry>
+                <entry>INVALID</entry>
+		<entry>0</entry>
+                <entry>INVALID</entry>
+                <entry>Not a valid field name (error if it appears in a message)</entry>
+              </row>
+              <row>
+                <entry>PATH</entry>
+		<entry>1</entry>
                 <entry>STRING</entry>
                 <entry>The object to send the message to; objects are identified by 
                 a path, "/foo/bar"</entry>
               </row>
               <row>
-                <entry>ifce</entry>
+                <entry>INTERFACE</entry>
+		<entry>2</entry>
                 <entry>STRING</entry>
                 <entry>The interface to invoke a method call on, or 
                 that a signal is emitted from. e.g. "org.freedesktop.Introspectable"</entry>
               </row>
               <row>
-                <entry>mebr</entry>
+                <entry>MEMBER</entry>
+		<entry>3</entry>
                 <entry>STRING</entry>
                 <entry>The member, either the method name or signal name. 
                 e.g. "Frobate"</entry>
               </row>
               <row>
-                <entry>ernm</entry>
+                <entry>ERROR_NAME</entry>
+		<entry>4</entry>
                 <entry>STRING</entry>
                 <entry>The name of the error that occurred, for errors</entry>
               </row>
               <row>
-                <entry>rply</entry>
+                <entry>REPLY_SERIAL</entry>
+		<entry>5</entry>
                 <entry>UINT32</entry>
                 <entry>The serial number of the message this message is a reply
                 to. (The serial number is one of the mandatory header fields,
                 see <xref linkend="message-protocol-header-encoding">.)</entry>
               </row>
               <row>
-                <entry>srvc</entry>
+                <entry>SERVICE</entry>
+		<entry>6</entry>
                 <entry>STRING</entry>
                 <entry>The name of the service this message should be routed to. 
                 Only used in combination with the message bus, see 
                 <xref linkend="message-bus">.</entry>
               </row>
               <row>
-                <entry>sdrs</entry>
+                <entry>SENDER_SERVICE</entry>
+		<entry>7</entry>
                 <entry>STRING</entry>
                 <entry>Sender service. The name of the base service that sent
                 this message.  The message bus fills in this field; the field is
@@ -595,24 +609,24 @@
           messages map naturally to methods on objects in a typical program.
         </para>
         <para>
-          A method call message is expected to have a 'mebr' header field
+          A method call message is expected to have a MEMBER header field
           indicating the name of the method. Optionally, the message has an
-          'ifce' field giving the interface the method is a part of. In the
-          absence of an 'ifce' field, if two interfaces on the same object have
+          INTERFACE field giving the interface the method is a part of. In the
+          absence of an INTERFACE field, if two interfaces on the same object have
           a method with the same name, it is undefined which of the two methods
           will be invoked. Implementations may also choose to return an error in
           this ambiguous case. However, if a method name is unique
           implementations should not require an interface field.
         </para>
         <para>
-          Method call messages also include a 'path' field indicating the 
+          Method call messages also include a PATH field indicating the 
           object to invoke the method on. If the call is passing through 
-          a message bus, the message will also have a 'srvc' field giving 
+          a message bus, the message will also have a SERVICE field giving 
           the service to receive the message.
         </para>
         <para>
           When an application handles a method call message, it is expected to
-          return a reply. The reply is identified by a 'rply' header field
+          return a reply. The reply is identified by a REPLY_SERIAL header field
           indicating the serial number of the METHOD_CALL being replied to. The
           reply can have one of two types; either METHOD_RETURN or ERROR.
         </para>
@@ -673,9 +687,9 @@
         <para>
           Unlike method calls, signal emissions have no replies. 
           A signal emission is simply a single message of type SIGNAL.
-          It must have three header fields: 'path' giving the object 
-          the signal was emitted from, plus 'ifce' and 'mebr' giving the 
-          fully-qualified name of the signal.
+          It must have three header fields: PATH giving the object 
+          the signal was emitted from, plus INTERFACE and MEMBER giving
+          the fully-qualified name of the signal.
         </para>
       </sect3>
 
@@ -688,9 +702,9 @@
             org.freedesktop.DBus.ActivateService (in STRING service_name, in UINT32 flags,
                                                   out UINT32 resultcode)
           </programlisting>
-          This means ifce = org.freedesktop.DBus, mebr = ActivateService, 
+          This means INTERFACE = org.freedesktop.DBus, MEMBER = ActivateService, 
           METHOD_CALL arguments are STRING and UINT32, METHOD_RETURN argument
-          is UINT32. Remember that the 'mebr' field can't contain any '.' (period)
+          is UINT32. Remember that the MEMBER field can't contain any '.' (period)
           characters so it's known that the last part of the name in
           the "IDL" is the member name.
         </para>
@@ -1270,18 +1284,18 @@
         the new owner of the service.
       </para>
       <para>
-        Messages may have a <literal>srvc</literal> field (see <xref
+        Messages may have a <literal>SERVICE</literal> field (see <xref
                                                                   linkend="message-protocol-header-fields">).  When the message bus
-          receives a message, if the <literal>srvc</literal> field is absent, the
+          receives a message, if the <literal>SERVICE</literal> field is absent, the
           message is taken to be a standard peer-to-peer message and interpreted
           by the message bus itself. For example, sending
           an <literal>org.freedesktop.Peer.Ping</literal> message with no 
-          <literal>srvc</literal> will cause the message bus itself to reply 
+          <literal>SERVICE</literal> will cause the message bus itself to reply 
           to the ping immediately; the message bus would never make 
           this message visible to other applications.
       </para>
       <para>
-        If the <literal>srvc</literal> field is present, then it indicates a
+        If the <literal>SERVICE</literal> field is present, then it indicates a
         request for the message bus to route the message. In the usual case,
         messages are routed to the owner of the named service.
         Messages may also be <firstterm>broadcast</firstterm>
@@ -1292,7 +1306,7 @@
       </para>
       <para>
         Continuing the <literal>org.freedesktop.Peer.Ping</literal> example, if
-        the ping message were sent with a <literal>srvc</literal> name of
+        the ping message were sent with a <literal>SERVICE</literal> name of
         <literal>com.yoyodyne.Screensaver</literal>, then the ping would be
         forwarded, and the Yoyodyne Corporation screensaver application would be
         expected to reply to the ping. If

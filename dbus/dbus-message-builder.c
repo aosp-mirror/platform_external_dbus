@@ -294,7 +294,7 @@ message_type_from_string (const DBusString *str,
 static dbus_bool_t
 append_string_field (DBusString *dest,
                      int         endian,
-                     const char *field_name,
+                     int         field,
                      int         type,
                      const char *value)
 {
@@ -306,9 +306,9 @@ append_string_field (DBusString *dest,
       return FALSE;
     }
 
-  if (!_dbus_string_append (dest, field_name))
+  if (!_dbus_string_append_byte (dest, field))
     {
-      _dbus_warn ("couldn't append field name\n");
+      _dbus_warn ("couldn't append field name byte\n");
       return FALSE;
     }
   
@@ -363,7 +363,7 @@ append_string_field (DBusString *dest,
  *                     (or if no START_LENGTH, absolute length)
  *   LENGTH <name> inserts the saved length of the same name
  *   CHOP <N> chops last N bytes off the data
- *   FIELD_NAME <abcd> inserts 4-byte field name
+ *   HEADER_FIELD <fieldname> inserts a header field name byte
  *   TYPE <typename> inserts a typecode byte 
  * @endcode
  * 
@@ -679,14 +679,34 @@ _dbus_message_data_load (DBusString       *dest,
           PERFORM_UNALIGN (dest);
         }
       else if (_dbus_string_starts_with_c_str (&line,
-                                               "FIELD_NAME"))
+                                               "HEADER_FIELD"))
         {
+	  int field;
+
           _dbus_string_delete_first_word (&line);
 
-          if (_dbus_string_get_length (&line) != 4)
+          if (_dbus_string_starts_with_c_str (&line, "INVALID"))
+            field = DBUS_HEADER_FIELD_INVALID;
+          else if (_dbus_string_starts_with_c_str (&line, "PATH"))
+	    field = DBUS_HEADER_FIELD_PATH;
+          else if (_dbus_string_starts_with_c_str (&line, "INTERFACE"))
+	    field = DBUS_HEADER_FIELD_INTERFACE;
+          else if (_dbus_string_starts_with_c_str (&line, "MEMBER"))
+	    field = DBUS_HEADER_FIELD_MEMBER;
+          else if (_dbus_string_starts_with_c_str (&line, "ERROR_NAME"))
+	    field = DBUS_HEADER_FIELD_ERROR_NAME;
+          else if (_dbus_string_starts_with_c_str (&line, "REPLY_SERIAL"))
+	    field = DBUS_HEADER_FIELD_REPLY_SERIAL;
+          else if (_dbus_string_starts_with_c_str (&line, "SERVICE"))
+	    field = DBUS_HEADER_FIELD_SERVICE;
+          else if (_dbus_string_starts_with_c_str (&line, "SENDER_SERVICE"))
+	    field = DBUS_HEADER_FIELD_SENDER_SERVICE;
+	  else if (_dbus_string_starts_with_c_str (&line, "UNKNOWN"))
+	    field = 22; /* random unknown header field */
+          else
             {
-              _dbus_warn ("Field name must be four characters not \"%s\"\n",
-                          _dbus_string_get_const_data (&line));
+              _dbus_warn ("%s is not a valid header field name\n",
+			  _dbus_string_get_const_data (&line));
               goto parse_failed;
             }
 
@@ -694,10 +714,12 @@ _dbus_message_data_load (DBusString       *dest,
             unalign = FALSE;
           else
             _dbus_string_align_length (dest, 4);
-          
-          if (!_dbus_string_copy (&line, 0, dest,
-                                  _dbus_string_get_length (dest)))
-            goto parse_failed;
+
+          if (!_dbus_string_append_byte (dest, field))
+	    {
+              _dbus_warn ("could not append header field name byte\n");
+	      goto parse_failed;
+	    }
         }
       else if (_dbus_string_starts_with_c_str (&line,
                                                "TYPE"))

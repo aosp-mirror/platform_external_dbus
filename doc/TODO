@@ -86,3 +86,6 @@
  - I don't want to introduce DBusObject, but refcounting and object
    data could still be factored out into an internal "base class" 
    perhaps.
+
+ - Header fields names are required to be aligned on a 4 byte boundary
+   at the moment. No alignment should be neccessary.

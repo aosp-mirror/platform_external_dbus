@@ -1,14 +1,14 @@
 ## message that's missing an expected body
 
 VALID_HEADER method_call
-FIELD_NAME ifce
+HEADER_FIELD INTERFACE
 TYPE STRING
 STRING 'org.freedesktop.Foo'
-FIELD_NAME mebr
+HEADER_FIELD MEMBER
 TYPE STRING
 STRING 'Bar'
-END_LENGTH Header
 ALIGN 8
+END_LENGTH Header
 
 ## create the body, then chop it off
 START_LENGTH Body

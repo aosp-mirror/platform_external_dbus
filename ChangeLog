@@ -1,3 +1,39 @@
+2003-09-21  Mark McLoughlin  <mark@skynet.ie>
+
+	* doc/dbus-specification.sgml: Change the header field name
+	to be an enum and update the rest of the spec to reference
+	the fields using the conventinal name.
+
+	* dbus/dbus-protocol.h: update to reflect the spec.
+
+	* doc/TODO: add item to remove the 4 byte alignment requirement.
+	
+	* dbus/dbus-message.c: Remove the code to generalise the
+	header/body length and serial number header fields as named
+	header fields so we can reference field names using the 
+	protocol values.
+	(append_int_field), (append_uint_field), (append_string_field):
+	Append the field name as a byte rather than four chars.
+	(delete_int_or_uint_field), (delete_string_field): reflect the
+	fact that the field name and typecode now occupy 4 bytes instead
+	of 8.
+	(decode_string_field), (decode_header_data): update to reflect
+	protocol changes and move the field specific encoding from
+	decode_string_field() back into decode_header_data().
+	
+	* dbus/dbus-internals.[ch]: (_dbus_header_field_to_string):
+	Add utility to aid debugging.
+	
+	* dbus/dbus-message-builder.c:
+	(append_string_field), (_dbus_message_data_load): Update to
+	reflect protocol changes; Change the FIELD_NAME directive
+	to HEADER_FIELD and allow it to take the field's conventional
+	name rather than the actual value.
+	
+	* test/data/*/*.message: Update to use HEADER_FIELD instead
+	of FIELD_NAME; Always align the header on an 8 byte boundary
+	*before* updating the header length.
+
 2003-09-15  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-pending-call.c: add the get/set object data
