@@ -1,5 +1,7 @@
 2003-03-05  Anders Carlsson  <andersca@codefactory.se>
 
+	* configure.in: Check for gethostbyname on Solaris.
+
 	* dbus/dbus-transport.c: (_dbus_transport_open):
 	Remove duplicate "tcp" entry.
 	

@@ -132,6 +132,7 @@ AC_CHECK_SIZEOF(__int64)
 AC_C_BIGENDIAN
 
 AC_CHECK_LIB(socket,socket)
+AC_CHECK_LIB(nsl,gethostbyname)
 
 AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv)
 
