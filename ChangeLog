@@ -1,5 +1,22 @@
 2003-02-21  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/dbus-message.c: (dbus_message_append_nil),
+	(dbus_message_append_int32), (dbus_message_append_uint32),
+	(dbus_message_append_double), (dbus_message_append_string),
+	(dbus_message_append_int32_array),
+	(dbus_message_append_uint32_array),
+	(dbus_message_append_double_array),
+	(dbus_message_append_byte_array),
+	(dbus_message_append_string_array):
+	Fix all out-of-memory handling in these functions.
+
+2003-02-21  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-message.c: (dbus_message_append_nil):
+	Fix a silly.
+	
+2003-02-21  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-message.c: (dbus_message_append_args_valist),
 	(dbus_message_append_nil), (dbus_message_append_int32_array),
 	(dbus_message_append_uint32_array),
@@ -11,6 +28,7 @@
 	(dbus_message_iter_get_double_array),
 	(dbus_message_iter_get_byte_array),
 	(dbus_message_iter_get_string_array):
+
 	* dbus/dbus-message.h:
 	Add functions for appending and getting arrays.
 	

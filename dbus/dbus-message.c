@@ -1151,12 +1151,9 @@ dbus_message_append_nil (DBusMessage *message)
   _dbus_assert (!message->locked);
 
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_NIL))
-    {
-      _dbus_string_shorten (&message->body, 1);
       return FALSE;
-    }
-
-  return TRUE;
+  else
+    return TRUE;
 }
 
 /**
@@ -1173,13 +1170,15 @@ dbus_message_append_int32 (DBusMessage  *message,
   _dbus_assert (!message->locked);
 
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_INT32))
+      return FALSE;
+  
+  if (!_dbus_marshal_int32 (&message->body, message->byte_order, value))
     {
       _dbus_string_shorten (&message->body, 1);
       return FALSE;
     }
-  
-  return _dbus_marshal_int32 (&message->body,
-			      message->byte_order, value);
+
+  return TRUE;
 }
 
 /**
@@ -1196,13 +1195,15 @@ dbus_message_append_uint32 (DBusMessage   *message,
   _dbus_assert (!message->locked);
 
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_UINT32))
+      return FALSE;
+  
+  if (!_dbus_marshal_uint32 (&message->body, message->byte_order, value))
     {
       _dbus_string_shorten (&message->body, 1);
       return FALSE;
     }
-  
-  return _dbus_marshal_uint32 (&message->body,
-			       message->byte_order, value);
+
+  return TRUE;      
 }
 
 /**
@@ -1219,13 +1220,15 @@ dbus_message_append_double (DBusMessage *message,
   _dbus_assert (!message->locked);
 
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_DOUBLE))
+    return FALSE;
+
+  if (!_dbus_marshal_double (&message->body, message->byte_order, value))
     {
       _dbus_string_shorten (&message->body, 1);
       return FALSE;
     }
   
-  return _dbus_marshal_double (&message->body,
-			       message->byte_order, value);
+  return TRUE;
 }
 
 /**
@@ -1242,13 +1245,15 @@ dbus_message_append_string (DBusMessage *message,
   _dbus_assert (!message->locked);
 
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_STRING))
+      return FALSE;
+  
+  if (!_dbus_marshal_string (&message->body, message->byte_order, value))
     {
       _dbus_string_shorten (&message->body, 1);
-      return FALSE;
+      return FALSE;      
     }
-  
-  return _dbus_marshal_string (&message->body,
-			       message->byte_order, value);
+
+  return TRUE;
 }
 
 /**
@@ -1264,23 +1269,18 @@ dbus_message_append_int32_array (DBusMessage        *message,
 				 const dbus_int32_t *value,
 				 int                 len)
 {
-  int old_len;
-
   _dbus_assert (!message->locked);
 
-  old_len = _dbus_string_get_length (&message->body);
-
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_INT32_ARRAY))
-    goto enomem;
+    return FALSE;
 
   if (!_dbus_marshal_int32_array (&message->body, message->byte_order,
 				  value, len))
-    goto enomem;
+    {
+      _dbus_string_shorten (&message->body, 1);
+      return FALSE;
+    }
 
-  return TRUE;
-
- enomem:
-  _dbus_string_set_length (&message->body, old_len);
   return TRUE;
 }
 
@@ -1297,23 +1297,18 @@ dbus_message_append_uint32_array (DBusMessage         *message,
 				  const dbus_uint32_t *value,
 				  int                  len)
 {
-  int old_len;
-
   _dbus_assert (!message->locked);
 
-  old_len = _dbus_string_get_length (&message->body);
-
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_UINT32_ARRAY))
-    goto enomem;
+    return FALSE;
 
   if (!_dbus_marshal_uint32_array (&message->body, message->byte_order,
 				  value, len))
-    goto enomem;
+    {
+      _dbus_string_shorten (&message->body, 1);
+      return FALSE;
+    }
 
-  return TRUE;
-
- enomem:
-  _dbus_string_set_length (&message->body, old_len);
   return TRUE;
 }
 
@@ -1330,24 +1325,19 @@ dbus_message_append_double_array (DBusMessage  *message,
 				  const double *value,
 				  int           len)
 {
-  int old_len;
-
   _dbus_assert (!message->locked);
 
-  old_len = _dbus_string_get_length (&message->body);
-
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_DOUBLE_ARRAY))
-    goto enomem;
+    return FALSE;
 
   if (!_dbus_marshal_double_array (&message->body, message->byte_order,
 				   value, len))
-    goto enomem;
+    {
+      _dbus_string_shorten (&message->body, 1);
+      return FALSE;
+    }
 
   return TRUE;
-
- enomem:
-  _dbus_string_set_length (&message->body, old_len);
-  return TRUE;  
 }
 
 /**
@@ -1363,23 +1353,18 @@ dbus_message_append_byte_array (DBusMessage         *message,
 				unsigned const char *value,
 				int                 len)
 {
-  int old_len;
-  
   _dbus_assert (!message->locked);
 
-  old_len = _dbus_string_get_length (&message->body);
-  
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_BYTE_ARRAY))
-      goto enomem;
+    return FALSE;
   
   if (!_dbus_marshal_byte_array (&message->body, message->byte_order, value, len))
-    goto enomem;
-
+    {
+      _dbus_string_shorten (&message->body, 1);
+      return FALSE;
+    }
+      
   return TRUE;
-  
- enomem:
-  _dbus_string_set_length (&message->body, old_len);
-  return FALSE;
 }
 
 /**
@@ -1395,24 +1380,19 @@ dbus_message_append_string_array (DBusMessage *message,
 				  const char **value,
 				  int          len)
 {
-  int old_len;
-
   _dbus_assert (!message->locked);
 
-  old_len = _dbus_string_get_length (&message->body);
-
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_STRING_ARRAY))
-    goto enomem;
+    return FALSE;
 
   if (!_dbus_marshal_string_array (&message->body, message->byte_order,
 				   value, len))
-    goto enomem;
+    {
+      _dbus_string_shorten (&message->body, 1);
+      return FALSE;
+    }
 
   return TRUE;
-
- enomem:
-  _dbus_string_set_length (&message->body, old_len);
-  return FALSE;
 }
 
 /**
