@@ -17,8 +17,10 @@ dbus_gvalue_demarshal (DBusMessageIter *iter, GValue *value)
     MAP(TYPE_BOOLEAN, get_boolean, TYPE_BOOLEAN , set_boolean);
     MAP(TYPE_INT32, get_int32, TYPE_INT , set_int);
     MAP(TYPE_UINT32, get_uint32, TYPE_UINT , set_uint);
+#ifdef DBUS_HAVE_INT64
     MAP(TYPE_INT64, get_int64, TYPE_INT64 , set_int64);
     MAP(TYPE_UINT64, get_uint64, TYPE_UINT64 , set_uint64);
+#endif
     MAP(TYPE_DOUBLE, get_double, TYPE_DOUBLE , set_double);
     case DBUS_TYPE_STRING:
       {
@@ -82,6 +84,7 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
       dbus_message_iter_append_uint32 (iter,
                                        g_value_get_ulong (value));
       break;
+#ifdef DBUS_HAVE_INT64
     case G_TYPE_INT64:
       dbus_message_iter_append_int64 (iter,
                                       g_value_get_int64 (value));
@@ -90,6 +93,7 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
       dbus_message_iter_append_uint64 (iter,
                                        g_value_get_uint64 (value));
       break;
+#endif
     case G_TYPE_FLOAT:
       dbus_message_iter_append_double (iter,
                                        g_value_get_float (value));

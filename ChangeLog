@@ -1,3 +1,27 @@
+2004-05-28  Michael Meeks  <michael@ximian.com>
+
+	* glib/dbus-gvalue.c (dbus_gvalue_marshal, dbus_gvalue_demarshal): 
+	fix no int64 case.
+
+	* dbus/dbus-string.c (_dbus_string_parse_basic_type): impl.
+
+	* dbus/dbus-message.c (_dbus_message_iter_get_basic_type),
+	(_dbus_message_iter_get_basic_type_array): impl.
+	drastically simplify ~all relevant _get methods to use these.
+	(_dbus_message_iter_append_basic_array),
+	(dbus_message_iter_append_basic): impl
+	drastically simplify ~all relevant _append methods to use these.
+
+	* dbus/dbus-message-builder.c (parse_basic_type) 
+	(parse_basic_array, lookup_basic_type): impl.
+	(_dbus_message_data_load): prune scads of duplicate /
+	cut & paste coding.
+
+	* dbus/dbus-marshal.c (_dbus_demarshal_basic_type_array) 
+	(_dbus_demarshal_basic_type): implement,
+	(demarshal_and_validate_len/arg): beef up debug.
+	(_dbus_marshal_basic_type, _dbus_marshal_basic_type_array): impl.
+
 2004-05-27  Seth Nickell  <seth@gnome.org>
 
 	* configure.in:

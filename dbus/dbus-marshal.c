@@ -1068,6 +1068,61 @@ _dbus_demarshal_uint64  (const DBusString *str,
 #endif /* DBUS_HAVE_INT64 */
 
 /**
+ * Demarshals a basic type
+ *
+ * @param str the string containing the data
+ * @param type type of value to demarshal
+ * @param value pointer to return value data
+ * @param byte_order the byte order
+ * @param pos pointer to position in the string,
+ *            updated on return to new position
+ **/
+void
+_dbus_demarshal_basic_type (const DBusString      *str,
+			    int                    type,
+			    void                  *value,
+			    int                    byte_order,
+			    int                   *pos)
+{
+  const char *str_data = _dbus_string_get_const_data (str);
+
+  switch (type)
+    {
+    case DBUS_TYPE_BYTE:
+    case DBUS_TYPE_BOOLEAN:
+      *(unsigned char *) value = _dbus_string_get_byte (str, *pos);
+      (*pos)++;
+      break;
+    case DBUS_TYPE_INT32:
+    case DBUS_TYPE_UINT32:
+      *pos = _DBUS_ALIGN_VALUE (*pos, 4);
+      *(dbus_uint32_t *) value = *(dbus_uint32_t *)(str_data + *pos);
+      if (byte_order != DBUS_COMPILER_BYTE_ORDER)
+	*(dbus_uint32_t *) value = DBUS_UINT32_SWAP_LE_BE (*(dbus_uint32_t *) value);
+      *pos += 4;
+      break;
+#ifdef DBUS_HAVE_INT64
+    case DBUS_TYPE_INT64:
+    case DBUS_TYPE_UINT64: 
+#endif /* DBUS_HAVE_INT64 */
+    case DBUS_TYPE_DOUBLE:
+      *pos = _DBUS_ALIGN_VALUE (*pos, 8);
+      memcpy (value, str_data + *pos, 8);
+      if (byte_order != DBUS_COMPILER_BYTE_ORDER)
+#ifdef DBUS_HAVE_INT64
+	*(dbus_uint64_t *) value = DBUS_UINT64_SWAP_LE_BE (*(dbus_uint64_t *) value);
+#else	
+	swap_bytes (value, 8);
+#endif
+      *pos += 8;
+      break;
+    default:
+      _dbus_assert_not_reached ("not a basic type");
+      break;
+    }
+}
+
+/**
  * Demarshals an UTF-8 string.
  *
  * @todo Should we check the string to make sure
@@ -1390,6 +1445,53 @@ _dbus_demarshal_double_array (const DBusString  *str,
 {
   return demarshal_8_octets_array (str, byte_order, pos, new_pos,
                                    (DBusOctets8**) array, array_len);
+}
+
+
+/**
+ * Demarshals an array of basic types
+ *
+ * @param str the string containing the data
+ * @param element_type type of array elements to demarshal
+ * @param array pointer to pointer to array data
+ * @param array_len pointer to array length
+ * @param byte_order the byte order
+ * @param pos pointer to position in the string,
+ *            updated on return to new position
+ **/
+dbus_bool_t
+_dbus_demarshal_basic_type_array (const DBusString      *str,
+				  int                    element_type,
+				  void                 **array,
+				  int                   *array_len,
+				  int                    byte_order,
+				  int                   *pos)
+{
+  switch (element_type)
+    {
+    case DBUS_TYPE_BOOLEAN:
+      /* FIXME: do we want to post-normalize these ? */
+    case DBUS_TYPE_BYTE:
+      return _dbus_demarshal_byte_array (str, byte_order, *pos, pos,
+					 (unsigned char **)array, array_len);
+      break;
+    case DBUS_TYPE_INT32:
+    case DBUS_TYPE_UINT32:
+      return demarshal_4_octets_array (str, byte_order, *pos, pos,
+				       (dbus_uint32_t *) array, array_len);
+      break;
+#ifdef DBUS_HAVE_INT64
+    case DBUS_TYPE_INT64:
+    case DBUS_TYPE_UINT64: 
+#endif /* DBUS_HAVE_INT64 */
+    case DBUS_TYPE_DOUBLE:
+      return demarshal_8_octets_array (str, byte_order, *pos, pos,
+				       (DBusOctets8**) array, array_len);
+    default:
+      _dbus_assert_not_reached ("not a basic type");
+      break;
+    }
+  return FALSE;
 }
 
 /**
@@ -1725,7 +1827,7 @@ demarshal_and_validate_len (const DBusString *str,
   if (!_dbus_string_validate_nul (str, pos,
                                   align_4 - pos))
     {
-      _dbus_verbose ("array length alignment padding not initialized to nul\n");
+      _dbus_verbose ("array length alignment padding not initialized to nul at %d\n", pos);
       return -1;
     }
 
@@ -1740,8 +1842,8 @@ demarshal_and_validate_len (const DBusString *str,
 #define MAX_ARRAY_LENGTH (((unsigned int)_DBUS_INT_MAX) / 32)
   if (len > MAX_ARRAY_LENGTH)
     {
-      _dbus_verbose ("array length %u exceeds maximum of %u\n",
-                     len, MAX_ARRAY_LENGTH);
+      _dbus_verbose ("array length %u exceeds maximum of %u at pos %d\n",
+                     len, MAX_ARRAY_LENGTH, pos);
       return -1;
     }
   else
@@ -2021,7 +2123,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
         if (!_dbus_string_validate_nul (str, pos,
                                         align_8 - pos))
           {
-            _dbus_verbose ("double/int64/uint64/objid alignment padding not initialized to nul\n");
+            _dbus_verbose ("double/int64/uint64/objid alignment padding not initialized to nul at %d\n", pos);
             return FALSE;
           }
 
@@ -2191,7 +2293,10 @@ _dbus_marshal_validate_arg (const DBusString *str,
 	    /* Validate element */
 	    if (!_dbus_marshal_validate_arg (str, byte_order, depth + 1,
 					     dict_type, -1, pos, &pos))
-	      return FALSE;
+	      {
+		_dbus_verbose ("dict arg invalid at offset %d\n", pos);
+		return FALSE;
+	      }
 	  }
 	
 	if (pos > end)
@@ -2354,6 +2459,93 @@ _dbus_verbose_bytes_of_string (const DBusString    *str,
   d = _dbus_string_get_const_data_len (str, start, len);
 
   _dbus_verbose_bytes (d, len);
+}
+
+/**
+ * Marshals a basic type
+ *
+ * @param str string to marshal to
+ * @param type type of value
+ * @param value pointer to value
+ * @param byte_order byte order
+ * @returns #TRUE on success
+ **/
+dbus_bool_t
+_dbus_marshal_basic_type (DBusString *str,
+			  char        type,
+			  void       *value,
+			  int         byte_order)
+{
+  dbus_bool_t retval;
+
+  switch (type)
+    {
+    case DBUS_TYPE_BYTE:
+    case DBUS_TYPE_BOOLEAN:
+      retval = _dbus_string_append_byte (str, *(unsigned char *)value);
+      break;
+    case DBUS_TYPE_INT32:
+    case DBUS_TYPE_UINT32:
+      return marshal_4_octets (str, byte_order, *(dbus_uint32_t *)value);
+      break;
+#ifdef DBUS_HAVE_INT64
+    case DBUS_TYPE_INT64:
+    case DBUS_TYPE_UINT64: 
+      retval = _dbus_marshal_uint64 (str, byte_order, *(dbus_uint64_t *)value);
+      break;
+#endif /* DBUS_HAVE_INT64 */
+    case DBUS_TYPE_DOUBLE:
+      retval = _dbus_marshal_double (str, byte_order, *(double *)value);
+      break;
+    default:
+      _dbus_assert_not_reached ("not a basic type");
+      retval = FALSE;
+      break;
+    }
+  return retval;
+}
+
+/**
+ * Marshals a basic type array
+ *
+ * @param str string to marshal to
+ * @param element_type type of array elements
+ * @param value pointer to value
+ * @param len length of value data in elements
+ * @param byte_order byte order
+ * @returns #TRUE on success
+ **/
+dbus_bool_t
+_dbus_marshal_basic_type_array (DBusString *str,
+				char        element_type,
+				const void *value,
+				int         len,
+				int         byte_order)
+{
+  switch (element_type)
+    {
+    case DBUS_TYPE_BOOLEAN:
+      /* FIXME: we canonicalize to 0 or 1 for the single boolean case 
+       * should we here too ? */
+    case DBUS_TYPE_BYTE:
+      return _dbus_marshal_byte_array (str, byte_order, value, len);
+      break;
+    case DBUS_TYPE_INT32:
+    case DBUS_TYPE_UINT32:
+      return marshal_4_octets_array (str, byte_order, value, len);
+      break;
+#ifdef DBUS_HAVE_INT64
+    case DBUS_TYPE_INT64:
+    case DBUS_TYPE_UINT64: 
+#endif /* DBUS_HAVE_INT64 */
+    case DBUS_TYPE_DOUBLE:
+      return marshal_8_octets_array (str, byte_order, value, len);
+      break;
+    default:
+      _dbus_assert_not_reached ("non basic type in array");
+      break;
+    }
+  return FALSE;
 }
 
 /** @} */

@@ -165,6 +165,11 @@ dbus_bool_t   _dbus_string_parse_double          (const DBusString  *str,
                                                   int                start,
                                                   double            *value,
                                                   int               *end_return);
+dbus_bool_t   _dbus_string_parse_basic_type      (const DBusString  *str,
+						  char               type,
+                                                  int                start,
+                                                  void              *value,
+                                                  int               *end_return);
 dbus_bool_t   _dbus_string_find                  (const DBusString  *str,
                                                   int                start,
                                                   const char        *substr,

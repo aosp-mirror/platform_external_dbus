@@ -184,6 +184,10 @@ dbus_bool_t   _dbus_marshal_double         (DBusString            *str,
 dbus_bool_t   _dbus_marshal_string         (DBusString            *str,
 					    int                    byte_order,
 					    const char            *value);
+dbus_bool_t   _dbus_marshal_basic_type     (DBusString            *str,
+					    char                   type,
+					    void                  *value,
+					    int                    byte_order);
 dbus_bool_t   _dbus_marshal_byte_array     (DBusString            *str,
 					    int                    byte_order,
 					    const unsigned char   *value,
@@ -210,6 +214,12 @@ dbus_bool_t   _dbus_marshal_double_array   (DBusString            *str,
 					    int                    byte_order,
 					    const double          *value,
 					    int                    len);
+dbus_bool_t   _dbus_marshal_basic_type_array (DBusString            *str,
+					      char                   element_type,
+					      const void	    *value,
+					      int                    len,
+					      int                    byte_order);
+
 dbus_bool_t   _dbus_marshal_string_array   (DBusString            *str,
 					    int                    byte_order,
 					    const char           **value,
@@ -241,6 +251,11 @@ dbus_uint64_t _dbus_demarshal_uint64       (const DBusString      *str,
 					    int                    pos,
 					    int                   *new_pos);
 #endif /* DBUS_HAVE_INT64 */
+void          _dbus_demarshal_basic_type   (const DBusString      *str,
+					    int                    type,
+					    void                  *value,
+					    int                    byte_order,
+					    int                   *pos);
 char *        _dbus_demarshal_string       (const DBusString      *str,
 					    int                    byte_order,
 					    int                    pos,
@@ -283,6 +298,13 @@ dbus_bool_t   _dbus_demarshal_double_array (const DBusString      *str,
 					    int                   *new_pos,
 					    double               **array,
 					    int                   *array_len);
+dbus_bool_t   _dbus_demarshal_basic_type_array (const DBusString      *str,
+						int                    type,
+						void                 **array,
+						int                   *array_len,
+						int                    byte_order,
+						int                   *pos);
+
 dbus_bool_t   _dbus_demarshal_string_array (const DBusString      *str,
 					    int                    byte_order,
 					    int                    pos,

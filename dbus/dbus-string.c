@@ -2816,6 +2816,113 @@ _dbus_string_zero (DBusString *str)
 #include "dbus-test.h"
 #include <stdio.h>
 
+/**
+ * Parses a basic type defined by type contained in a DBusString. The
+ * end_return parameter may be #NULL if you aren't interested in it. The
+ * type is parsed and stored in value_return. Return parameters are not
+ * initialized if the function returns #FALSE.
+ *
+ * @param str the string
+ * @param type the type of the basic type
+ * @param start the byte index of the start of the type
+ * @param value_return return location of the value or #NULL
+ * @param end_return return location of the end of the type, or #NULL
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_string_parse_basic_type (const DBusString  *str,
+			       char               type,
+			       int                start,
+			       void              *value,
+			       int               *end_return)
+{
+  int end = start;
+
+  switch (type)
+    {
+    case DBUS_TYPE_BOOLEAN:
+      {
+	int len = _dbus_string_get_length (str) - start;
+	if (len >= 5 && _dbus_string_find_to (str, start, start + 5, "false", NULL))
+	  {
+	    end += 5;
+	    *(unsigned char *) value = TRUE;
+	  }
+	else if (len >= 4 && _dbus_string_find_to (str, start, start + 4, "true", NULL))
+	  {
+	    end += 4;
+	    *(unsigned char *) value = FALSE;
+	  }
+	else
+	  _dbus_warn ("could not parse BOOLEAN\n");
+	break;
+      }
+    case DBUS_TYPE_BYTE:
+      {
+	long val = 0;
+
+	if (_dbus_string_get_byte (str, start) == '\'' &&
+	    _dbus_string_get_length (str) >= start + 4 &&
+	    _dbus_string_get_byte (str, start + 1) == '\\' &&
+	    _dbus_string_get_byte (str, start + 2) == '\'' &&
+	    _dbus_string_get_byte (str, start + 3) == '\'')
+	  {
+	    val = '\'';
+	    end += 4;
+	  }
+	else if (_dbus_string_get_byte (str, start) == '\'' &&
+		 _dbus_string_get_length (str) >= start + 3 &&
+		 _dbus_string_get_byte (str, start + 2) == '\'')
+	  {
+	    val = _dbus_string_get_byte (str, start + 1);
+	    end += 3;
+	  }
+	else
+	  {
+	    if (!_dbus_string_parse_int (str, start, &val, &end)) 
+	      _dbus_warn ("Failed to parse integer for BYTE\n");
+	  }
+
+	if (val > 255)
+	  _dbus_warn ("A byte must be in range 0-255 not %ld\n", val);
+
+	*(unsigned char *) value = val;
+	break;
+      }
+    case DBUS_TYPE_INT32:
+      {
+	long val;
+	if (_dbus_string_parse_int (str, start, &val, &end))
+	  *(dbus_int32_t *)value = val;
+	break;
+      }
+    case DBUS_TYPE_UINT32:
+      {
+	unsigned long val;
+	if (_dbus_string_parse_uint (str, start, &val, &end))
+	  *(dbus_uint32_t *)value = val;
+	break;
+      }
+#ifdef DBUS_HAVE_INT64
+    case DBUS_TYPE_INT64:
+    case DBUS_TYPE_UINT64: 
+      /* use stroll oull */
+      _dbus_assert_not_reached ("string -> [u]int64 not supported yet");
+      break;
+#endif /* DBUS_HAVE_INT64 */
+    case DBUS_TYPE_DOUBLE:
+      _dbus_string_parse_double (str, start, value, &end);
+      break;
+    default:
+      _dbus_assert_not_reached ("not a basic type");
+      break;
+    }
+  if (end_return)
+    *end_return = end;
+
+  return end != start;
+}
+
 static void
 test_max_len (DBusString *str,
               int         max_len)
