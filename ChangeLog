@@ -1,6 +1,21 @@
 2004-05-29  Seth Nickell  <seth@gnome.org>
 
 	* python/dbus.py:
+
+	Add ObjectTree class which allows implementation
+	of trees of "virtual" objects. Basically the python
+	wrapper for "register_fallback".
+	
+	* python/examples/Makefile.am
+	* python/examples/gconf-proxy-client.py:
+	* python/examples/gconf-proxy-service.py:
+
+	Implement a simple GConf proxy service that supports
+	get/set on string and int GConf keys using the ObjectTree.
+	
+2004-05-29  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus.py:
 	* python/examples/example-client.py:
 	* python/examples/example-service.py:
 	* python/examples/list-system-services.py:
