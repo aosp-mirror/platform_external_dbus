@@ -56,7 +56,7 @@ libtoolize --copy --force
 echo $ACLOCAL $ACLOCAL_FLAGS
 $ACLOCAL $ACLOCAL_FLAGS
 
-# optionally feature autoheader
+## optionally feature autoheader
 (autoheader --version)  < /dev/null > /dev/null 2>&1 && autoheader
 
 $AUTOMAKE -a $am_opt
@@ -64,7 +64,23 @@ autoconf || echo "autoconf failed - version 2.5x is probably required"
 
 cd $ORIGDIR
 
-$srcdir/configure --enable-maintainer-mode "$@"
+run_configure=true
+for arg in $*; do
+    case $arg in 
+        --no-configure)
+            run_configure=false
+            ;;
+        *)
+            ;;
+    esac
+done
 
-echo 
-echo "Now type 'make' to compile $PROJECT."
+if $run_configure; then
+    $srcdir/configure --enable-maintainer-mode "$@"
+    echo 
+    echo "Now type 'make' to compile $PROJECT."
+else
+    echo
+    echo "Now run 'configure' and 'make' to compile $PROJECT."
+fi
+

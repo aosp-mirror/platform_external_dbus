@@ -1,8 +1,18 @@
+2002-11-21  Havoc Pennington  <hp@redhat.com>
+
+	* acconfig.h: get rid of this
+
+	* autogen.sh (run_configure): add --no-configure option
+
+	* configure.in: remove AC_ARG_PROGRAM to make
+	autoconf complain less. add AC_PREREQ. 
+	add AC_DEFINE third arg.
+	
 2002-11-21  Anders Carlsson  <andersca@codefactory.se>
 
 	* doc/Makefile.am:
 	Fix references so we can distcheck.
-	
+
 2002-11-21  Havoc Pennington  <hp@redhat.com>
 
 	* Initial module creation

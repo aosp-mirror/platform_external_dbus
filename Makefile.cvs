@@ -1,0 +1,6 @@
+## -*- makefile -*-
+
+all: configure
+
+configure: configure.in autogen.sh
+	./autogen.sh --no-configure
