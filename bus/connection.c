@@ -37,6 +37,7 @@ struct BusConnections
 };
 
 static int connection_data_slot = -1;
+static int connection_data_slot_refcount = 0;
 
 typedef struct
 {
@@ -50,6 +51,39 @@ typedef struct
 } BusConnectionData;
 
 #define BUS_CONNECTION_DATA(connection) (dbus_connection_get_data ((connection), connection_data_slot))
+
+static dbus_bool_t
+connection_data_slot_ref (void)
+{
+  if (connection_data_slot < 0)
+    {
+      connection_data_slot = dbus_connection_allocate_data_slot ();
+      
+      if (connection_data_slot < 0)
+        return FALSE;
+
+      _dbus_assert (connection_data_slot_refcount == 0);
+    }  
+
+  connection_data_slot_refcount += 1;
+
+  return TRUE;
+
+}
+
+static void
+connection_data_slot_unref (void)
+{
+  _dbus_assert (connection_data_slot_refcount > 0);
+
+  connection_data_slot_refcount -= 1;
+  
+  if (connection_data_slot_refcount == 0)
+    {
+      dbus_connection_free_data_slot (connection_data_slot);
+      connection_data_slot = -1;
+    }
+}
 
 void
 bus_connection_disconnected (DBusConnection *connection)
@@ -209,6 +243,7 @@ free_connection_data (void *data)
 
   if (d->oom_preallocated)
     dbus_connection_free_preallocated_send (d->connection, d->oom_preallocated);
+
   if (d->oom_message)
     dbus_message_unref (d->oom_message);
   
@@ -222,17 +257,15 @@ bus_connections_new (BusContext *context)
 {
   BusConnections *connections;
 
-  if (connection_data_slot < 0)
-    {
-      connection_data_slot = dbus_connection_allocate_data_slot ();
-      
-      if (connection_data_slot < 0)
-        return NULL;
-    }
+  if (!connection_data_slot_ref ())
+    return NULL;
 
   connections = dbus_new0 (BusConnections, 1);
   if (connections == NULL)
-    return NULL;
+    {
+      connection_data_slot_unref ();
+      return NULL;
+    }
   
   connections->refcount = 1;
   connections->context = context;
@@ -268,7 +301,9 @@ bus_connections_unref (BusConnections *connections)
       
       _dbus_list_clear (&connections->list);
       
-      dbus_free (connections);      
+      dbus_free (connections);
+
+      connection_data_slot_unref ();
     }
 }
 
@@ -286,6 +321,8 @@ bus_connections_setup_connection (BusConnections *connections,
 
   d->connections = connections;
   d->connection = connection;
+
+  _dbus_assert (connection_data_slot >= 0);
   
   if (!dbus_connection_set_data (connection,
                                  connection_data_slot,
@@ -329,6 +366,11 @@ bus_connections_setup_connection (BusConnections *connections,
  out:
   if (!retval)
     {
+      if (!dbus_connection_set_data (connection,
+                                     connection_data_slot,
+                                     NULL, NULL))
+        _dbus_assert_not_reached ("failed to set connection data to null");
+        
       if (!dbus_connection_set_watch_functions (connection,
                                                 NULL, NULL, NULL,
                                                 connection,

@@ -1665,6 +1665,7 @@ process_command (DBusAuth *auth)
 
   if (!_dbus_string_init (&args, _DBUS_INT_MAX))
     {
+      _dbus_string_free (&command);
       auth->needed_memory = TRUE;
       return FALSE;
     }

@@ -1,3 +1,28 @@
+2003-03-17  Havoc Pennington  <hp@pobox.com>
+
+	All tests pass, no memleaks, no valgrind complaints.
+	
+	* bus/test.c: refcount handler_slot
+
+	* bus/connection.c (bus_connections_new): refcount
+	connection_data_slot
+
+	* dbus/dbus-auth-script.c (_dbus_auth_script_run): delete unused
+	bytes so that auth scripts pass.
+
+	* bus/dispatch.c: init message_handler_slot so it gets allocated
+	properly
+
+	* bus/dispatch.c (message_handler_slot_ref): fix memleak
+
+	* dbus/dbus-server-debug-pipe.c (_dbus_server_debug_pipe_new):
+	dealloc server_pipe_hash when no longer used for benefit of
+	leak checking
+
+	* dbus/dbus-auth.c (process_command): memleak fix
+
+	* bus/dispatch.c (check_hello_message): memleak fix
+
 2003-03-16  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-bus.c (ensure_bus_data): fix double-unref of the data slot

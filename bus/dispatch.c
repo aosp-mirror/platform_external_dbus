@@ -33,7 +33,7 @@
 #include <dbus/dbus-internals.h>
 #include <string.h>
 
-static int message_handler_slot;
+static int message_handler_slot = -1;
 static int message_handler_slot_refcount;
 
 typedef struct
@@ -157,7 +157,7 @@ bus_dispatch (DBusConnection *connection,
   
   transaction = NULL;
   dbus_error_init (&error);
-
+  
   context = bus_connection_get_context (connection);
   _dbus_assert (context != NULL);
   
@@ -334,10 +334,15 @@ bus_dispatch_message_handler (DBusMessageHandler *handler,
 static dbus_bool_t
 message_handler_slot_ref (void)
 {
-  message_handler_slot = dbus_connection_allocate_data_slot ();
-
   if (message_handler_slot < 0)
-    return FALSE;
+    {
+      message_handler_slot = dbus_connection_allocate_data_slot ();
+      
+      if (message_handler_slot < 0)
+        return FALSE;
+
+      _dbus_assert (message_handler_slot_refcount == 0);
+    }  
 
   message_handler_slot_refcount += 1;
 
@@ -348,12 +353,26 @@ static void
 message_handler_slot_unref (void)
 {
   _dbus_assert (message_handler_slot_refcount > 0);
+
   message_handler_slot_refcount -= 1;
+  
   if (message_handler_slot_refcount == 0)
     {
       dbus_connection_free_data_slot (message_handler_slot);
       message_handler_slot = -1;
     }
+}
+
+static void
+free_message_handler (void *data)
+{
+  DBusMessageHandler *handler = data;
+  
+  _dbus_assert (message_handler_slot >= 0);
+  _dbus_assert (message_handler_slot_refcount > 0);
+  
+  dbus_message_handler_unref (handler);
+  message_handler_slot_unref ();
 }
 
 dbus_bool_t
@@ -369,7 +388,7 @@ bus_dispatch_add_connection (DBusConnection *connection)
     {
       message_handler_slot_unref ();
       return FALSE;
-    }
+    }    
   
   if (!dbus_connection_add_filter (connection, handler))
     {
@@ -379,12 +398,14 @@ bus_dispatch_add_connection (DBusConnection *connection)
       return FALSE;
     }
 
+  _dbus_assert (message_handler_slot >= 0);
+  _dbus_assert (message_handler_slot_refcount > 0);
+  
   if (!dbus_connection_set_data (connection,
 				 message_handler_slot,
 				 handler,
-				 (DBusFreeFunction)dbus_message_handler_unref))
+                                 free_message_handler))
     {
-      dbus_connection_remove_filter (connection, handler);
       dbus_message_handler_unref (handler);
       message_handler_slot_unref ();
 
@@ -403,8 +424,6 @@ bus_dispatch_remove_connection (DBusConnection *connection)
   dbus_connection_set_data (connection,
 			    message_handler_slot,
 			    NULL, NULL);
-
-  message_handler_slot_unref ();
 }
 
 #ifdef DBUS_BUILD_TESTS
@@ -551,6 +570,23 @@ kill_client_connection (BusContext     *context,
     _dbus_assert_not_reached ("stuff left in message queues after disconnecting a client");
 }
 
+static void
+kill_client_connection_unchecked (DBusConnection *connection)
+{
+  /* This kills the connection without expecting it to affect
+   * the rest of the bus.
+   */  
+  _dbus_verbose ("Unchecked kill of connection %p\n", connection);
+
+  dbus_connection_ref (connection);
+  dbus_connection_disconnect (connection);
+  /* dispatching disconnect handler will unref once */
+  if (bus_connection_dispatch_one_message (connection))
+    _dbus_assert_not_reached ("message other than disconnect dispatched after failure to register");
+  dbus_connection_unref (connection);
+  _dbus_assert (!bus_test_client_listed (connection));
+}
+
 typedef struct
 {
   dbus_bool_t failed;
@@ -691,7 +727,10 @@ check_hello_message (BusContext     *context,
     return TRUE;
 
   if (!dbus_connection_send (connection, message, &serial))
-    return TRUE;
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
 
   dbus_message_unref (message);
   message = NULL;
@@ -870,15 +909,7 @@ check_hello_connection (BusContext *context)
       /* We didn't successfully register, so we can't
        * do the usual kill_client_connection() checks
        */
-      dbus_connection_ref (connection);
-      dbus_connection_disconnect (connection);
-      /* dispatching disconnect handler will unref once */
-      if (bus_connection_dispatch_one_message (connection))
-        _dbus_assert_not_reached ("message other than disconnect dispatched after failure to register");
-      dbus_connection_unref (connection);
-      _dbus_assert (!bus_test_client_listed (connection));
-      
-      return TRUE;
+      kill_client_connection_unchecked (connection);
     }
   else
     {
@@ -928,6 +959,9 @@ check1_try_iterations (BusContext *context,
     }
 
   _dbus_set_fail_alloc_counter (_DBUS_INT_MAX);
+
+  _dbus_verbose ("=================\n%s: all iterations passed\n=================\n",
+                 description);
 }
 
 dbus_bool_t
@@ -981,20 +1015,11 @@ bus_dispatch_test (const DBusString *test_data_dir)
   check1_try_iterations (context, "create_and_hello",
                          check_hello_connection);
   
-  dbus_connection_disconnect (foo);
-  if (bus_connection_dispatch_one_message (foo))
-    _dbus_assert_not_reached ("extra message in queue");
-  _dbus_assert (!bus_test_client_listed (foo));
+  _dbus_verbose ("Disconnecting foo, bar, and baz\n");
 
-  dbus_connection_disconnect (bar);
-  if (bus_connection_dispatch_one_message (bar))
-    _dbus_assert_not_reached ("extra message in queue");
-  _dbus_assert (!bus_test_client_listed (bar));
-
-  dbus_connection_disconnect (baz);
-  if (bus_connection_dispatch_one_message (baz))
-    _dbus_assert_not_reached ("extra message in queue");
-  _dbus_assert (!bus_test_client_listed (baz));
+  kill_client_connection_unchecked (foo);
+  kill_client_connection_unchecked (bar);
+  kill_client_connection_unchecked (baz);
 
   bus_context_unref (context);
   

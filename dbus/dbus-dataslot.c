@@ -57,6 +57,10 @@ _dbus_data_slot_allocator_init (DBusDataSlotAllocator *allocator)
  * Allocates an integer ID to be used for storing data
  * in a #DBusDataSlotList.
  *
+ * @todo all over the code we have foo_slot and foo_slot_refcount,
+ * would be better to add an interface for that to
+ * DBusDataSlotAllocator so it isn't cut-and-pasted everywhere.
+ * 
  * @param allocator the allocator
  * @returns the integer ID, or -1 on failure
  */
@@ -103,6 +107,9 @@ _dbus_data_slot_allocator_alloc (DBusDataSlotAllocator *allocator)
 
   _dbus_assert (slot >= 0);
   _dbus_assert (slot < allocator->n_allocated_slots);
+
+  _dbus_verbose ("Allocated slot %d on allocator %p total %d slots allocated %d used\n",
+                 slot, allocator, allocator->n_allocated_slots, allocator->n_used_slots);
   
  out:
   dbus_mutex_unlock (allocator->lock);
@@ -137,6 +144,9 @@ _dbus_data_slot_allocator_free (DBusDataSlotAllocator *allocator,
       allocator->allocated_slots = NULL;
       allocator->n_allocated_slots = 0;
     }
+
+  _dbus_verbose ("Freed slot %d on allocator %p total %d allocated %d used\n",
+                 slot, allocator, allocator->n_allocated_slots, allocator->n_used_slots);
   
   dbus_mutex_unlock (allocator->lock);
 }
@@ -243,6 +253,7 @@ _dbus_data_slot_list_get  (DBusDataSlotAllocator *allocator,
    */
   if (!dbus_mutex_lock (allocator->lock))
     return FALSE;
+  _dbus_assert (slot >= 0);
   _dbus_assert (slot < allocator->n_allocated_slots);
   _dbus_assert (allocator->allocated_slots[slot] == slot);
   dbus_mutex_unlock (allocator->lock);

@@ -59,13 +59,48 @@ struct DBusServerDebugPipe
   dbus_bool_t disconnected; /**< TRUE if disconnect has been called */
 };
 
+/* FIXME not threadsafe (right now the test suite doesn't use threads anyhow ) */
 static DBusHashTable *server_pipe_hash;
+static int server_pipe_hash_refcount = 0;
 
+static dbus_bool_t
+pipe_hash_ref (void)
+{
+  if (!server_pipe_hash)
+    {
+      _dbus_assert (server_pipe_hash_refcount == 0);
+      
+      server_pipe_hash = _dbus_hash_table_new (DBUS_HASH_STRING, NULL, NULL);
+
+      if (!server_pipe_hash)
+        return FALSE;
+    }
+
+  server_pipe_hash_refcount = 1;
+
+  return TRUE;
+}
+
+static void
+pipe_hash_unref (void)
+{
+  _dbus_assert (server_pipe_hash != NULL);
+  _dbus_assert (server_pipe_hash_refcount > 0);
+
+  server_pipe_hash_refcount -= 1;
+  if (server_pipe_hash_refcount == 0)
+    {
+      _dbus_hash_table_unref (server_pipe_hash);
+      server_pipe_hash = NULL;
+    }
+}
 
 static void
 debug_finalize (DBusServer *server)
 {
   DBusServerDebugPipe *debug_server = (DBusServerDebugPipe*) server;
+
+  pipe_hash_unref ();
   
   _dbus_server_finalize_base (server);
 
@@ -107,27 +142,23 @@ _dbus_server_debug_pipe_new (const char     *server_name,
 {
   DBusServerDebugPipe *debug_server;
 
-  if (!server_pipe_hash)
-    {
-      server_pipe_hash = _dbus_hash_table_new (DBUS_HASH_STRING, NULL, NULL);
-
-      if (!server_pipe_hash)
-	{
-	  dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
-	  return NULL;
-	}
-    }
-
+  if (!pipe_hash_ref ())
+    return NULL;
+  
   if (_dbus_hash_table_lookup_string (server_pipe_hash, server_name) != NULL)
     {
       dbus_set_result (result, DBUS_RESULT_ADDRESS_IN_USE);
+      pipe_hash_unref ();
       return NULL;
     }
   
   debug_server = dbus_new0 (DBusServerDebugPipe, 1);
 
   if (debug_server == NULL)
-    return NULL;
+    {
+      pipe_hash_unref ();
+      return NULL;
+    }
 
   debug_server->name = _dbus_strdup (server_name);
   if (debug_server->name == NULL)
@@ -136,6 +167,9 @@ _dbus_server_debug_pipe_new (const char     *server_name,
       dbus_free (debug_server);
 
       dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+
+      pipe_hash_unref ();
+      return NULL;
     }
   
   if (!_dbus_server_init_base (&debug_server->base,
@@ -146,6 +180,7 @@ _dbus_server_debug_pipe_new (const char     *server_name,
 
       dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
 
+      pipe_hash_unref ();
       return NULL;
     }
 
@@ -159,6 +194,7 @@ _dbus_server_debug_pipe_new (const char     *server_name,
 
       dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
 
+      pipe_hash_unref ();
       return NULL;
     }
   

@@ -541,6 +541,7 @@ _dbus_auth_script_run (const DBusString *filename)
           
           if (_dbus_string_equal (&expected, unused))
             {
+              _dbus_auth_delete_unused_bytes (auth);
               _dbus_string_free (&expected);
             }
           else
