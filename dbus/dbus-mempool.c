@@ -203,7 +203,10 @@ void*
 _dbus_mem_pool_alloc (DBusMemPool *pool)
 {
   if (_dbus_decrement_fail_alloc_counter ())
-    return NULL;
+    {
+      _dbus_verbose (" FAILING mempool alloc\n");
+      return NULL;
+    }
   
   if (pool->free_elements)
     {

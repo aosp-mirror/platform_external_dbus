@@ -628,8 +628,10 @@ _dbus_message_add_size_counter (DBusMessage *message,
     _dbus_string_get_length (&message->header) +
     _dbus_string_get_length (&message->body);
 
+#if 0
   _dbus_verbose ("message has size %ld\n",
                  message->size_counter_delta);
+#endif
   
   _dbus_counter_adjust (message->size_counter, message->size_counter_delta);
 }
@@ -2587,13 +2589,15 @@ decode_header_data (const DBusString   *data,
             }
           
           fields[FIELD_SERVICE].offset = _DBUS_ALIGN_VALUE (pos + 1, 4);
+#if 0
           _dbus_verbose ("Found service name at offset %d\n",
                          fields[FIELD_SERVICE].offset);
+#endif
           break;
 
         case DBUS_HEADER_FIELD_NAME_AS_UINT32:
           if (fields[FIELD_NAME].offset >= 0)
-            {
+            {              
               _dbus_verbose ("%s field provided twice\n",
                              DBUS_HEADER_FIELD_NAME);
               return FALSE;
@@ -2601,8 +2605,10 @@ decode_header_data (const DBusString   *data,
           
           fields[FIELD_NAME].offset = _DBUS_ALIGN_VALUE (pos + 1, 4);
 
+#if 0
           _dbus_verbose ("Found message name at offset %d\n",
                          fields[FIELD_NAME].offset);
+#endif
           break;
 	case DBUS_HEADER_FIELD_SENDER_AS_UINT32:
           if (fields[FIELD_SENDER].offset >= 0)

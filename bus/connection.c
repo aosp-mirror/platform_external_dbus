@@ -56,8 +56,6 @@ bus_connection_disconnected (DBusConnection *connection)
 {
   BusConnectionData *d;
   BusService *service;
-  
-  _dbus_warn ("Disconnected\n");
 
   d = BUS_CONNECTION_DATA (connection);
   _dbus_assert (d != NULL);  

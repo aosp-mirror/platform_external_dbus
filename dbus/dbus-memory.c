@@ -256,6 +256,8 @@ dbus_malloc (size_t bytes)
     {
       if (fail_counts != -1)
 	_dbus_set_fail_alloc_counter (fail_counts);
+
+      _dbus_verbose (" FAILING malloc of %d bytes\n", bytes);
       
       return NULL;
     }
@@ -297,6 +299,8 @@ dbus_malloc0 (size_t bytes)
     {
       if (fail_counts != -1)
 	_dbus_set_fail_alloc_counter (fail_counts);
+
+      _dbus_verbose (" FAILING malloc0 of %d bytes\n", bytes);
       
       return NULL;
     }
@@ -340,6 +344,8 @@ dbus_realloc (void  *memory,
     {
       if (fail_counts != -1)
 	_dbus_set_fail_alloc_counter (fail_counts);
+
+      _dbus_verbose (" FAILING realloc of %d bytes\n", bytes);
       
       return NULL;
     }

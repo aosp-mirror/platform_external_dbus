@@ -1,3 +1,21 @@
+2003-03-15  Havoc Pennington  <hp@pobox.com>
+
+	* bus/dispatch.c (bus_dispatch_test): OK, now finally actually
+	write useful test code, after all that futzing around ;-)
+
+	Test does not yet pass because we can't handle OOM in
+	_dbus_transport_messages_pending (basically,
+	dbus_connection_preallocate_send() does not prealloc the write
+	watch). To fix this, I think we need to add new stuff to
+	set_watch_functions, namely a SetEnabled function so we can alloc
+	the watch earlier, then enable it later.
+	
+	* dbus/Makefile.am (libdbus_convenience_la_SOURCES): move
+	dbus-memory.c to the convenience lib
+
+	* bus/test.c: rename some static functions to keep them clearly 
+	distinct from stuff in connection.c. Handle client disconnection.
+
 2003-03-14  Havoc Pennington  <hp@pobox.com>
 
 	* bus/dispatch.c (bus_dispatch_test): do test using debug-pipe 

@@ -22,6 +22,7 @@
  *
  */
 
+#include <config.h>
 #include "utils.h"
 #include <dbus/dbus-sysdeps.h>
 
@@ -30,6 +31,11 @@ const char bus_no_memory_message[] = "Memory allocation failure in message bus";
 void
 bus_wait_for_memory (void)
 {
+#ifdef DBUS_BUILD_TESTS
+  /* make tests go fast */
+  _dbus_sleep_milliseconds (10);
+#else
   _dbus_sleep_milliseconds (500);
+#endif
 }
 

@@ -164,8 +164,10 @@ check_write_watch (DBusTransport *transport)
     }
   else
     {
+#if 0
       _dbus_verbose ("Write watch is unchanged from %p on fd %d\n",
                      unix_transport->write_watch, unix_transport->fd);
+#endif
     }
   
  out:
@@ -190,8 +192,10 @@ check_read_watch (DBusTransport *transport)
     need_read_watch = transport->receive_credentials_pending ||
       _dbus_auth_do_work (transport->auth) == DBUS_AUTH_STATE_WAITING_FOR_INPUT;
 
+#if 0
   _dbus_verbose ("need_read_watch = %d authenticated = %d\n",
                  need_read_watch, _dbus_transport_get_is_authenticated (transport));
+#endif
   
   if (transport->disconnected)
     need_read_watch = FALSE;
@@ -232,8 +236,10 @@ check_read_watch (DBusTransport *transport)
     }
   else
     {
+#if 0
       _dbus_verbose ("Read watch is unchanged from %p on fd %d\n",
                      unix_transport->read_watch, unix_transport->fd);
+#endif
     }
   
  out:
@@ -621,7 +627,9 @@ do_writing (DBusTransport *transport)
       _dbus_assert (message != NULL);
       _dbus_message_lock (message);
 
+#if 0
       _dbus_verbose ("writing message %p\n", message);
+#endif
       
       _dbus_message_get_network_data (message,
                                       &header, &body);
@@ -647,8 +655,10 @@ do_writing (DBusTransport *transport)
           
           total_bytes_to_write = _dbus_string_get_length (&unix_transport->encoded_message);
 
+#if 0
           _dbus_verbose ("encoded message is %d bytes\n",
                          total_bytes_to_write);
+#endif
           
           bytes_written =
             _dbus_write (unix_transport->fd,
@@ -660,8 +670,10 @@ do_writing (DBusTransport *transport)
         {
           total_bytes_to_write = header_len + body_len;
 
+#if 0
           _dbus_verbose ("message is %d bytes\n",
                          total_bytes_to_write);          
+#endif
           
           if (unix_transport->message_bytes_written < header_len)
             {
@@ -868,14 +880,18 @@ unix_handle_watch (DBusTransport *transport,
   if (watch == unix_transport->read_watch &&
       (flags & DBUS_WATCH_READABLE))
     {
+#if 0
       _dbus_verbose ("handling read watch\n");
+#endif
       do_authentication (transport, TRUE, FALSE);
       do_reading (transport);
     }
   else if (watch == unix_transport->write_watch &&
            (flags & DBUS_WATCH_WRITABLE))
     {
+#if 0
       _dbus_verbose ("handling write watch\n");
+#endif
       do_authentication (transport, FALSE, TRUE);
       do_writing (transport);
     }

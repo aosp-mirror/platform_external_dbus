@@ -26,6 +26,7 @@
 #ifdef DBUS_BUILD_TESTS
 #include "test.h"
 #include "loop.h"
+#include <dbus/dbus-internals.h>
 
 /* The "debug client" watch/timeout handlers don't dispatch messages,
  * as we manually pull them in order to verify them. This is why they
@@ -33,7 +34,7 @@
  */
 
 static void
-connection_watch_callback (DBusWatch     *watch,
+client_watch_callback (DBusWatch     *watch,
                            unsigned int   condition,
                            void          *data)
 {
@@ -47,22 +48,22 @@ connection_watch_callback (DBusWatch     *watch,
 }
 
 static dbus_bool_t
-add_connection_watch (DBusWatch      *watch,
+add_client_watch (DBusWatch      *watch,
                       DBusConnection *connection)
 {
-  return bus_loop_add_watch (watch, connection_watch_callback, connection,
+  return bus_loop_add_watch (watch, client_watch_callback, connection,
                              NULL);
 }
 
 static void
-remove_connection_watch (DBusWatch      *watch,
+remove_client_watch (DBusWatch      *watch,
                          DBusConnection *connection)
 {
-  bus_loop_remove_watch (watch, connection_watch_callback, connection);
+  bus_loop_remove_watch (watch, client_watch_callback, connection);
 }
 
 static void
-connection_timeout_callback (DBusTimeout   *timeout,
+client_timeout_callback (DBusTimeout   *timeout,
                              void          *data)
 {
   DBusConnection *connection = data;
@@ -75,43 +76,85 @@ connection_timeout_callback (DBusTimeout   *timeout,
 }
 
 static dbus_bool_t
-add_connection_timeout (DBusTimeout    *timeout,
+add_client_timeout (DBusTimeout    *timeout,
                         DBusConnection *connection)
 {
-  return bus_loop_add_timeout (timeout, connection_timeout_callback, connection, NULL);
+  return bus_loop_add_timeout (timeout, client_timeout_callback, connection, NULL);
 }
 
 static void
-remove_connection_timeout (DBusTimeout    *timeout,
+remove_client_timeout (DBusTimeout    *timeout,
                            DBusConnection *connection)
 {
-  bus_loop_remove_timeout (timeout, connection_timeout_callback, connection);
+  bus_loop_remove_timeout (timeout, client_timeout_callback, connection);
 }
 
+static DBusHandlerResult
+client_disconnect_handler (DBusMessageHandler *handler,
+                           DBusConnection     *connection,
+                           DBusMessage        *message,
+                           void               *user_data)
+{
+  dbus_connection_unref (connection);
+  
+  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+}
 
 dbus_bool_t
 bus_setup_debug_client (DBusConnection *connection)
 {
+  DBusMessageHandler *disconnect_handler;
+  const char *to_handle[] = { DBUS_MESSAGE_LOCAL_DISCONNECT };
+  dbus_bool_t retval;
   
-  if (!dbus_connection_set_watch_functions (connection,
-                                            (DBusAddWatchFunction) add_connection_watch,
-                                            (DBusRemoveWatchFunction) remove_connection_watch,
-                                            connection,
-                                            NULL))
+  disconnect_handler = dbus_message_handler_new (client_disconnect_handler,
+                                                 NULL, NULL);
+
+  if (disconnect_handler == NULL)
+    return FALSE;
+
+  if (!dbus_connection_register_handler (connection,
+                                         disconnect_handler,
+                                         to_handle,
+                                         _DBUS_N_ELEMENTS (to_handle)))
     {
-      dbus_connection_disconnect (connection);
-      return FALSE;
-    }
-  
-  if (!dbus_connection_set_timeout_functions (connection,
-                                              (DBusAddTimeoutFunction) add_connection_timeout,
-                                              (DBusRemoveTimeoutFunction) remove_connection_timeout,
-                                              connection, NULL))
-    {
-      dbus_connection_disconnect (connection);
+      dbus_message_handler_unref (disconnect_handler);
       return FALSE;
     }
 
-  return TRUE;
+  retval = FALSE;
+  
+  if (!dbus_connection_set_watch_functions (connection,
+                                            (DBusAddWatchFunction) add_client_watch,
+                                            (DBusRemoveWatchFunction) remove_client_watch,
+                                            connection,
+                                            NULL))
+    goto out;
+      
+  if (!dbus_connection_set_timeout_functions (connection,
+                                              (DBusAddTimeoutFunction) add_client_timeout,
+                                              (DBusRemoveTimeoutFunction) remove_client_timeout,
+                                              connection, NULL))
+    goto out;
+
+  retval = TRUE;
+  
+ out:
+  if (!retval)
+    {
+      dbus_connection_unregister_handler (connection,
+                                          disconnect_handler,
+                                          to_handle,
+                                          _DBUS_N_ELEMENTS (to_handle));
+      
+      dbus_connection_set_watch_functions (connection,
+                                           NULL, NULL, NULL, NULL);
+      dbus_connection_set_timeout_functions (connection,
+                                             NULL, NULL, NULL, NULL);
+    }
+  
+  dbus_message_handler_unref (disconnect_handler);
+  
+  return retval;
 }
 #endif

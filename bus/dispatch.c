@@ -377,10 +377,23 @@ bus_dispatch_remove_connection (DBusConnection *connection)
 
 #ifdef DBUS_BUILD_TESTS
 
+typedef dbus_bool_t (* Check1Func) (BusContext     *context);
+typedef dbus_bool_t (* Check2Func) (BusContext     *context,
+                                    DBusConnection *connection);
+
 static void
 flush_bus (BusContext *context)
 {  
   while (bus_loop_iterate (FALSE))
+    ;
+}
+
+static void
+kill_client_connection (DBusConnection *connection)
+{
+  /* kick in the disconnect handler that unrefs the connection */
+  dbus_connection_disconnect (connection);
+  while (dbus_connection_dispatch_message (connection))
     ;
 }
 
@@ -393,6 +406,10 @@ check_hello_message (BusContext     *context,
 {
   DBusMessage *message;
   dbus_int32_t serial;
+  dbus_bool_t retval;
+  DBusError error;
+
+  dbus_error_init (&error);
   
   message = dbus_message_new (DBUS_SERVICE_DBUS,
 			      DBUS_MESSAGE_HELLO);
@@ -404,23 +421,148 @@ check_hello_message (BusContext     *context,
     return TRUE;
 
   dbus_message_unref (message);
+  message = NULL;
   
   flush_bus (context);
 
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected\n");
+      return TRUE;
+    }
+  
+  retval = FALSE;
+  
   message = dbus_connection_pop_message (connection);
   if (message == NULL)
     {
       _dbus_warn ("Did not receive a reply to %s %d on %p\n",
                   DBUS_MESSAGE_HELLO, serial, connection);
-      return FALSE;
+      goto out;
     }
 
   _dbus_verbose ("Received %s on %p\n",
                  dbus_message_get_name (message), connection);
+
+  if (dbus_message_get_is_error (message))
+    {
+      if (dbus_message_name_is (message,
+                                DBUS_ERROR_NO_MEMORY))
+        {
+          ; /* good, this is a valid response */
+        }
+      else
+        {
+          _dbus_warn ("Did not expect error %s\n",
+                      dbus_message_get_name (message));
+          goto out;
+        }
+    }
+  else
+    {
+      char *str;
+      
+      if (dbus_message_name_is (message,
+                                DBUS_MESSAGE_HELLO))
+        {
+          ; /* good, expected */
+        }
+      else
+        {
+          _dbus_warn ("Did not expect reply %s\n",
+                      dbus_message_get_name (message));
+          goto out;
+        }
+
+      if (!dbus_message_get_args (message, &error,
+                                  DBUS_TYPE_STRING, &str,
+                                  DBUS_TYPE_INVALID))
+        {
+          _dbus_warn ("Did not get the expected single string argument\n");
+          goto out;
+        }
+
+      _dbus_verbose ("Got hello name: %s\n", str);
+      dbus_free (str);
+    }
+      
+  retval = TRUE;
   
-  dbus_message_unref (message);
+ out:
+  if (message)
+    dbus_message_unref (message);
   
+  return retval;
+}
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
+check_hello_connection (BusContext *context)
+{
+  DBusConnection *connection;
+  DBusResultCode result;
+
+  result = DBUS_RESULT_SUCCESS;
+  connection = dbus_connection_open ("debug-pipe:name=test-server", &result);
+  if (connection == NULL)
+    {
+      _dbus_assert (result != DBUS_RESULT_SUCCESS);
+      return TRUE;
+    }
+
+  if (!bus_setup_debug_client (connection))
+    {
+      dbus_connection_unref (connection);
+      return TRUE;
+    }
+
+  if (!check_hello_message (context, connection))
+    return FALSE;
+
+  kill_client_connection (connection);
+
   return TRUE;
+}
+
+static void
+check1_try_iterations (BusContext *context,
+                       const char *description,
+                       Check1Func  func)
+{
+  int approx_mallocs;
+
+  /* Run once to see about how many mallocs are involved */
+  
+  _dbus_set_fail_alloc_counter (_DBUS_INT_MAX);
+  
+  if (! (*func) (context))
+    _dbus_assert_not_reached ("test failed");
+
+  approx_mallocs = _DBUS_INT_MAX - _dbus_get_fail_alloc_counter ();
+
+  _dbus_verbose ("=================\n%s: about %d mallocs total\n=================\n",
+                 description, approx_mallocs);
+  
+  approx_mallocs += 10; /* fudge factor */
+  
+  /* Now run failing each malloc */
+  
+  while (approx_mallocs >= 0)
+    {
+      _dbus_set_fail_alloc_counter (approx_mallocs);
+
+      _dbus_verbose ("\n===\n %s: (will fail malloc %d)\n===\n",
+                     description, approx_mallocs);
+
+      if (! (*func) (context))
+        _dbus_assert_not_reached ("test failed");
+
+      approx_mallocs -= 1;
+    }
+
+  _dbus_set_fail_alloc_counter (_DBUS_INT_MAX);
 }
 
 dbus_bool_t
@@ -440,6 +582,9 @@ bus_dispatch_test (const DBusString *test_data_dir)
                              &error);
   if (context == NULL)
     _dbus_assert_not_reached ("could not alloc context");
+
+  check1_try_iterations (context, "create_and_hello",
+                         check_hello_connection);
   
   foo = dbus_connection_open ("debug-pipe:name=test-server", &result);
   if (foo == NULL)
@@ -464,6 +609,10 @@ bus_dispatch_test (const DBusString *test_data_dir)
     _dbus_assert_not_reached ("hello message failed");
   if (!check_hello_message (context, baz))
     _dbus_assert_not_reached ("hello message failed");
+
+  dbus_connection_unref (foo);
+  dbus_connection_unref (bar);
+  dbus_connection_unref (baz);
   
   return TRUE;
 }

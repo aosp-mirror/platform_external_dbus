@@ -50,6 +50,10 @@
 #ifdef HAVE_POLL
 #include <sys/poll.h>
 #endif
+#ifdef HAVE_BACKTRACE
+#include <execinfo.h>
+#endif
+
 
 #ifndef O_BINARY
 #define O_BINARY 0
@@ -2827,5 +2831,35 @@ _dbus_close (int        fd,
   return TRUE;
 }
 
+/**
+ * On GNU libc systems, print a crude backtrace to the verbose log.
+ * On other systems, print "no backtrace support"
+ *
+ */
+void
+_dbus_print_backtrace (void)
+{
+#if defined (HAVE_BACKTRACE) && defined (DBUS_ENABLE_VERBOSE_MODE)
+  void *bt[500];
+  int bt_size;
+  int i;
+  char **syms;
+  
+  bt_size = backtrace (bt, 500);
+
+  syms = backtrace_symbols (bt, bt_size);
+  
+  i = 0;
+  while (i < bt_size)
+    {
+      _dbus_verbose ("  %s\n", syms[i]);
+      ++i;
+    }
+
+  free (syms);
+#else
+  _dbus_verbose ("  D-BUS not compiled with backtrace support\n");
+#endif
+}
 
 /** @} end of sysdeps */

@@ -34,7 +34,6 @@ libdbus_1_la_SOURCES=				\
 	dbus-errors.c				\
 	dbus-keyring.c				\
 	dbus-keyring.h				\
-	dbus-memory.c				\
 	dbus-message.c				\
 	dbus-message-handler.c			\
 	dbus-message-internal.h			\
@@ -88,6 +87,7 @@ libdbus_convenience_la_SOURCES=			\
 	dbus-list.h				\
 	dbus-marshal.c				\
 	dbus-marshal.h				\
+	dbus-memory.c				\
 	dbus-mempool.c				\
 	dbus-mempool.h				\
 	dbus-message-builder.c			\

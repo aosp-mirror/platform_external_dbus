@@ -205,6 +205,8 @@ dbus_bool_t _dbus_full_duplex_pipe (int              *fd1,
 dbus_bool_t _dbus_close            (int               fd,
                                     DBusError        *error);
 
+void        _dbus_print_backtrace  (void);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_SYSDEPS_H */
