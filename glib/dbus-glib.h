@@ -123,7 +123,7 @@ void             dbus_gproxy_connect_signal        (DBusGProxy               *pr
                                                     const char               *signal_name,
                                                     DBusGProxySignalHandler   handler,
                                                     void                     *data,
-                                                    GFreeFunc                 free_data_func);
+                                                    GClosureNotify            free_data_func);
 void             dbus_gproxy_disconnect_signal     (DBusGProxy               *proxy,
                                                     const char               *signal_name,
                                                     DBusGProxySignalHandler   handler,

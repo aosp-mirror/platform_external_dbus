@@ -44,6 +44,9 @@ struct DBusGProxy
   char *interface;            /**< Interface messages go to or NULL */
 };
 
+/**
+ * Class struct for DBusGProxy
+ */
 struct DBusGProxyClass
 {
   GObjectClass parent_class;  
@@ -52,6 +55,8 @@ struct DBusGProxyClass
 static void dbus_gproxy_init          (DBusGProxy      *proxy);
 static void dbus_gproxy_class_init    (DBusGProxyClass *klass);
 static void dbus_gproxy_finalize      (GObject         *object);
+static void dbus_gproxy_dispose       (GObject         *object);
+static void dbus_gproxy_destroy       (DBusGProxy      *proxy);
 static void dbus_gproxy_emit_received (DBusGProxy      *proxy,
                                        DBusMessage     *message);
 
@@ -174,6 +179,11 @@ dbus_gproxy_manager_unref (DBusGProxyManager *manager)
 
       if (manager->proxy_lists)
         {
+          /* can't have any proxies left since they hold
+           * a reference to the proxy manager.
+           */
+          g_assert (g_hash_table_size (manager->proxy_lists) == 0);
+          
           g_hash_table_destroy (manager->proxy_lists);
           manager->proxy_lists = NULL;
         }
@@ -447,11 +457,13 @@ dbus_gproxy_manager_unregister (DBusGProxyManager *manager,
   
   LOCK_MANAGER (manager);
 
+#ifndef G_DISABLE_CHECKS
   if (manager->proxy_lists == NULL)
     {
       g_warning ("Trying to disconnect a signal on a proxy but none are connected\n");
       return;
     }
+#endif
 
   tri = tristring_from_proxy (proxy);
   
@@ -459,19 +471,68 @@ dbus_gproxy_manager_unregister (DBusGProxyManager *manager,
   
   g_free (tri);
 
+#ifndef G_DISABLE_CHECKS
   if (list == NULL)
     {
       g_warning ("Trying to disconnect a signal on a proxy but none are connected\n");
       return;
     }
+#endif
 
   g_assert (g_slist_find (list->proxies, proxy) != NULL);
   
   list->proxies = g_slist_remove (list->proxies, proxy);
 
   g_assert (g_slist_find (list->proxies, proxy) == NULL);
+
+  if (g_hash_table_size (manager->proxy_lists) == 0)
+    {
+      g_hash_table_destroy (manager->proxy_lists);
+      manager->proxy_lists = NULL;
+    }
   
   UNLOCK_MANAGER (manager);
+}
+
+static void
+list_proxies_foreach (gpointer key,
+                      gpointer value,
+                      gpointer user_data)
+{
+  DBusGProxyList *list;
+  GSList **ret;
+  GSList *tmp;
+  
+  list = value;
+  ret = user_data;
+
+  tmp = list->proxies;
+  while (tmp != NULL)
+    {
+      DBusGProxy *proxy = DBUS_GPROXY (tmp->data);
+
+      g_object_ref (proxy);
+      *ret = g_slist_prepend (*ret, proxy);
+      
+      tmp = tmp->next;
+    }
+}
+
+static GSList*
+dbus_gproxy_manager_list_all (DBusGProxyManager *manager)
+{
+  GSList *ret;
+
+  ret = NULL;
+
+  if (manager->proxy_lists)
+    {
+      g_hash_table_foreach (manager->proxy_lists,
+                            list_proxies_foreach,
+                            &ret);
+    }
+
+  return ret;
 }
 
 static DBusHandlerResult
@@ -481,18 +542,48 @@ dbus_gproxy_manager_filter (DBusConnection    *connection,
 {
   DBusGProxyManager *manager;
   
-  manager = user_data;
-
   if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_SIGNAL)
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
+  manager = user_data;
+
+  dbus_gproxy_manager_ref (manager);
+  
+  LOCK_MANAGER (manager);
+  
   if (dbus_message_is_signal (message,
                               DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
                               "Disconnected"))
     {
-      /* FIXME g_object_run_dispose() all the proxies; should proxies have
-       * a "destroy" signal?
+      /* Destroy all the proxies, quite possibly resulting in unreferencing
+       * the proxy manager and the connection as well.
        */
+      GSList *all;
+      GSList *tmp;
+
+      all = dbus_gproxy_manager_list_all (manager);
+
+      tmp = all;
+      while (tmp != NULL)
+        {
+          DBusGProxy *proxy;
+
+          proxy = DBUS_GPROXY (tmp->data);
+
+          UNLOCK_MANAGER (manager);
+          dbus_gproxy_destroy (proxy);
+          g_object_unref (G_OBJECT (proxy));
+          LOCK_MANAGER (manager);
+          
+          tmp = tmp->next;
+        }
+
+      g_slist_free (all);
+
+#ifndef G_DISABLE_CHECKS
+      if (manager->proxy_lists != NULL)
+        g_warning ("Disconnection emitted \"destroy\" on all DBusGProxy, but somehow new proxies were created in response to one of those destroy signals. This will cause a memory leak.");
+#endif
     }
   else
     {
@@ -507,14 +598,38 @@ dbus_gproxy_manager_filter (DBusConnection    *connection,
         list = NULL;
 
       g_free (tri);
+
+      /* Emit the signal */
       
       if (list != NULL)
         {
-          /* FIXME Emit the signal on each proxy in the list */
-          
+          GSList *tmp;
+          GSList *copy;
 
+          copy = g_slist_copy (list->proxies);
+          g_slist_foreach (copy, (GFunc) g_object_ref, NULL);
+          
+          tmp = copy;
+          while (tmp != NULL)
+            {
+              DBusGProxy *proxy;
+
+              proxy = DBUS_GPROXY (tmp->data);
+
+              UNLOCK_MANAGER (manager);
+              dbus_gproxy_emit_received (proxy, message);
+              g_object_unref (G_OBJECT (proxy));
+              LOCK_MANAGER (manager);
+              
+              tmp = tmp->next;
+            }
+
+          g_slist_free (copy);
         }
     }
+
+  UNLOCK_MANAGER (manager);
+  dbus_gproxy_manager_unref (manager);
   
   /* "Handling" signals doesn't make sense, they are for everyone
    * who cares
@@ -530,6 +645,7 @@ dbus_gproxy_manager_filter (DBusConnection    *connection,
 
 enum
 {
+  DESTROY,
   RECEIVED,
   LAST_SIGNAL
 };
@@ -551,7 +667,17 @@ dbus_gproxy_class_init (DBusGProxyClass *klass)
   parent_class = g_type_class_peek_parent (klass);
   
   object_class->finalize = dbus_gproxy_finalize;
-
+  object_class->dispose = dbus_gproxy_dispose;
+  
+  signals[DESTROY] =
+    g_signal_new ("destroy",
+		  G_OBJECT_CLASS_TYPE (object_class),
+                  G_SIGNAL_RUN_CLEANUP | G_SIGNAL_NO_RECURSE | G_SIGNAL_NO_HOOKS,
+                  0,
+		  NULL, NULL,
+                  g_cclosure_marshal_VOID__VOID,
+		  G_TYPE_NONE, 0);
+  
   signals[RECEIVED] =
     g_signal_new ("received",
 		  G_OBJECT_CLASS_TYPE (object_class),
@@ -561,6 +687,19 @@ dbus_gproxy_class_init (DBusGProxyClass *klass)
                   g_cclosure_marshal_VOID__BOXED,
 		  G_TYPE_NONE, 1,
                   DBUS_TYPE_MESSAGE);
+}
+
+
+static void
+dbus_gproxy_dispose (GObject *object)
+{
+  DBusGProxy *proxy;
+
+  proxy = DBUS_GPROXY (object);
+
+  g_signal_emit (object, signals[DESTROY], 0);
+  
+  G_OBJECT_CLASS (parent_class)->dispose (object);
 }
 
 static void
@@ -581,6 +720,15 @@ dbus_gproxy_finalize (GObject *object)
   g_free (proxy->interface);
   
   G_OBJECT_CLASS (parent_class)->finalize (object);
+}
+
+static void
+dbus_gproxy_destroy (DBusGProxy *proxy)
+{
+  /* FIXME do we need the GTK_IN_DESTRUCTION style flag
+   * from GtkObject?
+   */
+  g_object_run_dispose (G_OBJECT (proxy));
 }
 
 static char*
@@ -697,18 +845,22 @@ dbus_gproxy_new (DBusConnection *connection,
 }
 
 /**
- * Creates a new proxy for a remote interface. Method calls and signal
- * connections over this proxy will go to the service owner; the
- * service owner is expected to support the given interface name. THE
- * SERVICE OWNER MAY CHANGE OVER TIME, for example between two
- * different method calls. If you need a fixed owner, you need to
- * request the current owner and bind a proxy to that rather than to
- * the generic service name; see dbus_gproxy_new_for_service_owner().
+ * Creates a new proxy for a remote interface exported by a service on
+ * a message bus. Method calls and signal connections over this proxy
+ * will go to the service owner; the service owner is expected to
+ * support the given interface name. THE SERVICE OWNER MAY CHANGE OVER
+ * TIME, for example between two different method calls. If you need a
+ * fixed owner, you need to request the current owner and bind a proxy
+ * to that rather than to the generic service name; see
+ * dbus_gproxy_new_for_service_owner().
  *
  * A service-associated proxy only makes sense with a message bus,
  * not for app-to-app direct dbus connections.
  *
- * @param connection the connection to the remote bus or app
+ * This proxy will only emit the "destroy" signal if the #DBusConnection
+ * is disconnected or the proxy is has no remaining references.
+ *
+ * @param connection the connection to the remote bus
  * @param service_name name of the service on the message bus
  * @param path_name name of the object inside the service to call methods on
  * @param interface_name name of the interface to call methods on
@@ -728,6 +880,75 @@ dbus_gproxy_new_for_service (DBusConnection *connection,
   g_return_val_if_fail (interface_name != NULL, NULL);
   
   proxy = dbus_gproxy_new (connection, service_name,
+                           path_name, interface_name);
+
+  return proxy;
+}
+
+/**
+ * Similar to dbus_gproxy_new_for_service(), but makes a round-trip
+ * request to the message bus to get the current service owner, then
+ * binds the proxy specifically to the current owner. As a result, the
+ * service owner will not change over time, and the proxy will emit
+ * the "destroy" signal when the owner disappears from the message
+ * bus.
+ *
+ * An example of the difference between dbus_gproxy_new_for_service()
+ * and dbus_gproxy_new_for_service_owner(): if you pass the service name
+ * "org.freedesktop.Database" dbus_gproxy_new_for_service() remains bound
+ * to that name as it changes owner. dbus_gproxy_new_for_service_owner()
+ * will fail if the service has no owner. If the service has an owner,
+ * dbus_gproxy_new_for_service_owner() will bind to the unique name
+ * of that owner rather than the generic service name.
+ * 
+ * @param connection the connection to the remote bus
+ * @param service_name name of the service on the message bus
+ * @param path_name name of the object inside the service to call methods on
+ * @param interface_name name of the interface to call methods on
+ * @param error return location for an error
+ * @returns new proxy object, or #NULL on error
+ */
+DBusGProxy*
+dbus_gproxy_new_for_service_owner (DBusConnection           *connection,
+                                   const char               *service_name,
+                                   const char               *path_name,
+                                   const char               *interface_name,
+                                   GError                  **error)
+{
+  g_return_val_if_fail (connection != NULL, NULL);
+  g_return_val_if_fail (service_name != NULL, NULL);
+  g_return_val_if_fail (path_name != NULL, NULL);
+  g_return_val_if_fail (interface_name != NULL, NULL);
+
+
+}
+
+/**
+ * Creates a proxy for an object in peer application (one
+ * we're directly connected to). That is, this function is
+ * intended for use when there's no message bus involved,
+ * we're doing a simple 1-to-1 communication between two
+ * applications.
+ *
+ *
+ * @param connection the connection to the peer
+ * @param path_name name of the object inside the peer to call methods on
+ * @param interface_name name of the interface to call methods on
+ * @returns new proxy object
+ * 
+ */
+DBusGProxy*
+dbus_gproxy_new_for_peer (DBusConnection           *connection,
+                          const char               *path_name,
+                          const char               *interface_name)
+{
+  DBusGProxy *proxy;
+  
+  g_return_val_if_fail (connection != NULL, NULL);
+  g_return_val_if_fail (path_name != NULL, NULL);
+  g_return_val_if_fail (interface_name != NULL, NULL);
+
+  proxy = dbus_gproxy_new (connection, NULL,
                            path_name, interface_name);
 
   return proxy;
@@ -952,7 +1173,7 @@ dbus_gproxy_connect_signal (DBusGProxy             *proxy,
                             const char             *signal_name,
                             DBusGProxySignalHandler handler,
                             void                   *data,
-                            GFreeFunc               free_data_func)
+                            GClosureNotify          free_data_func)
 {
   GClosure *closure;
   char *detail;
@@ -989,12 +1210,14 @@ dbus_gproxy_disconnect_signal (DBusGProxy             *proxy,
   q = g_quark_try_string (detail);
   g_free (detail);
 
+#ifndef G_DISABLE_CHECKS
   if (q == 0)
     {
       g_warning ("%s: No signal handlers for %s found on this DBusGProxy",
                  G_GNUC_FUNCTION, signal_name);
       return;
     }
+#endif
 
   g_signal_handlers_disconnect_matched (G_OBJECT (proxy),
                                         G_SIGNAL_MATCH_DETAIL |
@@ -1018,7 +1241,8 @@ dbus_gproxy_disconnect_signal (DBusGProxy             *proxy,
 dbus_bool_t
 _dbus_gproxy_test (void)
 {
-
+  
+  
   return TRUE;
 }
 

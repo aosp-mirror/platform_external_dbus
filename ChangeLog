@@ -1,3 +1,7 @@
+2003-09-23  Havoc Pennington  <hp@pobox.com>
+
+	* glib/dbus-gproxy.c (dbus_gproxy_manager_filter): implement
+
 2003-09-23  Havoc Pennington  <hp@redhat.com>
 
 	* glib/dbus-gproxy.c (dbus_gproxy_connect_signal): implement
