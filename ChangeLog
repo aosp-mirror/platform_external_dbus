@@ -1,3 +1,8 @@
+2003-03-17  Anders Carlsson  <andersca@codefactory.se>
+
+	* bus/activation.c (bus_activation_activate_service): Append
+	the pending activation entry to the list of pending activations.
+
 2003-03-16  Havoc Pennington  <hp@pobox.com>
 
 	* bus/dispatch.c (bus_dispatch_test): remove double-unrefs of

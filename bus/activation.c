@@ -548,7 +548,7 @@ bus_activation_activate_service (BusActivation  *activation,
   pending_activation = _dbus_hash_table_lookup_string (activation->pending_activations, service_name);
   if (pending_activation)
     {
-      if (!_dbus_list_append (&pending_activation->entries, entry))
+      if (!_dbus_list_append (&pending_activation->entries, pending_activation_entry))
 	{
 	  BUS_SET_OOM (error);
 	  bus_pending_activation_entry_free (pending_activation_entry);
@@ -574,7 +574,7 @@ bus_activation_activate_service (BusActivation  *activation,
 	  return FALSE;
 	}
 
-      if (!_dbus_list_append (&pending_activation->entries, entry))
+      if (!_dbus_list_append (&pending_activation->entries, pending_activation_entry))
 	{
 	  BUS_SET_OOM (error);
 	  bus_pending_activation_free (pending_activation);
