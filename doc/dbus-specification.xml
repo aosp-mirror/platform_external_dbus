@@ -2703,6 +2703,33 @@
         and if the client being activated fails to connect within that
         timeout, an error should be sent back.]
       </para>
+
+      <sect3 id="message-bus-starting-services-scope">
+        <title>Message Bus Service Scope</title>
+        <para>
+          The "scope" of a service is its "per-", such as per-session,
+          per-machine, per-home-directory, or per-display. The reference
+          implementation doesn't yet support starting services in a different
+          scope from the message bus itself. So e.g. if you start a service
+          on the session bus its scope is per-session.
+        </para>
+        <para>
+          We could add an optional scope to a bus name. For example, for
+          per-(display,session pair), we could have a unique ID for each display
+          generated automatically at login and set on screen 0 by executing a
+          special "set display ID" binary. The ID would be stored in a
+          <literal>_DBUS_DISPLAY_ID</literal> property and would be a string of
+          random bytes. This ID would then be used to scope names.
+          Starting/locating a service could be done by ID-name pair rather than
+          only by name.
+        </para>
+        <para>
+          Contrast this with a per-display scope. To achieve that, we would 
+          want a single bus spanning all sessions using a given display.
+          So we might set a <literal>_DBUS_DISPLAY_BUS_ADDRESS</literal> 
+          property on screen 0 of the display, pointing to this bus.
+        </para>
+      </sect3>
     </sect2>
 
     <sect2 id="message-bus-types">

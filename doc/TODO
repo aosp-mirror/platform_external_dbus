@@ -1,14 +1,6 @@
 Important for 1.0
 ===
 
- - change .service files to have Names=list rather than Name=string
-  
- - How we will handle DCOP needs sorting out. Among other things, we
-   need to check that service and service-ownership semantics map to DCOP 
-   reasonably well.
-
- - Activation needs some careful additional thinking-through.
-
  - Audit @todo and FIXME for security issues
 
  - The convenience functions in dbus-bus.h should perhaps have
@@ -21,7 +13,8 @@ Important for 1.0
    they need to be fixed and re-enabled with the new message args stuff.
    I think I want to drop the .message files thing and just have code
    that generates messages, more like the tests for
-   dbus-marshal-recursive.c
+   dbus-marshal-recursive.c (this is mostly done now, just needs some
+   cleanup)
 
  - need to define bus behavior if you send a message to 
    yourself; is it an error, or allowed? If allowed, 
@@ -46,10 +39,6 @@ Important for 1.0 GLib Bindings
    dbus_malloc() memory, only g_malloc(). 
    dbus_g_proxy_end_call() is the major offender. 
 
- - DBusGProxy signals feature is a complete fiasco;
-   right now the problem is that it dynamically creates
-   signals on the global DBusGProxy class and never frees them
-
  - DBusGProxy doesn't emit "destroy" when it should
 
 Might as Well for 1.0
@@ -65,6 +54,8 @@ Might as Well for 1.0
 Can Be Post 1.0
 ===
 
+ - change .service files to allow Names=list in addition to Name=string
+
  - The message bus internal code still says "service" for 
    "name", "base service" for "unique name", "activate" for 
    "start"; would be nice to clean up.
@@ -77,14 +68,6 @@ Can Be Post 1.0
  - Disconnecting the remote end on invalid UTF-8 is probably not a good 
    idea. The definition of "valid" is slightly fuzzy. I think it might 
    be better to just silently "fix" the UTF-8, or perhaps return an error.
-
-   Owen says we should only validate the UTF-8 on dbus_message_get_string()
-   (changing get_string to have an error return, and allowing a type error 
-   as a possible return)
-
- - assorted _-prefixed symbols in libdbus aren't actually used by
-   libdbus, only by the message bus. These bloat up the library
-   size. Not sure how to fix, really.
 
  - build and install the Doxygen manual in Makefile when --enable-docs
 
