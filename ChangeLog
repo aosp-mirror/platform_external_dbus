@@ -1,5 +1,17 @@
 2003-03-17  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-internals.h: add gcc attributes so that 
+	our printf-style functions warn on bad arguments to 
+	format
+	
+	* dbus/dbus-sysdeps.c (_dbus_connect_tcp_socket): fix printf 
+	format bug
+
+	* dbus/dbus-message.c (_dbus_message_loader_queue_messages): fix
+	printf format bug
+
+2003-03-17  Havoc Pennington  <hp@redhat.com>
+
 	* bus/test-main.c (main): make it print something as it runs 
 	so make check doesn't look stuck
 

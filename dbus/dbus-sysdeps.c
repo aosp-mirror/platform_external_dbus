@@ -488,7 +488,7 @@ _dbus_connect_tcp_socket (const char     *host,
                        _dbus_result_from_errno (errno));
 
       _dbus_verbose ("Failed to connect to socket %s: %s:%d\n",
-                     host, port, _dbus_strerror (errno));
+                     host, _dbus_strerror (errno), port);
 
       close (fd);
       fd = -1;

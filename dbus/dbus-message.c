@@ -2771,7 +2771,7 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
       
       if (header_len + body_len > loader->max_message_size)
 	{
-          _dbus_verbose ("Message claimed length header = %d body = %d exceeds max message length %d\n",
+          _dbus_verbose ("Message claimed length header = %d body = %d exceeds max message length %ld\n",
                          header_len, body_len, loader->max_message_size);
 	  loader->corrupted = TRUE;
 	  return TRUE;
