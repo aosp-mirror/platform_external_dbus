@@ -24,7 +24,10 @@ update:
 
 CLEANFILES = dbus-sharp-docs.zip dbus-sharp-docs.tree
 
-EXTRA_DIST = dbus-sharp-docs.source dbus-sharp-docs.tree dbus-sharp-docs.zip
+EXTRA_DIST = dbus-sharp-docs.source
+if ENABLE_MONODOC
+EXTRA_DIST += dbus-sharp-docs.tree dbus-sharp-docs.zip
+endif
 
 dist-hook:
 	mkdir -p $(distdir)/en

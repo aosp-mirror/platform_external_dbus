@@ -1,3 +1,4 @@
+if HAVE_QT
 INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_QT_CXXFLAGS)
 
 dbusincludedir=$(includedir)/dbus-1.0/dbus
@@ -23,3 +24,4 @@ libdbus_qt_1_la_LDFLAGS= -version-info 1:0
 
 %.moc: %.h
 	$(QT_MOC) $< > $@
+endif
