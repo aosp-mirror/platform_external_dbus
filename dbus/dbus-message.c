@@ -1073,6 +1073,7 @@ dbus_message_append_args_valist (DBusMessage *message,
 	case DBUS_TYPE_BOOLEAN:
 	  if (!dbus_message_append_boolean (message, va_arg (var_args, dbus_bool_t)))
 	    goto enomem;
+	  break;
 	case DBUS_TYPE_INT32:
 	  if (!dbus_message_append_int32 (message, va_arg (var_args, dbus_int32_t)))
 	    goto enomem;

@@ -1,3 +1,8 @@
+2003-03-04  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-message.c (dbus_message_append_args_valist): Add a break;
+	after case DBUS_TYPE_BOOELAN.
+
 2003-03-02  Havoc Pennington  <hp@pobox.com>
 
 	* test/break-loader.c (randomly_set_extreme_ints): add test that
