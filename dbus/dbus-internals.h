@@ -142,6 +142,17 @@ void _dbus_verbose_bytes_of_string (const DBusString    *str,
 
 const char* _dbus_type_to_string (int type);
 
+#ifdef DBUS_BUILD_TESTS
+/* Memory debugging */
+void        _dbus_set_fail_alloc_counter       (int  until_next_fail);
+int         _dbus_get_fail_alloc_counter       (void);
+dbus_bool_t _dbus_decrement_fail_alloc_counter (void);
+#else
+#define _dbus_set_fail_alloc_counter(n)
+#define _dbus_get_fail_alloc_counter _DBUS_INT_MAX
+#define _dbus_decrement_fail_alloc_counter FALSE
+#endif /* !DBUS_BUILD_TESTS */
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_INTERNALS_H */

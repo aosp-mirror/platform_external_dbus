@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-mempool.h Memory pools
  * 
- * Copyright (C) 2002  Red Hat, Inc.
+ * Copyright (C) 2002, 2003  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -195,6 +195,9 @@ _dbus_mem_pool_free (DBusMemPool *pool)
 void*
 _dbus_mem_pool_alloc (DBusMemPool *pool)
 {
+  if (_dbus_decrement_fail_alloc_counter ())
+    return NULL;
+  
   if (pool->free_elements)
     {
       DBusFreedElement *element = pool->free_elements;
@@ -216,7 +219,10 @@ _dbus_mem_pool_alloc (DBusMemPool *pool)
           /* Need a new block */
           DBusMemBlock *block;
           int alloc_size;
-
+#ifdef DBUS_BUILD_TESTS
+          int saved_counter;
+#endif
+          
           if (pool->block_size <= _DBUS_INT_MAX / 4) /* avoid overflow */
             {
               /* use a larger block size for our next block */
@@ -226,12 +232,27 @@ _dbus_mem_pool_alloc (DBusMemPool *pool)
             }
 
           alloc_size = sizeof (DBusMemBlock) - ELEMENT_PADDING + pool->block_size;
+
+#ifdef DBUS_BUILD_TESTS
+          /* We save/restore the counter, so that memory pools won't
+           * cause a given function to have different number of
+           * allocations on different invocations. i.e.  when testing
+           * we want consistent alloc patterns. So we skip our
+           * malloc here for purposes of failed alloc simulation.
+           */
+          saved_counter = _dbus_get_fail_alloc_counter ();
+          _dbus_set_fail_alloc_counter (_DBUS_INT_MAX);
+#endif
           
           if (pool->zero_elements)
             block = dbus_malloc0 (alloc_size);
           else
             block = dbus_malloc (alloc_size);
 
+#ifdef DBUS_BUILD_TESTS
+          _dbus_set_fail_alloc_counter (saved_counter);
+#endif
+          
           if (block == NULL)
             return NULL;
 

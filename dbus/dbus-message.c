@@ -2006,6 +2006,12 @@ decode_header_data (const DBusString   *data,
  * in. This function must always be called, even if no bytes were
  * successfully read.
  *
+ * @todo if we run out of memory in here, we offer no way for calling
+ * code to handle it, i.e. they can't re-run the message parsing
+ * attempt. Perhaps much of this code could be moved to pop_message()?
+ * But then that may need to distinguish NULL return for no messages
+ * from NULL return for errors.
+ *
  * @param loader the loader.
  * @param buffer the buffer.
  * @param bytes_read number of bytes that were read into the buffer.

@@ -1,5 +1,16 @@
 2003-02-14  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-mempool.c: fail if the debug functions so indicate
+
+	* dbus/dbus-memory.c: fail if the debug functions indicate we
+	should
+
+	* dbus/dbus-internals.c (_dbus_set_fail_alloc_counter)
+	(_dbus_decrement_fail_alloc_counter): debug functions to 
+	simulate memory allocation failures
+
+2003-02-14  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-errors.h (struct DBusError): add a word of padding 
 	to DBusError
 

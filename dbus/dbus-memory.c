@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-memory.c  D-BUS memory handling
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -22,6 +22,7 @@
  */
 
 #include "dbus-memory.h"
+#include "dbus-internals.h"
 #include <stdlib.h>
 
 /**
@@ -82,6 +83,9 @@
 void*
 dbus_malloc (size_t bytes)
 {
+  if (_dbus_decrement_fail_alloc_counter ())
+    return NULL;
+  
   if (bytes == 0) /* some system mallocs handle this, some don't */
     return NULL;
   else
@@ -100,6 +104,9 @@ dbus_malloc (size_t bytes)
 void*
 dbus_malloc0 (size_t bytes)
 {
+  if (_dbus_decrement_fail_alloc_counter ())
+    return NULL;
+
   if (bytes == 0)
     return NULL;
   else
@@ -120,6 +127,9 @@ void*
 dbus_realloc (void  *memory,
               size_t bytes)
 {
+  if (_dbus_decrement_fail_alloc_counter ())
+    return NULL;
+  
   if (bytes == 0) /* guarantee this is safe */
     {
       dbus_free (memory);
