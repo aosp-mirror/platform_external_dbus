@@ -36,6 +36,8 @@ struct _DBusGSource
   GHashTable *watches;
 };
 
+static int connection_slot = -1;
+
 static gboolean dbus_connection_prepare  (GSource     *source,
 					  gint        *timeout);
 static gboolean dbus_connection_check    (GSource     *source);
@@ -206,6 +208,12 @@ remove_timeout (DBusTimeout *timeout,
   g_source_remove (timeout_tag);
 }
 
+static void
+free_source (GSource *source)
+{
+  g_source_destroy (source);
+}
+
 void
 dbus_connection_hookup_with_g_main (DBusConnection *connection)
 {
@@ -228,4 +236,11 @@ dbus_connection_hookup_with_g_main (DBusConnection *connection)
 					 NULL, NULL);
 
   g_source_attach (source, NULL);
+
+  if (connection_slot == -1 )
+    connection_slot = dbus_connection_allocate_data_slot ();
+
+  dbus_connection_set_data (connection, connection_slot, source,
+			    (DBusFreeFunction)free_source);
+  
 }

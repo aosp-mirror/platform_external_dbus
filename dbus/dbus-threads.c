@@ -166,7 +166,7 @@ dbus_condvar_wait_timeout (DBusCondVar               *cond,
   if (cond && mutex && thread_functions.condvar_wait)
     return (* thread_functions.condvar_wait_timeout) (cond, mutex, timeout_milliseconds);
   else
-    return FALSE;
+    return TRUE;
 }
 
 /**

@@ -1,5 +1,17 @@
 2003-02-16  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/dbus-auth.c: (client_try_next_mechanism):
+	Plug a leak.
+	
+	* dbus/dbus-threads.c: (dbus_condvar_wait_timeout):
+	Return TRUE if there's no thread implementation around.
+	
+	* glib/dbus-gmain.c: (free_source),
+	(dbus_connection_hookup_with_g_main):
+	Make sure to remove the GSource when the connection is finalized.
+	
+2003-02-16  Anders Carlsson  <andersca@codefactory.se>
+
 	* bus/dispatch.c: (bus_dispatch_message_handler):
 	* dbus/dbus-errors.h:
 	Return an error if someone tries to send a message to a service

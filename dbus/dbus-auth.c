@@ -939,6 +939,8 @@ client_try_next_mechanism (DBusAuth *auth)
   _dbus_verbose ("Trying mechanism %s\n",
                  auth->mech->mechanism);
 
+  _dbus_string_free (&auth_command);
+  
   return TRUE;
 }
 
