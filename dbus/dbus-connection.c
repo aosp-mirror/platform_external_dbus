@@ -35,6 +35,7 @@
 #include "dbus-threads.h"
 #include "dbus-protocol.h"
 #include "dbus-dataslot.h"
+#include "dbus-object-registry.h"
 
 #if 0
 #define CONNECTION_LOCK(connection)   do {                      \
@@ -77,7 +78,7 @@
  * you to set a function to be used to monitor the dispatch status.
  *
  * If you're using GLib or Qt add-on libraries for D-BUS, there are
- * special convenience functions in those libraries that hide
+ * special convenience APIs in those libraries that hide
  * all the details of dispatch and watch/timeout monitoring.
  * For example, dbus_connection_setup_with_g_main().
  *
@@ -157,7 +158,6 @@ struct DBusConnection
   DBusWatchList *watches;      /**< Stores active watches. */
   DBusTimeoutList *timeouts;   /**< Stores active timeouts. */
   
-  DBusHashTable *handler_table; /**< Table of registered DBusMessageHandler */
   DBusList *filter_list;        /**< List of filters. */
 
   DBusDataSlotList slot_list;   /**< Data stored by allocated integer ID */
@@ -180,6 +180,7 @@ struct DBusConnection
   DBusList *link_cache; /**< A cache of linked list links to prevent contention
                          *   for the global linked list mempool lock
                          */
+  DBusObjectRegistry *objects; /**< Objects registered with this connection */
 };
 
 typedef struct
@@ -664,7 +665,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   DBusConnection *connection;
   DBusWatchList *watch_list;
   DBusTimeoutList *timeout_list;
-  DBusHashTable *handler_table, *pending_replies;
+  DBusHashTable *pending_replies;
   DBusMutex *mutex;
   DBusCondVar *message_returned_cond;
   DBusCondVar *dispatch_cond;
@@ -672,10 +673,10 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   DBusList *disconnect_link;
   DBusMessage *disconnect_message;
   DBusCounter *outgoing_counter;
+  DBusObjectRegistry *objects;
   
   watch_list = NULL;
   connection = NULL;
-  handler_table = NULL;
   pending_replies = NULL;
   timeout_list = NULL;
   mutex = NULL;
@@ -685,6 +686,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   disconnect_link = NULL;
   disconnect_message = NULL;
   outgoing_counter = NULL;
+  objects = NULL;
   
   watch_list = _dbus_watch_list_new ();
   if (watch_list == NULL)
@@ -692,13 +694,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
 
   timeout_list = _dbus_timeout_list_new ();
   if (timeout_list == NULL)
-    goto error;
-  
-  handler_table =
-    _dbus_hash_table_new (DBUS_HASH_STRING,
-                          dbus_free, NULL);
-  if (handler_table == NULL)
-    goto error;
+    goto error;  
 
   pending_replies =
     _dbus_hash_table_new (DBUS_HASH_INT,
@@ -737,6 +733,10 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   outgoing_counter = _dbus_counter_new ();
   if (outgoing_counter == NULL)
     goto error;
+
+  objects = _dbus_object_registry_new (connection);
+  if (objects == NULL)
+    goto error;
   
   if (_dbus_modify_sigpipe)
     _dbus_disable_sigpipe ();
@@ -749,7 +749,6 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection->transport = transport;
   connection->watches = watch_list;
   connection->timeouts = timeout_list;
-  connection->handler_table = handler_table;
   connection->pending_replies = pending_replies;
   connection->outgoing_counter = outgoing_counter;
   connection->filter_list = NULL;
@@ -790,9 +789,6 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   if (connection != NULL)
     dbus_free (connection);
 
-  if (handler_table)
-    _dbus_hash_table_unref (handler_table);
-
   if (pending_replies)
     _dbus_hash_table_unref (pending_replies);
   
@@ -804,6 +800,9 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
 
   if (outgoing_counter)
     _dbus_counter_unref (outgoing_counter);
+
+  if (objects)
+    _dbus_object_registry_unref (objects);
   
   return NULL;
 }
@@ -853,19 +852,9 @@ void
 _dbus_connection_handler_destroyed_locked (DBusConnection     *connection,
 					   DBusMessageHandler *handler)
 {
-  DBusHashIter iter;
   DBusList *link;
 
   CONNECTION_LOCK (connection);
-  
-  _dbus_hash_iter_init (connection->handler_table, &iter);
-  while (_dbus_hash_iter_next (&iter))
-    {
-      DBusMessageHandler *h = _dbus_hash_iter_get_value (&iter);
-
-      if (h == handler)
-        _dbus_hash_iter_remove_entry (&iter);
-    }
 
   link = _dbus_list_get_first_link (&connection->filter_list);
   while (link != NULL)
@@ -1035,7 +1024,6 @@ free_outgoing_message (void *element,
 static void
 _dbus_connection_last_unref (DBusConnection *connection)
 {
-  DBusHashIter iter;
   DBusList *link;
 
   _dbus_verbose ("Finalizing connection %p\n", connection);
@@ -1048,6 +1036,8 @@ _dbus_connection_last_unref (DBusConnection *connection)
   _dbus_assert (!_dbus_transport_get_is_connected (connection->transport));
 
   /* ---- We're going to call various application callbacks here, hope it doesn't break anything... */
+  _dbus_object_registry_free_all_unlocked (connection->objects);
+  
   dbus_connection_set_dispatch_status_function (connection, NULL, NULL, NULL);
   dbus_connection_set_wakeup_main_function (connection, NULL, NULL, NULL);
   dbus_connection_set_unix_user_function (connection, NULL, NULL, NULL);
@@ -1061,14 +1051,6 @@ _dbus_connection_last_unref (DBusConnection *connection)
   _dbus_data_slot_list_free (&connection->slot_list);
   /* ---- Done with stuff that invokes application callbacks */
   
-  _dbus_hash_iter_init (connection->handler_table, &iter);
-  while (_dbus_hash_iter_next (&iter))
-    {
-      DBusMessageHandler *h = _dbus_hash_iter_get_value (&iter);
-      
-      _dbus_message_handler_remove_connection (h, connection);
-    }
-  
   link = _dbus_list_get_first_link (&connection->filter_list);
   while (link != NULL)
     {
@@ -1080,8 +1062,7 @@ _dbus_connection_last_unref (DBusConnection *connection)
       link = next;
     }
 
-  _dbus_hash_table_unref (connection->handler_table);
-  connection->handler_table = NULL;
+  _dbus_object_registry_unref (connection->objects);  
 
   _dbus_hash_table_unref (connection->pending_replies);
   connection->pending_replies = NULL;
@@ -2237,12 +2218,10 @@ dbus_connection_get_dispatch_status (DBusConnection *connection)
 DBusDispatchStatus
 dbus_connection_dispatch (DBusConnection *connection)
 {
-  DBusMessageHandler *handler;
   DBusMessage *message;
   DBusList *link, *filter_list_copy, *message_link;
   DBusHandlerResult result;
   ReplyHandlerData *reply_handler_data;
-  const char *name;
   dbus_int32_t reply_serial;
   DBusDispatchStatus status;
 
@@ -2373,30 +2352,19 @@ dbus_connection_dispatch (DBusConnection *connection)
       CONNECTION_LOCK (connection);
       goto out;
     }
+
+  /* We're still protected from dispatch() reentrancy here
+   * since we acquired the dispatcher
+   */
+  _dbus_verbose ("  running object handler on message %p (%s)\n",
+                 message, dbus_message_get_name (message));
   
-  name = dbus_message_get_name (message);
-  if (name != NULL)
-    {
-      handler = _dbus_hash_table_lookup_string (connection->handler_table,
-                                                name);
-      if (handler != NULL)
-        {
-	  /* We're still protected from dispatch() reentrancy here
-	   * since we acquired the dispatcher
-           */
-	  CONNECTION_UNLOCK (connection);
-
-          _dbus_verbose ("  running app handler on message %p (%s)\n",
-                         message, dbus_message_get_name (message));
-          
-          result = _dbus_message_handler_handle_message (handler, connection,
-                                                         message);
-	  CONNECTION_LOCK (connection);
-          if (result == DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
-            goto out;
-        }
-    }
-
+  result = _dbus_object_registry_handle_and_unlock (connection->objects,
+                                                    message);
+  CONNECTION_LOCK (connection);
+  if (result == DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
+    goto out;
+  
   _dbus_verbose ("  done dispatching %p (%s) on connection %p\n", message,
                  dbus_message_get_name (message), connection);
   
@@ -2721,8 +2689,8 @@ dbus_connection_set_unix_user_function (DBusConnection             *connection,
 
 /**
  * Adds a message filter. Filters are handlers that are run on
- * all incoming messages, prior to the normal handlers
- * registered with dbus_connection_register_handler().
+ * all incoming messages, prior to the objects
+ * registered with dbus_connection_register_object().
  * Filters are run in the order that they were added.
  * The same handler can be added as a filter more than once, in
  * which case it will be run more than once.
@@ -2796,153 +2764,6 @@ dbus_connection_remove_filter (DBusConnection      *connection,
 }
 
 /**
- * Registers a handler for a list of message names. A single handler
- * can be registered for any number of message names, but each message
- * name can only have one handler at a time. It's not allowed to call
- * this function with the name of a message that already has a
- * handler. If the function returns #FALSE, the handlers were not
- * registered due to lack of memory.
- *
- * The connection does NOT add a reference to the message handler;
- * instead, if the message handler is finalized, the connection simply
- * forgets about it. Thus the caller of this function must keep a
- * reference to the message handler.
- *
- * @todo the messages_to_handle arg may be more convenient if it's a
- * single string instead of an array. Though right now MessageHandler
- * is sort of designed to say be associated with an entire object with
- * multiple methods, that's why for example the connection only
- * weakrefs it.  So maybe the "manual" API should be different.
- * 
- * @param connection the connection
- * @param handler the handler
- * @param messages_to_handle the messages to handle
- * @param n_messages the number of message names in messages_to_handle
- * @returns #TRUE on success, #FALSE if no memory or another handler already exists
- * 
- **/
-dbus_bool_t
-dbus_connection_register_handler (DBusConnection     *connection,
-                                  DBusMessageHandler *handler,
-                                  const char        **messages_to_handle,
-                                  int                 n_messages)
-{
-  int i;
-
-  _dbus_return_val_if_fail (connection != NULL, FALSE);
-  _dbus_return_val_if_fail (handler != NULL, FALSE);
-  _dbus_return_val_if_fail (n_messages >= 0, FALSE);
-  _dbus_return_val_if_fail (n_messages == 0 || messages_to_handle != NULL, FALSE);
-  
-  CONNECTION_LOCK (connection);
-  i = 0;
-  while (i < n_messages)
-    {
-      DBusHashIter iter;
-      char *key;
-
-      key = _dbus_strdup (messages_to_handle[i]);
-      if (key == NULL)
-        goto failed;
-      
-      if (!_dbus_hash_iter_lookup (connection->handler_table,
-                                   key, TRUE,
-                                   &iter))
-        {
-          dbus_free (key);
-          goto failed;
-        }
-
-      if (_dbus_hash_iter_get_value (&iter) != NULL)
-        {
-          _dbus_warn ("Bug in application: attempted to register a second handler for %s\n",
-                      messages_to_handle[i]);
-          dbus_free (key); /* won't have replaced the old key with the new one */
-          goto failed;
-        }
-
-      if (!_dbus_message_handler_add_connection (handler, connection))
-        {
-          _dbus_hash_iter_remove_entry (&iter);
-          /* key has freed on nuking the entry */
-          goto failed;
-        }
-      
-      _dbus_hash_iter_set_value (&iter, handler);
-
-      ++i;
-    }
-  
-  CONNECTION_UNLOCK (connection);
-  return TRUE;
-  
- failed:
-  /* unregister everything registered so far,
-   * so we don't fail partially
-   */
-  dbus_connection_unregister_handler (connection,
-                                      handler,
-                                      messages_to_handle,
-                                      i);
-
-  CONNECTION_UNLOCK (connection);
-  return FALSE;
-}
-
-/**
- * Unregisters a handler for a list of message names. The handlers
- * must have been previously registered.
- *
- * @param connection the connection
- * @param handler the handler
- * @param messages_to_handle the messages to handle
- * @param n_messages the number of message names in messages_to_handle
- * 
- **/
-void
-dbus_connection_unregister_handler (DBusConnection     *connection,
-                                    DBusMessageHandler *handler,
-                                    const char        **messages_to_handle,
-                                    int                 n_messages)
-{
-  int i;
-
-  _dbus_return_if_fail (connection != NULL);
-  _dbus_return_if_fail (handler != NULL);
-  _dbus_return_if_fail (n_messages >= 0);
-  _dbus_return_if_fail (n_messages == 0 || messages_to_handle != NULL);
-  
-  CONNECTION_LOCK (connection);
-  i = 0;
-  while (i < n_messages)
-    {
-      DBusHashIter iter;
-
-      if (!_dbus_hash_iter_lookup (connection->handler_table,
-                                   (char*) messages_to_handle[i], FALSE,
-                                   &iter))
-        {
-          _dbus_warn ("Bug in application: attempted to unregister handler for %s which was not registered\n",
-                      messages_to_handle[i]);
-        }
-      else if (_dbus_hash_iter_get_value (&iter) != handler)
-        {
-          _dbus_warn ("Bug in application: attempted to unregister handler for %s which was registered by a different handler\n",
-                      messages_to_handle[i]);
-        }
-      else
-        {
-          _dbus_hash_iter_remove_entry (&iter);
-          _dbus_message_handler_remove_connection (handler, connection);
-        }
-
-      ++i;
-    }
-
-  CONNECTION_UNLOCK (connection);
-}
-
-/**
  * Registers an object with the connection. This object is assigned an
  * object ID, and will be visible under this ID and with the provided
  * interfaces to the peer application on the other end of the
@@ -2951,7 +2772,11 @@ dbus_connection_unregister_handler (DBusConnection     *connection,
  *
  * As a side effect of calling this function, the "registered"
  * callback in the #DBusObjectVTable will be invoked.
- * 
+ *
+ * If the object is deleted, be sure to unregister it with
+ * dbus_connection_unregister_object() or it will continue to get
+ * messages.
+ *
  * @param connection the connection to register the instance with
  * @param interfaces #NULL-terminated array of interface names the instance supports
  * @param vtable virtual table of functions for manipulating the instance
@@ -2966,8 +2791,15 @@ dbus_connection_register_object (DBusConnection          *connection,
                                  void                    *object_impl,
                                  DBusObjectID            *object_id)
 {
+  _dbus_return_val_if_fail (connection != NULL, FALSE);  
 
-  return FALSE;
+  CONNECTION_LOCK (connection);
+
+  return _dbus_object_registry_add_and_unlock (connection->objects,
+                                               interfaces,
+                                               vtable,
+                                               object_impl,
+                                               object_id);
 }
 
 /**
@@ -2983,8 +2815,12 @@ void
 dbus_connection_unregister_object (DBusConnection     *connection,
                                    const DBusObjectID *object_id)
 {
-  
+  _dbus_return_if_fail (connection != NULL);  
 
+  CONNECTION_LOCK (connection);
+
+  return _dbus_object_registry_remove_and_unlock (connection->objects,
+                                                  object_id);
 }
 
 static DBusDataSlotAllocator slot_allocator;

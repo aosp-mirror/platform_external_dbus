@@ -36,14 +36,7 @@ DBUS_BEGIN_DECLS;
 typedef struct DBusWatch DBusWatch;
 typedef struct DBusTimeout DBusTimeout;
 typedef struct DBusMessageHandler DBusMessageHandler;
-typedef struct DBusObject DBusObject;
 typedef struct DBusPreallocatedSend DBusPreallocatedSend;
-
-typedef enum
-{
-  DBUS_HANDLER_RESULT_REMOVE_MESSAGE,     /**< Remove this message, no further processing. */
-  DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS /**< Run any additional handlers that are interested in this message. */
-} DBusHandlerResult;
 
 typedef enum
 {
@@ -161,15 +154,6 @@ dbus_bool_t dbus_connection_add_filter         (DBusConnection      *connection,
                                                 DBusMessageHandler  *handler);
 void        dbus_connection_remove_filter      (DBusConnection      *connection,
                                                 DBusMessageHandler  *handler);
-
-dbus_bool_t dbus_connection_register_handler   (DBusConnection      *connection,
-                                                DBusMessageHandler  *handler,
-                                                const char         **messages_to_handle,
-                                                int                  n_messages);
-void        dbus_connection_unregister_handler (DBusConnection      *connection,
-                                                DBusMessageHandler  *handler,
-                                                const char         **messages_to_handle,
-                                                int                  n_messages);
 
 /* Objects */
 dbus_bool_t dbus_connection_register_object   (DBusConnection          *connection,

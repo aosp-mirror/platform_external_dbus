@@ -54,6 +54,8 @@ void                   dbus_object_id_set_high_bits  (DBusObjectID       *obj_id
                                                       dbus_uint32_t       value);
 void                   dbus_object_id_set_low_bits   (DBusObjectID       *obj_id,
                                                       dbus_uint32_t       value);
+void                   dbus_object_id_set_null       (DBusObjectID       *obj_id);
+dbus_bool_t            dbus_object_id_is_null        (const DBusObjectID *obj_id);
 #ifdef DBUS_HAVE_INT64
 dbus_uint64_t          dbus_object_id_get_as_integer (const DBusObjectID *obj_id);
 void                   dbus_object_id_set_as_integer (DBusObjectID       *obj_id,

@@ -1,3 +1,14 @@
+2003-07-12  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-object-registry.c: implement unit test,
+	fix bugs discovered in process
+
+	* dbus/dbus-connection.c: remove handler_table and
+	register_handler(), add DBusObjectRegistry usage
+
+	* dbus/dbus-objectid.c (dbus_object_id_is_null)
+	(dbus_object_id_set_null): new functions
+
 2003-07-08  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-object.c: implement some of this

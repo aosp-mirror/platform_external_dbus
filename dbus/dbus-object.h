@@ -39,6 +39,12 @@ typedef struct DBusObjectVTable   DBusObjectVTable;
 typedef struct DBusObjectInfo     DBusObjectInfo;
 typedef struct DBusCallbackObject DBusCallbackObject;
 
+typedef enum
+{
+  DBUS_HANDLER_RESULT_REMOVE_MESSAGE,     /**< Remove this message, no further processing. */
+  DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS /**< Run any additional handlers that are interested in this message. */
+} DBusHandlerResult;
+
 struct DBusObjectInfo
 {
   void               *object_impl; /**< Object information */

@@ -177,6 +177,34 @@ dbus_object_id_set_low_bits (DBusObjectID       *obj_id,
 #endif
 }
 
+/**
+ * Set the object ID to an invalid value that cannot
+ * correspond to a valid object.
+ *
+ * @param obj_id the object ID
+ */
+void
+dbus_object_id_set_null (DBusObjectID *obj_id)
+{
+  memset (obj_id, '\0', sizeof (DBusObjectID));
+}
+
+/**
+ * Check whether the object ID is set to a null value
+ *
+ * @param obj_id the object ID
+ * @returns #TRUE if null
+ */
+dbus_bool_t
+dbus_object_id_is_null (const DBusObjectID *obj_id)
+{
+#ifdef DBUS_HAVE_INT64
+  return VALUE (obj_id) == 0;
+#else
+  return HIGH_BITS (obj_id) == 0 && LOW_BITS (obj_id) == 0;
+#endif
+}
+
 #ifdef DBUS_HAVE_INT64
 /**
  * An object ID contains 64 bits of data. This function

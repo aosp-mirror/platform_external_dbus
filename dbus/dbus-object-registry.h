@@ -33,16 +33,17 @@ DBusObjectRegistry* _dbus_object_registry_new   (DBusConnection     *connection)
 void                _dbus_object_registry_ref   (DBusObjectRegistry *registry);
 void                _dbus_object_registry_unref (DBusObjectRegistry *registry);
 
-dbus_bool_t _dbus_object_registry_add_and_unlock    (DBusObjectRegistry      *registry,
-                                                     const char             **interfaces,
-                                                     const DBusObjectVTable  *vtable,
-                                                     void                    *object_impl,
-                                                     DBusObjectID            *object_id);
-void        _dbus_object_registry_remove_and_unlock (DBusObjectRegistry      *registry,
-                                                     const DBusObjectID      *object_id);
-void        _dbus_object_registry_handle_and_unlock (DBusObjectRegistry      *registry,
-                                                     DBusMessage             *message);
-void        _dbus_object_registry_free_all_unlocked (DBusObjectRegistry      *registry);
+dbus_bool_t       _dbus_object_registry_add_and_unlock    (DBusObjectRegistry      *registry,
+                                                           const char             **interfaces,
+                                                           const DBusObjectVTable  *vtable,
+                                                           void                    *object_impl,
+                                                           DBusObjectID            *object_id);
+void              _dbus_object_registry_remove_and_unlock (DBusObjectRegistry      *registry,
+                                                           const DBusObjectID      *object_id);
+DBusHandlerResult _dbus_object_registry_handle_and_unlock (DBusObjectRegistry      *registry,
+                                                           DBusMessage             *message);
+void              _dbus_object_registry_free_all_unlocked (DBusObjectRegistry      *registry);
+
 
 
 DBUS_END_DECLS;
