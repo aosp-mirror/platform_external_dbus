@@ -81,7 +81,7 @@ typedef struct
  */
 struct DBusMessage
 {
-  dbus_atomic_t refcount; /**< Reference count */
+  volatile dbus_atomic_t refcount; /**< Reference count */
 
   DBusString header; /**< Header network data, stored
                       * separately from body so we can
@@ -1134,7 +1134,7 @@ dbus_message_copy (const DBusMessage *message)
 void
 dbus_message_ref (DBusMessage *message)
 {
-  dbus_atomic_t refcount;
+  volatile dbus_atomic_t refcount;
 
   _dbus_return_if_fail (message != NULL);
   
@@ -1163,7 +1163,7 @@ free_size_counter (void *element,
 void
 dbus_message_unref (DBusMessage *message)
 {
-  dbus_atomic_t refcount;
+  volatile dbus_atomic_t refcount;
 
   _dbus_return_if_fail (message != NULL);
   

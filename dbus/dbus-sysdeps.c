@@ -1790,8 +1790,24 @@ _dbus_getgid (void)
   return getgid ();
 }
 
-
 _DBUS_DEFINE_GLOBAL_LOCK (atomic);
+
+
+#ifdef DBUS_USE_ATOMIC_INT_486
+/* Taken from CVS version 1.7 of glibc's sysdeps/i386/i486/atomicity.h */
+/* Since the asm stuff here is gcc-specific we go ahead and use "inline" also */
+static inline dbus_atomic_t
+atomic_exchange_and_add (volatile dbus_atomic_t *atomic,
+                         volatile dbus_atomic_t  val)
+{
+  register dbus_atomic_t result;
+
+  __asm__ __volatile__ ("lock; xaddl %0,%1"
+                        : "=r" (result), "=m" (*atomic) 
+			: "0" (val), "m" (*atomic));
+  return result;
+}
+#endif
 
 /**
  * Atomically increments an integer
@@ -1802,8 +1818,11 @@ _DBUS_DEFINE_GLOBAL_LOCK (atomic);
  * @todo implement arch-specific faster atomic ops
  */
 dbus_atomic_t
-_dbus_atomic_inc (dbus_atomic_t *atomic)
+_dbus_atomic_inc (volatile dbus_atomic_t *atomic)
 {
+#ifdef DBUS_USE_ATOMIC_INT_486
+  return atomic_exchange_and_add (atomic, 1);
+#else
   dbus_atomic_t res;
   
   _DBUS_LOCK (atomic);
@@ -1811,6 +1830,7 @@ _dbus_atomic_inc (dbus_atomic_t *atomic)
   res = *atomic;
   _DBUS_UNLOCK (atomic);
   return res;
+#endif
 }
 
 /**
@@ -1822,8 +1842,11 @@ _dbus_atomic_inc (dbus_atomic_t *atomic)
  * @todo implement arch-specific faster atomic ops
  */
 dbus_atomic_t
-_dbus_atomic_dec (dbus_atomic_t *atomic)
+_dbus_atomic_dec (volatile dbus_atomic_t *atomic)
 {
+#ifdef DBUS_USE_ATOMIC_INT_486
+  return atomic_exchange_and_add (atomic, -1);
+#else
   dbus_atomic_t res;
   
   _DBUS_LOCK (atomic);
@@ -1831,6 +1854,7 @@ _dbus_atomic_dec (dbus_atomic_t *atomic)
   res = *atomic;
   _DBUS_UNLOCK (atomic);
   return res;
+#endif
 }
 
 /**

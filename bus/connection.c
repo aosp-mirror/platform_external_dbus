@@ -292,9 +292,9 @@ connection_watch_callback (DBusWatch     *watch,
                            void          *data)
 {
  /* FIXME this can be done in dbus-mainloop.c
-   * if the code in activation.c for the babysitter
-   * watch handler is fixed.
-   */
+  * if the code in activation.c for the babysitter
+  * watch handler is fixed.
+  */
   
 #if 0
   _dbus_verbose ("Calling handle_watch\n");

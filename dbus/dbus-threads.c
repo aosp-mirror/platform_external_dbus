@@ -458,7 +458,7 @@ dbus_fake_condvar_free (DBusCondVar *cond)
 
 static void
 dbus_fake_condvar_wait (DBusCondVar *cond,
-		    DBusMutex   *mutex)
+                        DBusMutex   *mutex)
 {
   
 }

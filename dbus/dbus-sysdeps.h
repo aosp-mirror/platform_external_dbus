@@ -169,10 +169,10 @@ unsigned long _dbus_getpid (void);
 dbus_uid_t    _dbus_getuid (void);
 dbus_gid_t    _dbus_getgid (void);
 
-typedef int dbus_atomic_t;
+typedef dbus_int32_t dbus_atomic_t;
 
-dbus_atomic_t _dbus_atomic_inc (dbus_atomic_t *atomic);
-dbus_atomic_t _dbus_atomic_dec (dbus_atomic_t *atomic);
+dbus_atomic_t _dbus_atomic_inc (volatile dbus_atomic_t *atomic);
+dbus_atomic_t _dbus_atomic_dec (volatile dbus_atomic_t *atomic);
 
 #define _DBUS_POLLIN      0x0001    /* There is data to read */
 #define _DBUS_POLLPRI     0x0002    /* There is urgent data to read */

@@ -190,7 +190,6 @@ _dbus_verbose_real (const char *format,
 {
   va_list args;
   static dbus_bool_t verbose = TRUE;
-  static unsigned long pid;
   
   /* things are written a bit oddly here so that
    * in the non-verbose case we just have the one
@@ -202,13 +201,12 @@ _dbus_verbose_real (const char *format,
   if (!verbose_initted)
     {
       verbose = _dbus_getenv ("DBUS_VERBOSE") != NULL;
-      pid = _dbus_getpid ();
       verbose_initted = TRUE;
       if (!verbose)
         return;
     }
 
-  fprintf (stderr, "%lu: ", pid);
+  fprintf (stderr, "%lu: ", _dbus_getpid ());
   
   va_start (args, format);
   vfprintf (stderr, format, args);

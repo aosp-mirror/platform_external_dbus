@@ -1,3 +1,33 @@
+2003-05-11  Havoc Pennington  <hp@pobox.com>
+
+	Write a "test-profile" that does echo client-server with threads;
+	profile reveals lock contention, memcpy/realloc of buffers, and
+	UTF-8 validation as hot spots. 20% of lock contention eliminated
+	with dbus_atomic_inc/dec implementation on x86.  Much remaining
+	contention is global mempool locks for GList and DBusList.
+	
+	* dbus/dbus-sysdeps.c (_dbus_atomic_inc, _dbus_atomic_dec): add
+	x86 implementation
+
+	* dbus/dbus-connection.c (struct DBusConnection): use
+	dbus_atomic_t for the reference count	
+
+	* dbus/dbus-message.c (struct DBusMessage): declare 
+	dbus_atomic_t values as volatile
+
+	* configure.in: code to detect ability to use atomic integer
+	operations in assembly, from GLib patch
+
+	* dbus/dbus-internals.c (_dbus_verbose_real): call getpid every
+	time, tired of it being wrong in threads and forked processes
+
+	* glib/test-profile.c: a little program to bounce messages back 
+	and forth between threads and eat CPU
+
+	* dbus/dbus-connection.c: add debug spew macros for debugging
+	thread locks; include config.h at top; fix deadlock in 
+	dbus_connection_flush()
+
 2003-05-08  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-spawn.c: s/_exit/exit/ because it was keeping gcov

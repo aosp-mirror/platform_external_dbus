@@ -39,9 +39,6 @@
  * is first established, and also manage any encryption used over a
  * connection.
  *
- * The file doc/dbus-sasl-profile.txt documents the network protocol
- * used for authentication.
- *
  * @todo some SASL profiles require sending the empty string as a
  * challenge/response, but we don't currently allow that in our
  * protocol.

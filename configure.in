@@ -205,6 +205,28 @@ AC_SUBST(DBUS_HAVE_INT64)
 ## byte order
 AC_C_BIGENDIAN
 
+#### Atomic integers (checks by Sebastian Wilhelmi for GLib)
+AC_MSG_CHECKING([whether to use inline assembler routines for atomic integers])
+have_atomic_inc=no
+if test x"$GCC" = xyes; then
+  case $host_cpu in
+    i386)
+      AC_MSG_RESULT([no])
+      ;;
+    i?86)
+      AC_MSG_RESULT([i486])
+      AC_DEFINE_UNQUOTED(DBUS_USE_ATOMIC_INT_486, 1, [Use atomic integer implementation for 486])
+      have_atomic_inc=yes
+      ;;
+    *)
+      AC_MSG_RESULT([no])
+      ;;
+  esac
+fi
+if test x$have_atomic_inc = xyes ; then
+  AC_DEFINE_UNQUOTED(DBUS_HAVE_ATOMIC_INT, 1, [Some atomic integer implementation present])
+fi
+
 #### Various functions
 AC_CHECK_LIB(socket,socket)
 AC_CHECK_LIB(nsl,gethostbyname)
@@ -598,6 +620,7 @@ else
    TEST_SOCKET_DIR=$DEFAULT_SOCKET_DIR
 fi
 AC_SUBST(TEST_SOCKET_DIR)
+AC_DEFINE_UNQUOTED(DBUS_TEST_SOCKET_DIR, "$TEST_SOCKET_DIR", [Where to put test sockets])
 
 if ! test -z "$with_session_socket_dir" ; then
    DBUS_SESSION_SOCKET_DIR="$with_session_socket_dir"
