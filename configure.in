@@ -633,6 +633,7 @@ if ! test -z "$with_session_socket_dir" ; then
 else
    DBUS_SESSION_SOCKET_DIR=$DEFAULT_SOCKET_DIR
 fi
+AC_DEFINE_UNQUOTED(DBUS_SESSION_SOCKET_DIR, "$DBUS_SESSION_SOCKET_DIR", [Where per-session bus puts its sockets])
 AC_SUBST(DBUS_SESSION_SOCKET_DIR)
 
 

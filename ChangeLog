@@ -1,3 +1,12 @@
+2003-06-01  Havoc Pennington  <hp@pobox.com>
+
+	* tools/dbus-cleanup-sockets.c: add utility to clean up sockets 
+	in /tmp (though on Linux this will end up being useless, 
+	when we add abstract namespace support)
+
+	* configure.in: define DBUS_SESSION_SOCKET_DIR in addition to
+	subst'ing it
+
 2003-05-28  Colin Walters  <walters@verbum.org>
 
 	* tools/dbus-monitor.c (main): Fix silly typo (s/--session/--system/).

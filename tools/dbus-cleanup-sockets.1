@@ -1,0 +1,30 @@
+.\" 
+.\" dbus-cleanup-sockets manual page.
+.\" Copyright (C) 2003 Red Hat, Inc.
+.\"
+.TH dbus-cleanup-sockets 1
+.SH NAME
+dbus-cleanup-sockets \- clean up leftover sockets in a directory
+.SH SYNOPSIS
+.PP
+.B dbus-cleanup-sockets [DIRECTORY]
+
+.SH DESCRIPTION
+
+The \fIdbus-cleanup-sockets\fP command cleans up sockets used for
+D-BUS connections. See http://www.freedesktop.org/software/dbus/ for
+more information about the big picture.
+
+.PP
+If given no arguments, \fIdbus-cleanup-sockets\fP cleans up sockets 
+in the standard default socket directory for the
+per-user-login-session message bus; this is usually /tmp. 
+Optionally, you can pass a different directory on the command line.
+
+.SH AUTHOR
+dbus-cleanup-sockets was adapted by Havoc Pennington from
+linc-cleanup-sockets written by Michael Meeks.
+
+.SH BUGS
+Please send bug reports to the D-BUS mailing list or bug tracker,
+see http://www.freedesktop.org/software/dbus/
