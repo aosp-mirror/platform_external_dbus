@@ -124,6 +124,16 @@ typedef struct
  * @{
  */
 
+/** Assert that the string's memory is 8-byte aligned.
+ *
+ *  @todo Currently we just hope libc returns 8-byte aligned memory
+ *  (which is true for GNU libc), but really we need to ensure it by
+ *  allocating 8 extra bytes and keeping an "align_offset : 3" field
+ *  in DBusString, or something along those lines.
+ */
+#define ASSERT_8_BYTE_ALIGNED(s) \
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (((const DBusRealString*)s)->str, 8) == ((const DBusRealString*)s)->str)
+
 /**
  * Initializes a string. The maximum length may be _DBUS_INT_MAX for
  * no maximum. The string starts life with zero length.
@@ -156,8 +166,8 @@ _dbus_string_init (DBusString *str,
   
   real->str = dbus_malloc (INITIAL_ALLOC);
   if (real->str == NULL)
-    return FALSE;
-
+    return FALSE;  
+  
   real->allocated = INITIAL_ALLOC;
   real->len = 0;
   real->str[real->len] = '\0';
@@ -167,6 +177,8 @@ _dbus_string_init (DBusString *str,
   real->locked = FALSE;
   real->invalid = FALSE;
 
+  ASSERT_8_BYTE_ALIGNED (str);
+  
   return TRUE;
 }
 
@@ -196,6 +208,10 @@ _dbus_string_init_const (DBusString *str,
   real->max_length = real->len;
   real->constant = TRUE;
   real->invalid = FALSE;
+
+  /* We don't require const strings to be 8-byte aligned as the
+   * memory is coming from elsewhere.
+   */
 }
 
 /**
@@ -248,6 +264,7 @@ _dbus_string_lock (DBusString *str)
         {
           real->str = new_str;
           real->allocated = new_allocated;
+          ASSERT_8_BYTE_ALIGNED (str);
         }
     }
 }
@@ -454,6 +471,8 @@ set_length (DBusRealString *real,
 
       real->str = new_str;
       real->allocated = new_allocated;
+
+      ASSERT_8_BYTE_ALIGNED (real);
     }
 
   real->len = new_length;

@@ -1,5 +1,13 @@
 2003-01-18  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-test.c: include config.h so that tests actually run
+
+	* dbus/dbus-string.c: add assertions that stuff is 8-byte aligned,
+	so the failure mode when that assumption fails will be plenty
+	obvious.
+
+2003-01-18  Havoc Pennington  <hp@pobox.com>
+
 	* configure.in: default --enable-tests to $USE_MAINTAINER_MODE
 
 	* dbus/Makefile.am: fix it up so dubs-test-main.c is included in
