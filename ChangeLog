@@ -1,3 +1,10 @@
+2003-07-16  Havoc Pennington  <hp@pobox.com>
+
+	* configure.in: print out EXPANDED_* variables in the summary at
+	the end; clean up the code that computes EXPANDED_ variables and
+	get the ones using exec_prefix right. Should make things work
+	when you build without --prefix
+
 2003-06-29  Havoc Pennington  <hp@pobox.com>
 
 	* mono/Test.cs (class Test): fire up a main loop and run it

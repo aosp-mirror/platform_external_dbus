@@ -677,6 +677,9 @@ fi
 AM_CONDITIONAL(DBUS_DOCS_ENABLED, test x$enable_docs = xyes)
 AC_MSG_RESULT(yes)
 
+#### Have to go $localstatedir->$prefix/var->/usr/local/var   
+#### someone please fix this a better way...
+
 #### find the actual value for $prefix that we'll end up with
 ##   (I know this is broken and should be done in the Makefile, but
 ##    that's a major pain and almost nobody actually seems to care)
@@ -687,34 +690,38 @@ else
   REAL_PREFIX=$prefix
 fi
 
-#### Have to go $localstatedir->$prefix/var->/usr/local/var   
-#### someone please fix this a better way...
-LOCALSTATEDIR_TMP="$localstatedir"
+## temporarily change prefix and exec_prefix
 old_prefix=$prefix
 prefix=$REAL_PREFIX
+
+if test "x$exec_prefix" = xNONE ; then
+   REAL_EXEC_PREFIX=$REAL_PREFIX
+else
+   REAL_EXEC_PREFIX=$exec_prefix
+fi
+old_exec_prefix=$exec_prefix
+exec_prefix=$REAL_EXEC_PREFIX
+
+## eval everything
+LOCALSTATEDIR_TMP="$localstatedir"
 EXPANDED_LOCALSTATEDIR=`eval echo $LOCALSTATEDIR_TMP`
-prefix=$old_prefix
 AC_SUBST(EXPANDED_LOCALSTATEDIR)
 
 SYSCONFDIR_TMP="$sysconfdir"
-old_prefix=$prefix
-prefix=$REAL_PREFIX
 EXPANDED_SYSCONFDIR=`eval echo $SYSCONFDIR_TMP`
-prefix=$old_prefix
 AC_SUBST(EXPANDED_SYSCONFDIR)
 
 BINDIR_TMP="$bindir"
-old_prefix=$prefix
-prefix=$REAL_PREFIX
 EXPANDED_BINDIR=`eval echo $BINDIR_TMP`
-prefix=$old_prefix
 AC_SUBST(EXPANDED_BINDIR)
 
-old_exec_prefix=${exec_prefix}
-test "x$exec_prefix" = xNONE && eval exec_prefix=${prefix}
-eval EXPANDED_LIBDIR=${libdir}
-exec_prefix=${old_exec_prefix}
+LIBDIR_TMP="$libdir"
+EXPANDED_LIBDIR=`eval echo $LIBDIR_TMP`
 AC_SUBST(EXPANDED_LIBDIR)
+
+## put prefix and exec_prefix back
+prefix=$old_prefix
+exec_prefix=$old_exec_prefix
 
 #### Check our operating system
 operating_system=unknown
@@ -839,6 +846,11 @@ echo "
                   ==============
 
 	prefix:                   ${prefix}
+	exec_prefix:              ${exec_prefix}
+        libdir:                   ${EXPANDED_LIBDIR}
+        bindir:                   ${EXPANDED_BINDIR}
+        sysconfdir:               ${EXPANDED_SYSCONFDIR}
+        localstatedir:            ${EXPANDED_LOCALSTATEDIR}
 	source code location:	  ${srcdir}
 	compiler:		  ${CC}
 	cflags:		          ${CFLAGS}
