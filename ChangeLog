@@ -1,3 +1,23 @@
+2003-02-13  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-auth.c (handle_server_data_external_mech): args to
+	dbus_credentials_match were backward
+
+	* dbus/dbus-auth-script.c (_dbus_auth_script_run): support
+	NO_CREDENTIALS and ROOT_CREDENTIALS
+
+	* dbus/dbus-auth.c (_dbus_auth_do_work): move get_state() routine 
+	into here. Never process more commands after we've reached an 
+	end state; store further data as unused bytes.
+
+	* test/data/auth/*: add more auth tests
+	
+	* dbus/dbus-auth-script.c (_dbus_auth_script_run): support EXPECT
+	command to match exact string and EXPECT_UNUSED to match unused
+	bytes
+
+	* test/Makefile.am (dist-hook): fix to dist all the test stuff
+
 2003-02-12  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-string.c (_dbus_string_pop_line): fix to also strip

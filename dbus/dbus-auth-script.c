@@ -42,11 +42,15 @@
  * @{
  */
 
+/* this is slightly different from the other append_quoted_string
+ * in dbus-message-builder.c
+ */
 static dbus_bool_t
 append_quoted_string (DBusString       *dest,
                       const DBusString *quoted)
 {
   dbus_bool_t in_quotes = FALSE;
+  dbus_bool_t in_backslash = FALSE;
   int i;
 
   i = 0;
@@ -55,8 +59,33 @@ append_quoted_string (DBusString       *dest,
       unsigned char b;
 
       b = _dbus_string_get_byte (quoted, i);
-      
-      if (in_quotes)
+
+      if (in_backslash)
+        {
+          unsigned char a;
+          
+          if (b == 'r')
+            a = '\r';
+          else if (b == 'n')
+            a = '\n';
+          else if (b == '\\')
+            a = '\\';
+          else
+            {
+              _dbus_warn ("bad backslashed byte %c\n", b);
+              return FALSE;
+            }
+
+          if (!_dbus_string_append_byte (dest, a))
+            return FALSE;
+          
+          in_backslash = FALSE;
+        }
+      else if (b == '\\')
+        {
+          in_backslash = TRUE;
+        }
+      else if (in_quotes)
         {
           if (b == '\'')
             in_quotes = FALSE;
@@ -222,6 +251,8 @@ _dbus_auth_script_run (const DBusString *filename)
       else if (_dbus_string_starts_with_c_str (&line,
                                                "CLIENT"))
         {
+          DBusCredentials creds;
+          
           if (auth != NULL)
             {
               _dbus_warn ("already created a DBusAuth (CLIENT or SERVER given twice)\n");
@@ -234,10 +265,15 @@ _dbus_auth_script_run (const DBusString *filename)
               _dbus_warn ("no memory to create DBusAuth\n");
               goto out;
             }
+
+          _dbus_credentials_from_current_process (&creds);
+          _dbus_auth_set_credentials (auth, &creds);
         }
       else if (_dbus_string_starts_with_c_str (&line,
                                                "SERVER"))
         {
+          DBusCredentials creds;
+          
           if (auth != NULL)
             {
               _dbus_warn ("already created a DBusAuth (CLIENT or SERVER given twice)\n");
@@ -250,12 +286,33 @@ _dbus_auth_script_run (const DBusString *filename)
               _dbus_warn ("no memory to create DBusAuth\n");
               goto out;
             }
+
+          _dbus_credentials_from_current_process (&creds);
+          _dbus_auth_set_credentials (auth, &creds);
         }
       else if (auth == NULL)
         {
           _dbus_warn ("must specify CLIENT or SERVER\n");
           goto out;
 
+        }
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "NO_CREDENTIALS"))
+        {
+          DBusCredentials creds = { -1, -1, -1 };
+          _dbus_auth_set_credentials (auth, &creds);
+        }
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "ROOT_CREDENTIALS"))
+        {
+          DBusCredentials creds = { -1, 0, 0 };
+          _dbus_auth_set_credentials (auth, &creds);          
+        }
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "SILLY_CREDENTIALS"))
+        {
+          DBusCredentials creds = { -1, 4312, 1232 };
+          _dbus_auth_set_credentials (auth, &creds);          
         }
       else if (_dbus_string_starts_with_c_str (&line,
                                                "SEND"))
@@ -291,10 +348,49 @@ _dbus_auth_script_run (const DBusString *filename)
               _dbus_string_free (&to_send);
               goto out;
             }
+
+          /* Replace USERNAME_BASE64 with our username in base64 */
+          {
+            int where;
+            
+            if (_dbus_string_find (&to_send, 0,
+                                   "USERNAME_BASE64", &where))
+              {
+                DBusString username;
+
+                if (!_dbus_string_init (&username, _DBUS_INT_MAX))
+                  {
+                    _dbus_warn ("no memory for username\n");
+                    _dbus_string_free (&to_send);
+                    goto out;
+                  }
+
+                if (!_dbus_string_append_our_uid (&username))
+                  {
+                    _dbus_warn ("no memory for username\n");
+                    _dbus_string_free (&username);
+                    _dbus_string_free (&to_send);
+                    goto out;
+                  }
+
+                _dbus_string_delete (&to_send, where, strlen ("USERNAME_BASE64"));
+                
+                if (!_dbus_string_base64_encode (&username, 0,
+                                                 &to_send, where))
+                  {
+                    _dbus_warn ("no memory to subst USERNAME_BASE64\n");
+                    _dbus_string_free (&username);
+                    _dbus_string_free (&to_send);
+                    goto out;
+                  }
+
+                _dbus_string_free (&username);
+              }
+          }
           
           if (!_dbus_auth_bytes_received (auth, &to_send))
             {
-              _dbus_warn ("not enough memory to call bytes_received\n");
+              _dbus_warn ("not enough memory to call bytes_received, or can't add bytes to auth object already in end state\n");
               _dbus_string_free (&to_send);
               goto out;
             }
@@ -359,6 +455,99 @@ _dbus_auth_script_run (const DBusString *filename)
             }
           
           _dbus_string_free (&received);
+        }
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "EXPECT_UNUSED"))
+        {
+          DBusString expected;
+          DBusString unused;
+          
+          _dbus_string_delete_first_word (&line);
+
+          if (!_dbus_string_init (&expected, _DBUS_INT_MAX))
+            {
+              _dbus_warn ("no mem to allocate string expected\n");
+              goto out;
+            }
+
+          if (!append_quoted_string (&expected, &line))
+            {
+              _dbus_warn ("failed to append quoted string line %d\n",
+                          line_no);
+              _dbus_string_free (&expected);
+              goto out;
+            }
+
+          if (!_dbus_string_init (&unused, _DBUS_INT_MAX))
+            {
+              _dbus_warn ("no mem to allocate string unused\n");
+              _dbus_string_free (&expected);
+              goto out;
+            }
+
+          if (!_dbus_auth_get_unused_bytes (auth, &unused))
+            {
+              _dbus_warn ("couldn't get unused bytes\n");
+              _dbus_string_free (&expected);
+              _dbus_string_free (&unused);
+              goto out;
+            }
+          
+          if (_dbus_string_equal (&expected, &unused))
+            {
+              _dbus_string_free (&expected);
+              _dbus_string_free (&unused);
+            }
+          else
+            {
+              const char *e1, *h1;
+              _dbus_string_get_const_data (&expected, &e1);
+              _dbus_string_get_const_data (&unused, &h1);
+              _dbus_warn ("Expected unused bytes '%s' and have '%s'\n",
+                          e1, h1);
+              _dbus_string_free (&expected);
+              _dbus_string_free (&unused);
+              goto out;
+            }
+        }
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "EXPECT"))
+        {
+          DBusString expected;
+          
+          _dbus_string_delete_first_word (&line);
+
+          if (!_dbus_string_init (&expected, _DBUS_INT_MAX))
+            {
+              _dbus_warn ("no mem to allocate string expected\n");
+              goto out;
+            }
+
+          if (!append_quoted_string (&expected, &line))
+            {
+              _dbus_warn ("failed to append quoted string line %d\n",
+                          line_no);
+              _dbus_string_free (&expected);
+              goto out;
+            }
+
+          if (_dbus_string_equal_len (&expected, &from_auth,
+                                      _dbus_string_get_length (&expected)))
+            {
+              _dbus_string_delete (&from_auth, 0,
+                                   _dbus_string_get_length (&expected));
+              _dbus_string_free (&expected);
+            }
+          else
+            {
+              const char *e1, *h1;
+              _dbus_string_get_const_data (&expected, &e1);
+              _dbus_string_get_const_data (&from_auth, &h1);
+              _dbus_warn ("Expected exact string '%s' and have '%s'\n",
+                          e1, h1);
+              _dbus_string_free (&expected);
+              goto out;
+            }
         }
       else
         goto parse_failed;

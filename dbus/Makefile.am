@@ -111,3 +111,7 @@ dbus_test_SOURCES=				\
 	dbus-test-main.c
 
 dbus_test_LDADD= $(DBUS_CLIENT_LIBS) libdbus-convenience.la libdbus-1.la
+
+## mop up the gcov files
+clean-local:
+	/bin/rm *.bb *.bbg *.da *.gcov || true

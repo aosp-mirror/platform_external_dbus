@@ -37,13 +37,13 @@ unbase64_LDADD=$(TEST_LIBS)
 break_loader_LDADD= $(TEST_LIBS)
 bus_test_LDADD=$(TEST_LIBS) $(top_builddir)/bus/libdbus-daemon.la
 
-dist-hook:
-	DIRS="data data/valid-messages data/invalid-messages data/incomplete-messages" ; \
-	for D in $$DIRS; do						\
-		test -d $(distdir)/$$D || mkdir $(distdir)/$$D ;	\
-	done ;								\
-	FILES=`find -name "*.message"` ;				\
-        for F in $$FILES; do						\
-                echo '-- Disting file '$$F ;				\
-		cp $$F $(distdir)/$$F ;					\
+dist-hook:											   \
+	DIRS="data data/valid-messages data/invalid-messages data/incomplete-messages data/auth" ; \
+	for D in $$DIRS; do									   \
+		test -d $(distdir)/$$D || mkdir $(distdir)/$$D ;				   \
+	done ;											   \
+	FILES=`find -name "*.message" -o -name "*.message-raw" -o -name "*.auth-script"` ;	   \
+        for F in $$FILES; do									   \
+                echo '-- Disting file '$$F ;							   \
+		cp $$F $(distdir)/$$F ;								   \
 	done

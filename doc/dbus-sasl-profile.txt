@@ -1,4 +1,3 @@
-
 D-BUS Authentication
 ===
 
@@ -116,6 +115,9 @@ DATA Command
    The DATA command may come from either client or server, and simply 
    contains a base64-encoded block of data to be interpreted 
    according to the SASL mechanism in use.
+
+   Some SASL mechanisms support sending an "empty string"; 
+   FIXME we need some way to do this.
 
 BEGIN Command
 ===

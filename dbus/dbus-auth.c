@@ -38,6 +38,10 @@
  *
  * The file doc/dbus-sasl-profile.txt documents the network protocol
  * used for authentication.
+ *
+ * @todo some SASL profiles require sending the empty string as a
+ * challenge/response, but we don't currently allow that in our
+ * protocol.
  */
 
 /**
@@ -283,31 +287,6 @@ _dbus_auth_new (int size)
   return auth;
 }
 
-static DBusAuthState
-get_state (DBusAuth *auth)
-{
-  if (DBUS_AUTH_IS_SERVER (auth) &&
-      DBUS_AUTH_SERVER (auth)->failures >=
-      DBUS_AUTH_SERVER (auth)->max_failures)
-    auth->need_disconnect = TRUE;
-  
-  if (auth->need_disconnect)
-    return DBUS_AUTH_STATE_NEED_DISCONNECT;
-  else if (auth->authenticated)
-    {
-      if (_dbus_string_get_length (&auth->incoming) > 0)
-        return DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES;
-      else
-        return DBUS_AUTH_STATE_AUTHENTICATED;
-    }
-  else if (auth->needed_memory)
-    return DBUS_AUTH_STATE_WAITING_FOR_MEMORY;
-  else if (_dbus_string_get_length (&auth->outgoing) > 0)
-    return DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND;
-  else
-    return DBUS_AUTH_STATE_WAITING_FOR_INPUT;
-}
-
 static void
 shutdown_mech (DBusAuth *auth)
 {
@@ -411,6 +390,7 @@ handle_server_data_external_mech (DBusAuth         *auth,
       if (_dbus_string_get_length (&auth->identity) > 0)
         {
           /* Tried to send two auth identities, wtf */
+          _dbus_verbose ("client tried to send auth identity, but we already have one\n");
           return send_rejected (auth);
         }
       else
@@ -453,7 +433,10 @@ handle_server_data_external_mech (DBusAuth         *auth,
     {
       if (!_dbus_credentials_from_uid_string (&auth->identity,
                                               &desired_identity))
-        return send_rejected (auth);
+        {
+          _dbus_verbose ("could not get credentials from uid string\n");
+          return send_rejected (auth);
+        }
     }
 
   if (desired_identity.uid < 0)
@@ -462,8 +445,8 @@ handle_server_data_external_mech (DBusAuth         *auth,
       return send_rejected (auth);
     }
   
-  if (_dbus_credentials_match (&auth->credentials,
-                               &desired_identity))
+  if (_dbus_credentials_match (&desired_identity,
+                               &auth->credentials))
     {
       /* client has authenticated */
       _dbus_verbose ("authenticated client with UID %d matching socket credentials UID %d\n",
@@ -482,6 +465,9 @@ handle_server_data_external_mech (DBusAuth         *auth,
     }
   else
     {
+      _dbus_verbose ("credentials uid=%d gid=%d do not allow uid=%d gid=%d\n",
+                     auth->credentials.uid, auth->credentials.gid,
+                     desired_identity.uid, desired_identity.gid);
       return send_rejected (auth);
     }
 }
@@ -1061,7 +1047,7 @@ process_command (DBusAuth *auth)
   int i, j;
   dbus_bool_t retval;
 
-  _dbus_verbose ("  trying process_command()\n");
+  /* _dbus_verbose ("  trying process_command()\n"); */
   
   retval = FALSE;
   
@@ -1296,10 +1282,7 @@ _dbus_auth_unref (DBusAuth *auth)
  */
 DBusAuthState
 _dbus_auth_do_work (DBusAuth *auth)
-{  
-  if (DBUS_AUTH_IN_END_STATE (auth))
-    return get_state (auth);
-
+{
   auth->needed_memory = FALSE;
 
   /* Max amount we'll buffer up before deciding someone's on crack */
@@ -1307,6 +1290,9 @@ _dbus_auth_do_work (DBusAuth *auth)
 
   do
     {
+      if (DBUS_AUTH_IN_END_STATE (auth))
+        break;
+      
       if (_dbus_string_get_length (&auth->incoming) > MAX_BUFFER ||
           _dbus_string_get_length (&auth->outgoing) > MAX_BUFFER)
         {
@@ -1325,8 +1311,27 @@ _dbus_auth_do_work (DBusAuth *auth)
         }
     }
   while (process_command (auth));
-  
-  return get_state (auth);
+
+  if (DBUS_AUTH_IS_SERVER (auth) &&
+      DBUS_AUTH_SERVER (auth)->failures >=
+      DBUS_AUTH_SERVER (auth)->max_failures)
+    auth->need_disconnect = TRUE;
+
+  if (auth->need_disconnect)
+    return DBUS_AUTH_STATE_NEED_DISCONNECT;
+  else if (auth->authenticated)
+    {
+      if (_dbus_string_get_length (&auth->incoming) > 0)
+        return DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES;
+      else
+        return DBUS_AUTH_STATE_AUTHENTICATED;
+    }
+  else if (auth->needed_memory)
+    return DBUS_AUTH_STATE_WAITING_FOR_MEMORY;
+  else if (_dbus_string_get_length (&auth->outgoing) > 0)
+    return DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND;
+  else
+    return DBUS_AUTH_STATE_WAITING_FOR_INPUT;
 }
 
 /**
@@ -1383,7 +1388,7 @@ _dbus_auth_bytes_sent (DBusAuth *auth,
  *
  * @param auth the auth conversation
  * @param str the received bytes.
- * @returns #FALSE if not enough memory to store the bytes.
+ * @returns #FALSE if not enough memory to store the bytes or we were already authenticated.
  */
 dbus_bool_t
 _dbus_auth_bytes_received (DBusAuth   *auth,
