@@ -1,5 +1,10 @@
 2004-10-21  Colin Walters  <walters@verbum.org>
 
+	* AUTHORS: Fix my email address, the @gnu.org one
+	has been bouncing for some time.  Also add J5.
+	
+2004-10-21  Colin Walters  <walters@verbum.org>
+
 	* dbus/dbus-transport-unix.c (do_authentication): Return
 	authentication status to callers.
 	(unix_handle_watch): If we completed authentication this round,
