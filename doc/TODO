@@ -115,3 +115,14 @@
    since protocol probably modifies the API. But we could have it there
    as a safety net.
 
+- STRING_OR_NIL is wrong, doesn't work in C++ etc. ; should not have done that.
+  Use empty string or special string values or separate functions/signals 
+  or whatever instead.
+
+- For recursive types, one approach is that "structs" are done as parens, 
+  so e.g. s(ii) is a string and struct { int; int; } etc. Type codes
+  then all have to be done as strings not single ints.
+  We could also put the type signature for the message body in a header field.
+  An "any" type has the type string included in the value.
+
+
