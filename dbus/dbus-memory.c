@@ -555,6 +555,7 @@ dbus_realloc (void  *memory,
     {
       if (memory)
         {
+          size_t old_bytes;
           void *block;
           
           check_guards (memory);
@@ -562,7 +563,8 @@ dbus_realloc (void  *memory,
           block = realloc (((unsigned char*)memory) - GUARD_START_OFFSET,
                            bytes + GUARD_EXTRA_SIZE);
 
-          if (block)
+	  old_bytes = *(dbus_uint32_t*)block;
+          if (block && bytes >= old_bytes)
             /* old guards shouldn't have moved */
             check_guards (((unsigned char*)block) + GUARD_START_OFFSET);
           
@@ -762,3 +764,42 @@ dbus_shutdown (void)
 }
 
 /** @} */ /** End of public API docs block */
+
+#ifdef DBUS_BUILD_TESTS
+#include "dbus-test.h"
+
+/**
+ * @ingroup DBusMemoryInternals
+ * Unit test for DBusMemory
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_memory_test (void)
+{
+  dbus_bool_t old_guards;
+  void *p;
+  size_t size;
+
+  old_guards = guards;
+  guards = TRUE;
+  p = dbus_malloc (4);
+  if (p == NULL)
+    _dbus_assert_not_reached ("no memory");
+  for (size = 4; size < 256; size += 4)
+    {
+      p = dbus_realloc (p, size);
+      if (p == NULL)
+	_dbus_assert_not_reached ("no memory");
+    }
+  for (size = 256; size != 0; size -= 4)
+    {
+      p = dbus_realloc (p, size);
+      if (p == NULL)
+	_dbus_assert_not_reached ("no memory");
+    }
+  dbus_free (p);
+  guards = old_guards;
+  return TRUE;
+}
+
+#endif

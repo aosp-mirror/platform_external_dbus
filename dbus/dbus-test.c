@@ -105,7 +105,13 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
     die ("marshalling");
 
   check_memleaks ();
+
+  printf ("%s: running memory tests\n", "dbus-test");
+  if (!_dbus_memory_test ())
+    die ("memory");
   
+  check_memleaks ();
+
   printf ("%s: running memory pool tests\n", "dbus-test");
   if (!_dbus_mem_pool_test ())
     die ("memory pools");

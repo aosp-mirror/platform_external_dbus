@@ -1,5 +1,11 @@
 2003-06-29  Miloslav Trmac  <mitr@volny.cz>
 
+	* dbus/dbus-memory.c (dbus_realloc): Don't check guards after shrinking
+	the allocated block.
+	(_dbus_memory_test): New function.
+	* dbus/dbus-test.h: Add _dbus_memory_test ().
+	* dbus/dbus-test.c (dbus_internal_do_not_use_run_tests): Call it.
+
 	* dbus/dbus-message.c (decode_header_data): Use %.4s instead
 	of %c%c%c%c.
 	(dbus_message_new): Remove obsolete @todo.
