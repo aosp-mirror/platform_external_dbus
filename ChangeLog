@@ -1,3 +1,8 @@
+2004-08-11  Colin Walters  <walters@redhat.com>
+
+	* tools/dbus-send.c (main, usage): Add --reply-timeout
+	argument.
+
 2004-08-10  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* bus/bus.c (process_config_first_time_only): get rid of an unused

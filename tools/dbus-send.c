@@ -30,7 +30,7 @@
 static void
 usage (char *name, int ecode)
 {
-  fprintf (stderr, "Usage: %s [--help] [--system | --session] [--dest=SERVICE] [--type=TYPE] [--print-reply] <destination object path> <message name> [contents ...]\n", name);
+  fprintf (stderr, "Usage: %s [--help] [--system | --session] [--dest=SERVICE] [--type=TYPE] [--print-reply] [--reply-timeout=MSEC] <destination object path> <message name> [contents ...]\n", name);
   exit (ecode);
 }
 
@@ -41,6 +41,7 @@ main (int argc, char *argv[])
   DBusError error;
   DBusMessage *message;
   int print_reply;
+  int reply_timeout;
   DBusMessageIter iter;
   int i;
   DBusBusType type = DBUS_BUS_SESSION;
@@ -54,6 +55,7 @@ main (int argc, char *argv[])
     usage (argv[0], 1);
 
   print_reply = FALSE;
+  reply_timeout = -1;
   
   for (i = 1; i < argc && name == NULL; i++)
     {
@@ -67,6 +69,11 @@ main (int argc, char *argv[])
 	{
 	  print_reply = TRUE;
 	  message_type = DBUS_MESSAGE_TYPE_METHOD_CALL;
+	}
+      else if (strstr (arg, "--reply-timeout=") == arg)
+	{
+	  reply_timeout = strtol (strchr (arg, '=') + 1,
+				  NULL, 10);
 	}
       else if (strstr (arg, "--dest=") == arg)
 	dest = strchr (arg, '=') + 1;
@@ -254,7 +261,7 @@ main (int argc, char *argv[])
 
       dbus_error_init (&error);
       reply = dbus_connection_send_with_reply_and_block (connection,
-                                                         message, -1,
+                                                         message, reply_timeout,
                                                          &error);
       if (dbus_error_is_set (&error))
         {
