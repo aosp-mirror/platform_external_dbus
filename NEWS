@@ -1,3 +1,44 @@
+D-BUS 0.10
+===
+
+- reversed order of args to dbus_message_new()
+- renamed dbus_message_name_is() and some other
+  functions
+- change DBusWatch to have dbus_watch_handle() 
+  similar to dbus_timeout_handle(), drop 
+  connection/server-specific handle routines
+- change message serials to be unsigned
+- implemented <allow>/<deny>/<limit> features for 
+  config file; system bus now has a deny-all policy 
+  by default.
+- system.conf has <includedir>system.d</includedir>
+  so packages can install additions to the default 
+  policy to <allow> the messages they need. e.g.
+  CUPS might install a cups.conf - see 
+  test/data/valid-config-files/system.d/test.conf 
+  for an example.
+- add timeouts for authentication, activation
+- add glib-style "checks" on public API, enable 
+  those by default, disable assertions by default
+- add GMainContext argument to GLib setup functions, 
+  can be NULL for default context. Needed for threads.
+- add 64-bit integer type
+- validate type of standard message header fields
+- consider messages in the org.freedesktop.Local
+  namespace to be invalid (to avoid fake disconnect 
+  messages for example)
+- fix assorted memory leaks and other bugs in 
+  the SHA-1 auth mechanism
+- cache user database information (groups user is 
+  in, etc.) helps a lot with NIS
+- always store uid_t, pid_t, gid_t in "ulong" 
+  rather than "int"
+- implement config file settings for which 
+  users can connect
+- SHA-1 unit test
+- dbus-send, dbus-monitor command line utilities
+- fixed lots of misc crashes and other bugs
+
 D-BUS 0.9
 ===
 

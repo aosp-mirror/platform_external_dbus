@@ -109,10 +109,12 @@ struct BusConfigParser
   BusPolicy *policy;     /**< Security policy */
 
   BusLimits limits;      /**< Limits */
-  
+
+  char *pidfile;         /**< PID file */
+
   unsigned int fork : 1; /**< TRUE to fork into daemon mode */
 
-  char *pidfile;
+  unsigned int is_toplevel : 1; /**< FALSE if we are a sub-config-file inside another one */
 };
 
 static const char*
@@ -266,7 +268,8 @@ merge_included (BusConfigParser *parser,
 }
 
 BusConfigParser*
-bus_config_parser_new (const DBusString *basedir)
+bus_config_parser_new (const DBusString *basedir,
+                       dbus_bool_t       is_toplevel)
 {
   BusConfigParser *parser;
 
@@ -274,6 +277,8 @@ bus_config_parser_new (const DBusString *basedir)
   if (parser == NULL)
     return NULL;
 
+  parser->is_toplevel = !!is_toplevel;
+  
   if (!_dbus_string_init (&parser->basedir))
     {
       dbus_free (parser);
@@ -1388,7 +1393,7 @@ include_file (BusConfigParser   *parser,
   DBusError tmp_error;
         
   dbus_error_init (&tmp_error);
-  included = bus_config_load (filename, &tmp_error);
+  included = bus_config_load (filename, FALSE, &tmp_error);
   if (included == NULL)
     {
       _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
@@ -1759,7 +1764,7 @@ bus_config_parser_finished (BusConfigParser   *parser,
       return FALSE;
     }
 
-  if (parser->listen_on == NULL)
+  if (parser->is_toplevel && parser->listen_on == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "Configuration file needs one or more <listen> elements giving addresses"); 
@@ -1853,7 +1858,7 @@ do_load (const DBusString *full_path,
 
   dbus_error_init (&error);
 
-  parser = bus_config_load (full_path, &error);
+  parser = bus_config_load (full_path, TRUE, &error);
   if (parser == NULL)
     {
       _DBUS_ASSERT_ERROR_IS_SET (&error);

@@ -1,3 +1,18 @@
+2003-04-28  Havoc Pennington  <hp@redhat.com>
+
+	* configure.in: 0.10
+
+	* NEWS: update
+
+	* bus/system.conf.in: add <includedir>system.d</includedir>
+	
+	* dbus/dbus-userdb.c (_dbus_user_database_lookup): fix bug when
+	username was provided but not uid
+
+	* bus/config-parser.c (struct BusConfigParser): keep track of
+	whether the parser is toplevel or was included; change some 
+	of the error handling if it's included.
+	
 2003-04-27  Havoc Pennington  <hp@pobox.com>
 
 	Unbreak my code...

@@ -164,6 +164,7 @@ expat_CharacterDataHandler (void           *userData,
 
 BusConfigParser*
 bus_config_load (const DBusString *file,
+                 dbus_bool_t       is_toplevel,
                  DBusError        *error)
 {
   XML_Parser expat;
@@ -207,7 +208,7 @@ bus_config_load (const DBusString *file,
       goto failed;
     }
   
-  parser = bus_config_parser_new (&dirname);
+  parser = bus_config_parser_new (&dirname, is_toplevel);
   if (parser == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);

@@ -69,7 +69,8 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
   DBusUserInfo *info;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
+  _dbus_assert (uid != DBUS_UID_UNSET || username != NULL);
+  
   if (uid != DBUS_UID_UNSET)
     info = _dbus_hash_table_lookup_ulong (db->users, uid);
   else
@@ -93,13 +94,30 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
           return NULL;
         }
 
-      if (!_dbus_user_info_fill_uid (info, uid, error))
+      if (uid != DBUS_UID_UNSET)
         {
-          _DBUS_ASSERT_ERROR_IS_SET (error);
-          free_user_info (info);
-          return NULL;
+          if (!_dbus_user_info_fill_uid (info, uid, error))
+            {
+              _DBUS_ASSERT_ERROR_IS_SET (error);
+              free_user_info (info);
+              return NULL;
+            }
+        }
+      else
+        {
+          if (!_dbus_user_info_fill (info, username, error))
+            {
+              _DBUS_ASSERT_ERROR_IS_SET (error);
+              free_user_info (info);
+              return NULL;
+            }
         }
 
+      /* be sure we don't use these after here */
+      uid = DBUS_UID_UNSET;
+      username = NULL;
+
+      /* insert into hash */
       if (!_dbus_hash_table_insert_ulong (db->users, info->uid, info))
         {
           dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
