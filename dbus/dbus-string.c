@@ -1152,7 +1152,9 @@ _dbus_string_replace_len (const DBusString *source,
   return TRUE;
 }
 
-/* Unicode macros from GLib */
+/* Unicode macros and utf8_validate() from GLib Owen Taylor, Havoc
+ * Pennington, and Tom Tromey are the authors and authorized relicense.
+ */
 
 /** computes length and mask of a unicode character
  * @param Char the char
@@ -2376,9 +2378,8 @@ _dbus_string_validate_ascii (const DBusString *str,
  * Checks that the given range of the string is valid UTF-8. If the
  * given range is not entirely contained in the string, returns
  * #FALSE. If the string contains any nul bytes in the given range,
- * returns #FALSE.
- *
- * @todo right now just calls _dbus_string_validate_ascii()
+ * returns #FALSE. If the start and start+len are not on character
+ * boundaries, returns #FALSE.
  *
  * @todo this is inconsistent with most of DBusString in that
  * it allows a start,len range that isn't in the string.
@@ -2393,10 +2394,53 @@ _dbus_string_validate_utf8  (const DBusString *str,
                              int               start,
                              int               len)
 {
-  /* FIXME actually validate UTF-8 */
-  return TRUE;
+  const unsigned char *p;
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start >= 0);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (len >= 0);
 
-  /*return _dbus_string_validate_ascii (str, start, len);*/
+  if (len > real->len - start)
+    return FALSE;
+  
+  p = real->str;
+  
+  while (p - real->str < len && *p)
+    {
+      int i, mask = 0, char_len;
+      dbus_unichar_t result;
+      unsigned char c = (unsigned char) *p;
+      
+      UTF8_COMPUTE (c, mask, char_len);
+
+      if (char_len == -1)
+        break;
+
+      /* check that the expected number of bytes exists in real->str */
+      if ((len - (p - real->str)) < char_len)
+        break;
+        
+      UTF8_GET (result, p, i, mask, char_len);
+
+      if (UTF8_LENGTH (result) != char_len) /* Check for overlong UTF-8 */
+	break;
+
+      if (result == (dbus_unichar_t)-1)
+        break;
+
+      if (!UNICODE_VALID (result))
+	break;
+      
+      p += char_len;
+    }
+
+  /* See that we covered the entire length if a length was
+   * passed in
+   */
+  if (p != (real->str + len))
+    return FALSE;
+  else
+    return TRUE;
 }
 
 /**

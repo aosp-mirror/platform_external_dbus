@@ -1,3 +1,8 @@
+2003-03-16  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-string.c (_dbus_string_validate_utf8): copy in a real
+	implementation
+
 2003-03-16  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-connection.c:
