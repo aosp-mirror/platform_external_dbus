@@ -872,27 +872,39 @@ reader_set_basic_fixed_length (DBusTypeReader *reader,
 }
 
 /**
- *  Sets a new value for the basic type pointed to by the reader,
- *  leaving the reader valid to continue reading. Any other
- *  readers may of course be invalidated if you set a variable-length
- *  type such as a string.
+ * Sets a new value for the basic type pointed to by the reader,
+ * leaving the reader valid to continue reading. Any other readers may
+ * of course be invalidated if you set a variable-length type such as
+ * a string.
  *
- *  @todo DBusTypeReader currently takes "const" versions of the
- *  type and value strings, and this function modifies those strings
- *  by casting away the const, which is of course bad if we want to
- *  get picky. (To be truly clean you'd have an object which contained
- *  the type and value strings and set_basic would be a method on
- *  that object... this would also make DBusTypeReader the same thing
- *  as DBusTypeMark. But since DBusMessage is effectively that object
- *  for D-BUS it doesn't seem worth creating some random object.)
+ * The provided realign_root is the reader to start from when
+ * realigning the data that follows the newly-set value. The reader
+ * parameter must point to a value below the realign_root parameter.
+ * If the type being set is fixed-length, then realign_root may be
+ * #NULL. Only values reachable from realign_root will be realigned,
+ * so if your string contains other values you will need to deal with
+ * those somehow yourself. It is OK if realign_root is the same
+ * reader as the reader parameter, though if you aren't setting the
+ * root it may not be such a good idea.
+ *
+ * @todo DBusTypeReader currently takes "const" versions of the type
+ * and value strings, and this function modifies those strings by
+ * casting away the const, which is of course bad if we want to get
+ * picky. (To be truly clean you'd have an object which contained the
+ * type and value strings and set_basic would be a method on that
+ * object... this would also make DBusTypeReader the same thing as
+ * DBusTypeMark. But since DBusMessage is effectively that object for
+ * D-BUS it doesn't seem worth creating some random object.)
  *
  * @param reader reader indicating where to set a new value
  * @param value address of the value to set
+ * @param realign_root realign from here
  * @returns #FALSE if not enough memory
  */
 dbus_bool_t
-_dbus_type_reader_set_basic (DBusTypeReader *reader,
-                             const void     *value)
+_dbus_type_reader_set_basic (DBusTypeReader       *reader,
+                             const void           *value,
+                             const DBusTypeReader *realign_root)
 {
   int current_type;
   dbus_bool_t retval;
@@ -909,7 +921,28 @@ _dbus_type_reader_set_basic (DBusTypeReader *reader,
       return TRUE;
     }
 
-  /* In the harder case, we have to fix alignment after we insert. */
+  _dbus_assert (realign_root != NULL);
+
+  /* In the harder case, we have to fix alignment after we insert.
+   * The basic strategy is as follows:
+   *
+   *  - pad a new string to have the same alignment as the
+   *    start of the current basic value
+   *  - write the new basic value
+   *  - copy from the original reader to the new string,
+   *    which will fix the alignment of types following
+   *    the new value
+   *    - this copy has to start at realign_root,
+   *      but not really write anything until it
+   *      passes the value being set
+   *    - as an optimization, we can stop copying
+   *      when the source and dest values are both
+   *      on an 8-boundary, since we know all following
+   *      padding and alignment will be identical
+   *  - copy the new string back to the original
+   *    string, replacing the relevant part of the
+   *    original string
+   */
 
 
   retval = TRUE;
@@ -1555,46 +1588,40 @@ _dbus_type_writer_write_reader (DBusTypeWriter *writer,
 
   while ((current_type = _dbus_type_reader_get_current_type (reader)) != DBUS_TYPE_INVALID)
     {
-      switch (current_type)
+      if (_dbus_type_is_container (current_type))
         {
-        case DBUS_TYPE_STRUCT:
-        case DBUS_TYPE_VARIANT:
-        case DBUS_TYPE_ARRAY:
-          {
-            DBusTypeReader subreader;
-            DBusTypeWriter subwriter;
-            const DBusString *sig_str;
-            int sig_start;
-            int sig_len;
+          DBusTypeReader subreader;
+          DBusTypeWriter subwriter;
+          const DBusString *sig_str;
+          int sig_start;
+          int sig_len;
 
-            _dbus_type_reader_recurse (reader, &subreader);
+          _dbus_type_reader_recurse (reader, &subreader);
 
-            _dbus_type_reader_get_signature (&subreader, &sig_str,
-                                             &sig_start, &sig_len);
+          _dbus_type_reader_get_signature (&subreader, &sig_str,
+                                           &sig_start, &sig_len);
 
-            if (!_dbus_type_writer_recurse_contained_len (writer, current_type,
-                                                          sig_str, sig_start, sig_len,
-                                                          &subwriter))
-              goto oom;
+          if (!_dbus_type_writer_recurse_contained_len (writer, current_type,
+                                                        sig_str, sig_start, sig_len,
+                                                        &subwriter))
+            goto oom;
 
-            if (!_dbus_type_writer_write_reader (&subwriter, &subreader))
-              goto oom;
+          if (!_dbus_type_writer_write_reader (&subwriter, &subreader))
+            goto oom;
 
-            if (!_dbus_type_writer_unrecurse (writer, &subwriter))
-              goto oom;
-          }
-          break;
+          if (!_dbus_type_writer_unrecurse (writer, &subwriter))
+            goto oom;
+        }
+      else
+        {
+          DBusBasicValue val;
 
-        default:
-          {
-            DBusBasicValue val;
-
-            _dbus_type_reader_read_basic (reader, &val);
-
-            if (!_dbus_type_writer_write_basic (writer, current_type, &val))
-              goto oom;
-          }
-          break;
+          _dbus_assert (_dbus_type_is_basic (current_type));
+          
+          _dbus_type_reader_read_basic (reader, &val);
+          
+          if (!_dbus_type_writer_write_basic (writer, current_type, &val))
+            goto oom;
         }
 
       _dbus_type_reader_next (reader);

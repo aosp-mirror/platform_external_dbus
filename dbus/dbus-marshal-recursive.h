@@ -153,7 +153,8 @@ void        _dbus_type_reader_get_signature             (const DBusTypeReader  *
                                                          int                   *start_p,
                                                          int                   *len_p);
 dbus_bool_t _dbus_type_reader_set_basic                 (DBusTypeReader        *reader,
-                                                         const void            *value);
+                                                         const void            *value,
+                                                         const DBusTypeReader  *realign_root);
 
 void        _dbus_type_writer_init         (DBusTypeWriter   *writer,
                                             int               byte_order,
