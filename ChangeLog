@@ -1,3 +1,12 @@
+2003-02-13  Anders Carlsson  <andersca@codefactory.se>
+
+	* bus/desktop-file.c: (parse_section_start), (parse_key_value),
+	(report_error), (bus_desktop_file_load), (lookup_section),
+	(lookup_line), (bus_desktop_file_get_raw),
+	(bus_desktop_file_get_string):
+	* bus/desktop-file.h:
+	Some fixes, and new functions for getting a key value from a section.
+	
 2003-02-13  Havoc Pennington  <hp@pobox.com>
 
 	* test/data/auth/fail-after-n-attempts.auth-script: new test

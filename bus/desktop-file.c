@@ -89,7 +89,8 @@ unsigned char valid[256] = {
 
 static void report_error (BusDesktopFileParser   *parser,
 			  char                   *message,
-			  BusDesktopParseError    error_code);
+			  BusDesktopParseError    error_code,
+			  DBusResultCode         *result);
 
 static void
 parser_free (BusDesktopFileParser *parser)
@@ -358,7 +359,7 @@ parse_section_start (BusDesktopFileParser *parser, DBusResultCode *result)
   if (line_end - parser->pos <= 2 ||
       _dbus_string_get_byte (&parser->data, line_end - 1) != ']')
     {
-      report_error (parser, "Invalid syntax for section header", BUS_DESKTOP_PARSE_ERROR_INVALID_SYNTAX);
+      report_error (parser, "Invalid syntax for section header", BUS_DESKTOP_PARSE_ERROR_INVALID_SYNTAX, result);
       parser_free (parser);
       return FALSE;
     }
@@ -367,14 +368,14 @@ parse_section_start (BusDesktopFileParser *parser, DBusResultCode *result)
 
   if (section_name == NULL)
     {
-      report_error (parser, "Invalid escaping in section name", BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES);
+      report_error (parser, "Invalid escaping in section name", BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES, result);
       parser_free (parser);
       return FALSE;
     }
 
   if (!is_valid_section_name (section_name))
     {
-      report_error (parser, "Invalid characters in section name", BUS_DESKTOP_PARSE_ERROR_INVALID_CHARS);
+      report_error (parser, "Invalid characters in section name", BUS_DESKTOP_PARSE_ERROR_INVALID_CHARS, result);
       parser_free (parser);
       dbus_free (section_name);
       return FALSE;
@@ -421,7 +422,7 @@ parse_key_value (BusDesktopFileParser *parser, DBusResultCode *result)
   
   if (key_start == key_end)
     {
-      report_error (parser, "Empty key name", BUS_DESKTOP_PARSE_ERROR_INVALID_SYNTAX);
+      report_error (parser, "Empty key name", BUS_DESKTOP_PARSE_ERROR_INVALID_SYNTAX, result);
       parser_free (parser);
       return FALSE;
     }
@@ -434,14 +435,14 @@ parse_key_value (BusDesktopFileParser *parser, DBusResultCode *result)
 
   if (p < line_end && _dbus_string_get_byte (&parser->data, p) != '=')
     {
-      report_error (parser, "Invalid characters in key name", BUS_DESKTOP_PARSE_ERROR_INVALID_CHARS);
+      report_error (parser, "Invalid characters in key name", BUS_DESKTOP_PARSE_ERROR_INVALID_CHARS, result);
       parser_free (parser);
       return FALSE;
     }
 
   if (p == line_end)
     {
-      report_error (parser, "No '=' in key/value pair", BUS_DESKTOP_PARSE_ERROR_INVALID_SYNTAX);
+      report_error (parser, "No '=' in key/value pair", BUS_DESKTOP_PARSE_ERROR_INVALID_SYNTAX, result);
       parser_free (parser);
       return FALSE;
     }
@@ -458,7 +459,7 @@ parse_key_value (BusDesktopFileParser *parser, DBusResultCode *result)
   value = unescape_string (&parser->data, value_start, line_end);
   if (value == NULL)
     {
-      report_error (parser, "Invalid escaping in value", BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES);
+      report_error (parser, "Invalid escaping in value", BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES, result);
       parser_free (parser);
       return FALSE;
     }
@@ -487,17 +488,20 @@ parse_key_value (BusDesktopFileParser *parser, DBusResultCode *result)
 static void
 report_error (BusDesktopFileParser   *parser,
 	      char                   *message,
-	      BusDesktopParseError    error_code)
+	      BusDesktopParseError    error_code,
+	      DBusResultCode         *result)
 {
-  char *section_name = NULL;
-  
-  /* FIXME: */
-  section_name = NULL;
+  const char *section_name = NULL;
+    
+  if (parser->current_section != -1)
+    section_name = parser->desktop_file->sections[parser->current_section].section_name;
 
   if (section_name)
     _dbus_verbose ("Error in section %s at line %d: %s\n", section_name, parser->line_num, message);
   else
     _dbus_verbose ("Error at line %d: %s\n", parser->line_num, message);
+
+  dbus_set_result (result, DBUS_RESULT_FAILED);
 }
 
 #if 0
@@ -522,20 +526,18 @@ dump_desktop_file (BusDesktopFile *file)
 #endif
 
 BusDesktopFile *
-bus_desktop_file_load (const char     *filename,
+bus_desktop_file_load (DBusString     *filename,
 		       DBusResultCode *result)
 {
-  DBusString str, filename_str;
+  DBusString str;
   DBusResultCode result_code;
   BusDesktopFileParser parser;
   
   /* FIXME: Check file size so we don't try to load a ridicously large file. */
 
-  _dbus_string_init_const (&filename_str, filename);
-
   _DBUS_HANDLE_OOM (_dbus_string_init (&str, _DBUS_INT_MAX));
   
-  _DBUS_HANDLE_OOM ((result_code = _dbus_file_get_contents (&str, &filename_str)) !=
+  _DBUS_HANDLE_OOM ((result_code = _dbus_file_get_contents (&str, filename)) !=
 		    DBUS_RESULT_NO_MEMORY);
 
   if (result_code != DBUS_RESULT_SUCCESS)
@@ -548,19 +550,19 @@ bus_desktop_file_load (const char     *filename,
   if (!_dbus_string_validate_utf8 (&str, 0, _dbus_string_get_length (&str)))
     {
       _dbus_string_free (&str);
+      
       /* FIXME: Use a better error code */
-      dbus_set_result (result, result_code);
+      dbus_set_result (result, DBUS_RESULT_FAILED);
       return NULL;
     }
   
-  _DBUS_HANDLE_OOM (parser.desktop_file = dbus_malloc (sizeof (BusDesktopFile)));
+  _DBUS_HANDLE_OOM (parser.desktop_file = dbus_malloc0 (sizeof (BusDesktopFile)));
 
-  memset (parser.desktop_file, 0, sizeof (BusDesktopFile));
-  
   parser.data = str;
   parser.line_num = 1;
   parser.pos = 0;
   parser.len = _dbus_string_get_length (&parser.data);
+  parser.current_section = -1;
   
   while (parser.pos < parser.len)
     {
@@ -586,3 +588,88 @@ bus_desktop_file_load (const char     *filename,
   return parser.desktop_file;
 }
 
+static BusDesktopFileSection *
+lookup_section (BusDesktopFile *desktop_file,
+		const char     *section_name)
+{
+  BusDesktopFileSection *section;
+  int i;
+  
+  if (section_name == NULL)
+    return NULL;
+  
+  for (i = 0; i < desktop_file->n_sections; i ++)
+    {
+      section = &desktop_file->sections[i];
+
+      if (strcmp (section->section_name, section_name) == 0)
+	return section;
+    }
+  
+  return NULL;
+}
+
+static BusDesktopFileLine *
+lookup_line (BusDesktopFile        *desktop_file,
+	     BusDesktopFileSection *section,
+	     const char            *keyname)
+{
+  BusDesktopFileLine *line;
+  int i;
+
+  for (i = 0; i < section->n_lines; i++)
+    {
+      line = &section->lines[i];
+      
+      if (strcmp (line->key, keyname) == 0)
+	return line;
+    }
+  
+  return NULL;
+}
+
+dbus_bool_t
+bus_desktop_file_get_raw (BusDesktopFile  *desktop_file,
+			  const char      *section_name,
+			  const char      *keyname,
+			  const char     **val)
+{
+  BusDesktopFileSection *section;
+  BusDesktopFileLine *line;
+
+  *val = NULL;
+
+  section = lookup_section (desktop_file, section_name);
+  
+  if (!section)
+    return FALSE;
+
+  line = lookup_line (desktop_file,
+		      section,
+		      keyname);
+
+  if (!line)
+    return FALSE;
+  
+  *val = line->value;
+  
+  return TRUE;
+}
+
+dbus_bool_t
+bus_desktop_file_get_string (BusDesktopFile  *desktop_file,
+			     const char      *section,
+			     const char      *keyname,
+			     char           **val)
+{
+  const char *raw;
+  
+  *val = NULL;
+  
+  if (!bus_desktop_file_get_raw (desktop_file, section, keyname, &raw))
+    return FALSE;
+
+  _DBUS_HANDLE_OOM (*val = _dbus_strdup (raw));
+  
+  return TRUE;
+}

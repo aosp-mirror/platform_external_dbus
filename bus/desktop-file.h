@@ -24,12 +24,22 @@
 #define BUS_DESKTOP_FILE_H
 
 #include <dbus/dbus.h>
+#include <dbus/dbus-string.h>
 
 typedef struct BusDesktopFile BusDesktopFile;
 
-BusDesktopFile *bus_desktop_file_load (const char     *filename,
+BusDesktopFile *bus_desktop_file_load (DBusString     *filename,
 				       DBusResultCode *result);
 void            bus_desktop_file_free (BusDesktopFile *file);
+
+dbus_bool_t bus_desktop_file_get_raw    (BusDesktopFile  *desktop_file,
+					 const char      *section_name,
+					 const char      *keyname,
+					 const char     **val);
+dbus_bool_t bus_desktop_file_get_string (BusDesktopFile  *desktop_file,
+					 const char      *section,
+					 const char      *keyname,
+					 char           **val);
 
 
 #endif /* BUS_DESKTOP_FILE_H */
