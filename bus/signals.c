@@ -575,7 +575,7 @@ tokenize_rule (const DBusString *rule_text,
  * as for the shell (to escape a literal single quote, use '\'').
  *
  * type='signal',sender='org.freedesktop.DBus',interface='org.freedesktop.DBus',member='Foo',
- * path='/bar/foo',destination=':452345-34'
+ * path='/bar/foo',destination=':452345.34'
  *
  */
 BusMatchRule*
@@ -613,9 +613,14 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
   i = 0;
   while (tokens[i].key != NULL)
     {
+      DBusString tmp_str;
+      int len;
       const char *key = tokens[i].key;
       const char *value = tokens[i].value;
       
+      _dbus_string_init_const (&tmp_str, value);
+      len = _dbus_string_get_length (&tmp_str);
+
       if (strcmp (key, "type") == 0)
         {
           int t;
@@ -629,6 +634,13 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
           
           t = dbus_message_type_from_string (value);
           
+          if (t == DBUS_MESSAGE_TYPE_INVALID)
+            {
+              dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                              "Invalid message type (%s) in match rule\n", value);
+              goto failed;
+            }
+
           if (!bus_match_rule_set_message_type (rule, t))
             {
               BUS_SET_OOM (error);
@@ -641,6 +653,13 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
             {
               dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
                               "Key %s specified twice in match rule\n", key);
+              goto failed;
+            }
+
+          if (!_dbus_string_validate_service (&tmp_str, 0, len))
+            {
+              dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                              "Sender service name '%s' is invalid\n", value);
               goto failed;
             }
 
@@ -659,6 +678,13 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
               goto failed;
             }
 
+          if (!_dbus_string_validate_interface (&tmp_str, 0, len))
+            {
+              dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                              "Interface name '%s' is invalid\n", value);
+              goto failed;
+            }
+
           if (!bus_match_rule_set_interface (rule, value))
             {
               BUS_SET_OOM (error);
@@ -671,6 +697,13 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
             {
               dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
                               "Key %s specified twice in match rule\n", key);
+              goto failed;
+            }
+
+          if (!_dbus_string_validate_member (&tmp_str, 0, len))
+            {
+              dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                              "Member name '%s' is invalid\n", value);
               goto failed;
             }
 
@@ -689,6 +722,13 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
               goto failed;
             }
 
+          if (!_dbus_string_validate_path (&tmp_str, 0, len))
+            {
+              dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                              "Path '%s' is invalid\n", value);
+              goto failed;
+            }
+
           if (!bus_match_rule_set_path (rule, value))
             {
               BUS_SET_OOM (error);
@@ -701,6 +741,13 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
             {
               dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
                               "Key %s specified twice in match rule\n", key);
+              goto failed;
+            }
+
+          if (!_dbus_string_validate_service (&tmp_str, 0, len))
+            {
+              dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                              "Destination service name '%s' is invalid\n", value);
               goto failed;
             }
 
@@ -1273,7 +1320,7 @@ assert_large_rule (BusMatchRule *rule)
   _dbus_assert (strcmp (rule->sender, "org.freedesktop.DBusSender") == 0);
   _dbus_assert (strcmp (rule->member, "Foo") == 0);
   _dbus_assert (strcmp (rule->path, "/bar/foo") == 0);
-  _dbus_assert (strcmp (rule->destination, ":452345-34") == 0);
+  _dbus_assert (strcmp (rule->destination, ":452345.34") == 0);
 }
 
 static dbus_bool_t
@@ -1281,7 +1328,7 @@ test_parsing (void *data)
 {
   BusMatchRule *rule;
 
-  rule = check_parse (TRUE, "type='signal',sender='org.freedesktop.DBusSender',interface='org.freedesktop.DBusInterface',member='Foo',path='/bar/foo',destination=':452345-34'");
+  rule = check_parse (TRUE, "type='signal',sender='org.freedesktop.DBusSender',interface='org.freedesktop.DBusInterface',member='Foo',path='/bar/foo',destination=':452345.34'");
   if (rule != NULL)
     {
       assert_large_rule (rule);
@@ -1289,7 +1336,7 @@ test_parsing (void *data)
     }
 
   /* With extra whitespace and useless quotes */
-  rule = check_parse (TRUE, "    type='signal',  \tsender='org.freedes''ktop.DBusSender',   interface='org.freedesktop.DBusInterface''''', \tmember='Foo',path='/bar/foo',destination=':452345-34'''''");
+  rule = check_parse (TRUE, "    type='signal',  \tsender='org.freedes''ktop.DBusSender',   interface='org.freedesktop.DBusInterface''''', \tmember='Foo',path='/bar/foo',destination=':452345.34'''''");
   if (rule != NULL)
     {
       assert_large_rule (rule);
@@ -1323,6 +1370,14 @@ test_parsing (void *data)
   rule = check_parse (FALSE, "blah='signal'");
   _dbus_assert (rule == NULL);
 
+  /* Reject broken valuess */
+  rule = check_parse (FALSE, "type='chouin'");
+  _dbus_assert (rule == NULL);
+  rule = check_parse (FALSE, "interface='abc@def++'");
+  _dbus_assert (rule == NULL);
+  rule = check_parse (FALSE, "service='youpi'");
+  _dbus_assert (rule == NULL);
+
   /* Allow empty rule */
   rule = check_parse (TRUE, "");
   if (rule != NULL)
@@ -1345,50 +1400,6 @@ test_parsing (void *data)
   rule = check_parse (FALSE, "type");
   _dbus_assert (rule == NULL);
 
-  /* Empty string values are allowed at the moment */
-  rule = check_parse (TRUE, "interface=");
-  if (rule != NULL)
-    {
-      _dbus_assert (rule->flags == BUS_MATCH_INTERFACE);
-      _dbus_assert (rule->interface);
-      _dbus_assert (strlen (rule->interface) == 0);
-      
-      bus_match_rule_unref (rule);
-    }
-
-  /* Empty string expressed with quotes */
-  rule = check_parse (TRUE, "interface=''");
-  if (rule != NULL)
-    {
-      _dbus_assert (rule->flags == BUS_MATCH_INTERFACE);
-      _dbus_assert (rule->interface);
-      _dbus_assert (strlen (rule->interface) == 0);
-      
-      bus_match_rule_unref (rule);
-    }
-
-  /* Check whitespace in a value */
-  rule = check_parse (TRUE, "interface=   ");
-  if (rule != NULL)
-    {
-      _dbus_assert (rule->flags == BUS_MATCH_INTERFACE);
-      _dbus_assert (rule->interface);
-      _dbus_assert (strcmp (rule->interface, "   ") == 0);
-      
-      bus_match_rule_unref (rule);
-    }
-
-  /* Check whitespace mixed with non-whitespace in a value */
-  rule = check_parse (TRUE, "interface= foo ");
-  if (rule != NULL)
-    {
-      _dbus_assert (rule->flags == BUS_MATCH_INTERFACE);
-      _dbus_assert (rule->interface);
-      _dbus_assert (strcmp (rule->interface, " foo ") == 0);
-      
-      bus_match_rule_unref (rule);
-    }
-  
   return TRUE;
 }
 

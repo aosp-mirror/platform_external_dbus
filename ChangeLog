@@ -1,3 +1,10 @@
+2004-09-27  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* bus/signals.c (bus_match_rule_parse): validate the components of
+	match rules (bug #1439).
+
+	* dbus/dbus-bus.c (dbus_bus_add_match): add a missing OOM test.
+
 2004-09-24  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* doc/dbus-specification.xml: document ServiceOwnerChanged
@@ -58,7 +65,7 @@
 
 2004-09-04  Harald Fernengel  <harry@kdevelop.org>
 
-	* qt/connection.*: Applied patch by Jérôme Lodewyck
+	* qt/connection.*: Applied patch by JÃ©rÃ´me Lodewyck
 	<lodewyck@clipper.ens.fr> to integrate an existing
 	connection into the Qt eventloop
 

@@ -338,7 +338,7 @@ dbus_bus_get (DBusBusType  type,
   if (!init_connections_unlocked ())
     {
       _DBUS_UNLOCK (bus);
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _DBUS_SET_OOM (error);
       return NULL;
     }
 
@@ -842,25 +842,15 @@ send_no_return_values (DBusConnection *connection,
                                                          -1, error);
       
       if (reply == NULL)
-        {
-          _DBUS_ASSERT_ERROR_IS_SET (error);
-          return;
-        }
-
-      if (dbus_set_error_from_message (error, reply))
-        {
-          _DBUS_ASSERT_ERROR_IS_SET (error);
-          dbus_message_unref (reply);
-          return;
-        }
-
-      dbus_message_unref (reply);
+        _DBUS_ASSERT_ERROR_IS_SET (error);
+      else
+        dbus_message_unref (reply);
     }
   else
     {
       /* Silently-fail nonblocking codepath */
-      if (!dbus_connection_send (connection, msg, NULL))
-        return;
+      dbus_message_set_no_reply (msg, TRUE);
+      dbus_connection_send (connection, msg, NULL);
     }
 }
 
@@ -897,6 +887,12 @@ dbus_bus_add_match (DBusConnection *connection,
                                       DBUS_PATH_ORG_FREEDESKTOP_DBUS,
                                       DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
                                       "AddMatch");
+
+  if (msg == NULL)
+    {
+      _DBUS_SET_OOM (error);
+      return;
+    }
 
   if (!dbus_message_append_args (msg, DBUS_TYPE_STRING, rule,
                                  DBUS_TYPE_INVALID))
