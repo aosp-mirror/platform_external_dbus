@@ -29,15 +29,28 @@
 #include <errno.h>
 
 static BusContext *context;
-static dbus_bool_t got_sighup = FALSE;
 
 static void
 signal_handler (int sig)
 {
+  DBusError error;
+
   switch (sig)
     {
     case SIGHUP:
-      got_sighup = TRUE;
+      /* FIXME: We shouldn't be reloading the config in the
+	 signal handler.  We should use a pipe or something to
+	 make the reload happen in the main loop. */
+      dbus_error_init (&error);
+      if (!bus_context_reload_config (context, &error))
+	{
+	  _dbus_warn ("Unable to reload configuration: %s\n",
+		      error.message);
+	  dbus_error_free (&error);
+	  exit (1);
+	}
+      break;
+
     case SIGTERM:
       _dbus_loop_quit (bus_context_get_loop (context));
       break;
@@ -297,7 +310,7 @@ main (int argc, char **argv)
       exit (1);
     }
   
-  /* FIXME we have to handle this properly below _dbus_set_signal_handler (SIGHUP, signal_handler); */
+  _dbus_set_signal_handler (SIGHUP, signal_handler);
   _dbus_set_signal_handler (SIGTERM, signal_handler);
   
   _dbus_verbose ("We are on D-Bus...\n");
@@ -306,13 +319,5 @@ main (int argc, char **argv)
   bus_context_shutdown (context);
   bus_context_unref (context);
 
-  /* If we exited on TERM we just exit, if we exited on
-   * HUP we restart the daemon.
-   */
-  if (got_sighup)
-    {
-      /* FIXME execv (argv) basically */
-    }
-  
   return 0;
 }

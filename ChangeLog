@@ -1,3 +1,29 @@
+2004-04-15  Jon Trowbridge  <trow@ximian.com>
+
+	* bus/main.c (signal_handler): Reload the configuration files
+	on SIGHUP.
+	(main): Set up our SIGHUP handler.
+
+	* bus/bus.c (struct BusContext): Store the config file, user and
+	fork flag in the BusContext.
+	(process_config_first_time_only): Added.  Contains the code
+	(previously in bus_context_new) for setting up the BusContext from
+	the BusConfigParser that should only be run the first time the
+	config files are read.
+	(process_config_every_time): Added.  Contains the code (previously
+	in bus_context_new) for setting up the BusContext from the
+	BusConfigParser that should be run every time the config files are
+	read.
+	(load_config): Added.  Builds a BusConfigParser from the config
+	files and passes the resulting structure off to
+	process_config_first_time_only (assuming this is the first time)
+	and process_config_every_time.
+	(bus_context_new): All of the config-related code has been moved
+	to process_config_first_time_only and process_config_every_time.
+	Now this function just does the non-config-related initializations
+	and calls load_config.
+	(bus_context_reload_config): Added.
+
 2004-04-15  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* bus/driver.c (bus_driver_handle_get_service_owner):

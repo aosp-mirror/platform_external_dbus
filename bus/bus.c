@@ -36,9 +36,11 @@
 struct BusContext
 {
   int refcount;
+  char *config_file;
   char *type;
   char *address;
   char *pidfile;
+  char *user;
   DBusLoop *loop;
   DBusList *servers;
   BusConnections *connections;
@@ -48,6 +50,7 @@ struct BusContext
   BusMatchmaker *matchmaker;
   DBusUserDatabase *user_database;
   BusLimits limits;
+  unsigned int fork : 1;
 };
 
 static dbus_int32_t server_data_slot = -1;
@@ -247,45 +250,26 @@ setup_server (BusContext *context,
   return TRUE;
 }
 
-BusContext*
-bus_context_new (const DBusString *config_file,
-                 dbus_bool_t       force_fork,
-                 int               print_addr_fd,
-                 int               print_pid_fd,
-                 DBusError        *error)
+/* This code only gets executed the first time the
+   config files are parsed.  It is not executed
+   when config files are reloaded.*/
+static dbus_bool_t
+process_config_first_time_only (BusContext      *context,
+				BusConfigParser *parser,
+				DBusError       *error)
 {
-  BusContext *context;
   DBusList *link;
   DBusList **addresses;
-  BusConfigParser *parser;
-  DBusString full_address;
   const char *user, *pidfile;
   char **auth_mechanisms;
   DBusList **auth_mechanisms_list;
   int len;
-  
+  dbus_bool_t retval;
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  if (!_dbus_string_init (&full_address))
-    {
-      BUS_SET_OOM (error);
-      return NULL;
-    }
-
-  if (!dbus_server_allocate_data_slot (&server_data_slot))
-    {
-      BUS_SET_OOM (error);
-      _dbus_string_free (&full_address);
-      return NULL;
-    }
-  
-  parser = NULL;
-  context = NULL;
+  retval = FALSE;
   auth_mechanisms = NULL;
-  
-  parser = bus_config_load (config_file, TRUE, NULL, error);
-  if (parser == NULL)
-    goto failed;
 
   /* Check for an existing pid file. Of course this is a race;
    * we'd have to use fcntl() locks on the pid file to
@@ -312,38 +296,9 @@ bus_context_new (const DBusString *config_file,
 	}
     }
   
-  context = dbus_new0 (BusContext, 1);
-  if (context == NULL)
-    {
-      BUS_SET_OOM (error);
-      goto failed;
-    }
-  
-  context->refcount = 1;
+  /* keep around the pid filename so we can delete it later */
+  context->pidfile = _dbus_strdup (pidfile);
 
-  /* get our limits and timeout lengths */
-  bus_config_parser_get_limits (parser, &context->limits);
-  
-  /* we need another ref of the server data slot for the context
-   * to own
-   */
-  if (!dbus_server_allocate_data_slot (&server_data_slot))
-    _dbus_assert_not_reached ("second ref of server data slot failed");
-  
-  context->user_database = _dbus_user_database_new ();
-  if (context->user_database == NULL)
-    {
-      BUS_SET_OOM (error);
-      goto failed;
-    }
-  
-  context->loop = _dbus_loop_new ();
-  if (context->loop == NULL)
-    {
-      BUS_SET_OOM (error);
-      goto failed;
-    }
-  
   /* Build an array of auth mechanisms */
   
   auth_mechanisms_list = bus_config_parser_get_mechanisms (parser);
@@ -355,7 +310,10 @@ bus_context_new (const DBusString *config_file,
 
       auth_mechanisms = dbus_new0 (char*, len + 1);
       if (auth_mechanisms == NULL)
-        goto failed;
+	{
+	  BUS_SET_OOM (error);
+	  goto failed;
+	}
       
       i = 0;
       link = _dbus_list_get_first_link (auth_mechanisms_list);
@@ -363,7 +321,10 @@ bus_context_new (const DBusString *config_file,
         {
           auth_mechanisms[i] = _dbus_strdup (link->data);
           if (auth_mechanisms[i] == NULL)
-            goto failed;
+	    {
+	      BUS_SET_OOM (error);
+	      goto failed;
+	    }
           link = _dbus_list_get_next_link (auth_mechanisms_list, link);
         }
     }
@@ -383,9 +344,15 @@ bus_context_new (const DBusString *config_file,
       
       server = dbus_server_listen (link->data, error);
       if (server == NULL)
-        goto failed;
+	{
+	  _DBUS_ASSERT_ERROR_IS_SET (error);
+	  goto failed;
+	}
       else if (!setup_server (context, server, auth_mechanisms, error))
-        goto failed;
+	{
+	  _DBUS_ASSERT_ERROR_IS_SET (error);
+	  goto failed;
+	}
 
       if (!_dbus_list_append (&context->servers, server))
         {
@@ -403,7 +370,58 @@ bus_context_new (const DBusString *config_file,
       BUS_SET_OOM (error);
       goto failed;
     }
+
+  user = bus_config_parser_get_user (parser);
+  if (user != NULL)
+    {
+      context->user = _dbus_strdup (user);
+      if (context->user == NULL)
+	{
+	  BUS_SET_OOM (error);
+	  goto failed;
+	}
+    }
+
+  context->fork = bus_config_parser_get_fork (parser);
   
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  retval = TRUE;
+
+ failed:
+  dbus_free_string_array (auth_mechanisms);
+  return retval;
+}
+
+/* This code gets executed every time the config files
+   are parsed: both during BusContext construction
+   and on reloads. */
+static dbus_bool_t
+process_config_every_time (BusContext      *context,
+			   BusConfigParser *parser,
+			   dbus_bool_t      is_reload,
+			   DBusError       *error)
+{
+  DBusString full_address;
+  DBusList *link;
+  
+  dbus_bool_t retval;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  retval = FALSE;
+
+  if (!_dbus_string_init (&full_address))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  /* get our limits and timeout lengths */
+  bus_config_parser_get_limits (parser, &context->limits);
+
+  context->policy = bus_config_parser_steal_policy (parser);
+  _dbus_assert (context->policy != NULL);
+
   /* We have to build the address backward, so that
    * <listen> later in the config file have priority
    */
@@ -439,12 +457,137 @@ bus_context_new (const DBusString *config_file,
       link = _dbus_list_get_prev_link (&context->servers, link);
     }
 
+  if (is_reload)
+    dbus_free (context->address);
+
   if (!_dbus_string_copy_data (&full_address, &context->address))
     {
       BUS_SET_OOM (error);
       goto failed;
     }
 
+  /* Create activation subsystem */
+  
+  if (is_reload)
+    bus_activation_unref (context->activation);
+  
+  context->activation = bus_activation_new (context, &full_address,
+                                            bus_config_parser_get_service_dirs (parser),
+                                            error);
+  if (context->activation == NULL)
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      goto failed;
+    }
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  retval = TRUE;
+
+ failed:
+  _dbus_string_free (&full_address);
+  return retval;
+}
+
+static dbus_bool_t
+load_config (BusContext *context,
+	     dbus_bool_t is_reload,
+	     DBusError  *error)
+{
+  BusConfigParser *parser;
+  DBusString config_file;
+  dbus_bool_t retval;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  retval = FALSE;
+  parser = NULL;
+
+  _dbus_string_init_const (&config_file, context->config_file);
+  parser = bus_config_load (&config_file, TRUE, NULL, error);
+  if (parser == NULL)
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      goto failed;
+    }
+  
+  if (!is_reload && !process_config_first_time_only (context, parser, error))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      goto failed;
+    }
+
+  if (!process_config_every_time (context, parser, is_reload, error))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      goto failed;
+    }
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  retval = TRUE;
+
+ failed:
+  if (parser)
+    bus_config_parser_unref (parser);
+  return retval;
+}
+
+BusContext*
+bus_context_new (const DBusString *config_file,
+                 dbus_bool_t       force_fork,
+                 int               print_addr_fd,
+                 int               print_pid_fd,
+                 DBusError        *error)
+{
+  BusContext *context;
+  
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  if (!dbus_server_allocate_data_slot (&server_data_slot))
+    {
+      BUS_SET_OOM (error);
+      return NULL;
+    }
+
+  context = dbus_new0 (BusContext, 1);
+  if (context == NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+  context->refcount = 1;
+
+  if (!_dbus_string_copy_data (config_file, &context->config_file))
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+
+  context->loop = _dbus_loop_new ();
+  if (context->loop == NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+
+  if (!load_config (context, FALSE, error))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      goto failed;
+    }
+  
+  /* we need another ref of the server data slot for the context
+   * to own
+   */
+  if (!dbus_server_allocate_data_slot (&server_data_slot))
+    _dbus_assert_not_reached ("second ref of server data slot failed");
+
+  context->user_database = _dbus_user_database_new ();
+  if (context->user_database == NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+  
   /* Note that we don't know whether the print_addr_fd is
    * one of the sockets we're using to listen on, or some
    * other random thing. But I think the answer is "don't do
@@ -487,17 +630,6 @@ bus_context_new (const DBusString *config_file,
       _dbus_string_free (&addr);
     }
   
-  /* Create activation subsystem */
-  
-  context->activation = bus_activation_new (context, &full_address,
-                                            bus_config_parser_get_service_dirs (parser),
-                                            error);
-  if (context->activation == NULL)
-    {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
-      goto failed;
-    }
-
   context->connections = bus_connections_new (context);
   if (context->connections == NULL)
     {
@@ -519,36 +651,36 @@ bus_context_new (const DBusString *config_file,
       goto failed;
     }
   
-  context->policy = bus_config_parser_steal_policy (parser);
-  _dbus_assert (context->policy != NULL);
-  
   /* Now become a daemon if appropriate */
-  if (force_fork || bus_config_parser_get_fork (parser))
+  if (force_fork || context->fork)
     {
       DBusString u;
 
-      if (pidfile)
-        _dbus_string_init_const (&u, pidfile);
+      if (context->pidfile)
+        _dbus_string_init_const (&u, context->pidfile);
       
-      if (!_dbus_become_daemon (pidfile ? &u : NULL, error))
-        goto failed;
+      if (!_dbus_become_daemon (context->pidfile ? &u : NULL, error))
+	{
+	  _DBUS_ASSERT_ERROR_IS_SET (error);
+	  goto failed;
+	}
     }
   else
     {
       /* Need to write PID file for ourselves, not for the child process */
-      if (pidfile != NULL)
+      if (context->pidfile != NULL)
         {
           DBusString u;
 
-          _dbus_string_init_const (&u, pidfile);
+          _dbus_string_init_const (&u, context->pidfile);
           
           if (!_dbus_write_pid_file (&u, _dbus_getpid (), error))
-            goto failed;
+	    {
+	      _DBUS_ASSERT_ERROR_IS_SET (error);
+	      goto failed;
+	    }
         }
     }
-
-  /* keep around the pid filename so we can delete it later */
-  context->pidfile = _dbus_strdup (pidfile);
 
   /* Write PID if requested */
   if (print_pid_fd >= 0)
@@ -589,13 +721,12 @@ bus_context_new (const DBusString *config_file,
   /* Here we change our credentials if required,
    * as soon as we've set up our sockets and pidfile
    */
-  user = bus_config_parser_get_user (parser);
-  if (user != NULL)
+  if (context->user != NULL)
     {
       DBusCredentials creds;
       DBusString u;
 
-      _dbus_string_init_const (&u, user);
+      _dbus_string_init_const (&u, context->user);
 
       if (!_dbus_credentials_from_username (&u, &creds) ||
           creds.uid < 0 ||
@@ -603,34 +734,37 @@ bus_context_new (const DBusString *config_file,
         {
           dbus_set_error (error, DBUS_ERROR_FAILED,
                           "Could not get UID and GID for username \"%s\"",
-                          user);
+                          context->user);
           goto failed;
         }
       
       if (!_dbus_change_identity (creds.uid, creds.gid, error))
-        goto failed;
+	{
+	  _DBUS_ASSERT_ERROR_IS_SET (error);
+	  goto failed;
+	}
     }
   
-  bus_config_parser_unref (parser);
-  _dbus_string_free (&full_address);
-  dbus_free_string_array (auth_mechanisms);
   dbus_server_free_data_slot (&server_data_slot);
   
   return context;
   
  failed:  
-  if (parser != NULL)
-    bus_config_parser_unref (parser);
-
   if (context != NULL)
     bus_context_unref (context);
-
-  _dbus_string_free (&full_address);
-  dbus_free_string_array (auth_mechanisms);
 
   dbus_server_free_data_slot (&server_data_slot);
   
   return NULL;
+}
+
+dbus_bool_t
+bus_context_reload_config (BusContext *context,
+			   DBusError  *error)
+{
+  return load_config (context,
+		      TRUE, /* yes, we are re-loading */
+		      error);
 }
 
 static void
@@ -738,8 +872,10 @@ bus_context_unref (BusContext *context)
           context->matchmaker = NULL;
         }
       
+      dbus_free (context->config_file);
       dbus_free (context->type);
       dbus_free (context->address);
+      dbus_free (context->user);
 
       if (context->pidfile)
 	{
