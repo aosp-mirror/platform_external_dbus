@@ -141,8 +141,6 @@ auth_state_from_string (const DBusString *str)
     return DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND;
   else if (_dbus_string_starts_with_c_str (str, "NEED_DISCONNECT"))
     return DBUS_AUTH_STATE_NEED_DISCONNECT;
-  else if (_dbus_string_starts_with_c_str (str, "AUTHENTICATED_WITH_UNUSED_BYTES"))
-    return DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES;
   else if (_dbus_string_starts_with_c_str (str, "AUTHENTICATED"))
     return DBUS_AUTH_STATE_AUTHENTICATED;
   else
@@ -162,13 +160,54 @@ auth_state_to_string (DBusAuthState state)
       return "HAVE_BYTES_TO_SEND";
     case DBUS_AUTH_STATE_NEED_DISCONNECT:
       return "NEED_DISCONNECT";
-    case DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES:
-      return "AUTHENTICATED_WITH_UNUSED_BYTES";
     case DBUS_AUTH_STATE_AUTHENTICATED:
       return "AUTHENTICATED";
     }
 
   return "unknown";
+}
+
+static char **
+split_string (DBusString *str)
+{
+  int i, j, k, count, end;
+  char **array;
+
+  end = _dbus_string_get_length (str);
+
+  i = 0;
+  _dbus_string_skip_blank (str, i, &i);
+  for (count = 0; i < end; count++)
+    {
+      _dbus_string_find_blank (str, i, &i);
+      _dbus_string_skip_blank (str, i, &i);
+    }
+
+  array = dbus_new0 (char *, count + 1);
+  if (array == NULL)
+    return NULL;
+
+  i = 0;
+  _dbus_string_skip_blank (str, i, &i);
+  for (k = 0; k < count; k++)
+    {
+      _dbus_string_find_blank (str, i, &j);
+
+      array[k] = dbus_malloc (j - i + 1);
+      if (array[k] == NULL)
+        {
+          dbus_free_string_array (array);
+          return NULL;
+        }
+      memcpy (array[k],
+              _dbus_string_get_const_data_len (str, i, j - i), j - i);
+      array[k][j - i] = '\0';
+
+      _dbus_string_skip_blank (str, j, &i);
+    }
+  array[k] = NULL;
+
+  return array;
 }
 
 /**
@@ -334,6 +373,16 @@ _dbus_auth_script_run (const DBusString *filename)
         {
           DBusCredentials creds = { -1, 4312, 1232 };
           _dbus_auth_set_credentials (auth, &creds);          
+        }
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "ALLOWED_MECHS"))
+        {
+          char **mechs;
+
+          _dbus_string_delete_first_word (&line);
+          mechs = split_string (&line);
+          _dbus_auth_set_mechanisms (auth, (const char **) mechs);
+          dbus_free_string_array (mechs);
         }
       else if (_dbus_string_starts_with_c_str (&line,
                                                "SEND"))
@@ -605,10 +654,17 @@ _dbus_auth_script_run (const DBusString *filename)
     }
 
   if (auth != NULL &&
-      state == DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES)
+      state == DBUS_AUTH_STATE_AUTHENTICATED)
     {
-      _dbus_warn ("did not expect unused bytes (scripts must specify explicitly if they are expected)\n");
-      goto out;
+      const DBusString *unused;
+
+      _dbus_auth_get_unused_bytes (auth, &unused);
+
+      if (_dbus_string_get_length (unused) > 0)
+        {
+          _dbus_warn ("did not expect unused bytes (scripts must specify explicitly if they are expected)\n");
+          goto out;
+        }
     }
 
   if (_dbus_string_get_length (&from_auth) > 0)

@@ -373,13 +373,6 @@ do_authentication (DBusTransport *transport,
           do_io_error (transport);
           break;
       
-        case DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES:
-          _dbus_verbose (" %s auth state: auth with unused bytes\n",
-                         TRANSPORT_SIDE (transport));
-          /* We'll recover the unused bytes in dbus-transport.c */
-          goto out;
-          break;
-          
         case DBUS_AUTH_STATE_AUTHENTICATED:
           _dbus_verbose (" %s auth state: authenticated\n",
                          TRANSPORT_SIDE (transport));

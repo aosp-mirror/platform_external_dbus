@@ -464,7 +464,6 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
           switch (_dbus_auth_do_work (transport->auth))
             {
             case DBUS_AUTH_STATE_AUTHENTICATED:
-            case DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES:
               /* leave as maybe_authenticated */
               break;
             default:
@@ -674,9 +673,6 @@ _dbus_transport_do_iteration (DBusTransport  *transport,
 static dbus_bool_t
 recover_unused_bytes (DBusTransport *transport)
 {
-  if (_dbus_auth_do_work (transport->auth) != DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES)
-    return TRUE;
-  
   if (_dbus_auth_needs_decoding (transport->auth))
     {
       DBusString plaintext;

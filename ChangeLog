@@ -1,5 +1,28 @@
 2004-05-18  Kristian Høgsberg  <krh@redhat.com>
 
+ 	* dbus/dbus-auth.c (client_try_next_mechanism): Remove logic to
+	filter against auth->allowed_mechs; we only add allowed mechs in
+	record_mechanisms().
+ 
+ 	* dbus/dbus-auth-script.c (_dbus_auth_script_run): Add an
+	ALLOWED_MECHS to auth-script format so we can set the list of
+	allowed mechanisms.
+ 
+ 	* data/auth/client-out-of-mechanisms.auth-script: New test to
+	check client disconnects when it is out of mechanisms to try.
+ 
+ 	* dbus/dbus-auth.c (process_command): Remove check for lines
+	longer that 1 MB; we only buffer up maximum 16 kB.
+ 
+ 	* dbus/dbus-transport.c, dbus/dbus-transport-unix.c,
+	dbus/dbus-auth-script.c, dbus/dbus-auth.c, dbus/dbus-auth.h:
+	Remove auth state AUTHENTICATED_WITH_UNUSED_BYTES, instead always
+	assume there might be unused bytes.
+ 
+ 	* dbus/dbus-auth.c (_dbus_auth_do_work): Remove check for
+	client-out-of-mechs, it is handled in process_reject(). Move check
+	for max failures to send_rejected(), as it's a server-only thing.
+
 	* dbus/dbus-auth.c: Factor out protocol reply code into functions
 	send_auth(), send_data(), send_rejected(), send_error(),
 	send_ok(), send_begin() and send_cancel().

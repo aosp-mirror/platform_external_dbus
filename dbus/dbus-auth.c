@@ -1274,6 +1274,9 @@ send_rejected (DBusAuth *auth)
   server_auth = DBUS_AUTH_SERVER (auth);
   server_auth->failures += 1;
 
+  if (server_auth->failures >= server_auth->max_failures)
+    auth->need_disconnect = TRUE;
+
   _dbus_string_free (&command);
   
   return TRUE;
@@ -1605,34 +1608,15 @@ client_try_next_mechanism (DBusAuth *auth)
   DBusAuthClient *client;
 
   client = DBUS_AUTH_CLIENT (auth);
-  
-  /* Pop any mechs not in the list of allowed mechanisms */
-  mech = NULL;
-  while (client->mechs_to_try != NULL)
-    {
-      mech = client->mechs_to_try->data;
 
-      if (auth->allowed_mechs != NULL && 
-          !_dbus_string_array_contains ((const char**) auth->allowed_mechs,
-                                        mech->mechanism))
-        {
-          /* don't try this one after all */
-          _dbus_verbose ("%s: Mechanism %s isn't in the list of allowed mechanisms\n",
-                         DBUS_AUTH_NAME (auth), mech->mechanism);
-          mech = NULL;
-          _dbus_list_pop_first (& client->mechs_to_try);
-        }
-      else
-        break; /* we'll try this one */
-    }
-  
-  if (mech == NULL)
-    return FALSE;
+  _dbus_assert (client->mechs_to_try != NULL);
+
+  mech = client->mechs_to_try->data;
 
   if (!send_auth (auth, mech))
     return FALSE;
 
-  _dbus_list_pop_first (& DBUS_AUTH_CLIENT (auth)->mechs_to_try);
+  _dbus_list_pop_first (&client->mechs_to_try);
 
   _dbus_verbose ("%s: Trying mechanism %s\n",
                  DBUS_AUTH_NAME (auth),
@@ -1662,6 +1646,8 @@ process_rejected (DBusAuth         *auth,
   else
     {
       /* Give up */
+      _dbus_verbose ("%s: Disconnecting because we are out of mechanisms to try using\n",
+                     DBUS_AUTH_NAME (auth));
       auth->need_disconnect = TRUE;
     }
   
@@ -1793,15 +1779,6 @@ process_command (DBusAuth *auth)
       return FALSE;
     }
   
-  if (eol > _DBUS_ONE_MEGABYTE)
-    {
-      /* This is a giant line, someone is trying to hose us. */
-      if (!send_error (auth, "Command too long"))
-        goto out;
-      else
-        goto next_command;
-    }
-
   if (!_dbus_string_copy_len (&auth->incoming, 0, eol, &command, 0))
     goto out;
 
@@ -2061,33 +2038,13 @@ _dbus_auth_do_work (DBusAuth *auth)
                          DBUS_AUTH_NAME (auth));
           break;
         }
-
-      if (auth->mech == NULL &&
-          auth->already_got_mechanisms &&
-          DBUS_AUTH_CLIENT (auth)->mechs_to_try == NULL)
-        {
-          auth->need_disconnect = TRUE;
-          _dbus_verbose ("%s: Disconnecting because we are out of mechanisms to try using\n",
-                         DBUS_AUTH_NAME (auth));
-          break;
-        }
     }
   while (process_command (auth));
-
-  if (DBUS_AUTH_IS_SERVER (auth) &&
-      DBUS_AUTH_SERVER (auth)->failures >=
-      DBUS_AUTH_SERVER (auth)->max_failures)
-    auth->need_disconnect = TRUE;
 
   if (auth->need_disconnect)
     return DBUS_AUTH_STATE_NEED_DISCONNECT;
   else if (auth->authenticated)
-    {
-      if (_dbus_string_get_length (&auth->incoming) > 0)
-        return DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES;
-      else
-        return DBUS_AUTH_STATE_AUTHENTICATED;
-    }
+    return DBUS_AUTH_STATE_AUTHENTICATED;
   else if (auth->needed_memory)
     return DBUS_AUTH_STATE_WAITING_FOR_MEMORY;
   else if (_dbus_string_get_length (&auth->outgoing) > 0)
