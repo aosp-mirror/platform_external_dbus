@@ -23,12 +23,17 @@
 #ifndef DBUS_QT_CONNECTION_H
 #define DBUS_QT_CONNECTION_H
 
+#include "message.h"
+
 #include <qobject.h>
 #include <qstring.h>
 
 #include "dbus/dbus.h"
 
 namespace DBusQt {
+  namespace Internal {
+    class Integrator;
+  }
 
   class Connection : public QObject
   {
@@ -39,51 +44,32 @@ namespace DBusQt {
     bool isConnected() const;
     bool isAuthenticated() const;
 
+    Message borrowMessage();
+    Message popMessage();
+    void stealBorrowMessage( const Message& );
+
   public slots:
     void open( const QString& );
     void close();
     void flush();
+    void send( const Message& );
+    void sendWithReply( const Message& );
+    void sendWithReplyAndBlock( const Message& );
 
   protected slots:
-    void slotRead( int );
-    void slotWrite( int );
-
-  protected:
-    void addWatch( DBusWatch* );
-    void removeWatch( DBusWatch* );
-
-  public:
-    friend dbus_bool_t dbusAddWatch( DBusWatch*, void* );
-    friend dbus_bool_t dbusRemoveWatch( DBusWatch*, void* );
-    friend dbus_bool_t dbusToggleWatch( DBusWatch*, void* );
+    void dispatchRead();
 
   protected:
     void init( const QString& host );
+    void initDbus();
     virtual void* virtual_hook( int id, void* data );
+  private:
+    friend class Internal::Integrator;
+    DBusConnection* connection() const;
   private:
     struct Private;
     Private *d;
   };
-
-  //////////////////////////////////////////////////////////////
-  //Friends
-  dbus_bool_t dbusAddWatch( DBusWatch *watch, void *data )
-  {
-    Connection *con = static_cast<Connection*>( data );
-    con->addWatch( watch );
-  }
-  dbus_bool_t dbusRemoveWatch( DBusWatch *watch, void *data )
-  {
-    Connection *con = static_cast<Connection*>( data );
-    con->removeWatch( watch );
-  }
-
-  dbus_bool_t dbusToggleWatch( DBusWatch*, void* )
-  {
-    //I don't know how to handle this one right now
-#warning "FIXME: implement"
-  }
-  //////////////////////////////////////////////////////////////
 
 }
 

@@ -22,41 +22,43 @@
  */
 #include "connection.h"
 
-#include <qsocketnotifier.h>
-#include <qintdict.h>
-
 using namespace DBusQt;
 
-struct QtWatch {
-  QtWatch(): readSocket( 0 ), writeSocket( 0 ) { }
-
-  DBusWatch *watch;
-  QSocketNotifier *readSocket;
-  QSocketNotifier *writeSocket;
-};
+#include "integrator.h"
+using Internal::Integrator;
 
 struct Connection::Private
 {
   DBusConnection *connection;
   int connectionSlot;
   DBusError error;
-  QIntDict<QtWatch> watches;
+  Integrator *integrator;
 };
 
 Connection::Connection( const QString& host )
 {
   d = new Private;
-  dbus_error_init( &d->error );
+  d->integrator = new Integrator( this );
+  connect( d->integrator, SIGNAL(readReady()),
+           SLOT(dispatchRead()) );
+
+  initDbus();
 
   if ( !host.isEmpty() )
     init( host );
 }
 
+void Connection::initDbus()
+{
+}
+
 void Connection::init( const QString& host )
 {
+  dbus_error_init( &d->error );
   d->connection = dbus_connection_open( host.ascii(), &d->error );
-  dbus_connection_allocate_data_slot( &d->connectionSlot );
-  dbus_connection_set_data( d->connection, d->connectionSlot, 0, 0 );
+  //dbus_connection_allocate_data_slot( &d->connectionSlot );
+  //dbus_connection_set_data( d->connection, d->connectionSlot, 0, 0 );
+  initDbus();
 }
 
 bool Connection::isConnected() const
@@ -84,55 +86,17 @@ void Connection::flush()
   dbus_connection_flush( d->connection );
 }
 
-void Connection::slotRead( int fd )
+void Connection::dispatchRead()
 {
-  Q_UNUSED( fd );
   while ( dbus_connection_dispatch( d->connection ) == DBUS_DISPATCH_DATA_REMAINS )
     ;
 }
 
-void Connection::slotWrite( int fd )
+DBusConnection* Connection::connection() const
 {
-  Q_UNUSED( fd );
+  return d->connection;
 }
-
-void Connection::addWatch( DBusWatch *watch )
-{
-  if ( !dbus_watch_get_enabled( watch ) )
-    return;
-
-  QtWatch *qtwatch = new QtWatch;
-  qtwatch->watch = watch;
-
-  int flags = dbus_watch_get_flags( watch );
-  int fd = dbus_watch_get_fd( watch );
-
-  if ( flags & DBUS_WATCH_READABLE ) {
-    qtwatch->readSocket = new QSocketNotifier( fd, QSocketNotifier::Read, this );
-    QObject::connect( qtwatch->readSocket, SIGNAL(activated(int)), SLOT(slotRead(int)) );
-  }
-
-  if (flags & DBUS_WATCH_WRITABLE) {
-    qtwatch->writeSocket = new QSocketNotifier( fd, QSocketNotifier::Write, this );
-    QObject::connect( qtwatch->writeSocket, SIGNAL(activated(int)), SLOT(slotWrite(int)) );
-  }
-
-  d->watches.insert( fd, qtwatch );
-
-}
-
-void Connection::removeWatch( DBusWatch *watch )
-{
-  int key = dbus_watch_get_fd( watch );
-
-  QtWatch *qtwatch = d->watches.take( key );
-
-  if ( qtwatch ) {
-    delete qtwatch->readSocket;  qtwatch->readSocket = 0;
-    delete qtwatch->writeSocket; qtwatch->writeSocket = 0;
-    delete qtwatch;
-  }
-}
-
 
 /////////////////////////////////////////////////////////
+
+#include "connection.moc"
