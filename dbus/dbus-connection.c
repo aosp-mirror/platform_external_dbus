@@ -1915,7 +1915,9 @@ _dbus_connection_block_for_reply (DBusConnection     *connection,
   
   _dbus_get_current_time (&tv_sec, &tv_usec);
   
-  if (tv_sec < start_tv_sec)
+  if (!_dbus_connection_get_is_connected_unlocked (connection))
+    return NULL;
+  else if (tv_sec < start_tv_sec)
     _dbus_verbose ("dbus_connection_send_with_reply_and_block(): clock set backward\n");
   else if (connection->disconnect_message_link == NULL)
     _dbus_verbose ("dbus_connection_send_with_reply_and_block(): disconnected\n");
