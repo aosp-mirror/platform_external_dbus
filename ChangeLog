@@ -1,3 +1,10 @@
+2005-01-28  Joe Shaw  <joeshaw@novell.com>
+
+	* configure.in: Bump version up to 0.30.
+
+	* HACKING: Add a release item to bump the version number up after 
+	a release.
+
 2005-01-28  Havoc Pennington  <hp@redhat.com>
 
 	* doc/dbus-specification.xml: update to describe 16-bit types and

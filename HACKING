@@ -90,6 +90,10 @@ To make a release of D-BUS, do the following:
  - once the commit succeeds, "cvs tag DBUS_X_Y_Z" where 
    X_Y_Z map to version X.Y.Z
 
+ - bump the version number up in configure.in, and commit
+   it.  Make sure you do this *after* tagging the previous
+   release!
+
  - scp your tarball to freedesktop.org server and copy it 
    to /srv/dbus.freedesktop.org/releases. This should 
    be possible if you're in group "dbus"
@@ -104,7 +108,7 @@ To make a release of D-BUS, do the following:
    items must be indented three more spaces to conform to the
    formatting of the other releases there.
   
- - post to dbus@freedesktop.org announcing the release.
+ - post to dbus@lists.freedesktop.org announcing the release.
  
 
 Environment variables
