@@ -450,6 +450,29 @@ dbus_gproxy_send (DBusGProxy          *proxy,
     g_error ("Out of memory\n");
 }
 
+void
+dbus_gproxy_connect_signal (DBusGProxy       *proxy,
+                            const char       *interface_name,
+                            const char       *signal_name,
+                            GCallback         callback,
+                            void             *data,
+                            GFreeFunc         free_data_func)
+{
+
+
+}
+
+void
+dbus_gproxy_disconnect_signal (DBusGProxy       *proxy,
+                               const char       *interface_name,
+                               const char       *signal_name,
+                               GCallback         callback,
+                               void             *data)
+{
+  
+  
+}
+
 /** @} End of DBusGLib public */
 
 #ifdef DBUS_BUILD_TESTS
