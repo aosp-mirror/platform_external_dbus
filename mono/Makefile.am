@@ -41,7 +41,7 @@ DBUS_SHARP_FILES= 		\
 
 TEST_DBUS_SHARP_FILES=Test.cs
 
-all: $(DLLS) $(NOINST_EXES)
+all: $(DLLS)
 
 dbus-sharp.dll: $(DBUS_SHARP_FILES)
 	$(MCS) $(MCSFLAGS) --unsafe --target library -o dbus-sharp.dll $(DBUS_SHARP_FILES)

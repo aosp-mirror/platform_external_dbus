@@ -1,3 +1,7 @@
+2004-05-02  Owen Fraser-Green  <owen@discobabe.net>
+
+	* mono/Makefile.am: Removed test-dbus-sharp.exe from all target
+
 2004-05-01  Owen Fraser-Green  <owen@discobabe.net>
 
 	* mono/DBusType/Dict.cs: Handle empty dicts
