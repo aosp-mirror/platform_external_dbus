@@ -1881,6 +1881,10 @@ dbus_message_append_args_valist (DBusMessage *message,
 	  if (!dbus_message_iter_append_nil (&iter))
 	    goto errorout;
 	  break;
+	case DBUS_TYPE_BYTE:
+	  if (!dbus_message_iter_append_byte (&iter, va_arg (var_args, unsigned char)))
+	    goto errorout;
+	  break;
 	case DBUS_TYPE_BOOLEAN:
 	  if (!dbus_message_iter_append_boolean (&iter, va_arg (var_args, dbus_bool_t)))
 	    goto errorout;

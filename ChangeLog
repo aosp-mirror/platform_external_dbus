@@ -1,3 +1,8 @@
+2003-12-17  Mikael Hallendal  <micke@imendio.com>
+
+	* dbus/dbus-message.c: (dbus_message_append_args_valist): 
+	- Added case for DBUS_TYPE_BYTE, patch from Johan Hedberg.
+
 2003-12-13  Mikael Hallendal  <micke@imendio.com>
 
 	* doc/TODO: Added not about better error check of configuration files.
