@@ -1,3 +1,17 @@
+2003-04-14  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-userdb.c: user database abstraction, mostly to get
+	caching, but at some point we might want to be able to use a
+	different database.
+
+	* bus/dispatch.c (bus_dispatch_sha1_test): add a test that uses
+	SHA1 conf file to test the sha1 auth mechanism, since the regular
+	test always uses EXTERNAL when available.
+
+	* configure.in,
+	test/data/valid-config-files/debug-allow-all-sha1.conf.in: 
+	add conf file that requires use of sha1 auth
+
 2003-04-13  Havoc Pennington  <hp@pobox.com>
 	
         * tools/dbus-send.c, tools/dbus-monitor.c: two utility programs
@@ -63,6 +77,11 @@
 
 	* dbus/dbus-internals.h: mark assert_not_reached as
 	__attribute((noreturn))__
+
+2003-04-11  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-specification.sgml: fix a spot with the wrong name for 
+	the broadcast service. Use boolean return for ServiceExists.
 
 2003-04-11  Havoc Pennington  <hp@redhat.com>
 

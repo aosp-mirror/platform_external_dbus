@@ -135,6 +135,12 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
     die ("hash tables");
 
   check_memleaks ();
+
+  printf ("%s: running user database tests\n", "dbus-test");
+  if (!_dbus_userdb_test (test_data_dir))
+    die ("user database");
+
+  check_memleaks ();
   
   printf ("%s: running keyring tests\n", "dbus-test");
   if (!_dbus_keyring_test ())

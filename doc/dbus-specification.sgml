@@ -1113,7 +1113,7 @@
         messages are routed to the owner of the named service.
         Messages may also be <firstterm>broadcast</firstterm>
         by sending them to the special service 
-        <literal>org.freedesktop.Broadcast</literal>. Broadcast messages are
+        <literal>org.freedesktop.DBus.Broadcast</literal>. Broadcast messages are
         sent to all applications with <firstterm>message matching
           rules</firstterm> that match the message.
       </para>
@@ -1415,7 +1415,7 @@
         <para>
           As a method:
           <programlisting>
-            UINT32 ServiceExists (in STRING service_name)
+            BOOLEAN ServiceExists (in STRING service_name)
           </programlisting>
           Message arguments:
           <informaltable>
@@ -1449,8 +1449,8 @@
               <tbody>
                 <row>
                   <entry>0</entry>
-                  <entry>UINT32</entry>
-                  <entry>Return value, 1 if the service exists and 0 otherwise</entry>
+                  <entry>BOOLEAN</entry>
+                  <entry>Return value, true if the service exists</entry>
                 </row>
               </tbody>
             </tgroup>

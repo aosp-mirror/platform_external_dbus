@@ -1878,13 +1878,13 @@ bus_dispatch_test (const DBusString *test_data_dir)
   DBusConnection *bar;
   DBusConnection *baz;
   DBusError error;
+
+  dbus_error_init (&error);
   
   context = bus_context_new_test (test_data_dir,
                                   "valid-config-files/debug-allow-all.conf");
   if (context == NULL)
     return FALSE;
-
-  dbus_error_init (&error);
   
   foo = dbus_connection_open ("debug-pipe:name=test-server", &error);
   if (foo == NULL)
@@ -1922,7 +1922,7 @@ bus_dispatch_test (const DBusString *test_data_dir)
       _dbus_assert_not_reached ("initial connection setup failed");
     }
   
-  check1_try_iterations (context, "create_and_hello",
+  check1_try_iterations (context, "create_and_hello_sha1",
                          check_hello_connection);
   
   check2_try_iterations (context, foo, "nonexistent_service_activation",
@@ -1944,4 +1944,48 @@ bus_dispatch_test (const DBusString *test_data_dir)
   
   return TRUE;
 }
+
+dbus_bool_t
+bus_dispatch_sha1_test (const DBusString *test_data_dir)
+{
+  BusContext *context;
+  DBusConnection *foo;
+  DBusError error;
+
+  dbus_error_init (&error);
+  
+  /* Test SHA1 authentication */
+  _dbus_verbose ("Testing SHA1 context\n");
+  
+  context = bus_context_new_test (test_data_dir,
+                                  "valid-config-files/debug-allow-all.conf");
+  if (context == NULL)
+    return FALSE;
+
+  foo = dbus_connection_open ("debug-pipe:name=test-server", &error);
+  if (foo == NULL)
+    _dbus_assert_not_reached ("could not alloc connection");
+
+  if (!bus_setup_debug_client (foo))
+    _dbus_assert_not_reached ("could not set up connection");
+
+  if (!check_hello_message (context, foo))
+    _dbus_assert_not_reached ("hello message failed");
+
+  if (!check_no_leftovers (context))
+    {
+      _dbus_warn ("Messages were left over after setting up initial SHA-1 connection");
+      _dbus_assert_not_reached ("initial connection setup failed");
+    }
+  
+  check1_try_iterations (context, "create_and_hello",
+                         check_hello_connection);
+
+  kill_client_connection_unchecked (foo);
+
+  bus_context_unref (context);
+
+  return TRUE;
+}
+
 #endif /* DBUS_BUILD_TESTS */

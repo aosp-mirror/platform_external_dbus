@@ -94,7 +94,9 @@ DBUS_SHARED_SOURCES=				\
 	dbus-string.h				\
 	dbus-string-private.h			\
 	dbus-sysdeps.c				\
-	dbus-sysdeps.h
+	dbus-sysdeps.h				\
+	dbus-userdb.c				\
+	dbus-userdb.h
 
 ### source code that is generic utility functionality used
 ### by the bus daemon or test apps, but is NOT included

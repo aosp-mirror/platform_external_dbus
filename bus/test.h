@@ -33,6 +33,7 @@
 #include "connection.h"
 
 dbus_bool_t bus_dispatch_test         (const DBusString             *test_data_dir);
+dbus_bool_t bus_dispatch_sha1_test    (const DBusString             *test_data_dir);
 dbus_bool_t bus_policy_test           (const DBusString             *test_data_dir);
 dbus_bool_t bus_config_parser_test    (const DBusString             *test_data_dir);
 dbus_bool_t bus_setup_debug_client    (DBusConnection               *connection);

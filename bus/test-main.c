@@ -88,6 +88,12 @@ main (int argc, char **argv)
     die ("policy");
 
   check_memleaks (argv[0]);
+
+  printf ("%s: Running SHA1 connection test\n", argv[0]);
+  if (!bus_dispatch_sha1_test (&test_data_dir))
+    die ("sha1");
+
+  check_memleaks (argv[0]);
   
   printf ("%s: Running message dispatch test\n", argv[0]);
   if (!bus_dispatch_test (&test_data_dir))
