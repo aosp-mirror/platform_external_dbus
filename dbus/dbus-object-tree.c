@@ -607,9 +607,9 @@ _dbus_object_tree_list_registered_unlocked (DBusObjectTree *tree,
 }
 
 static DBusHandlerResult
-handle_default_introspect_unlocked (DBusObjectTree          *tree,
-                                    DBusMessage             *message,
-                                    const char             **path)
+handle_default_introspect_and_unlock (DBusObjectTree          *tree,
+                                      DBusMessage             *message,
+                                      const char             **path)
 {
   DBusString xml;
   DBusHandlerResult result;
@@ -618,8 +618,11 @@ handle_default_introspect_unlocked (DBusObjectTree          *tree,
   DBusMessage *reply;
   DBusMessageIter iter;
   const char *v_STRING;
+  dbus_bool_t already_unlocked;
 
   /* We have the connection lock here */
+
+  already_unlocked = FALSE;
   
   _dbus_verbose (" considering default Introspect() handler...\n");
 
@@ -628,12 +631,26 @@ handle_default_introspect_unlocked (DBusObjectTree          *tree,
   if (!dbus_message_is_method_call (message,
                                     DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE,
                                     "Introspect"))
-    return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+    {
+#ifdef DBUS_BUILD_TESTS
+      if (tree->connection)
+#endif
+        _dbus_connection_unlock (tree->connection);
+      
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+    }
 
   _dbus_verbose (" using default Introspect() handler!\n");
   
   if (!_dbus_string_init (&xml))
-    return DBUS_HANDLER_RESULT_NEED_MEMORY;
+    {
+#ifdef DBUS_BUILD_TESTS
+      if (tree->connection)
+#endif
+        _dbus_connection_unlock (tree->connection);
+
+      return DBUS_HANDLER_RESULT_NEED_MEMORY;
+    }
 
   result = DBUS_HANDLER_RESULT_NEED_MEMORY;
 
@@ -673,13 +690,21 @@ handle_default_introspect_unlocked (DBusObjectTree          *tree,
   if (tree->connection)
 #endif
     {
-      if (!_dbus_connection_send_unlocked (tree->connection, reply, NULL))
+      if (!_dbus_connection_send_and_unlock (tree->connection, reply, NULL))
         goto out;
     }
   
   result = DBUS_HANDLER_RESULT_HANDLED;
   
  out:
+#ifdef DBUS_BUILD_TESTS
+  if (tree->connection)
+#endif
+    {
+      if (!already_unlocked)
+        _dbus_connection_unlock (tree->connection);
+    }
+  
   _dbus_string_free (&xml);
   dbus_free_string_array (children);
   if (reply)
@@ -826,14 +851,16 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
     {
       /* This hardcoded default handler does a minimal Introspect()
        */
-      result = handle_default_introspect_unlocked (tree, message,
-                                                   (const char**) path);
+      result = handle_default_introspect_and_unlock (tree, message,
+                                                     (const char**) path);
     }
-
+  else
+    {
 #ifdef DBUS_BUILD_TESTS
-  if (tree->connection)
+      if (tree->connection)
 #endif
-    _dbus_connection_unlock (tree->connection);
+        _dbus_connection_unlock (tree->connection);
+    }
   
   while (list != NULL)
     {

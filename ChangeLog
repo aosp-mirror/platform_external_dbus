@@ -1,5 +1,14 @@
 2005-02-10  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-object-tree.c (handle_default_introspect_and_unlock):
+	change to be _and_unlock instead of _unlocked
+
+	* dbus/dbus-connection.c
+	(_dbus_connection_send_preallocated_unlocked_no_update): rename to
+	have no_update so we can find this bug quickly in future
+
+2005-02-10  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-message-util.c (verify_test_message): tests for string
 	array
 

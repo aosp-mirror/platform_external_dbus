@@ -21,6 +21,8 @@
  *
  */
 
+/* #define G_DEBUG_LOCKS 1 */
+
 #include <glib.h>
 #include <dbus/dbus.h>
 #include <dbus/dbus-glib.h>
