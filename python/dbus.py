@@ -56,6 +56,8 @@ class Bus:
     def __init__(self, bus_type=TYPE_SESSION, glib_mainloop=True):
         self._connection = dbus_bindings.bus_get(bus_type)
 
+        self._connection.add_filter(self._signal_func)
+        self._match_rule_to_receivers = { }
         if (glib_mainloop):
             self._connection.setup_with_g_main()
 
@@ -65,10 +67,46 @@ class Bus:
         """
         return RemoteService(self._connection, service_name)
 
+    def add_signal_receiver(self, receiver, interface=None, service=None, path=None):
+        match_rule = self._get_match_rule(interface, service, path)
+        
+        if (not self._match_rule_to_receivers.has_key(match_rule)):
+            self._match_rule_to_receivers[match_rule] = [ ]
+        self._match_rule_to_receivers[match_rule].append(receiver)
+        
+        dbus_bindings.bus_add_match(self._connection, match_rule)
+        
     def get_connection(self):
         """Get the dbus_bindings.Connection object associated with this Bus"""
         return self._connection
 
+    def _get_match_rule(self, interface, service, path):
+##        if (interface):
+##            match_rule = match_rule + ",interface='%s'" % (interface)
+##        if (service):
+##            match_rule = match_rule + ",service='%s'" % (service)
+##        if (path):
+##            match_rule = match_rule + ",path='%s'" % (path)
+        # FIXME: use the service here too!!!
+        return "type='signal',interface='%s',path='%s'" % (interface, path)
+    
+    def _signal_func(self, connection, message):
+        if (message.get_type() != dbus_bindings.MESSAGE_TYPE_SIGNAL):
+            return
+        
+        interface = message.get_interface()
+        service   = message.get_sender()
+        path      = message.get_path()
+        member    = message.get_member()
+
+        match_rule = self._get_match_rule(interface, service, path)
+
+        if (self._match_rule_to_receivers.has_key(match_rule)):
+            receivers = self._match_rule_to_receivers[match_rule]
+            args = [interface, member, service, path]
+            for receiver in receivers:
+                receiver(*args)
+        
 
 class RemoteObject:
     """A remote Object.
@@ -144,6 +182,10 @@ class Service:
         """Get the Bus this Service is on"""
         return self._bus
 
+    def get_service_name(self):
+        """Get the name of this service"""
+        return self._service_name
+
 class Object:
     """A base class for exporting your own Objects across the Bus.
 
@@ -161,6 +203,12 @@ class Object:
         
         self._connection.register_object_path(object_path, self._unregister_cb, self._message_cb)
 
+    def broadcast_signal(self, interface, signal_name):
+        message = dbus_bindings.Signal(self._object_path, interface, signal_name)
+        #FIXME: need to set_sender, but it always disconnects when we do this
+        #message.set_sender(self._service.get_service_name())
+        self._connection.send(message)
+
     def _unregister_cb(self, connection):
         print ("Unregister")
         
@@ -173,9 +221,10 @@ class Object:
             retval = target_method(*args)
         except Exception, e:
             if e.__module__ == '__main__':
-                error_name = e.__class__
+                # FIXME: is it right to use .__name__ here?
+                error_name = e.__class__.__name__
             else:
-                error_name = e.__module__ + '.' + str(e.__class__)
+                error_name = e.__module__ + '.' + str(e.__class__.__name__)
             error_contents = str(e)
             reply = dbus_bindings.Error(message, error_name, error_contents)
         else:
@@ -193,7 +242,7 @@ class Object:
                 print ('WARNING: registering DBus Object methods, already have a method named %s' % (method.__name__))
             method_dict[method.__name__] = method
         return method_dict
-        
+
 class RemoteService:
     """A remote service providing objects.
 

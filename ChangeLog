@@ -1,3 +1,19 @@
+2003-09-26  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus.py:
+	* python/examples/example-signals.py:
+
+	Start implementing some notions of signals. The API
+	is really terrible, but they sort of work (with the
+	exception of being able to filter by service, and to
+	transmit signals *as* a particular service). Need to
+	figure out how to make messages come from the service
+	we registered :-(
+	
+	* python/dbus_bindings.pyx.in:
+
+	Removed duplicate message_handler callbacks.
+	
 2003-09-25  Havoc Pennington  <hp@redhat.com>
 
 	* bus/session.conf.in: fix my mess
