@@ -47,9 +47,15 @@
 #undef DBUS_INSIDE_DBUS_H
 
 /**
- * @defgroup DBus D-BUS message system public API
- * @brief The exported public API of the D-BUS library.
+ * @defgroup DBus D-BUS low-level public API
+ * @brief The low-level public API of the D-BUS library
  *
+ * libdbus provides a low-level API intended primarily for use by
+ * bindings to specific object systems and languages.  D-BUS is most
+ * convenient when used with the GLib bindings, Python bindings, Qt
+ * bindings, Mono bindings, and so forth.  This low-level API has a
+ * lot of complexity useful only for bindings.
+ * 
  * @{
  */
 

@@ -1,3 +1,10 @@
+2005-01-21  Havoc Pennington  <hp@redhat.com>
+
+	* glib/dbus-gmain.c: don't put the GLib bindings in the same
+	toplevel doxygen group as the low-level API stuff
+
+	* dbus/dbus.h: note that libdbus is the low-level API
+
 2005-01-20  Havoc Pennington  <hp@redhat.com>
 
 	* update-dbus-docs.sh: script to update docs on the web site, only

@@ -33,13 +33,15 @@
 
 /**
  * @defgroup DBusGLib GLib bindings
- * @ingroup  DBus
  * @brief API for using D-BUS with GLib
  *
- * Convenience functions are provided for using D-BUS
- * with the GLib library (see http://www.gtk.org for GLib
- * information).
- * 
+ * libdbus proper is a low-level API, these GLib bindings wrap libdbus
+ * with a much higher-level approach. The higher level approach is
+ * possible because GLib defines a main loop, an object/type system,
+ * and an out-of-memory handling policy (it exits the program).
+ * See http://www.gtk.org for GLib information.
+ *
+ * To manipulate remote objects, use #DBusGProxy.
  */
 
 /**
