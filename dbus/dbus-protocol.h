@@ -79,7 +79,7 @@ extern "C" {
 #define DBUS_MESSAGE_SERVICE_EXISTS        "org.freedesktop.DBus.ServiceExists"
 #define DBUS_MESSAGE_HELLO                 "org.freedesktop.DBus.Hello"
 #define DBUS_MESSAGE_LIST_SERVICES         "org.freedesktop.DBus.ListServices"
-#define DBUS_MESSAGE_ACQUIRE_SERVICE       "org.freedesktop.DBus.OwnService"
+#define DBUS_MESSAGE_ACQUIRE_SERVICE       "org.freedesktop.DBus.AcquireService"
 #define DBUS_MESSAGE_SERVICE_ACQUIRED      "org.freedesktop.DBus.ServiceAcquired"
 #define DBUS_MESSAGE_SERVICE_CREATED       "org.freedesktop.DBus.ServiceCreated"
 #define DBUS_MESSAGE_SERVICE_DELETED       "org.freedesktop.DBus.ServiceDeleted"

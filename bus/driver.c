@@ -105,8 +105,7 @@ bus_driver_send_service_acquired (DBusConnection *connection,
 }
 
 static dbus_bool_t
-create_unique_client_name (const char *name,
-                           DBusString *str)
+create_unique_client_name (DBusString *str)
 {
   /* We never want to use the same unique client name twice, because
    * we want to guarantee that if you send a message to a given unique
@@ -118,9 +117,6 @@ create_unique_client_name (const char *name,
   static int next_minor_number = 0;
   int len;
 
-  if (!_dbus_string_append (str, name))
-    return FALSE;
-  
   len = _dbus_string_get_length (str);
   
   while (TRUE)
@@ -170,27 +166,11 @@ static void
 bus_driver_handle_hello (DBusConnection *connection,
 			 DBusMessage    *message)
 {
-  DBusResultCode result;
-  char *name;
   DBusString unique_name;
   BusService *service;
   
-  _DBUS_HANDLE_OOM ((result = dbus_message_get_fields (message,
-						       DBUS_TYPE_STRING, &name,
-						       0)) != DBUS_RESULT_NO_MEMORY);
-
-  if (result != DBUS_RESULT_SUCCESS)
-    {
-      dbus_free (name);
-      dbus_connection_disconnect (connection);
-      return;
-    }
-  
   _DBUS_HANDLE_OOM (_dbus_string_init (&unique_name, _DBUS_INT_MAX));
-
-  _DBUS_HANDLE_OOM (create_unique_client_name (name, &unique_name));
-  
-  dbus_free (name);
+  _DBUS_HANDLE_OOM (create_unique_client_name (&unique_name));
   
   /* Create the service */
   _DBUS_HANDLE_OOM (service = bus_service_lookup (&unique_name, TRUE));

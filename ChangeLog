@@ -1,3 +1,21 @@
+2003-02-01  Anders Carlsson  <andersca@codefactory.se>
+
+	* bus/driver.c: (create_unique_client_name),
+	(bus_driver_handle_hello):
+	Don't take a name, just use a numeric id to identify
+	each client.
+	
+	* dbus/Makefile.am:
+	* dbus/dbus-bus.c: (dbus_bus_register_client),
+	(dbus_bus_acquire_service), (dbus_bus_service_exists):
+	* dbus/dbus-bus.h:
+	Add new convenience functions for communicating with the bus.
+	
+	* dbus/dbus-message.h:
+	
+	* dbus/dbus-protocol.h:
+	Fix a typo.
+	
 2003-02-01  Alexander Larsson  <alexl@redhat.com>
 
 	* dbus/dbus-message.c (dbus_message_append_fields):
