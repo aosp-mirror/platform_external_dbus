@@ -39,8 +39,10 @@ namespace DBusQt {
   {
     Q_OBJECT
   public:
-    Connection( const QString& host = QString::null,
-                QObject* parent = 0);
+    Connection( QObject *parent =0 );
+    Connection( const QString& host,
+                QObject *parent = 0 );
+    Connection( DBusBusType type, QObject* parent = 0 );
 
     bool isConnected() const;
     bool isAuthenticated() const;
@@ -62,11 +64,13 @@ namespace DBusQt {
 
   protected:
     void init( const QString& host );
-    virtual void* virtual_hook( int id, void* data );
+    virtual void *virtual_hook( int id, void *data );
+
   private:
     friend class Internal::Integrator;
-    DBusConnection* connection() const;
+    DBusConnection *connection() const;
     Connection( DBusConnection *connection, QObject *parent );
+
   private:
     struct Private;
     Private *d;
