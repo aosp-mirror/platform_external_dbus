@@ -621,6 +621,38 @@ _dbus_connection_remove_pending_call (DBusConnection  *connection,
 }
 
 /**
+ * Completes a pending call with the given message,
+ * or if the message is #NULL, by timing out the pending call.
+ * 
+ * @param pending the pending call
+ * @param message the message to complete the call with, or #NULL
+ *  to time out the call
+ */
+void
+_dbus_pending_call_complete_and_unlock (DBusPendingCall *pending,
+                                        DBusMessage     *message)
+{
+  if (message == NULL)
+    {
+      message = pending->timeout_link->data;
+      _dbus_list_clear (&pending->timeout_link);
+    }
+
+  _dbus_verbose ("  handing message %p to pending call\n", message);
+  
+  _dbus_assert (pending->reply == NULL);
+  pending->reply = message;
+  dbus_message_ref (pending->reply);
+  
+  dbus_pending_call_ref (pending); /* in case there's no app with a ref held */
+  _dbus_connection_detach_pending_call_and_unlock (pending->connection, pending);
+  
+  /* Must be called unlocked since it invokes app callback */
+  _dbus_pending_call_notify (pending);
+  dbus_pending_call_unref (pending);
+}
+
+/**
  * Acquire the transporter I/O path. This must be done before
  * doing any I/O in the transporter. May sleep and drop the
  * connection mutex while waiting for the I/O path.
@@ -1745,42 +1777,31 @@ check_for_reply_unlocked (DBusConnection *connection,
 }
 
 /**
- * Sends a message and blocks a certain time period while waiting for a reply.
- * This function does not dispatch any message handlers until the main loop
- * has been reached. This function is used to do non-reentrant "method calls."
- * If a reply is received, it is returned, and removed from the incoming
- * message queue. If it is not received, #NULL is returned and the
- * error is set to #DBUS_ERROR_NO_REPLY. If something else goes
- * wrong, result is set to whatever is appropriate, such as
- * #DBUS_ERROR_NO_MEMORY or #DBUS_ERROR_DISCONNECTED.
+ * Blocks a certain time period while waiting for a reply.
+ * If no reply arrives, returns #NULL.
  *
  * @todo could use performance improvements (it keeps scanning
  * the whole message queue for example) and has thread issues,
  * see comments in source
  *
  * @param connection the connection
- * @param message the message to send
+ * @param client_serial the reply serial to wait for
  * @param timeout_milliseconds timeout in milliseconds or -1 for default
- * @param error return location for error message
- * @returns the message that is the reply or #NULL with an error code if the
- * function fails.
+ * @returns the message that is the reply or #NULL if no reply
  */
-DBusMessage *
-dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
-                                           DBusMessage        *message,
-                                           int                 timeout_milliseconds,
-                                           DBusError          *error)
+DBusMessage*
+_dbus_connection_block_for_reply (DBusConnection     *connection,
+                                  dbus_uint32_t       client_serial,
+                                  int                 timeout_milliseconds)
 {
-  dbus_uint32_t client_serial;
   long start_tv_sec, start_tv_usec;
   long end_tv_sec, end_tv_usec;
   long tv_sec, tv_usec;
   DBusDispatchStatus status;
 
   _dbus_return_val_if_fail (connection != NULL, NULL);
-  _dbus_return_val_if_fail (message != NULL, NULL);
-  _dbus_return_val_if_fail (timeout_milliseconds >= 0 || timeout_milliseconds == -1, FALSE);  
-  _dbus_return_val_if_error_is_set (error, NULL);
+  _dbus_return_val_if_fail (client_serial != 0, NULL);
+  _dbus_return_val_if_fail (timeout_milliseconds >= 0 || timeout_milliseconds == -1, FALSE);
   
   if (timeout_milliseconds == -1)
     timeout_milliseconds = _DBUS_DEFAULT_TIMEOUT_VALUE;
@@ -1791,14 +1812,6 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
    */
   if (timeout_milliseconds > _DBUS_ONE_HOUR_IN_MILLISECONDS * 6)
     timeout_milliseconds = _DBUS_ONE_HOUR_IN_MILLISECONDS * 6;
-  
-  if (!dbus_connection_send (connection, message, &client_serial))
-    {
-      _DBUS_SET_OOM (error);
-      return NULL;
-    }
-
-  message = NULL;
   
   /* Flush message queue */
   dbus_connection_flush (connection);
@@ -1894,16 +1907,75 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
 
   _dbus_verbose ("dbus_connection_send_with_reply_and_block(): Waited %ld milliseconds and got no reply\n",
                  (tv_sec - start_tv_sec) * 1000 + (tv_usec - start_tv_usec) / 1000);
-  
-  if (dbus_connection_get_is_connected (connection))
-    dbus_set_error (error, DBUS_ERROR_NO_REPLY, "Message did not receive a reply");
-  else
-    dbus_set_error (error, DBUS_ERROR_DISCONNECTED, "Disconnected prior to receiving a reply");
 
   /* unlocks and calls out to user code */
   _dbus_connection_update_dispatch_status_and_unlock (connection, status);
 
   return NULL;
+}
+
+/**
+ * Sends a message and blocks a certain time period while waiting for
+ * a reply.  This function does not reenter the main loop,
+ * i.e. messages other than the reply are queued up but not
+ * processed. This function is used to do non-reentrant "method
+ * calls."
+ * 
+ * If a normal reply is received, it is returned, and removed from the
+ * incoming message queue. If it is not received, #NULL is returned
+ * and the error is set to #DBUS_ERROR_NO_REPLY.  If an error reply is
+ * received, it is converted to a #DBusError and returned as an error,
+ * then the reply message is deleted. If something else goes wrong,
+ * result is set to whatever is appropriate, such as
+ * #DBUS_ERROR_NO_MEMORY or #DBUS_ERROR_DISCONNECTED.
+ *
+ * @param connection the connection
+ * @param message the message to send
+ * @param timeout_milliseconds timeout in milliseconds or -1 for default
+ * @param error return location for error message
+ * @returns the message that is the reply or #NULL with an error code if the
+ * function fails.
+ */
+DBusMessage *
+dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
+                                           DBusMessage        *message,
+                                           int                 timeout_milliseconds,
+                                           DBusError          *error)
+{
+  dbus_uint32_t client_serial;
+  DBusMessage *reply;
+  
+  _dbus_return_val_if_fail (connection != NULL, NULL);
+  _dbus_return_val_if_fail (message != NULL, NULL);
+  _dbus_return_val_if_fail (timeout_milliseconds >= 0 || timeout_milliseconds == -1, FALSE);  
+  _dbus_return_val_if_error_is_set (error, NULL);
+  
+  if (!dbus_connection_send (connection, message, &client_serial))
+    {
+      _DBUS_SET_OOM (error);
+      return NULL;
+    }
+
+  reply = _dbus_connection_block_for_reply (connection,
+                                            client_serial,
+                                            timeout_milliseconds);
+  
+  if (reply == NULL)
+    {
+      if (dbus_connection_get_is_connected (connection))
+        dbus_set_error (error, DBUS_ERROR_NO_REPLY, "Message did not receive a reply");
+      else
+        dbus_set_error (error, DBUS_ERROR_DISCONNECTED, "Disconnected prior to receiving a reply");
+
+      return NULL;
+    }
+  else if (dbus_set_error_from_message (error, reply))
+    {
+      dbus_message_unref (reply);
+      return NULL;
+    }
+  else
+    return reply;
 }
 
 /**
@@ -2301,6 +2373,10 @@ dbus_connection_get_dispatch_status (DBusConnection *connection)
  * be part of authentication or the like.
  *
  * @todo some FIXME in here about handling DBUS_HANDLER_RESULT_NEED_MEMORY
+ *
+ * @todo right now a message filter gets run on replies to a pending
+ * call in here, but not in the case where we block without
+ * entering the main loop.
  * 
  * @param connection the connection
  * @returns dispatch status
@@ -2435,18 +2511,7 @@ dbus_connection_dispatch (DBusConnection *connection)
   
   if (pending)
     {
-      _dbus_verbose ("  handing message %p to pending call\n", message);
-
-      _dbus_assert (pending->reply == NULL);
-      pending->reply = message;
-      dbus_message_ref (pending->reply);
-
-      dbus_pending_call_ref (pending); /* in case there's no app with a ref held */
-      _dbus_connection_detach_pending_call_and_unlock (connection, pending);
-
-      /* Must be called unlocked since it invokes app callback */
-      _dbus_pending_call_notify (pending);
-      dbus_pending_call_unref (pending);
+      _dbus_pending_call_complete_and_unlock (pending, message);
 
       pending = NULL;
       
@@ -2868,6 +2933,10 @@ dbus_connection_set_unix_user_function (DBusConnection             *connection,
  * instead, if the message handler is finalized, the connection simply
  * forgets about it. Thus the caller of this function must keep a
  * reference to the message handler.
+ *
+ * @todo we don't run filters on messages while blocking without
+ * entering the main loop, since filters are run as part of
+ * dbus_connection_dispatch().
  *
  * @param connection the connection
  * @param handler the handler

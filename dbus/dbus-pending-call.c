@@ -254,6 +254,31 @@ dbus_pending_call_get_reply (DBusPendingCall *pending)
   return pending->reply;
 }
 
+/**
+ * Block until the pending call is completed.  The blocking is as with
+ * dbus_connection_send_with_reply_and_block(); it does not enter the
+ * main loop or process other messages, it simply waits for the reply
+ * in question.
+ *
+ * @todo when you start blocking, the timeout is reset, but it should
+ * really only use time remaining since the pending call was created.
+ *
+ * @param pending the pending call
+ */
+void
+dbus_pending_call_block (DBusPendingCall *pending)
+{
+  DBusMessage *message;
+  
+  message = _dbus_connection_block_for_reply (pending->connection,
+                                              pending->reply_serial,
+                                              dbus_timeout_get_interval (pending->timeout));
+
+  _dbus_connection_lock (pending->connection);
+  _dbus_pending_call_complete_and_unlock (pending, message);
+  dbus_message_unref (message);
+}
+
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS

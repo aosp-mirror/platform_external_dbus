@@ -42,6 +42,7 @@ void         dbus_pending_call_set_notify    (DBusPendingCall               *pen
 void         dbus_pending_call_cancel        (DBusPendingCall               *pending);
 dbus_bool_t  dbus_pending_call_get_completed (DBusPendingCall               *pending);
 DBusMessage* dbus_pending_call_get_reply     (DBusPendingCall               *pending);
+void         dbus_pending_call_block         (DBusPendingCall               *pending);
 
 DBUS_END_DECLS;
 

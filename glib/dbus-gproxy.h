@@ -34,43 +34,43 @@
 G_BEGIN_DECLS
 
 typedef struct DBusGProxy       DBusGProxy;
-typedef struct DBusGPendingCall DBusGPendingCall;
+typedef struct DBusPendingCall DBusPendingCall;
 
-DBusGProxy*       dbus_gproxy_new_for_service        (DBusConnection          *connection,
-                                                      const char              *service_name,
-                                                      const char              *interface_name);
-DBusGProxy*       dbus_gproxy_new_for_service_owner  (DBusConnection          *connection,
-                                                      const char              *service_name,
-                                                      const char              *interface_name,
-                                                      GError                 **error);
-DBusGProxy*       dbus_gproxy_new_for_object_id      (DBusConnection          *connection,
-                                                      const DBusObjectID      *object_id,
-                                                      const char              *interface_name);
-DBusGProxy*       dbus_gproxy_new_for_interface      (DBusConnection          *connection,
-                                                      const char              *interface_name);
-void              dbus_gproxy_ref                    (DBusGProxy              *proxy);
-void              dbus_gproxy_unref                  (DBusGProxy              *proxy);
-gboolean          dbus_gproxy_connect_signal         (DBusGProxy              *proxy,
-                                                      const char              *signal_name,
-                                                      GCallback                callback,
-                                                      void                    *data,
-                                                      GFreeFunc                free_data_func,
-                                                      GError                 **error);
-DBusGPendingCall* dbus_gproxy_begin_call             (DBusGProxy              *proxy,
-                                                      const char              *method,
-                                                      int                      first_arg_type,
-                                                      ...);
-void              dbus_gproxy_oneway_call            (DBusGProxy              *proxy,
-                                                      const char              *method,
-                                                      int                      first_arg_type,
-                                                      ...);
+DBusGProxy*      dbus_gproxy_new_for_service       (DBusConnection      *connection,
+                                                    const char          *service_name,
+                                                    const char          *interface_name);
+DBusGProxy*      dbus_gproxy_new_for_service_owner (DBusConnection      *connection,
+                                                    const char          *service_name,
+                                                    const char          *interface_name,
+                                                    GError             **error);
+DBusGProxy*      dbus_gproxy_new_for_object_id     (DBusConnection      *connection,
+                                                    const DBusObjectID  *object_id,
+                                                    const char          *interface_name);
+DBusGProxy*      dbus_gproxy_new_for_interface     (DBusConnection      *connection,
+                                                    const char          *interface_name);
+void             dbus_gproxy_ref                   (DBusGProxy          *proxy);
+void             dbus_gproxy_unref                 (DBusGProxy          *proxy);
+gboolean         dbus_gproxy_connect_signal        (DBusGProxy          *proxy,
+                                                    const char          *signal_name,
+                                                    GCallback            callback,
+                                                    void                *data,
+                                                    GFreeFunc            free_data_func,
+                                                    GError             **error);
+DBusPendingCall* dbus_gproxy_begin_call            (DBusGProxy          *proxy,
+                                                    const char          *method,
+                                                    int                  first_arg_type,
+                                                    ...);
+void             dbus_gproxy_oneway_call           (DBusGProxy          *proxy,
+                                                    const char          *method,
+                                                    int                  first_arg_type,
+                                                    ...);
+gboolean         dbus_pending_call_is_complete     (DBusPendingCall     *call);
+void             dbus_pending_call_cancel_and_free (DBusPendingCall     *call);
+gboolean         dbus_pending_call_block_and_free  (DBusPendingCall     *call,
+                                                    GError             **error,
+                                                    int                  first_arg_type,
+                                                    ...);
 
-gboolean          dbus_gpending_call_is_complete     (DBusGPendingCall        *call);
-void              dbus_gpending_call_cancel_and_free (DBusGPendingCall        *call);
-gboolean          dbus_gpending_call_block_and_free  (DBusGPendingCall        *call,
-                                                      GError                 **error,
-                                                      int                      first_arg_type,
-                                                      ...);
 
 
 

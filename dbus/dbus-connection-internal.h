@@ -88,15 +88,18 @@ DBusHandlerResult _dbus_message_handler_handle_message         (DBusMessageHandl
                                                                 DBusMessage        *message);
 void              _dbus_connection_init_id                     (DBusConnection     *connection,
                                                                 DBusObjectID       *id);
-
 DBusPendingCall*  _dbus_pending_call_new                       (DBusConnection     *connection,
                                                                 int                 timeout_milliseconds,
                                                                 DBusTimeoutHandler  timeout_handler);
-
 void              _dbus_pending_call_notify                    (DBusPendingCall    *pending);
-
 void              _dbus_connection_remove_pending_call         (DBusConnection     *connection,
                                                                 DBusPendingCall    *pending);
+DBusMessage*      _dbus_connection_block_for_reply             (DBusConnection     *connection,
+                                                                dbus_uint32_t       client_serial,
+                                                                int                 timeout_milliseconds);
+void              _dbus_pending_call_complete_and_unlock       (DBusPendingCall    *pending,
+                                                                DBusMessage        *message);
+
 
 /**
  * @addtogroup DBusPendingCallInternals DBusPendingCall implementation details

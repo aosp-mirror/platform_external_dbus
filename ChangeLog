@@ -1,3 +1,12 @@
+2003-08-15  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-pending-call.c (dbus_pending_call_block): implement
+
+	* dbus/dbus-connection.c
+	(dbus_connection_send_with_reply_and_block): factor out internals;
+	change to convert any error replies to DBusError instead of 
+	returning them as a message
+
 2003-08-15  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-connection.c, 
