@@ -493,11 +493,13 @@ get_type_alignment (int type)
 
     case DBUS_TYPE_ARRAY:
       _dbus_assert_not_reached ("passed an ARRAY type to get_type_alignment()");
+      alignment = 0; /* quiet gcc */
       break;
 
     case DBUS_TYPE_INVALID:
     default:
       _dbus_assert_not_reached ("passed an invalid or unknown type to get_type_alignment()");
+      alignment = 0; /* quiet gcc */
       break;
     }
 
@@ -1355,7 +1357,7 @@ dbus_message_new_empty_header (void)
       ++i;
     }
   
-  if (!_dbus_string_init_preallocated (&message->header, 64))
+  if (!_dbus_string_init_preallocated (&message->header, 256))
     {
       dbus_free (message);
       return NULL;

@@ -380,20 +380,28 @@ reallocate_for_length (DBusRealString *real,
     new_allocated = real->allocated * 2;
 
   /* if you change the code just above here, run the tests without
-   * the following before you commit
+   * the following assert-only hack before you commit
    */
+  /* This is keyed off asserts in addition to tests so when you
+   * disable asserts to profile, you don't get this destroyer
+   * of profiles.
+   */
+#ifdef DBUS_DISABLE_ASSERT
+#else
 #ifdef DBUS_BUILD_TESTS
   new_allocated = 0; /* ensure a realloc every time so that we go
                       * through all malloc failure codepaths
                       */
-#endif
-      
+#endif /* DBUS_BUILD_TESTS */
+#endif /* !DBUS_DISABLE_ASSERT */
+
   /* But be sure we always alloc at least space for the new length */
-  new_allocated = MAX (new_allocated, new_length + ALLOCATION_PADDING);
+  new_allocated = MAX (new_allocated,
+                       new_length + ALLOCATION_PADDING);
 
   _dbus_assert (new_allocated >= real->allocated); /* code relies on this */
   new_str = dbus_realloc (real->str - real->align_offset, new_allocated);
-  if (new_str == NULL)
+  if (_DBUS_UNLIKELY (new_str == NULL))
     return FALSE;
 
   real->str = new_str + real->align_offset;
@@ -410,15 +418,15 @@ set_length (DBusRealString *real,
   /* Note, we are setting the length not including nul termination */
 
   /* exceeding max length is the same as failure to allocate memory */
-  if (new_length > real->max_length)
+  if (_DBUS_UNLIKELY (new_length > real->max_length))
     return FALSE;
   else if (new_length > (real->allocated - ALLOCATION_PADDING) &&
-           !reallocate_for_length (real, new_length))
+           _DBUS_UNLIKELY (!reallocate_for_length (real, new_length)))
     return FALSE;
   else
     {
       real->len = new_length;
-      real->str[real->len] = '\0';
+      real->str[new_length] = '\0';
       return TRUE;
     }
 }
@@ -780,6 +788,8 @@ _dbus_string_copy_to_buffer (const DBusString  *str,
     buffer[avail_len-1] = '\0';
 }
 
+/* Only have the function if we don't have the macro */
+#ifndef _dbus_string_get_length
 /**
  * Gets the length of a string (not including nul termination).
  *
@@ -792,6 +802,7 @@ _dbus_string_get_length (const DBusString  *str)
   
   return real->len;
 }
+#endif /* !_dbus_string_get_length */
 
 /**
  * Makes a string longer by the given number of bytes.  Checks whether
@@ -812,7 +823,7 @@ _dbus_string_lengthen (DBusString *str,
   DBUS_STRING_PREAMBLE (str);  
   _dbus_assert (additional_length >= 0);
 
-  if (additional_length > real->max_length - real->len)
+  if (_DBUS_UNLIKELY (additional_length > real->max_length - real->len))
     return FALSE; /* would overflow */
   
   return set_length (real,
@@ -869,7 +880,7 @@ align_length_then_lengthen (DBusString *str,
   _dbus_assert (alignment <= 8); /* it has to be a bug if > 8 */
 
   new_len = _DBUS_ALIGN_VALUE (real->len, alignment);
-  if (new_len > (unsigned long) real->max_length - then_lengthen_by)
+  if (_DBUS_UNLIKELY (new_len > (unsigned long) real->max_length - then_lengthen_by))
     return FALSE;
   new_len += then_lengthen_by;
   
@@ -879,21 +890,17 @@ align_length_then_lengthen (DBusString *str,
   if (delta == 0)
     return TRUE;
 
-  if (!set_length (real, new_len))
+  if (_DBUS_UNLIKELY (!set_length (real, new_len)))
     return FALSE;
 
   /* delta == padding + then_lengthen_by
    * new_len == old_len + padding + then_lengthen_by
+   * nul the padding if we had to add any padding
    */
   if (then_lengthen_by < delta)
     {
-      unsigned int i;
-      i = new_len - delta;
-      while (i < (new_len - then_lengthen_by))
-        {
-          real->str[i] = '\0';
-          ++i;
-        }
+      memset (&real->str[new_len - delta], '\0',
+              delta - then_lengthen_by);
     }
       
   return TRUE;
@@ -1509,8 +1516,11 @@ _dbus_string_replace_len (const DBusString *source,
       Len = 6;								      \
       Mask = 0x01;							      \
     }									      \
-  else									      \
-    Len = -1;
+  else                                                                        \
+    {                                                                         \
+      Len = 0;                                                               \
+      Mask = 0;                                                               \
+    }
 
 /**
  * computes length of a unicode character in UTF-8
@@ -1590,7 +1600,7 @@ _dbus_string_get_unichar (const DBusString *str,
   c = *p;
   
   UTF8_COMPUTE (c, mask, len);
-  if (len == -1)
+  if (len == 0)
     return;
   UTF8_GET (result, p, i, mask, len);
 
@@ -2431,29 +2441,51 @@ _dbus_string_validate_utf8  (const DBusString *str,
   
   while (p < end)
     {
-      int i, mask = 0, char_len;
+      int i, mask, char_len;
       dbus_unichar_t result;
-      unsigned char c = (unsigned char) *p;
+
+      const unsigned char c = (unsigned char) *p;
+
+      if (c == 0) /* nul bytes not OK */
+        break;
+      
+      /* Special-case ASCII; this makes us go a lot faster in
+       * D-BUS profiles where we are typically validating
+       * function names and such. We have to know that
+       * all following checks will pass for ASCII though,
+       * comments follow ... 
+       */
+      if (c < 128)
+        {
+          ++p;
+          continue;
+        }
       
       UTF8_COMPUTE (c, mask, char_len);
 
-      if (_DBUS_UNLIKELY (char_len == -1))
+      if (_DBUS_UNLIKELY (char_len == 0))  /* ASCII: char_len == 1 */
         break;
 
       /* check that the expected number of bytes exists in the remaining length */
-      if (_DBUS_UNLIKELY ((end - p) < char_len))
+      if (_DBUS_UNLIKELY ((end - p) < char_len)) /* ASCII: p < end and char_len == 1 */
         break;
         
       UTF8_GET (result, p, i, mask, char_len);
 
-      if (_DBUS_UNLIKELY (UTF8_LENGTH (result) != char_len)) /* Check for overlong UTF-8 */
+      /* Check for overlong UTF-8 */
+      if (_DBUS_UNLIKELY (UTF8_LENGTH (result) != char_len)) /* ASCII: UTF8_LENGTH == 1 */
+        break;
+#if 0
+      /* The UNICODE_VALID check below will catch this */
+      if (_DBUS_UNLIKELY (result == (dbus_unichar_t)-1)) /* ASCII: result = ascii value */
+        break;
+#endif
+
+      if (_DBUS_UNLIKELY (!UNICODE_VALID (result))) /* ASCII: always valid */
         break;
 
-      if (_DBUS_UNLIKELY (result == (dbus_unichar_t)-1))
-        break;
-
-      if (_DBUS_UNLIKELY (!UNICODE_VALID (result)))
-        break;
+      /* UNICODE_VALID should have caught it */
+      _dbus_assert (result != (dbus_unichar_t)-1);
       
       p += char_len;
     }

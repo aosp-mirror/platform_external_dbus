@@ -327,7 +327,7 @@ remove_watch (DBusWatch *watch,
     return; /* probably a not-enabled watch that was added */
 
   watch_fd->removed = TRUE;
-  watch_fd->watch = NULL;  
+  watch_fd->watch = NULL;
   
   dbus_source->watch_fds = g_list_remove (dbus_source->watch_fds, watch_fd);
 
@@ -409,7 +409,7 @@ timeout_toggled (DBusTimeout *timeout,
 
 static void
 free_source (GSource *source)
-{
+{  
   g_source_destroy (source);
 }
 

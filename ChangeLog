@@ -1,3 +1,27 @@
+2004-11-13  Havoc Pennington  <hp@redhat.com>
+
+	* test/glib/test-profile.c: fix this thing up a bit
+
+	* dbus/dbus-message.c (dbus_message_new_empty_header): increase
+	preallocation sizes by a fair bit; not sure if this will be an
+	overall performance win or not, but it does reduce reallocs.
+
+	* dbus/dbus-string.c (set_length, reallocate_for_length): ignore
+	the test hack that forced constant realloc if asserts are
+	disabled, so we can profile sanely. Sprinkle in some
+	_DBUS_UNLIKELY() which are probably pointless, but before I
+	noticed the real performance problem I put them in.
+	(_dbus_string_validate_utf8): micro-optimize this thing a little
+	bit, though callgrind says it didn't help; then special-case
+	ascii, which did help a lot; then be sure we detect nul bytes as
+	invalid, which is a bugfix.
+	(align_length_then_lengthen): add some more _DBUS_UNLIKELY
+	superstition; use memset to nul the padding instead of a manual
+	loop.
+	(_dbus_string_get_length): inline this as a
+	macro; it showed up in the profile because it's used for loop
+	tests and so forth
+
 2004-11-10  Colin Walters  <walters@verbum.org>
 
 	* dbus/dbus-spawn.c (check_babysit_events): Handle EINTR,

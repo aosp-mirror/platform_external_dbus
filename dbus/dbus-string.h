@@ -49,6 +49,13 @@ struct DBusString
   unsigned int dummy8 : 3; /**< placeholder */
 };
 
+/* Unless we want to run all the assertions in the function,
+ * inline this thing, it shows up high in the profile
+ */
+#ifdef DBUS_DISABLE_ASSERT
+#define _dbus_string_get_length(s) ((s)->dummy2)
+#endif
+
 dbus_bool_t   _dbus_string_init                  (DBusString        *str);
 void          _dbus_string_init_const            (DBusString        *str,
                                                   const char        *value);
@@ -91,7 +98,10 @@ dbus_bool_t   _dbus_string_copy_data_len         (const DBusString  *str,
 void          _dbus_string_copy_to_buffer        (const DBusString  *str,
                                                   char              *buffer,
 						  int                len);
+#ifndef _dbus_string_get_length
 int           _dbus_string_get_length            (const DBusString  *str);
+#endif /* !_dbus_string_get_length */
+
 dbus_bool_t   _dbus_string_lengthen              (DBusString        *str,
                                                   int                additional_length);
 void          _dbus_string_shorten               (DBusString        *str,
