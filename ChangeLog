@@ -1,3 +1,7 @@
+2002-12-28  Kristian Rietveld  <kris@gtk.org>
+
+	* dbus/Makefile.am: fixup export-symbols-regex.
+
 2002-12-27  Anders Carlsson  <andersca@codefactory.se>
 
 	* acinclude.m4: Add this file and put the 
