@@ -76,11 +76,11 @@ namespace DBus
       return new Connection(rawConnection);
     }
 
-    public string BaseService
+    public string UniqueName
     {
       get
 	{
-	  return Marshal.PtrToStringAnsi (dbus_bus_get_base_service (RawConnection));
+	  return Marshal.PtrToStringAnsi (dbus_bus_get_unique_name (RawConnection));
 	}
     }
 
@@ -192,6 +192,6 @@ namespace DBus
     private extern static void dbus_connection_disconnect (IntPtr ptr);
 
     [DllImport ("dbus-1")]
-    private extern static IntPtr dbus_bus_get_base_service (IntPtr ptr);
+    private extern static IntPtr dbus_bus_get_unique_name (IntPtr ptr);
   }
 }

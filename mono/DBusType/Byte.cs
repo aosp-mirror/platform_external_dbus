@@ -30,12 +30,12 @@ namespace DBus.DBusType
 
     public Byte(IntPtr iter, Service service)
     {
-      this.val = dbus_message_iter_get_byte(iter);
-    }
+      dbus_message_iter_get_basic (iter, out this.val);
+      }
     
     public void Append(IntPtr iter)
     {
-      if (!dbus_message_iter_append_byte(iter, val))
+      if (!dbus_message_iter_append_basic (iter, (int) Code, ref val))
 	throw new ApplicationException("Failed to append BYTE argument:" + val);
     }
 
@@ -97,9 +97,9 @@ namespace DBus.DBusType
     }
 
     [DllImport("dbus-1")]
-    private extern static System.Byte dbus_message_iter_get_byte(IntPtr iter);
+    private extern static void dbus_message_iter_get_basic (IntPtr iter, out byte value);
  
     [DllImport("dbus-1")]
-    private extern static bool dbus_message_iter_append_byte(IntPtr iter, System.Byte value);
+    private extern static bool dbus_message_iter_append_basic (IntPtr iter, int type, ref byte value);
   }
 }

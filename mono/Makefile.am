@@ -10,7 +10,6 @@ DBUS_SHARP_FILES= 				\
 	$(srcdir)/Bus.cs			\
 	$(srcdir)/BusDriver.cs			\
 	$(srcdir)/Connection.cs			\
-	$(srcdir)/Custom.cs			\
 	$(srcdir)/DBusException.cs		\
 	$(srcdir)/Error.cs			\
 	$(srcdir)/ErrorMessage.cs		\
@@ -31,12 +30,9 @@ DBUS_SHARP_FILES= 				\
 	$(srcdir)/DBusType/Array.cs		\
 	$(srcdir)/DBusType/Boolean.cs		\
 	$(srcdir)/DBusType/Byte.cs		\
-	$(srcdir)/DBusType/Custom.cs		\
-	$(srcdir)/DBusType/Dict.cs		\
 	$(srcdir)/DBusType/Double.cs		\
 	$(srcdir)/DBusType/Int32.cs		\
 	$(srcdir)/DBusType/Int64.cs		\
-	$(srcdir)/DBusType/Nil.cs		\
 	$(srcdir)/DBusType/ObjectPath.cs	\
 	$(srcdir)/DBusType/String.cs		\
 	$(srcdir)/DBusType/UInt32.cs		\

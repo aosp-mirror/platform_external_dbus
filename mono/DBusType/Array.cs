@@ -25,7 +25,7 @@ namespace DBus.DBusType
     public Array(System.Array val, Service service) 
     {
       this.val = val;
-      this.elementType = Arguments.MatchType(val.GetType().UnderlyingSystemType);
+      this.elementType = Arguments.MatchType(val.GetType().GetElementType());
       this.service = service;
     }
 
@@ -34,36 +34,37 @@ namespace DBus.DBusType
       this.service = service;
 
       IntPtr arrayIter = Marshal.AllocCoTaskMem(Arguments.DBusMessageIterSize);
-      
-      int elementTypeCode;
-      bool notEmpty = dbus_message_iter_init_array_iterator(iter, arrayIter, out elementTypeCode);
-      this.elementType = (Type) Arguments.DBusTypes[(char) elementTypeCode];
 
-      elements = new ArrayList();
+      int elementTypeCode = dbus_message_iter_get_element_type (iter);
+      dbus_message_iter_recurse (iter, arrayIter);
+      this.elementType = (Type) Arguments.DBusTypes [(char) elementTypeCode];
 
-      if (notEmpty) {
-	do {
-	  object [] pars = new Object[2];
+      elements = new ArrayList ();
+
+      if (dbus_message_iter_get_arg_type (arrayIter) != 0) {
+        do {
+          object [] pars = new Object[2];
 	  pars[0] = arrayIter;
-	  pars[1] = service;
+  	  pars[1] = service;
 	  DBusType.IDBusType dbusType = (DBusType.IDBusType) Activator.CreateInstance(elementType, pars);
 	  elements.Add(dbusType);
-	} while (dbus_message_iter_next(arrayIter));
-      }
-      
+        } while (dbus_message_iter_next(arrayIter));
+      }      
+
       Marshal.FreeCoTaskMem(arrayIter);
     }
     
     public void Append(IntPtr iter)
     {
-      IntPtr arrayIter = Marshal.AllocCoTaskMem(Arguments.DBusMessageIterSize);
+      IntPtr arrayIter = Marshal.AllocCoTaskMem (Arguments.DBusMessageIterSize);
 
-      if (!dbus_message_iter_append_array(iter,
-					  arrayIter,
-					  (int) Arguments.GetCode(this.elementType))) {
-	throw new ApplicationException("Failed to append INT32 argument:" + val);
+      if (!dbus_message_iter_open_container (iter,
+					     (int) this.Code,
+					     Arguments.GetCodeAsString (elementType),
+					     arrayIter)) {
+	throw new ApplicationException("Failed to append array argument: " + val);
       }
-
+      
       foreach (object element in this.val) {
 	object [] pars = new Object[2];
 	pars[0] = element;
@@ -72,7 +73,11 @@ namespace DBus.DBusType
 	dbusType.Append(arrayIter);
       }
 
-      Marshal.FreeCoTaskMem(arrayIter);
+      if (!dbus_message_iter_close_container (iter, arrayIter)) {
+	throw new ApplicationException ("Failed to append array argument: " + val);
+      }
+
+      Marshal.FreeCoTaskMem (arrayIter);
     }    
 
     public static bool Suits(System.Type type) 
@@ -107,7 +112,7 @@ namespace DBus.DBusType
     public object Get(System.Type type)
     {
       if (type.IsArray)
-        type = type.GetElementType ();
+	type = type.GetElementType ();
 
       if (Arguments.Suits(elementType, type.UnderlyingSystemType)) {
 	this.val = System.Array.CreateInstance(type.UnderlyingSystemType, elements.Count);
@@ -123,19 +128,28 @@ namespace DBus.DBusType
     }    
 
     [DllImport("dbus-1")]
-    private extern static bool dbus_message_iter_init_array_iterator(IntPtr iter,
-								     IntPtr arrayIter,
-								     out int elementType);
- 
-    [DllImport("dbus-1")]
-    private extern static bool dbus_message_iter_append_array(IntPtr iter, 
-							      IntPtr arrayIter,
-							      int elementType);
+    private extern static bool dbus_message_iter_open_container (IntPtr iter,
+								 int containerType,
+								 string elementType,
+								 IntPtr subIter);
 
     [DllImport("dbus-1")]
-    private extern static bool dbus_message_iter_has_next(IntPtr iter);
+    private extern static bool dbus_message_iter_close_container (IntPtr iter,
+								  IntPtr subIter);
+ 
+    [DllImport("dbus-1")]
+    private extern static int dbus_message_iter_get_element_type(IntPtr iter);
+
+    [DllImport("dbus-1")]
+    private extern static int dbus_message_iter_get_arg_type(IntPtr iter);
+
+    [DllImport("dbus-1")]
+    private extern static void dbus_message_iter_recurse(IntPtr iter, IntPtr subIter);
 
     [DllImport("dbus-1")]
     private extern static bool dbus_message_iter_next(IntPtr iter);
+
+    [DllImport("dbus-1")]
+    private extern static bool dbus_message_iter_has_next (IntPtr iter);
   }
 }

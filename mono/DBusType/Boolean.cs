@@ -25,12 +25,12 @@ namespace DBus.DBusType
 
     public Boolean(IntPtr iter, Service service)
     {
-      this.val = dbus_message_iter_get_boolean(iter);
+      dbus_message_iter_get_basic (iter, out this.val);
     }
     
     public void Append(IntPtr iter)
     {
-      if (!dbus_message_iter_append_boolean(iter, val))
+      if (!dbus_message_iter_append_basic (iter, (int) Code, ref val))
 	throw new ApplicationException("Failed to append BOOLEAN argument:" + val);
     }
 
@@ -78,9 +78,9 @@ namespace DBus.DBusType
     }
 
     [DllImport("dbus-1")]
-    private extern static System.Boolean dbus_message_iter_get_boolean(IntPtr iter);
+    private extern static void dbus_message_iter_get_basic (IntPtr iter, out bool value);
  
     [DllImport("dbus-1")]
-    private extern static bool dbus_message_iter_append_boolean(IntPtr iter, System.Boolean value);
+    private extern static bool dbus_message_iter_append_basic (IntPtr iter, int type, ref bool value);
   }
 }

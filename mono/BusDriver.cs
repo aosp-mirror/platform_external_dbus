@@ -3,9 +3,9 @@ namespace DBus
 
   using System;
 
-  public delegate void ServiceEventHandler (string serviceName,
-					    string oldOwner,
-					    string newOwner);
+  public delegate void NameOwnerChangedHandler (string name,
+						string oldOwner,
+						string newOwner);
 
   [Interface ("org.freedesktop.DBus")]
   public abstract class BusDriver
@@ -14,14 +14,14 @@ namespace DBus
     public abstract string[] ListServices ();
 
     [Method]
-    public abstract string GetServiceOwner (string serviceName);
+    public abstract string GetOwner (string name);
 
     [Method]
     public abstract UInt32 GetConnectionUnixUser (string connectionName);
 
 
     [Signal]
-    public virtual event ServiceEventHandler ServiceOwnerChanged;
+    public virtual event NameOwnerChangedHandler NameOwnerChanged;
 
     static public BusDriver New (Connection connection)
     {

@@ -25,12 +25,12 @@ namespace DBus.DBusType
 
     public UInt64(IntPtr iter, Service service)
     {
-      this.val = dbus_message_iter_get_uint64(iter);
+      dbus_message_iter_get_basic (iter, out this.val);
     }
     
     public void Append(IntPtr iter)
     {
-      if (!dbus_message_iter_append_uint64(iter, val))
+      if (!dbus_message_iter_append_basic (iter, (int) Code, ref val))
 	throw new ApplicationException("Failed to append UINT64 argument:" + val);
     }
 
@@ -87,9 +87,9 @@ namespace DBus.DBusType
     }    
 
     [DllImport("dbus-1")]
-    private extern static System.UInt64 dbus_message_iter_get_uint64(IntPtr iter);
+    private extern static void dbus_message_iter_get_basic (IntPtr iter, out System.UInt64 value);
  
     [DllImport("dbus-1")]
-    private extern static bool dbus_message_iter_append_uint64(IntPtr iter, System.UInt64 value);
+    private extern static bool dbus_message_iter_append_basic (IntPtr iter, int type, ref System.UInt64 value);
   }
 }

@@ -38,7 +38,7 @@ namespace DBus
       // This isn't used for now
       uint flags = 0;
 
-      if (dbus_bus_acquire_service(connection.RawConnection, name, flags, ref error) == -1) {
+      if (dbus_bus_request_name (connection.RawConnection, name, flags, ref error) == -1) {
 	throw new DBusException(error);
       }
 
@@ -47,12 +47,12 @@ namespace DBus
       this.local = true;
     }
 
-    public static bool Exists(Connection connection, string name)
+    public static bool HasOwner(Connection connection, string name)
     {
       Error error = new Error();
       error.Init();
       
-      if (dbus_bus_service_exists(connection.RawConnection, 
+      if (dbus_bus_name_has_owner(connection.RawConnection, 
 				  name, 
 				  ref error)) {
 	return true;
@@ -66,10 +66,10 @@ namespace DBus
 
     public static Service Get(Connection connection, string name)
     {
-      if (Exists(connection, name)) {
+      if (HasOwner(connection, name)) {
 	return new Service(name, connection);
       } else {
-	throw new ApplicationException("Service '" + name + "' does not exist.");
+	throw new ApplicationException("Name '" + name + "' does not exist.");
       }
     }
 
@@ -184,12 +184,12 @@ namespace DBus
     }
 
     [DllImport("dbus-1")]
-    private extern static int dbus_bus_acquire_service(IntPtr rawConnection, 
-							string serviceName, 
-							uint flags, ref Error error);
+    private extern static int dbus_bus_request_name(IntPtr rawConnection, 
+						    string serviceName, 
+						    uint flags, ref Error error);
 
     [DllImport("dbus-1")]
-    private extern static bool dbus_bus_service_exists(IntPtr rawConnection, 
+    private extern static bool dbus_bus_name_has_owner(IntPtr rawConnection, 
 						       string serviceName, 
 						       ref Error error);    
 

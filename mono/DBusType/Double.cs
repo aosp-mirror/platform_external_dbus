@@ -25,12 +25,12 @@ namespace DBus.DBusType
 
     public Double(IntPtr iter, Service service)
     {
-      this.val = dbus_message_iter_get_double(iter);
+      dbus_message_iter_get_basic (iter, out this.val);
     }
     
     public void Append(IntPtr iter)
     {
-      if (!dbus_message_iter_append_double(iter, val))
+      if (!dbus_message_iter_append_basic (iter, (int) Code, ref val))
 	throw new ApplicationException("Failed to append DOUBLE argument:" + val);
     }
 
@@ -78,9 +78,9 @@ namespace DBus.DBusType
     }
 
     [DllImport("dbus-1")]
-    private extern static System.Double dbus_message_iter_get_double(IntPtr iter);
+    private extern static void dbus_message_iter_get_basic (IntPtr iter, out double value);
  
     [DllImport("dbus-1")]
-    private extern static bool dbus_message_iter_append_double(IntPtr iter, System.Double value);
+    private extern static bool dbus_message_iter_append_basic (IntPtr iter, int type, ref double value);
   }
 }

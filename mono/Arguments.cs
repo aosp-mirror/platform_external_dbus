@@ -183,6 +183,12 @@ namespace DBus
       return (char) dbusType.InvokeMember("Code", BindingFlags.Static | BindingFlags.GetField, null, null, null);
     }
 
+    // Get the type code for a given D-BUS type as a string
+    public static string GetCodeAsString (Type dbusType)
+    {
+      return GetCode (dbusType).ToString ();
+    }
+
     // Get a complete method signature
     public override string ToString() 
     {
@@ -201,7 +207,7 @@ namespace DBus
 	  key += code;
 	} while (dbus_message_iter_next(iter));
       }
-      
+
       Marshal.FreeCoTaskMem(iter);
 
       return key;
@@ -217,7 +223,7 @@ namespace DBus
     // Begin appending
     public void InitAppending() 
     {
-      dbus_message_append_iter_init(message.RawMessage, appenderIter);
+      dbus_message_iter_init_append(message.RawMessage, appenderIter);
     }
 
     // Get the enumerator
@@ -277,7 +283,7 @@ namespace DBus
     }
 
     [DllImport("dbus-1")]
-    private extern static void dbus_message_append_iter_init(IntPtr rawMessage, IntPtr iter);
+    private extern static void dbus_message_iter_init_append(IntPtr rawMessage, IntPtr iter);
 
     [DllImport("dbus-1")]
     private extern static bool dbus_message_iter_has_next(IntPtr iter);

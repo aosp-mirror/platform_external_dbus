@@ -25,12 +25,12 @@ namespace DBus.DBusType
 
     public Int32(IntPtr iter, Service service)
     {
-      this.val = dbus_message_iter_get_int32(iter);
+      dbus_message_iter_get_basic (iter, out this.val);
     }
     
     public void Append(IntPtr iter)
     {
-      if (!dbus_message_iter_append_int32(iter, val))
+      if (!dbus_message_iter_append_basic (iter, (int) Code, ref val))
 	throw new ApplicationException("Failed to append INT32 argument:" + val);
     }
 
@@ -85,9 +85,9 @@ namespace DBus.DBusType
     }    
 
     [DllImport("dbus-1")]
-    private extern static System.Int32 dbus_message_iter_get_int32(IntPtr iter);
+    private extern static void dbus_message_iter_get_basic (IntPtr iter, out System.Int32 value);
  
     [DllImport("dbus-1")]
-    private extern static bool dbus_message_iter_append_int32(IntPtr iter, System.Int32 value);
+    private extern static bool dbus_message_iter_append_basic (IntPtr iter, int type, ref System.Int32 value);
   }
 }

@@ -1,3 +1,49 @@
+2005-01-25  Joe Shaw  <joeshaw@novell.com>
+
+	* Land the mono binding changes to conform to the new APIs.
+
+	* mono/Makefile.am: Remove Custom.cs, DBusType/Custom.cs,
+	DBusType/Dict.cs, and DBusType/Nil.cs from the build.
+
+	* mono/Arguments.cs (GetCodeAsString): Added.  Returns the dbus
+	type code as a string.
+	(InitAppending): Rename dbus_message_append_iter_init() to
+	dbus_message_iter_init_append().
+
+	* mono/BusDriver.cs: Rename ServiceEventHandler to
+	NameOwnerChangedHandler.  Rename GetServiceOwner to GetOwner.
+	Rename ServiceOwnerChanged to NameOwnerChanged.
+
+	* mono/Connection.cs: Rename BaseService to UniqueName, and the
+	underlying C call.
+
+	* mono/Custom.cs: Removed.  The CUSTOM type has been removed.
+
+	* mono/Service.cs: Rename Exists to HasOwner, internally rename
+	dbus_bus_acquire_service() to dbus_bus_request_name().
+
+	* mono/DBusType/Array.cs (ctor): Use Type.GetElementType() instead
+	of Type.UnderlyingSystemType to get the correct element type for
+	the array.
+	(ctor): Update code for new APIs: use dbus_message_iter_recurse(),
+	dbus_message_get_{element|arg}_type() instead of
+	dbus_message_iter_init_array_iterator().
+	(Append): Replace dbus_message_iter_append_array() with
+	dbus_message_iter_open_container() and
+	dbus_message_iter_close_container().
+
+	* mono/DBusType/Custom.cs, mono/DBusType/Nil.cs: Removed.  These
+	types have been removed.
+	
+	* mono/DBusType/*.cs: Replace calls of
+	dbus_message_iter_get_[type]() to dbus_message_iter_get_basic(),
+	but specify the type in the DllImport extern declaration.  Ditto
+	for dbus_message_iter_append_[type]() ->
+	dbus_message_iter_append_basic().
+
+	* mono/example/BusListener.cs: Update for ServiceEventHandler ->
+	NameOwnerChangedHandler.
+
 2005-01-25  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/dbus_bindings.pyx.in: Rename of methods and bindings
