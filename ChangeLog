@@ -1,5 +1,58 @@
 2005-03-08  Joe Shaw  <joeshaw@novell.com>
-                                                                                
+
+	Fix a bunch of lifecycle and memory management problems
+	in the mono bindings.
+
+	* mono/Arguments.cs (Arguments): Implement IDisposable
+
+	* mono/Bus.cs (Bus): Don't allow public instantiation.  This is
+	strictly a static class.
+
+	* mono/Connection.cs: Move the DBusObjectPathVTable and associated
+	delegates into this file.
+	(Connection): Implement IDisposable.
+	(Dispose): Disconnect the connection and set the raw connection
+	pointer to IntPtr.Zero.
+	(~Connection): Call Dispose().
+	(RegisterObjectPath): Added.  Manages the registration of object
+	paths so we can cleanly disconnect them at dispose/finalize time.
+	(UnregisterObjectPath): Ditto.
+	(set_RawConnection): Unregister all of the object paths when
+	changing the underlying DBusConnection.  Add them back onto the
+	new connection, if any.
+
+	* mono/Handler.cs: Don't implement IDisposable; it doesn't use any
+	more unmanaged resources anymore, so it's not necessary.  Move all
+	the DBusObjectPathVTable stuff out of here.
+	(Handler): Save references to our delegates so that they don't get
+	finalized.  Call Connection.RegisterObjectPath() instead of
+	dbus_connection_register_object_path() directly.
+	(Message_Called): Dispose the message after we're finished with
+	it.
+
+	* mono/Message.cs (Message): Implement IDisposable.
+	(Dispose): Dispose the Arguments, and set the RawMessage to
+	IntPtr.Zero.
+	(SendWithReplyAndBlock): We own the ref to the reply that comes
+	back from dbus_connection_send_with_reply_and_block() so add a
+	comment about that and unref it after we've constructed a managed
+	MethodReturn class around it.  Fixes a big, big leak.
+
+	* mono/ProxyBuilder.cs: Reflect into Message to get the Dispose
+	method.
+	(BuildSignalHandler): After we've sent the Signal message, dispose
+	of it.
+	(BuildMethod): Dispose of the method call and reply messages after
+	we've sent the message and extracted the data we want from the
+	reply.
+
+	* mono/Service.cs (UnregisterObject): Don't call handler.Dispose()
+	anymore.
+	(Service_FilterCalled): Dispose of the message after we're
+	finished with it.
+
+2005-03-08  Joe Shaw  <joeshaw@novell.com>
+
         * dbus/dbus-connection.c (dbus_connection_send_with_reply):
         After we attach our pending call to the connection, unref
         it.  Fixes a leak.

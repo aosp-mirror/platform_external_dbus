@@ -35,6 +35,8 @@ namespace DBus
 											     new Type[0]);
     private static MethodInfo Message_SendMI = typeof(Message).GetMethod("Send",
 									 new Type[0]);
+    private static MethodInfo Message_DisposeMI = typeof(Message).GetMethod("Dispose",
+									    new Type[0]);
     private static MethodInfo Arguments_GetEnumeratorMI = typeof(Arguments).GetMethod("GetEnumerator",
 											  new Type[0]);
     private static MethodInfo IEnumerator_MoveNextMI = typeof(System.Collections.IEnumerator).GetMethod("MoveNext",
@@ -197,7 +199,6 @@ namespace DBus
       // Generate the locals
       LocalBuilder methodCallL = generator.DeclareLocal(typeof(MethodCall));
       methodCallL.SetLocalSymInfo("signal");
-      LocalBuilder replyL = generator.DeclareLocal(typeof(MethodReturn));
 
       //generator.EmitWriteLine("Signal signal = new Signal(...)");
       generator.Emit(OpCodes.Ldsfld, serviceF);
@@ -223,6 +224,10 @@ namespace DBus
       //generator.EmitWriteLine("signal.Send()");
       generator.Emit(OpCodes.Ldloc_0);
       generator.EmitCall(OpCodes.Callvirt, Message_SendMI, null); 
+
+      //generator.EmitWriteLine("signal.Dispose()");
+      generator.Emit(OpCodes.Ldloc_0);
+      generator.EmitCall(OpCodes.Callvirt, Message_DisposeMI, null);
 
       //generator.EmitWriteLine("return");
       generator.Emit(OpCodes.Ret);
@@ -309,6 +314,15 @@ namespace DBus
 	  EmitOut(generator, par.ParameterType, parN);
 	}
       }
+
+      // Clean up after ourselves
+      //generator.EmitWriteLine("methodCall.Dispose()");
+      generator.Emit(OpCodes.Ldloc_0);
+      generator.EmitCall(OpCodes.Callvirt, Message_DisposeMI, null);
+
+      //generator.EmitWriteLine("reply.Dispose()");
+      generator.Emit(OpCodes.Ldloc_1);
+      generator.EmitCall(OpCodes.Callvirt, Message_DisposeMI, null);
 
       if (method.ReturnType != typeof(void)) {
 	generator.Emit(OpCodes.Ldloc_3);

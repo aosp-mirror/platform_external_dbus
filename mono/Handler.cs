@@ -13,7 +13,7 @@ namespace DBus
     NeedMemory = 2
   }
 
-  internal class Handler : IDisposable
+  internal class Handler
   {
     private string path = null;
     private Introspector introspector = null;
@@ -21,70 +21,12 @@ namespace DBus
     private DBusObjectPathVTable vTable;
     private Connection connection;
     private Service service;
-    private bool disposed = false;
-    
-    internal delegate void DBusObjectPathUnregisterFunction(IntPtr rawConnection,
-							    IntPtr userData);
 
-    internal delegate int DBusObjectPathMessageFunction(IntPtr rawConnection,
-							IntPtr rawMessage,
-							IntPtr userData);
-
-    [StructLayout (LayoutKind.Sequential)]
-    private struct DBusObjectPathVTable 
-    {
-      public DBusObjectPathUnregisterFunction unregisterFunction;
-      public DBusObjectPathMessageFunction messageFunction;
-      public IntPtr padding1;
-      public IntPtr padding2;
-      public IntPtr padding3;
-      public IntPtr padding4;
-    
-      public DBusObjectPathVTable(DBusObjectPathUnregisterFunction unregisterFunction,
-				  DBusObjectPathMessageFunction messageFunction) 
-      {
-	this.unregisterFunction = unregisterFunction;
-	this.messageFunction = messageFunction;
-	this.padding1 = IntPtr.Zero;
-	this.padding2 = IntPtr.Zero;
-	this.padding3 = IntPtr.Zero;
-	this.padding4 = IntPtr.Zero;
-      }
-    }
-
-    public void Dispose() 
-    {
-      Dispose(true);
-      GC.SuppressFinalize(this);
-    }
-    
-    private void Dispose(bool disposing) 
-    {
-      if (!disposed) {	
-	if (disposing) {
-	  // Clean up managed resources
-	}
-
-	service = null;
-
-	// Clean up unmanaged resources
-	if (Connection != null && Connection.RawConnection != IntPtr.Zero && Path != null) {
-	  dbus_connection_unregister_object_path(Connection.RawConnection,
-						 Path);
-	}	
-
-	connection = null;
-	introspector = null;
-	handledObject = null;
-      }
-      
-      disposed = true;    
-    }
-
-    ~Handler() 
-    {
-      Dispose(false);
-    }
+    // We need to hold extra references to these callbacks so that they don't
+    // get garbage collected before they are called back into from unmanaged
+    // code.
+    private DBusObjectPathUnregisterFunction unregister_func;
+    private DBusObjectPathMessageFunction message_func;
 
     public Handler(object handledObject, 
 		   string path, 
@@ -96,15 +38,11 @@ namespace DBus
       this.path = path;
       
       // Create the vTable and register the path
-      vTable = new DBusObjectPathVTable(new DBusObjectPathUnregisterFunction(Unregister_Called), 
-					new DBusObjectPathMessageFunction(Message_Called));
-      
-      if (!dbus_connection_register_object_path(Connection.RawConnection,
-						Path,
-						ref vTable,
-						IntPtr.Zero))
-	throw new OutOfMemoryException();
+      this.unregister_func = new DBusObjectPathUnregisterFunction (Unregister_Called);
+      this.message_func = new DBusObjectPathMessageFunction (Message_Called);
 
+      vTable = new DBusObjectPathVTable (this.unregister_func, this.message_func);
+      Connection.RegisterObjectPath (Path, vTable);
       RegisterSignalHandlers();
     }
 
@@ -131,8 +69,6 @@ namespace DBus
       set {
 	this.handledObject = value;
 	
-	object[] attributes;
-	
 	// Register the methods
 	this.introspector = Introspector.GetIntrospector(value.GetType());	  
       }
@@ -153,17 +89,22 @@ namespace DBus
 			       IntPtr userData) 
     {
       Message message = Message.Wrap(rawMessage, Service);
+      Result res = Result.NotYetHandled;
 
       switch (message.Type) {
+      case Message.MessageType.MethodCall:
+        res = HandleMethod ((MethodCall) message);
+	break;
+
       case Message.MessageType.Signal:
 	// We're not interested in signals here because we're the ones
 	// that generate them!
 	break;
-      case Message.MessageType.MethodCall:
-	return (int) HandleMethod((MethodCall) message);
       }
 
-      return (int) Result.NotYetHandled;
+      message.Dispose ();
+
+      return (int) res;
     }
     
     private Result HandleMethod(MethodCall methodCall)
@@ -227,12 +168,5 @@ namespace DBus
 	  this.service = value;
 	}
     }
-
-    [DllImport ("dbus-1")]
-    private extern static bool dbus_connection_register_object_path (IntPtr rawConnection, string path, ref DBusObjectPathVTable vTable, IntPtr userData);
-
-    [DllImport ("dbus-1")]
-    private extern static void dbus_connection_unregister_object_path (IntPtr rawConnection, string path);
-
   }
 }

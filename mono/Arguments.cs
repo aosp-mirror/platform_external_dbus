@@ -7,29 +7,37 @@ namespace DBus
 {
   // Holds the arguments of a message. Provides methods for appending
   // arguments and to assist in matching .NET types with D-BUS types.
-  public class Arguments : IEnumerable
+	public class Arguments : IEnumerable, IDisposable
   {
     // Must follow sizeof(DBusMessageIter)
     internal const int DBusMessageIterSize = 14*4;
     private static Hashtable dbusTypes = null;
     private Message message;
-    private IntPtr appenderIter = Marshal.AllocCoTaskMem(DBusMessageIterSize);
+    private IntPtr appenderIter;
     private IEnumerator enumerator = null;
     
-    internal Arguments()
+    internal Arguments (Message message)
     {
+      this.appenderIter = Marshal.AllocCoTaskMem(DBusMessageIterSize);
+      this.message = message;
     }
 
-    ~Arguments()
+    private void Dispose (bool disposing)
     {
       Marshal.FreeCoTaskMem(appenderIter);
     }
 
-    internal Arguments(Message message)
+    public void Dispose ()
     {
-      this.message = message;
+      Dispose (true);
+      GC.SuppressFinalize (this);
     }
-    
+
+    ~Arguments()
+    {
+      Dispose (false);
+    }
+
     // Checks the suitability of a D-BUS type for supporting a .NET
     // type.
     public static bool Suits(Type dbusType, Type type) 

@@ -14,6 +14,9 @@ namespace DBus
       Activation = 2
     }
 
+    // Don't allow instantiation
+    private Bus () { }
+
     public static Connection GetSessionBus() 
     {
       return GetBus(BusType.Session);

@@ -12,7 +12,36 @@ namespace DBus
 						 IntPtr rawMessage,
 						 IntPtr userData);
 
-  public class Connection 
+  internal delegate void DBusObjectPathUnregisterFunction(IntPtr rawConnection,
+							  IntPtr userData);
+
+  internal delegate int DBusObjectPathMessageFunction(IntPtr rawConnection,
+						      IntPtr rawMessage,
+						      IntPtr userData);
+
+  [StructLayout (LayoutKind.Sequential)]
+  internal struct DBusObjectPathVTable
+  {
+    public DBusObjectPathUnregisterFunction unregisterFunction;
+    public DBusObjectPathMessageFunction messageFunction;
+    public IntPtr padding1;
+    public IntPtr padding2;
+    public IntPtr padding3;
+    public IntPtr padding4;
+    
+    public DBusObjectPathVTable(DBusObjectPathUnregisterFunction unregisterFunction,
+				DBusObjectPathMessageFunction messageFunction) 
+    {
+      this.unregisterFunction = unregisterFunction;
+      this.messageFunction = messageFunction;
+      this.padding1 = IntPtr.Zero;
+      this.padding2 = IntPtr.Zero;
+      this.padding3 = IntPtr.Zero;
+      this.padding4 = IntPtr.Zero;
+    }
+  }
+
+  public class Connection : IDisposable
   {
     /// <summary>
     /// A pointer to the underlying Connection structure
@@ -26,8 +55,9 @@ namespace DBus
     
     private int timeout = -1;
 
-    private ArrayList filters = new ArrayList (); // of DBusHandleMessageFunction
-    private ArrayList matches = new ArrayList (); // of string
+    private ArrayList filters = new ArrayList ();      // of DBusHandleMessageFunction
+    private ArrayList matches = new ArrayList ();      // of string
+    private Hashtable object_paths = new Hashtable (); // key: string  value: DBusObjectPathVTable
 
     internal Connection(IntPtr rawConnection)
     {
@@ -49,6 +79,22 @@ namespace DBus
       SetupWithMain();
     }
 
+    public void Dispose() 
+    {
+      Dispose(true);
+      GC.SuppressFinalize(this);
+    }
+    
+    public void Dispose (bool disposing) 
+    {
+      if (disposing && RawConnection != IntPtr.Zero) 
+	{
+	  dbus_connection_disconnect(rawConnection);
+
+	  RawConnection = IntPtr.Zero; // free the native object
+	}
+    }
+
     public void Flush()
     {
       dbus_connection_flush(RawConnection);
@@ -61,17 +107,7 @@ namespace DBus
     
     ~Connection () 
     {
-      if (RawConnection != IntPtr.Zero) 
-	{
-          foreach (DBusHandleMessageFunction func in this.filters)
-            RemoveFilter (func);
-
-          foreach (string match_rule in this.matches)
-            RemoveMatch (match_rule);
-
-	  dbus_connection_disconnect(rawConnection);
-	}
-      RawConnection = IntPtr.Zero; // free the native object
+      Dispose (false);
     }
     
     internal static Connection Wrap(IntPtr rawConnection) 
@@ -120,6 +156,22 @@ namespace DBus
 
       this.matches.Remove (match_rule);
     }
+
+    internal void RegisterObjectPath (string path, DBusObjectPathVTable vtable)
+    {
+      if (!dbus_connection_register_object_path (RawConnection, path, ref vtable, IntPtr.Zero))
+        throw new OutOfMemoryException ();
+ 
+      this.object_paths[path] = vtable;
+    }
+ 
+    internal void UnregisterObjectPath (string path)
+    {
+      dbus_connection_unregister_object_path (RawConnection, path);
+ 
+      this.object_paths.Remove (path);
+    }
+
 
     public string UniqueName
     {
@@ -178,6 +230,9 @@ namespace DBus
               foreach (string match_rule in this.matches)
                 dbus_bus_remove_match (rawConnection, match_rule, IntPtr.Zero);
 
+              foreach (string path in this.object_paths.Keys)
+                dbus_connection_unregister_object_path (rawConnection, path);
+
 	      // Get the reference to this
 	      IntPtr rawThis = dbus_connection_get_data (rawConnection, Slot);
 	      Debug.Assert (rawThis != IntPtr.Zero);
@@ -211,11 +266,17 @@ namespace DBus
 
               foreach (string match_rule in this.matches)
                 dbus_bus_add_match (rawConnection, match_rule, IntPtr.Zero);
+
+              foreach (string path in this.object_paths.Keys) {
+                DBusObjectPathVTable vtable = (DBusObjectPathVTable) this.object_paths[path];
+                dbus_connection_register_object_path (rawConnection, path, ref vtable, IntPtr.Zero);
+	      }
 	    }
 	  else
 	    {
 	      this.filters.Clear ();
               this.matches.Clear ();
+	      this.object_paths.Clear ();
 	    }
 	}
     }
@@ -278,5 +339,16 @@ namespace DBus
     private extern static void dbus_bus_remove_match(IntPtr rawConnection,
 						     string rule,
 						     IntPtr erro);
+
+    [DllImport ("dbus-1")]
+    private extern static bool dbus_connection_register_object_path (IntPtr rawConnection,
+								     string path,
+								     ref DBusObjectPathVTable vTable,
+								     IntPtr userData);
+
+    [DllImport ("dbus-1")]
+    private extern static void dbus_connection_unregister_object_path (IntPtr rawConnection,
+								       string path);
+
   }
 }

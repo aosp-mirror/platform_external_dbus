@@ -75,9 +75,7 @@ namespace DBus
 
     public void UnregisterObject(object handledObject) 
     {
-      Handler handler = (Handler) registeredHandlers[handledObject];
       registeredHandlers.Remove(handledObject);
-      handler.Dispose();
     }
 
     public void RegisterObject(object handledObject, 
@@ -128,6 +126,8 @@ namespace DBus
 	}
       }
       
+      message.Dispose ();
+
       return (int) Result.NotYetHandled;
     }
 

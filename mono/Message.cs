@@ -6,7 +6,7 @@ namespace DBus
   using System.Diagnostics;
   using System.Collections;
   
-  public class Message 
+  public class Message : IDisposable
   {
     private static Stack stack = new Stack ();
 	  
@@ -83,10 +83,26 @@ namespace DBus
     {
       this.service = service;
     }
+
+    public void Dispose() 
+    {
+      Dispose(true);
+      GC.SuppressFinalize(this);
+    }
     
+    public void Dispose (bool disposing) 
+    {
+      if (disposing) {
+        if (this.arguments != null)
+	  this.arguments.Dispose ();
+      }
+
+      RawMessage = IntPtr.Zero; // free the native object
+    }     
+
     ~Message() 
     {
-      RawMessage = IntPtr.Zero; // free the native object
+      Dispose (false);
     }
     
     public static Message Wrap(IntPtr rawMessage, Service service) 
@@ -198,6 +214,12 @@ namespace DBus
 
       if (rawMessage != IntPtr.Zero) {
 	MethodReturn methodReturn = new MethodReturn(rawMessage, Service);
+	// Ownership of a ref is passed onto us from
+	// dbus_connection_send_with_reply_and_block().  It gets reffed as
+	// a result of being passed into the MethodReturn ctor, so unref
+	// the extra one here.
+	dbus_message_unref (rawMessage);
+
 	return methodReturn;
       } else {
 	throw new DBusException(error);
