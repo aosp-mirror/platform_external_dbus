@@ -1,3 +1,15 @@
+D-BUS 0.3
+===
+
+ - Preliminary limitations 
+ - Message sending works
+ - Bus client
+ - Array marshalling/demarshalling
+ - Services
+ - Better OOM handling in the bus
+ - In-proc debug transport
+ - Transport/server address support
+
 D-BUS 0.2
 ===
 

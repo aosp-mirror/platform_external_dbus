@@ -1,5 +1,11 @@
 2003-02-06  Anders Carlsson  <andersca@codefactory.se>
 
+	Release 0.3
+	
+	* NEWS: Update
+
+2003-02-06  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/Makefile.am:
 	* dbus/dbus-break-loader.c:
 	* test/Makefile.am:
