@@ -274,11 +274,13 @@
       <para>
         A <literal>DICT_ENTRY</literal> works exactly like a struct, but rather
         than parentheses it uses curly braces, and it has more restrictions.
-        The restrictions are: it occurs only as an array element type; and it
-        has exactly two single complete types inside the curly
-        braces. Implementations must not accept dict entries outside of arrays,
-        and must not accept dict entries with zero, one, or more than two
-        fields. A dict entry is always a key-value pair.
+        The restrictions are: it occurs only as an array element type; it has
+        exactly two single complete types inside the curly braces; the first
+        single complete type (the "key") must be a basic type rather than a
+        container type. Implementations must not accept dict entries outside of
+        arrays, must not accept dict entries with zero, one, or more than two
+        fields, and must not accept dict entries with non-basic-typed keys. A
+        dict entry is always a key-value pair.
       </para>
       
       <para>

@@ -27,14 +27,9 @@ Important for 1.0
    yourself; is it an error, or allowed? If allowed, 
    we need to have a test for it in the test suite.
 
- - add string array support back to append_args()
-
  - validate dict entry number of fields
 
  - just before 1.0, try a HAVE_INT64=0 build and be sure it runs
-
- - the spec and implementation should probably require dict keys
-   to be basic types
 
  - in dbus-keyring.c, enforce that the keyring dir is not 
    world readable/writable

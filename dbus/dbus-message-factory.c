@@ -623,7 +623,7 @@ generate_special (DBusMessageDataIter   *iter,
     }
   else if (item_seq == 16)
     {
-      char long_sig[DBUS_MAXIMUM_TYPE_RECURSION_DEPTH*3+6];
+      char long_sig[DBUS_MAXIMUM_TYPE_RECURSION_DEPTH*4+8];
       const char *v_STRING;
       int i;
       int n_begins;
@@ -637,17 +637,17 @@ generate_special (DBusMessageDataIter   *iter,
         _dbus_assert_not_reached ("oom");
 
       i = 0;
-      while (i <= (DBUS_MAXIMUM_TYPE_RECURSION_DEPTH*2 + 2))
+      while (i <= (DBUS_MAXIMUM_TYPE_RECURSION_DEPTH*3 + 3))
         {
           long_sig[i] = DBUS_TYPE_ARRAY;
           ++i;
           long_sig[i] = DBUS_DICT_ENTRY_BEGIN_CHAR;
           ++i;
+          long_sig[i] = DBUS_TYPE_INT32;
+          ++i;
         }
-      n_begins = i / 2;
+      n_begins = i / 3;
 
-      long_sig[i] = DBUS_TYPE_INT32;
-      ++i;
       long_sig[i] = DBUS_TYPE_INT32;
       ++i;
       

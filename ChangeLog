@@ -1,5 +1,19 @@
 2005-02-10  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-message-factory.c (generate_special): modify test to
+	avoid using a non-basic dict key
+
+	* dbus/dbus-marshal-validate-util.c: add test for the below
+
+	* doc/dbus-specification.xml: require that dict keys are a basic
+	type
+
+	* dbus/dbus-marshal-validate.c
+	(_dbus_validate_signature_with_reason): require that dict key is a
+	basic type
+
+2005-02-10  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-object-tree.c (handle_default_introspect_and_unlock):
 	change to be _and_unlock instead of _unlocked
 

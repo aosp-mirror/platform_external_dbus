@@ -155,6 +155,10 @@ _dbus_validate_signature_with_reason (const DBusString *type_str,
             array_depth = 0;
         }
 
+      if (last == DBUS_DICT_ENTRY_BEGIN_CHAR &&
+          !_dbus_type_is_basic (*p))
+        return DBUS_INVALID_DICT_KEY_MUST_BE_BASIC_TYPE;
+      
       last = *p;
       ++p;
     }

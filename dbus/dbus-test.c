@@ -118,7 +118,7 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
 
   check_memleaks ();
 
-#if 1
+#if 0
   printf ("%s: running recursive marshalling tests\n", "dbus-test");
   if (!_dbus_marshal_recursive_test ())
     die ("recursive marshal");
