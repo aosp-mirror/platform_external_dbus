@@ -14,8 +14,6 @@
 	expiring connections and replies, decided not to use for expiring
 	connections for now.
 
-	* bus/connection.c: add tracking of expected replies
-
 	* COPYING: include AFL 2.0 (still need to change all the file headers)
 
 2003-10-09  Havoc Pennington  <hp@redhat.com>
