@@ -68,6 +68,12 @@ main (int argc, char **argv)
     }
 
   _dbus_string_init_const (&test_data_dir, dir);
+
+#if 0
+  /* FIXME this is disabled because of thread bugs that need fixing... */
+  if (!_dbus_threads_init_debug ())
+    die ("initializing debug threads");
+#endif
   
   printf ("%s: Running config file parser test\n", argv[0]);
   if (!bus_config_parser_test (&test_data_dir))

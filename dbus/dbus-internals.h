@@ -214,6 +214,8 @@ _DBUS_DECLARE_GLOBAL_LOCK (bus);
 _DBUS_DECLARE_GLOBAL_LOCK (shutdown_funcs);
 #define _DBUS_N_GLOBAL_LOCKS (8)
 
+dbus_bool_t _dbus_threads_init_debug (void);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_INTERNALS_H */

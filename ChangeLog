@@ -1,5 +1,11 @@
 2003-04-06  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-threads.c: Redo how the fake debug mutexes are done 
+	so it detects deadlocks and also we actually init threads when 
+	debugging.
+
+2003-04-06  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-server-unix.c (_dbus_server_new_for_domain_socket):
 	save the domain socket name, and unlink it when we disconnect the
 	server. Means that at least when we exit normally, we won't leave

@@ -65,6 +65,9 @@ void
 dbus_internal_do_not_use_run_tests (const char *test_data_dir)
 {
 #ifdef DBUS_BUILD_TESTS
+  if (!_dbus_threads_init_debug ())
+    die ("debug threads init");
+  
   if (test_data_dir == NULL)
     test_data_dir = _dbus_getenv ("DBUS_TEST_DATA");
 

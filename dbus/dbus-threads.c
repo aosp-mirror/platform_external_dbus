@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-threads.h  D-BUS threads handling
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003 Red Hat Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -35,18 +35,10 @@ static DBusThreadFunctions thread_functions =
 static int thread_init_generation = 0;
 
 /** This is used for the no-op default mutex pointer, just to be distinct from #NULL */
-#ifdef DBUS_BUILD_TESTS
-#define _DBUS_DUMMY_MUTEX_NEW ((DBusMutex*)_dbus_strdup ("FakeMutex"))
-#else
-#define _DBUS_DUMMY_MUTEX_NEW ((DBusMutex*)0xABCDEF)
-#endif
+#define _DBUS_DUMMY_MUTEX ((DBusMutex*)0xABCDEF)
 
 /** This is used for the no-op default mutex pointer, just to be distinct from #NULL */
-#ifdef DBUS_BUILD_TESTS
-#define _DBUS_DUMMY_CONDVAR_NEW ((DBusCondVar*)_dbus_strdup ("FakeCondvar"))
-#else
-#define _DBUS_DUMMY_CONDVAR_NEW ((DBusCondVar*)0xABCDEF2)
-#endif
+#define _DBUS_DUMMY_CONDVAR ((DBusCondVar*)0xABCDEF2)
 
 /**
  * @defgroup DBusThreads Thread functions
@@ -72,7 +64,7 @@ dbus_mutex_new (void)
   if (thread_functions.mutex_new)
     return (* thread_functions.mutex_new) ();
   else
-    return _DBUS_DUMMY_MUTEX_NEW;
+    return _DBUS_DUMMY_MUTEX;
 }
 
 /**
@@ -84,11 +76,6 @@ dbus_mutex_free (DBusMutex *mutex)
 {
   if (mutex && thread_functions.mutex_free)
     (* thread_functions.mutex_free) (mutex);
-#ifdef DBUS_BUILD_TESTS
-  /* Free the fake mutex */
-  else
-    dbus_free (mutex);
-#endif
 }
 
 /**
@@ -134,7 +121,7 @@ dbus_condvar_new (void)
   if (thread_functions.condvar_new)
     return (* thread_functions.condvar_new) ();
   else
-    return _DBUS_DUMMY_CONDVAR_NEW;
+    return _DBUS_DUMMY_CONDVAR;
 }
 
 /**
@@ -146,11 +133,6 @@ dbus_condvar_free (DBusCondVar *cond)
 {
   if (cond && thread_functions.condvar_free)
     (* thread_functions.condvar_free) (cond);
-#ifdef DBUS_BUILD_TESTS
-  else
-    /* Free the fake condvar */
-    dbus_free (cond);
-#endif
 }
 
 /**
@@ -367,5 +349,145 @@ dbus_threads_init (const DBusThreadFunctions *functions)
   
   return TRUE;
 }
+
+
+#ifdef DBUS_BUILD_TESTS
+/** Fake mutex used for debugging */
+typedef struct DBusFakeMutex DBusFakeMutex;
+/** Fake mutex used for debugging */
+struct DBusFakeMutex
+{
+  dbus_bool_t locked; /**< Mutex is "locked" */
+};	
+
+static DBusMutex *  dbus_fake_mutex_new            (void);
+static void         dbus_fake_mutex_free           (DBusMutex   *mutex);
+static dbus_bool_t  dbus_fake_mutex_lock           (DBusMutex   *mutex);
+static dbus_bool_t  dbus_fake_mutex_unlock         (DBusMutex   *mutex);
+static DBusCondVar* dbus_fake_condvar_new          (void);
+static void         dbus_fake_condvar_free         (DBusCondVar *cond);
+static void         dbus_fake_condvar_wait         (DBusCondVar *cond,
+                                                    DBusMutex   *mutex);
+static dbus_bool_t  dbus_fake_condvar_wait_timeout (DBusCondVar *cond,
+                                                    DBusMutex   *mutex,
+                                                    int          timeout_msec);
+static void         dbus_fake_condvar_wake_one     (DBusCondVar *cond);
+static void         dbus_fake_condvar_wake_all     (DBusCondVar *cond);
+
+
+static const DBusThreadFunctions fake_functions =
+{
+  DBUS_THREAD_FUNCTIONS_MUTEX_NEW_MASK |
+  DBUS_THREAD_FUNCTIONS_MUTEX_FREE_MASK |
+  DBUS_THREAD_FUNCTIONS_MUTEX_LOCK_MASK |
+  DBUS_THREAD_FUNCTIONS_MUTEX_UNLOCK_MASK |
+  DBUS_THREAD_FUNCTIONS_CONDVAR_NEW_MASK |
+  DBUS_THREAD_FUNCTIONS_CONDVAR_FREE_MASK |
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_MASK |
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_TIMEOUT_MASK |
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ONE_MASK|
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ALL_MASK,
+  dbus_fake_mutex_new,
+  dbus_fake_mutex_free,
+  dbus_fake_mutex_lock,
+  dbus_fake_mutex_unlock,
+  dbus_fake_condvar_new,
+  dbus_fake_condvar_free,
+  dbus_fake_condvar_wait,
+  dbus_fake_condvar_wait_timeout,
+  dbus_fake_condvar_wake_one,
+  dbus_fake_condvar_wake_all
+};
+
+static DBusMutex *
+dbus_fake_mutex_new (void)
+{
+  DBusFakeMutex *mutex;
+
+  mutex = dbus_new0 (DBusFakeMutex, 1);
+
+  return (DBusMutex *)mutex;
+}
+
+static void
+dbus_fake_mutex_free (DBusMutex *mutex)
+{
+  DBusFakeMutex *fake = (DBusFakeMutex*) mutex;
+
+  _dbus_assert (!fake->locked);
+  
+  dbus_free (fake);
+}
+
+static dbus_bool_t
+dbus_fake_mutex_lock (DBusMutex *mutex)
+{
+  DBusFakeMutex *fake = (DBusFakeMutex*) mutex;
+
+  _dbus_assert (!fake->locked);
+
+  fake->locked = TRUE;
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+dbus_fake_mutex_unlock (DBusMutex *mutex)
+{
+  DBusFakeMutex *fake = (DBusFakeMutex*) mutex;
+
+  _dbus_assert (fake->locked);
+
+  fake->locked = FALSE;
+  
+  return TRUE;
+}
+
+static DBusCondVar*
+dbus_fake_condvar_new (void)
+{
+  return (DBusCondVar*) _dbus_strdup ("FakeCondvar");
+}
+
+static void
+dbus_fake_condvar_free (DBusCondVar *cond)
+{
+  dbus_free (cond);
+}
+
+static void
+dbus_fake_condvar_wait (DBusCondVar *cond,
+		    DBusMutex   *mutex)
+{
+  
+}
+
+static dbus_bool_t
+dbus_fake_condvar_wait_timeout (DBusCondVar *cond,
+                                DBusMutex   *mutex,
+                                int         timeout_msec)
+{
+  return TRUE;
+}
+
+static void
+dbus_fake_condvar_wake_one (DBusCondVar *cond)
+{
+
+}
+
+static void
+dbus_fake_condvar_wake_all (DBusCondVar *cond)
+{
+
+}
+
+dbus_bool_t
+_dbus_threads_init_debug (void)
+{
+  return dbus_threads_init (&fake_functions);
+}
+
+#endif /* DBUS_BUILD_TESTS */
 
 /** @} */

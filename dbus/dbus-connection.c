@@ -2053,6 +2053,10 @@ dbus_connection_dispatch (DBusConnection *connection)
  * successful adds. i.e. if #FALSE is returned the net result
  * should be that dbus_connection_set_watch_functions() has no effect,
  * but the add_function and remove_function may have been called.
+ *
+ * @todo We need to drop the lock when we call the
+ * add/remove/toggled functions which can be a side effect
+ * of setting the watch functions.
  * 
  * @param connection the connection.
  * @param add_function function to begin monitoring a new descriptor.
@@ -2075,7 +2079,10 @@ dbus_connection_set_watch_functions (DBusConnection              *connection,
   dbus_mutex_lock (connection->mutex);
   /* ref connection for slightly better reentrancy */
   _dbus_connection_ref_unlocked (connection);
-  
+
+  /* FIXME this can call back into user code, and we need to drop the
+   * connection lock when it does.
+   */
   retval = _dbus_watch_list_set_functions (connection->watches,
                                            add_function, remove_function,
                                            toggled_function,
