@@ -115,6 +115,8 @@ struct BusConfigParser
 
   char *pidfile;         /**< PID file */
 
+  DBusList *included_files;  /**< Included files stack */
+
   unsigned int fork : 1; /**< TRUE to fork into daemon mode */
 
   unsigned int is_toplevel : 1; /**< FALSE if we are a sub-config-file inside another one */
@@ -277,6 +279,24 @@ merge_included (BusConfigParser *parser,
   return TRUE;
 }
 
+static dbus_bool_t
+seen_include (BusConfigParser  *parser,
+	      const DBusString *file)
+{
+  DBusList *iter;
+
+  iter = parser->included_files;
+  while (iter != NULL)
+    {
+      if (! strcmp (_dbus_string_get_const_data (file), iter->data))
+	return TRUE;
+
+      iter = _dbus_list_get_next_link (&parser->included_files, iter);
+    }
+
+  return FALSE;
+}
+
 BusConfigParser*
 bus_config_parser_new (const DBusString      *basedir,
                        dbus_bool_t            is_toplevel,
@@ -311,6 +331,10 @@ bus_config_parser_new (const DBusString      *basedir,
     {
       /* Initialize the parser's limits from the parent. */
       parser->limits = parent->limits;
+
+      /* Use the parent's list of included_files to avoid
+	 circular inclusions. */
+      parser->included_files = parent->included_files;
     }
   else
     {
@@ -403,7 +427,7 @@ bus_config_parser_unref (BusConfigParser *parser)
 
       if (parser->policy)
         bus_policy_unref (parser->policy);
-      
+
       dbus_free (parser);
     }
 }
@@ -1635,13 +1659,33 @@ include_file (BusConfigParser   *parser,
    * that the result is the same
    */
   BusConfigParser *included;
+  const char *filename_str;
   DBusError tmp_error;
         
   dbus_error_init (&tmp_error);
 
+  filename_str = _dbus_string_get_const_data (filename);
+
+  /* Check to make sure this file hasn't already been included. */
+  if (seen_include (parser, filename))
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+		      "Circular inclusion of file '%s'",
+		      filename_str);
+      return FALSE;
+    }
+  
+  if (! _dbus_list_append (&parser->included_files, (void *) filename_str))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
   /* Since parser is passed in as the parent, included
      inherits parser's limits. */
   included = bus_config_load (filename, FALSE, parser, &tmp_error);
+
+  _dbus_list_pop_last (&parser->included_files);
 
   if (included == NULL)
     {
@@ -2207,7 +2251,12 @@ process_test_valid_subdir (const DBusString *test_base_dir,
       goto failed;
     }
 
-  printf ("Testing:\n");
+  if (validity == VALID)
+    printf ("Testing valid files:\n");
+  else if (validity == INVALID)
+    printf ("Testing invalid files:\n");
+  else
+    printf ("Testing unknown files:\n");
 
  next:
   while (_dbus_directory_get_next_file (dir, &filename, &error))
@@ -2458,7 +2507,7 @@ all_are_equiv (const DBusString *target_directory)
       goto finished;
     }
 
-  printf ("Comparing:\n");
+  printf ("Comparing equivalent files:\n");
 
  next:
   while (_dbus_directory_get_next_file (dir, &filename, &error))
@@ -2610,6 +2659,9 @@ bus_config_parser_test (const DBusString *test_data_dir)
     }
 
   if (!process_test_valid_subdir (test_data_dir, "valid-config-files", VALID))
+    return FALSE;
+
+  if (!process_test_valid_subdir (test_data_dir, "invalid-config-files", INVALID))
     return FALSE;
 
   if (!process_test_equiv_subdir (test_data_dir, "equiv-config-files"))

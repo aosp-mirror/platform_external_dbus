@@ -69,7 +69,14 @@ TESTDIRS=					\
 	data/valid-config-files			\
 	data/valid-config-files/basic.d		\
 	data/valid-config-files/system.d	\
-	data/valid-service-files
+	data/valid-service-files		\
+	data/invalid-config-files		\
+	data/equiv-config-files			\
+	data/equiv-config-files/basic		\
+	data/equiv-config-files/basic/basic.d	\
+	data/equiv-config-files/entities	\
+	data/equiv-config-files/entities/basic.d
+
 
 FIND_TESTS=find -name "*.message" -o -name "*.message-raw" -o -name "*.auth-script" -o -name "*.sha1" -o -name "*.txt" -o -name "*.conf" -o -name "*.service"
 

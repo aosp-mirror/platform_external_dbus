@@ -47,11 +47,6 @@
    has rules for it anyway, or something. it's conceptually 
    screwy at the moment.
 
- - <limit> elements are not merged in from included configuration 
-   files; they have to be in the toplevel file. when loading 
-   a child file, we could just init its DBusLimits from the parent, 
-   then after parsing copy its DBusLimits back to the parent
-
  - when making a method call, if the call serial were globally unique,
    we could forward the call serial along with any method calls made
    as a result of the first method call, and allow reentrancy that was

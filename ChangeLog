@@ -1,3 +1,18 @@
+2004-04-12  Jon Trowbridge  <trow@ximian.com>
+
+	* bus/config-parser.c (struct BusConfigParser): Added
+	included_files field.
+	(seen_include): Added.  Checks whether or not a file has already
+	been included by any parent BusConfigParser.
+	(bus_config_parser_new): Copy the parent's included_files.
+	(include_file): Track which files have been included, and fail on
+	circular inclusions.
+	(process_test_valid_subdir): Changed printf to report if we are
+	testing valid or invalid conf files.
+	(all_are_equiv): Changed printf to be a bit clearer about
+	what we are actually doing.
+	(bus_config_parser_test): Test invalid configuration files.
+
 2004-04-09  Jon Trowbridge  <trow@ximian.com>
 
 	* bus/config-parser.c (bus_config_parser_new): Added a 'parent'
