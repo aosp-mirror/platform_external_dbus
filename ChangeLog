@@ -1,5 +1,9 @@
 2003-09-28  Havoc Pennington  <hp@pobox.com>
 
+	* real 0.13 release
+
+2003-09-28  Havoc Pennington  <hp@pobox.com>
+
 	* doc/Makefile.am (dbus-specification.html): testing a funky hack
 	to work with Debian db2html
 
