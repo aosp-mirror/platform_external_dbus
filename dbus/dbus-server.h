@@ -55,6 +55,11 @@ void dbus_server_set_watch_functions         (DBusServer                *server,
                                               DBusRemoveWatchFunction    remove_function,
                                               void                      *data,
                                               DBusFreeFunction           free_data_function);
+void dbus_server_set_timeout_functions       (DBusServer                *server,
+					      DBusAddTimeoutFunction     add_function,
+					      DBusRemoveTimeoutFunction  remove_function,
+					      void                      *data,
+					      DBusFreeFunction           free_data_function);
 void dbus_server_handle_watch                (DBusServer                *server,
                                               DBusWatch                 *watch,
                                               unsigned int               condition);

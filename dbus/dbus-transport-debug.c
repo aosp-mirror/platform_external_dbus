@@ -56,8 +56,6 @@ debug_finalize (DBusTransport *transport)
 static void
 do_reading (DBusTransport *transport)
 {
-  printf ("in do reading!\n");
-  
   if (transport->disconnected)
     return;
 
@@ -208,7 +206,6 @@ debug_messages_pending (DBusTransport *transport,
 			int            messages_pending)
 {
   check_write_timeout (transport);
-  printf ("messages pending!: %d\n", messages_pending);
 }
 
 static void
@@ -216,8 +213,6 @@ debug_do_iteration (DBusTransport *transport,
 		    unsigned int   flags,
 		    int            timeout_milliseconds)
 {
-  printf ("do iteration: %d %d!!\n", transport->is_server,
-	  flags);
 }
 
 static void
