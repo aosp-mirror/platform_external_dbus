@@ -1,3 +1,32 @@
+D-BUS 0.23 (11 Jan 2005)
+===
+
+- add setgroups() to drop supplementary groups
+- updated SELinux support
+- add an "at console" security policy
+- fix a bug where org.freedesktop.DBus wasn't recognized as an existing
+  service.
+- error out if --enable-mono is explicitly set and mono libs can't be found
+- set the max_match_rules_per_connection limit from the config file.
+- removed dbus_bug_get_with_g_main since it's been replaced by
+  dbus_g_bus_get
+- fix fd leaks in socket code
+- lots and lots of mono binding updates, including fixes to make it
+  compatible with Mono 1.1.3
+- added --nofork option to override config file setting at runtime
+- added support for int64 and uint64 to the python bindings
+- lots of python binding updates
+- config file DTD updates
+- use SerivceOwnerChanges signal instead of ServiceCreated and
+  ServiceDeleted
+- fixes to the authentication code
+- new init script for Slackware
+- print out the pid even when --fork is passed
+- increase preallocation sizes in DBusMessage to heavily reduce
+  reallocs
+- lots of performance enhancements
+- lots more small bug fixes
+
 D-BUS 0.22
 ===
 

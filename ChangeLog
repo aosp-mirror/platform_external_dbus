@@ -1,5 +1,11 @@
 2005-01-12  Joe Shaw  <joeshaw@novell.com>
 
+	* NEWS: Update for 0.23.
+
+	* configure.in: Release 0.23.
+
+2005-01-12  Joe Shaw  <joeshaw@novell.com>
+
 	* mono/Makefile.am, mono/example/Makefile.am: Always build the 
 	dbus DLL with --debug.  Clean up after the .mdb files this leaves
 	behind.
