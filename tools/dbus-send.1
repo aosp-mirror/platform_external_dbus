@@ -1,0 +1,64 @@
+.\" 
+.\" dbus-send manual page.
+.\" Copyright (C) 2003 Red Hat, Inc.
+.\"
+.TH dbus-send 1
+.SH NAME
+dbus-send \- Send a message to a message bus
+.SH SYNOPSIS
+.PP
+.B dbus-send
+[\-\-session] [\-\-dest=SERVICE] <message name> [contents ...]
+
+.SH DESCRIPTION
+
+The \fIdbus-send\fP command is used to send a message to a D-BUS message
+bus. See http://www.freedesktop.org/software/dbus/ for more 
+information about the big picture.
+
+.PP
+There are two well-known message buses: the systemwide message bus 
+(installed on many systems as the "messagebus" service) and the 
+per-user-login-session message bus (started each time a user logs in).
+\fIdbus-send\fP sends messages to the system bus by default, and 
+to the per-session bus if you specify \-\-session.
+
+.PP 
+Nearly all uses of \fIdbus-send\fP must provide the \-\-dest 
+argument which is the name of a service on the bus to send 
+the message to. The other required argument is the name 
+of the message to send. Following arguments are the message 
+contents (message arguments).
+
+.PP
+The message arguments are given as a type name, a colon, 
+and then the value of the argument. The possible type names 
+are: string, int32, uint32, double, byte, boolean.
+D-BUS supports more types than these, but \fIdbus-send\fP
+does not currently.
+
+.PP
+Here is an example invocation:
+.nf
+
+  dbus-send \-\-dest='org.freedesktop.ExampleService'     \\
+            org.freedesktop.ExampleMessage              \\
+            int32:47 string:'hello world' double:65.32
+
+.fi
+
+.SH OPTIONS
+The following options are supported:
+.TP
+.I "--session"
+Use the per-login-session message bus instead of the systemwide bus.
+.TP
+.I "--dest=SERVICE"
+Specify the service to receive the message.
+
+.SH AUTHOR
+dbus-send was written by Philip Blundell.
+
+.SH BUGS
+Please send bug reports to the D-BUS mailing list or bug tracker,
+see http://www.freedesktop.org/software/dbus/

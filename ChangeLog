@@ -1,3 +1,8 @@
+2003-05-03  Havoc Pennington  <hp@pobox.com>
+
+	* tools/Makefile.am, tools/dbus-send.1, tools/dbus-monitor.1: 
+	add some man pages
+
 2003-05-03  Colin Walters  <walters@verbum.org>
 
 	* dbus/dbus-sysdeps.c (fill_user_info): Test against

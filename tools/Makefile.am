@@ -16,3 +16,6 @@ dbus_monitor_SOURCES=				\
 
 dbus_send_LDADD= $(top_builddir)/dbus/libdbus-1.la
 dbus_monitor_LDADD= $(top_builddir)/glib/libdbus-glib-1.la
+
+man_MANS = dbus-send.1 dbus-monitor.1
+EXTRA_DIST = $(man_MANS)

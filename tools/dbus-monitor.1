@@ -1,0 +1,39 @@
+.\" 
+.\" dbus-monitor manual page.
+.\" Copyright (C) 2003 Red Hat, Inc.
+.\"
+.TH dbus-monitor 1
+.SH NAME
+dbus-monitor \- debug probe to print message bus messages
+.SH SYNOPSIS
+.PP
+.B dbus-monitor
+
+.SH DESCRIPTION
+
+The \fIdbus-monitor\fP command is used to monitor messages going
+through a D-BUS message bus.  See
+http://www.freedesktop.org/software/dbus/ for more information about
+the big picture.
+
+.PP
+There are two well-known message buses: the systemwide message bus
+(installed on many systems as the "messagebus" service) and the
+per-user-login-session message bus (started each time a user logs in).
+Right now, \fIdbus-monitor\fP is hardcoded to only work with the
+systemwide message bus. It should really be extended to have a
+\-\-session command line option as with \fIdbus-send\fP.
+
+.PP 
+The message bus configuration may keep \fIdbus-monitor\fP from seeing
+all messages, especially if you run the monitor as a non-root user.
+
+.SH OPTIONS
+No options are currently supported.
+
+.SH AUTHOR
+dbus-monitor was written by Philip Blundell.
+
+.SH BUGS
+Please send bug reports to the D-BUS mailing list or bug tracker,
+see http://www.freedesktop.org/software/dbus/
