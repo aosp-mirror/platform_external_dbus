@@ -2214,6 +2214,8 @@ dbus_connection_handle_watch (DBusConnection              *connection,
  * Gets the UNIX user ID of the connection if any.
  * Returns #TRUE if the uid is filled in.
  * Always returns #FALSE on non-UNIX platforms.
+ * Always returns #FALSE prior to authenticating the
+ * connection.
  *
  * @param connection the connection
  * @param uid return location for the user ID
@@ -2226,8 +2228,12 @@ dbus_connection_get_unix_user (DBusConnection *connection,
   dbus_bool_t result;
 
   dbus_mutex_lock (connection->mutex);
-  result = _dbus_transport_get_unix_user (connection->transport,
-                                          uid);
+
+  if (!_dbus_transport_get_is_authenticated (connection->transport))
+    result = FALSE;
+  else
+    result = _dbus_transport_get_unix_user (connection->transport,
+                                            uid);
   dbus_mutex_unlock (connection->mutex);
 
   return result;

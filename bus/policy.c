@@ -156,7 +156,7 @@ remove_rules_by_type_up_to (BusPolicy         *policy,
     }
 }
 
-static void
+void
 bus_policy_optimize (BusPolicy *policy)
 {
   DBusList *link;
@@ -175,6 +175,9 @@ bus_policy_optimize (BusPolicy *policy)
    * file.
    */
 
+  _dbus_verbose ("Optimizing policy with %d rules\n",
+                 _dbus_list_get_length (&policy->rules));
+  
   link = _dbus_list_get_first (&policy->rules);
   while (link != NULL)
     {
@@ -208,6 +211,21 @@ bus_policy_optimize (BusPolicy *policy)
       
       link = next;
     }
+
+  _dbus_verbose ("After optimization, policy has %d rules\n",
+                 _dbus_list_get_length (&policy->rules));
+}
+
+dbus_bool_t
+bus_policy_append_rule (BusPolicy     *policy,
+                        BusPolicyRule *rule)
+{
+  if (!_dbus_list_append (policy->rules, rule))
+    return FALSE;
+
+  bus_policy_rule_ref (rule);
+
+  return TRUE;
 }
 
 dbus_bool_t

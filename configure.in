@@ -134,7 +134,7 @@ AC_C_BIGENDIAN
 AC_CHECK_LIB(socket,socket)
 AC_CHECK_LIB(nsl,gethostbyname)
 
-AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv socketpair)
+AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv socketpair getgrouplist)
 
 AC_CHECK_HEADERS(execinfo.h, [AC_CHECK_FUNCS(backtrace)])
 

@@ -43,6 +43,7 @@
 #include <sys/wait.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <grp.h>
 
 #ifdef HAVE_WRITEV
 #include <sys/uio.h>
@@ -1217,6 +1218,20 @@ _dbus_credentials_from_username (const DBusString *username,
   return get_user_info (username, -1, credentials, NULL, NULL);
 }
 
+/**
+ * Gets the credentials corresponding to the given user ID.
+ *
+ * @param user_id the user ID
+ * @param credentials credentials to fill in
+ * @returns #TRUE if the username existed and we got some credentials
+ */
+dbus_bool_t
+_dbus_credentials_from_user_id (unsigned long     user_id,
+                                DBusCredentials  *credentials)
+{
+  return get_user_info (NULL, user_id, credentials, NULL, NULL);
+}
+
 static DBusMutex *user_info_lock = NULL;
 /**
  * Initializes the global mutex for the process's user information.
@@ -1396,6 +1411,174 @@ _dbus_credentials_match (const DBusCredentials *expected_credentials,
     return TRUE;
   else
     return FALSE;
+}
+
+/**
+ * Gets group ID from group name.
+ *
+ * @param group_name name of the group
+ * @param gid location to store group ID
+ * @returns #TRUE if group was known
+ */
+dbus_bool_t
+_dbus_get_group_id (const DBusString *group_name,
+                    unsigned long    *gid)
+{
+  const char *group_c_str;
+
+  _dbus_string_get_const_data (group_name, &group_c_str);
+  
+  /* For now assuming that the getgrnam() and getgrgid() flavors
+   * always correspond to the pwnam flavors, if not we have
+   * to add more configure checks.
+   */
+  
+#if defined (HAVE_POSIX_GETPWNAME_R) || defined (HAVE_NONPOSIX_GETPWNAME_R)
+  {
+    struct group *g;
+    int result;
+    char buf[1024];
+    struct group g_str;
+
+    g = NULL;
+#ifdef HAVE_POSIX_GETPWNAME_R
+
+    result = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf),
+                         &g);
+#else
+    p = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf));
+    result = 0;
+#endif /* !HAVE_POSIX_GETPWNAME_R */
+    if (result == 0 && g == &g_str)
+      {
+        *gid = g->gr_gid;
+        return TRUE;
+      }
+    else
+      {
+        _dbus_verbose ("Group %s unknown\n", group_c_str);
+        return FALSE;
+      }
+  }
+#else /* ! HAVE_GETPWNAM_R */
+  {
+    /* I guess we're screwed on thread safety here */
+    struct group *g;
+
+    g = getgrnam (group_c_str);
+
+    if (g != NULL)
+      {
+        *gid = g->gr_gid;
+        return TRUE;
+      }
+    else
+      {
+        _dbus_verbose ("Group %s unknown\n", group_c_str);
+        return FALSE;
+      }
+  }
+#endif  /* ! HAVE_GETPWNAM_R */
+}
+
+/**
+ * Gets all groups for a particular user. Returns #FALSE
+ * if no memory, or user isn't known, but always initializes
+ * group_ids to a NULL array.
+ *
+ * @todo failing to distinguish "out of memory" from
+ * "unknown user" is kind of bogus and would probably
+ * result in a failure in a comprehensive test suite.
+ *
+ * @param uid the user ID
+ * @param group_ids return location for array of group IDs
+ * @param n_group_ids return location for length of returned array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_get_groups (unsigned long   uid,
+                  unsigned long **group_ids,
+                  int            *n_group_ids)
+{
+  DBusCredentials creds;
+  DBusString username;
+  const char *username_c;
+  dbus_bool_t retval;
+  
+  *group_ids = NULL;
+  *n_group_ids = 0;
+
+  retval = FALSE;
+
+  if (!_dbus_string_init (&username, _DBUS_INT_MAX))
+    return FALSE;
+
+  if (!get_user_info (NULL, uid, &creds,
+                      NULL, &username) ||
+      creds.gid < 0)
+    goto out;
+
+  _dbus_string_get_const_data (&username, &username_c);
+  
+#ifdef HAVE_GETGROUPLIST
+  {
+    gid_t *buf;
+    int buf_count;
+    int i;
+    
+    buf_count = 17;
+    buf = dbus_new (gid_t, buf_count);
+    if (buf == NULL)
+      goto out;
+    
+    if (getgrouplist (username_c,
+                      creds.gid,
+                      buf, &buf_count) < 0)
+      {
+        gid_t *new = dbus_realloc (buf, buf_count * sizeof (buf[0]));
+        if (new == NULL)
+          {
+            dbus_free (buf);
+            goto out;
+          }
+        
+        buf = new;
+
+        getgrouplist (username_c, creds.gid, buf, &buf_count);
+      }
+
+    *group_ids = dbus_new (unsigned long, buf_count);
+    if (*group_ids == NULL)
+      {
+        dbus_free (buf);
+        goto out;
+      }
+    
+    for (i = 0; i < buf_count; ++i)
+      (*group_ids)[i] = buf[i];
+
+    *n_group_ids = buf_count;
+    
+    dbus_free (buf);
+  }
+#else  /* HAVE_GETGROUPLIST */
+  {
+    /* We just get the one group ID */
+    *group_ids = dbus_new (unsigned long, 1);
+    if (*group_ids == NULL)
+      goto out;
+
+    *n_group_ids = 1;
+
+    (*group_ids)[0] = creds.gid;
+  }
+#endif /* HAVE_GETGROUPLIST */
+
+    retval = TRUE;
+    
+  out:
+    _dbus_string_free (&username);
+    return retval;
 }
 
 /**

@@ -313,6 +313,7 @@ _dbus_hash_table_new (DBusHashType     type,
     {
     case DBUS_HASH_INT:
     case DBUS_HASH_POINTER:
+    case DBUS_HASH_ULONG:
       table->find_function = find_direct_function;
       break;
     case DBUS_HASH_STRING:
@@ -644,6 +645,25 @@ _dbus_hash_iter_get_int_key (DBusHashIter *iter)
 
 /**
  * Gets the key for the current entry.
+ * Only works for hash tables of type #DBUS_HASH_ULONG.
+ *
+ * @param iter the hash table iterator.
+ */
+unsigned long
+_dbus_hash_iter_get_ulong_key (DBusHashIter *iter)
+{
+  DBusRealHashIter *real;
+
+  real = (DBusRealHashIter*) iter;
+
+  _dbus_assert (real->table != NULL);
+  _dbus_assert (real->entry != NULL);
+
+  return (unsigned long) real->entry->key;
+}
+
+/**
+ * Gets the key for the current entry.
  * Only works for hash tables of type #DBUS_HASH_STRING
  * @param iter the hash table iterator.
  */
@@ -963,6 +983,7 @@ rebuild_table (DBusHashTable *table)
               idx = string_hash (entry->key) & table->mask;
               break;
             case DBUS_HASH_INT:
+            case DBUS_HASH_ULONG:
             case DBUS_HASH_POINTER:
               idx = RANDOM_INDEX (table, entry->key);
               break;
@@ -1060,6 +1081,31 @@ _dbus_hash_table_lookup_pointer (DBusHashTable *table,
 }
 
 /**
+ * Looks up the value for a given integer in a hash table
+ * of type #DBUS_HASH_ULONG. Returns %NULL if the value
+ * is not present. (A not-present entry is indistinguishable
+ * from an entry with a value of %NULL.)
+ * @param table the hash table.
+ * @param key the integer to look up.
+ * @returns the value of the hash entry.
+ */
+void*
+_dbus_hash_table_lookup_ulong (DBusHashTable *table,
+                               unsigned long  key)
+{
+  DBusHashEntry *entry;
+
+  _dbus_assert (table->key_type == DBUS_HASH_ULONG);
+  
+  entry = (* table->find_function) (table, (void*) key, FALSE, NULL);
+
+  if (entry)
+    return entry->value;
+  else
+    return NULL;
+}
+
+/**
  * Removes the hash entry for the given key. If no hash entry
  * for the key exists, does nothing.
  *
@@ -1143,6 +1189,34 @@ _dbus_hash_table_remove_pointer (DBusHashTable *table,
     return FALSE;
 }
 
+
+/**
+ * Removes the hash entry for the given key. If no hash entry
+ * for the key exists, does nothing.
+ *
+ * @param table the hash table.
+ * @param key the hash key.
+ * @returns #TRUE if the entry existed
+ */
+dbus_bool_t
+_dbus_hash_table_remove_ulong (DBusHashTable *table,
+                               unsigned long  key)
+{
+  DBusHashEntry *entry;
+  DBusHashEntry **bucket;
+  
+  _dbus_assert (table->key_type == DBUS_HASH_ULONG);
+  
+  entry = (* table->find_function) (table, (void*) key, FALSE, &bucket);
+  
+  if (entry)
+    {
+      remove_entry (table, bucket, entry);
+      return TRUE;
+    }
+  else
+    return FALSE;
+}
 
 /**
  * Creates a hash entry with the given key and value.
@@ -1267,6 +1341,48 @@ _dbus_hash_table_insert_pointer (DBusHashTable *table,
   return TRUE;
 }
 
+
+/**
+ * Creates a hash entry with the given key and value.
+ * The key and value are not copied; they are stored
+ * in the hash table by reference. If an entry with the
+ * given key already exists, the previous key and value
+ * are overwritten (and freed if the hash table has
+ * a key_free_function and/or value_free_function).
+ *
+ * Returns #FALSE if memory for the new hash entry
+ * can't be allocated.
+ * 
+ * @param table the hash table.
+ * @param key the hash entry key.
+ * @param value the hash entry value.
+ */
+dbus_bool_t
+_dbus_hash_table_insert_ulong (DBusHashTable *table,
+                               unsigned long  key,
+                               void          *value)
+{
+  DBusHashEntry *entry;
+
+  _dbus_assert (table->key_type == DBUS_HASH_ULONG);
+  
+  entry = (* table->find_function) (table, (void*) key, TRUE, NULL);
+
+  if (entry == NULL)
+    return FALSE; /* no memory */
+
+  if (table->free_key_function && entry->key != (void*) key)
+    (* table->free_key_function) (entry->key);
+  
+  if (table->free_value_function && entry->value != value)
+    (* table->free_value_function) (entry->value);
+  
+  entry->key = (void*) key;
+  entry->value = value;
+
+  return TRUE;
+}
+
 /**
  * Gets the number of hash entries in a hash table.
  *
@@ -1316,6 +1432,7 @@ _dbus_hash_test (void)
   int i;
   DBusHashTable *table1;
   DBusHashTable *table2;
+  DBusHashTable *table3;
   DBusHashIter iter;
 #define N_HASH_KEYS 5000
   char **keys;
@@ -1352,6 +1469,11 @@ _dbus_hash_test (void)
   if (table2 == NULL)
     goto out;
 
+  table3 = _dbus_hash_table_new (DBUS_HASH_ULONG,
+                                 NULL, dbus_free);
+  if (table3 == NULL)
+    goto out;
+  
   /* Insert and remove a bunch of stuff, counting the table in between
    * to be sure it's not broken and that iteration works
    */
@@ -1379,15 +1501,28 @@ _dbus_hash_test (void)
       if (!_dbus_hash_table_insert_int (table2,
                                         i, value))
         goto out;
+
+      value = _dbus_strdup (keys[i]);
+      if (value == NULL)
+        goto out;
+      
+      if (!_dbus_hash_table_insert_ulong (table3,
+                                          i, value))
+        goto out;
       
       _dbus_assert (count_entries (table1) == i + 1);
       _dbus_assert (count_entries (table2) == i + 1);
+      _dbus_assert (count_entries (table3) == i + 1);
 
       value = _dbus_hash_table_lookup_string (table1, keys[i]);
       _dbus_assert (value != NULL);
       _dbus_assert (strcmp (value, "Value!") == 0);
 
       value = _dbus_hash_table_lookup_int (table2, i);
+      _dbus_assert (value != NULL);
+      _dbus_assert (strcmp (value, keys[i]) == 0);
+
+      value = _dbus_hash_table_lookup_ulong (table3, i);
       _dbus_assert (value != NULL);
       _dbus_assert (strcmp (value, keys[i]) == 0);
       
@@ -1402,19 +1537,25 @@ _dbus_hash_test (void)
 
       _dbus_hash_table_remove_int (table2, i);
 
+      _dbus_hash_table_remove_ulong (table3, i); 
+
       _dbus_assert (count_entries (table1) == i);
       _dbus_assert (count_entries (table2) == i);
+      _dbus_assert (count_entries (table3) == i);
 
       --i;
     }
 
   _dbus_hash_table_ref (table1);
   _dbus_hash_table_ref (table2);
+  _dbus_hash_table_ref (table3);
   _dbus_hash_table_unref (table1);
   _dbus_hash_table_unref (table2);
+  _dbus_hash_table_unref (table3);
   _dbus_hash_table_unref (table1);
   _dbus_hash_table_unref (table2);
-
+  _dbus_hash_table_unref (table3);
+  table3 = NULL;
 
   /* Insert a bunch of stuff then check
    * that iteration works correctly (finds the right

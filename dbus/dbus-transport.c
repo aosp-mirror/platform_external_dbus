@@ -353,10 +353,12 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
     return TRUE;
   else
     {
+      dbus_bool_t maybe_authenticated;
+      
       if (transport->disconnected)
         return FALSE;
       
-      transport->authenticated =
+      maybe_authenticated =
         (!(transport->send_credentials_pending ||
            transport->receive_credentials_pending)) &&
         _dbus_auth_do_work (transport->auth) == DBUS_AUTH_STATE_AUTHENTICATED;
@@ -369,7 +371,7 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
        * Or they may give certain identities extra privileges.
        */
       
-      if (transport->authenticated && transport->is_server)
+      if (maybe_authenticated && transport->is_server)
         {
           DBusCredentials auth_identity;
 
@@ -413,6 +415,8 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
                 }
             }
         }
+
+      transport->authenticated = maybe_authenticated;
       
       return transport->authenticated;
     }

@@ -23,6 +23,7 @@
 #include "connection.h"
 #include "dispatch.h"
 #include "loop.h"
+#include "policy.h"
 #include "services.h"
 #include "utils.h"
 #include <dbus/dbus-list.h>
@@ -48,6 +49,9 @@ typedef struct
   DBusList *transaction_messages; /**< Stuff we need to send as part of a transaction */
   DBusMessage *oom_message;
   DBusPreallocatedSend *oom_preallocated;
+  unsigned long *group_ids;
+  int n_group_ids;
+  BusPolicy *policy;
 } BusConnectionData;
 
 #define BUS_CONNECTION_DATA(connection) (dbus_connection_get_data ((connection), connection_data_slot))
@@ -231,6 +235,20 @@ remove_connection_timeout (DBusTimeout    *timeout,
   bus_loop_remove_timeout (timeout, connection_timeout_callback, connection);
 }
 
+static dbus_bool_t
+allow_user_function (DBusConnection *connection,
+                     unsigned long   uid,
+                     void           *data)
+{
+  BusConnectionData *d;
+    
+  d = BUS_CONNECTION_DATA (connection);
+
+  _dbus_assert (d != NULL);
+  
+  return bus_context_allow_user (d->connections->context, uid);
+}
+
 static void
 free_connection_data (void *data)
 {
@@ -246,6 +264,11 @@ free_connection_data (void *data)
 
   if (d->oom_message)
     dbus_message_unref (d->oom_message);
+
+  if (d->policy)
+    bus_policy_unref (d->policy);
+  
+  dbus_free (d->group_ids);
   
   dbus_free (d->name);
   
@@ -333,6 +356,9 @@ bus_connections_setup_connection (BusConnections *connections,
     }
 
   retval = FALSE;
+
+  d->n_group_ids = 0;
+  d->group_ids = NULL;
   
   if (!dbus_connection_set_watch_functions (connection,
                                             (DBusAddWatchFunction) add_connection_watch,
@@ -387,6 +413,103 @@ bus_connections_setup_connection (BusConnections *connections,
   return retval;
 }
 
+dbus_bool_t
+bus_connection_get_groups  (DBusConnection       *connection,
+                            const unsigned long **groups,
+                            int                  *n_groups)
+{
+  BusConnectionData *d;
+    
+  d = BUS_CONNECTION_DATA (connection);
+
+  _dbus_assert (d != NULL);
+
+  *groups = NULL;
+  *n_groups = 0;
+
+  /* we do a lazy lookup on groups a user is in for two reasons:
+   * 1) we can't do it on connection setup since the user
+   * hasn't authenticated and 2) it might be expensive
+   * and we don't need to do it if there are no group-based
+   * rules in the config file
+   */
+  
+  if (d->n_group_ids == 0)
+    {
+      unsigned long uid;
+      
+      if (dbus_connection_get_unix_user (connection, &uid))
+        {
+          if (!_dbus_get_groups (uid, &d->group_ids, &d->n_group_ids))
+            {
+              _dbus_verbose ("Did not get any groups for UID %lu\n",
+                             uid);
+              return FALSE;
+            }
+        }
+    }
+
+  *groups = d->group_ids;
+  *n_groups = d->n_group_ids;
+
+  return TRUE;
+}
+
+dbus_bool_t
+bus_connection_is_in_group (DBusConnection *connection,
+                            unsigned long   gid)
+{
+  int i;
+  const unsigned long *group_ids;
+  int n_group_ids;
+
+  if (!bus_connection_get_groups (connection, &group_ids, &n_group_ids))
+    return FALSE;
+
+  i = 0;
+  while (i < n_group_ids)
+    {
+      if (group_ids[i] == gid)
+        return TRUE;
+      ++i;
+    }
+
+  return FALSE;
+}
+
+BusPolicy*
+bus_connection_get_policy (DBusConnection *connection)
+{
+  BusConnectionData *d;
+    
+  d = BUS_CONNECTION_DATA (connection);
+
+  _dbus_assert (d != NULL);
+
+  if (!dbus_connection_get_is_authenticated (connection))
+    {
+      _dbus_verbose ("Tried to get policy for unauthenticated connection!\n");
+      return NULL;
+    }
+  
+  /* We do lazy creation of the policy because
+   * it can only be done post-authentication.
+   */
+  if (d->policy == NULL)
+    {
+      d->policy =
+        bus_context_create_connection_policy (d->connections->context,
+                                              connection);
+
+      /* we may have a NULL policy on OOM or error getting list of
+       * groups for a user. In the latter case we don't handle it so
+       * well currently, just keep pretending we're out of memory,
+       * which is kind of bizarre.
+       */
+    }
+
+  return d->policy;
+}
 
 /**
  * Calls function on each connection; if the function returns

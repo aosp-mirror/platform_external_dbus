@@ -66,6 +66,13 @@ const char *bus_connection_get_name (DBusConnection               *connection);
 /* called by dispatch.c when the connection is dropped */
 void        bus_connection_disconnected (DBusConnection *connection);
 
+dbus_bool_t bus_connection_is_in_group (DBusConnection       *connection,
+                                        unsigned long         gid);
+dbus_bool_t bus_connection_get_groups  (DBusConnection       *connection,
+                                        const unsigned long **groups,
+                                        int                  *n_groups);
+BusPolicy*  bus_connection_get_policy  (DBusConnection       *connection);
+
 /* transaction API so we can send or not send a block of messages as a whole */
 BusTransaction* bus_transaction_new              (BusContext      *context);
 BusContext*     bus_transaction_get_context      (BusTransaction  *transaction);

@@ -28,14 +28,13 @@
 #include <dbus/dbus-string.h>
 #include "bus.h"
 
-typedef struct BusPolicy     BusPolicy;
-typedef struct BusPolicyRule BusPolicyRule;
-
 typedef enum
 {
   BUS_POLICY_RULE_SEND,
   BUS_POLICY_RULE_RECEIVE,
-  BUS_POLICY_RULE_OWN
+  BUS_POLICY_RULE_OWN,
+  BUS_POLICY_RULE_USER,
+  BUS_POLICY_RULE_GROUP
 } BusPolicyRuleType;
 
 struct BusPolicyRule
@@ -68,6 +67,18 @@ struct BusPolicyRule
       char *service_name;
     } own;
 
+    struct
+    {
+      char *user;
+      unsigned long uid;
+    } user;
+
+    struct
+    {
+      char *group;
+      unsigned long gid;
+    } group;
+    
   } d;
 };
 
@@ -90,7 +101,8 @@ dbus_bool_t bus_policy_check_can_receive (BusPolicy        *policy,
 dbus_bool_t bus_policy_check_can_own     (BusPolicy        *policy,
                                           DBusConnection   *connection,
                                           const DBusString *service_name);
-
-
+dbus_bool_t bus_policy_append_rule       (BusPolicy        *policy,
+                                          BusPolicyRule    *rule);
+void        bus_policy_optimize          (BusPolicy        *policy);
 
 #endif /* BUS_POLICY_H */

@@ -1,3 +1,13 @@
+2003-03-23  Havoc Pennington  <hp@pobox.com>
+
+	* bus/policy.c, bus/bus.c, bus/connection.c: implement allow/deny
+	policies code
+	
+	* dbus/dbus-hash.h: add ULONG hash keys
+
+	* dbus/dbus-sysdeps.c (_dbus_get_groups): new
+	(_dbus_get_group_id): new function
+
 2003-03-20  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-connection.c (dbus_connection_set_unix_user_function):

@@ -60,7 +60,7 @@ Elements:
     multiple <auth> elements, the last one wins (they are not merged).
 
  <policy>
-  context="(default|required)"   one of the context/user/group
+  context="(default|mandatory)"  one of the context/user/group
                                  attributes is mandatory
   user="username or userid"
   group="group name or gid"
@@ -72,8 +72,10 @@ Elements:
     Policies are applied to a connection as follows:
        - all context="default" policies are applied
        - all group="connection's user's group" policies are applied
+         in undefined order
        - all user="connection's auth user" policies are applied
-       - all context="required" policies are applied
+         in undefined order
+       - all context="mandatory" policies are applied
 
     Policies applied later will override those applied earlier, 
     when the policies overlap. Multiple policies with the same 

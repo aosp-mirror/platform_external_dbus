@@ -96,6 +96,8 @@ dbus_bool_t _dbus_send_credentials_unix_socket (int              server_fd,
 
 dbus_bool_t _dbus_credentials_from_username        (const DBusString      *username,
                                                     DBusCredentials       *credentials);
+dbus_bool_t _dbus_credentials_from_user_id         (unsigned long          user_id,
+                                                    DBusCredentials       *credentials);
 dbus_bool_t _dbus_credentials_from_uid_string      (const DBusString      *uid_str,
                                                     DBusCredentials       *credentials);
 void        _dbus_credentials_from_current_process (DBusCredentials       *credentials);
@@ -109,6 +111,12 @@ dbus_bool_t _dbus_homedir_from_username          (const DBusString       *userna
 dbus_bool_t _dbus_user_info_from_current_process (const DBusString      **username,
                                                   const DBusString      **homedir,
                                                   const DBusCredentials **credentials);
+
+dbus_bool_t _dbus_get_group_id (const DBusString  *group_name,
+                                unsigned long     *gid);
+dbus_bool_t _dbus_get_groups   (unsigned long      uid,
+                                unsigned long    **group_ids,
+                                int               *n_group_ids);
 
 typedef int dbus_atomic_t;
 
