@@ -1653,10 +1653,10 @@ _dbus_string_base64_encode (const DBusString *source,
     {
       unsigned int triplet;
 
-      triplet = s[0] | (s[1] << 8) | (s[2] << 16);
+      triplet = s[2] | (s[1] << 8) | (s[0] << 16);
 
-      /* Encode each 6 bits */
-      
+      /* Encode each 6 bits. */
+
       *d++ = ENCODE_64 (triplet >> 18);
       *d++ = ENCODE_64 ((triplet >> 12) & SIX_BITS_MASK);
       *d++ = ENCODE_64 ((triplet >> 6) & SIX_BITS_MASK);
@@ -1671,8 +1671,8 @@ _dbus_string_base64_encode (const DBusString *source,
       {
         unsigned int doublet;
         
-        doublet = s[0] | (s[1] << 8);
-        
+        doublet = s[1] | (s[0] << 8);        
+
         *d++ = ENCODE_64 (doublet >> 12);
         *d++ = ENCODE_64 ((doublet >> 6) & SIX_BITS_MASK);
         *d++ = ENCODE_64 (doublet & SIX_BITS_MASK);
@@ -1684,7 +1684,7 @@ _dbus_string_base64_encode (const DBusString *source,
         unsigned int singlet;
         
         singlet = s[0];
-        
+
         *d++ = ENCODE_64 ((singlet >> 6) & SIX_BITS_MASK);
         *d++ = ENCODE_64 (singlet & SIX_BITS_MASK);
         *d++ = '=';
@@ -1774,18 +1774,17 @@ _dbus_string_base64_decode (const DBusString *source,
           if (sextet_count == 4)
             {
               /* no pad = 3 bytes, 1 pad = 2 bytes, 2 pad = 1 byte */
+              if (pad_count < 1)
+                _dbus_string_append_byte (&result,
+                                          triplet >> 16);
+              
+              if (pad_count < 2)
+                _dbus_string_append_byte (&result,
+                                          (triplet >> 8) & 0xff);              
               
               _dbus_string_append_byte (&result,
                                         triplet & 0xff);
               
-              if (pad_count < 2)
-                _dbus_string_append_byte (&result,
-                                          (triplet >> 8) & 0xff);
-
-              if (pad_count < 1)
-                _dbus_string_append_byte (&result,
-                                          triplet >> 16);
-
               sextet_count = 0;
               pad_count = 0;
               triplet = 0;

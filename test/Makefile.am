@@ -2,7 +2,7 @@
 INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
 
 if DBUS_BUILD_TESTS
-TEST_BINARIES=echo-client echo-server
+TEST_BINARIES=echo-client echo-server unbase64
 else
 TEST_BINARIES=
 endif
@@ -19,10 +19,15 @@ echo_server_SOURCES=				\
 	watch.c					\
 	watch.h
 
+unbase64_SOURCES=				\
+	unbase64.c
+
+
 TEST_LIBS=$(DBUS_TEST_LIBS) $(top_builddir)/dbus/libdbus-convenience.la $(top_builddir)/dbus/libdbus-1.la
 
 echo_client_LDADD=$(TEST_LIBS)
 echo_server_LDADD=$(TEST_LIBS)
+unbase64_LDADD=$(TEST_LIBS)
 
 dist-hook:
 	DIRS="data data/valid-messages data/invalid-messages data/incomplete-messages" ; \
