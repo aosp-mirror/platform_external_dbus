@@ -1,10 +1,18 @@
+2002-11-22  Havoc Pennington  <hp@pobox.com>
+
+	* Makefile.am (SUBDIRS): rename subdir "server" to "bus" 
+	because any app can be a server, and any app can be a client, 
+	the bus is a special kind of server.
+
 Thu Nov 21 23:35:31 2002  Zack Rusin  <zack@kde.org>
 
 	* Doxyfile : adding. Still needs Makefile rules to be generated
 	automatically (just run "doxygen" in the toplevel dir for now to
 	generate docs)
+	
 	* dbus/dbus-message.h : Adding sample docs (javadoc since
 	resembles gtk-doc a little more)
+
 	* dbus/dbus.h : Adding sample docs
 
 2002-11-21  Havoc Pennington  <hp@redhat.com>

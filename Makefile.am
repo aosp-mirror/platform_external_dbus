@@ -1,3 +1,2 @@
 
-SUBDIRS=dbus server test doc
-
+SUBDIRS=dbus bus test doc
