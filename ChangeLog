@@ -1,3 +1,9 @@
+2004-07-31  Colin Walters  <walters@redhat.com>
+
+	* configure.in: Use AC_TRY_COMPILE instead of AC_EGREP_HEADER
+	to correctly detect DBUS__ACQUIRE_SVC.  Also add an
+	AC_MSG_CHECKING.
+
 2004-07-24  Havoc Pennington  <hp@redhat.com>
 
 	SELinux support from Matthew Rickard <mjricka@epoch.ncsc.mil>
