@@ -61,32 +61,37 @@ static unsigned char *payload;
 static int echo_call_size;
 static int echo_return_size;
 
+typedef struct ProfileRunVTable ProfileRunVTable;
+
 typedef struct
 {
+  const ProfileRunVTable *vtable;
   int iterations;
   GMainLoop *loop;
 } ClientData;
 
 typedef struct
 {
+  const ProfileRunVTable *vtable;
   int handled;
   GMainLoop *loop;
   int n_clients;
 } ServerData;
 
-typedef struct
+struct ProfileRunVTable
 {
   const char *name;
+  gboolean fake_malloc_overhead;
   void* (* init_server)        (ServerData *sd);
   void  (* stop_server)        (ServerData *sd,
                                 void       *server);
-  void* (* client_thread_func) (void *data);
+  void* (* client_thread_func) (void *data); /* Data has to be the vtable */
 
   /* this is so different runs show up in the profiler with
    * different backtrace
    */
   void  (* main_loop_run_func) (GMainLoop *loop);
-} ProfileRunVTable;
+};
 
 static void
 send_echo_method_call (DBusConnection *connection)
@@ -252,7 +257,7 @@ new_connection_callback (DBusServer     *server,
 }
 
 static void*
-messages_init_server (ServerData *sd)
+messages_init_server (ServerData       *sd)
 {
   DBusServer *server;
   DBusError error;
@@ -299,6 +304,7 @@ messages_main_loop_run (GMainLoop *loop)
 
 static const ProfileRunVTable messages_vtable = {
   "with dbus messages",
+  FALSE,
   messages_init_server,
   messages_stop_server,
   messages_thread_func,
@@ -307,16 +313,16 @@ static const ProfileRunVTable messages_vtable = {
 
 typedef struct
 {
+  const ProfileRunVTable *vtable;
   int listen_fd;
   ServerData *sd;
   unsigned int source_id;
 } PlainSocketServer;
 
-static gboolean fake_malloc_overhead = FALSE;
-
 static void
 read_and_drop_on_floor (int fd,
-                        int count)
+                        int count,
+                        gboolean fake_malloc_overhead)
 {
   int bytes_read;
   int val;
@@ -373,7 +379,8 @@ read_and_drop_on_floor (int fd,
 
 static void
 write_junk (int fd,
-            int count)
+            int count,
+            gboolean fake_malloc_overhead)
 {
   int bytes_written;
   int val;
@@ -461,8 +468,8 @@ plain_sockets_talk_to_client_watch (GIOChannel   *source,
     {
       server->sd->handled += 1;
 
-      read_and_drop_on_floor (client_fd, echo_call_size);
-      write_junk (client_fd, echo_return_size);
+      read_and_drop_on_floor (client_fd, echo_call_size, server->vtable->fake_malloc_overhead);
+      write_junk (client_fd, echo_return_size, server->vtable->fake_malloc_overhead);
     }
   else
     {
@@ -530,6 +537,7 @@ plain_sockets_init_server (ServerData *sd)
 
   server = g_new0 (PlainSocketServer, 1);
   server->sd = sd;
+  server->vtable = sd->vtable; /* for convenience */
   
   p = path;
   while (*p)
@@ -629,7 +637,7 @@ plain_sockets_client_side_watch (GIOChannel   *source,
 
   if (condition & G_IO_IN)
     {
-      read_and_drop_on_floor (fd, echo_return_size);
+      read_and_drop_on_floor (fd, echo_return_size, cd->vtable->fake_malloc_overhead);
     }
   else if (condition & G_IO_OUT)
     {
@@ -644,7 +652,7 @@ plain_sockets_client_side_watch (GIOChannel   *source,
           g_printerr ("%d%% ", (int) (cd->iterations/(double)N_ITERATIONS * 100.0));
         }
       
-      write_junk (fd, echo_call_size);
+      write_junk (fd, echo_call_size, cd->vtable->fake_malloc_overhead);
     }
   else
     {
@@ -718,7 +726,7 @@ plain_sockets_thread_func (void *data)
   g_io_channel_unref (channel);
 
   g_printerr ("Client thread writing to prime pingpong\n");
-  write_junk (fd, echo_call_size);
+  write_junk (fd, echo_call_size, cd.vtable->fake_malloc_overhead);
   g_printerr ("Client thread done writing primer\n");
 
   g_printerr ("Client thread entering main loop\n");
@@ -744,6 +752,7 @@ plain_sockets_main_loop_run (GMainLoop *loop)
 
 static const ProfileRunVTable plain_sockets_vtable = {
   "plain sockets",
+  FALSE,
   plain_sockets_init_server,
   plain_sockets_stop_server,
   plain_sockets_thread_func,
@@ -752,6 +761,7 @@ static const ProfileRunVTable plain_sockets_vtable = {
 
 static const ProfileRunVTable plain_sockets_with_malloc_vtable = {
   "plain sockets with malloc overhead",
+  TRUE,
   plain_sockets_init_server,
   plain_sockets_stop_server,
   plain_sockets_thread_func,
@@ -772,12 +782,13 @@ do_profile_run (const ProfileRunVTable *vtable)
   sd.handled = 0;
   sd.n_clients = 0;
   sd.loop = g_main_loop_new (NULL, FALSE);
+  sd.vtable = vtable;
 
   server = (* vtable->init_server) (&sd);
   
   for (i = 0; i < N_CLIENT_THREADS; i++)
     {
-      g_thread_create (vtable->client_thread_func, NULL, FALSE, NULL);
+      g_thread_create (vtable->client_thread_func, (void*) vtable, FALSE, NULL);
     }
 
   timer = g_timer_new ();
@@ -819,18 +830,14 @@ main (int argc, char *argv[])
     do_profile_run (&plain_sockets_vtable);
   else if (argc > 1 && strcmp (argv[1], "plain_sockets_with_malloc") == 0)
     {
-      fake_malloc_overhead = TRUE;
       do_profile_run (&plain_sockets_with_malloc_vtable);
     }
   else if (argc > 1 && strcmp (argv[1], "all") == 0)
     {
       double e1, e2, e3;
 
-      fake_malloc_overhead = FALSE;
       e1 = do_profile_run (&plain_sockets_vtable);
-      fake_malloc_overhead = TRUE;
       e2 = do_profile_run (&plain_sockets_with_malloc_vtable);
-      fake_malloc_overhead = FALSE;
       e3 = do_profile_run (&messages_vtable);
 
       g_printerr ("parsed dbus messages %g times slower than plain sockets without buffer allocation or population\n",

@@ -1,5 +1,10 @@
 2004-11-26  Havoc Pennington  <hp@redhat.com>
 
+	* test/glib/test-profile.c: clean up how the fake_malloc_overhead
+	thing was implemented
+
+2004-11-26  Havoc Pennington  <hp@redhat.com>
+
 	* test/glib/test-profile.c: tweak a bit, add support for some
 	made-up minimal malloc overhead with plain sockets, since in 
 	real life some sort of buffers are unavoidable thus we could 
