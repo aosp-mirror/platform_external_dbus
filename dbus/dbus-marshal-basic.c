@@ -280,7 +280,7 @@ set_string (DBusString          *str,
 
   _dbus_string_init_const (&dstr, value);
 
-  _dbus_assert (_DBUS_ALIGN_VALUE (pos, 4) == pos);
+  _dbus_assert (_DBUS_ALIGN_VALUE (pos, 4) == (unsigned) pos);
   old_len = _dbus_unpack_uint32 (byte_order,
                                  _dbus_string_get_const_data_len (str, pos, 4));
 

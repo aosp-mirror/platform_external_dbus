@@ -56,7 +56,7 @@ _dbus_pending_call_new (DBusConnection    *connection,
   DBusPendingCall *pending;
   DBusTimeout *timeout;
 
-  _dbus_return_val_if_fail (timeout_milliseconds >= 0 || timeout_milliseconds == -1, FALSE);
+  _dbus_assert (timeout_milliseconds >= 0 || timeout_milliseconds == -1);
   
   if (timeout_milliseconds == -1)
     timeout_milliseconds = _DBUS_DEFAULT_TIMEOUT_VALUE;

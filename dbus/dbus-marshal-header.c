@@ -1219,7 +1219,7 @@ _dbus_header_set_field_basic (DBusHeader       *header,
                               int               type,
                               const void       *value)
 {
-  _dbus_return_val_if_fail (field <= DBUS_HEADER_FIELD_LAST, FALSE);
+  _dbus_assert (field <= DBUS_HEADER_FIELD_LAST);
 
   if (!reserve_header_padding (header))
     return FALSE;

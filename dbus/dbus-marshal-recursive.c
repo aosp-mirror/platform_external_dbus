@@ -324,12 +324,19 @@ skip_one_complete_type (const DBusString *type_str,
   const unsigned char *p;
   const unsigned char *start;
 
+  _dbus_assert (type_str != NULL);
+  _dbus_assert (type_pos != NULL);
+  
   start = _dbus_string_get_const_data (type_str);
   p = start + *type_pos;
 
+  _dbus_assert (*p != DBUS_STRUCT_END_CHAR);
+  
   while (*p == DBUS_TYPE_ARRAY)
     ++p;
 
+  _dbus_assert (*p != DBUS_STRUCT_END_CHAR);
+  
   if (*p == DBUS_STRUCT_BEGIN_CHAR)
     {
       int depth;
@@ -361,8 +368,6 @@ skip_one_complete_type (const DBusString *type_str,
     {
       ++p;
     }
-
-  _dbus_assert (*p != DBUS_STRUCT_END_CHAR);
 
   *type_pos = (int) (p - start);
 }
@@ -846,17 +851,6 @@ int
 _dbus_type_reader_get_value_pos (const DBusTypeReader  *reader)
 {
   return reader->value_pos;
-}
-
-/**
- * Checks whether an array has any elements.
- *
- * @param reader the reader
- */
-static dbus_bool_t
-_dbus_type_reader_array_is_empty (const DBusTypeReader *reader)
-{
-  return array_reader_get_array_len (reader) == 0;
 }
 
 /**
@@ -3839,7 +3833,6 @@ run_test_delete_values (NodeIterationData *nid)
               int elem;
 
               _dbus_assert (n_elements > 0);
-              _dbus_assert (!_dbus_type_reader_array_is_empty (&reader));
 
               elem = cycle;
               if (elem == 3 || elem >= n_elements) /* end of array */
@@ -3878,9 +3871,6 @@ run_test_delete_values (NodeIterationData *nid)
 
   while ((t = _dbus_type_reader_get_current_type (&reader)) != DBUS_TYPE_INVALID)
     {
-      if (t == DBUS_TYPE_ARRAY)
-        _dbus_assert (_dbus_type_reader_array_is_empty (&reader));
-
       _dbus_type_reader_next (&reader);
     }
 
@@ -5428,8 +5418,6 @@ array_read_or_set_value (TestTypeNode   *node,
 
   if (n_copies > 0)
     {
-      _dbus_assert (!_dbus_type_reader_array_is_empty (reader));
-
       _dbus_type_reader_recurse (reader, &sub);
 
       if (realign_root == NULL && arrays_write_fixed_in_blocks &&
@@ -5477,10 +5465,6 @@ array_read_or_set_value (TestTypeNode   *node,
               ++i;
             }
         }
-    }
-  else
-    {
-      _dbus_assert (_dbus_type_reader_array_is_empty (reader));
     }
 
   return TRUE;

@@ -100,9 +100,10 @@ const char* _dbus_strerror (int error_number);
 void _dbus_real_assert (dbus_bool_t  condition,
                         const char  *condition_text,
                         const char  *file,
-                        int          line);
+                        int          line,
+                        const char  *func);
 #define _dbus_assert(condition)                                         \
-  _dbus_real_assert ((condition) != 0, #condition, __FILE__, __LINE__)
+  _dbus_real_assert ((condition) != 0, #condition, __FILE__, __LINE__, _DBUS_FUNCTION_NAME)
 #endif /* !DBUS_DISABLE_ASSERT */
 
 #ifdef DBUS_DISABLE_ASSERT
@@ -122,6 +123,7 @@ void _dbus_real_assert_not_reached (const char *explanation,
 extern const char _dbus_return_if_fail_warning_format[];
 
 #define _dbus_return_if_fail(condition) do {                                            \
+   _dbus_assert ((*(const char*)_DBUS_FUNCTION_NAME) != '_');                           \
   if (!(condition)) {                                                                   \
     _dbus_warn (_dbus_return_if_fail_warning_format,                                    \
                 _dbus_getpid (), _DBUS_FUNCTION_NAME, #condition, __FILE__, __LINE__);  \
@@ -129,6 +131,7 @@ extern const char _dbus_return_if_fail_warning_format[];
   } } while (0)
 
 #define _dbus_return_val_if_fail(condition, val) do {                                   \
+   _dbus_assert ((*(const char*)_DBUS_FUNCTION_NAME) != '_');                           \
   if (!(condition)) {                                                                   \
     _dbus_warn (_dbus_return_if_fail_warning_format,                                    \
                 _dbus_getpid (), _DBUS_FUNCTION_NAME, #condition, __FILE__, __LINE__);  \

@@ -153,9 +153,9 @@ void
 _dbus_message_set_serial (DBusMessage   *message,
                           dbus_uint32_t  serial)
 {
-  _dbus_return_if_fail (message != NULL);
-  _dbus_return_if_fail (!message->locked);
-  _dbus_return_if_fail (dbus_message_get_serial (message) == 0);
+  _dbus_assert (message != NULL);
+  _dbus_assert (!message->locked);
+  _dbus_assert (dbus_message_get_serial (message) == 0);
 
   _dbus_header_set_serial (&message->header, serial);
 }
@@ -4121,7 +4121,7 @@ message_iter_test (DBusMessage *message)
   if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_ARRAY)
     _dbus_assert_not_reached ("Argument type not an array");
 
-  if (dbus_message_iter_get_array_type (&iter) != DBUS_TYPE_DOUBLE)
+  if (dbus_message_iter_get_element_type (&iter) != DBUS_TYPE_DOUBLE)
     _dbus_assert_not_reached ("Array type not double");
 
   dbus_message_iter_recurse (&iter, &array);
@@ -4140,7 +4140,7 @@ message_iter_test (DBusMessage *message)
   if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_ARRAY)
     _dbus_assert_not_reached ("no array");
 
-  if (dbus_message_iter_get_array_type (&iter) != DBUS_TYPE_INT32)
+  if (dbus_message_iter_get_element_type (&iter) != DBUS_TYPE_INT32)
     _dbus_assert_not_reached ("Array type not int32");
 
   /* Empty array */

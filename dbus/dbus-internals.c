@@ -406,17 +406,19 @@ const char _dbus_return_if_fail_warning_format[] =
  * @param condition_text condition as a string
  * @param file file the assertion is in
  * @param line line the assertion is in
+ * @param func function the assertion is in
  */
 void
 _dbus_real_assert (dbus_bool_t  condition,
                    const char  *condition_text,
                    const char  *file,
-                   int          line)
+                   int          line,
+                   const char  *func)
 {
   if (_DBUS_UNLIKELY (!condition))
     {
-      _dbus_warn ("%lu: assertion failed \"%s\" file \"%s\" line %d\n",
-                  _dbus_getpid (), condition_text, file, line);
+      _dbus_warn ("%lu: assertion failed \"%s\" file \"%s\" line %d function %s\n",
+                  _dbus_getpid (), condition_text, file, line, func);
       _dbus_abort ();
     }
 }

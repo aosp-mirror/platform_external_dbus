@@ -1,5 +1,29 @@
 2005-01-16  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-internals.c (_dbus_real_assert): print the function
+	name the assertion failed in
+
+	* dbus/dbus-internals.h (_dbus_return_if_fail) 
+	(_dbus_return_val_if_fail): assert that the name of the function
+	containing the check doesn't start with '_', since we only want to 
+	use checks on public functions
+	
+	* dbus/dbus-connection.c (_dbus_connection_ref_unlocked): change
+	checks to assertions
+
+	* dbus/dbus-marshal-header.c (_dbus_header_set_field_basic):
+	change checks to asserts for private function
+
+	* dbus/dbus-message.c (_dbus_message_set_serial): checks
+	to asserts for private function
+
+	* dbus/dbus-marshal-recursive.c (skip_one_complete_type): remove
+	broken assertion that was breaking make check
+	(_dbus_type_reader_array_is_empty): remove this rather than fix
+	it, was only used in assertions
+
+2005-01-16  Havoc Pennington  <hp@redhat.com>
+
 	* test/unused-code-gc.py: hacky script to find code that's used
 	only by the bus (not libdbus) or used only by tests or not used at
 	all. It has some false alarms, but looks like we can clean up a

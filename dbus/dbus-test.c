@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-test.c  Program to run all tests
  *
- * Copyright (C) 2002, 2003  Red Hat Inc.
+ * Copyright (C) 2002, 2003, 2004, 2005  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 

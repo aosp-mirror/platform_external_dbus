@@ -1004,8 +1004,8 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
 DBusConnection *
 _dbus_connection_ref_unlocked (DBusConnection *connection)
 {
-  _dbus_return_val_if_fail (connection != NULL, NULL);
-  _dbus_return_val_if_fail (connection->generation == _dbus_current_generation, NULL);
+  _dbus_assert (connection != NULL);
+  _dbus_assert (connection->generation == _dbus_current_generation);
   
 #ifdef DBUS_HAVE_ATOMIC_INT
   _dbus_atomic_inc (&connection->refcount);
@@ -1442,7 +1442,7 @@ _dbus_connection_preallocate_send_unlocked (DBusConnection *connection)
 {
   DBusPreallocatedSend *preallocated;
 
-  _dbus_return_val_if_fail (connection != NULL, NULL);
+  _dbus_assert (connection != NULL);
   
   preallocated = dbus_new (DBusPreallocatedSend, 1);
   if (preallocated == NULL)
@@ -1897,9 +1897,9 @@ _dbus_connection_block_for_reply (DBusConnection     *connection,
   long tv_sec, tv_usec;
   DBusDispatchStatus status;
 
-  _dbus_return_val_if_fail (connection != NULL, NULL);
-  _dbus_return_val_if_fail (client_serial != 0, NULL);
-  _dbus_return_val_if_fail (timeout_milliseconds >= 0 || timeout_milliseconds == -1, FALSE);
+  _dbus_assert (connection != NULL);
+  _dbus_assert (client_serial != 0);
+  _dbus_assert (timeout_milliseconds >= 0 || timeout_milliseconds == -1);
   
   if (timeout_milliseconds == -1)
     timeout_milliseconds = _DBUS_DEFAULT_TIMEOUT_VALUE;
