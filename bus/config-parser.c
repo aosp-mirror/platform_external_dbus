@@ -871,9 +871,6 @@ start_busconfig_child (BusConfigParser   *parser,
     }
   else if (strcmp (element_name, "selinux") == 0)
     {
-      Element *e;
-      const char *name;
-
       if (!check_no_attributes (parser, "selinux", attribute_names, attribute_values, error))
         return FALSE;
 

@@ -424,7 +424,7 @@ bus_selinux_id_table_insert (DBusHashTable *service_table,
   if (key == NULL)
     return retval;
   
-  if (avc_context_to_sid (service_context, &sid) < 0)
+  if (avc_context_to_sid ((char *) service_context, &sid) < 0)
     {
       _dbus_assert (errno == ENOMEM);
       goto out;
