@@ -25,6 +25,7 @@
 #include "dbus-internals.h"
 #include <stdlib.h>
 
+
 /**
  * @defgroup DBusMemory Memory Allocation
  * @ingroup  DBus
@@ -71,6 +72,32 @@
  * @param memory the memory to free
  */
 
+#ifdef DBUS_BUILD_TESTS
+static dbus_bool_t inited = FALSE;
+static int fail_counts = -1;
+static int fail_size = -1;
+#endif
+
+#ifdef DBUS_BUILD_TESTS
+static void
+initialize_malloc_debug (void)
+{
+  if (!inited)
+    {
+      if (_dbus_getenv ("DBUS_MALLOC_FAIL_NTH") != NULL)
+	{
+	  fail_counts = atoi (_dbus_getenv ("DBUS_MALLOC_FAIL_NTH"));
+	  _dbus_set_fail_alloc_counter (fail_counts);
+	}
+      
+      if (_dbus_getenv ("DBUS_MALLOC_FAIL_GREATER_THAN") != NULL)
+	fail_size = atoi (_dbus_getenv ("DBUS_MALLOC_FAIL_GREATER_THAN"));
+      
+      inited = TRUE;
+    }
+}
+#endif
+
 /**
  * Allocates the given number of bytes, as with standard
  * malloc(). Guaranteed to return #NULL if bytes is zero
@@ -83,11 +110,24 @@
 void*
 dbus_malloc (size_t bytes)
 {
+#ifdef DBUS_BUILD_TESTS
+  initialize_malloc_debug ();
+  
   if (_dbus_decrement_fail_alloc_counter ())
-    return NULL;
+    {
+      if (fail_counts != -1)
+	_dbus_set_fail_alloc_counter (fail_counts);
+      
+      return NULL;
+    }
+#endif
   
   if (bytes == 0) /* some system mallocs handle this, some don't */
     return NULL;
+#if DBUS_BUILD_TESTS
+  else if (fail_size != -1 && bytes > fail_size)
+    return NULL;
+#endif
   else
     return malloc (bytes);
 }
@@ -104,11 +144,24 @@ dbus_malloc (size_t bytes)
 void*
 dbus_malloc0 (size_t bytes)
 {
+#ifdef DBUS_BUILD_TESTS
+  initialize_malloc_debug ();
+  
   if (_dbus_decrement_fail_alloc_counter ())
-    return NULL;
+    {
+      if (fail_counts != -1)
+	_dbus_set_fail_alloc_counter (fail_counts);
+      
+      return NULL;
+    }
+#endif
 
   if (bytes == 0)
     return NULL;
+#if DBUS_BUILD_TESTS
+  else if (fail_size != -1 && bytes > fail_size)
+    return NULL;
+#endif
   else
     return calloc (bytes, 1);
 }
@@ -127,14 +180,27 @@ void*
 dbus_realloc (void  *memory,
               size_t bytes)
 {
+#ifdef DBUS_BUILD_TESTS
+  initialize_malloc_debug ();
+  
   if (_dbus_decrement_fail_alloc_counter ())
-    return NULL;
+    {
+      if (fail_counts != -1)
+	_dbus_set_fail_alloc_counter (fail_counts);
+      
+      return NULL;
+    }
+#endif
   
   if (bytes == 0) /* guarantee this is safe */
     {
       dbus_free (memory);
       return NULL;
     }
+#if DBUS_BUILD_TESTS
+  else if (fail_size != -1 && bytes > fail_size)
+    return NULL;
+#endif
   else
     {
       return realloc (memory, bytes);

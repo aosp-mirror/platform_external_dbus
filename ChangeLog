@@ -1,3 +1,15 @@
+2003-02-15  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-internals.h:
+	Fix build without tests.
+	
+	* dbus/dbus-list.c: (alloc_link):
+	Fix a segfault when a malloc fails.
+	
+	* dbus/dbus-memory.c: (initialize_malloc_debug), (dbus_malloc),
+	(dbus_malloc0), (dbus_realloc):
+	Add support for malloc debugging.
+
 2003-02-15  Alexander Larsson  <alexl@redhat.com>
 
 	* dbus/dbus-threads.c:

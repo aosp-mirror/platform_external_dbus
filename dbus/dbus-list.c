@@ -78,7 +78,8 @@ alloc_link (void *data)
     }
   
   link = _dbus_mem_pool_alloc (list_pool);
-  link->data = data;
+  if (link)
+    link->data = data;
   
   dbus_mutex_unlock (list_pool_lock);
 
