@@ -27,7 +27,6 @@
 #include "dbus-list.h"
 #include <stdlib.h>
 
-
 /**
  * @defgroup DBusMemory Memory Allocation
  * @ingroup  DBus
@@ -35,6 +34,20 @@
  *
  * Functions and macros related to allocating and releasing
  * blocks of memory.
+ *
+ */
+
+/**
+ * @defgroup DBusMemoryInternals Memory allocation implementation details
+ * @ingroup  DBusInternals
+ * @brief internals of dbus_malloc() etc.
+ *
+ * Implementation details related to allocating and releasing blocks
+ * of memory.
+ */
+
+/**
+ * @addtogroup DBusMemory
  *
  * @{
  */
@@ -72,6 +85,14 @@
  * The type of a function which frees a block of memory.
  *
  * @param memory the memory to free
+ */
+
+/** @} */ /* end of public API docs */
+
+/**
+ * @addtogroup DBusMemoryInternals
+ *
+ * @{
  */
 
 #ifdef DBUS_BUILD_TESTS
@@ -387,6 +408,15 @@ set_guards (void       *real_block,
 
 #endif
 
+/** @} */ /* End of internals docs */
+
+
+/**
+ * @addtogroup DBusMemory
+ *
+ * @{
+ */
+
 /**
  * Allocates the given number of bytes, as with standard
  * malloc(). Guaranteed to return #NULL if bytes is zero
@@ -625,6 +655,15 @@ dbus_free_string_array (char **str_array)
     }
 }
 
+/** @} */ /* End of public API docs block */
+
+
+/**
+ * @addtogroup DBusMemoryInternals
+ *
+ * @{
+ */
+
 /**
  * _dbus_current_generation is used to track each
  * time that dbus_shutdown() is called, so we can
@@ -650,36 +689,6 @@ struct ShutdownClosure
 
 _DBUS_DEFINE_GLOBAL_LOCK (shutdown_funcs);
 static ShutdownClosure *registered_globals = NULL;
-
-/**
- * The D-BUS library keeps some internal global variables, for example
- * to cache the username of the current process.  This function is
- * used to free these global variables.  It is really useful only for
- * leak-checking cleanliness and the like. WARNING: this function is
- * NOT thread safe, it must be called while NO other threads are using
- * D-BUS. You cannot continue using D-BUS after calling this function,
- * as it does things like free global mutexes created by
- * dbus_threads_init(). To use a D-BUS function after calling
- * dbus_shutdown(), you have to start over from scratch, e.g. calling
- * dbus_threads_init() again.
- */
-void
-dbus_shutdown (void)
-{
-  while (registered_globals != NULL)
-    {
-      ShutdownClosure *c;
-
-      c = registered_globals;
-      registered_globals = c->next;
-      
-      (* c->func) (c->data);
-      
-      dbus_free (c);
-    }
-
-  _dbus_current_generation += 1;
-}
 
 /**
  * Register a cleanup function to be called exactly once
@@ -713,4 +722,43 @@ _dbus_register_shutdown_func (DBusShutdownFunction  func,
   return TRUE;
 }
 
-/** @} */
+/** @} */ /* End of private API docs block */
+
+
+/**
+ * @addtogroup DBusMemory
+ *
+ * @{
+ */
+
+/**
+ * The D-BUS library keeps some internal global variables, for example
+ * to cache the username of the current process.  This function is
+ * used to free these global variables.  It is really useful only for
+ * leak-checking cleanliness and the like. WARNING: this function is
+ * NOT thread safe, it must be called while NO other threads are using
+ * D-BUS. You cannot continue using D-BUS after calling this function,
+ * as it does things like free global mutexes created by
+ * dbus_threads_init(). To use a D-BUS function after calling
+ * dbus_shutdown(), you have to start over from scratch, e.g. calling
+ * dbus_threads_init() again.
+ */
+void
+dbus_shutdown (void)
+{
+  while (registered_globals != NULL)
+    {
+      ShutdownClosure *c;
+
+      c = registered_globals;
+      registered_globals = c->next;
+      
+      (* c->func) (c->data);
+      
+      dbus_free (c);
+    }
+
+  _dbus_current_generation += 1;
+}
+
+/** @} */ /** End of public API docs block */

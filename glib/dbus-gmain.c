@@ -394,8 +394,11 @@ create_source (void         *connection_or_server,
 /**
  * Sets the watch and timeout functions of a #DBusConnection
  * to integrate the connection with the GLib main loop.
+ * Pass in #NULL for the #GMainContext unless you're
+ * doing something specialized.
  *
  * @param connection the connection
+ * @param context the #GMainContext or #NULL for default context
  */
 void
 dbus_connection_setup_with_g_main (DBusConnection *connection,
@@ -446,11 +449,14 @@ dbus_connection_setup_with_g_main (DBusConnection *connection,
 /**
  * Sets the watch and timeout functions of a #DBusServer
  * to integrate the server with the GLib main loop.
+ * In most cases the context argument should be #NULL.
  *
  * @param server the server
+ * @param context the #GMainContext or #NULL for default
  */
 void
-dbus_server_setup_with_g_main (DBusServer *server, GMainContext *context)
+dbus_server_setup_with_g_main (DBusServer   *server,
+                               GMainContext *context)
 {
   GSource *source;
 

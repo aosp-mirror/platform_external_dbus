@@ -77,6 +77,37 @@ typedef dbus_uint32_t  dbus_unichar_t;
  * A 16-bit signed integer on all platforms.
  */
 
+
+/**
+ * @typedef dbus_uint64_t
+ *
+ * A 64-bit unsigned integer on all platforms that support it.
+ * If supported, #DBUS_HAVE_INT64 will be defined.
+ */
+
+/**
+ * @typedef dbus_int64_t
+ *
+ * A 64-bit signed integer on all platforms that support it.
+ * If supported, #DBUS_HAVE_INT64 will be defined.
+ */
+
+/**
+ * @def DBUS_INT64_CONSTANT
+ *
+ * Declare a 64-bit signed integer constant. The macro
+ * adds the necessary "LL" or whatever after the integer,
+ * giving a literal such as "325145246765LL"
+ */
+
+/**
+ * @def DBUS_UINT64_CONSTANT
+ *
+ * Declare a 64-bit unsigned integer constant. The macro
+ * adds the necessary "ULL" or whatever after the integer,
+ * giving a literal such as "325145246765ULL"
+ */
+
 /** @} */
 
 #endif /* DBUS_TYPES_H */

@@ -1,5 +1,14 @@
 2003-04-29  Havoc Pennington  <hp@redhat.com>
 
+	* glib/dbus-gmain.c: docs cleanups
+
+	* dbus/dbus-types.h: add docs on int64 types
+
+	* dbus/dbus-memory.c: fix docs to avoid putting private API in
+	public API docs section
+
+2003-04-29  Havoc Pennington  <hp@redhat.com>
+
 	* dbus-1.pc.in, dbus-glib-1.pc.in: rename these from
 	dbus-1.0.pc.in, dbus-glib-1.0.pc.in. As these change with the
 	parallel install API version, not with the D-BUS package version.

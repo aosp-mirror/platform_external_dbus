@@ -137,7 +137,7 @@ _dbus_timeout_set_interval (DBusTimeout *timeout,
  * only used in the message bus daemon implementation.
  *
  * @param timeout the timeout
- * @param interval the new interval
+ * @param enabled #TRUE if timeout should be enabled.
  */
 void
 _dbus_timeout_set_enabled (DBusTimeout  *timeout,

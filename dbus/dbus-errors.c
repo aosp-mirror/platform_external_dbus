@@ -39,7 +39,7 @@
  *
  * @code
  * DBusError error;
- * _dbus_error_init (&error);
+ * dbus_error_init (&error);
  * dbus_some_function (arg1, arg2, &error);
  * if (dbus_error_is_set (&error))
  *   {
@@ -178,6 +178,8 @@ dbus_error_free (DBusError *error)
  * message will be deduced from the name. If the error name is unknown
  * to D-BUS the default message will be totally useless, though.
  *
+ * @todo should be called dbus_error_set_const() 
+ * 
  * @param error the error.
  * @param name the error name (not copied!!!)
  * @param message the error message (not copied!!!)
@@ -214,7 +216,7 @@ dbus_set_error_const (DBusError  *error,
  * src is reinitialized to an empty error. dest may not
  * contain an existing error. If the destination is
  * #NULL, just frees and reinits the source error.
- *
+ * 
  * @param src the source error
  * @param dest the destination error or #NULL
  */
@@ -287,6 +289,8 @@ dbus_error_is_set (const DBusError *error)
  *
  * If no memory can be allocated for the error message, 
  * an out-of-memory error message will be set instead.
+ *
+ * @todo should be called dbus_error_set()
  *
  * @todo stdio.h shouldn't be included in this file,
  * should write _dbus_string_append_printf instead
