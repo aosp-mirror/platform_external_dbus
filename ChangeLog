@@ -1,3 +1,16 @@
+2002-12-25  Havoc Pennington  <hp@pobox.com>
+
+	* doc/dbus-sasl-profile.txt: docs on the authentication protocol, 
+	it is a simple protocol that just maps directly to SASL.
+
+	* dbus/dbus-auth.h, dbus/dbus-auth.c: authentication protocol
+	initial implementation, not actually used yet.
+	
+	* dbus/dbus-string.c (_dbus_string_find): new function
+	(_dbus_string_equal): new function
+	(_dbus_string_base64_encode): new function
+	(_dbus_string_base64_decode): new function
+
 2002-12-25  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/Makefile.am:

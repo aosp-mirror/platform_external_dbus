@@ -1,0 +1,1215 @@
+/* -*- mode: C; c-file-style: "gnu" -*- */
+/* dbus-auth.c Authentication
+ *
+ * Copyright (C) 2002  Red Hat Inc.
+ *
+ * Licensed under the Academic Free License version 1.2
+ * 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
+#include "dbus-auth.h"
+#include "dbus-string.h"
+#include "dbus-list.h"
+#include "dbus-internals.h"
+
+/* See doc/dbus-sasl-profile.txt */
+
+/**
+ * @defgroup DBusAuth Authentication
+ * @ingroup  DBusInternals
+ * @brief DBusAuth object
+ *
+ * DBusAuth manages the authentication negotiation when a connection
+ * is first established, and also manage any encryption used over a
+ * connection.
+ *
+ * The file doc/dbus-sasl-profile.txt documents the network protocol
+ * used for authentication.
+ */
+
+/**
+ * @defgroup DBusAuthInternals Authentication implementation details
+ * @ingroup  DBusInternals
+ * @brief DBusAuth implementation details
+ *
+ * Private details of authentication code.
+ *
+ * @{
+ */
+
+/**
+ * Processes a command. Returns whether we had enough memory to
+ * complete the operation.
+ */
+typedef dbus_bool_t (* DBusProcessAuthCommandFunction) (DBusAuth         *auth,
+                                                        const DBusString *command,
+                                                        const DBusString *args);
+
+typedef struct
+{
+  const char *command;
+  DBusProcessAuthCommandFunction func;
+} DBusAuthCommandHandler;
+
+/**
+ * This function processes a block of data received from the peer.
+ * i.e. handles a DATA command.
+ */
+typedef dbus_bool_t (* DBusAuthDataFunction)     (DBusAuth         *auth,
+                                                  const DBusString *data);
+
+/**
+ * This function encodes a block of data from the peer.
+ */
+typedef dbus_bool_t (* DBusAuthEncodeFunction)   (DBusAuth         *auth,
+                                                  const DBusString *data,
+                                                  DBusString       *encoded);
+
+/**
+ * This function decodes a block of data from the peer.
+ */
+typedef dbus_bool_t (* DBusAuthDecodeFunction)   (DBusAuth         *auth,
+                                                  const DBusString *data,
+                                                  DBusString       *decoded);
+
+/**
+ * This function is called when the mechanism is abandoned.
+ */
+typedef void        (* DBusAuthShutdownFunction) (DBusAuth       *auth);
+
+typedef struct
+{
+  const char *mechanism;
+  DBusAuthDataFunction server_data_func;
+  DBusAuthEncodeFunction server_encode_func;
+  DBusAuthDecodeFunction server_decode_func;
+  DBusAuthShutdownFunction server_shutdown_func;
+  DBusAuthDataFunction client_data_func;
+  DBusAuthEncodeFunction client_encode_func;
+  DBusAuthDecodeFunction client_decode_func;
+  DBusAuthShutdownFunction client_shutdown_func;
+} DBusAuthMechanismHandler;
+
+/**
+ * Internal members of DBusAuth.
+ */
+struct DBusAuth
+{
+  int refcount;           /**< reference count */
+
+  DBusString incoming;    /**< Incoming data buffer */
+  DBusString outgoing;    /**< Outgoing data buffer */
+  
+  const DBusAuthCommandHandler *handlers; /**< Handlers for commands */
+
+  const DBusAuthMechanismHandler *mech;   /**< Current auth mechanism */
+  
+  unsigned int needed_memory : 1;   /**< We needed memory to continue since last
+                                     * successful getting something done
+                                     */
+  unsigned int need_disconnect : 1; /**< We've given up, time to disconnect */
+  unsigned int authenticated : 1;   /**< We are authenticated */
+  unsigned int authenticated_pending_output : 1; /**< Authenticated once we clear outgoing buffer */
+  unsigned int authenticated_pending_begin : 1;  /**< Authenticated once we get BEGIN */
+  unsigned int already_got_mechanisms : 1;       /**< Client already got mech list */
+};
+
+typedef struct
+{
+  DBusAuth base;
+
+  DBusList *mechs_to_try;
+  
+} DBusAuthClient;
+
+typedef struct
+{
+  DBusAuth base;
+
+} DBusAuthServer;
+
+static dbus_bool_t process_auth         (DBusAuth         *auth,
+                                         const DBusString *command,
+                                         const DBusString *args);
+static dbus_bool_t process_cancel       (DBusAuth         *auth,
+                                         const DBusString *command,
+                                         const DBusString *args);
+static dbus_bool_t process_begin        (DBusAuth         *auth,
+                                         const DBusString *command,
+                                         const DBusString *args);
+static dbus_bool_t process_data_server  (DBusAuth         *auth,
+                                         const DBusString *command,
+                                         const DBusString *args);
+static dbus_bool_t process_error_server (DBusAuth         *auth,
+                                         const DBusString *command,
+                                         const DBusString *args);
+static dbus_bool_t process_mechanisms   (DBusAuth         *auth,
+                                         const DBusString *command,
+                                         const DBusString *args);
+static dbus_bool_t process_rejected     (DBusAuth         *auth,
+                                         const DBusString *command,
+                                         const DBusString *args);
+static dbus_bool_t process_ok           (DBusAuth         *auth,
+                                         const DBusString *command,
+                                         const DBusString *args);
+static dbus_bool_t process_data_client  (DBusAuth         *auth,
+                                         const DBusString *command,
+                                         const DBusString *args);
+static dbus_bool_t process_error_client (DBusAuth         *auth,
+                                         const DBusString *command,
+                                         const DBusString *args);
+
+
+static DBusAuthCommandHandler
+server_handlers[] = {
+  { "AUTH", process_auth },
+  { "CANCEL", process_cancel },
+  { "BEGIN", process_begin },
+  { "DATA", process_data_server },
+  { "ERROR", process_error_server },
+  { NULL, NULL }
+};                  
+
+static DBusAuthCommandHandler
+client_handlers[] = {
+  { "MECHANISMS", process_mechanisms },
+  { "REJECTED", process_rejected },
+  { "OK", process_ok },
+  { "DATA", process_data_client },
+  { "ERROR", process_error_client },
+  { NULL, NULL }
+};
+
+/**
+ * @param auth the auth conversation
+ * @returns #TRUE if the conversation is the server side
+ */
+#define DBUS_AUTH_IS_SERVER(auth) ((auth)->handlers == server_handlers)
+/**
+ * @param auth the auth conversation
+ * @returns #TRUE if the conversation is the client side
+ */
+#define DBUS_AUTH_IS_CLIENT(auth) ((auth)->handlers == client_handlers)
+/**
+ * @param auth the auth conversation
+ * @returns auth cast to DBusAuthClient
+ */
+#define DBUS_AUTH_CLIENT(auth)    ((DBusAuthClient*)(auth))
+/**
+ * @param auth the auth conversation
+ * @returns auth cast to DBusAuthServer
+ */
+#define DBUS_AUTH_SERVER(auth)    ((DBusAuthServer*)(auth))
+
+static DBusAuth*
+_dbus_auth_new (int size)
+{
+  DBusAuth *auth;
+  
+  auth = dbus_malloc0 (size);
+  if (auth == NULL)
+    return NULL;
+  
+  auth->refcount = 1;
+
+  /* note that we don't use the max string length feature,
+   * because you can't use that feature if you're going to
+   * try to recover from out-of-memory (it creates
+   * what looks like unrecoverable inability to alloc
+   * more space in the string). But we do handle
+   * overlong buffers in _dbus_auth_do_work().
+   */
+  
+  if (!_dbus_string_init (&auth->incoming, _DBUS_INT_MAX))
+    {
+      dbus_free (auth);
+      return NULL;
+    }
+
+  if (!_dbus_string_init (&auth->outgoing, _DBUS_INT_MAX))
+    {
+      _dbus_string_free (&auth->outgoing);
+      dbus_free (auth);
+      return NULL;
+    }
+  
+  return auth;
+}
+
+static DBusAuthState
+get_state (DBusAuth *auth)
+{
+  if (auth->need_disconnect)
+    return DBUS_AUTH_STATE_NEED_DISCONNECT;
+  else if (auth->authenticated)
+    return DBUS_AUTH_STATE_AUTHENTICATED;
+  else if (auth->needed_memory)
+    return DBUS_AUTH_STATE_WAITING_FOR_MEMORY;
+  else if (_dbus_string_get_length (&auth->outgoing) > 0)
+    return DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND;
+  else
+    return DBUS_AUTH_STATE_WAITING_FOR_INPUT;
+}
+
+static void
+shutdown_mech (DBusAuth *auth)
+{
+  /* Cancel any auth */
+  auth->authenticated_pending_begin = FALSE;
+  auth->authenticated = FALSE;
+  
+  if (auth->mech != NULL)
+    {      
+      if (DBUS_AUTH_IS_CLIENT (auth))
+        (* auth->mech->client_shutdown_func) (auth);
+      else
+        (* auth->mech->server_shutdown_func) (auth);
+      
+      auth->mech = NULL;
+    }
+}
+
+static dbus_bool_t
+handle_server_data_stupid_test_mech (DBusAuth         *auth,
+                                     const DBusString *data)
+{
+  if (!_dbus_string_append (&auth->outgoing,
+                            "OK\r\n"))
+    return FALSE;
+
+  auth->authenticated_pending_begin = TRUE;
+  
+  return TRUE;
+}
+
+static void
+handle_server_shutdown_stupid_test_mech (DBusAuth *auth)
+{
+
+}
+
+static dbus_bool_t
+handle_client_data_stupid_test_mech (DBusAuth         *auth,
+                                     const DBusString *data)
+{
+  
+  return TRUE;
+}
+
+static void
+handle_client_shutdown_stupid_test_mech (DBusAuth *auth)
+{
+
+}
+
+/* the stupid test mech is a base64-encoded string;
+ * all the inefficiency, none of the security!
+ */
+static dbus_bool_t
+handle_encode_stupid_test_mech (DBusAuth         *auth,
+                                const DBusString *plaintext,
+                                DBusString       *encoded)
+{
+  if (!_dbus_string_base64_encode (plaintext, 0, encoded, 0))
+    return FALSE;
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+handle_decode_stupid_test_mech (DBusAuth         *auth,
+                                const DBusString *encoded,
+                                DBusString       *plaintext)
+{
+  if (!_dbus_string_base64_decode (encoded, 0, plaintext, 0))
+    return FALSE;
+  
+  return TRUE;
+}
+
+/* Put mechanisms here in order of preference.
+ * What I eventually want to have is:
+ *
+ *  - a mechanism that checks UNIX domain socket credentials
+ *  - a simple magic cookie mechanism like X11 or ICE
+ *  - mechanisms that chain to Cyrus SASL, so we can use anything it
+ *    offers such as Kerberos, X509, whatever.
+ * 
+ */
+static const DBusAuthMechanismHandler
+all_mechanisms[] = {
+  { "DBUS_STUPID_TEST_MECH",
+    handle_server_data_stupid_test_mech,
+    handle_encode_stupid_test_mech,
+    handle_decode_stupid_test_mech,
+    handle_server_shutdown_stupid_test_mech,
+    handle_client_data_stupid_test_mech,
+    handle_encode_stupid_test_mech,
+    handle_decode_stupid_test_mech,
+    handle_client_shutdown_stupid_test_mech },
+  { NULL, NULL }
+};
+
+static const DBusAuthMechanismHandler*
+find_mech (const DBusString *name)
+{
+  int i;
+  
+  i = 0;
+  while (all_mechanisms[i].mechanism != NULL)
+    {
+      if (_dbus_string_equal_c_str (name,
+                                    all_mechanisms[i].mechanism))
+
+        return &all_mechanisms[i];
+      
+      ++i;
+    }
+  
+  return NULL;
+}
+
+static dbus_bool_t
+send_mechanisms (DBusAuth *auth)
+{
+  DBusString command;
+  int i;
+  
+  if (!_dbus_string_init (&command, _DBUS_INT_MAX))
+    return FALSE;
+  
+  if (!_dbus_string_append (&command,
+                            "MECHANISMS"))
+    goto nomem;
+
+  i = 0;
+  while (all_mechanisms[i].mechanism != NULL)
+    {
+      if (!_dbus_string_append (&command,
+                                " "))
+        goto nomem;
+
+      if (!_dbus_string_append (&command,
+                                all_mechanisms[i].mechanism))
+        goto nomem;
+      
+      ++i;
+    }
+  
+  if (!_dbus_string_append (&command, "\r\n"))
+    goto nomem;
+
+  if (!_dbus_string_copy (&command, 0, &auth->outgoing,
+                          _dbus_string_get_length (&auth->outgoing)))
+    goto nomem;
+  
+  return TRUE;
+
+ nomem:
+  _dbus_string_free (&command);
+  return FALSE;
+}
+
+static dbus_bool_t
+process_auth (DBusAuth         *auth,
+              const DBusString *command,
+              const DBusString *args)
+{
+  if (auth->mech)
+    {
+      /* We are already using a mechanism, client is on crack */
+      if (!_dbus_string_append (&auth->outgoing,
+                                "ERROR \"Sent AUTH while another AUTH in progress\"\r\n"))
+        return FALSE;
+
+      return TRUE;
+    }
+  else if (_dbus_string_get_length (args) == 0)
+    {
+      /* No args to the auth, send mechanisms */
+      if (!send_mechanisms (auth))
+        return FALSE;
+
+      return TRUE;
+    }
+  else
+    {
+      int i;
+      DBusString mech;
+      DBusString base64_response;
+      DBusString decoded_response;
+      
+      _dbus_string_find_blank (args, 0, &i);
+
+      if (!_dbus_string_init (&mech, _DBUS_INT_MAX))
+        return FALSE;
+
+      if (!_dbus_string_init (&base64_response, _DBUS_INT_MAX))
+        {
+          _dbus_string_free (&mech);
+          return FALSE;
+        }
+
+      if (!_dbus_string_init (&decoded_response, _DBUS_INT_MAX))
+        {
+          _dbus_string_free (&mech);
+          _dbus_string_free (&base64_response);
+          return FALSE;
+        }
+      
+      if (!_dbus_string_copy_len (args, 0, i, &mech, 0))
+        goto failed;
+
+      if (!_dbus_string_copy (args, i, &base64_response, 0))
+        goto failed;
+
+      if (!_dbus_string_base64_decode (&base64_response, 0,
+                                       &decoded_response, 0))
+        goto failed;
+
+      auth->mech = find_mech (&mech);
+      if (auth->mech != NULL)
+        {
+          if (!(* auth->mech->server_data_func) (auth,
+                                                 &decoded_response))
+            goto failed;
+        }
+      else
+        {
+          /* Unsupported mechanism */
+          if (!send_mechanisms (auth))
+            return FALSE;
+        }
+      
+      return TRUE;
+      
+    failed:
+      auth->mech = NULL;
+      _dbus_string_free (&mech);
+      _dbus_string_free (&base64_response);
+      _dbus_string_free (&decoded_response);
+      return FALSE;
+    }
+}
+
+static dbus_bool_t
+process_cancel (DBusAuth         *auth,
+                const DBusString *command,
+                const DBusString *args)
+{
+  shutdown_mech (auth);
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+process_begin (DBusAuth         *auth,
+               const DBusString *command,
+               const DBusString *args)
+{
+  if (auth->authenticated_pending_begin)
+    auth->authenticated = TRUE;
+  else
+    {
+      auth->need_disconnect = TRUE; /* client trying to send data before auth,
+                                     * kick it
+                                     */
+      shutdown_mech (auth);
+    }
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+process_data_server (DBusAuth         *auth,
+                     const DBusString *command,
+                     const DBusString *args)
+{
+  if (auth->mech != NULL)
+    {
+      DBusString decoded;
+
+      if (!_dbus_string_init (&decoded, _DBUS_INT_MAX))
+        return FALSE;
+
+      if (!_dbus_string_base64_decode (args, 0, &decoded, 0))
+        {
+          _dbus_string_free (&decoded);
+          return FALSE;
+        }
+      
+      if (!(* auth->mech->server_data_func) (auth, &decoded))
+        {
+          _dbus_string_free (&decoded);
+          return FALSE;
+        }
+
+      _dbus_string_free (&decoded);
+    }
+  else
+    {
+      if (!_dbus_string_append (&auth->outgoing,
+                                "ERROR \"Not currently in an auth conversation\"\r\n"))
+        return FALSE;
+    }
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+process_error_server (DBusAuth         *auth,
+                      const DBusString *command,
+                      const DBusString *args)
+{
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+get_word (const DBusString *str,
+          int              *start,
+          DBusString       *word)
+{
+  int i;
+
+  _dbus_string_find_blank (str, *start, &i);
+
+  if (i != *start)
+    {
+      if (!_dbus_string_copy_len (str, *start, i, word, 0))
+        return FALSE;
+      
+      *start = i;
+    }
+
+  return TRUE;
+}
+
+static dbus_bool_t
+process_mechanisms (DBusAuth         *auth,
+                    const DBusString *command,
+                    const DBusString *args)
+{
+  int next;
+  int len;
+
+  if (auth->already_got_mechanisms)
+    return TRUE;
+  
+  len = _dbus_string_get_length (args);
+  
+  next = 0;
+  while (next < len)
+    {
+      DBusString m;
+      const DBusAuthMechanismHandler *mech;
+
+      if (!_dbus_string_init (&m, _DBUS_INT_MAX))
+        goto nomem;
+      
+      if (!get_word (args, &next, &m))
+        goto nomem;
+
+      mech = find_mech (&m);
+
+      if (mech != NULL)
+        {
+          /* FIXME right now we try mechanisms in the order
+           * the server lists them; should we do them in
+           * some more deterministic order?
+           *
+           * Probably in all_mechanisms order, our order of
+           * preference. Of course when the server is us,
+           * it lists things in that order anyhow.
+           */
+          
+          if (!_dbus_list_append (& DBUS_AUTH_CLIENT (auth)->mechs_to_try,
+                                  (void*) mech))
+            goto nomem;
+        }
+    }
+  
+  auth->already_got_mechanisms = TRUE;
+  
+  return TRUE;
+
+ nomem:
+  _dbus_list_clear (& DBUS_AUTH_CLIENT (auth)->mechs_to_try);
+  
+  return FALSE;
+}
+
+static dbus_bool_t
+process_rejected (DBusAuth         *auth,
+                  const DBusString *command,
+                  const DBusString *args)
+{
+  shutdown_mech (auth);
+  
+  if (!auth->already_got_mechanisms)
+    {
+      /* Ask for mechanisms */
+      if (!_dbus_string_append (&auth->outgoing,
+                                "AUTH\r\n"))
+        return FALSE;
+    }
+  else if (DBUS_AUTH_CLIENT (auth)->mechs_to_try != NULL)
+    {
+      /* Try next mechanism */
+      const DBusAuthMechanismHandler *mech;
+      DBusString auth_command;
+
+      mech = DBUS_AUTH_CLIENT (auth)->mechs_to_try->data;
+
+      if (!_dbus_string_init (&auth_command, _DBUS_INT_MAX))
+        return FALSE;
+      
+      if (!_dbus_string_append (&auth_command,
+                                "AUTH "))
+        {
+          _dbus_string_free (&auth_command);
+          return FALSE;
+        }
+
+      if (!_dbus_string_append (&auth->outgoing,
+                                mech->mechanism))
+        {
+          _dbus_string_free (&auth_command);
+          return FALSE;
+        }
+        
+      if (!_dbus_string_append (&auth->outgoing,
+                                "\r\n"))
+        {
+          _dbus_string_free (&auth_command);
+          return FALSE;
+        }
+
+      if (!_dbus_string_copy (&auth_command, 0,
+                              &auth->outgoing,
+                              _dbus_string_get_length (&auth->outgoing)))
+        {
+          _dbus_string_free (&auth_command);
+          return FALSE;
+        }
+
+      _dbus_list_pop_first (& DBUS_AUTH_CLIENT (auth)->mechs_to_try);
+    }
+  else
+    {
+      /* Give up */
+      auth->need_disconnect = TRUE;
+    }
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+process_ok (DBusAuth         *auth,
+            const DBusString *command,
+            const DBusString *args)
+{
+  if (!_dbus_string_append (&auth->outgoing,
+                            "BEGIN\r\n"))
+    return FALSE;
+  
+  auth->authenticated_pending_output = TRUE;
+  
+  return TRUE;
+}
+
+
+static dbus_bool_t
+process_data_client (DBusAuth         *auth,
+                     const DBusString *command,
+                     const DBusString *args)
+{
+  if (auth->mech != NULL)
+    {
+      DBusString decoded;
+
+      if (!_dbus_string_init (&decoded, _DBUS_INT_MAX))
+        return FALSE;
+
+      if (!_dbus_string_base64_decode (args, 0, &decoded, 0))
+        {
+          _dbus_string_free (&decoded);
+          return FALSE;
+        }
+      
+      if (!(* auth->mech->client_data_func) (auth, &decoded))
+        {
+          _dbus_string_free (&decoded);
+          return FALSE;
+        }
+
+      _dbus_string_free (&decoded);
+    }
+  else
+    {
+      if (!_dbus_string_append (&auth->outgoing,
+                                "ERROR \"Got DATA when not in an auth exchange\"\r\n"))
+        return FALSE;
+    }
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+process_error_client (DBusAuth         *auth,
+                      const DBusString *command,
+                      const DBusString *args)
+{
+  return TRUE;
+}
+
+static dbus_bool_t
+process_unknown (DBusAuth         *auth,
+                 const DBusString *command,
+                 const DBusString *args)
+{
+  if (!_dbus_string_append (&auth->outgoing,
+                            "ERROR \"Unknown command\"\r\n"))
+    return FALSE;
+
+  return TRUE;
+}
+
+/* returns whether to call it again right away */
+static dbus_bool_t
+process_command (DBusAuth *auth)
+{
+  DBusString command;
+  DBusString args;
+  int eol;
+  int i, j;
+  dbus_bool_t retval;
+
+  retval = FALSE;
+  
+  eol = 0;
+  if (!_dbus_string_find (&auth->incoming, 0, "\r\n", &eol))
+    return FALSE;
+  
+  if (!_dbus_string_init (&command, _DBUS_INT_MAX))
+    {
+      auth->needed_memory = TRUE;
+      return FALSE;
+    }
+
+  if (!_dbus_string_init (&args, _DBUS_INT_MAX))
+    {
+      auth->needed_memory = TRUE;
+      return FALSE;
+    }
+
+  if (!_dbus_string_copy_len (&auth->incoming, 0, eol, &command, 0))
+    goto out;
+  
+  _dbus_string_find_blank (&command, 0, &i);
+  _dbus_string_skip_blank (&command, i, &j);
+
+  if (i != j)
+    _dbus_string_delete (&command, i, j);
+  
+  if (!_dbus_string_move (&command, i, &args, 0))
+    goto out;
+
+  i = 0;
+  while (auth->handlers[i].command != NULL)
+    {
+      if (_dbus_string_equal_c_str (&command,
+                                    auth->handlers[i].command))
+        {
+          if (!(* auth->handlers[i].func) (auth, &command, &args))
+            goto out;
+
+          break;
+        }
+      ++i;
+    }
+
+  if (auth->handlers[i].command == NULL)
+    {
+      if (!process_unknown (auth, &command, &args))
+        goto out;
+    }
+  
+  /* We've succeeded in processing the whole command so drop it out
+   * of the incoming buffer and return TRUE to try another command.
+   */
+
+  _dbus_string_delete (&auth->incoming, 0, eol);
+  
+  /* kill the \r\n */
+  _dbus_string_delete (&auth->incoming, 0, 2);
+
+  retval = TRUE;
+  
+ out:
+  _dbus_string_free (&args);
+  _dbus_string_free (&command);
+
+  if (!retval)
+    auth->needed_memory = TRUE;
+  else
+    auth->needed_memory = FALSE;
+  
+  return retval;
+}
+
+
+/** @} */
+
+/**
+ * @addtogroup DBusAuth
+ * @{
+ */
+
+/**
+ * Creates a new auth conversation object for the server side.
+ * See doc/dbus-sasl-profile.txt for full details on what
+ * this object does.
+ *
+ * @returns the new object or #NULL if no memory
+ */
+DBusAuth*
+_dbus_auth_server_new (void)
+{
+  DBusAuth *auth;
+
+  auth = _dbus_auth_new (sizeof (DBusAuthServer));
+  if (auth == NULL)
+    return NULL;
+
+  auth->handlers = server_handlers;
+  
+  return auth;
+}
+
+/**
+ * Creates a new auth conversation object for the client side.
+ * See doc/dbus-sasl-profile.txt for full details on what
+ * this object does.
+ *
+ * @returns the new object or #NULL if no memory
+ */
+DBusAuth*
+_dbus_auth_client_new (void)
+{
+  DBusAuth *auth;
+
+  auth = _dbus_auth_new (sizeof (DBusAuthClient));
+  if (auth == NULL)
+    return NULL;
+
+  auth->handlers = client_handlers;
+
+  /* Request an auth */
+  if (!_dbus_string_append (&auth->outgoing,
+                            "AUTH DBUS_STUPID_TEST_MECH\r\n"))
+    {
+      _dbus_auth_unref (auth);
+      return NULL;
+    }
+  
+  return auth;
+}
+
+/**
+ * Increments the refcount of an auth object.
+ *
+ * @param auth the auth conversation
+ */
+void
+_dbus_auth_ref (DBusAuth *auth)
+{
+  _dbus_assert (auth != NULL);
+  
+  auth->refcount += 1;
+}
+
+/**
+ * Decrements the refcount of an auth object.
+ *
+ * @param auth the auth conversation
+ */
+void
+_dbus_auth_unref (DBusAuth *auth)
+{
+  _dbus_assert (auth != NULL);
+  _dbus_assert (auth->refcount > 0);
+
+  auth->refcount -= 1;
+  if (auth->refcount == 0)
+    {
+      shutdown_mech (auth);
+
+      if (DBUS_AUTH_IS_CLIENT (auth))
+        {
+          _dbus_list_clear (& DBUS_AUTH_CLIENT (auth)->mechs_to_try);
+        }
+      
+      _dbus_string_free (&auth->incoming);
+      _dbus_string_free (&auth->outgoing);
+      dbus_free (auth);
+    }
+}
+
+/**
+ * @param auth the auth conversation object
+ * @returns #TRUE if we're in a final state
+ */
+#define DBUS_AUTH_IN_END_STATE(auth) ((auth)->need_disconnect || (auth)->authenticated)
+
+/**
+ * Analyzes buffered input and moves the auth conversation forward,
+ * returning the new state of the auth conversation.
+ *
+ * @param auth the auth conversation
+ * @returns the new state
+ */
+DBusAuthState
+_dbus_auth_do_work (DBusAuth *auth)
+{  
+  if (DBUS_AUTH_IN_END_STATE (auth))
+    return get_state (auth);
+
+  auth->needed_memory = FALSE;
+
+  /* Max amount we'll buffer up before deciding someone's on crack */
+#define MAX_BUFFER (16 * 1024)
+
+  do
+    {
+      if (_dbus_string_get_length (&auth->incoming) > MAX_BUFFER ||
+          _dbus_string_get_length (&auth->outgoing) > MAX_BUFFER)
+        {
+          auth->need_disconnect = TRUE;
+          _dbus_verbose ("Disconnecting due to excessive data buffered in auth phase\n");
+          break;
+        }
+    }
+  while (process_command (auth));
+  
+  return get_state (auth);
+}
+
+/**
+ * Gets bytes that need to be sent to the
+ * peer we're conversing with.
+ *
+ * @param auth the auth conversation
+ * @param str initialized string object to be filled in with bytes to send
+ * @returns #FALSE if not enough memory to fill in the bytes
+ */
+dbus_bool_t
+_dbus_auth_get_bytes_to_send (DBusAuth   *auth,
+                              DBusString *str)
+{
+  _dbus_assert (auth != NULL);
+  _dbus_assert (str != NULL);
+  
+  if (DBUS_AUTH_IN_END_STATE (auth))
+    return FALSE;
+
+  auth->needed_memory = FALSE;
+  
+  _dbus_string_set_length (str, 0);
+
+  if (!_dbus_string_move (&auth->outgoing,
+                          0, str, 0))
+    {
+      auth->needed_memory = TRUE;
+      return FALSE;
+    }
+
+  if (auth->authenticated_pending_output)
+    auth->authenticated = TRUE;
+  
+  return TRUE;
+}
+
+/**
+ * Stores bytes received from the peer we're conversing with.
+ *
+ * @param auth the auth conversation
+ * @param str the received bytes.
+ * @returns #FALSE if not enough memory to store the bytes.
+ */
+dbus_bool_t
+_dbus_auth_bytes_received (DBusAuth   *auth,
+                           const DBusString *str)
+{
+  _dbus_assert (auth != NULL);
+  _dbus_assert (str != NULL);
+  
+  if (DBUS_AUTH_IN_END_STATE (auth))
+    return FALSE;
+
+  auth->needed_memory = FALSE;
+  
+  if (!_dbus_string_copy (str, 0,
+                          &auth->incoming,
+                          _dbus_string_get_length (&auth->incoming)))
+    {
+      auth->needed_memory = TRUE;
+      return FALSE;
+    }
+
+  _dbus_auth_do_work (auth);
+  
+  return TRUE;
+}
+
+/**
+ * Returns leftover bytes that were not used as part of the auth
+ * conversation.  These bytes will be part of the message stream
+ * instead. This function may not be called until authentication has
+ * succeeded.
+ *
+ * @param auth the auth conversation
+ * @param str string to place the unused bytes in
+ * @returns #FALSE if not enough memory to return the bytes
+ */
+dbus_bool_t
+_dbus_auth_get_unused_bytes (DBusAuth   *auth,
+                             DBusString *str)
+{
+  if (!DBUS_AUTH_IN_END_STATE (auth))
+    return FALSE;
+  
+  if (!_dbus_string_move (&auth->incoming,
+                          0, str, 0))
+    return FALSE;
+
+  return TRUE;
+}
+
+/**
+ * Called post-authentication, indicates whether we need to encode
+ * the message stream with _dbus_auth_encode_data() prior to
+ * sending it to the peer.
+ *
+ * @param auth the auth conversation
+ * @returns #TRUE if we need to encode the stream
+ */
+dbus_bool_t
+_dbus_auth_needs_encoding (DBusAuth *auth)
+{
+  if (!auth->authenticated)
+    return FALSE;
+  
+  if (auth->mech != NULL)
+    {
+      if (DBUS_AUTH_IS_CLIENT (auth))
+        return auth->mech->client_encode_func != NULL;
+      else
+        return auth->mech->server_encode_func != NULL;
+    }
+  else
+    return FALSE;
+}
+
+/**
+ * Called post-authentication, encodes a block of bytes for sending to
+ * the peer. If no encoding was negotiated, just copies the bytes
+ * (you can avoid this by checking _dbus_auth_needs_encoding()).
+ *
+ * @param auth the auth conversation
+ * @param plaintext the plain text data
+ * @param encoded initialized string to fill in with encoded data
+ * @returns #TRUE if we had enough memory and successfully encoded
+ */
+dbus_bool_t
+_dbus_auth_encode_data (DBusAuth         *auth,
+                        const DBusString *plaintext,
+                        DBusString       *encoded)
+{
+  if (!auth->authenticated)
+    return FALSE;
+  
+  if (_dbus_auth_needs_encoding (auth))
+    {
+      if (DBUS_AUTH_IS_CLIENT (auth))
+        return (* auth->mech->client_encode_func) (auth, plaintext, encoded);
+      else
+        return (* auth->mech->server_encode_func) (auth, plaintext, encoded);
+    }
+  else
+    {
+      return _dbus_string_copy (plaintext, 0, encoded, 0);
+    }
+}
+
+/**
+ * Called post-authentication, indicates whether we need to decode
+ * the message stream with _dbus_auth_decode_data() after
+ * receiving it from the peer.
+ *
+ * @param auth the auth conversation
+ * @returns #TRUE if we need to encode the stream
+ */
+dbus_bool_t
+_dbus_auth_needs_decoding (DBusAuth *auth)
+{
+  if (!auth->authenticated)
+    return FALSE;
+    
+  if (auth->mech != NULL)
+    {
+      if (DBUS_AUTH_IS_CLIENT (auth))
+        return auth->mech->client_decode_func != NULL;
+      else
+        return auth->mech->server_decode_func != NULL;
+    }
+  else
+    return FALSE;
+}
+
+
+/**
+ * Called post-authentication, decodes a block of bytes received from
+ * the peer. If no encoding was negotiated, just copies the bytes (you
+ * can avoid this by checking _dbus_auth_needs_decoding()).
+ *
+ * @param auth the auth conversation
+ * @param encoded the encoded data
+ * @param plaintext initialized string to fill in with decoded data
+ * @returns #TRUE if we had enough memory and successfully decoded
+ */
+dbus_bool_t
+_dbus_auth_decode_data (DBusAuth         *auth,
+                        const DBusString *encoded,
+                        DBusString       *plaintext)
+{
+  if (!auth->authenticated)
+    return FALSE;
+  
+  if (_dbus_auth_needs_decoding (auth))
+    {
+      if (DBUS_AUTH_IS_CLIENT (auth))
+        return (* auth->mech->client_decode_func) (auth, encoded, plaintext);
+      else
+        return (* auth->mech->server_decode_func) (auth, encoded, plaintext);
+    }
+  else
+    {
+      return _dbus_string_copy (encoded, 0, plaintext, 0);
+    }
+}
+
+/** @} */

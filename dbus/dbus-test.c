@@ -37,6 +37,10 @@ int
 main (int    argc,
       char **argv)
 {
+  printf ("%s: running string tests\n", argv[0]);
+  if (!_dbus_string_test ())
+    die ("strings");
+  
   printf ("%s: running marshalling tests\n", argv[0]);
   if (!_dbus_marshal_test ())
     die ("marshalling");
@@ -44,10 +48,6 @@ main (int    argc,
   printf ("%s: running memory pool tests\n", argv[0]);
   if (!_dbus_mem_pool_test ())
     die ("memory pools");
-  
-  printf ("%s: running string tests\n", argv[0]);
-  if (!_dbus_string_test ())
-    die ("strings");
   
   printf ("%s: running linked list tests\n", argv[0]);
   if (!_dbus_list_test ())

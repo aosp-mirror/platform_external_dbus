@@ -17,6 +17,8 @@ dbusinclude_HEADERS=				\
 	dbus-types.h
 
 libdbus_1_la_SOURCES=				\
+	dbus-auth.c				\
+	dbus-auth.h				\
 	dbus-connection.c			\
 	dbus-connection-internal.h		\
 	dbus-errors.c				\

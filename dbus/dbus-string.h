@@ -131,6 +131,33 @@ dbus_bool_t _dbus_string_parse_double (const DBusString *str,
                                        double           *value,
                                        int              *end_return);
 
+dbus_bool_t _dbus_string_find         (const DBusString *str,
+                                       int               start,
+                                       const char       *substr,
+                                       int              *found);
+
+dbus_bool_t _dbus_string_find_blank   (const DBusString *str,
+                                       int               start,
+                                       int              *found);
+
+void        _dbus_string_skip_blank   (const DBusString *str,
+                                       int               start,
+                                       int              *end);
+
+dbus_bool_t _dbus_string_equal        (const DBusString *a,
+                                       const DBusString *b);
+
+dbus_bool_t _dbus_string_equal_c_str  (const DBusString *a,
+                                       const char       *c_str);
+
+dbus_bool_t _dbus_string_base64_encode (const DBusString *source,
+                                        int               start,
+                                        DBusString       *dest,
+                                        int               insert_at);
+dbus_bool_t _dbus_string_base64_decode (const DBusString *source,
+                                        int               start,
+                                        DBusString       *dest,
+                                        int               insert_at);
 
 DBUS_END_DECLS;
 

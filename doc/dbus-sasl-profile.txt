@@ -1,0 +1,231 @@
+
+D-BUS Authentication
+===
+
+This document defines a small plain-text protocol used to perform
+authentication and negotiate a security layer before the flow of D-BUS
+messages begins.  This protocol is intended to be a profile of the
+Simple Authentication and Session Layer [SASL].
+
+This document is loosely based on the POP3 SASL profile by John Myers.
+
+Conventions Used in this Document
+===
+
+In examples, "C:" and "S:" indicate lines sent by the client and
+server respectively.
+
+The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY"
+in this document are to be interpreted as defined in "Key words for
+use in RFCs to Indicate Requirement Levels" [RFC 2119]
+
+Overview
+===
+
+The protocol is a line-based protocol, where each line ends with
+\r\n. Each line begins with an all-caps ASCII command name containing
+only the character range [A-Z], a space, then any arguments for the
+command, then the \r\n ending the line. The protocol is
+case-sensitive.
+
+Commands from the client to the server are as follows:
+
+   AUTH [mechanism] [initial-response]
+
+   CANCEL
+
+   BEGIN
+
+   DATA <data in base 64 encoding>
+
+   ERROR [human-readable error explanation]
+
+From server to client are as follows:
+
+   MECHANISMS <space-separated list of mechanism names>
+
+   REJECTED
+ 
+   OK
+
+   DATA <data in base 64 encoding>
+
+   ERROR
+
+AUTH Command
+===
+  
+   If an AUTH command has no arguments, it is a request to list 
+   available mechanisms. The server SHOULD respond with a MECHANISMS 
+   command listing the mechanisms it understands. 
+
+   If an AUTH command specifies a mechanism, and the server supports
+   said mechanism, the server SHOULD begin exchanging SASL
+   challenge-response data with the client using DATA commands.
+
+   If the server does not support the mechanism given in the AUTH
+   command, it SHOULD send a MECHANISMS command listing the mechanisms
+   it does support. A MECHANISMS command implies that any
+   authentication in progress was rejected, as if REJECTED were also
+   sent. A server MAY send a REJECTED command instead of a MECHANISMS
+   command, though this is unhelpful.
+
+   If the [initial-response] argument is provided, it is intended for
+   use with mechanisms that have no initial challenge (or an empty
+   initial challenge), as if it were the argument to an initial DATA
+   command. If the selected mechanism has an initial challenge, the
+   server should reject authentication (send MECHANISMS or REJECTED).
+
+   If authentication succeeds after exchanging DATA commands, 
+   an OK command should be sent to the client. 
+
+   The first octet received by the client after the \r\n of the OK
+   command MUST be the first octet of the authenticated/encrypted 
+   stream of D-BUS messages.
+
+   The first octet received by the server after the \r\n of the BEGIN
+   command from the client MUST be the first octet of the
+   authenticated/encrypted stream of D-BUS messages.
+
+CANCEL Command
+===
+
+   At any time up to sending the BEGIN command, the client may 
+   send a CANCEL command. On receiving the CANCEL command, the 
+   server MUST send a REJECTED or MECHANISMS command and abort the 
+   current authentication exchange.
+
+DATA Command
+===
+
+   The DATA command may come from either client or server, and simply 
+   contains a base64-encoded block of data to be interpreted 
+   according to the SASL mechanism in use.
+
+BEGIN Command
+===
+
+   The BEGIN command acknowledges that the client has received an 
+   OK command from the server, and that the stream of messages
+   is about to begin. 
+
+   The first octet received by the server after the \r\n of the BEGIN
+   command from the client MUST be the first octet of the
+   authenticated/encrypted stream of D-BUS messages.
+
+MECHANISMS Command
+===
+
+   The MECHANISMS command has a space-separated list of 
+   available auth mechanisms as arguments. The MECHANISMS command
+   implies REJECTED if an authentication exchange is in progress; 
+   the current exchange MUST be considered rejected.
+
+REJECTED Command
+===
+
+   The REJECTED command indicates that the current authentication
+   exchange has failed, and further exchange of DATA is inappropriate.
+   The client would normally try another mechanism, or try providing
+   different responses to challenges.
+
+OK Command
+===
+
+   The OK command indicates that the client has been authenticated,
+   and that further communication will be a stream of D-BUS messages
+   (optionally encrypted, as negotiated) rather than this protocol.
+
+   The first octet received by the client after the \r\n of the OK
+   command MUST be the first octet of the authenticated/encrypted 
+   stream of D-BUS messages.
+
+   The client MUST respond to the OK command by sending a BEGIN
+   command, followed by its stream of messages, or by disconnecting.
+   The server MUST NOT accept additional commands using this protocol 
+   after the OK command has been sent.
+
+ERROR Command
+===
+
+   The ERROR command indicates that either server or client did not
+   know a command, does not accept the given command in the current
+   context, or did not understand the arguments to the command. This
+   allows the protocol to be extended; a client or server can send a
+   command present or permitted only in new protocol versions, and if
+   an ERROR is received instead of an appropriate response, fall back
+   to using some other technique.
+ 
+   If an ERROR is sent, the server or client MUST continue as if the
+   command causing the ERROR had never been received.
+
+Example of successful magic cookie authentication
+===
+
+(MAGIC_COOKIE is a made up mechanism)
+
+  C: AUTH MAGIC_COOKIE BsAY3g4gBNo=
+  S: OK
+  C: BEGIN
+  
+Example of finding out mechanisms then picking one
+===
+
+  C: AUTH
+  S: MECHANISMS KERBEROS_V4 SKEY
+  C: AUTH SKEY bW9yZ2Fu
+  S: DATA OTUgUWE1ODMwOA==
+  C: DATA Rk9VUiBNQU5OIFNPT04gRklSIFZBUlkgTUFTSA==
+  S: OK
+  C: BEGIN
+
+Example of client sends unknown command then falls back to regular auth
+===
+
+  C: FOOBAR
+  S: ERROR
+  C: AUTH MAGIC_COOKIE BsAY3g4gBNo=
+  S: OK
+  C: BEGIN
+
+Example of server doesn't support initial auth mechanism
+===
+
+  C: AUTH MAGIC_COOKIE BsAY3g4gBNo=
+  S: MECHANISMS KERBEROS_V4 SKEY
+  C: AUTH SKEY bW9yZ2Fu
+  S: DATA OTUgUWE1ODMwOA==
+  C: DATA Rk9VUiBNQU5OIFNPT04gRklSIFZBUlkgTUFTSA==
+  S: OK
+  C: BEGIN
+
+Example of wrong password or the like followed by successful retry
+===
+
+  C: AUTH MAGIC_COOKIE BsAY3g4gBNo=
+  S: MECHANISMS KERBEROS_V4 SKEY
+  C: AUTH SKEY bW9yZ2Fu
+  S: DATA OTUgUWE1ODMwOA==
+  C: DATA Rk9VUiBNQU5OIFNPT04gRklSIFZBUlkgTUFTSA==
+  S: REJECTED
+  C: AUTH SKEY bW9yZ2Fu
+  S: DATA OTUgUWE1ODMwOA==
+  C: DATA Rk9VUiBNQU5OIFNPT04gRklSIFZBUlkgTUFTSA==
+  S: OK
+  C: BEGIN
+
+Example of skey canceled and restarted
+===
+
+  C: AUTH MAGIC_COOKIE BsAY3g4gBNo=
+  S: MECHANISMS KERBEROS_V4 SKEY
+  C: AUTH SKEY bW9yZ2Fu
+  S: DATA OTUgUWE1ODMwOA==
+  C: CANCEL
+  S: REJECTED
+  C: AUTH SKEY bW9yZ2Fu
+  S: DATA OTUgUWE1ODMwOA==
+  C: DATA Rk9VUiBNQU5OIFNPT04gRklSIFZBUlkgTUFTSA==
+  S: OK
+  C: BEGIN
+

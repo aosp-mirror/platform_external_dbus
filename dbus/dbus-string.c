@@ -711,11 +711,9 @@ _dbus_string_delete (DBusString       *str,
 }
 
 static dbus_bool_t
-copy (DBusRealString *source,
-      int             start,
-      int             len,
-      DBusRealString *dest,
-      int             insert_at)
+open_gap (int             len,
+          DBusRealString *dest,
+          int             insert_at)
 {
   if (len == 0)
     return TRUE;
@@ -727,6 +725,19 @@ copy (DBusRealString *source,
            dest->str + insert_at,
            dest->len - len);
 
+  return TRUE;
+}
+
+static dbus_bool_t
+copy (DBusRealString *source,
+      int             start,
+      int             len,
+      DBusRealString *dest,
+      int             insert_at)
+{
+  if (!open_gap (len, dest, insert_at))
+    return FALSE;
+    
   memcpy (dest->str + insert_at,
           source->str + start,
           len);
@@ -1003,6 +1014,579 @@ _dbus_string_get_unichar (const DBusString *str,
     *end_return = start + len;
 }
 
+/**
+ * Finds the given substring in the string,
+ * returning #TRUE and filling in the byte index
+ * where the substring was found, if it was found.
+ * Returns #FALSE if the substring wasn't found.
+ * Sets *start to the length of the string if the substring
+ * is not found.
+ *
+ * @param str the string
+ * @param start where to start looking
+ * @param substr the substring
+ * @param found return location for where it was found, or #NULL
+ * @returns #TRUE if found
+ */
+dbus_bool_t
+_dbus_string_find (const DBusString *str,
+                   int               start,
+                   const char       *substr,
+                   int              *found)
+{
+  int i;
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (substr != NULL);
+  _dbus_assert (start <= real->len);
+  
+  /* we always "find" an empty string */
+  if (*substr == '\0')
+    {
+      if (found)
+        *found = 0;
+      return TRUE;
+    }
+  
+  i = start;
+  while (i < real->len)
+    {
+      if (real->str[i] == substr[0])
+        {
+          int j = i + 1;
+          
+          while (j < real->len)
+            {
+              if (substr[j - i] == '\0')
+                break;
+              else if (real->str[j] != substr[j - i])
+                break;
+              
+              ++j;
+            }
+
+          if (substr[j - i] == '\0')
+            {
+              if (found)
+                *found = i;
+              return TRUE;
+            }
+        }
+      
+      ++i;
+    }
+
+  if (found)
+    *found = real->len;
+  
+  return FALSE;
+}
+
+/**
+ * Finds a blank (space or tab) in the string. Returns #TRUE
+ * if found, #FALSE otherwise. If a blank is not found sets
+ * *found to the length of the string.
+ *
+ * @param str the string
+ * @param start byte index to start looking
+ * @param found place to store the location of the first blank
+ * @returns #TRUE if a blank was found
+ */
+dbus_bool_t
+_dbus_string_find_blank (const DBusString *str,
+                         int               start,
+                         int              *found)
+{
+  int i;
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start <= real->len);
+  
+  i = start;
+  while (i < real->len)
+    {
+      if (real->str[i] == ' ' ||
+          real->str[i] == '\t')
+        {
+          if (found)
+            *found = i;
+          return TRUE;
+        }
+      
+      ++i;
+    }
+
+  if (found)
+    *found = real->len;
+  
+  return FALSE;
+}
+
+/**
+ * Skips blanks from start, storing the first non-blank in *end
+ *
+ * @param str the string
+ * @param start where to start
+ * @param end where to store the first non-blank byte index
+ */
+void
+_dbus_string_skip_blank (const DBusString *str,
+                         int               start,
+                         int              *end)
+{
+  int i;
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start <= real->len);
+  
+  i = start;
+  while (i < real->len)
+    {
+      if (real->str[i] != ' ' ||
+          real->str[i] != '\t')
+        break;
+      
+      ++i;
+    }
+
+  if (end)
+    *end = i;
+}
+
+/**
+ * Tests two DBusString for equality.
+ *
+ * @param a first string
+ * @param b second string
+ * @returns #TRUE if equal
+ */
+dbus_bool_t
+_dbus_string_equal (const DBusString *a,
+                    const DBusString *b)
+{
+  const unsigned char *ap;
+  const unsigned char *bp;
+  const unsigned char *a_end;
+  const DBusRealString *real_a = (const DBusRealString*) a;
+  const DBusRealString *real_b = (const DBusRealString*) b;
+  DBUS_GENERIC_STRING_PREAMBLE (real_a);
+  DBUS_GENERIC_STRING_PREAMBLE (real_b);
+
+  if (real_a->len != real_b->len)
+    return FALSE;
+
+  ap = real_a->str;
+  bp = real_b->str;
+  a_end = real_a->str + real_a->len;
+  while (ap != a_end)
+    {
+      if (*ap != *bp)
+        return FALSE;
+      
+      ++ap;
+      ++bp;
+    }
+
+  return TRUE;
+}
+
+/**
+ * Checks whether a string is equal to a C string.
+ *
+ * @param a the string
+ * @param c_str the C string
+ * @returns #TRUE if equal
+ */
+dbus_bool_t
+_dbus_string_equal_c_str (const DBusString *a,
+                          const char       *c_str)
+{
+  const unsigned char *ap;
+  const unsigned char *bp;
+  const unsigned char *a_end;
+  const DBusRealString *real_a = (const DBusRealString*) a;
+  DBUS_GENERIC_STRING_PREAMBLE (real_a);
+
+  ap = real_a->str;
+  bp = (const unsigned char*) c_str;
+  a_end = real_a->str + real_a->len;
+  while (ap != a_end && *bp)
+    {
+      if (*ap != *bp)
+        return FALSE;
+      
+      ++ap;
+      ++bp;
+    }
+
+  if (*ap && *bp == '\0')
+    return FALSE;
+  else if (ap == a_end && *bp)
+    return FALSE;
+  
+  return TRUE;
+}
+
+static const signed char base64_table[] = {
+  /* 0 */ 'A',
+  /* 1 */ 'B',
+  /* 2 */ 'C',
+  /* 3 */ 'D',
+  /* 4 */ 'E',
+  /* 5 */ 'F',
+  /* 6 */ 'G',
+  /* 7 */ 'H',
+  /* 8 */ 'I',
+  /* 9 */ 'J',
+  /* 10 */ 'K',
+  /* 11 */ 'L',
+  /* 12 */ 'M',
+  /* 13 */ 'N',
+  /* 14 */ 'O',
+  /* 15 */ 'P',
+  /* 16 */ 'Q',
+  /* 17 */ 'R',
+  /* 18 */ 'S',
+  /* 19 */ 'T',
+  /* 20 */ 'U',
+  /* 21 */ 'V',
+  /* 22 */ 'W',
+  /* 23 */ 'X',
+  /* 24 */ 'Y',
+  /* 25 */ 'Z',
+  /* 26 */ 'a',
+  /* 27 */ 'b',
+  /* 28 */ 'c',
+  /* 29 */ 'd',
+  /* 30 */ 'e',
+  /* 31 */ 'f',
+  /* 32 */ 'g',
+  /* 33 */ 'h',
+  /* 34 */ 'i',
+  /* 35 */ 'j',
+  /* 36 */ 'k',
+  /* 37 */ 'l',
+  /* 38 */ 'm',
+  /* 39 */ 'n',
+  /* 40 */ 'o',
+  /* 41 */ 'p',
+  /* 42 */ 'q',
+  /* 43 */ 'r',
+  /* 44 */ 's',
+  /* 45 */ 't',
+  /* 46 */ 'u',
+  /* 47 */ 'v',
+  /* 48 */ 'w',
+  /* 49 */ 'x',
+  /* 50 */ 'y',
+  /* 51 */ 'z',
+  /* 52 */ '0',
+  /* 53 */ '1',
+  /* 54 */ '2',
+  /* 55 */ '3',
+  /* 56 */ '4',
+  /* 57 */ '5',
+  /* 58 */ '6',
+  /* 59 */ '7',
+  /* 60 */ '8',
+  /* 61 */ '9',
+  /* 62 */ '+',
+  /* 63 */ '/'
+};
+
+/** The minimum char that's a valid char in Base64-encoded text */
+#define UNBASE64_MIN_CHAR (43)
+/** The maximum char that's a valid char in Base64-encoded text */
+#define UNBASE64_MAX_CHAR (122)
+/** Must subtract this from a char's integer value before offsetting
+ * into unbase64_table
+ */
+#define UNBASE64_TABLE_OFFSET UNBASE64_MIN_CHAR
+static const signed char unbase64_table[] = {
+  /* 43 + */ 62,
+  /* 44 , */ -1,
+  /* 45 - */ -1,
+  /* 46 . */ -1,
+  /* 47 / */ 63,
+  /* 48 0 */ 52,
+  /* 49 1 */ 53,
+  /* 50 2 */ 54,
+  /* 51 3 */ 55,
+  /* 52 4 */ 56,
+  /* 53 5 */ 57,
+  /* 54 6 */ 58,
+  /* 55 7 */ 59,
+  /* 56 8 */ 60,
+  /* 57 9 */ 61,
+  /* 58 : */ -1,
+  /* 59 ; */ -1,
+  /* 60 < */ -1,
+  /* 61 = */ -1,
+  /* 62 > */ -1,
+  /* 63 ? */ -1,
+  /* 64 @ */ -1,
+  /* 65 A */ 0,
+  /* 66 B */ 1,
+  /* 67 C */ 2,
+  /* 68 D */ 3,
+  /* 69 E */ 4,
+  /* 70 F */ 5,
+  /* 71 G */ 6,
+  /* 72 H */ 7,
+  /* 73 I */ 8,
+  /* 74 J */ 9,
+  /* 75 K */ 10,
+  /* 76 L */ 11,
+  /* 77 M */ 12,
+  /* 78 N */ 13,
+  /* 79 O */ 14,
+  /* 80 P */ 15,
+  /* 81 Q */ 16,
+  /* 82 R */ 17,
+  /* 83 S */ 18,
+  /* 84 T */ 19,
+  /* 85 U */ 20,
+  /* 86 V */ 21,
+  /* 87 W */ 22,
+  /* 88 X */ 23,
+  /* 89 Y */ 24,
+  /* 90 Z */ 25,
+  /* 91 [ */ -1,
+  /* 92 \ */ -1,
+  /* 93 ] */ -1,
+  /* 94 ^ */ -1,
+  /* 95 _ */ -1,
+  /* 96 ` */ -1,
+  /* 97 a */ 26,
+  /* 98 b */ 27,
+  /* 99 c */ 28,
+  /* 100 d */ 29,
+  /* 101 e */ 30,
+  /* 102 f */ 31,
+  /* 103 g */ 32,
+  /* 104 h */ 33,
+  /* 105 i */ 34,
+  /* 106 j */ 35,
+  /* 107 k */ 36,
+  /* 108 l */ 37,
+  /* 109 m */ 38,
+  /* 110 n */ 39,
+  /* 111 o */ 40,
+  /* 112 p */ 41,
+  /* 113 q */ 42,
+  /* 114 r */ 43,
+  /* 115 s */ 44,
+  /* 116 t */ 45,
+  /* 117 u */ 46,
+  /* 118 v */ 47,
+  /* 119 w */ 48,
+  /* 120 x */ 49,
+  /* 121 y */ 50,
+  /* 122 z */ 51
+};
+
+/**
+ * Encodes a string using Base64, as documented in RFC 2045.
+ *
+ * @param source the string to encode
+ * @param start byte index to start encoding
+ * @param dest string where encoded data should be placed
+ * @param insert_at where to place encoded data
+ * @returns #TRUE if encoding was successful, #FALSE if no memory etc.
+ */
+dbus_bool_t
+_dbus_string_base64_encode (const DBusString *source,
+                            int               start,
+                            DBusString       *dest,
+                            int               insert_at)
+{
+  int source_len;
+  int dest_len;
+  const unsigned char *s;
+  unsigned char *d;
+  const unsigned char *triplet_end;
+  const unsigned char *final_end;
+  DBUS_STRING_COPY_PREAMBLE (source, start, dest, insert_at);  
+  
+  /* For each 24 bits (3 bytes) of input, we have 4 chars of
+   * output.
+   */
+  source_len = real_source->len - start;
+  dest_len = (source_len / 3) * 4;
+  if (source_len % 3 != 0)
+    dest_len += 4;
+
+  if (source_len == 0)
+    return TRUE;
+  
+  if (!open_gap (dest_len, real_dest, insert_at))
+    return FALSE;
+
+  d = real_dest->str + insert_at;
+  s = real_source->str + start;
+  final_end = real_source->str + (start + source_len);
+  triplet_end = final_end - (source_len % 3);
+  _dbus_assert (triplet_end <= final_end);
+  _dbus_assert ((final_end - triplet_end) < 3);
+
+#define ENCODE_64(v) (base64_table[ (unsigned char) (v) ])
+#define SIX_BITS_MASK (0x3f)
+  _dbus_assert (SIX_BITS_MASK < _DBUS_N_ELEMENTS (base64_table));
+  
+  while (s != triplet_end)
+    {
+      unsigned int triplet;
+
+      triplet = s[0] | (s[1] << 8) | (s[2] << 16);
+
+      /* Encode each 6 bits */
+      
+      *d++ = ENCODE_64 (triplet >> 18);
+      *d++ = ENCODE_64 ((triplet >> 12) & SIX_BITS_MASK);
+      *d++ = ENCODE_64 ((triplet >> 6) & SIX_BITS_MASK);
+      *d++ = ENCODE_64 (triplet & SIX_BITS_MASK);
+      
+      s += 3;
+    }
+
+  switch (final_end - triplet_end)
+    {
+    case 2:
+      {
+        unsigned int doublet;
+        
+        doublet = s[0] | (s[1] << 8);
+        
+        *d++ = ENCODE_64 (doublet >> 12);
+        *d++ = ENCODE_64 ((doublet >> 6) & SIX_BITS_MASK);
+        *d++ = ENCODE_64 (doublet & SIX_BITS_MASK);
+        *d++ = '=';
+      }
+      break;
+    case 1:
+      {
+        unsigned int singlet;
+        
+        singlet = s[0];
+        
+        *d++ = ENCODE_64 ((singlet >> 6) & SIX_BITS_MASK);
+        *d++ = ENCODE_64 (singlet & SIX_BITS_MASK);
+        *d++ = '=';
+        *d++ = '=';
+      }
+      break;
+    case 0:
+      break;
+    }
+
+  _dbus_assert (d == (real_dest->str + (insert_at + dest_len)));
+
+  return TRUE;
+}
+
+
+/**
+ * Decodes a string from Base64, as documented in RFC 2045.
+ *
+ * @param source the string to decode
+ * @param start byte index to start decode
+ * @param dest string where decoded data should be placed
+ * @param insert_at where to place decoded data
+ * @returns #TRUE if decoding was successful, #FALSE if no memory etc.
+ */
+dbus_bool_t
+_dbus_string_base64_decode (const DBusString *source,
+                            int               start,
+                            DBusString       *dest,
+                            int               insert_at)
+{
+  int source_len;
+  const char *s;
+  const char *end;
+  DBusString result;
+  unsigned int triplet = 0;
+  int sextet_count;
+  int pad_count;
+  DBUS_STRING_COPY_PREAMBLE (source, start, dest, insert_at);
+  
+  source_len = real_source->len - start;
+  s = real_source->str + start;
+  end = real_source->str + source_len;
+
+  if (source_len == 0)
+    return TRUE;
+
+  if (!_dbus_string_init (&result, _DBUS_INT_MAX))
+    return FALSE;
+
+  pad_count = 0;
+  sextet_count = 0;
+  while (s != end)
+    {
+      /* The idea is to just skip anything that isn't
+       * a base64 char - it's allowed to have whitespace,
+       * newlines, etc. in here. We also ignore trailing
+       * base64 chars, though that's suspicious.
+       */
+      
+      if (*s >= UNBASE64_MIN_CHAR &&
+          *s <= UNBASE64_MAX_CHAR)
+        {
+          if (*s == '=')
+            {
+              /* '=' is padding, doesn't represent additional data
+               * but does increment our count.
+               */
+              pad_count += 1;
+              sextet_count += 1;
+            }
+          else
+            {
+              int val;
+
+              val = unbase64_table[(*s) - UNBASE64_TABLE_OFFSET];
+
+              if (val >= 0)
+                {
+                  triplet <<= 6;
+                  triplet |= (unsigned int) val;
+                  sextet_count += 1;
+                }
+            }
+
+          if (sextet_count == 4)
+            {
+              /* no pad = 3 bytes, 1 pad = 2 bytes, 2 pad = 1 byte */
+              
+              _dbus_string_append_byte (&result,
+                                        triplet & 0xff);
+              
+              if (pad_count < 2)
+                _dbus_string_append_byte (&result,
+                                          (triplet >> 8) & 0xff);
+
+              if (pad_count < 1)
+                _dbus_string_append_byte (&result,
+                                          triplet >> 16);
+
+              sextet_count = 0;
+              pad_count = 0;
+              triplet = 0;
+            }
+        }
+      
+      ++s;
+    }
+
+  if (!_dbus_string_move (&result, 0, dest, insert_at))
+    {
+      _dbus_string_free (&result);
+      return FALSE;
+    }
+
+  _dbus_string_free (&result);
+
+  return TRUE;
+}
+
+
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS
@@ -1027,6 +1611,54 @@ test_max_len (DBusString *str,
 
   if (!_dbus_string_set_length (str, 0))
     _dbus_assert_not_reached ("setting len to zero should have worked");
+}
+
+static void
+test_base64_roundtrip (const unsigned char *data,
+                       int                  len)
+{
+  DBusString orig;
+  DBusString encoded;
+  DBusString decoded;
+
+  if (len < 0)
+    len = strlen (data);
+  
+  if (!_dbus_string_init (&orig, _DBUS_INT_MAX))
+    _dbus_assert_not_reached ("could not init string");
+
+  if (!_dbus_string_init (&encoded, _DBUS_INT_MAX))
+    _dbus_assert_not_reached ("could not init string");
+  
+  if (!_dbus_string_init (&decoded, _DBUS_INT_MAX))
+    _dbus_assert_not_reached ("could not init string");
+
+  if (!_dbus_string_append_len (&orig, data, len))
+    _dbus_assert_not_reached ("couldn't append orig data");
+
+  if (!_dbus_string_base64_encode (&orig, 0, &encoded, 0))
+    _dbus_assert_not_reached ("could not encode");
+
+  if (!_dbus_string_base64_decode (&encoded, 0, &decoded, 0))
+    _dbus_assert_not_reached ("could not decode");
+
+  if (!_dbus_string_equal (&orig, &decoded))
+    {
+      const char *s;
+      
+      printf ("Original string %d bytes encoded %d bytes decoded %d bytes\n",
+              _dbus_string_get_length (&orig),
+              _dbus_string_get_length (&encoded),
+              _dbus_string_get_length (&decoded));
+      printf ("Original: %s\n", data);
+      _dbus_string_get_const_data (&decoded, &s);
+      printf ("Decoded: %s\n", s);
+      _dbus_assert_not_reached ("original string not the same as string decoded from base64");
+    }
+  
+  _dbus_string_free (&orig);
+  _dbus_string_free (&encoded);
+  _dbus_string_free (&decoded);  
 }
 
 /**
@@ -1219,6 +1851,93 @@ _dbus_string_test (void)
 
   _dbus_string_free (&str);
 
+  /* Test find */
+  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+    _dbus_assert_not_reached ("failed to init string");
+
+  if (!_dbus_string_append (&str, "Hello"))
+    _dbus_assert_not_reached ("couldn't append to string");
+  
+  if (!_dbus_string_find (&str, 0, "He", &i))
+    _dbus_assert_not_reached ("didn't find 'He'");
+  _dbus_assert (i == 0);
+
+  if (!_dbus_string_find (&str, 0, "ello", &i))
+    _dbus_assert_not_reached ("didn't find 'ello'");
+  _dbus_assert (i == 1);
+
+  if (!_dbus_string_find (&str, 0, "lo", &i))
+    _dbus_assert_not_reached ("didn't find 'lo'");
+  _dbus_assert (i == 3);
+
+  if (!_dbus_string_find (&str, 2, "lo", &i))
+    _dbus_assert_not_reached ("didn't find 'lo'");
+  _dbus_assert (i == 3);
+
+  if (_dbus_string_find (&str, 4, "lo", &i))
+    _dbus_assert_not_reached ("did find 'lo'");
+  
+  if (!_dbus_string_find (&str, 0, "l", &i))
+    _dbus_assert_not_reached ("didn't find 'l'");
+  _dbus_assert (i == 2);
+
+  if (!_dbus_string_find (&str, 0, "H", &i))
+    _dbus_assert_not_reached ("didn't find 'H'");
+  _dbus_assert (i == 0);
+
+  if (!_dbus_string_find (&str, 0, "", &i))
+    _dbus_assert_not_reached ("didn't find ''");
+  _dbus_assert (i == 0);
+  
+  if (_dbus_string_find (&str, 0, "Hello!", NULL))
+    _dbus_assert_not_reached ("Did find 'Hello!'");
+
+  if (_dbus_string_find (&str, 0, "Oh, Hello", NULL))
+    _dbus_assert_not_reached ("Did find 'Oh, Hello'");
+  
+  if (_dbus_string_find (&str, 0, "ill", NULL))
+    _dbus_assert_not_reached ("Did find 'ill'");
+
+  if (_dbus_string_find (&str, 0, "q", NULL))
+    _dbus_assert_not_reached ("Did find 'q'");
+  
+  _dbus_string_free (&str);
+
+  /* Base 64 */
+  test_base64_roundtrip ("Hello this is a string\n", -1);
+  test_base64_roundtrip ("Hello this is a string\n1", -1);
+  test_base64_roundtrip ("Hello this is a string\n12", -1);
+  test_base64_roundtrip ("Hello this is a string\n123", -1);
+  test_base64_roundtrip ("Hello this is a string\n1234", -1);
+  test_base64_roundtrip ("Hello this is a string\n12345", -1);
+  test_base64_roundtrip ("", 0);
+  test_base64_roundtrip ("1", 1);
+  test_base64_roundtrip ("12", 2);
+  test_base64_roundtrip ("123", 3);
+  test_base64_roundtrip ("1234", 4);
+  test_base64_roundtrip ("12345", 5);
+  test_base64_roundtrip ("", 1);
+  test_base64_roundtrip ("1", 2);
+  test_base64_roundtrip ("12", 3);
+  test_base64_roundtrip ("123", 4);
+  test_base64_roundtrip ("1234", 5);
+  test_base64_roundtrip ("12345", 6);
+  {
+    unsigned char buf[512];
+    i = 0;
+    while (i < _DBUS_N_ELEMENTS (buf))
+      {
+        buf[i] = i;
+        ++i;
+      }
+    i = 0;
+    while (i < _DBUS_N_ELEMENTS (buf))
+      {
+        test_base64_roundtrip (buf, i);
+        ++i;
+      }
+  }
+  
   return TRUE;
 }
 
