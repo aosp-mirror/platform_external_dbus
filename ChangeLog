@@ -1,3 +1,7 @@
+2004-03-21  Havoc Pennington  <hp@redhat.com>
+
+	* test/test-service.c (main): remove debug spew
+
 2004-03-21  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* dbus/dbus-marshal.c (_dbus_marshal_validate_arg): accept empty

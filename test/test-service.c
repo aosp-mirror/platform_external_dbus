@@ -190,8 +190,6 @@ main (int    argc,
                                              &echo_vtable,
                                              NULL))
     die ("No memory");
-  
-  printf ("Acquiring service\n");
 
   result = dbus_bus_acquire_service (connection, "org.freedesktop.DBus.TestSuiteEchoService",
                                      0, &error);
