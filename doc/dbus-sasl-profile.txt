@@ -26,7 +26,7 @@ The protocol is a line-based protocol, where each line ends with
 \r\n. Each line begins with an all-caps ASCII command name containing
 only the character range [A-Z], a space, then any arguments for the
 command, then the \r\n ending the line. The protocol is
-case-sensitive.
+case-sensitive. All bytes must be in the ASCII character set.
 
 Commands from the client to the server are as follows:
 

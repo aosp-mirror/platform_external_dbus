@@ -94,13 +94,18 @@ dbus_bool_t
 _dbus_connection_queue_received_message (DBusConnection *connection,
                                          DBusMessage    *message)
 {
+  _dbus_assert (_dbus_transport_get_is_authenticated (connection->transport));
+  
   if (!_dbus_list_append (&connection->incoming_messages,
                           message))
     return FALSE;
-
+  
   dbus_message_ref (message);
   connection->n_incoming += 1;
 
+  _dbus_verbose ("Incoming message %p added to queue, %d incoming\n",
+                 message, connection->n_incoming);
+  
   return TRUE;
 }
 
@@ -140,11 +145,17 @@ void
 _dbus_connection_message_sent (DBusConnection *connection,
                                DBusMessage    *message)
 {
+  _dbus_assert (_dbus_transport_get_is_authenticated (connection->transport));
   _dbus_assert (message == _dbus_list_get_last (&connection->outgoing_messages));
+  
   _dbus_list_pop_last (&connection->outgoing_messages);
   dbus_message_unref (message);
   
   connection->n_outgoing -= 1;
+
+  _dbus_verbose ("Message %p removed from outgoing queue, %d left to send\n",
+                 message, connection->n_outgoing);
+  
   if (connection->n_outgoing == 0)
     _dbus_transport_messages_pending (connection->transport,
                                       connection->n_outgoing);  
@@ -164,10 +175,11 @@ dbus_bool_t
 _dbus_connection_add_watch (DBusConnection *connection,
                             DBusWatch      *watch)
 {
-  return _dbus_watch_list_add_watch (connection->watches,
-                                     watch);
-  
-  return TRUE;
+  if (connection->watches) /* null during finalize */
+    return _dbus_watch_list_add_watch (connection->watches,
+                                       watch);
+  else
+    return FALSE;
 }
 
 /**
@@ -182,8 +194,9 @@ void
 _dbus_connection_remove_watch (DBusConnection *connection,
                                DBusWatch      *watch)
 {
-  _dbus_watch_list_remove_watch (connection->watches,
-                                 watch);
+  if (connection->watches) /* null during finalize */
+    _dbus_watch_list_remove_watch (connection->watches,
+                                   watch);
 }
 
 static void
@@ -442,7 +455,8 @@ dbus_connection_unref (DBusConnection *connection)
                                           NULL, NULL, NULL);
 
       _dbus_watch_list_free (connection->watches);
-
+      connection->watches = NULL;
+      
       _dbus_hash_iter_init (connection->handler_table, &iter);
       while (_dbus_hash_iter_next (&iter))
         {
@@ -545,6 +559,9 @@ dbus_connection_send_message (DBusConnection *connection,
   dbus_message_ref (message);
   connection->n_outgoing += 1;
 
+  _dbus_verbose ("Message %p added to outgoing queue, %d pending to send\n",
+                 message, connection->n_outgoing);
+  
   _dbus_message_lock (message);
   
   if (connection->n_outgoing == 1)
@@ -668,8 +685,15 @@ dbus_connection_pop_message (DBusConnection *connection)
 {
   if (connection->n_incoming > 0)
     {
+      DBusMessage *message;
+
+      message = _dbus_list_pop_first (&connection->incoming_messages);
       connection->n_incoming -= 1;
-      return _dbus_list_pop_first (&connection->incoming_messages);
+
+      _dbus_verbose ("Incoming message %p removed from queue, %d incoming\n",
+                     message, connection->n_incoming);
+
+      return message;
     }
   else
     return NULL;
@@ -700,7 +724,10 @@ dbus_connection_dispatch_message (DBusConnection *connection)
   
   message = dbus_connection_pop_message (connection);
   if (message == NULL)
-    return FALSE;
+    {
+      dbus_connection_unref (connection);
+      return FALSE;
+    }
 
   filter_serial = connection->filters_serial;
   handler_serial = connection->handlers_serial;

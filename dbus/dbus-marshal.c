@@ -26,9 +26,37 @@
 
 #include <string.h>
 
+#define DBUS_UINT32_SWAP_LE_BE_CONSTANT(val)	((dbus_uint32_t) ( \
+    (((dbus_uint32_t) (val) & (dbus_uint32_t) 0x000000ffU) << 24) |  \
+    (((dbus_uint32_t) (val) & (dbus_uint32_t) 0x0000ff00U) <<  8) |  \
+    (((dbus_uint32_t) (val) & (dbus_uint32_t) 0x00ff0000U) >>  8) |  \
+    (((dbus_uint32_t) (val) & (dbus_uint32_t) 0xff000000U) >> 24)))
+
+#define DBUS_UINT32_SWAP_LE_BE(val) (DBUS_UINT32_SWAP_LE_BE_CONSTANT (val))
+
+#ifdef WORDS_BIGENDIAN
+#define DBUS_INT32_TO_BE(val)	((dbus_int32_t) (val))
+#define DBUS_UINT32_TO_BE(val)	((dbus_uint32_t) (val))
+#define DBUS_INT32_TO_LE(val)	((dbus_int32_t) DBUS_UINT32_SWAP_LE_BE (val))
+#define DBUS_UINT32_TO_LE(val)	(DBUS_UINT32_SWAP_LE_BE (val))
+#else
+#define DBUS_INT32_TO_LE(val)	((dbus_int32_t) (val))
+#define DBUS_UINT32_TO_LE(val)	((dbus_uint32_t) (val))
+#define DBUS_INT32_TO_BE(val)	((dbus_int32_t) DBUS_UINT32_SWAP_LE_BE (val))
+#define DBUS_UINT32_TO_BE(val)	(DBUS_UINT32_SWAP_LE_BE (val))
+#endif
+
+/* The transformation is symmetric, so the FROM just maps to the TO. */
+#define DBUS_INT32_FROM_LE(val)	 (DBUS_INT32_TO_LE (val))
+#define DBUS_UINT32_FROM_LE(val) (DBUS_UINT32_TO_LE (val))
+#define DBUS_INT32_FROM_BE(val)	 (DBUS_INT32_TO_BE (val))
+#define DBUS_UINT32_FROM_BE(val) (DBUS_UINT32_TO_BE (val))
+
+
 /* This alignment thing is from ORBit2 */
 /* Align a value upward to a boundary, expressed as a number of bytes.
-   E.g. align to an 8-byte boundary with argument of 8.  */
+ * E.g. align to an 8-byte boundary with argument of 8.
+ */
 
 /*
  *   (this + boundary - 1)
@@ -60,6 +88,41 @@ swap_bytes (unsigned char *data,
       ++p1;
     }
 }
+
+static dbus_uint32_t
+unpack_uint32 (int                  byte_order,
+               const unsigned char *data)
+{
+  _dbus_assert (DBUS_ALIGN_ADDRESS (data, 4) == data);
+  
+  if (byte_order == DBUS_LITTLE_ENDIAN)
+    return DBUS_UINT32_FROM_LE (*(dbus_uint32_t*)data);
+  else
+    return DBUS_UINT32_FROM_BE (*(dbus_uint32_t*)data);
+}             
+
+static dbus_int32_t
+unpack_int32 (int                  byte_order,
+              const unsigned char *data)
+{
+  _dbus_assert (DBUS_ALIGN_ADDRESS (data, 4) == data);
+  
+  if (byte_order == DBUS_LITTLE_ENDIAN)
+    return DBUS_INT32_FROM_LE (*(dbus_int32_t*)data);
+  else
+    return DBUS_INT32_FROM_BE (*(dbus_int32_t*)data);
+}
+
+/**
+ * @defgroup DBusMarshal marshaling and unmarshaling
+ * @ingroup  DBusInternals
+ * @brief functions to marshal/unmarshal data from the wire
+ *
+ * Types and functions related to converting primitive data types from
+ * wire format to native machine format, and vice versa.
+ *
+ * @{
+ */
 
 dbus_bool_t
 _dbus_marshal_double (DBusString *str,
@@ -161,20 +224,14 @@ _dbus_demarshal_int32  (DBusString *str,
 			int         pos,
 			int        *new_pos)
 {
-  dbus_int32_t retval;
   const char *buffer;
 
   _dbus_string_get_const_data_len (str, &buffer, pos, sizeof (dbus_int32_t));
 
-  retval = *(dbus_int32_t *)buffer;
-
-  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-    swap_bytes ((unsigned char *)&retval, sizeof (dbus_int32_t));
-
   if (new_pos)
     *new_pos = pos + sizeof (dbus_int32_t);
-  
-  return retval;  
+
+  return unpack_int32 (byte_order, buffer);
 }
 
 dbus_uint32_t
@@ -183,20 +240,14 @@ _dbus_demarshal_uint32  (DBusString *str,
 			 int         pos,
 			 int        *new_pos)
 {
-  dbus_uint32_t retval;
   const char *buffer;
 
   _dbus_string_get_const_data_len (str, &buffer, pos, sizeof (dbus_uint32_t));
 
-  retval = *(dbus_uint32_t *)buffer;
-
-  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-    swap_bytes ((unsigned char *)&retval, sizeof (dbus_uint32_t));
-
   if (new_pos)
     *new_pos = pos + sizeof (dbus_uint32_t);
-  
-  return retval;  
+
+  return unpack_uint32 (byte_order, buffer);
 }
 
 char *
@@ -227,6 +278,68 @@ _dbus_demarshal_string (DBusString *str,
     *new_pos = pos + len + 1;
   
   return retval;
+}
+
+/**
+ * If in verbose mode, print a block of binary data.
+ *
+ * @param data the data
+ * @param len the length of the data
+ */
+void
+_dbus_verbose_bytes (const unsigned char *data,
+                     int                  len)
+{
+  int i;
+  const unsigned char *aligned;
+
+  /* Print blanks on first row if appropriate */
+  aligned = DBUS_ALIGN_ADDRESS (data, 4);
+  if (aligned > data)
+    aligned -= 4;
+  _dbus_assert (aligned <= data);
+
+  if (aligned != data)
+    {
+      _dbus_verbose ("%5d\t%p: ", - (data - aligned), aligned); 
+      while (aligned != data)
+        {
+          _dbus_verbose ("    ");
+          ++aligned;
+        }
+    }
+
+  /* now print the bytes */
+  i = 0;
+  while (i < len)
+    {
+      if (DBUS_ALIGN_ADDRESS (&data[i], 4) == &data[i])
+        {
+          _dbus_verbose ("%5d\t%p: ",
+                   i, &data[i]);
+        }
+      
+      if (data[i] >= 32 &&
+          data[i] <= 126)
+        _dbus_verbose (" '%c' ", data[i]);
+      else
+        _dbus_verbose ("0x%s%x ",
+                 data[i] <= 0xf ? "0" : "", data[i]);
+
+      ++i;
+
+      if (DBUS_ALIGN_ADDRESS (&data[i], 4) == &data[i])
+        {
+          if (i > 3)
+            _dbus_verbose ("big: %d little: %d",
+                     unpack_uint32 (DBUS_BIG_ENDIAN, &data[i-4]),
+                     unpack_uint32 (DBUS_LITTLE_ENDIAN, &data[i-4]));
+          
+          _dbus_verbose ("\n");
+        }
+    }
+
+  _dbus_verbose ("\n");
 }
 
 /** @} */

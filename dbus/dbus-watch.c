@@ -190,7 +190,7 @@ _dbus_watch_list_new (void)
 void
 _dbus_watch_list_free (DBusWatchList *watch_list)
 {
-  /* free watch_data as a side effect */
+  /* free watch_data and removes watches as a side effect */
   _dbus_watch_list_set_functions (watch_list,
                                   NULL, NULL, NULL, NULL);
   

@@ -39,6 +39,7 @@ void _dbus_message_lock             (DBusMessage          *message);
 DBusMessageLoader* _dbus_message_loader_new                   (void);
 void               _dbus_message_loader_ref                   (DBusMessageLoader  *loader);
 void               _dbus_message_loader_unref                 (DBusMessageLoader  *loader);
+
 void               _dbus_message_loader_get_buffer            (DBusMessageLoader  *loader,
                                                                DBusString        **buffer);
 void               _dbus_message_loader_return_buffer         (DBusMessageLoader  *loader,
@@ -47,6 +48,7 @@ void               _dbus_message_loader_return_buffer         (DBusMessageLoader
 
 DBusMessage*       _dbus_message_loader_pop_message           (DBusMessageLoader  *loader);
 
+dbus_bool_t        _dbus_message_loader_get_is_corrupted      (DBusMessageLoader  *loader);
 
 DBUS_END_DECLS;
 

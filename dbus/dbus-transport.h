@@ -30,22 +30,24 @@ DBUS_BEGIN_DECLS;
 
 typedef struct DBusTransport DBusTransport;
 
-DBusTransport* _dbus_transport_open             (const char     *address,
-                                                 DBusResultCode *result);
-void           _dbus_transport_ref              (DBusTransport  *transport);
-void           _dbus_transport_unref            (DBusTransport  *transport);
-void           _dbus_transport_disconnect       (DBusTransport  *transport);
-dbus_bool_t    _dbus_transport_get_is_connected (DBusTransport  *transport);
-void           _dbus_transport_handle_watch     (DBusTransport  *transport,
-                                                 DBusWatch      *watch,
-                                                 unsigned int    condition);
-void           _dbus_transport_set_connection   (DBusTransport  *transport,
-                                                 DBusConnection *connection);
-void           _dbus_transport_messages_pending (DBusTransport  *transport,
-                                                 int             queue_length);
-void           _dbus_transport_do_iteration     (DBusTransport  *transport,
-                                                 unsigned int    flags,
-                                                 int             timeout_milliseconds);
+DBusTransport* _dbus_transport_open                 (const char     *address,
+                                                     DBusResultCode *result);
+void           _dbus_transport_ref                  (DBusTransport  *transport);
+void           _dbus_transport_unref                (DBusTransport  *transport);
+void           _dbus_transport_disconnect           (DBusTransport  *transport);
+dbus_bool_t    _dbus_transport_get_is_connected     (DBusTransport  *transport);
+dbus_bool_t    _dbus_transport_get_is_authenticated (DBusTransport  *transport);
+void           _dbus_transport_handle_watch         (DBusTransport  *transport,
+                                                     DBusWatch      *watch,
+                                                     unsigned int    condition);
+void           _dbus_transport_set_connection       (DBusTransport  *transport,
+                                                     DBusConnection *connection);
+void           _dbus_transport_messages_pending     (DBusTransport  *transport,
+                                                     int             queue_length);
+void           _dbus_transport_do_iteration         (DBusTransport  *transport,
+                                                     unsigned int    flags,
+                                                     int             timeout_milliseconds);
+
 
 
 DBUS_END_DECLS;

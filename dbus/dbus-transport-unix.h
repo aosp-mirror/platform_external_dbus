@@ -27,8 +27,10 @@
 
 DBUS_BEGIN_DECLS;
 
-DBusTransport* _dbus_transport_new_for_fd            (int             fd);
+DBusTransport* _dbus_transport_new_for_fd            (int             fd,
+                                                      dbus_bool_t     server);
 DBusTransport* _dbus_transport_new_for_domain_socket (const char     *path,
+                                                      dbus_bool_t     server,
                                                       DBusResultCode *result);
 
 

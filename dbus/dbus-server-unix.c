@@ -77,7 +77,7 @@ handle_new_client_fd (DBusServer *server,
   if (!_dbus_set_fd_nonblocking (client_fd, NULL))
     return;
   
-  transport = _dbus_transport_new_for_fd (client_fd);
+  transport = _dbus_transport_new_for_fd (client_fd, TRUE);
   if (transport == NULL)
     {
       close (client_fd);

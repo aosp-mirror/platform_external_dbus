@@ -24,14 +24,19 @@
 #ifndef DBUS_MARSHAL_H
 #define DBUS_MARSHAL_H
 
+#include <config.h>
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-string.h>
 
+#ifndef PACKAGE
+#error "config.h not included here"
+#endif
+
 #ifdef WORDS_BIGENDIAN
-#define DBUS_COMPILER_BYTE_ORDER DBUS_LITTLE_ENDIAN
-#else
 #define DBUS_COMPILER_BYTE_ORDER DBUS_BIG_ENDIAN
+#else
+#define DBUS_COMPILER_BYTE_ORDER DBUS_LITTLE_ENDIAN
 #endif
 
 dbus_bool_t _dbus_marshal_double (DBusString    *str,

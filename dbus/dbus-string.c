@@ -723,7 +723,7 @@ open_gap (int             len,
 
   memmove (dest->str + insert_at + len, 
            dest->str + insert_at,
-           dest->len - len);
+           dest->len - len - insert_at);
 
   return TRUE;
 }
@@ -1139,13 +1139,16 @@ _dbus_string_skip_blank (const DBusString *str,
   i = start;
   while (i < real->len)
     {
-      if (real->str[i] != ' ' ||
-          real->str[i] != '\t')
+      if (!(real->str[i] == ' ' ||
+            real->str[i] == '\t'))
         break;
       
       ++i;
     }
 
+  _dbus_assert (i == real->len || !(real->str[i] == ' ' ||
+                                    real->str[i] == '\t'));
+  
   if (end)
     *end = i;
 }
@@ -1586,6 +1589,43 @@ _dbus_string_base64_decode (const DBusString *source,
   return TRUE;
 }
 
+/**
+ * Checks that the given range of the string
+ * is valid ASCII. If the given range is not contained
+ * in the string, returns #FALSE.
+ *
+ * @param str the string
+ * @param start first byte index to check
+ * @param len number of bytes to check
+ * @returns #TRUE if the byte range exists and is all valid ASCII
+ */
+dbus_bool_t
+_dbus_string_validate_ascii (const DBusString *str,
+                             int               start,
+                             int               len)
+{
+  const unsigned char *s;
+  const unsigned char *end;
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start >= 0);
+  _dbus_assert (len >= 0);
+  
+  if ((start + len) > real->len)
+    return FALSE;
+  
+  s = real->str + start;
+  end = s + len;
+  while (s != end)
+    {
+      if (*s == '\0' ||
+          ((*s & ~0x7f) != 0))
+        return FALSE;
+        
+      ++s;
+    }
+  
+  return TRUE;
+}
 
 /** @} */
 
@@ -1780,6 +1820,24 @@ _dbus_string_test (void)
   _dbus_assert (_dbus_string_get_length (&str) == 0);
   _dbus_assert (_dbus_string_get_length (&other) == i);
 
+  if (!_dbus_string_append (&str, "Hello World"))
+    _dbus_assert_not_reached ("could not append to string");
+  
+  if (!_dbus_string_move (&str, 0, &other, _dbus_string_get_length (&other)))
+    _dbus_assert_not_reached ("could not move");
+
+  _dbus_assert (_dbus_string_get_length (&str) == 0);
+  _dbus_assert (_dbus_string_get_length (&other) == i * 2);
+
+    if (!_dbus_string_append (&str, "Hello World"))
+    _dbus_assert_not_reached ("could not append to string");
+  
+  if (!_dbus_string_move (&str, 0, &other, _dbus_string_get_length (&other) / 2))
+    _dbus_assert_not_reached ("could not move");
+
+  _dbus_assert (_dbus_string_get_length (&str) == 0);
+  _dbus_assert (_dbus_string_get_length (&other) == i * 3);
+  
   _dbus_string_free (&other);
 
   /* Check copy */
@@ -1797,6 +1855,22 @@ _dbus_string_test (void)
 
   _dbus_assert (_dbus_string_get_length (&str) == i);
   _dbus_assert (_dbus_string_get_length (&other) == i);
+
+  if (!_dbus_string_copy (&str, 0, &other, _dbus_string_get_length (&other)))
+    _dbus_assert_not_reached ("could not copy");
+
+  _dbus_assert (_dbus_string_get_length (&str) == i);
+  _dbus_assert (_dbus_string_get_length (&other) == i * 2);
+  _dbus_assert (_dbus_string_equal_c_str (&other,
+                                          "Hello WorldHello World"));
+
+  if (!_dbus_string_copy (&str, 0, &other, _dbus_string_get_length (&other) / 2))
+    _dbus_assert_not_reached ("could not copy");
+
+  _dbus_assert (_dbus_string_get_length (&str) == i);
+  _dbus_assert (_dbus_string_get_length (&other) == i * 3);
+  _dbus_assert (_dbus_string_equal_c_str (&other,
+                                          "Hello WorldHello WorldHello World"));
   
   _dbus_string_free (&str);
   _dbus_string_free (&other);

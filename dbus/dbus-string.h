@@ -159,6 +159,10 @@ dbus_bool_t _dbus_string_base64_decode (const DBusString *source,
                                         DBusString       *dest,
                                         int               insert_at);
 
+dbus_bool_t _dbus_string_validate_ascii (const DBusString *str,
+                                         int               start,
+                                         int               len);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_STRING_H */

@@ -15,6 +15,7 @@
 #undef	MAX
 #define MAX(a, b)  (((a) > (b)) ? (a) : (b))
 
+static int watch_list_serial = 0;
 static DBusList *watches = NULL;
 static dbus_bool_t exited = FALSE;
 static DBusList *connections = NULL;
@@ -32,6 +33,19 @@ typedef struct
 } WatchData;
 
 static void
+free_watch_data (void *data)
+{
+  WatchData *wd = data;
+
+  if (wd->type == WATCH_CONNECTION)
+    dbus_connection_unref (wd->data);
+  else if (wd->type == WATCH_SERVER)
+    dbus_server_unref (wd->data);
+
+  dbus_free (wd);
+}
+
+static void
 add_connection_watch (DBusWatch      *watch,
                       DBusConnection *connection)
 {
@@ -40,17 +54,36 @@ add_connection_watch (DBusWatch      *watch,
   wd = dbus_new0 (WatchData, 1);
   wd->type = WATCH_CONNECTION;
   wd->data = connection;
+
+  dbus_connection_ref (connection);
   
   _dbus_list_append (&watches, watch);
-  dbus_watch_set_data (watch, wd, dbus_free);
-}
+  dbus_watch_set_data (watch, wd, free_watch_data);
+
+  watch_list_serial += 1;
+
+#if 0
+  printf ("Added connection %swatch for fd %d\n",
+          dbus_watch_get_flags (watch) & DBUS_WATCH_WRITABLE ? "write " : "",
+          dbus_watch_get_fd (watch));
+#endif
+ }
 
 static void
 remove_connection_watch (DBusWatch      *watch,
                          DBusConnection *connection)
 {
-  _dbus_list_remove (&watches, watch);
+  if (!_dbus_list_remove (&watches, watch))
+    _dbus_assert_not_reached ("removed nonexistent watch");
+
   dbus_watch_set_data (watch, NULL, NULL);
+
+  watch_list_serial += 1;
+
+#if 0
+  printf ("Removed connection watch for fd %d\n",
+          dbus_watch_get_fd (watch));
+#endif
 }
 
 static void
@@ -62,18 +95,37 @@ add_server_watch (DBusWatch      *watch,
   wd = dbus_new0 (WatchData, 1);
   wd->type = WATCH_SERVER;
   wd->data = server;
+
+  dbus_server_ref (server);
   
   _dbus_list_append (&watches, watch);
 
-  dbus_watch_set_data (watch, wd, dbus_free);
+  dbus_watch_set_data (watch, wd, free_watch_data);
+
+  watch_list_serial += 1;
+
+#if 0
+  printf ("Added server %swatch for fd %d\n",
+          dbus_watch_get_flags (watch) & DBUS_WATCH_WRITABLE ? "write " : "",
+          dbus_watch_get_fd (watch));
+#endif
 }
 
 static void
 remove_server_watch (DBusWatch      *watch,
                      DBusServer     *server)
 {
-  _dbus_list_remove (&watches, watch);
+  if (!_dbus_list_remove (&watches, watch))
+    _dbus_assert_not_reached ("removed nonexistent server watch");
+  
   dbus_watch_set_data (watch, NULL, NULL);
+
+  watch_list_serial += 1;
+
+#if 0
+  printf ("Removed server watch for fd %d\n",
+          dbus_watch_get_fd (watch));
+#endif
 }
 
 static int count = 0;
@@ -122,7 +174,6 @@ do_mainloop (void)
   /* Of course with any real app you'd use GMainLoop or
    * QSocketNotifier and not have to see all this crap.
    */
-  
   while (!exited && watches != NULL)
     {
       fd_set read_set;
@@ -130,7 +181,8 @@ do_mainloop (void)
       fd_set err_set;
       int max_fd;
       DBusList *link;
-
+      int initial_watch_serial;
+      
       check_messages ();
       
       FD_ZERO (&read_set);
@@ -167,6 +219,7 @@ do_mainloop (void)
 
       select (max_fd + 1, &read_set, &write_set, &err_set, NULL);
 
+      initial_watch_serial = watch_list_serial;
       link = _dbus_list_get_first_link (&watches);
       while (link != NULL)
         {
@@ -175,6 +228,20 @@ do_mainloop (void)
           DBusWatch *watch;
           unsigned int flags;
           unsigned int condition;
+
+          if (initial_watch_serial != watch_list_serial)
+            {
+              /* Watches were added/removed,
+               * hosing our list; break out of here
+               */
+              /* A more elegant solution might be to ref
+               * all watches, then check which have fd >= 0
+               * as we iterate over them, since removed
+               * watches have their fd invalidated.
+               */
+              printf ("Aborting watch iteration due to serial increment\n");
+              break;
+            }
           
           watch = link->data;
           

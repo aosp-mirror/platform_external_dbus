@@ -246,6 +246,8 @@ struct DBusMessageLoader
   DBusList *messages;  /**< Complete messages. */
   
   unsigned int buffer_outstanding : 1; /**< Someone is using the buffer to read */
+
+  unsigned int corrupted : 1; /**< We got broken data, and are no longer working */
 };
 
 /**
@@ -284,7 +286,8 @@ _dbus_message_loader_new (void)
     }
 
   /* preallocate the buffer for speed, ignore failure */
-  (void) _dbus_string_set_length (&loader->data, INITIAL_LOADER_DATA_LEN);
+  _dbus_string_set_length (&loader->data, INITIAL_LOADER_DATA_LEN);
+  _dbus_string_set_length (&loader->data, 0);
   
   return loader;
 }
@@ -376,9 +379,28 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 
   loader->buffer_outstanding = FALSE;
 
+  if (loader->corrupted)
+    return;
+  
   while (_dbus_string_get_length (&loader->data) >= 7)
     {
       DBusMessage *message;
+      const char *d;
+
+      _dbus_string_get_const_data (&loader->data, &d);
+      if (d[0] != 'H' ||
+          d[1] != '\0' ||
+          d[2] != 'B' ||
+          d[3] != 'o' ||
+          d[4] != 'd' ||
+          d[5] != 'y' ||
+          d[6] != '\0')
+        {
+          _dbus_verbose_bytes (d,
+                               _dbus_string_get_length (&loader->data));
+          loader->corrupted = TRUE;
+          return;
+        }
       
       message = dbus_message_new ();
       if (message == NULL)
@@ -405,6 +427,22 @@ DBusMessage*
 _dbus_message_loader_pop_message (DBusMessageLoader *loader)
 {
   return _dbus_list_pop_first (&loader->messages);
+}
+
+
+/**
+ * Checks whether the loader is confused due to bad data.
+ * If messages are received that are invalid, the
+ * loader gets confused and gives up permanently.
+ * This state is called "corrupted."
+ *
+ * @param loader the loader
+ * @returns #TRUE if the loader is hosed.
+ */
+dbus_bool_t
+_dbus_message_loader_get_is_corrupted (DBusMessageLoader *loader)
+{
+  return loader->corrupted;
 }
 
 /** @} */

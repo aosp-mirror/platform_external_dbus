@@ -74,12 +74,17 @@ char* _dbus_strdup (const char *str);
 #define _DBUS_INT_MIN	(-_DBUS_INT_MAX - 1)
 #define _DBUS_INT_MAX	2147483647
 #define _DBUS_MAX_SUN_PATH_LENGTH 99
+#define _DBUS_ONE_KILOBYTE 1024
+#define _DBUS_ONE_MEGABYTE 1024 * _DBUS_ONE_KILOBYTE
 
 typedef void (* DBusForeachFunction) (void *element,
                                       void *data);
 
 dbus_bool_t _dbus_set_fd_nonblocking (int             fd,
                                       DBusResultCode *result);
+
+void _dbus_verbose_bytes (const unsigned char *data,
+                          int                  len);
 
 DBUS_END_DECLS;
 

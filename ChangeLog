@@ -1,3 +1,69 @@
+2002-12-26  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-marshal.h (DBUS_COMPILER_BYTE_ORDER): #ifdef
+	WORDS_BIGENDIAN then compiler byte order is DBUS_BIG_ENDIAN,
+	doh
+
+	* dbus/dbus-marshal.c: Add macros to do int swapping in-place and
+	avoid swap_bytes() overhead (ignoring possible assembly stuff for 
+	now). Main point is because I wanted unpack_uint32 to implement
+	_dbus_verbose_bytes
+	(_dbus_verbose_bytes): new function
+
+	* dbus/dbus-string.c (_dbus_string_validate_ascii): new function
+
+	* dbus/dbus-message.c (_dbus_message_loader_get_is_corrupted): add
+	mechanism to handle a corrupt message stream
+	(_dbus_message_loader_new): fix preallocation to only prealloc, 
+	not prelengthen
+	
+	* dbus/dbus-string.c (_dbus_string_skip_blank): fix this function
+	(_dbus_string_test): enhance tests for copy/move and fix the
+	functions
+
+	* dbus/dbus-transport-unix.c: Hold references in more places to 
+	avoid reentrancy problems
+
+	* dbus/dbus-transport.c: ditto
+
+	* dbus/dbus-connection.c (dbus_connection_dispatch_message): don't
+	leak reference count in no-message case
+
+	* test/watch.c (do_mainloop): handle adding/removing watches
+	during iteration over the watches. Also, ref the connection/server
+	stored on a watch, so we don't try to mangle a destroyed one.
+
+	* dbus/dbus-transport-unix.c (do_authentication): perform
+	authentication
+
+	* dbus/dbus-auth.c (get_state): add a state
+	AUTHENTICATED_WITH_UNUSED_BYTES and return it if required
+	(_dbus_auth_get_unused_bytes): append the unused bytes
+	to the passed in string, rather than prepend
+
+	* dbus/dbus-transport.c (_dbus_transport_init_base): create 
+	the auth conversation DBusAuth
+
+	* dbus/dbus-transport-unix.c (_dbus_transport_new_for_fd)
+	(_dbus_transport_new_for_domain_socket): when creating a
+	transport, pass in whether it's a client-side or server-side
+	transport so we know which DBusAuth to create
+
+2002-12-03  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-transport-unix.c (unix_finalize): finalize base
+	_after_ finalizing the derived members
+	(unix_connection_set): unref watch if we fail to add it
+
+	* dbus/dbus-connection.c (dbus_connection_unref): delete the
+	transport first, so that the connection owned by the 
+	transport will be valid as the transport finalizes.
+
+	* dbus/dbus-transport-unix.c (unix_finalize): free the write_watch
+	if necessary, and remove watches from the connection.
+	
+	* dbus/dbus-watch.c (_dbus_watch_list_free): improve a comment
+	
 2002-12-26  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-marshal.c: (_dbus_marshal_string),

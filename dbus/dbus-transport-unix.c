@@ -64,27 +64,309 @@ struct DBusTransportUnix
 };
 
 static void
+free_watches (DBusTransport *transport)
+{
+  DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
+  
+  if (unix_transport->watch)
+    {
+      if (transport->connection)
+        _dbus_connection_remove_watch (transport->connection,
+                                       unix_transport->watch);
+      _dbus_watch_invalidate (unix_transport->watch);
+      _dbus_watch_unref (unix_transport->watch);
+      unix_transport->watch = NULL;
+    }
+
+  if (unix_transport->write_watch)
+    {
+      if (transport->connection)
+        _dbus_connection_remove_watch (transport->connection,
+                                       unix_transport->write_watch);
+      _dbus_watch_invalidate (unix_transport->write_watch);
+      _dbus_watch_unref (unix_transport->write_watch);
+      unix_transport->write_watch = NULL;
+    }
+}
+
+static void
 unix_finalize (DBusTransport *transport)
 {
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
   
+  free_watches (transport);
+  
   _dbus_transport_finalize_base (transport);
 
-  if (unix_transport->watch)
-    {
-      _dbus_watch_invalidate (unix_transport->watch);
-      _dbus_watch_unref (unix_transport->watch);
-    }
+  _dbus_assert (unix_transport->watch == NULL);
+  _dbus_assert (unix_transport->write_watch == NULL);
   
   dbus_free (transport);
 }
 
 static void
+check_write_watch (DBusTransport *transport)
+{
+  DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
+  dbus_bool_t need_write_watch;
+
+  if (transport->connection == NULL)
+    return;
+  
+  _dbus_transport_ref (transport);
+
+  if (_dbus_transport_get_is_authenticated (transport))
+    need_write_watch = transport->messages_need_sending;
+  else
+    need_write_watch = _dbus_auth_do_work (transport->auth) == DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND;
+
+  if (transport->disconnected)
+    need_write_watch = FALSE;
+  
+  if (need_write_watch &&
+      unix_transport->write_watch == NULL)
+    {
+      unix_transport->write_watch =
+        _dbus_watch_new (unix_transport->fd,
+                         DBUS_WATCH_WRITABLE);
+
+      /* we can maybe add it some other time, just silently bomb */
+      if (unix_transport->write_watch == NULL)
+        return;
+
+      if (!_dbus_connection_add_watch (transport->connection,
+                                       unix_transport->write_watch))
+        {
+          _dbus_watch_invalidate (unix_transport->write_watch);
+          _dbus_watch_unref (unix_transport->write_watch);
+          unix_transport->write_watch = NULL;
+        }
+    }
+  else if (!need_write_watch &&
+           unix_transport->write_watch != NULL)
+    {
+      _dbus_connection_remove_watch (transport->connection,
+                                     unix_transport->write_watch);
+      _dbus_watch_invalidate (unix_transport->write_watch);
+      _dbus_watch_unref (unix_transport->write_watch);
+      unix_transport->write_watch = NULL;
+    }
+
+  _dbus_transport_unref (transport);
+}
+
+static void
 do_io_error (DBusTransport *transport)
 {
+  _dbus_transport_ref (transport);
   _dbus_transport_disconnect (transport);
   _dbus_connection_transport_error (transport->connection,
                                     DBUS_RESULT_DISCONNECTED);
+  _dbus_transport_unref (transport);
+}
+
+static void
+queue_messages (DBusTransport *transport)
+{
+  DBusMessage *message;
+  
+  /* Queue any messages */
+  while ((message = _dbus_message_loader_pop_message (transport->loader)))
+    {
+      _dbus_verbose ("queueing received message %p\n", message);
+      
+      _dbus_connection_queue_received_message (transport->connection,
+                                               message);
+      dbus_message_unref (message);
+    }
+
+  if (_dbus_message_loader_get_is_corrupted (transport->loader))
+    {
+      _dbus_verbose ("Corrupted message stream, disconnecting\n");
+      do_io_error (transport);
+    }
+}
+
+/* return value is whether we successfully read any new data. */
+static dbus_bool_t
+read_data_into_auth (DBusTransport *transport)
+{
+  DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
+  DBusString buffer;
+  int bytes_read;
+  
+  if (!_dbus_string_init (&buffer, _DBUS_INT_MAX))
+    {
+      /* just disconnect if we don't have memory
+       * to do an authentication
+       */
+      _dbus_verbose ("No memory for authentication\n");
+      do_io_error (transport);
+      return FALSE;
+    }
+  
+  bytes_read = _dbus_read (unix_transport->fd,
+                           &buffer, unix_transport->max_bytes_read_per_iteration);
+
+  if (bytes_read > 0)
+    {
+      _dbus_verbose (" read %d bytes in auth phase\n", bytes_read);
+      
+      if (_dbus_auth_bytes_received (transport->auth,
+                                     &buffer))
+        {
+          _dbus_string_free (&buffer);
+          return TRUE; /* We did read some data! woo! */
+        }
+      else
+        {
+          /* just disconnect if we don't have memory to do an
+           * authentication, don't fool with trying to save the buffer
+           * and who knows what.
+           */
+          _dbus_verbose ("No memory for authentication\n");
+          do_io_error (transport);
+        }
+    }
+  else if (bytes_read < 0)
+    {
+      /* EINTR already handled for us */
+      
+      if (errno == EAGAIN ||
+          errno == EWOULDBLOCK)
+        ; /* do nothing, just return FALSE below */
+      else
+        {
+          _dbus_verbose ("Error reading from remote app: %s\n",
+                         _dbus_strerror (errno));
+          do_io_error (transport);
+        }
+    }
+  else if (bytes_read == 0)
+    {
+      _dbus_verbose ("Disconnected from remote app\n");
+      do_io_error (transport);      
+    }
+  
+  _dbus_string_free (&buffer);
+  return FALSE;
+}
+
+/* Return value is whether we successfully wrote any bytes */
+static dbus_bool_t
+write_data_from_auth (DBusTransport *transport)
+{
+  DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
+  int bytes_written;
+  const DBusString *buffer;
+
+  if (!_dbus_auth_get_bytes_to_send (transport->auth,
+                                     &buffer))
+    return FALSE;
+  
+  bytes_written = _dbus_write (unix_transport->fd,
+                               buffer,
+                               0, _dbus_string_get_length (buffer));
+
+  if (bytes_written > 0)
+    {
+      _dbus_auth_bytes_sent (transport->auth, bytes_written);
+      return TRUE;
+    }
+  else if (bytes_written < 0)
+    {
+      /* EINTR already handled for us */
+      
+      if (errno == EAGAIN ||
+          errno == EWOULDBLOCK)
+        ;
+      else
+        {
+          _dbus_verbose ("Error writing to remote app: %s\n",
+                         _dbus_strerror (errno));
+          do_io_error (transport);
+        }
+    }
+
+  return FALSE;
+}
+
+static void
+do_authentication (DBusTransport *transport,
+                   dbus_bool_t    do_reading,
+                   dbus_bool_t    do_writing)
+{
+  _dbus_transport_ref (transport);
+  
+  while (!_dbus_transport_get_is_authenticated (transport) &&
+         _dbus_transport_get_is_connected (transport))
+    {
+      switch (_dbus_auth_do_work (transport->auth))
+        {
+        case DBUS_AUTH_STATE_WAITING_FOR_INPUT:
+          _dbus_verbose (" auth state: waiting for input\n");
+          if (!do_reading || !read_data_into_auth (transport))
+            goto out;
+          break;
+      
+        case DBUS_AUTH_STATE_WAITING_FOR_MEMORY:
+          /* Screw it, just disconnect */
+          _dbus_verbose (" auth state: waiting for memory\n");
+          do_io_error (transport);
+          break;
+      
+        case DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND:
+          _dbus_verbose (" auth state: bytes to send\n");
+          if (!do_writing || !write_data_from_auth (transport))
+            goto out;
+          break;
+      
+        case DBUS_AUTH_STATE_NEED_DISCONNECT:
+          _dbus_verbose (" auth state: need to disconnect\n");
+          do_io_error (transport);
+          break;
+      
+        case DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES:
+          {
+            DBusString *buffer;
+            int orig_len;
+
+            _dbus_verbose (" auth state: auth with unused bytes\n");
+            
+            _dbus_message_loader_get_buffer (transport->loader,
+                                             &buffer);
+
+            orig_len = _dbus_string_get_length (buffer);
+            
+            if (!_dbus_auth_get_unused_bytes (transport->auth,
+                                              buffer))
+              {
+                _dbus_verbose ("Not enough memory to transfer unused bytes from auth conversation\n");
+                do_io_error (transport);
+              }
+
+            _dbus_verbose (" %d unused bytes sent to message loader\n", 
+                           _dbus_string_get_length (buffer) -
+                           orig_len);
+            
+            _dbus_message_loader_return_buffer (transport->loader,
+                                                buffer,
+                                                _dbus_string_get_length (buffer) -
+                                                orig_len);
+
+            queue_messages (transport);
+          }
+          break;
+          
+        case DBUS_AUTH_STATE_AUTHENTICATED:
+          _dbus_verbose (" auth state: authenticated\n");
+          break;
+        }
+    }
+
+ out:
+  check_write_watch (transport);
+  _dbus_transport_unref (transport);
 }
 
 static void
@@ -92,10 +374,18 @@ do_writing (DBusTransport *transport)
 {
   int total;
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
+
+  /* No messages without authentication! */
+  if (!_dbus_transport_get_is_authenticated (transport))
+    return;
+
+  if (transport->disconnected)
+    return;
   
   total = 0;
 
-  while (_dbus_connection_have_messages_to_send (transport->connection))
+  while (!transport->disconnected &&
+         _dbus_connection_have_messages_to_send (transport->connection))
     {
       int bytes_written;
       DBusMessage *message;
@@ -149,7 +439,7 @@ do_writing (DBusTransport *transport)
             goto out;
           else
             {
-              _dbus_verbose ("Error writing to message bus: %s\n",
+              _dbus_verbose ("Error writing to remote app: %s\n",
                              _dbus_strerror (errno));
               do_io_error (transport);
               goto out;
@@ -183,9 +473,12 @@ do_reading (DBusTransport *transport)
 {
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
   DBusString *buffer;
-  int buffer_len;
   int bytes_read;
   int total;
+
+  /* No messages without authentication! */
+  if (!_dbus_transport_get_is_authenticated (transport))
+    return;
   
   total = 0;
 
@@ -198,10 +491,11 @@ do_reading (DBusTransport *transport)
       goto out;
     }
 
+  if (transport->disconnected)
+    goto out;
+  
   _dbus_message_loader_get_buffer (transport->loader,
                                    &buffer);
-
-  buffer_len = _dbus_string_get_length (buffer);  
   
   bytes_read = _dbus_read (unix_transport->fd,
                            buffer, unix_transport->max_bytes_read_per_iteration);
@@ -219,7 +513,7 @@ do_reading (DBusTransport *transport)
         goto out;
       else
         {
-          _dbus_verbose ("Error reading from message bus: %s\n",
+          _dbus_verbose ("Error reading from remote app: %s\n",
                          _dbus_strerror (errno));
           do_io_error (transport);
           goto out;
@@ -227,27 +521,17 @@ do_reading (DBusTransport *transport)
     }
   else if (bytes_read == 0)
     {
-      _dbus_verbose ("Disconnected from message bus\n");
+      _dbus_verbose ("Disconnected from remote app\n");
       do_io_error (transport);
       goto out;
     }
   else
     {
-      DBusMessage *message;
-      
       _dbus_verbose (" read %d bytes\n", bytes_read);
       
       total += bytes_read;      
 
-      /* Queue any messages */
-      while ((message = _dbus_message_loader_pop_message (transport->loader)))
-        {
-          _dbus_verbose ("queueing received message %p\n", message);
-          
-          _dbus_connection_queue_received_message (transport->connection,
-                                                   message);
-          dbus_message_unref (message);
-        }
+      queue_messages (transport);
       
       /* Try reading more data until we get EAGAIN and return, or
        * exceed max bytes per iteration.  If in blocking mode of
@@ -269,7 +553,7 @@ unix_handle_watch (DBusTransport *transport,
 
   _dbus_assert (watch == unix_transport->watch ||
                 watch == unix_transport->write_watch);
-
+  
   if (flags & (DBUS_WATCH_HANGUP | DBUS_WATCH_ERROR))
     {
       _dbus_transport_disconnect (transport);
@@ -280,25 +564,26 @@ unix_handle_watch (DBusTransport *transport,
   
   if (watch == unix_transport->watch &&
       (flags & DBUS_WATCH_READABLE))
-    do_reading (transport);
+    {
+      _dbus_verbose ("handling read watch\n");
+      do_authentication (transport, TRUE, FALSE);
+      do_reading (transport);
+    }
   else if (watch == unix_transport->write_watch &&
            (flags & DBUS_WATCH_WRITABLE))
-    do_writing (transport); 
+    {
+      _dbus_verbose ("handling write watch\n");
+      do_authentication (transport, FALSE, TRUE);
+      do_writing (transport);
+    }
 }
 
 static void
 unix_disconnect (DBusTransport *transport)
 {
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
-
-  if (unix_transport->watch)
-    {
-      _dbus_connection_remove_watch (transport->connection,
-                                     unix_transport->watch);
-      _dbus_watch_invalidate (unix_transport->watch);
-      _dbus_watch_unref (unix_transport->watch);
-      unix_transport->watch = NULL;
-    }
+  
+  free_watches (transport);
   
   close (unix_transport->fd);
   unix_transport->fd = -1;
@@ -325,46 +610,20 @@ unix_connection_set (DBusTransport *transport)
                                    watch))
     {
       _dbus_transport_disconnect (transport);
+      _dbus_watch_unref (watch);
       return;
     }
 
   unix_transport->watch = watch;
+
+  check_write_watch (transport);
 }
 
 static void
 unix_messages_pending (DBusTransport *transport,
                        int            messages_pending)
 {
-  DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
-
-  if (messages_pending > 0 &&
-      unix_transport->write_watch == NULL)
-    {
-      unix_transport->write_watch =
-        _dbus_watch_new (unix_transport->fd,
-                         DBUS_WATCH_WRITABLE);
-
-      /* we can maybe add it some other time, just silently bomb */
-      if (unix_transport->write_watch == NULL)
-        return;
-
-      if (!_dbus_connection_add_watch (transport->connection,
-                                       unix_transport->write_watch))
-        {
-          _dbus_watch_invalidate (unix_transport->write_watch);
-          _dbus_watch_unref (unix_transport->write_watch);
-          unix_transport->write_watch = NULL;
-        }
-    }
-  else if (messages_pending == 0 &&
-           unix_transport->write_watch != NULL)
-    {
-      _dbus_connection_remove_watch (transport->connection,
-                                     unix_transport->write_watch);
-      _dbus_watch_invalidate (unix_transport->write_watch);
-      _dbus_watch_unref (unix_transport->write_watch);
-      unix_transport->write_watch = NULL;
-    }
+  check_write_watch (transport);
 }
 
 static  void
@@ -376,6 +635,11 @@ unix_do_iteration (DBusTransport *transport,
   fd_set read_set;
   fd_set write_set;
   dbus_bool_t do_select;
+  
+  /* "again" has to be up here because on EINTR the fd sets become
+   * undefined
+   */
+ again:
   
   do_select = FALSE;
   
@@ -398,8 +662,6 @@ unix_do_iteration (DBusTransport *transport,
       fd_set err_set;
       struct timeval timeout;
       dbus_bool_t use_timeout;
-
-    again:
       
       FD_ZERO (&err_set);
       FD_SET (unix_transport->fd, &err_set);
@@ -434,9 +696,16 @@ unix_do_iteration (DBusTransport *transport,
             do_io_error (transport);
           else
             {
-              if (FD_ISSET (unix_transport->fd, &read_set))
+              dbus_bool_t need_read = FD_ISSET (unix_transport->fd, &read_set);
+              dbus_bool_t need_write = FD_ISSET (unix_transport->fd, &write_set);
+
+              _dbus_verbose ("in iteration, need_read=%d need_write=%d\n",
+                             need_read, need_write);
+              do_authentication (transport, need_read, need_write);
+                                 
+              if (need_read)
                 do_reading (transport);
-              if (FD_ISSET (unix_transport->fd, &write_set))
+              if (need_write)
                 do_writing (transport);
             }
         }
@@ -466,10 +735,12 @@ static DBusTransportVTable unix_vtable = {
  * boil down to a full duplex file descriptor.
  *
  * @param fd the file descriptor.
+ * @param server #TRUE if this transport is on the server side of a connection
  * @returns the new transport, or #NULL if no memory.
  */
 DBusTransport*
-_dbus_transport_new_for_fd (int fd)
+_dbus_transport_new_for_fd (int         fd,
+                            dbus_bool_t server)
 {
   DBusTransportUnix *unix_transport;
   
@@ -478,7 +749,8 @@ _dbus_transport_new_for_fd (int fd)
     return NULL;
 
   if (!_dbus_transport_init_base (&unix_transport->base,
-                                  &unix_vtable))
+                                  &unix_vtable,
+                                  server))
     {
       dbus_free (unix_transport);
       return NULL;
@@ -490,6 +762,8 @@ _dbus_transport_new_for_fd (int fd)
   /* These values should probably be tunable or something. */     
   unix_transport->max_bytes_read_per_iteration = 2048;
   unix_transport->max_bytes_written_per_iteration = 2048;
+
+  check_write_watch ((DBusTransport*) unix_transport);
   
   return (DBusTransport*) unix_transport;
 }
@@ -499,11 +773,13 @@ _dbus_transport_new_for_fd (int fd)
  * path.
  *
  * @param path the path to the domain socket.
+ * @param server #TRUE if this transport is on the server side of a connection
  * @param result location to store reason for failure.
  * @returns a new transport, or #NULL on failure.
  */
 DBusTransport*
 _dbus_transport_new_for_domain_socket (const char     *path,
+                                       dbus_bool_t     server,
                                        DBusResultCode *result)
 {
   int fd;
@@ -512,8 +788,11 @@ _dbus_transport_new_for_domain_socket (const char     *path,
   fd = _dbus_connect_unix_socket (path, result);
   if (fd < 0)
     return NULL;
+
+  _dbus_verbose ("Successfully connected to unix socket %s\n",
+                 path);
   
-  transport = _dbus_transport_new_for_fd (fd);
+  transport = _dbus_transport_new_for_fd (fd, server);
   if (transport == NULL)
     {
       dbus_set_result (result, DBUS_RESULT_NO_MEMORY);

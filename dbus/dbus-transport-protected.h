@@ -27,6 +27,7 @@
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-transport.h>
 #include <dbus/dbus-message-internal.h>
+#include <dbus/dbus-auth.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -73,12 +74,17 @@ struct DBusTransport
   DBusConnection *connection;                 /**< Connection owning this transport. */
 
   DBusMessageLoader *loader;                  /**< Message-loading buffer. */
-  
-  unsigned int disconnected : 1;              /**< TRUE if we are disconnected. */
+
+  DBusAuth *auth;                             /**< Authentication conversation */
+
+  unsigned int disconnected : 1;              /**< #TRUE if we are disconnected. */
+  unsigned int authenticated : 1;             /**< Cache of auth state; use _dbus_transport_get_is_authenticated() to query value */
+  unsigned int messages_need_sending : 1;     /**< #TRUE if we need to write messages out */
 };
 
 dbus_bool_t _dbus_transport_init_base     (DBusTransport             *transport,
-                                           const DBusTransportVTable *vtable);
+                                           const DBusTransportVTable *vtable,
+                                           dbus_bool_t                server);
 void        _dbus_transport_finalize_base (DBusTransport             *transport);
 
 

@@ -255,7 +255,12 @@ get_state (DBusAuth *auth)
   if (auth->need_disconnect)
     return DBUS_AUTH_STATE_NEED_DISCONNECT;
   else if (auth->authenticated)
-    return DBUS_AUTH_STATE_AUTHENTICATED;
+    {
+      if (_dbus_string_get_length (&auth->incoming) > 0)
+        return DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES;
+      else
+        return DBUS_AUTH_STATE_AUTHENTICATED;
+    }
   else if (auth->needed_memory)
     return DBUS_AUTH_STATE_WAITING_FOR_MEMORY;
   else if (_dbus_string_get_length (&auth->outgoing) > 0)
@@ -272,7 +277,10 @@ shutdown_mech (DBusAuth *auth)
   auth->authenticated = FALSE;
   
   if (auth->mech != NULL)
-    {      
+    {
+      _dbus_verbose ("Shutting down mechanism %s\n",
+                     auth->mech->mechanism);
+      
       if (DBUS_AUTH_IS_CLIENT (auth))
         (* auth->mech->client_shutdown_func) (auth);
       else
@@ -483,6 +491,9 @@ process_auth (DBusAuth         *auth,
       auth->mech = find_mech (&mech);
       if (auth->mech != NULL)
         {
+          _dbus_verbose ("Trying mechanism %s\n",
+                         auth->mech->mechanism);
+          
           if (!(* auth->mech->server_data_func) (auth,
                                                  &decoded_response))
             goto failed;
@@ -578,6 +589,7 @@ process_error_server (DBusAuth         *auth,
   return TRUE;
 }
 
+/* return FALSE if no memory, TRUE if all OK */
 static dbus_bool_t
 get_word (const DBusString *str,
           int              *start,
@@ -585,9 +597,10 @@ get_word (const DBusString *str,
 {
   int i;
 
+  _dbus_string_skip_blank (str, *start, start);
   _dbus_string_find_blank (str, *start, &i);
-
-  if (i != *start)
+  
+  if (i > *start)
     {
       if (!_dbus_string_copy_len (str, *start, i, word, 0))
         return FALSE;
@@ -616,7 +629,7 @@ process_mechanisms (DBusAuth         *auth,
     {
       DBusString m;
       const DBusAuthMechanismHandler *mech;
-
+      
       if (!_dbus_string_init (&m, _DBUS_INT_MAX))
         goto nomem;
       
@@ -635,11 +648,24 @@ process_mechanisms (DBusAuth         *auth,
            * preference. Of course when the server is us,
            * it lists things in that order anyhow.
            */
+
+          _dbus_verbose ("Adding mechanism %s to list we will try\n",
+                         mech->mechanism);
           
           if (!_dbus_list_append (& DBUS_AUTH_CLIENT (auth)->mechs_to_try,
                                   (void*) mech))
             goto nomem;
         }
+      else
+        {
+          const char *s;
+
+          _dbus_string_get_const_data (&m, &s);
+          _dbus_verbose ("Server offered mechanism \"%s\" that we don't know how to use\n",
+                         s);
+        }
+
+      _dbus_string_free (&m);
     }
   
   auth->already_got_mechanisms = TRUE;
@@ -706,7 +732,11 @@ process_rejected (DBusAuth         *auth,
           return FALSE;
         }
 
+      auth->mech = mech;      
       _dbus_list_pop_first (& DBUS_AUTH_CLIENT (auth)->mechs_to_try);
+
+      _dbus_verbose ("Trying mechanism %s\n",
+                     auth->mech->mechanism);
     }
   else
     {
@@ -815,25 +845,53 @@ process_command (DBusAuth *auth)
       auth->needed_memory = TRUE;
       return FALSE;
     }
+  
+  if (eol > _DBUS_ONE_MEGABYTE)
+    {
+      /* This is a giant line, someone is trying to hose us. */
+      if (!_dbus_string_append (&auth->outgoing, "ERROR \"Command too long\"\r\n"))
+        goto out;
+      else
+        goto next_command;
+    }
 
   if (!_dbus_string_copy_len (&auth->incoming, 0, eol, &command, 0))
     goto out;
+
+  if (!_dbus_string_validate_ascii (&command, 0,
+                                    _dbus_string_get_length (&command)))
+    {
+      _dbus_verbose ("Command contained non-ASCII chars or embedded nul\n");
+      if (!_dbus_string_append (&auth->outgoing, "ERROR \"Command contained non-ASCII\"\r\n"))
+        goto out;
+      else
+        goto next_command;
+    }
+  
+  {
+    const char *q;
+    _dbus_string_get_const_data (&command, &q);
+    _dbus_verbose ("got command \"%s\"\n", q);
+  }
   
   _dbus_string_find_blank (&command, 0, &i);
   _dbus_string_skip_blank (&command, i, &j);
 
-  if (i != j)
-    _dbus_string_delete (&command, i, j);
+  if (j > i)
+    _dbus_string_delete (&command, i, j - i);
   
   if (!_dbus_string_move (&command, i, &args, 0))
     goto out;
-
+  
   i = 0;
   while (auth->handlers[i].command != NULL)
     {
       if (_dbus_string_equal_c_str (&command,
                                     auth->handlers[i].command))
         {
+          _dbus_verbose ("Processing auth command %s\n",
+                         auth->handlers[i].command);
+          
           if (!(* auth->handlers[i].func) (auth, &command, &args))
             goto out;
 
@@ -847,6 +905,8 @@ process_command (DBusAuth *auth)
       if (!process_unknown (auth, &command, &args))
         goto out;
     }
+
+ next_command:
   
   /* We've succeeded in processing the whole command so drop it out
    * of the incoming buffer and return TRUE to try another command.
@@ -1002,6 +1062,15 @@ _dbus_auth_do_work (DBusAuth *auth)
           _dbus_verbose ("Disconnecting due to excessive data buffered in auth phase\n");
           break;
         }
+
+      if (auth->mech == NULL &&
+          auth->already_got_mechanisms &&
+          DBUS_AUTH_CLIENT (auth)->mechs_to_try == NULL)
+        {
+          auth->need_disconnect = TRUE;
+          _dbus_verbose ("Disconnecting because we are out of mechanisms to try using\n");
+          break;
+        }
     }
   while (process_command (auth));
   
@@ -1009,38 +1078,52 @@ _dbus_auth_do_work (DBusAuth *auth)
 }
 
 /**
- * Gets bytes that need to be sent to the
- * peer we're conversing with.
+ * Gets bytes that need to be sent to the peer we're conversing with.
+ * After writing some bytes, _dbus_auth_bytes_sent() must be called
+ * to notify the auth object that they were written.
  *
  * @param auth the auth conversation
- * @param str initialized string object to be filled in with bytes to send
- * @returns #FALSE if not enough memory to fill in the bytes
+ * @param str return location for a ref to the buffer to send
+ * @returns #FALSE if nothing to send
  */
 dbus_bool_t
-_dbus_auth_get_bytes_to_send (DBusAuth   *auth,
-                              DBusString *str)
+_dbus_auth_get_bytes_to_send (DBusAuth          *auth,
+                              const DBusString **str)
 {
   _dbus_assert (auth != NULL);
   _dbus_assert (str != NULL);
+
+  *str = NULL;
   
   if (DBUS_AUTH_IN_END_STATE (auth))
     return FALSE;
 
-  auth->needed_memory = FALSE;
-  
-  _dbus_string_set_length (str, 0);
+  if (_dbus_string_get_length (&auth->outgoing) == 0)
+    return FALSE;
 
-  if (!_dbus_string_move (&auth->outgoing,
-                          0, str, 0))
-    {
-      auth->needed_memory = TRUE;
-      return FALSE;
-    }
+  *str = &auth->outgoing;
 
-  if (auth->authenticated_pending_output)
-    auth->authenticated = TRUE;
-  
   return TRUE;
+}
+
+/**
+ * Notifies the auth conversation object that
+ * the given number of bytes of the outgoing buffer
+ * have been written out.
+ *
+ * @param auth the auth conversation
+ * @param bytes_sent number of bytes written out
+ */
+void
+_dbus_auth_bytes_sent (DBusAuth *auth,
+                       int       bytes_sent)
+{
+  _dbus_string_delete (&auth->outgoing,
+                       0, bytes_sent);
+  
+  if (auth->authenticated_pending_output &&
+      _dbus_string_get_length (&auth->outgoing) == 0)
+    auth->authenticated = TRUE;
 }
 
 /**
@@ -1082,7 +1165,7 @@ _dbus_auth_bytes_received (DBusAuth   *auth,
  * succeeded.
  *
  * @param auth the auth conversation
- * @param str string to place the unused bytes in
+ * @param str string to append the unused bytes to
  * @returns #FALSE if not enough memory to return the bytes
  */
 dbus_bool_t
@@ -1093,7 +1176,8 @@ _dbus_auth_get_unused_bytes (DBusAuth   *auth,
     return FALSE;
   
   if (!_dbus_string_move (&auth->incoming,
-                          0, str, 0))
+                          0, str,
+                          _dbus_string_get_length (str)))
     return FALSE;
 
   return TRUE;

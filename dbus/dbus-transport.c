@@ -25,6 +25,7 @@
 #include "dbus-transport-unix.h"
 #include "dbus-connection-internal.h"
 #include "dbus-watch.h"
+#include "dbus-auth.h"
 
 /**
  * @defgroup DBusTransport DBusTransport object
@@ -48,26 +49,62 @@
  */
 
 /**
+ * Refs a transport and associated connection for reentrancy.
+ *
+ * @todo this macro reflects a design mistake, which is that the
+ * transport has a pointer to its connection. Ownership should move in
+ * only one direction; the connection should push/pull from the
+ * transport, rather than vice versa. Then the connection would take
+ * care of referencing itself when needed.
+ */
+#define DBUS_TRANSPORT_HOLD_REF(t) \
+  _dbus_transport_ref (t); if ((t)->connection) dbus_connection_ref ((t)->connection)
+
+/**
+ * Inverse of DBUS_TRANSPORT_HOLD_REF().
+ */
+#define DBUS_TRANSPORT_RELEASE_REF(t) \
+  if ((t)->connection) dbus_connection_unref ((t)->connection); _dbus_transport_unref (t)
+
+
+/**
  * Initializes the base class members of DBusTransport.
  * Chained up to by subclasses in their constructor.
  *
  * @param transport the transport being created.
  * @param vtable the subclass vtable.
+ * @param server #TRUE if this transport is on the server side of a connection
  * @returns #TRUE on success.
  */
 dbus_bool_t
 _dbus_transport_init_base (DBusTransport             *transport,
-                           const DBusTransportVTable *vtable)
+                           const DBusTransportVTable *vtable,
+                           dbus_bool_t                server)
 {
   DBusMessageLoader *loader;
-
+  DBusAuth *auth;
+  
   loader = _dbus_message_loader_new ();
   if (loader == NULL)
     return FALSE;
+
+  if (server)
+    auth = _dbus_auth_server_new ();
+  else
+    auth = _dbus_auth_client_new ();
+  if (auth == NULL)
+    {
+      _dbus_message_loader_unref (loader);
+      return FALSE;
+    }
   
   transport->refcount = 1;
   transport->vtable = vtable;
   transport->loader = loader;
+  transport->auth = auth;
+  transport->authenticated = FALSE;
+  transport->messages_need_sending = FALSE;
+  transport->disconnected = FALSE;
   
   return TRUE;
 }
@@ -85,10 +122,12 @@ _dbus_transport_finalize_base (DBusTransport *transport)
     _dbus_transport_disconnect (transport);
 
   _dbus_message_loader_unref (transport->loader);
+  _dbus_auth_unref (transport->auth);
 }
 
 /**
- * Opens a new transport for the given address.
+ * Opens a new transport for the given address.  (This opens a
+ * client-side-of-the-connection transport.)
  *
  * @todo right now the address is just a Unix domain socket path.
  * 
@@ -108,7 +147,9 @@ _dbus_transport_open (const char     *address,
    */
 
   /* Pretend it's just a unix domain socket name for now */
-  transport = _dbus_transport_new_for_domain_socket (address, result);
+  transport = _dbus_transport_new_for_domain_socket (address,
+                                                     FALSE,
+                                                     result);
   
   return transport;
 }
@@ -161,10 +202,12 @@ _dbus_transport_disconnect (DBusTransport *transport)
 
   if (transport->disconnected)
     return;
-  
+
+  DBUS_TRANSPORT_HOLD_REF (transport);
   (* transport->vtable->disconnect) (transport);
 
   transport->disconnected = TRUE;
+  DBUS_TRANSPORT_RELEASE_REF (transport);
 }
 
 /**
@@ -173,11 +216,33 @@ _dbus_transport_disconnect (DBusTransport *transport)
  * or because the server drops its end of the connection.
  *
  * @param transport the transport.
+ * @returns whether we're connected
  */
 dbus_bool_t
 _dbus_transport_get_is_connected (DBusTransport *transport)
 {
   return !transport->disconnected;
+}
+
+/**
+ * Returns #TRUE if we have been authenticated.  Will return #TRUE
+ * even if the transport is disconnected.
+ *
+ * @param transport the transport
+ * @returns whether we're authenticated
+ */
+dbus_bool_t
+_dbus_transport_get_is_authenticated (DBusTransport *transport)
+{  
+  if (transport->authenticated)
+    return TRUE;
+  else
+    {
+      transport->authenticated =
+        _dbus_auth_do_work (transport->auth) == DBUS_AUTH_STATE_AUTHENTICATED;
+
+      return transport->authenticated;
+    }
 }
 
 /**
@@ -202,9 +267,19 @@ _dbus_transport_handle_watch (DBusTransport           *transport,
       return;
     }
 
-  _dbus_watch_sanitize_condition (watch, &condition);
+  if (dbus_watch_get_fd (watch) < 0)
+    {
+      _dbus_warn ("Tried to handle an invalidated watch; this watch should have been removed\n");
+      return;
+    }
   
+  _dbus_watch_sanitize_condition (watch, &condition);
+
+  DBUS_TRANSPORT_HOLD_REF (transport);
+  _dbus_watch_ref (watch);
   (* transport->vtable->handle_watch) (transport, watch, condition);
+  _dbus_watch_unref (watch);
+  DBUS_TRANSPORT_RELEASE_REF (transport);
 }
 
 /**
@@ -224,7 +299,9 @@ _dbus_transport_set_connection (DBusTransport  *transport,
   
   transport->connection = connection;
 
+  DBUS_TRANSPORT_HOLD_REF (transport);
   (* transport->vtable->connection_set) (transport);
+  DBUS_TRANSPORT_RELEASE_REF (transport);
 }
 
 /**
@@ -248,9 +325,13 @@ _dbus_transport_messages_pending (DBusTransport  *transport,
                                         DBUS_RESULT_DISCONNECTED);
       return;
     }
-  
+
+  transport->messages_need_sending = queue_length > 0;
+
+  DBUS_TRANSPORT_HOLD_REF (transport);
   (* transport->vtable->messages_pending) (transport,
                                            queue_length);
+  DBUS_TRANSPORT_RELEASE_REF (transport);
 }
 
 /**
@@ -281,9 +362,11 @@ _dbus_transport_do_iteration (DBusTransport  *transport,
                                         DBUS_RESULT_DISCONNECTED);
       return;
     }
-  
+
+  DBUS_TRANSPORT_HOLD_REF (transport);
   (* transport->vtable->do_iteration) (transport, flags,
                                        timeout_milliseconds);
+  DBUS_TRANSPORT_RELEASE_REF (transport);
 }
 
 /** @} */

@@ -37,6 +37,7 @@ typedef enum
   DBUS_AUTH_STATE_WAITING_FOR_MEMORY,
   DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND,
   DBUS_AUTH_STATE_NEED_DISCONNECT,
+  DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES,
   DBUS_AUTH_STATE_AUTHENTICATED
 } DBusAuthState;
 
@@ -45,8 +46,10 @@ DBusAuth*     _dbus_auth_client_new        (void);
 void          _dbus_auth_ref               (DBusAuth         *auth);
 void          _dbus_auth_unref             (DBusAuth         *auth);
 DBusAuthState _dbus_auth_do_work           (DBusAuth         *auth);
-dbus_bool_t   _dbus_auth_get_bytes_to_send (DBusAuth         *auth,
-                                            DBusString       *str);
+dbus_bool_t   _dbus_auth_get_bytes_to_send (DBusAuth          *auth,
+                                            const DBusString **str);
+void          _dbus_auth_bytes_sent        (DBusAuth          *auth,
+                                            int                bytes_sent);
 dbus_bool_t   _dbus_auth_bytes_received    (DBusAuth         *auth,
                                             const DBusString *str);
 dbus_bool_t   _dbus_auth_get_unused_bytes  (DBusAuth         *auth,
