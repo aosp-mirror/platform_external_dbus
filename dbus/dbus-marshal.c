@@ -1649,7 +1649,7 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
 	/* Demarshal the string length */
 	len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
 
-	*end_pos = pos + len + 1;
+	pos += len + 1;
 	
 	/* Demarshal the data length */
 	len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);

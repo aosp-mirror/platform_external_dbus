@@ -6003,6 +6003,12 @@ message_iter_test (DBusMessage *message)
   dbus_free (str);
   dbus_free (data);
   
+  if (!dbus_message_iter_next (&iter))
+    _dbus_assert_not_reached ("Reached end of arguments");
+
+  if (dbus_message_iter_get_byte (&iter) != 0xF0)
+    _dbus_assert_not_reached ("wrong value after custom");
+
   if (dbus_message_iter_next (&iter))
     _dbus_assert_not_reached ("Didn't reach end of arguments");
 }
@@ -7140,6 +7146,8 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_iter_append_custom (&iter, "MyTypeName",
                                    "data", 5);
   
+  dbus_message_iter_append_byte (&iter, 0xF0);
+
   message_iter_test (message);
   
   /* Message loader test */

@@ -1,3 +1,11 @@
+2004-03-12  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* dbus/dbus-marshal.c (_dbus_marshal_get_arg_end_pos):
+	fix a bug with CUSTOM types.
+
+	* dbus/dbus-message.c (message_iter_test, _dbus_message_test): add
+	a unit test for this bug (used to fail).
+
 2004-03-12  Mikael Hallendal  <micke@imendio.com>
 
 	* bus/activation.c:
