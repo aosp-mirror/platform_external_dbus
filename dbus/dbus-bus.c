@@ -186,7 +186,8 @@ dbus_bus_service_exists (DBusConnection *connection,
     }
   
   dbus_set_result (result, DBUS_RESULT_SUCCESS);
-  return (result != FALSE);
+  
+  return (exists != FALSE);
 }
 
 /** @} */
