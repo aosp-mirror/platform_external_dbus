@@ -2260,6 +2260,7 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 	  {
 	    void **data;
 	    int *len, type;
+	    dbus_bool_t err = FALSE;
  
 	    type = va_arg (var_args, int);
 	    data = va_arg (var_args, void *);
@@ -2281,62 +2282,30 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 	    switch (type)
 	      {
 	      case DBUS_TYPE_BYTE:
-		if (!dbus_message_iter_get_byte_array (iter, (unsigned char **)data, len))
-		  {
-		    dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-		    goto out;
-		  }
+		err = !dbus_message_iter_get_byte_array (iter, (unsigned char **)data, len);
 		break;
 	      case DBUS_TYPE_BOOLEAN:
-		if (!dbus_message_iter_get_boolean_array (iter, (unsigned char **)data, len))
-		  {
-		    dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-		    goto out;
-		  }
+		err = !dbus_message_iter_get_boolean_array (iter, (unsigned char **)data, len);
 		break;
 	      case DBUS_TYPE_INT32:
-		if (!dbus_message_iter_get_int32_array (iter, (dbus_int32_t **)data, len))
-		  {
-		    dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-		    goto out;
-		  }
+		err = !dbus_message_iter_get_int32_array (iter, (dbus_int32_t **)data, len);
 		break;
 	      case DBUS_TYPE_UINT32:
-		if (!dbus_message_iter_get_uint32_array (iter, (dbus_uint32_t **)data, len))
-		  {
-		    dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-		    goto out;
-		  }
+		err = !dbus_message_iter_get_uint32_array (iter, (dbus_uint32_t **)data, len);
 		break;
 #ifdef DBUS_HAVE_INT64
               case DBUS_TYPE_INT64:
-		if (!dbus_message_iter_get_int64_array (iter, (dbus_int64_t **)data, len))
-		  {
-		    dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-		    goto out;
-		  }
+		err = !dbus_message_iter_get_int64_array (iter, (dbus_int64_t **)data, len);
 		break;
 	      case DBUS_TYPE_UINT64:
-		if (!dbus_message_iter_get_uint64_array (iter, (dbus_uint64_t **)data, len))
-		  {
-		    dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-		    goto out;
-		  }
+		err = !dbus_message_iter_get_uint64_array (iter, (dbus_uint64_t **)data, len);
 		break;
 #endif /* DBUS_HAVE_INT64 */
 	      case DBUS_TYPE_DOUBLE:
-		if (!dbus_message_iter_get_double_array (iter, (double **)data, len))
-		  {
-		    dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-		    goto out;
-		  }
+		err = !dbus_message_iter_get_double_array (iter, (double **)data, len);
 		break;
 	      case DBUS_TYPE_STRING:
-		if (!dbus_message_iter_get_string_array (iter, (char ***)data, len))
-		  {
-		    dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-		    goto out;
-		  }
+		err = !dbus_message_iter_get_string_array (iter, (char ***)data, len);
 		break;
 	      case DBUS_TYPE_NIL:
 	      case DBUS_TYPE_ARRAY:
@@ -2348,6 +2317,11 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 	      default:
 		_dbus_warn ("Unknown field type %d\n", type);
 		dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED, NULL);
+		goto out;
+	      }
+	    if (err)
+	      {
+	        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 		goto out;
 	      }
 	  }
