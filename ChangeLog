@@ -1,5 +1,13 @@
 2003-04-06  Havoc Pennington  <hp@pobox.com>
 
+	* test/Makefile.am: remove a lot of stuff that isn't immediately
+	useful, it's in CVS history if we want it.
+
+	* test/test-service.c: use dbus-mainloop instead of that
+	watch.[hc] crack
+
+2003-04-06  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/Makefile.am: split lists of sources into stuff that goes in
 	the library, util functions that go in the lib and are also used
 	elsewhere, and util functions that are used in tests/daemon but

@@ -1,7 +1,7 @@
-#include <dbus/dbus.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include "watch.h"
+
+#include "test-utils.h"
+
+static DBusLoop *loop;
 
 static void
 die (const char *message)
@@ -79,7 +79,12 @@ main (int    argc,
       return 1;
     }
 
-  setup_connection (connection);
+  loop = _dbus_loop_new ();
+  if (loop == NULL)
+    die ("No memory\n");
+  
+  if (!test_connection_setup (loop, connection))
+    die ("No memory\n");
 
   handler = dbus_message_handler_new (echo_handler, NULL, NULL);
   if (handler == NULL)
@@ -98,11 +103,14 @@ main (int    argc,
       return 1;
     }
   
-  do_mainloop ();
+  _dbus_loop_run (loop);
 
   dbus_connection_unref (connection);
 
   dbus_message_handler_unref (handler);
+
+  _dbus_loop_unref (loop);
+  loop = NULL;
   
   dbus_shutdown ();
   

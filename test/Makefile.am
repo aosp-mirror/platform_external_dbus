@@ -2,7 +2,7 @@
 INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
 
 if DBUS_BUILD_TESTS
-TEST_BINARIES=test-service echo-client echo-server unbase64 break-loader spawn-test test-segfault test-exit test-sleep-forever
+TEST_BINARIES=test-service unbase64 break-loader spawn-test test-segfault test-exit test-sleep-forever
 else
 TEST_BINARIES=
 endif
@@ -15,30 +15,13 @@ endif
 
 noinst_PROGRAMS= $(TEST_BINARIES) $(GCOV_BINARIES)
 
-echo_client_SOURCES=				\
-	echo-client.c				\
-	watch.c					\
-	watch.h
-
-echo_server_SOURCES=				\
-	echo-server.c				\
-	watch.c					\
-	watch.h
-
 test_service_SOURCES=				\
 	test-service.c				\
-	watch.c					\
-	watch.h
+	test-utils.c				\
+	test-utils.h
 
 unbase64_SOURCES=				\
 	unbase64.c
-
-# bus_test_SOURCES =				\
-# 	debug-thread.c				\
-# 	debug-thread.h				\
-# 	bus-test.c				\
-# 	bus-test-loop.c				\
-# 	bus-test-loop.h
 
 break_loader_SOURCES=				\
 	break-loader.c
@@ -60,12 +43,9 @@ decode_gcov_SOURCES=				\
 
 TEST_LIBS=$(DBUS_TEST_LIBS) $(top_builddir)/dbus/libdbus-convenience.la
 
-echo_client_LDADD=$(TEST_LIBS)
-echo_server_LDADD=$(TEST_LIBS)
 test_service_LDADD=$(TEST_LIBS)
 unbase64_LDADD=$(TEST_LIBS)
 break_loader_LDADD= $(TEST_LIBS)
-#bus_test_LDADD=$(TEST_LIBS) $(top_builddir)/bus/libdbus-daemon.la
 spawn_test_LDADD=$(TEST_LIBS)
 decode_gcov_LDADD=$(TEST_LIBS)
 
