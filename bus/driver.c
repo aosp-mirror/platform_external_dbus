@@ -307,6 +307,7 @@ bus_driver_handle_own_service (DBusConnection *connection,
 	      _DBUS_HANDLE_OOM (bus_service_add_owner (service, connection));
 	      bus_service_remove_owner (service, owner);
 	      _dbus_assert (connection == bus_service_get_primary_owner (service));
+	      service_reply = DBUS_SERVICE_REPLY_PRIMARY_OWNER;
 	    }
 	}
     }
@@ -322,6 +323,8 @@ bus_driver_handle_own_service (DBusConnection *connection,
 			
       service_reply = DBUS_SERVICE_REPLY_PRIMARY_OWNER;
     }
+
+  _DBUS_HANDLE_OOM (dbus_message_append_fields (reply, DBUS_TYPE_UINT32, service_reply, 0));
 
   /* Send service reply */
   _DBUS_HANDLE_OOM (dbus_connection_send_message (connection, reply, NULL, NULL));
