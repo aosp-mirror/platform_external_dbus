@@ -1,3 +1,8 @@
+2003-03-27  Havoc Pennington  <hp@redhat.com>
+
+	* bus/config-loader-libxml.c (bus_config_load): add another error
+	check
+
 2003-03-26  Anders Carlsson  <andersca@codefactory.se>
 
 	* doc/TODO:

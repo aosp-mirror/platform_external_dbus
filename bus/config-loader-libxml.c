@@ -78,6 +78,7 @@ bus_config_load (const DBusString *file,
   const char *filename;
   BusConfigParser *parser;
   DBusError tmp_error;
+  int ret;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
@@ -122,7 +123,7 @@ bus_config_load (const DBusString *file,
 
   xmlTextReaderSetErrorHandler (reader, xml_text_reader_error, &tmp_error);
 
-  while (xmlTextReaderRead (reader) == 1)
+  while ((ret = xmlTextReaderRead (reader)) == 1)
     {
       int type;
       
@@ -141,6 +142,14 @@ bus_config_load (const DBusString *file,
        * node or attribute value. I'm worried about whether I need to
        * manually handle stuff like &lt;
        */
+    }
+
+  if (ret == -1)
+    {
+      if (!dbus_error_is_set (&tmp_error))
+        dbus_set_error (&tmp_error,
+                        DBUS_ERROR_FAILED,
+                        "Unknown failure loading configuration file");
     }
   
  reader_out:
