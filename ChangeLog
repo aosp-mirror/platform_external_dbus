@@ -1,3 +1,35 @@
+2003-01-28  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-connection-internal.h:
+	* dbus/dbus-connection.c: (_dbus_connection_add_timeout),
+	(_dbus_connection_remove_timeout):
+	Add functions for adding and removing timeouts.
+	
+	* dbus/dbus-message.c: (dbus_message_new_from_message):
+	Add new function that takes a message and creates an exact
+	copy of it, but with the refcount set to 1.
+	(check_message_handling):
+	Fix build error.
+	
+	* dbus/dbus-server-protected.h:
+	* dbus/dbus-server.c: (_dbus_server_init_base),
+	(_dbus_server_finalize_base), (_dbus_server_add_timeout),
+	(dbus_server_set_timeout_functions):
+	(_dbus_server_remove_timeout):
+	New functions so that a server can add and remove timeouts.
+
+	(dbus_server_listen):
+	Add commented out call to dbus_server_debug_new.
+
+	* dbus/dbus-timeout.c: (_dbus_timeout_new):
+	Actually set the handler, doh.
+	
+	* dbus/dbus-transport.c: (_dbus_transport_open):
+	Add commented out call to dbus_transport_debug_client_new.
+	
+	* dbus/Makefile.am:
+	Add dbus-transport-debug.[ch] and dbus-server-debug.[ch]
+	
 2003-01-28  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-message.c (check_message_handling): function to check 
