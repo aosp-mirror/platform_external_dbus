@@ -25,7 +25,8 @@
 #define DBUS_MARSHAL_RECURSIVE_H
 
 #include <config.h>
-#include <dbus/dbus-marshal-basic.h> /* this can become protocol.h when we merge */
+#include <dbus/dbus-protocol.h>
+#include <dbus/dbus-marshal-basic.h> /* this can vanish when we merge */
 
 #ifndef PACKAGE
 #error "config.h not included here"
@@ -36,6 +37,9 @@
  *  - delete an array element and re-align the remainder of the array
  *    (not necessary yet to re-align remainder of entire string,
  *     though that's probably just as hard/easy)
+ *    (really this one is to set a complex-type array element to
+ *    a new value, but for dbus-message.c delete-and-reappend would
+ *    be good enough)
  *  - set string, int, etc. values at a memoized position
  *    (implement generic set of any value? changes only
  *     value_str not type_str)
@@ -44,9 +48,23 @@
  *  - validation
  */
 
+typedef struct DBusTypeMark        DBusTypeMark;
 typedef struct DBusTypeReader      DBusTypeReader;
 typedef struct DBusTypeWriter      DBusTypeWriter;
 typedef struct DBusTypeReaderClass DBusTypeReaderClass;
+
+/* The mark is a way to compress a TypeReader; it isn't all that
+ * successful though.
+ */
+struct DBusTypeMark
+{
+  dbus_uint32_t type_pos_in_value_str : 1;
+  dbus_uint32_t container_type : 3;
+  dbus_uint32_t array_len_offset : 3; /* bytes back from start_pos that len ends */
+  dbus_uint32_t type_pos : DBUS_MAXIMUM_MESSAGE_LENGTH_BITS;
+  dbus_uint32_t value_pos : DBUS_MAXIMUM_MESSAGE_LENGTH_BITS;
+  dbus_uint32_t array_start_pos : DBUS_MAXIMUM_MESSAGE_LENGTH_BITS;
+};
 
 struct DBusTypeReader
 {
@@ -55,6 +73,7 @@ struct DBusTypeReader
   dbus_uint32_t finished : 1;   /* marks we're at end iterator for cases
                                  * where we don't have another way to tell
                                  */
+  dbus_uint32_t array_len_offset : 3; /* bytes back from start_pos that len ends */
   const DBusString *type_str;
   int type_pos;
   const DBusString *value_str;
@@ -65,8 +84,6 @@ struct DBusTypeReader
   {
     struct {
       int start_pos;
-      dbus_uint32_t len;
-      int element_type;
     } array;
   } u;
 };
@@ -93,26 +110,37 @@ struct DBusTypeWriter
   } u;
 };
 
-void        _dbus_type_reader_init                (DBusTypeReader    *reader,
-                                                   int                byte_order,
-                                                   const DBusString  *type_str,
-                                                   int                type_pos,
-                                                   const DBusString  *value_str,
-                                                   int                value_pos);
-void        _dbus_type_reader_init_types_only     (DBusTypeReader    *reader,
-                                                   const DBusString  *type_str,
-                                                   int                type_pos);
-int         _dbus_type_reader_get_current_type    (DBusTypeReader    *reader);
-dbus_bool_t _dbus_type_reader_array_is_empty      (DBusTypeReader    *reader);
-void        _dbus_type_reader_read_basic          (DBusTypeReader    *reader,
-                                                   void              *value);
-dbus_bool_t _dbus_type_reader_read_array_of_basic (DBusTypeReader    *reader,
-                                                   int                type,
-                                                   void             **array,
-                                                   int               *array_len);
-void        _dbus_type_reader_recurse             (DBusTypeReader    *reader,
-                                                   DBusTypeReader    *subreader);
-dbus_bool_t _dbus_type_reader_next                (DBusTypeReader    *reader);
+void        _dbus_type_reader_init                      (DBusTypeReader      *reader,
+                                                         int                  byte_order,
+                                                         const DBusString    *type_str,
+                                                         int                  type_pos,
+                                                         const DBusString    *value_str,
+                                                         int                  value_pos);
+void        _dbus_type_reader_init_from_mark            (DBusTypeReader      *reader,
+                                                         int                  byte_order,
+                                                         const DBusString    *type_str,
+                                                         const DBusString    *value_str,
+                                                         const DBusTypeMark  *mark);
+void        _dbus_type_reader_init_types_only           (DBusTypeReader      *reader,
+                                                         const DBusString    *type_str,
+                                                         int                  type_pos);
+void        _dbus_type_reader_init_types_only_from_mark (DBusTypeReader      *reader,
+                                                         const DBusString    *type_str,
+                                                         const DBusTypeMark  *mark);
+void        _dbus_type_reader_save_mark                 (DBusTypeReader      *reader,
+                                                         DBusTypeMark        *mark);
+int         _dbus_type_reader_get_current_type          (DBusTypeReader      *reader);
+dbus_bool_t _dbus_type_reader_array_is_empty            (DBusTypeReader      *reader);
+void        _dbus_type_reader_read_basic                (DBusTypeReader      *reader,
+                                                         void                *value);
+dbus_bool_t _dbus_type_reader_read_array_of_basic       (DBusTypeReader      *reader,
+                                                         int                  type,
+                                                         void               **array,
+                                                         int                 *array_len);
+void        _dbus_type_reader_recurse                   (DBusTypeReader      *reader,
+                                                         DBusTypeReader      *subreader);
+dbus_bool_t _dbus_type_reader_next                      (DBusTypeReader      *reader);
+
 
 void        _dbus_type_writer_init            (DBusTypeWriter *writer,
                                                int             byte_order,

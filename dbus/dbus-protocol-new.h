@@ -89,16 +89,42 @@ extern "C" {
 #define DBUS_STRUCT_END_CHAR     ((int) ')')
 #define DBUS_STRUCT_END_CHAR_AS_STRING     ")"
 
-/* Max length in bytes of a service or interface or member name
- * (not object path, paths are unlimited)
+/* Max length in bytes of a service or interface or member name (not
+ * object path, paths are unlimited). This is limited because lots of
+ * stuff is O(n) in this number, plus it would be obnoxious to type in
+ * a paragraph-long method name so most likely something like that
+ * would be an exploit.
  */
 #define DBUS_MAXIMUM_NAME_LENGTH 255
 
 /* This one is 255 so it fits in a byte */
 #define DBUS_MAXIMUM_SIGNATURE_LENGTH 255
 
-/* Max length of a match rule string */
+/* Max length of a match rule string; to keep people from hosing the
+ * daemon with some huge rule
+ */
 #define DBUS_MAXIMUM_MATCH_RULE_LENGTH 1024
+
+/* Max length of a marshaled array in bytes (64M, 2^26) We use signed
+ * int for lengths so must be INT_MAX or less.  We need something a
+ * bit smaller than INT_MAX because the array is inside a message with
+ * header info, etc.  so an INT_MAX array wouldn't allow the message
+ * overhead.  The 64M number is an attempt at a larger number than
+ * we'd reasonably ever use, but small enough that your bus would chew
+ * through it fairly quickly without locking up forever. If you have
+ * data that's likely to be larger than this, you should probably be
+ * sending it in multiple incremental messages anyhow.
+ */
+#define DBUS_MAXIMUM_ARRAY_LENGTH (67108864)
+/* Number of bits you need in an unsigned to store the max array size */
+#define DBUS_MAXIMUM_ARRAY_LENGTH_BITS 26
+
+/* The maximum total message size including header and body; similar
+ * rationale to max array size.
+ */
+#define DBUS_MAXIMUM_MESSAGE_LENGTH (DBUS_MAXIMUM_ARRAY_LENGTH * 2)
+/* Number of bits you need in an unsigned to store the max message size */
+#define DBUS_MAXIMUM_MESSAGE_LENGTH_BITS 27
 
 /* Types of message */
 #define DBUS_MESSAGE_TYPE_INVALID       0
