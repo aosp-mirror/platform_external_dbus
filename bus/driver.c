@@ -248,7 +248,7 @@ bus_driver_handle_list_services (DBusConnection *connection,
   services = bus_services_list (&len);
 
   if (!services)
-    return;
+    goto error;
   
   if (!dbus_message_append_fields (reply,
 				   DBUS_TYPE_STRING_ARRAY, services, len,
@@ -260,9 +260,12 @@ bus_driver_handle_list_services (DBusConnection *connection,
   
  error:
   dbus_message_unref (reply);
-  for (i = 0; i < len; i++)
-    dbus_free (services[i]);
-  dbus_free (services);
+  if (services != NULL)
+    {
+      for (i = 0; i < len; i++)
+        dbus_free (services[i]);
+      dbus_free (services);
+    }
 }
 
 /* This is where all the magic occurs */

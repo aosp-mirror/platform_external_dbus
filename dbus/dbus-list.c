@@ -24,6 +24,7 @@
 #include "dbus-internals.h"
 #include "dbus-list.h"
 #include "dbus-mempool.h"
+#include "dbus-threads.h"
 
 /**
  * @defgroup DBusList Linked list
@@ -34,6 +35,7 @@
  */
 
 static DBusMemPool *list_pool;
+static DBusStaticMutex list_pool_lock = DBUS_STATIC_MUTEX_INIT;
 
 /**
  * @defgroup DBusListInternals Linked list implementation details
@@ -45,16 +47,32 @@ static DBusMemPool *list_pool;
  * @{
  */
 
+/* the mem pool is probably a speed hit, with the thread
+ * lock, though it does still save memory - unknown.
+ */
 static DBusList*
 alloc_link (void *data)
 {
   DBusList *link;
 
+  if (!dbus_static_mutex_lock (&list_pool_lock))
+    return NULL;
+  
   if (!list_pool)
-    list_pool = _dbus_mem_pool_new (sizeof (DBusList), TRUE);
+    {      
+      list_pool = _dbus_mem_pool_new (sizeof (DBusList), TRUE);
 
+      if (list_pool == NULL)
+        {
+          dbus_static_mutex_unlock (&list_pool_lock);
+          return NULL;
+        }
+    }
+  
   link = _dbus_mem_pool_alloc (list_pool);
   link->data = data;
+  
+  dbus_static_mutex_unlock (&list_pool_lock);
 
   return link;
 }
@@ -62,7 +80,9 @@ alloc_link (void *data)
 static void
 free_link (DBusList *link)
 {
+  dbus_static_mutex_lock (&list_pool_lock);
   _dbus_mem_pool_dealloc (list_pool, link);
+  dbus_static_mutex_unlock (&list_pool_lock);
 }
 
 static void
