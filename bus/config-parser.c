@@ -278,8 +278,9 @@ merge_included (BusConfigParser *parser,
 }
 
 BusConfigParser*
-bus_config_parser_new (const DBusString *basedir,
-                       dbus_bool_t       is_toplevel)
+bus_config_parser_new (const DBusString      *basedir,
+                       dbus_bool_t            is_toplevel,
+                       const BusConfigParser *parent)
 {
   BusConfigParser *parser;
 
@@ -306,42 +307,51 @@ bus_config_parser_new (const DBusString *basedir,
       return NULL;
     }
 
-  /* Make up some numbers! woot! */
-  parser->limits.max_incoming_bytes = _DBUS_ONE_MEGABYTE * 63;
-  parser->limits.max_outgoing_bytes = _DBUS_ONE_MEGABYTE * 63;
-  parser->limits.max_message_size = _DBUS_ONE_MEGABYTE * 32;
+  if (parent != NULL)
+    {
+      /* Initialize the parser's limits from the parent. */
+      parser->limits = parent->limits;
+    }
+  else
+    {
 
-  /* Making this long means the user has to wait longer for an error
-   * message if something screws up, but making it too short means
-   * they might see a false failure.
-   */
-  parser->limits.activation_timeout = 25000; /* 25 seconds */
+      /* Make up some numbers! woot! */
+      parser->limits.max_incoming_bytes = _DBUS_ONE_MEGABYTE * 63;
+      parser->limits.max_outgoing_bytes = _DBUS_ONE_MEGABYTE * 63;
+      parser->limits.max_message_size = _DBUS_ONE_MEGABYTE * 32;
+      
+      /* Making this long means the user has to wait longer for an error
+       * message if something screws up, but making it too short means
+       * they might see a false failure.
+       */
+      parser->limits.activation_timeout = 25000; /* 25 seconds */
 
-  /* Making this long risks making a DOS attack easier, but too short
-   * and legitimate auth will fail.  If interactive auth (ask user for
-   * password) is allowed, then potentially it has to be quite long.
-   */
-  parser->limits.auth_timeout = 30000; /* 30 seconds */
-
-  parser->limits.max_incomplete_connections = 32;
-  parser->limits.max_connections_per_user = 128;
-
-  /* Note that max_completed_connections / max_connections_per_user
-   * is the number of users that would have to work together to
-   * DOS all the other users.
-   */
-  parser->limits.max_completed_connections = 1024;
-
-  parser->limits.max_pending_activations = 256;
-  parser->limits.max_services_per_connection = 256;
-
-  parser->limits.max_match_rules_per_connection = 128;
-
-  parser->limits.reply_timeout = 5 * 60 * 1000; /* 5 minutes */
-  parser->limits.max_replies_per_connection = 32;
-  
+      /* Making this long risks making a DOS attack easier, but too short
+       * and legitimate auth will fail.  If interactive auth (ask user for
+       * password) is allowed, then potentially it has to be quite long.
+       */
+      parser->limits.auth_timeout = 30000; /* 30 seconds */
+      
+      parser->limits.max_incomplete_connections = 32;
+      parser->limits.max_connections_per_user = 128;
+      
+      /* Note that max_completed_connections / max_connections_per_user
+       * is the number of users that would have to work together to
+       * DOS all the other users.
+       */
+      parser->limits.max_completed_connections = 1024;
+      
+      parser->limits.max_pending_activations = 256;
+      parser->limits.max_services_per_connection = 256;
+      
+      parser->limits.max_match_rules_per_connection = 128;
+      
+      parser->limits.reply_timeout = 5 * 60 * 1000; /* 5 minutes */
+      parser->limits.max_replies_per_connection = 32;
+    }
+      
   parser->refcount = 1;
-
+      
   return parser;
 }
 
@@ -1628,7 +1638,11 @@ include_file (BusConfigParser   *parser,
   DBusError tmp_error;
         
   dbus_error_init (&tmp_error);
-  included = bus_config_load (filename, FALSE, &tmp_error);
+
+  /* Since parser is passed in as the parent, included
+     inherits parser's limits. */
+  included = bus_config_load (filename, FALSE, parser, &tmp_error);
+
   if (included == NULL)
     {
       _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
@@ -1654,6 +1668,9 @@ include_file (BusConfigParser   *parser,
           bus_config_parser_unref (included);
           return FALSE;
         }
+
+      /* Copy included's limits back to parser. */
+      parser->limits = included->limits;
 
       bus_config_parser_unref (included);
       return TRUE;
@@ -2093,7 +2110,7 @@ do_load (const DBusString *full_path,
 
   dbus_error_init (&error);
 
-  parser = bus_config_load (full_path, TRUE, &error);
+  parser = bus_config_load (full_path, TRUE, NULL, &error);
   if (parser == NULL)
     {
       _DBUS_ASSERT_ERROR_IS_SET (&error);
@@ -2150,9 +2167,9 @@ check_loader_oom_func (void *data)
 }
 
 static dbus_bool_t
-process_test_subdir (const DBusString *test_base_dir,
-                     const char       *subdir,
-                     Validity          validity)
+process_test_valid_subdir (const DBusString *test_base_dir,
+                           const char       *subdir,
+                           Validity          validity)
 {
   DBusString test_directory;
   DBusString filename;
@@ -2211,7 +2228,7 @@ process_test_subdir (const DBusString *test_base_dir,
         {
           _dbus_verbose ("Skipping non-.conf file %s\n",
                          _dbus_string_get_const_data (&filename));
-	  _dbus_string_free (&full_path);
+          _dbus_string_free (&full_path);
           goto next;
         }
 
@@ -2251,6 +2268,337 @@ process_test_subdir (const DBusString *test_base_dir,
   return retval;
 }
 
+static dbus_bool_t
+bools_equal (dbus_bool_t a,
+	     dbus_bool_t b)
+{
+  return a ? b : !b;
+}
+
+static dbus_bool_t
+strings_equal_or_both_null (const char *a,
+                            const char *b)
+{
+  if (a == NULL || b == NULL)
+    return a == b;
+  else
+    return !strcmp (a, b);
+}
+
+static dbus_bool_t
+elements_equal (const Element *a,
+		const Element *b)
+{
+  if (a->type != b->type)
+    return FALSE;
+
+  if (!bools_equal (a->had_content, b->had_content))
+    return FALSE;
+
+  switch (a->type)
+    {
+
+    case ELEMENT_INCLUDE:
+      if (!bools_equal (a->d.include.ignore_missing,
+			b->d.include.ignore_missing))
+	return FALSE;
+      break;
+
+    case ELEMENT_POLICY:
+      if (a->d.policy.type != b->d.policy.type)
+	return FALSE;
+      if (a->d.policy.gid_or_uid != b->d.policy.gid_or_uid)
+	return FALSE;
+      break;
+
+    case ELEMENT_LIMIT:
+      if (strcmp (a->d.limit.name, b->d.limit.name))
+	return FALSE;
+      if (a->d.limit.value != b->d.limit.value)
+	return FALSE;
+      break;
+
+    default:
+      /* do nothing */
+      break;
+    }
+
+  return TRUE;
+
+}
+
+static dbus_bool_t
+lists_of_elements_equal (DBusList *a,
+			 DBusList *b)
+{
+  DBusList *ia;
+  DBusList *ib;
+
+  ia = a;
+  ib = b;
+  
+  while (ia != NULL && ib != NULL)
+    {
+      if (elements_equal (ia->data, ib->data))
+	return FALSE;
+      ia = _dbus_list_get_next_link (&a, ia);
+      ib = _dbus_list_get_next_link (&b, ib);
+    }
+
+  return ia == NULL && ib == NULL;
+}
+
+static dbus_bool_t
+lists_of_c_strings_equal (DBusList *a,
+			  DBusList *b)
+{
+  DBusList *ia;
+  DBusList *ib;
+
+  ia = a;
+  ib = b;
+  
+  while (ia != NULL && ib != NULL)
+    {
+      if (strcmp (ia->data, ib->data))
+	return FALSE;
+      ia = _dbus_list_get_next_link (&a, ia);
+      ib = _dbus_list_get_next_link (&b, ib);
+    }
+
+  return ia == NULL && ib == NULL;
+}
+
+static dbus_bool_t
+limits_equal (const BusLimits *a,
+	      const BusLimits *b)
+{
+  return
+    (a->max_incoming_bytes == b->max_incoming_bytes
+     || a->max_outgoing_bytes == b->max_outgoing_bytes
+     || a->max_message_size == b->max_message_size
+     || a->activation_timeout == b->activation_timeout
+     || a->auth_timeout == b->auth_timeout
+     || a->max_completed_connections == b->max_completed_connections
+     || a->max_incomplete_connections == b->max_incomplete_connections
+     || a->max_connections_per_user == b->max_connections_per_user
+     || a->max_pending_activations == b->max_pending_activations
+     || a->max_services_per_connection == b->max_services_per_connection
+     || a->max_match_rules_per_connection == b->max_match_rules_per_connection
+     || a->max_replies_per_connection == b->max_replies_per_connection
+     || a->reply_timeout == b->reply_timeout);
+}
+
+static dbus_bool_t
+config_parsers_equal (const BusConfigParser *a,
+                      const BusConfigParser *b)
+{
+  if (!_dbus_string_equal (&a->basedir, &b->basedir))
+    return FALSE;
+
+  if (!lists_of_elements_equal (a->stack, b->stack))
+    return FALSE;
+
+  if (!strings_equal_or_both_null (a->user, b->user))
+    return FALSE;
+
+  if (!lists_of_c_strings_equal (a->listen_on, b->listen_on))
+    return FALSE;
+
+  if (!lists_of_c_strings_equal (a->mechanisms, b->mechanisms))
+    return FALSE;
+
+  if (!lists_of_c_strings_equal (a->service_dirs, b->service_dirs))
+    return FALSE;
+  
+  /* FIXME: compare policy */
+
+  if (! limits_equal (&a->limits, &b->limits))
+    return FALSE;
+
+  if (!strings_equal_or_both_null (a->pidfile, b->pidfile))
+    return FALSE;
+
+  if (! bools_equal (a->fork, b->fork))
+    return FALSE;
+
+  if (! bools_equal (a->is_toplevel, b->is_toplevel))
+    return FALSE;
+
+  return TRUE;
+}
+
+static dbus_bool_t
+all_are_equiv (const DBusString *target_directory)
+{
+  DBusString filename;
+  DBusDirIter *dir;
+  BusConfigParser *first_parser;
+  BusConfigParser *parser;
+  DBusError error;
+  dbus_bool_t equal;
+  dbus_bool_t retval;
+
+  dir = NULL;
+  first_parser = NULL;
+  parser = NULL;
+  retval = FALSE;
+
+  if (!_dbus_string_init (&filename))
+    _dbus_assert_not_reached ("didn't allocate filename string");
+
+  dbus_error_init (&error);
+  dir = _dbus_directory_open (target_directory, &error);
+  if (dir == NULL)
+    {
+      _dbus_warn ("Could not open %s: %s\n",
+		  _dbus_string_get_const_data (target_directory),
+		  error.message);
+      dbus_error_free (&error);
+      goto finished;
+    }
+
+  printf ("Comparing:\n");
+
+ next:
+  while (_dbus_directory_get_next_file (dir, &filename, &error))
+    {
+      DBusString full_path;
+
+      if (!_dbus_string_init (&full_path))
+	_dbus_assert_not_reached ("couldn't init string");
+
+      if (!_dbus_string_copy (target_directory, 0, &full_path, 0))
+        _dbus_assert_not_reached ("couldn't copy dir to full_path");
+
+      if (!_dbus_concat_dir_and_file (&full_path, &filename))
+        _dbus_assert_not_reached ("couldn't concat file to dir");
+
+      if (!_dbus_string_ends_with_c_str (&full_path, ".conf"))
+        {
+          _dbus_verbose ("Skipping non-.conf file %s\n",
+                         _dbus_string_get_const_data (&filename));
+	  _dbus_string_free (&full_path);
+          goto next;
+        }
+
+      printf ("    %s\n", _dbus_string_get_const_data (&filename));
+
+      parser = bus_config_load (&full_path, TRUE, NULL, &error);
+      _dbus_string_free (&full_path);
+
+      if (parser == NULL)
+	{
+	  _dbus_warn ("Could not load file %s: %s\n",
+		      _dbus_string_get_const_data (&full_path),
+		      error.message);
+	  dbus_error_free (&error);
+	  goto finished;
+	}
+      else if (first_parser == NULL)
+	{
+	  first_parser = parser;
+	}
+      else
+	{
+	  equal = config_parsers_equal (first_parser, parser);
+	  bus_config_parser_unref (parser);
+	  if (! equal)
+	    goto finished;
+	}
+
+    }
+
+  retval = TRUE;
+
+ finished:
+  _dbus_string_free (&filename);
+  if (first_parser)
+    bus_config_parser_unref (first_parser);
+  if (dir)
+    _dbus_directory_close (dir);
+
+  return retval;
+  
+}
+
+static dbus_bool_t
+process_test_equiv_subdir (const DBusString *test_base_dir,
+			   const char       *subdir)
+{
+  DBusString test_directory;
+  DBusString filename;
+  DBusDirIter *dir;
+  DBusError error;
+  dbus_bool_t equal;
+  dbus_bool_t retval;
+
+  dir = NULL;
+  retval = FALSE;
+
+  if (!_dbus_string_init (&test_directory))
+    _dbus_assert_not_reached ("didn't allocate test_directory");
+
+  _dbus_string_init_const (&filename, subdir);
+
+  if (!_dbus_string_copy (test_base_dir, 0,
+			  &test_directory, 0))
+    _dbus_assert_not_reached ("couldn't copy test_base_dir to test_directory");
+
+  if (!_dbus_concat_dir_and_file (&test_directory, &filename))
+    _dbus_assert_not_reached ("couldn't allocate full path");
+
+  _dbus_string_free (&filename);
+  if (!_dbus_string_init (&filename))
+    _dbus_assert_not_reached ("didn't allocate filename string");
+
+  dbus_error_init (&error);
+  dir = _dbus_directory_open (&test_directory, &error);
+  if (dir == NULL)
+    {
+      _dbus_warn ("Could not open %s: %s\n",
+		  _dbus_string_get_const_data (&test_directory),
+		  error.message);
+      dbus_error_free (&error);
+      goto finished;
+    }
+
+  while (_dbus_directory_get_next_file (dir, &filename, &error))
+    {
+      DBusString full_path;
+
+      /* Skip CVS's magic directories! */
+      if (_dbus_string_equal_c_str (&filename, "CVS"))
+	continue;
+
+      if (!_dbus_string_init (&full_path))
+	_dbus_assert_not_reached ("couldn't init string");
+
+      if (!_dbus_string_copy (&test_directory, 0, &full_path, 0))
+        _dbus_assert_not_reached ("couldn't copy dir to full_path");
+
+      if (!_dbus_concat_dir_and_file (&full_path, &filename))
+        _dbus_assert_not_reached ("couldn't concat file to dir");
+      
+      equal = all_are_equiv (&full_path);
+      _dbus_string_free (&full_path);
+
+      if (!equal)
+	goto finished;
+    }
+
+  retval = TRUE;
+
+ finished:
+  _dbus_string_free (&test_directory);
+  _dbus_string_free (&filename);
+  if (dir)
+    _dbus_directory_close (dir);
+
+  return retval;
+  
+}
+			   
 dbus_bool_t
 bus_config_parser_test (const DBusString *test_data_dir)
 {
@@ -2261,7 +2609,10 @@ bus_config_parser_test (const DBusString *test_data_dir)
       return TRUE;
     }
 
-  if (!process_test_subdir (test_data_dir, "valid-config-files", VALID))
+  if (!process_test_valid_subdir (test_data_dir, "valid-config-files", VALID))
+    return FALSE;
+
+  if (!process_test_equiv_subdir (test_data_dir, "equiv-config-files"))
     return FALSE;
 
   return TRUE;

@@ -283,7 +283,7 @@ bus_context_new (const DBusString *config_file,
   context = NULL;
   auth_mechanisms = NULL;
   
-  parser = bus_config_load (config_file, TRUE, error);
+  parser = bus_config_load (config_file, TRUE, NULL, error);
   if (parser == NULL)
     goto failed;
 

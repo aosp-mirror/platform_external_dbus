@@ -71,18 +71,22 @@ xml_text_reader_error (void                   *arg,
 }
 
 BusConfigParser*
-bus_config_load (const DBusString *file,
-                 DBusError        *error)
+bus_config_load (const DBusString      *file,
+                 dbus_bool_t            is_toplevel,
+                 const BusConfigParser *parent,
+                 DBusError             *error)
+
 {
   xmlTextReader *reader;
   const char *filename;
   BusConfigParser *parser;
+  DBusString dirname;
   DBusError tmp_error;
   int ret;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  _dbus_string_get_const_data (file, &filename);
+  filename = _dbus_string_get_const_data (file);
   parser = NULL;
   reader = NULL;
   dbus_error_init (&tmp_error);
@@ -100,12 +104,24 @@ bus_config_load (const DBusString *file,
                       "xmlMemSetup() didn't work for some reason\n");
       return NULL;
     }
-  
-  parser = bus_config_parser_new ();
-  if (parser == NULL)
+
+  if (!_dbus_string_init (&dirname))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
+    }
+
+  if (!_dbus_string_get_dirname (file, &dirname))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      goto failed;
+    }
+  
+  parser = bus_config_parser_new (&dirname, is_toplevel, parent);
+  if (parser == NULL)
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      goto failed;
     }
   
   errno = 0;
@@ -163,12 +179,13 @@ bus_config_load (const DBusString *file,
   
   if (!bus_config_parser_finished (parser, error))
     goto failed;
-
+  _dbus_string_free (&dirname);
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   return parser;
   
  failed:
   _DBUS_ASSERT_ERROR_IS_SET (error);
+  _dbus_string_free (&dirname);
   if (parser)
     bus_config_parser_unref (parser);
   _dbus_assert (reader == NULL); /* must go to reader_out first */

@@ -1,3 +1,31 @@
+2004-04-09  Jon Trowbridge  <trow@ximian.com>
+
+	* bus/config-parser.c (bus_config_parser_new): Added a 'parent'
+	argument.  If non-null, the newly-constructed BusConfigParser will
+	be initialized with the parent's BusLimits instead of the default
+	values.
+	(include_file): When including a config file, pass in
+	the current parser as the parent and then copy the BusLimits
+	from the included BusConfigParser pack to the current parser.
+	(process_test_valid_subdir): Renamed from process_test_subdir.
+	(process_test_equiv_subdir): Added.  Walks through a directory,
+	descending into each subdirectory and loading the config files
+	it finds there.  If any subdirectory contains two config files
+	that don't produce identical BusConfigParser structs, fail.
+	For now, the BusConfigParser's BusPolicies are not compared.
+	(bus_config_parser_test): Call both process_test_valid_subdir and
+	process_test_equiv_subdir.
+
+	* bus/config-loader-libxml.c (bus_config_load): Take a parent
+	argument and pass it along to the call to bus_config_parser_new.
+	Also made a few small changes to allow this code to compile.
+
+	* bus/config-loader-expat.c (bus_config_load): Take a parent
+	argument and pass it along to the call to bus_config_parser_new.
+
+	* bus/bus.c (bus_context_new): Load the config file
+	with a NULL parent argument.
+
 2004-03-29  Michael Meeks  <michael@ximian.com>
 
 	* glib/dbus-gobject.c (set_object_property): split out / 
