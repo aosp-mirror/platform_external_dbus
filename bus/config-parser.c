@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* config-parser.c  XML-library-agnostic configuration file parser
  *
- * Copyright (C) 2003 Red Hat, Inc.
+ * Copyright (C) 2003, 2004 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.0
  *
@@ -873,7 +873,8 @@ append_rule_from_element (BusConfigParser   *parser,
   const char *receive_path;
   const char *receive_type;
   const char *eavesdrop;
-  const char *requested_reply;
+  const char *send_requested_reply;
+  const char *receive_requested_reply;
   const char *own;
   const char *user;
   const char *group;
@@ -896,7 +897,8 @@ append_rule_from_element (BusConfigParser   *parser,
                           "receive_path", &receive_path,
                           "receive_type", &receive_type,
                           "eavesdrop", &eavesdrop,
-                          "requested_reply", &requested_reply,
+                          "send_requested_reply", &send_requested_reply,
+                          "receive_requested_reply", &receive_requested_reply,
                           "own", &own,
                           "user", &user,
                           "group", &group,
@@ -906,7 +908,8 @@ append_rule_from_element (BusConfigParser   *parser,
   if (!(send_interface || send_member || send_error || send_destination ||
         send_type || send_path ||
         receive_interface || receive_member || receive_error || receive_sender ||
-        receive_type || receive_path || eavesdrop || requested_reply ||
+        receive_type || receive_path || eavesdrop ||
+        send_requested_reply || receive_requested_reply ||
         own || user || group))
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
@@ -932,8 +935,8 @@ append_rule_from_element (BusConfigParser   *parser,
    *     interface + member
    *     error
    * 
-   *   base send_ can combine with send_destination, send_path, send_type
-   *   base receive_ with receive_sender, receive_path, receive_type, eavesdrop, requested_reply
+   *   base send_ can combine with send_destination, send_path, send_type, send_requested_reply
+   *   base receive_ with receive_sender, receive_path, receive_type, receive_requested_reply, eavesdrop
    *
    *   user, group, own must occur alone
    *
@@ -946,7 +949,7 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_interface && receive_error) ||
        (send_interface && receive_sender) ||
        (send_interface && eavesdrop) ||
-       (send_interface && requested_reply) ||
+       (send_interface && receive_requested_reply) ||
        (send_interface && own) ||
        (send_interface && user) ||
        (send_interface && group)) ||
@@ -957,7 +960,7 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_member && receive_error) ||
        (send_member && receive_sender) ||
        (send_member && eavesdrop) ||
-       (send_member && requested_reply) ||
+       (send_member && receive_requested_reply) ||
        (send_member && own) ||
        (send_member && user) ||
        (send_member && group)) ||
@@ -967,7 +970,7 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_error && receive_error) ||
        (send_error && receive_sender) ||
        (send_error && eavesdrop) ||
-       (send_error && requested_reply) ||
+       (send_error && receive_requested_reply) ||
        (send_error && own) ||
        (send_error && user) ||
        (send_error && group)) ||
@@ -977,7 +980,7 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_destination && receive_error) ||
        (send_destination && receive_sender) ||
        (send_destination && eavesdrop) ||
-       (send_destination && requested_reply) ||
+       (send_destination && receive_requested_reply) ||
        (send_destination && own) ||
        (send_destination && user) ||
        (send_destination && group)) ||
@@ -987,7 +990,7 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_type && receive_error) ||
        (send_type && receive_sender) ||
        (send_type && eavesdrop) ||
-       (send_type && requested_reply) ||
+       (send_type && receive_requested_reply) ||
        (send_type && own) ||
        (send_type && user) ||
        (send_type && group)) ||
@@ -997,10 +1000,20 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_path && receive_error) ||
        (send_path && receive_sender) ||
        (send_path && eavesdrop) ||
-       (send_path && requested_reply) ||
+       (send_path && receive_requested_reply) ||
        (send_path && own) ||
        (send_path && user) ||
        (send_path && group)) ||
+
+      ((send_requested_reply && receive_interface) ||
+       (send_requested_reply && receive_member) ||
+       (send_requested_reply && receive_error) ||
+       (send_requested_reply && receive_sender) ||
+       (send_requested_reply && eavesdrop) ||
+       (send_requested_reply && receive_requested_reply) ||
+       (send_requested_reply && own) ||
+       (send_requested_reply && user) ||
+       (send_requested_reply && group)) ||
       
       ((receive_interface && receive_error) ||
        (receive_interface && own) ||
@@ -1020,9 +1033,9 @@ append_rule_from_element (BusConfigParser   *parser,
        (eavesdrop && user) ||
        (eavesdrop && group)) ||
 
-      ((requested_reply && own) ||
-       (requested_reply && user) ||
-       (requested_reply && group)) ||
+      ((receive_requested_reply && own) ||
+       (receive_requested_reply && user) ||
+       (receive_requested_reply && group)) ||
       
       ((own && user) ||
        (own && group)) ||
@@ -1043,7 +1056,7 @@ append_rule_from_element (BusConfigParser   *parser,
 #define IS_WILDCARD(str) ((str) && ((str)[0]) == '*' && ((str)[1]) == '\0')
 
   if (send_interface || send_member || send_error || send_destination ||
-      send_path || send_type)
+      send_path || send_type || send_requested_reply)
     {
       int message_type;
       
@@ -1072,10 +1085,23 @@ append_rule_from_element (BusConfigParser   *parser,
               return FALSE;
             }
         }
+
+      if (send_requested_reply &&
+          !(strcmp (send_requested_reply, "true") == 0 ||
+            strcmp (send_requested_reply, "false") == 0))
+        {
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+                          "Bad value \"%s\" for %s attribute, must be true or false",
+                          "send_requested_reply", send_requested_reply);
+          return FALSE;
+        }
       
       rule = bus_policy_rule_new (BUS_POLICY_RULE_SEND, allow); 
       if (rule == NULL)
         goto nomem;
+      
+      if (send_requested_reply)
+        rule->d.send.requested_reply = (strcmp (send_requested_reply, "true") == 0);
       
       rule->d.send.message_type = message_type;
       rule->d.send.path = _dbus_strdup (send_path);
@@ -1095,7 +1121,7 @@ append_rule_from_element (BusConfigParser   *parser,
         goto nomem;
     }
   else if (receive_interface || receive_member || receive_error || receive_sender ||
-           receive_path || receive_type || eavesdrop || requested_reply)
+           receive_path || receive_type || eavesdrop || receive_requested_reply)
     {
       int message_type;
       
@@ -1136,13 +1162,13 @@ append_rule_from_element (BusConfigParser   *parser,
           return FALSE;
         }
 
-      if (requested_reply &&
-          !(strcmp (requested_reply, "true") == 0 ||
-            strcmp (requested_reply, "false") == 0))
+      if (receive_requested_reply &&
+          !(strcmp (receive_requested_reply, "true") == 0 ||
+            strcmp (receive_requested_reply, "false") == 0))
         {
           dbus_set_error (error, DBUS_ERROR_FAILED,
                           "Bad value \"%s\" for %s attribute, must be true or false",
-                          "requested_reply", requested_reply);
+                          "receive_requested_reply", receive_requested_reply);
           return FALSE;
         }
       
@@ -1153,8 +1179,8 @@ append_rule_from_element (BusConfigParser   *parser,
       if (eavesdrop)
         rule->d.receive.eavesdrop = (strcmp (eavesdrop, "true") == 0);
 
-      if (requested_reply)
-        rule->d.receive.requested_reply = (strcmp (requested_reply, "true") == 0);
+      if (receive_requested_reply)
+        rule->d.receive.requested_reply = (strcmp (receive_requested_reply, "true") == 0);
       
       rule->d.receive.message_type = message_type;
       rule->d.receive.path = _dbus_strdup (receive_path);
@@ -2290,9 +2316,15 @@ process_test_valid_subdir (const DBusString *test_base_dir,
 
       d.full_path = &full_path;
       d.validity = validity;
-      if (!_dbus_test_oom_handling ("config-loader", check_loader_oom_func, &d))
-        _dbus_assert_not_reached ("test failed");
 
+      /* FIXME hackaround for an expat problem, see
+       * https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=124747
+       * http://freedesktop.org/pipermail/dbus/2004-May/001153.html
+       */
+      /* if (!_dbus_test_oom_handling ("config-loader", check_loader_oom_func, &d)) */
+      if (!check_loader_oom_func (&d))
+        _dbus_assert_not_reached ("test failed");
+      
       _dbus_string_free (&full_path);
     }
 

@@ -45,7 +45,8 @@
     <allow send_destination="org.freedesktop.DBus"/>
     <allow receive_sender="org.freedesktop.DBus"/>
     <!-- valid replies are always allowed -->
-    <allow requested_reply="true"/>
+    <allow send_requested_reply="true"/>
+    <allow receive_requested_reply="true"/>
   </policy>
 
   <!-- Config files are placed here that among other things, punch 

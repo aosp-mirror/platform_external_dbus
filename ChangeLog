@@ -1,3 +1,24 @@
+2004-05-29  Havoc Pennington  <hp@redhat.com>
+
+	* bus/config-parser.c (process_test_valid_subdir): temporarily
+	stop testing config parser OOM handling, since expat has issues
+	http://freedesktop.org/pipermail/dbus/2004-May/001153.html
+
+	* bus/dbus-daemon-1.1.in: change requested_reply to
+	send_requested_reply/receive_requested_reply so we can send the
+	replies, not just receive them.
+
+	* bus/config-parser.c: parse the new
+	send_requested_reply/receive_requested_reply
+
+	* bus/policy.c (bus_client_policy_check_can_send): add
+	requested_reply argument and use it
+
+	* bus/bus.c (bus_context_check_security_policy): pass through
+	requested_reply status to message send check
+
+	* bus/system.conf.in: adapt to requested_reply change
+	
 2004-05-28  Havoc Pennington  <hp@redhat.com>
 
 	* test/glib/test-service-glib.c (main): remove unused variable

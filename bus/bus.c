@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* bus.c  message bus context object
  *
- * Copyright (C) 2003 Red Hat, Inc.
+ * Copyright (C) 2003, 2004 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.0
  * 
@@ -1189,7 +1189,9 @@ bus_context_check_security_policy (BusContext     *context,
   
   if (sender_policy &&
       !bus_client_policy_check_can_send (sender_policy,
-                                         context->registry, proposed_recipient,
+                                         context->registry,
+                                         requested_reply,
+                                         proposed_recipient,
                                          message))
     {
       const char *dest = dbus_message_get_destination (message);

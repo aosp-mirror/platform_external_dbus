@@ -61,7 +61,8 @@ struct BusPolicyRule
       char *interface;
       char *member;
       char *error;
-      char *destination;      
+      char *destination;
+      unsigned int requested_reply : 1;
     } send;
 
     struct
@@ -131,6 +132,7 @@ BusClientPolicy* bus_client_policy_ref               (BusClientPolicy  *policy);
 void             bus_client_policy_unref             (BusClientPolicy  *policy);
 dbus_bool_t      bus_client_policy_check_can_send    (BusClientPolicy  *policy,
                                                       BusRegistry      *registry,
+                                                      dbus_bool_t       requested_reply,
                                                       DBusConnection   *receiver,
                                                       DBusMessage      *message);
 dbus_bool_t      bus_client_policy_check_can_receive (BusClientPolicy  *policy,
