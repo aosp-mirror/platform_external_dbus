@@ -72,18 +72,14 @@ extern "C" {
 /* Service replies */
 #define DBUS_SERVICE_REPLY_PRIMARY_OWNER  0x1
 #define DBUS_SERVICE_REPLY_IN_QUEUE       0x2
-#define DBUS_SERVICE_REPLY_SERVICE_EXISTS 0x3
-#define DBUS_SERVICE_REPLY_ALREADY_OWNER  0x4
+#define DBUS_SERVICE_REPLY_SERVICE_EXISTS 0x4
+#define DBUS_SERVICE_REPLY_ALREADY_OWNER  0x8
   
 /* Messages */
 #define DBUS_MESSAGE_SERVICE_EXISTS        "org.freedesktop.DBus.ServiceExists"
-#define DBUS_MESSAGE_SERVICE_EXISTS_REPLY  "org.freedesktop.DBus.ServiceExists:Reply"
 #define DBUS_MESSAGE_HELLO                 "org.freedesktop.DBus.Hello"
-#define DBUS_MESSAGE_HELLO_REPLY           "org.freedesktop.DBus.Hello:Reply"
 #define DBUS_MESSAGE_LIST_SERVICES         "org.freedesktop.DBus.ListServices"
-#define DBUS_MESSAGE_LIST_SERVICES_REPLY   "org.freedesktop.DBus.ListServices:Reply"
 #define DBUS_MESSAGE_ACQUIRE_SERVICE       "org.freedesktop.DBus.OwnService"
-#define DBUS_MESSAGE_ACQUIRE_SERVICE_REPLY "org.freedesktop.DBus.OwnService:Reply"
 #define DBUS_MESSAGE_SERVICE_ACQUIRED      "org.freedesktop.DBus.ServiceAcquired"
 #define DBUS_MESSAGE_SERVICE_CREATED       "org.freedesktop.DBus.ServiceCreated"
 #define DBUS_MESSAGE_SERVICE_DELETED       "org.freedesktop.DBus.ServiceDeleted"

@@ -847,8 +847,6 @@ _dbus_demarshal_string_array (const DBusString *str,
  * NO VALIDATION WHATSOEVER. The message must have been previously
  * validated.
  *
- * @todo handle DBUS_TYPE_NIL
- *
  * @param str a string
  * @param byte_order the byte order to use
  * @param pos the pos where the arg starts
@@ -877,6 +875,7 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
 
     case DBUS_TYPE_NIL:
       *end_pos = pos + 1;
+      break;
       
     case DBUS_TYPE_INT32:
       *end_pos = _DBUS_ALIGN_VALUE (pos + 1, sizeof (dbus_int32_t)) + sizeof (dbus_int32_t);
@@ -1071,8 +1070,6 @@ validate_string (const DBusString *str,
  * returns #TRUE if a valid arg begins at "pos"
  *
  * @todo security: need to audit this function.
- *
- * @todo handle DBUS_TYPE_NIL
  * 
  * @param str a string
  * @param byte_order the byte order to use

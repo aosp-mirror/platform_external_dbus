@@ -156,7 +156,7 @@
       </para>
       <para>
         Flags that can appear in the second byte of the header:
-        <informaltable id="message-protocol-header-flags">
+        <informaltable>
           <tgroup cols=2>
             <thead>
               <row>
@@ -187,6 +187,60 @@
           they do not understand. Implementations must not 
           invent their own header fields; only changes to 
           this specification may introduce new header fields.
+      </para>
+
+      <para>
+        Header field names MUST consist of 4 non-nul bytes.  The field name is
+        NOT nul terminated; it occupies exactly 4 bytes. Following the name, 
+        the field MUST have a type code, and then a properly-aligned value 
+        of that type. 
+        See <xref linkend="message-protocol-arguments"> for a description 
+          of how each type is encoded. If an implementation sees a header 
+          field name that it does not understand, it MUST ignore 
+          that field.
+      </para>
+
+      <para>
+        Here are the currently-defined named header fields:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Name</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>name</entry>
+                <entry>STRING</entry>
+                <entry>The name of the message, such as org.freedesktop.Peer.Ping</entry>
+              </row>
+              <row>
+                <entry>rply</entry>
+                <entry>INT32</entry>
+                <entry>The serial number of the message this message is a reply
+                to. (The serial number is one of the mandatory header fields,
+                see <xref linkend="message-protocol-header-encoding">.)</entry>
+              </row>
+              <row>
+                <entry>srvc</entry>
+                <entry>STRING</entry>
+                <entry>The name of the service this message should be routed to. 
+                Only used in combination with the message bus, see 
+                <xref linkend="message-bus">.</entry>
+              </row>
+              <row>
+                <entry>sndr</entry>
+                <entry>STRING</entry>
+                <entry>The name of the service that sent this message. 
+                The message bus fills in this field; the field is 
+                only meaningful in combination with the message bus.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
       </para>
       
     </sect2>
@@ -274,6 +328,68 @@
       </para>
       <para>
         The types are encoded as follows:
+        <informaltable>
+          <tgroup cols=2>
+            <thead>
+              <row>
+                <entry>Type name</entry>
+                <entry>Encoding</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>INVALID</entry>
+                <entry>Not applicable; cannot be encoded.</entry>
+              </row><row>
+                <entry>NIL</entry>
+                <entry>No data is encoded; the type code is followed immediately 
+                by the type code of the next argument.</entry>
+              </row><row>
+                <entry>INT32</entry>
+                <entry>32-bit signed integer in the message's byte order, aligned to 4-byte boundary.</entry>
+              </row><row>
+                <entry>UINT32</entry>
+                <entry>32-bit unsigned integer in the message's byte order, aligned to 4-byte boundary.</entry>
+              </row><row>
+                <entry>DOUBLE</entry>
+                <entry>64-bit IEEE 754 double in the message's byte order, aligned to 8-byte boundary.</entry>
+              </row><row>
+                <entry>STRING</entry>
+                <entry>UINT32 aligned to 4-byte boundary indicating the string's 
+                  length in bytes excluding its terminating nul, followed by 
+                  string data of the given length, followed by a terminating nul 
+                  byte.
+                </entry>
+              </row><row>
+                <entry>INT32_ARRAY</entry>
+                <entry>UINT32 giving the number of values in the array, 
+                  followed by the given number of INT32 values.
+                </entry>
+              </row><row>
+                <entry>UINT32_ARRAY</entry>
+                <entry>UINT32 giving the number of values in the array, 
+                  followed by the given number of UINT32 values.
+                </entry>
+              </row><row>
+                <entry>DOUBLE_ARRAY</entry>
+                <entry>UINT32 giving the number of values in the array, 
+                  followed by the given number of DOUBLE values aligned
+                  to 8-byte boundary.
+                </entry>
+              </row><row>
+                <entry>BYTE_ARRAY</entry>
+                <entry>UINT32 giving the number of values in the array, 
+                  followed by the given number of one-byte values.
+                </entry>
+              </row><row>
+                <entry>STRING_ARRAY</entry>
+                <entry>UINT32 giving the number of values in the array, 
+                  followed by the given number of STRING values.
+                </entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
       </para>
     </sect2>
   </sect1>
@@ -348,10 +464,11 @@
         </variablelist>
       </para>
       <para>
-        A reply to a message is conventionally named by 
-        appending the string <literal>:Reply</literal>. 
-        So the reply to <literal>org.freedesktop.Peer.Ping</literal>
-        is <literal>org.freedesktop.Peer.Ping:Reply</literal>.
+        A reply to a message conventionally has the same name as the message
+        being replied to. When following method call conventions (see <xref
+        linkend="message-conventions-method">), this convention is mandatory, 
+          because a message with multiple possible replies can't be mapped
+          to method call semantics without special-case code.
       </para>
     </sect2>
     <sect2 id="message-conventions-method">
@@ -385,7 +502,8 @@
         Arguments to a method may be considered "in" (processed by the
         recipient of the message), or "out" (returned to the sender of the
         message in the reply). "inout" arguments are both sent and received,
-        i.e. the caller passes in a value which is modified.
+        i.e. the caller passes in a value which is modified. An "inout" argument 
+        is equivalent to an "in" argument, followed by an "out" argument.
       </para>
       <para>
         Given a method with zero or one return values, followed by zero or more
@@ -397,6 +515,19 @@
         The recipient constructs a reply by appending first the return value 
         if any, then each "out" or "inout" argument, in order. 
         "in" arguments are not represented in the reply message.
+      </para>
+      <para>
+        The standard reply message MUST have the same name as the message being 
+        replied to, and MUST set the "rply" header field to the serial 
+        number of the message being replied to.
+      </para>
+      <para>
+        If an error occurs, an error reply may be sent in place of the 
+        standard reply. Error replies can be identified by a special 
+        header flag, see <xref linkend="message-protocol-header-encoding">.
+          Error replies have a name which reflects the type of 
+          error that occurred. Error replies would generally 
+          be mapped to exceptions in a programming language.
       </para>
     </sect2>
   </sect1>
@@ -422,7 +553,7 @@
       <para>
         On receipt of the message <literal>org.freedesktop.Peer.Ping</literal>,
         an application should reply with
-        <literal>org.freedesktop.Peer.Ping:Reply</literal>. Neither the 
+        <literal>org.freedesktop.Peer.Ping</literal>. Neither the 
         message nor its reply have any arguments.
       [FIXME the messages here are just made up to illustrate the 
       format for defining them]

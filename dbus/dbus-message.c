@@ -2037,6 +2037,14 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
       _dbus_string_get_const_data_len (&loader->data, &header_data, 0, 16);
 
       _dbus_assert (_DBUS_ALIGN_ADDRESS (header_data, 4) == header_data);
+
+      if (header_data[2] != DBUS_MAJOR_PROTOCOL_VERSION)
+        {
+          _dbus_verbose ("Message has protocol version %d ours is %d\n",
+                         (int) header_data[2], DBUS_MAJOR_PROTOCOL_VERSION);
+          loader->corrupted = TRUE;
+          return;
+        }
       
       byte_order = header_data[0];
 

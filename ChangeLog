@@ -1,5 +1,20 @@
 2003-01-31  Havoc Pennington  <hp@pobox.com>
 
+	* doc/dbus-specification.sgml: work on the specification
+
+	* dbus/dbus-message.c (_dbus_message_loader_return_buffer): check 
+	the protocol version of the message.
+
+	* dbus/dbus-protocol.h: drop special _REPLY names, the spec 
+	no longer specifies that.
+	(DBUS_SERVICE_REPLY_SERVICE_EXISTS): fix flags (1/2/4/8 not 
+	1/2/3/4)
+
+	* dbus/dbus-marshal.c (_dbus_marshal_get_arg_end_pos): add missing
+	"break" for DBUS_TYPE_NIL, remove @todo
+
+2003-01-31  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-message.c (dbus_message_set_is_error_reply): rename 
 	just set_is_error/get_is_error as this is a commonly-used
 	function, and write docs.
