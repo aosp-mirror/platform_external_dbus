@@ -5,4 +5,4 @@ libdir=@libdir@
 Name: DBus#
 Description: DBus# - D-BUS .NET Bindings
 Version: @VERSION@
-Libs: -lib:${libdir}/mono/dbus-sharp -r:dbus-sharp -r:glib-sharp
+Libs: -r:${libdir}/mono/dbus-sharp/dbus-sharp.dll

@@ -1,5 +1,7 @@
 2004-06-10  Owen Fraser-Green  <owen@discobabe.net>
 
+	* dbus-sharp.pc.in: Removed glib-sharp inclusion in Libs.
+
 	* python/examples/Makefile.am: Fixed typo in EXTRA_DIST.
 
 2004-06-09  Olivier Andrieu  <oliv__a@users.sourceforge.net>
