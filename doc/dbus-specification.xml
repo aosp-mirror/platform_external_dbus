@@ -119,6 +119,14 @@
       spec and the reference implementation probably will not 
       incorporate features that interfere with the core use cases.
     </para>
+
+    <para>
+      The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+      "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+      document are to be interpreted as described in RFC 2119. However, the
+      document could use a serious audit to be sure it makes sense to do
+      so. Also, they are not capitalized.
+    </para>
     
   </sect1>
 
@@ -696,14 +704,14 @@
               </row>
               <row>
                 <entry>2nd <literal>BYTE</literal></entry>
-                <entry><firstterm>Message type</firstterm>. Unknown types MUST be ignored. 
+                <entry><firstterm>Message type</firstterm>. Unknown types must be ignored. 
                   Currently-defined types are described below.
                 </entry>
               </row>
               <row>
                 <entry>3rd <literal>BYTE</literal></entry>
                 <entry>Bitwise OR of flags. Unknown flags
-                  MUST be ignored. Currently-defined flags are described below.
+                  must be ignored. Currently-defined flags are described below.
                 </entry>
               </row>
               <row>
@@ -711,7 +719,7 @@
                 <entry>Major protocol version of the sending application.  If
                 the major protocol version of the receiving application does not
                 match, the applications will not be able to communicate and the
-                D-BUS connection MUST be disconnected. The major protocol
+                D-BUS connection must be disconnected. The major protocol
                 version for this version of the specification is 0.
                   FIXME this field is stupid and pointless to put in 
                   every message.
@@ -759,8 +767,7 @@
               <row>
                 <entry><literal>INVALID</literal></entry>
                 <entry>0</entry>
-                <entry>This is an invalid type, if seen in a message 
-                  the connection should be dropped immediately.</entry>
+                <entry>This is an invalid type.</entry>
               </row>
               <row>
                 <entry><literal>METHOD_CALL</literal></entry>
@@ -805,13 +812,15 @@
                 <entry>This message does not expect method return replies or
                 error replies; the reply can be omitted as an
                 optimization. However, it is compliant with this specification
-                to return the reply despite this flag.</entry>
+                to return the reply despite this flag and the only harm 
+                  from doing so is extra network traffic.
+                </entry>
               </row>
               <row>
                 <entry><literal>NO_AUTO_START</literal></entry>
                 <entry>0x2</entry>
-                <entry>This message should not automatically launch an owner
-                  for the destination name.
+                <entry>The bus must not launch an owner
+                  for the destination name in response to this message.
                 </entry>
               </row>
             </tbody>
@@ -835,18 +844,18 @@
 
         <para>
           Again, if an implementation sees a header field code that it does not
-          expect, it MUST ignore that field, as it will be part of a new
+          expect, it must ignore that field, as it will be part of a new
           (but compatible) version of this specification. This also applies 
           to known header fields appearing in unexpected messages, for 
-          example if a signal has a reply serial that should be ignored
+          example: if a signal has a reply serial it must be ignored
           even though it has no meaning as of this version of the spec.
         </para>
 
         <para>
           However, implementations must not send or accept known header fields
-          with the wrong type stored in the field value. So for example 
-          a message with an <literal>INTERFACE</literal> field of type <literal>UINT32</literal> would be considered
-          corrupt.
+          with the wrong type stored in the field value. So for example a
+          message with an <literal>INTERFACE</literal> field of type
+          <literal>UINT32</literal> would be considered corrupt.
         </para>
 
         <para>
@@ -917,7 +926,7 @@
                   <entry>6</entry>
                   <entry><literal>STRING</literal></entry>
                   <entry>optional</entry>
-                  <entry>The name of the connection this message should be routed to. 
+                  <entry>The name of the connection this message is intended for.
                     Only used in combination with the message bus, see 
                     <xref linkend="message-bus"/>.</entry>
                 </row>
@@ -1212,6 +1221,82 @@
       </sect3>
     </sect2>
 
+    <sect2 id="message-protocol-handling-invalid">
+      <title>Invalid Protocol and Spec Extensions</title>
+      
+      <para>
+        For security reasons, the D-BUS protocol should be strictly parsed and
+        validated, with the exception of defined extension points. Any invalid
+        protocol or spec violations should result in immediately dropping the
+        connection without notice to the other end. Exceptions should be
+        carefully considered, e.g. an exception may be warranted for a
+        well-understood idiosyncracy of a widely-deployed implementation.  In
+        cases where the other end of a connection is 100% trusted and known to
+        be friendly, skipping validation for performance reasons could also make
+        sense in certain cases.
+      </para>
+
+      <para>
+        Generally speaking violations of the "must" requirements in this spec 
+        should be considered possible attempts to exploit security, and violations 
+        of the "should" suggestions should be considered legitimate (though perhaps
+        they should generate an error in some cases).
+      </para>
+
+      <para>
+        The following extension points are built in to D-BUS on purpose and must
+        not be treated as invalid protocol. The extension points are intended
+        for use by future versions of this spec, they are not intended for third
+        parties.  At the moment, the only way a third party could extend D-BUS
+        without breaking interoperability would be to introduce a way to negotiate new
+        feature support as part of the auth protocol, using EXTENSION_-prefixed
+        commands. There is not yet a standard way to negotiate features.
+        <itemizedlist>
+          <listitem>
+            <para>
+              In the authentication protocol (see <xref linkend="auth-protocol"/>) unknown 
+                commands result in an ERROR rather than a disconnect. This enables 
+                future extensions to the protocol. Commands starting with EXTENSION_ are 
+                reserved for third parties.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              The authentication protocol supports pluggable auth mechanisms.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              The address format (see <xref linkend="addresses"/>) supports new
+              kinds of transport.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Messages with an unknown type (something other than
+              <literal>METHOD_CALL</literal>, <literal>METHOD_RETURN</literal>,
+              <literal>ERROR</literal>, <literal>SIGNAL</literal>) are ignored. 
+              Unknown-type messages must still be well-formed in the same way 
+              as the known messages, however. They still have the normal 
+              header and body.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Header fields with an unknown or unexpected field code must be ignored, 
+              though again they must still be well-formed.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              New standard interfaces (with new methods and signals) can of course be added.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </para>
+
+    </sect2>
+
   </sect1>
 
   <sect1 id="auth-protocol">
@@ -1232,7 +1317,7 @@
       <para>
         The protocol is a line-based protocol, where each line ends with
         \r\n. Each line begins with an all-caps ASCII command name containing
-        only the character range [A-Z], a space, then any arguments for the
+        only the character range [A-Z_], a space, then any arguments for the
         command, then the \r\n ending the line. The protocol is
         case-sensitive. All bytes must be in the ASCII character set.
 
@@ -1255,6 +1340,11 @@
 	  <listitem><para>ERROR</para></listitem>
 	</itemizedlist>
       </para>
+      <para>
+        Unofficial extensions to the command set must begin with the letters 
+        "EXTENSION_", to avoid conflicts with future official commands.
+        For example, "EXTENSION_COM_MYDOMAIN_DO_STUFF".
+      </para>
     </sect2>
     <sect2 id="auth-nul-byte">
       <title>Special credentials-passing nul byte</title>
@@ -1263,7 +1353,7 @@
         single nul byte. This byte may be accompanied by credentials
         information on some operating systems that use sendmsg() with
         SCM_CREDS or SCM_CREDENTIALS to pass credentials over UNIX domain
-        sockets. However, the nul byte MUST be sent even on other kinds of
+        sockets. However, the nul byte must be sent even on other kinds of
         socket, and even on operating systems that do not require a byte to be
         sent in order to transmit credentials. The text protocol described in
         this document begins after the single nul byte. If the first byte
@@ -1283,38 +1373,39 @@
       <title>AUTH command</title>
       <para>
         If an AUTH command has no arguments, it is a request to list
-        available mechanisms. The server SHOULD respond with a REJECTED
-        command listing the mechanisms it understands.
+        available mechanisms. The server must respond with a REJECTED
+        command listing the mechanisms it understands, or with an error.
       </para>
       <para>
         If an AUTH command specifies a mechanism, and the server supports
-        said mechanism, the server SHOULD begin exchanging SASL
+        said mechanism, the server should begin exchanging SASL
         challenge-response data with the client using DATA commands.
       </para>
       <para>
         If the server does not support the mechanism given in the AUTH
-        command, it SHOULD send a REJECTED command listing the mechanisms
-        it does support.
+        command, it must send either a REJECTED command listing the mechanisms
+        it does support, or an error.
       </para>
       <para>
-        If the [initial-response] argument is provided, it is intended for
-        use with mechanisms that have no initial challenge (or an empty
-        initial challenge), as if it were the argument to an initial DATA
-        command. If the selected mechanism has an initial challenge, the
-        server should reject authentication by sending REJECTED.
+        If the [initial-response] argument is provided, it is intended for use
+        with mechanisms that have no initial challenge (or an empty initial
+        challenge), as if it were the argument to an initial DATA command. If
+        the selected mechanism has an initial challenge and [initial-response]
+        was provided, the server should reject authentication by sending
+        REJECTED.
       </para>
       <para>
         If authentication succeeds after exchanging DATA commands, 
-        an OK command should be sent to the client. 
+        an OK command must be sent to the client.
       </para>
       <para>
         The first octet received by the client after the \r\n of the OK
-        command MUST be the first octet of the authenticated/encrypted 
+        command must be the first octet of the authenticated/encrypted 
         stream of D-BUS messages.
       </para>
       <para>
         The first octet received by the server after the \r\n of the BEGIN
-        command from the client MUST be the first octet of the
+        command from the client must be the first octet of the
         authenticated/encrypted stream of D-BUS messages.
       </para>
     </sect2>
@@ -1322,7 +1413,7 @@
       <title>CANCEL Command</title>
       <para>
         At any time up to sending the BEGIN command, the client may send a
-        CANCEL command. On receiving the CANCEL command, the server MUST
+        CANCEL command. On receiving the CANCEL command, the server must
         send a REJECTED command and abort the current authentication
         exchange.
       </para>
@@ -1348,7 +1439,7 @@
       </para>
       <para>
         The first octet received by the server after the \r\n of the BEGIN
-        command from the client MUST be the first octet of the
+        command from the client must be the first octet of the
         authenticated/encrypted stream of D-BUS messages.
       </para>
     </sect2>
@@ -1362,7 +1453,7 @@
       </para><para>
         Optionally, the REJECTED command has a space-separated list of
         available auth mechanisms as arguments. If a server ever provides
-        a list of supported mechanisms, it MUST provide the same list 
+        a list of supported mechanisms, it must provide the same list 
         each time it sends a REJECTED message. Clients are free to 
         ignore all lists received after the first.
       </para>
@@ -1376,13 +1467,13 @@
       </para>
       <para>
         The first octet received by the client after the \r\n of the OK
-        command MUST be the first octet of the authenticated/encrypted 
+        command must be the first octet of the authenticated/encrypted 
         stream of D-BUS messages.
       </para>
       <para>
-        The client MUST respond to the OK command by sending a BEGIN
+        The client must respond to the OK command by sending a BEGIN
         command, followed by its stream of messages, or by disconnecting.
-        The server MUST NOT accept additional commands using this protocol 
+        The server must not accept additional commands using this protocol 
         after the OK command has been sent.
       </para>
     </sect2>
@@ -1399,7 +1490,7 @@
       </para>
       <para>
         If an ERROR is sent, the server or client that sent the
-        error MUST continue as if the command causing the ERROR had never been
+        error must continue as if the command causing the ERROR had never been
         received. However, the the server or client receiving the error 
         should try something other than whatever caused the error; 
         if only canceling/rejecting the authentication.
@@ -2194,8 +2285,8 @@
           <para>
             Only the root &lt;node&gt; element can omit the node name, as it's
             known to be the object that was introspected.  If the root
-            &lt;node&gt; does have a name attribute, it should be an absolute
-            object path. If child &lt;node&gt; have object paths, they should be
+            &lt;node&gt; does have a name attribute, it must be an absolute
+            object path. If child &lt;node&gt; have object paths, they must be
             relative.
           </para>
         </listitem>
@@ -2568,7 +2659,7 @@
       <para>
         The executable being launched may want to know whether the message bus
         starting it is one of the well-known message buses (see <xref
-        linkend="message-bus-types"/>). To facilitate this, the bus MUST also set
+        linkend="message-bus-types"/>). To facilitate this, the bus must also set
         the <literal>DBUS_STARTER_BUS_TYPE</literal> environment variable if it is one
         of the well-known buses. The currently-defined values for this variable
         are <literal>system</literal> for the systemwide message bus,

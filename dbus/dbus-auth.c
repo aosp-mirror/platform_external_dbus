@@ -1873,6 +1873,10 @@ process_command (DBusAuth *auth)
   
   if (!_dbus_string_move (&line, i, &args, 0))
     goto out;
+
+  /* FIXME we should probably validate that only the allowed
+   * chars are in the command name
+   */
   
   command = lookup_command_from_name (&line);
   if (!(* auth->state->handler) (auth, command, &args))

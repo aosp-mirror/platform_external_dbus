@@ -1,3 +1,10 @@
+2005-02-07  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-specification.xml: some more language cleanups; add
+	stuff about how to deal with invalid protocol and extension
+	points; add _ to allowed chars in auth commands; add EXTENSION_
+	auth command prefix
+
 2005-02-06  Havoc Pennington  <hp@redhat.com>
 
 	* s/expected/required/ in a couple places for clarity
