@@ -7,8 +7,8 @@
 <article id="index">
   <articleinfo>
     <title>D-BUS Specification</title>
-    <releaseinfo>Version 0.10</releaseinfo>
-    <date>28 January 2005</date>
+    <releaseinfo>Version 0.11</releaseinfo>
+    <date>6 February 2005</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -1031,7 +1031,7 @@
           messages map naturally to methods on objects in a typical program.
         </para>
         <para>
-          A method call message is expected to have a <literal>MEMBER</literal> header field
+          A method call message is required to have a <literal>MEMBER</literal> header field
           indicating the name of the method. Optionally, the message has an
           <literal>INTERFACE</literal> field giving the interface the method is a part of. In the
           absence of an <literal>INTERFACE</literal> field, if two interfaces on the same object have
@@ -1048,7 +1048,7 @@
           to receive the message.
         </para>
         <para>
-          When an application handles a method call message, it is expected to
+          When an application handles a method call message, it is required to
           return a reply. The reply is identified by a <literal>REPLY_SERIAL</literal> header field
           indicating the serial number of the <literal>METHOD_CALL</literal> being replied to. The
           reply can have one of two types; either <literal>METHOD_RETURN</literal> or <literal>ERROR</literal>.
@@ -1062,7 +1062,7 @@
         </para>
         <para>
           Even if a method call has no return values, a <literal>METHOD_RETURN</literal> 
-          reply is expected, so the caller will know the method 
+          reply is required, so the caller will know the method 
           was successfully processed.
         </para>
         <para>

@@ -1,5 +1,9 @@
 2005-02-06  Havoc Pennington  <hp@redhat.com>
 
+	* s/expected/required/ in a couple places for clarity
+
+2005-02-06  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-message-factory.c (generate_special): more tests
 
 	* dbus/dbus-marshal-validate.c (validate_body_helper): detect
