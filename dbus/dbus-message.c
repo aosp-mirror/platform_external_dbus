@@ -570,7 +570,7 @@ dbus_message_cache_or_finalize (DBusMessage *message)
 {
   dbus_bool_t was_cached;
   int i;
-
+  
   _dbus_assert (message->refcount.value == 0);
 
   /* This calls application code and has to be done first thing
@@ -654,7 +654,7 @@ dbus_message_new_empty_header (void)
       message->generation = _dbus_current_generation;
 #endif
     }
-
+  
   message->refcount.value = 1;
   message->byte_order = DBUS_COMPILER_BYTE_ORDER;
   message->locked = FALSE;
@@ -2881,9 +2881,12 @@ _dbus_message_loader_new (void)
   loader = dbus_new0 (DBusMessageLoader, 1);
   if (loader == NULL)
     return NULL;
-
+  
   loader->refcount = 1;
 
+  loader->corrupted = FALSE;
+  loader->corruption_reason = DBUS_VALID;
+  
   /* Try to cap message size at something that won't *totally* hose
    * the system if we have a couple of them.
    */
@@ -3018,7 +3021,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
  * loader->data and only delete it occasionally, instead of after
  * each message is loaded.
  *
- * load_message() returns FALSE if not enough memory
+ * load_message() returns FALSE if not enough memory OR the loader was corrupted
  */
 static dbus_bool_t
 load_message (DBusMessageLoader *loader,
@@ -3059,6 +3062,11 @@ load_message (DBusMessageLoader *loader,
       _dbus_verbose ("Failed to load header for new message code %d\n", validity);
       if (validity == DBUS_VALID)
         oom = TRUE;
+      else
+        {
+          loader->corrupted = TRUE;
+          loader->corruption_reason = validity;
+        }
       goto failed;
     }
 
@@ -3084,6 +3092,10 @@ load_message (DBusMessageLoader *loader,
       if (validity != DBUS_VALID)
         {
           _dbus_verbose ("Failed to validate message body code %d\n", validity);
+
+          loader->corrupted = TRUE;
+          loader->corruption_reason = validity;
+          
           goto failed;
         }
     }
@@ -3117,6 +3129,8 @@ load_message (DBusMessageLoader *loader,
 
   _dbus_assert (!oom);
   _dbus_assert (!loader->corrupted);
+  _dbus_assert (loader->messages != NULL);
+  _dbus_assert (_dbus_list_find_last (&loader->messages, message) != NULL);
 
   return TRUE;
 
@@ -3126,13 +3140,15 @@ load_message (DBusMessageLoader *loader,
 
   /* does nothing if the message isn't in the list */
   _dbus_list_remove_last (&loader->messages, message);
-
-  if (!oom)
-    loader->corrupted = TRUE;
+  
+  if (oom)
+    _dbus_assert (!loader->corrupted);
+  else
+    _dbus_assert (loader->corrupted);
 
   _dbus_verbose_bytes_of_string (&loader->data, 0, _dbus_string_get_length (&loader->data));
 
-  return !oom;
+  return FALSE;
 }
 
 /**
@@ -3180,15 +3196,24 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
                              header_len, body_len))
             {
               dbus_message_unref (message);
-              return FALSE;
+              /* load_message() returns false if corrupted or OOM; if
+               * corrupted then return TRUE for not OOM
+               */
+              return loader->corrupted;
             }
+
+          _dbus_assert (loader->messages != NULL);
+          _dbus_assert (_dbus_list_find_last (&loader->messages, message) != NULL);
 	}
       else
         {
           _dbus_verbose ("Initial peek at header says we don't have a whole message yet, or data broken with invalid code %d\n",
                          validity);
           if (validity != DBUS_VALID)
-            loader->corrupted = TRUE;
+            {
+              loader->corrupted = TRUE;
+              loader->corruption_reason = validity;
+            }
           return TRUE;
         }
     }
@@ -3265,6 +3290,8 @@ _dbus_message_loader_putback_message_link (DBusMessageLoader  *loader,
 dbus_bool_t
 _dbus_message_loader_get_is_corrupted (DBusMessageLoader *loader)
 {
+  _dbus_assert ((loader->corrupted && loader->corruption_reason != DBUS_VALID) ||
+                (!loader->corrupted && loader->corruption_reason == DBUS_VALID));
   return loader->corrupted;
 }
 

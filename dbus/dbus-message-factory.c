@@ -20,14 +20,17 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+#include <config.h>
 
 #ifdef DBUS_BUILD_TESTS
-
 #include "dbus-message-factory.h"
 #include "dbus-message-private.h"
 
-typedef dbus_bool_t (* DBusMessageGeneratorFunc) (int           sequence,
+typedef dbus_bool_t (* DBusInnerGeneratorFunc)   (int           sequence,
                                                   DBusMessage **message_p);
+typedef dbus_bool_t (* DBusMessageGeneratorFunc) (int           sequence,
+                                                  DBusString   *data,
+                                                  DBusValidity *expected_validity);
 
 static void
 set_reply_serial (DBusMessage *message)
@@ -39,8 +42,8 @@ set_reply_serial (DBusMessage *message)
 }
 
 static dbus_bool_t
-generate_trivial (int           sequence,
-                  DBusMessage **message_p)
+generate_trivial_inner (int           sequence,
+                        DBusMessage **message_p)
 {
   DBusMessage *message;
 
@@ -63,6 +66,22 @@ generate_trivial (int           sequence,
       break;
     case 3:
       message = dbus_message_new (DBUS_MESSAGE_TYPE_ERROR);
+
+      if (!dbus_message_set_error_name (message,
+                                        "org.freedesktop.TestErrorName"))
+        _dbus_assert_not_reached ("oom");
+      
+      {
+        DBusMessageIter iter;
+        const char *v_STRING = "This is an error";
+        
+        dbus_message_iter_init_append (message, &iter);
+        if (!dbus_message_iter_append_basic (&iter,
+                                             DBUS_TYPE_STRING,
+                                             &v_STRING))
+          _dbus_assert_not_reached ("oom");
+      }
+      
       set_reply_serial (message);
       break;
     default:
@@ -75,6 +94,48 @@ generate_trivial (int           sequence,
   *message_p = message;
   
   return TRUE;
+}
+
+static dbus_bool_t
+generate_outer (int                    sequence,
+                DBusString            *data,
+                DBusValidity          *expected_validity,
+                DBusInnerGeneratorFunc func)
+{
+  DBusMessage *message;
+
+  message = NULL;
+  if (!(*func)(sequence, &message))
+    return FALSE;
+
+  _dbus_assert (message != NULL);
+
+  _dbus_message_set_serial (message, 1);
+  _dbus_message_lock (message);
+  
+  *expected_validity = DBUS_VALID;
+
+  /* move for efficiency, since we'll nuke the message anyway */
+  if (!_dbus_string_move (&message->header.data, 0,
+                          data, 0))
+    _dbus_assert_not_reached ("oom");
+
+  if (!_dbus_string_copy (&message->body, 0,
+                          data, _dbus_string_get_length (data)))
+    _dbus_assert_not_reached ("oom");
+
+  dbus_message_unref (message);
+
+  return TRUE;
+}
+
+static dbus_bool_t
+generate_trivial (int                    sequence,
+                  DBusString            *data,
+                  DBusValidity          *expected_validity)
+{
+  return generate_outer (sequence, data, expected_validity,
+                         generate_trivial_inner);
 }
 
 static const DBusMessageGeneratorFunc generators[] = {
@@ -99,36 +160,25 @@ _dbus_message_data_iter_get_and_next (DBusMessageDataIter *iter,
                                       DBusMessageData     *data)
 {
   DBusMessageGeneratorFunc func;
-  DBusMessage *message;
-  
+
+ restart:
   if (iter->generator == _DBUS_N_ELEMENTS (generators))
     return FALSE;
-
+  
   func = generators[iter->generator];
 
-  if ((*func)(iter->sequence, &message))
+  if (!_dbus_string_init (&data->data))
+    _dbus_assert_not_reached ("oom");
+  
+  if ((*func)(iter->sequence, &data->data, &data->expected_validity))
     iter->sequence += 1;
   else
     {
       iter->generator += 1;
       iter->sequence = 0;
+      _dbus_string_free (&data->data);
+      goto restart;
     }
-
-  _dbus_assert (message != NULL);
-
-  if (!_dbus_string_init (&data->data))
-    _dbus_assert_not_reached ("oom");
-
-  /* move for efficiency, since we'll nuke the message anyway */
-  if (!_dbus_string_move (&message->header.data, 0,
-                          &data->data, 0))
-    _dbus_assert_not_reached ("oom");
-
-  if (!_dbus_string_copy (&message->body, 0,
-                          &data->data, _dbus_string_get_length (&data->data)))
-    _dbus_assert_not_reached ("oom");
-
-  dbus_message_unref (message);
   
   return TRUE;
 }

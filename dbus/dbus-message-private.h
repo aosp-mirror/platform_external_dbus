@@ -70,6 +70,8 @@ struct DBusMessageLoader
   unsigned int buffer_outstanding : 1; /**< Someone is using the buffer to read */
 
   unsigned int corrupted : 1; /**< We got broken data, and are no longer working */
+
+  DBusValidity corruption_reason; /**< why we were corrupted */
 };
 
 

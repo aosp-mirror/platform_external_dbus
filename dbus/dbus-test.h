@@ -26,14 +26,7 @@
 
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-string.h>
-
-typedef enum
-{
-  _DBUS_MESSAGE_VALID,
-  _DBUS_MESSAGE_INVALID,
-  _DBUS_MESSAGE_INCOMPLETE,
-  _DBUS_MESSAGE_UNKNOWN
-} DBusMessageValidity;
+#include <dbus/dbus-marshal-validate.h>
 
 dbus_bool_t _dbus_hash_test              (void);
 dbus_bool_t _dbus_dict_test              (void);
@@ -61,19 +54,16 @@ dbus_bool_t _dbus_pending_call_test      (const char *test_data_dir);
 
 void        dbus_internal_do_not_use_run_tests         (const char          *test_data_dir);
 dbus_bool_t dbus_internal_do_not_use_try_message_file  (const DBusString    *filename,
-                                                        dbus_bool_t          is_raw,
-                                                        DBusMessageValidity  expected_validity);
+                                                        DBusValidity         expected_validity);
 dbus_bool_t dbus_internal_do_not_use_try_message_data  (const DBusString    *data,
-                                                        DBusMessageValidity  expected_validity);
+                                                        DBusValidity         expected_validity);
 dbus_bool_t dbus_internal_do_not_use_load_message_file (const DBusString    *filename,
-                                                        dbus_bool_t          is_raw,
                                                         DBusString          *data);
 
 
 /* returns FALSE on fatal failure */
 typedef dbus_bool_t (* DBusForeachMessageFileFunc) (const DBusString   *filename,
-                                                    dbus_bool_t         is_raw,
-                                                    DBusMessageValidity expected_validity,
+                                                    DBusValidity        expected_validity,
                                                     void               *data);
 
 dbus_bool_t dbus_internal_do_not_use_foreach_message_file (const char                 *test_data_dir,

@@ -34,7 +34,6 @@ DBUS_BEGIN_DECLS
 
 typedef struct
 {
-  dbus_bool_t  validity_known;
   DBusValidity expected_validity;
   
   DBusString data;

@@ -78,6 +78,19 @@ dbus_message_iter_get_args (DBusMessageIter *iter,
 #include <stdio.h>
 #include <stdlib.h>
 
+static void
+check_memleaks (void)
+{
+  dbus_shutdown ();
+
+  if (_dbus_get_malloc_blocks_outstanding () != 0)
+    {
+      _dbus_warn ("%d dbus_malloc blocks were not freed in %s\n",
+                  _dbus_get_malloc_blocks_outstanding (), __FILE__);
+      _dbus_assert_not_reached ("memleaks");
+    }
+}
+
 static dbus_bool_t
 check_have_valid_message (DBusMessageLoader *loader)
 {
@@ -87,12 +100,10 @@ check_have_valid_message (DBusMessageLoader *loader)
   message = NULL;
   retval = FALSE;
 
-  if (!_dbus_message_loader_queue_messages (loader))
-    _dbus_assert_not_reached ("no memory to queue messages");
-
   if (_dbus_message_loader_get_is_corrupted (loader))
     {
-      _dbus_warn ("loader corrupted on message that was expected to be valid\n");
+      _dbus_warn ("loader corrupted on message that was expected to be valid; invalid reason %d\n",
+                  loader->corruption_reason);
       goto failed;
     }
 
@@ -129,18 +140,24 @@ check_have_valid_message (DBusMessageLoader *loader)
 }
 
 static dbus_bool_t
-check_invalid_message (DBusMessageLoader *loader)
+check_invalid_message (DBusMessageLoader *loader,
+                       DBusValidity       expected_validity)
 {
   dbus_bool_t retval;
 
   retval = FALSE;
 
-  if (!_dbus_message_loader_queue_messages (loader))
-    _dbus_assert_not_reached ("no memory to queue messages");
-
   if (!_dbus_message_loader_get_is_corrupted (loader))
     {
       _dbus_warn ("loader not corrupted on message that was expected to be invalid\n");
+      goto failed;
+    }
+
+  if (expected_validity != DBUS_INVALID_FOR_UNKNOWN_REASON &&
+      loader->corruption_reason != expected_validity)
+    {
+      _dbus_warn ("expected message to be corrupted for reason %d and was corrupted for %d instead\n",
+                  expected_validity, loader->corruption_reason);
       goto failed;
     }
 
@@ -159,12 +176,10 @@ check_incomplete_message (DBusMessageLoader *loader)
   message = NULL;
   retval = FALSE;
 
-  if (!_dbus_message_loader_queue_messages (loader))
-    _dbus_assert_not_reached ("no memory to queue messages");
-
   if (_dbus_message_loader_get_is_corrupted (loader))
     {
-      _dbus_warn ("loader corrupted on message that was expected to be valid (but incomplete)\n");
+      _dbus_warn ("loader corrupted on message that was expected to be valid (but incomplete), corruption reason %d\n",
+                  loader->corruption_reason);
       goto failed;
     }
 
@@ -185,70 +200,51 @@ check_incomplete_message (DBusMessageLoader *loader)
 
 static dbus_bool_t
 check_loader_results (DBusMessageLoader      *loader,
-                      DBusMessageValidity     validity)
+                      DBusValidity            expected_validity)
 {
   if (!_dbus_message_loader_queue_messages (loader))
     _dbus_assert_not_reached ("no memory to queue messages");
 
-  switch (validity)
+  if (expected_validity == DBUS_VALID)
+    return check_have_valid_message (loader);
+  else if (expected_validity == DBUS_VALID_BUT_INCOMPLETE)
+    return check_incomplete_message (loader);
+  else if (expected_validity == DBUS_VALIDITY_UNKNOWN)
     {
-    case _DBUS_MESSAGE_VALID:
-      return check_have_valid_message (loader);
-    case _DBUS_MESSAGE_INVALID:
-      return check_invalid_message (loader);
-    case _DBUS_MESSAGE_INCOMPLETE:
-      return check_incomplete_message (loader);
-    case _DBUS_MESSAGE_UNKNOWN:
+      /* here we just know we didn't segfault and that was the
+       * only test
+       */
       return TRUE;
     }
-
-  _dbus_assert_not_reached ("bad DBusMessageValidity");
-  return FALSE;
+  else
+    return check_invalid_message (loader, expected_validity);
 }
-
 
 /**
  * Loads the message in the given message file.
  *
  * @param filename filename to load
- * @param is_raw if #TRUE load as binary data, if #FALSE as message builder language
  * @param data string to load message into
  * @returns #TRUE if the message was loaded
  */
 dbus_bool_t
 dbus_internal_do_not_use_load_message_file (const DBusString    *filename,
-                                            dbus_bool_t          is_raw,
                                             DBusString          *data)
 {
   dbus_bool_t retval;
-
+  DBusError error;
+  
   retval = FALSE;
 
-  if (is_raw)
+  _dbus_verbose ("Loading raw %s\n", _dbus_string_get_const_data (filename));
+  dbus_error_init (&error);
+  if (!_dbus_file_get_contents (data, filename, &error))
     {
-      DBusError error;
-
-      _dbus_verbose ("Loading raw %s\n", _dbus_string_get_const_data (filename));
-      dbus_error_init (&error);
-      if (!_dbus_file_get_contents (data, filename, &error))
-        {
-          _dbus_warn ("Could not load message file %s: %s\n",
-                      _dbus_string_get_const_data (filename),
-                      error.message);
-          dbus_error_free (&error);
-          goto failed;
-        }
-    }
-  else
-    {
-      if (FALSE) /* Message builder disabled, probably permanently,
-                  * I want to do it another way
-                  */
-        {
-          _dbus_warn ("Could not load message file %s\n",
-                      _dbus_string_get_const_data (filename));
-          goto failed;
-        }
+      _dbus_warn ("Could not load message file %s: %s\n",
+                  _dbus_string_get_const_data (filename),
+                  error.message);
+      dbus_error_free (&error);
+      goto failed;
     }
 
   retval = TRUE;
@@ -263,14 +259,12 @@ dbus_internal_do_not_use_load_message_file (const DBusString    *filename,
  * and verifies that DBusMessageLoader can handle it.
  *
  * @param filename filename to load
- * @param is_raw if #TRUE load as binary data, if #FALSE as message builder language
  * @param expected_validity what the message has to be like to return #TRUE
  * @returns #TRUE if the message has the expected validity
  */
 dbus_bool_t
 dbus_internal_do_not_use_try_message_file (const DBusString    *filename,
-                                           dbus_bool_t          is_raw,
-                                           DBusMessageValidity  expected_validity)
+                                           DBusValidity         expected_validity)
 {
   DBusString data;
   dbus_bool_t retval;
@@ -280,8 +274,7 @@ dbus_internal_do_not_use_try_message_file (const DBusString    *filename,
   if (!_dbus_string_init (&data))
     _dbus_assert_not_reached ("could not allocate string\n");
 
-  if (!dbus_internal_do_not_use_load_message_file (filename, is_raw,
-                                                   &data))
+  if (!dbus_internal_do_not_use_load_message_file (filename, &data))
     goto failed;
 
   retval = dbus_internal_do_not_use_try_message_data (&data, expected_validity);
@@ -313,7 +306,7 @@ dbus_internal_do_not_use_try_message_file (const DBusString    *filename,
  */
 dbus_bool_t
 dbus_internal_do_not_use_try_message_data (const DBusString    *data,
-                                           DBusMessageValidity  expected_validity)
+                                           DBusValidity         expected_validity)
 {
   DBusMessageLoader *loader;
   dbus_bool_t retval;
@@ -405,7 +398,7 @@ dbus_internal_do_not_use_try_message_data (const DBusString    *data,
 static dbus_bool_t
 process_test_subdir (const DBusString          *test_base_dir,
                      const char                *subdir,
-                     DBusMessageValidity        validity,
+                     DBusValidity               expected_validity,
                      DBusForeachMessageFileFunc function,
                      void                      *user_data)
 {
@@ -451,7 +444,6 @@ process_test_subdir (const DBusString          *test_base_dir,
   while (_dbus_directory_get_next_file (dir, &filename, &error))
     {
       DBusString full_path;
-      dbus_bool_t is_raw;
 
       if (!_dbus_string_init (&full_path))
         _dbus_assert_not_reached ("couldn't init string");
@@ -462,12 +454,16 @@ process_test_subdir (const DBusString          *test_base_dir,
       if (!_dbus_concat_dir_and_file (&full_path, &filename))
         _dbus_assert_not_reached ("couldn't concat file to dir");
 
-      if (_dbus_string_ends_with_c_str (&filename, ".message"))
-        is_raw = FALSE;
-      else if (_dbus_string_ends_with_c_str (&filename, ".message-raw"))
-        is_raw = TRUE;
+      if (_dbus_string_ends_with_c_str (&filename, ".message-raw"))
+        ;
       else
         {
+          if (_dbus_string_ends_with_c_str (&filename, ".message"))
+            {
+              _dbus_warn ("Could not load %s, message builder language no longer supported\n",
+                          _dbus_string_get_const_data (&filename));
+            }
+          
           _dbus_verbose ("Skipping non-.message file %s\n",
                          _dbus_string_get_const_data (&filename));
 	  _dbus_string_free (&full_path);
@@ -477,13 +473,8 @@ process_test_subdir (const DBusString          *test_base_dir,
       printf ("    %s\n",
               _dbus_string_get_const_data (&filename));
 
-      _dbus_verbose (" expecting %s for %s\n",
-                     validity == _DBUS_MESSAGE_VALID ? "valid" :
-                     (validity == _DBUS_MESSAGE_INVALID ? "invalid" :
-                      (validity == _DBUS_MESSAGE_INCOMPLETE ? "incomplete" : "unknown")),
-                     _dbus_string_get_const_data (&filename));
-
-      if (! (*function) (&full_path, is_raw, validity, user_data))
+      if (! (*function) (&full_path,
+                         expected_validity, user_data))
         {
           _dbus_string_free (&full_path);
           goto failed;
@@ -533,21 +524,27 @@ dbus_internal_do_not_use_foreach_message_file (const char                *test_d
   retval = FALSE;
 
   _dbus_string_init_const (&test_directory, test_data_dir);
-
+  
   if (!process_test_subdir (&test_directory, "valid-messages",
-                            _DBUS_MESSAGE_VALID, func, user_data))
+                            DBUS_VALID, func, user_data))
     goto failed;
 
+  check_memleaks ();
+  
   if (!process_test_subdir (&test_directory, "invalid-messages",
-                            _DBUS_MESSAGE_INVALID, func, user_data))
+                            DBUS_INVALID_FOR_UNKNOWN_REASON, func, user_data))
     goto failed;
 
+  check_memleaks ();
+  
   if (!process_test_subdir (&test_directory, "incomplete-messages",
-                            _DBUS_MESSAGE_INCOMPLETE, func, user_data))
+                            DBUS_VALID_BUT_INCOMPLETE, func, user_data))
     goto failed;
 
+  check_memleaks ();
+  
   retval = TRUE;
-
+  
  failed:
 
   _dbus_string_free (&test_directory);
@@ -660,11 +657,12 @@ verify_test_message (DBusMessage *message)
   DBusMessageIter iter;
   DBusError error;
   dbus_int32_t our_int;
+  dbus_uint32_t our_uint;
   const char *our_str;
   double our_double;
+  double v_DOUBLE;
   dbus_bool_t our_bool;
   unsigned char our_byte_1, our_byte_2;
-  dbus_uint32_t our_uint32;
   const dbus_int32_t *our_uint32_array = (void*)0xdeadbeef;
   int our_uint32_array_len;
   dbus_int32_t *our_int32_array = (void*)0xdeadbeef;
@@ -689,6 +687,7 @@ verify_test_message (DBusMessage *message)
   dbus_error_init (&error);
   if (!dbus_message_iter_get_args (&iter, &error,
 				   DBUS_TYPE_INT32, &our_int,
+                                   DBUS_TYPE_UINT32, &our_uint,
 #ifdef DBUS_HAVE_INT64
                                    DBUS_TYPE_INT64, &our_int64,
                                    DBUS_TYPE_UINT64, &our_uint64,
@@ -724,6 +723,9 @@ verify_test_message (DBusMessage *message)
   if (our_int != -0x12345678)
     _dbus_assert_not_reached ("integers differ!");
 
+  if (our_uint != 0x12300042)
+    _dbus_assert_not_reached ("uints differ!");
+
 #ifdef DBUS_HAVE_INT64
   if (our_int64 != DBUS_INT64_CONSTANT (-0x123456789abcd))
     _dbus_assert_not_reached ("64-bit integers differ!");
@@ -731,7 +733,8 @@ verify_test_message (DBusMessage *message)
     _dbus_assert_not_reached ("64-bit unsigned integers differ!");
 #endif
 
-  if (our_double != 3.14159)
+  v_DOUBLE = 3.14159;
+  if (! _DBUS_DOUBLES_BITWISE_EQUAL (our_double, v_DOUBLE))
     _dbus_assert_not_reached ("doubles differ!");
 
   if (strcmp (our_str, "Test string") != 0)
@@ -782,9 +785,14 @@ verify_test_message (DBusMessage *message)
   /* On all IEEE machines (i.e. everything sane) exact equality
    * should be preserved over the wire
    */
-  if (our_double_array[0] != 0.1234 ||
-      our_double_array[1] != 9876.54321 ||
-      our_double_array[2] != -300.0)
+  v_DOUBLE = 0.1234;
+  if (! _DBUS_DOUBLES_BITWISE_EQUAL (our_double_array[0], v_DOUBLE))
+    _dbus_assert_not_reached ("double array had wrong values");
+  v_DOUBLE = 9876.54321;
+  if (! _DBUS_DOUBLES_BITWISE_EQUAL (our_double_array[1], v_DOUBLE))
+    _dbus_assert_not_reached ("double array had wrong values");
+  v_DOUBLE = -300.0;
+  if (! _DBUS_DOUBLES_BITWISE_EQUAL (our_double_array[2], v_DOUBLE))
     _dbus_assert_not_reached ("double array had wrong values");
 
   if (our_byte_array_len != 4)
@@ -821,7 +829,6 @@ _dbus_message_test (const char *test_data_dir)
 {
   DBusMessage *message;
   DBusMessageLoader *loader;
-  DBusMessageIter iter, child_iter, child_iter2, child_iter3;
   int i;
   const char *data;
   DBusMessage *copy;
@@ -851,8 +858,6 @@ _dbus_message_test (const char *test_data_dir)
   const dbus_bool_t *v_ARRAY_BOOLEAN = our_boolean_array;
   char sig[64];
   const char *s;
-  char *t;
-  DBusError error;
   const char *v_STRING;
   double v_DOUBLE;
   dbus_int32_t v_INT32;
@@ -967,8 +972,10 @@ _dbus_message_test (const char *test_data_dir)
                                           "Foo.TestInterface",
                                           "TestMethod");
   _dbus_message_set_serial (message, 1);
+  dbus_message_set_reply_serial (message, 5678);
 
   v_INT32 = -0x12345678;
+  v_UINT32 = 0x12300042;
 #ifdef DBUS_HAVE_INT64
   v_INT64 = DBUS_INT64_CONSTANT (-0x123456789abcd);
   v_UINT64 = DBUS_UINT64_CONSTANT (0x123456789abcd);
@@ -981,6 +988,7 @@ _dbus_message_test (const char *test_data_dir)
 
   dbus_message_append_args (message,
 			    DBUS_TYPE_INT32, &v_INT32,
+                            DBUS_TYPE_UINT32, &v_UINT32,
 #ifdef DBUS_HAVE_INT64
                             DBUS_TYPE_INT64, &v_INT64,
                             DBUS_TYPE_UINT64, &v_UINT64,
@@ -1010,6 +1018,7 @@ _dbus_message_test (const char *test_data_dir)
 
   i = 0;
   sig[i++] = DBUS_TYPE_INT32;
+  sig[i++] = DBUS_TYPE_UINT32;
 #ifdef DBUS_HAVE_INT64
   sig[i++] = DBUS_TYPE_INT64;
   sig[i++] = DBUS_TYPE_UINT64;
@@ -1125,7 +1134,7 @@ _dbus_message_test (const char *test_data_dir)
   if (!message)
     _dbus_assert_not_reached ("received a NULL message");
 
-  if (dbus_message_get_reply_serial (message) != 0x12345678)
+  if (dbus_message_get_reply_serial (message) != 5678)
     _dbus_assert_not_reached ("reply serial fields differ");
 
   verify_test_message (message);
@@ -1133,7 +1142,33 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_unref (message);
   _dbus_message_loader_unref (loader);
 
+  check_memleaks ();
 
+  /* Load all the sample messages from the message factory */
+  {
+    DBusMessageDataIter diter;
+    DBusMessageData mdata;
+
+    _dbus_message_data_iter_init (&diter);
+    
+    while (_dbus_message_data_iter_get_and_next (&diter,
+                                                 &mdata))
+      {
+        if (!dbus_internal_do_not_use_try_message_data (&mdata.data,
+                                                        mdata.expected_validity))
+          {
+            _dbus_warn ("expected validity %d and did not get it; generator %d sequence %d\n",
+                        mdata.expected_validity,
+                        diter.generator, diter.sequence);
+            _dbus_assert_not_reached ("message data failed");
+          }
+
+        _dbus_message_data_free (&mdata);
+      }
+  }
+  
+  check_memleaks ();
+  
   /* Now load every message in test_data_dir if we have one */
   if (test_data_dir == NULL)
     return TRUE;
