@@ -12,3 +12,6 @@ Makefile.in
 *.dll
 *.exe
 test-dbus-sharp
+AssemblyInfo.cs
+dbus-sharp.dll.config
+
