@@ -428,8 +428,11 @@ dbus_bus_register (DBusConnection *connection,
   DBusMessage *message, *reply;
   char *name;
   BusData *bd;
-
+  dbus_bool_t retval;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  retval = FALSE;
   
   bd = ensure_bus_data (connection);
   if (bd == NULL)
@@ -461,22 +464,26 @@ dbus_bus_register (DBusConnection *connection,
   dbus_message_unref (message);
   
   if (reply == NULL)
-    {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
-      return FALSE;
-    }
-
-  if (!dbus_message_get_args (reply, error,
-                              DBUS_TYPE_STRING, &name,
-                              0))
-    {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
-      return FALSE;
-    }
-
-  bd->base_service = name;
+    goto out;
+  else if (dbus_set_error_from_message (error, reply))
+    goto out;
+  else if (!dbus_message_get_args (reply, error,
+                                   DBUS_TYPE_STRING, &name,
+                                   0))
+    goto out;
   
-  return TRUE;
+  bd->base_service = name;
+
+  retval = TRUE;
+  
+ out:
+  if (reply)
+    dbus_message_unref (reply);
+
+  if (!retval)
+    _DBUS_ASSERT_ERROR_IS_SET (error);
+  
+  return retval;
 }
 
 

@@ -1461,8 +1461,9 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
   end_tv_sec += end_tv_usec / _DBUS_USEC_PER_SECOND;
   end_tv_usec = end_tv_usec % _DBUS_USEC_PER_SECOND;
 
-  _dbus_verbose ("will block %d milliseconds from %ld sec %ld usec to %ld sec %ld usec\n",
+  _dbus_verbose ("dbus_connection_send_with_reply_and_block(): will block %d milliseconds for reply serial %d from %ld sec %ld usec to %ld sec %ld usec\n",
                  timeout_milliseconds,
+                 client_serial,
                  start_tv_sec, start_tv_usec,
                  end_tv_sec, end_tv_usec);
   
@@ -1489,6 +1490,10 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
       if (reply != NULL)
         {
           dbus_mutex_unlock (connection->mutex);
+
+          _dbus_verbose ("dbus_connection_send_with_reply_and_block(): got reply %s\n",
+                         dbus_message_get_name (reply));
+          
           return reply;
         }
     }
@@ -1504,7 +1509,7 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
     {
       timeout_milliseconds = (end_tv_sec - tv_sec) * 1000 +
         (end_tv_usec - tv_usec) / 1000;
-      _dbus_verbose ("%d milliseconds remain\n", timeout_milliseconds);
+      _dbus_verbose ("dbus_connection_send_with_reply_and_block(): %d milliseconds remain\n", timeout_milliseconds);
       _dbus_assert (timeout_milliseconds >= 0);
       
       if (status == DBUS_DISPATCH_NEED_MEMORY)
@@ -1513,6 +1518,8 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
            * we may already have a reply in the buffer and just can't process
            * it.
            */
+          _dbus_verbose ("dbus_connection_send_with_reply_and_block() waiting for more memory\n");
+          
           if (timeout_milliseconds < 100)
             ; /* just busy loop */
           else if (timeout_milliseconds <= 1000)
@@ -1531,12 +1538,15 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
 
       goto recheck_status;
     }
+
+  _dbus_verbose ("dbus_connection_send_with_reply_and_block(): Waited %ld milliseconds and got no reply\n",
+                 (tv_sec - start_tv_sec) * 1000 + (tv_usec - start_tv_usec) / 1000);
   
   if (dbus_connection_get_is_connected (connection))
     dbus_set_error (error, DBUS_ERROR_NO_REPLY, "Message did not receive a reply");
   else
     dbus_set_error (error, DBUS_ERROR_DISCONNECTED, "Disconnected prior to receiving a reply");
-
+  
   dbus_mutex_unlock (connection->mutex);
 
   return NULL;

@@ -1,3 +1,16 @@
+2003-04-09  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-bus.c (dbus_bus_register): fix up error handling and 
+	a memory leak
+
+	* bus/dispatch.c (check_service_activated): fix bug in test
+
+	* dbus/dbus-mainloop.c (check_timeout): fix this up
+
+	* dbus/dbus-internals.c (_dbus_verbose_real): include PID in
+	verbose output so we can sort out output from different processes,
+	e.g. in the activation case.
+
 2003-04-08  Colin Walters  <walters@gnu.org>
  
  	* bus/bus.c (struct BusContext) [pidfile]: New member, to store

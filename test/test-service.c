@@ -154,7 +154,7 @@ main (int    argc,
   
   dbus_shutdown ();
 
-  printf ("*** Test service exiting\n");
+  _dbus_verbose ("*** Test service exiting\n");
   
   return 0;
 }

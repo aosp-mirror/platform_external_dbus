@@ -34,10 +34,16 @@ connection_watch_callback (DBusWatch     *watch,
   dbus_bool_t retval;
 
   dbus_connection_ref (cd->connection);
+
+  _dbus_verbose (" Handling watch\n");
   
   retval = dbus_connection_handle_watch (cd->connection, watch, condition);
 
+  _dbus_verbose (" Watch handled\n");
+  
   test_connection_dispatch_all_messages (cd->connection);
+
+  _dbus_verbose (" Dispatched all\n");
   
   dbus_connection_unref (cd->connection);
 

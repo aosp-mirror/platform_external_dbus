@@ -1111,9 +1111,10 @@ check_service_activated (BusContext     *context,
               
           goto recheck_service_created;
         }
-      else if (require_base_service)
+      else if (require_base_service && !already_saw_base_created)
         {
-          _dbus_warn ("Did not get a ServiceCreated for a base service\n");
+          _dbus_warn ("Did not get a ServiceCreated for a base service, it was for %s instead\n",
+                      service_name);
           goto out;
         }
 
@@ -1228,7 +1229,7 @@ check_service_deactivated (BusContext     *context,
 
   /* Now we are expecting ServiceDeleted messages for the base
    * service and the activated_name.  The base service
-   * notification is required to come second.
+   * notification is required to come last.
    */
   csdd.expected_service_name = activated_name;
   csdd.failed = FALSE;
@@ -1251,6 +1252,8 @@ check_service_deactivated (BusContext     *context,
       _dbus_warn ("Messages were left over after verifying results of service exiting\n");
       goto out;
     }
+
+  retval = TRUE;
   
  out:
   if (message)
@@ -1351,6 +1354,13 @@ check_existent_service_activation (BusContext     *context,
         {
           ; /* good, this is expected also */
         }
+      else if (dbus_message_name_is (message,
+                                     DBUS_ERROR_SPAWN_CHILD_EXITED))
+        {
+          ; /* good, this is expected also (child will exit if for example we don't
+             * have memory to register it)
+             */
+        }
       else
         {
           _dbus_warn ("Did not expect error %s\n",
@@ -1401,7 +1411,7 @@ check_existent_service_activation (BusContext     *context,
       
       /* and process everything again */
       bus_test_run_everything (context);
-
+      
       if (!check_service_deactivated (context, connection,
                                       EXISTENT_SERVICE_NAME, base_service))
         goto out;

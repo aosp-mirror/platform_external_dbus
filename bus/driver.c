@@ -467,6 +467,8 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
       dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
                       "Cannot acquire a service starting with ':' such as \"%s\"",
                       name);
+
+      _dbus_verbose ("Attempt to acquire invalid base service name \"%s\"", name);
       
       goto out;
     }
