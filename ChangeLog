@@ -1,3 +1,11 @@
+2004-11-22  Havoc Pennington  <hp@redhat.com>
+
+	* test/glib/test-profile.c (N_CLIENT_THREADS): run multiple
+	threads for more time, so sysprof can get a grip on it.
+
+	* dbus/dbus-string.c (_dbus_string_validate_utf8): remove
+	pointless variable
+
 2004-11-13  Havoc Pennington  <hp@redhat.com>
 
 	* test/glib/test-profile.c: fix this thing up a bit

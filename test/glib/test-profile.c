@@ -26,8 +26,8 @@
 #include <dbus/dbus-glib-lowlevel.h>
 #include <stdlib.h>
 
-#define N_CLIENT_THREADS 1
-#define N_ITERATIONS 4000
+#define N_CLIENT_THREADS 4
+#define N_ITERATIONS 40000
 #define PAYLOAD_SIZE 30
 #define ECHO_PATH "/org/freedesktop/EchoTest"
 #define ECHO_INTERFACE "org.freedesktop.EchoTest"
@@ -260,7 +260,7 @@ main (int argc, char *argv[])
   secs = g_timer_elapsed (timer, NULL);
   g_timer_destroy (timer);
 
-  g_printerr ("%g seconds, %d round trips, %g seconds per pingpong\n",
+  g_printerr ("%g seconds, %d round trips, %f seconds per pingpong\n",
               secs, sd.handled, secs/sd.handled);
 #ifndef DBUS_DISABLE_ASSERT
   g_printerr ("You should probably --disable-asserts before you profile as they have noticeable overhead\n");

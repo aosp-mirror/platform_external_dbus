@@ -2444,24 +2444,23 @@ _dbus_string_validate_utf8  (const DBusString *str,
       int i, mask, char_len;
       dbus_unichar_t result;
 
-      const unsigned char c = (unsigned char) *p;
-
-      if (c == 0) /* nul bytes not OK */
+      /* nul bytes considered invalid */
+      if (*p == '\0')
         break;
       
       /* Special-case ASCII; this makes us go a lot faster in
        * D-BUS profiles where we are typically validating
        * function names and such. We have to know that
        * all following checks will pass for ASCII though,
-       * comments follow ... 
-       */
-      if (c < 128)
+       * comments follow ...
+       */      
+      if (*p < 128)
         {
           ++p;
           continue;
         }
       
-      UTF8_COMPUTE (c, mask, char_len);
+      UTF8_COMPUTE (*p, mask, char_len);
 
       if (_DBUS_UNLIKELY (char_len == 0))  /* ASCII: char_len == 1 */
         break;
