@@ -139,6 +139,17 @@ typedef struct
  * no maximum. The string starts life with zero length.
  * The string must eventually be freed with _dbus_string_free().
  *
+ * @todo the max length feature is useless, because it looks
+ * to the app like out of memory, and the app might try
+ * to "recover" - but recovery in this case is impossible,
+ * as we can't ever "get more memory" - so should delete the
+ * max length feature I think.
+ *
+ * @todo we could make this init routine not alloc any memory and
+ * return void, would simplify a lot of code, however it might
+ * complexify things elsewhere because _dbus_string_get_data()
+ * etc. could suddenly fail as they'd need to alloc new memory.
+ * 
  * @param str memory to hold the string
  * @param max_length the maximum size of the string
  * @returns #TRUE on success
