@@ -998,18 +998,27 @@ if test -f /etc/redhat-release || test -f $EXPANDED_SYSCONFDIR/redhat-release ; 
    operating_system=redhat
 fi
 
+if test -f /etc/slackware-version || test -f $EXPANDED_SYSCONFDIR/slackware-version ; then
+   operating_system=slackware
+fi
+
 #### Sort out init scripts
 
 if test x$with_init_scripts = x; then
     if test xredhat = x$operating_system ; then
         with_init_scripts=redhat
     else
-        with_init_scripts=none
+        if test xslackware = x$operating_system ; then
+        	with_init_scripts=slackware
+	    else
+        	with_init_scripts=none
+        fi
     fi
 fi
 
 AM_CONDITIONAL(DBUS_INIT_SCRIPTS_RED_HAT, test x$with_init_scripts = xredhat)
 
+AM_CONDITIONAL(DBUS_INIT_SCRIPTS_SLACKWARE, test x$with_init_scripts = xslackware)
 
 ##### Set up location for system bus socket
 if ! test -z "$with_system_socket"; then
@@ -1126,6 +1135,7 @@ dbus/dbus-arch-deps.h
 bus/system.conf
 bus/session.conf
 bus/messagebus
+bus/rc.messagebus
 bus/dbus-daemon-1.1
 Makefile
 dbus/Makefile

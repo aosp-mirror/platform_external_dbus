@@ -1,5 +1,13 @@
 2004-10-29  Colin Walters  <walters@redhat.com>
 
+	Patch from Kristof Vansant <de_lupus@pandora.be>
+
+	* configure.in: Detect Slackware.
+	* bus/Makefile.am (SCRIPT_IN_FILES): Add rc.messagebus.in.
+	* bus/rc.messagebus.in: New file.
+
+2004-10-29  Colin Walters  <walters@redhat.com>
+
 	* tools/dbus-monitor.c (filter_func): Return
 	DBUS_HANDLER_RESULT_HANDLED in filter function
 	for now.  See:

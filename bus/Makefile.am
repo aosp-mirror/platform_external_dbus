@@ -95,7 +95,8 @@ install-data-hook:
 	$(mkinstalldirs) $(DESTDIR)/$(datadir)/dbus-1/services
 
 #### Init scripts fun
-SCRIPT_IN_FILES=messagebus.in
+SCRIPT_IN_FILES=messagebus.in \
+		rc.messagebus.in
 
 ## Red Hat start
 if DBUS_INIT_SCRIPTS_RED_HAT
@@ -107,6 +108,17 @@ initd_SCRIPTS= 	\
 
 endif
  ## Red Hat end
+ 
+## Slackware start
+if DBUS_INIT_SCRIPTS_SLACKWARE
+
+initddir=$(sysconfdir)/rc.d/
+
+initd_SCRIPTS= 	\
+	rc.messagebus
+
+endif
+## Slackware end
 
 MAN_IN_FILES=dbus-daemon-1.1.in
 man_MANS = dbus-daemon-1.1
