@@ -589,21 +589,7 @@ dbus_server_get_n_connections (DBusServer *server)
 
 
 static DBusDataSlotAllocator slot_allocator;
-
-/**
- * Initialize the mutex used for #DBusConnection data
- * slot reservations.
- *
- * @returns the mutex
- */
-DBusMutex *
-_dbus_server_slots_init_lock (void)
-{
-  if (!_dbus_data_slot_allocator_init (&slot_allocator))
-    return NULL;
-  else
-    return slot_allocator.lock;
-}
+_DBUS_DEFINE_GLOBAL_LOCK (server_slots);
 
 /**
  * Allocates an integer ID to be used for storing application-specific
@@ -618,7 +604,8 @@ _dbus_server_slots_init_lock (void)
 int
 dbus_server_allocate_data_slot (void)
 {
-  return _dbus_data_slot_allocator_alloc (&slot_allocator);
+  return _dbus_data_slot_allocator_alloc (&slot_allocator,
+                                          _DBUS_LOCK_NAME (server_slots));
 }
 
 /**

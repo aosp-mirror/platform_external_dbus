@@ -32,12 +32,21 @@ static DBusThreadFunctions thread_functions =
   NULL, NULL, NULL, NULL,
   NULL, NULL, NULL, NULL
 };
+static int thread_init_generation = 0;
 
 /** This is used for the no-op default mutex pointer, just to be distinct from #NULL */
-#define _DBUS_DUMMY_MUTEX ((void*)0xABCDEF)
+#ifdef DBUS_BUILD_TESTS
+#define _DBUS_DUMMY_MUTEX_NEW ((DBusMutex*)_dbus_strdup ("FakeMutex"))
+#else
+#define _DBUS_DUMMY_MUTEX_NEW ((DBusMutex*)0xABCDEF)
+#endif
 
 /** This is used for the no-op default mutex pointer, just to be distinct from #NULL */
-#define _DBUS_DUMMY_CONDVAR ((void*)0xABCDEF2)
+#ifdef DBUS_BUILD_TESTS
+#define _DBUS_DUMMY_CONDVAR_NEW ((DBusCondVar*)_dbus_strdup ("FakeCondvar"))
+#else
+#define _DBUS_DUMMY_CONDVAR_NEW ((DBusCondVar*)0xABCDEF2)
+#endif
 
 /**
  * @defgroup DBusThreads Thread functions
@@ -63,7 +72,7 @@ dbus_mutex_new (void)
   if (thread_functions.mutex_new)
     return (* thread_functions.mutex_new) ();
   else
-    return _DBUS_DUMMY_MUTEX;
+    return _DBUS_DUMMY_MUTEX_NEW;
 }
 
 /**
@@ -75,6 +84,11 @@ dbus_mutex_free (DBusMutex *mutex)
 {
   if (mutex && thread_functions.mutex_free)
     (* thread_functions.mutex_free) (mutex);
+#ifdef DBUS_BUILD_TESTS
+  /* Free the fake mutex */
+  else
+    dbus_free (mutex);
+#endif
 }
 
 /**
@@ -120,7 +134,7 @@ dbus_condvar_new (void)
   if (thread_functions.condvar_new)
     return (* thread_functions.condvar_new) ();
   else
-    return _DBUS_DUMMY_MUTEX;
+    return _DBUS_DUMMY_CONDVAR_NEW;
 }
 
 /**
@@ -132,6 +146,11 @@ dbus_condvar_free (DBusCondVar *cond)
 {
   if (cond && thread_functions.condvar_free)
     (* thread_functions.condvar_free) (cond);
+#ifdef DBUS_BUILD_TESTS
+  else
+    /* Free the fake condvar */
+    dbus_free (cond);
+#endif
 }
 
 /**
@@ -195,37 +214,77 @@ dbus_condvar_wake_all (DBusCondVar *cond)
     (* thread_functions.condvar_wake_all) (cond);
 }
 
+static void
+shutdown_global_locks (void *data)
+{
+  DBusMutex ***locks = data;
+  int i;
+
+  i = 0;
+  while (i < _DBUS_N_GLOBAL_LOCKS)
+    {
+      dbus_mutex_free (*(locks[i]));
+      *(locks[i]) = NULL;
+      ++i;
+    }
+  
+  dbus_free (locks);
+}
+
 static dbus_bool_t
-init_static_locks(void)
+init_global_locks (void)
 {
   int i;
+  DBusMutex ***dynamic_global_locks;
   
-  struct {
-    DBusMutex *(*init_func)(void);
-    DBusMutex *mutex;
-  } static_locks[] = {
-    {&_dbus_list_init_lock},
-    {&_dbus_server_slots_init_lock},
-    {&_dbus_connection_slots_init_lock},
-    {&_dbus_atomic_init_lock},
-    {&_dbus_message_handler_init_lock},
-    {&_dbus_user_info_init_lock},
-    {&_dbus_bus_init_lock}
+  DBusMutex **global_locks[] = {
+#define LOCK_ADDR(name) (& _dbus_lock_##name)
+    LOCK_ADDR (list),
+    LOCK_ADDR (connection_slots),
+    LOCK_ADDR (server_slots),
+    LOCK_ADDR (atomic),
+    LOCK_ADDR (message_handler),
+    LOCK_ADDR (user_info),
+    LOCK_ADDR (bus)
+#undef LOCK_ADDR
   };
+
+  _dbus_assert (_DBUS_N_ELEMENTS (global_locks) ==
+                _DBUS_N_GLOBAL_LOCKS);
+
+  i = 0;
   
-  for (i = 0; i < _DBUS_N_ELEMENTS (static_locks); i++)
+  dynamic_global_locks = dbus_new (DBusMutex**, _DBUS_N_GLOBAL_LOCKS);
+  if (dynamic_global_locks == NULL)
+    goto failed;
+  
+  while (i < _DBUS_N_ELEMENTS (global_locks))
     {
-      static_locks[i].mutex = (*static_locks[i].init_func)();
+      *global_locks[i] = dbus_mutex_new ();
       
-      if (static_locks[i].mutex == NULL)
-	{
-	  for (i = i - 1; i >= 0; i--)
-	    dbus_mutex_free (static_locks[i].mutex);
-	  return FALSE;
-	}
-      
+      if (*global_locks[i] == NULL)
+        goto failed;
+
+      dynamic_global_locks[i] = global_locks[i];
+
+      ++i;
     }
+  
+  if (!_dbus_register_shutdown_func (shutdown_global_locks,
+                                     dynamic_global_locks))
+    goto failed;
+  
   return TRUE;
+
+ failed:
+  dbus_free (dynamic_global_locks);
+                                     
+  for (i = i - 1; i >= 0; i--)
+    {
+      dbus_mutex_free (*global_locks[i]);
+      *global_locks[i] = NULL;
+    }
+  return FALSE;
 }
 
 
@@ -276,6 +335,9 @@ dbus_threads_init (const DBusThreadFunctions *functions)
    * new bits.
    */
   _dbus_assert ((functions->mask & ~DBUS_THREAD_FUNCTIONS_ALL_MASK) == 0);
+
+  if (thread_init_generation != _dbus_current_generation)
+    thread_functions.mask = 0; /* allow re-init in new generation */
   
   if (thread_functions.mask != 0)
     {
@@ -297,8 +359,10 @@ dbus_threads_init (const DBusThreadFunctions *functions)
   
   thread_functions.mask = functions->mask;
 
-  if (!init_static_locks ())
+  if (!init_global_locks ())
     return FALSE;
+
+  thread_init_generation = _dbus_current_generation;
   
   return TRUE;
 }

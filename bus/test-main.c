@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-sysdeps.h>
+#include <dbus/dbus-internals.h>
 
 static void
 die (const char *failure)
@@ -55,6 +56,16 @@ main (int argc, char **argv)
   if (!bus_dispatch_test (&test_data_dir))
     die ("dispatch");
 
+  dbus_shutdown ();
+  
+  printf ("%s: checking for memleaks\n", argv[0]);
+  if (_dbus_get_malloc_blocks_outstanding () != 0)
+    {
+      _dbus_warn ("%d dbus_malloc blocks were not freed\n",
+                  _dbus_get_malloc_blocks_outstanding ());
+      die ("memleaks");
+    }
+  
   printf ("%s: Success\n", argv[0]);
   
   return 0;

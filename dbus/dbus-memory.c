@@ -24,6 +24,7 @@
 #include "dbus-memory.h"
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
+#include "dbus-list.h"
 #include <stdlib.h>
 
 
@@ -81,6 +82,7 @@ static int fail_alloc_counter = _DBUS_INT_MAX;
 static dbus_bool_t guards = FALSE;
 static dbus_bool_t disable_mem_pools = FALSE;
 static dbus_bool_t backtrace_on_fail_alloc = FALSE;
+static int n_blocks_outstanding = 0;
 
 /** value stored in guard padding for debugging buffer overrun */
 #define GUARD_VALUE 0xdeadbeef
@@ -213,6 +215,17 @@ _dbus_decrement_fail_alloc_counter (void)
       fail_alloc_counter -= 1;
       return FALSE;
     }
+}
+
+/**
+ * Get the number of outstanding malloc()'d blocks.
+ *
+ * @returns number of blocks
+ */
+int
+_dbus_get_malloc_blocks_outstanding (void)
+{
+  return n_blocks_outstanding;
 }
 
 /**
@@ -372,11 +385,22 @@ dbus_malloc (size_t bytes)
       void *block;
 
       block = malloc (bytes + GUARD_EXTRA_SIZE);
+      if (block)
+        n_blocks_outstanding += 1;
+      
       return set_guards (block, bytes, SOURCE_MALLOC);
     }
 #endif
   else
-    return malloc (bytes);
+    {
+      void *mem;
+      mem = malloc (bytes);
+#ifdef DBUS_BUILD_TESTS
+      if (mem)
+        n_blocks_outstanding += 1;
+#endif
+      return mem;
+    }
 }
 
 /**
@@ -412,11 +436,21 @@ dbus_malloc0 (size_t bytes)
       void *block;
 
       block = calloc (bytes + GUARD_EXTRA_SIZE, 1);
+      if (block)
+        n_blocks_outstanding += 1;
       return set_guards (block, bytes, SOURCE_MALLOC_ZERO);
     }
 #endif
   else
-    return calloc (bytes, 1);
+    {
+      void *mem;
+      mem = calloc (bytes, 1);
+#ifdef DBUS_BUILD_TESTS
+      if (mem)
+        n_blocks_outstanding += 1;
+#endif
+      return mem;
+    }
 }
 
 /**
@@ -462,9 +496,10 @@ dbus_realloc (void  *memory,
           
           block = realloc (((unsigned char*)memory) - GUARD_START_OFFSET,
                            bytes + GUARD_EXTRA_SIZE);
-          
-          /* old guards shouldn't have moved */
-          check_guards (((unsigned char*)block) + GUARD_START_OFFSET);
+
+          if (block)
+            /* old guards shouldn't have moved */
+            check_guards (((unsigned char*)block) + GUARD_START_OFFSET);
           
           return set_guards (block, bytes, SOURCE_REALLOC);
         }
@@ -473,13 +508,23 @@ dbus_realloc (void  *memory,
           void *block;
           
           block = malloc (bytes + GUARD_EXTRA_SIZE);
+
+          if (block)
+            n_blocks_outstanding += 1;
+          
           return set_guards (block, bytes, SOURCE_REALLOC_NULL);   
         }
     }
 #endif
   else
     {
-      return realloc (memory, bytes);
+      void *mem;
+      mem = realloc (memory, bytes);
+#ifdef DBUS_BUILD_TESTS
+      if (memory == NULL && mem != NULL)
+        n_blocks_outstanding += 1;
+#endif
+      return mem;
     }
 }
 
@@ -497,13 +542,28 @@ dbus_free (void  *memory)
     {
       check_guards (memory);
       if (memory)
-        free (((unsigned char*)memory) - GUARD_START_OFFSET);
+        {
+          n_blocks_outstanding -= 1;
+          
+          _dbus_assert (n_blocks_outstanding >= 0);
+          
+          free (((unsigned char*)memory) - GUARD_START_OFFSET);
+        }
+      
       return;
     }
 #endif
     
   if (memory) /* we guarantee it's safe to free (NULL) */
-    free (memory);
+    {
+#ifdef DBUS_BUILD_TESTS
+      n_blocks_outstanding -= 1;
+      
+      _dbus_assert (n_blocks_outstanding >= 0);
+#endif
+
+      free (memory);
+    }
 }
 
 /**
@@ -528,6 +588,91 @@ dbus_free_string_array (char **str_array)
 
       dbus_free (str_array);
     }
+}
+
+/**
+ * _dbus_current_generation is used to track each
+ * time that dbus_shutdown() is called, so we can
+ * reinit things after it's been called. It is simply
+ * incremented each time we shut down.
+ */
+int _dbus_current_generation = 1;
+
+static DBusList *registered_globals = NULL;
+
+typedef struct
+{
+  DBusShutdownFunction func;
+  void *data;
+} ShutdownClosure;
+
+/**
+ * The D-BUS library keeps some internal global variables, for example
+ * to cache the username of the current process.  This function is
+ * used to free these global variables.  It is really useful only for
+ * leak-checking cleanliness and the like. WARNING: this function is
+ * NOT thread safe, it must be called while NO other threads are using
+ * D-BUS. You cannot continue using D-BUS after calling this function,
+ * as it does things like free global mutexes created by
+ * dbus_threads_init(). To use a D-BUS function after calling
+ * dbus_shutdown(), you have to start over from scratch, e.g. calling
+ * dbus_threads_init() again.
+ */
+void
+dbus_shutdown (void)
+{
+  DBusList *link;
+
+  link = _dbus_list_get_first_link (&registered_globals);
+  while (link != NULL)
+    {
+      ShutdownClosure *c = link->data;
+
+      (* c->func) (c->data);
+
+      dbus_free (c);
+      
+      link = _dbus_list_get_next_link (&registered_globals, link);
+    }
+
+  _dbus_list_clear (&registered_globals);
+
+  _dbus_current_generation += 1;
+}
+
+/**
+ * Register a cleanup function to be called exactly once
+ * the next time dbus_shutdown() is called.
+ *
+ * @param func the function
+ * @param data data to pass to the function
+ * @returns #FALSE on not enough memory
+ */
+dbus_bool_t
+_dbus_register_shutdown_func (DBusShutdownFunction  func,
+                              void                 *data)
+{
+  ShutdownClosure *c;
+
+  c = dbus_new (ShutdownClosure, 1);
+
+  if (c == NULL)
+    return FALSE;
+  
+  c->func = func;
+  c->data = data;
+
+  /* We prepend, then shutdown the list in order, so
+   * we shutdown last-registered stuff first which
+   * is right.
+   */
+  if (!_dbus_list_prepend (&registered_globals, c))
+    {
+      dbus_free (c);
+      return FALSE;
+    }
+
+  return TRUE;
 }
 
 /** @} */

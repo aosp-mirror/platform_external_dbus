@@ -2472,21 +2472,7 @@ dbus_connection_unregister_handler (DBusConnection     *connection,
 }
 
 static DBusDataSlotAllocator slot_allocator;
-
-/**
- * Initialize the mutex used for #DBusConnection data
- * slot reservations.
- *
- * @returns the mutex
- */
-DBusMutex *
-_dbus_connection_slots_init_lock (void)
-{
-  if (!_dbus_data_slot_allocator_init (&slot_allocator))
-    return NULL;
-  else
-    return slot_allocator.lock;
-}
+_DBUS_DEFINE_GLOBAL_LOCK (connection_slots);
 
 /**
  * Allocates an integer ID to be used for storing application-specific
@@ -2501,7 +2487,8 @@ _dbus_connection_slots_init_lock (void)
 int
 dbus_connection_allocate_data_slot (void)
 {
-  return _dbus_data_slot_allocator_alloc (&slot_allocator);
+  return _dbus_data_slot_allocator_alloc (&slot_allocator,
+                                          _DBUS_LOCK_NAME (connection_slots));
 }
 
 /**

@@ -45,6 +45,8 @@ void dbus_free_string_array (char **str_array);
 
 typedef void (* DBusFreeFunction) (void *memory);
 
+void dbus_shutdown (void);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_MEMORY_H */

@@ -63,24 +63,12 @@ static int bus_data_slot_refcount = 0;
 /**
  * Lock for bus_data_slot and bus_data_slot_refcount
  */
-static DBusMutex *slot_lock;
-
-/**
- * Initialize the mutex used for bus_data_slot
- *
- * @returns the mutex
- */
-DBusMutex *
-_dbus_bus_init_lock (void)
-{
-  slot_lock = dbus_mutex_new ();
-  return slot_lock;
-}
+_DBUS_DEFINE_GLOBAL_LOCK (bus);
 
 static dbus_bool_t
 data_slot_ref (void)
 {
-  dbus_mutex_lock (slot_lock);
+  _DBUS_LOCK (bus);
 
   if (bus_data_slot < 0)
     {
@@ -88,7 +76,7 @@ data_slot_ref (void)
       
       if (bus_data_slot < 0)
         {
-          dbus_mutex_unlock (slot_lock);
+          _DBUS_UNLOCK (bus);
           return FALSE;
         }
 
@@ -97,7 +85,7 @@ data_slot_ref (void)
 
   bus_data_slot_refcount += 1;
 
-  dbus_mutex_unlock (slot_lock);
+  _DBUS_UNLOCK (bus);
 
   return TRUE;
 }
@@ -105,7 +93,7 @@ data_slot_ref (void)
 static void
 data_slot_unref (void)
 {
-  dbus_mutex_lock (slot_lock);
+  _DBUS_LOCK (bus);
 
   _dbus_assert (bus_data_slot_refcount > 0);
   _dbus_assert (bus_data_slot >= 0);
@@ -118,7 +106,7 @@ data_slot_unref (void)
       bus_data_slot = -1;
     }
 
-  dbus_mutex_unlock (slot_lock);
+  _DBUS_UNLOCK (bus);
 }
 
 static void

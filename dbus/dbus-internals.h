@@ -169,10 +169,11 @@ extern const char _dbus_no_memory_message[];
 
 #ifdef DBUS_BUILD_TESTS
 /* Memory debugging */
-void        _dbus_set_fail_alloc_counter       (int  until_next_fail);
-int         _dbus_get_fail_alloc_counter       (void);
-dbus_bool_t _dbus_decrement_fail_alloc_counter (void);
-dbus_bool_t _dbus_disable_mem_pools            (void);
+void        _dbus_set_fail_alloc_counter        (int  until_next_fail);
+int         _dbus_get_fail_alloc_counter        (void);
+dbus_bool_t _dbus_decrement_fail_alloc_counter  (void);
+dbus_bool_t _dbus_disable_mem_pools             (void);
+int         _dbus_get_malloc_blocks_outstanding (void);
 #else
 #define _dbus_set_fail_alloc_counter(n)
 #define _dbus_get_fail_alloc_counter _DBUS_INT_MAX
@@ -180,18 +181,32 @@ dbus_bool_t _dbus_disable_mem_pools            (void);
 /* These are constant expressions so that blocks
  * they protect should be optimized away
  */
-#define _dbus_decrement_fail_alloc_counter() FALSE
-#define _dbus_disable_mem_pools()            FALSE
+#define _dbus_decrement_fail_alloc_counter() (FALSE)
+#define _dbus_disable_mem_pools()            (FALSE)
+#define _dbus_get_malloc_blocks_outstanding  (0)
 #endif /* !DBUS_BUILD_TESTS */
 
+typedef void (* DBusShutdownFunction) (void *data);
+dbus_bool_t _dbus_register_shutdown_func (DBusShutdownFunction  function,
+                                          void                 *data);
+
+extern int _dbus_current_generation;
+
 /* Thread initializers */
-DBusMutex *_dbus_list_init_lock             (void);
-DBusMutex *_dbus_connection_slots_init_lock (void);
-DBusMutex *_dbus_server_slots_init_lock     (void);
-DBusMutex *_dbus_atomic_init_lock           (void);
-DBusMutex *_dbus_message_handler_init_lock  (void);
-DBusMutex *_dbus_user_info_init_lock        (void);
-DBusMutex *_dbus_bus_init_lock              (void);
+#define _DBUS_LOCK_NAME(name)           _dbus_lock_##name
+#define _DBUS_DECLARE_GLOBAL_LOCK(name) extern DBusMutex  *_dbus_lock_##name
+#define _DBUS_DEFINE_GLOBAL_LOCK(name)  DBusMutex         *_dbus_lock_##name  
+#define _DBUS_LOCK(name)                dbus_mutex_lock   (_dbus_lock_##name)
+#define _DBUS_UNLOCK(name)              dbus_mutex_unlock (_dbus_lock_##name)
+
+_DBUS_DECLARE_GLOBAL_LOCK (list);
+_DBUS_DECLARE_GLOBAL_LOCK (connection_slots);
+_DBUS_DECLARE_GLOBAL_LOCK (server_slots);
+_DBUS_DECLARE_GLOBAL_LOCK (atomic);
+_DBUS_DECLARE_GLOBAL_LOCK (message_handler);
+_DBUS_DECLARE_GLOBAL_LOCK (user_info);
+_DBUS_DECLARE_GLOBAL_LOCK (bus);
+#define _DBUS_N_GLOBAL_LOCKS (7)
 
 DBUS_END_DECLS;
 

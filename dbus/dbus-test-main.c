@@ -39,5 +39,6 @@ main (int    argc,
     test_data_dir = NULL;
   
   dbus_internal_do_not_use_run_tests (test_data_dir);
+  
   return 0;
 }

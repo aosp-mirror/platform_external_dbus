@@ -35,19 +35,7 @@
  */
 
 static DBusMemPool *list_pool;
-static DBusMutex *list_pool_lock = NULL;
-
-/**
- * Initializes the global mutex used for allocating list nodes.
- *
- * @returns the mutex
- */
-DBusMutex *
-_dbus_list_init_lock (void)
-{
-  list_pool_lock = dbus_mutex_new ();
-  return list_pool_lock;
-}
+_DBUS_DEFINE_GLOBAL_LOCK (list);
 
 /**
  * @defgroup DBusListInternals Linked list implementation details
@@ -67,7 +55,7 @@ alloc_link (void *data)
 {
   DBusList *link;
 
-  if (!dbus_mutex_lock (list_pool_lock))
+  if (!_DBUS_LOCK (list))
     return NULL;
   
   if (!list_pool)
@@ -76,7 +64,7 @@ alloc_link (void *data)
 
       if (list_pool == NULL)
         {
-          dbus_mutex_unlock (list_pool_lock);
+          _DBUS_UNLOCK (list);
           return NULL;
         }
     }
@@ -85,7 +73,7 @@ alloc_link (void *data)
   if (link)
     link->data = data;
   
-  dbus_mutex_unlock (list_pool_lock);
+  _DBUS_UNLOCK (list);
 
   return link;
 }
@@ -93,13 +81,13 @@ alloc_link (void *data)
 static void
 free_link (DBusList *link)
 {
-  dbus_mutex_lock (list_pool_lock);
+  _DBUS_LOCK (list);
   if (_dbus_mem_pool_dealloc (list_pool, link))
     {
       _dbus_mem_pool_free (list_pool);
       list_pool = NULL;
     }
-  dbus_mutex_unlock (list_pool_lock);
+  _DBUS_UNLOCK (list);
 }
 
 static void

@@ -1,5 +1,29 @@
 2003-03-23  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-threads.c (dbus_mutex_new, dbus_condvar_new): with 
+	DBUS_BUILD_TESTS, actually alloc/free a block of memory for 
+	the mutex, so we can check for proper memory management 
+	and OOM handling.
+
+	* dbus/dbus-dataslot.c: remove the mutex from
+	DBusDataSlotAllocator and lock it manually when using it, 
+	to simplify fitting it into the global slots framework.
+
+	* dbus/dbus-threads.c (init_static_locks): rework how we're
+	handling global locks so they are easily shut down.
+
+	* bus/policy.c (bus_policy_append_rule): fix
+
+	* bus/test-main.c (main): check for memleaks
+
+	* dbus/dbus-test.c (dbus_internal_do_not_use_run_tests): make 
+	test suite check for memleaks
+
+	* dbus/dbus-memory.c: add support in test mode for tracking 
+	number of outstanding blocks
+
+2003-03-23  Havoc Pennington  <hp@pobox.com>
+
 	* bus/policy.c, bus/bus.c, bus/connection.c: implement allow/deny
 	policies code
 	

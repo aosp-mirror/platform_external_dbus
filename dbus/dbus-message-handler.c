@@ -37,20 +37,7 @@
  * @{
  */
 
-static DBusMutex *message_handler_lock = NULL;
-
-/**
- * Initializes the mutex used for threadsafe access to
- * #DBusMessageHandler objects.
- *
- * @returns the mutex
- */
-DBusMutex *
-_dbus_message_handler_init_lock (void)
-{
-  message_handler_lock = dbus_mutex_new ();
-  return message_handler_lock;
-}
+_DBUS_DEFINE_GLOBAL_LOCK (message_handler);
 
 /**
  * @brief Internals of DBusMessageHandler
@@ -83,7 +70,7 @@ _dbus_message_handler_add_connection (DBusMessageHandler *handler,
 {
   dbus_bool_t res;
   
-  dbus_mutex_lock (message_handler_lock);
+  _DBUS_LOCK (message_handler);
   /* This is a bit wasteful - we just put the connection in the list
    * once per time it's added. :-/
    */
@@ -92,7 +79,7 @@ _dbus_message_handler_add_connection (DBusMessageHandler *handler,
   else
     res = TRUE;
 
-  dbus_mutex_unlock (message_handler_lock);
+  _DBUS_UNLOCK (message_handler);
   
   return res;
 }
@@ -106,10 +93,10 @@ void
 _dbus_message_handler_remove_connection (DBusMessageHandler *handler,
                                          DBusConnection     *connection)
 {
-  dbus_mutex_lock (message_handler_lock);
+  _DBUS_LOCK (message_handler);
   if (!_dbus_list_remove (&handler->connections, connection))
     _dbus_warn ("Function _dbus_message_handler_remove_connection() called when the connection hadn't been added\n");
-  dbus_mutex_unlock (message_handler_lock);
+  _DBUS_UNLOCK (message_handler);
 }
 
 
@@ -131,10 +118,10 @@ _dbus_message_handler_handle_message (DBusMessageHandler        *handler,
   DBusHandleMessageFunction function;
   void  *user_data;
   
-  dbus_mutex_lock (message_handler_lock);
+  _DBUS_LOCK (message_handler);
   function = handler->function;
   user_data = handler->user_data;
-  dbus_mutex_unlock (message_handler_lock);
+  _DBUS_UNLOCK (message_handler);
   
   /* This function doesn't ref handler/connection/message
    * since that's done in dbus_connection_dispatch().
@@ -205,11 +192,11 @@ dbus_message_handler_new (DBusHandleMessageFunction function,
 void
 dbus_message_handler_ref (DBusMessageHandler *handler)
 {
-  dbus_mutex_lock (message_handler_lock);
+  _DBUS_LOCK (message_handler);
   _dbus_assert (handler != NULL);
   
   handler->refcount += 1;
-  dbus_mutex_unlock (message_handler_lock);
+  _DBUS_UNLOCK (message_handler);
 }
 
 /**
@@ -223,7 +210,7 @@ dbus_message_handler_unref (DBusMessageHandler *handler)
 {
   int refcount;
   
-  dbus_mutex_lock (message_handler_lock);
+  _DBUS_LOCK (message_handler);
   
   _dbus_assert (handler != NULL);
   _dbus_assert (handler->refcount > 0);
@@ -231,7 +218,7 @@ dbus_message_handler_unref (DBusMessageHandler *handler)
   handler->refcount -= 1;
   refcount = handler->refcount;
   
-  dbus_mutex_unlock (message_handler_lock);
+  _DBUS_UNLOCK (message_handler);
   
   if (refcount == 0)
     {
@@ -267,9 +254,9 @@ void*
 dbus_message_handler_get_data (DBusMessageHandler *handler)
 {
   void* user_data;
-  dbus_mutex_lock (message_handler_lock);
+  _DBUS_LOCK (message_handler);
   user_data = handler->user_data;
-  dbus_mutex_unlock (message_handler_lock);
+  _DBUS_UNLOCK (message_handler);
   return user_data;
 }
 
@@ -290,13 +277,13 @@ dbus_message_handler_set_data (DBusMessageHandler *handler,
   DBusFreeFunction old_free_func;
   void *old_user_data;
   
-  dbus_mutex_lock (message_handler_lock);
+  _DBUS_LOCK (message_handler);
   old_free_func = handler->free_user_data;
   old_user_data = handler->user_data;
 
   handler->user_data = user_data;
   handler->free_user_data = free_user_data;
-  dbus_mutex_unlock (message_handler_lock);
+  _DBUS_UNLOCK (message_handler);
 
   if (old_free_func)
     (* old_free_func) (old_user_data);
@@ -314,9 +301,9 @@ void
 dbus_message_handler_set_function (DBusMessageHandler        *handler,
                                    DBusHandleMessageFunction  function)
 {
-  dbus_mutex_lock (message_handler_lock);
+  _DBUS_LOCK (message_handler);
   handler->function = function;
-  dbus_mutex_unlock (message_handler_lock);
+  _DBUS_UNLOCK (message_handler);
 }
 
 /** @} */

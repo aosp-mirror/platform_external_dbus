@@ -128,6 +128,41 @@
  */
 
 /**
+ * @def _DBUS_LOCK_NAME
+ *
+ * Expands to name of a global lock variable.
+ */
+
+/**
+ * @def _DBUS_DEFINE_GLOBAL_LOCK
+ *
+ * Defines a global lock variable with the given name.
+ * The lock must be added to the list to initialize
+ * in dbus_threads_init().
+ */
+
+/**
+ * @def _DBUS_DECLARE_GLOBAL_LOCK
+ *
+ * Expands to declaration of a global lock defined
+ * with _DBUS_DEFINE_GLOBAL_LOCK.
+ * The lock must be added to the list to initialize
+ * in dbus_threads_init().
+ */
+
+/**
+ * @def _DBUS_LOCK
+ *
+ * Locks a global lock
+ */
+
+/**
+ * @def _DBUS_UNLOCK
+ *
+ * Unlocks a global lock
+ */
+
+/**
  * Fixed "out of memory" error message, just to avoid
  * making up a different string every time and wasting
  * space.

@@ -73,6 +73,10 @@ bus_policy_rule_unref (BusPolicyRule *rule)
         case BUS_POLICY_RULE_OWN:
           dbus_free (rule->d.own.service_name);
           break;
+        case BUS_POLICY_RULE_USER:
+        case BUS_POLICY_RULE_GROUP:
+          _dbus_assert_not_reached ("invalid rule");
+          break;
         }
       
       dbus_free (rule);
@@ -203,6 +207,10 @@ bus_policy_optimize (BusPolicy *policy)
           remove_preceding =
             rule->d.own.service_name == NULL;
           break;
+        case BUS_POLICY_RULE_USER:
+        case BUS_POLICY_RULE_GROUP:
+          _dbus_assert_not_reached ("invalid rule");
+          break;
         }
                 
       if (remove_preceding)
@@ -220,7 +228,7 @@ dbus_bool_t
 bus_policy_append_rule (BusPolicy     *policy,
                         BusPolicyRule *rule)
 {
-  if (!_dbus_list_append (policy->rules, rule))
+  if (!_dbus_list_append (&policy->rules, rule))
     return FALSE;
 
   bus_policy_rule_ref (rule);

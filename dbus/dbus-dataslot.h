@@ -53,23 +53,24 @@ struct DBusDataSlotList
   int           n_slots; /**< Slots we have storage for in data_slots */
 };
 
-dbus_bool_t _dbus_data_slot_allocator_init (DBusDataSlotAllocator *allocator);
-int         _dbus_data_slot_allocator_alloc (DBusDataSlotAllocator *allocator);
-void        _dbus_data_slot_allocator_free (DBusDataSlotAllocator *allocator,
-                                            int slot_id);
+dbus_bool_t _dbus_data_slot_allocator_init  (DBusDataSlotAllocator  *allocator);
+int         _dbus_data_slot_allocator_alloc (DBusDataSlotAllocator  *allocator,
+                                             DBusMutex              *mutex);
+void        _dbus_data_slot_allocator_free  (DBusDataSlotAllocator  *allocator,
+                                             int                     slot_id);
+void        _dbus_data_slot_list_init       (DBusDataSlotList       *list);
+dbus_bool_t _dbus_data_slot_list_set        (DBusDataSlotAllocator  *allocator,
+                                             DBusDataSlotList       *list,
+                                             int                     slot,
+                                             void                   *data,
+                                             DBusFreeFunction        free_data_func,
+                                             DBusFreeFunction       *old_free_func,
+                                             void                  **old_data);
+void*       _dbus_data_slot_list_get        (DBusDataSlotAllocator  *allocator,
+                                             DBusDataSlotList       *list,
+                                             int                     slot);
+void        _dbus_data_slot_list_free       (DBusDataSlotList       *list);
 
-void        _dbus_data_slot_list_init (DBusDataSlotList      *list);
-dbus_bool_t _dbus_data_slot_list_set  (DBusDataSlotAllocator *allocator,
-                                       DBusDataSlotList      *list,
-                                       int                    slot,
-                                       void                  *data,
-                                       DBusFreeFunction       free_data_func,
-                                       DBusFreeFunction      *old_free_func,
-                                       void                 **old_data);
-void*       _dbus_data_slot_list_get  (DBusDataSlotAllocator *allocator,
-                                       DBusDataSlotList      *list,
-                                       int                    slot);
-void        _dbus_data_slot_list_free (DBusDataSlotList      *list);
 
 DBUS_END_DECLS;
 

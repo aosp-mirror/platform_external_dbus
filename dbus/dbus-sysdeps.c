@@ -1232,17 +1232,22 @@ _dbus_credentials_from_user_id (unsigned long     user_id,
   return get_user_info (NULL, user_id, credentials, NULL, NULL);
 }
 
-static DBusMutex *user_info_lock = NULL;
-/**
- * Initializes the global mutex for the process's user information.
- *
- * @returns the mutex
- */
-DBusMutex *
-_dbus_user_info_init_lock (void)
+_DBUS_DEFINE_GLOBAL_LOCK (user_info);
+
+typedef struct
 {
-  user_info_lock = dbus_mutex_new ();
-  return user_info_lock;
+  DBusString name;
+  DBusString dir;
+  DBusCredentials creds;
+} UserInfo;
+
+static void
+shutdown_user_info (void *data)
+{
+  UserInfo *u = data;
+
+  _dbus_string_free (&u->name);
+  _dbus_string_free (&u->dir);
 }
 
 /**
@@ -1258,53 +1263,58 @@ _dbus_user_info_from_current_process (const DBusString      **username,
                                       const DBusString      **homedir,
                                       const DBusCredentials **credentials)
 {
-  static DBusString name;
-  static DBusString dir;
-  static DBusCredentials creds;
-  static dbus_bool_t initialized = FALSE;
+  static UserInfo u;
+  static int initialized_generation = 0;
   
-  if (!dbus_mutex_lock (user_info_lock))
+  if (!_DBUS_LOCK (user_info))
     return FALSE;
 
-  if (!initialized)
+  if (initialized_generation != _dbus_current_generation)
     {
-      if (!_dbus_string_init (&name, _DBUS_INT_MAX))
+      if (!_dbus_string_init (&u.name, _DBUS_INT_MAX))
         {
-          dbus_mutex_unlock (user_info_lock);
+          _DBUS_UNLOCK (user_info);
           return FALSE;
         }
 
-      if (!_dbus_string_init (&dir, _DBUS_INT_MAX))
+      if (!_dbus_string_init (&u.dir, _DBUS_INT_MAX))
         {
-          _dbus_string_free (&name);
-          dbus_mutex_unlock (user_info_lock);
+          _dbus_string_free (&u.name);
+          _DBUS_UNLOCK (user_info);
           return FALSE;
         }
       
-      creds.uid = -1;
-      creds.gid = -1;
-      creds.pid = -1;
+      u.creds.uid = -1;
+      u.creds.gid = -1;
+      u.creds.pid = -1;
 
       if (!get_user_info (NULL, getuid (),
-                          &creds, &dir, &name))
+                          &u.creds, &u.dir, &u.name))
+        goto fail_init;
+      
+      if (!_dbus_register_shutdown_func (shutdown_user_info,
+                                         &u))
+        goto fail_init;
+      
+      initialized_generation = _dbus_current_generation;
+    fail_init:
+      if (initialized_generation != _dbus_current_generation)
         {
-          _dbus_string_free (&name);
-          _dbus_string_free (&dir);
-          dbus_mutex_unlock (user_info_lock);
+          _dbus_string_free (&u.name);
+          _dbus_string_free (&u.dir);
+          _DBUS_UNLOCK (user_info);
           return FALSE;
         }
-
-      initialized = TRUE;
     }
 
   if (username)
-    *username = &name;
+    *username = &u.name;
   if (homedir)
-    *homedir = &dir;
+    *homedir = &u.dir;
   if (credentials)
-    *credentials = &creds;
+    *credentials = &u.creds;
   
-  dbus_mutex_unlock (user_info_lock);
+  _DBUS_UNLOCK (user_info);
 
   return TRUE;
 }
@@ -1594,19 +1604,7 @@ _dbus_string_append_our_uid (DBusString *str)
 }
 
 
-static DBusMutex *atomic_lock = NULL;
-/**
- * Initializes the global mutex for the fallback implementation
- * of atomic integers.
- *
- * @returns the mutex
- */
-DBusMutex *
-_dbus_atomic_init_lock (void)
-{
-  atomic_lock = dbus_mutex_new ();
-  return atomic_lock;
-}
+_DBUS_DEFINE_GLOBAL_LOCK (atomic);
 
 /**
  * Atomically increments an integer
@@ -1621,10 +1619,10 @@ _dbus_atomic_inc (dbus_atomic_t *atomic)
 {
   dbus_atomic_t res;
   
-  dbus_mutex_lock (atomic_lock);
+  _DBUS_LOCK (atomic);
   *atomic += 1;
   res = *atomic;
-  dbus_mutex_unlock (atomic_lock);
+  _DBUS_UNLOCK (atomic);
   return res;
 }
 
@@ -1641,10 +1639,10 @@ _dbus_atomic_dec (dbus_atomic_t *atomic)
 {
   dbus_atomic_t res;
   
-  dbus_mutex_lock (atomic_lock);
+  _DBUS_LOCK (atomic);
   *atomic -= 1;
   res = *atomic;
-  dbus_mutex_unlock (atomic_lock);
+  _DBUS_UNLOCK (atomic);
   return res;
 }
 

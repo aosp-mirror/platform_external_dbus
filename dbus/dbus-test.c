@@ -24,15 +24,18 @@
 #include <config.h>
 #include "dbus-test.h"
 #include "dbus-sysdeps.h"
+#include "dbus-internals.h"
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef DBUS_BUILD_TESTS
 static void
 die (const char *failure)
 {
   fprintf (stderr, "Unit test failed: %s\n", failure);
   exit (1);
 }
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * An exported symbol to be run in order to execute
@@ -58,7 +61,7 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   printf ("%s: running string tests\n", "dbus-test");
   if (!_dbus_string_test ())
     die ("strings");
-
+  
   printf ("%s: running data slot tests\n", "dbus-test");
   if (!_dbus_data_slot_test ())
     die ("dataslot");
@@ -96,7 +99,7 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   printf ("%s: running memory pool tests\n", "dbus-test");
   if (!_dbus_mem_pool_test ())
     die ("memory pools");
-
+  
   printf ("%s: running linked list tests\n", "dbus-test");
   if (!_dbus_list_test ())
     die ("lists");
@@ -104,11 +107,21 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   printf ("%s: running hash table tests\n", "dbus-test");
   if (!_dbus_hash_test ())
     die ("hash tables");
-
+  
   printf ("%s: running dict tests\n", "dbus-test");
   if (!_dbus_dict_test ())
     die ("dicts");
 
+  dbus_shutdown ();
+
+  printf ("%s: checking for memleaks\n", "dbus-test");
+  if (_dbus_get_malloc_blocks_outstanding () != 0)
+    {
+      _dbus_warn ("%d dbus_malloc blocks were not freed\n",
+                  _dbus_get_malloc_blocks_outstanding ());
+      die ("memleaks");
+    }
+  
   printf ("%s: completed successfully\n", "dbus-test");
 #else
   printf ("Not compiled with unit tests, not running any\n");

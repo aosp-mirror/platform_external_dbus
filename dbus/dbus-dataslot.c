@@ -46,11 +46,9 @@ _dbus_data_slot_allocator_init (DBusDataSlotAllocator *allocator)
   allocator->allocated_slots = NULL;
   allocator->n_allocated_slots = 0;
   allocator->n_used_slots = 0;
-  allocator->lock = dbus_mutex_new ();
-  if (allocator->lock == NULL)
-    return FALSE;
-  else
-    return TRUE;
+  allocator->lock = NULL;
+  
+  return TRUE;
 }
 
 /**
@@ -62,16 +60,26 @@ _dbus_data_slot_allocator_init (DBusDataSlotAllocator *allocator)
  * DBusDataSlotAllocator so it isn't cut-and-pasted everywhere.
  * 
  * @param allocator the allocator
+ * @param mutex the lock for this allocator
  * @returns the integer ID, or -1 on failure
  */
 int
-_dbus_data_slot_allocator_alloc (DBusDataSlotAllocator *allocator)
+_dbus_data_slot_allocator_alloc (DBusDataSlotAllocator *allocator,
+                                 DBusMutex             *mutex)
 {
   int slot;
-  
-  if (!dbus_mutex_lock (allocator->lock))
+
+  if (!dbus_mutex_lock (mutex))
     return -1;
 
+  if (allocator->n_allocated_slots == 0)
+    {
+      _dbus_assert (allocator->lock == NULL);
+      allocator->lock = mutex;
+    }
+  else
+    _dbus_assert (allocator->lock == mutex);
+  
   if (allocator->n_used_slots < allocator->n_allocated_slots)
     {
       slot = 0;
@@ -128,27 +136,34 @@ _dbus_data_slot_allocator_alloc (DBusDataSlotAllocator *allocator)
  */
 void
 _dbus_data_slot_allocator_free (DBusDataSlotAllocator *allocator,
-                                int slot)
+                                int                    slot)
 {
   dbus_mutex_lock (allocator->lock);
-
+  
   _dbus_assert (slot < allocator->n_allocated_slots);
   _dbus_assert (allocator->allocated_slots[slot] == slot);
   
   allocator->allocated_slots[slot] = -1;
   allocator->n_used_slots -= 1;
 
-  if (allocator->n_used_slots == 0)
-    {
-      dbus_free (allocator->allocated_slots);
-      allocator->allocated_slots = NULL;
-      allocator->n_allocated_slots = 0;
-    }
-
   _dbus_verbose ("Freed slot %d on allocator %p total %d allocated %d used\n",
                  slot, allocator, allocator->n_allocated_slots, allocator->n_used_slots);
   
-  dbus_mutex_unlock (allocator->lock);
+  if (allocator->n_used_slots == 0)
+    {
+      DBusMutex *mutex = allocator->lock;
+      
+      dbus_free (allocator->allocated_slots);
+      allocator->allocated_slots = NULL;
+      allocator->n_allocated_slots = 0;
+      allocator->lock = NULL;
+
+      dbus_mutex_unlock (mutex);
+    }
+  else
+    {
+      dbus_mutex_unlock (allocator->lock);
+    }
 }
 
 /**
@@ -320,12 +335,17 @@ _dbus_data_slot_test (void)
   int i;
   DBusFreeFunction old_free_func;
   void *old_data;
+  DBusMutex *mutex;
   
   if (!_dbus_data_slot_allocator_init (&allocator))
     _dbus_assert_not_reached ("no memory for allocator");
 
   _dbus_data_slot_list_init (&list);
 
+  mutex = dbus_mutex_new ();
+  if (mutex == NULL)
+    _dbus_assert_not_reached ("failed to alloc mutex");
+  
 #define N_SLOTS 100
 
   i = 0;
@@ -335,7 +355,7 @@ _dbus_data_slot_test (void)
        * allocation, but it simplifies things to rely on it
        * here.
        */
-      if (_dbus_data_slot_allocator_alloc (&allocator) != i)
+      if (_dbus_data_slot_allocator_alloc (&allocator, mutex) != i)
         _dbus_assert_not_reached ("did not allocate slots in numeric order\n");
 
       ++i;
@@ -394,6 +414,8 @@ _dbus_data_slot_test (void)
       _dbus_data_slot_allocator_free (&allocator, i);
       ++i;
     }
+
+  dbus_mutex_free (mutex);
   
   return TRUE;
 }
