@@ -84,7 +84,8 @@ struct DBusMemBlock
                         *   when we free the mem pool.
                         */
 
-  int used_so_far;     /**< bytes of this block already allocated as elements. */
+  /* this is a long so that "elements" is aligned */
+  long used_so_far;     /**< bytes of this block already allocated as elements. */
   
   unsigned char elements[ELEMENT_PADDING]; /**< the block data, actually allocated to required size */
 };
@@ -254,7 +255,7 @@ _dbus_mem_pool_alloc (DBusMemPool *pool)
             memset (element, '\0', pool->element_size);
 
           pool->allocated_elements += 1;
-      
+          
           return element;
         }
       else
@@ -311,11 +312,11 @@ _dbus_mem_pool_alloc (DBusMemPool *pool)
             }
       
           element = &pool->blocks->elements[pool->blocks->used_so_far];
-
+          
           pool->blocks->used_so_far += pool->element_size;
 
           pool->allocated_elements += 1;
-      
+          
           return element;
         }
     }

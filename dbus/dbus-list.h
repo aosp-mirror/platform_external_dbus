@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-list.h Generic linked list utility (internal to D-BUS implementation)
  * 
- * Copyright (C) 2002  Red Hat, Inc.
+ * Copyright (C) 2002, 2003 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -63,6 +63,7 @@ void*       _dbus_list_get_first      (DBusList **list);
 void*       _dbus_list_pop_first      (DBusList **list);
 void*       _dbus_list_pop_last       (DBusList **list);
 DBusList*   _dbus_list_pop_first_link (DBusList **list);
+DBusList*   _dbus_list_pop_last_link  (DBusList **list);
 dbus_bool_t _dbus_list_copy           (DBusList **list,
                                        DBusList **dest);
 int         _dbus_list_get_length     (DBusList **list);

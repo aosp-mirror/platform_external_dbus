@@ -32,6 +32,18 @@ Elements:
    
     Include a file <include>filename.conf</include> at this point.
 
+ <includedir>
+
+    Include all files in <includedir>foo.d</includedir> at this
+    point. Files in the directory are included in undefined order.
+    Only files ending in ".conf" are included.
+
+    This is intended to allow extension of the system bus by
+    particular packages. For example, if CUPS wants to be able to send
+    out notification of printer queue changes, it could install a file
+    to /etc/dbus/system.d that allowed all apps to receive this
+    message and allowed the printer daemon user to send it.
+
  <user>
 
     The user account the daemon should run as, as either a username or
@@ -42,13 +54,12 @@ Elements:
     The last <user> entry in the file "wins", the others are ignored.
 
  <listen>
-  address="name"    mandatory attribute
 
     Add an address that the bus should listen on. The 
     address is in the standard D-BUS format that contains 
     a transport name plus possible parameters/options.
 
-    Example: <listen address="unix:path=/tmp/foo"/>
+    Example: <listen>unix:path=/tmp/foo</listen>
 
     If there are multiple <listen> elements, then the bus listens 
     on multiple addresses.

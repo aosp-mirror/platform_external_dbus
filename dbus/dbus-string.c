@@ -633,7 +633,74 @@ _dbus_string_steal_data_len (DBusString        *str,
       return FALSE;
     }
 
-  _dbus_warn ("Broken code in _dbus_string_steal_data_len(), FIXME\n");
+  _dbus_warn ("Broken code in _dbus_string_steal_data_len(), see @todo, FIXME\n");
+  if (!_dbus_string_steal_data (&dest, data_return))
+    {
+      _dbus_string_free (&dest);
+      return FALSE;
+    }
+
+  _dbus_string_free (&dest);
+  return TRUE;
+}
+
+
+/**
+ * Copies the data from the string into a char*
+ *
+ * @param str the string
+ * @param data_return place to return the data
+ * @returns #TRUE on success, #FALSE on no memory
+ */
+dbus_bool_t
+_dbus_string_copy_data (const DBusString  *str,
+                        char             **data_return)
+{
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (data_return != NULL);
+  
+  *data_return = dbus_malloc (real->len + 1);
+  if (*data_return == NULL)
+    return FALSE;
+
+  memcpy (*data_return, real->str, real->len + 1);
+
+  return TRUE;
+}
+
+/**
+ * Copies a segment of the string into a char*
+ *
+ * @param str the string
+ * @param data_return place to return the data
+ * @param start start index
+ * @param len length to copy
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_string_copy_data_len (const DBusString  *str,
+                            char             **data_return,
+                            int                start,
+                            int                len)
+{
+  DBusString dest;
+
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (data_return != NULL);
+  _dbus_assert (start >= 0);
+  _dbus_assert (len >= 0);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (len <= real->len - start);
+
+  if (!_dbus_string_init (&dest, real->max_length))
+    return FALSE;
+
+  if (!_dbus_string_copy_len (str, start, len, &dest, 0))
+    {
+      _dbus_string_free (&dest);
+      return FALSE;
+    }
+
   if (!_dbus_string_steal_data (&dest, data_return))
     {
       _dbus_string_free (&dest);
@@ -1235,8 +1302,9 @@ _dbus_string_replace_len (const DBusString *source,
  */
 #define UNICODE_VALID(Char)                   \
     ((Char) < 0x110000 &&                     \
-     ((Char) < 0xD800 || (Char) >= 0xE000) && \
-     (Char) != 0xFFFE && (Char) != 0xFFFF)   
+     (((Char) & 0xFFFFF800) != 0xD800) &&     \
+     ((Char) < 0xFDD0 || (Char) > 0xFDEF) &&  \
+     ((Char) & 0xFFFF) != 0xFFFF)
 
 /**
  * Gets a unicode character from a UTF-8 string. Does no validation;
@@ -1426,6 +1494,7 @@ _dbus_string_find_blank (const DBusString *str,
 
 /**
  * Skips blanks from start, storing the first non-blank in *end
+ * (blank is space or tab).
  *
  * @param str the string
  * @param start where to start
@@ -1445,6 +1514,43 @@ _dbus_string_skip_blank (const DBusString *str,
   while (i < real->len)
     {
       if (!(real->str[i] == ' ' ||
+            real->str[i] == '\t'))
+        break;
+      
+      ++i;
+    }
+
+  _dbus_assert (i == real->len || !(real->str[i] == ' ' ||
+                                    real->str[i] == '\t'));
+  
+  if (end)
+    *end = i;
+}
+
+/**
+ * Skips whitespace from start, storing the first non-whitespace in *end.
+ * (whitespace is space, tab, newline, CR).
+ *
+ * @param str the string
+ * @param start where to start
+ * @param end where to store the first non-whitespace byte index
+ */
+void
+_dbus_string_skip_white (const DBusString *str,
+                         int               start,
+                         int              *end)
+{
+  int i;
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (start >= 0);
+  
+  i = start;
+  while (i < real->len)
+    {
+      if (!(real->str[i] == ' ' ||
+            real->str[i] == '\n' ||
+            real->str[i] == '\r' ||
             real->str[i] == '\t'))
         break;
       

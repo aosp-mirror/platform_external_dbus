@@ -57,8 +57,8 @@ alloc_link (void *data)
 
   if (!_DBUS_LOCK (list))
     return NULL;
-  
-  if (!list_pool)
+
+  if (list_pool == NULL)
     {      
       list_pool = _dbus_mem_pool_new (sizeof (DBusList), TRUE);
 
@@ -67,9 +67,21 @@ alloc_link (void *data)
           _DBUS_UNLOCK (list);
           return NULL;
         }
+
+      link = _dbus_mem_pool_alloc (list_pool);
+      if (link == NULL)
+        {
+          _dbus_mem_pool_free (list_pool);
+          list_pool = NULL;
+          _DBUS_UNLOCK (list);
+          return NULL;
+        }
     }
-  
-  link = _dbus_mem_pool_alloc (list_pool);
+  else
+    {
+      link = _dbus_mem_pool_alloc (list_pool);
+    }
+
   if (link)
     link->data = data;
   
@@ -80,13 +92,14 @@ alloc_link (void *data)
 
 static void
 free_link (DBusList *link)
-{
+{  
   _DBUS_LOCK (list);
   if (_dbus_mem_pool_dealloc (list_pool, link))
     {
       _dbus_mem_pool_free (list_pool);
       list_pool = NULL;
     }
+  
   _DBUS_UNLOCK (list);
 }
 
@@ -608,6 +621,27 @@ _dbus_list_pop_last (DBusList **list)
 }
 
 /**
+ * Removes the last link in the list and returns it.  This is a
+ * constant-time operation.
+ *
+ * @param list address of the list head.
+ * @returns the last link in the list, or #NULL for an empty list.
+ */
+DBusList*
+_dbus_list_pop_last_link (DBusList **list)
+{
+  DBusList *link;
+  
+  link = _dbus_list_get_last_link (list);
+  if (link == NULL)
+    return NULL;
+
+  _dbus_list_unlink (list, link);
+
+  return link;
+}
+
+/**
  * Copies a list. This is a linear-time operation.  If there isn't
  * enough memory to copy the entire list, the destination list will be
  * set to #NULL.
@@ -952,6 +986,58 @@ _dbus_list_test (void)
   _dbus_assert (list1 == NULL);
   _dbus_assert (list2 == NULL);
 
+  /* Test get_first_link, get_last_link, pop_first_link, pop_last_link */
+  
+  i = 0;
+  while (i < 10)
+    {
+      _dbus_list_append (&list1, _DBUS_INT_TO_POINTER (i));
+      _dbus_list_prepend (&list2, _DBUS_INT_TO_POINTER (i));
+      ++i;
+    }
+
+  --i;
+  while (i >= 0)
+    {
+      DBusList *got_link1;
+      DBusList *got_link2;
+
+      DBusList *link1;
+      DBusList *link2;
+      
+      void *data1;
+      void *data2;
+      
+      got_link1 = _dbus_list_get_last_link (&list1);
+      got_link2 = _dbus_list_get_first_link (&list2);
+      
+      link1 = _dbus_list_pop_last_link (&list1);
+      link2 = _dbus_list_pop_first_link (&list2);
+
+      _dbus_assert (got_link1 == link1);
+      _dbus_assert (got_link2 == link2);
+
+      data1 = link1->data;
+      data2 = link2->data;
+
+      _dbus_list_free_link (link1);
+      _dbus_list_free_link (link2);
+      
+      _dbus_assert (_DBUS_POINTER_TO_INT (data1) == i);
+      _dbus_assert (_DBUS_POINTER_TO_INT (data2) == i);
+
+      verify_list (&list1);
+      verify_list (&list2);
+
+      _dbus_assert (is_ascending_sequence (&list1));
+      _dbus_assert (is_descending_sequence (&list2));
+      
+      --i;
+    }
+
+  _dbus_assert (list1 == NULL);
+  _dbus_assert (list2 == NULL);
+  
   /* Test iteration */
   
   i = 0;

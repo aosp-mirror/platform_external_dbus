@@ -4,7 +4,7 @@
  * Copyright (C) 2003 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -14,7 +14,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -41,6 +41,27 @@ typedef struct
   dbus_bool_t failed;
 } ExpatParseContext;
 
+static dbus_bool_t
+process_content (ExpatParseContext *context)
+{
+  if (context->failed)
+    return FALSE;
+
+  if (_dbus_string_get_length (&context->content) > 0)
+    {
+      if (!bus_config_parser_content (context->parser,
+                                      &context->content,
+                                      context->error))
+        {
+          context->failed = TRUE;
+          return FALSE;
+        }
+      _dbus_string_set_length (&context->content, 0);
+    }
+
+  return TRUE;
+}
+
 static void
 expat_StartElementHandler (void            *userData,
                            const XML_Char  *name,
@@ -50,11 +71,14 @@ expat_StartElementHandler (void            *userData,
   int i;
   char **names;
   char **values;
-  
+
   /* Expat seems to suck and can't abort the parse if we
    * throw an error. Expat 2.0 is supposed to fix this.
    */
   if (context->failed)
+    return;
+
+  if (!process_content (context))
     return;
 
   /* "atts" is key, value, key, value, NULL */
@@ -73,17 +97,17 @@ expat_StartElementHandler (void            *userData,
       dbus_free (values);
       return;
     }
-  
+
   i = 0;
   while (atts[i] != NULL)
     {
       _dbus_assert (i % 2 == 0);
-      names [i / 2]     = (char*) atts[i];
-      values[i / 2 + 1] = (char*) atts[i+1];
-      
+      names [i / 2] = (char*) atts[i];
+      values[i / 2] = (char*) atts[i+1];
+
       i += 2;
     }
-  
+
   if (!bus_config_parser_start_element (context->parser,
                                         name,
                                         (const char **) names,
@@ -105,20 +129,9 @@ expat_EndElementHandler (void           *userData,
                          const XML_Char *name)
 {
   ExpatParseContext *context = userData;
-  if (context->failed)
-    return;
 
-  if (_dbus_string_get_length (&context->content) > 0)
-    {
-      if (!bus_config_parser_content (context->parser,
-                                      &context->content,
-                                      context->error))
-        {
-          context->failed = TRUE;
-          return;
-        }
-      _dbus_string_set_length (&context->content, 0);
-    }
+  if (!process_content (context))
+    return;
 
   if (!bus_config_parser_end_element (context->parser,
                                       name,
@@ -157,22 +170,22 @@ bus_config_load (const DBusString *file,
   const char *filename;
   BusConfigParser *parser;
   ExpatParseContext context;
-  
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   parser = NULL;
   expat = NULL;
   context.error = error;
   context.failed = FALSE;
-  
+
   _dbus_string_get_const_data (file, &filename);
-  
+
   if (!_dbus_string_init (&context.content, _DBUS_INT_MAX))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
     }
-  
+
   expat = XML_ParserCreate_MM ("UTF-8", &memsuite, NULL);
   if (expat == NULL)
     {
@@ -186,6 +199,7 @@ bus_config_load (const DBusString *file,
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       goto failed;
     }
+  context.parser = parser;
 
   XML_SetUserData (expat, &context);
   XML_SetElementHandler (expat,
@@ -197,28 +211,28 @@ bus_config_load (const DBusString *file,
   {
     DBusString data;
     const char *data_str;
-    
+
     if (!_dbus_string_init (&data, _DBUS_INT_MAX))
       {
         dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
         goto failed;
       }
-    
+
     if (!_dbus_file_get_contents (&data, file, error))
       {
         _dbus_string_free (&data);
         goto failed;
       }
-    
+
     _dbus_string_get_const_data (&data, &data_str);
-    
+
     if (!XML_Parse (expat, data_str, _dbus_string_get_length (&data), TRUE))
       {
         if (context.error != NULL &&
             !dbus_error_is_set (context.error))
           {
             enum XML_Error e;
-            
+
             e = XML_GetErrorCode (expat);
             if (e == XML_ERROR_NO_MEMORY)
               dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -230,7 +244,7 @@ bus_config_load (const DBusString *file,
                               XML_GetCurrentColumnNumber (expat),
                               XML_ErrorString (e));
           }
-        
+
         _dbus_string_free (&data);
         goto failed;
       }
@@ -240,7 +254,7 @@ bus_config_load (const DBusString *file,
     if (context.failed)
       goto failed;
   }
-  
+
   if (!bus_config_parser_finished (parser, error))
     goto failed;
 
@@ -249,10 +263,10 @@ bus_config_load (const DBusString *file,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   return parser;
-  
+
  failed:
   _DBUS_ASSERT_ERROR_IS_SET (error);
-  
+
   _dbus_string_free (&context.content);
   if (expat)
     XML_ParserFree (expat);

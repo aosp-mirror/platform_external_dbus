@@ -345,7 +345,7 @@ _dbus_test_oom_handling (const char             *description,
 
   if (!(* func) (data))
     return FALSE;
-
+  
   approx_mallocs = _DBUS_INT_MAX - _dbus_get_fail_alloc_counter ();
 
   _dbus_verbose ("=================\n%s: about %d mallocs total\n=================\n",

@@ -69,8 +69,8 @@ main (int argc, char **argv)
   printf ("%s: Running config file parser test\n", argv[0]);
   if (!bus_config_parser_test (&test_data_dir))
     die ("parser");
-
-  check_memleaks (argv[0]);
+  
+  check_memleaks (argv[0]);  
   
   printf ("%s: Running policy test\n", argv[0]);
   if (!bus_policy_test (&test_data_dir))

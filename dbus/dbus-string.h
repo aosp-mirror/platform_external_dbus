@@ -81,6 +81,12 @@ dbus_bool_t _dbus_string_steal_data_len     (DBusString        *str,
                                              char             **data_return,
                                              int                start,
                                              int                len);
+dbus_bool_t _dbus_string_copy_data          (const DBusString  *str,
+                                             char             **data_return);
+dbus_bool_t _dbus_string_copy_data_len      (const DBusString  *str,
+                                             char             **data_return,
+                                             int                start,
+                                             int                len);
 
 int  _dbus_string_get_length         (const DBusString  *str);
 
@@ -172,6 +178,10 @@ dbus_bool_t _dbus_string_find_blank   (const DBusString *str,
                                        int              *found);
 
 void        _dbus_string_skip_blank   (const DBusString *str,
+                                       int               start,
+                                       int              *end);
+
+void        _dbus_string_skip_white   (const DBusString *str,
                                        int               start,
                                        int              *end);
 

@@ -1,3 +1,28 @@
+2003-03-30  Havoc Pennington  <hp@pobox.com>
+
+	* bus/config-parser.c: hacking
+	
+	* dbus/dbus-memory.c: don't use DBusList for the list of stuff 
+	to shut down, since it could cause weirdness with the DBusList
+	lock
+
+	* dbus/dbus-list.c (_dbus_list_test): add tests for the
+	link-oriented stack routines
+	(alloc_link): free the mempool if the first alloc from it fails
+
+	* dbus/dbus-mempool.c (struct DBusMemBlock): fix alignment issue
+
+	* dbus/dbus-string.c (UNICODE_VALID): sync new version of this
+	from GLib
+	(_dbus_string_skip_white): new
+
+	* doc/config-file.txt (Elements): add <includedir>
+
+2003-03-28  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-string.c (_dbus_string_copy_data_len)
+	(_dbus_string_copy_data): new functions
+
 2003-03-28  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-bus.c: (bus_data_free), (dbus_bus_get):

@@ -633,13 +633,17 @@ dbus_free_string_array (char **str_array)
  */
 int _dbus_current_generation = 1;
 
-static DBusList *registered_globals = NULL;
+typedef struct ShutdownClosure ShutdownClosure;
 
-typedef struct
+struct ShutdownClosure
 {
+  ShutdownClosure *next;
   DBusShutdownFunction func;
   void *data;
-} ShutdownClosure;
+};
+
+_DBUS_DEFINE_GLOBAL_LOCK (shutdown_funcs);
+static ShutdownClosure *registered_globals = NULL;
 
 /**
  * The D-BUS library keeps some internal global variables, for example
@@ -656,21 +660,17 @@ typedef struct
 void
 dbus_shutdown (void)
 {
-  DBusList *link;
-
-  link = _dbus_list_get_first_link (&registered_globals);
-  while (link != NULL)
+  while (registered_globals != NULL)
     {
-      ShutdownClosure *c = link->data;
+      ShutdownClosure *c;
 
-      (* c->func) (c->data);
-
-      dbus_free (c);
+      c = registered_globals;
+      registered_globals = c->next;
       
-      link = _dbus_list_get_next_link (&registered_globals, link);
+      (* c->func) (c->data);
+      
+      dbus_free (c);
     }
-
-  _dbus_list_clear (&registered_globals);
 
   _dbus_current_generation += 1;
 }
@@ -693,20 +693,17 @@ _dbus_register_shutdown_func (DBusShutdownFunction  func,
 
   if (c == NULL)
     return FALSE;
-  
+
   c->func = func;
   c->data = data;
 
-  /* We prepend, then shutdown the list in order, so
-   * we shutdown last-registered stuff first which
-   * is right.
-   */
-  if (!_dbus_list_prepend (&registered_globals, c))
-    {
-      dbus_free (c);
-      return FALSE;
-    }
+  _DBUS_LOCK (shutdown_funcs);
+  
+  c->next = registered_globals;
+  registered_globals = c;
 
+  _DBUS_UNLOCK (shutdown_funcs);
+  
   return TRUE;
 }
 
