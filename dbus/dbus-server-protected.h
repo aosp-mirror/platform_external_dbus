@@ -102,6 +102,7 @@ void        _dbus_server_toggle_timeout (DBusServer             *server,
                                          dbus_bool_t             enabled);
 
 void        _dbus_server_ref_unlocked   (DBusServer             *server);
+void        _dbus_server_unref_unlocked (DBusServer             *server);
 
 #ifdef DBUS_DISABLE_CHECKS
 #define TOOK_LOCK_CHECK(server)

@@ -76,6 +76,11 @@ Might as Well for 1.0
 Can Be Post 1.0
 ===
 
+ - DBusWatchList/TimeoutList duplicate a lot of code, as do
+   protected_change_watch/protected_change_timeout in dbus-connection.c
+   and dbus-server.c. This could all be mopped up, cut-and-paste 
+   fixed, code size reduced.
+
  - change .service files to allow Names=list in addition to Name=string
 
  - The message bus internal code still says "service" for 

@@ -1,3 +1,22 @@
+2005-02-20  Havoc Pennington  <hp@redhat.com>
+
+        Fix bugs reported by Daniel P. Berrange
+	
+	* dbus/dbus-server.c (_dbus_server_unref_unlocked): new function
+	(protected_change_watch): new function
+	(_dbus_server_toggle_watch, _dbus_server_remove_watch)
+	(_dbus_server_add_watch): change to work like the
+	dbus-connection.c equivalents; like those, probably kind of
+	busted, but should at least mostly work for now
+	(dbus_server_disconnect): drop the lock if we were already
+	disconnected, patch from Daniel P. Berrange
+
+	* dbus/dbus-server.c (_dbus_server_toggle_timeout) 
+	(_dbus_server_remove_timeout, _dbus_server_add_timeout): all the
+	same stuff
+
+	* doc/TODO: todo about unscrewing this mess
+
 2005-02-19  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-binding-tool-glib.c

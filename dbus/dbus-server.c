@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-server.c DBusServer object
  *
- * Copyright (C) 2002, 2003, 2004 Red Hat Inc.
+ * Copyright (C) 2002, 2003, 2004, 2005 Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -146,6 +146,62 @@ _dbus_server_finalize_base (DBusServer *server)
   dbus_free_string_array (server->auth_mechanisms);
 }
 
+
+typedef dbus_bool_t (* DBusWatchAddFunction)     (DBusWatchList *list,
+                                                  DBusWatch     *watch);
+typedef void        (* DBusWatchRemoveFunction)  (DBusWatchList *list,
+                                                  DBusWatch     *watch);
+typedef void        (* DBusWatchToggleFunction)  (DBusWatchList *list,
+                                                  DBusWatch     *watch,
+                                                  dbus_bool_t    enabled);
+
+static dbus_bool_t
+protected_change_watch (DBusServer             *server,
+                        DBusWatch              *watch,
+                        DBusWatchAddFunction    add_function,
+                        DBusWatchRemoveFunction remove_function,
+                        DBusWatchToggleFunction toggle_function,
+                        dbus_bool_t             enabled)
+{
+  DBusWatchList *watches;
+  dbus_bool_t retval;
+  
+  HAVE_LOCK_CHECK (server);
+
+  /* This isn't really safe or reasonable; a better pattern is the "do everything, then
+   * drop lock and call out" one; but it has to be propagated up through all callers
+   */
+  
+  watches = server->watches;
+  if (watches)
+    {
+      server->watches = NULL;
+      _dbus_server_ref_unlocked (server);
+      SERVER_UNLOCK (server);
+
+      if (add_function)
+        retval = (* add_function) (watches, watch);
+      else if (remove_function)
+        {
+          retval = TRUE;
+          (* remove_function) (watches, watch);
+        }
+      else
+        {
+          retval = TRUE;
+          (* toggle_function) (watches, watch, enabled);
+        }
+      
+      SERVER_LOCK (server);
+      server->watches = watches;
+      _dbus_server_unref_unlocked (server);
+
+      return retval;
+    }
+  else
+    return FALSE;
+}
+
 /**
  * Adds a watch for this server, chaining out to application-provided
  * watch handlers.
@@ -157,8 +213,9 @@ dbus_bool_t
 _dbus_server_add_watch (DBusServer *server,
                         DBusWatch  *watch)
 {
-  HAVE_LOCK_CHECK (server);
-  return _dbus_watch_list_add_watch (server->watches, watch);
+  return protected_change_watch (server, watch,
+                                 _dbus_watch_list_add_watch,
+                                 NULL, NULL, FALSE);
 }
 
 /**
@@ -171,8 +228,10 @@ void
 _dbus_server_remove_watch  (DBusServer *server,
                             DBusWatch  *watch)
 {
-  HAVE_LOCK_CHECK (server);
-  _dbus_watch_list_remove_watch (server->watches, watch);
+  protected_change_watch (server, watch,
+                          NULL,
+                          _dbus_watch_list_remove_watch,
+                          NULL, FALSE);
 }
 
 /**
@@ -189,11 +248,69 @@ _dbus_server_toggle_watch (DBusServer  *server,
                            DBusWatch   *watch,
                            dbus_bool_t  enabled)
 {
-  HAVE_LOCK_CHECK (server);
+  _dbus_assert (watch != NULL);
+
+  protected_change_watch (server, watch,
+                          NULL, NULL,
+                          _dbus_watch_list_toggle_watch,
+                          enabled);
+}
+
+
+typedef dbus_bool_t (* DBusTimeoutAddFunction)    (DBusTimeoutList *list,
+                                                   DBusTimeout     *timeout);
+typedef void        (* DBusTimeoutRemoveFunction) (DBusTimeoutList *list,
+                                                   DBusTimeout     *timeout);
+typedef void        (* DBusTimeoutToggleFunction) (DBusTimeoutList *list,
+                                                   DBusTimeout     *timeout,
+                                                   dbus_bool_t      enabled);
+
+
+static dbus_bool_t
+protected_change_timeout (DBusServer               *server,
+                          DBusTimeout              *timeout,
+                          DBusTimeoutAddFunction    add_function,
+                          DBusTimeoutRemoveFunction remove_function,
+                          DBusTimeoutToggleFunction toggle_function,
+                          dbus_bool_t               enabled)
+{
+  DBusTimeoutList *timeouts;
+  dbus_bool_t retval;
   
-  if (server->watches) /* null during finalize */
-    _dbus_watch_list_toggle_watch (server->watches,
-                                   watch, enabled);
+  HAVE_LOCK_CHECK (server);
+
+  /* This isn't really safe or reasonable; a better pattern is the "do everything, then
+   * drop lock and call out" one; but it has to be propagated up through all callers
+   */
+  
+  timeouts = server->timeouts;
+  if (timeouts)
+    {
+      server->timeouts = NULL;
+      _dbus_server_ref_unlocked (server);
+      SERVER_UNLOCK (server);
+
+      if (add_function)
+        retval = (* add_function) (timeouts, timeout);
+      else if (remove_function)
+        {
+          retval = TRUE;
+          (* remove_function) (timeouts, timeout);
+        }
+      else
+        {
+          retval = TRUE;
+          (* toggle_function) (timeouts, timeout, enabled);
+        }
+      
+      SERVER_LOCK (server);
+      server->timeouts = timeouts;
+      _dbus_server_unref_unlocked (server);
+
+      return retval;
+    }
+  else
+    return FALSE;
 }
 
 /**
@@ -209,9 +326,9 @@ dbus_bool_t
 _dbus_server_add_timeout (DBusServer  *server,
 			  DBusTimeout *timeout)
 {
-  HAVE_LOCK_CHECK (server);
-  
-  return _dbus_timeout_list_add_timeout (server->timeouts, timeout);
+  return protected_change_timeout (server, timeout,
+                                   _dbus_timeout_list_add_timeout,
+                                   NULL, NULL, FALSE);
 }
 
 /**
@@ -224,9 +341,10 @@ void
 _dbus_server_remove_timeout (DBusServer  *server,
 			     DBusTimeout *timeout)
 {
-  HAVE_LOCK_CHECK (server);
-  
-  _dbus_timeout_list_remove_timeout (server->timeouts, timeout);  
+  protected_change_timeout (server, timeout,
+                            NULL,
+                            _dbus_timeout_list_remove_timeout,
+                            NULL, FALSE);
 }
 
 /**
@@ -243,11 +361,10 @@ _dbus_server_toggle_timeout (DBusServer  *server,
                              DBusTimeout *timeout,
                              dbus_bool_t  enabled)
 {
-  HAVE_LOCK_CHECK (server);
-  
-  if (server->timeouts) /* null during finalize */
-    _dbus_timeout_list_toggle_timeout (server->timeouts,
-                                       timeout, enabled);
+  protected_change_timeout (server, timeout,
+                            NULL, NULL,
+                            _dbus_timeout_list_toggle_timeout,
+                            enabled);
 }
 
 
@@ -548,6 +665,37 @@ _dbus_server_ref_unlocked (DBusServer *server)
 }
 
 /**
+ * Like dbus_server_unref() but does not acquire the lock (must already be held)
+ *
+ * @param server the server.
+ */
+void
+_dbus_server_unref_unlocked (DBusServer *server)
+{
+  dbus_bool_t last_unref;
+  
+  _dbus_assert (server != NULL);
+
+  HAVE_LOCK_CHECK (server);
+  
+#ifdef DBUS_HAVE_ATOMIC_INT
+  last_unref = (_dbus_atomic_dec (&server->refcount) == 1);
+#else
+  _dbus_assert (server->refcount.value > 0);
+
+  server->refcount.value -= 1;
+  last_unref = (server->refcount.value == 0);
+#endif
+  
+  if (last_unref)
+    {
+      _dbus_assert (server->vtable->finalize != NULL);
+      
+      (* server->vtable->finalize) (server);
+    }
+}
+
+/**
  * Releases the server's address and stops listening for
  * new clients. If called more than once, only the first
  * call has an effect. Does not modify the server's
@@ -565,7 +713,10 @@ dbus_server_disconnect (DBusServer *server)
   _dbus_assert (server->vtable->disconnect != NULL);
 
   if (server->disconnected)
-    return;
+    {
+      SERVER_UNLOCK (server);
+      return;
+    }
   
   (* server->vtable->disconnect) (server);
   server->disconnected = TRUE;
