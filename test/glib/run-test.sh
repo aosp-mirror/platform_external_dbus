@@ -10,7 +10,7 @@ export DBUS_TEST_GLIB_RUN_TEST_SCRIPT=1
 if test -z "$DBUS_TEST_GLIB_IN_RUN_TEST"; then
   DBUS_TEST_GLIB_IN_RUN_TEST=1
   export DBUS_TEST_GLIB_IN_RUN_TEST
-  exec $DBUS_TOP_BUILDDIR/bus/run-with-tmp-session-bus.sh $SCRIPTNAME $MODE
+  exec $DBUS_TOP_BUILDDIR/tools/run-with-tmp-session-bus.sh $SCRIPTNAME $MODE
 fi  
 
 if test x$MODE = xprofile ; then

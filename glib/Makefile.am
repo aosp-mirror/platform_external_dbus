@@ -2,9 +2,6 @@ INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) $(DBUS_GLIB_T
 
 lib_LTLIBRARIES=libdbus-glib-1.la
 
-libdbus_glib_HEADERS = dbus-glib-bindings.h
-libdbus_glibdir = $(includedir)/dbus-1.0/dbus
-
 libdbus_glib_1_la_SOURCES = 			\
 	dbus-glib.c				\
 	dbus-gmain.c				\
@@ -49,11 +46,6 @@ dbus_binding_tool_SOURCES =			\
 	dbus-glib-tool.c
 
 dbus_binding_tool_LDADD= -lexpat libdbus-gtool.la
-
-dbus-glib-bindings.h: $(top_builddir)/bus/dbus-bus-introspect.xml dbus-binding-tool
-	./dbus-binding-tool --ignore-unsupported --mode=glib-client --output=dbus-glib-bindings.h $(top_builddir)/bus/dbus-bus-introspect.xml # FIXME - remove --ignore-unsupported when we can do arrays
-
-BUILT_SOURCES = dbus-glib-bindings.h
 
 ## we just rebuilt these manually and check them into cvs; easier than
 ## convincing automake/make to do this properly

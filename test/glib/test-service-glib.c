@@ -3,7 +3,7 @@
 /* NOTE - outside of D-BUS core this would be
  * include <dbus/dbus-glib-bindings.h>
  */
-#include "glib/dbus-glib-bindings.h"
+#include "tools/dbus-glib-bindings.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

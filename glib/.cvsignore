@@ -6,7 +6,6 @@ Makefile.in
 *.la
 dbus-glib-test
 dbus-binding-tool
-dbus-glib-bindings.h
 *.bb
 *.bbg
 *.da

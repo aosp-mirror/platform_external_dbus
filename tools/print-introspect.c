@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <dbus/dbus.h>
+#include <dbus/dbus-glib.h>
 
 static void
 usage (char *name, int ecode)
@@ -35,10 +35,10 @@ usage (char *name, int ecode)
 int
 main (int argc, char *argv[])
 {
-  DBusConnection *connection;
-  DBusError error;
-  DBusMessage *message;
-  DBusMessage *reply;
+  DBusGConnection *connection;
+  DBusGProxy *proxy;
+  DBusGPendingCall *call;
+  GError *error;
   const char *service;
   const char *path;
   const char *introspect_data;
@@ -49,56 +49,35 @@ main (int argc, char *argv[])
   service = argv[1];
   path = argv[2];
 
-  dbus_error_init (&error);
-  connection = dbus_bus_get (DBUS_BUS_SESSION, &error);
+  g_type_init ();
+
+  error = NULL;
+  connection = dbus_g_bus_get (DBUS_BUS_SESSION, &error);
   if (connection == NULL)
     {
       fprintf (stderr, "Failed to open connection to session bus: %s\n",
-               error.message);
-      dbus_error_free (&error);
+               error->message);
+      g_clear_error (&error);
       exit (1);
     }
 
-  message = dbus_message_new_method_call (NULL,
-					  path,
-					  DBUS_INTERFACE_INTROSPECTABLE,
-					  "Introspect");
-  if (message == NULL)
+  proxy = dbus_g_proxy_new_for_name (connection,
+				     service, path,
+				     DBUS_INTERFACE_INTROSPECTABLE);
+  call = dbus_g_proxy_begin_call (proxy, "Introspect", DBUS_TYPE_INVALID);
+  if (!dbus_g_proxy_end_call (proxy, call, &error, DBUS_TYPE_STRING,
+			      &introspect_data, DBUS_TYPE_INVALID))
     {
-      fprintf (stderr, "Couldn't allocate D-BUS message\n");
+      fprintf (stderr, "Failed to get introspection data: %s\n",
+               error->message);
+      g_clear_error (&error);
       exit (1);
     }
-
-  if (!dbus_message_set_destination (message, service))
-    {
-      fprintf (stderr, "Not enough memory\n");
-      exit (1);
-    }
-  
-  reply = dbus_connection_send_with_reply_and_block (connection,
-						     message,
-						     -1,
-						     &error);
-  dbus_message_unref (message);
-  if (dbus_error_is_set (&error))
-    {
-      fprintf (stderr, "Error: %s\n", error.message);
-      exit (1);
-    }
-
-  if (!dbus_message_get_args (reply, &error,
-			      DBUS_TYPE_STRING,
-			      &introspect_data,
-			      DBUS_TYPE_INVALID))
-    {
-      fprintf (stderr, "Error: %s\n", error.message);
-      exit (1);
-    }
+      
   printf ("%s", introspect_data);
 
-  dbus_message_unref (reply);
-
-  dbus_connection_disconnect (connection);
+  dbus_g_pending_call_unref (call);
+  g_object_unref (proxy);
 
   exit (0);
 }

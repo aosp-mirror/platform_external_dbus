@@ -1,3 +1,29 @@
+2005-03-17  Colin Walters  <walters@verbum.org>
+
+	* bus/print-introspect.c: Move to tools/.
+	* bus/run-with-tmp-session-bus.sh: Ditto.
+	
+	* glib/Makefile.am (dbus-glib-bindings.h): Move
+	generation to tools/Makefile.am.
+
+	* test/glib/run-test.sh: Update to handle move
+	of run-with-tmp-session-bus.sh.
+
+	* test/glib/test-service-glib.c: Update to handle
+	move of dbus-glib-bindings.h.
+
+	* tools/print-introspect.c: Moved here
+	from bus/, and ported to GLib bindings.
+
+	* tools/run-with-tmp-session-bus.sh: Moved here
+	from bus/.
+
+	* tools/Makefile.am: Generate dbus-glib-bindings.h
+	and dbus-bus-introspect.xml here.
+
+	* tools/.cvsignore, glib/.cvsignore, bus/.cvsignore:
+	Update.
+
 2005-03-14  Colin Walters  <walters@verbum.org>
 
 	* bus/driver.c (write_args_for_direction): Use
