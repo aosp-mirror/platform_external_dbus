@@ -143,3 +143,38 @@ created invalid messages.
 gives a complete report on test suite coverage. You can also run 
 "test/decode-gcov foo.c" on any source file to get annotated source, 
 after running make check with a gcov-enabled tree.
+
+Patches
+===
+
+Please file them at http://bugzilla.freedesktop.org under component
+dbus, and also post to the mailing list for discussion.  The commit
+rules are:
+
+ - for fixes that don't affect API or protocol, they can be committed
+   if any one qualified reviewer other than patch author
+   reviews and approves
+
+ - for fixes that do affect API or protocol, two people
+   in the reviewer group have to review and approve the commit, and 
+   posting to the list is definitely mandatory
+
+ - if there's a live unresolved controversy about a change,
+   don't commit it while the argument is still raging.
+
+ - regardless of reviews, to commit a patch:
+    - make check must pass
+    - the test suite must be extended to cover the new code
+      as much as reasonably feasible
+    - the patch has to follow the portability, security, and 
+      style guidelines
+    - the patch should as much as reasonable do one thing, 
+      not many unrelated changes
+   No reviewer should approve a patch without these attributes, and
+   failure on these points is grounds for reverting the patch.
+
+The reviewer group that can approve patches: Havoc Pennington, Michael
+Meeks, Alex Larsson, Zack Rusin, Joe Shaw, Mikael Hallendal, Richard
+Hult, Owen Fraser-Green, Olivier Andrieu.
+
+
