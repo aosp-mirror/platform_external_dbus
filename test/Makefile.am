@@ -46,11 +46,11 @@ bus_test_LDADD=$(TEST_LIBS) $(top_builddir)/bus/libdbus-daemon.la
 spawn_test_LDADD=$(TEST_LIBS)
 
 dist-hook:
-	DIRS="data data/valid-messages data/invalid-messages data/incomplete-messages data/auth" ; \
+	DIRS="data data/valid-messages data/invalid-messages data/incomplete-messages data/auth data/sha-1"; \
 	for D in $$DIRS; do									   \
 		test -d $(distdir)/$$D || mkdir $(distdir)/$$D ;				   \
 	done ;											   \
-	FILES=`find -name "*.message" -o -name "*.message-raw" -o -name "*.auth-script"` ;	   \
+	FILES=`find -name "*.message" -o -name "*.message-raw" -o -name "*.auth-script" -o -name "*.sha1" -o -name "*.txt"` ;	   \
         for F in $$FILES; do									   \
                 echo '-- Disting file '$$F ;							   \
 		cp $$F $(distdir)/$$F ;								   \

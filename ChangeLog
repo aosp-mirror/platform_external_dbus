@@ -1,5 +1,9 @@
 2003-02-22  Havoc Pennington  <hp@pobox.com>
 
+	* test/Makefile.am (dist-hook): fix dist for test/data/sha-1
+
+2003-02-22  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-message.c (dbus_message_iter_get_string_array):
 	(dbus_message_iter_get_byte_array): Fix up doxygen warnings
 
