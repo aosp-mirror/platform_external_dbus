@@ -369,6 +369,53 @@ AC_SUBST(DBUS_INT64_CONSTANT)
 AC_SUBST(DBUS_UINT64_CONSTANT)
 AC_SUBST(DBUS_HAVE_INT64)
 
+### see what 32-bit int is called
+AC_MSG_CHECKING([32-bit integer type])
+
+case 4 in
+$ac_cv_sizeof_short)
+  dbusint32=int
+  ;;
+$ac_cv_sizeof_int)
+  dbusint32=int
+  ;;
+$ac_cv_sizeof_long)
+  dbusint32=long
+  ;;
+esac
+
+if test -z "$dbusint32" ; then
+        DBUS_INT32_TYPE="no_int32_type_detected"
+        AC_MSG_ERROR([No 32-bit integer type found])
+else
+        DBUS_INT32_TYPE="$dbusint32"
+        AC_MSG_RESULT($DBUS_INT32_TYPE)
+fi
+
+AC_SUBST(DBUS_INT32_TYPE)
+
+### see what 16-bit int is called
+AC_MSG_CHECKING([16-bit integer type])
+
+case 2 in
+$ac_cv_sizeof_short)
+  dbusint16=short
+  ;;
+$ac_cv_sizeof_int)
+  dbusint16=int
+  ;;
+esac
+
+if test -z "$dbusint16" ; then
+        DBUS_INT16_TYPE="no_int16_type_detected"
+        AC_MSG_ERROR([No 16-bit integer type found])
+else
+        DBUS_INT16_TYPE="$dbusint16"
+        AC_MSG_RESULT($DBUS_INT16_TYPE)
+fi
+
+AC_SUBST(DBUS_INT16_TYPE)
+
 ## byte order
 AC_C_BIGENDIAN
 
@@ -1194,6 +1241,8 @@ echo "
 	cppflags:		  ${CPPFLAGS}
 	cxxflags:		  ${CXXFLAGS}
 	64-bit int:		  ${DBUS_INT64_TYPE}
+	32-bit int:		  ${DBUS_INT32_TYPE}
+	16-bit int:		  ${DBUS_INT16_TYPE}
         Doxygen:                  ${DOXYGEN}
         xmlto:                    ${XMLTO}"
 

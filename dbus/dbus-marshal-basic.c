@@ -43,6 +43,19 @@
  */
 
 static void
+pack_2_octets (dbus_uint16_t   value,
+               int             byte_order,
+               unsigned char  *data)
+{
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 2) == data);
+
+  if ((byte_order) == DBUS_LITTLE_ENDIAN)
+    *((dbus_uint16_t*)(data)) = DBUS_UINT16_TO_LE (value);
+  else
+    *((dbus_uint16_t*)(data)) = DBUS_UINT16_TO_BE (value);
+}
+
+static void
 pack_4_octets (dbus_uint32_t   value,
                int             byte_order,
                unsigned char  *data)
@@ -147,6 +160,27 @@ unpack_8_octets (int                  byte_order,
 }
 #endif
 
+#ifndef _dbus_unpack_uint16
+/**
+ * Unpacks a 16 bit unsigned integer from a data pointer
+ *
+ * @param byte_order The byte order to use
+ * @param data the data pointer
+ * @returns the integer
+ */
+dbus_uint16_t
+_dbus_unpack_uint16 (int                  byte_order,
+                     const unsigned char *data)
+{
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
+
+  if (byte_order == DBUS_LITTLE_ENDIAN)
+    return DBUS_UINT16_FROM_LE (*(dbus_uint16_t*)data);
+  else
+    return DBUS_UINT16_FROM_BE (*(dbus_uint16_t*)data);
+}
+#endif /* _dbus_unpack_uint16 */
+
 #ifndef _dbus_unpack_uint32
 /**
  * Unpacks a 32 bit unsigned integer from a data pointer
@@ -169,6 +203,22 @@ _dbus_unpack_uint32 (int                  byte_order,
 #endif /* _dbus_unpack_uint32 */
 
 static void
+set_2_octets (DBusString          *str,
+              int                  offset,
+              dbus_uint16_t        value,
+              int                  byte_order)
+{
+  char *data;
+
+  _dbus_assert (byte_order == DBUS_LITTLE_ENDIAN ||
+                byte_order == DBUS_BIG_ENDIAN);
+
+  data = _dbus_string_get_data_len (str, offset, 2);
+
+  pack_2_octets (value, byte_order, data);
+}
+
+static void
 set_4_octets (DBusString          *str,
               int                  offset,
               dbus_uint32_t        value,
@@ -181,7 +231,7 @@ set_4_octets (DBusString          *str,
 
   data = _dbus_string_get_data_len (str, offset, 4);
 
-  _dbus_pack_uint32 (value, byte_order, data);
+  pack_4_octets (value, byte_order, data);
 }
 
 static void
@@ -350,6 +400,16 @@ _dbus_marshal_set_basic (DBusString       *str,
         *new_end_pos = pos + 1;
       return TRUE;
       break;
+    case DBUS_TYPE_INT16:
+    case DBUS_TYPE_UINT16:
+      pos = _DBUS_ALIGN_VALUE (pos, 2);
+      set_2_octets (str, pos, vp->u16, byte_order);
+      if (old_end_pos)
+        *old_end_pos = pos + 2;
+      if (new_end_pos)
+        *new_end_pos = pos + 2;
+      return TRUE;
+      break;
     case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
@@ -460,6 +520,14 @@ _dbus_marshal_read_basic (const DBusString      *str,
       vp->byt = _dbus_string_get_byte (str, pos);
       (pos)++;
       break;
+    case DBUS_TYPE_INT16:
+    case DBUS_TYPE_UINT16:
+      pos = _DBUS_ALIGN_VALUE (pos, 2);
+      vp->u16 = *(dbus_uint16_t *)(str_data + pos);
+      if (byte_order != DBUS_COMPILER_BYTE_ORDER)
+	vp->u16 = DBUS_UINT16_SWAP_LE_BE (vp->u16);
+      pos += 2;
+      break;
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
     case DBUS_TYPE_BOOLEAN:
@@ -568,6 +636,35 @@ _dbus_marshal_read_fixed_multi  (const DBusString *str,
   *(const DBusBasicValue**) value = (void*) _dbus_string_get_const_data_len (str, pos, array_len);
   if (new_pos)
     *new_pos = pos + array_len;
+}
+
+static dbus_bool_t
+marshal_2_octets (DBusString   *str,
+                  int           insert_at,
+                  dbus_uint16_t value,
+                  int           byte_order,
+                  int          *pos_after)
+{
+  dbus_bool_t retval;
+  int orig_len;
+
+  _dbus_assert (sizeof (value) == 2);
+
+  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
+    value = DBUS_UINT16_SWAP_LE_BE (value);
+
+  orig_len = _dbus_string_get_length (str);
+
+  retval = _dbus_string_insert_2_aligned (str, insert_at,
+                                          (const unsigned char *)&value);
+
+  if (pos_after)
+    {
+      *pos_after = insert_at + (_dbus_string_get_length (str) - orig_len);
+      _dbus_assert (*pos_after <= _dbus_string_get_length (str));
+    }
+
+  return retval;
 }
 
 static dbus_bool_t
@@ -762,6 +859,11 @@ _dbus_marshal_write_basic (DBusString *str,
         *pos_after = insert_at + 1;
       return TRUE;
       break;
+    case DBUS_TYPE_INT16:
+    case DBUS_TYPE_UINT16:
+      return marshal_2_octets (str, insert_at, vp->u16,
+                               byte_order, pos_after);
+      break;
     case DBUS_TYPE_BOOLEAN:
       return marshal_4_octets (str, insert_at, vp->u32 != FALSE,
                                byte_order, pos_after);
@@ -855,14 +957,22 @@ _dbus_swap_array (unsigned char *data,
           d += 8;
         }
     }
-  else
+  else if (alignment == 4)
     {
-      _dbus_assert (alignment == 4);
-      
       while (d != end)
         {
           *((dbus_uint32_t*)d) = DBUS_UINT32_SWAP_LE_BE (*((dbus_uint32_t*)d));
           d += 4;
+        }
+    }
+  else
+    {
+      _dbus_assert (alignment == 2);
+      
+      while (d != end)
+        {
+          *((dbus_uint16_t*)d) = DBUS_UINT16_SWAP_LE_BE (*((dbus_uint16_t*)d));
+          d += 2;
         }
     }
 }
@@ -979,6 +1089,9 @@ _dbus_marshal_write_fixed_multi (DBusString *str,
     case DBUS_TYPE_BYTE:
       return marshal_1_octets_array (str, insert_at, vp, n_elements, byte_order, pos_after);
       break;
+    case DBUS_TYPE_INT16:
+    case DBUS_TYPE_UINT16:
+      return marshal_fixed_multi (str, insert_at, vp, n_elements, byte_order, 2, pos_after);
       /* FIXME: we canonicalize to 0 or 1 for the single boolean case
        * should we here too ? */
     case DBUS_TYPE_BOOLEAN:
@@ -1023,6 +1136,11 @@ _dbus_marshal_skip_basic (const DBusString      *str,
     {
     case DBUS_TYPE_BYTE:
       (*pos)++;
+      break;
+    case DBUS_TYPE_INT16:
+    case DBUS_TYPE_UINT16:
+      *pos = _DBUS_ALIGN_VALUE (*pos, 2);
+      *pos += 2;
       break;
     case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
@@ -1109,6 +1227,9 @@ _dbus_type_get_alignment (int typecode)
     case DBUS_TYPE_VARIANT:
     case DBUS_TYPE_SIGNATURE:
       return 1;
+    case DBUS_TYPE_INT16:
+    case DBUS_TYPE_UINT16:
+      return 2;
     case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
@@ -1150,6 +1271,8 @@ _dbus_type_is_valid (int typecode)
     {
     case DBUS_TYPE_BYTE:
     case DBUS_TYPE_BOOLEAN:
+    case DBUS_TYPE_INT16:
+    case DBUS_TYPE_UINT16:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
     case DBUS_TYPE_INT64:
@@ -1232,6 +1355,8 @@ _dbus_type_is_fixed (int typecode)
     {
     case DBUS_TYPE_BYTE:
     case DBUS_TYPE_BOOLEAN:
+    case DBUS_TYPE_INT16:
+    case DBUS_TYPE_UINT16:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
     case DBUS_TYPE_INT64:
@@ -1260,6 +1385,10 @@ _dbus_type_to_string (int typecode)
       return "boolean";
     case DBUS_TYPE_BYTE:
       return "byte";
+    case DBUS_TYPE_INT16:
+      return "int16";
+    case DBUS_TYPE_UINT16:
+      return "uint16";
     case DBUS_TYPE_INT32:
       return "int32";
     case DBUS_TYPE_UINT32:
@@ -1558,6 +1687,7 @@ _dbus_marshal_test (void)
   DBusString str;
   int pos, dump_pos;
   unsigned char array1[5] = { 3, 4, 0, 1, 9 };
+  dbus_int16_t array2[3] = { 124, 457, 780 };
   dbus_int32_t array4[3] = { 123, 456, 789 };
 #ifdef DBUS_HAVE_INT64
   dbus_int64_t array8[3] = { DBUS_INT64_CONSTANT (0x123ffffffff),
@@ -1566,11 +1696,16 @@ _dbus_marshal_test (void)
   dbus_int64_t *v_ARRAY_INT64;
 #endif
   unsigned char *v_ARRAY_BYTE;
+  dbus_int16_t *v_ARRAY_INT16;
+  dbus_uint16_t *v_ARRAY_UINT16;
   dbus_int32_t *v_ARRAY_INT32;
+  dbus_uint32_t *v_ARRAY_UINT32;
   double *v_ARRAY_DOUBLE;
   DBusString t;
   double v_DOUBLE;
   double t_DOUBLE;
+  dbus_int16_t v_INT16;
+  dbus_uint16_t v_UINT16;
   dbus_int32_t v_INT32;
   dbus_uint32_t v_UINT32;
   dbus_int64_t v_INT64;
@@ -1600,6 +1735,14 @@ _dbus_marshal_test (void)
   if (!_DBUS_DOUBLES_BITWISE_EQUAL (t_DOUBLE, v_DOUBLE))
     _dbus_assert_not_reached ("got wrong double value");
 
+  /* Marshal signed 16 integers */
+  MARSHAL_TEST (INT16, DBUS_BIG_ENDIAN, -12345);
+  MARSHAL_TEST (INT16, DBUS_LITTLE_ENDIAN, -12345);
+
+  /* Marshal unsigned 16 integers */
+  MARSHAL_TEST (UINT16, DBUS_BIG_ENDIAN, 0x1234);
+  MARSHAL_TEST (UINT16, DBUS_LITTLE_ENDIAN, 0x1234);
+  
   /* Marshal signed integers */
   MARSHAL_TEST (INT32, DBUS_BIG_ENDIAN, -12345678);
   MARSHAL_TEST (INT32, DBUS_LITTLE_ENDIAN, -12345678);
@@ -1645,8 +1788,15 @@ _dbus_marshal_test (void)
   MARSHAL_TEST_STRCMP (SIGNATURE, DBUS_LITTLE_ENDIAN, "a(ii)");
 
   /* Arrays */
+  MARSHAL_TEST_FIXED_ARRAY (INT16, DBUS_BIG_ENDIAN, array2);
+  MARSHAL_TEST_FIXED_ARRAY (INT16, DBUS_LITTLE_ENDIAN, array2);
+  MARSHAL_TEST_FIXED_ARRAY (UINT16, DBUS_BIG_ENDIAN, array2);
+  MARSHAL_TEST_FIXED_ARRAY (UINT16, DBUS_LITTLE_ENDIAN, array2);
+  
   MARSHAL_TEST_FIXED_ARRAY (INT32, DBUS_BIG_ENDIAN, array4);
   MARSHAL_TEST_FIXED_ARRAY (INT32, DBUS_LITTLE_ENDIAN, array4);
+  MARSHAL_TEST_FIXED_ARRAY (UINT32, DBUS_BIG_ENDIAN, array4);
+  MARSHAL_TEST_FIXED_ARRAY (UINT32, DBUS_LITTLE_ENDIAN, array4);
 
   MARSHAL_TEST_FIXED_ARRAY (BYTE, DBUS_BIG_ENDIAN, array1);
   MARSHAL_TEST_FIXED_ARRAY (BYTE, DBUS_LITTLE_ENDIAN, array1);

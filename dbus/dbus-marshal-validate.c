@@ -57,7 +57,7 @@ _dbus_validate_signature_with_reason (const DBusString *type_str,
   int array_depth;
 
   _dbus_assert (type_str != NULL);
-  _dbus_assert (type_pos < _DBUS_INT_MAX - len);
+  _dbus_assert (type_pos < _DBUS_INT32_MAX - len);
   _dbus_assert (len >= 0);
   _dbus_assert (type_pos >= 0);
 
@@ -76,6 +76,8 @@ _dbus_validate_signature_with_reason (const DBusString *type_str,
         {
         case DBUS_TYPE_BYTE:
         case DBUS_TYPE_BOOLEAN:
+        case DBUS_TYPE_INT16:
+        case DBUS_TYPE_UINT16:
         case DBUS_TYPE_INT32:
         case DBUS_TYPE_UINT32:
         case DBUS_TYPE_INT64:
@@ -159,8 +161,10 @@ validate_body_helper (DBusTypeReader       *reader,
         case DBUS_TYPE_BYTE:
           ++p;
           break;
-
+          
         case DBUS_TYPE_BOOLEAN:
+        case DBUS_TYPE_INT16:
+        case DBUS_TYPE_UINT16:
         case DBUS_TYPE_INT32:
         case DBUS_TYPE_UINT32:
         case DBUS_TYPE_INT64:

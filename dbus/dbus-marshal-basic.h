@@ -41,6 +41,10 @@
 #define DBUS_COMPILER_BYTE_ORDER DBUS_LITTLE_ENDIAN
 #endif
 
+#define DBUS_UINT16_SWAP_LE_BE_CONSTANT(val)	((dbus_uint16_t) (      \
+    (dbus_uint16_t) ((dbus_uint16_t) (val) >> 8) |                      \
+    (dbus_uint16_t) ((dbus_uint16_t) (val) << 8)))
+
 #define DBUS_UINT32_SWAP_LE_BE_CONSTANT(val)	((dbus_uint32_t) (      \
     (((dbus_uint32_t) (val) & (dbus_uint32_t) 0x000000ffU) << 24) |     \
     (((dbus_uint32_t) (val) & (dbus_uint32_t) 0x0000ff00U) <<  8) |     \
@@ -68,48 +72,66 @@
 	(dbus_uint64_t) DBUS_UINT64_CONSTANT (0xff00000000000000)) >> 56)))
 #endif /* DBUS_HAVE_INT64 */
 
+#define DBUS_UINT16_SWAP_LE_BE(val) (DBUS_UINT16_SWAP_LE_BE_CONSTANT (val))
+#define DBUS_INT16_SWAP_LE_BE(val)  ((dbus_int16_t)DBUS_UINT16_SWAP_LE_BE_CONSTANT (val))
+
 #define DBUS_UINT32_SWAP_LE_BE(val) (DBUS_UINT32_SWAP_LE_BE_CONSTANT (val))
 #define DBUS_INT32_SWAP_LE_BE(val)  ((dbus_int32_t)DBUS_UINT32_SWAP_LE_BE_CONSTANT (val))
 
 #ifdef DBUS_HAVE_INT64
-#define DBUS_UINT64_SWAP_LE_BE(val) (DBUS_UINT64_SWAP_LE_BE_CONSTANT (val))
-#define DBUS_INT64_SWAP_LE_BE(val)  ((dbus_int64_t)DBUS_UINT64_SWAP_LE_BE_CONSTANT (val))
+#  define DBUS_UINT64_SWAP_LE_BE(val) (DBUS_UINT64_SWAP_LE_BE_CONSTANT (val))
+#  define DBUS_INT64_SWAP_LE_BE(val)  ((dbus_int64_t)DBUS_UINT64_SWAP_LE_BE_CONSTANT (val))
 #endif /* DBUS_HAVE_INT64 */
 
 #ifdef WORDS_BIGENDIAN
-#define DBUS_INT32_TO_BE(val)	((dbus_int32_t) (val))
-#define DBUS_UINT32_TO_BE(val)	((dbus_uint32_t) (val))
-#define DBUS_INT32_TO_LE(val)	(DBUS_INT32_SWAP_LE_BE (val))
-#define DBUS_UINT32_TO_LE(val)	(DBUS_UINT32_SWAP_LE_BE (val))
+
+#  define DBUS_INT16_TO_BE(val)	((dbus_int16_t) (val))
+#  define DBUS_UINT16_TO_BE(val)	((dbus_uint16_t) (val))
+#  define DBUS_INT16_TO_LE(val)	(DBUS_INT16_SWAP_LE_BE (val))
+#  define DBUS_UINT16_TO_LE(val)	(DBUS_UINT16_SWAP_LE_BE (val))
+#  define DBUS_INT32_TO_BE(val)	((dbus_int32_t) (val))
+#  define DBUS_UINT32_TO_BE(val)	((dbus_uint32_t) (val))
+#  define DBUS_INT32_TO_LE(val)	(DBUS_INT32_SWAP_LE_BE (val))
+#  define DBUS_UINT32_TO_LE(val)	(DBUS_UINT32_SWAP_LE_BE (val))
 #  ifdef DBUS_HAVE_INT64
-#define DBUS_INT64_TO_BE(val)	((dbus_int64_t) (val))
-#define DBUS_UINT64_TO_BE(val)	((dbus_uint64_t) (val))
-#define DBUS_INT64_TO_LE(val)	(DBUS_INT64_SWAP_LE_BE (val))
-#define DBUS_UINT64_TO_LE(val)	(DBUS_UINT64_SWAP_LE_BE (val))
+#    define DBUS_INT64_TO_BE(val)	((dbus_int64_t) (val))
+#    define DBUS_UINT64_TO_BE(val)	((dbus_uint64_t) (val))
+#    define DBUS_INT64_TO_LE(val)	(DBUS_INT64_SWAP_LE_BE (val))
+#    define DBUS_UINT64_TO_LE(val)	(DBUS_UINT64_SWAP_LE_BE (val))
 #  endif /* DBUS_HAVE_INT64 */
-#else
-#define DBUS_INT32_TO_LE(val)	((dbus_int32_t) (val))
-#define DBUS_UINT32_TO_LE(val)	((dbus_uint32_t) (val))
-#define DBUS_INT32_TO_BE(val)	((dbus_int32_t) DBUS_UINT32_SWAP_LE_BE (val))
-#define DBUS_UINT32_TO_BE(val)	(DBUS_UINT32_SWAP_LE_BE (val))
+
+#else /* WORDS_BIGENDIAN */
+
+#  define DBUS_INT16_TO_LE(val)	((dbus_int16_t) (val))
+#  define DBUS_UINT16_TO_LE(val)	((dbus_uint16_t) (val))
+#  define DBUS_INT16_TO_BE(val)	((dbus_int16_t) DBUS_UINT16_SWAP_LE_BE (val))
+#  define DBUS_UINT16_TO_BE(val)	(DBUS_UINT16_SWAP_LE_BE (val))
+#  define DBUS_INT32_TO_LE(val)	((dbus_int32_t) (val))
+#  define DBUS_UINT32_TO_LE(val)	((dbus_uint32_t) (val))
+#  define DBUS_INT32_TO_BE(val)	((dbus_int32_t) DBUS_UINT32_SWAP_LE_BE (val))
+#  define DBUS_UINT32_TO_BE(val)	(DBUS_UINT32_SWAP_LE_BE (val))
 #  ifdef DBUS_HAVE_INT64
-#define DBUS_INT64_TO_LE(val)	((dbus_int64_t) (val))
-#define DBUS_UINT64_TO_LE(val)	((dbus_uint64_t) (val))
-#define DBUS_INT64_TO_BE(val)	((dbus_int64_t) DBUS_UINT64_SWAP_LE_BE (val))
-#define DBUS_UINT64_TO_BE(val)	(DBUS_UINT64_SWAP_LE_BE (val))
+#    define DBUS_INT64_TO_LE(val)	((dbus_int64_t) (val))
+#    define DBUS_UINT64_TO_LE(val)	((dbus_uint64_t) (val))
+#    define DBUS_INT64_TO_BE(val)	((dbus_int64_t) DBUS_UINT64_SWAP_LE_BE (val))
+#    define DBUS_UINT64_TO_BE(val)	(DBUS_UINT64_SWAP_LE_BE (val))
 #  endif /* DBUS_HAVE_INT64 */
 #endif
 
 /* The transformation is symmetric, so the FROM just maps to the TO. */
+#define DBUS_INT16_FROM_LE(val)	 (DBUS_INT16_TO_LE (val))
+#define DBUS_UINT16_FROM_LE(val) (DBUS_UINT16_TO_LE (val))
+#define DBUS_INT16_FROM_BE(val)	 (DBUS_INT16_TO_BE (val))
+#define DBUS_UINT16_FROM_BE(val) (DBUS_UINT16_TO_BE (val))
 #define DBUS_INT32_FROM_LE(val)	 (DBUS_INT32_TO_LE (val))
 #define DBUS_UINT32_FROM_LE(val) (DBUS_UINT32_TO_LE (val))
 #define DBUS_INT32_FROM_BE(val)	 (DBUS_INT32_TO_BE (val))
 #define DBUS_UINT32_FROM_BE(val) (DBUS_UINT32_TO_BE (val))
 #ifdef DBUS_HAVE_INT64
-#define DBUS_INT64_FROM_LE(val)	 (DBUS_INT64_TO_LE (val))
-#define DBUS_UINT64_FROM_LE(val) (DBUS_UINT64_TO_LE (val))
-#define DBUS_INT64_FROM_BE(val)	 (DBUS_INT64_TO_BE (val))
-#define DBUS_UINT64_FROM_BE(val) (DBUS_UINT64_TO_BE (val))
+#  define DBUS_INT64_FROM_LE(val)	 (DBUS_INT64_TO_LE (val))
+#  define DBUS_UINT64_FROM_LE(val) (DBUS_UINT64_TO_LE (val))
+#  define DBUS_INT64_FROM_BE(val)	 (DBUS_INT64_TO_BE (val))
+#  define DBUS_UINT64_FROM_BE(val) (DBUS_UINT64_TO_BE (val))
 #endif /* DBUS_HAVE_INT64 */
 
 #ifndef DBUS_HAVE_INT64
@@ -131,11 +153,13 @@ typedef struct
  */
 typedef union
 {
+  dbus_int16_t  i16;   /**< as int16 */
+  dbus_uint16_t u16;   /**< as int16 */
   dbus_int32_t  i32;   /**< as int32 */
   dbus_uint32_t u32;   /**< as int32 */
 #ifdef DBUS_HAVE_INT64
-  dbus_int64_t  i64;   /**< as int32 */
-  dbus_uint64_t u64;   /**< as int32 */
+  dbus_int64_t  i64;   /**< as int64 */
+  dbus_uint64_t u64;   /**< as int64 */
 #else
   DBus8ByteStruct u64; /**< as 8-byte-struct */
 #endif
@@ -145,10 +169,20 @@ typedef union
 } DBusBasicValue;
 
 #ifdef DBUS_DISABLE_ASSERT
+#define _dbus_unpack_uint16(byte_order, data)           \
+   (((byte_order) == DBUS_LITTLE_ENDIAN) ?              \
+     DBUS_UINT16_FROM_LE (*(dbus_uint16_t*)(data)) :    \
+     DBUS_UINT16_FROM_BE (*(dbus_uint16_t*)(data)))
+
 #define _dbus_unpack_uint32(byte_order, data)           \
    (((byte_order) == DBUS_LITTLE_ENDIAN) ?              \
      DBUS_UINT32_FROM_LE (*(dbus_uint32_t*)(data)) :    \
      DBUS_UINT32_FROM_BE (*(dbus_uint32_t*)(data)))
+#endif
+
+#ifndef _dbus_unpack_uint16
+dbus_uint16_t _dbus_unpack_uint16 (int                  byte_order,
+                                   const unsigned char *data);
 #endif
 
 void          _dbus_pack_uint32   (dbus_uint32_t        value,

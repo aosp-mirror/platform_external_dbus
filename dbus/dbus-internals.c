@@ -98,6 +98,38 @@
  * @param object the object to be zeroed.
  */
 /**
+ * @def _DBUS_INT16_MIN
+ *
+ * Minimum value of type "int16"
+ */
+/**
+ * @def _DBUS_INT16_MAX
+ *
+ * Maximum value of type "int16"
+ */
+/**
+ * @def _DBUS_UINT16_MAX
+ *
+ * Maximum value of type "uint16"
+ */
+
+/**
+ * @def _DBUS_INT32_MIN
+ *
+ * Minimum value of type "int32"
+ */
+/**
+ * @def _DBUS_INT32_MAX
+ *
+ * Maximum value of type "int32"
+ */
+/**
+ * @def _DBUS_UINT32_MAX
+ *
+ * Maximum value of type "uint32"
+ */
+
+/**
  * @def _DBUS_INT_MIN
  *
  * Minimum value of type "int"
@@ -106,6 +138,11 @@
  * @def _DBUS_INT_MAX
  *
  * Maximum value of type "int"
+ */
+/**
+ * @def _DBUS_UINT_MAX
+ *
+ * Maximum value of type "uint"
  */
 
 /**

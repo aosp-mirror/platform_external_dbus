@@ -27,7 +27,6 @@
 #ifndef DBUS_ARCH_DEPS_H
 #define DBUS_ARCH_DEPS_H
 
-#include <dbus/dbus-types.h>
 #include <dbus/dbus-macros.h>
 
 DBUS_BEGIN_DECLS;
@@ -45,6 +44,12 @@ typedef unsigned @DBUS_INT64_TYPE@ dbus_uint64_t;
 #undef DBUS_INT64_CONSTANT
 #undef DBUS_UINT64_CONSTANT
 #endif
+
+typedef @DBUS_INT32_TYPE@ dbus_int32_t;
+typedef unsigned @DBUS_INT32_TYPE@ dbus_uint32_t;
+
+typedef @DBUS_INT16_TYPE@ dbus_int16_t;
+typedef unsigned @DBUS_INT16_TYPE@ dbus_uint16_t;
 
 DBUS_END_DECLS;
 

@@ -437,6 +437,10 @@ basic_type_from_string (const char *str)
 {
   if (strcmp (str, "string") == 0)
     return DBUS_TYPE_STRING;
+  else if (strcmp (str, "int16") == 0)
+    return DBUS_TYPE_INT16;
+  else if (strcmp (str, "uint16") == 0)
+    return DBUS_TYPE_UINT16;
   else if (strcmp (str, "int32") == 0)
     return DBUS_TYPE_INT32;
   else if (strcmp (str, "uint32") == 0)

@@ -68,7 +68,7 @@ static const ValidityTest signature_tests[] = {
   { "i", DBUS_VALID },
   { "ai", DBUS_VALID },
   { "(i)", DBUS_VALID },
-  { "q", DBUS_INVALID_UNKNOWN_TYPECODE },
+  { "w", DBUS_INVALID_UNKNOWN_TYPECODE },
   { "a", DBUS_INVALID_MISSING_ARRAY_ELEMENT_TYPE },
   { "aaaaaa", DBUS_INVALID_MISSING_ARRAY_ELEMENT_TYPE },
   { "ii(ii)a", DBUS_INVALID_MISSING_ARRAY_ELEMENT_TYPE },

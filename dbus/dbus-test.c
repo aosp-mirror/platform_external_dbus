@@ -118,7 +118,7 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
 
   check_memleaks ();
 
-#if 0
+#if 1
   printf ("%s: running recursive marshalling tests\n", "dbus-test");
   if (!_dbus_marshal_recursive_test ())
     die ("recursive marshal");
@@ -140,7 +140,7 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   
   check_memleaks ();
 
-#if 0
+#if 1
   printf ("%s: running memory pool tests\n", "dbus-test");
   if (!_dbus_mem_pool_test ())
     die ("memory pools");

@@ -47,6 +47,15 @@ byteswap_body_helper (DBusTypeReader       *reader,
           ++p;
           break;
 
+        case DBUS_TYPE_INT16:
+        case DBUS_TYPE_UINT16:
+          {
+            p = _DBUS_ALIGN_ADDRESS (p, 2);
+            *((dbus_uint16_t*)p) = DBUS_UINT16_SWAP_LE_BE (*((dbus_uint16_t*)p));
+            p += 2;
+          }
+          break;
+          
         case DBUS_TYPE_BOOLEAN:
         case DBUS_TYPE_INT32:
         case DBUS_TYPE_UINT32:

@@ -920,10 +920,10 @@ _dbus_transport_get_unix_user (DBusTransport *transport,
 {
   DBusCredentials auth_identity;
 
-  *uid = _DBUS_INT_MAX; /* better than some root or system user in
-                         * case of bugs in the caller. Caller should
-                         * never use this value on purpose, however.
-                         */
+  *uid = _DBUS_INT32_MAX; /* better than some root or system user in
+                           * case of bugs in the caller. Caller should
+                           * never use this value on purpose, however.
+                           */
   
   if (!transport->authenticated)
     return FALSE;

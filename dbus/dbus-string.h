@@ -156,6 +156,9 @@ dbus_bool_t   _dbus_string_append_printf         (DBusString        *str,
 dbus_bool_t   _dbus_string_append_printf_valist  (DBusString        *str,
                                                   const char        *format,
                                                   va_list            args);
+dbus_bool_t   _dbus_string_insert_2_aligned      (DBusString        *str,
+                                                  int                insert_at,
+                                                  const unsigned char octets[2]);
 dbus_bool_t   _dbus_string_insert_4_aligned      (DBusString        *str,
                                                   int                insert_at,
                                                   const unsigned char octets[4]);

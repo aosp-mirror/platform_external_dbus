@@ -49,9 +49,12 @@ extern "C" {
 #define DBUS_TYPE_BYTE_AS_STRING           "y"
 #define DBUS_TYPE_BOOLEAN       ((int) 'b')
 #define DBUS_TYPE_BOOLEAN_AS_STRING        "b"
+#define DBUS_TYPE_INT16         ((int) 'n')
+#define DBUS_TYPE_INT16_AS_STRING          "n"
+#define DBUS_TYPE_UINT16        ((int) 'q')
+#define DBUS_TYPE_UINT16_AS_STRING         "q"
 #define DBUS_TYPE_INT32         ((int) 'i')
 #define DBUS_TYPE_INT32_AS_STRING          "i"
-
 #define DBUS_TYPE_UINT32        ((int) 'u')
 #define DBUS_TYPE_UINT32_AS_STRING         "u"
 #define DBUS_TYPE_INT64         ((int) 'x')
@@ -81,7 +84,7 @@ extern "C" {
 #define DBUS_TYPE_STRUCT_AS_STRING         "r"
 
 /* Does not count INVALID */
-#define DBUS_NUMBER_OF_TYPES    (13)
+#define DBUS_NUMBER_OF_TYPES    (15)
 
 /* characters other than typecodes that appear in type signatures */
 #define DBUS_STRUCT_BEGIN_CHAR   ((int) '(')

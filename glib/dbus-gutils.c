@@ -88,6 +88,10 @@ _dbus_gutils_type_to_string (int type)
       return "boolean";
     case DBUS_TYPE_BYTE:
       return "byte";
+    case DBUS_TYPE_INT16:
+      return "int16";
+    case DBUS_TYPE_UINT16:
+      return "uint16";
     case DBUS_TYPE_INT32:
       return "int32";
     case DBUS_TYPE_UINT32:

@@ -974,6 +974,9 @@ _dbus_string_append (DBusString *str,
   return append (real, buffer, buffer_len);
 }
 
+/** assign 2 bytes from one string to another */
+#define ASSIGN_2_OCTETS(p, octets) \
+  *((dbus_uint16_t*)(p)) = *((dbus_uint16_t*)(octets));
 
 /** assign 4 bytes from one string to another */
 #define ASSIGN_4_OCTETS(p, octets) \
@@ -1052,6 +1055,30 @@ _dbus_string_append_8_aligned (DBusString         *str,
 #endif /* DBUS_BUILD_TESTS */
 
 /**
+ * Inserts 2 bytes aligned on a 2 byte boundary
+ * with any alignment padding initialized to 0.
+ *
+ * @param str the DBusString
+ * @param insert_at where to insert
+ * @param octets 2 bytes to insert
+ * @returns #FALSE if not enough memory.
+ */
+dbus_bool_t
+_dbus_string_insert_2_aligned (DBusString         *str,
+                               int                 insert_at,
+                               const unsigned char octets[4])
+{
+  DBUS_STRING_PREAMBLE (str);
+  
+  if (!align_insert_point_then_open_gap (str, &insert_at, 2, 2))
+    return FALSE;
+
+  ASSIGN_2_OCTETS (real->str + insert_at, octets);
+
+  return TRUE;
+}
+
+/**
  * Inserts 4 bytes aligned on a 4 byte boundary
  * with any alignment padding initialized to 0.
  *
@@ -1109,7 +1136,7 @@ _dbus_string_insert_8_aligned (DBusString         *str,
  *
  * @param str the DBusString
  * @param insert_at location to be aligned
- * @param alignment alignment boundary (1, 4, or 8)
+ * @param alignment alignment boundary (1, 2, 4, or 8)
  * @returns #FALSE if not enough memory.
  */
 dbus_bool_t

@@ -1,5 +1,16 @@
 2005-01-27  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-arch-deps.h.in: add 16/32-bit types
+
+	* configure.in: find the right type for 16 and 32 bit ints as well
+	as 64
+
+	* dbus/dbus-protocol.h (DBUS_TYPE_INT16, DBUS_TYPE_UINT16): add
+	the 16-bit types so people don't have to stuff them in 32-bit or
+	byte arrays.
+
+2005-01-27  Havoc Pennington  <hp@redhat.com>
+
         * dbus/dbus-message.c: byteswap the message if you init an
 	iterator to read/write from it
 	

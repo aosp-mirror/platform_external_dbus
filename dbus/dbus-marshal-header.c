@@ -672,7 +672,7 @@ _dbus_header_have_message_untrusted (int                max_message_length,
   dbus_uint32_t body_len_unsigned;
 
   _dbus_assert (start >= 0);
-  _dbus_assert (start < _DBUS_INT_MAX / 2);
+  _dbus_assert (start < _DBUS_INT32_MAX / 2);
   _dbus_assert (len >= 0);
 
   _dbus_assert (start == (int) _DBUS_ALIGN_VALUE (start, 8));
@@ -711,16 +711,16 @@ _dbus_header_have_message_untrusted (int                max_message_length,
   /* overflow should be impossible since the lengths aren't allowed to
    * be huge.
    */
-  _dbus_assert (max_message_length < _DBUS_INT_MAX / 2);
+  _dbus_assert (max_message_length < _DBUS_INT32_MAX / 2);
   if (body_len_unsigned + header_len_unsigned > (unsigned) max_message_length)
     {
       *validity = DBUS_INVALID_MESSAGE_TOO_LONG;
       return FALSE;
     }
 
-  _dbus_assert (body_len_unsigned < (unsigned) _DBUS_INT_MAX);
-  _dbus_assert (fields_array_len_unsigned < (unsigned) _DBUS_INT_MAX);
-  _dbus_assert (header_len_unsigned < (unsigned) _DBUS_INT_MAX);
+  _dbus_assert (body_len_unsigned < (unsigned) _DBUS_INT32_MAX);
+  _dbus_assert (fields_array_len_unsigned < (unsigned) _DBUS_INT32_MAX);
+  _dbus_assert (header_len_unsigned < (unsigned) _DBUS_INT32_MAX);
 
   *body_len = body_len_unsigned;
   *fields_array_len = fields_array_len_unsigned;

@@ -489,7 +489,7 @@ _dbus_keyring_reload (DBusKeyring *keyring,
           continue;
         }
 
-      if (val > _DBUS_INT_MAX || val < 0)
+      if (val > _DBUS_INT32_MAX || val < 0)
         {
           _dbus_verbose ("invalid secret key ID at start of line\n");
           continue;

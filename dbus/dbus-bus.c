@@ -26,6 +26,7 @@
 #include "dbus-protocol.h"
 #include "dbus-internals.h"
 #include "dbus-message.h"
+#include "dbus-marshal-validate.h"
 #include <string.h>
 
 /**

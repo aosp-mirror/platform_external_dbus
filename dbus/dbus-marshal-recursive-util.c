@@ -396,6 +396,26 @@ struct TestTypeNodeContainerClass
  * and by merging read_value and set_value into one function
  * taking a flag argument.
  */
+static dbus_bool_t int16_write_value       (TestTypeNode   *node,
+                                            DataBlock      *block,
+                                            DBusTypeWriter *writer,
+                                            int             seed);
+static dbus_bool_t int16_read_value        (TestTypeNode   *node,
+                                            DBusTypeReader *reader,
+                                            int             seed);
+static dbus_bool_t int16_set_value         (TestTypeNode   *node,
+                                            DBusTypeReader *reader,
+                                            DBusTypeReader *realign_root,
+                                            int             seed);
+static dbus_bool_t int16_write_multi       (TestTypeNode   *node,
+                                            DataBlock      *block,
+                                            DBusTypeWriter *writer,
+                                            int             seed,
+                                            int             count);
+static dbus_bool_t int16_read_multi        (TestTypeNode   *node,
+                                            DBusTypeReader *reader,
+                                            int             seed,
+                                            int             count);
 static dbus_bool_t int32_write_value       (TestTypeNode   *node,
                                             DataBlock      *block,
                                             DBusTypeWriter *writer,
@@ -532,6 +552,34 @@ static dbus_bool_t variant_set_value       (TestTypeNode   *node,
                                             int             seed);
 static void        container_destroy       (TestTypeNode   *node);
 
+
+static const TestTypeNodeClass int16_class = {
+  DBUS_TYPE_INT16,
+  sizeof (TestTypeNode),
+  0,
+  NULL,
+  NULL,
+  int16_write_value,
+  int16_read_value,
+  int16_set_value,
+  NULL,
+  int16_write_multi,
+  int16_read_multi
+};
+
+static const TestTypeNodeClass uint16_class = {
+  DBUS_TYPE_UINT16,
+  sizeof (TestTypeNode),
+  0,
+  NULL,
+  NULL,
+  int16_write_value, /* recycle from int16 */
+  int16_read_value,  /* recycle from int16 */
+  int16_set_value,   /* recycle from int16 */
+  NULL,
+  int16_write_multi, /* recycle from int16 */
+  int16_read_multi   /* recycle from int16 */
+};
 
 static const TestTypeNodeClass int32_class = {
   DBUS_TYPE_INT32,
@@ -819,6 +867,8 @@ static const TestTypeNodeClass variant_class = {
 
 static const TestTypeNodeClass* const
 basic_nodes[] = {
+  &int16_class,
+  &uint16_class,
   &int32_class,
   &uint32_class,
   &int64_class,
@@ -1977,6 +2027,142 @@ _dbus_marshal_recursive_test (void)
  *
  */
 #define MAX_MULTI_COUNT 5
+
+#define SAMPLE_INT16           1234
+#define SAMPLE_INT16_ALTERNATE 6785
+static dbus_int16_t
+int16_from_seed (int seed)
+{
+  /* Generate an integer value that's predictable from seed.  We could
+   * just use seed itself, but that would only ever touch one byte of
+   * the int so would miss some kinds of bug.
+   */
+  dbus_int16_t v;
+
+  v = 42; /* just to quiet compiler afaik */
+  switch (seed % 5)
+    {
+    case 0:
+      v = SAMPLE_INT16;
+      break;
+    case 1:
+      v = SAMPLE_INT16_ALTERNATE;
+      break;
+    case 2:
+      v = -1;
+      break;
+    case 3:
+      v = _DBUS_INT16_MAX;
+      break;
+    case 4:
+      v = 1;
+      break;
+    }
+
+  if (seed > 1)
+    v *= seed; /* wraps around eventually, which is fine */
+
+  return v;
+}
+
+static dbus_bool_t
+int16_write_value (TestTypeNode   *node,
+                   DataBlock      *block,
+                   DBusTypeWriter *writer,
+                   int             seed)
+{
+  /* also used for uint16 */
+  dbus_int16_t v;
+
+  v = int16_from_seed (seed);
+
+  return _dbus_type_writer_write_basic (writer,
+                                        node->klass->typecode,
+                                        &v);
+}
+
+static dbus_bool_t
+int16_read_value (TestTypeNode   *node,
+                  DBusTypeReader *reader,
+                  int             seed)
+{
+  /* also used for uint16 */
+  dbus_int16_t v;
+
+  check_expected_type (reader, node->klass->typecode);
+
+  _dbus_type_reader_read_basic (reader,
+                                (dbus_int16_t*) &v);
+
+  _dbus_assert (v == int16_from_seed (seed));
+
+  return TRUE;
+}
+
+static dbus_bool_t
+int16_set_value (TestTypeNode   *node,
+                 DBusTypeReader *reader,
+                 DBusTypeReader *realign_root,
+                 int             seed)
+{
+  /* also used for uint16 */
+  dbus_int16_t v;
+
+  v = int16_from_seed (seed);
+
+  return _dbus_type_reader_set_basic (reader,
+                                      &v,
+                                      realign_root);
+}
+
+static dbus_bool_t
+int16_write_multi (TestTypeNode   *node,
+                   DataBlock      *block,
+                   DBusTypeWriter *writer,
+                   int             seed,
+                   int             count)
+{
+  /* also used for uint16 */
+  dbus_int16_t values[MAX_MULTI_COUNT];
+  dbus_int16_t *v_ARRAY_INT16 = values;
+  int i;
+
+  for (i = 0; i < count; ++i)
+    values[i] = int16_from_seed (seed + i);
+
+  return _dbus_type_writer_write_fixed_multi (writer,
+                                              node->klass->typecode,
+                                              &v_ARRAY_INT16, count);
+}
+
+static dbus_bool_t
+int16_read_multi (TestTypeNode   *node,
+                  DBusTypeReader *reader,
+                  int             seed,
+                  int             count)
+{
+  /* also used for uint16 */
+  dbus_int16_t *values;
+  int n_elements;
+  int i;
+
+  check_expected_type (reader, node->klass->typecode);
+
+  _dbus_type_reader_read_fixed_multi (reader,
+                                      &values,
+                                      &n_elements);
+
+  if (n_elements != count)
+    _dbus_warn ("got %d elements expected %d\n", n_elements, count);
+  _dbus_assert (n_elements == count);
+
+  for (i = 0; i < count; i++)
+    _dbus_assert (((int)_dbus_unpack_uint16 (reader->byte_order,
+                                             (const unsigned char*)values + (i * 2))) ==
+                  int16_from_seed (seed + i));
+
+  return TRUE;
+}
 
 
 #define SAMPLE_INT32           12345678

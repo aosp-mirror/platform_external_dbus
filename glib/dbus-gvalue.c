@@ -40,12 +40,29 @@ dbus_gvalue_demarshal (DBusMessageIter *iter, GValue *value)
   switch (dbus_message_iter_get_arg_type (iter))
     {
       MAP_BASIC (BOOLEAN, BOOLEAN);
-      MAP_BASIC (BYTE, UCHAR);
-      MAP_BASIC (INT32, INT);
-      MAP_BASIC (UINT32, UINT);
-      MAP_BASIC (INT64, INT64);
-      MAP_BASIC (UINT64, UINT64);
-      MAP_BASIC (DOUBLE, DOUBLE);
+      MAP_BASIC (BYTE,    UCHAR);
+      MAP_BASIC (INT32,   INT);
+      MAP_BASIC (UINT32,  UINT);
+      MAP_BASIC (INT64,   INT64);
+      MAP_BASIC (UINT64,  UINT64);
+      MAP_BASIC (DOUBLE,  DOUBLE);
+
+    case DBUS_TYPE_INT16:
+      {
+        dbus_int16_t v;
+        g_value_init (value, G_TYPE_INT);
+        dbus_message_iter_get_basic (iter, &v);
+        g_value_set_int (value, v);
+      }
+      break;
+    case DBUS_TYPE_UINT16:
+      {
+        dbus_uint16_t v;
+        g_value_init (value, G_TYPE_UINT);
+        dbus_message_iter_get_basic (iter, &v);
+        g_value_set_uint (value, v);
+      }
+      break;
       
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:

@@ -591,6 +591,8 @@ message_iter_test (DBusMessage *message)
   DBusMessageIter iter, array, array2;
   const char *v_STRING;
   double v_DOUBLE;
+  dbus_int16_t v_INT16;
+  dbus_uint16_t v_UINT16;
   dbus_int32_t v_INT32;
   dbus_uint32_t v_UINT32;
 #ifdef DBUS_HAVE_INT64
@@ -656,6 +658,8 @@ verify_test_message (DBusMessage *message)
 {
   DBusMessageIter iter;
   DBusError error;
+  dbus_int16_t our_int16;
+  dbus_uint16_t our_uint16;
   dbus_int32_t our_int;
   dbus_uint32_t our_uint;
   const char *our_str;
@@ -686,6 +690,8 @@ verify_test_message (DBusMessage *message)
 
   dbus_error_init (&error);
   if (!dbus_message_iter_get_args (&iter, &error,
+                                   DBUS_TYPE_INT16, &our_int16,
+                                   DBUS_TYPE_UINT16, &our_uint16,
 				   DBUS_TYPE_INT32, &our_int,
                                    DBUS_TYPE_UINT32, &our_uint,
 #ifdef DBUS_HAVE_INT64
@@ -720,6 +726,12 @@ verify_test_message (DBusMessage *message)
       _dbus_assert_not_reached ("Could not get arguments");
     }
 
+  if (our_int16 != -0x123)
+    _dbus_assert_not_reached ("16-bit integers differ!");
+
+  if (our_uint16 != 0x123)
+    _dbus_assert_not_reached ("16-bit uints differ!");
+  
   if (our_int != -0x12345678)
     _dbus_assert_not_reached ("integers differ!");
 
@@ -860,6 +872,8 @@ _dbus_message_test (const char *test_data_dir)
   const char *s;
   const char *v_STRING;
   double v_DOUBLE;
+  dbus_int16_t v_INT16;
+  dbus_uint16_t v_UINT16;
   dbus_int32_t v_INT32;
   dbus_uint32_t v_UINT32;
 #ifdef DBUS_HAVE_INT64
@@ -974,6 +988,8 @@ _dbus_message_test (const char *test_data_dir)
   _dbus_message_set_serial (message, 1);
   dbus_message_set_reply_serial (message, 5678);
 
+  v_INT16 = -0x123;
+  v_UINT16 = 0x123;
   v_INT32 = -0x12345678;
   v_UINT32 = 0x12300042;
 #ifdef DBUS_HAVE_INT64
@@ -987,6 +1003,8 @@ _dbus_message_test (const char *test_data_dir)
   v2_BYTE = 24;
 
   dbus_message_append_args (message,
+                            DBUS_TYPE_INT16, &v_INT16,
+                            DBUS_TYPE_UINT16, &v_UINT16,
 			    DBUS_TYPE_INT32, &v_INT32,
                             DBUS_TYPE_UINT32, &v_UINT32,
 #ifdef DBUS_HAVE_INT64
@@ -1017,6 +1035,8 @@ _dbus_message_test (const char *test_data_dir)
 			    DBUS_TYPE_INVALID);
 
   i = 0;
+  sig[i++] = DBUS_TYPE_INT16;
+  sig[i++] = DBUS_TYPE_UINT16;
   sig[i++] = DBUS_TYPE_INT32;
   sig[i++] = DBUS_TYPE_UINT32;
 #ifdef DBUS_HAVE_INT64

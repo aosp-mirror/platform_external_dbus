@@ -68,7 +68,7 @@ typedef struct
  * This is the maximum max length (and thus also the maximum length)
  * of a DBusString
  */
-#define _DBUS_STRING_MAX_MAX_LENGTH (_DBUS_INT_MAX - _DBUS_STRING_ALLOCATION_PADDING)
+#define _DBUS_STRING_MAX_MAX_LENGTH (_DBUS_INT32_MAX - _DBUS_STRING_ALLOCATION_PADDING)
 
 /**
  * Checks a bunch of assertions about a string object
