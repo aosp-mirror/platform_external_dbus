@@ -276,6 +276,12 @@
         in a type-dependent format.
       </para>
       <para>
+        [FIXME perhaps we should add type BYTE with the primary 
+        advantage being that it occupies 1 byte vs. 7 for UINT32,
+        or perhaps space savings aren't worth the complexity]
+        [FIXME perhaps we should add type BOOL with the primary 
+        advantage being better type safety vs. overloading of 
+        UINT32]
         The type codes are as follows:
         <informaltable>
           <tgroup cols=3>
