@@ -93,3 +93,17 @@
 
  - re_align_field_recurse() in dbus-message.c is broken because it 
    crashes on some types of header field values. security problem.
+
+ - the system daemon has to be able to reload changes to the 
+   security policy without restarting, because apps won't 
+   be coded to handle it restarting
+
+ - modify the wire protocol to keep the args signature separate 
+   from the args themselves. Make the name of TYPE_NAMED part 
+   of the type signature, rather than part of the value.
+   Then you have the full typecheck in a single string.
+
+ - rename TYPE_NAMED to TYPE_CUSTOM, probably a clearer name.
+
+ - dbus_message_iter_init_array_iterator has "iter" and "iterator" 
+   in the same function name

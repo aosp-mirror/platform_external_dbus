@@ -40,22 +40,22 @@ extern "C" {
 #define DBUS_MAJOR_PROTOCOL_VERSION 0
 
 /* Data types */
-#define DBUS_TYPE_INVALID       0
-#define DBUS_TYPE_NIL           1
-#define DBUS_TYPE_BYTE          2
-#define DBUS_TYPE_BOOLEAN       3
-#define DBUS_TYPE_INT32         4
-#define DBUS_TYPE_UINT32        5
-#define DBUS_TYPE_INT64         6
-#define DBUS_TYPE_UINT64        7
-#define DBUS_TYPE_DOUBLE        8
-#define DBUS_TYPE_STRING        9
-#define DBUS_TYPE_NAMED         10
-#define DBUS_TYPE_ARRAY         11
-#define DBUS_TYPE_DICT          12
-#define DBUS_TYPE_OBJECT_PATH   13
-  
-#define DBUS_TYPE_LAST DBUS_TYPE_OBJECT_PATH
+#define DBUS_TYPE_INVALID       ((int) '\0')
+#define DBUS_TYPE_NIL           ((int) 'v')
+#define DBUS_TYPE_BYTE          ((int) 'y')
+#define DBUS_TYPE_BOOLEAN       ((int) 'b')
+#define DBUS_TYPE_INT32         ((int) 'i')
+#define DBUS_TYPE_UINT32        ((int) 'u')
+#define DBUS_TYPE_INT64         ((int) 'x')
+#define DBUS_TYPE_UINT64        ((int) 't')
+#define DBUS_TYPE_DOUBLE        ((int) 'd')
+#define DBUS_TYPE_STRING        ((int) 's')
+#define DBUS_TYPE_NAMED         ((int) 'n')
+#define DBUS_TYPE_ARRAY         ((int) 'a')
+#define DBUS_TYPE_DICT          ((int) 'c')
+#define DBUS_TYPE_OBJECT_PATH   ((int) 'o')
+
+#define DBUS_NUMBER_OF_TYPES    (13)
 
 /* Max length in bytes of a service or interface or member name */
 #define DBUS_MAXIMUM_NAME_LENGTH 256

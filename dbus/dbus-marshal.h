@@ -313,5 +313,6 @@ dbus_bool_t _dbus_marshal_validate_arg    (const DBusString *str,
                                            int               pos,
                                            int              *end_pos);
 
+dbus_bool_t _dbus_type_is_valid           (int               typecode);
 
 #endif /* DBUS_PROTOCOL_H */

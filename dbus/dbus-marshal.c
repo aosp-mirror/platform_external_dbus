@@ -1801,7 +1801,7 @@ _dbus_marshal_validate_type   (const DBusString *str,
 
   data = _dbus_string_get_const_data_len (str, pos, 1);
 
-  if (*data > DBUS_TYPE_INVALID && *data <= DBUS_TYPE_LAST)
+  if (_dbus_type_is_valid (*data))
     {
       *type = *data;
       if (end_pos != NULL)
@@ -2207,6 +2207,35 @@ _dbus_marshal_validate_arg (const DBusString *str,
   return TRUE;
 }
 
+/**
+ * Return #TRUE if the typecode is a valid typecode
+ *
+ * @returns #TRUE if valid
+ */
+dbus_bool_t
+_dbus_type_is_valid (int typecode)
+{
+  switch (typecode)
+    {
+    case DBUS_TYPE_NIL:
+    case DBUS_TYPE_BYTE:
+    case DBUS_TYPE_BOOLEAN:
+    case DBUS_TYPE_INT32:
+    case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_INT64:
+    case DBUS_TYPE_UINT64:
+    case DBUS_TYPE_DOUBLE:
+    case DBUS_TYPE_STRING:
+    case DBUS_TYPE_NAMED:
+    case DBUS_TYPE_ARRAY:
+    case DBUS_TYPE_DICT:
+    case DBUS_TYPE_OBJECT_PATH:
+      return TRUE;
+      
+    default:
+      return FALSE;
+    }
+}
 
 /**
  * If in verbose mode, print a block of binary data.

@@ -96,6 +96,7 @@ const char*   dbus_message_get_destination  (DBusMessage   *message);
 dbus_bool_t   dbus_message_set_sender       (DBusMessage   *message,
                                              const char    *sender);
 const char*   dbus_message_get_sender       (DBusMessage   *message);
+const char*   dbus_message_get_signature    (DBusMessage   *message);
 void          dbus_message_set_no_reply     (DBusMessage   *message,
                                              dbus_bool_t    no_reply);
 dbus_bool_t   dbus_message_get_no_reply     (DBusMessage   *message);
@@ -111,6 +112,8 @@ dbus_bool_t   dbus_message_has_destination  (DBusMessage   *message,
                                              const char    *service);
 dbus_bool_t   dbus_message_has_sender       (DBusMessage   *message,
                                              const char    *service);
+dbus_bool_t   dbus_message_has_signature    (DBusMessage   *message,
+                                             const char    *signature);
 dbus_uint32_t dbus_message_get_serial       (DBusMessage   *message);
 dbus_bool_t   dbus_message_set_reply_serial (DBusMessage   *message,
                                              dbus_uint32_t  reply_serial);
@@ -166,10 +169,10 @@ dbus_bool_t   dbus_message_iter_get_named      (DBusMessageIter  *iter,
 						unsigned char   **value,
 						int              *len);
 
-dbus_bool_t dbus_message_iter_init_array_iterator (DBusMessageIter   *iter,
+void        dbus_message_iter_init_array_iterator (DBusMessageIter   *iter,
 						   DBusMessageIter   *array_iter,
 						   int               *array_type);
-dbus_bool_t dbus_message_iter_init_dict_iterator  (DBusMessageIter   *iter,
+void        dbus_message_iter_init_dict_iterator  (DBusMessageIter   *iter,
 						   DBusMessageIter   *dict_iter);
 dbus_bool_t dbus_message_iter_get_byte_array      (DBusMessageIter   *iter,
 						   unsigned char    **value,

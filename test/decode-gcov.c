@@ -831,10 +831,10 @@ function_solve_graph (Function *func)
     {
       if (block_graph[i].succ_count || block_graph[i].pred_count)
         {
-          fprintf (stderr, "Block graph solved incorrectly\n");
+          fprintf (stderr, "WARNING: Block graph solved incorrectly\n");
           fprintf (stderr, " block %d has succ_count = %d pred_count = %d\n",
                    i, (int) block_graph[i].succ_count, (int) block_graph[i].pred_count);
-          exit (1);
+          fprintf (stderr, " this error reflects a bug in decode-gcov.c\n");
         }
     }
 }

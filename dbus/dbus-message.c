@@ -103,7 +103,9 @@ struct DBusMessage
   
   unsigned int locked : 1; /**< Message being sent, no modifications allowed. */
 
-  DBusDataSlotList slot_list;   /**< Data stored by allocated integer ID */  
+  DBusDataSlotList slot_list;   /**< Data stored by allocated integer ID */
+
+  DBusString signature; /**< Signature */
 };
 
 enum {
@@ -1102,6 +1104,14 @@ dbus_message_new_empty_header (void)
       dbus_free (message);
       return NULL;
     }
+
+  if (!_dbus_string_init_preallocated (&message->signature, 4))
+    {
+      _dbus_string_free (&message->header);
+      _dbus_string_free (&message->body);
+      dbus_free (message);
+      return NULL;
+    }
   
   return message;
 }
@@ -1349,45 +1359,56 @@ dbus_message_copy (const DBusMessage *message)
   retval->header_padding = message->header_padding;
   retval->locked = FALSE;
   
-  if (!_dbus_string_init (&retval->header))
+  if (!_dbus_string_init_preallocated (&retval->header,
+                                       _dbus_string_get_length (&message->header)))
     {
       dbus_free (retval);
       return NULL;
     }
   
-  if (!_dbus_string_init (&retval->body))
+  if (!_dbus_string_init_preallocated (&retval->body,
+                                       _dbus_string_get_length (&message->body)))
     {
       _dbus_string_free (&retval->header);
       dbus_free (retval);
       return NULL;
     }
 
-  if (!_dbus_string_copy (&message->header, 0,
-			  &retval->header, 0))
+  if (!_dbus_string_init_preallocated (&retval->signature,
+                                       _dbus_string_get_length (&message->signature)))
     {
       _dbus_string_free (&retval->header);
       _dbus_string_free (&retval->body);
       dbus_free (retval);
-
       return NULL;
     }
+  
+  if (!_dbus_string_copy (&message->header, 0,
+			  &retval->header, 0))
+    goto failed_copy;
 
   if (!_dbus_string_copy (&message->body, 0,
 			  &retval->body, 0))
-    {
-      _dbus_string_free (&retval->header);
-      _dbus_string_free (&retval->body);
-      dbus_free (retval);
+    goto failed_copy;
 
-      return NULL;
-    }
-
+  if (!_dbus_string_copy (&message->signature, 0,
+			  &retval->signature, 0))
+    goto failed_copy;
+  
   for (i = 0; i <= DBUS_HEADER_FIELD_LAST; i++)
     {
       retval->header_fields[i] = message->header_fields[i];
     }
   
   return retval;
+
+ failed_copy:
+  _dbus_string_free (&retval->header);
+  _dbus_string_free (&retval->body);
+  _dbus_string_free (&retval->signature);
+  dbus_free (retval);
+  
+  return NULL;  
 }
 
 
@@ -1448,6 +1469,7 @@ dbus_message_unref (DBusMessage *message)
       
       _dbus_string_free (&message->header);
       _dbus_string_free (&message->body);
+      _dbus_string_free (&message->signature);
       
       dbus_free (message);
     }
@@ -2371,6 +2393,9 @@ skip_array_type (DBusMessageRealIter *iter, int pos)
   return pos;
 }
 
+/* FIXME what are these _dbus_type_is_valid() checks for?
+ * haven't we validated the message?
+ */
 static int
 dbus_message_iter_get_data_start (DBusMessageRealIter *iter, int *type)
 {
@@ -2382,7 +2407,7 @@ dbus_message_iter_get_data_start (DBusMessageRealIter *iter, int *type)
     case DBUS_MESSAGE_ITER_TYPE_MESSAGE:
       data = _dbus_string_get_const_data_len (&iter->message->body,
 					      iter->pos, 1);
-      if (*data > DBUS_TYPE_INVALID && *data <= DBUS_TYPE_LAST)
+      if (_dbus_type_is_valid (*data))
 	*type = *data;
       else
 	*type = DBUS_TYPE_INVALID;
@@ -2392,7 +2417,7 @@ dbus_message_iter_get_data_start (DBusMessageRealIter *iter, int *type)
     case DBUS_MESSAGE_ITER_TYPE_ARRAY:
       data = _dbus_string_get_const_data_len (&iter->message->body,
 					      iter->array_type_pos, 1);
-      if (*data > DBUS_TYPE_INVALID && *data <= DBUS_TYPE_LAST)
+      if (_dbus_type_is_valid (*data))
 	*type = *data;
       else
 	*type = DBUS_TYPE_INVALID;
@@ -2408,7 +2433,7 @@ dbus_message_iter_get_data_start (DBusMessageRealIter *iter, int *type)
 
       data = _dbus_string_get_const_data_len (&iter->message->body,
 					      pos, 1);
-      if (*data > DBUS_TYPE_INVALID && *data <= DBUS_TYPE_LAST)
+      if (_dbus_type_is_valid (*data))
 	*type = *data;
       else
 	*type = DBUS_TYPE_INVALID;
@@ -2509,6 +2534,9 @@ dbus_message_iter_get_arg_type (DBusMessageIter *iter)
   return type;
 }
 
+/* FIXME why do we validate the typecode in here, hasn't the message
+ * already been verified?
+ */
 static int
 iter_get_array_type (DBusMessageRealIter *iter, int *array_type_pos)
 {
@@ -2544,7 +2572,7 @@ iter_get_array_type (DBusMessageRealIter *iter, int *array_type_pos)
   
   data = _dbus_string_get_const_data_len (&iter->message->body,
 					  _array_type_pos, 1);
-  if (*data > DBUS_TYPE_INVALID && *data <= DBUS_TYPE_LAST)
+  if (_dbus_type_is_valid (*data))
     return  *data;
   
   return DBUS_TYPE_INVALID;
@@ -2851,9 +2879,8 @@ dbus_message_iter_get_double (DBusMessageIter *iter)
  * @param iter the iterator
  * @param array_iter pointer to an iterator to initialize
  * @param array_type gets set to the type of the array elements
- * @returns #TRUE on success
  */
-dbus_bool_t
+void
 dbus_message_iter_init_array_iterator (DBusMessageIter *iter,
 				       DBusMessageIter *array_iter,
 				       int             *array_type)
@@ -2863,7 +2890,7 @@ dbus_message_iter_init_array_iterator (DBusMessageIter *iter,
   int type, pos, len_pos, len, array_type_pos;
   int _array_type;
 
-  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
+  _dbus_return_if_fail (dbus_message_iter_check (real));
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2891,8 +2918,6 @@ dbus_message_iter_init_array_iterator (DBusMessageIter *iter,
   
   if (array_type != NULL)
     *array_type = _array_type;
-  
-  return TRUE;
 }
 
 
@@ -2903,9 +2928,8 @@ dbus_message_iter_init_array_iterator (DBusMessageIter *iter,
  *
  * @param iter the iterator
  * @param dict_iter pointer to an iterator to initialize
- * @returns #TRUE on success
  */
-dbus_bool_t
+void
 dbus_message_iter_init_dict_iterator (DBusMessageIter *iter,
 				      DBusMessageIter *dict_iter)
 {
@@ -2913,7 +2937,7 @@ dbus_message_iter_init_dict_iterator (DBusMessageIter *iter,
   DBusMessageRealIter *dict_real = (DBusMessageRealIter *)dict_iter;
   int type, pos, len_pos, len;
 
-  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
+  _dbus_return_if_fail (dbus_message_iter_check (real));
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2934,8 +2958,6 @@ dbus_message_iter_init_dict_iterator (DBusMessageIter *iter,
   dict_real->container_start = pos;
   dict_real->container_length_pos = len_pos;
   dict_real->wrote_dict_key = 0;
-
-  return TRUE;
 }
 
 /**
@@ -3324,8 +3346,14 @@ dbus_message_iter_append_type (DBusMessageRealIter *iter,
   switch (iter->type)
     {
     case DBUS_MESSAGE_ITER_TYPE_MESSAGE:
+      if (!_dbus_string_append_byte (&iter->message->signature, type))
+        return FALSE;
+      
       if (!_dbus_string_append_byte (&iter->message->body, type))
-	return FALSE;
+        {
+          _dbus_string_shorten (&iter->message->signature, 1);
+          return FALSE;
+        }
       break;
       
     case DBUS_MESSAGE_ITER_TYPE_ARRAY:
@@ -3346,7 +3374,7 @@ dbus_message_iter_append_type (DBusMessageRealIter *iter,
 	}
       
       if (!_dbus_string_append_byte (&iter->message->body, type))
-	return FALSE;
+        return FALSE;
       
       break;
       
@@ -3783,10 +3811,18 @@ append_array_type (DBusMessageRealIter *real,
     {
       if (array_type_pos != NULL)
 	*array_type_pos = _dbus_string_get_length (&real->message->body);
+
+
+      if (!_dbus_string_append_byte (&real->message->signature, element_type))
+        {
+          _dbus_string_set_length (&real->message->body, real->pos);
+          return FALSE;
+        }
       
       /* Append element type */
       if (!_dbus_string_append_byte (&real->message->body, element_type))
 	{
+          _dbus_string_shorten (&real->message->signature, 1);
 	  _dbus_string_set_length (&real->message->body, real->pos);
 	  return FALSE;
 	}
@@ -3796,7 +3832,10 @@ append_array_type (DBusMessageRealIter *real,
       
       if (element_type != DBUS_TYPE_ARRAY &&
 	  !array_iter_type_mark_done (real))
-	return FALSE;
+        {
+          _dbus_string_shorten (&real->message->signature, 1);
+          return FALSE;
+        }        
     }
 
   return TRUE;
@@ -3881,10 +3920,10 @@ dbus_message_iter_append_dict (DBusMessageIter      *iter,
   int len_pos;
 
   _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
-
+  
   if (!dbus_message_iter_append_type (real, DBUS_TYPE_DICT))
-    return FALSE;
-
+    return FALSE;  
+  
   len_pos = _DBUS_ALIGN_VALUE (_dbus_string_get_length (&real->message->body), sizeof (dbus_uint32_t));
 
   /* Empty length for now, backfill later */
@@ -4258,6 +4297,29 @@ dbus_message_get_sender (DBusMessage *message)
 			   NULL);
 }
 
+/**
+ * Gets the type signature of the message, i.e. the arguments in the
+ * message payload. The signature includes only "in" arguments for
+ * #DBUS_MESSAGE_TYPE_METHOD_CALL and only "out" arguments for
+ * #DBUS_MESSAGE_TYPE_METHOD_RETURN, so is slightly different from
+ * what you might expect (it does not include the signature of the
+ * entire C++-style method).
+ *
+ * The signature is a string made up of type codes such
+ * as #DBUS_TYPE_STRING. The string is terminated with nul
+ * (nul is also the value of #DBUS_TYPE_INVALID).
+ * 
+ * @param message the message
+ * @returns the type signature
+ */
+const char*
+dbus_message_get_signature (DBusMessage *message)
+{
+  _dbus_return_val_if_fail (message != NULL, NULL);
+  
+  return _dbus_string_get_const_data (&message->signature);
+}
+
 static dbus_bool_t
 _dbus_message_has_type_interface_member (DBusMessage *message,
                                          int          type,
@@ -4419,7 +4481,8 @@ dbus_message_has_sender (DBusMessage  *message,
 {
   const char *s;
 
-  _dbus_assert (service != NULL);
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (service != NULL, FALSE);
   
   s = dbus_message_get_sender (message);
 
@@ -4427,6 +4490,25 @@ dbus_message_has_sender (DBusMessage  *message,
     return TRUE;
   else
     return FALSE;
+}
+
+/**
+ * Checks whether the message has the given signature;
+ * see dbus_message_get_signature() for more details on
+ * what the signature looks like.
+ *
+ * @param message the message
+ * @param signature typecode array
+ * @returns #TRUE if message has the given signature
+*/
+dbus_bool_t
+dbus_message_has_signature (DBusMessage   *message,
+                            const char    *signature)
+{
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (signature != NULL, FALSE);
+
+  return _dbus_string_equal_c_str (&message->signature, signature);
 }
 
 /**
@@ -5198,6 +5280,60 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
 							   message->byte_order,
 							   CLIENT_SERIAL_OFFSET,
 							   NULL);
+
+          /* Fill in signature (FIXME should do this during validation,
+           * but I didn't want to spend time on it since we want to change
+           * the wire format to contain the signature anyway)
+           */
+          {
+            DBusMessageIter iter;
+
+            dbus_message_iter_init (message, &iter);
+
+            do
+              {
+                int t;
+
+                t = dbus_message_iter_get_arg_type (&iter);
+                if (t == DBUS_TYPE_INVALID)
+                  break;
+
+                if (!_dbus_string_append_byte (&message->signature,
+                                               t))
+                  {
+                    _dbus_verbose ("failed to append type byte to signature\n");
+                    _dbus_list_remove_last (&loader->messages, message);
+                    dbus_message_unref (message);
+                    return FALSE;
+                  }
+
+                if (t == DBUS_TYPE_ARRAY)
+                  {
+                    DBusMessageIter child_iter;
+                    int array_type = t;
+
+                    child_iter = iter;
+                    
+                    while (array_type == DBUS_TYPE_ARRAY)
+                      {
+                        DBusMessageIter parent_iter = child_iter;
+                        dbus_message_iter_init_array_iterator (&parent_iter,
+                                                               &child_iter,
+                                                               &array_type);
+                                            
+                        if (!_dbus_string_append_byte (&message->signature,
+                                                       array_type))
+                          {
+                            _dbus_verbose ("failed to append array type byte to signature\n");
+                            _dbus_list_remove_last (&loader->messages, message);
+                            dbus_message_unref (message);
+                            return FALSE;
+                          }
+                      }
+                  }
+              }
+            while (dbus_message_iter_next (&iter));
+          }
           
 	  _dbus_verbose ("Loaded message %p\n", message);
 	}
@@ -5512,8 +5648,7 @@ message_iter_test (DBusMessage *message)
     _dbus_assert_not_reached ("Array type not double");
 
   
-  if (!dbus_message_iter_init_array_iterator (&iter, &array, NULL))
-    _dbus_assert_not_reached ("Array init failed");
+  dbus_message_iter_init_array_iterator (&iter, &array, NULL);
 
   if (dbus_message_iter_get_arg_type (&array) != DBUS_TYPE_DOUBLE)
     _dbus_assert_not_reached ("Argument type isn't double");
@@ -5542,8 +5677,7 @@ message_iter_test (DBusMessage *message)
   if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_DICT)
     _dbus_assert_not_reached ("not dict type");
      
-  if (!dbus_message_iter_init_dict_iterator (&iter, &dict))
-    _dbus_assert_not_reached ("dict iter failed");
+  dbus_message_iter_init_dict_iterator (&iter, &dict);
 
   str = dbus_message_iter_get_dict_key (&dict);
   if (str == NULL || strcmp (str, "test") != 0)
@@ -5572,8 +5706,7 @@ message_iter_test (DBusMessage *message)
   if (dbus_message_iter_get_array_type (&dict) != DBUS_TYPE_ARRAY)
     _dbus_assert_not_reached ("Array type not array");
 
-  if (!dbus_message_iter_init_array_iterator (&dict, &array, NULL))
-    _dbus_assert_not_reached ("Array init failed");
+  dbus_message_iter_init_array_iterator (&dict, &array, NULL);
 
   if (dbus_message_iter_get_arg_type (&array) != DBUS_TYPE_ARRAY)
     _dbus_assert_not_reached ("Argument type isn't array");
@@ -5581,8 +5714,7 @@ message_iter_test (DBusMessage *message)
   if (dbus_message_iter_get_array_type (&array) != DBUS_TYPE_INT32)
     _dbus_assert_not_reached ("Array type not int32");
   
-  if (!dbus_message_iter_init_array_iterator (&array, &array2, NULL))
-    _dbus_assert_not_reached ("Array init failed");
+  dbus_message_iter_init_array_iterator (&array, &array2, NULL);
 
   if (dbus_message_iter_get_arg_type (&array2) != DBUS_TYPE_INT32)
     _dbus_assert_not_reached ("Argument type isn't int32");
@@ -5727,11 +5859,7 @@ check_message_handling_type (DBusMessageIter *iter,
       {
 	int array_type;
 
-	if (!dbus_message_iter_init_array_iterator (iter, &child_iter, &array_type))
-	  {
-	    _dbus_warn ("Failed to init array iterator\n");
-	    return FALSE;
-	  }
+	dbus_message_iter_init_array_iterator (iter, &child_iter, &array_type);
 
 	while (dbus_message_iter_has_next (&child_iter))
 	  {
@@ -5751,11 +5879,7 @@ check_message_handling_type (DBusMessageIter *iter,
 	int entry_type;
 	char *key;
 	
-	if (!dbus_message_iter_init_dict_iterator (iter, &child_iter))
-	  {
-	    _dbus_warn ("Failed to init dict iterator\n");
-	    return FALSE;
-	  }
+	dbus_message_iter_init_dict_iterator (iter, &child_iter);
 
 	while ((entry_type = dbus_message_iter_get_arg_type (&child_iter)) != DBUS_TYPE_INVALID)
 	  {
@@ -6479,8 +6603,7 @@ verify_test_message (DBusMessage *message)
   if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_DICT)
     _dbus_assert_not_reached ("not dict type");
      
-  if (!dbus_message_iter_init_dict_iterator (&iter, &dict))
-    _dbus_assert_not_reached ("dict iter failed");
+  dbus_message_iter_init_dict_iterator (&iter, &dict);
 
   our_str = dbus_message_iter_get_dict_key (&dict);
   if (our_str == NULL || strcmp (our_str, "test") != 0)
@@ -6546,6 +6669,8 @@ _dbus_message_test (const char *test_data_dir)
   const double our_double_array[] = { 0.1234, 9876.54321, -300.0 };
   const unsigned char our_byte_array[] = { 'a', 'b', 'c', 234 };
   const unsigned char our_boolean_array[] = { TRUE, FALSE, TRUE, TRUE, FALSE };
+  char sig[64];
+  const char *s;
   
   _dbus_assert (sizeof (DBusMessageRealIter) <= sizeof (DBusMessageIter));
 
@@ -6671,12 +6796,53 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_iter_append_dict_key (&child_iter, "test");
   dbus_message_iter_append_uint32 (&child_iter, 0xDEADBEEF);
   dbus_message_iter_append_uint32 (&iter, 0xCAFEBABE);
+
+  i = 0;
+  sig[i++] = DBUS_TYPE_INT32;
+#ifdef DBUS_HAVE_INT64
+  sig[i++] = DBUS_TYPE_INT64;
+  sig[i++] = DBUS_TYPE_UINT64;
+#endif
+  sig[i++] = DBUS_TYPE_STRING;
+  sig[i++] = DBUS_TYPE_DOUBLE;
+  sig[i++] = DBUS_TYPE_BOOLEAN;
+  sig[i++] = DBUS_TYPE_ARRAY;
+  sig[i++] = DBUS_TYPE_UINT32;
+  sig[i++] = DBUS_TYPE_ARRAY;
+  sig[i++] = DBUS_TYPE_INT32;
+#ifdef DBUS_HAVE_INT64
+  sig[i++] = DBUS_TYPE_ARRAY;
+  sig[i++] = DBUS_TYPE_UINT64;
+  sig[i++] = DBUS_TYPE_ARRAY;
+  sig[i++] = DBUS_TYPE_INT64;
+#endif
+  sig[i++] = DBUS_TYPE_ARRAY;
+  sig[i++] = DBUS_TYPE_STRING;
+  sig[i++] = DBUS_TYPE_ARRAY;
+  sig[i++] = DBUS_TYPE_DOUBLE;
+  sig[i++] = DBUS_TYPE_ARRAY;
+  sig[i++] = DBUS_TYPE_BYTE;
+  sig[i++] = DBUS_TYPE_ARRAY;
+  sig[i++] = DBUS_TYPE_BOOLEAN;
+  sig[i++] = DBUS_TYPE_DICT;
+  sig[i++] = DBUS_TYPE_UINT32;
+  sig[i++] = DBUS_TYPE_INVALID;
+
+  _dbus_assert (i < (int) _DBUS_N_ELEMENTS (sig));
   
   _dbus_verbose_bytes_of_string (&message->header, 0,
                                  _dbus_string_get_length (&message->header));
   _dbus_verbose_bytes_of_string (&message->body, 0,
                                  _dbus_string_get_length (&message->body));
-
+  
+  _dbus_verbose ("Signature expected \"%s\" actual \"%s\"\n",
+                 sig, dbus_message_get_signature (message));
+  
+  s = dbus_message_get_signature (message);
+  
+  _dbus_assert (dbus_message_has_signature (message, sig));
+  _dbus_assert (strcmp (s, sig) == 0);
+  
   verify_test_message (message);
 
   copy = dbus_message_copy (message);
@@ -6691,6 +6857,9 @@ _dbus_message_test (const char *test_data_dir)
   _dbus_assert (_dbus_string_get_length (&message->body) ==
                 _dbus_string_get_length (&copy->body));
 
+  _dbus_assert (_dbus_string_get_length (&message->signature) ==
+                _dbus_string_get_length (&copy->signature));
+  
   verify_test_message (copy);
 
   name1 = dbus_message_get_interface (message);

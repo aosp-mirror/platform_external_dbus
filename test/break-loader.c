@@ -392,6 +392,31 @@ randomly_set_extreme_ints (const DBusString *orig_data,
                             extreme_ints[which]);
 }
 
+static int
+random_type (void)
+{
+  const char types[] = {
+    DBUS_TYPE_INVALID,
+    DBUS_TYPE_NIL,
+    DBUS_TYPE_BYTE,
+    DBUS_TYPE_BOOLEAN,
+    DBUS_TYPE_INT32,
+    DBUS_TYPE_UINT32,
+    DBUS_TYPE_INT64,
+    DBUS_TYPE_UINT64,
+    DBUS_TYPE_DOUBLE,
+    DBUS_TYPE_STRING,
+    DBUS_TYPE_NAMED,
+    DBUS_TYPE_ARRAY,
+    DBUS_TYPE_DICT,
+    DBUS_TYPE_OBJECT_PATH
+  };
+
+  _dbus_assert (_DBUS_N_ELEMENTS (types) == DBUS_NUMBER_OF_TYPES + 1);
+
+  return types[ random_int_in_range (0, _DBUS_N_ELEMENTS (types)) ];
+}
+
 static void
 randomly_change_one_type (const DBusString *orig_data,
                           DBusString       *mutated)
@@ -420,11 +445,9 @@ randomly_change_one_type (const DBusString *orig_data,
     {
       int b;
       b = _dbus_string_get_byte (mutated, i);
-      if (b > DBUS_TYPE_INVALID && b <= DBUS_TYPE_LAST)
+      if (_dbus_type_is_valid (b))
         {
-          _dbus_string_set_byte (mutated, i,
-                                 random_int_in_range (DBUS_TYPE_INVALID,
-                                                      DBUS_TYPE_LAST + 1));
+          _dbus_string_set_byte (mutated, i, random_type ());
           return;
         }
       ++i;
