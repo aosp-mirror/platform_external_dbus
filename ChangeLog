@@ -1,3 +1,9 @@
+2003-12-01  David Zeuthen  <david@fubar.dk>
+
+	* python/dbus.py: Add the actual message when calling the reciever
+	of a signal such that parameters can be inspected. Add the method
+	remove_signal_receiver
+	
 2003-11-26  Mikael Hallendal  <micke@imendio.com>
 
 	* bus/*.[ch]:
