@@ -1,3 +1,28 @@
+2003-02-23  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-keyring.c: finish most of this implementation and 
+	simple unit test
+
+	* dbus/dbus-errors.c (dbus_set_error_const, dbus_set_error): make
+	these barf if the error isn't cleared to NULL
+
+	* dbus/dbus-sysdeps.c (_dbus_delete_file): set error on failure
+	(_dbus_create_directory): new function
+
+	* dbus/dbus-errors.c (dbus_set_error): fix warning
+
+	* dbus/dbus-string.c (_dbus_string_hex_encode): new function
+	(_dbus_string_hex_decode): new function
+	(test_hex_roundtrip): test code
+
+	* dbus/dbus-sha.c (_dbus_sha_compute): use dbus_string_hex_encode
+
+	* dbus/dbus-md5.c (_dbus_md5_compute): use dbus_string_hex_encode
+
+	* dbus/dbus-sysdeps.c (_dbus_string_save_to_file): make this use 
+	the save-to-temp/rename trick to atomically write the new file
+	(_dbus_string_parse_uint): new function
+
 2003-02-22  Havoc Pennington  <hp@pobox.com>
 
 	* test/Makefile.am (dist-hook): fix dist for test/data/sha-1

@@ -1961,7 +1961,6 @@ _dbus_string_base64_encode (const DBusString *source,
   return TRUE;
 }
 
-
 /**
  * Decodes a string from Base64, as documented in RFC 2045.
  *
@@ -2067,9 +2066,203 @@ _dbus_string_base64_decode (const DBusString *source,
 }
 
 /**
- * Checks that the given range of the string
- * is valid ASCII. If the given range is not contained
- * in the string, returns #FALSE.
+ * Encodes a string in hex, the way MD5 and SHA-1 are usually
+ * encoded. (Each byte is two hex digits.)
+ *
+ * @param source the string to encode
+ * @param start byte index to start encoding
+ * @param dest string where encoded data should be placed
+ * @param insert_at where to place encoded data
+ * @returns #TRUE if encoding was successful, #FALSE if no memory etc.
+ */
+dbus_bool_t
+_dbus_string_hex_encode (const DBusString *source,
+                         int               start,
+                         DBusString       *dest,
+                         int               insert_at)
+{
+  DBusString result;
+  const char hexdigits[16] = {
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+    'a', 'b', 'c', 'd', 'e', 'f'
+  };
+  const unsigned char *p;
+  const unsigned char *end;
+  dbus_bool_t retval;
+  
+  _dbus_assert (start <= _dbus_string_get_length (source));
+
+  if (!_dbus_string_init (&result, _DBUS_INT_MAX))
+    return FALSE;
+
+  retval = FALSE;
+  
+  _dbus_string_get_const_data (source, (const char**) &p);
+  end = p + _dbus_string_get_length (source);
+  p += start;
+  
+  while (p != end)
+    {
+      if (!_dbus_string_append_byte (&result,
+                                     hexdigits[(*p >> 4)]))
+        goto out;
+      
+      if (!_dbus_string_append_byte (&result,
+                                     hexdigits[(*p & 0x0f)]))
+        goto out;
+
+      ++p;
+    }
+
+  if (!_dbus_string_move (&result, 0, dest, insert_at))
+    goto out;
+
+  retval = TRUE;
+
+ out:
+  _dbus_string_free (&result);
+  return retval;
+}
+
+/**
+ * Decodes a string from hex encoding.
+ *
+ * @param source the string to decode
+ * @param start byte index to start decode
+ * @param dest string where decoded data should be placed
+ * @param insert_at where to place decoded data
+ * @returns #TRUE if decoding was successful, #FALSE if no memory etc.
+ */
+dbus_bool_t
+_dbus_string_hex_decode (const DBusString *source,
+                         int               start,
+                         DBusString       *dest,
+                         int               insert_at)
+{
+  DBusString result;
+  const unsigned char *p;
+  const unsigned char *end;
+  dbus_bool_t retval;
+  dbus_bool_t high_bits;
+  
+  _dbus_assert (start <= _dbus_string_get_length (source));
+
+  if (!_dbus_string_init (&result, _DBUS_INT_MAX))
+    return FALSE;
+
+  retval = FALSE;
+
+  high_bits = TRUE;
+  _dbus_string_get_const_data (source, (const char**) &p);
+  end = p + _dbus_string_get_length (source);
+  p += start;
+  
+  while (p != end)
+    {
+      unsigned int val;
+
+      switch (*p)
+        {
+        case '0':
+          val = 0;
+          break;
+        case '1':
+          val = 1;
+          break;
+        case '2':
+          val = 2;
+          break;
+        case '3':
+          val = 3;
+          break;
+        case '4':
+          val = 4;
+          break;
+        case '5':
+          val = 5;
+          break;
+        case '6':
+          val = 6;
+          break;
+        case '7':
+          val = 7;
+          break;
+        case '8':
+          val = 8;
+          break;
+        case '9':
+          val = 9;
+          break;
+        case 'a':
+        case 'A':
+          val = 10;
+          break;
+        case 'b':
+        case 'B':
+          val = 11;
+          break;
+        case 'c':
+        case 'C':
+          val = 12;
+          break;
+        case 'd':
+        case 'D':
+          val = 13;
+          break;
+        case 'e':
+        case 'E':
+          val = 14;
+          break;
+        case 'f':
+        case 'F':
+          val = 15;
+          break;
+        default:
+          val = 0;
+          _dbus_verbose ("invalid character '%c' in hex encoded text\n",
+                         *p);
+          goto out;
+        }
+
+      if (high_bits)
+        {
+          if (!_dbus_string_append_byte (&result,
+                                         val << 4))
+            goto out;
+        }
+      else
+        {
+          int len;
+          unsigned char b;
+
+          len = _dbus_string_get_length (&result);
+          
+          b = _dbus_string_get_byte (&result, len - 1);
+
+          b |= val;
+
+          _dbus_string_set_byte (&result, len - 1, b);
+        }
+
+      high_bits = !high_bits;
+
+      ++p;
+    }
+
+  if (!_dbus_string_move (&result, 0, dest, insert_at))
+    goto out;
+
+  retval = TRUE;
+  
+ out:
+  _dbus_string_free (&result);  
+  return retval;
+}
+
+/**
+ * Checks that the given range of the string is valid ASCII with no
+ * nul bytes. If the given range is not contained in the string,
+ * returns #FALSE.
  *
  * @param str the string
  * @param start first byte index to check
@@ -2249,6 +2442,97 @@ test_base64_roundtrip (const unsigned char *data,
   _dbus_string_free (&encoded);
   _dbus_string_free (&decoded);  
 }
+
+static void
+test_hex_roundtrip (const unsigned char *data,
+                    int                  len)
+{
+  DBusString orig;
+  DBusString encoded;
+  DBusString decoded;
+
+  if (len < 0)
+    len = strlen (data);
+  
+  if (!_dbus_string_init (&orig, _DBUS_INT_MAX))
+    _dbus_assert_not_reached ("could not init string");
+
+  if (!_dbus_string_init (&encoded, _DBUS_INT_MAX))
+    _dbus_assert_not_reached ("could not init string");
+  
+  if (!_dbus_string_init (&decoded, _DBUS_INT_MAX))
+    _dbus_assert_not_reached ("could not init string");
+
+  if (!_dbus_string_append_len (&orig, data, len))
+    _dbus_assert_not_reached ("couldn't append orig data");
+
+  if (!_dbus_string_hex_encode (&orig, 0, &encoded, 0))
+    _dbus_assert_not_reached ("could not encode");
+
+  if (!_dbus_string_hex_decode (&encoded, 0, &decoded, 0))
+    _dbus_assert_not_reached ("could not decode");
+    
+  if (!_dbus_string_equal (&orig, &decoded))
+    {
+      const char *s;
+      
+      printf ("Original string %d bytes encoded %d bytes decoded %d bytes\n",
+              _dbus_string_get_length (&orig),
+              _dbus_string_get_length (&encoded),
+              _dbus_string_get_length (&decoded));
+      printf ("Original: %s\n", data);
+      _dbus_string_get_const_data (&decoded, &s);
+      printf ("Decoded: %s\n", s);
+      _dbus_assert_not_reached ("original string not the same as string decoded from base64");
+    }
+  
+  _dbus_string_free (&orig);
+  _dbus_string_free (&encoded);
+  _dbus_string_free (&decoded);  
+}
+
+typedef void (* TestRoundtripFunc) (const unsigned char *data,
+                                    int                  len);
+static void
+test_roundtrips (TestRoundtripFunc func)
+{
+  (* func) ("Hello this is a string\n", -1);
+  (* func) ("Hello this is a string\n1", -1);
+  (* func) ("Hello this is a string\n12", -1);
+  (* func) ("Hello this is a string\n123", -1);
+  (* func) ("Hello this is a string\n1234", -1);
+  (* func) ("Hello this is a string\n12345", -1);
+  (* func) ("", 0);
+  (* func) ("1", 1);
+  (* func) ("12", 2);
+  (* func) ("123", 3);
+  (* func) ("1234", 4);
+  (* func) ("12345", 5);
+  (* func) ("", 1);
+  (* func) ("1", 2);
+  (* func) ("12", 3);
+  (* func) ("123", 4);
+  (* func) ("1234", 5);
+  (* func) ("12345", 6);
+  {
+    unsigned char buf[512];
+    int i;
+    
+    i = 0;
+    while (i < _DBUS_N_ELEMENTS (buf))
+      {
+        buf[i] = i;
+        ++i;
+      }
+    i = 0;
+    while (i < _DBUS_N_ELEMENTS (buf))
+      {
+        (* func) (buf, i);
+        ++i;
+      }
+  }
+}
+
 
 /**
  * @ingroup DBusStringInternals
@@ -2618,40 +2902,9 @@ _dbus_string_test (void)
   
   _dbus_string_free (&str);
 
-  /* Base 64 */
-  test_base64_roundtrip ("Hello this is a string\n", -1);
-  test_base64_roundtrip ("Hello this is a string\n1", -1);
-  test_base64_roundtrip ("Hello this is a string\n12", -1);
-  test_base64_roundtrip ("Hello this is a string\n123", -1);
-  test_base64_roundtrip ("Hello this is a string\n1234", -1);
-  test_base64_roundtrip ("Hello this is a string\n12345", -1);
-  test_base64_roundtrip ("", 0);
-  test_base64_roundtrip ("1", 1);
-  test_base64_roundtrip ("12", 2);
-  test_base64_roundtrip ("123", 3);
-  test_base64_roundtrip ("1234", 4);
-  test_base64_roundtrip ("12345", 5);
-  test_base64_roundtrip ("", 1);
-  test_base64_roundtrip ("1", 2);
-  test_base64_roundtrip ("12", 3);
-  test_base64_roundtrip ("123", 4);
-  test_base64_roundtrip ("1234", 5);
-  test_base64_roundtrip ("12345", 6);
-  {
-    unsigned char buf[512];
-    i = 0;
-    while (i < _DBUS_N_ELEMENTS (buf))
-      {
-        buf[i] = i;
-        ++i;
-      }
-    i = 0;
-    while (i < _DBUS_N_ELEMENTS (buf))
-      {
-        test_base64_roundtrip (buf, i);
-        ++i;
-      }
-  }
+  /* Base 64 and Hex encoding */
+  test_roundtrips (test_base64_roundtrip);
+  test_roundtrips (test_hex_roundtrip);
   
   return TRUE;
 }

@@ -484,13 +484,6 @@ _dbus_sha_compute (const DBusString *data,
 {
   DBusSHAContext context;
   DBusString digest;
-  const char hexdigits[16] = {
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-    'a', 'b', 'c', 'd', 'e', 'f'
-  };
-  unsigned char *p;
-  unsigned char *end;
-  int orig_len;
 
   _dbus_sha_init (&context);
 
@@ -499,32 +492,17 @@ _dbus_sha_compute (const DBusString *data,
   if (!_dbus_string_init (&digest, _DBUS_INT_MAX))
     return FALSE;
 
-  orig_len = _dbus_string_get_length (ascii_output);
-
   if (!_dbus_sha_final (&context, &digest))
     goto error;
 
-  _dbus_string_get_const_data (&digest, (const char **) &p);
-  end = p + 20;
-
-  while (p != end)
-    {
-      if (!_dbus_string_append_byte (ascii_output,
-                                     hexdigits[(*p >> 4)]))
-        goto error;
-
-      if (!_dbus_string_append_byte (ascii_output,
-                                     hexdigits[(*p & 0x0f)]))
-        goto error;
-
-      ++p;
-    }
+  if (!_dbus_string_hex_encode (&digest, 0, ascii_output,
+                                _dbus_string_get_length (ascii_output)))
+    goto error;
 
   return TRUE;
 
  error:
   _dbus_string_free (&digest);
-  _dbus_string_set_length (ascii_output, orig_len);
   return FALSE;
 }
 

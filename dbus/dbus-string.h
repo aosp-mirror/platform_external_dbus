@@ -147,6 +147,10 @@ dbus_bool_t _dbus_string_parse_int    (const DBusString *str,
                                        int               start,
                                        long             *value_return,
                                        int              *end_return);
+dbus_bool_t _dbus_string_parse_uint   (const DBusString *str,
+                                       int               start,
+                                       unsigned long    *value_return,
+                                       int              *end_return);
 dbus_bool_t _dbus_string_parse_double (const DBusString *str,
                                        int               start,
                                        double           *value,
@@ -196,6 +200,14 @@ dbus_bool_t _dbus_string_base64_encode (const DBusString *source,
                                         DBusString       *dest,
                                         int               insert_at);
 dbus_bool_t _dbus_string_base64_decode (const DBusString *source,
+                                        int               start,
+                                        DBusString       *dest,
+                                        int               insert_at);
+dbus_bool_t _dbus_string_hex_encode    (const DBusString *source,
+                                        int               start,
+                                        DBusString       *dest,
+                                        int               insert_at);
+dbus_bool_t _dbus_string_hex_decode    (const DBusString *source,
                                         int               start,
                                         DBusString       *dest,
                                         int               insert_at);

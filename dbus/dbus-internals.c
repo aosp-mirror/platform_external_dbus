@@ -181,19 +181,6 @@ _dbus_verbose_real (const char *format,
 }
 
 /**
- * A wrapper around strerror() because some platforms
- * may be lame and not have strerror().
- *
- * @param error_number errno.
- * @returns error description.
- */
-const char*
-_dbus_strerror (int error_number)
-{
-  return strerror (error_number);
-}
-
-/**
  * Converts a UNIX errno into a DBusResultCode.
  *
  * @todo should cover more errnos, specifically those

@@ -196,6 +196,10 @@ dbus_set_error_const (DBusError  *error,
 
   if (error == NULL)
     return;
+
+  /* it's a bug to pile up errors */
+  _dbus_assert (error->name == NULL);
+  _dbus_assert (error->message == NULL);
   
   real = (DBusRealError *)error;
   
@@ -225,13 +229,17 @@ dbus_set_error (DBusError  *error,
 		...)
 {
   DBusRealError *real;
-  va_list args, args2;
+  va_list args;
   int message_length;
   char *message;
   char c;
 
   if (error == NULL)
     return;
+
+  /* it's a bug to pile up errors */
+  _dbus_assert (error->name == NULL);
+  _dbus_assert (error->message == NULL);
   
   va_start (args, format);
   /* Measure the message length */
@@ -248,7 +256,7 @@ dbus_set_error (DBusError  *error,
     }
   
   va_start (args, format);  
-  vsprintf (message, format, args2);  
+  vsprintf (message, format, args);  
   va_end (args);
 
   real = (DBusRealError *)error;

@@ -30,6 +30,8 @@ libdbus_1_la_SOURCES=				\
 	dbus-connection.c			\
 	dbus-connection-internal.h		\
 	dbus-errors.c				\
+	dbus-keyring.c				\
+	dbus-keyring.h				\
 	dbus-md5.c				\
 	dbus-md5.h				\
 	dbus-memory.c				\

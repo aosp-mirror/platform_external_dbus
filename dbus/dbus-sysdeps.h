@@ -147,6 +147,8 @@ dbus_bool_t    _dbus_create_file_exclusively (const DBusString *filename,
                                               DBusError        *error);
 dbus_bool_t    _dbus_delete_file             (const DBusString *filename,
                                               DBusError        *error);
+dbus_bool_t    _dbus_create_directory        (const DBusString *filename,
+                                              DBusError        *error);
 
 dbus_bool_t _dbus_concat_dir_and_file (DBusString       *dir,
                                        const DBusString *next_component);

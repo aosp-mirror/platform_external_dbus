@@ -25,6 +25,7 @@
 
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-errors.h>
+#include <dbus/dbus-string.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -37,7 +38,7 @@ void         _dbus_keyring_ref              (DBusKeyring       *keyring);
 void         _dbus_keyring_unref            (DBusKeyring       *keyring);
 dbus_bool_t  _dbus_keyring_validate_context (const DBusString  *context);
 int          _dbus_keyring_get_best_key     (DBusKeyring       *keyring,
-                                             DBusError        **error);
+                                             DBusError         *error);
 dbus_bool_t  _dbus_keyring_create_challenge (DBusString        *challenge);
 dbus_bool_t  _dbus_keyring_compute_response (DBusKeyring       *keyring,
                                              int                key_id,

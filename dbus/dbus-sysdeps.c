@@ -931,6 +931,45 @@ _dbus_string_parse_int (const DBusString *str,
 }
 
 /**
+ * Parses an unsigned integer contained in a DBusString. Either return
+ * parameter may be #NULL if you aren't interested in it. The integer
+ * is parsed and stored in value_return. Return parameters are not
+ * initialized if the function returns #FALSE.
+ *
+ * @param str the string
+ * @param start the byte index of the start of the integer
+ * @param value_return return location of the integer value or #NULL
+ * @param end_return return location of the end of the integer, or #NULL
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_string_parse_uint (const DBusString *str,
+                         int               start,
+                         unsigned long    *value_return,
+                         int              *end_return)
+{
+  unsigned long v;
+  const char *p;
+  char *end;
+
+  _dbus_string_get_const_data_len (str, &p, start,
+                                   _dbus_string_get_length (str) - start);
+
+  end = NULL;
+  errno = 0;
+  v = strtoul (p, &end, 0);
+  if (end == NULL || end == p || errno != 0)
+    return FALSE;
+
+  if (value_return)
+    *value_return = v;
+  if (end_return)
+    *end_return = start + (end - p);
+
+  return TRUE;
+}
+
+/**
  * Parses a floating point number contained in a DBusString. Either
  * return parameter may be #NULL if you aren't interested in it. The
  * integer is parsed and stored in value_return. Return parameters are
@@ -1623,8 +1662,39 @@ _dbus_file_get_contents (DBusString       *str,
     }
 }
 
+static dbus_bool_t
+append_unique_chars (DBusString *str)
+{
+  static const char letters[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  int i;
+  int len;
+
+#define N_UNIQUE_CHARS 8
+  
+  if (!_dbus_generate_random_bytes (str, N_UNIQUE_CHARS))
+    return FALSE;
+  
+  len = _dbus_string_get_length (str);
+  i = len - N_UNIQUE_CHARS;
+  while (i < len)
+    {
+      _dbus_string_set_byte (str, i,
+                             letters[_dbus_string_get_byte (str, i) %
+                                     (sizeof (letters) - 1)]);
+
+      ++i;
+    }
+
+  _dbus_assert (_dbus_string_validate_ascii (str, len - N_UNIQUE_CHARS,
+                                             N_UNIQUE_CHARS));
+
+  return TRUE;
+}
+
 /**
- * Writes a string out to a file.
+ * Writes a string out to a file. If the file exists,
+ * it will be atomically overwritten by the new data.
  *
  * @param str the string to write out
  * @param filename the file to save string to
@@ -1637,15 +1707,41 @@ _dbus_string_save_to_file (const DBusString *str,
   int fd;
   int bytes_to_write;
   const char *filename_c;
+  DBusString tmp_filename;
+  const char *tmp_filename_c;
   int total;
-
-  _dbus_string_get_const_data (filename, &filename_c);
+  DBusResultCode result;
+  dbus_bool_t need_unlink;
   
-  fd = open (filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
+  fd = -1;
+  result = DBUS_RESULT_FAILED;
+  need_unlink = FALSE;
+  
+  if (!_dbus_string_init (&tmp_filename, _DBUS_INT_MAX))
+    return DBUS_RESULT_NO_MEMORY;
+
+  if (!_dbus_string_copy (filename, 0, &tmp_filename, 0))
+    return DBUS_RESULT_NO_MEMORY;
+  
+  if (!_dbus_string_append (&tmp_filename, "."))
+    return DBUS_RESULT_NO_MEMORY;
+  
+  if (!append_unique_chars (&tmp_filename))
+    return DBUS_RESULT_NO_MEMORY;
+    
+  _dbus_string_get_const_data (filename, &filename_c);
+  _dbus_string_get_const_data (&tmp_filename, &tmp_filename_c);
+
+  fd = open (tmp_filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
              0600);
   if (fd < 0)
-    return _dbus_result_from_errno (errno);
+    {
+      result = _dbus_result_from_errno (errno);
+      goto out;
+    }
 
+  need_unlink = TRUE;
+  
   total = 0;
   bytes_to_write = _dbus_string_get_length (str);
 
@@ -1665,15 +1761,45 @@ _dbus_string_save_to_file (const DBusString *str,
           _dbus_verbose ("write() failed: %s",
                          _dbus_strerror (errno));
           
-          close (fd);          
-          return result;
+          goto out;
         }
 
       total += bytes_written;
     }
 
-  close (fd);
-  return DBUS_RESULT_SUCCESS;
+  if (close (fd) < 0)
+    {
+      _dbus_verbose ("close() failed: %s\n", _dbus_strerror (errno));
+      goto out;
+    }
+
+  fd = -1;
+  
+  if (rename (tmp_filename_c, filename_c) < 0)
+    {
+      _dbus_verbose ("rename() failed: %s\n", _dbus_strerror (errno));
+      goto out;
+    }
+
+  need_unlink = FALSE;
+  
+  result = DBUS_RESULT_SUCCESS;
+  
+ out:
+  /* close first, then unlink, to prevent ".nfs34234235" garbage
+   * files
+   */
+
+  if (fd >= 0)
+    close (fd);
+        
+  if (need_unlink && unlink (tmp_filename_c) < 0)
+    _dbus_verbose ("Failed to unlink temp file %s: %s\n",
+                   tmp_filename_c, _dbus_strerror (errno));
+
+  _dbus_string_free (&tmp_filename);
+  
+  return result;
 }
 
 /** Creates the given file, failing if the file already exists.
@@ -1733,7 +1859,42 @@ _dbus_delete_file (const DBusString *filename,
   _dbus_string_get_const_data (filename, &filename_c);
 
   if (unlink (filename_c) < 0)
-    return FALSE;
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Failed to delete file %s: %s\n",
+                      filename_c, _dbus_strerror (errno));
+      return FALSE;
+    }
+  else
+    return TRUE;
+}
+
+/**
+ * Creates a directory; succeeds if the directory
+ * is created or already existed.
+ *
+ * @param filename directory filename
+ * @param error initialized error object
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_create_directory (const DBusString *filename,
+                        DBusError        *error)
+{
+  const char *filename_c;
+
+  _dbus_string_get_const_data (filename, &filename_c);
+
+  if (mkdir (filename_c, 0700) < 0)
+    {
+      if (errno == EEXIST)
+        return TRUE;
+      
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Failed to create directory %s: %s\n",
+                      filename_c, _dbus_strerror (errno));
+      return FALSE;
+    }
   else
     return TRUE;
 }
@@ -1907,6 +2068,8 @@ _dbus_generate_random_bytes (DBusString *str,
       int i;
 
       /* fall back to pseudorandom */
+      _dbus_verbose ("Falling back to pseudorandom for %d bytes\n",
+                     n_bytes);
       
       _dbus_get_current_time (NULL, &tv_usec);
       srand (tv_usec);
@@ -1915,7 +2078,7 @@ _dbus_generate_random_bytes (DBusString *str,
       while (i < n_bytes)
         {
           double r;
-          int b;
+          unsigned int b;
           
           r = rand ();
           b = (r / (double) RAND_MAX) * 255.0;
@@ -1933,6 +2096,9 @@ _dbus_generate_random_bytes (DBusString *str,
       if (_dbus_read (fd, str, n_bytes) != n_bytes)
         goto failed;
 
+      _dbus_verbose ("Read %d bytes from /dev/urandom\n",
+                     n_bytes);
+      
       close (fd);
 
       return TRUE;
@@ -1948,6 +2114,9 @@ _dbus_generate_random_bytes (DBusString *str,
 /**
  * A wrapper around strerror()
  *
+ * @todo get rid of this function, it's the same as
+ * _dbus_strerror().
+ * 
  * @param errnum the errno
  * @returns an error message (never #NULL)
  */
@@ -1957,6 +2126,25 @@ _dbus_errno_to_string (int errnum)
   const char *msg;
   
   msg = strerror (errnum);
+  if (msg == NULL)
+    msg = "unknown";
+
+  return msg;
+}
+
+/**
+ * A wrapper around strerror() because some platforms
+ * may be lame and not have strerror().
+ *
+ * @param error_number errno.
+ * @returns error description.
+ */
+const char*
+_dbus_strerror (int error_number)
+{
+  const char *msg;
+  
+  msg = strerror (error_number);
   if (msg == NULL)
     msg = "unknown";
 
