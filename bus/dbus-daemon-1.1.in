@@ -1,0 +1,384 @@
+.\" 
+.\" dbus-daemon-1 manual page.
+.\" Copyright (C) 2003 Red Hat, Inc.
+.\"
+.TH dbus-daemon-1 1
+.SH NAME
+dbus-daemon-1 \- Message bus daemon
+.SH SYNOPSIS
+.PP
+.B dbus-daemon-1
+dbus-daemon-1 [\-\-version] [\-\-session] [\-\-system] [\-\-config-file=FILE]
+[\-\-print-address[=DESCRIPTOR]]
+
+.SH DESCRIPTION
+
+\fIdbus-daemon-1\fP is the D-BUS message bus daemon. See
+http://www.freedesktop.org/software/dbus/ for more information about
+the big picture. D-BUS is first a library that provides one-to-one
+communication between any two applications; \fIdbus-daemon-1\fP is an
+application that uses this library to implement a message bus
+daemon. Multiple programs connect to the message bus daemon and can
+exchange messages with one another.
+
+.PP
+There are two standard message bus instances: the systemwide message bus 
+(installed on many systems as the "messagebus" service) and the 
+per-user-login-session message bus (started each time a user logs in).
+\fIdbus-daemon-1\fP is used for both of these instances, but with 
+a different configuration file.
+
+.PP
+The \-\-session option is equivalent to
+"\-\-config-file=@EXPANDED_SYSCONFDIR@/dbus-1/session.conf" and the \-\-system
+option is equivalent to
+"\-\-config-file=@EXPANDED_SYSCONFDIR@/dbus-1/system.conf". By creating 
+additional configuration files and using the \-\-config-file option,
+additional special-purpose message bus daemons could be created.
+
+.PP
+The systemwide daemon is normally launched by an init script, 
+standardly called simply "messagebus". 
+
+.PP
+The systemwide daemon is largely used for broadcasting system events, 
+such as changes to the printer queue, or adding/removing devices.
+
+.PP
+The per-session daemon is used for various interprocess communication 
+among desktop applications (however, it is not tied to X or the GUI 
+in any way).
+
+.SH OPTIONS
+The following options are supported:
+.TP
+.I "--config-file=FILE"
+Use the given configuration file.
+.TP
+.I "--print-address[=DESCRIPTOR]"
+Print the address of the message bus to standard output, or 
+to the given file descriptor. This is used by programs that 
+launch the message bus.
+.TP
+.I "--session"
+Use the standard configuration file for the per-login-session message
+bus.
+.TP
+.I "--system"
+Use the standard configuration file for the systemwide message bus.
+.TP
+.I "--version"
+Print the version of the daemon.
+
+.SH CONFIGURATION FILE
+
+A message bus daemon has a configuration file that specializes it
+for a particular application. For example, one configuration 
+file might set up the message bus to be a systemwide message bus, 
+while another might set it up to be a per-user-login-session bus.
+
+.PP
+The configuration file also establishes resource limits, security
+parameters, and so forth.
+
+.PP
+The configuration file is not part of any interoperability
+specification and its backward compatibility is not guaranteed; this
+document is documentation, not specification.
+
+.PP
+The standard systemwide and per-session message bus setups are
+configured in the files "@EXPANDED_SYSCONFDIR@/dbus-1/system.conf" and
+"@EXPANDED_SYSCONFDIR@/dbus-1/session.conf".  These files normally
+<include> a system-local.conf or session-local.conf; you can put local
+overrides in those files to avoid modifying the primary configuration
+files.
+
+.PP
+The configuration file is an XML document. It must have the following
+doctype declaration:
+.nf
+
+   <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+    "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+
+.fi
+
+.PP
+The following elements may be present in the configuration file.
+
+.TP
+.I "<busconfig>"
+ 
+.PP
+Root element.
+
+.TP
+.I "<type>"
+
+.PP
+The well-known type of the message bus. Currently known values are
+"system" and "session"; if other values are set, they should be
+either added to the D-BUS specification, or namespaced.  The last
+<type> element "wins" (previous values are ignored).
+
+.PP
+Example: <type>session</type>
+
+.TP
+.I "<include>"
+ 
+.PP  
+Include a file <include>filename.conf</include> at this point.  If the
+filename is relative, it is located relative to the configuration file
+doing the including.
+
+.PP
+<include> has an optional attribute "ignore_missing=(yes|no)"
+which defaults to "no" if not provided. This attribute 
+controls whether it's a fatal error for the included file 
+to be absent.
+
+.TP
+.I "<includedir>"
+
+.PP
+Include all files in <includedir>foo.d</includedir> at this
+point. Files in the directory are included in undefined order.
+Only files ending in ".conf" are included.
+
+.PP
+This is intended to allow extension of the system bus by particular
+packages. For example, if CUPS wants to be able to send out
+notification of printer queue changes, it could install a file to
+@EXPANDED_SYSCONFDIR@/dbus-1/system.d that allowed all apps to receive
+this message and allowed the printer daemon user to send it.
+
+.TP
+.I "<user>"
+
+.PP
+The user account the daemon should run as, as either a username or a
+UID. If the daemon cannot change to this UID on startup, it will exit.
+If this element is not present, the daemon will not change or care
+about its UID.
+
+.PP
+The last <user> entry in the file "wins", the others are ignored.
+
+.PP
+The user is changed after the bus has completed initialization.  So
+sockets etc. will be created before changing user, but no data will be
+read from clients before changing user. This means that sockets 
+and PID files can be created in a location that requires root 
+privileges for writing.
+
+.TP
+.I "<fork>"
+    
+.PP
+If present, the bus daemon becomes a real daemon (forks 
+into the background, etc.).
+
+.TP
+.I "<listen>"
+
+.PP
+Add an address that the bus should listen on. The 
+address is in the standard D-BUS format that contains 
+a transport name plus possible parameters/options.
+
+.PP
+Example: <listen>unix:path=/tmp/foo</listen>
+
+.PP
+If there are multiple <listen> elements, then the bus listens 
+on multiple addresses. The bus will pass its address to 
+activated services or other interested parties with 
+the last address given in <listen> first. That is, 
+apps will try to connect to the last <listen> address first.
+
+.TP
+.I "<auth>"
+
+.PP
+Lists permitted authorization mechanisms. If this element doesn't
+exist, then all known mechanisms are allowed.  If there are multiple
+<auth> elements, all the listed mechanisms are allowed.  The order in
+which mechanisms are listed is not meaningful.
+    
+.PP
+Example: <auth>EXTERNAL</auth>
+
+.PP
+Example: <auth>DBUS_COOKIE_SHA1</auth>
+
+.TP
+.I "<servicedir>"
+
+.PP
+Adds a directory to scan for .service files. Directories are
+scanned starting with the last to appear in the config file 
+(the first .service file found that provides a particular 
+service will be used).
+
+.PP
+Service files tell the bus how to automatically start a particular
+service. They are primarily used with the per-user-session bus, 
+not the systemwide bus.
+
+.TP
+.I "<limit>"
+
+.PP
+<limit> establishes a resource limit. For example:
+.nf
+  <limit name="max_message_size">64</limit>
+  <limit name="max_completed_connections">512</limit>
+.fi
+
+.PP
+The name attribute is mandatory.
+Available limit names are:
+.nf
+      "max_incoming_bytes"         : total size in bytes of messages
+                                     incoming from a single connection
+      "max_outgoing_bytes"         : total size in bytes of messages
+                                     queued up for a single connection
+      "max_message_size"           : max size of a single message in
+                                     bytes
+      "activation_timeout"         : milliseconds (thousandths) until 
+                                     an activated service has to connect
+      "auth_timeout"               : milliseconds (thousandths) a
+                                     connection is given to
+                                     authenticate
+      "max_completed_connections"  : max number of authenticated connections  
+      "max_incomplete_connections" : max number of unauthenticated
+                                     connections
+      "max_connections_per_user"   : max number of completed connections from
+                                     the same user
+      "max_pending_activations"    : max number of activations in
+                                     progress at the same time
+      "max_services_per_connection": max number of services a single 
+                                     connection can own
+.fi
+
+.PP
+The max incoming/outgoing queue sizes allow a new message to be queued
+if one byte remains below the max. So you can in fact exceed the max
+by max_message_size.
+
+.PP
+max_completed_connections divided by max_connections_per_user is the
+number of users that can work together to DOS all other users by using
+up all connections.
+
+.TP
+.I "<policy>"
+
+.PP
+The <policy> element defines a policy to be applied to a particular
+set of connections to the bus. A policy is made up of
+<allow> and <deny> elements.
+
+.PP
+The <policy> element has one of three attributes:
+.nf
+  context="(default|mandatory)"
+  user="username or userid"
+  group="group name or gid"
+.fi
+
+.PP
+ 
+Policies are applied to a connection as follows:
+.nf
+   - all context="default" policies are applied
+   - all group="connection's user's group" policies are applied
+     in undefined order
+   - all user="connection's auth user" policies are applied
+     in undefined order
+   - all context="mandatory" policies are applied
+.fi
+
+.PP
+Policies applied later will override those applied earlier, 
+when the policies overlap. Multiple policies with the same 
+user/group/context are applied in the order they appear 
+in the config file.
+
+.TP
+.I "<deny>"
+
+.PP
+A <deny> element appears below a <policy> element and prohibits 
+some action. The possible attributes of a <deny> element are:
+.nf
+   send="messagename"
+   receive="messagename"
+   own="servicename"
+   send_to="servicename"
+   receive_from="servicename"
+   user="username"
+   group="groupname"
+.fi
+
+.PP
+Examples:
+.nf
+   <deny send="org.freedesktop.System.Reboot"/> 
+   <deny receive="org.freedesktop.System.Reboot"/>
+   <deny own="org.freedesktop.System"/>
+   <deny send_to="org.freedesktop.System"/>
+   <deny receive_from="org.freedesktop.System"/>
+   <deny user="john"/>
+   <deny group="enemies"/>
+.fi
+
+.PP
+The <deny> attributes determine whether the deny "matches" a
+particular action. If it matches, the action is denied (unless later
+rules in the config file allow it).
+
+.PP
+send_to and receive_from mean that messages may not be sent to or
+received from the *owner* of the given service, not that they may not
+be sent *to that service name*. That is, if a connection owns services
+A, B, C, and sending to A is denied, sending to B or C will not work
+either.
+
+.PP
+user and group denials mean that the given user or group may 
+not connect to the message bus.
+
+.PP
+For "servicename" or "messagename" or "username" or "groupname"
+the character "*" can be substituted, meaning "any." Complex globs
+like "foo.bar.*" aren't allowed for now because they'd be work to
+implement and maybe encourage sloppy security anyway.
+
+.PP
+It does not make sense to deny a user or group inside a <policy>
+for a user or group; user/group denials can only be inside
+context="default" or context="mandatory" policies.
+
+.PP
+A single <deny> rule may specify both send and send_to, OR both
+receive and receive_from. In this case, the denial applies only if
+both attributes match the message being denied.
+e.g. <deny send="foo.bar" send_to="foo.blah"/> would deny 
+messages of the given name AND to the given service.
+
+.TP
+.I "<allow>"
+
+.PP
+Makes an exception to previous <deny> statements. Works 
+just like <deny> but with the inverse meaning.
+
+.SH AUTHOR
+See http://www.freedesktop.org/software/dbus/doc/AUTHORS
+
+.SH BUGS
+Please send bug reports to the D-BUS mailing list or bug tracker,
+see http://www.freedesktop.org/software/dbus/

@@ -1,5 +1,12 @@
 2003-05-03  Havoc Pennington  <hp@pobox.com>
 
+	* bus/Makefile.am, bus/dbus-daemon-1.1.in: man page for the
+	daemon; also documents daemon config file, so replaces
+	doc/config-file.txt. Corrected some stuff from config-file.txt in
+	the process of moving it.
+
+2003-05-03  Havoc Pennington  <hp@pobox.com>
+
 	* tools/Makefile.am, tools/dbus-send.1, tools/dbus-monitor.1: 
 	add some man pages
 

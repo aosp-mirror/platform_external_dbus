@@ -584,12 +584,13 @@ AC_SUBST(DBUS_SESSION_SOCKET_DIR)
 
 AC_OUTPUT([
 Doxyfile
+dbus/dbus-arch-deps.h
 bus/system.conf
 bus/session.conf
 bus/messagebus
+bus/dbus-daemon-1.1
 Makefile
 dbus/Makefile
-dbus/dbus-arch-deps.h
 glib/Makefile
 qt/Makefile
 bus/Makefile

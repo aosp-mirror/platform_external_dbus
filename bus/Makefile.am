@@ -100,9 +100,12 @@ initd_SCRIPTS= 	\
 endif
  ## Red Hat end
 
+MAN_IN_FILES=dbus-daemon-1.1.in
+man_MANS = dbus-daemon-1.1
+
 #### Extra dist 
 
-EXTRA_DIST=$(CONFIG_IN_FILES) $(SCRIPT_IN_FILES)
+EXTRA_DIST=$(CONFIG_IN_FILES) $(SCRIPT_IN_FILES) $(man_MANS) $(MAN_IN_FILES)
 
 if DBUS_BUILD_TESTS
 ### nothing

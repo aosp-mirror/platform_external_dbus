@@ -50,3 +50,7 @@
  - if you send a message to a service then block for reply, and the service exits/crashes
    after the message bus has processed your message but before the service has replied, 
    it would be nice if the message bus sent you an error reply.
+
+ - write a DTD for the dbus-daemon-1 configuration file
+
+ - build and install the Doxygen manual in Makefile when --enable-docs
