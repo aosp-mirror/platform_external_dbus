@@ -173,8 +173,6 @@ variant_reader_recurse (DBusTypeReader *sub,
 {
   int sig_len;
 
-  _dbus_assert (!_dbus_type_reader_array_is_empty (parent));
-
   base_reader_recurse (sub, parent);
 
   /* Variant is 1 byte sig length (without nul), signature with nul,
@@ -324,11 +322,12 @@ base_reader_next (DBusTypeReader *reader,
   switch (current_type)
     {
     case DBUS_TYPE_STRUCT:
+    case DBUS_TYPE_VARIANT:
       /* Scan forward over the entire container contents */
       {
         DBusTypeReader sub;
 
-        /* Recurse into the struct */
+        /* Recurse into the struct or variant */
         _dbus_type_reader_recurse (reader, &sub);
 
         /* Skip everything in this subreader */
@@ -337,8 +336,15 @@ base_reader_next (DBusTypeReader *reader,
             /* nothing */;
           }
 
-        /* Now we are at the end of this container */
-        reader->type_pos = sub.type_pos;
+        /* Now we are at the end of this container; for variants, the
+         * subreader's type_pos is totally inapplicable (it's in the
+         * value string) but we know that we increment by one past the
+         * DBUS_TYPE_VARIANT
+         */
+        if (current_type == DBUS_TYPE_VARIANT)
+          reader->type_pos += 1;
+        else
+          reader->type_pos = sub.type_pos;
 
         if (!reader->klass->types_only)
           reader->value_pos = sub.value_pos;
@@ -412,33 +418,42 @@ array_reader_next (DBusTypeReader *reader,
   _dbus_assert (reader->value_pos < end_pos);
   _dbus_assert (reader->value_pos >= reader->u.array.start_pos);
 
-  if (reader->u.array.element_type == DBUS_TYPE_STRUCT)
+  switch (reader->u.array.element_type)
     {
-      DBusTypeReader sub;
+    case DBUS_TYPE_STRUCT:
+    case DBUS_TYPE_VARIANT:
+      {
+        DBusTypeReader sub;
 
-      /* Recurse into the struct */
-      _dbus_type_reader_recurse (reader, &sub);
+        /* Recurse into the struct or variant */
+        _dbus_type_reader_recurse (reader, &sub);
 
-      /* Skip everything in this element */
-      while (_dbus_type_reader_next (&sub))
-        {
-          /* nothing */;
-        }
+        /* Skip everything in this element */
+        while (_dbus_type_reader_next (&sub))
+          {
+            /* nothing */;
+          }
 
-      /* Now we are at the end of this element */
-      reader->value_pos = sub.value_pos;
-    }
-  else if (reader->u.array.element_type == DBUS_TYPE_ARRAY)
-    {
-      skip_array_values (first_type_in_signature (reader->type_str,
-                                                  reader->type_pos + 1),
-                         reader->value_str, &reader->value_pos, reader->byte_order);
-    }
-  else
-    {
-      _dbus_marshal_skip_basic_type (reader->value_str,
-                                     current_type, reader->byte_order,
-                                     &reader->value_pos);
+        /* Now we are at the end of this element */
+        reader->value_pos = sub.value_pos;
+      }
+      break;
+
+    case DBUS_TYPE_ARRAY:
+      {
+        skip_array_values (first_type_in_signature (reader->type_str,
+                                                    reader->type_pos + 1),
+                           reader->value_str, &reader->value_pos, reader->byte_order);
+      }
+      break;
+
+    default:
+      {
+        _dbus_marshal_skip_basic_type (reader->value_str,
+                                       current_type, reader->byte_order,
+                                       &reader->value_pos);
+      }
+      break;
     }
 
   _dbus_assert (reader->value_pos <= end_pos);
@@ -828,14 +843,16 @@ writer_recurse_init_and_check (DBusTypeWriter *writer,
 #endif /* DBUS_DISABLE_CHECKS */
 
 #if RECURSIVE_MARSHAL_TRACE
-  _dbus_verbose ("  type writer %p recurse parent type_pos = %d value_pos = %d is_expectation = %d container_type = %s remaining sig '%s'\n",
-                 writer, writer->type_pos, writer->value_pos, writer->type_pos_is_expectation,
+  _dbus_verbose ("  type writer %p recurse parent %s type_pos = %d value_pos = %d is_expectation = %d remaining sig '%s'\n",
+                 writer,
                  _dbus_type_to_string (writer->container_type),
+                 writer->type_pos, writer->value_pos, writer->type_pos_is_expectation,
                  _dbus_string_get_const_data_len (writer->type_str, writer->type_pos, 0));
-  _dbus_verbose ("  type writer %p recurse sub    type_pos = %d value_pos = %d is_expectation = %d container_type = %s\n",
-                 sub, sub->type_pos, sub->value_pos,
-                 sub->type_pos_is_expectation,
-                 _dbus_type_to_string (sub->container_type));
+  _dbus_verbose ("  type writer %p recurse sub %s   type_pos = %d value_pos = %d is_expectation = %d\n",
+                 sub,
+                 _dbus_type_to_string (sub->container_type),
+                 sub->type_pos, sub->value_pos,
+                 sub->type_pos_is_expectation);
 #endif
 }
 
@@ -864,7 +881,7 @@ write_or_verify_typecode (DBusTypeWriter *writer,
 
         if (expected != typecode)
           {
-            _dbus_warn ("Array or Variant type requires that type %s be written, but %s was written\n",
+            _dbus_warn ("Array or variant type requires that type %s be written, but %s was written\n",
                         _dbus_type_to_string (expected), _dbus_type_to_string (typecode));
             _dbus_assert_not_reached ("bad type inserted somewhere inside an array or variant");
           }
@@ -1076,7 +1093,7 @@ _dbus_type_writer_recurse_variant (DBusTypeWriter *writer,
     return FALSE;
 
   /* write VARIANT typecode to the parent's type string */
-  if (!write_or_verify_typecode (sub, DBUS_TYPE_VARIANT))
+  if (!write_or_verify_typecode (writer, DBUS_TYPE_VARIANT))
     return FALSE;
 
   if (!_dbus_string_insert_byte (sub->value_str,
@@ -1496,6 +1513,14 @@ static dbus_bool_t array_9_read_value       (TestTypeNode   *node,
                                              DataBlock      *block,
                                              DBusTypeReader *reader,
                                              int             seed);
+static dbus_bool_t variant_write_value      (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeWriter *writer,
+                                             int             seed);
+static dbus_bool_t variant_read_value       (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeReader *reader,
+                                             int             seed);
 static void        container_destroy        (TestTypeNode   *node);
 
 
@@ -1600,6 +1625,16 @@ static const TestTypeNodeClass array_9_class = {
   array_build_signature
 };
 
+static const TestTypeNodeClass variant_class = {
+  DBUS_TYPE_VARIANT,
+  sizeof (TestTypeNodeContainer),
+  NULL,
+  container_destroy,
+  variant_write_value,
+  variant_read_value,
+  NULL
+};
+
 static const TestTypeNodeClass* const
 basic_nodes[] = {
   &int32_class,
@@ -1615,7 +1650,8 @@ container_nodes[] = {
   &array_1_class,
   &struct_2_class,
   &array_0_class,
-  &array_2_class
+  &array_2_class,
+  &variant_class
   /* array_9_class is omitted on purpose, it's too slow;
    * we only use it in one hardcoded test below
    */
@@ -2101,7 +2137,7 @@ make_and_run_test_nodes (void)
 
     node_destroy (node);
   }
-  
+
   _dbus_verbose (">>> >>> Each container of each container of each value %d iterations\n",
                  N_CONTAINERS * N_CONTAINERS * N_VALUES);
   for (i = 0; i < N_CONTAINERS; i++)
@@ -2274,7 +2310,7 @@ int32_write_value (TestTypeNode   *node,
   dbus_int32_t v;
 
   v = int32_from_seed (seed);
-  
+
   return _dbus_type_writer_write_basic (writer,
                                         node->klass->typecode,
                                         &v);
@@ -2293,7 +2329,7 @@ int32_read_value (TestTypeNode   *node,
 
   _dbus_type_reader_read_basic (reader,
                                 (dbus_int32_t*) &v);
-  
+
   _dbus_assert (v == int32_from_seed (seed));
 
   return TRUE;
@@ -2305,12 +2341,12 @@ int64_from_seed (int seed)
 {
   dbus_int32_t v32;
   dbus_int64_t v;
-  
+
   v32 = int32_from_seed (seed);
 
   v = - (dbus_int32_t) ~ v32;
   v |= (((dbus_int64_t)v32) << 32);
-  
+
   return v;
 }
 #endif
@@ -2326,7 +2362,7 @@ int64_write_value (TestTypeNode   *node,
   dbus_int64_t v;
 
   v = int64_from_seed (seed);
-  
+
   return _dbus_type_writer_write_basic (writer,
                                         node->klass->typecode,
                                         &v);
@@ -2349,7 +2385,7 @@ int64_read_value (TestTypeNode   *node,
 
   _dbus_type_reader_read_basic (reader,
                                 (dbus_int64_t*) &v);
-  
+
   _dbus_assert (v == int64_from_seed (seed));
 
   return TRUE;
@@ -2597,6 +2633,7 @@ array_N_write_value (TestTypeNode   *node,
   if (!_dbus_type_writer_unrecurse (writer, &sub))
     goto oom;
 
+  _dbus_string_free (&element_signature);
   return TRUE;
 
  oom:
@@ -2734,7 +2771,6 @@ array_2_read_value (TestTypeNode   *node,
   return array_N_read_value (node, block, reader, 2);
 }
 
-
 static dbus_bool_t
 array_9_write_value (TestTypeNode   *node,
                      DataBlock      *block,
@@ -2751,6 +2787,82 @@ array_9_read_value (TestTypeNode   *node,
                     int             seed)
 {
   return array_N_read_value (node, block, reader, 9);
+}
+
+ /* 10 is random just to add another seed that we use in the suite */
+#define VARIANT_SEED 10
+
+static dbus_bool_t
+variant_write_value (TestTypeNode   *node,
+                     DataBlock      *block,
+                     DBusTypeWriter *writer,
+                     int             seed)
+{
+  TestTypeNodeContainer *container = (TestTypeNodeContainer*) node;
+  DataBlockState saved;
+  DBusTypeWriter sub;
+  DBusString content_signature;
+  TestTypeNode *child;
+
+  _dbus_assert (container->children != NULL);
+  _dbus_assert (_dbus_list_length_is_one (&container->children));
+
+  child = _dbus_list_get_first (&container->children);
+
+  data_block_save (block, &saved);
+
+  if (!_dbus_string_init (&content_signature))
+    return FALSE;
+
+  if (!node_build_signature (child,
+                             &content_signature))
+    goto oom;
+
+  if (!_dbus_type_writer_recurse_variant (writer,
+                                          _dbus_string_get_const_data (&content_signature),
+                                          &sub))
+    goto oom;
+
+  if (!node_write_value (child, block, &sub, VARIANT_SEED))
+    goto oom;
+
+  if (!_dbus_type_writer_unrecurse (writer, &sub))
+    goto oom;
+
+  _dbus_string_free (&content_signature);
+  return TRUE;
+
+ oom:
+  data_block_restore (block, &saved);
+  _dbus_string_free (&content_signature);
+  return FALSE;
+}
+
+static dbus_bool_t
+variant_read_value (TestTypeNode   *node,
+                    DataBlock      *block,
+                    DBusTypeReader *reader,
+                    int             seed)
+{
+  TestTypeNodeContainer *container = (TestTypeNodeContainer*) node;
+  DBusTypeReader sub;
+  TestTypeNode *child;
+
+  _dbus_assert (container->children != NULL);
+  _dbus_assert (_dbus_list_length_is_one (&container->children));
+
+  child = _dbus_list_get_first (&container->children);
+
+  check_expected_type (reader, DBUS_TYPE_VARIANT);
+
+  _dbus_type_reader_recurse (reader, &sub);
+
+  if (!node_read_value (child, block, &sub, VARIANT_SEED))
+    return FALSE;
+
+  NEXT_EXPECTING_FALSE (&sub);
+
+  return TRUE;
 }
 
 static void
