@@ -867,6 +867,9 @@ check_babysit_events (pid_t grandchild_pid,
   do
     {
       ret = waitpid (grandchild_pid, &status, WNOHANG);
+      /* The man page says EINTR can't happen with WNOHANG,
+       * but there are reports of it (maybe only with valgrind?)
+       */
     }
   while (ret < 0 && errno == EINTR);
 
