@@ -1,3 +1,8 @@
+2004-03-18  Richard Hult  <richard@imendio.com>
+
+	* dbus/dbus-message.c (dbus_message_get_auto_activation) 
+	(dbus_message_set_auto_activation): Add doxygen docs.
+
 2004-03-16  Richard Hult  <richard@imendio.com>
 
 	* bus/activation.c: (bus_activation_service_created),

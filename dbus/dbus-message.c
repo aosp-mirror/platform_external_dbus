@@ -4387,6 +4387,16 @@ dbus_message_get_no_reply (DBusMessage *message)
   return (*header & DBUS_HEADER_FLAG_NO_REPLY_EXPECTED) != 0;
 }
 
+
+/**
+ * Sets a flag indicating that the addressed service will be auto-activated
+ * before the message is delivered. When this flag is set, the message is held
+ * until the service is succesfully activated or fail to activate. In case of
+ * failure, the reply will be an activation error.
+ *
+ * @param message the message
+ * @param auto_activation #TRUE if auto-activation is desired
+ */
 void
 dbus_message_set_auto_activation (DBusMessage *message,
 				  dbus_bool_t  auto_activation)
@@ -4404,6 +4414,13 @@ dbus_message_set_auto_activation (DBusMessage *message,
     *header &= ~DBUS_HEADER_FLAG_AUTO_ACTIVATION;
 }
 
+/**
+ * Returns #TRUE if the message will cause the addressed service to be
+ * auto-activated.
+ *
+ * @param message the message
+ * @returns #TRUE if the message will use auto-activation
+ */
 dbus_bool_t
 dbus_message_get_auto_activation (DBusMessage *message)
 {
