@@ -11,7 +11,6 @@ main (int argc, char **argv)
 {
   DBusConnection *connection;
   GError *error;
-  int i;
   
   g_type_init ();
   

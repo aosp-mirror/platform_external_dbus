@@ -70,8 +70,8 @@ struct ArgInfo
 BaseInfo *
 base_info_ref (BaseInfo *info)
 {
-  g_return_if_fail (info != NULL);
-  g_return_if_fail (info->refcount > 0);
+  g_return_val_if_fail (info != NULL, NULL);
+  g_return_val_if_fail (info->refcount > 0, NULL);
   
   info->refcount += 1;
 

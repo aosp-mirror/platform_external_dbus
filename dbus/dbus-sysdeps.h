@@ -25,6 +25,8 @@
 #ifndef DBUS_SYSDEPS_H
 #define DBUS_SYSDEPS_H
 
+#include <config.h>
+
 #include <dbus/dbus-errors.h>
 
 /* this is perhaps bogus, but strcmp() etc. are faster if we use the

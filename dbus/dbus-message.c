@@ -171,6 +171,23 @@ clear_header_padding (DBusMessage *message)
   message->header_padding = 0;
 }              
 
+#ifdef DBUS_DISABLE_CHECKS
+#define is_valid_error_name(x) TRUE
+#else
+static dbus_bool_t
+is_valid_error_name (const char *error_name)                                          
+{
+  DBusString the_error_name;
+
+  if (error_name == NULL)
+    return FALSE;
+  
+  _dbus_string_init_const (&the_error_name, error_name);
+  return _dbus_string_validate_error_name (&the_error_name, 0,   
+                                           _dbus_string_get_length (&the_error_name));
+}
+#endif
+
 static dbus_bool_t
 append_header_padding (DBusMessage *message)
 {
@@ -1022,6 +1039,7 @@ dbus_message_create_header (DBusMessage *message,
   _dbus_assert ((interface && member) ||
                 (error_name) ||
                 !(interface || member || error_name));
+  _dbus_assert (error_name == NULL || is_valid_error_name (error_name));
   
   if (!_dbus_string_append_byte (&message->header, message->byte_order))
     return FALSE;
@@ -1378,6 +1396,7 @@ dbus_message_new_error (DBusMessage *reply_to,
 
   _dbus_return_val_if_fail (reply_to != NULL, NULL);
   _dbus_return_val_if_fail (error_name != NULL, NULL);
+  _dbus_return_val_if_fail (is_valid_error_name (error_name), NULL);
   
   sender = get_string_field (reply_to,
                              DBUS_HEADER_FIELD_SENDER,
@@ -1441,6 +1460,10 @@ dbus_message_new_error_printf (DBusMessage *reply_to,
   DBusString str;
   DBusMessage *message;
 
+  _dbus_return_val_if_fail (reply_to != NULL, NULL);
+  _dbus_return_val_if_fail (error_name != NULL, NULL);
+  _dbus_return_val_if_fail (is_valid_error_name (error_name), NULL);
+  
   if (!_dbus_string_init (&str))
     return NULL;
 
@@ -1787,7 +1810,9 @@ dbus_message_set_error_name (DBusMessage  *message,
 {
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_fail (!message->locked, FALSE);
-
+  _dbus_return_val_if_fail (error_name != NULL, FALSE);
+  _dbus_return_val_if_fail (is_valid_error_name (error_name), FALSE);
+  
   return set_string_field (message,
                            DBUS_HEADER_FIELD_ERROR_NAME,
                            DBUS_TYPE_STRING,
@@ -3819,6 +3844,9 @@ dbus_message_append_args_valist (DBusMessage *message,
 	    goto errorout;
 	  break;
 	case DBUS_TYPE_BYTE:
+          /* FIXME if you pass an unsigned char to varargs it gets promoted to int,
+           * so probably we should read an int here.
+           */
 	  if (!dbus_message_iter_append_byte (&iter, va_arg (var_args, unsigned char)))
 	    goto errorout;
 	  break;
@@ -3827,10 +3855,16 @@ dbus_message_append_args_valist (DBusMessage *message,
 	    goto errorout;
 	  break;
 	case DBUS_TYPE_INT32:
+          /* FIXME this is probably wrong, because an int passed in probably gets
+           * converted to plain "int" not necessarily 32-bit.
+           */
 	  if (!dbus_message_iter_append_int32 (&iter, va_arg (var_args, dbus_int32_t)))
 	    goto errorout;
 	  break;
 	case DBUS_TYPE_UINT32:
+          /* FIXME this is probably wrong, because an int passed in probably gets
+           * converted to plain "int" not necessarily 32-bit.
+           */
 	  if (!dbus_message_iter_append_uint32 (&iter, va_arg (var_args, dbus_uint32_t)))
 	    goto errorout;	    
 	  break;
@@ -4367,13 +4401,14 @@ dbus_message_is_signal (DBusMessage *message,
  */
 dbus_bool_t
 dbus_message_is_error (DBusMessage *message,
-                        const char  *error_name)
+                       const char  *error_name)
 {
   const char *n;
   
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_fail (error_name != NULL, FALSE);
-
+  _dbus_return_val_if_fail (is_valid_error_name (error_name), FALSE);
+  
   if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_ERROR)
     return FALSE;
 

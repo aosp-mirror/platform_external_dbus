@@ -1,3 +1,18 @@
+2004-05-28  Havoc Pennington  <hp@redhat.com>
+
+	* test/glib/test-service-glib.c (main): remove unused variable
+
+	* glib/dbus-gidl.c (base_info_ref): fix a silly compiler warning
+
+	* dbus/dbus-auth.h (enum): remove AUTHENTICATED_WITH_UNUSED_BYTES
+	from the enum, no longer in use.
+
+	* dbus/dbus-sysdeps.h: include config.h so DBUS_VA_COPY actually
+	works right.
+
+	* dbus/dbus-message.c: add various _dbus_return_val_if_fail for
+	whether error_name passed in is a valid error name.
+
 2004-05-28  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-message.c (dbus_message_get_args): Added support for
