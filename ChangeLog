@@ -1,3 +1,17 @@
+2004-07-12  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus.py:
+
+	Add message argument to the default object_method_handler
+	function.
+	
+	* python/dbus_bindings.pyx.in:
+
+	Automatically return NIL when passed an empty list
+	(we can't pass back a list since lists are typed
+	and we don't have any idea what type the the client
+	intended the list to be... :-( )
+	
 2004-07-10  Seth Nickell  <seth@gnome.org>
 
 	* python/examples/Makefile.am:
