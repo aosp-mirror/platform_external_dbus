@@ -415,9 +415,6 @@ _dbus_transport_disconnect (DBusTransport *transport)
   (* transport->vtable->disconnect) (transport);
   
   transport->disconnected = TRUE;
-
-  if (transport->connection)
-    _dbus_connection_notify_disconnected (transport->connection);
 }
 
 /**

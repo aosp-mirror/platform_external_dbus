@@ -77,7 +77,6 @@ DBusConnection*   _dbus_connection_new_for_transport           (DBusTransport   
 void              _dbus_connection_do_iteration                (DBusConnection     *connection,
                                                                 unsigned int        flags,
                                                                 int                 timeout_milliseconds);
-void              _dbus_connection_notify_disconnected         (DBusConnection     *connection);
 
 DBusPendingCall*  _dbus_pending_call_new                       (DBusConnection     *connection,
                                                                 int                 timeout_milliseconds,

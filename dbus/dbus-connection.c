@@ -99,15 +99,17 @@
  * handle the details here for you by setting up watch functions.
  *
  * When a connection is disconnected, you are guaranteed to get a
- * message with the name #DBUS_MESSAGE_LOCAL_DISCONNECT.
+ * signal "Disconnected" from the interface
+ * #DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL, path
+ * #DBUS_PATH_ORG_FREEDESKTOP_LOCAL.
  *
  * You may not drop the last reference to a #DBusConnection
  * until that connection has been disconnected.
  *
  * You may dispatch the unprocessed incoming message queue even if the
- * connection is disconnected. However, #DBUS_MESSAGE_LOCAL_DISCONNECT
- * will always be the last message in the queue (obviously no messages
- * are received after disconnection).
+ * connection is disconnected. However, "Disconnected" will always be
+ * the last message in the queue (obviously no messages are received
+ * after disconnection).
  *
  * #DBusConnection has thread locks and drops them when invoking user
  * callbacks, so in general is transparently threadsafe. However,
@@ -575,25 +577,6 @@ _dbus_connection_toggle_timeout (DBusConnection *connection,
   if (connection->timeouts) /* null during finalize */
     _dbus_timeout_list_toggle_timeout (connection->timeouts,
                                        timeout, enabled);
-}
-
-/**
- * Tells the connection that the transport has been disconnected.
- * Results in posting a disconnect message on the incoming message
- * queue.  Only has an effect the first time it's called.
- *
- * @param connection the connection
- */
-void
-_dbus_connection_notify_disconnected (DBusConnection *connection)
-{
-  if (connection->disconnect_message_link)
-    {
-      /* We haven't sent the disconnect message already */
-      _dbus_connection_queue_synthesized_message_link (connection,
-						       connection->disconnect_message_link);
-      connection->disconnect_message_link = NULL;
-    }
 }
 
 static dbus_bool_t
@@ -1305,18 +1288,27 @@ dbus_connection_unref (DBusConnection *connection)
  * function does not affect the connection's reference count.  It's
  * safe to disconnect a connection more than once; all calls after the
  * first do nothing. It's impossible to "reconnect" a connection, a
- * new connection must be created.
+ * new connection must be created. This function may result in a call
+ * to the DBusDispatchStatusFunction set with
+ * dbus_connection_set_dispatch_status_function(), as the disconnect
+ * message it generates needs to be dispatched.
  *
  * @param connection the connection.
  */
 void
 dbus_connection_disconnect (DBusConnection *connection)
 {
+  DBusDispatchStatus status;
+  
   _dbus_return_if_fail (connection != NULL);
   
   CONNECTION_LOCK (connection);
   _dbus_transport_disconnect (connection->transport);
-  CONNECTION_UNLOCK (connection);
+  
+  status = _dbus_connection_get_dispatch_status_unlocked (connection);
+
+  /* this calls out to user code */
+  _dbus_connection_update_dispatch_status_and_unlock (connection, status);
 }
 
 static dbus_bool_t
@@ -2351,6 +2343,18 @@ _dbus_connection_get_dispatch_status_unlocked (DBusConnection *connection)
       
       status = _dbus_transport_get_dispatch_status (connection->transport);
 
+      if (status == DBUS_DISPATCH_COMPLETE &&
+          connection->disconnect_message_link &&
+          !_dbus_transport_get_is_connected (connection->transport))
+        {
+          /* We haven't sent the disconnect message already,
+           * and all real messages have been queued up.
+           */
+          _dbus_connection_queue_synthesized_message_link (connection,
+                                                           connection->disconnect_message_link);
+          connection->disconnect_message_link = NULL;
+        }
+      
       if (status != DBUS_DISPATCH_COMPLETE)
         return status;
       else if (connection->n_incoming > 0)

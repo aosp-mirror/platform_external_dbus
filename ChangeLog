@@ -1,3 +1,15 @@
+2003-10-26  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-connection.c: fix docs to properly describe the
+	disconnected message
+	(_dbus_connection_notify_disconnected): remove this function; 
+	we can't synchronously add the disconnected message, we have to 
+	do it after we've queued any remaining real messages
+	(_dbus_connection_get_dispatch_status_unlocked): queue the
+	disconnect message only if the transport has finished queueing all
+	its real messages and is disconnected.
+	(dbus_connection_disconnect): update the dispatch status here
+
 2003-10-22  Havoc Pennington  <hp@redhat.com>
 
 	* bus/bus.c (bus_context_check_security_policy): fix up assertion
