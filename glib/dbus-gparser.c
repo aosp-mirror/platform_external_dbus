@@ -28,6 +28,8 @@
 #define _(x) gettext ((x))
 #define N_(x) x
 
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+
 #define ELEMENT_IS(name) (strcmp (element_name, (name)) == 0)
 
 typedef struct
@@ -656,3 +658,5 @@ parser_get_nodes (Parser *parser)
 {
   return parser->result;
 }
+
+#endif /* DOXYGEN_SHOULD_SKIP_THIS */

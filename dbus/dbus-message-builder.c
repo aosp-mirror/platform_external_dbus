@@ -40,9 +40,12 @@
  * @{
  */
 
+/**
+ * Saved length
+ */
 typedef struct
 {
-  DBusString name;
+  DBusString name; /**< Name of the length */
   int start;  /**< Calculate length since here */
   int length; /**< length to write */
   int offset; /**< where to write it into the data */

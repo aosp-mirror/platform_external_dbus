@@ -31,11 +31,14 @@ DBUS_BEGIN_DECLS;
 
 typedef struct DBusMD5Context DBusMD5Context;
 
+/**
+ * A context used to store the state of the MD5 algorithm
+ */
 struct DBusMD5Context
 {
-  dbus_uint32_t count[2];       /* message length in bits, lsw first */
-  dbus_uint32_t abcd[4];        /* digest buffer */
-  unsigned char buf[64];        /* accumulate block */
+  dbus_uint32_t count[2];       /**< message length in bits, lsw first */
+  dbus_uint32_t abcd[4];        /**< digest buffer */
+  unsigned char buf[64];        /**< accumulate block */
 };
 
 void        _dbus_md5_init    (DBusMD5Context   *context);

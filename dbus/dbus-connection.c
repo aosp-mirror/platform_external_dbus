@@ -124,14 +124,31 @@
  * @{
  */
 
+/**
+ * Internal struct representing a message filter function 
+ */
 typedef struct DBusMessageFilter DBusMessageFilter;
 
+/**
+ * Internal struct representing a message filter function 
+ */
 struct DBusMessageFilter
 {
-  DBusAtomic refcount;
-  DBusHandleMessageFunction function;
-  void *user_data;
-  DBusFreeFunction free_user_data_function;
+  DBusAtomic refcount; /**< Reference count */
+  DBusHandleMessageFunction function; /**< Function to call to filter */
+  void *user_data; /**< User data for the function */
+  DBusFreeFunction free_user_data_function; /**< Function to free the user data */
+};
+
+
+/**
+ * Internals of DBusPreallocatedSend
+ */
+struct DBusPreallocatedSend
+{
+  DBusConnection *connection; /**< Connection we'd send the message to */
+  DBusList *queue_link;       /**< Preallocated link in the queue */
+  DBusList *counter_link;     /**< Preallocated link in the resource counter */
 };
 
 static dbus_bool_t _dbus_modify_sigpipe = TRUE;
@@ -1338,13 +1355,6 @@ dbus_connection_get_is_authenticated (DBusConnection *connection)
   
   return res;
 }
-
-struct DBusPreallocatedSend
-{
-  DBusConnection *connection;
-  DBusList *queue_link;
-  DBusList *counter_link;
-};
 
 static DBusPreallocatedSend*
 _dbus_connection_preallocate_send_unlocked (DBusConnection *connection)
@@ -2992,7 +3002,8 @@ dbus_connection_add_filter (DBusConnection            *connection,
  * instance).
  *
  * @param connection the connection
- * @param handler the handler to remove
+ * @param function the handler to remove
+ * @param user_data user data for the handler to remove
  *
  */
 void

@@ -72,6 +72,9 @@ static dbus_bool_t field_is_named[FIELD_LAST] =
   TRUE   /* FIELD_REPLY_SERIAL */
 };
 
+/**
+ * Cached information about a header field in the message
+ */
 typedef struct
 {
   int offset; /**< Offset to start of field (location of name of field
@@ -79,9 +82,13 @@ typedef struct
                */
 } HeaderField;
 
+/** Offset to byte order from start of header */
 #define BYTE_ORDER_OFFSET   0
+/** Offset to type from start of header */
 #define TYPE_OFFSET         1
+/** Offset to flags from start of header */
 #define FLAGS_OFFSET        2
+/** Offset to version from start of header */
 #define VERSION_OFFSET      3
 
 /**
@@ -1161,6 +1168,7 @@ dbus_message_new_method_return (DBusMessage *method_call)
  * A signal is identified by its originating interface, and
  * the name of the signal.
  *
+ * @param path the path to the object emitting the signal
  * @param interface the interface the signal is emitted from
  * @param name name of the signal
  * @returns a new DBusMessage, free with dbus_message_unref()
@@ -1576,7 +1584,7 @@ dbus_message_get_member (DBusMessage *message)
  * The name is fully-qualified (namespaced).
  *
  * @param message the message
- * @param name the name
+ * @param error_name the name
  * @returns #FALSE if not enough memory
  */
 dbus_bool_t

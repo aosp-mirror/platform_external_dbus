@@ -49,6 +49,9 @@
  */
 typedef struct DBusGSource DBusGSource;
 
+/**
+ * A GSource subclass for a DBusConnection.
+ */
 struct DBusGSource
 {
   GSource source; /**< the parent GSource */

@@ -34,6 +34,9 @@ DBUS_BEGIN_DECLS;
 
 typedef struct DBusServerVTable DBusServerVTable;
 
+/**
+ * Virtual table to be implemented by all server "subclasses"
+ */
 struct DBusServerVTable
 {
   void        (* finalize)      (DBusServer *server);
@@ -43,6 +46,9 @@ struct DBusServerVTable
   /**< Disconnect this server. */
 };
 
+/**
+ * Internals of DBusServer object
+ */
 struct DBusServer
 {
   int refcount;                               /**< Reference count. */

@@ -73,13 +73,17 @@ swap_bytes (unsigned char *data,
 }
 #endif /* !DBUS_HAVE_INT64 */
 
+/**
+ * Union used to manipulate 8 bytes as if they
+ * were various types. 
+ */
 typedef union
 {
 #ifdef DBUS_HAVE_INT64
-  dbus_int64_t  s;
-  dbus_uint64_t u;
+  dbus_int64_t  s; /**< 64-bit integer */
+  dbus_uint64_t u; /**< 64-bit unsinged integer */
 #endif
-  double d;
+  double d;        /**< double */
 } DBusOctets8;
 
 static DBusOctets8
@@ -1470,6 +1474,7 @@ _dbus_demarshal_string_array (const DBusString   *str,
   return FALSE;
 }
 
+/** Set to 1 to get a bunch of spew about disassembling the path string */
 #define VERBOSE_DECOMPOSE 0
 
 /**

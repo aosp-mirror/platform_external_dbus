@@ -33,6 +33,9 @@
  * @{
  */
 
+/**
+ * Internals of DBusTimeout
+ */
 struct DBusTimeout
 {
   int refcount;                                /**< Reference count */

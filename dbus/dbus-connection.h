@@ -214,15 +214,19 @@ typedef DBusHandlerResult (* DBusObjectPathMessageFunction)    (DBusConnection  
                                                                 DBusMessage     *message,
                                                                 void            *user_data);
 
+/**
+ * Virtual table that must be implemented to handle a portion of the
+ * object path hierarchy.
+ */
 struct DBusObjectPathVTable
 {
-  DBusObjectPathUnregisterFunction   unregister_function;
-  DBusObjectPathMessageFunction      message_function;
+  DBusObjectPathUnregisterFunction   unregister_function; /**< Function to unregister this handler */
+  DBusObjectPathMessageFunction      message_function; /**< Function to handle messages */
   
-  void (* dbus_internal_pad1) (void *);
-  void (* dbus_internal_pad2) (void *);
-  void (* dbus_internal_pad3) (void *);
-  void (* dbus_internal_pad4) (void *);
+  void (* dbus_internal_pad1) (void *); /**< Reserved for future expansion */
+  void (* dbus_internal_pad2) (void *); /**< Reserved for future expansion */
+  void (* dbus_internal_pad3) (void *); /**< Reserved for future expansion */
+  void (* dbus_internal_pad4) (void *); /**< Reserved for future expansion */
 };
 
 dbus_bool_t dbus_connection_register_object_path   (DBusConnection              *connection,

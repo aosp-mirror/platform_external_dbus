@@ -2515,9 +2515,12 @@ _dbus_path_is_absolute (const DBusString *filename)
     return FALSE;
 }
 
+/**
+ * Internals of directory iterator
+ */
 struct DBusDirIter
 {
-  DIR *d;
+  DIR *d; /**< The DIR* from opendir() */
   
 };
 

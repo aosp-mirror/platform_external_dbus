@@ -1,5 +1,9 @@
 2003-09-07  Havoc Pennington  <hp@pobox.com>
 
+	* Make Doxygen contented.
+
+2003-09-07  Havoc Pennington  <hp@pobox.com>
+
 	* doc/dbus-specification.sgml: more updates
 
 2003-09-06  Havoc Pennington  <hp@pobox.com>

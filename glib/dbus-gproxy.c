@@ -28,17 +28,22 @@
  * @{
  */
 
+/**
+ * Internals of DBusGProxy
+ */
 struct DBusGProxy
 {
-  GStaticMutex lock;
-  int refcount;
-  DBusConnection *connection;
-  char *service;
-  char *interface;
-  char *path;
+  GStaticMutex lock; /**< Thread lock */
+  int refcount;      /**< Reference count */
+  DBusConnection *connection; /**< Connection to communicate over */
+  char *service;             /**< Service messages go to or NULL */
+  char *interface;           /**< Interface messages go to or NULL */
+  char *path;                /**< Path messages go to or NULL */
 };
 
+/** Lock the DBusGProxy */
 #define LOCK_PROXY(proxy)   (g_static_mutex_lock (&(proxy)->lock))
+/** Unlock the DBusGProxy */
 #define UNLOCK_PROXY(proxy) (g_static_mutex_unlock (&(proxy)->lock))
 
 static DBusGProxy*

@@ -35,6 +35,9 @@ DBUS_BEGIN_DECLS;
 
 typedef struct DBusError DBusError;
 
+/**
+ * Object representing an exception.
+ */
 struct DBusError
 {
   const char *name;    /**< error name */

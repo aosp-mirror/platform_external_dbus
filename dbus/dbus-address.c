@@ -28,19 +28,25 @@
 #include "dbus-string.h"
 
 /**
- * @defgroup DBusAddress Address parsing
- * @ingroup  DBus
- * @brief Parsing addresses of D-BUS servers.
+ * @defgroup DBusAddressInternals Address parsing
+ * @ingroup  DBusInternals
+ * @brief Implementation of parsing addresses of D-BUS servers.
  *
  * @{
  */
+
+/**
+ * Internals of DBusAddressEntry 
+ */
 struct DBusAddressEntry
 {
-  DBusString method;
+  DBusString method; /**< The address type (unix, tcp, etc.) */
 
-  DBusList *keys;
-  DBusList *values;
+  DBusList *keys;    /**< List of keys */
+  DBusList *values;  /**< List of values */
 };
+
+/** @} */ /* End of internals */
 
 static void
 dbus_address_entry_free (DBusAddressEntry *entry)
@@ -72,6 +78,13 @@ dbus_address_entry_free (DBusAddressEntry *entry)
   dbus_free (entry);
 }
 
+/**
+ * @defgroup DBusAddress Address parsing
+ * @ingroup  DBus
+ * @brief Parsing addresses of D-BUS servers.
+ *
+ * @{
+ */
 
 /**
  * Frees a #NULL-terminated array of address entries.
@@ -372,7 +385,7 @@ dbus_parse_address (const char         *address,
 }
 
 
-/** @} */
+/** @} */ /* End of public API */
 
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-test.h"

@@ -39,22 +39,25 @@ DBUS_BEGIN_DECLS;
 typedef struct DBusMessage DBusMessage;
 typedef struct DBusMessageIter DBusMessageIter;
 
+/**
+ * DBusMessageIter struct; contains no public fields 
+ */
 struct DBusMessageIter
-{
-  void *dummy1;
-  void *dummy2;
-  dbus_uint32_t dummy3;
-  int dummy4;
-  int dummy5;
-  int dummy6;
-  int dummy7;
-  int dummy8;
-  int dummy9;
-  int dummy10;
-  int dummy11;
-  int pad1;
-  int pad2;
-  void *pad3;
+{ 
+  void *dummy1;         /**< Don't use this */
+  void *dummy2;         /**< Don't use this */
+  dbus_uint32_t dummy3; /**< Don't use this */
+  int dummy4;           /**< Don't use this */
+  int dummy5;           /**< Don't use this */
+  int dummy6;           /**< Don't use this */
+  int dummy7;           /**< Don't use this */
+  int dummy8;           /**< Don't use this */
+  int dummy9;           /**< Don't use this */
+  int dummy10;          /**< Don't use this */
+  int dummy11;          /**< Don't use this */
+  int pad1;             /**< Don't use this */
+  int pad2;             /**< Don't use this */
+  void *pad3;           /**< Don't use this */
 };
 
 DBusMessage* dbus_message_new               (int          message_type);

@@ -97,12 +97,14 @@ typedef unsigned long dbus_gid_t;
 #define DBUS_UID_FORMAT "%lu"
 #define DBUS_GID_FORMAT "%lu"
 
+/**
+ * Struct representing socket credentials
+ */
 typedef struct
 {
-  /* Set to DBUS_PID_UNSET etc. if not available */
-  dbus_pid_t pid;
-  dbus_uid_t uid;
-  dbus_gid_t gid;
+  dbus_pid_t pid; /**< process ID or DBUS_PID_UNSET */
+  dbus_uid_t uid; /**< user ID or DBUS_UID_UNSET */
+  dbus_gid_t gid; /**< group ID or DBUS_GID_UNSET */
 } DBusCredentials;
 
 int _dbus_connect_unix_socket (const char     *path,
@@ -135,6 +137,9 @@ dbus_bool_t _dbus_credentials_match                (const DBusCredentials *expec
 typedef struct DBusUserInfo  DBusUserInfo;
 typedef struct DBusGroupInfo DBusGroupInfo;
 
+/**
+ * Information about a UNIX user
+ */
 struct DBusUserInfo
 {
   dbus_uid_t  uid;            /**< UID */
@@ -145,6 +150,9 @@ struct DBusUserInfo
   char       *homedir;        /**< Home directory */
 };
 
+/**
+ * Information about a UNIX group
+ */
 struct DBusGroupInfo
 {
   dbus_gid_t  gid;            /**< GID */
@@ -173,9 +181,13 @@ dbus_uid_t    _dbus_getuid (void);
 dbus_gid_t    _dbus_getgid (void);
 
 typedef struct DBusAtomic DBusAtomic;
+
+/**
+ * An atomic integer.
+ */
 struct DBusAtomic
 {
-  volatile dbus_int32_t value;
+  volatile dbus_int32_t value; /**< Value of the atomic integer. */
 };
 
 dbus_int32_t _dbus_atomic_inc (DBusAtomic *atomic);
@@ -188,11 +200,14 @@ dbus_int32_t _dbus_atomic_dec (DBusAtomic *atomic);
 #define _DBUS_POLLHUP     0x0010    /* Hung up */
 #define _DBUS_POLLNVAL    0x0020    /* Invalid request: fd not open */
 
+/**
+ * A portable struct pollfd wrapper. 
+ */
 typedef struct
 {
-  int fd;
-  short events;
-  short revents;
+  int fd;            /**< File descriptor */
+  short events;      /**< Events to poll for */
+  short revents;     /**< Events that occurred */
 } DBusPollFD;
 
 int _dbus_poll (DBusPollFD *fds,
@@ -249,16 +264,19 @@ void _dbus_fd_set_close_on_exec (int fd);
 
 void _dbus_exit (int code) _DBUS_GNUC_NORETURN;
 
+/**
+ * Portable struct with stat() results
+ */
 typedef struct
 {
-  unsigned long mode;
-  unsigned long nlink;
-  dbus_uid_t    uid;
-  dbus_gid_t    gid;
-  unsigned long size;
-  unsigned long atime;
-  unsigned long mtime;
-  unsigned long ctime;
+  unsigned long mode;  /**< File mode */
+  unsigned long nlink; /**< Number of hard links */
+  dbus_uid_t    uid;   /**< User owning file */
+  dbus_gid_t    gid;   /**< Group owning file */
+  unsigned long size;  /**< Size of file */
+  unsigned long atime; /**< Access time */
+  unsigned long mtime; /**< Modify time */
+  unsigned long ctime; /**< Creation time */
 } DBusStat;
 
 dbus_bool_t _dbus_stat             (const DBusString *filename,

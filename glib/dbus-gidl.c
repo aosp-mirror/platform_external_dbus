@@ -24,6 +24,8 @@
 
 #include "dbus-gidl.h"
 
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+
 struct NodeInfo
 {
   int refcount;
@@ -402,3 +404,5 @@ _dbus_gidl_test (void)
 }
 
 #endif /* DBUS_BUILD_TESTS */
+
+#endif /* DOXYGEN_SHOULD_SKIP_THIS */

@@ -865,6 +865,7 @@ two_strings_hash (const char *str)
   return h;
 }
 
+/** Key comparison function */
 typedef int (* KeyCompareFunc) (const void *key_a, const void *key_b);
 
 static DBusHashEntry*

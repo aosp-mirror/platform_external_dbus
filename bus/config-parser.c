@@ -88,9 +88,12 @@ typedef struct
 
 } Element;
 
+/**
+ * Parser for bus configuration file. 
+ */
 struct BusConfigParser
 {
-  int refcount;
+  int refcount;        /**< Reference count */
 
   DBusString basedir;  /**< Directory we resolve paths relative to */
   

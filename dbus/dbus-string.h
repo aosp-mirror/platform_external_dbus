@@ -34,6 +34,9 @@
 
 DBUS_BEGIN_DECLS;
 
+/**
+ * DBusString object
+ */
 struct DBusString
 {
   void *dummy1; /**< placeholder */

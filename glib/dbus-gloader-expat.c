@@ -43,13 +43,16 @@ static XML_Memory_Handling_Suite memsuite =
   g_free
 };
 
+/**
+ * Context for Expat parser for introspection data.
+ */
 typedef struct
 {
-  Parser *parser;
-  const char *filename;
-  GString *content;
-  GError **error;
-  gboolean failed;
+  Parser *parser;       /**< The parser for the introspection data */
+  const char *filename; /**< The filename being loaded */
+  GString *content;     /**< The content of the current element */
+  GError **error;       /**< Error return location */
+  gboolean failed;      /**< True if parse has failed */
 } ExpatParseContext;
 
 static dbus_bool_t

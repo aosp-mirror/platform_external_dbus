@@ -24,6 +24,8 @@
 #ifndef DBUS_GLIB_IDL_H
 #define DBUS_GLIB_IDL_H
 
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+
 #include <dbus/dbus.h>
 #include <glib.h>
 
@@ -90,3 +92,5 @@ ArgDirection   arg_info_get_direction     (ArgInfo       *info);
 G_END_DECLS
 
 #endif /* DBUS_GLIB_IDL_H */
+
+#endif /* DOXYGEN_SHOULD_SKIP_THIS */

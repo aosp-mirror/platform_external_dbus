@@ -33,6 +33,9 @@
  * @{
  */
 
+/**
+ * Implementation of DBusWatch
+ */
 struct DBusWatch
 {
   int refcount;                        /**< Reference count */

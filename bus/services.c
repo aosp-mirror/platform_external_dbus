@@ -417,10 +417,14 @@ bus_service_relink (BusService           *service,
   bus_service_ref (service);
 }
 
+/**
+ * Data used to represent an ownership cancellation in
+ * a bus transaction.
+ */
 typedef struct
 {
-  DBusConnection *connection;
-  BusService *service;
+  DBusConnection *connection; /**< the connection */
+  BusService *service;        /**< service to cancel ownership of */
 } OwnershipCancelData;
 
 static void

@@ -29,17 +29,17 @@
 
 DBUS_BEGIN_DECLS;
 
-/* The iterator is on the stack, but its real fields are
- * hidden privately.
+/** Hash iterator object. The iterator is on the stack, but its real
+ * fields are hidden privately.
  */
 struct DBusHashIter
 {
-  void *dummy1;
-  void *dummy2;
-  void *dummy3;
-  void *dummy4;
-  int   dummy5;
-  int   dummy6;
+  void *dummy1; /**< Do not use. */
+  void *dummy2; /**< Do not use. */
+  void *dummy3; /**< Do not use. */
+  void *dummy4; /**< Do not use. */
+  int   dummy5; /**< Do not use. */
+  int   dummy6; /**< Do not use. */
 };
 
 typedef struct DBusHashTable DBusHashTable;
@@ -53,7 +53,7 @@ typedef struct DBusHashIter  DBusHashIter;
 typedef enum
 {
   DBUS_HASH_STRING,        /**< Hash keys are strings. */
-  DBUS_HASH_TWO_STRINGS,   /**< Hash key is two strings in one memory block, i.e. foo\0bar\0 */
+  DBUS_HASH_TWO_STRINGS,   /**< Hash key is two strings in one memory block, i.e. foo\\0bar\\0 */
   DBUS_HASH_INT,           /**< Hash keys are integers. */
   DBUS_HASH_POINTER,       /**< Hash keys are pointers. */
   DBUS_HASH_ULONG          /**< Hash keys are unsigned long. */

@@ -45,6 +45,7 @@
  * @{
  */
 
+/** Subnode of the object hierarchy */
 typedef struct DBusObjectSubtree DBusObjectSubtree;
 
 static DBusObjectSubtree* _dbus_object_subtree_new   (const char                  *name,
@@ -53,28 +54,43 @@ static DBusObjectSubtree* _dbus_object_subtree_new   (const char                
 static void               _dbus_object_subtree_ref   (DBusObjectSubtree           *subtree);
 static void               _dbus_object_subtree_unref (DBusObjectSubtree           *subtree);
 
+/**
+ * Internals of DBusObjectTree
+ */
 struct DBusObjectTree
 {
-  int                 refcount;
-  DBusConnection     *connection;
+  int                 refcount;   /**< Reference count */
+  DBusConnection     *connection; /**< Connection this tree belongs to */
 
-  DBusObjectSubtree  *root;
+  DBusObjectSubtree  *root;       /**< Root of the tree ("/" node) */
 };
 
+/**
+ * Struct representing a single registered subtree handler, or node
+ * that's a parent of a registered subtree handler. If
+ * message_function != NULL there's actually a handler at this node.
+ */
 struct DBusObjectSubtree
 {
-  DBusAtomic                         refcount;
-  DBusObjectSubtree                 *parent;
-  DBusObjectPathUnregisterFunction   unregister_function;
-  DBusObjectPathMessageFunction      message_function;
-  void                              *user_data;
-  DBusObjectSubtree                **subtrees;
-  int                                n_subtrees;
-  unsigned int                       subtrees_sorted : 1;
-  unsigned int                       invoke_as_fallback : 1;
+  DBusAtomic                         refcount;            /**< Reference count */
+  DBusObjectSubtree                 *parent;              /**< Parent node */
+  DBusObjectPathUnregisterFunction   unregister_function; /**< Function to call on unregister */
+  DBusObjectPathMessageFunction      message_function;    /**< Function to handle messages */
+  void                              *user_data;           /**< Data for functions */
+  DBusObjectSubtree                **subtrees;            /**< Child nodes */
+  int                                n_subtrees;          /**< Number of child nodes */
+  unsigned int                       subtrees_sorted : 1; /**< Whether children are sorted */
+  unsigned int                       invoke_as_fallback : 1; /**< Whether to invoke message_function when child nodes don't handle the message */
   char                               name[1]; /**< Allocated as large as necessary */
 };
 
+/**
+ * Creates a new object tree, representing a mapping from paths
+ * to handler vtables.
+ *
+ * @param connection the connection this tree belongs to
+ * @returns the new tree or #NULL if no memory
+ */
 DBusObjectTree*
 _dbus_object_tree_new (DBusConnection *connection)
 {
@@ -107,6 +123,10 @@ _dbus_object_tree_new (DBusConnection *connection)
   return NULL;
 }
 
+/**
+ * Increment the reference count
+ * @param tree the object tree
+ */
 void
 _dbus_object_tree_ref (DBusObjectTree *tree)
 {
@@ -115,6 +135,10 @@ _dbus_object_tree_ref (DBusObjectTree *tree)
   tree->refcount += 1;
 }
 
+/**
+ * Decrement the reference count
+ * @param tree the object tree
+ */
 void
 _dbus_object_tree_unref (DBusObjectTree *tree)
 {
@@ -160,6 +184,9 @@ ensure_sorted (DBusObjectSubtree *subtree)
     }
 }
 
+/** Set to 1 to get a bunch of debug spew about finding the
+ * subtree nodes
+ */
 #define VERBOSE_FIND 0
 
 static DBusObjectSubtree*
@@ -855,11 +882,14 @@ spew_tree (DBusObjectTree *tree)
   spew_subtree_recurse (tree->root, 0);
 }
 
+/**
+ * Callback data used in tests
+ */
 typedef struct
 {
-  const char **path;
-  dbus_bool_t message_handled;
-  dbus_bool_t handler_unregistered;
+  const char **path; /**< Path */
+  dbus_bool_t message_handled; /**< Gets set to true if message handler called */
+  dbus_bool_t handler_unregistered; /**< gets set to true if handler is unregistered */
 
 } TreeTestData;
 

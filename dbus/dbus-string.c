@@ -1807,7 +1807,7 @@ _dbus_string_skip_white (const DBusString *str,
 }
 
 /**
- * Assigns a newline-terminated or \r\n-terminated line from the front
+ * Assigns a newline-terminated or \\r\\n-terminated line from the front
  * of the string to the given dest string. The dest string's previous
  * contents are deleted. If the source string contains no newline,
  * moves the entire source string to the dest string.
