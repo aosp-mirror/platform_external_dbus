@@ -88,18 +88,19 @@ void dbus_connection_register_g_object (DBusConnection        *connection,
 
 typedef struct DBusGProxy       DBusGProxy;
 
-DBusGProxy*      dbus_gproxy_new_for_service       (DBusConnection      *connection,
-                                                    const char          *service_name,
-                                                    const char          *interface_name);
-DBusGProxy*      dbus_gproxy_new_for_service_owner (DBusConnection      *connection,
-                                                    const char          *service_name,
-                                                    const char          *interface_name,
-                                                    GError             **error);
-DBusGProxy*      dbus_gproxy_new_for_object_path   (DBusConnection      *connection,
-                                                    const char          *path,
-                                                    const char          *interface_name);
-DBusGProxy*      dbus_gproxy_new_for_interface     (DBusConnection      *connection,
-                                                    const char          *interface_name);
+DBusGProxy*      dbus_gproxy_new_for_service       (DBusConnection   *connection,
+                                                    const char       *service_name,
+                                                    const char       *path_name,
+                                                    const char       *interface_name);
+DBusGProxy*      dbus_gproxy_new_for_service_owner (DBusConnection   *connection,
+                                                    const char       *service_name,
+                                                    const char       *path_name,
+                                                    const char       *interface_name,
+                                                    GError          **error);
+DBusGProxy*      dbus_gproxy_new_for_peer          (DBusConnection   *connection,
+                                                    const char       *path_name,
+                                                    const char       *interface_name);
+
 void             dbus_gproxy_ref                   (DBusGProxy          *proxy);
 void             dbus_gproxy_unref                 (DBusGProxy          *proxy);
 gboolean         dbus_gproxy_connect_signal        (DBusGProxy          *proxy,

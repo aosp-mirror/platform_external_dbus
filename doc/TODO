@@ -92,3 +92,6 @@
 
  - Header fields names are required to be aligned on a 4 byte boundary
    at the moment. No alignment should be neccessary.
+ 
+ - dbus_gproxy or dbus_g_proxy?
+

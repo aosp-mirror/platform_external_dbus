@@ -1,5 +1,17 @@
 2003-09-21  Havoc Pennington  <hp@pobox.com>
 
+	* glib/dbus-gproxy.c (dbus_gproxy_manager_new): start
+	implementing the proxy manager, didn't get very far.
+
+	* dbus/dbus-bus.c (dbus_bus_add_match): new
+	(dbus_bus_remove_match): new
+
+	* glib/dbus-gproxy.c (dbus_gproxy_new_for_service): add a
+	path_name argument; adjust the other not-yet-implemented 
+	gproxy constructors to be what I think they should be.
+
+2003-09-21  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-bus.c (dbus_bus_get): set exit_on_disconnect to TRUE
 	by default for message bus connections.
 

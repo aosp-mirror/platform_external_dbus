@@ -29,6 +29,83 @@
  */
 
 /**
+ * DBusGProxyManager's primary task is to route signals to the proxies
+ * those signals are emitted on. In order to do this it also has to
+ * track the owners of the services proxies are bound to.
+ */
+typedef struct
+{
+  GStaticMutex lock; /**< Thread lock */
+  int refcount;      /**< Reference count */
+
+  
+
+} DBusGProxyManager;
+
+
+/** Lock the DBusGProxyManager */
+#define LOCK_MANAGER(mgr)   (g_static_mutex_lock (&(mgr)->lock))
+/** Unlock the DBusGProxyManager */
+#define UNLOCK_MANAGER(mgr) (g_static_mutex_unlock (&(mgr)->lock))
+
+static DBusGProxyManager*
+dbus_gproxy_manager_new (void)
+{
+  DBusGProxyManager *manager;
+
+  manager = g_new0 (DBusGProxyManager, 1);
+
+  manager->refcount = 1;
+  
+  g_static_mutex_init (&manager->lock);
+
+  return manager;
+}
+
+static void
+dbus_gproxy_manager_ref (DBusGProxyManager *manager)
+{
+  g_assert (manager != NULL);
+  g_assert (manager->refcount > 0);
+
+  LOCK_MANAGER (manager);
+  
+  manager->refcount += 1;
+
+  UNLOCK_MANAGER (manager);
+}
+
+static void
+dbus_gproxy_manager_unref (DBusGProxyManager *manager)
+{
+  g_assert (manager != NULL);
+  g_assert (manager->refcount > 0);
+
+  LOCK_MANAGER (manager);
+  manager->refcount -= 1;
+  if (manager->refcount == 0)
+    {
+      UNLOCK_MANAGER (manager);
+      
+      g_static_mutex_free (&manager->lock);
+
+      g_free (manager);
+    }
+  else
+    {
+      UNLOCK_MANAGER (manager);
+    }
+}
+
+static DBusGProxyManager*
+dbus_gproxy_manager_get_for_connection (DBusConnection *connection)
+{
+  /* FIXME */
+  
+  return NULL;
+}
+
+/**
  * Internals of DBusGProxy
  */
 struct DBusGProxy
@@ -37,8 +114,8 @@ struct DBusGProxy
   int refcount;      /**< Reference count */
   DBusConnection *connection; /**< Connection to communicate over */
   char *service;             /**< Service messages go to or NULL */
-  char *interface;           /**< Interface messages go to or NULL */
   char *path;                /**< Path messages go to or NULL */
+  char *interface;           /**< Interface messages go to or NULL */
 };
 
 /** Lock the DBusGProxy */
@@ -82,23 +159,27 @@ _dbus_gproxy_new (DBusConnection *connection)
  *
  * @param connection the connection to the remote bus or app
  * @param service_name name of the service on the message bus
+ * @param path_name name of the object inside the service to call methods on
  * @param interface_name name of the interface to call methods on
  * @returns new proxy object
  */
 DBusGProxy*
 dbus_gproxy_new_for_service (DBusConnection *connection,
                              const char     *service_name,
+                             const char     *path_name,
                              const char     *interface_name)
 {
   DBusGProxy *proxy;
 
   g_return_val_if_fail (connection != NULL, NULL);
   g_return_val_if_fail (service_name != NULL, NULL);
+  g_return_val_if_fail (path_name != NULL, NULL);
   g_return_val_if_fail (interface_name != NULL, NULL);
   
   proxy = _dbus_gproxy_new (connection);
 
   proxy->service = g_strdup (service_name);
+  proxy->path = g_strdup (path_name);
   proxy->interface = g_strdup (interface_name);
 
   return proxy;
@@ -144,8 +225,9 @@ dbus_gproxy_unref (DBusGProxy *proxy)
       UNLOCK_PROXY (proxy);
       
       dbus_connection_unref (proxy->connection);
-      g_free (proxy->interface);
       g_free (proxy->service);
+      g_free (proxy->path);
+      g_free (proxy->interface);
       g_static_mutex_free (&proxy->lock);
       g_free (proxy);
     }
@@ -316,14 +398,14 @@ dbus_gproxy_send (DBusGProxy          *proxy,
       if (!dbus_message_set_destination (message, proxy->service))
         g_error ("Out of memory");
     }
-  if (proxy->interface)
-    {
-      if (!dbus_message_set_interface (message, proxy->interface))
-        g_error ("Out of memory");
-    }
   if (proxy->path)
     {
       if (!dbus_message_set_path (message, proxy->path))
+        g_error ("Out of memory");
+    }
+  if (proxy->interface)
+    {
+      if (!dbus_message_set_interface (message, proxy->interface))
         g_error ("Out of memory");
     }
   

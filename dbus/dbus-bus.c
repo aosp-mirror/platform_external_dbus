@@ -681,7 +681,7 @@ dbus_bus_activate_service (DBusConnection *connection,
     }
 
   reply = dbus_connection_send_with_reply_and_block (connection, msg,
-		  					 -1, error);
+                                                     -1, error);
   dbus_message_unref (msg);
 
   if (reply == NULL)
@@ -710,5 +710,125 @@ dbus_bus_activate_service (DBusConnection *connection,
   return TRUE;
 }
 
+static void
+send_no_return_values (DBusConnection *connection,
+                       DBusMessage    *msg,
+                       DBusError      *error)
+{
+  if (error)
+    {
+      /* Block to check success codepath */
+      DBusMessage *reply;
+      
+      reply = dbus_connection_send_with_reply_and_block (connection, msg,
+                                                         -1, error);
+      
+      if (reply == NULL)
+        {
+          _DBUS_ASSERT_ERROR_IS_SET (error);
+          return;
+        }
+
+      if (dbus_set_error_from_message (error, reply))
+        {
+          _DBUS_ASSERT_ERROR_IS_SET (error);
+          dbus_message_unref (reply);
+          return;
+        }
+
+      dbus_message_unref (reply);
+    }
+  else
+    {
+      /* Silently-fail nonblocking codepath */
+      if (!dbus_connection_send (connection, msg, NULL))
+        return;
+    }
+}
+
+/**
+ * Adds a match rule to match messages going through the message bus.
+ * The "rule" argument is the string form of a match rule.
+ *
+ * If you pass #NULL for the error, this function will not
+ * block; the match thus won't be added until you flush the
+ * connection, and if there's an error adding the match
+ * (only possible error is lack of resources in the bus),
+ * you won't find out about it.
+ *
+ * If you pass non-#NULL for the error this function will
+ * block until it gets a reply.
+ *
+ * Normal API conventions would have the function return
+ * a boolean value indicating whether the error was set,
+ * but that would require blocking always to determine
+ * the return value.
+ * 
+ * @param connection connection to the message bus
+ * @param rule textual form of match rule
+ * @param error location to store any errors
+ */
+void
+dbus_bus_add_match (DBusConnection *connection,
+                    const char     *rule,
+                    DBusError      *error)
+{
+  DBusMessage *msg;
+
+  msg = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                      DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                      DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                      "AddMatch");
+
+  if (!dbus_message_append_args (msg, DBUS_TYPE_STRING, rule,
+                                 DBUS_TYPE_INVALID))
+    {
+      dbus_message_unref (msg);
+      _DBUS_SET_OOM (error);
+      return;
+    }
+
+  send_no_return_values (connection, msg, error);
+
+  dbus_message_unref (msg);
+}
+
+/**
+ * Removes a previously-added match rule "by value" (the most
+ * recently-added identical rule gets removed).  The "rule" argument
+ * is the string form of a match rule.
+ *
+ * If you pass #NULL for the error, this function will not
+ * block; otherwise it will. See detailed explanation in
+ * docs for dbus_bus_add_match().
+ * 
+ * @param connection connection to the message bus
+ * @param rule textual form of match rule
+ * @param error location to store any errors
+ */
+void
+dbus_bus_remove_match (DBusConnection *connection,
+                       const char     *rule,
+                       DBusError      *error)
+{
+  DBusMessage *msg;
+
+  msg = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                      DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                      DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                      "RemoveMatch");
+
+  if (!dbus_message_append_args (msg, DBUS_TYPE_STRING, rule,
+                                 DBUS_TYPE_INVALID))
+    {
+      dbus_message_unref (msg);
+      _DBUS_SET_OOM (error);
+      return;
+    }
+
+  send_no_return_values (connection, msg, error);
+
+  dbus_message_unref (msg);
+}
 
 /** @} */
