@@ -1,5 +1,15 @@
 2003-04-05  Havoc Pennington  <hp@pobox.com>
 
+	* bus/bus.c (setup_server): fix this so dbus-daemon-1 doesn't 
+	crash on startup. Need to get "try starting the daemon" 
+	in the test suite I guess. ;-)
+
+	* dbus/dbus-server.h, dbus/dbus-server.c: remove the stuff that
+	tracked the number of open connections; it's better done in 
+	application-specific code as you want it to span all servers etc.
+
+2003-04-05  Havoc Pennington  <hp@pobox.com>
+
 	* bus/Makefile.am (install-data-hook): add missing DESTDIR, 
 	patch from Colin Walters
 

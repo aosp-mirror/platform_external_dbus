@@ -43,11 +43,15 @@ struct BusContext
   BusConnections *connections;
   BusActivation *activation;
   BusRegistry *registry;
-  DBusList *default_rules;      /**< Default policy rules */
-  DBusList *mandatory_rules;    /**< Mandatory policy rules */
-  DBusHashTable *rules_by_uid;  /**< per-UID policy rules */
-  DBusHashTable *rules_by_gid;  /**< per-GID policy rules */
-  int activation_timeout;       /**< How long to wait for an activation to time out */
+  DBusList *default_rules;       /**< Default policy rules */
+  DBusList *mandatory_rules;     /**< Mandatory policy rules */
+  DBusHashTable *rules_by_uid;   /**< per-UID policy rules */
+  DBusHashTable *rules_by_gid;   /**< per-GID policy rules */
+  int activation_timeout;        /**< How long to wait for an activation to time out */
+  int auth_timeout;              /**< How long to wait for an authentication to time out */
+  int max_completed_connections;    /**< Max number of authorized connections */
+  int max_incomplete_connections;   /**< Max number of incomplete connections */
+  int max_connections_per_user;     /**< Max number of connections auth'd as same user */
 };
 
 static int server_data_slot = -1;
@@ -242,6 +246,18 @@ setup_server (BusContext *context,
               DBusError  *error)
 {
   BusServerData *bd;
+
+  bd = dbus_new0 (BusServerData, 1);
+  if (!dbus_server_set_data (server,
+                             server_data_slot,
+                             bd, free_server_data))
+    {
+      dbus_free (bd);
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  bd->context = context;
   
   if (!dbus_server_set_auth_mechanisms (server, (const char**) auth_mechanisms))
     {
@@ -273,17 +289,6 @@ setup_server (BusContext *context,
       BUS_SET_OOM (error);
       return FALSE;
     }
-  
-  bd = dbus_new0 (BusServerData, 1);
-  if (!dbus_server_set_data (server,
-                             server_data_slot,
-                             bd, free_server_data))
-    {
-      dbus_free (bd);
-      return FALSE;
-    }
-
-  bd->context = context;
   
   return TRUE;
 }
@@ -335,10 +340,26 @@ bus_context_new (const DBusString *config_file,
   context->refcount = 1;
 
 #ifdef DBUS_BUILD_TESTS
-  context->activation_timeout = 6000;   /* 6/10 second */ /* FIXME */
+  context->activation_timeout = 6000;  /* 6 seconds */
 #else
-  context->activation_timeout = 10000; /* 10 seconds */
+  context->activation_timeout = 15000; /* 15 seconds */
 #endif
+
+  /* Making this long risks making a DOS attack easier, but too short
+   * and legitimate auth will fail.  If interactive auth (ask user for
+   * password) is allowed, then potentially it has to be quite long.
+   * Ultimately it needs to come from the configuration file.
+   */     
+  context->auth_timeout = 3000; /* 3 seconds */
+
+  context->max_incomplete_connections = 32;
+  context->max_connections_per_user = 128;
+
+  /* Note that max_completed_connections / max_connections_per_user
+   * is the number of users that would have to work together to
+   * DOS all the other users.
+   */
+  context->max_completed_connections = 1024;
   
   context->loop = bus_loop_new ();
   if (context->loop == NULL)
