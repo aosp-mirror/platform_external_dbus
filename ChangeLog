@@ -1,5 +1,9 @@
 2003-06-22  Anders Carlsson  <andersca@codefactory.se>
 
+	* configure.in: Add AM_PROG_GCJ and move AM_PROG_LIBTOOL
+	after the gcj checks so that the correct configuration tags
+	will be added to libtool.
+
 	* dbus-glib-1.pc.in: No need to specify any includes since
 	dbus-1.pc.in has those.
 
