@@ -2328,15 +2328,12 @@ _dbus_concat_dir_and_file (DBusString       *dir,
 }
 
 static dbus_bool_t
-pseudorandom_generate_random_bytes (DBusString *str,
-                                    int         n_bytes)
+pseudorandom_generate_random_bytes_buffer (char *buffer,
+                                           int   n_bytes)
 {
-  int old_len;
   unsigned long tv_usec;
   int i;
   
-  old_len = _dbus_string_get_length (str);
-
   /* fall back to pseudorandom */
   _dbus_verbose ("Falling back to pseudorandom for %d bytes\n",
                  n_bytes);
@@ -2352,18 +2349,56 @@ pseudorandom_generate_random_bytes (DBusString *str,
           
       r = rand ();
       b = (r / (double) RAND_MAX) * 255.0;
-          
-      if (!_dbus_string_append_byte (str, b))
-        goto failed;
-          
+
+      buffer[i] = b;
+
       ++i;
     }
+}
+
+static dbus_bool_t
+pseudorandom_generate_random_bytes (DBusString *str,
+                                    int         n_bytes)
+{
+  int old_len;
+  char *p;
+  
+  old_len = _dbus_string_get_length (str);
+
+  if (!_dbus_string_lengthen (str, n_bytes))
+    return FALSE;
+
+  p = _dbus_string_get_data_len (str, old_len, n_bytes);
+
+  pseudorandom_generate_random_bytes_buffer (p, n_bytes);
 
   return TRUE;
+}
 
- failed:
-  _dbus_string_set_length (str, old_len);
-  return FALSE;
+/**
+ * Fills n_bytes of the given buffer with random bytes.
+ *
+ * @param buffer an allocated buffer
+ * @param n_bytes the number of bytes in buffer to write to
+ */
+void
+_dbus_generate_random_bytes_buffer (char *buffer,
+                                    int   n_bytes)
+{
+  DBusString str;
+
+  if (!_dbus_string_init (&str))
+    return pseudorandom_generate_random_bytes_buffer (buffer, n_bytes);
+
+  if (!_dbus_generate_random_bytes (&str, n_bytes))
+    {
+      _dbus_string_free (&str);
+      return pseudorandom_generate_random_bytes_buffer (buffer, n_bytes);
+    }
+
+  _dbus_string_copy_to_buffer (&str, buffer, n_bytes);
+
+  _dbus_string_free (&str);
 }
 
 /**

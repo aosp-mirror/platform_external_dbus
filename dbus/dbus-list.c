@@ -24,7 +24,7 @@
 #include "dbus-internals.h"
 #include "dbus-list.h"
 #include "dbus-mempool.h"
-#include "dbus-threads.h"
+#include "dbus-threads-internal.h"
 
 /**
  * @defgroup DBusList Linked list

@@ -52,6 +52,58 @@
  * @{
  */
 
+static void
+init_guid (DBusGUID *guid)
+{
+  long now;
+  char *p;
+  int ts_size;
+
+  _dbus_get_current_time (&now, NULL);
+
+  guid->as_uint32s[0] = now;
+
+  ts_size = sizeof (guid->as_uint32s[0]);
+  p = ((char*)guid->as_bytes) + ts_size;
+  
+  _dbus_generate_random_bytes_buffer (p,
+                                      sizeof (guid->as_bytes) - ts_size);
+}
+
+/* this is a little fragile since it assumes the address doesn't
+ * already have a guid, but it shouldn't
+ */
+static char*
+copy_address_with_guid_appended (const DBusString *address,
+                                 const DBusGUID   *guid)
+{
+  DBusString with_guid;
+  DBusString guid_str;
+  char *retval;
+  
+  if (!_dbus_string_init (&with_guid))
+    return NULL;
+
+  _dbus_string_init_const_len (&guid_str, guid->as_bytes,
+                               sizeof (guid->as_bytes));
+
+  if (!_dbus_string_copy (address, 0, &with_guid, 0) ||
+      !_dbus_string_append (&with_guid, ",guid=") ||
+      !_dbus_string_hex_encode (&guid_str, 0,
+                                &with_guid, _dbus_string_get_length (&with_guid)))
+    {
+      _dbus_string_free (&with_guid);
+      return NULL;
+    }
+
+  retval = NULL;
+  _dbus_string_copy_data (&with_guid, &retval);
+
+  _dbus_string_free (&with_guid);
+      
+  return retval; /* may be NULL if copy failed */
+}
+
 /**
  * Initializes the members of the DBusServer base class.
  * Chained up to by subclass constructors.
@@ -65,17 +117,21 @@ dbus_bool_t
 _dbus_server_init_base (DBusServer             *server,
                         const DBusServerVTable *vtable,
                         const DBusString       *address)
-{
+{  
   server->vtable = vtable;
   server->refcount.value = 1;
 
   server->address = NULL;
   server->watches = NULL;
   server->timeouts = NULL;
-  
-  if (!_dbus_string_copy_data (address, &server->address))
-    goto failed;
 
+  init_guid (&server->guid);
+
+  server->address = copy_address_with_guid_appended (address,
+                                                     &server->guid);
+  if (server->address == NULL)
+    goto failed;
+  
   server->mutex = _dbus_mutex_new ();
   if (server->mutex == NULL)
     goto failed;
@@ -438,7 +494,9 @@ dbus_server_listen (const char     *address,
   
   for (i = 0; i < len; i++)
     {
-      const char *method = dbus_address_entry_get_method (entries[i]);
+      const char *method;
+
+      method = dbus_address_entry_get_method (entries[i]);
 
       if (strcmp (method, "unix") == 0)
 	{

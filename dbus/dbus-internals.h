@@ -33,7 +33,7 @@
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-sysdeps.h>
-#include <dbus/dbus-threads.h>
+#include <dbus/dbus-threads-internal.h>
 
 DBUS_BEGIN_DECLS
 

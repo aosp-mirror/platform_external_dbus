@@ -1,3 +1,27 @@
+2005-02-25  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-specification.xml: document the GUID thing
+
+	* dbus/dbus-server.c (_dbus_server_init_base): initialize a
+	globally unique ID for the server, and put a "guid=hexencoded"
+	field in the address
+
+	* dbus/dbus-bus.c: fix missing #include of dbus-threads-internal.h
+
+	* dbus/dbus-message.c: ditto
+
+	* dbus/dbus-dataslot.c: ditto
+
+	* dbus/dbus-list.c: ditto
+
+	* dbus/dbus-internals.h: wait, just include
+	dbus-threads-internal.h here
+	
+	* dbus/dbus-string.c (_dbus_string_copy_to_buffer): move back for
+	use in main library
+
+	* dbus/dbus-sysdeps.c (_dbus_generate_random_bytes_buffer): new function
+
 2005-02-24  Colin Walters  <walters@verbum.org>
 
 	* test/glib/Makefile.am (EXTRA_DIST): Add test-service-glib.xml

@@ -32,6 +32,7 @@
 #include "dbus-object-tree.h"
 #include "dbus-memory.h"
 #include "dbus-list.h"
+#include "dbus-threads-internal.h"
 #include <string.h>
 
 /**

@@ -256,10 +256,12 @@ dbus_bool_t  _dbus_directory_get_next_file (DBusDirIter      *iter,
 void         _dbus_directory_close         (DBusDirIter      *iter);
 
 
-dbus_bool_t _dbus_generate_random_bytes (DBusString *str,
-                                         int         n_bytes);
-dbus_bool_t _dbus_generate_random_ascii (DBusString *str,
-                                         int         n_bytes);
+void        _dbus_generate_random_bytes_buffer (char       *buffer,
+                                                int         n_bytes);
+dbus_bool_t _dbus_generate_random_bytes        (DBusString *str,
+                                                int         n_bytes);
+dbus_bool_t _dbus_generate_random_ascii        (DBusString *str,
+                                                int         n_bytes);
 
 const char *_dbus_errno_to_string  (int errnum);
 const char* _dbus_error_from_errno (int error_number);

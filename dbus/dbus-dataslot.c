@@ -21,7 +21,7 @@
  *
  */
 #include "dbus-dataslot.h"
-#include "dbus-threads.h"
+#include "dbus-threads-internal.h"
 
 /**
  * @defgroup DBusDataSlot Data slots

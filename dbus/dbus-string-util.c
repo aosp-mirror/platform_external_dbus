@@ -32,30 +32,6 @@
  */
 
 /**
- * Copies the contents of a DBusString into a different
- * buffer. The resulting buffer will be nul-terminated.
- * 
- * @param str a string
- * @param buffer a C buffer to copy data to
- * @param avail_len maximum length of C buffer
- */
-void
-_dbus_string_copy_to_buffer (const DBusString  *str,
-			     char              *buffer,
-			     int                avail_len)
-{
-  int copy_len;
-  DBUS_CONST_STRING_PREAMBLE (str);
-
-  _dbus_assert (avail_len >= 0);
-
-  copy_len = MIN (avail_len, real->len+1);
-  memcpy (buffer, real->str, copy_len);
-  if (avail_len > 0 && avail_len == copy_len)
-    buffer[avail_len-1] = '\0';
-}
-
-/**
  * Returns whether a string ends with the given suffix
  *
  * @todo memcmp might make this faster.
