@@ -10,14 +10,19 @@ if DBUS_DOCS_ENABLED
 all-local: dbus-specification.html dbus-test-plan.html
 endif
 
+## Debian db2html outputs to stdout, so we collect stdout and use 
+## it if we didn't get the proper output
+
 dbus-specification.html: dbus-specification.sgml
-	$(DB2HTML) -o . --nochunks $< &&				\
+	$(DB2HTML) -o . --nochunks $< > $@.stdout &&			\
+	(test -e $@ && rm -f $@.stdout || mv $@.stdout $@) &&		\
 	rm -rf $(srcdir)/dbus-specification/stylesheet-images &&	\
 	(if test -d $(srcdir)/dbus-specification ; then			\
 	rmdir $(srcdir)/dbus-specification ; fi)
 
 dbus-test-plan.html: dbus-test-plan.sgml
-	$(DB2HTML) -o . --nochunks $< &&			\
+	$(DB2HTML) -o . --nochunks $< > $@.stdout &&		\
+	(test -e $@ && rm -f $@.stdout || mv $@.stdout $@) &&	\
 	rm -rf $(srcdir)/dbus-test-plan/stylesheet-images &&	\
 	(if test -d $(srcdir)/dbus-test-plan ; then		\
 	rmdir $(srcdir)/dbus-test-plan ; fi)

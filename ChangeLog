@@ -1,5 +1,10 @@
 2003-09-28  Havoc Pennington  <hp@pobox.com>
 
+	* doc/Makefile.am (dbus-specification.html): testing a funky hack
+	to work with Debian db2html
+
+2003-09-28  Havoc Pennington  <hp@pobox.com>
+
 	* configure.in: 0.13
 
 	* doc/Makefile.am (dbus-test-plan.html): accept nonexistence of
