@@ -1,3 +1,8 @@
+2003-06-22  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus-glib-1.pc.in: No need to specify any includes since
+	dbus-1.pc.in has those.
+
 2003-06-22  Havoc Pennington  <hp@pobox.com>
 
 	* mono/*, gcj/*, configure.in, Makefile.am: 
