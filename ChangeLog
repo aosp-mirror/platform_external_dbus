@@ -1,3 +1,7 @@
+2003-09-25  Havoc Pennington  <hp@pobox.com>
+
+	* bus/session.conf.in: fix security policy, reported by Seth Nickell
+
 2003-09-25  Seth Nickell  <seth@gnome.org>
 
 	* python/examples/example-service.py:

@@ -92,4 +92,6 @@
 
  - dbus_gproxy or dbus_g_proxy?
 
+ - add dbus_message_has_path(), maybe has_member/interface
+
  - The OBJECT_PATH type is not documented in the spec.
