@@ -338,6 +338,12 @@ dbus_bus_get (DBusBusType  type,
       _DBUS_UNLOCK (bus);
       return NULL;
     }
+
+  /* By default we're bound to the lifecycle of
+   * the message bus.
+   */
+  dbus_connection_set_exit_on_disconnect (connection,
+                                          TRUE);
   
   if (!dbus_bus_register (connection, error))
     {

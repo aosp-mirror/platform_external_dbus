@@ -100,6 +100,8 @@ void               dbus_connection_unref                        (DBusConnection 
 void               dbus_connection_disconnect                   (DBusConnection             *connection);
 dbus_bool_t        dbus_connection_get_is_connected             (DBusConnection             *connection);
 dbus_bool_t        dbus_connection_get_is_authenticated         (DBusConnection             *connection);
+void               dbus_connection_set_exit_on_disconnect       (DBusConnection             *connection,
+                                                                 dbus_bool_t                 exit_on_disconnect);
 void               dbus_connection_flush                        (DBusConnection             *connection);
 DBusMessage*       dbus_connection_borrow_message               (DBusConnection             *connection);
 void               dbus_connection_return_message               (DBusConnection             *connection,
@@ -241,7 +243,7 @@ void        dbus_connection_unregister_object_path (DBusConnection              
                                                     const char                 **path);
 
 dbus_bool_t dbus_connection_list_registered        (DBusConnection              *connection,
-                                                    const char               **parent_path,
+                                                    const char                 **parent_path,
                                                     char                      ***child_entries);
 
 DBUS_END_DECLS;

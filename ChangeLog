@@ -1,5 +1,15 @@
 2003-09-21  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-bus.c (dbus_bus_get): set exit_on_disconnect to TRUE
+	by default for message bus connections.
+
+	* dbus/dbus-connection.c (dbus_connection_dispatch): exit if
+	exit_on_disconnect flag is set and we process the disconnected
+	signal.
+	(dbus_connection_set_exit_on_disconnect): new function
+
+2003-09-21  Havoc Pennington  <hp@pobox.com>
+
 	Get matching rules mostly working in the bus; only actually
 	parsing the rule text remains. However, the client side of
 	"signal connections" hasn't been started, this patch is only the

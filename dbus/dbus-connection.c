@@ -206,6 +206,8 @@ struct DBusConnection
                          *   for the global linked list mempool lock
                          */
   DBusObjectTree *objects; /**< Object path handlers registered with this connection */
+
+  unsigned int exit_on_disconnect : 1; /**< If #TRUE, exit after handling disconnect signal */
 };
 
 static void               _dbus_connection_remove_timeout_locked             (DBusConnection     *connection,
@@ -906,6 +908,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection->filter_list = NULL;
   connection->last_dispatch_status = DBUS_DISPATCH_COMPLETE; /* so we're notified first time there's data */
   connection->objects = objects;
+  connection->exit_on_disconnect = FALSE;
   
   _dbus_data_slot_list_init (&connection->slot_list);
 
@@ -1354,6 +1357,30 @@ dbus_connection_get_is_authenticated (DBusConnection *connection)
   CONNECTION_UNLOCK (connection);
   
   return res;
+}
+
+/**
+ * Set whether _exit() should be called when the connection receives a
+ * disconnect signal. The call to _exit() comes after any handlers for
+ * the disconnect signal run; handlers can cancel the exit by calling
+ * this function.
+ *
+ * By default, exit_on_disconnect is #FALSE; but for message bus
+ * connections returned from dbus_bus_get() it will be toggled on
+ * by default.
+ *
+ * @param connection the connection
+ * @param exit_on_disconnect #TRUE if _exit() should be called after a disconnect signal
+ */
+void
+dbus_connection_set_exit_on_disconnect (DBusConnection *connection,
+                                        dbus_bool_t     exit_on_disconnect)
+{
+  _dbus_return_if_fail (connection != NULL);
+
+  CONNECTION_LOCK (connection);
+  connection->exit_on_disconnect = exit_on_disconnect != FALSE;
+  CONNECTION_UNLOCK (connection);
 }
 
 static DBusPreallocatedSend*
@@ -2616,6 +2643,17 @@ dbus_connection_dispatch (DBusConnection *connection)
     }
   else
     {
+      if (connection->exit_on_disconnect &&
+          dbus_message_is_signal (message,
+                                  DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                                  "Disconnected"))
+        {
+          _dbus_verbose ("Exiting on Disconnected signal\n");
+          CONNECTION_UNLOCK (connection);
+          _dbus_exit (1);
+          _dbus_assert_not_reached ("Call to exit() returned");
+        }
+      
       _dbus_list_free_link (message_link);
       dbus_message_unref (message); /* don't want the message to count in max message limits
                                      * in computing dispatch status below
