@@ -1,3 +1,13 @@
+2003-05-16  Colin Walters  <walters@verbum.org>
+
+	* tools/dbus-monitor.c: Add --session argument and usage()
+	function.
+
+	* tools/dbus-monitor.1: Update with new --session arg.
+
+	* bus/Makefile.am (install-data-hook): Create
+	$(libdir)/dbus-1.0/services so that the session bus is happy.
+
 2003-05-15  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-sysdeps.c (_dbus_atomic_dec, _dbus_atomic_inc): work

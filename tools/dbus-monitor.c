@@ -89,6 +89,13 @@ handler_func (DBusMessageHandler *handler,
   return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
 }
 
+static void
+usage (char *name, int ecode)
+{
+  fprintf (stderr, "Usage: %s [--session]\n", name);
+  exit (ecode);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -97,6 +104,24 @@ main (int argc, char *argv[])
   DBusBusType type = DBUS_BUS_SYSTEM;
   DBusMessageHandler *handler;
   GMainLoop *loop;
+  int i;
+
+  for (i = 1; i < argc; i++)
+    {
+      char *arg = argv[i];
+
+      if (!strcmp (arg, "--session"))
+	type = DBUS_BUS_SESSION;
+      else if (!strcmp (arg, "--help"))
+	usage (argv[0], 0);
+      else if (!strcmp (arg, "--"))
+	break;
+      else if (arg[0] == '-')
+	usage (argv[0], 1);
+    }
+
+  if (argc > 2)
+    usage (argv[0], 1);
 
   loop = g_main_loop_new (NULL, FALSE);
 
