@@ -1006,6 +1006,8 @@ connection_is_primary_owner (DBusConnection *connection,
   DBusString str;
   BusRegistry *registry;
 
+  _dbus_assert (connection != NULL);
+  
   registry = bus_connection_get_registry (connection);
 
   _dbus_string_init_const (&str, service_name);
@@ -1028,6 +1030,11 @@ match_rule_matches (BusMatchRule    *rule,
    * so FALSE if any of them don't match.
    */
 
+  /* sender/addressed_recipient of #NULL may mean bus driver,
+   * or for addressed_recipient may mean a message with no
+   * specific recipient (i.e. a signal)
+   */
+  
   if (rule->flags & BUS_MATCH_MESSAGE_TYPE)
     {
       _dbus_assert (rule->message_type != DBUS_MESSAGE_TYPE_INVALID);
@@ -1068,8 +1075,17 @@ match_rule_matches (BusMatchRule    *rule,
     {
       _dbus_assert (rule->sender != NULL);
 
-      if (!connection_is_primary_owner (sender, rule->sender))
-        return FALSE;
+      if (sender == NULL)
+        {
+          if (strcmp (rule->sender,
+                      DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) != 0)
+            return FALSE;
+        }
+      else
+        {
+          if (!connection_is_primary_owner (sender, rule->sender))
+            return FALSE;
+        }
     }
 
   if (rule->flags & BUS_MATCH_DESTINATION)
@@ -1078,15 +1094,21 @@ match_rule_matches (BusMatchRule    *rule,
 
       _dbus_assert (rule->destination != NULL);
 
-      if (addressed_recipient == NULL)
-        return FALSE;
-
       destination = dbus_message_get_destination (message);
       if (destination == NULL)
         return FALSE;
 
-      if (!connection_is_primary_owner (addressed_recipient, rule->destination))
-        return FALSE;
+      if (addressed_recipient == NULL)
+        {          
+          if (strcmp (rule->destination,
+                      DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) != 0)
+            return FALSE;
+        }
+      else
+        {
+          if (!connection_is_primary_owner (addressed_recipient, rule->destination))
+            return FALSE;
+        }
     }
 
   if (rule->flags & BUS_MATCH_PATH)

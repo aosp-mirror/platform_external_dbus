@@ -1870,6 +1870,9 @@ dbus_message_append_args_valist (DBusMessage *message,
 	  if (!dbus_message_iter_append_string (&iter, va_arg (var_args, const char *)))
 	    goto errorout;
 	  break;
+        case DBUS_TYPE_OBJECT_PATH:
+
+          break;
 	case DBUS_TYPE_NAMED:
 	  {
 	    const char *name;
@@ -2540,7 +2543,10 @@ dbus_message_iter_get_arg_type (DBusMessageIter *iter)
   _dbus_return_val_if_fail (dbus_message_iter_check (real), DBUS_TYPE_INVALID);
 
   if (real->pos >= real->end)
-    return DBUS_TYPE_INVALID;
+    {
+      _dbus_verbose ("  iterator at or beyond end of message\n");
+      return DBUS_TYPE_INVALID;
+    }
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2644,6 +2650,36 @@ dbus_message_iter_get_string (DBusMessageIter *iter)
   return _dbus_demarshal_string (&real->message->body, real->message->byte_order,
                                  pos, NULL);
 }
+
+#if 0
+/**
+ * @todo FIXME to finish this _dbus_demarshal_object_path() needs
+ * to not explode the path.
+ * 
+ * Returns the object path value that an iterator may point to.
+ * Note that you need to check that the iterator points to
+ * an object path value before using this function.
+ *
+ * @see dbus_message_iter_get_arg_type
+ * @param iter the message iter
+ * @returns the path
+ */
+char *
+dbus_message_iter_get_object_path (DBusMessageIter  *iter)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+  int type, pos;
+
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), NULL);
+
+  pos = dbus_message_iter_get_data_start (real, &type);
+  
+  _dbus_assert (type == DBUS_TYPE_OBJECT_PATH);
+
+  return _dbus_demarshal_object_path (&real->message->body, real->message->byte_order,
+                                      pos, NULL);
+}
+#endif
 
 /**
  * Returns the name and data from a named type that an
@@ -3226,7 +3262,7 @@ dbus_message_iter_get_double_array  (DBusMessageIter *iter,
 /**
  * Returns the string array that the iterator may point to.
  * Note that you need to check that the iterator points
- * to a byte array prior to using this function.
+ * to a string array prior to using this function.
  *
  * The returned value is a #NULL-terminated array of strings.
  * Each string is a separate malloc block, and the array
@@ -3261,6 +3297,50 @@ dbus_message_iter_get_string_array (DBusMessageIter *iter,
   else
     return TRUE;
 }
+
+#if 0
+/**
+ * @todo FIXME to implement this _dbus_demarshal_object_path_array()
+ * needs implementing
+ * 
+ * Returns the object path array that the iterator may point to.
+ * Note that you need to check that the iterator points
+ * to an object path array prior to using this function.
+ *
+ * The returned value is a #NULL-terminated array of strings.
+ * Each string is a separate malloc block, and the array
+ * itself is a malloc block. You can free this type of
+ * array with dbus_free_string_array().
+ *
+ * @param iter the iterator
+ * @param value return location for string values
+ * @param len return location for length of byte array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_iter_get_object_path_array (DBusMessageIter *iter,
+                                         char          ***value,
+                                         int             *len)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+  int type, pos;
+
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
+
+  pos = dbus_message_iter_get_data_start (real, &type);
+  
+  _dbus_assert (type == DBUS_TYPE_ARRAY);
+
+  type = iter_get_array_type (real, NULL);
+  _dbus_assert (type == DBUS_TYPE_OBJECT_PATH);
+
+  if (!_dbus_demarshal_object_path_array (&real->message->body, real->message->byte_order,
+                                          pos, NULL, value, len))
+    return FALSE;
+  else
+    return TRUE;
+}
+#endif
 
 /**
  * Returns the key name fot the dict entry that an iterator
@@ -3664,6 +3744,8 @@ dbus_message_iter_append_double (DBusMessageIter *iter,
 /**
  * Appends a UTF-8 string to the message.
  *
+ * @todo add return_val_if_fail(UTF-8 is valid)
+ *
  * @param iter an iterator pointing to the end of the message
  * @param value the string
  * @returns #TRUE on success
@@ -3675,7 +3757,7 @@ dbus_message_iter_append_string (DBusMessageIter *iter,
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
   _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
-
+  
   if (!dbus_message_iter_append_type (real, DBUS_TYPE_STRING))
     return FALSE;
   
@@ -4971,7 +5053,11 @@ decode_header_data (const DBusString   *data,
           fields[field].name_offset  = pos;
           fields[field].value_offset = _DBUS_ALIGN_VALUE (pos, 4);
 
-          _dbus_verbose ("Found reply serial at offset %d\n",
+          _dbus_verbose ("Found reply serial %u at offset %d\n",
+                         _dbus_demarshal_uint32 (data,
+                                                 byte_order,
+                                                 fields[field].value_offset,
+                                                 NULL),
                          fields[field].value_offset);
 	  break;
 
@@ -6751,6 +6837,8 @@ _dbus_message_test (const char *test_data_dir)
   const unsigned char our_boolean_array[] = { TRUE, FALSE, TRUE, TRUE, FALSE };
   char sig[64];
   const char *s;
+  char *t;
+  DBusError error;
   
   _dbus_assert (sizeof (DBusMessageRealIter) <= sizeof (DBusMessageIter));
 
@@ -6952,7 +7040,7 @@ _dbus_message_test (const char *test_data_dir)
 
   _dbus_assert (strcmp (name1, name2) == 0);
   
-  dbus_message_unref (message);
+  dbus_message_unref (message);  
   dbus_message_unref (copy);
 
   message = dbus_message_new_method_call ("org.freedesktop.DBus.TestService",
@@ -6999,7 +7087,7 @@ _dbus_message_test (const char *test_data_dir)
 				  "data", 5);
   
   message_iter_test (message);
-
+  
   /* Message loader test */
   _dbus_message_lock (message);
   loader = _dbus_message_loader_new ();
@@ -7030,6 +7118,7 @@ _dbus_message_test (const char *test_data_dir)
       _dbus_message_loader_return_buffer (loader, buffer, 1);
     }
 
+  copy = dbus_message_copy (message); /* save for tests below */
   dbus_message_unref (message);
 
   /* Now pop back the message */
@@ -7051,6 +7140,31 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_unref (message);
   _dbus_message_loader_unref (loader);
 
+  message = dbus_message_new_method_return (copy);
+  if (message == NULL)
+    _dbus_assert_not_reached ("out of memory\n");
+  dbus_message_unref (copy);
+
+  if (!dbus_message_append_args (message,
+                                 DBUS_TYPE_STRING, "hello",
+                                 DBUS_TYPE_INVALID))
+    _dbus_assert_not_reached ("no memory");
+
+  if (!dbus_message_has_signature (message, "s"))
+    _dbus_assert_not_reached ("method return has wrong signature");
+
+  dbus_error_init (&error);
+  if (!dbus_message_get_args (message, &error, DBUS_TYPE_STRING,
+                              &t, DBUS_TYPE_INVALID))
+    
+    {
+      _dbus_warn ("Failed to get expected string arg: %s\n", error.message);
+      exit (1);
+    }
+  dbus_free (t);
+  
+  dbus_message_unref (message);
+  
   /* Now load every message in test_data_dir if we have one */
   if (test_data_dir == NULL)
     return TRUE;

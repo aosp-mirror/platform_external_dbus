@@ -11,11 +11,14 @@ main (int argc, char **argv)
   GMainLoop *loop;
   GError *error;
   DBusGProxy *driver;
+  DBusGProxy *proxy;
   DBusPendingCall *call;
   char **service_list;
   int service_list_len;
   int i;
-
+  dbus_uint32_t result;
+  char *str;
+  
   g_type_init ();
   
   loop = g_main_loop_new (NULL, FALSE);
@@ -66,7 +69,96 @@ main (int argc, char **argv)
   
   dbus_free_string_array (service_list);
 
+  /* Test handling of unknown method */
+  call = dbus_gproxy_begin_call (driver, "ThisMethodDoesNotExist",
+                                 DBUS_TYPE_STRING,
+                                 "blah blah blah blah blah",
+                                 DBUS_TYPE_INT32,
+                                 10,
+                                 DBUS_TYPE_INVALID);
+
+  error = NULL;
+  if (dbus_gproxy_end_call (driver, call, &error,
+                            DBUS_TYPE_INVALID))
+    {
+      g_printerr ("Calling nonexistent method succeeded!\n");
+      exit (1);
+    }
+
+  g_print ("Got EXPECTED error from calling unknown method: %s\n",
+           error->message);
+  g_error_free (error);
+  
+  /* Activate a service */
+  call = dbus_gproxy_begin_call (driver, "ActivateService",
+                                 DBUS_TYPE_STRING,
+                                 "org.freedesktop.DBus.TestSuiteEchoService",
+                                 DBUS_TYPE_UINT32,
+                                 0,
+                                 DBUS_TYPE_INVALID);
+
+  error = NULL;
+  if (!dbus_gproxy_end_call (driver, call, &error,
+                             DBUS_TYPE_UINT32, &result,
+                             DBUS_TYPE_INVALID))
+    {
+      g_printerr ("Failed to complete Activate call: %s\n",
+                  error->message);
+      g_error_free (error);
+      exit (1);
+    }
+
+  g_print ("Activation of echo service = 0x%x\n", result);
+
+  /* Activate a service again */
+  call = dbus_gproxy_begin_call (driver, "ActivateService",
+                                 DBUS_TYPE_STRING,
+                                 "org.freedesktop.DBus.TestSuiteEchoService",
+                                 DBUS_TYPE_UINT32,
+                                 0,
+                                 DBUS_TYPE_INVALID);
+
+  error = NULL;
+  if (!dbus_gproxy_end_call (driver, call, &error,
+                             DBUS_TYPE_UINT32, &result,
+                             DBUS_TYPE_INVALID))
+    {
+      g_printerr ("Failed to complete Activate call: %s\n",
+                  error->message);
+      g_error_free (error);
+      exit (1);
+    }
+
+  g_print ("Duplicate activation of echo service = 0x%x\n", result);
+
+  /* Talk to the new service */
+  
+  proxy = dbus_gproxy_new_for_service (connection,
+                                       "org.freedesktop.DBus.TestSuiteEchoService",
+                                       "/fixme/the/test/service/ignores/this", /* FIXME */
+                                       "org.freedesktop.TestSuite");
+  
+  call = dbus_gproxy_begin_call (proxy, "Echo",
+                                 DBUS_TYPE_STRING,
+                                 "my string hello",
+                                 DBUS_TYPE_INVALID);
+
+  error = NULL;
+  if (!dbus_gproxy_end_call (proxy, call, &error,
+                             DBUS_TYPE_STRING, &str,
+                             DBUS_TYPE_INVALID))
+    {
+      g_printerr ("Failed to complete Echo call: %s\n",
+                  error->message);
+      g_error_free (error);
+      exit (1);
+    }
+
+  g_print ("String echoed = \"%s\"\n", str);
+  dbus_free (str);
+  
   g_object_unref (G_OBJECT (driver));
+  g_object_unref (G_OBJECT (proxy));
   
   g_print ("Successfully completed %s\n", argv[0]);
   

@@ -94,18 +94,18 @@ void _dbus_real_assert_not_reached (const char *explanation,
 #else
 extern const char _dbus_return_if_fail_warning_format[];
 
-#define _dbus_return_if_fail(condition) do {                            \
-  if (!(condition)) {                                                   \
-    _dbus_warn (_dbus_return_if_fail_warning_format,                    \
-                _DBUS_FUNCTION_NAME, #condition, __FILE__, __LINE__);   \
-    return;                                                             \
+#define _dbus_return_if_fail(condition) do {                                            \
+  if (!(condition)) {                                                                   \
+    _dbus_warn (_dbus_return_if_fail_warning_format,                                    \
+                _dbus_getpid (), _DBUS_FUNCTION_NAME, #condition, __FILE__, __LINE__);  \
+    return;                                                                             \
   } } while (0)
 
-#define _dbus_return_val_if_fail(condition, val) do {                   \
-  if (!(condition)) {                                                   \
-    _dbus_warn (_dbus_return_if_fail_warning_format,                    \
-                _DBUS_FUNCTION_NAME, #condition, __FILE__, __LINE__);   \
-    return (val);                                                       \
+#define _dbus_return_val_if_fail(condition, val) do {                                   \
+  if (!(condition)) {                                                                   \
+    _dbus_warn (_dbus_return_if_fail_warning_format,                                    \
+                _dbus_getpid (), _DBUS_FUNCTION_NAME, #condition, __FILE__, __LINE__);  \
+    return (val);                                                                       \
   } } while (0)
 
 #endif /* !DBUS_DISABLE_ASSERT */

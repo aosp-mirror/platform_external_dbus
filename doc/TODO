@@ -117,3 +117,10 @@
    we need to have a test for it in the test suite.
 
  - the max_replies_per_connection resource limit isn't implemented
+
+ - array lengths should probably be returned as size_t rather than int
+   (though they are kind of a pita to pass in as size_t with the 
+    varargs, so maybe not - what does glib do with g_object_get()?)
+
+ - the varargs dbus_message_get_args() needs to support OBJECT_PATH 
+   and OBJECT_PATH_ARRAY

@@ -293,14 +293,16 @@ dbus_pending_call_block (DBusPendingCall *pending)
 
   if (dbus_pending_call_get_completed (pending))
     return;
-  
+
+  /* message may be NULL if no reply */
   message = _dbus_connection_block_for_reply (pending->connection,
                                               pending->reply_serial,
                                               dbus_timeout_get_interval (pending->timeout));
 
   _dbus_connection_lock (pending->connection);
   _dbus_pending_call_complete_and_unlock (pending, message);
-  dbus_message_unref (message);
+  if (message)
+    dbus_message_unref (message);
 }
 
 static DBusDataSlotAllocator slot_allocator;

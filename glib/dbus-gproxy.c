@@ -380,7 +380,7 @@ gproxy_get_match_rule (DBusGProxy *proxy)
   /* FIXME Some sort of escaping is required here I think */
   
   if (proxy->service)
-    return g_strdup_printf ("type='signal',service='%s',path='%s',interface='%s'",
+    return g_strdup_printf ("type='signal',sender='%s',path='%s',interface='%s'",
                             proxy->service, proxy->path, proxy->interface);
   else
     return g_strdup_printf ("type='signal',path='%s',interface='%s'",
@@ -1068,15 +1068,29 @@ dbus_gproxy_end_call (DBusGProxy          *proxy,
   g_assert (message != NULL);
 
   dbus_error_init (&derror);
-  va_start (args, first_arg_type);
-  if (!dbus_message_get_args_valist (message, &derror, first_arg_type, args))
+
+  switch (dbus_message_get_type (message))
     {
+    case DBUS_MESSAGE_TYPE_METHOD_RETURN:
+      va_start (args, first_arg_type);
+      if (!dbus_message_get_args_valist (message, &derror, first_arg_type, args))
+        {
+          va_end (args);
+          goto error;
+        }
       va_end (args);
+
+      return TRUE;
+      
+    case DBUS_MESSAGE_TYPE_ERROR:
+      dbus_set_error_from_message (&derror, message);
+      goto error;
+
+    default:
+      dbus_set_error (&derror, DBUS_ERROR_FAILED,
+                      "Reply was neither a method return nor an exception");
       goto error;
     }
-  va_end (args);
-
-  return TRUE;
 
  error:
   dbus_set_g_error (error, &derror);

@@ -344,11 +344,13 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
 
   _dbus_connection_wakeup_mainloop (connection);
   
-  _dbus_verbose ("Message %p (%s) added to incoming queue %p, %d incoming\n",
+  _dbus_verbose ("Message %p (%d %s '%s') added to incoming queue %p, %d incoming\n",
                  message,
+                 dbus_message_get_type (message),
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface",
+                 dbus_message_get_signature (message),
                  connection,
                  connection->n_incoming);
 }
@@ -430,11 +432,13 @@ _dbus_connection_message_sent (DBusConnection *connection,
   
   connection->n_outgoing -= 1;
 
-  _dbus_verbose ("Message %p (%s) removed from outgoing queue %p, %d left to send\n",
+  _dbus_verbose ("Message %p (%d %s '%s') removed from outgoing queue %p, %d left to send\n",
                  message,
+                 dbus_message_get_type (message),
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface",
+                 dbus_message_get_signature (message),
                  connection, connection->n_outgoing);
 
   /* Save this link in the link cache also */
@@ -690,12 +694,20 @@ _dbus_pending_call_complete_and_unlock (DBusPendingCall *pending,
       message = pending->timeout_link->data;
       _dbus_list_clear (&pending->timeout_link);
     }
+  else
+    dbus_message_ref (message);
 
-  _dbus_verbose ("  handing message %p to pending call\n", message);
+  _dbus_verbose ("  handing message %p (%s) to pending call serial %u\n",
+                 message,
+                 dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_METHOD_RETURN ?
+                 "method return" :
+                 dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR ?
+                 "error" : "other type",
+                 pending->reply_serial);
   
   _dbus_assert (pending->reply == NULL);
+  _dbus_assert (pending->reply_serial == dbus_message_get_reply_serial (message));
   pending->reply = message;
-  dbus_message_ref (pending->reply);
   
   dbus_pending_call_ref (pending); /* in case there's no app with a ref held */
   _dbus_connection_detach_pending_call_and_unlock (pending->connection, pending);
@@ -1505,11 +1517,13 @@ _dbus_connection_send_preallocated_unlocked (DBusConnection       *connection,
   
   connection->n_outgoing += 1;
 
-  _dbus_verbose ("Message %p (%s) added to outgoing queue %p, %d pending to send\n",
+  _dbus_verbose ("Message %p (%d %s '%s') added to outgoing queue %p, %d pending to send\n",
                  message,
+                 dbus_message_get_type (message),
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface",
+                 dbus_message_get_signature (message),
                  connection,
                  connection->n_outgoing);
 
@@ -2178,11 +2192,13 @@ _dbus_connection_pop_message_link_unlocked (DBusConnection *connection)
       link = _dbus_list_pop_first_link (&connection->incoming_messages);
       connection->n_incoming -= 1;
 
-      _dbus_verbose ("Message %p (%s) removed from incoming queue %p, %d incoming\n",
+      _dbus_verbose ("Message %p (%d %s '%s') removed from incoming queue %p, %d incoming\n",
                      link->data,
+                     dbus_message_get_type (link->data),
                      dbus_message_get_interface (link->data) ?
                      dbus_message_get_interface (link->data) :
                      "no interface",
+                     dbus_message_get_signature (link->data),
                      connection, connection->n_incoming);
 
       return link;
@@ -2227,11 +2243,13 @@ _dbus_connection_putback_message_link_unlocked (DBusConnection *connection,
                            message_link);
   connection->n_incoming += 1;
 
-  _dbus_verbose ("Message %p (%s) put back into queue %p, %d incoming\n",
+  _dbus_verbose ("Message %p (%d %s '%s') put back into queue %p, %d incoming\n",
                  message_link->data,
+                 dbus_message_get_type (message_link->data),
                  dbus_message_get_interface (message_link->data) ?
                  dbus_message_get_interface (message_link->data) :
                  "no interface",
+                 dbus_message_get_signature (message_link->data),
                  connection, connection->n_incoming);
 }
 
@@ -2558,8 +2576,9 @@ dbus_connection_dispatch (DBusConnection *connection)
   /* We're still protected from dispatch() reentrancy here
    * since we acquired the dispatcher
    */
-  _dbus_verbose ("  running object path dispatch on message %p (%s)\n",
+  _dbus_verbose ("  running object path dispatch on message %p (%d %s '%s')\n",
                  message,
+                 dbus_message_get_type (message),
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface");
@@ -2625,15 +2644,19 @@ dbus_connection_dispatch (DBusConnection *connection)
       result = DBUS_HANDLER_RESULT_HANDLED;
     }
   
-  _dbus_verbose ("  done dispatching %p (%s) on connection %p\n", message,
+  _dbus_verbose ("  done dispatching %p (%d %s '%s') on connection %p\n", message,
+                 dbus_message_get_type (message),
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface",
+                 dbus_message_get_signature (message),
                  connection);
   
  out:
   if (result == DBUS_HANDLER_RESULT_NEED_MEMORY)
     {
+      _dbus_verbose ("out of memory in %s\n", _DBUS_FUNCTION_NAME);
+      
       /* Put message back, and we'll start over.
        * Yes this means handlers must be idempotent if they
        * don't return HANDLED; c'est la vie.
@@ -2643,6 +2666,8 @@ dbus_connection_dispatch (DBusConnection *connection)
     }
   else
     {
+      _dbus_verbose ("Done with message in %s\n", _DBUS_FUNCTION_NAME);
+      
       if (connection->exit_on_disconnect &&
           dbus_message_is_signal (message,
                                   DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,

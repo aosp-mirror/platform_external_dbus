@@ -223,6 +223,8 @@ _dbus_verbose_real (const char *format,
   va_start (args, format);
   vfprintf (stderr, format, args);
   va_end (args);
+
+  fflush (stderr);
 }
 
 /**
@@ -424,7 +426,7 @@ _dbus_header_field_to_string (int header_field)
 #ifndef DBUS_DISABLE_CHECKS
 /** String used in _dbus_return_if_fail macro */
 const char _dbus_return_if_fail_warning_format[] =
-"Arguments to %s() were incorrect, assertion \"%s\" failed in file %s line %d.\n"
+"%lu: arguments to %s() were incorrect, assertion \"%s\" failed in file %s line %d.\n"
 "This is normally a bug in some application using the D-BUS library.\n";
 #endif
 
@@ -448,8 +450,8 @@ _dbus_real_assert (dbus_bool_t  condition,
 {
   if (!condition)
     {
-      _dbus_warn ("Assertion failed \"%s\" file \"%s\" line %d process %lu\n",
-                  condition_text, file, line, _dbus_getpid ());
+      _dbus_warn ("%lu: assertion failed \"%s\" file \"%s\" line %d\n",
+                  _dbus_getpid (), condition_text, file, line);
       _dbus_abort ();
     }
 }

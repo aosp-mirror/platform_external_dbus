@@ -4,6 +4,9 @@ SCRIPTNAME=$0
 
 function die() 
 {
+    if ! test -z "$DBUS_SESSION_BUS_PID" ; then
+        kill -9 $DBUS_SESSION_BUS_PID
+    fi
     echo $SCRIPTNAME: $* >&2
     exit 1
 }
@@ -13,11 +16,14 @@ if test -z "$DBUS_TOP_BUILDDIR" ; then
 fi
 
 CONFIG_FILE=./run-test.conf
+SERVICE_DIR="$DBUS_TOP_BUILDDIR/test/data/valid-service-files"
+ESCAPED_SERVICE_DIR=`echo $SERVICE_DIR | sed -e 's/\//\\\\\\//g'`
+echo "escaped service dir is: $ESCAPED_SERVICE_DIR"
 
 ## create a configuration file based on the standard session.conf
 cat $DBUS_TOP_BUILDDIR/bus/session.conf |  \
-  sed -e 's/<servicedir>.*$//g'         |  \
-  sed -e 's/<include.*$//g'                \
+    sed -e 's/<servicedir>.*$/<servicedir>'$ESCAPED_SERVICE_DIR'<\/servicedir>/g' |  \
+    sed -e 's/<include.*$//g'                \
   > $CONFIG_FILE
 
 echo "Created configuration file $CONFIG_FILE"

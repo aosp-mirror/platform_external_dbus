@@ -239,7 +239,8 @@ do_write (int fd, const void *buf, size_t count)
         goto again;
       else
         {
-          fprintf (stderr, "Failed to write data to pipe!\n");
+          fprintf (stderr, "Failed to write data to pipe! %s\n",
+                   strerror (errno));
           exit (1); /* give up, we suck */
         }
     }
@@ -461,6 +462,10 @@ babysit (int   exit_with_session,
   long val;
   char *end;
   int dev_null_fd;
+  const char *s;
+
+  verbose ("babysitting, exit_with_session = %d, child_pid = %ld, read_bus_pid_fd = %d, write_bus_pid_fd = %d\n",
+           exit_with_session, (long) child_pid, read_bus_pid_fd, write_bus_pid_fd);
   
   /* We chdir ("/") since we are persistent and daemon-like, and fork
    * again so dbus-launch can reap the parent.  However, we don't
@@ -476,14 +481,19 @@ babysit (int   exit_with_session,
       exit (1);
     }
 
-  /* Move stdout/stderr so we don't block an "eval" or otherwise
-   * lock up.
+  /* Close stdout/stderr so we don't block an "eval" or otherwise
+   * lock up. stdout is still chaining through to dbus-launch
+   * and in turn to the parent shell.
    */
   dev_null_fd = open ("/dev/null", O_RDWR);
   if (dev_null_fd >= 0)
     {
+      if (!exit_with_session)
+        dup2 (dev_null_fd, 0);
       dup2 (dev_null_fd, 1);
-      dup2 (dev_null_fd, 2);
+      s = getenv ("DBUS_DEBUG_OUTPUT");
+      if (s == NULL || *s == '\0')
+        dup2 (dev_null_fd, 2);
     }
   else
     {
@@ -888,6 +898,11 @@ main (int argc, char **argv)
 	}
 	  
       verbose ("dbus-launch exiting\n");
+
+      fflush (stdout);
+      fflush (stderr);
+      close (1);
+      close (2);
       
       exit (0);
     } 

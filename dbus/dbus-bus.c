@@ -143,6 +143,8 @@ init_connections_unlocked (void)
       
        if (bus_connection_addresses[DBUS_BUS_SYSTEM] == NULL)
          {
+           _dbus_verbose ("Filling in system bus address...\n");
+           
            if (!get_from_env (&bus_connection_addresses[DBUS_BUS_SYSTEM],
                               "DBUS_SYSTEM_BUS_ADDRESS"))
              return FALSE;
@@ -154,27 +156,44 @@ init_connections_unlocked (void)
                  _dbus_strdup (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS);
                if (bus_connection_addresses[DBUS_BUS_SYSTEM] == NULL)
                  return FALSE;
+
+               _dbus_verbose ("  used default system bus \"%s\"\n",
+                              bus_connection_addresses[DBUS_BUS_SYSTEM]);
              }
+           else
+             _dbus_verbose ("  used env var system bus \"%s\"\n",
+                            bus_connection_addresses[DBUS_BUS_SYSTEM]);
          }
           
       if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
         {
+          _dbus_verbose ("Filling in session bus address...\n");
+          
           if (!get_from_env (&bus_connection_addresses[DBUS_BUS_SESSION],
                              "DBUS_SESSION_BUS_ADDRESS"))
             return FALSE;
+          _dbus_verbose ("  \"%s\"\n", bus_connection_addresses[DBUS_BUS_SESSION] ?
+                         bus_connection_addresses[DBUS_BUS_SESSION] : "none set");
         }
 
       if (bus_connection_addresses[DBUS_BUS_ACTIVATION] == NULL)
         {
+          _dbus_verbose ("Filling in activation bus address...\n");
+          
           if (!get_from_env (&bus_connection_addresses[DBUS_BUS_ACTIVATION],
                              "DBUS_ACTIVATION_ADDRESS"))
             return FALSE;
+
+          _dbus_verbose ("  \"%s\"\n", bus_connection_addresses[DBUS_BUS_ACTIVATION] ?
+                         bus_connection_addresses[DBUS_BUS_ACTIVATION] : "none set");
         }
 
       s = _dbus_getenv ("DBUS_ACTIVATION_BUS_TYPE");
 
       if (s != NULL)
         {
+          _dbus_verbose ("Bus activation type was set to \"%s\"\n", s);
+          
           if (strcmp (s, "system") == 0)
             activation_bus_type = DBUS_BUS_SYSTEM;
           else if (strcmp (s, "session") == 0)
@@ -311,10 +330,12 @@ dbus_bus_get (DBusBusType  type,
   address_type = type;
   
   /* Use the real type of the activation bus for getting its
-   * connection. (If the activating bus isn't a well-known
-   * bus then activation_bus_type == DBUS_BUS_ACTIVATION)
+   * connection, but only if the real type's address is available. (If
+   * the activating bus isn't a well-known bus then
+   * activation_bus_type == DBUS_BUS_ACTIVATION)
    */
-  if (type == DBUS_BUS_ACTIVATION)
+  if (type == DBUS_BUS_ACTIVATION &&
+      bus_connection_addresses[activation_bus_type] != NULL)
     type = activation_bus_type;
   
   if (bus_connections[type] != NULL)

@@ -1,3 +1,57 @@
+2003-10-16  Havoc Pennington  <hp@redhat.com>
+
+	* bus/connection.c (bus_pending_reply_expired): either cancel or
+	execute, not both
+	(bus_connections_check_reply): use unlink, not remove_link, as we
+	don't want to free the link; fixes double free mess
+
+	* dbus/dbus-pending-call.c (dbus_pending_call_block): fix in case
+	where no reply was received
+
+	* dbus/dbus-connection.c (_dbus_pending_call_complete_and_unlock):
+	fix a refcount leak
+
+	* bus/signals.c (match_rule_matches): add special cases for the
+	bus driver, so you can match on sender/destination for it.
+
+	* dbus/dbus-sysdeps.c (_dbus_abort): print backtrace if
+	DBUS_PRINT_BACKTRACE is set
+
+	* dbus/dbus-internals.c: add pid to assertion failure messages
+
+	* dbus/dbus-connection.c: add message type code to the debug spew
+
+	* glib/dbus-gproxy.c (gproxy_get_match_rule): match rules want
+	sender=foo not service=foo
+
+	* dbus/dbus-bus.c (dbus_bus_get): if the activation bus is the
+	session bus but DBUS_SESSION_BUS_ADDRESS isn't set, use 
+	DBUS_ACTIVATION_ADDRESS instead
+
+	* bus/activation.c: set DBUS_SESSION_BUS_ADDRESS,
+	DBUS_SYSTEM_BUS_ADDRESS if appropriate
+
+	* bus/bus.c (bus_context_new): handle OOM copying bus type into
+	context struct
+
+	* dbus/dbus-message.c (dbus_message_iter_get_object_path): new function
+	(dbus_message_iter_get_object_path_array): new function (half
+	finished, disabled for the moment)
+	
+	* glib/dbus-gproxy.c (dbus_gproxy_end_call): properly handle
+	DBUS_MESSAGE_TYPE_ERROR
+
+	* tools/dbus-launch.c (babysit): support DBUS_DEBUG_OUTPUT to
+	avoid redirecting stderr to /dev/null
+	(babysit): close stdin if not doing the "exit_with_session" thing
+
+	* dbus/dbus-sysdeps.c (_dbus_become_daemon): delete some leftover
+	debug code; change DBUS_DEBUG_OUTPUT to only enable stderr, not
+	stdout/stdin, so things don't get confused
+	
+	* bus/system.conf.in: fix to allow replies, I modified .conf
+	instead of .conf.in again.
+
 2003-10-14  David Zeuthen  <david@fubar.dk>
 
 	* python/dbus_bindings.pyx.in (MessageIter.get): fixed typo in

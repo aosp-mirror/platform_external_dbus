@@ -54,7 +54,7 @@ struct BusConnections
   BusContext *context;
   DBusHashTable *completed_by_user; /**< Number of completed connections for each UID */
   DBusTimeout *expire_timeout; /**< Timeout for expiring incomplete connections. */
-  int stamp;            /**< Incrementing number */
+  int stamp;                   /**< Incrementing number */
   BusExpireList *pending_replies; /**< List of pending replies */
 };
 
@@ -1340,6 +1340,18 @@ bus_connections_check_limits (BusConnections  *connections,
   return TRUE;
 }
 
+static void
+bus_pending_reply_free (BusPendingReply *pending)
+{
+  _dbus_verbose ("Freeing pending reply %p, replier %p receiver %p serial %u\n",
+                 pending,
+                 pending->will_send_reply,
+                 pending->will_get_reply,
+                 pending->reply_serial);
+
+  dbus_free (pending);
+}
+
 static dbus_bool_t
 bus_pending_reply_send_no_reply (BusConnections  *connections,
                                  BusTransaction  *transaction,
@@ -1393,20 +1405,28 @@ bus_pending_reply_expired (BusExpireList *list,
    * leave it in the list to try expiring again later when we
    * get more memory.
    */
+
+  _dbus_verbose ("Expiring pending reply %p, replier %p receiver %p serial %u\n",
+                 pending,
+                 pending->will_send_reply,
+                 pending->will_get_reply,
+                 pending->reply_serial);
+  
   transaction = bus_transaction_new (connections->context);
   if (transaction == NULL)
     return;
   
-  if (bus_pending_reply_send_no_reply (connections,
-                                       transaction,
-                                       pending))
+  if (!bus_pending_reply_send_no_reply (connections,
+                                        transaction,
+                                        pending))
     {
-      _dbus_list_remove_link (&connections->pending_replies->items,
-                              link);
-      dbus_free (pending);
       bus_transaction_cancel_and_free (transaction);
+      return;
     }
-
+  
+  _dbus_list_remove_link (&connections->pending_replies->items,
+                          link);
+  bus_pending_reply_free (pending);
   bus_transaction_execute_and_free (transaction);
 }
 
@@ -1418,6 +1438,9 @@ bus_connection_drop_pending_replies (BusConnections  *connections,
    * do anything with it except check for pointer equality
    */
   DBusList *link;
+
+  _dbus_verbose ("Dropping pending replies that involve connection %p\n",
+                 connection);
   
   link = _dbus_list_get_first_link (&connections->pending_replies->items);
   while (link != NULL)
@@ -1433,16 +1456,27 @@ bus_connection_drop_pending_replies (BusConnections  *connections,
         {
           /* We don't need to track this pending reply anymore */
 
+          _dbus_verbose ("Dropping pending reply %p, replier %p receiver %p serial %u\n",
+                         pending,
+                         pending->will_send_reply,
+                         pending->will_get_reply,
+                         pending->reply_serial);
+          
           _dbus_list_remove_link (&connections->pending_replies->items,
                                   link);
-          dbus_free (pending);
+          bus_pending_reply_free (pending);
         }
       else if (pending->will_send_reply == connection)
         {
           /* The reply isn't going to be sent, so set things
            * up so it will be expired right away
            */
-
+          _dbus_verbose ("Will expire pending reply %p, replier %p receiver %p serial %u\n",
+                         pending,
+                         pending->will_send_reply,
+                         pending->will_get_reply,
+                         pending->reply_serial);
+          
           pending->will_send_reply = NULL;
           pending->expire_item.added_tv_sec = 0;
           pending->expire_item.added_tv_usec = 0;
@@ -1467,11 +1501,13 @@ cancel_pending_reply (void *data)
 {
   CancelPendingReplyData *d = data;
 
+  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+  
   if (!_dbus_list_remove (&d->connections->pending_replies->items,
                           d->pending))
     _dbus_assert_not_reached ("pending reply did not exist to be cancelled");
 
-  dbus_free (d->pending); /* since it's been cancelled */
+  bus_pending_reply_free (d->pending); /* since it's been cancelled */
 }
 
 static void
@@ -1479,6 +1515,8 @@ cancel_pending_reply_data_free (void *data)
 {
   CancelPendingReplyData *d = data;
 
+  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+  
   /* d->pending should be either freed or still
    * in the list of pending replies (owned by someone
    * else)
@@ -1537,11 +1575,21 @@ bus_connections_expect_reply (BusConnections  *connections,
       return FALSE;
     }
 
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+  /* so we can see a not-yet-added pending reply */
+  pending->expire_item.added_tv_sec = 1;
+  pending->expire_item.added_tv_usec = 1;
+#endif
+
+  pending->will_get_reply = will_get_reply;
+  pending->will_send_reply = will_send_reply;
+  pending->reply_serial = reply_serial;
+  
   cprd = dbus_new0 (CancelPendingReplyData, 1);
   if (cprd == NULL)
     {
       BUS_SET_OOM (error);
-      dbus_free (pending);
+      bus_pending_reply_free (pending);
       return FALSE;
     }
   
@@ -1550,7 +1598,7 @@ bus_connections_expect_reply (BusConnections  *connections,
     {
       BUS_SET_OOM (error);
       dbus_free (cprd);
-      dbus_free (pending);
+      bus_pending_reply_free (pending);
       return FALSE;
     }
 
@@ -1562,7 +1610,7 @@ bus_connections_expect_reply (BusConnections  *connections,
       BUS_SET_OOM (error);
       _dbus_list_remove (&connections->pending_replies->items, pending);
       dbus_free (cprd);
-      dbus_free (pending);
+      bus_pending_reply_free (pending);
       return FALSE;
     }
                                         
@@ -1572,10 +1620,12 @@ bus_connections_expect_reply (BusConnections  *connections,
   _dbus_get_current_time (&pending->expire_item.added_tv_sec,
                           &pending->expire_item.added_tv_usec);
 
-  pending->will_get_reply = will_get_reply;
-  pending->will_send_reply = will_send_reply;
-  pending->reply_serial = reply_serial;
-
+  _dbus_verbose ("Added pending reply %p, replier %p receiver %p serial %u\n",
+                 pending,
+                 pending->will_send_reply,
+                 pending->will_get_reply,
+                 pending->reply_serial);
+  
   return TRUE;
 }
 
@@ -1590,6 +1640,8 @@ cancel_check_pending_reply (void *data)
 {
   CheckPendingReplyData *d = data;
 
+  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+  
   _dbus_list_prepend_link (&d->connections->pending_replies->items,
                            d->link);
   d->link = NULL;
@@ -1600,11 +1652,16 @@ check_pending_reply_data_free (void *data)
 {
   CheckPendingReplyData *d = data;
 
+  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+  
   if (d->link != NULL)
     {
       BusPendingReply *pending = d->link->data;
-
-      dbus_free (pending);
+      
+      _dbus_assert (_dbus_list_find_last (&d->connections->pending_replies->items,
+                                          pending) == NULL);
+      
+      bus_pending_reply_free (pending);
       _dbus_list_free_link (d->link);
     }
   
@@ -1641,7 +1698,7 @@ bus_connections_check_reply (BusConnections *connections,
           pending->will_get_reply == receiving_reply &&
           pending->will_send_reply == sending_reply)
         {
-          _dbus_verbose ("Found pending reply\n");
+          _dbus_verbose ("Found pending reply with serial %u\n", reply_serial);
           break;
         }
       
@@ -1676,8 +1733,11 @@ bus_connections_check_reply (BusConnections *connections,
   cprd->link = link;
   cprd->connections = connections;
   
-  _dbus_list_remove_link (&connections->pending_replies->items,
-                          link);
+  _dbus_list_unlink (&connections->pending_replies->items,
+                     link);
+  
+  _dbus_assert (_dbus_list_find_last (&connections->pending_replies->items,
+                                      link->data) == NULL);
 
   return TRUE;
 }
@@ -2075,6 +2135,9 @@ bus_transaction_add_cancel_hook (BusTransaction               *transaction,
   ch = dbus_new (CancelHook, 1);
   if (ch == NULL)
     return FALSE;
+
+  _dbus_verbose ("     adding cancel hook function = %p data = %p\n",
+                 cancel_function, data);
   
   ch->cancel_function = cancel_function;
   ch->data = data;

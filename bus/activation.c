@@ -482,12 +482,25 @@ child_setup (void *data)
    */
   if (!_dbus_setenv ("DBUS_ACTIVATION_ADDRESS", activation->server_address))
     _dbus_exit (1);
-
+  
   type = bus_context_get_type (activation->context);
   if (type != NULL)
     {
       if (!_dbus_setenv ("DBUS_BUS_TYPE", type))
         _dbus_exit (1);
+
+      if (strcmp (type, "session") == 0)
+        {
+          if (!_dbus_setenv ("DBUS_SESSION_BUS_ADDRESS",
+                             activation->server_address))
+            _dbus_exit (1);
+        }
+      else if (strcmp (type, "system") == 0)
+        {
+          if (!_dbus_setenv ("DBUS_SYSTEM_BUS_ADDRESS",
+                             activation->server_address))
+            _dbus_exit (1);
+        }
     }
 }
 

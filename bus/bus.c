@@ -37,6 +37,7 @@ struct BusContext
 {
   int refcount;
   char *type;
+  char *bus_env_var;
   char *address;
   char *pidfile;
   DBusLoop *loop;
@@ -398,6 +399,11 @@ bus_context_new (const DBusString *config_file,
 
   /* note that type may be NULL */
   context->type = _dbus_strdup (bus_config_parser_get_type (parser));
+  if (bus_config_parser_get_type (parser) != NULL && context->type == NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
   
   /* We have to build the address backward, so that
    * <listen> later in the config file have priority
