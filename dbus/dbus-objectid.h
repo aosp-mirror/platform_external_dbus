@@ -30,6 +30,8 @@
 #include <dbus/dbus-arch-deps.h>
 #include <dbus/dbus-types.h>
 
+DBUS_BEGIN_DECLS;
+
 typedef struct DBusObjectID DBusObjectID;
 
 struct DBusObjectID
@@ -57,5 +59,7 @@ dbus_uint64_t          dbus_object_id_get_as_integer (const DBusObjectID *obj_id
 void                   dbus_object_id_set_as_integer (DBusObjectID       *obj_id,
                                                       dbus_uint64_t       value);
 #endif
+
+DBUS_END_DECLS;
 
 #endif /* DBUS_OBJECTID_H */

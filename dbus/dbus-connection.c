@@ -920,6 +920,22 @@ _dbus_connection_handle_watch (DBusWatch                   *watch,
   return retval;
 }
 
+/**
+ * Get the ID to be used in the high bits of an object ID for an object
+ * registered with this connection.
+ *
+ * @todo implement this function
+ * 
+ * @param connection the connection.
+ * @returns the connection portion of the object ID
+ */
+dbus_uint32_t
+_dbus_connection_get_id (DBusConnection *connection)
+{
+  /* FIXME */
+  return 1492;
+}
+
 /** @} */
 
 /**

@@ -37,6 +37,7 @@ typedef struct DBusConnection DBusConnection;
 typedef struct DBusWatch DBusWatch;
 typedef struct DBusTimeout DBusTimeout;
 typedef struct DBusMessageHandler DBusMessageHandler;
+typedef struct DBusObject DBusObject;
 typedef struct DBusPreallocatedSend DBusPreallocatedSend;
 
 typedef enum

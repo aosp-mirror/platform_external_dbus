@@ -38,6 +38,7 @@
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-message.h>
 #include <dbus/dbus-message-handler.h>
+#include <dbus/dbus-object.h>
 #include <dbus/dbus-objectid.h>
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-server.h>
