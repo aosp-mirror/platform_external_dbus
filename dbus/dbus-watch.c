@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-watch.c DBusWatch implementation
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -40,6 +40,7 @@ struct DBusWatch
   unsigned int flags;                  /**< Conditions to watch. */
   void *data;                          /**< Application data. */
   DBusFreeFunction free_data_function; /**< Free the application data. */
+  unsigned int enabled : 1;            /**< Whether it's enabled. */
 };
 
 /**
@@ -47,11 +48,13 @@ struct DBusWatch
  * implementation.
  * @param fd the file descriptor to be watched.
  * @param flags the conditions to watch for on the descriptor.
+ * @param enabled the initial enabled state
  * @returns the new DBusWatch object.
  */
 DBusWatch*
 _dbus_watch_new (int          fd,
-                 unsigned int flags)
+                 unsigned int flags,
+                 dbus_bool_t  enabled)
 {
   DBusWatch *watch;
 
@@ -63,6 +66,7 @@ _dbus_watch_new (int          fd,
   watch->refcount = 1;
   watch->fd = fd;
   watch->flags = flags;
+  watch->enabled = enabled;
 
   return watch;
 }
@@ -160,6 +164,7 @@ struct DBusWatchList
 
   DBusAddWatchFunction add_watch_function;    /**< Callback for adding a watch. */
   DBusRemoveWatchFunction remove_watch_function; /**< Callback for removing a watch. */
+  DBusWatchToggledFunction watch_toggled_function; /**< Callback on toggling enablement */
   void *watch_data;                           /**< Data for watch callbacks */
   DBusFreeFunction watch_free_data_function;  /**< Free function for watch callback data */
 };
@@ -192,7 +197,7 @@ _dbus_watch_list_free (DBusWatchList *watch_list)
 {
   /* free watch_data and removes watches as a side effect */
   _dbus_watch_list_set_functions (watch_list,
-                                  NULL, NULL, NULL, NULL);
+                                  NULL, NULL, NULL, NULL, NULL);
   
   _dbus_list_foreach (&watch_list->watches,
                       (DBusForeachFunction) _dbus_watch_unref,
@@ -210,6 +215,7 @@ _dbus_watch_list_free (DBusWatchList *watch_list)
  * @param watch_list the watch list.
  * @param add_function the add watch function.
  * @param remove_function the remove watch function.
+ * @param toggled_function function on toggling enabled flag, or #NULL
  * @param data the data for those functions.
  * @param free_data_function the function to free the data.
  * @returns #FALSE if not enough memory
@@ -219,6 +225,7 @@ dbus_bool_t
 _dbus_watch_list_set_functions (DBusWatchList           *watch_list,
                                 DBusAddWatchFunction     add_function,
                                 DBusRemoveWatchFunction  remove_function,
+                                DBusWatchToggledFunction toggled_function,
                                 void                    *data,
                                 DBusFreeFunction         free_data_function)
 {
@@ -270,6 +277,7 @@ _dbus_watch_list_set_functions (DBusWatchList           *watch_list,
   
   watch_list->add_watch_function = add_function;
   watch_list->remove_watch_function = remove_function;
+  watch_list->watch_toggled_function = toggled_function;
   watch_list->watch_data = data;
   watch_list->watch_free_data_function = free_data_function;
 
@@ -326,6 +334,31 @@ _dbus_watch_list_remove_watch  (DBusWatchList *watch_list,
                                            watch_list->watch_data);
   
   _dbus_watch_unref (watch);
+}
+
+/**
+ * Sets a watch to the given enabled state, invoking the
+ * application's DBusWatchToggledFunction if appropriate.
+ *
+ * @param watch_list the watch list.
+ * @param watch the watch to toggle.
+ * @param enabled #TRUE to enable
+ */
+void
+_dbus_watch_list_toggle_watch (DBusWatchList           *watch_list,
+                               DBusWatch               *watch,
+                               dbus_bool_t              enabled)
+{
+  enabled = !!enabled;
+  
+  if (enabled == watch->enabled)
+    return;
+
+  watch->enabled = enabled;
+  
+  if (watch_list->watch_toggled_function != NULL)
+    (* watch_list->watch_toggled_function) (watch,
+                                            watch_list->watch_data);
 }
 
 /** @} */
@@ -417,6 +450,19 @@ dbus_watch_set_data (DBusWatch        *watch,
   
   watch->data = data;
   watch->free_data_function = free_data_function;
+}
+
+/**
+ * Returns whether a watch is enabled or not. If not
+ * enabled, it should not be polled by the main loop.
+ *
+ * @param watch the DBusWatch object
+ * @returns #TRUE if the watch is enabled
+ */
+dbus_bool_t
+dbus_watch_get_enabled (DBusWatch *watch)
+{
+  return watch->enabled;
 }
 
 /** @} */

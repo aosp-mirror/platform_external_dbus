@@ -147,10 +147,8 @@ check_timeout (DBusTransport *transport)
     {
       if (!debug_transport->timeout_added)
         {
-          /* FIXME; messages_pending is going to have to
-           * handle OOM somehow (probably being part of
-           * PreallocatedSend). See also dbus-transport-unix.c
-           * check_write_watch()
+          /* FIXME this can be fixed now, by enabling/disabling
+           * the timeout instead of adding it here
            */
           while (!_dbus_connection_add_timeout (transport->connection,
                                                 debug_transport->timeout))
@@ -203,10 +201,11 @@ debug_disconnect (DBusTransport *transport)
 {
 }
 
-static void
+static dbus_bool_t
 debug_connection_set (DBusTransport *transport)
 {
   check_timeout (transport);
+  return TRUE;
 }
 
 static void

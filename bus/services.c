@@ -170,6 +170,8 @@ bus_registry_ensure (BusRegistry               *registry,
                                        service->name,
                                        service))
     {
+      bus_connection_remove_owned_service (owner_if_created,
+                                           service);
       _dbus_list_clear (&service->owners);
       dbus_free (service->name);
       _dbus_mem_pool_dealloc (registry->service_pool, service);
@@ -290,7 +292,11 @@ bus_service_remove_owner (BusService     *service,
         return FALSE;
     }
 
-  if (_dbus_list_length_is_one (&service->owners))
+  if (service->owners == NULL)
+    {
+      _dbus_assert_not_reached ("Tried to remove owner of a service that has no owners");
+    }
+  else if (_dbus_list_length_is_one (&service->owners))
     {
       /* We are the only owner - send service deleted */
       if (!bus_driver_send_service_deleted (service->name,
@@ -301,6 +307,7 @@ bus_service_remove_owner (BusService     *service,
     {
       DBusList *link;
       link = _dbus_list_get_first (&service->owners);
+      _dbus_assert (link != NULL);
       link = _dbus_list_get_next_link (&service->owners, link);
 
       if (link != NULL)
@@ -320,7 +327,8 @@ bus_service_remove_owner (BusService     *service,
   if (service->owners == NULL)
     {
       /* Delete service (already sent message that it was deleted above) */
-      _dbus_hash_table_remove_string (service->registry->service_hash, service->name);
+      _dbus_hash_table_remove_string (service->registry->service_hash,
+                                      service->name);
       
       dbus_free (service->name);
       _dbus_mem_pool_dealloc (service->registry->service_pool, service);

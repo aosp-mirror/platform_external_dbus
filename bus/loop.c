@@ -294,9 +294,26 @@ bus_loop_iterate (dbus_bool_t block)
       bus_loop_quit ();
       goto next_iteration;
     }
-      
-  n_fds = watch_count;
 
+  /* count enabled watches */
+  n_fds = 0;
+  link = _dbus_list_get_first_link (&callbacks);
+  while (link != NULL)
+    {
+      DBusList *next = _dbus_list_get_next_link (&callbacks, link);
+      Callback *cb = link->data;
+      if (cb->type == CALLBACK_WATCH)
+        {
+          WatchCallback *wcb = WATCH_CALLBACK (cb);
+
+          if (dbus_watch_get_enabled (wcb->watch))
+            ++n_fds;
+        }
+      
+      link = next;
+    }
+
+  /* fill our array of fds and watches */
   if (n_fds > 0)
     {
       fds = dbus_new0 (DBusPollFD, n_fds);
@@ -323,18 +340,21 @@ bus_loop_iterate (dbus_bool_t block)
             {
               unsigned int flags;
               WatchCallback *wcb = WATCH_CALLBACK (cb);
-                  
-              watches_for_fds[i] = wcb;
-                  
-              flags = dbus_watch_get_flags (wcb->watch);
-                  
-              fds[i].fd = dbus_watch_get_fd (wcb->watch);
-              if (flags & DBUS_WATCH_READABLE)
-                fds[i].events |= _DBUS_POLLIN;
-              if (flags & DBUS_WATCH_WRITABLE)
-                fds[i].events |= _DBUS_POLLOUT;
 
-              ++i;
+              if (dbus_watch_get_enabled (wcb->watch))
+                {
+                  watches_for_fds[i] = wcb;
+                  
+                  flags = dbus_watch_get_flags (wcb->watch);
+                  
+                  fds[i].fd = dbus_watch_get_fd (wcb->watch);
+                  if (flags & DBUS_WATCH_READABLE)
+                    fds[i].events |= _DBUS_POLLIN;
+                  if (flags & DBUS_WATCH_WRITABLE)
+                    fds[i].events |= _DBUS_POLLOUT;
+
+                  ++i;
+                }
             }
               
           link = next;
@@ -359,7 +379,8 @@ bus_loop_iterate (dbus_bool_t block)
           DBusList *next = _dbus_list_get_next_link (&callbacks, link);
           Callback *cb = link->data;
 
-          if (cb->type == CALLBACK_TIMEOUT)
+          if (cb->type == CALLBACK_TIMEOUT &&
+              dbus_timeout_get_enabled (TIMEOUT_CALLBACK (cb)->timeout))
             {
               TimeoutCallback *tcb = TIMEOUT_CALLBACK (cb);
               unsigned long interval;
@@ -427,7 +448,8 @@ bus_loop_iterate (dbus_bool_t block)
           if (exited)
             goto next_iteration;
               
-          if (cb->type == CALLBACK_TIMEOUT)
+          if (cb->type == CALLBACK_TIMEOUT &&
+              dbus_timeout_get_enabled (TIMEOUT_CALLBACK (cb)->timeout))
             {
               TimeoutCallback *tcb = TIMEOUT_CALLBACK (cb);
               unsigned long interval;
@@ -513,7 +535,8 @@ bus_loop_iterate (dbus_bool_t block)
                * weird POLLFOO thing like POLLWRBAND
                */
                   
-              if (condition != 0)
+              if (condition != 0 &&
+                  dbus_watch_get_enabled (wcb->watch))
                 {
                   (* wcb->function) (wcb->watch,
                                      condition,

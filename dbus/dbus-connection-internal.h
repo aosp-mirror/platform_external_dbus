@@ -55,10 +55,16 @@ dbus_bool_t     _dbus_connection_add_watch              (DBusConnection *connect
                                                          DBusWatch      *watch);
 void            _dbus_connection_remove_watch           (DBusConnection *connection,
                                                          DBusWatch      *watch);
+void            _dbus_connection_toggle_watch           (DBusConnection *connection,
+                                                         DBusWatch      *watch,
+                                                         dbus_bool_t     enabled);
 dbus_bool_t     _dbus_connection_add_timeout            (DBusConnection *connection,
 							 DBusTimeout    *timeout);
 void            _dbus_connection_remove_timeout         (DBusConnection *connection,
 							 DBusTimeout    *timeout);
+void            _dbus_connection_toggle_timeout         (DBusConnection *connection,
+                                                         DBusTimeout    *timeout,
+                                                         dbus_bool_t     enabled);
 DBusConnection* _dbus_connection_new_for_transport      (DBusTransport  *transport);
 
 void            _dbus_connection_do_iteration           (DBusConnection *connection,

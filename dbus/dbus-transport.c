@@ -427,8 +427,9 @@ _dbus_transport_handle_watch (DBusTransport           *transport,
  *
  * @param transport the transport.
  * @param connection the connection.
+ * @returns #FALSE if not enough memory
  */
-void
+dbus_bool_t
 _dbus_transport_set_connection (DBusTransport  *transport,
                                 DBusConnection *connection)
 {
@@ -438,8 +439,11 @@ _dbus_transport_set_connection (DBusTransport  *transport,
   transport->connection = connection;
 
   _dbus_transport_ref (transport);
-  (* transport->vtable->connection_set) (transport);
+  if (!(* transport->vtable->connection_set) (transport))
+    transport->connection = NULL;
   _dbus_transport_unref (transport);
+
+  return transport->connection != NULL;
 }
 
 /**

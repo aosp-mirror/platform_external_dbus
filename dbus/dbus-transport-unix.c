@@ -117,6 +117,12 @@ check_write_watch (DBusTransport *transport)
 
   if (transport->connection == NULL)
     return;
+
+  if (transport->disconnected)
+    {
+      _dbus_assert (unix_transport->write_watch == NULL);
+      return;
+    }
   
   _dbus_transport_ref (transport);
 
@@ -126,51 +132,10 @@ check_write_watch (DBusTransport *transport)
     need_write_watch = transport->send_credentials_pending ||
       _dbus_auth_do_work (transport->auth) == DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND;
 
-  if (transport->disconnected)
-    need_write_watch = FALSE;
-  
-  if (need_write_watch &&
-      unix_transport->write_watch == NULL)
-    {
-      unix_transport->write_watch =
-        _dbus_watch_new (unix_transport->fd,
-                         DBUS_WATCH_WRITABLE);
+  _dbus_connection_toggle_watch (transport->connection,
+                                 unix_transport->write_watch,
+                                 need_write_watch);
 
-      /* FIXME this is total crack. The proper fix is probably to
-       * allocate the write watch on transport creation, keep it
-       * allocated. But that doesn't solve needing memory to add the
-       * watch.  messages_pending is going to have to handle OOM
-       * somehow (probably being part of PreallocatedSend)
-       */
-      if (unix_transport->write_watch == NULL)
-        goto out;
-
-      if (!_dbus_connection_add_watch (transport->connection,
-                                       unix_transport->write_watch))
-        {
-          _dbus_watch_invalidate (unix_transport->write_watch);
-          _dbus_watch_unref (unix_transport->write_watch);
-          unix_transport->write_watch = NULL;
-        }
-    }
-  else if (!need_write_watch &&
-           unix_transport->write_watch != NULL)
-    {
-      _dbus_connection_remove_watch (transport->connection,
-                                     unix_transport->write_watch);
-      _dbus_watch_invalidate (unix_transport->write_watch);
-      _dbus_watch_unref (unix_transport->write_watch);
-      unix_transport->write_watch = NULL;
-    }
-  else
-    {
-#if 0
-      _dbus_verbose ("Write watch is unchanged from %p on fd %d\n",
-                     unix_transport->write_watch, unix_transport->fd);
-#endif
-    }
-  
- out:
   _dbus_transport_unref (transport);
 }
 
@@ -182,6 +147,12 @@ check_read_watch (DBusTransport *transport)
 
   if (transport->connection == NULL)
     return;
+
+  if (transport->disconnected)
+    {
+      _dbus_assert (unix_transport->read_watch == NULL);
+      return;
+    }
   
   _dbus_transport_ref (transport);
 
@@ -192,57 +163,10 @@ check_read_watch (DBusTransport *transport)
     need_read_watch = transport->receive_credentials_pending ||
       _dbus_auth_do_work (transport->auth) == DBUS_AUTH_STATE_WAITING_FOR_INPUT;
 
-#if 0
-  _dbus_verbose ("need_read_watch = %d authenticated = %d\n",
-                 need_read_watch, _dbus_transport_get_is_authenticated (transport));
-#endif
-  
-  if (transport->disconnected)
-    need_read_watch = FALSE;
-  
-  if (need_read_watch &&
-      unix_transport->read_watch == NULL)
-    {
-      _dbus_verbose ("Adding read watch to unix fd %d\n",
-                     unix_transport->fd);
-      
-      unix_transport->read_watch =
-        _dbus_watch_new (unix_transport->fd,
-                         DBUS_WATCH_READABLE);
+  _dbus_connection_toggle_watch (transport->connection,
+                                 unix_transport->read_watch,
+                                 need_read_watch);
 
-      /* we can maybe add it some other time, just silently bomb */
-      if (unix_transport->read_watch == NULL)
-        goto out;
-
-      if (!_dbus_connection_add_watch (transport->connection,
-                                       unix_transport->read_watch))
-        {
-          _dbus_watch_invalidate (unix_transport->read_watch);
-          _dbus_watch_unref (unix_transport->read_watch);
-          unix_transport->read_watch = NULL;
-        }
-    }
-  else if (!need_read_watch &&
-           unix_transport->read_watch != NULL)
-    {
-      _dbus_verbose ("Removing read watch from unix fd %d\n",
-                     unix_transport->fd);
-      
-      _dbus_connection_remove_watch (transport->connection,
-                                     unix_transport->read_watch);
-      _dbus_watch_invalidate (unix_transport->read_watch);
-      _dbus_watch_unref (unix_transport->read_watch);
-      unix_transport->read_watch = NULL;
-    }
-  else
-    {
-#if 0
-      _dbus_verbose ("Read watch is unchanged from %p on fd %d\n",
-                     unix_transport->read_watch, unix_transport->fd);
-#endif
-    }
-  
- out:
   _dbus_transport_unref (transport);
 }
 
@@ -908,11 +832,27 @@ unix_disconnect (DBusTransport *transport)
   unix_transport->fd = -1;
 }
 
-static void
+static dbus_bool_t
 unix_connection_set (DBusTransport *transport)
 {
+  DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
+  
+  if (!_dbus_connection_add_watch (transport->connection,
+                                   unix_transport->write_watch))
+    return FALSE;
+
+  if (!_dbus_connection_add_watch (transport->connection,
+                                   unix_transport->read_watch))
+    {
+      _dbus_connection_remove_watch (transport->connection,
+                                     unix_transport->write_watch);
+      return FALSE;
+    }
+
   check_read_watch (transport);
   check_write_watch (transport);
+
+  return TRUE;
 }
 
 static void
@@ -1120,19 +1060,24 @@ _dbus_transport_new_for_fd (int         fd,
 
   if (!_dbus_string_init (&unix_transport->encoded_message,
                           _DBUS_INT_MAX))
-    {
-      dbus_free (unix_transport);
-      return NULL;
-    }
+    goto failed_0;
+
+  unix_transport->write_watch = _dbus_watch_new (fd,
+                                                 DBUS_WATCH_WRITABLE,
+                                                 FALSE);
+  if (unix_transport->write_watch == NULL)
+    goto failed_1;
+  
+  unix_transport->read_watch = _dbus_watch_new (fd,
+                                                DBUS_WATCH_READABLE,
+                                                FALSE);
+  if (unix_transport->read_watch == NULL)
+    goto failed_2;
   
   if (!_dbus_transport_init_base (&unix_transport->base,
                                   &unix_vtable,
                                   server))
-    {
-      _dbus_string_free (&unix_transport->encoded_message);
-      dbus_free (unix_transport);
-      return NULL;
-    }
+    goto failed_3;
   
   unix_transport->fd = fd;
   unix_transport->message_bytes_written = 0;
@@ -1140,11 +1085,18 @@ _dbus_transport_new_for_fd (int         fd,
   /* These values should probably be tunable or something. */     
   unix_transport->max_bytes_read_per_iteration = 2048;
   unix_transport->max_bytes_written_per_iteration = 2048;
-
-  check_read_watch ((DBusTransport*) unix_transport);
-  check_write_watch ((DBusTransport*) unix_transport);
   
   return (DBusTransport*) unix_transport;
+
+ failed_3:
+  _dbus_watch_unref (unix_transport->read_watch);
+ failed_2:
+  _dbus_watch_unref (unix_transport->write_watch);
+ failed_1:
+  _dbus_string_free (&unix_transport->encoded_message);  
+ failed_0:
+  dbus_free (unix_transport);
+  return NULL;
 }
 
 /**

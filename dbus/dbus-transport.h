@@ -40,7 +40,7 @@ dbus_bool_t    _dbus_transport_get_is_authenticated       (DBusTransport  *trans
 void           _dbus_transport_handle_watch               (DBusTransport  *transport,
                                                            DBusWatch      *watch,
                                                            unsigned int    condition);
-void           _dbus_transport_set_connection             (DBusTransport  *transport,
+dbus_bool_t    _dbus_transport_set_connection             (DBusTransport  *transport,
                                                            DBusConnection *connection);
 void           _dbus_transport_messages_pending           (DBusTransport  *transport,
                                                            int             queue_length);

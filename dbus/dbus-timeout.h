@@ -46,12 +46,16 @@ void             _dbus_timeout_list_free           (DBusTimeoutList           *t
 dbus_bool_t      _dbus_timeout_list_set_functions  (DBusTimeoutList           *timeout_list,
 						    DBusAddTimeoutFunction     add_function,
 						    DBusRemoveTimeoutFunction  remove_function,
+                                                    DBusTimeoutToggledFunction toggled_function,
 						    void                      *data,
 						    DBusFreeFunction           free_data_function);
 dbus_bool_t      _dbus_timeout_list_add_timeout    (DBusTimeoutList           *timeout_list,
 						    DBusTimeout               *timeout);
 void             _dbus_timeout_list_remove_timeout (DBusTimeoutList           *timeout_list,
 						    DBusTimeout               *timeout);
+void             _dbus_timeout_list_toggle_timeout (DBusTimeoutList           *timeout_list,
+                                                    DBusTimeout               *timeout,
+                                                    dbus_bool_t                enabled);
 
 
 DBUS_END_DECLS;

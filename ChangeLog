@@ -1,5 +1,35 @@
 2003-03-15  Havoc Pennington  <hp@pobox.com>
 
+	Make it pass the Hello handling test including all OOM codepaths.
+	Now to do other messages...
+	
+	* bus/services.c (bus_service_remove_owner): fix crash when
+	removing owner from an empty list of owners
+	(bus_registry_ensure): don't leave service in the list of 
+	a connection's owned services if we fail to put the service
+	in the hash table.
+
+	* bus/connection.c (bus_connection_preallocate_oom_error): set
+	error flag on the OOM error.
+
+	* dbus/dbus-connection.c (_dbus_connection_new_for_transport):
+	handle _dbus_transport_set_connection failure
+
+	* dbus/dbus-transport-unix.c (_dbus_transport_new_for_fd): modify
+	to create watches up front and simply enable/disable them as
+	needed.
+	(unix_connection_set): this can now fail on OOM
+
+	* dbus/dbus-timeout.c, dbus/dbus-watch.c: add concept 
+	of enabling/disabling a watch or timeout.
+
+	* bus/loop.c (bus_loop_iterate): don't touch disabled
+	watches/timeouts
+
+	* glib/dbus-gmain.c: adapt to enable/disable watches and timeouts
+
+2003-03-15  Havoc Pennington  <hp@pobox.com>
+
 	* bus/dispatch.c (bus_dispatch_test): OK, now finally actually
 	write useful test code, after all that futzing around ;-)
 

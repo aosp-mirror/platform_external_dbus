@@ -238,6 +238,9 @@ add_watch (DBusWatch *watch,
   GPollFD *poll_fd;
   DBusGSource *dbus_source;
   guint flags;
+
+  if (!dbus_watch_get_enabled (watch))
+    return TRUE;
   
   dbus_source = data;
   
@@ -269,12 +272,27 @@ remove_watch (DBusWatch *watch,
   GPollFD *poll_fd;
   
   poll_fd = dbus_watch_get_data (watch);
+  if (poll_fd == NULL)
+    return; /* probably a not-enabled watch that was added */
   
   dbus_source->poll_fds = g_list_remove (dbus_source->poll_fds, poll_fd);
   g_hash_table_remove (dbus_source->watches, poll_fd);
   g_source_remove_poll ((GSource *)dbus_source, poll_fd);
   
   g_free (poll_fd);
+}
+
+static void
+watch_toggled (DBusWatch *watch,
+               void      *data)
+{
+  /* Because we just exit on OOM, enable/disable is
+   * no different from add/remove
+   */
+  if (dbus_watch_get_enabled (watch))
+    add_watch (watch, data);
+  else
+    remove_watch (watch, data);
 }
 
 static gboolean
@@ -293,6 +311,9 @@ add_timeout (DBusTimeout *timeout,
 {
   guint timeout_tag;
 
+  if (!dbus_timeout_get_enabled (timeout))
+    return TRUE;
+  
   timeout_tag = g_timeout_add (dbus_timeout_get_interval (timeout),
 			       timeout_handler, timeout);
   
@@ -308,9 +329,24 @@ remove_timeout (DBusTimeout *timeout,
   guint timeout_tag;
   
   timeout_tag = GPOINTER_TO_UINT (dbus_timeout_get_data (timeout));
-  
-  g_source_remove (timeout_tag);
+
+  if (timeout_tag != 0) /* if 0, probably timeout was disabled */
+    g_source_remove (timeout_tag);
 }
+
+static void
+timeout_toggled (DBusTimeout *timeout,
+                 void        *data)
+{
+  /* Because we just exit on OOM, enable/disable is
+   * no different from add/remove
+   */
+  if (dbus_timeout_get_enabled (timeout))
+    add_timeout (timeout, data);
+  else
+    remove_timeout (timeout, data);
+}
+
 
 static void
 free_source (GSource *source)
@@ -363,12 +399,14 @@ dbus_connection_setup_with_g_main (DBusConnection *connection)
   if (!dbus_connection_set_watch_functions (connection,
                                             add_watch,
                                             remove_watch,
+                                            watch_toggled,
                                             source, NULL))
     goto nomem;
 
   if (!dbus_connection_set_timeout_functions (connection,
                                               add_timeout,
                                               remove_timeout,
+                                              timeout_toggled,
                                               NULL, NULL))
     goto nomem;
     
@@ -412,11 +450,13 @@ dbus_server_setup_with_g_main (DBusServer *server)
   dbus_server_set_watch_functions (server,
                                    add_watch,
                                    remove_watch,
+                                   watch_toggled,
                                    source, NULL);
 
   dbus_server_set_timeout_functions (server,
                                      add_timeout,
                                      remove_timeout,
+                                     timeout_toggled,
                                      NULL, NULL);
   
   g_source_attach (source, NULL);

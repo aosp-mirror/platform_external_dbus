@@ -44,6 +44,7 @@ struct DBusTimeout
   
   void *data;		   	               /**< Application data. */
   DBusFreeFunction free_data_function;         /**< Free the application data. */
+  unsigned int enabled : 1;                    /**< True if timeout is active. */
 };
 
 /**
@@ -69,6 +70,8 @@ _dbus_timeout_new (int                 interval,
   timeout->handler = handler;
   timeout->handler_data = data;
   timeout->free_handler_data_function = free_data_function;
+
+  timeout->enabled = TRUE;
   
   return timeout;
 }
@@ -130,6 +133,7 @@ struct DBusTimeoutList
 
   DBusAddTimeoutFunction add_timeout_function;       /**< Callback for adding a timeout. */
   DBusRemoveTimeoutFunction remove_timeout_function; /**< Callback for removing a timeout. */
+  DBusTimeoutToggledFunction timeout_toggled_function; /**< Callback when timeout is enabled/disabled */
   void *timeout_data;                                /**< Data for timeout callbacks */
   DBusFreeFunction timeout_free_data_function;       /**< Free function for timeout callback data */
 };
@@ -162,7 +166,7 @@ _dbus_timeout_list_free (DBusTimeoutList *timeout_list)
 {
   /* free timeout_data and remove timeouts as a side effect */
   _dbus_timeout_list_set_functions (timeout_list,
-				    NULL, NULL, NULL, NULL);
+				    NULL, NULL, NULL, NULL, NULL);
 
   _dbus_list_foreach (&timeout_list->timeouts,
 		      (DBusForeachFunction) _dbus_timeout_unref,
@@ -179,6 +183,7 @@ _dbus_timeout_list_free (DBusTimeoutList *timeout_list)
  * @param timeout_list the timeout list
  * @param add_function the add timeout function.
  * @param remove_function the remove timeout function.
+ * @param toggled_function toggle notify function, or #NULL
  * @param data the data for those functions.
  * @param free_data_function the function to free the data.
  * @returns #FALSE if no memory
@@ -188,6 +193,7 @@ dbus_bool_t
 _dbus_timeout_list_set_functions (DBusTimeoutList           *timeout_list,
 				  DBusAddTimeoutFunction     add_function,
 				  DBusRemoveTimeoutFunction  remove_function,
+                                  DBusTimeoutToggledFunction toggled_function,
 				  void                      *data,
 				  DBusFreeFunction           free_data_function)
 {
@@ -239,6 +245,7 @@ _dbus_timeout_list_set_functions (DBusTimeoutList           *timeout_list,
 
   timeout_list->add_timeout_function = add_function;
   timeout_list->remove_timeout_function = remove_function;
+  timeout_list->timeout_toggled_function = toggled_function;
   timeout_list->timeout_data = data;
   timeout_list->timeout_free_data_function = free_data_function;
 
@@ -295,6 +302,31 @@ _dbus_timeout_list_remove_timeout (DBusTimeoutList *timeout_list,
 					       timeout_list->timeout_data);
 
   _dbus_timeout_unref (timeout);
+}
+
+/**
+ * Sets a timeout to the given enabled state, invoking the
+ * application's DBusTimeoutToggledFunction if appropriate.
+ *
+ * @param timeout_list the timeout list.
+ * @param timeout the timeout to toggle.
+ * @param enabled #TRUE to enable
+ */
+void
+_dbus_timeout_list_toggle_timeout (DBusTimeoutList           *timeout_list,
+                                   DBusTimeout               *timeout,
+                                   dbus_bool_t                enabled)
+{
+  enabled = !!enabled;
+  
+  if (enabled == timeout->enabled)
+    return;
+
+  timeout->enabled = enabled;
+  
+  if (timeout_list->timeout_toggled_function != NULL)
+    (* timeout_list->timeout_toggled_function) (timeout,
+                                                timeout_list->timeout_data);
 }
 
 /** @} */
@@ -380,3 +412,19 @@ dbus_timeout_handle (DBusTimeout *timeout)
 {
   (* timeout->handler) (timeout->handler_data);
 }
+
+
+/**
+ * Returns whether a timeout is enabled or not. If not
+ * enabled, it should not be polled by the main loop.
+ *
+ * @param timeout the DBusTimeout object
+ * @returns #TRUE if the timeout is enabled
+ */
+dbus_bool_t
+dbus_timeout_get_enabled (DBusTimeout *timeout)
+{
+  return timeout->enabled;
+}
+
+/** @} end public API docs */

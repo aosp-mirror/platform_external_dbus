@@ -331,6 +331,25 @@ _dbus_connection_remove_watch (DBusConnection *connection,
 }
 
 /**
+ * Toggles a watch and notifies app via connection's
+ * DBusWatchToggledFunction if available. It's an error to call this
+ * function on a watch that was not previously added.
+ *
+ * @param connection the connection.
+ * @param timeout the timeout to toggle.
+ * @param enabled whether to enable or disable
+ */
+void
+_dbus_connection_toggle_watch (DBusConnection *connection,
+                               DBusWatch      *watch,
+                               dbus_bool_t     enabled)
+{
+  if (connection->watches) /* null during finalize */
+    _dbus_watch_list_toggle_watch (connection->watches,
+                                   watch, enabled);
+}
+
+/**
  * Adds a timeout using the connection's DBusAddTimeoutFunction if
  * available. Otherwise records the timeout to be added when said
  * function is available. Also re-adds the timeout if the
@@ -378,6 +397,24 @@ _dbus_connection_remove_timeout_locked (DBusConnection *connection,
   dbus_mutex_unlock (connection->mutex);
 }
 
+/**
+ * Toggles a timeout and notifies app via connection's
+ * DBusTimeoutToggledFunction if available. It's an error to call this
+ * function on a timeout that was not previously added.
+ *
+ * @param connection the connection.
+ * @param timeout the timeout to toggle.
+ * @param enabled whether to enable or disable
+ */
+void
+_dbus_connection_toggle_timeout (DBusConnection *connection,
+                                 DBusTimeout      *timeout,
+                                 dbus_bool_t     enabled)
+{
+  if (connection->timeouts) /* null during finalize */
+    _dbus_timeout_list_toggle_timeout (connection->timeouts,
+                                       timeout, enabled);
+}
 
 /**
  * Tells the connection that the transport has been disconnected.
@@ -598,8 +635,10 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
 
   connection->disconnect_message_link = disconnect_link;
   
-  _dbus_transport_ref (transport);
-  _dbus_transport_set_connection (transport, connection);
+  if (!_dbus_transport_set_connection (transport, connection))
+    goto error;
+
+  _dbus_transport_ref (transport);  
   
   return connection;
   
@@ -1793,8 +1832,18 @@ dbus_connection_dispatch_message (DBusConnection *connection)
  * poll(). When using Qt, typically the DBusAddWatchFunction would
  * create a QSocketNotifier. When using GLib, the DBusAddWatchFunction
  * could call g_io_add_watch(), or could be used as part of a more
- * elaborate GSource.
+ * elaborate GSource. Note that when a watch is added, it may
+ * not be enabled.
  *
+ * The DBusWatchToggledFunction notifies the application that the
+ * watch has been enabled or disabled. Call dbus_watch_get_enabled()
+ * to check this. A disabled watch should have no effect, and enabled
+ * watch should be added to the main loop. This feature is used
+ * instead of simply adding/removing the watch because
+ * enabling/disabling can be done without memory allocation.  The
+ * toggled function may be NULL if a main loop re-queries
+ * dbus_watch_get_enabled() every time anyway.
+ * 
  * The DBusWatch can be queried for the file descriptor to watch using
  * dbus_watch_get_fd(), and for the events to watch for using
  * dbus_watch_get_flags(). The flags returned by
@@ -1825,6 +1874,7 @@ dbus_connection_dispatch_message (DBusConnection *connection)
  * @param connection the connection.
  * @param add_function function to begin monitoring a new descriptor.
  * @param remove_function function to stop monitoring a descriptor.
+ * @param toggled_function function to notify of enable/disable
  * @param data data to pass to add_function and remove_function.
  * @param free_data_function function to be called to free the data.
  * @returns #FALSE on failure (no memory)
@@ -1833,6 +1883,7 @@ dbus_bool_t
 dbus_connection_set_watch_functions (DBusConnection              *connection,
                                      DBusAddWatchFunction         add_function,
                                      DBusRemoveWatchFunction      remove_function,
+                                     DBusWatchToggledFunction     toggled_function,
                                      void                        *data,
                                      DBusFreeFunction             free_data_function)
 {
@@ -1844,6 +1895,7 @@ dbus_connection_set_watch_functions (DBusConnection              *connection,
   
   retval = _dbus_watch_list_set_functions (connection->watches,
                                            add_function, remove_function,
+                                           toggled_function,
                                            data, free_data_function);
   
   dbus_mutex_unlock (connection->mutex);
@@ -1859,6 +1911,16 @@ dbus_connection_set_watch_functions (DBusConnection              *connection,
  * When using Qt, typically the DBusAddTimeoutFunction would create a
  * QTimer. When using GLib, the DBusAddTimeoutFunction would call
  * g_timeout_add.
+ * 
+ * The DBusTimeoutToggledFunction notifies the application that the
+ * timeout has been enabled or disabled. Call
+ * dbus_timeout_get_enabled() to check this. A disabled timeout should
+ * have no effect, and enabled timeout should be added to the main
+ * loop. This feature is used instead of simply adding/removing the
+ * timeout because enabling/disabling can be done without memory
+ * allocation. With Qt, QTimer::start() and QTimer::stop() can be used
+ * to enable and disable. The toggled function may be NULL if a main
+ * loop re-queries dbus_timeout_get_enabled() every time anyway.
  *
  * The DBusTimeout can be queried for the timer interval using
  * dbus_timeout_get_interval(). dbus_timeout_handle() should
@@ -1869,6 +1931,7 @@ dbus_connection_set_watch_functions (DBusConnection              *connection,
  * @param connection the connection.
  * @param add_function function to add a timeout.
  * @param remove_function function to remove a timeout.
+ * @param toggled_function function to notify of enable/disable
  * @param data data to pass to add_function and remove_function.
  * @param free_data_function function to be called to free the data.
  * @returns #FALSE on failure (no memory)
@@ -1877,6 +1940,7 @@ dbus_bool_t
 dbus_connection_set_timeout_functions   (DBusConnection            *connection,
 					 DBusAddTimeoutFunction     add_function,
 					 DBusRemoveTimeoutFunction  remove_function,
+                                         DBusTimeoutToggledFunction toggled_function,
 					 void                      *data,
 					 DBusFreeFunction           free_data_function)
 {
@@ -1888,6 +1952,7 @@ dbus_connection_set_timeout_functions   (DBusConnection            *connection,
   
   retval = _dbus_timeout_list_set_functions (connection->timeouts,
                                              add_function, remove_function,
+                                             toggled_function,
                                              data, free_data_function);
   
   dbus_mutex_unlock (connection->mutex);

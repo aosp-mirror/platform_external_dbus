@@ -146,6 +146,25 @@ _dbus_server_remove_watch  (DBusServer *server,
 }
 
 /**
+ * Toggles a watch and notifies app via server's
+ * DBusWatchToggledFunction if available. It's an error to call this
+ * function on a watch that was not previously added.
+ *
+ * @param server the server.
+ * @param timeout the timeout to toggle.
+ * @param enabled whether to enable or disable
+ */
+void
+_dbus_server_toggle_watch (DBusServer  *server,
+                           DBusWatch   *watch,
+                           dbus_bool_t  enabled)
+{
+  if (server->watches) /* null during finalize */
+    _dbus_watch_list_toggle_watch (server->watches,
+                                   watch, enabled);
+}
+
+/**
  * Adds a timeout for this server, chaining out to
  * application-provided timeout handlers. The timeout should be
  * repeatedly handled with dbus_timeout_handle() at its given interval
@@ -173,6 +192,26 @@ _dbus_server_remove_timeout (DBusServer  *server,
 {
   _dbus_timeout_list_remove_timeout (server->timeouts, timeout);  
 }
+
+/**
+ * Toggles a timeout and notifies app via server's
+ * DBusTimeoutToggledFunction if available. It's an error to call this
+ * function on a timeout that was not previously added.
+ *
+ * @param server the server.
+ * @param timeout the timeout to toggle.
+ * @param enabled whether to enable or disable
+ */
+void
+_dbus_server_toggle_timeout (DBusServer  *server,
+                             DBusTimeout *timeout,
+                             dbus_bool_t  enabled)
+{
+  if (server->timeouts) /* null during finalize */
+    _dbus_timeout_list_toggle_timeout (server->timeouts,
+                                       timeout, enabled);
+}
+
 
 /** @} */
 
@@ -405,6 +444,7 @@ dbus_server_set_new_connection_function (DBusServer                *server,
  * @param server the server.
  * @param add_function function to begin monitoring a new descriptor.
  * @param remove_function function to stop monitoring a descriptor.
+ * @param toggled_function function to notify when the watch is enabled/disabled
  * @param data data to pass to add_function and remove_function.
  * @param free_data_function function to be called to free the data.
  * @returns #FALSE on failure (no memory)
@@ -413,12 +453,14 @@ dbus_bool_t
 dbus_server_set_watch_functions (DBusServer              *server,
                                  DBusAddWatchFunction     add_function,
                                  DBusRemoveWatchFunction  remove_function,
+                                 DBusWatchToggledFunction toggled_function,
                                  void                    *data,
                                  DBusFreeFunction         free_data_function)
 {
   return _dbus_watch_list_set_functions (server->watches,
                                          add_function,
                                          remove_function,
+                                         toggled_function,
                                          data,
                                          free_data_function);
 }
@@ -433,6 +475,7 @@ dbus_server_set_watch_functions (DBusServer              *server,
  * @param server the server.
  * @param add_function function to add a timeout.
  * @param remove_function function to remove a timeout.
+ * @param toggled_function function to notify when the timeout is enabled/disabled
  * @param data data to pass to add_function and remove_function.
  * @param free_data_function function to be called to free the data.
  * @returns #FALSE on failure (no memory)
@@ -441,11 +484,13 @@ dbus_bool_t
 dbus_server_set_timeout_functions (DBusServer                *server,
 				   DBusAddTimeoutFunction     add_function,
 				   DBusRemoveTimeoutFunction  remove_function,
+                                   DBusTimeoutToggledFunction toggled_function,
 				   void                      *data,
 				   DBusFreeFunction           free_data_function)
 {
   return _dbus_timeout_list_set_functions (server->timeouts,
                                            add_function, remove_function,
+                                           toggled_function,
                                            data, free_data_function); 
 }
 

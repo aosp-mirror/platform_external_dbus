@@ -78,16 +78,22 @@ struct DBusServer
 };
 
 dbus_bool_t _dbus_server_init_base      (DBusServer             *server,
-					 const DBusServerVTable *vtable);
+                                         const DBusServerVTable *vtable);
 void        _dbus_server_finalize_base  (DBusServer             *server);
 dbus_bool_t _dbus_server_add_watch      (DBusServer             *server,
-					 DBusWatch              *watch);
+                                         DBusWatch              *watch);
 void        _dbus_server_remove_watch   (DBusServer             *server,
-					 DBusWatch              *watch);
+                                         DBusWatch              *watch);
+void        _dbus_server_toggle_watch   (DBusServer             *server,
+                                         DBusWatch              *watch,
+                                         dbus_bool_t             enabled);
 dbus_bool_t _dbus_server_add_timeout    (DBusServer             *server,
-					 DBusTimeout            *timeout);
+                                         DBusTimeout            *timeout);
 void        _dbus_server_remove_timeout (DBusServer             *server,
-					 DBusTimeout            *timeout);
+                                         DBusTimeout            *timeout);
+void        _dbus_server_toggle_timeout (DBusServer             *server,
+                                         DBusTimeout            *timeout,
+                                         dbus_bool_t             enabled);
 
 
 

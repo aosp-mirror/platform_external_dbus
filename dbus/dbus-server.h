@@ -52,11 +52,13 @@ void        dbus_server_set_new_connection_function (DBusServer                *
 dbus_bool_t dbus_server_set_watch_functions         (DBusServer                *server,
                                                      DBusAddWatchFunction       add_function,
                                                      DBusRemoveWatchFunction    remove_function,
+                                                     DBusWatchToggledFunction   toggled_function,
                                                      void                      *data,
                                                      DBusFreeFunction           free_data_function);
 dbus_bool_t dbus_server_set_timeout_functions       (DBusServer                *server,
                                                      DBusAddTimeoutFunction     add_function,
                                                      DBusRemoveTimeoutFunction  remove_function,
+                                                     DBusTimeoutToggledFunction toggled_function,
                                                      void                      *data,
                                                      DBusFreeFunction           free_data_function);
 void        dbus_server_handle_watch                (DBusServer                *server,

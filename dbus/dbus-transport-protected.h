@@ -49,7 +49,7 @@ struct DBusTransportVTable
   void (* disconnect)         (DBusTransport *transport);
   /**< Disconnect this transport. */
 
-  void (* connection_set)     (DBusTransport *transport);
+  dbus_bool_t (* connection_set)     (DBusTransport *transport);
   /**< Called when transport->connection has been filled in */
 
   void (* messages_pending)   (DBusTransport *transport,

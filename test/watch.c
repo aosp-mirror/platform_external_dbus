@@ -237,24 +237,28 @@ do_mainloop (void)
       while (link != NULL)
         {
           DBusList *next = _dbus_list_get_next_link (&watches, link);
-          int fd;
           DBusWatch *watch;
-          unsigned int flags;
           
           watch = link->data;
-          
-          fd = dbus_watch_get_fd (watch);
-          flags = dbus_watch_get_flags (watch);
-          
-          max_fd = MAX (max_fd, fd);
-          
-          if (flags & DBUS_WATCH_READABLE)
-            FD_SET (fd, &read_set);
 
-          if (flags & DBUS_WATCH_WRITABLE)
-            FD_SET (fd, &write_set);
+          if (dbus_watch_get_enabled (watch))
+            {
+              int fd;
+              unsigned int flags;
 
-          FD_SET (fd, &err_set);
+              fd = dbus_watch_get_fd (watch);
+              flags = dbus_watch_get_flags (watch);
+              
+              max_fd = MAX (max_fd, fd);
+              
+              if (flags & DBUS_WATCH_READABLE)
+                FD_SET (fd, &read_set);
+              
+              if (flags & DBUS_WATCH_WRITABLE)
+                FD_SET (fd, &write_set);
+              
+              FD_SET (fd, &err_set);
+            }
           
           link = next;
         }
@@ -266,10 +270,7 @@ do_mainloop (void)
       while (link != NULL)
         {
           DBusList *next = _dbus_list_get_next_link (&watches, link);
-          int fd;
           DBusWatch *watch;
-          unsigned int flags;
-          unsigned int condition;
 
           if (initial_watch_serial != watch_list_serial)
             {
@@ -286,44 +287,52 @@ do_mainloop (void)
             }
           
           watch = link->data;
-          
-          fd = dbus_watch_get_fd (watch);
-          flags = dbus_watch_get_flags (watch);
 
-          condition = 0;
-          
-          if ((flags & DBUS_WATCH_READABLE) &&
-              FD_ISSET (fd, &read_set))
-            condition |= DBUS_WATCH_READABLE;
-
-          if ((flags & DBUS_WATCH_WRITABLE) &&
-              FD_ISSET (fd, &write_set))
-            condition |= DBUS_WATCH_WRITABLE;
-
-          if (FD_ISSET (fd, &err_set))
-            condition |= DBUS_WATCH_ERROR;
-
-          if (condition != 0)
+          if (dbus_watch_get_enabled (watch))
             {
-              WatchData *wd;
+              int fd;
+              unsigned int flags;
+              unsigned int condition;
 
-              wd = dbus_watch_get_data (watch);
+          
+              fd = dbus_watch_get_fd (watch);
+              flags = dbus_watch_get_flags (watch);
 
-              if (wd->type == WATCH_CONNECTION)
+              condition = 0;
+          
+              if ((flags & DBUS_WATCH_READABLE) &&
+                  FD_ISSET (fd, &read_set))
+                condition |= DBUS_WATCH_READABLE;
+
+              if ((flags & DBUS_WATCH_WRITABLE) &&
+                  FD_ISSET (fd, &write_set))
+                condition |= DBUS_WATCH_WRITABLE;
+
+              if (FD_ISSET (fd, &err_set))
+                condition |= DBUS_WATCH_ERROR;
+
+              if (condition != 0)
                 {
-                  DBusConnection *connection = wd->data;
+                  WatchData *wd;
 
-                  dbus_connection_handle_watch (connection,
+                  wd = dbus_watch_get_data (watch);
+
+                  if (wd->type == WATCH_CONNECTION)
+                    {
+                      DBusConnection *connection = wd->data;
+
+                      dbus_connection_handle_watch (connection,
+                                                    watch,
+                                                    condition);
+                    }
+                  else if (wd->type == WATCH_SERVER)
+                    {
+                      DBusServer *server = wd->data;
+                  
+                      dbus_server_handle_watch (server,
                                                 watch,
                                                 condition);
-                }
-              else if (wd->type == WATCH_SERVER)
-                {
-                  DBusServer *server = wd->data;
-                  
-                  dbus_server_handle_watch (server,
-                                            watch,
-                                            condition);
+                    }
                 }
             }
           
@@ -345,6 +354,7 @@ setup_connection (DBusConnection *connection)
   if (!dbus_connection_set_watch_functions (connection,
                                             (DBusAddWatchFunction) add_connection_watch,
                                             (DBusRemoveWatchFunction) remove_connection_watch,
+                                            NULL,
                                             connection,
                                             NULL))
     _dbus_assert_not_reached ("not enough memory");
@@ -359,6 +369,7 @@ setup_server (DBusServer *server)
   if (!dbus_server_set_watch_functions (server,
                                         (DBusAddWatchFunction) add_server_watch,
                                         (DBusRemoveWatchFunction) remove_server_watch,
+                                        NULL,
                                         server,
                                         NULL))
     _dbus_assert_not_reached ("not enough memory");

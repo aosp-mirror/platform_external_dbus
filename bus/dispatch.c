@@ -514,6 +514,7 @@ check_hello_connection (BusContext *context)
 
   if (!bus_setup_debug_client (connection))
     {
+      dbus_connection_disconnect (connection);
       dbus_connection_unref (connection);
       return TRUE;
     }
@@ -582,9 +583,6 @@ bus_dispatch_test (const DBusString *test_data_dir)
                              &error);
   if (context == NULL)
     _dbus_assert_not_reached ("could not alloc context");
-
-  check1_try_iterations (context, "create_and_hello",
-                         check_hello_connection);
   
   foo = dbus_connection_open ("debug-pipe:name=test-server", &result);
   if (foo == NULL)
@@ -610,8 +608,14 @@ bus_dispatch_test (const DBusString *test_data_dir)
   if (!check_hello_message (context, baz))
     _dbus_assert_not_reached ("hello message failed");
 
+  check1_try_iterations (context, "create_and_hello",
+                         check_hello_connection);
+
+  dbus_connection_disconnect (foo);
   dbus_connection_unref (foo);
+  dbus_connection_disconnect (bar);
   dbus_connection_unref (bar);
+  dbus_connection_disconnect (baz);
   dbus_connection_unref (baz);
   
   return TRUE;

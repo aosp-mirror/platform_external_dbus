@@ -127,6 +127,7 @@ bus_setup_debug_client (DBusConnection *connection)
   if (!dbus_connection_set_watch_functions (connection,
                                             (DBusAddWatchFunction) add_client_watch,
                                             (DBusRemoveWatchFunction) remove_client_watch,
+                                            NULL,
                                             connection,
                                             NULL))
     goto out;
@@ -134,6 +135,7 @@ bus_setup_debug_client (DBusConnection *connection)
   if (!dbus_connection_set_timeout_functions (connection,
                                               (DBusAddTimeoutFunction) add_client_timeout,
                                               (DBusRemoveTimeoutFunction) remove_client_timeout,
+                                              NULL,
                                               connection, NULL))
     goto out;
 
@@ -148,9 +150,9 @@ bus_setup_debug_client (DBusConnection *connection)
                                           _DBUS_N_ELEMENTS (to_handle));
       
       dbus_connection_set_watch_functions (connection,
-                                           NULL, NULL, NULL, NULL);
+                                           NULL, NULL, NULL, NULL, NULL);
       dbus_connection_set_timeout_functions (connection,
-                                             NULL, NULL, NULL, NULL);
+                                             NULL, NULL, NULL, NULL, NULL);
     }
   
   dbus_message_handler_unref (disconnect_handler);

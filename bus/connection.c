@@ -107,13 +107,13 @@ bus_connection_disconnected (DBusConnection *connection)
   
   /* no more watching */
   if (!dbus_connection_set_watch_functions (connection,
-                                            NULL, NULL,
+                                            NULL, NULL, NULL,
                                             connection,
                                             NULL))
     _dbus_assert_not_reached ("setting watch functions to NULL failed");
 
   if (!dbus_connection_set_timeout_functions (connection,
-                                              NULL, NULL,
+                                              NULL, NULL, NULL,
                                               connection,
                                               NULL))
     _dbus_assert_not_reached ("setting timeout functions to NULL failed");
@@ -288,6 +288,7 @@ bus_connections_setup_connection (BusConnections *connections,
   if (!dbus_connection_set_watch_functions (connection,
                                             (DBusAddWatchFunction) add_connection_watch,
                                             (DBusRemoveWatchFunction) remove_connection_watch,
+                                            NULL,
                                             connection,
                                             NULL))
     {
@@ -298,6 +299,7 @@ bus_connections_setup_connection (BusConnections *connections,
   if (!dbus_connection_set_timeout_functions (connection,
                                               (DBusAddTimeoutFunction) add_connection_timeout,
                                               (DBusRemoveTimeoutFunction) remove_connection_timeout,
+                                              NULL,
                                               connection, NULL))
     {
       dbus_connection_disconnect (connection);
@@ -442,6 +444,8 @@ bus_connection_preallocate_oom_error (DBusConnection *connection)
       return FALSE;
     }
 
+  dbus_message_set_is_error (message, TRUE);
+  
   /* set reply serial to placeholder value just so space is already allocated
    * for it.
    */
@@ -603,6 +607,9 @@ bus_transaction_send_message (BusTransaction *transaction,
   BusConnectionData *d;
   DBusList *link;
 
+  _dbus_verbose ("  trying to add message %s to transaction\n",
+                 dbus_message_get_name (message));
+  
   if (!dbus_connection_get_is_connected (connection))
     return TRUE; /* silently ignore disconnected connections */
   
@@ -789,6 +796,9 @@ bus_transaction_send_error_reply (BusTransaction  *transaction,
 
   _dbus_assert (error != NULL);
   _DBUS_ASSERT_ERROR_IS_SET (error);
+
+  _dbus_verbose ("  trying to add error %s to transaction\n",
+                 error->name);
   
   reply = dbus_message_new_error_reply (in_reply_to,
                                         error->name,

@@ -161,6 +161,7 @@ bus_context_new (const char  *address,
   if (!dbus_server_set_watch_functions (context->server,
                                         (DBusAddWatchFunction) add_server_watch,
                                         (DBusRemoveWatchFunction) remove_server_watch,
+                                        NULL,
                                         context,
                                         NULL))
     {
@@ -171,6 +172,7 @@ bus_context_new (const char  *address,
   if (!dbus_server_set_timeout_functions (context->server,
                                           (DBusAddTimeoutFunction) add_server_timeout,
                                           (DBusRemoveTimeoutFunction) remove_server_timeout,
+                                          NULL,
                                           context, NULL))
     {
       BUS_SET_OOM (error);
@@ -192,13 +194,13 @@ bus_context_shutdown (BusContext  *context)
     return;
   
   if (!dbus_server_set_watch_functions (context->server,
-                                        NULL, NULL,
+                                        NULL, NULL, NULL,
                                         context,
                                         NULL))
     _dbus_assert_not_reached ("setting watch functions to NULL failed");
   
   if (!dbus_server_set_timeout_functions (context->server,
-                                          NULL, NULL,
+                                          NULL, NULL, NULL,
                                           context,
                                           NULL))
     _dbus_assert_not_reached ("setting timeout functions to NULL failed");

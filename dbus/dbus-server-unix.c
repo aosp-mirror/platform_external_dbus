@@ -204,7 +204,8 @@ _dbus_server_new_for_fd (int fd)
   DBusWatch *watch;
 
   watch = _dbus_watch_new (fd,
-                           DBUS_WATCH_READABLE);
+                           DBUS_WATCH_READABLE,
+                           TRUE);
   if (watch == NULL)
     return NULL;
   
