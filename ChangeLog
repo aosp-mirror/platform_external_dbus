@@ -1,3 +1,8 @@
+2004-06-23  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/Makefile.am: switched include directory from glib/ to dbus/
+	since dbus-glib.h moved
+ 
 2004-06-22  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* configure.in: prevent building the gcj stuff and libxml loader
