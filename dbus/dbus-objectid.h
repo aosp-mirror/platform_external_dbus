@@ -39,23 +39,31 @@ struct DBusObjectID
 #ifdef DBUS_HAVE_INT64
   dbus_uint64_t dbus_do_not_use_dummy1;
 #else
-  dbus_uint32_t dbus_do_not_use_dummy1;
   dbus_uint32_t dbus_do_not_use_dummy2;
+  dbus_uint32_t dbus_do_not_use_dummy3;
 #endif
 };
 
-dbus_bool_t            dbus_object_id_equal          (const DBusObjectID *a,
-                                                      const DBusObjectID *b);
-int                    dbus_object_id_compare        (const DBusObjectID *a,
-                                                      const DBusObjectID *b);
-dbus_uint32_t          dbus_object_id_get_high_bits  (const DBusObjectID *obj_id);
-dbus_uint32_t          dbus_object_id_get_low_bits   (const DBusObjectID *obj_id);
-void                   dbus_object_id_set_high_bits  (DBusObjectID       *obj_id,
-                                                      dbus_uint32_t       value);
-void                   dbus_object_id_set_low_bits   (DBusObjectID       *obj_id,
-                                                      dbus_uint32_t       value);
-void                   dbus_object_id_set_null       (DBusObjectID       *obj_id);
-dbus_bool_t            dbus_object_id_is_null        (const DBusObjectID *obj_id);
+dbus_bool_t   dbus_object_id_equal               (const DBusObjectID *a,
+                                                  const DBusObjectID *b);
+int           dbus_object_id_compare             (const DBusObjectID *a,
+                                                  const DBusObjectID *b);
+dbus_uint16_t dbus_object_id_get_server_bits     (const DBusObjectID *obj_id);
+dbus_uint16_t dbus_object_id_get_client_bits     (const DBusObjectID *obj_id);
+dbus_uint32_t dbus_object_id_get_connection_bits (const DBusObjectID *obj_id);
+dbus_bool_t   dbus_object_id_get_is_server_bit   (const DBusObjectID *obj_id);
+dbus_uint32_t dbus_object_id_get_instance_bits   (const DBusObjectID *obj_id);
+void          dbus_object_id_set_server_bits     (DBusObjectID       *obj_id,
+                                                  dbus_uint16_t       value);
+void          dbus_object_id_set_client_bits     (DBusObjectID       *obj_id,
+                                                  dbus_uint16_t       value);
+void          dbus_object_id_set_is_server_bit   (DBusObjectID       *obj_id,
+                                                  dbus_bool_t         value);
+void          dbus_object_id_set_instance_bits   (DBusObjectID       *obj_id,
+                                                  dbus_uint32_t       value);
+void          dbus_object_id_set_null            (DBusObjectID       *obj_id);
+dbus_bool_t   dbus_object_id_is_null             (const DBusObjectID *obj_id);
+
 #ifdef DBUS_HAVE_INT64
 dbus_uint64_t          dbus_object_id_get_as_integer (const DBusObjectID *obj_id);
 void                   dbus_object_id_set_as_integer (DBusObjectID       *obj_id,

@@ -81,7 +81,8 @@ void              _dbus_message_handler_remove_connection      (DBusMessageHandl
 DBusHandlerResult _dbus_message_handler_handle_message         (DBusMessageHandler *handler,
                                                                 DBusConnection     *connection,
                                                                 DBusMessage        *message);
-dbus_uint32_t     _dbus_connection_get_id                      (DBusConnection     *connection);
+void              _dbus_connection_init_id                     (DBusConnection     *connection,
+                                                                DBusObjectID       *id);
 
 DBUS_END_DECLS;
 

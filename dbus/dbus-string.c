@@ -964,7 +964,7 @@ _dbus_string_append_8_aligned (DBusString         *str,
   p = (dbus_uint64_t*) (real->str + (real->len - 8));
   *p = *((dbus_uint64_t*)octets);
 #else
-  char *p;
+  unsigned char *p;
   DBUS_STRING_PREAMBLE (str);
   
   if (!align_length_then_lengthen (str, 8, 8))

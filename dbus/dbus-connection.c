@@ -910,19 +910,22 @@ _dbus_connection_handle_watch (DBusWatch                   *watch,
 }
 
 /**
- * Get the ID to be used in the high bits of an object ID for an object
+ * Get the server ID to be used in the object ID for an object
  * registered with this connection.
  *
  * @todo implement this function
  * 
  * @param connection the connection.
- * @returns the connection portion of the object ID
+ * @returns the  portion of the object ID
  */
-dbus_uint32_t
-_dbus_connection_get_id (DBusConnection *connection)
+void
+_dbus_connection_init_id (DBusConnection *connection,
+                          DBusObjectID   *object_id)
 {
   /* FIXME */
-  return 1492;
+  dbus_object_id_set_server_bits (object_id, 15);
+  dbus_object_id_set_client_bits (object_id, 31);
+  dbus_object_id_set_is_server_bit (object_id, FALSE);
 }
 
 /** @} */
@@ -2793,9 +2796,9 @@ dbus_connection_register_object (DBusConnection          *connection,
 {
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (vtable != NULL, FALSE);
-  _dbus_return_val_if_fail (vtable->dbus_internal_pad1 == NULL);
-  _dbus_return_val_if_fail (vtable->dbus_internal_pad2 == NULL);
-  _dbus_return_val_if_fail (vtable->dbus_internal_pad3 == NULL);
+  _dbus_return_val_if_fail (vtable->dbus_internal_pad1 == NULL, FALSE);
+  _dbus_return_val_if_fail (vtable->dbus_internal_pad2 == NULL, FALSE);
+  _dbus_return_val_if_fail (vtable->dbus_internal_pad3 == NULL, FALSE);
   
   CONNECTION_LOCK (connection);
 

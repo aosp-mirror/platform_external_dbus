@@ -1,3 +1,32 @@
+2003-08-01  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-protocol.h (DBUS_MESSAGE_TYPE_*): introduce
+	a message type enum to distinguish kinds of message
+	(DBUS_HEADER_FLAG_NO_REPLY_EXPECTED): flag for a message 
+	that need not be replied to
+
+2003-08-01  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-marshal.c: adapt to DBusObjectID changes
+	(unpack_8_octets): fix no-64-bit-int bug
+
+	* dbus/dbus-object-registry.c (validate_id): validate the 
+	connection ID bits, not just the instance ID.
+
+	* dbus/dbus-connection.c (_dbus_connection_init_id): initialize
+	the connection-global 33 bits of the object ID
+
+	* dbus/dbus-object-registry.c (info_from_entry): fill in 
+	object ID in the new way
+
+	* dbus/dbus-objectid.h: rather than high/low bits, specifically 
+	define server/client/instance bits.
+
+2003-07-30  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-connection.c (dbus_connection_register_object): fix
+	build
+
 2003-07-13  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-object.h (struct DBusObjectVTable): add padding

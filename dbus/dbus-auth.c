@@ -28,8 +28,6 @@
 #include "dbus-sha.h"
 #include "dbus-userdb.h"
 
-/* See doc/dbus-sasl-profile.txt */
-
 /**
  * @defgroup DBusAuth Authentication
  * @ingroup  DBusInternals

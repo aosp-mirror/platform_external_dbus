@@ -60,8 +60,15 @@ extern "C" {
 /* Max length in bytes of a service or message name */
 #define DBUS_MAXIMUM_NAME_LENGTH 256
 
+/* Types of message */
+#define DBUS_MESSAGE_TYPE_METHOD_CALL   1
+#define DBUS_MESSAGE_TYPE_METHOD_RETURN 2
+#define DBUS_MESSAGE_TYPE_ERROR         3
+#define DBUS_MESSAGE_TYPE_SIGNAL        4
+  
 /* Header flags */
-#define DBUS_HEADER_FLAG_ERROR 0x1
+#define DBUS_HEADER_FLAG_ERROR             0x1
+#define DBUS_HEADER_FLAG_NO_REPLY_EXPECTED 0x2
   
 /* Header fields */
 #define DBUS_HEADER_FIELD_NAME    "name"

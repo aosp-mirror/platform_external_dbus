@@ -5855,10 +5855,12 @@ _dbus_message_test (const char *test_data_dir)
                             _DBUS_N_ELEMENTS (our_uint32_array),
                             DBUS_TYPE_ARRAY, DBUS_TYPE_INT32, our_int32_array,
                             _DBUS_N_ELEMENTS (our_int32_array),
+#ifdef DBUS_HAVE_INT64
                             DBUS_TYPE_ARRAY, DBUS_TYPE_UINT64, our_uint64_array,
                             _DBUS_N_ELEMENTS (our_uint64_array),
                             DBUS_TYPE_ARRAY, DBUS_TYPE_INT64, our_int64_array,
                             _DBUS_N_ELEMENTS (our_int64_array),
+#endif
                             DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, our_string_array,
                             _DBUS_N_ELEMENTS (our_string_array),
                             DBUS_TYPE_ARRAY, DBUS_TYPE_DOUBLE, our_double_array,

@@ -177,12 +177,27 @@ validate_id (DBusObjectRegistry *registry,
 {
   int idx;
   int times_used;
-  dbus_uint32_t low_bits;
+  dbus_uint32_t instance_bits;
+  
+  instance_bits = dbus_object_id_get_instance_bits (object_id);
 
-  low_bits = dbus_object_id_get_low_bits (object_id);
-
-  idx = ID_TO_INDEX (low_bits);
-  times_used = ID_TO_TIMES_USED (low_bits);
+  /* Verify that connection ID bits are the same */
+#ifdef DBUS_BUILD_TESTS
+  if (registry->connection)
+#endif
+    {
+      DBusObjectID tmp_id;
+      
+      _dbus_connection_init_id (registry->connection,
+                                &tmp_id);
+      dbus_object_id_set_instance_bits (&tmp_id, instance_bits);
+      
+      if (!dbus_object_id_equal (&tmp_id, object_id))
+        return NULL;
+    }
+  
+  idx = ID_TO_INDEX (instance_bits);
+  times_used = ID_TO_TIMES_USED (instance_bits);
   
   if (idx >= registry->n_entries_allocated)
     return NULL;
@@ -206,15 +221,23 @@ info_from_entry (DBusObjectRegistry *registry,
 #ifdef DBUS_BUILD_TESTS
   if (registry->connection)
 #endif
-    dbus_object_id_set_high_bits (&info->object_id,
-                                  _dbus_connection_get_id (registry->connection));
+    _dbus_connection_init_id (registry->connection,
+                              &info->object_id);
 #ifdef DBUS_BUILD_TESTS
   else
-    dbus_object_id_set_high_bits (&info->object_id, 1);
+    {
+      dbus_object_id_set_server_bits (&info->object_id, 1);
+      dbus_object_id_set_client_bits (&info->object_id, 2);
+    }
 #endif
+
+  _dbus_assert (dbus_object_id_get_server_bits (&info->object_id) != 0);
+  _dbus_assert (dbus_object_id_get_client_bits (&info->object_id) != 0);
   
-  dbus_object_id_set_low_bits (&info->object_id,
-                               ENTRY_TO_ID (entry));
+  dbus_object_id_set_instance_bits (&info->object_id,
+                                    ENTRY_TO_ID (entry));
+
+  _dbus_assert (dbus_object_id_get_instance_bits (&info->object_id) != 0);
 }
 
 static DBusInterfaceEntry*

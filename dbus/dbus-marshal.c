@@ -80,19 +80,7 @@ typedef union
   dbus_uint64_t u;
 #endif
   double d;
-#ifdef WORDS_BIGENDIAN
-  struct
-  {
-    dbus_uint32_t high;
-    dbus_uint32_t low;
-  } bits;
-#else
-  struct
-  {
-    dbus_uint32_t low;
-    dbus_uint32_t high;
-  } bits;  
-#endif
+  DBusObjectID object_id;
 } DBusOctets8;
 
 static DBusOctets8
@@ -111,7 +99,8 @@ unpack_8_octets (int                  byte_order,
     r.u = DBUS_UINT64_FROM_BE (*(dbus_uint64_t*)data);
 #else
   r.d = *(double*)data;
-  swap_bytes (&r, sizeof (r));
+  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
+    swap_bytes ((unsigned char*) &r, sizeof (r));
 #endif
   
   return r;
@@ -453,14 +442,8 @@ _dbus_marshal_set_object_id (DBusString         *str,
                              const DBusObjectID *value)
 {
   DBusOctets8 r;
-#ifdef DBUS_HAVE_INT64
-  r.u = dbus_object_id_get_as_integer (value);
-#else
-  r.bits.low = dbus_object_id_get_low_bits (value);
-  r.bits.high = dbus_object_id_get_high_bits (value);
-#endif
-  _dbus_assert (r.bits.low == dbus_object_id_get_low_bits (value));
-  _dbus_assert (r.bits.high == dbus_object_id_get_high_bits (value));
+  
+  r.object_id = *value;
   
   set_8_octets (str, byte_order, offset, r);
 }
@@ -724,7 +707,7 @@ marshal_8_octets_array (DBusString          *str,
 #ifdef DBUS_HAVE_INT64
           *((dbus_uint64_t*)d) = DBUS_UINT64_SWAP_LE_BE (*((dbus_uint64_t*)d));
 #else
-          swap_bytes (d, 8);
+          swap_bytes ((unsigned char*) d, 8);
 #endif
           d += 8;
         }
@@ -900,14 +883,8 @@ _dbus_marshal_object_id (DBusString            *str,
                          const DBusObjectID    *value)
 {
   DBusOctets8 r;
-#ifdef DBUS_HAVE_INT64
-  r.u = dbus_object_id_get_as_integer (value);
-#else
-  r.bits.low = dbus_object_id_get_low_bits (value);
-  r.bits.high = dbus_object_id_get_high_bits (value);
-#endif
-  _dbus_assert (r.bits.low == dbus_object_id_get_low_bits (value));
-  _dbus_assert (r.bits.high == dbus_object_id_get_high_bits (value));
+
+  r.object_id = *value;
   
   return marshal_8_octets (str, byte_order, r);
 }
@@ -1242,7 +1219,7 @@ demarshal_8_octets_array (const DBusString  *str,
 #ifdef DBUS_HAVE_INT64
           retval[i].u = DBUS_UINT64_SWAP_LE_BE (retval[i].u);
 #else
-          swap_bytes (&retval[i], 8);
+          swap_bytes ((unsigned char *) &retval[i], 8);
 #endif
         }
     }
@@ -1481,14 +1458,7 @@ _dbus_demarshal_object_id (const DBusString *str,
 
   r = demarshal_8_octets (str, byte_order, pos, new_pos);
 
-#ifdef DBUS_HAVE_INT64
-  dbus_object_id_set_as_integer (value, r.u);
-#else
-  dbus_object_id_set_low_bits (value, r.bits.low);
-  dbus_object_id_set_high_bits (value, r.bits.high);
-#endif
-  _dbus_assert (dbus_object_id_get_low_bits (value) == r.bits.low);
-  _dbus_assert (dbus_object_id_get_high_bits (value) == r.bits.high);
+  *value = r.object_id;
 }
 
 /** 
@@ -2312,8 +2282,9 @@ _dbus_marshal_test (void)
 #endif /* DBUS_HAVE_INT64 */
 
   /* Marshal object IDs */
-  dbus_object_id_set_high_bits (&obj_id, 0xfffe);
-  dbus_object_id_set_low_bits (&obj_id, 0xaacc);
+  dbus_object_id_set_server_bits (&obj_id, 0xfffe);
+  dbus_object_id_set_client_bits (&obj_id, 0xaacc);
+  dbus_object_id_set_instance_bits (&obj_id, 0x70f00f0f);
 
   if (!_dbus_marshal_object_id (&str, DBUS_BIG_ENDIAN, &obj_id))
     _dbus_assert_not_reached ("could not marshal object ID value");
