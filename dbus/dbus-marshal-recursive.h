@@ -37,7 +37,8 @@ typedef struct DBusTypeReaderClass DBusTypeReaderClass;
 
 struct DBusTypeReader
 {
-  int byte_order;
+  dbus_uint32_t byte_order : 8;
+  
   const DBusString *type_str;
   int type_pos;
   const DBusString *value_str;
@@ -60,15 +61,16 @@ struct DBusTypeReader
 
 struct DBusTypeWriter
 {
-  int byte_order;
+  dbus_uint32_t byte_order : 8;
+
+  dbus_uint32_t container_type : 8;
+
+  dbus_uint32_t type_pos_is_expectation : 1; /* type_pos is an insertion point or an expected next type */
   DBusString *type_str;
   int type_pos;
   DBusString *value_str;
   int value_pos;
 
-  dbus_uint32_t type_pos_is_expectation : 1; /* type_pos is an insertion point or an expected next type */
-
-  dbus_uint32_t container_type : 8;
   union
   {
     struct {

@@ -145,8 +145,37 @@ array_reader_recurse (DBusTypeReader *sub,
                  _dbus_type_to_string (sub->u.array.element_type));
 }
 
+static void
+variant_reader_recurse (DBusTypeReader *sub,
+                        DBusTypeReader *parent)
+{
+  int sig_len;
+
+  _dbus_assert (!_dbus_type_reader_array_is_empty (parent));
+  
+  base_reader_recurse (sub, parent);
+
+  /* Variant is 1 byte sig length (without nul), signature with nul,
+   * padding to 8-boundary, then values
+   */
+
+  sig_len = _dbus_string_get_byte (sub->value_str, sub->value_pos);
+
+  sub->type_str = sub->value_str;
+  sub->type_pos = sub->value_pos + 1;
+  
+  sub->value_pos = sub->type_pos + sig_len + 1;
+  
+  sub->value_pos = _DBUS_ALIGN_VALUE (sub->value_pos, 8);
+
+  _dbus_verbose ("    type reader %p variant containing '%s'\n",
+                 sub,
+                 _dbus_string_get_const_data_len (sub->type_str,
+                                                  sub->type_pos, 0));
+}
+
 static int
-body_reader_get_current_type (DBusTypeReader *reader)
+base_reader_get_current_type (DBusTypeReader *reader)
 {
   int t;
 
@@ -369,7 +398,7 @@ array_reader_next (DBusTypeReader *reader,
 static const DBusTypeReaderClass body_reader_class = {
   "body",
   NULL, /* body is always toplevel, so doesn't get recursed into */
-  body_reader_get_current_type,
+  base_reader_get_current_type,
   base_reader_next
 };
 
@@ -385,6 +414,13 @@ static const DBusTypeReaderClass array_reader_class = {
   array_reader_recurse,
   array_reader_get_current_type,
   array_reader_next
+};
+
+static const DBusTypeReaderClass variant_reader_class = {
+  "variant",
+  variant_reader_recurse,
+  base_reader_get_current_type,
+  base_reader_next
 };
 
 void
@@ -502,6 +538,9 @@ _dbus_type_reader_recurse (DBusTypeReader *reader,
       break;
     case DBUS_TYPE_ARRAY:
       sub->klass = &array_reader_class;
+      break;
+    case DBUS_TYPE_VARIANT:
+      sub->klass = &variant_reader_class;
       break;
     default:
       _dbus_verbose ("recursing into type %s\n", _dbus_type_to_string (t));
