@@ -275,17 +275,24 @@ dbus_bool_t   _dbus_marshal_write_basic       (DBusString       *str,
                                                const void       *value,
                                                int               byte_order,
                                                int              *pos_after);
-dbus_bool_t   _dbus_marshal_write_basic_array (DBusString       *str,
+dbus_bool_t   _dbus_marshal_write_fixed_array (DBusString       *str,
                                                int               insert_at,
                                                int               element_type,
                                                const void       *value,
-                                               int               len,
+                                               int               n_elements,
                                                int               byte_order,
                                                int              *pos_after);
 void          _dbus_marshal_read_basic        (const DBusString *str,
                                                int               pos,
                                                int               type,
                                                void             *value,
+                                               int               byte_order,
+                                               int              *new_pos);
+void          _dbus_marshal_read_fixed_array  (const DBusString *str,
+                                               int               pos,
+                                               int               element_type,
+                                               void             *value,
+                                               int              *n_elements,
                                                int               byte_order,
                                                int              *new_pos);
 void          _dbus_marshal_skip_basic        (const DBusString *str,
@@ -308,7 +315,7 @@ dbus_bool_t   _dbus_type_is_valid             (int               typecode);
 int           _dbus_type_get_alignment        (int               typecode);
 dbus_bool_t   _dbus_type_is_basic             (int               typecode);
 dbus_bool_t   _dbus_type_is_container         (int               typecode);
-dbus_bool_t   _dbus_type_length_varies        (int               typecode);
+dbus_bool_t   _dbus_type_is_fixed             (int               typecode);
 
 
 

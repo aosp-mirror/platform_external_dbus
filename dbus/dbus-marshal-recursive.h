@@ -151,10 +151,9 @@ int         _dbus_type_reader_get_current_type          (const DBusTypeReader  *
 dbus_bool_t _dbus_type_reader_array_is_empty            (const DBusTypeReader  *reader);
 void        _dbus_type_reader_read_basic                (const DBusTypeReader  *reader,
                                                          void                  *value);
-dbus_bool_t _dbus_type_reader_read_array_of_basic       (const DBusTypeReader  *reader,
-                                                         int                    type,
-                                                         void                 **array,
-                                                         int                   *array_len);
+void        _dbus_type_reader_read_fixed_array          (const DBusTypeReader  *reader,
+                                                         void                  *value,
+                                                         int                   *n_elements);
 void        _dbus_type_reader_recurse                   (DBusTypeReader        *reader,
                                                          DBusTypeReader        *subreader);
 dbus_bool_t _dbus_type_reader_next                      (DBusTypeReader        *reader);
@@ -165,6 +164,8 @@ void        _dbus_type_reader_get_signature             (const DBusTypeReader  *
                                                          int                   *len_p);
 dbus_bool_t _dbus_type_reader_set_basic                 (DBusTypeReader        *reader,
                                                          const void            *value,
+                                                         const DBusTypeReader  *realign_root);
+dbus_bool_t _dbus_type_reader_delete                    (DBusTypeReader        *reader,
                                                          const DBusTypeReader  *realign_root);
 dbus_bool_t _dbus_type_reader_greater_than              (const DBusTypeReader  *lhs,
                                                          const DBusTypeReader  *rhs);
@@ -184,10 +185,10 @@ void        _dbus_type_writer_init_values_only     (DBusTypeWriter        *write
 dbus_bool_t _dbus_type_writer_write_basic          (DBusTypeWriter        *writer,
                                                     int                    type,
                                                     const void            *value);
-dbus_bool_t _dbus_type_writer_write_array          (DBusTypeWriter        *writer,
-                                                    int                    type,
-                                                    const void            *array,
-                                                    int                    array_len);
+dbus_bool_t _dbus_type_writer_write_fixed_array    (DBusTypeWriter        *writer,
+                                                    int                    element_type,
+                                                    const void            *value,
+                                                    int                    n_elements);
 dbus_bool_t _dbus_type_writer_recurse              (DBusTypeWriter        *writer,
                                                     int                    container_type,
                                                     const DBusString      *contained_type,

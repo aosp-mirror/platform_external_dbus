@@ -553,6 +553,57 @@ _dbus_marshal_read_basic (const DBusString      *str,
     *new_pos = pos;
 }
 
+/**
+ * Reads an array of fixed-length basic values.  Does not work for
+ * arrays of string or container types.
+ *
+ * This function returns the array in-place; it does not make a copy,
+ * and it does not swap the bytes.
+ *
+ * If you ask for #DBUS_TYPE_DOUBLE you will get a "const double*" back
+ * and the "value" argument should be a "const double**" and so on.
+ *
+ * @todo last I checked only the test suite uses this function
+ *
+ * @param str the string to read from
+ * @param pos position to read from
+ * @param element_type type of array elements
+ * @param value place to return the array
+ * @param n_elements place to return number of array elements
+ * @param byte_order the byte order, used to read the array length
+ * @param new_pos #NULL or location to store a position after the elements
+ */
+void
+_dbus_marshal_read_fixed_array  (const DBusString *str,
+                                 int               pos,
+                                 int               element_type,
+                                 void             *value,
+                                 int              *n_elements,
+                                 int               byte_order,
+                                 int              *new_pos)
+{
+  dbus_uint32_t array_len;
+  int alignment;
+
+  _dbus_assert (_dbus_type_is_fixed (element_type));
+  _dbus_assert (_dbus_type_is_basic (element_type));
+
+  pos = _DBUS_ALIGN_VALUE (pos, 4);
+
+  array_len = _dbus_marshal_read_uint32 (str, pos, byte_order, &pos);
+
+  alignment = _dbus_type_get_alignment (element_type);
+
+  pos = _DBUS_ALIGN_VALUE (pos, alignment);
+
+  *(const DBusBasicValue**) value = (void*) _dbus_string_get_const_data_len (str, pos, array_len);
+
+  *n_elements = array_len / alignment;
+
+  if (new_pos)
+    *new_pos = pos + array_len;
+}
+
 static dbus_bool_t
 marshal_4_octets (DBusString   *str,
                   int           insert_at,
@@ -663,7 +714,7 @@ marshal_len_followed_by_bytes (int                  marshal_as,
                               str, pos))
     goto oom;
 
-#if 1
+#if 0
   /* too expensive */
   _dbus_assert (_dbus_string_equal_substring (&value_str, 0, value_len,
                                               str, pos));
@@ -779,82 +830,83 @@ static dbus_bool_t
 marshal_1_octets_array (DBusString          *str,
                         int                  insert_at,
                         const unsigned char *value,
-                        int                  len,
+                        int                  n_elements,
                         int                  byte_order,
                         int                 *pos_after)
 {
   return marshal_len_followed_by_bytes (MARSHAL_AS_BYTE_ARRAY,
-                                        str, insert_at, value, len,
+                                        str, insert_at, value, n_elements,
                                         byte_order, pos_after);
 }
 
-static dbus_bool_t
-marshal_4_octets_array (DBusString          *str,
-                        int                  insert_at,
-                        const dbus_uint32_t *value,
-                        int                  len,
-                        int                  byte_order)
+static void
+swap_array (DBusString *str,
+            int         array_start,
+            int         n_elements,
+            int         byte_order,
+            int         alignment)
 {
-  int old_string_len;
-  int array_start;
-
-  _dbus_assert_not_reached ("FIXME insert_at");
-
-  old_string_len = _dbus_string_get_length (str);
-
-  if (!marshal_4_octets (str, insert_at, len*4, byte_order, NULL))
-    goto error;
-
-  array_start = _dbus_string_get_length (str);
-
-  if (!_dbus_string_append_len (str, (const unsigned char*) value,
-                                len * 4))
-    goto error;
+  _dbus_assert (_DBUS_ALIGN_VALUE (array_start, alignment) == (unsigned) array_start);
 
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
     {
-      const unsigned char *d;
-      const unsigned char *end;
+      unsigned char *d;
+      unsigned char *end;
 
-      d = _dbus_string_get_data (str) + array_start;
-      end = d + len * 4;
-      while (d != end)
+      /* we use const_data and cast it off so DBusString can be a const string
+       * for the unit tests. don't ask.
+       */
+      d = (unsigned char*) _dbus_string_get_const_data (str) + array_start;
+      end = d + n_elements * alignment;
+
+      if (alignment == 8)
         {
-          *((dbus_uint32_t*)d) = DBUS_UINT32_SWAP_LE_BE (*((dbus_uint32_t*)d));
-          d += 4;
+          while (d != end)
+            {
+#ifdef DBUS_HAVE_INT64
+              *((dbus_uint64_t*)d) = DBUS_UINT64_SWAP_LE_BE (*((dbus_uint64_t*)d));
+#else
+              swap_8_bytes ((DBusBasicValue*) d);
+#endif
+              d += 8;
+            }
+        }
+      else
+        {
+          _dbus_assert (alignment == 4);
+
+          while (d != end)
+            {
+              *((dbus_uint32_t*)d) = DBUS_UINT32_SWAP_LE_BE (*((dbus_uint32_t*)d));
+              d += 4;
+            }
         }
     }
-
-  return TRUE;
-
- error:
-  /* Restore previous length */
-  _dbus_string_set_length (str, old_string_len);
-
-  return FALSE;
 }
 
 static dbus_bool_t
-marshal_8_octets_array (DBusString           *str,
-                        int                   insert_at,
-                        const DBusBasicValue *value,
-                        int                   len,
-                        int                   byte_order)
+marshal_fixed_array (DBusString           *str,
+                     int                   insert_at,
+                     const DBusBasicValue *value,
+                     int                   n_elements,
+                     int                   byte_order,
+                     int                   alignment,
+                     int                  *pos_after)
 {
   int old_string_len;
   int array_start;
-
-  _dbus_assert_not_reached ("FIXME insert_at");
+  DBusString t;
 
   old_string_len = _dbus_string_get_length (str);
 
   /*  The array length is the length in bytes of the array,
    * *excluding* alignment padding.
    */
-  if (!marshal_4_octets (str, insert_at, len*8, byte_order, NULL))
+  if (!marshal_4_octets (str, insert_at, n_elements * alignment,
+                         byte_order, &array_start))
     goto error;
 
-  array_start = _dbus_string_get_length (str);
+  _dbus_verbose ("marshaled len %d at %d array start %d\n", n_elements * alignment, insert_at, array_start);
 
   /* Note that we do alignment padding unconditionally
    * even if the array is empty; this means that
@@ -862,62 +914,57 @@ marshal_8_octets_array (DBusString           *str,
    * in the array.
    */
 
-  if (!_dbus_string_align_length (str, 8))
+  if (!_dbus_string_insert_alignment (str, &array_start, alignment))
     goto error;
 
-  if (!_dbus_string_append_len (str, (const unsigned char*) value,
-                                len * 8))
+  _dbus_string_init_const_len (&t,
+                               (const unsigned char*) value,
+                               n_elements * alignment);
+
+  if (!_dbus_string_copy (&t, 0,
+                          str, array_start))
     goto error;
 
-  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-    {
-      const unsigned char *d;
-      const unsigned char *end;
-
-      d = _dbus_string_get_data (str) + array_start;
-      end = d + len * 8;
-      while (d != end)
-        {
-#ifdef DBUS_HAVE_INT64
-          *((dbus_uint64_t*)d) = DBUS_UINT64_SWAP_LE_BE (*((dbus_uint64_t*)d));
-#else
-          swap_8_bytes ((DBusBasicValue*) d);
-#endif
-          d += 8;
-        }
-    }
+  swap_array (str, array_start, n_elements, byte_order, alignment);
 
   return TRUE;
 
  error:
-  /* Restore previous length */
-  _dbus_string_set_length (str, old_string_len);
+  _dbus_string_delete (str, insert_at,
+                       _dbus_string_get_length (str) - old_string_len);
 
   return FALSE;
 }
 
 /**
- * Marshals a basic type array
+ * Marshals an array of values of fixed-length type.
+ * _dbus_type_is_fixed() returns #TRUE for these types,
+ * which are the basic types minus the string-like types.
+ *
+ * The value argument should be the adddress of an
+ * array, so e.g. "const dbus_uint32_t**"
  *
  * @param str string to marshal to
  * @param insert_at where to insert the value
  * @param element_type type of array elements
- * @param value pointer to value
- * @param len length of value data in elements
+ * @param value address of an array to marshal
+ * @param len number of elements in the array
  * @param byte_order byte order
  * @param pos_after #NULL or the position after the type
  * @returns #TRUE on success
  **/
 dbus_bool_t
-_dbus_marshal_write_basic_array (DBusString *str,
+_dbus_marshal_write_fixed_array (DBusString *str,
                                  int         insert_at,
                                  int         element_type,
                                  const void *value,
-                                 int         len,
+                                 int         n_elements,
                                  int         byte_order,
                                  int        *pos_after)
 {
-  /* FIXME use the insert_at arg and fill in pos_after */
+  const void* vp = *(const DBusBasicValue**)value;
+
+  _dbus_assert (_dbus_type_is_fixed (element_type));
 
   switch (element_type)
     {
@@ -925,29 +972,20 @@ _dbus_marshal_write_basic_array (DBusString *str,
       /* FIXME: we canonicalize to 0 or 1 for the single boolean case
        * should we here too ? */
     case DBUS_TYPE_BYTE:
-      return marshal_1_octets_array (str, insert_at, value, len, byte_order, pos_after);
+      return marshal_1_octets_array (str, insert_at, vp, n_elements, byte_order, pos_after);
       break;
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
-      return marshal_4_octets_array (str, insert_at, value, len, byte_order);
+      return marshal_fixed_array (str, insert_at, vp, n_elements, byte_order, 4, pos_after);
       break;
     case DBUS_TYPE_INT64:
     case DBUS_TYPE_UINT64:
     case DBUS_TYPE_DOUBLE:
-      return marshal_8_octets_array (str, insert_at, value, len, byte_order);
-      break;
-
-    case DBUS_TYPE_STRING:
-    case DBUS_TYPE_OBJECT_PATH:
-      _dbus_assert_not_reached ("handle string arrays");
-      break;
-
-    case DBUS_TYPE_SIGNATURE:
-      _dbus_assert_not_reached ("handle signature");
+      return marshal_fixed_array (str, insert_at, vp, n_elements, byte_order, 8, pos_after);
       break;
 
     default:
-      _dbus_assert_not_reached ("non basic type in array");
+      _dbus_assert_not_reached ("non fixed type in array write");
       break;
     }
 
@@ -1173,10 +1211,10 @@ _dbus_type_is_basic (int typecode)
  * first byte of the old and new value would be in the same location,
  * so alignment padding is not a factor.
  *
- * @returns #TRUE if the type can occupy different lengths
+ * @returns #FALSE if the type can occupy different lengths
  */
 dbus_bool_t
-_dbus_type_length_varies (int typecode)
+_dbus_type_is_fixed (int typecode)
 {
   switch (typecode)
     {
@@ -1187,9 +1225,9 @@ _dbus_type_length_varies (int typecode)
     case DBUS_TYPE_INT64:
     case DBUS_TYPE_UINT64:
     case DBUS_TYPE_DOUBLE:
-      return FALSE;
-    default:
       return TRUE;
+    default:
+      return FALSE;
     }
 }
 
@@ -1257,6 +1295,16 @@ _dbus_verbose_bytes (const unsigned char *data,
           if (i > 7 &&
               _DBUS_ALIGN_ADDRESS (&data[i], 8) == &data[i])
             {
+#ifdef DBUS_HAVE_INT64
+              /* I think I probably mean "GNU libc printf" and not "GNUC"
+               * but we'll wait until someone complains. If you hit this,
+               * just turn off verbose mode as a workaround.
+               */
+#if __GNUC__
+              _dbus_verbose (" u64: 0x%llx",
+                             *(dbus_uint64_t*)&data[i-8]);
+#endif
+#endif
               _dbus_verbose (" dbl: %g",
                              *(double*)&data[i-8]);
             }
@@ -1312,6 +1360,17 @@ _dbus_verbose_bytes_of_string (const DBusString    *str,
 #include "dbus-test.h"
 #include <stdio.h>
 
+static void
+swap_test_array (void *array,
+                 int   len_bytes,
+                 int   byte_order,
+                 int   alignment)
+{
+  DBusString t;
+  _dbus_string_init_const_len (&t, array, len_bytes);
+  swap_array (&t, 0, len_bytes / alignment, byte_order, alignment);
+}
+
 #define MARSHAL_BASIC(typename, byte_order, literal)                    \
   do {                                                                  \
      v_##typename = literal;                                            \
@@ -1324,7 +1383,7 @@ _dbus_verbose_bytes_of_string (const DBusString    *str,
 #define DEMARSHAL_BASIC(typename, byte_order)                                   \
   do {                                                                          \
     _dbus_marshal_read_basic (&str, pos, DBUS_TYPE_##typename, &v_##typename,   \
-                                byte_order, &pos);                              \
+                              byte_order, &pos);                                \
   } while (0)
 
 #define DEMARSHAL_BASIC_AND_CHECK(typename, byte_order, literal)                        \
@@ -1359,19 +1418,61 @@ _dbus_verbose_bytes_of_string (const DBusString    *str,
       }                                                                                 \
   } while (0)
 
+#define MARSHAL_FIXED_ARRAY(typename, byte_order, literal)                                      \
+  do {                                                                                          \
+     v_ARRAY_##typename = literal;                                                              \
+     if (!_dbus_marshal_write_fixed_array (&str, pos, DBUS_TYPE_##typename,                     \
+                                           &v_ARRAY_##typename, _DBUS_N_ELEMENTS(literal),      \
+                                           byte_order, NULL))                                   \
+       _dbus_assert_not_reached ("no memory");                                                  \
+   } while (0)
+
+#define DEMARSHAL_FIXED_ARRAY(typename, byte_order)                                             \
+  do {                                                                                          \
+    _dbus_marshal_read_fixed_array (&str, pos, DBUS_TYPE_##typename, &v_ARRAY_##typename,       \
+                                    &n_elements, byte_order, &pos);                             \
+    swap_test_array (v_ARRAY_##typename, n_elements * sizeof(v_ARRAY_##typename[0]),            \
+                     byte_order, sizeof(v_ARRAY_##typename[0]));                                \
+  } while (0)
+
+#define DEMARSHAL_FIXED_ARRAY_AND_CHECK(typename, byte_order, literal)                  \
+  do {                                                                                  \
+    DEMARSHAL_FIXED_ARRAY (typename, byte_order);                                       \
+    if (memcmp (literal, v_ARRAY_##typename, sizeof (literal) != 0))                    \
+      {                                                                                 \
+        _dbus_verbose ("MARSHALED DATA\n");                                             \
+        _dbus_verbose_bytes_of_string (&str, dump_pos,                                  \
+                                      _dbus_string_get_length (&str) - dump_pos);       \
+        _dbus_verbose ("LITERAL DATA\n");                                               \
+        _dbus_verbose_bytes ((char*)literal, sizeof (literal), 0);                      \
+        _dbus_verbose ("READ DATA\n");                                                  \
+        _dbus_verbose_bytes ((char*)v_ARRAY_##typename, sizeof (literal), 0);           \
+        _dbus_assert_not_reached ("demarshaled wrong fixed array value");               \
+      }                                                                                 \
+  } while (0)
+
+#define MARSHAL_TEST_FIXED_ARRAY(typename, byte_order, literal)         \
+  do {                                                                  \
+    MARSHAL_FIXED_ARRAY (typename, byte_order, literal);                \
+    dump_pos = pos;                                                     \
+    DEMARSHAL_FIXED_ARRAY_AND_CHECK (typename, byte_order, literal);    \
+  } while (0)
+
 dbus_bool_t
 _dbus_marshal_test (void)
 {
   DBusString str;
   int pos, dump_pos;
-#if 0
-  dbus_int32_t array1[3] = { 0x123, 0x456, 0x789 }, *array2;
+  int n_elements;
+  dbus_int32_t array4[3] = { 123, 456, 789 };
 #ifdef DBUS_HAVE_INT64
-  dbus_int64_t array3[3] = { DBUS_INT64_CONSTANT (0x123ffffffff),
+  dbus_int64_t array8[3] = { DBUS_INT64_CONSTANT (0x123ffffffff),
                              DBUS_INT64_CONSTANT (0x456ffffffff),
-                             DBUS_INT64_CONSTANT (0x789ffffffff) }, *array4;
+                             DBUS_INT64_CONSTANT (0x789ffffffff) };
+  dbus_int64_t *v_ARRAY_INT64;
 #endif
-#endif
+  dbus_int32_t *v_ARRAY_INT32;
+  double *v_ARRAY_DOUBLE;
   DBusString t;
   double v_DOUBLE;
   double t_DOUBLE;
@@ -1447,6 +1548,15 @@ _dbus_marshal_test (void)
   MARSHAL_TEST_STRCMP (SIGNATURE, DBUS_LITTLE_ENDIAN, "");
   MARSHAL_TEST_STRCMP (SIGNATURE, DBUS_BIG_ENDIAN, "a(ii)");
   MARSHAL_TEST_STRCMP (SIGNATURE, DBUS_LITTLE_ENDIAN, "a(ii)");
+
+  /* Arrays */
+  MARSHAL_TEST_FIXED_ARRAY (INT32, DBUS_BIG_ENDIAN, array4);
+  MARSHAL_TEST_FIXED_ARRAY (INT32, DBUS_LITTLE_ENDIAN, array4);
+
+#ifdef DBUS_HAVE_INT64
+  MARSHAL_TEST_FIXED_ARRAY (INT64, DBUS_BIG_ENDIAN, array8);
+  MARSHAL_TEST_FIXED_ARRAY (INT64, DBUS_LITTLE_ENDIAN, array8);
+#endif
 
 #if 0
 

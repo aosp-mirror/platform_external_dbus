@@ -764,14 +764,60 @@ _dbus_type_reader_read_basic (const DBusTypeReader    *reader,
 #endif
 }
 
-dbus_bool_t
-_dbus_type_reader_read_array_of_basic (const DBusTypeReader    *reader,
-                                       int                      type,
-                                       void                   **array,
-                                       int                     *array_len)
+/**
+ * Reads an array of fixed-length basic values.  Does not work for
+ * arrays of string or container types.
+ *
+ * This function returns the array in-place; it does not make a copy,
+ * and it does not swap the bytes.
+ *
+ * If you ask for #DBUS_TYPE_DOUBLE you will get a "const double*" back
+ * and the "value" argument should be a "const double**" and so on.
+ *
+ * @param reader the reader to read from
+ * @param value place to return the array
+ * @param n_elements place to return number of array elements
+ */
+void
+_dbus_type_reader_read_fixed_array (const DBusTypeReader  *reader,
+                                    void                  *value,
+                                    int                   *n_elements)
 {
-  _dbus_assert (!reader->klass->types_only);
+  int element_type;
+  int end_pos;
+  int remaining_len;
+  int alignment;
 
+  _dbus_assert (!reader->klass->types_only);
+  _dbus_assert (reader->klass == &array_reader_class);
+
+  element_type = first_type_in_signature (reader->type_str,
+                                          reader->type_pos);
+
+  _dbus_assert (element_type != DBUS_TYPE_INVALID); /* why we don't use get_current_type() */
+  _dbus_assert (_dbus_type_is_fixed (element_type));
+
+  alignment = _dbus_type_get_alignment (element_type);
+
+  end_pos = reader->u.array.start_pos + array_reader_get_array_len (reader);
+  remaining_len = end_pos - reader->value_pos;
+
+  if (remaining_len == 0)
+    *(const DBusBasicValue**) value = NULL;
+  else
+    *(const DBusBasicValue**) value =
+      (void*) _dbus_string_get_const_data_len (reader->value_str,
+                                               reader->value_pos,
+                                               remaining_len);
+
+  *n_elements = remaining_len / alignment;
+  _dbus_assert ((remaining_len % alignment) == 0);
+
+#if RECURSIVE_MARSHAL_TRACE
+  _dbus_verbose ("  type reader %p read fixed array type_pos = %d value_pos = %d remaining sig '%s'\n",
+                 reader, reader->type_pos, reader->value_pos,
+                 _dbus_string_get_const_data_len (reader->type_str, reader->type_pos, 0));
+#endif
 }
 
 /**
@@ -925,7 +971,106 @@ _dbus_type_reader_get_signature (const DBusTypeReader  *reader,
   *len_p = find_len_of_complete_type (reader->type_str, reader->type_pos);
 }
 
+typedef struct
+{
+  DBusString replacement;
+  int padding;
+} ReplacementBlock;
 
+static dbus_bool_t
+replacement_block_init (ReplacementBlock *block,
+                        DBusTypeReader   *reader)
+{
+  if (!_dbus_string_init (&block->replacement))
+    return FALSE;
+
+  /* ALIGN_OFFSET is the offset to add to get to an 8-boundary; so 8 -
+   * ALIGN_OFFSET is the padding to have the same align properties in
+   * our replacement string as we do at the position being replaced
+   */
+  block->padding = 8 - _DBUS_ALIGN_OFFSET (reader->value_pos, 8);
+  _dbus_assert (block->padding >= 0);
+
+  if (!_dbus_string_lengthen (&block->replacement, block->padding))
+    goto oom;
+
+  return TRUE;
+
+ oom:
+  _dbus_string_free (&block->replacement);
+  return FALSE;
+}
+
+static dbus_bool_t
+replacement_block_replace (ReplacementBlock     *block,
+                           DBusTypeReader       *reader,
+                           const DBusTypeReader *realign_root)
+{
+  DBusTypeWriter writer;
+  DBusTypeReader realign_reader;
+  DBusList *fixups;
+  int orig_len;
+
+  _dbus_assert (realign_root != NULL);
+
+  orig_len = _dbus_string_get_length (&block->replacement);
+
+  realign_reader = *realign_root;
+
+  _dbus_type_writer_init_values_only (&writer,
+                                      realign_reader.byte_order,
+                                      realign_reader.type_str,
+                                      realign_reader.type_pos,
+                                      &block->replacement,
+                                      _dbus_string_get_length (&block->replacement));
+
+  fixups = NULL;
+  if (!_dbus_type_writer_write_reader_partial (&writer,
+                                               &realign_reader,
+                                               reader,
+                                               block->padding,
+                                               _dbus_string_get_length (&block->replacement) - block->padding,
+                                               &fixups))
+    goto oom;
+
+#if RECURSIVE_MARSHAL_TRACE
+  _dbus_verbose ("REPLACEMENT at padding %d len %d\n", padding,
+                 _dbus_string_get_length (&block->replacement) - padding);
+  _dbus_verbose_bytes_of_string (&block->replacement, padding,
+                                 _dbus_string_get_length (&block->replacement) - padding);
+  _dbus_verbose ("TO BE REPLACED at value_pos = %d (align pad %d) len %d\n",
+                 reader->value_pos, (int) (8 - _DBUS_ALIGN_OFFSET (reader->value_pos, 8)),
+                 realign_reader.value_pos - reader->value_pos);
+  _dbus_verbose_bytes_of_string (reader->value_str,
+                                 reader->value_pos,
+                                 realign_reader.value_pos - reader->value_pos);
+#endif
+
+  /* Move the replacement into position
+   * (realign_reader should now be at the end of the block to be replaced)
+   */
+  if (!_dbus_string_replace_len (&block->replacement, block->padding,
+                                 _dbus_string_get_length (&block->replacement) - block->padding,
+                                 (DBusString*) reader->value_str,
+                                 reader->value_pos,
+                                 realign_reader.value_pos - reader->value_pos))
+    goto oom;
+
+  /* Process our fixups now that we can't have an OOM error */
+  apply_and_free_fixups (&fixups, reader);
+
+  return TRUE;
+
+ oom:
+  _dbus_string_set_length (&block->replacement, orig_len);
+  return FALSE;
+}
+
+static void
+replacement_block_free (ReplacementBlock *block)
+{
+  _dbus_string_free (&block->replacement);
+}
 
 /* In the variable-length case, we have to fix alignment after we insert.
  * The strategy is as follows:
@@ -957,28 +1102,15 @@ reader_set_basic_variable_length (DBusTypeReader       *reader,
                                   const DBusTypeReader *realign_root)
 {
   dbus_bool_t retval;
-  DBusString replacement;
-  int padding;
+  ReplacementBlock block;
   DBusTypeWriter writer;
-  DBusTypeReader realign_reader;
-  DBusList *fixups;
 
   _dbus_assert (realign_root != NULL);
 
   retval = FALSE;
 
-  if (!_dbus_string_init (&replacement))
+  if (!replacement_block_init (&block, reader))
     return FALSE;
-
-  /* ALIGN_OFFSET is the offset to add to get to an 8-boundary; so 8 -
-   * ALIGN_OFFSET is the padding to have the same align properties in
-   * our replacement string as we do at the position being replaced
-   */
-  padding = 8 - _DBUS_ALIGN_OFFSET (reader->value_pos, 8);
-  _dbus_assert (padding >= 0);
-
-  if (!_dbus_string_lengthen (&replacement, padding))
-    goto out;
 
   /* Write the new basic value */
 
@@ -986,63 +1118,21 @@ reader_set_basic_variable_length (DBusTypeReader       *reader,
                                       reader->byte_order,
                                       reader->type_str,
                                       reader->type_pos,
-                                      &replacement,
-                                      _dbus_string_get_length (&replacement));
+                                      &block.replacement,
+                                      _dbus_string_get_length (&block.replacement));
 
   if (!_dbus_type_writer_write_basic (&writer, current_type, value))
     goto out;
 
-  /* Rewrite the values following the new basic value, which should
-   * fix their alignment
-   */
-  realign_reader = *realign_root;
-
-  _dbus_type_writer_init_values_only (&writer,
-                                      realign_reader.byte_order,
-                                      realign_reader.type_str,
-                                      realign_reader.type_pos,
-                                      &replacement,
-                                      _dbus_string_get_length (&replacement));
-
-  fixups = NULL;
-  if (!_dbus_type_writer_write_reader_partial (&writer,
-                                               &realign_reader,
-                                               reader,
-                                               padding,
-                                               _dbus_string_get_length (&replacement) - padding,
-                                               &fixups))
+  if (!replacement_block_replace (&block,
+                                  reader,
+                                  realign_root))
     goto out;
-
-#if RECURSIVE_MARSHAL_TRACE
-  _dbus_verbose ("REPLACEMENT at padding %d len %d\n", padding,
-                 _dbus_string_get_length (&replacement) - padding);
-  _dbus_verbose_bytes_of_string (&replacement, padding,
-                                 _dbus_string_get_length (&replacement) - padding);
-  _dbus_verbose ("TO BE REPLACED at value_pos = %d (align pad %d) len %d\n",
-                 reader->value_pos, (int) (8 - _DBUS_ALIGN_OFFSET (reader->value_pos, 8)),
-                 realign_reader.value_pos - reader->value_pos);
-  _dbus_verbose_bytes_of_string (reader->value_str,
-                                 reader->value_pos,
-                                 realign_reader.value_pos - reader->value_pos);
-#endif
-
-  /* Move the replacement into position
-   * (realign_reader should now be at the end of the block to be replaced)
-   */
-  if (!_dbus_string_replace_len (&replacement, padding,
-                                 _dbus_string_get_length (&replacement) - padding,
-                                 (DBusString*) reader->value_str,
-                                 reader->value_pos,
-                                 realign_reader.value_pos - reader->value_pos))
-    goto out;
-
-  /* Process our fixups now that we can't have an OOM error */
-  apply_and_free_fixups (&fixups, reader);
 
   retval = TRUE;
 
  out:
-  _dbus_string_free (&replacement);
+  replacement_block_free (&block);
   return retval;
 }
 
@@ -1060,10 +1150,10 @@ reader_set_basic_fixed_length (DBusTypeReader *reader,
 }
 
 /**
- * Sets a new value for the basic type pointed to by the reader,
- * leaving the reader valid to continue reading. Any other readers may
- * of course be invalidated if you set a variable-length type such as
- * a string.
+ * Sets a new value for the basic type value pointed to by the reader,
+ * leaving the reader valid to continue reading. Any other readers
+ * will be invalidated if you set a variable-length type such as a
+ * string.
  *
  * The provided realign_root is the reader to start from when
  * realigning the data that follows the newly-set value. The reader
@@ -1084,6 +1174,10 @@ reader_set_basic_fixed_length (DBusTypeReader *reader,
  * DBusTypeMark. But since DBusMessage is effectively that object for
  * D-BUS it doesn't seem worth creating some random object.)
  *
+ * @todo optimize this by only rewriting until the old and new values
+ * are at the same alignment. Frequently this should result in only
+ * replacing the value that's immediately at hand.
+ *
  * @param reader reader indicating where to set a new value
  * @param value address of the value to set
  * @param realign_root realign from here
@@ -1095,6 +1189,8 @@ _dbus_type_reader_set_basic (DBusTypeReader       *reader,
                              const DBusTypeReader *realign_root)
 {
   int current_type;
+
+  _dbus_assert (!reader->klass->types_only);
 
   current_type = _dbus_type_reader_get_current_type (reader);
 
@@ -1109,17 +1205,61 @@ _dbus_type_reader_set_basic (DBusTypeReader       *reader,
 
   _dbus_assert (_dbus_type_is_basic (current_type));
 
-  if (_dbus_type_length_varies (current_type))
+  if (_dbus_type_is_fixed (current_type))
+    {
+      reader_set_basic_fixed_length (reader, current_type, value);
+      return TRUE;
+    }
+  else
     {
       _dbus_assert (realign_root != NULL);
       return reader_set_basic_variable_length (reader, current_type,
                                                value, realign_root);
     }
-  else
-    {
-      reader_set_basic_fixed_length (reader, current_type, value);
-      return TRUE;
-    }
+}
+
+/**
+ * Recursively deletes any value pointed to by the reader, leaving the
+ * reader valid to continue reading. Any other readers will be
+ * invalidated.
+ *
+ * The provided realign_root is the reader to start from when
+ * realigning the data that follows the newly-set value.
+ * See _dbus_type_reader_set_basic() for more details on the
+ * realign_root paramter.
+ *
+ * @todo for now this does not delete the typecodes associated with
+ * the value, so this function should only be used for array elements.
+ *
+ * @param reader reader indicating where to delete a value
+ * @param realign_root realign from here
+ * @returns #FALSE if not enough memory
+ */
+dbus_bool_t
+_dbus_type_reader_delete (DBusTypeReader        *reader,
+                          const DBusTypeReader  *realign_root)
+{
+  dbus_bool_t retval;
+  ReplacementBlock block;
+
+  _dbus_assert (realign_root != NULL);
+  _dbus_assert (reader->klass == &array_reader_class);
+
+  retval = FALSE;
+
+  if (!replacement_block_init (&block, reader))
+    return FALSE;
+
+  if (!replacement_block_replace (&block,
+                                  reader,
+                                  realign_root))
+    goto out;
+
+  retval = TRUE;
+
+ out:
+  replacement_block_free (&block);
+  return retval;
 }
 
 /**
@@ -1844,14 +1984,50 @@ _dbus_type_writer_write_basic (DBusTypeWriter *writer,
   return retval;
 }
 
+/**
+ * Writes an array of fixed-length basic values, i.e. those that
+ * are both _dbus_type_is_fixed() and _dbus_type_is_basic().
+ *
+ * The value parameter should be the address of said array of values,
+ * so e.g. if it's an array of double, pass in "const double**"
+ *
+ * @param writer the writer
+ * @param element_type type of stuff in the array
+ * @param value address of the array
+ * @param n_elements number of elements in the array
+ * @returns #FALSE if no memory
+ */
 dbus_bool_t
-_dbus_type_writer_write_array (DBusTypeWriter *writer,
-                               int             type,
-                               const void     *array,
-                               int             array_len)
+_dbus_type_writer_write_fixed_array (DBusTypeWriter        *writer,
+                                     int                    element_type,
+                                     const void            *value,
+                                     int                    n_elements)
 {
+  _dbus_assert (writer->container_type == DBUS_TYPE_ARRAY);
+  _dbus_assert (_dbus_type_is_fixed (element_type));
+  _dbus_assert (writer->type_pos_is_expectation);
 
+  if (!write_or_verify_typecode (writer, element_type))
+    _dbus_assert_not_reached ("OOM should not happen if only verifying typecode");
 
+  if (writer->enabled)
+    {
+      if (!_dbus_marshal_write_fixed_array (writer->value_str,
+                                            writer->value_pos,
+                                            element_type,
+                                            value,
+                                            n_elements,
+                                            writer->byte_order,
+                                            &writer->value_pos))
+        return FALSE;
+    }
+
+#if RECURSIVE_MARSHAL_TRACE
+  _dbus_verbose ("  type writer %p fixed array type_pos = %d value_pos = %d\n",
+                 writer, writer->type_pos, writer->value_pos);
+#endif
+
+  return TRUE;
 }
 
 static void
