@@ -66,23 +66,6 @@
  */
 
 /**
- * Processes a command. Returns whether we had enough memory to
- * complete the operation.
- */
-typedef dbus_bool_t (* DBusProcessAuthCommandFunction) (DBusAuth         *auth,
-                                                        const DBusString *command,
-                                                        const DBusString *args);
-
-/**
- * Handler for a given auth protocol command
- */
-typedef struct
-{
-  const char *command; /**< Name of the command */
-  DBusProcessAuthCommandFunction func; /**< Function to handle the command */
-} DBusAuthCommandHandler;
-
-/**
  * This function appends an initial client response to the given string
  */
 typedef dbus_bool_t (* DBusInitialResponseFunction)  (DBusAuth         *auth,
@@ -132,16 +115,49 @@ typedef struct
 } DBusAuthMechanismHandler;
 
 /**
+ * Enumeration for the known authentication commands.
+ */
+typedef enum {
+  DBUS_AUTH_COMMAND_AUTH,
+  DBUS_AUTH_COMMAND_CANCEL,
+  DBUS_AUTH_COMMAND_DATA,
+  DBUS_AUTH_COMMAND_BEGIN,
+  DBUS_AUTH_COMMAND_REJECTED,
+  DBUS_AUTH_COMMAND_OK,
+  DBUS_AUTH_COMMAND_ERROR,
+  DBUS_AUTH_COMMAND_UNKNOWN
+} DBusAuthCommand;
+
+/**
+ * Auth state function, determines the reaction to incoming events for
+ * a particular state. Returns whether we had enough memory to
+ * complete the operation.
+ */
+typedef dbus_bool_t (* DBusAuthStateFunction) (DBusAuth         *auth,
+                                               DBusAuthCommand   command,
+                                               const DBusString *args);
+
+/**
+ * Information about a auth state.
+ */
+typedef struct
+{
+  const char *name;               /**< Name of the state */
+  DBusAuthStateFunction handler;  /**< State function for this state */
+} DBusAuthStateData;
+
+/**
  * Internal members of DBusAuth.
  */
 struct DBusAuth
 {
   int refcount;           /**< reference count */
+  const char *side;       /**< Client or server */
 
   DBusString incoming;    /**< Incoming data buffer */
   DBusString outgoing;    /**< Outgoing data buffer */
   
-  const DBusAuthCommandHandler *handlers; /**< Handlers for commands */
+  const DBusAuthStateData *state;         /**< Current protocol state */
 
   const DBusAuthMechanismHandler *mech;   /**< Current auth mechanism */
 
@@ -169,10 +185,6 @@ struct DBusAuth
   unsigned int needed_memory : 1;   /**< We needed memory to continue since last
                                      * successful getting something done
                                      */
-  unsigned int need_disconnect : 1; /**< We've given up, time to disconnect */
-  unsigned int authenticated : 1;   /**< We are authenticated */
-  unsigned int authenticated_pending_output : 1; /**< Authenticated once we clear outgoing buffer */
-  unsigned int authenticated_pending_begin : 1;  /**< Authenticated once we get BEGIN */
   unsigned int already_got_mechanisms : 1;       /**< Client already got mech list */
   unsigned int already_asked_for_initial_response : 1; /**< Already sent a blank challenge to get an initial response */
   unsigned int buffer_outstanding : 1; /**< Buffer is "checked out" for reading data into */
@@ -201,36 +213,8 @@ typedef struct
   
 } DBusAuthServer;
 
-static dbus_bool_t process_auth         (DBusAuth         *auth,
-                                         const DBusString *command,
-                                         const DBusString *args);
-static dbus_bool_t process_cancel       (DBusAuth         *auth,
-                                         const DBusString *command,
-                                         const DBusString *args);
-static dbus_bool_t process_begin        (DBusAuth         *auth,
-                                         const DBusString *command,
-                                         const DBusString *args);
-static dbus_bool_t process_data_server  (DBusAuth         *auth,
-                                         const DBusString *command,
-                                         const DBusString *args);
-static dbus_bool_t process_error_server (DBusAuth         *auth,
-                                         const DBusString *command,
-                                         const DBusString *args);
-static dbus_bool_t process_rejected     (DBusAuth         *auth,
-                                         const DBusString *command,
-                                         const DBusString *args);
-static dbus_bool_t process_ok           (DBusAuth         *auth,
-                                         const DBusString *command,
-                                         const DBusString *args);
-static dbus_bool_t process_data_client  (DBusAuth         *auth,
-                                         const DBusString *command,
-                                         const DBusString *args);
-static dbus_bool_t process_error_client (DBusAuth         *auth,
-                                         const DBusString *command,
-                                         const DBusString *args);
-
-
-static dbus_bool_t client_try_next_mechanism (DBusAuth *auth);
+static void        goto_state                (DBusAuth                       *auth,
+                                              const DBusAuthStateData        *new_state);
 static dbus_bool_t send_auth                 (DBusAuth *auth,
                                               const DBusAuthMechanismHandler *mech);
 static dbus_bool_t send_data                 (DBusAuth *auth,
@@ -242,35 +226,81 @@ static dbus_bool_t send_ok                   (DBusAuth *auth);
 static dbus_bool_t send_begin                (DBusAuth *auth);
 static dbus_bool_t send_cancel               (DBusAuth *auth);
 
-static DBusAuthCommandHandler
-server_handlers[] = {
-  { "AUTH", process_auth },
-  { "CANCEL", process_cancel },
-  { "BEGIN", process_begin },
-  { "DATA", process_data_server },
-  { "ERROR", process_error_server },
-  { NULL, NULL }
+/**
+ * Client states
+ */
+ 
+static dbus_bool_t handle_server_state_waiting_for_auth  (DBusAuth         *auth,
+                                                          DBusAuthCommand   command,
+                                                          const DBusString *args);
+static dbus_bool_t handle_server_state_waiting_for_data  (DBusAuth         *auth,
+                                                          DBusAuthCommand   command,
+                                                          const DBusString *args);
+static dbus_bool_t handle_server_state_waiting_for_begin (DBusAuth         *auth,
+                                                          DBusAuthCommand   command,
+                                                          const DBusString *args);
+  
+static const DBusAuthStateData server_state_waiting_for_auth = {
+  "WaitingForAuth", handle_server_state_waiting_for_auth
+};
+static const DBusAuthStateData server_state_waiting_for_data = {
+  "WaitingForData", handle_server_state_waiting_for_data
+};
+static const DBusAuthStateData server_state_waiting_for_begin = {
+  "WaitingForBegin", handle_server_state_waiting_for_begin
+};
+  
+/**
+ * Client states
+ */
+ 
+static dbus_bool_t handle_client_state_waiting_for_data   (DBusAuth         *auth,
+                                                           DBusAuthCommand   command,
+                                                           const DBusString *args);
+static dbus_bool_t handle_client_state_waiting_for_ok     (DBusAuth         *auth,
+                                                           DBusAuthCommand   command,
+                                                           const DBusString *args);
+static dbus_bool_t handle_client_state_waiting_for_reject (DBusAuth         *auth,
+                                                           DBusAuthCommand   command,
+                                                           const DBusString *args);
+
+static const DBusAuthStateData client_state_need_send_auth = {
+  "NeedSendAuth", NULL
+};
+static const DBusAuthStateData client_state_waiting_for_data = {
+  "WaitingForData", handle_client_state_waiting_for_data
+};
+static const DBusAuthStateData client_state_waiting_for_ok = {
+  "WaitingForOK", handle_client_state_waiting_for_ok
+};
+static const DBusAuthStateData client_state_waiting_for_reject = {
+  "WaitingForReject", handle_client_state_waiting_for_reject
+};
+  
+/**
+ * Common terminal states.  Terminal states have handler == NULL.
+ */
+
+static const DBusAuthStateData common_state_authenticated = {
+  "Authenticated",  NULL
 };
 
-static DBusAuthCommandHandler
-client_handlers[] = {
-  { "REJECTED", process_rejected },
-  { "OK", process_ok },
-  { "DATA", process_data_client },
-  { "ERROR", process_error_client },
-  { NULL, NULL }
+static const DBusAuthStateData common_state_need_disconnect = {
+  "NeedDisconnect",  NULL
 };
 
+static const char auth_side_client[] = "client";
+static const char auth_side_server[] = "server";
 /**
  * @param auth the auth conversation
  * @returns #TRUE if the conversation is the server side
  */
-#define DBUS_AUTH_IS_SERVER(auth) ((auth)->handlers == server_handlers)
+#define DBUS_AUTH_IS_SERVER(auth) ((auth)->side == auth_side_server)
 /**
  * @param auth the auth conversation
  * @returns #TRUE if the conversation is the client side
  */
-#define DBUS_AUTH_IS_CLIENT(auth) ((auth)->handlers == client_handlers)
+#define DBUS_AUTH_IS_CLIENT(auth) ((auth)->side == auth_side_client)
 /**
  * @param auth the auth conversation
  * @returns auth cast to DBusAuthClient
@@ -287,7 +317,7 @@ client_handlers[] = {
  * @param auth the auth conversation
  * @returns a string
  */
-#define DBUS_AUTH_NAME(auth)      (DBUS_AUTH_IS_SERVER(auth) ? "server" : "client")
+#define DBUS_AUTH_NAME(auth)      ((auth)->side)
 
 static DBusAuth*
 _dbus_auth_new (int size)
@@ -355,8 +385,6 @@ static void
 shutdown_mech (DBusAuth *auth)
 {
   /* Cancel any auth */
-  auth->authenticated_pending_begin = FALSE;
-  auth->authenticated = FALSE;
   auth->already_asked_for_initial_response = FALSE;
   _dbus_string_set_length (&auth->identity, 0);
 
@@ -591,6 +619,7 @@ sha1_handle_first_client_response (DBusAuth         *auth,
   if (!send_data (auth, &tmp2))
     goto out;
       
+  goto_state (auth, &server_state_waiting_for_data);
   retval = TRUE;
   
  out:
@@ -685,7 +714,6 @@ sha1_handle_second_client_response (DBusAuth         *auth,
                  DBUS_AUTH_NAME (auth), auth->desired_identity.uid);
   
   auth->authorized_identity = auth->desired_identity;
-  auth->authenticated_pending_begin = TRUE;
   retval = TRUE;
   
  out_3:
@@ -1022,8 +1050,6 @@ handle_server_data_external_mech (DBusAuth         *auth,
       
       auth->authorized_identity.uid = auth->desired_identity.uid;
       
-      auth->authenticated_pending_begin = TRUE;
-      
       return TRUE;
     }
   else
@@ -1199,7 +1225,9 @@ send_auth (DBusAuth *auth, const DBusAuthMechanismHandler *mech)
     }
 
   _dbus_string_free (&auth_command);
+  shutdown_mech (auth);
   auth->mech = mech;      
+  goto_state (auth, &client_state_waiting_for_data);
 
   return TRUE;
 }
@@ -1275,7 +1303,9 @@ send_rejected (DBusAuth *auth)
   server_auth->failures += 1;
 
   if (server_auth->failures >= server_auth->max_failures)
-    auth->need_disconnect = TRUE;
+    goto_state (auth, &common_state_need_disconnect);
+  else
+    goto_state (auth, &server_state_waiting_for_auth);
 
   _dbus_string_free (&command);
   
@@ -1296,35 +1326,87 @@ send_error (DBusAuth *auth, const char *message)
 static dbus_bool_t
 send_ok (DBusAuth *auth)
 {
-  return _dbus_string_append (&auth->outgoing, "OK\r\n");
+  if (_dbus_string_append (&auth->outgoing, "OK\r\n"))
+    {
+      goto_state (auth, &server_state_waiting_for_begin);
+      return TRUE;
+    }
+  else
+    return FALSE;
 }
 
 static dbus_bool_t
 send_begin (DBusAuth *auth)
 {
-  return _dbus_string_append (&auth->outgoing, "BEGIN\r\n");
+  if (_dbus_string_append (&auth->outgoing, "BEGIN\r\n"))
+    {
+      goto_state (auth, &common_state_authenticated);
+      return TRUE;
+    }
+  else
+    return FALSE;
 }
 
 static dbus_bool_t
 send_cancel (DBusAuth *auth)
 {
-  return _dbus_string_append (&auth->outgoing, "CANCEL\r\n");
+  if (_dbus_string_append (&auth->outgoing, "CANCEL\r\n"))
+    {
+      goto_state (auth, &client_state_waiting_for_reject);
+      return TRUE;
+    }
+  else
+    return FALSE;
 }
 
 static dbus_bool_t
-process_auth (DBusAuth         *auth,
-              const DBusString *command,
-              const DBusString *args)
+process_data (DBusAuth             *auth,
+             const DBusString     *args,
+             DBusAuthDataFunction  data_func)
 {
-  if (auth->mech)
+  int end;
+  DBusString decoded;
+
+  if (!_dbus_string_init (&decoded))
+    return FALSE;
+
+  if (!_dbus_string_hex_decode (args, 0, &end, &decoded, 0))
     {
-      /* We are already using a mechanism, client is on crack */
-      if (!send_error (auth, "Sent AUTH while another AUTH in progress"))
+      _dbus_string_free (&decoded);
+      return FALSE;
+    }
+
+  if (_dbus_string_get_length (args) != end)
+    {
+      _dbus_string_free (&decoded);
+      if (!send_error (auth, "Invalid hex encoding"))
         return FALSE;
 
       return TRUE;
     }
-  else if (_dbus_string_get_length (args) == 0)
+
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+  if (_dbus_string_validate_ascii (&decoded, 0,
+                                   _dbus_string_get_length (&decoded)))
+    _dbus_verbose ("%s: data: '%s'\n",
+                   DBUS_AUTH_NAME (auth),
+                   _dbus_string_get_const_data (&decoded));
+#endif
+      
+  if (!(* data_func) (auth, &decoded))
+    {
+      _dbus_string_free (&decoded);
+      return FALSE;
+    }
+
+  _dbus_string_free (&decoded);
+  return TRUE;
+}
+
+static dbus_bool_t
+handle_auth (DBusAuth *auth, const DBusString *args)
+{
+  if (_dbus_string_get_length (args) == 0)
     {
       /* No args to the auth, send mechanisms */
       if (!send_rejected (auth))
@@ -1334,10 +1416,9 @@ process_auth (DBusAuth         *auth,
     }
   else
     {
-      int i, end;
+      int i;
       DBusString mech;
       DBusString hex_response;
-      DBusString decoded_response;
       
       _dbus_string_find_blank (args, 0, &i);
 
@@ -1350,55 +1431,37 @@ process_auth (DBusAuth         *auth,
           return FALSE;
         }
       
-      if (!_dbus_string_init (&decoded_response))
-        {
-          _dbus_string_free (&mech);
-          _dbus_string_free (&hex_response);
-          return FALSE;
-        }
-
       if (!_dbus_string_copy_len (args, 0, i, &mech, 0))
         goto failed;
 
       _dbus_string_skip_blank (args, i, &i);
       if (!_dbus_string_copy (args, i, &hex_response, 0))
         goto failed;
-
-      if (!_dbus_string_hex_decode (&hex_response, 0, &end,
-				    &decoded_response, 0))
-	goto failed;
-
-      if (_dbus_string_get_length (&hex_response) != end)
-	{
-	  if (!send_error (auth, "Invalid hex encoding"))
-	    goto failed;
-
-	  goto out;
-        }
      
       auth->mech = find_mech (&mech, auth->allowed_mechs);
       if (auth->mech != NULL)
         {
-          _dbus_verbose ("%s: Trying mechanism %s with initial response of %d bytes\n",
+          _dbus_verbose ("%s: Trying mechanism %s\n",
                          DBUS_AUTH_NAME (auth),
-                         auth->mech->mechanism,
-                         _dbus_string_get_length (&decoded_response));
+                         auth->mech->mechanism);
           
-          if (!(* auth->mech->server_data_func) (auth,
-                                                 &decoded_response))
+          if (!process_data (auth, &hex_response,
+                             auth->mech->server_data_func))
             goto failed;
         }
       else
         {
           /* Unsupported mechanism */
+          _dbus_verbose ("%s: Unsupported mechanism %s\n",
+                         DBUS_AUTH_NAME (auth),
+                         _dbus_string_get_const_data (&mech));
+          
           if (!send_rejected (auth))
             goto failed;
         }
 
-    out:
       _dbus_string_free (&mech);      
       _dbus_string_free (&hex_response);
-      _dbus_string_free (&decoded_response);
 
       return TRUE;
       
@@ -1406,106 +1469,95 @@ process_auth (DBusAuth         *auth,
       auth->mech = NULL;
       _dbus_string_free (&mech);
       _dbus_string_free (&hex_response);
-      _dbus_string_free (&decoded_response);
       return FALSE;
     }
 }
 
 static dbus_bool_t
-process_cancel (DBusAuth         *auth,
-                const DBusString *command,
-                const DBusString *args)
+handle_server_state_waiting_for_auth  (DBusAuth         *auth,
+                                       DBusAuthCommand   command,
+                                       const DBusString *args)
 {
-  if (!send_rejected (auth))
-    return FALSE;
-  
-  return TRUE;
+  switch (command)
+    {
+    case DBUS_AUTH_COMMAND_AUTH:
+      return handle_auth (auth, args);
+
+    case DBUS_AUTH_COMMAND_CANCEL:
+    case DBUS_AUTH_COMMAND_DATA:
+      return send_error (auth, "Not currently in an auth conversation");
+
+    case DBUS_AUTH_COMMAND_BEGIN:
+      goto_state (auth, &common_state_need_disconnect);
+      return TRUE;
+
+    case DBUS_AUTH_COMMAND_ERROR:
+      return send_rejected (auth);
+
+    case DBUS_AUTH_COMMAND_REJECTED:
+    case DBUS_AUTH_COMMAND_OK:
+    case DBUS_AUTH_COMMAND_UNKNOWN:
+    default:
+      return send_error (auth, "Unknown command");
+    }
 }
 
 static dbus_bool_t
-process_begin (DBusAuth         *auth,
-               const DBusString *command,
-               const DBusString *args)
+handle_server_state_waiting_for_data  (DBusAuth         *auth,
+                                       DBusAuthCommand   command,
+                                       const DBusString *args)
 {
-  if (auth->authenticated_pending_begin)
-    auth->authenticated = TRUE;
-  else
+  switch (command)
     {
-      auth->need_disconnect = TRUE; /* client trying to send data before auth,
-                                     * kick it
-                                     */
-      shutdown_mech (auth);
+    case DBUS_AUTH_COMMAND_AUTH:
+      return send_error (auth, "Sent AUTH while another AUTH in progress");
+
+    case DBUS_AUTH_COMMAND_CANCEL:
+    case DBUS_AUTH_COMMAND_ERROR:
+      return send_rejected (auth);
+
+    case DBUS_AUTH_COMMAND_DATA:
+      return process_data (auth, args, auth->mech->server_data_func);
+
+    case DBUS_AUTH_COMMAND_BEGIN:
+      goto_state (auth, &common_state_need_disconnect);
+      return TRUE;
+
+    case DBUS_AUTH_COMMAND_REJECTED:
+    case DBUS_AUTH_COMMAND_OK:
+    case DBUS_AUTH_COMMAND_UNKNOWN:
+    default:
+      return send_error (auth, "Unknown command");
     }
-  
-  return TRUE;
 }
 
 static dbus_bool_t
-process_data_server (DBusAuth         *auth,
-                     const DBusString *command,
-                     const DBusString *args)
+handle_server_state_waiting_for_begin (DBusAuth         *auth,
+                                       DBusAuthCommand   command,
+                                       const DBusString *args)
 {
-  int end;
-
-  if (auth->mech != NULL)
+  switch (command)
     {
-      DBusString decoded;
+    case DBUS_AUTH_COMMAND_AUTH:
+      return send_error (auth, "Sent AUTH while expecting BEGIN");
 
-      if (!_dbus_string_init (&decoded))
-        return FALSE;
+    case DBUS_AUTH_COMMAND_DATA:
+      return send_error (auth, "Sent DATA while expecting BEGIN");
 
-      if (!_dbus_string_hex_decode (args, 0, &end, &decoded, 0))
-	{
-          _dbus_string_free (&decoded);
-	  return FALSE;
-	}
+    case DBUS_AUTH_COMMAND_BEGIN:
+      goto_state (auth, &common_state_authenticated);
+      return TRUE;
 
-      if (_dbus_string_get_length (args) != end)
-	{
-          _dbus_string_free (&decoded);
-	  if (!send_error (auth, "Invalid hex encoding"))
-	    return FALSE;
+    case DBUS_AUTH_COMMAND_REJECTED:
+    case DBUS_AUTH_COMMAND_OK:
+    case DBUS_AUTH_COMMAND_UNKNOWN:
+    default:
+      return send_error (auth, "Unknown command");
 
-	  return TRUE;
-        }
-
-#ifdef DBUS_ENABLE_VERBOSE_MODE
-      if (_dbus_string_validate_ascii (&decoded, 0,
-                                       _dbus_string_get_length (&decoded)))
-        _dbus_verbose ("%s: data: '%s'\n",
-                       DBUS_AUTH_NAME (auth),
-                       _dbus_string_get_const_data (&decoded));
-#endif
-      
-      if (!(* auth->mech->server_data_func) (auth, &decoded))
-        {
-          _dbus_string_free (&decoded);
-          return FALSE;
-        }
-
-      _dbus_string_free (&decoded);
+    case DBUS_AUTH_COMMAND_CANCEL:
+    case DBUS_AUTH_COMMAND_ERROR:
+      return send_rejected (auth);
     }
-  else
-    {
-      if (!send_error (auth, "Not currently in an auth conversation"))
-        return FALSE;
-    }
-  
-  return TRUE;
-}
-
-static dbus_bool_t
-process_error_server (DBusAuth         *auth,
-                      const DBusString *command,
-                      const DBusString *args)
-{
-  /* Server got error from client, reject the auth,
-   * as we don't have anything more intelligent to do.
-   */
-  if (!send_rejected (auth))
-    return FALSE;
-  
-  return TRUE;
 }
 
 /* return FALSE if no memory, TRUE if all OK */
@@ -1532,7 +1584,6 @@ get_word (const DBusString *str,
 
 static dbus_bool_t
 record_mechanisms (DBusAuth         *auth,
-                   const DBusString *command,
                    const DBusString *args)
 {
   int next;
@@ -1602,157 +1653,173 @@ record_mechanisms (DBusAuth         *auth,
 }
 
 static dbus_bool_t
-client_try_next_mechanism (DBusAuth *auth)
+process_rejected (DBusAuth *auth, const DBusString *args)
 {
   const DBusAuthMechanismHandler *mech;
   DBusAuthClient *client;
 
   client = DBUS_AUTH_CLIENT (auth);
 
-  _dbus_assert (client->mechs_to_try != NULL);
-
-  mech = client->mechs_to_try->data;
-
-  if (!send_auth (auth, mech))
-    return FALSE;
-
-  _dbus_list_pop_first (&client->mechs_to_try);
-
-  _dbus_verbose ("%s: Trying mechanism %s\n",
-                 DBUS_AUTH_NAME (auth),
-                 auth->mech->mechanism);
-  
-  return TRUE;
-}
-
-static dbus_bool_t
-process_rejected (DBusAuth         *auth,
-                  const DBusString *command,
-                  const DBusString *args)
-{
-  shutdown_mech (auth);
-  
   if (!auth->already_got_mechanisms)
     {
-      if (!record_mechanisms (auth, command, args))
+      if (!record_mechanisms (auth, args))
         return FALSE;
     }
   
   if (DBUS_AUTH_CLIENT (auth)->mechs_to_try != NULL)
     {
-      if (!client_try_next_mechanism (auth))
+      mech = client->mechs_to_try->data;
+
+      if (!send_auth (auth, mech))
         return FALSE;
+
+      _dbus_list_pop_first (&client->mechs_to_try);
+
+      _dbus_verbose ("%s: Trying mechanism %s\n",
+                     DBUS_AUTH_NAME (auth),
+                     mech->mechanism);
     }
   else
     {
       /* Give up */
       _dbus_verbose ("%s: Disconnecting because we are out of mechanisms to try using\n",
                      DBUS_AUTH_NAME (auth));
-      auth->need_disconnect = TRUE;
+      goto_state (auth, &common_state_need_disconnect);
     }
   
   return TRUE;
 }
 
+
 static dbus_bool_t
-process_ok (DBusAuth         *auth,
-            const DBusString *command,
-            const DBusString *args)
+handle_client_state_waiting_for_data (DBusAuth         *auth,
+                                      DBusAuthCommand   command,
+                                      const DBusString *args)
 {
-  if (!send_begin (auth))
-    return FALSE;
-  
-  auth->authenticated_pending_output = TRUE;
-  
-  return TRUE;
+  _dbus_assert (auth->mech != NULL);
+ 
+  switch (command)
+    {
+    case DBUS_AUTH_COMMAND_DATA:
+      return process_data (auth, args, auth->mech->client_data_func);
+
+    case DBUS_AUTH_COMMAND_REJECTED:
+      return process_rejected (auth, args);
+
+    case DBUS_AUTH_COMMAND_OK:
+      return send_begin (auth);
+
+    case DBUS_AUTH_COMMAND_ERROR:
+      return send_cancel (auth);
+
+    case DBUS_AUTH_COMMAND_AUTH:
+    case DBUS_AUTH_COMMAND_CANCEL:
+    case DBUS_AUTH_COMMAND_BEGIN:
+    case DBUS_AUTH_COMMAND_UNKNOWN:
+    default:
+      return send_error (auth, "Unknown command");
+    }
 }
 
 static dbus_bool_t
-process_data_client (DBusAuth         *auth,
-                     const DBusString *command,
-                     const DBusString *args)
+handle_client_state_waiting_for_ok (DBusAuth         *auth,
+                                    DBusAuthCommand   command,
+                                    const DBusString *args)
 {
-  int end;
-
-  if (auth->mech != NULL)
+  switch (command)
     {
-      DBusString decoded;
+    case DBUS_AUTH_COMMAND_REJECTED:
+      return process_rejected (auth, args);
 
-      if (!_dbus_string_init (&decoded))
-        return FALSE;
+    case DBUS_AUTH_COMMAND_OK:
+      return send_begin (auth);
 
-      if (!_dbus_string_hex_decode (args, 0, &end, &decoded, 0))
-        {
-          _dbus_string_free (&decoded);
-	  return FALSE;
-	}
+    case DBUS_AUTH_COMMAND_DATA:
+    case DBUS_AUTH_COMMAND_ERROR:
+      return send_cancel (auth);
 
-      if (_dbus_string_get_length (args) != end)
-	{
-          _dbus_string_free (&decoded);
-	  if (!send_error (auth, "Invalid hex encoding"))
-	    return FALSE;
-	  
-	  return TRUE;
-        }
+    case DBUS_AUTH_COMMAND_AUTH:
+    case DBUS_AUTH_COMMAND_CANCEL:
+    case DBUS_AUTH_COMMAND_BEGIN:
+    case DBUS_AUTH_COMMAND_UNKNOWN:
+    default:
+      return send_error (auth, "Unknown command");
+    }
+}
 
-#ifdef DBUS_ENABLE_VERBOSE_MODE
-      if (_dbus_string_validate_ascii (&decoded, 0,
-                                       _dbus_string_get_length (&decoded)))
-        {
-          _dbus_verbose ("%s: data: '%s'\n",
-                         DBUS_AUTH_NAME (auth),
-                         _dbus_string_get_const_data (&decoded));
-        }
-#endif
+static dbus_bool_t
+handle_client_state_waiting_for_reject (DBusAuth         *auth,
+                                        DBusAuthCommand   command,
+                                        const DBusString *args)
+{
+  switch (command)
+    {
+    case DBUS_AUTH_COMMAND_REJECTED:
+      return process_rejected (auth, args);
       
-      if (!(* auth->mech->client_data_func) (auth, &decoded))
-        {
-          _dbus_string_free (&decoded);
-          return FALSE;
-        }
-
-      _dbus_string_free (&decoded);
+    case DBUS_AUTH_COMMAND_AUTH:
+    case DBUS_AUTH_COMMAND_CANCEL:
+    case DBUS_AUTH_COMMAND_DATA:
+    case DBUS_AUTH_COMMAND_BEGIN:
+    case DBUS_AUTH_COMMAND_OK:
+    case DBUS_AUTH_COMMAND_ERROR:
+    case DBUS_AUTH_COMMAND_UNKNOWN:
+    default:
+      goto_state (auth, &common_state_need_disconnect);
+      return TRUE;
     }
-  else
+}
+
+/**
+ * Mapping from command name to enum
+ */
+typedef struct {
+  const char *name;        /**< Name of the command */
+  DBusAuthCommand command; /**< Corresponding enum */
+} DBusAuthCommandName;
+
+static DBusAuthCommandName auth_command_names[] = {
+  { "AUTH",     DBUS_AUTH_COMMAND_AUTH },
+  { "CANCEL",   DBUS_AUTH_COMMAND_CANCEL },
+  { "DATA",     DBUS_AUTH_COMMAND_DATA },
+  { "BEGIN",    DBUS_AUTH_COMMAND_BEGIN },
+  { "REJECTED", DBUS_AUTH_COMMAND_REJECTED },
+  { "OK",       DBUS_AUTH_COMMAND_OK },
+  { "ERROR",    DBUS_AUTH_COMMAND_ERROR }
+};
+
+static DBusAuthCommand
+lookup_command_from_name (DBusString *command)
+{
+  int i;
+
+  for (i = 0; i < _DBUS_N_ELEMENTS (auth_command_names); i++)
     {
-      if (!send_error (auth, "Got DATA when not in an auth exchange"))
-        return FALSE;
+      if (_dbus_string_equal_c_str (command,
+                                    auth_command_names[i].name))
+        return auth_command_names[i].command;
     }
-  
-  return TRUE;
+
+  return DBUS_AUTH_COMMAND_UNKNOWN;
 }
 
-static dbus_bool_t
-process_error_client (DBusAuth         *auth,
-                      const DBusString *command,
-                      const DBusString *args)
+static void
+goto_state (DBusAuth *auth, const DBusAuthStateData *state)
 {
-  /* Cancel current mechanism, as we don't have anything
-   * more clever to do.
-   */
-  if (!send_cancel (auth))
-    return FALSE;
-  
-  return TRUE;
-}
+  _dbus_verbose ("%s: going from state %s to state %s\n",
+                 DBUS_AUTH_NAME (auth),
+                 auth->state->name,
+                 state->name);
 
-static dbus_bool_t
-process_unknown (DBusAuth         *auth,
-                 const DBusString *command,
-                 const DBusString *args)
-{
-  if (!send_error (auth, "Unknown command"))
-    return FALSE;
-
-  return TRUE;
+  auth->state = state;
 }
 
 /* returns whether to call it again right away */
 static dbus_bool_t
 process_command (DBusAuth *auth)
 {
-  DBusString command;
+  DBusAuthCommand command;
+  DBusString line;
   DBusString args;
   int eol;
   int i, j;
@@ -1766,7 +1833,7 @@ process_command (DBusAuth *auth)
   if (!_dbus_string_find (&auth->incoming, 0, "\r\n", &eol))
     return FALSE;
   
-  if (!_dbus_string_init (&command))
+  if (!_dbus_string_init (&line))
     {
       auth->needed_memory = TRUE;
       return FALSE;
@@ -1774,16 +1841,16 @@ process_command (DBusAuth *auth)
 
   if (!_dbus_string_init (&args))
     {
-      _dbus_string_free (&command);
+      _dbus_string_free (&line);
       auth->needed_memory = TRUE;
       return FALSE;
     }
   
-  if (!_dbus_string_copy_len (&auth->incoming, 0, eol, &command, 0))
+  if (!_dbus_string_copy_len (&auth->incoming, 0, eol, &line, 0))
     goto out;
 
-  if (!_dbus_string_validate_ascii (&command, 0,
-                                    _dbus_string_get_length (&command)))
+  if (!_dbus_string_validate_ascii (&line, 0,
+                                    _dbus_string_get_length (&line)))
     {
       _dbus_verbose ("%s: Command contained non-ASCII chars or embedded nul\n",
                      DBUS_AUTH_NAME (auth));
@@ -1795,40 +1862,20 @@ process_command (DBusAuth *auth)
   
   _dbus_verbose ("%s: got command \"%s\"\n",
                  DBUS_AUTH_NAME (auth),
-                 _dbus_string_get_const_data (&command));
+                 _dbus_string_get_const_data (&line));
   
-  _dbus_string_find_blank (&command, 0, &i);
-  _dbus_string_skip_blank (&command, i, &j);
+  _dbus_string_find_blank (&line, 0, &i);
+  _dbus_string_skip_blank (&line, i, &j);
 
   if (j > i)
-    _dbus_string_delete (&command, i, j - i);
+    _dbus_string_delete (&line, i, j - i);
   
-  if (!_dbus_string_move (&command, i, &args, 0))
+  if (!_dbus_string_move (&line, i, &args, 0))
     goto out;
   
-  i = 0;
-  while (auth->handlers[i].command != NULL)
-    {
-      if (_dbus_string_equal_c_str (&command,
-                                    auth->handlers[i].command))
-        {
-          _dbus_verbose ("%s: Processing auth command %s\n",
-                         DBUS_AUTH_NAME (auth),
-                         auth->handlers[i].command);
-          
-          if (!(* auth->handlers[i].func) (auth, &command, &args))
-            goto out;
-
-          break;
-        }
-      ++i;
-    }
-
-  if (auth->handlers[i].command == NULL)
-    {
-      if (!process_unknown (auth, &command, &args))
-        goto out;
-    }
+  command = lookup_command_from_name (&line);
+  if (!(* auth->state->handler) (auth, command, &args))
+    goto out;
 
  next_command:
   
@@ -1845,7 +1892,7 @@ process_command (DBusAuth *auth)
   
  out:
   _dbus_string_free (&args);
-  _dbus_string_free (&command);
+  _dbus_string_free (&line);
 
   if (!retval)
     auth->needed_memory = TRUE;
@@ -1880,7 +1927,8 @@ _dbus_auth_server_new (void)
   if (auth == NULL)
     return NULL;
 
-  auth->handlers = server_handlers;
+  auth->side = auth_side_server;
+  auth->state = &server_state_waiting_for_auth;
 
   server_auth = DBUS_AUTH_SERVER (auth);
 
@@ -1909,7 +1957,8 @@ _dbus_auth_client_new (void)
   if (auth == NULL)
     return NULL;
 
-  auth->handlers = client_handlers;
+  auth->side = auth_side_client;
+  auth->state = &client_state_need_send_auth;
 
   /* Start the auth conversation by sending AUTH for our default
    * mechanism */
@@ -2008,7 +2057,7 @@ _dbus_auth_set_mechanisms (DBusAuth    *auth,
  * @param auth the auth conversation object
  * @returns #TRUE if we're in a final state
  */
-#define DBUS_AUTH_IN_END_STATE(auth) ((auth)->need_disconnect || (auth)->authenticated)
+#define DBUS_AUTH_IN_END_STATE(auth) ((auth)->state->handler == NULL)
 
 /**
  * Analyzes buffered input and moves the auth conversation forward,
@@ -2033,7 +2082,7 @@ _dbus_auth_do_work (DBusAuth *auth)
       if (_dbus_string_get_length (&auth->incoming) > MAX_BUFFER ||
           _dbus_string_get_length (&auth->outgoing) > MAX_BUFFER)
         {
-          auth->need_disconnect = TRUE;
+          goto_state (auth, &common_state_need_disconnect);
           _dbus_verbose ("%s: Disconnecting due to excessive data buffered in auth phase\n",
                          DBUS_AUTH_NAME (auth));
           break;
@@ -2041,16 +2090,15 @@ _dbus_auth_do_work (DBusAuth *auth)
     }
   while (process_command (auth));
 
-  if (auth->need_disconnect)
-    return DBUS_AUTH_STATE_NEED_DISCONNECT;
-  else if (auth->authenticated)
-    return DBUS_AUTH_STATE_AUTHENTICATED;
-  else if (auth->needed_memory)
+  if (auth->needed_memory)
     return DBUS_AUTH_STATE_WAITING_FOR_MEMORY;
   else if (_dbus_string_get_length (&auth->outgoing) > 0)
     return DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND;
-  else
-    return DBUS_AUTH_STATE_WAITING_FOR_INPUT;
+  else if (auth->state == &common_state_need_disconnect)
+    return DBUS_AUTH_STATE_NEED_DISCONNECT;
+  else if (auth->state == &common_state_authenticated)
+    return DBUS_AUTH_STATE_AUTHENTICATED;
+  else return DBUS_AUTH_STATE_WAITING_FOR_INPUT;
 }
 
 /**
@@ -2071,9 +2119,6 @@ _dbus_auth_get_bytes_to_send (DBusAuth          *auth,
 
   *str = NULL;
   
-  if (DBUS_AUTH_IN_END_STATE (auth))
-    return FALSE;
-
   if (_dbus_string_get_length (&auth->outgoing) == 0)
     return FALSE;
 
@@ -2101,10 +2146,6 @@ _dbus_auth_bytes_sent (DBusAuth *auth,
   
   _dbus_string_delete (&auth->outgoing,
                        0, bytes_sent);
-  
-  if (auth->authenticated_pending_output &&
-      _dbus_string_get_length (&auth->outgoing) == 0)
-    auth->authenticated = TRUE;
 }
 
 /**
@@ -2190,7 +2231,7 @@ _dbus_auth_delete_unused_bytes (DBusAuth *auth)
 dbus_bool_t
 _dbus_auth_needs_encoding (DBusAuth *auth)
 {
-  if (!auth->authenticated)
+  if (auth->state != &common_state_authenticated)
     return FALSE;
   
   if (auth->mech != NULL)
@@ -2221,7 +2262,7 @@ _dbus_auth_encode_data (DBusAuth         *auth,
 {
   _dbus_assert (plaintext != encoded);
   
-  if (!auth->authenticated)
+  if (auth->state != &common_state_authenticated)
     return FALSE;
   
   if (_dbus_auth_needs_encoding (auth))
@@ -2249,7 +2290,7 @@ _dbus_auth_encode_data (DBusAuth         *auth,
 dbus_bool_t
 _dbus_auth_needs_decoding (DBusAuth *auth)
 {
-  if (!auth->authenticated)
+  if (auth->state != &common_state_authenticated)
     return FALSE;
     
   if (auth->mech != NULL)
@@ -2284,7 +2325,7 @@ _dbus_auth_decode_data (DBusAuth         *auth,
 {
   _dbus_assert (plaintext != encoded);
   
-  if (!auth->authenticated)
+  if (auth->state != &common_state_authenticated)
     return FALSE;
   
   if (_dbus_auth_needs_decoding (auth))
@@ -2326,7 +2367,7 @@ void
 _dbus_auth_get_identity (DBusAuth               *auth,
                          DBusCredentials        *credentials)
 {
-  if (auth->authenticated)
+  if (auth->state == &common_state_authenticated)
     *credentials = auth->authorized_identity;
   else
     _dbus_credentials_clear (credentials);

@@ -1,4 +1,14 @@
 2004-06-02  Kristian Høgsberg  <krh@redhat.com>
+ 
+	* dbus/dbus-auth.c: Rewrite auth protocol handling to use a state
+	machine approach.  A state is implemented as a function that
+	handles incoming events as specified for that state.
+	
+	* doc/dbus-specification.xml: Update auth protocol state machine
+	specification to match implementation.  Remove some leftover
+	base64 examples.
+
+2004-06-02  Kristian Høgsberg  <krh@redhat.com>
 
 	* glib/dbus-gproxy.c, glib/dbus-gmain.c, dbus/dbus-string.c,
 	dbus/dbus-object-tree.c, dbus/dbus-message.c: add comments to

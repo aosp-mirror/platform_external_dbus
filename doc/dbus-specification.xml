@@ -822,7 +822,7 @@
 	  <listitem><para>AUTH [mechanism] [initial-response]</para></listitem>
 	  <listitem><para>CANCEL</para></listitem>
 	  <listitem><para>BEGIN</para></listitem>
-	  <listitem><para>DATA &lt;data in base 64 encoding&gt;</para></listitem>
+	  <listitem><para>DATA &lt;data in hex encoding&gt;</para></listitem>
 	  <listitem><para>ERROR [human-readable error explanation]</para></listitem>
 	</itemizedlist>
 
@@ -831,7 +831,7 @@
         <itemizedlist>
 	  <listitem><para>REJECTED &lt;space-separated list of mechanism names&gt;</para></listitem>
 	  <listitem><para>OK</para></listitem>
-	  <listitem><para>DATA &lt;data in base 64 encoding&gt;</para></listitem>
+	  <listitem><para>DATA &lt;data in hex encoding&gt;</para></listitem>
 	  <listitem><para>ERROR</para></listitem>
 	</itemizedlist>
       </para>
@@ -994,7 +994,7 @@
 	  <programlisting>
             (MAGIC_COOKIE is a made up mechanism)
 
-            C: AUTH MAGIC_COOKIE BsAY3g4gBNo=
+            C: AUTH MAGIC_COOKIE 3138363935333137393635383634
             S: OK
             C: BEGIN
           </programlisting>
@@ -1004,9 +1004,9 @@
 	  <programlisting>
             C: AUTH
             S: REJECTED KERBEROS_V4 SKEY
-            C: AUTH SKEY bW9yZ2Fu
-            S: DATA OTUgUWE1ODMwOA==
-            C: DATA Rk9VUiBNQU5OIFNPT04gRklSIFZBUlkgTUFTSA==
+            C: AUTH SKEY 7ab83f32ee
+            S: DATA 8799cabb2ea93e
+            C: DATA 8ac876e8f68ee9809bfa876e6f9876g8fa8e76e98f
             S: OK
             C: BEGIN
           </programlisting>
@@ -1016,7 +1016,7 @@
 	  <programlisting>
             C: FOOBAR
             S: ERROR
-            C: AUTH MAGIC_COOKIE BsAY3g4gBNo=
+            C: AUTH MAGIC_COOKIE 3736343435313230333039
             S: OK
             C: BEGIN
           </programlisting>
@@ -1024,11 +1024,11 @@
         <figure>
 	  <title>Example of server doesn't support initial auth mechanism</title>
 	  <programlisting>
-            C: AUTH MAGIC_COOKIE BsAY3g4gBNo=
+            C: AUTH MAGIC_COOKIE 3736343435313230333039
             S: REJECTED KERBEROS_V4 SKEY
-            C: AUTH SKEY bW9yZ2Fu
-            S: DATA OTUgUWE1ODMwOA==
-            C: DATA Rk9VUiBNQU5OIFNPT04gRklSIFZBUlkgTUFTSA==
+            C: AUTH SKEY 7ab83f32ee
+            S: DATA 8799cabb2ea93e
+            C: DATA 8ac876e8f68ee9809bfa876e6f9876g8fa8e76e98f
             S: OK
             C: BEGIN
           </programlisting>
@@ -1036,15 +1036,15 @@
         <figure>
 	  <title>Example of wrong password or the like followed by successful retry</title>
 	  <programlisting>
-            C: AUTH MAGIC_COOKIE BsAY3g4gBNo=
+            C: AUTH MAGIC_COOKIE 3736343435313230333039
             S: REJECTED KERBEROS_V4 SKEY
-            C: AUTH SKEY bW9yZ2Fu
-            S: DATA OTUgUWE1ODMwOA==
-            C: DATA Rk9VUiBNQU5OIFNPT04gRklSIFZBUlkgTUFTSA==
+            C: AUTH SKEY 7ab83f32ee
+            S: DATA 8799cabb2ea93e
+            C: DATA 8ac876e8f68ee9809bfa876e6f9876g8fa8e76e98f
             S: REJECTED
-            C: AUTH SKEY bW9yZ2Fu
-            S: DATA OTUgUWE1ODMwOA==
-            C: DATA Rk9VUiBNQU5OIFNPT04gRklSIFZBUlkgTUFTSA==
+            C: AUTH SKEY 7ab83f32ee
+            S: DATA 8799cabb2ea93e
+            C: DATA 8ac876e8f68ee9809bfa876e6f9876g8fa8e76e98f
             S: OK
             C: BEGIN
           </programlisting>
@@ -1052,15 +1052,15 @@
         <figure>
 	  <title>Example of skey cancelled and restarted</title>
 	  <programlisting>
-            C: AUTH MAGIC_COOKIE BsAY3g4gBNo=
+            C: AUTH MAGIC_COOKIE 3736343435313230333039
             S: REJECTED KERBEROS_V4 SKEY
-            C: AUTH SKEY bW9yZ2Fu
-            S: DATA OTUgUWE1ODMwOA==
+            C: AUTH SKEY 7ab83f32ee
+            S: DATA 8799cabb2ea93e
             C: CANCEL
             S: REJECTED
-            C: AUTH SKEY bW9yZ2Fu
-            S: DATA OTUgUWE1ODMwOA==
-            C: DATA Rk9VUiBNQU5OIFNPT04gRklSIFZBUlkgTUFTSA==
+            C: AUTH SKEY 7ab83f32ee
+            S: DATA 8799cabb2ea93e
+            C: DATA 8ac876e8f68ee9809bfa876e6f9876g8fa8e76e98f
             S: OK
             C: BEGIN
           </programlisting>
@@ -1079,73 +1079,178 @@
       <sect3 id="auth-states-client">
         <title>Client states</title>
         
-        <formalpara>
-          <title><emphasis>Start</emphasis></title>
-          <para>
-            <itemizedlist>
-              <listitem><para>send AUTH with initial data -&gt; <emphasis>WaitingForData</emphasis></para></listitem>
-              <listitem><para>send AUTH with no initial data -&gt; <emphasis>WaitingForData</emphasis> or <emphasis>NeedSendData</emphasis> (depends on mechanism)</para></listitem>
-            </itemizedlist>
-            The <emphasis>Start</emphasis> state is stateful (it has a list of
-            available mechanisms and those it has already attempted). This list
-            is used to decide which AUTH command to send. When the list is 
-            exhausted, the client should give up and close the connection.
-          </para>
-        </formalpara>
+        <para>
+          To more precisely describe the interaction between the
+          protocol state machine and the authentication mechanisms the
+          following notation is used: MECH(CHALL) means that the
+          server challenge CHALL was fed to the mechanism MECH, which
+          returns one of
+
+          <itemizedlist>
+            <listitem>
+              <para>
+                CONTINUE(RESP) means continue the auth conversation
+                and send RESP as the response to the server;
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                OK(RESP) means that after sending RESP to the server
+                the client side of the auth conversation is finished
+                and the server should return "OK";
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                ERROR means that CHALL was invalid and could not be
+                processed.
+              </para>
+            </listitem>
+          </itemizedlist>
+          
+          Both RESP and CHALL may be empty.
+        </para>
+        
+        <para>
+          The Client starts by getting an initial response from the
+          default mechanism and sends AUTH MECH RESP, or AUTH MECH if
+          the mechanism did not provide an initial response.  If the
+          mechanism returns CONTINUE, the client starts in state
+          <emphasis>WaitingForData</emphasis>, if the mechanism
+          returns OK the client starts in state
+          <emphasis>WaitingForOK</emphasis>.
+        </para>
+        
+        <para>
+          The client should keep track of available mechanisms and
+          which it mechanisms it has already attempted. This list is
+          used to decide which AUTH command to send. When the list is
+          exhausted, the client should give up and close the
+          connection.
+        </para>
 
         <formalpara>
           <title><emphasis>WaitingForData</emphasis></title>
           <para>
-            
             <itemizedlist>
-              <listitem><para>receive OK -&gt; <emphasis>NeedSendBegin</emphasis></para></listitem>
-              <listitem><para>receive REJECTED -&gt; <emphasis>Start</emphasis></para></listitem>
-              <listitem><para>receive ERROR -&gt; <emphasis>Start</emphasis></para></listitem>
-              <listitem><para>receive DATA -&gt; <emphasis>NeedSendData</emphasis></para></listitem>
-              <listitem><para>receive anything else -&gt; <emphasis>NeedSendError</emphasis></para></listitem>
+              <listitem>
+                <para>
+                  Receive DATA CHALL
+                  <simplelist>
+                    <member>
+                      MECH(CHALL) returns CONTINUE(RESP) &rarr; send
+                      DATA RESP, goto
+                      <emphasis>WaitingForData</emphasis>
+                    </member>
+
+                    <member>
+                      MECH(CHALL) returns OK(RESP) &rarr; send DATA
+                      RESP, goto <emphasis>WaitingForOK</emphasis>
+                    </member>
+
+                    <member>
+                      MECH(CHALL) returns ERROR &rarr; send ERROR
+                      [msg], goto <emphasis>WaitingForData</emphasis>
+                    </member>
+                  </simplelist>
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  Receive REJECTED [mechs] &rarr;
+                  send AUTH [next mech], goto
+                  WaitingForData or <emphasis>WaitingForOK</emphasis>
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Receive ERROR &rarr; send
+                  CANCEL, goto
+                  <emphasis>WaitingForReject</emphasis>
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Receive OK &rarr; send
+                  BEGIN, terminate auth
+                  conversation, authenticated
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Receive anything else &rarr; send
+                  ERROR, goto
+                  <emphasis>WaitingForData</emphasis>
+                </para>
+              </listitem>
             </itemizedlist>
-            When going back to <emphasis>Start</emphasis>, the mechanism in 
-            progress should be marked as failed and not retried (at least not 
-            with the same parameters). When receiving REJECTED with a list of 
-            mechanisms, the list should be recorded and used to select
-            a mechanism.
           </para>
         </formalpara>
 
         <formalpara>
-          <title><emphasis>NeedSendData</emphasis></title>
+          <title><emphasis>WaitingForOK</emphasis></title>
           <para>
             <itemizedlist>
-              <listitem><para>send DATA -&gt; <emphasis>WaitingForData</emphasis></para></listitem>
-              <listitem><para>send CANCEL -&gt; <emphasis>Start</emphasis></para></listitem>
+              <listitem>
+                <para>
+                  Receive OK &rarr; send BEGIN, terminate auth
+                  conversation, <emphasis>authenticated</emphasis>
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Receive REJECT [mechs] &rarr; send AUTH [next mech],
+                  goto <emphasis>WaitingForData</emphasis> or
+                  <emphasis>WaitingForOK</emphasis>
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  Receive DATA &rarr; send CANCEL, goto
+                  <emphasis>WaitingForReject</emphasis>
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  Receive ERROR &rarr; send CANCEL, goto
+                  <emphasis>WaitingForReject</emphasis>
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  Receive anything else &rarr; send ERROR, goto
+                  <emphasis>WaitingForOK</emphasis>
+                </para>
+              </listitem>
             </itemizedlist>
           </para>
         </formalpara>
 
         <formalpara>
-          <title><emphasis>NeedSendError</emphasis></title>
+          <title><emphasis>WaitingForReject</emphasis></title>
           <para>
-            
             <itemizedlist>
-              <listitem><para>send ERROR -&gt; return to previous state</para></listitem>
-            </itemizedlist>
-          </para>
-        </formalpara>
+              <listitem>
+                <para>
+                  Receive REJECT [mechs] &rarr; send AUTH [next mech],
+                  goto <emphasis>WaitingForData</emphasis> or
+                  <emphasis>WaitingForOK</emphasis>
+                </para>
+              </listitem>
 
-        <formalpara>
-          <title><emphasis>NeedSendBegin</emphasis></title>
-          <para>
-            
-            <itemizedlist>
-              <listitem><para>send BEGIN -&gt; Authorized</para></listitem>
+              <listitem>
+                <para>
+                  Receive anything else &rarr; terminate auth
+                  conversation, disconnect
+                </para>
+              </listitem>
             </itemizedlist>
-          </para>
-        </formalpara>
-
-        <formalpara>
-          <title><emphasis>Authorized</emphasis></title>
-          <para>
-            This is the end state, flow of messages begins.
           </para>
         </formalpara>
 
@@ -1153,57 +1258,164 @@
 
       <sect3 id="auth-states-server">
         <title>Server states</title>
-        
+ 
+        <para>
+          For the server MECH(RESP) means that the client response
+          RESP was fed to the the mechanism MECH, which returns one of
+
+          <itemizedlist>
+            <listitem>
+              <para>
+                CONTINUE(CHALL) means continue the auth conversation and
+                send CHALL as the challenge to the client;
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                OK means that the client has been successfully
+                authenticated;
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                REJECT means that the client failed to authenticate or
+                there was an error in RESP.
+              </para>
+            </listitem>
+          </itemizedlist>
+
+          The server starts out in state
+          <emphasis>WaitingForAuth</emphasis>.  If the client is
+          rejected too many times the server must disconnect the
+          client.
+        </para>
+
         <formalpara>
           <title><emphasis>WaitingForAuth</emphasis></title>
           <para>
             <itemizedlist>
-              <listitem><para>receive AUTH with initial response -&gt; <emphasis>NeedSendData</emphasis></para></listitem>
-              <listitem><para>receive AUTH without initial response -&gt; <emphasis>NeedSendData</emphasis> or <emphasis>WaitingForData</emphasis> depending on mechanism</para></listitem>
+
+              <listitem>
+                <para>
+                  Receive AUTH &rarr; send REJECTED [mechs], goto
+                  <emphasis>WaitingForAuth</emphasis>
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  Receive AUTH MECH RESP
+
+                  <simplelist>
+                    <member>
+                      MECH not valid mechanism &rarr; send REJECTED
+                      [mechs], goto
+                      <emphasis>WaitingForAuth</emphasis>
+                    </member>
+
+                    <member>
+                      MECH(RESP) returns CONTINUE(CHALL) &rarr; send
+                      DATA CHALL, goto
+                      <emphasis>WaitingForData</emphasis>
+                    </member>
+
+                    <member>
+                      MECH(RESP) returns OK &rarr; send OK, goto
+                      <emphasis>WaitingForBegin</emphasis>
+                    </member>
+
+                    <member>
+                      MECH(RESP) returns REJECT &rarr; send REJECTED
+                      [mechs], goto
+                      <emphasis>WaitingForAuth</emphasis>
+                    </member>
+                  </simplelist>
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  Receive BEGIN &rarr; terminate
+                  auth conversation, disconnect
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  Receive ERROR &rarr; send REJECTED [mechs], goto
+                  <emphasis>WaitingForAuth</emphasis>
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  Receive anything else &rarr; send
+                  ERROR, goto
+                  <emphasis>WaitingForAuth</emphasis>
+                </para>
+              </listitem>
             </itemizedlist>
           </para>
         </formalpara>
 
-        <formalpara>
-          <title><emphasis>NeedSendData</emphasis></title>
-          <para>
-            <itemizedlist>
-              <listitem><para>send DATA -&gt; <emphasis>WaitingForData</emphasis></para></listitem>
-              <listitem><para>send ERROR -&gt; <emphasis>WaitingForData</emphasis></para></listitem>
-              <listitem><para>send REJECTED -&gt; <emphasis>WaitingForAuth</emphasis></para></listitem>
-              <listitem><para>send OK -&gt; <emphasis>WaitingForBegin</emphasis></para></listitem>
-            </itemizedlist>
-          </para>
-        </formalpara>
-
+       
         <formalpara>
           <title><emphasis>WaitingForData</emphasis></title>
           <para>
             <itemizedlist>
-              <listitem><para>receive DATA -&gt; <emphasis>NeedSendData</emphasis></para></listitem>
-              <listitem><para>receive CANCEL -&gt; <emphasis>NeedSendRejected</emphasis></para></listitem>
-              <listitem><para>receive ERROR -&gt; <emphasis>NeedSendRejected</emphasis></para></listitem>
-              <listitem><para>receive anything else -&gt; <emphasis>NeedSendError</emphasis></para></listitem>
-            </itemizedlist>
-          </para>
-        </formalpara>
+              <listitem>
+                <para>
+                  Receive DATA RESP
+                  <simplelist>
+                    <member>
+                      MECH(RESP) returns CONTINUE(CHALL) &rarr; send
+                      DATA CHALL, goto
+                      <emphasis>WaitingForData</emphasis>
+                    </member>
 
-        <formalpara>
-          <title><emphasis>NeedSendError</emphasis></title>
-          <para>
-            
-            <itemizedlist>
-              <listitem><para>send ERROR -&gt; return to previous state</para></listitem>
-            </itemizedlist>
-          </para>
-        </formalpara>
+                    <member>
+                      MECH(RESP) returns OK &rarr; send OK, goto
+                      <emphasis>WaitingForBegin</emphasis>
+                    </member>
 
-        <formalpara>
-          <title><emphasis>NeedSendRejected</emphasis></title>
-          <para>
-            
-            <itemizedlist>
-              <listitem><para>send REJECTED -&gt; <emphasis>WaitingForAuth</emphasis></para></listitem>
+                    <member>
+                      MECH(RESP) returns REJECT &rarr; send REJECTED
+                      [mechs], goto
+                      <emphasis>WaitingForAuth</emphasis>
+                    </member>
+                  </simplelist>
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  Receive BEGIN &rarr; terminate auth conversation,
+                  disconnect
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  Receive CANCEL &rarr; send REJECTED [mechs], goto
+                  <emphasis>WaitingForAuth</emphasis>
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  Receive ERROR &rarr; send REJECTED [mechs], goto
+                  <emphasis>WaitingForAuth</emphasis>
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  Receive anything else &rarr; send ERROR, goto
+                  <emphasis>WaitingForData</emphasis>
+                </para>
+              </listitem>
             </itemizedlist>
           </para>
         </formalpara>
@@ -1211,18 +1423,35 @@
         <formalpara>
           <title><emphasis>WaitingForBegin</emphasis></title>
           <para>
-            
             <itemizedlist>
-              <listitem><para>receive BEGIN -&gt; <emphasis>Authorized</emphasis></para></listitem>
-              <listitem><para>receive anything else -&gt; <emphasis>NeedSendError</emphasis></para></listitem>
-            </itemizedlist>
-          </para>
-        </formalpara>
+              <listitem>
+                <para>
+                  Receive BEGIN &rarr; terminate auth conversation,
+                  client authenticated
+                </para>
+              </listitem>
 
-        <formalpara>
-          <title><emphasis>Authorized</emphasis></title>
-          <para>
-            This is the end state, flow of messages begins.
+              <listitem>
+                <para>
+                  Receive CANCEL &rarr; send REJECTED [mechs], goto
+                  <emphasis>WaitingForAuth</emphasis>
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  Receive ERROR &rarr; send REJECTED [mechs], goto
+                  <emphasis>WaitingForAuth</emphasis>
+                </para>
+              </listitem>
+
+              <listitem>
+                <para>
+                  Receive anything else &rarr; send ERROR, goto
+                  <emphasis>WaitingForBegin</emphasis>
+                </para>
+              </listitem>
+            </itemizedlist>
           </para>
         </formalpara>
 
