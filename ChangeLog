@@ -1,5 +1,10 @@
 2004-10-18  Colin Walters  <walters@verbum.org>
 
+	* bus/selinux.c (bus_selinux_enabled): Handle
+	--disable-selinux case.
+	
+2004-10-18  Colin Walters  <walters@verbum.org>
+
 	* bus/selinux.h: Add bus_selinux_enabled.
 	
 	* bus/selinux.c (bus_selinux_enabled): Implement it.

@@ -197,7 +197,11 @@ avc_free_lock (void *lock)
 dbus_bool_t
 bus_selinux_enabled (void)
 {
+#ifdef HAVE_SELINUX
   return selinux_enabled;
+#else
+  return FALSE;
+#endif /* HAVE_SELINUX */
 }
 
 /**
