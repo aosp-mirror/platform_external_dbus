@@ -100,7 +100,7 @@ struct DBusMemPool
 
   DBusFreedElement *free_elements; /**< a free list of elements to recycle */
   DBusMemBlock *blocks;            /**< blocks of memory from malloc() */
-  int allocated_elements;          /* Count of outstanding allocated elements */
+  int allocated_elements;          /**< Count of outstanding allocated elements */
 };
 
 /** @} */

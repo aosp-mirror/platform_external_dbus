@@ -151,7 +151,7 @@ _dbus_server_remove_watch  (DBusServer *server,
  * function on a watch that was not previously added.
  *
  * @param server the server.
- * @param timeout the timeout to toggle.
+ * @param watch the watch to toggle.
  * @param enabled whether to enable or disable
  */
 void

@@ -2395,6 +2395,7 @@ _dbus_string_validate_utf8  (const DBusString *str,
                              int               len)
 {
   const unsigned char *p;
+  const unsigned char *end;
   DBUS_CONST_STRING_PREAMBLE (str);
   _dbus_assert (start >= 0);
   _dbus_assert (start <= real->len);
@@ -2403,9 +2404,10 @@ _dbus_string_validate_utf8  (const DBusString *str,
   if (len > real->len - start)
     return FALSE;
   
-  p = real->str;
+  p = real->str + start;
+  end = p + len;
   
-  while (p - real->str < len && *p)
+  while (p < end)
     {
       int i, mask = 0, char_len;
       dbus_unichar_t result;
@@ -2416,20 +2418,20 @@ _dbus_string_validate_utf8  (const DBusString *str,
       if (char_len == -1)
         break;
 
-      /* check that the expected number of bytes exists in real->str */
-      if ((len - (p - real->str)) < char_len)
+      /* check that the expected number of bytes exists in the remaining length */
+      if ((end - p) < char_len)
         break;
         
       UTF8_GET (result, p, i, mask, char_len);
 
       if (UTF8_LENGTH (result) != char_len) /* Check for overlong UTF-8 */
-	break;
+        break;
 
       if (result == (dbus_unichar_t)-1)
         break;
 
       if (!UNICODE_VALID (result))
-	break;
+        break;
       
       p += char_len;
     }
@@ -2437,7 +2439,7 @@ _dbus_string_validate_utf8  (const DBusString *str,
   /* See that we covered the entire length if a length was
    * passed in
    */
-  if (p != (real->str + len))
+  if (p != end)
     return FALSE;
   else
     return TRUE;

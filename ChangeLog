@@ -1,5 +1,30 @@
 2003-03-16  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-string.c (_dbus_string_validate_utf8): oops, unbreak
+	this. always run the test suite before commit...
+
+	* bus/*: adapt to DBusConnection API changes
+
+	* glib/dbus-gmain.c: adapt to DBusConnection API changes, 
+	requires renaming stuff to avoid dbus_connection_dispatch name 
+	conflict.
+
+	* dbus/dbus-transport.c (_dbus_transport_queue_messages): new
+	function
+
+	* dbus/dbus-message.c (_dbus_message_loader_queue_messages):
+	separate from _dbus_message_loader_return_buffer()
+
+	* dbus/dbus-connection.c (dbus_connection_get_n_messages): remove
+	this, because it's now always broken to use; the number of
+	messages in queue vs. the number still buffered by the message
+	loader is undefined/meaningless. Should use
+	dbus_connection_get_dispatch_state().
+	(dbus_connection_dispatch): rename from
+	dbus_connection_dispatch_message
+
+2003-03-16  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-string.c (_dbus_string_validate_utf8): copy in a real
 	implementation
 

@@ -63,47 +63,47 @@ static int connection_slot = -1;
 static GStaticMutex server_slot_lock = G_STATIC_MUTEX_INIT;
 static int server_slot = -1;
 
-static gboolean dbus_connection_prepare  (GSource     *source,
-                                          gint        *timeout);
-static gboolean dbus_connection_check    (GSource     *source);
-static gboolean dbus_connection_dispatch (GSource     *source,
-                                          GSourceFunc  callback,
-                                          gpointer     user_data);
-static gboolean dbus_server_prepare      (GSource     *source,
-                                          gint        *timeout);
-static gboolean dbus_server_check        (GSource     *source);
-static gboolean dbus_server_dispatch     (GSource     *source,
-                                          GSourceFunc  callback,
-                                          gpointer     user_data);
+static gboolean gsource_connection_prepare  (GSource     *source,
+                                             gint        *timeout);
+static gboolean gsource_connection_check    (GSource     *source);
+static gboolean gsource_connection_dispatch (GSource     *source,
+                                             GSourceFunc  callback,
+                                             gpointer     user_data);
+static gboolean gsource_server_prepare      (GSource     *source,
+                                             gint        *timeout);
+static gboolean gsource_server_check        (GSource     *source);
+static gboolean gsource_server_dispatch     (GSource     *source,
+                                             GSourceFunc  callback,
+                                             gpointer     user_data);
 
 static GSourceFuncs dbus_connection_funcs = {
-  dbus_connection_prepare,
-  dbus_connection_check,
-  dbus_connection_dispatch,
+  gsource_connection_prepare,
+  gsource_connection_check,
+  gsource_connection_dispatch,
   NULL
 };
 
 static GSourceFuncs dbus_server_funcs = {
-  dbus_server_prepare,
-  dbus_server_check,
-  dbus_server_dispatch,
+  gsource_server_prepare,
+  gsource_server_check,
+  gsource_server_dispatch,
   NULL
 };
 
 static gboolean
-dbus_connection_prepare (GSource *source,
-			 gint    *timeout)
+gsource_connection_prepare (GSource *source,
+                            gint    *timeout)
 {
   DBusConnection *connection = ((DBusGSource *)source)->connection_or_server;
   
   *timeout = -1;
 
-  return (dbus_connection_get_n_messages (connection) > 0);  
+  return (dbus_connection_get_dispatch_status (connection) == DBUS_DISPATCH_DATA_REMAINS);  
 }
 
 static gboolean
-dbus_server_prepare (GSource *source,
-                     gint    *timeout)
+gsource_server_prepare (GSource *source,
+                        gint    *timeout)
 {
   *timeout = -1;
 
@@ -132,13 +132,13 @@ dbus_gsource_check (GSource *source)
 }
 
 static gboolean
-dbus_connection_check (GSource *source)
+gsource_connection_check (GSource *source)
 {
   return dbus_gsource_check (source);
 }
 
 static gboolean
-dbus_server_check (GSource *source)
+gsource_server_check (GSource *source)
 {
   return dbus_gsource_check (source);
 }
@@ -192,9 +192,9 @@ dbus_gsource_dispatch (GSource     *source,
 }
 
 static gboolean
-dbus_connection_dispatch (GSource     *source,
-			  GSourceFunc  callback,
-			  gpointer     user_data)
+gsource_connection_dispatch (GSource     *source,
+                             GSourceFunc  callback,
+                             gpointer     user_data)
 {
   DBusGSource *dbus_source = (DBusGSource *)source;
   DBusConnection *connection = dbus_source->connection_or_server;
@@ -205,7 +205,7 @@ dbus_connection_dispatch (GSource     *source,
                          FALSE);
   
   /* Dispatch messages */
-  while (dbus_connection_dispatch_message (connection))
+  while (dbus_connection_dispatch (connection) == DBUS_DISPATCH_DATA_REMAINS)
     ;
 
    dbus_connection_unref (connection);
@@ -214,9 +214,9 @@ dbus_connection_dispatch (GSource     *source,
 }
 
 static gboolean
-dbus_server_dispatch (GSource     *source,
-                      GSourceFunc  callback,
-                      gpointer     user_data)
+gsource_server_dispatch (GSource     *source,
+                         GSourceFunc  callback,
+                         gpointer     user_data)
 {
   DBusGSource *dbus_source = (DBusGSource *)source;
   DBusServer *server = dbus_source->connection_or_server;

@@ -141,8 +141,8 @@ connection_watch_callback (DBusWatch     *watch,
   
   dbus_connection_handle_watch (connection, watch, condition);
 
-  while (dbus_connection_dispatch_message (connection))
-    ;
+  bus_connection_dispatch_all_messages (connection);
+  
   dbus_connection_unref (connection);
 }
 
@@ -171,8 +171,8 @@ connection_timeout_callback (DBusTimeout   *timeout,
   
   dbus_timeout_handle (timeout);
 
-  while (dbus_connection_dispatch_message (connection))
-    ;
+  bus_connection_dispatch_all_messages (connection);
+  
   dbus_connection_unref (connection);
 }
 

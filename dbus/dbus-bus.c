@@ -49,7 +49,7 @@
  */
 typedef struct
 {
-  char *base_service;
+  char *base_service; /**< Base service name of this connection */
 
 } BusData;
 
@@ -244,7 +244,7 @@ dbus_bus_register (DBusConnection *connection,
  * once per connection.
  *
  * @param connection the connection
- * @param the base service name
+ * @param base_service the base service name
  * @returns #FALSE if not enough memory
  */
 dbus_bool_t

@@ -51,7 +51,8 @@ void               _dbus_message_loader_get_buffer            (DBusMessageLoader
 void               _dbus_message_loader_return_buffer         (DBusMessageLoader  *loader,
                                                                DBusString         *buffer,
                                                                int                 bytes_read);
-
+dbus_bool_t        _dbus_message_loader_queue_messages        (DBusMessageLoader  *loader);
+DBusMessage*       _dbus_message_loader_peek_message          (DBusMessageLoader  *loader);
 DBusMessage*       _dbus_message_loader_pop_message           (DBusMessageLoader  *loader);
 DBusList*          _dbus_message_loader_pop_message_link      (DBusMessageLoader  *loader);
 

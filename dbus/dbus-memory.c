@@ -156,7 +156,9 @@ _dbus_set_fail_alloc_counter (int until_next_fail)
 
   fail_alloc_counter = until_next_fail;
 
+#if 0
   _dbus_verbose ("Set fail alloc counter = %d\n", fail_alloc_counter);
+#endif
 }
 
 /**

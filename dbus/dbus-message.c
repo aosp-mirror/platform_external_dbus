@@ -2676,12 +2676,6 @@ decode_header_data (const DBusString   *data,
  * in. This function must always be called, even if no bytes were
  * successfully read.
  *
- * @todo if we run out of memory in here, we offer no way for calling
- * code to handle it, i.e. they can't re-run the message parsing
- * attempt. Perhaps much of this code could be moved to pop_message()?
- * But then that may need to distinguish NULL return for no messages
- * from NULL return for errors.
- *
  * @param loader the loader.
  * @param buffer the buffer.
  * @param bytes_read number of bytes that were read into the buffer.
@@ -2695,9 +2689,19 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
   _dbus_assert (buffer == &loader->data);
 
   loader->buffer_outstanding = FALSE;
+}
 
+/**
+ * Converts buffered data into messages.
+ *
+ * @param loader the loader.
+ * @returns #TRUE if we had enough memory to finish.
+ */
+dbus_bool_t
+_dbus_message_loader_queue_messages (DBusMessageLoader *loader)
+{
   if (loader->corrupted)
-    return;
+    return TRUE;
 
   while (_dbus_string_get_length (&loader->data) >= 16)
     {
@@ -2715,7 +2719,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
           _dbus_verbose ("Message has protocol version %d ours is %d\n",
                          (int) header_data[2], DBUS_MAJOR_PROTOCOL_VERSION);
           loader->corrupted = TRUE;
-          return;
+          return TRUE;
         }
       
       byte_order = header_data[0];
@@ -2726,7 +2730,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
           _dbus_verbose ("Message with bad byte order '%c' received\n",
                          byte_order);
 	  loader->corrupted = TRUE;
-	  return;
+	  return TRUE;
 	}
 
       header_len_unsigned = _dbus_unpack_uint32 (byte_order, header_data + 4);
@@ -2737,7 +2741,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
           _dbus_verbose ("Message had broken too-small header length %u\n",
                          header_len_unsigned);
           loader->corrupted = TRUE;
-          return;
+          return TRUE;
         }
 
       if (header_len_unsigned > (unsigned) MAX_SANE_MESSAGE_SIZE ||
@@ -2747,7 +2751,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
                          header_len_unsigned,
                          body_len_unsigned);
           loader->corrupted = TRUE;
-          return;
+          return TRUE;
         }
 
       /* Now that we know the values are in signed range, get
@@ -2762,7 +2766,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
           _dbus_verbose ("header length %d is not aligned to 8 bytes\n",
                          header_len);
           loader->corrupted = TRUE;
-          return;
+          return TRUE;
         }
       
       if (header_len + body_len > loader->max_message_size)
@@ -2770,7 +2774,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
           _dbus_verbose ("Message claimed length header = %d body = %d exceeds max message length %d\n",
                          header_len, body_len, loader->max_message_size);
 	  loader->corrupted = TRUE;
-	  return;
+	  return TRUE;
 	}
 
       if (_dbus_string_get_length (&loader->data) >= (header_len + body_len))
@@ -2787,7 +2791,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 	    {
               _dbus_verbose ("Header was invalid\n");
 	      loader->corrupted = TRUE;
-	      return;
+	      return TRUE;
 	    }
           
           next_arg = header_len;
@@ -2801,7 +2805,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
                                                &next_arg))
                 {
                   loader->corrupted = TRUE;
-                  return;
+                  return TRUE;
                 }
 
               _dbus_assert (next_arg > prev);
@@ -2813,12 +2817,12 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
                              next_arg, header_len, body_len,
                              header_len + body_len);
               loader->corrupted = TRUE;
-              return;
+              return TRUE;
             }
 
   	  message = dbus_message_new_empty_header ();
 	  if (message == NULL)
-            break; /* ugh, postpone this I guess. */
+            return FALSE;
 
           message->byte_order = byte_order;
           message->header_padding = header_padding;
@@ -2834,7 +2838,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 	  if (!_dbus_list_append (&loader->messages, message))
             {
               dbus_message_unref (message);
-              break;
+              return FALSE;
             }
 
           _dbus_assert (_dbus_string_get_length (&message->header) == 0);
@@ -2847,7 +2851,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
             {
               _dbus_list_remove_last (&loader->messages, message);
               dbus_message_unref (message);
-              break;
+              return FALSE;
             }
           
 	  if (!_dbus_string_move_len (&loader->data, 0, body_len, &message->body, 0))
@@ -2861,7 +2865,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 
               _dbus_list_remove_last (&loader->messages, message);
               dbus_message_unref (message);
-              break;
+              return FALSE;
             }
 
           _dbus_assert (_dbus_string_get_length (&message->header) == header_len);
@@ -2876,14 +2880,32 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 	  _dbus_verbose ("Loaded message %p\n", message);
 	}
       else
-	break;
+        return TRUE;
     }
+
+  return TRUE;
+}
+
+/**
+ * Peeks at first loaded message, returns #NULL if no messages have
+ * been queued.
+ *
+ * @param loader the loader.
+ * @returns the next message, or #NULL if none.
+ */
+DBusMessage*
+_dbus_message_loader_peek_message (DBusMessageLoader *loader)
+{
+  if (loader->messages)
+    return loader->messages->data;
+  else
+    return NULL;
 }
 
 /**
  * Pops a loaded message (passing ownership of the message
  * to the caller). Returns #NULL if no messages have been
- * loaded.
+ * queued.
  *
  * @param loader the loader.
  * @returns the next message, or #NULL if none.
@@ -3153,6 +3175,9 @@ check_have_valid_message (DBusMessageLoader *loader)
 
   message = NULL;
   retval = FALSE;
+
+  if (!_dbus_message_loader_queue_messages (loader))
+    _dbus_assert_not_reached ("no memory to queue messages");
   
   if (_dbus_message_loader_get_is_corrupted (loader))
     {
@@ -3195,6 +3220,9 @@ check_invalid_message (DBusMessageLoader *loader)
   dbus_bool_t retval;
 
   retval = FALSE;
+
+  if (!_dbus_message_loader_queue_messages (loader))
+    _dbus_assert_not_reached ("no memory to queue messages");
   
   if (!_dbus_message_loader_get_is_corrupted (loader))
     {
@@ -3216,6 +3244,9 @@ check_incomplete_message (DBusMessageLoader *loader)
 
   message = NULL;
   retval = FALSE;
+
+  if (!_dbus_message_loader_queue_messages (loader))
+    _dbus_assert_not_reached ("no memory to queue messages");
   
   if (_dbus_message_loader_get_is_corrupted (loader))
     {
@@ -3242,6 +3273,9 @@ static dbus_bool_t
 check_loader_results (DBusMessageLoader      *loader,
                       DBusMessageValidity     validity)
 {
+  if (!_dbus_message_loader_queue_messages (loader))
+    _dbus_assert_not_reached ("no memory to queue messages");
+  
   switch (validity)
     {
     case _DBUS_MESSAGE_VALID:
@@ -3735,6 +3769,9 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_unref (message);
 
   /* Now pop back the message */
+  if (!_dbus_message_loader_queue_messages (loader))
+    _dbus_assert_not_reached ("no memory to queue messages");
+  
   if (_dbus_message_loader_get_is_corrupted (loader))
     _dbus_assert_not_reached ("message loader corrupted");
   

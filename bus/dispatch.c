@@ -514,7 +514,7 @@ kill_client_connection (BusContext     *context,
   _dbus_assert (bus_test_client_listed (connection));
   
   /* Run disconnect handler in test.c */
-  if (dbus_connection_dispatch_message (connection))
+  if (bus_connection_dispatch_one_message (connection))
     _dbus_assert_not_reached ("something received on connection being killed other than the disconnect");
   
   _dbus_assert (!dbus_connection_get_is_connected (connection));
@@ -859,7 +859,7 @@ check_hello_connection (BusContext *context)
       dbus_connection_ref (connection);
       dbus_connection_disconnect (connection);
       /* dispatching disconnect handler will unref once */
-      if (dbus_connection_dispatch_message (connection))
+      if (bus_connection_dispatch_one_message (connection))
         _dbus_assert_not_reached ("message other than disconnect dispatched after failure to register");
       dbus_connection_unref (connection);
       _dbus_assert (!bus_test_client_listed (connection));
@@ -967,19 +967,19 @@ bus_dispatch_test (const DBusString *test_data_dir)
                          check_hello_connection);
 
   dbus_connection_disconnect (foo);
-  if (dbus_connection_dispatch_message (foo))
+  if (bus_connection_dispatch_one_message (foo))
     _dbus_assert_not_reached ("extra message in queue");
   dbus_connection_unref (foo);
   _dbus_assert (!bus_test_client_listed (foo));
 
   dbus_connection_disconnect (bar);
-  if (dbus_connection_dispatch_message (bar))
+  if (bus_connection_dispatch_one_message (bar))
     _dbus_assert_not_reached ("extra message in queue");
   dbus_connection_unref (bar);
   _dbus_assert (!bus_test_client_listed (bar));
 
   dbus_connection_disconnect (baz);
-  if (dbus_connection_dispatch_message (baz))
+  if (bus_connection_dispatch_one_message (baz))
     _dbus_assert_not_reached ("extra message in queue");
   dbus_connection_unref (baz);
   _dbus_assert (!bus_test_client_listed (baz));

@@ -137,7 +137,7 @@ _dbus_message_handler_handle_message (DBusMessageHandler        *handler,
   dbus_mutex_unlock (message_handler_lock);
   
   /* This function doesn't ref handler/connection/message
-   * since that's done in dbus_connection_dispatch_message().
+   * since that's done in dbus_connection_dispatch().
    */
   if (function != NULL)
     return (* function) (handler, connection, message, user_data);

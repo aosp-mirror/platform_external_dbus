@@ -178,37 +178,6 @@ do_io_error (DBusTransport *transport)
   _dbus_transport_unref (transport);
 }
 
-static void
-queue_messages (DBusTransport *transport)
-{
-  DBusList *link;
-  
-  /* Queue any messages */
-  while ((link = _dbus_message_loader_pop_message_link (transport->loader)))
-    {
-      DBusMessage *message;
-
-      message = link->data;
-      
-      _dbus_verbose ("queueing received message %p\n", message);
-
-      _dbus_message_add_size_counter (message, transport->live_messages_size);
-
-      /* pass ownership of link and message ref to connection */
-      _dbus_connection_queue_received_message_link (transport->connection,
-                                                    link);
-    }
-
-  if (_dbus_message_loader_get_is_corrupted (transport->loader))
-    {
-      _dbus_verbose ("Corrupted message stream, disconnecting\n");
-      do_io_error (transport);
-    }
-
-  /* check read watch in case we've now exceeded max outstanding messages */
-  check_read_watch (transport);
-}
-
 /* return value is whether we successfully read any new data. */
 static dbus_bool_t
 read_data_into_auth (DBusTransport *transport)
@@ -398,8 +367,6 @@ recover_unused_bytes (DBusTransport *transport)
                                           orig_len);
     }
   
-  queue_messages (transport);
-
   return;
 
  nomem:
@@ -777,7 +744,8 @@ do_reading (DBusTransport *transport)
       
       total += bytes_read;      
 
-      queue_messages (transport);
+      if (_dbus_transport_queue_messages (transport) == DBUS_DISPATCH_NEED_MEMORY)
+        goto out;
       
       /* Try reading more data until we get EAGAIN and return, or
        * exceed max bytes per iteration.  If in blocking mode of

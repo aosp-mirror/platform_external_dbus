@@ -507,6 +507,70 @@ _dbus_transport_do_iteration (DBusTransport  *transport,
 }
 
 /**
+ * Reports our current dispatch status (whether there's buffered
+ * data to be queued as messages, or not, or we need memory).
+ *
+ * @param transport the transport
+ * @returns current status
+ */
+DBusDispatchStatus
+_dbus_transport_get_dispatch_status (DBusTransport *transport)
+{
+  if (_dbus_counter_get_value (transport->live_messages_size) >= transport->max_live_messages_size)
+    return DBUS_DISPATCH_COMPLETE; /* complete for now */
+
+  if (!_dbus_message_loader_queue_messages (transport->loader))
+    return DBUS_DISPATCH_NEED_MEMORY;
+
+  if (_dbus_message_loader_peek_message (transport->loader) != NULL)
+    return DBUS_DISPATCH_DATA_REMAINS;
+  else
+    return DBUS_DISPATCH_COMPLETE;
+}
+
+/**
+ * Processes data we've read while handling a watch, potentially
+ * converting some of it to messages and queueing those messages on
+ * the connection.
+ *
+ * @param transport the transport
+ * @returns #TRUE if we had enough memory to queue all messages
+ */
+dbus_bool_t
+_dbus_transport_queue_messages (DBusTransport *transport)
+{
+  DBusDispatchStatus status;
+  
+  /* Queue any messages */
+  while ((status = _dbus_transport_get_dispatch_status (transport)) == DBUS_DISPATCH_DATA_REMAINS)
+    {
+      DBusMessage *message;
+      DBusList *link;
+
+      link = _dbus_message_loader_pop_message_link (transport->loader);
+      _dbus_assert (link != NULL);
+      
+      message = link->data;
+      
+      _dbus_verbose ("queueing received message %p\n", message);
+
+      _dbus_message_add_size_counter (message, transport->live_messages_size);
+
+      /* pass ownership of link and message ref to connection */
+      _dbus_connection_queue_received_message_link (transport->connection,
+                                                    link);
+    }
+
+  if (_dbus_message_loader_get_is_corrupted (transport->loader))
+    {
+      _dbus_verbose ("Corrupted message stream, disconnecting\n");
+      _dbus_transport_disconnect (transport);
+    }
+
+  return status != DBUS_DISPATCH_NEED_MEMORY;
+}
+
+/**
  * See dbus_connection_set_max_message_size().
  *
  * @param transport the transport

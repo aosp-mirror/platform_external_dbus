@@ -39,3 +39,20 @@ bus_wait_for_memory (void)
 #endif
 }
 
+void
+bus_connection_dispatch_all_messages (DBusConnection *connection)
+{
+  while (bus_connection_dispatch_one_message (connection))
+    ;
+}
+
+dbus_bool_t
+bus_connection_dispatch_one_message  (DBusConnection *connection)
+{
+  DBusDispatchStatus status;
+
+  while ((status = dbus_connection_dispatch (connection)) == DBUS_DISPATCH_NEED_MEMORY)
+    bus_wait_for_memory ();
+  
+  return status == DBUS_DISPATCH_DATA_REMAINS;
+}

@@ -25,9 +25,14 @@
 #ifndef BUS_UTILS_H
 #define BUS_UTILS_H
 
+#include <dbus/dbus.h>
+
 void bus_wait_for_memory (void);
 
 extern const char bus_no_memory_message[];
 #define BUS_SET_OOM(error) dbus_set_error ((error), DBUS_ERROR_NO_MEMORY, bus_no_memory_message)
+
+void        bus_connection_dispatch_all_messages (DBusConnection *connection);
+dbus_bool_t bus_connection_dispatch_one_message  (DBusConnection *connection);
 
 #endif /* BUS_ACTIVATION_H */
