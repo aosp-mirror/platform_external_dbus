@@ -1,5 +1,10 @@
 2003-01-28  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-message.c (check_message_handling): function to check 
+	on the loaded message, iterates over it etc.
+
+2003-01-28  Havoc Pennington  <hp@pobox.com>
+
 	* test/Makefile.am (dist-hook): fix make distdir
 
 	* dbus/Makefile.am (TESTS_ENVIRONMENT): fix make check

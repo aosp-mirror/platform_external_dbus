@@ -1,0 +1,33 @@
+## Message of opposite endianness, with lots of random fields in it
+
+OPPOSITE_ENDIAN
+
+## VALID_HEADER includes a LENGTH Header and LENGTH Body
+VALID_HEADER
+
+FIELD_NAME repl
+TYPE INT32
+INT32 10000
+
+FIELD_NAME name
+TYPE STRING
+STRING 'org.freedesktop.Foo'
+
+FIELD_NAME unkn
+TYPE INT32
+INT32 0xfeeb
+
+END_LENGTH Header
+
+START_LENGTH Body
+
+TYPE INT32
+INT32 89765432
+TYPE UINT32
+UINT32 0xfffffff
+TYPE STRING
+STRING 'Hello this is a string'
+TYPE DOUBLE
+DOUBLE 3.14159
+
+END_LENGTH Body

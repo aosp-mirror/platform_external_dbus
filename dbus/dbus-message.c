@@ -422,6 +422,12 @@ set_string_field (DBusMessage *message,
  * Sets the client serial of a message. 
  * This can only be done once on a message.
  *
+ * @todo client_serial should be called simply
+ * "serial"; it's in outgoing messages for both
+ * the client and the server, it's only client-specific
+ * in the message bus case. It's more like origin_serial
+ * or something.
+ * 
  * @param message the message
  * @param client_serial the client serial
  */
@@ -457,6 +463,11 @@ _dbus_message_set_reply_serial (DBusMessage  *message,
 /**
  * Returns the client serial of a message or
  * -1 if none has been specified.
+ *
+ * @todo see note in _dbus_message_set_client_serial()
+ * about how client_serial is a misnomer
+ *
+ * @todo this function should be public, after renaming it.
  *
  * @param message the message
  * @returns the client serial
@@ -1277,7 +1288,8 @@ dbus_message_iter_has_next (DBusMessageIter *iter)
 {
   int end_pos;
   
-  if (!_dbus_marshal_get_field_end_pos (&iter->message->body, iter->message->byte_order,
+  if (!_dbus_marshal_get_field_end_pos (&iter->message->body,
+                                        iter->message->byte_order,
 					iter->pos, &end_pos))
     return FALSE;
   
@@ -2020,6 +2032,57 @@ message_iter_test (DBusMessage *message)
 }
 
 static dbus_bool_t
+check_message_handling (DBusMessage *message)
+{
+  DBusMessageIter *iter;
+  int type;
+  dbus_bool_t retval;
+  dbus_int32_t client_serial;
+  
+  retval = FALSE;
+  iter = NULL;
+  
+  client_serial = _dbus_message_get_client_serial (message);
+  _dbus_message_set_client_serial (message);
+
+  if (client_serial != _dbus_message_get_client_serial (message))
+    {
+      _dbus_warn ("get/set cycle for client_serial did not succeed\n");
+      goto failed;
+    }
+  
+  /* If we implement message_set_field (message, n, value)
+   * then we would want to test it here
+   */
+  
+  iter = dbus_message_get_fields_iter (message);
+  while ((type = dbus_message_iter_get_field_type (iter)) != DBUS_TYPE_INVALID)
+    {
+      switch (type)
+        {
+        case DBUS_TYPE_STRING:
+          {
+            char *str;
+            str = dbus_message_iter_get_string (iter);
+            dbus_free (str);
+          }
+          break;
+        }
+      
+      if (!dbus_message_iter_next (iter))
+        break;
+    }
+
+  retval = TRUE;
+  
+ failed:
+  if (iter)
+    dbus_message_iter_unref (iter);
+
+  return retval;
+}
+
+static dbus_bool_t
 check_have_valid_message (DBusMessageLoader *loader)
 {
   DBusMessage *message;
@@ -2047,6 +2110,13 @@ check_have_valid_message (DBusMessageLoader *loader)
       goto failed;
     }
 
+  /* Verify that we're able to properly deal with the message.
+   * For example, this would detect improper handling of messages
+   * in nonstandard byte order.
+   */
+  if (!check_message_handling (message))
+    goto failed;  
+  
   retval = TRUE;
 
  failed:
