@@ -1,3 +1,10 @@
+2003-10-13  Seth Nickell  <seth@gnome.org>
+
+	* python/Makefile.am:
+
+	Pass "make distcheck": remove a couple files from DIST_FILES
+	that weren't included in the final version.
+
 2003-10-12  Havoc Pennington  <hp@pobox.com>
 
         Added test code that 1) starts an actual bus daemon and 2) uses
