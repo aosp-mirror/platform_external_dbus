@@ -47,8 +47,6 @@
    libdbus, only by the message bus. These bloat up the library
    size. Not sure how to fix, really.
 
- - dbus_error_has_name(), dbus_message_name_is()
-
  - if you send a message to a service then block for reply, and the service exits/crashes
    after the message bus has processed your message but before the service has replied, 
    it would be nice if the message bus sent you an error reply.
