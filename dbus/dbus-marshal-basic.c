@@ -24,6 +24,7 @@
 
 #include "dbus-internals.h"
 #include "dbus-marshal-basic.h"
+#include "dbus-signature.h"
 
 #include <string.h>
 
@@ -509,7 +510,7 @@ _dbus_marshal_read_basic (const DBusString      *str,
   const char *str_data;
   DBusBasicValue *vp;
 
-  _dbus_assert (_dbus_type_is_basic (type));
+  _dbus_assert (dbus_type_is_basic (type));
 
   str_data = _dbus_string_get_const_data (str);
   vp = value;
@@ -620,7 +621,7 @@ _dbus_marshal_read_fixed_multi  (const DBusString *str,
   int alignment;
 
   _dbus_assert (_dbus_type_is_fixed (element_type));
-  _dbus_assert (_dbus_type_is_basic (element_type));
+  _dbus_assert (dbus_type_is_basic (element_type));
 
 #if 0
   _dbus_verbose ("reading %d elements of %s\n",
@@ -849,7 +850,7 @@ _dbus_marshal_write_basic (DBusString *str,
 {
   const DBusBasicValue *vp;
 
-  _dbus_assert (_dbus_type_is_basic (type));
+  _dbus_assert (dbus_type_is_basic (type));
 
   vp = value;
 
@@ -1297,56 +1298,6 @@ _dbus_type_is_valid (int typecode)
     }
 }
 
-/** macro that checks whether a typecode is a container type */
-#define TYPE_IS_CONTAINER(typecode)             \
-    ((typecode) == DBUS_TYPE_STRUCT ||          \
-     (typecode) == DBUS_TYPE_DICT_ENTRY ||      \
-     (typecode) == DBUS_TYPE_VARIANT ||         \
-     (typecode) == DBUS_TYPE_ARRAY)
-
-/**
- * A "container type" can contain basic types, or nested
- * container types. #DBUS_TYPE_INVALID is not a container type.
- * This function will crash if passed a typecode that isn't
- * in dbus-protocol.h
- *
- * @returns #TRUE if type is a container
- */
-dbus_bool_t
-_dbus_type_is_container (int typecode)
-{
-  /* only reasonable (non-line-noise) typecodes are allowed */
-  _dbus_assert (_dbus_type_is_valid (typecode) || typecode == DBUS_TYPE_INVALID);
-  return TYPE_IS_CONTAINER (typecode);
-}
-
-/**
- * A "basic type" is a somewhat arbitrary concept, but the intent
- * is to include those types that are fully-specified by a single
- * typecode, with no additional type information or nested
- * values. So all numbers and strings are basic types and
- * structs, arrays, and variants are not basic types.
- * #DBUS_TYPE_INVALID is not a basic type.
- *
- * This function is defined to return #TRUE for exactly those
- * types that can be written with _dbus_marshal_basic_type()
- * and read with _dbus_marshal_read_basic().
- *
- * This function will crash if passed a typecode that isn't
- * in dbus-protocol.h
- *
- * @returns #TRUE if type is basic
- */
-dbus_bool_t
-_dbus_type_is_basic (int typecode)
-{
-  /* only reasonable (non-line-noise) typecodes are allowed */
-  _dbus_assert (_dbus_type_is_valid (typecode) || typecode == DBUS_TYPE_INVALID);
-
-  /* everything that isn't invalid or a container */
-  return !(typecode == DBUS_TYPE_INVALID || TYPE_IS_CONTAINER (typecode));
-}
-
 /**
  * Tells you whether values of this type can change length if you set
  * them to some other value. For this purpose, you assume that the
@@ -1552,6 +1503,21 @@ _dbus_verbose_bytes_of_string (const DBusString    *str,
   _dbus_verbose_bytes (d, len, start);
 }
 
+static int
+map_type_char_to_type (int t)
+{
+  if (t == DBUS_STRUCT_BEGIN_CHAR)
+    return DBUS_TYPE_STRUCT;
+  else if (t == DBUS_DICT_ENTRY_BEGIN_CHAR)
+    return DBUS_TYPE_DICT_ENTRY;
+  else
+    {
+      _dbus_assert (t != DBUS_STRUCT_END_CHAR);
+      _dbus_assert (t != DBUS_DICT_ENTRY_END_CHAR);
+      return t;
+    }
+}
+
 /**
  * Get the first type in the signature. The difference between this
  * and just getting the first byte of the signature is that you won't
@@ -1566,20 +1532,22 @@ int
 _dbus_first_type_in_signature (const DBusString *str,
                                int               pos)
 {
-  unsigned char t;
+  return map_type_char_to_type (_dbus_string_get_byte (str, pos));
+}
 
-  t = _dbus_string_get_byte (str, pos);
-
-  if (t == DBUS_STRUCT_BEGIN_CHAR)
-    return DBUS_TYPE_STRUCT;
-  else if (t == DBUS_DICT_ENTRY_BEGIN_CHAR)
-    return DBUS_TYPE_DICT_ENTRY;
-  else
-    {
-      _dbus_assert (t != DBUS_STRUCT_END_CHAR);
-      _dbus_assert (t != DBUS_DICT_ENTRY_END_CHAR);
-      return t;
-    }
+/**
+ * Similar to #_dbus_first_type_in_signature, but operates
+ * on a C string buffer.
+ *
+ * @param str a C string buffer
+ * @param pos where the signature starts
+ * @returns the first type in the signature
+ */
+int
+_dbus_first_type_in_signature_c_str (const char       *str,
+				     int               pos)
+{
+  return map_type_char_to_type (str[pos]);
 }
 
 /** @} */

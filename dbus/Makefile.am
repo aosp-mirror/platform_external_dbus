@@ -78,6 +78,8 @@ DBUS_LIB_SOURCES=				\
 	dbus-server-unix.h			\
 	dbus-sha.c				\
 	dbus-sha.h				\
+	dbus-signature.c			\
+	dbus-signature.h			\
 	dbus-timeout.c				\
 	dbus-timeout.h				\
 	dbus-threads.c				\

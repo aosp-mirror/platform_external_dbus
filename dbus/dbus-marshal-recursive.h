@@ -170,6 +170,9 @@ dbus_bool_t _dbus_type_reader_greater_than              (const DBusTypeReader  *
 dbus_bool_t _dbus_type_reader_equal_values              (const DBusTypeReader *lhs,
                                                          const DBusTypeReader *rhs);
 
+void        _dbus_type_signature_next                   (const char            *signature,
+							 int                   *type_pos);
+
 void        _dbus_type_writer_init                 (DBusTypeWriter        *writer,
                                                     int                    byte_order,
                                                     DBusString            *type_str,

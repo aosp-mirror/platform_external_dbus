@@ -1,3 +1,51 @@
+2005-02-24  Colin Walters  <walters@verbum.org>
+	
+	* dbus/dbus-signature.c: New file; implements various functions
+	related to type signatures.  Includes an interator for parsing,
+	validation functions.
+	(dbus_type_is_basic): Moved here from
+	dbus-marshal-basic.c:_dbus_type_is_basic.
+	(dbus_type_is_container): Moved here from
+	dbus-marshal-basic.c:_dbus_type_is_container.
+
+	All callers of _dbus_type_is_container and _dbus_type_is_basic
+	updated, and include dbus-signature.h.
+
+	* dbus/dbus-signature.h: New file; prototypes for the above.
+
+	* dbus/Makefile.am (DBUS_LIB_SOURCES): Add dbus-signature.c,
+	dbus-signature.h.
+
+	* dbus/dbus-marshal-basic.c (map_type_char_to_type): New utility
+	function factored out of _dbus_first_type_in_signature.
+	(_dbus_first_type_in_signature_c_str): New function; returns first
+	type code for a type signature character.
+
+	* dbus/dbus-marshal-basic.h: Prototype _dbus_first_type_in_signature_c_str,
+	handle function moves.
+
+	* dbus/dbus-marshal-recursive.h: Export _dbus_type_signature_next.
+
+	* dbus/dbus-marshal-recursive.c (_dbus_type_signature_next): New
+	function; skips to next complete type in type signature.
+	Implemented using previous skip_one_complete_type.  Now
+	skip_one_complete_type just delegates to
+	_dbus_type_signature_next.
+
+	* dbus/dbus-marshal-basic.c (_dbus_type_is_basic): Moved
+	to dbus-signature.c
+	(_dbus_type_is_container): Ditto.
+
+	* doc/dbus-specification.xml: Update introspection sample to
+	use real type signatures.
+
+	* dbus/dbus-test.h: Prototype signature test.
+
+	* dbus/dbus-test.c (dbus_internal_do_not_use_run_tests): Run
+	signature tests.
+
+	* dbus/dbus-protocol.h (DBUS_ERROR_INVALID_SIGNATURE): New error.
+
 2005-02-23  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/dbus_bindings.pyx.in (PendingCall::get_reply):

@@ -27,6 +27,7 @@
 #include "dbus-marshal-validate.h"
 #include "dbus-marshal-byteswap.h"
 #include "dbus-marshal-header.h"
+#include "dbus-signature.h"
 #include "dbus-message-private.h"
 #include "dbus-object-tree.h"
 #include "dbus-memory.h"
@@ -1242,7 +1243,7 @@ dbus_message_append_args_valist (DBusMessage *message,
 
   while (type != DBUS_TYPE_INVALID)
     {
-      if (_dbus_type_is_basic (type))
+      if (dbus_type_is_basic (type))
         {
           const DBusBasicValue *value;
           value = va_arg (var_args, const DBusBasicValue*);
@@ -1742,7 +1743,7 @@ _dbus_message_iter_get_args_valist (DBusMessageIter *iter,
           goto out;
 	}
 
-      if (_dbus_type_is_basic (spec_type))
+      if (dbus_type_is_basic (spec_type))
         {
           DBusBasicValue *ptr;
 
@@ -2076,7 +2077,7 @@ dbus_message_iter_append_basic (DBusMessageIter *iter,
 
   _dbus_return_val_if_fail (_dbus_message_iter_append_check (real), FALSE);
   _dbus_return_val_if_fail (real->iter_type == DBUS_MESSAGE_ITER_TYPE_WRITER, FALSE);
-  _dbus_return_val_if_fail (_dbus_type_is_basic (type), FALSE);
+  _dbus_return_val_if_fail (dbus_type_is_basic (type), FALSE);
   _dbus_return_val_if_fail (value != NULL, FALSE);
 
   if (!_dbus_message_iter_open_signature (real))
@@ -2182,7 +2183,7 @@ dbus_message_iter_open_container (DBusMessageIter *iter,
 
   _dbus_return_val_if_fail (_dbus_message_iter_append_check (real), FALSE);
   _dbus_return_val_if_fail (real->iter_type == DBUS_MESSAGE_ITER_TYPE_WRITER, FALSE);
-  _dbus_return_val_if_fail (_dbus_type_is_container (type), FALSE);
+  _dbus_return_val_if_fail (dbus_type_is_container (type), FALSE);
   _dbus_return_val_if_fail (sub != NULL, FALSE);
   _dbus_return_val_if_fail ((type == DBUS_TYPE_STRUCT &&
                              contained_signature == NULL) ||

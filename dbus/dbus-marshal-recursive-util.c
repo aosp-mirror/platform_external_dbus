@@ -27,6 +27,7 @@
 
 #include "dbus-marshal-recursive.h"
 #include "dbus-marshal-basic.h"
+#include "dbus-signature.h"
 #include "dbus-internals.h"
 #include <string.h>
 
@@ -80,7 +81,7 @@ equal_values_helper (DBusTypeReader *lhs,
   if (lhs_type == DBUS_TYPE_INVALID)
     return TRUE;
 
-  if (_dbus_type_is_basic (lhs_type))
+  if (dbus_type_is_basic (lhs_type))
     {
       DBusBasicValue lhs_value;
       DBusBasicValue rhs_value;

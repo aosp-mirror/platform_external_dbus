@@ -23,6 +23,7 @@
 
 #include "dbus-marshal-recursive.h"
 #include "dbus-marshal-basic.h"
+#include "dbus-signature.h"
 #include "dbus-internals.h"
 
 /**
@@ -308,10 +309,25 @@ array_reader_check_finished (const DBusTypeReader *reader)
   return reader->value_pos == end_pos;
 }
 
-/* this is written a little oddly to try and overoptimize */
 static void
 skip_one_complete_type (const DBusString *type_str,
                         int              *type_pos)
+{
+  _dbus_type_signature_next (_dbus_string_get_const_data (type_str),
+			     type_pos);
+}
+
+/**
+ * Skips to the next "complete" type inside a type signature.
+ * The signature is read starting at type_pos, and the next
+ * type position is stored in the same variable.
+ *
+ * @param type_str a type signature (must be valid)
+ * @param type_pos an integer position in the type signtaure (in and out)
+ */
+void
+_dbus_type_signature_next (const char       *type_str,
+			   int              *type_pos)
 {
   const unsigned char *p;
   const unsigned char *start;
@@ -319,7 +335,7 @@ skip_one_complete_type (const DBusString *type_str,
   _dbus_assert (type_str != NULL);
   _dbus_assert (type_pos != NULL);
   
-  start = _dbus_string_get_const_data (type_str);
+  start = type_str;
   p = start + *type_pos;
 
   _dbus_assert (*p != DBUS_STRUCT_END_CHAR);
@@ -1446,7 +1462,7 @@ _dbus_type_reader_set_basic (DBusTypeReader       *reader,
                                  realign_root->value_pos);
 #endif
 
-  _dbus_assert (_dbus_type_is_basic (current_type));
+  _dbus_assert (dbus_type_is_basic (current_type));
 
   if (_dbus_type_is_fixed (current_type))
     {
@@ -2500,7 +2516,7 @@ writer_write_reader_helper (DBusTypeWriter       *writer,
 
   while ((current_type = _dbus_type_reader_get_current_type (reader)) != DBUS_TYPE_INVALID)
     {
-      if (_dbus_type_is_container (current_type))
+      if (dbus_type_is_container (current_type))
         {
           DBusTypeReader subreader;
           DBusTypeWriter subwriter;
@@ -2646,7 +2662,7 @@ writer_write_reader_helper (DBusTypeWriter       *writer,
         {
           DBusBasicValue val;
 
-          _dbus_assert (_dbus_type_is_basic (current_type));
+          _dbus_assert (dbus_type_is_basic (current_type));
 
 #if RECURSIVE_MARSHAL_WRITE_TRACE
           _dbus_verbose ("Reading basic value %s at %d\n",

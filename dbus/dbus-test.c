@@ -121,6 +121,8 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir, const char *speci
   run_test ("server", specific_test, _dbus_server_test);
 
   run_test ("object-tree", specific_test, _dbus_object_tree_test);
+
+  run_test ("signature", specific_test, _dbus_signature_test);
   
   run_test ("marshalling", specific_test, _dbus_marshal_test);
 

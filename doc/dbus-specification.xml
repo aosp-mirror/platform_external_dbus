@@ -2294,14 +2294,22 @@
         &lt;node name="/org/freedesktop/sample_object"&gt;
           &lt;interface name="org.freedesktop.SampleInterface"&gt;
             &lt;method name="Frobate"&gt;
-              &lt;arg name="foo" type="int32" direction="in"/&gt;
-              &lt;arg name="bar" type="string" direction="out"/&gt;
+              &lt;arg name="foo" type="i" direction="in"/&gt;
+              &lt;arg name="bar" type="s" direction="out"/&gt;
+              &lt;arg name="baz" type="a{us}" direction="out"/&gt;
               &lt;annotation name="org.freedesktop.DBus.Deprecated" value="true"/&gt;
             &lt;/method&gt;
+            &lt;method name="Bazify"&gt;
+              &lt;arg name="bar" type="(iiu)" direction="in"/&gt;
+              &lt;arg name="bar" type="v" direction="out"/&gt;
+            &lt;/method&gt;
+            &lt;method name="Mogrify"&gt;
+              &lt;arg name="bar" type="(iiav)" direction="in"/&gt;
+            &lt;/method&gt;
             &lt;signal name="Changed"&gt;
-              &lt;arg name="new_value" type="boolean"/&gt;
+              &lt;arg name="new_value" type="b"/&gt;
             &lt;/signal&gt;
-            &lt;property name="Bar" type="byte" access="readwrite"/&gt;
+            &lt;property name="Bar" type="y" access="readwrite"/&gt;
           &lt;/interface&gt;
           &lt;node name="child_of_sample_object"/&gt;
           &lt;node name="another_child_of_sample_object"/&gt;
@@ -2350,14 +2358,6 @@
           <para>
             The possible property access flags are 
             "readwrite", "read", and "write"
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-            The current type="uint32" stuff is totally broken,
-            instead we have to do full signatures. 
-            However, then this format will suck for human readability. 
-            So, some thinking to do here.
           </para>
         </listitem>
         <listitem>

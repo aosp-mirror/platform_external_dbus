@@ -25,6 +25,7 @@
 #include "dbus-marshal-validate.h"
 #include "dbus-marshal-recursive.h"
 #include "dbus-marshal-basic.h"
+#include "dbus-signature.h"
 #include "dbus-string.h"
 
 /**
@@ -156,7 +157,7 @@ _dbus_validate_signature_with_reason (const DBusString *type_str,
         }
 
       if (last == DBUS_DICT_ENTRY_BEGIN_CHAR &&
-          !_dbus_type_is_basic (*p))
+          !dbus_type_is_basic (*p))
         return DBUS_INVALID_DICT_KEY_MUST_BE_BASIC_TYPE;
       
       last = *p;

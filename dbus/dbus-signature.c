@@ -1,0 +1,430 @@
+/* -*- mode: C; c-file-style: "gnu" -*- */
+/* dbus-signature.c  Routines for reading recursive type signatures
+ *
+ * Copyright (C) 2005 Red Hat, Inc.
+ *
+ * Licensed under the Academic Free License version 2.1
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
+
+#include "dbus-signature.h"
+#include "dbus-marshal-recursive.h"
+#include "dbus-marshal-basic.h"
+#include "dbus-internals.h"
+#include "dbus-test.h"
+
+typedef struct
+{ 
+  const char *pos;
+  unsigned int finished : 1;
+  unsigned int in_array : 1;
+} DBusSignatureRealIter;
+
+/**
+ * @addtogroup DBusSignature
+ * @{
+ */
+
+/**
+ * Initializes a #DBusSignatureIter for reading a type signature.  This
+ * function is not safe to use on invalid signatures; be sure to
+ * validate potentially invalid signatures with dbus_signature_validate
+ * before using this function.
+ *
+ * @param iter pointer to an iterator to initialize
+ * @param signature the type signature
+ */
+void
+dbus_signature_iter_init (DBusSignatureIter *iter,
+			  const char        *signature)
+{
+  DBusSignatureRealIter *real_iter = (DBusSignatureRealIter *) iter;
+
+  real_iter->pos = signature;
+  real_iter->finished = FALSE;
+  real_iter->in_array = FALSE;
+}
+
+/**
+ * Returns the current type pointed to by the iterator.
+ * If the iterator is pointing at a type code such as 's', then
+ * it will be returned directly.
+ *
+ * However, when the parser encounters a container type start
+ * character such as '(' for a structure, the corresponding type for
+ * the container will be returned, e.g.  DBUS_TYPE_STRUCT, not '('.
+ * In this case, you should initialize a sub-iterator with
+ * dbus_signature_iter_recurse to parse the container type.
+ *
+ * @param iter pointer to an iterator 
+ * @returns current type (e.g. DBUS_TYPE_STRING, DBUS_TYPE_ARRAY)
+ */
+int
+dbus_signature_iter_get_current_type (const DBusSignatureIter *iter)
+{
+  DBusSignatureRealIter *real_iter = (DBusSignatureRealIter *) iter;
+
+  return _dbus_first_type_in_signature_c_str (real_iter->pos, 0);
+}
+
+/**
+ * Convenience function for returning the element type of an array;
+ * This function allows you to avoid initializing a sub-iterator and
+ * getting its current type.
+ *
+ * It is an error to invoke this function if the current type of the
+ * iterator is not DBUS_TYPE_ARRAY.
+ *
+ * @param iter pointer to an iterator 
+ * @returns current array element type
+ */
+int
+dbus_signature_iter_get_element_type (const DBusSignatureIter *iter)
+{
+  DBusSignatureRealIter *real_iter = (DBusSignatureRealIter *) iter;
+
+  _dbus_retur(dbus_signature_iter_get_current_type (iter) == DBUS_TYPE_ARRAY);
+
+  return _dbus_first_type_in_signature_c_str (real_iter->pos, 1);
+}
+
+/**
+ * Skip to the next value on this "level". e.g. the next field in a
+ * struct, the next value in an array. Returns FALSE at the end of the
+ * current container.
+ *
+ * @param iter the iterator
+ * @returns FALSE if nothing more to read at or below this level
+ */
+dbus_bool_t
+dbus_signature_iter_next (DBusSignatureIter *iter)
+{
+  DBusSignatureRealIter *real_iter = (DBusSignatureRealIter *) iter;
+
+  if (real_iter->finished)
+    return FALSE;
+  else
+    {
+      int pos;
+
+      if (real_iter->in_array)
+	{
+	  real_iter->finished = TRUE;
+	  return FALSE;
+	}
+
+      pos = 0;
+      _dbus_type_signature_next (real_iter->pos, &pos);
+      real_iter->pos += pos;
+
+      if (*real_iter->pos == DBUS_STRUCT_END_CHAR
+	  || *real_iter->pos == DBUS_DICT_ENTRY_END_CHAR)
+	{
+	  real_iter->finished = TRUE;
+	  return FALSE;
+	}
+
+      return *real_iter->pos != DBUS_TYPE_INVALID;
+    }
+}
+
+/**
+ * Initialize a new iterator pointing to the first type current
+ * container. It's an error to call this if the current type is a
+ * non-container (i.e. if dbus_type_is_container returns FALSE).
+ *
+ * @param iter the current interator
+ * @param subiter an iterator to initialize pointing to the first child
+ */
+void
+dbus_signature_iter_recurse (const DBusSignatureIter *iter,
+			     DBusSignatureIter       *subiter)
+{
+  DBusSignatureRealIter *real_iter = (DBusSignatureRealIter *) iter;
+  DBusSignatureRealIter *real_sub_iter = (DBusSignatureRealIter *) subiter;
+
+  _dbus_return_if_fail (dbus_type_is_container (dbus_signature_iter_get_current_type (iter)));
+
+  *real_sub_iter = *real_iter;
+  real_sub_iter->pos++;
+
+  if (dbus_signature_iter_get_current_type (subiter) == DBUS_TYPE_ARRAY)
+    real_sub_iter->in_array = TRUE;
+}
+
+/**
+ * Check a type signature for validity.
+ *
+ * @param signature a potentially invalid type signature
+ * @error error return
+ * @returns TRUE iif signature is valid
+ */
+dbus_bool_t
+dbus_signature_validate (const char       *signature,
+			 DBusError        *error)
+			 
+{
+  DBusString str;
+
+  _dbus_string_init_const (&str, signature);
+  if (_dbus_validate_signature (&str, 0, _dbus_string_get_length (&str)))
+    return TRUE;
+  dbus_set_error (error, DBUS_ERROR_INVALID_SIGNATURE, "Corrupt type signature");
+  return FALSE;
+}
+
+/**
+ * Check that a type signature is both valid and contains exactly
+ * one complete type.
+ *
+ * @param signature a potentially invalid type signature
+ * @error error return
+ * @returns TRUE iif signature is valid and has exactly one complete type
+ */
+dbus_bool_t
+dbus_signature_validate_single (const char       *signature,
+				DBusError        *error)
+{
+  DBusSignatureIter iter;
+
+  if (!dbus_signature_validate (signature, error))
+    return FALSE;
+
+  dbus_signature_iter_init (&iter, signature);
+  if (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_INVALID)
+    goto lose;
+  if (!dbus_signature_iter_next (&iter))
+    return TRUE;
+ lose:
+  dbus_set_error (error, DBUS_ERROR_INVALID_SIGNATURE, "Exactly one complete type required in signature");
+  return FALSE;
+}
+
+/** macro that checks whether a typecode is a container type */
+#define TYPE_IS_CONTAINER(typecode)             \
+    ((typecode) == DBUS_TYPE_STRUCT ||          \
+     (typecode) == DBUS_TYPE_DICT_ENTRY ||      \
+     (typecode) == DBUS_TYPE_VARIANT ||         \
+     (typecode) == DBUS_TYPE_ARRAY)
+
+/**
+ * A "container type" can contain basic types, or nested
+ * container types. #DBUS_TYPE_INVALID is not a container type.
+ * This function will crash if passed a typecode that isn't
+ * in dbus-protocol.h
+ *
+ * @returns #TRUE if type is a container
+ */
+dbus_bool_t
+dbus_type_is_container (int typecode)
+{
+  /* only reasonable (non-line-noise) typecodes are allowed */
+  _dbus_return_val_if_fail (_dbus_type_is_valid (typecode) || typecode == DBUS_TYPE_INVALID,
+			    FALSE);
+  return TYPE_IS_CONTAINER (typecode);
+}
+
+/**
+ * A "basic type" is a somewhat arbitrary concept, but the intent
+ * is to include those types that are fully-specified by a single
+ * typecode, with no additional type information or nested
+ * values. So all numbers and strings are basic types and
+ * structs, arrays, and variants are not basic types.
+ * #DBUS_TYPE_INVALID is not a basic type.
+ *
+ * This function will crash if passed a typecode that isn't
+ * in dbus-protocol.h
+ *
+ * @returns #TRUE if type is basic
+ */
+dbus_bool_t
+dbus_type_is_basic (int typecode)
+{
+  /* only reasonable (non-line-noise) typecodes are allowed */
+  _dbus_return_val_if_fail (_dbus_type_is_valid (typecode) || typecode == DBUS_TYPE_INVALID,
+			    FALSE);
+
+  /* everything that isn't invalid or a container */
+  return !(typecode == DBUS_TYPE_INVALID || TYPE_IS_CONTAINER (typecode));
+}
+
+
+#ifdef DBUS_BUILD_TESTS
+
+/**
+ * @ingroup DBusSignatureInternals
+ * Unit test for DBusSignature.
+ *
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_signature_test (void)
+{
+  DBusSignatureIter iter;
+  DBusSignatureIter subiter;
+  DBusSignatureIter subsubiter;
+  DBusSignatureIter subsubsubiter;
+  const char *sig;
+
+  _dbus_assert (sizeof (DBusSignatureIter) >= sizeof (DBusSignatureRealIter));
+
+  sig = "";
+  _dbus_assert (dbus_signature_validate (sig, NULL));
+  _dbus_assert (!dbus_signature_validate_single (sig, NULL));
+  dbus_signature_iter_init (&iter, sig);
+  _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_INVALID);
+
+  sig = DBUS_TYPE_STRING_AS_STRING;
+  _dbus_assert (dbus_signature_validate (sig, NULL));
+  _dbus_assert (dbus_signature_validate_single (sig, NULL));
+  dbus_signature_iter_init (&iter, sig);
+  _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_STRING);
+
+  sig = DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_BYTE_AS_STRING;
+  _dbus_assert (dbus_signature_validate (sig, NULL));
+  dbus_signature_iter_init (&iter, sig);
+  _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_STRING);
+  _dbus_assert (dbus_signature_iter_next (&iter));
+  _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_BYTE);
+
+  sig = DBUS_TYPE_UINT16_AS_STRING
+    DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+    DBUS_TYPE_STRING_AS_STRING
+    DBUS_TYPE_UINT32_AS_STRING
+    DBUS_TYPE_VARIANT_AS_STRING
+    DBUS_TYPE_DOUBLE_AS_STRING
+    DBUS_STRUCT_END_CHAR_AS_STRING;
+  _dbus_assert (dbus_signature_validate (sig, NULL));
+  dbus_signature_iter_init (&iter, sig);
+  _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_UINT16);
+  _dbus_assert (dbus_signature_iter_next (&iter));
+  _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_STRUCT);
+  dbus_signature_iter_recurse (&iter, &subiter);
+  _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_STRING);
+  _dbus_assert (dbus_signature_iter_next (&subiter));
+  _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_UINT32);
+  _dbus_assert (dbus_signature_iter_next (&subiter));
+  _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_VARIANT);
+  _dbus_assert (dbus_signature_iter_next (&subiter));
+  _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_DOUBLE);
+
+  sig = DBUS_TYPE_UINT16_AS_STRING
+    DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+    DBUS_TYPE_UINT32_AS_STRING
+    DBUS_TYPE_BYTE_AS_STRING
+    DBUS_TYPE_ARRAY_AS_STRING
+    DBUS_TYPE_ARRAY_AS_STRING
+    DBUS_TYPE_DOUBLE_AS_STRING
+    DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+    DBUS_TYPE_BYTE_AS_STRING
+    DBUS_STRUCT_END_CHAR_AS_STRING
+    DBUS_STRUCT_END_CHAR_AS_STRING;
+  _dbus_assert (dbus_signature_validate (sig, NULL));
+  dbus_signature_iter_init (&iter, sig);
+  _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_UINT16);
+  _dbus_assert (dbus_signature_iter_next (&iter));
+  _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_STRUCT);
+  dbus_signature_iter_recurse (&iter, &subiter);
+  _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_UINT32);
+  _dbus_assert (dbus_signature_iter_next (&subiter));
+  _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_BYTE);
+  _dbus_assert (dbus_signature_iter_next (&subiter));
+  _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_ARRAY);
+  _dbus_assert (dbus_signature_iter_get_element_type (&subiter) == DBUS_TYPE_ARRAY);
+
+  dbus_signature_iter_recurse (&subiter, &subsubiter);
+  _dbus_assert (dbus_signature_iter_get_current_type (&subsubiter) == DBUS_TYPE_ARRAY);
+  _dbus_assert (dbus_signature_iter_get_element_type (&subsubiter) == DBUS_TYPE_DOUBLE);
+
+  dbus_signature_iter_recurse (&subsubiter, &subsubsubiter);
+  _dbus_assert (dbus_signature_iter_get_current_type (&subsubsubiter) == DBUS_TYPE_DOUBLE);
+  _dbus_assert (dbus_signature_iter_next (&subiter));
+  _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_STRUCT);
+  dbus_signature_iter_recurse (&subiter, &subsubiter);
+  _dbus_assert (dbus_signature_iter_get_current_type (&subsubiter) == DBUS_TYPE_BYTE);
+
+  sig = DBUS_TYPE_ARRAY_AS_STRING
+    DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING
+    DBUS_TYPE_INT16_AS_STRING
+    DBUS_TYPE_STRING_AS_STRING
+    DBUS_DICT_ENTRY_END_CHAR_AS_STRING
+    DBUS_TYPE_VARIANT_AS_STRING;
+  _dbus_assert (dbus_signature_validate (sig, NULL));
+  _dbus_assert (!dbus_signature_validate_single (sig, NULL));
+  dbus_signature_iter_init (&iter, sig);
+  _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_ARRAY);
+  _dbus_assert (dbus_signature_iter_get_element_type (&iter) == DBUS_TYPE_DICT_ENTRY);
+
+  dbus_signature_iter_recurse (&iter, &subiter);
+  dbus_signature_iter_recurse (&subiter, &subsubiter);
+  _dbus_assert (dbus_signature_iter_get_current_type (&subsubiter) == DBUS_TYPE_INT16);
+  _dbus_assert (dbus_signature_iter_next (&subsubiter));
+  _dbus_assert (dbus_signature_iter_get_current_type (&subsubiter) == DBUS_TYPE_STRING);
+  _dbus_assert (!dbus_signature_iter_next (&subsubiter));
+
+  _dbus_assert (dbus_signature_iter_next (&iter));
+  _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_VARIANT);
+  _dbus_assert (!dbus_signature_iter_next (&iter));
+
+  sig = DBUS_TYPE_DICT_ENTRY_AS_STRING;
+  _dbus_assert (!dbus_signature_validate (sig, NULL));
+
+  sig = DBUS_TYPE_ARRAY_AS_STRING;
+  _dbus_assert (!dbus_signature_validate (sig, NULL));
+
+  sig = DBUS_TYPE_UINT32_AS_STRING
+    DBUS_TYPE_ARRAY_AS_STRING;
+  _dbus_assert (!dbus_signature_validate (sig, NULL));
+
+  sig = DBUS_TYPE_ARRAY_AS_STRING
+    DBUS_TYPE_DICT_ENTRY_AS_STRING;
+  _dbus_assert (!dbus_signature_validate (sig, NULL));
+
+  sig = DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING;
+  _dbus_assert (!dbus_signature_validate (sig, NULL));
+
+  sig = DBUS_DICT_ENTRY_END_CHAR_AS_STRING;
+  _dbus_assert (!dbus_signature_validate (sig, NULL));
+
+  sig = DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING
+    DBUS_TYPE_INT32_AS_STRING;
+  _dbus_assert (!dbus_signature_validate (sig, NULL));
+
+  sig = DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING
+    DBUS_TYPE_INT32_AS_STRING
+    DBUS_TYPE_STRING_AS_STRING;
+  _dbus_assert (!dbus_signature_validate (sig, NULL));
+
+  sig = DBUS_STRUCT_END_CHAR_AS_STRING
+    DBUS_STRUCT_BEGIN_CHAR_AS_STRING;
+  _dbus_assert (!dbus_signature_validate (sig, NULL));
+
+  sig = DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+    DBUS_TYPE_BOOLEAN_AS_STRING;
+  _dbus_assert (!dbus_signature_validate (sig, NULL));
+  return TRUE;
+#if 0
+ oom:
+  _dbus_assert_not_reached ("out of memory");
+  return FALSE;
+#endif
+}
+
+#endif
+
+/** @} */ /* end of DBusSignature group */
+
