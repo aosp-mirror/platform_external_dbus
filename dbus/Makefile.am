@@ -44,6 +44,8 @@ libdbus_1_la_SOURCES=				\
 	dbus-server-debug.h			\
 	dbus-server-unix.c			\
 	dbus-server-unix.h			\
+	dbus-sha.c				\
+	dbus-sha.h				\
 	dbus-test.c				\
 	dbus-test.h				\
 	dbus-timeout.c				\

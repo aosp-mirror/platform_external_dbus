@@ -53,12 +53,16 @@
  * @{
  */
 
-/** The maximum time a key can be alive before we switch to a
- * new one. This isn't super-reliably enforced, since
- * system clocks can change or be wrong, but we make
- * a best effort to only use keys for a short time.
+/** The maximum age of a key before we create a new key to use in
+ * challenges.  This isn't super-reliably enforced, since system
+ * clocks can change or be wrong, but we make a best effort to only
+ * use keys for a short time.
  */
-#define MAX_KEY_LIFETIME_SECONDS (60*5)
+#define NEW_KEY_TIMEOUT     (60*5)
+/**
+ * The time after which we drop a key from the secrets file
+ */
+#define EXPIRE_KEYS_TIMEOUT (NEW_KEY_TIMEOUT + (60*2))
 
 typedef struct
 {
@@ -432,7 +436,7 @@ find_recent_key (DBusKeyring *keyring)
     {
       DBusKey *key = &keyring->keys[i];
 
-      if (tv_sec - MAX_KEY_LIFETIME_SECONDS < key->creation_time)
+      if (tv_sec - NEW_KEY_TIMEOUT < key->creation_time)
         return key;
       
       ++i;

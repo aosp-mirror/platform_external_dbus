@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-test.c  Program to run all tests
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -62,6 +62,10 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   printf ("%s: running md5 tests\n", "dbus-test");
   if (!_dbus_md5_test ())
     die ("md5");
+
+  printf ("%s: running SHA-1 tests\n", "dbus-test");
+  if (!_dbus_sha_test (test_data_dir))
+    die ("SHA-1");
   
   printf ("%s: running auth tests\n", "dbus-test");
   if (!_dbus_auth_test (test_data_dir))

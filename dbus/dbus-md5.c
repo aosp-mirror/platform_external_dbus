@@ -41,7 +41,7 @@
 /**
  * @defgroup DBusMD5 MD5 implementation
  * @ingroup  DBusInternals
- * @brief DBusMD5 interface
+ * @brief MD5 hash
  *
  * Types and functions related to computing MD5 sums.
  */

@@ -1885,6 +1885,7 @@ dbus_message_iter_get_double_array  (DBusMessageIter *iter,
  * to a byte array prior to using this function.
  *
  * @param iter the iterator
+ * @param value return location for array values
  * @param len return location for length of byte array
  * @returns the byte array
  */
@@ -1909,7 +1910,13 @@ dbus_message_iter_get_byte_array (DBusMessageIter  *iter,
  * Note that you need to check that the iterator points
  * to a byte array prior to using this function.
  *
+ * The returned value is a #NULL-terminated array of strings.
+ * Each string is a separate malloc block, and the array
+ * itself is a malloc block. You can free this type of
+ * string array with dbus_free_string_array().
+ *
  * @param iter the iterator
+ * @param value return location for string values
  * @param len return location for length of byte array
  * @returns the byte array
  */

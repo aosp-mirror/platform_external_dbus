@@ -1,3 +1,12 @@
+2003-02-22  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-message.c (dbus_message_iter_get_string_array):
+	(dbus_message_iter_get_byte_array): Fix up doxygen warnings
+
+	* dbus/dbus-sha.c: add implementation of SHA-1 algorithm
+
+	* dbus/test/data/sha-1: add US government test suite for SHA-1
+
 2003-02-21  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-marshal.c: (_dbus_demarshal_string_array):
