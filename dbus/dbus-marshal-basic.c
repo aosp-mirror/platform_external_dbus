@@ -743,13 +743,25 @@ marshal_8_octets_array (DBusString          *str,
 {
   int old_string_len;
   int array_start;
-
+  
   old_string_len = _dbus_string_get_length (str);
 
+  /*  The array length is the length in bytes of the array,
+   * *excluding* alignment padding.
+   */
   if (!_dbus_marshal_uint32 (str, byte_order, len * 8))
     goto error;
 
   array_start = _dbus_string_get_length (str);
+
+  /* Note that we do alignment padding unconditionally
+   * even if the array is empty; this means that
+   * padding + len is always equal to the number of bytes
+   * in the array.
+   */
+  
+  if (!_dbus_string_align_length (str, 8))
+    goto error;
   
   if (!_dbus_string_append_len (str, (const unsigned char*) value,
                                 len * 8))
@@ -1350,6 +1362,9 @@ demarshal_8_octets_array (const DBusString  *str,
   int byte_len;
   
   byte_len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+
+  pos = _DBUS_ALIGN_VALUE (pos, 8);
+  
   len = byte_len / 8;
 
   if (len == 0)
@@ -1827,6 +1842,8 @@ _dbus_marshal_skip_array (const DBusString  *str,
 
   len = _dbus_demarshal_uint32 (str, byte_order, *pos, pos);
 
+  /* FIXME we need to insert alignment padding according to array type */
+  
   *pos += len;
 }
 
@@ -1897,8 +1914,9 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
 
 	/* Demarshal the length  */
 	len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
-	
-	*end_pos = pos + len;
+
+        /* FIXME needs to align to the right boundary for the array type */
+	*end_pos = _DBUS_ALIGN_VALUE (pos, 4) + len;
       }
       break;
 
@@ -2428,13 +2446,56 @@ _dbus_type_is_valid (int typecode)
     case DBUS_TYPE_UINT64:
     case DBUS_TYPE_DOUBLE:
     case DBUS_TYPE_STRING:
+    case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_ARRAY:
     case DBUS_TYPE_DICT:
-    case DBUS_TYPE_OBJECT_PATH:
+    case DBUS_TYPE_STRUCT:
+    case DBUS_TYPE_VARIANT:
       return TRUE;
       
     default:
       return FALSE;
+    }
+}
+
+/**
+ * Gets the alignment requirement for the given type;
+ * will be 1, 4, or 8.
+ *
+ * @param typecode the type
+ * @returns alignment of 1, 4, or 8
+ */
+int
+_dbus_type_get_alignment (int typecode)
+{
+  switch (typecode)
+    {
+    case DBUS_TYPE_BYTE:
+    case DBUS_TYPE_BOOLEAN:
+      return 1;
+    case DBUS_TYPE_INT32:
+    case DBUS_TYPE_UINT32:
+      /* this stuff is 4 since it starts with a length */
+    case DBUS_TYPE_STRING:
+    case DBUS_TYPE_OBJECT_PATH:
+    case DBUS_TYPE_ARRAY:
+    case DBUS_TYPE_DICT:
+    case DBUS_TYPE_VARIANT:
+      return 4;
+    case DBUS_TYPE_INT64:
+    case DBUS_TYPE_UINT64:
+    case DBUS_TYPE_DOUBLE:
+      /* struct is 8 since it could contain an 8-aligned item
+       * and it's simpler to just always align structs to 8;
+       * we want the amount of padding in a struct of a given
+       * type to be predictable, not location-dependent.
+       */
+    case DBUS_TYPE_STRUCT:
+      return 8;
+      
+    default:
+      _dbus_assert_not_reached ("unknown typecode in _dbus_type_get_alignment()");
+      return 0;
     }
 }
 
@@ -2445,10 +2506,12 @@ _dbus_type_is_valid (int typecode)
  * 
  * @param data the data
  * @param len the length of the data
+ * @param offset where to start counting for byte indexes
  */
 void
 _dbus_verbose_bytes (const unsigned char *data,
-                     int                  len)
+                     int                  len,
+                     int                  offset)
 {
   int i;
   const unsigned char *aligned;
@@ -2478,7 +2541,7 @@ _dbus_verbose_bytes (const unsigned char *data,
       if (_DBUS_ALIGN_ADDRESS (&data[i], 4) == &data[i])
         {
           _dbus_verbose ("%4d\t%p: ",
-                         i, &data[i]);
+                         offset + i, &data[i]);
         }
       
       if (data[i] >= 32 &&
@@ -2546,7 +2609,7 @@ _dbus_verbose_bytes_of_string (const DBusString    *str,
   
   d = _dbus_string_get_const_data_len (str, start, len);
 
-  _dbus_verbose_bytes (d, len);
+  _dbus_verbose_bytes (d, len, start);
 }
 
 /**

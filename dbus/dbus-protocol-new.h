@@ -42,36 +42,52 @@ extern "C" {
 
 /* Never a legitimate type */
 #define DBUS_TYPE_INVALID       ((int) '\0')
+#define DBUS_TYPE_INVALID_AS_STRING        "\0"
 
 /* Primitive types */
 #define DBUS_TYPE_BYTE          ((int) 'y')
+#define DBUS_TYPE_BYTE_AS_STRING           "y"
 #define DBUS_TYPE_BOOLEAN       ((int) 'b')
+#define DBUS_TYPE_BOOLEAN_AS_STRING        "b"
 #define DBUS_TYPE_INT32         ((int) 'i')
+#define DBUS_TYPE_INT32_AS_STRING          "i"
 
 #define DBUS_TYPE_UINT32        ((int) 'u')
+#define DBUS_TYPE_UINT32_AS_STRING         "u"
 #define DBUS_TYPE_INT64         ((int) 'x')
+#define DBUS_TYPE_INT64_AS_STRING          "x"
 #define DBUS_TYPE_UINT64        ((int) 't')
+#define DBUS_TYPE_UINT64_AS_STRING         "t"
 
 #define DBUS_TYPE_DOUBLE        ((int) 'd')
+#define DBUS_TYPE_DOUBLE_AS_STRING         "d"
 #define DBUS_TYPE_STRING        ((int) 's')
+#define DBUS_TYPE_STRING_AS_STRING         "s"
 #define DBUS_TYPE_OBJECT_PATH   ((int) 'o')
+#define DBUS_TYPE_OBJECT_PATH_AS_STRING    "o"
 
 /* Compound types */
 #define DBUS_TYPE_ARRAY         ((int) 'a')
+#define DBUS_TYPE_ARRAY_AS_STRING          "a"
 #define DBUS_TYPE_DICT          ((int) 'm') /* not parameterized; always map<string,variant> */
+#define DBUS_TYPE_DICT_AS_STRING           "m"
 #define DBUS_TYPE_VARIANT       ((int) 'v')
+#define DBUS_TYPE_VARIANT_AS_STRING        "v"
 
 /* STRUCT is sort of special since its code can't appear in a type string,
  * instead DBUS_STRUCT_BEGIN_CHAR has to appear
  */
 #define DBUS_TYPE_STRUCT        ((int) 'r')
+#define DBUS_TYPE_STRUCT_AS_STRING         "r"
 
 /* Does not count INVALID */
 #define DBUS_NUMBER_OF_TYPES    (13)
 
 /* characters other than typecodes that appear in type signatures */
 #define DBUS_STRUCT_BEGIN_CHAR   ((int) '(')
+#define DBUS_STRUCT_BEGIN_CHAR_AS_STRING   "("
 #define DBUS_STRUCT_END_CHAR     ((int) ')')
+#define DBUS_STRUCT_END_CHAR_AS_STRING     ")"
 
 /* Max length in bytes of a service or interface or member name */
 #define DBUS_MAXIMUM_NAME_LENGTH 256
