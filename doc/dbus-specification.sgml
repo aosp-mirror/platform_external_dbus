@@ -606,9 +606,13 @@
         command present or permitted only in new protocol versions, and if
         an ERROR is received instead of an appropriate response, fall back
         to using some other technique.
-      </para><para>
-        If an ERROR is sent, the server or client MUST continue as if the
-        command causing the ERROR had never been received.
+      </para>
+      <para>
+        If an ERROR is sent, the server or client that sent the
+        error MUST continue as if the command causing the ERROR had never been
+        received. However, the the server or client receiving the error 
+        should try something other than whatever caused the error; 
+        if only canceling/rejecting the authentication.
       </para>
     </sect2>
     <sect2 id="auth-examples">

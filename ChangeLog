@@ -1,5 +1,35 @@
 2003-04-18  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-auth.c (record_mechanisms): memleak fixes
+
+	* dbus/dbus-sysdeps.c (_dbus_string_save_to_file): fix some
+	memleaks
+
+	* dbus/dbus-keyring.c (add_new_key): fix a memleak, and 
+	on realloc be sure to update the pointer in the keyring
+
+	* dbus/dbus-string.c (_dbus_string_zero): compensate for align
+	offset to avoid writing to unallocated memory
+
+	* dbus/dbus-auth.c (process_rejected): return FALSE if we fail to
+	try the next mechanism, so we properly handle OOM
+
+	* dbus/dbus-keyring.c (_dbus_keyring_new_homedir): fix double-free
+	on OOM.
+	(_dbus_keyring_new): fix OOM bug
+	(_dbus_keyring_new_homedir): always set error; impose a maximum
+	number of keys we'll load from the file, mostly to speed up the
+	test suite and make its OOM checks more useful, but also for
+	general sanity.
+
+	* dbus/dbus-auth.c (process_error_server): reject authentication
+	if we get an error from the client
+	(process_cancel): on cancel, send REJECTED, per the spec
+	(process_error_client): send CANCEL if we get an error from the
+	server.
+
+2003-04-18  Havoc Pennington  <hp@pobox.com>
+	
 	* dbus/dbus-mainloop.c (_dbus_loop_iterate): fix UMR in verbose
 	debug spew
 

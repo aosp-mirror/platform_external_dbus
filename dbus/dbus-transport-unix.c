@@ -345,40 +345,47 @@ do_authentication (DBusTransport *transport,
                          transport->receive_credentials_pending);
           goto out;
         }
-      
+
+#define TRANSPORT_SIDE(t) ((t)->is_server ? "server" : "client")
       switch (_dbus_auth_do_work (transport->auth))
         {
         case DBUS_AUTH_STATE_WAITING_FOR_INPUT:
-          _dbus_verbose (" auth state: waiting for input\n");
+          _dbus_verbose (" %s auth state: waiting for input\n",
+                         TRANSPORT_SIDE (transport));
           if (!do_reading || !read_data_into_auth (transport, &oom))
             goto out;
           break;
       
         case DBUS_AUTH_STATE_WAITING_FOR_MEMORY:
-          _dbus_verbose (" auth state: waiting for memory\n");
+          _dbus_verbose (" %s auth state: waiting for memory\n",
+                         TRANSPORT_SIDE (transport));
           oom = TRUE;
           goto out;
           break;
       
         case DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND:
-          _dbus_verbose (" auth state: bytes to send\n");
+          _dbus_verbose (" %s auth state: bytes to send\n",
+                         TRANSPORT_SIDE (transport));
           if (!do_writing || !write_data_from_auth (transport))
             goto out;
           break;
       
         case DBUS_AUTH_STATE_NEED_DISCONNECT:
-          _dbus_verbose (" auth state: need to disconnect\n");
+          _dbus_verbose (" %s auth state: need to disconnect\n",
+                         TRANSPORT_SIDE (transport));
           do_io_error (transport);
           break;
       
         case DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES:
-          _dbus_verbose (" auth state: auth with unused bytes\n");
+          _dbus_verbose (" %s auth state: auth with unused bytes\n",
+                         TRANSPORT_SIDE (transport));
           /* We'll recover the unused bytes in dbus-transport.c */
           goto out;
           break;
           
         case DBUS_AUTH_STATE_AUTHENTICATED:
-          _dbus_verbose (" auth state: authenticated\n");
+          _dbus_verbose (" %s auth state: authenticated\n",
+                         TRANSPORT_SIDE (transport));
           break;
         }
     }

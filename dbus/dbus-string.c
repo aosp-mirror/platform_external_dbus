@@ -2651,7 +2651,7 @@ _dbus_string_zero (DBusString *str)
 {
   DBUS_STRING_PREAMBLE (str);
 
-  memset (real->str, '\0', real->allocated);
+  memset (real->str - real->align_offset, '\0', real->allocated);
 }
 /** @} */
 

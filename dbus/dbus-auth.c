@@ -266,6 +266,13 @@ client_handlers[] = {
  */
 #define DBUS_AUTH_SERVER(auth)    ((DBusAuthServer*)(auth))
 
+/**
+ * The name of the auth ("client" or "server")
+ * @param auth the auth conversation
+ * @returns a string
+ */
+#define DBUS_AUTH_NAME(auth)      (DBUS_AUTH_IS_SERVER(auth) ? "server" : "client")
+
 static DBusAuth*
 _dbus_auth_new (int size)
 {
@@ -342,8 +349,8 @@ shutdown_mech (DBusAuth *auth)
   
   if (auth->mech != NULL)
     {
-      _dbus_verbose ("Shutting down mechanism %s\n",
-                     auth->mech->mechanism);
+      _dbus_verbose ("%s: Shutting down mechanism %s\n",
+                     DBUS_AUTH_NAME (auth), auth->mech->mechanism);
       
       if (DBUS_AUTH_IS_CLIENT (auth))
         (* auth->mech->client_shutdown_func) (auth);
@@ -449,7 +456,8 @@ sha1_handle_first_client_response (DBusAuth         *auth,
       if (_dbus_string_get_length (&auth->identity) > 0)
         {
           /* Tried to send two auth identities, wtf */
-          _dbus_verbose ("client tried to send auth identity, but we already have one\n");
+          _dbus_verbose ("%s: client tried to send auth identity, but we already have one\n",
+                         DBUS_AUTH_NAME (auth));
           return send_rejected (auth);
         }
       else
@@ -462,7 +470,8 @@ sha1_handle_first_client_response (DBusAuth         *auth,
       
   if (!_dbus_credentials_from_username (data, &auth->desired_identity))
     {
-      _dbus_verbose ("Did not get a valid username from client\n");
+      _dbus_verbose ("%s: Did not get a valid username from client\n",
+                     DBUS_AUTH_NAME (auth));
       return send_rejected (auth);
     }
       
@@ -509,8 +518,8 @@ sha1_handle_first_client_response (DBusAuth         *auth,
           else
             {
               _DBUS_ASSERT_ERROR_IS_SET (&error);
-              _dbus_verbose ("Error loading keyring: %s\n",
-                             error.message);
+              _dbus_verbose ("%s: Error loading keyring: %s\n",
+                             DBUS_AUTH_NAME (auth), error.message);
               if (send_rejected (auth))
                 retval = TRUE; /* retval is only about mem */
               dbus_error_free (&error);
@@ -530,8 +539,8 @@ sha1_handle_first_client_response (DBusAuth         *auth,
   if (auth->cookie_id < 0)
     {
       _DBUS_ASSERT_ERROR_IS_SET (&error);
-      _dbus_verbose ("Could not get a cookie ID to send to client: %s\n",
-                     error.message);
+      _dbus_verbose ("%s: Could not get a cookie ID to send to client: %s\n",
+                     DBUS_AUTH_NAME (auth), error.message);
       if (send_rejected (auth))
         retval = TRUE;
       dbus_error_free (&error);
@@ -609,7 +618,8 @@ sha1_handle_second_client_response (DBusAuth         *auth,
   
   if (!_dbus_string_find_blank (data, 0, &i))
     {
-      _dbus_verbose ("no space separator in client response\n");
+      _dbus_verbose ("%s: no space separator in client response\n",
+                     DBUS_AUTH_NAME (auth));
       return send_rejected (auth);
     }
   
@@ -634,7 +644,8 @@ sha1_handle_second_client_response (DBusAuth         *auth,
   if (_dbus_string_get_length (&client_challenge) == 0 ||
       _dbus_string_get_length (&client_hash) == 0)
     {
-      _dbus_verbose ("zero-length client challenge or hash\n");
+      _dbus_verbose ("%s: zero-length client challenge or hash\n",
+                     DBUS_AUTH_NAME (auth));
       if (send_rejected (auth))
         retval = TRUE;
       goto out_2;
@@ -668,8 +679,8 @@ sha1_handle_second_client_response (DBusAuth         *auth,
                             "OK\r\n"))
     goto out_3;
 
-  _dbus_verbose ("authenticated client with UID "DBUS_UID_FORMAT" using DBUS_COOKIE_SHA1\n",
-                 auth->desired_identity.uid);
+  _dbus_verbose ("%s: authenticated client with UID "DBUS_UID_FORMAT" using DBUS_COOKIE_SHA1\n",
+                 DBUS_AUTH_NAME (auth), auth->desired_identity.uid);
   
   auth->authorized_identity = auth->desired_identity;
   auth->authenticated_pending_begin = TRUE;
@@ -727,10 +738,6 @@ handle_client_initial_response_cookie_sha1_mech (DBusAuth   *auth,
   return retval;
 }
 
-/* FIXME if we send the server an error, right now both sides
- * just hang. Server has to reject on getting an error, or
- * client has to cancel. Should be in the spec.
- */
 static dbus_bool_t
 handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
                                      const DBusString *data)
@@ -839,8 +846,8 @@ handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
             {
               _DBUS_ASSERT_ERROR_IS_SET (&error);
 
-              _dbus_verbose ("Error loading keyring: %s\n",
-                             error.message);
+              _dbus_verbose ("%s: Error loading keyring: %s\n",
+                             DBUS_AUTH_NAME (auth), error.message);
               
               if (_dbus_string_append (&auth->outgoing,
                                        "ERROR \"Could not load cookie file\"\r\n"))
@@ -952,7 +959,8 @@ handle_server_data_external_mech (DBusAuth         *auth,
 {
   if (auth->credentials.uid == DBUS_UID_UNSET)
     {
-      _dbus_verbose ("no credentials, mechanism EXTERNAL can't authenticate\n");
+      _dbus_verbose ("%s: no credentials, mechanism EXTERNAL can't authenticate\n",
+                     DBUS_AUTH_NAME (auth));
       return send_rejected (auth);
     }
   
@@ -961,7 +969,8 @@ handle_server_data_external_mech (DBusAuth         *auth,
       if (_dbus_string_get_length (&auth->identity) > 0)
         {
           /* Tried to send two auth identities, wtf */
-          _dbus_verbose ("client tried to send auth identity, but we already have one\n");
+          _dbus_verbose ("%s: client tried to send auth identity, but we already have one\n",
+                         DBUS_AUTH_NAME (auth));
           return send_rejected (auth);
         }
       else
@@ -979,7 +988,8 @@ handle_server_data_external_mech (DBusAuth         *auth,
       if (_dbus_string_append (&auth->outgoing,
                                "DATA\r\n"))
         {
-          _dbus_verbose ("sending empty challenge asking client for auth identity\n");
+          _dbus_verbose ("%s: sending empty challenge asking client for auth identity\n",
+                         DBUS_AUTH_NAME (auth));
           auth->already_asked_for_initial_response = TRUE;
           return TRUE;
         }
@@ -1003,14 +1013,16 @@ handle_server_data_external_mech (DBusAuth         *auth,
       if (!_dbus_uid_from_string (&auth->identity,
                                   &auth->desired_identity.uid))
         {
-          _dbus_verbose ("could not get credentials from uid string\n");
+          _dbus_verbose ("%s: could not get credentials from uid string\n",
+                         DBUS_AUTH_NAME (auth));
           return send_rejected (auth);
         }
     }
 
   if (auth->desired_identity.uid == DBUS_UID_UNSET)
     {
-      _dbus_verbose ("desired user %s is no good\n",
+      _dbus_verbose ("%s: desired user %s is no good\n",
+                     DBUS_AUTH_NAME (auth),
                      _dbus_string_get_const_data (&auth->identity));
       return send_rejected (auth);
     }
@@ -1023,8 +1035,9 @@ handle_server_data_external_mech (DBusAuth         *auth,
                                 "OK\r\n"))
         return FALSE;
 
-      _dbus_verbose ("authenticated client with UID "DBUS_UID_FORMAT
+      _dbus_verbose ("%s: authenticated client with UID "DBUS_UID_FORMAT
                      " matching socket credentials UID "DBUS_UID_FORMAT"\n",
+                     DBUS_AUTH_NAME (auth),
                      auth->desired_identity.uid,
                      auth->credentials.uid);
       
@@ -1036,10 +1049,11 @@ handle_server_data_external_mech (DBusAuth         *auth,
     }
   else
     {
-      _dbus_verbose ("credentials uid="DBUS_UID_FORMAT
+      _dbus_verbose ("%s: credentials uid="DBUS_UID_FORMAT
                      " gid="DBUS_GID_FORMAT
                      " do not allow uid="DBUS_UID_FORMAT
                      " gid="DBUS_GID_FORMAT"\n",
+                     DBUS_AUTH_NAME (auth),
                      auth->credentials.uid, auth->credentials.gid,
                      auth->desired_identity.uid, auth->desired_identity.gid);
       return send_rejected (auth);
@@ -1263,7 +1277,8 @@ process_auth (DBusAuth         *auth,
       auth->mech = find_mech (&mech, auth->allowed_mechs);
       if (auth->mech != NULL)
         {
-          _dbus_verbose ("Trying mechanism %s with initial response of %d bytes\n",
+          _dbus_verbose ("%s: Trying mechanism %s with initial response of %d bytes\n",
+                         DBUS_AUTH_NAME (auth),
                          auth->mech->mechanism,
                          _dbus_string_get_length (&decoded_response));
           
@@ -1298,7 +1313,8 @@ process_cancel (DBusAuth         *auth,
                 const DBusString *command,
                 const DBusString *args)
 {
-  shutdown_mech (auth);
+  if (!send_rejected (auth))
+    return FALSE;
   
   return TRUE;
 }
@@ -1342,7 +1358,9 @@ process_data_server (DBusAuth         *auth,
 #ifdef DBUS_ENABLE_VERBOSE_MODE
       if (_dbus_string_validate_ascii (&decoded, 0,
                                        _dbus_string_get_length (&decoded)))
-        _dbus_verbose ("data: '%s'\n", _dbus_string_get_const_data (&decoded));
+        _dbus_verbose ("%s: data: '%s'\n",
+                       DBUS_AUTH_NAME (auth),
+                       _dbus_string_get_const_data (&decoded));
 #endif
       
       if (!(* auth->mech->server_data_func) (auth, &decoded))
@@ -1368,6 +1386,11 @@ process_error_server (DBusAuth         *auth,
                       const DBusString *command,
                       const DBusString *args)
 {
+  /* Server got error from client, reject the auth,
+   * as we don't have anything more intelligent to do.
+   */
+  if (!send_rejected (auth))
+    return FALSE;
   
   return TRUE;
 }
@@ -1417,7 +1440,10 @@ record_mechanisms (DBusAuth         *auth,
         goto nomem;
       
       if (!get_word (args, &next, &m))
-        goto nomem;
+        {
+          _dbus_string_free (&m);
+          goto nomem;
+        }
 
       mech = find_mech (&m, auth->allowed_mechs);
 
@@ -1432,16 +1458,20 @@ record_mechanisms (DBusAuth         *auth,
            * it lists things in that order anyhow.
            */
 
-          _dbus_verbose ("Adding mechanism %s to list we will try\n",
-                         mech->mechanism);
+          _dbus_verbose ("%s: Adding mechanism %s to list we will try\n",
+                         DBUS_AUTH_NAME (auth), mech->mechanism);
           
           if (!_dbus_list_append (& DBUS_AUTH_CLIENT (auth)->mechs_to_try,
                                   (void*) mech))
-            goto nomem;
+            {
+              _dbus_string_free (&m);
+              goto nomem;
+            }
         }
       else
         {
-          _dbus_verbose ("Server offered mechanism \"%s\" that we don't know how to use\n",
+          _dbus_verbose ("%s: Server offered mechanism \"%s\" that we don't know how to use\n",
+                         DBUS_AUTH_NAME (auth),
                          _dbus_string_get_const_data (&m));
         }
 
@@ -1478,8 +1508,8 @@ client_try_next_mechanism (DBusAuth *auth)
                                         mech->mechanism))
         {
           /* don't try this one after all */
-          _dbus_verbose ("Mechanism %s isn't in the list of allowed mechanisms\n",
-                         mech->mechanism);
+          _dbus_verbose ("%s: Mechanism %s isn't in the list of allowed mechanisms\n",
+                         DBUS_AUTH_NAME (auth), mech->mechanism);
           mech = NULL;
           _dbus_list_pop_first (& client->mechs_to_try);
         }
@@ -1540,7 +1570,8 @@ client_try_next_mechanism (DBusAuth *auth)
   auth->mech = mech;      
   _dbus_list_pop_first (& DBUS_AUTH_CLIENT (auth)->mechs_to_try);
 
-  _dbus_verbose ("Trying mechanism %s\n",
+  _dbus_verbose ("%s: Trying mechanism %s\n",
+                 DBUS_AUTH_NAME (auth),
                  auth->mech->mechanism);
 
   _dbus_string_free (&auth_command);
@@ -1563,7 +1594,8 @@ process_rejected (DBusAuth         *auth,
   
   if (DBUS_AUTH_CLIENT (auth)->mechs_to_try != NULL)
     {
-      client_try_next_mechanism (auth);
+      if (!client_try_next_mechanism (auth))
+        return FALSE;
     }
   else
     {
@@ -1610,7 +1642,8 @@ process_data_client (DBusAuth         *auth,
       if (_dbus_string_validate_ascii (&decoded, 0,
                                        _dbus_string_get_length (&decoded)))
         {
-          _dbus_verbose ("data: '%s'\n",
+          _dbus_verbose ("%s: data: '%s'\n",
+                         DBUS_AUTH_NAME (auth),
                          _dbus_string_get_const_data (&decoded));
         }
 #endif
@@ -1638,6 +1671,13 @@ process_error_client (DBusAuth         *auth,
                       const DBusString *command,
                       const DBusString *args)
 {
+  /* Cancel current mechanism, as we don't have anything
+   * more clever to do.
+   */
+  if (!_dbus_string_append (&auth->outgoing,
+                            "CANCEL\r\n"))
+    return FALSE;
+  
   return TRUE;
 }
 
@@ -1663,7 +1703,7 @@ process_command (DBusAuth *auth)
   int i, j;
   dbus_bool_t retval;
 
-  /* _dbus_verbose ("  trying process_command()\n"); */
+  /* _dbus_verbose ("%s:   trying process_command()\n"); */
   
   retval = FALSE;
   
@@ -1699,14 +1739,17 @@ process_command (DBusAuth *auth)
   if (!_dbus_string_validate_ascii (&command, 0,
                                     _dbus_string_get_length (&command)))
     {
-      _dbus_verbose ("Command contained non-ASCII chars or embedded nul\n");
+      _dbus_verbose ("%s: Command contained non-ASCII chars or embedded nul\n",
+                     DBUS_AUTH_NAME (auth));
       if (!_dbus_string_append (&auth->outgoing, "ERROR \"Command contained non-ASCII\"\r\n"))
         goto out;
       else
         goto next_command;
     }
   
-  _dbus_verbose ("got command \"%s\"\n", _dbus_string_get_const_data (&command));
+  _dbus_verbose ("%s: got command \"%s\"\n",
+                 DBUS_AUTH_NAME (auth),
+                 _dbus_string_get_const_data (&command));
   
   _dbus_string_find_blank (&command, 0, &i);
   _dbus_string_skip_blank (&command, i, &j);
@@ -1723,7 +1766,8 @@ process_command (DBusAuth *auth)
       if (_dbus_string_equal_c_str (&command,
                                     auth->handlers[i].command))
         {
-          _dbus_verbose ("Processing auth command %s\n",
+          _dbus_verbose ("%s: Processing auth command %s\n",
+                         DBUS_AUTH_NAME (auth),
                          auth->handlers[i].command);
           
           if (!(* auth->handlers[i].func) (auth, &command, &args))
@@ -1948,7 +1992,8 @@ _dbus_auth_do_work (DBusAuth *auth)
           _dbus_string_get_length (&auth->outgoing) > MAX_BUFFER)
         {
           auth->need_disconnect = TRUE;
-          _dbus_verbose ("Disconnecting due to excessive data buffered in auth phase\n");
+          _dbus_verbose ("%s: Disconnecting due to excessive data buffered in auth phase\n",
+                         DBUS_AUTH_NAME (auth));
           break;
         }
 
@@ -1957,7 +2002,8 @@ _dbus_auth_do_work (DBusAuth *auth)
           DBUS_AUTH_CLIENT (auth)->mechs_to_try == NULL)
         {
           auth->need_disconnect = TRUE;
-          _dbus_verbose ("Disconnecting because we are out of mechanisms to try using\n");
+          _dbus_verbose ("%s: Disconnecting because we are out of mechanisms to try using\n",
+                         DBUS_AUTH_NAME (auth));
           break;
         }
     }
@@ -2026,7 +2072,9 @@ void
 _dbus_auth_bytes_sent (DBusAuth *auth,
                        int       bytes_sent)
 {
-  _dbus_verbose ("Sent %d bytes of: %s\n", bytes_sent,
+  _dbus_verbose ("%s: Sent %d bytes of: %s\n",
+                 DBUS_AUTH_NAME (auth),
+                 bytes_sent,
                  _dbus_string_get_const_data (&auth->outgoing));
   
   _dbus_string_delete (&auth->outgoing,

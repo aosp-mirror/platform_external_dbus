@@ -1455,7 +1455,18 @@ fill_user_info (DBusUserInfo       *info,
         
         buf = new;
 
-        getgrouplist (username_c, info->primary_gid, buf, &buf_count);
+        errno = 0;
+        if (getgrouplist (username_c, info->primary_gid, buf, &buf_count) < 0)
+          {
+            dbus_set_error (error,
+                            _dbus_error_from_errno (errno),
+                            "Failed to get groups for username \"%s\" primary GID "
+                            DBUS_GID_FORMAT ": %s\n",
+                            username_c, info->primary_gid,
+                            _dbus_strerror (errno));
+            dbus_free (buf);
+            goto failed;
+          }
       }
 
     info->group_ids = dbus_new (dbus_gid_t, buf_count);
@@ -2121,12 +2132,14 @@ _dbus_string_save_to_file (const DBusString *str,
   if (!_dbus_string_copy (filename, 0, &tmp_filename, 0))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_string_free (&tmp_filename);
       return FALSE;
     }
   
   if (!_dbus_string_append (&tmp_filename, "."))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_string_free (&tmp_filename);
       return FALSE;
     }
 
@@ -2134,6 +2147,7 @@ _dbus_string_save_to_file (const DBusString *str,
   if (!_dbus_generate_random_ascii (&tmp_filename, N_TMP_FILENAME_RANDOM_BYTES))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_string_free (&tmp_filename);
       return FALSE;
     }
     

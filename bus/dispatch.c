@@ -731,7 +731,7 @@ check_hello_message (BusContext     *context,
   if (!dbus_connection_get_is_connected (connection))
     {
       _dbus_verbose ("connection was disconnected\n");
-
+      
       dbus_connection_unref (connection);
       
       return TRUE;
@@ -1974,7 +1974,7 @@ bus_dispatch_sha1_test (const DBusString *test_data_dir)
 
   if (!check_no_leftovers (context))
     {
-      _dbus_warn ("Messages were left over after setting up initial SHA-1 connection");
+      _dbus_warn ("Messages were left over after setting up initial SHA-1 connection\n");
       _dbus_assert_not_reached ("initial connection setup failed");
     }
   

@@ -75,6 +75,16 @@
  */
 #define MAX_TIME_TRAVEL_SECONDS (60*5)
 
+/**
+ * Maximum number of keys in the keyring before
+ * we just ignore the rest
+ */
+#ifdef DBUS_BUILD_TESTS
+#define MAX_KEYS_IN_FILE 10
+#else
+#define MAX_KEYS_IN_FILE 256
+#endif
+
 typedef struct
 {
   dbus_int32_t id; /**< identifier used to refer to the key */
@@ -133,7 +143,7 @@ _dbus_keyring_new (void)
   return keyring;
 
  out_4:
-  _dbus_string_free (&keyring->username);
+  _dbus_string_free (&keyring->filename_lock);
  out_3:
   _dbus_string_free (&keyring->filename);
  out_2:
@@ -337,6 +347,7 @@ add_new_key (DBusKey  **keys_p,
     }
 
   keys = new;
+  *keys_p = keys; /* otherwise *keys_p ends up invalid */
   n_keys += 1;
 
   if (!_dbus_string_init (&keys[n_keys-1].secret))
@@ -355,17 +366,15 @@ add_new_key (DBusKey  **keys_p,
                           0))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_string_free (&keys[n_keys-1].secret);
+      n_keys -= 1;
       goto out;
     }
   
   retval = TRUE;
   
  out:
-  if (retval)
-    {
-      *n_keys_p = n_keys;
-      *keys_p = keys;
-    }
+  *n_keys_p = n_keys;
   
   _dbus_string_free (&bytes);
   return retval;
@@ -451,7 +460,10 @@ _dbus_keyring_reload (DBusKeyring *keyring,
       _dbus_warn ("Secret keyring file contains non-ASCII! Ignoring existing contents\n");
       _dbus_string_set_length (&contents, 0);
     }
-  
+
+  /* FIXME this is badly inefficient for large keyring files
+   * (not that large keyring files exist outside of test suites)
+   */
   while (_dbus_string_pop_line (&contents, &line))
     {
       int next;
@@ -460,6 +472,10 @@ _dbus_keyring_reload (DBusKeyring *keyring,
       long timestamp;
       int len;
       DBusKey *new;
+
+      /* Don't load more than the max. */
+      if (n_keys >= (add_new ? MAX_KEYS_IN_FILE : MAX_KEYS_IN_FILE - 1))
+        break;
       
       next = 0;
       if (!_dbus_string_parse_int (&line, 0, &val, &next))
@@ -584,7 +600,8 @@ _dbus_keyring_reload (DBusKeyring *keyring,
         goto out;
     }
 
-  dbus_free (keyring->keys);
+  if (keyring->keys)
+    free_keys (keyring->keys, keyring->n_keys);
   keyring->keys = keys;
   keyring->n_keys = n_keys;
   keys = NULL;
@@ -693,7 +710,10 @@ _dbus_keyring_new_homedir (const DBusString *username,
   error_set = FALSE;
   
   if (!_dbus_string_init (&homedir))
-    return FALSE;
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return FALSE;
+    }
 
   _dbus_string_init_const (&dotdir, ".dbus-keyrings");
   
@@ -764,8 +784,6 @@ _dbus_keyring_new_homedir (const DBusString *username,
   if (!_dbus_string_copy (&homedir, 0,
                           &keyring->directory, 0))
     goto failed;
-
-  _dbus_string_free (&homedir);
   
   if (!_dbus_concat_dir_and_file (&keyring->directory,
                                   &dotdir))
@@ -806,6 +824,8 @@ _dbus_keyring_new_homedir (const DBusString *username,
                      tmp_error.message);
       dbus_error_free (&tmp_error);
     }
+
+  _dbus_string_free (&homedir);
   
   return keyring;
   
@@ -813,7 +833,7 @@ _dbus_keyring_new_homedir (const DBusString *username,
   if (!error_set)
     dbus_set_error_const (error,
                           DBUS_ERROR_NO_MEMORY,
-                          "No memory to create keyring");
+                          NULL);
   if (keyring)
     _dbus_keyring_unref (keyring);
   _dbus_string_free (&homedir);
