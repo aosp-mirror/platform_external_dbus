@@ -72,8 +72,9 @@ void          _dbus_string_set_byte              (DBusString        *str,
                                                   unsigned char      byte);
 unsigned char _dbus_string_get_byte              (const DBusString  *str,
                                                   int                start);
-dbus_bool_t   _dbus_string_insert_byte           (DBusString        *str,
+dbus_bool_t   _dbus_string_insert_bytes          (DBusString        *str,
                                                   int                i,
+						  int                n_bytes,
                                                   unsigned char      byte);
 dbus_bool_t   _dbus_string_steal_data            (DBusString        *str,
                                                   char             **data_return);

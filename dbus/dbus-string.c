@@ -562,26 +562,30 @@ _dbus_string_get_byte (const DBusString  *str,
 }
 
 /**
- * Inserts the given byte at the given position.
+ * Inserts a number of bytes of a given value at the
+ * given position.
  *
  * @param str the string
  * @param i the position
+ * @param n_bytes number of bytes
  * @param byte the value to insert
  * @returns #TRUE on success
  */
 dbus_bool_t
-_dbus_string_insert_byte (DBusString   *str,
-                          int           i,
-                          unsigned char byte)
+_dbus_string_insert_bytes (DBusString   *str,
+			   int           i,
+			   int           n_bytes,
+			   unsigned char byte)
 {
   DBUS_STRING_PREAMBLE (str);
   _dbus_assert (i <= real->len);
   _dbus_assert (i >= 0);
+  _dbus_assert (n_bytes > 0);
   
-  if (!open_gap (1, real, i))
+  if (!open_gap (n_bytes, real, i))
     return FALSE;
   
-  real->str[i] = byte;
+  memset (real->str + i, byte, n_bytes);
 
   return TRUE;
 }
@@ -3572,23 +3576,26 @@ _dbus_string_test (void)
   _dbus_string_set_byte (&str, 1, 'q');
   _dbus_assert (_dbus_string_get_byte (&str, 1) == 'q');
 
-  if (!_dbus_string_insert_byte (&str, 0, 255))
+  if (!_dbus_string_insert_bytes (&str, 0, 1, 255))
     _dbus_assert_not_reached ("can't insert byte");
 
-  if (!_dbus_string_insert_byte (&str, 2, 'Z'))
+  if (!_dbus_string_insert_bytes (&str, 2, 4, 'Z'))
     _dbus_assert_not_reached ("can't insert byte");
 
-  if (!_dbus_string_insert_byte (&str, _dbus_string_get_length (&str), 'W'))
+  if (!_dbus_string_insert_bytes (&str, _dbus_string_get_length (&str), 1, 'W'))
     _dbus_assert_not_reached ("can't insert byte");
   
   _dbus_assert (_dbus_string_get_byte (&str, 0) == 255);
   _dbus_assert (_dbus_string_get_byte (&str, 1) == 'H');
   _dbus_assert (_dbus_string_get_byte (&str, 2) == 'Z');
-  _dbus_assert (_dbus_string_get_byte (&str, 3) == 'q');
-  _dbus_assert (_dbus_string_get_byte (&str, 4) == 'l');
-  _dbus_assert (_dbus_string_get_byte (&str, 5) == 'l');
-  _dbus_assert (_dbus_string_get_byte (&str, 6) == 'o');
-  _dbus_assert (_dbus_string_get_byte (&str, 7) == 'W');
+  _dbus_assert (_dbus_string_get_byte (&str, 3) == 'Z');
+  _dbus_assert (_dbus_string_get_byte (&str, 4) == 'Z');
+  _dbus_assert (_dbus_string_get_byte (&str, 5) == 'Z');
+  _dbus_assert (_dbus_string_get_byte (&str, 6) == 'q');
+  _dbus_assert (_dbus_string_get_byte (&str, 7) == 'l');
+  _dbus_assert (_dbus_string_get_byte (&str, 8) == 'l');
+  _dbus_assert (_dbus_string_get_byte (&str, 9) == 'o');
+  _dbus_assert (_dbus_string_get_byte (&str, 10) == 'W');
 
   _dbus_string_free (&str);
   

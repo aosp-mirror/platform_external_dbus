@@ -1,3 +1,65 @@
+2003-09-25  Mark McLoughlin  <mark@skynet.ie>
+
+	* doc/dbus-specification.sgml: don't require header fields
+	to be 4-byte aligned and specify that fields should be
+	distinguished from padding by the fact that zero is not
+	a valid field name.
+	
+	* doc/TODO: remove re-alignment item and add item to doc
+	the OBJECT_PATH type.
+	
+	* dbus/dbus-message.c:
+	(HeaderField): rename the original member to value_offset
+	and introduce a name_offset member to keep track of where
+	the field actually begins.
+	(adjust_field_offsets): remove.
+	(append_int_field), (append_uint_field),
+	(append_string_field): don't align the start of the header
+	field to a 4-byte boundary.
+	(get_next_field): impl finding the next marhsalled field
+	after a given field.
+	(re_align_field_recurse): impl re-aligning a number of
+	already marshalled fields.
+	(delete_field): impl deleting a field of any type and
+	re-aligning any following fields.
+	(delete_int_or_uint_field), (delete_string_field): remove.
+	(set_int_field), (set_uint_field): no need to re-check
+	that we have the correct type for the field.
+	(set_string_field): ditto and impl re-aligning any
+	following fields.
+	(decode_header_data): update to take into account that
+	the fields aren't 4-byte aligned any more and the new
+	way to distinguish padding from header fields. Also,
+	don't exit when there is too much header padding.
+	(process_test_subdir): print the directory.
+	(_dbus_message_test): add test to make sure a following
+	field is re-aligned correctly after field deletion.
+	
+	* dbus/dbus-string.[ch]:
+	(_dbus_string_insert_bytes): rename from insert_byte and
+	allow the insert of multiple bytes.
+	(_dbus_string_test): test inserting multiple bytes.
+
+	* dbus/dbus-marshal.c: (_dbus_marshal_set_string): add
+	warning note to docs about having to re-align any
+	marshalled values following the string.
+	
+	* dbus/dbus-message-builder.c:
+	(append_string_field), (_dbus_message_data_load):
+	don't align the header field.
+	
+	* dbus/dbus-auth.c: (process_test_subdir): print the
+	directory.
+	
+	* test/break-loader.c: (randomly_add_one_byte): upd. for
+	insert_byte change.
+	
+	* test/data/invalid-messages/bad-header-field-alignment.message:
+	new test case.
+	
+	* test/data/valid-messages/unknown-header-field.message: shove
+	a dict in the unknown field.
+
 2003-09-25  Seth Nickell  <seth@gnome.org>
 
 	* python/dbus.py:

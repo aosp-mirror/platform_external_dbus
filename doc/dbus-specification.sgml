@@ -265,11 +265,10 @@
       </para>
 
       <para>
-        Header fields MUST be aligned to a 4-byte boundary. Header field
-        names MUST consist of a single byte, possible values of which are
-        defined below. Following the name, the field MUST have a type code
-        represented as a single unsigned byte, and then a properly-aligned
-        value of that type.  See <xref
+        Header field names MUST consist of a single byte, possible values
+        of which are defined below. Following the name, the field MUST have
+        a type code represented as a single unsigned byte, and then a
+        properly-aligned value of that type.  See <xref
         linkend="message-protocol-arguments"> for a description of how each
         type is encoded. If an implementation sees a header field name that
         it does not understand, it MUST ignore that field.
@@ -358,10 +357,9 @@
         buffer while keeping data types aligned, the total length of the header
         must be a multiple of 8 bytes.  To achieve this, the header MUST be padded
         with nul bytes to align its total length on an 8-byte boundary. 
-        The minimum number of padding bytes MUST be used. Because all possible 
-        named fields use at least 8 bytes, implementations can distinguish 
-        padding (which must be less than 8 bytes) from additional named fields
-        (which must be at least 8 bytes).
+        The minimum number of padding bytes MUST be used. Because zero is an
+        invalid field name, implementations can distinguish padding (which must be
+        zero initialized) from additional named fields.
       </para>
     </sect2>
 

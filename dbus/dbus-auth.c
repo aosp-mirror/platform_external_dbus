@@ -2380,7 +2380,7 @@ process_test_subdir (const DBusString          *test_base_dir,
       goto failed;
     }
 
-  printf ("Testing:\n");
+  printf ("Testing %s:\n", subdir);
   
  next:
   while (_dbus_directory_get_next_file (dir, &filename, &error))

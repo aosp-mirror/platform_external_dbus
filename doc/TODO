@@ -90,8 +90,6 @@
  - document the auth protocol as a set of states and transitions, and
    then reimplement it in those terms
 
- - Header fields names are required to be aligned on a 4 byte boundary
-   at the moment. No alignment should be neccessary.
- 
  - dbus_gproxy or dbus_g_proxy?
 
+ - The OBJECT_PATH type is not documented in the spec.

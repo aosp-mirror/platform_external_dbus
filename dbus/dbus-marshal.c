@@ -395,6 +395,10 @@ _dbus_marshal_set_uint64 (DBusString          *str,
  * an existing string or the wrong length will be deleted
  * and replaced with the new string.
  *
+ * Note: no attempt is made by this function to re-align
+ * any data which has been already marshalled after this
+ * string. Use with caution.
+ *
  * @param str the string to write the marshalled string to
  * @param offset the byte offset where string should be written
  * @param byte_order the byte order to use

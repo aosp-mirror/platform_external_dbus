@@ -300,12 +300,6 @@ append_string_field (DBusString *dest,
 {
   int len;
   
-  if (!_dbus_string_align_length (dest, 4))
-    {
-      _dbus_warn ("could not align field name\n");
-      return FALSE;
-    }
-
   if (!_dbus_string_append_byte (dest, field))
     {
       _dbus_warn ("couldn't append field name byte\n");
@@ -709,11 +703,6 @@ _dbus_message_data_load (DBusString       *dest,
 			  _dbus_string_get_const_data (&line));
               goto parse_failed;
             }
-
-          if (unalign)
-            unalign = FALSE;
-          else
-            _dbus_string_align_length (dest, 4);
 
           if (!_dbus_string_append_byte (dest, field))
 	    {
