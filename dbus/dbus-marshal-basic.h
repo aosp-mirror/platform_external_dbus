@@ -22,8 +22,8 @@
  *
  */
 
-#ifndef DBUS_MARSHAL_H
-#define DBUS_MARSHAL_H
+#ifndef DBUS_MARSHAL_BASIC_H
+#define DBUS_MARSHAL_BASIC_H
 
 #include <config.h>
 #include <dbus/dbus-protocol.h>
@@ -320,4 +320,4 @@ dbus_bool_t   _dbus_type_is_fixed             (int               typecode);
 
 
 
-#endif /* DBUS_MARSHAL_H */
+#endif /* DBUS_MARSHAL_BASIC_H */
