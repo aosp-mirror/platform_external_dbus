@@ -52,7 +52,11 @@ bus_policy_rule_new (BusPolicyRuleType type,
       rule->d.group.gid = DBUS_GID_UNSET;
       break;
     case BUS_POLICY_RULE_SEND:
+      rule->d.send.message_type = DBUS_MESSAGE_TYPE_INVALID;
+      break;
     case BUS_POLICY_RULE_RECEIVE:
+      rule->d.receive.message_type = DBUS_MESSAGE_TYPE_INVALID;
+      break;
     case BUS_POLICY_RULE_OWN:
       break;
     }
@@ -80,11 +84,17 @@ bus_policy_rule_unref (BusPolicyRule *rule)
       switch (rule->type)
         {
         case BUS_POLICY_RULE_SEND:
-          dbus_free (rule->d.send.message_name);
+          dbus_free (rule->d.send.path);
+          dbus_free (rule->d.send.interface);
+          dbus_free (rule->d.send.member);
+          dbus_free (rule->d.send.error);
           dbus_free (rule->d.send.destination);
           break;
         case BUS_POLICY_RULE_RECEIVE:
-          dbus_free (rule->d.receive.message_name);
+          dbus_free (rule->d.receive.path);
+          dbus_free (rule->d.receive.interface);
+          dbus_free (rule->d.receive.member);
+          dbus_free (rule->d.receive.error);
           dbus_free (rule->d.receive.origin);
           break;
         case BUS_POLICY_RULE_OWN:
@@ -680,8 +690,8 @@ bus_client_policy_optimize (BusClientPolicy *policy)
 
   /* The idea here is that if we have:
    * 
-   * <allow send="foo"/>
-   * <deny send="*"/>
+   * <allow send_interface="foo.bar"/>
+   * <deny send_interface="*"/>
    *
    * (for example) the deny will always override the allow.  So we
    * delete the allow. Ditto for deny followed by allow, etc. This is
@@ -713,12 +723,20 @@ bus_client_policy_optimize (BusClientPolicy *policy)
         {
         case BUS_POLICY_RULE_SEND:
           remove_preceding =
-            rule->d.send.message_name == NULL &&
+            rule->d.send.message_type == DBUS_MESSAGE_TYPE_INVALID &&
+            rule->d.send.path == NULL &&
+            rule->d.send.interface == NULL &&
+            rule->d.send.member == NULL &&
+            rule->d.send.error == NULL &&
             rule->d.send.destination == NULL;
           break;
         case BUS_POLICY_RULE_RECEIVE:
           remove_preceding =
-            rule->d.receive.message_name == NULL &&
+            rule->d.receive.message_type == DBUS_MESSAGE_TYPE_INVALID &&
+            rule->d.receive.path == NULL &&
+            rule->d.receive.interface == NULL &&
+            rule->d.receive.member == NULL &&
+            rule->d.receive.error == NULL &&
             rule->d.receive.origin == NULL;
           break;
         case BUS_POLICY_RULE_OWN:
@@ -791,16 +809,59 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
           continue;
         }
 
-      if (rule->d.send.message_name != NULL)
+      if (rule->d.send.message_type != DBUS_MESSAGE_TYPE_INVALID)
         {
-          if (!dbus_message_has_name (message,
-                                      rule->d.send.message_name))
+          if (dbus_message_get_type (message) != rule->d.send.message_type)
             {
-              _dbus_verbose ("  (policy) skipping rule for different message name\n");
+              _dbus_verbose ("  (policy) skipping rule for different message type\n");
+              continue;
+            }
+        }
+      
+      if (rule->d.send.path != NULL)
+        {
+          if (dbus_message_get_path (message) != NULL &&
+              strcmp (dbus_message_get_path (message),
+                      rule->d.send.path) != 0)
+            {
+              _dbus_verbose ("  (policy) skipping rule for different path\n");
+              continue;
+            }
+        }
+      
+      if (rule->d.send.interface != NULL)
+        {
+          if (dbus_message_get_interface (message) != NULL &&
+              strcmp (dbus_message_get_interface (message),
+                      rule->d.send.interface) != 0)
+            {
+              _dbus_verbose ("  (policy) skipping rule for different interface\n");
               continue;
             }
         }
 
+      if (rule->d.send.member != NULL)
+        {
+          if (dbus_message_get_member (message) != NULL &&
+              strcmp (dbus_message_get_member (message),
+                      rule->d.send.member) != 0)
+            {
+              _dbus_verbose ("  (policy) skipping rule for different member\n");
+              continue;
+            }
+        }
+
+      if (rule->d.send.error != NULL)
+        {
+          if (dbus_message_get_error_name (message) != NULL &&
+              strcmp (dbus_message_get_error_name (message),
+                      rule->d.send.error) != 0)
+            {
+              _dbus_verbose ("  (policy) skipping rule for different error name\n");
+              continue;
+            }
+        }
+      
       if (rule->d.send.destination != NULL)
         {
           /* receiver can be NULL for messages that are sent to the
@@ -856,16 +917,33 @@ dbus_bool_t
 bus_client_policy_check_can_receive (BusClientPolicy *policy,
                                      BusRegistry     *registry,
                                      DBusConnection  *sender,
+                                     DBusConnection  *addressed_recipient,
+                                     DBusConnection  *proposed_recipient,
                                      DBusMessage     *message)
 {
   DBusList *link;
   dbus_bool_t allowed;
+  dbus_bool_t eavesdropping;
+  
+  /* NULL sender, proposed_recipient means the bus driver.  NULL
+   * addressed_recipient means the message didn't specify an explicit
+   * target. If proposed_recipient is NULL, then addressed_recipient
+   * is also NULL but is implicitly the bus driver.
+   */
+
+  _dbus_assert (proposed_recipient == NULL ||
+                (dbus_message_get_destination (message) == NULL ||
+                 addressed_recipient != NULL));
+  
+  eavesdropping =
+    (proposed_recipient == NULL || /* explicitly to bus driver */
+     (addressed_recipient && addressed_recipient != proposed_recipient)); /* explicitly to a different recipient */
   
   /* policy->rules is in the order the rules appeared
    * in the config file, i.e. last rule that applies wins
    */
 
-  _dbus_verbose ("  (policy) checking receive rules\n");
+  _dbus_verbose ("  (policy) checking receive rules, eavesdropping = %d\n", eavesdropping);
   
   allowed = FALSE;
   link = _dbus_list_get_first_link (&policy->rules);
@@ -873,12 +951,7 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
     {
       BusPolicyRule *rule = link->data;
 
-      link = _dbus_list_get_next_link (&policy->rules, link);
-      
-      /* Rule is skipped if it specifies a different
-       * message name from the message, or a different
-       * origin from the message
-       */
+      link = _dbus_list_get_next_link (&policy->rules, link);      
       
       if (rule->type != BUS_POLICY_RULE_RECEIVE)
         {
@@ -886,16 +959,77 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
           continue;
         }
 
-      if (rule->d.receive.message_name != NULL)
+      if (rule->d.receive.message_type != DBUS_MESSAGE_TYPE_INVALID)
         {
-          if (!dbus_message_has_name (message,
-                                      rule->d.receive.message_name))
+          if (dbus_message_get_type (message) != rule->d.receive.message_type)
             {
-              _dbus_verbose ("  (policy) skipping rule for different message name\n");
+              _dbus_verbose ("  (policy) skipping rule for different message type\n");
               continue;
             }
         }
 
+      /* for allow, eavesdrop=false means the rule doesn't apply when
+       * eavesdropping. eavesdrop=true means always allow.
+       */
+      if (eavesdropping && rule->allow && !rule->d.receive.eavesdrop)
+        {
+          _dbus_verbose ("  (policy) skipping allow rule since it doesn't apply to eavesdropping\n");
+          continue;
+        }
+
+      /* for deny, eavesdrop=true means the rule applies only when
+       * eavesdropping; eavesdrop=false means always deny.
+       */
+      if (!eavesdropping && !rule->allow && rule->d.receive.eavesdrop)
+        {
+          _dbus_verbose ("  (policy) skipping deny rule since it only applies to eavesdropping\n");
+          continue;
+        }
+      
+      if (rule->d.receive.path != NULL)
+        {
+          if (dbus_message_get_path (message) != NULL &&
+              strcmp (dbus_message_get_path (message),
+                      rule->d.receive.path) != 0)
+            {
+              _dbus_verbose ("  (policy) skipping rule for different path\n");
+              continue;
+            }
+        }
+      
+      if (rule->d.receive.interface != NULL)
+        {
+          if (dbus_message_get_interface (message) != NULL &&
+              strcmp (dbus_message_get_interface (message),
+                      rule->d.receive.interface) != 0)
+            {
+              _dbus_verbose ("  (policy) skipping rule for different interface\n");
+              continue;
+            }
+        }      
+
+      if (rule->d.receive.member != NULL)
+        {
+          if (dbus_message_get_member (message) != NULL &&
+              strcmp (dbus_message_get_member (message),
+                      rule->d.receive.member) != 0)
+            {
+              _dbus_verbose ("  (policy) skipping rule for different member\n");
+              continue;
+            }
+        }
+
+      if (rule->d.receive.error != NULL)
+        {
+          if (dbus_message_get_error_name (message) != NULL &&
+              strcmp (dbus_message_get_error_name (message),
+                      rule->d.receive.error) != 0)
+            {
+              _dbus_verbose ("  (policy) skipping rule for different error name\n");
+              continue;
+            }
+        }
+      
       if (rule->d.receive.origin != NULL)
         {          
           /* sender can be NULL for messages that originate from the
@@ -937,7 +1071,7 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
                 }
             }
         }
-
+      
       /* Use this rule */
       allowed = rule->allow;
 

@@ -16,8 +16,11 @@ if DBUS_USE_MCS
    MONO_SUBDIR=mono
 endif
 
+if HAVE_PYTHON
+   PYTHON_SUBDIR=python
+endif
 
-SUBDIRS=dbus bus test doc $(GLIB_SUBDIR) $(GCJ_SUBDIR) $(MONO_SUBDIR) $(QT_SUBDIR) tools
+SUBDIRS=dbus bus doc $(GLIB_SUBDIR) $(GCJ_SUBDIR) $(MONO_SUBDIR) $(QT_SUBDIR) $(PYTHON_SUBDIR) test tools
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = dbus-1.pc $(GLIB_PC)

@@ -4,11 +4,9 @@ Makefile
 Makefile.in
 *.lo
 *.la
-test-dbus-glib
+dbus-glib-test
+dbus-glib-tool
 *.bb
 *.bbg
 *.da
 *.gcov
-test-thread-client
-test-thread-server
-test-profile

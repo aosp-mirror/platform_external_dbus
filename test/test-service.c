@@ -37,9 +37,9 @@ handle_echo (DBusConnection     *connection,
                               DBUS_TYPE_STRING, &s,
                               DBUS_TYPE_INVALID))
     {
-      reply = dbus_message_new_error_reply (message,
-                                            error.name,
-                                            error.message);
+      reply = dbus_message_new_error (message,
+                                      error.name,
+                                      error.message);
 
       if (reply == NULL)
         die ("No memory\n");
@@ -49,10 +49,10 @@ handle_echo (DBusConnection     *connection,
 
       dbus_message_unref (reply);
 
-      return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
 
-  reply = dbus_message_new_reply (message);
+  reply = dbus_message_new_method_return (message);
   if (reply == NULL)
     die ("No memory\n");
 
@@ -68,27 +68,32 @@ handle_echo (DBusConnection     *connection,
   
   dbus_message_unref (reply);
     
-  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
 static DBusHandlerResult
-filter_func (DBusMessageHandler *handler,
-             DBusConnection     *connection,
+filter_func (DBusConnection     *connection,
              DBusMessage        *message,
              void               *user_data)
 {  
-  if (dbus_message_has_name (message, "org.freedesktop.DBus.TestSuiteEcho"))
+  if (dbus_message_is_method_call (message,
+                                   "org.freedesktop.TestSuite",
+                                   "Echo"))
     return handle_echo (connection, message);
-  else if (dbus_message_has_name (message, "org.freedesktop.DBus.TestSuiteExit") ||
-           dbus_message_has_name (message, DBUS_MESSAGE_LOCAL_DISCONNECT))
+  else if (dbus_message_is_method_call (message,
+                                        "org.freedesktop.TestSuite",
+                                        "Exit") ||
+           dbus_message_is_signal (message,
+                                   DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                                   "Disconnected"))
     {
       dbus_connection_disconnect (connection);
       quit ();
-      return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+      return DBUS_HANDLER_RESULT_HANDLED;
     }
   else
     {
-      return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
 }
 
@@ -98,16 +103,10 @@ main (int    argc,
 {
   DBusConnection *connection;
   DBusError error;
-  DBusMessageHandler *handler;
-  const char *to_handle[] = {
-    "org.freedesktop.DBus.TestSuiteEcho",
-    "org.freedesktop.DBus.TestSuiteExit",
-    DBUS_MESSAGE_LOCAL_DISCONNECT,
-  };
   int result;
   
   dbus_error_init (&error);
-  connection = dbus_bus_get (DBUS_BUS_ACTIVATION, &error);
+  connection = dbus_bus_get (DBUS_BUS_SESSION, &error);
   if (connection == NULL)
     {
       _dbus_verbose ("*** Failed to open connection to activating message bus: %s\n",
@@ -123,18 +122,17 @@ main (int    argc,
   if (!test_connection_setup (loop, connection))
     die ("No memory\n");
 
-  handler = dbus_message_handler_new (filter_func, NULL, NULL);
-  if (handler == NULL)
+  if (!dbus_connection_add_filter (connection,
+                                   filter_func, NULL, NULL))
     die ("No memory");
-  
-  if (!dbus_connection_register_handler (connection, handler, to_handle,
-                                         _DBUS_N_ELEMENTS (to_handle)))
-    die ("No memory");
+
+  printf ("Acquiring service\n");
 
   result = dbus_bus_acquire_service (connection, "org.freedesktop.DBus.TestSuiteEchoService",
                                      0, &error);
   if (dbus_error_is_set (&error))
     {
+      printf ("Error %s", error.message);
       _dbus_verbose ("*** Failed to acquire service: %s\n",
                      error.message);
       dbus_error_free (&error);
@@ -145,10 +143,10 @@ main (int    argc,
   _dbus_loop_run (loop);
 
   test_connection_shutdown (loop, connection);
+
+  dbus_connection_remove_filter (connection, filter_func, NULL);
   
   dbus_connection_unref (connection);
-  
-  dbus_message_handler_unref (handler);
 
   _dbus_loop_unref (loop);
   loop = NULL;

@@ -25,6 +25,7 @@
 #include "dbus-server-unix.h"
 #include "dbus-transport-unix.h"
 #include "dbus-connection-internal.h"
+#include "dbus-string.h"
 #include <sys/types.h>
 #include <unistd.h>
 

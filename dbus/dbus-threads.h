@@ -66,30 +66,34 @@ typedef enum
   DBUS_THREAD_FUNCTIONS_ALL_MASK     = (1 << 10) - 1
 } DBusThreadFunctionsMask;
 
+/**
+ * Functions that must be implemented to make the D-BUS
+ * library thread-aware. 
+ */
 typedef struct
 {
-  unsigned int mask;
+  unsigned int mask; /**< Mask indicating which functions are present. */
 
-  DBusMutexNewFunction mutex_new;
-  DBusMutexFreeFunction mutex_free;
-  DBusMutexLockFunction mutex_lock;
-  DBusMutexUnlockFunction mutex_unlock;
+  DBusMutexNewFunction mutex_new; /**< Function to create a mutex */
+  DBusMutexFreeFunction mutex_free; /**< Function to free a mutex */
+  DBusMutexLockFunction mutex_lock; /**< Function to lock a mutex */
+  DBusMutexUnlockFunction mutex_unlock; /**< Function to unlock a mutex */
 
-  DBusCondVarNewFunction condvar_new;
-  DBusCondVarFreeFunction condvar_free;
-  DBusCondVarWaitFunction condvar_wait;
-  DBusCondVarWaitTimeoutFunction condvar_wait_timeout;
-  DBusCondVarWakeOneFunction condvar_wake_one;
-  DBusCondVarWakeAllFunction condvar_wake_all;
+  DBusCondVarNewFunction condvar_new; /**< Function to create a condition variable */
+  DBusCondVarFreeFunction condvar_free; /**< Function to free a condition variable */
+  DBusCondVarWaitFunction condvar_wait; /**< Function to wait on a condition */
+  DBusCondVarWaitTimeoutFunction condvar_wait_timeout; /**< Function to wait on a condition with a timeout */
+  DBusCondVarWakeOneFunction condvar_wake_one; /**< Function to wake one thread waiting on the condition */
+  DBusCondVarWakeAllFunction condvar_wake_all; /**< Function to wake all threads waiting on the condition */
   
-  void (* padding1) (void);
-  void (* padding2) (void);
-  void (* padding3) (void);
-  void (* padding4) (void);
-  void (* padding5) (void);
-  void (* padding6) (void);
-  void (* padding7) (void);
-  void (* padding8) (void);
+  void (* padding1) (void); /**< Reserved for future expansion */
+  void (* padding2) (void); /**< Reserved for future expansion */
+  void (* padding3) (void); /**< Reserved for future expansion */
+  void (* padding4) (void); /**< Reserved for future expansion */
+  void (* padding5) (void); /**< Reserved for future expansion */
+  void (* padding6) (void); /**< Reserved for future expansion */
+  void (* padding7) (void); /**< Reserved for future expansion */
+  void (* padding8) (void); /**< Reserved for future expansion */
   
 } DBusThreadFunctions;
 

@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus.h  Convenience header including all other headers
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -37,7 +37,7 @@
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-message.h>
-#include <dbus/dbus-message-handler.h>
+#include <dbus/dbus-pending-call.h>
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-server.h>
 #include <dbus/dbus-threads.h>

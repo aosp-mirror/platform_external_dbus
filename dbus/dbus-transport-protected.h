@@ -34,6 +34,10 @@ DBUS_BEGIN_DECLS;
 
 typedef struct DBusTransportVTable DBusTransportVTable;
 
+/**
+ * The virtual table that must be implemented to
+ * create a new kind of transport.
+ */
 struct DBusTransportVTable
 {
   void        (* finalize)              (DBusTransport *transport);
@@ -69,6 +73,12 @@ struct DBusTransportVTable
   /**< Outstanding messages counter changed */
 };
 
+/**
+ * Object representing a transport such as a socket.
+ * A transport can shuttle messages from point A to point B,
+ * and is the backend for a #DBusConnection.
+ *
+ */
 struct DBusTransport
 {
   int refcount;                               /**< Reference count. */

@@ -2,11 +2,17 @@
 ## invalid
 
 ## VALID_HEADER includes a LENGTH Header and LENGTH Body
-VALID_HEADER
-FIELD_NAME name
+VALID_HEADER method_call
+
+HEADER_FIELD INTERFACE
 TYPE STRING
-STRING 'org.freedesktop.Local.Disconnect'
+STRING 'org.freedesktop.Local'
+HEADER_FIELD MEMBER
+TYPE STRING
+STRING 'Disconnected'
+
 ALIGN 8
 END_LENGTH Header
+
 START_LENGTH Body
 END_LENGTH Body

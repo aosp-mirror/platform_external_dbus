@@ -59,6 +59,13 @@ dbus_bool_t     dbus_bus_activate_service (DBusConnection *connection,
 					   dbus_uint32_t  *reply,
 					   DBusError      *error);
 
+void            dbus_bus_add_match        (DBusConnection *connection,
+                                           const char     *rule,
+                                           DBusError      *error);
+void            dbus_bus_remove_match     (DBusConnection *connection,
+                                           const char     *rule,
+                                           DBusError      *error);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_BUS_H */

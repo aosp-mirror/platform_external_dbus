@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-connection.h DBusConnection object
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -28,22 +28,17 @@
 #define DBUS_CONNECTION_H
 
 #include <dbus/dbus-errors.h>
-#include <dbus/dbus-message.h>
 #include <dbus/dbus-memory.h>
+#include <dbus/dbus-message.h>
 
 DBUS_BEGIN_DECLS;
 
-typedef struct DBusConnection DBusConnection;
 typedef struct DBusWatch DBusWatch;
 typedef struct DBusTimeout DBusTimeout;
-typedef struct DBusMessageHandler DBusMessageHandler;
 typedef struct DBusPreallocatedSend DBusPreallocatedSend;
-
-typedef enum
-{
-  DBUS_HANDLER_RESULT_REMOVE_MESSAGE,     /**< Remove this message, no further processing. */
-  DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS /**< Run any additional handlers that are interested in this message. */
-} DBusHandlerResult;
+typedef struct DBusPendingCall DBusPendingCall;
+typedef struct DBusConnection DBusConnection;
+typedef struct DBusObjectPathVTable DBusObjectPathVTable;
 
 typedef enum
 {
@@ -62,6 +57,13 @@ typedef enum
   DBUS_DISPATCH_COMPLETE,      /**< All currently available data has been processed. */
   DBUS_DISPATCH_NEED_MEMORY    /**< More memory is needed to continue. */
 } DBusDispatchStatus;
+
+typedef enum
+{
+  DBUS_HANDLER_RESULT_HANDLED,         /**< Message has had its effect */ 
+  DBUS_HANDLER_RESULT_NOT_YET_HANDLED, /**< Message has not had any effect */
+  DBUS_HANDLER_RESULT_NEED_MEMORY      /**< Need more memory to return another result */
+} DBusHandlerResult;
 
 typedef dbus_bool_t (* DBusAddWatchFunction)       (DBusWatch      *watch,
                                                     void           *data);
@@ -83,6 +85,14 @@ typedef dbus_bool_t (* DBusAllowUnixUserFunction)  (DBusConnection *connection,
                                                     unsigned long   uid,
                                                     void           *data);
 
+typedef void (* DBusPendingCallNotifyFunction) (DBusPendingCall *pending,
+                                                void            *user_data);
+
+
+typedef DBusHandlerResult (* DBusHandleMessageFunction) (DBusConnection     *connection,
+                                                         DBusMessage        *message,
+                                                         void               *user_data);
+
 DBusConnection*    dbus_connection_open                         (const char                 *address,
                                                                  DBusError                  *error);
 void               dbus_connection_ref                          (DBusConnection             *connection);
@@ -90,6 +100,8 @@ void               dbus_connection_unref                        (DBusConnection 
 void               dbus_connection_disconnect                   (DBusConnection             *connection);
 dbus_bool_t        dbus_connection_get_is_connected             (DBusConnection             *connection);
 dbus_bool_t        dbus_connection_get_is_authenticated         (DBusConnection             *connection);
+void               dbus_connection_set_exit_on_disconnect       (DBusConnection             *connection,
+                                                                 dbus_bool_t                 exit_on_disconnect);
 void               dbus_connection_flush                        (DBusConnection             *connection);
 DBusMessage*       dbus_connection_borrow_message               (DBusConnection             *connection);
 void               dbus_connection_return_message               (DBusConnection             *connection,
@@ -104,7 +116,7 @@ dbus_bool_t        dbus_connection_send                         (DBusConnection 
                                                                  dbus_uint32_t              *client_serial);
 dbus_bool_t        dbus_connection_send_with_reply              (DBusConnection             *connection,
                                                                  DBusMessage                *message,
-                                                                 DBusMessageHandler         *reply_handler,
+                                                                 DBusPendingCall           **pending_return,
                                                                  int                         timeout_milliseconds);
 DBusMessage *      dbus_connection_send_with_reply_and_block    (DBusConnection             *connection,
                                                                  DBusMessage                *message,
@@ -156,22 +168,18 @@ void        dbus_timeout_set_data     (DBusTimeout      *timeout,
 dbus_bool_t dbus_timeout_handle       (DBusTimeout      *timeout);
 dbus_bool_t dbus_timeout_get_enabled  (DBusTimeout      *timeout);
 
-/* Handlers */
-dbus_bool_t dbus_connection_add_filter         (DBusConnection      *connection,
-                                                DBusMessageHandler  *handler);
-void        dbus_connection_remove_filter      (DBusConnection      *connection,
-                                                DBusMessageHandler  *handler);
+/* Filters */
 
-dbus_bool_t dbus_connection_register_handler   (DBusConnection      *connection,
-                                                DBusMessageHandler  *handler,
-                                                const char         **messages_to_handle,
-                                                int                  n_messages);
-void        dbus_connection_unregister_handler (DBusConnection      *connection,
-                                                DBusMessageHandler  *handler,
-                                                const char         **messages_to_handle,
-                                                int                  n_messages);
+dbus_bool_t dbus_connection_add_filter    (DBusConnection            *connection,
+                                           DBusHandleMessageFunction  function,
+                                           void                      *user_data,
+                                           DBusFreeFunction           free_data_function);
+void        dbus_connection_remove_filter (DBusConnection            *connection,
+                                           DBusHandleMessageFunction  function,
+                                           void                      *user_data);
 
 
+/* Other */
 dbus_bool_t dbus_connection_allocate_data_slot (dbus_int32_t     *slot_p);
 void        dbus_connection_free_data_slot     (dbus_int32_t     *slot_p);
 dbus_bool_t dbus_connection_set_data           (DBusConnection   *connection,
@@ -199,6 +207,44 @@ void                  dbus_connection_send_preallocated      (DBusConnection    
                                                               DBusMessage          *message,
                                                               dbus_uint32_t        *client_serial);
 
+
+/* Object tree functionality */
+
+typedef void              (* DBusObjectPathUnregisterFunction) (DBusConnection  *connection,
+                                                                void            *user_data);
+typedef DBusHandlerResult (* DBusObjectPathMessageFunction)    (DBusConnection  *connection,
+                                                                DBusMessage     *message,
+                                                                void            *user_data);
+
+/**
+ * Virtual table that must be implemented to handle a portion of the
+ * object path hierarchy.
+ */
+struct DBusObjectPathVTable
+{
+  DBusObjectPathUnregisterFunction   unregister_function; /**< Function to unregister this handler */
+  DBusObjectPathMessageFunction      message_function; /**< Function to handle messages */
+  
+  void (* dbus_internal_pad1) (void *); /**< Reserved for future expansion */
+  void (* dbus_internal_pad2) (void *); /**< Reserved for future expansion */
+  void (* dbus_internal_pad3) (void *); /**< Reserved for future expansion */
+  void (* dbus_internal_pad4) (void *); /**< Reserved for future expansion */
+};
+
+dbus_bool_t dbus_connection_register_object_path   (DBusConnection              *connection,
+                                                    const char                 **path,
+                                                    const DBusObjectPathVTable  *vtable,
+                                                    void                        *user_data);
+dbus_bool_t dbus_connection_register_fallback      (DBusConnection              *connection,
+                                                    const char                 **path,
+                                                    const DBusObjectPathVTable  *vtable,
+                                                    void                        *user_data);
+void        dbus_connection_unregister_object_path (DBusConnection              *connection,
+                                                    const char                 **path);
+
+dbus_bool_t dbus_connection_list_registered        (DBusConnection              *connection,
+                                                    const char                 **parent_path,
+                                                    char                      ***child_entries);
 
 DBUS_END_DECLS;
 

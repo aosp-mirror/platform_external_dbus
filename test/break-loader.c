@@ -287,8 +287,8 @@ randomly_add_one_byte (const DBusString *orig_data,
 
   i = random_int_in_range (0, _dbus_string_get_length (mutated));
 
-  _dbus_string_insert_byte (mutated, i,
-                            random_int_in_range (0, 256));
+  _dbus_string_insert_bytes (mutated, i, 1,
+			     random_int_in_range (0, 256));
 }
 
 static void

@@ -248,7 +248,7 @@ _dbus_verbose_reset_real (void)
 char*
 _dbus_strdup (const char *str)
 {
-  int len;
+  size_t len;
   char *copy;
   
   if (str == NULL)
@@ -261,6 +261,29 @@ _dbus_strdup (const char *str)
     return NULL;
 
   memcpy (copy, str, len + 1);
+  
+  return copy;
+}
+
+/**
+ * Duplicates a block of memory. Returns
+ * #NULL on failure.
+ *
+ * @param mem memory to copy
+ * @param n_bytes number of bytes to copy
+ * @returns the copy
+ */
+void*
+_dbus_memdup (const void  *mem,
+              size_t       n_bytes)
+{
+  void *copy;
+
+  copy = dbus_malloc (n_bytes);
+  if (copy == NULL)
+    return NULL;
+
+  memcpy (copy, mem, n_bytes);
   
   return copy;
 }
@@ -366,7 +389,40 @@ _dbus_type_to_string (int type)
     }
 }
 
+/**
+ * Returns a string describing the given name.
+ *
+ * @param header_field the field to describe
+ * @returns a constant string describing the field
+ */
+const char *
+_dbus_header_field_to_string (int header_field)
+{
+  switch (header_field)
+    {
+    case DBUS_HEADER_FIELD_INVALID:
+      return "invalid";
+    case DBUS_HEADER_FIELD_PATH:
+      return "path";
+    case DBUS_HEADER_FIELD_INTERFACE:
+      return "interface";
+    case DBUS_HEADER_FIELD_MEMBER:
+      return "member";
+    case DBUS_HEADER_FIELD_ERROR_NAME:
+      return "error-name";
+    case DBUS_HEADER_FIELD_REPLY_SERIAL:
+      return "reply-serial";
+    case DBUS_HEADER_FIELD_SERVICE:
+      return "service";
+    case DBUS_HEADER_FIELD_SENDER_SERVICE:
+      return "sender-service";
+    default:
+      return "unknown";
+    }
+}
+
 #ifndef DBUS_DISABLE_CHECKS
+/** String used in _dbus_return_if_fail macro */
 const char _dbus_return_if_fail_warning_format[] =
 "Arguments to %s were incorrect, assertion \"%s\" failed in file %s line %d.\n"
 "This is normally a bug in some application using the D-BUS library.\n";

@@ -73,13 +73,17 @@ swap_bytes (unsigned char *data,
 }
 #endif /* !DBUS_HAVE_INT64 */
 
+/**
+ * Union used to manipulate 8 bytes as if they
+ * were various types. 
+ */
 typedef union
 {
 #ifdef DBUS_HAVE_INT64
-  dbus_int64_t  s;
-  dbus_uint64_t u;
+  dbus_int64_t  s; /**< 64-bit integer */
+  dbus_uint64_t u; /**< 64-bit unsinged integer */
 #endif
-  double d;
+  double d;        /**< double */
 } DBusOctets8;
 
 static DBusOctets8
@@ -98,7 +102,8 @@ unpack_8_octets (int                  byte_order,
     r.u = DBUS_UINT64_FROM_BE (*(dbus_uint64_t*)data);
 #else
   r.d = *(double*)data;
-  swap_bytes (&r, sizeof (r));
+  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
+    swap_bytes ((unsigned char*) &r, sizeof (r));
 #endif
   
   return r;
@@ -390,6 +395,10 @@ _dbus_marshal_set_uint64 (DBusString          *str,
  * an existing string or the wrong length will be deleted
  * and replaced with the new string.
  *
+ * Note: no attempt is made by this function to re-align
+ * any data which has been already marshalled after this
+ * string. Use with caution.
+ *
  * @param str the string to write the marshalled string to
  * @param offset the byte offset where string should be written
  * @param byte_order the byte order to use
@@ -421,6 +430,30 @@ _dbus_marshal_set_string (DBusString          *str,
                             offset, len);
 
   return TRUE;
+}
+
+/**
+ * Sets the existing marshaled object path at the given offset to a new
+ * value. The given offset must point to an existing object path or this
+ * function doesn't make sense.
+ *
+ * @todo implement this function
+ *
+ * @param str the string to write the marshalled path to
+ * @param offset the byte offset where path should be written
+ * @param byte_order the byte order to use
+ * @param path the new path
+ * @param path_len number of elements in the path
+ */
+void
+_dbus_marshal_set_object_path (DBusString         *str,
+                               int                 byte_order,
+                               int                 offset,
+                               const char        **path,
+                               int                 path_len)
+{
+
+  /* FIXME */
 }
 
 static dbus_bool_t
@@ -682,7 +715,7 @@ marshal_8_octets_array (DBusString          *str,
 #ifdef DBUS_HAVE_INT64
           *((dbus_uint64_t*)d) = DBUS_UINT64_SWAP_LE_BE (*((dbus_uint64_t*)d));
 #else
-          swap_bytes (d, 8);
+          swap_bytes ((unsigned char*) d, 8);
 #endif
           d += 8;
         }
@@ -842,6 +875,58 @@ _dbus_marshal_string_array (DBusString  *str,
   _dbus_string_set_length (str, old_string_len);
   
   return FALSE;      
+}
+
+/**
+ * Marshals an object path value.
+ * 
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param path the path
+ * @param path_len length of the path
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_marshal_object_path (DBusString            *str,
+                           int                    byte_order,
+                           const char           **path,
+                           int                    path_len)
+{
+  int array_start, old_string_len;
+  int i;
+  
+  old_string_len = _dbus_string_get_length (str);
+  
+  /* Set the length to 0 temporarily */
+  if (!_dbus_marshal_uint32 (str, byte_order, 0))
+    goto nomem;
+
+  array_start = _dbus_string_get_length (str);
+  
+  i = 0;
+  while (i < path_len)
+    {
+      if (!_dbus_string_append_byte (str, '/'))
+        goto nomem;
+      
+      if (!_dbus_string_append (str, path[0]))
+        goto nomem;
+
+      ++i;
+    }
+
+  /* Write the length now that we know it */
+  _dbus_marshal_set_uint32 (str, byte_order,
+			    _DBUS_ALIGN_VALUE (old_string_len, sizeof(dbus_uint32_t)),
+			    _dbus_string_get_length (str) - array_start);  
+
+  return TRUE;
+
+ nomem:
+  /* Restore the previous length */
+  _dbus_string_set_length (str, old_string_len);
+  
+  return FALSE;
 }
 
 static dbus_uint32_t
@@ -1174,7 +1259,7 @@ demarshal_8_octets_array (const DBusString  *str,
 #ifdef DBUS_HAVE_INT64
           retval[i].u = DBUS_UINT64_SWAP_LE_BE (retval[i].u);
 #else
-          swap_bytes (&retval[i], 8);
+          swap_bytes ((unsigned char *) &retval[i], 8);
 #endif
         }
     }
@@ -1393,6 +1478,105 @@ _dbus_demarshal_string_array (const DBusString   *str,
   return FALSE;
 }
 
+/** Set to 1 to get a bunch of spew about disassembling the path string */
+#define VERBOSE_DECOMPOSE 0
+
+/**
+ * Demarshals an object path.  A path of just "/" is
+ * represented as an empty vector of strings.
+ * 
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @param path address to store new object path
+ * @param path_len length of stored path
+ */
+dbus_bool_t
+_dbus_demarshal_object_path (const DBusString *str,
+                             int               byte_order,
+                             int               pos,
+                             int              *new_pos,
+                             char           ***path,
+                             int              *path_len)
+{
+  int len;
+  char **retval;
+  const char *data;
+  int n_components;
+  int i, j, comp;
+  
+  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+  data = _dbus_string_get_const_data_len (str, pos, len + 1);
+  _dbus_assert (data != NULL);
+
+#if VERBOSE_DECOMPOSE
+  _dbus_verbose ("Decomposing path \"%s\"\n",
+                 data);
+#endif
+  
+  n_components = 0;
+  i = 0;
+  while (i < len)
+    {
+      if (data[i] == '/')
+        n_components += 1;
+      ++i;
+    }
+  
+  retval = dbus_new0 (char*, n_components + 1);
+
+  if (retval == NULL)
+    return FALSE;
+
+  comp = 0;
+  i = 0;
+  while (i < len)
+    {
+      if (data[i] == '/')
+        ++i;
+      j = i;
+
+      while (j < len && data[j] != '/')
+        ++j;
+
+      /* Now [i, j) is the path component */
+      _dbus_assert (i < j);
+      _dbus_assert (data[i] != '/');
+      _dbus_assert (j == len || data[j] == '/');
+
+#if VERBOSE_DECOMPOSE
+      _dbus_verbose ("  (component in [%d,%d))\n",
+                     i, j);
+#endif
+      
+      retval[comp] = _dbus_memdup (&data[i], j - i + 1);
+      if (retval[comp] == NULL)
+        {
+          dbus_free_string_array (retval);
+          return FALSE;
+        }
+      retval[comp][j-i] = '\0';
+#if VERBOSE_DECOMPOSE
+      _dbus_verbose ("  (component %d = \"%s\")\n",
+                     comp, retval[comp]);
+#endif
+
+      ++comp;
+      i = j;
+    }
+  _dbus_assert (i == len);
+  
+  *path = retval;
+  if (path_len)
+    *path_len = n_components;
+  
+  if (new_pos)
+    *new_pos = pos + len + 1;
+  
+  return TRUE;
+}
+
 /** 
  * Returns the position right after the end of an argument.  PERFORMS
  * NO VALIDATION WHATSOEVER. The message must have been previously
@@ -1435,32 +1619,18 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
       break;
 
     case DBUS_TYPE_INT32:
-      *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_int32_t)) + sizeof (dbus_int32_t);
-
-      break;
-
     case DBUS_TYPE_UINT32:
-      *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_uint32_t)) + sizeof (dbus_uint32_t);
-
+      *end_pos = _DBUS_ALIGN_VALUE (pos, 4) + 4;
       break;
 
-#ifdef DBUS_HAVE_INT64
     case DBUS_TYPE_INT64:
-      *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_int64_t)) + sizeof (dbus_int64_t);
-
-      break;
-
     case DBUS_TYPE_UINT64:
-      *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_uint64_t)) + sizeof (dbus_uint64_t);
-
-      break;
-#endif /* DBUS_HAVE_INT64 */
-      
     case DBUS_TYPE_DOUBLE:
-      *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (double)) + sizeof (double);
-
+      
+      *end_pos = _DBUS_ALIGN_VALUE (pos, 8) + 8;
       break;
 
+    case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_STRING:
       {
 	int len;
@@ -1664,6 +1834,7 @@ validate_array_data (const DBusString *str,
     case DBUS_TYPE_NIL:
       break;
 
+    case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_NAMED:      
     case DBUS_TYPE_ARRAY:
@@ -1744,10 +1915,6 @@ validate_array_data (const DBusString *str,
  * returns #TRUE if a valid arg begins at "pos"
  *
  * @todo security: need to audit this function.
- *
- * @todo For array types that can't be invalid, we should not
- * walk the whole array validating it. e.g. just skip all the
- * int values in an int array.
  * 
  * @param str a string
  * @param byte_order the byte order to use
@@ -1842,21 +2009,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
       break;
 
     case DBUS_TYPE_INT64:
-    case DBUS_TYPE_UINT64:
-      {
-        int align_8 = _DBUS_ALIGN_VALUE (pos, 8);
-        
-        if (!_dbus_string_validate_nul (str, pos,
-                                        align_8 - pos))
-          {
-            _dbus_verbose ("int64/uint64 alignment padding not initialized to nul\n");
-            return FALSE;
-          }
-
-        *end_pos = align_8 + 8;
-      }
-      break;
-      
+    case DBUS_TYPE_UINT64:      
     case DBUS_TYPE_DOUBLE:
       {
         int align_8 = _DBUS_ALIGN_VALUE (pos, 8);
@@ -1866,7 +2019,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
         if (!_dbus_string_validate_nul (str, pos,
                                         align_8 - pos))
           {
-            _dbus_verbose ("double alignment padding not initialized to nul\n");
+            _dbus_verbose ("double/int64/uint64/objid alignment padding not initialized to nul\n");
             return FALSE;
           }
 
@@ -1874,6 +2027,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
       }
       break;
 
+    case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_STRING:
       {
 	int len;
@@ -1887,6 +2041,12 @@ _dbus_marshal_validate_arg (const DBusString *str,
 
         if (!validate_string (str, pos, len, end_pos))
           return FALSE;
+
+        if (type == DBUS_TYPE_OBJECT_PATH)
+          {
+            if (!_dbus_string_validate_path (str, pos, len))
+              return FALSE;
+          }
       }
       break;
 
@@ -2478,7 +2638,6 @@ _dbus_marshal_test (void)
   s = _dbus_demarshal_string (&str, DBUS_BIG_ENDIAN, 0, NULL);
   _dbus_assert (strcmp (s, "Hello") == 0);
   dbus_free (s);
-
   
   _dbus_string_free (&str);
       

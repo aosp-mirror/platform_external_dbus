@@ -40,9 +40,12 @@
  * @{
  */
 
+/**
+ * Saved length
+ */
 typedef struct
 {
-  DBusString name;
+  DBusString name; /**< Name of the length */
   int start;  /**< Calculate length since here */
   int length; /**< length to write */
   int offset; /**< where to write it into the data */
@@ -265,6 +268,73 @@ append_saved_length (DBusString       *dest,
   return TRUE;
 }
 
+static int
+message_type_from_string (const DBusString *str,
+                          int               start)
+{
+  const char *s;
+
+  s = _dbus_string_get_const_data_len (str, start,
+                                       _dbus_string_get_length (str) - start);
+
+  if (strncmp (s, "method_call", strlen ("method_call")) == 0)
+    return DBUS_MESSAGE_TYPE_METHOD_CALL;
+  else if (strncmp (s, "method_return", strlen ("method_return")) == 0)
+    return DBUS_MESSAGE_TYPE_METHOD_RETURN;
+  else if (strncmp (s, "signal", strlen ("signal")) == 0)
+    return DBUS_MESSAGE_TYPE_SIGNAL;
+  else if (strncmp (s, "error", strlen ("error")) == 0)
+    return DBUS_MESSAGE_TYPE_ERROR;
+  else if (strncmp (s, "invalid", strlen ("invalid")) == 0)
+    return DBUS_MESSAGE_TYPE_INVALID;
+  else
+    return -1;
+}
+
+static dbus_bool_t
+append_string_field (DBusString *dest,
+                     int         endian,
+                     int         field,
+                     int         type,
+                     const char *value)
+{
+  int len;
+  
+  if (!_dbus_string_append_byte (dest, field))
+    {
+      _dbus_warn ("couldn't append field name byte\n");
+      return FALSE;
+    }
+  
+  if (!_dbus_string_append_byte (dest, type))
+    {
+      _dbus_warn ("could not append typecode byte\n");
+      return FALSE;
+    }
+
+  len = strlen (value);
+
+  if (!_dbus_marshal_uint32 (dest, endian, len))
+    {
+      _dbus_warn ("couldn't append string length\n");
+      return FALSE;
+    }
+  
+  if (!_dbus_string_append (dest, value))
+    {
+      _dbus_warn ("couldn't append field value\n");
+      return FALSE;
+    }
+
+  if (!_dbus_string_append_byte (dest, 0))
+    {
+      _dbus_warn ("couldn't append string nul term\n");
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
 /**
  * Reads the given filename, which should be in "message description
  * language" (look at some examples), and builds up the message data
@@ -274,7 +344,8 @@ append_saved_length (DBusString       *dest,
  * 
  * The file format is:
  * @code
- *   VALID_HEADER normal header; byte order, padding, header len, body len, serial
+ *   VALID_HEADER <type> normal header; byte order, type, padding, header len, body len, serial
+ *   REQUIRED_FIELDS add required fields with placeholder values
  *   BIG_ENDIAN switch to big endian
  *   LITTLE_ENDIAN switch to little endian
  *   OPPOSITE_ENDIAN switch to opposite endian
@@ -286,7 +357,7 @@ append_saved_length (DBusString       *dest,
  *                     (or if no START_LENGTH, absolute length)
  *   LENGTH <name> inserts the saved length of the same name
  *   CHOP <N> chops last N bytes off the data
- *   FIELD_NAME <abcd> inserts 4-byte field name
+ *   HEADER_FIELD <fieldname> inserts a header field name byte
  *   TYPE <typename> inserts a typecode byte 
  * @endcode
  * 
@@ -299,6 +370,7 @@ append_saved_length (DBusString       *dest,
  *   UINT64 <N> marshals a UINT64
  *   DOUBLE <N> marshals a double
  *   STRING 'Foo' marshals a string
+ *   OBJECT_PATH '/foo/bar' marshals an object path
  *   BYTE_ARRAY { 'a', 3, 4, 5, 6} marshals a BYTE array
  *   BOOLEAN_ARRAY { false, true, false} marshals a BOOLEAN array
  *   INT32_ARRAY { 3, 4, 5, 6} marshals an INT32 array
@@ -386,6 +458,13 @@ _dbus_message_data_load (DBusString       *dest,
         {
           int i;
           DBusString name;
+          int message_type;
+
+          if (_dbus_string_get_length (&line) < (int) strlen ("VALID_HEADER "))
+            {
+              _dbus_warn ("no args to VALID_HEADER\n");
+              goto parse_failed;
+            }
           
           if (!_dbus_string_append_byte (dest, endian))
             {
@@ -393,8 +472,22 @@ _dbus_message_data_load (DBusString       *dest,
               goto parse_failed;
             }
 
+          message_type = message_type_from_string (&line,
+                                                   strlen ("VALID_HEADER "));
+          if (message_type < 0)
+            {
+              _dbus_warn ("VALID_HEADER not followed by space then known message type\n");
+              goto parse_failed;
+            }
+          
+          if (!_dbus_string_append_byte (dest, message_type))
+            {
+              _dbus_warn ("could not append message type\n");
+              goto parse_failed;
+            }
+          
           i = 0;
-          while (i < 3)
+          while (i < 2)
             {
               if (!_dbus_string_append_byte (dest, '\0'))
                 {
@@ -422,6 +515,25 @@ _dbus_message_data_load (DBusString       *dest,
               _dbus_warn ("couldn't append client serial\n");
               goto parse_failed;
             }
+        }
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "REQUIRED_FIELDS"))
+        {
+          if (!append_string_field (dest, endian,
+                                    DBUS_HEADER_FIELD_INTERFACE,
+                                    DBUS_TYPE_STRING,
+                                    "org.freedesktop.BlahBlahInterface"))
+            goto parse_failed;
+          if (!append_string_field (dest, endian,
+                                    DBUS_HEADER_FIELD_MEMBER,
+                                    DBUS_TYPE_STRING,
+                                    "BlahBlahMethod"))
+            goto parse_failed;
+          if (!append_string_field (dest, endian,
+                                    DBUS_HEADER_FIELD_PATH,
+                                    DBUS_TYPE_OBJECT_PATH,
+                                    "/blah/blah/path"))
+            goto parse_failed;
         }
       else if (_dbus_string_starts_with_c_str (&line,
                                                "BIG_ENDIAN"))
@@ -561,25 +673,42 @@ _dbus_message_data_load (DBusString       *dest,
           PERFORM_UNALIGN (dest);
         }
       else if (_dbus_string_starts_with_c_str (&line,
-                                               "FIELD_NAME"))
+                                               "HEADER_FIELD"))
         {
+	  int field;
+
           _dbus_string_delete_first_word (&line);
 
-          if (_dbus_string_get_length (&line) != 4)
+          if (_dbus_string_starts_with_c_str (&line, "INVALID"))
+            field = DBUS_HEADER_FIELD_INVALID;
+          else if (_dbus_string_starts_with_c_str (&line, "PATH"))
+	    field = DBUS_HEADER_FIELD_PATH;
+          else if (_dbus_string_starts_with_c_str (&line, "INTERFACE"))
+	    field = DBUS_HEADER_FIELD_INTERFACE;
+          else if (_dbus_string_starts_with_c_str (&line, "MEMBER"))
+	    field = DBUS_HEADER_FIELD_MEMBER;
+          else if (_dbus_string_starts_with_c_str (&line, "ERROR_NAME"))
+	    field = DBUS_HEADER_FIELD_ERROR_NAME;
+          else if (_dbus_string_starts_with_c_str (&line, "REPLY_SERIAL"))
+	    field = DBUS_HEADER_FIELD_REPLY_SERIAL;
+          else if (_dbus_string_starts_with_c_str (&line, "SERVICE"))
+	    field = DBUS_HEADER_FIELD_SERVICE;
+          else if (_dbus_string_starts_with_c_str (&line, "SENDER_SERVICE"))
+	    field = DBUS_HEADER_FIELD_SENDER_SERVICE;
+	  else if (_dbus_string_starts_with_c_str (&line, "UNKNOWN"))
+	    field = 22; /* random unknown header field */
+          else
             {
-              _dbus_warn ("Field name must be four characters not \"%s\"\n",
-                          _dbus_string_get_const_data (&line));
+              _dbus_warn ("%s is not a valid header field name\n",
+			  _dbus_string_get_const_data (&line));
               goto parse_failed;
             }
 
-          if (unalign)
-            unalign = FALSE;
-          else
-            _dbus_string_align_length (dest, 4);
-          
-          if (!_dbus_string_copy (&line, 0, dest,
-                                  _dbus_string_get_length (dest)))
-            goto parse_failed;
+          if (!_dbus_string_append_byte (dest, field))
+	    {
+              _dbus_warn ("could not append header field name byte\n");
+	      goto parse_failed;
+	    }
         }
       else if (_dbus_string_starts_with_c_str (&line,
                                                "TYPE"))
@@ -604,6 +733,8 @@ _dbus_message_data_load (DBusString       *dest,
             code = DBUS_TYPE_DOUBLE;
           else if (_dbus_string_starts_with_c_str (&line, "STRING"))
             code = DBUS_TYPE_STRING;
+          else if (_dbus_string_starts_with_c_str (&line, "OBJECT_PATH"))
+            code = DBUS_TYPE_OBJECT_PATH;
           else if (_dbus_string_starts_with_c_str (&line, "NAMED"))
             code = DBUS_TYPE_NAMED;
           else if (_dbus_string_starts_with_c_str (&line, "ARRAY"))
@@ -1226,6 +1357,36 @@ _dbus_message_data_load (DBusString       *dest,
           
           PERFORM_UNALIGN (dest);
         }
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "OBJECT_PATH"))
+        {
+          SAVE_FOR_UNALIGN (dest, 4);
+          int size_offset;
+          int old_len;
+          
+          _dbus_string_delete_first_word (&line);
+          
+          size_offset = _dbus_string_get_length (dest);
+          size_offset = _DBUS_ALIGN_VALUE (size_offset, 4);
+          if (!_dbus_marshal_uint32 (dest, endian, 0))
+            {
+              _dbus_warn ("Failed to append string size\n");
+              goto parse_failed;
+            }
+
+          old_len = _dbus_string_get_length (dest);
+          if (!append_quoted_string (dest, &line, 0, NULL))
+            {
+              _dbus_warn ("Failed to append quoted string\n");
+              goto parse_failed;
+            }
+
+          _dbus_marshal_set_uint32 (dest, endian, size_offset,
+                                    /* subtract 1 for nul */
+                                    _dbus_string_get_length (dest) - old_len - 1);
+          
+          PERFORM_UNALIGN (dest);
+        }      
       else
         goto parse_failed;
       

@@ -21,8 +21,13 @@
  *
  */
 
+#include <config.h>
 #include "dbus-glib.h"
-#include <glib.h>
+#include "dbus-gtest.h"
+
+#include <libintl.h>
+#define _(x) dgettext (GETTEXT_PACKAGE, x)
+#define N_(x) x
 
 /**
  * @defgroup DBusGLib GLib bindings
@@ -48,6 +53,9 @@
  */
 typedef struct DBusGSource DBusGSource;
 
+/**
+ * A GSource subclass for a DBusConnection.
+ */
 struct DBusGSource
 {
   GSource source; /**< the parent GSource */
@@ -530,4 +538,94 @@ dbus_server_setup_with_g_main (DBusServer   *server,
   g_error ("Not enough memory to set up DBusServer for use with GLib");
 }
 
+/**
+ * The implementation of DBUS_GERROR error domain. See documentation
+ * for GError in GLib reference manual.
+ *
+ * @returns the error domain quark for use with GError
+ */
+GQuark
+dbus_g_error_quark (void)
+{
+  static GQuark quark = 0;
+  if (quark == 0)
+    quark = g_quark_from_static_string ("g-exec-error-quark");
+  return quark;
+}
+
+
+/**
+ * Set a GError return location from a DBusError.
+ *
+ * @todo expand the DBUS_GERROR enum and take advantage of it here
+ * 
+ * @param gerror location to store a GError, or #NULL
+ * @param derror the DBusError
+ */
+void
+dbus_set_g_error (GError   **gerror,
+                  DBusError *derror)
+{
+  g_return_if_fail (derror != NULL);
+  g_return_if_fail (dbus_error_is_set (derror));
+  
+  g_set_error (gerror, DBUS_GERROR,
+               DBUS_GERROR_FAILED,
+               _("D-BUS error %s: %s"),
+               derror->name, derror->message);  
+}
+
+/**
+ * Get the GLib type ID for a DBusConnection boxed type.
+ *
+ * @returns GLib type
+ */
+GType
+dbus_connection_get_g_type (void)
+{
+  static GType our_type = 0;
+  
+  if (our_type == 0)
+    our_type = g_boxed_type_register_static ("DBusConnection",
+                                             (GBoxedCopyFunc) dbus_connection_ref,
+                                             (GBoxedFreeFunc) dbus_connection_unref);
+
+  return our_type;
+}
+
+/**
+ * Get the GLib type ID for a DBusMessage boxed type.
+ *
+ * @returns GLib type
+ */
+GType
+dbus_message_get_g_type (void)
+{
+  static GType our_type = 0;
+  
+  if (our_type == 0)
+    our_type = g_boxed_type_register_static ("DBusMessage",
+                                             (GBoxedCopyFunc) dbus_message_ref,
+                                             (GBoxedFreeFunc) dbus_message_unref);
+
+  return our_type;
+}
+
+
 /** @} */ /* end of public API */
+
+#ifdef DBUS_BUILD_TESTS
+
+/**
+ * @ingroup DBusGLibInternals
+ * Unit test for GLib main loop integration
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_gmain_test (const char *test_data_dir)
+{
+  
+  return TRUE;
+}
+
+#endif /* DBUS_BUILD_TESTS */

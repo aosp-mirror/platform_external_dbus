@@ -13,11 +13,14 @@
   <servicedir>@EXPANDED_LIBDIR@/dbus-1.0/services</servicedir>
 
   <policy context="default">
-    <!-- Allow everything -->
-    <allow send="*"/>
-    <allow receive="*"/>
+    <!-- Allow everything to be sent -->
+    <allow send_destination="*"/>
+    <!-- Allow everything to be received -->
+    <allow eavesdrop="true"/>
+    <!-- Allow anyone to own anything -->
     <allow own="*"/>
-    <allow user="*"/>  
+    <!-- Allow any user to connect -->
+    <allow user="*"/>
   </policy>
 
   <!-- This is included last so local configuration can override what's 

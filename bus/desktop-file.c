@@ -48,15 +48,19 @@ struct BusDesktopFile
   int n_allocated_sections;
 };
 
+/**
+ * Parser for service files.
+ */
 typedef struct
 {
-  DBusString data;
+  DBusString data; /**< The data from the file */
 
-  BusDesktopFile *desktop_file;
-  int current_section;
+  BusDesktopFile *desktop_file; /**< The resulting object */
+  int current_section;    /**< The current section being parsed */
   
-  int pos, len;
-  int line_num;
+  int pos;          /**< Current position */
+  int len;          /**< Length */
+  int line_num;     /**< Current line number */
   
 } BusDesktopFileParser;
 

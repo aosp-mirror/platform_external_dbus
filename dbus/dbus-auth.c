@@ -28,8 +28,6 @@
 #include "dbus-sha.h"
 #include "dbus-userdb.h"
 
-/* See doc/dbus-sasl-profile.txt */
-
 /**
  * @defgroup DBusAuth Authentication
  * @ingroup  DBusInternals
@@ -75,10 +73,13 @@ typedef dbus_bool_t (* DBusProcessAuthCommandFunction) (DBusAuth         *auth,
                                                         const DBusString *command,
                                                         const DBusString *args);
 
+/**
+ * Handler for a given auth protocol command
+ */
 typedef struct
 {
-  const char *command;
-  DBusProcessAuthCommandFunction func;
+  const char *command; /**< Name of the command */
+  DBusProcessAuthCommandFunction func; /**< Function to handle the command */
 } DBusAuthCommandHandler;
 
 /**
@@ -113,18 +114,21 @@ typedef dbus_bool_t (* DBusAuthDecodeFunction)   (DBusAuth         *auth,
  */
 typedef void        (* DBusAuthShutdownFunction) (DBusAuth       *auth);
 
+/**
+ * Virtual table representing a particular auth mechanism.
+ */
 typedef struct
 {
-  const char *mechanism;
-  DBusAuthDataFunction server_data_func;
-  DBusAuthEncodeFunction server_encode_func;
-  DBusAuthDecodeFunction server_decode_func;
-  DBusAuthShutdownFunction server_shutdown_func;
-  DBusInitialResponseFunction client_initial_response_func;
-  DBusAuthDataFunction client_data_func;
-  DBusAuthEncodeFunction client_encode_func;
-  DBusAuthDecodeFunction client_decode_func;
-  DBusAuthShutdownFunction client_shutdown_func;
+  const char *mechanism; /**< Name of the mechanism */
+  DBusAuthDataFunction server_data_func; /**< Function on server side for DATA */
+  DBusAuthEncodeFunction server_encode_func; /**< Function on server side to encode */
+  DBusAuthDecodeFunction server_decode_func; /**< Function on server side to decode */
+  DBusAuthShutdownFunction server_shutdown_func; /**< Function on server side to shut down */
+  DBusInitialResponseFunction client_initial_response_func; /**< Function on client side to handle initial response */
+  DBusAuthDataFunction client_data_func; /**< Function on client side for DATA */
+  DBusAuthEncodeFunction client_encode_func; /**< Function on client side for encode */
+  DBusAuthDecodeFunction client_decode_func; /**< Function on client side for decode */
+  DBusAuthShutdownFunction client_shutdown_func; /**< Function on client side for shutdown */
 } DBusAuthMechanismHandler;
 
 /**
@@ -174,17 +178,23 @@ struct DBusAuth
   unsigned int buffer_outstanding : 1; /**< Buffer is "checked out" for reading data into */
 };
 
+/**
+ * "Subclass" of DBusAuth for client side
+ */
 typedef struct
 {
-  DBusAuth base;
+  DBusAuth base;    /**< Parent class */
 
   DBusList *mechs_to_try; /**< Mechanisms we got from the server that we're going to try using */
   
 } DBusAuthClient;
 
+/**
+ * "Subclass" of DBusAuth for server side.
+ */
 typedef struct
 {
-  DBusAuth base;
+  DBusAuth base;    /**< Parent class */
 
   int failures;     /**< Number of times client has been rejected */
   int max_failures; /**< Number of times we reject before disconnect */
@@ -2370,7 +2380,7 @@ process_test_subdir (const DBusString          *test_base_dir,
       goto failed;
     }
 
-  printf ("Testing:\n");
+  printf ("Testing %s:\n", subdir);
   
  next:
   while (_dbus_directory_get_next_file (dir, &filename, &error))

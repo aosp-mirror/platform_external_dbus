@@ -221,26 +221,32 @@ typedef struct
   int n_entries_on_init;     /**< used to detect table resize since initialization */
 } DBusRealHashIter;
 
-static DBusHashEntry* find_direct_function (DBusHashTable          *table,
-                                            void                   *key,
-                                            dbus_bool_t             create_if_not_found,
-                                            DBusHashEntry        ***bucket,
-                                            DBusPreallocatedHash   *preallocated);
-static DBusHashEntry* find_string_function (DBusHashTable          *table,
-                                            void                   *key,
-                                            dbus_bool_t             create_if_not_found,
-                                            DBusHashEntry        ***bucket,
-                                            DBusPreallocatedHash   *preallocated);
-static unsigned int   string_hash          (const char             *str);
-static void           rebuild_table        (DBusHashTable          *table);
-static DBusHashEntry* alloc_entry          (DBusHashTable          *table);
-static void           remove_entry         (DBusHashTable          *table,
-                                            DBusHashEntry         **bucket,
-                                            DBusHashEntry          *entry);
-static void           free_entry           (DBusHashTable          *table,
-                                            DBusHashEntry          *entry);
-static void           free_entry_data      (DBusHashTable          *table,
-                                            DBusHashEntry          *entry);
+static DBusHashEntry* find_direct_function      (DBusHashTable          *table,
+                                                 void                   *key,
+                                                 dbus_bool_t             create_if_not_found,
+                                                 DBusHashEntry        ***bucket,
+                                                 DBusPreallocatedHash   *preallocated);
+static DBusHashEntry* find_string_function      (DBusHashTable          *table,
+                                                 void                   *key,
+                                                 dbus_bool_t             create_if_not_found,
+                                                 DBusHashEntry        ***bucket,
+                                                 DBusPreallocatedHash   *preallocated);
+static DBusHashEntry* find_two_strings_function (DBusHashTable          *table,
+                                                 void                   *key,
+                                                 dbus_bool_t             create_if_not_found,
+                                                 DBusHashEntry        ***bucket,
+                                                 DBusPreallocatedHash   *preallocated);
+static unsigned int   string_hash               (const char             *str);
+static unsigned int   two_strings_hash          (const char             *str);
+static void           rebuild_table             (DBusHashTable          *table);
+static DBusHashEntry* alloc_entry               (DBusHashTable          *table);
+static void           remove_entry              (DBusHashTable          *table,
+                                                 DBusHashEntry         **bucket,
+                                                 DBusHashEntry          *entry);
+static void           free_entry                (DBusHashTable          *table,
+                                                 DBusHashEntry          *entry);
+static void           free_entry_data           (DBusHashTable          *table,
+                                                 DBusHashEntry          *entry);
 
 
 /** @} */
@@ -322,6 +328,9 @@ _dbus_hash_table_new (DBusHashType     type,
       break;
     case DBUS_HASH_STRING:
       table->find_function = find_string_function;
+      break;
+    case DBUS_HASH_TWO_STRINGS:
+      table->find_function = find_two_strings_function;
       break;
     default:
       _dbus_assert_not_reached ("Unknown hash table type");
@@ -685,6 +694,24 @@ _dbus_hash_iter_get_string_key (DBusHashIter *iter)
 }
 
 /**
+ * Gets the key for the current entry.
+ * Only works for hash tables of type #DBUS_HASH_TWO_STRINGS
+ * @param iter the hash table iterator.
+ */
+const char*
+_dbus_hash_iter_get_two_strings_key (DBusHashIter *iter)
+{
+  DBusRealHashIter *real;
+
+  real = (DBusRealHashIter*) iter;
+
+  _dbus_assert (real->table != NULL);
+  _dbus_assert (real->entry != NULL);
+
+  return real->entry->key;
+}
+
+/**
  * A low-level but efficient interface for manipulating the hash
  * table.  It's efficient because you can get, set, and optionally
  * create the hash entry while only running the hash function one
@@ -803,42 +830,83 @@ add_entry (DBusHashTable        *table,
   return entry;
 }
 
+/* This is g_str_hash from GLib which was
+ * extensively discussed/tested/profiled
+ */
 static unsigned int
 string_hash (const char *str)
 {
-  register unsigned int result;
-  register int c;
+  const char *p = str;
+  unsigned int h = *p;
 
-  /*
-   * I tried a zillion different hash functions and asked many other
-   * people for advice.  Many people had their own favorite functions,
-   * all different, but no-one had much idea why they were good ones.
-   * I chose the one below (multiply by 9 and add new character)
-   * because of the following reasons:
-   *
-   * 1. Multiplying by 10 is perfect for keys that are decimal strings,
-   *    and multiplying by 9 is just about as good.
-   * 2. Times-9 is (shift-left-3) plus (old).  This means that each
-   *    character's bits hang around in the low-order bits of the
-   *    hash value for ever, plus they spread fairly rapidly up to
-   *    the high-order bits to fill out the hash value.  This seems
-   *    works well both for decimal and non-decimal strings.
-   */
+  if (h)
+    for (p += 1; *p != '\0'; p++)
+      h = (h << 5) - h + *p;
 
-  /* FIXME the hash function in GLib is better than this one */
+  return h;
+}
+
+/* This hashes a memory block with two nul-terminated strings
+ * in it, used in dbus-object-registry.c at the moment.
+ */
+static unsigned int
+two_strings_hash (const char *str)
+{
+  const char *p = str;
+  unsigned int h = *p;
+
+  if (h)
+    for (p += 1; *p != '\0'; p++)
+      h = (h << 5) - h + *p;
+
+  for (p += 1; *p != '\0'; p++)
+    h = (h << 5) - h + *p;
   
-  result = 0;
-  while (TRUE)
+  return h;
+}
+
+/** Key comparison function */
+typedef int (* KeyCompareFunc) (const void *key_a, const void *key_b);
+
+static DBusHashEntry*
+find_generic_function (DBusHashTable        *table,
+                       void                 *key,
+                       unsigned int          idx,
+                       KeyCompareFunc        compare_func,
+                       dbus_bool_t           create_if_not_found,
+                       DBusHashEntry      ***bucket,
+                       DBusPreallocatedHash *preallocated)
+{
+  DBusHashEntry *entry;
+
+  if (bucket)
+    *bucket = NULL;
+
+  /* Search all of the entries in this bucket. */
+  entry = table->buckets[idx];
+  while (entry != NULL)
     {
-      c = *str;
-      str++;
-      if (c == 0)
-        break;
+      if ((compare_func == NULL && key == entry->key) ||
+          (compare_func != NULL && (* compare_func) (key, entry->key) == 0))
+        {
+          if (bucket)
+            *bucket = &(table->buckets[idx]);
+
+          if (preallocated)
+            _dbus_hash_table_free_preallocated_entry (table, preallocated);
+          
+          return entry;
+        }
       
-      result += (result << 3) + c;
+      entry = entry->next;
     }
+
+  if (create_if_not_found)
+    entry = add_entry (table, idx, key, bucket, preallocated);
+  else if (preallocated)
+    _dbus_hash_table_free_preallocated_entry (table, preallocated);
   
-  return result;
+  return entry;
 }
 
 static DBusHashEntry*
@@ -848,38 +916,47 @@ find_string_function (DBusHashTable        *table,
                       DBusHashEntry      ***bucket,
                       DBusPreallocatedHash *preallocated)
 {
-  DBusHashEntry *entry;
   unsigned int idx;
-
-  if (bucket)
-    *bucket = NULL;
   
   idx = string_hash (key) & table->mask;
 
-  /* Search all of the entries in this bucket. */
-  entry = table->buckets[idx];
-  while (entry != NULL)
-    {
-      if (strcmp (key, entry->key) == 0)
-        {
-          if (bucket)
-            *bucket = &(table->buckets[idx]);
+  return find_generic_function (table, key, idx,
+                                (KeyCompareFunc) strcmp, create_if_not_found, bucket,
+                                preallocated);
+}
 
-          if (preallocated)
-            _dbus_hash_table_free_preallocated_entry (table, preallocated);
-          
-          return entry;
-        }
-      
-      entry = entry->next;
-    }
+static int
+two_strings_cmp (const char *a,
+                 const char *b)
+{
+  size_t len_a;
+  size_t len_b;
+  int res;
+  
+  res = strcmp (a, b);
+  if (res != 0)
+    return res;
 
-  if (create_if_not_found)
-    entry = add_entry (table, idx, key, bucket, preallocated);
-  else if (preallocated)
-    _dbus_hash_table_free_preallocated_entry (table, preallocated);
+  len_a = strlen (a);
+  len_b = strlen (b);
 
-  return entry;
+  return strcmp (a + len_a + 1, b + len_b + 1);
+}
+
+static DBusHashEntry*
+find_two_strings_function (DBusHashTable        *table,
+                           void                 *key,
+                           dbus_bool_t           create_if_not_found,
+                           DBusHashEntry      ***bucket,
+                           DBusPreallocatedHash *preallocated)
+{
+  unsigned int idx;
+  
+  idx = two_strings_hash (key) & table->mask;
+
+  return find_generic_function (table, key, idx,
+                                (KeyCompareFunc) two_strings_cmp, create_if_not_found, bucket,
+                                preallocated);
 }
 
 static DBusHashEntry*
@@ -889,39 +966,14 @@ find_direct_function (DBusHashTable        *table,
                       DBusHashEntry      ***bucket,
                       DBusPreallocatedHash *preallocated)
 {
-  DBusHashEntry *entry;
   unsigned int idx;
-
-  if (bucket)
-    *bucket = NULL;
   
   idx = RANDOM_INDEX (table, key) & table->mask;
 
-  /* Search all of the entries in this bucket. */
-  entry = table->buckets[idx];
-  while (entry != NULL)
-    {
-      if (key == entry->key)
-        {
-          if (bucket)
-            *bucket = &(table->buckets[idx]);
 
-          if (preallocated)
-            _dbus_hash_table_free_preallocated_entry (table, preallocated);
-          
-          return entry;
-        }
-      
-      entry = entry->next;
-    }
-
-  /* Entry not found.  Add a new one to the bucket. */
-  if (create_if_not_found)
-    entry = add_entry (table, idx, key, bucket, preallocated);
-  else if (preallocated)
-    _dbus_hash_table_free_preallocated_entry (table, preallocated);
-
-  return entry;
+  return find_generic_function (table, key, idx,
+                                NULL, create_if_not_found, bucket,
+                                preallocated);
 }
 
 static void
@@ -1021,6 +1073,9 @@ rebuild_table (DBusHashTable *table)
             case DBUS_HASH_STRING:
               idx = string_hash (entry->key) & table->mask;
               break;
+            case DBUS_HASH_TWO_STRINGS:
+              idx = two_strings_hash (entry->key) & table->mask;
+              break;
             case DBUS_HASH_INT:
             case DBUS_HASH_ULONG:
             case DBUS_HASH_POINTER:
@@ -1060,6 +1115,31 @@ _dbus_hash_table_lookup_string (DBusHashTable *table,
   DBusHashEntry *entry;
 
   _dbus_assert (table->key_type == DBUS_HASH_STRING);
+  
+  entry = (* table->find_function) (table, (char*) key, FALSE, NULL, NULL);
+
+  if (entry)
+    return entry->value;
+  else
+    return NULL;
+}
+
+/**
+ * Looks up the value for a given string in a hash table
+ * of type #DBUS_HASH_TWO_STRINGS. Returns %NULL if the value
+ * is not present. (A not-present entry is indistinguishable
+ * from an entry with a value of %NULL.)
+ * @param table the hash table.
+ * @param key the string to look up.
+ * @returns the value of the hash entry.
+ */
+void*
+_dbus_hash_table_lookup_two_strings (DBusHashTable *table,
+                                     const char    *key)
+{
+  DBusHashEntry *entry;
+
+  _dbus_assert (table->key_type == DBUS_HASH_TWO_STRINGS);
   
   entry = (* table->find_function) (table, (char*) key, FALSE, NULL, NULL);
 
@@ -1163,6 +1243,34 @@ _dbus_hash_table_remove_string (DBusHashTable *table,
   DBusHashEntry **bucket;
   
   _dbus_assert (table->key_type == DBUS_HASH_STRING);
+  
+  entry = (* table->find_function) (table, (char*) key, FALSE, &bucket, NULL);
+
+  if (entry)
+    {
+      remove_entry (table, bucket, entry);
+      return TRUE;
+    }
+  else
+    return FALSE;
+}
+
+/**
+ * Removes the hash entry for the given key. If no hash entry
+ * for the key exists, does nothing.
+ *
+ * @param table the hash table.
+ * @param key the hash key.
+ * @returns #TRUE if the entry existed
+ */
+dbus_bool_t
+_dbus_hash_table_remove_two_strings (DBusHashTable *table,
+                                     const char    *key)
+{
+  DBusHashEntry *entry;
+  DBusHashEntry **bucket;
+  
+  _dbus_assert (table->key_type == DBUS_HASH_TWO_STRINGS);
   
   entry = (* table->find_function) (table, (char*) key, FALSE, &bucket, NULL);
 
@@ -1293,6 +1401,47 @@ _dbus_hash_table_insert_string (DBusHashTable *table,
   _dbus_hash_table_insert_string_preallocated (table, preallocated,
                                                key, value);
   
+  return TRUE;
+}
+
+/**
+ * Creates a hash entry with the given key and value.
+ * The key and value are not copied; they are stored
+ * in the hash table by reference. If an entry with the
+ * given key already exists, the previous key and value
+ * are overwritten (and freed if the hash table has
+ * a key_free_function and/or value_free_function).
+ *
+ * Returns #FALSE if memory for the new hash entry
+ * can't be allocated.
+ * 
+ * @param table the hash table.
+ * @param key the hash entry key.
+ * @param value the hash entry value.
+ */
+dbus_bool_t
+_dbus_hash_table_insert_two_strings (DBusHashTable *table,
+                                     char          *key,
+                                     void          *value)
+{
+  DBusHashEntry *entry;
+  
+  _dbus_assert (table->key_type == DBUS_HASH_TWO_STRINGS);
+  
+  entry = (* table->find_function) (table, key, TRUE, NULL, NULL);
+
+  if (entry == NULL)
+    return FALSE; /* no memory */
+
+  if (table->free_key_function && entry->key != key)
+    (* table->free_key_function) (entry->key);
+  
+  if (table->free_value_function && entry->value != value)
+    (* table->free_value_function) (entry->value);
+  
+  entry->key = key;
+  entry->value = value;
+
   return TRUE;
 }
 
@@ -1536,6 +1685,28 @@ count_entries (DBusHashTable *table)
   return count;
 }
 
+/* Copy the foo\0bar\0 double string thing */
+static char*
+_dbus_strdup2 (const char *str)
+{
+  size_t len;
+  char *copy;
+  
+  if (str == NULL)
+    return NULL;
+  
+  len = strlen (str);
+  len += strlen ((str + len + 1));
+
+  copy = dbus_malloc (len + 2);
+  if (copy == NULL)
+    return NULL;
+
+  memcpy (copy, str, len + 2);
+  
+  return copy;
+}
+
 /**
  * @ingroup DBusHashTableInternals
  * Unit test for DBusHashTable
@@ -1548,6 +1719,7 @@ _dbus_hash_test (void)
   DBusHashTable *table1;
   DBusHashTable *table2;
   DBusHashTable *table3;
+  DBusHashTable *table4;
   DBusHashIter iter;
 #define N_HASH_KEYS 5000
   char **keys;
@@ -1569,7 +1741,16 @@ _dbus_hash_test (void)
   i = 0;
   while (i < N_HASH_KEYS)
     {
-      sprintf (keys[i], "Hash key %d", i); 
+      int len;
+
+      /* all the hash keys are TWO_STRINGS, but
+       * then we can also use those as regular strings.
+       */
+      
+      len = sprintf (keys[i], "Hash key %d", i);
+      sprintf (keys[i] + len + 1, "Two string %d", i);
+      _dbus_assert (*(keys[i] + len) == '\0');
+      _dbus_assert (*(keys[i] + len + 1) != '\0');
       ++i;
     }
   printf ("... done.\n");
@@ -1588,6 +1769,12 @@ _dbus_hash_test (void)
                                  NULL, dbus_free);
   if (table3 == NULL)
     goto out;
+
+  table4 = _dbus_hash_table_new (DBUS_HASH_TWO_STRINGS,
+                                 dbus_free, dbus_free);
+  if (table4 == NULL)
+    goto out;
+
   
   /* Insert and remove a bunch of stuff, counting the table in between
    * to be sure it's not broken and that iteration works
@@ -1624,10 +1811,22 @@ _dbus_hash_test (void)
       if (!_dbus_hash_table_insert_ulong (table3,
                                           i, value))
         goto out;
+
+      key = _dbus_strdup2 (keys[i]);
+      if (key == NULL)
+        goto out;
+      value = _dbus_strdup ("Value!");
+      if (value == NULL)
+        goto out;
+      
+      if (!_dbus_hash_table_insert_two_strings (table4,
+                                                key, value))
+        goto out;
       
       _dbus_assert (count_entries (table1) == i + 1);
       _dbus_assert (count_entries (table2) == i + 1);
       _dbus_assert (count_entries (table3) == i + 1);
+      _dbus_assert (count_entries (table4) == i + 1);
 
       value = _dbus_hash_table_lookup_string (table1, keys[i]);
       _dbus_assert (value != NULL);
@@ -1640,6 +1839,10 @@ _dbus_hash_test (void)
       value = _dbus_hash_table_lookup_ulong (table3, i);
       _dbus_assert (value != NULL);
       _dbus_assert (strcmp (value, keys[i]) == 0);
+
+      value = _dbus_hash_table_lookup_two_strings (table4, keys[i]);
+      _dbus_assert (value != NULL);
+      _dbus_assert (strcmp (value, "Value!") == 0);
       
       ++i;
     }
@@ -1654,9 +1857,13 @@ _dbus_hash_test (void)
 
       _dbus_hash_table_remove_ulong (table3, i); 
 
+      _dbus_hash_table_remove_two_strings (table4,
+                                           keys[i]);
+      
       _dbus_assert (count_entries (table1) == i);
       _dbus_assert (count_entries (table2) == i);
       _dbus_assert (count_entries (table3) == i);
+      _dbus_assert (count_entries (table4) == i);
 
       --i;
     }
@@ -1664,12 +1871,15 @@ _dbus_hash_test (void)
   _dbus_hash_table_ref (table1);
   _dbus_hash_table_ref (table2);
   _dbus_hash_table_ref (table3);
+  _dbus_hash_table_ref (table4);
   _dbus_hash_table_unref (table1);
   _dbus_hash_table_unref (table2);
   _dbus_hash_table_unref (table3);
+  _dbus_hash_table_unref (table4);
   _dbus_hash_table_unref (table1);
   _dbus_hash_table_unref (table2);
   _dbus_hash_table_unref (table3);
+  _dbus_hash_table_unref (table4);
   table3 = NULL;
 
   /* Insert a bunch of stuff then check

@@ -328,16 +328,33 @@ in the config file.
 
 .TP
 .I "<deny>"
+.I "<allow>"
 
 .PP
-A <deny> element appears below a <policy> element and prohibits 
-some action. The possible attributes of a <deny> element are:
+A <deny> element appears below a <policy> element and prohibits some
+action. The <allow> element makes an exception to previous <deny>
+statements, and works just like <deny> but with the inverse meaning.
+
+.PP
+The possible attributes of these elements are:
 .nf
-   send="messagename"
-   receive="messagename"
+   send_interface="interface_name"
+   send_member="method_or_signal_name" 
+   send_error="error_name" 
+   send_destination="service_name" 
+   send_type="method_call" | "method_return" | "signal" | "error" 
+   send_path="/path/name"
+
+   receive_interface="interface_name"
+   receive_member="method_or_signal_name" 
+   receive_error="error_name" 
+   receive_sender="service_name" 
+   receive_type="method_call" | "method_return" | "signal" | "error"
+   receive_path="/path/name"
+   
+   eavesdrop="true" | "false"
+
    own="servicename"
-   send_to="servicename"
-   receive_from="servicename"
    user="username"
    group="groupname"
 .fi
@@ -345,11 +362,11 @@ some action. The possible attributes of a <deny> element are:
 .PP
 Examples:
 .nf
-   <deny send="org.freedesktop.System.Reboot"/> 
-   <deny receive="org.freedesktop.System.Reboot"/>
+   <deny send_interface="org.freedesktop.System" send_member="Reboot"/> 
+   <deny receive_interface="org.freedesktop.System" receive_member="Reboot"/>
    <deny own="org.freedesktop.System"/>
-   <deny send_to="org.freedesktop.System"/>
-   <deny receive_from="org.freedesktop.System"/>
+   <deny send_destination="org.freedesktop.System"/>
+   <deny receive_sender="org.freedesktop.System"/>
    <deny user="john"/>
    <deny group="enemies"/>
 .fi
@@ -360,18 +377,38 @@ particular action. If it matches, the action is denied (unless later
 rules in the config file allow it).
 
 .PP
-send_to and receive_from mean that messages may not be sent to or
-received from the *owner* of the given service, not that they may not
-be sent *to that service name*. That is, if a connection owns services
-A, B, C, and sending to A is denied, sending to B or C will not work
-either.
+send_destination and receive_sender rules mean that messages may not be
+sent to or received from the *owner* of the given service, not that
+they may not be sent *to that service name*. That is, if a connection
+owns services A, B, C, and sending to A is denied, sending to B or C
+will not work either.
+
+.PP
+The other send_* and receive_* attributes are purely textual/by-value
+matches against the given field in the message header.
+
+.PP
+"Eavesdropping" occurs when an application receives a message that
+was explicitly addressed to a service the application does not own.
+Eavesdropping thus only applies to messages that are addressed to
+services (i.e. it does not apply to signals).
+
+.PP
+For <allow>, eavesdrop="true" indicates that the rule matches even 
+when eavesdropping. eavesdrop="false" is the default and means that 
+the rule only allows messages to go to their specified recipient.
+For <deny>, eavesdrop="true" indicates that the rule matches 
+only when eavesdropping. eavesdrop="false" is the default for <deny>
+also, but here it means that the rule applies always, even when 
+not eavesdropping. The eavesdrop attribute can only be combined with
+receive rules (with receive_* attributes).
 
 .PP
 user and group denials mean that the given user or group may 
 not connect to the message bus.
 
 .PP
-For "servicename" or "messagename" or "username" or "groupname"
+For "service_name", "username", "groupname", etc.
 the character "*" can be substituted, meaning "any." Complex globs
 like "foo.bar.*" aren't allowed for now because they'd be work to
 implement and maybe encourage sloppy security anyway.
@@ -382,18 +419,21 @@ for a user or group; user/group denials can only be inside
 context="default" or context="mandatory" policies.
 
 .PP
-A single <deny> rule may specify both send and send_to, OR both
-receive and receive_from. In this case, the denial applies only if
-both attributes match the message being denied.
-e.g. <deny send="foo.bar" send_to="foo.blah"/> would deny 
-messages of the given name AND to the given service.
-
-.TP
-.I "<allow>"
+A single <deny> rule may specify combinations of attributes such as
+send_service and send_interface and send_type. In this case, the
+denial applies only if both attributes match the message being denied.
+e.g. <deny send_interface="foo.bar" send_service="foo.blah"/> would
+deny messages of the given interface AND to the given service.
+To get an OR effect you specify multiple <deny> rules.
 
 .PP
-Makes an exception to previous <deny> statements. Works 
-just like <deny> but with the inverse meaning.
+You can't include both send_ and receive_ attributes on the same
+rule, since "whether the message can be sent" and "whether it can be
+received" are evaluated separately.
+
+.PP
+Be careful with send_interface/receive_interface, because the 
+interface field in messages is optional.
 
 .SH AUTHOR
 See http://www.freedesktop.org/software/dbus/doc/AUTHORS

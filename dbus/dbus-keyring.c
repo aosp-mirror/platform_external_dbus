@@ -85,6 +85,9 @@
 #define MAX_KEYS_IN_FILE 256
 #endif
 
+/**
+ * A single key from the cookie file
+ */
 typedef struct
 {
   dbus_int32_t id; /**< identifier used to refer to the key */

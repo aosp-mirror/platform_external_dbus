@@ -23,53 +23,26 @@
  */
 #include "dbus-errors.h"
 #include "dbus-internals.h"
+#include "dbus-string.h"
 #include <stdarg.h>
-#include <stdio.h>
 #include <string.h>
 
 /**
- * @defgroup DBusErrors Error reporting
- * @ingroup  DBus
- * @brief Error reporting
- *
- * Types and functions related to reporting errors.
- *
- *
- * In essence D-BUS error reporting works as follows:
- *
- * @code
- * DBusError error;
- * dbus_error_init (&error);
- * dbus_some_function (arg1, arg2, &error);
- * if (dbus_error_is_set (&error))
- *   {
- *     fprintf (stderr, "an error occurred: %s\n", error.message);
- *     dbus_error_free (&error);
- *   }
- * @endcode
- *
- * There are some rules. An error passed to a D-BUS function must
- * always be unset; you can't pass in an error that's already set.  If
- * a function has a return code indicating whether an error occurred,
- * and also a #DBusError parameter, then the error will always be set
- * if and only if the return code indicates an error occurred. i.e.
- * the return code and the error are never going to disagree.
- *
- * An error only needs to be freed if it's been set, not if
- * it's merely been initialized.
- *
- * You can check the specific error that occurred using
- * dbus_error_has_name().
- * 
+ * @defgroup DBusErrorInternals Error reporting internals
+ * @ingroup  DBusInternals
+ * @brief Error reporting internals
  * @{
  */
-
+ 
+/**
+ * Internals of DBusError
+ */
 typedef struct
 {
   const char *name; /**< error name */
   char *message; /**< error message */
 
-  unsigned int const_message : 1; /** Message is not owned by DBusError */
+  unsigned int const_message : 1; /**< Message is not owned by DBusError */
 
   unsigned int dummy2 : 1; /**< placeholder */
   unsigned int dummy3 : 1; /**< placeholder */
@@ -126,6 +99,45 @@ message_from_error (const char *error)
   else
     return error;
 }
+
+/** @} */ /* End of internals */
+
+/**
+ * @defgroup DBusErrors Error reporting
+ * @ingroup  DBus
+ * @brief Error reporting
+ *
+ * Types and functions related to reporting errors.
+ *
+ *
+ * In essence D-BUS error reporting works as follows:
+ *
+ * @code
+ * DBusError error;
+ * dbus_error_init (&error);
+ * dbus_some_function (arg1, arg2, &error);
+ * if (dbus_error_is_set (&error))
+ *   {
+ *     fprintf (stderr, "an error occurred: %s\n", error.message);
+ *     dbus_error_free (&error);
+ *   }
+ * @endcode
+ *
+ * There are some rules. An error passed to a D-BUS function must
+ * always be unset; you can't pass in an error that's already set.  If
+ * a function has a return code indicating whether an error occurred,
+ * and also a #DBusError parameter, then the error will always be set
+ * if and only if the return code indicates an error occurred. i.e.
+ * the return code and the error are never going to disagree.
+ *
+ * An error only needs to be freed if it's been set, not if
+ * it's merely been initialized.
+ *
+ * You can check the specific error that occurred using
+ * dbus_error_has_name().
+ * 
+ * @{
+ */
 
 /**
  * Initializes a DBusError structure. Does not allocate
@@ -292,9 +304,6 @@ dbus_error_is_set (const DBusError *error)
  *
  * @todo should be called dbus_error_set()
  *
- * @todo stdio.h shouldn't be included in this file,
- * should write _dbus_string_append_printf instead
- * 
  * @param error the error.
  * @param name the error name (not copied!!!)
  * @param format printf-style format string.
@@ -306,11 +315,9 @@ dbus_set_error (DBusError  *error,
 		...)
 {
   DBusRealError *real;
+  DBusString str;
   va_list args;
-  int message_length;
-  char *message;
-  char c;
-
+  
   if (error == NULL)
     return;
 
@@ -321,31 +328,46 @@ dbus_set_error (DBusError  *error,
   _dbus_assert (error->name == NULL);
   _dbus_assert (error->message == NULL);
 
+  if (!_dbus_string_init (&str))
+    goto nomem;
+  
   if (format == NULL)
-    format = message_from_error (name);
-  
-  va_start (args, format);
-  /* Measure the message length */
-  message_length = vsnprintf (&c, 1, format, args) + 1;
-  va_end (args);
-  
-  message = dbus_malloc (message_length);
-  
-  if (!message)
     {
-      dbus_set_error_const (error, DBUS_ERROR_NO_MEMORY, NULL);
-      return;
+      if (!_dbus_string_append (&str,
+                                message_from_error (name)))
+        {
+          _dbus_string_free (&str);
+          goto nomem;
+        }
     }
-  
-  va_start (args, format);  
-  vsprintf (message, format, args);  
-  va_end (args);
+  else
+    {
+      va_start (args, format);
+      if (!_dbus_string_append_printf_valist (&str, format, args))
+        {
+          _dbus_string_free (&str);
+          goto nomem;
+        }
+      va_end (args);
+    }
 
   real = (DBusRealError *)error;
+
+  if (!_dbus_string_steal_data (&str, &real->message))
+    {
+      _dbus_string_free (&str);
+      goto nomem;
+    }
   
   real->name = name;
-  real->message = message;
   real->const_message = FALSE;
+
+  _dbus_string_free (&str);
+
+  return;
+  
+ nomem:
+  dbus_set_error_const (error, DBUS_ERROR_NO_MEMORY, NULL);      
 }
 
-/** @} */
+/** @} */ /* End public API */

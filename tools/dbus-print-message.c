@@ -21,18 +21,64 @@
  */
 #include "dbus-print-message.h"
 
+static const char*
+type_to_name (int message_type)
+{
+  switch (message_type)
+    {
+    case DBUS_MESSAGE_TYPE_SIGNAL:
+      return "signal";
+    case DBUS_MESSAGE_TYPE_METHOD_CALL:
+      return "method call";
+    case DBUS_MESSAGE_TYPE_METHOD_RETURN:
+      return "method return";
+    case DBUS_MESSAGE_TYPE_ERROR:
+      return "error";
+    default:
+      return "(unknown message type)";
+    }
+}
+
 void
 print_message (DBusMessage *message)
 {
   DBusMessageIter iter;
   const char *sender;
+  int message_type;
 
+  message_type = dbus_message_get_type (message);
   sender = dbus_message_get_sender (message); 
-  
-  printf ("message name=%s; sender=%s\n",
-          dbus_message_get_name (message),
-          sender ? sender : "(no sender)");
-  
+
+  switch (message_type)
+    {
+    case DBUS_MESSAGE_TYPE_METHOD_CALL:
+    case DBUS_MESSAGE_TYPE_SIGNAL:
+      printf ("%s interface=%s; member=%s; sender=%s\n",
+              type_to_name (message_type),
+              dbus_message_get_interface (message),
+              dbus_message_get_member (message),
+              sender ? sender : "(no sender)");
+      break;
+      
+    case DBUS_MESSAGE_TYPE_METHOD_RETURN:
+      printf ("%s; sender=%s\n",
+              type_to_name (message_type),
+              sender ? sender : "(no sender)");
+      break;
+
+    case DBUS_MESSAGE_TYPE_ERROR:
+      printf ("%s name=%s; sender=%s\n",
+              type_to_name (message_type),
+              dbus_message_get_error_name (message),
+              sender ? sender : "(no sender)");
+      break;
+
+    default:
+      printf ("Message of unknown type %d received\n",
+              message_type);
+      break;
+    }
+      
   dbus_message_iter_init (message, &iter);
 
   do

@@ -176,28 +176,31 @@ enum
   CHILD_PID                /* Followed by pid_t */
 };
 
+/**
+ * Babysitter implementation details
+ */
 struct DBusBabysitter
 {
-  int refcount;
+  int refcount; /**< Reference count */
 
   char *executable; /**< executable name to use in error messages */
   
-  int socket_to_babysitter;
-  int error_pipe_from_child;
+  int socket_to_babysitter; /**< Connection to the babysitter process */
+  int error_pipe_from_child; /**< Connection to the process that does the exec() */
   
-  pid_t sitter_pid;
-  pid_t grandchild_pid;
+  pid_t sitter_pid;  /**< PID Of the babysitter */
+  pid_t grandchild_pid; /**< PID of the grandchild */
 
-  DBusWatchList *watches;
+  DBusWatchList *watches; /**< Watches */
 
-  DBusWatch *error_watch;
-  DBusWatch *sitter_watch;
+  DBusWatch *error_watch; /**< Error pipe watch */
+  DBusWatch *sitter_watch; /**< Sitter pipe watch */
 
-  int errnum;
-  int status;
-  unsigned int have_child_status : 1;
-  unsigned int have_fork_errnum : 1;
-  unsigned int have_exec_errnum : 1;
+  int errnum; /**< Error number */
+  int status; /**< Exit status code */
+  unsigned int have_child_status : 1; /**< True if child status has been reaped */
+  unsigned int have_fork_errnum : 1; /**< True if we have an error code from fork() */
+  unsigned int have_exec_errnum : 1; /**< True if we have an error code from exec() */
 };
 
 static DBusBabysitter*

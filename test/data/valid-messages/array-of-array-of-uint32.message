@@ -1,11 +1,9 @@
 # Message with an array of array of uint32
 
-VALID_HEADER
-FIELD_NAME name
-TYPE STRING
-STRING 'org.freedesktop.Foo'
-END_LENGTH Header
+VALID_HEADER method_call
+REQUIRED_FIELDS
 ALIGN 8
+END_LENGTH Header
 START_LENGTH Body
 
 TYPE ARRAY

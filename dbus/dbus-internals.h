@@ -144,6 +144,8 @@ extern const char _dbus_return_if_fail_warning_format[];
   ((void*)_DBUS_ALIGN_VALUE(this, boundary))
 
 char*       _dbus_strdup                (const char  *str);
+void*       _dbus_memdup                (const void  *mem,
+                                         size_t       n_bytes);
 dbus_bool_t _dbus_string_array_contains (const char **array,
                                          const char  *str);
 char**      _dbus_dup_string_array      (const char **array);
@@ -182,7 +184,8 @@ void _dbus_verbose_bytes_of_string (const DBusString    *str,
                                     int                  len);
 
 
-const char* _dbus_type_to_string (int type);
+const char* _dbus_type_to_string         (int type);
+const char* _dbus_header_field_to_string (int header_field);
 
 extern const char _dbus_no_memory_message[];
 #define _DBUS_SET_OOM(error) dbus_set_error ((error), DBUS_ERROR_NO_MEMORY, _dbus_no_memory_message)
@@ -228,10 +231,10 @@ extern int _dbus_current_generation;
 
 _DBUS_DECLARE_GLOBAL_LOCK (list);
 _DBUS_DECLARE_GLOBAL_LOCK (connection_slots);
+_DBUS_DECLARE_GLOBAL_LOCK (pending_call_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (server_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (message_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (atomic);
-_DBUS_DECLARE_GLOBAL_LOCK (message_handler);
 _DBUS_DECLARE_GLOBAL_LOCK (bus);
 _DBUS_DECLARE_GLOBAL_LOCK (shutdown_funcs);
 _DBUS_DECLARE_GLOBAL_LOCK (system_users);

@@ -1,8 +1,16 @@
 ## has one byte extra header padding
 
 ## VALID_HEADER includes a LENGTH Header and LENGTH Body
-VALID_HEADER
-FIELD_NAME unkn
+VALID_HEADER method_call
+
+HEADER_FIELD INTERFACE
+TYPE STRING
+STRING 'org.freedesktop.Foo'
+HEADER_FIELD MEMBER
+TYPE STRING
+STRING 'Bar'
+
+HEADER_FIELD UNKNOWN
 TYPE STRING
 STRING 'a'
 ALIGN 8

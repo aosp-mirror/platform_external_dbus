@@ -1,5 +1,12 @@
 
+if HAVE_GLIB
+    GLIB_SUBDIR=glib
+endif
+
+SUBDIRS=$(GLIB_SUBDIR)
+
 INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
+
 
 if DBUS_BUILD_TESTS
 TEST_BINARIES=test-service unbase64 break-loader spawn-test test-segfault test-exit test-sleep-forever
@@ -82,7 +89,7 @@ all-local:
 	for D in $(TESTDIRS); do								\
 		test -d $(top_builddir)/test/$$D || mkdir $(top_builddir)/test/$$D || exit 1 ;	\
 	done ;											\
-	if test $(srcdir) != . ; then								\
+	if ! (test $(srcdir) = . || test $(srcdir) -ef .) ; then								\
 		FILES=`(cd $(srcdir) && $(FIND_TESTS))` ;					\
 	        for F in $$FILES; do								\
 			SRC=$(srcdir)/$$F ;							\

@@ -27,6 +27,7 @@
 #include "dbus-transport-unix.h"
 #include "dbus-connection-internal.h"
 #include "dbus-hash.h"
+#include "dbus-string.h"
 
 #ifdef DBUS_BUILD_TESTS
 

@@ -25,6 +25,8 @@
 #include "dbus-string.h"
 /* we allow a system header here, for speed/convenience */
 #include <string.h>
+/* for vsnprintf */
+#include <stdio.h>
 #include "dbus-marshal.h"
 #define DBUS_CAN_USE_DBUS_STRING_PRIVATE 1
 #include "dbus-string-private.h"
@@ -560,26 +562,30 @@ _dbus_string_get_byte (const DBusString  *str,
 }
 
 /**
- * Inserts the given byte at the given position.
+ * Inserts a number of bytes of a given value at the
+ * given position.
  *
  * @param str the string
  * @param i the position
+ * @param n_bytes number of bytes
  * @param byte the value to insert
  * @returns #TRUE on success
  */
 dbus_bool_t
-_dbus_string_insert_byte (DBusString   *str,
-                          int           i,
-                          unsigned char byte)
+_dbus_string_insert_bytes (DBusString   *str,
+			   int           i,
+			   int           n_bytes,
+			   unsigned char byte)
 {
   DBUS_STRING_PREAMBLE (str);
   _dbus_assert (i <= real->len);
   _dbus_assert (i >= 0);
+  _dbus_assert (n_bytes > 0);
   
-  if (!open_gap (1, real, i))
+  if (!open_gap (n_bytes, real, i))
     return FALSE;
   
-  real->str[i] = byte;
+  memset (real->str + i, byte, n_bytes);
 
   return TRUE;
 }
@@ -964,7 +970,7 @@ _dbus_string_append_8_aligned (DBusString         *str,
   p = (dbus_uint64_t*) (real->str + (real->len - 8));
   *p = *((dbus_uint64_t*)octets);
 #else
-  char *p;
+  unsigned char *p;
   DBUS_STRING_PREAMBLE (str);
   
   if (!align_length_then_lengthen (str, 8, 8))
@@ -984,6 +990,59 @@ _dbus_string_append_8_aligned (DBusString         *str,
 #endif
 
   return TRUE;
+}
+
+/**
+ * Appends a printf-style formatted string
+ * to the #DBusString.
+ *
+ * @param str the string
+ * @param format printf format
+ * @param args variable argument list
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_string_append_printf_valist  (DBusString        *str,
+                                    const char        *format,
+                                    va_list            args)
+{
+  int len;
+  char c;
+  DBUS_STRING_PREAMBLE (str);
+  
+  /* Measure the message length without terminating nul */
+  len = vsnprintf (&c, 1, format, args);
+
+  if (!_dbus_string_lengthen (str, len))
+    return FALSE;
+
+  vsprintf (real->str + (real->len - len),
+            format, args);
+
+  return TRUE;
+}
+
+/**
+ * Appends a printf-style formatted string
+ * to the #DBusString.
+ *
+ * @param str the string
+ * @param format printf format
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_string_append_printf (DBusString        *str,
+                            const char        *format,
+                            ...)
+{
+  va_list args;
+  dbus_bool_t retval;
+  
+  va_start (args, format);
+  retval = _dbus_string_append_printf_valist (str, format, args);
+  va_end (args);
+
+  return retval;
 }
 
 /**
@@ -1752,7 +1811,7 @@ _dbus_string_skip_white (const DBusString *str,
 }
 
 /**
- * Assigns a newline-terminated or \r\n-terminated line from the front
+ * Assigns a newline-terminated or \\r\\n-terminated line from the front
  * of the string to the given dest string. The dest string's previous
  * contents are deleted. If the source string contains no newline,
  * moves the entire source string to the dest string.
@@ -2791,13 +2850,16 @@ _dbus_string_validate_nul (const DBusString *str,
 }
 
 /**
- * Checks that the given range of the string is a valid message name
- * in the D-BUS protocol. This includes a length restriction, etc.,
- * see the specification. It does not validate UTF-8, that has to be
- * done separately for now.
+ * Checks that the given range of the string is a valid object path
+ * name in the D-BUS protocol. This includes a length restriction,
+ * etc., see the specification. It does not validate UTF-8, that has
+ * to be done separately for now.
  *
  * @todo this is inconsistent with most of DBusString in that
  * it allows a start,len range that isn't in the string.
+ *
+ * @todo change spec to disallow more things, such as spaces in the
+ * path name
  * 
  * @param str the string
  * @param start first byte index to check
@@ -2805,9 +2867,77 @@ _dbus_string_validate_nul (const DBusString *str,
  * @returns #TRUE if the byte range exists and is a valid name
  */
 dbus_bool_t
-_dbus_string_validate_name (const DBusString  *str,
+_dbus_string_validate_path (const DBusString  *str,
                             int                start,
                             int                len)
+{
+  const unsigned char *s;
+  const unsigned char *end;
+  const unsigned char *last_slash;
+  
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start >= 0);
+  _dbus_assert (len >= 0);
+  _dbus_assert (start <= real->len);
+  
+  if (len > real->len - start)
+    return FALSE;
+
+  if (len > DBUS_MAXIMUM_NAME_LENGTH)
+    return FALSE;
+
+  if (len == 0)
+    return FALSE;
+
+  s = real->str + start;
+  end = s + len;
+
+  if (*s != '/')
+    return FALSE;
+  last_slash = s;
+  ++s;
+  
+  while (s != end)
+    {
+      if (*s == '/')
+        {
+          if ((s - last_slash) < 2)
+            return FALSE; /* no empty path components allowed */
+
+          last_slash = s;
+        }
+      
+      ++s;
+    }
+
+  if ((end - last_slash) < 2 &&
+      len > 1)
+    return FALSE; /* trailing slash not allowed unless the string is "/" */
+  
+  return TRUE;
+}
+
+/**
+ * Checks that the given range of the string is a valid interface name
+ * in the D-BUS protocol. This includes a length restriction, etc.,
+ * see the specification. It does not validate UTF-8, that has to be
+ * done separately for now.
+ *
+ * @todo this is inconsistent with most of DBusString in that
+ * it allows a start,len range that isn't in the string.
+ *
+ * @todo change spec to disallow more things, such as spaces in the
+ * interface name
+ * 
+ * @param str the string
+ * @param start first byte index to check
+ * @param len number of bytes to check
+ * @returns #TRUE if the byte range exists and is a valid name
+ */
+dbus_bool_t
+_dbus_string_validate_interface (const DBusString  *str,
+                                 int                start,
+                                 int                len)
 {
   const unsigned char *s;
   const unsigned char *end;
@@ -2847,6 +2977,89 @@ _dbus_string_validate_name (const DBusString  *str,
   return TRUE;
 }
 
+/**
+ * Checks that the given range of the string is a valid member name
+ * in the D-BUS protocol. This includes a length restriction, etc.,
+ * see the specification. It does not validate UTF-8, that has to be
+ * done separately for now.
+ *
+ * @todo this is inconsistent with most of DBusString in that
+ * it allows a start,len range that isn't in the string.
+ * 
+ * @todo change spec to disallow more things, such as spaces in the
+ * member name
+ * 
+ * @param str the string
+ * @param start first byte index to check
+ * @param len number of bytes to check
+ * @returns #TRUE if the byte range exists and is a valid name
+ */
+dbus_bool_t
+_dbus_string_validate_member (const DBusString  *str,
+                              int                start,
+                              int                len)
+{
+  const unsigned char *s;
+  const unsigned char *end;
+  dbus_bool_t saw_dot;
+  
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start >= 0);
+  _dbus_assert (len >= 0);
+  _dbus_assert (start <= real->len);
+  
+  if (len > real->len - start)
+    return FALSE;
+
+  if (len > DBUS_MAXIMUM_NAME_LENGTH)
+    return FALSE;
+
+  if (len == 0)
+    return FALSE;
+
+  saw_dot = FALSE;
+  s = real->str + start;
+  end = s + len;
+  while (s != end)
+    {
+      if (*s == '.')
+        {
+          saw_dot = TRUE;
+          break;
+        }
+      
+      ++s;
+    }
+
+  /* No dot allowed in member names */
+  if (saw_dot)
+    return FALSE;
+  
+  return TRUE;
+}
+
+/**
+ * Checks that the given range of the string is a valid error name
+ * in the D-BUS protocol. This includes a length restriction, etc.,
+ * see the specification. It does not validate UTF-8, that has to be
+ * done separately for now.
+ *
+ * @todo this is inconsistent with most of DBusString in that
+ * it allows a start,len range that isn't in the string.
+ * 
+ * @param str the string
+ * @param start first byte index to check
+ * @param len number of bytes to check
+ * @returns #TRUE if the byte range exists and is a valid name
+ */
+dbus_bool_t
+_dbus_string_validate_error_name (const DBusString  *str,
+                                  int                start,
+                                  int                len)
+{
+  /* Same restrictions as interface name at the moment */
+  return _dbus_string_validate_interface (str, start, len);
+}
 
 /**
  * Checks that the given range of the string is a valid service name
@@ -2856,6 +3069,9 @@ _dbus_string_validate_name (const DBusString  *str,
  *
  * @todo this is inconsistent with most of DBusString in that
  * it allows a start,len range that isn't in the string.
+ *
+ * @todo change spec to disallow more things, such as spaces in the
+ * service name
  * 
  * @param str the string
  * @param start first byte index to check
@@ -3107,6 +3323,24 @@ _dbus_string_test (void)
   int lens[] = { 0, 1, 2, 3, 4, 5, 10, 16, 17, 18, 25, 31, 32, 33, 34, 35, 63, 64, 65, 66, 67, 68, 69, 70, 71, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136 };
   char *s;
   dbus_unichar_t ch;
+  const char *valid_paths[] = {
+    "/",
+    "/foo/bar",
+    "/foo",
+    "/foo/bar/baz"
+  };
+  const char *invalid_paths[] = {
+    "bar",
+    "bar/baz",
+    "/foo/bar/",
+    "/foo/"
+    "foo/",
+    "boo//blah",
+    "//",
+    "///",
+    "foo///blah/",
+    "Hello World"
+  };
   
   i = 0;
   while (i < _DBUS_N_ELEMENTS (lens))
@@ -3342,23 +3576,26 @@ _dbus_string_test (void)
   _dbus_string_set_byte (&str, 1, 'q');
   _dbus_assert (_dbus_string_get_byte (&str, 1) == 'q');
 
-  if (!_dbus_string_insert_byte (&str, 0, 255))
+  if (!_dbus_string_insert_bytes (&str, 0, 1, 255))
     _dbus_assert_not_reached ("can't insert byte");
 
-  if (!_dbus_string_insert_byte (&str, 2, 'Z'))
+  if (!_dbus_string_insert_bytes (&str, 2, 4, 'Z'))
     _dbus_assert_not_reached ("can't insert byte");
 
-  if (!_dbus_string_insert_byte (&str, _dbus_string_get_length (&str), 'W'))
+  if (!_dbus_string_insert_bytes (&str, _dbus_string_get_length (&str), 1, 'W'))
     _dbus_assert_not_reached ("can't insert byte");
   
   _dbus_assert (_dbus_string_get_byte (&str, 0) == 255);
   _dbus_assert (_dbus_string_get_byte (&str, 1) == 'H');
   _dbus_assert (_dbus_string_get_byte (&str, 2) == 'Z');
-  _dbus_assert (_dbus_string_get_byte (&str, 3) == 'q');
-  _dbus_assert (_dbus_string_get_byte (&str, 4) == 'l');
-  _dbus_assert (_dbus_string_get_byte (&str, 5) == 'l');
-  _dbus_assert (_dbus_string_get_byte (&str, 6) == 'o');
-  _dbus_assert (_dbus_string_get_byte (&str, 7) == 'W');
+  _dbus_assert (_dbus_string_get_byte (&str, 3) == 'Z');
+  _dbus_assert (_dbus_string_get_byte (&str, 4) == 'Z');
+  _dbus_assert (_dbus_string_get_byte (&str, 5) == 'Z');
+  _dbus_assert (_dbus_string_get_byte (&str, 6) == 'q');
+  _dbus_assert (_dbus_string_get_byte (&str, 7) == 'l');
+  _dbus_assert (_dbus_string_get_byte (&str, 8) == 'l');
+  _dbus_assert (_dbus_string_get_byte (&str, 9) == 'o');
+  _dbus_assert (_dbus_string_get_byte (&str, 10) == 'W');
 
   _dbus_string_free (&str);
   
@@ -3481,7 +3718,38 @@ _dbus_string_test (void)
   /* Base 64 and Hex encoding */
   test_roundtrips (test_base64_roundtrip);
   test_roundtrips (test_hex_roundtrip);
-  
+
+  /* Path validation */
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (valid_paths))
+    {
+      _dbus_string_init_const (&str, valid_paths[i]);
+
+      if (!_dbus_string_validate_path (&str, 0,
+                                       _dbus_string_get_length (&str)))
+        {
+          _dbus_warn ("Path \"%s\" should have been valid\n", valid_paths[i]);
+          _dbus_assert_not_reached ("invalid path");
+        }
+      
+      ++i;
+    }
+
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (invalid_paths))
+    {
+      _dbus_string_init_const (&str, invalid_paths[i]);
+      
+      if (_dbus_string_validate_path (&str, 0,
+                                      _dbus_string_get_length (&str)))
+        {
+          _dbus_warn ("Path \"%s\" should have been invalid\n", invalid_paths[i]);
+          _dbus_assert_not_reached ("valid path");
+        }
+      
+      ++i;
+    }
+         
   return TRUE;
 }
 

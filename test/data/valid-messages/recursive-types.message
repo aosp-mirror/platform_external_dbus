@@ -1,12 +1,11 @@
 ## Message with recursive types
 
 ## VALID_HEADER includes a LENGTH Header and LENGTH Body
-VALID_HEADER
+VALID_HEADER method_call
 
-FIELD_NAME name
-TYPE STRING
-STRING 'org.freedesktop.Foo'
+REQUIRED_FIELDS
 
+ALIGN 8
 END_LENGTH Header
 START_LENGTH Body
 

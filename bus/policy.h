@@ -54,16 +54,27 @@ struct BusPolicyRule
   {
     struct
     {
-      /* either can be NULL meaning "any" */
-      char *message_name;
+      /* message type can be DBUS_MESSAGE_TYPE_INVALID meaning "any" */
+      int   message_type;
+      /* any of these can be NULL meaning "any" */
+      char *path;
+      char *interface;
+      char *member;
+      char *error;
       char *destination;
     } send;
 
     struct
     {
-      /* either can be NULL meaning "any" */
-      char *message_name;
+      /* message type can be DBUS_MESSAGE_TYPE_INVALID meaning "any" */
+      int   message_type;
+      /* any of these can be NULL meaning "any" */
+      char *path;
+      char *interface;
+      char *member;
+      char *error;
       char *origin;
+      unsigned int eavesdrop : 1;
     } receive;
 
     struct
@@ -124,6 +135,8 @@ dbus_bool_t      bus_client_policy_check_can_send    (BusClientPolicy  *policy,
 dbus_bool_t      bus_client_policy_check_can_receive (BusClientPolicy  *policy,
                                                       BusRegistry      *registry,
                                                       DBusConnection   *sender,
+                                                      DBusConnection   *addressed_recipient,
+                                                      DBusConnection   *proposed_recipient,
                                                       DBusMessage      *message);
 dbus_bool_t      bus_client_policy_check_can_own     (BusClientPolicy  *policy,
                                                       DBusConnection   *connection,

@@ -53,25 +53,54 @@ extern "C" {
 #define DBUS_TYPE_NAMED         10
 #define DBUS_TYPE_ARRAY         11
 #define DBUS_TYPE_DICT          12
+#define DBUS_TYPE_OBJECT_PATH   13
+  
+#define DBUS_TYPE_LAST DBUS_TYPE_OBJECT_PATH
 
-#define DBUS_TYPE_LAST DBUS_TYPE_DICT
-
-/* Max length in bytes of a service or message name */
+/* Max length in bytes of a service or interface or member name */
 #define DBUS_MAXIMUM_NAME_LENGTH 256
 
+/* Types of message */
+#define DBUS_MESSAGE_TYPE_INVALID       0
+#define DBUS_MESSAGE_TYPE_METHOD_CALL   1
+#define DBUS_MESSAGE_TYPE_METHOD_RETURN 2
+#define DBUS_MESSAGE_TYPE_ERROR         3
+#define DBUS_MESSAGE_TYPE_SIGNAL        4
+  
 /* Header flags */
-#define DBUS_HEADER_FLAG_ERROR 0x1
+#define DBUS_HEADER_FLAG_NO_REPLY_EXPECTED 0x1
   
 /* Header fields */
-#define DBUS_HEADER_FIELD_NAME    "name"
-#define DBUS_HEADER_FIELD_SERVICE "srvc"
-#define DBUS_HEADER_FIELD_REPLY	  "rply"
-#define DBUS_HEADER_FIELD_SENDER  "sndr"
+#define DBUS_HEADER_FIELD_INVALID        0
+#define DBUS_HEADER_FIELD_PATH           1
+#define DBUS_HEADER_FIELD_INTERFACE      2
+#define DBUS_HEADER_FIELD_MEMBER         3
+#define DBUS_HEADER_FIELD_ERROR_NAME     4
+#define DBUS_HEADER_FIELD_REPLY_SERIAL   5
+#define DBUS_HEADER_FIELD_SERVICE        6
+#define DBUS_HEADER_FIELD_SENDER_SERVICE 7
 
+#define DBUS_HEADER_FIELD_LAST DBUS_HEADER_FIELD_SENDER_SERVICE
+  
 /* Services */
-#define DBUS_SERVICE_DBUS      "org.freedesktop.DBus"
-#define DBUS_SERVICE_BROADCAST "org.freedesktop.DBus.Broadcast"
+#define DBUS_SERVICE_ORG_FREEDESKTOP_DBUS      "org.freedesktop.DBus"
 
+/* Paths */
+#define DBUS_PATH_ORG_FREEDESKTOP_DBUS  "/org/freedesktop/DBus"
+#define DBUS_PATH_ORG_FREEDESKTOP_LOCAL "/org/freedesktop/Local"
+  
+/* Interfaces, these #define don't do much other than
+ * catch typos at compile time
+ */
+#define DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS  "org.freedesktop.DBus"
+#define DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE "org.freedesktop.Introspectable"
+  
+/* This is a special interface whose methods can only be invoked
+ * by the local implementation (messages from remote apps aren't
+ * allowed to specify this interface).
+ */
+#define DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL "org.freedesktop.Local"
+  
 /* Service owner flags */
 #define DBUS_SERVICE_FLAG_PROHIBIT_REPLACEMENT 0x1
 #define DBUS_SERVICE_FLAG_REPLACE_EXISTING     0x2
@@ -85,24 +114,6 @@ extern "C" {
 /* Activation replies */
 #define DBUS_ACTIVATION_REPLY_ACTIVATED      0x0
 #define DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE 0x1
-  
-/* Messages */
-#define DBUS_MESSAGE_ACTIVATE_SERVICE      "org.freedesktop.DBus.ActivateService"  
-#define DBUS_MESSAGE_SERVICE_EXISTS        "org.freedesktop.DBus.ServiceExists"
-#define DBUS_MESSAGE_HELLO                 "org.freedesktop.DBus.Hello"
-#define DBUS_MESSAGE_LIST_SERVICES         "org.freedesktop.DBus.ListServices"
-#define DBUS_MESSAGE_ACQUIRE_SERVICE       "org.freedesktop.DBus.AcquireService"
-#define DBUS_MESSAGE_SERVICE_ACQUIRED      "org.freedesktop.DBus.ServiceAcquired"
-#define DBUS_MESSAGE_SERVICE_CREATED       "org.freedesktop.DBus.ServiceCreated"
-#define DBUS_MESSAGE_SERVICE_DELETED       "org.freedesktop.DBus.ServiceDeleted"
-#define DBUS_MESSAGE_SERVICE_LOST          "org.freedesktop.DBus.ServiceLost"
-
-
-/* This namespace is reserved for locally-synthesized messages, you can't
- * send messages that have this namespace.
- */
-#define DBUS_NAMESPACE_LOCAL_MESSAGE       "org.freedesktop.Local."
-#define DBUS_MESSAGE_LOCAL_DISCONNECT      DBUS_NAMESPACE_LOCAL_MESSAGE"Disconnect"
   
 #ifdef __cplusplus
 }

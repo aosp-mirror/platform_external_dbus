@@ -38,6 +38,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef DBUS_HAVE_INT64
+#error "gcov support can't be built without 64-bit integer support"
+#endif
+
 static void
 die (const char *message)
 {

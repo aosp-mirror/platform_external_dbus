@@ -31,6 +31,7 @@
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-arch-deps.h>
 #include <dbus/dbus-memory.h>
+#include <dbus/dbus-errors.h>
 #include <stdarg.h>
 
 DBUS_BEGIN_DECLS;
@@ -38,45 +39,74 @@ DBUS_BEGIN_DECLS;
 typedef struct DBusMessage DBusMessage;
 typedef struct DBusMessageIter DBusMessageIter;
 
+/**
+ * DBusMessageIter struct; contains no public fields 
+ */
 struct DBusMessageIter
-{
-  void *dummy1;
-  void *dummy2;
-  dbus_uint32_t dummy3;
-  int dummy4;
-  int dummy5;
-  int dummy6;
-  int dummy7;
-  int dummy8;
-  int dummy9;
-  int dummy10;
-  int dummy11;
-  int pad1;
-  int pad2;
-  void *pad3;
+{ 
+  void *dummy1;         /**< Don't use this */
+  void *dummy2;         /**< Don't use this */
+  dbus_uint32_t dummy3; /**< Don't use this */
+  int dummy4;           /**< Don't use this */
+  int dummy5;           /**< Don't use this */
+  int dummy6;           /**< Don't use this */
+  int dummy7;           /**< Don't use this */
+  int dummy8;           /**< Don't use this */
+  int dummy9;           /**< Don't use this */
+  int dummy10;          /**< Don't use this */
+  int dummy11;          /**< Don't use this */
+  int pad1;             /**< Don't use this */
+  int pad2;             /**< Don't use this */
+  void *pad3;           /**< Don't use this */
 };
 
+DBusMessage* dbus_message_new               (int          message_type);
+DBusMessage* dbus_message_new_method_call   (const char  *service,
+                                             const char  *path,
+                                             const char  *interface,
+                                             const char  *method);
+DBusMessage* dbus_message_new_method_return (DBusMessage *method_call);
+DBusMessage* dbus_message_new_signal        (const char  *path,
+                                             const char  *interface,
+                                             const char  *name);
+DBusMessage* dbus_message_new_error         (DBusMessage *reply_to,
+                                             const char  *error_name,
+                                             const char  *error_message);
 
-DBusMessage* dbus_message_new              (const char        *name,
-					    const char        *destination_service);
-DBusMessage* dbus_message_new_reply        (DBusMessage       *original_message);
-DBusMessage* dbus_message_new_error_reply  (DBusMessage       *original_message,
-					    const char        *error_name,
-					    const char        *error_message);
-DBusMessage *dbus_message_copy             (const DBusMessage *message);
+DBusMessage *dbus_message_copy              (const DBusMessage *message);
 
 void          dbus_message_ref              (DBusMessage   *message);
 void          dbus_message_unref            (DBusMessage   *message);
-const char*   dbus_message_get_name         (DBusMessage   *message);
+int           dbus_message_get_type         (DBusMessage   *message);
+dbus_bool_t   dbus_message_set_path         (DBusMessage   *message,
+                                             const char    *object_path);
+const char*   dbus_message_get_path         (DBusMessage   *message);
+dbus_bool_t   dbus_message_set_interface    (DBusMessage   *message,
+                                             const char    *interface);
+const char*   dbus_message_get_interface    (DBusMessage   *message);
+dbus_bool_t   dbus_message_set_member       (DBusMessage   *message,
+                                             const char    *member);
+const char*   dbus_message_get_member       (DBusMessage   *message);
+dbus_bool_t   dbus_message_set_error_name   (DBusMessage   *message,
+                                             const char    *name);
+const char*   dbus_message_get_error_name   (DBusMessage   *message);
+dbus_bool_t   dbus_message_set_destination  (DBusMessage   *message,
+                                             const char    *destination);
 const char*   dbus_message_get_destination  (DBusMessage   *message);
 dbus_bool_t   dbus_message_set_sender       (DBusMessage   *message,
                                              const char    *sender);
 const char*   dbus_message_get_sender       (DBusMessage   *message);
-void          dbus_message_set_is_error     (DBusMessage   *message,
-                                             dbus_bool_t    is_error_reply);
-dbus_bool_t   dbus_message_get_is_error     (DBusMessage   *message);
-dbus_bool_t   dbus_message_has_name         (DBusMessage   *message,
-                                             const char    *name);
+void          dbus_message_set_no_reply     (DBusMessage   *message,
+                                             dbus_bool_t    no_reply);
+dbus_bool_t   dbus_message_get_no_reply     (DBusMessage   *message);
+dbus_bool_t   dbus_message_is_method_call   (DBusMessage   *message,
+                                             const char    *interface,
+                                             const char    *method);
+dbus_bool_t   dbus_message_is_signal        (DBusMessage   *message,
+                                             const char    *interface,
+                                             const char    *signal_name);
+dbus_bool_t   dbus_message_is_error         (DBusMessage   *message,
+                                             const char    *error_name);
 dbus_bool_t   dbus_message_has_destination  (DBusMessage   *message,
                                              const char    *service);
 dbus_bool_t   dbus_message_has_sender       (DBusMessage   *message,
@@ -85,6 +115,9 @@ dbus_uint32_t dbus_message_get_serial       (DBusMessage   *message);
 dbus_bool_t   dbus_message_set_reply_serial (DBusMessage   *message,
                                              dbus_uint32_t  reply_serial);
 dbus_uint32_t dbus_message_get_reply_serial (DBusMessage   *message);
+
+dbus_bool_t   dbus_message_get_path_decomposed (DBusMessage   *message,
+                                                char        ***path);
 
 dbus_bool_t dbus_message_append_args          (DBusMessage     *message,
 					       int              first_arg_type,

@@ -26,14 +26,17 @@
 #include "dbus-internals.h"
 #include <string.h>
 
+/**
+ * Internals of DBusUserDatabase
+ */
 struct DBusUserDatabase
 {
-  int refcount;
+  int refcount; /**< Reference count */
 
-  DBusHashTable *users;
-  DBusHashTable *groups;
-  DBusHashTable *users_by_name;
-  DBusHashTable *groups_by_name;
+  DBusHashTable *users; /**< Users in the database by UID */
+  DBusHashTable *groups; /**< Groups in the database by GID */
+  DBusHashTable *users_by_name; /**< Users in the database by name */
+  DBusHashTable *groups_by_name; /**< Groups in the database by name */
 };
 
 static void

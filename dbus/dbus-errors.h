@@ -35,6 +35,9 @@ DBUS_BEGIN_DECLS;
 
 typedef struct DBusError DBusError;
 
+/**
+ * Object representing an exception.
+ */
 struct DBusError
 {
   const char *name;    /**< error name */
@@ -50,13 +53,8 @@ struct DBusError
 };
 
 #define DBUS_ERROR_FAILED                     "org.freedesktop.DBus.Error.Failed"
-#define DBUS_ERROR_ACTIVATE_SERVICE_NOT_FOUND "org.freedesktop.DBus.Activate.ServiceNotFound"
-#define DBUS_ERROR_SPAWN_EXEC_FAILED          "org.freedesktop.DBus.Error.Spawn.ExecFailed"
-#define DBUS_ERROR_SPAWN_FORK_FAILED          "org.freedesktop.DBus.Error.Spawn.ForkFailed"
-#define DBUS_ERROR_SPAWN_CHILD_EXITED         "org.freedesktop.DBus.Error.Spawn.ChildExited"
-#define DBUS_ERROR_SPAWN_CHILD_SIGNALED       "org.freedesktop.DBus.Error.Spawn.ChildSignaled"
-#define DBUS_ERROR_SPAWN_FAILED               "org.freedesktop.DBus.Error.Spawn.Failed"
 #define DBUS_ERROR_NO_MEMORY                  "org.freedesktop.DBus.Error.NoMemory"
+#define DBUS_ERROR_ACTIVATE_SERVICE_NOT_FOUND "org.freedesktop.DBus.Error.ServiceNotFound"
 #define DBUS_ERROR_SERVICE_DOES_NOT_EXIST     "org.freedesktop.DBus.Error.ServiceDoesNotExist"
 #define DBUS_ERROR_NO_REPLY                   "org.freedesktop.DBus.Error.NoReply"
 #define DBUS_ERROR_IO_ERROR                   "org.freedesktop.DBus.Error.IOError"
@@ -72,8 +70,14 @@ struct DBusError
 #define DBUS_ERROR_DISCONNECTED               "org.freedesktop.DBus.Error.Disconnected"
 #define DBUS_ERROR_INVALID_ARGS               "org.freedesktop.DBus.Error.InvalidArgs"
 #define DBUS_ERROR_FILE_NOT_FOUND             "org.freedesktop.DBus.Error.FileNotFound"
-#define DBUS_ERROR_UNKNOWN_MESSAGE            "org.freedesktop.DBus.Error.UnknownMessage"
+#define DBUS_ERROR_UNKNOWN_METHOD             "org.freedesktop.DBus.Error.UnknownMethod"
 #define DBUS_ERROR_TIMED_OUT                  "org.freedesktop.DBus.Error.TimedOut"
+#define DBUS_ERROR_MATCH_RULE_NOT_FOUND       "org.freedesktop.DBus.Error.MatchRuleNotFound"
+#define DBUS_ERROR_SPAWN_EXEC_FAILED          "org.freedesktop.DBus.Error.Spawn.ExecFailed"
+#define DBUS_ERROR_SPAWN_FORK_FAILED          "org.freedesktop.DBus.Error.Spawn.ForkFailed"
+#define DBUS_ERROR_SPAWN_CHILD_EXITED         "org.freedesktop.DBus.Error.Spawn.ChildExited"
+#define DBUS_ERROR_SPAWN_CHILD_SIGNALED       "org.freedesktop.DBus.Error.Spawn.ChildSignaled"
+#define DBUS_ERROR_SPAWN_FAILED               "org.freedesktop.DBus.Error.Spawn.Failed"
 
 void        dbus_error_init      (DBusError       *error);
 void        dbus_error_free      (DBusError       *error);

@@ -81,7 +81,7 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
     die ("strings");
 
   check_memleaks ();
-
+  
   printf ("%s: running sysdeps tests\n", "dbus-test");
   if (!_dbus_sysdeps_test ())
     die ("sysdeps");
@@ -98,6 +98,12 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   if (!_dbus_address_test ())
     die ("address parsing");
 
+  check_memleaks ();
+
+  printf ("%s: running object tree tests\n", "dbus-test");
+  if (!_dbus_object_tree_test ())
+    die ("object tree");
+  
   check_memleaks ();
   
   printf ("%s: running marshalling tests\n", "dbus-test");
@@ -127,12 +133,6 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   printf ("%s: running message tests\n", "dbus-test");
   if (!_dbus_message_test (test_data_dir))
     die ("messages");
-
-  check_memleaks ();
-
-  printf ("%s: running message handler tests\n", "dbus-test");
-  if (!_dbus_message_handler_test (test_data_dir))
-    die ("message handler");
 
   check_memleaks ();
   
@@ -176,6 +176,12 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   
   printf ("%s: running auth tests\n", "dbus-test");
   if (!_dbus_auth_test (test_data_dir))
+    die ("auth");
+
+  check_memleaks ();
+
+  printf ("%s: running pending call tests\n", "dbus-test");
+  if (!_dbus_pending_call_test (test_data_dir))
     die ("auth");
 
   check_memleaks ();

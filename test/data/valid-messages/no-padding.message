@@ -1,15 +1,13 @@
 ## Message with no header padding
 
 ## VALID_HEADER includes a LENGTH Header and LENGTH Body
-VALID_HEADER
+VALID_HEADER method_call
 
-FIELD_NAME name
-TYPE STRING
-STRING 'org.freedesktop.Foo'
+REQUIRED_FIELDS
 
 ## this byte array is filled with zeros to the natural length 
 ## of the header
-FIELD_NAME unkn
+HEADER_FIELD UNKNOWN
 TYPE ARRAY
 TYPE BYTE
 ALIGN 4

@@ -30,17 +30,18 @@
 #include "dbus-print-message.h"
 
 static DBusHandlerResult
-handler_func (DBusMessageHandler *handler,
- 	      DBusConnection     *connection,
-	      DBusMessage        *message,
-	      void               *user_data)
+filter_func (DBusConnection     *connection,
+             DBusMessage        *message,
+             void               *user_data)
 {
   print_message (message);
   
-  if (dbus_message_has_name (message, DBUS_MESSAGE_LOCAL_DISCONNECT))
+  if (dbus_message_is_signal (message,
+                              DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                              "Disconnected"))
     exit (0);
   
-  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
 static void
@@ -56,7 +57,6 @@ main (int argc, char *argv[])
   DBusConnection *connection;
   DBusError error;
   DBusBusType type = DBUS_BUS_SESSION;
-  DBusMessageHandler *handler;
   GMainLoop *loop;
   int i;
 
@@ -94,8 +94,7 @@ main (int argc, char *argv[])
 
   dbus_connection_setup_with_g_main (connection, NULL);
 
-  handler = dbus_message_handler_new (handler_func, NULL, NULL);
-  dbus_connection_add_filter (connection, handler);
+  dbus_connection_add_filter (connection, filter_func, NULL, NULL);
 
   g_main_loop_run (loop);
 

@@ -29,6 +29,8 @@
 #include <dbus/dbus-transport.h>
 #include <dbus/dbus-resources.h>
 #include <dbus/dbus-list.h>
+#include <dbus/dbus-timeout.h>
+#include <dbus/dbus-dataslot.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -39,9 +41,13 @@ typedef enum
   DBUS_ITERATION_BLOCK      = 1 << 2  /**< Block if nothing to do. */
 } DBusIterationFlags;
 
+/** default timeout value when waiting for a message reply */
+#define _DBUS_DEFAULT_TIMEOUT_VALUE (15 * 1000)
+
 void              _dbus_connection_lock                        (DBusConnection     *connection);
 void              _dbus_connection_unlock                      (DBusConnection     *connection);
 void              _dbus_connection_ref_unlocked                (DBusConnection     *connection);
+void              _dbus_connection_unref_unlocked              (DBusConnection     *connection);
 dbus_bool_t       _dbus_connection_queue_received_message      (DBusConnection     *connection,
                                                                 DBusMessage        *message);
 void              _dbus_connection_queue_received_message_link (DBusConnection     *connection,
@@ -72,15 +78,51 @@ void              _dbus_connection_do_iteration                (DBusConnection  
                                                                 unsigned int        flags,
                                                                 int                 timeout_milliseconds);
 void              _dbus_connection_notify_disconnected         (DBusConnection     *connection);
-void              _dbus_connection_handler_destroyed_locked    (DBusConnection     *connection,
-                                                                DBusMessageHandler *handler);
-dbus_bool_t       _dbus_message_handler_add_connection         (DBusMessageHandler *handler,
-                                                                DBusConnection     *connection);
-void              _dbus_message_handler_remove_connection      (DBusMessageHandler *handler,
-                                                                DBusConnection     *connection);
-DBusHandlerResult _dbus_message_handler_handle_message         (DBusMessageHandler *handler,
-                                                                DBusConnection     *connection,
+
+DBusPendingCall*  _dbus_pending_call_new                       (DBusConnection     *connection,
+                                                                int                 timeout_milliseconds,
+                                                                DBusTimeoutHandler  timeout_handler);
+void              _dbus_pending_call_notify                    (DBusPendingCall    *pending);
+void              _dbus_connection_remove_pending_call         (DBusConnection     *connection,
+                                                                DBusPendingCall    *pending);
+DBusMessage*      _dbus_connection_block_for_reply             (DBusConnection     *connection,
+                                                                dbus_uint32_t       client_serial,
+                                                                int                 timeout_milliseconds);
+void              _dbus_pending_call_complete_and_unlock       (DBusPendingCall    *pending,
                                                                 DBusMessage        *message);
+
+
+/**
+ * @addtogroup DBusPendingCallInternals DBusPendingCall implementation details
+ * @{
+ */
+/**
+ * @brief Internals of DBusPendingCall
+ *
+ * Object representing a reply message that we're waiting for.
+ */
+struct DBusPendingCall
+{
+  DBusAtomic refcount;                            /**< reference count */
+
+  DBusDataSlotList slot_list;                     /**< Data stored by allocated integer ID */
+  
+  DBusPendingCallNotifyFunction function;         /**< Notifier when reply arrives. */
+
+  DBusConnection *connection;                     /**< Connections we're associated with */
+  DBusMessage *reply;                             /**< Reply (after we've received it) */
+  DBusTimeout *timeout;                           /**< Timeout */
+
+  DBusList *timeout_link;                         /**< Preallocated timeout response */
+  
+  dbus_uint32_t reply_serial;                     /**< Expected serial of reply */
+
+  unsigned int completed : 1;                     /**< TRUE if completed */
+  unsigned int timeout_added : 1;                 /**< Have added the timeout */
+};
+
+/** @} End of DBusPendingCallInternals */
+
 
 DBUS_END_DECLS;
 

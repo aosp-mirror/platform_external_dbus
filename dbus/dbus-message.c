@@ -42,36 +42,30 @@
  * @{
  */
 
-enum
-{
-  FIELD_HEADER_LENGTH,
-  FIELD_BODY_LENGTH,
-  FIELD_CLIENT_SERIAL,
-  FIELD_NAME,
-  FIELD_SERVICE,
-  FIELD_SENDER,
-  FIELD_REPLY_SERIAL,
-
-  FIELD_LAST
-};
-
-static dbus_bool_t field_is_named[FIELD_LAST] =
-{
-  FALSE, /* FIELD_HEADER_LENGTH */
-  FALSE, /* FIELD_BODY_LENGTH */
-  FALSE, /* FIELD_CLIENT_SERIAL */
-  TRUE,  /* FIELD_NAME */
-  TRUE,  /* FIELD_SERVICE */
-  TRUE,  /* FIELD_SENDER */
-  TRUE   /* FIELD_REPLY_SERIAL */
-};
-
+/**
+ * Cached information about a header field in the message
+ */
 typedef struct
 {
-  int offset; /**< Offset to start of field (location of name of field
-               * for named fields)
-               */
+  int name_offset;  /**< Offset to name of field */
+  int value_offset; /**< Offset to value of field */
 } HeaderField;
+
+/** Offset to byte order from start of header */
+#define BYTE_ORDER_OFFSET    0
+/** Offset to type from start of header */
+#define TYPE_OFFSET          1
+/** Offset to flags from start of header */
+#define FLAGS_OFFSET         2
+/** Offset to version from start of header */
+#define VERSION_OFFSET       3
+/** Offset to header length from start of header */
+#define HEADER_LENGTH_OFFSET 4
+/** Offset to body length from start of header */
+#define BODY_LENGTH_OFFSET   8
+/** Offset to client serial from start of header */
+#define CLIENT_SERIAL_OFFSET 12
+
 
 /**
  * @brief Internals of DBusMessage
@@ -89,9 +83,9 @@ struct DBusMessage
                       * independently realloc it.
                       */
 
-  HeaderField header_fields[FIELD_LAST]; /**< Track the location
-                                           * of each field in "header"
-                                           */
+  HeaderField header_fields[DBUS_HEADER_FIELD_LAST + 1]; /**< Track the location
+							  * of each field in "header"
+							  */
 
   dbus_uint32_t client_serial; /**< Cached client serial value for speed */
   dbus_uint32_t reply_serial;  /**< Cached reply serial value for speed */
@@ -188,26 +182,6 @@ append_header_padding (DBusMessage *message)
   return TRUE;
 }
 
-static void
-adjust_field_offsets (DBusMessage *message,
-                      int          offsets_after,
-                      int          delta)
-{
-  int i;
-
-  if (delta == 0)
-    return;
-  
-  i = 0;
-  while (i < FIELD_LAST)
-    {
-      if (message->header_fields[i].offset > offsets_after)
-        message->header_fields[i].offset += delta;
-
-      ++i;
-    }
-}
-
 #ifdef DBUS_BUILD_TESTS
 /* tests-only until it's actually used */
 static dbus_int32_t
@@ -216,9 +190,9 @@ get_int_field (DBusMessage *message,
 {
   int offset;
 
-  _dbus_assert (field < FIELD_LAST);
+  _dbus_assert (field <= DBUS_HEADER_FIELD_LAST);
   
-  offset = message->header_fields[field].offset;
+  offset = message->header_fields[field].value_offset;
   
   if (offset < 0)
     return -1; /* useless if -1 is a valid value of course */
@@ -236,9 +210,9 @@ get_uint_field (DBusMessage *message,
 {
   int offset;
   
-  _dbus_assert (field < FIELD_LAST);
+  _dbus_assert (field <= DBUS_HEADER_FIELD_LAST);
   
-  offset = message->header_fields[field].offset;
+  offset = message->header_fields[field].value_offset;
   
   if (offset < 0)
     return -1; /* useless if -1 is a valid value of course */
@@ -257,9 +231,9 @@ get_string_field (DBusMessage *message,
   int offset;
   const char *data;
 
-  offset = message->header_fields[field].offset;
+  offset = message->header_fields[field].value_offset;
 
-  _dbus_assert (field < FIELD_LAST);
+  _dbus_assert (field <= DBUS_HEADER_FIELD_LAST);
   
   if (offset < 0)
     return NULL;
@@ -280,25 +254,45 @@ get_string_field (DBusMessage *message,
   return data + (offset + 4); 
 }
 
+/* returns FALSE if no memory, TRUE with NULL path if no field */
+static dbus_bool_t
+get_path_field_decomposed (DBusMessage  *message,
+                           int           field,
+                           char       ***path)
+{
+  int offset;
+
+  offset = message->header_fields[field].value_offset;
+
+  _dbus_assert (field <= DBUS_HEADER_FIELD_LAST);
+  
+  if (offset < 0)
+    {
+      *path = NULL;
+      return TRUE;
+    }
+
+  return _dbus_demarshal_object_path (&message->header,
+                                      message->byte_order,
+                                      offset,
+                                      NULL,
+                                      path, NULL);
+}
+
 #ifdef DBUS_BUILD_TESTS
 static dbus_bool_t
 append_int_field (DBusMessage *message,
                   int          field,
-                  const char  *name,
                   int          value)
 {
-  int orig_len;
-
   _dbus_assert (!message->locked);
 
   clear_header_padding (message);
   
-  orig_len = _dbus_string_get_length (&message->header);
+  message->header_fields[field].name_offset =
+    _dbus_string_get_length (&message->header);
   
-  if (!_dbus_string_align_length (&message->header, 4))
-    goto failed;  
-  
-  if (!_dbus_string_append_len (&message->header, name, 4))
+  if (!_dbus_string_append_byte (&message->header, field))
     goto failed;
 
   if (!_dbus_string_append_byte (&message->header, DBUS_TYPE_INT32))
@@ -307,7 +301,7 @@ append_int_field (DBusMessage *message,
   if (!_dbus_string_align_length (&message->header, 4))
     goto failed;
   
-  message->header_fields[field].offset =
+  message->header_fields[field].value_offset =
     _dbus_string_get_length (&message->header);
   
   if (!_dbus_marshal_int32 (&message->header, message->byte_order,
@@ -320,8 +314,10 @@ append_int_field (DBusMessage *message,
   return TRUE;
   
  failed:
-  message->header_fields[field].offset = -1;
-  _dbus_string_set_length (&message->header, orig_len);
+  _dbus_string_set_length (&message->header,
+			   message->header_fields[field].name_offset);
+  message->header_fields[field].name_offset  = -1;
+  message->header_fields[field].value_offset = -1;
 
   /* this must succeed because it was allocated on function entry and
    * DBusString doesn't ever realloc smaller
@@ -335,21 +331,16 @@ append_int_field (DBusMessage *message,
 static dbus_bool_t
 append_uint_field (DBusMessage *message,
                    int          field,
-                   const char  *name,
-                   int          value)
+		   int          value)
 {
-  int orig_len;
-
   _dbus_assert (!message->locked);
 
   clear_header_padding (message);
   
-  orig_len = _dbus_string_get_length (&message->header);
+  message->header_fields[field].name_offset =
+    _dbus_string_get_length (&message->header);
   
-  if (!_dbus_string_align_length (&message->header, 4))
-    goto failed;  
-  
-  if (!_dbus_string_append_len (&message->header, name, 4))
+  if (!_dbus_string_append_byte (&message->header, field))
     goto failed;
 
   if (!_dbus_string_append_byte (&message->header, DBUS_TYPE_UINT32))
@@ -358,7 +349,7 @@ append_uint_field (DBusMessage *message,
   if (!_dbus_string_align_length (&message->header, 4))
     goto failed;
   
-  message->header_fields[field].offset =
+  message->header_fields[field].value_offset =
     _dbus_string_get_length (&message->header);
   
   if (!_dbus_marshal_uint32 (&message->header, message->byte_order,
@@ -371,8 +362,10 @@ append_uint_field (DBusMessage *message,
   return TRUE;
   
  failed:
-  message->header_fields[field].offset = -1;
-  _dbus_string_set_length (&message->header, orig_len);
+  _dbus_string_set_length (&message->header,
+			   message->header_fields[field].name_offset);
+  message->header_fields[field].name_offset  = -1;
+  message->header_fields[field].value_offset = -1;
 
   /* this must succeed because it was allocated on function entry and
    * DBusString doesn't ever realloc smaller
@@ -385,30 +378,26 @@ append_uint_field (DBusMessage *message,
 static dbus_bool_t
 append_string_field (DBusMessage *message,
                      int          field,
-                     const char  *name,
+                     int          type,
                      const char  *value)
 {
-  int orig_len;
-
   _dbus_assert (!message->locked);
 
   clear_header_padding (message);
   
-  orig_len = _dbus_string_get_length (&message->header);
+  message->header_fields[field].name_offset =
+    _dbus_string_get_length (&message->header);
+  
+  if (!_dbus_string_append_byte (&message->header, field))
+    goto failed;
+  
+  if (!_dbus_string_append_byte (&message->header, type))
+    goto failed;
 
   if (!_dbus_string_align_length (&message->header, 4))
     goto failed;
   
-  if (!_dbus_string_append_len (&message->header, name, 4))
-    goto failed;
-  
-  if (!_dbus_string_append_byte (&message->header, DBUS_TYPE_STRING))
-    goto failed;
-
-  if (!_dbus_string_align_length (&message->header, 4))
-    goto failed;
-  
-  message->header_fields[field].offset =
+  message->header_fields[field].value_offset =
     _dbus_string_get_length (&message->header);
   
   if (!_dbus_marshal_string (&message->header, message->byte_order,
@@ -421,8 +410,10 @@ append_string_field (DBusMessage *message,
   return TRUE;
   
  failed:
-  message->header_fields[field].offset = -1;
-  _dbus_string_set_length (&message->header, orig_len);
+  _dbus_string_set_length (&message->header,
+			   message->header_fields[field].name_offset);
+  message->header_fields[field].name_offset  = -1;
+  message->header_fields[field].value_offset = -1;
 
   /* this must succeed because it was allocated on function entry and
    * DBusString doesn't ever realloc smaller
@@ -433,73 +424,205 @@ append_string_field (DBusMessage *message,
   return FALSE;
 }
 
-#ifdef DBUS_BUILD_TESTS
-/* This isn't used, but building it when tests are enabled just to
- * keep it compiling if we need it in future
- */
-static void
-delete_int_or_uint_field (DBusMessage *message,
-                          int          field)
+static int
+get_next_field (DBusMessage *message,
+		int          field)
 {
-  int offset = message->header_fields[field].offset;
+  int offset = message->header_fields[field].name_offset;
+  int closest;
+  int i;
+  int retval = DBUS_HEADER_FIELD_INVALID;
 
-  _dbus_assert (!message->locked);
-  _dbus_assert (field_is_named[field]);
-  
-  if (offset < 0)
-    return;  
+  i = 0;
+  closest = _DBUS_INT_MAX;
+  while (i < DBUS_HEADER_FIELD_LAST)
+    {
+      if (message->header_fields[i].name_offset > offset &&
+	  message->header_fields[i].name_offset < closest)
+	{
+	  closest = message->header_fields[i].name_offset;
+	  retval = i;
+	}
+      ++i;
+    }
 
-  clear_header_padding (message);
-  
-  /* The field typecode and name take up 8 bytes */
-  _dbus_string_delete (&message->header,
-                       offset - 8,
-                       12);
-
-  message->header_fields[field].offset = -1;
-  
-  adjust_field_offsets (message,
-                        offset - 8,
-                        - 12);
-
-  append_header_padding (message);
+  return retval;
 }
-#endif
 
-static void
-delete_string_field (DBusMessage *message,
-                     int          field)
+static dbus_bool_t
+re_align_field_recurse (DBusMessage *message,
+			int          field,
+			int          offset)
 {
-  int offset = message->header_fields[field].offset;
-  int len;
-  int delete_len;
-  
+  int old_name_offset  = message->header_fields[field].name_offset;
+  int old_value_offset = message->header_fields[field].value_offset;
+  int prev_padding, padding, delta;
+  int type;
+  int next_field;
+  int pos = offset;
+
+  /* padding between the typecode byte and the value itself */
+  prev_padding = old_value_offset - old_name_offset + 2;
+
+  pos++;
+  type = _dbus_string_get_byte (&message->header, pos);
+
+  pos++;
+  switch (type)
+    {
+    case DBUS_TYPE_NIL:
+    case DBUS_TYPE_BYTE:
+    case DBUS_TYPE_BOOLEAN:
+      padding = 0;
+      break;
+    case DBUS_TYPE_INT32:
+    case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_STRING:
+    case DBUS_TYPE_OBJECT_PATH:
+      padding = _DBUS_ALIGN_VALUE (pos, 4) - pos;
+      break;
+    case DBUS_TYPE_INT64:
+    case DBUS_TYPE_UINT64:
+    case DBUS_TYPE_DOUBLE:
+      padding = _DBUS_ALIGN_VALUE (pos, 8) - pos;
+      break;
+    case DBUS_TYPE_NAMED:
+    case DBUS_TYPE_ARRAY:
+    case DBUS_TYPE_DICT:
+      _dbus_assert_not_reached ("no defined header fields may contain a named, array or dict value");
+      break;
+    case DBUS_TYPE_INVALID:
+    default:
+      _dbus_assert_not_reached ("invalid type in marshalled header");
+      break;
+    }
+
+  delta = padding - prev_padding;
+  if (delta > 0)
+    {
+      if (!_dbus_string_insert_bytes (&message->header, pos, delta, 0))
+	return FALSE;
+    }
+  else if (delta < 0)
+    {
+      _dbus_string_delete (&message->header, pos, -delta);
+    }
+
+  next_field = get_next_field (message, field);
+  if (next_field != DBUS_HEADER_FIELD_INVALID)
+    {
+      int next_offset = message->header_fields[next_field].name_offset;
+
+      _dbus_assert (next_offset > 0);
+
+      if (!re_align_field_recurse (message, field,
+				   pos + padding + (next_offset - old_value_offset)))
+	goto failed;
+    }
+  else
+    {
+      if (!append_header_padding (message))
+	goto failed;
+    }
+
+  message->header_fields[field].name_offset  = offset;
+  message->header_fields[field].value_offset = pos + padding;
+
+  return TRUE;
+
+ failed:
+  if (delta > 0)
+    {
+      _dbus_string_delete (&message->header, pos, delta);
+    }
+  else if (delta < 0)
+    {
+      /* this must succeed because it was allocated on function entry and
+       * DBusString doesn't ever realloc smaller
+       */
+    _dbus_string_insert_bytes (&message->header, pos, -delta, 0);
+    }
+
+  return FALSE;
+}
+
+static dbus_bool_t
+delete_field (DBusMessage *message,
+	      int          field)
+{
+  int offset = message->header_fields[field].name_offset;
+  int next_field;
+
   _dbus_assert (!message->locked);
-  _dbus_assert (field_is_named[field]);
   
   if (offset < 0)
-    return;
+    return FALSE;
 
   clear_header_padding (message);
-  
-  get_string_field (message, field, &len);
-  
-  /* The field typecode and name take up 8 bytes, and the nul
-   * termination is 1 bytes, string length integer is 4 bytes
-   */
-  delete_len = 8 + 4 + 1 + len;
-  
-  _dbus_string_delete (&message->header,
-                       offset - 8,
-                       delete_len);
 
-  message->header_fields[field].offset = -1;
-  
-  adjust_field_offsets (message,
-                        offset - 8,
-                        - delete_len);
+  next_field = get_next_field (message, field);
+  if (next_field == DBUS_HEADER_FIELD_INVALID)
+    {
+      _dbus_string_set_length (&message->header, offset);
 
-  append_header_padding (message);
+      message->header_fields[field].name_offset  = -1;
+      message->header_fields[field].value_offset = -1;
+      
+      /* this must succeed because it was allocated on function entry and
+       * DBusString doesn't ever realloc smaller
+       */
+      if (!append_header_padding (message))
+	_dbus_assert_not_reached ("failed to reappend header padding");
+
+      return TRUE;
+    }
+  else
+    {
+      DBusString deleted;
+      int next_offset = message->header_fields[next_field].name_offset;
+
+      _dbus_assert (next_offset > 0);
+
+      if (!_dbus_string_init (&deleted))
+	goto failed;
+
+      if (!_dbus_string_move_len (&message->header,
+				  offset, next_offset - offset,
+				  &deleted, 0))
+	{
+	  _dbus_string_free (&deleted);
+	  goto failed;
+	}
+
+      /* appends the header padding */
+      if (!re_align_field_recurse (message, next_field, offset))
+	{
+	  /* this must succeed because it was allocated on function entry and
+	   * DBusString doesn't ever realloc smaller
+	   */
+	  if (!_dbus_string_copy (&deleted, 0, &message->header, offset))
+	    _dbus_assert_not_reached ("failed to revert to original field");
+
+	  _dbus_string_free (&deleted);
+	  goto failed;
+	}
+
+      _dbus_string_free (&deleted);
+      
+      message->header_fields[field].name_offset  = -1;
+      message->header_fields[field].value_offset = -1;
+
+      return TRUE;
+
+    failed:
+      /* this must succeed because it was allocated on function entry and
+       * DBusString doesn't ever realloc smaller
+       */
+      if (!append_header_padding (message))
+	_dbus_assert_not_reached ("failed to reappend header padding");
+
+      return FALSE;
+    }
 }
 
 #ifdef DBUS_BUILD_TESTS
@@ -508,20 +631,14 @@ set_int_field (DBusMessage *message,
                int          field,
                int          value)
 {
-  int offset = message->header_fields[field].offset;
+  int offset = message->header_fields[field].value_offset;
 
   _dbus_assert (!message->locked);
   
   if (offset < 0)
     {
       /* need to append the field */
-
-      switch (field)
-        {
-        default:
-          _dbus_assert_not_reached ("appending an int field we don't support appending");
-          return FALSE;
-        }
+      return append_int_field (message, field, value);
     }
   else
     {
@@ -539,24 +656,14 @@ set_uint_field (DBusMessage  *message,
                 int           field,
                 dbus_uint32_t value)
 {
-  int offset = message->header_fields[field].offset;
+  int offset = message->header_fields[field].value_offset;
 
   _dbus_assert (!message->locked);
   
   if (offset < 0)
     {
       /* need to append the field */
-
-      switch (field)
-        {
-        case FIELD_REPLY_SERIAL:
-          return append_uint_field (message, field,
-                                    DBUS_HEADER_FIELD_REPLY,
-                                    value);
-        default:
-          _dbus_assert_not_reached ("appending a uint field we don't support appending");
-          return FALSE;
-        }
+      return append_uint_field (message, field, value);
     }
   else
     {
@@ -571,9 +678,10 @@ set_uint_field (DBusMessage  *message,
 static dbus_bool_t
 set_string_field (DBusMessage *message,
                   int          field,
+                  int          type,
                   const char  *value)
 {
-  int offset = message->header_fields[field].offset;
+  int offset = message->header_fields[field].value_offset;
 
   _dbus_assert (!message->locked);
   _dbus_assert (value != NULL);
@@ -581,48 +689,59 @@ set_string_field (DBusMessage *message,
   if (offset < 0)
     {      
       /* need to append the field */
-
-      switch (field)
-        {
-        case FIELD_SENDER:
-          return append_string_field (message, field,
-                                      DBUS_HEADER_FIELD_SENDER,
-                                      value);
-        default:
-          _dbus_assert_not_reached ("appending a string field we don't support appending");
-          return FALSE;
-        }
+      return append_string_field (message, field, type, value);
     }
   else
     {
       DBusString v;
-      int old_len;
-      int new_len;
+      char *old_value;
+      int next_field;
+      int next_offset;
       int len;
       
       clear_header_padding (message);
-      
-      old_len = _dbus_string_get_length (&message->header);
+
+      old_value = _dbus_demarshal_string (&message->header,
+					  message->byte_order,
+					  offset,
+					  &next_offset);
+      if (!old_value)
+	goto failed;
 
       len = strlen (value);
-      
+
       _dbus_string_init_const_len (&v, value,
 				   len + 1); /* include nul */
       if (!_dbus_marshal_set_string (&message->header,
                                      message->byte_order,
-                                     offset, &v,
-				     len))
-        goto failed;
-      
-      new_len = _dbus_string_get_length (&message->header);
+                                     offset, &v, len))
+	{
+	  dbus_free (old_value);
+	  goto failed;
+	}
 
-      adjust_field_offsets (message,
-                            offset,
-                            new_len - old_len);
+      next_field = get_next_field (message, field);
+      if (next_field != DBUS_HEADER_FIELD_INVALID)
+	{
+	  /* re-appends the header padding */
+	  if (!re_align_field_recurse (message, next_field, next_offset))
+	    {
+	      len = strlen (old_value);
 
-      if (!append_header_padding (message))
-	goto failed;
-      
+	      _dbus_string_init_const_len (&v, old_value,
+					  len + 1); /* include nul */
+	      if (!_dbus_marshal_set_string (&message->header,
+					     message->byte_order,
+					     offset, &v, len))
+		_dbus_assert_not_reached ("failed to revert to original string");
+
+	      dbus_free (old_value);
+	      goto failed;
+	    }
+	}
+
+      dbus_free (old_value);
+
       return TRUE;
 
     failed:
@@ -649,9 +768,12 @@ _dbus_message_set_serial (DBusMessage  *message,
 {
   _dbus_assert (!message->locked);
   _dbus_assert (dbus_message_get_serial (message) == 0);
-  
-  set_uint_field (message, FIELD_CLIENT_SERIAL,
-                  serial);
+
+  _dbus_marshal_set_uint32 (&message->header,
+                            message->byte_order,
+                            CLIENT_SERIAL_OFFSET,
+			    serial);
+
   message->client_serial = serial;
 }
 
@@ -669,7 +791,8 @@ dbus_message_set_reply_serial (DBusMessage   *message,
 {
   _dbus_assert (!message->locked);
 
-  if (set_uint_field (message, FIELD_REPLY_SERIAL,
+  if (set_uint_field (message,
+		      DBUS_HEADER_FIELD_REPLY_SERIAL,
                       reply_serial))
     {
       message->reply_serial = reply_serial;
@@ -803,14 +926,25 @@ _dbus_message_remove_size_counter (DBusMessage  *message,
 
 static dbus_bool_t
 dbus_message_create_header (DBusMessage *message,
-                            const char  *name,
-                            const char  *service)
+                            int          type,
+                            const char  *service,
+                            const char  *path,
+                            const char  *interface,
+                            const char  *member,
+                            const char  *error_name)
 {
   unsigned int flags;
+
+  _dbus_assert ((interface && member) ||
+                (error_name) ||
+                !(interface || member || error_name));
   
   if (!_dbus_string_append_byte (&message->header, message->byte_order))
     return FALSE;
 
+  if (!_dbus_string_append_byte (&message->header, type))
+    return FALSE;
+  
   flags = 0;
   if (!_dbus_string_append_byte (&message->header, flags))
     return FALSE;
@@ -818,37 +952,61 @@ dbus_message_create_header (DBusMessage *message,
   if (!_dbus_string_append_byte (&message->header, DBUS_MAJOR_PROTOCOL_VERSION))
     return FALSE;
 
-  if (!_dbus_string_append_byte (&message->header, 0))
-    return FALSE;
-
-  message->header_fields[FIELD_HEADER_LENGTH].offset = 4;
   if (!_dbus_marshal_uint32 (&message->header, message->byte_order, 0))
     return FALSE;
 
-  message->header_fields[FIELD_BODY_LENGTH].offset = 8;
   if (!_dbus_marshal_uint32 (&message->header, message->byte_order, 0))
     return FALSE;
 
-  message->header_fields[FIELD_CLIENT_SERIAL].offset = 12;
   if (!_dbus_marshal_int32 (&message->header, message->byte_order, -1))
     return FALSE;
   
-  /* Marshal message service */
+  /* Marshal all the fields (Marshall Fields?) */
+  
+  if (path != NULL)
+    {
+      if (!append_string_field (message,
+                                DBUS_HEADER_FIELD_PATH,
+				DBUS_TYPE_OBJECT_PATH,
+                                path))
+        return FALSE;
+    }
+  
   if (service != NULL)
     {
       if (!append_string_field (message,
-                                FIELD_SERVICE,
                                 DBUS_HEADER_FIELD_SERVICE,
+				DBUS_TYPE_STRING,
                                 service))
         return FALSE;
     }
 
-  _dbus_assert (name != NULL);
-  if (!append_string_field (message,
-                            FIELD_NAME,
-                            DBUS_HEADER_FIELD_NAME,
-                            name))
-    return FALSE;
+  if (interface != NULL)
+    {
+      if (!append_string_field (message,
+                                DBUS_HEADER_FIELD_INTERFACE,
+				DBUS_TYPE_STRING,
+                                interface))
+        return FALSE;
+    }
+
+  if (member != NULL)
+    {
+      if (!append_string_field (message,
+                                DBUS_HEADER_FIELD_MEMBER,
+				DBUS_TYPE_STRING,
+                                member))
+        return FALSE;
+    }
+
+  if (error_name != NULL)
+    {
+      if (!append_string_field (message,
+                                DBUS_HEADER_FIELD_ERROR_NAME,
+				DBUS_TYPE_STRING,
+                                error_name))
+        return FALSE;
+    }
   
   return TRUE;
 }
@@ -868,13 +1026,15 @@ _dbus_message_lock (DBusMessage  *message)
   if (!message->locked)
     {
       /* Fill in our lengths */
-      set_uint_field (message,
-                      FIELD_HEADER_LENGTH,
-                      _dbus_string_get_length (&message->header));
+      _dbus_marshal_set_uint32 (&message->header,
+				message->byte_order,
+				HEADER_LENGTH_OFFSET,
+				_dbus_string_get_length (&message->header));
 
-      set_uint_field (message,
-                      FIELD_BODY_LENGTH,
-                      _dbus_string_get_length (&message->body));
+      _dbus_marshal_set_uint32 (&message->header,
+				message->byte_order,
+				BODY_LENGTH_OFFSET,
+				_dbus_string_get_length (&message->body));
 
       message->locked = TRUE;
     }
@@ -920,9 +1080,10 @@ dbus_message_new_empty_header (void)
   _dbus_data_slot_list_init (&message->slot_list);
   
   i = 0;
-  while (i < FIELD_LAST)
+  while (i <= DBUS_HEADER_FIELD_LAST)
     {
-      message->header_fields[i].offset = -1;
+      message->header_fields[i].name_offset  = -1;
+      message->header_fields[i].value_offset = -1;
       ++i;
     }
   
@@ -942,114 +1103,205 @@ dbus_message_new_empty_header (void)
   return message;
 }
 
+/**
+ * Constructs a new message of the given message type.
+ * Types include #DBUS_MESSAGE_TYPE_METHOD_CALL,
+ * #DBUS_MESSAGE_TYPE_SIGNAL, and so forth.
+ *
+ * @param message_type type of message
+ * @returns new message or #NULL If no memory
+ */
+DBusMessage*
+dbus_message_new (int message_type)
+{
+  DBusMessage *message;
+
+  _dbus_return_val_if_fail (message_type != DBUS_MESSAGE_TYPE_INVALID, NULL);
+  
+  message = dbus_message_new_empty_header ();
+  if (message == NULL)
+    return NULL;
+  
+  if (!dbus_message_create_header (message,
+                                   message_type,
+                                   NULL, NULL, NULL, NULL, NULL))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+  
+  return message;
+}
 
 /**
- * Constructs a new message. Returns #NULL if memory can't be
- * allocated for the message. The service may be #NULL in which case
- * no service is set; this is appropriate when using D-BUS in a
- * peer-to-peer context (no message bus).
- *
- * @param name name of the message
- * @param destination_service service that the message should be sent to or #NULL
+ * Constructs a new message to invoke a method on a remote
+ * object. Returns #NULL if memory can't be allocated for the
+ * message. The service may be #NULL in which case no service is set;
+ * this is appropriate when using D-BUS in a peer-to-peer context (no
+ * message bus). The interface may be #NULL, which means that
+ * if multiple methods with the given name exist it is undefined
+ * which one will be invoked.
+  *
+ * @param service service that the message should be sent to or #NULL
+ * @param path object path the message should be sent to
+ * @param interface interface to invoke method on
+ * @param method method to invoke
+ * 
  * @returns a new DBusMessage, free with dbus_message_unref()
  * @see dbus_message_unref()
  */
 DBusMessage*
-dbus_message_new (const char *name,
-                  const char *destination_service)		  
+dbus_message_new_method_call (const char *service,
+                              const char *path,
+                              const char *interface,
+                              const char *method)
 {
   DBusMessage *message;
 
+  _dbus_return_val_if_fail (path != NULL, NULL);
+  _dbus_return_val_if_fail (method != NULL, NULL);
+  
+  message = dbus_message_new_empty_header ();
+  if (message == NULL)
+    return NULL;
+  
+  if (!dbus_message_create_header (message,
+                                   DBUS_MESSAGE_TYPE_METHOD_CALL,
+                                   service, path, interface, method, NULL))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+  
+  return message;
+}
+
+/**
+ * Constructs a message that is a reply to a method call. Returns
+ * #NULL if memory can't be allocated for the message.
+ *
+ * @param method_call the message which the created
+ * message is a reply to.
+ * @returns a new DBusMessage, free with dbus_message_unref()
+ * @see dbus_message_new_method_call(), dbus_message_unref()
+ */ 
+DBusMessage*
+dbus_message_new_method_return (DBusMessage *method_call)
+{
+  DBusMessage *message;
+  const char *sender;
+
+  _dbus_return_val_if_fail (method_call != NULL, NULL);
+  
+  sender = get_string_field (method_call,
+                             DBUS_HEADER_FIELD_SENDER_SERVICE,
+			     NULL);
+  
+  /* sender is allowed to be null here in peer-to-peer case */
+
+  message = dbus_message_new_empty_header ();
+  if (message == NULL)
+    return NULL;
+  
+  if (!dbus_message_create_header (message,
+                                   DBUS_MESSAGE_TYPE_METHOD_RETURN,
+                                   sender, NULL, NULL, NULL, NULL))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+
+  if (!dbus_message_set_reply_serial (message,
+                                      dbus_message_get_serial (method_call)))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+
+  return message;
+}
+
+/**
+ * Constructs a new message representing a signal emission. Returns
+ * #NULL if memory can't be allocated for the message.
+ * A signal is identified by its originating interface, and
+ * the name of the signal.
+ *
+ * @param path the path to the object emitting the signal
+ * @param interface the interface the signal is emitted from
+ * @param name name of the signal
+ * @returns a new DBusMessage, free with dbus_message_unref()
+ * @see dbus_message_unref()
+ */
+DBusMessage*
+dbus_message_new_signal (const char *path,
+                         const char *interface,
+                         const char *name)
+{
+  DBusMessage *message;
+
+  _dbus_return_val_if_fail (path != NULL, NULL);
+  _dbus_return_val_if_fail (interface != NULL, NULL);
   _dbus_return_val_if_fail (name != NULL, NULL);
   
   message = dbus_message_new_empty_header ();
   if (message == NULL)
     return NULL;
   
-  if (!dbus_message_create_header (message, name, destination_service))
+  if (!dbus_message_create_header (message,
+                                   DBUS_MESSAGE_TYPE_SIGNAL,
+                                   NULL, path, interface, name, NULL))
     {
       dbus_message_unref (message);
       return NULL;
     }
   
-  return message;
-}
-
-/**
- * Constructs a message that is a reply to some other
- * message. Returns #NULL if memory can't be allocated
- * for the message.
- *
- * @param original_message the message which the created
- * message is a reply to.
- * @returns a new DBusMessage, free with dbus_message_unref()
- * @see dbus_message_new(), dbus_message_unref()
- */ 
-DBusMessage*
-dbus_message_new_reply (DBusMessage *original_message)
-{
-  DBusMessage *message;
-  const char *sender, *name;
-
-  _dbus_return_val_if_fail (original_message != NULL, NULL);
-  
-  sender = get_string_field (original_message,
-                             FIELD_SENDER, NULL);
-  name = get_string_field (original_message,
-			   FIELD_NAME, NULL);
-
-  /* sender is allowed to be null here in peer-to-peer case */
-  
-  message = dbus_message_new (name, sender);
-  
-  if (message == NULL)
-    return NULL;
-
-  if (!dbus_message_set_reply_serial (message,
-                                      dbus_message_get_serial (original_message)))
-    {
-      dbus_message_unref (message);
-      return NULL;
-    }
-
   return message;
 }
 
 /**
  * Creates a new message that is an error reply to a certain message.
+ * Error replies are possible in response to method calls primarily.
  *
- * @param original_message the original message
+ * @param reply_to the original message
  * @param error_name the error name
  * @param error_message the error message string or #NULL for none
  * @returns a new error message
  */
 DBusMessage*
-dbus_message_new_error_reply (DBusMessage *original_message,
-			      const char  *error_name,
-			      const char  *error_message)
+dbus_message_new_error (DBusMessage *reply_to,
+                        const char  *error_name,
+                        const char  *error_message)
 {
   DBusMessage *message;
   const char *sender;
   DBusMessageIter iter;
 
-  _dbus_return_val_if_fail (original_message != NULL, NULL);
+  _dbus_return_val_if_fail (reply_to != NULL, NULL);
   _dbus_return_val_if_fail (error_name != NULL, NULL);
   
-  sender = get_string_field (original_message,
-                             FIELD_SENDER, NULL);
+  sender = get_string_field (reply_to,
+                             DBUS_HEADER_FIELD_SENDER_SERVICE,
+			     NULL);
 
   /* sender may be NULL for non-message-bus case or
    * when the message bus is dealing with an unregistered
    * connection.
    */
-  
-  message = dbus_message_new (error_name, sender);
-  
+  message = dbus_message_new_empty_header ();
   if (message == NULL)
     return NULL;
+  
+  if (!dbus_message_create_header (message,
+                                   DBUS_MESSAGE_TYPE_ERROR,
+                                   sender, NULL, NULL, NULL, error_name))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
 
   if (!dbus_message_set_reply_serial (message,
-                                      dbus_message_get_serial (original_message)))
+                                      dbus_message_get_serial (reply_to)))
     {
       dbus_message_unref (message);
       return NULL;
@@ -1064,8 +1316,6 @@ dbus_message_new_error_reply (DBusMessage *original_message,
           return NULL;
         }
     }
-
-  dbus_message_set_is_error (message, TRUE);
   
   return message;
 }
@@ -1129,9 +1379,9 @@ dbus_message_copy (const DBusMessage *message)
       return NULL;
     }
 
-  for (i = 0; i < FIELD_LAST; i++)
+  for (i = 0; i <= DBUS_HEADER_FIELD_LAST; i++)
     {
-      retval->header_fields[i].offset = message->header_fields[i].offset;
+      retval->header_fields[i] = message->header_fields[i];
     }
   
   return retval;
@@ -1201,17 +1451,268 @@ dbus_message_unref (DBusMessage *message)
 }
 
 /**
- * Gets the name of a message.
+ * Gets the type of a message. Types include
+ * DBUS_MESSAGE_TYPE_METHOD_CALL, DBUS_MESSAGE_TYPE_METHOD_RETURN,
+ * DBUS_MESSAGE_TYPE_ERROR, DBUS_MESSAGE_TYPE_SIGNAL, but other types
+ * are allowed and all code must silently ignore messages of unknown
+ * type. DBUS_MESSAGE_TYPE_INVALID will never be returned, however.
+ *
  *
  * @param message the message
- * @returns the message name (should not be freed)
+ * @returns the type of the message
+ */
+int
+dbus_message_get_type (DBusMessage *message)
+{
+  int type;
+
+  type = _dbus_string_get_byte (&message->header, 1);
+  _dbus_assert (type != DBUS_MESSAGE_TYPE_INVALID);
+
+  return type;
+}
+
+/**
+ * Sets the object path this message is being sent to (for
+ * DBUS_MESSAGE_TYPE_METHOD_CALL) or the one a signal is being
+ * emitted from (for DBUS_MESSAGE_TYPE_SIGNAL).
+ *
+ * @param message the message
+ * @param object_path the path
+ * @returns #FALSE if not enough memory
+ */
+dbus_bool_t
+dbus_message_set_path (DBusMessage   *message,
+                       const char    *object_path)
+{
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (!message->locked, FALSE);
+  
+  if (object_path == NULL)
+    {
+      delete_field (message, DBUS_HEADER_FIELD_PATH);
+      return TRUE;
+    }
+  else
+    {
+      return set_string_field (message,
+                               DBUS_HEADER_FIELD_PATH,
+                               DBUS_TYPE_OBJECT_PATH,
+                               object_path);
+    }
+}
+
+/**
+ * Gets the object path this message is being sent to
+ * (for DBUS_MESSAGE_TYPE_METHOD_CALL) or being emitted
+ * from (for DBUS_MESSAGE_TYPE_SIGNAL).
+ *
+ * @param message the message
+ * @returns the path (should not be freed)
  */
 const char*
-dbus_message_get_name (DBusMessage *message)
+dbus_message_get_path (DBusMessage   *message)
 {
   _dbus_return_val_if_fail (message != NULL, NULL);
   
-  return get_string_field (message, FIELD_NAME, NULL);
+  return get_string_field (message, DBUS_HEADER_FIELD_PATH, NULL);
+}
+
+/**
+ * Gets the object path this message is being sent to
+ * (for DBUS_MESSAGE_TYPE_METHOD_CALL) or being emitted
+ * from (for DBUS_MESSAGE_TYPE_SIGNAL) in a decomposed
+ * format (one array element per path component).
+ * Free the returned array with dbus_free_string_array().
+ *
+ * An empty but non-NULL path array means the path "/".
+ * So the path "/foo/bar" becomes { "foo", "bar", NULL }
+ * and the path "/" becomes { NULL }.
+ *
+ * @param message the message
+ * @param path place to store allocated array of path components; #NULL set here if no path field exists
+ * @returns #FALSE if no memory to allocate the array
+ */
+dbus_bool_t
+dbus_message_get_path_decomposed (DBusMessage   *message,
+                                  char        ***path)
+{
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (path != NULL, FALSE);
+
+  return get_path_field_decomposed (message,
+				    DBUS_HEADER_FIELD_PATH,
+                                    path);
+}
+
+/**
+ * Sets the interface this message is being sent to
+ * (for DBUS_MESSAGE_TYPE_METHOD_CALL) or
+ * the interface a signal is being emitted from
+ * (for DBUS_MESSAGE_TYPE_SIGNAL).
+ *
+ * @param message the message
+ * @param interface the interface
+ * @returns #FALSE if not enough memory
+ */
+dbus_bool_t
+dbus_message_set_interface (DBusMessage  *message,
+                            const char   *interface)
+{
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (!message->locked, FALSE);
+  
+  if (interface == NULL)
+    {
+      delete_field (message, DBUS_HEADER_FIELD_INTERFACE);
+      return TRUE;
+    }
+  else
+    {
+      return set_string_field (message,
+                               DBUS_HEADER_FIELD_INTERFACE,
+                               DBUS_TYPE_STRING,
+                               interface);
+    }
+}
+
+/**
+ * Gets the interface this message is being sent to
+ * (for DBUS_MESSAGE_TYPE_METHOD_CALL) or being emitted
+ * from (for DBUS_MESSAGE_TYPE_SIGNAL).
+ * The interface name is fully-qualified (namespaced).
+ *
+ * @param message the message
+ * @returns the message interface (should not be freed)
+ */
+const char*
+dbus_message_get_interface (DBusMessage *message)
+{
+  _dbus_return_val_if_fail (message != NULL, NULL);
+  
+  return get_string_field (message, DBUS_HEADER_FIELD_INTERFACE, NULL);
+}
+
+/**
+ * Sets the interface member being invoked
+ * (DBUS_MESSAGE_TYPE_METHOD_CALL) or emitted
+ * (DBUS_MESSAGE_TYPE_SIGNAL).
+ * The interface name is fully-qualified (namespaced).
+ *
+ * @param message the message
+ * @param member the member
+ * @returns #FALSE if not enough memory
+ */
+dbus_bool_t
+dbus_message_set_member (DBusMessage  *message,
+                       const char   *member)
+{
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (!message->locked, FALSE);
+  
+  if (member == NULL)
+    {
+      delete_field (message, DBUS_HEADER_FIELD_MEMBER);
+      return TRUE;
+    }
+  else
+    {
+      return set_string_field (message,
+                               DBUS_HEADER_FIELD_MEMBER,
+                               DBUS_TYPE_STRING,
+                               member);
+    }
+}
+
+/**
+ * Gets the interface member being invoked
+ * (DBUS_MESSAGE_TYPE_METHOD_CALL) or emitted
+ * (DBUS_MESSAGE_TYPE_SIGNAL).
+ * 
+ * @param message the message
+ * @returns the member name (should not be freed)
+ */
+const char*
+dbus_message_get_member (DBusMessage *message)
+{
+  _dbus_return_val_if_fail (message != NULL, NULL);
+  
+  return get_string_field (message,
+			   DBUS_HEADER_FIELD_MEMBER,
+			   NULL);
+}
+
+/**
+ * Sets the name of the error (DBUS_MESSAGE_TYPE_ERROR).
+ * The name is fully-qualified (namespaced).
+ *
+ * @param message the message
+ * @param error_name the name
+ * @returns #FALSE if not enough memory
+ */
+dbus_bool_t
+dbus_message_set_error_name (DBusMessage  *message,
+                             const char   *error_name)
+{
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (!message->locked, FALSE);
+  
+  if (error_name == NULL)
+    {
+      delete_field (message, DBUS_HEADER_FIELD_ERROR_NAME);
+      return TRUE;
+    }
+  else
+    {
+      return set_string_field (message,
+                               DBUS_HEADER_FIELD_ERROR_NAME,
+                               DBUS_TYPE_STRING,
+                               error_name);
+    }
+}
+
+/**
+ * Gets the error name (DBUS_MESSAGE_TYPE_ERROR only).
+ * 
+ * @param message the message
+ * @returns the error name (should not be freed)
+ */
+const char*
+dbus_message_get_error_name (DBusMessage *message)
+{
+  _dbus_return_val_if_fail (message != NULL, NULL);
+  
+  return get_string_field (message,
+			   DBUS_HEADER_FIELD_ERROR_NAME,
+			   NULL);
+}
+
+/**
+ * Sets the message's destination service.
+ *
+ * @param message the message
+ * @param destination the destination service name
+ * @returns #FALSE if not enough memory
+ */
+dbus_bool_t
+dbus_message_set_destination (DBusMessage  *message,
+                              const char   *destination)
+{
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (!message->locked, FALSE);
+  
+  if (destination == NULL)
+    {
+      delete_field (message, DBUS_HEADER_FIELD_SERVICE);
+      return TRUE;
+    }
+  else
+    {
+      return set_string_field (message,
+                               DBUS_HEADER_FIELD_SERVICE,
+                               DBUS_TYPE_STRING,
+                               destination);
+    }
 }
 
 /**
@@ -1225,7 +1726,9 @@ dbus_message_get_destination (DBusMessage *message)
 {
   _dbus_return_val_if_fail (message != NULL, NULL);
   
-  return get_string_field (message, FIELD_SERVICE, NULL);
+  return get_string_field (message,
+			   DBUS_HEADER_FIELD_SERVICE,
+			   NULL);
 }
 
 /**
@@ -3677,58 +4180,62 @@ dbus_message_set_sender (DBusMessage  *message,
 
   if (sender == NULL)
     {
-      delete_string_field (message, FIELD_SENDER);
+      delete_field (message, DBUS_HEADER_FIELD_SENDER_SERVICE);
       return TRUE;
     }
   else
     {
       return set_string_field (message,
-                               FIELD_SENDER,
+                               DBUS_HEADER_FIELD_SENDER_SERVICE,
+                               DBUS_TYPE_STRING,
                                sender);
     }
 }
 
 /**
- * Sets a flag indicating that the message is an error reply
- * message, i.e. an "exception" rather than a normal response.
+ * Sets a flag indicating that the message does not want a reply; if
+ * this flag is set, the other end of the connection may (but is not
+ * required to) optimize by not sending method return or error
+ * replies. If this flag is set, there is no way to know whether the
+ * message successfully arrived at the remote end.
  *
  * @param message the message
- * @param is_error_reply #TRUE if this is an error message.
+ * @param no_reply #TRUE if no reply is desired
  */
 void
-dbus_message_set_is_error (DBusMessage *message,
-                           dbus_bool_t  is_error_reply)
+dbus_message_set_no_reply (DBusMessage *message,
+                           dbus_bool_t  no_reply)
 {
   char *header;
 
   _dbus_return_if_fail (message != NULL);
   _dbus_return_if_fail (!message->locked);
   
-  header = _dbus_string_get_data_len (&message->header, 1, 1);
+  header = _dbus_string_get_data_len (&message->header, FLAGS_OFFSET, 1);
   
-  if (is_error_reply)
-    *header |= DBUS_HEADER_FLAG_ERROR;
+  if (no_reply)
+    *header |= DBUS_HEADER_FLAG_NO_REPLY_EXPECTED;
   else
-    *header &= ~DBUS_HEADER_FLAG_ERROR;    
+    *header &= ~DBUS_HEADER_FLAG_NO_REPLY_EXPECTED;    
 }
 
 /**
- * Returns #TRUE if the message is an error
- * reply to some previous message we sent.
+ * Returns #TRUE if the message does not expect
+ * a reply.
  *
  * @param message the message
- * @returns #TRUE if the message is an error
+ * @returns #TRUE if the message sender isn't waiting for a reply
  */
 dbus_bool_t
-dbus_message_get_is_error (DBusMessage *message)
+dbus_message_get_no_reply (DBusMessage *message)
 {
   const char *header;
 
   _dbus_return_val_if_fail (message != NULL, FALSE);
   
-  header = _dbus_string_get_const_data_len (&message->header, 1, 1);
+  header = _dbus_string_get_const_data_len (&message->header, FLAGS_OFFSET, 1);
 
-  return (*header & DBUS_HEADER_FLAG_ERROR) != 0;
+  return (*header & DBUS_HEADER_FLAG_NO_REPLY_EXPECTED) != 0;
 }
 
 /**
@@ -3743,31 +4250,120 @@ dbus_message_get_sender (DBusMessage *message)
 {
   _dbus_return_val_if_fail (message != NULL, NULL);
   
-  return get_string_field (message, FIELD_SENDER, NULL);
+  return get_string_field (message, 
+			   DBUS_HEADER_FIELD_SENDER_SERVICE,
+			   NULL);
 }
 
-/**
- * Checks whether the message has the given name.
- * If the message has no name or has a different
- * name, returns #FALSE.
- *
- * @param message the message
- * @param name the name to check (must not be #NULL)
- * 
- * @returns #TRUE if the message has the given name
- */
-dbus_bool_t
-dbus_message_has_name (DBusMessage *message,
-                       const char  *name)
+static dbus_bool_t
+_dbus_message_has_type_interface_member (DBusMessage *message,
+                                         int          type,
+                                         const char  *interface,
+                                         const char  *method)
 {
   const char *n;
 
-  _dbus_return_val_if_fail (message != NULL, FALSE);
-  _dbus_return_val_if_fail (name != NULL, FALSE);
-  
-  n = dbus_message_get_name (message);
+  _dbus_assert (message != NULL);
+  _dbus_assert (interface != NULL);
+  _dbus_assert (method != NULL);
 
-  if (n && strcmp (n, name) == 0)
+  if (dbus_message_get_type (message) != type)
+    return FALSE;
+
+  /* Optimize by checking the short method name first
+   * instead of the longer interface name
+   */  
+
+  n = dbus_message_get_member (message);
+
+  if (n && strcmp (n, method) == 0)
+    {
+      n = dbus_message_get_interface (message);
+      
+      if (n && strcmp (n, interface) == 0)
+        return TRUE;
+    }
+
+  return FALSE;
+}
+
+/**
+ * Checks whether the message is a method call with the given
+ * interface and member fields.  If the message is not
+ * #DBUS_MESSAGE_TYPE_METHOD_CALL, or has a different interface or member field,
+ * returns #FALSE.
+ *
+ * @param message the message
+ * @param interface the name to check (must not be #NULL)
+ * @param method the name to check (must not be #NULL)
+ * 
+ * @returns #TRUE if the message is the specified method call
+ */
+dbus_bool_t
+dbus_message_is_method_call (DBusMessage *message,
+                             const char  *interface,
+                             const char  *method)
+{
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (interface != NULL, FALSE);
+  _dbus_return_val_if_fail (method != NULL, FALSE);
+
+  return _dbus_message_has_type_interface_member (message,
+                                                  DBUS_MESSAGE_TYPE_METHOD_CALL,
+                                                  interface, method);
+}
+
+/**
+ * Checks whether the message is a signal with the given
+ * interface and member fields.  If the message is not
+ * #DBUS_MESSAGE_TYPE_SIGNAL, or has a different interface or member field,
+ * returns #FALSE.
+ *
+ * @param message the message
+ * @param interface the name to check (must not be #NULL)
+ * @param signal_name the name to check (must not be #NULL)
+ * 
+ * @returns #TRUE if the message is the specified signal
+ */
+dbus_bool_t
+dbus_message_is_signal (DBusMessage *message,
+                        const char  *interface,
+                        const char  *signal_name)
+{
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (interface != NULL, FALSE);
+  _dbus_return_val_if_fail (signal_name != NULL, FALSE);
+
+  return _dbus_message_has_type_interface_member (message,
+                                                  DBUS_MESSAGE_TYPE_SIGNAL,
+                                                  interface, signal_name);
+}
+
+/**
+ * Checks whether the message is an error reply with the given error
+ * name.  If the message is not #DBUS_MESSAGE_TYPE_ERROR, or has a
+ * different name, returns #FALSE.
+ *
+ * @param message the message
+ * @param error_name the name to check (must not be #NULL)
+ * 
+ * @returns #TRUE if the message is the specified error
+ */
+dbus_bool_t
+dbus_message_is_error (DBusMessage *message,
+                        const char  *error_name)
+{
+  const char *n;
+  
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (error_name != NULL, FALSE);
+
+  if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_ERROR)
+    return FALSE;
+
+  n = dbus_message_get_error_name (message);
+
+  if (n && strcmp (n, error_name) == 0)
     return TRUE;
   else
     return FALSE;
@@ -3833,7 +4429,7 @@ dbus_message_has_sender (DBusMessage  *message,
 /**
  * Sets a #DBusError based on the contents of the given
  * message. The error is only set if the message
- * is an error message, as in dbus_message_get_is_error().
+ * is an error message, as in DBUS_MESSAGE_TYPE_ERROR.
  * The name of the error is set to the name of the message,
  * and the error message is set to the first argument
  * if the argument exists and is a string.
@@ -3856,7 +4452,7 @@ dbus_set_error_from_message (DBusError   *error,
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_error_is_set (error, FALSE);
   
-  if (!dbus_message_get_is_error (message))
+  if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_ERROR)
     return FALSE;
 
   str = NULL;
@@ -3864,7 +4460,7 @@ dbus_set_error_from_message (DBusError   *error,
                          DBUS_TYPE_STRING, &str,
                          DBUS_TYPE_INVALID);
 
-  dbus_set_error (error, dbus_message_get_name (message),
+  dbus_set_error (error, dbus_message_get_error_name (message),
                   str ? "%s" : NULL, str);
 
   dbus_free (str);
@@ -4039,51 +4635,31 @@ _dbus_message_loader_get_buffer (DBusMessageLoader  *loader,
  */
 #define DBUS_MINIMUM_HEADER_SIZE 16
 
-/** Pack four characters as in "abcd" into a uint32 */
-#define FOUR_CHARS_TO_UINT32(a, b, c, d)                \
-                      ((((dbus_uint32_t)a) << 24) |     \
-                       (((dbus_uint32_t)b) << 16) |     \
-                       (((dbus_uint32_t)c) << 8)  |     \
-                       ((dbus_uint32_t)d))
-
-/** DBUS_HEADER_FIELD_NAME packed into a dbus_uint32_t */
-#define DBUS_HEADER_FIELD_NAME_AS_UINT32    \
-  FOUR_CHARS_TO_UINT32 ('n', 'a', 'm', 'e')
-
-/** DBUS_HEADER_FIELD_SERVICE packed into a dbus_uint32_t */
-#define DBUS_HEADER_FIELD_SERVICE_AS_UINT32 \
-  FOUR_CHARS_TO_UINT32 ('s', 'r', 'v', 'c')
-
-/** DBUS_HEADER_FIELD_REPLY packed into a dbus_uint32_t */
-#define DBUS_HEADER_FIELD_REPLY_AS_UINT32   \
-  FOUR_CHARS_TO_UINT32 ('r', 'p', 'l', 'y')
-
-/** DBUS_HEADER_FIELD_SENDER Packed into a dbus_uint32_t */
-#define DBUS_HEADER_FIELD_SENDER_AS_UINT32  \
-  FOUR_CHARS_TO_UINT32 ('s', 'n', 'd', 'r')
-
 static dbus_bool_t
 decode_string_field (const DBusString   *data,
-                     HeaderField         fields[FIELD_LAST],
+		     int                 field,
+                     HeaderField        *header_field,
+		     DBusString         *field_data,
                      int                 pos,
-                     int                 type,
-                     int                 field,
-                     const char         *field_name)
+                     int                 type)
 {
-  DBusString tmp;
   int string_data_pos;
+
+  _dbus_assert (header_field != NULL);
+  _dbus_assert (field_data != NULL);
   
-  if (fields[field].offset >= 0)
+  if (header_field->name_offset >= 0)
     {
       _dbus_verbose ("%s field provided twice\n",
-                     field_name);
+		     _dbus_header_field_to_string (field));
       return FALSE;
     }
 
   if (type != DBUS_TYPE_STRING)
     {
       _dbus_verbose ("%s field has wrong type %s\n",
-                     field_name, _dbus_type_to_string (type));
+                     _dbus_header_field_to_string (field),
+		     _dbus_type_to_string (type));
       return FALSE;
     }
 
@@ -4094,40 +4670,16 @@ decode_string_field (const DBusString   *data,
   string_data_pos = _DBUS_ALIGN_VALUE (pos, 4) + 4;
   _dbus_assert (string_data_pos < _dbus_string_get_length (data));
   
-  _dbus_string_init_const (&tmp,
+  _dbus_string_init_const (field_data,
                            _dbus_string_get_const_data (data) + string_data_pos);
 
-  if (field == FIELD_NAME)
-    {
-      if (!_dbus_string_validate_name (&tmp, 0, _dbus_string_get_length (&tmp)))
-        {
-          _dbus_verbose ("%s field has invalid content \"%s\"\n",
-                         field_name, _dbus_string_get_const_data (&tmp));
-          return FALSE;
-        }
-      
-      if (_dbus_string_starts_with_c_str (&tmp,
-                                          DBUS_NAMESPACE_LOCAL_MESSAGE))
-        {
-          _dbus_verbose ("Message is in the local namespace\n");
-          return FALSE;
-        }
-    }
-  else
-    {
-      if (!_dbus_string_validate_service (&tmp, 0, _dbus_string_get_length (&tmp)))
-        {
-          _dbus_verbose ("%s field has invalid content \"%s\"\n",
-                         field_name, _dbus_string_get_const_data (&tmp));
-          return FALSE;
-        }
-    }
-  
-  fields[field].offset = _DBUS_ALIGN_VALUE (pos, 4);
+  header_field->name_offset  = pos;
+  header_field->value_offset = _DBUS_ALIGN_VALUE (pos, 4);
   
 #if 0
-  _dbus_verbose ("Found field %s name at offset %d\n",
-                 field_name, fields[field].offset);
+  _dbus_verbose ("Found field %s at offset %d\n",
+                 _dbus_header_field_to_string (field),
+		 header_field->value_offset);
 #endif
 
   return TRUE;
@@ -4137,47 +4689,38 @@ static dbus_bool_t
 decode_header_data (const DBusString   *data,
 		    int		        header_len,
 		    int                 byte_order,
-                    HeaderField         fields[FIELD_LAST],
+                    int                 message_type,
+                    HeaderField         fields[DBUS_HEADER_FIELD_LAST + 1],
 		    int                *message_padding)
 {
-  const char *field;
+  DBusString field_data;
   int pos, new_pos;
   int i;
+  int field;
   int type;
   
   if (header_len < 16)
-    return FALSE;
+    {
+      _dbus_verbose ("Header length %d is too short\n", header_len);
+      return FALSE;
+    }
   
   i = 0;
-  while (i < FIELD_LAST)
+  while (i <= DBUS_HEADER_FIELD_LAST)
     {
-      fields[i].offset = -1;
+      fields[i].name_offset  = -1;
+      fields[i].value_offset = -1;
       ++i;
     }
   
-  fields[FIELD_HEADER_LENGTH].offset = 4;
-  fields[FIELD_BODY_LENGTH].offset = 8;   
-  fields[FIELD_CLIENT_SERIAL].offset = 12;
-  
-  /* Now handle the named fields. A real named field is at least 4
-   * bytes for the name, plus a type code (1 byte) plus padding.  So
-   * if we have less than 8 bytes left, it must be alignment padding,
-   * not a field. While >= 8 bytes can't be entirely alignment
-   * padding.
-   */  
   pos = 16;
-  while ((pos + 7) < header_len)
+  while (pos < header_len)
     {
-      pos = _DBUS_ALIGN_VALUE (pos, 4);
-      
-      if ((pos + 4) > header_len)
-        return FALSE;      
-      
-      field =_dbus_string_get_const_data_len (data, pos, 4);
-      pos += 4;
+      field = _dbus_string_get_byte (data, pos);
+      if (field == DBUS_HEADER_FIELD_INVALID)
+	break; /* Must be padding */
+      pos++;
 
-      _dbus_assert (_DBUS_ALIGN_ADDRESS (field, 4) == field);
-      
       if (!_dbus_marshal_validate_type (data, pos, &type, &pos))
 	{
           _dbus_verbose ("Failed to validate type of named header field\n");
@@ -4196,51 +4739,146 @@ decode_header_data (const DBusString   *data,
           return FALSE;
         }
       
-      switch (DBUS_UINT32_FROM_BE (*(int*)field))
+      switch (field)
         {
-        case DBUS_HEADER_FIELD_SERVICE_AS_UINT32:
-          if (!decode_string_field (data, fields, pos, type,
-                                    FIELD_SERVICE,
-                                    DBUS_HEADER_FIELD_SERVICE))
+        case DBUS_HEADER_FIELD_SERVICE:
+          if (!decode_string_field (data, field, &fields[field],
+				    &field_data, pos, type))
             return FALSE;
+
+	  if (!_dbus_string_validate_service (&field_data, 0,
+					      _dbus_string_get_length (&field_data)))
+	    {
+	      _dbus_verbose ("service field has invalid content \"%s\"\n",
+			     _dbus_string_get_const_data (&field_data));
+	      return FALSE;
+	    }
           break;
 
-        case DBUS_HEADER_FIELD_NAME_AS_UINT32:
-          if (!decode_string_field (data, fields, pos, type,
-                                    FIELD_NAME,
-                                    DBUS_HEADER_FIELD_NAME))
+        case DBUS_HEADER_FIELD_INTERFACE:
+	  if (!decode_string_field (data, field, &fields[field],
+				    &field_data, pos, type))
             return FALSE;
+
+	  if (!_dbus_string_validate_interface (&field_data, 0,
+						_dbus_string_get_length (&field_data)))
+	    {
+	      _dbus_verbose ("interface field has invalid content \"%s\"\n",
+			     _dbus_string_get_const_data (&field_data));
+	      return FALSE;
+	    }
+      
+	  if (_dbus_string_equal_c_str (&field_data,
+					DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL))
+	    {
+	      _dbus_verbose ("Message is on the local interface\n");
+	      return FALSE;
+	    }
           break;
 
-	case DBUS_HEADER_FIELD_SENDER_AS_UINT32:
-          if (!decode_string_field (data, fields, pos, type,
-                                    FIELD_SENDER,
-                                    DBUS_HEADER_FIELD_SENDER))
+        case DBUS_HEADER_FIELD_MEMBER:
+          if (!decode_string_field (data, field, &fields[field],
+				    &field_data, pos, type))
             return FALSE;
+	  
+	  if (!_dbus_string_validate_member (&field_data, 0,
+					     _dbus_string_get_length (&field_data)))
+	    {
+	      _dbus_verbose ("member field has invalid content \"%s\"\n",
+			     _dbus_string_get_const_data (&field_data));
+	      return FALSE;
+	    }
+          break;
+
+        case DBUS_HEADER_FIELD_ERROR_NAME:
+          if (!decode_string_field (data, field, &fields[field],
+				    &field_data, pos, type))
+            return FALSE;
+	  
+	  if (!_dbus_string_validate_error_name (&field_data, 0,
+						 _dbus_string_get_length (&field_data)))
+	    {
+	      _dbus_verbose ("error-name field has invalid content \"%s\"\n",
+			     _dbus_string_get_const_data (&field_data));
+	      return FALSE;
+	    }
+          break;
+          
+	case DBUS_HEADER_FIELD_SENDER_SERVICE:
+          if (!decode_string_field (data, field, &fields[field],
+				    &field_data, pos, type))
+            return FALSE;
+	  
+	  if (!_dbus_string_validate_service (&field_data, 0,
+					      _dbus_string_get_length (&field_data)))
+	    {
+	      _dbus_verbose ("sender-service field has invalid content \"%s\"\n",
+			     _dbus_string_get_const_data (&field_data));
+	      return FALSE;
+	    }
+	  break;
+
+	case DBUS_HEADER_FIELD_PATH:
+
+          /* Path was already validated as part of standard
+           * type validation, since there's an OBJECT_PATH
+           * type.
+           */
+          
+          if (fields[field].name_offset >= 0)
+            {
+              _dbus_verbose ("path field provided twice\n");
+              return FALSE;
+            }
+          if (type != DBUS_TYPE_OBJECT_PATH)
+            {
+              _dbus_verbose ("path field has wrong type\n");
+              return FALSE;
+            }
+
+          fields[field].name_offset  = pos;
+          fields[field].value_offset = _DBUS_ALIGN_VALUE (pos, 4);
+
+          /* No forging signals from the local path */
+          {
+            const char *s;
+            s = _dbus_string_get_const_data_len (data,
+                                                 fields[field].value_offset,
+                                                 _dbus_string_get_length (data) -
+                                                 fields[field].value_offset);
+            if (strcmp (s, DBUS_PATH_ORG_FREEDESKTOP_LOCAL) == 0)
+              {
+                _dbus_verbose ("Message is on the local path\n");
+                return FALSE;
+              }
+          }
+          
+          _dbus_verbose ("Found path at offset %d\n",
+                         fields[field].value_offset);
 	  break;
           
-	case DBUS_HEADER_FIELD_REPLY_AS_UINT32:
-          if (fields[FIELD_REPLY_SERIAL].offset >= 0)
+	case DBUS_HEADER_FIELD_REPLY_SERIAL:
+          if (fields[field].name_offset >= 0)
             {
-              _dbus_verbose ("%s field provided twice\n",
-                             DBUS_HEADER_FIELD_REPLY);
+              _dbus_verbose ("reply field provided twice\n");
               return FALSE;
             }
 
           if (type != DBUS_TYPE_UINT32)
             {
-              _dbus_verbose ("%s field has wrong type\n", DBUS_HEADER_FIELD_REPLY);
+              _dbus_verbose ("reply field has wrong type\n");
               return FALSE;
             }
           
-          fields[FIELD_REPLY_SERIAL].offset = _DBUS_ALIGN_VALUE (pos, 4);
+          fields[field].name_offset  = pos;
+          fields[field].value_offset = _DBUS_ALIGN_VALUE (pos, 4);
 
           _dbus_verbose ("Found reply serial at offset %d\n",
-                         fields[FIELD_REPLY_SERIAL].offset);
+                         fields[field].value_offset);
 	  break;
 
         default:
-	  _dbus_verbose ("Ignoring an unknown header field: %.4s at offset %d\n",
+	  _dbus_verbose ("Ignoring an unknown header field: %d at offset %d\n",
 			 field, pos);
 	}
       
@@ -4250,7 +4888,11 @@ decode_header_data (const DBusString   *data,
   if (pos < header_len)
     {
       /* Alignment padding, verify that it's nul */
-      _dbus_assert ((header_len - pos) < 8);
+      if ((header_len - pos) >= 8)
+	{
+	  _dbus_verbose ("too much header alignment padding\n");
+	  return FALSE;
+	}
 
       if (!_dbus_string_validate_nul (data,
                                       pos, (header_len - pos)))
@@ -4260,12 +4902,40 @@ decode_header_data (const DBusString   *data,
         }
     }
 
-  /* Name field is mandatory */
-  if (fields[FIELD_NAME].offset < 0)
+  /* Depending on message type, enforce presence of certain fields. */
+  switch (message_type)
     {
-      _dbus_verbose ("No %s field provided\n",
-                     DBUS_HEADER_FIELD_NAME);
-      return FALSE;
+    case DBUS_MESSAGE_TYPE_SIGNAL:
+    case DBUS_MESSAGE_TYPE_METHOD_CALL:
+      if (fields[DBUS_HEADER_FIELD_PATH].value_offset < 0)
+        {
+          _dbus_verbose ("No path field provided\n");
+          return FALSE;
+        }
+      /* FIXME make this optional, only for method calls */
+      if (fields[DBUS_HEADER_FIELD_INTERFACE].value_offset < 0)
+        {
+          _dbus_verbose ("No interface field provided\n");
+          return FALSE;
+        }
+      if (fields[DBUS_HEADER_FIELD_MEMBER].value_offset < 0)
+        {
+          _dbus_verbose ("No member field provided\n");
+          return FALSE;
+        }
+      break;
+    case DBUS_MESSAGE_TYPE_ERROR:
+      if (fields[DBUS_HEADER_FIELD_ERROR_NAME].value_offset < 0)
+        {
+          _dbus_verbose ("No error-name field provided\n");
+          return FALSE;
+        }
+      break;
+    case DBUS_MESSAGE_TYPE_METHOD_RETURN:
+      break;
+    default:
+      /* An unknown type, spec requires us to ignore it */
+      break;
     }
   
   if (message_padding)
@@ -4298,6 +4968,13 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 /**
  * Converts buffered data into messages.
  *
+ * @todo we need to check that the proper named header fields exist
+ * for each message type.
+ * 
+ * @todo If a message has unknown type, we should probably eat it
+ * right here rather than passing it out to applications.  However
+ * it's not an error to see messages of unknown type.
+ * 
  * @param loader the loader.
  * @returns #TRUE if we had enough memory to finish.
  */
@@ -4311,22 +4988,22 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
     {
       DBusMessage *message;      
       const char *header_data;
-      int byte_order, header_len, body_len, header_padding;
+      int byte_order, message_type, header_len, body_len, header_padding;
       dbus_uint32_t header_len_unsigned, body_len_unsigned;
       
       header_data = _dbus_string_get_const_data_len (&loader->data, 0, 16);
 
       _dbus_assert (_DBUS_ALIGN_ADDRESS (header_data, 4) == header_data);
 
-      if (header_data[2] != DBUS_MAJOR_PROTOCOL_VERSION)
+      if (header_data[VERSION_OFFSET] != DBUS_MAJOR_PROTOCOL_VERSION)
         {
           _dbus_verbose ("Message has protocol version %d ours is %d\n",
-                         (int) header_data[2], DBUS_MAJOR_PROTOCOL_VERSION);
+                         (int) header_data[VERSION_OFFSET], DBUS_MAJOR_PROTOCOL_VERSION);
           loader->corrupted = TRUE;
           return TRUE;
         }
       
-      byte_order = header_data[0];
+      byte_order = header_data[BYTE_ORDER_OFFSET];
 
       if (byte_order != DBUS_LITTLE_ENDIAN &&
 	  byte_order != DBUS_BIG_ENDIAN)
@@ -4337,6 +5014,18 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
 	  return TRUE;
 	}
 
+      /* Unknown types are ignored, but INVALID is
+       * disallowed
+       */
+      message_type = header_data[TYPE_OFFSET];
+      if (message_type == DBUS_MESSAGE_TYPE_INVALID)
+        {
+          _dbus_verbose ("Message with bad type '%d' received\n",
+                         message_type);
+	  loader->corrupted = TRUE;
+	  return TRUE;
+        }      
+      
       header_len_unsigned = _dbus_unpack_uint32 (byte_order, header_data + 4);
       body_len_unsigned = _dbus_unpack_uint32 (byte_order, header_data + 8);
 
@@ -4383,14 +5072,16 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
 
       if (_dbus_string_get_length (&loader->data) >= (header_len + body_len))
 	{
-          HeaderField fields[FIELD_LAST];
+          HeaderField fields[DBUS_HEADER_FIELD_LAST + 1];
           int i;
           int next_arg;          
 
 #if 0
 	  _dbus_verbose_bytes_of_string (&loader->data, 0, header_len + body_len);
 #endif	  
- 	  if (!decode_header_data (&loader->data, header_len, byte_order,
+ 	  if (!decode_header_data (&loader->data,
+                                   header_len, byte_order,
+                                   message_type,
                                    fields, &header_padding))
 	    {
               _dbus_verbose ("Header was invalid\n");
@@ -4448,7 +5139,7 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
 	  
           /* Copy in the offsets we found */
           i = 0;
-          while (i < FIELD_LAST)
+          while (i <= DBUS_HEADER_FIELD_LAST)
             {
               message->header_fields[i] = fields[i];
               ++i;
@@ -4498,9 +5189,12 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
            * earlier)
            */
           message->reply_serial = get_uint_field (message,
-                                                  FIELD_REPLY_SERIAL);
-          message->client_serial = get_uint_field (message,
-                                                   FIELD_CLIENT_SERIAL);
+						  DBUS_HEADER_FIELD_REPLY_SERIAL);
+	  
+          message->client_serial = _dbus_demarshal_uint32 (&message->header,
+							   message->byte_order,
+							   CLIENT_SERIAL_OFFSET,
+							   NULL);
           
 	  _dbus_verbose ("Loaded message %p\n", message);
 	}
@@ -5076,8 +5770,10 @@ check_message_handling (DBusMessage *message)
   client_serial = dbus_message_get_serial (message);
 
   /* can't use set_serial due to the assertions at the start of it */
-  set_uint_field (message, FIELD_CLIENT_SERIAL,
-                  client_serial);
+  _dbus_marshal_set_uint32 (&message->header,
+                            message->byte_order,
+                            CLIENT_SERIAL_OFFSET,
+                            client_serial);
   
   if (client_serial != dbus_message_get_serial (message))
     {
@@ -5467,7 +6163,7 @@ process_test_subdir (const DBusString          *test_base_dir,
       goto failed;
     }
 
-  printf ("Testing:\n");
+  printf ("Testing %s:\n", subdir);
   
  next:
   while (_dbus_directory_get_next_file (dir, &filename, &error))
@@ -5499,10 +6195,11 @@ process_test_subdir (const DBusString          *test_base_dir,
       printf ("    %s\n",
               _dbus_string_get_const_data (&filename));
       
-      _dbus_verbose (" expecting %s\n",
+      _dbus_verbose (" expecting %s for %s\n",
                      validity == _DBUS_MESSAGE_VALID ? "valid" :
                      (validity == _DBUS_MESSAGE_INVALID ? "invalid" :
-                      (validity == _DBUS_MESSAGE_INCOMPLETE ? "incomplete" : "unknown")));
+                      (validity == _DBUS_MESSAGE_INCOMPLETE ? "incomplete" : "unknown")),
+                     _dbus_string_get_const_data (&filename));
       
       if (! (*function) (&full_path, is_raw, validity, user_data))
         {
@@ -5821,26 +6518,37 @@ _dbus_message_test (const char *test_data_dir)
   
   _dbus_assert (sizeof (DBusMessageRealIter) <= sizeof (DBusMessageIter));
 
-  message = dbus_message_new ("test.Message", "org.freedesktop.DBus.Test");
-  _dbus_assert (dbus_message_has_destination (message, "org.freedesktop.DBus.Test"));
+  message = dbus_message_new_method_call ("org.freedesktop.DBus.TestService",
+                                          "/org/freedesktop/TestPath",
+                                          "Foo.TestInterface",
+                                          "TestMethod");
+  _dbus_assert (dbus_message_has_destination (message, "org.freedesktop.DBus.TestService"));
+  _dbus_assert (dbus_message_is_method_call (message, "Foo.TestInterface",
+                                             "TestMethod"));
   _dbus_message_set_serial (message, 1234);
-  dbus_message_set_sender (message, "org.foo.bar");
-  _dbus_assert (dbus_message_has_sender (message, "org.foo.bar"));
+  /* string length including nul byte not a multiple of 4 */
+  dbus_message_set_sender (message, "org.foo.bar1");
+  _dbus_assert (dbus_message_has_sender (message, "org.foo.bar1"));
+  dbus_message_set_reply_serial (message, 5678);
   dbus_message_set_sender (message, NULL);
-  _dbus_assert (!dbus_message_has_sender (message, "org.foo.bar"));
+  _dbus_assert (!dbus_message_has_sender (message, "org.foo.bar1"));
   _dbus_assert (dbus_message_get_serial (message) == 1234);
-  _dbus_assert (dbus_message_has_destination (message, "org.freedesktop.DBus.Test"));
+  _dbus_assert (dbus_message_get_reply_serial (message) == 5678);
+  _dbus_assert (dbus_message_has_destination (message, "org.freedesktop.DBus.TestService"));
 
-  _dbus_assert (dbus_message_get_is_error (message) == FALSE);
-  dbus_message_set_is_error (message, TRUE);
-  _dbus_assert (dbus_message_get_is_error (message) == TRUE);
-  dbus_message_set_is_error (message, FALSE);
-  _dbus_assert (dbus_message_get_is_error (message) == FALSE);
+  _dbus_assert (dbus_message_get_no_reply (message) == FALSE);
+  dbus_message_set_no_reply (message, TRUE);
+  _dbus_assert (dbus_message_get_no_reply (message) == TRUE);
+  dbus_message_set_no_reply (message, FALSE);
+  _dbus_assert (dbus_message_get_no_reply (message) == FALSE);
   
   dbus_message_unref (message);
   
   /* Test the vararg functions */
-  message = dbus_message_new ("test.Message", "org.freedesktop.DBus.Test");
+  message = dbus_message_new_method_call ("org.freedesktop.DBus.TestService",
+                                          "/org/freedesktop/TestPath",
+                                          "Foo.TestInterface",
+                                          "TestMethod");
   _dbus_message_set_serial (message, 1);
   dbus_message_append_args (message,
 			    DBUS_TYPE_INT32, -0x12345678,
@@ -5855,10 +6563,12 @@ _dbus_message_test (const char *test_data_dir)
                             _DBUS_N_ELEMENTS (our_uint32_array),
                             DBUS_TYPE_ARRAY, DBUS_TYPE_INT32, our_int32_array,
                             _DBUS_N_ELEMENTS (our_int32_array),
+#ifdef DBUS_HAVE_INT64
                             DBUS_TYPE_ARRAY, DBUS_TYPE_UINT64, our_uint64_array,
                             _DBUS_N_ELEMENTS (our_uint64_array),
                             DBUS_TYPE_ARRAY, DBUS_TYPE_INT64, our_int64_array,
                             _DBUS_N_ELEMENTS (our_int64_array),
+#endif
                             DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, our_string_array,
                             _DBUS_N_ELEMENTS (our_string_array),
                             DBUS_TYPE_ARRAY, DBUS_TYPE_DOUBLE, our_double_array,
@@ -5896,15 +6606,24 @@ _dbus_message_test (const char *test_data_dir)
 
   verify_test_message (copy);
 
-  name1 = dbus_message_get_name (message);
-  name2 = dbus_message_get_name (copy);
+  name1 = dbus_message_get_interface (message);
+  name2 = dbus_message_get_interface (copy);
+
+  _dbus_assert (strcmp (name1, name2) == 0);
+
+  name1 = dbus_message_get_member (message);
+  name2 = dbus_message_get_member (copy);
 
   _dbus_assert (strcmp (name1, name2) == 0);
   
   dbus_message_unref (message);
   dbus_message_unref (copy);
-  
-  message = dbus_message_new ("test.Message", "org.freedesktop.DBus.Test");
+
+  message = dbus_message_new_method_call ("org.freedesktop.DBus.TestService",
+                                          "/org/freedesktop/TestPath",
+                                          "Foo.TestInterface",
+                                          "TestMethod");
+
   _dbus_message_set_serial (message, 1);
   dbus_message_set_reply_serial (message, 0x12345678);
 

@@ -31,11 +31,14 @@ DBUS_BEGIN_DECLS;
 
 typedef struct DBusSHAContext DBusSHAContext;
 
+/**
+ * Struct storing state of the SHA algorithm
+ */
 struct DBusSHAContext
 {
   dbus_uint32_t  digest[5];         /**< Message digest */
   dbus_uint32_t  count_lo;          /**< 64-bit bit count */
-  dbus_uint32_t  count_hi;
+  dbus_uint32_t  count_hi;          /**< No clue */
   dbus_uint32_t  data[16];          /**< SHA data buffer */
 };
 

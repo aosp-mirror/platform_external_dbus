@@ -40,12 +40,18 @@ struct DBusDataSlot
 };
 
 typedef struct DBusAllocatedSlot DBusAllocatedSlot;
+
+/** An allocated slot for storing data
+ */
 struct DBusAllocatedSlot
 {
   dbus_int32_t slot_id;  /**< ID of this slot */
   int          refcount; /**< Number of uses of the slot */
 };
 
+/**
+ * An allocator that tracks a set of slot IDs.
+ */
 struct DBusDataSlotAllocator
 {
   DBusAllocatedSlot *allocated_slots; /**< Allocated slots */
@@ -54,6 +60,10 @@ struct DBusDataSlotAllocator
   DBusMutex *lock;        /**< thread lock */
 };
 
+/**
+ * Data structure that stores the actual user data set at a given
+ * slot.
+ */
 struct DBusDataSlotList
 {
   DBusDataSlot *slots;   /**< Data slots */

@@ -23,10 +23,12 @@
 
 #include "dbus-mainloop.h"
 
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-sysdeps.h>
 
-#define MAINLOOP_SPEW 1
+#define MAINLOOP_SPEW 0
 
 struct DBusLoop
 {
@@ -876,3 +878,4 @@ _dbus_wait_for_memory (void)
   _dbus_sleep_milliseconds (_dbus_get_oom_wait ());
 }
 
+#endif /* DOXYGEN_SHOULD_SKIP_THIS */

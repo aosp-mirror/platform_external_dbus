@@ -28,6 +28,7 @@
 #include "utils.h"
 #include "policy.h"
 #include "config-parser.h"
+#include "signals.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-internals.h>
@@ -44,6 +45,7 @@ struct BusContext
   BusActivation *activation;
   BusRegistry *registry;
   BusPolicy *policy;
+  BusMatchmaker *matchmaker;
   DBusUserDatabase *user_database;
   BusLimits limits;
 };
@@ -505,6 +507,13 @@ bus_context_new (const DBusString *config_file,
       goto failed;
     }
 
+  context->matchmaker = bus_matchmaker_new ();
+  if (context->matchmaker == NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+  
   context->policy = bus_config_parser_steal_policy (parser);
   _dbus_assert (context->policy != NULL);
   
@@ -715,6 +724,12 @@ bus_context_unref (BusContext *context)
           _dbus_loop_unref (context->loop);
           context->loop = NULL;
         }
+
+      if (context->matchmaker)
+        {
+          bus_matchmaker_unref (context->matchmaker);
+          context->matchmaker = NULL;
+        }
       
       dbus_free (context->type);
       dbus_free (context->address);
@@ -769,6 +784,12 @@ BusActivation*
 bus_context_get_activation (BusContext  *context)
 {
   return context->activation;
+}
+
+BusMatchmaker*
+bus_context_get_matchmaker (BusContext  *context)
+{
+  return context->matchmaker;
 }
 
 DBusLoop*
@@ -845,18 +866,33 @@ bus_context_get_max_services_per_connection (BusContext *context)
   return context->limits.max_services_per_connection;
 }
 
+int
+bus_context_get_max_match_rules_per_connection (BusContext *context)
+{
+  return context->limits.max_match_rules_per_connection;
+}
+
 dbus_bool_t
 bus_context_check_security_policy (BusContext     *context,
                                    DBusConnection *sender,
-                                   DBusConnection *recipient,
+                                   DBusConnection *addressed_recipient,
+                                   DBusConnection *proposed_recipient,
                                    DBusMessage    *message,
                                    DBusError      *error)
 {
   BusClientPolicy *sender_policy;
   BusClientPolicy *recipient_policy;
 
-  /* NULL sender/receiver means the bus driver */
+  /* NULL sender, proposed_recipient means the bus driver.  NULL
+   * addressed_recipient means the message didn't specify an explicit
+   * target. If proposed_recipient is NULL, then addressed_recipient
+   * is also NULL but is implicitly the bus driver.
+   */
 
+  _dbus_assert (proposed_recipient == NULL ||
+                (dbus_message_get_destination (message) == NULL ||
+                 addressed_recipient != NULL));
+  
   if (sender != NULL)
     {
       if (bus_connection_is_active (sender))
@@ -869,21 +905,23 @@ bus_context_check_security_policy (BusContext     *context,
           /* Policy for inactive connections is that they can only send
            * the hello message to the bus driver
            */
-          if (recipient == NULL &&
-              dbus_message_has_name (message, DBUS_MESSAGE_HELLO))
+          if (proposed_recipient == NULL &&
+              dbus_message_is_method_call (message,
+                                           DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                           "Hello"))
             {
               _dbus_verbose ("security check allowing %s message\n",
-                             DBUS_MESSAGE_HELLO);
+                             "Hello");
               return TRUE;
             }
           else
             {
               _dbus_verbose ("security check disallowing non-%s message\n",
-                             DBUS_MESSAGE_HELLO);
+                             "Hello");
 
               dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
                               "Client tried to send a message other than %s without being registered",
-                              DBUS_MESSAGE_HELLO);
+                              "Hello");
               
               return FALSE;
             }
@@ -895,15 +933,15 @@ bus_context_check_security_policy (BusContext     *context,
   _dbus_assert ((sender != NULL && sender_policy != NULL) ||
                 (sender == NULL && sender_policy == NULL));
   
-  if (recipient != NULL)
+  if (proposed_recipient != NULL)
     {
       /* only the bus driver can send to an inactive recipient (as it
        * owns no services, so other apps can't address it). Inactive
        * recipients can receive any message.
        */
-      if (bus_connection_is_active (recipient))
+      if (bus_connection_is_active (proposed_recipient))
         {
-          recipient_policy = bus_connection_get_policy (recipient);
+          recipient_policy = bus_connection_get_policy (proposed_recipient);
           _dbus_assert (recipient_policy != NULL);
         }
       else if (sender == NULL)
@@ -920,13 +958,13 @@ bus_context_check_security_policy (BusContext     *context,
   else
     recipient_policy = NULL;
   
-  _dbus_assert ((recipient != NULL && recipient_policy != NULL) ||
-                (recipient != NULL && sender == NULL && recipient_policy == NULL) ||
-                (recipient == NULL && recipient_policy == NULL));
+  _dbus_assert ((proposed_recipient != NULL && recipient_policy != NULL) ||
+                (proposed_recipient != NULL && sender == NULL && recipient_policy == NULL) ||
+                (proposed_recipient == NULL && recipient_policy == NULL));
   
   if (sender_policy &&
       !bus_client_policy_check_can_send (sender_policy,
-                                         context->registry, recipient,
+                                         context->registry, proposed_recipient,
                                          message))
     {
       const char *dest = dbus_message_get_destination (message);
@@ -934,9 +972,14 @@ bus_context_check_security_policy (BusContext     *context,
                       "A security policy in place prevents this sender "
                       "from sending this message to this recipient, "
                       "see message bus configuration file (rejected message "
-                      "had name \"%s\" destination \"%s\")",
-                      dbus_message_get_name (message),
-                      dest ? dest : DBUS_SERVICE_DBUS);
+                      "had interface \"%s\" member \"%s\" error name \"%s\" destination \"%s\")",
+                      dbus_message_get_interface (message) ?
+                      dbus_message_get_interface (message) : "(unset)",
+                      dbus_message_get_member (message) ?
+                      dbus_message_get_member (message) : "(unset)",
+                      dbus_message_get_error_name (message) ?
+                      dbus_message_get_error_name (message) : "(unset)",
+                      dest ? dest : DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
       _dbus_verbose ("security policy disallowing message due to sender policy\n");
       return FALSE;
     }
@@ -944,6 +987,7 @@ bus_context_check_security_policy (BusContext     *context,
   if (recipient_policy &&
       !bus_client_policy_check_can_receive (recipient_policy,
                                             context->registry, sender,
+                                            addressed_recipient, proposed_recipient,
                                             message))
     {
       const char *dest = dbus_message_get_destination (message);
@@ -951,22 +995,29 @@ bus_context_check_security_policy (BusContext     *context,
                       "A security policy in place prevents this recipient "
                       "from receiving this message from this sender, "
                       "see message bus configuration file (rejected message "
-                      "had name \"%s\" destination \"%s\")",
-                      dbus_message_get_name (message),
-                      dest ? dest : DBUS_SERVICE_DBUS);
+                      "had interface \"%s\" member \"%s\" error name \"%s\" destination \"%s\")",
+                      dbus_message_get_interface (message) ?
+                      dbus_message_get_interface (message) : "(unset)",
+                      dbus_message_get_member (message) ?
+                      dbus_message_get_member (message) : "(unset)",
+                      dbus_message_get_error_name (message) ?
+                      dbus_message_get_error_name (message) : "(unset)",
+                      dest ? dest : DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
       _dbus_verbose ("security policy disallowing message due to recipient policy\n");
       return FALSE;
     }
 
   /* See if limits on size have been exceeded */
-  if (recipient &&
-      dbus_connection_get_outgoing_size (recipient) >
+  if (proposed_recipient &&
+      dbus_connection_get_outgoing_size (proposed_recipient) >
       context->limits.max_outgoing_bytes)
     {
       const char *dest = dbus_message_get_destination (message);
       dbus_set_error (error, DBUS_ERROR_LIMITS_EXCEEDED,
                       "The destination service \"%s\" has a full message queue",
-                      dest ? dest : DBUS_SERVICE_DBUS);
+                      dest ? dest : (proposed_recipient ?
+                                     bus_connection_get_name (proposed_recipient) : 
+                                     DBUS_SERVICE_ORG_FREEDESKTOP_DBUS));
       _dbus_verbose ("security policy disallowing message due to full message queue\n");
       return FALSE;
     }

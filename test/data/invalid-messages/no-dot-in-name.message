@@ -1,10 +1,15 @@
-## a message with dotless name
+## a message with dotless interface
 
 ## VALID_HEADER includes a LENGTH Header and LENGTH Body
-VALID_HEADER
-FIELD_NAME name
+VALID_HEADER method_call
+
+HEADER_FIELD INTERFACE
 TYPE STRING
-STRING 'NoNamespaceHere'
+STRING 'NoDotInHere'
+HEADER_FIELD MEMBER
+TYPE STRING
+STRING 'Bar'
+
 ALIGN 8
 END_LENGTH Header
 START_LENGTH Body

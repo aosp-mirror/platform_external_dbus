@@ -24,6 +24,8 @@
 #ifndef DBUS_MAINLOOP_H
 #define DBUS_MAINLOOP_H
 
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+
 #include <dbus/dbus.h>
 
 typedef struct DBusLoop DBusLoop;
@@ -68,4 +70,7 @@ dbus_bool_t _dbus_loop_dispatch       (DBusLoop            *loop);
 int  _dbus_get_oom_wait    (void);
 void _dbus_wait_for_memory (void);
 
+#endif /* DOXYGEN_SHOULD_SKIP_THIS */
+
 #endif /* DBUS_MAINLOOP_H */
+

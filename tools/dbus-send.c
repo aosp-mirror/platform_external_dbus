@@ -30,7 +30,7 @@
 static void
 usage (char *name, int ecode)
 {
-  fprintf (stderr, "Usage: %s [--help] [--system | --session] [--dest=SERVICE] [--print-reply] <message type> [contents ...]\n", name);
+  fprintf (stderr, "Usage: %s [--help] [--system | --session] [--dest=SERVICE] [--type=TYPE] [--print-reply] <destination object path> <message name> [contents ...]\n", name);
   exit (ecode);
 }
 
@@ -44,10 +44,13 @@ main (int argc, char *argv[])
   DBusMessageIter iter;
   int i;
   DBusBusType type = DBUS_BUS_SESSION;
-  char *dest = DBUS_SERVICE_BROADCAST;
-  char *name = NULL;
-
-  if (argc < 2)
+  const char *dest = NULL;
+  const char *name = NULL;
+  const char *path = NULL;
+  int message_type = DBUS_MESSAGE_TYPE_SIGNAL;
+  const char *type_str = NULL;
+  
+  if (argc < 3)
     usage (argv[0], 1);
 
   print_reply = FALSE;
@@ -64,17 +67,37 @@ main (int argc, char *argv[])
         print_reply = TRUE;
       else if (strstr (arg, "--dest=") == arg)
 	dest = strchr (arg, '=') + 1;
+      else if (strstr (arg, "--type=") == arg)
+	type_str = strchr (arg, '=') + 1;
       else if (!strcmp(arg, "--help"))
 	usage (argv[0], 0);
       else if (arg[0] == '-')
 	usage (argv[0], 1);
+      else if (path == NULL)
+        path = arg;
+      else if (name == NULL)
+        name = arg;
       else
-	name = arg;
+        usage (argv[0], 1);
     }
 
   if (name == NULL)
     usage (argv[0], 1);
 
+  if (type_str != NULL)
+    {
+      if (strcmp (type_str, "method_call") == 0)
+        message_type = DBUS_MESSAGE_TYPE_METHOD_CALL;
+      else if (strcmp (type_str, "signal") == 0)
+        message_type = DBUS_MESSAGE_TYPE_SIGNAL;
+      else
+        {
+          fprintf (stderr, "Message type \"%s\" is not supported\n",
+                   type_str);
+          exit (1);
+        }
+    }
+  
   dbus_error_init (&error);
   connection = dbus_bus_get (type, &error);
   if (connection == NULL)
@@ -86,13 +109,57 @@ main (int argc, char *argv[])
       exit (1);
     }
 
-  message = dbus_message_new (name, dest);
+  if (message_type == DBUS_MESSAGE_TYPE_METHOD_CALL)
+    {
+      char *last_dot;
+
+      last_dot = strrchr (name, '.');
+      if (last_dot == NULL)
+        {
+          fprintf (stderr, "Must use org.mydomain.Interface.Method notation, no dot in \"%s\"\n",
+                   name);
+          exit (1);
+        }
+      *last_dot = '\0';
+      
+      message = dbus_message_new_method_call (NULL,
+                                              path,
+                                              name,
+                                              last_dot + 1);
+    }
+  else if (message_type == DBUS_MESSAGE_TYPE_SIGNAL)
+    {
+      char *last_dot;
+
+      last_dot = strrchr (name, '.');
+      if (last_dot == NULL)
+        {
+          fprintf (stderr, "Must use org.mydomain.Interface.Signal notation, no dot in \"%s\"\n",
+                   name);
+          exit (1);
+        }
+      *last_dot = '\0';
+      
+      message = dbus_message_new_signal (path, name, last_dot + 1);
+    }
+  else
+    {
+      fprintf (stderr, "Internal error, unknown message type\n");
+      exit (1);
+    }
+
   if (message == NULL)
     {
       fprintf (stderr, "Couldn't allocate D-BUS message\n");
       exit (1);
     }
 
+  if (dest && !dbus_message_set_destination (message, dest))
+    {
+      fprintf (stderr, "Not enough memory\n");
+      exit (1);
+    }
+  
   dbus_message_append_iter_init (message, &iter);
 
   while (i < argc)
@@ -135,6 +202,7 @@ main (int argc, char *argv[])
 	  exit (1);
 	}
 
+      /* FIXME - we are ignoring OOM returns on all these functions */
       switch (type)
 	{
 	case DBUS_TYPE_BYTE:

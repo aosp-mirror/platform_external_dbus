@@ -1,3 +1,745 @@
+2003-09-29  Havoc Pennington  <hp@pobox.com>
+
+	* Merge dbus-object-names branch. To see the entire patch 
+	do cvs diff -r DBUS_OBJECT_NAMES_BRANCHPOINT -r dbus-object-names,
+	it's huuuuge though.
+	To revert, I tagged DBUS_BEFORE_OBJECT_NAMES_MERGE.
+	
+2003-09-28  Havoc Pennington  <hp@pobox.com>
+
+	* HACKING: update to reflect new server
+
+2003-09-26  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus.py:
+	* python/examples/example-signals.py:
+
+	Start implementing some notions of signals. The API
+	is really terrible, but they sort of work (with the
+	exception of being able to filter by service, and to
+	transmit signals *as* a particular service). Need to
+	figure out how to make messages come from the service
+	we registered :-(
+	
+	* python/dbus_bindings.pyx.in:
+
+	Removed duplicate message_handler callbacks.
+	
+2003-09-25  Havoc Pennington  <hp@redhat.com>
+
+	* bus/session.conf.in: fix my mess
+
+2003-09-25  Havoc Pennington  <hp@pobox.com>
+
+	* bus/session.conf.in: fix security policy, reported by Seth Nickell
+
+2003-09-25  Seth Nickell  <seth@gnome.org>
+
+	* python/examples/example-service.py:
+
+	Johan notices complete wrong code in example-service, but
+	completely wrong in a way that works exactly the same (!).
+	Johan is confused, how could this possibly work? Example
+	code fails to serve purpose of making things clear.
+	Seth fixes.
+
+2003-09-25  Mark McLoughlin  <mark@skynet.ie>
+
+	* doc/dbus-specification.sgml: don't require header fields
+	to be 4-byte aligned and specify that fields should be
+	distinguished from padding by the fact that zero is not
+	a valid field name.
+	
+	* doc/TODO: remove re-alignment item and add item to doc
+	the OBJECT_PATH type.
+	
+	* dbus/dbus-message.c:
+	(HeaderField): rename the original member to value_offset
+	and introduce a name_offset member to keep track of where
+	the field actually begins.
+	(adjust_field_offsets): remove.
+	(append_int_field), (append_uint_field),
+	(append_string_field): don't align the start of the header
+	field to a 4-byte boundary.
+	(get_next_field): impl finding the next marhsalled field
+	after a given field.
+	(re_align_field_recurse): impl re-aligning a number of
+	already marshalled fields.
+	(delete_field): impl deleting a field of any type and
+	re-aligning any following fields.
+	(delete_int_or_uint_field), (delete_string_field): remove.
+	(set_int_field), (set_uint_field): no need to re-check
+	that we have the correct type for the field.
+	(set_string_field): ditto and impl re-aligning any
+	following fields.
+	(decode_header_data): update to take into account that
+	the fields aren't 4-byte aligned any more and the new
+	way to distinguish padding from header fields. Also,
+	don't exit when there is too much header padding.
+	(process_test_subdir): print the directory.
+	(_dbus_message_test): add test to make sure a following
+	field is re-aligned correctly after field deletion.
+	
+	* dbus/dbus-string.[ch]:
+	(_dbus_string_insert_bytes): rename from insert_byte and
+	allow the insert of multiple bytes.
+	(_dbus_string_test): test inserting multiple bytes.
+
+	* dbus/dbus-marshal.c: (_dbus_marshal_set_string): add
+	warning note to docs about having to re-align any
+	marshalled values following the string.
+	
+	* dbus/dbus-message-builder.c:
+	(append_string_field), (_dbus_message_data_load):
+	don't align the header field.
+	
+	* dbus/dbus-auth.c: (process_test_subdir): print the
+	directory.
+	
+	* test/break-loader.c: (randomly_add_one_byte): upd. for
+	insert_byte change.
+	
+	* test/data/invalid-messages/bad-header-field-alignment.message:
+	new test case.
+	
+	* test/data/valid-messages/unknown-header-field.message: shove
+	a dict in the unknown field.
+
+2003-09-25  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus.py:
+	* python/dbus_bindings.pyx.in:
+
+	Handle return values.
+	
+	* python/examples/example-client.py:
+	* python/examples/example-service.py:
+
+	Pass back return values from the service to the client.
+	
+2003-09-24  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus.py:
+
+	Connect Object methods (when you are sharing an object) up... pass
+	in a list of methods to be shared. Sharing all the methods just
+	worked out too weird. You can now create nice Services over the
+	DBus in Python. :-)
+	
+	* python/dbus_bindings.pyx.in:
+
+	Keep references to user_data tuples passed into C functions so 
+	Python doesn't garbage collect on us.
+
+	Implement MethodReturn and Error subclasses of Message for creating
+	DBusMessage's of those types.
+	
+	* python/examples/example-client.py:
+	* python/examples/example-service.py:
+
+	Simple example code showing both how create DBus services and objects,
+	and how to use them.
+
+2003-09-23  Havoc Pennington  <hp@pobox.com>
+
+	* glib/dbus-gproxy.c (dbus_gproxy_manager_filter): implement
+
+2003-09-23  Havoc Pennington  <hp@redhat.com>
+
+	* glib/dbus-gproxy.c (dbus_gproxy_connect_signal): implement
+	(dbus_gproxy_disconnect_signal): implement
+	(dbus_gproxy_manager_remove_signal_match): implement
+	(dbus_gproxy_manager_add_signal_match): implement
+	(dbus_gproxy_oneway_call): implement
+
+2003-09-23  Havoc Pennington  <hp@pobox.com>
+
+	* glib/dbus-gproxy.c (struct DBusGProxy): convert to a GObject
+	subclass. This means dropping the transparent thread safety of the
+	proxy; you now need a separate proxy per-thread, or your own
+	locking on the proxy. Probably right anyway.
+	(dbus_gproxy_ref, dbus_gproxy_unref): nuke, just use g_object_ref
+
+2003-09-22  Havoc Pennington  <hp@redhat.com>
+
+	* glib/dbus-gproxy.c (dbus_gproxy_manager_get): implement
+
+2003-09-21  Seth Nickell  <seth@gnome.org>
+
+        First checkin of the Python bindings.
+	
+	* python/.cvsignore:
+	* python/Makefile.am:
+	* python/dbus_bindings.pyx.in:
+	* python/dbus_h_wrapper.h:
+
+	Pieces for Pyrex to operate on, building a dbus_bindings.so
+	python module for low-level access to the DBus APIs.
+	
+	* python/dbus.py:
+
+	High-level Python module for accessing DBus objects.
+
+	* configure.in:
+	* Makefile.am:
+
+	Build stuff for the python bindings.
+
+	* acinclude.m4:
+
+	Extra macro needed for finding the Python C header files.
+
+2003-09-21  Havoc Pennington  <hp@pobox.com>
+
+	* glib/dbus-gproxy.c (dbus_gproxy_manager_new): start
+	implementing the proxy manager, didn't get very far.
+
+	* dbus/dbus-bus.c (dbus_bus_add_match): new
+	(dbus_bus_remove_match): new
+
+	* glib/dbus-gproxy.c (dbus_gproxy_new_for_service): add a
+	path_name argument; adjust the other not-yet-implemented 
+	gproxy constructors to be what I think they should be.
+
+2003-09-21  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-bus.c (dbus_bus_get): set exit_on_disconnect to TRUE
+	by default for message bus connections.
+
+	* dbus/dbus-connection.c (dbus_connection_dispatch): exit if
+	exit_on_disconnect flag is set and we process the disconnected
+	signal.
+	(dbus_connection_set_exit_on_disconnect): new function
+
+2003-09-21  Havoc Pennington  <hp@pobox.com>
+
+	Get matching rules mostly working in the bus; only actually
+	parsing the rule text remains. However, the client side of
+	"signal connections" hasn't been started, this patch is only the
+	bus side.
+	
+	* dbus/dispatch.c: fix for the matching rules changes
+	
+	* bus/driver.c (bus_driver_handle_remove_match)
+	(bus_driver_handle_add_match): send an ack reply from these
+	method calls
+
+	* glib/dbus-gproxy.c (dbus_gproxy_begin_call): fix order of
+	arguments, reported by Seth Nickell
+
+	* bus/config-parser.c (append_rule_from_element): support
+	eavesdrop=true|false attribute on policies so match rules 
+	can be prevented from snooping on the system bus.
+
+	* bus/dbus-daemon-1.1.in: consistently use terminology "sender"
+	and "destination" in attribute names; fix some docs bugs; 
+	add eavesdrop=true|false attribute
+
+	* bus/driver.c (bus_driver_handle_add_match)
+	(bus_driver_handle_remove_match): handle AddMatch, RemoveMatch
+	messages
+
+	* dbus/dbus-protocol.h (DBUS_SERVICE_ORG_FREEDESKTOP_BROADCAST): get
+	rid of broadcast service concept, signals are just always broadcast
+
+	* bus/signals.c, bus/dispatch.c, bus/connection.c, bus/bus.c:
+	mostly implement matching rules stuff (currently only exposed as signal
+	connections)
+
+2003-09-21  Mark McLoughlin  <mark@skynet.ie>
+
+	* doc/dbus-specification.sgml: Change the header field name
+	to be an enum and update the rest of the spec to reference
+	the fields using the conventinal name.
+
+	* dbus/dbus-protocol.h: update to reflect the spec.
+
+	* doc/TODO: add item to remove the 4 byte alignment requirement.
+	
+	* dbus/dbus-message.c: Remove the code to generalise the
+	header/body length and serial number header fields as named
+	header fields so we can reference field names using the 
+	protocol values.
+	(append_int_field), (append_uint_field), (append_string_field):
+	Append the field name as a byte rather than four chars.
+	(delete_int_or_uint_field), (delete_string_field): reflect the
+	fact that the field name and typecode now occupy 4 bytes instead
+	of 8.
+	(decode_string_field), (decode_header_data): update to reflect
+	protocol changes and move the field specific encoding from
+	decode_string_field() back into decode_header_data().
+	
+	* dbus/dbus-internals.[ch]: (_dbus_header_field_to_string):
+	Add utility to aid debugging.
+	
+	* dbus/dbus-message-builder.c:
+	(append_string_field), (_dbus_message_data_load): Update to
+	reflect protocol changes; Change the FIELD_NAME directive
+	to HEADER_FIELD and allow it to take the field's conventional
+	name rather than the actual value.
+	
+	* test/data/*/*.message: Update to use HEADER_FIELD instead
+	of FIELD_NAME; Always align the header on an 8 byte boundary
+	*before* updating the header length.
+
+2003-09-15  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-pending-call.c: add the get/set object data
+	boilerplate as for DBusConnection, etc. Use generic object data
+	for the notify callback.
+
+	* glib/dbus-gparser.c (parse_node): parse child nodes
+
+	* tools/dbus-viewer.c: more hacking on the dbus-viewer
+	
+	* glib/dbus-gutils.c (_dbus_gutils_split_path): add a file to
+	contain functions shared between the convenience lib and the
+	installed lib
+
+	* glib/Makefile.am (libdbus_glib_1_la_LDFLAGS): add
+	-export-symbols-regex to the GLib library
+
+	* dbus/dbus-object-tree.c (_dbus_object_tree_dispatch_and_unlock):
+	fix the locking in here, and add a default handler for
+	Introspect() that just returns sub-nodes.
+
+2003-09-14  Havoc Pennington  <hp@pobox.com>
+
+	* glib/dbus-gthread.c (dbus_g_thread_init): rename to make g_foo
+	rather than gfoo consistent
+
+	* glib/dbus-gproxy.h: delete for now, move contents to
+	dbus-glib.h, because the include files don't work right since we
+	aren't in the dbus/ subdir.
+	
+	* glib/dbus-gproxy.c (dbus_gproxy_send): finish implementing
+	(dbus_gproxy_end_call): finish
+	(dbus_gproxy_begin_call): finish
+
+	* glib/dbus-gmain.c (dbus_set_g_error): new
+
+	* glib/dbus-gobject.c (handle_introspect): include information
+	about child nodes in the introspection
+
+	* dbus/dbus-connection.c (dbus_connection_list_registered): new
+	function to help in implementation of introspection
+
+	* dbus/dbus-object-tree.c
+	(_dbus_object_tree_list_registered_and_unlock): new function
+
+2003-09-12  Havoc Pennington  <hp@pobox.com>
+
+	* glib/dbus-gidl.h: add common base class for all the foo_info
+	types
+
+        * tools/dbus-viewer.c: add GTK-based introspection UI thingy
+	similar to kdcop
+
+	* test/Makefile.am: try test srcdir -ef . in addition to test
+	srcdir = ., one of them should work (yeah lame)
+	
+        * glib/Makefile.am: build the "idl" parser stuff as a convenience
+	library
+	
+	* glib/dbus-gparser.h: make description_load routines return
+	NodeInfo* not Parser*
+
+	* Makefile.am (SUBDIRS): build test dir after all library dirs
+
+	* configure.in: add GTK+ detection
+
+2003-09-07  Havoc Pennington  <hp@pobox.com>
+
+	* Make Doxygen contented.
+
+2003-09-07  Havoc Pennington  <hp@pobox.com>
+
+	* doc/dbus-specification.sgml: more updates
+
+2003-09-06  Havoc Pennington  <hp@pobox.com>
+
+	* doc/dbus-specification.sgml: partial updates
+
+	* bus/dbus-daemon-1.1.in: fix the config file docs for the
+	zillionth time; hopefully I edited the right file this time.
+
+	* bus/config-parser.c (append_rule_from_element): support
+	send_type, send_path, receive_type, receive_path
+
+	* bus/policy.c: add message type and path to the list of things
+	that can be "firewalled"
+
+2003-09-06  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-connection.c (dbus_connection_register_fallback): add this
+	(dbus_connection_register_object_path): make this not handle
+	messages to paths below the given path
+
+2003-09-03  Havoc Pennington  <hp@pobox.com>
+
+	* test/glib/Makefile.am: add this with random glib-linked test
+	programs
+
+	* glib/Makefile.am: remove the random test programs from here,
+	leave only the unit tests
+
+	* glib/dbus-gobject.c (_dbus_gobject_test): add test for 
+	uscore/javacaps conversion, and fix	
+	(get_object_property, set_object_property): change to .NET
+	convention for mapping props to methods, set_FooBar/get_FooBar, 
+	since one language has such a convention we may as well copy it. 
+	Plus real methods in either getFooBar or get_foo_bar style won't 
+	collide with this convention.
+
+2003-09-01  Havoc Pennington  <hp@pobox.com>
+
+	* glib/dbus-gparser.c: implement
+
+	* glib/dbus-gobject.c: start implementing skeletons support
+
+	* configure.in: when disabling checks/assert, also define
+	G_DISABLE_ASSERT and G_DISABLE_CHECKS
+
+2003-09-01  Havoc Pennington  <hp@pobox.com>
+
+	* glib/Makefile.am: rearrange a bunch of files and get "make
+	check" framework set up
+
+2003-08-31  Havoc Pennington  <hp@pobox.com>
+
+	* fix build with --disable-tests
+
+2003-08-30  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-connection.c: purge DBusMessageHandler
+
+	* dbus/dbus-message-handler.c: remove DBusMessageHandler, just 
+	use callbacks everywhere
+
+2003-08-30  Havoc Pennington  <hp@pobox.com>
+
+	* test/data/valid-config-files/system.d/test.conf: change to 
+	root for the user so warnings don't get printed
+
+	* dbus/dbus-message.c: add dbus_message_get_path,
+	dbus_message_set_path
+	
+	* dbus/dbus-object-tree.c (do_test_dispatch): add test of
+	dispatching to a path
+
+	* dbus/dbus-string.c (_dbus_string_validate_path): add
+
+	* dbus/dbus-marshal.c (_dbus_demarshal_object_path): implement
+	(_dbus_marshal_object_path): implement
+
+	* dbus/dbus-protocol.h (DBUS_HEADER_FIELD_PATH): new header field 
+	to contain the path to the target object
+	(DBUS_HEADER_FIELD_SENDER_SERVICE): rename
+	DBUS_HEADER_FIELD_SENDER to explicitly say it's the sender service
+
+2003-08-30  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-object-tree.c: write tests and fix the discovered bugs
+
+2003-08-29  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-object-tree.c: modify to allow overlapping paths to be
+	registered
+	(struct DBusObjectSubtree): shrink this
+	a lot, since we may have a lot of them
+	(_dbus_object_tree_free_all_unlocked): implement
+	(_dbus_object_tree_dispatch_and_unlock): implement
+
+2003-08-29  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-internals.h: fix _DBUS_N_GLOBAL_LOCKS
+
+2003-08-28  Havoc Pennington  <hp@pobox.com>
+
+	purge DBusObjectID
+	
+	* dbus/dbus-connection.c: port to no ObjectID, create a
+	DBusObjectTree, rename ObjectTree to ObjectPath in public API
+
+	* dbus/dbus-connection.h (struct DBusObjectTreeVTable): delete 
+	everything except UnregisterFunction and MessageFunction
+	
+	* dbus/dbus-marshal.c: port away from DBusObjectID, 
+	add DBUS_TYPE_OBJECT_PATH
+	
+	* dbus/dbus-object-registry.[hc], dbus/dbus-object.[hc], 
+	dbus/dbus-objectid.[hc]: remove these, we are moving to 
+	path-based object IDs
+
+2003-08-25  Havoc Pennington  <hp@pobox.com>
+
+        Just noticed that dbus_message_test is hosed, I wonder when I
+	broke that. I thought make check was passing earlier...
+	
+	* dbus/dbus-object-tree.c: add new "object tree" to match DCOP 
+	container tree, will replace most of dbus-object-registry
+
+	* dbus/dbus-string.c (_dbus_string_append_printf_valist): fix C99
+	screwup
+
+2003-08-19  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-message.c (decode_string_field): support FIELD_SENDER
+	(dbus_message_is_error): fix this function
+
+	* bus/dbus-daemon-1.1: clarify logic on when <deny>/<allow> rules
+	match
+
+	* bus/policy.c (bus_client_policy_check_can_receive): fix code to
+	reflect clarified man page
+	(bus_client_policy_check_can_send): ditto
+	
+	* bus/session.conf.in: fixup
+
+	* bus/system.conf.in: fixup
+
+2003-08-18  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-hash.c (_dbus_hash_table_insert_two_strings): fix
+
+	* dbus/dbus-message.c (_dbus_message_loader_queue_messages): fix
+	dumb bug created earlier (wrong order of args to
+	decode_header_data())
+	
+	* tools/dbus-send.c: port
+
+	* tools/dbus-print-message.c (print_message): port
+
+        * test/data/*messages: port all messages over
+	
+        * dbus/dbus-message-builder.c: support including 
+	message type
+	
+        * bus/driver.c: port over
+	
+	* bus/dispatch.c: port over to new stuff
+
+	* dbus/dbus-connection.c (_dbus_connection_new_for_transport):
+	rename disconnect signal to "Disconnected"
+
+2003-08-17  Havoc Pennington  <hp@pobox.com>
+
+	This doesn't compile yet, but syncing up so I can hack on it from
+	work. What are branches for if not broken code? ;-)
+	
+	* dbus/dbus-protocol.h: remove DBUS_HEADER_FIELD_NAME, add
+	DBUS_HEADER_FIELD_INTERFACE, DBUS_HEADER_FIELD_MEMBER,
+	DBUS_HEADER_FIELD_ERROR_NAME
+	
+	* dbus/dbus-hash.c: Introduce DBUS_HASH_TWO_STRINGS as hack to use
+	for the interface+member pairs
+	(string_hash): change to use g_str_hash algorithm
+	(find_direct_function, find_string_function): refactor these to
+	share most code.
+	
+	* dbus/dbus-message.c: port all of this over to support 
+	interface/member fields instead of name field
+
+	* dbus/dbus-object-registry.c: port over
+	
+	* dbus/dbus-string.c (_dbus_string_validate_interface): rename
+	from _dbus_string_validate_name
+
+	* bus/dbus-daemon-1.1: change file format for the 
+	<deny>/<allow> stuff to match new message naming scheme
+
+	* bus/policy.c: port over
+
+	* bus/config-parser.c: parse new format
+	
+2003-08-16  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-object-registry.c (add_and_remove_objects): remove
+	broken assertion
+
+	* glib/dbus-gproxy.c: some hacking
+
+2003-08-15  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-pending-call.c (dbus_pending_call_block): implement
+
+	* dbus/dbus-connection.c
+	(dbus_connection_send_with_reply_and_block): factor out internals;
+	change to convert any error replies to DBusError instead of 
+	returning them as a message
+
+2003-08-15  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-connection.c, 
+	dbus/dbus-pending-call.c: Finish the pending call stuff
+
+2003-08-14  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-pending-call.c: start on new object that will replace
+	DBusMessageHandler and ReplyHandlerData for tracking outstanding
+	replies
+
+	* dbus/dbus-gproxy.c: start on proxy object used to communicate
+	with remote interfaces
+
+	* dbus/dbus-gidl.c: do the boring boilerplate in here
+	
+2003-08-12  Havoc Pennington  <hp@pobox.com>
+
+	* bus/dispatch.c (bus_dispatch): make this return proper 
+	DBusHandlerResult to avoid DBUS_ERROR_UNKNOWN_METHOD
+
+	* dbus/dbus-errors.c (dbus_set_error): use
+	_dbus_string_append_printf_valist
+
+	* dbus/dbus-string.c (_dbus_string_append_printf_valist)
+	(_dbus_string_append_printf): new
+
+	* dbus/dbus-errors.h (DBUS_ERROR_UNKNOWN_MESSAGE): change to
+	UNKNOWN_METHOD
+
+	* dbus/dbus-connection.c (dbus_connection_dispatch): handle
+	DBUS_HANDLER_RESULT_NEED_MEMORY; send default error reply if a
+	message is unhandled.
+
+2003-08-11  Havoc Pennington  <hp@pobox.com>
+
+	* bus/test.c (client_disconnect_handler): change to return
+	HANDLED (would have been REMOVE_MESSAGE)
+
+	* dbus/dbus-object.h (enum DBusHandlerResult): rename to
+	HANDLED/NOT_YET_HANDLED instead of
+	REMOVE_MESSAGE/ALLOW_MORE_HANDLERS to make it clearer how it 
+	should be used.
+
+2003-08-10  Havoc Pennington  <hp@pobox.com>
+
+	* tools/dbus-send.c (main): add --type argument, for now
+	supporting only method_call and signal types.
+
+	* tools/dbus-print-message.c: print message type
+
+	* dbus/dbus-connection.c (_dbus_connection_new_for_transport):
+	init connection->objects
+
+	* doc/dbus-specification.sgml: fix sgml
+
+	* bus/*.c: port over to object-instance API changes
+
+	* test/test-service.c: ditto
+	
+	* dbus/dbus-message.c (dbus_message_create_header): allow #NULL
+	name, we will have to fix up the rest of the code to also handle
+	this
+	(dbus_message_new): generic message-creation call
+	(set_string_field): allow appending name field
+
+2003-08-06  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-object-registry.c: implement signal connection 
+	and dispatch
+
+	* dbus/dbus-connection.c (_dbus_connection_unref_unlocked): new
+
+	* dbus/dbus-internals.c (_dbus_memdup): new function
+
+2003-08-02  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-message.c (dbus_message_get_no_reply)
+	(dbus_message_set_no_reply): add these and remove
+	set_is_error/get_is_error
+
+	* dbus/dbus-protocol.h, doc/dbus-specification.sgml: 
+	remove the ERROR flag, since there's now an ERROR type
+
+2003-08-01  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-object-registry.c (_dbus_object_registry_handle_and_unlock):
+	implement
+
+	* dbus/dbus-message.c (dbus_message_get_type): new function
+
+	* doc/dbus-specification.sgml: add "type" byte to messages
+
+2003-08-01  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-protocol.h (DBUS_MESSAGE_TYPE_*): introduce
+	a message type enum to distinguish kinds of message
+	(DBUS_HEADER_FLAG_NO_REPLY_EXPECTED): flag for a message 
+	that need not be replied to
+
+2003-08-01  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-marshal.c: adapt to DBusObjectID changes
+	(unpack_8_octets): fix no-64-bit-int bug
+
+	* dbus/dbus-object-registry.c (validate_id): validate the 
+	connection ID bits, not just the instance ID.
+
+	* dbus/dbus-connection.c (_dbus_connection_init_id): initialize
+	the connection-global 33 bits of the object ID
+
+	* dbus/dbus-object-registry.c (info_from_entry): fill in 
+	object ID in the new way
+
+	* dbus/dbus-objectid.h: rather than high/low bits, specifically 
+	define server/client/instance bits.
+
+2003-07-30  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-connection.c (dbus_connection_register_object): fix
+	build
+
+2003-07-13  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-object.h (struct DBusObjectVTable): add padding
+	fields to DBusObjectVTable and DBusObjectInfo
+
+2003-07-12  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-object-registry.c: implement unit test,
+	fix bugs discovered in process
+
+	* dbus/dbus-connection.c: remove handler_table and
+	register_handler(), add DBusObjectRegistry usage
+
+	* dbus/dbus-objectid.c (dbus_object_id_is_null)
+	(dbus_object_id_set_null): new functions
+
+2003-07-08  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-object.c: implement some of this
+
+	* dbus/dbus-object-registry.c
+	(_dbus_object_registry_add_and_unlock): fill in the object_id out
+	param
+	(_dbus_object_registry_new): handle OOM
+
+2003-07-08  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-object.h: sketch out an API for registering objects
+	with a connection, that allows us to use as little as 24 bytes
+	per object and lets application code represent an object in 
+	any conceivable way.
+
+	* dbus/dbus-object-registry.c: implement the hard bits of the
+	DBusConnection aspect of object API. Not yet wired up.
+	
+2003-07-06  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-marshal.c (_dbus_marshal_set_object_id): new function
+	(_dbus_marshal_object_id): new
+	(_dbus_demarshal_object_id): new
+	(_dbus_marshal_get_arg_end_pos): support object ID type, and
+	consolidate identical switch cases. Don't conditionalize handling
+	of DBUS_TYPE_UINT64, need to handle the type always.
+	(_dbus_marshal_validate_arg): consolidate identical cases, and
+	handle DBUS_TYPE_OBJECT_ID
+
+	* dbus/dbus-objectid.c: new file with DBusObjectID data type.
+
+	* dbus/dbus-protocol.h: add DBUS_TYPE_OBJECT_ID
+
 2003-09-28  Havoc Pennington  <hp@pobox.com>
 
 	* real 0.13 release
@@ -93,7 +835,7 @@
 
 2003-07-01  Havoc Pennington  <hp@redhat.com>
 
-	* doc/dbus-specification.sgml: clarify the format of a type code, 
+	* doc/dbus-specification.sgml: clarify the format of a type code,
 	change suggested by Jim Blandy
 
 2003-06-29  Miloslav Trmac  <mitr@volny.cz>
@@ -111,7 +853,7 @@
 	of %c%c%c%c.
 	(dbus_message_new): Remove obsolete @todo.
 
-	* dbus/dbus-marshal.c (_dbus_marshal_set_int64) 
+	* dbus/dbus-marshal.c (_dbus_marshal_set_int64)
 	(_dbus_marshal_set_uint64): Fix comment.
 
 	* dbus/dbus-message.c (append_int_field, append_uint_field): Don't
@@ -144,7 +886,7 @@
 	(Message.Message):
 	* gcj/org/freedesktop/dbus/natMessage.cc:
 	Fix the build system.
-	
+
 2003-06-22  Havoc Pennington  <hp@pobox.com>
 
 	* mono/Connection.cs: add more bindings
@@ -154,13 +896,13 @@
 
 2003-06-22  Havoc Pennington  <hp@pobox.com>
 
-	* mono/Connection.cs, mono/DBus.cs, mono/Error.cs: 
+	* mono/Connection.cs, mono/DBus.cs, mono/Error.cs:
 	Start wrapping more stuff.
 
 2003-06-22  Havoc Pennington  <hp@pobox.com>
 
 	* mono/Message.cs: implement Message.Wrap() that ensures we only
-	have a single C# wrapper per DBusMessage, assuming it works which 
+	have a single C# wrapper per DBusMessage, assuming it works which
 	it probably doesn't.
 
 	* dbus/dbus-message.c (dbus_message_allocate_data_slot): new
@@ -172,9 +914,9 @@
 
 	* dbus/dbus-dataslot.c (_dbus_data_slot_allocator_unref)
 	(_dbus_data_slot_allocator_alloc): rework these to keep a
-	reference count on each slot and automatically manage a global 
+	reference count on each slot and automatically manage a global
 	slot ID variable passed in by address
-	
+
 	* bus/bus.c: convert to new dataslot API
 
 	* dbus/dbus-bus.c: convert to new dataslot API
@@ -200,9 +942,9 @@
 
 2003-06-22  Havoc Pennington  <hp@pobox.com>
 
-	* mono/*, gcj/*, configure.in, Makefile.am: 
-	Check in makefiles and subdirs for mono and gcj bindings. 
-	Neither binding actually exists, just trying to get through 
+	* mono/*, gcj/*, configure.in, Makefile.am:
+	Check in makefiles and subdirs for mono and gcj bindings.
+	Neither binding actually exists, just trying to get through
 	all the build and other boring bits.
 
 2003-06-21  Philip Blundell  <philb@gnu.org>
@@ -213,7 +955,7 @@
 
 2003-06-20  Anders Carlsson  <andersca@codefactory.se>
 
-	* dbus/dbus-transport-unix.c (unix_handle_watch): Check 
+	* dbus/dbus-transport-unix.c (unix_handle_watch): Check
 	for hangup and error after checking read so we won't discard
 	pending data if both hangup and read are set.
 
@@ -222,9 +964,9 @@
 	* tools/dbus-print-message.c (print_message): Handle BOOLEAN.
 
 	* tools/dbus-send.c: Accept both --system and --session.
-        
+
 	* tools/dbus-monitor.c: Same here.
-	
+
 2003-06-19  Anders Carlsson  <andersca@codefactory.se>
 
 	* glib/dbus-glib.h: Fix so that dbus-glib.h can be used
@@ -268,13 +1010,13 @@
 	toggle as an argument, implement abstract namespace support
 	(_dbus_listen_unix_socket): ditto
 
-	* configure.in: add --enable-abstract-sockets and implement 
+	* configure.in: add --enable-abstract-sockets and implement
 	a configure check for autodetection of the right value.
 
 2003-06-01  Havoc Pennington  <hp@pobox.com>
 
-	* tools/dbus-cleanup-sockets.c: add utility to clean up sockets 
-	in /tmp (though on Linux this will end up being useless, 
+	* tools/dbus-cleanup-sockets.c: add utility to clean up sockets
+	in /tmp (though on Linux this will end up being useless,
 	when we add abstract namespace support)
 
 	* configure.in: define DBUS_SESSION_SOCKET_DIR in addition to
@@ -293,29 +1035,29 @@
 	* tools/dbus-send.c: Don't exit with an error code if --help was
 	passed.  Default to using the session bus instead of the system
 	one.
-	
-	* tools/dbus-launch.c: Ditto. 
+
+	* tools/dbus-launch.c: Ditto.
 
 	* tools/dbus-monitor.c: Ditto.
 
 	* tools/dbus-send.1: Update with new arguments.
-	
+
 	* tools/dbus-launch.c: Emit code to export variables.  New
 	arguments -s and -c to specify shell syntax, and a bit of code to
 	autodetect syntax.  Also, allow specifying a program to run.
-	
+
 	* tools/dbus-launch.1: Update with new arguments.
-	
+
 	* tools/dbus-send.1: Ditto.
 
 	* tools/dbus-monitor.1: Ditto.
-	
+
 2003-05-17  Havoc Pennington  <hp@pobox.com>
 
 	* bus/config-parser.c (merge_included): merge in policies from
 	child configuration file.
 
-	* bus/policy.c (bus_policy_merge): function to merge two policies 
+	* bus/policy.c (bus_policy_merge): function to merge two policies
 	together
 
 2003-05-16  Havoc Pennington  <hp@redhat.com>
@@ -324,12 +1066,12 @@
 
 	* tools/dbus-send.c: add --print-reply command line option
 
-	* tools/dbus-print-message.h (print_message): new util function 
+	* tools/dbus-print-message.h (print_message): new util function
 	shared by dbus-send and dbus-monitor
 
 	* tools/dbus-monitor.c (handler_func): exit on disconnect
 
-	* dbus/dbus-transport-unix.c (do_reading): if the transport is 
+	* dbus/dbus-transport-unix.c (do_reading): if the transport is
 	disconnected, don't try to use the read_watch
 
 	* dbus/dbus-watch.c (dbus_watch_get_enabled): assert watch != NULL
@@ -368,7 +1110,7 @@
 	check" as it broke distcheck
 
 	* bus/Makefile.am (install-data-hook): create /etc/dbus-1/system.d
-	
+
 2003-05-13  James Willcox  <jwillcox@gnome.org>
 
 	* configure.in:
@@ -390,18 +1132,18 @@
 
 2003-05-11  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-marshal.c (_dbus_marshal_validate_arg): fix to avoid 
+	* dbus/dbus-marshal.c (_dbus_marshal_validate_arg): fix to avoid
 	calling _dbus_marshal_validate_arg() for every byte in a byte
 	array, etc.
 
-	* dbus/dbus-message-handler.c: use atomic reference counting to 
+	* dbus/dbus-message-handler.c: use atomic reference counting to
 	reduce number of locks slightly; the global lock in here sucks
 
 	* dbus/dbus-connection.c
 	(_dbus_connection_update_dispatch_status_and_unlock): variant of
 	update_dispatch_status that can be called with lock held; then use
 	in a couple places to reduce locking/unlocking
-	(dbus_connection_send): hold the lock over the whole function 
+	(dbus_connection_send): hold the lock over the whole function
 	instead of acquiring it twice.
 
 	* dbus/dbus-timeout.c (_dbus_timeout_new): handle OOM
@@ -417,7 +1159,7 @@
 	* dbus/dbus-list.c (_dbus_list_find_last): new function
 
 	* dbus/dbus-sysdeps.c (_dbus_atomic_inc, _dbus_atomic_dec):
-	change to use a struct for the atomic type; fix docs, 
+	change to use a struct for the atomic type; fix docs,
 	they return value before increment, not after increment.
 
 	* dbus/dbus-string.c (_dbus_string_append_4_aligned)
@@ -434,8 +1176,8 @@
 
 	* dbus/dbus-string.c (_dbus_string_move): just call
 	_dbus_string_move_len
-	(_dbus_string_move_len): add a special case for moving 
-	an entire string into an empty string; we can just 
+	(_dbus_string_move_len): add a special case for moving
+	an entire string into an empty string; we can just
 	swap the string data instead of doing any reallocs.
 	(_dbus_string_init_preallocated): new function
 
@@ -446,14 +1188,14 @@
 	UTF-8 validation as hot spots. 20% of lock contention eliminated
 	with dbus_atomic_inc/dec implementation on x86.  Much remaining
 	contention is global mempool locks for GList and DBusList.
-	
+
 	* dbus/dbus-sysdeps.c (_dbus_atomic_inc, _dbus_atomic_dec): add
 	x86 implementation
 
 	* dbus/dbus-connection.c (struct DBusConnection): use
-	dbus_atomic_t for the reference count	
+	dbus_atomic_t for the reference count
 
-	* dbus/dbus-message.c (struct DBusMessage): declare 
+	* dbus/dbus-message.c (struct DBusMessage): declare
 	dbus_atomic_t values as volatile
 
 	* configure.in: code to detect ability to use atomic integer
@@ -462,22 +1204,22 @@
 	* dbus/dbus-internals.c (_dbus_verbose_real): call getpid every
 	time, tired of it being wrong in threads and forked processes
 
-	* glib/test-profile.c: a little program to bounce messages back 
+	* glib/test-profile.c: a little program to bounce messages back
 	and forth between threads and eat CPU
 
 	* dbus/dbus-connection.c: add debug spew macros for debugging
-	thread locks; include config.h at top; fix deadlock in 
+	thread locks; include config.h at top; fix deadlock in
 	dbus_connection_flush()
 
 2003-05-08  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-spawn.c: s/_exit/exit/ because it was keeping gcov
-	data from getting written, and there wasn't a good reason to 
+	data from getting written, and there wasn't a good reason to
 	use _exit really.
 
 	* test/decode-gcov.c (mark_inside_dbus_build_tests): don't count
 	dbus_verbose lines in test coverage
-	(main): add list of functions sorted by # of untested blocks 
+	(main): add list of functions sorted by # of untested blocks
 	to the coverage report
 
 	* dbus/dbus-mempool.c: put some test-only code in DBUS_BUILD_TESTS
@@ -518,14 +1260,14 @@
 
 2003-05-04  Havoc Pennington  <hp@pobox.com>
 
-	* dbus-glib-1.pc.in (Requires): fix dependencies, from 
+	* dbus-glib-1.pc.in (Requires): fix dependencies, from
 	Anders Gustafsson
 
 2003-05-04  Havoc Pennington  <hp@pobox.com>
 
 	* tools/dbus-launch.c: implement
 
-	* bus/main.c (main), bus/bus.c (bus_context_new): 
+	* bus/main.c (main), bus/bus.c (bus_context_new):
 	implement --print-pid and --fork
 
 2003-05-03  Havoc Pennington  <hp@redhat.com>
@@ -542,7 +1284,7 @@
 	* tools/Makefile.am, tools/dbus-launch.c, tools/dbus-launch.1: add
 	dbus-launch utility to launch the bus from a shell script.  Didn't
 	actually implement dbus-launch yet, it's just a placeholder still.
-	
+
 2003-05-03  Havoc Pennington  <hp@pobox.com>
 
 	* bus/Makefile.am, bus/dbus-daemon-1.1.in: man page for the
@@ -552,7 +1294,7 @@
 
 2003-05-03  Havoc Pennington  <hp@pobox.com>
 
-	* tools/Makefile.am, tools/dbus-send.1, tools/dbus-monitor.1: 
+	* tools/Makefile.am, tools/dbus-send.1, tools/dbus-monitor.1:
 	add some man pages
 
 2003-05-03  Colin Walters  <walters@verbum.org>
@@ -603,7 +1345,7 @@
 	* dbus/dbus.h: add "you have to define DBUS_API_SUBJECT_TO_CHANGE
 	to use this library" to be sure people have the right
 	expectations.
-	
+
 2003-04-28  Havoc Pennington  <hp@redhat.com>
 
 	* configure.in: add --enable-docs which by default is auto yes if
@@ -619,14 +1361,14 @@
 	* NEWS: update
 
 	* bus/system.conf.in: add <includedir>system.d</includedir>
-	
+
 	* dbus/dbus-userdb.c (_dbus_user_database_lookup): fix bug when
 	username was provided but not uid
 
 	* bus/config-parser.c (struct BusConfigParser): keep track of
-	whether the parser is toplevel or was included; change some 
+	whether the parser is toplevel or was included; change some
 	of the error handling if it's included.
-	
+
 2003-04-27  Havoc Pennington  <hp@pobox.com>
 
 	Unbreak my code...
@@ -634,7 +1376,7 @@
 	* dbus/dbus-transport.c (_dbus_transport_get_dispatch_status):
 	report correct status if we finish processing authentication
 	inside this function.
-	
+
 	* bus/activation.c (try_send_activation_failure): use
 	bus_transaction_send_error_reply
 
@@ -643,7 +1385,7 @@
 
 	* bus/bus.c (bus_context_check_security_policy): implement
 	restriction here that inactive connections can only send the
-	hello message. Also, allow bus driver to send anything to 
+	hello message. Also, allow bus driver to send anything to
 	any recipient.
 
 	* bus/connection.c (bus_connection_complete): create the
@@ -662,7 +1404,7 @@
 2003-04-25  Havoc Pennington  <hp@redhat.com>
 
         test suite is slightly hosed at the moment, will fix soon
-	
+
 	* bus/connection.c (bus_connections_expire_incomplete): fix to
 	properly disable the timeout when required
 	(bus_connection_set_name): check whether we can remove incomplete
@@ -672,7 +1414,7 @@
 	probably still broken.
 
 	* bus/services.c (bus_registry_acquire_service): implement max
-	number of services owned, and honor allow/deny rules on which 
+	number of services owned, and honor allow/deny rules on which
 	services a connection can own.
 
 	* bus/connection.c (bus_connection_get_policy): report errors here
@@ -694,19 +1436,19 @@
 
 	* test/data/valid-config-files/basic.conf: add <limit> tags to
 	this test
-	
+
 	* bus/config-parser.h, bus/config-parser.c, bus/bus.c: Implement
 	<limit> tag in configuration file.
-	
+
 2003-04-24  Havoc Pennington  <hp@redhat.com>
 
 	* bus/dispatch.c: somehow missed some name_is
 
-	* dbus/dbus-timeout.c (_dbus_timeout_set_enabled) 
+	* dbus/dbus-timeout.c (_dbus_timeout_set_enabled)
 	(_dbus_timeout_set_interval): new
 
 	* bus/connection.c (bus_connections_setup_connection): record time
-	when each connection is first set up, and expire them after the 
+	when each connection is first set up, and expire them after the
 	auth timeout passes.
 
 2003-04-24  Havoc Pennington  <hp@redhat.com>
@@ -754,7 +1496,7 @@
 2003-04-22  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-message.c, dbus/dbus-marshal.c: add 64-bit integer
-	support, and do some code cleanups to share more code and 
+	support, and do some code cleanups to share more code and
 	speed up array marshal/demarshal.
 
 	* dbus-1.0.pc.in (Cflags): put libdir include file in cflags
@@ -770,7 +1512,7 @@
 	to use proper type for rply field
 
         * test/data/invalid-messages: add tests for below validation
-	
+
 	* dbus/dbus-message.c (decode_header_data): validate field types,
 	and validate that named fields are valid names
 	(decode_name_field): consider messages in the
@@ -780,7 +1522,7 @@
 
 2003-04-19  Havoc Pennington  <hp@pobox.com>
 
-	* bus/driver.c (bus_driver_handle_hello): check limits and 
+	* bus/driver.c (bus_driver_handle_hello): check limits and
 	return an error if they are exceeded.
 
 	* bus/connection.c: maintain separate lists of active and inactive
@@ -799,7 +1541,7 @@
 	* dbus/dbus-sysdeps.c (_dbus_string_save_to_file): fix some
 	memleaks
 
-	* dbus/dbus-keyring.c (add_new_key): fix a memleak, and 
+	* dbus/dbus-keyring.c (add_new_key): fix a memleak, and
 	on realloc be sure to update the pointer in the keyring
 
 	* dbus/dbus-string.c (_dbus_string_zero): compensate for align
@@ -823,7 +1565,7 @@
 	server.
 
 2003-04-18  Havoc Pennington  <hp@pobox.com>
-	
+
 	* dbus/dbus-mainloop.c (_dbus_loop_iterate): fix UMR in verbose
 	debug spew
 
@@ -835,7 +1577,7 @@
 
 	* bus/Makefile.am (TESTS_ENVIRONMENT): put DBUS_TEST_HOMEDIR in
 	the environment
-	
+
 	* bus/dispatch.c (bus_dispatch_sha1_test): actually load sha1
 	config file so we test the right thing
 
@@ -878,14 +1620,14 @@
 	* dbus/dbus-message.h: change message serials to unsigned
 
 	* dbus/dbus-connection.c: adapt to message serials being unsigned
-	
+
 2003-04-15  Havoc Pennington  <hp@pobox.com>
 
-	* bus/bus.c: create and keep around a shared DBusUserDatabase 
+	* bus/bus.c: create and keep around a shared DBusUserDatabase
 	object.
 
 	* bus/connection.c (bus_connection_get_groups): don't cache
-	groups for user in the connection object, since user database 
+	groups for user in the connection object, since user database
 	object now does that.
 
 2003-04-16  Havoc Pennington  <hp@redhat.com>
@@ -895,12 +1637,12 @@
 	(_dbus_message_loader_putback_message_link): put back a popped link
 
 	* dbus/dbus-connection.c
-	(dbus_connection_set_max_live_messages_size): rename 
+	(dbus_connection_set_max_live_messages_size): rename
 	max_received_size
-	(dbus_connection_get_outgoing_size): get size of outgoing 
+	(dbus_connection_get_outgoing_size): get size of outgoing
 	queue
 	(_dbus_connection_set_connection_counter): remove this cruft
-	
+
 2003-04-14  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-userdb.c: user database abstraction, mostly to get
@@ -912,17 +1654,17 @@
 	test always uses EXTERNAL when available.
 
 	* configure.in,
-	test/data/valid-config-files/debug-allow-all-sha1.conf.in: 
+	test/data/valid-config-files/debug-allow-all-sha1.conf.in:
 	add conf file that requires use of sha1 auth
 
 2003-04-13  Havoc Pennington  <hp@pobox.com>
-	
+
         * tools/dbus-send.c, tools/dbus-monitor.c: two utility programs
 	from Philip Blundell to send messages and monitor them.
-	
+
 2003-04-13  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-mainloop.c: fix some reentrancy issues by refcounting 
+	* dbus/dbus-mainloop.c: fix some reentrancy issues by refcounting
 	callbacks
 
 	* test/data/valid-config-files/debug-allow-all.conf.in: allow all
@@ -930,11 +1672,11 @@
 
 	* dbus/dbus-transport.c (_dbus_transport_get_dispatch_status):
 	fix to only recover unused bytes if we're already authenticated
-	(_dbus_transport_get_is_authenticated): fix to still mark us 
+	(_dbus_transport_get_is_authenticated): fix to still mark us
 	authenticated if there are unused bytes.
 
 	* bus/dispatch.c: implement security policy checking
-	
+
 	* bus/connection.c (bus_transaction_send_from_driver): new
 
 	* bus/bus.c (bus_context_check_security_policy): new
@@ -952,7 +1694,7 @@
 2003-04-13  Havoc Pennington  <hp@pobox.com>
 
 	* bus/config-parser.c: Load up the BusPolicy and BusPolicyRules
-	
+
 	* dbus/dbus-sysdeps.c (_dbus_get_user_id): new function
 
 	* bus/policy.c (bus_policy_append_mandatory_rule)
@@ -967,7 +1709,7 @@
 	the pid/gid/uid, just for paranoia.
 
 	* test/break-loader.c (randomly_do_n_things): find a byte
-	containing a type code, and randomly change it to a different 
+	containing a type code, and randomly change it to a different
 	type code.
 
 2003-04-12  Havoc Pennington  <hp@pobox.com>
@@ -975,7 +1717,7 @@
 	* bus/policy.h: change BusPolicy to be the thing from the config
 	file, and rename old BusPolicy to BusClientPolicy
 
-	* bus/bus.c, bus/connection.c, bus/config-parser.c: change to 
+	* bus/bus.c, bus/connection.c, bus/config-parser.c: change to
 	match change in how policy works
 
 	* dbus/dbus-internals.h: mark assert_not_reached as
@@ -983,7 +1725,7 @@
 
 2003-04-11  Havoc Pennington  <hp@redhat.com>
 
-	* doc/dbus-specification.sgml: fix a spot with the wrong name for 
+	* doc/dbus-specification.sgml: fix a spot with the wrong name for
 	the broadcast service. Use boolean return for ServiceExists.
 
 2003-04-11  Havoc Pennington  <hp@redhat.com>
@@ -1058,7 +1800,7 @@
 	we don't successfully create the service after all. Don't remove
 	pending activation if the function fails.
 
-	* dbus/dbus-list.c (_dbus_list_insert_before_link) 
+	* dbus/dbus-list.c (_dbus_list_insert_before_link)
 	(_dbus_list_insert_after_link): new code to facilitate
 	services.c fixes
 
@@ -1067,30 +1809,30 @@
 	into a hash table.
 
 	* bus/connection.c (bus_transaction_add_cancel_hook): new function
-	allowing us to put custom hooks in a transaction to be used for 
+	allowing us to put custom hooks in a transaction to be used for
 	cancelling said transaction
 
 	* doc/dbus-specification.sgml: add some discussion of secondary
 	service owners, and disallow zero-length service names
 
 	* bus/services.c (bus_registry_acquire_service): new function,
-	splits out part of bus_driver_handle_acquire_service() and fixes 
-	a bug where we didn't remove the service doing the acquiring 
+	splits out part of bus_driver_handle_acquire_service() and fixes
+	a bug where we didn't remove the service doing the acquiring
 	from the secondary queue if we failed to remove the current owner
 	from the front of the queue.
-	
+
 2003-04-10  Alexander Larsson  <alexl@redhat.com>
 
 	* doc/dbus-specification.sgml:
 	s/org.freedesktop.Broadcast/org.freedesktop.DBus.Broadcast/
-	
+
 2003-04-10  Alexander Larsson  <alexl@redhat.com>
 
 	* bus/.cvsignore:
 	* glib/.cvsignore:
 	* test/.cvsignore:
 	Added files to cvsignore
-	
+
 	* dbus/dbus-message.h:
 	* dbus/dbus-message.c: (dbus_message_iter_get_named):
 	Make get_named() take two out argument and return a boolean.
@@ -1108,38 +1850,38 @@
 	* dbus/dbus-marshal.[ch]:
 	Add array_type_pos argument to _dbus_marshal_validate_arg.
 	Let you pass a NULL end_pos to _dbus_marshal_validate_type.
-	
+
 	* dbus/dbus-message.[ch]:
 	Multi-dimensional arrays have full type specification in the
 	outermost array. Iter code re-arranged to handle this.
 	Added some more iter tests.
-	
+
 	* doc/dbus-specification.sgml:
 	Add me to authors.
 	Remove old FIXME.
 	Update new array encoding description.
 	Correct DBUS_SERVICE_FLAGS_REPLACE_EXISTING description.
-	
+
 	* test/data/invalid-messages/array-with-mixed-types.message:
 	* test/data/valid-messages/array-of-array-of-uint32.message:
 	Change to the new array format.
-	
+
 	* test/data/invalid-messages/too-short-dict.message:
 	Fix bug in test.
-	
+
 	* test/data/valid-messages/recursive-types.message:
 	Fix up and extend test.
 
 2003-04-10  Havoc Pennington  <hp@pobox.com>
 
 	* bus/dispatch.c: lots of fixes
-	
+
 	* dbus/dbus-mainloop.c (_dbus_loop_dispatch): export
 	(_dbus_loop_iterate): remove old "quit if no callbacks" code,
 	that was crack, broke the test service.
 
 	* dbus/dbus-transport.c (_dbus_transport_open): fix error
-	handling to avoid piling up errors if we get a failure on the 
+	handling to avoid piling up errors if we get a failure on the
 	first address.
 
 	* dbus/dbus-internals.c (_dbus_real_assert_not_reached): include
@@ -1180,7 +1922,7 @@
 	allowing us to fix up main loop usage
 	(_dbus_connection_last_unref): free all the various function
 	user data
-	(dbus_connection_dispatch): call the DispatchStatusFunction 
+	(dbus_connection_dispatch): call the DispatchStatusFunction
 	whenever this function returns
 	(dbus_connection_handle_watch): call DispatchStatusFunction
 	(dbus_connection_send_with_reply_and_block): call DispatchStatusFunction
@@ -1189,7 +1931,7 @@
 
 2003-04-09  Havoc Pennington  <hp@redhat.com>
 
-	* dbus/dbus-bus.c (dbus_bus_register): fix up error handling and 
+	* dbus/dbus-bus.c (dbus_bus_register): fix up error handling and
 	a memory leak
 
 	* bus/dispatch.c (check_service_activated): fix bug in test
@@ -1201,12 +1943,12 @@
 	e.g. in the activation case.
 
 2003-04-08  Colin Walters  <walters@gnu.org>
- 
+
  	* bus/bus.c (struct BusContext) [pidfile]: New member, to store
  	the pid file.
  	(bus_context_new): Set it.
  	(bus_context_unref): Use it to delete the pid file.
- 
+
 2003-04-08  Havoc Pennington  <hp@redhat.com>
 
 	* test/data/invalid-messages/array-with-mixed-types.message:
@@ -1222,7 +1964,7 @@
 
 	* test/data/valid-messages/array-of-array-of-uint32.message:
 	happened to write this so added it to suite
-	
+
 2003-04-08  Havoc Pennington  <hp@redhat.com>
 
 	* bus/driver.c (bus_driver_handle_acquire_service): init
@@ -1251,7 +1993,7 @@
 	* glib/test-thread-server.c: (handle_test_message):
 	* test/test-service.c: (handle_echo):
 	Update to new api
-	
+
 	* dbus/Makefile.am:
 	* dbus/dbus-dict.c:
 	* dbus/dbus-dict.h:
@@ -1260,16 +2002,16 @@
 
 	* dbus/dbus-internals.c: (_dbus_type_to_string):
 	Update for new types.
-	
+
 	* dbus/dbus-marshal.[ch]:
 	Implement recursive types and the new marshalling format.
 	Remove hardcoded dict marshalling.
 	Marshal named types.
-	
+
 	* dbus/dbus-message-builder.c:
 	Add BYTE_ARRAY.
 	Remove references to old types
-	
+
 	* dbus/dbus-message.[ch]:
 	New non-refcounted iter API that supports recursive iters.
 	Use iters for appending, including support for recursive
@@ -1277,24 +2019,24 @@
 	Add byte and named type support.
 	Update everything to new marshalling formats.
 	Add tests for new API.
-	
+
 	* dbus/dbus-protocol.h:
 	Remove old array types.
 	Add types: BYTE, ARRAY, DICT, NAMED
-	
+
 	* dbus/dbus-string.c:
 	* dbus/dbus-sysdeps.c:
 	Make parse_double locale safe.
-	
+
 	* dbus/dbus-test-main.c:
 	Call setlocale.
-	
+
 	* dbus/dbus-test.c:
 	Kill dict test
-	
+
 	* doc/dbus-specification.sgml:
 	Update spec
-	
+
 	* test/data/incomplete-messages/missing-body.message:
 	* test/data/invalid-messages/bad-boolean.message:
 	* test/data/invalid-messages/bad-boolean-array.message:
@@ -1309,10 +2051,10 @@
 	* test/data/valid-messages/recursive-types.message:
 	Add missing NAME fields
 	Fix up dicts & arrays
-	
+
 	* test/data/invalid-messages/dict-with-nil-value.message:
 	Removed, this is not invalid anymore.
-	
+
 	* test/data/valid-messages/recursive-types.message:
 	Add new test for deeply recursive types.
 
@@ -1323,11 +2065,11 @@
 
 2003-04-07  Havoc Pennington  <hp@redhat.com>
 
-	* doc/dbus-specification.sgml: require that base service names 
-	start with ':' and that the base service is created/deleted 
+	* doc/dbus-specification.sgml: require that base service names
+	start with ':' and that the base service is created/deleted
 	as first and last things a connection does on the bus
 
-	* bus/dispatch.c (check_existent_service_activation): lots more 
+	* bus/dispatch.c (check_existent_service_activation): lots more
 	work on the activation test; it doesn't fully pass yet...
 
 	* test/test-service.c (main): fix so we don't memleak the
@@ -1336,7 +2078,7 @@
 
 2003-04-06  Havoc Pennington  <hp@pobox.com>
 
-	* qt/Makefile.am (dbusinclude_HEADERS): install dbus-qt.h, 
+	* qt/Makefile.am (dbusinclude_HEADERS): install dbus-qt.h,
 	from Colin Walters
 
 	* configure.in: fixes to Qt detection from Colin Walters
@@ -1345,7 +2087,7 @@
 	exist, from Colin Walters
 
 	* dbus/dbus-bus.c: change how we set well-known connections to
-	NULL, so that it works if a single connection is stored in 
+	NULL, so that it works if a single connection is stored in
 	two well-known array slots.
 
 	* test/Makefile.am: remove a lot of stuff that isn't immediately
@@ -1361,17 +2103,17 @@
 	elsewhere, and util functions that are used in tests/daemon but
 	don't go in the lib.
 
-	* dbus/dbus-mainloop.h, dbus/dbus-mainloop.c: move bus/loop.[hc] 
+	* dbus/dbus-mainloop.h, dbus/dbus-mainloop.c: move bus/loop.[hc]
 	here so it can be used in test binaries also
 
 2003-04-06  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-sysdeps.c (_dbus_become_daemon): write the pidfile
 	here in the parent process, so we can return an error if it
-	fails. Also, move some of the code into the child so the parent 
+	fails. Also, move some of the code into the child so the parent
 	is less hosed if we fail midway through.
 
-	* bus/bus.c (bus_context_new): move pidfile detection further up 
+	* bus/bus.c (bus_context_new): move pidfile detection further up
 	in the function, before we start overwriting sockets and such.
 
 	* bus/messagebus.in: adjust this a bit, not sure if it will work.
@@ -1393,13 +2135,13 @@
 	(bus_config_parser_end_element, bus_config_parser_content): Handle it.
 	(bus_config_parser_unref): Free it.
 	(bus_config_parser_get_pidfile): New function.
-	
+
 	* bus/config-parser.h (_dbus_write_pid_file): Prototype.
 
 	* dbus/dbus-errors.h (DBUS_ERROR_PIDFILE_EXISTS): New error.
 
 	* dbus/dbus-sysdeps.c (_dbus_write_pid_file): New function.
-	
+
 	* dbus/dbus-sysdeps.h: Prototype it.
 
 2003-04-06  Havoc Pennington  <hp@pobox.com>
@@ -1407,7 +2149,7 @@
 	* bus/bus.c (bus_context_new): print the address in here, rather
 	than in main(), because we need to do it before forking the daemon
 
-	* bus/dispatch.c (send_service_nonexistent_error): set the sender 
+	* bus/dispatch.c (send_service_nonexistent_error): set the sender
 	on the service nonexistent error
 
 	* bus/driver.c (bus_driver_handle_acquire_service): set the
@@ -1418,8 +2160,8 @@
 
 2003-04-06  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-threads.c: Redo how the fake debug mutexes are done 
-	so it detects deadlocks and also we actually init threads when 
+	* dbus/dbus-threads.c: Redo how the fake debug mutexes are done
+	so it detects deadlocks and also we actually init threads when
 	debugging.
 
 2003-04-06  Havoc Pennington  <hp@pobox.com>
@@ -1437,7 +2179,7 @@
 2003-04-06  Havoc Pennington  <hp@pobox.com>
 
 	* bus/bus.c (bus_context_new): fix wrong handling of
-	server_data_slot_unref() in the error case. 
+	server_data_slot_unref() in the error case.
 
 	* dbus/dbus-internals.h (_dbus_assert): change so it passes
 	"(condition) != 0" to _dbus_real_assert so that
@@ -1451,10 +2193,10 @@
 	* dbus/dbus-transport.c (_dbus_transport_open): special error for
 	"tmpdir" option to unix: address on client side
 
-	* dbus/dbus-server.c (dbus_server_listen): handle "tmpdir" option 
+	* dbus/dbus-server.c (dbus_server_listen): handle "tmpdir" option
 	to unix: address
-	
-	* configure.in (TEST_SOCKET_DIR): locate a temporary directory 
+
+	* configure.in (TEST_SOCKET_DIR): locate a temporary directory
 	we can use to create sockets in the test suite.
 
 	* bus/main.c (signal_handler): on SIGTERM, exit the daemon
@@ -1475,22 +2217,22 @@
 
 2003-04-05  Havoc Pennington  <hp@pobox.com>
 
-	* bus/bus.c (setup_server): fix this so dbus-daemon-1 doesn't 
-	crash on startup. Need to get "try starting the daemon" 
+	* bus/bus.c (setup_server): fix this so dbus-daemon-1 doesn't
+	crash on startup. Need to get "try starting the daemon"
 	in the test suite I guess. ;-)
 
 	* dbus/dbus-server.h, dbus/dbus-server.c: remove the stuff that
-	tracked the number of open connections; it's better done in 
+	tracked the number of open connections; it's better done in
 	application-specific code as you want it to span all servers etc.
 
 2003-04-05  Havoc Pennington  <hp@pobox.com>
 
-	* bus/Makefile.am (install-data-hook): add missing DESTDIR, 
+	* bus/Makefile.am (install-data-hook): add missing DESTDIR,
 	patch from Colin Walters
 
 2003-04-05  Havoc Pennington  <hp@pobox.com>
 
-	* doc/config-file.txt (Elements): fix docs of <auth> to reflect 
+	* doc/config-file.txt (Elements): fix docs of <auth> to reflect
 	reality; in fact multiple mechanisms are allowed.
 
 	* dbus/dbus-internals.c (_dbus_real_assert)
@@ -1507,21 +2249,21 @@
 	* NEWS: update
 
 	* configure.in: 0.7
-	
+
 2003-04-05  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-string.c: docs warning
-	
+
 	* dbus/dbus-spawn.c: missing docs
 
 	* dbus/dbus-memory.c (struct ShutdownClosure): missing docs
 
 2003-04-05  Havoc Pennington  <hp@pobox.com>
 
-	* bus/loop.c (bus_loop_iterate): fix the timeout code, using 
+	* bus/loop.c (bus_loop_iterate): fix the timeout code, using
 	magic from GLib
 
-	* dbus/dbus-spawn.c (_dbus_babysitter_unref): set sitter_pid 
+	* dbus/dbus-spawn.c (_dbus_babysitter_unref): set sitter_pid
 	to -1 once we've reaped the babysitter
 	(_dbus_babysitter_handle_watch): do as much work as we can, not
 	just one go of it
@@ -1542,7 +2284,7 @@
 
 	* Makefile.am (coverage-report.txt): add target "coverage-report.txt"
 
-	* test/decode-gcov.c: hack up a little program to suck data 
+	* test/decode-gcov.c: hack up a little program to suck data
 	out of gcov files. Yes this is sort of silly.
 
 	* configure.in: define something in config.h and do an
@@ -1555,15 +2297,15 @@
 	the spawned process and reap it when required.
 
 	* test/test-segfault.c, test/test-exit.c,
-	test/test-sleep-forever.c: binaries that do various lame things, 
+	test/test-sleep-forever.c: binaries that do various lame things,
 	used in the test suite.
 
 	* dbus/dbus-sysdeps.c: kill _dbus_errno_to_string()
-	
+
 2003-04-03  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-spawn.c: Move dbus-spawn into a separate file 
-	in preparation for modifying it, dbus-sysdeps is getting 
+	* dbus/dbus-spawn.c: Move dbus-spawn into a separate file
+	in preparation for modifying it, dbus-sysdeps is getting
 	a bit unmanageable.
 
 2003-04-03  Havoc Pennington  <hp@redhat.com>
@@ -1585,41 +2327,41 @@
 
 2003-04-03  Havoc Pennington  <hp@pobox.com>
 
-	* bus/config-parser.c (bus_config_parser_unref): free 
+	* bus/config-parser.c (bus_config_parser_unref): free
 	list of mechanisms, bug discovered by test suite enhancements
 	(putting system.conf and session.conf into suite)
 
 	* test/Makefile.am, test/test-service.c: add placeholder for a
-	test service that we'll activate as part of test suite. Doesn't 
+	test service that we'll activate as part of test suite. Doesn't
 	do anything yet.
 
-	* dbus/dbus-sysdeps.c (_dbus_setenv): support unsetenv by 
-	setting NULL value, and use system malloc not dbus_malloc() 
+	* dbus/dbus-sysdeps.c (_dbus_setenv): support unsetenv by
+	setting NULL value, and use system malloc not dbus_malloc()
 	when we have unavoidable memleakage.
 
 	* dbus/dbus-bus.c (dbus_bus_get): fix bug where bus type of 0
 	didn't work, and support DBUS_BUS_ACTIVATION.
-	
+
 	* bus/activation.c (child_setup): pass our well-known bus type to
 	the child
 
 	* bus/config-parser.c: support <type> to specify well-known type
 
-	* doc/dbus-specification.sgml: document the env variables to 
+	* doc/dbus-specification.sgml: document the env variables to
 	locate well-known buses and find service activator
 
 2003-04-02  Havoc Pennington  <hp@redhat.com>
 
 	* test/Makefile.am (all-local): add a rule to copy tests to
 	builddir, so we can have generated tests. Use this to remove the
-	silly hack for testing system.conf and session.conf. Will use this 
+	silly hack for testing system.conf and session.conf. Will use this
 	shortly to generate .service files pointing to test binaries.
 
 2003-04-02  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-string.c (set_length): fix a bug - we allocated max of
 	current alloc and needed new length, not max of the doubled
-	allocation and needed new length. Also, when building tests, 
+	allocation and needed new length. Also, when building tests,
 	don't do the double-allocation stuff, just realloc every time.
 
 2003-04-02  Havoc Pennington  <hp@redhat.com>
@@ -1666,13 +2408,13 @@
 	socket 0777, and unlink any existing socket.
 
 	* bus/bus.c (bus_context_new): change our UID/GID and fork if
-	the configuration file so specifies; set up auth mechanism 
+	the configuration file so specifies; set up auth mechanism
 	restrictions
 
 	* bus/config-parser.c (bus_config_parser_content): add support
-	for <fork> option and fill in code for <auth> 
+	for <fork> option and fill in code for <auth>
 
-	* bus/system.conf.in: add <fork/> to default configuration, 
+	* bus/system.conf.in: add <fork/> to default configuration,
 	and limit auth mechanisms to EXTERNAL
 
 	* doc/config-file.txt (Elements): add <fork>
@@ -1682,7 +2424,7 @@
 
 2003-03-31  Havoc Pennington  <hp@redhat.com>
 
-	* dbus/dbus-sysdeps.c (_dbus_connect_unix_socket) 
+	* dbus/dbus-sysdeps.c (_dbus_connect_unix_socket)
 	(_dbus_listen_unix_socket): fix off-by-one error in null
 	termination spotted by Nalin
 
@@ -1704,10 +2446,10 @@
 2003-03-31  Havoc Pennington  <hp@redhat.com>
 
         Fix some annoying DBusString API and fix all affected code.
-	
+
 	* dbus/dbus-string.c (_dbus_string_init): get rid of annoying
 	max_length argument
-	(_dbus_string_get_data): change to return string instead of using 
+	(_dbus_string_get_data): change to return string instead of using
 	an out param
 	(_dbus_string_get_const_data): ditto
 	(_dbus_string_get_data_len): ditto
@@ -1720,7 +2462,7 @@
 2003-03-31  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/Makefile.am (INCLUDES): use EXPANDED_LOCALSTATEDIR to
-	define DBUS_SYSTEM_BUS_PATH as we want to compile in the same 
+	define DBUS_SYSTEM_BUS_PATH as we want to compile in the same
 	final location that lands in the config file
 
 	* bus/config-loader-expat.c (bus_config_load): fix type of
@@ -1740,7 +2482,7 @@
 
 	* bus/main.c (main): take the configuration file as an argument.
 
-	* test/data/valid-config-files/debug-allow-all.conf: new file to 
+	* test/data/valid-config-files/debug-allow-all.conf: new file to
 	use with dispatch.c tests for example
 
 	* bus/test-main.c (main): require test data dir
@@ -1751,7 +2493,7 @@
 	* doc/config-file.txt (Elements): add <servicedir>
 
 	* bus/system.conf, bus/session.conf: new files
-	
+
 	* dbus/dbus-bus.c (dbus_bus_get): look for system bus on
 	well-known socket if none set
 
@@ -1760,8 +2502,8 @@
 2003-03-30  Havoc Pennington  <hp@pobox.com>
 
 	* bus/config-parser.c: hacking
-	
-	* dbus/dbus-memory.c: don't use DBusList for the list of stuff 
+
+	* dbus/dbus-memory.c: don't use DBusList for the list of stuff
 	to shut down, since it could cause weirdness with the DBusList
 	lock
 
@@ -1787,13 +2529,13 @@
 	* dbus/dbus-bus.c: (bus_data_free), (dbus_bus_get):
 	* dbus/dbus-bus.h:
 	Add dbus_bus_get.
-	
+
 	* dbus/dbus-memory.c:
 	Fix a doc comment.
-	
+
 2003-03-28  Havoc Pennington  <hp@pobox.com>
 
-	* bus/test.c (bus_test_flush_bus): remove the sleep from here, 
+	* bus/test.c (bus_test_flush_bus): remove the sleep from here,
 	I think it may have just been superstition. Not sure.
 
 	* dbus/dbus-string.c (_dbus_string_base64_decode): catch some OOM
@@ -1819,10 +2561,10 @@
 
 	* doc/TODO:
 	Add note about automatic service activation.
-	
+
 	* doc/dbus-specification.sgml:
 	Rename the specification and clarify a few things.
-	
+
 2003-03-26  Anders Carlsson  <andersca@codefactory.se>
 
 	* Doxyfile.in:
@@ -1832,7 +2574,7 @@
 	* dbus/dbus-server-debug-pipe.c:
 	* dbus/dbus-transport-unix.c:
 	Fix documentation warnings.
-	
+
 2003-03-26  Havoc Pennington  <hp@pobox.com>
 
 	* bus/test-main.c, dbus/dbus-test.c (main): check memleaks
@@ -1851,11 +2593,11 @@
 2003-03-25  Havoc Pennington  <hp@redhat.com>
 
         * throughout - add more _DBUS_ASSERT_ERROR_IS_CLEAR
-	
+
 	* configure.in: add --with-xml option to specify XML library,
 	right now only libxml is supported.
 
-	* bus/config-loader-libxml.c, config-parser.c: sync some minor 
+	* bus/config-loader-libxml.c, config-parser.c: sync some minor
 	nonworking code between home and work, still just stubs
 
 2003-03-24  Havoc Pennington  <hp@redhat.com>
@@ -1863,8 +2605,8 @@
 	* dbus/dbus-sysdeps.c (_dbus_set_fd_nonblocking): move to this
 	file
 
-	* dbus/dbus-errors.c (dbus_set_error, dbus_set_error_const): allow 
-	NULL argument for "message" if the error is a well-known one, 
+	* dbus/dbus-errors.c (dbus_set_error, dbus_set_error_const): allow
+	NULL argument for "message" if the error is a well-known one,
 	fill in a generic message in this case.
 
 	* dbus/dbus-errors.h (DBusResultCode): Kill DBusResultCode in
@@ -1876,20 +2618,20 @@
 
 2003-03-24  Havoc Pennington  <hp@pobox.com>
 
-	* bus/connection.c (bus_connections_setup_connection): set up 
-	the "can this user connect" function, but it always returns 
+	* bus/connection.c (bus_connections_setup_connection): set up
+	the "can this user connect" function, but it always returns
 	TRUE until we have a config file parser so we can have a config
 	file that allows connections.
 
 2003-03-23  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-threads.c (dbus_mutex_new, dbus_condvar_new): with 
-	DBUS_BUILD_TESTS, actually alloc/free a block of memory for 
-	the mutex, so we can check for proper memory management 
+	* dbus/dbus-threads.c (dbus_mutex_new, dbus_condvar_new): with
+	DBUS_BUILD_TESTS, actually alloc/free a block of memory for
+	the mutex, so we can check for proper memory management
 	and OOM handling.
 
 	* dbus/dbus-dataslot.c: remove the mutex from
-	DBusDataSlotAllocator and lock it manually when using it, 
+	DBusDataSlotAllocator and lock it manually when using it,
 	to simplify fitting it into the global slots framework.
 
 	* dbus/dbus-threads.c (init_static_locks): rework how we're
@@ -1899,17 +2641,17 @@
 
 	* bus/test-main.c (main): check for memleaks
 
-	* dbus/dbus-test.c (dbus_internal_do_not_use_run_tests): make 
+	* dbus/dbus-test.c (dbus_internal_do_not_use_run_tests): make
 	test suite check for memleaks
 
-	* dbus/dbus-memory.c: add support in test mode for tracking 
+	* dbus/dbus-memory.c: add support in test mode for tracking
 	number of outstanding blocks
 
 2003-03-23  Havoc Pennington  <hp@pobox.com>
 
 	* bus/policy.c, bus/bus.c, bus/connection.c: implement allow/deny
 	policies code
-	
+
 	* dbus/dbus-hash.h: add ULONG hash keys
 
 	* dbus/dbus-sysdeps.c (_dbus_get_groups): new
@@ -1936,7 +2678,7 @@
 
 2003-03-19  Havoc Pennington  <hp@redhat.com>
 
-	* bus/policy.c: start sketching code for policy restrictions on 
+	* bus/policy.c: start sketching code for policy restrictions on
 	what connections can do.
 
 2003-03-18  Havoc Pennington  <hp@redhat.com>
@@ -1951,14 +2693,14 @@
 	* configure.in: 0.6
 
 	* NEWS: Update.
-	
+
 2003-03-17  Havoc Pennington  <hp@redhat.com>
 
-	* dbus/dbus-internals.h: add gcc attributes so that 
-	our printf-style functions warn on bad arguments to 
+	* dbus/dbus-internals.h: add gcc attributes so that
+	our printf-style functions warn on bad arguments to
 	format
-	
-	* dbus/dbus-sysdeps.c (_dbus_connect_tcp_socket): fix printf 
+
+	* dbus/dbus-sysdeps.c (_dbus_connect_tcp_socket): fix printf
 	format bug
 
 	* dbus/dbus-message.c (_dbus_message_loader_queue_messages): fix
@@ -1966,10 +2708,10 @@
 
 2003-03-17  Havoc Pennington  <hp@redhat.com>
 
-	* bus/test-main.c (main): make it print something as it runs 
+	* bus/test-main.c (main): make it print something as it runs
 	so make check doesn't look stuck
 
-	* doc/negotiation.txt, doc/dbus-sasl-profile.txt: remove 
+	* doc/negotiation.txt, doc/dbus-sasl-profile.txt: remove
 	from CVS, now obsolete
 
 2003-03-17  Anders Carlsson  <andersca@codefactory.se>
@@ -1977,15 +2719,15 @@
 	* bus/dispatch.c: (bus_dispatch):
 	Refetch the service name since it may have been reallocated
 	when dbus_message_set_sender was called.
-	
+
 	* dbus/dbus-sysdeps.c: (_dbus_accept):
 	Add address and address length variables and use them to stop
 	valgrind from complaining.
-	
+
 2003-03-17  Havoc Pennington  <hp@pobox.com>
 
 	All tests pass, no memleaks, no valgrind complaints.
-	
+
 	* bus/test.c: refcount handler_slot
 
 	* bus/connection.c (bus_connections_new): refcount
@@ -2032,22 +2774,22 @@
 	* dbus/dbus-server-debug-pipe.c (_dbus_transport_debug_pipe_new):
 	add some missing dbus_set_result
 
-	* bus/dispatch.c (bus_dispatch_add_connection): handle failure to 
+	* bus/dispatch.c (bus_dispatch_add_connection): handle failure to
 	alloc the DBusMessageHandler
 
 	* dbus/dbus-transport.c (_dbus_transport_disconnect): don't ref
-	the transport here, since we call this from the finalizer; it 
+	the transport here, since we call this from the finalizer; it
 	resulted in a double-finalize.
 
-	* dbus/dbus-transport.c (_dbus_transport_disconnect): fix a bug 
-	where we tried to use transport->connection that was NULL, 
+	* dbus/dbus-transport.c (_dbus_transport_disconnect): fix a bug
+	where we tried to use transport->connection that was NULL,
 	happened when transport was disconnected early on due to OOM
 
 	* bus/*.c: adapt to handle OOM for watches/timeouts
 
-	* dbus/dbus-transport-unix.c: port to handle OOM during 
+	* dbus/dbus-transport-unix.c: port to handle OOM during
 	watch handling
-	
+
 	* dbus/dbus-auth.c (_dbus_auth_get_unused_bytes): return a
 	reference to unused bytes instead of a copy
 
@@ -2064,7 +2806,7 @@
 
 	* doc/dbus-specification.sgml:
 	Document reply message for ActivateService.
-	
+
 2003-03-16  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/activation.c: (bus_pending_activation_entry_free),
@@ -2084,7 +2826,7 @@
 	* dbus/dbus-protocol.h:
 	Make activation work better. Now pending activations will be queued
 	and the daemon won't try to activate services that are already registered.
-	
+
 2003-03-16  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-bus.c (ensure_bus_data): handle failure to set
@@ -2100,8 +2842,8 @@
 
 	* bus/*: adapt to DBusConnection API changes
 
-	* glib/dbus-gmain.c: adapt to DBusConnection API changes, 
-	requires renaming stuff to avoid dbus_connection_dispatch name 
+	* glib/dbus-gmain.c: adapt to DBusConnection API changes,
+	requires renaming stuff to avoid dbus_connection_dispatch name
 	conflict.
 
 	* dbus/dbus-transport.c (_dbus_transport_queue_messages): new
@@ -2127,7 +2869,7 @@
 
 	* dbus/dbus-connection.c:
 	(dbus_connection_send_with_reply_and_block):
-	Decrease connection->n_incoming when removing an entry 
+	Decrease connection->n_incoming when removing an entry
 	from the list.
 	* dbus/dbus-dict.c: (dbus_dict_entry_free),
 	(dbus_dict_set_boolean_array), (dbus_dict_set_int32_array),
@@ -2136,7 +2878,7 @@
 	(dbus_dict_get_boolean_array), (dbus_dict_get_double_array),
 	(dbus_dict_get_byte_array):
 	Handle NULL arrays and strings. Also add support for byte arrays.
-	
+
 	* dbus/dbus-marshal.c: (_dbus_marshal_byte_array),
 	(_dbus_marshal_dict), (_dbus_demarshal_byte_array),
 	(_dbus_demarshal_int32_array), (_dbus_demarshal_uint32_array),
@@ -2145,7 +2887,7 @@
 	(_dbus_marshal_validate_arg), (_dbus_marshal_test):
 	* dbus/dbus-marshal.h:
 	Add support for marshalling and demarshalling empty arrays and strings.
-	
+
 	* dbus/dbus-message.c: (dbus_message_append_args_valist),
 	(dbus_message_append_string_array),
 	(dbus_message_iter_get_boolean),
@@ -2157,14 +2899,14 @@
 	(dbus_message_iter_get_string_array), (dbus_message_iter_get_dict),
 	(check_message_handling):
 	Add support for getting empty arrays and dicts.
-	
+
 	* dbus/dbus-string.c: (_dbus_string_validate_utf8):
 	Don't do any validation at all for now, that's better than just checking
 	for ASCII.
-	
+
 	* test/data/valid-messages/emptiness.message:
 	New test message with lots of empty arrays.
-	
+
 2003-03-16  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-connection.c
@@ -2172,7 +2914,7 @@
 	can't fail due to OOM
 
 	* dbus/dbus-message.c (_dbus_message_loader_pop_message_link):
-	new function pops a message together with a list link 
+	new function pops a message together with a list link
 	containing it.
 
 	* dbus/dbus-transport-unix.c (queue_messages): use new link-based
@@ -2187,20 +2929,20 @@
 	in the shared lib, and only daemon mallocs were tested. In any
 	case, the test case now tests all 500+ mallocs, and doesn't pass
 	yet, though there are lots of fixes in this patch.
-	
+
 	* dbus/dbus-connection.c (dbus_connection_dispatch_message): fix
-	this so that it doesn't need to allocate memory, since it 
-	has no way of indicating failure due to OOM (and would be 
+	this so that it doesn't need to allocate memory, since it
+	has no way of indicating failure due to OOM (and would be
 	annoying if it did).
 
 	* dbus/dbus-list.c (_dbus_list_pop_first_link): new function
 
 	* bus/Makefile.am: rearrange to create two self-contained
-	libraries, to avoid having libraries with overlapping symbols. 
-	that was resulting in weirdness, e.g. I'm pretty sure there 
+	libraries, to avoid having libraries with overlapping symbols.
+	that was resulting in weirdness, e.g. I'm pretty sure there
 	were two copies of global static variables.
 
-	* dbus/dbus-internals.c: move the malloc debug stuff to 
+	* dbus/dbus-internals.c: move the malloc debug stuff to
 	dbus-memory.c
 
 	* dbus/dbus-list.c (free_link): free list mempool if it becomes
@@ -2212,15 +2954,15 @@
 	on failure.
 
 	* bus/dispatch.c (bus_dispatch_add_connection): free
-	message_handler_slot when no longer using it, so 
+	message_handler_slot when no longer using it, so
 	memory leak checkers are happy for the test suite.
 
 	* dbus/dbus-server-debug-pipe.c (debug_finalize): free server name
 
-	* bus/bus.c (new_connection_callback): disconnect in here if 
+	* bus/bus.c (new_connection_callback): disconnect in here if
 	bus_connections_setup_connection fails.
 
-	* bus/connection.c (bus_connections_unref): fix to free the 
+	* bus/connection.c (bus_connections_unref): fix to free the
 	connections
 	(bus_connections_setup_connection): if this fails, don't
 	disconnect the connection, just be sure there are no side
@@ -2230,11 +2972,11 @@
 
 	* dbus/dbus-auth.c (_dbus_auth_unref): free some stuff we were
 	leaking
-	(_dbus_auth_new): fix the order in which we free strings 
+	(_dbus_auth_new): fix the order in which we free strings
 	on OOM failure
 
-	* bus/connection.c (bus_connection_disconnected): fix to 
-	not send ServiceDeleted multiple times in case of memory 
+	* bus/connection.c (bus_connection_disconnected): fix to
+	not send ServiceDeleted multiple times in case of memory
 	allocation failure
 
 	* dbus/dbus-bus.c (dbus_bus_get_base_service): new function to
@@ -2244,18 +2986,18 @@
 	function for it.
 	(dbus_bus_register_client): rename dbus_bus_register()
 
-	* bus/dispatch.c (check_hello_message): verify that other 
-	connections on the bus also got the correct results, not 
+	* bus/dispatch.c (check_hello_message): verify that other
+	connections on the bus also got the correct results, not
 	just the one sending hello
 
 2003-03-15  Havoc Pennington  <hp@pobox.com>
 
 	Make it pass the Hello handling test including all OOM codepaths.
 	Now to do other messages...
-	
+
 	* bus/services.c (bus_service_remove_owner): fix crash when
 	removing owner from an empty list of owners
-	(bus_registry_ensure): don't leave service in the list of 
+	(bus_registry_ensure): don't leave service in the list of
 	a connection's owned services if we fail to put the service
 	in the hash table.
 
@@ -2270,7 +3012,7 @@
 	needed.
 	(unix_connection_set): this can now fail on OOM
 
-	* dbus/dbus-timeout.c, dbus/dbus-watch.c: add concept 
+	* dbus/dbus-timeout.c, dbus/dbus-watch.c: add concept
 	of enabling/disabling a watch or timeout.
 
 	* bus/loop.c (bus_loop_iterate): don't touch disabled
@@ -2289,69 +3031,69 @@
 	watch). To fix this, I think we need to add new stuff to
 	set_watch_functions, namely a SetEnabled function so we can alloc
 	the watch earlier, then enable it later.
-	
+
 	* dbus/Makefile.am (libdbus_convenience_la_SOURCES): move
 	dbus-memory.c to the convenience lib
 
-	* bus/test.c: rename some static functions to keep them clearly 
+	* bus/test.c: rename some static functions to keep them clearly
 	distinct from stuff in connection.c. Handle client disconnection.
 
 2003-03-14  Havoc Pennington  <hp@pobox.com>
 
-	* bus/dispatch.c (bus_dispatch_test): do test using debug-pipe 
-	transport, tests more of the real codepath. Set up clients 
+	* bus/dispatch.c (bus_dispatch_test): do test using debug-pipe
+	transport, tests more of the real codepath. Set up clients
 	with bus_setup_debug_client.
 
-	* bus/test.c (bus_setup_debug_client): function to set up debug 
+	* bus/test.c (bus_setup_debug_client): function to set up debug
 	"clients" on the main loop
 
-	* dbus/dbus-transport.c (_dbus_transport_open): add debug-pipe 
+	* dbus/dbus-transport.c (_dbus_transport_open): add debug-pipe
 	support
 
-	* dbus/dbus-server.c (dbus_server_listen): add debug-pipe 
+	* dbus/dbus-server.c (dbus_server_listen): add debug-pipe
 	server type
 
 	* dbus/dbus-server-debug.c: support a debug server based on pipes
 
 	* dbus/dbus-sysdeps.c (_dbus_full_duplex_pipe): new function
 	(_dbus_close): new function
-	
+
 	* configure.in: check for socketpair
 
 2003-03-14  Havoc Pennington  <hp@redhat.com>
 
-	* dbus/dbus-memory.c: add a "detect buffer overwrites on free" 
+	* dbus/dbus-memory.c: add a "detect buffer overwrites on free"
 	cheesy hack
 
-	* dbus/dbus-transport-debug.c: rework this a good bit to be 
+	* dbus/dbus-transport-debug.c: rework this a good bit to be
 	less complicated. hopefully still works.
 
 	* dbus/dbus-server-debug.c (handle_new_client): remove timeout
 	manually
 
-	* glib/dbus-gmain.c (timeout_handler): don't remove timeout 
+	* glib/dbus-gmain.c (timeout_handler): don't remove timeout
 	after running it
 
-	* dbus/dbus-message.c (dbus_message_copy): rename from 
-	dbus_message_new_from_message, fix it up to copy 
+	* dbus/dbus-message.c (dbus_message_copy): rename from
+	dbus_message_new_from_message, fix it up to copy
 	all the message fields, add test case
 
-	* bus/dispatch.c (bus_dispatch_test): add some more test code, 
+	* bus/dispatch.c (bus_dispatch_test): add some more test code,
 	not quite passing yet
 
 2003-03-14  Havoc Pennington  <hp@pobox.com>
 
 	* bus/loop.c (bus_loop_iterate): add this so we can "run loop
-	until no work remains" in test code. (the large diff here 
+	until no work remains" in test code. (the large diff here
 	is just code movement, no actual changes)
 
 	* dbus/dbus-server-debug.c (DEFAULT_INTERVAL): change interval to
 	1, no point waiting around for test code.
-	(_dbus_server_debug_accept_transport): unref the timeout 
+	(_dbus_server_debug_accept_transport): unref the timeout
 	after adding it (right?)
 
 	* dbus/dbus-transport-debug.c (DEFAULT_INTERVAL): ditto
-	
+
 2003-03-13  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-timeout.c (_dbus_timeout_list_set_functions): handle
@@ -2379,33 +3121,33 @@
 
 	* bus/dispatch.c (bus_dispatch_test): started adding this but
 	didn't finish
-	
+
 2003-03-14  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/dispatch.c (send_service_nonexistent_error): Fix typo.
 
 2003-03-13  Havoc Pennington  <hp@pobox.com>
 
-	* bus/test.c, bus/test.h, bus/Makefile.am, bus/test-main.c: 
+	* bus/test.c, bus/test.h, bus/Makefile.am, bus/test-main.c:
 	set up a test framework as for the library
 
 2003-03-12  Havoc Pennington  <hp@pobox.com>
 
-	Throughout: purge global variables, introduce BusActivation, 
+	Throughout: purge global variables, introduce BusActivation,
 	BusConnections, BusRegistry, etc. objects instead.
-	
-	* bus/bus.h, bus/bus.c: introduce BusContext as a global 
+
+	* bus/bus.h, bus/bus.c: introduce BusContext as a global
 	message bus object
 
-	* test/Makefile.am (TEST_BINARIES): disable bus-test for now, 
+	* test/Makefile.am (TEST_BINARIES): disable bus-test for now,
 	going to redo this a bit differently I think
-	
+
 2003-03-12  Havoc Pennington  <hp@redhat.com>
 
-        Mega-patch that gets the message bus daemon initially handling 
-	out-of-memory. Work still needed. Also lots of random 
+        Mega-patch that gets the message bus daemon initially handling
+	out-of-memory. Work still needed. Also lots of random
 	moving stuff to DBusError instead of ResultCode.
-	
+
 	* dbus/dbus-list.c (_dbus_list_length_is_one): new function
 
 	* dbus/dbus-connection.c
@@ -2421,7 +3163,7 @@
 	rename bus_connection_disconnected as it's a notification only
 
 	* bus/driver.c (bus_driver_handle_acquire_service): don't free
-	"name" on get_args failure, should be done by get_args; 
+	"name" on get_args failure, should be done by get_args;
 	don't disconnect client for bad args, just return an error.
 	(bus_driver_handle_service_exists): ditto
 
@@ -2443,8 +3185,8 @@
 	* bus/connection.c (bus_connection_foreach): allow stopping
 	iteration by returning FALSE from foreach function.
 
-	* dbus/dbus-connection.c (dbus_connection_send_preallocated) 
-	(dbus_connection_free_preallocated_send) 
+	* dbus/dbus-connection.c (dbus_connection_send_preallocated)
+	(dbus_connection_free_preallocated_send)
 	(dbus_connection_preallocate_send): new API for sending a message
 	without possibility of malloc failure.
 	(dbus_connection_send_message): rename to just
@@ -2464,23 +3206,23 @@
 
 2003-03-10  Anders Carlsson  <andersca@codefactory.se>
 
-	* dbus/dbus-marshal.c: 
+	* dbus/dbus-marshal.c:
 	(_dbus_marshal_set_string):
 	Take a length argument so we can marshal the correct string
 	length.
-	
+
 	(_dbus_marshal_dict), (_dbus_demarshal_dict),
 	(_dbus_marshal_get_arg_end_pos), (_dbus_marshal_validate_arg),
 	(_dbus_marshal_test):
-	* dbus/dbus-marshal.h:	
+	* dbus/dbus-marshal.h:
 	Add support for marshalling and demarshalling dicts.
-	
+
 	* dbus/dbus-message-builder.c: (_dbus_message_data_load):
 	Add support for TYPE DICT.
-	
+
 	* dbus/dbus-message.c: (set_string_field):
 	Adjust header padding.
-	
+
 	(dbus_message_append_args_valist), (dbus_message_append_dict),
 	(dbus_message_get_args_valist), (dbus_message_iter_get_arg_type),
 	(dbus_message_iter_get_dict), (_dbus_message_loader_return_buffer),
@@ -2490,13 +3232,13 @@
 
 	* dbus/dbus-protocol.h:
 	Add DBUS_TYPE_DICT.
-	
+
 	* dbus/dbus.h:
 	Add dbus-dict.h
-	
+
 	* doc/dbus-specification.sgml:
 	Add information about how dicts are marshalled.
-	
+
 	* test/data/invalid-messages/dict-with-nil-value.message:
 	* test/data/invalid-messages/too-short-dict.message:
 	* test/data/valid-messages/dict-simple.message:
@@ -2519,7 +3261,7 @@
 	(dbus_dict_set_string_array), (_dbus_dict_test):
 	* dbus/dbus-dict.h:
 	Fix according to comments from Havoc.
-	
+
 2003-03-06  Michael Meeks  <michael@server.home>
 
 	* configure.in: if we don't have kde-config, disable have_qt.
@@ -2528,7 +3270,7 @@
 
 	* dbus/Makefile.am:
 	Add dbus-dict.[ch]
-	
+
 	* dbus/dbus-dict.c: (dbus_dict_entry_free), (dbus_dict_new),
 	(dbus_dict_ref), (dbus_dict_unref), (dbus_dict_contains),
 	(dbus_dict_remove), (dbus_dict_get_value_type),
@@ -2545,11 +3287,11 @@
 	(dbus_dict_get_string_array), (_dbus_dict_test):
 	* dbus/dbus-dict.h:
 	Add DBusDict implementation
-	
+
 	* dbus/dbus-test.c: (dbus_internal_do_not_use_run_tests):
 	* dbus/dbus-test.h:
 	Add _dbus_dict_test
-	
+
 2003-03-04  Havoc Pennington  <hp@pobox.com>
 
 	* test/data/auth/*: adapt to changes
@@ -2559,15 +3301,15 @@
 	userid
 
 	* dbus/dbus-keyring.c (_dbus_keyring_validate_context): prevent
-	more stuff from being in a context name, to make the protocol 
+	more stuff from being in a context name, to make the protocol
 	simpler to deal with
 
 	* dbus/dbus-errors.c (dbus_error_has_name): new function
 	(dbus_error_is_set): new function
 
-	* dbus/dbus-auth.c: replace DBUS_STUPID_TEST_MECH auth 
+	* dbus/dbus-auth.c: replace DBUS_STUPID_TEST_MECH auth
 	with DBUS_COOKIE_SHA1, implement DBUS_COOKIE_SHA1
-	
+
 	* dbus/dbus-connection.c (dbus_connection_flush): also read
 	messages during a flush operation
 
@@ -2579,10 +3321,10 @@
 
 	* dbus/dbus-transport.c: (_dbus_transport_open):
 	Remove duplicate "tcp" entry.
-	
+
 	* doc/dbus-specification.sgml:
 	Clarify some things.
-	
+
 2003-03-05  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-auth.c: (send_rejected), (process_test_subdir):
@@ -2607,7 +3349,7 @@
 	sets really huge and small integers
 
 	* dbus/dbus-marshal.c (_dbus_marshal_validate_arg): add check
-	that length of boolean array fits in the string, and that 
+	that length of boolean array fits in the string, and that
 	string has room for boolean value in single-bool case.
 
 	* dbus/dbus-message-builder.c (_dbus_message_data_load): add
@@ -2641,7 +3383,7 @@
 
 2003-02-27  Alexander Larsson  <alexl@redhat.com>
 
-	* glib/Makefile.am: 
+	* glib/Makefile.am:
 	* configure.in:
 	Make gthreads-2.0 dependency optional. Don't build thread test if
 	its not found.
@@ -2652,14 +3394,14 @@
 	(dbus_connection_send_message_with_reply_and_block): fix doh!
 	doh! doh! bug that resulted in never removing a reply from the
 	queue, no wonder we called get_reply_serial so much ;-)
-	
+
 	* dbus/dbus-message.c (struct DBusMessage): cache reply serial
 	and client serial instead of demarshaling them every time
 
 2003-02-27  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-marshal.c (_dbus_demarshal_int32): rewrite to be much
-	more inlined, using dbus-string-private.h, speeds things up 
+	more inlined, using dbus-string-private.h, speeds things up
 	substantially
 
 	* dbus/dbus-string.c (_dbus_string_free): apply align offset
@@ -2669,17 +3411,17 @@
 
 2003-02-26  Havoc Pennington  <hp@redhat.com>
 
-        All kinds of audit fixes from Owen, plus initial attempt to 
+        All kinds of audit fixes from Owen, plus initial attempt to
 	handle unaligned memory returned from malloc.
-	
-	* dbus/dbus-string.c (_dbus_string_init): clamp max length to 
+
+	* dbus/dbus-string.c (_dbus_string_init): clamp max length to
 	leave room for align_offset and nul byte
-	(fixup_alignment): function to track an align_offset and 
+	(fixup_alignment): function to track an align_offset and
 	ensure real->str is aligned
-	(DBUS_GENERIC_STRING_PREAMBLE): len must be less than allocated, 
+	(DBUS_GENERIC_STRING_PREAMBLE): len must be less than allocated,
 	to allow a nul byte plus align offset
 	(_dbus_string_lock): fix overflow issue
-	(_dbus_string_init_const_len): add assertions on sanity of len, 
+	(_dbus_string_init_const_len): add assertions on sanity of len,
 	assign allocated to be ALLOCATION_PADDING larger than len
 	(set_length): fixup the overflow handling
 	(_dbus_string_get_data_len): fix overflow in assertion
@@ -2691,16 +3433,16 @@
 	(_dbus_string_delete): fix overflow in assertion
 	(_dbus_string_copy_len): overflow in assertion
 	(_dbus_string_replace_len): overflows in assertions
-	(_dbus_string_find): change to implement in terms of 
+	(_dbus_string_find): change to implement in terms of
 	_dbus_string_find_to
 	(_dbus_string_find_to): assorted fixage
-	(_dbus_string_equal_c_str): assert c_str != NULL, 
+	(_dbus_string_equal_c_str): assert c_str != NULL,
 	fix logic so the function works
 	(_dbus_string_ends_with_c_str): fix overflow thingy
 	(_dbus_string_base64_encode): overflow fix
 	(_dbus_string_validate_ascii): overflow
 	(_dbus_string_validate_nul): overflow
-	
+
 2003-02-26  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-marshal.c (_dbus_marshal_test): fix to work with DISABLE_ASSERTS
@@ -2709,29 +3451,29 @@
 
 	* configure.in:
 	Set DBUS_GLIB_THREADS_LIBS for apps using gthread-2.0
-	
+
 	* dbus/dbus-connection.c:
 	* dbus/dbus-connection.h:
 	Fix _dbus_connection_acquire_io_path and _dbus_connection_acquire_dispatch.
 	Add dbus_connection_set_wakeup_main_function and use it when queueing
 	incoming and outgoing messages.
-	
-	
+
+
 	* dbus/dbus-dataslot.c:
 	Threadsafe usage of DBusDataSlotAllocator
-	
+
 	* dbus/dbus-message.c: (dbus_message_get_args_iter):
 	dbus_new can fail.
-	
+
 	* dbus/dbus-server-unix.c:
 	Add todo comment
-	
+
 	* glib/dbus-gmain.c:
 	Implement the new wakeup functions for glib.
-	
+
 	* glib/Makefile.am:
-	* glib/test-thread-client.c: 
-	* glib/test-thread-server.c: 
+	* glib/test-thread-client.c:
+	* glib/test-thread-server.c:
 	* glib/test-thread.h:
 	Initial cut at some thread test code. Not really done yet.
 
@@ -2745,7 +3487,7 @@
 	at the end of this function, so if we didn't need to read for
 	authentication, we reinstall it for receiving messages
 
-	* dbus/dbus-message.c (dbus_message_new_reply): allow replies to 
+	* dbus/dbus-message.c (dbus_message_new_reply): allow replies to
 	a NULL sender for peer-to-peer case
 
 	* dbus/dbus-transport-unix.c (check_read_watch): handle
@@ -2763,9 +3505,9 @@
 
 	* Doxyfile.in (INPUT): add glib subdir
 
-	* glib/dbus-gmain.c (dbus_connection_setup_with_g_main): rename 
+	* glib/dbus-gmain.c (dbus_connection_setup_with_g_main): rename
 	setup_with_g_main instead of hookup_with_g_main; write docs
-	
+
 2003-02-24  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-marshal.c: (_dbus_marshal_validate_arg):
@@ -2776,11 +3518,11 @@
 	* dbus/dbus-message.h:
 	* doc/dbus-specification.sgml:
 	Various fixes as pointed out by Havoc.
-	
+
 	* test/data/invalid-messages/bad-boolean-array.message:
 	* test/data/invalid-messages/bad-boolean.message:
 	Add invalid boolean value test cases.
-	
+
 2003-02-24  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-internals.c: (_dbus_type_to_string):
@@ -2798,10 +3540,10 @@
 	* doc/dbus-specification.sgml:
 	* test/data/valid-messages/lots-of-arguments.message:
 	Add support for boolean and boolean array types.
-	
+
 2003-02-23  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-keyring.c: finish most of this implementation and 
+	* dbus/dbus-keyring.c: finish most of this implementation and
 	simple unit test
 
 	* dbus/dbus-errors.c (dbus_set_error_const, dbus_set_error): make
@@ -2820,7 +3562,7 @@
 
 	* dbus/dbus-md5.c (_dbus_md5_compute): use dbus_string_hex_encode
 
-	* dbus/dbus-sysdeps.c (_dbus_string_save_to_file): make this use 
+	* dbus/dbus-sysdeps.c (_dbus_string_save_to_file): make this use
 	the save-to-temp/rename trick to atomically write the new file
 	(_dbus_string_parse_uint): new function
 
@@ -2841,25 +3583,25 @@
 
 	* dbus/dbus-marshal.c: (_dbus_demarshal_string_array):
 	Make string arrays NULL-terminated.
-	
+
 	* dbus/dbus-memory.c: (dbus_free_string_array):
 	* dbus/dbus-memory.h:
 	New function for freeing NULL-terminated string arrays.
-	
+
 	* dbus/dbus-message-builder.c: (append_quoted_string),
 	(_dbus_message_data_load):
 	Add support for array types.
-	
+
 	* dbus/dbus-message.c: (check_message_handling):
 	Add more types as test cases.
-	
+
 	* dbus/dbus-sysdeps.c: (_dbus_string_parse_int),
 	(_dbus_string_parse_double):
 	Add the start offset to the end offset.
-	
+
 	* test/data/valid-messages/lots-of-arguments.message:
 	New test message with lots of arguments.
-	
+
 2003-02-21  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-message.c: (dbus_message_append_nil),
@@ -2876,7 +3618,7 @@
 
 	* dbus/dbus-message.c: (dbus_message_append_nil):
 	Fix a silly.
-	
+
 2003-02-21  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-message.c: (dbus_message_append_args_valist),
@@ -2893,7 +3635,7 @@
 
 	* dbus/dbus-message.h:
 	Add functions for appending and getting arrays.
-	
+
 2003-02-21  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-mempool.c (_dbus_mem_pool_new): Make the
@@ -2906,7 +3648,7 @@
 	Unlock the connection mutex during a blocking select call.
 	Add todo about how we need a way to wake up the select.
 
-	* dbus/dbus-connection-internal.h: 
+	* dbus/dbus-connection-internal.h:
 	* dbus/dbus-connection.c:
 	Add _dbus_connection_lock and _dbus_connection_unlock.
 
@@ -2922,7 +3664,7 @@
 	* dbus/dbus-errors.c (dbus_set_error_const): do not call
 	dbus_error_init
 	(dbus_set_error): remove dbus_error_init, check for message ==
-	NULL *before* we sprintf into it, and add @todo about including 
+	NULL *before* we sprintf into it, and add @todo about including
 	system headers in this file
 
 	* dbus/dbus-sysdeps.c (_dbus_create_file_exclusively): new
@@ -2930,7 +3672,7 @@
 	* dbus/dbus-errors.h (DBUS_ERROR_FAILED): add
 
 	* dbus/dbus-sysdeps.c (get_user_info): break this function out to
-	get various bits of user information based on either username 
+	get various bits of user information based on either username
 	or user ID
 	(_dbus_homedir_from_username): new function
 
@@ -2938,22 +3680,22 @@
 
 	* configure.in:
 	Add check for nonposix getpwnam_r
-	
+
 	* dbus/dbus-mempool.c: (_dbus_mem_pool_new):
 	Align the pool element size to a sizeof (void *) boundary.
-	
+
 	* dbus/dbus-sysdeps.c: (_dbus_setenv), (_dbus_connect_unix_socket),
 	(_dbus_listen_unix_socket), (_dbus_credentials_from_username):
 	General Solaris fixes.
-	
+
 	* test/data/valid-messages/simplest-manual.message:
 	Explicitly state that we want little-endian packing.
-	
+
 2003-02-19  Mikael Hallendal  <micke@codefactory.se>
 
 	* dbus/dbus-server.c (dbus_server_listen): Support tcp: addresses.
 
-	* dbus/dbus-transport-unix.c (_dbus_transport_new_for_tcp_socket): 
+	* dbus/dbus-transport-unix.c (_dbus_transport_new_for_tcp_socket):
 	Added to create a transport connecting using a tcp/ip socket.
 
 	* dbus/dbus-sysdeps.c (_dbus_connect_tcp_socket): Added to connect
@@ -2963,14 +3705,14 @@
 
 	* dbus/dbus-server.c (dbus_server_listen): Support tcp: addresses.
 
-	* dbus/dbus-server-unix.c (_dbus_server_new_for_tcp_socket): 
+	* dbus/dbus-server-unix.c (_dbus_server_new_for_tcp_socket):
 	Added to create a server listening on a TCP/IP socket.
 
 2003-02-19  Havoc Pennington  <hp@pobox.com>
 
 	Throughout: mop up all the Doxygen warnings and undocumented
 	stuff.
-	
+
 	* dbus/dbus-sysdeps.c (do_exec): do not use execvp, we don't want
 	to search any paths.
 
@@ -2979,10 +3721,10 @@
 	besides being kind of ugly
 
 	* Doxyfile (PREDEFINED): have Doxygen define
-	DOXYGEN_SHOULD_SKIP_THIS so we can exclude things from 
+	DOXYGEN_SHOULD_SKIP_THIS so we can exclude things from
 	docs with #ifndef DOXYGEN_SHOULD_SKIP_THIS
-	(do not abuse the feature! it's for stuff like the autogenerated 
-	macros in dbus-md5.c, not just for things you don't feel like 
+	(do not abuse the feature! it's for stuff like the autogenerated
+	macros in dbus-md5.c, not just for things you don't feel like
 	documenting...)
 
 2003-02-18  Havoc Pennington  <hp@pobox.com>
@@ -3031,14 +3773,14 @@
 2003-02-17  Anders Carlsson  <andersca@codefactory.se.>
 
 	Release 0.4
-	
+
 	* NEWS: Update
 
 2003-02-17  Anders Carlsson  <andersca@codefactory.se>
 
 	* doc/dbus-specification.sgml:
 	Specification updates.
-	
+
 2003-02-17  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/activation.c: (bus_activation_init), (child_setup),
@@ -3046,21 +3788,21 @@
 	* bus/activation.h:
 	* bus/main.c: (main):
 	Set DBUS_ADDRESS environment variable.
-	
+
 	* dbus/dbus-errors.c: (dbus_set_error):
 	Don't use va_copy since that's a C99 feature.
-	
+
 	* dbus/dbus-sysdeps.c: (_dbus_setenv), (do_exec),
 	(_dbus_spawn_async):
 	* dbus/dbus-sysdeps.h:
 	Add child_setup_func to _dbus_spawn_async.
-	
+
 	* doc/dbus-specification.sgml:
 	Update specification.
-	
+
 	* test/spawn-test.c: (setup_func), (main):
 	Fix test.
-	
+
 2003-02-17  Alexander Larsson  <alexl@redhat.com>
 
 	* dbus/dbus-connection.c (_dbus_connection_handler_destroyed_locked):
@@ -3072,10 +3814,10 @@
 	* doc/Makefile.am:
 	* doc/dbus-test-plan.sgml:
 	Add test plan document.
-	
+
 	* test/Makefile.am:
 	Fix distcheck.
-	
+
 2003-02-17  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-message.c: (decode_header_data),
@@ -3086,11 +3828,11 @@
 
 	* bus/dispatch.c: (send_one_message):
 	Only send broadcast messages to registered connections.
-	
+
 	* dbus/dbus-message.c: (dbus_message_name_is):
 	* dbus/dbus-message.h:
 	New convenience function.
-	
+
 	* dbus/dbus-transport-debug.c: (do_reading):
 	Only dispatch one message per run.
 
@@ -3101,7 +3843,7 @@
 
 	* test/bus-test-loop.[ch]:
 	Add these.
-	
+
 2003-02-16  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-connection.c (dbus_connection_dispatch_message): fix
@@ -3113,7 +3855,7 @@
 	Implement sent_message_with_reply. (with_reply_and block is still
 	busted).
 	Made dispatch_message not lose message if OOM.
-	
+
 	* dbus/dbus-errors.h:
 	Add NoReply error (for reply timeouts).
 
@@ -3126,51 +3868,51 @@
 
 	* dbus/dbus-auth.c: (client_try_next_mechanism):
 	Plug a leak.
-	
+
 	* dbus/dbus-threads.c: (dbus_condvar_wait_timeout):
 	Return TRUE if there's no thread implementation around.
-	
+
 	* glib/dbus-gmain.c: (free_source),
 	(dbus_connection_hookup_with_g_main):
 	Make sure to remove the GSource when the connection is finalized.
-	
+
 2003-02-16  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/dispatch.c: (bus_dispatch_message_handler):
 	* dbus/dbus-errors.h:
 	Return an error if someone tries to send a message to a service
 	that doesn't exist.
-	
+
 2003-02-16  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/activation.c: (load_directory), (bus_activation_init),
 	(bus_activation_activate_service):
 	* bus/activation.h:
-	* bus/driver.c: 
+	* bus/driver.c:
 	(bus_driver_handle_activate_service), (bus_driver_handle_message):
 	More work on the activation handling.
-	
+
 	* dbus/dbus-errors.h:
 	Add some error messages
-	
+
 	* dbus/dbus-message.c: (dbus_message_new_error_reply):
 	* dbus/dbus-message.h:
 	New function that creates an error message.
-	
+
 	* dbus/dbus-protocol.h:
 	Add ACTIVATE_SERVER message.
-	
+
 	* dbus/dbus-server-unix.c: (unix_handle_watch),
 	(_dbus_server_new_for_domain_socket):
 	Call _dbus_fd_set_close_on_exec.
-	
+
 	* dbus/dbus-sysdeps.c: (make_pipe), (do_exec),
 	(_dbus_spawn_async), (_dbus_disable_sigpipe),
 	(_dbus_fd_set_close_on_exec):
 	* dbus/dbus-sysdeps.h:
 	Add _dbus_fd_set_close_on exec function. Also add function that checks
 	that all open fds are set to close-on-exec and warns otherwise.
-	
+
 	* dbus/dbus-transport-unix.c:
 	(_dbus_transport_new_for_domain_socket):
 	Call _dbus_fd_set_close_on_exec.
@@ -3179,7 +3921,7 @@
 
 	* dbus/dbus-connection.c (dbus_connection_set_change_sigpipe):
 	allow people to avoid setting SIGPIPE to SIG_IGN
-	(_dbus_connection_new_for_transport): disable SIGPIPE unless 
+	(_dbus_connection_new_for_transport): disable SIGPIPE unless
 	we've been asked not to
 
 2003-02-15  Anders Carlsson  <andersca@codefactory.se>
@@ -3208,24 +3950,24 @@
 	* dbus/dbus-errors.c: (dbus_set_error):
 	* dbus/dbus-errors.h:
 	Add a few errors and make dbus_set_error void.
-	
-	* dbus/dbus-sysdeps.c: 
+
+	* dbus/dbus-sysdeps.c:
 	(_dbus_errno_to_string), (close_and_invalidate), (make_pipe),
 	(write_err_and_exit), (read_ints), (do_exec), (_dbus_spawn_async):
 	* dbus/dbus-sysdeps.h:
 	Add _dbus_spawn_async.
-	
+
 	* test/spawn-test.c: (main):
 	Test for _dbus_spawn_async.
-	
+
 2003-02-15  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-internals.h:
 	Fix build without tests.
-	
+
 	* dbus/dbus-list.c: (alloc_link):
 	Fix a segfault when a malloc fails.
-	
+
 	* dbus/dbus-memory.c: (initialize_malloc_debug), (dbus_malloc),
 	(dbus_malloc0), (dbus_realloc):
 	Add support for malloc debugging.
@@ -3236,12 +3978,12 @@
 	* dbus/dbus-threads.h:
 	Add condvars. Remove static mutext from API.
 	Implement static mutexes by initializing them from threads_init.
-	
+
 	* glib/dbus-gthread.c:
 	* qt/dbus-qthread.cpp:
 	Update with the thread api changes.
 
-		
+
 	* dbus/dbus-list.c:
 	* dbus/dbus-list.h:
 	Turn StaticMutex into normal mutex + init function.
@@ -3249,18 +3991,18 @@
 	_dbus_list_append_link, _dbus_list_prepend_link
 
 
-	* dbus/dbus-sysdeps.c: 
+	* dbus/dbus-sysdeps.c:
 	* dbus/dbus-sysdeps.h:
 	New type dbus_atomic_t, and new functions _dbus_atomic_inc,
 	_dbus_atomic_dec. Only slow fallback implementation at the moment.
-	
+
 	* dbus/dbus-protocol.h:
 	Add DBUS_MESSAGE_LOCAL_DISCONNECT define
-	
+
 	* dbus/dbus-message.c:
 	Make ref/unref atomic.
 	Fix some docs.
-	
+
 	* dbus/dbus-connection-internal.h:
 	* dbus/dbus-connection.c:
 	* dbus/dbus-connection.h:
@@ -3268,23 +4010,23 @@
 	Change _peek to _borrow,_return & _steal_borrowed.
 	Change disconnect callback to event.
 	Make dbus_connection_dispatch_messages reentrant.
-	
+
 	* dbus/dbus-transport.c:
 	Don't ref the connection on calls to the transport
 	implementation.
-	
+
 	* dbus/dbus-message-handler.c:
 	Make threadsafe.
-	
+
 	* glib/dbus-gmain.c:
 	Don't use peek_message anymore
-	
+
 	* test/Makefile.am:
 	* test/debug-thread.c:
 	* test/debug-thread.h:
 	Simple thread implementation that asserts() on deadlocks in
 	single-threaded code.
-	
+
 	* test/bus-test.c:
 	(main) Call debug_threads_init.
 
@@ -3295,10 +4037,10 @@
 	* bus/connection.h:
 	Don't call dbus_connection_set_disconnect_function. Instead export
 	bus_connection_disconnect.
-	
+
 	* bus/dispatch.c:
 	Call bus_connection_disconnect when we get a disconnected message.
-	
+
 2003-02-15  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-message.c (dbus_message_new): fool around with the
@@ -3312,12 +4054,12 @@
 	should
 
 	* dbus/dbus-internals.c (_dbus_set_fail_alloc_counter)
-	(_dbus_decrement_fail_alloc_counter): debug functions to 
+	(_dbus_decrement_fail_alloc_counter): debug functions to
 	simulate memory allocation failures
 
 2003-02-14  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-errors.h (struct DBusError): add a word of padding 
+	* dbus/dbus-errors.h (struct DBusError): add a word of padding
 	to DBusError
 
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
@@ -3326,10 +4068,10 @@
 	* bus/driver.h:
 	* bus/services.c: (bus_service_lookup):
 	Reorder message sending so we get a more sane order.
-	
+
 	* test/bus-test.c: (message_handler):
 	Fix tyop.
-	
+
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/driver.c: (bus_driver_send_service_deleted),
@@ -3354,10 +4096,10 @@
 	* test/bus-test.c: (main):
 	Change fields to arguments in messages, so that they won't be
 	confused with header fields.
-	
+
 	* glib/test-dbus-glib.c: (main):
 	Remove append_fields from hello message.
-	
+
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-errors.c:
@@ -3370,36 +4112,36 @@
 	* glib/dbus-gmain.c: (timeout_handler), (add_timeout),
 	(remove_timeout):
 	Implement support for timeouts in dbus-glib.
-	
+
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-message-builder.c: (_dbus_message_data_load):
 	* dbus/dbus-message.c: (process_test_subdir):
 	* test/break-loader.c: (find_breaks_based_on):
 	Plug some memory leaks.
-	
+
 2003-02-13  Richard Hult  <rhult@codefactory.se>
 
 	* bus/main.c: Fix build.
 
-	* dbus/dbus-errors.h: 
+	* dbus/dbus-errors.h:
 	* dbus/dbus-errors.c: Fix copyright for Anders.
 
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/Makefile.am:
 	Add utils.[ch]
-	
+
 	* bus/connection.c: (bus_connection_foreach):
 	Fix a warning.
-	
+
 	* bus/desktop-file.c: (grow_lines_in_section), (grow_sections),
 	(unescape_string), (new_section), (parse_section_start),
 	(parse_key_value), (report_error), (bus_desktop_file_load),
 	(bus_desktop_file_get_string):
 	* bus/desktop-file.h:
 	Use DBusError for error reporting.
-	
+
 	* bus/dispatch.c: (send_one_message),
 	(bus_dispatch_message_handler):
 	* bus/driver.c: (bus_driver_send_service_deleted),
@@ -3412,21 +4154,21 @@
 	* bus/loop.c: (bus_loop_run):
 	* bus/main.c:
 	Use BUS_HANDLE_OOM instead of _DBUS_HANDLE_OOM.
-	
+
 	* bus/utils.c: (bus_wait_for_memory):
 	* bus/utils.h:
 	New files with general utility functions.
-	
+
 	* dbus/dbus-internals.h:
 	Remove _DBUS_HANDLE_OOM.
-	
+
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-errors.c: (dbus_result_to_string), (dbus_error_init),
 	(dbus_error_free), (dbus_set_error_const), (dbus_set_error):
 	* dbus/dbus-errors.h:
 	Add DBusError structure.
-	
+
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
 	* test/data/valid-messages/standard-acquire-service.message:
@@ -3434,7 +4176,7 @@
 	* test/data/valid-messages/standard-list-services.message:
 	* test/data/valid-messages/standard-service-exists.message:
 	Add some standard messages.
-	
+
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/driver.c: (bus_driver_send_welcome_message),
@@ -3442,7 +4184,7 @@
 	(bus_driver_handle_acquire_service),
 	(bus_driver_handle_service_exists), (bus_driver_handle_message):
 	Update for API changes in libdbus.
-	
+
 	* dbus/dbus-message.c: (dbus_message_new_reply):
 	* dbus/dbus-message.h:
 	Remove the name argument. The spec states that replies shouldn't
@@ -3456,7 +4198,7 @@
 	(bus_desktop_file_get_string):
 	* bus/desktop-file.h:
 	Some fixes, and new functions for getting a key value from a section.
-	
+
 2003-02-13  Havoc Pennington  <hp@pobox.com>
 
 	* test/data/auth/fail-after-n-attempts.auth-script: new test
@@ -3472,12 +4214,12 @@
 	* dbus/dbus-auth-script.c (_dbus_auth_script_run): support
 	NO_CREDENTIALS and ROOT_CREDENTIALS
 
-	* dbus/dbus-auth.c (_dbus_auth_do_work): move get_state() routine 
-	into here. Never process more commands after we've reached an 
+	* dbus/dbus-auth.c (_dbus_auth_do_work): move get_state() routine
+	into here. Never process more commands after we've reached an
 	end state; store further data as unused bytes.
 
 	* test/data/auth/*: add more auth tests
-	
+
 	* dbus/dbus-auth-script.c (_dbus_auth_script_run): support EXPECT
 	command to match exact string and EXPECT_UNUSED to match unused
 	bytes
@@ -3505,11 +4247,11 @@
 
 2003-02-10  Havoc Pennington  <hp@pobox.com>
 
-        * dbus/dbus-auth-script.c, dbus/dbus-auth-script.h: sync 
+        * dbus/dbus-auth-script.c, dbus/dbus-auth-script.h: sync
 	initial cut at test framework for DBusAuth from laptop.
-	Doesn't quite work yet but it compiles and I need to get 
+	Doesn't quite work yet but it compiles and I need to get
 	it off the 266mhz laptop. ;-)
-	
+
 	* dbus/dbus-server-debug.c (_dbus_server_debug_accept_transport):
 	fix a memleak in error case
 
@@ -3533,7 +4275,7 @@
 2003-02-06  Anders Carlsson  <andersca@codefactory.se>
 
 	Release 0.3
-	
+
 	* NEWS: Update
 
 2003-02-06  Anders Carlsson  <andersca@codefactory.se>
@@ -3546,7 +4288,7 @@
 
 2003-02-02  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-keyring.c, dbus/dbus-keyring.h: template files 
+	* dbus/dbus-keyring.c, dbus/dbus-keyring.h: template files
 	for code to manage cookies in your home directory
 
 	* dbus/dbus-sysdeps.c (_dbus_generate_random_bytes): new function
@@ -3563,7 +4305,7 @@
 
 	* doc/dbus-specification.sgml:
 	Update address format section.
-	
+
 2003-02-02  Anders Carlsson  <andersca@codefactory.se>
 
 	* test/Makefile.am:
@@ -3571,15 +4313,15 @@
 	(message_handler), (new_connection_callback), (loop_quit),
 	(loop_run), (main):
 	Add bus test.
-	
+
 2003-02-02  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/driver.c: (bus_driver_handle_service_exists):
 	Simplify the code a bit.
-	
+
 	* dbus/dbus-bus.c: (dbus_bus_service_exists):
-	Fix a silly. 
-	
+	Fix a silly.
+
 2003-02-02  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/Makefile.am:
@@ -3594,7 +4336,7 @@
 
 	* bus/driver.c: (bus_driver_handle_service_exists):
 	Don't unref the incoming message.
-	
+
 2003-02-02  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus.h: Add dbus-address.h and dbus-bus.h
@@ -3604,7 +4346,7 @@
 	* dbus/dbus-server.c: (dbus_server_listen):
 	* dbus/dbus-transport.c: (_dbus_transport_open):
 	ifdef out the calls to the debug transport and server.
-	
+
 2003-02-02  Alexander Larsson  <alexl@redhat.com>
 
 	* dbus/dbus-watch.c (dbus_watch_get_flags):
@@ -3624,18 +4366,18 @@
 	(bus_driver_handle_hello):
 	Don't take a name, just use a numeric id to identify
 	each client.
-	
+
 	* dbus/Makefile.am:
 	* dbus/dbus-bus.c: (dbus_bus_register_client),
 	(dbus_bus_acquire_service), (dbus_bus_service_exists):
 	* dbus/dbus-bus.h:
 	Add new convenience functions for communicating with the bus.
-	
+
 	* dbus/dbus-message.h:
-	
+
 	* dbus/dbus-protocol.h:
 	Fix a typo.
-	
+
 2003-02-01  Alexander Larsson  <alexl@redhat.com>
 
 	* dbus/dbus-message.c (dbus_message_append_fields):
@@ -3643,7 +4385,7 @@
 
 2003-02-01  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-break-loader.c (randomly_modify_length): change 
+	* dbus/dbus-break-loader.c (randomly_modify_length): change
 	a 4-byte value in the message as if it were a length
 
 	* dbus/dbus-sysdeps.c (_dbus_string_save_to_file): don't set
@@ -3658,23 +4400,23 @@
 	* dbus/dbus-sysdeps.c (_dbus_string_save_to_file): new function
 
 	* dbus/dbus-string.c (_dbus_string_set_byte): new
-	
+
 2003-01-31  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-message.c: refactor the test code to be more general, 
-	in preparation for writing a "randomly permute test cases to 
+	* dbus/dbus-message.c: refactor the test code to be more general,
+	in preparation for writing a "randomly permute test cases to
 	try to break the loader" program.
 
 2003-01-31  Havoc Pennington  <hp@pobox.com>
-	
+
 	* doc/dbus-specification.sgml: work on the specification
 
-	* dbus/dbus-message.c (_dbus_message_loader_return_buffer): check 
+	* dbus/dbus-message.c (_dbus_message_loader_return_buffer): check
 	the protocol version of the message.
 
-	* dbus/dbus-protocol.h: drop special _REPLY names, the spec 
+	* dbus/dbus-protocol.h: drop special _REPLY names, the spec
 	no longer specifies that.
-	(DBUS_SERVICE_REPLY_SERVICE_EXISTS): fix flags (1/2/4/8 not 
+	(DBUS_SERVICE_REPLY_SERVICE_EXISTS): fix flags (1/2/4/8 not
 	1/2/3/4)
 
 	* dbus/dbus-marshal.c (_dbus_marshal_get_arg_end_pos): add missing
@@ -3682,7 +4424,7 @@
 
 2003-01-31  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-message.c (dbus_message_set_is_error_reply): rename 
+	* dbus/dbus-message.c (dbus_message_set_is_error_reply): rename
 	just set_is_error/get_is_error as this is a commonly-used
 	function, and write docs.
 
@@ -3690,28 +4432,28 @@
 
 	* dbus/dbus-address.c: (dbus_address_entry_free):
 	Free key and value lists.
-	
+
 	* dbus/dbus-internals.c: (_dbus_type_to_string):
 	Add the types we didn't have.
-	
+
 	* dbus/dbus-marshal.c: (_dbus_marshal_get_arg_end_pos),
 	(_dbus_marshal_validate_arg):
 	Add NIL types.
-	
+
 	* dbus/dbus-message.c: (dbus_message_set_sender):
 	Remove todo about being able to set sender to NULL.
-	
+
 	(dbus_message_set_is_error_reply),
 	(dbus_message_get_is_error_reply):
 	* dbus/dbus-message.h:
 	New functions.
-	
+
 	* dbus/dbus-protocol.h:
 	Add error reply flag.
-	
+
 	* test/data/valid-messages/opposite-endian.message:
 	Add NIL type to test.
-	
+
 2003-01-31  Havoc Pennington  <hp@pobox.com>
 
 	* doc/dbus-specification.sgml: fully specify the header.  Add
@@ -3728,10 +4470,10 @@
 
 2003-01-30  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-auth.c: rework to use only REJECTED, no 
+	* dbus/dbus-auth.c: rework to use only REJECTED, no
 	MECHANISMS
 
-	* doc/dbus-sasl-profile.txt: drop MECHANISMS and just 
+	* doc/dbus-sasl-profile.txt: drop MECHANISMS and just
 	use REJECTED, suggested by Mark McLoughlin
 
 2003-01-30  Havoc Pennington  <hp@pobox.com>
@@ -3743,55 +4485,55 @@
 
 	* dbus/dbus-address.c (dbus_address_entries_free): add @todo about
 	leaking list nodes
-	(dbus_parse_address): add @todo about documenting address format, 
+	(dbus_parse_address): add @todo about documenting address format,
 	and allowing , and ; to be escaped
 
 2003-01-30  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/Makefile.am:
 	Add dbus-address.[ch]
-	
+
 	* dbus/dbus-address.c: (dbus_address_entry_free),
 	(dbus_address_entries_free), (create_entry),
 	(dbus_address_entry_get_method), (dbus_address_entry_get_value),
 	(dbus_parse_address), (_dbus_address_test):
 	* dbus/dbus-address.h:
 	New files for dealing with address parsing.
-	
+
 	* dbus/dbus-connection.c:
 	Document timeout functions.
-	
+
 	* dbus/dbus-message.c:
 	Document dbus_message_new_from_message.
-	
+
 	* dbus/dbus-server-debug.c:
 	Document.
-	
+
 	* dbus/dbus-server.c: (dbus_server_listen):
 	Parse address and use correct server implementation.
-	
+
 	* dbus/dbus-string.c: (_dbus_string_find_to), (_dbus_string_test):
 	* dbus/dbus-string.h:
 	New function with test.
-	
+
 	* dbus/dbus-test.c: (dbus_internal_symbol_do_not_use_run_tests):
 	* dbus/dbus-test.h:
 	Add address tests.
-	
+
 	* dbus/dbus-transport-debug.c:
 	Document.
-	
+
 	* dbus/dbus-transport.c: (_dbus_transport_open):
-	Parse address and use correct transport implementation.	
+	Parse address and use correct transport implementation.
 
 2003-01-30  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-message.c: use message->byte_order instead of 
+	* dbus/dbus-message.c: use message->byte_order instead of
 	DBUS_COMPILER_BYTE_ORDER throughout.
-	(dbus_message_create_header): pad header to align the 
+	(dbus_message_create_header): pad header to align the
 	start of the body of the message to 8-byte boundary
 
-	* dbus/dbus-marshal.h: make all the demarshalers take const 
+	* dbus/dbus-marshal.h: make all the demarshalers take const
 	DBusString arguments.
 
 	* dbus/dbus-message.c (_dbus_message_loader_return_buffer):
@@ -3804,7 +4546,7 @@
 	implemented properly)
 	(_dbus_string_validate_nul): new function to check all-nul
 
-	* dbus/dbus-marshal.c (_dbus_marshal_get_field_end_pos): rename 
+	* dbus/dbus-marshal.c (_dbus_marshal_get_field_end_pos): rename
 	get_arg_end_pos and remove all validation
 	(_dbus_marshal_validate_arg): actually do validation here.
 
@@ -3816,9 +4558,9 @@
 2003-01-28  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-server-debug.c: Add doc section comments
-	
+
 	* dbus/dbus-transport-debug.c: add doc section comments
-	
+
 2003-01-28  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-string.c (_dbus_string_base64_decode): append bytes in
@@ -3832,13 +4574,13 @@
 	* dbus/dbus-connection.c: (_dbus_connection_add_timeout),
 	(_dbus_connection_remove_timeout):
 	Add functions for adding and removing timeouts.
-	
+
 	* dbus/dbus-message.c: (dbus_message_new_from_message):
 	Add new function that takes a message and creates an exact
 	copy of it, but with the refcount set to 1.
 	(check_message_handling):
 	Fix build error.
-	
+
 	* dbus/dbus-server-protected.h:
 	* dbus/dbus-server.c: (_dbus_server_init_base),
 	(_dbus_server_finalize_base), (_dbus_server_add_timeout),
@@ -3851,16 +4593,16 @@
 
 	* dbus/dbus-timeout.c: (_dbus_timeout_new):
 	Actually set the handler, doh.
-	
+
 	* dbus/dbus-transport.c: (_dbus_transport_open):
 	Add commented out call to dbus_transport_debug_client_new.
-	
+
 	* dbus/Makefile.am:
 	Add dbus-transport-debug.[ch] and dbus-server-debug.[ch]
-	
+
 2003-01-28  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-message.c (check_message_handling): function to check 
+	* dbus/dbus-message.c (check_message_handling): function to check
 	on the loaded message, iterates over it etc.
 
 2003-01-28  Havoc Pennington  <hp@pobox.com>
@@ -3871,14 +4613,14 @@
 
 2003-01-27  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-mempool.c (time_for_size): replace printf with 
+	* dbus/dbus-mempool.c (time_for_size): replace printf with
 	_dbus_verbose
 
 	* dbus/dbus-message-builder.c (_dbus_message_data_load): allow
 	empty lines; fix the SAVE_LENGTH stuff to be
-	START_LENGTH/END_LENGTH so it actually works; couple other 
+	START_LENGTH/END_LENGTH so it actually works; couple other
 	bugfixes
-	
+
 	* test/Makefile.am (dist-hook): add dist-hook for .message files
 
 	* dbus/dbus-string.c (DBUS_STRING_COPY_PREAMBLE): source of a copy
@@ -3888,7 +4630,7 @@
 
 	* dbus/dbus-sysdeps.c (_dbus_concat_dir_and_file): utility
 
-	* dbus/dbus-test-main.c (main): take an argument which is the 
+	* dbus/dbus-test-main.c (main): take an argument which is the
 	directory containing test data
 
 	* dbus/dbus-message.c (_dbus_message_test): pass a test_data_dir
@@ -3899,7 +4641,7 @@
 
 	* bus/dispatch.c: (bus_dispatch_message_handler):
 	Dispatch messages sent to services.
-	
+
 	* bus/driver.c: (bus_driver_send_service_deleted),
 	(bus_driver_send_service_created), (bus_driver_send_service_lost),
 	(bus_driver_send_service_acquired):
@@ -3907,56 +4649,56 @@
 
 	(bus_driver_send_welcome_message):
 	Send HELLO_REPLY instead of WELCOME.
-	
+
 	(bus_driver_handle_list_services):
 	Send LIST_SERVICES_REPLY instead of SERVICES.
-	
+
 	(bus_driver_handle_own_service),
 	(bus_driver_handle_service_exists):
 	New message handlers.
-	
+
 	(bus_driver_handle_message):
 	Invoke new message handlers.
-	
+
 	(bus_driver_remove_connection):
 	Don't remove any services here since that's done automatically
 	by bus_service_remove_owner now.
-	
+
 	* bus/driver.h:
 	New function signatures.
-	
+
 	* bus/services.c: (bus_service_add_owner):
 	Send ServiceAcquired message if we're the only primary owner.
-	
+
 	(bus_service_remove_owner):
 	Send ServiceAcquired/ServiceLost messages.
-	
+
 	(bus_service_set_prohibit_replacement),
 	(bus_service_get_prohibit_replacement):
 	Functions for setting prohibit replacement.
-	
+
 	(bus_service_has_owner):
-	New function that checks if a connection is in the owner queue of 
+	New function that checks if a connection is in the owner queue of
 	a certain service.
-	
+
 	* bus/services.h:
 	Add new function signatures.
-	
+
 	* dbus/dbus-list.c: (_dbus_list_test):
 	Add tests for _dbus_list_remove_last and traversing the list backwards.
-	
+
 	* dbus/dbus-list.h:
 	Fix a typo in _dbus_list_get_prev_link, if we're at the first element we can't
 	go any further, so return NULL then.
-	
+
 	* dbus/dbus-protocol.h:
 	Add new messages, service flags and service replies.
-	
+
 2003-01-26  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-message-builder.c: implement, completely untested.
 
-	* test/data/*: add data to be used in testing. 
+	* test/data/*: add data to be used in testing.
 	".message" files are our simple loadable text format.
 	".message-raw" will be binary dumps of messages.
 
@@ -3981,21 +4723,21 @@
 
         The unit tests pass, but otherwise untested.  If it breaks, the
 	tests should have been better. ;-)
-	
+
 	* bus/driver.c (bus_driver_handle_hello): return if we disconnect
 	the connection.
 
-	* dbus/dbus-message.c: redo everything so we maintain 
+	* dbus/dbus-message.c: redo everything so we maintain
 	message->header as the only copy of the various fields.
 	This avoids the possibility of out-of-memory in some cases,
 	for example dbus_message_lock() can't run out of memory anymore,
-	and avoids extra copying. Figured I may as well go ahead and do 
-	this since it was busted for dbus_message_lock to not return 
+	and avoids extra copying. Figured I may as well go ahead and do
+	this since it was busted for dbus_message_lock to not return
 	failure on OOM, and dbus_message_write_header was totally
 	unchecked for OOM. Also fixed some random other bugs.
 
 	* dbus/dbus-marshal.c (_dbus_marshal_get_field_end_pos): verify
-	that strings are nul-terminated. Also, end_pos can be equal 
+	that strings are nul-terminated. Also, end_pos can be equal
 	to string length just not greater than, I think.
 	(_dbus_marshal_set_int32): new function
 	(_dbus_marshal_set_uint32): new function
@@ -4013,7 +4755,7 @@
 	* bus/driver.c: (bus_driver_handle_hello),
 	(bus_driver_send_welcome_message):
 	Plug leaks
-	
+
 2003-01-26  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-auth.c: (process_auth), (_dbus_auth_unref):
@@ -4022,13 +4764,13 @@
 	* dbus/dbus-marshal.c: (_dbus_marshal_test):
 	* dbus/dbus-message.c: (dbus_message_unref),
 	Plug memory leaks.
-	
-	(dbus_message_get_fields): 
+
+	(dbus_message_get_fields):
 	Remove debugging printout.
 
 	(_dbus_message_loader_return_buffer):
 	Don't store the header string.
-	
+
 	(_dbus_message_test):
 	Plug leaks.
 
@@ -4042,10 +4784,10 @@
 	* glib/dbus-gmain.c: (dbus_connection_prepare),
 	(dbus_connection_check), (dbus_connection_dispatch), (add_watch),
 	(remove_watch), (dbus_connection_hookup_with_g_main):
-	Rewrite the glib handling to use its own GSource instead of a 
+	Rewrite the glib handling to use its own GSource instead of a
 	GIOChannel so we can catch messages put in the queue while waiting
 	for a reply.
-	
+
 2003-01-25  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/Makefile.am:
@@ -4061,105 +4803,105 @@
 	(bus_driver_handle_list_services), (bus_driver_remove_connection),
 	(bus_driver_handle_message):
 	* bus/driver.h:
-	Refactor code, put the message dispatching in its own file. Use 
+	Refactor code, put the message dispatching in its own file. Use
 	_DBUS_HANDLE_OOM. Also send ServiceDeleted messages when a client
 	is disconnected.
-	
+
 2003-01-25  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-internals.h:
 	Add _DBUS_HANDLE_OOM macro, it doesn't do anything currently.
-	
+
 	* dbus/dbus-message.c: (dbus_message_get_sender):
 	* dbus/dbus-message.h:
 	Implement dbus_message_get_sender.
-	
+
 	* dbus/dbus-protocol.h:
 	Add message and service defines.
-	
+
 2003-01-25  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-connection.c: (dbus_connection_send_message):
 	* dbus/dbus-message-internal.h:
 	* dbus/dbus-message.c: (_dbus_message_get_client_serial),
 	(dbus_message_write_header):
-	Remove _dbus_messag_unlock and don't set the client serial on a 
+	Remove _dbus_messag_unlock and don't set the client serial on a
 	message if one already exists.
-	
+
 2003-01-24  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-list.c (alloc_link): put a thread lock on the global
 	list_pool
 
-	* bus/driver.c (bus_driver_handle_list_services): fix a leak 
+	* bus/driver.c (bus_driver_handle_list_services): fix a leak
 	on OOM
 
 2003-01-25  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-list.c: (alloc_link), (free_link):
 	Use a memory pool for the links.
-	
+
 2003-01-25  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/connection.c: (bus_connection_foreach):
 	* bus/connection.h:
 	Add new bus_connection_foreach function.
-	
+
 	* bus/driver.c: (send_one_message), (bus_driver_broadcast_message):
 	Add function that broadcasts a message to all clients.
-	
+
 	(bus_driver_send_service_created), (bus_driver_handle_hello),
 	(bus_driver_send_welcome_message),
 	(bus_driver_handle_list_services), (bus_driver_message_handler):
 	Implement functions that take care of listing services, and notifying
 	clients when new services are created.
-	
+
 	* bus/services.c: (bus_services_list):
 	* bus/services.h:
 	Add new function that returns an array of strings with the currently
 	registered services.
-	
+
 	* glib/dbus-glib.h:
 	* glib/dbus-gmain.c:
 	Update copyright year.
-	
+
 2003-01-25  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-connection.c: (dbus_connection_send_message):
 	Unlock the message in case it was sent earlier.
-	
+
 	(dbus_connection_send_message_with_reply_and_block):
 	Remove the reply message from the list.
-	
+
 	* dbus/dbus-marshal.c: (_dbus_demarshal_string_array):
 	Set array_len and new_pos correctly.
-	
+
 	(_dbus_marshal_test):
 	Remove debug output.
-	
+
 	* dbus/dbus-message-internal.h:
 	* dbus/dbus-message.c: (_dbus_message_get_reply_serial):
 	New function that returns the reply serial.
-	
+
 	(_dbus_message_unlock):
 	New function that unlocks a message and resets its header.
 
-	(dbus_message_append_string_array), 
+	(dbus_message_append_string_array),
 	(dbus_message_get_fields_valist),
 	(dbus_message_iter_get_field_type),
-	(dbus_message_iter_get_string_array),	
-	(dbus_message_get_fields),	
+	(dbus_message_iter_get_string_array),
+	(dbus_message_get_fields),
 	(dbus_message_append_fields_valist):
 	Handle string arrays.
-	
+
 	(dbus_message_set_sender):
 	Make this function public since the bus daemon needs it.
-	
+
 	(decode_header_data):
 	Set the reply serial to -1 initially.
 
 	* dbus/dbus-message.h:
-	Add dbus_message_set_sender.	
+	Add dbus_message_set_sender.
 
 2003-01-24  Havoc Pennington  <hp@pobox.com>
 
@@ -4179,9 +4921,9 @@
 2003-01-21  Havoc Pennington  <hp@pobox.com>
 
         (patch untested because can't compile)
-	
+
 	* bus/driver.c (create_unique_client_name): make this function
-	never recycle client names. Also, caller should initialize 
+	never recycle client names. Also, caller should initialize
 	the DBusString.
 
 	* dbus/dbus-sysdeps.c (_dbus_get_current_time): new function
@@ -4199,27 +4941,27 @@
 	* dbus/dbus-protocol.h:
 	Add support for marshalling and demarshalling integer, double
 	and string arrays.
-	
+
 2003-01-21  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/Makefile.am:
 	Add driver.[ch]
-	
+
 	* bus/connection.c: (connection_disconnect_handler):
 	Remove the connection from the bus driver's list.
-	
+
 	(connection_watch_callback): Dispatch messages.
 
 	(free_connection_data): Free connection name.
-	
+
 	(bus_connection_setup): Add connection to the bus driver's list.
-	(bus_connection_remove_owned_service): 
+	(bus_connection_remove_owned_service):
 	(bus_connection_set_name), (bus_connection_get_name):
 	Add functions for setting and getting the connection's name.
-	
+
 	* bus/connection.h:
 	Add function headers.
-	
+
 	* bus/driver.c: (create_unique_client_name),
 	(bus_driver_handle_hello_message),
 	(bus_driver_send_welcome_message), (bus_driver_message_handler),
@@ -4229,27 +4971,27 @@
 	* bus/services.c: (bus_service_free):
 	* bus/services.h:
 	New file that handles communication and registreation with the bus
-	itself. 
-	
+	itself.
+
 2003-01-21  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-connection.c: (dbus_connection_send_message):
 	Add a new client_serial parameter.
-	
+
 	(dbus_connection_send_message_with_reply):
 	Remove a @todo since we've implemented the blocking function.
-	
+
 	(dbus_connection_send_message_with_reply_and_block):
 	New function that sends a message and waits for a reply and
 	then returns the reply.
-	
+
 	* dbus/dbus-connection.h:
 	Add new functions.
-	
+
 	* dbus/dbus-errors.c: (dbus_result_to_string):
 	* dbus/dbus-errors.h:
 	Add new DBUS_RESULT.
-	
+
 	* dbus/dbus-message-internal.h:
 	* dbus/dbus-message.c: (_dbus_message_get_reply_serial),
 	(_dbus_message_set_sender), (dbus_message_write_header),
@@ -4258,37 +5000,37 @@
 	* dbus/dbus-message.h:
 	Add new functions that set the reply serial and sender.
 	Also marshal and demarshal them correctly and add test.
-	
+
 	* dbus/dbus-protocol.h:
 	Add new DBUS_MESSAGE_TYPE_SENDER.
-	
+
 	* glib/dbus-glib.h:
 	* glib/dbus-gmain.c: (watch_callback), (free_callback_data),
 	(add_watch), (remove_watch), (add_timeout), (remove_timeout),
 	(dbus_connection_hookup_with_g_main):
 	* glib/test-dbus-glib.c: (main):
 	Rewrite to use GIOChannel and remove the GSource crack.
-	
+
 	* test/echo-client.c: (main):
 	* test/watch.c: (check_messages):
 	Update for changed APIs
-	
+
 2003-01-19  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/Makefile.am: Add dbus-timeout.[cħ]
-	
+
 	* dbus/dbus-connection.c: (_dbus_connection_new_for_transport):
-	Create a DBusTimeoutList.	
+	Create a DBusTimeoutList.
 	(dbus_connection_set_timeout_functions): Add new function to
 	set timeout callbacks
-	
+
 	* dbus/dbus-connection.h: Add public DBusTimeout API.
-	
+
 	* dbus/dbus-message.c: (dbus_message_get_service):
 	* dbus/dbus-message.h:	New function.
 
 	* dbus/dbus-server.c: Fix small doc typo.
-	
+
 	* dbus/dbus-timeout.[ch]: New files for mainloop timeouts.
 
 2003-01-19  Anders Carlsson  <andersca@codefactory.se>
@@ -4318,9 +5060,9 @@
 	* dbus/dbus-transport-unix.c (check_write_watch): fix a mem leak
 	in OOM case
 
-	* dbus/dbus-connection.c (dbus_connection_set_max_message_size) 
-	(dbus_connection_get_max_message_size) 
-	(dbus_connection_set_max_live_messages_size) 
+	* dbus/dbus-connection.c (dbus_connection_set_max_message_size)
+	(dbus_connection_get_max_message_size)
+	(dbus_connection_set_max_live_messages_size)
 	(dbus_connection_get_max_live_messages_size): implement some
 	resource limitation functions
 
@@ -4332,10 +5074,10 @@
 
 	* dbus/dbus-marshal.c (_dbus_demarshal_byte_array): add missing
 	docs
-	
+
 2003-01-18  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-connection.c (dbus_connection_unref): disconnect the 
+	* dbus/dbus-connection.c (dbus_connection_unref): disconnect the
 	connection if it hasn't been already.
 
 	* dbus/dbus-connection.h: kill off the idea of an ErrorFunction,
@@ -4345,9 +5087,9 @@
 
         Building --disable-verbose-mode --disable-asserts --disable-tests
 	cuts the library from 112K to 45K or so
-	
-	* configure.in: check for varargs macro support, 
-	add --enable-verbose-mode, --enable-asserts. 
+
+	* configure.in: check for varargs macro support,
+	add --enable-verbose-mode, --enable-asserts.
 
 	* dbus/dbus-internals.h (_dbus_assert): support
 	DBUS_DISABLE_ASSERT
@@ -4374,7 +5116,7 @@
 2003-01-15  Havoc Pennington  <hp@redhat.com>
 
         Release 0.2
-	
+
 	* NEWS: update
 
 2003-01-15  Havoc Pennington  <hp@redhat.com>
@@ -4385,8 +5127,8 @@
 2003-01-15  Havoc Pennington  <hp@redhat.com>
 
         Release 0.1.
-	
-	* NEWS: update	
+
+	* NEWS: update
 
 2003-01-15  Havoc Pennington  <hp@redhat.com>
 
@@ -4404,7 +5146,7 @@
 	* bus/main.c: (main):
 	Make sure that the DBusConnectionData struct is NULLed
 	out to prevent a segfault.
-	
+
 	* dbus/dbus-errors.c: (dbus_result_to_string):
 	* dbus/dbus-errors.h:
 	* dbus/dbus-message.c: (dbus_message_get_fields),
@@ -4412,7 +5154,7 @@
 	* dbus/dbus-message.h:
 	Make dbus_message_get_fields return a result code so we can
 	track invalid fields as well as oom.
-	
+
 2003-01-11  Havoc Pennington  <hp@pobox.com>
 
 	* configure.in: change --enable-test/--enable-ansi action-if-given
@@ -4425,11 +5167,11 @@
 	* dbus/dbus-test-main.c: move main() for test app here
 	* dbus/dbus-test.c
 	(dbus_internal_symbol_do_not_use_run_tests): we have to export a
-	symbol to run tests, because dbus-test isn't in the main 
+	symbol to run tests, because dbus-test isn't in the main
 	library
 
         Code review nitpicks.
-	
+
 	* dbus/dbus-message.c (dbus_message_write_header): add newlines
 	for people with narrow emacs ;-). Assert client_serial was filled
 	in. Assert message->name != NULL.
@@ -4466,7 +5208,7 @@
 
 2003-01-08  Havoc Pennington  <hp@redhat.com>
 
-	* dbus/dbus-transport-unix.c (unix_do_iteration): add read/write 
+	* dbus/dbus-transport-unix.c (unix_do_iteration): add read/write
 	to the select() as needed for authentication. (should be using
 	_dbus_poll() not select, but for another day)
 
@@ -4481,7 +5223,7 @@
 
 	* dbus/dbus-internals.c: (_dbus_type_to_string):
 	New function that returns a string describing a type.
-	
+
 	* dbus/dbus-marshal.c: (_dbus_demarshal_byte_array):
 	* dbus/dbus-marshal.h:
 	* dbus/dbus-message.c: (dbus_message_get_fields_valist),
@@ -4527,7 +5269,7 @@
 	* test/echo-client.c: (main):
 	* test/watch.c: (check_messages):
 	Make messages sendable and receivable for real.
-	
+
 2003-01-07  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-marshal.c: (_dbus_marshal_double),
@@ -4536,7 +5278,7 @@
 	(dbus_message_append_uint32), (dbus_message_append_double),
 	(dbus_message_append_string), (dbus_message_append_byte_array):
 	Handle OOM restoration.
-	
+
 2003-01-07  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-marshal.c: (_dbus_marshal_string),
@@ -4544,13 +5286,13 @@
 	* dbus/dbus-marshal.h:
 	* dbus/dbus-message.c: (dbus_message_get_name),
 	Document these functions.
-	
+
 	(dbus_message_append_int32), (dbus_message_append_uint32),
 	(dbus_message_append_double), (dbus_message_append_string),
 	(dbus_message_append_byte_array):
 	* dbus/dbus-message.h:
 	Add functions for adding message fields of different types.
-	
+
 	* dbus/dbus-protocol.h:
 	Add the different types.
 
@@ -4584,13 +5326,13 @@
 
 2003-01-04  Havoc Pennington  <hp@pobox.com>
 
-	* test/watch.c (error_handler): make it safe if the error handler 
+	* test/watch.c (error_handler): make it safe if the error handler
 	is called multiple times (if we s/error handler/disconnect
 	handler/ we should just guarantee it's called only once)
 
 	* dbus/dbus-transport.c (_dbus_transport_disconnect): call the
 	error handler on disconnect (it's quite possible we should
-	just change the error handler to a "disconnect handler," I'm 
+	just change the error handler to a "disconnect handler," I'm
 	not sure we have any other meaningful errors)
 
 	* configure.in: check for getpwnam_r
@@ -4615,7 +5357,7 @@
 	* dbus/dbus-marshal.h:
 	Add _dbus_marshal_byte_array and rename _dbus_marshal_string
 	to _dbus_marshal_utf8_string. Also fix some tests.
-	
+
 2002-12-28  Harri Porten  <porten@kde.org>
 
 	* configure.in: added check for C++ compiler and a very cheesy
@@ -4623,9 +5365,9 @@
 
 	* Makefile.am (SUBDIRS): compile qt subdir if support is enabled
 
-	* qt/Makefile.am: added 
+	* qt/Makefile.am: added
 
-	* qt/.cvsignore: added	
+	* qt/.cvsignore: added
 
 	* qt/dbus-qthread.cc, qt/dbus-qthread.cpp: renamed former to
 	latter, added #ifdef QT_THREAD_SUPPORT guard.
@@ -4638,7 +5380,7 @@
 
 2002-12-27  Anders Carlsson  <andersca@codefactory.se>
 
-	* acinclude.m4: Add this file and put the 
+	* acinclude.m4: Add this file and put the
 	PKG_CHECK_MODULE macro in it.
 
 2002-12-27  Anders Carlsson  <andersca@codefactory.se>
@@ -4648,9 +5390,9 @@
 	(_dbus_demarshal_uint32), (_dbus_demarshal_string),
 	(_dbus_marshal_test):
 	Make the demarshalling routines align the pos argument.
-	Add string marshalling tests and fix the obvious bugs 
+	Add string marshalling tests and fix the obvious bugs
 	discovered.
-	
+
 2002-12-26  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-auth.c: fixes fixes fixes
@@ -4658,8 +5400,8 @@
 	* dbus/dbus-transport-unix.c: wire up support for
 	encoding/decoding data on the wire
 
-	* dbus/dbus-auth.c (_dbus_auth_encode_data) 
-	(_dbus_auth_decode_data): append to target string 
+	* dbus/dbus-auth.c (_dbus_auth_encode_data)
+	(_dbus_auth_decode_data): append to target string
 	instead of nuking it.
 
 2002-12-26  Havoc Pennington  <hp@pobox.com>
@@ -4669,7 +5411,7 @@
 	doh
 
 	* dbus/dbus-marshal.c: Add macros to do int swapping in-place and
-	avoid swap_bytes() overhead (ignoring possible assembly stuff for 
+	avoid swap_bytes() overhead (ignoring possible assembly stuff for
 	now). Main point is because I wanted unpack_uint32 to implement
 	_dbus_verbose_bytes
 	(_dbus_verbose_bytes): new function
@@ -4678,14 +5420,14 @@
 
 	* dbus/dbus-message.c (_dbus_message_loader_get_is_corrupted): add
 	mechanism to handle a corrupt message stream
-	(_dbus_message_loader_new): fix preallocation to only prealloc, 
+	(_dbus_message_loader_new): fix preallocation to only prealloc,
 	not prelengthen
-	
+
 	* dbus/dbus-string.c (_dbus_string_skip_blank): fix this function
 	(_dbus_string_test): enhance tests for copy/move and fix the
 	functions
 
-	* dbus/dbus-transport-unix.c: Hold references in more places to 
+	* dbus/dbus-transport-unix.c: Hold references in more places to
 	avoid reentrancy problems
 
 	* dbus/dbus-transport.c: ditto
@@ -4705,7 +5447,7 @@
 	(_dbus_auth_get_unused_bytes): append the unused bytes
 	to the passed in string, rather than prepend
 
-	* dbus/dbus-transport.c (_dbus_transport_init_base): create 
+	* dbus/dbus-transport.c (_dbus_transport_init_base): create
 	the auth conversation DBusAuth
 
 	* dbus/dbus-transport-unix.c (_dbus_transport_new_for_fd)
@@ -4720,14 +5462,14 @@
 	(unix_connection_set): unref watch if we fail to add it
 
 	* dbus/dbus-connection.c (dbus_connection_unref): delete the
-	transport first, so that the connection owned by the 
+	transport first, so that the connection owned by the
 	transport will be valid as the transport finalizes.
 
 	* dbus/dbus-transport-unix.c (unix_finalize): free the write_watch
 	if necessary, and remove watches from the connection.
-	
+
 	* dbus/dbus-watch.c (_dbus_watch_list_free): improve a comment
-	
+
 2002-12-26  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-marshal.c: (_dbus_marshal_string),
@@ -4737,15 +5479,15 @@
 	* dbus/dbus-marshal.h:
 	Add string marshal functions and have the demarshal functions
 	return the new position.
-	
+
 2002-12-25  Havoc Pennington  <hp@pobox.com>
 
-	* doc/dbus-sasl-profile.txt: docs on the authentication protocol, 
+	* doc/dbus-sasl-profile.txt: docs on the authentication protocol,
 	it is a simple protocol that just maps directly to SASL.
 
 	* dbus/dbus-auth.h, dbus/dbus-auth.c: authentication protocol
 	initial implementation, not actually used yet.
-	
+
 	* dbus/dbus-string.c (_dbus_string_find): new function
 	(_dbus_string_equal): new function
 	(_dbus_string_base64_encode): new function
@@ -4763,7 +5505,7 @@
 	* dbus/dbus-test.c: (main):
 	* dbus/dbus-test.h:
 	Add un-optimized marshalling/demarshalling routines.
-	
+
 2002-12-25  Harri Porten  <porten@kde.org>
 
 	* qt/dbus-qt.h: adjusted ctor and getter to KDE/Qt conventions
@@ -4778,17 +5520,17 @@
 
 	* glib/dbus-gthread.c: fix include
 
-	* glib/dbus-glib.h: rename DBusMessageHandler for now. 
-	I think glib API needs to change, though, as you don't 
-	want to use DBusMessageFunction, you want to use the 
-	DBusMessageHandler object. Probably 
+	* glib/dbus-glib.h: rename DBusMessageHandler for now.
+	I think glib API needs to change, though, as you don't
+	want to use DBusMessageFunction, you want to use the
+	DBusMessageHandler object. Probably
 	dbus_connection_open_with_g_main_loop()
 	and dbus_connection_setup_g_main_loop() or something like that
-	(but think of better names...) that just create a connection 
+	(but think of better names...) that just create a connection
 	that has watch/timeout functions etc. already set up.
 
 	* dbus/dbus-connection.c
-	(dbus_connection_send_message_with_reply): new function just to 
+	(dbus_connection_send_message_with_reply): new function just to
 	show how the message handler helps us deal with replies.
 
 	* dbus/dbus-list.c (_dbus_list_remove_last): new function
@@ -4797,15 +5539,15 @@
 	wasn't
 
 	* dbus/dbus-hash.c: use memory pools for the hash entries
-	(rebuild_table): be more paranoid about overflow, and 
+	(rebuild_table): be more paranoid about overflow, and
 	shrink table when we can
 	(_dbus_hash_test): reduce number of sprintfs and write
-	valid C89. Add tests for case where we grow and then 
+	valid C89. Add tests for case where we grow and then
 	shrink the hash table.
 
 	* dbus/dbus-mempool.h, dbus/dbus-mempool.c: memory pools
 
-	* dbus/dbus-connection.c (dbus_connection_register_handler) 
+	* dbus/dbus-connection.c (dbus_connection_register_handler)
 	(dbus_connection_unregister_handler): new functions
 
 	* dbus/dbus-message.c (dbus_message_get_name): new
@@ -4820,13 +5562,13 @@
 	* glib/dbus-glib.h:
 	* glib/dbus-gthread.c: (dbus_gthread_init):
 	Don't use the gdbus prefix for public functions.
-	
+
 2002-12-16  Anders Carlsson  <andersca@codefactory.se>
 
 	* Makefile.am:
 	* configure.in:
 	Add GLib checks and fixup .pc files
-	
+
 	* glib/Makefile.am:
 	* glib/dbus-glib.h:
 	* glib/dbus-gmain.c: (gdbus_connection_prepare),
@@ -4837,14 +5579,14 @@
 	(dbus_gmutex_lock), (dbus_gmutex_unlock), (dbus_gthread_init):
 	* glib/test-dbus-glib.c: (message_handler), (main):
 	Add GLib support.
-	
+
 2002-12-15  Harri Porten  <porten@kde.org>
 
-	* autogen.sh: check for libtoolize before attempting to use it 
-	
+	* autogen.sh: check for libtoolize before attempting to use it
+
 	* dbus/dbus-transport-unix.c: include <sys/time.h> for timeval
 	struct.
-	
+
 	* .cvsignore: ignore more stamp files
 
 	* dbus/dbus-watch.c (_dbus_watch_list_new): fixed doc error
@@ -4882,7 +5624,7 @@
 	* dbus/dbus-connection.c (dbus_connection_send_message): return
 	TRUE on success
 
-	* dbus/dbus-transport.c: include dbus-watch.h	
+	* dbus/dbus-transport.c: include dbus-watch.h
 
 	* dbus/dbus-connection.c: include dbus-message-internal.h
 
@@ -4896,17 +5638,17 @@
 	system/libc usage here, as in vsftpd, for ease of auditing (and
 	should also simplify portability). Haven't actually moved all the
 	system/libc usage into here yet.
-	
+
 2002-11-25  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-internals.c (_dbus_verbose): fix to not 
+	* dbus/dbus-internals.c (_dbus_verbose): fix to not
 	always print the first verbose message.
 
 2002-11-24  Havoc Pennington  <hp@pobox.com>
 
-        * test/echo-client.c, test/echo-server.c: cheesy test 
+        * test/echo-client.c, test/echo-server.c: cheesy test
 	clients.
-	
+
 	* configure.in (AC_CHECK_FUNCS): check for writev
 
 	* dbus/dbus-message.c (_dbus_message_get_network_data): new
@@ -4925,8 +5667,8 @@
 	public API for reporting errors
 
 	* dbus/dbus-connection.h, dbus/dbus-connection.c:
-	public object representing a connection that 
-	sends/receives messages. (Same object used for 
+	public object representing a connection that
+	sends/receives messages. (Same object used for
 	both client and server.)
 
 	* dbus/dbus-transport.h, dbus/dbus-transport.c:
@@ -4935,20 +5677,20 @@
 
 2002-11-23  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-internals.h (_DBUS_INT_MAX): add _DBUS_INT_MIN 
+	* dbus/dbus-internals.h (_DBUS_INT_MAX): add _DBUS_INT_MIN
 	_DBUS_INT_MAX
 
-	* dbus/dbus-test.c (main): add list test, and include 
+	* dbus/dbus-test.c (main): add list test, and include
 	dbus-test.h as intended
 
-	* dbus/dbus-hash.c (_dbus_hash_table_remove_string) 
-	(_dbus_hash_table_remove_int): return value indicates 
+	* dbus/dbus-hash.c (_dbus_hash_table_remove_string)
+	(_dbus_hash_table_remove_int): return value indicates
 	whether the entry existed to remove
 
-	* dbus/dbus-list.c: add linked list utility class, 
+	* dbus/dbus-list.c: add linked list utility class,
 	with docs and tests
 
-	* dbus/dbus-hash.c: add TODO item about shrinking the hash bucket 
+	* dbus/dbus-hash.c: add TODO item about shrinking the hash bucket
 	array sometimes.
 
 2002-11-23  Havoc Pennington  <hp@pobox.com>
@@ -4958,43 +5700,43 @@
 
 	* Doxyfile.in (JAVADOC_AUTOBRIEF): set to YES
 
-	* dbus/dbus-message.c, dbus/dbus-hash.c: 
+	* dbus/dbus-message.c, dbus/dbus-hash.c:
 	add some missing @brief
 
 2002-11-23  Havoc Pennington  <hp@pobox.com>
 
-	* dbus/dbus-message.h: put semicolons after DEBUG_BEGIN_DECLS 
+	* dbus/dbus-message.h: put semicolons after DEBUG_BEGIN_DECLS
 	to avoid confusing Doxygen
 
 	* dbus/dbus-hash.c: @} not }@
 
-	* dbus/dbus-message.c (struct DBusMessage): split out 
+	* dbus/dbus-message.c (struct DBusMessage): split out
 	internals docs
 
 2002-11-23  Havoc Pennington  <hp@pobox.com>
 
 	* configure.in: pile on more warning flags if using gcc
 
-	* Doxyfile.in (EXTRACT_STATIC): set to NO, so we don't have 
+	* Doxyfile.in (EXTRACT_STATIC): set to NO, so we don't have
 	to document static functions
 
-	* configure.in: add summary to end of configure so it 
+	* configure.in: add summary to end of configure so it
 	looks nice and attractive
 
-	* dbus/dbus-hash.c: finish implementation and write unit 
+	* dbus/dbus-hash.c: finish implementation and write unit
 	tests and docs
 
 	* configure.in: add --enable-tests to enable unit tests
 
-	* dbus/dbus-test.c: test program to run unit tests 
-	for all files in dbus/*, initially runs a test for 
+	* dbus/dbus-test.c: test program to run unit tests
+	for all files in dbus/*, initially runs a test for
 	dbus-hash.c
-	
+
 	* dbus/dbus-internals.h: file to hold some internal utility stuff
 
 2002-11-22  Havoc Pennington  <hp@redhat.com>
 
-	* dbus/dbus-hash.c: copy in Tcl hash table, not yet 
+	* dbus/dbus-hash.c: copy in Tcl hash table, not yet
 	"ported" away from Tcl
 
 	* dbus/dbus-types.h: header for types such as dbus_bool_t
@@ -5003,7 +5745,7 @@
 
 	* dbus/dbus.h: fixups for doc warnings
 
-	* Doxyfile.in (FILE_PATTERNS): we need to scan .h to pick up 
+	* Doxyfile.in (FILE_PATTERNS): we need to scan .h to pick up
 	macros
 	(QUIET): make it quiet so we can see warnings
 
@@ -5015,8 +5757,8 @@
 
 	* configure.in: generate the Doxyfile
 
-	* Doxyfile.in: move Doxyfile here, so we can use 
-	configure to generate a Doxyfile with the right 
+	* Doxyfile.in: move Doxyfile here, so we can use
+	configure to generate a Doxyfile with the right
 	version number etc.
 
 2002-11-22  Havoc Pennington  <hp@redhat.com>
@@ -5025,16 +5767,16 @@
 
 	* Doxyfile (OUTPUT_DIRECTORY): move output to doc/api
 	so all docs are under doc/
-	(MAN_EXTENSION): generate man pages. Use extension 
-	".3dbus" which matches ".3qt" on my system, 
+	(MAN_EXTENSION): generate man pages. Use extension
+	".3dbus" which matches ".3qt" on my system,
 	I guess this is OK, I don't know really.
 	(FILE_PATTERNS): look for .c files not .h, makes sense
 	for plain C I think
 
 2002-11-22  Havoc Pennington  <hp@pobox.com>
 
-	* Makefile.am (SUBDIRS): rename subdir "server" to "bus" 
-	because any app can be a server, and any app can be a client, 
+	* Makefile.am (SUBDIRS): rename subdir "server" to "bus"
+	because any app can be a server, and any app can be a client,
 	the bus is a special kind of server.
 
 Thu Nov 21 23:35:31 2002  Zack Rusin  <zack@kde.org>
@@ -5042,7 +5784,7 @@ Thu Nov 21 23:35:31 2002  Zack Rusin  <zack@kde.org>
 	* Doxyfile : adding. Still needs Makefile rules to be generated
 	automatically (just run "doxygen" in the toplevel dir for now to
 	generate docs)
-	
+
 	* dbus/dbus-message.h : Adding sample docs (javadoc since
 	resembles gtk-doc a little more)
 
@@ -5050,17 +5792,17 @@ Thu Nov 21 23:35:31 2002  Zack Rusin  <zack@kde.org>
 
 2002-11-21  Havoc Pennington  <hp@redhat.com>
 
-	* dbus/Makefile.am (INCLUDES): define DBUS_COMPILATION 
-	so we can allow ourselves to include files directly, 
+	* dbus/Makefile.am (INCLUDES): define DBUS_COMPILATION
+	so we can allow ourselves to include files directly,
 	instead of having to use dbus.h
 
 	* dbus/dbus.h: fill in
 
 	* dbus/dbus-message.h: sketch out a sample header file.
-	Include griping if you include it directly instead of 
+	Include griping if you include it directly instead of
 	via dbus.h
 
-	* dbus/dbus-macros.h: new file with macros for extern "C", 
+	* dbus/dbus-macros.h: new file with macros for extern "C",
 	TRUE/FALSE, NULL, etc.
 
 	* doc/file-boilerplate.c: put include guards in here
@@ -5069,7 +5811,7 @@ Thu Nov 21 23:35:31 2002  Zack Rusin  <zack@kde.org>
 
 	* doc/file-boilerplate.c: include both AFL and GPL boilerplate.
 
-	* COPYING: include the GPL as well, and license code 
+	* COPYING: include the GPL as well, and license code
 	under both AFL and GPL.
 
 2002-11-21  Havoc Pennington  <hp@redhat.com>
@@ -5079,9 +5821,9 @@ Thu Nov 21 23:35:31 2002  Zack Rusin  <zack@kde.org>
 	* autogen.sh (run_configure): add --no-configure option
 
 	* configure.in: remove AC_ARG_PROGRAM to make
-	autoconf complain less. add AC_PREREQ. 
+	autoconf complain less. add AC_PREREQ.
 	add AC_DEFINE third arg.
-	
+
 2002-11-21  Anders Carlsson  <andersca@codefactory.se>
 
 	* doc/Makefile.am:
