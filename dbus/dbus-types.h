@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-memory.h  D-BUS memory handling
+/* dbus-types.h  types such as dbus_bool_t
  *
  * Copyright (C) 2002  Red Hat Inc.
  *
@@ -24,25 +24,9 @@
 #error "Only <dbus/dbus.h> can be included directly, this file may disappear or change contents."
 #endif
 
-#ifndef DBUS_MEMORY_H
-#define DBUS_MEMORY_H
+#ifndef DBUS_TYPES_H
+#define DBUS_TYPES_H
 
-#include <dbus/dbus-macros.h>
-#include <sys/types.h> /* for size_t - is there a better header for this? */
+typedef unsigned int dbus_bool_t;
 
-DBUS_BEGIN_DECLS
-
-void* dbus_malloc        (size_t bytes);
-void* dbus_malloc0       (size_t bytes);
-void* dbus_realloc       (void  *memory,
-                          size_t bytes);
-void  dbus_free          (void  *memory);
-
-#define dbus_new(type, count)  ((type*)dbus_malloc (sizeof (type) * (count)));
-#define dbus_new0(type, count) ((type*)dbus_malloc0 (sizeof (type) * (count)));
-
-typedef void (* DBusFreeFunction) (void *memory);
-
-DBUS_END_DECLS
-
-#endif /* DBUS_MESSAGE_H */
+#endif /* DBUS_TYPES_H */

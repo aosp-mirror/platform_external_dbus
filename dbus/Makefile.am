@@ -9,7 +9,8 @@ dbusinclude_HEADERS=				\
 	dbus.h					\
 	dbus-macros.h				\
 	dbus-memory.h				\
-	dbus-message.h
+	dbus-message.h				\
+	dbus-types.h
 
 libdbus_1_la_SOURCES=				\
 	dbus-memory.c				\

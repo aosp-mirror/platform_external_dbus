@@ -63,6 +63,14 @@
  */
 
 /**
+ * @typedef DBusFreeFunction
+ *
+ * The type of a function which frees a block of memory.
+ *
+ * @param memory the memory to free
+ */
+
+/**
  * Allocates the given number of bytes, as with standard
  * malloc(). Guaranteed to return NULL if bytes is zero
  * on all platforms. Returns NULL if the allocation fails.
