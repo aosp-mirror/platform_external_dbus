@@ -48,8 +48,7 @@ struct BusContext
   BusLimits limits;
 };
 
-static int server_data_slot = -1;
-static int server_data_slot_refcount = 0;
+static dbus_int32_t server_data_slot = -1;
 
 typedef struct
 {
@@ -58,57 +57,25 @@ typedef struct
 
 #define BUS_SERVER_DATA(server) (dbus_server_get_data ((server), server_data_slot))
 
-static dbus_bool_t
-server_data_slot_ref (void)
-{
-  if (server_data_slot < 0)
-    {
-      server_data_slot = dbus_server_allocate_data_slot ();
-      
-      if (server_data_slot < 0)
-        return FALSE;
-
-      _dbus_assert (server_data_slot_refcount == 0);
-    }  
-
-  server_data_slot_refcount += 1;
-
-  return TRUE;
-}
-
-static void
-server_data_slot_unref (void)
-{
-  _dbus_assert (server_data_slot_refcount > 0);
-
-  server_data_slot_refcount -= 1;
-  
-  if (server_data_slot_refcount == 0)
-    {
-      dbus_server_free_data_slot (server_data_slot);
-      server_data_slot = -1;
-    }
-}
-
 static BusContext*
 server_get_context (DBusServer *server)
 {
   BusContext *context;
   BusServerData *bd;
   
-  if (!server_data_slot_ref ())
+  if (!dbus_server_allocate_data_slot (&server_data_slot))
     return NULL;
 
   bd = BUS_SERVER_DATA (server);
   if (bd == NULL)
     {
-      server_data_slot_unref ();
+      dbus_server_free_data_slot (&server_data_slot);
       return NULL;
     }
 
   context = bd->context;
 
-  server_data_slot_unref ();
+  dbus_server_free_data_slot (&server_data_slot);
 
   return context;
 }
@@ -303,7 +270,7 @@ bus_context_new (const DBusString *config_file,
       return NULL;
     }
 
-  if (!server_data_slot_ref ())
+  if (!dbus_server_allocate_data_slot (&server_data_slot))
     {
       BUS_SET_OOM (error);
       _dbus_string_free (&full_address);
@@ -358,7 +325,7 @@ bus_context_new (const DBusString *config_file,
   /* we need another ref of the server data slot for the context
    * to own
    */
-  if (!server_data_slot_ref ())
+  if (!dbus_server_allocate_data_slot (&server_data_slot))
     _dbus_assert_not_reached ("second ref of server data slot failed");
   
   context->user_database = _dbus_user_database_new ();
@@ -633,7 +600,7 @@ bus_context_new (const DBusString *config_file,
   bus_config_parser_unref (parser);
   _dbus_string_free (&full_address);
   dbus_free_string_array (auth_mechanisms);
-  server_data_slot_unref ();
+  dbus_server_free_data_slot (&server_data_slot);
   
   return context;
   
@@ -647,7 +614,7 @@ bus_context_new (const DBusString *config_file,
   _dbus_string_free (&full_address);
   dbus_free_string_array (auth_mechanisms);
 
-  server_data_slot_unref ();
+  dbus_server_free_data_slot (&server_data_slot);
   
   return NULL;
 }
@@ -769,7 +736,7 @@ bus_context_unref (BusContext *context)
       
       dbus_free (context);
 
-      server_data_slot_unref ();
+      dbus_server_free_data_slot (&server_data_slot);
     }
 }
 

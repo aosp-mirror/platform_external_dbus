@@ -2933,34 +2933,41 @@ _DBUS_DEFINE_GLOBAL_LOCK (connection_slots);
  * Allocates an integer ID to be used for storing application-specific
  * data on any DBusConnection. The allocated ID may then be used
  * with dbus_connection_set_data() and dbus_connection_get_data().
- * If allocation fails, -1 is returned. Again, the allocated
- * slot is global, i.e. all DBusConnection objects will
+ * The passed-in slot must be initialized to -1, and is filled in
+ * with the slot ID. If the passed-in slot is not -1, it's assumed
+ * to be already allocated, and its refcount is incremented.
+ * 
+ * The allocated slot is global, i.e. all DBusConnection objects will
  * have a slot with the given integer ID reserved.
  *
- * @returns -1 on failure, otherwise the data slot ID
+ * @param slot_p address of a global variable storing the slot
+ * @returns #FALSE on failure (no memory)
  */
-int
-dbus_connection_allocate_data_slot (void)
+dbus_bool_t
+dbus_connection_allocate_data_slot (dbus_int32_t *slot_p)
 {
   return _dbus_data_slot_allocator_alloc (&slot_allocator,
-                                          _DBUS_LOCK_NAME (connection_slots));
+                                          _DBUS_LOCK_NAME (connection_slots),
+                                          slot_p);
 }
 
 /**
  * Deallocates a global ID for connection data slots.
- * dbus_connection_get_data() and dbus_connection_set_data()
- * may no longer be used with this slot.
- * Existing data stored on existing DBusConnection objects
- * will be freed when the connection is finalized,
- * but may not be retrieved (and may only be replaced
- * if someone else reallocates the slot).
+ * dbus_connection_get_data() and dbus_connection_set_data() may no
+ * longer be used with this slot.  Existing data stored on existing
+ * DBusConnection objects will be freed when the connection is
+ * finalized, but may not be retrieved (and may only be replaced if
+ * someone else reallocates the slot).  When the refcount on the
+ * passed-in slot reaches 0, it is set to -1.
  *
- * @param slot the slot to deallocate
+ * @param slot_p address storing the slot to deallocate
  */
 void
-dbus_connection_free_data_slot (int slot)
+dbus_connection_free_data_slot (dbus_int32_t *slot_p)
 {
-  _dbus_data_slot_allocator_free (&slot_allocator, slot);
+  _dbus_return_if_fail (*slot_p >= 0);
+  
+  _dbus_data_slot_allocator_free (&slot_allocator, slot_p);
 }
 
 /**
@@ -2978,7 +2985,7 @@ dbus_connection_free_data_slot (int slot)
  */
 dbus_bool_t
 dbus_connection_set_data (DBusConnection   *connection,
-                          int               slot,
+                          dbus_int32_t      slot,
                           void             *data,
                           DBusFreeFunction  free_data_func)
 {
@@ -3018,7 +3025,7 @@ dbus_connection_set_data (DBusConnection   *connection,
  */
 void*
 dbus_connection_get_data (DBusConnection   *connection,
-                          int               slot)
+                          dbus_int32_t      slot)
 {
   void *res;
 

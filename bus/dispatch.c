@@ -32,8 +32,7 @@
 #include <dbus/dbus-internals.h>
 #include <string.h>
 
-static int message_handler_slot = -1;
-static int message_handler_slot_refcount;
+static dbus_int32_t message_handler_slot = -1;
 
 typedef struct
 {
@@ -309,48 +308,15 @@ bus_dispatch_message_handler (DBusMessageHandler *handler,
   return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
 }
 
-static dbus_bool_t
-message_handler_slot_ref (void)
-{
-  if (message_handler_slot < 0)
-    {
-      message_handler_slot = dbus_connection_allocate_data_slot ();
-      
-      if (message_handler_slot < 0)
-        return FALSE;
-
-      _dbus_assert (message_handler_slot_refcount == 0);
-    }  
-
-  message_handler_slot_refcount += 1;
-
-  return TRUE;
-}
-
-static void
-message_handler_slot_unref (void)
-{
-  _dbus_assert (message_handler_slot_refcount > 0);
-
-  message_handler_slot_refcount -= 1;
-  
-  if (message_handler_slot_refcount == 0)
-    {
-      dbus_connection_free_data_slot (message_handler_slot);
-      message_handler_slot = -1;
-    }
-}
-
 static void
 free_message_handler (void *data)
 {
   DBusMessageHandler *handler = data;
   
   _dbus_assert (message_handler_slot >= 0);
-  _dbus_assert (message_handler_slot_refcount > 0);
   
   dbus_message_handler_unref (handler);
-  message_handler_slot_unref ();
+  dbus_connection_free_data_slot (&message_handler_slot);
 }
 
 dbus_bool_t
@@ -358,26 +324,25 @@ bus_dispatch_add_connection (DBusConnection *connection)
 {
   DBusMessageHandler *handler;
 
-  if (!message_handler_slot_ref ())
+  if (!dbus_connection_allocate_data_slot (&message_handler_slot))
     return FALSE;
   
   handler = dbus_message_handler_new (bus_dispatch_message_handler, NULL, NULL);  
   if (handler == NULL)
     {
-      message_handler_slot_unref ();
+      dbus_connection_free_data_slot (&message_handler_slot);
       return FALSE;
     }    
   
   if (!dbus_connection_add_filter (connection, handler))
     {
       dbus_message_handler_unref (handler);
-      message_handler_slot_unref ();
+      dbus_connection_free_data_slot (&message_handler_slot);
       
       return FALSE;
     }
 
   _dbus_assert (message_handler_slot >= 0);
-  _dbus_assert (message_handler_slot_refcount > 0);
   
   if (!dbus_connection_set_data (connection,
 				 message_handler_slot,
@@ -385,7 +350,7 @@ bus_dispatch_add_connection (DBusConnection *connection)
                                  free_message_handler))
     {
       dbus_message_handler_unref (handler);
-      message_handler_slot_unref ();
+      dbus_connection_free_data_slot (&message_handler_slot);
 
       return FALSE;
     }

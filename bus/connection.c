@@ -43,8 +43,7 @@ struct BusConnections
   DBusTimeout *expire_timeout; /**< Timeout for expiring incomplete connections. */
 };
 
-static int connection_data_slot = -1;
-static int connection_data_slot_refcount = 0;
+static dbus_int32_t connection_data_slot = -1;
 
 typedef struct
 {
@@ -66,39 +65,6 @@ typedef struct
 static dbus_bool_t expire_incomplete_timeout (void *data);
 
 #define BUS_CONNECTION_DATA(connection) (dbus_connection_get_data ((connection), connection_data_slot))
-
-static dbus_bool_t
-connection_data_slot_ref (void)
-{
-  if (connection_data_slot < 0)
-    {
-      connection_data_slot = dbus_connection_allocate_data_slot ();
-      
-      if (connection_data_slot < 0)
-        return FALSE;
-
-      _dbus_assert (connection_data_slot_refcount == 0);
-    }  
-
-  connection_data_slot_refcount += 1;
-
-  return TRUE;
-
-}
-
-static void
-connection_data_slot_unref (void)
-{
-  _dbus_assert (connection_data_slot_refcount > 0);
-
-  connection_data_slot_refcount -= 1;
-  
-  if (connection_data_slot_refcount == 0)
-    {
-      dbus_connection_free_data_slot (connection_data_slot);
-      connection_data_slot = -1;
-    }
-}
 
 static DBusLoop*
 connection_get_loop (DBusConnection *connection)
@@ -419,7 +385,7 @@ bus_connections_new (BusContext *context)
 {
   BusConnections *connections;
 
-  if (!connection_data_slot_ref ())
+  if (!dbus_connection_allocate_data_slot (&connection_data_slot))
     goto failed_0;
 
   connections = dbus_new0 (BusConnections, 1);
@@ -456,7 +422,7 @@ bus_connections_new (BusContext *context)
  failed_2:
   dbus_free (connections);
  failed_1:
-  connection_data_slot_unref ();
+  dbus_connection_free_data_slot (&connection_data_slot);
  failed_0:
   return NULL;
 }
@@ -515,7 +481,7 @@ bus_connections_unref (BusConnections *connections)
       
       dbus_free (connections);
 
-      connection_data_slot_unref ();
+      dbus_connection_free_data_slot (&connection_data_slot);
     }
 }
 

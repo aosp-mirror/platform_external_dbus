@@ -39,9 +39,16 @@ struct DBusDataSlot
   DBusFreeFunction free_data_func; /**< Free the application data */
 };
 
+typedef struct DBusAllocatedSlot DBusAllocatedSlot;
+struct DBusAllocatedSlot
+{
+  dbus_int32_t slot_id;  /**< ID of this slot */
+  int          refcount; /**< Number of uses of the slot */
+};
+
 struct DBusDataSlotAllocator
 {
-  int *allocated_slots;   /**< Allocated slots */
+  DBusAllocatedSlot *allocated_slots; /**< Allocated slots */
   int  n_allocated_slots; /**< number of slots malloc'd */
   int  n_used_slots;      /**< number of slots used */
   DBusMutex *lock;        /**< thread lock */
@@ -54,10 +61,11 @@ struct DBusDataSlotList
 };
 
 dbus_bool_t _dbus_data_slot_allocator_init  (DBusDataSlotAllocator  *allocator);
-int         _dbus_data_slot_allocator_alloc (DBusDataSlotAllocator  *allocator,
-                                             DBusMutex              *mutex);
+dbus_bool_t _dbus_data_slot_allocator_alloc (DBusDataSlotAllocator  *allocator,
+                                             DBusMutex              *mutex,
+                                             int                    *slot_id_p);
 void        _dbus_data_slot_allocator_free  (DBusDataSlotAllocator  *allocator,
-                                             int                     slot_id);
+                                             int                    *slot_id_p);
 void        _dbus_data_slot_list_init       (DBusDataSlotList       *list);
 dbus_bool_t _dbus_data_slot_list_set        (DBusDataSlotAllocator  *allocator,
                                              DBusDataSlotList       *list,

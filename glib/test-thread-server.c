@@ -27,7 +27,7 @@ thread_test_data_free (ThreadTestData *data)
 
 static DBusMessageHandler *disconnect_handler;
 static DBusMessageHandler *filter_handler;
-static int handler_slot;
+static dbus_int32_t handler_slot = -1;
 
 static DBusHandlerResult
 handle_test_message (DBusMessageHandler *handler,
@@ -222,7 +222,8 @@ main (int argc, char *argv[])
       return 1;
     }
 
-  handler_slot = dbus_connection_allocate_data_slot ();
+  if (!dbus_connection_allocate_data_slot (&handler_slot))
+    g_error ("no memory for data slot");
   
   filter_handler =
     dbus_message_handler_new (handle_filter, NULL, NULL);

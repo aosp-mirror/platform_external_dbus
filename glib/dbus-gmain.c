@@ -60,10 +60,8 @@ struct DBusGSource
   void *connection_or_server; /**< DBusConnection or DBusServer */
 };
 
-static GStaticMutex connection_slot_lock = G_STATIC_MUTEX_INIT;
-static int connection_slot = -1;
-static GStaticMutex server_slot_lock = G_STATIC_MUTEX_INIT;
-static int server_slot = -1;
+static dbus_int32_t connection_slot = -1;
+static dbus_int32_t server_slot = -1;
 
 static gboolean gsource_connection_prepare  (GSource     *source,
                                              gint        *timeout);
@@ -428,11 +426,10 @@ dbus_connection_setup_with_g_main (DBusConnection *connection,
       
   g_source_attach (source, context);
 
-  g_static_mutex_lock (&connection_slot_lock);
-  if (connection_slot == -1 )
-    connection_slot = dbus_connection_allocate_data_slot ();
-  g_static_mutex_unlock (&connection_slot_lock);
-
+  /* FIXME we never free the slot, so its refcount just keeps growing,
+   * which is kind of broken.
+   */
+  dbus_connection_allocate_data_slot (&connection_slot);
   if (connection_slot < 0)
     goto nomem;
 
@@ -476,11 +473,10 @@ dbus_server_setup_with_g_main (DBusServer   *server,
   
   g_source_attach (source, context);
 
-  g_static_mutex_lock (&server_slot_lock);
-  if (server_slot == -1 )
-    server_slot = dbus_server_allocate_data_slot ();
-  g_static_mutex_unlock (&server_slot_lock);
-
+  /* FIXME we never free the slot, so its refcount just keeps growing,
+   * which is kind of broken.
+   */
+  dbus_server_allocate_data_slot (&server_slot);
   if (server_slot < 0)
     goto nomem;
 

@@ -123,41 +123,7 @@ client_disconnect_handler (DBusMessageHandler *handler,
   return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
 }
 
-static int handler_slot = -1;
-static int handler_slot_refcount = 0;
-
-static dbus_bool_t
-handler_slot_ref (void)
-{
-  if (handler_slot < 0)
-    {
-      handler_slot = dbus_connection_allocate_data_slot ();
-      
-      if (handler_slot < 0)
-        return FALSE;
-
-      _dbus_assert (handler_slot_refcount == 0);
-    }  
-
-  handler_slot_refcount += 1;
-
-  return TRUE;
-
-}
-
-static void
-handler_slot_unref (void)
-{
-  _dbus_assert (handler_slot_refcount > 0);
-
-  handler_slot_refcount -= 1;
-  
-  if (handler_slot_refcount == 0)
-    {
-      dbus_connection_free_data_slot (handler_slot);
-      handler_slot = -1;
-    }
-}
+static dbus_int32_t handler_slot = -1;
 
 static void
 free_handler (void *data)
@@ -165,7 +131,7 @@ free_handler (void *data)
   DBusMessageHandler *handler = data;
 
   dbus_message_handler_unref (handler);
-  handler_slot_unref ();
+  dbus_connection_free_data_slot (&handler_slot);
 }
 
 dbus_bool_t
@@ -217,7 +183,7 @@ bus_setup_debug_client (DBusConnection *connection)
   if (!_dbus_list_append (&clients, connection))
     goto out;
 
-  if (!handler_slot_ref ())
+  if (!dbus_connection_allocate_data_slot (&handler_slot))
     goto out;
 
   /* Set up handler to be destroyed */  
@@ -225,7 +191,7 @@ bus_setup_debug_client (DBusConnection *connection)
                                  disconnect_handler,
                                  free_handler))
     {
-      handler_slot_unref ();
+      dbus_connection_free_data_slot (&handler_slot);
       goto out;
     }
   

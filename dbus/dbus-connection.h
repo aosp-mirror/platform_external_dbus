@@ -172,14 +172,14 @@ void        dbus_connection_unregister_handler (DBusConnection      *connection,
                                                 int                  n_messages);
 
 
-int         dbus_connection_allocate_data_slot (void);
-void        dbus_connection_free_data_slot     (int               slot);
+dbus_bool_t dbus_connection_allocate_data_slot (dbus_int32_t     *slot_p);
+void        dbus_connection_free_data_slot     (dbus_int32_t     *slot_p);
 dbus_bool_t dbus_connection_set_data           (DBusConnection   *connection,
-                                                int               slot,
+                                                dbus_int32_t      slot,
                                                 void             *data,
                                                 DBusFreeFunction  free_data_func);
 void*       dbus_connection_get_data           (DBusConnection   *connection,
-                                                int               slot);
+                                                dbus_int32_t      slot);
 
 void        dbus_connection_set_change_sigpipe (dbus_bool_t       will_modify_sigpipe); 
 

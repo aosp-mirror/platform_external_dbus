@@ -666,17 +666,22 @@ _DBUS_DEFINE_GLOBAL_LOCK (server_slots);
  * Allocates an integer ID to be used for storing application-specific
  * data on any DBusServer. The allocated ID may then be used
  * with dbus_server_set_data() and dbus_server_get_data().
- * If allocation fails, -1 is returned. Again, the allocated
- * slot is global, i.e. all DBusServer objects will
- * have a slot with the given integer ID reserved.
+ * The slot must be initialized with -1. If a nonnegative
+ * slot is passed in, the refcount is incremented on that
+ * slot, rather than creating a new slot.
+ *  
+ * The allocated slot is global, i.e. all DBusServer objects will have
+ * a slot with the given integer ID reserved.
  *
- * @returns -1 on failure, otherwise the data slot ID
+ * @param slot_p address of global variable storing the slot ID
+ * @returns #FALSE on no memory
  */
-int
-dbus_server_allocate_data_slot (void)
+dbus_bool_t
+dbus_server_allocate_data_slot (dbus_int32_t *slot_p)
 {
   return _dbus_data_slot_allocator_alloc (&slot_allocator,
-                                          _DBUS_LOCK_NAME (server_slots));
+                                          _DBUS_LOCK_NAME (server_slots),
+                                          slot_p);
 }
 
 /**
@@ -688,14 +693,14 @@ dbus_server_allocate_data_slot (void)
  * but may not be retrieved (and may only be replaced
  * if someone else reallocates the slot).
  *
- * @param slot the slot to deallocate
+ * @param slot_p address of the slot to deallocate
  */
 void
-dbus_server_free_data_slot (int slot)
+dbus_server_free_data_slot (dbus_int32_t *slot_p)
 {
-  _dbus_return_if_fail (slot >= 0);
+  _dbus_return_if_fail (*slot_p >= 0);
   
-  _dbus_data_slot_allocator_free (&slot_allocator, slot);
+  _dbus_data_slot_allocator_free (&slot_allocator, slot_p);
 }
 
 /**

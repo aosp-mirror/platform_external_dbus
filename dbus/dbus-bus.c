@@ -56,12 +56,9 @@ typedef struct
   unsigned int is_well_known : 1; /**< Is one of the well-known connections in our global array */
 } BusData;
 
-/** The slot we have reserved to store BusData
+/** The slot we have reserved to store BusData.
  */
-static int bus_data_slot = -1;
-/** Number of connections using the slot
- */
-static int bus_data_slot_refcount = 0;
+static dbus_int32_t bus_data_slot = -1;
 
 /** Number of bus types */
 #define N_BUS_TYPES 3
@@ -194,50 +191,6 @@ init_connections_unlocked (void)
   return initialized;
 }
 
-static dbus_bool_t
-data_slot_ref (void)
-{
-  _DBUS_LOCK (bus);
-
-  if (bus_data_slot < 0)
-    {
-      bus_data_slot = dbus_connection_allocate_data_slot ();
-      
-      if (bus_data_slot < 0)
-        {
-          _DBUS_UNLOCK (bus);
-          return FALSE;
-        }
-
-      _dbus_assert (bus_data_slot_refcount == 0);
-    }
-
-  bus_data_slot_refcount += 1;
-
-  _DBUS_UNLOCK (bus);
-
-  return TRUE;
-}
-
-static void
-data_slot_unref (void)
-{
-  _DBUS_LOCK (bus);
-
-  _dbus_assert (bus_data_slot_refcount > 0);
-  _dbus_assert (bus_data_slot >= 0);
-
-  bus_data_slot_refcount -= 1;
-
-  if (bus_data_slot_refcount == 0)
-    {
-      dbus_connection_free_data_slot (bus_data_slot);
-      bus_data_slot = -1;
-    }
-
-  _DBUS_UNLOCK (bus);
-}
-
 static void
 bus_data_free (void *data)
 {
@@ -262,7 +215,7 @@ bus_data_free (void *data)
   dbus_free (bd->base_service);
   dbus_free (bd);
 
-  data_slot_unref ();
+  dbus_connection_free_data_slot (&bus_data_slot);
 }
 
 static BusData*
@@ -270,7 +223,7 @@ ensure_bus_data (DBusConnection *connection)
 {
   BusData *bd;
 
-  if (!data_slot_ref ())
+  if (!dbus_connection_allocate_data_slot (&bus_data_slot))
     return NULL;
 
   bd = dbus_connection_get_data (connection, bus_data_slot);
@@ -279,7 +232,7 @@ ensure_bus_data (DBusConnection *connection)
       bd = dbus_new0 (BusData, 1);
       if (bd == NULL)
         {
-          data_slot_unref ();
+          dbus_connection_free_data_slot (&bus_data_slot);
           return NULL;
         }
 
@@ -289,7 +242,7 @@ ensure_bus_data (DBusConnection *connection)
                                      bus_data_free))
         {
           dbus_free (bd);
-          data_slot_unref ();
+          dbus_connection_free_data_slot (&bus_data_slot);
           return NULL;
         }
 
@@ -297,7 +250,7 @@ ensure_bus_data (DBusConnection *connection)
     }
   else
     {
-      data_slot_unref ();
+      dbus_connection_free_data_slot (&bus_data_slot);
     }
 
   return bd;

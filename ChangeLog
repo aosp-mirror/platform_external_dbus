@@ -1,3 +1,24 @@
+2003-06-22  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-dataslot.c (_dbus_data_slot_allocator_unref)
+	(_dbus_data_slot_allocator_alloc): rework these to keep a
+	reference count on each slot and automatically manage a global 
+	slot ID variable passed in by address
+	
+	* bus/bus.c: convert to new dataslot API
+
+	* dbus/dbus-bus.c: convert to new dataslot API
+
+	* dbus/dbus-connection.c: convert to new dataslot API
+
+	* dbus/dbus-server.c: convert to new dataslot API
+
+	* glib/dbus-gmain.c: ditto
+
+	* bus/test.c: ditto
+
+	* bus/connection.c: ditto
+
 2003-06-22  Anders Carlsson  <andersca@codefactory.se>
 
 	* configure.in: Add AM_PROG_GCJ and move AM_PROG_LIBTOOL

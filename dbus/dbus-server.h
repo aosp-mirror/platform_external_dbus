@@ -65,8 +65,8 @@ dbus_bool_t dbus_server_set_timeout_functions       (DBusServer                *
 dbus_bool_t dbus_server_set_auth_mechanisms         (DBusServer                *server,
                                                      const char               **mechanisms);
 
-int         dbus_server_allocate_data_slot (void);
-void        dbus_server_free_data_slot     (int               slot);
+dbus_bool_t dbus_server_allocate_data_slot (dbus_int32_t     *slot_p);
+void        dbus_server_free_data_slot     (dbus_int32_t     *slot_p);
 dbus_bool_t dbus_server_set_data           (DBusServer       *server,
                                             int               slot,
                                             void             *data,
