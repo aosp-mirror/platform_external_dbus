@@ -106,7 +106,7 @@ main (int    argc,
   int result;
   
   dbus_error_init (&error);
-  connection = dbus_bus_get (DBUS_BUS_ACTIVATION, &error);
+  connection = dbus_bus_get (DBUS_BUS_SESSION, &error);
   if (connection == NULL)
     {
       _dbus_verbose ("*** Failed to open connection to activating message bus: %s\n",
@@ -126,10 +126,13 @@ main (int    argc,
                                    filter_func, NULL, NULL))
     die ("No memory");
 
+  printf ("Acquiring service\n");
+
   result = dbus_bus_acquire_service (connection, "org.freedesktop.DBus.TestSuiteEchoService",
                                      0, &error);
   if (dbus_error_is_set (&error))
     {
+      printf ("Error %s", error.message);
       _dbus_verbose ("*** Failed to acquire service: %s\n",
                      error.message);
       dbus_error_free (&error);

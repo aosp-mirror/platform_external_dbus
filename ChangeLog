@@ -1,3 +1,28 @@
+2003-09-21  Seth Nickell  <seth@gnome.org>
+
+        First checkin of the Python bindings.
+	
+	* python/.cvsignore:
+	* python/Makefile.am:
+	* python/dbus_bindings.pyx.in:
+	* python/dbus_h_wrapper.h:
+
+	Pieces for Pyrex to operate on, building a dbus_bindings.so
+	python module for low-level access to the DBus APIs.
+	
+	* python/dbus.py:
+
+	High-level Python module for accessing DBus objects.
+
+	* configure.in:
+	* Makefile.am:
+
+	Build stuff for the python bindings.
+
+	* acinclude.m4:
+
+	Extra macro needed for finding the Python C header files.
+
 2003-09-21  Havoc Pennington  <hp@pobox.com>
 
 	* glib/dbus-gproxy.c (dbus_gproxy_manager_new): start
