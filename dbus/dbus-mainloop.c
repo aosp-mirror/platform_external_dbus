@@ -34,6 +34,7 @@ struct DBusLoop
   int watch_count;
   int timeout_count;
   int depth; /**< number of recursive runs */
+  DBusList *need_dispatch;
 };
 
 typedef enum
@@ -199,6 +200,12 @@ _dbus_loop_unref (DBusLoop *loop)
   loop->refcount -= 1;
   if (loop->refcount == 0)
     {
+      while (loop->need_dispatch)
+        {
+          DBusConnection *connection = _dbus_list_pop_first (&loop->need_dispatch);
+
+          dbus_connection_unref (connection);
+        }
       
       dbus_free (loop);
     }
@@ -399,13 +406,55 @@ check_timeout (unsigned long    tv_sec,
   return msec == 0;
 }
 
+static void
+_dbus_loop_dispatch (DBusLoop *loop)
+{
+ next:
+  while (loop->need_dispatch != NULL)
+    {
+      DBusConnection *connection = _dbus_list_pop_first (&loop->need_dispatch);
+
+      while (TRUE)
+        {
+          DBusDispatchStatus status;
+          
+          status = dbus_connection_dispatch (connection);
+
+          if (status == DBUS_DISPATCH_COMPLETE)
+            {
+              dbus_connection_unref (connection);
+              goto next;
+            }
+          else
+            {
+              if (status == DBUS_DISPATCH_NEED_MEMORY)
+                _dbus_wait_for_memory ();
+            }
+        }
+    }
+}
+
+dbus_bool_t
+_dbus_loop_queue_dispatch (DBusLoop       *loop,
+                           DBusConnection *connection)
+{
+  
+  if (_dbus_list_append (&loop->need_dispatch, connection))
+    {
+      dbus_connection_ref (connection);
+      return TRUE;
+    }
+  else
+    return FALSE;
+}
+
 /* Returns TRUE if we have any timeouts or ready file descriptors,
  * which is just used in test code as a debug hack
  */
 
 dbus_bool_t
 _dbus_loop_iterate (DBusLoop     *loop,
-                    dbus_bool_t  block)
+                    dbus_bool_t   block)
 {
   dbus_bool_t retval;
   DBusPollFD *fds;
@@ -553,7 +602,8 @@ _dbus_loop_iterate (DBusLoop     *loop,
         }
     }
 
-  if (!block)
+  /* Never block if we have stuff to dispatch */
+  if (!block || loop->need_dispatch != NULL)
     {
       timeout = 0;
 #if 0
@@ -673,6 +723,12 @@ _dbus_loop_iterate (DBusLoop     *loop,
   dbus_free (fds);
   dbus_free (watches_for_fds);
 
+  if (loop->need_dispatch != NULL)
+    {
+      retval = TRUE;
+      _dbus_loop_dispatch (loop);
+    }
+  
   return retval;
 }
 
@@ -716,3 +772,4 @@ _dbus_wait_for_memory (void)
 {
   _dbus_sleep_milliseconds (_dbus_get_oom_wait ());
 }
+

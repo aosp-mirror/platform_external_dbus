@@ -109,6 +109,12 @@ struct DBusConnection
   DBusWakeupMainFunction wakeup_main_function; /**< Function to wake up the mainloop  */
   void *wakeup_main_data; /**< Application data for wakeup_main_function */
   DBusFreeFunction free_wakeup_main_data; /**< free wakeup_main_data */
+
+  DBusDispatchStatusFunction dispatch_status_function; /**< Function on dispatch status changes  */
+  void *dispatch_status_data; /**< Application data for dispatch_status_function */
+  DBusFreeFunction free_dispatch_status_data; /**< free dispatch_status_data */
+
+  DBusDispatchStatus last_dispatch_status;
 };
 
 typedef struct
@@ -126,9 +132,12 @@ typedef struct
 
 static void reply_handler_data_free (ReplyHandlerData *data);
 
-static void               _dbus_connection_remove_timeout_locked        (DBusConnection *connection,
-                                                                         DBusTimeout    *timeout);
-static DBusDispatchStatus _dbus_connection_get_dispatch_status_unlocked (DBusConnection *connection);
+static void               _dbus_connection_remove_timeout_locked         (DBusConnection     *connection,
+                                                                          DBusTimeout        *timeout);
+static DBusDispatchStatus _dbus_connection_get_dispatch_status_unlocked  (DBusConnection     *connection);
+static void               _dbus_connection_update_dispatch_status_locked (DBusConnection     *connection,
+                                                                          DBusDispatchStatus  new_status);
+
 
 /**
  * Acquires the connection lock.
@@ -231,7 +240,7 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
   connection->n_incoming += 1;
 
   _dbus_connection_wakeup_mainloop (connection);
-
+  
   _dbus_assert (dbus_message_get_name (message) != NULL);
   _dbus_verbose ("Message %p (%s) added to incoming queue %p, %d incoming\n",
                  message, dbus_message_get_name (message),
@@ -652,7 +661,8 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection->handler_table = handler_table;
   connection->pending_replies = pending_replies;
   connection->filter_list = NULL;
-
+  connection->last_dispatch_status = DBUS_DISPATCH_COMPLETE; /* so we're notified first time there's data */
+  
   _dbus_data_slot_list_init (&connection->slot_list);
 
   connection->client_serial = 1;
@@ -887,6 +897,11 @@ _dbus_connection_last_unref (DBusConnection *connection)
       _dbus_counter_unref (connection->connection_counter);
       connection->connection_counter = NULL;
     }
+
+  /* ---- We're going to call various application callbacks here, hope it doesn't break anything... */
+  dbus_connection_set_dispatch_status_function (connection, NULL, NULL, NULL);
+  dbus_connection_set_wakeup_main_function (connection, NULL, NULL, NULL);
+  dbus_connection_set_unix_user_function (connection, NULL, NULL, NULL);
   
   _dbus_watch_list_free (connection->watches);
   connection->watches = NULL;
@@ -894,8 +909,8 @@ _dbus_connection_last_unref (DBusConnection *connection)
   _dbus_timeout_list_free (connection->timeouts);
   connection->timeouts = NULL;
 
-  /* calls out to application code... */
   _dbus_data_slot_list_free (&connection->slot_list);
+  /* ---- Done with stuff that invokes application callbacks */
   
   _dbus_hash_iter_init (connection->handler_table, &iter);
   while (_dbus_hash_iter_next (&iter))
@@ -1184,6 +1199,7 @@ reply_handler_timeout (void *data)
 {
   DBusConnection *connection;
   ReplyHandlerData *reply_handler_data = data;
+  DBusDispatchStatus status;
 
   connection = reply_handler_data->connection;
   
@@ -1198,9 +1214,13 @@ reply_handler_timeout (void *data)
   _dbus_connection_remove_timeout (connection,
 				   reply_handler_data->timeout);
   reply_handler_data->timeout_added = FALSE;
+
+  status = _dbus_connection_get_dispatch_status_unlocked (connection);
   
   dbus_mutex_unlock (connection->mutex);
 
+  _dbus_connection_update_dispatch_status_locked (connection, status);
+  
   return TRUE;
 }
 
@@ -1488,11 +1508,15 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
       
       reply = check_for_reply_unlocked (connection, client_serial);
       if (reply != NULL)
-        {
+        {          
+          status = _dbus_connection_get_dispatch_status_unlocked (connection);
+          
           dbus_mutex_unlock (connection->mutex);
 
           _dbus_verbose ("dbus_connection_send_with_reply_and_block(): got reply %s\n",
                          dbus_message_get_name (reply));
+
+          _dbus_connection_update_dispatch_status_locked (connection, status);
           
           return reply;
         }
@@ -1549,6 +1573,8 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
   
   dbus_mutex_unlock (connection->mutex);
 
+  _dbus_connection_update_dispatch_status_locked (connection, status);
+
   return NULL;
 }
 
@@ -1560,11 +1586,12 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
 void
 dbus_connection_flush (DBusConnection *connection)
 {
-  /* We have to specify DBUS_ITERATION_DO_READING here
-   * because otherwise we could have two apps deadlock
-   * if they are both doing a flush(), and the kernel
-   * buffers fill up.
+  /* We have to specify DBUS_ITERATION_DO_READING here because
+   * otherwise we could have two apps deadlock if they are both doing
+   * a flush(), and the kernel buffers fill up. This could change the
+   * dispatch status.
    */
+  DBusDispatchStatus status;
   
   dbus_mutex_lock (connection->mutex);
   while (connection->n_outgoing > 0)
@@ -1573,7 +1600,12 @@ dbus_connection_flush (DBusConnection *connection)
                                    DBUS_ITERATION_DO_WRITING |
                                    DBUS_ITERATION_BLOCK,
                                    -1);
+
+  status = _dbus_connection_get_dispatch_status_unlocked (connection);
+  
   dbus_mutex_unlock (connection->mutex);
+
+  _dbus_connection_update_dispatch_status_locked (connection, status);
 }
 
 /* Call with mutex held. Will drop it while waiting and re-acquire
@@ -1818,6 +1850,40 @@ _dbus_connection_get_dispatch_status_unlocked (DBusConnection *connection)
     }
 }
 
+static void
+_dbus_connection_update_dispatch_status_locked (DBusConnection    *connection,
+                                                DBusDispatchStatus new_status)
+{
+  dbus_bool_t changed;
+  DBusDispatchStatusFunction function;
+  void *data;
+  
+  dbus_mutex_lock (connection->mutex);
+  _dbus_connection_ref_unlocked (connection);
+
+  changed = new_status != connection->last_dispatch_status;
+
+  connection->last_dispatch_status = new_status;
+
+  function = connection->dispatch_status_function;
+  data = connection->dispatch_status_data;
+  
+  dbus_mutex_unlock (connection->mutex);
+  
+  if (changed && function)
+    {
+      _dbus_verbose ("Notifying of change to dispatch status of %p now %d (%s)\n",
+                     connection, new_status,
+                     new_status == DBUS_DISPATCH_COMPLETE ? "complete" :
+                     new_status == DBUS_DISPATCH_DATA_REMAINS ? "data remains" :
+                     new_status == DBUS_DISPATCH_NEED_MEMORY ? "need memory" :
+                     "???");
+      (* function) (connection, new_status, data);      
+    }
+  
+  dbus_connection_unref (connection);
+}
+
 /**
  * Gets the current state (what we would currently return
  * from dbus_connection_dispatch()) but doesn't actually
@@ -1864,7 +1930,10 @@ dbus_connection_dispatch (DBusConnection *connection)
   
   status = dbus_connection_get_dispatch_status (connection);
   if (status != DBUS_DISPATCH_DATA_REMAINS)
-    return status;
+    {
+      _dbus_connection_update_dispatch_status_locked (connection, status);
+      return status;
+    }
 
   dbus_mutex_lock (connection->mutex);
   
@@ -1891,8 +1960,10 @@ dbus_connection_dispatch (DBusConnection *connection)
 
       status = dbus_connection_get_dispatch_status (connection);
 
+      _dbus_connection_update_dispatch_status_locked (connection, status);
+      
       dbus_connection_unref (connection);
-
+      
       return status;
     }
 
@@ -1909,7 +1980,11 @@ dbus_connection_dispatch (DBusConnection *connection)
       _dbus_connection_release_dispatch (connection);
       dbus_mutex_unlock (connection->mutex);
       _dbus_connection_failed_pop (connection, message_link);
+
+      _dbus_connection_update_dispatch_status_locked (connection, DBUS_DISPATCH_NEED_MEMORY);
+
       dbus_connection_unref (connection);
+      
       return DBUS_DISPATCH_NEED_MEMORY;
     }
   
@@ -2012,6 +2087,8 @@ dbus_connection_dispatch (DBusConnection *connection)
                                  */
   
   status = dbus_connection_get_dispatch_status (connection);
+
+  _dbus_connection_update_dispatch_status_locked (connection, status);
   
   dbus_connection_unref (connection);
   
@@ -2201,6 +2278,46 @@ dbus_connection_set_wakeup_main_function (DBusConnection            *connection,
 }
 
 /**
+ * Set a function to be invoked when the dispatch status changes.
+ * If the dispatch status is #DBUS_DISPATCH_DATA_REMAINS, then
+ * dbus_connection_dispatch() needs to be called to process incoming
+ * messages. However, dbus_connection_dispatch() MUST NOT BE CALLED
+ * from inside the DBusDispatchStatusFunction. Indeed, almost
+ * any reentrancy in this function is a bad idea. Instead,
+ * the DBusDispatchStatusFunction should simply save an indication
+ * that messages should be dispatched later, when the main loop
+ * is re-entered.
+ *
+ * @param connection the connection
+ * @param function function to call on dispatch status changes
+ * @param data data for function
+ * @param free_data_function free the function data
+ */
+void
+dbus_connection_set_dispatch_status_function (DBusConnection             *connection,
+                                              DBusDispatchStatusFunction  function,
+                                              void                       *data,
+                                              DBusFreeFunction            free_data_function)
+{
+  void *old_data;
+  DBusFreeFunction old_free_data;
+  
+  dbus_mutex_lock (connection->mutex);
+  old_data = connection->dispatch_status_data;
+  old_free_data = connection->free_dispatch_status_data;
+
+  connection->dispatch_status_function = function;
+  connection->dispatch_status_data = data;
+  connection->free_dispatch_status_data = free_data_function;
+  
+  dbus_mutex_unlock (connection->mutex);
+
+  /* Callback outside the lock */
+  if (old_free_data)
+    (*old_free_data) (old_data);
+}
+
+/**
  * Called to notify the connection when a previously-added watch
  * is ready for reading or writing, or has an exception such
  * as a hangup.
@@ -2223,14 +2340,20 @@ dbus_connection_handle_watch (DBusConnection              *connection,
                               unsigned int                 condition)
 {
   dbus_bool_t retval;
+  DBusDispatchStatus status;
   
   dbus_mutex_lock (connection->mutex);
   _dbus_connection_acquire_io_path (connection, -1);
   retval = _dbus_transport_handle_watch (connection->transport,
                                          watch, condition);
   _dbus_connection_release_io_path (connection);
+
+  status = _dbus_connection_get_dispatch_status_unlocked (connection);
+  
   dbus_mutex_unlock (connection->mutex);
 
+  _dbus_connection_update_dispatch_status_locked (connection, status);
+  
   return retval;
 }
 

@@ -1,5 +1,32 @@
 2003-04-09  Havoc Pennington  <hp@redhat.com>
 
+	* test/test-utils.c: use dispatch status function to fix this up
+
+	* bus/connection.c (connection_watch_callback): don't dispatch
+	from here
+	(connection_timeout_callback): don't dispatch from here
+	(bus_connections_setup_connection): set the dispatch status function
+	(bus_connection_disconnected): unset it
+
+	* dbus/dbus-mainloop.c (_dbus_loop_queue_dispatch): new function
+	used to add a connection to be dispatched
+	(_dbus_loop_iterate): do the dispatching at the end of each
+	iteration
+
+	* dbus/dbus-connection.c
+	(dbus_connection_set_dispatch_status_function): new function
+	allowing us to fix up main loop usage
+	(_dbus_connection_last_unref): free all the various function
+	user data
+	(dbus_connection_dispatch): call the DispatchStatusFunction 
+	whenever this function returns
+	(dbus_connection_handle_watch): call DispatchStatusFunction
+	(dbus_connection_send_with_reply_and_block): call DispatchStatusFunction
+	(reply_handler_timeout): call DispatchStatusFunction
+	(dbus_connection_flush): call DispatchStatusFunction
+
+2003-04-09  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-bus.c (dbus_bus_register): fix up error handling and 
 	a memory leak
 

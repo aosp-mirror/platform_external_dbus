@@ -7,24 +7,6 @@ typedef struct
 
 } CData;
 
-dbus_bool_t
-test_connection_dispatch_one_message  (DBusConnection *connection)
-{
-  DBusDispatchStatus status;
-
-  while ((status = dbus_connection_dispatch (connection)) == DBUS_DISPATCH_NEED_MEMORY)
-    _dbus_wait_for_memory ();
-  
-  return status == DBUS_DISPATCH_DATA_REMAINS;
-}
-
-void
-test_connection_dispatch_all_messages (DBusConnection *connection)
-{
-  while (test_connection_dispatch_one_message (connection))
-    ;
-}
-
 static dbus_bool_t
 connection_watch_callback (DBusWatch     *watch,
                            unsigned int   condition,
@@ -32,20 +14,8 @@ connection_watch_callback (DBusWatch     *watch,
 {
   CData *cd = data;
   dbus_bool_t retval;
-
-  dbus_connection_ref (cd->connection);
-
-  _dbus_verbose (" Handling watch\n");
   
   retval = dbus_connection_handle_watch (cd->connection, watch, condition);
-
-  _dbus_verbose (" Watch handled\n");
-  
-  test_connection_dispatch_all_messages (cd->connection);
-
-  _dbus_verbose (" Dispatched all\n");
-  
-  dbus_connection_unref (cd->connection);
 
   return retval;
 }
@@ -78,14 +48,8 @@ connection_timeout_callback (DBusTimeout   *timeout,
 {
   CData *cd = data;
 
-  dbus_connection_ref (cd->connection);
-
   /* Can return FALSE on OOM but we just let it fire again later */
   dbus_timeout_handle (timeout);
-  
-  test_connection_dispatch_all_messages (cd->connection);
-  
-  dbus_connection_unref (cd->connection);
 }
 
 static dbus_bool_t
@@ -106,6 +70,20 @@ remove_timeout (DBusTimeout *timeout,
 
   _dbus_loop_remove_timeout (cd->loop,
                              timeout, connection_timeout_callback, cd);
+}
+
+static void
+dispatch_status_function (DBusConnection    *connection,
+                          DBusDispatchStatus new_status,
+                          void              *data)
+{
+  DBusLoop *loop = data;
+  
+  if (new_status != DBUS_DISPATCH_COMPLETE)
+    {
+      while (!_dbus_loop_queue_dispatch (loop, connection))
+        _dbus_wait_for_memory ();
+    }
 }
 
 static void
@@ -144,6 +122,11 @@ test_connection_setup (DBusLoop       *loop,
 {
   CData *cd;
 
+  cd = NULL;
+  
+  dbus_connection_set_dispatch_status_function (connection, dispatch_status_function,
+                                                loop, NULL);
+  
   cd = cdata_new (loop, connection);
   if (cd == NULL)
     goto nomem;
@@ -170,16 +153,24 @@ test_connection_setup (DBusLoop       *loop,
                                               remove_timeout,
                                               NULL,
                                               cd, cdata_free))
-    {
-      dbus_connection_set_watch_functions (connection, NULL, NULL, NULL, NULL, NULL);
-      goto nomem;
-    }
+    goto nomem;
 
+  if (dbus_connection_get_dispatch_status (connection) != DBUS_DISPATCH_COMPLETE)
+    {
+      if (!_dbus_loop_queue_dispatch (loop, connection))
+        goto nomem;
+    }
+  
   return TRUE;
   
  nomem:
   if (cd)
     cdata_free (cd);
+  
+  dbus_connection_set_dispatch_status_function (connection, NULL, NULL, NULL);
+  dbus_connection_set_watch_functions (connection, NULL, NULL, NULL, NULL, NULL);
+  dbus_connection_set_timeout_functions (connection, NULL, NULL, NULL, NULL, NULL);
+  
   return FALSE;
 }
 
@@ -201,4 +192,5 @@ test_connection_shutdown (DBusLoop       *loop,
                                               NULL, NULL))
     _dbus_assert_not_reached ("setting timeout functions to NULL failed");
 
+  dbus_connection_set_dispatch_status_function (connection, NULL, NULL, NULL);
 }

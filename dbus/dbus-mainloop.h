@@ -55,6 +55,10 @@ void        _dbus_loop_remove_timeout (DBusLoop            *loop,
                                        DBusTimeout         *timeout,
                                        DBusTimeoutFunction  function,
                                        void                *data);
+
+dbus_bool_t _dbus_loop_queue_dispatch (DBusLoop            *loop,
+                                       DBusConnection      *connection);
+
 void        _dbus_loop_run            (DBusLoop            *loop);
 void        _dbus_loop_quit           (DBusLoop            *loop);
 dbus_bool_t _dbus_loop_iterate        (DBusLoop            *loop,

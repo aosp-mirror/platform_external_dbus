@@ -170,6 +170,9 @@ bus_connection_disconnected (DBusConnection *connection)
   
   dbus_connection_set_unix_user_function (connection,
                                           NULL, NULL, NULL);
+
+  dbus_connection_set_dispatch_status_function (connection,
+                                                NULL, NULL, NULL);
   
   bus_connection_remove_transactions (connection);
 
@@ -190,14 +193,8 @@ connection_watch_callback (DBusWatch     *watch,
 {
   DBusConnection *connection = data;
   dbus_bool_t retval;
-
-  dbus_connection_ref (connection);
   
   retval = dbus_connection_handle_watch (connection, watch, condition);
-
-  bus_connection_dispatch_all_messages (connection);
-  
-  dbus_connection_unref (connection);
 
   return retval;
 }
@@ -229,14 +226,8 @@ connection_timeout_callback (DBusTimeout   *timeout,
 {
   DBusConnection *connection = data;
 
-  dbus_connection_ref (connection);
-
   /* can return FALSE on OOM but we just let it fire again later */
   dbus_timeout_handle (timeout);
-
-  bus_connection_dispatch_all_messages (connection);
-  
-  dbus_connection_unref (connection);
 }
 
 static dbus_bool_t
@@ -257,6 +248,20 @@ remove_connection_timeout (DBusTimeout    *timeout,
   
   _dbus_loop_remove_timeout (connection_get_loop (connection),
                              timeout, connection_timeout_callback, connection);
+}
+
+static void
+dispatch_status_function (DBusConnection    *connection,
+                          DBusDispatchStatus new_status,
+                          void              *data)
+{
+  DBusLoop *loop = data;
+  
+  if (new_status != DBUS_DISPATCH_COMPLETE)
+    {
+      while (!_dbus_loop_queue_dispatch (loop, connection))
+        _dbus_wait_for_memory ();
+    }
 }
 
 static dbus_bool_t
@@ -405,6 +410,11 @@ bus_connections_setup_connection (BusConnections *connections,
   dbus_connection_set_unix_user_function (connection,
                                           allow_user_function,
                                           NULL, NULL);
+
+  dbus_connection_set_dispatch_status_function (connection,
+                                                dispatch_status_function,
+                                                bus_context_get_loop (connections->context),
+                                                NULL);
   
   /* Setup the connection with the dispatcher */
   if (!bus_dispatch_add_connection (connection))
@@ -414,6 +424,15 @@ bus_connections_setup_connection (BusConnections *connections,
     {
       bus_dispatch_remove_connection (connection);
       goto out;
+    }
+
+  if (dbus_connection_get_dispatch_status (connection) != DBUS_DISPATCH_COMPLETE)
+    {
+      if (!_dbus_loop_queue_dispatch (bus_context_get_loop (connections->context), connection))
+        {
+          bus_dispatch_remove_connection (connection);
+          goto out;
+        }
     }
   
   dbus_connection_ref (connection);
@@ -437,6 +456,9 @@ bus_connections_setup_connection (BusConnections *connections,
       dbus_connection_set_unix_user_function (connection,
                                               NULL, NULL, NULL);
 
+      dbus_connection_set_dispatch_status_function (connection,
+                                                    NULL, NULL, NULL);
+      
       if (!dbus_connection_set_data (connection,
                                      connection_data_slot,
                                      NULL, NULL))

@@ -75,63 +75,71 @@ typedef void        (* DBusTimeoutToggledFunction) (DBusTimeout    *timeout,
                                                     void           *data);
 typedef void        (* DBusRemoveTimeoutFunction)  (DBusTimeout    *timeout,
                                                     void           *data);
+typedef void        (* DBusDispatchStatusFunction) (DBusConnection *connection,
+                                                    DBusDispatchStatus new_status,
+                                                    void           *data);
 typedef void        (* DBusWakeupMainFunction)     (void           *data);
 typedef dbus_bool_t (* DBusAllowUnixUserFunction)  (DBusConnection *connection,
                                                     unsigned long   uid,
                                                     void           *data);
 
-DBusConnection*    dbus_connection_open                      (const char                 *address,
-                                                              DBusError                  *error);
-void               dbus_connection_ref                       (DBusConnection             *connection);
-void               dbus_connection_unref                     (DBusConnection             *connection);
-void               dbus_connection_disconnect                (DBusConnection             *connection);
-dbus_bool_t        dbus_connection_get_is_connected          (DBusConnection             *connection);
-dbus_bool_t        dbus_connection_get_is_authenticated      (DBusConnection             *connection);
-void               dbus_connection_flush                     (DBusConnection             *connection);
-DBusMessage*       dbus_connection_borrow_message            (DBusConnection             *connection);
-void               dbus_connection_return_message            (DBusConnection             *connection,
-                                                              DBusMessage                *message);
-void               dbus_connection_steal_borrowed_message    (DBusConnection             *connection,
-                                                              DBusMessage                *message);
-DBusMessage*       dbus_connection_pop_message               (DBusConnection             *connection);
-DBusDispatchStatus dbus_connection_get_dispatch_status       (DBusConnection             *connection);
-DBusDispatchStatus dbus_connection_dispatch                  (DBusConnection             *connection);
-dbus_bool_t        dbus_connection_send                      (DBusConnection             *connection,
-                                                              DBusMessage                *message,
-                                                              dbus_int32_t               *client_serial);
-dbus_bool_t        dbus_connection_send_with_reply           (DBusConnection             *connection,
-                                                              DBusMessage                *message,
-                                                              DBusMessageHandler         *reply_handler,
-                                                              int                         timeout_milliseconds);
-DBusMessage *      dbus_connection_send_with_reply_and_block (DBusConnection             *connection,
-                                                              DBusMessage                *message,
-                                                              int                         timeout_milliseconds,
-                                                              DBusError                  *error);
-dbus_bool_t        dbus_connection_set_watch_functions       (DBusConnection             *connection,
-                                                              DBusAddWatchFunction        add_function,
-                                                              DBusRemoveWatchFunction     remove_function,
-                                                              DBusWatchToggledFunction    toggled_function,
-                                                              void                       *data,
-                                                              DBusFreeFunction            free_data_function);
-dbus_bool_t        dbus_connection_set_timeout_functions     (DBusConnection             *connection,
-                                                              DBusAddTimeoutFunction      add_function,
-                                                              DBusRemoveTimeoutFunction   remove_function,
-                                                              DBusTimeoutToggledFunction  toggled_function,
-                                                              void                       *data,
-                                                              DBusFreeFunction            free_data_function);
-void               dbus_connection_set_wakeup_main_function  (DBusConnection             *connection,
-                                                              DBusWakeupMainFunction      wakeup_main_function,
-                                                              void                       *data,
-                                                              DBusFreeFunction            free_data_function);
-dbus_bool_t        dbus_connection_handle_watch              (DBusConnection             *connection,
-                                                              DBusWatch                  *watch,
-                                                              unsigned int                condition);
-dbus_bool_t        dbus_connection_get_unix_user             (DBusConnection             *connection,
-                                                              unsigned long              *uid);
-void               dbus_connection_set_unix_user_function    (DBusConnection             *connection,
-                                                              DBusAllowUnixUserFunction   function,
-                                                              void                       *data,
-                                                              DBusFreeFunction            free_data_function);
+DBusConnection*    dbus_connection_open                         (const char                 *address,
+                                                                 DBusError                  *error);
+void               dbus_connection_ref                          (DBusConnection             *connection);
+void               dbus_connection_unref                        (DBusConnection             *connection);
+void               dbus_connection_disconnect                   (DBusConnection             *connection);
+dbus_bool_t        dbus_connection_get_is_connected             (DBusConnection             *connection);
+dbus_bool_t        dbus_connection_get_is_authenticated         (DBusConnection             *connection);
+void               dbus_connection_flush                        (DBusConnection             *connection);
+DBusMessage*       dbus_connection_borrow_message               (DBusConnection             *connection);
+void               dbus_connection_return_message               (DBusConnection             *connection,
+                                                                 DBusMessage                *message);
+void               dbus_connection_steal_borrowed_message       (DBusConnection             *connection,
+                                                                 DBusMessage                *message);
+DBusMessage*       dbus_connection_pop_message                  (DBusConnection             *connection);
+DBusDispatchStatus dbus_connection_get_dispatch_status          (DBusConnection             *connection);
+DBusDispatchStatus dbus_connection_dispatch                     (DBusConnection             *connection);
+dbus_bool_t        dbus_connection_send                         (DBusConnection             *connection,
+                                                                 DBusMessage                *message,
+                                                                 dbus_int32_t               *client_serial);
+dbus_bool_t        dbus_connection_send_with_reply              (DBusConnection             *connection,
+                                                                 DBusMessage                *message,
+                                                                 DBusMessageHandler         *reply_handler,
+                                                                 int                         timeout_milliseconds);
+DBusMessage *      dbus_connection_send_with_reply_and_block    (DBusConnection             *connection,
+                                                                 DBusMessage                *message,
+                                                                 int                         timeout_milliseconds,
+                                                                 DBusError                  *error);
+dbus_bool_t        dbus_connection_set_watch_functions          (DBusConnection             *connection,
+                                                                 DBusAddWatchFunction        add_function,
+                                                                 DBusRemoveWatchFunction     remove_function,
+                                                                 DBusWatchToggledFunction    toggled_function,
+                                                                 void                       *data,
+                                                                 DBusFreeFunction            free_data_function);
+dbus_bool_t        dbus_connection_set_timeout_functions        (DBusConnection             *connection,
+                                                                 DBusAddTimeoutFunction      add_function,
+                                                                 DBusRemoveTimeoutFunction   remove_function,
+                                                                 DBusTimeoutToggledFunction  toggled_function,
+                                                                 void                       *data,
+                                                                 DBusFreeFunction            free_data_function);
+void               dbus_connection_set_wakeup_main_function     (DBusConnection             *connection,
+                                                                 DBusWakeupMainFunction      wakeup_main_function,
+                                                                 void                       *data,
+                                                                 DBusFreeFunction            free_data_function);
+void               dbus_connection_set_dispatch_status_function (DBusConnection             *connection,
+                                                                 DBusDispatchStatusFunction  function,
+                                                                 void                       *data,
+                                                                 DBusFreeFunction            free_data_function);
+dbus_bool_t        dbus_connection_handle_watch                 (DBusConnection             *connection,
+                                                                 DBusWatch                  *watch,
+                                                                 unsigned int                condition);
+dbus_bool_t        dbus_connection_get_unix_user                (DBusConnection             *connection,
+                                                                 unsigned long              *uid);
+void               dbus_connection_set_unix_user_function       (DBusConnection             *connection,
+                                                                 DBusAllowUnixUserFunction   function,
+                                                                 void                       *data,
+                                                                 DBusFreeFunction            free_data_function);
+
 
 int          dbus_watch_get_fd      (DBusWatch        *watch);
 unsigned int dbus_watch_get_flags   (DBusWatch        *watch);
