@@ -128,3 +128,7 @@
  - rename HEADER_FIELD_SERVICE -> HEADER_FIELD_DESTINATION 
    and HEADER_FIELD_SENDER_SERVICE -> HEADER_FIELD_SENDER 
    for both dbus-protocol.h and in the spec
+
+ - Better error checking for bogus configuration files. Currently if a 
+   configuration file tries to include itself the bus crashes on start. We 
+   should probably have a check against this.

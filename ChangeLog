@@ -1,3 +1,7 @@
+2003-12-13  Mikael Hallendal  <micke@imendio.com>
+
+	* doc/TODO: Added not about better error check of configuration files.
+
 2003-12-02  Richard Hult  <richard@imendio.com>
 
 	* Update AFL version to 2.0 throughout the source files to reflect
