@@ -1,3 +1,19 @@
+2004-03-12  Mikael Hallendal  <micke@imendio.com>
+
+	* bus/activation.c: 
+	- Added service file reloading. 
+	  Each service files directory is kept in an hash table in 
+	  BusActivation and each BusActivationEntry knows what .service-file it
+	  was read from. So when you try to activate a service the bus will 
+	  check if it's been updated, removed or if new .service-files has 
+	  been installed.
+	- Test code at the bottom for the service file reloading.
+	* bus/test-main.c: (main):
+	* bus/test.h:
+	- added service reloading test.
+	* dbus/dbus-sysdeps.c: 
+	* dbus/dbus-sysdeps.h: (_dbus_delete_directory): Added.
+
 2004-03-08  Michael Meeks  <michael@ximian.com>
 
 	* dbus/dbus-connection.c (_dbus_connection_block_for_reply): 

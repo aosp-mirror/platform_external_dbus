@@ -76,7 +76,7 @@ main (int argc, char **argv)
   if (!_dbus_threads_init_debug ())
     die ("initializing debug threads");
 #endif
-
+ 
   printf ("%s: Running expire list test\n", argv[0]);
   if (!bus_expire_list_test (&test_data_dir))
     die ("expire list");
@@ -106,10 +106,15 @@ main (int argc, char **argv)
     die ("sha1");
 
   check_memleaks (argv[0]);
-  
   printf ("%s: Running message dispatch test\n", argv[0]);
-  if (!bus_dispatch_test (&test_data_dir))
+  if (!bus_dispatch_test (&test_data_dir)) 
     die ("dispatch");
+
+  check_memleaks (argv[0]);
+
+  printf ("%s: Running service files reloading test\n", argv[0]);
+  if (!bus_activation_service_reload_test (&test_data_dir))
+    die ("service reload");
 
   check_memleaks (argv[0]);
   

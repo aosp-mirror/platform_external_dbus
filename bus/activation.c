@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2003  CodeFactory AB
  * Copyright (C) 2003  Red Hat, Inc.
+ * Copyright (C) 2004  Imendio HB
  *
  * Licensed under the Academic Free License version 2.0
  * 
@@ -24,13 +25,13 @@
 #include "activation.h"
 #include "desktop-file.h"
 #include "services.h"
+#include "test.h"
 #include "utils.h"
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-spawn.h>
 #include <dbus/dbus-timeout.h>
-#include <sys/types.h>
 #include <dirent.h>
 #include <errno.h>
 
@@ -43,18 +44,30 @@ struct BusActivation
   int refcount;
   DBusHashTable *entries;
   DBusHashTable *pending_activations;
-  char *server_address;
+ char *server_address;
   BusContext *context;
   int n_pending_activations; /**< This is in fact the number of BusPendingActivationEntry,
                               * i.e. number of pending activation requests, not pending
                               * activations per se
-                              */
+			      */
+  DBusHashTable *directories;
 };
 
 typedef struct
 {
+  int refcount;
+  char *dir_c;
+  DBusHashTable *entries;
+} BusServiceDirectory;
+
+typedef struct
+{
+  int refcount;
   char *name;
   char *exec;
+  unsigned long mtime;
+  BusServiceDirectory *s_dir;
+  char *filename;
 } BusActivationEntry;
 
 typedef struct BusPendingActivationEntry BusPendingActivationEntry;
@@ -76,6 +89,35 @@ typedef struct
   DBusTimeout *timeout;
   unsigned int timeout_added : 1;
 } BusPendingActivation;
+
+static BusServiceDirectory *
+bus_service_directory_ref (BusServiceDirectory *dir)
+{
+  _dbus_assert (dir->refcount);
+  
+  dir->refcount++;
+
+  return dir;
+}
+
+static void
+bus_service_directory_unref (BusServiceDirectory *dir)
+{
+  if (dir == NULL) 
+    return; 
+
+  _dbus_assert (dir->refcount > 0);
+  dir->refcount--;
+
+  if (dir->refcount > 0)
+    return;
+
+  if (dir->entries)
+    _dbus_hash_table_unref (dir->entries);
+
+  dbus_free (dir->dir_c);
+  dbus_free (dir);
+}
 
 static void
 bus_pending_activation_entry_free (BusPendingActivationEntry *entry)
@@ -166,25 +208,45 @@ bus_pending_activation_unref (BusPendingActivation *pending_activation)
   dbus_free (pending_activation);
 }
 
-static void
-bus_activation_entry_free (BusActivationEntry *entry)
+static BusActivationEntry *
+bus_activation_entry_ref (BusActivationEntry *entry)
 {
-  if (!entry)
+  _dbus_assert (entry->refcount > 0);
+  entry->refcount++;
+
+  return entry;
+}
+
+static void
+bus_activation_entry_unref (BusActivationEntry *entry)
+{
+  if (entry == NULL) /* hash table requires this */
+    return;
+  
+  _dbus_assert (entry->refcount > 0);
+  entry->refcount--;
+  
+  if (entry->refcount > 0) 
     return;
   
   dbus_free (entry->name);
   dbus_free (entry->exec);
+  dbus_free (entry->filename);
 
   dbus_free (entry);
 }
 
 static dbus_bool_t
-add_desktop_file_entry (BusActivation  *activation,
-                        BusDesktopFile *desktop_file,
-                        DBusError      *error)
+update_desktop_file_entry (BusActivation       *activation,
+			   BusServiceDirectory *s_dir,
+			   DBusString          *filename,
+			   BusDesktopFile      *desktop_file,
+			   DBusError           *error)
 {
   char *name, *exec;
   BusActivationEntry *entry;
+  DBusStat stat_buf;
+  DBusString file_path;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
@@ -192,6 +254,26 @@ add_desktop_file_entry (BusActivation  *activation,
   exec = NULL;
   entry = NULL;
   
+  if (!_dbus_string_init (&file_path))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+ 
+  if (!_dbus_string_append (&file_path, s_dir->dir_c) ||
+      !_dbus_concat_dir_and_file (&file_path, filename))
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+ 
+  if (!_dbus_stat (&file_path, &stat_buf, NULL)) 
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+		      "Can't stat the service file\n");
+      goto failed;
+    }
+ 
   if (!bus_desktop_file_get_string (desktop_file,
 				    DBUS_SERVICE_SECTION,
 				    DBUS_SERVICE_NAME,
@@ -212,65 +294,221 @@ add_desktop_file_entry (BusActivation  *activation,
       goto failed;
     }
 
-  /* FIXME we need a better-defined algorithm for which service file to
-   * pick than "whichever one is first in the directory listing"
-   */
-  if (_dbus_hash_table_lookup_string (activation->entries, name))
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Service %s already exists in activation entry list\n", name);
-      goto failed;
-    }
-  
-  entry = dbus_new0 (BusActivationEntry, 1);
-  if (entry == NULL)
-    {
-      BUS_SET_OOM (error);
-      goto failed;
-    }
-  
-  entry->name = name;
-  entry->exec = exec;
+  entry = _dbus_hash_table_lookup_string (s_dir->entries, 
+					  _dbus_string_get_const_data (filename));
+  if (entry == NULL) /* New file */
+    { 
+      /* FIXME we need a better-defined algorithm for which service file to
+       * pick than "whichever one is first in the directory listing"
+       */
+      if (_dbus_hash_table_lookup_string (activation->entries, name))
+	{
+	  dbus_set_error (error, DBUS_ERROR_FAILED,
+			  "Service %s already exists in activation entry list\n", name);
+	  goto failed;
+	}
+      
+      entry = dbus_new0 (BusActivationEntry, 1);
+      if (entry == NULL)
+	{
+	  BUS_SET_OOM (error);
+	  goto failed;
+	}
+     
+      entry->name = name;
+      entry->exec = exec;
+      entry->refcount = 1;
+    
+      entry->s_dir = s_dir;
+      entry->filename = _dbus_strdup (_dbus_string_get_const_data (filename));
+      if (!entry->filename)
+	{
+	  BUS_SET_OOM (error);
+	  goto failed;
+	}
 
-  if (!_dbus_hash_table_insert_string (activation->entries, entry->name, entry))
-    {
-      BUS_SET_OOM (error);
-      goto failed;
-    }
+      if (!_dbus_hash_table_insert_string (activation->entries, entry->name, bus_activation_entry_ref (entry)))
+	{
+	  BUS_SET_OOM (error);
+	  goto failed;
+	}
+     
+      if (!_dbus_hash_table_insert_string (s_dir->entries, entry->filename, bus_activation_entry_ref (entry)))
+	{
+	  /* Revert the insertion in the entries table */
+	  _dbus_hash_table_remove_string (activation->entries, entry->name);
+	  BUS_SET_OOM (error);
+	  goto failed;
+	}
 
-  _dbus_verbose ("Added \"%s\" to list of services\n", entry->name);
+      _dbus_verbose ("Added \"%s\" to list of services\n", entry->name);
+    }
+  else /* Just update the entry */
+    {
+      bus_activation_entry_ref (entry);
+      _dbus_hash_table_remove_string (activation->entries, entry->name);
+
+      if (_dbus_hash_table_lookup_string (activation->entries, name))
+	{
+	  _dbus_verbose ("The new service name \"%s\" of service file \"%s\" already in cache, ignoring\n",
+			 name, _dbus_string_get_const_data (&file_path));
+	  goto failed;
+	}
+ 
+      dbus_free (entry->name);
+      dbus_free (entry->exec);
+      entry->name = name;
+      entry->exec = exec;
+      if (!_dbus_hash_table_insert_string (activation->entries,
+					   entry->name, bus_activation_entry_ref(entry)))
+	{
+	  BUS_SET_OOM (error);
+	  /* Also remove path to entries hash since we want this in sync with
+	   * the entries hash table */
+	  _dbus_hash_table_remove_string (entry->s_dir->entries, 
+					  entry->filename);
+	  bus_activation_entry_unref (entry);
+	  return FALSE;
+	}
+    }
   
+  entry->mtime = stat_buf.mtime;
+  
+  _dbus_string_free (&file_path);
+  bus_activation_entry_unref (entry);
+
   return TRUE;
 
- failed:
+failed:
   dbus_free (name);
   dbus_free (exec);
-  dbus_free (entry);
+  _dbus_string_free (&file_path);
+
+  if (entry)
+    bus_activation_entry_unref (entry);
   
   return FALSE;
 }
+
+static dbus_bool_t
+check_service_file (BusActivation       *activation,
+		    BusActivationEntry  *entry,
+		    BusActivationEntry **updated_entry,
+		    DBusError           *error)
+{
+  DBusStat stat_buf;
+  dbus_bool_t retval;
+  BusActivationEntry *tmp_entry;
+  DBusString file_path;
+  DBusString filename;
+
+  retval = TRUE;
+  tmp_entry = entry;
+  
+  _dbus_string_init_const (&filename, entry->filename);
+  
+  if (!_dbus_string_init (&file_path))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+ 
+  if (!_dbus_string_append (&file_path, entry->s_dir->dir_c) ||
+      !_dbus_concat_dir_and_file (&file_path, &filename))
+    {
+      BUS_SET_OOM (error);
+      retval = FALSE;
+      goto out;
+    }
+  
+  if (!_dbus_stat (&file_path, &stat_buf, NULL))
+    {
+      _dbus_verbose ("****** Can't stat file \"%s\", removing from cache\n",
+		     _dbus_string_get_const_data (&file_path));
+
+      _dbus_hash_table_remove_string (activation->entries, entry->name);
+      _dbus_hash_table_remove_string (entry->s_dir->entries, entry->filename);
+
+      tmp_entry = NULL;
+      retval = TRUE;
+      goto out;
+    }
+  else 
+    {
+      if (stat_buf.mtime > entry->mtime) 
+	{
+	  BusDesktopFile *desktop_file;
+	  DBusError tmp_error;
+	  
+	  dbus_error_init (&tmp_error);
+	  
+	  desktop_file = bus_desktop_file_load (&file_path, &tmp_error);
+	  if (desktop_file == NULL)
+	    {
+	      _dbus_verbose ("Could not load %s: %s\n",
+			     _dbus_string_get_const_data (&file_path), 
+			     tmp_error.message);
+	      if (dbus_error_has_name (&tmp_error, DBUS_ERROR_NO_MEMORY))
+		{
+		  dbus_move_error (&tmp_error, error);
+		  retval = FALSE;
+		  goto out;
+		}
+	      dbus_error_free (&tmp_error);
+	      retval = TRUE;
+	      goto out;
+	    }
+	  
+	  if (!update_desktop_file_entry (activation, entry->s_dir, &filename, desktop_file, &tmp_error))
+	    {
+	      bus_desktop_file_free (desktop_file);
+	      if (dbus_error_has_name (&tmp_error, DBUS_ERROR_NO_MEMORY))
+		{
+		  dbus_move_error (&tmp_error, error);
+		  retval = FALSE;
+		  goto out;
+		}
+	      dbus_error_free (&tmp_error);
+	      retval = TRUE;
+	      goto out;
+	    }
+	 
+	  bus_desktop_file_free (desktop_file);
+	  retval = TRUE;
+	}
+    }
+  
+out:
+  _dbus_string_free (&file_path);
+
+  if (updated_entry != NULL)
+    *updated_entry = tmp_entry;
+  return retval;
+}
+
 
 /* warning: this doesn't fully "undo" itself on failure, i.e. doesn't strip
  * hash entries it already added.
  */
 static dbus_bool_t
-load_directory (BusActivation *activation,
-                const char    *directory,
-                DBusError     *error)
+update_directory (BusActivation       *activation,
+		  BusServiceDirectory *s_dir,
+		  DBusError           *error)
 {
   DBusDirIter *iter;
   DBusString dir, filename;
-  DBusString full_path;
   BusDesktopFile *desktop_file;
   DBusError tmp_error;
   dbus_bool_t retval;
+  BusActivationEntry *entry;
+  DBusString full_path;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  _dbus_string_init_const (&dir, directory);
-
   iter = NULL;
   desktop_file = NULL;
+  
+  _dbus_string_init_const (&dir, s_dir->dir_c);
   
   if (!_dbus_string_init (&filename))
     {
@@ -286,14 +524,15 @@ load_directory (BusActivation *activation,
     }
 
   retval = FALSE;
-  
+
   /* from this point it's safe to "goto out" */
   
   iter = _dbus_directory_open (&dir, error);
   if (iter == NULL)
     {
       _dbus_verbose ("Failed to open directory %s: %s\n",
-                     directory, error ? error->message : "unknown");
+		     s_dir->dir_c, 
+		     error ? error->message : "unknown");
       goto out;
     }
   
@@ -305,22 +544,31 @@ load_directory (BusActivation *activation,
       
       _dbus_string_set_length (&full_path, 0);
       
-      if (!_dbus_string_append (&full_path, directory) ||
-          !_dbus_concat_dir_and_file (&full_path, &filename))
-        {
-          BUS_SET_OOM (error);
-          goto out;
-        }
-      
       if (!_dbus_string_ends_with_c_str (&filename, ".service"))
 	{
-          _dbus_verbose ("Skipping non-.service file %s\n",
+	  _dbus_verbose ("Skipping non-.service file %s\n",
                          _dbus_string_get_const_data (&filename));
-          continue;
+	  continue;
+	}
+
+      entry = _dbus_hash_table_lookup_string (s_dir->entries, _dbus_string_get_const_data (&filename));
+      if (entry) /* Already has this service file in the cache */ 
+	{
+	  if (!check_service_file (activation, entry, NULL, error))
+	    goto out;
+
+	  continue;
 	}
       
+      if (!_dbus_string_append (&full_path, s_dir->dir_c) ||
+	  !_dbus_concat_dir_and_file (&full_path, &filename))
+        {
+	  BUS_SET_OOM (error);
+	  goto out;
+	}
+          
+      /* New file */
       desktop_file = bus_desktop_file_load (&full_path, &tmp_error);
-
       if (desktop_file == NULL)
 	{
 	  _dbus_verbose ("Could not load %s: %s\n",
@@ -337,9 +585,9 @@ load_directory (BusActivation *activation,
 	  continue;
 	}
 
-      if (!add_desktop_file_entry (activation, desktop_file, &tmp_error))
+      if (!update_desktop_file_entry (activation, s_dir, &filename, desktop_file, &tmp_error))
 	{
-          bus_desktop_file_free (desktop_file);
+	  bus_desktop_file_free (desktop_file);
           desktop_file = NULL;
 	  
 	  _dbus_verbose ("Could not add %s to activation entry list: %s\n",
@@ -369,7 +617,7 @@ load_directory (BusActivation *activation,
     }
   
   retval = TRUE;
-  
+
  out:
   if (!retval)
     _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -393,7 +641,8 @@ bus_activation_new (BusContext        *context,
                     DBusError         *error)
 {
   BusActivation *activation;
-  DBusList *link;
+  DBusList      *link;
+  char          *dir;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
@@ -415,7 +664,7 @@ bus_activation_new (BusContext        *context,
     }
   
   activation->entries = _dbus_hash_table_new (DBUS_HASH_STRING, NULL,
-                                             (DBusFreeFunction)bus_activation_entry_free);
+                                             (DBusFreeFunction)bus_activation_entry_unref);
   if (activation->entries == NULL)
     {      
       BUS_SET_OOM (error);
@@ -430,13 +679,60 @@ bus_activation_new (BusContext        *context,
       BUS_SET_OOM (error);
       goto failed;
     }
+
+  activation->directories = _dbus_hash_table_new (DBUS_HASH_STRING, NULL,
+						  (DBusFreeFunction)bus_service_directory_unref);
   
+  if (activation->directories == NULL) 
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+ 
   /* Load service files */
   link = _dbus_list_get_first_link (directories);
   while (link != NULL)
     {
-      if (!load_directory (activation, link->data, error))
-        goto failed;
+      BusServiceDirectory *s_dir;
+      
+      dir = _dbus_strdup ((const char *) link->data);
+      if (!dir)
+	{
+	  BUS_SET_OOM (error);
+	  goto failed;
+	}
+      
+      s_dir = dbus_new0 (BusServiceDirectory, 1);
+      if (!s_dir)
+	{
+	  dbus_free (dir);
+	  BUS_SET_OOM (error);
+	  goto failed;
+	}
+
+      s_dir->refcount = 1;
+      s_dir->dir_c = dir;
+      
+      s_dir->entries = _dbus_hash_table_new (DBUS_HASH_STRING, NULL,
+					     (DBusFreeFunction)bus_activation_entry_unref);
+
+      if (!s_dir->entries)
+	{
+	  bus_service_directory_unref (s_dir);
+	  BUS_SET_OOM (error);
+	  goto failed;
+	}
+
+      if (!_dbus_hash_table_insert_string (activation->directories, s_dir->dir_c, s_dir))
+	{
+	  bus_service_directory_unref (s_dir);
+	  BUS_SET_OOM (error);
+	  goto failed;
+	}
+
+      if (!update_directory (activation, s_dir, error))
+	goto failed;
+      
       link = _dbus_list_get_next_link (directories, link);
     }
 
@@ -464,15 +760,18 @@ bus_activation_unref (BusActivation *activation)
 
   activation->refcount -= 1;
 
-  if (activation->refcount == 0)
-    {
-      dbus_free (activation->server_address);
-      if (activation->entries)
-        _dbus_hash_table_unref (activation->entries);
-      if (activation->pending_activations)
-	_dbus_hash_table_unref (activation->pending_activations);
-      dbus_free (activation);
-    }
+  if (activation->refcount > 0)
+    return;
+  
+  dbus_free (activation->server_address);
+  if (activation->entries)
+    _dbus_hash_table_unref (activation->entries);
+  if (activation->pending_activations)
+    _dbus_hash_table_unref (activation->pending_activations);
+  if (activation->directories)  
+    _dbus_hash_table_unref (activation->directories);
+  
+  dbus_free (activation);
 }
 
 static void
@@ -840,6 +1139,73 @@ add_cancel_pending_to_transaction (BusTransaction       *transaction,
   return TRUE;
 }
 
+static dbus_bool_t 
+update_service_cache (BusActivation *activation, DBusError *error)
+{
+  DBusHashIter iter;
+ 
+  _dbus_hash_iter_init (activation->directories, &iter);
+  while (_dbus_hash_iter_next (&iter))
+    {
+      DBusError tmp_error;
+      BusServiceDirectory *s_dir;
+
+      s_dir = _dbus_hash_iter_get_value (&iter);
+
+      dbus_error_init (&tmp_error);
+      if (!update_directory (activation, s_dir, &tmp_error))
+	{
+	  if (dbus_error_has_name (&tmp_error, DBUS_ERROR_NO_MEMORY))
+	    {
+	      dbus_move_error (&tmp_error, error);
+	      return FALSE;
+	    }
+
+	  dbus_error_free (&tmp_error);
+	  continue;
+	}
+    }
+  
+  return TRUE;
+}
+
+static BusActivationEntry *
+activation_find_entry (BusActivation *activation, 
+		       const char    *service_name,
+		       DBusError     *error)
+{
+  BusActivationEntry *entry;
+  
+  entry = _dbus_hash_table_lookup_string (activation->entries, service_name);
+  if (!entry)
+    { 
+      if (!update_service_cache (activation, error)) 
+	return NULL;
+
+      entry = _dbus_hash_table_lookup_string (activation->entries,
+					      service_name);
+    }
+  else 
+    {
+      BusActivationEntry *updated_entry;
+
+      if (!check_service_file (activation, entry, &updated_entry, error)) 
+	return NULL;
+
+      entry = updated_entry;
+    }
+
+  if (!entry) 
+    {
+      dbus_set_error (error, DBUS_ERROR_ACTIVATE_SERVICE_NOT_FOUND,
+		      "The service %s was not found in the activation entry list",
+		      service_name);
+      return NULL;
+    }
+
+  return entry;
+}
+
 dbus_bool_t
 bus_activation_activate_service (BusActivation  *activation,
 				 DBusConnection *connection,
@@ -866,16 +1232,10 @@ bus_activation_activate_service (BusActivation  *activation,
 		      service_name);
       return FALSE;
     }
-  
-  entry = _dbus_hash_table_lookup_string (activation->entries, service_name);
 
-  if (!entry)
-    {
-      dbus_set_error (error, DBUS_ERROR_ACTIVATE_SERVICE_NOT_FOUND,
-		      "The service %s was not found in the activation entry list",
-		      service_name);
-      return FALSE;
-    }
+  entry = activation_find_entry (activation, service_name, error);
+  if (!entry) 
+    return FALSE;
 
   /* Check if the service is active */
   _dbus_string_init_const (&service_str, service_name);
@@ -1066,3 +1426,343 @@ bus_activation_activate_service (BusActivation  *activation,
   
   return TRUE;
 }
+
+#ifdef DBUS_BUILD_TESTS
+
+#include <stdio.h>
+
+#define SERVICE_NAME_1 "MyService1"
+#define SERVICE_NAME_2 "MyService2"
+#define SERVICE_NAME_3 "MyService3"
+
+#define SERVICE_FILE_1 "service-1.service"
+#define SERVICE_FILE_2 "service-2.service"
+#define SERVICE_FILE_3 "service-3.service"
+
+static dbus_bool_t
+test_create_service_file (DBusString *dir,
+			  const char *filename, 
+			  const char *name, 
+			  const char *exec)
+{
+  DBusString  file_name, full_path;
+  FILE        *file;
+  dbus_bool_t  ret_val;
+
+  ret_val = TRUE;
+  _dbus_string_init_const (&file_name, filename);
+
+  if (!_dbus_string_init (&full_path))
+    return FALSE;
+
+  if (!_dbus_string_append (&full_path, _dbus_string_get_const_data (dir)) ||
+      !_dbus_concat_dir_and_file (&full_path, &file_name))
+    {
+      ret_val = FALSE;
+      goto out;
+    }
+  
+  file = fopen (_dbus_string_get_const_data (&full_path), "w");
+  if (!file)
+    {
+      ret_val = FALSE;
+      goto out;
+    }
+
+  fprintf (file, "[D-BUS Service]\nName=%s\nExec=%s\n", name, exec);
+  fclose (file);
+
+out:
+  _dbus_string_free (&full_path);
+  return ret_val;
+}
+
+static dbus_bool_t
+test_remove_service_file (DBusString *dir, const char *filename)
+{
+  DBusString  file_name, full_path;
+  dbus_bool_t ret_val;
+  
+  ret_val = TRUE;
+ 
+  _dbus_string_init_const (&file_name, filename);
+
+  if (!_dbus_string_init (&full_path))
+    return FALSE;
+
+  if (!_dbus_string_append (&full_path, _dbus_string_get_const_data (dir)) ||
+      !_dbus_concat_dir_and_file (&full_path, &file_name))
+    {
+      ret_val = FALSE;
+      goto out;
+    }
+
+  if (!_dbus_delete_file (&full_path, NULL))
+    {
+      ret_val = FALSE;
+      goto out;
+    }
+
+out:
+  _dbus_string_free (&full_path);
+  return ret_val;
+}
+
+static dbus_bool_t
+test_remove_directory (DBusString *dir)
+{
+  DBusDirIter *iter;
+  DBusString   filename, full_path;
+  dbus_bool_t  ret_val;
+  
+  ret_val = TRUE;
+  
+  if (!_dbus_string_init (&filename))
+    return FALSE;
+
+  if (!_dbus_string_init (&full_path))
+    {
+      _dbus_string_free (&filename);
+      return FALSE;
+    }
+    
+  iter = _dbus_directory_open (dir, NULL);
+  if (iter == NULL)
+    {
+      ret_val = FALSE;
+      goto out;
+    }
+  
+  while (_dbus_directory_get_next_file (iter, &filename, NULL)) 
+    {
+      if (!test_remove_service_file (dir, _dbus_string_get_const_data (&filename)))
+	{
+	  ret_val = FALSE;
+	  goto out;
+	}
+    }
+  _dbus_directory_close (iter);
+
+  if (!_dbus_delete_directory (dir, NULL))
+    {
+      ret_val = FALSE;
+      goto out;
+    }
+
+out:
+  _dbus_string_free (&filename);
+  _dbus_string_free (&full_path);
+
+  return ret_val;
+}
+
+static dbus_bool_t
+init_service_reload_test (DBusString *dir)
+{
+  DBusStat stat_buf;
+ 
+  if (!_dbus_stat (dir, &stat_buf, NULL))
+    {
+      if (!_dbus_create_directory (dir, NULL))
+	return FALSE;
+    }
+  else 
+    {
+      if (!test_remove_directory (dir))
+	return FALSE;
+
+      if (!_dbus_create_directory (dir, NULL))
+	return FALSE;
+    }
+
+  /* Create one initial file */
+  if (!test_create_service_file (dir, SERVICE_FILE_1, SERVICE_NAME_1, "exec-1"))
+    return FALSE;
+
+  return TRUE;
+}
+
+static dbus_bool_t
+cleanup_service_reload_test (DBusString *dir)
+{
+  if (!test_remove_directory (dir))
+    return FALSE;
+
+  return TRUE;
+}
+
+typedef struct 
+{
+  BusActivation *activation;
+  const char    *service_name;
+  dbus_bool_t    expecting_find;
+} CheckData;
+
+static dbus_bool_t
+check_func (void *data)
+{
+  CheckData          *d;
+  BusActivationEntry *entry;
+  DBusError           error;
+  dbus_bool_t         ret_val;
+  
+  ret_val = TRUE;
+  d = data;
+  
+  dbus_error_init (&error);
+ 
+  entry = activation_find_entry (d->activation, d->service_name, &error);
+  if (entry == NULL)
+    {
+      if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY)) 
+	{
+	  ret_val = TRUE;
+	}
+      else
+	{
+	  if (d->expecting_find)
+	    ret_val = FALSE;
+	}
+      
+      dbus_error_free (&error);
+    }
+  else 
+    {
+      if (!d->expecting_find)
+	ret_val = FALSE;
+    }
+
+  return ret_val;
+}
+
+static dbus_bool_t
+do_test (const char *description, dbus_bool_t oom_test, CheckData *data)
+{
+  dbus_bool_t err;
+
+  if (oom_test)
+    err = !_dbus_test_oom_handling (description, check_func, data);
+  else
+    err = !check_func (data);
+
+  if (err) 
+    _dbus_assert_not_reached ("Test failed");
+
+  return TRUE;
+}
+
+static dbus_bool_t
+do_service_reload_test (DBusString *dir, dbus_bool_t oom_test)
+{
+  BusActivation *activation;
+  DBusString     address;
+  DBusList      *directories;
+  CheckData      d;
+  
+  directories = NULL;
+  _dbus_string_init_const (&address, "");
+ 
+  if (!_dbus_list_append (&directories, _dbus_string_get_data (dir)))
+    return FALSE; 
+
+  activation = bus_activation_new (NULL, &address, &directories, NULL);
+  if (!activation)
+    return FALSE;
+
+  d.activation = activation;
+  
+  /* Check for existing service file */
+  d.expecting_find = TRUE;
+  d.service_name = SERVICE_NAME_1;
+
+  if (!do_test ("Existing service file", oom_test, &d))
+    return FALSE;
+
+  /* Check for non-existing service file */
+  d.expecting_find = FALSE;
+  d.service_name = SERVICE_NAME_3;
+
+  if (!do_test ("Nonexisting service file", oom_test, &d))
+    return FALSE;
+
+  /* Check for added service file */
+  if (!test_create_service_file (dir, SERVICE_FILE_2, SERVICE_NAME_2, "exec-2"))
+    return FALSE;
+
+  d.expecting_find = TRUE;
+  d.service_name = SERVICE_NAME_2;
+  
+  if (!do_test ("Added service file", oom_test, &d))
+    return FALSE;
+  
+  /* Check for removed service file */
+  if (!test_remove_service_file (dir, SERVICE_FILE_2))
+    return FALSE;
+
+  d.expecting_find = FALSE;
+  d.service_name = SERVICE_FILE_2;
+
+  if (!do_test ("Removed service file", oom_test, &d))
+    return FALSE;
+  
+  /* Check for updated service file */
+  
+  _dbus_sleep_milliseconds (1000); /* Sleep a second to make sure the mtime is updated */
+
+  if (!test_create_service_file (dir, SERVICE_FILE_1, SERVICE_NAME_3, "exec-3"))
+    return FALSE;
+
+  d.expecting_find = TRUE;
+  d.service_name = SERVICE_NAME_3;
+
+  if (!do_test ("Updated service file, part 1", oom_test, &d))
+    return FALSE;
+
+  d.expecting_find = FALSE;
+  d.service_name = SERVICE_NAME_1;
+
+  if (!do_test ("Updated service file, part 2", oom_test, &d))
+    return FALSE; 
+
+  bus_activation_unref (activation);
+  _dbus_list_clear (&directories);
+
+  return TRUE;
+}
+
+dbus_bool_t
+bus_activation_service_reload_test (const DBusString *test_data_dir)
+{
+  DBusString directory;
+
+  if (!_dbus_string_init (&directory))
+    return FALSE;
+
+  if (!_dbus_string_append (&directory, "/tmp/dbus-reload-test-") ||
+      !_dbus_generate_random_ascii (&directory, 6))
+     {
+       return FALSE;
+     }
+   
+  /* Do normal tests */
+  if (!init_service_reload_test (&directory))
+    _dbus_assert_not_reached ("could not initiate service reload test");
+ 
+  if (!do_service_reload_test (&directory, FALSE));
+  
+  /* Do OOM tests */
+  if (!init_service_reload_test (&directory))
+    _dbus_assert_not_reached ("could not initiate service reload test");
+ 
+  if (!do_service_reload_test (&directory, TRUE));
+ 
+  /* Cleanup test directory */
+  if (!cleanup_service_reload_test (&directory))
+    return FALSE;
+  
+  _dbus_string_free (&directory);
+  
+  return TRUE;
+}
+
+#endif /* DBUS_BUILD_TESTS */
