@@ -85,6 +85,7 @@ extern "C" {
 #define DBUS_MESSAGE_SERVICE_DELETED       "org.freedesktop.DBus.ServiceDeleted"
 #define DBUS_MESSAGE_SERVICE_LOST          "org.freedesktop.DBus.ServiceLost"
 
+#define DBUS_MESSAGE_LOCAL_DISCONNECT      "org.freedesktop.Local.Disconnect"
   
 #ifdef __cplusplus
 }

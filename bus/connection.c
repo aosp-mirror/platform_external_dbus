@@ -38,9 +38,8 @@ typedef struct
 
 #define BUS_CONNECTION_DATA(connection) (dbus_connection_get_data ((connection), connection_data_slot))
 
-static void
-connection_disconnect_handler (DBusConnection *connection,
-                               void           *data)
+void
+bus_connection_disconnect (DBusConnection *connection)
 {
   BusConnectionData *d;
   BusService *service;
@@ -157,10 +156,6 @@ bus_connection_setup (DBusConnection *connection)
                                        connection,
                                        NULL);
   
-  dbus_connection_set_disconnect_function (connection,
-                                           connection_disconnect_handler,
-                                           NULL, NULL);
-
   /* Setup the connection with the dispatcher */
   if (!bus_dispatch_add_connection (connection))
     return FALSE;

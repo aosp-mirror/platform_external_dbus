@@ -66,6 +66,13 @@ dbus_bool_t _dbus_list_copy           (DBusList **list,
                                        DBusList **dest);
 int         _dbus_list_get_length     (DBusList **list);
 
+DBusList*   _dbus_list_alloc_link     (void      *data);
+void        _dbus_list_free_link      (DBusList  *link);
+void        _dbus_list_append_link    (DBusList **list,
+				       DBusList  *link);
+void        _dbus_list_prepend_link   (DBusList **list,
+				       DBusList  *link);
+
 void _dbus_list_foreach (DBusList            **list,
                          DBusForeachFunction   function,
                          void                 *data);

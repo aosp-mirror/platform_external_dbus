@@ -33,20 +33,37 @@
 DBUS_BEGIN_DECLS;
 
 typedef struct DBusMutex DBusMutex;
+typedef struct DBusCondVar DBusCondVar;
 
 typedef DBusMutex*  (* DBusMutexNewFunction)    (void);
 typedef void        (* DBusMutexFreeFunction)   (DBusMutex *mutex);
 typedef dbus_bool_t (* DBusMutexLockFunction)   (DBusMutex *mutex);
 typedef dbus_bool_t (* DBusMutexUnlockFunction) (DBusMutex *mutex);
 
+typedef DBusCondVar*  (* DBusCondVarNewFunction)         (void);
+typedef void          (* DBusCondVarFreeFunction)        (DBusCondVar *cond);
+typedef void          (* DBusCondVarWaitFunction)        (DBusCondVar *cond,
+							  DBusMutex   *mutex);
+typedef dbus_bool_t   (* DBusCondVarWaitTimeoutFunction) (DBusCondVar *cond,
+							  DBusMutex   *mutex,
+							  int          timeout_milliseconds);
+typedef void          (* DBusCondVarWakeOneFunction) (DBusCondVar *cond);
+typedef void          (* DBusCondVarWakeAllFunction) (DBusCondVar *cond);
+
 typedef enum 
 {
-  DBUS_THREAD_FUNCTIONS_NEW_MASK     = 1 << 0,
-  DBUS_THREAD_FUNCTIONS_FREE_MASK    = 1 << 1,
-  DBUS_THREAD_FUNCTIONS_LOCK_MASK    = 1 << 2,
-  DBUS_THREAD_FUNCTIONS_UNLOCK_MASK  = 1 << 3,
+  DBUS_THREAD_FUNCTIONS_MUTEX_NEW_MASK      = 1 << 0,
+  DBUS_THREAD_FUNCTIONS_MUTEX_FREE_MASK     = 1 << 1,
+  DBUS_THREAD_FUNCTIONS_MUTEX_LOCK_MASK     = 1 << 2,
+  DBUS_THREAD_FUNCTIONS_MUTEX_UNLOCK_MASK   = 1 << 3,
+  DBUS_THREAD_FUNCTIONS_CONDVAR_NEW_MASK    = 1 << 4,
+  DBUS_THREAD_FUNCTIONS_CONDVAR_FREE_MASK   = 1 << 5,
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_MASK   = 1 << 6,
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_TIMEOUT_MASK   = 1 << 7,
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ONE_MASK = 1 << 8,
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ALL_MASK = 1 << 9,
 
-  DBUS_THREAD_FUNCTIONS_ALL_MASK     = 0xf
+  DBUS_THREAD_FUNCTIONS_ALL_MASK     = (1 << 10) - 1
 } DBusThreadFunctionsMask;
 
 typedef struct
@@ -58,6 +75,13 @@ typedef struct
   DBusMutexLockFunction mutex_lock;
   DBusMutexUnlockFunction mutex_unlock;
 
+  DBusCondVarNewFunction condvar_new;
+  DBusCondVarFreeFunction condvar_free;
+  DBusCondVarWaitFunction condvar_wait;
+  DBusCondVarWaitTimeoutFunction condvar_wait_timeout;
+  DBusCondVarWakeOneFunction condvar_wake_one;
+  DBusCondVarWakeAllFunction condvar_wake_all;
+  
   void (* padding1) (void);
   void (* padding2) (void);
   void (* padding3) (void);
@@ -70,27 +94,24 @@ typedef struct
 } DBusThreadFunctions;
 
 
-DBusMutex*  dbus_mutex_new    (void);
-void        dbus_mutex_free   (DBusMutex *mutex);
-dbus_bool_t dbus_mutex_lock   (DBusMutex *mutex);
-dbus_bool_t dbus_mutex_unlock (DBusMutex *mutex);
+DBusMutex*   dbus_mutex_new            (void);
+void         dbus_mutex_free           (DBusMutex                 *mutex);
+dbus_bool_t  dbus_mutex_lock           (DBusMutex                 *mutex);
+dbus_bool_t  dbus_mutex_unlock         (DBusMutex                 *mutex);
 
-dbus_bool_t dbus_threads_init (const DBusThreadFunctions *functions);
+DBusCondVar* dbus_condvar_new          (void);
+void         dbus_condvar_free         (DBusCondVar               *cond);
+void         dbus_condvar_wait         (DBusCondVar               *cond,
+					DBusMutex                 *mutex);
+dbus_bool_t  dbus_condvar_wait_timeout (DBusCondVar               *cond,
+					DBusMutex                 *mutex,
+					int                        timeout_milliseconds);
+void         dbus_condvar_wake_one     (DBusCondVar               *cond);
+void         dbus_condvar_wake_all     (DBusCondVar               *cond);
 
-typedef struct DBusStaticMutex DBusStaticMutex;
+dbus_bool_t  dbus_threads_init         (const DBusThreadFunctions *functions);
 
-struct DBusStaticMutex
-{
-  void *pad1;
-  void *pad2;
-  void *pad3;
-  void *pad4;
-};
 
-#define DBUS_STATIC_MUTEX_INIT { NULL, NULL, NULL, NULL }
-
-dbus_bool_t dbus_static_mutex_lock   (DBusStaticMutex *mutex);
-dbus_bool_t dbus_static_mutex_unlock (DBusStaticMutex *mutex);
 
 DBUS_END_DECLS;
 

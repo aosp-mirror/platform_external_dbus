@@ -23,6 +23,7 @@
 
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
+#include "dbus-threads.h"
 #include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
@@ -940,6 +941,55 @@ _dbus_string_append_our_uid (DBusString *str)
   return _dbus_string_append_int (str, getuid ());
 }
 
+
+static DBusMutex *atomic_lock = NULL;
+DBusMutex *_dbus_atomic_init_lock (void);
+DBusMutex *
+_dbus_atomic_init_lock (void)
+{
+  atomic_lock = dbus_mutex_new ();
+  return atomic_lock;
+}
+
+/**
+ * Atomically increments an integer
+ *
+ * @param atomic pointer to the integer to increment
+ * @returns the value after incrementing
+ *
+ * @todo implement arch-specific faster atomic ops
+ */
+dbus_atomic_t
+_dbus_atomic_inc (dbus_atomic_t *atomic)
+{
+  dbus_atomic_t res;
+  
+  dbus_mutex_lock (atomic_lock);
+  *atomic += 1;
+  res = *atomic;
+  dbus_mutex_unlock (atomic_lock);
+  return res;
+}
+
+/**
+ * Atomically decrement an integer
+ *
+ * @param atomic pointer to the integer to decrement
+ * @returns the value after decrementing
+ *
+ * @todo implement arch-specific faster atomic ops
+ */
+dbus_atomic_t
+_dbus_atomic_dec (dbus_atomic_t *atomic)
+{
+  dbus_atomic_t res;
+  
+  dbus_mutex_lock (atomic_lock);
+  *atomic -= 1;
+  res = *atomic;
+  dbus_mutex_unlock (atomic_lock);
+  return res;
+}
 
 /**
  * Wrapper for poll().

@@ -25,21 +25,45 @@
 #include <dbus/dbus.h>
 #include "dbus-glib.h"
 
-static DBusMutex * dbus_gmutex_new    (void);
-static void        dbus_gmutex_free   (DBusMutex *mutex);
-static dbus_bool_t dbus_gmutex_lock   (DBusMutex *mutex);
-static dbus_bool_t dbus_gmutex_unlock (DBusMutex *mutex);
+static DBusMutex * dbus_gmutex_new        (void);
+static void        dbus_gmutex_free       (DBusMutex   *mutex);
+static dbus_bool_t dbus_gmutex_lock       (DBusMutex   *mutex);
+static dbus_bool_t dbus_gmutex_unlock     (DBusMutex   *mutex);
+
+
+static DBusCondVar* dbus_gcondvar_new          (void);
+static void         dbus_gcondvar_free         (DBusCondVar *cond);
+static void         dbus_gcondvar_wait         (DBusCondVar *cond,
+						DBusMutex   *mutex);
+static dbus_bool_t  dbus_gcondvar_wait_timeout (DBusCondVar *cond,
+						DBusMutex   *mutex,
+						int          timeout_msec);
+static void         dbus_gcondvar_wake_one     (DBusCondVar *cond);
+static void         dbus_gcondvar_wake_all     (DBusCondVar *cond);
+
 
 static const DBusThreadFunctions functions =
 {
-  DBUS_THREAD_FUNCTIONS_NEW_MASK |
-  DBUS_THREAD_FUNCTIONS_FREE_MASK |
-  DBUS_THREAD_FUNCTIONS_LOCK_MASK |
-  DBUS_THREAD_FUNCTIONS_UNLOCK_MASK,
+  DBUS_THREAD_FUNCTIONS_MUTEX_NEW_MASK |
+  DBUS_THREAD_FUNCTIONS_MUTEX_FREE_MASK |
+  DBUS_THREAD_FUNCTIONS_MUTEX_LOCK_MASK |
+  DBUS_THREAD_FUNCTIONS_MUTEX_UNLOCK_MASK |
+  DBUS_THREAD_FUNCTIONS_CONDVAR_NEW_MASK |
+  DBUS_THREAD_FUNCTIONS_CONDVAR_FREE_MASK |
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_MASK |
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_TIMEOUT_MASK |
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ONE_MASK|
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ALL_MASK,
   dbus_gmutex_new,
   dbus_gmutex_free,
   dbus_gmutex_lock,
-  dbus_gmutex_unlock
+  dbus_gmutex_unlock,
+  dbus_gcondvar_new,
+  dbus_gcondvar_free,
+  dbus_gcondvar_wait,
+  dbus_gcondvar_wait_timeout,
+  dbus_gcondvar_wake_one,
+  dbus_gcondvar_wake_all
 };
 
 static DBusMutex *
@@ -73,6 +97,58 @@ dbus_gmutex_unlock (DBusMutex *mutex)
 
   return TRUE;
 }
+
+static DBusCondVar*
+dbus_gcondvar_new (void)
+{
+  return (DBusCondVar*)g_cond_new ();
+}
+
+static void
+dbus_gcondvar_free (DBusCondVar *cond)
+{
+  g_cond_free ((GCond *)cond);
+}
+
+static void
+dbus_gcondvar_wait (DBusCondVar *cond,
+		    DBusMutex   *mutex)
+{
+  g_cond_wait ((GCond *)cond, (GMutex *)mutex);
+}
+
+static dbus_bool_t
+dbus_gcondvar_wait_timeout (DBusCondVar *cond,
+			    DBusMutex   *mutex,
+			    int         timeout_msec)
+{
+  GTimeVal now;
+  
+  g_get_current_time (&now);
+
+  now.tv_sec += timeout_msec / 1000;
+  now.tv_usec += (timeout_msec % 1000) * 1000;
+  if (now.tv_usec > G_USEC_PER_SEC)
+    {
+      now.tv_sec += 1;
+      now.tv_usec -= G_USEC_PER_SEC;
+    }
+  
+  return g_cond_timed_wait ((GCond *)cond, (GMutex *)mutex, &now);
+}
+
+static void
+dbus_gcondvar_wake_one (DBusCondVar *cond)
+{
+  g_cond_signal ((GCond *)cond);
+}
+
+static void
+dbus_gcondvar_wake_all (DBusCondVar *cond)
+{
+  g_cond_broadcast ((GCond *)cond);
+}
+
 
 void
 dbus_gthread_init (void)

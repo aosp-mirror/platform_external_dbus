@@ -59,7 +59,7 @@ dbus_connection_prepare (GSource *source,
   
   *timeout = -1;
 
-  return (dbus_connection_peek_message (connection) != NULL);  
+  return (dbus_connection_get_n_messages (connection) > 0);  
 }
 
 static gboolean

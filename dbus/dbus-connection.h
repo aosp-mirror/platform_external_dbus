@@ -66,21 +66,23 @@ typedef void (* DBusAddTimeoutFunction)    (DBusTimeout    *timeout,
 typedef void (* DBusRemoveTimeoutFunction) (DBusTimeout    *timeout,
 					    void           *data);
 
-typedef void (* DBusDisconnectFunction)    (DBusConnection *connection,
-					    void           *data);
+DBusConnection* dbus_connection_open                   (const char     *address,
+							DBusResultCode *result);
+void            dbus_connection_ref                    (DBusConnection *connection);
+void            dbus_connection_unref                  (DBusConnection *connection);
+void            dbus_connection_disconnect             (DBusConnection *connection);
+dbus_bool_t     dbus_connection_get_is_connected       (DBusConnection *connection);
+dbus_bool_t     dbus_connection_get_is_authenticated   (DBusConnection *connection);
+void            dbus_connection_flush                  (DBusConnection *connection);
+int             dbus_connection_get_n_messages         (DBusConnection *connection);
+DBusMessage*    dbus_connection_borrow_message         (DBusConnection *connection);
+void            dbus_connection_return_message         (DBusConnection *connection,
+							DBusMessage    *message);
+void            dbus_connection_steal_borrowed_message (DBusConnection *connection,
+							DBusMessage    *message);
+DBusMessage*    dbus_connection_pop_message            (DBusConnection *connection);
+dbus_bool_t     dbus_connection_dispatch_message       (DBusConnection *connection);
 
-DBusConnection* dbus_connection_open                 (const char     *address,
-                                                      DBusResultCode *result);
-void            dbus_connection_ref                  (DBusConnection *connection);
-void            dbus_connection_unref                (DBusConnection *connection);
-void            dbus_connection_disconnect           (DBusConnection *connection);
-dbus_bool_t     dbus_connection_get_is_connected     (DBusConnection *connection);
-dbus_bool_t     dbus_connection_get_is_authenticated (DBusConnection *connection);
-void            dbus_connection_flush                (DBusConnection *connection);
-int             dbus_connection_get_n_messages       (DBusConnection *connection);
-DBusMessage*    dbus_connection_peek_message         (DBusConnection *connection);
-DBusMessage*    dbus_connection_pop_message          (DBusConnection *connection);
-dbus_bool_t     dbus_connection_dispatch_message     (DBusConnection *connection);
 
 dbus_bool_t  dbus_connection_send_message                      (DBusConnection     *connection,
 								DBusMessage        *message,
@@ -97,10 +99,6 @@ DBusMessage *dbus_connection_send_message_with_reply_and_block (DBusConnection  
 								DBusResultCode     *result);
 
 
-void dbus_connection_set_disconnect_function (DBusConnection            *connection,
-					      DBusDisconnectFunction     function,
-					      void                      *data,
-					      DBusFreeFunction           free_data_function);
 void dbus_connection_set_watch_functions     (DBusConnection            *connection,
 					      DBusAddWatchFunction       add_function,
 					      DBusRemoveWatchFunction    remove_function,

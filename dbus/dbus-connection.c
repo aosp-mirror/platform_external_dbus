@@ -30,7 +30,9 @@
 #include "dbus-list.h"
 #include "dbus-hash.h"
 #include "dbus-message-internal.h"
+#include "dbus-message-handler.h"
 #include "dbus-threads.h"
+#include "dbus-protocol.h"
 
 /**
  * @defgroup DBusConnection DBusConnection
@@ -78,9 +80,22 @@ struct DBusConnection
 {
   int refcount; /**< Reference count. */
 
+  DBusMutex *mutex;
+
+  /* Protects dispatch_message */
+  dbus_bool_t dispatch_acquired;
+  DBusCondVar *dispatch_cond;
+  
+  /* Protects transport io path */
+  dbus_bool_t io_path_acquired;
+  DBusCondVar *io_path_cond;
+  
   DBusList *outgoing_messages; /**< Queue of messages we need to send, send the end of the list first. */
   DBusList *incoming_messages; /**< Queue of messages we have received, end of the list received most recently. */
 
+  DBusMessage *message_borrowed; /**< True if the first incoming message has been borrowed */
+  DBusCondVar *message_returned_cond;
+  
   int n_outgoing;              /**< Length of outgoing queue. */
   int n_incoming;              /**< Length of incoming queue. */
   
@@ -88,23 +103,18 @@ struct DBusConnection
   DBusWatchList *watches;      /**< Stores active watches. */
   DBusTimeoutList *timeouts;   /**< Stores active timeouts. */
   
-  DBusDisconnectFunction disconnect_function;      /**< Callback on disconnect. */
-  void *disconnect_data;                           /**< Data for disconnect callback. */
-  DBusFreeFunction disconnect_free_data_function;  /**< Free function for disconnect callback data. */
   DBusHashTable *handler_table; /**< Table of registered DBusMessageHandler */
   DBusList *filter_list;        /**< List of filters. */
-  int filters_serial;           /**< Increments when the list of filters is changed. */
-  int handlers_serial;          /**< Increments when the handler table is changed. */
   DBusDataSlot *data_slots;        /**< Data slots */
   int           n_slots; /**< Slots allocated so far. */
 
   DBusCounter *connection_counter; /**< Counter that we decrement when finalized */
   
   int client_serial;            /**< Client serial. Increments each time a message is sent  */
-  unsigned int disconnect_notified : 1; /**< Already called disconnect_function */
+  DBusList *disconnect_message_link;
 };
 
-static void _dbus_connection_free_data_slots (DBusConnection *connection);
+static void _dbus_connection_free_data_slots_nolock (DBusConnection *connection);
 
 /**
  * Adds a message to the incoming message queue, returning #FALSE
@@ -132,6 +142,29 @@ _dbus_connection_queue_received_message (DBusConnection *connection,
   
   return TRUE;
 }
+
+/**
+ * Adds a link + message to the incoming message queue.
+ * Can't fail. Takes ownership of both link and message.
+ *
+ * @param connection the connection.
+ * @param link the list node and message to queue.
+ *
+ * @todo This needs to wake up the mainloop if it is in
+ * a poll/select and this is a multithreaded app.
+ */
+static void
+_dbus_connection_queue_synthesized_message_link (DBusConnection *connection,
+						 DBusList *link)
+{
+  _dbus_list_append_link (&connection->incoming_messages, link);
+
+  connection->n_incoming += 1;
+
+  _dbus_verbose ("Incoming synthesized message %p added to queue, %d incoming\n",
+                 link->data, connection->n_incoming);
+}
+
 
 /**
  * Checks whether there are messages in the outgoing message queue.
@@ -263,24 +296,71 @@ _dbus_connection_remove_timeout (DBusConnection *connection,
 
 /**
  * Tells the connection that the transport has been disconnected.
- * Results in calling the application disconnect callback.
- * Only has an effect the first time it's called.
+ * Results in posting a disconnect message on the incoming message
+ * queue.  Only has an effect the first time it's called.
  *
  * @param connection the connection
  */
 void
 _dbus_connection_notify_disconnected (DBusConnection *connection)
 {
-  if (connection->disconnect_function != NULL &&
-      !connection->disconnect_notified)
+  if (connection->disconnect_message_link)
     {
-      connection->disconnect_notified = TRUE;
-      dbus_connection_ref (connection);
-      (* connection->disconnect_function) (connection,
-                                           connection->disconnect_data);
-      dbus_connection_unref (connection);
+      /* We haven't sent the disconnect message already */
+      _dbus_connection_queue_synthesized_message_link (connection,
+						       connection->disconnect_message_link);
+      connection->disconnect_message_link = NULL;
     }
 }
+
+
+/**
+ * Acquire the transporter I/O path. This must be done before
+ * doing any I/O in the transporter. May sleep and drop the
+ * connection mutex while waiting for the I/O path.
+ *
+ * @param connection the connection.
+ * @param timeout_milliseconds maximum blocking time, or -1 for no limit.
+ * @returns TRUE if the I/O path was acquired.
+ */
+static dbus_bool_t
+_dbus_connection_acquire_io_path (DBusConnection *connection,
+				  int timeout_milliseconds)
+{
+  dbus_bool_t res = TRUE;
+  if (timeout_milliseconds != -1) 
+    res = dbus_condvar_wait_timeout (connection->io_path_cond,
+				     connection->mutex,
+				     timeout_milliseconds);
+  else
+    dbus_condvar_wait (connection->io_path_cond, connection->mutex);
+
+  if (res)
+    {
+      _dbus_assert (!connection->io_path_acquired);
+
+      connection->io_path_acquired = TRUE;
+    }
+  
+  return res;
+}
+
+/**
+ * Release the I/O path when you're done with it. Only call
+ * after you've acquired the I/O. Wakes up at most one thread
+ * currently waiting to acquire the I/O path.
+ *
+ * @param connection the connection.
+ */
+static void
+_dbus_connection_release_io_path (DBusConnection *connection)
+{
+  _dbus_assert (connection->io_path_acquired);
+
+  connection->io_path_acquired = FALSE;
+  dbus_condvar_wake_one (connection->io_path_cond);
+}
+
 
 /**
  * Queues incoming messages and sends outgoing messages for this
@@ -315,9 +395,14 @@ _dbus_connection_do_iteration (DBusConnection *connection,
 {
   if (connection->n_outgoing == 0)
     flags &= ~DBUS_ITERATION_DO_WRITING;
-  
-  _dbus_transport_do_iteration (connection->transport,
-                                flags, timeout_milliseconds);
+
+  if (_dbus_connection_acquire_io_path (connection,
+					(flags & DBUS_ITERATION_BLOCK)?timeout_milliseconds:0))
+    {
+      _dbus_transport_do_iteration (connection->transport,
+				    flags, timeout_milliseconds);
+      _dbus_connection_release_io_path (connection);
+    }
 }
 
 /**
@@ -336,11 +421,23 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   DBusWatchList *watch_list;
   DBusTimeoutList *timeout_list;
   DBusHashTable *handler_table;
+  DBusMutex *mutex;
+  DBusCondVar *message_returned_cond;
+  DBusCondVar *dispatch_cond;
+  DBusCondVar *io_path_cond;
+  DBusList *disconnect_link;
+  DBusMessage *disconnect_message;
   
   watch_list = NULL;
   connection = NULL;
   handler_table = NULL;
   timeout_list = NULL;
+  mutex = NULL;
+  message_returned_cond = NULL;
+  dispatch_cond = NULL;
+  io_path_cond = NULL;
+  disconnect_link = NULL;
+  disconnect_message = NULL;
   
   watch_list = _dbus_watch_list_new ();
   if (watch_list == NULL)
@@ -359,8 +456,36 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection = dbus_new0 (DBusConnection, 1);
   if (connection == NULL)
     goto error;
+
+  mutex = dbus_mutex_new ();
+  if (mutex == NULL)
+    goto error;
+  
+  message_returned_cond = dbus_condvar_new ();
+  if (message_returned_cond == NULL)
+    goto error;
+  
+  dispatch_cond = dbus_condvar_new ();
+  if (dispatch_cond == NULL)
+    goto error;
+  
+  io_path_cond = dbus_condvar_new ();
+  if (io_path_cond == NULL)
+    goto error;
+
+  disconnect_message = dbus_message_new (NULL, DBUS_MESSAGE_LOCAL_DISCONNECT);
+  if (disconnect_message == NULL)
+    goto error;
+
+  disconnect_link = _dbus_list_alloc_link (disconnect_message);
+  if (disconnect_link == NULL)
+    goto error;
   
   connection->refcount = 1;
+  connection->mutex = mutex;
+  connection->dispatch_cond = dispatch_cond;
+  connection->io_path_cond = io_path_cond;
+  connection->message_returned_cond = message_returned_cond;
   connection->transport = transport;
   connection->watches = watch_list;
   connection->timeouts = timeout_list;
@@ -370,7 +495,8 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection->data_slots = NULL;
   connection->n_slots = 0;
   connection->client_serial = 1;
-  connection->disconnect_notified = FALSE;
+
+  connection->disconnect_message_link = disconnect_link;
   
   _dbus_transport_ref (transport);
   _dbus_transport_set_connection (transport, connection);
@@ -378,6 +504,23 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   return connection;
   
  error:
+  if (disconnect_message != NULL)
+    dbus_message_unref (disconnect_message);
+  
+  if (disconnect_link != NULL)
+    _dbus_list_free_link (disconnect_link);
+  
+  if (io_path_cond != NULL)
+    dbus_condvar_free (io_path_cond);
+  
+  if (dispatch_cond != NULL)
+    dbus_condvar_free (dispatch_cond);
+  
+  if (message_returned_cond != NULL)
+    dbus_condvar_free (message_returned_cond);
+  
+  if (mutex != NULL)
+    dbus_mutex_free (mutex);
 
   if (connection != NULL)
     dbus_free (connection);
@@ -410,18 +553,21 @@ _dbus_connection_get_next_client_serial (DBusConnection *connection)
 /**
  * Used to notify a connection when a DBusMessageHandler is
  * destroyed, so the connection can drop any reference
- * to the handler.
+ * to the handler. This is a private function, but still
+ * takes the connection lock. Don't call it with the lock held.
  *
  * @param connection the connection
  * @param handler the handler
  */
 void
-_dbus_connection_handler_destroyed (DBusConnection     *connection,
-                                    DBusMessageHandler *handler)
+_dbus_connection_handler_destroyed_locked (DBusConnection     *connection,
+					   DBusMessageHandler *handler)
 {
   DBusHashIter iter;
   DBusList *link;
 
+  dbus_mutex_lock (connection->mutex);
+  
   _dbus_hash_iter_init (connection->handler_table, &iter);
   while (_dbus_hash_iter_next (&iter))
     {
@@ -443,6 +589,7 @@ _dbus_connection_handler_destroyed (DBusConnection     *connection,
       
       link = next;
     }
+  dbus_mutex_unlock (connection->mutex);
 }
 
 /**
@@ -520,89 +667,130 @@ dbus_connection_open (const char     *address,
 void
 dbus_connection_ref (DBusConnection *connection)
 {
+  dbus_mutex_lock (connection->mutex);
+  _dbus_assert (connection->refcount > 0);
+
   connection->refcount += 1;
+  dbus_mutex_unlock (connection->mutex);
+}
+
+/**
+ * Increments the reference count of a DBusConnection.
+ * Requires that the caller already holds the connection lock.
+ *
+ * @param connection the connection.
+ */
+void
+_dbus_connection_ref_unlocked (DBusConnection *connection)
+{
+  _dbus_assert (connection->refcount > 0);
+  connection->refcount += 1;
+}
+
+
+/* This is run without the mutex held, but after the last reference
+   to the connection has been dropped we should have no thread-related
+   problems */
+static void
+_dbus_connection_last_unref (DBusConnection *connection)
+{
+  DBusHashIter iter;
+  DBusList *link;
+
+  _dbus_assert (!_dbus_transport_get_is_connected (connection->transport));
+  
+  if (connection->connection_counter != NULL)
+    {
+      /* subtract ourselves from the counter */
+      _dbus_counter_adjust (connection->connection_counter, - 1);
+      _dbus_counter_unref (connection->connection_counter);
+      connection->connection_counter = NULL;
+    }
+  
+  _dbus_watch_list_free (connection->watches);
+  connection->watches = NULL;
+  
+  _dbus_timeout_list_free (connection->timeouts);
+  connection->timeouts = NULL;
+  
+  _dbus_connection_free_data_slots_nolock (connection);
+  
+  _dbus_hash_iter_init (connection->handler_table, &iter);
+  while (_dbus_hash_iter_next (&iter))
+    {
+      DBusMessageHandler *h = _dbus_hash_iter_get_value (&iter);
+      
+      _dbus_message_handler_remove_connection (h, connection);
+    }
+  
+  link = _dbus_list_get_first_link (&connection->filter_list);
+  while (link != NULL)
+    {
+      DBusMessageHandler *h = link->data;
+      DBusList *next = _dbus_list_get_next_link (&connection->filter_list, link);
+      
+      _dbus_message_handler_remove_connection (h, connection);
+      
+      link = next;
+    }
+  
+  _dbus_hash_table_unref (connection->handler_table);
+  connection->handler_table = NULL;
+  
+  _dbus_list_clear (&connection->filter_list);
+  
+  _dbus_list_foreach (&connection->outgoing_messages,
+		      (DBusForeachFunction) dbus_message_unref,
+		      NULL);
+  _dbus_list_clear (&connection->outgoing_messages);
+  
+  _dbus_list_foreach (&connection->incoming_messages,
+		      (DBusForeachFunction) dbus_message_unref,
+		      NULL);
+  _dbus_list_clear (&connection->incoming_messages);
+  
+  _dbus_transport_unref (connection->transport);
+
+  if (connection->disconnect_message_link)
+    {
+      DBusMessage *message = connection->disconnect_message_link->data;
+      dbus_message_unref (message);
+      _dbus_list_free_link (connection->disconnect_message_link);
+    }
+  
+  dbus_condvar_free (connection->dispatch_cond);
+  dbus_condvar_free (connection->io_path_cond);
+  dbus_condvar_free (connection->message_returned_cond);
+  
+  dbus_mutex_free (connection->mutex);
+  
+  dbus_free (connection);
 }
 
 /**
  * Decrements the reference count of a DBusConnection, and finalizes
- * it if the count reaches zero.  If a connection is still connected
- * when it's finalized, it will be disconnected (that is, associated
- * file handles will be closed).
+ * it if the count reaches zero.  It is a bug to drop the last reference
+ * to a connection that has not been disconnected.
  *
  * @param connection the connection.
  */
 void
 dbus_connection_unref (DBusConnection *connection)
 {
+  dbus_bool_t last_unref;
+  
+  dbus_mutex_lock (connection->mutex);
+  
   _dbus_assert (connection != NULL);
   _dbus_assert (connection->refcount > 0);
 
   connection->refcount -= 1;
-  if (connection->refcount == 0)
-    {
-      DBusHashIter iter;
-      DBusList *link;
+  last_unref = (connection->refcount == 0);
 
-      dbus_connection_disconnect (connection);
-      
-      /* free disconnect data as a side effect */
-      dbus_connection_set_disconnect_function (connection,
-                                               NULL, NULL, NULL);
+  dbus_mutex_unlock (connection->mutex);
 
-      if (connection->connection_counter != NULL)
-        {
-          /* subtract ourselves from the counter */
-          _dbus_counter_adjust (connection->connection_counter, - 1);
-          _dbus_counter_unref (connection->connection_counter);
-          connection->connection_counter = NULL;
-        }
-
-      _dbus_watch_list_free (connection->watches);
-      connection->watches = NULL;
-      
-      _dbus_timeout_list_free (connection->timeouts);
-      connection->timeouts = NULL;
-
-      _dbus_connection_free_data_slots (connection);
-      
-      _dbus_hash_iter_init (connection->handler_table, &iter);
-      while (_dbus_hash_iter_next (&iter))
-        {
-          DBusMessageHandler *h = _dbus_hash_iter_get_value (&iter);
-          
-          _dbus_message_handler_remove_connection (h, connection);
-        }
-
-      link = _dbus_list_get_first_link (&connection->filter_list);
-      while (link != NULL)
-        {
-          DBusMessageHandler *h = link->data;
-          DBusList *next = _dbus_list_get_next_link (&connection->filter_list, link);
-          
-          _dbus_message_handler_remove_connection (h, connection);
-          
-          link = next;
-        }
-      
-      _dbus_hash_table_unref (connection->handler_table);
-      connection->handler_table = NULL;
-
-      _dbus_list_clear (&connection->filter_list);
-      
-      _dbus_list_foreach (&connection->outgoing_messages,
-                          (DBusForeachFunction) dbus_message_unref,
-                          NULL);
-      _dbus_list_clear (&connection->outgoing_messages);
-
-      _dbus_list_foreach (&connection->incoming_messages,
-                          (DBusForeachFunction) dbus_message_unref,
-                          NULL);
-      _dbus_list_clear (&connection->incoming_messages);
-      
-      _dbus_transport_unref (connection->transport);
-      
-      dbus_free (connection);
-    }
+  if (last_unref)
+    _dbus_connection_last_unref (connection);
 }
 
 /**
@@ -618,7 +806,9 @@ dbus_connection_unref (DBusConnection *connection)
 void
 dbus_connection_disconnect (DBusConnection *connection)
 {
+  dbus_mutex_lock (connection->mutex);
   _dbus_transport_disconnect (connection->transport);
+  dbus_mutex_unlock (connection->mutex);
 }
 
 /**
@@ -634,7 +824,13 @@ dbus_connection_disconnect (DBusConnection *connection)
 dbus_bool_t
 dbus_connection_get_is_connected (DBusConnection *connection)
 {
-  return _dbus_transport_get_is_connected (connection->transport);
+  dbus_bool_t res;
+  
+  dbus_mutex_lock (connection->mutex);
+  res = _dbus_transport_get_is_connected (connection->transport);
+  dbus_mutex_unlock (connection->mutex);
+  
+  return res;
 }
 
 /**
@@ -648,7 +844,13 @@ dbus_connection_get_is_connected (DBusConnection *connection)
 dbus_bool_t
 dbus_connection_get_is_authenticated (DBusConnection *connection)
 {
-  return _dbus_transport_get_is_authenticated (connection->transport);
+  dbus_bool_t res;
+  
+  dbus_mutex_lock (connection->mutex);
+  res = _dbus_transport_get_is_authenticated (connection->transport);
+  dbus_mutex_unlock (connection->mutex);
+  
+  return res;
 }
 
 /**
@@ -675,11 +877,14 @@ dbus_connection_send_message (DBusConnection *connection,
 
 {
   dbus_int32_t serial;
-  
+
+  dbus_mutex_lock (connection->mutex);
+
   if (!_dbus_list_prepend (&connection->outgoing_messages,
                            message))
     {
       dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_mutex_unlock (connection->mutex);
       return FALSE;
     }
 
@@ -699,11 +904,13 @@ dbus_connection_send_message (DBusConnection *connection,
     *client_serial = _dbus_message_get_client_serial (message);
   
   _dbus_message_lock (message);
-  
+
   if (connection->n_outgoing == 1)
     _dbus_transport_messages_pending (connection->transport,
                                       connection->n_outgoing);
 
+  dbus_mutex_unlock (connection->mutex);
+  
   return TRUE;
 }
 
@@ -800,8 +1007,13 @@ dbus_connection_send_message_with_reply_and_block (DBusConnection     *connectio
 
   /* Flush message queue */
   dbus_connection_flush (connection);
+
+  dbus_mutex_lock (connection->mutex);
   
   /* Now we wait... */
+  /* THREAD TODO: This is busted. What if a dispatch_message or pop_message
+   * gets the message before we do?
+   */
   _dbus_connection_do_iteration (connection,
 				 DBUS_ITERATION_DO_READING |
 				 DBUS_ITERATION_BLOCK,
@@ -822,6 +1034,7 @@ dbus_connection_send_message_with_reply_and_block (DBusConnection     *connectio
 	  if (result)
 	    *result = DBUS_RESULT_SUCCESS;
 	  
+	  dbus_mutex_unlock (connection->mutex);
 	  return reply;
 	}
       link = _dbus_list_get_next_link (&connection->incoming_messages, link);
@@ -829,7 +1042,9 @@ dbus_connection_send_message_with_reply_and_block (DBusConnection     *connectio
 
   if (result)
     *result = DBUS_RESULT_NO_REPLY;
-  
+
+  dbus_mutex_unlock (connection->mutex);
+
   return NULL;
 }
 
@@ -841,11 +1056,13 @@ dbus_connection_send_message_with_reply_and_block (DBusConnection     *connectio
 void
 dbus_connection_flush (DBusConnection *connection)
 {
+  dbus_mutex_lock (connection->mutex);
   while (connection->n_outgoing > 0)
     _dbus_connection_do_iteration (connection,
                                    DBUS_ITERATION_DO_WRITING |
                                    DBUS_ITERATION_BLOCK,
                                    -1);
+  dbus_mutex_unlock (connection->mutex);
 }
 
 /**
@@ -857,34 +1074,112 @@ dbus_connection_flush (DBusConnection *connection)
 int
 dbus_connection_get_n_messages (DBusConnection *connection)
 {
-  return connection->n_incoming;
+  int res;
+
+  dbus_mutex_lock (connection->mutex);
+  res = connection->n_incoming;
+  dbus_mutex_unlock (connection->mutex);
+  return res;
+}
+
+
+/* Call with mutex held. Will drop it while waiting and re-acquire
+   before returning */
+static void
+_dbus_connection_wait_for_borrowed (DBusConnection *connection)
+{
+  _dbus_assert (connection->message_borrowed != NULL);
+
+  while (connection->message_borrowed != NULL)
+    dbus_condvar_wait (connection->message_returned_cond, connection->mutex);
 }
 
 /**
  * Returns the first-received message from the incoming message queue,
- * leaving it in the queue. The caller does not own a reference to the
- * returned message. If the queue is empty, returns #NULL.
+ * leaving it in the queue. If the queue is empty, returns #NULL.
+ * 
+ * The caller does not own a reference to the returned message, and must
+ * either return it using dbus_connection_return_message or keep it after
+ * calling dbus_connection_steal_borrowed_message. No one can get at the
+ * message while its borrowed, so return it as quickly as possible and
+ * don't keep a reference to it after returning it. If you need to keep
+ * the message, make a copy of it.
  *
  * @param connection the connection.
  * @returns next message in the incoming queue.
  */
 DBusMessage*
-dbus_connection_peek_message  (DBusConnection *connection)
+dbus_connection_borrow_message  (DBusConnection *connection)
 {
-  return _dbus_list_get_first (&connection->incoming_messages);
+  DBusMessage *message;
+
+  dbus_mutex_lock (connection->mutex);
+
+  if (connection->message_borrowed != NULL)
+    _dbus_connection_wait_for_borrowed (connection);
+  
+  message = _dbus_list_get_first (&connection->incoming_messages);
+
+  if (message) 
+    connection->message_borrowed = message;
+  
+  dbus_mutex_unlock (connection->mutex);
+  return message;
 }
 
 /**
- * Returns the first-received message from the incoming message queue,
- * removing it from the queue. The caller owns a reference to the
- * returned message. If the queue is empty, returns #NULL.
- *
- * @param connection the connection.
- * @returns next message in the incoming queue.
+ * @todo docs
  */
-DBusMessage*
-dbus_connection_pop_message (DBusConnection *connection)
+void
+dbus_connection_return_message (DBusConnection *connection,
+				DBusMessage    *message)
 {
+  dbus_mutex_lock (connection->mutex);
+  
+  _dbus_assert (message == connection->message_borrowed);
+  
+  connection->message_borrowed = NULL;
+  dbus_condvar_wake_all (connection->message_returned_cond);
+  
+  dbus_mutex_unlock (connection->mutex);
+}
+
+/**
+ * @todo docs
+ */
+void
+dbus_connection_steal_borrowed_message (DBusConnection *connection,
+					DBusMessage    *message)
+{
+  DBusMessage *pop_message;
+  
+  dbus_mutex_lock (connection->mutex);
+ 
+  _dbus_assert (message == connection->message_borrowed);
+
+  pop_message = _dbus_list_pop_first (&connection->incoming_messages);
+  _dbus_assert (message == pop_message);
+  
+  connection->n_incoming -= 1;
+ 
+  _dbus_verbose ("Incoming message %p stolen from queue, %d incoming\n",
+		 message, connection->n_incoming);
+ 
+  connection->message_borrowed = NULL;
+  dbus_condvar_wake_all (connection->message_returned_cond);
+  
+  dbus_mutex_unlock (connection->mutex);
+}
+
+
+/* See dbus_connection_pop_message, but requires the caller to own
+   the lock before calling. May drop the lock while running. */
+static DBusMessage*
+_dbus_connection_pop_message_unlocked (DBusConnection *connection)
+{
+  if (connection->message_borrowed != NULL)
+    _dbus_connection_wait_for_borrowed (connection);
+  
   if (connection->n_incoming > 0)
     {
       DBusMessage *message;
@@ -901,61 +1196,140 @@ dbus_connection_pop_message (DBusConnection *connection)
     return NULL;
 }
 
+
+/**
+ * Returns the first-received message from the incoming message queue,
+ * removing it from the queue. The caller owns a reference to the
+ * returned message. If the queue is empty, returns #NULL.
+ *
+ * @param connection the connection.
+ * @returns next message in the incoming queue.
+ */
+DBusMessage*
+dbus_connection_pop_message (DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_mutex_lock (connection->mutex);
+
+  message = _dbus_connection_pop_message_unlocked (connection);
+  
+  dbus_mutex_unlock (connection->mutex);
+  
+  return message;
+}
+
+/**
+ * Acquire the dispatcher. This must be done before dispatching
+ * messages in order to guarantee the right order of
+ * message delivery. May sleep and drop the connection mutex
+ * while waiting for the dispatcher.
+ *
+ * @param connection the connection.
+ */
+static void
+_dbus_connection_acquire_dispatch (DBusConnection *connection)
+{
+  dbus_condvar_wait (connection->dispatch_cond, connection->mutex);
+  _dbus_assert (!connection->dispatch_acquired);
+
+  connection->dispatch_acquired = TRUE;
+}
+
+/**
+ * Release the dispatcher when you're done with it. Only call
+ * after you've acquired the dispatcher. Wakes up at most one
+ * thread currently waiting to acquire the dispatcher.
+ *
+ * @param connection the connection.
+ */
+static void
+_dbus_connection_release_dispatch (DBusConnection *connection)
+{
+  _dbus_assert (connection->dispatch_acquired);
+
+  connection->dispatch_acquired = FALSE;
+  dbus_condvar_wake_one (connection->dispatch_cond);
+}
+
 /**
  * Pops the first-received message from the current incoming message
  * queue, runs any handlers for it, then unrefs the message.
  *
  * @param connection the connection
  * @returns #TRUE if the queue is not empty after dispatch
- *
- * @todo this function is not properly robust against reentrancy,
- * that is, if handlers are added/removed while dispatching
- * a message, things will get messed up.
  */
 dbus_bool_t
 dbus_connection_dispatch_message (DBusConnection *connection)
 {
   DBusMessage *message;
-  int filter_serial;
-  int handler_serial;
-  DBusList *link;
+  DBusList *link, *filter_list_copy;
   DBusHandlerResult result;
   const char *name;
+
+  dbus_mutex_lock (connection->mutex);
+
+  /* We need to ref the connection since the callback could potentially
+   * drop the last ref to it */
+  _dbus_connection_ref_unlocked (connection);
+
+  _dbus_connection_acquire_dispatch (connection);
   
-  dbus_connection_ref (connection);
-  
-  message = dbus_connection_pop_message (connection);
+  /* This call may drop the lock during the execution (if waiting
+     for borrowed messages to be returned) but the order of message
+     dispatch if several threads call dispatch_message is still
+     protected by the lock, since only one will get the lock, and that
+     one will finish the message dispatching */
+  message = _dbus_connection_pop_message_unlocked (connection);
   if (message == NULL)
     {
+      _dbus_connection_release_dispatch (connection);
+      dbus_mutex_unlock (connection->mutex);
       dbus_connection_unref (connection);
       return FALSE;
     }
 
-  filter_serial = connection->filters_serial;
-  handler_serial = connection->handlers_serial;
-
   result = DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+
+  if (!_dbus_list_copy (&connection->filter_list, &filter_list_copy))
+    {
+      _dbus_connection_release_dispatch (connection);
+      dbus_mutex_unlock (connection->mutex);
+      dbus_connection_unref (connection);
+      return FALSE;
+    }
   
-  link = _dbus_list_get_first_link (&connection->filter_list);
+  _dbus_list_foreach (&filter_list_copy,
+		      (DBusForeachFunction)dbus_message_handler_ref,
+		      NULL);
+
+  /* We're still protected from dispatch_message reentrancy here
+   * since we acquired the dispatcher */
+  dbus_mutex_unlock (connection->mutex);
+  
+  link = _dbus_list_get_first_link (&filter_list_copy);
   while (link != NULL)
     {
       DBusMessageHandler *handler = link->data;
-      DBusList *next = _dbus_list_get_next_link (&connection->filter_list, link);
-      
+      DBusList *next = _dbus_list_get_next_link (&filter_list_copy, link);
+
       result = _dbus_message_handler_handle_message (handler, connection,
                                                      message);
 
       if (result == DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
-        goto out;
+	break;
 
-      if (filter_serial != connection->filters_serial)
-        {
-          _dbus_warn ("Message filters added or removed while dispatching filters - not currently supported!\n");
-          goto out;
-        }
-      
       link = next;
     }
+
+  _dbus_list_foreach (&filter_list_copy,
+		      (DBusForeachFunction)dbus_message_handler_unref,
+		      NULL);
+  _dbus_list_clear (&filter_list_copy);
+  
+  dbus_mutex_lock (connection->mutex);
+  
+  if (result == DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
+    goto out;
 
   name = dbus_message_get_name (message);
   if (name != NULL)
@@ -966,50 +1340,24 @@ dbus_connection_dispatch_message (DBusConnection *connection)
                                                 name);
       if (handler != NULL)
         {
-
+	  /* We're still protected from dispatch_message reentrancy here
+	   * since we acquired the dispatcher */
+	  dbus_mutex_unlock (connection->mutex);
           result = _dbus_message_handler_handle_message (handler, connection,
                                                          message);
-      
+	  dbus_mutex_lock (connection->mutex);
           if (result == DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
             goto out;
-          
-          if (handler_serial != connection->handlers_serial)
-            {
-              _dbus_warn ("Message handlers added or removed while dispatching handlers - not currently supported!\n");
-              goto out;
-            }
         }
     }
 
  out:
+  _dbus_connection_release_dispatch (connection);
+  dbus_mutex_unlock (connection->mutex);
   dbus_connection_unref (connection);
   dbus_message_unref (message);
   
   return connection->n_incoming > 0;
-}
-
-/**
- * Sets the disconnect handler function for the connection.
- * Will be called exactly once, when the connection is
- * disconnected.
- * 
- * @param connection the connection.
- * @param disconnect_function the disconnect handler.
- * @param data data to pass to the disconnect handler.
- * @param free_data_function function to be called to free the data.
- */
-void
-dbus_connection_set_disconnect_function  (DBusConnection              *connection,
-                                          DBusDisconnectFunction       disconnect_function,
-                                          void                        *data,
-                                          DBusFreeFunction             free_data_function)
-{
-  if (connection->disconnect_free_data_function != NULL)
-    (* connection->disconnect_free_data_function) (connection->disconnect_data);
-
-  connection->disconnect_function = disconnect_function;
-  connection->disconnect_data = data;
-  connection->disconnect_free_data_function = free_data_function;
 }
 
 /**
@@ -1053,13 +1401,15 @@ dbus_connection_set_watch_functions (DBusConnection              *connection,
                                      void                        *data,
                                      DBusFreeFunction             free_data_function)
 {
+  dbus_mutex_lock (connection->mutex);
   /* ref connection for slightly better reentrancy */
-  dbus_connection_ref (connection);
+  _dbus_connection_ref_unlocked (connection);
   
   _dbus_watch_list_set_functions (connection->watches,
                                   add_function, remove_function,
                                   data, free_data_function);
   
+  dbus_mutex_unlock (connection->mutex);
   /* drop our paranoid refcount */
   dbus_connection_unref (connection);
 }
@@ -1090,13 +1440,15 @@ dbus_connection_set_timeout_functions   (DBusConnection            *connection,
 					 void                      *data,
 					 DBusFreeFunction           free_data_function)
 {
+  dbus_mutex_lock (connection->mutex);
   /* ref connection for slightly better reentrancy */
-  dbus_connection_ref (connection);
+  _dbus_connection_ref_unlocked (connection);
   
   _dbus_timeout_list_set_functions (connection->timeouts,
 				    add_function, remove_function,
 				    data, free_data_function);
   
+  dbus_mutex_unlock (connection->mutex);
   /* drop our paranoid refcount */
   dbus_connection_unref (connection);  
 }
@@ -1115,8 +1467,12 @@ dbus_connection_handle_watch (DBusConnection              *connection,
                               DBusWatch                   *watch,
                               unsigned int                 condition)
 {
+  dbus_mutex_lock (connection->mutex);
+  _dbus_connection_acquire_io_path (connection, -1);
   _dbus_transport_handle_watch (connection->transport,
-                                watch, condition);
+				watch, condition);
+  _dbus_connection_release_io_path (connection);
+  dbus_mutex_unlock (connection->mutex);
 }
 
 /**
@@ -1126,6 +1482,8 @@ dbus_connection_handle_watch (DBusConnection              *connection,
  * Filters are run in the order that they were added.
  * The same handler can be added as a filter more than once, in
  * which case it will be run more than once.
+ * Filters added during a filter callback won't be run on the
+ * message being processed.
  *
  * @param connection the connection
  * @param handler the handler
@@ -1135,18 +1493,22 @@ dbus_bool_t
 dbus_connection_add_filter (DBusConnection      *connection,
                             DBusMessageHandler  *handler)
 {
+  dbus_mutex_lock (connection->mutex);
   if (!_dbus_message_handler_add_connection (handler, connection))
-    return FALSE;
+    {
+      dbus_mutex_unlock (connection->mutex);
+      return FALSE;
+    }
 
   if (!_dbus_list_append (&connection->filter_list,
                           handler))
     {
       _dbus_message_handler_remove_connection (handler, connection);
+      dbus_mutex_unlock (connection->mutex);
       return FALSE;
     }
 
-  connection->filters_serial += 1;
-  
+  dbus_mutex_unlock (connection->mutex);
   return TRUE;
 }
 
@@ -1165,15 +1527,17 @@ void
 dbus_connection_remove_filter (DBusConnection      *connection,
                                DBusMessageHandler  *handler)
 {
+  dbus_mutex_lock (connection->mutex);
   if (!_dbus_list_remove_last (&connection->filter_list, handler))
     {
       _dbus_warn ("Tried to remove a DBusConnection filter that had not been added\n");
+      dbus_mutex_unlock (connection->mutex);
       return;
     }
 
   _dbus_message_handler_remove_connection (handler, connection);
 
-  connection->filters_serial += 1;
+  dbus_mutex_unlock (connection->mutex);
 }
 
 /**
@@ -1199,6 +1563,7 @@ dbus_connection_register_handler (DBusConnection     *connection,
 {
   int i;
 
+  dbus_mutex_lock (connection->mutex);
   i = 0;
   while (i < n_messages)
     {
@@ -1234,11 +1599,10 @@ dbus_connection_register_handler (DBusConnection     *connection,
       
       _dbus_hash_iter_set_value (&iter, handler);
 
-      connection->handlers_serial += 1;
-      
       ++i;
     }
   
+  dbus_mutex_unlock (connection->mutex);
   return TRUE;
   
  failed:
@@ -1250,6 +1614,7 @@ dbus_connection_register_handler (DBusConnection     *connection,
                                       messages_to_handle,
                                       i);
 
+  dbus_mutex_unlock (connection->mutex);
   return FALSE;
 }
 
@@ -1271,6 +1636,7 @@ dbus_connection_unregister_handler (DBusConnection     *connection,
 {
   int i;
 
+  dbus_mutex_lock (connection->mutex);
   i = 0;
   while (i < n_messages)
     {
@@ -1297,13 +1663,22 @@ dbus_connection_unregister_handler (DBusConnection     *connection,
       ++i;
     }
 
-  connection->handlers_serial += 1;
+  dbus_mutex_unlock (connection->mutex);
 }
 
 static int *allocated_slots = NULL;
 static int  n_allocated_slots = 0;
 static int  n_used_slots = 0;
-static DBusStaticMutex allocated_slots_lock = DBUS_STATIC_MUTEX_INIT;
+static DBusMutex *allocated_slots_lock = NULL;
+
+DBusMutex *_dbus_allocated_slots_init_lock (void);
+DBusMutex *
+_dbus_allocated_slots_init_lock (void)
+{
+  allocated_slots_lock = dbus_mutex_new ();
+  return allocated_slots_lock;
+}
+
 
 /**
  * Allocates an integer ID to be used for storing application-specific
@@ -1318,7 +1693,7 @@ dbus_connection_allocate_data_slot (void)
 {
   int slot;
   
-  if (!dbus_static_mutex_lock (&allocated_slots_lock))
+  if (!dbus_mutex_lock (allocated_slots_lock))
     return -1;
 
   if (n_used_slots < n_allocated_slots)
@@ -1358,7 +1733,7 @@ dbus_connection_allocate_data_slot (void)
   _dbus_assert (slot < n_allocated_slots);
   
  out:
-  dbus_static_mutex_unlock (&allocated_slots_lock);
+  dbus_mutex_unlock (allocated_slots_lock);
   return slot;
 }
 
@@ -1376,7 +1751,7 @@ dbus_connection_allocate_data_slot (void)
 void
 dbus_connection_free_data_slot (int slot)
 {
-  dbus_static_mutex_lock (&allocated_slots_lock);
+  dbus_mutex_lock (allocated_slots_lock);
 
   _dbus_assert (slot < n_allocated_slots);
   _dbus_assert (allocated_slots[slot] == slot);
@@ -1391,7 +1766,7 @@ dbus_connection_free_data_slot (int slot)
       n_allocated_slots = 0;
     }
   
-  dbus_static_mutex_unlock (&allocated_slots_lock);
+  dbus_mutex_unlock (allocated_slots_lock);
 }
 
 /**
@@ -1413,6 +1788,10 @@ dbus_connection_set_data (DBusConnection   *connection,
                           void             *data,
                           DBusFreeFunction  free_data_func)
 {
+  DBusFreeFunction old_free_func;
+  void *old_data;
+  
+  dbus_mutex_lock (connection->mutex);
   _dbus_assert (slot < n_allocated_slots);
   _dbus_assert (allocated_slots[slot] == slot);
   
@@ -1424,7 +1803,10 @@ dbus_connection_set_data (DBusConnection   *connection,
       tmp = dbus_realloc (connection->data_slots,
                           sizeof (DBusDataSlot) * (slot + 1));
       if (tmp == NULL)
-        return FALSE;
+	{
+	  dbus_mutex_unlock (connection->mutex);
+	  return FALSE;
+	}
       
       connection->data_slots = tmp;
       i = connection->n_slots;
@@ -1438,12 +1820,18 @@ dbus_connection_set_data (DBusConnection   *connection,
     }
 
   _dbus_assert (slot < connection->n_slots);
-  
-  if (connection->data_slots[slot].free_data_func)
-    (* connection->data_slots[slot].free_data_func) (connection->data_slots[slot].data);
+
+  old_data = connection->data_slots[slot].data;
+  old_free_func = connection->data_slots[slot].free_data_func;
 
   connection->data_slots[slot].data = data;
   connection->data_slots[slot].free_data_func = free_data_func;
+
+  dbus_mutex_unlock (connection->mutex);
+
+  /* Do the actual free outside the connection lock */
+  if (old_free_func)
+    (* old_free_func) (old_data);
 
   return TRUE;
 }
@@ -1460,17 +1848,29 @@ void*
 dbus_connection_get_data (DBusConnection   *connection,
                           int               slot)
 {
+  void *res;
+  
+  dbus_mutex_lock (connection->mutex);
+  
   _dbus_assert (slot < n_allocated_slots);
   _dbus_assert (allocated_slots[slot] == slot);
 
   if (slot >= connection->n_slots)
-    return NULL;
+    res = NULL;
+  else
+    res = connection->data_slots[slot].data; 
 
-  return connection->data_slots[slot].data;
+  dbus_mutex_unlock (connection->mutex);
+
+  return res;
 }
 
+/* This must be called with the connection lock not held to avoid
+ * holding it over the free_data callbacks, so it can basically
+ * only be called at last unref
+ */
 static void
-_dbus_connection_free_data_slots (DBusConnection *connection)
+_dbus_connection_free_data_slots_nolock (DBusConnection *connection)
 {
   int i;
 
@@ -1501,8 +1901,10 @@ void
 dbus_connection_set_max_message_size (DBusConnection *connection,
                                       long            size)
 {
+  dbus_mutex_lock (connection->mutex);
   _dbus_transport_set_max_message_size (connection->transport,
                                         size);
+  dbus_mutex_unlock (connection->mutex);
 }
 
 /**
@@ -1514,7 +1916,11 @@ dbus_connection_set_max_message_size (DBusConnection *connection,
 long
 dbus_connection_get_max_message_size (DBusConnection *connection)
 {
-  return _dbus_transport_get_max_message_size (connection->transport);
+  long res;
+  dbus_mutex_lock (connection->mutex);
+  res = _dbus_transport_get_max_message_size (connection->transport);
+  dbus_mutex_unlock (connection->mutex);
+  return res;
 }
 
 /**
@@ -1543,8 +1949,10 @@ void
 dbus_connection_set_max_live_messages_size (DBusConnection *connection,
                                             long            size)
 {
+  dbus_mutex_lock (connection->mutex);
   _dbus_transport_set_max_live_messages_size (connection->transport,
                                               size);
+  dbus_mutex_unlock (connection->mutex);
 }
 
 /**
@@ -1556,7 +1964,11 @@ dbus_connection_set_max_live_messages_size (DBusConnection *connection,
 long
 dbus_connection_get_max_live_messages_size (DBusConnection *connection)
 {
-  return _dbus_transport_get_max_live_messages_size (connection->transport);
+  long res;
+  dbus_mutex_lock (connection->mutex);
+  res = _dbus_transport_get_max_live_messages_size (connection->transport);
+  dbus_mutex_unlock (connection->mutex);
+  return res;
 }
 
 /** @} */

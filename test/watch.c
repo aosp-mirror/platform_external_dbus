@@ -131,6 +131,17 @@ remove_server_watch (DBusWatch      *watch,
 static int count = 0;
 
 static void
+disconnect (DBusConnection *connection)
+{
+  fprintf (stderr, "Disconnected\n");
+  
+  _dbus_list_remove (&connections, connection);
+  dbus_connection_unref (connection);
+  quit_mainloop ();
+}
+
+
+static void
 check_messages (void)
 {
   DBusList *link;
@@ -141,28 +152,37 @@ check_messages (void)
       DBusList *next = _dbus_list_get_next_link (&connections, link);
       DBusConnection *connection = link->data;
       DBusMessage *message;
+      const char *name;
       
       while ((message = dbus_connection_pop_message (connection)))
         {
           DBusMessage *reply;
 
-          fprintf (stderr, "Received message %d, sending reply\n", count);
-          
-          reply = dbus_message_new ("org.freedesktop.DBus.Test", "org.freedesktop.DBus.Test");
-          dbus_connection_send_message (connection,
-                                        reply,
-					NULL, 
-                                        NULL);
-          dbus_message_unref (reply);
-
-          dbus_message_unref (message);
-
-          count += 1;
-          if (count > 100)
-            {
-              printf ("Saw %d messages, exiting\n", count);
-              quit_mainloop ();
-            }
+	  name = dbus_message_get_name (message);
+	  if (name && strcmp (name, DBUS_MESSAGE_LOCAL_DISCONNECT) == 0)
+	    {
+	      disconnect (connection);
+	    }
+	  else
+	    {
+	      fprintf (stderr, "Received message %d, sending reply\n", count);
+	      
+	      reply = dbus_message_new ("org.freedesktop.DBus.Test", "org.freedesktop.DBus.Test");
+	      dbus_connection_send_message (connection,
+					    reply,
+					    NULL, 
+					    NULL);
+	      dbus_message_unref (reply);
+	      
+	      dbus_message_unref (message);
+	      
+	      count += 1;
+	      if (count > 100)
+		{
+		  printf ("Saw %d messages, exiting\n", count);
+		  quit_mainloop ();
+		}
+	    }
         }
       
       link = next;
@@ -185,6 +205,9 @@ do_mainloop (void)
       int initial_watch_serial;
       
       check_messages ();
+
+      if (exited)
+	break;
       
       FD_ZERO (&read_set);
       FD_ZERO (&write_set);
@@ -297,16 +320,6 @@ quit_mainloop (void)
   exited = TRUE;
 }
 
-static void
-disconnect_handler (DBusConnection *connection,
-                    void           *data)
-{
-  fprintf (stderr, "Disconnected\n");
-  
-  _dbus_list_remove (&connections, connection);
-  dbus_connection_unref (connection);
-  quit_mainloop ();
-}
 
 void
 setup_connection (DBusConnection *connection)
@@ -316,10 +329,6 @@ setup_connection (DBusConnection *connection)
                                        (DBusRemoveWatchFunction) remove_connection_watch,
                                        connection,
                                        NULL);
-
-  dbus_connection_set_disconnect_function (connection,
-                                           disconnect_handler,
-                                           NULL, NULL);
 
   dbus_connection_ref (connection);
   _dbus_list_append (&connections, connection);

@@ -51,16 +51,23 @@ bus_dispatch_message_handler (DBusMessageHandler *handler,
 			      DBusMessage        *message,
 			      void               *user_data)
 {
-  const char *sender, *service_name;
+  const char *sender, *service_name, *message_name;
   
   /* Assign a sender to the message */
   sender = bus_connection_get_name (connection);
   BUS_HANDLE_OOM (dbus_message_set_sender (message, sender));
 
   service_name = dbus_message_get_service (message);
+  message_name = dbus_message_get_name (message);
+  
+  /* TODO: Crashes if service_name == NULL */
   
   /* See if the message is to the driver */
-  if (strcmp (service_name, DBUS_SERVICE_DBUS) == 0)
+  if (message_name && strcmp (message_name, DBUS_MESSAGE_LOCAL_DISCONNECT) == 0)
+    {
+      bus_connection_disconnect (connection);
+    }
+  else if (strcmp (service_name, DBUS_SERVICE_DBUS) == 0)
     {
       bus_driver_handle_message (connection, message);
     }

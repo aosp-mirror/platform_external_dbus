@@ -47,5 +47,8 @@ const char *bus_connection_get_name (DBusConnection               *connection);
 void        bus_connection_foreach  (BusConnectionForeachFunction  function,
 				     void                         *data);
 
+/* called by dispatch.c */
+void        bus_connection_disconnect (DBusConnection *connection);
+
 
 #endif /* BUS_CONNECTION_H */

@@ -8,6 +8,8 @@
 
 #undef DBUS_COMPILATION
 
+#include "debug-thread.h"
+
 typedef struct
 {
   long time;
@@ -140,6 +142,8 @@ main (int    argc,
   DBusMessage *message;
   DBusMessageHandler *handler;
 
+  debug_threads_init ();
+  
   server = dbus_server_listen ("debug:name=test-server", &result);
   dbus_server_set_new_connection_function (server,
                                            new_connection_callback,

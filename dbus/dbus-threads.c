@@ -27,15 +27,17 @@ static DBusThreadFunctions thread_functions =
 {
   0,
   NULL, NULL, NULL, NULL,
+  NULL, NULL, NULL, NULL, NULL,
 
   NULL, NULL, NULL, NULL,
   NULL, NULL, NULL, NULL
 };
 
-static DBusMutex *static_mutex_init_lock = NULL;
-
 /** This is used for the no-op default mutex pointer, just to be distinct from #NULL */
 #define _DBUS_DUMMY_MUTEX ((void*)0xABCDEF)
+
+/** This is used for the no-op default mutex pointer, just to be distinct from #NULL */
+#define _DBUS_DUMMY_CONDVAR ((void*)0xABCDEF2)
 
 /**
  * @defgroup DBusThreads Thread functions
@@ -105,6 +107,130 @@ dbus_mutex_unlock (DBusMutex *mutex)
 }
 
 /**
+ * Creates a new condition variable using the function supplied
+ * to dbus_threads_init(), or creates a no-op condition variable
+ * if threads are not initialized. May return #NULL even if
+ * threads are initialized, indicating out-of-memory.
+ *
+ * @returns new mutex or #NULL
+ */
+DBusCondVar *
+dbus_condvar_new (void)
+{
+  if (thread_functions.condvar_new)
+    return (* thread_functions.condvar_new) ();
+  else
+    return _DBUS_DUMMY_MUTEX;
+}
+
+/**
+ * Frees a conditional variable created with dbus_condvar_new(); does
+ * nothing if passed a #NULL pointer.
+ */
+void
+dbus_condvar_free (DBusCondVar *cond)
+{
+  if (cond && thread_functions.condvar_free)
+    (* thread_functions.condvar_free) (cond);
+}
+
+/**
+ * Atomically unlocks the mutex and waits for the conditions
+ * variable to be signalled. Locks the mutex again before
+ * returning.
+ * Does nothing if passed a #NULL pointer.
+ */
+void
+dbus_condvar_wait (DBusCondVar *cond,
+		   DBusMutex   *mutex)
+{
+  if (cond && mutex && thread_functions.condvar_wait)
+    (* thread_functions.condvar_wait) (cond, mutex);
+}
+
+/**
+ * Atomically unlocks the mutex and waits for the conditions
+ * variable to be signalled, or for a timeout. Locks the
+ * mutex again before returning.
+ * Does nothing if passed a #NULL pointer.
+ *
+ * @param timeout_milliseconds the maximum time to wait
+ * @returns TRUE if the condition was reached, or FALSE if the
+ * timeout was reached.
+ */
+dbus_bool_t
+dbus_condvar_wait_timeout (DBusCondVar               *cond,
+			   DBusMutex                 *mutex,
+			   int                        timeout_milliseconds)
+{
+  if (cond && mutex && thread_functions.condvar_wait)
+    return (* thread_functions.condvar_wait_timeout) (cond, mutex, timeout_milliseconds);
+  else
+    return FALSE;
+}
+
+/**
+ * If there are threads waiting on the condition variable, wake
+ * up exactly one. 
+ * Does nothing if passed a #NULL pointer.
+ */
+void
+dbus_condvar_wake_one (DBusCondVar *cond)
+{
+  if (cond && thread_functions.condvar_wake_one)
+    (* thread_functions.condvar_wake_one) (cond);
+}
+
+/**
+ * If there are threads waiting on the condition variable, wake
+ * up all of them. 
+ * Does nothing if passed a #NULL pointer.
+ */
+void
+dbus_condvar_wake_all (DBusCondVar *cond)
+{
+  if (cond && thread_functions.condvar_wake_all)
+    (* thread_functions.condvar_wake_all) (cond);
+}
+
+
+DBusMutex * _dbus_list_init_lock (void);
+DBusMutex * _dbus_allocated_slots_init_lock (void);
+DBusMutex *_dbus_atomic_init_lock (void);
+DBusMutex *_dbus_message_handler_init_lock (void);
+
+static dbus_bool_t
+init_static_locks(void)
+{
+  int i;
+  
+  struct {
+    DBusMutex *(*init_func)(void);
+    DBusMutex *mutex;
+  } static_locks[] = {
+    {&_dbus_list_init_lock},
+    {&_dbus_allocated_slots_init_lock},
+    {&_dbus_atomic_init_lock},
+    {&_dbus_message_handler_init_lock},
+  };
+  
+  for (i = 0; i < _DBUS_N_ELEMENTS (static_locks); i++)
+    {
+      static_locks[i].mutex = (*static_locks[i].init_func)();
+      
+      if (static_locks[i].mutex == NULL)
+	{
+	  for (i = i - 1; i >= 0; i--)
+	    dbus_mutex_free (static_locks[i].mutex);
+	  return FALSE;
+	}
+      
+    }
+  return TRUE;
+}
+
+
+/**
  * Initializes threads. If this function is not called,
  * the D-BUS library will not lock any data structures.
  * If it is called, D-BUS will do locking, at some cost
@@ -125,14 +251,26 @@ dbus_threads_init (const DBusThreadFunctions *functions)
   /* these base functions are required. Future additions to
    * DBusThreadFunctions may be optional.
    */
-  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_NEW_MASK);
-  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_FREE_MASK);
-  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_LOCK_MASK);
-  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_UNLOCK_MASK);
+  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_MUTEX_NEW_MASK);
+  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_MUTEX_FREE_MASK);
+  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_MUTEX_LOCK_MASK);
+  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_MUTEX_UNLOCK_MASK);
+  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_CONDVAR_NEW_MASK);
+  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_CONDVAR_FREE_MASK);
+  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_MASK);
+  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_TIMEOUT_MASK);
+  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ONE_MASK);
+  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ALL_MASK);
   _dbus_assert (functions->mutex_new != NULL);
   _dbus_assert (functions->mutex_free != NULL);
   _dbus_assert (functions->mutex_lock != NULL);
   _dbus_assert (functions->mutex_unlock != NULL);
+  _dbus_assert (functions->condvar_new != NULL);
+  _dbus_assert (functions->condvar_free != NULL);
+  _dbus_assert (functions->condvar_wait != NULL);
+  _dbus_assert (functions->condvar_wait_timeout != NULL);
+  _dbus_assert (functions->condvar_wake_one != NULL);
+  _dbus_assert (functions->condvar_wake_all != NULL);
 
   /* Check that all bits in the mask actually are valid mask bits.
    * ensures people won't write code that breaks when we add
@@ -151,67 +289,19 @@ dbus_threads_init (const DBusThreadFunctions *functions)
   thread_functions.mutex_lock = functions->mutex_lock;
   thread_functions.mutex_unlock = functions->mutex_unlock;
   
+  thread_functions.condvar_new = functions->condvar_new;
+  thread_functions.condvar_free = functions->condvar_free;
+  thread_functions.condvar_wait = functions->condvar_wait;
+  thread_functions.condvar_wait_timeout = functions->condvar_wait_timeout;
+  thread_functions.condvar_wake_one = functions->condvar_wake_one;
+  thread_functions.condvar_wake_all = functions->condvar_wake_all;
+  
   thread_functions.mask = functions->mask;
 
-  static_mutex_init_lock = dbus_mutex_new ();
-
-  if (static_mutex_init_lock == NULL)
-    {
-      thread_functions.mask = 0;
-      return FALSE;
-    }
-
+  if (!init_static_locks ())
+    return FALSE;
+  
   return TRUE;
-}
-
-/** Accesses the field of DBusStaticMutex that
- * stores the DBusMutex used to implement.
- */
-#define _DBUS_STATIC_MUTEX_IMPL(mutex) ((mutex)->pad1)
-
-/**
- * Lock a static mutex
- *
- * @todo currently broken on some platforms due to
- * non-workingness of "double checked locking"
- * see http://bugzilla.gnome.org/show_bug.cgi?id=69668
- * and http://www.cs.umd.edu/~pugh/java/memoryModel/DoubleCheckedLocking.html
- * for example.
- * 
- * @param mutex the mutex to lock
- * @returns #TRUE on success
- */
-dbus_bool_t
-dbus_static_mutex_lock (DBusStaticMutex *mutex)
-{ 
-  if (_DBUS_STATIC_MUTEX_IMPL (mutex))
-    return dbus_mutex_lock (_DBUS_STATIC_MUTEX_IMPL (mutex));
-
-  if (!dbus_mutex_lock (static_mutex_init_lock))
-    return FALSE;
-
-  if (_DBUS_STATIC_MUTEX_IMPL (mutex) == NULL)
-    _DBUS_STATIC_MUTEX_IMPL (mutex) = dbus_mutex_new ();
-  
-  dbus_mutex_unlock (static_mutex_init_lock);
-
-  if (_DBUS_STATIC_MUTEX_IMPL (mutex))
-    return dbus_mutex_lock (_DBUS_STATIC_MUTEX_IMPL (mutex));
-  else
-    return FALSE;
-}
-
-/**
- * Unlock a static mutex
- * @param mutex the mutex to lock
- * @returns #TRUE on success
- */
-dbus_bool_t
-dbus_static_mutex_unlock (DBusStaticMutex *mutex)
-{
-  _dbus_assert (_DBUS_STATIC_MUTEX_IMPL (mutex) != NULL);
-  
-  return dbus_mutex_unlock (_DBUS_STATIC_MUTEX_IMPL (mutex));
 }
 
 /** @} */

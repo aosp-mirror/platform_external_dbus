@@ -1,3 +1,72 @@
+2003-02-15  Alexander Larsson  <alexl@redhat.com>
+
+	* dbus/dbus-threads.c:
+	* dbus/dbus-threads.h:
+	Add condvars. Remove static mutext from API.
+	Implement static mutexes by initializing them from threads_init.
+	
+	* glib/dbus-gthread.c:
+	* qt/dbus-qthread.cpp:
+	Update with the thread api changes.
+
+		
+	* dbus/dbus-list.c:
+	* dbus/dbus-list.h:
+	Turn StaticMutex into normal mutex + init function.
+	Export new functions _dbus_list_alloc_link, _dbus_list_free_link,
+	_dbus_list_append_link, _dbus_list_prepend_link
+
+
+	* dbus/dbus-sysdeps.c: 
+	* dbus/dbus-sysdeps.h:
+	New type dbus_atomic_t, and new functions _dbus_atomic_inc,
+	_dbus_atomic_dec. Only slow fallback implementation at the moment.
+	
+	* dbus/dbus-protocol.h:
+	Add DBUS_MESSAGE_LOCAL_DISCONNECT define
+	
+	* dbus/dbus-message.c:
+	Make ref/unref atomic.
+	Fix some docs.
+	
+	* dbus/dbus-connection-internal.h:
+	* dbus/dbus-connection.c:
+	* dbus/dbus-connection.h:
+	Make threadsafe.
+	Change _peek to _borrow,_return & _steal_borrowed.
+	Change disconnect callback to event.
+	Make dbus_connection_dispatch_messages reentrant.
+	
+	* dbus/dbus-transport.c:
+	Don't ref the connection on calls to the transport
+	implementation.
+	
+	* dbus/dbus-message-handler.c:
+	Make threadsafe.
+	
+	* glib/dbus-gmain.c:
+	Don't use peek_message anymore
+	
+	* test/Makefile.am:
+	* test/debug-thread.c:
+	* test/debug-thread.h:
+	Simple thread implementation that asserts() on deadlocks in
+	single-threaded code.
+	
+	* test/bus-test.c:
+	(main) Call debug_threads_init.
+
+	* test/watch.c:
+	Use disconnect message instead of disconnect callback.
+
+	* bus/connection.c:
+	* bus/connection.h:
+	Don't call dbus_connection_set_disconnect_function. Instead export
+	bus_connection_disconnect.
+	
+	* bus/dispatch.c:
+	Call bus_connection_disconnect when we get a disconnected message.
+	
 2003-02-15  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-message.c (dbus_message_new): fool around with the

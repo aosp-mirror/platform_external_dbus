@@ -38,6 +38,8 @@ typedef enum
   DBUS_ITERATION_BLOCK      = 1 << 2  /**< Block if nothing to do. */
 } DBusIterationFlags;
 
+void             _dbus_connection_ref_unlocked          (DBusConnection *connection);
+
 dbus_bool_t     _dbus_connection_queue_received_message (DBusConnection *connection,
                                                          DBusMessage    *message);
 dbus_bool_t     _dbus_connection_have_messages_to_send  (DBusConnection *connection);
@@ -60,14 +62,14 @@ void            _dbus_connection_do_iteration           (DBusConnection *connect
                                                          unsigned int    flags,
                                                          int             timeout_milliseconds);
 
-void            _dbus_connection_notify_disconnected    (DBusConnection *connection);
+void            _dbus_connection_notify_disconnected      (DBusConnection *connection);
 
-void            _dbus_connection_handler_destroyed      (DBusConnection *connection,
-                                                         DBusMessageHandler *handler);
+void            _dbus_connection_handler_destroyed_locked (DBusConnection *connection,
+							   DBusMessageHandler *handler);
 
 
-void            _dbus_connection_set_connection_counter (DBusConnection *connection,
-                                                         DBusCounter    *counter);
+void            _dbus_connection_set_connection_counter   (DBusConnection *connection,
+							   DBusCounter    *counter);
 
 dbus_bool_t       _dbus_message_handler_add_connection    (DBusMessageHandler *handler,
                                                            DBusConnection     *connection);

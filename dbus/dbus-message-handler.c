@@ -24,6 +24,7 @@
 #include "dbus-internals.h"
 #include "dbus-message-handler.h"
 #include "dbus-list.h"
+#include "dbus-threads.h"
 #include "dbus-connection-internal.h"
 
 /**
@@ -36,6 +37,14 @@
  * @{
  */
 
+static DBusMutex *message_handler_lock = NULL;
+DBusMutex *_dbus_message_handler_init_lock (void);
+DBusMutex *
+_dbus_message_handler_init_lock (void)
+{
+  message_handler_lock = dbus_mutex_new ();
+  return message_handler_lock;
+}
 
 /**
  * @brief Internals of DBusMessageHandler
@@ -66,13 +75,20 @@ dbus_bool_t
 _dbus_message_handler_add_connection (DBusMessageHandler *handler,
                                       DBusConnection     *connection)
 {
+  dbus_bool_t res;
+  
+  dbus_mutex_lock (message_handler_lock);
   /* This is a bit wasteful - we just put the connection in the list
    * once per time it's added. :-/
    */
   if (!_dbus_list_prepend (&handler->connections, connection))
-    return FALSE;
+    res = FALSE;
+  else
+    res = TRUE;
 
-  return TRUE;
+  dbus_mutex_unlock (message_handler_lock);
+  
+  return res;
 }
 
 /**
@@ -84,8 +100,10 @@ void
 _dbus_message_handler_remove_connection (DBusMessageHandler *handler,
                                          DBusConnection     *connection)
 {
+  dbus_mutex_lock (message_handler_lock);
   if (!_dbus_list_remove (&handler->connections, connection))
     _dbus_warn ("Function _dbus_message_handler_remove_connection() called when the connection hadn't been added\n");
+  dbus_mutex_unlock (message_handler_lock);
 }
 
 
@@ -104,11 +122,19 @@ _dbus_message_handler_handle_message (DBusMessageHandler        *handler,
                                       DBusConnection            *connection,
                                       DBusMessage               *message)
 {
+  DBusHandleMessageFunction function;
+  void  *user_data;
+  
+  dbus_mutex_lock (message_handler_lock);
+  function = handler->function;
+  user_data = handler->user_data;
+  dbus_mutex_unlock (message_handler_lock);
+  
   /* This function doesn't ref handler/connection/message
    * since that's done in dbus_connection_dispatch_message().
    */
-  if (handler->function != NULL)
-    return (* handler->function) (handler, connection, message, handler->user_data);
+  if (function != NULL)
+    return (* function) (handler, connection, message, user_data);
   else
     return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
 }
@@ -173,9 +199,11 @@ dbus_message_handler_new (DBusHandleMessageFunction function,
 void
 dbus_message_handler_ref (DBusMessageHandler *handler)
 {
+  dbus_mutex_lock (message_handler_lock);
   _dbus_assert (handler != NULL);
   
   handler->refcount += 1;
+  dbus_mutex_unlock (message_handler_lock);
 }
 
 /**
@@ -187,11 +215,19 @@ dbus_message_handler_ref (DBusMessageHandler *handler)
 void
 dbus_message_handler_unref (DBusMessageHandler *handler)
 {
+  int refcount;
+  
+  dbus_mutex_lock (message_handler_lock);
+  
   _dbus_assert (handler != NULL);
   _dbus_assert (handler->refcount > 0);
 
   handler->refcount -= 1;
-  if (handler->refcount == 0)
+  refcount = handler->refcount;
+  
+  dbus_mutex_unlock (message_handler_lock);
+  
+  if (refcount == 0)
     {
       DBusList *link;
       
@@ -203,7 +239,7 @@ dbus_message_handler_unref (DBusMessageHandler *handler)
          {
            DBusConnection *connection = link->data;
 
-           _dbus_connection_handler_destroyed (connection, handler);
+           _dbus_connection_handler_destroyed_locked (connection, handler);
            
            link = _dbus_list_get_next_link (&handler->connections, link);
          }
@@ -224,7 +260,11 @@ dbus_message_handler_unref (DBusMessageHandler *handler)
 void*
 dbus_message_handler_get_data (DBusMessageHandler *handler)
 {
-  return handler->user_data;
+  void* user_data;
+  dbus_mutex_lock (message_handler_lock);
+  user_data = handler->user_data;
+  dbus_mutex_unlock (message_handler_lock);
+  return user_data;
 }
 
 /**
@@ -241,11 +281,20 @@ dbus_message_handler_set_data (DBusMessageHandler *handler,
                                void               *user_data,
                                DBusFreeFunction    free_user_data)
 {
-  if (handler->free_user_data)
-    (* handler->free_user_data) (handler->user_data);
+  DBusFreeFunction old_free_func;
+  void *old_user_data;
+  
+  dbus_mutex_lock (message_handler_lock);
+  old_free_func = handler->free_user_data;
+  old_user_data = handler->user_data;
 
   handler->user_data = user_data;
   handler->free_user_data = free_user_data;
+  dbus_mutex_unlock (message_handler_lock);
+
+  if (old_free_func)
+    (* old_free_func) (old_user_data);
+
 }
 
 /**
@@ -259,7 +308,9 @@ void
 dbus_message_handler_set_function (DBusMessageHandler        *handler,
                                    DBusHandleMessageFunction  function)
 {
+  dbus_mutex_lock (message_handler_lock);
   handler->function = function;
+  dbus_mutex_unlock (message_handler_lock);
 }
 
 /** @} */

@@ -31,17 +31,39 @@ static void        dbus_qmutex_free   (DBusMutex *mutex);
 static dbus_bool_t dbus_qmutex_lock   (DBusMutex *mutex);
 static dbus_bool_t dbus_qmutex_unlock (DBusMutex *mutex);
 
+static DBusCondVar*dbus_qcondvar_new          (void);
+static void        dbus_qcondvar_free         (DBusCondVar *cond);
+static void        dbus_qcondvar_wait         (DBusCondVar *cond,
+					       DBusMutex   *mutex);
+static dbus_bool_t dbus_qcondvar_wait_timeout (DBusCondVar *cond,
+					       DBusMutex   *mutex.
+					       int          timeout_msec);
+static void        dbus_qcondvar_wake_one     (DBusCondVar *cond);
+static void        dbus_qcondvar_wake_all     (DBusCondVar *cond);
+
 
 static const DBusThreadFunctions functions =
 {
   DBUS_THREAD_FUNCTIONS_NEW_MASK |
   DBUS_THREAD_FUNCTIONS_FREE_MASK |
   DBUS_THREAD_FUNCTIONS_LOCK_MASK |
-  DBUS_THREAD_FUNCTIONS_UNLOCK_MASK,
+  DBUS_THREAD_FUNCTIONS_UNLOCK_MASK |
+  DBUS_THREAD_FUNCTIONS_CONDVAR_NEW_MASK |
+  DBUS_THREAD_FUNCTIONS_CONDVAR_FREE_MASK |
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_MASK |
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_TIMEOUT_MASK |
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ONE_MASK|
+  DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ALL_MASK,
   dbus_qmutex_new,
   dbus_qmutex_free,
   dbus_qmutex_lock,
   dbus_qmutex_unlock
+  dbus_qcondvar_new,
+  dbus_qcondvar_free,
+  dbus_qcondvar_wait,
+  dbus_qcondvar_wait_timeout,
+  dbus_qcondvar_wake_one,
+  dbus_qcondvar_wake_all
 };
 
 static DBusMutex *
@@ -73,6 +95,58 @@ dbus_qmutex_unlock (DBusMutex *mutex)
   QMutex *qmutex = static_cast<QMutex*>(mutex);
   qmutex->unlock();
   return TRUE;
+}
+
+static DBusCondVar*
+dbus_qcondvar_new (void)
+{
+  QWaitCondition *cond;
+  cond = new QWaitCondition;
+  return static_cast<DBusCondVar*>( cond );
+}
+
+static void
+dbus_qcondvar_free (DBusCondVar *cond)
+{
+  QWaitCondition *cqond = static_cast<QMutex*>(mutex);
+  delete qcond;
+}
+
+static void
+dbus_qcondvar_wait (DBusCondVar *cond,
+		    DBusMutex   *mutex)
+{
+  QWaitCondition *qcond = static_cast<QWaitCondition*>(cond);
+  QMutex *qmutex = static_cast<QMutex*>(mutex);
+
+  qcond->wait (qmutex);
+}
+
+static dbus_bool_t
+dbus_gcondvar_wait_timeout (DBusCondVar *cond,
+			    DBusMutex   *mutex,
+			    int         timeout_msec)
+{
+  QWaitCondition *qcond = static_cast<QWaitCondition*>(cond);
+  QMutex *qmutex = static_cast<QMutex*>(mutex);
+
+  return qcond->wait (qmutex, timout_msec);
+}
+
+static void
+dbus_qcondvar_wake_one (DBusCondVar *cond)
+{
+  QWaitCondition *qcond = static_cast<QWaitCondition*>(cond);
+
+  qcond->wakeOne (qmutex);
+}
+
+static void
+dbus_qcondvar_wake_all (DBusCondVar *cond)
+{
+  QWaitCondition *qcond = static_cast<QWaitCondition*>(cond);
+
+  qcond->wakeAll (qmutex);
 }
 
 extern "C" {

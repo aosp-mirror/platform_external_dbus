@@ -35,7 +35,15 @@
  */
 
 static DBusMemPool *list_pool;
-static DBusStaticMutex list_pool_lock = DBUS_STATIC_MUTEX_INIT;
+static DBusMutex *list_pool_lock = NULL;
+
+DBusMutex *_dbus_list_init_lock (void);
+DBusMutex *
+_dbus_list_init_lock (void)
+{
+  list_pool_lock = dbus_mutex_new ();
+  return list_pool_lock;
+}
 
 /**
  * @defgroup DBusListInternals Linked list implementation details
@@ -55,7 +63,7 @@ alloc_link (void *data)
 {
   DBusList *link;
 
-  if (!dbus_static_mutex_lock (&list_pool_lock))
+  if (!dbus_mutex_lock (list_pool_lock))
     return NULL;
   
   if (!list_pool)
@@ -64,7 +72,7 @@ alloc_link (void *data)
 
       if (list_pool == NULL)
         {
-          dbus_static_mutex_unlock (&list_pool_lock);
+          dbus_mutex_unlock (list_pool_lock);
           return NULL;
         }
     }
@@ -72,7 +80,7 @@ alloc_link (void *data)
   link = _dbus_mem_pool_alloc (list_pool);
   link->data = data;
   
-  dbus_static_mutex_unlock (&list_pool_lock);
+  dbus_mutex_unlock (list_pool_lock);
 
   return link;
 }
@@ -80,9 +88,9 @@ alloc_link (void *data)
 static void
 free_link (DBusList *link)
 {
-  dbus_static_mutex_lock (&list_pool_lock);
+  dbus_mutex_lock (list_pool_lock);
   _dbus_mem_pool_dealloc (list_pool, link);
-  dbus_static_mutex_unlock (&list_pool_lock);
+  dbus_mutex_unlock (list_pool_lock);
 }
 
 static void
@@ -190,6 +198,33 @@ link_after (DBusList **list,
  */
 
 /**
+ * Allocates a linked list node. Useful for preallocating
+ * nodes and using _dbus_list_append_link() to avoid
+ * allocations.
+ * 
+ * @param data the value to store in the link.
+ * @returns a newly allocated link.
+ */
+DBusList*
+_dbus_list_alloc_link (void *data)
+{
+  return alloc_link (data);
+}
+
+/**
+ * Frees a linked list node allocated with _dbus_list_alloc_link.
+ * Does not free the data in the node.
+ *
+ * @param link the list node
+ */
+void
+_dbus_list_free_link (DBusList *link)
+{
+  free_link (link);
+}
+
+
+/**
  * Appends a value to the list. May return #FALSE
  * if insufficient memory exists to add a list link.
  * This is a constant-time operation.
@@ -230,6 +265,43 @@ _dbus_list_prepend (DBusList **list,
   if (link == NULL)
     return FALSE;
 
+  link_before (list, *list, link);
+
+  return TRUE;
+}
+
+/**
+ * Appends a link to the list.
+ * Cannot fail due to out of memory.
+ * This is a constant-time operation.
+ *
+ * @param list address of the list head.
+ * @param link the link to append.
+ */
+void
+_dbus_list_append_link (DBusList **list,
+			DBusList *link)
+{
+  _dbus_list_prepend_link (list, link);
+
+  /* Now cycle the list forward one so the prepended node is the tail */
+  *list = (*list)->next;
+
+  return TRUE;
+}
+
+/**
+ * Prepends a link to the list. 
+ * Cannot fail due to out of memory.
+ * This is a constant-time operation.
+ *
+ * @param list address of the list head.
+ * @param link the link to prepend.
+ */
+void
+_dbus_list_prepend_link (DBusList **list,
+			 DBusList *link)
+{
   link_before (list, *list, link);
 
   return TRUE;

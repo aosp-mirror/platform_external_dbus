@@ -81,7 +81,7 @@ typedef struct
  */
 struct DBusMessage
 {
-  int refcount; /**< Reference count */
+  dbus_atomic_t refcount; /**< Reference count */
 
   DBusString header; /**< Header network data, stored
                       * separately from body so we can
@@ -887,9 +887,10 @@ dbus_message_new_from_message (const DBusMessage *message)
 void
 dbus_message_ref (DBusMessage *message)
 {
-  _dbus_assert (message->refcount > 0);
-  
-  message->refcount += 1;
+  dbus_atomic_t refcount;
+
+  refcount = _dbus_atomic_inc (&message->refcount);
+  _dbus_assert (refcount > 1);
 }
 
 /**
@@ -901,10 +902,13 @@ dbus_message_ref (DBusMessage *message)
 void
 dbus_message_unref (DBusMessage *message)
 {
-  _dbus_assert (message->refcount > 0);
+  dbus_atomic_t refcount;
 
-  message->refcount -= 1;
-  if (message->refcount == 0)
+  refcount = _dbus_atomic_dec (&message->refcount);
+  
+  _dbus_assert (refcount >= 0);
+
+  if (refcount == 0)
     {
       if (message->size_counter != NULL)
         {
@@ -1519,7 +1523,7 @@ dbus_message_iter_get_string (DBusMessageIter *iter)
 /**
  * Returns the 32 bit signed integer value that an iterator may point to.
  * Note that you need to check that the iterator points to
- * a string value before using this function.
+ * an integer value before using this function.
  *
  * @see dbus_message_iter_get_field_type
  * @param iter the message iter
@@ -1535,7 +1539,7 @@ dbus_message_iter_get_int32 (DBusMessageIter *iter)
 /**
  * Returns the 32 bit unsigned integer value that an iterator may point to.
  * Note that you need to check that the iterator points to
- * a string value before using this function.
+ * an unsigned integer value before using this function.
  *
  * @see dbus_message_iter_get_field_type
  * @param iter the message iter

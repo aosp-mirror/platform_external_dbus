@@ -98,6 +98,10 @@ dbus_bool_t _dbus_credentials_match                (const DBusCredentials *expec
 dbus_bool_t _dbus_string_append_our_uid (DBusString *str);
 
 
+typedef int dbus_atomic_t;
+
+dbus_atomic_t _dbus_atomic_inc (dbus_atomic_t *atomic);
+dbus_atomic_t _dbus_atomic_dec (dbus_atomic_t *atomic);
 
 #define _DBUS_POLLIN      0x0001    /* There is data to read */
 #define _DBUS_POLLPRI     0x0002    /* There is urgent data to read */

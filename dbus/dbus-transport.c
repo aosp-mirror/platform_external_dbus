@@ -52,31 +52,13 @@
  * or encryption schemes.
  */
 
-/**
- * Refs a transport and associated connection for reentrancy.
- *
- * @todo this macro reflects a design mistake, which is that the
- * transport has a pointer to its connection. Ownership should move in
- * only one direction; the connection should push/pull from the
- * transport, rather than vice versa. Then the connection would take
- * care of referencing itself when needed.
- */
-#define DBUS_TRANSPORT_HOLD_REF(t) \
-  _dbus_transport_ref (t); if ((t)->connection) dbus_connection_ref ((t)->connection)
-
-/**
- * Inverse of DBUS_TRANSPORT_HOLD_REF().
- */
-#define DBUS_TRANSPORT_RELEASE_REF(t) \
-  if ((t)->connection) dbus_connection_unref ((t)->connection); _dbus_transport_unref (t)
-
 static void
 live_messages_size_notify (DBusCounter *counter,
                            void        *user_data)
 {
   DBusTransport *transport = user_data;
 
-  DBUS_TRANSPORT_HOLD_REF (transport);
+  _dbus_transport_ref (transport);
 
 #if 0
   _dbus_verbose ("Counter value is now %d\n",
@@ -89,7 +71,7 @@ live_messages_size_notify (DBusCounter *counter,
   if (* transport->vtable->live_messages_changed)
     (* transport->vtable->live_messages_changed) (transport);
 
-  DBUS_TRANSPORT_RELEASE_REF (transport);
+  _dbus_transport_unref (transport);
 }
 
 /**
@@ -294,14 +276,14 @@ _dbus_transport_disconnect (DBusTransport *transport)
   if (transport->disconnected)
     return;
 
-  DBUS_TRANSPORT_HOLD_REF (transport);
+  _dbus_transport_ref (transport);
   (* transport->vtable->disconnect) (transport);
   
   transport->disconnected = TRUE;
 
   _dbus_connection_notify_disconnected (transport->connection);
   
-  DBUS_TRANSPORT_RELEASE_REF (transport);
+  _dbus_transport_unref (transport);
 }
 
 /**
@@ -401,11 +383,11 @@ _dbus_transport_handle_watch (DBusTransport           *transport,
   
   _dbus_watch_sanitize_condition (watch, &condition);
 
-  DBUS_TRANSPORT_HOLD_REF (transport);
+  _dbus_transport_ref (transport);
   _dbus_watch_ref (watch);
   (* transport->vtable->handle_watch) (transport, watch, condition);
   _dbus_watch_unref (watch);
-  DBUS_TRANSPORT_RELEASE_REF (transport);
+  _dbus_transport_unref (transport);
 }
 
 /**
@@ -425,9 +407,9 @@ _dbus_transport_set_connection (DBusTransport  *transport,
   
   transport->connection = connection;
 
-  DBUS_TRANSPORT_HOLD_REF (transport);
+  _dbus_transport_ref (transport);
   (* transport->vtable->connection_set) (transport);
-  DBUS_TRANSPORT_RELEASE_REF (transport);
+  _dbus_transport_unref (transport);
 }
 
 /**
@@ -450,10 +432,10 @@ _dbus_transport_messages_pending (DBusTransport  *transport,
 
   transport->messages_need_sending = queue_length > 0;
 
-  DBUS_TRANSPORT_HOLD_REF (transport);
+  _dbus_transport_ref (transport);
   (* transport->vtable->messages_pending) (transport,
                                            queue_length);
-  DBUS_TRANSPORT_RELEASE_REF (transport);
+  _dbus_transport_unref (transport);
 }
 
 /**
@@ -481,10 +463,10 @@ _dbus_transport_do_iteration (DBusTransport  *transport,
   if (transport->disconnected)
     return;
 
-  DBUS_TRANSPORT_HOLD_REF (transport);
+  _dbus_transport_ref (transport);
   (* transport->vtable->do_iteration) (transport, flags,
                                        timeout_milliseconds);
-  DBUS_TRANSPORT_RELEASE_REF (transport);
+  _dbus_transport_unref (transport);
 }
 
 /**
