@@ -18,6 +18,23 @@ namespace DBus
     {
     }
 
+    public Signal(Service service, string pathName, string interfaceName, string name)
+    {
+      this.service = service;
+
+      RawMessage = dbus_message_new_signal(pathName, interfaceName, name);
+      
+      if (RawMessage == IntPtr.Zero) {
+	throw new OutOfMemoryException();
+      }
+      
+      this.pathName = pathName;
+      this.interfaceName = interfaceName;
+      this.name = name;
+
+      dbus_message_unref(RawMessage);
+    }
+
     public new string PathName
     {
       get
@@ -56,5 +73,7 @@ namespace DBus
 	  base.Name = value;
 	}
     }
+    [DllImport("dbus-1")]
+    private extern static IntPtr dbus_message_new_signal(string pathName, string interfaceName, string name);
   }
 }

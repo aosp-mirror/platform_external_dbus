@@ -6,6 +6,13 @@ namespace DBus
   using System.Reflection;
   using System.Collections;
 
+  internal enum Result 
+  {
+    Handled = 0,
+    NotYetHandled = 1,
+    NeedMemory = 2
+  }
+
   internal class Handler
   {
     private string[] path = null;
@@ -15,7 +22,6 @@ namespace DBus
     private DBusObjectPathVTable vTable;
     private Connection connection;
     private Service service;
-    private DBusHandleMessageFunction filterCalled;
     
     internal delegate void DBusObjectPathUnregisterFunction(IntPtr rawConnection,
 							    IntPtr userData);
@@ -23,18 +29,6 @@ namespace DBus
     internal delegate int DBusObjectPathMessageFunction(IntPtr rawConnection,
 							IntPtr rawMessage,
 							IntPtr userData);
-
-    internal delegate int DBusHandleMessageFunction(IntPtr rawConnection,
-						    IntPtr rawMessage,
-						    IntPtr userData);
-
-
-    private enum Result 
-    {
-      Handled = 0,
-      NotYetHandled = 1,
-      NeedMemory = 2
-    }
 
     [StructLayout (LayoutKind.Sequential)]
     private struct DBusObjectPathVTable 
@@ -67,8 +61,8 @@ namespace DBus
     }
 
     public Handler(object handledObject, 
-		       string pathName, 
-		       Service service)
+		   string pathName, 
+		   Service service)
     {
       Service = service;
       Connection = service.Connection;
@@ -88,14 +82,22 @@ namespace DBus
 						ref vTable,
 						IntPtr.Zero))
 	throw new OutOfMemoryException();
-      
-      // Setup the filter function
-      this.filterCalled = new DBusHandleMessageFunction(Filter_Called);
-      if (!dbus_connection_add_filter(Connection.RawConnection,
-				      this.filterCalled,
-				      IntPtr.Zero,
-				      IntPtr.Zero))
-	throw new OutOfMemoryException();
+
+      RegisterSignalHandlers();
+    }
+
+    private void RegisterSignalHandlers()
+    {
+      ProxyBuilder proxyBuilder = new ProxyBuilder(Service, HandledObject.GetType(), this.pathName);
+
+      foreach (DictionaryEntry interfaceEntry in this.introspector.InterfaceProxies) {
+	InterfaceProxy interfaceProxy = (InterfaceProxy) interfaceEntry.Value;
+	foreach (DictionaryEntry signalEntry in interfaceProxy.Signals) {
+	  EventInfo eventE = (EventInfo) signalEntry.Value;
+	  Delegate del = Delegate.CreateDelegate(eventE.EventHandlerType, proxyBuilder.GetSignalProxy(), "Proxy_" + eventE.Name);
+	  eventE.AddEventHandler(HandledObject, del);
+	}
+      }
     }
 
     public object HandledObject 
@@ -113,21 +115,6 @@ namespace DBus
 	this.introspector = Introspector.GetIntrospector(value.GetType());	  
       }
     }
-    
-    public int Filter_Called(IntPtr rawConnection,
-			     IntPtr rawMessage,
-			     IntPtr userData) 
-    {
-      Message message = Message.Wrap(rawMessage, Service);
-      
-      if (message.Type == Message.MessageType.Signal) {
-	Signal signal = (Signal) message;
-      } else if (message.Type == Message.MessageType.MethodCall) {
-	MethodCall methodCall = (MethodCall) message;
-      }
-      
-      return (int) Result.NotYetHandled;
-    }
 
     public void Unregister_Called(IntPtr rawConnection, 
 				  IntPtr userData)
@@ -143,7 +130,8 @@ namespace DBus
 
       switch (message.Type) {
       case Message.MessageType.Signal:
-	System.Console.WriteLine("FIXME: Signal called.");
+	// We're not interested in signals here because we're the ones
+	// that generate them!
 	break;
       case Message.MessageType.MethodCall:
 	return (int) HandleMethod((MethodCall) message);
@@ -216,19 +204,13 @@ namespace DBus
 	{
 	  this.service = value;
 	}
-    }    
+    }
 
     [DllImport ("dbus-1")]
     private extern static bool dbus_connection_register_object_path (IntPtr rawConnection, string[] path, ref DBusObjectPathVTable vTable, IntPtr userData);
 
     [DllImport ("dbus-1")]
     private extern static void dbus_connection_unregister_object_path (IntPtr rawConnection, string[] path);
-
-    [DllImport ("dbus-1")]
-    private extern static bool dbus_connection_add_filter(IntPtr rawConnection,
-							  DBusHandleMessageFunction filter,
-							  IntPtr userData,
-							  IntPtr freeData);
 
   }
 }

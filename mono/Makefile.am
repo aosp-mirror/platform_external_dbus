@@ -10,6 +10,7 @@ DBUS_SHARP_FILES= 		\
 	Custom.cs		\
 	DBusException.cs	\
 	Error.cs		\
+	ErrorMessage.cs		\
 	Handler.cs		\
 	InterfaceAttribute.cs	\
 	InterfaceProxy.cs	\
@@ -22,6 +23,7 @@ DBUS_SHARP_FILES= 		\
 	Server.cs		\
 	Service.cs		\
 	Signal.cs		\
+	SignalAttribute.cs	\
 	DBusType/IDBusType.cs	\
 	DBusType/Array.cs	\
 	DBusType/Boolean.cs	\

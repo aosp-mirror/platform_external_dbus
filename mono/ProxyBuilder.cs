@@ -14,20 +14,27 @@ namespace DBus
     private string pathName = null;
     private Type type = null;
     private Introspector introspector = null;
-    private static AssemblyBuilder proxyAssembly;
     
     private static MethodInfo Service_NameMI = typeof(Service).GetMethod("get_Name", 
 									    new Type[0]);
     private static MethodInfo Service_ConnectionMI = typeof(Service).GetMethod("get_Connection",
 										  new Type[0]);
+    private static MethodInfo Service_AddSignalCalledMI = typeof(Service).GetMethod("add_SignalCalled",
+										    new Type[] {typeof(Service.SignalCalledHandler)});
+    private static MethodInfo Signal_PathNameMI = typeof(Signal).GetMethod("get_PathName",
+									   new Type[0]);
     private static MethodInfo Message_ArgumentsMI = typeof(Message).GetMethod("get_Arguments",
 										 new Type[0]);
+    private static MethodInfo Message_KeyMI = typeof(Message).GetMethod("get_Key",
+									new Type[0]);
     private static MethodInfo Arguments_InitAppendingMI = typeof(Arguments).GetMethod("InitAppending",
 											  new Type[0]);
     private static MethodInfo Arguments_AppendMI = typeof(Arguments).GetMethod("Append",
 										  new Type[] {typeof(DBusType.IDBusType)});
     private static MethodInfo Message_SendWithReplyAndBlockMI = typeof(Message).GetMethod("SendWithReplyAndBlock",
 											     new Type[0]);
+    private static MethodInfo Message_SendMI = typeof(Message).GetMethod("Send",
+									 new Type[0]);
     private static MethodInfo Arguments_GetEnumeratorMI = typeof(Arguments).GetMethod("GetEnumerator",
 											  new Type[0]);
     private static MethodInfo IEnumerator_MoveNextMI = typeof(System.Collections.IEnumerator).GetMethod("MoveNext",
@@ -42,8 +49,19 @@ namespace DBus
 												typeof(string),
 												typeof(string),
 												typeof(string)});
+    private static ConstructorInfo Signal_C = typeof(Signal).GetConstructor(new Type[] {typeof(Service),
+											typeof(string),
+											typeof(string),
+											typeof(string)});
+    private static ConstructorInfo Service_SignalCalledHandlerC = typeof(Service.SignalCalledHandler).GetConstructor(new Type[] {typeof(object),
+																 typeof(System.IntPtr)});
+    private static MethodInfo String_opEqualityMI = typeof(System.String).GetMethod("op_Equality",
+										    new Type[] {typeof(string),
+												typeof(string)});													     
+    private static MethodInfo MulticastDelegate_opInequalityMI = typeof(System.MulticastDelegate).GetMethod("op_Inequality",
+										    new Type[] {typeof(System.MulticastDelegate),
+												typeof(System.MulticastDelegate)});
     
-											
 
     public ProxyBuilder(Service service, Type type, string pathName)
     {
@@ -51,6 +69,163 @@ namespace DBus
       this.pathName = pathName;
       this.type = type;
       this.introspector = Introspector.GetIntrospector(type);
+    }
+
+    private MethodInfo BuildSignalCalled(ref TypeBuilder typeB, FieldInfo serviceF, FieldInfo pathF)
+    {
+      Type[] parTypes = {typeof(Signal)};
+      MethodBuilder methodBuilder = typeB.DefineMethod("Service_SignalCalled",
+						       MethodAttributes.Private |
+						       MethodAttributes.HideBySig,
+						       typeof(void),
+						       parTypes);
+      
+      ILGenerator generator = methodBuilder.GetILGenerator();
+
+      LocalBuilder enumeratorL = generator.DeclareLocal(typeof(System.Collections.IEnumerator));
+      enumeratorL.SetLocalSymInfo("enumerator");
+
+      Label wrongPath = generator.DefineLabel();
+      //generator.EmitWriteLine("if (signal.PathName == pathName) {");
+      generator.Emit(OpCodes.Ldarg_1);
+      generator.EmitCall(OpCodes.Callvirt, Signal_PathNameMI, null);
+      generator.Emit(OpCodes.Ldarg_0);
+      generator.Emit(OpCodes.Ldfld, pathF);
+      generator.EmitCall(OpCodes.Call, String_opEqualityMI, null);
+      generator.Emit(OpCodes.Brfalse, wrongPath);
+
+      int localOffset = 1;
+
+      foreach (DictionaryEntry interfaceEntry in this.introspector.InterfaceProxies) {
+	InterfaceProxy interfaceProxy = (InterfaceProxy) interfaceEntry.Value;
+	foreach (DictionaryEntry signalEntry in interfaceProxy.Signals) {
+	  EventInfo eventE = (EventInfo) signalEntry.Value;
+	  // This is really cheeky since we need to grab the event as a private field.
+	  FieldInfo eventF = this.type.GetField(eventE.Name,
+						BindingFlags.NonPublic|
+						BindingFlags.Instance);
+
+	  MethodInfo eventHandler_InvokeMI = eventE.EventHandlerType.GetMethod("Invoke");
+
+	  ParameterInfo[] pars = eventHandler_InvokeMI.GetParameters();
+	  parTypes = new Type[pars.Length];
+	  for (int parN = 0; parN < pars.Length; parN++) {
+	    parTypes[parN] = pars[parN].ParameterType;
+	    LocalBuilder parmL = generator.DeclareLocal(parTypes[parN]);
+	    parmL.SetLocalSymInfo(pars[parN].Name);
+	  }
+	  
+	  Label skip = generator.DefineLabel();      
+	  //generator.EmitWriteLine("  if (SelectedIndexChanged != null) {");
+	  generator.Emit(OpCodes.Ldarg_0);
+	  generator.Emit(OpCodes.Ldfld, eventF);
+	  generator.Emit(OpCodes.Ldnull);
+	  generator.EmitCall(OpCodes.Call, MulticastDelegate_opInequalityMI, null);
+	  generator.Emit(OpCodes.Brfalse, skip);
+	  
+	  //generator.EmitWriteLine("    if (signal.Key == 'la i')");
+	  generator.Emit(OpCodes.Ldarg_1);
+	  generator.EmitCall(OpCodes.Callvirt, Message_KeyMI, null);
+	  generator.Emit(OpCodes.Ldstr, eventE.Name + " " + InterfaceProxy.GetSignature(eventHandler_InvokeMI));
+	  generator.EmitCall(OpCodes.Call, String_opEqualityMI, null);
+	  generator.Emit(OpCodes.Brfalse, skip);
+
+	  //generator.EmitWriteLine("IEnumerator enumerator = signal.Arguments.GetEnumerator()");
+	  generator.Emit(OpCodes.Ldarg_1);
+	  generator.EmitCall(OpCodes.Callvirt, Message_ArgumentsMI, null);
+	  generator.EmitCall(OpCodes.Callvirt, Arguments_GetEnumeratorMI, null);
+	  generator.Emit(OpCodes.Stloc_0);
+	  
+	  for (int parN = 0; parN < pars.Length; parN++) {
+	    ParameterInfo par = pars[parN];
+	    if (!par.IsOut) {
+	      EmitSignalIn(generator, par.ParameterType, parN + localOffset, serviceF);
+	    }
+	  }
+	  
+	  //generator.EmitWriteLine("    SelectedIndexChanged(selectedIndex)");
+	  generator.Emit(OpCodes.Ldarg_0);
+	  generator.Emit(OpCodes.Ldfld, eventF);
+	  for (int parN = 0; parN < pars.Length; parN++) {
+	    generator.Emit(OpCodes.Ldloc_S, parN + localOffset);
+	  }
+	  
+	  generator.EmitCall(OpCodes.Callvirt, eventHandler_InvokeMI, null);
+	  
+	  generator.MarkLabel(skip);
+	  //generator.EmitWriteLine("  }");
+	  
+	  localOffset += pars.Length;
+	}
+      }
+
+      generator.MarkLabel(wrongPath);
+      //generator.EmitWriteLine("}");
+
+      //generator.EmitWriteLine("return");
+      generator.Emit(OpCodes.Ret);
+
+      return methodBuilder;
+    }
+    
+    private void BuildSignalHandler(EventInfo eventE, 
+				    InterfaceProxy interfaceProxy,
+				    ref TypeBuilder typeB, 
+				    FieldInfo serviceF,
+				    FieldInfo pathF)
+    {
+      MethodInfo eventHandler_InvokeMI = eventE.EventHandlerType.GetMethod("Invoke");
+      ParameterInfo[] pars = eventHandler_InvokeMI.GetParameters();
+      Type[] parTypes = new Type[pars.Length];
+      for (int parN = 0; parN < pars.Length; parN++) {
+	parTypes[parN] = pars[parN].ParameterType;
+      }
+
+      // Generate the code
+      MethodBuilder methodBuilder = typeB.DefineMethod("Proxy_" + eventE.Name, 
+						       MethodAttributes.Public |
+						       MethodAttributes.HideBySig |
+						       MethodAttributes.Virtual, 
+						       typeof(void),
+						       parTypes);
+      ILGenerator generator = methodBuilder.GetILGenerator();
+
+      for (int parN = 0; parN < pars.Length; parN++) {
+	methodBuilder.DefineParameter(parN + 1, pars[parN].Attributes, pars[parN].Name);
+      }
+
+      // Generate the locals
+      LocalBuilder methodCallL = generator.DeclareLocal(typeof(MethodCall));
+      methodCallL.SetLocalSymInfo("signal");
+      LocalBuilder replyL = generator.DeclareLocal(typeof(MethodReturn));
+
+      //generator.EmitWriteLine("Signal signal = new Signal(...)");
+      generator.Emit(OpCodes.Ldsfld, serviceF);
+      generator.Emit(OpCodes.Ldarg_0);
+      generator.Emit(OpCodes.Ldfld, pathF);
+      generator.Emit(OpCodes.Ldstr, interfaceProxy.InterfaceName);
+      generator.Emit(OpCodes.Ldstr, eventE.Name);
+      generator.Emit(OpCodes.Newobj, Signal_C);
+      generator.Emit(OpCodes.Stloc_0);
+
+      //generator.EmitWriteLine("signal.Arguments.InitAppending()");
+      generator.Emit(OpCodes.Ldloc_0);
+      generator.EmitCall(OpCodes.Callvirt, Message_ArgumentsMI, null);
+      generator.EmitCall(OpCodes.Callvirt, Arguments_InitAppendingMI, null);
+
+      for (int parN = 0; parN < pars.Length; parN++) {
+	ParameterInfo par = pars[parN];
+	if (!par.IsOut) {
+	  EmitIn(generator, par.ParameterType, parN, serviceF);
+	}
+      }
+      
+      //generator.EmitWriteLine("signal.Send()");
+      generator.Emit(OpCodes.Ldloc_0);
+      generator.EmitCall(OpCodes.Callvirt, Message_SendMI, null); 
+
+      //generator.EmitWriteLine("return");
+      generator.Emit(OpCodes.Ret);
     }
 
     private void BuildMethod(MethodInfo method, 
@@ -145,6 +320,28 @@ namespace DBus
       typeB.DefineMethodOverride(methodBuilder, method);
     }
 
+    private void EmitSignalIn(ILGenerator generator, Type parType, int parN, FieldInfo serviceF)
+    {
+	//generator.EmitWriteLine("enumerator.MoveNext()");
+	generator.Emit(OpCodes.Ldloc_0);
+	generator.EmitCall(OpCodes.Callvirt, IEnumerator_MoveNextMI, null);
+	
+	Type outParType = Arguments.MatchType(parType);
+	//generator.EmitWriteLine("int selectedIndex = (int) ((DBusType.IDBusType) enumerator.Current).Get(typeof(int))");
+	generator.Emit(OpCodes.Pop);
+	generator.Emit(OpCodes.Ldloc_0);
+	generator.EmitCall(OpCodes.Callvirt, IEnumerator_CurrentMI, null);
+	generator.Emit(OpCodes.Castclass, typeof(DBusType.IDBusType));
+	generator.Emit(OpCodes.Ldtoken, parType);
+	generator.EmitCall(OpCodes.Call, Type_GetTypeFromHandleMI, null);
+	generator.EmitCall(OpCodes.Callvirt, IDBusType_GetMI, null);
+	// Call the DBusType EmitMarshalOut to make it emit itself
+	object[] pars = new object[] {generator, parType, true};
+	outParType.InvokeMember("EmitMarshalOut", BindingFlags.Static | BindingFlags.Public | BindingFlags.InvokeMethod, null, null, pars, null);
+	generator.Emit(OpCodes.Stloc_S, parN);
+    }
+    
+
     private void EmitIn(ILGenerator generator, Type parType, int parN, FieldInfo serviceF)
     {
       Type inParType = Arguments.MatchType(parType);
@@ -191,7 +388,7 @@ namespace DBus
       }
     }
     
-    public void BuildConstructor(ref TypeBuilder typeB, FieldInfo serviceF, FieldInfo pathF)
+    public void BuildConstructor(ref TypeBuilder typeB, FieldInfo serviceF, FieldInfo pathF, MethodInfo signalCalledMI)
     {
       Type[] pars = {typeof(Service), typeof(string)};
       ConstructorBuilder constructor = typeB.DefineConstructor(MethodAttributes.RTSpecialName | 
@@ -201,23 +398,102 @@ namespace DBus
       ILGenerator generator = constructor.GetILGenerator();
       generator.Emit(OpCodes.Ldarg_0);
       generator.Emit(OpCodes.Call, this.introspector.Constructor);
+      //generator.EmitWriteLine("service = myService");
       generator.Emit(OpCodes.Ldarg_1);
       generator.Emit(OpCodes.Stsfld, serviceF);
+      //generator.EmitWriteLine("this.pathName = pathName");
       generator.Emit(OpCodes.Ldarg_0);
       generator.Emit(OpCodes.Ldarg_2);
       generator.Emit(OpCodes.Stfld, pathF);
+      
+      //generator.EmitWriteLine("myService.SignalCalled += new Service.SignalCalledHandler(Service_SignalCalled)");
+      generator.Emit(OpCodes.Ldarg_1);
+      generator.Emit(OpCodes.Ldarg_0);
+      generator.Emit(OpCodes.Ldftn, signalCalledMI);
+      generator.Emit(OpCodes.Newobj, Service_SignalCalledHandlerC);
+      generator.EmitCall(OpCodes.Callvirt, Service_AddSignalCalledMI, null);
 
+      //generator.EmitWriteLine("return");
+      generator.Emit(OpCodes.Ret);
+    }
+
+    public void BuildSignalConstructor(ref TypeBuilder typeB, FieldInfo serviceF, FieldInfo pathF)
+    {
+      Type[] pars = {typeof(Service), typeof(string)};
+      ConstructorBuilder constructor = typeB.DefineConstructor(MethodAttributes.RTSpecialName | 
+							       MethodAttributes.Public,
+							       CallingConventions.Standard, pars);
+
+      ILGenerator generator = constructor.GetILGenerator();
+      generator.Emit(OpCodes.Ldarg_0);
+      generator.Emit(OpCodes.Call, this.introspector.Constructor);
+      //generator.EmitWriteLine("service = myService");
+      generator.Emit(OpCodes.Ldarg_1);
+      generator.Emit(OpCodes.Stsfld, serviceF);
+      //generator.EmitWriteLine("this.pathName = pathName");
+      generator.Emit(OpCodes.Ldarg_0);
+      generator.Emit(OpCodes.Ldarg_2);
+      generator.Emit(OpCodes.Stfld, pathF);
+      
+      //generator.EmitWriteLine("return");
       generator.Emit(OpCodes.Ret);
     }
     
-    public object GetProxy() 
-    {      
+    public object GetSignalProxy()
+    {
+      Type proxyType = Service.ProxyAssembly.GetType(ObjectName + ".SignalProxy");
+
+      if (proxyType == null) {
+	// Build the type
+	TypeBuilder typeB = Service.Module.DefineType(ObjectName + ".SignalProxy", 
+						      TypeAttributes.Public, 
+						      this.type);
+	
+	FieldBuilder serviceF = typeB.DefineField("service", 
+						  typeof(Service), 
+						  FieldAttributes.Private | 
+						  FieldAttributes.Static);
+	FieldBuilder pathF = typeB.DefineField("pathName", 
+					       typeof(string), 
+					       FieldAttributes.Private);
+
+	BuildSignalConstructor(ref typeB, serviceF, pathF);
+	
+	// Build the signal handlers
+	foreach (DictionaryEntry interfaceEntry in this.introspector.InterfaceProxies) {
+	  InterfaceProxy interfaceProxy = (InterfaceProxy) interfaceEntry.Value;
+	  foreach (DictionaryEntry signalEntry in interfaceProxy.Signals) {
+	    EventInfo eventE = (EventInfo) signalEntry.Value;
+	    BuildSignalHandler(eventE, interfaceProxy, ref typeB, serviceF, pathF);
+	  }
+	}
+	
+	proxyType = typeB.CreateType();
       
-      Type proxyType = ProxyAssembly.GetType(ProxyName);
+	// Uncomment the following line to produce a DLL of the
+	// constructed assembly which can then be examined using
+	// monodis. Note that in order for this to work you should copy
+	// the client assembly as a dll file so that monodis can pick it
+	// up.
+	//Service.ProxyAssembly.Save("proxy.dll");
+      }
+
+      Type [] parTypes = new Type[] {typeof(Service), typeof(string)};
+      object [] pars = new object[] {Service, pathName};
+      
+      ConstructorInfo constructor = proxyType.GetConstructor(parTypes);
+      object instance = constructor.Invoke(pars);
+      return instance;
+    }
+      
+    
+    public object GetProxy() 
+    { 
+      Type proxyType = Service.ProxyAssembly.GetType(ObjectName + ".Proxy");
       
       if (proxyType == null) {
 	// Build the type
-	TypeBuilder typeB = ServiceModuleBuilder.DefineType(ProxyName, TypeAttributes.Public, this.type);
+	TypeBuilder typeB = Service.Module.DefineType(ObjectName + ".Proxy", TypeAttributes.Public, this.type);
 	
 	FieldBuilder serviceF = typeB.DefineField("service", 
 						  typeof(Service), 
@@ -227,7 +503,8 @@ namespace DBus
 					       typeof(string), 
 					       FieldAttributes.Private);
 	
-	BuildConstructor(ref typeB, serviceF, pathF);
+	MethodInfo signalCalledMI = BuildSignalCalled(ref typeB, serviceF, pathF);
+	BuildConstructor(ref typeB, serviceF, pathF, signalCalledMI);
 	
 	// Build the methods
 	foreach (DictionaryEntry interfaceEntry in this.introspector.InterfaceProxies) {
@@ -245,7 +522,7 @@ namespace DBus
 	// monodis. Note that in order for this to work you should copy
 	// the client assembly as a dll file so that monodis can pick it
 	// up.
-	//ProxyAssembly.Save("proxy.dll");
+	//Service.ProxyAssembly.Save("proxy.dll");
       }
 
       Type [] parTypes = new Type[] {typeof(Service), typeof(string)};
@@ -255,43 +532,18 @@ namespace DBus
       object instance = constructor.Invoke(pars);
       return instance;
     }
-
-    private ModuleBuilder ServiceModuleBuilder
-    {
-      get {
-	if (Service.module == null) {
-	  Service.module = ProxyAssembly.DefineDynamicModule(Service.Name, "proxy.dll", true);
-	}
-	
-	return Service.module;
-      }
-    }
-  
-  private Service Service
+    
+    private Service Service
     {
       get {
 	return this.service;
       }
     }
 
-    private string ProxyName
+    private string ObjectName
     {
       get {
-	return this.introspector.ToString() + ".Proxy";
-      }
-    }
-
-    private AssemblyBuilder ProxyAssembly
-    {
-      get {
-	if (proxyAssembly == null){
-	  AssemblyName assemblyName = new AssemblyName();
-	  assemblyName.Name = "DBusProxy";
-	  proxyAssembly = Thread.GetDomain().DefineDynamicAssembly(assemblyName, 
-								   AssemblyBuilderAccess.RunAndSave);
-	}
-	
-	return proxyAssembly;
+	return this.introspector.ToString();
       }
     }
   }

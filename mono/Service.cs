@@ -4,6 +4,7 @@ namespace DBus
   using System.Runtime.InteropServices;
   using System.Diagnostics;
   using System.Collections;
+  using System.Threading;
   using System.Reflection;
   using System.Reflection.Emit;
   
@@ -13,12 +14,20 @@ namespace DBus
     private string name;
     private bool local = false;
     private Hashtable registeredHandlers = new Hashtable();
-    internal ModuleBuilder module = null;
+    private delegate int DBusHandleMessageFunction(IntPtr rawConnection,
+						   IntPtr rawMessage,
+						   IntPtr userData);
+    private DBusHandleMessageFunction filterCalled;
+    public delegate void SignalCalledHandler(Signal signal);
+    public event SignalCalledHandler SignalCalled;
+    private static AssemblyBuilder proxyAssembly;
+    private ModuleBuilder module = null;
 
     internal Service(string name, Connection connection)
     {
       this.name = name;
       this.connection = connection;
+      AddFilter();
     }
 
     public Service(Connection connection, string name)
@@ -67,9 +76,7 @@ namespace DBus
     public void RegisterObject(object handledObject, 
 			       string pathName) 
     {
-      Handler handler = new Handler(handledObject, 
-				    pathName, 
-				    this);
+      Handler handler = new Handler(handledObject, pathName, this);
       registeredHandlers.Add(handledObject, handler);
     }
 
@@ -87,6 +94,38 @@ namespace DBus
       ProxyBuilder builder = new ProxyBuilder(this, type, pathName);
       object proxy = builder.GetProxy();
       return proxy;
+    }
+
+    private void AddFilter() 
+    {
+      // Setup the filter function
+      this.filterCalled = new DBusHandleMessageFunction(Service_FilterCalled);
+      if (!dbus_connection_add_filter(Connection.RawConnection,
+				      this.filterCalled,
+				      IntPtr.Zero,
+				      IntPtr.Zero))
+	throw new OutOfMemoryException();
+
+      // Add a match for signals. FIXME: Can we filter the service?
+      string rule = "type='signal'";
+      dbus_bus_add_match(connection.RawConnection, rule, IntPtr.Zero);
+    }
+
+    private int Service_FilterCalled(IntPtr rawConnection,
+				    IntPtr rawMessage,
+				    IntPtr userData) 
+    {
+      Message message = Message.Wrap(rawMessage, this);
+      
+      if (message.Type == Message.MessageType.Signal) {
+	// We're only interested in signals
+	Signal signal = (Signal) message;
+	if (SignalCalled != null) {
+	  SignalCalled(signal);
+	}
+      }
+      
+      return (int) Result.NotYetHandled;
     }
 
     public string Name
@@ -110,10 +149,51 @@ namespace DBus
 	}
     }
 
-    [DllImport ("dbus-1")]
-    private extern static int dbus_bus_acquire_service (IntPtr rawConnection, string serviceName, uint flags, ref Error error);
+    internal AssemblyBuilder ProxyAssembly
+    {
+      get {
+	if (proxyAssembly == null){
+	  AssemblyName assemblyName = new AssemblyName();
+	  assemblyName.Name = "DBusProxy";
+	  proxyAssembly = Thread.GetDomain().DefineDynamicAssembly(assemblyName, 
+								   AssemblyBuilderAccess.RunAndSave);
+	}
+	
+	return proxyAssembly;
+      }
+    }
 
-    [DllImport ("dbus-1")]
-    private extern static bool dbus_bus_service_exists (IntPtr rawConnection, string serviceName, ref Error error);    
+    internal ModuleBuilder Module
+    {
+      get {
+	if (this.module == null) {
+	  this.module = ProxyAssembly.DefineDynamicModule(Name, "proxy.dll", true);
+	}
+	
+	return this.module;
+      }
+    }
+
+    [DllImport("dbus-1")]
+    private extern static int dbus_bus_acquire_service(IntPtr rawConnection, 
+							string serviceName, 
+							uint flags, ref Error error);
+
+    [DllImport("dbus-1")]
+    private extern static bool dbus_bus_service_exists(IntPtr rawConnection, 
+						       string serviceName, 
+						       ref Error error);    
+
+    [DllImport("dbus-1")]
+    private extern static bool dbus_connection_add_filter(IntPtr rawConnection,
+							  DBusHandleMessageFunction filter,
+							  IntPtr userData,
+							  IntPtr freeData);
+
+    [DllImport("dbus-1")]
+    private extern static void dbus_bus_add_match(IntPtr rawConnection,
+						  string rule,
+						  IntPtr erro);
+
   }
 }

@@ -42,6 +42,11 @@ namespace DBus
       SetupWithMain();
     }
 
+    public void Flush()
+    {
+      dbus_connection_flush(RawConnection);
+    }
+
     public void SetupWithMain() 
     {      
       dbus_connection_setup_with_g_main(RawConnection, IntPtr.Zero);

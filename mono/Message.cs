@@ -80,14 +80,23 @@ namespace DBus
       } 
       // If it doesn't exist then create a new Message around it
       Message message = null;
+      MessageType messageType = (MessageType) dbus_message_get_type(rawMessage);
       
-      switch ((MessageType) dbus_message_get_type(rawMessage)) {
+      switch (messageType) {
       case MessageType.Signal:
 	message = new Signal(rawMessage, service);
 	break;
       case MessageType.MethodCall:
 	message = new MethodCall(rawMessage, service);
 	break;
+      case MessageType.MethodReturn:
+	message = new MethodReturn(rawMessage, service);
+	break;
+      case MessageType.Error:
+	message = new ErrorMessage(rawMessage, service);
+	break;
+      default:
+	throw new ApplicationException("Unknown message type to wrap: " + messageType);
       }
 
       return message;
@@ -140,6 +149,8 @@ namespace DBus
     {
       if (!dbus_connection_send (Service.Connection.RawConnection, RawMessage, ref serial))
 	throw new OutOfMemoryException ();
+
+      Service.Connection.Flush();
     }
     
     public void Send() 
@@ -245,23 +256,19 @@ namespace DBus
     
     protected virtual string Name
     {
-      set 
-	{
-	  if (value != this.name)
-	    {
-	      dbus_message_set_member (RawMessage, value);
-	      this.name = value;
-	    }
+      set {
+	if (value != this.name) {
+	  dbus_message_set_member(RawMessage, value);
+	  this.name = value;
 	}
-      get 
-	{
-	  if (this.name == null) {
-	    this.name = Marshal.PtrToStringAnsi(dbus_message_get_member(RawMessage));
-	  }
-
-
-	  return this.name;
+      }
+      get {
+	if (this.name == null) {
+	  this.name = Marshal.PtrToStringAnsi(dbus_message_get_member(RawMessage));
 	}
+
+	return this.name;
+      }
     }
 
     public string Key
@@ -356,7 +363,7 @@ namespace DBus
     private extern static IntPtr dbus_message_get_interface(IntPtr rawMessage);
     
     [DllImport("dbus-1")]
-    private extern static bool dbus_message_set_member (IntPtr rawMessage, string name);
+    private extern static bool dbus_message_set_member(IntPtr rawMessage, string name);
 
     [DllImport("dbus-1")]
     private extern static IntPtr dbus_message_get_member(IntPtr rawMessage);

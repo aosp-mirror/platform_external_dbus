@@ -8,7 +8,8 @@ namespace DBus
   {
     private static Hashtable interfaceProxies = new Hashtable();
     private Hashtable methods = null;
-
+    private Hashtable signals = null;
+    
     private string interfaceName;
 
     private InterfaceProxy(Type type) 
@@ -17,17 +18,34 @@ namespace DBus
       InterfaceAttribute interfaceAttribute = (InterfaceAttribute) attributes[0];
       this.interfaceName = interfaceAttribute.InterfaceName;
       AddMethods(type);
+      AddSignals(type);
     }
 
+    // Add all the events with Signal attributes
+    private void AddSignals(Type type)
+    {
+      this.signals = new Hashtable();
+      foreach (EventInfo signal in type.GetEvents(BindingFlags.Public |
+						  BindingFlags.Instance |
+						  BindingFlags.DeclaredOnly)) {
+	object[] attributes = signal.GetCustomAttributes(typeof(SignalAttribute), false);
+	if (attributes.GetLength(0) > 0) {
+	  MethodInfo invoke = signal.EventHandlerType.GetMethod("Invoke");
+	  signals.Add(signal.Name + " " + GetSignature(invoke), signal);
+	}
+      }      
+    }
+
+    // Add all the methods with Method attributes
     private void AddMethods(Type type)
     {
       this.methods = new Hashtable();
       foreach (MethodInfo method in type.GetMethods(BindingFlags.Public | 
 						    BindingFlags.Instance | 
 						    BindingFlags.DeclaredOnly)) {
-	object[] attributes = method.GetCustomAttributes(typeof(MethodAttribute), true);
+	object[] attributes = method.GetCustomAttributes(typeof(MethodAttribute), false);
 	if (attributes.GetLength(0) > 0) {
-	  methods.Add(GetKey(method), method);
+	  methods.Add(method.Name + " " + GetSignature(method), method);
 	}
       }
     }
@@ -46,16 +64,26 @@ namespace DBus
     {
       return this.Methods.Contains(key);
     }
+
+    public bool HasSignal(string key)
+    {
+      return this.Signals.Contains(key);
+    }
+    
+    public EventInfo GetSignal(string key)
+    {
+      return (EventInfo) this.Signals[key];
+    }
     
     public MethodInfo GetMethod(string key)
     {
       return (MethodInfo) this.Methods[key];
     }
 
-    private string GetKey(MethodInfo method) 
+    public static string GetSignature(MethodInfo method) 
     {
       ParameterInfo[] pars = method.GetParameters();
-      string key = method.Name + " ";
+      string key = "";
       
       foreach (ParameterInfo par in pars) {
 	if (!par.IsOut) {
@@ -71,6 +99,13 @@ namespace DBus
     {
       get {
 	return this.methods;
+      }
+    }
+
+    public Hashtable Signals
+    {
+      get {
+	return this.signals;
       }
     }
     
