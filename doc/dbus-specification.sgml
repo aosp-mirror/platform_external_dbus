@@ -1118,7 +1118,7 @@
         forwarded, and the Yoyodyne Corporation screensaver application would be
         expected to reply to the ping. If
         <literal>org.freedesktop.Peer.Ping</literal> were sent to
-        <literal>org.freedesktop.Broadcast</literal>, then multiple applications
+        <literal>org.freedesktop.DBus.Broadcast</literal>, then multiple applications
         might receive the ping, and all would normally reply to it.
       </para>
     </sect2>
@@ -1866,7 +1866,7 @@
     <glossentry id="term-broadcast"><glossterm>Broadcast</glossterm>
       <glossdef>
         <para>
-          A message sent to the special <literal>org.freedesktop.Broadcast</literal>
+          A message sent to the special <literal>org.freedesktop.DBus.Broadcast</literal>
           service; the message bus will forward the broadcast message 
           to all applications that have expressed interest in it.
         </para>

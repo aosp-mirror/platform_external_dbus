@@ -1,5 +1,10 @@
 2003-04-10  Alexander Larsson  <alexl@redhat.com>
 
+	* doc/dbus-specification.sgml:
+	s/org.freedesktop.Broadcast/org.freedesktop.DBus.Broadcast/
+	
+2003-04-10  Alexander Larsson  <alexl@redhat.com>
+
 	* bus/.cvsignore:
 	* glib/.cvsignore:
 	* test/.cvsignore:
