@@ -10,6 +10,7 @@ dbusinclude_HEADERS=				\
 	dbus-address.h				\
 	dbus-bus.h				\
 	dbus-connection.h			\
+	dbus-dict.h				\
 	dbus-errors.h				\
 	dbus-macros.h				\
 	dbus-memory.h				\
@@ -29,6 +30,7 @@ libdbus_1_la_SOURCES=				\
 	dbus-bus.c				\
 	dbus-connection.c			\
 	dbus-connection-internal.h		\
+	dbus-dict.c				\
 	dbus-errors.c				\
 	dbus-keyring.c				\
 	dbus-keyring.h				\
@@ -97,7 +99,7 @@ libdbus_convenience_la_SOURCES=			\
 libdbus_1_la_LIBADD=  $(DBUS_CLIENT_LIBS) libdbus-convenience.la
 ## don't export symbols that start with "_" (we use this 
 ## convention for internal symbols)
-libdbus_1_la_LDFLAGS= -export-symbols-regex "^[^_].*"
+#libdbus_1_la_LDFLAGS= -export-symbols-regex "^[^_].*"
 
 ## FIXME it would be less annoying when hacking if we didn't have 
 ## to relink these test binaries, so moving them to the test/* 

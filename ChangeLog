@@ -1,3 +1,29 @@
+2003-03-07  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/Makefile.am:
+	Add dbus-dict.[ch]
+	
+	* dbus/dbus-dict.c: (dbus_dict_entry_free), (dbus_dict_new),
+	(dbus_dict_ref), (dbus_dict_unref), (dbus_dict_contains),
+	(dbus_dict_remove), (dbus_dict_get_value_type),
+	(dbus_dict_get_keys), (dbus_dict_put_boolean),
+	(dbus_dict_put_int32), (dbus_dict_put_uint32),
+	(dbus_dict_put_double), (dbus_dict_put_string),
+	(dbus_dict_put_boolean_array), (dbus_dict_put_int32_array),
+	(dbus_dict_put_uint32_array), (dbus_dict_put_double_array),
+	(dbus_dict_put_string_array), (dbus_dict_get_boolean),
+	(dbus_dict_get_int32), (dbus_dict_get_uint32),
+	(dbus_dict_get_double), (dbus_dict_get_string),
+	(dbus_dict_get_boolean_array), (dbus_dict_get_int32_array),
+	(dbus_dict_get_uint32_array), (dbus_dict_get_double_array),
+	(dbus_dict_get_string_array), (_dbus_dict_test):
+	* dbus/dbus-dict.h:
+	Add DBusDict implementation
+	
+	* dbus/dbus-test.c: (dbus_internal_do_not_use_run_tests):
+	* dbus/dbus-test.h:
+	Add _dbus_dict_test
+	
 2003-03-04  Havoc Pennington  <hp@pobox.com>
 
 	* test/data/auth/*: adapt to changes

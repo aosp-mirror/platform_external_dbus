@@ -54,7 +54,7 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
     printf ("Test data in %s\n", test_data_dir);
   else
     printf ("No test data!\n");
-  
+
   printf ("%s: running string tests\n", "dbus-test");
   if (!_dbus_string_test ())
     die ("strings");
@@ -66,7 +66,7 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   printf ("%s: running keyring tests\n", "dbus-test");
   if (!_dbus_keyring_test ())
     die ("keyring");
-
+  
 #if 0
   printf ("%s: running md5 tests\n", "dbus-test");
   if (!_dbus_md5_test ())
@@ -104,7 +104,11 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   printf ("%s: running hash table tests\n", "dbus-test");
   if (!_dbus_hash_test ())
     die ("hash tables");
-  
+
+  printf ("%s: running dict tests\n", "dbus-test");
+  if (!_dbus_dict_test ())
+    die ("dicts");
+
   printf ("%s: completed successfully\n", "dbus-test");
 #else
   printf ("Not compiled with unit tests, not running any\n");
