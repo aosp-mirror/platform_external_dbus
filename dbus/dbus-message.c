@@ -1046,6 +1046,9 @@ dbus_message_append_args_valist (DBusMessage *message,
     {
       switch (type)
 	{
+	case DBUS_TYPE_NIL:
+	  if (!dbus_message_append_nil (message))
+	    goto enomem;
 	case DBUS_TYPE_INT32:
 	  if (!dbus_message_append_int32 (message, va_arg (var_args, dbus_int32_t)))
 	    goto enomem;
@@ -1061,6 +1064,42 @@ dbus_message_append_args_valist (DBusMessage *message,
 	case DBUS_TYPE_STRING:
 	  if (!dbus_message_append_string (message, va_arg (var_args, const char *)))
 	    goto enomem;
+	  break;
+	case DBUS_TYPE_INT32_ARRAY:
+	  {
+	    int len;
+	    dbus_int32_t *data;
+
+	    data = va_arg (var_args, dbus_int32_t *);
+	    len = va_arg (var_args, int);
+
+	    if (!dbus_message_append_int32_array (message, data, len))
+	      goto enomem;
+	  }
+	  break;
+	case DBUS_TYPE_UINT32_ARRAY:
+	  {
+	    int len;
+	    dbus_uint32_t *data;
+
+	    data = va_arg (var_args, dbus_uint32_t *);
+	    len = va_arg (var_args, int);
+
+	    if (!dbus_message_append_uint32_array (message, data, len))
+	      goto enomem;
+	  }
+	  break;
+	case DBUS_TYPE_DOUBLE_ARRAY:
+	  {
+	    int len;
+	    double *data;
+
+	    data = va_arg (var_args, double *);
+	    len = va_arg (var_args, int);
+
+	    if (!dbus_message_append_double_array (message, data, len))
+	      goto enomem;
+	  }
 	  break;
 	case DBUS_TYPE_BYTE_ARRAY:
 	  {
@@ -1097,8 +1136,27 @@ dbus_message_append_args_valist (DBusMessage *message,
   return TRUE;
 
  enomem:
-  _dbus_string_set_length (&message->body, old_len);
   return FALSE;
+}
+
+/**
+ * Appends a nil value to the message
+ *
+ * @param message the message
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_nil (DBusMessage *message)
+{
+  _dbus_assert (!message->locked);
+
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_NIL))
+    {
+      _dbus_string_shorten (&message->body, 1);
+      return FALSE;
+    }
+
+  return TRUE;
 }
 
 /**
@@ -1194,6 +1252,105 @@ dbus_message_append_string (DBusMessage *message,
 }
 
 /**
+ * Appends a 32 bit signed integer array to the message.
+ *
+ * @param message the message
+ * @param value the array
+ * @param len the length of the array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_int32_array (DBusMessage        *message,
+				 const dbus_int32_t *value,
+				 int                 len)
+{
+  int old_len;
+
+  _dbus_assert (!message->locked);
+
+  old_len = _dbus_string_get_length (&message->body);
+
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_INT32_ARRAY))
+    goto enomem;
+
+  if (!_dbus_marshal_int32_array (&message->body, message->byte_order,
+				  value, len))
+    goto enomem;
+
+  return TRUE;
+
+ enomem:
+  _dbus_string_set_length (&message->body, old_len);
+  return TRUE;
+}
+
+/**
+ * Appends a 32 bit unsigned integer array to the message.
+ *
+ * @param message the message
+ * @param value the array
+ * @param len the length of the array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_uint32_array (DBusMessage         *message,
+				  const dbus_uint32_t *value,
+				  int                  len)
+{
+  int old_len;
+
+  _dbus_assert (!message->locked);
+
+  old_len = _dbus_string_get_length (&message->body);
+
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_UINT32_ARRAY))
+    goto enomem;
+
+  if (!_dbus_marshal_uint32_array (&message->body, message->byte_order,
+				  value, len))
+    goto enomem;
+
+  return TRUE;
+
+ enomem:
+  _dbus_string_set_length (&message->body, old_len);
+  return TRUE;
+}
+
+/**
+ * Appends a double array to the message.
+ *
+ * @param message the message
+ * @param value the array
+ * @param len the length of the array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_double_array (DBusMessage  *message,
+				  const double *value,
+				  int           len)
+{
+  int old_len;
+
+  _dbus_assert (!message->locked);
+
+  old_len = _dbus_string_get_length (&message->body);
+
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_DOUBLE_ARRAY))
+    goto enomem;
+
+  if (!_dbus_marshal_double_array (&message->body, message->byte_order,
+				   value, len))
+    goto enomem;
+
+  return TRUE;
+
+ enomem:
+  _dbus_string_set_length (&message->body, old_len);
+  return TRUE;  
+}
+
+/**
  * Appends a byte array to the message.
  *
  * @param message the message
@@ -1206,16 +1363,23 @@ dbus_message_append_byte_array (DBusMessage         *message,
 				unsigned const char *value,
 				int                 len)
 {
+  int old_len;
+  
   _dbus_assert (!message->locked);
 
-  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_BYTE_ARRAY))
-    {
-      _dbus_string_shorten (&message->body, 1);
-      return FALSE;
-    }
+  old_len = _dbus_string_get_length (&message->body);
   
-  return _dbus_marshal_byte_array (&message->body,
-				   message->byte_order, value, len);
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_BYTE_ARRAY))
+      goto enomem;
+  
+  if (!_dbus_marshal_byte_array (&message->body, message->byte_order, value, len))
+    goto enomem;
+
+  return TRUE;
+  
+ enomem:
+  _dbus_string_set_length (&message->body, old_len);
+  return FALSE;
 }
 
 /**
@@ -1231,16 +1395,24 @@ dbus_message_append_string_array (DBusMessage *message,
 				  const char **value,
 				  int          len)
 {
+  int old_len;
+
   _dbus_assert (!message->locked);
 
+  old_len = _dbus_string_get_length (&message->body);
+
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_STRING_ARRAY))
-    {
-      _dbus_string_shorten (&message->body, 1);
-      return FALSE;
-    }
-  
-  return _dbus_marshal_string_array (&message->body,
-				     message->byte_order, value, len);
+    goto enomem;
+
+  if (!_dbus_marshal_string_array (&message->body, message->byte_order,
+				   value, len))
+    goto enomem;
+
+  return TRUE;
+
+ enomem:
+  _dbus_string_set_length (&message->body, old_len);
+  return FALSE;
 }
 
 /**
@@ -1363,6 +1535,48 @@ dbus_message_get_args_valist (DBusMessage *message,
 	    break;
 	  }
 
+	case DBUS_TYPE_INT32_ARRAY:
+	  {
+	    dbus_int32_t **ptr;
+	    int *len;
+
+	    ptr = va_arg (var_args, dbus_int32_t **);
+	    len = va_arg (var_args, int *);
+
+	    if (!dbus_message_iter_get_int32_array (iter, ptr, len))
+	      return DBUS_RESULT_NO_MEMORY;
+	    
+	    break;
+	  }
+
+	case DBUS_TYPE_UINT32_ARRAY:
+	  {
+	    dbus_uint32_t **ptr;
+	    int *len;
+
+	    ptr = va_arg (var_args, dbus_uint32_t **);
+	    len = va_arg (var_args, int *);
+
+	    if (!dbus_message_iter_get_uint32_array (iter, ptr, len))
+	      return DBUS_RESULT_NO_MEMORY;
+	    
+	    break;
+	  }
+
+	case DBUS_TYPE_DOUBLE_ARRAY:
+	  {
+	    double **ptr;
+	    int *len;
+
+	    ptr = va_arg (var_args, double **);
+	    len = va_arg (var_args, int *);
+
+	    if (!dbus_message_iter_get_double_array (iter, ptr, len))
+	      return DBUS_RESULT_NO_MEMORY;
+	    
+	    break;
+	  }
+	  
 	case DBUS_TYPE_BYTE_ARRAY:
 	  {
 	    unsigned char **ptr;
@@ -1371,9 +1585,7 @@ dbus_message_get_args_valist (DBusMessage *message,
 	    ptr = va_arg (var_args, unsigned char **);
 	    len = va_arg (var_args, int *);
 
-	    *ptr = dbus_message_iter_get_byte_array (iter, len);
-
-	    if (!*ptr)
+	    if (!dbus_message_iter_get_byte_array (iter, ptr, len))
 	      return DBUS_RESULT_NO_MEMORY;
 	    
 	    break;
@@ -1386,11 +1598,8 @@ dbus_message_get_args_valist (DBusMessage *message,
 	    ptr = va_arg (var_args, char ***);
 	    len = va_arg (var_args, int *);
 
-	    *ptr = dbus_message_iter_get_string_array (iter, len);
-	    
-	    if (!*ptr)
+	    if (!dbus_message_iter_get_string_array (iter, ptr, len))
 	      return DBUS_RESULT_NO_MEMORY;
-	    
 	    break;
 	  }
 	default:	  
@@ -1613,25 +1822,106 @@ dbus_message_iter_get_double (DBusMessageIter *iter)
 }
 
 /**
+ * Returns the 32 bit signed integer array that the iterator may point
+ * to. Note that you need to check that the iterator points to an
+ * array of the correct type prior to using this function.
+ *
+ * @param iter the iterator
+ * @param value return location for the array
+ * @param len return location for the array length
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_iter_get_int32_array  (DBusMessageIter *iter,
+				    dbus_int32_t   **value,
+				    int             *len)
+{
+  _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_INT32_ARRAY);
+
+  *value = _dbus_demarshal_int32_array (&iter->message->body, iter->message->byte_order,
+					iter->pos + 1, NULL, len);
+  
+  if (!*value)
+    return FALSE;
+  else
+    return TRUE;
+}
+
+/**
+ * Returns the 32 bit unsigned integer array that the iterator may point
+ * to. Note that you need to check that the iterator points to an
+ * array of the correct type prior to using this function.
+ *
+ * @param iter the iterator
+ * @param value return location for the array
+ * @param len return location for the array length
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_iter_get_uint32_array  (DBusMessageIter *iter,
+				     dbus_uint32_t  **value,
+				     int             *len)
+{
+  _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_UINT32_ARRAY);
+
+  *value = _dbus_demarshal_uint32_array (&iter->message->body, iter->message->byte_order,
+					 iter->pos + 1, NULL, len);
+  
+  if (!*value)
+    return FALSE;
+  else
+    return TRUE;
+}
+
+/**
+ * Returns the double array that the iterator may point to. Note that
+ * you need to check that the iterator points to an array of the
+ * correct type prior to using this function.
+ *
+ * @param iter the iterator
+ * @param value return location for the array
+ * @param len return location for the array length
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_iter_get_double_array  (DBusMessageIter *iter,
+				     double         **value,
+				     int             *len)
+{
+  _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_DOUBLE_ARRAY);
+
+  *value = _dbus_demarshal_double_array (&iter->message->body, iter->message->byte_order,
+					 iter->pos + 1, NULL, len);
+  
+  if (!*value)
+    return FALSE;
+  else
+    return TRUE;
+}
+
+/**
  * Returns the byte array that the iterator may point to.
  * Note that you need to check that the iterator points
  * to a byte array prior to using this function.
- *
- * @todo this function should probably take "unsigned char **" as
- * an out param argument, and return boolean or result code.
  *
  * @param iter the iterator
  * @param len return location for length of byte array
  * @returns the byte array
  */
-unsigned char *
-dbus_message_iter_get_byte_array (DBusMessageIter *iter,
-                                  int             *len)
+dbus_bool_t
+dbus_message_iter_get_byte_array (DBusMessageIter  *iter,
+				  unsigned char   **value,
+                                  int              *len)
 {
   _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_BYTE_ARRAY);
+  
+  *value = _dbus_demarshal_byte_array (&iter->message->body, iter->message->byte_order,
+				       iter->pos + 1, NULL, len);
 
-  return _dbus_demarshal_byte_array (&iter->message->body, iter->message->byte_order,
-				     iter->pos + 1, NULL, len);
+  if (!*value)
+    return FALSE;
+  else
+    return TRUE;
 }
 
 /**
@@ -1646,14 +1936,20 @@ dbus_message_iter_get_byte_array (DBusMessageIter *iter,
  * @param len return location for length of byte array
  * @returns the byte array
  */
-char **
+dbus_bool_t
 dbus_message_iter_get_string_array (DBusMessageIter *iter,
+				    char          ***value,
 				    int             *len)
 {
   _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_STRING_ARRAY);
 
-  return _dbus_demarshal_string_array (&iter->message->body, iter->message->byte_order,
-				       iter->pos + 1, NULL, len);
+  *value = _dbus_demarshal_string_array (&iter->message->body, iter->message->byte_order,
+					 iter->pos + 1, NULL, len);
+
+  if (!*value)
+    return FALSE;
+  else
+    return TRUE;
 }
 
 /**

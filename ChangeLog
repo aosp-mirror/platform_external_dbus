@@ -1,5 +1,21 @@
 2003-02-21  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/dbus-message.c: (dbus_message_append_args_valist),
+	(dbus_message_append_nil), (dbus_message_append_int32_array),
+	(dbus_message_append_uint32_array),
+	(dbus_message_append_double_array),
+	(dbus_message_append_byte_array),
+	(dbus_message_append_string_array), (dbus_message_get_args_valist),
+	(dbus_message_iter_get_int32_array),
+	(dbus_message_iter_get_uint32_array),
+	(dbus_message_iter_get_double_array),
+	(dbus_message_iter_get_byte_array),
+	(dbus_message_iter_get_string_array):
+	* dbus/dbus-message.h:
+	Add functions for appending and getting arrays.
+	
+2003-02-21  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-mempool.c (_dbus_mem_pool_new): Make the
 	element size at least 8 bytes, fixes mempool tests on
 	64-bit machines.
