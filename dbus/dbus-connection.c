@@ -38,6 +38,7 @@
 #include "dbus-string.h"
 #include "dbus-pending-call.h"
 #include "dbus-object-tree.h"
+#include "dbus-threads-internal.h"
 
 #ifdef DBUS_DISABLE_CHECKS
 #define TOOK_LOCK_CHECK(connection)
@@ -60,14 +61,14 @@
 
 #define CONNECTION_LOCK(connection)   do {                                      \
     if (TRACE_LOCKS) { _dbus_verbose ("  LOCK: %s\n", _DBUS_FUNCTION_NAME); }   \
-    dbus_mutex_lock ((connection)->mutex);                                      \
+    _dbus_mutex_lock ((connection)->mutex);                                      \
     TOOK_LOCK_CHECK (connection);                                               \
   } while (0)
 
 #define CONNECTION_UNLOCK(connection) do {                                              \
     if (TRACE_LOCKS) { _dbus_verbose ("  UNLOCK: %s\n", _DBUS_FUNCTION_NAME);  }        \
     RELEASING_LOCK_CHECK (connection);                                                  \
-    dbus_mutex_unlock ((connection)->mutex);                                            \
+    _dbus_mutex_unlock ((connection)->mutex);                                            \
   } while (0)
 
 #define DISPATCH_STATUS_NAME(s)                                            \
@@ -922,7 +923,7 @@ _dbus_connection_acquire_io_path (DBusConnection *connection,
   CONNECTION_UNLOCK (connection);
   
   _dbus_verbose ("%s locking io_path_mutex\n", _DBUS_FUNCTION_NAME);
-  dbus_mutex_lock (connection->io_path_mutex);
+  _dbus_mutex_lock (connection->io_path_mutex);
 
   _dbus_verbose ("%s start connection->io_path_acquired = %d timeout = %d\n",
                  _DBUS_FUNCTION_NAME, connection->io_path_acquired, timeout_milliseconds);
@@ -935,16 +936,16 @@ _dbus_connection_acquire_io_path (DBusConnection *connection,
         {
           _dbus_verbose ("%s waiting %d for IO path to be acquirable\n",
                          _DBUS_FUNCTION_NAME, timeout_milliseconds);
-          dbus_condvar_wait_timeout (connection->io_path_cond,
-                                     connection->io_path_mutex,
-                                     timeout_milliseconds);
+          _dbus_condvar_wait_timeout (connection->io_path_cond,
+                                      connection->io_path_mutex,
+                                      timeout_milliseconds);
         }
       else
         {
           while (connection->io_path_acquired)
             {
               _dbus_verbose ("%s waiting for IO path to be acquirable\n", _DBUS_FUNCTION_NAME);
-              dbus_condvar_wait (connection->io_path_cond, connection->io_path_mutex);
+              _dbus_condvar_wait (connection->io_path_cond, connection->io_path_mutex);
             }
         }
     }
@@ -959,7 +960,7 @@ _dbus_connection_acquire_io_path (DBusConnection *connection,
                  _DBUS_FUNCTION_NAME, connection->io_path_acquired, we_acquired);
 
   _dbus_verbose ("%s unlocking io_path_mutex\n", _DBUS_FUNCTION_NAME);
-  dbus_mutex_unlock (connection->io_path_mutex);
+  _dbus_mutex_unlock (connection->io_path_mutex);
 
   CONNECTION_LOCK (connection);
   
@@ -983,7 +984,7 @@ _dbus_connection_release_io_path (DBusConnection *connection)
   HAVE_LOCK_CHECK (connection);
   
   _dbus_verbose ("%s locking io_path_mutex\n", _DBUS_FUNCTION_NAME);
-  dbus_mutex_lock (connection->io_path_mutex);
+  _dbus_mutex_lock (connection->io_path_mutex);
   
   _dbus_assert (connection->io_path_acquired);
 
@@ -991,10 +992,10 @@ _dbus_connection_release_io_path (DBusConnection *connection)
                  _DBUS_FUNCTION_NAME, connection->io_path_acquired);
   
   connection->io_path_acquired = FALSE;
-  dbus_condvar_wake_one (connection->io_path_cond);
+  _dbus_condvar_wake_one (connection->io_path_cond);
 
   _dbus_verbose ("%s unlocking io_path_mutex\n", _DBUS_FUNCTION_NAME);
-  dbus_mutex_unlock (connection->io_path_mutex);
+  _dbus_mutex_unlock (connection->io_path_mutex);
 }
 
 /**
@@ -1113,27 +1114,27 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   if (connection == NULL)
     goto error;
 
-  mutex = dbus_mutex_new ();
+  mutex = _dbus_mutex_new ();
   if (mutex == NULL)
     goto error;
 
-  io_path_mutex = dbus_mutex_new ();
+  io_path_mutex = _dbus_mutex_new ();
   if (io_path_mutex == NULL)
     goto error;
 
-  dispatch_mutex = dbus_mutex_new ();
+  dispatch_mutex = _dbus_mutex_new ();
   if (dispatch_mutex == NULL)
     goto error;
   
-  message_returned_cond = dbus_condvar_new ();
+  message_returned_cond = _dbus_condvar_new ();
   if (message_returned_cond == NULL)
     goto error;
   
-  dispatch_cond = dbus_condvar_new ();
+  dispatch_cond = _dbus_condvar_new ();
   if (dispatch_cond == NULL)
     goto error;
   
-  io_path_cond = dbus_condvar_new ();
+  io_path_cond = _dbus_condvar_new ();
   if (io_path_cond == NULL)
     goto error;
 
@@ -1203,22 +1204,22 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
     _dbus_list_free_link (disconnect_link);
   
   if (io_path_cond != NULL)
-    dbus_condvar_free (io_path_cond);
+    _dbus_condvar_free (io_path_cond);
   
   if (dispatch_cond != NULL)
-    dbus_condvar_free (dispatch_cond);
+    _dbus_condvar_free (dispatch_cond);
   
   if (message_returned_cond != NULL)
-    dbus_condvar_free (message_returned_cond);
+    _dbus_condvar_free (message_returned_cond);
   
   if (mutex != NULL)
-    dbus_mutex_free (mutex);
+    _dbus_mutex_free (mutex);
 
   if (io_path_mutex != NULL)
-    dbus_mutex_free (io_path_mutex);
+    _dbus_mutex_free (io_path_mutex);
 
   if (dispatch_mutex != NULL)
-    dbus_mutex_free (dispatch_mutex);
+    _dbus_mutex_free (dispatch_mutex);
   
   if (connection != NULL)
     dbus_free (connection);
@@ -1540,13 +1541,13 @@ _dbus_connection_last_unref (DBusConnection *connection)
 
   _dbus_list_clear (&connection->link_cache);
   
-  dbus_condvar_free (connection->dispatch_cond);
-  dbus_condvar_free (connection->io_path_cond);
+  _dbus_condvar_free (connection->dispatch_cond);
+  _dbus_condvar_free (connection->io_path_cond);
 
-  dbus_mutex_free (connection->io_path_mutex);
-  dbus_mutex_free (connection->dispatch_mutex);
+  _dbus_mutex_free (connection->io_path_mutex);
+  _dbus_mutex_free (connection->dispatch_mutex);
 
-  dbus_mutex_free (connection->mutex);
+  _dbus_mutex_free (connection->mutex);
   
   dbus_free (connection);
 }
@@ -2758,12 +2759,12 @@ _dbus_connection_acquire_dispatch (DBusConnection *connection)
   CONNECTION_UNLOCK (connection);
   
   _dbus_verbose ("%s locking dispatch_mutex\n", _DBUS_FUNCTION_NAME);
-  dbus_mutex_lock (connection->dispatch_mutex);
+  _dbus_mutex_lock (connection->dispatch_mutex);
 
   while (connection->dispatch_acquired)
     {
       _dbus_verbose ("%s waiting for dispatch to be acquirable\n", _DBUS_FUNCTION_NAME);
-      dbus_condvar_wait (connection->dispatch_cond, connection->dispatch_mutex);
+      _dbus_condvar_wait (connection->dispatch_cond, connection->dispatch_mutex);
     }
   
   _dbus_assert (!connection->dispatch_acquired);
@@ -2771,7 +2772,7 @@ _dbus_connection_acquire_dispatch (DBusConnection *connection)
   connection->dispatch_acquired = TRUE;
 
   _dbus_verbose ("%s unlocking dispatch_mutex\n", _DBUS_FUNCTION_NAME);
-  dbus_mutex_unlock (connection->dispatch_mutex);
+  _dbus_mutex_unlock (connection->dispatch_mutex);
   
   CONNECTION_LOCK (connection);
   _dbus_connection_unref_unlocked (connection);
@@ -2790,15 +2791,15 @@ _dbus_connection_release_dispatch (DBusConnection *connection)
   HAVE_LOCK_CHECK (connection);
   
   _dbus_verbose ("%s locking dispatch_mutex\n", _DBUS_FUNCTION_NAME);
-  dbus_mutex_lock (connection->dispatch_mutex);
+  _dbus_mutex_lock (connection->dispatch_mutex);
   
   _dbus_assert (connection->dispatch_acquired);
 
   connection->dispatch_acquired = FALSE;
-  dbus_condvar_wake_one (connection->dispatch_cond);
+  _dbus_condvar_wake_one (connection->dispatch_cond);
 
   _dbus_verbose ("%s unlocking dispatch_mutex\n", _DBUS_FUNCTION_NAME);
-  dbus_mutex_unlock (connection->dispatch_mutex);
+  _dbus_mutex_unlock (connection->dispatch_mutex);
 }
 
 static void

@@ -22,6 +22,7 @@
  */
 #include "dbus-threads.h"
 #include "dbus-internals.h"
+#include "dbus-threads-internal.h"
 
 static DBusThreadFunctions thread_functions =
 {
@@ -41,9 +42,9 @@ static int thread_init_generation = 0;
 #define _DBUS_DUMMY_CONDVAR ((DBusCondVar*)0xABCDEF2)
 
 /**
- * @defgroup DBusThreads Thread functions
- * @ingroup  DBus
- * @brief dbus_threads_init(), dbus_mutex_lock(), etc.
+ * @defgroup DBusThreadsInternals Thread functions
+ * @ingroup  DBusInternals
+ * @brief _dbus_mutex_lock(), etc.
  *
  * Functions and macros related to threads and thread locks.
  *
@@ -59,7 +60,7 @@ static int thread_init_generation = 0;
  * @returns new mutex or #NULL
  */
 DBusMutex*
-dbus_mutex_new (void)
+_dbus_mutex_new (void)
 {
   if (thread_functions.mutex_new)
     return (* thread_functions.mutex_new) ();
@@ -72,7 +73,7 @@ dbus_mutex_new (void)
  * nothing if passed a #NULL pointer.
  */
 void
-dbus_mutex_free (DBusMutex *mutex)
+_dbus_mutex_free (DBusMutex *mutex)
 {
   if (mutex && thread_functions.mutex_free)
     (* thread_functions.mutex_free) (mutex);
@@ -85,7 +86,7 @@ dbus_mutex_free (DBusMutex *mutex)
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_mutex_lock (DBusMutex *mutex)
+_dbus_mutex_lock (DBusMutex *mutex)
 {
   if (mutex && thread_functions.mutex_lock)
     return (* thread_functions.mutex_lock) (mutex);
@@ -99,7 +100,7 @@ dbus_mutex_lock (DBusMutex *mutex)
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_mutex_unlock (DBusMutex *mutex)
+_dbus_mutex_unlock (DBusMutex *mutex)
 {
   if (mutex && thread_functions.mutex_unlock)
     return (* thread_functions.mutex_unlock) (mutex);
@@ -116,7 +117,7 @@ dbus_mutex_unlock (DBusMutex *mutex)
  * @returns new mutex or #NULL
  */
 DBusCondVar *
-dbus_condvar_new (void)
+_dbus_condvar_new (void)
 {
   if (thread_functions.condvar_new)
     return (* thread_functions.condvar_new) ();
@@ -129,7 +130,7 @@ dbus_condvar_new (void)
  * nothing if passed a #NULL pointer.
  */
 void
-dbus_condvar_free (DBusCondVar *cond)
+_dbus_condvar_free (DBusCondVar *cond)
 {
   if (cond && thread_functions.condvar_free)
     (* thread_functions.condvar_free) (cond);
@@ -142,8 +143,8 @@ dbus_condvar_free (DBusCondVar *cond)
  * Does nothing if passed a #NULL pointer.
  */
 void
-dbus_condvar_wait (DBusCondVar *cond,
-		   DBusMutex   *mutex)
+_dbus_condvar_wait (DBusCondVar *cond,
+                    DBusMutex   *mutex)
 {
   if (cond && mutex && thread_functions.condvar_wait)
     (* thread_functions.condvar_wait) (cond, mutex);
@@ -162,9 +163,9 @@ dbus_condvar_wait (DBusCondVar *cond,
  * timeout was reached.
  */
 dbus_bool_t
-dbus_condvar_wait_timeout (DBusCondVar               *cond,
-			   DBusMutex                 *mutex,
-			   int                        timeout_milliseconds)
+_dbus_condvar_wait_timeout (DBusCondVar               *cond,
+                            DBusMutex                 *mutex,
+                            int                        timeout_milliseconds)
 {
   if (cond && mutex && thread_functions.condvar_wait)
     return (* thread_functions.condvar_wait_timeout) (cond, mutex, timeout_milliseconds);
@@ -178,7 +179,7 @@ dbus_condvar_wait_timeout (DBusCondVar               *cond,
  * Does nothing if passed a #NULL pointer.
  */
 void
-dbus_condvar_wake_one (DBusCondVar *cond)
+_dbus_condvar_wake_one (DBusCondVar *cond)
 {
   if (cond && thread_functions.condvar_wake_one)
     (* thread_functions.condvar_wake_one) (cond);
@@ -190,7 +191,7 @@ dbus_condvar_wake_one (DBusCondVar *cond)
  * Does nothing if passed a #NULL pointer.
  */
 void
-dbus_condvar_wake_all (DBusCondVar *cond)
+_dbus_condvar_wake_all (DBusCondVar *cond)
 {
   if (cond && thread_functions.condvar_wake_all)
     (* thread_functions.condvar_wake_all) (cond);
@@ -205,7 +206,7 @@ shutdown_global_locks (void *data)
   i = 0;
   while (i < _DBUS_N_GLOBAL_LOCKS)
     {
-      dbus_mutex_free (*(locks[i]));
+      _dbus_mutex_free (*(locks[i]));
       *(locks[i]) = NULL;
       ++i;
     }
@@ -245,7 +246,7 @@ init_global_locks (void)
   
   while (i < _DBUS_N_ELEMENTS (global_locks))
     {
-      *global_locks[i] = dbus_mutex_new ();
+      *global_locks[i] = _dbus_mutex_new ();
       
       if (*global_locks[i] == NULL)
         goto failed;
@@ -266,14 +267,26 @@ init_global_locks (void)
                                      
   for (i = i - 1; i >= 0; i--)
     {
-      dbus_mutex_free (*global_locks[i]);
+      _dbus_mutex_free (*global_locks[i]);
       *global_locks[i] = NULL;
     }
   return FALSE;
 }
 
+/** @} */ /* end of internals */
 
 /**
+ * @defgroup DBusThreads Thread functions
+ * @ingroup  DBus
+ * @brief dbus_threads_init()
+ *
+ * Functions and macros related to threads and thread locks.
+ *
+ * @{
+ */
+
+/**
+ * 
  * Initializes threads. If this function is not called,
  * the D-BUS library will not lock any data structures.
  * If it is called, D-BUS will do locking, at some cost

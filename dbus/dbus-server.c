@@ -76,7 +76,7 @@ _dbus_server_init_base (DBusServer             *server,
   if (!_dbus_string_copy_data (address, &server->address))
     goto failed;
 
-  server->mutex = dbus_mutex_new ();
+  server->mutex = _dbus_mutex_new ();
   if (server->mutex == NULL)
     goto failed;
   
@@ -97,7 +97,7 @@ _dbus_server_init_base (DBusServer             *server,
  failed:
   if (server->mutex)
     {
-      dbus_mutex_free (server->mutex);
+      _dbus_mutex_free (server->mutex);
       server->mutex = NULL;
     }
   if (server->watches)
@@ -127,19 +127,24 @@ _dbus_server_init_base (DBusServer             *server,
  */
 void
 _dbus_server_finalize_base (DBusServer *server)
-{  
+{
+  /* We don't have the lock, but nobody should be accessing
+   * concurrently since they don't have a ref
+   */
+#ifndef DBUS_DISABLE_CHECKS
+  _dbus_assert (!server->have_server_lock);
+#endif
+  _dbus_assert (server->disconnected);
+  
   /* calls out to application code... */
   _dbus_data_slot_list_free (&server->slot_list);
 
   dbus_server_set_new_connection_function (server, NULL, NULL, NULL);
 
-  if (!server->disconnected)
-    dbus_server_disconnect (server);
-
   _dbus_watch_list_free (server->watches);
   _dbus_timeout_list_free (server->timeouts);
 
-  dbus_mutex_free (server->mutex);
+  _dbus_mutex_free (server->mutex);
   
   dbus_free (server->address);
 
@@ -168,8 +173,9 @@ protected_change_watch (DBusServer             *server,
   
   HAVE_LOCK_CHECK (server);
 
-  /* This isn't really safe or reasonable; a better pattern is the "do everything, then
-   * drop lock and call out" one; but it has to be propagated up through all callers
+  /* This isn't really safe or reasonable; a better pattern is the "do
+   * everything, then drop lock and call out" one; but it has to be
+   * propagated up through all callers
    */
   
   watches = server->watches;
@@ -213,6 +219,7 @@ dbus_bool_t
 _dbus_server_add_watch (DBusServer *server,
                         DBusWatch  *watch)
 {
+  HAVE_LOCK_CHECK (server);
   return protected_change_watch (server, watch,
                                  _dbus_watch_list_add_watch,
                                  NULL, NULL, FALSE);
@@ -228,6 +235,7 @@ void
 _dbus_server_remove_watch  (DBusServer *server,
                             DBusWatch  *watch)
 {
+  HAVE_LOCK_CHECK (server);
   protected_change_watch (server, watch,
                           NULL,
                           _dbus_watch_list_remove_watch,
@@ -250,6 +258,7 @@ _dbus_server_toggle_watch (DBusServer  *server,
 {
   _dbus_assert (watch != NULL);
 
+  HAVE_LOCK_CHECK (server);
   protected_change_watch (server, watch,
                           NULL, NULL,
                           _dbus_watch_list_toggle_watch,
@@ -595,6 +604,7 @@ DBusServer *
 dbus_server_ref (DBusServer *server)
 {
   _dbus_return_val_if_fail (server != NULL, NULL);
+  _dbus_return_val_if_fail (server->refcount.value > 0, NULL);
 
 #ifdef DBUS_HAVE_ATOMIC_INT
   _dbus_atomic_inc (&server->refcount);
@@ -611,9 +621,9 @@ dbus_server_ref (DBusServer *server)
 
 /**
  * Decrements the reference count of a DBusServer.  Finalizes the
- * server if the reference count reaches zero. The server connection
- * will be closed as with dbus_server_disconnect() when the server is
- * finalized.
+ * server if the reference count reaches zero.
+ *
+ * The server must be disconnected before the refcount reaches zero.
  *
  * @param server the server.
  */
@@ -623,6 +633,7 @@ dbus_server_unref (DBusServer *server)
   dbus_bool_t last_unref;
   
   _dbus_return_if_fail (server != NULL);
+  _dbus_return_if_fail (server->refcount.value > 0);
 
 #ifdef DBUS_HAVE_ATOMIC_INT
   last_unref = (_dbus_atomic_dec (&server->refcount) == 1);
@@ -639,6 +650,9 @@ dbus_server_unref (DBusServer *server)
   
   if (last_unref)
     {
+      /* lock not held! */
+      _dbus_assert (server->disconnected);
+      
       _dbus_assert (server->vtable->finalize != NULL);
       
       (* server->vtable->finalize) (server);
@@ -653,6 +667,9 @@ dbus_server_unref (DBusServer *server)
 void
 _dbus_server_ref_unlocked (DBusServer *server)
 {
+  _dbus_assert (server != NULL);
+  _dbus_assert (server->refcount.value > 0);
+  
   HAVE_LOCK_CHECK (server);
 
 #ifdef DBUS_HAVE_ATOMIC_INT
@@ -675,6 +692,7 @@ _dbus_server_unref_unlocked (DBusServer *server)
   dbus_bool_t last_unref;
   
   _dbus_assert (server != NULL);
+  _dbus_assert (server->refcount.value > 0);
 
   HAVE_LOCK_CHECK (server);
   
@@ -689,6 +707,10 @@ _dbus_server_unref_unlocked (DBusServer *server)
   
   if (last_unref)
     {
+      _dbus_assert (server->disconnected);
+      
+      SERVER_UNLOCK (server);
+      
       _dbus_assert (server->vtable->finalize != NULL);
       
       (* server->vtable->finalize) (server);
@@ -707,21 +729,23 @@ void
 dbus_server_disconnect (DBusServer *server)
 {
   _dbus_return_if_fail (server != NULL);
+  _dbus_return_if_fail (server->refcount.value > 0);
 
   SERVER_LOCK (server);
+  _dbus_server_ref_unlocked (server);
   
   _dbus_assert (server->vtable->disconnect != NULL);
 
-  if (server->disconnected)
+  if (!server->disconnected)
     {
-      SERVER_UNLOCK (server);
-      return;
+      /* this has to be first so recursive calls to disconnect don't happen */
+      server->disconnected = TRUE;
+      
+      (* server->vtable->disconnect) (server);
     }
-  
-  (* server->vtable->disconnect) (server);
-  server->disconnected = TRUE;
 
   SERVER_UNLOCK (server);
+  dbus_server_unref (server);
 }
 
 /**
@@ -1086,6 +1110,7 @@ _dbus_server_test (void)
       if (server == NULL)
 	_dbus_assert_not_reached ("Failed to listen for valid address.");
 
+      dbus_server_disconnect (server);
       dbus_server_unref (server);
 
       /* Try disconnecting before unreffing */
@@ -1094,7 +1119,6 @@ _dbus_server_test (void)
 	_dbus_assert_not_reached ("Failed to listen for valid address.");
 
       dbus_server_disconnect (server);
-
       dbus_server_unref (server);
     }
 

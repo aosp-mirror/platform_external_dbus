@@ -82,6 +82,7 @@ DBUS_LIB_SOURCES=				\
 	dbus-signature.h			\
 	dbus-timeout.c				\
 	dbus-timeout.h				\
+	dbus-threads-internal.h			\
 	dbus-threads.c				\
 	dbus-transport.c			\
 	dbus-transport.h			\

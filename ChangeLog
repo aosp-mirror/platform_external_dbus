@@ -1,3 +1,17 @@
+2005-02-24  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-server.c, dbus/dbus-server-unix.c: change semantics so
+	you must disconnect before unref, since locking and other things
+	are screwed up otherwise. Fix assorted other locking stuff.
+
+	* dbus/dbus-signature.c (dbus_signature_iter_get_element_type):
+	fix compilation
+
+	* dbus/dbus-threads-internal.h: move the mutex/condvar wrappers
+	into a private header and don't export from the library
+
+	* throughout - call _dbus_thread_stuff vs. dbus_thread_stuff
+
 2005-02-24  Colin Walters  <walters@verbum.org>
 	
 	* dbus/dbus-signature.c: New file; implements various functions

@@ -25,6 +25,7 @@
 
 #include <config.h>
 #include <dbus/dbus-internals.h>
+#include <dbus/dbus-threads-internal.h>
 #include <dbus/dbus-server.h>
 #include <dbus/dbus-timeout.h>
 #include <dbus/dbus-watch.h>
@@ -125,14 +126,14 @@ void        _dbus_server_unref_unlocked (DBusServer             *server);
 
 #define SERVER_LOCK(server)   do {                                              \
     if (TRACE_LOCKS) { _dbus_verbose ("  LOCK: %s\n", _DBUS_FUNCTION_NAME); }   \
-    dbus_mutex_lock ((server)->mutex);                                          \
+    _dbus_mutex_lock ((server)->mutex);                                          \
     TOOK_LOCK_CHECK (server);                                                   \
   } while (0)
 
 #define SERVER_UNLOCK(server) do {                                                      \
     if (TRACE_LOCKS) { _dbus_verbose ("  UNLOCK: %s\n", _DBUS_FUNCTION_NAME);  }        \
     RELEASING_LOCK_CHECK (server);                                                      \
-    dbus_mutex_unlock ((server)->mutex);                                                \
+    _dbus_mutex_unlock ((server)->mutex);                                                \
   } while (0)
 
 DBUS_END_DECLS

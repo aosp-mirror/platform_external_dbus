@@ -97,25 +97,7 @@ typedef struct
   
 } DBusThreadFunctions;
 
-
-DBusMutex*   dbus_mutex_new            (void);
-void         dbus_mutex_free           (DBusMutex                 *mutex);
-dbus_bool_t  dbus_mutex_lock           (DBusMutex                 *mutex);
-dbus_bool_t  dbus_mutex_unlock         (DBusMutex                 *mutex);
-
-DBusCondVar* dbus_condvar_new          (void);
-void         dbus_condvar_free         (DBusCondVar               *cond);
-void         dbus_condvar_wait         (DBusCondVar               *cond,
-					DBusMutex                 *mutex);
-dbus_bool_t  dbus_condvar_wait_timeout (DBusCondVar               *cond,
-					DBusMutex                 *mutex,
-					int                        timeout_milliseconds);
-void         dbus_condvar_wake_one     (DBusCondVar               *cond);
-void         dbus_condvar_wake_all     (DBusCondVar               *cond);
-
 dbus_bool_t  dbus_threads_init         (const DBusThreadFunctions *functions);
-
-
 
 DBUS_END_DECLS
 

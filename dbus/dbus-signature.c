@@ -97,7 +97,7 @@ dbus_signature_iter_get_element_type (const DBusSignatureIter *iter)
 {
   DBusSignatureRealIter *real_iter = (DBusSignatureRealIter *) iter;
 
-  _dbus_retur(dbus_signature_iter_get_current_type (iter) == DBUS_TYPE_ARRAY);
+  _dbus_return_val_if_fail (dbus_signature_iter_get_current_type (iter) == DBUS_TYPE_ARRAY, DBUS_TYPE_INVALID);
 
   return _dbus_first_type_in_signature_c_str (real_iter->pos, 1);
 }

@@ -267,8 +267,8 @@ extern int _dbus_current_generation;
 #define _DBUS_LOCK_NAME(name)           _dbus_lock_##name
 #define _DBUS_DECLARE_GLOBAL_LOCK(name) extern DBusMutex  *_dbus_lock_##name
 #define _DBUS_DEFINE_GLOBAL_LOCK(name)  DBusMutex         *_dbus_lock_##name  
-#define _DBUS_LOCK(name)                dbus_mutex_lock   (_dbus_lock_##name)
-#define _DBUS_UNLOCK(name)              dbus_mutex_unlock (_dbus_lock_##name)
+#define _DBUS_LOCK(name)                _dbus_mutex_lock   (_dbus_lock_##name)
+#define _DBUS_UNLOCK(name)              _dbus_mutex_unlock (_dbus_lock_##name)
 
 _DBUS_DECLARE_GLOBAL_LOCK (list);
 _DBUS_DECLARE_GLOBAL_LOCK (connection_slots);

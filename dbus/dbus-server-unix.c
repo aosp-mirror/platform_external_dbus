@@ -61,6 +61,12 @@ unix_finalize (DBusServer *server)
   
   _dbus_server_finalize_base (server);
 
+  if (unix_server->watch)
+    {
+      _dbus_watch_unref (unix_server->watch);
+      unix_server->watch = NULL;
+    }
+  
   dbus_free (unix_server->socket_name);
   dbus_free (server);
 }
@@ -69,6 +75,9 @@ unix_finalize (DBusServer *server)
  * @todo unreffing the connection at the end may cause
  * us to drop the last ref to the connection before
  * disconnecting it. That is invalid.
+ *
+ * @todo doesn't this leak a server refcount if
+ * new_connection_function is NULL?
  */
 /* Return value is just for memory, not other failures. */
 static dbus_bool_t
@@ -200,6 +209,8 @@ unix_disconnect (DBusServer *server)
 {
   DBusServerUnix *unix_server = (DBusServerUnix*) server;
 
+  HAVE_LOCK_CHECK (server);
+  
   if (unix_server->watch)
     {
       _dbus_server_remove_watch (server,
@@ -217,6 +228,8 @@ unix_disconnect (DBusServer *server)
       _dbus_string_init_const (&tmp, unix_server->socket_name);
       _dbus_delete_file (&tmp, NULL);
     }
+
+  HAVE_LOCK_CHECK (server);
 }
 
 static DBusServerVTable unix_vtable = {
@@ -242,12 +255,13 @@ _dbus_server_new_for_fd (int               fd,
                          const DBusString *address)
 {
   DBusServerUnix *unix_server;
+  DBusServer *server;
   DBusWatch *watch;
   
   unix_server = dbus_new0 (DBusServerUnix, 1);
   if (unix_server == NULL)
     return NULL;
-
+  
   watch = _dbus_watch_new (fd,
                            DBUS_WATCH_READABLE,
                            TRUE,
@@ -267,26 +281,25 @@ _dbus_server_new_for_fd (int               fd,
       return NULL;
     }
 
-#ifndef DBUS_DISABLE_CHECKS
-  unix_server->base.have_server_lock = TRUE;
-#endif
+  server = (DBusServer*) unix_server;
+
+  SERVER_LOCK (server);
   
   if (!_dbus_server_add_watch (&unix_server->base,
                                watch))
     {
+      SERVER_UNLOCK (server);
       _dbus_server_finalize_base (&unix_server->base);
       _dbus_watch_unref (watch);
       dbus_free (unix_server);
       return NULL;
     }
-
-#ifndef DBUS_DISABLE_CHECKS
-  unix_server->base.have_server_lock = FALSE;
-#endif
   
   unix_server->fd = fd;
   unix_server->watch = watch;
 
+  SERVER_UNLOCK (server);
+  
   return (DBusServer*) unix_server;
 }
 
