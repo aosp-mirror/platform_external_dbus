@@ -3874,7 +3874,7 @@ dbus_message_iter_append_dict_key (DBusMessageIter *iter,
   
   if (real->wrote_dict_key)
     {
-      _dbus_warn ("Appendinging multiple dict key names\n");
+      _dbus_warn ("Appending multiple dict key names\n");
       return FALSE;
     }
   
@@ -4081,6 +4081,8 @@ dbus_message_iter_append_dict (DBusMessageIter      *iter,
   dict_real->wrote_dict_key = 0;
 
   dbus_message_iter_append_done (dict_real);
+  
+  real->wrote_dict_key = FALSE;
   
   return TRUE;
 }
@@ -5800,7 +5802,7 @@ dbus_message_type_from_string (const char *type_str)
 static void
 message_iter_test (DBusMessage *message)
 {
-  DBusMessageIter iter, dict, array, array2;
+  DBusMessageIter iter, dict, dict2, array, array2;
   char *str;
   unsigned char *data;
   dbus_int32_t *our_int_array;
@@ -5898,6 +5900,32 @@ message_iter_test (DBusMessage *message)
 
   if (dbus_message_iter_get_uint32 (&dict) != 0xDEADBEEF)
     _dbus_assert_not_reached ("wrong dict entry value");
+
+  /* dict (in dict) */
+
+  if (!dbus_message_iter_next (&dict))
+    _dbus_assert_not_reached ("reached end of dict");
+  
+  if (dbus_message_iter_get_arg_type (&dict) != DBUS_TYPE_DICT)
+    _dbus_assert_not_reached ("not dict type");
+    
+  dbus_message_iter_init_dict_iterator (&dict, &dict2);
+  
+  str = dbus_message_iter_get_dict_key (&dict2);
+  if (str == NULL || strcmp (str, "dictkey") != 0)
+    _dbus_assert_not_reached ("wrong dict key");
+  dbus_free (str);
+  
+  if (dbus_message_iter_get_arg_type (&dict2) != DBUS_TYPE_STRING)
+    _dbus_assert_not_reached ("wrong dict entry type");
+  
+  str = dbus_message_iter_get_string (&dict2);
+  if (str == NULL || strcmp (str, "dictvalue") != 0)
+    _dbus_assert_not_reached ("wrong dict entry value");
+  dbus_free (str);
+  
+  if (dbus_message_iter_next (&dict2))
+    _dbus_assert_not_reached ("didn't reach end of dict");
 
   if (!dbus_message_iter_next (&dict))
     _dbus_assert_not_reached ("reached end of dict");
@@ -7106,6 +7134,13 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_iter_append_dict (&iter, &child_iter);
   dbus_message_iter_append_dict_key (&child_iter, "test");
   dbus_message_iter_append_uint32 (&child_iter, 0xDEADBEEF);
+
+  /* dict (in dict) */
+  dbus_message_iter_append_dict_key (&child_iter, "testdict");
+  dbus_message_iter_append_dict (&child_iter, &child_iter2);
+
+  dbus_message_iter_append_dict_key (&child_iter2, "dictkey");
+  dbus_message_iter_append_string (&child_iter2, "dictvalue");
 
   /* array of array of int32  (in dict) */
   dbus_message_iter_append_dict_key (&child_iter, "array");

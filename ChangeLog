@@ -1,3 +1,13 @@
+2003-12-02  Richard Hult  <richard@imendio.com>
+
+	* dbus/dbus-message.c (dbus_message_iter_append_dict): Set
+	wrote_dict_key to FALSE on the iter that the dict is appended to,
+	just like when appending other types. Fixes a bug where a dict
+	couldn't be put inside a dict.
+	(dbus_message_iter_append_dict_key): Fix typo in warning message.
+	(message_iter_test, _dbus_message_test): Add test case for dict
+	inside dict.
+
 2003-12-01  David Zeuthen  <david@fubar.dk>
 
 	* python/dbus.py: Add the actual message when calling the reciever
