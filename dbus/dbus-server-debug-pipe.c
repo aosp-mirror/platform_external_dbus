@@ -134,6 +134,7 @@ _dbus_server_debug_pipe_new (const char     *server_name,
 {
   DBusServerDebugPipe *debug_server;
   DBusString address;
+  DBusString name_str;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
@@ -154,8 +155,9 @@ _dbus_server_debug_pipe_new (const char     *server_name,
   if (!_dbus_string_init (&address))
     goto nomem_1;
 
+  _dbus_string_init_const (&name_str, server_name);
   if (!_dbus_string_append (&address, "debug-pipe:name=") ||
-      !_dbus_string_append (&address, server_name))
+      !_dbus_address_append_escaped (&address, &name_str))
     goto nomem_2;
   
   debug_server->name = _dbus_strdup (server_name);

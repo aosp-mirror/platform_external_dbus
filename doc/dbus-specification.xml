@@ -2131,12 +2131,39 @@
     <para>
       Server addresses consist of a transport name followed by a colon, and
       then an optional, comma-separated list of keys and values in the form key=value.
-      [FIXME how do you escape colon, comma, and semicolon in the values of the key=value pairs?]
+      Each value is escaped.
     </para>
     <para>
       For example: 
       <programlisting>unix:path=/tmp/dbus-test</programlisting>
       Which is the address to a unix socket with the path /tmp/dbus-test.
+    </para>
+    <para>
+      Value escaping is similar to URI escaping but simpler.
+      <itemizedlist>
+        <listitem>
+          <para>
+            The set of optionally-escaped bytes is:
+            <literal>[0-9A-Za-z_-/.\]</literal>. To escape, each
+            <emphasis>byte</emphasis> (note, not character) which is not in the
+            set of optionally-escaped bytes must be replaced with an ASCII
+            percent (<literal>%</literal>) and the value of the byte in hex.
+            The hex value must always be two digits, even if the first digit is
+            zero. The optionally-escaped bytes may be escaped if desired.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            To unescape, append each byte in the value; if a byte is an ASCII
+            percent (<literal>%</literal>) character then append the following
+            hex value instead. It is an error if a <literal>%</literal> byte
+            does not have two hex digits following. It is an error if a
+            non-optionally-escaped byte is seen unescaped.
+          </para>
+        </listitem>
+      </itemizedlist>
+      The set of optionally-escaped bytes is intended to preserve address 
+      readability and convenience.
     </para>
     <para>
       [FIXME clarify if attempting to connect to each is a requirement 

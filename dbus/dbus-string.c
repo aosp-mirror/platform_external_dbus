@@ -2237,6 +2237,38 @@ _dbus_string_starts_with_c_str (const DBusString *a,
 #endif /* DBUS_BUILD_TESTS */
 
 /**
+ * Appends a two-character hex digit to a string, where the hex digit
+ * has the value of the given byte.
+ *
+ * @param str the string
+ * @param byte the byte
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_string_append_byte_as_hex (DBusString *str,
+                                 int         byte)
+{
+  const char hexdigits[16] = {
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+    'a', 'b', 'c', 'd', 'e', 'f'
+  };
+
+  if (!_dbus_string_append_byte (str,
+                                 hexdigits[(byte >> 4)]))
+    return FALSE;
+  
+  if (!_dbus_string_append_byte (str,
+                                 hexdigits[(byte & 0x0f)]))
+    {
+      _dbus_string_set_length (str,
+                               _dbus_string_get_length (str) - 1);
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
+/**
  * Encodes a string in hex, the way MD5 and SHA-1 are usually
  * encoded. (Each byte is two hex digits.)
  *
@@ -2253,10 +2285,6 @@ _dbus_string_hex_encode (const DBusString *source,
                          int               insert_at)
 {
   DBusString result;
-  const char hexdigits[16] = {
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-    'a', 'b', 'c', 'd', 'e', 'f'
-  };
   const unsigned char *p;
   const unsigned char *end;
   dbus_bool_t retval;
@@ -2274,14 +2302,9 @@ _dbus_string_hex_encode (const DBusString *source,
   
   while (p != end)
     {
-      if (!_dbus_string_append_byte (&result,
-                                     hexdigits[(*p >> 4)]))
+      if (!_dbus_string_append_byte_as_hex (&result, *p))
         goto out;
       
-      if (!_dbus_string_append_byte (&result,
-                                     hexdigits[(*p & 0x0f)]))
-        goto out;
-
       ++p;
     }
 

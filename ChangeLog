@@ -1,5 +1,23 @@
 2005-02-10  Havoc Pennington  <hp@redhat.com>
 
+	* test/glib/test-dbus-glib.c (main): fix so this test doesn't fail
+	(call dbus_g_proxy_add_signal)
+
+	* dbus/dbus-server-unix.c (_dbus_server_new_for_tcp_socket):
+	escape the hostname
+	(_dbus_server_new_for_domain_socket): escape the path
+
+	* dbus/dbus-address.c (dbus_address_escape_value): new
+	(dbus_address_unescape_value): new
+	(dbus_parse_address): unescape values
+
+	* dbus/dbus-string.c (_dbus_string_append_byte_as_hex): new function
+
+	* doc/dbus-specification.xml: explain how to escape values in
+	addresses
+
+2005-02-10  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-message-factory.c (generate_special): modify test to
 	avoid using a non-basic dict key
 

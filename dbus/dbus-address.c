@@ -2,7 +2,7 @@
 /* dbus-address.c  Server address parser.
  *
  * Copyright (C) 2003  CodeFactory AB
- * Copyright (C) 2004  Red Hat, Inc.
+ * Copyright (C) 2004,2005  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -140,7 +140,7 @@ dbus_address_entry_get_method (DBusAddressEntry *entry)
  *
  * @param entry the entry.
  * @param key the key.
- * @returns the key value. This string must not be fred.
+ * @returns the key value. This string must not be freed.
  */
 const char *
 dbus_address_entry_get_value (DBusAddressEntry *entry,
@@ -165,15 +165,150 @@ dbus_address_entry_get_value (DBusAddressEntry *entry,
   return NULL;
 }
 
+#define _DBUS_ADDRESS_OPTIONALLY_ESCAPED_BYTE(b)        \
+         (((b) >= 'a' && (b) <= 'z') ||                 \
+          ((b) >= 'A' && (b) <= 'Z') ||                 \
+          ((b) >= '0' && (b) <= '9') ||                 \
+          (b) == '-' ||                                 \
+          (b) == '_' ||                                 \
+          (b) == '/' ||                                 \
+          (b) == '\\' ||                                \
+          (b) == '.')
+
+/**
+ * Appends an escaped version of one string to another string,
+ * using the D-BUS address escaping mechanism
+ *
+ * @param escaped the string to append to
+ * @param unescaped the string to escape
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_address_append_escaped (DBusString       *escaped,
+                              const DBusString *unescaped)
+{
+  const char *p;
+  const char *end;
+  dbus_bool_t ret;
+  int orig_len;
+
+  ret = FALSE;
+
+  orig_len = _dbus_string_get_length (escaped);
+  p = _dbus_string_get_const_data (unescaped);
+  end = p + _dbus_string_get_length (unescaped);
+  while (p != end)
+    {
+      if (_DBUS_ADDRESS_OPTIONALLY_ESCAPED_BYTE (*p))
+        {
+          if (!_dbus_string_append_byte (escaped, *p))
+            goto out;
+        }
+      else
+        {
+          if (!_dbus_string_append_byte (escaped, '%'))
+            goto out;
+          if (!_dbus_string_append_byte_as_hex (escaped, *p))
+            goto out;
+        }
+      
+      ++p;
+    }
+
+  ret = TRUE;
+  
+ out:
+  if (!ret)
+    _dbus_string_set_length (escaped, orig_len);
+  return ret;
+}
+
+static dbus_bool_t
+append_unescaped_value (DBusString       *unescaped,
+                        const DBusString *escaped,
+                        int               escaped_start,
+                        int               escaped_len,
+                        DBusError        *error)
+{
+  const char *p;
+  const char *end;
+  dbus_bool_t ret;
+  
+  ret = FALSE;
+
+  p = _dbus_string_get_const_data (escaped) + escaped_start;
+  end = p + escaped_len;
+  while (p != end)
+    {
+      if (_DBUS_ADDRESS_OPTIONALLY_ESCAPED_BYTE (*p))
+        {
+          if (!_dbus_string_append_byte (unescaped, *p))
+            goto out;
+        }
+      else if (*p == '%')
+        {
+          /* Efficiency is king */
+          char buf[3];
+          DBusString hex;
+          int hex_end;
+          
+          ++p;
+
+          if ((p + 2) > end)
+            {
+              dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                              "In D-BUS address, percent character was not followed by two hex digits");
+              goto out;
+            }
+            
+          buf[0] = *p;
+          ++p;
+          buf[1] = *p;
+          buf[2] = '\0';
+
+          _dbus_string_init_const (&hex, buf);
+
+          if (!_dbus_string_hex_decode (&hex, 0, &hex_end,
+                                        unescaped,
+                                        _dbus_string_get_length (unescaped)))
+            goto out;
+
+          if (hex_end != 2)
+            {
+              dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                              "In D-BUS address, percent character was followed by characters other than hex digits");
+              goto out;
+            }
+        }
+      else
+        {
+          /* Error, should have been escaped */
+          dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                          "In D-BUS address, character '%c' should have been escaped\n",
+                          *p);
+          goto out;
+        }
+      
+      ++p;
+    }
+
+  ret = TRUE;
+  
+ out:
+  if (!ret && error && !dbus_error_is_set (error))
+    _DBUS_SET_OOM (error);
+
+  _dbus_assert (ret || error == NULL || dbus_error_is_set (error));
+  
+  return ret;
+}
+
 /**
  * Parses an address string of the form:
  *
  * method:key=value,key=value;method:key=value
  *
  * @todo document address format in the specification
- *
- * @todo need to be able to escape ';' and ',' in the
- * key values, and the parsing needs to handle that.
  * 
  * @param address the address.
  * @param entry return location to an array of entries.
@@ -306,9 +441,10 @@ dbus_parse_address (const char         *address,
 		  goto error;
 		}
 
-	      if (!_dbus_string_copy_len (&str, equals_pos + 1, comma_pos - equals_pos - 1, value, 0))
+	      if (!append_unescaped_value (value, &str, equals_pos + 1,
+                                           comma_pos - equals_pos - 1, error))
 		{
-		  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);		  
+                  _dbus_assert (error == NULL || dbus_error_is_set (error));
 		  _dbus_string_free (key);
 		  _dbus_string_free (value);
 
@@ -386,11 +522,124 @@ dbus_parse_address (const char         *address,
   
 }
 
+/**
+ * Escapes the given string as a value in a key=value pair
+ * for a D-BUS address.
+ *
+ * @param value the unescaped value
+ * @returns newly-allocated escaped value or #NULL if no memory
+ */
+char*
+dbus_address_escape_value (const char *value)
+{
+  DBusString escaped;
+  DBusString unescaped;
+  char *ret;
+
+  ret = NULL;
+
+  _dbus_string_init_const (&unescaped, value);
+  
+  if (!_dbus_string_init (&escaped))
+    return NULL;
+
+  if (!_dbus_address_append_escaped (&escaped, &unescaped))
+    goto out;
+  
+  if (!_dbus_string_steal_data (&escaped, &ret))
+    goto out;
+
+ out:
+  _dbus_string_free (&escaped);
+  return ret;
+}
+
+/**
+ * Unescapes the given string as a value in a key=value pair
+ * for a D-BUS address.
+ *
+ * @param value the escaped value
+ * @param error error to set if the unescaping fails
+ * @returns newly-allocated unescaped value or #NULL if no memory
+ */
+char*
+dbus_address_unescape_value (const char *value,
+                             DBusError  *error)
+{
+  DBusString unescaped;
+  DBusString escaped;
+  char *ret;
+  
+  ret = NULL;
+
+  _dbus_string_init_const (&escaped, value);
+  
+  if (!_dbus_string_init (&unescaped))
+    return NULL;
+
+  if (!append_unescaped_value (&unescaped, &escaped,
+                               0, _dbus_string_get_length (&escaped),
+                               error))
+    goto out;
+  
+  if (!_dbus_string_steal_data (&unescaped, &ret))
+    goto out;
+
+ out:
+  if (ret == NULL && error && !dbus_error_is_set (error))
+    _DBUS_SET_OOM (error);
+
+  _dbus_assert (ret != NULL || error == NULL || dbus_error_is_set (error));
+  
+  _dbus_string_free (&unescaped);
+  return ret;
+}
 
 /** @} */ /* End of public API */
 
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-test.h"
+#include <stdlib.h>
+
+typedef struct
+{
+  const char *escaped;
+  const char *unescaped;
+} EscapeTest;
+
+static const EscapeTest escape_tests[] = {
+  { "abcde", "abcde" },
+  { "", "" },
+  { "%20%20", "  " },
+  { "%24", "$" },
+  { "%25", "%" },
+  { "abc%24", "abc$" },
+  { "%24abc", "$abc" },
+  { "abc%24abc", "abc$abc" },
+  { "/", "/" },
+  { "-", "-" },
+  { "_", "_" },
+  { "A", "A" },
+  { "I", "I" },
+  { "Z", "Z" },
+  { "a", "a" },
+  { "i", "i" },
+  { "z", "z" }
+};
+
+static const char* invalid_escaped_values[] = {
+  "%a",
+  "%q",
+  "%az",
+  "%%",
+  "%$$",
+  "abc%a",
+  "%axyz",
+  "%",
+  "$",
+  " ",
+  "*"
+};
 
 dbus_bool_t
 _dbus_address_test (void)
@@ -398,8 +647,69 @@ _dbus_address_test (void)
   DBusAddressEntry **entries;
   int len;  
   DBusError error;
+  int i;
 
   dbus_error_init (&error);
+
+  i = 0;
+  while (i < _DBUS_N_ELEMENTS (escape_tests))
+    {
+      const EscapeTest *test = &escape_tests[i];
+      char *escaped;
+      char *unescaped;
+
+      escaped = dbus_address_escape_value (test->unescaped);
+      if (escaped == NULL)
+        _dbus_assert_not_reached ("oom");
+
+      if (strcmp (escaped, test->escaped) != 0)
+        {
+          _dbus_warn ("Escaped '%s' as '%s' should have been '%s'\n",
+                      test->unescaped, escaped, test->escaped);
+          exit (1);
+        }
+      dbus_free (escaped);
+
+      unescaped = dbus_address_unescape_value (test->escaped, &error);
+      if (unescaped == NULL)
+        {
+          _dbus_warn ("Failed to unescape '%s': %s\n",
+                      test->escaped, error.message);
+          dbus_error_free (&error);
+          exit (1);
+        }
+
+      if (strcmp (unescaped, test->unescaped) != 0)
+        {
+          _dbus_warn ("Unescaped '%s' as '%s' should have been '%s'\n",
+                      test->escaped, unescaped, test->unescaped);
+          exit (1);
+        }
+      dbus_free (unescaped);
+      
+      ++i;
+    }
+
+  i = 0;
+  while (i < _DBUS_N_ELEMENTS (invalid_escaped_values))
+    {
+      char *unescaped;
+
+      unescaped = dbus_address_unescape_value (invalid_escaped_values[i],
+                                               &error);
+      if (unescaped != NULL)
+        {
+          _dbus_warn ("Should not have successfully unescaped '%s' to '%s'\n",
+                      invalid_escaped_values[i], unescaped);
+          dbus_free (unescaped);
+          exit (1);
+        }
+
+      _dbus_assert (dbus_error_is_set (&error));
+      dbus_error_free (&error);
+
+      ++i;
+    }
   
   if (!dbus_parse_address ("unix:path=/tmp/foo;debug:name=test,sliff=sloff;",
 			   &entries, &len, &error))

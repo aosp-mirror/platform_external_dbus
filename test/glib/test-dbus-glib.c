@@ -16,35 +16,9 @@ timed_exit (gpointer loop)
 
 static void
 foo_signal_handler (DBusGProxy  *proxy,
+                    double       d,
                     void        *user_data)
 {
-#if 0
-  double d;
-  
-  /* FIXME - need to fix up dbus_gproxy_signal_connect() to be able to
-   * get signal args
-   */
-  
-  DBusError derror;
-  
-  if (!dbus_message_is_signal (signal,
-                               "org.freedesktop.TestSuite",
-                               "Foo"))
-    {
-      g_printerr ("Signal handler received the wrong message\n");
-      exit (1);
-    }
-
-  dbus_error_init (&derror);
-  if (!dbus_message_get_args (signal, &derror, DBUS_TYPE_DOUBLE,
-                              &d, DBUS_TYPE_INVALID))
-    {
-      g_printerr ("failed to get signal args: %s\n", derror.message);
-      dbus_error_free (&derror);
-      exit (1);
-    }
-#endif
-
   n_times_foo_received += 1;
 
   g_main_loop_quit (loop);
@@ -225,6 +199,8 @@ main (int argc, char **argv)
 
   /* Test oneway call and signal handling */
 
+  dbus_g_proxy_add_signal (proxy, "Foo", DBUS_TYPE_DOUBLE_AS_STRING);
+  
   dbus_g_proxy_connect_signal (proxy, "Foo",
                                G_CALLBACK (foo_signal_handler),
                                NULL, NULL);

@@ -279,6 +279,7 @@ _dbus_server_new_for_domain_socket (const char     *path,
   int listen_fd;
   DBusString address;
   char *path_copy;
+  DBusString path_str;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -288,11 +289,12 @@ _dbus_server_new_for_domain_socket (const char     *path,
       return NULL;
     }
 
+  _dbus_string_init_const (&path_str, path);
   if ((abstract &&
        !_dbus_string_append (&address, "unix:abstract=")) ||
       (!abstract &&
        !_dbus_string_append (&address, "unix:path=")) ||
-      !_dbus_string_append (&address, path))
+      !_dbus_address_append_escaped (&address, &path_str))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       goto failed_0;
@@ -355,6 +357,7 @@ _dbus_server_new_for_tcp_socket (const char     *host,
   DBusServer *server;
   int listen_fd;
   DBusString address;
+  DBusString host_str;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -366,9 +369,10 @@ _dbus_server_new_for_tcp_socket (const char     *host,
 
   if (host == NULL)
     host = "localhost";
-  
+
+  _dbus_string_init_const (&host_str, host);
   if (!_dbus_string_append (&address, "tcp:host=") ||
-      !_dbus_string_append (&address, host) ||
+      !_dbus_address_append_escaped (&address, &host_str) ||
       !_dbus_string_append (&address, ",port=") ||
       !_dbus_string_append_int (&address, port))
     {

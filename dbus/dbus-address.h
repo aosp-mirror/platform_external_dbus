@@ -41,8 +41,9 @@ const char *dbus_address_entry_get_value  (DBusAddressEntry   *entry,
 const char *dbus_address_entry_get_method (DBusAddressEntry   *entry);
 void        dbus_address_entries_free     (DBusAddressEntry  **entries);
 
-
-
+char* dbus_address_escape_value   (const char *value);
+char* dbus_address_unescape_value (const char *value,
+                                   DBusError  *error);
 
 #endif /* DBUS_ADDRESS_H */
 

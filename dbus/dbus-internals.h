@@ -284,6 +284,9 @@ _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
 
 dbus_bool_t _dbus_threads_init_debug (void);
 
+dbus_bool_t   _dbus_address_append_escaped (DBusString       *escaped,
+                                            const DBusString *unescaped);
+
 DBUS_END_DECLS
 
 #endif /* DBUS_INTERNALS_H */
