@@ -58,6 +58,10 @@ dbus_internal_symbol_do_not_use_run_tests (const char *test_data_dir)
   printf ("%s: running string tests\n", "dbus-test");
   if (!_dbus_string_test ())
     die ("strings");
+
+  printf ("%s: running address parse tests\n", "dbus-test");
+  if (!_dbus_address_test ())
+    die ("address parsing");
   
   printf ("%s: running marshalling tests\n", "dbus-test");
   if (!_dbus_marshal_test ())
@@ -66,11 +70,11 @@ dbus_internal_symbol_do_not_use_run_tests (const char *test_data_dir)
   printf ("%s: running message tests\n", "dbus-test");
   if (!_dbus_message_test (test_data_dir))
     die ("messages");
-  
+
   printf ("%s: running memory pool tests\n", "dbus-test");
   if (!_dbus_mem_pool_test ())
     die ("memory pools");
-  
+
   printf ("%s: running linked list tests\n", "dbus-test");
   if (!_dbus_list_test ())
     die ("lists");

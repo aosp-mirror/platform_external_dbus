@@ -40,8 +40,14 @@
  * @{
  */
 
+/**
+ * Default timeout interval when reading or writing.
+ */
 #define DEFAULT_INTERVAL 10
 
+/**
+ * Opaque object representing a debug server implementation.
+ */
 typedef struct DBusServerDebug DBusServerDebug;
 
 /**
@@ -83,6 +89,12 @@ static DBusServerVTable debug_vtable = {
   debug_disconnect
 };
 
+/**
+ * Looks up a server by its name.
+ *
+ * @param server_name the server name.
+ * @returns the server, or #NULL if none exists.
+ */
 DBusServer*
 _dbus_server_debug_lookup (const char *server_name)
 {
@@ -92,6 +104,13 @@ _dbus_server_debug_lookup (const char *server_name)
   return _dbus_hash_table_lookup_string (server_hash, server_name);
 }
 
+/**
+ * Creates a new debug server.
+ *
+ * @param server_name the name of the server.
+ * @param result address where a result code can be returned.
+ * @returns a new server, or #NULL on failure.
+ */
 DBusServer*
 _dbus_server_debug_new (const char     *server_name,
 			DBusResultCode *result)
@@ -200,6 +219,14 @@ handle_new_client (void *data)
   dbus_connection_unref (connection);
 }
 
+/**
+ * Tells the server to accept a transport so the transport
+ * can send messages to it.
+ *
+ * @param server the server
+ * @param transport the transport
+ * @returns #TRUE on success.
+ */
 dbus_bool_t
 _dbus_server_debug_accept_transport (DBusServer     *server,
 				     DBusTransport  *transport)

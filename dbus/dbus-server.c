@@ -25,6 +25,7 @@
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-server-debug.h"
 #endif
+#include "dbus-address.h"
 
 /**
  * @defgroup DBusServer DBusServer
@@ -134,6 +135,13 @@ _dbus_server_remove_watch  (DBusServer *server,
   _dbus_watch_list_remove_watch (server->watches, watch);
 }
 
+/**
+ * Adds a timeout for this server, chaining out to application-provided
+ * timeout handlers.
+ *
+ * @param server the server.
+ * @param timeout the timeout to add.
+ */
 dbus_bool_t
 _dbus_server_add_timeout (DBusServer  *server,
 			  DBusTimeout *timeout)
@@ -141,6 +149,12 @@ _dbus_server_add_timeout (DBusServer  *server,
   return _dbus_timeout_list_add_timeout (server->timeouts, timeout);
 }
 
+/**
+ * Removes a timeout previously added with _dbus_server_add_timeout().
+ *
+ * @param server the server.
+ * @param timeout the timeout to remove.
+ */
 void
 _dbus_server_remove_timeout (DBusServer  *server,
 			     DBusTimeout *timeout)
@@ -187,15 +201,53 @@ dbus_server_listen (const char     *address,
                     DBusResultCode *result)
 {
   DBusServer *server;
-
-#if 1
-  /* For now just pretend the address is a unix domain socket path */
-  server = _dbus_server_new_for_domain_socket (address, result);
-#else
-  server = _dbus_server_debug_new (address, result);
-#endif
+  DBusAddressEntry **entries;
+  int len, i;
   
+  if (!dbus_parse_address (address, &entries, &len, result))
+    return NULL;
+
+  server = NULL;
+  
+  for (i = 0; i < len; i++)
+    {
+      const char *method = dbus_address_entry_get_method (entries[i]);
+
+      if (strcmp (method, "unix") == 0)
+	{
+	  const char *path = dbus_address_entry_get_value (entries[i], "path");
+
+	  if (path == NULL)
+	    goto bad_address;
+
+	  server = _dbus_server_new_for_domain_socket (path, result);
+
+	  if (server)
+	    break;
+	}
+      else if (strcmp (method, "debug") == 0)
+	{
+	  const char *name = dbus_address_entry_get_value (entries[i], "name");
+
+	  if (name == NULL)
+	    goto bad_address;
+
+	  server = _dbus_server_debug_new (name, result);
+
+	  if (server)
+	    break;	  
+	}
+      else goto bad_address;
+    }
+  
+  dbus_address_entries_free (entries);
   return server;
+
+ bad_address:
+  dbus_address_entries_free (entries);
+  dbus_set_result (result, DBUS_RESULT_BAD_ADDRESS);
+
+  return NULL;
 }
 
 /**

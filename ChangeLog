@@ -1,3 +1,41 @@
+2003-01-30  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/Makefile.am:
+	Add dbus-address.[ch]
+	
+	* dbus/dbus-address.c: (dbus_address_entry_free),
+	(dbus_address_entries_free), (create_entry),
+	(dbus_address_entry_get_method), (dbus_address_entry_get_value),
+	(dbus_parse_address), (_dbus_address_test):
+	* dbus/dbus-address.h:
+	New files for dealing with address parsing.
+	
+	* dbus/dbus-connection.c:
+	Document timeout functions.
+	
+	* dbus/dbus-message.c:
+	Document dbus_message_new_from_message.
+	
+	* dbus/dbus-server-debug.c:
+	Document.
+	
+	* dbus/dbus-server.c: (dbus_server_listen):
+	Parse address and use correct server implementation.
+	
+	* dbus/dbus-string.c: (_dbus_string_find_to), (_dbus_string_test):
+	* dbus/dbus-string.h:
+	New function with test.
+	
+	* dbus/dbus-test.c: (dbus_internal_symbol_do_not_use_run_tests):
+	* dbus/dbus-test.h:
+	Add address tests.
+	
+	* dbus/dbus-transport-debug.c:
+	Document.
+	
+	* dbus/dbus-transport.c: (_dbus_transport_open):
+	Parse address and use correct transport implementation.	
+
 2003-01-30  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-message.c: use message->byte_order instead of 

@@ -774,6 +774,12 @@ dbus_message_new_reply (const char  *name,
   return message;
 }
 
+/**
+ * Creates a new message that is an exact replica of the message
+ * specified, except that its refcount is set to 1.
+ *
+ * @param message the message.
+ * @returns the new message.
 DBusMessage *
 dbus_message_new_from_message (const DBusMessage *message)
 {
@@ -1627,6 +1633,10 @@ dbus_message_get_sender (DBusMessage *message)
 /* we definitely use signed ints for sizes, so don't exceed
  * _DBUS_INT_MAX; and add 16 for paranoia, since a message
  * over 128M is pretty nuts anyhow.
+ */
+
+/**
+ * The maximum sane message size.
  */
 #define MAX_SANE_MESSAGE_SIZE (_DBUS_INT_MAX/16)
 

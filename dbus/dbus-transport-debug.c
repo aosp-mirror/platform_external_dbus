@@ -41,18 +41,28 @@
  * @{
  */
 
+/**
+ * Default timeout interval when reading or writing.
+ */
 #define DEFAULT_INTERVAL 10
 
+/**
+ * Opaque object representing a debug transport.
+ *
+ */
 typedef struct DBusTransportDebug DBusTransportDebug;
 
+/**
+ * Implementation details of DBusTransportDebug. All members are private.
+ */
 struct DBusTransportDebug
 {
   DBusTransport base;                   /**< Parent instance */
 
-  DBusTimeout *write_timeout;
-  DBusTimeout *read_timeout;
+  DBusTimeout *write_timeout;           /**< Timeout for reading. */
+  DBusTimeout *read_timeout;            /**< Timeout for writing. */
   
-  DBusTransport *other_end;
+  DBusTransport *other_end;             /**< The transport that this transport is connected to. */
 };
 
 static void
@@ -142,7 +152,7 @@ do_writing (DBusTransport *transport)
       
       _dbus_connection_queue_received_message (((DBusTransportDebug *)transport)->other_end->connection,
                                                copy);
-
+      dbus_message_unref (copy);
     }
 
   check_read_timeout (((DBusTransportDebug *)transport)->other_end);
@@ -240,6 +250,13 @@ static DBusTransportVTable debug_vtable = {
   debug_live_messages_changed
 };
 
+/**
+ * Creates a new debug server transport.
+ *
+ * @param client the client transport that the server transport
+ * should use.
+ * @returns a new debug transport
+ */
 DBusTransport*
 _dbus_transport_debug_server_new (DBusTransport *client)
 {
@@ -267,6 +284,14 @@ _dbus_transport_debug_server_new (DBusTransport *client)
   return (DBusTransport *)debug_transport;
 }
 
+/**
+ * Creates a new debug client transport.
+ *
+ * @param server_name name of the server transport that
+ * the client should try to connect to.
+ * @param result address where a result code can be returned.
+ * @returns a new transport, or #NULL on failure. 
+ */
 DBusTransport*
 _dbus_transport_debug_client_new (const char     *server_name,
 				  DBusResultCode *result)

@@ -7,6 +7,7 @@ lib_LTLIBRARIES=libdbus-1.la
 
 dbusinclude_HEADERS=				\
 	dbus.h					\
+	dbus-address.h				\
 	dbus-connection.h			\
 	dbus-errors.h				\
 	dbus-macros.h				\
@@ -19,6 +20,7 @@ dbusinclude_HEADERS=				\
 	dbus-types.h
 
 libdbus_1_la_SOURCES=				\
+	dbus-address.c				\
 	dbus-auth.c				\
 	dbus-auth.h				\
 	dbus-connection.c			\

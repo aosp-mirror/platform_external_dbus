@@ -1222,6 +1222,78 @@ _dbus_string_find (const DBusString *str,
 }
 
 /**
+ * Finds the given substring in the string,
+ * up to a certain position,
+ * returning #TRUE and filling in the byte index
+ * where the substring was found, if it was found.
+ * Returns #FALSE if the substring wasn't found.
+ * Sets *start to the length of the string if the substring
+ * is not found.
+ *
+ * @param str the string
+ * @param start where to start looking
+ * @param end where to stop looking
+ * @param substr the substring
+ * @param found return location for where it was found, or #NULL
+ * @returns #TRUE if found
+ */
+dbus_bool_t
+_dbus_string_find_to (const DBusString *str,
+		      int               start,
+		      int               end,
+		      const char       *substr,
+		      int              *found)
+{
+  int i;
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (substr != NULL);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (end <= real->len);
+  _dbus_assert (start < end);
+
+  /* we always "find" an empty string */
+  if (*substr == '\0')
+    {
+      if (found)
+        *found = 0;
+      return TRUE;
+    }
+
+  i = start;
+  while (i < real->len && i < end)
+    {
+      if (real->str[i] == substr[0])
+        {
+          int j = i + 1;
+          
+          while (j < real->len && j < end)
+            {
+              if (substr[j - i] == '\0')
+                break;
+              else if (real->str[j] != substr[j - i])
+                break;
+              
+              ++j;
+            }
+
+          if (substr[j - i] == '\0')
+            {
+              if (found)
+                *found = i;
+              return TRUE;
+            }
+        }
+      
+      ++i;
+    }
+
+  if (found)
+    *found = end;
+  
+  return FALSE;  
+}
+
+/**
  * Finds a blank (space or tab) in the string. Returns #TRUE
  * if found, #FALSE otherwise. If a blank is not found sets
  * *found to the length of the string.
@@ -2294,6 +2366,12 @@ _dbus_string_test (void)
 
   if (_dbus_string_find (&str, 0, "q", NULL))
     _dbus_assert_not_reached ("Did find 'q'");
+
+  if (!_dbus_string_find_to (&str, 0, 2, "He", NULL))
+    _dbus_assert_not_reached ("Didn't find 'He'");
+
+  if (_dbus_string_find_to (&str, 0, 2, "Hello", NULL))
+    _dbus_assert_not_reached ("Did find 'Hello'");
   
   _dbus_string_free (&str);
 

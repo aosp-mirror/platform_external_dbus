@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-test.h  Declarations of test functions.
+/* dbus-address.h  Server address parser.
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2003  CodeFactory AB
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -20,20 +20,29 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+#if !defined (DBUS_INSIDE_DBUS_H) && !defined (DBUS_COMPILATION)
+#error "Only <dbus/dbus.h> can be included directly, this file may disappear or change contents."
+#endif
 
-#ifndef DBUS_TEST_H
-#define DBUS_TEST_H
+#ifndef DBUS_ADDRESS_H
+#define DBUS_ADDRESS_H
 
 #include <dbus/dbus-types.h>
+#include <dbus/dbus-errors.h>
 
-dbus_bool_t _dbus_hash_test     (void);
-dbus_bool_t _dbus_list_test     (void);
-dbus_bool_t _dbus_marshal_test  (void);
-dbus_bool_t _dbus_mem_pool_test (void);
-dbus_bool_t _dbus_string_test   (void);
-dbus_bool_t _dbus_address_test  (void);
-dbus_bool_t _dbus_message_test  (const char *test_data_dir);
+typedef struct DBusAddressEntry DBusAddressEntry;
 
-void dbus_internal_symbol_do_not_use_run_tests (const char *test_data_dir);
+dbus_bool_t dbus_parse_address            (const char         *address,
+					   DBusAddressEntry ***entry,
+					   int                *array_len,
+					   DBusResultCode     *result);
+const char *dbus_address_entry_get_value  (DBusAddressEntry   *entry,
+					   const char         *key);
+const char *dbus_address_entry_get_method (DBusAddressEntry   *entry);
+void        dbus_address_entries_free     (DBusAddressEntry  **entries);
 
-#endif /* DBUS_TEST_H */
+
+
+
+#endif /* DBUS_ADDRESS_H */
+

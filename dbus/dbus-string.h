@@ -149,6 +149,11 @@ dbus_bool_t _dbus_string_find         (const DBusString *str,
                                        const char       *substr,
                                        int              *found);
 
+dbus_bool_t _dbus_string_find_to      (const DBusString *str,
+				       int               start,
+				       int               end,
+				       const char       *substr,
+				       int              *found);
 dbus_bool_t _dbus_string_find_blank   (const DBusString *str,
                                        int               start,
                                        int              *found);

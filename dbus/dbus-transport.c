@@ -26,6 +26,7 @@
 #include "dbus-connection-internal.h"
 #include "dbus-watch.h"
 #include "dbus-auth.h"
+#include "dbus-address.h"
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-transport-debug.h"
 #endif
@@ -194,22 +195,51 @@ _dbus_transport_open (const char     *address,
                       DBusResultCode *result)
 {
   DBusTransport *transport;
+  DBusAddressEntry **entries;
+  int len, i;
   
-  /* FIXME parse the address - whatever format
-   * we decide addresses are in - and find the
-   * appropriate transport.
-   */
+  if (!dbus_parse_address (address, &entries, &len, result))
+    return NULL;
 
-#if 1
-  /* Pretend it's just a unix domain socket name for now */
-  transport = _dbus_transport_new_for_domain_socket (address,
-                                                     FALSE,
-                                                     result);
-#else
-  transport = _dbus_transport_debug_client_new (address,
-						result);
-#endif
+  transport = NULL;
+  
+  for (i = 0; i < len; i++)
+    {
+      const char *method = dbus_address_entry_get_method (entries[i]);
+
+      if (strcmp (method, "unix") == 0)
+	{
+	  const char *path = dbus_address_entry_get_value (entries[i], "path");
+
+	  if (path == NULL)
+	    goto bad_address;
+
+	  transport = _dbus_transport_new_for_domain_socket (path, FALSE, result);
+	}
+      else if (strcmp (method, "debug") == 0)
+	{
+	  const char *name = dbus_address_entry_get_value (entries[i], "name");
+
+	  if (name == NULL)
+	    goto bad_address;
+
+	  transport = _dbus_transport_debug_client_new (name, result);
+	}
+      else
+	goto bad_address;
+
+      if (transport)
+	break;	  
+    }
+  
+  dbus_address_entries_free (entries);
   return transport;
+
+ bad_address:
+  dbus_address_entries_free (entries);
+  dbus_set_result (result, DBUS_RESULT_BAD_ADDRESS);
+
+  return NULL;
 }
 
 /**

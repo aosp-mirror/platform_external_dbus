@@ -223,6 +223,16 @@ _dbus_connection_remove_watch (DBusConnection *connection,
                                    watch);
 }
 
+/**
+ * Adds a timeout using the connection's DBusAddTimeoutFunction if
+ * available. Otherwise records the timeout to be added when said
+ * function is available. Also re-adds the timeout if the
+ * DBusAddTimeoutFunction changes. May fail due to lack of memory.
+ *
+ * @param connection the connection.
+ * @param timeout the timeout to add.
+ * @returns #TRUE on success.
+ */
 dbus_bool_t
 _dbus_connection_add_timeout (DBusConnection *connection,
 			      DBusTimeout    *timeout)
@@ -234,6 +244,14 @@ _dbus_connection_add_timeout (DBusConnection *connection,
     return FALSE;  
 }
 
+/**
+ * Removes a timeout using the connection's DBusRemoveTimeoutFunction
+ * if available. It's an error to call this function on a timeout
+ * that was not previously added.
+ *
+ * @param connection the connection.
+ * @param timeout the timeout to remove.
+ */
 void
 _dbus_connection_remove_timeout (DBusConnection *connection,
 				 DBusTimeout    *timeout)
