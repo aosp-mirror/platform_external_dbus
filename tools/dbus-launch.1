@@ -7,7 +7,7 @@
 dbus-launch \- Utility to start a message bus from a shell script
 .SH SYNOPSIS
 .PP
-.B dbus-launch [\-\-version] [\-\-sh-syntax] [\-\-csh-syntax] [\-\-auto-syntax] [\-\-exit-with-session] [PROGRAM] [ARGS...]
+.B dbus-launch [\-\-version] [\-\-sh-syntax] [\-\-csh-syntax] [\-\-auto-syntax] [\-\-exit-with-session] [\-\-config-file=FILENAME] [PROGRAM] [ARGS...]
 
 .SH DESCRIPTION
 
@@ -25,15 +25,18 @@ will then set the appropriate environment variables and execute the
 specified program, with the specified arguments.  See below for
 examples.
 
-Finally, you may use the \-\-auto-syntax command to cause
-\fIdbus-launch\fP to emit shell code to set up the environment.  This
-is useful in shell scripts.  With this option, \fIdbus-launch\fP looks
-at the value of the SHELL environment variable to determine which
-shell syntax should be used.  If SHELL ends in "csh", then
-csh-compatible code is emitted; otherwise Bourne shell code is
-emitted.  Instead of passing \-\-auto-syntax, you may explicity
-specify a particular one by using \-\-sh-syntax for Bourne syntax, or
-\-\-csh-syntax for csh syntax.
+Finally, you may use the \-\-sh-syntax, \-\-csh-syntax, or
+\-\-auto-syntax commands to cause \fIdbus-launch\fP to emit shell code
+to set up the environment.  This is useful in shell scripts.
+
+With the \-\-auto-syntax option, \fIdbus-launch\fP looks at the value
+of the SHELL environment variable to determine which shell syntax
+should be used.  If SHELL ends in "csh", then csh-compatible code is
+emitted; otherwise Bourne shell code is emitted.  Instead of passing
+\-\-auto-syntax, you may explicity specify a particular one by using
+\-\-sh-syntax for Bourne syntax, or \-\-csh-syntax for csh syntax.
+In scripts, it's more robust to avoid \-\-auto-syntax and you hopefully
+know which shell your script is written in.
 
 .PP
 See http://www.freedesktop.org/software/dbus/ for more information
@@ -47,7 +50,7 @@ sh-compatible shell to start the per-session bus daemon:
   ## test for an existing bus daemon, just to be safe
   if test -z "$DBUS_SESSION_BUS_ADDRESS" ; then
       ## if not found, launch a new one
-      eval `dbus-launch --auto-syntax --exit-with-session`
+      eval `dbus-launch --sh-syntax --exit-with-session`
       echo "D-BUS per-session daemon address is: $DBUS_SESSION_BUS_ADDRESS"
   fi
 
@@ -62,17 +65,22 @@ program, like so:
 dbus-launch gnome-session
 
 .fi
-The above would likely be appropriate for ~/.xsession.
+The above would likely be appropriate for ~/.xsession or ~/.Xclients.
 
 .SH OPTIONS
 The following options are supported:
 .TP
 .I "--auto-syntax"
-Attempt to detect the shell in use, and emit compatible code.
+Choose \-\-csh-syntax or \-\-sh-syntax based on the SHELL environment variable.
+
+.TP
+.I "--config-file=FILENAME"
+Pass \-\-config-file=FILENAME to the bus daemon, instead of passing it 
+the \-\-session argument. See the man page for dbus-daemon-1
 
 .TP
 .I "--csh-syntax"
-Emit csh compatible code.
+Emit csh compatible code to set up environment variables.
 
 .TP
 .I "--exit-with-session"
@@ -83,7 +91,7 @@ it kills the message bus daemon.
 
 .TP
 .I "--sh-syntax"
-Emit Bourne-shell compatible code.
+Emit Bourne-shell compatible code to set up environment variables.
 
 .TP
 .I "--version"

@@ -1,5 +1,17 @@
 INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) -I$(top_srcdir)/glib
 
+## note that TESTS has special meaning (stuff to use in make check)
+## so if adding tests not to be run in make check, don't add them to 
+## TESTS
+if DBUS_BUILD_TESTS
+TESTS_ENVIRONMENT=DBUS_TOP_BUILDDIR=$(top_builddir) DBUS_TEST_HOMEDIR=$(top_builddir)/dbus
+TESTS=run-test.sh
+else
+TESTS=
+endif
+
+EXTRA_DIST=run-test.sh
+
 if DBUS_BUILD_TESTS
 
 if HAVE_GLIB_THREADS

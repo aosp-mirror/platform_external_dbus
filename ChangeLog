@@ -1,3 +1,37 @@
+2003-10-12  Havoc Pennington  <hp@pobox.com>
+
+        Added test code that 1) starts an actual bus daemon and 2) uses
+	DBusGProxy; fixed bugs that were revealed by the test. Lots 
+	more testing possible, but this is the basic framework.
+	
+	* glib/dbus-gproxy.c (dbus_gproxy_manager_unregister): remove
+	empty proxy lists from the proxy list hash
+
+	* dbus/dbus-message.c (dbus_message_iter_get_args_valist): add a
+	couple of return_if_fail checks
+
+	* dbus/dbus-pending-call.c (_dbus_pending_call_new): use dbus_new0
+	to allocate, so everything is cleared to NULL as it should be.
+
+	* glib/dbus-gmain.c (dbus_connection_setup_with_g_main): pass
+	source as data to dbus_connection_set_timeout_functions() as the 
+	timeout functions expected
+
+	* test/glib/run-test.sh: add a little script to start up a message
+	bus and run tests using it
+
+	* tools/dbus-launch.1: updates
+
+	* tools/dbus-launch.c (main): add --config-file option
+
+	* tools/dbus-launch.c (main): remove confusing else if (runprog)
+	that could never be reached.
+
+	* dbus/dbus-message.c (dbus_message_new_method_return) 
+	(dbus_message_new_error, dbus_message_new_signal): set the
+	no-reply-expected flag on all these. Redundant, but may
+	as well be consistent.
+
 2003-10-11  Havoc Pennington  <hp@pobox.com>
 
 	* test/decode-gcov.c (function_solve_graph): make broken block

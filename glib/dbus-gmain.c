@@ -492,7 +492,7 @@ dbus_connection_setup_with_g_main (DBusConnection *connection,
                                               add_timeout,
                                               remove_timeout,
                                               timeout_toggled,
-                                              NULL, NULL))
+                                              source, NULL))
     goto nomem;
     
   dbus_connection_set_wakeup_main_function (connection,

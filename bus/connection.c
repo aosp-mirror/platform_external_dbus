@@ -33,6 +33,17 @@
 
 static void bus_connection_remove_transactions (DBusConnection *connection);
 
+typedef struct
+{
+  BusExpireItem expire_item;
+
+  DBusConnection *will_get_reply;
+  DBusConnection *will_send_reply;
+
+  dbus_uint32_t reply_serial;
+  
+} BusPendingReply;
+
 struct BusConnections
 {
   int refcount;

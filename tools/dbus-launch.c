@@ -593,8 +593,10 @@ main (int argc, char **argv)
   int bus_pid_to_launcher_pipe[2];
   int bus_pid_to_babysitter_pipe[2];
   int bus_address_to_launcher_pipe[2];
+  char *config_file;
   
   exit_with_session = FALSE;
+  config_file = NULL;
   
   prev_arg = NULL;
   i = 1;
@@ -618,8 +620,34 @@ main (int argc, char **argv)
         version ();
       else if (strcmp (arg, "--exit-with-session") == 0)
         exit_with_session = TRUE;
-      else if (runprog)
-	usage (1);
+      else if (strstr (arg, "--config-file=") == arg)
+        {
+          const char *file;
+
+          if (config_file != NULL)
+            {
+              fprintf (stderr, "--config-file given twice\n");
+              exit (1);
+            }
+          
+          file = strchr (arg, '=');
+          ++file;
+
+          config_file = xstrdup (file);
+        }
+      else if (prev_arg &&
+               strcmp (prev_arg, "--config-file") == 0)
+        {
+          if (config_file != NULL)
+            {
+              fprintf (stderr, "--config-file given twice\n");
+              exit (1);
+            }
+
+          config_file = xstrdup (arg);
+        }
+      else if (strcmp (arg, "--config-file") == 0)
+        ; /* wait for next arg */
       else
 	{
 	  runprog = arg;
@@ -736,9 +764,10 @@ main (int argc, char **argv)
       execlp ("dbus-daemon-1",
               "dbus-daemon-1",
               "--fork",
-              "--session",
               "--print-pid", write_pid_fd_as_string,
               "--print-address", write_address_fd_as_string,
+              config_file ? "--config-file" : "--session",
+              config_file, /* has to be last in this varargs list */
               NULL);
 
       fprintf (stderr,

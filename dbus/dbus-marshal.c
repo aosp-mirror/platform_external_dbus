@@ -1400,7 +1400,7 @@ _dbus_demarshal_double_array (const DBusString  *str,
  * @param pos the position in the string
  * @param new_pos the new position of the string
  * @param array the array
- * @param array_len length of the demarshaled data
+ * @param array_len location for length of the demarshaled data or NULL
  * @returns #TRUE on success
  */
 dbus_bool_t

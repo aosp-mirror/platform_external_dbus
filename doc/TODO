@@ -107,3 +107,7 @@
 
  - dbus_message_iter_init_array_iterator has "iter" and "iterator" 
    in the same function name
+
+ - the GLib bindings varargs take DBUS_TYPE_WHATEVER and 
+   return stuff allocated with dbus_malloc(); should this 
+   be made more "G" at some expense in code duplication?

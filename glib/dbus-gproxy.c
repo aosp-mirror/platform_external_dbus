@@ -460,7 +460,7 @@ dbus_gproxy_manager_unregister (DBusGProxyManager *manager,
 #ifndef G_DISABLE_CHECKS
   if (manager->proxy_lists == NULL)
     {
-      g_warning ("Trying to disconnect a signal on a proxy but none are connected\n");
+      g_warning ("Trying to unregister a proxy but there aren't any registered");
       return;
     }
 #endif
@@ -468,13 +468,11 @@ dbus_gproxy_manager_unregister (DBusGProxyManager *manager,
   tri = tristring_from_proxy (proxy);
   
   list = g_hash_table_lookup (manager->proxy_lists, tri);
-  
-  g_free (tri);
 
 #ifndef G_DISABLE_CHECKS
   if (list == NULL)
     {
-      g_warning ("Trying to disconnect a signal on a proxy but none are connected\n");
+      g_warning ("Trying to unregister a proxy but it isn't registered");
       return;
     }
 #endif
@@ -485,12 +483,21 @@ dbus_gproxy_manager_unregister (DBusGProxyManager *manager,
 
   g_assert (g_slist_find (list->proxies, proxy) == NULL);
 
+  if (list->proxies == NULL)
+    {
+      g_hash_table_remove (manager->proxy_lists,
+                           tri);
+      list = NULL;
+    }
+  
   if (g_hash_table_size (manager->proxy_lists) == 0)
     {
       g_hash_table_destroy (manager->proxy_lists);
       manager->proxy_lists = NULL;
     }
-  
+
+  g_free (tri);
+      
   UNLOCK_MANAGER (manager);
 }
 

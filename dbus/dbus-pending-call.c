@@ -64,7 +64,7 @@ _dbus_pending_call_new (DBusConnection    *connection,
   if (!dbus_pending_call_allocate_data_slot (&notify_user_data_slot))
     return NULL;
   
-  pending = dbus_new (DBusPendingCall, 1);
+  pending = dbus_new0 (DBusPendingCall, 1);
   
   if (pending == NULL)
     {

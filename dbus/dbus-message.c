@@ -1224,6 +1224,8 @@ dbus_message_new_method_return (DBusMessage *method_call)
       return NULL;
     }
 
+  dbus_message_set_no_reply (message, TRUE);
+
   if (!dbus_message_set_reply_serial (message,
                                       dbus_message_get_serial (method_call)))
     {
@@ -1268,6 +1270,8 @@ dbus_message_new_signal (const char *path,
       dbus_message_unref (message);
       return NULL;
     }
+
+  dbus_message_set_no_reply (message, TRUE);
   
   return message;
 }
@@ -1313,6 +1317,8 @@ dbus_message_new_error (DBusMessage *reply_to,
       return NULL;
     }
 
+  dbus_message_set_no_reply (message, TRUE);
+  
   if (!dbus_message_set_reply_serial (message,
                                       dbus_message_get_serial (reply_to)))
     {
@@ -2207,6 +2213,9 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 	    data = va_arg (var_args, void *);
 	    len = va_arg (var_args, int *);
 
+            _dbus_return_val_if_fail (data != NULL, FALSE);
+            _dbus_return_val_if_fail (len != NULL, FALSE);
+            
 	    if (dbus_message_iter_get_array_type (iter) != type)
 	      {
 		dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
