@@ -1,5 +1,10 @@
 2003-05-15  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-sysdeps.c (_dbus_atomic_dec, _dbus_atomic_inc): work
+	on non-x86. ifdef's are evil.
+
+2003-05-15  Havoc Pennington  <hp@redhat.com>
+
 	* configure.in: 0.11
 
 	* NEWS: update

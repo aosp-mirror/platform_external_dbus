@@ -1822,11 +1822,10 @@ _dbus_atomic_inc (DBusAtomic *atomic)
 #ifdef DBUS_USE_ATOMIC_INT_486
   return atomic_exchange_and_add (atomic, 1);
 #else
-  dbus_atomic_t res;
-  
+  dbus_int32_t res;
   _DBUS_LOCK (atomic);
-  *atomic += 1;
-  res = *atomic;
+  res = atomic->value;
+  atomic->value += 1;
   _DBUS_UNLOCK (atomic);
   return res;
 #endif
@@ -1846,11 +1845,11 @@ _dbus_atomic_dec (DBusAtomic *atomic)
 #ifdef DBUS_USE_ATOMIC_INT_486
   return atomic_exchange_and_add (atomic, -1);
 #else
-  dbus_atomic_t res;
+  dbus_int32_t res;
   
   _DBUS_LOCK (atomic);
-  *atomic -= 1;
-  res = *atomic;
+  res = atomic->value;
+  atomic->value -= 1;
   _DBUS_UNLOCK (atomic);
   return res;
 #endif
