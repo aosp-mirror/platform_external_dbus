@@ -535,6 +535,43 @@ dbus_set_g_error (GError   **gerror,
                derror->name, derror->message);  
 }
 
+/**
+ * Get the GLib type ID for a DBusConnection boxed type.
+ *
+ * @returns GLib type
+ */
+GType
+dbus_connection_get_g_type (void)
+{
+  static GType our_type = 0;
+  
+  if (our_type == 0)
+    our_type = g_boxed_type_register_static ("DBusConnection",
+                                             (GBoxedCopyFunc) dbus_connection_ref,
+                                             (GBoxedFreeFunc) dbus_connection_unref);
+
+  return our_type;
+}
+
+/**
+ * Get the GLib type ID for a DBusMessage boxed type.
+ *
+ * @returns GLib type
+ */
+GType
+dbus_message_get_g_type (void)
+{
+  static GType our_type = 0;
+  
+  if (our_type == 0)
+    our_type = g_boxed_type_register_static ("DBusMessage",
+                                             (GBoxedCopyFunc) dbus_message_ref,
+                                             (GBoxedFreeFunc) dbus_message_unref);
+
+  return our_type;
+}
+
+
 /** @} */ /* end of public API */
 
 #ifdef DBUS_BUILD_TESTS

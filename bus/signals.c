@@ -690,7 +690,11 @@ bus_matchmaker_get_recipients (BusMatchmaker   *matchmaker,
                                DBusList       **recipients_p)
 {
   /* FIXME for now this is a wholly unoptimized linear search */
-
+  /* Guessing the important optimization is to skip the signal-related
+   * match lists when processing method call and exception messages.
+   * So separate match rule lists for signals?
+   */
+  
   DBusList *link;
 
   _dbus_assert (*recipients_p == NULL);

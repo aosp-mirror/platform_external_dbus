@@ -1,3 +1,11 @@
+2003-09-23  Havoc Pennington  <hp@redhat.com>
+
+	* glib/dbus-gproxy.c (dbus_gproxy_connect_signal): implement
+	(dbus_gproxy_disconnect_signal): implement
+	(dbus_gproxy_manager_remove_signal_match): implement
+	(dbus_gproxy_manager_add_signal_match): implement
+	(dbus_gproxy_oneway_call): implement
+
 2003-09-23  Havoc Pennington  <hp@pobox.com>
 
 	* glib/dbus-gproxy.c (struct DBusGProxy): convert to a GObject

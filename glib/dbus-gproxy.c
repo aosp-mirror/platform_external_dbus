@@ -21,6 +21,7 @@
  *
  */
 #include "dbus-glib.h"
+#include <string.h>
 
 /**
  * @addtogroup DBusGLibInternals
@@ -28,19 +29,69 @@
  * @{
  */
 
+typedef struct DBusGProxyManager DBusGProxyManager;
+
+/**
+ * Internals of DBusGProxy
+ */
+struct DBusGProxy
+{
+  GObject parent;             /**< Parent instance */
+  
+  DBusGProxyManager *manager; /**< Proxy manager */
+  char *service;              /**< Service messages go to or NULL */
+  char *path;                 /**< Path messages go to or NULL */
+  char *interface;            /**< Interface messages go to or NULL */
+};
+
+struct DBusGProxyClass
+{
+  GObjectClass parent_class;  
+};
+
+static void dbus_gproxy_init          (DBusGProxy      *proxy);
+static void dbus_gproxy_class_init    (DBusGProxyClass *klass);
+static void dbus_gproxy_finalize      (GObject         *object);
+static void dbus_gproxy_emit_received (DBusGProxy      *proxy,
+                                       DBusMessage     *message);
+
+
+/**
+ * A list of proxies with a given service+path+interface, used to route incoming
+ * signals.
+ */
+typedef struct
+{
+  GSList *proxies;
+
+  char name[4]; /**< service (empty string for none), nul byte,
+                 *   path, nul byte,
+                 *   interface, nul byte
+                 */
+  
+} DBusGProxyList;
+
 /**
  * DBusGProxyManager's primary task is to route signals to the proxies
  * those signals are emitted on. In order to do this it also has to
  * track the owners of the services proxies are bound to.
  */
-typedef struct
+struct DBusGProxyManager
 {
   GStaticMutex lock; /**< Thread lock */
   int refcount;      /**< Reference count */
   DBusConnection *connection; /**< Connection we're associated with. */
-  
 
-} DBusGProxyManager;
+  GHashTable *proxy_lists; /**< Hash used to route incoming signals
+                            *   and iterate over proxies
+                            */
+
+};
+
+static void              dbus_gproxy_manager_ref    (DBusGProxyManager *manager);
+static DBusHandlerResult dbus_gproxy_manager_filter (DBusConnection    *connection,
+                                                     DBusMessage       *message,
+                                                     void              *user_data);
 
 /** Lock the DBusGProxyManager */
 #define LOCK_MANAGER(mgr)   (g_static_mutex_lock (&(mgr)->lock))
@@ -51,8 +102,6 @@ static int gproxy_manager_slot = -1;
 
 /* Lock controlling get/set manager as data on each connection */
 static GStaticMutex connection_gproxy_lock = G_STATIC_MUTEX_INIT;
-
-static void dbus_gproxy_manager_ref (DBusGProxyManager *manager);
 
 static DBusGProxyManager*
 dbus_gproxy_manager_get (DBusConnection *connection)
@@ -90,6 +139,9 @@ dbus_gproxy_manager_get (DBusConnection *connection)
   dbus_connection_set_data (connection, gproxy_manager_slot,
                             manager, NULL);
 
+  dbus_connection_add_filter (connection, dbus_gproxy_manager_filter,
+                              manager, NULL);
+  
   g_static_mutex_unlock (&connection_gproxy_lock);
   
   return manager;
@@ -119,10 +171,19 @@ dbus_gproxy_manager_unref (DBusGProxyManager *manager)
   if (manager->refcount == 0)
     {
       UNLOCK_MANAGER (manager);
+
+      if (manager->proxy_lists)
+        {
+          g_hash_table_destroy (manager->proxy_lists);
+          manager->proxy_lists = NULL;
+        }
       
       g_static_mutex_free (&manager->lock);
 
       g_static_mutex_lock (&connection_gproxy_lock);
+
+      dbus_connection_remove_filter (manager->connection, dbus_gproxy_manager_filter,
+                                     manager);
       
       dbus_connection_set_data (manager->connection,
                                 gproxy_manager_slot,
@@ -141,29 +202,340 @@ dbus_gproxy_manager_unref (DBusGProxyManager *manager)
     }
 }
 
-/**
- * Internals of DBusGProxy
- */
-struct DBusGProxy
+static guint
+tristring_hash (gconstpointer key)
 {
-  GObject parent;
+  const char *p = key;
+  guint h = *p;
+
+  if (h)
+    {
+      for (p += 1; *p != '\0'; p++)
+        h = (h << 5) - h + *p;
+    }
+
+  /* skip nul and do the next substring */
+  for (p += 1; *p != '\0'; p++)
+    h = (h << 5) - h + *p;
+
+  /* skip nul again and another substring */
+  for (p += 1; *p != '\0'; p++)
+    h = (h << 5) - h + *p;
   
-  DBusGProxyManager *manager; /**< Proxy manager */
-  char *service;              /**< Service messages go to or NULL */
-  char *path;                 /**< Path messages go to or NULL */
-  char *interface;            /**< Interface messages go to or NULL */
-};
+  return h;
+}
 
-struct DBusGProxyClass
+static gboolean
+strequal_len (const char *a,
+              const char *b,
+              size_t     *lenp)
 {
-  GObjectClass parent_class;  
-};
+  size_t a_len;
+  size_t b_len;
 
-static void dbus_gproxy_init        (DBusGProxy      *proxy);
-static void dbus_gproxy_class_init  (DBusGProxyClass *klass);
-static void dbus_gproxy_finalize    (GObject         *object);
+  a_len = strlen (a);
+  b_len = strlen (b);
+
+  if (a_len != b_len)
+    return FALSE;
+
+  if (memcmp (a, b, a_len) != 0)
+    return FALSE;
+  
+  *lenp = a_len;
+
+  return TRUE;
+}
+
+static gboolean
+tristring_equal (gconstpointer  a,
+                 gconstpointer  b)
+{
+  const char *ap = a;
+  const char *bp = b;
+  size_t len;
+
+  if (!strequal_len (ap, bp, &len))
+    return FALSE;
+
+  ap += len + 1;
+  bp += len + 1;
+
+  if (!strequal_len (ap, bp, &len))
+    return FALSE;
+
+  ap += len + 1;
+  bp += len + 1;
+
+  if (strcmp (ap, bp) != 0)
+    return FALSE;
+  
+  return TRUE;
+}
+
+static char*
+tristring_alloc_from_strings (size_t      padding_before,
+                              const char *service,
+                              const char *path,
+                              const char *interface)
+{
+  size_t service_len, iface_len, path_len, len;
+  char *tri;
+  
+  if (service)
+    service_len = strlen (service);
+  else
+    service_len = 0;
+
+  path_len = strlen (path);
+  
+  iface_len = strlen (interface);
+
+  tri = g_malloc (padding_before + service_len + path_len + iface_len + 3);
+
+  len = padding_before;
+  
+  if (service)
+    memcpy (&tri[len], service, service_len);
+
+  len += service_len;
+  tri[len] = '\0';
+  len += 1;
+
+  g_assert (len == (padding_before + service_len + 1));
+  
+  memcpy (&tri[len], path, path_len);
+  len += path_len;
+  tri[len] = '\0';
+  len += 1;
+
+  g_assert (len == (padding_before + service_len + path_len + 2));
+  
+  memcpy (&tri[len], interface, iface_len);
+  len += iface_len;
+  tri[len] = '\0';
+  len += 1;
+
+  g_assert (len == (padding_before + service_len + path_len + iface_len + 3));
+
+  return tri;
+}
+
+static char*
+tristring_from_proxy (DBusGProxy *proxy)
+{
+  return tristring_alloc_from_strings (0,
+                                       proxy->service,
+                                       proxy->path,
+                                       proxy->interface);
+}
+
+static char*
+tristring_from_message (DBusMessage *message)
+{
+  return tristring_alloc_from_strings (0,
+                                       dbus_message_get_sender (message),
+                                       dbus_message_get_path (message),
+                                       dbus_message_get_interface (message));
+}
+
+static DBusGProxyList*
+gproxy_list_new (DBusGProxy *first_proxy)
+{
+  DBusGProxyList *list;
+  
+  list = (void*) tristring_alloc_from_strings (G_STRUCT_OFFSET (DBusGProxyList, name),
+                                               first_proxy->service,
+                                               first_proxy->path,
+                                               first_proxy->interface);
+  list->proxies = NULL;
+
+  return list;
+}
+
+static void
+gproxy_list_free (DBusGProxyList *list)
+{
+  /* we don't hold a reference to the proxies in the list,
+   * as they ref the GProxyManager
+   */
+  g_slist_free (list->proxies);  
+
+  g_free (list);
+}
+
+static char*
+gproxy_get_match_rule (DBusGProxy *proxy)
+{
+  /* FIXME Some sort of escaping is required here I think */
+  
+  if (proxy->service)
+    return g_strdup_printf ("type='signal',service='%s',path='%s',interface='%s'",
+                            proxy->service, proxy->path, proxy->interface);
+  else
+    return g_strdup_printf ("type='signal',path='%s',interface='%s'",
+                            proxy->path, proxy->interface);
+}
+
+static void
+dbus_gproxy_manager_register (DBusGProxyManager *manager,
+                              DBusGProxy        *proxy)
+{
+  DBusGProxyList *list;
+
+  LOCK_MANAGER (manager);
+
+  if (manager->proxy_lists == NULL)
+    {
+      list = NULL;
+      manager->proxy_lists = g_hash_table_new_full (tristring_hash,
+                                                    tristring_equal,
+                                                    NULL,
+                                                    (GFreeFunc) gproxy_list_free);
+    }
+  else
+    {
+      char *tri;
+
+      tri = tristring_from_proxy (proxy);
+      
+      list = g_hash_table_lookup (manager->proxy_lists, tri);
+
+      g_free (tri);
+    }
+      
+  if (list == NULL)
+    {
+      list = gproxy_list_new (proxy);
+      
+      g_hash_table_replace (manager->proxy_lists,
+                            list->name, list);
+    }
+
+  if (list->proxies == NULL)
+    {
+      /* We have to add the match rule to the server,
+       * but FIXME only if the server is a message bus,
+       * not if it's a peer.
+       */
+      char *rule;
+
+      rule = gproxy_get_match_rule (proxy);
+      
+      /* We don't check for errors; it's not like anyone would handle them,
+       * and we don't want a round trip here.
+       */
+      dbus_bus_add_match (manager->connection,
+                          rule, NULL);
+
+      g_free (rule);
+    }
+
+  g_assert (g_slist_find (list->proxies, proxy) == NULL);
+  
+  list->proxies = g_slist_prepend (list->proxies, proxy);
+  
+  UNLOCK_MANAGER (manager);
+}
+
+static void
+dbus_gproxy_manager_unregister (DBusGProxyManager *manager,
+                                DBusGProxy        *proxy)
+{
+  DBusGProxyList *list;
+  char *tri;
+  
+  LOCK_MANAGER (manager);
+
+  if (manager->proxy_lists == NULL)
+    {
+      g_warning ("Trying to disconnect a signal on a proxy but none are connected\n");
+      return;
+    }
+
+  tri = tristring_from_proxy (proxy);
+  
+  list = g_hash_table_lookup (manager->proxy_lists, tri);
+  
+  g_free (tri);
+
+  if (list == NULL)
+    {
+      g_warning ("Trying to disconnect a signal on a proxy but none are connected\n");
+      return;
+    }
+
+  g_assert (g_slist_find (list->proxies, proxy) != NULL);
+  
+  list->proxies = g_slist_remove (list->proxies, proxy);
+
+  g_assert (g_slist_find (list->proxies, proxy) == NULL);
+  
+  UNLOCK_MANAGER (manager);
+}
+
+static DBusHandlerResult
+dbus_gproxy_manager_filter (DBusConnection    *connection,
+                            DBusMessage       *message,
+                            void              *user_data)
+{
+  DBusGProxyManager *manager;
+  
+  manager = user_data;
+
+  if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_SIGNAL)
+    return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+
+  if (dbus_message_is_signal (message,
+                              DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                              "Disconnected"))
+    {
+      /* FIXME g_object_run_dispose() all the proxies; should proxies have
+       * a "destroy" signal?
+       */
+    }
+  else
+    {
+      char *tri;
+      DBusGProxyList *list;
+      
+      tri = tristring_from_message (message);
+
+      if (manager->proxy_lists)
+        list = g_hash_table_lookup (manager->proxy_lists, tri);
+      else
+        list = NULL;
+
+      g_free (tri);
+      
+      if (list != NULL)
+        {
+          /* FIXME Emit the signal on each proxy in the list */
+          
+
+        }
+    }
+  
+  /* "Handling" signals doesn't make sense, they are for everyone
+   * who cares
+   */
+  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+}
+
+
+
+/*      ---------- DBusGProxy --------------   */
+
+
+
+enum
+{
+  RECEIVED,
+  LAST_SIGNAL
+};
 
 static void *parent_class;
+static guint signals[LAST_SIGNAL] = { 0 };
 
 static void
 dbus_gproxy_init (DBusGProxy *proxy)
@@ -179,6 +551,16 @@ dbus_gproxy_class_init (DBusGProxyClass *klass)
   parent_class = g_type_class_peek_parent (klass);
   
   object_class->finalize = dbus_gproxy_finalize;
+
+  signals[RECEIVED] =
+    g_signal_new ("received",
+		  G_OBJECT_CLASS_TYPE (object_class),
+		  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
+                  0,
+		  NULL, NULL,
+                  g_cclosure_marshal_VOID__BOXED,
+		  G_TYPE_NONE, 1,
+                  DBUS_TYPE_MESSAGE);
 }
 
 static void
@@ -189,12 +571,63 @@ dbus_gproxy_finalize (GObject *object)
   proxy = DBUS_GPROXY (object);
 
   if (proxy->manager)
-    dbus_gproxy_manager_unref (proxy->manager);
+    {
+      dbus_gproxy_manager_unregister (proxy->manager, proxy);
+      dbus_gproxy_manager_unref (proxy->manager);
+    }
+  
   g_free (proxy->service);
   g_free (proxy->path);
   g_free (proxy->interface);
   
   G_OBJECT_CLASS (parent_class)->finalize (object);
+}
+
+static char*
+create_signal_detail (const char *interface,
+                      const char *signal)
+{
+  GString *str;
+
+  str = g_string_new (interface);
+
+  g_string_append (str, ".");
+
+  g_string_append (str, signal);
+
+  return g_string_free (str, FALSE);
+}
+
+static void
+dbus_gproxy_emit_received (DBusGProxy  *proxy,
+                           DBusMessage *message)
+{
+  const char *interface;
+  const char *signal;
+  char *detail;
+  GQuark q;
+  
+  interface = dbus_message_get_interface (message);
+  signal = dbus_message_get_member (message);
+
+  g_assert (interface != NULL);
+  g_assert (signal != NULL);
+
+  detail = create_signal_detail (interface, signal);
+
+  /* If the quark isn't preexisting, there's no way there
+   * are any handlers connected. We don't want to create
+   * extra quarks for every possible signal.
+   */
+  q = g_quark_try_string (detail);
+
+  if (q != 0)
+    g_signal_emit (G_OBJECT (proxy),
+                   signals[RECEIVED],
+                   q,
+                   message);
+
+  g_free (detail);
 }
 
 /** @} End of DBusGLibInternals */
@@ -236,6 +669,33 @@ dbus_gproxy_get_type (void)
   return object_type;
 }
 
+static DBusGProxy*
+dbus_gproxy_new (DBusConnection *connection,
+                 const char     *service_name,
+                 const char     *path_name,
+                 const char     *interface_name)
+{
+  DBusGProxy *proxy;
+
+  g_assert (connection != NULL);
+  
+  proxy = g_object_new (DBUS_TYPE_GPROXY, NULL);
+
+  /* These should all be construct-only mandatory properties,
+   * for now we just don't let people use g_object_new().
+   */
+  
+  proxy->manager = dbus_gproxy_manager_get (connection);
+  
+  proxy->service = g_strdup (service_name);
+  proxy->path = g_strdup (path_name);
+  proxy->interface = g_strdup (interface_name);
+
+  dbus_gproxy_manager_register (proxy->manager, proxy);
+  
+  return proxy;
+}
+
 /**
  * Creates a new proxy for a remote interface. Method calls and signal
  * connections over this proxy will go to the service owner; the
@@ -267,17 +727,8 @@ dbus_gproxy_new_for_service (DBusConnection *connection,
   g_return_val_if_fail (path_name != NULL, NULL);
   g_return_val_if_fail (interface_name != NULL, NULL);
   
-  proxy = g_object_new (DBUS_TYPE_GPROXY, NULL);
-
-  /* These should all be construct-only mandatory properties,
-   * for now we just don't let people use g_object_new().
-   */
-  
-  proxy->manager = dbus_gproxy_manager_get (connection);
-  
-  proxy->service = g_strdup (service_name);
-  proxy->path = g_strdup (path_name);
-  proxy->interface = g_strdup (interface_name);
+  proxy = dbus_gproxy_new (connection, service_name,
+                           path_name, interface_name);
 
   return proxy;
 }
@@ -311,7 +762,7 @@ dbus_gproxy_begin_call (DBusGProxy *proxy,
   DBusMessage *message;
   va_list args;
   
-  g_return_val_if_fail (proxy != NULL, NULL);
+  g_return_val_if_fail (DBUS_IS_GPROXY (proxy), NULL);
 
   message = dbus_message_new_method_call (proxy->service,
                                           proxy->path,
@@ -380,7 +831,7 @@ dbus_gproxy_end_call (DBusGProxy          *proxy,
   va_list args;
   DBusError derror;
   
-  g_return_val_if_fail (proxy != NULL, FALSE);
+  g_return_val_if_fail (DBUS_IS_GPROXY (proxy), FALSE);
   g_return_val_if_fail (pending != NULL, FALSE);
 
   dbus_pending_call_block (pending);
@@ -406,6 +857,52 @@ dbus_gproxy_end_call (DBusGProxy          *proxy,
 }
 
 /**
+ * Sends a method call message as with dbus_gproxy_begin_call(), but
+ * does not ask for a reply or allow you to receive one.
+ *
+ * @todo this particular function shouldn't die on out of memory,
+ * since you should be able to do a call with large arguments.
+ * 
+ * @param proxy a proxy for a remote interface
+ * @param method the name of the method to invoke
+ * @param first_arg_type type of the first argument
+ */
+void
+dbus_gproxy_oneway_call (DBusGProxy               *proxy,
+                         const char               *method,
+                         int                       first_arg_type,
+                         ...)
+{
+  DBusMessage *message;
+  va_list args;
+  
+  g_return_if_fail (DBUS_IS_GPROXY (proxy));
+
+  message = dbus_message_new_method_call (proxy->service,
+                                          proxy->path,
+                                          proxy->interface,
+                                          method);
+  if (message == NULL)
+    goto oom;
+
+  dbus_message_set_no_reply (message, TRUE);
+  
+  va_start (args, first_arg_type);
+  if (!dbus_message_append_args_valist (message, first_arg_type,
+                                        args))
+    goto oom;
+  va_end (args);
+
+  if (!dbus_connection_send (proxy->manager->connection,
+                             message,
+                             NULL))
+    goto oom;
+
+ oom:
+  g_error ("Out of memory");
+}
+
+/**
  * Sends a message to the interface we're proxying for.  Does not
  * block or wait for a reply. The message is only actually written out
  * when you return to the main loop or block in
@@ -428,7 +925,7 @@ dbus_gproxy_send (DBusGProxy          *proxy,
                   DBusMessage         *message,
                   dbus_uint32_t       *client_serial)
 {
-  g_return_if_fail (proxy != NULL);
+  g_return_if_fail (DBUS_IS_GPROXY (proxy));
   
   if (proxy->service)
     {
@@ -451,26 +948,62 @@ dbus_gproxy_send (DBusGProxy          *proxy,
 }
 
 void
-dbus_gproxy_connect_signal (DBusGProxy       *proxy,
-                            const char       *interface_name,
-                            const char       *signal_name,
-                            GCallback         callback,
-                            void             *data,
-                            GFreeFunc         free_data_func)
+dbus_gproxy_connect_signal (DBusGProxy             *proxy,
+                            const char             *signal_name,
+                            DBusGProxySignalHandler handler,
+                            void                   *data,
+                            GFreeFunc               free_data_func)
 {
+  GClosure *closure;
+  char *detail;
 
+  g_return_if_fail (DBUS_IS_GPROXY (proxy));
+  g_return_if_fail (signal_name != NULL);
+  g_return_if_fail (handler != NULL);
+  
+  detail = create_signal_detail (proxy->interface, signal_name);
+  
+  closure = g_cclosure_new (G_CALLBACK (handler), data, free_data_func);
+  g_signal_connect_closure_by_id (G_OBJECT (proxy),
+                                  signals[RECEIVED],
+                                  g_quark_from_string (detail),
+                                  closure, FALSE);
 
+  g_free (detail);
 }
 
 void
-dbus_gproxy_disconnect_signal (DBusGProxy       *proxy,
-                               const char       *interface_name,
-                               const char       *signal_name,
-                               GCallback         callback,
-                               void             *data)
+dbus_gproxy_disconnect_signal (DBusGProxy             *proxy,
+                               const char             *signal_name,
+                               DBusGProxySignalHandler handler,
+                               void                   *data)
 {
+  char *detail;
+  GQuark q;
   
-  
+  g_return_if_fail (DBUS_IS_GPROXY (proxy));
+  g_return_if_fail (signal_name != NULL);
+  g_return_if_fail (handler != NULL);
+
+  detail = create_signal_detail (proxy->interface, signal_name);
+  q = g_quark_try_string (detail);
+  g_free (detail);
+
+  if (q == 0)
+    {
+      g_warning ("%s: No signal handlers for %s found on this DBusGProxy",
+                 G_GNUC_FUNCTION, signal_name);
+      return;
+    }
+
+  g_signal_handlers_disconnect_matched (G_OBJECT (proxy),
+                                        G_SIGNAL_MATCH_DETAIL |
+                                        G_SIGNAL_MATCH_FUNC   |
+                                        G_SIGNAL_MATCH_DATA,
+                                        signals[RECEIVED],
+                                        q,
+                                        NULL,
+                                        G_CALLBACK (handler), data);
 }
 
 /** @} End of DBusGLib public */

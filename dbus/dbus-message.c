@@ -4818,7 +4818,7 @@ decode_header_data (const DBusString   *data,
           _dbus_verbose ("No path field provided\n");
           return FALSE;
         }
-      /* FIXME make this optional, at least for method calls */
+      /* FIXME make this optional, only for method calls */
       if (fields[DBUS_HEADER_FIELD_INTERFACE].offset < 0)
         {
           _dbus_verbose ("No interface field provided\n");
