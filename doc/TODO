@@ -116,14 +116,20 @@
    since protocol probably modifies the API. But we could have it there
    as a safety net.
 
-- STRING_OR_NIL is wrong, doesn't work in C++ etc. ; should not have done that.
-  Use empty string or special string values or separate functions/signals 
-  or whatever instead.
+ - STRING_OR_NIL is wrong, doesn't work in C++ etc. ; should not have done that.
+   Use empty string or special string values or separate functions/signals 
+   or whatever instead.
 
-- For recursive types, one approach is that "structs" are done as parens, 
-  so e.g. s(ii) is a string and struct { int; int; } etc. Type codes
-  then all have to be done as strings not single ints.
-  We could also put the type signature for the message body in a header field.
-  An "any" type has the type string included in the value.
+ - For recursive types, one approach is that "structs" are done as parens, 
+   so e.g. s(ii) is a string and struct { int; int; } etc. Type codes
+   then all have to be done as strings not single ints.
+   We could also put the type signature for the message body in a header field.
+   An "any" type has the type string included in the value.
 
+ - do we need per-display activation; if so I'd like to do this by setting a
+   "display ID" property on screen 0, with a GUID, and keying activation by 
+   said GUID. Otherwise you get all kinds of unrobust
+   string/hostname-based mess. per-screen is then done by appending screen number
+   to the display. If displays have a deterministic ID like this, you can 
+   do per-display by simply including GUID in the service name.
 
