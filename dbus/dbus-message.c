@@ -5416,6 +5416,34 @@ dbus_message_get_data (DBusMessage   *message,
   return res;
 }
 
+/**
+ * Utility function to convert a machine-readable (not translated)
+ * string into a D-BUS message type.
+ *
+ * @code
+ *   "method_call"    -> DBUS_MESSAGE_TYPE_METHOD_CALL
+ *   "method_return"  -> DBUS_MESSAGE_TYPE_METHOD_RETURN
+ *   "signal"         -> DBUS_MESSAGE_TYPE_SIGNAL
+ *   "error"          -> DBUS_MESSAGE_TYPE_ERROR
+ *   anything else    -> DBUS_MESSAGE_TYPE_INVALID
+ * @endcode
+ * 
+ */
+int
+dbus_message_type_from_string (const char *type_str)
+{
+  if (strcmp (type_str, "method_call") == 0)
+    return DBUS_MESSAGE_TYPE_METHOD_CALL;
+  if (strcmp (type_str, "method_return") == 0)
+    return DBUS_MESSAGE_TYPE_METHOD_RETURN;
+  else if (strcmp (type_str, "signal") == 0)
+    return DBUS_MESSAGE_TYPE_SIGNAL;
+  else if (strcmp (type_str, "error") == 0)
+    return DBUS_MESSAGE_TYPE_ERROR;
+  else
+    return DBUS_MESSAGE_TYPE_INVALID;
+}
+
 /** @} */
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-test.h"

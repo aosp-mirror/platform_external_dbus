@@ -86,11 +86,9 @@ main (int argc, char *argv[])
 
   if (type_str != NULL)
     {
-      if (strcmp (type_str, "method_call") == 0)
-        message_type = DBUS_MESSAGE_TYPE_METHOD_CALL;
-      else if (strcmp (type_str, "signal") == 0)
-        message_type = DBUS_MESSAGE_TYPE_SIGNAL;
-      else
+      message_type = dbus_message_type_from_string (type_str);
+      if (!(message_type == DBUS_MESSAGE_TYPE_METHOD_CALL ||
+            message_type == DBUS_MESSAGE_TYPE_SIGNAL))
         {
           fprintf (stderr, "Message type \"%s\" is not supported\n",
                    type_str);

@@ -1,3 +1,22 @@
+2003-10-09  Havoc Pennington  <hp@redhat.com>
+
+        Make matching rules theoretically work (add parser).
+	
+	* bus/bus.c (bus_context_check_security_policy): fix up to handle
+	the case where destination is explicitly specified as bus driver
+	and someone else is eavesdropping.
+	
+	* bus/policy.c (bus_client_policy_check_can_receive): fix up
+	definition of eavesdropping and assertion
+
+	* tools/dbus-send.c (main): use dbus_message_type_from_string
+
+	* bus/signals.c (bus_match_rule_parse): implement
+
+	* dbus/dbus-message.c (dbus_message_type_from_string): new
+
+	* dbus/dbus-errors.h (DBUS_ERROR_MATCH_RULE_INVALID): add
+
 2003-10-02  Havoc Pennington  <hp@pobox.com>
 
 	* glib/dbus-gproxy.c (dbus_gproxy_call_no_reply): rename from

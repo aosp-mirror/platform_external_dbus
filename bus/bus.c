@@ -872,6 +872,19 @@ bus_context_get_max_match_rules_per_connection (BusContext *context)
   return context->limits.max_match_rules_per_connection;
 }
 
+/*
+ * addressed_recipient is the recipient specified in the message.
+ *
+ * proposed_recipient is the recipient we're considering sending
+ * to right this second, and may be an eavesdropper.
+ *
+ * sender is the sender of the message.
+ *
+ * NULL for proposed_recipient or sender definitely means the bus driver.
+ *
+ * NULL for addressed_recipient may mean the bus driver, or may mean
+ * no destination was specified in the message (e.g. a signal).
+ */
 dbus_bool_t
 bus_context_check_security_policy (BusContext     *context,
                                    DBusConnection *sender,
@@ -883,15 +896,9 @@ bus_context_check_security_policy (BusContext     *context,
   BusClientPolicy *sender_policy;
   BusClientPolicy *recipient_policy;
 
-  /* NULL sender, proposed_recipient means the bus driver.  NULL
-   * addressed_recipient means the message didn't specify an explicit
-   * target. If proposed_recipient is NULL, then addressed_recipient
-   * is also NULL but is implicitly the bus driver.
-   */
-
-  _dbus_assert (proposed_recipient == NULL ||
-                (dbus_message_get_destination (message) == NULL ||
-                 addressed_recipient != NULL));
+  _dbus_assert (dbus_message_get_destination (message) == NULL || /* Signal */
+                (addressed_recipient != NULL ||
+                 strcmp (dbus_message_get_destination (message), DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) == 0)); /* Destination specified or is the bus driver */
   
   if (sender != NULL)
     {

@@ -813,21 +813,6 @@ start_busconfig_child (BusConfigParser   *parser,
     }
 }
 
-static int
-message_type_from_string (const char *type_str)
-{
-  if (strcmp (type_str, "method_call") == 0)
-    return DBUS_MESSAGE_TYPE_METHOD_CALL;
-  if (strcmp (type_str, "method_return") == 0)
-    return DBUS_MESSAGE_TYPE_METHOD_RETURN;
-  else if (strcmp (type_str, "signal") == 0)
-    return DBUS_MESSAGE_TYPE_SIGNAL;
-  else if (strcmp (type_str, "error") == 0)
-    return DBUS_MESSAGE_TYPE_ERROR;
-  else
-    return DBUS_MESSAGE_TYPE_INVALID;
-}
-
 static dbus_bool_t
 append_rule_from_element (BusConfigParser   *parser,
                           const char        *element_name,
@@ -1027,7 +1012,7 @@ append_rule_from_element (BusConfigParser   *parser,
       message_type = DBUS_MESSAGE_TYPE_INVALID;
       if (send_type != NULL)
         {
-          message_type = message_type_from_string (send_type);
+          message_type = dbus_message_type_from_string (send_type);
           if (message_type == DBUS_MESSAGE_TYPE_INVALID)
             {
               dbus_set_error (error, DBUS_ERROR_FAILED,
@@ -1079,7 +1064,7 @@ append_rule_from_element (BusConfigParser   *parser,
       message_type = DBUS_MESSAGE_TYPE_INVALID;
       if (receive_type != NULL)
         {
-          message_type = message_type_from_string (receive_type);
+          message_type = dbus_message_type_from_string (receive_type);
           if (message_type == DBUS_MESSAGE_TYPE_INVALID)
             {
               dbus_set_error (error, DBUS_ERROR_FAILED,

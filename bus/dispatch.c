@@ -920,7 +920,8 @@ check_add_match_all (BusContext     *context,
   if (message == NULL)
     return TRUE;
 
-  if (!dbus_message_append_args (message, DBUS_TYPE_STRING, "", /* FIXME */
+  /* empty string match rule matches everything */
+  if (!dbus_message_append_args (message, DBUS_TYPE_STRING, "",
                                  DBUS_TYPE_INVALID))
     {
       dbus_message_unref (message);

@@ -913,6 +913,9 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
   return allowed;
 }
 
+/* See docs on what the args mean on bus_context_check_security_policy()
+ * comment
+ */
 dbus_bool_t
 bus_client_policy_check_can_receive (BusClientPolicy *policy,
                                      BusRegistry     *registry,
@@ -924,20 +927,10 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
   DBusList *link;
   dbus_bool_t allowed;
   dbus_bool_t eavesdropping;
-  
-  /* NULL sender, proposed_recipient means the bus driver.  NULL
-   * addressed_recipient means the message didn't specify an explicit
-   * target. If proposed_recipient is NULL, then addressed_recipient
-   * is also NULL but is implicitly the bus driver.
-   */
 
-  _dbus_assert (proposed_recipient == NULL ||
-                (dbus_message_get_destination (message) == NULL ||
-                 addressed_recipient != NULL));
-  
   eavesdropping =
-    (proposed_recipient == NULL || /* explicitly to bus driver */
-     (addressed_recipient && addressed_recipient != proposed_recipient)); /* explicitly to a different recipient */
+    addressed_recipient != proposed_recipient &&
+    dbus_message_get_destination (message) != NULL;
   
   /* policy->rules is in the order the rules appeared
    * in the config file, i.e. last rule that applies wins

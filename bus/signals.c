@@ -52,6 +52,10 @@ bus_match_rule_new (DBusConnection *matches_go_to)
   rule->refcount = 1;
   rule->matches_go_to = matches_go_to;
 
+#ifndef DBUS_BUILD_TESTS
+  _dbus_assert (rule->matches_go_to != NULL);
+#endif
+  
   return rule;
 }
 
@@ -285,6 +289,285 @@ bus_match_rule_set_path (BusMatchRule *rule,
   return TRUE;
 }
 
+#define ISWHITE(c) (((c) == ' ') || ((c) == '\t') || ((c) == '\n') || ((c) == '\r'))
+
+static dbus_bool_t
+find_key (const DBusString *str,
+          int               start,
+          DBusString       *key,
+          int              *value_pos,
+          DBusError        *error)
+{
+  const char *p;
+  const char *s;
+  const char *key_start;
+  const char *key_end;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  s = _dbus_string_get_const_data (str);
+
+  p = s + start;
+
+  while (*p && ISWHITE (*p))
+    ++p;
+
+  key_start = p;
+
+  while (*p && *p != '=' && !ISWHITE (*p))
+    ++p;
+
+  key_end = p;
+
+  while (*p && ISWHITE (*p))
+    ++p;
+  
+  if (key_start == key_end)
+    {
+      /* Empty match rules or trailing whitespace are OK */
+      *value_pos = p - s;
+      return TRUE;
+    }
+
+  if (*p != '=')
+    {
+      dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                      "Match rule has a key with no subsequent '=' character");
+      return FALSE;
+    }
+  ++p;
+  
+  if (!_dbus_string_append_len (key, key_start, key_end - key_start))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  *value_pos = p - s;
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+find_value (const DBusString *str,
+            int               start,
+            const char       *key,
+            DBusString       *value,
+            int              *value_end,
+            DBusError        *error)
+{
+  const char *p;
+  const char *s;
+  char quote_char;
+  int orig_len;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  orig_len = _dbus_string_get_length (value);
+  
+  s = _dbus_string_get_const_data (str);
+
+  p = s + start;
+
+  quote_char = '\0';
+
+  while (*p)
+    {
+      if (quote_char == '\0')
+        {
+          switch (*p)
+            {
+            case '\0':
+              goto done;
+
+            case '\'':
+              quote_char = '\'';
+              goto next;
+              
+            case ',':
+              ++p;
+              goto done;
+
+            case '\\':
+              quote_char = '\\';
+              goto next;
+              
+            default:
+              if (!_dbus_string_append_byte (value, *p))
+                {
+                  BUS_SET_OOM (error);
+                  goto failed;
+                }
+            }
+        }
+      else if (quote_char == '\\')
+        {
+          /* \ only counts as an escape if escaping a quote mark */
+          if (*p != '\'')
+            {
+              if (!_dbus_string_append_byte (value, '\\'))
+                {
+                  BUS_SET_OOM (error);
+                  goto failed;
+                }
+            }
+
+          if (!_dbus_string_append_byte (value, *p))
+            {
+              BUS_SET_OOM (error);
+              goto failed;
+            }
+          
+          quote_char = '\0';
+        }
+      else
+        {
+          _dbus_assert (quote_char == '\'');
+
+          if (*p == '\'')
+            {
+              quote_char = '\0';
+            }
+          else
+            {
+              if (!_dbus_string_append_byte (value, *p))
+                {
+                  BUS_SET_OOM (error);
+                  goto failed;
+                }
+            }
+        }
+
+    next:
+      ++p;
+    }
+
+ done:
+
+  if (quote_char == '\\')
+    {
+      if (!_dbus_string_append_byte (value, '\\'))
+        {
+          BUS_SET_OOM (error);
+          goto failed;
+        }
+    }
+  else if (quote_char == '\'')
+    {
+      dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                      "Unbalanced quotation marks in match rule");
+      goto failed;
+    }
+  else
+    _dbus_assert (quote_char == '\0');
+
+  /* Zero-length values are allowed */
+  
+  *value_end = p - s;
+  
+  return TRUE;
+
+ failed:
+  _DBUS_ASSERT_ERROR_IS_SET (error);
+  _dbus_string_set_length (value, orig_len);
+  return FALSE;
+}
+
+/* duplicates aren't allowed so the real legitimate max is only 6 or
+ * so. Leaving extra so we don't have to bother to update it.
+ */
+#define MAX_RULE_TOKENS 16
+
+/* this is slightly too high level to be termed a "token"
+ * but let's not be pedantic.
+ */
+typedef struct
+{
+  char *key;
+  char *value;
+} RuleToken;
+
+static dbus_bool_t
+tokenize_rule (const DBusString *rule_text,
+               RuleToken         tokens[MAX_RULE_TOKENS],
+               DBusError        *error) 
+{
+  int i;
+  int pos;
+  DBusString key;
+  DBusString value;
+  dbus_bool_t retval;
+
+  retval = FALSE;
+  
+  if (!_dbus_string_init (&key))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  if (!_dbus_string_init (&value))
+    {
+      _dbus_string_free (&key);
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  i = 0;
+  pos = 0;
+  while (i < MAX_RULE_TOKENS &&
+         pos < _dbus_string_get_length (rule_text))
+    {
+      _dbus_assert (tokens[i].key == NULL);
+      _dbus_assert (tokens[i].value == NULL);
+
+      if (!find_key (rule_text, pos, &key, &pos, error))
+        goto out;
+
+      if (_dbus_string_get_length (&key) == 0)
+        goto next;
+      
+      if (!_dbus_string_steal_data (&key, &tokens[i].key))
+        {
+          BUS_SET_OOM (error);
+          goto out;
+        }
+
+      if (!find_value (rule_text, pos, tokens[i].key, &value, &pos, error))
+        goto out;
+
+      if (!_dbus_string_steal_data (&value, &tokens[i].value))
+        {
+          BUS_SET_OOM (error);
+          goto out;
+        }
+
+    next:
+      ++i;
+    }
+
+  retval = TRUE;
+  
+ out:
+  if (!retval)
+    {
+      i = 0;
+      while (tokens[i].key || tokens[i].value)
+        {
+          dbus_free (tokens[i].key);
+          dbus_free (tokens[i].value);
+          tokens[i].key = NULL;
+          tokens[i].value = NULL;
+          ++i;
+        }
+    }
+  
+  _dbus_string_free (&key);
+  _dbus_string_free (&value);
+  
+  return retval;
+}
+
 /*
  * The format is comma-separated with strings quoted with single quotes
  * as for the shell (to escape a literal single quote, use '\'').
@@ -299,24 +582,157 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
                       DBusError        *error)
 {
   BusMatchRule *rule;
-
+  RuleToken tokens[MAX_RULE_TOKENS+1]; /* NULL termination + 1 */
+  int i;
+  
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  memset (tokens, '\0', sizeof (tokens));
+  
   rule = bus_match_rule_new (matches_go_to);
   if (rule == NULL)
-    goto oom;
-
-  /* FIXME implement for real */
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
   
-  if (!bus_match_rule_set_message_type (rule,
-                                        DBUS_MESSAGE_TYPE_SIGNAL))
-    goto oom;
+  if (!tokenize_rule (rule_text, tokens, error))
+    goto failed;
+  
+  i = 0;
+  while (tokens[i].key != NULL)
+    {
+      const char *key = tokens[i].key;
+      const char *value = tokens[i].value;
+      
+      if (strcmp (key, "type") == 0)
+        {
+          int t;
+
+          if (rule->flags & BUS_MATCH_MESSAGE_TYPE)
+            {
+              dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                              "Key %s specified twice in match rule\n", key);
+              goto failed;
+            }
+          
+          t = dbus_message_type_from_string (value);
+          
+          if (!bus_match_rule_set_message_type (rule, t))
+            {
+              BUS_SET_OOM (error);
+              goto failed;
+            }
+        }
+      else if (strcmp (key, "sender") == 0)
+        {
+          if (rule->flags & BUS_MATCH_SENDER)
+            {
+              dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                              "Key %s specified twice in match rule\n", key);
+              goto failed;
+            }
+
+          if (!bus_match_rule_set_sender (rule, value))
+            {
+              BUS_SET_OOM (error);
+              goto failed;
+            }
+        }
+      else if (strcmp (key, "interface") == 0)
+        {
+          if (rule->flags & BUS_MATCH_INTERFACE)
+            {
+              dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                              "Key %s specified twice in match rule\n", key);
+              goto failed;
+            }
+
+          if (!bus_match_rule_set_interface (rule, value))
+            {
+              BUS_SET_OOM (error);
+              goto failed;
+            }
+        }
+      else if (strcmp (key, "member") == 0)
+        {
+          if (rule->flags & BUS_MATCH_MEMBER)
+            {
+              dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                              "Key %s specified twice in match rule\n", key);
+              goto failed;
+            }
+
+          if (!bus_match_rule_set_member (rule, value))
+            {
+              BUS_SET_OOM (error);
+              goto failed;
+            }
+        }
+      else if (strcmp (key, "path") == 0)
+        {
+          if (rule->flags & BUS_MATCH_PATH)
+            {
+              dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                              "Key %s specified twice in match rule\n", key);
+              goto failed;
+            }
+
+          if (!bus_match_rule_set_path (rule, value))
+            {
+              BUS_SET_OOM (error);
+              goto failed;
+            }
+        }
+      else if (strcmp (key, "destination") == 0)
+        {
+          if (rule->flags & BUS_MATCH_DESTINATION)
+            {
+              dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                              "Key %s specified twice in match rule\n", key);
+              goto failed;
+            }
+
+          if (!bus_match_rule_set_destination (rule, value))
+            {
+              BUS_SET_OOM (error);
+              goto failed;
+            }
+        }
+      else
+        {
+          dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                          "Unknown key \"%s\" in match rule",
+                          key);
+          goto failed;
+        }
+
+      ++i;
+    }
+  
+
+  goto out;
+  
+ failed:
+  _DBUS_ASSERT_ERROR_IS_SET (error);
+  if (rule)
+    {
+      bus_match_rule_unref (rule);
+      rule = NULL;
+    }
+
+ out:
+  
+  i = 0;
+  while (tokens[i].key || tokens[i].value)
+    {
+      _dbus_assert (i < MAX_RULE_TOKENS);
+      dbus_free (tokens[i].key);
+      dbus_free (tokens[i].value);
+      ++i;
+    }
   
   return rule;
-  
- oom:
-  if (rule)
-    bus_match_rule_unref (rule);
-  BUS_SET_OOM (error);
-  return NULL;
 }
 
 struct BusMatchmaker
@@ -760,6 +1176,186 @@ bus_matchmaker_get_recipients (BusMatchmaker   *matchmaker,
 
 #ifdef DBUS_BUILD_TESTS
 #include "test.h"
+#include <stdlib.h>
+
+static BusMatchRule*
+check_parse (dbus_bool_t should_succeed,
+             const char *text)
+{
+  BusMatchRule *rule;
+  DBusString str;
+  DBusError error;
+
+  dbus_error_init (&error);
+
+  _dbus_string_init_const (&str, text);
+  
+  rule = bus_match_rule_parse (NULL, &str, &error);
+  if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
+    {
+      dbus_error_free (&error);
+      return NULL;
+    }
+
+  if (should_succeed && rule == NULL)
+    {
+      _dbus_warn ("Failed to parse: %s: %s: \"%s\"\n",
+                  error.name, error.message,
+                  _dbus_string_get_const_data (&str));
+      exit (1);
+    }
+
+  if (!should_succeed && rule != NULL)
+    {
+      _dbus_warn ("Failed to fail to parse: \"%s\"\n",
+                  _dbus_string_get_const_data (&str));
+      exit (1);
+    }
+
+  dbus_error_free (&error);
+
+  return rule;
+}
+
+static void
+assert_large_rule (BusMatchRule *rule)
+{
+  _dbus_assert (rule->flags & BUS_MATCH_MESSAGE_TYPE);
+  _dbus_assert (rule->flags & BUS_MATCH_SENDER);
+  _dbus_assert (rule->flags & BUS_MATCH_INTERFACE);
+  _dbus_assert (rule->flags & BUS_MATCH_MEMBER);
+  _dbus_assert (rule->flags & BUS_MATCH_DESTINATION);
+  _dbus_assert (rule->flags & BUS_MATCH_PATH);
+
+  _dbus_assert (rule->message_type == DBUS_MESSAGE_TYPE_SIGNAL);
+  _dbus_assert (rule->interface != NULL);
+  _dbus_assert (rule->member != NULL);
+  _dbus_assert (rule->sender != NULL);
+  _dbus_assert (rule->destination != NULL);
+  _dbus_assert (rule->path != NULL);
+
+  _dbus_assert (strcmp (rule->interface, "org.freedesktop.DBusInterface") == 0);
+  _dbus_assert (strcmp (rule->sender, "org.freedesktop.DBusSender") == 0);
+  _dbus_assert (strcmp (rule->member, "Foo") == 0);
+  _dbus_assert (strcmp (rule->path, "/bar/foo") == 0);
+  _dbus_assert (strcmp (rule->destination, ":452345-34") == 0);
+}
+
+static dbus_bool_t
+test_parsing (void *data)
+{
+  BusMatchRule *rule;
+
+  rule = check_parse (TRUE, "type='signal',sender='org.freedesktop.DBusSender',interface='org.freedesktop.DBusInterface',member='Foo',path='/bar/foo',destination=':452345-34'");
+  if (rule != NULL)
+    {
+      assert_large_rule (rule);
+      bus_match_rule_unref (rule);
+    }
+
+  /* With extra whitespace and useless quotes */
+  rule = check_parse (TRUE, "    type='signal',  \tsender='org.freedes''ktop.DBusSender',   interface='org.freedesktop.DBusInterface''''', \tmember='Foo',path='/bar/foo',destination=':452345-34'''''");
+  if (rule != NULL)
+    {
+      assert_large_rule (rule);
+      bus_match_rule_unref (rule);
+    }
+
+
+  /* A simple signal connection */
+  rule = check_parse (TRUE, "type='signal',path='/foo',interface='org.Bar'");
+  if (rule != NULL)
+    {
+      _dbus_assert (rule->flags & BUS_MATCH_MESSAGE_TYPE);
+      _dbus_assert (rule->flags & BUS_MATCH_INTERFACE);
+      _dbus_assert (rule->flags & BUS_MATCH_PATH);
+
+      _dbus_assert (rule->message_type == DBUS_MESSAGE_TYPE_SIGNAL);
+      _dbus_assert (rule->interface != NULL);
+      _dbus_assert (rule->path != NULL);
+
+      _dbus_assert (strcmp (rule->interface, "org.Bar") == 0);
+      _dbus_assert (strcmp (rule->path, "/foo") == 0);
+  
+      bus_match_rule_unref (rule);
+    }
+
+  /* Reject duplicates */
+  rule = check_parse (FALSE, "type='signal',type='method_call'");
+  _dbus_assert (rule == NULL);
+
+  /* Reject broken keys */
+  rule = check_parse (FALSE, "blah='signal'");
+  _dbus_assert (rule == NULL);
+
+  /* Allow empty rule */
+  rule = check_parse (TRUE, "");
+  if (rule != NULL)
+    {
+      _dbus_assert (rule->flags == 0);
+      
+      bus_match_rule_unref (rule);
+    }
+
+  /* All-whitespace rule is the same as empty */
+  rule = check_parse (TRUE, "    \t");
+  if (rule != NULL)
+    {
+      _dbus_assert (rule->flags == 0);
+      
+      bus_match_rule_unref (rule);
+    }
+
+  /* But with non-whitespace chars and no =value, it's not OK */
+  rule = check_parse (FALSE, "type");
+  _dbus_assert (rule == NULL);
+
+  /* Empty string values are allowed at the moment */
+  rule = check_parse (TRUE, "interface=");
+  if (rule != NULL)
+    {
+      _dbus_assert (rule->flags == BUS_MATCH_INTERFACE);
+      _dbus_assert (rule->interface);
+      _dbus_assert (strlen (rule->interface) == 0);
+      
+      bus_match_rule_unref (rule);
+    }
+
+  /* Empty string expressed with quotes */
+  rule = check_parse (TRUE, "interface=''");
+  if (rule != NULL)
+    {
+      _dbus_assert (rule->flags == BUS_MATCH_INTERFACE);
+      _dbus_assert (rule->interface);
+      _dbus_assert (strlen (rule->interface) == 0);
+      
+      bus_match_rule_unref (rule);
+    }
+
+  /* Check whitespace in a value */
+  rule = check_parse (TRUE, "interface=   ");
+  if (rule != NULL)
+    {
+      _dbus_assert (rule->flags == BUS_MATCH_INTERFACE);
+      _dbus_assert (rule->interface);
+      _dbus_assert (strcmp (rule->interface, "   ") == 0);
+      
+      bus_match_rule_unref (rule);
+    }
+
+  /* Check whitespace mixed with non-whitespace in a value */
+  rule = check_parse (TRUE, "interface= foo ");
+  if (rule != NULL)
+    {
+      _dbus_assert (rule->flags == BUS_MATCH_INTERFACE);
+      _dbus_assert (rule->interface);
+      _dbus_assert (strcmp (rule->interface, " foo ") == 0);
+      
+      bus_match_rule_unref (rule);
+    }
+  
+  return TRUE;
+}
 
 dbus_bool_t
 bus_signals_test (const DBusString *test_data_dir)
@@ -770,6 +1366,9 @@ bus_signals_test (const DBusString *test_data_dir)
   bus_matchmaker_ref (matchmaker);
   bus_matchmaker_unref (matchmaker);
   bus_matchmaker_unref (matchmaker);
+
+  if (!_dbus_test_oom_handling ("parsing match rules", test_parsing, NULL))
+    _dbus_assert_not_reached ("Parsing match rules test failed");
   
   return TRUE;
 }

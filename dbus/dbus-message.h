@@ -275,6 +275,8 @@ dbus_bool_t dbus_message_set_data           (DBusMessage      *message,
 void*       dbus_message_get_data           (DBusMessage      *message,
                                              dbus_int32_t      slot);
 
+int dbus_message_type_from_string (const char *type_str);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_MESSAGE_H */
