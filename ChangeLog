@@ -1,3 +1,8 @@
+2004-08-24  Mikael Hallendal  <micke@imendio.com>
+
+	* dbus/dbus-glib-lowlevel.h: Removed dbus_bus_get_with_g_main since 
+	it's been replaced by dbus_g_bus_get
+
 2004-08-23  Colin Walters  <walters@redhat.com>
 
 	Updated SELinux support from Matthew Rickard <mjricka@epoch.ncsc.mil>

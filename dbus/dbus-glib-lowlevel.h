@@ -46,8 +46,6 @@ void            dbus_connection_setup_with_g_main (DBusConnection  *connection,
                                                    GMainContext    *context);
 void            dbus_server_setup_with_g_main     (DBusServer      *server,
                                                    GMainContext    *context);
-DBusConnection* dbus_bus_get_with_g_main          (DBusBusType      type,
-                                                   GError         **error);
 
 void dbus_g_proxy_send (DBusGProxy    *proxy,
                         DBusMessage   *message,
