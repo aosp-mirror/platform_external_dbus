@@ -22,6 +22,7 @@ the ./configure program.
   --enable-checks  include sanity checks on public API
   --enable-docs    build documentation (requires Doxygen and jade)
   --enable-gcov    compile with coverage profiling instrumentation (gcc only)
+  --enable-python  build python bindings (reqires Pyrex >= 0.9)
 
   --with-xml=libxml/expat           XML library to use
   --with-init-scripts=redhat        Style of init scripts to install

@@ -1,3 +1,8 @@
+2004-07-31  John (J5) Palmieri  <johnp@redhat.com>
+
+	* README: added documentation for the --enable-python 
+	configure switch.
+
 2004-07-31  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* bus/config-parser.c (bus_config_parser_new): fix an invalid
