@@ -1,3 +1,8 @@
+2003-02-03  Alexander Larsson  <alexl@redhat.com>
+
+	* dbus/dbus-message.c (dbus_message_append_fields):
+	Correct docs.
+
 2003-02-02  Anders Carlsson  <andersca@codefactory.se>
 
 	* doc/dbus-specification.sgml:
