@@ -30,7 +30,7 @@ dist-hook:
 	mkdir -p $(distdir)/en
 	cp $(srcdir)/en/*.xml $(distdir)/en/
 	mkdir -p $(distdir)/en/DBus
-	cp $(srcdir)/en/DBus/*.xml $(distdir)/en/DBus.DBusType/
+	cp $(srcdir)/en/DBus/*.xml $(distdir)/en/DBus/
 	mkdir -p $(distdir)/en/DBus.DBusType
-	cp $(srcdir)/en/DBus/*.xml $(distdir)/en/DBus.DBusType/
+	cp $(srcdir)/en/DBus.DBusType/*.xml $(distdir)/en/DBus.DBusType/
 
