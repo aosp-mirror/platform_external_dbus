@@ -1,5 +1,13 @@
 2004-03-12  Mikael Hallendal  <micke@imendio.com>
 
+	* bus/activation.c:
+	(babysitter_watch_callback): notify all pending activations waiting for
+	  the same exec that the activation failed.
+	(bus_activation_activate_service): shortcut the activation if we 
+	  already waiting for the same executable to start up.
+
+2004-03-12  Mikael Hallendal  <micke@imendio.com>
+
 	* bus/activation.c: 
 	- Added service file reloading. 
 	  Each service files directory is kept in an hash table in 

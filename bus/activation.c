@@ -83,6 +83,7 @@ typedef struct
   int refcount;
   BusActivation *activation;
   char *service_name;
+  char *exec;
   DBusList *entries;
   int n_entries;
   DBusBabysitter *babysitter;
@@ -187,6 +188,7 @@ bus_pending_activation_unref (BusPendingActivation *pending_activation)
     }
   
   dbus_free (pending_activation->service_name);
+  dbus_free (pending_activation->exec);
 
   link = _dbus_list_get_first_link (&pending_activation->entries);
 
@@ -1039,10 +1041,22 @@ babysitter_watch_callback (DBusWatch     *watch,
   if (_dbus_babysitter_get_child_exited (babysitter))
     {
       DBusError error;
-
+      DBusHashIter iter;
+      
       dbus_error_init (&error);
       _dbus_babysitter_set_child_exit_error (babysitter, &error);
 
+      /* Destroy all pending activations with the same exec */
+      _dbus_hash_iter_init (pending_activation->activation->pending_activations,
+			    &iter);
+      while (_dbus_hash_iter_next (&iter))
+	{
+	  BusPendingActivation *p = _dbus_hash_iter_get_value (&iter);
+	 
+	  if (p != pending_activation && strcmp (p->exec, pending_activation->exec) == 0)
+	    pending_activation_failed (p, &error);
+	}
+      
       /* Destroys the pending activation */
       pending_activation_failed (pending_activation, &error);
 
@@ -1085,7 +1099,8 @@ pending_activation_timed_out (void *data)
    * (not sure this is what we want to do, but
    * may as well try it for now)
    */
-  _dbus_babysitter_kill_child (pending_activation->babysitter);
+  if (pending_activation->babysitter) 
+    _dbus_babysitter_kill_child (pending_activation->babysitter);
 
   dbus_error_init (&error);
 
@@ -1221,6 +1236,10 @@ bus_activation_activate_service (BusActivation  *activation,
   DBusString service_str;
   char *argv[2];
   dbus_bool_t retval;
+  DBusHashIter iter;
+  dbus_bool_t activated;
+  
+  activated = TRUE;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -1328,6 +1347,16 @@ bus_activation_activate_service (BusActivation  *activation,
 	  return FALSE;
 	}
 
+      pending_activation->exec = _dbus_strdup (entry->exec);
+      if (!pending_activation->exec)
+	{
+	  _dbus_verbose ("Failed to copy service exec for pending activation\n");
+	  BUS_SET_OOM (error);
+	  bus_pending_activation_unref (pending_activation);
+	  bus_pending_activation_entry_free (pending_activation_entry);
+	  return FALSE;
+	}
+
       pending_activation->timeout =
         _dbus_timeout_new (bus_context_get_activation_timeout (activation->context),
                            pending_activation_timed_out,
@@ -1371,7 +1400,20 @@ bus_activation_activate_service (BusActivation  *activation,
 
       pending_activation->n_entries += 1;
       pending_activation->activation->n_pending_activations += 1;
-      
+    
+      activated = FALSE;
+      _dbus_hash_iter_init (activation->pending_activations, &iter);
+      while (_dbus_hash_iter_next (&iter))
+	{
+	  BusPendingActivation *p = _dbus_hash_iter_get_value (&iter);
+	  
+	  if (strcmp (p->exec, entry->exec) == 0) 
+	    {
+	      activated = TRUE;
+	      break;
+	    }
+	}
+     
       if (!_dbus_hash_table_insert_string (activation->pending_activations,
 					   pending_activation->service_name,
                                            pending_activation))
@@ -1383,7 +1425,7 @@ bus_activation_activate_service (BusActivation  *activation,
 	  return FALSE;
 	}
     }
-
+  
   if (!add_cancel_pending_to_transaction (transaction, pending_activation))
     {
       _dbus_verbose ("Failed to add pending activation cancel hook to transaction\n");
@@ -1396,14 +1438,20 @@ bus_activation_activate_service (BusActivation  *activation,
   /* FIXME we need to support a full command line, not just a single
    * argv[0]
    */
-  
+
+  if (activated == TRUE) 
+    {
+      pending_activation->babysitter = NULL;
+      return TRUE;
+    }
+
   /* Now try to spawn the process */
   argv[0] = entry->exec;
   argv[1] = NULL;
 
   if (!_dbus_spawn_async_with_babysitter (&pending_activation->babysitter, argv,
-                                          child_setup, activation, 
-                                          error))
+					  child_setup, activation, 
+					  error))
     {
       _dbus_verbose ("Failed to spawn child\n");
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -1414,7 +1462,7 @@ bus_activation_activate_service (BusActivation  *activation,
   
   if (!_dbus_babysitter_set_watch_functions (pending_activation->babysitter,
                                              add_babysitter_watch,
-                                             remove_babysitter_watch,
+					     remove_babysitter_watch,
                                              NULL,
                                              pending_activation,
                                              NULL))
