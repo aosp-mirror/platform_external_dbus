@@ -5,3 +5,7 @@ Makefile.in
 *.lo
 *.la
 dbus-daemon-1
+*.bb
+*.bbg
+*.da
+*.gcov

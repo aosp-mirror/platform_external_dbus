@@ -64,6 +64,8 @@
 /** default timeout value when waiting for a message reply */
 #define DEFAULT_TIMEOUT_VALUE (15 * 1000)
 
+static dbus_bool_t _dbus_modify_sigpipe = TRUE;
+
 /** Opaque typedef for DBusDataSlot */
 typedef struct DBusDataSlot DBusDataSlot;
 /** DBusDataSlot is used to store application data on the connection */
@@ -480,6 +482,9 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   disconnect_link = _dbus_list_alloc_link (disconnect_message);
   if (disconnect_link == NULL)
     goto error;
+
+  if (_dbus_modify_sigpipe)
+    _dbus_disable_sigpipe ();
   
   connection->refcount = 1;
   connection->mutex = mutex;
@@ -1684,7 +1689,9 @@ _dbus_allocated_slots_init_lock (void)
  * Allocates an integer ID to be used for storing application-specific
  * data on any DBusConnection. The allocated ID may then be used
  * with dbus_connection_set_data() and dbus_connection_get_data().
- * If allocation fails, -1 is returned.
+ * If allocation fails, -1 is returned. Again, the allocated
+ * slot is global, i.e. all DBusConnection objects will
+ * have a slot with the given integer ID reserved.
  *
  * @returns -1 on failure, otherwise the data slot ID
  */
@@ -1863,6 +1870,18 @@ dbus_connection_get_data (DBusConnection   *connection,
   dbus_mutex_unlock (connection->mutex);
 
   return res;
+}
+
+/**
+ * This function sets a global flag for whether dbus_connection_new()
+ * will set SIGPIPE behavior to SIG_IGN.
+ *
+ * @param will_modify_sigpipe #TRUE to allow sigpipe to be set to SIG_IGN
+ */
+void
+dbus_connection_set_change_sigpipe (dbus_bool_t will_modify_sigpipe)
+{
+  _dbus_modify_sigpipe = will_modify_sigpipe;
 }
 
 /* This must be called with the connection lock not held to avoid

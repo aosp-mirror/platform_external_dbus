@@ -155,6 +155,8 @@ dbus_bool_t dbus_connection_set_data           (DBusConnection   *connection,
 void*       dbus_connection_get_data           (DBusConnection   *connection,
                                                 int               slot);
 
+void        dbus_connection_set_change_sigpipe (dbus_bool_t       will_modify_sigpipe); 
+
 void dbus_connection_set_max_message_size       (DBusConnection *connection,
                                                  long            size);
 long dbus_connection_get_max_message_size       (DBusConnection *connection);

@@ -9,3 +9,9 @@ echo-server
 echo-client
 bus-test
 unbase64
+*.bb
+*.bbg
+*.da
+*.gcov
+break-loader
+spawn-test

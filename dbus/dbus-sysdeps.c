@@ -1722,4 +1722,13 @@ _dbus_spawn_async (char      **argv,
   return FALSE;
 }
 
+/**
+ * signal (SIGPIPE, SIG_IGN);
+ */
+void
+_dbus_disable_sigpipe (void)
+{
+  signal (SIGPIPE, SIG_IGN);
+}
+
 /** @} end of sysdeps */

@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-bus.h  Convenience functions for communicating with the bus.
+/* dbus-bus.c  Convenience functions for communicating with the bus.
  *
  * Copyright (C) 2003  CodeFactory AB
  *

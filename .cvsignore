@@ -16,3 +16,7 @@ autom4te.cache
 config.guess
 config.h
 config.h.in
+*.bb
+*.bbg
+*.da
+*.gcov

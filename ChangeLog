@@ -1,3 +1,10 @@
+2003-02-16  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-connection.c (dbus_connection_set_change_sigpipe):
+	allow people to avoid setting SIGPIPE to SIG_IGN
+	(_dbus_connection_new_for_transport): disable SIGPIPE unless 
+	we've been asked not to
+
 2003-02-15  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-list.c: (_dbus_list_append_link),
