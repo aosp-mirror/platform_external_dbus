@@ -1,5 +1,12 @@
 2002-11-21  Havoc Pennington  <hp@redhat.com>
 
+	* doc/file-boilerplate.c: include both AFL and GPL boilerplate.
+
+	* COPYING: include the GPL as well, and license code 
+	under both AFL and GPL.
+
+2002-11-21  Havoc Pennington  <hp@redhat.com>
+
 	* acconfig.h: get rid of this
 
 	* autogen.sh (run_configure): add --no-configure option
