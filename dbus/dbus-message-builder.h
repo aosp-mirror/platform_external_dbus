@@ -28,6 +28,7 @@
 
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
+#include <dbus/dbus-string.h>
 
 DBUS_BEGIN_DECLS;
 

@@ -1470,6 +1470,13 @@ dbus_message_set_sender (DBusMessage  *message,
     }
 }
 
+/**
+ * Gets the service which originated this message,
+ * or #NULL if unknown or inapplicable.
+ *
+ * @param message the message
+ * @returns the service name or #NULL
+ */
 const char*
 dbus_message_get_sender (DBusMessage *message)
 {

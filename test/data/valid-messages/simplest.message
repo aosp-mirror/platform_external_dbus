@@ -1,0 +1,6 @@
+## simplest possible valid message
+
+## this does a LENGTH Header and LENGTH Body
+VALID_HEADER
+SET_LENGTH Header
+SET_LENGTH Body

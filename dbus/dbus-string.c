@@ -1369,6 +1369,41 @@ _dbus_string_equal_c_str (const DBusString *a,
   return TRUE;
 }
 
+/**
+ * Checks whether a string starts with the given C string.
+ *
+ * @param a the string
+ * @param c_str the C string
+ * @returns #TRUE if string starts with it
+ */
+dbus_bool_t
+_dbus_string_starts_with_c_str (const DBusString *a,
+                                const char       *c_str)
+{
+  const unsigned char *ap;
+  const unsigned char *bp;
+  const unsigned char *a_end;
+  const DBusRealString *real_a = (const DBusRealString*) a;
+  DBUS_GENERIC_STRING_PREAMBLE (real_a);
+
+  ap = real_a->str;
+  bp = (const unsigned char*) c_str;
+  a_end = real_a->str + real_a->len;
+  while (ap != a_end && *bp)
+    {
+      if (*ap != *bp)
+        return FALSE;
+      
+      ++ap;
+      ++bp;
+    }
+
+  if (*bp == '\0')
+    return TRUE;
+  else
+    return FALSE;
+}
+
 static const signed char base64_table[] = {
   /* 0 */ 'A',
   /* 1 */ 'B',

@@ -1,5 +1,15 @@
 2003-01-26  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-message-builder.c: implement, completely untested.
+
+	* test/data/*: add data to be used in testing. 
+	".message" files are our simple loadable text format.
+	".message-raw" will be binary dumps of messages.
+
+	* dbus/dbus-string.c (_dbus_string_starts_with_c_str): new
+
+2003-01-26  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-sysdeps.c (_dbus_file_get_contents): new function
 
 	* dbus/dbus-errors.c (dbus_result_to_string): add
