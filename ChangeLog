@@ -1,3 +1,13 @@
+2004-08-10  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* bus/bus.c (process_config_first_time_only): get rid of an unused
+	DBusError that was causing a memoy leak (bug #989).
+
+	* dbus/dbus-keyring.c, dbus/dbus-message.c:
+	fix compilation on Solaris/Forte C (bug #974)
+
+	* bus/main.c (main): plug two minuscule memleaks.
+
 2004-08-10  Havoc Pennington  <hp@redhat.com>
 
 	* doc/dbus-tutorial.xml: add some more info on GLib bindings

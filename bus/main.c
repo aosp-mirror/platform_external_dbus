@@ -351,6 +351,7 @@ main (int argc, char **argv)
           print_addr_fd = val;
         }
     }
+  _dbus_string_free (&addr_fd);
 
   print_pid_fd = -1;
   if (print_pid)
@@ -372,6 +373,7 @@ main (int argc, char **argv)
           print_pid_fd = val;
         }
     }
+  _dbus_string_free (&pid_fd);
 
   if (!bus_selinux_init ())
     {

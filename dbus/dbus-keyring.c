@@ -291,7 +291,7 @@ add_new_key (DBusKey  **keys_p,
   DBusKey *new;
   DBusString bytes;
   int id;
-  unsigned long timestamp;
+  long timestamp;
   const unsigned char *s;
   dbus_bool_t retval;
   DBusKey *keys;

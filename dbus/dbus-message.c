@@ -5480,8 +5480,10 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
 	  return TRUE;
         }      
       
-      header_len_unsigned = _dbus_unpack_uint32 (byte_order, header_data + 4);
-      body_len_unsigned = _dbus_unpack_uint32 (byte_order, header_data + 8);
+      header_len_unsigned = _dbus_unpack_uint32 (byte_order, 
+                                                 (const unsigned char *) header_data + 4);
+      body_len_unsigned = _dbus_unpack_uint32 (byte_order, 
+                                               (const unsigned char *) header_data + 8);
 
       if (header_len_unsigned < 16)
         {

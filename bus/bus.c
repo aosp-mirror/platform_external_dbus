@@ -282,17 +282,14 @@ process_config_first_time_only (BusContext      *context,
     {
       DBusString u;
       DBusStat stbuf;
-      DBusError tmp_error;
       
-      dbus_error_init (&tmp_error);
       _dbus_string_init_const (&u, pidfile);
       
-      if (_dbus_stat (&u, &stbuf, &tmp_error))
+      if (_dbus_stat (&u, &stbuf, NULL))
 	{
 	  dbus_set_error (error, DBUS_ERROR_FAILED,
 			  "The pid file \"%s\" exists, if the message bus is not running, remove this file",
 			  pidfile);
-	  dbus_error_free (&tmp_error);
 	  goto failed;
 	}
     }
