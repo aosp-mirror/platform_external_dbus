@@ -34,10 +34,6 @@ Important for 1.0
  - in dbus-keyring.c, enforce that the keyring dir is not 
    world readable/writable
 
- - the "server addresses" section of the spec is busted; need to 
-   support escaping in the addresses, be sure multiple addresses 
-   in one env variable work, etc.
-
  - Ping isn't handled
 
 Important for 1.0 GLib Bindings
