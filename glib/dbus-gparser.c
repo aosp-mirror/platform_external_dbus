@@ -308,6 +308,7 @@ parse_interface (Parser      *parser,
                  GError     **error)
 {
   const char *name;
+  const char *c_name;
   InterfaceInfo *iface;
   NodeInfo *top;
   
@@ -329,6 +330,7 @@ parse_interface (Parser      *parser,
   if (!locate_attributes (element_name, attribute_names,
                           attribute_values, error,
                           "name", &name,
+                          "c_name", &c_name,
                           NULL))
     return FALSE;
 
@@ -344,6 +346,8 @@ parse_interface (Parser      *parser,
   top = parser->node_stack->data;
   
   iface = interface_info_new (name);
+  if (c_name)
+    interface_info_set_binding_name (iface, "C", c_name);
   node_info_add_interface (top, iface);
   interface_info_unref (iface);
 
@@ -360,6 +364,7 @@ parse_method (Parser      *parser,
               GError     **error)
 {
   const char *name;
+  const char *c_name;
   MethodInfo *method;
   NodeInfo *top;
   
@@ -381,6 +386,7 @@ parse_method (Parser      *parser,
   if (!locate_attributes (element_name, attribute_names,
                           attribute_values, error,
                           "name", &name,
+                          "c_name", &c_name,
                           NULL))
     return FALSE;
 
@@ -396,6 +402,8 @@ parse_method (Parser      *parser,
   top = parser->node_stack->data;
   
   method = method_info_new (name);
+  if (c_name)
+    method_info_set_binding_name (method, "C", c_name);
   interface_info_add_method (parser->interface, method);
   method_info_unref (method);
 

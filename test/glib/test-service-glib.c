@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <glib/gi18n.h>
+#include <glib-object.h>
+#include <glib/gquark.h>
 
 typedef struct MyObject MyObject;
 typedef struct MyObjectClass MyObjectClass;
@@ -29,6 +31,28 @@ struct MyObjectClass
 #define MY_OBJECT_GET_CLASS(obj)    (G_TYPE_INSTANCE_GET_CLASS ((obj), MY_TYPE_OBJECT, MyObjectClass))
 
 G_DEFINE_TYPE(MyObject, my_object, G_TYPE_OBJECT)
+
+typedef enum
+{
+  MY_OBJECT_ERROR_FOO,
+  MY_OBJECT_ERROR_BAR
+} MyObjectError;
+
+#define MY_OBJECT_ERROR my_object_error_quark ()
+
+gboolean my_object_do_nothing (MyObject *obj, GError **error);
+
+gboolean my_object_increment (MyObject *obj, gint32 x, int *ret, GError **error);
+
+gboolean my_object_throw_error (MyObject *obj, GError **error);
+
+gboolean my_object_uppercase (MyObject *obj, const char *str, char **ret, GError **error);
+
+gboolean my_object_many_args (MyObject *obj, guint32 x, const char *str, double trouble, double *d_ret, char **str_ret, GError **error);
+
+#include "test-service-glib-glue.h"
+
+GQuark my_object_error_quark (void);
 
 /* Properties */
 enum
@@ -115,6 +139,54 @@ my_object_class_init (MyObjectClass *mobject_class)
                                                         "default value",
                                                         G_PARAM_READWRITE));
 }
+
+GQuark
+my_object_error_quark (void)
+{
+  static GQuark quark = 0;
+  if (!quark)
+    quark = g_quark_from_static_string ("my_object_error");
+
+  return quark;
+}
+
+gboolean
+my_object_do_nothing (MyObject *obj, GError **error)
+{
+  return TRUE;
+}
+
+gboolean
+my_object_increment (MyObject *obj, gint32 x, int *ret, GError **error)
+{
+  *ret = x +1;
+  return TRUE;
+}
+
+gboolean
+my_object_throw_error (MyObject *obj, GError **error)
+{
+  g_set_error (error,
+	       MY_OBJECT_ERROR,
+	       MY_OBJECT_ERROR_FOO,
+	       "this method always loses");
+  return FALSE;
+}
+
+gboolean
+my_object_uppercase (MyObject *obj, const char *str, char **ret, GError **error)
+{
+  *ret = g_ascii_strup (str, -1);
+  return TRUE;
+}
+
+gboolean
+my_object_many_args (MyObject *obj, guint32 x, const char *str, double trouble, double *d_ret, char **str_ret, GError **error)
+{
+  *d_ret = trouble + (x * 2);
+  *str_ret = g_ascii_strup (str, -1);
+  return TRUE;
+}
      
 static GMainLoop *loop;
 
@@ -148,8 +220,10 @@ main (int argc, char **argv)
 
   obj = g_object_new (MY_TYPE_OBJECT, NULL);
 
+  dbus_g_object_class_install_info (G_OBJECT_GET_CLASS (obj),
+				    &dbus_glib_my_object_object_info);
   dbus_g_connection_register_g_object (connection,
-                                       "/org/freedesktop/my_test_object",
+                                       "/org/freedesktop/DBus/Tests/MyTestObject",
                                        obj);
 
   driver_proxy = dbus_g_proxy_new_for_name (connection,

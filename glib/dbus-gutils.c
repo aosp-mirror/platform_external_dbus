@@ -125,6 +125,34 @@ _dbus_gutils_type_to_string (int type)
     }
 }
 
+char*
+_dbus_gutils_wincaps_to_uscore (const char *caps)
+{
+  const char *p;
+  GString *str;
+
+  str = g_string_new (NULL);
+  p = caps;
+  while (*p)
+    {
+      if (g_ascii_isupper (*p))
+        {
+          if (str->len > 0 &&
+              (str->len < 2 || str->str[str->len-2] != '_'))
+            g_string_append_c (str, '_');
+          g_string_append_c (str, g_ascii_tolower (*p));
+        }
+      else
+        {
+          g_string_append_c (str, *p);
+        }
+      ++p;
+    }
+
+  return g_string_free (str, FALSE);
+}
+
+
 #ifdef DBUS_BUILD_TESTS
 
 /**

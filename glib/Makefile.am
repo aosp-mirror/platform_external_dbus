@@ -39,6 +39,9 @@ libdbus_gtool_la_LIBADD = libdbus-glib-1.la
 bin_PROGRAMS=dbus-binding-tool
 
 dbus_binding_tool_SOURCES =			\
+	dbus-binding-tool-glib.h		\
+	dbus-binding-tool-glib.c		\
+	dbus-glib-tool.h			\
 	dbus-glib-tool.c
 
 dbus_binding_tool_LDADD= -lexpat libdbus-gtool.la

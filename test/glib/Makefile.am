@@ -40,7 +40,20 @@ test_dbus_glib_SOURCES=				\
 test_dbus_glib_LDADD= $(top_builddir)/glib/libdbus-glib-1.la
 
 test_service_glib_SOURCES=				\
-	test-service-glib.c
+	test-service-glib.c				\
+	test-service-glib-glue.h
+
+BUILT_SOURCES = test-service-glib-glue.h test-service-glib-bindings.h
+
+test-service-glib-glue.h: $(top_builddir)/glib/dbus-binding-tool test-service-glib.xml
+	$(top_builddir)/glib/dbus-binding-tool --mode=glib-server $(srcdir)/test-service-glib.xml > test-service-glib-glue.h.tmp
+	mv test-service-glib-glue.h.tmp test-service-glib-glue.h
+
+test-service-glib-bindings.h: $(top_builddir)/glib/dbus-binding-tool test-service-glib.xml
+	$(top_builddir)/glib/dbus-binding-tool --mode=glib-client $(srcdir)/test-service-glib.xml > test-service-glib-bindings.h.tmp
+	mv test-service-glib-bindings.h.tmp test-service-glib-bindings.h
+
+CLEANFILES = test-service-glib-glue.h test-service-glib-glue.h.tmp test-service-glib-bindings.h test-service-glib-bindings.h.tmp
 
 test_service_glib_LDADD= $(top_builddir)/glib/libdbus-glib-1.la
 

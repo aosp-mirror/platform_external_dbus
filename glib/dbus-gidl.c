@@ -43,6 +43,7 @@ struct NodeInfo
 struct InterfaceInfo
 {
   BaseInfo base;
+  GHashTable *bindings;
   /* Since we have BaseInfo now these could be one list */
   GSList *methods;
   GSList *signals;
@@ -52,6 +53,7 @@ struct InterfaceInfo
 struct MethodInfo
 {
   BaseInfo base;
+  GHashTable *bindings;
   GSList *args;
 };
 
@@ -74,6 +76,23 @@ struct ArgInfo
   int type;
   ArgDirection direction;
 };
+
+static void
+get_hash_key (gpointer key, gpointer value, gpointer data)
+{
+  GSList **list = data;
+  *list = g_slist_prepend (*list, key);
+}
+
+static GSList *
+get_hash_keys (GHashTable *table)
+{
+  GSList *ret = NULL;
+
+  g_hash_table_foreach (table, get_hash_key, &ret);
+
+  return ret;
+}
 
 BaseInfo *
 base_info_ref (BaseInfo *info)
@@ -326,6 +345,9 @@ interface_info_new (const char *name)
   info->base.refcount = 1;
   info->base.name = g_strdup (name);
   info->base.type = INFO_TYPE_INTERFACE;
+  info->bindings = g_hash_table_new_full (g_str_hash, g_str_equal,
+					  (GDestroyNotify) g_free,
+					  (GDestroyNotify) g_free);
   
   return info;
 }
@@ -344,6 +366,7 @@ interface_info_unref (InterfaceInfo *info)
   info->base.refcount -= 1;
   if (info->base.refcount == 0)
     {
+      g_hash_table_destroy (info->bindings);
       free_method_list (&info->methods);
       free_signal_list (&info->signals);
       free_property_list (&info->properties);
@@ -355,6 +378,19 @@ const char*
 interface_info_get_name (InterfaceInfo *info)
 {
   return info->base.name;
+}
+
+GSList *
+interface_info_get_binding_names (InterfaceInfo *info)
+{
+  return get_hash_keys (info->bindings);
+}
+
+const char*
+interface_info_get_binding_name (InterfaceInfo *info,
+				 const char    *binding_type)
+{
+  return g_hash_table_lookup (info->bindings, binding_type);
 }
 
 GSList*
@@ -373,6 +409,16 @@ GSList*
 interface_info_get_properties (InterfaceInfo *info)
 {
   return info->properties;
+}
+
+void
+interface_info_set_binding_name (InterfaceInfo *info,
+				 const char    *binding_type,
+				 const char    *bound_name)
+{
+  g_hash_table_insert (info->bindings,
+		       g_strdup (binding_type),
+		       g_strdup (bound_name));
 }
 
 void
@@ -424,6 +470,9 @@ method_info_new (const char *name)
   info->base.refcount = 1;
   info->base.name = g_strdup (name);
   info->base.type = INFO_TYPE_METHOD;
+  info->bindings = g_hash_table_new_full (g_str_hash, g_str_equal,
+					  (GDestroyNotify) g_free,
+					  (GDestroyNotify) g_free);
   
   return info;
 }
@@ -442,6 +491,7 @@ method_info_unref (MethodInfo *info)
   info->base.refcount -= 1;
   if (info->base.refcount == 0)
     {
+      g_hash_table_destroy (info->bindings);
       free_arg_list (&info->args);
       base_info_free (info);
     }
@@ -451,6 +501,19 @@ const char*
 method_info_get_name (MethodInfo *info)
 {
   return info->base.name;
+}
+
+GSList *
+method_info_get_binding_names (MethodInfo *info)
+{
+  return get_hash_keys (info->bindings);
+}
+
+const char*
+method_info_get_binding_name (MethodInfo *info,
+			      const char *binding_type)
+{
+  return g_hash_table_lookup (info->bindings, binding_type);
 }
 
 GSList*
@@ -479,6 +542,16 @@ args_sort_by_direction (const void *a,
   else
     return 1;
 }                  
+
+void
+method_info_set_binding_name (MethodInfo  *info,
+			      const char  *binding_type,
+			      const char  *bound_name)
+{
+  g_hash_table_insert (info->bindings,
+		       g_strdup (binding_type),
+		       g_strdup (bound_name));
+}
 
 void
 method_info_add_arg (MethodInfo    *info,

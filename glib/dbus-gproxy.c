@@ -25,6 +25,7 @@
 #include "dbus-gutils.h"
 #include "dbus-gmarshal.h"
 #include "dbus-gvalue.h"
+#include "dbus-gobject.h"
 #include <string.h>
 
 /**
@@ -900,11 +901,8 @@ marshal_dbus_message_to_g_marshaller (GClosure     *closure,
    * marshaller.
    */
 #define MAX_SIGNATURE_ARGS 20
-  GValue expanded[MAX_SIGNATURE_ARGS];
-  int arg;
-  int i;
-  DBusMessageIter iter;
-  int dtype;
+  GValueArray *value_array;
+  GValue value = {0, };
   GSignalCMarshaller c_marshaller;
   DBusGProxy *proxy;
   DBusMessage *message;
@@ -924,44 +922,18 @@ marshal_dbus_message_to_g_marshaller (GClosure     *closure,
 
   g_return_if_fail (c_marshaller != NULL);
   
-  memset (&expanded[0], 0, sizeof (expanded));
-  
-  arg = 0;
-      
-  g_value_init (&expanded[arg], G_TYPE_FROM_INSTANCE (proxy));
-  g_value_set_instance (&expanded[arg], proxy);
-  ++arg;
-  
-  dbus_message_iter_init (message, &iter);
-  
-  while ((dtype = dbus_message_iter_get_arg_type (&iter)) != DBUS_TYPE_INVALID)
-    {
-      if (arg == MAX_SIGNATURE_ARGS)
-        {
-          g_warning ("Don't support more than %d signal args\n", MAX_SIGNATURE_ARGS);
-          goto out;
-        }
-      
-      if (!dbus_gvalue_demarshal (&iter, &expanded[arg]))
-        {
-          g_warning ("Unable to convert arg type %d to GValue to emit DBusGProxy signal", dtype);
-          goto out;
-        }
-      
-      ++arg;
-      dbus_message_iter_next (&iter);
-    }
+  value_array = dbus_glib_marshal_dbus_message_to_gvalue_array (message);
 
-  (* c_marshaller) (closure, return_value, arg, &expanded[0],
-                    invocation_hint, marshal_data);
+  g_return_if_fail (value_array != NULL);
   
- out:
-  i = 0;
-  while (i < arg)
-    {
-      g_value_unset (&expanded[i]);
-      ++i;
-    }
+  g_value_init (&value, G_TYPE_FROM_INSTANCE (proxy));
+  g_value_set_instance (&value, proxy);
+  g_value_array_prepend (value_array, &value);
+
+  (* c_marshaller) (closure, return_value, value_array->n_values,
+		    value_array->values, invocation_hint, marshal_data);
+  
+  g_value_array_free (value_array);
 }
 
 static void

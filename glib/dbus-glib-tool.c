@@ -25,6 +25,7 @@
 #include "dbus-gidl.h"
 #include "dbus-gparser.h"
 #include "dbus-gutils.h"
+#include "dbus-binding-tool-glib.h"
 #include <locale.h>
 #include <libintl.h>
 #define _(x) dgettext (GETTEXT_PACKAGE, x)
@@ -36,6 +37,13 @@
 #ifdef DBUS_BUILD_TESTS
 static void run_all_tests (const char *test_data_dir);
 #endif
+
+typedef enum {
+  DBUS_BINDING_OUTPUT_NONE,
+  DBUS_BINDING_OUTPUT_PRETTY,
+  DBUS_BINDING_OUTPUT_GLIB_SERVER,
+  DBUS_BINDING_OUTPUT_GLIB_CLIENT,
+} DBusBindingOutputMode;
 
 static void
 indent (int depth)
@@ -99,10 +107,22 @@ pretty_print (BaseInfo *base,
     case INFO_TYPE_INTERFACE:
       {
         InterfaceInfo *i = (InterfaceInfo*) base;
+	GSList *binding_types, *elt;
 
         g_assert (name != NULL);
 
         printf (_("interface \"%s\" {\n"), name);
+
+	binding_types = interface_info_get_binding_names (i);
+	for (elt = binding_types; elt; elt = elt->next)
+	  {
+	    const char *binding_type = elt->data;
+	    const char *binding_name = interface_info_get_binding_name (i, binding_type);
+
+	    printf (_(" (binding \"%s\": \"%s\") "),
+		    binding_type, binding_name);
+	  }
+	g_slist_free (binding_types);
 
         pretty_print_list (interface_info_get_methods (i), depth + 1);
         pretty_print_list (interface_info_get_signals (i), depth + 1);
@@ -115,10 +135,21 @@ pretty_print (BaseInfo *base,
     case INFO_TYPE_METHOD:
       {
         MethodInfo *m = (MethodInfo*) base;
+	GSList *binding_types, *elt;
 
         g_assert (name != NULL);
 
-        printf (_("method \"%s\" (\n"), name);
+	binding_types = method_info_get_binding_names (m);
+        printf (_("method \"%s\""), name);
+	for (elt = binding_types; elt; elt = elt->next)
+	  {
+	    const char *binding_type = elt->data;
+	    const char *binding_name = method_info_get_binding_name (m, binding_type);
+
+	    printf (_(" (binding \"%s\": \"%s\") "),
+		    binding_type, binding_name);
+	  }
+	g_slist_free (binding_types);
 
         pretty_print_list (method_info_get_args (m), depth + 1);
 
@@ -174,6 +205,16 @@ pretty_print (BaseInfo *base,
     }
 }
 
+GQuark
+dbus_binding_tool_error_quark (void)
+{
+  static GQuark quark = 0;
+  if (!quark)
+    quark = g_quark_from_static_string ("dbus_binding_tool_error");
+
+  return quark;
+}
+
 static void
 usage (int ecode)
 {
@@ -186,7 +227,7 @@ version (void)
 {
   printf ("D-BUS Binding Tool %s\n"
           "Copyright (C) 2003-2005 Red Hat, Inc.\n"
-          "This is free software; xsee the source for copying conditions.\n"
+          "This is free software; see the source for copying conditions.\n"
           "There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n",
           VERSION);
   exit (0);
@@ -198,16 +239,20 @@ main (int argc, char **argv)
   const char *prev_arg;
   int i;
   GSList *files;
+  DBusBindingOutputMode outputmode;
   gboolean end_of_args;
   GSList *tmp;
-  gboolean just_pretty_print;
+  GIOChannel *channel;
+  GError *error;
 
   setlocale (LC_ALL, "");
   bindtextdomain (GETTEXT_PACKAGE, DBUS_LOCALEDIR);
   bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
   textdomain (GETTEXT_PACKAGE); 
 
-  just_pretty_print = FALSE;
+  g_type_init ();
+
+  outputmode = DBUS_BINDING_OUTPUT_NONE;
   end_of_args = FALSE;
   files = NULL;
   prev_arg = NULL;
@@ -228,8 +273,18 @@ main (int argc, char **argv)
           else if (strcmp (arg, "--self-test") == 0)
             run_all_tests (NULL);
 #endif /* DBUS_BUILD_TESTS */
-          else if (strcmp (arg, "--pretty-print") == 0)
-            just_pretty_print = TRUE;
+          else if (strncmp (arg, "--mode=", 7) == 0)
+            {
+	      const char *mode = arg + 7;
+	      if (!strcmp (mode, "pretty"))
+		outputmode = DBUS_BINDING_OUTPUT_PRETTY;
+	      else if (!strcmp (mode, "glib-server"))
+		outputmode = DBUS_BINDING_OUTPUT_GLIB_SERVER;
+	      else if (!strcmp (mode, "glib-client"))
+		outputmode = DBUS_BINDING_OUTPUT_GLIB_CLIENT;
+	      else
+		usage (1);
+	    }
           else if (arg[0] == '-' &&
                    arg[1] == '-' &&
                    arg[2] == '\0')
@@ -249,6 +304,15 @@ main (int argc, char **argv)
       prev_arg = arg;
       
       ++i;
+    }
+
+  error = NULL;
+  channel = g_io_channel_unix_new (fileno (stdout));
+  if (!g_io_channel_set_encoding (channel, NULL, &error))
+    {
+      fprintf (stderr, _("Couldn't set channel encoding to NULL: %s\n"),
+	       error->message);
+      exit (1);
     }
 
   files = g_slist_reverse (files);
@@ -273,26 +337,42 @@ main (int argc, char **argv)
           g_error_free (error);
           exit (1);
         }
-      else if (just_pretty_print)
-        {
-          pretty_print ((BaseInfo*) node, 0);
-        }
       else
-        {
-          /* FIXME process the file to generate metadata variable
-           * definition rather than just printing it.
-           * i.e. we want to create DBusGObjectInfo.
-           * This probably requires extending the introspection XML format to
-           * allow a "native function name":
-           *  <method name="Frobate" native="my_object_frobate">
-           */
-          pretty_print ((BaseInfo*) node, 0);
-        }
+	{
+	  switch (outputmode)
+	    {
+	    case DBUS_BINDING_OUTPUT_PRETTY:
+	      pretty_print ((BaseInfo*) node, 0);
+	      break;
+	    case DBUS_BINDING_OUTPUT_GLIB_SERVER:
+	      if (!dbus_binding_tool_output_glib_server ((BaseInfo *) node, channel, &error))
+		{
+		  g_error (_("Compilation failed: %s\n"), error->message);
+		  exit (1);
+		}
+	      break;
+	    case DBUS_BINDING_OUTPUT_GLIB_CLIENT:
+	      if (!dbus_binding_tool_output_glib_client ((BaseInfo *) node, channel, &error))
+		{
+		  g_error (_("Compilation failed: %s\n"), error->message);
+		  exit (1);
+		}
+	      break;
+	    case DBUS_BINDING_OUTPUT_NONE:
+	      break;
+	    }
+	}
 
       if (node)
         node_info_unref (node);
       
       tmp = tmp->next;
+    }
+
+  if (!g_io_channel_flush (channel, &error))
+    {
+      g_error (_("Failed to flush IO channel: %s"), error->message);
+      exit (1);
     }
   
   return 0;

@@ -2,6 +2,7 @@
 /* dbus-gvalue.c GValue to-from DBusMessageIter
  *
  * Copyright (C) 2004 Ximian, Inc.
+ * Copyright (C) 2005 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -23,20 +24,178 @@
 
 #include <dbus-gvalue.h>
 
+/* This is slightly evil, we don't use g_value_set_foo() functions */
+#define MAP_BASIC_INIT(d_t, g_t)                                     \
+    case DBUS_TYPE_##d_t:                                       \
+      g_value_init (value, G_TYPE_##g_t);                       \
+      break
+
+gboolean
+dbus_gvalue_init      (int     type,
+		       GValue *value)
+{
+  gboolean can_convert;
+
+  can_convert = TRUE;
+
+  switch (type)
+    {
+      MAP_BASIC_INIT (BOOLEAN, BOOLEAN);
+      MAP_BASIC_INIT (BYTE,    UCHAR);
+      MAP_BASIC_INIT (INT32,   INT);
+      MAP_BASIC_INIT (UINT32,  UINT);
+      MAP_BASIC_INIT (INT64,   INT64);
+      MAP_BASIC_INIT (UINT64,  UINT64);
+      MAP_BASIC_INIT (DOUBLE,  DOUBLE);
+
+    case DBUS_TYPE_INT16:
+        g_value_init (value, G_TYPE_INT);
+      break;
+    case DBUS_TYPE_UINT16:
+        g_value_init (value, G_TYPE_UINT);
+      break;
+      
+    case DBUS_TYPE_STRING:
+    case DBUS_TYPE_OBJECT_PATH:
+    case DBUS_TYPE_SIGNATURE:
+        g_value_init (value, G_TYPE_STRING);
+      break;
+      
+    case DBUS_TYPE_STRUCT:
+    case DBUS_TYPE_ARRAY:
+    case DBUS_TYPE_VARIANT:
+    default:
+      can_convert = FALSE;
+    }
+#undef MAP_BASIC_INIT
+  return can_convert;
+}
+
+const char *
+dbus_gvalue_genmarshal_name_from_type (int type)
+{
+  switch (type)
+    {
+    case DBUS_TYPE_BOOLEAN:
+      return "BOOLEAN";
+    case DBUS_TYPE_BYTE:
+      return "UCHAR";
+    case DBUS_TYPE_INT32:
+      return "INT";
+    case DBUS_TYPE_UINT32:
+      return "UINT";
+    case DBUS_TYPE_INT64:
+      return "INT64";
+    case DBUS_TYPE_UINT64:
+      return "UINT64";
+    case DBUS_TYPE_DOUBLE:
+      return "DOUBLE";
+    case DBUS_TYPE_INT16:
+      return "INT";
+      break;
+    case DBUS_TYPE_UINT16:
+      return "UINT";
+    case DBUS_TYPE_STRING:
+    case DBUS_TYPE_OBJECT_PATH:
+    case DBUS_TYPE_SIGNATURE:
+      return "STRING";
+      
+    case DBUS_TYPE_STRUCT:
+    case DBUS_TYPE_ARRAY:
+    case DBUS_TYPE_VARIANT:
+      return NULL;
+    }
+  return NULL;
+}
+
+const char *
+dbus_gvalue_binding_type_from_type (int type)
+{
+#define STRINGIFY(x) \
+  case x: \
+    return (#x)
+  
+  switch (type)
+    {
+      STRINGIFY(DBUS_TYPE_BOOLEAN);
+      STRINGIFY(DBUS_TYPE_BYTE);
+      STRINGIFY(DBUS_TYPE_INT32);
+      STRINGIFY(DBUS_TYPE_UINT32);
+      STRINGIFY(DBUS_TYPE_INT64);
+      STRINGIFY(DBUS_TYPE_UINT64);
+      STRINGIFY(DBUS_TYPE_DOUBLE);
+    case DBUS_TYPE_INT16:
+      return "DBUS_TYPE_INT32";
+    case DBUS_TYPE_UINT16:
+      return "DBUS_TYPE_UINT32";
+    STRINGIFY(DBUS_TYPE_STRING);
+    STRINGIFY(DBUS_TYPE_OBJECT_PATH);
+    STRINGIFY(DBUS_TYPE_SIGNATURE);
+
+    case DBUS_TYPE_STRUCT:
+    case DBUS_TYPE_ARRAY:
+    case DBUS_TYPE_VARIANT:
+      return NULL;
+    }
+#undef STRINGIFY
+  return NULL;
+}
+
+const char *
+dbus_gvalue_ctype_from_type (int type, gboolean in)
+{
+  switch (type)
+    {
+    case DBUS_TYPE_BOOLEAN:
+      return "gboolean";
+    case DBUS_TYPE_BYTE:
+      return "guchar";
+    case DBUS_TYPE_INT32:
+      return "gint32";
+    case DBUS_TYPE_UINT32:
+      return "guint32";
+    case DBUS_TYPE_INT64:
+      return "gint64";
+    case DBUS_TYPE_UINT64:
+      return "guint64";
+    case DBUS_TYPE_DOUBLE:
+      return "gdouble";
+    case DBUS_TYPE_INT16:
+      return "gint";
+      break;
+    case DBUS_TYPE_UINT16:
+      return "guint";
+    case DBUS_TYPE_STRING:
+    case DBUS_TYPE_OBJECT_PATH:
+    case DBUS_TYPE_SIGNATURE:
+      /* FIXME - kind of a hack */
+      if (in)
+	return "const char *";
+      else
+	return "char *";
+    case DBUS_TYPE_STRUCT:
+    case DBUS_TYPE_ARRAY:
+    case DBUS_TYPE_VARIANT:
+      return NULL;
+    }
+  return NULL;
+}
+
 gboolean
 dbus_gvalue_demarshal (DBusMessageIter *iter, GValue *value)
 {
   gboolean can_convert = TRUE;
 
-  /* This is slightly evil, we don't use g_value_set_foo() functions */
+  g_assert (sizeof (dbus_bool_t) == sizeof (value->data[0].v_int));
+
+  dbus_gvalue_init (dbus_message_iter_get_arg_type (iter), value);
+  
+/* This is slightly evil, we don't use g_value_set_foo() functions */
 #define MAP_BASIC(d_t, g_t)                                     \
     case DBUS_TYPE_##d_t:                                       \
-      g_value_init (value, G_TYPE_##g_t);                       \
       dbus_message_iter_get_basic (iter, &value->data[0]);      \
       break
 
-  g_assert (sizeof (dbus_bool_t) == sizeof (value->data[0].v_int));
-  
   switch (dbus_message_iter_get_arg_type (iter))
     {
       MAP_BASIC (BOOLEAN, BOOLEAN);
@@ -50,7 +209,6 @@ dbus_gvalue_demarshal (DBusMessageIter *iter, GValue *value)
     case DBUS_TYPE_INT16:
       {
         dbus_int16_t v;
-        g_value_init (value, G_TYPE_INT);
         dbus_message_iter_get_basic (iter, &v);
         g_value_set_int (value, v);
       }
@@ -58,7 +216,6 @@ dbus_gvalue_demarshal (DBusMessageIter *iter, GValue *value)
     case DBUS_TYPE_UINT16:
       {
         dbus_uint16_t v;
-        g_value_init (value, G_TYPE_UINT);
         dbus_message_iter_get_basic (iter, &v);
         g_value_set_uint (value, v);
       }
@@ -69,8 +226,6 @@ dbus_gvalue_demarshal (DBusMessageIter *iter, GValue *value)
     case DBUS_TYPE_SIGNATURE:
       {
         const char *s;
-
-        g_value_init (value, G_TYPE_STRING);
 
         dbus_message_iter_get_basic (iter, &s);
         g_value_set_string (value, s);

@@ -34,6 +34,7 @@ G_BEGIN_DECLS
 char      **_dbus_gutils_split_path     (const char *path);
 const char *_dbus_gutils_type_to_string (int         type);
 
+char       *_dbus_gutils_wincaps_to_uscore (const char *uscore);
 
 /* These munge the pointer to enforce that a plain cast won't work,
  * accessor functions must be used; i.e. to ensure the ABI

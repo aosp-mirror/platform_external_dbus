@@ -1,3 +1,132 @@
+2005-02-17  Colin Walters  <walters@verbum.org>
+	
+	This patch is based on initial work from
+	Paul Kuliniewicz <kuliniew@purdue.edu>.
+
+	* glib/dbus-gvalue.c (dbus_gvalue_init): New function; move
+	initialization of GValue from dbus type to here.
+	(dbus_gvalue_genmarshal_name_from_type): New function; generates a string
+	for the "glib-genmarshal" program from a DBus type.
+	(dbus_gvalue_binding_type_from_type): New function; turns a DBus type
+	into the C name for it we use in the glib bindings.
+	(dbus_gvalue_ctype_from_type): New function; maps a DBus type into a
+	glib C type (not GValue).
+	(dbus_gvalue_demarshal): invoke dbus_gvalue_init.
+
+	* glib/dbus-gutils.c (_dbus_gutils_wincaps_to_uscore): Moved here
+	from dbus-gobject.c.
+
+	* glib/dbus-gutils.h: Prototype it.
+
+	* glib/dbus-gproxy.c: Include new dbus-gobject.h.
+	(marshal_dbus_message_to_g_marshaller): Use new shared function
+	dbus_glib_marshal_dbus_message_to_gvalue_array.
+
+	* glib/dbus-gparser.c (parse_interface, parse_method): Handle c_name attribute.
+	Will be changed once we have annotations.
+
+	* glib/dbus-gobject.c: Change info_hash_mutex from GStaticMutex to
+	GStaticRWLock.  Callers updated.
+	(wincaps_to_uscore): Move to dbus-gutils.c.  Callers updated.
+	(string_table_next): New function for iterating over zero-terminated
+	string value array.
+	(string_table_lookup): New function; retrieves specific entry in
+	array.
+	(get_method_data): New function; look up method data in object data chunk.
+	(object_error_domain_prefix_from_object_info)
+	(object_error_code_from_object_info): New functions, but not implemented yet.
+	(method_interface_from_object_info): New function; retrieve interface name.
+	(method_name_from_object_info): New function; retrieve method name.
+	(method_arg_info_from_object_info): New function; retrieve argument data.
+	(arg_iterate): New function; iterates over serialized argument data.
+	(method_dir_signature_from_object_info): New function; returns a
+	GString holding type signature for arguments for just one
+	direction (input or output).
+	(method_input_signature_from_object_info)
+	(method_output_signature_from_object_info): New functions.
+	(dbus_glib_marshal_dbus_message_to_gvalue_array): New shared function;
+	converts dbus message arguments into a GValue array.  Used for both
+	signal handling and method invocation.
+	(struct DBusGlibWriteIterfaceData): New utility structure.
+	(write_interface): New function; generate introspection XML for
+	an interface.
+	(introspect_interfaces): New function; gathers all interface->methods,
+	generates introspection XML for them.
+	(handle_introspect): Invoke introspect_interfaces.
+	(get_object_property): Be sure to zero-initalize stack-allocated GValue.
+	(lookup_object_and_method): New function; examines an incoming message
+	and attempts to match it up (via interface, method name, and argument
+	signature) with a known object and method.
+	(gerror_domaincode_to_dbus_error_name): New function; converts a
+	GError domain and code into a DBus error name.  Needs GError data
+	added to object introspection to work well.
+	(gerror_to_dbus_error_message): Creates a DBusMessage error return from
+	GError.
+	(invoke_object_method): New function to invoke an object method
+	looked up via lookup_object_and_method.  Parses the incoming
+	message, turns it into a GValue array, then invokes the marshaller
+	specified in the DBusGMethodInfo.  Creates a new message with
+	either return values or error message as appropriate.
+	(gobject_message_function): Invoke lookup_object_and_method and
+	invoke_object_method.
+
+	* glib/dbus-glib-tool.c: Include dbus-binding-tool-glib.h.
+	(enum DBusBindingOutputMode): New enum for binding output modes.
+	(pretty_print): Print binding names.
+	(dbus_binding_tool_error_quark): GError bits.
+	(version): Fix typo.
+	(main): Create GIOChannel for output.  Parse new --mode argument,
+	possible values are "pretty-print", "glib-server", "glib-client".
+	Use mode to invoke appropriate function.
+	
+	* glib/dbus-gobject.h: Prototype dbus_glib_marshal_dbus_message_to_gvalue_array.
+
+	* glib/dbus-glib-tool.h: New header, just includes GError bits
+	for now.
+
+	* glib/dbus-gidl.c (struct InterfaceInfo): Add bindings hashtable;
+	maps binding style to name.
+	(struct MethodInfo): Ditto.
+	(get_hash_keys, get_hash_key): Utility function, returns keys for
+	a GHashTable.
+	(interface_info_new, method_info_new): Initialize bindings.
+	(interface_info_unref, method_info_unref): Destroy bindings.
+	(method_info_get_binding_names, method_info_get_binding_name)
+	(interface_info_get_binding_names, interface_info_get_binding_name):
+	Functions for retrieving binding names.
+	(method_info_set_binding_name, interface_info_set_binding_name):
+	Functions for setting binding names.
+
+	* glib/dbus-binding-tool-glib.h: New file, has prototypes
+	for glib binding generation.
+
+	* glib/dbus-binding-tool-glib.c: New file, implements server-side
+	and client-side glib glue generation.
+
+	* glib/Makefile.am (dbus_binding_tool_SOURCES): Add
+	dbus-binding-tool-glib.c, dbus-binding-tool-glib.h,
+	dbus-glib-tool.h.
+
+	* dbus/dbus-glib.h (struct DBusGMethodMarshaller): Remove in favor
+	of using GClosureMarshal directly.
+	(struct DBusGObjectInfo): Add n_infos member.
+
+	* test/glib/test-service-glib.xml: New file; contains introspection data
+	for MyTestObject used in test-service-glib.c.
+
+	* test/glib/test-service-glib.c (enum MyObjectError): New GError enum.
+	(my_object_do_nothing, my_object_increment, my_object_throw_error)
+	(my_object_uppercase, my_object_many_args): New test methods.
+	(main): Use dbus_g_object_class_install_info to include generated object
+	info.
+
+	* test/glib/Makefile.am: Generate server-side glue for test-service-glib.c,
+	as well as client-side bindings.
+
+	* test/glib/test-dbus-glib.c: Include test-service-glib-bindings.h.
+	(main): Activate TestSuiteGLibService; test invoke a bunch of its methods
+	using both the dbus_gproxy stuff directly as well as the generated bindings.
+
 2005-02-15  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-connection.c (dbus_connection_dispatch): always
