@@ -610,34 +610,6 @@ dbus_server_set_timeout_functions (DBusServer                *server,
 }
 
 /**
- * Called to notify the server when a previously-added watch
- * is ready for reading or writing, or has an exception such
- * as a hangup.
- * 
- * If this function returns #FALSE, then the file descriptor may still
- * be ready for reading or writing, but more memory is needed in order
- * to do the reading or writing. If you ignore the #FALSE return, your
- * application may spin in a busy loop on the file descriptor until
- * memory becomes available, but nothing more catastrophic should
- * happen.
- *
- * @param server the server.
- * @param watch the watch.
- * @param condition the current condition of the file descriptors being watched.
- */
-dbus_bool_t
-dbus_server_handle_watch (DBusServer              *server,
-                          DBusWatch               *watch,
-                          unsigned int             condition)
-{
-  _dbus_assert (server->vtable->handle_watch != NULL);
-
-  _dbus_watch_sanitize_condition (watch, &condition);
-  
-  return (* server->vtable->handle_watch) (server, watch, condition);
-}
-
-/**
  * Sets the authentication mechanisms that this server offers
  * to clients, as a list of SASL mechanisms. This function
  * only affects connections created *after* it is called.

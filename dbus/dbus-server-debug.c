@@ -71,14 +71,6 @@ debug_finalize (DBusServer *server)
 {
 }
 
-static dbus_bool_t
-debug_handle_watch (DBusServer  *server,
-		    DBusWatch   *watch,
-		    unsigned int flags)
-{
-  return TRUE;
-}
-
 static void
 debug_disconnect (DBusServer *server)
 {
@@ -86,7 +78,6 @@ debug_disconnect (DBusServer *server)
 
 static DBusServerVTable debug_vtable = {
   debug_finalize,
-  debug_handle_watch,
   debug_disconnect
 };
 

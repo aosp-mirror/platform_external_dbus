@@ -195,15 +195,15 @@ connection_watch_callback (DBusWatch     *watch,
                            unsigned int   condition,
                            void          *data)
 {
-  DBusConnection *connection = data;
-  dbus_bool_t retval;
-
+ /* FIXME this can be done in dbus-mainloop.c
+   * if the code in activation.c for the babysitter
+   * watch handler is fixed.
+   */
+  
 #if 0
   _dbus_verbose ("Calling handle_watch\n");
 #endif
-  retval = dbus_connection_handle_watch (connection, watch, condition);
-
-  return retval;
+  return dbus_watch_handle (watch, condition);
 }
 
 static dbus_bool_t
@@ -231,7 +231,7 @@ static void
 connection_timeout_callback (DBusTimeout   *timeout,
                              void          *data)
 {
-  DBusConnection *connection = data;
+  /* DBusConnection *connection = data; */
 
   /* can return FALSE on OOM but we just let it fire again later */
   dbus_timeout_handle (timeout);
@@ -815,7 +815,7 @@ bus_connection_get_name (DBusConnection *connection)
   return d->name;
 }
 
-/**
+/*
  * Transactions
  *
  * Note that this is fairly fragile; in particular, don't try to use

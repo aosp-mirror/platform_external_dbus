@@ -40,16 +40,12 @@ client_watch_callback (DBusWatch     *watch,
                        unsigned int   condition,
                        void          *data)
 {
-  DBusConnection *connection = data;
-  dbus_bool_t retval;
-  
-  dbus_connection_ref (connection);
-  
-  retval = dbus_connection_handle_watch (connection, watch, condition);
-
-  dbus_connection_unref (connection);
-
-  return retval;
+  /* FIXME this can be done in dbus-mainloop.c
+   * if the code in activation.c for the babysitter
+   * watch handler is fixed.
+   */
+ 
+  return dbus_watch_handle (watch, condition);
 }
 
 static dbus_bool_t

@@ -38,13 +38,6 @@ struct DBusServerVTable
 {
   void        (* finalize)      (DBusServer *server);
   /**< The finalize method must free the server. */
-
-  dbus_bool_t (* handle_watch)  (DBusServer  *server,
-                                 DBusWatch   *watch,
-                                 unsigned int flags);
-  /**< The handle_watch method handles reading/writing
-   * data as indicated by the flags.
-   */
   
   void        (* disconnect)    (DBusServer *server);
   /**< Disconnect this server. */

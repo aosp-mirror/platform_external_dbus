@@ -32,15 +32,26 @@ DBUS_BEGIN_DECLS;
 
 typedef struct DBusWatchList DBusWatchList;
 
-DBusWatch* _dbus_watch_new        (int           fd,
-                                   unsigned int  flags,
-                                   dbus_bool_t   enabled);
-void       _dbus_watch_ref        (DBusWatch    *watch);
-void       _dbus_watch_unref      (DBusWatch    *watch);
-void       _dbus_watch_invalidate (DBusWatch    *watch);
+typedef dbus_bool_t (* DBusWatchHandler) (DBusWatch    *watch,
+                                          unsigned int  flags,
+                                          void         *data);
 
-void       _dbus_watch_sanitize_condition (DBusWatch *watch,
-                                           unsigned int *condition);
+DBusWatch* _dbus_watch_new                (int               fd,
+                                           unsigned int      flags,
+                                           dbus_bool_t       enabled,
+                                           DBusWatchHandler  handler,
+                                           void             *data,
+                                           DBusFreeFunction  free_data_function);
+void       _dbus_watch_ref                (DBusWatch        *watch);
+void       _dbus_watch_unref              (DBusWatch        *watch);
+void       _dbus_watch_invalidate         (DBusWatch        *watch);
+void       _dbus_watch_sanitize_condition (DBusWatch        *watch,
+                                           unsigned int     *condition);
+void       _dbus_watch_set_handler        (DBusWatch        *watch,
+                                           DBusWatchHandler  handler,
+                                           void             *data,
+                                           DBusFreeFunction  free_data_function);
+
 
 DBusWatchList* _dbus_watch_list_new           (void);
 void           _dbus_watch_list_free          (DBusWatchList           *watch_list);

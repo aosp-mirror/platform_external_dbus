@@ -706,8 +706,18 @@ babysitter_watch_callback (DBusWatch     *watch,
   
   _dbus_babysitter_ref (babysitter);
   
-  retval = _dbus_babysitter_handle_watch (babysitter, watch, condition);
+  retval = dbus_watch_handle (watch, condition);
 
+  /* FIXME this is broken in the same way that
+   * connection watches used to be; there should be
+   * a separate callback for status change, instead
+   * of doing "if we handled a watch status might
+   * have changed"
+   *
+   * Fixing this lets us move dbus_watch_handle
+   * calls into dbus-mainloop.c
+   */
+  
   if (_dbus_babysitter_get_child_exited (babysitter))
     {
       DBusError error;

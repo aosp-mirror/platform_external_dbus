@@ -38,23 +38,35 @@ struct DBusWatch
   int refcount;                        /**< Reference count */
   int fd;                              /**< File descriptor. */
   unsigned int flags;                  /**< Conditions to watch. */
+
+  DBusWatchHandler handler;                    /**< Watch handler. */
+  void *handler_data;                          /**< Watch handler data. */
+  DBusFreeFunction free_handler_data_function; /**< Free the watch handler data. */
+  
   void *data;                          /**< Application data. */
   DBusFreeFunction free_data_function; /**< Free the application data. */
   unsigned int enabled : 1;            /**< Whether it's enabled. */
 };
 
 /**
- * Creates a new DBusWatch. Normally used by a DBusTransport
- * implementation.
+ * Creates a new DBusWatch. Used to add a file descriptor to be polled
+ * by a main loop.
+ * 
  * @param fd the file descriptor to be watched.
  * @param flags the conditions to watch for on the descriptor.
  * @param enabled the initial enabled state
+ * @param handler the handler function
+ * @param data data for handler function
+ * @param free_data_function function to free the data
  * @returns the new DBusWatch object.
  */
 DBusWatch*
-_dbus_watch_new (int          fd,
-                 unsigned int flags,
-                 dbus_bool_t  enabled)
+_dbus_watch_new (int               fd,
+                 unsigned int      flags,
+                 dbus_bool_t       enabled,
+                 DBusWatchHandler  handler,
+                 void             *data,
+                 DBusFreeFunction  free_data_function)
 {
   DBusWatch *watch;
 
@@ -71,6 +83,10 @@ _dbus_watch_new (int          fd,
   watch->flags = flags;
   watch->enabled = enabled;
 
+  watch->handler = handler;
+  watch->handler_data = data;
+  watch->free_handler_data_function = free_data_function;
+  
   return watch;
 }
 
@@ -101,6 +117,10 @@ _dbus_watch_unref (DBusWatch *watch)
   if (watch->refcount == 0)
     {
       dbus_watch_set_data (watch, NULL, NULL); /* call free_data_function */
+
+      if (watch->free_handler_data_function)
+	(* watch->free_handler_data_function) (watch->handler_data);
+      
       dbus_free (watch);
     }
 }
@@ -363,6 +383,32 @@ _dbus_watch_list_toggle_watch (DBusWatchList           *watch_list,
                                             watch_list->watch_data);
 }
 
+/**
+ * Sets the handler for the watch.
+ *
+ * @todo this function only exists because of the weird
+ * way connection watches are done, see the note
+ * in docs for _dbus_connection_handle_watch().
+ *
+ * @param watch the watch
+ * @param handler the new handler
+ * @param data the data
+ * @param free_data_function free data with this
+ */
+void
+_dbus_watch_set_handler (DBusWatch        *watch,
+                         DBusWatchHandler  handler,
+                         void             *data,
+                         DBusFreeFunction  free_data_function)
+{
+  if (watch->free_handler_data_function)
+    (* watch->free_handler_data_function) (watch->handler_data);
+
+  watch->handler = handler;
+  watch->handler_data = data;
+  watch->free_handler_data_function = free_data_function;
+}
+
 /** @} */
 
 /**
@@ -466,5 +512,46 @@ dbus_watch_get_enabled (DBusWatch *watch)
 {
   return watch->enabled;
 }
+
+
+/**
+ * Called to notify the D-BUS library when a previously-added watch is
+ * ready for reading or writing, or has an exception such as a hangup.
+ * 
+ * If this function returns #FALSE, then the file descriptor may still
+ * be ready for reading or writing, but more memory is needed in order
+ * to do the reading or writing. If you ignore the #FALSE return, your
+ * application may spin in a busy loop on the file descriptor until
+ * memory becomes available, but nothing more catastrophic should
+ * happen.
+ *
+ * dbus_watch_handle() cannot be called during the
+ * DBusAddWatchFunction, as the connection will not be ready to handle
+ * that watch yet.
+ * 
+ * It is not allowed to reference a DBusWatch after it has been passed
+ * to remove_function.
+ *
+ * @param watch the DBusWatch object.
+ * @param flags the poll condition using #DBusWatchFlags values
+ * @returns #FALSE if there wasn't enough memory 
+ */
+dbus_bool_t
+dbus_watch_handle (DBusWatch    *watch,
+                   unsigned int  flags)
+{
+  _dbus_watch_sanitize_condition (watch, &flags);
+
+  if (flags == 0)
+    {
+      _dbus_verbose ("After sanitization, watch flags on fd %d were 0\n",
+                     watch->fd);
+      return TRUE;
+    }
+  else
+    return (* watch->handler) (watch, flags,
+                               watch->handler_data);
+}
+
 
 /** @} */

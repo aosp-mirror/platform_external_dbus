@@ -104,7 +104,7 @@ struct DBusMessage
   DBusList *size_counters;   /**< 0-N DBusCounter used to track message size. */
   long size_counter_delta;   /**< Size we incremented the size counters by.   */
 
-  dbus_uint32_t changed_stamp;
+  dbus_uint32_t changed_stamp; /**< Incremented when iterators are invalidated. */
   
   unsigned int locked : 1; /**< Message being sent, no modifications allowed. */
 };
@@ -115,6 +115,7 @@ enum {
   DBUS_MESSAGE_ITER_TYPE_DICT
 };
 
+/** typedef for internals of message iterator */
 typedef struct DBusMessageRealIter DBusMessageRealIter;
 
 /**
@@ -1689,7 +1690,7 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
  * message passed in.
  *
  * @param message the message
- * @param _iter pointer to an iterator to initialize
+ * @param iter pointer to an iterator to initialize
  */
 void
 dbus_message_iter_init (DBusMessage *message,
@@ -1825,7 +1826,7 @@ dbus_message_iter_has_next (DBusMessageIter *iter)
 /**
  * Moves the iterator to the next field.
  *
- * @param _iter The message iter
+ * @param iter The message iter
  * @returns #TRUE if the iterator was moved to the next field
  */
 dbus_bool_t
@@ -2486,7 +2487,7 @@ dbus_message_iter_get_dict_key (DBusMessageIter   *iter)
  * message.
  *
  * @param message the message
- * @param _iter pointer to an iterator to initialize
+ * @param iter pointer to an iterator to initialize
  */
 void
 dbus_message_append_iter_init (DBusMessage *message,
@@ -2789,11 +2790,15 @@ dbus_message_iter_append_string (DBusMessageIter *iter,
 }
 
 /**
- * Appends a named type data chunk to the message.
+ * Appends a named type data chunk to the message. A named
+ * type is simply an arbitrary UTF-8 string used as a type
+ * tag, plus an array of arbitrary bytes to be interpreted
+ * according to the type tag.
  *
  * @param iter an iterator pointing to the end of the message
  * @param name the name of the type
- * @parame
+ * @param data the binary data used to store the value
+ * @param len the length of the binary data in bytes
  * @returns #TRUE on success
  */
 dbus_bool_t
@@ -3003,8 +3008,7 @@ dbus_message_iter_append_array (DBusMessageIter      *iter,
  * can be used to append to the dict.
  *
  * @param iter an iterator pointing to the end of the message
- * @param array_iter pointer to an iter that will be initialized
- * @param element_type the type of the array elements
+ * @param dict_iter pointer to an iter that will be initialized
  * @returns #TRUE on success
  */
 dbus_bool_t

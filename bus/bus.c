@@ -122,9 +122,12 @@ server_watch_callback (DBusWatch     *watch,
                        unsigned int   condition,
                        void          *data)
 {
-  DBusServer *server = data;
-
-  return dbus_server_handle_watch (server, watch, condition);
+  /* FIXME this can be done in dbus-mainloop.c
+   * if the code in activation.c for the babysitter
+   * watch handler is fixed.
+   */
+  
+  return dbus_watch_handle (watch, condition);
 }
 
 static dbus_bool_t

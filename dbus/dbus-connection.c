@@ -115,7 +115,7 @@ struct DBusConnection
   void *dispatch_status_data; /**< Application data for dispatch_status_function */
   DBusFreeFunction free_dispatch_status_data; /**< free dispatch_status_data */
 
-  DBusDispatchStatus last_dispatch_status;
+  DBusDispatchStatus last_dispatch_status; /**< The last dispatch status we reported to the application. */
 };
 
 typedef struct
@@ -2171,10 +2171,10 @@ dbus_connection_dispatch (DBusConnection *connection)
  * other exceptional conditions.
  *
  * Once a file descriptor becomes readable or writable, or an exception
- * occurs, dbus_connection_handle_watch() should be called to
+ * occurs, dbus_watch_handle() should be called to
  * notify the connection of the file descriptor's condition.
  *
- * dbus_connection_handle_watch() cannot be called during the
+ * dbus_watch_handle() cannot be called during the
  * DBusAddWatchFunction, as the connection will not be ready to handle
  * that watch yet.
  * 
@@ -2366,29 +2366,28 @@ dbus_connection_set_dispatch_status_function (DBusConnection             *connec
 }
 
 /**
- * Called to notify the connection when a previously-added watch
- * is ready for reading or writing, or has an exception such
- * as a hangup.
+ * A callback for use with dbus_watch_new() to create a DBusWatch.
+ * 
+ * @todo This is basically a hack - we could delete _dbus_transport_handle_watch()
+ * and the virtual handle_watch in DBusTransport if we got rid of it.
+ * The reason this is some work is threading, see the _dbus_connection_handle_watch()
+ * implementation.
  *
- * If this function returns #FALSE, then the file descriptor may still
- * be ready for reading or writing, but more memory is needed in order
- * to do the reading or writing. If you ignore the #FALSE return, your
- * application may spin in a busy loop on the file descriptor until
- * memory becomes available, but nothing more catastrophic should
- * happen.
- *
- * @param connection the connection.
  * @param watch the watch.
  * @param condition the current condition of the file descriptors being watched.
+ * @param data must be a pointer to a #DBusConnection
  * @returns #FALSE if the IO condition may not have been fully handled due to lack of memory
  */
 dbus_bool_t
-dbus_connection_handle_watch (DBusConnection              *connection,
-                              DBusWatch                   *watch,
-                              unsigned int                 condition)
+_dbus_connection_handle_watch (DBusWatch                   *watch,
+                               unsigned int                 condition,
+                               void                        *data)
 {
+  DBusConnection *connection;
   dbus_bool_t retval;
   DBusDispatchStatus status;
+
+  connection = data;
   
   dbus_mutex_lock (connection->mutex);
   _dbus_connection_acquire_io_path (connection, -1);

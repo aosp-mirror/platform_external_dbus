@@ -52,11 +52,6 @@ dbus_bool_t _dbus_babysitter_set_watch_functions  (DBusBabysitter            *si
                                                    DBusWatchToggledFunction   toggled_function,
                                                    void                      *data,
                                                    DBusFreeFunction           free_data_function);
-dbus_bool_t _dbus_babysitter_handle_watch         (DBusBabysitter            *sitter,
-                                                   DBusWatch                 *watch,
-                                                   unsigned int               condition);
-
-
 
 DBUS_END_DECLS;
 

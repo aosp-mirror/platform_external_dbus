@@ -153,7 +153,7 @@ dbus_gsource_dispatch (GSource     *source,
    GList *copy, *list;
 
    /* We need to traverse a copy of the list, since it can change in
-      dbus_connect_handle_watch. */
+      dbus_watch_handle(). */
    copy = g_list_copy (dbus_source->poll_fds);
 
    list = copy;
@@ -175,12 +175,7 @@ dbus_gsource_dispatch (GSource     *source,
 	   if (poll_fd->revents & G_IO_HUP)
 	     condition |= DBUS_WATCH_HANGUP;
 
-           if (is_server)
-             dbus_server_handle_watch (dbus_source->connection_or_server,
-                                       watch, condition);
-           else
-             dbus_connection_handle_watch (dbus_source->connection_or_server,
-                                           watch, condition);
+           dbus_watch_handle (watch, condition);
 	 }
 
        list = list->next;

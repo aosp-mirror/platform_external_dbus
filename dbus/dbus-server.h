@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-server.h DBusServer object
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -62,9 +62,6 @@ dbus_bool_t dbus_server_set_timeout_functions       (DBusServer                *
                                                      DBusTimeoutToggledFunction toggled_function,
                                                      void                      *data,
                                                      DBusFreeFunction           free_data_function);
-dbus_bool_t dbus_server_handle_watch                (DBusServer                *server,
-                                                     DBusWatch                 *watch,
-                                                     unsigned int               condition);
 dbus_bool_t dbus_server_set_auth_mechanisms         (DBusServer                *server,
                                                      const char               **mechanisms);
 

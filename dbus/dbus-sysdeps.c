@@ -1520,7 +1520,7 @@ _dbus_user_info_fill (DBusUserInfo     *info,
  * Gets user info for the given user ID.
  *
  * @param info user info object to initialize
- * @param username the username
+ * @param uid the user ID
  * @param error error return
  * @returns #TRUE on success
  */
@@ -1642,6 +1642,15 @@ fill_group_info (DBusGroupInfo    *info,
 #endif  /* ! HAVE_GETPWNAM_R */
 }
 
+/**
+ * Initializes the given DBusGroupInfo struct
+ * with information about the given group name.
+ *
+ * @param info the group info struct
+ * @param groupname name of group
+ * @param error the error return
+ * @returns #FALSE if error is set
+ */
 dbus_bool_t
 _dbus_group_info_fill (DBusGroupInfo    *info,
                        const DBusString *groupname,
@@ -1652,6 +1661,15 @@ _dbus_group_info_fill (DBusGroupInfo    *info,
 
 }
 
+/**
+ * Initializes the given DBusGroupInfo struct
+ * with information about the given group ID.
+ *
+ * @param info the group info struct
+ * @param gid group ID
+ * @param error the error return
+ * @returns #FALSE if error is set
+ */
 dbus_bool_t
 _dbus_group_info_fill_gid (DBusGroupInfo *info,
                            dbus_gid_t     gid,

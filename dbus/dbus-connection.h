@@ -50,7 +50,7 @@ typedef enum
   DBUS_WATCH_READABLE = 1 << 0, /**< As in POLLIN */
   DBUS_WATCH_WRITABLE = 1 << 1, /**< As in POLLOUT */
   DBUS_WATCH_ERROR    = 1 << 2, /**< As in POLLERR (can't watch for this, but
-                                 *   the flag can be passed to dbus_connection_handle_watch()).
+                                 *   the flag can be passed to dbus_watch_handle()).
                                  */
   DBUS_WATCH_HANGUP   = 1 << 3  /**< As in POLLHUP (can't watch for it, but
                                  *   can be present in current state). */
@@ -130,9 +130,6 @@ void               dbus_connection_set_dispatch_status_function (DBusConnection 
                                                                  DBusDispatchStatusFunction  function,
                                                                  void                       *data,
                                                                  DBusFreeFunction            free_data_function);
-dbus_bool_t        dbus_connection_handle_watch                 (DBusConnection             *connection,
-                                                                 DBusWatch                  *watch,
-                                                                 unsigned int                condition);
 dbus_bool_t        dbus_connection_get_unix_user                (DBusConnection             *connection,
                                                                  unsigned long              *uid);
 void               dbus_connection_set_unix_user_function       (DBusConnection             *connection,
@@ -147,6 +144,8 @@ void*        dbus_watch_get_data    (DBusWatch        *watch);
 void         dbus_watch_set_data    (DBusWatch        *watch,
                                      void             *data,
                                      DBusFreeFunction  free_data_function);
+dbus_bool_t  dbus_watch_handle      (DBusWatch        *watch,
+                                     unsigned int      flags);
 dbus_bool_t  dbus_watch_get_enabled (DBusWatch        *watch);
 
 int         dbus_timeout_get_interval (DBusTimeout      *timeout);

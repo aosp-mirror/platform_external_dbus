@@ -38,6 +38,7 @@ typedef enum
   DBUS_ITERATION_DO_READING = 1 << 1, /**< Read messages in. */
   DBUS_ITERATION_BLOCK      = 1 << 2  /**< Block if nothing to do. */
 } DBusIterationFlags;
+
 void              _dbus_connection_lock                        (DBusConnection     *connection);
 void              _dbus_connection_unlock                      (DBusConnection     *connection);
 void              _dbus_connection_ref_unlocked                (DBusConnection     *connection);
@@ -56,6 +57,9 @@ void              _dbus_connection_remove_watch                (DBusConnection  
 void              _dbus_connection_toggle_watch                (DBusConnection     *connection,
                                                                 DBusWatch          *watch,
                                                                 dbus_bool_t         enabled);
+dbus_bool_t       _dbus_connection_handle_watch                (DBusWatch          *watch,
+                                                                unsigned int        condition,
+                                                                void               *data);
 dbus_bool_t       _dbus_connection_add_timeout                 (DBusConnection     *connection,
                                                                 DBusTimeout        *timeout);
 void              _dbus_connection_remove_timeout              (DBusConnection     *connection,
@@ -77,9 +81,6 @@ void              _dbus_message_handler_remove_connection      (DBusMessageHandl
 DBusHandlerResult _dbus_message_handler_handle_message         (DBusMessageHandler *handler,
                                                                 DBusConnection     *connection,
                                                                 DBusMessage        *message);
-
-
-
 
 DBUS_END_DECLS;
 

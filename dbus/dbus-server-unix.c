@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-server-unix.c Server implementation for Unix network protocols.
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -129,11 +129,12 @@ handle_new_client_fd (DBusServer *server,
 }
 
 static dbus_bool_t
-unix_handle_watch (DBusServer  *server,
-                   DBusWatch   *watch,
-                   unsigned int flags)
+unix_handle_watch (DBusWatch    *watch,
+                   unsigned int  flags,
+                   void         *data)
 {
-  DBusServerUnix *unix_server = (DBusServerUnix*) server;
+  DBusServer *server = data;
+  DBusServerUnix *unix_server = data;
 
   _dbus_assert (watch == unix_server->watch);
 
@@ -202,7 +203,6 @@ unix_disconnect (DBusServer *server)
 
 static DBusServerVTable unix_vtable = {
   unix_finalize,
-  unix_handle_watch,
   unix_disconnect
 };
 
@@ -225,17 +225,19 @@ _dbus_server_new_for_fd (int               fd,
 {
   DBusServerUnix *unix_server;
   DBusWatch *watch;
-
-  watch = _dbus_watch_new (fd,
-                           DBUS_WATCH_READABLE,
-                           TRUE);
-  if (watch == NULL)
-    return NULL;
   
   unix_server = dbus_new0 (DBusServerUnix, 1);
   if (unix_server == NULL)
+    return NULL;
+
+  watch = _dbus_watch_new (fd,
+                           DBUS_WATCH_READABLE,
+                           TRUE,
+                           unix_handle_watch, unix_server,
+                           NULL);
+  if (watch == NULL)
     {
-      _dbus_watch_unref (watch);
+      dbus_free (unix_server);
       return NULL;
     }
   

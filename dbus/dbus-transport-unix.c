@@ -786,6 +786,14 @@ static dbus_bool_t
 unix_connection_set (DBusTransport *transport)
 {
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
+
+  _dbus_watch_set_handler (unix_transport->write_watch,
+                           _dbus_connection_handle_watch,
+                           transport->connection, NULL);
+
+  _dbus_watch_set_handler (unix_transport->read_watch,
+                           _dbus_connection_handle_watch,
+                           transport->connection, NULL);
   
   if (!_dbus_connection_add_watch (transport->connection,
                                    unix_transport->write_watch))
@@ -1018,13 +1026,15 @@ _dbus_transport_new_for_fd (int               fd,
   
   unix_transport->write_watch = _dbus_watch_new (fd,
                                                  DBUS_WATCH_WRITABLE,
-                                                 FALSE);
+                                                 FALSE,
+                                                 NULL, NULL, NULL);
   if (unix_transport->write_watch == NULL)
     goto failed_2;
   
   unix_transport->read_watch = _dbus_watch_new (fd,
                                                 DBUS_WATCH_READABLE,
-                                                FALSE);
+                                                FALSE,
+                                                NULL, NULL, NULL);
   if (unix_transport->read_watch == NULL)
     goto failed_3;
   

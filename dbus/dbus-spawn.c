@@ -678,20 +678,12 @@ _dbus_babysitter_set_watch_functions (DBusBabysitter            *sitter,
                                          free_data_function);
 }
 
-/**
- * Handles watch when descriptors are ready.
- *
- * @param sitter the babysitter.
- * @param watch the watch object
- * @param condition the descriptor conditions
- * @returns #FALSE if there wasn't enough memory.
- * 
- */
-dbus_bool_t
-_dbus_babysitter_handle_watch (DBusBabysitter  *sitter,
-                               DBusWatch       *watch,
-                               unsigned int     condition)
+static dbus_bool_t
+handle_watch (DBusWatch       *watch,
+              unsigned int     condition,
+              void            *data)
 {
+  DBusBabysitter *sitter = data;
   int revents;
   int fd;
   
@@ -1051,7 +1043,7 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
    */
   sitter->error_watch = _dbus_watch_new (child_err_report_pipe[READ_END],
                                          DBUS_WATCH_READABLE,
-                                         TRUE);
+                                         TRUE, handle_watch, sitter, NULL);
   if (sitter->error_watch == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -1066,7 +1058,7 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
       
   sitter->sitter_watch = _dbus_watch_new (babysitter_pipe[0],
                                           DBUS_WATCH_READABLE,
-                                          TRUE);
+                                          TRUE, handle_watch, sitter, NULL);
   if (sitter->sitter_watch == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);

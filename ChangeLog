@@ -1,3 +1,17 @@
+2003-04-18  Havoc Pennington  <hp@pobox.com>
+
+	* glib/dbus-gmain.c: adapt to watch changes
+
+	* bus/bus.c, bus/activation.c, etc.: adjust to watch changes
+
+	* dbus/dbus-server.h: remove dbus_server_handle_watch
+
+	* dbus/dbus-connection.h: remove dbus_connection_handle_watch
+
+	* dbus/dbus-watch.c (dbus_watch_handle): change DBusWatch to work
+	like DBusTimeout, so we don't need dbus_connection_handle_watch
+	etc.
+
 2003-04-17  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-userdb.c, dbus/dbus-sysdeps.c: redo all the passwd

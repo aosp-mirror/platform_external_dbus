@@ -12,12 +12,7 @@ connection_watch_callback (DBusWatch     *watch,
                            unsigned int   condition,
                            void          *data)
 {
-  CData *cd = data;
-  dbus_bool_t retval;
-  
-  retval = dbus_connection_handle_watch (cd->connection, watch, condition);
-
-  return retval;
+  return dbus_watch_handle (watch, condition);
 }
 
 static dbus_bool_t

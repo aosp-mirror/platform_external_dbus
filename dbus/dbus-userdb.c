@@ -784,6 +784,8 @@ _dbus_user_database_get_groupname (DBusUserDatabase     *db,
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS
+#include <stdio.h>
+
 /**
  * Unit test for dbus-userdb.c.
  * 
