@@ -12,6 +12,7 @@ dbusinclude_HEADERS=				\
 	dbus-memory.h				\
 	dbus-message.h				\
 	dbus-message-handler.h			\
+	dbus-protocol.h				\
 	dbus-server.h				\
 	dbus-threads.h				\
 	dbus-types.h
@@ -20,6 +21,7 @@ libdbus_1_la_SOURCES=				\
 	dbus-auth.c				\
 	dbus-auth.h				\
 	dbus-connection.c			\
+	dbus-connection.h			\
 	dbus-connection-internal.h		\
 	dbus-errors.c				\
 	dbus-memory.c				\
