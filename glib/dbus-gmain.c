@@ -89,11 +89,13 @@ dbus_connection_dispatch (GSource     *source,
 			  gpointer     user_data)
 {
    DBusGSource *dbus_source = (DBusGSource *)source;
-   
-   GList *list;
+   GList *copy, *list;
 
-   list = dbus_source->poll_fds;
+   /* We need to traverse a copy of the list, since it can change in
+      dbus_connect_handle_watch. */
+   copy = g_list_copy (dbus_source->poll_fds);
 
+   list = copy;
    while (list)
      {
        GPollFD *poll_fd = list->data;
@@ -114,10 +116,12 @@ dbus_connection_dispatch (GSource     *source,
 	   
 	   dbus_connection_handle_watch (dbus_source->connection, watch, condition);
 	 }
-       
+
        list = list->next;
      }
 
+   g_list_free (copy);
+   
    /* Dispatch messages */
    while (dbus_connection_dispatch_message (dbus_source->connection));
 

@@ -1,3 +1,8 @@
+2003-01-26  Richard Hult  <rhult@codefactory.se>
+
+	* glib/dbus-gmain.c (dbus_connection_dispatch): Traverse a copy of
+	the file descriptor list, since it can change under us.
+
 2003-01-25  Anders Carlsson  <andersca@codefactory.se>
 
 	* glib/dbus-gmain.c: (dbus_connection_prepare),
