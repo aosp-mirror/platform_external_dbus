@@ -1,3 +1,10 @@
+2004-10-27  Joe Shaw  <joeshaw@novell.com>
+
+	* mono/Arguments.cs (GetDBusTypeConstructor):
+	type.UnderlyingSystemType will return "System.Byte" if you do it
+	on "byte[]", which is not what we want.  So check the type.IsArray
+	property and use System.Array instead.
+
 2004-10-25  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-sysdeps.c (fill_user_info): On errors do not free

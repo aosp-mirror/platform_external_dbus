@@ -161,7 +161,14 @@ namespace DBus
     // Get the appropriate constructor for a D-BUS type
     public static ConstructorInfo GetDBusTypeConstructor(Type dbusType, Type type) 
     {
-      ConstructorInfo constructor = dbusType.GetConstructor(new Type[] {type.UnderlyingSystemType, typeof(Service)});
+      Type constructorType;
+
+      if (type.IsArray)
+        constructorType = typeof (System.Array);
+      else
+        constructorType = type.UnderlyingSystemType;
+
+      ConstructorInfo constructor = dbusType.GetConstructor(new Type[] {constructorType, typeof(Service)});
       if (constructor == null)
 	throw new ArgumentException("There is no valid constructor for '" + dbusType + "' from type '" + type + "'");
       
