@@ -1424,7 +1424,7 @@ _dbus_poll (DBusPollFD *fds,
 #else /* ! HAVE_POLL */
 
   fd_set read_set, write_set, err_set;
-  int max_fd;
+  int max_fd = 0;
   int i;
   struct timeval tv;
   int ready;
