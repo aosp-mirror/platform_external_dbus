@@ -252,11 +252,11 @@ _dbus_string_init_const_len (DBusString *str,
 void
 _dbus_string_free (DBusString *str)
 {
-  DBUS_LOCKED_STRING_PREAMBLE (str);
+  DBusRealString *real = (DBusRealString*) str;
+  DBUS_GENERIC_STRING_PREAMBLE (real);
   
   if (real->constant)
     return;
-  
   dbus_free (real->str);
 
   real->invalid = TRUE;
@@ -864,8 +864,6 @@ copy (DBusRealString *source,
   _dbus_assert ((source) != (dest));                                    \
   DBUS_GENERIC_STRING_PREAMBLE (real_source);                           \
   DBUS_GENERIC_STRING_PREAMBLE (real_dest);                             \
-  _dbus_assert (!real_source->constant);                                \
-  _dbus_assert (!real_source->locked);                                  \
   _dbus_assert (!real_dest->constant);                                  \
   _dbus_assert (!real_dest->locked);                                    \
   _dbus_assert ((start) >= 0);                                          \
@@ -1402,6 +1400,46 @@ _dbus_string_starts_with_c_str (const DBusString *a,
     return TRUE;
   else
     return FALSE;
+}
+
+/**
+ * Returns whether a string ends with the given suffix
+ *
+ * @param a the string
+ * @param c_str the C-style string
+ * @returns #TRUE if the string ends with the suffix
+ */
+dbus_bool_t
+_dbus_string_ends_with_c_str (const DBusString *a,
+                              const char       *c_str)
+{
+  const unsigned char *ap;
+  const unsigned char *bp;
+  const unsigned char *a_end;
+  int c_str_len;
+  const DBusRealString *real_a = (const DBusRealString*) a;
+  DBUS_GENERIC_STRING_PREAMBLE (real_a);
+
+  c_str_len = strlen (c_str);
+  if (real_a->len < c_str_len)
+    return FALSE;
+  
+  ap = real_a->str + (real_a->len - c_str_len);
+  bp = (const unsigned char*) c_str;
+  a_end = real_a->str + real_a->len;
+  while (ap != a_end)
+    {
+      if (*ap != *bp)
+        return FALSE;
+      
+      ++ap;
+      ++bp;
+    }
+
+  _dbus_assert (*ap == '\0');
+  _dbus_assert (*bp == '\0');
+  
+  return TRUE;
 }
 
 static const signed char base64_table[] = {

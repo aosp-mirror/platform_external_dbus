@@ -1,0 +1,13 @@
+## message with invalid endianness tag
+
+BYTE 'i'
+BYTE 0
+BYTE 0
+BYTE 0
+LENGTH Header
+LENGTH Body
+## client serial
+INT32 7
+END_LENGTH Header
+START_LENGTH Body
+END_LENGTH Body

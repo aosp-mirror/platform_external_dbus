@@ -23,13 +23,14 @@
 
 #include <config.h>
 #include "dbus-test.h"
+#include "dbus-sysdeps.h"
 #include <stdio.h>
 #include <stdlib.h>
 
 static void
 die (const char *failure)
 {
-  fprintf (stderr, "Failed: %s\n", failure);
+  fprintf (stderr, "Unit test failed: %s\n", failure);
   exit (1);
 }
 
@@ -39,11 +40,21 @@ die (const char *failure)
  * any app other than our test app, this symbol
  * won't exist in some builds of the library.
  * (with --enable-tests=no)
+ *
+ * @param test_data_dir the directory with test data (test/data normally)
  */
 void
-dbus_internal_symbol_do_not_use_run_tests (void)
+dbus_internal_symbol_do_not_use_run_tests (const char *test_data_dir)
 {
 #ifdef DBUS_BUILD_TESTS
+  if (test_data_dir == NULL)
+    test_data_dir = _dbus_getenv ("DBUS_TEST_DATA");
+
+  if (test_data_dir != NULL)
+    printf ("Test data in %s\n", test_data_dir);
+  else
+    printf ("No test data!\n");
+  
   printf ("%s: running string tests\n", "dbus-test");
   if (!_dbus_string_test ())
     die ("strings");
@@ -53,7 +64,7 @@ dbus_internal_symbol_do_not_use_run_tests (void)
     die ("marshalling");
 
   printf ("%s: running message tests\n", "dbus-test");
-  if (!_dbus_message_test ())
+  if (!_dbus_message_test (test_data_dir))
     die ("messages");
   
   printf ("%s: running memory pool tests\n", "dbus-test");

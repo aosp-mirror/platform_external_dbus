@@ -45,20 +45,24 @@ pop_line (DBusString *source,
           DBusString *dest)
 {
   int eol;
+  dbus_bool_t have_newline;
   
   _dbus_string_set_length (dest, 0);
   
   eol = 0;
   if (_dbus_string_find (source, 0, "\n", &eol))
-    eol += 1; /* include newline */
+    {
+      have_newline = TRUE;
+      eol += 1; /* include newline */
+    }
   else
-    eol = _dbus_string_get_length (source);
+    {
+      eol = _dbus_string_get_length (source);
+      have_newline = FALSE;
+    }
 
   if (eol == 0)
-    {
-      _dbus_verbose ("no more data in file\n");
-      return FALSE;
-    }
+    return FALSE; /* eof */
   
   if (!_dbus_string_move_len (source, 0, eol,
                               dest, 0))
@@ -68,8 +72,12 @@ pop_line (DBusString *source,
     }
 
   /* dump the newline */
-  _dbus_string_set_length (dest,
-                           _dbus_string_get_length (dest) - 1);
+  if (have_newline)
+    {
+      _dbus_assert (_dbus_string_get_length (dest) > 0);
+      _dbus_string_set_length (dest,
+                               _dbus_string_get_length (dest) - 1);
+    }
   
   return TRUE;
 }
@@ -101,6 +109,7 @@ strip_leading_space (DBusString *str)
 typedef struct
 {
   DBusString name;
+  int start;  /**< Calculate length since here */
   int length; /**< length to write */
   int offset; /**< where to write it into the data */
   int endian; /**< endianness to write with */
@@ -111,6 +120,9 @@ free_saved_length (void *data)
 {
   SavedLength *sl = data;
 
+  if (sl == NULL)
+    return; /* all hash free functions have to accept NULL */
+  
   _dbus_string_free (&sl->name);
   dbus_free (sl);
 }
@@ -144,6 +156,7 @@ ensure_saved_length (DBusHashTable    *hash,
   if (!_dbus_hash_table_insert_string (hash, (char*)s, sl))
     goto failed;
 
+  sl->start = -1;
   sl->length = -1;
   sl->offset = -1;
   sl->endian = -1;
@@ -153,6 +166,28 @@ ensure_saved_length (DBusHashTable    *hash,
  failed:
   free_saved_length (sl);
   return NULL;
+}
+
+static dbus_bool_t
+save_start (DBusHashTable    *hash,
+            const DBusString *name,
+            int               start)
+{
+  SavedLength *sl;
+
+  sl = ensure_saved_length (hash, name);
+
+  if (sl == NULL)
+    return FALSE;
+  else if (sl->start >= 0)
+    {
+      _dbus_warn ("Same START_LENGTH given twice\n");
+      return FALSE;
+    }
+  else
+    sl->start = start;
+
+  return TRUE;
 }
 
 static dbus_bool_t
@@ -168,7 +203,7 @@ save_length (DBusHashTable    *hash,
     return FALSE;
   else if (sl->length >= 0)
     {
-      _dbus_warn ("Same SAVE_LENGTH given twice\n");
+      _dbus_warn ("Same END_LENGTH given twice\n");
       return FALSE;
     }
   else
@@ -303,7 +338,9 @@ append_saved_length (DBusString       *dest,
  *   ALIGN <N> aligns to the given value
  *   UNALIGN skips alignment for the next marshal
  *   BYTE <N> inserts the given integer in [0,255] or char in 'a' format
- *   SAVE_LENGTH <name> records the current length under the given name
+ *   START_LENGTH <name> marks the start of a length to measure
+ *   END_LENGTH <name> records the length since START_LENGTH under the given name
+ *                     (or if no START_LENGTH, absolute length)
  *   LENGTH <name> inserts the saved length of the same name
  *   CHOP <N> chops last N bytes off the data
  *   FIELD_NAME <abcd> inserts 4-byte field name
@@ -380,9 +417,14 @@ _dbus_message_data_load (DBusString       *dest,
       line_no += 1;
 
       strip_leading_space (&line);
-      
-      if (_dbus_string_starts_with_c_str (&line,
-                                          "#"))
+
+      if (_dbus_string_get_length (&line) == 0)
+        {
+          /* empty line */
+          goto next_iteration;
+        }
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "#"))
         {
           /* Ignore this comment */
           goto next_iteration;
@@ -455,12 +497,15 @@ _dbus_message_data_load (DBusString       *dest,
           strip_command_name (&line);
 
           if (!_dbus_string_parse_int (&line, 0, &val, NULL))
-            goto parse_failed;
+            {
+              _dbus_warn ("Failed to parse integer\n");
+              goto parse_failed;
+            }
 
           if (val > 16)
             {
               _dbus_warn ("Aligning to %ld boundary is crack\n",
-                             val);
+                          val);
               goto parse_failed;
             }
           
@@ -483,7 +528,10 @@ _dbus_message_data_load (DBusString       *dest,
           strip_command_name (&line);
 
           if (!_dbus_string_parse_int (&line, 0, &val, NULL))
-            goto parse_failed;
+            {
+              _dbus_warn ("Failed to parse integer to chop\n");
+              goto parse_failed;
+            }
 
           if (val > _dbus_string_get_length (dest))
             {
@@ -511,7 +559,11 @@ _dbus_message_data_load (DBusString       *dest,
             {
               long val;
               if (!_dbus_string_parse_int (&line, 0, &val, NULL))
-                goto parse_failed;
+                {
+                  _dbus_warn ("Failed to parse integer for BYTE\n");
+                  goto parse_failed;
+                }
+
               if (val > 255)
                 {
                   _dbus_warn ("A byte must be in range 0-255 not %ld\n",
@@ -524,14 +576,26 @@ _dbus_message_data_load (DBusString       *dest,
           _dbus_string_append_byte (dest, the_byte);
         }
       else if (_dbus_string_starts_with_c_str (&line,
-                                               "SAVE_LENGTH"))
+                                               "START_LENGTH"))
+        {
+          strip_command_name (&line);
+
+          if (!save_start (length_hash, &line,
+                           _dbus_string_get_length (dest)))
+            {
+              _dbus_warn ("failed to save length start\n");
+              goto parse_failed;
+            }
+        }
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "END_LENGTH"))
         {
           strip_command_name (&line);
 
           if (!save_length (length_hash, &line,
                             _dbus_string_get_length (dest)))
             {
-              _dbus_warn ("failed to save length\n");
+              _dbus_warn ("failed to save length end\n");
               goto parse_failed;
             }
         }
@@ -628,7 +692,10 @@ _dbus_message_data_load (DBusString       *dest,
           strip_command_name (&line);
 
           if (!_dbus_string_parse_int (&line, 0, &val, NULL))
-            goto parse_failed;
+            {
+              _dbus_warn ("could not parse integer for INT32\n");
+              goto parse_failed;
+            }
           
           if (!_dbus_marshal_int32 (dest, endian,
                                     val))
@@ -741,24 +808,27 @@ _dbus_message_data_load (DBusString       *dest,
       
       if (sl->length < 0)
         {
-          _dbus_warn ("Used LENGTH %s but never did SAVE_LENGTH\n",
+          _dbus_warn ("Used LENGTH %s but never did END_LENGTH\n",
                       s);
           goto out;
         }
       else if (sl->offset < 0)
         {
-          _dbus_warn ("Did SAVE_LENGTH %s but never used LENGTH\n",
+          _dbus_warn ("Did END_LENGTH %s but never used LENGTH\n",
                       s);
           goto out;
         }
       else
         {
-          _dbus_verbose ("Filling in length %s endian = %d offset = %d length = %d\n",
-                         s, sl->endian, sl->offset, sl->length);
+          if (sl->start < 0)
+            sl->start = 0;
+          
+          _dbus_verbose ("Filling in length %s endian = %d offset = %d start = %d length = %d\n",
+                         s, sl->endian, sl->offset, sl->start, sl->length);
           _dbus_marshal_set_int32 (dest,
                                    sl->endian,
                                    sl->offset,
-                                   sl->length);
+                                   sl->length - sl->start);
         }
     }
   

@@ -1,0 +1,14 @@
+## like simplest.message, but doesn't use VALID_HEADER
+## convenience command. mostly to test the test framework.
+
+BYTE 'l'
+BYTE 0
+BYTE 0
+BYTE 0
+LENGTH Header
+LENGTH Body
+## client serial
+INT32 7
+END_LENGTH Header
+START_LENGTH Body
+END_LENGTH Body

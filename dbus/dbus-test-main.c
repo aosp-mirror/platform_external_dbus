@@ -31,6 +31,13 @@ int
 main (int    argc,
       char **argv)
 {
-  dbus_internal_symbol_do_not_use_run_tests ();
+  const char *test_data_dir;
+
+  if (argc > 1)
+    test_data_dir = argv[1];
+  else
+    test_data_dir = NULL;
+  
+  dbus_internal_symbol_do_not_use_run_tests (test_data_dir);
   return 0;
 }

@@ -32,11 +32,13 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/socket.h>
+#include <dirent.h>
 #include <sys/un.h>
 #include <pwd.h>
 #include <time.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+
 #ifdef HAVE_WRITEV
 #include <sys/uio.h>
 #endif
@@ -1099,5 +1101,149 @@ _dbus_file_get_contents (DBusString       *str,
       return DBUS_RESULT_SUCCESS;
     }
 }
+
+/**
+ * Appends the given filename to the given directory.
+ *
+ * @param dir the directory name
+ * @param next_component the filename
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_concat_dir_and_file (DBusString       *dir,
+                           const DBusString *next_component)
+{
+  dbus_bool_t dir_ends_in_slash;
+  dbus_bool_t file_starts_with_slash;
+
+  if (_dbus_string_get_length (dir) == 0 ||
+      _dbus_string_get_length (next_component) == 0)
+    return TRUE;
+  
+  dir_ends_in_slash = '/' == _dbus_string_get_byte (dir,
+                                                    _dbus_string_get_length (dir) - 1);
+
+  file_starts_with_slash = '/' == _dbus_string_get_byte (next_component, 0);
+
+  if (dir_ends_in_slash && file_starts_with_slash)
+    {
+      _dbus_string_shorten (dir, 1);
+    }
+  else if (!(dir_ends_in_slash || file_starts_with_slash))
+    {
+      if (!_dbus_string_append_byte (dir, '/'))
+        return FALSE;
+    }
+
+  return _dbus_string_copy (next_component, 0, dir,
+                            _dbus_string_get_length (dir));
+}
+
+struct DBusDirIter
+{
+  DIR *d;
+  
+};
+
+/**
+ * Open a directory to iterate over.
+ *
+ * @param filename the directory name
+ * @param result return location for error code if #NULL returned
+ * @returns new iterator, or #NULL on error
+ */
+DBusDirIter*
+_dbus_directory_open (const DBusString *filename,
+                      DBusResultCode   *result)
+{
+  DIR *d;
+  DBusDirIter *iter;
+  const char *filename_c;
+
+  _dbus_string_get_const_data (filename, &filename_c);
+
+  d = opendir (filename_c);
+  if (d == NULL)
+    {
+      dbus_set_result (result, _dbus_result_from_errno (errno));
+      return NULL;
+    }
+  
+  iter = dbus_new0 (DBusDirIter, 1);
+  if (iter == NULL)
+    {
+      closedir (d);
+      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      return NULL;
+    }
+
+  iter->d = d;
+
+  return iter;
+}
+
+/**
+ * Get next file in the directory. Will not return "." or ".."
+ * on UNIX. If an error occurs, the contents of "filename"
+ * are undefined. #DBUS_RESULT_SUCCESS is always returned
+ * in result if no error occurs.
+ *
+ * @todo for thread safety, I think we have to use
+ * readdir_r(). (GLib has the same issue, should file a bug.)
+ *
+ * @param iter the iterator
+ * @param filename string to be set to the next file in the dir
+ * @param result return location for error, or #DBUS_RESULT_SUCCESS
+ * @returns #TRUE if filename was filled in with a new filename
+ */
+dbus_bool_t
+_dbus_directory_get_next_file (DBusDirIter      *iter,
+                               DBusString       *filename,
+                               DBusResultCode   *result)
+{
+  /* we always have to put something in result, since return
+   * value means whether there's a filename and doesn't
+   * reliably indicate whether an error was set.
+   */
+  struct dirent *ent;
+  
+  dbus_set_result (result, DBUS_RESULT_SUCCESS);
+
+ again:
+  errno = 0;
+  ent = readdir (iter->d);
+  if (ent == NULL)
+    {
+      dbus_set_result (result,
+                       _dbus_result_from_errno (errno));
+      return FALSE;
+    }
+  else if (ent->d_name[0] == '.' &&
+           (ent->d_name[1] == '\0' ||
+            (ent->d_name[1] == '.' && ent->d_name[2] == '\0')))
+    goto again;
+  else
+    {
+      _dbus_string_set_length (filename, 0);
+      if (!_dbus_string_append (filename, ent->d_name))
+        {
+          dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+          return FALSE;
+        }
+      else
+        return TRUE;
+    }
+}
+
+/**
+ * Closes a directory iteration.
+ */
+void
+_dbus_directory_close (DBusDirIter *iter)
+{
+  closedir (iter->d);
+  dbus_free (iter);
+}
+
 
 /** @} end of sysdeps */

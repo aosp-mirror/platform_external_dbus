@@ -28,6 +28,7 @@
 #include "dbus-message-internal.h"
 #include "dbus-memory.h"
 #include "dbus-list.h"
+#include "dbus-message-builder.h"
 #include <string.h>
 
 /**
@@ -2018,6 +2019,334 @@ message_iter_test (DBusMessage *message)
   dbus_message_iter_unref (iter);
 }
 
+static dbus_bool_t
+check_have_valid_message (DBusMessageLoader *loader)
+{
+  DBusMessage *message;
+  dbus_bool_t retval;
+
+  message = NULL;
+  retval = FALSE;
+  
+  if (_dbus_message_loader_get_is_corrupted (loader))
+    {
+      _dbus_warn ("loader corrupted on message that was expected to be valid\n");
+      goto failed;
+    }
+  
+  message = _dbus_message_loader_pop_message (loader);
+  if (message == NULL)
+    {
+      _dbus_warn ("didn't load message that was expected to be valid (message not popped)\n");
+      goto failed;
+    }
+  
+  if (_dbus_string_get_length (&loader->data) > 0)
+    {
+      _dbus_warn ("had leftover bytes from expected-to-be-valid single message\n");
+      goto failed;
+    }
+
+  retval = TRUE;
+
+ failed:
+  if (message)
+    dbus_message_unref (message);
+  return retval;
+}
+
+static dbus_bool_t
+check_invalid_message (DBusMessageLoader *loader)
+{
+  dbus_bool_t retval;
+
+  retval = FALSE;
+  
+  if (!_dbus_message_loader_get_is_corrupted (loader))
+    {
+      _dbus_warn ("loader not corrupted on message that was expected to be invalid\n");
+      goto failed;
+    }
+
+  retval = TRUE;
+
+ failed:
+  return retval;
+}
+
+static dbus_bool_t
+check_incomplete_message (DBusMessageLoader *loader)
+{
+  DBusMessage *message;
+  dbus_bool_t retval;
+
+  message = NULL;
+  retval = FALSE;
+  
+  if (_dbus_message_loader_get_is_corrupted (loader))
+    {
+      _dbus_warn ("loader corrupted on message that was expected to be valid (but incomplete)\n");
+      goto failed;
+    }
+  
+  message = _dbus_message_loader_pop_message (loader);
+  if (message != NULL)
+    {
+      _dbus_warn ("loaded message that was expected to be incomplete\n");
+      goto failed;
+    }
+
+  retval = TRUE;
+
+ failed:
+  if (message)
+    dbus_message_unref (message);
+  return retval;
+}
+
+typedef enum
+{
+  MESSAGE_VALID,
+  MESSAGE_INVALID,
+  MESSAGE_INCOMPLETE
+} ExpectedMessageValidity;
+
+static dbus_bool_t
+check_loader_results (DBusMessageLoader      *loader,
+                      ExpectedMessageValidity validity)
+{
+  switch (validity)
+    {
+    case MESSAGE_VALID:
+      return check_have_valid_message (loader);
+    case MESSAGE_INVALID:
+      return check_invalid_message (loader);
+    case MESSAGE_INCOMPLETE:
+      return check_incomplete_message (loader);
+    }
+
+  _dbus_assert_not_reached ("bad ExpectedMessageValidity");
+  return FALSE;
+}
+
+static dbus_bool_t
+try_message (const DBusString       *filename,
+             ExpectedMessageValidity validity)
+{
+  DBusString data;
+  DBusMessageLoader *loader;
+  dbus_bool_t retval;
+  int len;
+  int i;
+  const char *filename_c;
+
+  _dbus_string_get_const_data (filename, &filename_c);
+  
+  if (!_dbus_string_ends_with_c_str (filename, ".message"))
+    {
+      _dbus_verbose ("Skipping non-.message file %s\n",
+                     filename_c);
+      return TRUE;
+    }
+
+  {
+    const char *s;
+    _dbus_string_get_const_data (filename, &s);
+    printf ("    %s\n", s);
+  }
+  
+  _dbus_verbose (" expecting %s\n",
+                 validity == MESSAGE_VALID ? "valid" :
+                 (validity == MESSAGE_INVALID ? "invalid" : "incomplete"));
+
+  loader = NULL;
+  retval = FALSE;
+  
+  if (!_dbus_string_init (&data, _DBUS_INT_MAX))
+    _dbus_assert_not_reached ("could not allocate string\n");
+  
+  if (!_dbus_message_data_load (&data, filename))
+    {
+      const char *s;      
+      _dbus_string_get_const_data (filename, &s);
+      _dbus_warn ("Could not load message file %s\n", s);
+      goto failed;
+    }
+
+  /* Write the data one byte at a time */
+  
+  loader = _dbus_message_loader_new ();
+
+  len = _dbus_string_get_length (&data);
+  for (i = 0; i < len; i++)
+    {
+      DBusString *buffer;
+
+      _dbus_message_loader_get_buffer (loader, &buffer);
+      _dbus_string_append_byte (buffer,
+                                _dbus_string_get_byte (&data, i));
+      _dbus_message_loader_return_buffer (loader, buffer, 1);
+    }
+  
+  if (!check_loader_results (loader, validity))
+    goto failed;
+
+  _dbus_message_loader_unref (loader);
+  loader = NULL;
+
+  /* Write the data all at once */
+  
+  loader = _dbus_message_loader_new ();
+
+  {
+    DBusString *buffer;
+    
+    _dbus_message_loader_get_buffer (loader, &buffer);
+    _dbus_string_copy (&data, 0, buffer,
+                       _dbus_string_get_length (buffer));
+    _dbus_message_loader_return_buffer (loader, buffer, 1);
+  }
+  
+  if (!check_loader_results (loader, validity))
+    goto failed;
+
+  _dbus_message_loader_unref (loader);
+  loader = NULL;  
+
+  /* Write the data 2 bytes at a time */
+  
+  loader = _dbus_message_loader_new ();
+
+  len = _dbus_string_get_length (&data);
+  for (i = 0; i < len; i += 2)
+    {
+      DBusString *buffer;
+
+      _dbus_message_loader_get_buffer (loader, &buffer);
+      _dbus_string_append_byte (buffer,
+                                _dbus_string_get_byte (&data, i));
+      if ((i+1) < len)
+        _dbus_string_append_byte (buffer,
+                                  _dbus_string_get_byte (&data, i+1));
+      _dbus_message_loader_return_buffer (loader, buffer, 1);
+    }
+  
+  if (!check_loader_results (loader, validity))
+    goto failed;
+
+  _dbus_message_loader_unref (loader);
+  loader = NULL;
+  
+  retval = TRUE;
+  
+ failed:
+  if (!retval)
+    {
+      const char *s;
+
+      if (_dbus_string_get_length (&data) > 0)
+        _dbus_verbose_bytes_of_string (&data, 0,
+                                       _dbus_string_get_length (&data));
+      
+      _dbus_string_get_const_data (filename, &s);
+      _dbus_warn ("Failed message loader test on %s\n",
+                  s);
+    }
+  
+  if (loader)
+    _dbus_message_loader_unref (loader);
+  _dbus_string_free (&data);
+  
+  return retval;
+}
+
+static dbus_bool_t
+process_test_subdir (const DBusString       *test_base_dir,
+                     const char             *subdir,
+                     ExpectedMessageValidity validity)
+{
+  DBusString test_directory;
+  DBusString filename;
+  DBusDirIter *dir;
+  dbus_bool_t retval;
+  DBusResultCode result;
+
+  retval = FALSE;
+  dir = NULL;
+  
+  if (!_dbus_string_init (&test_directory, _DBUS_INT_MAX))
+    _dbus_assert_not_reached ("didn't allocate test_directory\n");
+
+  _dbus_string_init_const (&filename, subdir);
+  
+  if (!_dbus_string_copy (test_base_dir, 0,
+                          &test_directory, 0))
+    _dbus_assert_not_reached ("couldn't copy test_base_dir to test_directory");
+  
+  if (!_dbus_concat_dir_and_file (&test_directory, &filename))    
+    _dbus_assert_not_reached ("could't allocate full path");
+
+  _dbus_string_free (&filename);
+  if (!_dbus_string_init (&filename, _DBUS_INT_MAX))
+    _dbus_assert_not_reached ("didn't allocate filename string\n");
+  
+  dir = _dbus_directory_open (&test_directory, &result);
+  if (dir == NULL)
+    {
+      const char *s;
+      _dbus_string_get_const_data (&test_directory, &s);
+      _dbus_warn ("Could not open %s: %s\n", s,
+                  dbus_result_to_string (result));
+      goto failed;
+    }
+
+  printf ("Testing:\n");
+  
+  result = DBUS_RESULT_SUCCESS;
+  while (_dbus_directory_get_next_file (dir, &filename, &result))
+    {
+      DBusString full_path;
+
+      if (!_dbus_string_init (&full_path, _DBUS_INT_MAX))
+        _dbus_assert_not_reached ("couldn't init string");
+
+      if (!_dbus_string_copy (&test_directory, 0, &full_path, 0))
+        _dbus_assert_not_reached ("couldn't copy dir to full_path");
+
+      if (!_dbus_concat_dir_and_file (&full_path, &filename))
+        _dbus_assert_not_reached ("couldn't concat file to dir");
+      
+      if (!try_message (&full_path, validity))
+        {
+          _dbus_string_free (&full_path);
+          goto failed;
+        }
+      else
+        _dbus_string_free (&full_path);
+    }
+
+  if (result != DBUS_RESULT_SUCCESS)
+    {
+      const char *s;
+      _dbus_string_get_const_data (&test_directory, &s);
+      _dbus_warn ("Could not get next file in %s: %s\n",
+                  s, dbus_result_to_string (result));
+      goto failed;
+    }
+    
+  retval = TRUE;
+  
+ failed:
+
+  if (dir)
+    _dbus_directory_close (dir);
+  _dbus_string_free (&test_directory);
+  _dbus_string_free (&filename);
+
+  return retval;
+}
+                     
+
 /**
  * @ingroup DBusMessageInternals
  * Unit test for DBusMessage.
@@ -2025,7 +2354,7 @@ message_iter_test (DBusMessage *message)
  * @returns #TRUE on success.
  */
 dbus_bool_t
-_dbus_message_test (void)
+_dbus_message_test (const char *test_data_dir)
 {
   DBusMessage *message;
   DBusMessageLoader *loader;
@@ -2034,6 +2363,8 @@ _dbus_message_test (void)
   dbus_int32_t our_int;
   char *our_str;
   double our_double;
+  DBusString test_directory;
+  dbus_bool_t retval;
   
   /* Test the vararg functions */
   message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");
@@ -2122,7 +2453,32 @@ _dbus_message_test (void)
   dbus_message_unref (message);
   _dbus_message_loader_unref (loader);
 
-  return TRUE;
+  /* Now load every message in test_data_dir if we have one */
+  if (test_data_dir == NULL)
+    return TRUE;
+
+  retval = FALSE;
+  
+  _dbus_string_init_const (&test_directory, test_data_dir);
+
+  if (!process_test_subdir (&test_directory, "valid-messages",
+                            MESSAGE_VALID))
+    goto failed;
+  if (!process_test_subdir (&test_directory, "invalid-messages",
+                            MESSAGE_INVALID))
+    goto failed;
+  
+  if (!process_test_subdir (&test_directory, "incomplete-messages",
+                            MESSAGE_INCOMPLETE))
+    goto failed;
+
+  retval = TRUE;
+  
+ failed:
+
+  _dbus_string_free (&test_directory);
+  
+  return retval;
 }
 
 #endif /* DBUS_BUILD_TESTS */

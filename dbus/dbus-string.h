@@ -165,6 +165,8 @@ dbus_bool_t _dbus_string_equal_c_str  (const DBusString *a,
 
 dbus_bool_t _dbus_string_starts_with_c_str  (const DBusString *a,
                                              const char       *c_str);
+dbus_bool_t _dbus_string_ends_with_c_str    (const DBusString *a,
+                                             const char       *c_str);
 
 dbus_bool_t _dbus_string_base64_encode (const DBusString *source,
                                         int               start,

@@ -1,3 +1,29 @@
+2003-01-27  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-mempool.c (time_for_size): replace printf with 
+	_dbus_verbose
+
+	* dbus/dbus-message-builder.c (_dbus_message_data_load): allow
+	empty lines; fix the SAVE_LENGTH stuff to be
+	START_LENGTH/END_LENGTH so it actually works; couple other 
+	bugfixes
+	
+	* test/Makefile.am (dist-hook): add dist-hook for .message files
+
+	* dbus/dbus-string.c (DBUS_STRING_COPY_PREAMBLE): source of a copy
+	can be constant or locked.
+	(_dbus_string_free): allow freeing a const string as
+	documented/intended
+
+	* dbus/dbus-sysdeps.c (_dbus_concat_dir_and_file): utility
+
+	* dbus/dbus-test-main.c (main): take an argument which is the 
+	directory containing test data
+
+	* dbus/dbus-message.c (_dbus_message_test): pass a test_data_dir
+	argument to this and load all the messages in test/data/
+	checking that they can be loaded or not loaded as appropriate.
+
 2003-01-27  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/dispatch.c: (bus_dispatch_message_handler):

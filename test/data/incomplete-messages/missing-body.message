@@ -1,0 +1,12 @@
+## message that's missing an expected body
+
+VALID_HEADER
+END_LENGTH Header
+
+## create the body, then chop it off
+START_LENGTH Body
+TYPE INT32
+INT32 37
+END_LENGTH Body
+
+CHOP 8

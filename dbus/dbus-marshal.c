@@ -1149,7 +1149,7 @@ _dbus_marshal_test (void)
   if (!_dbus_marshal_int32_array (&str, DBUS_BIG_ENDIAN, array1, 3))
     _dbus_assert_not_reached ("could not marshal integer array");
   array2 = _dbus_demarshal_int32_array (&str, DBUS_BIG_ENDIAN, pos, &pos, &len);
-  printf ("length is: %d\n", len);
+
   if (len != 3)
     _dbus_assert_not_reached ("Signed integer array lengths differ!\n");
   dbus_free (array2);

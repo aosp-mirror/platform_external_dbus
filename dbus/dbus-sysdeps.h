@@ -25,6 +25,7 @@
 #define DBUS_SYSDEPS_H
 
 #include <dbus/dbus-string.h>
+#include <dbus/dbus-errors.h>
 
 /* this is perhaps bogus, but strcmp() etc. are faster if we use the
  * stuff straight out of string.h, so have this here for now.
@@ -123,6 +124,19 @@ void _dbus_get_current_time (long *tv_sec,
 
 DBusResultCode _dbus_file_get_contents (DBusString       *str,
                                         const DBusString *filename);
+
+dbus_bool_t _dbus_concat_dir_and_file (DBusString       *dir,
+                                       const DBusString *next_component);
+
+typedef struct DBusDirIter DBusDirIter;
+
+DBusDirIter* _dbus_directory_open          (const DBusString *filename,
+                                            DBusResultCode   *result);
+dbus_bool_t  _dbus_directory_get_next_file (DBusDirIter      *iter,
+                                            DBusString       *filename,
+                                            DBusResultCode   *result);
+void         _dbus_directory_close         (DBusDirIter      *iter);
+
 
 DBUS_END_DECLS;
 
