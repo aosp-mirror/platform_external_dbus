@@ -31,6 +31,8 @@ Important for 1.0
 
  - fix introspection format to handle all signatures
 
+ - make the mutex/condvar functions private
+
 Important for 1.0 GLib Bindings
 ===
 

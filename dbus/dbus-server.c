@@ -67,13 +67,17 @@ _dbus_server_init_base (DBusServer             *server,
                         const DBusString       *address)
 {
   server->vtable = vtable;
-  server->refcount = 1;
+  server->refcount.value = 1;
 
   server->address = NULL;
   server->watches = NULL;
   server->timeouts = NULL;
   
   if (!_dbus_string_copy_data (address, &server->address))
+    goto failed;
+
+  server->mutex = dbus_mutex_new ();
+  if (server->mutex == NULL)
     goto failed;
   
   server->watches = _dbus_watch_list_new ();
@@ -91,6 +95,11 @@ _dbus_server_init_base (DBusServer             *server,
   return TRUE;
 
  failed:
+  if (server->mutex)
+    {
+      dbus_mutex_free (server->mutex);
+      server->mutex = NULL;
+    }
   if (server->watches)
     {
       _dbus_watch_list_free (server->watches);
@@ -118,7 +127,7 @@ _dbus_server_init_base (DBusServer             *server,
  */
 void
 _dbus_server_finalize_base (DBusServer *server)
-{
+{  
   /* calls out to application code... */
   _dbus_data_slot_list_free (&server->slot_list);
 
@@ -130,6 +139,8 @@ _dbus_server_finalize_base (DBusServer *server)
   _dbus_watch_list_free (server->watches);
   _dbus_timeout_list_free (server->timeouts);
 
+  dbus_mutex_free (server->mutex);
+  
   dbus_free (server->address);
 
   dbus_free_string_array (server->auth_mechanisms);
@@ -146,6 +157,7 @@ dbus_bool_t
 _dbus_server_add_watch (DBusServer *server,
                         DBusWatch  *watch)
 {
+  HAVE_LOCK_CHECK (server);
   return _dbus_watch_list_add_watch (server->watches, watch);
 }
 
@@ -159,6 +171,7 @@ void
 _dbus_server_remove_watch  (DBusServer *server,
                             DBusWatch  *watch)
 {
+  HAVE_LOCK_CHECK (server);
   _dbus_watch_list_remove_watch (server->watches, watch);
 }
 
@@ -176,6 +189,8 @@ _dbus_server_toggle_watch (DBusServer  *server,
                            DBusWatch   *watch,
                            dbus_bool_t  enabled)
 {
+  HAVE_LOCK_CHECK (server);
+  
   if (server->watches) /* null during finalize */
     _dbus_watch_list_toggle_watch (server->watches,
                                    watch, enabled);
@@ -194,6 +209,8 @@ dbus_bool_t
 _dbus_server_add_timeout (DBusServer  *server,
 			  DBusTimeout *timeout)
 {
+  HAVE_LOCK_CHECK (server);
+  
   return _dbus_timeout_list_add_timeout (server->timeouts, timeout);
 }
 
@@ -207,6 +224,8 @@ void
 _dbus_server_remove_timeout (DBusServer  *server,
 			     DBusTimeout *timeout)
 {
+  HAVE_LOCK_CHECK (server);
+  
   _dbus_timeout_list_remove_timeout (server->timeouts, timeout);  
 }
 
@@ -224,6 +243,8 @@ _dbus_server_toggle_timeout (DBusServer  *server,
                              DBusTimeout *timeout,
                              dbus_bool_t  enabled)
 {
+  HAVE_LOCK_CHECK (server);
+  
   if (server->timeouts) /* null during finalize */
     _dbus_timeout_list_toggle_timeout (server->timeouts,
                                        timeout, enabled);
@@ -457,8 +478,16 @@ DBusServer *
 dbus_server_ref (DBusServer *server)
 {
   _dbus_return_val_if_fail (server != NULL, NULL);
-  
-  server->refcount += 1;
+
+#ifdef DBUS_HAVE_ATOMIC_INT
+  _dbus_atomic_inc (&server->refcount);
+#else
+  SERVER_LOCK (server);
+  _dbus_assert (server->refcount.value > 0);
+
+  server->refcount.value += 1;
+  SERVER_UNLOCK (server);
+#endif
 
   return server;
 }
@@ -474,17 +503,48 @@ dbus_server_ref (DBusServer *server)
 void
 dbus_server_unref (DBusServer *server)
 {
+  dbus_bool_t last_unref;
+  
   _dbus_return_if_fail (server != NULL);
 
-  _dbus_assert (server->refcount > 0);
+#ifdef DBUS_HAVE_ATOMIC_INT
+  last_unref = (_dbus_atomic_dec (&server->refcount) == 1);
+#else
+  SERVER_LOCK (server);
+  
+  _dbus_assert (server->refcount.value > 0);
 
-  server->refcount -= 1;
-  if (server->refcount == 0)
+  server->refcount.value -= 1;
+  last_unref = (server->refcount.value == 0);
+  
+  SERVER_UNLOCK (server);
+#endif
+  
+  if (last_unref)
     {
       _dbus_assert (server->vtable->finalize != NULL);
       
       (* server->vtable->finalize) (server);
     }
+}
+
+/**
+ * Like dbus_server_ref() but does not acquire the lock (must already be held)
+ *
+ * @param server the server.
+ */
+void
+_dbus_server_ref_unlocked (DBusServer *server)
+{
+  HAVE_LOCK_CHECK (server);
+
+#ifdef DBUS_HAVE_ATOMIC_INT
+  _dbus_atomic_inc (&server->refcount);
+#else
+  _dbus_assert (server->refcount.value > 0);
+
+  server->refcount.value += 1;
+#endif
 }
 
 /**
@@ -499,6 +559,8 @@ void
 dbus_server_disconnect (DBusServer *server)
 {
   _dbus_return_if_fail (server != NULL);
+
+  SERVER_LOCK (server);
   
   _dbus_assert (server->vtable->disconnect != NULL);
 
@@ -507,6 +569,8 @@ dbus_server_disconnect (DBusServer *server)
   
   (* server->vtable->disconnect) (server);
   server->disconnected = TRUE;
+
+  SERVER_UNLOCK (server);
 }
 
 /**
@@ -517,9 +581,15 @@ dbus_server_disconnect (DBusServer *server)
 dbus_bool_t
 dbus_server_get_is_connected (DBusServer *server)
 {
-  _dbus_return_val_if_fail (server != NULL, FALSE);
+  dbus_bool_t retval;
   
-  return !server->disconnected;
+  _dbus_return_val_if_fail (server != NULL, FALSE);
+
+  SERVER_LOCK (server);
+  retval = !server->disconnected;
+  SERVER_UNLOCK (server);
+
+  return retval;
 }
 
 /**
@@ -532,9 +602,15 @@ dbus_server_get_is_connected (DBusServer *server)
 char*
 dbus_server_get_address (DBusServer *server)
 {
-  _dbus_return_val_if_fail (server != NULL, NULL);
+  char *retval;
   
-  return _dbus_strdup (server->address);
+  _dbus_return_val_if_fail (server != NULL, NULL);
+
+  SERVER_LOCK (server);
+  retval = _dbus_strdup (server->address);
+  SERVER_UNLOCK (server);
+
+  return retval;
 }
 
 /**
@@ -555,14 +631,22 @@ dbus_server_set_new_connection_function (DBusServer                *server,
                                          void                      *data,
                                          DBusFreeFunction           free_data_function)
 {
-  _dbus_return_if_fail (server != NULL);
+  DBusFreeFunction old_free_function;
+  void *old_data;
   
-  if (server->new_connection_free_data_function != NULL)
-    (* server->new_connection_free_data_function) (server->new_connection_data);
+  _dbus_return_if_fail (server != NULL);
+
+  SERVER_LOCK (server);
+  old_free_function = server->new_connection_free_data_function;
+  old_data = server->new_connection_data;
   
   server->new_connection_function = function;
   server->new_connection_data = data;
   server->new_connection_free_data_function = free_data_function;
+  SERVER_UNLOCK (server);
+    
+  if (old_free_function != NULL)
+    (* old_free_function) (old_data);
 }
 
 /**
@@ -589,14 +673,34 @@ dbus_server_set_watch_functions (DBusServer              *server,
                                  void                    *data,
                                  DBusFreeFunction         free_data_function)
 {
-  _dbus_return_val_if_fail (server != NULL, FALSE);
+  dbus_bool_t result;
+  DBusWatchList *watches;
   
-  return _dbus_watch_list_set_functions (server->watches,
-                                         add_function,
-                                         remove_function,
-                                         toggled_function,
-                                         data,
-                                         free_data_function);
+  _dbus_return_val_if_fail (server != NULL, FALSE);
+
+  SERVER_LOCK (server);
+  watches = server->watches;
+  server->watches = NULL;
+  if (watches)
+    {
+      SERVER_UNLOCK (server);
+      result = _dbus_watch_list_set_functions (watches,
+                                               add_function,
+                                               remove_function,
+                                               toggled_function,
+                                               data,
+                                               free_data_function);
+      SERVER_LOCK (server);
+    }
+  else
+    {
+      _dbus_warn ("Re-entrant call to %s\n", _DBUS_FUNCTION_NAME);
+      result = FALSE;
+    }
+  server->watches = watches;
+  SERVER_UNLOCK (server);
+  
+  return result;
 }
 
 /**
@@ -622,12 +726,34 @@ dbus_server_set_timeout_functions (DBusServer                *server,
 				   void                      *data,
 				   DBusFreeFunction           free_data_function)
 {
-  _dbus_return_val_if_fail (server != NULL, FALSE);
+  dbus_bool_t result;
+  DBusTimeoutList *timeouts;
   
-  return _dbus_timeout_list_set_functions (server->timeouts,
-                                           add_function, remove_function,
-                                           toggled_function,
-                                           data, free_data_function); 
+  _dbus_return_val_if_fail (server != NULL, FALSE);
+
+  SERVER_LOCK (server);
+  timeouts = server->timeouts;
+  server->timeouts = NULL;
+  if (timeouts)
+    {
+      SERVER_UNLOCK (server);
+      result = _dbus_timeout_list_set_functions (timeouts,
+                                                 add_function,
+                                                 remove_function,
+                                                 toggled_function,
+                                                 data,
+                                                 free_data_function);
+      SERVER_LOCK (server);
+    }
+  else
+    {
+      _dbus_warn ("Re-entrant call to %s\n", _DBUS_FUNCTION_NAME);
+      result = FALSE;
+    }
+  server->timeouts = timeouts;
+  SERVER_UNLOCK (server);
+  
+  return result;
 }
 
 /**
@@ -647,6 +773,8 @@ dbus_server_set_auth_mechanisms (DBusServer  *server,
   char **copy;
 
   _dbus_return_val_if_fail (server != NULL, FALSE);
+
+  SERVER_LOCK (server);
   
   if (mechanisms != NULL)
     {
@@ -660,6 +788,8 @@ dbus_server_set_auth_mechanisms (DBusServer  *server,
   dbus_free_string_array (server->auth_mechanisms);
   server->auth_mechanisms = copy;
 
+  SERVER_UNLOCK (server);
+  
   return TRUE;
 }
 
@@ -732,19 +862,16 @@ dbus_server_set_data (DBusServer       *server,
   dbus_bool_t retval;
 
   _dbus_return_val_if_fail (server != NULL, FALSE);
-  
-#if 0
-  dbus_mutex_lock (server->mutex);
-#endif
+
+  SERVER_LOCK (server);
   
   retval = _dbus_data_slot_list_set (&slot_allocator,
                                      &server->slot_list,
                                      slot, data, free_data_func,
                                      &old_free_func, &old_data);
 
-#if 0
-  dbus_mutex_unlock (server->mutex);
-#endif
+
+  SERVER_UNLOCK (server);
   
   if (retval)
     {
@@ -772,17 +899,13 @@ dbus_server_get_data (DBusServer   *server,
 
   _dbus_return_val_if_fail (server != NULL, NULL);
   
-#if 0
-  dbus_mutex_lock (server->mutex);
-#endif
+  SERVER_LOCK (server);
   
   res = _dbus_data_slot_list_get (&slot_allocator,
                                   &server->slot_list,
                                   slot);
 
-#if 0
-  dbus_mutex_unlock (server->mutex);
-#endif
+  SERVER_UNLOCK (server);
   
   return res;
 }

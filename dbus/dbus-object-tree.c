@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-object-tree.c  DBusObjectTree (internals of DBusConnection)
  *
- * Copyright (C) 2003  Red Hat Inc.
+ * Copyright (C) 2003, 2005  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.1
  *
@@ -503,6 +503,7 @@ _dbus_object_tree_unregister_and_unlock (DBusObjectTree          *tree,
 #endif
     {
       _dbus_connection_ref_unlocked (connection);
+      _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
       _dbus_connection_unlock (connection);
     }
 
@@ -635,7 +636,10 @@ handle_default_introspect_and_unlock (DBusObjectTree          *tree,
 #ifdef DBUS_BUILD_TESTS
       if (tree->connection)
 #endif
-        _dbus_connection_unlock (tree->connection);
+        {
+          _dbus_verbose ("unlock %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+          _dbus_connection_unlock (tree->connection);
+        }
       
       return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
@@ -647,7 +651,10 @@ handle_default_introspect_and_unlock (DBusObjectTree          *tree,
 #ifdef DBUS_BUILD_TESTS
       if (tree->connection)
 #endif
-        _dbus_connection_unlock (tree->connection);
+        {
+          _dbus_verbose ("unlock %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+          _dbus_connection_unlock (tree->connection);
+        }
 
       return DBUS_HANDLER_RESULT_NEED_MEMORY;
     }
@@ -690,6 +697,8 @@ handle_default_introspect_and_unlock (DBusObjectTree          *tree,
   if (tree->connection)
 #endif
     {
+      already_unlocked = TRUE;
+      
       if (!_dbus_connection_send_and_unlock (tree->connection, reply, NULL))
         goto out;
     }
@@ -702,7 +711,10 @@ handle_default_introspect_and_unlock (DBusObjectTree          *tree,
 #endif
     {
       if (!already_unlocked)
-        _dbus_connection_unlock (tree->connection);
+        {
+          _dbus_verbose ("unlock %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+          _dbus_connection_unlock (tree->connection);
+        }
     }
   
   _dbus_string_free (&xml);
@@ -747,7 +759,10 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
 #ifdef DBUS_BUILD_TESTS
       if (tree->connection)
 #endif
-        _dbus_connection_unlock (tree->connection);
+        {
+          _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+          _dbus_connection_unlock (tree->connection);
+        }
       
       _dbus_verbose ("No memory to get decomposed path\n");
 
@@ -759,7 +774,10 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
 #ifdef DBUS_BUILD_TESTS
       if (tree->connection)
 #endif
-        _dbus_connection_unlock (tree->connection);
+        {
+          _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+          _dbus_connection_unlock (tree->connection);
+        }
       
       _dbus_verbose ("No path field in message\n");
       return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -822,7 +840,10 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
 #ifdef DBUS_BUILD_TESTS
           if (tree->connection)
 #endif
-            _dbus_connection_unlock (tree->connection);
+            {
+              _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+              _dbus_connection_unlock (tree->connection);
+            }
 
           /* FIXME you could unregister the subtree in another thread
            * before we invoke the callback, and I can't figure out a
@@ -859,7 +880,10 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
 #ifdef DBUS_BUILD_TESTS
       if (tree->connection)
 #endif
-        _dbus_connection_unlock (tree->connection);
+        {
+          _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+          _dbus_connection_unlock (tree->connection);
+        }
     }
   
   while (list != NULL)
@@ -993,7 +1017,10 @@ _dbus_object_tree_list_registered_and_unlock (DBusObjectTree *tree,
 #ifdef DBUS_BUILD_TESTS
   if (tree->connection)
 #endif
-    _dbus_connection_unlock (tree->connection);
+    {
+      _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_connection_unlock (tree->connection);
+    }
 
   return result;
 }

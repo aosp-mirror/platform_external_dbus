@@ -842,6 +842,7 @@ if test x$have_glib = xno ; then
     have_gtk=no
 else
     PKG_CHECK_MODULES(DBUS_GTK, gtk+-2.0, have_gtk=yes, have_gtk=no)
+    PKG_CHECK_MODULES(DBUS_GTK_THREADS, gtk+-2.0 gthread-2.0, have_gtk_threads=yes, have_gtk_threads=no)
 fi
 
 if test x$have_gtk = xno ; then
@@ -863,6 +864,8 @@ AM_CONDITIONAL(HAVE_GTK, test x$have_gtk = xyes)
 dnl Gtk flags
 AC_SUBST(DBUS_GTK_CFLAGS)
 AC_SUBST(DBUS_GTK_LIBS)
+AC_SUBST(DBUS_GTK_THREADS_CFLAGS)
+AC_SUBST(DBUS_GTK_THREADS_LIBS)
 
 # Qt detection
 AC_PATH_PROG(QT_MOC, moc, no)

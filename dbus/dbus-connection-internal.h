@@ -74,7 +74,7 @@ void              _dbus_connection_toggle_timeout              (DBusConnection  
                                                                 DBusTimeout        *timeout,
                                                                 dbus_bool_t         enabled);
 DBusConnection*   _dbus_connection_new_for_transport           (DBusTransport      *transport);
-void              _dbus_connection_do_iteration                (DBusConnection     *connection,
+void              _dbus_connection_do_iteration_unlocked       (DBusConnection     *connection,
                                                                 unsigned int        flags,
                                                                 int                 timeout_milliseconds);
 

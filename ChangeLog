@@ -1,3 +1,36 @@
+2005-02-13  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-object-tree.c (handle_default_introspect_and_unlock):
+	fix a double-unlock
+
+	* dbus/dbus-connection.c
+	(_dbus_connection_detach_pending_call_unlocked): add this
+
+        Initial semi-correct pass through to fix thread locking; there are
+	still some issues with the condition variable paths I'm pretty
+	sure
+	
+	* dbus/dbus-server.c: add a mutex on DBusServer and appropriate
+	lock/unlock calls
+
+	* dbus/dbus-connection.c (_dbus_connection_do_iteration_unlocked):
+	rename to add _unlocked
+	(struct DBusConnection): move "dispatch_acquired" and
+	"io_path_acquired" to use only one bit each.
+	(CONNECTION_LOCK, CONNECTION_UNLOCK): add checks with !DBUS_DISABLE_CHECKS
+	(dbus_connection_set_watch_functions): hacky fix to reentrancy
+	(_dbus_connection_add_watch, _dbus_connection_remove_watch) 
+	(_dbus_connection_toggle_watch, _dbus_connection_add_timeout) 
+	(_dbus_connection_remove_timeout) 
+	(_dbus_connection_toggle_timeout): drop lock when calling out to
+	user functions; done in a hacky/bad way.
+	(_dbus_connection_send_and_unlock): add a missing unlock
+	(_dbus_connection_block_for_reply): add a missing unlock
+
+	* dbus/dbus-transport.c (_dbus_transport_get_is_authenticated):
+	drop lock in a hacky probably unsafe way to call out to user
+	function
+
 2005-02-12  Havoc Pennington  <hp@redhat.com>
 
 	* tools/dbus-tree-view.c (info_set_func_text): display more

@@ -23,6 +23,7 @@
 #ifndef DBUS_SERVER_PROTECTED_H
 #define DBUS_SERVER_PROTECTED_H
 
+#include <config.h>
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-server.h>
 #include <dbus/dbus-timeout.h>
@@ -51,8 +52,9 @@ struct DBusServerVTable
  */
 struct DBusServer
 {
-  int refcount;                               /**< Reference count. */
+  DBusAtomic refcount;                        /**< Reference count. */
   const DBusServerVTable *vtable;             /**< Virtual methods for this instance. */
+  DBusMutex *mutex;                           /**< Lock on the server object */
   DBusWatchList *watches;                     /**< Our watches */
   DBusTimeoutList *timeouts;                  /**< Our timeouts */  
 
@@ -74,6 +76,10 @@ struct DBusServer
   char **auth_mechanisms; /**< Array of allowed authentication mechanisms */
   
   unsigned int disconnected : 1;              /**< TRUE if we are disconnected. */
+
+#ifndef DBUS_DISABLE_CHECKS
+  unsigned int have_server_lock : 1; /**< Does someone have the server mutex locked */
+#endif
 };
 
 dbus_bool_t _dbus_server_init_base      (DBusServer             *server,
@@ -95,7 +101,38 @@ void        _dbus_server_toggle_timeout (DBusServer             *server,
                                          DBusTimeout            *timeout,
                                          dbus_bool_t             enabled);
 
+void        _dbus_server_ref_unlocked   (DBusServer             *server);
 
+#ifdef DBUS_DISABLE_CHECKS
+#define TOOK_LOCK_CHECK(server)
+#define RELEASING_LOCK_CHECK(server)
+#define HAVE_LOCK_CHECK(server)
+#else
+#define TOOK_LOCK_CHECK(server) do {                \
+    _dbus_assert (!(server)->have_server_lock); \
+    (server)->have_server_lock = TRUE;          \
+  } while (0)
+#define RELEASING_LOCK_CHECK(server) do {            \
+    _dbus_assert ((server)->have_server_lock);   \
+    (server)->have_server_lock = FALSE;          \
+  } while (0)
+#define HAVE_LOCK_CHECK(server)        _dbus_assert ((server)->have_server_lock)
+/* A "DO_NOT_HAVE_LOCK_CHECK" is impossible since we need the lock to check the flag */
+#endif
+
+#define TRACE_LOCKS 0
+
+#define SERVER_LOCK(server)   do {                                              \
+    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK: %s\n", _DBUS_FUNCTION_NAME); }   \
+    dbus_mutex_lock ((server)->mutex);                                          \
+    TOOK_LOCK_CHECK (server);                                                   \
+  } while (0)
+
+#define SERVER_UNLOCK(server) do {                                                      \
+    if (TRACE_LOCKS) { _dbus_verbose ("  UNLOCK: %s\n", _DBUS_FUNCTION_NAME);  }        \
+    RELEASING_LOCK_CHECK (server);                                                      \
+    dbus_mutex_unlock ((server)->mutex);                                                \
+  } while (0)
 
 DBUS_END_DECLS
 

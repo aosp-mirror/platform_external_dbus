@@ -388,10 +388,12 @@ _dbus_transport_unref (DBusTransport *transport)
 {
   _dbus_assert (transport != NULL);
   _dbus_assert (transport->refcount > 0);
-
+  
   transport->refcount -= 1;
   if (transport->refcount == 0)
     {
+      _dbus_verbose ("%s: finalizing\n", _DBUS_FUNCTION_NAME);
+      
       _dbus_assert (transport->vtable->finalize != NULL);
       
       (* transport->vtable->finalize) (transport);
@@ -409,14 +411,18 @@ _dbus_transport_unref (DBusTransport *transport)
 void
 _dbus_transport_disconnect (DBusTransport *transport)
 {
+  _dbus_verbose ("%s start\n", _DBUS_FUNCTION_NAME);
+  
   _dbus_assert (transport->vtable->disconnect != NULL);
-
+  
   if (transport->disconnected)
     return;
 
   (* transport->vtable->disconnect) (transport);
   
   transport->disconnected = TRUE;
+
+  _dbus_verbose ("%s end\n", _DBUS_FUNCTION_NAME);
 }
 
 /**
@@ -437,7 +443,8 @@ _dbus_transport_get_is_connected (DBusTransport *transport)
  * Returns #TRUE if we have been authenticated.  Will return #TRUE
  * even if the transport is disconnected.
  *
- * @todo needs to drop connection->mutex when calling the unix_user_function
+ * @todo we drop connection->mutex when calling the unix_user_function,
+ * which may not be safe really.
  *
  * @param transport the transport
  * @returns whether we're authenticated
@@ -453,6 +460,9 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
       
       if (transport->disconnected)
         return FALSE;
+
+      /* paranoia ref since we call user callbacks sometimes */
+      _dbus_connection_ref_unlocked (transport->connection);
       
       maybe_authenticated =
         (!(transport->send_credentials_pending ||
@@ -486,20 +496,39 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
 
           if (transport->unix_user_function != NULL)
             {
-              /* FIXME we hold the connection lock here and should drop it */
-              if (!(* transport->unix_user_function) (transport->connection,
-                                                      auth_identity.uid,
-                                                      transport->unix_user_data))
+              dbus_bool_t allow;
+              DBusConnection *connection;
+              DBusAllowUnixUserFunction unix_user_function;
+              void *unix_user_data;
+              
+              /* Dropping the lock here probably isn't that safe. */
+
+              connection = transport->connection;
+              unix_user_function = transport->unix_user_function;
+              unix_user_data = transport->unix_user_data;
+
+              _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+              _dbus_connection_unlock (connection);
+              
+              allow = (* unix_user_function) (connection,
+                                              auth_identity.uid,
+                                              unix_user_data);
+
+              _dbus_verbose ("lock %s post unix user function\n", _DBUS_FUNCTION_NAME);
+              _dbus_connection_lock (connection);
+
+              if (allow)
+                {
+                  _dbus_verbose ("Client UID "DBUS_UID_FORMAT" authorized\n", auth_identity.uid);
+                }
+              else
                 {
                   _dbus_verbose ("Client UID "DBUS_UID_FORMAT
                                  " was rejected, disconnecting\n",
                                  auth_identity.uid);
                   _dbus_transport_disconnect (transport);
+                  _dbus_connection_unref_unlocked (connection);
                   return FALSE;
-                }
-              else
-                {
-                  _dbus_verbose ("Client UID "DBUS_UID_FORMAT" authorized\n", auth_identity.uid);
                 }
             }
           else
@@ -515,6 +544,7 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
                                  " but our UID is "DBUS_UID_FORMAT", disconnecting\n",
                                  auth_identity.uid, our_identity.uid);
                   _dbus_transport_disconnect (transport);
+                  _dbus_connection_unref_unlocked (transport->connection);
                   return FALSE;
                 }
               else
@@ -527,8 +557,9 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
         }
 
       transport->authenticated = maybe_authenticated;
-      
-      return transport->authenticated;
+
+      _dbus_connection_unref_unlocked (transport->connection);
+      return maybe_authenticated;
     }
 }
 
@@ -670,6 +701,8 @@ _dbus_transport_do_iteration (DBusTransport  *transport,
   (* transport->vtable->do_iteration) (transport, flags,
                                        timeout_milliseconds);
   _dbus_transport_unref (transport);
+
+  _dbus_verbose ("%s end\n", _DBUS_FUNCTION_NAME);
 }
 
 static dbus_bool_t

@@ -333,6 +333,8 @@ info_set_func_text (GtkTreeViewColumn *tree_column,
       break;
     case INFO_TYPE_PROPERTY:
       g_string_append (str, "<i>property</i>");
+      g_string_append_printf (str, " <b>%s</b>",
+                              type_to_string (property_info_get_type ((PropertyInfo*)info)));
       break;
     case INFO_TYPE_ARG:
       g_string_append_printf (str, "<i>arg</i> %s",

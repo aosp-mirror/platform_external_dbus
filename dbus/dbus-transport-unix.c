@@ -70,6 +70,8 @@ static void
 free_watches (DBusTransport *transport)
 {
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
+
+  _dbus_verbose ("%s start\n", _DBUS_FUNCTION_NAME);
   
   if (unix_transport->read_watch)
     {
@@ -90,12 +92,16 @@ free_watches (DBusTransport *transport)
       _dbus_watch_unref (unix_transport->write_watch);
       unix_transport->write_watch = NULL;
     }
+
+  _dbus_verbose ("%s end\n", _DBUS_FUNCTION_NAME);
 }
 
 static void
 unix_finalize (DBusTransport *transport)
 {
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
+
+  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
   
   free_watches (transport);
 
@@ -871,6 +877,8 @@ static void
 unix_disconnect (DBusTransport *transport)
 {
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
+
+  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
   
   free_watches (transport);
   
@@ -1004,7 +1012,10 @@ unix_do_iteration (DBusTransport *transport,
        * by the io_path_cond condvar, so we won't reenter this.
        */
       if (flags & DBUS_ITERATION_BLOCK)
-	_dbus_connection_unlock (transport->connection);
+        {
+          _dbus_verbose ("unlock %s pre poll\n", _DBUS_FUNCTION_NAME);
+          _dbus_connection_unlock (transport->connection);
+        }
       
     again:
       poll_res = _dbus_poll (&poll_fd, 1, poll_timeout);
@@ -1013,7 +1024,10 @@ unix_do_iteration (DBusTransport *transport,
 	goto again;
 
       if (flags & DBUS_ITERATION_BLOCK)
-	_dbus_connection_lock (transport->connection);
+        {
+          _dbus_verbose ("lock %s post poll\n", _DBUS_FUNCTION_NAME);
+          _dbus_connection_lock (transport->connection);
+        }
       
       if (poll_res >= 0)
         {

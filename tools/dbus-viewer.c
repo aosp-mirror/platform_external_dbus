@@ -82,6 +82,54 @@ show_error_dialog (GtkWindow *transient_parent,
     }
 }
 
+typedef struct
+{
+  DBusGConnection *connection;
+  
+  GtkWidget *window;
+  GtkWidget *treeview;
+  GtkWidget *name_menu;
+
+  GtkTreeModel *names_model;
+
+  GtkWidget *error_dialog;
+  
+} TreeWindow;
+
+
+static void
+tree_window_set_node (TreeWindow *w,
+                      NodeInfo   *node)
+{
+  char **path;
+  const char *name;
+
+  name = node_info_get_name (node);
+  if (name == NULL ||
+      name[0] != '/')
+    {
+      g_printerr (_("Assuming root node is at path /, since no absolute path is specified"));
+      name = "/";
+    }
+
+  path = _dbus_gutils_split_path (name);
+  
+  dbus_tree_view_update (GTK_TREE_VIEW (w->treeview),
+                         (const char**) path,
+                         node);
+
+  g_strfreev (path);
+}
+
+typedef struct
+{
+  DBusGConnection *connection;
+  char *service_name;
+  GError *error;
+  NodeInfo *node;
+  TreeWindow *window; /* Not touched from child thread */
+} LoadFromServiceData;
+
 static gboolean
 load_child_nodes (const char *service_name,
                   NodeInfo   *parent,
@@ -179,16 +227,52 @@ load_child_nodes (const char *service_name,
   return TRUE;
 }
 
-static NodeInfo*
-load_from_service (DBusGConnection *connection,
-                   const char      *service_name,
-                   GError         **error)
+static gboolean
+load_from_service_complete_idle (void *data)
 {
-   DBusGProxy *root_proxy;
+  /* Called in main thread */
+  GThread *thread = data;
+  LoadFromServiceData *d;
+  NodeInfo *node;
+
+  d = g_thread_join (thread);
+
+  node = d->node;
+  
+  if (d->error)
+    {
+      g_assert (d->node == NULL);
+      show_error_dialog (GTK_WINDOW (d->window->window), &d->window->error_dialog,
+                         _("Unable to load \"%s\": %s\n"),
+                         d->service_name, d->error->message);
+      g_error_free (d->error);
+    }
+  else
+    {
+      g_assert (d->error == NULL);
+
+      tree_window_set_node (d->window, node);
+      node_info_unref (node);
+    }
+
+  g_free (d->service_name);
+  dbus_g_connection_unref (d->connection);
+  g_free (d);
+
+  return FALSE;
+}
+
+static void*
+load_from_service_thread_func (void *thread_data)
+{  
+  DBusGProxy *root_proxy;
   DBusGPendingCall *call;
   const char *data;
   NodeInfo *node;
   GString *path;
+  LoadFromServiceData *lfsd;
+
+  lfsd = thread_data;
 
   node = NULL;
   call = NULL;
@@ -196,22 +280,22 @@ load_from_service (DBusGConnection *connection,
  
 #if 1
   /* this will end up autolaunching the service when we introspect it */
-  root_proxy = dbus_g_proxy_new_for_name (connection,
-                                          service_name,
+  root_proxy = dbus_g_proxy_new_for_name (lfsd->connection,
+                                          lfsd->service_name,
                                           "/",
                                           DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE);
   g_assert (root_proxy != NULL);
 #else
   /* this will be an error if the service doesn't exist */
-  root_proxy = dbus_g_proxy_new_for_name_owner (connection,
-                                                service_name,
+  root_proxy = dbus_g_proxy_new_for_name_owner (lfsd->connection,
+                                                lfsd->service_name,
                                                 "/",
                                                 DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE,
-                                                error);
+                                                &lfsd->error);
   if (root_proxy == NULL)
     {
-      g_printerr ("Failed to get owner of '%s'\n", service_name);
-      return NULL;
+      g_printerr ("Failed to get owner of '%s'\n", lfsd->service_name);
+      return lfsd->data;
     }
 #endif
   
@@ -219,7 +303,7 @@ load_from_service (DBusGConnection *connection,
                                   DBUS_TYPE_INVALID);
 
   data = NULL;
-  if (!dbus_g_proxy_end_call (root_proxy, call, error, DBUS_TYPE_STRING, &data,
+  if (!dbus_g_proxy_end_call (root_proxy, call, &lfsd->error, DBUS_TYPE_STRING, &data,
                               DBUS_TYPE_INVALID))
     {
       g_printerr ("Failed to Introspect() %s\n",
@@ -227,7 +311,7 @@ load_from_service (DBusGConnection *connection,
       goto out;
     }
 
-  node = description_load_from_string (data, -1, error);
+  node = description_load_from_string (data, -1, &lfsd->error);
 
   /* g_print ("%s\n", data); */
   
@@ -239,7 +323,7 @@ load_from_service (DBusGConnection *connection,
   path = g_string_new ("/");
   
   if (!load_child_nodes (dbus_g_proxy_get_bus_name (root_proxy),
-                         node, path, error))
+                         node, path, &lfsd->error))
     {
       node_info_unref (node);
       node = NULL;
@@ -254,70 +338,40 @@ load_from_service (DBusGConnection *connection,
 
   if (path)
     g_string_free (path, TRUE);
+
+  lfsd->node = node;
+  g_assert (lfsd->node || lfsd->error);
+  g_assert (lfsd->node == NULL || lfsd->error == NULL);
+
+  /* Add idle to main thread that will join us back */
+  g_idle_add (load_from_service_complete_idle, g_thread_self ());
   
-  return node;
+  return lfsd;
 }
 
-typedef struct
-{
-  DBusGConnection *connection;
-  
-  GtkWidget *window;
-  GtkWidget *treeview;
-  GtkWidget *name_menu;
-
-  GtkTreeModel *names_model;
-
-  GtkWidget *error_dialog;
-  
-} TreeWindow;
-
 static void
-tree_window_set_node (TreeWindow *w,
-                      NodeInfo   *node)
+start_load_from_service (TreeWindow      *w,
+                         DBusGConnection *connection,
+                         const char      *service_name)
 {
-  char **path;
-  const char *name;
+  LoadFromServiceData *d;
 
-  name = node_info_get_name (node);
-  if (name == NULL ||
-      name[0] != '/')
-    {
-      g_printerr (_("Assuming root node is at path /, since no absolute path is specified"));
-      name = "/";
-    }
-
-  path = _dbus_gutils_split_path (name);
+  d = g_new0 (LoadFromServiceData, 1);
   
-  dbus_tree_view_update (GTK_TREE_VIEW (w->treeview),
-                         (const char**) path,
-                         node);
-
-  g_strfreev (path);
+  d->connection = dbus_g_connection_ref (connection);
+  d->service_name = g_strdup (service_name);
+  d->error = NULL;
+  d->node = NULL;
+  d->window = w;
+  
+  g_thread_create (load_from_service_thread_func, d, TRUE, NULL);
 }
 
 static void
 tree_window_set_service (TreeWindow *w,
                          const char *service_name)
 {
-  GError *error;
-  NodeInfo *node;
-  
-  error = NULL;
-  node = load_from_service (w->connection, service_name, &error);
-  if (node == NULL)
-    {
-      g_assert (error != NULL);
-      show_error_dialog (GTK_WINDOW (w->window), &w->error_dialog,
-                         _("Unable to load \"%s\": %s\n"),
-                         service_name, error->message);
-      g_error_free (error);
-      return;
-    }
-  
-  tree_window_set_node (w, node);
-
-  node_info_unref (node);
+  start_load_from_service (w, w->connection, service_name);
 }
 
 static void
@@ -444,10 +498,13 @@ main (int argc, char **argv)
   DBusGConnection *connection;
   GError *error;
   GtkTreeModel *names_model;
+
+  g_thread_init (NULL);
+  dbus_g_thread_init ();
   
   bindtextdomain (GETTEXT_PACKAGE, DBUS_LOCALEDIR);
   bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
-  textdomain (GETTEXT_PACKAGE); 
+  textdomain (GETTEXT_PACKAGE);
   
   gtk_init (&argc, &argv);
 

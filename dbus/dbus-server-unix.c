@@ -72,21 +72,29 @@ unix_finalize (DBusServer *server)
  */
 /* Return value is just for memory, not other failures. */
 static dbus_bool_t
-handle_new_client_fd (DBusServer *server,
-                      int         client_fd)
+handle_new_client_fd_and_unlock (DBusServer *server,
+                                 int         client_fd)
 {
   DBusConnection *connection;
   DBusTransport *transport;
+  DBusNewConnectionFunction new_connection_function;
+  void *new_connection_data;
   
   _dbus_verbose ("Creating new client connection with fd %d\n", client_fd);
-          
+
+  HAVE_LOCK_CHECK (server);
+  
   if (!_dbus_set_fd_nonblocking (client_fd, NULL))
-    return TRUE;
+    {
+      SERVER_UNLOCK (server);
+      return TRUE;
+    }
   
   transport = _dbus_transport_new_for_fd (client_fd, TRUE, NULL);
   if (transport == NULL)
     {
       close (client_fd);
+      SERVER_UNLOCK (server);
       return FALSE;
     }
 
@@ -94,6 +102,7 @@ handle_new_client_fd (DBusServer *server,
                                             (const char **) server->auth_mechanisms))
     {
       _dbus_transport_unref (transport);
+      SERVER_UNLOCK (server);
       return FALSE;
     }
   
@@ -103,19 +112,27 @@ handle_new_client_fd (DBusServer *server,
   
   connection = _dbus_connection_new_for_transport (transport);
   _dbus_transport_unref (transport);
+  transport = NULL; /* now under the connection lock */
   
   if (connection == NULL)
-    return FALSE;
-  
-  /* See if someone wants to handle this new connection,
-   * self-referencing for paranoia
-   */
-  if (server->new_connection_function)
     {
-      dbus_server_ref (server);
-      
-      (* server->new_connection_function) (server, connection,
-                                           server->new_connection_data);
+      SERVER_UNLOCK (server);
+      return FALSE;
+    }
+  
+  /* See if someone wants to handle this new connection, self-referencing
+   * for paranoia.
+   */
+  new_connection_function = server->new_connection_function;
+  new_connection_data = server->new_connection_data;
+
+  _dbus_server_ref_unlocked (server);
+  SERVER_UNLOCK (server);
+  
+  if (new_connection_function)
+    {
+      (* new_connection_function) (server, connection,
+                                   new_connection_data);
       dbus_server_unref (server);
     }
   
@@ -133,6 +150,8 @@ unix_handle_watch (DBusWatch    *watch,
   DBusServer *server = data;
   DBusServerUnix *unix_server = data;
 
+  SERVER_LOCK (server);
+  
   _dbus_assert (watch == unix_server->watch);
 
   _dbus_verbose ("Handling client connection, flags 0x%x\n", flags);
@@ -155,12 +174,14 @@ unix_handle_watch (DBusWatch    *watch,
           else
             _dbus_verbose ("Failed to accept a client connection: %s\n",
                            _dbus_strerror (errno));
+
+          SERVER_UNLOCK (server);
         }
       else
         {
 	  _dbus_fd_set_close_on_exec (client_fd);	  
 
-          if (!handle_new_client_fd (server, client_fd))
+          if (!handle_new_client_fd_and_unlock (server, client_fd))
             _dbus_verbose ("Rejected client connection due to lack of memory\n");
         }
     }
@@ -246,6 +267,10 @@ _dbus_server_new_for_fd (int               fd,
       return NULL;
     }
 
+#ifndef DBUS_DISABLE_CHECKS
+  unix_server->base.have_server_lock = TRUE;
+#endif
+  
   if (!_dbus_server_add_watch (&unix_server->base,
                                watch))
     {
@@ -254,6 +279,10 @@ _dbus_server_new_for_fd (int               fd,
       dbus_free (unix_server);
       return NULL;
     }
+
+#ifndef DBUS_DISABLE_CHECKS
+  unix_server->base.have_server_lock = FALSE;
+#endif
   
   unix_server->fd = fd;
   unix_server->watch = watch;
