@@ -612,6 +612,31 @@ _dbus_string_insert_bytes (DBusString   *str,
 }
 
 /**
+ * Inserts a single byte at the given position.
+ *
+ * @param str the string
+ * @param i the position
+ * @param byte the value to insert
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_string_insert_byte (DBusString   *str,
+			   int           i,
+			   unsigned char byte)
+{
+  DBUS_STRING_PREAMBLE (str);
+  _dbus_assert (i <= real->len);
+  _dbus_assert (i >= 0);
+  
+  if (!open_gap (1, real, i))
+    return FALSE;
+
+  real->str[i] = byte;
+
+  return TRUE;
+}
+
+/**
  * Like _dbus_string_get_data(), but removes the
  * gotten data from the original string. The caller
  * must free the data returned. This function may
@@ -875,41 +900,66 @@ _dbus_string_set_length (DBusString *str,
 }
 
 static dbus_bool_t
-align_length_then_lengthen (DBusString *str,
-                            int         alignment,
-                            int         then_lengthen_by)
+align_insert_point_then_open_gap (DBusString *str,
+                                  int        *insert_at_p,
+                                  int         alignment,
+                                  int         gap_size)
 {
   unsigned long new_len; /* ulong to avoid _DBUS_ALIGN_VALUE overflow */
+  unsigned long gap_pos;
+  int insert_at;
   int delta;
   DBUS_STRING_PREAMBLE (str);
   _dbus_assert (alignment >= 1);
   _dbus_assert (alignment <= 8); /* it has to be a bug if > 8 */
 
-  new_len = _DBUS_ALIGN_VALUE (real->len, alignment);
-  if (_DBUS_UNLIKELY (new_len > (unsigned long) real->max_length - then_lengthen_by))
+  insert_at = *insert_at_p;
+
+  _dbus_assert (insert_at <= real->len);
+  
+  gap_pos = _DBUS_ALIGN_VALUE (insert_at, alignment);
+  new_len = real->len + (gap_pos - insert_at) + gap_size;
+  
+  if (_DBUS_UNLIKELY (new_len > (unsigned long) real->max_length))
     return FALSE;
-  new_len += then_lengthen_by;
   
   delta = new_len - real->len;
   _dbus_assert (delta >= 0);
 
-  if (delta == 0)
-    return TRUE;
+  if (delta == 0) /* only happens if gap_size == 0 and insert_at is aligned already */
+    {
+      _dbus_assert (((unsigned long) *insert_at_p) == gap_pos);
+      return TRUE;
+    }
 
-  if (_DBUS_UNLIKELY (!set_length (real, new_len)))
+  if (_DBUS_UNLIKELY (!open_gap (new_len - real->len,
+                                 real, insert_at)))
     return FALSE;
 
-  /* delta == padding + then_lengthen_by
-   * new_len == old_len + padding + then_lengthen_by
-   * nul the padding if we had to add any padding
-   */
-  if (then_lengthen_by < delta)
+  /* nul the padding if we had to add any padding */
+  if (gap_size < delta)
     {
-      memset (&real->str[new_len - delta], '\0',
-              delta - then_lengthen_by);
+      memset (&real->str[insert_at], '\0',
+              gap_pos - insert_at);
     }
-      
+
+  *insert_at_p = gap_pos;
+  
   return TRUE;
+}
+
+static dbus_bool_t
+align_length_then_lengthen (DBusString *str,
+                            int         alignment,
+                            int         then_lengthen_by)
+{
+  int insert_at;
+
+  insert_at = _dbus_string_get_length (str);
+  
+  return align_insert_point_then_open_gap (str,
+                                           &insert_at,
+                                           alignment, then_lengthen_by);
 }
 
 /**
@@ -925,6 +975,26 @@ _dbus_string_align_length (DBusString *str,
                            int         alignment)
 {
   return align_length_then_lengthen (str, alignment, 0);
+}
+
+/**
+ * Preallocate extra_bytes such that a future lengthening of the
+ * string by extra_bytes is guaranteed to succeed without an out of
+ * memory error.
+ *
+ * @param str a string
+ * @param extra_bytes bytes to alloc
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_string_alloc_space (DBusString        *str,
+                          int                extra_bytes)
+{
+  if (!_dbus_string_lengthen (str, extra_bytes))
+    return FALSE;
+  _dbus_string_shorten (str, extra_bytes);
+
+  return TRUE;
 }
 
 static dbus_bool_t
@@ -968,6 +1038,31 @@ _dbus_string_append (DBusString *str,
   return append (real, buffer, buffer_len);
 }
 
+#define ASSIGN_4_OCTETS(p, octets) \
+  *((dbus_uint32_t*)(p)) = *((dbus_uint32_t*)(octets));
+
+#ifdef DBUS_HAVE_INT64
+#define ASSIGN_8_OCTETS(p, octets) \
+  *((dbus_uint64_t*)(p)) = *((dbus_uint64_t*)(octets));
+#else
+#define ASSIGN_8_OCTETS(p, octets)              \
+do {                                            \
+  unsigned char *b;                             \
+                                                \
+  b = p;                                        \
+                                                \
+  *b++ = octets[0];                             \
+  *b++ = octets[1];                             \
+  *b++ = octets[2];                             \
+  *b++ = octets[3];                             \
+  *b++ = octets[4];                             \
+  *b++ = octets[5];                             \
+  *b++ = octets[6];                             \
+  *b++ = octets[7];                             \
+  _dbus_assert (b == p + 8);                    \
+} while (0)
+#endif /* DBUS_HAVE_INT64 */
+
 /**
  * Appends 4 bytes aligned on a 4 byte boundary
  * with any alignment padding initialized to 0.
@@ -980,14 +1075,12 @@ dbus_bool_t
 _dbus_string_append_4_aligned (DBusString         *str,
                                const unsigned char octets[4])
 {
-  dbus_uint32_t *p;
   DBUS_STRING_PREAMBLE (str);
   
   if (!align_length_then_lengthen (str, 4, 4))
     return FALSE;
 
-  p = (dbus_uint32_t*) (real->str + (real->len - 4));
-  *p = *((dbus_uint32_t*)octets);
+  ASSIGN_4_OCTETS (real->str + (real->len - 4), octets);
 
   return TRUE;
 }
@@ -997,41 +1090,65 @@ _dbus_string_append_4_aligned (DBusString         *str,
  * with any alignment padding initialized to 0.
  *
  * @param str the DBusString
- * @param octets 4 bytes to append
+ * @param octets 8 bytes to append
  * @returns #FALSE if not enough memory.
  */
 dbus_bool_t
 _dbus_string_append_8_aligned (DBusString         *str,
                                const unsigned char octets[8])
 {
-#ifdef DBUS_HAVE_INT64
-  dbus_uint64_t *p;
   DBUS_STRING_PREAMBLE (str);
   
   if (!align_length_then_lengthen (str, 8, 8))
     return FALSE;
 
-  p = (dbus_uint64_t*) (real->str + (real->len - 8));
-  *p = *((dbus_uint64_t*)octets);
-#else
-  unsigned char *p;
+  ASSIGN_8_OCTETS (real->str + (real->len - 8), octets);
+
+  return TRUE;
+}
+
+/**
+ * Inserts 4 bytes aligned on a 4 byte boundary
+ * with any alignment padding initialized to 0.
+ *
+ * @param str the DBusString
+ * @param octets 4 bytes to insert
+ * @returns #FALSE if not enough memory.
+ */
+dbus_bool_t
+_dbus_string_insert_4_aligned (DBusString         *str,
+                               int                 insert_at,
+                               const unsigned char octets[4])
+{
   DBUS_STRING_PREAMBLE (str);
   
-  if (!align_length_then_lengthen (str, 8, 8))
+  if (!align_insert_point_then_open_gap (str, &insert_at, 4, 4))
     return FALSE;
 
-  p = real->str + (real->len - 8);
+  ASSIGN_4_OCTETS (real->str + insert_at, octets);
+
+  return TRUE;
+}
+
+/**
+ * Inserts 8 bytes aligned on an 8 byte boundary
+ * with any alignment padding initialized to 0.
+ *
+ * @param str the DBusString
+ * @param octets 8 bytes to insert
+ * @returns #FALSE if not enough memory.
+ */
+dbus_bool_t
+_dbus_string_insert_8_aligned (DBusString         *str,
+                               int                 insert_at,
+                               const unsigned char octets[8])
+{
+  DBUS_STRING_PREAMBLE (str);
   
-  *p++ = octets[0];
-  *p++ = octets[1];
-  *p++ = octets[2];
-  *p++ = octets[3];
-  *p++ = octets[4];
-  *p++ = octets[5];
-  *p++ = octets[6];
-  *p++ = octets[7];
-  _dbus_assert (p == (real->str + real->len));
-#endif
+  if (!align_insert_point_then_open_gap (str, &insert_at, 8, 8))
+    return FALSE;
+
+  ASSIGN_8_OCTETS (real->str + insert_at, octets);
 
   return TRUE;
 }

@@ -90,6 +90,9 @@ dbus_bool_t   _dbus_string_insert_bytes          (DBusString        *str,
                                                   int                i,
 						  int                n_bytes,
                                                   unsigned char      byte);
+dbus_bool_t   _dbus_string_insert_byte           (DBusString        *str,
+                                                  int                i,
+                                                  unsigned char      byte);
 dbus_bool_t   _dbus_string_steal_data            (DBusString        *str,
                                                   char             **data_return);
 dbus_bool_t   _dbus_string_steal_data_len        (DBusString        *str,
@@ -117,6 +120,8 @@ dbus_bool_t   _dbus_string_set_length            (DBusString        *str,
                                                   int                length);
 dbus_bool_t   _dbus_string_align_length          (DBusString        *str,
                                                   int                alignment);
+dbus_bool_t   _dbus_string_alloc_space           (DBusString        *str,
+                                                  int                extra_bytes);
 dbus_bool_t   _dbus_string_append                (DBusString        *str,
                                                   const char        *buffer);
 dbus_bool_t   _dbus_string_append_len            (DBusString        *str,
@@ -142,6 +147,12 @@ dbus_bool_t   _dbus_string_append_printf         (DBusString        *str,
 dbus_bool_t   _dbus_string_append_printf_valist  (DBusString        *str,
                                                   const char        *format,
                                                   va_list            args);
+dbus_bool_t   _dbus_string_insert_4_aligned      (DBusString        *str,
+                                                  int                insert_at,
+                                                  const unsigned char octets[4]);
+dbus_bool_t   _dbus_string_insert_8_aligned      (DBusString        *str,
+                                                  int                insert_at,
+                                                  const unsigned char octets[8]);
 void          _dbus_string_delete                (DBusString        *str,
                                                   int                start,
                                                   int                len);

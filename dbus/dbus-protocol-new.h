@@ -58,7 +58,7 @@ extern "C" {
 
 /* Compound types */
 #define DBUS_TYPE_ARRAY         ((int) 'a')
-#define DBUS_TYPE_DICT          ((int) 'm')
+#define DBUS_TYPE_DICT          ((int) 'm') /* not parameterized; always map<string,variant> */
 #define DBUS_TYPE_VARIANT       ((int) 'v')
 
 /* STRUCT is sort of special since its code can't appear in a type string,
@@ -72,7 +72,6 @@ extern "C" {
 /* characters other than typecodes that appear in type signatures */
 #define DBUS_STRUCT_BEGIN_CHAR   ((int) '(')
 #define DBUS_STRUCT_END_CHAR     ((int) ')')
-#define DBUS_NAME_DELIMITER_CHAR ((int) '\'')
 
 /* Max length in bytes of a service or interface or member name */
 #define DBUS_MAXIMUM_NAME_LENGTH 256

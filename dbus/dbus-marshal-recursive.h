@@ -67,30 +67,28 @@ struct DBusTypeWriter
   int type_pos;
   DBusString *value_str;
   int value_pos;
+  int container_type;
 };
 
 typedef struct DBusTypeWriter DBusTypeWriter;
 
-void        _dbus_type_reader_init             (DBusTypeReader    *reader,
-                                                int                byte_order,
-                                                const DBusString  *type_str,
-                                                int                type_pos,
-                                                const DBusString  *value_str,
-                                                int                value_pos);
-int         _dbus_type_reader_get_value_end    (DBusTypeReader    *reader);
-int         _dbus_type_reader_get_type_end     (DBusTypeReader    *reader);
-int         _dbus_type_reader_get_current_type (DBusTypeReader    *reader);
-int         _dbus_type_reader_get_array_type   (DBusTypeReader    *reader);
-void        _dbus_type_reader_read_basic       (DBusTypeReader    *reader,
-                                                void              *value);
-dbus_bool_t _dbus_type_reader_read_array       (DBusTypeReader    *reader,
-                                                int                type,
-                                                void             **array,
-                                                int               *array_len);
-void        _dbus_type_reader_recurse          (DBusTypeReader    *reader);
-void        _dbus_type_reader_unrecurse        (DBusTypeReader    *reader);
-dbus_bool_t _dbus_type_reader_next             (DBusTypeReader    *reader);
-
+void        _dbus_type_reader_init                (DBusTypeReader    *reader,
+                                                   int                byte_order,
+                                                   const DBusString  *type_str,
+                                                   int                type_pos,
+                                                   const DBusString  *value_str,
+                                                   int                value_pos);
+int         _dbus_type_reader_get_current_type    (DBusTypeReader    *reader);
+int         _dbus_type_reader_get_array_type      (DBusTypeReader    *reader);
+void        _dbus_type_reader_read_basic          (DBusTypeReader    *reader,
+                                                   void              *value);
+dbus_bool_t _dbus_type_reader_read_array_of_basic (DBusTypeReader    *reader,
+                                                   int                type,
+                                                   void             **array,
+                                                   int               *array_len);
+void        _dbus_type_reader_recurse             (DBusTypeReader    *reader,
+                                                   DBusTypeReader    *subreader);
+dbus_bool_t _dbus_type_reader_next                (DBusTypeReader    *reader);
 
 void        _dbus_type_writer_init        (DBusTypeWriter *writer,
                                            int             byte_order,
@@ -106,7 +104,9 @@ dbus_bool_t _dbus_type_writer_write_array (DBusTypeWriter *writer,
                                            const void     *array,
                                            int             array_len);
 dbus_bool_t _dbus_type_writer_recurse     (DBusTypeWriter *writer,
-                                           int             container_type);
-dbus_bool_t _dbus_type_writer_unrecurse   (DBusTypeWriter *writer);
+                                           int             container_type,
+                                           DBusTypeWriter *sub);
+dbus_bool_t _dbus_type_writer_unrecurse   (DBusTypeWriter *writer,
+                                           DBusTypeWriter *sub);
 
 #endif /* DBUS_MARSHAL_RECURSIVE_H */

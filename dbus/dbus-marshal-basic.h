@@ -37,6 +37,8 @@
 
 /****************************************************** Remove later */
 #undef DBUS_TYPE_INVALID
+#undef DBUS_TYPE_NIL
+#undef DBUS_TYPE_CUSTOM
 #undef DBUS_TYPE_BYTE
 #undef DBUS_TYPE_INT32
 #undef DBUS_TYPE_UINT32
@@ -83,7 +85,43 @@
 /* characters other than typecodes that appear in type signatures */
 #define DBUS_STRUCT_BEGIN_CHAR   ((int) '(')
 #define DBUS_STRUCT_END_CHAR     ((int) ')')
-#define DBUS_NAME_DELIMITER_CHAR ((int) '\'')
+
+static const char *
+_hack_dbus_type_to_string (int type)
+{
+  switch (type)
+    {
+    case DBUS_TYPE_INVALID:
+      return "invalid";
+    case DBUS_TYPE_BOOLEAN:
+      return "boolean";
+    case DBUS_TYPE_INT32:
+      return "int32";
+    case DBUS_TYPE_UINT32:
+      return "uint32";
+    case DBUS_TYPE_DOUBLE:
+      return "double";
+    case DBUS_TYPE_STRING:
+      return "string";
+    case DBUS_TYPE_STRUCT:
+      return "struct";
+    case DBUS_TYPE_ARRAY:
+      return "array";
+    case DBUS_TYPE_DICT:
+      return "dict";
+    case DBUS_TYPE_VARIANT:
+      return "variant";
+    case DBUS_STRUCT_BEGIN_CHAR:
+      return "begin_struct";
+    case DBUS_STRUCT_END_CHAR:
+      return "end_struct";
+    default:
+      return "unknown";
+    }
+}
+
+#define _dbus_type_to_string(t) _hack_dbus_type_to_string(t)
+
 /****************************************************** Remove later */
 
 #ifdef WORDS_BIGENDIAN
@@ -222,6 +260,7 @@ dbus_bool_t   _dbus_marshal_int32          (DBusString            *str,
 dbus_bool_t   _dbus_marshal_uint32         (DBusString            *str,
 					    int                    byte_order,
 					    dbus_uint32_t          value);
+
 #ifdef DBUS_HAVE_INT64
 dbus_bool_t   _dbus_marshal_int64          (DBusString            *str,
 					    int                    byte_order,
@@ -233,6 +272,7 @@ dbus_bool_t   _dbus_marshal_uint64         (DBusString            *str,
 dbus_bool_t   _dbus_marshal_double         (DBusString            *str,
 					    int                    byte_order,
 					    double                 value);
+
 dbus_bool_t   _dbus_marshal_string         (DBusString            *str,
 					    int                    byte_order,
 					    const char            *value);
@@ -240,10 +280,18 @@ dbus_bool_t   _dbus_marshal_string_len     (DBusString            *str,
 					    int                    byte_order,
 					    const char            *value,
                                             int                    len);
+
 dbus_bool_t   _dbus_marshal_basic_type     (DBusString            *str,
+                                            int                    insert_at,
 					    char                   type,
-					    void                  *value,
+					    const void            *value,
 					    int                    byte_order);
+dbus_bool_t   _dbus_marshal_basic_type_array (DBusString            *str,
+                                              int                    insert_at,
+					      char                   element_type,
+					      const void	    *value,
+					      int                    len,
+					      int                    byte_order);
 dbus_bool_t   _dbus_marshal_byte_array     (DBusString            *str,
 					    int                    byte_order,
 					    const unsigned char   *value,
@@ -270,21 +318,10 @@ dbus_bool_t   _dbus_marshal_double_array   (DBusString            *str,
 					    int                    byte_order,
 					    const double          *value,
 					    int                    len);
-dbus_bool_t   _dbus_marshal_basic_type_array (DBusString            *str,
-					      char                   element_type,
-					      const void	    *value,
-					      int                    len,
-					      int                    byte_order);
-
 dbus_bool_t   _dbus_marshal_string_array   (DBusString            *str,
 					    int                    byte_order,
 					    const char           **value,
 					    int                    len);
-dbus_bool_t   _dbus_marshal_object_path    (DBusString            *str,
-					    int                    byte_order,
-                                            const char           **path,
-                                            int                    path_len);
-
 double        _dbus_demarshal_double       (const DBusString      *str,
 					    int                    byte_order,
 					    int                    pos,
@@ -377,6 +414,14 @@ dbus_bool_t   _dbus_demarshal_object_path  (const DBusString      *str,
                                             int                   *new_pos,
                                             char                ***path,
                                             int                   *path_len);
+
+void         _dbus_marshal_skip_basic_type (const DBusString      *str,
+                                            int                    type,
+                                            int                    byte_order,
+					    int                   *pos);
+void         _dbus_marshal_skip_array      (const DBusString      *str,
+                                            int                    byte_order,
+					    int                   *pos);
 
 dbus_bool_t _dbus_marshal_get_arg_end_pos (const DBusString *str,
                                            int               byte_order,

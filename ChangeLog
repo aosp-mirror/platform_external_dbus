@@ -1,3 +1,10 @@
+2004-12-19  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-string.c (_dbus_string_insert_4_aligned) 
+	(_dbus_string_insert_8_aligned): new functions
+
+	* dbus/dbus-string.c (_dbus_string_alloc_space): new function
+
 2004-12-18  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-string.c (_dbus_string_validate_ascii): use ISASCII

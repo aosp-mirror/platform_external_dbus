@@ -22,10 +22,11 @@
  *
  */
 
-#include "dbus-marshal-basic.h"
 #include "dbus-internals.h"
 #define DBUS_CAN_USE_DBUS_STRING_PRIVATE 1
 #include "dbus-string-private.h"
+
+#include "dbus-marshal-basic.h"
 
 #include <string.h>
 
@@ -85,7 +86,7 @@ typedef union
 {
 #ifdef DBUS_HAVE_INT64
   dbus_int64_t  s; /**< 64-bit integer */
-  dbus_uint64_t u; /**< 64-bit unsinged integer */
+  dbus_uint64_t u; /**< 64-bit unsigned integer */
 #endif
   double d;        /**< double */
 } DBusOctets8;
@@ -462,6 +463,7 @@ _dbus_marshal_set_object_path (DBusString         *str,
 
 static dbus_bool_t
 marshal_4_octets (DBusString   *str,
+                  int           insert_at,
                   int           byte_order,
                   dbus_uint32_t value)
 {
@@ -470,12 +472,13 @@ marshal_4_octets (DBusString   *str,
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
     value = DBUS_UINT32_SWAP_LE_BE (value);
 
-  return _dbus_string_append_4_aligned (str,
+  return _dbus_string_insert_4_aligned (str, insert_at,
                                         (const unsigned char *)&value);
 }
 
 static dbus_bool_t
 marshal_8_octets (DBusString *str,
+                  int         insert_at,
                   int         byte_order,
                   DBusOctets8 value)
 {
@@ -484,7 +487,7 @@ marshal_8_octets (DBusString *str,
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
     pack_8_octets (value, byte_order, (unsigned char*) &value); /* pack into self, swapping as we go */
 
-  return _dbus_string_append_8_aligned (str,
+  return _dbus_string_insert_8_aligned (str, insert_at,
                                         (const unsigned char *)&value);
 }
 
@@ -503,7 +506,8 @@ _dbus_marshal_double (DBusString *str,
 {
   DBusOctets8 r;
   r.d = value;
-  return marshal_8_octets (str, byte_order, r);
+  return marshal_8_octets (str, _dbus_string_get_length (str),
+                           byte_order, r);
 }
 
 /**
@@ -519,7 +523,8 @@ _dbus_marshal_int32  (DBusString   *str,
 		      int           byte_order,
 		      dbus_int32_t  value)
 {
-  return marshal_4_octets (str, byte_order, (dbus_uint32_t) value);
+  return marshal_4_octets (str, _dbus_string_get_length (str),
+                           byte_order, (dbus_uint32_t) value);
 }
 
 /**
@@ -531,11 +536,12 @@ _dbus_marshal_int32  (DBusString   *str,
  * @returns #TRUE on success
  */
 dbus_bool_t
-_dbus_marshal_uint32 (DBusString    *str,
-		      int            byte_order,
-		      dbus_uint32_t  value)
+_dbus_marshal_uint32 (DBusString   *str,
+                      int           byte_order,
+                      dbus_uint32_t value)
 {
-  return marshal_4_octets (str, byte_order, value);
+  return marshal_4_octets (str, _dbus_string_get_length (str),
+                           byte_order, value);
 }
 
 
@@ -555,7 +561,8 @@ _dbus_marshal_int64  (DBusString   *str,
 {
   DBusOctets8 r;
   r.s = value;
-  return marshal_8_octets (str, byte_order, r);
+  return marshal_8_octets (str, _dbus_string_get_length (str),
+                           byte_order, r);
 }
 
 /**
@@ -573,7 +580,8 @@ _dbus_marshal_uint64 (DBusString    *str,
 {
   DBusOctets8 r;
   r.u = value;
-  return marshal_8_octets (str, byte_order, r);
+  return marshal_8_octets (str, _dbus_string_get_length (str),
+                           byte_order, r);
 }
 
 #endif /* DBUS_HAVE_INT64 */
@@ -930,7 +938,7 @@ _dbus_marshal_string_array (DBusString  *str,
  * @param path_len length of the path
  * @returns #TRUE on success
  */
-dbus_bool_t
+static dbus_bool_t
 _dbus_marshal_object_path (DBusString            *str,
                            int                    byte_order,
                            const char           **path,
@@ -1160,7 +1168,15 @@ _dbus_demarshal_basic_type (const DBusString      *str,
 #endif
       *pos += 8;
       break;
+    case DBUS_TYPE_STRING:
+      _dbus_assert_not_reached ("FIXME string is a basic type");
+      break;
+    case DBUS_TYPE_OBJECT_PATH:
+      _dbus_assert_not_reached ("FIXME object path is a basic type");
+      break;
     default:
+      _dbus_verbose ("type %s not a basic type\n",
+                     _dbus_type_to_string (type));
       _dbus_assert_not_reached ("not a basic type");
       break;
     }
@@ -1746,6 +1762,74 @@ _dbus_demarshal_object_path (const DBusString *str,
   return TRUE;
 }
 
+/**
+ * Skips over a basic type, reporting the following position.
+ *
+ * @param str the string containing the data
+ * @param type type of value to demarshal
+ * @param byte_order the byte order
+ * @param pos pointer to position in the string,
+ *            updated on return to new position
+ **/
+void
+_dbus_marshal_skip_basic_type (const DBusString      *str,
+                               int                    type,
+                               int                    byte_order,
+                               int                   *pos)
+{
+  switch (type)
+    {
+    case DBUS_TYPE_BYTE:
+    case DBUS_TYPE_BOOLEAN:
+      (*pos)++;
+      break;
+    case DBUS_TYPE_INT32:
+    case DBUS_TYPE_UINT32:
+      *pos = _DBUS_ALIGN_VALUE (*pos, 4);
+      *pos += 4;
+      break;
+#ifdef DBUS_HAVE_INT64
+    case DBUS_TYPE_INT64:
+    case DBUS_TYPE_UINT64: 
+#endif /* DBUS_HAVE_INT64 */
+    case DBUS_TYPE_DOUBLE:
+      *pos = _DBUS_ALIGN_VALUE (*pos, 8);
+      *pos += 8;
+      break;
+    case DBUS_TYPE_STRING:
+      _dbus_assert_not_reached ("FIXME string is a basic type");
+      break;
+    case DBUS_TYPE_OBJECT_PATH:
+      _dbus_assert_not_reached ("FIXME object path is a basic type");
+      break;
+    default:
+      _dbus_verbose ("type %s not a basic type\n",
+                     _dbus_type_to_string (type));
+      _dbus_assert_not_reached ("not a basic type");
+      break;
+    }
+}
+
+/**
+ * Skips an array, returning the next position.
+ *
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos pointer to position in the string,
+ *            updated on return to new position
+ */
+void
+_dbus_marshal_skip_array (const DBusString  *str,
+                          int                byte_order,
+                          int               *pos)
+{
+  int len;
+
+  len = _dbus_demarshal_uint32 (str, byte_order, *pos, pos);
+
+  *pos += len;
+}
+
 /** 
  * Returns the position right after the end of an argument.  PERFORMS
  * NO VALIDATION WHATSOEVER. The message must have been previously
@@ -1773,10 +1857,6 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
     {
     case DBUS_TYPE_INVALID:
       return FALSE;
-      break;
-
-    case DBUS_TYPE_NIL:
-      *end_pos = pos;
       break;
 
     case DBUS_TYPE_BYTE:
@@ -1808,22 +1888,6 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
 	len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
 
 	*end_pos = pos + len + 1;
-      }
-      break;
-
-    case DBUS_TYPE_CUSTOM:
-      {
-	int len;
-	
-	/* Demarshal the string length */
-	len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
-
-	pos += len + 1;
-	
-	/* Demarshal the data length */
-	len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
-
-	*end_pos = pos + len;
       }
       break;
       
@@ -2002,12 +2066,8 @@ validate_array_data (const DBusString *str,
       return FALSE;
       break;
 
-    case DBUS_TYPE_NIL:
-      break;
-
     case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_STRING:
-    case DBUS_TYPE_CUSTOM:
     case DBUS_TYPE_ARRAY:
     case DBUS_TYPE_DICT:
       /* This clean recursion to validate_arg is what we
@@ -2127,10 +2187,6 @@ _dbus_marshal_validate_arg (const DBusString *str,
       return FALSE;
       break;
 
-    case DBUS_TYPE_NIL:
-      *end_pos = pos;
-      break;
-
     case DBUS_TYPE_BYTE:
       if (1 > _dbus_string_get_length (str) - pos)
 	{
@@ -2220,29 +2276,6 @@ _dbus_marshal_validate_arg (const DBusString *str,
           }
       }
       break;
-
-    case DBUS_TYPE_CUSTOM:
-      {
-	int len;
-
-	/* Demarshal the string length, which does NOT include
-         * nul termination
-         */
-	len = demarshal_and_validate_len (str, byte_order, pos, &pos);
-        if (len < 0)
-          return FALSE;
-
-        if (!validate_string (str, pos, len, &pos))
-          return FALSE;
-
-	/* Validate data */
-	len = demarshal_and_validate_len (str, byte_order, pos, &pos);
-        if (len < 0)
-          return FALSE;
-
-	*end_pos = pos + len;
-      }
-      break;
       
     case DBUS_TYPE_ARRAY:
       {
@@ -2259,16 +2292,6 @@ _dbus_marshal_validate_arg (const DBusString *str,
 		if (!_dbus_marshal_validate_type (str, pos, &array_type, &pos))
 		  {
 		    _dbus_verbose ("invalid array type\n");
-		    return FALSE;
-		  }
-		
-		/* NIL values take up no space, so you couldn't iterate over an array of them.
-		 * array of nil seems useless anyway; the useful thing might be array of
-		 * (nil OR string) but we have no framework for that.
-		 */
-		if (array_type == DBUS_TYPE_NIL)
-		  {
-		    _dbus_verbose ("array of NIL is not allowed\n");
 		    return FALSE;
 		  }
 	      }
@@ -2397,7 +2420,6 @@ _dbus_type_is_valid (int typecode)
 {
   switch (typecode)
     {
-    case DBUS_TYPE_NIL:
     case DBUS_TYPE_BYTE:
     case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
@@ -2406,7 +2428,6 @@ _dbus_type_is_valid (int typecode)
     case DBUS_TYPE_UINT64:
     case DBUS_TYPE_DOUBLE:
     case DBUS_TYPE_STRING:
-    case DBUS_TYPE_CUSTOM:
     case DBUS_TYPE_ARRAY:
     case DBUS_TYPE_DICT:
     case DBUS_TYPE_OBJECT_PATH:
@@ -2457,7 +2478,7 @@ _dbus_verbose_bytes (const unsigned char *data,
       if (_DBUS_ALIGN_ADDRESS (&data[i], 4) == &data[i])
         {
           _dbus_verbose ("%4d\t%p: ",
-                   i, &data[i]);
+                         i, &data[i]);
         }
       
       if (data[i] >= 32 &&
@@ -2465,7 +2486,7 @@ _dbus_verbose_bytes (const unsigned char *data,
         _dbus_verbose (" '%c' ", data[i]);
       else
         _dbus_verbose ("0x%s%x ",
-                 data[i] <= 0xf ? "0" : "", data[i]);
+                       data[i] <= 0xf ? "0" : "", data[i]);
 
       ++i;
 
@@ -2532,6 +2553,7 @@ _dbus_verbose_bytes_of_string (const DBusString    *str,
  * Marshals a basic type
  *
  * @param str string to marshal to
+ * @param insert_at where to insert the value
  * @param type type of value
  * @param value pointer to value
  * @param byte_order byte order
@@ -2539,8 +2561,9 @@ _dbus_verbose_bytes_of_string (const DBusString    *str,
  **/
 dbus_bool_t
 _dbus_marshal_basic_type (DBusString *str,
+                          int         insert_at,
 			  char        type,
-			  void       *value,
+			  const void *value,
 			  int         byte_order)
 {
   dbus_bool_t retval;
@@ -2549,20 +2572,28 @@ _dbus_marshal_basic_type (DBusString *str,
     {
     case DBUS_TYPE_BYTE:
     case DBUS_TYPE_BOOLEAN:
-      retval = _dbus_string_append_byte (str, *(unsigned char *)value);
+      retval = _dbus_string_insert_byte (str, insert_at, *(const unsigned char *)value);
       break;
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
-      return marshal_4_octets (str, byte_order, *(dbus_uint32_t *)value);
+      return marshal_4_octets (str, insert_at, byte_order, *(const dbus_uint32_t *)value);
       break;
 #ifdef DBUS_HAVE_INT64
     case DBUS_TYPE_INT64:
-    case DBUS_TYPE_UINT64: 
-      retval = _dbus_marshal_uint64 (str, byte_order, *(dbus_uint64_t *)value);
+    case DBUS_TYPE_UINT64:
+      {
+        DBusOctets8 r;
+        r.u = *(const dbus_uint64_t *)value;
+        retval = marshal_8_octets (str, insert_at, byte_order, r);
+      }
       break;
 #endif /* DBUS_HAVE_INT64 */
     case DBUS_TYPE_DOUBLE:
-      retval = _dbus_marshal_double (str, byte_order, *(double *)value);
+      {
+        DBusOctets8 r;
+        r.d = *(const double *)value;
+        retval = marshal_8_octets (str, insert_at, byte_order, r);
+      }
       break;
     default:
       _dbus_assert_not_reached ("not a basic type");
@@ -2576,6 +2607,7 @@ _dbus_marshal_basic_type (DBusString *str,
  * Marshals a basic type array
  *
  * @param str string to marshal to
+ * @param insert_at where to insert the value
  * @param element_type type of array elements
  * @param value pointer to value
  * @param len length of value data in elements
@@ -2584,11 +2616,14 @@ _dbus_marshal_basic_type (DBusString *str,
  **/
 dbus_bool_t
 _dbus_marshal_basic_type_array (DBusString *str,
+                                int         insert_at,
 				char        element_type,
 				const void *value,
 				int         len,
 				int         byte_order)
 {
+  /* FIXME use the insert_at arg */
+  
   switch (element_type)
     {
     case DBUS_TYPE_BOOLEAN:
