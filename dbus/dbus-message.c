@@ -1117,8 +1117,6 @@ dbus_message_new_error (DBusMessage *reply_to,
           return NULL;
         }
     }
-
-  dbus_message_set_is_error (message, TRUE);
   
   return message;
 }
@@ -3764,15 +3762,18 @@ dbus_message_set_sender (DBusMessage  *message,
 }
 
 /**
- * Sets a flag indicating that the message is an error reply
- * message, i.e. an "exception" rather than a normal response.
+ * Sets a flag indicating that the message does not want a reply; if
+ * this flag is set, the other end of the connection may (but is not
+ * required to) optimize by not sending method return or error
+ * replies. If this flag is set, there is no way to know whether the
+ * message successfully arrived at the remote end.
  *
  * @param message the message
- * @param is_error_reply #TRUE if this is an error message.
+ * @param no_reply #TRUE if no reply is desired
  */
 void
-dbus_message_set_is_error (DBusMessage *message,
-                           dbus_bool_t  is_error_reply)
+dbus_message_set_no_reply (DBusMessage *message,
+                           dbus_bool_t  no_reply)
 {
   char *header;
 
@@ -3781,21 +3782,21 @@ dbus_message_set_is_error (DBusMessage *message,
   
   header = _dbus_string_get_data_len (&message->header, FLAGS_OFFSET, 1);
   
-  if (is_error_reply)
-    *header |= DBUS_HEADER_FLAG_ERROR;
+  if (no_reply)
+    *header |= DBUS_HEADER_FLAG_NO_REPLY_EXPECTED;
   else
-    *header &= ~DBUS_HEADER_FLAG_ERROR;    
+    *header &= ~DBUS_HEADER_FLAG_NO_REPLY_EXPECTED;    
 }
 
 /**
- * Returns #TRUE if the message is an error
- * reply to some previous message we sent.
+ * Returns #TRUE if the message does not expect
+ * a reply.
  *
  * @param message the message
- * @returns #TRUE if the message is an error
+ * @returns #TRUE if the message sender isn't waiting for a reply
  */
 dbus_bool_t
-dbus_message_get_is_error (DBusMessage *message)
+dbus_message_get_no_reply (DBusMessage *message)
 {
   const char *header;
 
@@ -3803,7 +3804,7 @@ dbus_message_get_is_error (DBusMessage *message)
   
   header = _dbus_string_get_const_data_len (&message->header, FLAGS_OFFSET, 1);
 
-  return (*header & DBUS_HEADER_FLAG_ERROR) != 0;
+  return (*header & DBUS_HEADER_FLAG_NO_REPLY_EXPECTED) != 0;
 }
 
 /**
@@ -3908,7 +3909,7 @@ dbus_message_has_sender (DBusMessage  *message,
 /**
  * Sets a #DBusError based on the contents of the given
  * message. The error is only set if the message
- * is an error message, as in dbus_message_get_is_error().
+ * is an error message, as in DBUS_MESSAGE_TYPE_ERROR.
  * The name of the error is set to the name of the message,
  * and the error message is set to the first argument
  * if the argument exists and is a string.
@@ -3931,7 +3932,7 @@ dbus_set_error_from_message (DBusError   *error,
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_error_is_set (error, FALSE);
   
-  if (!dbus_message_get_is_error (message))
+  if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_ERROR)
     return FALSE;
 
   str = NULL;
@@ -5921,11 +5922,11 @@ _dbus_message_test (const char *test_data_dir)
   _dbus_assert (dbus_message_get_serial (message) == 1234);
   _dbus_assert (dbus_message_has_destination (message, "org.freedesktop.DBus.Test"));
 
-  _dbus_assert (dbus_message_get_is_error (message) == FALSE);
-  dbus_message_set_is_error (message, TRUE);
-  _dbus_assert (dbus_message_get_is_error (message) == TRUE);
-  dbus_message_set_is_error (message, FALSE);
-  _dbus_assert (dbus_message_get_is_error (message) == FALSE);
+  _dbus_assert (dbus_message_get_no_reply (message) == FALSE);
+  dbus_message_set_no_reply (message, TRUE);
+  _dbus_assert (dbus_message_get_no_reply (message) == TRUE);
+  dbus_message_set_no_reply (message, FALSE);
+  _dbus_assert (dbus_message_get_no_reply (message) == FALSE);
   
   dbus_message_unref (message);
   

@@ -75,9 +75,9 @@ const char*   dbus_message_get_destination  (DBusMessage   *message);
 dbus_bool_t   dbus_message_set_sender       (DBusMessage   *message,
                                              const char    *sender);
 const char*   dbus_message_get_sender       (DBusMessage   *message);
-void          dbus_message_set_is_error     (DBusMessage   *message,
-                                             dbus_bool_t    is_error_reply);
-dbus_bool_t   dbus_message_get_is_error     (DBusMessage   *message);
+void          dbus_message_set_no_reply     (DBusMessage   *message,
+                                             dbus_bool_t    no_reply);
+dbus_bool_t   dbus_message_get_no_reply     (DBusMessage   *message);
 dbus_bool_t   dbus_message_has_name         (DBusMessage   *message,
                                              const char    *name);
 dbus_bool_t   dbus_message_has_destination  (DBusMessage   *message,

@@ -68,8 +68,7 @@ extern "C" {
 #define DBUS_MESSAGE_TYPE_SIGNAL        4
   
 /* Header flags */
-#define DBUS_HEADER_FLAG_ERROR             0x1
-#define DBUS_HEADER_FLAG_NO_REPLY_EXPECTED 0x2
+#define DBUS_HEADER_FLAG_NO_REPLY_EXPECTED 0x1
   
 /* Header fields */
 #define DBUS_HEADER_FIELD_NAME    "name"

@@ -1,3 +1,12 @@
+2003-08-02  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-message.c (dbus_message_get_no_reply)
+	(dbus_message_set_no_reply): add these and remove
+	set_is_error/get_is_error
+
+	* dbus/dbus-protocol.h, doc/dbus-specification.sgml: 
+	remove the ERROR flag, since there's now an ERROR type
+
 2003-08-01  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-object-registry.c (_dbus_object_registry_handle_and_unlock):

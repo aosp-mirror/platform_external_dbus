@@ -208,7 +208,8 @@
               </row>
               <row>
                 <entry>3</entry>
-                <entry>Error.</entry>
+                <entry>Error reply. If the first argument exists and is a
+                string, it is an error message.</entry>
               </row>
               <row>
                 <entry>4</entry>
@@ -231,10 +232,6 @@
             <tbody>
               <row>
                 <entry>0x1</entry>
-                <entry>This message is an error reply. If the first argument exists and is a string, it is an error message.</entry>
-              </row>
-              <row>
-                <entry>0x2</entry>
                 <entry>This message does not expect method return replies or
                 error replies; the reply can be omitted as an
                 optimization. However, it is compliant with this specification
