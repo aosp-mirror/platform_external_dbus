@@ -9,7 +9,7 @@ dbus-daemon-1 \- Message bus daemon
 .PP
 .B dbus-daemon-1
 dbus-daemon-1 [\-\-version] [\-\-session] [\-\-system] [\-\-config-file=FILE]
-[\-\-print-address[=DESCRIPTOR]]
+[\-\-print-address[=DESCRIPTOR]] [\-\-print-pid[=DESCRIPTOR]] [\-\-fork]
 
 .SH DESCRIPTION
 
@@ -62,8 +62,19 @@ The following options are supported:
 .I "--config-file=FILE"
 Use the given configuration file.
 .TP
+.I "--fork"
+Force the message bus to fork and become a daemon, even if 
+the configuration file does not specify that it should.
+In most contexts the configuration file already gets this
+right, though.
+.TP
 .I "--print-address[=DESCRIPTOR]"
 Print the address of the message bus to standard output, or 
+to the given file descriptor. This is used by programs that 
+launch the message bus.
+.TP
+.I "--print-pid[=DESCRIPTOR]"
+Print the process ID of the message bus to standard output, or 
 to the given file descriptor. This is used by programs that 
 launch the message bus.
 .TP
@@ -185,7 +196,8 @@ privileges for writing.
     
 .PP
 If present, the bus daemon becomes a real daemon (forks 
-into the background, etc.).
+into the background, etc.). This is generally used 
+rather than the \-\-fork command line option.
 
 .TP
 .I "<listen>"

@@ -280,7 +280,9 @@ setup_server (BusContext *context,
 
 BusContext*
 bus_context_new (const DBusString *config_file,
+                 dbus_bool_t       force_fork,
                  int               print_addr_fd,
+                 int               print_pid_fd,
                  DBusError        *error)
 {
   BusContext *context;
@@ -540,7 +542,7 @@ bus_context_new (const DBusString *config_file,
   _dbus_assert (context->policy != NULL);
   
   /* Now become a daemon if appropriate */
-  if (bus_config_parser_get_fork (parser))
+  if (force_fork || bus_config_parser_get_fork (parser))
     {
       DBusString u;
 
@@ -567,6 +569,42 @@ bus_context_new (const DBusString *config_file,
   /* keep around the pid filename so we can delete it later */
   context->pidfile = _dbus_strdup (pidfile);
 
+  /* Write PID if requested */
+  if (print_pid_fd >= 0)
+    {
+      DBusString pid;
+      int bytes;
+
+      if (!_dbus_string_init (&pid))
+        {
+          BUS_SET_OOM (error);
+          goto failed;
+        }
+      
+      if (!_dbus_string_append_int (&pid, _dbus_getpid ()) ||
+          !_dbus_string_append (&pid, "\n"))
+        {
+          _dbus_string_free (&pid);
+          BUS_SET_OOM (error);
+          goto failed;
+        }
+
+      bytes = _dbus_string_get_length (&pid);
+      if (_dbus_write (print_pid_fd, &pid, 0, bytes) != bytes)
+        {
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+                          "Printing message bus PID: %s\n",
+                          _dbus_strerror (errno));
+          _dbus_string_free (&pid);
+          goto failed;
+        }
+
+      if (print_pid_fd > 2)
+        _dbus_close (print_pid_fd, NULL);
+      
+      _dbus_string_free (&pid);
+    }
+  
   /* Here we change our credentials if required,
    * as soon as we've set up our sockets and pidfile
    */

@@ -47,7 +47,7 @@ signal_handler (int sig)
 static void
 usage (void)
 {
-  fprintf (stderr, "dbus-daemon-1 [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]]\n");
+  fprintf (stderr, "dbus-daemon-1 [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork]\n");
   exit (1);
 }
 
@@ -86,24 +86,45 @@ check_two_addr_descriptors (const DBusString *addr_fd,
     }
 }
 
+static void
+check_two_pid_descriptors (const DBusString *pid_fd,
+                           const char       *extra_arg)
+{
+  if (_dbus_string_get_length (pid_fd) > 0)
+    {
+      fprintf (stderr, "--%s specified but printing pid to %s already requested\n",
+               extra_arg, _dbus_string_get_const_data (pid_fd));
+      exit (1);
+    }
+}
+
 int
 main (int argc, char **argv)
 {
   DBusError error;
   DBusString config_file;
   DBusString addr_fd;
+  DBusString pid_fd;
   const char *prev_arg;
   int print_addr_fd;
+  int print_pid_fd;
   int i;
   dbus_bool_t print_address;
+  dbus_bool_t print_pid;
+  dbus_bool_t force_fork;
   
   if (!_dbus_string_init (&config_file))
     return 1;
 
   if (!_dbus_string_init (&addr_fd))
     return 1;
+
+  if (!_dbus_string_init (&pid_fd))
+    return 1;
   
   print_address = FALSE;
+  print_pid = FALSE;
+  force_fork = FALSE;
   
   prev_arg = NULL;
   i = 1;
@@ -117,6 +138,8 @@ main (int argc, char **argv)
         usage ();
       else if (strcmp (arg, "--version") == 0)
         version ();
+      else if (strcmp (arg, "--fork") == 0)
+        force_fork = TRUE;
       else if (strcmp (arg, "--system") == 0)
         {
           check_two_config_files (&config_file, "system");
@@ -179,6 +202,32 @@ main (int argc, char **argv)
         }
       else if (strcmp (arg, "--print-address") == 0)
         print_address = TRUE; /* and we'll get the next arg if appropriate */
+      else if (strstr (arg, "--print-pid=") == arg)
+        {
+          const char *desc;
+
+          check_two_pid_descriptors (&pid_fd, "print-pid");
+          
+          desc = strchr (arg, '=');
+          ++desc;
+
+          if (!_dbus_string_append (&pid_fd, desc))
+            exit (1);
+
+          print_pid = TRUE;
+        }
+      else if (prev_arg &&
+               strcmp (prev_arg, "--print-pid") == 0)
+        {
+          check_two_pid_descriptors (&pid_fd, "print-pid");
+          
+          if (!_dbus_string_append (&pid_fd, arg))
+            exit (1);
+          
+          print_pid = TRUE;
+        }
+      else if (strcmp (arg, "--print-pid") == 0)
+        print_pid = TRUE; /* and we'll get the next arg if appropriate */
       else
         usage ();
       
@@ -213,9 +262,32 @@ main (int argc, char **argv)
           print_addr_fd = val;
         }
     }
+
+  print_pid_fd = -1;
+  if (print_pid)
+    {
+      print_pid_fd = 1; /* stdout */
+      if (_dbus_string_get_length (&pid_fd) > 0)
+        {
+          long val;
+          int end;
+          if (!_dbus_string_parse_int (&pid_fd, 0, &val, &end) ||
+              end != _dbus_string_get_length (&pid_fd) ||
+              val < 0 || val > _DBUS_INT_MAX)
+            {
+              fprintf (stderr, "Invalid file descriptor: \"%s\"\n",
+                       _dbus_string_get_const_data (&pid_fd));
+              exit (1);
+            }
+
+          print_pid_fd = val;
+        }
+    }
   
   dbus_error_init (&error);
-  context = bus_context_new (&config_file, print_addr_fd, &error);
+  context = bus_context_new (&config_file, force_fork,
+                             print_addr_fd, print_pid_fd,
+                             &error);
   _dbus_string_free (&config_file);
   if (context == NULL)
     {

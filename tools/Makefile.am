@@ -19,7 +19,8 @@ dbus_launch_SOURCES=				\
 
 dbus_send_LDADD= $(top_builddir)/dbus/libdbus-1.la
 dbus_monitor_LDADD= $(top_builddir)/glib/libdbus-glib-1.la
-dbus_launch_LDADD= $(top_builddir)/dbus/libdbus-1.la
+## dbus-launch doesn't link to anything
+dbus_launch_LDADD= $(DBUS_X_LIBS)
 
 man_MANS = dbus-send.1 dbus-monitor.1 dbus-launch.1
 EXTRA_DIST = $(man_MANS)
