@@ -38,7 +38,12 @@ typedef struct DBusTypeReaderClass DBusTypeReaderClass;
 struct DBusTypeReader
 {
   dbus_uint32_t byte_order : 8;
-  
+
+  dbus_uint32_t types_only : 1; /* iterate over types not values */
+
+  dbus_uint32_t finished : 1;   /* marks we're at end iterator for cases
+                                 * where we don't have another way to tell
+                                 */
   const DBusString *type_str;
   int type_pos;
   const DBusString *value_str;
@@ -52,10 +57,6 @@ struct DBusTypeReader
       dbus_uint32_t len;
       int element_type;
     } array;
-
-    struct {
-      dbus_uint32_t finished : 1;
-    } strct;
   } u;
 };
 
@@ -87,6 +88,9 @@ void        _dbus_type_reader_init                (DBusTypeReader    *reader,
                                                    int                type_pos,
                                                    const DBusString  *value_str,
                                                    int                value_pos);
+void        _dbus_type_reader_init_types_only     (DBusTypeReader    *reader,
+                                                   const DBusString  *type_str,
+                                                   int                type_pos);
 int         _dbus_type_reader_get_current_type    (DBusTypeReader    *reader);
 dbus_bool_t _dbus_type_reader_array_is_empty      (DBusTypeReader    *reader);
 void        _dbus_type_reader_read_basic          (DBusTypeReader    *reader,
