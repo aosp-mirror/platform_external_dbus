@@ -1,3 +1,48 @@
+2005-01-28  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/dbus_bindings.pyx.in: Updated to handle new D-BUS type system
+		- BUS_ACTIVATION -> BUS_STARTER
+		- DBUS_BUS_ACTIVATION -> DBUS_BUS_STARTER
+		- class MessageIter (__init__): Added recursion checking 
+		so we throw a nice error instead of just disconnecting from the
+		bus.
+		(get): Added arg_type parameter for recursion.
+		Removed the nil type
+		Added signiture type placeholder (not implemented)
+		Added struct type placeholder (not implemented)
+		Added varient type placeholder (not implemented)
+		Commented out dict type for now	    
+		(get_element_type): renamed from get_array_type
+		(get_*): changed to use the dbus_message_iter_get_basic API
+		(get_*_array): removed in favor of recursive get_array method
+		(get_array): new recursive method which calls get to marshal
+	        the elements of the array
+		(value_to_dbus_sig): New method returns the corrasponding
+		dbus signiture to a python value
+		(append): Comment out dict handling for now
+		Handle lists with the new recursive API
+		Comment out None handling for now
+		(append_nil): removed
+		(append_*): changed to use dbus_message_iter_append_basic API
+		(append_*_array): removed in favor of recursive append_array 
+		method
+		(__str__): Make it easier to print out recursive iterators
+		for debugging
+		- class Message (__str__): moved type inspection to the
+		MessageIter class' __str__ method
+		(get_iter): Added an append parameter wich defaults to False
+		If True use the new API's to create an append iterator
+
+	* python/dbus.py: Update to use new bindings API
+		- TYPE_ACTIVATION -> TYPE_STARTER
+		- class Bus (_get_match_rule): GetServiceOwner -> GetNameOwner
+		- class ActivationBus -> class StarterBus
+		- class RemoteObject (__call__): get an append iterator
+		- (_dispatch_dbus_method_call): get an append iterator
+		- class Object (emit_signal): get an append iterator
+
+	* python/examples/: Fixed up the examples to work with the new API
+		
 2005-01-28  Joe Shaw  <joeshaw@novell.com>
 
 	* configure.in: Bump version up to 0.30.
