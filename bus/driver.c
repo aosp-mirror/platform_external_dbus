@@ -829,6 +829,32 @@ bus_driver_handle_get_service_owner (DBusConnection *connection,
   return FALSE;
 }
 
+static dbus_bool_t
+bus_driver_handle_reload_config (DBusConnection *connection,
+				 BusTransaction *transaction,
+				 DBusMessage    *message,
+				 DBusError      *error)
+{
+  BusContext *context;
+  dbus_bool_t retval;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  retval = FALSE;
+
+  context = bus_connection_get_context (connection);
+  if (!bus_context_reload_config (context, error))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      goto out;
+    }
+
+  retval = TRUE;
+  
+ out:
+  return retval;
+}
+
 /* For speed it might be useful to sort this in order of
  * frequency of use (but doesn't matter with only a few items
  * anyhow)
@@ -848,7 +874,8 @@ struct
   { "ListServices", bus_driver_handle_list_services },
   { "AddMatch", bus_driver_handle_add_match },
   { "RemoveMatch", bus_driver_handle_remove_match },
-  { "GetServiceOwner", bus_driver_handle_get_service_owner }
+  { "GetServiceOwner", bus_driver_handle_get_service_owner },
+  { "ReloadConfig", bus_driver_handle_reload_config }
 };
 
 dbus_bool_t

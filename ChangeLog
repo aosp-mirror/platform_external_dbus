@@ -1,3 +1,18 @@
+2004-05-20  Kristian Høgsberg  <krh@redhat.com>
+
+	Patch from Jon Trowbridge <trow@ximian.com>:
+ 
+ 	* bus/main.c (setup_reload_pipe): Added.  Creates a pipe and sets
+ 	up a watch that triggers a config reload when one end of the pipe
+ 	becomes readable.
+ 	(signal_handler): Instead of doing the config reload in our SIGHUP
+ 	handler, just write to the reload pipe and let the associated
+ 	watch handle the reload when control returns to the main loop.
+ 
+ 	* bus/driver.c (bus_driver_handle_reload_config): Added.
+ 	Implements a ReloadConfig method for requesting a configuration
+ 	file reload via the bus driver.
+ 
 2004-05-19  Owen Fraser-Green  <owen@discobabe.net>
 
 	* HACKING: Updated release instructions concerning the wiki page.

@@ -22,6 +22,7 @@
  */
 #include "bus.h"
 #include <dbus/dbus-internals.h>
+#include <dbus/dbus-watch.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,23 +31,23 @@
 
 static BusContext *context;
 
+static int reload_pipe[2];
+#define RELOAD_READ_END 0
+#define RELOAD_WRITE_END 1
+
+
 static void
 signal_handler (int sig)
 {
-  DBusError error;
+  DBusString str;
 
   switch (sig)
     {
     case SIGHUP:
-      /* FIXME: We shouldn't be reloading the config in the
-	 signal handler.  We should use a pipe or something to
-	 make the reload happen in the main loop. */
-      dbus_error_init (&error);
-      if (!bus_context_reload_config (context, &error))
+      _dbus_string_init_const (&str, "foo");
+      if (!_dbus_write (reload_pipe[RELOAD_WRITE_END], &str, 0, 1))
 	{
-	  _dbus_warn ("Unable to reload configuration: %s\n",
-		      error.message);
-	  dbus_error_free (&error);
+	  _dbus_warn ("Unable to write to reload pipe.\n");
 	  exit (1);
 	}
       break;
@@ -109,6 +110,80 @@ check_two_pid_descriptors (const DBusString *pid_fd,
                extra_arg, _dbus_string_get_const_data (pid_fd));
       exit (1);
     }
+}
+
+static dbus_bool_t
+handle_reload_watch (DBusWatch    *watch,
+		     unsigned int  flags,
+		     void         *data)
+{
+  DBusError error;
+  DBusString str;
+  _dbus_string_init (&str);
+  if (_dbus_read (reload_pipe[RELOAD_READ_END], &str, 1) != 1)
+    {
+      _dbus_warn ("Couldn't read from reload pipe.\n");
+      exit (1);
+    }
+  _dbus_string_free (&str);
+
+  dbus_error_init (&error);
+  if (! bus_context_reload_config (context, &error))
+    {
+      _dbus_warn ("Unable to reload configuration: %s\n",
+		  error.message);
+      dbus_error_free (&error);
+      exit (1);
+    }
+  return TRUE;
+}
+
+static dbus_bool_t
+reload_watch_callback (DBusWatch    *watch,
+		       unsigned int  condition,
+		       void         *data)
+{
+  return dbus_watch_handle (watch, condition);
+}
+
+static void
+setup_reload_pipe (DBusLoop *loop)
+{
+  DBusError error;
+  DBusWatch *watch;
+
+  dbus_error_init (&error);
+
+  if (!_dbus_full_duplex_pipe (&reload_pipe[0], &reload_pipe[1],
+			       TRUE, &error))
+    {
+      _dbus_warn ("Unable to create reload pipe: %s\n",
+		  error.message);
+      dbus_error_free (&error);
+      exit (1);
+    }
+
+  watch = _dbus_watch_new (reload_pipe[RELOAD_READ_END],
+			   DBUS_WATCH_READABLE, TRUE,
+			   handle_reload_watch, NULL, NULL);
+
+  if (watch == NULL)
+    {
+      _dbus_warn ("Unable to create reload watch: %s\n",
+		  error.message);
+      dbus_error_free (&error);
+      exit (1);
+    }
+
+  if (!_dbus_loop_add_watch (loop, watch, reload_watch_callback,
+			     NULL, NULL))
+    {
+      _dbus_warn ("Unable to add reload watch to main loop: %s\n",
+		  error.message);
+      dbus_error_free (&error);
+      exit (1);
+    }
+
 }
 
 int
@@ -309,7 +384,9 @@ main (int argc, char **argv)
       dbus_error_free (&error);
       exit (1);
     }
-  
+
+  setup_reload_pipe (bus_context_get_loop (context));
+ 
   _dbus_set_signal_handler (SIGHUP, signal_handler);
   _dbus_set_signal_handler (SIGTERM, signal_handler);
   
