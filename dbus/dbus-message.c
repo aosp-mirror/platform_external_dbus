@@ -409,6 +409,7 @@ dbus_message_unref (DBusMessage *message)
       _dbus_string_free (&message->header);
       _dbus_string_free (&message->body);
 
+      dbus_free (message->sender);
       dbus_free (message->service);
       dbus_free (message->name);
       dbus_free (message);
@@ -707,8 +708,6 @@ dbus_message_get_fields (DBusMessage *message,
   DBusResultCode retval;
   va_list var_args;
 
-  _dbus_verbose_bytes_of_string (&message->header, 0,
-				 _dbus_string_get_length (&message->header));
   va_start (var_args, first_field_type);
   retval = dbus_message_get_fields_valist (message, first_field_type, var_args);
   va_end (var_args);
@@ -1323,7 +1322,7 @@ decode_header_data (DBusString   *data,
   *service = NULL;
   *name = NULL;
   *sender = NULL;
-  
+
   /* Now handle the fields */
   while (pos < header_len)
     {
@@ -1493,12 +1492,8 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
           _dbus_assert (_dbus_string_get_length (&message->header) == 0);
           _dbus_assert (_dbus_string_get_length (&message->body) == 0);
 
-	  if (!_dbus_string_move_len (&loader->data, 0, header_len, &message->header, 0))
-            {
-              _dbus_list_remove_last (&loader->messages, message);
-              dbus_message_unref (message);
-              break;
-            }
+	  /* Delete header part */
+	  _dbus_string_delete (&loader->data, 0, header_len);
 
 	  if (!_dbus_string_move_len (&loader->data, 0, body_len, &message->body, 0))
             {
@@ -1514,9 +1509,8 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
               break;
             }
 
-          _dbus_assert (_dbus_string_get_length (&message->header) == header_len);
           _dbus_assert (_dbus_string_get_length (&message->body) == body_len);
-          
+
 	  _dbus_verbose ("Loaded message %p\n", message);	  
 	}
       else
@@ -1678,6 +1672,9 @@ _dbus_message_test (void)
 
   if (strcmp (our_str, "Test string") != 0)
     _dbus_assert_not_reached ("strings differ!");
+
+  dbus_free (our_str);
+  dbus_message_unref (message);
   
   message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");
   message->client_serial = 1;

@@ -714,7 +714,11 @@ process_auth (DBusAuth         *auth,
           if (!send_mechanisms (auth))
             return FALSE;
         }
-      
+
+      _dbus_string_free (&mech);      
+      _dbus_string_free (&base64_response);
+      _dbus_string_free (&decoded_response);
+
       return TRUE;
       
     failed:
@@ -1264,7 +1268,8 @@ _dbus_auth_unref (DBusAuth *auth)
         {
           _dbus_list_clear (& DBUS_AUTH_CLIENT (auth)->mechs_to_try);
         }
-      
+
+      _dbus_string_free (&auth->identity);
       _dbus_string_free (&auth->incoming);
       _dbus_string_free (&auth->outgoing);
       dbus_free (auth);

@@ -348,6 +348,9 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   
   if (watch_list)
     _dbus_watch_list_free (watch_list);
+
+  if (timeout_list)
+    _dbus_timeout_list_free (timeout_list);
   
   return NULL;
 }
@@ -518,6 +521,9 @@ dbus_connection_unref (DBusConnection *connection)
       _dbus_watch_list_free (connection->watches);
       connection->watches = NULL;
 
+      _dbus_timeout_list_free (connection->timeouts);
+      connection->timeouts = NULL;
+      
       _dbus_connection_free_data_slots (connection);
       
       _dbus_hash_iter_init (connection->handler_table, &iter);

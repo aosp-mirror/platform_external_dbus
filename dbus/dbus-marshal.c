@@ -1043,7 +1043,7 @@ _dbus_marshal_test (void)
   printf ("length is: %d\n", len);
   if (len != 3)
     _dbus_assert_not_reached ("Signed integer array lengths differ!\n");
-
+  dbus_free (array2);
   
 
 

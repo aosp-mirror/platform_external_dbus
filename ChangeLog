@@ -1,3 +1,21 @@
+2003-01-26  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-auth.c: (process_auth), (_dbus_auth_unref):
+	* dbus/dbus-connection.c: (_dbus_connection_new_for_transport),
+	(dbus_connection_unref):
+	* dbus/dbus-marshal.c: (_dbus_marshal_test):
+	* dbus/dbus-message.c: (dbus_message_unref),
+	Plug memory leaks.
+	
+	(dbus_message_get_fields): 
+	Remove debugging printout.
+
+	(_dbus_message_loader_return_buffer):
+	Don't store the header string.
+	
+	(_dbus_message_test):
+	Plug leaks.
+
 2003-01-26  Richard Hult  <rhult@codefactory.se>
 
 	* glib/dbus-gmain.c (dbus_connection_dispatch): Traverse a copy of
