@@ -1,3 +1,23 @@
+2003-02-16  Anders Carlsson  <andersca@codefactory.se>
+
+	* bus/dispatch.c: (send_one_message):
+	Only send broadcast messages to registered connections.
+	
+	* dbus/dbus-message.c: (dbus_message_name_is):
+	* dbus/dbus-message.h:
+	New convenience function.
+	
+	* dbus/dbus-transport-debug.c: (do_reading):
+	Only dispatch one message per run.
+
+	* test/Makefile.am:
+	* test/bus-test.c: (new_connection_callback), (die),
+	(test_hello_client1_handler), (test_hello_client2_handler),
+	(test_hello_replies), (main):
+
+	* test/bus-test-loop.[ch]:
+	Add these.
+	
 2003-02-16  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-connection.c (dbus_connection_dispatch_message): fix

@@ -26,7 +26,9 @@ unbase64_SOURCES=				\
 bus_test_SOURCES = 				\
 	debug-thread.c				\
 	debug-thread.h				\
-	bus-test.c
+	bus-test.c				\
+	bus-test-loop.c				\
+	bus-test-loop.h
 
 break_loader_SOURCES=				\
 	break-loader.c

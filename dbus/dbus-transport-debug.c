@@ -76,11 +76,24 @@ debug_finalize (DBusTransport *transport)
 static void
 do_reading (DBusTransport *transport)
 {
+  DBusTransportDebug *debug_transport = (DBusTransportDebug*) transport;
+  
   if (transport->disconnected)
     return;
 
   /* Now dispatch the messages */
-  while (dbus_connection_dispatch_message (transport->connection));
+  if (dbus_connection_dispatch_message (transport->connection))
+    {
+      debug_transport->read_timeout =
+	_dbus_timeout_new (DEFAULT_INTERVAL, (DBusTimeoutHandler)do_reading,
+			   transport, NULL);
+      if (!_dbus_connection_add_timeout (transport->connection,
+					 debug_transport->read_timeout))
+	{
+	  _dbus_timeout_unref (debug_transport->read_timeout);
+	  debug_transport->read_timeout = NULL;
+	}
+    }
 }
 
 static void

@@ -33,6 +33,10 @@ static int message_handler_slot;
 static void
 send_one_message (DBusConnection *connection, void *data)
 {
+  /* Only send messages to registered connections */
+  if (bus_connection_get_name (connection) == NULL)
+    return;
+  
   BUS_HANDLE_OOM (dbus_connection_send_message (connection, data, NULL, NULL));
 }
 

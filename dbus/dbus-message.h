@@ -56,6 +56,9 @@ void        dbus_message_set_is_error         (DBusMessage *message,
 					       dbus_bool_t  is_error_reply);
 dbus_bool_t dbus_message_get_is_error         (DBusMessage *message);
 
+dbus_bool_t dbus_message_name_is (DBusMessage *message,
+				  const char  *name);
+
 dbus_bool_t dbus_message_append_args         (DBusMessage          *message,
 					      int                   first_arg_type,
 					      ...);

@@ -1735,6 +1735,17 @@ dbus_message_get_sender (DBusMessage *message)
   return get_string_field (message, FIELD_SENDER, NULL);
 }
 
+dbus_bool_t
+dbus_message_name_is (DBusMessage *message,
+		      const char  *name)
+{
+  if (dbus_message_get_name (message) &&
+      strcmp (dbus_message_get_name (message), name) == 0)
+    return TRUE;
+  else
+    return FALSE;
+}
+
 /** @} */
 
 /**
