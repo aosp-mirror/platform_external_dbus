@@ -1,5 +1,19 @@
 2003-01-21  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/dbus-marshal.c: (_dbus_marshal_double),
+	(_dbus_marshal_int32), (_dbus_marshal_uint32),
+	(_dbus_marshal_int32_array), (_dbus_marshal_uint32_array),
+	(_dbus_marshal_double_array), (_dbus_marshal_string_array),
+	(_dbus_demarshal_int32_array), (_dbus_demarshal_uint32_array),
+	(_dbus_demarshal_double_array), (_dbus_demarshal_string_array),
+	(_dbus_marshal_get_field_end_pos), (_dbus_marshal_test):
+	* dbus/dbus-marshal.h:
+	* dbus/dbus-protocol.h:
+	Add support for marshalling and demarshalling integer, double
+	and string arrays.
+	
+2003-01-21  Anders Carlsson  <andersca@codefactory.se>
+
 	* bus/Makefile.am:
 	Add driver.[ch]
 	

@@ -148,10 +148,8 @@ _dbus_marshal_double (DBusString *str,
 		      double      value)
 {
   _dbus_assert (sizeof (double) == 8);
-  
-  if (!_dbus_string_set_length (str,
-				_DBUS_ALIGN_VALUE (_dbus_string_get_length (str),
-                                                   sizeof (double))))
+
+  if (!_dbus_string_align_length (str, sizeof (double)))
     return FALSE;
   
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
@@ -173,9 +171,7 @@ _dbus_marshal_int32  (DBusString   *str,
 		      int           byte_order,
 		      dbus_int32_t  value)
 {
-  if (!_dbus_string_set_length (str,
-				_DBUS_ALIGN_VALUE (_dbus_string_get_length (str),
-                                                   sizeof (dbus_int32_t))))
+  if (!_dbus_string_align_length (str, sizeof (dbus_int32_t)))
     return FALSE;
   
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
@@ -197,11 +193,9 @@ _dbus_marshal_uint32 (DBusString    *str,
 		      int            byte_order,
 		      dbus_uint32_t  value)
 {
-  if (!_dbus_string_set_length (str,
-				_DBUS_ALIGN_VALUE (_dbus_string_get_length (str),
-                                                   sizeof (dbus_uint32_t))))
+  if (!_dbus_string_align_length (str, sizeof (dbus_uint32_t)))
     return FALSE;
-
+  
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
     swap_bytes ((unsigned char *)&value, sizeof (dbus_uint32_t));
 
@@ -243,8 +237,8 @@ _dbus_marshal_string (DBusString    *str,
  *
  * @param str the string to append the marshalled value to
  * @param byte_order the byte order to use
- * @param value the byte array
- * @param len the length of the byte array
+ * @param value the array
+ * @param len number of elements in the array
  * @returns #TRUE on success
  */
 dbus_bool_t
@@ -266,6 +260,146 @@ _dbus_marshal_byte_array (DBusString          *str,
     }
 
   return _dbus_string_append_len (str, value, len);
+}
+
+/**
+ * Marshals a 32 bit signed integer array
+ *
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param value the array
+ * @param len the length of the array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_marshal_int32_array (DBusString         *str,
+			   int                 byte_order,
+			   const dbus_int32_t *value,
+			   int                 len)
+{
+  int i, old_string_len;
+
+  old_string_len = _dbus_string_get_length (str);
+
+  if (!_dbus_marshal_uint32 (str, byte_order, len))
+    goto error;
+
+  for (i = 0; i < len; i++)
+    if (!_dbus_marshal_int32 (str, byte_order, value[i]))
+      goto error;
+
+  return TRUE;
+  
+ error:
+  /* Restore previous length */
+  _dbus_string_set_length (str, old_string_len);
+  
+  return FALSE;
+}
+
+/**
+ * Marshals a 32 bit unsigned integer array
+ *
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param value the array
+ * @param len the length of the array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_marshal_uint32_array (DBusString          *str,
+			    int                  byte_order,
+			    const dbus_uint32_t  *value,
+			    int                  len)
+{
+  int i, old_string_len;
+
+  old_string_len = _dbus_string_get_length (str);
+
+  if (!_dbus_marshal_uint32 (str, byte_order, len))
+    goto error;
+
+  for (i = 0; i < len; i++)
+    if (!_dbus_marshal_uint32 (str, byte_order, value[i]))
+      goto error;
+
+  return TRUE;
+  
+ error:
+  /* Restore previous length */
+  _dbus_string_set_length (str, old_string_len);
+  
+  return FALSE;  
+}
+
+/**
+ * Marshals a double array
+ *
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param value the array
+ * @param len the length of the array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_marshal_double_array (DBusString          *str,
+			    int                  byte_order,
+			    const double        *value,
+			    int                  len)
+{
+  int i, old_string_len;
+
+  old_string_len = _dbus_string_get_length (str);
+
+  if (!_dbus_marshal_uint32 (str, byte_order, len))
+    goto error;
+
+  for (i = 0; i < len; i++)
+    if (!_dbus_marshal_double (str, byte_order, value[i]))
+      goto error;
+
+  return TRUE;
+  
+ error:
+  /* Restore previous length */
+  _dbus_string_set_length (str, old_string_len);
+  
+  return FALSE;    
+}
+
+/**
+ * Marshals a string array
+ *
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param value the array
+ * @param len the length of the array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_marshal_string_array (DBusString  *str,
+			    int          byte_order,
+			    const char **value,
+			    int          len)
+{
+  int i, old_string_len;
+
+  old_string_len = _dbus_string_get_length (str);
+
+  if (!_dbus_marshal_uint32 (str, byte_order, len))
+    goto error;
+
+  for (i = 0; i < len; i++)
+    if (!_dbus_marshal_string (str, byte_order, value[i]))
+      goto error;
+
+  return TRUE;
+  
+ error:
+  /* Restore previous length */
+  _dbus_string_set_length (str, old_string_len);
+  
+  return FALSE;      
 }
 
 /**
@@ -448,6 +582,168 @@ _dbus_demarshal_byte_array (DBusString *str,
   return retval;
 }
 
+/**
+ * Demarshals a 32 bit signed integer array.
+ *
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @param array_len length of the demarshaled data
+ * @returns the demarshaled data.
+ */
+dbus_int32_t *
+_dbus_demarshal_int32_array (DBusString *str,
+			     int         byte_order,
+			     int         pos,
+			     int        *new_pos,
+			     int        *array_len)
+{
+  int len, i;
+  dbus_int32_t *retval;
+  
+  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+
+  retval = dbus_new (dbus_int32_t, len);
+
+  if (!retval)
+    return NULL;
+
+  for (i = 0; i < len; i++)
+    retval[i] = _dbus_demarshal_int32 (str, byte_order, pos, &pos);
+
+  if (new_pos)
+    *new_pos = pos;
+
+  if (array_len)
+    *array_len = len;
+  
+  return retval;
+}
+
+/**
+ * Demarshals a 32 bit unsigned integer array.
+ *
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @param array_len length of the demarshaled data
+ * @returns the demarshaled data.
+ */
+dbus_uint32_t *
+_dbus_demarshal_uint32_array (DBusString *str,
+			      int         byte_order,
+			      int         pos,
+			      int        *new_pos,
+			      int        *array_len)
+{
+  int len, i;
+  dbus_uint32_t *retval;
+  
+  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+
+  retval = dbus_new (dbus_uint32_t, len);
+
+  if (!retval)
+    return NULL;
+
+  for (i = 0; i < len; i++)
+    retval[i] = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+
+  if (new_pos)
+    *new_pos = pos;
+
+  if (array_len)
+    *array_len = len;
+  
+  return retval;  
+}
+
+/**
+ * Demarshals a double array.
+ *
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @param array_len length of the demarshaled data
+ * @returns the demarshaled data.
+ */
+double *
+_dbus_demarshal_double_array (DBusString *str,
+			      int         byte_order,
+			      int         pos,
+			      int        *new_pos,
+			      int        *array_len)
+{
+  int len, i;
+  double *retval;
+  
+  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+
+  retval = dbus_new (double, len);
+
+  if (!retval)
+    return NULL;
+
+  for (i = 0; i < len; i++)
+    retval[i] = _dbus_demarshal_double (str, byte_order, pos, &pos);
+
+  if (new_pos)
+    *new_pos = pos;
+
+  if (array_len)
+    *array_len = len;
+  
+  return retval;  
+}
+
+/**
+ * Demarshals a string array.
+ *
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @param array_len length of the demarshaled data
+ * @returns the demarshaled data.
+ */
+char **
+_dbus_demarshal_string_array (DBusString *str,
+			      int         byte_order,
+			      int         pos,
+			      int        *new_pos,
+			      int        *array_len)
+{
+  int len, i, j;
+  char **retval;
+  
+  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+  
+  retval = dbus_new (char *, len);
+
+  if (!retval)
+    return NULL;
+
+  for (i = 0; i < len; i++)
+    {
+      retval[i] = _dbus_demarshal_string (str, byte_order, pos, &pos);
+
+      if (retval[i] == 0)
+	goto error;
+    }
+
+  return retval;
+
+ error:
+  for (j = 0; j < i; j++)
+    dbus_free (retval[i]);
+  dbus_free (retval);
+
+  return NULL;
+}
+
 /** 
  * Returns the position right after the end position 
  * end position of a field
@@ -501,28 +797,86 @@ _dbus_marshal_get_field_end_pos (DBusString *str,
 
     case DBUS_TYPE_STRING:
       {
-	int len, new_pos;
+	int len;
 
 	/* Demarshal the length */
-	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &new_pos);
+	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &pos);
 
-	*end_pos = new_pos + len + 1;
+	*end_pos = pos + len + 1;
 
 	break;
       }
 
     case DBUS_TYPE_BYTE_ARRAY:
       {
+	int len;
+
+	/* Demarshal the length */
+	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &pos);
+	
+	*end_pos = pos + len;
+
+	break;
+      }
+
+    case DBUS_TYPE_INT32_ARRAY:
+      {
 	int len, new_pos;
 
 	/* Demarshal the length */
 	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &new_pos);
 	
-	*end_pos = new_pos + len;
+	*end_pos = _DBUS_ALIGN_VALUE (new_pos, sizeof (dbus_int32_t))
+	  + (len * sizeof (dbus_int32_t));
 
 	break;
       }
+
+    case DBUS_TYPE_UINT32_ARRAY:
+      {
+	int len, new_pos;
+
+	/* Demarshal the length */
+	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &new_pos);
+
+	*end_pos = _DBUS_ALIGN_VALUE (new_pos, sizeof (dbus_uint32_t))
+	  + (len * sizeof (dbus_uint32_t));
+	
+	break;
+      }
+
+    case DBUS_TYPE_DOUBLE_ARRAY:
+      {
+	int len, new_pos;
+	
+	/* Demarshal the length */
+	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &new_pos);
+
+	*end_pos = _DBUS_ALIGN_VALUE (new_pos, sizeof (double))
+	  + (len * sizeof (double));
+	
+	break;
+      }
       
+    case DBUS_TYPE_STRING_ARRAY:
+      {
+	int len, i;
+	
+	/* Demarshal the length */
+	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &pos);
+
+	for (i = 0; i < len; i++)
+	  {
+	    int str_len;
+	    
+	    /* Demarshal string length */
+	    str_len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+	    pos += str_len + 1;
+	  }
+
+	*end_pos = pos;
+	break;
+      }      
     default:
       _dbus_warn ("Unknown message field type %d\n", *data);
       return FALSE;
@@ -628,11 +982,11 @@ _dbus_marshal_test (void)
 {
   DBusString str;
   char *tmp1, *tmp2;
-  int pos = 0;
+  dbus_int32_t array1[3] = { 0x123, 0x456, 0x789 }, *array2;
+  int pos = 0, len;
   
   if (!_dbus_string_init (&str, _DBUS_INT_MAX))
     _dbus_assert_not_reached ("failed to init string");
-
 
   /* Marshal doubles */
   if (!_dbus_marshal_double (&str, DBUS_BIG_ENDIAN, 3.14))
@@ -676,8 +1030,21 @@ _dbus_marshal_test (void)
   _dbus_assert (strcmp (tmp1, tmp2) == 0);
   dbus_free (tmp2);
 
+  /* Marshal signed integer arrays */
+  if (!_dbus_marshal_int32_array (&str, DBUS_BIG_ENDIAN, array1, 3))
+    _dbus_assert_not_reached ("could not marshal integer array");
+  _dbus_verbose_bytes_of_string (&str, 0, _dbus_string_get_length (&str));
+  array2 = _dbus_demarshal_int32_array (&str, DBUS_BIG_ENDIAN, pos, &pos, &len);
+  printf ("length is: %d\n", len);
+  if (len != 3)
+    _dbus_assert_not_reached ("Signed integer array lengths differ!\n");
+
+  
+
+
   _dbus_string_free (&str);
   
+      
   return TRUE;
 }
 
