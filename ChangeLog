@@ -1,5 +1,14 @@
 2003-08-01  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-object-registry.c (_dbus_object_registry_handle_and_unlock):
+	implement
+
+	* dbus/dbus-message.c (dbus_message_get_type): new function
+
+	* doc/dbus-specification.sgml: add "type" byte to messages
+
+2003-08-01  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-protocol.h (DBUS_MESSAGE_TYPE_*): introduce
 	a message type enum to distinguish kinds of message
 	(DBUS_HEADER_FLAG_NO_REPLY_EXPECTED): flag for a message 

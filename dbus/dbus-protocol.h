@@ -61,6 +61,7 @@ extern "C" {
 #define DBUS_MAXIMUM_NAME_LENGTH 256
 
 /* Types of message */
+#define DBUS_MESSAGE_TYPE_INVALID       0
 #define DBUS_MESSAGE_TYPE_METHOD_CALL   1
 #define DBUS_MESSAGE_TYPE_METHOD_RETURN 2
 #define DBUS_MESSAGE_TYPE_ERROR         3

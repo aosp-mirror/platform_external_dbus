@@ -398,8 +398,8 @@ dbus_bus_register (DBusConnection *connection,
       return TRUE;
     }
   
-  message = dbus_message_new (DBUS_MESSAGE_HELLO,
-                              DBUS_SERVICE_DBUS);
+  message = dbus_message_new_method_call (DBUS_MESSAGE_HELLO,
+                                          DBUS_SERVICE_DBUS);
 			      
 
   if (!message)
@@ -516,8 +516,8 @@ dbus_bus_acquire_service (DBusConnection *connection,
   _dbus_return_val_if_fail (service_name != NULL, 0);
   _dbus_return_val_if_error_is_set (error, 0);
   
-  message = dbus_message_new (DBUS_MESSAGE_ACQUIRE_SERVICE,
-                              DBUS_SERVICE_DBUS);
+  message = dbus_message_new_method_call (DBUS_MESSAGE_ACQUIRE_SERVICE,
+                                          DBUS_SERVICE_DBUS);
 
 
   if (message == NULL)
@@ -590,8 +590,8 @@ dbus_bus_service_exists (DBusConnection *connection,
   _dbus_return_val_if_fail (service_name != NULL, FALSE);
   _dbus_return_val_if_error_is_set (error, FALSE);
   
-  message = dbus_message_new (DBUS_MESSAGE_SERVICE_EXISTS,
-                              DBUS_SERVICE_DBUS);
+  message = dbus_message_new_method_call (DBUS_MESSAGE_SERVICE_EXISTS,
+                                          DBUS_SERVICE_DBUS);
   if (message == NULL)
     {
       _DBUS_SET_OOM (error);
@@ -652,8 +652,8 @@ dbus_bus_activate_service (DBusConnection *connection,
   DBusMessage *msg;
   DBusMessage *reply;
 
-  msg = dbus_message_new (DBUS_MESSAGE_ACTIVATE_SERVICE,
-      			  DBUS_SERVICE_DBUS);
+  msg = dbus_message_new_method_call (DBUS_MESSAGE_ACTIVATE_SERVICE,
+                                      DBUS_SERVICE_DBUS);
 
   if (!dbus_message_append_args (msg, DBUS_TYPE_STRING, service_name,
 			  	 DBUS_TYPE_UINT32, flags, DBUS_TYPE_INVALID))

@@ -135,6 +135,12 @@
               </row>
               <row>
                 <entry>1 byte</entry>
+                <entry>Type of message. Unknown types MUST be ignored. 
+                  Currently-defined types are described below.
+                </entry>
+              </row>
+              <row>
+                <entry>1 byte</entry>
                 <entry>Bitwise OR of flags. Unknown flags
                   MUST be ignored. Currently-defined flags are described below.
                 </entry>
@@ -146,12 +152,6 @@
                 match, the applications will not be able to communicate and the
                 D-BUS connection MUST be disconnected. The major protocol
                 version for this version of the specification is 0.
-                </entry>
-              </row>
-              <row>
-                <entry>1 byte</entry>
-                <entry>A nul byte, reserved for future use.
-                  Any value for this byte MUST be accepted.
                 </entry>
               </row>
               <row>
@@ -182,7 +182,44 @@
         </informaltable>
       </para>
       <para>
-        Flags that can appear in the second byte of the header:
+        Types that can appear in the second byte of the header:
+        <informaltable>
+          <tgroup cols=2>
+            <thead>
+              <row>
+                <entry>Decimal value</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>This is an invalid type, if seen in a message 
+                  the connection should be dropped immediately.</entry>
+              </row>
+              <row>
+                <entry>1</entry>
+                <entry>Method call.</entry>
+              </row>
+              </row>
+              <row>
+                <entry>2</entry>
+                <entry>Method reply with returned data.</entry>
+              </row>
+              <row>
+                <entry>3</entry>
+                <entry>Error.</entry>
+              </row>
+              <row>
+                <entry>4</entry>
+                <entry>Signal emission.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </para>
+      <para>
+        Flags that can appear in the third byte of the header:
         <informaltable>
           <tgroup cols=2>
             <thead>
@@ -195,6 +232,13 @@
               <row>
                 <entry>0x1</entry>
                 <entry>This message is an error reply. If the first argument exists and is a string, it is an error message.</entry>
+              </row>
+              <row>
+                <entry>0x2</entry>
+                <entry>This message does not expect method return replies or
+                error replies; the reply can be omitted as an
+                optimization. However, it is compliant with this specification
+                to return the reply despite this flag.</entry>
               </row>
             </tbody>
           </tgroup>

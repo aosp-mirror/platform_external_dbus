@@ -722,7 +722,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   if (io_path_cond == NULL)
     goto error;
 
-  disconnect_message = dbus_message_new (DBUS_MESSAGE_LOCAL_DISCONNECT, NULL);
+  disconnect_message = dbus_message_new_signal (DBUS_MESSAGE_LOCAL_DISCONNECT);
   if (disconnect_message == NULL)
     goto error;
 
@@ -1615,8 +1615,8 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
 
   dbus_message_handler_ref (reply_handler);
 
-  reply = dbus_message_new_error_reply (message, DBUS_ERROR_NO_REPLY,
-					"No reply within specified time");
+  reply = dbus_message_new_error (message, DBUS_ERROR_NO_REPLY,
+                                  "No reply within specified time");
   if (!reply)
     {
       CONNECTION_UNLOCK (connection);

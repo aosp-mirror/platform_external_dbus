@@ -393,8 +393,14 @@ _dbus_message_data_load (DBusString       *dest,
               goto parse_failed;
             }
 
+          if (!_dbus_string_append_byte (dest, DBUS_MESSAGE_TYPE_METHOD_CALL))
+            {
+              _dbus_warn ("could not append message type\n");
+              goto parse_failed;
+            }
+          
           i = 0;
-          while (i < 3)
+          while (i < 2)
             {
               if (!_dbus_string_append_byte (dest, '\0'))
                 {

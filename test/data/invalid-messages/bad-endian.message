@@ -1,7 +1,7 @@
 ## message with invalid endianness tag
 
 BYTE 'i'
-BYTE 0
+BYTE 1
 BYTE 0
 BYTE 0
 LENGTH Header

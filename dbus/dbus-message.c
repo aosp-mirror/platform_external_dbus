@@ -73,6 +73,11 @@ typedef struct
                */
 } HeaderField;
 
+#define BYTE_ORDER_OFFSET   0
+#define TYPE_OFFSET         1
+#define FLAGS_OFFSET        2
+#define VERSION_OFFSET      3
+
 /**
  * @brief Internals of DBusMessage
  * 
@@ -803,6 +808,7 @@ _dbus_message_remove_size_counter (DBusMessage  *message,
 
 static dbus_bool_t
 dbus_message_create_header (DBusMessage *message,
+                            int          type,
                             const char  *name,
                             const char  *service)
 {
@@ -811,14 +817,14 @@ dbus_message_create_header (DBusMessage *message,
   if (!_dbus_string_append_byte (&message->header, message->byte_order))
     return FALSE;
 
+  if (!_dbus_string_append_byte (&message->header, type))
+    return FALSE;
+  
   flags = 0;
   if (!_dbus_string_append_byte (&message->header, flags))
     return FALSE;
 
   if (!_dbus_string_append_byte (&message->header, DBUS_MAJOR_PROTOCOL_VERSION))
-    return FALSE;
-
-  if (!_dbus_string_append_byte (&message->header, 0))
     return FALSE;
 
   message->header_fields[FIELD_HEADER_LENGTH].offset = 4;
@@ -944,10 +950,11 @@ dbus_message_new_empty_header (void)
 
 
 /**
- * Constructs a new message. Returns #NULL if memory can't be
- * allocated for the message. The service may be #NULL in which case
- * no service is set; this is appropriate when using D-BUS in a
- * peer-to-peer context (no message bus).
+ * Constructs a new message to invoke a method on a remote
+ * object. Returns #NULL if memory can't be allocated for the
+ * message. The service may be #NULL in which case no service is set;
+ * this is appropriate when using D-BUS in a peer-to-peer context (no
+ * message bus).
  *
  * @param name name of the message
  * @param destination_service service that the message should be sent to or #NULL
@@ -955,8 +962,8 @@ dbus_message_new_empty_header (void)
  * @see dbus_message_unref()
  */
 DBusMessage*
-dbus_message_new (const char *name,
-                  const char *destination_service)		  
+dbus_message_new_method_call (const char *name,
+                              const char *destination_service)		  
 {
   DBusMessage *message;
 
@@ -966,7 +973,9 @@ dbus_message_new (const char *name,
   if (message == NULL)
     return NULL;
   
-  if (!dbus_message_create_header (message, name, destination_service))
+  if (!dbus_message_create_header (message,
+                                   DBUS_MESSAGE_TYPE_METHOD_CALL,
+                                   name, destination_service))
     {
       dbus_message_unref (message);
       return NULL;
@@ -976,80 +985,124 @@ dbus_message_new (const char *name,
 }
 
 /**
- * Constructs a message that is a reply to some other
- * message. Returns #NULL if memory can't be allocated
- * for the message.
+ * Constructs a message that is a reply to a method call. Returns
+ * #NULL if memory can't be allocated for the message.
  *
- * @param original_message the message which the created
+ * @param method_call the message which the created
  * message is a reply to.
  * @returns a new DBusMessage, free with dbus_message_unref()
- * @see dbus_message_new(), dbus_message_unref()
+ * @see dbus_message_new_method_call(), dbus_message_unref()
  */ 
 DBusMessage*
-dbus_message_new_reply (DBusMessage *original_message)
+dbus_message_new_method_return (DBusMessage *method_call)
 {
   DBusMessage *message;
   const char *sender, *name;
 
-  _dbus_return_val_if_fail (original_message != NULL, NULL);
+  _dbus_return_val_if_fail (method_call != NULL, NULL);
   
-  sender = get_string_field (original_message,
+  sender = get_string_field (method_call,
                              FIELD_SENDER, NULL);
-  name = get_string_field (original_message,
+  name = get_string_field (method_call,
 			   FIELD_NAME, NULL);
 
   /* sender is allowed to be null here in peer-to-peer case */
-  
-  message = dbus_message_new (name, sender);
-  
+
+  message = dbus_message_new_empty_header ();
   if (message == NULL)
     return NULL;
-
-  if (!dbus_message_set_reply_serial (message,
-                                      dbus_message_get_serial (original_message)))
+  
+  if (!dbus_message_create_header (message,
+                                   DBUS_MESSAGE_TYPE_METHOD_RETURN,
+                                   name, sender))
     {
       dbus_message_unref (message);
       return NULL;
     }
 
+  if (!dbus_message_set_reply_serial (message,
+                                      dbus_message_get_serial (method_call)))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+
+  return message;
+}
+
+/**
+ * Constructs a new message representing a signal emission. Returns
+ * #NULL if memory can't be allocated for the message. The name
+ * passed in is the name of the signal.
+ *
+ * @param name name of the signal
+ * @returns a new DBusMessage, free with dbus_message_unref()
+ * @see dbus_message_unref()
+ */
+DBusMessage*
+dbus_message_new_signal (const char *name)
+{
+  DBusMessage *message;
+
+  _dbus_return_val_if_fail (name != NULL, NULL);
+  
+  message = dbus_message_new_empty_header ();
+  if (message == NULL)
+    return NULL;
+  
+  if (!dbus_message_create_header (message,
+                                   DBUS_MESSAGE_TYPE_SIGNAL,
+                                   name, NULL))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+  
   return message;
 }
 
 /**
  * Creates a new message that is an error reply to a certain message.
+ * Error replies are possible in response to method calls primarily.
  *
- * @param original_message the original message
+ * @param reply_to the original message
  * @param error_name the error name
  * @param error_message the error message string or #NULL for none
  * @returns a new error message
  */
 DBusMessage*
-dbus_message_new_error_reply (DBusMessage *original_message,
-			      const char  *error_name,
-			      const char  *error_message)
+dbus_message_new_error (DBusMessage *reply_to,
+                        const char  *error_name,
+                        const char  *error_message)
 {
   DBusMessage *message;
   const char *sender;
   DBusMessageIter iter;
 
-  _dbus_return_val_if_fail (original_message != NULL, NULL);
+  _dbus_return_val_if_fail (reply_to != NULL, NULL);
   _dbus_return_val_if_fail (error_name != NULL, NULL);
   
-  sender = get_string_field (original_message,
+  sender = get_string_field (reply_to,
                              FIELD_SENDER, NULL);
 
   /* sender may be NULL for non-message-bus case or
    * when the message bus is dealing with an unregistered
    * connection.
    */
-  
-  message = dbus_message_new (error_name, sender);
-  
+  message = dbus_message_new_empty_header ();
   if (message == NULL)
     return NULL;
+  
+  if (!dbus_message_create_header (message,
+                                   DBUS_MESSAGE_TYPE_ERROR,
+                                   error_name, sender))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
 
   if (!dbus_message_set_reply_serial (message,
-                                      dbus_message_get_serial (original_message)))
+                                      dbus_message_get_serial (reply_to)))
     {
       dbus_message_unref (message);
       return NULL;
@@ -1198,6 +1251,28 @@ dbus_message_unref (DBusMessage *message)
       
       dbus_free (message);
     }
+}
+
+/**
+ * Gets the type of a message. Types include
+ * DBUS_MESSAGE_TYPE_METHOD_CALL, DBUS_MESSAGE_TYPE_METHOD_RETURN,
+ * DBUS_MESSAGE_TYPE_ERROR, DBUS_MESSAGE_TYPE_SIGNAL, but other types
+ * are allowed and all code must silently ignore messages of unknown
+ * type. DBUS_MESSAGE_TYPE_INVALID will never be returned, however.
+ *
+ *
+ * @param message the message
+ * @returns the type of the message
+ */
+int
+dbus_message_get_type (DBusMessage *message)
+{
+  int type;
+
+  type = _dbus_string_get_byte (&message->header, 1);
+  _dbus_assert (type != DBUS_MESSAGE_TYPE_INVALID);
+
+  return type;
 }
 
 /**
@@ -3704,7 +3779,7 @@ dbus_message_set_is_error (DBusMessage *message,
   _dbus_return_if_fail (message != NULL);
   _dbus_return_if_fail (!message->locked);
   
-  header = _dbus_string_get_data_len (&message->header, 1, 1);
+  header = _dbus_string_get_data_len (&message->header, FLAGS_OFFSET, 1);
   
   if (is_error_reply)
     *header |= DBUS_HEADER_FLAG_ERROR;
@@ -3726,7 +3801,7 @@ dbus_message_get_is_error (DBusMessage *message)
 
   _dbus_return_val_if_fail (message != NULL, FALSE);
   
-  header = _dbus_string_get_const_data_len (&message->header, 1, 1);
+  header = _dbus_string_get_const_data_len (&message->header, FLAGS_OFFSET, 1);
 
   return (*header & DBUS_HEADER_FLAG_ERROR) != 0;
 }
@@ -4298,6 +4373,9 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 /**
  * Converts buffered data into messages.
  *
+ * @todo we need to check that the proper named header fields exist
+ * for each message type.
+ * 
  * @param loader the loader.
  * @returns #TRUE if we had enough memory to finish.
  */
@@ -4311,22 +4389,22 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
     {
       DBusMessage *message;      
       const char *header_data;
-      int byte_order, header_len, body_len, header_padding;
+      int byte_order, message_type, header_len, body_len, header_padding;
       dbus_uint32_t header_len_unsigned, body_len_unsigned;
       
       header_data = _dbus_string_get_const_data_len (&loader->data, 0, 16);
 
       _dbus_assert (_DBUS_ALIGN_ADDRESS (header_data, 4) == header_data);
 
-      if (header_data[2] != DBUS_MAJOR_PROTOCOL_VERSION)
+      if (header_data[VERSION_OFFSET] != DBUS_MAJOR_PROTOCOL_VERSION)
         {
           _dbus_verbose ("Message has protocol version %d ours is %d\n",
-                         (int) header_data[2], DBUS_MAJOR_PROTOCOL_VERSION);
+                         (int) header_data[VERSION_OFFSET], DBUS_MAJOR_PROTOCOL_VERSION);
           loader->corrupted = TRUE;
           return TRUE;
         }
       
-      byte_order = header_data[0];
+      byte_order = header_data[BYTE_ORDER_OFFSET];
 
       if (byte_order != DBUS_LITTLE_ENDIAN &&
 	  byte_order != DBUS_BIG_ENDIAN)
@@ -4337,6 +4415,18 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
 	  return TRUE;
 	}
 
+      /* Unknown types are ignored, but INVALID is
+       * disallowed
+       */
+      message_type = header_data[TYPE_OFFSET];
+      if (message_type == DBUS_MESSAGE_TYPE_INVALID)
+        {
+          _dbus_verbose ("Message with bad type '%d' received\n",
+                         message_type);
+	  loader->corrupted = TRUE;
+	  return TRUE;
+        }      
+      
       header_len_unsigned = _dbus_unpack_uint32 (byte_order, header_data + 4);
       body_len_unsigned = _dbus_unpack_uint32 (byte_order, header_data + 8);
 
@@ -5821,7 +5911,7 @@ _dbus_message_test (const char *test_data_dir)
   
   _dbus_assert (sizeof (DBusMessageRealIter) <= sizeof (DBusMessageIter));
 
-  message = dbus_message_new ("test.Message", "org.freedesktop.DBus.Test");
+  message = dbus_message_new_method_call ("test.Message", "org.freedesktop.DBus.Test");
   _dbus_assert (dbus_message_has_destination (message, "org.freedesktop.DBus.Test"));
   _dbus_message_set_serial (message, 1234);
   dbus_message_set_sender (message, "org.foo.bar");
@@ -5840,7 +5930,7 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_unref (message);
   
   /* Test the vararg functions */
-  message = dbus_message_new ("test.Message", "org.freedesktop.DBus.Test");
+  message = dbus_message_new_method_call ("test.Message", "org.freedesktop.DBus.Test");
   _dbus_message_set_serial (message, 1);
   dbus_message_append_args (message,
 			    DBUS_TYPE_INT32, -0x12345678,
@@ -5906,7 +5996,7 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_unref (message);
   dbus_message_unref (copy);
   
-  message = dbus_message_new ("test.Message", "org.freedesktop.DBus.Test");
+  message = dbus_message_new_method_call ("test.Message", "org.freedesktop.DBus.Test");
   _dbus_message_set_serial (message, 1);
   dbus_message_set_reply_serial (message, 0x12345678);
 

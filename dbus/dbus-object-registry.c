@@ -24,6 +24,7 @@
 #include "dbus-connection-internal.h"
 #include "dbus-internals.h"
 #include "dbus-hash.h"
+#include "dbus-protocol.h"
 #include <string.h>
 
 /**
@@ -599,12 +600,64 @@ _dbus_object_registry_remove_and_unlock (DBusObjectRegistry *registry,
   (* vtable->unregistered) (&info);
 }
 
+/**
+ * Handle a message, passing it to any objects in the registry that
+ * should receive it.
+ *
+ * @todo handle messages to an object ID, not just those to
+ * an interface name.
+ * 
+ * @param registry the object registry
+ * @param message the message to handle
+ * @returns what to do with the message next
+ */
 DBusHandlerResult
 _dbus_object_registry_handle_and_unlock (DBusObjectRegistry *registry,
                                          DBusMessage        *message)
 {
-  /* FIXME */
-  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  DBusInterfaceEntry *iface_entry;
+  DBusObjectEntry *object_entry;
+  DBusObjectInfo info;
+  const DBusObjectVTable *vtable;
+
+  _dbus_assert (registry != NULL);
+  _dbus_assert (message != NULL);
+  
+  if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_METHOD_CALL)
+    return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  
+  /* If the message isn't to a specific object ID, we send
+   * it to the first object that supports the given interface.
+   */
+  iface_entry = lookup_interface (registry,
+                                  dbus_message_get_name (message),
+                                  FALSE);
+  
+  if (iface_entry == NULL)
+    return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  
+  _dbus_assert (iface_entry->n_objects > 0);
+  _dbus_assert (iface_entry->objects != NULL);
+
+  object_entry = &registry->entries[iface_entry->objects[0]];
+
+
+  /* Once we have an object entry, pass message to the object */
+  
+  _dbus_assert (object_entry->vtable != NULL);
+
+  info_from_entry (registry, &info, object_entry);
+  vtable = object_entry->vtable;
+  
+  /* Drop lock and invoke application code */
+#ifdef DBUS_BUILD_TESTS
+  if (registry->connection)
+#endif
+    _dbus_connection_unlock (registry->connection);
+  
+  (* vtable->message) (&info, message);
+  
+  return DBUS_HANDLER_RESULT_REMOVE_MESSAGE;
 }
 
 void
@@ -665,6 +718,7 @@ add_and_remove_objects (DBusObjectRegistry *registry)
                                      "org.freedesktop.Test.Foo",
                                      NULL };
   int i;
+  DBusMessage *message;
   
   i = 0;
   while (i < N_OBJECTS)
@@ -761,6 +815,33 @@ add_and_remove_objects (DBusObjectRegistry *registry)
       ++i;
     }
 
+  message = dbus_message_new_method_call ("org.freedesktop.Test.Foo", NULL);
+  if (message != NULL)
+    {
+      if (_dbus_object_registry_handle_and_unlock (registry, message) !=
+          DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
+        _dbus_assert_not_reached ("message not handled\n");
+      dbus_message_unref (message);
+    }
+
+  message = dbus_message_new_method_call ("org.freedesktop.Test.Blah", NULL);
+  if (message != NULL)
+    {
+      if (_dbus_object_registry_handle_and_unlock (registry, message) !=
+          DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
+        _dbus_assert_not_reached ("message not handled\n");
+      dbus_message_unref (message);
+    }
+
+  message = dbus_message_new_method_call ("org.freedesktop.Test.NotRegisteredIface", NULL);
+  if (message != NULL)
+    {
+      if (_dbus_object_registry_handle_and_unlock (registry, message) !=
+          DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS)
+        _dbus_assert_not_reached ("message handled but no handler was registered\n");
+      dbus_message_unref (message);
+    }
+  
   i = 0;
   while (i < (N_OBJECTS - 30))
     {

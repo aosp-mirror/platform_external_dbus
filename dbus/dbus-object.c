@@ -273,6 +273,10 @@ dbus_callback_object_set_data (DBusCallbackObject         *callback,
  * Sets the function to be used to handle messages to the
  * callback object.
  *
+ * @todo the thread locking on DBusCallbackObject is hosed; in this
+ * function in particular it's a joke since we don't take the same
+ * lock when _calling_ the callback function.
+ *
  * @param callback the callback
  * @param function the function
  */
@@ -286,7 +290,6 @@ dbus_callback_object_set_function (DBusCallbackObject         *callback,
   callback->function = function;
   _DBUS_UNLOCK (callback_object);
 }
-
 
 /** @} */
 
