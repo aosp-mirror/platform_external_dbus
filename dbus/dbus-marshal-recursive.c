@@ -2871,13 +2871,14 @@ string_write_value (TestTypeNode   *node,
                     int             seed)
 {
   char buf[MAX_SAMPLE_STRING_LEN];
+  const char *v_string = buf;
 
   string_from_seed (buf, node->klass->subclass_detail,
                     seed);
-
+  
   return _dbus_type_writer_write_basic (writer,
                                         node->klass->typecode,
-                                        buf);
+                                        &v_string);
 }
 
 static dbus_bool_t
@@ -3063,12 +3064,13 @@ object_path_write_value (TestTypeNode   *node,
                          int             seed)
 {
   char buf[MAX_SAMPLE_OBJECT_PATH_LEN];
-
+  const char *v_string = buf;
+  
   object_path_from_seed (buf, seed);
 
   return _dbus_type_writer_write_basic (writer,
                                         node->klass->typecode,
-                                        buf);
+                                        &v_string);
 }
 
 static dbus_bool_t
@@ -3129,12 +3131,13 @@ signature_write_value (TestTypeNode   *node,
                        int             seed)
 {
   char buf[MAX_SAMPLE_SIGNATURE_LEN];
-
+  const char *v_string = buf;
+  
   signature_from_seed (buf, seed);
 
   return _dbus_type_writer_write_basic (writer,
                                         node->klass->typecode,
-                                        buf);
+                                        &v_string);
 }
 
 static dbus_bool_t

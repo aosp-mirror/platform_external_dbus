@@ -999,12 +999,17 @@ marshal_signature (DBusString    *str,
 }
 
 /**
- * Marshals a basic type
+ * Marshals a basic type. The "value" pointer is always the
+ * address of a variable containing the basic type value.
+ * So for example for int32 it will be dbus_int32_t*, and
+ * for string it will be const char**. This is for symmetry
+ * with _dbus_demarshal_basic_type() and to have a simple
+ * consistent rule.
  *
  * @param str string to marshal to
  * @param insert_at where to insert the value
  * @param type type of value
- * @param value pointer to value
+ * @param value pointer to a variable containing the value
  * @param byte_order byte order
  * @param pos_after #NULL or the position after the type
  * @returns #TRUE on success
@@ -1051,10 +1056,10 @@ _dbus_marshal_basic_type (DBusString *str,
       break;
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
-      return marshal_string (str, insert_at, (const char*) value, byte_order, pos_after);
+      return marshal_string (str, insert_at, *(const char**) value, byte_order, pos_after);
       break;
     case DBUS_TYPE_SIGNATURE:
-      return marshal_signature (str, insert_at, (const char*) value, pos_after);
+      return marshal_signature (str, insert_at, *(const char**) value, pos_after);
       break;
     default:
       _dbus_assert_not_reached ("not a basic type");
@@ -1285,10 +1290,7 @@ _dbus_marshal_basic_type_array (DBusString *str,
 
 #define MARSHAL_TEST_STRCMP(typename, byte_order, literal)                              \
   do {                                                                                  \
-    if (!_dbus_marshal_basic_type (&str, pos, DBUS_TYPE_##typename,                     \
-                                   literal,                                             \
-                                   byte_order, NULL))                                   \
-       _dbus_assert_not_reached ("no memory");                                          \
+    MARSHAL_BASIC (typename, byte_order, literal);                                      \
     dump_pos = pos;                                                                     \
     DEMARSHAL_BASIC (typename, byte_order);                                             \
     if (strcmp (literal, v_##typename) != 0)                                            \
