@@ -50,7 +50,7 @@ typedef struct
   DBusPreallocatedSend *oom_preallocated;
   unsigned long *group_ids;
   int n_group_ids;
-  BusPolicy *policy;
+  BusClientPolicy *policy;
 } BusConnectionData;
 
 #define BUS_CONNECTION_DATA(connection) (dbus_connection_get_data ((connection), connection_data_slot))
@@ -306,7 +306,7 @@ free_connection_data (void *data)
     dbus_message_unref (d->oom_message);
 
   if (d->policy)
-    bus_policy_unref (d->policy);
+    bus_client_policy_unref (d->policy);
   
   dbus_free (d->group_ids);
   
@@ -541,7 +541,7 @@ bus_connection_is_in_group (DBusConnection *connection,
   return FALSE;
 }
 
-BusPolicy*
+BusClientPolicy*
 bus_connection_get_policy (DBusConnection *connection)
 {
   BusConnectionData *d;
@@ -562,8 +562,8 @@ bus_connection_get_policy (DBusConnection *connection)
   if (d->policy == NULL)
     {
       d->policy =
-        bus_context_create_connection_policy (d->connections->context,
-                                              connection);
+        bus_context_create_client_policy (d->connections->context,
+                                          connection);
 
       /* we may have a NULL policy on OOM or error getting list of
        * groups for a user. In the latter case we don't handle it so

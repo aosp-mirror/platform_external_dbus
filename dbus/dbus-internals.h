@@ -91,7 +91,7 @@ void _dbus_real_assert (dbus_bool_t  condition,
 #else
 void _dbus_real_assert_not_reached (const char *explanation,
                                     const char *file,
-                                    int         line);
+                                    int         line) _DBUS_GNUC_NORETURN;
 #define _dbus_assert_not_reached(explanation)                                   \
   _dbus_real_assert_not_reached (explanation, __FILE__, __LINE__)
 #endif /* !DBUS_DISABLE_ASSERT */

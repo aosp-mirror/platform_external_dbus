@@ -1,3 +1,14 @@
+2003-04-12  Havoc Pennington  <hp@pobox.com>
+
+	* bus/policy.h: change BusPolicy to be the thing from the config
+	file, and rename old BusPolicy to BusClientPolicy
+
+	* bus/bus.c, bus/connection.c, bus/config-parser.c: change to 
+	match change in how policy works
+
+	* dbus/dbus-internals.h: mark assert_not_reached as
+	__attribute((noreturn))__
+
 2003-04-11  Havoc Pennington  <hp@redhat.com>
 
 	* configure.in: add another directory to look for qt in.

@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* policy.h  Policies for what a connection can do
+/* policy.h  Bus security policy
  *
  * Copyright (C) 2003  Red Hat, Inc.
  *
@@ -87,22 +87,31 @@ BusPolicyRule* bus_policy_rule_new   (BusPolicyRuleType type,
 void           bus_policy_rule_ref   (BusPolicyRule    *rule);
 void           bus_policy_rule_unref (BusPolicyRule    *rule);
 
-BusPolicy*  bus_policy_new               (void);
-void        bus_policy_ref               (BusPolicy        *policy);
-void        bus_policy_unref             (BusPolicy        *policy);
-dbus_bool_t bus_policy_check_can_send    (BusPolicy        *policy,
-                                          BusRegistry      *registry,
-                                          DBusConnection   *receiver,
-                                          DBusMessage      *message);
-dbus_bool_t bus_policy_check_can_receive (BusPolicy        *policy,
-                                          BusRegistry      *registry,
-                                          DBusConnection   *sender,
-                                          DBusMessage      *message);
-dbus_bool_t bus_policy_check_can_own     (BusPolicy        *policy,
-                                          DBusConnection   *connection,
-                                          const DBusString *service_name);
-dbus_bool_t bus_policy_append_rule       (BusPolicy        *policy,
-                                          BusPolicyRule    *rule);
-void        bus_policy_optimize          (BusPolicy        *policy);
+BusPolicy*       bus_policy_new                  (void);
+void             bus_policy_ref                  (BusPolicy      *policy);
+void             bus_policy_unref                (BusPolicy      *policy);
+BusClientPolicy* bus_policy_create_client_policy (BusPolicy      *policy,
+                                                  DBusConnection *connection);
+dbus_bool_t      bus_policy_allow_user           (BusPolicy      *policy,
+                                                  unsigned long   uid);
+
+BusClientPolicy* bus_client_policy_new               (void);
+void             bus_client_policy_ref               (BusClientPolicy  *policy);
+void             bus_client_policy_unref             (BusClientPolicy  *policy);
+dbus_bool_t      bus_client_policy_check_can_send    (BusClientPolicy  *policy,
+                                                      BusRegistry      *registry,
+                                                      DBusConnection   *receiver,
+                                                      DBusMessage      *message);
+dbus_bool_t      bus_client_policy_check_can_receive (BusClientPolicy  *policy,
+                                                      BusRegistry      *registry,
+                                                      DBusConnection   *sender,
+                                                      DBusMessage      *message);
+dbus_bool_t      bus_client_policy_check_can_own     (BusClientPolicy  *policy,
+                                                      DBusConnection   *connection,
+                                                      const DBusString *service_name);
+dbus_bool_t      bus_client_policy_append_rule       (BusClientPolicy  *policy,
+                                                      BusPolicyRule    *rule);
+void             bus_client_policy_optimize          (BusClientPolicy  *policy);
+
 
 #endif /* BUS_POLICY_H */

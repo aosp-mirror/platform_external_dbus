@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* policy.c  Policies for what a connection can do
+/* policy.c  Bus security policy
  *
  * Copyright (C) 2003  Red Hat, Inc.
  *
@@ -25,6 +25,7 @@
 #include "services.h"
 #include "test.h"
 #include <dbus/dbus-list.h>
+#include <dbus/dbus-hash.h>
 #include <dbus/dbus-internals.h>
 
 BusPolicyRule*
@@ -88,8 +89,32 @@ struct BusPolicy
 {
   int refcount;
 
-  DBusList *rules;
+  DBusList *default_rules;       /**< Default policy rules */
+  DBusList *mandatory_rules;     /**< Mandatory policy rules */
+  DBusHashTable *rules_by_uid;   /**< per-UID policy rules */
+  DBusHashTable *rules_by_gid;   /**< per-GID policy rules */
 };
+
+static void
+free_rule_func (void *data,
+                void *user_data)
+{
+  BusPolicyRule *rule = data;
+
+  bus_policy_rule_unref (rule);
+}
+
+static void
+free_rule_list_func (void *data)
+{
+  DBusList **list = data;
+
+  _dbus_list_foreach (list, free_rule_func, NULL);
+  
+  _dbus_list_clear (list);
+
+  dbus_free (list);
+}
 
 BusPolicy*
 bus_policy_new (void)
@@ -101,12 +126,262 @@ bus_policy_new (void)
     return NULL;
 
   policy->refcount = 1;
+  
+  policy->rules_by_uid = _dbus_hash_table_new (DBUS_HASH_ULONG,
+                                               NULL,
+                                               free_rule_list_func);
+  if (policy->rules_by_uid == NULL)
+    goto failed;
+
+  policy->rules_by_gid = _dbus_hash_table_new (DBUS_HASH_ULONG,
+                                               NULL,
+                                               free_rule_list_func);
+  if (policy->rules_by_gid == NULL)
+    goto failed;
+  
+  return policy;
+  
+ failed:
+  bus_policy_unref (policy);
+  return NULL;
+}
+
+void
+bus_policy_ref (BusPolicy *policy)
+{
+  _dbus_assert (policy->refcount > 0);
+
+  policy->refcount += 1;
+}
+
+void
+bus_policy_unref (BusPolicy *policy)
+{
+  _dbus_assert (policy->refcount > 0);
+
+  policy->refcount -= 1;
+
+  if (policy->refcount == 0)
+    {
+      if (policy->rules_by_uid)
+        {
+          _dbus_hash_table_unref (policy->rules_by_uid);
+          policy->rules_by_uid = NULL;
+        }
+
+      if (policy->rules_by_gid)
+        {
+          _dbus_hash_table_unref (policy->rules_by_gid);
+          policy->rules_by_gid = NULL;
+        }
+      
+      dbus_free (policy);
+    }
+}
+
+static dbus_bool_t
+add_list_to_client (DBusList        **list,
+                    BusClientPolicy  *client)
+{
+  DBusList *link;
+
+  link = _dbus_list_get_first_link (list);
+  while (link != NULL)
+    {
+      BusPolicyRule *rule = link->data;
+      link = _dbus_list_get_next_link (list, link);
+
+      switch (rule->type)
+        {
+        case BUS_POLICY_RULE_USER:
+        case BUS_POLICY_RULE_GROUP:
+          /* These aren't per-connection policies */
+          break;
+
+        case BUS_POLICY_RULE_OWN:
+        case BUS_POLICY_RULE_SEND:
+        case BUS_POLICY_RULE_RECEIVE:
+          /* These are per-connection */
+          if (!bus_client_policy_append_rule (client, rule))
+            return FALSE;
+          break;
+        }
+    }
+  
+  return TRUE;
+}
+
+BusClientPolicy*
+bus_policy_create_client_policy (BusPolicy      *policy,
+                                 DBusConnection *connection)
+{
+  BusClientPolicy *client;
+  unsigned long uid;
+  DBusList **list;
+
+  _dbus_assert (dbus_connection_get_is_authenticated (connection));
+  
+  client = bus_client_policy_new ();
+  if (client == NULL)
+    return NULL;
+
+  if (!add_list_to_client (&policy->default_rules,
+                           client))
+    goto failed;
+
+  /* we avoid the overhead of looking up user's groups
+   * if we don't have any group rules anyway
+   */
+  if (_dbus_hash_table_get_n_entries (policy->rules_by_gid) > 0)
+    {
+      const unsigned long *groups;
+      int n_groups;
+      int i;
+      
+      if (!bus_connection_get_groups (connection, &groups, &n_groups))
+        goto failed;
+      
+      i = 0;
+      while (i < n_groups)
+        {
+          list = _dbus_hash_table_lookup_ulong (policy->rules_by_gid,
+                                                groups[i]);
+          
+          if (list != NULL)
+            {
+              if (!add_list_to_client (list, client))
+                goto failed;
+            }
+          
+          ++i;
+        }
+    }
+
+  if (!dbus_connection_get_unix_user (connection, &uid))
+    goto failed;
+
+  list = _dbus_hash_table_lookup_ulong (policy->rules_by_uid,
+                                        uid);
+
+  if (!add_list_to_client (list, client))
+    goto failed;
+  
+  if (!add_list_to_client (&policy->mandatory_rules,
+                           client))
+    goto failed;
+
+  bus_client_policy_optimize (client);
+  
+  return client;
+  
+ failed:
+  bus_client_policy_unref (client);
+  return NULL;
+}
+
+static dbus_bool_t
+list_allows_user (dbus_bool_t           def,
+                  DBusList            **list,
+                  unsigned long         uid,
+                  const unsigned long  *group_ids,
+                  int                   n_group_ids)
+{
+  DBusList *link;
+  dbus_bool_t allowed;
+  
+  allowed = def;
+
+  link = _dbus_list_get_first_link (list);
+  while (link != NULL)
+    {
+      BusPolicyRule *rule = link->data;
+      link = _dbus_list_get_next_link (list, link);
+      
+      if (rule->type == BUS_POLICY_RULE_USER)
+        {
+          if (rule->d.user.uid != uid)
+            continue;
+        }
+      else if (rule->type == BUS_POLICY_RULE_GROUP)
+        {
+          int i;
+
+          i = 0;
+          while (i < n_group_ids)
+            {
+              if (rule->d.group.gid == group_ids[i])
+                break;
+              ++i;
+            }
+
+          if (i == n_group_ids)
+            continue;
+        }
+      else
+        continue;
+
+      allowed = rule->allow;
+    }
+  
+  return allowed;
+}
+
+dbus_bool_t
+bus_policy_allow_user (BusPolicy    *policy,
+                       unsigned long uid)
+{
+  dbus_bool_t allowed;
+  unsigned long *group_ids;
+  int n_group_ids;
+
+  /* On OOM or error we always reject the user */
+  if (!_dbus_get_groups (uid, &group_ids, &n_group_ids))
+    {
+      _dbus_verbose ("Did not get any groups for UID %lu\n",
+                     uid);
+      return FALSE;
+    }
+  
+  allowed = FALSE;
+
+  allowed = list_allows_user (allowed,
+                              &policy->default_rules,
+                              uid,
+                              group_ids, n_group_ids);
+
+  allowed = list_allows_user (allowed,
+                              &policy->mandatory_rules,
+                              uid,
+                              group_ids, n_group_ids);
+
+  dbus_free (group_ids);
+
+  return allowed;
+}
+
+struct BusClientPolicy
+{
+  int refcount;
+
+  DBusList *rules;
+};
+
+BusClientPolicy*
+bus_client_policy_new (void)
+{
+  BusClientPolicy *policy;
+
+  policy = dbus_new0 (BusClientPolicy, 1);
+  if (policy == NULL)
+    return NULL;
+
+  policy->refcount = 1;
 
   return policy;
 }
 
 void
-bus_policy_ref (BusPolicy *policy)
+bus_client_policy_ref (BusClientPolicy *policy)
 {
   _dbus_assert (policy->refcount > 0);
 
@@ -123,7 +398,7 @@ rule_unref_foreach (void *data,
 }
 
 void
-bus_policy_unref (BusPolicy *policy)
+bus_client_policy_unref (BusClientPolicy *policy)
 {
   _dbus_assert (policy->refcount > 0);
 
@@ -142,7 +417,7 @@ bus_policy_unref (BusPolicy *policy)
 }
 
 static void
-remove_rules_by_type_up_to (BusPolicy         *policy,
+remove_rules_by_type_up_to (BusClientPolicy   *policy,
                             BusPolicyRuleType  type,
                             DBusList          *up_to)
 {
@@ -162,7 +437,7 @@ remove_rules_by_type_up_to (BusPolicy         *policy,
 }
 
 void
-bus_policy_optimize (BusPolicy *policy)
+bus_client_policy_optimize (BusClientPolicy *policy)
 {
   DBusList *link;
 
@@ -226,8 +501,8 @@ bus_policy_optimize (BusPolicy *policy)
 }
 
 dbus_bool_t
-bus_policy_append_rule (BusPolicy     *policy,
-                        BusPolicyRule *rule)
+bus_client_policy_append_rule (BusClientPolicy *policy,
+                               BusPolicyRule   *rule)
 {
   if (!_dbus_list_append (&policy->rules, rule))
     return FALSE;
@@ -238,10 +513,10 @@ bus_policy_append_rule (BusPolicy     *policy,
 }
 
 dbus_bool_t
-bus_policy_check_can_send (BusPolicy      *policy,
-                           BusRegistry    *registry,
-                           DBusConnection *receiver,
-                           DBusMessage    *message)
+bus_client_policy_check_can_send (BusClientPolicy *policy,
+                                  BusRegistry     *registry,
+                                  DBusConnection  *receiver,
+                                  DBusMessage     *message)
 {
   DBusList *link;
   dbus_bool_t allowed;
@@ -310,10 +585,10 @@ bus_policy_check_can_send (BusPolicy      *policy,
 }
 
 dbus_bool_t
-bus_policy_check_can_receive (BusPolicy      *policy,
-                              BusRegistry    *registry,
-                              DBusConnection *sender,
-                              DBusMessage    *message)
+bus_client_policy_check_can_receive (BusClientPolicy *policy,
+                                     BusRegistry     *registry,
+                                     DBusConnection  *sender,
+                                     DBusMessage     *message)
 {
   DBusList *link;
   dbus_bool_t allowed;
@@ -383,9 +658,9 @@ bus_policy_check_can_receive (BusPolicy      *policy,
 }
 
 dbus_bool_t
-bus_policy_check_can_own (BusPolicy        *policy,
-                          DBusConnection   *connection,
-                          const DBusString *service_name)
+bus_client_policy_check_can_own (BusClientPolicy  *policy,
+                                 DBusConnection   *connection,
+                                 const DBusString *service_name)
 {
   DBusList *link;
   dbus_bool_t allowed;

@@ -23,6 +23,7 @@
 #include "config-parser.h"
 #include "test.h"
 #include "utils.h"
+#include "policy.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-internals.h>
 #include <string.h>
@@ -93,6 +94,8 @@ struct BusConfigParser
   DBusList *mechanisms; /**< Auth mechanisms */
 
   DBusList *service_dirs; /**< Directories to look for services in */
+
+  BusPolicy *policy;     /**< Security policy */
   
   unsigned int fork : 1; /**< TRUE to fork into daemon mode */
 
@@ -262,7 +265,8 @@ bus_config_parser_new (const DBusString *basedir)
       return NULL;
     }
 
-  if (!_dbus_string_copy (basedir, 0, &parser->basedir, 0))
+  if (((parser->policy = bus_policy_new ()) == NULL) ||
+      !_dbus_string_copy (basedir, 0, &parser->basedir, 0))
     {
       _dbus_string_free (&parser->basedir);
       dbus_free (parser);
@@ -317,6 +321,9 @@ bus_config_parser_unref (BusConfigParser *parser)
       _dbus_list_clear (&parser->mechanisms);
       
       _dbus_string_free (&parser->basedir);
+
+      if (parser->policy)
+        bus_policy_unref (parser->policy);
       
       dbus_free (parser);
     }
@@ -627,7 +634,7 @@ start_busconfig_child (BusConfigParser   *parser,
           return FALSE;
         }
 
-      if (!locate_attributes (parser, "include",
+      if (!locate_attributes (parser, "policy",
                               attribute_names,
                               attribute_values,
                               error,
@@ -637,7 +644,51 @@ start_busconfig_child (BusConfigParser   *parser,
                               NULL))
         return FALSE;
 
-      /* FIXME */
+      if (((context && user) ||
+           (context && group)) ||
+          (user && group) ||
+          !(context || user || group))
+        {
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+                          "<policy> element must have exactly one of (context|user|group) attributes");
+          return FALSE;
+        }
+
+      if (context != NULL)
+        {
+          if (strcmp (context, "default") == 0)
+            {
+
+            }
+          else if (strcmp (context, "mandatory") == 0)
+            {
+
+            }
+          else
+            {
+              dbus_set_error (error, DBUS_ERROR_FAILED,
+                              "context attribute on <policy> must have the value \"default\" or \"mandatory\", not \"%s\"",
+                              context);
+              return FALSE;
+            }
+          
+          /* FIXME */
+
+        }
+      else if (user != NULL)
+        {
+          /* FIXME */
+
+        }
+      else if (group != NULL)
+        {
+          /* FIXME */
+
+        }
+      else
+        {
+          _dbus_assert_not_reached ("all <policy> attributes null and we didn't set error");
+        }
       
       return TRUE;
     }
@@ -1267,6 +1318,20 @@ const char *
 bus_config_parser_get_pidfile (BusConfigParser   *parser)
 {
   return parser->pidfile;
+}
+
+BusPolicy*
+bus_config_parser_steal_policy (BusConfigParser *parser)
+{
+  BusPolicy *policy;
+
+  _dbus_assert (parser->policy != NULL); /* can only steal the policy 1 time */
+  
+  policy = parser->policy;
+
+  parser->policy = NULL;
+
+  return policy;
 }
 
 #ifdef DBUS_BUILD_TESTS

@@ -167,7 +167,7 @@ Elements:
 
     It does not make sense to deny a user or group inside a <policy>
     for a user or group; user/group denials can only be inside
-    context="default" or context="required" policies.
+    context="default" or context="mandatory" policies.
 
     A single <deny> rule may specify both send and send_to, OR both
     receive and receive_from. In this case, the denial applies only if

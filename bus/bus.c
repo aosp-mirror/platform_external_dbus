@@ -43,10 +43,7 @@ struct BusContext
   BusConnections *connections;
   BusActivation *activation;
   BusRegistry *registry;
-  DBusList *default_rules;       /**< Default policy rules */
-  DBusList *mandatory_rules;     /**< Mandatory policy rules */
-  DBusHashTable *rules_by_uid;   /**< per-UID policy rules */
-  DBusHashTable *rules_by_gid;   /**< per-GID policy rules */
+  BusPolicy *policy;
   int activation_timeout;        /**< How long to wait for an activation to time out */
   int auth_timeout;              /**< How long to wait for an authentication to time out */
   int max_completed_connections;    /**< Max number of authorized connections */
@@ -211,27 +208,6 @@ new_connection_callback (DBusServer     *server,
     }
   
   /* on OOM, we won't have ref'd the connection so it will die. */
-}
-
-static void
-free_rule_func (void *data,
-                void *user_data)
-{
-  BusPolicyRule *rule = data;
-
-  bus_policy_rule_unref (rule);
-}
-
-static void
-free_rule_list_func (void *data)
-{
-  DBusList **list = data;
-
-  _dbus_list_foreach (list, free_rule_func, NULL);
-  
-  _dbus_list_clear (list);
-
-  dbus_free (list);
 }
 
 static void
@@ -565,25 +541,10 @@ bus_context_new (const DBusString *config_file,
       BUS_SET_OOM (error);
       goto failed;
     }
+
+  context->policy = bus_config_parser_steal_policy (parser);
+  _dbus_assert (context->policy != NULL);
   
-  context->rules_by_uid = _dbus_hash_table_new (DBUS_HASH_ULONG,
-                                                NULL,
-                                                free_rule_list_func);
-  if (context->rules_by_uid == NULL)
-    {
-      BUS_SET_OOM (error);
-      goto failed;
-    }
-
-  context->rules_by_gid = _dbus_hash_table_new (DBUS_HASH_ULONG,
-                                                NULL,
-                                                free_rule_list_func);
-  if (context->rules_by_gid == NULL)
-    {
-      BUS_SET_OOM (error);
-      goto failed;
-    }
-
   /* Now become a daemon if appropriate */
   if (bus_config_parser_get_fork (parser))
     {
@@ -744,18 +705,12 @@ bus_context_unref (BusContext *context)
         }
       _dbus_list_clear (&context->servers);
 
-      if (context->rules_by_uid)
+      if (context->policy)
         {
-          _dbus_hash_table_unref (context->rules_by_uid);
-          context->rules_by_uid = NULL;
+          bus_policy_unref (context->policy);
+          context->policy = NULL;
         }
-
-      if (context->rules_by_gid)
-        {
-          _dbus_hash_table_unref (context->rules_by_gid);
-          context->rules_by_gid = NULL;
-        }
-
+      
       if (context->loop)
         {
           _dbus_loop_unref (context->loop);
@@ -821,184 +776,18 @@ bus_context_get_loop (BusContext *context)
   return context->loop;
 }
 
-static dbus_bool_t
-list_allows_user (dbus_bool_t           def,
-                  DBusList            **list,
-                  unsigned long         uid,
-                  const unsigned long  *group_ids,
-                  int                   n_group_ids)
-{
-  DBusList *link;
-  dbus_bool_t allowed;
-  
-  allowed = def;
-
-  link = _dbus_list_get_first_link (list);
-  while (link != NULL)
-    {
-      BusPolicyRule *rule = link->data;
-      link = _dbus_list_get_next_link (list, link);
-      
-      if (rule->type == BUS_POLICY_RULE_USER)
-        {
-          if (rule->d.user.uid != uid)
-            continue;
-        }
-      else if (rule->type == BUS_POLICY_RULE_GROUP)
-        {
-          int i;
-
-          i = 0;
-          while (i < n_group_ids)
-            {
-              if (rule->d.group.gid == group_ids[i])
-                break;
-              ++i;
-            }
-
-          if (i == n_group_ids)
-            continue;
-        }
-      else
-        continue;
-
-      allowed = rule->allow;
-    }
-  
-  return allowed;
-}
-
 dbus_bool_t
 bus_context_allow_user (BusContext   *context,
                         unsigned long uid)
 {
-  dbus_bool_t allowed;
-  unsigned long *group_ids;
-  int n_group_ids;
-
-  /* On OOM or error we always reject the user */
-  if (!_dbus_get_groups (uid, &group_ids, &n_group_ids))
-    {
-      _dbus_verbose ("Did not get any groups for UID %lu\n",
-                     uid);
-      return FALSE;
-    }
-  
-  allowed = FALSE;
-
-  allowed = list_allows_user (allowed,
-                              &context->default_rules,
-                              uid,
-                              group_ids, n_group_ids);
-
-  allowed = list_allows_user (allowed,
-                              &context->mandatory_rules,
-                              uid,
-                              group_ids, n_group_ids);
-
-  dbus_free (group_ids);
-
-  return allowed;
+  return bus_policy_allow_user (context->policy, uid);
 }
 
-static dbus_bool_t
-add_list_to_policy (DBusList       **list,
-                    BusPolicy       *policy)
+BusClientPolicy*
+bus_context_create_client_policy (BusContext      *context,
+                                  DBusConnection  *connection)
 {
-  DBusList *link;
-
-  link = _dbus_list_get_first_link (list);
-  while (link != NULL)
-    {
-      BusPolicyRule *rule = link->data;
-      link = _dbus_list_get_next_link (list, link);
-
-      switch (rule->type)
-        {
-        case BUS_POLICY_RULE_USER:
-        case BUS_POLICY_RULE_GROUP:
-          /* These aren't per-connection policies */
-          break;
-
-        case BUS_POLICY_RULE_OWN:
-        case BUS_POLICY_RULE_SEND:
-        case BUS_POLICY_RULE_RECEIVE:
-          /* These are per-connection */
-          if (!bus_policy_append_rule (policy, rule))
-            return FALSE;
-          break;
-        }
-    }
-  
-  return TRUE;
-}
-
-BusPolicy*
-bus_context_create_connection_policy (BusContext      *context,
-                                      DBusConnection  *connection)
-{
-  BusPolicy *policy;
-  unsigned long uid;
-  DBusList **list;
-
-  _dbus_assert (dbus_connection_get_is_authenticated (connection));
-  
-  policy = bus_policy_new ();
-  if (policy == NULL)
-    return NULL;
-
-  if (!add_list_to_policy (&context->default_rules,
-                                      policy))
-    goto failed;
-
-  /* we avoid the overhead of looking up user's groups
-   * if we don't have any group rules anyway
-   */
-  if (_dbus_hash_table_get_n_entries (context->rules_by_gid) > 0)
-    {
-      const unsigned long *groups;
-      int n_groups;
-      int i;
-      
-      if (!bus_connection_get_groups (connection, &groups, &n_groups))
-        goto failed;
-      
-      i = 0;
-      while (i < n_groups)
-        {
-          list = _dbus_hash_table_lookup_ulong (context->rules_by_gid,
-                                                groups[i]);
-          
-          if (list != NULL)
-            {
-              if (!add_list_to_policy (list, policy))
-                goto failed;
-            }
-          
-          ++i;
-        }
-    }
-
-  if (!dbus_connection_get_unix_user (connection, &uid))
-    goto failed;
-
-  list = _dbus_hash_table_lookup_ulong (context->rules_by_uid,
-                                        uid);
-
-  if (!add_list_to_policy (list, policy))
-    goto failed;
-  
-  if (!add_list_to_policy (&context->mandatory_rules,
-                           policy))
-    goto failed;
-
-  bus_policy_optimize (policy);
-  
-  return policy;
-  
- failed:
-  bus_policy_unref (policy);
-  return NULL;
+  return bus_policy_create_client_policy (context->policy, connection);
 }
 
 int
