@@ -1,6 +1,7 @@
 2002-12-15  Harri Porten  <porten@kde.org>
 
 	* autogen.sh: check for libtoolize before attempting to use it 
+	* dbus/dbus-transport-unix.c: include <sys/time.h> for timeval struct.
 
 2002-12-15  Havoc Pennington  <hp@pobox.com>
 

@@ -27,6 +27,7 @@
 #include "dbus-transport-protected.h"
 #include "dbus-watch.h"
 #include <sys/types.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 
