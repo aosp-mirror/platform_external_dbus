@@ -1414,43 +1414,51 @@ _dbus_marshal_test (void)
   /* Marshal doubles */
   if (!_dbus_marshal_double (&str, DBUS_BIG_ENDIAN, 3.14))
     _dbus_assert_not_reached ("could not marshal double value");
-  _dbus_assert (_dbus_demarshal_double (&str, DBUS_BIG_ENDIAN, pos, &pos) == 3.14);
+  if (!_dbus_demarshal_double (&str, DBUS_BIG_ENDIAN, pos, &pos) == 3.14)
+    _dbus_assert_not_reached ("demarshal failed");
 
   if (!_dbus_marshal_double (&str, DBUS_LITTLE_ENDIAN, 3.14))
     _dbus_assert_not_reached ("could not marshal double value");
-  _dbus_assert (_dbus_demarshal_double (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == 3.14);
+  if (!_dbus_demarshal_double (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == 3.14)
+    _dbus_assert_not_reached ("demarshal failed");
   
   /* Marshal signed integers */
   if (!_dbus_marshal_int32 (&str, DBUS_BIG_ENDIAN, -12345678))
     _dbus_assert_not_reached ("could not marshal signed integer value");
-  _dbus_assert (_dbus_demarshal_int32 (&str, DBUS_BIG_ENDIAN, pos, &pos) == -12345678);
+  if (!_dbus_demarshal_int32 (&str, DBUS_BIG_ENDIAN, pos, &pos) == -12345678)
+    _dbus_assert_not_reached ("demarshal failed");
 
   if (!_dbus_marshal_int32 (&str, DBUS_LITTLE_ENDIAN, -12345678))
     _dbus_assert_not_reached ("could not marshal signed integer value");
-  _dbus_assert (_dbus_demarshal_int32 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == -12345678);
+  if (!_dbus_demarshal_int32 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == -12345678)
+    _dbus_assert_not_reached ("demarshal failed");
   
   /* Marshal unsigned integers */
   if (!_dbus_marshal_uint32 (&str, DBUS_BIG_ENDIAN, 0x12345678))
     _dbus_assert_not_reached ("could not marshal signed integer value");
-  _dbus_assert (_dbus_demarshal_uint32 (&str, DBUS_BIG_ENDIAN, pos, &pos) == 0x12345678);
+  if (!_dbus_demarshal_uint32 (&str, DBUS_BIG_ENDIAN, pos, &pos) == 0x12345678)
+    _dbus_assert_not_reached ("demarshal failed");
   
   if (!_dbus_marshal_uint32 (&str, DBUS_LITTLE_ENDIAN, 0x12345678))
     _dbus_assert_not_reached ("could not marshal signed integer value");
-  _dbus_assert (_dbus_demarshal_uint32 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == 0x12345678);
+  if (!_dbus_demarshal_uint32 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == 0x12345678)
+    _dbus_assert_not_reached ("demarshal failed");
 
   /* Marshal strings */
   tmp1 = "This is the dbus test string";
   if (!_dbus_marshal_string (&str, DBUS_BIG_ENDIAN, tmp1))
     _dbus_assert_not_reached ("could not marshal string");
   tmp2 = _dbus_demarshal_string (&str, DBUS_BIG_ENDIAN, pos, &pos);
-  _dbus_assert (strcmp (tmp1, tmp2) == 0);
+  if (!strcmp (tmp1, tmp2) == 0)
+    _dbus_assert_not_reached ("demarshal failed");
   dbus_free (tmp2);
 
   tmp1 = "This is the dbus test string";
   if (!_dbus_marshal_string (&str, DBUS_LITTLE_ENDIAN, tmp1))
     _dbus_assert_not_reached ("could not marshal string");
   tmp2 = _dbus_demarshal_string (&str, DBUS_LITTLE_ENDIAN, pos, &pos);
-  _dbus_assert (strcmp (tmp1, tmp2) == 0);
+  if (!strcmp (tmp1, tmp2) == 0)
+    _dbus_assert_not_reached ("demarshal failed");
   dbus_free (tmp2);
 
   /* Marshal signed integer arrays */
