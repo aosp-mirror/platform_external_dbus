@@ -1,5 +1,43 @@
 2003-04-06  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-sysdeps.c (_dbus_become_daemon): write the pidfile
+	here in the parent process, so we can return an error if it
+	fails. Also, move some of the code into the child so the parent 
+	is less hosed if we fail midway through.
+
+	* bus/bus.c (bus_context_new): move pidfile detection further up 
+	in the function, before we start overwriting sockets and such.
+
+	* bus/messagebus.in: adjust this a bit, not sure if it will work.
+
+	* configure.in: add --with-system-pid-file and --with-system-socket
+
+2003-04-06  Colin Walters  <walters@verbum.org>
+
+	* configure.in (DBUS_SYSTEM_PID_FILE): New variable.
+
+	* bus/system.conf.in: Declare a pidfile.
+
+	* bus/bus.c (bus_context_new): Test for an existing pid file, and
+	create one (if appropriate).
+
+	* bus/config-parser.c (enum ElementType) [ELEMENT_PIDFILE]: New.
+	(struct BusConfigParser) [pidfile]: New.
+	(element_type_to_name, merge_included, start_busconfig_child)
+	(bus_config_parser_end_element, bus_config_parser_content): Handle it.
+	(bus_config_parser_unref): Free it.
+	(bus_config_parser_get_pidfile): New function.
+	
+	* bus/config-parser.h (_dbus_write_pid_file): Prototype.
+
+	* dbus/dbus-errors.h (DBUS_ERROR_PIDFILE_EXISTS): New error.
+
+	* dbus/dbus-sysdeps.c (_dbus_write_pid_file): New function.
+	
+	* dbus/dbus-sysdeps.h: Prototype it.
+
+2003-04-06  Havoc Pennington  <hp@pobox.com>
+
 	* bus/bus.c (bus_context_new): print the address in here, rather
 	than in main(), because we need to do it before forking the daemon
 

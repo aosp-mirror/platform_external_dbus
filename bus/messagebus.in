@@ -7,7 +7,7 @@
 #               and other messages. See http://www.freedesktop.org/software/dbus/
 #
 # processname: dbus-daemon-1
-# pidfile: @EXPANDED_LOCALSTATEDIR@/messagebus.pid
+# pidfile: @DBUS_SYSTEM_PID_FILE@
 #
 
 # Sanity checks.
@@ -20,7 +20,7 @@ RETVAL=0
 
 start() {
     echo -n $"Starting system message bus: "
-    daemon dbus-daemon-1 --system
+    daemon --check messagebus dbus-daemon-1 --system
     RETVAL=$?
     echo
     [ $RETVAL -eq 0 ] && touch @EXPANDED_LOCALSTATEDIR@/lock/subsys/messagebus
@@ -28,7 +28,11 @@ start() {
 
 stop() {
     echo -n $"Stopping system message bus: "
-    killproc messagebus
+
+    ## we don't want to kill all the per-user dbus-daemon-1, we want
+    ## to use the pid file *only*; because we use the fake nonexistent 
+    ## program name "messagebus" that should be safe-ish
+    killproc messagebus -TERM
     RETVAL=$?
     echo
     if [ $RETVAL -eq 0 ]; then
@@ -59,7 +63,7 @@ case "$1" in
         fi
         ;;
     reload)
-        killproc messagebus -HUP
+        echo "Message bus can't reload its configuration, you have to restart it"
         RETVAL=$?
         ;;
     *)

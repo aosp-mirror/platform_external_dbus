@@ -35,6 +35,8 @@ AC_ARG_WITH(xml,                [  --with-xml=[libxml/expat] XML library to use]
 AC_ARG_WITH(init-scripts,       [  --with-init-scripts=[redhat] Style of init scripts to install])
 AC_ARG_WITH(session-socket-dir, [  --with-session-socket-dir=[dirname] Where to put sockets for the per-login-session message bus])
 AC_ARG_WITH(test-socket-dir,    [  --with-test-socket-dir=[dirname] Where to put sockets for make check])
+AC_ARG_WITH(system-pid-file,    [  --with-system-pid-file=[pidfile] PID file for systemwide daemon])
+AC_ARG_WITH(system-socket,      [  --with-system-socket=[filename] UNIX domain socket for systemwide daemon])
 
 dnl DBUS_BUILD_TESTS controls unit tests built in to .c files 
 dnl and also some stuff in the test/ subdir
@@ -385,12 +387,9 @@ dnl Qt flags
 AC_SUBST(DBUS_QT_CXXFLAGS)
 AC_SUBST(DBUS_QT_LIBS)
 
-##### Set up location for system bus socket
-## name of socket relative to localstatedir
-DBUS_SYSTEM_SOCKET=run/dbus/system_bus_socket
-AC_SUBST(DBUS_SYSTEM_SOCKET)
-
 #### find the actual value for $prefix that we'll end up with
+##   (I know this is broken and should be done in the Makefile, but
+##    that's a major pain and almost nobody actually seems to care)
 REAL_PREFIX=
 if test "x$prefix" = "xNONE"; then
   REAL_PREFIX=$ac_default_prefix
@@ -421,17 +420,44 @@ EXPANDED_BINDIR=`eval echo $BINDIR_TMP`
 prefix=$old_prefix
 AC_SUBST(EXPANDED_BINDIR)
 
+#### Check our operating system
+operating_system=unknown
+if test -f /etc/redhat-release || test -f $EXPANDED_SYSCONFDIR/redhat-release ; then
+   operating_system=redhat
+fi
+
 #### Sort out init scripts
 
 if test x$with_init_scripts = x; then
-        if test -f /etc/redhat-release || test -f $EXPANDED_SYSCONFDIR/redhat-release ; then
-                with_init_scripts=redhat
-        else
-                with_init_scripts=none
-        fi
+    if test xredhat = x$operating_system ; then
+        with_init_scripts=redhat
+    else
+        with_init_scripts=none
+    fi
 fi
 
 AM_CONDITIONAL(DBUS_INIT_SCRIPTS_RED_HAT, test x$with_init_scripts = xredhat)
+
+
+##### Set up location for system bus socket
+if ! test -z "$with_system_socket"; then
+   DBUS_SYSTEM_SOCKET=$with_system_socket
+else
+   DBUS_SYSTEM_SOCKET=${EXPANDED_LOCALSTATEDIR}/run/dbus/system_bus_socket
+fi
+
+AC_SUBST(DBUS_SYSTEM_SOCKET)
+
+#### Set up the pid file
+if ! test -z "$with_system_pid_file"; then
+   DBUS_SYSTEM_PID_FILE=$with_system_pid_file
+elif test x$operating_system = xredhat ; then
+   DBUS_SYSTEM_PID_FILE=${EXPANDED_LOCALSTATEDIR}/run/messagebus.pid
+else
+   DBUS_SYSTEM_PID_FILE=${EXPANDED_LOCALSTATEDIR}/run/dbus/pid
+fi
+
+AC_SUBST(DBUS_SYSTEM_PID_FILE)
 
 #### Tell tests where to find certain stuff in builddir
 ABSOLUTE_TOP_BUILDDIR=`cd ${ac_top_builddir}. && pwd`
@@ -512,7 +538,8 @@ echo "
         Building GLib bindings:   ${have_glib}
         Using XML parser:         ${with_xml}
         Init scripts style:       ${with_init_scripts}
-        System bus socket:        ${EXPANDED_LOCALSTATEDIR}/${DBUS_SYSTEM_SOCKET}
+        System bus socket:        ${DBUS_SYSTEM_SOCKET}
+        System bus PID file:      ${DBUS_SYSTEM_PID_FILE}
         Session bus socket dir:   ${DBUS_SESSION_SOCKET_DIR}
         'make check' socket dir:  ${TEST_SOCKET_DIR}
 "

@@ -306,7 +306,7 @@ bus_context_new (const DBusString *config_file,
   DBusList **addresses;
   BusConfigParser *parser;
   DBusString full_address;
-  const char *user;
+  const char *user, *pidfile;
   char **auth_mechanisms;
   DBusList **auth_mechanisms_list;
   int len;
@@ -333,6 +333,31 @@ bus_context_new (const DBusString *config_file,
   parser = bus_config_load (config_file, error);
   if (parser == NULL)
     goto failed;
+
+  /* Check for an existing pid file. Of course this is a race;
+   * we'd have to use fcntl() locks on the pid file to
+   * avoid that. But we want to check for the pid file
+   * before overwriting any existing sockets, etc.
+   */
+  pidfile = bus_config_parser_get_pidfile (parser);
+  if (pidfile != NULL)
+    {
+      DBusString u;
+      DBusStat stbuf;
+      DBusError tmp_error;
+      
+      dbus_error_init (&tmp_error);
+      _dbus_string_init_const (&u, pidfile);
+      
+      if (_dbus_stat (&u, &stbuf, &tmp_error))
+	{
+	  dbus_set_error (error, DBUS_ERROR_FAILED,
+			  "The pid file \"%s\" exists, if the message bus is not running, remove this file",
+			  pidfile);
+	  dbus_error_free (&tmp_error);
+	  goto failed;
+	}
+    }
   
   context = dbus_new0 (BusContext, 1);
   if (context == NULL)
@@ -587,8 +612,26 @@ bus_context_new (const DBusString *config_file,
   /* Now become a daemon if appropriate */
   if (bus_config_parser_get_fork (parser))
     {
-      if (!_dbus_become_daemon (error))
+      DBusString u;
+
+      if (pidfile)
+        _dbus_string_init_const (&u, pidfile);
+      
+      if (!_dbus_become_daemon (pidfile ? &u : NULL, error))
         goto failed;
+    }
+  else
+    {
+      /* Need to write PID file for ourselves, not for the child process */
+      if (pidfile != NULL)
+        {
+          DBusString u;
+
+          _dbus_string_init_const (&u, pidfile);
+          
+          if (!_dbus_write_pid_file (&u, _dbus_getpid (), error))
+            goto failed;
+        }
     }
   
   bus_config_parser_unref (parser);

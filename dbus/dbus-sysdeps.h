@@ -119,6 +119,8 @@ dbus_bool_t _dbus_get_groups   (unsigned long      uid,
                                 unsigned long    **group_ids,
                                 int               *n_group_ids);
 
+unsigned long _dbus_getpid (void);
+
 typedef int dbus_atomic_t;
 
 dbus_atomic_t _dbus_atomic_inc (dbus_atomic_t *atomic);
@@ -216,11 +218,14 @@ dbus_bool_t _dbus_close            (int               fd,
 
 void        _dbus_print_backtrace  (void);
 
-dbus_bool_t _dbus_become_daemon    (DBusError *error);
-
-dbus_bool_t _dbus_change_identity  (unsigned long  uid,
-                                    unsigned long  gid,
-                                    DBusError     *error);
+dbus_bool_t _dbus_become_daemon   (const DBusString *pidfile,
+                                   DBusError        *error);
+dbus_bool_t _dbus_write_pid_file  (const DBusString *filename,
+                                   unsigned long     pid,
+                                   DBusError        *error);
+dbus_bool_t _dbus_change_identity (unsigned long     uid,
+                                   unsigned long     gid,
+                                   DBusError        *error);
 
 typedef void (* DBusSignalHandler) (int sig);
 

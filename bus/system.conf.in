@@ -20,11 +20,14 @@
   <!-- Fork into daemon mode -->
   <fork/>
 
+  <!-- Write a pid file -->
+  <pidfile>@DBUS_SYSTEM_PID_FILE@</pidfile>
+
   <!-- Only allow socket-credentials-based authentication -->
   <auth>EXTERNAL</auth>
 
   <!-- Only listen on a local socket -->
-  <listen>unix:path=@EXPANDED_LOCALSTATEDIR@/@DBUS_SYSTEM_SOCKET@</listen>
+  <listen>unix:path=@DBUS_SYSTEM_SOCKET@</listen>
 
   <policy context="default">
     <!-- Deny everything then punch holes -->

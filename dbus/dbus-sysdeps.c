@@ -1700,6 +1700,15 @@ _dbus_string_append_our_uid (DBusString *str)
   return _dbus_string_append_int (str, getuid ());
 }
 
+/**
+ * Gets our process ID
+ * @returns process ID
+ */
+unsigned long
+_dbus_getpid (void)
+{
+  return getpid ();
+}
 
 _DBUS_DEFINE_GLOBAL_LOCK (atomic);
 
@@ -2930,17 +2939,17 @@ _dbus_print_backtrace (void)
 /**
  * Does the chdir, fork, setsid, etc. to become a daemon process.
  *
+ * @param pidfile #NULL, or pidfile to create
  * @param error return location for errors
  * @returns #FALSE on failure
  */
 dbus_bool_t
-_dbus_become_daemon (DBusError *error)
+_dbus_become_daemon (const DBusString *pidfile,
+                     DBusError        *error)
 {
   const char *s;
+  pid_t child_pid;
 
-  /* This is so we don't prevent unmounting of devices. We divert
-   * all messages to syslog
-   */
   if (chdir ("/") < 0)
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
@@ -2948,29 +2957,7 @@ _dbus_become_daemon (DBusError *error)
       return FALSE;
     }
 
-  s = _dbus_getenv ("DBUS_DEBUG_OUTPUT");
-  if (s == NULL || *s == '\0')
-    {
-      int dev_null_fd;
-
-      /* silently ignore failures here, if someone
-       * doesn't have /dev/null we may as well try
-       * to continue anyhow
-       */
-
-      dev_null_fd = open ("/dev/null", O_RDWR);
-      if (dev_null_fd >= 0)
-        {
-         dup2 (dev_null_fd, 0);
-         dup2 (dev_null_fd, 1);
-         dup2 (dev_null_fd, 2);
-       }
-    }
-
-  /* Get a predictable umask */
-  umask (022);
-
-  switch (fork ())
+  switch ((child_pid = fork ()))
     {
     case -1:
       dbus_set_error (error, _dbus_error_from_errno (errno),
@@ -2978,16 +2965,103 @@ _dbus_become_daemon (DBusError *error)
       return FALSE;
       break;
 
-    case 0:      
+    case 0:
+      s = _dbus_getenv ("DBUS_DEBUG_OUTPUT");
+      if (s == NULL || *s == '\0')
+        {
+          int dev_null_fd;
+
+          /* silently ignore failures here, if someone
+           * doesn't have /dev/null we may as well try
+           * to continue anyhow
+           */
+
+          dev_null_fd = open ("/dev/null", O_RDWR);
+          if (dev_null_fd >= 0)
+            {
+              dup2 (dev_null_fd, 0);
+              dup2 (dev_null_fd, 1);
+              dup2 (dev_null_fd, 2);
+            }
+        }
+
+      /* Get a predictable umask */
+      umask (022);
       break;
 
     default:
+      if (pidfile)
+        {
+          if (!_dbus_write_pid_file (pidfile,
+                                     child_pid,
+                                     error))
+            {
+              kill (child_pid, SIGTERM);
+              return FALSE;
+            }
+        }
       _exit (0);
       break;
     }
 
   if (setsid () == -1)
     _dbus_assert_not_reached ("setsid() failed");
+  
+  return TRUE;
+}
+
+/**
+ * Creates a file containing the process ID.
+ *
+ * @param filename the filename to write to
+ * @param pid our process ID
+ * @param error return location for errors
+ * @returns #FALSE on failure
+ */
+dbus_bool_t
+_dbus_write_pid_file (const DBusString *filename,
+                      unsigned long     pid,
+		      DBusError        *error)
+{
+  const char *cfilename;
+  int fd;
+  FILE *f;
+
+  cfilename = _dbus_string_get_const_data (filename);
+  
+  fd = open (cfilename, O_WRONLY|O_CREAT|O_EXCL|O_BINARY, 0644);
+  
+  if (fd < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to open \"%s\": %s", cfilename,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+
+  if ((f = fdopen (fd, "w")) == NULL)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to fdopen fd %d: %s", fd, _dbus_strerror (errno));
+      close (fd);
+      return FALSE;
+    }
+  
+  if (fprintf (f, "%lu\n", pid) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to write to \"%s\": %s", cfilename,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+
+  if (fclose (f) == EOF)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to close \"%s\": %s", cfilename,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
   
   return TRUE;
 }

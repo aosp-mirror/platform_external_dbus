@@ -40,6 +40,7 @@ typedef enum
   ELEMENT_ALLOW,
   ELEMENT_DENY,
   ELEMENT_FORK,
+  ELEMENT_PIDFILE,
   ELEMENT_SERVICEDIR,
   ELEMENT_INCLUDEDIR,
   ELEMENT_TYPE
@@ -94,6 +95,8 @@ struct BusConfigParser
   DBusList *service_dirs; /**< Directories to look for services in */
   
   unsigned int fork : 1; /**< TRUE to fork into daemon mode */
+
+  char *pidfile;
 };
 
 static const char*
@@ -123,6 +126,8 @@ element_type_to_name (ElementType type)
       return "deny";
     case ELEMENT_FORK:
       return "fork";
+    case ELEMENT_PIDFILE:
+      return "pidfile";
     case ELEMENT_SERVICEDIR:
       return "servicedir";
     case ELEMENT_INCLUDEDIR:
@@ -222,6 +227,13 @@ merge_included (BusConfigParser *parser,
   
   if (included->fork)
     parser->fork = TRUE;
+
+  if (included->pidfile != NULL)
+    {
+      dbus_free (parser->pidfile);
+      parser->pidfile = included->pidfile;
+      included->pidfile = NULL;
+    }
   
   while ((link = _dbus_list_pop_first_link (&included->listen_on)))
     _dbus_list_append_link (&parser->listen_on, link);
@@ -284,6 +296,7 @@ bus_config_parser_unref (BusConfigParser *parser)
 
       dbus_free (parser->user);
       dbus_free (parser->bus_type);
+      dbus_free (parser->pidfile);
       
       _dbus_list_foreach (&parser->listen_on,
                           (DBusForeachFunction) dbus_free,
@@ -497,6 +510,19 @@ start_busconfig_child (BusConfigParser   *parser,
 
       parser->fork = TRUE;
       
+      return TRUE;
+    }
+  else if (strcmp (element_name, "pidfile") == 0)
+    {
+      if (!check_no_attributes (parser, "pidfile", attribute_names, attribute_values, error))
+        return FALSE;
+
+      if (push_element (parser, ELEMENT_PIDFILE) == NULL)
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+
       return TRUE;
     }
   else if (strcmp (element_name, "listen") == 0)
@@ -770,6 +796,7 @@ bus_config_parser_end_element (BusConfigParser   *parser,
     case ELEMENT_USER:
     case ELEMENT_TYPE:
     case ELEMENT_LISTEN:
+    case ELEMENT_PIDFILE:
     case ELEMENT_AUTH:
     case ELEMENT_SERVICEDIR:
     case ELEMENT_INCLUDEDIR:
@@ -1004,6 +1031,20 @@ bus_config_parser_content (BusConfigParser   *parser,
           return FALSE;
         }
 
+    case ELEMENT_PIDFILE:
+      {
+        char *s;
+
+        e->had_content = TRUE;
+        
+        if (!_dbus_string_copy_data (content, &s))
+          goto nomem;
+          
+        dbus_free (parser->pidfile);
+        parser->pidfile = s;
+      }
+      break;
+
     case ELEMENT_INCLUDE:
       {
         DBusString full_path;
@@ -1220,6 +1261,12 @@ dbus_bool_t
 bus_config_parser_get_fork (BusConfigParser   *parser)
 {
   return parser->fork;
+}
+
+const char *
+bus_config_parser_get_pidfile (BusConfigParser   *parser)
+{
+  return parser->pidfile;
 }
 
 #ifdef DBUS_BUILD_TESTS
