@@ -96,7 +96,8 @@ struct DBusTypeWriter
     struct {
       int start_pos; /* first element */
       int len_pos;
-      char *element_type;
+      int element_type_pos; /* position in type_str of array element type */
+      int element_type_len;
     } array;
 
     struct {

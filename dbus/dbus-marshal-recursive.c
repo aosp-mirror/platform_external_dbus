@@ -170,11 +170,6 @@ _dbus_type_reader_read_basic (DBusTypeReader    *reader,
       _dbus_verbose ("  type reader %p read basic type_pos = %d value_pos = %d next = %d remaining sig '%s'\n",
                      reader, reader->type_pos, reader->value_pos, next,
                      _dbus_string_get_const_data_len (reader->type_str, reader->type_pos, 0));
-      
-      _dbus_verbose_bytes_of_string (reader->value_str,
-                                     reader->value_pos,
-                                     MIN (16,
-                                          _dbus_string_get_length (reader->value_str) - reader->value_pos));
     }
   else
     {
@@ -271,8 +266,10 @@ _dbus_type_reader_recurse (DBusTypeReader *reader,
   else
     {
       _dbus_verbose ("recursing into type %s\n", _dbus_type_to_string (t));
+#ifndef DBUS_DISABLE_CHECKS
       if (t == DBUS_TYPE_INVALID)
         _dbus_warn ("You can't recurse into an empty array or off the end of a message body\n");
+#endif /* DBUS_DISABLE_CHECKS */
       
       _dbus_assert_not_reached ("don't yet handle recursing into this type");
     }
@@ -316,22 +313,28 @@ skip_one_complete_type (const DBusString *type_str,
 }
 
 static void
-skip_array_values (const DBusString *value_str,
+skip_array_values (int               element_type,
+                   const DBusString *value_str,
                    int              *value_pos,
                    int               byte_order)
 {
   dbus_uint32_t array_len;
-  int len_pos;
+  int pos;
+  int alignment;
   
-  len_pos = _DBUS_ALIGN_VALUE (*value_pos, 4);
+  pos = _DBUS_ALIGN_VALUE (*value_pos, 4);
   
   _dbus_demarshal_basic_type (value_str,
                               DBUS_TYPE_UINT32,
                               &array_len,
                               byte_order,
-                              &len_pos);
+                              &pos);
+
+  alignment = _dbus_type_get_alignment (element_type);
+
+  pos = _DBUS_ALIGN_VALUE (pos, alignment);
   
-  *value_pos = len_pos + array_len;
+  *value_pos = pos + array_len;
 }
 
 /**
@@ -384,7 +387,9 @@ _dbus_type_reader_next (DBusTypeReader *reader)
           
         case DBUS_TYPE_ARRAY:
           {
-            skip_array_values (reader->value_str, &reader->value_pos, reader->byte_order);
+            skip_array_values (first_type_in_signature (reader->type_str,
+                                                        reader->type_pos + 1),
+                               reader->value_str, &reader->value_pos, reader->byte_order);
             skip_one_complete_type (reader->type_str, &reader->type_pos);
           }
           break;
@@ -440,7 +445,9 @@ _dbus_type_reader_next (DBusTypeReader *reader)
         }
       else if (reader->u.array.element_type == DBUS_TYPE_ARRAY)
         {
-          skip_array_values (reader->value_str, &reader->value_pos, reader->byte_order);
+          skip_array_values (first_type_in_signature (reader->type_str,
+                                                      reader->type_pos + 1),
+                             reader->value_str, &reader->value_pos, reader->byte_order);
         }
       else
         {
@@ -485,6 +492,9 @@ _dbus_type_writer_init (DBusTypeWriter *writer,
   writer->value_pos = value_pos;
   writer->container_type = DBUS_TYPE_INVALID;
   writer->inside_array = FALSE;
+
+  _dbus_verbose ("writer %p init remaining sig '%s'\n", writer,
+                 _dbus_string_get_const_data_len (writer->type_str, writer->type_pos, 0));
 }
 
 static dbus_bool_t
@@ -511,56 +521,30 @@ _dbus_type_writer_write_basic_no_typecode (DBusTypeWriter *writer,
   return TRUE;
 }
 
-dbus_bool_t
-_dbus_type_writer_write_basic (DBusTypeWriter *writer,
-                               int             type,
-                               const void     *value)
-{
-  dbus_bool_t retval;
-  
-  /* First ensure that our type realloc will succeed */
-  if (!_dbus_string_alloc_space (writer->type_str, 1))
-    return FALSE;
-
-  retval = FALSE;
-
-  if (!_dbus_type_writer_write_basic_no_typecode (writer, type, value))
-    goto out;
-  
-  /* Now insert the type unless we're already covered by the array signature */
-  if (!writer->inside_array)
-    {
-      if (!_dbus_string_insert_byte (writer->type_str,
-                                     writer->type_pos,
-                                     type))
-        _dbus_assert_not_reached ("failed to insert byte after prealloc");
-      
-      writer->type_pos += 1;
-    }
-  
-  retval = TRUE;
-  
- out:
-  _dbus_verbose ("  type writer %p basic type_pos = %d value_pos = %d inside_array = %d\n",
-                 writer, writer->type_pos, writer->value_pos, writer->inside_array);
-  
-  return retval;
-}
-
-dbus_bool_t
-_dbus_type_writer_write_array (DBusTypeWriter *writer,
-                               int             type,
-                               const void     *array,
-                               int             array_len)
-{
-
-
-}
-
+/* If our parent is an array, things are a little bit complicated.
+ *
+ * The parent must have a complete element type, such as
+ * "i" or "aai" or "(ii)" or "a(ii)". There can't be
+ * unclosed parens, or an "a" with no following type.
+ *
+ * To recurse, the only allowed operation is to recurse into the
+ * first type in the element type. So for "i" you can't recurse, for
+ * "ai" you can recurse into the array, for "(ii)" you can recurse
+ * into the struct.
+ *
+ * If you recurse into the array for "ai", then you must specify
+ * "i" for the element type of the array you recurse into.
+ * 
+ * While inside an array at any level, we need to avoid writing to
+ * type_str, since the type only appears once for the whole array,
+ * it does not appear for each array element.
+ *
+ * While inside an array type_pos points to the expected next
+ * typecode, rather than the next place we could write a typecode.
+ */
 static void
 writer_recurse_init_and_check (DBusTypeWriter *writer,
                                int             container_type,
-                               const char     *array_element_type,
                                DBusTypeWriter *sub)
 {
   _dbus_type_writer_init (sub,
@@ -572,72 +556,89 @@ writer_recurse_init_and_check (DBusTypeWriter *writer,
   
   sub->container_type = container_type;
 
-  /* While inside an array, we never want to write to the type str.
-   * We are inside an array if we're currently recursing into one.
-   */
   if (writer->inside_array || sub->container_type == DBUS_TYPE_ARRAY)
     sub->inside_array = TRUE;
   else
     sub->inside_array = FALSE;
-
-  /* If our parent is an array, things are a little bit complicated.
-   *
-   * The parent must have a complete element type, such as
-   * "i" or "aai" or "(ii)" or "a(ii)". There can't be
-   * unclosed parens, or an "a" with no following type.
-   *
-   * To recurse, the only allowed operation is to recurse into the
-   * first type in the element type. So for "i" you can't recurse, for
-   * "ai" you can recurse into the array, for "(ii)" you can recurse
-   * into the struct.
-   *
-   * If you recurse into the array for "ai", then you must specify
-   * "i" for the element type of the array you recurse into.
-   * 
-   * While inside an array at any level, we need to avoid writing to
-   * type_str, since the type only appears once for the whole array,
-   * it does not appear for each array element.
-   */
+  
 #ifndef DBUS_DISABLE_CHECKS
-  if (writer->container_type == DBUS_TYPE_ARRAY)
+  if (writer->inside_array)
     {
-      if ((sub->container_type == DBUS_TYPE_STRUCT &&
-           writer->u.array.element_type[0] != DBUS_STRUCT_BEGIN_CHAR) ||
-          (sub->container_type != DBUS_TYPE_STRUCT &&
-           writer->u.array.element_type[0] != sub->container_type))
+      int expected;
+
+      expected = first_type_in_signature (writer->type_str, writer->type_pos);
+      
+      if (expected != sub->container_type)
         {
-          _dbus_warn ("Recursing into an array with element type %s not allowed with container type %s\n",
-                      writer->u.array.element_type, _dbus_type_to_string (sub->container_type));
-        }
-
-      if (sub->container_type == DBUS_TYPE_ARRAY)
-        {
-          DBusString parent_elements;
-          DBusString our_elements;
-
-          _dbus_assert (writer->u.array.element_type[0] == DBUS_TYPE_ARRAY);
-          
-          _dbus_string_init_const (&parent_elements, &writer->u.array.element_type[1]);
-          _dbus_string_init_const (&our_elements, array_element_type);
-
-          if (!_dbus_string_equal (&parent_elements, &our_elements))
-            {
-              _dbus_warn ("Parent array expects elements '%s' and we are writing an array of '%s'\n",
-                          writer->u.array.element_type,
-                          array_element_type);
-            }
+          _dbus_warn ("Writing an element of type %s, but the expected type here is %s\n",
+                      _dbus_type_to_string (sub->container_type),
+                      _dbus_type_to_string (expected));
+          _dbus_assert_not_reached ("bad array element written");
         }
     }
 #endif /* DBUS_DISABLE_CHECKS */
 
-  _dbus_verbose ("  type writer %p recurse type_pos = %d value_pos = %d inside_array = %d container_type = %s\n",
+  _dbus_verbose ("  type writer %p recurse parent type_pos = %d value_pos = %d inside_array = %d container_type = %s remaining sig '%s'\n",
                  writer, writer->type_pos, writer->value_pos, writer->inside_array,
-                 _dbus_type_to_string (writer->container_type));
-  _dbus_verbose ("  type writer %p new sub type_pos = %d value_pos = %d inside_array = %d container_type = %s element_type = '%s'\n",
+                 _dbus_type_to_string (writer->container_type),
+                 _dbus_string_get_const_data_len (writer->type_str, writer->type_pos, 0));
+  _dbus_verbose ("  type writer %p recurse sub    type_pos = %d value_pos = %d inside_array = %d container_type = %s\n",
                  sub, sub->type_pos, sub->value_pos,
                  sub->inside_array,
-                 _dbus_type_to_string (sub->container_type),
-                 array_element_type ? array_element_type : "n/a");
+                 _dbus_type_to_string (sub->container_type));
+}
+
+static dbus_bool_t
+write_or_verify_typecode (DBusTypeWriter *writer,
+                          int             typecode)
+{
+  /* A subwriter inside an array will have type_pos pointing to the
+   * expected typecode; a writer not inside an array has type_pos
+   * pointing to the next place to insert a typecode.
+   */
+  _dbus_verbose ("  type writer %p write_or_verify start type_pos = %d remaining sig '%s'\n",
+                 writer, writer->type_pos,
+                 _dbus_string_get_const_data_len (writer->type_str, writer->type_pos, 0));
+  
+  if (writer->inside_array)
+    {
+#ifndef DBUS_DISABLE_CHECKS
+      {
+        int expected;
+        
+        expected = _dbus_string_get_byte (writer->type_str, writer->type_pos);
+        
+        if (expected != typecode)
+          {
+            _dbus_warn ("Array type requires that type %s be written, but %s was written\n",
+                        _dbus_type_to_string (expected), _dbus_type_to_string (typecode));
+            _dbus_assert_not_reached ("bad type inserted somewhere inside an array");
+          }
+      }
+#endif /* DBUS_DISABLE_CHECKS */
+
+      /* if immediately inside an array we'd always be appending an element,
+       * so the expected type doesn't change; if inside a struct or something
+       * below an array, we need to move through said struct or something.
+       */
+      if (writer->container_type != DBUS_TYPE_ARRAY)
+        writer->type_pos += 1;
+    }
+  else
+    {
+      if (!_dbus_string_insert_byte (writer->type_str,
+                                     writer->type_pos,
+                                     typecode))
+        return FALSE;
+
+      writer->type_pos += 1;
+    }
+
+  _dbus_verbose ("  type writer %p write_or_verify end type_pos = %d remaining sig '%s'\n",
+                 writer, writer->type_pos,
+                 _dbus_string_get_const_data_len (writer->type_str, writer->type_pos, 0));
+  
+  return TRUE;
 }
 
 dbus_bool_t
@@ -645,26 +646,19 @@ _dbus_type_writer_recurse (DBusTypeWriter *writer,
                            int             container_type,
                            DBusTypeWriter *sub)
 {
-  writer_recurse_init_and_check (writer, container_type, NULL, sub);
+  writer_recurse_init_and_check (writer, container_type, sub);
   
   switch (container_type)
     {
     case DBUS_TYPE_STRUCT:
       {
-        if (!writer->inside_array)
-          {
-            /* Ensure that we'll be able to add alignment padding */
-            if (!_dbus_string_alloc_space (sub->value_str, 8))
-              return FALSE;
-            
-            if (!_dbus_string_insert_byte (sub->type_str,
-                                           sub->type_pos,
-                                           DBUS_STRUCT_BEGIN_CHAR))
-              return FALSE;
+        /* Ensure that we'll be able to add alignment padding and the typecode */
+        if (!_dbus_string_alloc_space (sub->value_str, 8))
+          return FALSE;
 
-            sub->type_pos += 1;
-          }
-
+        if (!write_or_verify_typecode (sub, DBUS_STRUCT_BEGIN_CHAR))
+          _dbus_assert_not_reached ("failed to insert struct typecode after prealloc");
+        
         if (!_dbus_string_insert_bytes (sub->value_str,
                                         sub->value_pos,
                                         _DBUS_ALIGN_VALUE (sub->value_pos, 8) - sub->value_pos,
@@ -691,9 +685,34 @@ _dbus_type_writer_recurse_array (DBusTypeWriter *writer,
 {
   int element_type_len;
   DBusString element_type_str;
+  dbus_uint32_t value = 0;
+  int alignment;
+  int aligned;
+  DBusString str;
   
-  writer_recurse_init_and_check (writer, DBUS_TYPE_ARRAY, element_type, sub);
+  writer_recurse_init_and_check (writer, DBUS_TYPE_ARRAY, sub);
+  
+#ifndef DBUS_DISABLE_CHECKS
+  if (writer->container_type == DBUS_TYPE_ARRAY)
+    {
+      DBusString parent_elements;
 
+      _dbus_assert (element_type != NULL);
+      
+      _dbus_string_init_const (&parent_elements,
+                               _dbus_string_get_const_data_len (writer->type_str,
+                                                                writer->u.array.element_type_pos + 1,
+                                                                0));
+                                                                
+      if (!_dbus_string_starts_with_c_str (&parent_elements, element_type))
+        {
+          _dbus_warn ("Writing an array of '%s' but this is incompatible with the expected type of elements in the parent array\n",
+                      element_type);
+          _dbus_assert_not_reached ("incompatible type for child array");
+        }
+    }
+#endif /* DBUS_DISABLE_CHECKS */
+  
   _dbus_string_init_const (&element_type_str, element_type);
   element_type_len = _dbus_string_get_length (&element_type_str);
 
@@ -701,71 +720,64 @@ _dbus_type_writer_recurse_array (DBusTypeWriter *writer,
   if (!_dbus_string_alloc_space (sub->value_str, 8))
     return FALSE;
 
+  sub->type_pos += 1; /* move to point to the element type, since type_pos
+                       * should be the expected type for further writes
+                       */
+  sub->u.array.element_type_pos = sub->type_pos;
+  sub->u.array.element_type_len = element_type_len;
+
   if (!writer->inside_array)
     {
+      /* sub is a toplevel/outermost array so we need to write the type data */
+      
       /* alloc space for array typecode, element signature, possible 7
        * bytes of padding
        */
-      if (!_dbus_string_alloc_space (sub->type_str, 1 + element_type_len + 7))
+      if (!_dbus_string_alloc_space (writer->type_str, 1 + element_type_len + 7))
         return FALSE;
-    }
-      
-  if (!_dbus_string_copy_data (&element_type_str,
-                               &sub->u.array.element_type))
-    return FALSE;
 
-  if (!writer->inside_array)
-    {
-      if (!_dbus_string_insert_byte (sub->type_str,
-                                     sub->type_pos,
+      if (!_dbus_string_insert_byte (writer->type_str,
+                                     writer->type_pos,
                                      DBUS_TYPE_ARRAY))
-        _dbus_assert_not_reached ("should not have failed to insert array typecode");
+        _dbus_assert_not_reached ("failed to insert array typecode after prealloc");
 
-      sub->type_pos += 1;
-      
       if (!_dbus_string_copy (&element_type_str, 0,
-                              sub->type_str, sub->type_pos))
+                              sub->type_str, sub->u.array.element_type_pos))
         _dbus_assert_not_reached ("should not have failed to insert array element typecodes");
-  
-      sub->type_pos += element_type_len;
     }
-  
+
+  /* Write the length */
   sub->u.array.len_pos = _DBUS_ALIGN_VALUE (sub->value_pos, 4);
 
-  {
-    dbus_uint32_t value = 0;
-    int alignment;
-    int aligned;
-    DBusString str;
-    
-    if (!_dbus_type_writer_write_basic_no_typecode (sub, DBUS_TYPE_UINT32,
-                                                    &value))
-      _dbus_assert_not_reached ("should not have failed to insert array len");
+  if (!_dbus_type_writer_write_basic_no_typecode (sub, DBUS_TYPE_UINT32,
+                                                  &value))
+    _dbus_assert_not_reached ("should not have failed to insert array len");
+  
+  _dbus_assert (sub->u.array.len_pos == sub->value_pos - 4);
 
-    _dbus_assert (sub->u.array.len_pos == sub->value_pos - 4);
+  /* Write alignment padding for array elements */
+  _dbus_string_init_const (&str, element_type);
+  alignment = element_type_get_alignment (&str, 0);
 
-    _dbus_string_init_const (&str, element_type);
-    alignment = element_type_get_alignment (&str, 0);
-
-    aligned = _DBUS_ALIGN_VALUE (sub->value_pos, alignment);
-    if (aligned != sub->value_pos)
-      {
-        if (!_dbus_string_insert_bytes (sub->value_str,
-                                        sub->value_pos,
-                                        aligned - sub->value_pos,
-                                        '\0'))
-          _dbus_assert_not_reached ("should not have failed to insert alignment padding");
-
-        sub->value_pos = aligned;
-      }
-    sub->u.array.start_pos = sub->value_pos;
-  }
+  aligned = _DBUS_ALIGN_VALUE (sub->value_pos, alignment);
+  if (aligned != sub->value_pos)
+    {
+      if (!_dbus_string_insert_bytes (sub->value_str,
+                                      sub->value_pos,
+                                      aligned - sub->value_pos,
+                                      '\0'))
+        _dbus_assert_not_reached ("should not have failed to insert alignment padding");
+      
+      sub->value_pos = aligned;
+    }
+  sub->u.array.start_pos = sub->value_pos;
 
   _dbus_assert (sub->u.array.start_pos == sub->value_pos);
   _dbus_assert (sub->u.array.len_pos < sub->u.array.start_pos);
-  
-  /* value_pos now points to the place for array data, and len_pos to the length */
 
+  _dbus_verbose ("  type writer %p recurse array done remaining sig '%s'\n", sub,
+                 _dbus_string_get_const_data_len (sub->type_str, sub->type_pos, 0));
+  
   return TRUE;
 }
 
@@ -778,30 +790,19 @@ _dbus_type_writer_unrecurse (DBusTypeWriter *writer,
   _dbus_verbose ("  type writer %p unrecurse type_pos = %d value_pos = %d inside_array = %d container_type = %s\n",
                  writer, writer->type_pos, writer->value_pos, writer->inside_array,
                  _dbus_type_to_string (writer->container_type));
-  _dbus_verbose ("  type writer %p unrecurse sub type_pos = %d value_pos = %d inside_array = %d container_type = %s element_type = '%s'\n",
+  _dbus_verbose ("  type writer %p unrecurse sub type_pos = %d value_pos = %d inside_array = %d container_type = %s\n",
                  sub, sub->type_pos, sub->value_pos,
                  sub->inside_array,
-                 _dbus_type_to_string (sub->container_type),
-                 sub->container_type == DBUS_TYPE_ARRAY ?
-                 sub->u.array.element_type : "n/a");
+                 _dbus_type_to_string (sub->container_type));
   
   if (sub->container_type == DBUS_TYPE_STRUCT)
     {
-      if (!sub->inside_array)
-        {
-          if (!_dbus_string_insert_byte (sub->type_str,
-                                         sub->type_pos, 
-                                         DBUS_STRUCT_END_CHAR))
-            return FALSE;
-          sub->type_pos += 1;
-        }
+      if (!write_or_verify_typecode (sub, DBUS_STRUCT_END_CHAR))
+        return FALSE;
     }
   else if (sub->container_type == DBUS_TYPE_ARRAY)
     {
       dbus_uint32_t len;
-      
-      dbus_free (sub->u.array.element_type);
-      sub->u.array.element_type = NULL;
 
       /* Set the array length */
       len = sub->value_pos - sub->u.array.start_pos;
@@ -814,10 +815,66 @@ _dbus_type_writer_unrecurse (DBusTypeWriter *writer,
     }
 
   /* Jump the parent writer to the new location */
-  writer->type_pos = sub->type_pos;
+  if (!writer->inside_array)
+    {
+      if (sub->inside_array)
+        {
+          /* Transition back to type_pos = insertion point from type_pos = expected */
+          
+          _dbus_assert (sub->container_type == DBUS_TYPE_ARRAY);
+          writer->type_pos = sub->u.array.element_type_pos + sub->u.array.element_type_len;
+        }
+      else
+        {
+          writer->type_pos = sub->type_pos;
+        }
+    }
   writer->value_pos = sub->value_pos;
+
+
+  _dbus_verbose ("  type writer %p unrecursed type_pos = %d value_pos = %d remaining sig '%s'\n",
+                 writer, writer->type_pos, writer->value_pos,
+                 _dbus_string_get_const_data_len (writer->type_str, writer->type_pos, 0));
   
   return TRUE;
+}
+
+dbus_bool_t
+_dbus_type_writer_write_basic (DBusTypeWriter *writer,
+                               int             type,
+                               const void     *value)
+{
+  dbus_bool_t retval;
+  
+  /* First ensure that our type realloc will succeed */
+  if (!_dbus_string_alloc_space (writer->type_str, 1))
+    return FALSE;
+
+  retval = FALSE;
+
+  if (!_dbus_type_writer_write_basic_no_typecode (writer, type, value))
+    goto out;
+  
+  if (!write_or_verify_typecode (writer, type))
+    _dbus_assert_not_reached ("failed to write typecode after prealloc");
+  
+  retval = TRUE;
+  
+ out:
+  _dbus_verbose ("  type writer %p basic type_pos = %d value_pos = %d inside_array = %d\n",
+                 writer, writer->type_pos, writer->value_pos, writer->inside_array);
+  
+  return retval;
+}
+
+dbus_bool_t
+_dbus_type_writer_write_array (DBusTypeWriter *writer,
+                               int             type,
+                               const void     *array,
+                               int             array_len)
+{
+
+
 }
 
 /** @} */ /* end of DBusMarshal group */
@@ -905,21 +962,21 @@ data_block_init_reader_writer (DataBlock      *block,
                           _dbus_string_get_length (&block->body));
 }
 
-#define NEXT_EXPECTING_TRUE(reader)  do { if (!_dbus_type_reader_next (reader)) \
- {                                                                              \
-    _dbus_warn ("_dbus_type_reader_next() should have returned TRUE at %s %d",  \
-                              _DBUS_FUNCTION_NAME, __LINE__);                   \
-    _dbus_assert_not_reached ("test failed");                                   \
- }                                                                              \
+#define NEXT_EXPECTING_TRUE(reader)  do { if (!_dbus_type_reader_next (reader))         \
+ {                                                                                      \
+    _dbus_warn ("_dbus_type_reader_next() should have returned TRUE at %s %d\n",        \
+                              _DBUS_FUNCTION_NAME, __LINE__);                           \
+    _dbus_assert_not_reached ("test failed");                                           \
+ }                                                                                      \
 } while (0)
 
-#define NEXT_EXPECTING_FALSE(reader) do { if (_dbus_type_reader_next (reader))  \
- {                                                                              \
-    _dbus_warn ("_dbus_type_reader_next() should have returned FALSE at %s %d", \
-                              _DBUS_FUNCTION_NAME, __LINE__);                   \
-    _dbus_assert_not_reached ("test failed");                                   \
- }                                                                              \
- check_expected_type (reader, DBUS_TYPE_INVALID);                               \
+#define NEXT_EXPECTING_FALSE(reader) do { if (_dbus_type_reader_next (reader))          \
+ {                                                                                      \
+    _dbus_warn ("_dbus_type_reader_next() should have returned FALSE at %s %d\n",       \
+                              _DBUS_FUNCTION_NAME, __LINE__);                           \
+    _dbus_assert_not_reached ("test failed");                                           \
+ }                                                                                      \
+ check_expected_type (reader, DBUS_TYPE_INVALID);                                       \
 } while (0)
 
 #define SAMPLE_INT32           12345678
@@ -951,11 +1008,6 @@ real_check_expected_type (DBusTypeReader *reader,
                   _dbus_type_to_string (t),
                   _dbus_type_to_string (expected),
                   funcname, line);
-
-      _dbus_verbose_bytes_of_string (reader->type_str, 0,
-                                     _dbus_string_get_length (reader->type_str));
-      _dbus_verbose_bytes_of_string (reader->value_str, 0,
-                                     _dbus_string_get_length (reader->value_str));
       
       exit (1);
     }
@@ -980,8 +1032,8 @@ read_int32 (DataBlock      *block,
 }
 
 static dbus_bool_t
-write_struct_with_int32s (DataBlock      *block,
-                          DBusTypeWriter *writer)
+write_struct_of_int32 (DataBlock      *block,
+                       DBusTypeWriter *writer)
 {
   dbus_int32_t v;
   DataBlockState saved;
@@ -1022,8 +1074,8 @@ write_struct_with_int32s (DataBlock      *block,
 }
 
 static dbus_bool_t
-read_struct_with_int32s (DataBlock      *block,
-                         DBusTypeReader *reader)
+read_struct_of_int32 (DataBlock      *block,
+                      DBusTypeReader *reader)
 {
   dbus_int32_t v;
   DBusTypeReader sub;
@@ -1066,17 +1118,17 @@ write_struct_of_structs (DataBlock      *block,
                                   &sub))
     return FALSE;
 
-  if (!write_struct_with_int32s (block, &sub))
+  if (!write_struct_of_int32 (block, &sub))
     {
       data_block_restore (block, &saved);
       return FALSE;
     }
-  if (!write_struct_with_int32s (block, &sub))
+  if (!write_struct_of_int32 (block, &sub))
     {
       data_block_restore (block, &saved);
       return FALSE;
     }
-  if (!write_struct_with_int32s (block, &sub))
+  if (!write_struct_of_int32 (block, &sub))
     {
       data_block_restore (block, &saved);
       return FALSE;
@@ -1101,15 +1153,15 @@ read_struct_of_structs (DataBlock      *block,
   
   _dbus_type_reader_recurse (reader, &sub);
 
-  if (!read_struct_with_int32s (block, &sub))
+  if (!read_struct_of_int32 (block, &sub))
     return FALSE;
 
   NEXT_EXPECTING_TRUE (&sub);
-  if (!read_struct_with_int32s (block, &sub))
+  if (!read_struct_of_int32 (block, &sub))
     return FALSE;
 
   NEXT_EXPECTING_TRUE (&sub);
-  if (!read_struct_with_int32s (block, &sub))
+  if (!read_struct_of_int32 (block, &sub))
     return FALSE;
   
   NEXT_EXPECTING_FALSE (&sub);
@@ -1484,10 +1536,143 @@ read_array_of_array_of_array_of_int32 (DataBlock      *block,
   return TRUE;
 }
 
+static dbus_bool_t
+write_struct_of_array_of_int32 (DataBlock      *block,
+                                DBusTypeWriter *writer)
+{
+  DataBlockState saved;
+  DBusTypeWriter sub;
+
+  data_block_save (block, &saved);
+  
+  if (!_dbus_type_writer_recurse (writer,
+                                  DBUS_TYPE_STRUCT,
+                                  &sub))
+    return FALSE;
+
+  if (!write_array_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+
+  if (!write_array_of_int32_empty (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+      
+  if (!_dbus_type_writer_unrecurse (writer, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+read_struct_of_array_of_int32 (DataBlock      *block,
+                               DBusTypeReader *reader)
+{
+  DBusTypeReader sub;
+
+  check_expected_type (reader, DBUS_TYPE_STRUCT);
+  
+  _dbus_type_reader_recurse (reader, &sub);
+
+  check_expected_type (&sub, DBUS_TYPE_ARRAY);
+
+  if (!read_array_of_int32 (block, &sub))
+    return FALSE;
+
+  NEXT_EXPECTING_TRUE (&sub);
+  if (!read_array_of_int32_empty (block, &sub))
+    return FALSE;
+  
+  NEXT_EXPECTING_FALSE (&sub);
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+write_array_of_struct_of_int32 (DataBlock      *block,
+                                DBusTypeWriter *writer)
+{
+  DataBlockState saved;
+  DBusTypeWriter sub;
+
+  data_block_save (block, &saved);
+
+  if (!_dbus_type_writer_recurse_array (writer,
+                                        DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+                                        DBUS_TYPE_INT32_AS_STRING
+                                        DBUS_TYPE_INT32_AS_STRING
+                                        DBUS_STRUCT_END_CHAR_AS_STRING,
+                                        &sub))
+    return FALSE;
+
+  if (!write_struct_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+
+  if (!write_struct_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+
+  if (!write_struct_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+  
+  if (!_dbus_type_writer_unrecurse (writer, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+read_array_of_struct_of_int32 (DataBlock      *block,
+                               DBusTypeReader *reader)
+{
+  DBusTypeReader sub;
+
+  check_expected_type (reader, DBUS_TYPE_ARRAY);
+  
+  _dbus_type_reader_recurse (reader, &sub);
+
+  check_expected_type (&sub, DBUS_TYPE_STRUCT);
+
+  if (!read_struct_of_int32 (block, &sub))
+    return FALSE;
+  
+  NEXT_EXPECTING_TRUE (&sub);
+
+  if (!read_struct_of_int32 (block, &sub))
+    return FALSE;
+  
+  NEXT_EXPECTING_TRUE (&sub);
+
+  if (!read_struct_of_int32 (block, &sub))
+    return FALSE;
+  
+  NEXT_EXPECTING_FALSE (&sub);
+  
+  return TRUE;
+}
+
 typedef enum {
   ITEM_INVALID = -1,
   ITEM_INT32 = 0,
-  ITEM_STRUCT_WITH_INT32S,
+  ITEM_STRUCT_OF_INT32,
   ITEM_STRUCT_OF_STRUCTS,
   ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS,
   ITEM_ARRAY_OF_INT32,
@@ -1495,6 +1680,8 @@ typedef enum {
   ITEM_ARRAY_OF_ARRAY_OF_INT32,
   ITEM_ARRAY_OF_ARRAY_OF_INT32_EMPTY,
   ITEM_ARRAY_OF_ARRAY_OF_ARRAY_OF_INT32,
+  ITEM_STRUCT_OF_ARRAY_OF_INT32,
+  ITEM_ARRAY_OF_STRUCT_OF_INT32,
   ITEM_LAST
 } WhichItem;
 
@@ -1516,7 +1703,7 @@ static CheckMarshalItem items[] = {
   { "int32",
     ITEM_INT32, write_int32, read_int32 },
   { "struct with two int32",
-    ITEM_STRUCT_WITH_INT32S, write_struct_with_int32s, read_struct_with_int32s },
+    ITEM_STRUCT_OF_INT32, write_struct_of_int32, read_struct_of_int32 },
   { "struct with three structs of two int32",
     ITEM_STRUCT_OF_STRUCTS, write_struct_of_structs, read_struct_of_structs },
   { "struct of two structs of three structs of two int32",
@@ -1535,7 +1722,11 @@ static CheckMarshalItem items[] = {
     write_array_of_array_of_int32_empty, read_array_of_array_of_int32_empty },
   { "array of array of array of int32",
     ITEM_ARRAY_OF_ARRAY_OF_ARRAY_OF_INT32,
-    write_array_of_array_of_array_of_int32, read_array_of_array_of_array_of_int32 }
+    write_array_of_array_of_array_of_int32, read_array_of_array_of_array_of_int32 },
+  { "struct of array of int32",
+    ITEM_STRUCT_OF_ARRAY_OF_INT32, write_struct_of_array_of_int32, read_struct_of_array_of_int32 },
+  { "array of struct of int32",
+    ITEM_ARRAY_OF_STRUCT_OF_INT32, write_array_of_struct_of_int32, read_array_of_struct_of_int32 },
 };
 
 typedef struct
@@ -1552,18 +1743,18 @@ static TestRun runs[] = {
   { { ITEM_INT32, ITEM_INT32, ITEM_INVALID } },
   { { ITEM_INT32, ITEM_INT32, ITEM_INT32, ITEM_INT32, ITEM_INT32, ITEM_INVALID } },
 
-  /* STRUCT_WITH_INT32S */
-  { { ITEM_STRUCT_WITH_INT32S, ITEM_INVALID } },
-  { { ITEM_STRUCT_WITH_INT32S, ITEM_STRUCT_WITH_INT32S, ITEM_INVALID } },
-  { { ITEM_STRUCT_WITH_INT32S, ITEM_INT32, ITEM_STRUCT_WITH_INT32S, ITEM_INVALID } },
-  { { ITEM_INT32, ITEM_STRUCT_WITH_INT32S, ITEM_INT32, ITEM_STRUCT_WITH_INT32S, ITEM_INVALID } },
-  { { ITEM_INT32, ITEM_STRUCT_WITH_INT32S, ITEM_INT32, ITEM_INT32, ITEM_INT32, ITEM_STRUCT_WITH_INT32S, ITEM_INVALID } },
+  /* STRUCT_OF_INT32 */
+  { { ITEM_STRUCT_OF_INT32, ITEM_INVALID } },
+  { { ITEM_STRUCT_OF_INT32, ITEM_STRUCT_OF_INT32, ITEM_INVALID } },
+  { { ITEM_STRUCT_OF_INT32, ITEM_INT32, ITEM_STRUCT_OF_INT32, ITEM_INVALID } },
+  { { ITEM_INT32, ITEM_STRUCT_OF_INT32, ITEM_INT32, ITEM_STRUCT_OF_INT32, ITEM_INVALID } },
+  { { ITEM_INT32, ITEM_STRUCT_OF_INT32, ITEM_INT32, ITEM_INT32, ITEM_INT32, ITEM_STRUCT_OF_INT32, ITEM_INVALID } },
 
   /* STRUCT_OF_STRUCTS */
   { { ITEM_STRUCT_OF_STRUCTS, ITEM_INVALID } },
   { { ITEM_STRUCT_OF_STRUCTS, ITEM_STRUCT_OF_STRUCTS, ITEM_INVALID } },
   { { ITEM_STRUCT_OF_STRUCTS, ITEM_INT32, ITEM_STRUCT_OF_STRUCTS, ITEM_INVALID } },
-  { { ITEM_STRUCT_WITH_INT32S, ITEM_STRUCT_OF_STRUCTS, ITEM_INT32, ITEM_STRUCT_OF_STRUCTS, ITEM_INVALID } },
+  { { ITEM_STRUCT_OF_INT32, ITEM_STRUCT_OF_STRUCTS, ITEM_INT32, ITEM_STRUCT_OF_STRUCTS, ITEM_INVALID } },
   { { ITEM_INT32, ITEM_STRUCT_OF_STRUCTS, ITEM_INT32, ITEM_STRUCT_OF_STRUCTS, ITEM_INVALID } },
   { { ITEM_STRUCT_OF_STRUCTS, ITEM_STRUCT_OF_STRUCTS, ITEM_STRUCT_OF_STRUCTS, ITEM_INVALID } },
 
@@ -1571,7 +1762,7 @@ static TestRun runs[] = {
   { { ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INVALID } },
   { { ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INVALID } },
   { { ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INT32, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INVALID } },
-  { { ITEM_STRUCT_WITH_INT32S, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INT32, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INVALID } },
+  { { ITEM_STRUCT_OF_INT32, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INT32, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INVALID } },
   { { ITEM_INT32, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INT32, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INVALID } },
   { { ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INVALID } },
 
@@ -1584,7 +1775,7 @@ static TestRun runs[] = {
   { { ITEM_INT32, ITEM_ARRAY_OF_INT32, ITEM_INVALID } },
   { { ITEM_INT32, ITEM_ARRAY_OF_INT32, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INVALID } },
   { { ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_ARRAY_OF_INT32, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INVALID } },
-  { { ITEM_STRUCT_WITH_INT32S, ITEM_ARRAY_OF_INT32, ITEM_ARRAY_OF_INT32, ITEM_INVALID } },
+  { { ITEM_STRUCT_OF_INT32, ITEM_ARRAY_OF_INT32, ITEM_ARRAY_OF_INT32, ITEM_INVALID } },
   { { ITEM_ARRAY_OF_INT32, ITEM_INT32, ITEM_ARRAY_OF_INT32, ITEM_INVALID } },
 
   /* ARRAY_OF_ARRAY_OF_INT32 */
@@ -1596,7 +1787,7 @@ static TestRun runs[] = {
   { { ITEM_INT32, ITEM_ARRAY_OF_ARRAY_OF_INT32, ITEM_INVALID } },
   { { ITEM_INT32, ITEM_ARRAY_OF_ARRAY_OF_INT32, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INVALID } },
   { { ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_ARRAY_OF_ARRAY_OF_INT32, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INVALID } },
-  { { ITEM_STRUCT_WITH_INT32S, ITEM_ARRAY_OF_ARRAY_OF_INT32, ITEM_ARRAY_OF_ARRAY_OF_INT32, ITEM_INVALID } },
+  { { ITEM_STRUCT_OF_INT32, ITEM_ARRAY_OF_ARRAY_OF_INT32, ITEM_ARRAY_OF_ARRAY_OF_INT32, ITEM_INVALID } },
   { { ITEM_ARRAY_OF_ARRAY_OF_INT32, ITEM_INT32, ITEM_ARRAY_OF_ARRAY_OF_INT32, ITEM_INVALID } },
 
   /* ARRAY_OF_ARRAY_OF_ARRAY_OF_INT32 */
@@ -1608,9 +1799,24 @@ static TestRun runs[] = {
   { { ITEM_INT32, ITEM_ARRAY_OF_ARRAY_OF_ARRAY_OF_INT32, ITEM_INVALID } },
   { { ITEM_INT32, ITEM_ARRAY_OF_ARRAY_OF_ARRAY_OF_INT32, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INVALID } },
   { { ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_ARRAY_OF_ARRAY_OF_ARRAY_OF_INT32, ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS, ITEM_INVALID } },
-  { { ITEM_STRUCT_WITH_INT32S, ITEM_ARRAY_OF_ARRAY_OF_ARRAY_OF_INT32, ITEM_ARRAY_OF_ARRAY_OF_ARRAY_OF_INT32, ITEM_INVALID } },
-  { { ITEM_ARRAY_OF_ARRAY_OF_ARRAY_OF_INT32, ITEM_INT32, ITEM_ARRAY_OF_ARRAY_OF_ARRAY_OF_INT32, ITEM_INVALID } }
+  { { ITEM_STRUCT_OF_INT32, ITEM_ARRAY_OF_ARRAY_OF_ARRAY_OF_INT32, ITEM_ARRAY_OF_ARRAY_OF_ARRAY_OF_INT32, ITEM_INVALID } },
+  { { ITEM_ARRAY_OF_ARRAY_OF_ARRAY_OF_INT32, ITEM_INT32, ITEM_ARRAY_OF_ARRAY_OF_ARRAY_OF_INT32, ITEM_INVALID } },
 
+  /* STRUCT_OF_ARRAY_OF_INT32 */
+  { { ITEM_STRUCT_OF_ARRAY_OF_INT32, ITEM_INVALID } },
+  { { ITEM_STRUCT_OF_ARRAY_OF_INT32, ITEM_STRUCT_OF_ARRAY_OF_INT32, ITEM_INVALID } },
+  { { ITEM_STRUCT_OF_ARRAY_OF_INT32, ITEM_INT32, ITEM_STRUCT_OF_ARRAY_OF_INT32, ITEM_INVALID } },
+  { { ITEM_STRUCT_OF_INT32, ITEM_STRUCT_OF_ARRAY_OF_INT32, ITEM_INT32, ITEM_STRUCT_OF_ARRAY_OF_INT32, ITEM_INVALID } },
+  { { ITEM_INT32, ITEM_STRUCT_OF_ARRAY_OF_INT32, ITEM_INT32, ITEM_STRUCT_OF_ARRAY_OF_INT32, ITEM_INVALID } },
+  { { ITEM_STRUCT_OF_ARRAY_OF_INT32, ITEM_STRUCT_OF_ARRAY_OF_INT32, ITEM_STRUCT_OF_ARRAY_OF_INT32, ITEM_INVALID } },
+
+  /* ARRAY_OF_STRUCT_OF_INT32 */
+  { { ITEM_ARRAY_OF_STRUCT_OF_INT32, ITEM_INVALID } },
+  { { ITEM_ARRAY_OF_STRUCT_OF_INT32, ITEM_ARRAY_OF_STRUCT_OF_INT32, ITEM_INVALID } },
+  { { ITEM_ARRAY_OF_STRUCT_OF_INT32, ITEM_INT32, ITEM_ARRAY_OF_STRUCT_OF_INT32, ITEM_INVALID } },
+  { { ITEM_STRUCT_OF_INT32, ITEM_ARRAY_OF_STRUCT_OF_INT32, ITEM_INT32, ITEM_ARRAY_OF_STRUCT_OF_INT32, ITEM_INVALID } },
+  { { ITEM_INT32, ITEM_ARRAY_OF_STRUCT_OF_INT32, ITEM_INT32, ITEM_ARRAY_OF_STRUCT_OF_INT32, ITEM_INVALID } },
+  { { ITEM_ARRAY_OF_STRUCT_OF_INT32, ITEM_ARRAY_OF_STRUCT_OF_INT32, ITEM_ARRAY_OF_STRUCT_OF_INT32, ITEM_INVALID } }
   
 };
 
@@ -1664,6 +1870,13 @@ perform_one_run (DataBlock *block,
     {
       CheckMarshalItem *item = &items[run->items[i]];
 
+      _dbus_verbose (">>data for reading %s\n", item->desc);
+      
+      _dbus_verbose_bytes_of_string (reader.type_str, 0,
+                                     _dbus_string_get_length (reader.type_str));
+      _dbus_verbose_bytes_of_string (reader.value_str, 0,
+                                     _dbus_string_get_length (reader.value_str));
+      
       _dbus_verbose (">>reading %s\n", item->desc);
       
       if (!(* item->read_item_func) (block, &reader))
