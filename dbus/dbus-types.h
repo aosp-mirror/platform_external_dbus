@@ -28,8 +28,39 @@
 #define DBUS_TYPES_H
 
 typedef unsigned int dbus_bool_t;
-
 typedef unsigned int dbus_uint32_t;
 typedef int          dbus_int32_t;
+
+
+/* Normally docs are in .c files, but there isn't a .c file for this. */
+/**
+ * @defgroup DBusTypes Basic types
+ * @ingroup  DBus
+ * @brief dbus_bool_t, dbus_int32_t, etc.
+ *
+ * Typedefs for common primitive types.
+ *
+ * @{
+ */
+
+/**
+ * @typedef dbus_bool_t
+ *
+ * A boolean, valid values are #TRUE and #FALSE.
+ */
+
+/**
+ * @typedef dbus_uint32_t
+ *
+ * A 32-bit unsigned integer on all platforms.
+ */
+
+/**
+ * @typedef dbus_int32_t
+ *
+ * A 32-bit signed integer on all platforms.
+ */
+
+/** @} */
 
 #endif /* DBUS_TYPES_H */

@@ -20,6 +20,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+#ifdef DBUS_INSIDE_DBUS_H
+#error "You can't include dbus-internals.h in the public header dbus.h"
+#endif
 
 #ifndef DBUS_INTERNALS_H
 #define DBUS_INTERNALS_H
@@ -28,13 +31,20 @@
 
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
+#include <dbus/dbus-errors.h>
 #include <stdlib.h> /* for abort() */
 #include <string.h> /* just so it's there in every file */
 
 DBUS_BEGIN_DECLS;
 
-void _dbus_warn (const char *format,
-                 ...);
+void _dbus_warn    (const char *format,
+                    ...);
+void _dbus_verbose (const char *format,
+                    ...);
+
+const char* _dbus_strerror (int error_number);
+
+DBusResultCode _dbus_result_from_errno (int error_number);
 
 #define _dbus_assert(condition)                                         \
 do {                                                                    \
@@ -58,10 +68,19 @@ do {                                                                            
 #define _DBUS_POINTER_TO_INT(pointer) ((long)(pointer))
 #define _DBUS_INT_TO_POINTER(integer) ((void*)((long)(integer)))
 
+#define _DBUS_ZERO(object) (memset (&(object), '\0', sizeof ((object))))
+
 char* _dbus_strdup (const char *str);
 
 #define _DBUS_INT_MIN	(-_DBUS_INT_MAX - 1)
 #define _DBUS_INT_MAX	2147483647
+#define _DBUS_MAX_SUN_PATH_LENGTH 99
+
+typedef void (* DBusForeachFunction) (void *element,
+                                      void *data);
+
+dbus_bool_t _dbus_set_fd_nonblocking (int             fd,
+                                      DBusResultCode *result);
 
 DBUS_END_DECLS;
 

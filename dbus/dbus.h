@@ -26,8 +26,11 @@
 
 #define DBUS_INSIDE_DBUS_H 1
 
+#include <dbus/dbus-connection.h>
+#include <dbus/dbus-errors.h>
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-message.h>
+#include <dbus/dbus-server.h>
 #include <dbus/dbus-types.h>
 
 #undef DBUS_INSIDE_DBUS_H
@@ -42,4 +45,4 @@
 /** @} */
 
 
-#endif /* DBUS_H
+#endif /* DBUS_H */

@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-message.h DBusMessage object
+/* dbus-server-unix.h Server implementation for Unix network protocols.
  *
  * Copyright (C) 2002  Red Hat Inc.
  *
@@ -20,26 +20,18 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#if !defined (DBUS_INSIDE_DBUS_H) && !defined (DBUS_COMPILATION)
-#error "Only <dbus/dbus.h> can be included directly, this file may disappear or change contents."
-#endif
+#ifndef DBUS_SERVER_UNIX_H
+#define DBUS_SERVER_UNIX_H
 
-#ifndef DBUS_MESSAGE_H
-#define DBUS_MESSAGE_H
-
-#include <dbus/dbus-macros.h>
-#include <dbus/dbus-types.h>
+#include <dbus/dbus-internals.h>
+#include <dbus/dbus-server-protected.h>
 
 DBUS_BEGIN_DECLS;
 
-typedef struct DBusMessage DBusMessage;
-
-DBusMessage* dbus_message_new   (void);
-
-void         dbus_message_ref   (DBusMessage *message);
-void         dbus_message_unref (DBusMessage *message);
-
+DBusServer* _dbus_server_new_for_fd            (int             fd);
+DBusServer* _dbus_server_new_for_domain_socket (const char     *path,
+                                                DBusResultCode *result);
 
 DBUS_END_DECLS;
 
-#endif /* DBUS_MESSAGE_H */
+#endif /* DBUS_SERVER_UNIX_H */

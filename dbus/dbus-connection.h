@@ -1,0 +1,100 @@
+/* -*- mode: C; c-file-style: "gnu" -*- */
+/* dbus-connection.h DBusConnection object
+ *
+ * Copyright (C) 2002  Red Hat Inc.
+ *
+ * Licensed under the Academic Free License version 1.2
+ * 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
+#if !defined (DBUS_INSIDE_DBUS_H) && !defined (DBUS_COMPILATION)
+#error "Only <dbus/dbus.h> can be included directly, this file may disappear or change contents."
+#endif
+
+#ifndef DBUS_CONNECTION_H
+#define DBUS_CONNECTION_H
+
+#include <dbus/dbus-errors.h>
+#include <dbus/dbus-message.h>
+#include <dbus/dbus-memory.h>
+
+DBUS_BEGIN_DECLS;
+
+typedef struct DBusConnection DBusConnection;
+typedef struct DBusWatch DBusWatch;
+
+typedef enum
+{
+  DBUS_WATCH_READABLE = 1 << 0, /**< As in POLLIN */
+  DBUS_WATCH_WRITABLE = 1 << 1, /**< As in POLLOUT */
+  DBUS_WATCH_ERROR    = 1 << 2, /**< As in POLLERR (can't watch for this, but
+                                 *   the flag can be passed to dbus_connection_handle_watch()).
+                                 */
+  DBUS_WATCH_HANGUP   = 1 << 3  /**< As in POLLHUP (can't watch for it, but
+                                 *   can be present in current state). */
+} DBusWatchFlags;
+
+typedef void (* DBusAddWatchFunction)    (DBusWatch      *watch,
+                                          void           *data);
+
+typedef void (* DBusRemoveWatchFunction) (DBusWatch      *watch,
+                                          void           *data);
+
+typedef void (* DBusConnectionErrorFunction) (DBusConnection *connection,
+                                              DBusResultCode  error_code,
+                                              void           *data);
+
+DBusConnection* dbus_connection_open             (const char     *address,
+                                                  DBusResultCode *result);
+void            dbus_connection_ref              (DBusConnection *connection);
+void            dbus_connection_unref            (DBusConnection *connection);
+void            dbus_connection_disconnect       (DBusConnection *connection);
+dbus_bool_t     dbus_connection_get_is_connected (DBusConnection *connection);
+dbus_bool_t     dbus_connection_send_message     (DBusConnection *connection,
+                                                  DBusMessage    *message,
+                                                  DBusResultCode *result);
+void            dbus_connection_flush            (DBusConnection *connection);
+
+int          dbus_connection_get_n_messages      (DBusConnection *connection);
+DBusMessage* dbus_connection_peek_message        (DBusConnection *connection);
+DBusMessage* dbus_connection_pop_message         (DBusConnection *connection);
+
+
+void dbus_connection_set_error_function  (DBusConnection              *connection,
+                                          DBusConnectionErrorFunction  error_function,
+                                          void                        *data,
+                                          DBusFreeFunction             free_data_function);
+void dbus_connection_set_watch_functions (DBusConnection              *connection,
+                                          DBusAddWatchFunction         add_function,
+                                          DBusRemoveWatchFunction      remove_function,
+                                          void                        *data,
+                                          DBusFreeFunction             free_data_function);
+void dbus_connection_handle_watch        (DBusConnection              *connection,
+                                          DBusWatch                   *watch,
+                                          unsigned int                 condition);
+
+
+int          dbus_watch_get_fd    (DBusWatch        *watch);
+unsigned int dbus_watch_get_flags (DBusWatch        *watch);
+void*        dbus_watch_get_data  (DBusWatch        *watch);
+void         dbus_watch_set_data  (DBusWatch        *watch,
+                                   void             *data,
+                                   DBusFreeFunction  free_data_function);
+
+
+DBUS_END_DECLS;
+
+#endif /* DBUS_CONNECTION_H */

@@ -521,6 +521,34 @@ _dbus_list_get_length (DBusList **list)
   return length;
 }
 
+/**
+ * Calls the given function for each element in the list.  The
+ * function is passed the list element as its first argument, and the
+ * given data as its second argument.
+ *
+ * @param list address of the head of the list.
+ * @param function function to call for each element.
+ * @param data extra data for the function.
+ * 
+ */
+void
+_dbus_list_foreach (DBusList          **list,
+                    DBusForeachFunction function,
+                    void               *data)
+{
+  DBusList *link;
+
+  link = *list;
+  while (link != NULL)
+    {
+      DBusList *next = _dbus_list_get_next_link (list, link);
+      
+      (* function) (link->data, data);
+      
+      link = next;
+    }
+}
+
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS

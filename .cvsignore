@@ -1,0 +1,16 @@
+config.log
+config.status
+config.sub
+configure
+*.pc
+libtool
+ltmain.sh
+stamp-h1
+Doxyfile
+Makefile
+Makefile.in
+aclocal.m4
+autom4te.cache
+config.guess
+config.h
+config.h.in

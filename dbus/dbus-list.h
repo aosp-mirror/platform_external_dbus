@@ -24,6 +24,7 @@
 #ifndef DBUS_LIST_H
 #define DBUS_LIST_H
 
+#include <dbus/dbus-internals.h>
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
 
@@ -63,7 +64,9 @@ dbus_bool_t _dbus_list_copy           (DBusList **list,
                                        DBusList **dest);
 int         _dbus_list_get_length     (DBusList **list);
 
-
+void _dbus_list_foreach (DBusList            **list,
+                         DBusForeachFunction   function,
+                         void                 *data);
 
 #define _dbus_list_get_next_link(list, link) ((link)->next == *(list) ? NULL : (link)->next)
 #define _dbus_list_get_prev_link(list, link) ((link)->prev == *(list) ? NULL : (link)->prev)

@@ -23,6 +23,11 @@
 #include "dbus-internals.h"
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
+#include <sys/types.h>
+#include <errno.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 /**
  * @defgroup DBusInternals D-BUS internal implementation details
@@ -31,7 +36,7 @@
  */
 
 /**
- * @defgroup DBusInternalsUtils Utilities
+ * @defgroup DBusInternalsUtils Utilities and portability
  * @ingroup DBusInternals
  * @brief Utility functions (_dbus_assert(), _dbus_warn(), etc.)
  * @{
@@ -82,7 +87,13 @@
  *
  * @param integer the integer to stuff into a pointer.
  */
-
+/**
+ * @def _DBUS_ZERO
+ *
+ * Sets all bits in an object to zero.
+ *
+ * @param object the object to be zeroed.
+ */
 /**
  * @def _DBUS_INT_MIN
  *
@@ -92,6 +103,25 @@
  * @def _DBUS_INT_MAX
  *
  * Maximum value of type "int"
+ */
+/**
+ * @def _DBUS_MAX_SUN_PATH_LENGTH
+ *
+ * Maximum length of the path to a UNIX domain socket,
+ * sockaddr_un::sun_path member. POSIX requires that all systems
+ * support at least 100 bytes here, including the nul termination.
+ * We use 99 for the max value to allow for the nul.
+ *
+ * We could probably also do sizeof (addr.sun_path)
+ * but this way we are the same on all platforms
+ * which is probably a good idea.
+ */
+
+/**
+ * @typedef DBusForeachFunction
+ * 
+ * Used to iterate over each item in a collection, such as
+ * a DBusList.
  */
 
 /**
@@ -109,6 +139,134 @@ _dbus_warn (const char *format,
   va_start (args, format);
   vfprintf (stderr, format, args);
   va_end (args);
+}
+
+/**
+ * Prints a warning message to stderr
+ * if the user has enabled verbose mode.
+ *
+ * @param format printf-style format string.
+ */
+void
+_dbus_verbose (const char *format,
+               ...)
+{
+  va_list args;
+  static dbus_bool_t verbose = TRUE;
+  static dbus_bool_t initted = FALSE;
+
+  if (!verbose)
+    return;
+  
+  if (!initted)
+    {
+      verbose = getenv ("DBUS_VERBOSE") != NULL;
+      initted = TRUE;
+    }
+  
+  va_start (args, format);
+  vfprintf (stderr, format, args);
+  va_end (args);
+}
+
+/**
+ * A wrapper around strerror() because some platforms
+ * may be lame and not have strerror().
+ *
+ * @param error_number errno.
+ * @returns error description.
+ */
+const char*
+_dbus_strerror (int error_number)
+{
+  return strerror (error_number);
+}
+
+/**
+ * Converts a UNIX errno into a DBusResultCode.
+ *
+ * @param error_number the errno.
+ * @returns the result code.
+ */
+DBusResultCode
+_dbus_result_from_errno (int error_number)
+{
+  switch (error_number)
+    {
+    case 0:
+      return DBUS_RESULT_SUCCESS;
+      
+#ifdef EPROTONOSUPPORT
+    case EPROTONOSUPPORT:
+      return DBUS_RESULT_NOT_SUPPORTED;
+#endif
+#ifdef EAFNOSUPPORT
+    case EAFNOSUPPORT:
+      return DBUS_RESULT_NOT_SUPPORTED;
+#endif
+#ifdef ENFILE
+    case ENFILE:
+      return DBUS_RESULT_LIMITS_EXCEEDED; /* kernel out of memory */
+#endif
+#ifdef EMFILE
+    case EMFILE:
+      return DBUS_RESULT_LIMITS_EXCEEDED;
+#endif
+#ifdef EACCES
+    case EACCES:
+      return DBUS_RESULT_ACCESS_DENIED;
+#endif
+#ifdef EPERM
+    case EPERM:
+      return DBUS_RESULT_ACCESS_DENIED;
+#endif
+#ifdef ENOBUFS
+    case ENOBUFS:
+      return DBUS_RESULT_NO_MEMORY;
+#endif
+#ifdef ENOMEM
+    case ENOMEM:
+      return DBUS_RESULT_NO_MEMORY;
+#endif
+#ifdef EINVAL
+    case EINVAL:
+      return DBUS_RESULT_FAILED;
+#endif
+#ifdef EBADF
+    case EBADF:
+      return DBUS_RESULT_FAILED;
+#endif
+#ifdef EFAULT
+    case EFAULT:
+      return DBUS_RESULT_FAILED;
+#endif
+#ifdef ENOTSOCK
+    case ENOTSOCK:
+      return DBUS_RESULT_FAILED;
+#endif
+#ifdef EISCONN
+    case EISCONN:
+      return DBUS_RESULT_FAILED;
+#endif
+#ifdef ECONNREFUSED
+    case ECONNREFUSED:
+      return DBUS_RESULT_NO_SERVER;
+#endif
+#ifdef ETIMEDOUT
+    case ETIMEDOUT:
+      return DBUS_RESULT_TIMEOUT;
+#endif
+#ifdef ENETUNREACH
+    case ENETUNREACH:
+      return DBUS_RESULT_NO_NETWORK;
+#endif
+#ifdef EADDRINUSE
+    case EADDRINUSE:
+      return DBUS_RESULT_ADDRESS_IN_USE;
+#endif      
+    }
+
+  return DBUS_RESULT_FAILED;
 }
 
 /**
@@ -137,6 +295,40 @@ _dbus_strdup (const char *str)
   memcpy (copy, str, len + 1);
   
   return copy;
+}
+
+/**
+ * Sets a file descriptor to be nonblocking.
+ *
+ * @param fd the file descriptor.
+ * @param result address of result code.
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_set_fd_nonblocking (int             fd,
+                          DBusResultCode *result)
+{
+  int val;
+
+  val = fcntl (fd, F_GETFL, 0);
+  if (val < 0)
+    {
+      dbus_set_result (result, _dbus_result_from_errno (errno));
+      _dbus_verbose ("Failed to get flags for fd %d: %s\n", fd,
+                     _dbus_strerror (errno));
+      return FALSE;
+    }
+
+  if (fcntl (fd, F_SETFL, val | O_NONBLOCK) < 0)
+    {
+      dbus_set_result (result, _dbus_result_from_errno (errno));      
+      _dbus_verbose ("Failed to set fd %d nonblocking: %s\n",
+                     fd, _dbus_strerror (errno));
+
+      return FALSE;
+    }
+
+  return TRUE;
 }
 
 /** @} */
