@@ -25,6 +25,7 @@
 #include "dbus-test.h"
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
+#include "dbus-marshal.h"
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
@@ -135,7 +136,7 @@ try_mutated_data (const DBusString *data)
         {
           if (WEXITSTATUS (status) != 0)
             {
-              _dbus_string_append (&filename, "exited-");
+              _dbus_string_append (&filename, "-exited-");
               _dbus_string_append_int (&filename, WEXITSTATUS (status));
               failed = TRUE;
             }
@@ -152,6 +153,8 @@ try_mutated_data (const DBusString *data)
           const char *filename_c;
           DBusResultCode result;
 
+          _dbus_string_append (&filename, ".message-raw");
+          
           _dbus_string_get_const_data (&filename, &filename_c);
           printf ("Child failed, writing %s\n",
                   filename_c);
@@ -284,6 +287,46 @@ randomly_add_one_byte (const DBusString *orig_data,
 }
 
 static void
+randomly_modify_length (const DBusString *orig_data,
+                        DBusString       *mutated)
+{
+  int i;
+  int byte_order;
+  const char *d;
+  dbus_uint32_t orig;
+  int delta;
+  
+  if (orig_data != mutated)
+    {
+      _dbus_string_set_length (mutated, 0);
+      
+      if (!_dbus_string_copy (orig_data, 0, mutated, 0))
+        _dbus_assert_not_reached ("out of mem");
+    }
+
+  if (_dbus_string_get_length (mutated) < 12)
+    return;
+  
+  _dbus_string_get_const_data (mutated, &d);
+
+  if (!(*d == DBUS_LITTLE_ENDIAN ||
+        *d == DBUS_BIG_ENDIAN))
+    return;
+
+  byte_order = *d;
+  
+  i = random_int_in_range (4, _dbus_string_get_length (mutated) - 8);
+  i = _DBUS_ALIGN_VALUE (i, 4);
+
+  orig = _dbus_demarshal_uint32 (mutated, byte_order, i, NULL);
+
+  delta = random_int_in_range (-10, 10);  
+  
+  _dbus_marshal_set_uint32 (mutated, byte_order, i,
+                            (unsigned) (orig + delta));
+}
+
+static void
 randomly_do_n_things (const DBusString *orig_data,
                       DBusString       *mutated,
                       int               n)
@@ -295,7 +338,8 @@ randomly_do_n_things (const DBusString *orig_data,
       randomly_shorten_or_lengthen,
       randomly_change_one_byte,
       randomly_add_one_byte,
-      randomly_remove_one_byte
+      randomly_remove_one_byte,
+      randomly_modify_length
     };
 
   _dbus_string_set_length (mutated, 0);
@@ -354,6 +398,15 @@ find_breaks_based_on (const DBusString   *filename,
       ++i;
     }
 
+  i = 0;
+  while (i < 50)
+    {
+      randomly_modify_length (&orig_data, &mutated);
+      try_mutated_data (&mutated);
+
+      ++i;
+    }
+  
   i = 0;
   while (i < 50)
     {

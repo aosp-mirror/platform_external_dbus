@@ -1,5 +1,13 @@
 2003-02-01  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-break-loader.c (randomly_modify_length): change 
+	a 4-byte value in the message as if it were a length
+
+	* dbus/dbus-sysdeps.c (_dbus_string_save_to_file): don't set
+	execute bit on saved files
+
+2003-02-01  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-break-loader.c (main): new program to find messages
 	that break the loader.
 

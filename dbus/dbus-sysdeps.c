@@ -1159,7 +1159,7 @@ _dbus_string_save_to_file (const DBusString *str,
   _dbus_string_get_const_data (filename, &filename_c);
   
   fd = open (filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
-             0700);
+             0600);
   if (fd < 0)
     return _dbus_result_from_errno (errno);
 
