@@ -1,5 +1,14 @@
 2003-01-25  Anders Carlsson  <andersca@codefactory.se>
 
+	* glib/dbus-gmain.c: (dbus_connection_prepare),
+	(dbus_connection_check), (dbus_connection_dispatch), (add_watch),
+	(remove_watch), (dbus_connection_hookup_with_g_main):
+	Rewrite the glib handling to use its own GSource instead of a 
+	GIOChannel so we can catch messages put in the queue while waiting
+	for a reply.
+	
+2003-01-25  Anders Carlsson  <andersca@codefactory.se>
+
 	* bus/Makefile.am:
 	* bus/connection.c: (connection_disconnect_handler),
 	(connection_watch_callback), (bus_connection_setup):

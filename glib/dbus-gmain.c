@@ -24,97 +24,151 @@
 #include "dbus-glib.h"
 #include <glib.h>
 
-typedef struct
+typedef struct _DBusGSource DBusGSource;
+
+struct _DBusGSource
 {
-  DBusWatch *watch;
+  GSource source;
+
   DBusConnection *connection;
 
-  guint tag;
-} WatchCallback;
+  GList *poll_fds;
+  GHashTable *watches;
+};
+
+static gboolean dbus_connection_prepare  (GSource     *source,
+					  gint        *timeout);
+static gboolean dbus_connection_check    (GSource     *source);
+static gboolean dbus_connection_dispatch (GSource     *source,
+					  GSourceFunc  callback,
+					  gpointer     user_data);
+
+
+static GSourceFuncs dbus_funcs = {
+  dbus_connection_prepare,
+  dbus_connection_check,
+  dbus_connection_dispatch,
+  NULL
+};
 
 static gboolean
-watch_callback (GIOChannel *source,
-		GIOCondition condition,
-		gpointer data)
+dbus_connection_prepare (GSource *source,
+			 gint    *timeout)
 {
-  WatchCallback *cb = data;
-  unsigned int flags = 0;
-
-  if (condition & G_IO_IN)
-    flags |= DBUS_WATCH_READABLE;
-  if (condition & G_IO_OUT)
-    flags |= DBUS_WATCH_WRITABLE;
-  if (condition & G_IO_ERR)
-    flags |= DBUS_WATCH_ERROR;
-  if (condition & G_IO_HUP)
-    flags |= DBUS_WATCH_HANGUP;
-
-  dbus_connection_handle_watch (cb->connection,
-				cb->watch,
-				flags);
-
-  /* Dispatch messages */
-  while (dbus_connection_dispatch_message (cb->connection));
+  DBusConnection *connection = ((DBusGSource *)source)->connection;
   
-  return TRUE;
+  *timeout = -1;
+
+  return (dbus_connection_peek_message (connection) != NULL);  
 }
 
-static void
-free_callback_data (WatchCallback *cb)
+static gboolean
+dbus_connection_check (GSource *source)
 {
-  dbus_connection_unref (cb->connection);
-  g_free (cb);
+  DBusGSource *dbus_source = (DBusGSource *)source;
+  GList *list;
+
+  list = dbus_source->poll_fds;
+
+  while (list)
+    {
+      GPollFD *poll_fd = list->data;
+
+      if (poll_fd->revents != 0)
+	return TRUE;
+
+      list = list->next;
+    }
+
+  return FALSE;  
+}
+
+static gboolean
+dbus_connection_dispatch (GSource     *source,
+			  GSourceFunc  callback,
+			  gpointer     user_data)
+{
+   DBusGSource *dbus_source = (DBusGSource *)source;
+   
+   GList *list;
+
+   list = dbus_source->poll_fds;
+
+   while (list)
+     {
+       GPollFD *poll_fd = list->data;
+
+       if (poll_fd->revents != 0)
+	 {
+	   DBusWatch *watch = g_hash_table_lookup (dbus_source->watches, poll_fd);
+	   guint condition = 0;
+	   
+	   if (poll_fd->revents & G_IO_IN)
+	     condition |= DBUS_WATCH_READABLE;
+	   if (poll_fd->revents & G_IO_OUT)
+	     condition |= DBUS_WATCH_WRITABLE;
+	   if (poll_fd->revents & G_IO_ERR)
+	     condition |= DBUS_WATCH_ERROR;
+	   if (poll_fd->revents & G_IO_HUP)
+	     condition |= DBUS_WATCH_HANGUP;
+	   
+	   dbus_connection_handle_watch (dbus_source->connection, watch, condition);
+	 }
+       
+       list = list->next;
+     }
+
+   /* Dispatch messages */
+   while (dbus_connection_dispatch_message (dbus_source->connection));
+
+   return TRUE;
 }
 
 static void
 add_watch (DBusWatch *watch,
 	   gpointer   data)
 {
-  GIOChannel *channel;
-  DBusConnection *connection = data;
-  GIOCondition condition = 0;
-  WatchCallback *cb;
-  guint tag;
-  gint flags;
-
+  GPollFD *poll_fd;
+  DBusGSource *dbus_source;
+  guint flags;
+  
+  dbus_source = data;
+  
+  poll_fd = g_new (GPollFD, 1);
+  poll_fd->fd = dbus_watch_get_fd (watch);
+  poll_fd->events = 0;
   flags = dbus_watch_get_flags (watch);
-  condition = 0;
-  
-  if (flags & DBUS_WATCH_READABLE)
-    condition |= G_IO_IN;
-  if (flags & DBUS_WATCH_WRITABLE)
-    condition |= G_IO_OUT;
-  if (flags & DBUS_WATCH_ERROR)
-    condition |= G_IO_ERR;
-  if (flags & DBUS_WATCH_HANGUP)
-    condition |= G_IO_HUP;
-  
-  channel = g_io_channel_unix_new (dbus_watch_get_fd (watch));
-  g_io_channel_set_encoding (channel, NULL, NULL);
-  g_io_channel_set_buffered (channel, FALSE);
+  dbus_watch_set_data (watch, poll_fd, NULL);
 
-  cb = g_new0 (WatchCallback, 1);
-  cb->watch = watch;
-  cb->connection = connection;
-  dbus_connection_ref (connection);
-  
-  dbus_watch_set_data (watch, cb, (DBusFreeFunction)free_callback_data);
-  
-  tag = g_io_add_watch (channel, condition, watch_callback, cb);
-  cb->tag = tag;
+  if (flags & DBUS_WATCH_READABLE)
+    poll_fd->events |= G_IO_IN;
+  if (flags & DBUS_WATCH_WRITABLE)
+    poll_fd->events |= G_IO_OUT;
+  if (flags & DBUS_WATCH_ERROR)
+    poll_fd->events |= G_IO_ERR;
+  if (flags & DBUS_WATCH_HANGUP)
+    poll_fd->events |= G_IO_HUP;
+
+  g_source_add_poll ((GSource *)dbus_source, poll_fd);
+
+  dbus_source->poll_fds = g_list_prepend (dbus_source->poll_fds, poll_fd);
+  g_hash_table_insert (dbus_source->watches, poll_fd, watch);
 }
 
 static void
 remove_watch (DBusWatch *watch,
 	      gpointer   data)
 {
-  WatchCallback *cb;
-
-  cb = dbus_watch_get_data (watch);
-
-  g_source_remove (cb->tag);
+  DBusGSource *dbus_source = data;
+  GPollFD *poll_fd;
   
-  dbus_watch_set_data (watch, NULL, NULL);
+  poll_fd = dbus_watch_get_data (watch);
+  
+  dbus_source->poll_fds = g_list_remove (dbus_source->poll_fds, poll_fd);
+  g_hash_table_remove (dbus_source->watches, poll_fd);
+  g_source_remove_poll ((GSource *)dbus_source, poll_fd);
+  
+  g_free (poll_fd);
 }
 
 static void
@@ -132,14 +186,23 @@ remove_timeout (DBusTimeout *timeout,
 void
 dbus_connection_hookup_with_g_main (DBusConnection *connection)
 {
+  GSource *source;
+  DBusGSource *dbus_source;
+
+  source = g_source_new (&dbus_funcs, sizeof (DBusGSource));
+  
+  dbus_source = (DBusGSource *)source;  
+  dbus_source->watches = g_hash_table_new (NULL, NULL);
+  dbus_source->connection = connection;
 
   dbus_connection_set_watch_functions (connection,
 				       add_watch,
 				       remove_watch,
-				       connection, NULL);
+				       source, NULL);
   dbus_connection_set_timeout_functions (connection,
 					 add_timeout,
 					 remove_timeout,
 					 NULL, NULL);
-					 
+
+  g_source_attach (source, NULL);
 }
