@@ -1,5 +1,7 @@
 2004-08-23  Colin Walters  <walters@redhat.com>
 
+	Updated SELinux support from Matthew Rickard <mjricka@epoch.ncsc.mil>
+
 	* bus/selinux.h: Prototype bus_selinux_get_policy_root.
 
 	* bus/selinux.c: Create a thread for policy reload notification.
