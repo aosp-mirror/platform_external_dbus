@@ -52,12 +52,31 @@ check_memleaks (const char *name)
 }
 #endif /* DBUS_BUILD_TESTS */
 
+static void
+test_pre_hook (void)
+{
+  
+  if (_dbus_getenv ("DBUS_TEST_SELINUX") && !bus_selinux_init ())
+    die ("could not init selinux support");
+}
+
+static char *progname = "";
+static void
+test_post_hook (void)
+{
+  if (_dbus_getenv ("DBUS_TEST_SELINUX"))
+    bus_selinux_shutdown ();
+  check_memleaks (progname);
+}
+
 int
 main (int argc, char **argv)
 {
 #ifdef DBUS_BUILD_TESTS
   const char *dir;
   DBusString test_data_dir;
+
+  progname = argv[0];
 
   if (argc > 1)
     dir = argv[1];
@@ -70,9 +89,6 @@ main (int argc, char **argv)
       return 1;
     }
 
-  if (!bus_selinux_init ())
-    die ("could not init selinux support");
-
   _dbus_string_init_const (&test_data_dir, dir);
 
 #if 0
@@ -81,50 +97,50 @@ main (int argc, char **argv)
     die ("initializing debug threads");
 #endif
  
+  test_pre_hook ();
   printf ("%s: Running expire list test\n", argv[0]);
   if (!bus_expire_list_test (&test_data_dir))
     die ("expire list");
-  
-  check_memleaks (argv[0]);
-  
+  test_post_hook ();
+ 
+  test_pre_hook ();
   printf ("%s: Running config file parser test\n", argv[0]);
   if (!bus_config_parser_test (&test_data_dir))
     die ("parser");
-  
-  check_memleaks (argv[0]);  
-  
+  test_post_hook ();
+
+  test_pre_hook ();
   printf ("%s: Running policy test\n", argv[0]);
   if (!bus_policy_test (&test_data_dir))
     die ("policy");
+  test_post_hook ();
 
-  check_memleaks (argv[0]);
-
+  test_pre_hook ();
   printf ("%s: Running signals test\n", argv[0]);
   if (!bus_signals_test (&test_data_dir))
     die ("signals");
+  test_post_hook ();
 
-  check_memleaks (argv[0]);
-  
+  test_pre_hook ();
   printf ("%s: Running SHA1 connection test\n", argv[0]);
   if (!bus_dispatch_sha1_test (&test_data_dir))
     die ("sha1");
+  test_post_hook ();
 
-  check_memleaks (argv[0]);
+  test_pre_hook ();
   printf ("%s: Running message dispatch test\n", argv[0]);
   if (!bus_dispatch_test (&test_data_dir)) 
     die ("dispatch");
+  test_post_hook ();
 
-  check_memleaks (argv[0]);
-
+  test_pre_hook ();
   printf ("%s: Running service files reloading test\n", argv[0]);
   if (!bus_activation_service_reload_test (&test_data_dir))
     die ("service reload");
+  test_post_hook ();
 
-  check_memleaks (argv[0]);
-  
   printf ("%s: Success\n", argv[0]);
 
-  bus_selinux_shutdown ();
   
   return 0;
 #else /* DBUS_BUILD_TESTS */

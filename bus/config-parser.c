@@ -73,6 +73,7 @@ typedef struct
     struct
     {
       unsigned int ignore_missing : 1;
+      unsigned int selinux_root_relative : 1;
     } include;
 
     struct
@@ -717,6 +718,7 @@ start_busconfig_child (BusConfigParser   *parser,
     {
       Element *e;
       const char *ignore_missing;
+      const char *selinux_root_relative;
 
       if ((e = push_element (parser, ELEMENT_INCLUDE)) == NULL)
         {
@@ -725,12 +727,14 @@ start_busconfig_child (BusConfigParser   *parser,
         }
 
       e->d.include.ignore_missing = FALSE;
+      e->d.include.selinux_root_relative = FALSE;
 
       if (!locate_attributes (parser, "include",
                               attribute_names,
                               attribute_values,
                               error,
                               "ignore_missing", &ignore_missing,
+                              "selinux_root_relative", &selinux_root_relative,
                               NULL))
         return FALSE;
 
@@ -746,6 +750,21 @@ start_busconfig_child (BusConfigParser   *parser,
                               "ignore_missing attribute must have value \"yes\" or \"no\"");
               return FALSE;
             }
+        }
+      
+      if (selinux_root_relative != NULL)
+        {
+          if (strcmp (selinux_root_relative, "yes") == 0)
+            e->d.include.selinux_root_relative = TRUE;
+          else if (strcmp (selinux_root_relative, "no") == 0)
+            e->d.include.selinux_root_relative = FALSE;
+          else
+            {
+              dbus_set_error (error, DBUS_ERROR_FAILED,
+                              "selinux_root_relative attribute must have value"
+                              " \"yes\" or \"no\"");
+              return FALSE;
+	    }
         }
 
       return TRUE;
@@ -1994,19 +2013,36 @@ bus_config_parser_content (BusConfigParser   *parser,
 
     case ELEMENT_INCLUDE:
       {
-        DBusString full_path;
-        
+        DBusString full_path, selinux_policy_root;
+
         e->had_content = TRUE;
 
         if (!_dbus_string_init (&full_path))
           goto nomem;
-        
-        if (!make_full_path (&parser->basedir, content, &full_path))
+
+        if (e->d.include.selinux_root_relative)
+	  {
+            if (!bus_selinux_get_policy_root ())
+	      {
+		dbus_set_error (error, DBUS_ERROR_FAILED,
+				"Could not determine SELinux policy root for relative inclusion");
+		_dbus_string_free (&full_path);
+		return FALSE;
+	      }
+            _dbus_string_init_const (&selinux_policy_root,
+                                     bus_selinux_get_policy_root ());
+            if (!make_full_path (&selinux_policy_root, content, &full_path))
+              {
+                _dbus_string_free (&full_path);
+                goto nomem;
+              }
+          }
+        else if (!make_full_path (&parser->basedir, content, &full_path))
           {
             _dbus_string_free (&full_path);
             goto nomem;
           }
-        
+
         if (!include_file (parser, &full_path,
                            e->d.include.ignore_missing, error))
           {

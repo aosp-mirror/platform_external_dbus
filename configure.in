@@ -724,7 +724,7 @@ fi
 AM_CONDITIONAL(HAVE_SELINUX, test x$have_selinux = xyes)
 
 if test x$have_selinux = xyes ; then
-    SELINUX_LIBS=-lselinux
+    SELINUX_LIBS="-lselinux -lpthread"
     AC_DEFINE(HAVE_SELINUX,1,[SELinux support])
 else
     SELINUX_LIBS=

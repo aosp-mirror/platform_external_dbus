@@ -29,11 +29,13 @@
 
 #ifdef HAVE_SELINUX
 #include <errno.h>
+#include <pthread.h>
 #include <syslog.h>
 #include <selinux/selinux.h>
 #include <selinux/avc.h>
 #include <selinux/av_permissions.h>
 #include <selinux/flask.h>
+#include <signal.h>
 #include <stdarg.h>
 #endif /* HAVE_SELINUX */
 
@@ -47,7 +49,44 @@ static dbus_bool_t selinux_enabled = FALSE;
 /* Store an avc_entry_ref to speed AVC decisions. */
 static struct avc_entry_ref aeref;
 
+/* Store the SID of the bus itself to use as the default. */
 static security_id_t bus_sid = SECSID_WILD;
+
+/* Thread to listen for SELinux status changes via netlink. */
+static pthread_t avc_notify_thread;
+
+/* Prototypes for AVC callback functions.  */
+static void log_callback (const char *fmt, ...);
+static void *avc_create_thread (void (*run) (void));
+static void avc_stop_thread (void *thread);
+static void *avc_alloc_lock (void);
+static void avc_get_lock (void *lock);
+static void avc_release_lock (void *lock);
+static void avc_free_lock (void *lock);
+
+/* AVC callback structures for use in avc_init.  */
+static const struct avc_memory_callback mem_cb =
+{
+  .func_malloc = dbus_malloc,
+  .func_free = dbus_free
+};
+static const struct avc_log_callback log_cb =
+{
+  .func_log = log_callback,
+  .func_audit = NULL
+};
+static const struct avc_thread_callback thread_cb =
+{
+  .func_create_thread = avc_create_thread,
+  .func_stop_thread = avc_stop_thread
+};
+static const struct avc_lock_callback lock_cb =
+{
+  .func_alloc_lock = avc_alloc_lock,
+  .func_get_lock = avc_get_lock,
+  .func_release_lock = avc_release_lock,
+  .func_free_lock = avc_free_lock
+};
 #endif /* HAVE_SELINUX */
 
 /**
@@ -67,8 +106,89 @@ log_callback (const char *fmt, ...)
   vsyslog (LOG_INFO, fmt, ap);
   va_end(ap);
 }
-#endif /* HAVE_SELINUX */
 
+/**
+ * On a policy reload we need to reparse the SELinux configuration file, since
+ * this could have changed.  Send a SIGHUP to reload all configs.
+ */
+static int
+policy_reload_callback (u_int32_t event, security_id_t ssid, 
+                        security_id_t tsid, security_class_t tclass, 
+                        access_vector_t perms, access_vector_t *out_retained)
+{
+  if (event == AVC_CALLBACK_RESET)
+    return raise (SIGHUP);
+  
+  return 0;
+}
+
+/**
+ * Create thread to notify the AVC of enforcing and policy reload
+ * changes via netlink.
+ *
+ * @param run the thread run function
+ * @return pointer to the thread
+ */
+static void *
+avc_create_thread (void (*run) (void))
+{
+  int rc;
+
+  rc = pthread_create (&avc_notify_thread, NULL, (void *(*) (void *)) run, NULL);
+  if (rc != 0)
+    {
+      _dbus_warn ("Failed to start AVC thread: %s\n", _dbus_strerror (rc));
+      exit (1);
+    }
+  return &avc_notify_thread;
+}
+
+/* Stop AVC netlink thread.  */
+static void
+avc_stop_thread (void *thread)
+{
+  pthread_cancel (*(pthread_t *) thread);
+}
+
+/* Allocate a new AVC lock.  */
+static void *
+avc_alloc_lock (void)
+{
+  pthread_mutex_t *avc_mutex;
+
+  avc_mutex = dbus_new (pthread_mutex_t, 1);
+  if (avc_mutex == NULL)
+    {
+      _dbus_warn ("Could not create mutex: %s\n", _dbus_strerror (errno));
+      exit (1);
+    }
+  pthread_mutex_init (avc_mutex, NULL);
+
+  return avc_mutex;
+}
+
+/* Acquire an AVC lock.  */
+static void
+avc_get_lock (void *lock)
+{
+  pthread_mutex_lock (lock);
+}
+
+/* Release an AVC lock.  */
+static void
+avc_release_lock (void *lock)
+{
+  pthread_mutex_unlock (lock);
+}
+
+/* Free an AVC lock.  */
+static void
+avc_free_lock (void *lock)
+{
+  pthread_mutex_destroy (lock);
+  dbus_free (lock);
+}
+#endif /* HAVE_SELINUX */
 
 /**
  * Initialize the user space access vector cache (AVC) for D-BUS and set up
@@ -78,7 +198,6 @@ dbus_bool_t
 bus_selinux_init (void)
 {
 #ifdef HAVE_SELINUX
-  struct avc_log_callback log_cb = {(void*)log_callback, NULL};
   int r;
   char *bus_context;
 
@@ -104,7 +223,7 @@ bus_selinux_init (void)
   _dbus_verbose ("SELinux is enabled in this kernel.\n");
 
   avc_entry_ref_init (&aeref);
-  if (avc_init ("avc", NULL, &log_cb, NULL, NULL) < 0)
+  if (avc_init ("avc", &mem_cb, &log_cb, &thread_cb, &lock_cb) < 0)
     {
       _dbus_warn ("Failed to start Access Vector Cache (AVC).\n");
       return FALSE;
@@ -113,6 +232,15 @@ bus_selinux_init (void)
     {
       openlog ("dbus", LOG_PERROR, LOG_USER);
       _dbus_verbose ("Access Vector Cache (AVC) started.\n");
+    }
+
+  if (avc_add_callback (policy_reload_callback, AVC_CALLBACK_RESET,
+                       NULL, NULL, 0, 0) < 0)
+    {
+      _dbus_warn ("Failed to add policy reload callback: %s\n",
+                  _dbus_strerror (errno));
+      avc_destroy ();
+      return FALSE;
     }
 
   bus_context = NULL;
@@ -140,7 +268,6 @@ bus_selinux_init (void)
   return TRUE;
 #endif /* HAVE_SELINUX */
 }
-
 
 /**
  * Decrement SID reference count.
@@ -198,7 +325,7 @@ bus_selinux_check (BusSELinuxID        *sender_sid,
 {
   if (!selinux_enabled)
     return TRUE;
-  
+
   /* Make the security check.  AVC checks enforcing mode here as well. */
   if (avc_has_perm (SELINUX_SID_FROM_BUS (sender_sid),
                     override_sid ?
@@ -367,7 +494,8 @@ bus_selinux_init_connection_id (DBusConnection *connection,
 }
 
 
-/* Function for freeing hash table data.  These SIDs
+/**
+ * Function for freeing hash table data.  These SIDs
  * should no longer be referenced.
  */
 static void
@@ -466,9 +594,6 @@ bus_selinux_id_table_insert (DBusHashTable *service_table,
  * constant time operation.  If SELinux support is not available,
  * always return NULL.
  *
- * @todo This should return a const security_id_t since we don't
- *       want the caller to mess with it.
- *
  * @param service_table the hash table to check for service name.
  * @param service_name the name of the service to look for.
  * @returns the SELinux ID associated with the service
@@ -503,6 +628,13 @@ bus_selinux_id_table_lookup (DBusHashTable    *service_table,
   return NULL;
 }
 
+/**
+ * Copy security ID table mapping from one table into another.
+ *
+ * @param dest the table to copy into
+ * @param override the table to copy from
+ * @returns #FALSE if out of memory
+ */
 #ifdef HAVE_SELINUX
 static dbus_bool_t
 bus_selinux_id_table_copy_over (DBusHashTable    *dest,
@@ -577,6 +709,20 @@ bus_selinux_id_table_union (DBusHashTable    *base,
   
   return combined_table;
 }
+
+/**
+ * Get the SELinux policy root.  This is used to find the D-BUS
+ * specific config file within the policy.
+ */
+const char *
+bus_selinux_get_policy_root (void)
+{
+#ifdef HAVE_SELINUX
+  return selinux_policy_root ();
+#else
+  return NULL;
+#endif /* HAVE_SELINUX */
+} 
 
 /**
  * For debugging:  Print out the current hash table of service SIDs.
