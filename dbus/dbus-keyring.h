@@ -39,16 +39,11 @@ void         _dbus_keyring_unref            (DBusKeyring       *keyring);
 dbus_bool_t  _dbus_keyring_validate_context (const DBusString  *context);
 int          _dbus_keyring_get_best_key     (DBusKeyring       *keyring,
                                              DBusError         *error);
-dbus_bool_t  _dbus_keyring_create_challenge (DBusString        *challenge);
-dbus_bool_t  _dbus_keyring_compute_response (DBusKeyring       *keyring,
+dbus_bool_t  _dbus_keyring_is_for_user      (DBusKeyring       *keyring,
+                                             const DBusString  *username);
+dbus_bool_t  _dbus_keyring_get_hex_key      (DBusKeyring       *keyring,
                                              int                key_id,
-                                             const DBusString  *challenge,
-                                             DBusString        *response);
-dbus_bool_t  _dbus_keyring_check_response   (DBusKeyring       *keyring,
-                                             int                key_id,
-                                             const DBusString  *challenge,
-                                             const DBusString  *response);
-
+                                             DBusString        *hex_key);
 
 DBUS_END_DECLS;
 

@@ -92,6 +92,7 @@ typedef struct
 struct DBusKeyring
 {
   int refcount;             /**< Reference count */
+  DBusString username;      /**< Username keyring is for */
   DBusString directory;     /**< Directory the below two items are inside */
   DBusString filename;      /**< Keyring filename */
   DBusString filename_lock; /**< Name of lockfile */
@@ -117,12 +118,17 @@ _dbus_keyring_new (void)
   if (!_dbus_string_init (&keyring->filename_lock, _DBUS_INT_MAX))
     goto out_3;
 
+  if (!_dbus_string_init (&keyring->username, _DBUS_INT_MAX))
+    goto out_4;
+  
   keyring->refcount = 1;
   keyring->keys = NULL;
   keyring->n_keys = 0;
 
   return keyring;
-  
+
+ out_4:
+  _dbus_string_free (&keyring->username);
  out_3:
   _dbus_string_free (&keyring->filename);
  out_2:
@@ -614,6 +620,7 @@ _dbus_keyring_reload (DBusKeyring *keyring,
       i = 0;
       while (i < n_keys)
         {
+          _dbus_string_zero (&keys[i].secret);
           _dbus_string_free (&keys[i].secret);
           ++i;
         }
@@ -659,6 +666,7 @@ _dbus_keyring_unref (DBusKeyring *keyring)
 
   if (keyring->refcount == 0)
     {
+      _dbus_string_free (&keyring->username);
       _dbus_string_free (&keyring->filename);
       _dbus_string_free (&keyring->filename_lock);
       _dbus_string_free (&keyring->directory);
@@ -715,6 +723,8 @@ _dbus_keyring_new_homedir (const DBusString *username,
         goto failed;
     }
 
+  _dbus_assert (username != NULL);    
+  
   keyring = _dbus_keyring_new ();
   if (keyring == NULL)
     goto failed;
@@ -728,7 +738,11 @@ _dbus_keyring_new_homedir (const DBusString *username,
                             "Invalid context in keyring creation");
       goto failed;
     }
-      
+
+  if (!_dbus_string_copy (username, 0,
+                          &keyring->username, 0))
+    goto failed;
+  
   if (!_dbus_string_copy (&homedir, 0,
                           &keyring->directory, 0))
     goto failed;
@@ -795,6 +809,9 @@ _dbus_keyring_new_homedir (const DBusString *username,
  * in filenames are not allowed (contexts can't
  * start with a dot or contain dir separators).
  *
+ * @todo this is the most inefficient implementation
+ * imaginable.
+ *
  * @param context the context
  * @returns #TRUE if valid
  */
@@ -836,6 +853,25 @@ _dbus_keyring_validate_context (const DBusString *context)
       return FALSE;
     }
 
+  /* no spaces/tabs, those are used for separators in the protocol */
+  if (_dbus_string_find_blank (context, 0, NULL))
+    {
+      _dbus_verbose ("context contains a blank\n");
+      return FALSE;
+    }
+
+  if (_dbus_string_find (context, 0, "\n", NULL))
+    {
+      _dbus_verbose ("context contains a newline\n");
+      return FALSE;
+    }
+
+  if (_dbus_string_find (context, 0, "\r", NULL))
+    {
+      _dbus_verbose ("context contains a carriage return\n");
+      return FALSE;
+    }
+  
   return TRUE;
 }
 
@@ -904,6 +940,51 @@ _dbus_keyring_get_best_key (DBusKeyring  *keyring,
     }
 }
 
+/**
+ * Checks whether the keyring is for the given username.
+ *
+ * @param keyring the keyring
+ * @param username the username to check
+ *
+ * @returns #TRUE if the keyring belongs to the given user
+ */
+dbus_bool_t
+_dbus_keyring_is_for_user (DBusKeyring       *keyring,
+                           const DBusString  *username)
+{
+  return _dbus_string_equal (&keyring->username,
+                             username);
+}
+
+/**
+ * Gets the hex-encoded secret key for the given ID.
+ * Returns #FALSE if not enough memory. Returns #TRUE
+ * but empty key on any other error such as unknown
+ * key ID.
+ *
+ * @param keyring the keyring
+ * @param key_id the key ID
+ * @param hex_key string to append hex-encoded key to
+ * @returns #TRUE if we had enough memory
+ */
+dbus_bool_t
+_dbus_keyring_get_hex_key (DBusKeyring       *keyring,
+                           int                key_id,
+                           DBusString        *hex_key)
+{
+  DBusKey *key;
+
+  key = find_key_by_id (keyring->keys,
+                        keyring->n_keys,
+                        key_id);
+  if (key == NULL)
+    return TRUE; /* had enough memory, so TRUE */
+
+  return _dbus_string_hex_encode (&key->secret, 0,
+                                  hex_key,
+                                  _dbus_string_get_length (hex_key));
+}
+
 /** @} */ /* end of exposed API */
 
 #ifdef DBUS_BUILD_TESTS
@@ -946,6 +1027,8 @@ _dbus_keyring_test (void)
   _dbus_assert (!_dbus_keyring_validate_context (&context));
   _dbus_string_init_const (&context, "foo\x7f");
   _dbus_assert (_dbus_keyring_validate_context (&context));
+  _dbus_string_init_const (&context, "foo bar");
+  _dbus_assert (!_dbus_keyring_validate_context (&context));
   
   if (!_dbus_string_init (&context, _DBUS_INT_MAX))
     _dbus_assert_not_reached ("no memory");

@@ -148,7 +148,7 @@ clear_header_padding (DBusMessage *message)
   _dbus_string_shorten (&message->header,
                         message->header_padding);
   message->header_padding = 0;
-}                      
+}              
 
 static dbus_bool_t
 append_header_padding (DBusMessage *message)
@@ -2653,7 +2653,9 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
           int i;
           int next_arg;          
 
+#if 0
 	  _dbus_verbose_bytes_of_string (&loader->data, 0, header_len);
+#endif
  	  if (!decode_header_data (&loader->data, header_len, byte_order,
                                    fields, &header_padding))
 	    {

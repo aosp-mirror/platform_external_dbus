@@ -24,6 +24,8 @@
 #include "dbus-string.h"
 #include "dbus-list.h"
 #include "dbus-internals.h"
+#include "dbus-keyring.h"
+#include "dbus-sha.h"
 
 /* See doc/dbus-sasl-profile.txt */
 
@@ -42,6 +44,19 @@
  * @todo some SASL profiles require sending the empty string as a
  * challenge/response, but we don't currently allow that in our
  * protocol.
+ *
+ * @todo DBusAuth really needs to be rewritten as an explicit state
+ * machine. Right now it's too hard to prove to yourself by inspection
+ * that it works.
+ *
+ * @todo right now sometimes both ends will block waiting for input
+ * from the other end, e.g. if there's an error during
+ * DBUS_COOKIE_SHA1.
+ *
+ * @todo the cookie keyring needs to be cached globally not just
+ * per-auth (which raises threadsafety issues too)
+ * 
+ * @todo grep FIXME in dbus-auth.c
  */
 
 /**
@@ -132,9 +147,18 @@ struct DBusAuth
                                           *   as.
                                           */
   
-  DBusCredentials credentials;      /**< Credentials, fields may be -1 */
+  DBusCredentials credentials;      /**< Credentials read from socket,
+                                     * fields may be -1
+                                     */
 
   DBusCredentials authorized_identity; /**< Credentials that are authorized */
+
+  DBusCredentials desired_identity;    /**< Identity client has requested */
+  
+  DBusString context;               /**< Cookie scope */
+  DBusKeyring *keyring;             /**< Keyring for cookie mechanism. */
+  int cookie_id;                    /**< ID of cookie to use */
+  DBusString challenge;             /**< Challenge sent to client */
   
   unsigned int needed_memory : 1;   /**< We needed memory to continue since last
                                      * successful getting something done
@@ -254,6 +278,13 @@ _dbus_auth_new (int size)
   auth->authorized_identity.pid = -1;
   auth->authorized_identity.uid = -1;
   auth->authorized_identity.gid = -1;
+
+  auth->desired_identity.pid = -1;
+  auth->desired_identity.uid = -1;
+  auth->desired_identity.gid = -1;
+  
+  auth->keyring = NULL;
+  auth->cookie_id = -1;
   
   /* note that we don't use the max string length feature,
    * because you can't use that feature if you're going to
@@ -264,27 +295,39 @@ _dbus_auth_new (int size)
    */
   
   if (!_dbus_string_init (&auth->incoming, _DBUS_INT_MAX))
-    {
-      dbus_free (auth);
-      return NULL;
-    }
+    goto enomem_0;
 
   if (!_dbus_string_init (&auth->outgoing, _DBUS_INT_MAX))
-    {
-      _dbus_string_free (&auth->incoming);
-      dbus_free (auth);
-      return NULL;
-    }
-  
+    goto enomem_1;
+    
   if (!_dbus_string_init (&auth->identity, _DBUS_INT_MAX))
-    {
-      _dbus_string_free (&auth->incoming);
-      _dbus_string_free (&auth->outgoing);
-      dbus_free (auth);
-      return NULL;
-    }
+    goto enomem_2;
+
+  if (!_dbus_string_init (&auth->context, _DBUS_INT_MAX))
+    goto enomem_3;
+
+  if (!_dbus_string_init (&auth->challenge, _DBUS_INT_MAX))
+    goto enomem_4;
+
+  /* default context if none is specified */
+  if (!_dbus_string_append (&auth->context, "org_freedesktop_general"))
+    goto enomem_5;
   
   return auth;
+
+ enomem_5:
+  _dbus_string_free (&auth->challenge);
+ enomem_4:
+  _dbus_string_free (&auth->context);
+ enomem_3:
+  _dbus_string_free (&auth->identity);
+ enomem_2:
+  _dbus_string_free (&auth->incoming);
+ enomem_1:
+  _dbus_string_free (&auth->outgoing);
+ enomem_0:
+  dbus_free (auth);
+  return NULL;
 }
 
 static void
@@ -295,9 +338,14 @@ shutdown_mech (DBusAuth *auth)
   auth->authenticated = FALSE;
   auth->already_asked_for_initial_response = FALSE;
   _dbus_string_set_length (&auth->identity, 0);
+  
   auth->authorized_identity.pid = -1;
   auth->authorized_identity.uid = -1;
   auth->authorized_identity.gid = -1;
+
+  auth->desired_identity.pid = -1;
+  auth->desired_identity.uid = -1;
+  auth->desired_identity.gid = -1;
   
   if (auth->mech != NULL)
     {
@@ -313,74 +361,601 @@ shutdown_mech (DBusAuth *auth)
     }
 }
 
-static dbus_bool_t
-handle_server_data_stupid_test_mech (DBusAuth         *auth,
-                                     const DBusString *data)
-{
-  if (!_dbus_string_append (&auth->outgoing,
-                            "OK\r\n"))
-    return FALSE;
-
-  _dbus_credentials_from_current_process (&auth->authorized_identity);
-
-  auth->authenticated_pending_begin = TRUE;
-  
-  return TRUE;
-}
-
-static void
-handle_server_shutdown_stupid_test_mech (DBusAuth *auth)
-{
-
-}
-
-static dbus_bool_t
-handle_client_data_stupid_test_mech (DBusAuth         *auth,
-                                     const DBusString *data)
-{
-  
-  return TRUE;
-}
-
-static void
-handle_client_shutdown_stupid_test_mech (DBusAuth *auth)
-{
-
-}
-
-/* the stupid test mech is a base64-encoded string;
- * all the inefficiency, none of the security!
+/* Returns TRUE but with an empty string hash if the
+ * cookie_id isn't known. As with all this code
+ * TRUE just means we had enough memory.
  */
 static dbus_bool_t
-handle_encode_stupid_test_mech (DBusAuth         *auth,
-                                const DBusString *plaintext,
-                                DBusString       *encoded)
+sha1_compute_hash (DBusAuth         *auth,
+                   int               cookie_id,
+                   const DBusString *server_challenge,
+                   const DBusString *client_challenge,
+                   DBusString       *hash)
 {
-  if (!_dbus_string_base64_encode (plaintext, 0, encoded,
-                                   _dbus_string_get_length (encoded)))
-    return FALSE;
+  DBusString cookie;
+  DBusString to_hash;
+  dbus_bool_t retval;
   
-  return TRUE;
+  _dbus_assert (auth->keyring != NULL);
+
+  retval = FALSE;
+  
+  if (!_dbus_string_init (&cookie, _DBUS_INT_MAX))
+    return FALSE;
+
+  if (!_dbus_keyring_get_hex_key (auth->keyring, cookie_id,
+                                  &cookie))
+    goto out_0;
+
+  if (_dbus_string_get_length (&cookie) == 0)
+    {
+      retval = TRUE;
+      goto out_0;
+    }
+
+  if (!_dbus_string_init (&to_hash, _DBUS_INT_MAX))
+    goto out_0;
+  
+  if (!_dbus_string_copy (server_challenge, 0,
+                          &to_hash, _dbus_string_get_length (&to_hash)))
+    goto out_1;
+
+  if (!_dbus_string_append (&to_hash, ":"))
+    goto out_1;
+  
+  if (!_dbus_string_copy (client_challenge, 0,
+                          &to_hash, _dbus_string_get_length (&to_hash)))
+    goto out_1;
+
+  if (!_dbus_string_append (&to_hash, ":"))
+    goto out_1;
+
+  if (!_dbus_string_copy (&cookie, 0,
+                          &to_hash, _dbus_string_get_length (&to_hash)))
+    goto out_1;
+
+  if (!_dbus_sha_compute (&to_hash, hash))
+    goto out_1;
+  
+  retval = TRUE;
+
+ out_1:
+  _dbus_string_zero (&to_hash);
+  _dbus_string_free (&to_hash);
+ out_0:
+  _dbus_string_zero (&cookie);
+  _dbus_string_free (&cookie);
+  return retval;
+}
+
+/* http://www.ietf.org/rfc/rfc2831.txt suggests at least 64 bits of
+ * entropy, we use 128
+ */
+#define N_CHALLENGE_BYTES (128/8)
+
+static dbus_bool_t
+sha1_handle_first_client_response (DBusAuth         *auth,
+                                   const DBusString *data)
+{
+  /* We haven't sent a challenge yet, we're expecting a desired
+   * username from the client.
+   */
+  DBusString tmp;
+  DBusString tmp2;
+  dbus_bool_t retval;
+  int old_len;
+  DBusError error;
+  
+  retval = FALSE;
+
+  _dbus_string_set_length (&auth->challenge, 0);
+  
+  if (_dbus_string_get_length (data) > 0)
+    {
+      if (_dbus_string_get_length (&auth->identity) > 0)
+        {
+          /* Tried to send two auth identities, wtf */
+          _dbus_verbose ("client tried to send auth identity, but we already have one\n");
+          return send_rejected (auth);
+        }
+      else
+        {
+          /* this is our auth identity */
+          if (!_dbus_string_copy (data, 0, &auth->identity, 0))
+            return FALSE;
+        }
+    }
+      
+  if (!_dbus_credentials_from_username (data, &auth->desired_identity))
+    {
+      _dbus_verbose ("Did not get a valid username from client\n");
+      return send_rejected (auth);
+    }
+      
+  if (!_dbus_string_init (&tmp, _DBUS_INT_MAX))
+    return FALSE;
+
+  if (!_dbus_string_init (&tmp2, _DBUS_INT_MAX))
+    {
+      _dbus_string_free (&tmp);
+      return FALSE;
+    }
+
+  old_len = _dbus_string_get_length (&auth->outgoing);
+  
+  /* we cache the keyring for speed, so here we drop it if it's the
+   * wrong one. FIXME caching the keyring here is useless since we use
+   * a different DBusAuth for every connection.
+   */
+  if (auth->keyring &&
+      !_dbus_keyring_is_for_user (auth->keyring,
+                                  data))
+    {
+      _dbus_keyring_unref (auth->keyring);
+      auth->keyring = NULL;
+    }
+  
+  if (auth->keyring == NULL)
+    {
+      DBusError error;
+
+      dbus_error_init (&error);
+      auth->keyring = _dbus_keyring_new_homedir (data,
+                                                 &auth->context,
+                                                 &error);
+
+      if (auth->keyring == NULL)
+        {
+          if (dbus_error_has_name (&error,
+                                   DBUS_ERROR_NO_MEMORY))
+            {
+              dbus_error_free (&error);
+              goto out;
+            }
+          else
+            {
+              _dbus_assert (dbus_error_is_set (&error));
+              _dbus_verbose ("Error loading keyring: %s\n",
+                             error.message);
+              if (send_rejected (auth))
+                retval = TRUE; /* retval is only about mem */
+              dbus_error_free (&error);
+              goto out;
+            }
+        }
+      else
+        {
+          _dbus_assert (!dbus_error_is_set (&error));
+        }
+    }
+
+  _dbus_assert (auth->keyring != NULL);
+
+  dbus_error_init (&error);
+  auth->cookie_id = _dbus_keyring_get_best_key (auth->keyring, &error);
+  if (auth->cookie_id < 0)
+    {
+      _dbus_assert (dbus_error_is_set (&error));
+      _dbus_verbose ("Could not get a cookie ID to send to client: %s\n",
+                     error.message);
+      if (send_rejected (auth))
+        retval = TRUE;
+      dbus_error_free (&error);
+      goto out;
+    }
+  else
+    {
+      _dbus_assert (!dbus_error_is_set (&error));
+    }
+
+  if (!_dbus_string_copy (&auth->context, 0,
+                          &tmp2, _dbus_string_get_length (&tmp2)))
+    goto out;
+
+  if (!_dbus_string_append (&tmp2, " "))
+    goto out;
+
+  if (!_dbus_string_append_int (&tmp2, auth->cookie_id))
+    goto out;
+
+  if (!_dbus_string_append (&tmp2, " "))
+    goto out;  
+  
+  if (!_dbus_generate_random_bytes (&tmp, N_CHALLENGE_BYTES))
+    goto out;
+
+  _dbus_string_set_length (&auth->challenge, 0);
+  if (!_dbus_string_hex_encode (&tmp, 0, &auth->challenge, 0))
+    goto out;
+  
+  if (!_dbus_string_hex_encode (&tmp, 0, &tmp2,
+                                _dbus_string_get_length (&tmp2)))
+    goto out;
+
+  if (!_dbus_string_append (&auth->outgoing,
+                            "DATA "))
+    goto out;
+  
+  if (!_dbus_string_base64_encode (&tmp2, 0, &auth->outgoing,
+                                   _dbus_string_get_length (&auth->outgoing)))
+    goto out;
+
+  if (!_dbus_string_append (&auth->outgoing,
+                            "\r\n"))
+    goto out;
+      
+  retval = TRUE;
+  
+ out:
+  _dbus_string_zero (&tmp);
+  _dbus_string_free (&tmp);
+  _dbus_string_zero (&tmp2);
+  _dbus_string_free (&tmp2);
+  if (!retval)
+    _dbus_string_set_length (&auth->outgoing, old_len);
+  return retval;
 }
 
 static dbus_bool_t
-handle_decode_stupid_test_mech (DBusAuth         *auth,
-                                const DBusString *encoded,
-                                DBusString       *plaintext)
+sha1_handle_second_client_response (DBusAuth         *auth,
+                                    const DBusString *data)
 {
-  if (!_dbus_string_base64_decode (encoded, 0, plaintext,
-                                   _dbus_string_get_length (plaintext)))
-    return FALSE;
+  /* We are expecting a response which is the hex-encoded client
+   * challenge, space, then SHA-1 hash of the concatenation of our
+   * challenge, ":", client challenge, ":", secret key, all
+   * hex-encoded.
+   */
+  int i;
+  DBusString client_challenge;
+  DBusString client_hash;
+  dbus_bool_t retval;
+  DBusString correct_hash;
   
-  return TRUE;
+  retval = FALSE;
+  
+  if (!_dbus_string_find_blank (data, 0, &i))
+    {
+      _dbus_verbose ("no space separator in client response\n");
+      return send_rejected (auth);
+    }
+  
+  if (!_dbus_string_init (&client_challenge, _DBUS_INT_MAX))
+    goto out_0;
+
+  if (!_dbus_string_init (&client_hash, _DBUS_INT_MAX))
+    goto out_1;  
+
+  if (!_dbus_string_copy_len (data, 0, i, &client_challenge,
+                              0))
+    goto out_2;
+
+  _dbus_string_skip_blank (data, i, &i);
+  
+  if (!_dbus_string_copy_len (data, i,
+                              _dbus_string_get_length (data) - i,
+                              &client_hash,
+                              0))
+    goto out_2;
+
+  if (_dbus_string_get_length (&client_challenge) == 0 ||
+      _dbus_string_get_length (&client_hash) == 0)
+    {
+      _dbus_verbose ("zero-length client challenge or hash\n");
+      if (send_rejected (auth))
+        retval = TRUE;
+      goto out_2;
+    }
+
+  if (!_dbus_string_init (&correct_hash, _DBUS_INT_MAX))
+    goto out_2;
+
+  if (!sha1_compute_hash (auth, auth->cookie_id,
+                          &auth->challenge, 
+                          &client_challenge,
+                          &correct_hash))
+    goto out_3;
+
+  /* if cookie_id was invalid, then we get an empty hash */
+  if (_dbus_string_get_length (&correct_hash) == 0)
+    {
+      if (send_rejected (auth))
+        retval = TRUE;
+      goto out_3;
+    }
+  
+  if (!_dbus_string_equal (&client_hash, &correct_hash))
+    {
+      if (send_rejected (auth))
+        retval = TRUE;
+      goto out_3;
+    }
+      
+  if (!_dbus_string_append (&auth->outgoing,
+                            "OK\r\n"))
+    goto out_3;
+
+  _dbus_verbose ("authenticated client with UID %d using DBUS_COOKIE_SHA1\n",
+                 auth->desired_identity.uid);
+  
+  auth->authorized_identity = auth->desired_identity;
+  auth->authenticated_pending_begin = TRUE;
+  retval = TRUE;
+  
+ out_3:
+  _dbus_string_zero (&correct_hash);
+  _dbus_string_free (&correct_hash);
+ out_2:
+  _dbus_string_zero (&client_hash);
+  _dbus_string_free (&client_hash);
+ out_1:
+  _dbus_string_free (&client_challenge);
+ out_0:
+  return retval;
+}
+
+static dbus_bool_t
+handle_server_data_cookie_sha1_mech (DBusAuth         *auth,
+                                     const DBusString *data)
+{
+  if (auth->cookie_id < 0)
+    return sha1_handle_first_client_response (auth, data);
+  else
+    return sha1_handle_second_client_response (auth, data);
+}
+
+static void
+handle_server_shutdown_cookie_sha1_mech (DBusAuth *auth)
+{
+  auth->cookie_id = -1;  
+  _dbus_string_set_length (&auth->challenge, 0);
+}
+
+static dbus_bool_t
+handle_client_initial_response_cookie_sha1_mech (DBusAuth   *auth,
+                                                 DBusString *response)
+{
+  const DBusString *username;
+  dbus_bool_t retval;
+
+  retval = FALSE;
+
+  if (!_dbus_user_info_from_current_process (&username,
+                                             NULL, NULL))
+    goto out_0;
+
+  if (!_dbus_string_base64_encode (username, 0,
+                                   response,
+                                   _dbus_string_get_length (response)))
+    goto out_0;
+
+  retval = TRUE;
+  
+ out_0:
+  return retval;
+}
+
+/* FIXME if we send the server an error, right now both sides
+ * just hang. Server has to reject on getting an error, or
+ * client has to cancel. Should be in the spec.
+ */
+static dbus_bool_t
+handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
+                                     const DBusString *data)
+{
+  /* The data we get from the server should be the cookie context
+   * name, the cookie ID, and the server challenge, separated by
+   * spaces. We send back our challenge string and the correct hash.
+   */
+  dbus_bool_t retval;
+  DBusString context;
+  DBusString cookie_id_str;
+  DBusString server_challenge;
+  DBusString client_challenge;
+  DBusString correct_hash;
+  DBusString tmp;
+  int i, j;
+  long val;
+  int old_len;
+  
+  retval = FALSE;                 
+  
+  if (!_dbus_string_find_blank (data, 0, &i))
+    {
+      if (_dbus_string_append (&auth->outgoing,
+                               "ERROR \"Server did not send context/ID/challenge properly\"\r\n"))
+        retval = TRUE;
+      goto out_0;
+    }
+
+  if (!_dbus_string_init (&context, _DBUS_INT_MAX))
+    goto out_0;
+
+  if (!_dbus_string_copy_len (data, 0, i,
+                              &context, 0))
+    goto out_1;
+  
+  _dbus_string_skip_blank (data, i, &i);
+  if (!_dbus_string_find_blank (data, i, &j))
+    {
+      if (_dbus_string_append (&auth->outgoing,
+                               "ERROR \"Server did not send context/ID/challenge properly\"\r\n"))
+        retval = TRUE;
+      goto out_1;
+    }
+
+  if (!_dbus_string_init (&cookie_id_str, _DBUS_INT_MAX))
+    goto out_1;
+  
+  if (!_dbus_string_copy_len (data, i, j - i,
+                              &cookie_id_str, 0))
+    goto out_2;  
+
+  if (!_dbus_string_init (&server_challenge, _DBUS_INT_MAX))
+    goto out_2;
+
+  i = j;
+  _dbus_string_skip_blank (data, i, &i);
+  j = _dbus_string_get_length (data);
+
+  if (!_dbus_string_copy_len (data, i, j - i,
+                              &server_challenge, 0))
+    goto out_3;
+
+  if (!_dbus_keyring_validate_context (&context))
+    {
+      if (_dbus_string_append (&auth->outgoing,
+                               "ERROR \"Server sent invalid cookie context\"\r\n"))
+        retval = TRUE;
+      goto out_3;
+    }
+
+  if (!_dbus_string_parse_int (&cookie_id_str, 0, &val, NULL))
+    {
+      if (_dbus_string_append (&auth->outgoing,
+                               "ERROR \"Could not parse cookie ID as an integer\"\r\n"))
+        retval = TRUE;
+      goto out_3;
+    }
+
+  if (_dbus_string_get_length (&server_challenge) == 0)
+    {
+      if (_dbus_string_append (&auth->outgoing,
+                               "ERROR \"Empty server challenge string\"\r\n"))
+        retval = TRUE;
+      goto out_3;
+    }
+
+  if (auth->keyring == NULL)
+    {
+      DBusError error;
+
+      dbus_error_init (&error);
+      auth->keyring = _dbus_keyring_new_homedir (NULL,
+                                                 &context,
+                                                 &error);
+
+      if (auth->keyring == NULL)
+        {
+          if (dbus_error_has_name (&error,
+                                   DBUS_ERROR_NO_MEMORY))
+            {
+              dbus_error_free (&error);
+              goto out_3;
+            }
+          else
+            {
+              _dbus_assert (dbus_error_is_set (&error));
+              _dbus_verbose ("Error loading keyring: %s\n",
+                             error.message);
+              
+              if (_dbus_string_append (&auth->outgoing,
+                                       "ERROR \"Could not load cookie file\"\r\n"))
+                retval = TRUE; /* retval is only about mem */
+              
+              dbus_error_free (&error);
+              goto out_3;
+            }
+        }
+      else
+        {
+          _dbus_assert (!dbus_error_is_set (&error));
+        }
+    }
+  
+  _dbus_assert (auth->keyring != NULL);
+  
+  if (!_dbus_string_init (&tmp, _DBUS_INT_MAX))
+    goto out_3;
+  
+  if (!_dbus_generate_random_bytes (&tmp, N_CHALLENGE_BYTES))
+    goto out_4;
+
+  if (!_dbus_string_init (&client_challenge, _DBUS_INT_MAX))
+    goto out_4;
+
+  if (!_dbus_string_hex_encode (&tmp, 0, &client_challenge, 0))
+    goto out_5;
+
+  if (!_dbus_string_init (&correct_hash, _DBUS_INT_MAX))
+    goto out_6;
+  
+  if (!sha1_compute_hash (auth, val,
+                          &server_challenge,
+                          &client_challenge,
+                          &correct_hash))
+    goto out_6;
+
+  if (_dbus_string_get_length (&correct_hash) == 0)
+    {
+      /* couldn't find the cookie ID or something */
+      if (_dbus_string_append (&auth->outgoing,
+                               "ERROR \"Don't have the requested cookie ID\"\r\n"))
+        retval = TRUE;
+      goto out_6;
+    }
+  
+  _dbus_string_set_length (&tmp, 0);
+  
+  if (!_dbus_string_copy (&client_challenge, 0, &tmp,
+                          _dbus_string_get_length (&tmp)))
+    goto out_6;
+
+  if (!_dbus_string_append (&tmp, " "))
+    goto out_6;
+
+  if (!_dbus_string_copy (&correct_hash, 0, &tmp,
+                          _dbus_string_get_length (&tmp)))
+    goto out_6;
+
+  old_len = _dbus_string_get_length (&auth->outgoing);
+  if (!_dbus_string_append (&auth->outgoing, "DATA "))
+    goto out_6;
+
+  if (!_dbus_string_base64_encode (&tmp, 0,
+                                   &auth->outgoing,
+                                   _dbus_string_get_length (&auth->outgoing)))
+    {
+      _dbus_string_set_length (&auth->outgoing, old_len);
+      goto out_6;
+    }
+
+  if (!_dbus_string_append (&auth->outgoing, "\r\n"))
+    {
+      _dbus_string_set_length (&auth->outgoing, old_len);
+      goto out_6;
+    }
+  
+  retval = TRUE;
+
+ out_6:
+  _dbus_string_zero (&correct_hash);
+  _dbus_string_free (&correct_hash);
+ out_5:
+  _dbus_string_free (&client_challenge);
+ out_4:
+  _dbus_string_zero (&tmp);
+  _dbus_string_free (&tmp);
+ out_3:
+  _dbus_string_free (&server_challenge);
+ out_2:
+  _dbus_string_free (&cookie_id_str);
+ out_1:
+  _dbus_string_free (&context);
+ out_0:
+  return retval;
+}
+
+static void
+handle_client_shutdown_cookie_sha1_mech (DBusAuth *auth)
+{
+  auth->cookie_id = -1;  
+  _dbus_string_set_length (&auth->challenge, 0);
 }
 
 static dbus_bool_t
 handle_server_data_external_mech (DBusAuth         *auth,
                                   const DBusString *data)
 {
-  DBusCredentials desired_identity;
-
   if (auth->credentials.uid < 0)
     {
       _dbus_verbose ("no credentials, mechanism EXTERNAL can't authenticate\n");
@@ -418,9 +993,9 @@ handle_server_data_external_mech (DBusAuth         *auth,
         return FALSE;
     }
 
-  desired_identity.pid = -1;
-  desired_identity.uid = -1;
-  desired_identity.gid = -1;
+  auth->desired_identity.pid = -1;
+  auth->desired_identity.uid = -1;
+  auth->desired_identity.gid = -1;
   
   /* If auth->identity is still empty here, then client
    * responded with an empty string after we poked it for
@@ -429,37 +1004,37 @@ handle_server_data_external_mech (DBusAuth         *auth,
    */
   if (_dbus_string_get_length (&auth->identity) == 0)
     {
-      desired_identity.uid = auth->credentials.uid;
+      auth->desired_identity.uid = auth->credentials.uid;
     }
   else
     {
       if (!_dbus_credentials_from_uid_string (&auth->identity,
-                                              &desired_identity))
+                                              &auth->desired_identity))
         {
           _dbus_verbose ("could not get credentials from uid string\n");
           return send_rejected (auth);
         }
     }
 
-  if (desired_identity.uid < 0)
+  if (auth->desired_identity.uid < 0)
     {
-      _dbus_verbose ("desired UID %d is no good\n", desired_identity.uid);
+      _dbus_verbose ("desired UID %d is no good\n", auth->desired_identity.uid);
       return send_rejected (auth);
     }
   
-  if (_dbus_credentials_match (&desired_identity,
+  if (_dbus_credentials_match (&auth->desired_identity,
                                &auth->credentials))
     {
-      /* client has authenticated */
-      _dbus_verbose ("authenticated client with UID %d matching socket credentials UID %d\n",
-                     desired_identity.uid,
-                     auth->credentials.uid);
-      
+      /* client has authenticated */      
       if (!_dbus_string_append (&auth->outgoing,
                                 "OK\r\n"))
         return FALSE;
 
-      auth->authorized_identity.uid = desired_identity.uid;
+      _dbus_verbose ("authenticated client with UID %d matching socket credentials UID %d\n",
+                     auth->desired_identity.uid,
+                     auth->credentials.uid);
+      
+      auth->authorized_identity.uid = auth->desired_identity.uid;
       
       auth->authenticated_pending_begin = TRUE;
       
@@ -469,7 +1044,7 @@ handle_server_data_external_mech (DBusAuth         *auth,
     {
       _dbus_verbose ("credentials uid=%d gid=%d do not allow uid=%d gid=%d\n",
                      auth->credentials.uid, auth->credentials.gid,
-                     desired_identity.uid, desired_identity.gid);
+                     auth->desired_identity.uid, auth->desired_identity.gid);
       return send_rejected (auth);
     }
 }
@@ -544,17 +1119,14 @@ all_mechanisms[] = {
     handle_client_data_external_mech,
     NULL, NULL,
     handle_client_shutdown_external_mech },
-  /* Obviously this has to die for production use */
-  { "DBUS_STUPID_TEST_MECH",
-    handle_server_data_stupid_test_mech,
-    handle_encode_stupid_test_mech,
-    handle_decode_stupid_test_mech,
-    handle_server_shutdown_stupid_test_mech,
-    NULL,
-    handle_client_data_stupid_test_mech,
-    handle_encode_stupid_test_mech,
-    handle_decode_stupid_test_mech,
-    handle_client_shutdown_stupid_test_mech },
+  { "DBUS_COOKIE_SHA1",
+    handle_server_data_cookie_sha1_mech,
+    NULL, NULL,
+    handle_server_shutdown_cookie_sha1_mech,
+    handle_client_initial_response_cookie_sha1_mech,
+    handle_client_data_cookie_sha1_mech,
+    NULL, NULL,
+    handle_client_shutdown_cookie_sha1_mech },
   { NULL, NULL }
 };
 
@@ -762,6 +1334,16 @@ process_data_server (DBusAuth         *auth,
           _dbus_string_free (&decoded);
           return FALSE;
         }
+
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+      if (_dbus_string_validate_ascii (&decoded, 0,
+                                       _dbus_string_get_length (&decoded)))
+        {
+          const char *s;
+          _dbus_string_get_const_data (&decoded, &s);
+          _dbus_verbose ("data: '%s'\n", s);
+        }
+#endif
       
       if (!(* auth->mech->server_data_func) (auth, &decoded))
         {
@@ -988,7 +1570,6 @@ process_ok (DBusAuth         *auth,
   return TRUE;
 }
 
-
 static dbus_bool_t
 process_data_client (DBusAuth         *auth,
                      const DBusString *command,
@@ -1006,6 +1587,16 @@ process_data_client (DBusAuth         *auth,
           _dbus_string_free (&decoded);
           return FALSE;
         }
+
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+      if (_dbus_string_validate_ascii (&decoded, 0,
+                                       _dbus_string_get_length (&decoded)))
+        {
+          const char *s;
+          _dbus_string_get_const_data (&decoded, &s);
+          _dbus_verbose ("data: '%s'\n", s);
+        }
+#endif
       
       if (!(* auth->mech->client_data_func) (auth, &decoded))
         {
@@ -1268,6 +1859,9 @@ _dbus_auth_unref (DBusAuth *auth)
           _dbus_list_clear (& DBUS_AUTH_CLIENT (auth)->mechs_to_try);
         }
 
+      if (auth->keyring)
+        _dbus_keyring_unref (auth->keyring);
+      
       _dbus_string_free (&auth->identity);
       _dbus_string_free (&auth->incoming);
       _dbus_string_free (&auth->outgoing);
@@ -1383,6 +1977,12 @@ void
 _dbus_auth_bytes_sent (DBusAuth *auth,
                        int       bytes_sent)
 {
+  {
+    const char *s;
+    _dbus_string_get_const_data (&auth->outgoing, &s);
+    _dbus_verbose ("Sent %d bytes of: %s\n", bytes_sent, s);
+  }
+  
   _dbus_string_delete (&auth->outgoing,
                        0, bytes_sent);
   
@@ -1605,6 +2205,22 @@ _dbus_auth_get_identity (DBusAuth               *auth,
       credentials->uid = -1;
       credentials->gid = -1;
     }
+}
+
+/**
+ * Sets the "authentication context" which scopes cookies
+ * with the DBUS_COOKIE_SHA1 auth mechanism for example.
+ *
+ * @param auth the auth conversation
+ * @param context the context
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_auth_set_context (DBusAuth               *auth,
+                        const DBusString       *context)
+{
+  return _dbus_string_replace_len (context, 0, _dbus_string_get_length (context),
+                                   &auth->context, 0, _dbus_string_get_length (context));
 }
 
 /** @} */

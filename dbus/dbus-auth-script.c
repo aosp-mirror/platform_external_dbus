@@ -191,9 +191,12 @@ _dbus_auth_script_run (const DBusString *filename)
   DBusAuth *auth;
   DBusString from_auth;
   DBusAuthState state;
+  DBusString context;
   
   retval = FALSE;
   auth = NULL;
+
+  _dbus_string_init_const (&context, "org_freedesktop_test");
   
   if (!_dbus_string_init (&file, _DBUS_INT_MAX))
     return FALSE;
@@ -299,6 +302,7 @@ _dbus_auth_script_run (const DBusString *filename)
 
           _dbus_credentials_from_current_process (&creds);
           _dbus_auth_set_credentials (auth, &creds);
+          _dbus_auth_set_context (auth, &context);
         }
       else if (auth == NULL)
         {
@@ -359,15 +363,49 @@ _dbus_auth_script_run (const DBusString *filename)
               goto out;
             }
 
-          /* Replace USERNAME_BASE64 with our username in base64 */
+          /* Replace USERID_BASE64 with our username in base64 */
           {
             int where;
             
             if (_dbus_string_find (&to_send, 0,
-                                   "USERNAME_BASE64", &where))
+                                   "USERID_BASE64", &where))
               {
                 DBusString username;
 
+                if (!_dbus_string_init (&username, _DBUS_INT_MAX))
+                  {
+                    _dbus_warn ("no memory for userid\n");
+                    _dbus_string_free (&to_send);
+                    goto out;
+                  }
+
+                if (!_dbus_string_append_our_uid (&username))
+                  {
+                    _dbus_warn ("no memory for userid\n");
+                    _dbus_string_free (&username);
+                    _dbus_string_free (&to_send);
+                    goto out;
+                  }
+
+                _dbus_string_delete (&to_send, where, strlen ("USERID_BASE64"));
+                
+                if (!_dbus_string_base64_encode (&username, 0,
+                                                 &to_send, where))
+                  {
+                    _dbus_warn ("no memory to subst USERID_BASE64\n");
+                    _dbus_string_free (&username);
+                    _dbus_string_free (&to_send);
+                    goto out;
+                  }
+
+                _dbus_string_free (&username);
+              }
+            else if (_dbus_string_find (&to_send, 0,
+                                        "USERNAME_BASE64", &where))
+              {
+                DBusString username;
+                const DBusString *u;
+                
                 if (!_dbus_string_init (&username, _DBUS_INT_MAX))
                   {
                     _dbus_warn ("no memory for username\n");
@@ -375,7 +413,9 @@ _dbus_auth_script_run (const DBusString *filename)
                     goto out;
                   }
 
-                if (!_dbus_string_append_our_uid (&username))
+                if (!_dbus_user_info_from_current_process (&u, NULL, NULL) ||
+                    !_dbus_string_copy (u, 0, &username,
+                                        _dbus_string_get_length (&username)))
                   {
                     _dbus_warn ("no memory for username\n");
                     _dbus_string_free (&username);

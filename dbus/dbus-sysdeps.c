@@ -1107,14 +1107,17 @@ get_user_info (const DBusString *username,
                DBusString       *username_out)
 {
   const char *username_c_str;
-  
-  credentials->pid = -1;
-  credentials->uid = -1;
-  credentials->gid = -1;
-
+      
   /* exactly one of username/uid provided */
   _dbus_assert (username != NULL || uid >= 0);
   _dbus_assert (username == NULL || uid < 0);
+
+  if (credentials)
+    {
+      credentials->pid = -1;
+      credentials->uid = -1;
+      credentials->gid = -1;
+    }
   
   if (username != NULL)
     _dbus_string_get_const_data (username, &username_c_str);

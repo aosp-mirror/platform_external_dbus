@@ -81,16 +81,20 @@ typedef enum
   DBUS_RESULT_FILE_NOT_FOUND   /**< File doesn't exist */
 } DBusResultCode;
 
-void        dbus_error_init      (DBusError  *error);
-void        dbus_error_free      (DBusError  *error);
-void        dbus_set_error       (DBusError  *error,
-				  const char *name,
-				  const char *message,
-				  ...);
-void        dbus_set_error_const (DBusError  *error,
-				  const char *name,
-				  const char *message); 
-				   
+void        dbus_error_init      (DBusError       *error);
+void        dbus_error_free      (DBusError       *error);
+void        dbus_set_error       (DBusError       *error,
+                                  const char      *name,
+                                  const char      *message,
+                                  ...);
+void        dbus_set_error_const (DBusError       *error,
+                                  const char      *name,
+                                  const char      *message);
+dbus_bool_t dbus_error_has_name  (const DBusError *error,
+                                  const char      *name);
+dbus_bool_t dbus_error_is_set    (const DBusError *error);
+
+
 void        dbus_set_result       (DBusResultCode *code_address,
                                    DBusResultCode  code);
 const char* dbus_result_to_string (DBusResultCode  code);

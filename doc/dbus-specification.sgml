@@ -476,7 +476,6 @@
       <para>
         The credentials sent along with the nul byte may be used with the 
         SASL mechanism EXTERNAL.
-
       </para>
     </sect2>
     <sect2 id="auth-command-auth">
@@ -682,6 +681,150 @@
           </programlisting>
 	</figure>
       </para>
+    </sect2>
+    <sect2 id="auth-mechanisms">
+      <title>Authentication mechanisms</title>
+      <para>
+        This section describes some new authentication mechanisms.
+        D-BUS also allows any standard SASL mechanism of course.
+      </para>
+      <sect3 id="auth-mechanisms-sha">
+        <title>DBUS_COOKIE_SHA1</title>
+        <para>
+          The DBUS_COOKIE_SHA1 mechanism is designed to establish that a client
+          has the ability to read a private file owned by the user being
+          authenticated. If the client can prove that it has access to a secret
+          cookie stored in this file, then the client is authenticated. 
+          Thus the security of DBUS_COOKIE_SHA1 depends on a secure home 
+          directory.
+        </para>
+        <para>
+          Authentication proceeds as follows:
+          <itemizedlist>
+            <listitem>
+              <para>
+                The client sends the username it would like to authenticate 
+                as.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                The server sends the name of its "cookie context" (see below); a
+                space character; the integer ID of the secret cookie the client
+                must demonstrate knowledge of; a space character; then a
+                hex-encoded randomly-generated challenge string.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                The client locates the cookie, and generates its own hex-encoded
+                randomly-generated challenge string.  The client then
+                concatentates the server's hex-encoded challenge, a ":"
+                character, its own hex-encoded challenge, another ":" character,
+                and the hex-encoded cookie.  It computes the SHA-1 hash of this
+                composite string.  It sends back to the server the client's
+                hex-encoded challenge string, a space character, and the SHA-1
+                hash.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                The server generates the same concatenated string used by the
+                client and computes its SHA-1 hash. It compares the hash with
+                the hash received from the client; if the two hashes match, the
+                client is authenticated.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </para>
+        <para>
+          Each server has a "cookie context," which is a name that identifies a
+          set of cookies that apply to that server. A sample context might be
+          "org_freedesktop_session_bus". Context names must be valid ASCII,
+          nonzero length, and may not contain the characters slash ("/"),
+          backslash ("\"), space (" "), newline ("\n"), carriage return ("\r"),
+          tab ("\t"), or period ("."). There is a default context,
+          "org_freedesktop_global" that's used by servers that do not specify
+          otherwise.
+        </para>
+        <para>
+          Cookies are stored in a user's home directory, in the directory
+          <filename>~/.dbus-keyrings/</filename>. This directory must 
+          not be readable or writable by other users. If it is, 
+          clients and servers must ignore it. The directory 
+          contains cookie files named after the cookie context.
+        </para>
+        <para>
+          A cookie file contains one cookie per line. Each line 
+          has three space-separated fields:
+          <itemizedlist>
+            <listitem>
+              <para>
+                The cookie ID number, which must be a non-negative integer and
+                may not be used twice in the same file.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                The cookie's creation time, in UNIX seconds-since-the-epoch
+                format.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                The cookie itself, a hex-encoded random block of bytes.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </para>
+        <para>
+          Only server processes modify the cookie file. 
+          They must do so with this procedure:
+          <itemizedlist>
+            <listitem>
+              <para>
+                Create a lockfile name by appending ".lock" to the name of the
+                cookie file.  The server should attempt to create this file
+                using <literal>O_CREAT | O_EXCL</literal>.  If file creation
+                fails, the lock fails. Servers should retry for a reasonable
+                period of time, then they may choose to delete an existing lock
+                to keep users from having to manually delete a stale
+                lock. <footnote><para>Lockfiles are used instead of real file
+                locking <literal>fcntl()</literal> because real locking
+                implementations are still flaky on network
+                filesystems.</para></footnote>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Once the lockfile has been created, the server loads the cookie
+                file. It should then delete any cookies that are old (the
+                timeout can be fairly short), or more than a reasonable
+                time in the future (so that cookies never accidentally 
+                become permanent, if the clock was set far into the future 
+                at some point). If no recent keys remain, the 
+                server may generate a new key.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                The pruned and possibly added-to cookie file 
+                must be resaved atomically (using a temporary 
+                file which is rename()'d).
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                The lock must be dropped by deleting the lockfile.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </para>
+        <para>
+          Clients need not lock the file in order to load it, 
+          because servers are required to save the file atomically.          
+        </para>
+      </sect3>
     </sect2>
   </sect1>
   <sect1 id="addresses">

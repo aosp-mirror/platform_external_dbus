@@ -32,8 +32,6 @@ libdbus_1_la_SOURCES=				\
 	dbus-errors.c				\
 	dbus-keyring.c				\
 	dbus-keyring.h				\
-	dbus-md5.c				\
-	dbus-md5.h				\
 	dbus-memory.c				\
 	dbus-message.c				\
 	dbus-message-handler.c			\
@@ -62,6 +60,9 @@ libdbus_1_la_SOURCES=				\
 	dbus-transport-unix.h			\
 	dbus-watch.c				\
 	dbus-watch.h
+
+##	dbus-md5.c				\
+##	dbus-md5.h				\
 
 
 ## this library is linked into both libdbus and the bus 

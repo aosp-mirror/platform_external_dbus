@@ -66,11 +66,13 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   printf ("%s: running keyring tests\n", "dbus-test");
   if (!_dbus_keyring_test ())
     die ("keyring");
-  
+
+#if 0
   printf ("%s: running md5 tests\n", "dbus-test");
   if (!_dbus_md5_test ())
     die ("md5");
-
+#endif
+  
   printf ("%s: running SHA-1 tests\n", "dbus-test");
   if (!_dbus_sha_test (test_data_dir))
     die ("SHA-1");

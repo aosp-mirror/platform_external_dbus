@@ -1,3 +1,26 @@
+2003-03-04  Havoc Pennington  <hp@pobox.com>
+
+	* test/data/auth/*: adapt to changes
+
+	* dbus/dbus-auth-script.c (_dbus_auth_script_run): add
+	USERID_BASE64 and change USERNAME_BASE64 to put in username not
+	userid
+
+	* dbus/dbus-keyring.c (_dbus_keyring_validate_context): prevent
+	more stuff from being in a context name, to make the protocol 
+	simpler to deal with
+
+	* dbus/dbus-errors.c (dbus_error_has_name): new function
+	(dbus_error_is_set): new function
+
+	* dbus/dbus-auth.c: replace DBUS_STUPID_TEST_MECH auth 
+	with DBUS_COOKIE_SHA1, implement DBUS_COOKIE_SHA1
+	
+	* dbus/dbus-connection.c (dbus_connection_flush): also read
+	messages during a flush operation
+
+	* dbus/Makefile.am: remove dbus-md5 since it isn't currently used.
+
 2003-03-05  Anders Carlsson  <andersca@codefactory.se>
 
 	* configure.in: Check for gethostbyname on Solaris.

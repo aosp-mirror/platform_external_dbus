@@ -200,12 +200,56 @@ dbus_set_error_const (DBusError  *error,
   /* it's a bug to pile up errors */
   _dbus_assert (error->name == NULL);
   _dbus_assert (error->message == NULL);
+  _dbus_assert (name != NULL);
+  _dbus_assert (message != NULL);
   
   real = (DBusRealError *)error;
   
   real->name = name;
   real->message = (char *)message;
   real->const_message = TRUE;
+}
+
+/**
+ * Checks whether the error is set and has the given
+ * name.
+ * @param error the error
+ * @param name the name
+ * @returns #TRUE if the given named error occurred
+ */
+dbus_bool_t
+dbus_error_has_name (const DBusError *error,
+                     const char      *name)
+{
+  _dbus_assert (error != NULL);
+  _dbus_assert (name != NULL);
+  _dbus_assert ((error->name != NULL && error->message != NULL) ||
+                (error->name == NULL && error->message == NULL));
+  
+  if (error->name != NULL)
+    {
+      DBusString str1, str2;
+      _dbus_string_init_const (&str1, error->name);
+      _dbus_string_init_const (&str2, name);
+      return _dbus_string_equal (&str1, &str2);
+    }
+  else
+    return FALSE;
+}
+
+/**
+ * Checks whether an error occurred (the error is set).
+ *
+ * @param error the error object
+ * @returns #TRUE if an error occurred
+ */
+dbus_bool_t
+dbus_error_is_set (const DBusError *error)
+{
+  _dbus_assert (error != NULL);
+  _dbus_assert ((error->name != NULL && error->message != NULL) ||
+                (error->name == NULL && error->message == NULL));
+  return error->name != NULL;
 }
 
 /**
@@ -240,6 +284,8 @@ dbus_set_error (DBusError  *error,
   /* it's a bug to pile up errors */
   _dbus_assert (error->name == NULL);
   _dbus_assert (error->message == NULL);
+  _dbus_assert (name != NULL);
+  _dbus_assert (format != NULL);
   
   va_start (args, format);
   /* Measure the message length */

@@ -1367,9 +1367,16 @@ dbus_connection_send_message_with_reply_and_block (DBusConnection     *connectio
 void
 dbus_connection_flush (DBusConnection *connection)
 {
+  /* We have to specify DBUS_ITERATION_DO_READING here
+   * because otherwise we could have two apps deadlock
+   * if they are both doing a flush(), and the kernel
+   * buffers fill up.
+   */
+  
   dbus_mutex_lock (connection->mutex);
   while (connection->n_outgoing > 0)
     _dbus_connection_do_iteration (connection,
+                                   DBUS_ITERATION_DO_READING |
                                    DBUS_ITERATION_DO_WRITING |
                                    DBUS_ITERATION_BLOCK,
                                    -1);
