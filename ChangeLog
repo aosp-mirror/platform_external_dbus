@@ -1,3 +1,11 @@
+2003-02-17  Havoc Pennington  <hp@pobox.com>
+
+	* doc/dbus-specification.sgml: lots of cosmetic
+	cleanups/rearrangement, add assorted FIXME, change DBUS_ADDRESS
+	env variable to DBUS_BUS_ADDRESS, s/client/application/,
+	s/server/bus/ (except in authentication section). Add a section
+	"Message Bus Message Routing"
+
 2003-02-17  Anders Carlsson  <andersca@codefactory.se.>
 
 	Release 0.4
