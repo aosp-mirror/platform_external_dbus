@@ -1,3 +1,62 @@
+2005-01-15  Havoc Pennington  <hp@redhat.com>
+
+	* Land the new message args API and type system.
+
+	This patch is huge, but the public API change is not 
+	really large. The set of D-BUS types has changed somewhat, 
+	and the arg "getters" are more geared toward language bindings;
+	they don't make a copy, etc.
+
+	There are also some known issues. See these emails for details
+	on this huge patch:
+	http://lists.freedesktop.org/archives/dbus/2004-December/001836.html
+        http://lists.freedesktop.org/archives/dbus/2005-January/001922.html
+	
+	* dbus/dbus-marshal-*: all the new stuff
+
+	* dbus/dbus-message.c: basically rewritten
+
+	* dbus/dbus-memory.c (check_guards): with "guards" enabled, init
+	freed blocks to be all non-nul bytes so using freed memory is less
+	likely to work right
+
+	* dbus/dbus-internals.c (_dbus_test_oom_handling): add
+	DBUS_FAIL_MALLOC=N environment variable, so you can do
+	DBUS_FAIL_MALLOC=0 to skip the out-of-memory checking, or
+	DBUS_FAIL_MALLOC=10 to make it really, really, really slow and
+	thorough.
+
+	* qt/message.cpp: port to the new message args API
+	(operator<<): use str.utf8() rather than str.unicode()
+	(pretty sure this is right from the Qt docs?)
+
+	* glib/dbus-gvalue.c: port to the new message args API
+
+	* bus/dispatch.c, bus/driver.c: port to the new message args API
+
+	* dbus/dbus-string.c (_dbus_string_init_const_len): initialize the
+	"locked" flag to TRUE and align_offset to 0; I guess we never
+	looked at these anyhow, but seems cleaner.
+
+	* dbus/dbus-string.h (_DBUS_STRING_ALLOCATION_PADDING):
+	move allocation padding macro to this header; use it to implement
+	(_DBUS_STRING_STATIC): ability to declare a static string.
+
+	* dbus/dbus-message.c (_dbus_message_has_type_interface_member):
+	change to return TRUE if the interface is not set.
+
+	* dbus/dbus-string.[hc]: move the D-BUS specific validation stuff
+	to dbus-marshal-validate.[hc]
+
+	* dbus/dbus-marshal-basic.c (_dbus_type_to_string): move here from
+	dbus-internals.c
+
+	* dbus/Makefile.am: cut over from dbus-marshal.[hc]
+	to dbus-marshal-*.[hc]
+
+	* dbus/dbus-object-tree.c (_dbus_decompose_path): move this
+	function here from dbus-marshal.c
+
 2005-01-12  Joe Shaw  <joeshaw@novell.com>
 
 	* NEWS: Update for 0.23.

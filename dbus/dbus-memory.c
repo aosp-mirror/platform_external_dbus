@@ -317,7 +317,8 @@ source_string (BlockSource source)
 }
 
 static void
-check_guards (void *free_block)
+check_guards (void       *free_block,
+              dbus_bool_t overwrite)
 {
   if (free_block != NULL)
     {
@@ -364,6 +365,10 @@ check_guards (void *free_block)
           i += 4;
         }
 
+      /* set memory to anything but nul bytes */
+      if (overwrite)
+        memset (free_block, 'g', requested_bytes);
+      
       if (failed)
         _dbus_assert_not_reached ("guard value corruption");
     }
@@ -401,7 +406,7 @@ set_guards (void       *real_block,
       i += 4;
     }
   
-  check_guards (block + GUARD_START_OFFSET);
+  check_guards (block + GUARD_START_OFFSET, FALSE);
   
   return block + GUARD_START_OFFSET;
 }
@@ -558,7 +563,7 @@ dbus_realloc (void  *memory,
           size_t old_bytes;
           void *block;
           
-          check_guards (memory);
+          check_guards (memory, FALSE);
           
           block = realloc (((unsigned char*)memory) - GUARD_START_OFFSET,
                            bytes + GUARD_EXTRA_SIZE);
@@ -566,7 +571,7 @@ dbus_realloc (void  *memory,
 	  old_bytes = *(dbus_uint32_t*)block;
           if (block && bytes >= old_bytes)
             /* old guards shouldn't have moved */
-            check_guards (((unsigned char*)block) + GUARD_START_OFFSET);
+            check_guards (((unsigned char*)block) + GUARD_START_OFFSET, FALSE);
           
           return set_guards (block, bytes, SOURCE_REALLOC);
         }
@@ -607,7 +612,7 @@ dbus_free (void  *memory)
 #ifdef DBUS_BUILD_TESTS
   if (guards)
     {
-      check_guards (memory);
+      check_guards (memory, TRUE);
       if (memory)
         {
           n_blocks_outstanding -= 1;

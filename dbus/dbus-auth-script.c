@@ -29,7 +29,6 @@
 #include "dbus-string.h"
 #include "dbus-hash.h"
 #include "dbus-internals.h"
-#include "dbus-marshal.h"
 #include "dbus-userdb.h"
 
 /**

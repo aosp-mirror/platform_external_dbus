@@ -35,120 +35,6 @@
 #error "config.h not included here"
 #endif
 
-/****************************************************** Remove later */
-#undef DBUS_TYPE_INVALID
-#undef DBUS_TYPE_NIL
-#undef DBUS_TYPE_CUSTOM
-#undef DBUS_TYPE_BYTE
-#undef DBUS_TYPE_INT32
-#undef DBUS_TYPE_UINT32
-#undef DBUS_TYPE_INT64
-#undef DBUS_TYPE_UINT64
-#undef DBUS_TYPE_DOUBLE
-#undef DBUS_TYPE_STRING
-#undef DBUS_TYPE_OBJECT_PATH
-#undef DBUS_TYPE_ARRAY
-#undef DBUS_TYPE_DICT
-#undef DBUS_TYPE_VARIANT
-#undef DBUS_TYPE_STRUCT
-#undef DBUS_NUMBER_OF_TYPES
-
-
-/* Never a legitimate type */
-#define DBUS_TYPE_INVALID       ((int) '\0')
-#define DBUS_TYPE_INVALID_AS_STRING        "\0"
-
-/* Primitive types */
-#define DBUS_TYPE_BYTE          ((int) 'y')
-#define DBUS_TYPE_BYTE_AS_STRING           "y"
-#define DBUS_TYPE_BOOLEAN       ((int) 'b')
-#define DBUS_TYPE_BOOLEAN_AS_STRING        "b"
-#define DBUS_TYPE_INT32         ((int) 'i')
-#define DBUS_TYPE_INT32_AS_STRING          "i"
-
-#define DBUS_TYPE_UINT32        ((int) 'u')
-#define DBUS_TYPE_UINT32_AS_STRING         "u"
-#define DBUS_TYPE_INT64         ((int) 'x')
-#define DBUS_TYPE_INT64_AS_STRING          "x"
-#define DBUS_TYPE_UINT64        ((int) 't')
-#define DBUS_TYPE_UINT64_AS_STRING         "t"
-
-#define DBUS_TYPE_DOUBLE        ((int) 'd')
-#define DBUS_TYPE_DOUBLE_AS_STRING         "d"
-#define DBUS_TYPE_STRING        ((int) 's')
-#define DBUS_TYPE_STRING_AS_STRING         "s"
-#define DBUS_TYPE_OBJECT_PATH   ((int) 'o')
-#define DBUS_TYPE_OBJECT_PATH_AS_STRING    "o"
-#define DBUS_TYPE_SIGNATURE     ((int) 'g')
-#define DBUS_TYPE_SIGNATURE_AS_STRING      "g"
-
-/* Compound types */
-#define DBUS_TYPE_ARRAY         ((int) 'a')
-#define DBUS_TYPE_ARRAY_AS_STRING          "a"
-#define DBUS_TYPE_VARIANT       ((int) 'v')
-#define DBUS_TYPE_VARIANT_AS_STRING        "v"
-
-/* STRUCT is sort of special since its code can't appear in a type string,
- * instead DBUS_STRUCT_BEGIN_CHAR has to appear
- */
-#define DBUS_TYPE_STRUCT        ((int) 'r')
-#define DBUS_TYPE_STRUCT_AS_STRING         "r"
-
-/* Does not count INVALID */
-#define DBUS_NUMBER_OF_TYPES    (13)
-
-/* characters other than typecodes that appear in type signatures */
-#define DBUS_STRUCT_BEGIN_CHAR   ((int) '(')
-#define DBUS_STRUCT_BEGIN_CHAR_AS_STRING   "("
-#define DBUS_STRUCT_END_CHAR     ((int) ')')
-#define DBUS_STRUCT_END_CHAR_AS_STRING     ")"
-
-#define DBUS_MAXIMUM_SIGNATURE_LENGTH 255
-#define DBUS_MAXIMUM_ARRAY_LENGTH (67108864)
-#define DBUS_MAXIMUM_ARRAY_LENGTH_BITS 26
-#define DBUS_MAXIMUM_MESSAGE_LENGTH (DBUS_MAXIMUM_ARRAY_LENGTH * 2)
-#define DBUS_MAXIMUM_MESSAGE_LENGTH_BITS 27
-
-static const char *
-_hack_dbus_type_to_string (int type)
-{
-  switch (type)
-    {
-    case DBUS_TYPE_INVALID:
-      return "invalid";
-    case DBUS_TYPE_BOOLEAN:
-      return "boolean";
-    case DBUS_TYPE_INT32:
-      return "int32";
-    case DBUS_TYPE_UINT32:
-      return "uint32";
-    case DBUS_TYPE_DOUBLE:
-      return "double";
-    case DBUS_TYPE_STRING:
-      return "string";
-    case DBUS_TYPE_OBJECT_PATH:
-      return "object_path";
-    case DBUS_TYPE_SIGNATURE:
-      return "signature";
-    case DBUS_TYPE_STRUCT:
-      return "struct";
-    case DBUS_TYPE_ARRAY:
-      return "array";
-    case DBUS_TYPE_VARIANT:
-      return "variant";
-    case DBUS_STRUCT_BEGIN_CHAR:
-      return "begin_struct";
-    case DBUS_STRUCT_END_CHAR:
-      return "end_struct";
-    default:
-      return "unknown";
-    }
-}
-
-#define _dbus_type_to_string(t) _hack_dbus_type_to_string(t)
-
-/****************************************************** Remove later */
-
 #ifdef WORDS_BIGENDIAN
 #define DBUS_COMPILER_BYTE_ORDER DBUS_BIG_ENDIAN
 #else
@@ -275,7 +161,7 @@ dbus_bool_t   _dbus_marshal_write_basic       (DBusString       *str,
                                                const void       *value,
                                                int               byte_order,
                                                int              *pos_after);
-dbus_bool_t   _dbus_marshal_write_fixed_array (DBusString       *str,
+dbus_bool_t   _dbus_marshal_write_fixed_multi (DBusString       *str,
                                                int               insert_at,
                                                int               element_type,
                                                const void       *value,
@@ -288,11 +174,11 @@ void          _dbus_marshal_read_basic        (const DBusString *str,
                                                void             *value,
                                                int               byte_order,
                                                int              *new_pos);
-void          _dbus_marshal_read_fixed_array  (const DBusString *str,
+void          _dbus_marshal_read_fixed_multi  (const DBusString *str,
                                                int               pos,
                                                int               element_type,
                                                void             *value,
-                                               int              *n_elements,
+                                               int               n_elements,
                                                int               byte_order,
                                                int              *new_pos);
 void          _dbus_marshal_skip_basic        (const DBusString *str,
@@ -316,7 +202,7 @@ int           _dbus_type_get_alignment        (int               typecode);
 dbus_bool_t   _dbus_type_is_basic             (int               typecode);
 dbus_bool_t   _dbus_type_is_container         (int               typecode);
 dbus_bool_t   _dbus_type_is_fixed             (int               typecode);
-
+const char*   _dbus_type_to_string            (int               typecode);
 
 
 

@@ -23,6 +23,7 @@
 #include "signals.h"
 #include "services.h"
 #include "utils.h"
+#include <dbus/dbus-marshal-validate.h>
 
 struct BusMatchRule
 {
@@ -656,7 +657,7 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
               goto failed;
             }
 
-          if (!_dbus_string_validate_service (&tmp_str, 0, len))
+          if (!_dbus_validate_service (&tmp_str, 0, len))
             {
               dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
                               "Sender service name '%s' is invalid\n", value);
@@ -678,7 +679,7 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
               goto failed;
             }
 
-          if (!_dbus_string_validate_interface (&tmp_str, 0, len))
+          if (!_dbus_validate_interface (&tmp_str, 0, len))
             {
               dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
                               "Interface name '%s' is invalid\n", value);
@@ -700,7 +701,7 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
               goto failed;
             }
 
-          if (!_dbus_string_validate_member (&tmp_str, 0, len))
+          if (!_dbus_validate_member (&tmp_str, 0, len))
             {
               dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
                               "Member name '%s' is invalid\n", value);
@@ -722,7 +723,7 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
               goto failed;
             }
 
-          if (!_dbus_string_validate_path (&tmp_str, 0, len))
+          if (!_dbus_validate_path (&tmp_str, 0, len))
             {
               dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
                               "Path '%s' is invalid\n", value);
@@ -744,7 +745,7 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
               goto failed;
             }
 
-          if (!_dbus_string_validate_service (&tmp_str, 0, len))
+          if (!_dbus_validate_service (&tmp_str, 0, len))
             {
               dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
                               "Destination service name '%s' is invalid\n", value);

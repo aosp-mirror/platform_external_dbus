@@ -1051,9 +1051,10 @@ _dbus_message_data_load (DBusString       *dest,
               goto parse_failed;
             }
 
-          _dbus_marshal_set_uint32 (dest, endian, size_offset,
+          _dbus_marshal_set_uint32 (dest, size_offset,
                                     /* subtract 1 for nul */
-                                    _dbus_string_get_length (dest) - old_len - 1);
+                                    _dbus_string_get_length (dest) - old_len - 1,
+                                    endian);
           
           PERFORM_UNALIGN (dest);
         }
@@ -1094,9 +1095,10 @@ _dbus_message_data_load (DBusString       *dest,
               goto parse_failed;
             }
 
-          _dbus_marshal_set_uint32 (dest, endian, size_offset,
+          _dbus_marshal_set_uint32 (dest, size_offset,
                                     /* subtract 1 for nul */
-                                    _dbus_string_get_length (dest) - old_len - 1);
+                                    _dbus_string_get_length (dest) - old_len - 1,
+                                    endian);
           
           PERFORM_UNALIGN (dest);
         }      

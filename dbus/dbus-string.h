@@ -39,10 +39,10 @@ DBUS_BEGIN_DECLS
  */
 struct DBusString
 {
-  void *dummy1; /**< placeholder */
-  int   dummy2; /**< placeholder */
-  int   dummy3; /**< placeholder */
-  int   dummy4; /**< placeholder */
+  const void *dummy1; /**< placeholder */
+  int   dummy2;       /**< placeholder */
+  int   dummy3;       /**< placeholder */
+  int   dummy4;       /**< placeholder */
   unsigned int dummy5 : 1; /**< placeholder */
   unsigned int dummy6 : 1; /**< placeholder */
   unsigned int dummy7 : 1; /**< placeholder */
@@ -264,26 +264,31 @@ dbus_bool_t   _dbus_string_validate_utf8         (const DBusString  *str,
 dbus_bool_t   _dbus_string_validate_nul          (const DBusString  *str,
                                                   int                start,
                                                   int                len);
-dbus_bool_t   _dbus_string_validate_path         (const DBusString  *str,
-                                                  int                start,
-                                                  int                len);
-dbus_bool_t   _dbus_string_validate_interface    (const DBusString  *str,
-                                                  int                start,
-                                                  int                len);
-dbus_bool_t   _dbus_string_validate_member       (const DBusString  *str,
-                                                  int                start,
-                                                  int                len);
-dbus_bool_t   _dbus_string_validate_error_name   (const DBusString  *str,
-                                                  int                start,
-                                                  int                len);
-dbus_bool_t   _dbus_string_validate_service      (const DBusString  *str,
-                                                  int                start,
-                                                  int                len);
-dbus_bool_t   _dbus_string_validate_signature    (const DBusString  *str,
-                                                  int                start,
-                                                  int                len);
 void          _dbus_string_zero                  (DBusString        *str);
 
+
+/**
+ * We allocate 1 byte for nul termination, plus 7 bytes for possible
+ * align_offset, so we always need 8 bytes on top of the string's
+ * length to be in the allocated block.
+ */
+#define _DBUS_STRING_ALLOCATION_PADDING 8
+
+/**
+ * Defines a static const variable with type #DBusString called "name"
+ * containing the given string literal.
+ *
+ * @param name the name of the variable
+ * @param str the string value
+ */
+#define _DBUS_STRING_DEFINE_STATIC(name, str)                           \
+  static const char _dbus_static_string_##name[] = str;                 \
+  static const DBusString name = { _dbus_static_string_##name,          \
+                                   sizeof(_dbus_static_string_##name),  \
+                                   sizeof(_dbus_static_string_##name) + \
+                                   _DBUS_STRING_ALLOCATION_PADDING,     \
+                                   sizeof(_dbus_static_string_##name),  \
+                                   TRUE, TRUE, FALSE, 0 }
 
 DBUS_END_DECLS
 

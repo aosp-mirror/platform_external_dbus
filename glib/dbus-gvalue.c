@@ -1,3 +1,26 @@
+/* -*- mode: C; c-file-style: "gnu" -*- */
+/* dbus-gvalue.c GValue to-from DBusMessageIter
+ *
+ * Copyright (C) 2004 Ximian, Inc.
+ *
+ * Licensed under the Academic Free License version 2.1
+ * 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
+
 #include <dbus-gvalue.h>
 
 gboolean
@@ -5,41 +28,43 @@ dbus_gvalue_demarshal (DBusMessageIter *iter, GValue *value)
 {
   gboolean can_convert = TRUE;
 
+  /* This is slightly evil, we don't use g_value_set_foo() functions */
+#define MAP_BASIC(d_t, g_t)                                     \
+    case DBUS_TYPE_##d_t:                                       \
+      g_value_init (value, G_TYPE_##g_t);                       \
+      dbus_message_iter_get_basic (iter, &value->data[0]);      \
+      break
+  
   switch (dbus_message_iter_get_arg_type (iter))
     {
-#define MAP(d_t, d_get, g_t, g_set) \
-    case DBUS_##d_t: \
-      g_value_init (value, G_##g_t); \
-      g_value_##g_set (value, dbus_message_iter_##d_get (iter)); \
-      break
-
-    MAP(TYPE_BYTE, get_byte, TYPE_UCHAR, set_uchar);
-    MAP(TYPE_BOOLEAN, get_boolean, TYPE_BOOLEAN , set_boolean);
-    MAP(TYPE_INT32, get_int32, TYPE_INT , set_int);
-    MAP(TYPE_UINT32, get_uint32, TYPE_UINT , set_uint);
-#ifdef DBUS_HAVE_INT64
-    MAP(TYPE_INT64, get_int64, TYPE_INT64 , set_int64);
-    MAP(TYPE_UINT64, get_uint64, TYPE_UINT64 , set_uint64);
-#endif
-    MAP(TYPE_DOUBLE, get_double, TYPE_DOUBLE , set_double);
+      MAP_BASIC (BOOLEAN, BOOLEAN);
+      MAP_BASIC (BYTE, UCHAR);
+      MAP_BASIC (INT32, INT);
+      MAP_BASIC (UINT32, UINT);
+      MAP_BASIC (INT64, INT64);
+      MAP_BASIC (UINT64, UINT64);
+      MAP_BASIC (DOUBLE, DOUBLE);
+      
     case DBUS_TYPE_STRING:
+    case DBUS_TYPE_OBJECT_PATH:
+    case DBUS_TYPE_SIGNATURE:
       {
-        char *s; /* FIXME use a const string accessor */
+        const char *s;
 
         g_value_init (value, G_TYPE_STRING);
 
-        s = dbus_message_iter_get_string (iter);
+        dbus_message_iter_get_basic (iter, &s);
         g_value_set_string (value, s);
-        g_free (s);
       }
       break;
+      
+    case DBUS_TYPE_STRUCT:
+    case DBUS_TYPE_ARRAY:
+    case DBUS_TYPE_VARIANT:
     default:
-      /* FIXME: we need to define custom boxed types for arrays
-	 etc. so we can map them transparently / pleasantly */
       can_convert = FALSE;
-      break;
     }
-#undef MAP
+#undef MAP_BASIC
   return can_convert;
 }
     
@@ -54,59 +79,120 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
   switch (value_type)
     {
     case G_TYPE_CHAR:
-      dbus_message_iter_append_byte (iter,
-                                     g_value_get_char (value));
+      {
+        char b = g_value_get_char (value);
+        if (!dbus_message_iter_append_basic (iter,
+                                             DBUS_TYPE_BYTE,
+                                             &b))
+          goto nomem;
+      }
       break;
     case G_TYPE_UCHAR:
-      dbus_message_iter_append_byte (iter,
-                                     g_value_get_uchar (value));
+      {
+        unsigned char b = g_value_get_uchar (value);
+        if (!dbus_message_iter_append_basic (iter,
+                                             DBUS_TYPE_BYTE,
+                                             &b))
+          goto nomem;
+      }
       break;
     case G_TYPE_BOOLEAN:
-      dbus_message_iter_append_boolean (iter,
-                                        g_value_get_boolean (value));
+      {
+        unsigned char b = g_value_get_boolean (value);
+        if (!dbus_message_iter_append_basic (iter,
+                                             DBUS_TYPE_BOOLEAN,
+                                             &b))
+          goto nomem;
+      }
       break;
     case G_TYPE_INT:
-      dbus_message_iter_append_int32 (iter,
-                                      g_value_get_int (value));
+      {
+        dbus_int32_t v = g_value_get_int (value);
+        if (!dbus_message_iter_append_basic (iter,
+                                             DBUS_TYPE_INT32,
+                                             &v))
+          goto nomem;
+      }
       break;
     case G_TYPE_UINT:
-      dbus_message_iter_append_uint32 (iter,
-                                       g_value_get_uint (value));
+      {
+        dbus_uint32_t v = g_value_get_uint (value);
+        if (!dbus_message_iter_append_basic (iter,
+                                             DBUS_TYPE_UINT32,
+                                             &v))
+          goto nomem;
+      }
       break;
       /* long gets cut to 32 bits so the remote API is consistent
        * on all architectures
        */
     case G_TYPE_LONG:
-      dbus_message_iter_append_int32 (iter,
-                                      g_value_get_long (value));
+      {
+        dbus_int32_t v = g_value_get_long (value);
+        if (!dbus_message_iter_append_basic (iter,
+                                             DBUS_TYPE_INT32,
+                                             &v))
+          goto nomem;
+      }
       break;
     case G_TYPE_ULONG:
-      dbus_message_iter_append_uint32 (iter,
-                                       g_value_get_ulong (value));
+      {
+        dbus_uint32_t v = g_value_get_ulong (value);
+        if (!dbus_message_iter_append_basic (iter,
+                                             DBUS_TYPE_UINT32,
+                                             &v))
+          goto nomem;
+      }
       break;
-#ifdef DBUS_HAVE_INT64
     case G_TYPE_INT64:
-      dbus_message_iter_append_int64 (iter,
-                                      g_value_get_int64 (value));
+      {
+        gint64 v = g_value_get_int64 (value);
+        if (!dbus_message_iter_append_basic (iter,
+                                             DBUS_TYPE_INT64,
+                                             &v))
+          goto nomem;
+      }
       break;
     case G_TYPE_UINT64:
-      dbus_message_iter_append_uint64 (iter,
-                                       g_value_get_uint64 (value));
+      {
+        guint64 v = g_value_get_uint64 (value);
+        if (!dbus_message_iter_append_basic (iter,
+                                             DBUS_TYPE_UINT64,
+                                             &v))
+          goto nomem;
+      }
       break;
-#endif
     case G_TYPE_FLOAT:
-      dbus_message_iter_append_double (iter,
-                                       g_value_get_float (value));
+      {
+        double v = g_value_get_float (value);
+        
+        if (!dbus_message_iter_append_basic (iter,
+                                             DBUS_TYPE_DOUBLE,
+                                             &v))
+          goto nomem;
+      }
       break;
     case G_TYPE_DOUBLE:
-      dbus_message_iter_append_double (iter,
-                                       g_value_get_double (value));
+      {
+        double v = g_value_get_double (value);
+        
+        if (!dbus_message_iter_append_basic (iter,
+                                             DBUS_TYPE_DOUBLE,
+                                             &v))
+          goto nomem;
+      }
       break;
     case G_TYPE_STRING:
       /* FIXME, the GValue string may not be valid UTF-8 */
-      dbus_message_iter_append_string (iter,
-                                       g_value_get_string (value));
+      {
+        const char *v = g_value_get_string (value);
+        if (!dbus_message_iter_append_basic (iter,
+                                             DBUS_TYPE_STRING,
+                                             &v))
+          goto nomem;
+      }
       break;
+      
     default:
       /* FIXME: we need to define custom boxed types for arrays
 	 etc. so we can map them transparently / pleasantly */
@@ -115,5 +201,9 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
     }
 
   return can_convert;
+
+ nomem:
+  g_error ("no memory");
+  return FALSE;
 }
 

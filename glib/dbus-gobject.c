@@ -308,7 +308,7 @@ handle_introspect (DBusConnection *connection,
     g_error ("Out of memory");
 
   dbus_message_append_args (message,
-                            DBUS_TYPE_STRING, xml->str,
+                            DBUS_TYPE_STRING, &xml->str,
                             DBUS_TYPE_INVALID);
 
   dbus_connection_send (connection, message, NULL);

@@ -127,6 +127,17 @@ dbus_realloc to fail if the number of bytes to be allocated is greater
 than the specified number. This only works if D-BUS has been compiled with
 --enable-tests.
 
+DBUS_TEST_MALLOC_FAILURES=n
+Many of the D-BUS tests will run over and over, once for each malloc
+involved in the test. Each run will fail a different malloc, plus some
+number of mallocs following that malloc (because a fair number of bugs
+only happen if two or more mallocs fail in a row, e.g. error recovery
+that itself involves malloc).  This env variable sets the number of
+mallocs to fail.
+Here's why you care: If set to 0, then the malloc checking is skipped,
+which makes the test suite a heck of a lot faster. Just run with this
+env variable unset before you commit.
+
 Tests
 ===
 

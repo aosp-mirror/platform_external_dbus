@@ -1398,6 +1398,7 @@ bus_pending_reply_send_no_reply (BusConnections  *connections,
   DBusMessage *message;
   DBusMessageIter iter;
   dbus_bool_t retval;
+  const char *errmsg;
 
   retval = FALSE;
   
@@ -1414,9 +1415,10 @@ bus_pending_reply_send_no_reply (BusConnections  *connections,
   if (!dbus_message_set_error_name (message,
                                     DBUS_ERROR_NO_REPLY))
     goto out;
-  
+
+  errmsg = "Message did not receive a reply (timeout by message bus)";
   dbus_message_append_iter_init (message, &iter);
-  if (!dbus_message_iter_append_string (&iter, "Message did not receive a reply (timeout by message bus)"))
+  if (!dbus_message_iter_append_basic (&iter, DBUS_TYPE_STRING, &errmsg))
     goto out;
     
   if (!bus_transaction_send_from_driver (transaction, pending->will_get_reply,

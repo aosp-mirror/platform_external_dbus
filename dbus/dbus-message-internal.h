@@ -38,7 +38,7 @@ void _dbus_message_get_network_data  (DBusMessage       *message,
 void        _dbus_message_lock                  (DBusMessage  *message);
 void        _dbus_message_unlock                (DBusMessage  *message);
 void        _dbus_message_set_serial            (DBusMessage  *message,
-                                                 dbus_int32_t  serial);
+                                                 dbus_uint32_t serial);
 dbus_bool_t _dbus_message_add_size_counter      (DBusMessage  *message,
                                                  DBusCounter  *counter);
 void        _dbus_message_add_size_counter_link (DBusMessage  *message,

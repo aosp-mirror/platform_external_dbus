@@ -23,8 +23,8 @@
  */
 
 #include "dbus-internals.h"
-#include "dbus-marshal.h"
 #include "dbus-sha.h"
+#include "dbus-marshal-basic.h" /* for byteswap routines */
 #include <string.h>
 
 /* The following comments have the history of where this code

@@ -156,13 +156,18 @@ bus_registry_ensure (BusRegistry               *registry,
 
   service->registry = registry;  
   service->refcount = 1;
-  
+
+  _dbus_verbose ("copying string %p '%s' to service->name\n",
+                 service_name, _dbus_string_get_const_data (service_name));
   if (!_dbus_string_copy_data (service_name, &service->name))
     {
       _dbus_mem_pool_dealloc (registry->service_pool, service);
       BUS_SET_OOM (error);
       return NULL;
     }
+  _dbus_verbose ("copied string %p '%s' to '%s'\n",
+                 service_name, _dbus_string_get_const_data (service_name),
+                 service->name);
 
   if (!bus_driver_send_service_owner_changed (service->name, 
 					      NULL,

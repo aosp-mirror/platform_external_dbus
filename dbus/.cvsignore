@@ -12,3 +12,5 @@ dbus-test
 dbus-arch-deps.h
 .dbus-keyrings
 dbus-glib-error-enum.h
+*.gcno
+*.gcda

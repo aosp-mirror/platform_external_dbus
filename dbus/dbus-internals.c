@@ -355,42 +355,6 @@ _dbus_string_array_contains (const char **array,
 }
 
 /**
- * Returns a string describing the given type.
- *
- * @param type the type to describe
- * @returns a constant string describing the type
- */
-const char *
-_dbus_type_to_string (int type)
-{
-  switch (type)
-    {
-    case DBUS_TYPE_INVALID:
-      return "invalid";
-    case DBUS_TYPE_NIL:
-      return "nil";
-    case DBUS_TYPE_BOOLEAN:
-      return "boolean";
-    case DBUS_TYPE_INT32:
-      return "int32";
-    case DBUS_TYPE_UINT32:
-      return "uint32";
-    case DBUS_TYPE_DOUBLE:
-      return "double";
-    case DBUS_TYPE_STRING:
-      return "string";
-    case DBUS_TYPE_CUSTOM:
-      return "custom";
-    case DBUS_TYPE_ARRAY:
-      return "array";
-    case DBUS_TYPE_DICT:
-      return "dict";
-    default:
-      return "unknown";
-    }
-}
-
-/**
  * Returns a string describing the given name.
  *
  * @param header_field the field to describe
@@ -525,6 +489,9 @@ _dbus_test_oom_handling (const char             *description,
                          void                   *data)
 {
   int approx_mallocs;
+  const char *setting;
+  int max_failures_to_try;
+  int i;
 
   /* Run once to see about how many mallocs are involved */
   
@@ -540,21 +507,30 @@ _dbus_test_oom_handling (const char             *description,
   _dbus_verbose ("\n=================\n%s: about %d mallocs total\n=================\n",
                  description, approx_mallocs);
 
-  _dbus_set_fail_alloc_failures (1);
-  if (!run_failing_each_malloc (approx_mallocs, description, func, data))
-    return FALSE;
+  setting = _dbus_getenv ("DBUS_TEST_MALLOC_FAILURES");
+  if (setting != NULL)
+    {
+      DBusString str;
+      long v;
+      _dbus_string_init_const (&str, setting);
+      v = 4;
+      if (!_dbus_string_parse_int (&str, 0, &v, NULL))
+        _dbus_warn ("couldn't parse '%s' as integer\n", setting);
+      max_failures_to_try = v;
+    }
+  else
+    {
+      max_failures_to_try = 4;
+    }
 
-  _dbus_set_fail_alloc_failures (2);
-  if (!run_failing_each_malloc (approx_mallocs, description, func, data))
-    return FALSE;
-  
-  _dbus_set_fail_alloc_failures (3);
-  if (!run_failing_each_malloc (approx_mallocs, description, func, data))
-    return FALSE;
-
-  _dbus_set_fail_alloc_failures (4);
-  if (!run_failing_each_malloc (approx_mallocs, description, func, data))
-    return FALSE;
+  i = setting ? max_failures_to_try - 1 : 1;
+  while (i < max_failures_to_try)
+    {
+      _dbus_set_fail_alloc_failures (i);
+      if (!run_failing_each_malloc (approx_mallocs, description, func, data))
+        return FALSE;
+      ++i;
+    }
   
   _dbus_verbose ("\n=================\n%s: all iterations passed\n=================\n",
                  description);

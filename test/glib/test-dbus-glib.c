@@ -62,8 +62,9 @@ main (int argc, char **argv)
   int service_list_len;
   int i;
   guint32 result;
-  char *str;
-  
+  const char *v_STRING;
+  guint32 v_UINT32;
+    
   g_type_init ();
   
   loop = g_main_loop_new (NULL, FALSE);
@@ -115,12 +116,14 @@ main (int argc, char **argv)
   g_strfreev (service_list);
 
   /* Test handling of unknown method */
+  v_STRING = "blah blah blah blah blah";
+  v_UINT32 = 10;
   call = dbus_g_proxy_begin_call (driver, "ThisMethodDoesNotExist",
-                                 DBUS_TYPE_STRING,
-                                 "blah blah blah blah blah",
-                                 DBUS_TYPE_INT32,
-                                 10,
-                                 DBUS_TYPE_INVALID);
+                                  DBUS_TYPE_STRING,
+                                  &v_STRING,
+                                  DBUS_TYPE_INT32,
+                                  &v_UINT32,
+                                  DBUS_TYPE_INVALID);
 
   error = NULL;
   if (dbus_g_proxy_end_call (driver, call, &error,
@@ -135,17 +138,19 @@ main (int argc, char **argv)
   g_error_free (error);
   
   /* Activate a service */
+  v_STRING = "org.freedesktop.DBus.TestSuiteEchoService";
+  v_UINT32 = 0;
   call = dbus_g_proxy_begin_call (driver, "ActivateService",
-                                 DBUS_TYPE_STRING,
-                                 "org.freedesktop.DBus.TestSuiteEchoService",
-                                 DBUS_TYPE_UINT32,
-                                 0,
-                                 DBUS_TYPE_INVALID);
+                                  DBUS_TYPE_STRING,
+                                  &v_STRING,
+                                  DBUS_TYPE_UINT32,
+                                  &v_UINT32,
+                                  DBUS_TYPE_INVALID);
 
   error = NULL;
   if (!dbus_g_proxy_end_call (driver, call, &error,
-                             DBUS_TYPE_UINT32, &result,
-                             DBUS_TYPE_INVALID))
+                              DBUS_TYPE_UINT32, &result,
+                              DBUS_TYPE_INVALID))
     {
       g_printerr ("Failed to complete Activate call: %s\n",
                   error->message);
@@ -156,12 +161,14 @@ main (int argc, char **argv)
   g_print ("Activation of echo service = 0x%x\n", result);
 
   /* Activate a service again */
+  v_STRING = "org.freedesktop.DBus.TestSuiteEchoService";
+  v_UINT32 = 0;
   call = dbus_g_proxy_begin_call (driver, "ActivateService",
-                                 DBUS_TYPE_STRING,
-                                 "org.freedesktop.DBus.TestSuiteEchoService",
-                                 DBUS_TYPE_UINT32,
-                                 0,
-                                 DBUS_TYPE_INVALID);
+                                  DBUS_TYPE_STRING,
+                                  &v_STRING,
+                                  DBUS_TYPE_UINT32,
+                                  &v_UINT32,
+                                  DBUS_TYPE_INVALID);
 
   error = NULL;
   if (!dbus_g_proxy_end_call (driver, call, &error,
@@ -192,15 +199,16 @@ main (int argc, char **argv)
       exit (1);      
     }
 
+  v_STRING = "my string hello";
   call = dbus_g_proxy_begin_call (proxy, "Echo",
-                                 DBUS_TYPE_STRING,
-                                 "my string hello",
-                                 DBUS_TYPE_INVALID);
+                                  DBUS_TYPE_STRING,
+                                  &v_STRING,
+                                  DBUS_TYPE_INVALID);
 
   error = NULL;
   if (!dbus_g_proxy_end_call (proxy, call, &error,
-                             DBUS_TYPE_STRING, &str,
-                             DBUS_TYPE_INVALID))
+                              DBUS_TYPE_STRING, &v_STRING,
+                              DBUS_TYPE_INVALID))
     {
       g_printerr ("Failed to complete Echo call: %s\n",
                   error->message);
@@ -208,8 +216,7 @@ main (int argc, char **argv)
       exit (1);
     }
 
-  g_print ("String echoed = \"%s\"\n", str);
-  g_free (str);
+  g_print ("String echoed = \"%s\"\n", v_STRING);
 
   /* Test oneway call and signal handling */
 

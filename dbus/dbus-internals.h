@@ -170,6 +170,7 @@ extern const char _dbus_return_if_fail_warning_format[];
 #define _DBUS_ALIGN_ADDRESS(this, boundary) \
   ((void*)_DBUS_ALIGN_VALUE(this, boundary))
 
+
 char*       _dbus_strdup                (const char  *str);
 void*       _dbus_memdup                (const void  *mem,
                                          size_t       n_bytes);
@@ -207,13 +208,12 @@ dbus_bool_t _dbus_set_fd_nonblocking (int             fd,
                                       DBusError      *error);
 
 void _dbus_verbose_bytes           (const unsigned char *data,
-                                    int                  len);
+                                    int                  len,
+                                    int                  offset);
 void _dbus_verbose_bytes_of_string (const DBusString    *str,
                                     int                  start,
                                     int                  len);
 
-
-const char* _dbus_type_to_string         (int type);
 const char* _dbus_header_field_to_string (int header_field);
 
 extern const char _dbus_no_memory_message[];

@@ -48,7 +48,7 @@
  */
 #define N_CLIENT_THREADS 1
 /* It seems like at least 750000 or so iterations reduces the variability to sane levels */
-#define N_ITERATIONS 750000
+#define N_ITERATIONS 7500
 #define N_PROGRESS_UPDATES 20
 /* Don't make PAYLOAD_SIZE too huge because it gets used as a static buffer size */
 #define PAYLOAD_SIZE 0
@@ -103,17 +103,19 @@ static void
 send_echo_method_call (DBusConnection *connection)
 {
   DBusMessage *message;
+  const char *hello = "Hello World!";
+  dbus_int32_t i32 = 123456;
 
   message = dbus_message_new_method_call (ECHO_SERVICE,
                                           ECHO_PATH,
                                           ECHO_INTERFACE,
                                           ECHO_PING_METHOD);
   dbus_message_append_args (message,
-                            DBUS_TYPE_STRING, "Hello World!",
-                            DBUS_TYPE_INT32, 123456,
+                            DBUS_TYPE_STRING, &hello,
+                            DBUS_TYPE_INT32, &i32,
 #if PAYLOAD_SIZE > 0
                             DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE,
-                            payload, PAYLOAD_SIZE,
+                            &payload, PAYLOAD_SIZE,
 #endif
                             DBUS_TYPE_INVALID);
   
@@ -277,10 +279,6 @@ no_bus_init_server (ServerData       *sd)
 {
   DBusServer *server;
   DBusError error;
-  
-#ifndef DBUS_DISABLE_ASSERT
-  g_printerr ("You should probably --disable-asserts before you profile as they have noticeable overhead\n");
-#endif
 
   dbus_error_init (&error);
   server = dbus_server_listen ("unix:tmpdir="DBUS_TEST_SOCKET_DIR,
@@ -511,14 +509,6 @@ with_bus_init_server (ServerData       *sd)
       g_printerr ("You have to run with_bus mode with the run-test.sh script\n");
       exit (1);
     }
-  
-#ifndef DBUS_DISABLE_ASSERT
-  g_printerr ("You should probably --disable-asserts before you profile as they have noticeable overhead\n");
-#endif
-  
-#ifdef DBUS_ENABLE_VERBOSE_MODE
-  g_printerr ("You should probably --disable-verbose-mode before you profile as verbose has noticeable overhead\n");
-#endif
 
   /* Note that we use the standard global bus connection for the
    * server, and the clients open their own connections so they can
@@ -1110,6 +1100,14 @@ main (int argc, char *argv[])
 {
   g_thread_init (NULL);
   dbus_g_thread_init ();
+  
+#ifndef DBUS_DISABLE_ASSERT
+  g_printerr ("You should probably --disable-asserts before you profile as they have noticeable overhead\n");
+#endif
+  
+#if DBUS_ENABLE_VERBOSE_MODE
+  g_printerr ("You should probably --disable-verbose-mode before you profile as verbose has noticeable overhead\n");
+#endif
   
   payload = g_malloc (PAYLOAD_SIZE);
 

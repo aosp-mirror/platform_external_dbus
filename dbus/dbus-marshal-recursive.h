@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-marshal-recursive.h  Marshalling routines for recursive types
  *
- * Copyright (C) 2004 Red Hat, Inc.
+ * Copyright (C) 2004, 2005 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
  *
@@ -148,12 +148,16 @@ void        _dbus_type_reader_init_types_only_from_mark (DBusTypeReader        *
 void        _dbus_type_reader_save_mark                 (const DBusTypeReader  *reader,
                                                          DBusTypeMark          *mark);
 int         _dbus_type_reader_get_current_type          (const DBusTypeReader  *reader);
+int         _dbus_type_reader_get_array_type            (const DBusTypeReader  *reader);
+int         _dbus_type_reader_get_value_pos             (const DBusTypeReader  *reader);
 dbus_bool_t _dbus_type_reader_array_is_empty            (const DBusTypeReader  *reader);
 void        _dbus_type_reader_read_basic                (const DBusTypeReader  *reader,
                                                          void                  *value);
-void        _dbus_type_reader_read_fixed_array          (const DBusTypeReader  *reader,
+void        _dbus_type_reader_read_fixed_multi          (const DBusTypeReader  *reader,
                                                          void                  *value,
                                                          int                   *n_elements);
+void        _dbus_type_reader_read_raw                  (const DBusTypeReader  *reader,
+                                                         const unsigned char  **value_location);
 void        _dbus_type_reader_recurse                   (DBusTypeReader        *reader,
                                                          DBusTypeReader        *subreader);
 dbus_bool_t _dbus_type_reader_next                      (DBusTypeReader        *reader);
@@ -176,6 +180,14 @@ void        _dbus_type_writer_init                 (DBusTypeWriter        *write
                                                     int                    type_pos,
                                                     DBusString            *value_str,
                                                     int                    value_pos);
+void        _dbus_type_writer_init_types_delayed   (DBusTypeWriter        *writer,
+                                                    int                    byte_order,
+                                                    DBusString            *value_str,
+                                                    int                    value_pos);
+void        _dbus_type_writer_add_types            (DBusTypeWriter        *writer,
+                                                    DBusString            *type_str,
+                                                    int                    type_pos);
+void        _dbus_type_writer_remove_types         (DBusTypeWriter        *writer);
 void        _dbus_type_writer_init_values_only     (DBusTypeWriter        *writer,
                                                     int                    byte_order,
                                                     const DBusString      *type_str,
@@ -185,7 +197,7 @@ void        _dbus_type_writer_init_values_only     (DBusTypeWriter        *write
 dbus_bool_t _dbus_type_writer_write_basic          (DBusTypeWriter        *writer,
                                                     int                    type,
                                                     const void            *value);
-dbus_bool_t _dbus_type_writer_write_fixed_array    (DBusTypeWriter        *writer,
+dbus_bool_t _dbus_type_writer_write_fixed_multi    (DBusTypeWriter        *writer,
                                                     int                    element_type,
                                                     const void            *value,
                                                     int                    n_elements);
@@ -195,6 +207,10 @@ dbus_bool_t _dbus_type_writer_recurse              (DBusTypeWriter        *write
                                                     int                    contained_type_start,
                                                     DBusTypeWriter        *sub);
 dbus_bool_t _dbus_type_writer_unrecurse            (DBusTypeWriter        *writer,
+                                                    DBusTypeWriter        *sub);
+dbus_bool_t _dbus_type_writer_append_array         (DBusTypeWriter        *writer,
+                                                    const DBusString      *contained_type,
+                                                    int                    contained_type_start,
                                                     DBusTypeWriter        *sub);
 dbus_bool_t _dbus_type_writer_write_reader         (DBusTypeWriter        *writer,
                                                     DBusTypeReader        *reader);
@@ -206,7 +222,6 @@ dbus_bool_t _dbus_type_writer_write_reader_partial (DBusTypeWriter        *write
                                                     DBusList             **fixups);
 void        _dbus_type_writer_set_enabled          (DBusTypeWriter        *writer,
                                                     dbus_bool_t            enabled);
-
 
 
 #endif /* DBUS_MARSHAL_RECURSIVE_H */

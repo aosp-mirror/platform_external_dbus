@@ -58,7 +58,7 @@ handle_echo (DBusConnection     *connection,
     die ("No memory\n");
   
   if (!dbus_message_append_args (reply,
-                                 DBUS_TYPE_STRING, s,
+                                 DBUS_TYPE_STRING, &s,
                                  DBUS_TYPE_INVALID))
     die ("No memory");
   
@@ -66,8 +66,6 @@ handle_echo (DBusConnection     *connection,
     die ("No memory\n");
 
   fprintf (stderr, "Echo service echoed string: \"%s\"\n", s);
-  
-  dbus_free (s);
   
   dbus_message_unref (reply);
     
@@ -104,6 +102,7 @@ path_message_func (DBusConnection  *connection,
     {
       /* Emit the Foo signal */
       DBusMessage *signal;
+      double v_DOUBLE;
 
       _dbus_verbose ("emitting signal Foo\n");
       
@@ -112,9 +111,10 @@ path_message_func (DBusConnection  *connection,
                                         "Foo");
       if (signal == NULL)
         die ("No memory\n");
-      
+
+      v_DOUBLE = 42.6;
       if (!dbus_message_append_args (signal,
-                                     DBUS_TYPE_DOUBLE, 42.6,
+                                     DBUS_TYPE_DOUBLE, &v_DOUBLE,
                                      DBUS_TYPE_INVALID))
         die ("No memory");
   

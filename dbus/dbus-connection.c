@@ -38,7 +38,6 @@
 #include "dbus-string.h"
 #include "dbus-pending-call.h"
 #include "dbus-object-tree.h"
-#include "dbus-marshal.h"
 
 #if 0
 #define CONNECTION_LOCK(connection)   do {                      \
@@ -1562,15 +1561,6 @@ _dbus_connection_send_preallocated_unlocked (DBusConnection       *connection,
   connection->n_outgoing += 1;
 
   sig = dbus_message_get_signature (message);
-#ifndef DBUS_DISABLE_ASSERT
-  {
-    DBusString foo;
-    _dbus_verbose (" validating signature '%s'\n", sig);
-    _dbus_string_init_const (&foo, sig);
-    _dbus_assert (_dbus_string_validate_signature (&foo, 0,
-                                                   _dbus_string_get_length (&foo)));
-  }
-#endif
   
   _dbus_verbose ("Message %p (%d %s %s '%s') added to outgoing queue %p, %d pending to send\n",
                  message,

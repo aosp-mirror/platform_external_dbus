@@ -941,8 +941,8 @@ dbus_g_proxy_new_for_service_owner (DBusGConnection          *connection,
   DBusGProxy *proxy;
   DBusMessage *request, *reply;
   DBusError derror;
-  char *base_service_name;
-
+  const char *base_service_name;
+  
   g_return_val_if_fail (connection != NULL, NULL);
   g_return_val_if_fail (service_name != NULL, NULL);
   g_return_val_if_fail (path_name != NULL, NULL);
@@ -962,7 +962,7 @@ dbus_g_proxy_new_for_service_owner (DBusGConnection          *connection,
     g_error ("Out of memory");
   
   if (! dbus_message_append_args (request, 
-				  DBUS_TYPE_STRING, service_name, 
+				  DBUS_TYPE_STRING, &service_name, 
 				  DBUS_TYPE_INVALID))
     g_error ("Out of memory");
 
@@ -997,7 +997,6 @@ dbus_g_proxy_new_for_service_owner (DBusGConnection          *connection,
     dbus_message_unref (request);
   if (reply)
     dbus_message_unref (reply);
-  dbus_free (base_service_name);
 
   return proxy;
 }

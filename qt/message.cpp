@@ -185,19 +185,31 @@ QVariant Message::iterator::marshallBaseType( DBusMessageIter* i )
   QVariant ret;
   switch (dbus_message_iter_get_arg_type(i)) {
   case DBUS_TYPE_INT32:
-    ret = QVariant( dbus_message_iter_get_int32(i) );
+    {
+      dbus_int32_t v;
+      dbus_message_iter_get_basic (i, &v);
+      ret = QVariant( v );
+    }
     break;
   case DBUS_TYPE_UINT32:
-    ret = QVariant( dbus_message_iter_get_uint32(i) );
+    {
+      dbus_uint32_t v;
+      dbus_message_iter_get_basic (i, &v);
+      ret = QVariant( v );
+    }
     break;
   case DBUS_TYPE_DOUBLE:
-    ret = QVariant( dbus_message_iter_get_double(i) );
+    {
+      double v;
+      dbus_message_iter_get_basic (i, &v);
+      ret = QVariant( v );
+    }
     break;
   case DBUS_TYPE_STRING:
     {
-      char *str = dbus_message_iter_get_string(i);
-      ret = QVariant( QString::fromLatin1(str) );
-      dbus_free(str);
+      const char *v;
+      dbus_message_iter_get_basic (i, &v);
+      ret = QVariant( v );
     }
     break;
   default:
@@ -224,14 +236,16 @@ Message::iterator::fillVar()
     switch ( dbus_message_iter_get_array_type( d->iter ) ) {
     case DBUS_TYPE_STRING: {
       QStringList tempList;
-      int count;
-      char** charArray;
-      dbus_message_iter_get_string_array( d->iter, &charArray, &count );
-      for ( int i=0; i < count; i++ ) {
-        tempList.append( QString( charArray[i] ) );
-      }
+      DBusMessageIter sub;
+      dbus_message_iter_recurse (d->iter, &sub);
+      while (dbus_message_iter_get_arg_type (&sub) != DBUS_TYPE_INVALID)
+        {
+          const char *v;
+          dbus_message_iter_get_basic (&sub, &v);
+          tempList.append( QString( v ) );
+          dbus_message_iter_next (&sub);
+        }
       d->var = QVariant( tempList );
-      dbus_free( charArray );
       break;
     }
     default:
@@ -241,6 +255,11 @@ Message::iterator::fillVar()
     }
     break;
   }
+#if 0
+  /* DICT is gone for now, but expected to be reintroduced, or else
+   * reintroduced as a flag on the introspection data that can
+   * apply to array of struct of two fields
+   */
   case DBUS_TYPE_DICT: {
     qDebug( "Got a hash!" );
     QMap<QString, QVariant> tempMap;
@@ -258,6 +277,7 @@ Message::iterator::fillVar()
     d->var = QVariant();
     break;
   }
+#endif
   default:
     qDebug( "not implemented" );
     d->var = QVariant();
@@ -485,49 +505,51 @@ Message::message() const
 
 Message& Message::operator<<( bool b )
 {
-  dbus_message_append_args( d->msg, DBUS_TYPE_BOOLEAN, b,
+  const unsigned char byte = b;
+  dbus_message_append_args( d->msg, DBUS_TYPE_BOOLEAN, &byte,
                             DBUS_TYPE_INVALID );
 }
 
 Message& Message::operator<<( Q_INT8 byte )
 {
-  dbus_message_append_args( d->msg, DBUS_TYPE_BYTE, byte,
+  dbus_message_append_args( d->msg, DBUS_TYPE_BYTE, &byte,
                             DBUS_TYPE_INVALID );
 }
 
 Message& Message::operator<<( Q_INT32 num )
 {
-  dbus_message_append_args( d->msg, DBUS_TYPE_INT32, num,
+  dbus_message_append_args( d->msg, DBUS_TYPE_INT32, &num,
                             DBUS_TYPE_INVALID );
 }
 
 Message& Message::operator<<( Q_UINT32 num )
 {
-  dbus_message_append_args( d->msg, DBUS_TYPE_UINT32, num,
+  dbus_message_append_args( d->msg, DBUS_TYPE_UINT32, &num,
                             DBUS_TYPE_INVALID );
 }
 
 Message& Message::operator<<( Q_INT64 num )
 {
-  dbus_message_append_args( d->msg, DBUS_TYPE_INT64, num,
+  dbus_message_append_args( d->msg, DBUS_TYPE_INT64, &num,
                             DBUS_TYPE_INVALID );
 }
 
 Message& Message::operator<<( Q_UINT64 num )
 {
-  dbus_message_append_args( d->msg, DBUS_TYPE_UINT64, num,
+  dbus_message_append_args( d->msg, DBUS_TYPE_UINT64, &num,
                             DBUS_TYPE_INVALID );
 }
 
 Message& Message::operator<<( double num )
 {
-  dbus_message_append_args( d->msg, DBUS_TYPE_DOUBLE, num,
+  dbus_message_append_args( d->msg, DBUS_TYPE_DOUBLE, &num,
                             DBUS_TYPE_INVALID );
 }
 
 Message& Message::operator<<( const QString& str )
 {
-  dbus_message_append_args( d->msg, DBUS_TYPE_STRING, str.unicode(),
+  const char *u = str.utf8();
+  dbus_message_append_args( d->msg, DBUS_TYPE_STRING, &u,
                             DBUS_TYPE_INVALID );
 }
 

@@ -479,8 +479,13 @@ dbus_bus_register (DBusConnection *connection,
                                    DBUS_TYPE_INVALID))
     goto out;
   
-  bd->base_service = name;
-
+  bd->base_service = _dbus_strdup (name);
+  if (bd->base_service == NULL)
+    {
+      _DBUS_SET_OOM (error);
+      goto out;
+    }
+  
   retval = TRUE;
   
  out:
@@ -578,7 +583,7 @@ dbus_bus_get_unix_user (DBusConnection *connection,
     }
  
   if (!dbus_message_append_args (message,
-				 DBUS_TYPE_STRING, service,
+				 DBUS_TYPE_STRING, &service,
 				 DBUS_TYPE_INVALID))
     {
       dbus_message_unref (message);
@@ -659,8 +664,8 @@ dbus_bus_acquire_service (DBusConnection *connection,
     }
  
   if (!dbus_message_append_args (message,
-				 DBUS_TYPE_STRING, service_name,
-				 DBUS_TYPE_UINT32, flags,
+				 DBUS_TYPE_STRING, &service_name,
+				 DBUS_TYPE_UINT32, &flags,
 				 DBUS_TYPE_INVALID))
     {
       dbus_message_unref (message);
@@ -731,7 +736,7 @@ dbus_bus_service_exists (DBusConnection *connection,
     }
   
   if (!dbus_message_append_args (message,
-				 DBUS_TYPE_STRING, service_name,
+				 DBUS_TYPE_STRING, &service_name,
 				 DBUS_TYPE_INVALID))
     {
       dbus_message_unref (message);
@@ -791,8 +796,8 @@ dbus_bus_activate_service (DBusConnection *connection,
                                       DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
                                       "ActivateService");
 
-  if (!dbus_message_append_args (msg, DBUS_TYPE_STRING, service_name,
-			  	 DBUS_TYPE_UINT32, flags, DBUS_TYPE_INVALID))
+  if (!dbus_message_append_args (msg, DBUS_TYPE_STRING, &service_name,
+			  	 DBUS_TYPE_UINT32, &flags, DBUS_TYPE_INVALID))
     {
       dbus_message_unref (msg);
       _DBUS_SET_OOM (error);
@@ -895,7 +900,7 @@ dbus_bus_add_match (DBusConnection *connection,
       return;
     }
 
-  if (!dbus_message_append_args (msg, DBUS_TYPE_STRING, rule,
+  if (!dbus_message_append_args (msg, DBUS_TYPE_STRING, &rule,
                                  DBUS_TYPE_INVALID))
     {
       dbus_message_unref (msg);
@@ -933,7 +938,7 @@ dbus_bus_remove_match (DBusConnection *connection,
                                       DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
                                       "RemoveMatch");
 
-  if (!dbus_message_append_args (msg, DBUS_TYPE_STRING, rule,
+  if (!dbus_message_append_args (msg, DBUS_TYPE_STRING, &rule,
                                  DBUS_TYPE_INVALID))
     {
       dbus_message_unref (msg);

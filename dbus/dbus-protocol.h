@@ -2,9 +2,10 @@
 /* dbus-protocol.h  D-Bus protocol constants
  *
  * Copyright (C) 2002, 2003  CodeFactory AB
+ * Copyright (C) 2004, 2005 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -14,7 +15,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -34,34 +35,103 @@ extern "C" {
 
 /* Message byte order */
 #define DBUS_LITTLE_ENDIAN ('l')  /* LSB first */
-#define DBUS_BIG_ENDIAN    ('B')  /* MSB first */    
+#define DBUS_BIG_ENDIAN    ('B')  /* MSB first */
 
 /* Protocol version */
-#define DBUS_MAJOR_PROTOCOL_VERSION 0
+#define DBUS_MAJOR_PROTOCOL_VERSION 1
 
-/* Data types */
+/* Never a legitimate type */
 #define DBUS_TYPE_INVALID       ((int) '\0')
-#define DBUS_TYPE_NIL           ((int) 'v')
-#define DBUS_TYPE_BYTE          ((int) 'y')
-#define DBUS_TYPE_BOOLEAN       ((int) 'b')
-#define DBUS_TYPE_INT32         ((int) 'i')
-#define DBUS_TYPE_UINT32        ((int) 'u')
-#define DBUS_TYPE_INT64         ((int) 'x')
-#define DBUS_TYPE_UINT64        ((int) 't')
-#define DBUS_TYPE_DOUBLE        ((int) 'd')
-#define DBUS_TYPE_STRING        ((int) 's')
-#define DBUS_TYPE_CUSTOM        ((int) 'c')
-#define DBUS_TYPE_ARRAY         ((int) 'a')
-#define DBUS_TYPE_DICT          ((int) 'm')
-#define DBUS_TYPE_OBJECT_PATH   ((int) 'o')
+#define DBUS_TYPE_INVALID_AS_STRING        "\0"
 
+/* Primitive types */
+#define DBUS_TYPE_BYTE          ((int) 'y')
+#define DBUS_TYPE_BYTE_AS_STRING           "y"
+#define DBUS_TYPE_BOOLEAN       ((int) 'b')
+#define DBUS_TYPE_BOOLEAN_AS_STRING        "b"
+#define DBUS_TYPE_INT32         ((int) 'i')
+#define DBUS_TYPE_INT32_AS_STRING          "i"
+
+#define DBUS_TYPE_UINT32        ((int) 'u')
+#define DBUS_TYPE_UINT32_AS_STRING         "u"
+#define DBUS_TYPE_INT64         ((int) 'x')
+#define DBUS_TYPE_INT64_AS_STRING          "x"
+#define DBUS_TYPE_UINT64        ((int) 't')
+#define DBUS_TYPE_UINT64_AS_STRING         "t"
+
+#define DBUS_TYPE_DOUBLE        ((int) 'd')
+#define DBUS_TYPE_DOUBLE_AS_STRING         "d"
+#define DBUS_TYPE_STRING        ((int) 's')
+#define DBUS_TYPE_STRING_AS_STRING         "s"
+#define DBUS_TYPE_OBJECT_PATH   ((int) 'o')
+#define DBUS_TYPE_OBJECT_PATH_AS_STRING    "o"
+#define DBUS_TYPE_SIGNATURE     ((int) 'g')
+#define DBUS_TYPE_SIGNATURE_AS_STRING      "g"
+
+/* Compound types */
+#define DBUS_TYPE_ARRAY         ((int) 'a')
+#define DBUS_TYPE_ARRAY_AS_STRING          "a"
+#define DBUS_TYPE_VARIANT       ((int) 'v')
+#define DBUS_TYPE_VARIANT_AS_STRING        "v"
+
+/* STRUCT is sort of special since its code can't appear in a type string,
+ * instead DBUS_STRUCT_BEGIN_CHAR has to appear
+ */
+#define DBUS_TYPE_STRUCT        ((int) 'r')
+#define DBUS_TYPE_STRUCT_AS_STRING         "r"
+
+/* Does not count INVALID */
 #define DBUS_NUMBER_OF_TYPES    (13)
 
-/* Max length in bytes of a service or interface or member name */
-#define DBUS_MAXIMUM_NAME_LENGTH 256
+/* characters other than typecodes that appear in type signatures */
+#define DBUS_STRUCT_BEGIN_CHAR   ((int) '(')
+#define DBUS_STRUCT_BEGIN_CHAR_AS_STRING   "("
+#define DBUS_STRUCT_END_CHAR     ((int) ')')
+#define DBUS_STRUCT_END_CHAR_AS_STRING     ")"
 
-/* Max length of a match rule string */
+/* Max length in bytes of a service or interface or member name (not
+ * object path, paths are unlimited). This is limited because lots of
+ * stuff is O(n) in this number, plus it would be obnoxious to type in
+ * a paragraph-long method name so most likely something like that
+ * would be an exploit.
+ */
+#define DBUS_MAXIMUM_NAME_LENGTH 255
+
+/* This one is 255 so it fits in a byte */
+#define DBUS_MAXIMUM_SIGNATURE_LENGTH 255
+
+/* Max length of a match rule string; to keep people from hosing the
+ * daemon with some huge rule
+ */
 #define DBUS_MAXIMUM_MATCH_RULE_LENGTH 1024
+
+/* Max length of a marshaled array in bytes (64M, 2^26) We use signed
+ * int for lengths so must be INT_MAX or less.  We need something a
+ * bit smaller than INT_MAX because the array is inside a message with
+ * header info, etc.  so an INT_MAX array wouldn't allow the message
+ * overhead.  The 64M number is an attempt at a larger number than
+ * we'd reasonably ever use, but small enough that your bus would chew
+ * through it fairly quickly without locking up forever. If you have
+ * data that's likely to be larger than this, you should probably be
+ * sending it in multiple incremental messages anyhow.
+ */
+#define DBUS_MAXIMUM_ARRAY_LENGTH (67108864)
+/* Number of bits you need in an unsigned to store the max array size */
+#define DBUS_MAXIMUM_ARRAY_LENGTH_BITS 26
+
+/* The maximum total message size including header and body; similar
+ * rationale to max array size.
+ */
+#define DBUS_MAXIMUM_MESSAGE_LENGTH (DBUS_MAXIMUM_ARRAY_LENGTH * 2)
+/* Number of bits you need in an unsigned to store the max message size */
+#define DBUS_MAXIMUM_MESSAGE_LENGTH_BITS 27
+
+/* Depth of recursion in the type tree. This is automatically limited
+ * to DBUS_MAXIMUM_SIGNATURE_LENGTH since you could only have an array
+ * of array of array of ... that fit in the max signature.  But that's
+ * probably a bit too large.
+ */
+#define DBUS_MAXIMUM_TYPE_RECURSION_DEPTH 32
 
 /* Types of message */
 #define DBUS_MESSAGE_TYPE_INVALID       0
@@ -69,11 +139,11 @@ extern "C" {
 #define DBUS_MESSAGE_TYPE_METHOD_RETURN 2
 #define DBUS_MESSAGE_TYPE_ERROR         3
 #define DBUS_MESSAGE_TYPE_SIGNAL        4
-  
+
 /* Header flags */
 #define DBUS_HEADER_FLAG_NO_REPLY_EXPECTED 0x1
 #define DBUS_HEADER_FLAG_AUTO_ACTIVATION   0x2
-  
+
 /* Header fields */
 #define DBUS_HEADER_FIELD_INVALID        0
 #define DBUS_HEADER_FIELD_PATH           1
@@ -87,25 +157,52 @@ extern "C" {
 
 #define DBUS_HEADER_FIELD_LAST DBUS_HEADER_FIELD_SIGNATURE
 
+/* Header format is defined as a signature:
+ *   byte                            byte order
+ *   byte                            message type ID
+ *   byte                            flags
+ *   byte                            protocol version
+ *   uint32                          body length
+ *   uint32                          serial
+ *   array of struct (byte,variant)  (field name, value)
+ *
+ * The length of the header can be computed as the
+ * fixed size of the initial data, plus the length of
+ * the array at the end, plus padding to an 8-boundary.
+ */
+#define DBUS_HEADER_SIGNATURE                   \
+     DBUS_TYPE_BYTE_AS_STRING                   \
+     DBUS_TYPE_BYTE_AS_STRING                   \
+     DBUS_TYPE_BYTE_AS_STRING                   \
+     DBUS_TYPE_BYTE_AS_STRING                   \
+     DBUS_TYPE_UINT32_AS_STRING                 \
+     DBUS_TYPE_UINT32_AS_STRING                 \
+     DBUS_TYPE_ARRAY_AS_STRING                  \
+     DBUS_STRUCT_BEGIN_CHAR_AS_STRING           \
+     DBUS_TYPE_BYTE_AS_STRING                   \
+     DBUS_TYPE_VARIANT_AS_STRING                \
+     DBUS_STRUCT_END_CHAR_AS_STRING
+
+
 /* Services */
 #define DBUS_SERVICE_ORG_FREEDESKTOP_DBUS      "org.freedesktop.DBus"
 
 /* Paths */
 #define DBUS_PATH_ORG_FREEDESKTOP_DBUS  "/org/freedesktop/DBus"
 #define DBUS_PATH_ORG_FREEDESKTOP_LOCAL "/org/freedesktop/Local"
-  
+
 /* Interfaces, these #define don't do much other than
  * catch typos at compile time
  */
 #define DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS  "org.freedesktop.DBus"
 #define DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE "org.freedesktop.Introspectable"
-  
+
 /* This is a special interface whose methods can only be invoked
  * by the local implementation (messages from remote apps aren't
  * allowed to specify this interface).
  */
 #define DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL "org.freedesktop.Local"
-  
+
 /* Service owner flags */
 #define DBUS_SERVICE_FLAG_PROHIBIT_REPLACEMENT 0x1
 #define DBUS_SERVICE_FLAG_REPLACE_EXISTING     0x2

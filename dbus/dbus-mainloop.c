@@ -30,7 +30,7 @@
 
 #define MAINLOOP_SPEW 0
 
-#ifdef MAINLOOP_SPEW
+#if MAINLOOP_SPEW
 #ifdef DBUS_ENABLE_VERBOSE_MODE
 static const char*
 watch_flags_to_string (int flags)

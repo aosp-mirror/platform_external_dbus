@@ -93,6 +93,7 @@ typedef struct
   unsigned int timeout_added : 1;
 } BusPendingActivation;
 
+#if 0
 static BusServiceDirectory *
 bus_service_directory_ref (BusServiceDirectory *dir)
 {
@@ -102,6 +103,7 @@ bus_service_directory_ref (BusServiceDirectory *dir)
 
   return dir;
 }
+#endif
 
 static void
 bus_service_directory_unref (BusServiceDirectory *dir)
@@ -909,15 +911,19 @@ bus_activation_service_created (BusActivation  *activation,
 	  /* Only send activation replies to regular activation requests. */
 	  if (!entry->auto_activation)
 	    {
+              dbus_uint32_t result;
+              
 	      message = dbus_message_new_method_return (entry->activation_message);
 	      if (!message)
 		{
 		  BUS_SET_OOM (error);
 		  goto error;
 		}
-	      
+
+              result = DBUS_ACTIVATION_REPLY_ACTIVATED;
+              
 	      if (!dbus_message_append_args (message,
-					     DBUS_TYPE_UINT32, DBUS_ACTIVATION_REPLY_ACTIVATED,
+					     DBUS_TYPE_UINT32, &result,
 					     DBUS_TYPE_INVALID))
 		{
 		  dbus_message_unref (message);
@@ -1328,6 +1334,8 @@ bus_activation_activate_service (BusActivation  *activation,
       _dbus_string_init_const (&service_str, service_name);
       if (bus_registry_lookup (bus_context_get_registry (activation->context), &service_str) != NULL)
         {
+          dbus_uint32_t result;
+          
           _dbus_verbose ("Service \"%s\" is already active\n", service_name);
       
           message = dbus_message_new_method_return (activation_message);
@@ -1339,8 +1347,10 @@ bus_activation_activate_service (BusActivation  *activation,
               return FALSE;
             }
 
+          result = DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE;
+          
           if (!dbus_message_append_args (message,
-                                         DBUS_TYPE_UINT32, DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE, 
+                                         DBUS_TYPE_UINT32, &result,
                                          DBUS_TYPE_INVALID))
             {
               _dbus_verbose ("No memory to set args of reply to activate message\n");

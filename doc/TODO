@@ -15,11 +15,11 @@ Important for 1.0
    which of these functions to include, in light of the fact that 
    GLib/Qt native stubs will probably also exist.
 
- - the invalid messages in the test suite are all useless because 
-   they are invalid for the wrong reasons due to protocol changes.
-   (Consider extending test suite to validate that they are 
-   invalid for right reason, e.g. an "INVALID_ERROR Foo" line 
-   in the message files)
+ - the "break loader" and valid/invalid message tests are all disabled;
+   they need to be fixed and re-enabled with the new message args stuff.
+   I think I want to drop the .message files thing and just have code
+   that generates messages, more like the tests for
+   dbus-marshal-recursive.c
 
  - modify the auth protocol to also support other initial-handshake
    type of information:
@@ -30,26 +30,6 @@ Important for 1.0
    since protocol probably modifies the API. But we could have it there
    as a safety net.
 
- - re_align_field_recurse() in dbus-message.c is broken because it 
-   crashes on some types of header field values. security problem.
-
- - modify the wire protocol to keep the args signature separate 
-   from the args themselves. Make the name of TYPE_CUSTOM part 
-   of the type signature, rather than part of the value.
-   Then you have the full typecheck in a single string.
-   See http://freedesktop.org/pipermail/dbus/2004-June/001169.html
-
-   Subnote: STRING_OR_NIL is wrong, doesn't work in C++ etc. ; should
-   not have done that. Use empty string or special string values or separate functions/signals 
-   or whatever instead.
-
-   Subnote: For recursive types, one approach is that "structs" are done as parens, 
-   so e.g. s(ii) is a string and struct { int; int; } etc. Type codes
-   then all have to be done as strings not single ints.
-   We could also put the type signature for the message body in a
-   header field.
-   An "any" type has the type string included in the value.
-
  - need to define bus behavior if you send a message to 
    yourself; is it an error, or allowed? If allowed, 
    we need to have a test for it in the test suite.
@@ -58,15 +38,24 @@ Important for 1.0
    (though they are kind of a pita to pass in as size_t with the 
     varargs, so maybe not - what does glib do with g_object_get()?)
 
- - it's probably obnoxious that reading/writing bools doesn't return dbus_bool_t; 
-   the only possible solution I think is to change dbus_bool_t to unsigned char, 
-   but that may cause wackiness elsewhere.
+ - it's probably obnoxious that reading/writing bools doesn't return
+   dbus_bool_t; solution is probably to change bool to 32 bits on the
+   wire
+
+ - maybe change and don't align variant bodies to 8-boundary, it uses
+   up lots of space in a typical header
 
  - rename the service thing. unique service names (":1") and well-known
    ("org.foo.bar") should have different names probably; something like 
    "address" for the unique and "alias" for the well-known, or 
    "application id" for the unique and "common name" or "published
    name" for the well-known; not sure yet.
+
+ - things are broken now when mixing endianness, because DBusMessage
+   doesn't autoswap itself when you access a message of alternate
+   endian.
+
+ - add string array support back to append_args()
 
 Important for 1.0 GLib Bindings
 ===
@@ -102,6 +91,8 @@ Might as Well for 1.0
 
  - connection_open/connection_disconnect lacks symmetry, open/close
    or connect/disconnect
+
+ - protocol version in each message is pretty silly
 
 Can Be Post 1.0
 ===

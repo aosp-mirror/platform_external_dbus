@@ -61,9 +61,9 @@ if test x$MODE = xprofile ; then
   if test x$PROFILE_TYPE = x ; then
       PROFILE_TYPE=all
   fi
-  $DEBUG $DBUS_TOP_BUILDDIR/test/glib/test-profile $PROFILE_TYPE || die "test-profile failed"
+  libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/glib/test-profile $PROFILE_TYPE || die "test-profile failed"
 else
-  $DEBUG $DBUS_TOP_BUILDDIR/test/glib/test-dbus-glib || die "test-dbus-glib failed"
+  libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/glib/test-dbus-glib || die "test-dbus-glib failed"
 fi
 
 ## we kill -TERM so gcov data can be written out

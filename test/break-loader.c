@@ -36,7 +36,7 @@
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-test.h>
-#include <dbus/dbus-marshal.h>
+#include <dbus/dbus-marshal-basic.h>
 #undef DBUS_COMPILATION
 
 static DBusString failure_dir;

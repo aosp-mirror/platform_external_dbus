@@ -84,7 +84,7 @@ print_message (DBusMessage *message)
   do
     {
       int type = dbus_message_iter_get_arg_type (&iter);
-      char *str;
+      const char *str;
       dbus_uint32_t uint32;
       dbus_int32_t int32;
       double d;
@@ -97,32 +97,32 @@ print_message (DBusMessage *message)
       switch (type)
 	{
 	case DBUS_TYPE_STRING:
-	  str = dbus_message_iter_get_string (&iter);
+          dbus_message_iter_get_basic (&iter, &str);
 	  printf ("string:%s\n", str);
 	  break;
 
 	case DBUS_TYPE_INT32:
-	  int32 = dbus_message_iter_get_int32 (&iter);
+          dbus_message_iter_get_basic (&iter, &int32);
 	  printf ("int32:%d\n", int32);
 	  break;
 
 	case DBUS_TYPE_UINT32:
-	  uint32 = dbus_message_iter_get_uint32 (&iter);
+          dbus_message_iter_get_basic (&iter, &uint32);
 	  printf ("int32:%u\n", uint32);
 	  break;
 
 	case DBUS_TYPE_DOUBLE:
-	  d = dbus_message_iter_get_double (&iter);
+	  dbus_message_iter_get_basic (&iter, &d);
 	  printf ("double:%f\n", d);
 	  break;
 
 	case DBUS_TYPE_BYTE:
-	  byte = dbus_message_iter_get_byte (&iter);
+	  dbus_message_iter_get_basic (&iter, &byte);
 	  printf ("byte:%d\n", byte);
 	  break;
 
 	case DBUS_TYPE_BOOLEAN:
-	  boolean = dbus_message_iter_get_boolean (&iter);
+          dbus_message_iter_get_basic (&iter, &boolean);
 	  printf ("boolean:%s\n", boolean ? "true" : "false");
 	  break;
 

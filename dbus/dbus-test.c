@@ -118,6 +118,16 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
 
   check_memleaks ();
 
+#if 1
+  printf ("%s: running recursive marshalling tests\n", "dbus-test");
+  if (!_dbus_marshal_recursive_test ())
+    die ("recursive marshal");
+
+  check_memleaks ();
+#else
+  _dbus_warn ("recursive marshal tests disabled\n");
+#endif
+
   printf ("%s: running memory tests\n", "dbus-test");
   if (!_dbus_memory_test ())
     die ("memory");
@@ -133,6 +143,18 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   printf ("%s: running linked list tests\n", "dbus-test");
   if (!_dbus_list_test ())
     die ("lists");
+
+  check_memleaks ();
+
+  printf ("%s: running validation tests\n", "dbus-test");
+  if (!_dbus_marshal_validate_test ())
+    die ("validation");
+
+  check_memleaks ();
+
+  printf ("%s: running header marshal tests\n", "dbus-test");
+  if (!_dbus_marshal_header_test ())
+    die ("header marshal");
 
   check_memleaks ();
   
@@ -197,5 +219,3 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   printf ("Not compiled with unit tests, not running any\n");
 #endif
 }
-
-

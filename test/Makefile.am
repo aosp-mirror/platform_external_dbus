@@ -10,7 +10,8 @@ INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS)
 
 
 if DBUS_BUILD_TESTS
-TEST_BINARIES=test-service break-loader spawn-test test-segfault test-exit test-sleep-forever
+## break-loader removed for now
+TEST_BINARIES=test-service spawn-test test-segfault test-exit test-sleep-forever
 else
 TEST_BINARIES=
 endif
@@ -28,8 +29,8 @@ test_service_SOURCES=				\
 	test-utils.c				\
 	test-utils.h
 
-break_loader_SOURCES=				\
-	break-loader.c
+##break_loader_SOURCES=				\
+##	break-loader.c
 
 spawn_test_SOURCES=				\
 	spawn-test.c
@@ -49,7 +50,7 @@ decode_gcov_SOURCES=				\
 TEST_LIBS=$(DBUS_TEST_LIBS) $(top_builddir)/dbus/libdbus-convenience.la
 
 test_service_LDADD=$(TEST_LIBS)
-break_loader_LDADD= $(TEST_LIBS)
+## break_loader_LDADD= $(TEST_LIBS)
 spawn_test_LDADD=$(TEST_LIBS)
 decode_gcov_LDADD=$(TEST_LIBS)
 

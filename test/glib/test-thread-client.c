@@ -26,18 +26,18 @@ thread_func (gpointer data)
 
       dbus_message_append_iter_init (message, &iter);
 
-      if (!dbus_message_iter_append_int32 (&iter, threadnr))
+      if (!dbus_message_iter_append_basic (&iter, DBUS_TYPE_INT32, &threadnr))
 	{
 	  g_print ("thread %d: append threadnr failed\n", threadnr);
 	}
       
-      if (!dbus_message_iter_append_uint32 (&iter, counter))
+      if (!dbus_message_iter_append_basic (&iter, DBUS_TYPE_INT32, &counter))
 	{
 	  g_print ("thread %d: append counter (%d) failed\n", threadnr, counter);
 	}
       
       str = g_strdup_printf ("Thread %d-%d\n", threadnr, counter);
-      if (!dbus_message_iter_append_string (&iter, str))
+      if (!dbus_message_iter_append_basic (&iter, DBUS_TYPE_STRING, &str))
 	{
 	  g_print ("thread %d: append string (%s) failed\n", threadnr, str);
 	}

@@ -84,10 +84,10 @@ _dbus_gutils_type_to_string (int type)
     {
     case DBUS_TYPE_INVALID:
       return "invalid";
-    case DBUS_TYPE_NIL:
-      return "nil";
     case DBUS_TYPE_BOOLEAN:
       return "boolean";
+    case DBUS_TYPE_BYTE:
+      return "byte";
     case DBUS_TYPE_INT32:
       return "int32";
     case DBUS_TYPE_UINT32:
@@ -96,16 +96,20 @@ _dbus_gutils_type_to_string (int type)
       return "double";
     case DBUS_TYPE_STRING:
       return "string";
-    case DBUS_TYPE_CUSTOM:
-      return "custom";
+    case DBUS_TYPE_OBJECT_PATH:
+      return "object_path";
+    case DBUS_TYPE_SIGNATURE:
+      return "signature";
+    case DBUS_TYPE_STRUCT:
+      return "struct";
     case DBUS_TYPE_ARRAY:
       return "array";
-    case DBUS_TYPE_DICT:
-      return "dict";
-    case DBUS_TYPE_INT64:
-      return "int64";
-    case DBUS_TYPE_UINT64:
-      return "uint64";
+    case DBUS_TYPE_VARIANT:
+      return "variant";
+    case DBUS_STRUCT_BEGIN_CHAR:
+      return "begin_struct";
+    case DBUS_STRUCT_END_CHAR:
+      return "end_struct";
     default:
       return "unknown";
     }

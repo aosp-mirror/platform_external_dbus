@@ -215,33 +215,39 @@ main (int argc, char *argv[])
 	{
 	case DBUS_TYPE_BYTE:
 	  byte = strtoul (c, NULL, 0);
-	  dbus_message_iter_append_byte (&iter, byte);
+	  dbus_message_iter_append_basic (&iter, DBUS_TYPE_BYTE, &byte);
 	  break;
 
 	case DBUS_TYPE_DOUBLE:
 	  d = strtod (c, NULL);
-	  dbus_message_iter_append_double (&iter, d);
+	  dbus_message_iter_append_basic (&iter, DBUS_TYPE_DOUBLE, &d);
 	  break;
 
 	case DBUS_TYPE_INT32:
 	  int32 = strtol (c, NULL, 0);
-	  dbus_message_iter_append_int32 (&iter, int32);
+	  dbus_message_iter_append_basic (&iter, DBUS_TYPE_INT32, &int32);
 	  break;
 
 	case DBUS_TYPE_UINT32:
 	  uint32 = strtoul (c, NULL, 0);
-	  dbus_message_iter_append_uint32 (&iter, uint32);
+	  dbus_message_iter_append_basic (&iter, DBUS_TYPE_UINT32, &uint32);
 	  break;
 
 	case DBUS_TYPE_STRING:
-	  dbus_message_iter_append_string (&iter, c);
+	  dbus_message_iter_append_basic (&iter, DBUS_TYPE_STRING, &c);
 	  break;
 
 	case DBUS_TYPE_BOOLEAN:
           if (strcmp(c, "true") == 0)
-            dbus_message_iter_append_boolean (&iter, TRUE);
+            {
+              byte = TRUE;
+              dbus_message_iter_append_basic (&iter, DBUS_TYPE_BOOLEAN, &c);
+            }
 	  else if (strcmp(c, "false") == 0)
-            dbus_message_iter_append_boolean (&iter, FALSE);
+            {
+              byte = FALSE;
+              dbus_message_iter_append_basic (&iter, DBUS_TYPE_BOOLEAN, &c);
+            }
 	  else
 	    {
 	      fprintf (stderr, "%s: Expected \"true\" or \"false\" instead of \"%s\"\n", argv[0], c);

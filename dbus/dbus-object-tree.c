@@ -937,7 +937,96 @@ _dbus_object_tree_list_registered_and_unlock (DBusObjectTree *tree,
 
   return result;
 }
-     
+
+
+/** Set to 1 to get a bunch of spew about disassembling the path string */
+#define VERBOSE_DECOMPOSE 0
+
+/**
+ * Decompose an object path.  A path of just "/" is
+ * represented as an empty vector of strings.
+ * 
+ * @param data the path data
+ * @param len  the length of the path string
+ * @param path address to store new object path
+ * @param path_len length of stored path
+ */
+dbus_bool_t
+_dbus_decompose_path (const char*     data,
+                      int             len,
+                      char         ***path,
+                      int            *path_len)
+{
+  char **retval;
+  int n_components;
+  int i, j, comp;
+
+  _dbus_assert (data != NULL);
+
+#if VERBOSE_DECOMPOSE
+  _dbus_verbose ("Decomposing path \"%s\"\n",
+                 data);
+#endif
+  
+  n_components = 0;
+  i = 0;
+  while (i < len)
+    {
+      if (data[i] == '/')
+        n_components += 1;
+      ++i;
+    }
+  
+  retval = dbus_new0 (char*, n_components + 1);
+
+  if (retval == NULL)
+    return FALSE;
+
+  comp = 0;
+  i = 0;
+  while (i < len)
+    {
+      if (data[i] == '/')
+        ++i;
+      j = i;
+
+      while (j < len && data[j] != '/')
+        ++j;
+
+      /* Now [i, j) is the path component */
+      _dbus_assert (i < j);
+      _dbus_assert (data[i] != '/');
+      _dbus_assert (j == len || data[j] == '/');
+
+#if VERBOSE_DECOMPOSE
+      _dbus_verbose ("  (component in [%d,%d))\n",
+                     i, j);
+#endif
+      
+      retval[comp] = _dbus_memdup (&data[i], j - i + 1);
+      if (retval[comp] == NULL)
+        {
+          dbus_free_string_array (retval);
+          return FALSE;
+        }
+      retval[comp][j-i] = '\0';
+#if VERBOSE_DECOMPOSE
+      _dbus_verbose ("  (component %d = \"%s\")\n",
+                     comp, retval[comp]);
+#endif
+
+      ++comp;
+      i = j;
+    }
+  _dbus_assert (i == len);
+  
+  *path = retval;
+  if (path_len)
+    *path_len = n_components;
+  
+  return TRUE;
+}
+
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS

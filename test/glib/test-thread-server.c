@@ -34,7 +34,8 @@ filter_test_message (DBusConnection     *connection,
   DBusMessageIter iter;
   gint32 threadnr;
   guint32 counter;
-  char *str, *expected_str;
+  const char *str;
+  char *expected_str;
   GString *counter_str;
   int i;
 
@@ -49,7 +50,7 @@ filter_test_message (DBusConnection     *connection,
       g_print ("First arg not right type\n");
       goto out;
     }
-  threadnr = dbus_message_iter_get_int32 (&iter);
+   dbus_message_iter_get_basic (&iter, &threadnr);
   if (threadnr < 0 || threadnr >= N_TEST_THREADS)
     {
       g_print ("Invalid thread nr\n");
@@ -68,7 +69,7 @@ filter_test_message (DBusConnection     *connection,
       goto out;
     }
   
-  counter = dbus_message_iter_get_uint32 (&iter);
+   dbus_message_iter_get_basic (&iter, &counter);
 
   if (counter != data->counters[threadnr])
     {
@@ -89,7 +90,7 @@ filter_test_message (DBusConnection     *connection,
       goto out;
     }
 
-  str = dbus_message_iter_get_string (&iter);
+  dbus_message_iter_get_basic (&iter, &str);
 
   if (str == NULL)
     {
@@ -103,7 +104,6 @@ filter_test_message (DBusConnection     *connection,
       g_print ("Wrong string '%s', expected '%s'\n", str, expected_str);
       goto out;
     }
-  g_free (str);
   g_free (expected_str);
 
   if (dbus_message_iter_next (&iter))

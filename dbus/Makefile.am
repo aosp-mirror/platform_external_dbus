@@ -54,6 +54,12 @@ DBUS_LIB_SOURCES=				\
 	dbus-errors.c				\
 	dbus-keyring.c				\
 	dbus-keyring.h				\
+	dbus-marshal-header.c			\
+	dbus-marshal-header.h			\
+	dbus-marshal-recursive.c		\
+	dbus-marshal-recursive.h		\
+	dbus-marshal-validate.c			\
+	dbus-marshal-validate.h			\
 	dbus-message.c				\
 	dbus-message-internal.h			\
 	dbus-object-tree.c			\
@@ -98,13 +104,11 @@ DBUS_SHARED_SOURCES=				\
 	dbus-internals.h			\
 	dbus-list.c				\
 	dbus-list.h				\
-	dbus-marshal.c				\
-	dbus-marshal.h				\
+	dbus-marshal-basic.c			\
+	dbus-marshal-basic.h			\
 	dbus-memory.c				\
 	dbus-mempool.c				\
 	dbus-mempool.h				\
-	dbus-message-builder.c			\
-	dbus-message-builder.h			\
 	dbus-spawn.c				\
 	dbus-spawn.h				\
 	dbus-string.c				\

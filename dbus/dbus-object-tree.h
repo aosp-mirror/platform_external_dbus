@@ -47,6 +47,12 @@ void              _dbus_object_tree_free_all_unlocked     (DBusObjectTree       
 dbus_bool_t _dbus_object_tree_list_registered_and_unlock (DBusObjectTree *tree,
                                                           const char    **parent_path,
                                                           char         ***child_entries);
+
+dbus_bool_t _dbus_decompose_path (const char   *data,
+                                  int           len,
+                                  char       ***path,
+                                  int          *path_len);
+
 DBUS_END_DECLS
 
 #endif /* DBUS_OBJECT_TREE_H */

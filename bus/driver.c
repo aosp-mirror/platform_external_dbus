@@ -47,10 +47,11 @@ bus_driver_send_service_owner_changed (const char     *service_name,
 {
   DBusMessage *message;
   dbus_bool_t retval;
-  const char null_service[] = { '\000' };
+  const char *null_service;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
+  null_service = "";
   _dbus_verbose ("sending service owner changed: %s [%s -> %s]\n",
                  service_name, 
                  old_owner ? old_owner : null_service, 
@@ -70,9 +71,9 @@ bus_driver_send_service_owner_changed (const char     *service_name,
     goto oom;
 
   if (!dbus_message_append_args (message,
-                                 DBUS_TYPE_STRING, service_name,
-                                 DBUS_TYPE_STRING, old_owner ? old_owner : null_service,
-                                 DBUS_TYPE_STRING, new_owner ? new_owner : null_service,
+                                 DBUS_TYPE_STRING, &service_name,
+                                 DBUS_TYPE_STRING, old_owner ? &old_owner : &null_service,
+                                 DBUS_TYPE_STRING, new_owner ? &new_owner : &null_service,
                                  DBUS_TYPE_INVALID))
     goto oom;
 
@@ -111,7 +112,7 @@ bus_driver_send_service_lost (DBusConnection *connection,
   
   if (!dbus_message_set_destination (message, bus_connection_get_name (connection)) ||
       !dbus_message_append_args (message,
-                                 DBUS_TYPE_STRING, service_name,
+                                 DBUS_TYPE_STRING, &service_name,
                                  DBUS_TYPE_INVALID))
     {
       dbus_message_unref (message);
@@ -154,7 +155,7 @@ bus_driver_send_service_acquired (DBusConnection *connection,
   
   if (!dbus_message_set_destination (message, bus_connection_get_name (connection)) ||
       !dbus_message_append_args (message,
-                                 DBUS_TYPE_STRING, service_name,
+                                 DBUS_TYPE_STRING, &service_name,
                                  DBUS_TYPE_INVALID))
     {
       dbus_message_unref (message);
@@ -341,7 +342,7 @@ bus_driver_send_welcome_message (DBusConnection *connection,
     }
   
   if (!dbus_message_append_args (welcome,
-                                 DBUS_TYPE_STRING, name,
+                                 DBUS_TYPE_STRING, &name,
                                  DBUS_TYPE_INVALID))
     {
       dbus_message_unref (welcome);
@@ -374,6 +375,9 @@ bus_driver_handle_list_services (DBusConnection *connection,
   int len;
   char **services;
   BusRegistry *registry;
+  int i;
+  DBusMessageIter iter;
+  DBusMessageIter sub;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
@@ -392,10 +396,12 @@ bus_driver_handle_list_services (DBusConnection *connection,
       BUS_SET_OOM (error);
       return FALSE;
     }
+
+  dbus_message_append_iter_init (reply, &iter);
   
-  if (!dbus_message_append_args (reply,
-                                 DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, services, len,
-                                 DBUS_TYPE_INVALID))
+  if (!dbus_message_iter_open_container (&iter, DBUS_TYPE_ARRAY,
+                                         DBUS_TYPE_STRING_AS_STRING,
+                                         &sub))
     {
       dbus_free_string_array (services);
       dbus_message_unref (reply);
@@ -403,6 +409,28 @@ bus_driver_handle_list_services (DBusConnection *connection,
       return FALSE;
     }
 
+  i = 0;
+  while (i < len)
+    {
+      if (!dbus_message_iter_append_basic (&sub, DBUS_TYPE_STRING,
+                                           &services[i]))
+        {
+          dbus_free_string_array (services);
+          dbus_message_unref (reply);
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+      ++i;
+    }
+
+  if (!dbus_message_iter_close_container (&iter, &sub))
+    {
+      dbus_free_string_array (services);
+      dbus_message_unref (reply);
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+  
   dbus_free_string_array (services);
   
   if (!bus_transaction_send_from_driver (transaction, connection, reply))
@@ -426,7 +454,7 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
 {
   DBusMessage *reply;
   DBusString service_name;
-  char *name;
+  const char *name;
   int service_reply;
   dbus_uint32_t flags;
   dbus_bool_t retval;
@@ -462,7 +490,7 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
       goto out;
     }
 
-  if (!dbus_message_append_args (reply, DBUS_TYPE_UINT32, service_reply, DBUS_TYPE_INVALID))
+  if (!dbus_message_append_args (reply, DBUS_TYPE_UINT32, &service_reply, DBUS_TYPE_INVALID))
     {
       BUS_SET_OOM (error);
       goto out;
@@ -477,7 +505,6 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
   retval = TRUE;
   
  out:
-  dbus_free (name);
   if (reply)
     dbus_message_unref (reply);
   return retval;
@@ -492,8 +519,8 @@ bus_driver_handle_service_exists (DBusConnection *connection,
   DBusMessage *reply;
   DBusString service_name;
   BusService *service;
-  dbus_bool_t service_exists;
-  char *name;
+  unsigned char service_exists;
+  const char *name;
   dbus_bool_t retval;
   BusRegistry *registry;
 
@@ -527,7 +554,7 @@ bus_driver_handle_service_exists (DBusConnection *connection,
     }
 
   if (!dbus_message_append_args (reply,
-                                 DBUS_TYPE_BOOLEAN, service_exists,
+                                 DBUS_TYPE_BOOLEAN, &service_exists,
                                  0))
     {
       BUS_SET_OOM (error);
@@ -545,7 +572,6 @@ bus_driver_handle_service_exists (DBusConnection *connection,
  out:
   if (reply)
     dbus_message_unref (reply);
-  dbus_free (name);
 
   return retval;
 }
@@ -557,7 +583,7 @@ bus_driver_handle_activate_service (DBusConnection *connection,
                                     DBusError      *error)
 {
   dbus_uint32_t flags;
-  char *name;
+  const char *name;
   dbus_bool_t retval;
   BusActivation *activation;
 
@@ -588,7 +614,6 @@ bus_driver_handle_activate_service (DBusConnection *connection,
   retval = TRUE;
   
  out:
-  dbus_free (name);
   return retval;
 }
 
@@ -626,7 +651,7 @@ bus_driver_handle_add_match (DBusConnection *connection,
                              DBusError      *error)
 {
   BusMatchRule *rule;
-  char *text;
+  const char *text;
   DBusString str;
   BusMatchmaker *matchmaker;
   
@@ -677,7 +702,6 @@ bus_driver_handle_add_match (DBusConnection *connection,
     }
   
   bus_match_rule_unref (rule);
-  dbus_free (text);
   
   return TRUE;
 
@@ -685,8 +709,6 @@ bus_driver_handle_add_match (DBusConnection *connection,
   _DBUS_ASSERT_ERROR_IS_SET (error);
   if (rule)
     bus_match_rule_unref (rule);
-  if (text)
-    dbus_free (text);
   return FALSE;
 }
 
@@ -697,7 +719,7 @@ bus_driver_handle_remove_match (DBusConnection *connection,
                                 DBusError      *error)
 {
   BusMatchRule *rule;
-  char *text;
+  const char *text;
   DBusString str;
   BusMatchmaker *matchmaker;
   
@@ -733,7 +755,6 @@ bus_driver_handle_remove_match (DBusConnection *connection,
     goto failed;
 
   bus_match_rule_unref (rule);
-  dbus_free (text);
   
   return TRUE;
 
@@ -741,8 +762,6 @@ bus_driver_handle_remove_match (DBusConnection *connection,
   _DBUS_ASSERT_ERROR_IS_SET (error);
   if (rule)
     bus_match_rule_unref (rule);
-  if (text)
-    dbus_free (text);
   return FALSE;
 }
 
@@ -752,7 +771,7 @@ bus_driver_handle_get_service_owner (DBusConnection *connection,
 				     DBusMessage    *message,
 				     DBusError      *error)
 {
-  char *text;
+  const char *text;
   const char *base_name;
   DBusString str;
   BusRegistry *registry;
@@ -796,7 +815,7 @@ bus_driver_handle_get_service_owner (DBusConnection *connection,
     goto oom;
 
   if (! dbus_message_append_args (reply, 
-				  DBUS_TYPE_STRING, base_name,
+				  DBUS_TYPE_STRING, &base_name,
 				  DBUS_TYPE_INVALID))
     goto oom;
   
@@ -804,7 +823,6 @@ bus_driver_handle_get_service_owner (DBusConnection *connection,
     goto oom;
 
   dbus_message_unref (reply);
-  dbus_free (text);
 
   return TRUE;
 
@@ -815,7 +833,6 @@ bus_driver_handle_get_service_owner (DBusConnection *connection,
   _DBUS_ASSERT_ERROR_IS_SET (error);
   if (reply)
     dbus_message_unref (reply);
-  dbus_free (text);
   return FALSE;
 }
 
@@ -825,13 +842,14 @@ bus_driver_handle_get_connection_unix_user (DBusConnection *connection,
                                             DBusMessage    *message,
                                             DBusError      *error)
 {
-  char *service;
+  const char *service;
   DBusString str;
   BusRegistry *registry;
   BusService *serv;
   DBusConnection *conn;
   DBusMessage *reply;
   unsigned long uid;
+  dbus_uint32_t uid32;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -871,8 +889,9 @@ bus_driver_handle_get_connection_unix_user (DBusConnection *connection,
       goto failed;
     }
 
+  uid32 = uid;
   if (! dbus_message_append_args (reply,
-                                  DBUS_TYPE_UINT32, (dbus_uint32_t) uid,
+                                  DBUS_TYPE_UINT32, &uid32,
                                   DBUS_TYPE_INVALID))
     goto oom;
 
@@ -880,7 +899,6 @@ bus_driver_handle_get_connection_unix_user (DBusConnection *connection,
     goto oom;
 
   dbus_message_unref (reply);
-  dbus_free (service);
 
   return TRUE;
 
@@ -891,7 +909,6 @@ bus_driver_handle_get_connection_unix_user (DBusConnection *connection,
   _DBUS_ASSERT_ERROR_IS_SET (error);
   if (reply)
     dbus_message_unref (reply);
-  dbus_free (service);
   return FALSE;
 }
 
@@ -901,13 +918,14 @@ bus_driver_handle_get_connection_unix_process_id (DBusConnection *connection,
 						  DBusMessage    *message,
 						  DBusError      *error)
 {
-  char *service;
+  const char *service;
   DBusString str;
   BusRegistry *registry;
   BusService *serv;
   DBusConnection *conn;
   DBusMessage *reply;
   unsigned long pid;
+  dbus_uint32_t pid32;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -947,8 +965,9 @@ bus_driver_handle_get_connection_unix_process_id (DBusConnection *connection,
       goto failed;
     }
 
+  pid32 = pid;
   if (! dbus_message_append_args (reply,
-                                  DBUS_TYPE_UINT32, (dbus_uint32_t) pid,
+                                  DBUS_TYPE_UINT32, &pid32,
                                   DBUS_TYPE_INVALID))
     goto oom;
 
@@ -956,7 +975,6 @@ bus_driver_handle_get_connection_unix_process_id (DBusConnection *connection,
     goto oom;
 
   dbus_message_unref (reply);
-  dbus_free (service);
 
   return TRUE;
 
@@ -967,7 +985,6 @@ bus_driver_handle_get_connection_unix_process_id (DBusConnection *connection,
   _DBUS_ASSERT_ERROR_IS_SET (error);
   if (reply)
     dbus_message_unref (reply);
-  dbus_free (service);
   return FALSE;
 }
 
