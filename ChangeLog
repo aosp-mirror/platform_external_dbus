@@ -1,3 +1,10 @@
+2005-02-09  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-message.c (dbus_message_iter_open_container):
+	- Removed check for iterator type being an array because
+	get_arg_type does not work with writer iterators
+	- Pass NULL to _dbus_type_writer_recurse if signiture is NULL
+
 2005-02-07  Havoc Pennington  <hp@redhat.com>
 
 	* doc/dbus-specification.xml: some more language cleanups; add

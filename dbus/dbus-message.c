@@ -2160,9 +2160,6 @@ dbus_message_iter_open_container (DBusMessageIter *iter,
                             (type == DBUS_TYPE_DICT_ENTRY &&
                              contained_signature == NULL) ||
                             contained_signature != NULL, FALSE);
-  _dbus_return_val_if_fail (type != DBUS_TYPE_DICT_ENTRY ||
-                            dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_ARRAY,
-                            FALSE);
   
 #if 0
   /* FIXME this would fail if the contained_signature is a dict entry,
@@ -2176,13 +2173,24 @@ dbus_message_iter_open_container (DBusMessageIter *iter,
   if (!_dbus_message_iter_open_signature (real))
     return FALSE;
 
-  _dbus_string_init_const (&contained_str, contained_signature);
-
   *real_sub = *real;
-  return _dbus_type_writer_recurse (&real->u.writer,
-                                    type,
-                                    &contained_str, 0,
-                                    &real_sub->u.writer);
+
+  if (contained_signature != NULL)
+    {
+      _dbus_string_init_const (&contained_str, contained_signature);
+
+      return _dbus_type_writer_recurse (&real->u.writer,
+                                        type,
+                                        &contained_str, 0,
+                                        &real_sub->u.writer);
+    }
+  else
+    {
+      return _dbus_type_writer_recurse (&real->u.writer,
+                                        type,
+                                        NULL, 0,
+                                        &real_sub->u.writer);
+    } 
 }
 
 
