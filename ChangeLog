@@ -1,5 +1,14 @@
 2003-01-07  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/dbus-marshal.c: (_dbus_marshal_double),
+	(_dbus_marshal_string), (_dbus_marshal_byte_array):
+	* dbus/dbus-message.c: (dbus_message_append_int32),
+	(dbus_message_append_uint32), (dbus_message_append_double),
+	(dbus_message_append_string), (dbus_message_append_byte_array):
+	Handle OOM restoration.
+	
+2003-01-07  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-marshal.c: (_dbus_marshal_string),
 	(_dbus_demarshal_string), (_dbus_marshal_test):
 	* dbus/dbus-marshal.h:

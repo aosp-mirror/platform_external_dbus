@@ -230,7 +230,10 @@ dbus_message_append_int32 (DBusMessage  *message,
   _dbus_assert (!message->locked);
 
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_INT32))
-    return FALSE;
+    {
+      _dbus_string_shorten (&message->body, 1);
+      return FALSE;
+    }
   
   return _dbus_marshal_int32 (&message->body,
 			      DBUS_COMPILER_BYTE_ORDER, value);
@@ -251,7 +254,10 @@ dbus_message_append_uint32 (DBusMessage   *message,
   _dbus_assert (!message->locked);
 
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_UINT32))
-    return FALSE;
+    {
+      _dbus_string_shorten (&message->body, 1);
+      return FALSE;
+    }
   
   return _dbus_marshal_uint32 (&message->body,
 			       DBUS_COMPILER_BYTE_ORDER, value);
@@ -272,7 +278,10 @@ dbus_message_append_double (DBusMessage *message,
   _dbus_assert (!message->locked);
 
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_INT32))
-    return FALSE;
+    {
+      _dbus_string_shorten (&message->body, 1);
+      return FALSE;
+    }
   
   return _dbus_marshal_double (&message->body,
 			       DBUS_COMPILER_BYTE_ORDER, value);
@@ -294,7 +303,10 @@ dbus_message_append_string (DBusMessage *message,
   _dbus_assert (value != NULL);
 
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_UTF8_STRING))
-    return FALSE;
+    {
+      _dbus_string_shorten (&message->body, 1);
+      return FALSE;
+    }
   
   return _dbus_marshal_string (&message->body,
 			       DBUS_COMPILER_BYTE_ORDER, value);
@@ -318,7 +330,10 @@ dbus_message_append_byte_array (DBusMessage         *message,
   _dbus_assert (value != NULL);
 
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_BYTE_ARRAY))
-    return FALSE;
+    {
+      _dbus_string_shorten (&message->body, 1);
+      return FALSE;
+    }
   
   return _dbus_marshal_byte_array (&message->body,
 				   DBUS_COMPILER_BYTE_ORDER, value, len);

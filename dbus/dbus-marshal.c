@@ -137,11 +137,6 @@ _dbus_marshal_double (DBusString *str,
 		      int         byte_order,
 		      double      value)
 {
-  if (!_dbus_string_set_length (str,
-				DBUS_ALIGN_VALUE (_dbus_string_get_length (str),
-						  sizeof (double))))
-    return FALSE;
-  
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
     swap_bytes ((unsigned char *)&value, sizeof (double));
 
@@ -209,12 +204,19 @@ _dbus_marshal_string (DBusString    *str,
 		      int            byte_order,
 		      const char    *value)
 {
-  int len;
+  int len, old_string_len;
 
+  old_string_len = _dbus_string_get_length (str);
+  
   len = strlen (value);
 
   if (!_dbus_marshal_uint32 (str, byte_order, len))
-    return FALSE;
+    {
+      /* Restore the previous length */
+      _dbus_string_set_length (str, old_string_len);
+
+      return FALSE;
+    }
 
   return _dbus_string_append_len (str, value, len + 1);
 }
@@ -234,8 +236,17 @@ _dbus_marshal_byte_array (DBusString          *str,
 			  const unsigned char *value,
 			  int                  len)
 {
+  int old_string_len;
+
+  old_string_len = _dbus_string_get_length (str);
+  
   if (!_dbus_marshal_uint32 (str, byte_order, len))
-    return FALSE;
+    {
+      /* Restore the previous length */
+      _dbus_string_set_length (str, old_string_len);
+
+      return FALSE;
+    }
 
   return _dbus_string_append_len (str, value, len);
 }
