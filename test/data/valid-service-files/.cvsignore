@@ -1,3 +1,4 @@
 debug-echo.service
 debug-segfault.service
+debug-glib.service
 

@@ -1,5 +1,11 @@
 2005-02-17  Colin Walters  <walters@verbum.org>
 
+	* bus/.cvsignore, doc/.cvsignore
+	* test/data/valid-service-files/.cvsignore, test/glib/.cvsignore:
+	Update.
+
+2005-02-17  Colin Walters  <walters@verbum.org>
+	
 	* dbus/dbus-protocol.h (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS):
 	Rename to DBUS_SERVICE_DBUS.
 	(DBUS_PATH_ORG_FREEDESKTOP_DBUS): Rename to DBUS_PATH_DBUS.

@@ -4,7 +4,7 @@ Makefile
 Makefile.in
 *.lo
 *.la
-dbus-daemon-1
+dbus-daemon
 *.bb
 *.bbg
 *.da
@@ -14,4 +14,4 @@ rc.messagebus
 messagebus
 session.conf
 system.conf
-dbus-daemon-1.1
+dbus-daemon.1
