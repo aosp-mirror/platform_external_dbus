@@ -266,7 +266,8 @@
       <para>
         In addition to the required header information mentioned 
         in <xref linkend="message-protocol-header-encoding"/>, 
-          the header may contain zero or more named 
+          the header must contain the required named header
+          fields and zero or more of the optional named 
           header fields. Future versions of this protocol
           specification may add new fields. Implementations must
           ignore fields they do not understand. Implementations
@@ -287,12 +288,13 @@
       <para>
         Here are the currently-defined named header fields:
         <informaltable>
-          <tgroup cols="3">
+          <tgroup cols="5">
             <thead>
               <row>
                 <entry>Conventional Name</entry>
 		<entry>Decimal Value</entry>
                 <entry>Type</entry>
+                <entry>Required</entry>
                 <entry>Description</entry>
               </row>
             </thead>
@@ -301,12 +303,14 @@
                 <entry>INVALID</entry>
 		<entry>0</entry>
                 <entry>INVALID</entry>
+                <entry>no</entry>
                 <entry>Not a valid field name (error if it appears in a message)</entry>
               </row>
               <row>
                 <entry>PATH</entry>
 		<entry>1</entry>
                 <entry>OBJECT_PATH</entry>
+                <entry>yes</entry>
                 <entry>The object to send the message to; objects are identified by 
                 a path, "/foo/bar"</entry>
               </row>
@@ -314,6 +318,7 @@
                 <entry>INTERFACE</entry>
 		<entry>2</entry>
                 <entry>STRING</entry>
+                <entry>yes</entry>
                 <entry>The interface to invoke a method call on, or 
                 that a signal is emitted from. e.g. "org.freedesktop.Introspectable"</entry>
               </row>
@@ -321,6 +326,7 @@
                 <entry>MEMBER</entry>
 		<entry>3</entry>
                 <entry>STRING</entry>
+                <entry>yes</entry>
                 <entry>The member, either the method name or signal name. 
                 e.g. "Frobate"</entry>
               </row>
@@ -328,12 +334,14 @@
                 <entry>ERROR_NAME</entry>
 		<entry>4</entry>
                 <entry>STRING</entry>
+                <entry>no</entry>
                 <entry>The name of the error that occurred, for errors</entry>
               </row>
               <row>
                 <entry>REPLY_SERIAL</entry>
 		<entry>5</entry>
                 <entry>UINT32</entry>
+                <entry>no</entry>
                 <entry>The serial number of the message this message is a reply
                 to. (The serial number is one of the mandatory header fields,
                 see <xref linkend="message-protocol-header-encoding"/>.)</entry>
@@ -342,6 +350,7 @@
                 <entry>DESTINATION</entry>
 		<entry>6</entry>
                 <entry>STRING</entry>
+                <entry>no</entry>
                 <entry>The name of the service this message should be routed to. 
                 Only used in combination with the message bus, see 
                 <xref linkend="message-bus"/>.</entry>
@@ -350,6 +359,7 @@
                 <entry>SENDER</entry>
 		<entry>7</entry>
                 <entry>STRING</entry>
+                <entry>no</entry>
                 <entry>Sender service. The name of the base service that sent
                 this message.  The message bus fills in this field; the field is
                 only meaningful in combination with the message bus.</entry>
