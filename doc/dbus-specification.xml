@@ -2245,6 +2245,15 @@
             one &lt;node&gt;.
           </para>
         </listitem>
+        <listitem>
+          <para>
+            The method, interface, property, and signal elements may have 
+            an attribute deprecated="yes|no". If the attribute is not 
+            present, the default value for an interface is "no", and 
+            the default value for methods, properties, and signals is 
+            the deprecation status of the interface.
+          </para>
+        </listitem>
       </itemizedlist>
     </para>
 

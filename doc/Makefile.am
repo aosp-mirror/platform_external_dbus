@@ -1,4 +1,6 @@
 EXTRA_DIST= 					\
+	busconfig.dtd				\
+	introspect.dtd				\
 	dbus-faq.xml				\
 	dbus-specification.xml			\
 	dbus-test-plan.xml			\
