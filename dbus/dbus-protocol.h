@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-test.h  Declarations of test functions.
+/* dbus-protocol.h  D-Bus protocol constants
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002  CodeFactory AB
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -21,15 +21,23 @@
  *
  */
 
-#ifndef DBUS_TEST_H
-#define DBUS_TEST_H
+#ifndef DBUS_PROTOCOL_H
+#define DBUS_PROTOCOL_H
 
-#include <dbus/dbus-types.h>
+/* Don't include anything in here from anywhere else. It's
+ * intended for use by any random library.
+ */
 
-dbus_bool_t _dbus_hash_test     (void);
-dbus_bool_t _dbus_list_test     (void);
-dbus_bool_t _dbus_marshal_test  (void);
-dbus_bool_t _dbus_mem_pool_test (void);
-dbus_bool_t _dbus_string_test   (void);
+#ifdef  __cplusplus
+extern "C" {
+#endif
 
-#endif /* DBUS_TEST_H */
+/* Message byte order */
+#define DBUS_LITTLE_ENDIAN ('l')  /* LSB first */
+#define DBUS_BIG_ENDIAN    ('B')  /* MSB first */    
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* DBUS_PROTOCOL_H */

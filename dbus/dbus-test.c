@@ -37,7 +37,10 @@ int
 main (int    argc,
       char **argv)
 {
-
+  printf ("%s: running marshalling tests\n", argv[0]);
+  if (!_dbus_marshal_test ())
+    die ("marshalling");
+  
   printf ("%s: running memory pool tests\n", argv[0]);
   if (!_dbus_mem_pool_test ())
     die ("memory pools");

@@ -1,3 +1,16 @@
+2002-12-25  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/Makefile.am:
+	* dbus/dbus-marshal.c: (swap_bytes), (_dbus_marshal_double),
+	(_dbus_marshal_int32), (_dbus_marshal_uint32),
+	(_dbus_demarshal_double), (_dbus_demarshal_int32),
+	(_dbus_demarshal_uint32), (_dbus_marshal_test):
+	* dbus/dbus-marshal.h:
+	* dbus/dbus-protocol.h:
+	* dbus/dbus-test.c: (main):
+	* dbus/dbus-test.h:
+	Add un-optimized marshalling/demarshalling routines.
+	
 2002-12-25  Harri Porten  <porten@kde.org>
 
 	* qt/dbus-qt.h: adjusted ctor and getter to KDE/Qt conventions

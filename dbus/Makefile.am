@@ -53,6 +53,8 @@ libdbus_convenience_la_SOURCES=			\
 	dbus-internals.h			\
 	dbus-list.c				\
 	dbus-list.h				\
+	dbus-marshal.c				\
+	dbus-marshal.h				\
 	dbus-mempool.c				\
 	dbus-mempool.h				\
 	dbus-string.c				\
