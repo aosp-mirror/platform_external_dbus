@@ -1148,6 +1148,9 @@ main (int argc, char *argv[])
       g_printerr ("Specify profile type plain_sockets, plain_sockets_with_malloc, no_bus, with_bus, all\n");
       exit (1);
     }
+
+  /* Make valgrind happy */
+  dbus_shutdown ();
   
   return 0;
 }

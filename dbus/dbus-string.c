@@ -471,6 +471,8 @@ _dbus_string_get_data (DBusString *str)
   return real->str;
 }
 
+/* only do the function if we don't have the macro */
+#ifndef _dbus_string_get_const_data
 /**
  * Gets the raw character buffer from a const string.
  *
@@ -484,6 +486,7 @@ _dbus_string_get_const_data (const DBusString  *str)
   
   return real->str;
 }
+#endif /* _dbus_string_get_const_data */
 
 /**
  * Gets a sub-portion of the raw character buffer from the
@@ -553,6 +556,8 @@ _dbus_string_set_byte (DBusString    *str,
   real->str[i] = byte;
 }
 
+/* only have the function if we didn't create a macro */
+#ifndef _dbus_string_get_byte
 /**
  * Gets the byte at the given position. It is
  * allowed to ask for the nul byte at the end of
@@ -572,6 +577,7 @@ _dbus_string_get_byte (const DBusString  *str,
   
   return real->str[start];
 }
+#endif /* _dbus_string_get_byte */
 
 /**
  * Inserts a number of bytes of a given value at the

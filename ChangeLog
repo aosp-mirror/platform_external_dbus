@@ -1,3 +1,15 @@
+2004-11-27  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-string.h (_dbus_string_get_byte): inline when asserts
+	are disabled
+	(_dbus_string_get_const_data): inline when asserts are disabled
+
+	* dbus/dbus-message.c: record the _dbus_current_generation of
+	creation so we can complain if dbus_shutdown() is used improperly.
+	Do this only if checks are enabled.
+
+	* dbus/dbus-connection.c: ditto
+	
 2004-11-26  Havoc Pennington  <hp@redhat.com>
 
 	* test/glib/test-profile.c: add with_bus mode to profile echoes

@@ -104,6 +104,10 @@ struct DBusMessage
   dbus_uint32_t changed_stamp; /**< Incremented when iterators are invalidated. */
 
   DBusDataSlotList slot_list;   /**< Data stored by allocated integer ID */
+
+#ifndef DBUS_DISABLE_CHECKS
+  int generation; /**< _dbus_current_generation when message was created */
+#endif
 };
 
 enum {
@@ -248,6 +252,9 @@ get_string_field (DBusMessage *message,
   int offset;
   const char *data;
 
+  _dbus_return_val_if_fail (message->generation == _dbus_current_generation,
+                            NULL);
+  
   offset = message->header_fields[field].value_offset;
 
   _dbus_assert (field <= DBUS_HEADER_FIELD_LAST);
@@ -1607,6 +1614,9 @@ dbus_message_new_empty_header (void)
       message = dbus_new (DBusMessage, 1);
       if (message == NULL)
         return NULL;
+#ifndef DBUS_DISABLE_CHECKS
+      message->generation = _dbus_current_generation;
+#endif
     }
 
   message->refcount.value = 1;
@@ -1947,6 +1957,9 @@ dbus_message_copy (const DBusMessage *message)
   retval->reply_serial = message->reply_serial;
   retval->header_padding = message->header_padding;
   retval->locked = FALSE;
+#ifndef DBUS_DISABLE_CHECKS
+  retval->generation = message->generation;
+#endif
   
   if (!_dbus_string_init_preallocated (&retval->header,
                                        _dbus_string_get_length (&message->header)))
@@ -2000,6 +2013,7 @@ dbus_message_ref (DBusMessage *message)
   dbus_int32_t old_refcount;
 
   _dbus_return_val_if_fail (message != NULL, NULL);
+  _dbus_return_val_if_fail (message->generation == _dbus_current_generation, NULL);
   
   old_refcount = _dbus_atomic_inc (&message->refcount);
   _dbus_assert (old_refcount >= 1);
@@ -2019,6 +2033,7 @@ dbus_message_unref (DBusMessage *message)
  dbus_int32_t old_refcount;
 
   _dbus_return_if_fail (message != NULL);
+  _dbus_return_if_fail (message->generation == _dbus_current_generation);
   
   old_refcount = _dbus_atomic_dec (&message->refcount);
   

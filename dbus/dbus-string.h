@@ -49,11 +49,14 @@ struct DBusString
   unsigned int dummy8 : 3; /**< placeholder */
 };
 
-/* Unless we want to run all the assertions in the function,
- * inline this thing, it shows up high in the profile
- */
 #ifdef DBUS_DISABLE_ASSERT
-#define _dbus_string_get_length(s) ((s)->dummy2)
+/* Some simple inlining hacks; the current linker is not smart enough
+ * to inline non-exported symbols across files in the library.
+ * Note that these break type safety (due to the casts)
+ */
+#define _dbus_string_get_length(s) (((DBusString*)(s))->dummy2)
+#define _dbus_string_get_byte(s, i) (((const unsigned char*)(((DBusString*)(s))->dummy1))[(i)])
+#define _dbus_string_get_const_data(s) ((const char*)(((DBusString*)(s))->dummy1))
 #endif
 
 dbus_bool_t   _dbus_string_init                  (DBusString        *str);
@@ -67,7 +70,9 @@ dbus_bool_t   _dbus_string_init_preallocated     (DBusString        *str,
 void          _dbus_string_free                  (DBusString        *str);
 void          _dbus_string_lock                  (DBusString        *str);
 char*         _dbus_string_get_data              (DBusString        *str);
+#ifndef _dbus_string_get_const_data
 const char*   _dbus_string_get_const_data        (const DBusString  *str);
+#endif /* _dbus_string_get_const_data */
 char*         _dbus_string_get_data_len          (DBusString        *str,
                                                   int                start,
                                                   int                len);
@@ -77,8 +82,10 @@ const char*   _dbus_string_get_const_data_len    (const DBusString  *str,
 void          _dbus_string_set_byte              (DBusString        *str,
                                                   int                i,
                                                   unsigned char      byte);
+#ifndef _dbus_string_get_byte
 unsigned char _dbus_string_get_byte              (const DBusString  *str,
                                                   int                start);
+#endif /* _dbus_string_get_byte */
 dbus_bool_t   _dbus_string_insert_bytes          (DBusString        *str,
                                                   int                i,
 						  int                n_bytes,

@@ -218,6 +218,10 @@ struct DBusConnection
   DBusObjectTree *objects; /**< Object path handlers registered with this connection */
 
   unsigned int exit_on_disconnect : 1; /**< If #TRUE, exit after handling disconnect signal */
+
+#ifndef DBUS_DISABLE_CHECKS
+  int generation; /**< _dbus_current_generation that should correspond to this connection */
+#endif 
 };
 
 static void               _dbus_connection_remove_timeout_locked             (DBusConnection     *connection,
@@ -945,6 +949,9 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection->last_dispatch_status = DBUS_DISPATCH_COMPLETE; /* so we're notified first time there's data */
   connection->objects = objects;
   connection->exit_on_disconnect = FALSE;
+#ifndef DBUS_DISABLE_CHECKS
+  connection->generation = _dbus_current_generation;
+#endif
   
   _dbus_data_slot_list_init (&connection->slot_list);
 
@@ -1009,6 +1016,9 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
 DBusConnection *
 _dbus_connection_ref_unlocked (DBusConnection *connection)
 {
+  _dbus_return_val_if_fail (connection != NULL, NULL);
+  _dbus_return_val_if_fail (connection->generation == _dbus_current_generation, NULL);
+  
 #ifdef DBUS_HAVE_ATOMIC_INT
   _dbus_atomic_inc (&connection->refcount);
 #else
@@ -1167,7 +1177,8 @@ DBusConnection *
 dbus_connection_ref (DBusConnection *connection)
 {
   _dbus_return_val_if_fail (connection != NULL, NULL);
-
+  _dbus_return_val_if_fail (connection->generation == _dbus_current_generation, NULL);
+  
   /* The connection lock is better than the global
    * lock in the atomic increment fallback
    */
@@ -1303,7 +1314,8 @@ dbus_connection_unref (DBusConnection *connection)
   dbus_bool_t last_unref;
 
   _dbus_return_if_fail (connection != NULL);
-
+  _dbus_return_if_fail (connection->generation == _dbus_current_generation);
+  
   /* The connection lock is better than the global
    * lock in the atomic increment fallback
    */
@@ -1348,6 +1360,7 @@ dbus_connection_disconnect (DBusConnection *connection)
   DBusDispatchStatus status;
   
   _dbus_return_if_fail (connection != NULL);
+  _dbus_return_if_fail (connection->generation == _dbus_current_generation);
 
   _dbus_verbose ("Disconnecting %p\n", connection);
   
