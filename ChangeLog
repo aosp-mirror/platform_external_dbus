@@ -1,10 +1,11 @@
 2005-01-12  Joe Shaw  <joeshaw@novell.com>
 
+	* mono/Makefile.am, mono/example/Makefile.am: Always build the 
+	dbus DLL with --debug.  Clean up after the .mdb files this leaves
+	behind.
+
 	* mono/doc/Makefile.am: Need to uninstall the docs on "make
 	uninstall"
-
-	* mono/Makefile.am, mono/example/Makefile.am: Always build the 
-	dbus DLL with --debug.
 
 	* mono/Arguments.cs (GetDBusTypeConstructor): If the type
 	is an enum, get the enum's underlying type.  Another mono

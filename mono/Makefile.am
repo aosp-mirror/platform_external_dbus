@@ -57,7 +57,7 @@ test-dbus-sharp.exe: $(TEST_DBUS_SHARP_FILES)
 	$(CSC) --debug --unsafe --target exe -L . -r dbus-sharp.dll -pkg:gtk-sharp -o test-dbus-sharp.exe $(TEST_DBUS_SHARP_FILES)
 
 clean:
-	rm -f $(TARGET) $(NOINST_EXES)
+	rm -f $(TARGET) $(TARGET).mdb $(NOINST_EXES) $(NOINST_EXES:%=%.mdb)
 
 install-data-local:
 	@if test -n '$(TARGET)'; then                       \

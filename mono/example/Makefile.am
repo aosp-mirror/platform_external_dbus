@@ -14,7 +14,7 @@ bus-listener.exe: BusListener.cs
 
 
 clean:
-	rm -f $(NOINST_EXES)
+	rm -f $(NOINST_EXES) $(NOINST_EXES:%=%.mdb)
 
 install: all
 
