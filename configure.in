@@ -123,7 +123,13 @@ else
   fi
 fi
 
-#### Assorted checks
+if test x$enable_gcov = xyes; then
+     ## so that config.h changes when you toggle gcov support
+     AC_DEFINE_UNQUOTED(DBUS_GCOV_ENABLED, 1, [Defined if gcov is enabled to force a rebuild due to config.h changing])
+fi
+AM_CONDITIONAL(DBUS_GCOV_ENABLED, test x$enable_gcov = xyes)
+
+#### Integer sizes 
 
 AC_CHECK_SIZEOF(char)
 AC_CHECK_SIZEOF(short)
@@ -132,6 +138,24 @@ AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(void *)
 AC_CHECK_SIZEOF(long long)
 AC_CHECK_SIZEOF(__int64)
+
+### this is only used in decode-gcov.c right now
+case 8 in
+$ac_cv_sizeof_int)
+  dbusint64=int
+  ;;
+$ac_cv_sizeof_long)
+  dbusint64=long
+  ;;
+$ac_cv_sizeof_long_long)
+  dbusint64='long long'
+  ;;
+$ac_cv_sizeof___int64)
+  dbusint64=__int64
+  ;;
+esac
+
+AC_DEFINE_UNQUOTED(DBUS_INT64_TYPE, $dbusint64, [64-bit integer type])
 
 ## byte order
 AC_C_BIGENDIAN

@@ -7,7 +7,13 @@ else
 TEST_BINARIES=
 endif
 
-noinst_PROGRAMS= $(TEST_BINARIES)
+if DBUS_GCOV_ENABLED
+GCOV_BINARIES=decode-gcov
+else
+GCOV_BINARIES=
+endif
+
+noinst_PROGRAMS= $(TEST_BINARIES) $(GCOV_BINARIES)
 
 echo_client_SOURCES=				\
 	echo-client.c				\
@@ -49,6 +55,9 @@ test_segfault_SOURCES =				\
 test_sleep_forever_SOURCES =			\
 	test-sleep-forever.c
 
+decode_gcov_SOURCES=				\
+	decode-gcov.c
+
 TEST_LIBS=$(DBUS_TEST_LIBS) $(top_builddir)/dbus/libdbus-convenience.la
 
 echo_client_LDADD=$(TEST_LIBS)
@@ -58,6 +67,7 @@ unbase64_LDADD=$(TEST_LIBS)
 break_loader_LDADD= $(TEST_LIBS)
 #bus_test_LDADD=$(TEST_LIBS) $(top_builddir)/bus/libdbus-daemon.la
 spawn_test_LDADD=$(TEST_LIBS)
+decode_gcov_LDADD=$(TEST_LIBS)
 
 EXTRA_DIST=
 

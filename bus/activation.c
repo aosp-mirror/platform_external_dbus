@@ -28,6 +28,7 @@
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-list.h>
+#include <dbus/dbus-spawn.h>
 #include <sys/types.h>
 #include <dirent.h>
 #include <errno.h>

@@ -2783,8 +2783,8 @@ _dbus_full_duplex_pipe (int        *fd1,
     }
 
   if (!blocking &&
-      !_dbus_set_fd_nonblocking (fds[0], NULL) ||
-      !_dbus_set_fd_nonblocking (fds[1], NULL))
+      (!_dbus_set_fd_nonblocking (fds[0], NULL) ||
+       !_dbus_set_fd_nonblocking (fds[1], NULL)))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not set full-duplex pipe nonblocking");

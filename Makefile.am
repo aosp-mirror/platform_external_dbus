@@ -24,3 +24,33 @@ EXTRA_DIST =			\
 
 all-local: Doxyfile
 
+if DBUS_GCOV_ENABLED
+clean-gcov:
+	find -name "*.da" -o -name "*.gcov" | xargs rm || true
+
+## .PHONY so it always rebuilds it
+.PHONY: coverage-report.txt
+coverage-report.txt:
+	GCOV_FILES=`find -name "*.bbg"` ;					\
+	C_FILES= ;								\
+	for F in $$GCOV_FILES; do						\
+		C=`echo $$F | sed -e 's/.bbg/.c/g'` ;				\
+		DA=`echo $$F | sed -e 's/.bbg/.da/g'` ;				\
+		if test -e $$DA ; then						\
+			C_FILES="$$C_FILES $$C" ;				\
+		fi ;								\
+	done ;									\
+	echo $$C_FILES ; 							\
+	$(top_builddir)/test/decode-gcov --report $$C_FILES > coverage-report.txt
+
+check-coverage: clean-gcov all check coverage-report.txt
+	cat coverage-report.txt
+
+else
+coverage-report.txt:
+	echo "Need to reconfigure with --enable-gcov"
+
+check-coverage:
+	echo "Need to reconfigure with --enable-gcov"
+
+endif

@@ -1,3 +1,13 @@
+2003-04-05  Havoc Pennington  <hp@pobox.com>
+
+	* Makefile.am (coverage-report.txt): add target "coverage-report.txt"
+
+	* test/decode-gcov.c: hack up a little program to suck data 
+	out of gcov files. Yes this is sort of silly.
+
+	* configure.in: define something in config.h and do an
+	AM_CONDITIONAL when gcov is enabled
+
 2003-04-04  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-spawn.c, dbus/dbus-spawn.h: Change dbus_spawn to
