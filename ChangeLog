@@ -1,3 +1,11 @@
+2003-05-17  Havoc Pennington  <hp@pobox.com>
+
+	* bus/config-parser.c (merge_included): merge in policies from
+	child configuration file.
+
+	* bus/policy.c (bus_policy_merge): function to merge two policies 
+	together
+
 2003-05-16  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-connection.c: disable verbose lock spew

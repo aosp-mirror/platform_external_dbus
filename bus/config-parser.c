@@ -231,6 +231,13 @@ merge_included (BusConfigParser *parser,
 {
   DBusList *link;
 
+  if (!bus_policy_merge (parser->policy,
+                         included->policy))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+  
   if (included->user != NULL)
     {
       dbus_free (parser->user);

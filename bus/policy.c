@@ -512,6 +512,87 @@ bus_policy_append_group_rule (BusPolicy      *policy,
   return TRUE;
 }
 
+static dbus_bool_t
+append_copy_of_policy_list (DBusList **list,
+                            DBusList **to_append)
+{
+  DBusList *link;
+  DBusList *tmp_list;
+
+  tmp_list = NULL;
+
+  /* Preallocate all our links */
+  link = _dbus_list_get_first_link (to_append);
+  while (link != NULL)
+    {
+      if (!_dbus_list_append (&tmp_list, link->data))
+        {
+          _dbus_list_clear (&tmp_list);
+          return FALSE;
+        }
+      
+      link = _dbus_list_get_next_link (to_append, link);
+    }
+
+  /* Now append them */
+  while ((link = _dbus_list_pop_first_link (&tmp_list)))
+    {
+      bus_policy_rule_ref (link->data);
+      _dbus_list_append_link (list, link);
+    }
+
+  return TRUE;
+}
+
+static dbus_bool_t
+merge_id_hash (DBusHashTable *dest,
+               DBusHashTable *to_absorb)
+{
+  DBusHashIter iter;
+  
+  _dbus_hash_iter_init (to_absorb, &iter);
+  while (_dbus_hash_iter_next (&iter))
+    {
+      unsigned long id = _dbus_hash_iter_get_ulong_key (&iter);
+      DBusList **list = _dbus_hash_iter_get_value (&iter);
+      DBusList **target = get_list (dest, id);
+
+      if (target == NULL)
+        return FALSE;
+
+      if (!append_copy_of_policy_list (target, list))
+        return FALSE;
+    }
+
+  return TRUE;
+}
+
+dbus_bool_t
+bus_policy_merge (BusPolicy *policy,
+                  BusPolicy *to_absorb)
+{
+  /* Not properly atomic, but as used for configuration files
+   * we don't rely on it.
+   */  
+  if (!append_copy_of_policy_list (&policy->default_rules,
+                                   &to_absorb->default_rules))
+    return FALSE;
+  
+  if (!append_copy_of_policy_list (&policy->mandatory_rules,
+                                   &to_absorb->mandatory_rules))
+    return FALSE;
+
+  if (!merge_id_hash (policy->rules_by_uid,
+                      to_absorb->rules_by_uid))
+    return FALSE;
+  
+  if (!merge_id_hash (policy->rules_by_gid,
+                      to_absorb->rules_by_gid))
+    return FALSE;
+
+  return TRUE;
+}
+
 struct BusClientPolicy
 {
   int refcount;

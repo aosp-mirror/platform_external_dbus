@@ -27,8 +27,8 @@
 #include <stdlib.h>
 
 #define N_CLIENT_THREADS 1
-#define N_ITERATIONS 100
-#define PAYLOAD_SIZE 1000
+#define N_ITERATIONS 1000
+#define PAYLOAD_SIZE 30
 #define ECHO_MESSAGE "org.freedesktop.DBus.Test.EchoProfile"
 static const char *address;
 static unsigned char *payload;

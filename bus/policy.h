@@ -111,7 +111,8 @@ dbus_bool_t      bus_policy_append_user_rule      (BusPolicy        *policy,
 dbus_bool_t      bus_policy_append_group_rule     (BusPolicy        *policy,
                                                    dbus_gid_t        gid,
                                                    BusPolicyRule    *rule);
-
+dbus_bool_t      bus_policy_merge                 (BusPolicy        *policy,
+                                                   BusPolicy        *to_absorb);
 
 BusClientPolicy* bus_client_policy_new               (void);
 void             bus_client_policy_ref               (BusClientPolicy  *policy);
