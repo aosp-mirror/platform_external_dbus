@@ -29,7 +29,6 @@
 #include "utils.h"
 #include "bus.h"
 #include "test.h"
-#include "loop.h"
 #include <dbus/dbus-internals.h>
 #include <string.h>
 
@@ -176,7 +175,7 @@ bus_dispatch (DBusConnection *connection,
    * until we can.
    */
   while (!bus_connection_preallocate_oom_error (connection))
-    bus_wait_for_memory ();
+    _dbus_wait_for_memory ();
   
   /* Ref connection in case we disconnect it at some point in here */
   dbus_connection_ref (connection);
@@ -537,7 +536,7 @@ kill_client_connection (BusContext     *context,
   _dbus_assert (s != NULL);
 
   while ((base_service = _dbus_strdup (s)) == NULL)
-    bus_wait_for_memory ();
+    _dbus_wait_for_memory ();
 
   dbus_connection_ref (connection);
   
@@ -805,7 +804,7 @@ check_hello_message (BusContext     *context,
             {
               _dbus_verbose ("no memory to get service name arg from hello\n");
               dbus_error_free (&error);
-              bus_wait_for_memory ();
+              _dbus_wait_for_memory ();
               goto retry_get_hello_name;
             }
           else
@@ -819,7 +818,7 @@ check_hello_message (BusContext     *context,
       _dbus_verbose ("Got hello name: %s\n", name);
 
       while (!dbus_bus_set_base_service (connection, name))
-        bus_wait_for_memory ();
+        _dbus_wait_for_memory ();
       
       scd.skip_connection = NULL;
       scd.failed = FALSE;
@@ -849,7 +848,7 @@ check_hello_message (BusContext     *context,
             {
               _dbus_verbose ("no memory to get service name arg from acquired\n");
               dbus_error_free (&error);
-              bus_wait_for_memory ();
+              _dbus_wait_for_memory ();
               goto retry_get_acquired_name;
             }
           else

@@ -25,25 +25,9 @@
 #include <config.h>
 #include "utils.h"
 #include <dbus/dbus-sysdeps.h>
+#include <dbus/dbus-mainloop.h>
 
 const char bus_no_memory_message[] = "Memory allocation failure in message bus";
-
-int
-bus_get_oom_wait (void)
-{
-#ifdef DBUS_BUILD_TESTS
-  /* make tests go fast */
-  return 0;
-#else
-  return 500;
-#endif
-}
-
-void
-bus_wait_for_memory (void)
-{
-  _dbus_sleep_milliseconds (bus_get_oom_wait ());
-}
 
 void
 bus_connection_dispatch_all_messages (DBusConnection *connection)
@@ -58,7 +42,7 @@ bus_connection_dispatch_one_message  (DBusConnection *connection)
   DBusDispatchStatus status;
 
   while ((status = dbus_connection_dispatch (connection)) == DBUS_DISPATCH_NEED_MEMORY)
-    bus_wait_for_memory ();
+    _dbus_wait_for_memory ();
   
   return status == DBUS_DISPATCH_DATA_REMAINS;
 }

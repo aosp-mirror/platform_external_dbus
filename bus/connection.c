@@ -22,7 +22,6 @@
  */
 #include "connection.h"
 #include "dispatch.h"
-#include "loop.h"
 #include "policy.h"
 #include "services.h"
 #include "utils.h"
@@ -89,7 +88,7 @@ connection_data_slot_unref (void)
     }
 }
 
-static BusLoop*
+static DBusLoop*
 connection_get_loop (DBusConnection *connection)
 {
   BusConnectionData *d;
@@ -134,7 +133,7 @@ bus_connection_disconnected (DBusConnection *connection)
       while (transaction == NULL)
         {
           transaction = bus_transaction_new (d->connections->context);
-          bus_wait_for_memory ();
+          _dbus_wait_for_memory ();
         }
         
       if (!bus_service_remove_owner (service, connection,
@@ -144,7 +143,7 @@ bus_connection_disconnected (DBusConnection *connection)
             {
               dbus_error_free (&error);
               bus_transaction_cancel_and_free (transaction);
-              bus_wait_for_memory ();
+              _dbus_wait_for_memory ();
               goto retry;
             }
           else
@@ -209,9 +208,9 @@ add_connection_watch (DBusWatch      *watch,
 {
   DBusConnection *connection = data;
 
-  return bus_loop_add_watch (connection_get_loop (connection),
-                             watch, connection_watch_callback, connection,
-                             NULL);
+  return _dbus_loop_add_watch (connection_get_loop (connection),
+                               watch, connection_watch_callback, connection,
+                               NULL);
 }
 
 static void
@@ -220,8 +219,8 @@ remove_connection_watch (DBusWatch      *watch,
 {
   DBusConnection *connection = data;
   
-  bus_loop_remove_watch (connection_get_loop (connection),
-                         watch, connection_watch_callback, connection);
+  _dbus_loop_remove_watch (connection_get_loop (connection),
+                           watch, connection_watch_callback, connection);
 }
 
 static void
@@ -246,8 +245,8 @@ add_connection_timeout (DBusTimeout    *timeout,
 {
   DBusConnection *connection = data;
   
-  return bus_loop_add_timeout (connection_get_loop (connection),
-                               timeout, connection_timeout_callback, connection, NULL);
+  return _dbus_loop_add_timeout (connection_get_loop (connection),
+                                 timeout, connection_timeout_callback, connection, NULL);
 }
 
 static void
@@ -256,8 +255,8 @@ remove_connection_timeout (DBusTimeout    *timeout,
 {
   DBusConnection *connection = data;
   
-  bus_loop_remove_timeout (connection_get_loop (connection),
-                           timeout, connection_timeout_callback, connection);
+  _dbus_loop_remove_timeout (connection_get_loop (connection),
+                             timeout, connection_timeout_callback, connection);
 }
 
 static dbus_bool_t

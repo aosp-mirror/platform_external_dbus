@@ -28,8 +28,7 @@
 
 #include <dbus/dbus.h>
 #include <dbus/dbus-string.h>
-
-#include "loop.h"
+#include <dbus/dbus-mainloop.h>
 
 typedef struct BusActivation  BusActivation;
 typedef struct BusConnections BusConnections;
@@ -51,7 +50,7 @@ const char*     bus_context_get_address              (BusContext       *context)
 BusRegistry*    bus_context_get_registry             (BusContext       *context);
 BusConnections* bus_context_get_connections          (BusContext       *context);
 BusActivation*  bus_context_get_activation           (BusContext       *context);
-BusLoop*        bus_context_get_loop                 (BusContext       *context);
+DBusLoop*       bus_context_get_loop                 (BusContext       *context);
 dbus_bool_t     bus_context_allow_user               (BusContext       *context,
                                                       unsigned long     uid);
 BusPolicy*      bus_context_create_connection_policy (BusContext       *context,

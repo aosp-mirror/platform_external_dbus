@@ -1,5 +1,15 @@
 2003-04-06  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/Makefile.am: split lists of sources into stuff that goes in
+	the library, util functions that go in the lib and are also used
+	elsewhere, and util functions that are used in tests/daemon but
+	don't go in the lib.
+
+	* dbus/dbus-mainloop.h, dbus/dbus-mainloop.c: move bus/loop.[hc] 
+	here so it can be used in test binaries also
+
+2003-04-06  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-sysdeps.c (_dbus_become_daemon): write the pidfile
 	here in the parent process, so we can return an error if it
 	fails. Also, move some of the code into the child so the parent 

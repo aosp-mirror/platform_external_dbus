@@ -22,7 +22,9 @@ dbusinclude_HEADERS=				\
 	dbus-threads.h				\
 	dbus-types.h
 
-DBUS_SOURCES=					\
+### source code that goes in the installed client library
+### and is specific to library functionality
+DBUS_LIB_SOURCES=				\
 	dbus-address.c				\
 	dbus-auth.c				\
 	dbus-auth.h				\
@@ -68,7 +70,11 @@ DBUS_SOURCES=					\
 ##	dbus-md5.c				\
 ##	dbus-md5.h				\
 
-UTIL_SOURCES=					\
+### source code that goes in the installed client library
+### AND is generic utility functionality used by the 
+### daemon or test programs (all symbols in here should 
+### be underscore-prefixed)
+DBUS_SHARED_SOURCES=				\
 	dbus-dataslot.c				\
 	dbus-dataslot.h				\
 	dbus-hash.c				\
@@ -92,13 +98,23 @@ UTIL_SOURCES=					\
 	dbus-sysdeps.c				\
 	dbus-sysdeps.h
 
+### source code that is generic utility functionality used
+### by the bus daemon or test apps, but is NOT included
+### in the D-BUS client library (all symbols in here 
+### should be underscore-prefixed but don't really need 
+### to be unless they move to DBUS_SHARED_SOURCES later)
+DBUS_UTIL_SOURCES=				\
+	dbus-mainloop.c				\
+	dbus-mainloop.h
+
 libdbus_1_la_SOURCES=				\
-	$(DBUS_SOURCES)				\
-	$(UTIL_SOURCES)
+	$(DBUS_LIB_SOURCES)			\
+	$(DBUS_SHARED_SOURCES)
 
 libdbus_convenience_la_SOURCES=			\
-	$(DBUS_SOURCES)				\
-	$(UTIL_SOURCES)
+	$(DBUS_LIB_SOURCES)			\
+	$(DBUS_SHARED_SOURCES)			\
+	$(DBUS_UTIL_SOURCES)
 
 ## this library is the same as libdbus, but exports all the symbols
 ## and is only used for static linking within the dbus package.

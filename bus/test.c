@@ -25,7 +25,6 @@
 
 #ifdef DBUS_BUILD_TESTS
 #include "test.h"
-#include "loop.h"
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-list.h>
 
@@ -34,7 +33,7 @@
  * are different from the real handlers in connection.c
  */
 static DBusList *clients = NULL;
-static BusLoop *client_loop = NULL;
+static DBusLoop *client_loop = NULL;
 
 static dbus_bool_t
 client_watch_callback (DBusWatch     *watch,
@@ -59,9 +58,9 @@ add_client_watch (DBusWatch      *watch,
 {
   DBusConnection *connection = data;
   
-  return bus_loop_add_watch (client_loop,
-                             watch, client_watch_callback, connection,
-                             NULL);
+  return _dbus_loop_add_watch (client_loop,
+                               watch, client_watch_callback, connection,
+                               NULL);
 }
 
 static void
@@ -70,8 +69,8 @@ remove_client_watch (DBusWatch      *watch,
 {
   DBusConnection *connection = data;
   
-  bus_loop_remove_watch (client_loop,
-                         watch, client_watch_callback, connection);
+  _dbus_loop_remove_watch (client_loop,
+                           watch, client_watch_callback, connection);
 }
 
 static void
@@ -94,7 +93,7 @@ add_client_timeout (DBusTimeout    *timeout,
 {
   DBusConnection *connection = data;
   
-  return bus_loop_add_timeout (client_loop, timeout, client_timeout_callback, connection, NULL);
+  return _dbus_loop_add_timeout (client_loop, timeout, client_timeout_callback, connection, NULL);
 }
 
 static void
@@ -103,7 +102,7 @@ remove_client_timeout (DBusTimeout    *timeout,
 {
   DBusConnection *connection = data;
   
-  bus_loop_remove_timeout (client_loop, timeout, client_timeout_callback, connection);
+  _dbus_loop_remove_timeout (client_loop, timeout, client_timeout_callback, connection);
 }
 
 static DBusHandlerResult
@@ -121,7 +120,7 @@ client_disconnect_handler (DBusMessageHandler *handler,
   
   if (clients == NULL)
     {
-      bus_loop_unref (client_loop);
+      _dbus_loop_unref (client_loop);
       client_loop = NULL;
     }
   
@@ -199,7 +198,7 @@ bus_setup_debug_client (DBusConnection *connection)
 
   if (client_loop == NULL)
     {
-      client_loop = bus_loop_new ();
+      client_loop = _dbus_loop_new ();
       if (client_loop == NULL)
         goto out;
     }
@@ -250,7 +249,7 @@ bus_setup_debug_client (DBusConnection *connection)
 
       if (clients == NULL)
         {
-          bus_loop_unref (client_loop);
+          _dbus_loop_unref (client_loop);
           client_loop = NULL;
         }
     }
@@ -304,10 +303,10 @@ bus_test_run_clients_loop (void)
     return;
   
   /* Do one blocking wait, since we're expecting data */
-  bus_loop_iterate (client_loop, TRUE);
+  _dbus_loop_iterate (client_loop, TRUE);
 
   /* Then mop everything up */
-  while (bus_loop_iterate (client_loop, FALSE))
+  while (_dbus_loop_iterate (client_loop, FALSE))
     ;
 }
 
@@ -315,10 +314,10 @@ void
 bus_test_run_bus_loop (BusContext *context)
 {
   /* Do one blocking wait, since we're expecting data */
-  bus_loop_iterate (bus_context_get_loop (context), TRUE);
+  _dbus_loop_iterate (bus_context_get_loop (context), TRUE);
 
   /* Then mop everything up */
-  while (bus_loop_iterate (bus_context_get_loop (context), FALSE))
+  while (_dbus_loop_iterate (bus_context_get_loop (context), FALSE))
     ;
 }
 
@@ -330,8 +329,8 @@ bus_test_run_everything (BusContext *context)
   i = 0;
   while (i < 2)
     {
-      while (bus_loop_iterate (bus_context_get_loop (context), FALSE) ||
-             (client_loop == NULL || bus_loop_iterate (client_loop, FALSE)))
+      while (_dbus_loop_iterate (bus_context_get_loop (context), FALSE) ||
+             (client_loop == NULL || _dbus_loop_iterate (client_loop, FALSE)))
         ;
       ++i;
     }

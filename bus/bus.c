@@ -22,7 +22,6 @@
  */
 
 #include "bus.h"
-#include "loop.h"
 #include "activation.h"
 #include "connection.h"
 #include "services.h"
@@ -38,7 +37,7 @@ struct BusContext
   int refcount;
   char *type;
   char *address;
-  BusLoop *loop;
+  DBusLoop *loop;
   DBusList *servers;
   BusConnections *connections;
   BusActivation *activation;
@@ -138,9 +137,9 @@ add_server_watch (DBusWatch  *watch,
   
   context = server_get_context (server);
   
-  return bus_loop_add_watch (context->loop,
-                             watch, server_watch_callback, server,
-                             NULL);
+  return _dbus_loop_add_watch (context->loop,
+                               watch, server_watch_callback, server,
+                               NULL);
 }
 
 static void
@@ -152,8 +151,8 @@ remove_server_watch (DBusWatch  *watch,
   
   context = server_get_context (server);
   
-  bus_loop_remove_watch (context->loop,
-                         watch, server_watch_callback, server);
+  _dbus_loop_remove_watch (context->loop,
+                           watch, server_watch_callback, server);
 }
 
 
@@ -174,8 +173,8 @@ add_server_timeout (DBusTimeout *timeout,
   
   context = server_get_context (server);
 
-  return bus_loop_add_timeout (context->loop,
-                               timeout, server_timeout_callback, server, NULL);
+  return _dbus_loop_add_timeout (context->loop,
+                                 timeout, server_timeout_callback, server, NULL);
 }
 
 static void
@@ -187,8 +186,8 @@ remove_server_timeout (DBusTimeout *timeout,
   
   context = server_get_context (server);
   
-  bus_loop_remove_timeout (context->loop,
-                           timeout, server_timeout_callback, server);
+  _dbus_loop_remove_timeout (context->loop,
+                             timeout, server_timeout_callback, server);
 }
 
 static void
@@ -396,7 +395,7 @@ bus_context_new (const DBusString *config_file,
    */
   context->max_completed_connections = 1024;
   
-  context->loop = bus_loop_new ();
+  context->loop = _dbus_loop_new ();
   if (context->loop == NULL)
     {
       BUS_SET_OOM (error);
@@ -755,7 +754,7 @@ bus_context_unref (BusContext *context)
 
       if (context->loop)
         {
-          bus_loop_unref (context->loop);
+          _dbus_loop_unref (context->loop);
           context->loop = NULL;
         }
       
@@ -798,7 +797,7 @@ bus_context_get_activation (BusContext  *context)
   return context->activation;
 }
 
-BusLoop*
+DBusLoop*
 bus_context_get_loop (BusContext *context)
 {
   return context->loop;

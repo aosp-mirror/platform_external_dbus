@@ -90,7 +90,7 @@ handle_timeout_callback (DBusTimeout   *timeout,
   BusPendingActivation *pending_activation = data;
 
   while (!dbus_timeout_handle (pending_activation->timeout))
-    bus_wait_for_memory ();
+    _dbus_wait_for_memory ();
 }
 
 static void
@@ -103,9 +103,9 @@ bus_pending_activation_free (BusPendingActivation *pending_activation)
 
   if (pending_activation->timeout_added)
     {
-      bus_loop_remove_timeout (bus_context_get_loop (pending_activation->activation->context),
-                               pending_activation->timeout,
-                               handle_timeout_callback, pending_activation);
+      _dbus_loop_remove_timeout (bus_context_get_loop (pending_activation->activation->context),
+                                 pending_activation->timeout,
+                                 handle_timeout_callback, pending_activation);
       pending_activation->timeout_added = FALSE;
     }
 
@@ -604,7 +604,7 @@ pending_activation_failed (BusPendingActivation *pending_activation,
 {
   /* FIXME use preallocated OOM messages instead of bus_wait_for_memory() */
   while (!try_send_activation_failure (pending_activation, how))
-    bus_wait_for_memory ();
+    _dbus_wait_for_memory ();
 
   /* Destroy this pending activation */
   _dbus_hash_table_remove_string (pending_activation->activation->pending_activations,
@@ -650,9 +650,9 @@ add_babysitter_watch (DBusWatch      *watch,
 {
   BusPendingActivation *pending_activation = data;
 
-  return bus_loop_add_watch (bus_context_get_loop (pending_activation->activation->context),
-                             watch, babysitter_watch_callback, pending_activation,
-                             NULL);
+  return _dbus_loop_add_watch (bus_context_get_loop (pending_activation->activation->context),
+                               watch, babysitter_watch_callback, pending_activation,
+                               NULL);
 }
 
 static void
@@ -661,8 +661,8 @@ remove_babysitter_watch (DBusWatch      *watch,
 {
   BusPendingActivation *pending_activation = data;
   
-  bus_loop_remove_watch (bus_context_get_loop (pending_activation->activation->context),
-                         watch, babysitter_watch_callback, pending_activation);
+  _dbus_loop_remove_watch (bus_context_get_loop (pending_activation->activation->context),
+                           watch, babysitter_watch_callback, pending_activation);
 }
 
 static dbus_bool_t
@@ -806,11 +806,11 @@ bus_activation_activate_service (BusActivation  *activation,
 	  return FALSE;
 	}
 
-      if (!bus_loop_add_timeout (bus_context_get_loop (activation->context),
-                                 pending_activation->timeout,
-                                 handle_timeout_callback,
-                                 pending_activation,
-                                 NULL))
+      if (!_dbus_loop_add_timeout (bus_context_get_loop (activation->context),
+                                   pending_activation->timeout,
+                                   handle_timeout_callback,
+                                   pending_activation,
+                                   NULL))
 	{
 	  BUS_SET_OOM (error);
 	  bus_pending_activation_free (pending_activation);
