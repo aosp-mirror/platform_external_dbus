@@ -127,12 +127,24 @@ _dbus_type_reader_get_current_type (DBusTypeReader *reader)
   return t;
 }
 
-int
-_dbus_type_reader_get_array_length (DBusTypeReader *reader)
+dbus_bool_t
+_dbus_type_reader_array_is_empty (DBusTypeReader *reader)
 {
-  /* FIXME if this is in number of elements I don't know how to compute it
-   * since we only have bytes and elements are variable-length
-   */
+  dbus_uint32_t array_len;
+  int len_pos;
+  
+  _dbus_return_val_if_fail (_dbus_type_reader_get_current_type (reader) == DBUS_TYPE_ARRAY,
+                            TRUE);
+
+  len_pos = _DBUS_ALIGN_VALUE (reader->value_pos, 4);
+  
+  _dbus_demarshal_basic_type (reader->value_str,
+                              DBUS_TYPE_UINT32,
+                              &array_len,
+                              reader->byte_order,
+                              &len_pos);
+
+  return array_len == 0;
 }
 
 void
@@ -184,6 +196,10 @@ _dbus_type_reader_read_array_of_basic (DBusTypeReader    *reader,
  * Initialize a new reader pointing to the first type and
  * corresponding value that's a child of the current container. It's
  * an error to call this if the current type is a non-container.
+ * 
+ * Note that DBusTypeReader traverses values, not types. So if you
+ * have an empty array of array of int, you can't recurse into it. You
+ * can only recurse into each element.
  *
  * @param reader the reader
  * @param sub a reader to init pointing to the first child
@@ -193,16 +209,6 @@ _dbus_type_reader_recurse (DBusTypeReader *reader,
                            DBusTypeReader *sub)
 {
   int t;
-
-  /* FIXME are we recursing over the type signature or over the values.
-   * Arrays don't necessarily have values for each element of the type
-   * signature. Thus we get a mismatch where we need to "bail out" and
-   * return the signature of each element, but can't return an element
-   * or recurse into the element signature. Not sure how to handle this;
-   * maybe think about how we will handle variant types and do something
-   * similar since they also have the idea of a signature for the whole
-   * sub-item?
-   */
   
   t = first_type_in_signature (reader->type_str, reader->type_pos);
   
@@ -230,6 +236,8 @@ _dbus_type_reader_recurse (DBusTypeReader *reader,
       dbus_uint32_t array_len;
       int alignment;
 
+      _dbus_return_if_fail (!_dbus_type_reader_array_is_empty (reader));
+      
       sub->container_type = DBUS_TYPE_ARRAY;
       
       /* point type_pos at the array element type */
@@ -307,6 +315,25 @@ skip_one_complete_type (const DBusString *type_str,
     *type_pos += 1;
 }
 
+static void
+skip_array_values (const DBusString *value_str,
+                   int              *value_pos,
+                   int               byte_order)
+{
+  dbus_uint32_t array_len;
+  int len_pos;
+  
+  len_pos = _DBUS_ALIGN_VALUE (*value_pos, 4);
+  
+  _dbus_demarshal_basic_type (value_str,
+                              DBUS_TYPE_UINT32,
+                              &array_len,
+                              byte_order,
+                              &len_pos);
+  
+  *value_pos = len_pos + array_len;
+}
+
 /**
  * Skip to the next value on this "level". e.g. the next field in a
  * struct, the next value in an array, the next key or value in a
@@ -336,11 +363,7 @@ _dbus_type_reader_next (DBusTypeReader *reader)
       switch (t)
         {
         case DBUS_TYPE_STRUCT:
-        case DBUS_TYPE_ARRAY:
           /* Scan forward over the entire container contents */
-          /* FIXME this is super slow for arrays. We need to special
-           * case skipping all the elements at once instead of scanning.
-           */
           {
             DBusTypeReader sub;
 
@@ -356,6 +379,13 @@ _dbus_type_reader_next (DBusTypeReader *reader)
             /* Now we are at the end of this container */
             reader->type_pos = sub.type_pos;
             reader->value_pos = sub.value_pos;
+          }
+          break;
+          
+        case DBUS_TYPE_ARRAY:
+          {
+            skip_array_values (reader->value_str, &reader->value_pos, reader->byte_order);
+            skip_one_complete_type (reader->type_str, &reader->type_pos);
           }
           break;
 
@@ -392,12 +422,11 @@ _dbus_type_reader_next (DBusTypeReader *reader)
       _dbus_assert (reader->value_pos < end_pos);
       _dbus_assert (reader->value_pos >= reader->u.array.start_pos);
 
-      if (reader->u.array.element_type == DBUS_TYPE_ARRAY ||
-          reader->u.array.element_type == DBUS_TYPE_STRUCT)
+      if (reader->u.array.element_type == DBUS_TYPE_STRUCT)
         {
           DBusTypeReader sub;
           
-          /* Recurse into the array element */
+          /* Recurse into the struct */
           _dbus_type_reader_recurse (reader, &sub);
 
             /* Skip everything in this element */
@@ -408,6 +437,10 @@ _dbus_type_reader_next (DBusTypeReader *reader)
 
           /* Now we are at the end of this element */
           reader->value_pos = sub.value_pos;
+        }
+      else if (reader->u.array.element_type == DBUS_TYPE_ARRAY)
+        {
+          skip_array_values (reader->value_str, &reader->value_pos, reader->byte_order);
         }
       else
         {
@@ -697,7 +730,7 @@ _dbus_type_writer_recurse_array (DBusTypeWriter *writer,
       sub->type_pos += element_type_len;
     }
   
-  sub->u.array.len_pos = sub->value_pos;
+  sub->u.array.len_pos = _DBUS_ALIGN_VALUE (sub->value_pos, 4);
 
   {
     dbus_uint32_t value = 0;
@@ -708,6 +741,8 @@ _dbus_type_writer_recurse_array (DBusTypeWriter *writer,
     if (!_dbus_type_writer_write_basic_no_typecode (sub, DBUS_TYPE_UINT32,
                                                     &value))
       _dbus_assert_not_reached ("should not have failed to insert array len");
+
+    _dbus_assert (sub->u.array.len_pos == sub->value_pos - 4);
 
     _dbus_string_init_const (&str, element_type);
     alignment = element_type_get_alignment (&str, 0);
@@ -870,6 +905,23 @@ data_block_init_reader_writer (DataBlock      *block,
                           _dbus_string_get_length (&block->body));
 }
 
+#define NEXT_EXPECTING_TRUE(reader)  do { if (!_dbus_type_reader_next (reader)) \
+ {                                                                              \
+    _dbus_warn ("_dbus_type_reader_next() should have returned TRUE at %s %d",  \
+                              _DBUS_FUNCTION_NAME, __LINE__);                   \
+    _dbus_assert_not_reached ("test failed");                                   \
+ }                                                                              \
+} while (0)
+
+#define NEXT_EXPECTING_FALSE(reader) do { if (_dbus_type_reader_next (reader))  \
+ {                                                                              \
+    _dbus_warn ("_dbus_type_reader_next() should have returned FALSE at %s %d", \
+                              _DBUS_FUNCTION_NAME, __LINE__);                   \
+    _dbus_assert_not_reached ("test failed");                                   \
+ }                                                                              \
+ check_expected_type (reader, DBUS_TYPE_INVALID);                               \
+} while (0)
+
 #define SAMPLE_INT32           12345678
 #define SAMPLE_INT32_ALTERNATE 53781429
 static dbus_bool_t
@@ -884,8 +936,10 @@ write_int32 (DataBlock      *block,
 }
 
 static void
-check_expected_type (DBusTypeReader *reader,
-                     int             expected)
+real_check_expected_type (DBusTypeReader *reader,
+                          int             expected,
+                          const char     *funcname,
+                          int             line)
 {
   int t;
 
@@ -893,9 +947,10 @@ check_expected_type (DBusTypeReader *reader,
   
   if (t != expected)
     {
-      _dbus_warn ("Read type %s while expecting %s\n",
+      _dbus_warn ("Read type %s while expecting %s at %s line %d\n",
                   _dbus_type_to_string (t),
-                  _dbus_type_to_string (expected));
+                  _dbus_type_to_string (expected),
+                  funcname, line);
 
       _dbus_verbose_bytes_of_string (reader->type_str, 0,
                                      _dbus_string_get_length (reader->type_str));
@@ -905,6 +960,8 @@ check_expected_type (DBusTypeReader *reader,
       exit (1);
     }
 }
+
+#define check_expected_type(reader, expected) real_check_expected_type (reader, expected, _DBUS_FUNCTION_NAME, __LINE__)
 
 static dbus_bool_t
 read_int32 (DataBlock      *block,
@@ -982,13 +1039,15 @@ read_struct_with_int32s (DataBlock      *block,
 
   _dbus_assert (v == SAMPLE_INT32);
 
-  _dbus_type_reader_next (&sub);
+  NEXT_EXPECTING_TRUE (&sub);
   check_expected_type (&sub, DBUS_TYPE_INT32);
   
   _dbus_type_reader_read_basic (&sub,
                                 (dbus_int32_t*) &v);
 
   _dbus_assert (v == SAMPLE_INT32_ALTERNATE);
+
+  NEXT_EXPECTING_FALSE (&sub);
   
   return TRUE;
 }
@@ -1044,12 +1103,16 @@ read_struct_of_structs (DataBlock      *block,
 
   if (!read_struct_with_int32s (block, &sub))
     return FALSE;
-  _dbus_type_reader_next (&sub);
+
+  NEXT_EXPECTING_TRUE (&sub);
   if (!read_struct_with_int32s (block, &sub))
     return FALSE;
-  _dbus_type_reader_next (&sub);
+
+  NEXT_EXPECTING_TRUE (&sub);
   if (!read_struct_with_int32s (block, &sub))
     return FALSE;
+  
+  NEXT_EXPECTING_FALSE (&sub);
   
   return TRUE;
 }
@@ -1100,9 +1163,12 @@ read_struct_of_structs_of_structs (DataBlock      *block,
 
   if (!read_struct_of_structs (block, &sub))
     return FALSE;
-  _dbus_type_reader_next (&sub);
+
+  NEXT_EXPECTING_TRUE (&sub);
   if (!read_struct_of_structs (block, &sub))
     return FALSE;
+
+  NEXT_EXPECTING_FALSE (&sub);
   
   return TRUE;
 }
@@ -1176,7 +1242,7 @@ read_array_of_int32 (DataBlock      *block,
 
   _dbus_assert (v == SAMPLE_INT32_ALTERNATE);
 
-  _dbus_type_reader_next (&sub);
+  NEXT_EXPECTING_TRUE (&sub);
   check_expected_type (&sub, DBUS_TYPE_INT32);
   
   _dbus_type_reader_read_basic (&sub,
@@ -1184,13 +1250,15 @@ read_array_of_int32 (DataBlock      *block,
 
   _dbus_assert (v == SAMPLE_INT32);
 
-  _dbus_type_reader_next (&sub);
+  NEXT_EXPECTING_TRUE (&sub);
   check_expected_type (&sub, DBUS_TYPE_INT32);
   
   _dbus_type_reader_read_basic (&sub,
                                 (dbus_int32_t*) &v);
 
   _dbus_assert (v == SAMPLE_INT32);
+
+  NEXT_EXPECTING_FALSE (&sub);
   
   return TRUE;
 }
@@ -1223,13 +1291,12 @@ static dbus_bool_t
 read_array_of_int32_empty (DataBlock      *block,
                            DBusTypeReader *reader)
 {
-  DBusTypeReader sub;
-
   check_expected_type (reader, DBUS_TYPE_ARRAY);
-  
-  _dbus_type_reader_recurse (reader, &sub);
 
-  check_expected_type (&sub, DBUS_TYPE_INVALID);
+  /* We are iterating over values not types. Thus we can't recurse
+   * into the array
+   */
+  _dbus_assert (_dbus_type_reader_array_is_empty (reader));
   
   return TRUE;
 }
@@ -1293,16 +1360,20 @@ read_array_of_array_of_int32 (DataBlock      *block,
 
   if (!read_array_of_int32 (block, &sub))
     return FALSE;
-  _dbus_type_reader_next (&sub);
+
+  NEXT_EXPECTING_TRUE (&sub);
   if (!read_array_of_int32 (block, &sub))
     return FALSE;
-  _dbus_type_reader_next (&sub);
+
+  NEXT_EXPECTING_TRUE (&sub);
   if (!read_array_of_int32_empty (block, &sub))
     return FALSE;
-  _dbus_type_reader_next (&sub);
+  
+  NEXT_EXPECTING_TRUE (&sub);
   if (!read_array_of_int32 (block, &sub))
     return FALSE;
-  _dbus_type_reader_next (&sub);
+
+  NEXT_EXPECTING_FALSE (&sub);
   
   return TRUE;
 }
@@ -1334,19 +1405,14 @@ write_array_of_array_of_int32_empty (DataBlock      *block,
 static dbus_bool_t
 read_array_of_array_of_int32_empty (DataBlock      *block,
                                     DBusTypeReader *reader)
-{
-  DBusTypeReader sub;
-  DBusTypeReader sub2;
-  
-  check_expected_type (reader, DBUS_TYPE_ARRAY);
-  
-  _dbus_type_reader_recurse (reader, &sub);
-
+{  
   check_expected_type (reader, DBUS_TYPE_ARRAY);
 
-  _dbus_type_reader_recurse (&sub, &sub2);
-
-  check_expected_type (reader, DBUS_TYPE_INVALID);
+  /* We are iterating over values, not types. Thus
+   * we can't recurse in here.
+   */
+  
+  _dbus_assert (_dbus_type_reader_array_is_empty (reader));
   
   return TRUE;
 }
@@ -1404,13 +1470,16 @@ read_array_of_array_of_array_of_int32 (DataBlock      *block,
 
   if (!read_array_of_array_of_int32 (block, &sub))
     return FALSE;
-  _dbus_type_reader_next (&sub);
+
+  NEXT_EXPECTING_TRUE (&sub);
   if (!read_array_of_array_of_int32 (block, &sub))
     return FALSE;
-  _dbus_type_reader_next (&sub);
+
+  NEXT_EXPECTING_TRUE (&sub);
   if (!read_array_of_array_of_int32_empty (block, &sub))
     return FALSE;
-  _dbus_type_reader_next (&sub);
+
+  NEXT_EXPECTING_FALSE (&sub);
   
   return TRUE;
 }

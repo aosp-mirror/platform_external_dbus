@@ -115,7 +115,7 @@ void        _dbus_type_reader_init                (DBusTypeReader    *reader,
                                                    const DBusString  *value_str,
                                                    int                value_pos);
 int         _dbus_type_reader_get_current_type    (DBusTypeReader    *reader);
-int         _dbus_type_reader_get_array_length    (DBusTypeReader    *reader);
+dbus_bool_t _dbus_type_reader_array_is_empty      (DBusTypeReader    *reader);
 void        _dbus_type_reader_read_basic          (DBusTypeReader    *reader,
                                                    void              *value);
 dbus_bool_t _dbus_type_reader_read_array_of_basic (DBusTypeReader    *reader,
