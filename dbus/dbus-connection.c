@@ -93,6 +93,8 @@ struct DBusConnection
   DBusDataSlot *data_slots;        /**< Data slots */
   int           n_slots; /**< Slots allocated so far. */
 
+  DBusCounter *connection_counter; /**< Counter that we decrement when finalized */
+  
   int client_serial;            /**< Client serial. Increments each time a message is sent  */
   unsigned int disconnect_notified : 1; /**< Already called disconnect_function */
 };
@@ -390,6 +392,25 @@ _dbus_connection_handler_destroyed (DBusConnection     *connection,
     }
 }
 
+/**
+ * Adds the counter used to count the number of open connections.
+ * Increments the counter by one, and saves it to be decremented
+ * again when this connection is finalized.
+ *
+ * @param connection a #DBusConnection
+ * @param counter counter that tracks number of connections
+ */
+void
+_dbus_connection_set_connection_counter (DBusConnection *connection,
+                                         DBusCounter    *counter)
+{
+  _dbus_assert (connection->connection_counter == NULL);
+  
+  connection->connection_counter = counter;
+  _dbus_counter_ref (connection->connection_counter);
+  _dbus_counter_adjust (connection->connection_counter, 1);
+}
+
 /** @} */
 
 /**
@@ -475,6 +496,14 @@ dbus_connection_unref (DBusConnection *connection)
       dbus_connection_set_disconnect_function (connection,
                                                NULL, NULL, NULL);
 
+      if (connection->connection_counter != NULL)
+        {
+          /* subtract ourselves from the counter */
+          _dbus_counter_adjust (connection->connection_counter, - 1);
+          _dbus_counter_unref (connection->connection_counter);
+          connection->connection_counter = NULL;
+        }
+      
       _dbus_watch_list_free (connection->watches);
       connection->watches = NULL;
 
@@ -550,6 +579,20 @@ dbus_bool_t
 dbus_connection_get_is_connected (DBusConnection *connection)
 {
   return _dbus_transport_get_is_connected (connection->transport);
+}
+
+/**
+ * Gets whether the connection was authenticated. (Note that
+ * if the connection was authenticated then disconnected,
+ * this function still returns #TRUE)
+ *
+ * @param connection the connection
+ * @returns #TRUE if the connection was ever authenticated
+ */
+dbus_bool_t
+dbus_connection_get_is_authenticated (DBusConnection *connection)
+{
+  return _dbus_transport_get_is_authenticated (connection->transport);
 }
 
 /**

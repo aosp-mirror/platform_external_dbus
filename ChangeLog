@@ -1,3 +1,13 @@
+2003-01-19  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-connection.c (dbus_connection_get_is_authenticated):
+	new function
+
+	* dbus/dbus-server.c (dbus_server_set_max_connections)
+	(dbus_server_get_max_connections, dbus_server_get_n_connections):
+	keep track of current number of connections, and add API for
+	setting a max (but haven't implemented enforcing the max yet)
+
 2003-01-18  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-transport-unix.c (unix_do_iteration): only do the

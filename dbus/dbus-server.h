@@ -60,6 +60,11 @@ void dbus_server_handle_watch                (DBusServer                *server,
                                               unsigned int               condition);
 
 
+void dbus_server_set_max_connections         (DBusServer                *server,
+                                              int                        max_connections);
+int  dbus_server_get_max_connections         (DBusServer                *server);
+
+int  dbus_server_get_n_connections           (DBusServer                *server);
 
 DBUS_END_DECLS;
 

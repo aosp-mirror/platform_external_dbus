@@ -27,6 +27,7 @@
 #include <dbus/dbus-connection.h>
 #include <dbus/dbus-message.h>
 #include <dbus/dbus-transport.h>
+#include <dbus/dbus-resources.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -60,6 +61,9 @@ void            _dbus_connection_notify_disconnected    (DBusConnection *connect
 void            _dbus_connection_handler_destroyed      (DBusConnection *connection,
                                                          DBusMessageHandler *handler);
 
+
+void            _dbus_connection_set_connection_counter (DBusConnection *connection,
+                                                         DBusCounter    *counter);
 
 dbus_bool_t       _dbus_message_handler_add_connection    (DBusMessageHandler *handler,
                                                            DBusConnection     *connection);

@@ -63,18 +63,18 @@ typedef void (* DBusRemoveWatchFunction) (DBusWatch      *watch,
 typedef void (* DBusDisconnectFunction)  (DBusConnection *connection,
                                           void           *data);
 
-DBusConnection* dbus_connection_open             (const char     *address,
-                                                  DBusResultCode *result);
-void            dbus_connection_ref              (DBusConnection *connection);
-void            dbus_connection_unref            (DBusConnection *connection);
-void            dbus_connection_disconnect       (DBusConnection *connection);
-dbus_bool_t     dbus_connection_get_is_connected (DBusConnection *connection);
-void            dbus_connection_flush            (DBusConnection *connection);
-
-int          dbus_connection_get_n_messages      (DBusConnection *connection);
-DBusMessage* dbus_connection_peek_message        (DBusConnection *connection);
-DBusMessage* dbus_connection_pop_message         (DBusConnection *connection);
-dbus_bool_t  dbus_connection_dispatch_message    (DBusConnection *connection);
+DBusConnection* dbus_connection_open                 (const char     *address,
+                                                      DBusResultCode *result);
+void            dbus_connection_ref                  (DBusConnection *connection);
+void            dbus_connection_unref                (DBusConnection *connection);
+void            dbus_connection_disconnect           (DBusConnection *connection);
+dbus_bool_t     dbus_connection_get_is_connected     (DBusConnection *connection);
+dbus_bool_t     dbus_connection_get_is_authenticated (DBusConnection *connection);
+void            dbus_connection_flush                (DBusConnection *connection);
+int             dbus_connection_get_n_messages       (DBusConnection *connection);
+DBusMessage*    dbus_connection_peek_message         (DBusConnection *connection);
+DBusMessage*    dbus_connection_pop_message          (DBusConnection *connection);
+dbus_bool_t     dbus_connection_dispatch_message     (DBusConnection *connection);
 
 dbus_bool_t dbus_connection_send_message            (DBusConnection     *connection,
                                                      DBusMessage        *message,

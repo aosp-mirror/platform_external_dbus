@@ -26,6 +26,7 @@
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-server.h>
 #include <dbus/dbus-watch.h>
+#include <dbus/dbus-resources.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -51,7 +52,13 @@ struct DBusServer
 {
   int refcount;                               /**< Reference count. */
   const DBusServerVTable *vtable;             /**< Virtual methods for this instance. */
-  DBusWatchList *watches;
+  DBusWatchList *watches;                     /**< Our watches */
+
+  DBusCounter *connection_counter;            /**< Number of non-finalized DBusConnection
+                                               *   to this server
+                                               */
+
+  int max_connections;                        /**< Max number of connections allowed at once. */
   
   DBusNewConnectionFunction  new_connection_function;
   /**< Callback to invoke when a new connection is created. */

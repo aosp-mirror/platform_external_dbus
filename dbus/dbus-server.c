@@ -61,6 +61,16 @@ _dbus_server_init_base (DBusServer             *server,
   if (server->watches == NULL)
     return FALSE;
 
+  server->connection_counter = _dbus_counter_new ();
+  if (server->connection_counter == NULL)
+    {
+      _dbus_watch_list_free (server->watches);
+      server->watches = NULL;
+      return FALSE;
+    }
+
+  server->max_connections = 256; /* same as an X server, seems like a nice default */
+  
   return TRUE;
 }
 
@@ -79,6 +89,7 @@ _dbus_server_finalize_base (DBusServer *server)
     dbus_server_disconnect (server);
 
   _dbus_watch_list_free (server->watches);
+  _dbus_counter_unref (server->connection_counter);
 }
 
 /**
@@ -293,6 +304,71 @@ dbus_server_handle_watch (DBusServer              *server,
   _dbus_watch_sanitize_condition (watch, &condition);
   
   (* server->vtable->handle_watch) (server, watch, condition);
+}
+
+/**
+ * Sets the maximum number of connections that can be open at one
+ * time for this server. If the maximum is reached, and another
+ * client tries to connect, then the oldest unauthenticated client
+ * will be dropped. If no unauthenticated client exists, then
+ * the new connection will be refused.
+ *
+ * If the maximum is set to a number lower than the current
+ * number of connections, no current connections are
+ * disconnected.
+ *
+ * @todo honoring max_connections has not been implemented
+ * yet. The only real work involved is keeping a list
+ * of live connections on the DBusServer so the oldest
+ * unauthenticated client can be located when required.
+ * 
+ * @todo for a systemwide daemon, we need a max number of connections
+ * per user, since any user can authenticate a bunch of connections
+ * and create a DOS.
+ *
+ * @todo a single process might listen on multiple mechanisms
+ * (multiple DBusServer) and might want the max connections
+ * value to span all those servers. Should consider
+ * changing the API accordingly, though I'm inclined to
+ * punt this to the app that wants to do it instead of
+ * putting it in the library.
+ * 
+ * @param server the server
+ * @param max_connections maximum number of connections allowed
+ */
+void
+dbus_server_set_max_connections (DBusServer *server,
+                                 int         max_connections)
+{
+  server->max_connections = max_connections;
+}
+
+/**
+ * Gets the maximum number of connections that can be active
+ * at a time for this server.
+ *
+ * @param server the server
+ * @returns maximum number of connections at once
+ */
+int
+dbus_server_get_max_connections (DBusServer *server)
+{
+  return server->max_connections;
+}
+
+/**
+ * Gets the number of #DBusConnection to this server that
+ * have not yet been finalized. i.e. all #DBusConnection that
+ * were passed to #DBusNewConnectionFunction and have not yet been
+ * finalized will count in this total.
+ *
+ * @param server the server
+ * @param returns the number of connections
+ */
+int
+dbus_server_get_n_connections (DBusServer *server)
+{
+  return _dbus_counter_get_value (server->connection_counter);
 }
 
 /** @} */
