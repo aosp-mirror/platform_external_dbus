@@ -9,3 +9,5 @@ test-dbus-glib
 *.bbg
 *.da
 *.gcov
+test-thread-client
+test-thread-server

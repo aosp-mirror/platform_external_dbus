@@ -124,7 +124,8 @@ dbus_uint32_t dbus_message_iter_get_uint32     (DBusMessageIter  *iter);
 double        dbus_message_iter_get_double     (DBusMessageIter  *iter);
 char *        dbus_message_iter_get_string     (DBusMessageIter  *iter);
 char *        dbus_message_iter_get_dict_key   (DBusMessageIter  *iter);
-char *        dbus_message_iter_get_named      (DBusMessageIter  *iter,
+dbus_bool_t   dbus_message_iter_get_named      (DBusMessageIter  *iter,
+						char            **name,
 						unsigned char   **value,
 						int              *len);
 

@@ -1437,8 +1437,7 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 	    data = va_arg (var_args, unsigned char **);
 	    len = va_arg (var_args, int *);
 
-	    *name = dbus_message_iter_get_named (iter, data, len);
-	    if (*name == NULL)
+	    if (!dbus_message_iter_get_named (iter, name, data, len))
 	      {
                 dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 		goto out;
@@ -1845,19 +1844,21 @@ dbus_message_iter_get_string (DBusMessageIter *iter)
  *
  * @see dbus_message_iter_get_arg_type
  * @param iter the message iter
+ * @param name return location for the name
  * @param value return location for data
  * @param len return location for length of data
- * @returns the named type name as a string
+ * @returns TRUE if get succeed
  * 
  */
-char *
+dbus_bool_t
 dbus_message_iter_get_named (DBusMessageIter   *iter,
+			     char             **name,
 			     unsigned char    **value,
 			     int               *len)
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
-  char *name;
+  char *_name;
 
   dbus_message_iter_check (real);
 
@@ -1865,20 +1866,22 @@ dbus_message_iter_get_named (DBusMessageIter   *iter,
   
   _dbus_assert (type == DBUS_TYPE_NAMED);
   
-  name = _dbus_demarshal_string (&real->message->body, real->message->byte_order,
-                                 pos, &pos);
+  _name = _dbus_demarshal_string (&real->message->body, real->message->byte_order,
+				  pos, &pos);
 
-  if (name == NULL)
-    return NULL;
+  if (_name == NULL)
+    return FALSE;
   
   if (!_dbus_demarshal_byte_array (&real->message->body, real->message->byte_order,
 				   pos + 1, NULL, value, len))
     {
-      dbus_free (name);
-      return NULL;
+      dbus_free (_name);
+      return FALSE;
     }
-  else
-    return name;
+
+  *name = _name;
+  
+  return TRUE;
 }
 
 /**
@@ -2520,7 +2523,7 @@ dbus_message_iter_append_byte (DBusMessageIter *iter,
 
   dbus_message_iter_append_check (real);
 
-  if (!dbus_message_iter_append_type (real, DBUS_TYPE_BOOLEAN))
+  if (!dbus_message_iter_append_type (real, DBUS_TYPE_BYTE))
     return FALSE;
   
   if (!_dbus_string_append_byte (&real->message->body, value))
@@ -2672,7 +2675,7 @@ dbus_message_iter_append_named (DBusMessageIter      *iter,
   if (!dbus_message_iter_append_type (real, DBUS_TYPE_NAMED))
     return FALSE;
   
-   if (!_dbus_marshal_string (&real->message->body, real->message->byte_order, data))
+   if (!_dbus_marshal_string (&real->message->body, real->message->byte_order, name))
     {
       _dbus_string_set_length (&real->message->body, real->pos);
       return FALSE;
@@ -3979,8 +3982,9 @@ message_iter_test (DBusMessage *message)
 {
   DBusMessageIter iter, dict, array, array2;
   char *str;
+  unsigned char *data;
   dbus_int32_t *our_int_array;
-  int array_len;
+  int len;
   
   dbus_message_iter_init (message, &iter);
 
@@ -4029,26 +4033,26 @@ message_iter_test (DBusMessage *message)
   if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_ARRAY)
     _dbus_assert_not_reached ("Argument type not an array");
 
-  if (dbus_message_iter_get_array_type (&iter) != DBUS_TYPE_UINT32)
-    _dbus_assert_not_reached ("Array type not uint32");
+  if (dbus_message_iter_get_array_type (&iter) != DBUS_TYPE_DOUBLE)
+    _dbus_assert_not_reached ("Array type not double");
 
   
   if (!dbus_message_iter_init_array_iterator (&iter, &array, NULL))
     _dbus_assert_not_reached ("Array init failed");
 
-  if (dbus_message_iter_get_arg_type (&array) != DBUS_TYPE_UINT32)
-    _dbus_assert_not_reached ("Argument type isn't int32");
+  if (dbus_message_iter_get_arg_type (&array) != DBUS_TYPE_DOUBLE)
+    _dbus_assert_not_reached ("Argument type isn't double");
 
-  if (dbus_message_iter_get_uint32 (&array) != 0x12345678)
+  if (dbus_message_iter_get_double (&array) != 1.5)
     _dbus_assert_not_reached ("Unsigned integers differ");
 
   if (!dbus_message_iter_next (&array))
     _dbus_assert_not_reached ("Reached end of arguments");
 
-  if (dbus_message_iter_get_arg_type (&array) != DBUS_TYPE_UINT32)
-    _dbus_assert_not_reached ("Argument type isn't int32");
+  if (dbus_message_iter_get_arg_type (&array) != DBUS_TYPE_DOUBLE)
+    _dbus_assert_not_reached ("Argument type isn't double");
 
-  if (dbus_message_iter_get_uint32 (&array) != 0x23456781)
+  if (dbus_message_iter_get_double (&array) != 2.5)
     _dbus_assert_not_reached ("Unsigned integers differ");
 
   if (dbus_message_iter_next (&array))
@@ -4128,10 +4132,10 @@ message_iter_test (DBusMessage *message)
 
   if (!dbus_message_iter_get_int32_array (&array,
 					  &our_int_array,
-					  &array_len))
+					  &len))
     _dbus_assert_not_reached ("couldn't get int32 array");
 
-  _dbus_assert (array_len == 3);
+  _dbus_assert (len == 3);
   _dbus_assert (our_int_array[0] == 0x34567812 &&
 		our_int_array[1] == 0x45678123 &&
 		our_int_array[2] == 0x56781234);
@@ -4146,12 +4150,36 @@ message_iter_test (DBusMessage *message)
   if (!dbus_message_iter_next (&iter))
     _dbus_assert_not_reached ("Reached end of arguments");
   
-  if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_UINT32)
-    _dbus_assert_not_reached ("wrong type after dict");
+  if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_BYTE)
+    {
+      _dbus_warn ("type was: %d\n", dbus_message_iter_get_arg_type (&iter));
+      _dbus_assert_not_reached ("wrong type after dict (should be byte)");
+    }
   
-  if (dbus_message_iter_get_uint32 (&iter) != 0xCAFEBABE)
+  if (dbus_message_iter_get_byte (&iter) != 0xF0)
     _dbus_assert_not_reached ("wrong value after dict");
 
+
+  if (!dbus_message_iter_next (&iter))
+    _dbus_assert_not_reached ("Reached end of arguments");
+  
+  if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_NIL)
+    _dbus_assert_not_reached ("not a nil type");
+  
+  if (!dbus_message_iter_next (&iter))
+    _dbus_assert_not_reached ("Reached end of arguments");
+  
+  if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_NAMED)
+    _dbus_assert_not_reached ("wrong type after dict");
+
+  if (!dbus_message_iter_get_named (&iter, &str, &data, &len))
+    _dbus_assert_not_reached ("failed to get named");
+
+  _dbus_assert (strcmp (str, "named")==0);
+  _dbus_assert (len == 5);
+  _dbus_assert (strcmp (data, "data")==0);
+  dbus_free (str);
+  dbus_free (data);
   
   if (dbus_message_iter_next (&iter))
     _dbus_assert_not_reached ("Didn't reach end of arguments");
@@ -4201,8 +4229,7 @@ check_message_handling_type (DBusMessageIter *iter,
 	unsigned char *data;
 	int len;
 	
-	name = dbus_message_iter_get_named (iter, &data, &len);
-	if (name == NULL)
+	if (!dbus_message_iter_get_named (iter, &name, &data, &len))
 	  {
 	    _dbus_warn ("error reading name from named type\n");
 	    return FALSE;
@@ -4952,9 +4979,9 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_iter_append_uint32 (&iter, 0xedd1e);
   dbus_message_iter_append_double (&iter, 3.14159);
 
-  dbus_message_iter_append_array (&iter, &child_iter, DBUS_TYPE_UINT32);
-  dbus_message_iter_append_uint32 (&child_iter, 0x12345678);
-  dbus_message_iter_append_uint32 (&child_iter, 0x23456781);
+  dbus_message_iter_append_array (&iter, &child_iter, DBUS_TYPE_DOUBLE);
+  dbus_message_iter_append_double (&child_iter, 1.5);
+  dbus_message_iter_append_double (&child_iter, 2.5);
 
   /* dict */
   dbus_message_iter_append_dict (&iter, &child_iter);
@@ -4974,9 +5001,12 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_iter_append_int32 (&child_iter3, 0x45678123);
   dbus_message_iter_append_int32 (&child_iter3, 0x56781234);
   
-  dbus_message_iter_append_uint32 (&iter, 0xCAFEBABE);
+  dbus_message_iter_append_byte (&iter, 0xF0);
 
+  dbus_message_iter_append_nil (&iter);
 
+  dbus_message_iter_append_named (&iter, "named",
+				  "data", 5);
   
   message_iter_test (message);
 

@@ -9,3 +9,7 @@ dbus-daemon-1
 *.bbg
 *.da
 *.gcov
+bus-test
+messagebus
+session.conf
+system.conf

@@ -1,5 +1,24 @@
 2003-04-10  Alexander Larsson  <alexl@redhat.com>
 
+	* bus/.cvsignore:
+	* glib/.cvsignore:
+	* test/.cvsignore:
+	Added files to cvsignore
+	
+	* dbus/dbus-message.h:
+	* dbus/dbus-message.c: (dbus_message_iter_get_named):
+	Make get_named() take two out argument and return a boolean.
+	(dbus_message_iter_get_args_valist):
+	Update usage of get_named().
+	(dbus_message_iter_append_byte):
+	Fix typo
+	(dbus_message_iter_append_named)
+	Fix typo
+	(message_iter_test), (check_message_handling_type), (_dbus_message_test):
+	More tests.
+
+2003-04-10  Alexander Larsson  <alexl@redhat.com>
+
 	* dbus/dbus-marshal.[ch]:
 	Add array_type_pos argument to _dbus_marshal_validate_arg.
 	Let you pass a NULL end_pos to _dbus_marshal_validate_type.
