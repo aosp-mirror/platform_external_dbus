@@ -1,3 +1,29 @@
+D-BUS 0.22
+===
+
+- add --reply-timeout to dbus-send
+- fix a memleak
+- fix Solaris/Forte build
+- switch to AFL 2.1 rather than 2.0 to address patent termination clause 
+  concerns
+- add SELinux support
+- mostly repair libxml backend for config parser, still doesn't 
+  pass out of memory tests
+- fix distcheck to include language bindings
+- add GetConnectionUnixUser method on bus driver
+- also for UnixProcessID
+- lots of Python, Mono, other binding fixes
+- change GLib bindings to not include dbus/dbus.h (fully encapsulate libdbus)
+- pass paths as strings, not arrays of string
+- add message signature header field
+- cleanups to marshaling code
+- clean up authentication code
+- reload conf files on SIGHUP
+- rename SERVICE/SENDER_SERVICE to DESTINATION/SENDER
+- fix circular conf file inclusion
+- allow empty arrays
+- tons of other small bugfixes
+
 D-BUS 0.21
 ===
 

@@ -1,3 +1,9 @@
+2004-08-12  Havoc Pennington  <hp@redhat.com>
+
+	* NEWS: update for 0.22
+
+	* configure.in: release 0.22
+
 2004-08-11  Colin Walters  <walters@redhat.com>
 
 	* tools/dbus-send.c (main, usage): Add --reply-timeout
