@@ -1,0 +1,13 @@
+# Standard org.freedesktop.DBus.Hello message
+
+VALID_HEADER
+FIELD_NAME name
+TYPE STRING
+STRING 'org.freedesktop.DBus.Hello'
+FIELD_NAME srvc
+TYPE STRING
+STRING 'org.freedesktop.DBus'
+ALIGN 8
+END_LENGTH Header
+START_LENGTH Body
+END_LENGTH Body

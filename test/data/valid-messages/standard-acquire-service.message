@@ -1,0 +1,17 @@
+# Standard org.freedesktop.DBus.AcquireService message
+
+VALID_HEADER
+FIELD_NAME name
+TYPE STRING
+STRING 'org.freedesktop.DBus.AcquireService'
+FIELD_NAME srvc
+TYPE STRING
+STRING 'org.freedesktop.DBus'
+ALIGN 8
+END_LENGTH Header
+START_LENGTH Body
+TYPE STRING
+STRING 'org.freedesktop.DBus.Sample'
+TYPE UINT32
+UINT32 0
+END_LENGTH Body

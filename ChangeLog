@@ -1,5 +1,13 @@
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
+	* test/data/valid-messages/standard-acquire-service.message:
+	* test/data/valid-messages/standard-hello.message:
+	* test/data/valid-messages/standard-list-services.message:
+	* test/data/valid-messages/standard-service-exists.message:
+	Add some standard messages.
+	
+2003-02-13  Anders Carlsson  <andersca@codefactory.se>
+
 	* bus/driver.c: (bus_driver_send_welcome_message),
 	(bus_driver_handle_list_services),
 	(bus_driver_handle_acquire_service),
