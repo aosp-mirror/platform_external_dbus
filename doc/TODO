@@ -80,10 +80,6 @@
  - re_align_field_recurse() in dbus-message.c is broken because it 
    crashes on some types of header field values. security problem.
 
- - the system daemon has to be able to reload changes to the 
-   security policy without restarting, because apps won't 
-   be coded to handle it restarting
-
  - modify the wire protocol to keep the args signature separate 
    from the args themselves. Make the name of TYPE_CUSTOM part 
    of the type signature, rather than part of the value.
@@ -107,8 +103,6 @@
    yourself; is it an error, or allowed? If allowed, 
    we need to have a test for it in the test suite.
 
- - the max_replies_per_connection resource limit isn't implemented
-
  - array lengths should probably be returned as size_t rather than int
    (though they are kind of a pita to pass in as size_t with the 
     varargs, so maybe not - what does glib do with g_object_get()?)
@@ -117,10 +111,6 @@
    and OBJECT_PATH_ARRAY
 
  - recursive dispatch, see dbus_connection_dispatch()
-
- - Better error checking for bogus configuration files. Currently if a 
-   configuration file tries to include itself the bus crashes on start. We 
-   should probably have a check against this.
 
  - Perhaps the auth protocol should be able to negotiate a protocol 
    version to the least-common-denominator between client and server?

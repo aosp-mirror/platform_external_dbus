@@ -517,7 +517,6 @@ bus_connections_unref (BusConnections *connections)
 
       _dbus_assert (connections->n_completed == 0);
 
-      _dbus_assert (connections->pending_replies->n_items == 0);
       bus_expire_list_free (connections->pending_replies);
       
       _dbus_loop_remove_timeout (bus_context_get_loop (connections->context),
@@ -1544,6 +1543,7 @@ bus_connections_expect_reply (BusConnections  *connections,
   dbus_uint32_t reply_serial;
   DBusList *link;
   CancelPendingReplyData *cprd;
+  int count;
 
   _dbus_assert (will_get_reply != NULL);
   _dbus_assert (will_send_reply != NULL);
@@ -1555,6 +1555,7 @@ bus_connections_expect_reply (BusConnections  *connections,
   reply_serial = dbus_message_get_serial (reply_to_this);
 
   link = _dbus_list_get_first_link (&connections->pending_replies->items);
+  count = 0;
   while (link != NULL)
     {
       pending = link->data;
@@ -1570,8 +1571,17 @@ bus_connections_expect_reply (BusConnections  *connections,
       
       link = _dbus_list_get_next_link (&connections->pending_replies->items,
                                        link);
+      ++count;
     }
   
+  if (count >=
+      bus_context_get_max_replies_per_connection (connections->context))
+    {
+      dbus_set_error (error, DBUS_ERROR_LIMITS_EXCEEDED,
+		      "The maximum number of pending replies per connection has been reached");
+      return FALSE;
+    }
+
   pending = dbus_new0 (BusPendingReply, 1);
   if (pending == NULL)
     {

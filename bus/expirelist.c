@@ -81,7 +81,6 @@ bus_expire_list_new (DBusLoop      *loop,
 void
 bus_expire_list_free (BusExpireList *list)
 {
-  _dbus_assert (list->n_items == 0);
   _dbus_assert (list->items == NULL);
 
   _dbus_loop_remove_timeout (list->loop, list->timeout,

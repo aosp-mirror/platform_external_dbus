@@ -38,7 +38,6 @@ typedef dbus_bool_t (* BusExpireFunc) (BusExpireList *list,
 struct BusExpireList
 {
   DBusList      *items; /**< List of BusExpireItem */
-  int            n_items;
   DBusTimeout   *timeout;
   DBusLoop      *loop;
   BusExpireFunc  expire_func;

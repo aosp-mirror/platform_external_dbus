@@ -1,5 +1,13 @@
 2004-05-20  Kristian Høgsberg  <krh@redhat.com>
 
+	* doc/TODO: Remove resolved items.
+
+	* bus/expirelist.h (struct BusExpireList): remove unused n_items
+	field.
+	
+	* bus/connection.c (bus_connections_expect_reply): Enforce the
+	per-connection limit on pending replies.
+	
 	Patch from Jon Trowbridge <trow@ximian.com>:
  
  	* bus/main.c (setup_reload_pipe): Added.  Creates a pipe and sets
