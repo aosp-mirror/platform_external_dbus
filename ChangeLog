@@ -1,3 +1,8 @@
+2004-12-31  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-string.c (_dbus_string_equal_substrings): new function
+	I keep wishing I had
+
 2004-12-30  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/dbus.py: s/ACTIVATION_REPLY_ACTIVE/ACTIVATION_REPLY_ACTIVATED

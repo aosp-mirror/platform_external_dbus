@@ -230,6 +230,11 @@ dbus_bool_t   _dbus_string_equal_c_str           (const DBusString  *a,
 dbus_bool_t   _dbus_string_equal_len             (const DBusString  *a,
                                                   const DBusString  *b,
                                                   int                len);
+dbus_bool_t   _dbus_string_equal_substring       (const DBusString  *a,
+                                                  int                a_start,
+                                                  int                a_len,
+                                                  const DBusString  *b,
+                                                  int                b_start);
 dbus_bool_t   _dbus_string_starts_with_c_str     (const DBusString  *a,
                                                   const char        *c_str);
 dbus_bool_t   _dbus_string_ends_with_c_str       (const DBusString  *a,

@@ -2125,6 +2125,7 @@ _dbus_string_equal (const DBusString *a,
 
 /**
  * Tests two DBusString for equality up to the given length.
+ * The strings may be shorter than the given length.
  *
  * @todo write a unit test
  *
@@ -2132,7 +2133,7 @@ _dbus_string_equal (const DBusString *a,
  *
  * @param a first string
  * @param b second string
- * @param len the lengh
+ * @param len the maximum length to look at
  * @returns #TRUE if equal for the given number of bytes
  */
 dbus_bool_t
@@ -2164,6 +2165,63 @@ _dbus_string_equal_len (const DBusString *a,
       ++bp;
     }
 
+  return TRUE;
+}
+
+/**
+ * Tests two sub-parts of two DBusString for equality.  The specified
+ * range of the first string must exist; the specified start position
+ * of the second string must exist.
+ *
+ * @todo write a unit test
+ *
+ * @todo memcmp is probably faster
+ *
+ * @param a first string
+ * @param a_start where to start substring in first string
+ * @param a_len length of substring in first string
+ * @param b second string
+ * @param b_start where to start substring in second string
+ * @returns #TRUE if the two substrings are equal
+ */
+dbus_bool_t
+_dbus_string_equal_substring (const DBusString  *a,
+                              int                a_start,
+                              int                a_len,
+                              const DBusString  *b,
+                              int                b_start)
+{
+  const unsigned char *ap;
+  const unsigned char *bp;
+  const unsigned char *a_end;
+  const DBusRealString *real_a = (const DBusRealString*) a;
+  const DBusRealString *real_b = (const DBusRealString*) b;
+  DBUS_GENERIC_STRING_PREAMBLE (real_a);
+  DBUS_GENERIC_STRING_PREAMBLE (real_b);
+  _dbus_assert (a_start >= 0);
+  _dbus_assert (a_len >= 0);
+  _dbus_assert (a_start <= real_a->len);
+  _dbus_assert (a_len <= real_a->len - a_start);
+  _dbus_assert (b_start >= 0);
+  _dbus_assert (b_start <= real_b->len);
+  
+  if (a_len > real_b->len - b_start)
+    return FALSE;
+
+  ap = real_a->str + a_start;
+  bp = real_b->str + b_start;
+  a_end = ap + a_len;
+  while (ap != a_end)
+    {
+      if (*ap != *bp)
+        return FALSE;
+      
+      ++ap;
+      ++bp;
+    }
+
+  _dbus_assert (bp <= (real_b->str + real_b->len));
+  
   return TRUE;
 }
 
