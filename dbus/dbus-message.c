@@ -2038,10 +2038,16 @@ decode_header_data (const DBusString   *data,
 	}
 
       if (!_dbus_marshal_validate_arg (data, byte_order, pos, &new_pos))
-        return FALSE;
+        {
+          _dbus_verbose ("Failed to validate argument to named header field\n");
+          return FALSE;
+        }
 
       if (new_pos > header_len)
-	return FALSE;
+        {
+          _dbus_verbose ("Named header field tries to extend beyond header length\n");
+          return FALSE;
+        }
       
       pos = new_pos;
     }
@@ -2173,6 +2179,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
  	  if (!decode_header_data (&loader->data, header_len, byte_order,
                                    fields))
 	    {
+              _dbus_verbose ("Header was invalid\n");
 	      loader->corrupted = TRUE;
 	      return;
 	    }
