@@ -1,3 +1,13 @@
+2003-03-17  Anders Carlsson  <andersca@codefactory.se>
+
+	* bus/dispatch.c: (bus_dispatch):
+	Refetch the service name since it may have been reallocated
+	when dbus_message_set_sender was called.
+	
+	* dbus/dbus-sysdeps.c: (_dbus_accept):
+	Add address and address length variables and use them to stop
+	valgrind from complaining.
+	
 2003-03-17  Havoc Pennington  <hp@pobox.com>
 
 	All tests pass, no memleaks, no valgrind complaints.

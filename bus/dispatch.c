@@ -208,18 +208,25 @@ bus_dispatch (DBusConnection *connection,
     {
       sender = bus_connection_get_name (connection);
       _dbus_assert (sender != NULL);
-      
+
       if (!dbus_message_set_sender (message, sender))
         {
           BUS_SET_OOM (&error);
           goto out;
         }
+
+      /* We need to refetch the service name here, because
+       * dbus_message_set_sender can cause the header to be
+       * reallocated, and thus the service_name pointer will become
+       * invalid.
+       */
+      service_name = dbus_message_get_service (message);
     }
 
   if (strcmp (service_name, DBUS_SERVICE_DBUS) == 0) /* to bus driver */
     {
       if (!bus_driver_handle_message (connection, transaction, message, &error))
-        goto out;
+      	goto out;
     }
   else if (!bus_connection_is_active (connection)) /* clients must talk to bus driver first */
     {

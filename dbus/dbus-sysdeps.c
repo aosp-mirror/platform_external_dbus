@@ -786,9 +786,13 @@ int
 _dbus_accept  (int listen_fd)
 {
   int client_fd;
+  struct sockaddr addr;
+  socklen_t addrlen;
+
+  addrlen = sizeof (addr);
   
  retry:
-  client_fd = accept (listen_fd, NULL, NULL);
+  client_fd = accept (listen_fd, &addr, &addrlen);
   
   if (client_fd < 0)
     {
