@@ -1,3 +1,30 @@
+2004-07-10  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus.py:
+
+	Add "message" argument to service-side dbus.Object
+	methods. This will break existing services written
+	using the python bindings, but will allow extraction
+	of all the message information (e.g. who its from).
+
+	Add improved "object oriented" signal handling/emission.
+	
+	* python/examples/example-service.py:
+
+	Nix this example.
+	
+	* python/examples/example-signal-emitter.py:
+	* python/examples/example-signal-recipient.py:
+
+	Two new examples that show how to emit and receive
+	signals using the new APIs.
+	
+	* python/examples/example-signals.py:
+	* python/examples/gconf-proxy-service.py:
+	* python/examples/gconf-proxy-service2.py:
+
+	Add "message" argument to service methods.
+
 2004-06-28  Kay Sievers <kay.sievers@vrfy.org>
 
 	* bus/driver.c (bus_driver_handle_get_connection_unix_user)
