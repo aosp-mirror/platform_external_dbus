@@ -57,6 +57,7 @@ static pthread_t avc_notify_thread;
 
 /* Prototypes for AVC callback functions.  */
 static void log_callback (const char *fmt, ...);
+static void log_audit_callback (void *data, security_class_t class, char *buf, size_t bufleft);
 static void *avc_create_thread (void (*run) (void));
 static void avc_stop_thread (void *thread);
 static void *avc_alloc_lock (void);
@@ -73,7 +74,7 @@ static const struct avc_memory_callback mem_cb =
 static const struct avc_log_callback log_cb =
 {
   .func_log = log_callback,
-  .func_audit = NULL
+  .func_audit = log_audit_callback
 };
 static const struct avc_thread_callback thread_cb =
 {
@@ -120,6 +121,18 @@ policy_reload_callback (u_int32_t event, security_id_t ssid,
     return raise (SIGHUP);
   
   return 0;
+}
+
+/**
+ * Log any auxiliary data 
+ */
+static void
+log_audit_callback (void *data, security_class_t class, char *buf, size_t bufleft)
+{
+  DBusString *audmsg = data;
+  _dbus_string_copy_to_buffer (audmsg, buf, bufleft);
+  _dbus_string_free (audmsg);
+  dbus_free (audmsg);
 }
 
 /**
@@ -349,17 +362,28 @@ static dbus_bool_t
 bus_selinux_check (BusSELinuxID        *sender_sid,
                    BusSELinuxID        *override_sid,
                    security_class_t     target_class,
-                   access_vector_t      requested)
+                   access_vector_t      requested,
+		   unsigned long        spid,
+		   unsigned long        tpid,
+		   DBusString          *auxdata)
 {
   if (!selinux_enabled)
     return TRUE;
 
+  if (auxdata)
+    {
+      if (spid && _dbus_string_append (auxdata, " spid="))
+	_dbus_string_append_uint (auxdata, spid);
+      if (tpid && _dbus_string_append (auxdata, " tpid="))
+	_dbus_string_append_uint (auxdata, tpid);
+    }
+  
   /* Make the security check.  AVC checks enforcing mode here as well. */
   if (avc_has_perm (SELINUX_SID_FROM_BUS (sender_sid),
                     override_sid ?
                     SELINUX_SID_FROM_BUS (override_sid) :
                     SELINUX_SID_FROM_BUS (bus_sid), 
-                    target_class, requested, &aeref, NULL) < 0)
+                    target_class, requested, &aeref, auxdata) < 0)
     {
       _dbus_verbose ("SELinux denying due to security policy.\n");
       return FALSE;
@@ -379,20 +403,40 @@ bus_selinux_check (BusSELinuxID        *sender_sid,
  */
 dbus_bool_t
 bus_selinux_allows_acquire_service (DBusConnection     *connection,
-                                    BusSELinuxID       *service_sid)
+                                    BusSELinuxID       *service_sid,
+				    const char         *service_name)
 {
 #ifdef HAVE_SELINUX
   BusSELinuxID *connection_sid;
+  unsigned long spid;
+  DBusString *auxdata;
   
   if (!selinux_enabled)
     return TRUE;
 
   connection_sid = bus_connection_get_selinux_id (connection);
+  if (!dbus_connection_get_unix_process_id (connection, &spid))
+    spid = 0;
+
+  auxdata = dbus_new0 (DBusString, 1);
+  if (auxdata)
+    {
+      if (!_dbus_string_init (auxdata))
+	{
+	  dbus_free (auxdata);
+	  auxdata = NULL;
+	}
+      else if (_dbus_string_append (auxdata, "service="))
+	_dbus_string_append (auxdata, service_name);
+    }
   
   return bus_selinux_check (connection_sid,
-                            service_sid,
-                            SECCLASS_DBUS,
-                            DBUS__ACQUIRE_SVC);
+			    service_sid,
+			    SECCLASS_DBUS,
+			    DBUS__ACQUIRE_SVC,
+			    spid,
+			    0,
+			    auxdata);
 #else
   return TRUE;
 #endif /* HAVE_SELINUX */
@@ -410,14 +454,49 @@ bus_selinux_allows_acquire_service (DBusConnection     *connection,
  */
 dbus_bool_t
 bus_selinux_allows_send (DBusConnection     *sender,
-                         DBusConnection     *proposed_recipient)
+                         DBusConnection     *proposed_recipient,
+			 const char         *msgtype,
+			 const char         *interface,
+			 const char         *member,
+			 const char         *error_name,
+			 const char         *destination)
 {
 #ifdef HAVE_SELINUX
   BusSELinuxID *recipient_sid;
   BusSELinuxID *sender_sid;
+  unsigned long spid, tpid;
+  DBusString *auxdata;
 
   if (!selinux_enabled)
     return TRUE;
+
+  if (!dbus_connection_get_unix_process_id (sender, &spid))
+    spid = 0;
+  if (!dbus_connection_get_unix_process_id (proposed_recipient, &tpid))
+    tpid = 0;
+
+  auxdata = dbus_new0 (DBusString, 1);
+  if (auxdata)
+    {
+      if (!_dbus_string_init (auxdata))
+	{
+	  dbus_free (auxdata);
+	  auxdata = NULL;
+	}
+      else
+	{
+	  if (_dbus_string_append (auxdata, "msgtype="))
+	    _dbus_string_append (auxdata, msgtype);
+	  if (interface && _dbus_string_append (auxdata, " interface="))
+	    _dbus_string_append (auxdata, interface);
+	  if (member && _dbus_string_append (auxdata, " member="))
+	    _dbus_string_append (auxdata, member);
+	  if (error_name && _dbus_string_append (auxdata, " error_name="))
+	    _dbus_string_append (auxdata, error_name);
+	  if (destination && _dbus_string_append (auxdata, " dest="))
+	    _dbus_string_append (auxdata, destination);
+	}
+    }
 
   sender_sid = bus_connection_get_selinux_id (sender);
   /* A NULL proposed_recipient means the bus itself. */
@@ -427,7 +506,8 @@ bus_selinux_allows_send (DBusConnection     *sender,
     recipient_sid = BUS_SID_FROM_SELINUX (bus_sid);
 
   return bus_selinux_check (sender_sid, recipient_sid,
-                            SECCLASS_DBUS, DBUS__SEND_MSG);
+                            SECCLASS_DBUS, DBUS__SEND_MSG,
+			    spid, tpid, auxdata);
 #else
   return TRUE;
 #endif /* HAVE_SELINUX */

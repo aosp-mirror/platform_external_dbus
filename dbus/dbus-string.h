@@ -88,6 +88,9 @@ dbus_bool_t   _dbus_string_copy_data_len         (const DBusString  *str,
                                                   char             **data_return,
                                                   int                start,
                                                   int                len);
+void          _dbus_string_copy_to_buffer        (const DBusString  *str,
+                                                  char              *buffer,
+						  int                len);
 int           _dbus_string_get_length            (const DBusString  *str);
 dbus_bool_t   _dbus_string_lengthen              (DBusString        *str,
                                                   int                additional_length);

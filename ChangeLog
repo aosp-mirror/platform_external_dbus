@@ -1,3 +1,37 @@
+2004-11-09  Colin Walters  <walters@verbum.org>
+
+	* dbus/dbus-string.c (_dbus_string_get_length): New
+	function, writes DBusString to C buffer.
+
+	* dbus/dbus-string.h: Prototype it.
+
+	* dbus/dbus-message.c (dbus_message_type_to_string): New
+	function, converts message type into C string.
+
+	* dbus/dbus-message.h: Prototype it.
+
+	* bus/selinux.c (bus_selinux_check): Take source pid,
+	target pid, and audit data.  Pass audit data to
+	avc_has_perm.
+	(log_audit_callback): New function, appends extra
+	audit information.
+	(bus_selinux_allows_acquire_service): Also take
+	service name, add it to audit data.
+	(bus_selinux_allows_send): Also take message
+	type, interface, method member, error name,
+	and destination, and add them to audit data.
+	(log_cb): Initialize func_audit.
+	
+	* bus/selinux.h (bus_selinux_allows_acquire_service)
+	(bus_selinux_allows_send): Update prototypes 
+
+	* bus/services.c (bus_registry_acquire_service): Pass
+	service name to bus_selinux_allows_acquire_service.
+
+	* bus/bus.c (bus_context_check_security_policy): Pass
+	additional audit data.  Move assignment of dest
+	to its own line.
+
 2004-11-07  Colin Walters  <walters@verbum.org>
 
 	* dbus/dbus-transport-unix.c (do_authentication): Always

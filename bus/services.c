@@ -310,7 +310,8 @@ bus_registry_acquire_service (BusRegistry      *registry,
   sid = bus_selinux_id_table_lookup (registry->service_sid_table,
                                      service_name);
 
-  if (!bus_selinux_allows_acquire_service (connection, sid))
+  if (!bus_selinux_allows_acquire_service (connection, sid,
+					   _dbus_string_get_const_data (service_name)))
     {
       dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
                       "Connection \"%s\" is not allowed to own the service \"%s\" due "

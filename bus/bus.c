@@ -1127,12 +1127,20 @@ bus_context_check_security_policy (BusContext     *context,
   
   if (sender != NULL)
     {
+      const char *dest;
+
+      dest = dbus_message_get_destination (message);
+	
       /* First verify the SELinux access controls.  If allowed then
        * go on with the standard checks.
        */
-      if (!bus_selinux_allows_send (sender, proposed_recipient))
+      if (!bus_selinux_allows_send (sender, proposed_recipient,
+				    dbus_message_type_to_string (dbus_message_get_type (message)),
+				    dbus_message_get_interface (message),
+				    dbus_message_get_member (message),
+				    dbus_message_get_error_name (message),
+				    dest ? dest : DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
         {
-          const char *dest = dbus_message_get_destination (message);
           dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
                           "An SELinux policy prevents this sender "
                           "from sending this message to this recipient "
@@ -1255,7 +1263,9 @@ bus_context_check_security_policy (BusContext     *context,
                                          proposed_recipient,
                                          message))
     {
-      const char *dest = dbus_message_get_destination (message);
+      const char *dest;
+
+      dest = dbus_message_get_destination (message);
       dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
                       "A security policy in place prevents this sender "
                       "from sending this message to this recipient, "
@@ -1280,7 +1290,9 @@ bus_context_check_security_policy (BusContext     *context,
                                             addressed_recipient, proposed_recipient,
                                             message))
     {
-      const char *dest = dbus_message_get_destination (message);
+      const char *dest;
+
+      dest = dbus_message_get_destination (message);
       dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
                       "A security policy in place prevents this recipient "
                       "from receiving this message from this sender, "
@@ -1304,7 +1316,9 @@ bus_context_check_security_policy (BusContext     *context,
       dbus_connection_get_outgoing_size (proposed_recipient) >
       context->limits.max_outgoing_bytes)
     {
-      const char *dest = dbus_message_get_destination (message);
+      const char *dest;
+
+      dest = dbus_message_get_destination (message);
       dbus_set_error (error, DBUS_ERROR_LIMITS_EXCEEDED,
                       "The destination service \"%s\" has a full message queue",
                       dest ? dest : (proposed_recipient ?

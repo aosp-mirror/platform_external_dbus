@@ -295,6 +295,7 @@ void*       dbus_message_get_data           (DBusMessage      *message,
                                              dbus_int32_t      slot);
 
 int dbus_message_type_from_string (const char *type_str);
+const char * dbus_message_type_to_string (int type);
 
 DBUS_END_DECLS
 
