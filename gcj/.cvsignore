@@ -2,12 +2,5 @@
 .libs
 Makefile
 Makefile.in
-*.lo
-*.la
-dbus-test
-*.bb
-*.bbg
-*.gcov
-*.da
-dbus-arch-deps.h
-.dbus-keyrings
+dbus-1.jar
+test-message

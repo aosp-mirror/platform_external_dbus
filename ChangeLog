@@ -1,3 +1,21 @@
+2003-06-23  Anders Carlsson  <andersca@codefactory.se>
+
+	* configure.in:
+	* gcj/.cvsignore:
+	* gcj/Hello.java:
+	* gcj/Makefile.am:
+	* gcj/TestMessage.java: (TestMessage), (TestMessage.main):
+	* gcj/org/.cvsignore:
+	* gcj/org/Makefile.am:
+	* gcj/org/freedesktop/.cvsignore:
+	* gcj/org/freedesktop/Makefile.am:
+	* gcj/org/freedesktop/dbus/.cvsignore:
+	* gcj/org/freedesktop/dbus/Makefile.am:
+	* gcj/org/freedesktop/dbus/Message.java: (Message),
+	(Message.Message):
+	* gcj/org/freedesktop/dbus/natMessage.cc:
+	Fix the build system.
+	
 2003-06-22  Havoc Pennington  <hp@pobox.com>
 
 	* mono/Connection.cs: add more bindings
