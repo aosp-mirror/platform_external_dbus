@@ -105,8 +105,10 @@ typedef struct
 } DBusCredentials;
 
 int _dbus_connect_unix_socket (const char     *path,
+                               dbus_bool_t     abstract,
                                DBusError      *error);
 int _dbus_listen_unix_socket  (const char     *path,
+                               dbus_bool_t     abstract,
                                DBusError      *error);
 int _dbus_connect_tcp_socket  (const char     *host,
                                dbus_uint32_t   port,

@@ -295,17 +295,20 @@ dbus_server_listen (const char     *address,
 	{
 	  const char *path = dbus_address_entry_get_value (entries[i], "path");
           const char *tmpdir = dbus_address_entry_get_value (entries[i], "tmpdir");
+          const char *abstract = dbus_address_entry_get_value (entries[i], "abstract");
           
-	  if (path == NULL && tmpdir == NULL)
+	  if (path == NULL && tmpdir == NULL && abstract == NULL)
             {
               address_problem_type = "unix";
-              address_problem_field = "path or tmpdir";
+              address_problem_field = "path or tmpdir or abstract";
               goto bad_address;
             }
 
-          if (path && tmpdir)
+          if ((path && tmpdir) ||
+              (path && abstract) ||
+              (tmpdir && abstract))
             {
-              address_problem_other = "cannot specify both \"path\" and \"tmpdir\" at the same time";
+              address_problem_other = "cannot specify two of \"path\" and \"tmpdir\" and \"abstract\" at the same time";
               goto bad_address;
             }
 
@@ -339,14 +342,22 @@ dbus_server_listen (const char     *address,
                   goto out;
                 }
               
-              /* FIXME - we will unconditionally unlink() the path.
-               * unlink() does not follow symlinks, but would like
-               * independent confirmation this is safe enough. See
-               * also _dbus_listen_unix_socket() and comments therein.
+              /* FIXME - we will unconditionally unlink() the path if
+               * we don't support abstract namespace.  unlink() does
+               * not follow symlinks, but would like independent
+               * confirmation this is safe enough. See also
+               * _dbus_listen_unix_socket() and comments therein.
                */
+
+              /* Always use abstract namespace if possible with tmpdir */
               
               server =
                 _dbus_server_new_for_domain_socket (_dbus_string_get_const_data (&full_path),
+#ifdef HAVE_ABSTRACT_SOCKETS
+                                                    TRUE,
+#else
+                                                    FALSE,
+#endif
                                                     error);
 
               _dbus_string_free (&full_path);
@@ -354,7 +365,10 @@ dbus_server_listen (const char     *address,
             }
           else
             {
-              server = _dbus_server_new_for_domain_socket (path, error);
+              if (path)
+                server = _dbus_server_new_for_domain_socket (path, FALSE, error);
+              else
+                server = _dbus_server_new_for_domain_socket (abstract, TRUE, error);
             }
 	}
       else if (strcmp (method, "tcp") == 0)

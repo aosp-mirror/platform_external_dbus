@@ -243,21 +243,33 @@ _dbus_transport_open (const char     *address,
 	{
 	  const char *path = dbus_address_entry_get_value (entries[i], "path");
           const char *tmpdir = dbus_address_entry_get_value (entries[i], "tmpdir");
-
+          const char *abstract = dbus_address_entry_get_value (entries[i], "abstract");
+          
 	  if (tmpdir != NULL)
             {
               address_problem_other = "cannot use the \"tmpdir\" option for an address to connect to, only in an address to listen on";
               goto bad_address;
             }
           
-	  if (path == NULL)
+	  if (path == NULL && abstract == NULL)
             {
               address_problem_type = "unix";
-              address_problem_field = "path";              
+              address_problem_field = "path or abstract";  
               goto bad_address;
             }
 
-          transport = _dbus_transport_new_for_domain_socket (path, &tmp_error);
+	  if (path != NULL && abstract != NULL)
+            {
+              address_problem_other = "can't specify both \"path\" and \"abstract\" options in an address";
+              goto bad_address;
+            }
+
+          if (path)
+            transport = _dbus_transport_new_for_domain_socket (path, FALSE,
+                                                               &tmp_error);
+          else
+            transport = _dbus_transport_new_for_domain_socket (abstract, TRUE,
+                                                               &tmp_error);
 	}
       else if (strcmp (method, "tcp") == 0)
 	{

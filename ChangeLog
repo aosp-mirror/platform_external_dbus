@@ -1,3 +1,25 @@
+2003-06-04  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-server.c (dbus_server_listen): allow abstract sockets
+	using unix:abstract=/foo, and when listening in a tmpdir
+	i.e. unix:tmpdir=/tmp, always use abstract sockets if we can.
+
+	* dbus/dbus-transport.c (_dbus_transport_open): support
+	unix:abstract=/foo
+
+	* dbus/dbus-server-unix.c (_dbus_server_new_for_domain_socket):
+	support abstract sockets
+
+	* dbus/dbus-transport-unix.c
+	(_dbus_transport_new_for_domain_socket): support abstract sockets
+
+	* dbus/dbus-sysdeps.c (_dbus_connect_unix_socket): add "abstract"
+	toggle as an argument, implement abstract namespace support
+	(_dbus_listen_unix_socket): ditto
+
+	* configure.in: add --enable-abstract-sockets and implement 
+	a configure check for autodetection of the right value.
+
 2003-06-01  Havoc Pennington  <hp@pobox.com>
 
 	* tools/dbus-cleanup-sockets.c: add utility to clean up sockets 

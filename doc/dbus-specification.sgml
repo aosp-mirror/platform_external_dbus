@@ -898,11 +898,10 @@
     </para>
     <para>
       [FIXME we need to specify in detail each transport and its possible arguments]
-      Currently, a transport over local UNIX sockets exists, a debug
-      transport that only works in-process and therefore can be used
-      for for unit testing also exists. It is possible that other
-      transports are added, such as a TCP/IP transport, and a
-      transport that works over X11.
+      Current transports include: unix domain sockets (including 
+      abstract namespace on linux), TCP/IP, and a debug/testing transport using 
+      in-process pipes. Future possible transports include one that 
+      tunnels over X11 protocol.
     </para>
   </sect1>
 

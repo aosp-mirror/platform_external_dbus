@@ -26,8 +26,11 @@
   <!-- Only allow socket-credentials-based authentication -->
   <auth>EXTERNAL</auth>
 
-  <!-- Only listen on a local socket -->
-  <listen>unix:path=@DBUS_SYSTEM_SOCKET@</listen>
+  <!-- Only listen on a local socket. (abstract=/path/to/socket 
+       means use abstract namespace, don't really create filesystem 
+       file; only Linux supports this. Use path=/whatever on other 
+       systems.) -->
+  <listen>unix:@DBUS_PATH_OR_ABSTRACT@=@DBUS_SYSTEM_SOCKET@</listen>
 
   <policy context="default">
     <!-- Deny everything then punch holes -->

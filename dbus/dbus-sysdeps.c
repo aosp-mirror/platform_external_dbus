@@ -373,13 +373,19 @@ _dbus_write_two (int               fd,
  * Creates a socket and connects it to the UNIX domain socket at the
  * given path.  The connection fd is returned, and is set up as
  * nonblocking.
+ * 
+ * Uses abstract sockets instead of filesystem-linked sockets if
+ * requested (it's possible only on Linux; see "man 7 unix" on Linux).
+ * On non-Linux abstract socket usage always fails.
  *
  * @param path the path to UNIX domain socket
+ * @param abstract #TRUE to use abstract namespace
  * @param error return location for error code
  * @returns connection file descriptor or -1 on error
  */
 int
 _dbus_connect_unix_socket (const char     *path,
+                           dbus_bool_t     abstract,
                            DBusError      *error)
 {
   int fd;
@@ -401,7 +407,23 @@ _dbus_connect_unix_socket (const char     *path,
 
   _DBUS_ZERO (addr);
   addr.sun_family = AF_UNIX;
-  strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH - 1);
+
+  if (abstract)
+    {
+#ifdef HAVE_ABSTRACT_SOCKETS
+      addr.sun_path[0] = '\0'; /* this is what says "use abstract" */
+      strncpy (&addr.sun_path[1], path, _DBUS_MAX_SUN_PATH_LENGTH - 2);
+#else /* HAVE_ABSTRACT_SOCKETS */
+      dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED,
+                      "Operating system does not support abstract socket namespace\n");
+      close (fd);
+      return -1;
+#endif /* ! HAVE_ABSTRACT_SOCKETS */      
+    }
+  else
+    {
+      strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH - 1);
+    }
   
   if (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0)
     {      
@@ -434,18 +456,19 @@ _dbus_connect_unix_socket (const char     *path,
  * then listens on the socket. The socket is
  * set to be nonblocking.
  *
- * @todo we'd like to be able to use the abstract namespace on linux
- * (see "man 7 unix"). The question is whether to silently move all
- * paths into that namespace if we can (I think that's best) or to
- * require it to be specified explicitly in the dbus address.  Also,
- * need to sort out how to check for abstract namespace support.
+ * Uses abstract sockets instead of filesystem-linked
+ * sockets if requested (it's possible only on Linux;
+ * see "man 7 unix" on Linux).
+ * On non-Linux abstract socket usage always fails.
  *
  * @param path the socket name
+ * @param abstract #TRUE to use abstract namespace
  * @param error return location for errors
  * @returns the listening file descriptor or -1 on error
  */
 int
 _dbus_listen_unix_socket (const char     *path,
+                          dbus_bool_t     abstract,
                           DBusError      *error)
 {
   int listen_fd;
@@ -463,27 +486,43 @@ _dbus_listen_unix_socket (const char     *path,
       return -1;
     }
 
-  /* FIXME discussed security implications of this with Nalin,
-   * and we couldn't think of where it would kick our ass, but
-   * it still seems a bit sucky. It also has non-security suckage;
-   * really we'd prefer to exit if the socket is already in use.
-   * But there doesn't seem to be a good way to do this.
-   *
-   * Just to be extra careful, I threw in the stat() - clearly
-   * the stat() can't *fix* any security issue, but it at least
-   * avoids inadvertent/accidental data loss.
-   */
-  {
-    struct stat sb;
-
-    if (stat (path, &sb) == 0 &&
-        S_ISSOCK (sb.st_mode))
-      unlink (path);
-  }
-  
   _DBUS_ZERO (addr);
   addr.sun_family = AF_UNIX;
-  strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH - 1);
+  
+  if (abstract)
+    {
+#ifdef HAVE_ABSTRACT_SOCKETS
+      addr.sun_path[0] = '\0'; /* this is what says "use abstract" */
+      strncpy (&addr.sun_path[1], path, _DBUS_MAX_SUN_PATH_LENGTH - 2);
+#else /* HAVE_ABSTRACT_SOCKETS */
+      dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED,
+                      "Operating system does not support abstract socket namespace\n");
+      close (listen_fd);
+      return -1;
+#endif /* ! HAVE_ABSTRACT_SOCKETS */
+    }
+  else
+    {
+      /* FIXME discussed security implications of this with Nalin,
+       * and we couldn't think of where it would kick our ass, but
+       * it still seems a bit sucky. It also has non-security suckage;
+       * really we'd prefer to exit if the socket is already in use.
+       * But there doesn't seem to be a good way to do this.
+       *
+       * Just to be extra careful, I threw in the stat() - clearly
+       * the stat() can't *fix* any security issue, but it at least
+       * avoids inadvertent/accidental data loss.
+       */
+      {
+        struct stat sb;
+
+        if (stat (path, &sb) == 0 &&
+            S_ISSOCK (sb.st_mode))
+          unlink (path);
+      }
+
+      strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH - 1);
+    }
   
   if (bind (listen_fd, (struct sockaddr*) &addr, SUN_LEN (&addr)) < 0)
     {
@@ -513,7 +552,7 @@ _dbus_listen_unix_socket (const char     *path,
   /* Try opening up the permissions, but if we can't, just go ahead
    * and continue, maybe it will be good enough.
    */
-  if (chmod (path, 0777) < 0)
+  if (!abstract && chmod (path, 0777) < 0)
     _dbus_warn ("Could not set mode 0777 on socket %s\n",
                 path);
   

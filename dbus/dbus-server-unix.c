@@ -268,11 +268,13 @@ _dbus_server_new_for_fd (int               fd,
  * Creates a new server listening on the given Unix domain socket.
  *
  * @param path the path for the domain socket.
+ * @param abstract #TRUE to use abstract socket namespace
  * @param error location to store reason for failure.
  * @returns the new server, or #NULL on failure.
  */
 DBusServer*
 _dbus_server_new_for_domain_socket (const char     *path,
+                                    dbus_bool_t     abstract,
                                     DBusError      *error)
 {
   DBusServer *server;
@@ -289,7 +291,10 @@ _dbus_server_new_for_domain_socket (const char     *path,
       return NULL;
     }
 
-  if (!_dbus_string_append (&address, "unix:path=") ||
+  if ((abstract &&
+       !_dbus_string_append (&address, "unix:abstract=")) ||
+      (!abstract &&
+       !_dbus_string_append (&address, "unix:path=")) ||
       !_dbus_string_append (&address, path))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -303,7 +308,7 @@ _dbus_server_new_for_domain_socket (const char     *path,
       goto failed_0;
     }
   
-  listen_fd = _dbus_listen_unix_socket (path, error);
+  listen_fd = _dbus_listen_unix_socket (path, abstract, error);
   _dbus_fd_set_close_on_exec (listen_fd);
   
   if (listen_fd < 0)
