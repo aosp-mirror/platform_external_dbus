@@ -1,5 +1,9 @@
 2004-10-29  Colin Walters  <walters@redhat.com>
 
+	* bus/.cvsignore, qt/.cvsignore: Update.
+
+2004-10-29  Colin Walters  <walters@redhat.com>
+
 	Patch from Kristof Vansant <de_lupus@pandora.be>
 
 	* configure.in: Detect Slackware.

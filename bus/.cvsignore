@@ -10,6 +10,7 @@ dbus-daemon-1
 *.da
 *.gcov
 bus-test
+rc.messagebus
 messagebus
 session.conf
 system.conf
