@@ -406,11 +406,18 @@ AM_CONDITIONAL(DBUS_INIT_SCRIPTS_RED_HAT, test x$with_init_scripts = xredhat)
 #### Tell tests where to find certain stuff in builddir
 ABSOLUTE_TOP_BUILDDIR=`cd ${ac_top_builddir}. && pwd`
 
-TEST_SERVICE_BINARY=${ABSOLUTE_TOP_BUILDDIR}/test/test-service
-AC_SUBST(TEST_SERVICE_BINARY)
+AC_DEFUN(TEST_PATH, [
+TEST_$1=${ABSOLUTE_TOP_BUILDDIR}/test/$2
+AC_DEFINE_UNQUOTED(TEST_$1, "$TEST_$1",
+                   [Full path to test file test/$2 in builddir])
+AC_SUBST(TEST_$1)
+])
 
-TEST_SERVICE_DIR=${ABSOLUTE_TOP_BUILDDIR}/test/data/valid-service-files
-AC_SUBST(TEST_SERVICE_DIR)
+TEST_PATH(SERVICE_DIR, data/valid-service-files)
+TEST_PATH(SERVICE_BINARY, test-service)
+TEST_PATH(EXIT_BINARY, test-exit)
+TEST_PATH(SEGFAULT_BINARY, test-segfault)
+TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)
 
 AC_OUTPUT([
 Doxyfile

@@ -1,3 +1,15 @@
+2003-04-04  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-spawn.c, dbus/dbus-spawn.h: Change dbus_spawn to
+	return a "babysitter" object that is used to monitor the status of
+	the spawned process and reap it when required.
+
+	* test/test-segfault.c, test/test-exit.c,
+	test/test-sleep-forever.c: binaries that do various lame things, 
+	used in the test suite.
+
+	* dbus/dbus-sysdeps.c: kill _dbus_errno_to_string()
+	
 2003-04-03  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-spawn.c: Move dbus-spawn into a separate file 

@@ -619,9 +619,9 @@ bus_activation_activate_service (BusActivation  *activation,
   argv[0] = entry->exec;
   argv[1] = NULL;
 
-  if (!_dbus_spawn_async (argv,
-			  child_setup, activation, 
-			  error))
+  if (!_dbus_spawn_async_with_babysitter (NULL, argv,
+                                          child_setup, activation, 
+                                          error))
     {
       _dbus_hash_table_remove_string (activation->pending_activations,
 				      pending_activation->service_name);

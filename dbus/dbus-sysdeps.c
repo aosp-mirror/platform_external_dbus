@@ -2197,7 +2197,7 @@ _dbus_create_file_exclusively (const DBusString *filename,
                       DBUS_ERROR_FAILED,
                       "Could not create file %s: %s\n",
                       filename_c,
-                      _dbus_errno_to_string (errno));
+                      _dbus_strerror (errno));
       return FALSE;
     }
 
@@ -2207,7 +2207,7 @@ _dbus_create_file_exclusively (const DBusString *filename,
                       DBUS_ERROR_FAILED,
                       "Could not close file %s: %s\n",
                       filename_c,
-                      _dbus_errno_to_string (errno));
+                      _dbus_strerror (errno));
       return FALSE;
     }
   
@@ -2557,27 +2557,6 @@ _dbus_generate_random_bytes (DBusString *str,
 }
 
 /**
- * A wrapper around strerror()
- *
- * @todo get rid of this function, it's the same as
- * _dbus_strerror().
- * 
- * @param errnum the errno
- * @returns an error message (never #NULL)
- */
-const char *
-_dbus_errno_to_string (int errnum)
-{
-  const char *msg;
-  
-  msg = strerror (errnum);
-  if (msg == NULL)
-    msg = "unknown";
-
-  return msg;
-}
-
-/**
  * A wrapper around strerror() because some platforms
  * may be lame and not have strerror().
  *
@@ -2781,13 +2760,15 @@ _dbus_stat (const DBusString *filename,
  *
  * @param fd1 return location for one end
  * @param fd2 return location for the other end
+ * @param blocking #TRUE if pipe should be blocking
  * @param error error return
  * @returns #FALSE on failure (if error is set)
  */
 dbus_bool_t
-_dbus_full_duplex_pipe (int       *fd1,
-                        int       *fd2,
-                        DBusError *error)
+_dbus_full_duplex_pipe (int        *fd1,
+                        int        *fd2,
+                        dbus_bool_t blocking,
+                        DBusError  *error)
 {
 #ifdef HAVE_SOCKETPAIR
   int fds[2];
@@ -2801,7 +2782,8 @@ _dbus_full_duplex_pipe (int       *fd1,
       return FALSE;
     }
 
-  if (!_dbus_set_fd_nonblocking (fds[0], NULL) ||
+  if (!blocking &&
+      !_dbus_set_fd_nonblocking (fds[0], NULL) ||
       !_dbus_set_fd_nonblocking (fds[1], NULL))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),

@@ -184,14 +184,6 @@ dbus_bool_t _dbus_generate_random_bytes (DBusString *str,
 const char *_dbus_errno_to_string  (int errnum);
 const char* _dbus_error_from_errno (int error_number);
 
-typedef void (* DBusSpawnChildSetupFunc) (void *user_data);
-
-dbus_bool_t _dbus_spawn_async (char                    **argv,
-			       DBusSpawnChildSetupFunc   child_setup,
-			       void                     *user_data,
-			       DBusError                *error);
-
-
 void _dbus_disable_sigpipe (void);
 
 void _dbus_fd_set_close_on_exec (int fd);
@@ -215,6 +207,7 @@ dbus_bool_t _dbus_stat             (const DBusString *filename,
                                     DBusError        *error);
 dbus_bool_t _dbus_full_duplex_pipe (int              *fd1,
                                     int              *fd2,
+                                    dbus_bool_t       blocking,
                                     DBusError        *error);
 dbus_bool_t _dbus_close            (int               fd,
                                     DBusError        *error);
