@@ -64,7 +64,7 @@ main (int argc, char *argv[])
     {
       char *arg = argv[i];
 
-      if (!strcmp (arg, "--session"))
+      if (!strcmp (arg, "--system"))
 	type = DBUS_BUS_SYSTEM;
       else if (!strcmp (arg, "--help"))
 	usage (argv[0], 0);

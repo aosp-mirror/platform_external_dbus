@@ -1,3 +1,7 @@
+2003-05-28  Colin Walters  <walters@verbum.org>
+
+	* tools/dbus-monitor.c (main): Fix silly typo (s/--session/--system/).
+
 2003-05-18  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-message.c (dbus_message_new): Remove @todo.
