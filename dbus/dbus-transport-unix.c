@@ -838,6 +838,7 @@ unix_messages_pending (DBusTransport *transport,
   check_write_watch (transport);
 }
 
+/* FIXME use _dbus_poll(), not select() */
 static  void
 unix_do_iteration (DBusTransport *transport,
                    unsigned int   flags,
@@ -854,20 +855,49 @@ unix_do_iteration (DBusTransport *transport,
  again:
   
   do_select = FALSE;
-  
+
+  /* the passed in DO_READING/DO_WRITING flags indicate whether to
+   * read/write messages, but regardless of those we may need to block
+   * for reading/writing to do auth.  But if we do reading for auth,
+   * we don't want to read any messages yet if not given DO_READING.
+   */
+
   FD_ZERO (&read_set);
-  if (flags & DBUS_ITERATION_DO_READING)
-    {
-      FD_SET (unix_transport->fd, &read_set);
-      do_select = TRUE;
-    }
-  
   FD_ZERO (&write_set);
-  if (flags & DBUS_ITERATION_DO_WRITING)
+  
+  if (_dbus_transport_get_is_authenticated (transport))
     {
-      FD_SET (unix_transport->fd, &write_set);
-      do_select = TRUE;
+      if (flags & DBUS_ITERATION_DO_READING)
+        {
+          FD_SET (unix_transport->fd, &read_set);
+          do_select = TRUE;
+        }
+      
+      
+      if (flags & DBUS_ITERATION_DO_WRITING)
+        {
+          FD_SET (unix_transport->fd, &write_set);
+          do_select = TRUE;
+        }
     }
+  else
+    {
+      DBusAuthState auth_state;
+      
+      auth_state = _dbus_auth_do_work (transport->auth);
+
+      if (auth_state == DBUS_AUTH_STATE_WAITING_FOR_INPUT)
+        {
+          FD_SET (unix_transport->fd, &read_set);
+          do_select = TRUE;
+        }
+
+      if (auth_state == DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND)
+        {
+          FD_SET (unix_transport->fd, &write_set);
+          do_select = TRUE;
+        }
+    } 
 
   if (do_select)
     {
@@ -915,9 +945,9 @@ unix_do_iteration (DBusTransport *transport,
                              need_read, need_write);
               do_authentication (transport, need_read, need_write);
                                  
-              if (need_read)
+              if (need_read && (flags & DBUS_ITERATION_DO_READING))
                 do_reading (transport);
-              if (need_write)
+              if (need_write && (flags & DBUS_ITERATION_DO_WRITING))
                 do_writing (transport);
             }
         }

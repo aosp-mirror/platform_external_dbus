@@ -1,3 +1,11 @@
+2003-01-08  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-transport-unix.c (unix_do_iteration): add read/write 
+	to the select() as needed for authentication. (should be using
+	_dbus_poll() not select, but for another day)
+
+	* dbus/dbus.h: include dbus/dbus-protocol.h
+
 2003-01-08  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/Makefile.am (dbusinclude_HEADERS): Install
