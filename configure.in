@@ -1030,6 +1030,7 @@ test/glib/Makefile
 doc/Makefile
 dbus-1.pc
 dbus-glib-1.pc
+dbus-sharp.pc
 test/data/valid-config-files/debug-allow-all.conf
 test/data/valid-config-files/debug-allow-all-sha1.conf
 test/data/valid-service-files/debug-echo.service
