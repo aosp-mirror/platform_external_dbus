@@ -167,7 +167,7 @@ namespace DBus
     {
       get {
 	if (this.module == null) {
-	  this.module = ProxyAssembly.DefineDynamicModule(Name, "proxy.dll", true);
+	  this.module = ProxyAssembly.DefineDynamicModule(Name, Name + ".proxy.dll", true);
 	}
 	
 	return this.module;

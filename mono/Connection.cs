@@ -64,15 +64,16 @@ namespace DBus
     internal static Connection Wrap(IntPtr rawConnection) 
     {
       if (slot > -1) {
-	// If we already have a Connection object associated with this rawConnection then return it
+	// Maybe we already have a Connection object associated with
+	// this rawConnection then return it
 	IntPtr rawThis = dbus_connection_get_data (rawConnection, slot);
-	return (DBus.Connection) ((GCHandle)rawThis).Target;
-      } 
-      else 
-	{
-	  // If it doesn't exist then create a new connection around it
-	  return new Connection(rawConnection);
+	if (rawThis != IntPtr.Zero) {
+	  return (DBus.Connection) ((GCHandle)rawThis).Target;
 	}
+      }
+      
+      // If it doesn't exist then create a new connection around it
+      return new Connection(rawConnection);
     }
 
     public int Timeout

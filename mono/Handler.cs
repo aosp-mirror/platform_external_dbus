@@ -72,7 +72,7 @@ namespace DBus
       pathName = pathName.TrimStart('/');
       this.path = pathName.Split('/');
       this.pathName = "/" + pathName;
-
+      
       // Create the vTable and register the path
       vTable = new DBusObjectPathVTable(new DBusObjectPathUnregisterFunction(Unregister_Called), 
 					new DBusObjectPathMessageFunction(Message_Called));
