@@ -377,6 +377,7 @@ append_uint_field (DBusMessage *message,
   return FALSE;
 }
 
+#define MAX_BYTES_OVERHEAD_TO_APPEND_A_STRING (1 + 1 + 3 + 1 + 8)
 static dbus_bool_t
 append_string_field (DBusMessage *message,
                      int          field,
@@ -430,11 +431,14 @@ static int
 get_next_field (DBusMessage *message,
 		int          field)
 {
-  int offset = message->header_fields[field].name_offset;
+  int offset;
   int closest;
   int i;
-  int retval = DBUS_HEADER_FIELD_INVALID;
+  int retval;
 
+  offset = message->header_fields[field].name_offset;
+  retval = DBUS_HEADER_FIELD_INVALID;
+  
   i = 0;
   closest = _DBUS_INT_MAX;
   while (i < DBUS_HEADER_FIELD_LAST)
@@ -451,183 +455,334 @@ get_next_field (DBusMessage *message,
   return retval;
 }
 
-static dbus_bool_t
-re_align_field_recurse (DBusMessage *message,
-			int          field,
-			int          offset)
+static int
+get_type_alignment (int type)
 {
-  int old_name_offset  = message->header_fields[field].name_offset;
-  int old_value_offset = message->header_fields[field].value_offset;
-  int prev_padding, padding, delta;
-  int type;
-  int next_field;
-  int pos = offset;
-
-  /* padding between the typecode byte and the value itself */
-  prev_padding = old_value_offset - old_name_offset + 2;
-
-  pos++;
-  type = _dbus_string_get_byte (&message->header, pos);
-
-  pos++;
+  int alignment;
+  
   switch (type)
     {
     case DBUS_TYPE_NIL:
     case DBUS_TYPE_BYTE:
     case DBUS_TYPE_BOOLEAN:
-      padding = 0;
+      alignment = 0;
       break;
+
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
-      padding = _DBUS_ALIGN_VALUE (pos, 4) - pos;
+      /* These are aligned 4 because they have a length as the
+       * first field;
+       */
+    case DBUS_TYPE_CUSTOM:
+    case DBUS_TYPE_DICT:
+      alignment = 4;
       break;
+
     case DBUS_TYPE_INT64:
     case DBUS_TYPE_UINT64:
     case DBUS_TYPE_DOUBLE:
-      padding = _DBUS_ALIGN_VALUE (pos, 8) - pos;
+      alignment = 8;
       break;
-    case DBUS_TYPE_CUSTOM:
+
     case DBUS_TYPE_ARRAY:
-    case DBUS_TYPE_DICT:
-      /* FIXME This is no good; we have to handle undefined header fields
-       * also. SECURITY and spec compliance issue.
-       */
-      _dbus_assert_not_reached ("no defined header fields may contain a custom, array or dict value");
+      _dbus_assert_not_reached ("passed an ARRAY type to get_type_alignment()");
       break;
+
     case DBUS_TYPE_INVALID:
     default:
-      _dbus_assert_not_reached ("invalid type in marshalled header");
+      _dbus_assert_not_reached ("passed an invalid or unknown type to get_type_alignment()");
       break;
     }
 
-  delta = padding - prev_padding;
-  if (delta > 0)
+  return alignment;
+}
+
+static dbus_bool_t
+iterate_one_field (const DBusString *str,
+                   int               byte_order,
+                   int               name_offset,
+                   int              *next_offset_p,
+                   int              *field_name_p,
+                   DBusString       *append_copy_to,
+                   int              *copy_name_offset_p,
+                   int              *copy_value_offset_p)
+{
+  int name, type, array_type;
+  int alignment;
+  int type_len;
+  int type_pos;
+  int value_pos;
+  int value_len;
+  int value_end;
+  int pos;
+
+  _dbus_verbose ("%s: name_offset=%d, append to %p\n",
+                 _DBUS_FUNCTION_NAME, name_offset, append_copy_to);
+  
+  pos = name_offset;
+  
+  name = _dbus_string_get_byte (str, name_offset);
+  pos++;
+
+  type_pos = pos;
+  type = _dbus_string_get_byte (str, type_pos);
+  pos++;
+  type_len = 1;
+
+  array_type = type;
+  /* find out the type of our array */
+  while (array_type == DBUS_TYPE_ARRAY)
     {
-      if (!_dbus_string_insert_bytes (&message->header, pos, delta, 0))
-	return FALSE;
+      pos++;
+      type_len++;
+      array_type = _dbus_string_get_byte (str, pos);
     }
-  else if (delta < 0)
+
+  _dbus_verbose ("%s: name %d, type '%c' %d at %d len %d, array type '%c' %d\n",
+                 _DBUS_FUNCTION_NAME,
+                 name, type, type, type_pos, type_len, array_type, array_type);
+  
+#ifndef DBUS_DISABLE_ASSERT
+  if (!_dbus_type_is_valid (array_type))
     {
-      _dbus_string_delete (&message->header, pos, -delta);
+      _dbus_warn ("type '%c' %d is not valid in %s\n",
+                  array_type, array_type, _DBUS_FUNCTION_NAME);
+      _dbus_assert_not_reached ("invalid type");
     }
+#endif
+      
+  alignment = get_type_alignment (array_type);
+      
+  if (alignment > 0)
+    pos = _DBUS_ALIGN_VALUE (pos, alignment);
 
-  next_field = get_next_field (message, field);
-  if (next_field != DBUS_HEADER_FIELD_INVALID)
+  _dbus_verbose ("%s: alignment %d value at pos %d\n",
+                 _DBUS_FUNCTION_NAME, alignment, pos);
+  
+  /* pos now points to our value */
+  if (!_dbus_marshal_get_arg_end_pos (str, byte_order,
+                                      type, pos, &value_end))
+    _dbus_assert_not_reached ("failed to get the byte after this header");
+
+  value_pos = pos;
+  value_len = value_end - value_pos;
+
+  _dbus_verbose ("%s: value_pos %d value_len %d value_end %d\n",
+                 _DBUS_FUNCTION_NAME, value_pos, value_len, value_end);
+  
+  if (next_offset_p)
+    *next_offset_p = pos + value_len;
+
+  if (field_name_p)
+    *field_name_p = name;
+
+  if (append_copy_to)
     {
-      int next_offset = message->header_fields[next_field].name_offset;
+      int orig_len;
 
-      _dbus_assert (next_offset > 0);
+      orig_len = _dbus_string_get_length (append_copy_to);
 
-      if (!re_align_field_recurse (message, field,
-				   pos + padding + (next_offset - old_value_offset)))
-	goto failed;
+      if (copy_name_offset_p)
+        *copy_name_offset_p = orig_len;
+      
+      if (!_dbus_string_append_byte (append_copy_to, name))
+        goto failed_copy;
+
+      if (!_dbus_string_copy_len (str, type_pos, type_len,
+                                  append_copy_to,
+                                  _dbus_string_get_length (append_copy_to)))
+        goto failed_copy;
+
+      if (!_dbus_string_align_length (append_copy_to, alignment))
+        goto failed_copy;
+
+      if (copy_value_offset_p)
+        *copy_value_offset_p = _dbus_string_get_length (append_copy_to);
+      
+      if (!_dbus_string_copy_len (str, value_pos, value_len,
+                                  append_copy_to,
+                                  _dbus_string_get_length (append_copy_to)))
+        goto failed_copy;
+      
+      return TRUE;
+
+    failed_copy:
+      _dbus_verbose ("%s: Failed copying old fields to new string\n",
+                     _DBUS_FUNCTION_NAME);
+      _dbus_string_set_length (append_copy_to, orig_len);
+      return FALSE;
     }
   else
+    return TRUE;
+}
+
+#ifndef DBUS_DISABLE_ASSERT
+static void
+verify_header_fields (DBusMessage *message)
+{
+  int i;
+  i = 0;
+  while (i < DBUS_HEADER_FIELD_LAST)
     {
-      if (!append_header_padding (message))
-	goto failed;
+      if (message->header_fields[i].name_offset >= 0)
+        _dbus_assert (_dbus_string_get_byte (&message->header,
+                                             message->header_fields[i].name_offset) ==
+                      i);
+      ++i;
+    }
+}
+#else /* DBUS_DISABLE_ASSERT */
+#define verify_header_fields(x)
+#endif /* DBUS_DISABLE_ASSERT */
+
+/* In this function we delete one field and re-align all the fields
+ * following it.
+ */
+static dbus_bool_t
+delete_one_and_re_align (DBusMessage *message,
+                         int          name_offset_to_delete)
+{
+  DBusString copy;
+  int new_fields_front_padding;
+  int next_offset;
+  int field_name;
+  dbus_bool_t retval;
+  HeaderField new_header_fields[DBUS_HEADER_FIELD_LAST];
+  
+  _dbus_assert (name_offset_to_delete < _dbus_string_get_length (&message->header));
+  verify_header_fields (message);
+
+  _dbus_verbose ("%s: Deleting one field at offset %d\n",
+                 _DBUS_FUNCTION_NAME,
+                 name_offset_to_delete);
+  
+  retval = FALSE;
+
+  clear_header_padding (message);
+  
+  if (!_dbus_string_init_preallocated (&copy,
+                                       _dbus_string_get_length (&message->header) -
+                                       name_offset_to_delete + 8))
+    {
+      _dbus_verbose ("%s: Failed to init string to hold copy of fields\n",
+                     _DBUS_FUNCTION_NAME);
+      goto out_0;
+    }
+  
+  /* Align the name offset of the first field in the same way it's
+   * aligned in the real header
+   */
+  new_fields_front_padding = name_offset_to_delete % 8;
+
+  if (!_dbus_string_insert_bytes (&copy, 0, new_fields_front_padding,
+                                  '\0'))
+    _dbus_assert_not_reached ("Should not have failed to insert bytes into preallocated string\n");
+
+  memcpy (new_header_fields, message->header_fields,
+          sizeof (new_header_fields));
+  
+  /* Now just re-marshal each field in the header to our temporary
+   * buffer, skipping the first one. The tricky part is that the
+   * fields are padded as if for previous_name_offset, but are in fact
+   * at unaligned_name_offset
+   */
+
+  if (!iterate_one_field (&message->header,
+                          message->byte_order,
+                          name_offset_to_delete,
+                          &next_offset,
+                          &field_name, NULL, NULL, NULL))
+    _dbus_assert_not_reached ("shouldn't have failed to alloc memory to skip the deleted field");
+
+  if (field_name < DBUS_HEADER_FIELD_LAST)
+    {
+      new_header_fields[field_name].name_offset = -1;
+      new_header_fields[field_name].value_offset = -1;
+    }
+  
+  while (next_offset < _dbus_string_get_length (&message->header))
+    {
+      int copy_name_offset;
+      int copy_value_offset;
+
+      if (!iterate_one_field (&message->header,
+                              message->byte_order,
+                              next_offset,
+                              &next_offset,
+                              &field_name,
+                              &copy,
+                              &copy_name_offset,
+                              &copy_value_offset))
+        {
+          _dbus_verbose ("%s: OOM iterating one field\n",
+                         _DBUS_FUNCTION_NAME);
+          goto out_1;
+        }
+      
+      if (field_name < DBUS_HEADER_FIELD_LAST)
+        {
+          new_header_fields[field_name].name_offset = copy_name_offset - new_fields_front_padding + name_offset_to_delete;
+          new_header_fields[field_name].value_offset = copy_value_offset - new_fields_front_padding + name_offset_to_delete;
+        }
     }
 
-  message->header_fields[field].name_offset  = offset;
-  message->header_fields[field].value_offset = pos + padding;
-
-  return TRUE;
-
- failed:
-  if (delta > 0)
+  if (!_dbus_string_replace_len (&copy,
+                                 new_fields_front_padding,
+                                 _dbus_string_get_length (&copy) - new_fields_front_padding,
+                                 &message->header,
+                                 name_offset_to_delete,
+                                 _dbus_string_get_length (&message->header) - name_offset_to_delete))
     {
-      _dbus_string_delete (&message->header, pos, delta);
+      _dbus_verbose ("%s: OOM moving copy back into header\n",
+                     _DBUS_FUNCTION_NAME);
+      goto out_1;
     }
-  else if (delta < 0)
-    {
-      /* this must succeed because it was allocated on function entry and
-       * DBusString doesn't ever realloc smaller
-       */
-      _dbus_string_insert_bytes (&message->header, pos, -delta, 0);
-    }
-
-  return FALSE;
+  
+  memcpy (message->header_fields, new_header_fields,
+          sizeof (new_header_fields));
+  verify_header_fields (message);
+  
+  retval = TRUE;
+  
+ out_1:
+  _dbus_string_free (&copy);
+  
+ out_0:
+  if (!append_header_padding (message))
+    _dbus_assert_not_reached ("Failed to re-append header padding in re_align_field_recurse()");
+  
+  return retval;
 }
 
 static dbus_bool_t
 delete_field (DBusMessage *message,
-	      int          field)
+	      int          field,
+              int          prealloc_header_space)
 {
-  int offset = message->header_fields[field].name_offset;
-  int next_field;
+  int offset;
 
   _dbus_assert (!message->locked);
-  
-  if (offset < 0)
-    return FALSE;
 
-  clear_header_padding (message);
-
-  next_field = get_next_field (message, field);
-  if (next_field == DBUS_HEADER_FIELD_INVALID)
+  /* Prealloc */
+  if (!_dbus_string_lengthen (&message->header, prealloc_header_space))
     {
-      _dbus_string_set_length (&message->header, offset);
-
-      message->header_fields[field].name_offset  = -1;
-      message->header_fields[field].value_offset = -1;
-      
-      /* this must succeed because it was allocated on function entry and
-       * DBusString doesn't ever realloc smaller
-       */
-      if (!append_header_padding (message))
-	_dbus_assert_not_reached ("failed to reappend header padding");
-
-      return TRUE;
-    }
-  else
-    {
-      DBusString deleted;
-      int next_offset = message->header_fields[next_field].name_offset;
-
-      _dbus_assert (next_offset > 0);
-
-      if (!_dbus_string_init (&deleted))
-	goto failed;
-
-      if (!_dbus_string_move_len (&message->header,
-				  offset, next_offset - offset,
-				  &deleted, 0))
-	{
-	  _dbus_string_free (&deleted);
-	  goto failed;
-	}
-
-      /* appends the header padding */
-      if (!re_align_field_recurse (message, next_field, offset))
-	{
-	  /* this must succeed because it was allocated on function entry and
-	   * DBusString doesn't ever realloc smaller
-	   */
-	  if (!_dbus_string_copy (&deleted, 0, &message->header, offset))
-	    _dbus_assert_not_reached ("failed to revert to original field");
-
-	  _dbus_string_free (&deleted);
-	  goto failed;
-	}
-
-      _dbus_string_free (&deleted);
-      
-      message->header_fields[field].name_offset  = -1;
-      message->header_fields[field].value_offset = -1;
-
-      return TRUE;
-
-    failed:
-      /* this must succeed because it was allocated on function entry and
-       * DBusString doesn't ever realloc smaller
-       */
-      if (!append_header_padding (message))
-	_dbus_assert_not_reached ("failed to reappend header padding");
-
+      _dbus_verbose ("failed to prealloc %d bytes header space\n",
+                     prealloc_header_space);
       return FALSE;
     }
+  _dbus_string_shorten (&message->header, prealloc_header_space);
+
+  /* Delete */
+  offset = message->header_fields[field].name_offset;
+  if (offset < 0)
+    {
+      _dbus_verbose ("header field didn't exist, no need to delete\n");
+      return TRUE; /* field didn't exist */
+    }
+
+  return delete_one_and_re_align (message, offset);
 }
 
 #ifdef DBUS_BUILD_TESTS
@@ -686,78 +841,29 @@ set_string_field (DBusMessage *message,
                   int          type,
                   const char  *value)
 {
-  int offset = message->header_fields[field].value_offset;
-
-  _dbus_assert (!message->locked);
-  _dbus_assert (value != NULL);
+  int prealloc;
   
-  if (offset < 0)
-    {      
-      /* need to append the field */
-      return append_string_field (message, field, type, value);
-    }
-  else
+  _dbus_assert (!message->locked);
+
+  /* the prealloc is so the append_string_field()
+   * below won't fail, leaving us in inconsistent state
+   */
+  prealloc = (value ? strlen (value) : 0) + MAX_BYTES_OVERHEAD_TO_APPEND_A_STRING;
+
+  _dbus_verbose ("set_string_field() field %d prealloc %d\n",
+                 field, prealloc);
+  
+  if (!delete_field (message, field, prealloc))
+    return FALSE;
+
+  if (value != NULL)
     {
-      DBusString v;
-      char *old_value;
-      int next_field;
-      int next_offset;
-      int len;
-      
-      clear_header_padding (message);
-
-      old_value = _dbus_demarshal_string (&message->header,
-					  message->byte_order,
-					  offset,
-					  &next_offset);
-      if (!old_value)
-	goto failed;
-
-      len = strlen (value);
-
-      _dbus_string_init_const_len (&v, value,
-				   len + 1); /* include nul */
-      if (!_dbus_marshal_set_string (&message->header,
-                                     message->byte_order,
-                                     offset, &v, len))
-	{
-	  dbus_free (old_value);
-	  goto failed;
-	}
-
-      next_field = get_next_field (message, field);
-      if (next_field != DBUS_HEADER_FIELD_INVALID)
-	{
-	  /* re-appends the header padding */
-	  if (!re_align_field_recurse (message, next_field, next_offset))
-	    {
-	      len = strlen (old_value);
-
-	      _dbus_string_init_const_len (&v, old_value,
-                                           len + 1); /* include nul */
-	      if (!_dbus_marshal_set_string (&message->header,
-					     message->byte_order,
-					     offset, &v, len))
-		_dbus_assert_not_reached ("failed to revert to original string");
-
-	      dbus_free (old_value);
-	      goto failed;
-	    }
-	}
-
-      dbus_free (old_value);
-      
-      return TRUE;
-
-    failed:
-      /* this must succeed because it was allocated on function entry and
-       * DBusString doesn't ever realloc smaller
-       */
-      if (!append_header_padding (message))
-	_dbus_assert_not_reached ("failed to reappend header padding");
-
-      return FALSE;
+      /* need to append the field */
+      if (!append_string_field (message, field, type, value))
+        _dbus_assert_not_reached ("Appending string field shouldn't have failed, due to preallocation");
     }
+  
+  return TRUE;
 }
 
 /**
@@ -1522,19 +1628,11 @@ dbus_message_set_path (DBusMessage   *message,
 {
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_fail (!message->locked, FALSE);
-  
-  if (object_path == NULL)
-    {
-      delete_field (message, DBUS_HEADER_FIELD_PATH);
-      return TRUE;
-    }
-  else
-    {
-      return set_string_field (message,
-                               DBUS_HEADER_FIELD_PATH,
-                               DBUS_TYPE_OBJECT_PATH,
-                               object_path);
-    }
+
+  return set_string_field (message,
+                           DBUS_HEADER_FIELD_PATH,
+                           DBUS_TYPE_OBJECT_PATH,
+                           object_path);
 }
 
 /**
@@ -1596,19 +1694,11 @@ dbus_message_set_interface (DBusMessage  *message,
 {
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_fail (!message->locked, FALSE);
-  
-  if (interface == NULL)
-    {
-      delete_field (message, DBUS_HEADER_FIELD_INTERFACE);
-      return TRUE;
-    }
-  else
-    {
-      return set_string_field (message,
-                               DBUS_HEADER_FIELD_INTERFACE,
-                               DBUS_TYPE_STRING,
-                               interface);
-    }
+
+  return set_string_field (message,
+                           DBUS_HEADER_FIELD_INTERFACE,
+                           DBUS_TYPE_STRING,
+                           interface);
 }
 
 /**
@@ -1644,19 +1734,11 @@ dbus_message_set_member (DBusMessage  *message,
 {
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_fail (!message->locked, FALSE);
-  
-  if (member == NULL)
-    {
-      delete_field (message, DBUS_HEADER_FIELD_MEMBER);
-      return TRUE;
-    }
-  else
-    {
-      return set_string_field (message,
-                               DBUS_HEADER_FIELD_MEMBER,
-                               DBUS_TYPE_STRING,
-                               member);
-    }
+
+  return set_string_field (message,
+                           DBUS_HEADER_FIELD_MEMBER,
+                           DBUS_TYPE_STRING,
+                           member);
 }
 
 /**
@@ -1691,19 +1773,11 @@ dbus_message_set_error_name (DBusMessage  *message,
 {
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_fail (!message->locked, FALSE);
-  
-  if (error_name == NULL)
-    {
-      delete_field (message, DBUS_HEADER_FIELD_ERROR_NAME);
-      return TRUE;
-    }
-  else
-    {
-      return set_string_field (message,
-                               DBUS_HEADER_FIELD_ERROR_NAME,
-                               DBUS_TYPE_STRING,
-                               error_name);
-    }
+
+  return set_string_field (message,
+                           DBUS_HEADER_FIELD_ERROR_NAME,
+                           DBUS_TYPE_STRING,
+                           error_name);
 }
 
 /**
@@ -1735,19 +1809,11 @@ dbus_message_set_destination (DBusMessage  *message,
 {
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_fail (!message->locked, FALSE);
-  
-  if (destination == NULL)
-    {
-      delete_field (message, DBUS_HEADER_FIELD_SERVICE);
-      return TRUE;
-    }
-  else
-    {
-      return set_string_field (message,
-                               DBUS_HEADER_FIELD_SERVICE,
-                               DBUS_TYPE_STRING,
-                               destination);
-    }
+
+  return set_string_field (message,
+                           DBUS_HEADER_FIELD_SERVICE,
+                           DBUS_TYPE_STRING,
+                           destination);
 }
 
 /**
@@ -4314,18 +4380,10 @@ dbus_message_set_sender (DBusMessage  *message,
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_fail (!message->locked, FALSE);
 
-  if (sender == NULL)
-    {
-      delete_field (message, DBUS_HEADER_FIELD_SENDER_SERVICE);
-      return TRUE;
-    }
-  else
-    {
-      return set_string_field (message,
-                               DBUS_HEADER_FIELD_SENDER_SERVICE,
-                               DBUS_TYPE_STRING,
-                               sender);
-    }
+  return set_string_field (message,
+                           DBUS_HEADER_FIELD_SENDER_SERVICE,
+                           DBUS_TYPE_STRING,
+                           sender);
 }
 
 /**
@@ -5182,7 +5240,7 @@ load_one_message (DBusMessageLoader *loader,
   message = NULL;
   oom = FALSE;
   
-#if 1
+#if 0
   _dbus_verbose_bytes_of_string (&loader->data, 0, header_len /* + body_len */);
 #endif	  
 
@@ -6673,9 +6731,9 @@ verify_test_message (DBusMessage *message)
     _dbus_assert_not_reached ("integers differ!");
 
 #ifdef DBUS_HAVE_INT64
-  if (our_int64 != -0x123456789abcd)
+  if (our_int64 != DBUS_INT64_CONSTANT (-0x123456789abcd))
     _dbus_assert_not_reached ("64-bit integers differ!");
-  if (our_uint64 != 0x123456789abcd)
+  if (our_uint64 != DBUS_UINT64_CONSTANT (0x123456789abcd))
     _dbus_assert_not_reached ("64-bit unsigned integers differ!");
 #endif
   
@@ -6877,7 +6935,6 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_set_no_reply (message, FALSE);
   _dbus_assert (dbus_message_get_no_reply (message) == FALSE);
 
-#if 0
   /* Set/get some header fields */
   
   if (!dbus_message_set_path (message, "/foo"))
@@ -6927,7 +6984,6 @@ _dbus_message_test (const char *test_data_dir)
     _dbus_assert_not_reached ("out of memory");
   _dbus_assert (strcmp (dbus_message_get_member (message),
                         "Bar") == 0);
-#endif
   
   dbus_message_unref (message);
   
@@ -6940,8 +6996,8 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_append_args (message,
 			    DBUS_TYPE_INT32, -0x12345678,
 #ifdef DBUS_HAVE_INT64
-                            DBUS_TYPE_INT64, -0x123456789abcd,
-                            DBUS_TYPE_UINT64, 0x123456789abcd,
+                            DBUS_TYPE_INT64, DBUS_INT64_CONSTANT (-0x123456789abcd),
+                            DBUS_TYPE_UINT64, DBUS_UINT64_CONSTANT (0x123456789abcd),
 #endif
 			    DBUS_TYPE_STRING, "Test string",
 			    DBUS_TYPE_DOUBLE, 3.14159,

@@ -1,3 +1,14 @@
+2003-10-28  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-message.c (_dbus_message_test): enable and fix the
+	tests for set_path, set_interface, set_member, etc.
+
+	* dbus/dbus-string.c (_dbus_string_insert_bytes): allow 0 bytes
+
+	* dbus/dbus-message.c (set_string_field): always just delete and
+	re-append the field; accept NULL for deletion
+	(re_align_fields_recurse): reimplement
+	
 2003-10-26  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-connection.c: fix docs to properly describe the

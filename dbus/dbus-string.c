@@ -582,7 +582,10 @@ _dbus_string_insert_bytes (DBusString   *str,
   DBUS_STRING_PREAMBLE (str);
   _dbus_assert (i <= real->len);
   _dbus_assert (i >= 0);
-  _dbus_assert (n_bytes > 0);
+  _dbus_assert (n_bytes >= 0);
+
+  if (n_bytes == 0)
+    return TRUE;
   
   if (!open_gap (n_bytes, real, i))
     return FALSE;
