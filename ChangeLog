@@ -7,6 +7,8 @@
 	
 	* .cvsignore: ignore more stamp files
 
+	* dbus/dbus-watch.c (_dbus_watch_list_new): fixed doc error
+
 2002-12-15  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-threads.c: add thread stubs that a higher library

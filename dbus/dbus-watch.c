@@ -165,7 +165,7 @@ struct DBusWatchList
 };
 
 /**
- * Creates a new watch list. Returns @NULL if insufficient
+ * Creates a new watch list. Returns #NULL if insufficient
  * memory exists.
  *
  * @returns the new watch list, or #NULL on failure.
