@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-glib.h GLib integration
- *
- * Copyright (C) 2002  CodeFactory AB
+/* dbus-mempool.h Memory pools
+ * 
+ * Copyright (C) 2002  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -20,19 +20,25 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#ifndef DBUS_GLIB_H
-#define DBUS_GLIB_H
 
-#include <dbus/dbus.h>
-#include <glib.h>
+#ifndef DBUS_MEMPOOL_H
+#define DBUS_MEMPOOL_H
 
-typedef void (*DBusMessageFunction) (DBusConnection *connection,
-                                     DBusMessage    *message,
-                                     gpointer        data);
+#include <dbus/dbus-internals.h>
+#include <dbus/dbus-memory.h>
+#include <dbus/dbus-types.h>
 
-void dbus_gthread_init  (void);
+DBUS_BEGIN_DECLS;
 
-GSource *dbus_connection_gsource_new (DBusConnection *connection);
+typedef struct DBusMemPool DBusMemPool;
 
+DBusMemPool* _dbus_mem_pool_new     (int          element_size,
+                                     dbus_bool_t  zero_elements);
+void         _dbus_mem_pool_free    (DBusMemPool *pool);
+void*        _dbus_mem_pool_alloc   (DBusMemPool *pool);
+void         _dbus_mem_pool_dealloc (DBusMemPool *pool,
+                                     void        *element);
 
-#endif /* DBUS_GLIB_H */
+DBUS_END_DECLS;
+
+#endif /* DBUS_MEMPOOL_H */

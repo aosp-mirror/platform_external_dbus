@@ -51,6 +51,8 @@ dbus_bool_t _dbus_list_insert_after   (DBusList **list,
                                        void      *data);
 dbus_bool_t _dbus_list_remove         (DBusList **list,
                                        void      *data);
+dbus_bool_t _dbus_list_remove_last    (DBusList **list,
+                                       void      *data);
 void        _dbus_list_remove_link    (DBusList **list,
                                        DBusList  *link);
 void        _dbus_list_clear          (DBusList **list);

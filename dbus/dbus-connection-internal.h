@@ -59,6 +59,20 @@ void            _dbus_connection_do_iteration           (DBusConnection *connect
 void            _dbus_connection_transport_error        (DBusConnection *connection,
                                                          DBusResultCode  result_code);
 
+void            _dbus_connection_handler_destroyed      (DBusConnection *connection,
+                                                         DBusMessageHandler *handler);
+
+
+dbus_bool_t       _dbus_message_handler_add_connection    (DBusMessageHandler *handler,
+                                                           DBusConnection     *connection);
+void              _dbus_message_handler_remove_connection (DBusMessageHandler *handler,
+                                                           DBusConnection     *connection);
+DBusHandlerResult _dbus_message_handler_handle_message    (DBusMessageHandler *handler,
+                                                           DBusConnection     *connection,
+                                                           DBusMessage        *message);
+
+
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_CONNECTION_INTERNAL_H */

@@ -200,6 +200,19 @@ dbus_message_unref (DBusMessage *message)
     }
 }
 
+/**
+ * Gets the name of a message.
+ * @param message the message
+ * @returns the message name (should not be freed)
+ */
+const char*
+dbus_message_get_name (DBusMessage *message)
+{
+  /* FIXME */
+  
+  return NULL;
+}
+
 /** @} */
 
 /**

@@ -39,6 +39,7 @@ DBusMessage* dbus_message_new   (void);
 void         dbus_message_ref   (DBusMessage *message);
 void         dbus_message_unref (DBusMessage *message);
 
+const char*  dbus_message_get_name (DBusMessage *message);
 
 DBUS_END_DECLS;
 

@@ -11,6 +11,7 @@ dbusinclude_HEADERS=				\
 	dbus-macros.h				\
 	dbus-memory.h				\
 	dbus-message.h				\
+	dbus-message-handler.h			\
 	dbus-server.h				\
 	dbus-threads.h				\
 	dbus-types.h
@@ -21,6 +22,7 @@ libdbus_1_la_SOURCES=				\
 	dbus-errors.c				\
 	dbus-memory.c				\
 	dbus-message.c				\
+	dbus-message-handler.c			\
 	dbus-message-internal.h			\
 	dbus-server.c				\
 	dbus-server-protected.h			\
@@ -51,6 +53,8 @@ libdbus_convenience_la_SOURCES=			\
 	dbus-internals.h			\
 	dbus-list.c				\
 	dbus-list.h				\
+	dbus-mempool.c				\
+	dbus-mempool.h				\
 	dbus-string.c				\
 	dbus-string.h				\
 	dbus-sysdeps.c				\

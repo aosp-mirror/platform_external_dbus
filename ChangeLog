@@ -1,3 +1,44 @@
+2002-12-24  Havoc Pennington  <hp@pobox.com>
+
+	* glib/dbus-gthread.c: fix include
+
+	* glib/dbus-glib.h: rename DBusMessageHandler for now. 
+	I think glib API needs to change, though, as you don't 
+	want to use DBusMessageFunction, you want to use the 
+	DBusMessageHandler object. Probably 
+	dbus_connection_open_with_g_main_loop()
+	and dbus_connection_setup_g_main_loop() or something like that
+	(but think of better names...) that just create a connection 
+	that has watch/timeout functions etc. already set up.
+
+	* dbus/dbus-connection.c
+	(dbus_connection_send_message_with_reply): new function just to 
+	show how the message handler helps us deal with replies.
+
+	* dbus/dbus-list.c (_dbus_list_remove_last): new function
+
+	* dbus/dbus-string.c (_dbus_string_test): free a string that
+	wasn't
+
+	* dbus/dbus-hash.c: use memory pools for the hash entries
+	(rebuild_table): be more paranoid about overflow, and 
+	shrink table when we can
+	(_dbus_hash_test): reduce number of sprintfs and write
+	valid C89. Add tests for case where we grow and then 
+	shrink the hash table.
+
+	* dbus/dbus-mempool.h, dbus/dbus-mempool.c: memory pools
+
+	* dbus/dbus-connection.c (dbus_connection_register_handler) 
+	(dbus_connection_unregister_handler): new functions
+
+	* dbus/dbus-message.c (dbus_message_get_name): new
+
+	* dbus/dbus-list.c: fix docs typo
+
+	* dbus/dbus-message-handler.h, dbus/dbus-message-handler.c:
+	an object representing a handler for messages.
+
 2002-12-16  Anders Carlsson  <andersca@codefactory.se>
 
 	* glib/dbus-glib.h:

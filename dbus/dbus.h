@@ -30,6 +30,7 @@
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-message.h>
+#include <dbus/dbus-message-handler.h>
 #include <dbus/dbus-server.h>
 #include <dbus/dbus-threads.h>
 #include <dbus/dbus-types.h>

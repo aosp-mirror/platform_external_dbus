@@ -133,7 +133,7 @@ link_after (DBusList **list,
  * while (link != NULL)
  *   {
  *     printf ("value is %p\n", link->data);
- *     link = _dbus_list_get_next_link (&list);
+ *     link = _dbus_list_get_next_link (&link);
  *   }
  * @endcode
  *
@@ -155,7 +155,7 @@ link_after (DBusList **list,
  * while (link != NULL)
  *   {
  *     printf ("value is %p\n", link->data);
- *     link = _dbus_list_get_prev_link (&list);
+ *     link = _dbus_list_get_prev_link (&link);
  *   }
  * @endcode
  *
@@ -295,6 +295,37 @@ _dbus_list_remove (DBusList **list,
         }
       
       link = _dbus_list_get_next_link (list, link);
+    }
+
+  return FALSE;
+}
+
+/**
+ * Removes a value from the list. Only removes the
+ * last value equal to the given data pointer,
+ * even if multiple values exist which match.
+ * This is a linear-time operation.
+ *
+ * @param list address of the list head.
+ * @param data the value to remove.
+ * @returns #TRUE if a value was found to remove.
+ */
+dbus_bool_t
+_dbus_list_remove_last (DBusList **list,
+                        void      *data)
+{
+  DBusList *link;
+
+  link = _dbus_list_get_last_link (list);
+  while (link != NULL)
+    {
+      if (link->data == data)
+        {
+          _dbus_list_remove_link (list, link);
+          return TRUE;
+        }
+      
+      link = _dbus_list_get_prev_link (list, link);
     }
 
   return FALSE;

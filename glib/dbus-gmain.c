@@ -88,7 +88,7 @@ gdbus_connection_dispatch (GSource     *source,
 			   gpointer     user_data)
 {
    DBusGSource *dbus_source = (DBusGSource *)source;
-   DBusMessageHandler handler = (DBusMessageHandler)callback;
+   DBusMessageFunction handler = (DBusMessageFunction)callback;
    DBusMessage *message;
    
    GList *list;

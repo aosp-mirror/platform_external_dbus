@@ -76,6 +76,7 @@
 
 #include "dbus-hash.h"
 #include "dbus-internals.h"
+#include "dbus-mempool.h"
 
 /**
  * @defgroup DBusHashTable Hash table
@@ -92,13 +93,6 @@
  *
  * The guts of DBusHashTable.
  *
- * @todo rebuild_table() should be modified to also shrink the hash bucket
- * array when appropriate; otherwise if a hash table has been
- * very large but is now small, iteration becomes inefficient.
- * We should still only shrink when adding hash entries though, not
- * when removing them, so that you can still iterate over the hash
- * removing entries. So if you added 5000, removed 4000, the
- * shrinking would happen next time an entry was added.
  * @{
  */
 
@@ -114,6 +108,15 @@
  * preliminary values that are arbitrarily similar will end up in
  * different buckets.  The hash function was taken from a
  * random-number generator. (This is used to hash integers.)
+ *
+ * The down_shift drops off the high bits of the hash index, and
+ * decreases as we increase the number of hash buckets (to keep more
+ * range in the hash index). The mask also strips high bits and strips
+ * fewer high bits as the number of hash buckets increases.
+ * I don't understand two things: why is the initial downshift 28
+ * to keep 4 bits when the initial mask is 011 to keep 2 bits,
+ * and why do we have both a mask and a downshift?
+ * 
  */
 #define RANDOM_INDEX(table, i) \
     (((((long) (i))*1103515245) >> (table)->down_shift) & (table)->mask)
@@ -121,6 +124,7 @@
 /**
  * Initial number of buckets in hash table (hash table statically
  * allocates its buckets for this size and below).
+ * The initial mask has to be synced to this.
  */
 #define DBUS_SMALL_HASH_TABLE 4
 
@@ -176,8 +180,11 @@ struct DBusHashTable {
   int n_entries;                       /**< Total number of entries present
                                         * in table.
                                         */
-  int rebuild_size;                    /**< Enlarge table when numEntries gets
+  int hi_rebuild_size;                 /**< Enlarge table when n_entries gets
                                         * to be this large.
+                                        */
+  int lo_rebuild_size;                 /**< Shrink table when n_entries gets
+                                        * below this.
                                         */
   int down_shift;                      /**< Shift count used in hashing
                                         * function.  Designed to use high-
@@ -193,6 +200,8 @@ struct DBusHashTable {
 
   DBusFreeFunction free_key_function;   /**< Function to free keys */
   DBusFreeFunction free_value_function; /**< Function to free values */
+
+  DBusMemPool *entry_pool;              /**< Memory pool for hash entries */
 };
 
 /** 
@@ -269,22 +278,34 @@ _dbus_hash_table_new (DBusHashType     type,
                       DBusFreeFunction value_free_function)
 {
   DBusHashTable *table;
-
+  DBusMemPool *entry_pool;
+  
   table = dbus_new0 (DBusHashTable, 1);
   if (table == NULL)
     return NULL;
+
+  entry_pool = _dbus_mem_pool_new (sizeof (DBusHashEntry), TRUE);
+  if (entry_pool == NULL)
+    {
+      dbus_free (table);
+      return NULL;
+    }
   
   table->refcount = 1;
-
+  table->entry_pool = entry_pool;
+  
   _dbus_assert (DBUS_SMALL_HASH_TABLE == _DBUS_N_ELEMENTS (table->static_buckets));
   
   table->buckets = table->static_buckets;  
   table->n_buckets = DBUS_SMALL_HASH_TABLE;
   table->n_entries = 0;
-  table->rebuild_size = DBUS_SMALL_HASH_TABLE * REBUILD_MULTIPLIER;
+  table->hi_rebuild_size = DBUS_SMALL_HASH_TABLE * REBUILD_MULTIPLIER;
+  table->lo_rebuild_size = 0;
   table->down_shift = 28;
   table->mask = 3;
   table->key_type = type;
+
+  _dbus_assert (table->mask < table->n_buckets);
   
   switch (table->key_type)
     {
@@ -330,12 +351,12 @@ _dbus_hash_table_unref (DBusHashTable *table)
 
   if (table->refcount == 0)
     {
+#if 0
       DBusHashEntry *entry;
       DBusHashEntry *next;
       int i;
 
       /* Free the entries in the table. */
-      
       for (i = 0; i < table->n_buckets; i++)
         {
           entry = table->buckets[i];
@@ -348,7 +369,11 @@ _dbus_hash_table_unref (DBusHashTable *table)
               entry = next;
             }
         }
-
+#else
+      /* We can do this very quickly with memory pools ;-) */
+      _dbus_mem_pool_free (table->entry_pool);
+#endif
+      
       /* Free the bucket array, if it was dynamically allocated. */
       if (table->buckets != table->static_buckets)
         dbus_free (table->buckets);
@@ -362,8 +387,8 @@ alloc_entry (DBusHashTable *table)
 {
   DBusHashEntry *entry;
 
-  entry = dbus_new0 (DBusHashEntry, 1);
-
+  entry = _dbus_mem_pool_alloc (table->entry_pool);
+  
   return entry;
 }
 
@@ -376,7 +401,7 @@ free_entry (DBusHashTable  *table,
   if (table->free_value_function)
     (* table->free_value_function) (entry->value);
               
-  dbus_free (entry);
+  _dbus_mem_pool_dealloc (table->entry_pool, entry);
 }
 
 static void
@@ -631,6 +656,9 @@ _dbus_hash_iter_get_string_key (DBusHashIter *iter)
  * because create_if_not_found was #FALSE and the entry
  * did not exist.
  *
+ * If create_if_not_found is #TRUE and the entry is created, the hash
+ * table takes ownership of the key that's passed in.
+ *
  * For a hash table of type #DBUS_HASH_INT, cast the int
  * key to the key parameter using #_DBUS_INT_TO_POINTER().
  * 
@@ -698,8 +726,12 @@ add_entry (DBusHashTable   *table,
     *bucket = b;
   
   table->n_entries += 1;
-  
-  if (table->n_entries >= table->rebuild_size)
+
+  /* note we ONLY rebuild when ADDING - because you can iterate over a
+   * table and remove entries safely.
+   */
+  if (table->n_entries >= table->hi_rebuild_size ||
+      table->n_entries < table->lo_rebuild_size)
     rebuild_table (table);
 
   return entry;
@@ -814,34 +846,82 @@ static void
 rebuild_table (DBusHashTable *table)
 {
   int old_size;
+  int new_buckets;
   DBusHashEntry **old_buckets;
   DBusHashEntry **old_chain;
   DBusHashEntry *entry;
-
+  dbus_bool_t growing;
+  
   /*
    * Allocate and initialize the new bucket array, and set up
    * hashing constants for new array size.
    */
+
+  growing = table->n_entries >= table->hi_rebuild_size;
   
   old_size = table->n_buckets;
   old_buckets = table->buckets;
 
-  table->n_buckets *= 4;
-  table->buckets = dbus_new0 (DBusHashEntry*, table->n_buckets);  
+  if (growing)
+    {
+      /* overflow paranoia */
+      if (table->n_buckets < _DBUS_INT_MAX / 4 &&
+          table->down_shift >= 0)
+        new_buckets = table->n_buckets * 4;
+      else
+        return; /* can't grow anymore */
+    }
+  else
+    {
+      new_buckets = table->n_buckets / 4;
+      if (new_buckets < DBUS_SMALL_HASH_TABLE)
+        return; /* don't bother shrinking this far */
+    }
+
+  table->buckets = dbus_new0 (DBusHashEntry*, new_buckets);
   if (table->buckets == NULL)
     {
       /* out of memory, yay - just don't reallocate, the table will
        * still work, albeit more slowly.
        */
-      table->n_buckets /= 4;
       table->buckets = old_buckets;
       return;
     }
 
-  table->rebuild_size *= 4;
-  table->down_shift -= 2;
-  table->mask = (table->mask << 2) + 3;
+  table->n_buckets = new_buckets;
+  
+  if (growing)
+    {
+      table->lo_rebuild_size = table->hi_rebuild_size;
+      table->hi_rebuild_size *= 4;
+      
+      table->down_shift -= 2;               /* keep 2 more high bits */
+      table->mask = (table->mask << 2) + 3; /* keep 2 more high bits */
+    }
+  else
+    {
+      table->hi_rebuild_size = table->lo_rebuild_size;
+      table->lo_rebuild_size /= 4;
 
+      table->down_shift += 2;         /* keep 2 fewer high bits */
+      table->mask = table->mask >> 2; /* keep 2 fewer high bits */
+    }
+
+#if 0
+  printf ("%s table to lo = %d hi = %d downshift = %d mask = 0x%x\n",
+          growing ? "GROW" : "SHRINK",
+          table->lo_rebuild_size,
+          table->hi_rebuild_size,
+          table->down_shift,
+          table->mask);
+#endif
+  
+  _dbus_assert (table->lo_rebuild_size >= 0);
+  _dbus_assert (table->hi_rebuild_size > table->lo_rebuild_size);
+  _dbus_assert (table->mask != 0);
+  /* the mask is essentially the max index */
+  _dbus_assert (table->mask < table->n_buckets);
+  
   /*
    * Rehash all of the existing entries into the new bucket array.
    */
@@ -867,7 +947,7 @@ rebuild_table (DBusHashTable *table)
               _dbus_assert_not_reached ("Unknown hash table type");
               break;
             }
-
+          
           bucket = &(table->buckets[idx]);
           entry->next = *bucket;
           *bucket = entry;
@@ -1086,6 +1166,10 @@ _dbus_hash_table_get_n_entries (DBusHashTable *table)
 #include "dbus-test.h"
 #include <stdio.h>
 
+/* If you're wondering why the hash table test takes
+ * forever to run, it's because we call this function
+ * in inner loops thus making things quadratic.
+ */
 static int
 count_entries (DBusHashTable *table)
 {
@@ -1114,6 +1198,17 @@ _dbus_hash_test (void)
   DBusHashTable *table1;
   DBusHashTable *table2;
   DBusHashIter iter;
+#define N_HASH_KEYS 5000
+  char keys[N_HASH_KEYS][128];
+
+  printf ("Computing test hash keys...\n");
+  i = 0;
+  while (i < N_HASH_KEYS)
+    {
+      sprintf (keys[i], "Hash key %d", i); 
+      ++i;
+    }
+  printf ("... done.\n");
   
   table1 = _dbus_hash_table_new (DBUS_HASH_STRING,
                                  dbus_free, dbus_free);
@@ -1131,12 +1226,10 @@ _dbus_hash_test (void)
   i = 0;
   while (i < 3000)
     {
-      char buf[256];
-      sprintf (buf, "Hash key %d", i);
       void *value;
       char *key;
 
-      key = _dbus_strdup (buf);
+      key = _dbus_strdup (keys[i]);
       if (key == NULL)
         return FALSE;
       value = _dbus_strdup ("Value!");
@@ -1147,7 +1240,7 @@ _dbus_hash_test (void)
                                            key, value))
         return FALSE;
 
-      value = _dbus_strdup (buf);
+      value = _dbus_strdup (keys[i]);
       if (value == NULL)
         return FALSE;
       
@@ -1158,13 +1251,13 @@ _dbus_hash_test (void)
       _dbus_assert (count_entries (table1) == i + 1);
       _dbus_assert (count_entries (table2) == i + 1);
 
-      value = _dbus_hash_table_lookup_string (table1, buf);
+      value = _dbus_hash_table_lookup_string (table1, keys[i]);
       _dbus_assert (value != NULL);
       _dbus_assert (strcmp (value, "Value!") == 0);
 
       value = _dbus_hash_table_lookup_int (table2, i);
       _dbus_assert (value != NULL);
-      _dbus_assert (strcmp (value, buf) == 0);
+      _dbus_assert (strcmp (value, keys[i]) == 0);
       
       ++i;
     }
@@ -1172,11 +1265,8 @@ _dbus_hash_test (void)
   --i;
   while (i >= 0)
     {
-      char buf[256];
-      sprintf (buf, "Hash key %d", i);
-      
       _dbus_hash_table_remove_string (table1,
-                                      buf);
+                                      keys[i]);
 
       _dbus_hash_table_remove_int (table2, i);
 
@@ -1211,12 +1301,10 @@ _dbus_hash_test (void)
   i = 0;
   while (i < 5000)
     {
-      char buf[256];
-      sprintf (buf, "Hash key %d", i);
       char *key;
       void *value;      
       
-      key = _dbus_strdup (buf);
+      key = _dbus_strdup (keys[i]);
       if (key == NULL)
         return FALSE;
       value = _dbus_strdup ("Value!");
@@ -1227,7 +1315,7 @@ _dbus_hash_test (void)
                                            key, value))
         return FALSE;
 
-      value = _dbus_strdup (buf);
+      value = _dbus_strdup (keys[i]);
       if (value == NULL)
         return FALSE;
       
@@ -1297,7 +1385,60 @@ _dbus_hash_test (void)
       _dbus_assert (count_entries (table2) + 1 == i);
       --i;
     }
-  
+
+  /* add/remove interleaved, to check that we grow/shrink the table
+   * appropriately
+   */
+  i = 0;
+  while (i < 1000)
+    {
+      char *key;
+      void *value;
+            
+      key = _dbus_strdup (keys[i]);
+      if (key == NULL)
+        return FALSE;
+
+      value = _dbus_strdup ("Value!");
+      if (value == NULL)
+        return FALSE;
+      
+      if (!_dbus_hash_table_insert_string (table1,
+                                           key, value))
+        return FALSE;
+      
+      ++i;
+    }
+
+  --i;
+  while (i >= 0)
+    {
+      char *key;
+      void *value;      
+      
+      key = _dbus_strdup (keys[i]);
+      if (key == NULL)
+        return FALSE;
+      value = _dbus_strdup ("Value!");
+      if (value == NULL)
+        return FALSE;
+
+      if (!_dbus_hash_table_remove_string (table1, keys[i]))
+        return FALSE;
+      
+      if (!_dbus_hash_table_insert_string (table1,
+                                           key, value))
+        return FALSE;
+
+      if (!_dbus_hash_table_remove_string (table1, keys[i]))
+        return FALSE;
+      
+      _dbus_assert (_dbus_hash_table_get_n_entries (table1) == i);
+      
+      --i;
+    }
+
+  /* nuke these tables */
   _dbus_hash_table_unref (table1);
   _dbus_hash_table_unref (table2);
 
@@ -1318,12 +1459,10 @@ _dbus_hash_test (void)
   i = 0;
   while (i < 3000)
     {
-      char buf[256];
-      sprintf (buf, "Hash key %d", i);
       void *value;
       char *key;
 
-      key = _dbus_strdup (buf);
+      key = _dbus_strdup (keys[i]);
       if (key == NULL)
         return FALSE;
       value = _dbus_strdup ("Value!");
@@ -1336,7 +1475,7 @@ _dbus_hash_test (void)
       _dbus_assert (_dbus_hash_iter_get_value (&iter) == NULL);
       _dbus_hash_iter_set_value (&iter, value);
 
-      value = _dbus_strdup (buf);
+      value = _dbus_strdup (keys[i]);
       if (value == NULL)
         return FALSE;
 
@@ -1349,7 +1488,7 @@ _dbus_hash_test (void)
       _dbus_assert (count_entries (table1) == i + 1);
       _dbus_assert (count_entries (table2) == i + 1);
 
-      if (!_dbus_hash_iter_lookup (table1, buf, FALSE, &iter))
+      if (!_dbus_hash_iter_lookup (table1, keys[i], FALSE, &iter))
         return FALSE;
       
       value = _dbus_hash_iter_get_value (&iter);
@@ -1367,7 +1506,7 @@ _dbus_hash_test (void)
 
       value = _dbus_hash_iter_get_value (&iter);
       _dbus_assert (value != NULL);
-      _dbus_assert (strcmp (value, buf) == 0);
+      _dbus_assert (strcmp (value, keys[i]) == 0);
 
       /* Iterate just to be sure it works, though
        * it's a stupid thing to do
@@ -1381,10 +1520,7 @@ _dbus_hash_test (void)
   --i;
   while (i >= 0)
     {
-      char buf[256];
-      sprintf (buf, "Hash key %d", i);
-
-      if (!_dbus_hash_iter_lookup (table1, buf, FALSE, &iter))
+      if (!_dbus_hash_iter_lookup (table1, keys[i], FALSE, &iter))
         _dbus_assert_not_reached ("hash entry should have existed");
       _dbus_hash_iter_remove_entry (&iter);
       

@@ -23,7 +23,7 @@
 
 #include <glib.h>
 #include <dbus/dbus.h>
-#include "dbus-gthread.h"
+#include "dbus-glib.h"
 
 static DBusMutex * dbus_gmutex_new    (void);
 static void        dbus_gmutex_free   (DBusMutex *mutex);

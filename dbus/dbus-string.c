@@ -1200,9 +1200,9 @@ _dbus_string_test (void)
 
   _dbus_assert (v == 27);
   _dbus_assert (end == i);
-    
-  _dbus_string_set_length (&str, 0);
 
+  _dbus_string_free (&str);
+  
   if (!_dbus_string_init (&str, _DBUS_INT_MAX))
     _dbus_assert_not_reached ("failed to init string");
   

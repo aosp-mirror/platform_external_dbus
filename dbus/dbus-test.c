@@ -24,23 +24,35 @@
 #include "dbus-types.h"
 #include "dbus-test.h"
 #include <stdio.h>
+#include <stdlib.h>
+
+static void
+die (const char *failure)
+{
+  fprintf (stderr, "Failed: %s\n", failure);
+  exit (1);
+}
 
 int
 main (int    argc,
       char **argv)
 {
 
+  printf ("%s: running memory pool tests\n", argv[0]);
+  if (!_dbus_mem_pool_test ())
+    die ("memory pools");
+  
   printf ("%s: running string tests\n", argv[0]);
   if (!_dbus_string_test ())
-    return 1;
+    die ("strings");
   
   printf ("%s: running linked list tests\n", argv[0]);
   if (!_dbus_list_test ())
-    return 1;
+    die ("lists");
 
   printf ("%s: running hash table tests\n", argv[0]);
   if (!_dbus_hash_test ())
-    return 1;
+    die ("hash tables");
   
   printf ("%s: completed successfully\n", argv[0]);
   return 0;

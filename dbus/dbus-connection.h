@@ -35,6 +35,13 @@ DBUS_BEGIN_DECLS;
 
 typedef struct DBusConnection DBusConnection;
 typedef struct DBusWatch DBusWatch;
+typedef struct DBusMessageHandler DBusMessageHandler;
+
+typedef enum
+{
+  DBUS_HANDLER_RESULT_REMOVE_MESSAGE,     /**< Remove this message, no further processing. */
+  DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS /**< Run any additional handlers that are interested on this message. */
+} DBusHandlerResult;
 
 typedef enum
 {
@@ -63,15 +70,21 @@ void            dbus_connection_ref              (DBusConnection *connection);
 void            dbus_connection_unref            (DBusConnection *connection);
 void            dbus_connection_disconnect       (DBusConnection *connection);
 dbus_bool_t     dbus_connection_get_is_connected (DBusConnection *connection);
-dbus_bool_t     dbus_connection_send_message     (DBusConnection *connection,
-                                                  DBusMessage    *message,
-                                                  DBusResultCode *result);
 void            dbus_connection_flush            (DBusConnection *connection);
 
 int          dbus_connection_get_n_messages      (DBusConnection *connection);
 DBusMessage* dbus_connection_peek_message        (DBusConnection *connection);
 DBusMessage* dbus_connection_pop_message         (DBusConnection *connection);
+dbus_bool_t  dbus_connection_dispatch_message    (DBusConnection *connection);
 
+dbus_bool_t dbus_connection_send_message            (DBusConnection     *connection,
+                                                     DBusMessage        *message,
+                                                     DBusResultCode     *result);
+dbus_bool_t dbus_connection_send_message_with_reply (DBusConnection     *connection,
+                                                     DBusMessage        *message,
+                                                     DBusMessageHandler *reply_handler,
+                                                     int                 timeout_milliseconds,
+                                                     DBusResultCode     *result);
 
 void dbus_connection_set_error_function  (DBusConnection              *connection,
                                           DBusConnectionErrorFunction  error_function,
@@ -86,7 +99,6 @@ void dbus_connection_handle_watch        (DBusConnection              *connectio
                                           DBusWatch                   *watch,
                                           unsigned int                 condition);
 
-
 int          dbus_watch_get_fd    (DBusWatch        *watch);
 unsigned int dbus_watch_get_flags (DBusWatch        *watch);
 void*        dbus_watch_get_data  (DBusWatch        *watch);
@@ -94,6 +106,21 @@ void         dbus_watch_set_data  (DBusWatch        *watch,
                                    void             *data,
                                    DBusFreeFunction  free_data_function);
 
+
+/* Handlers */
+dbus_bool_t dbus_connection_add_filter         (DBusConnection      *connection,
+                                                DBusMessageHandler  *handler);
+void        dbus_connection_remove_filter      (DBusConnection      *connection,
+                                                DBusMessageHandler  *handler);
+
+dbus_bool_t dbus_connection_register_handler   (DBusConnection      *connection,
+                                                DBusMessageHandler  *handler,
+                                                const char         **messages_to_handle,
+                                                int                  n_messages);
+void        dbus_connection_unregister_handler (DBusConnection      *connection,
+                                                DBusMessageHandler  *handler,
+                                                const char         **messages_to_handle,
+                                                int                  n_messages);
 
 DBUS_END_DECLS;
 

@@ -26,8 +26,10 @@
 
 #include <dbus/dbus-types.h>
 
-dbus_bool_t _dbus_hash_test   (void);
-dbus_bool_t _dbus_list_test   (void);
-dbus_bool_t _dbus_string_test (void);
+dbus_bool_t _dbus_hash_test     (void);
+dbus_bool_t _dbus_list_test     (void);
+dbus_bool_t _dbus_mem_pool_test (void);
+dbus_bool_t _dbus_string_test   (void);
+
 
 #endif /* DBUS_TEST_H */
