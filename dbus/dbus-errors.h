@@ -72,7 +72,7 @@ struct DBusError
 #define DBUS_ERROR_DISCONNECTED               "org.freedesktop.DBus.Error.Disconnected"
 #define DBUS_ERROR_INVALID_ARGS               "org.freedesktop.DBus.Error.InvalidArgs"
 #define DBUS_ERROR_FILE_NOT_FOUND             "org.freedesktop.DBus.Error.FileNotFound"
-#define DBUS_ERROR_UNKNOWN_MESSAGE            "org.freedesktop.DBus.Error.UnknownMessage"
+#define DBUS_ERROR_UNKNOWN_METHOD             "org.freedesktop.DBus.Error.UnknownMethod"
 #define DBUS_ERROR_TIMED_OUT                  "org.freedesktop.DBus.Error.TimedOut"
 
 void        dbus_error_init      (DBusError       *error);

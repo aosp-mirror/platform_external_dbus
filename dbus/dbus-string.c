@@ -25,6 +25,8 @@
 #include "dbus-string.h"
 /* we allow a system header here, for speed/convenience */
 #include <string.h>
+/* for vsnprintf */
+#include <stdio.h>
 #include "dbus-marshal.h"
 #define DBUS_CAN_USE_DBUS_STRING_PRIVATE 1
 #include "dbus-string-private.h"
@@ -984,6 +986,59 @@ _dbus_string_append_8_aligned (DBusString         *str,
 #endif
 
   return TRUE;
+}
+
+/**
+ * Appends a printf-style formatted string
+ * to the #DBusString.
+ *
+ * @param str the string
+ * @param format printf format
+ * @param args variable argument list
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_string_append_printf_valist  (DBusString        *str,
+                                    const char        *format,
+                                    va_list            args)
+{
+  DBUS_STRING_PREAMBLE (str);
+  int len;
+  char c;
+  
+  /* Measure the message length without terminating nul */
+  len = vsnprintf (&c, 1, format, args);
+
+  if (!_dbus_string_lengthen (str, len))
+    return FALSE;
+
+  vsprintf (real->str + (real->len - len),
+            format, args);
+
+  return TRUE;
+}
+
+/**
+ * Appends a printf-style formatted string
+ * to the #DBusString.
+ *
+ * @param str the string
+ * @param format printf format
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_string_append_printf (DBusString        *str,
+                            const char        *format,
+                            ...)
+{
+  va_list args;
+  dbus_bool_t retval;
+  
+  va_start (args, format);
+  retval = _dbus_string_append_printf_valist (str, format, args);
+  va_end (args);
+
+  return retval;
 }
 
 /**

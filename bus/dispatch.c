@@ -100,7 +100,7 @@ bus_dispatch_broadcast_message (BusTransaction *transaction,
     return TRUE;
 }
 
-static void
+static DBusHandlerResult
 bus_dispatch (DBusConnection *connection,
               DBusMessage    *message)
 {
@@ -108,6 +108,9 @@ bus_dispatch (DBusConnection *connection,
   DBusError error;
   BusTransaction *transaction;
   BusContext *context;
+  DBusHandlerResult result;
+
+  result = DBUS_HANDLER_RESULT_HANDLED;
   
   transaction = NULL;
   dbus_error_init (&error);
@@ -145,6 +148,7 @@ bus_dispatch (DBusConnection *connection,
       /* DBusConnection also handles some of these automatically, we leave
        * it to do so.
        */
+      result = DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
       goto out;
     }
 
@@ -295,6 +299,8 @@ bus_dispatch (DBusConnection *connection,
     }
 
   dbus_connection_unref (connection);
+
+  return result;
 }
 
 static DBusHandlerResult
@@ -303,9 +309,7 @@ bus_dispatch_message_handler (DBusMessageHandler *handler,
 			      DBusMessage        *message,
 			      void               *user_data)
 {
-  bus_dispatch (connection, message);
-  
-  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+  return bus_dispatch (connection, message);
 }
 
 static void

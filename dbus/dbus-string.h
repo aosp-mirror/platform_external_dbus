@@ -28,10 +28,11 @@
 
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
+#include <dbus/dbus-sysdeps.h>
+
+#include <stdarg.h>
 
 DBUS_BEGIN_DECLS;
-
-typedef struct DBusString DBusString;
 
 struct DBusString
 {
@@ -111,6 +112,12 @@ dbus_bool_t   _dbus_string_append_4_aligned      (DBusString        *str,
                                                   const unsigned char octets[4]);
 dbus_bool_t   _dbus_string_append_8_aligned      (DBusString        *str,
                                                   const unsigned char octets[8]);
+dbus_bool_t   _dbus_string_append_printf         (DBusString        *str,
+                                                  const char        *format,
+                                                  ...) _DBUS_GNUC_PRINTF (2, 3);
+dbus_bool_t   _dbus_string_append_printf_valist  (DBusString        *str,
+                                                  const char        *format,
+                                                  va_list            args);
 void          _dbus_string_delete                (DBusString        *str,
                                                   int                start,
                                                   int                len);

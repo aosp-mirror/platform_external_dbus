@@ -36,6 +36,7 @@
 #include "dbus-protocol.h"
 #include "dbus-dataslot.h"
 #include "dbus-object-registry.h"
+#include "dbus-string.h"
 
 #if 0
 #define CONNECTION_LOCK(connection)   do {                      \
@@ -1942,6 +1943,8 @@ dbus_connection_borrow_message  (DBusConnection *connection)
   DBusDispatchStatus status;
 
   _dbus_return_val_if_fail (connection != NULL, NULL);
+  /* can't borrow during dispatch */
+  _dbus_return_val_if_fail (!connection->dispatch_acquired, NULL);
   
   /* this is called for the side effect that it queues
    * up any messages from the transport
@@ -1977,6 +1980,8 @@ dbus_connection_return_message (DBusConnection *connection,
 {
   _dbus_return_if_fail (connection != NULL);
   _dbus_return_if_fail (message != NULL);
+  /* can't borrow during dispatch */
+  _dbus_return_if_fail (!connection->dispatch_acquired);
   
   CONNECTION_LOCK (connection);
   
@@ -2005,6 +2010,8 @@ dbus_connection_steal_borrowed_message (DBusConnection *connection,
 
   _dbus_return_if_fail (connection != NULL);
   _dbus_return_if_fail (message != NULL);
+  /* can't borrow during dispatch */
+  _dbus_return_if_fail (!connection->dispatch_acquired);
   
   CONNECTION_LOCK (connection);
  
@@ -2074,6 +2081,22 @@ _dbus_connection_pop_message_unlocked (DBusConnection *connection)
     return NULL;
 }
 
+static void
+_dbus_connection_putback_message_link_unlocked (DBusConnection *connection,
+                                                DBusList       *message_link)
+{
+  _dbus_assert (message_link != NULL);
+  /* You can't borrow a message while a link is outstanding */
+  _dbus_assert (connection->message_borrowed == NULL);
+
+  _dbus_list_prepend_link (&connection->incoming_messages,
+                           message_link);
+  connection->n_incoming += 1;
+
+  _dbus_verbose ("Message %p (%s) put back into queue %p, %d incoming\n",
+                 message_link->data, dbus_message_get_name (message_link->data),
+                 connection, connection->n_incoming);
+}
 
 /**
  * Returns the first-received message from the incoming message queue,
@@ -2360,7 +2383,7 @@ dbus_connection_dispatch (DBusConnection *connection)
   CONNECTION_LOCK (connection);
 
   if (result == DBUS_HANDLER_RESULT_NEED_MEMORY)
-    /* FIXME */ ;
+    goto out;
   
   /* Did a reply we were waiting on get filtered? */
   if (reply_handler_data && result == DBUS_HANDLER_RESULT_HANDLED)
@@ -2405,22 +2428,84 @@ dbus_connection_dispatch (DBusConnection *connection)
                                                     message);
   
   CONNECTION_LOCK (connection);
-  if (result == DBUS_HANDLER_RESULT_HANDLED)
+
+  if (result != DBUS_HANDLER_RESULT_NOT_YET_HANDLED)
     goto out;
 
-  if (result == DBUS_HANDLER_RESULT_NEED_MEMORY)
-    /* FIXME */ ; 
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_METHOD_CALL)
+    {
+      DBusMessage *reply;
+      DBusString str;
+      DBusPreallocatedSend *preallocated;
+
+      _dbus_verbose ("  sending error %s\n",
+                     DBUS_ERROR_UNKNOWN_METHOD);
+      
+      if (!_dbus_string_init (&str))
+        {
+          result = DBUS_HANDLER_RESULT_NEED_MEMORY;
+          goto out;
+        }
+              
+      if (!_dbus_string_append_printf (&str,
+                                       "Method \"%s\" doesn't exist\n",
+                                       dbus_message_get_name (message)))
+        {
+          _dbus_string_free (&str);
+          result = DBUS_HANDLER_RESULT_NEED_MEMORY;
+          goto out;
+        }
+      
+      reply = dbus_message_new_error (message,
+                                      DBUS_ERROR_UNKNOWN_METHOD,
+                                      _dbus_string_get_const_data (&str));
+      _dbus_string_free (&str);
+
+      if (reply == NULL)
+        {
+          result = DBUS_HANDLER_RESULT_NEED_MEMORY;
+          goto out;
+        }
+      
+      preallocated = _dbus_connection_preallocate_send_unlocked (connection);
+
+      if (preallocated == NULL)
+        {
+          dbus_message_unref (reply);
+          result = DBUS_HANDLER_RESULT_NEED_MEMORY;
+          goto out;
+        }
+
+      _dbus_connection_send_preallocated_unlocked (connection, preallocated,
+                                                   reply, NULL);
+
+      dbus_message_unref (reply);
+      
+      result = DBUS_HANDLER_RESULT_HANDLED;
+    }
   
   _dbus_verbose ("  done dispatching %p (%s) on connection %p\n", message,
                  dbus_message_get_name (message), connection);
   
  out:
+  if (result == DBUS_HANDLER_RESULT_NEED_MEMORY)
+    {
+      /* Put message back, and we'll start over.
+       * Yes this means handlers must be idempotent if they
+       * don't return HANDLED; c'est la vie.
+       */
+      _dbus_connection_putback_message_link_unlocked (connection,
+                                                      message_link);
+    }
+  else
+    {
+      _dbus_list_free_link (message_link);
+      dbus_message_unref (message); /* don't want the message to count in max message limits
+                                     * in computing dispatch status below
+                                     */
+    }
+  
   _dbus_connection_release_dispatch (connection);
-
-  _dbus_list_free_link (message_link);
-  dbus_message_unref (message); /* don't want the message to count in max message limits
-                                 * in computing dispatch status
-                                 */
   
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
 

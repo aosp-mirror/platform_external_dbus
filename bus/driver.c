@@ -662,7 +662,7 @@ bus_driver_handle_message (DBusConnection *connection,
 
   _dbus_verbose ("No driver handler for %s\n", name);
 
-  dbus_set_error (error, DBUS_ERROR_UNKNOWN_MESSAGE,
+  dbus_set_error (error, DBUS_ERROR_UNKNOWN_METHOD,
                   "%s does not understand message %s",
                   DBUS_SERVICE_DBUS, name);
   

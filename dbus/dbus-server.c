@@ -23,6 +23,7 @@
 
 #include "dbus-server.h"
 #include "dbus-server-unix.h"
+#include "dbus-string.h"
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-server-debug-pipe.h"
 #endif

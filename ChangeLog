@@ -1,3 +1,21 @@
+2003-08-12  Havoc Pennington  <hp@pobox.com>
+
+	* bus/dispatch.c (bus_dispatch): make this return proper 
+	DBusHandlerResult to avoid DBUS_ERROR_UNKNOWN_METHOD
+
+	* dbus/dbus-errors.c (dbus_set_error): use
+	_dbus_string_append_printf_valist
+
+	* dbus/dbus-string.c (_dbus_string_append_printf_valist)
+	(_dbus_string_append_printf): new
+
+	* dbus/dbus-errors.h (DBUS_ERROR_UNKNOWN_MESSAGE): change to
+	UNKNOWN_METHOD
+
+	* dbus/dbus-connection.c (dbus_connection_dispatch): handle
+	DBUS_HANDLER_RESULT_NEED_MEMORY; send default error reply if a
+	message is unhandled.
+
 2003-08-11  Havoc Pennington  <hp@pobox.com>
 
 	* bus/test.c (client_disconnect_handler): change to return

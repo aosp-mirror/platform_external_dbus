@@ -25,7 +25,6 @@
 #ifndef DBUS_SYSDEPS_H
 #define DBUS_SYSDEPS_H
 
-#include <dbus/dbus-string.h>
 #include <dbus/dbus-errors.h>
 
 /* this is perhaps bogus, but strcmp() etc. are faster if we use the
@@ -46,6 +45,8 @@ DBUS_BEGIN_DECLS;
  * outside of this file and a limited number of others (such as
  * dbus-memory.c)
  */
+
+typedef struct DBusString DBusString;
 
 #if     __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
 #define _DBUS_GNUC_PRINTF( format_idx, arg_idx )    \

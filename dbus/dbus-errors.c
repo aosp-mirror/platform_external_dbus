@@ -23,8 +23,8 @@
  */
 #include "dbus-errors.h"
 #include "dbus-internals.h"
+#include "dbus-string.h"
 #include <stdarg.h>
-#include <stdio.h>
 #include <string.h>
 
 /**
@@ -292,9 +292,6 @@ dbus_error_is_set (const DBusError *error)
  *
  * @todo should be called dbus_error_set()
  *
- * @todo stdio.h shouldn't be included in this file,
- * should write _dbus_string_append_printf instead
- * 
  * @param error the error.
  * @param name the error name (not copied!!!)
  * @param format printf-style format string.
@@ -306,11 +303,9 @@ dbus_set_error (DBusError  *error,
 		...)
 {
   DBusRealError *real;
+  DBusString str;
   va_list args;
-  int message_length;
-  char *message;
-  char c;
-
+  
   if (error == NULL)
     return;
 
@@ -321,31 +316,46 @@ dbus_set_error (DBusError  *error,
   _dbus_assert (error->name == NULL);
   _dbus_assert (error->message == NULL);
 
+  if (!_dbus_string_init (&str))
+    goto nomem;
+  
   if (format == NULL)
-    format = message_from_error (name);
-  
-  va_start (args, format);
-  /* Measure the message length */
-  message_length = vsnprintf (&c, 1, format, args) + 1;
-  va_end (args);
-  
-  message = dbus_malloc (message_length);
-  
-  if (!message)
     {
-      dbus_set_error_const (error, DBUS_ERROR_NO_MEMORY, NULL);
-      return;
+      if (!_dbus_string_append (&str,
+                                message_from_error (name)))
+        {
+          _dbus_string_free (&str);
+          goto nomem;
+        }
     }
-  
-  va_start (args, format);  
-  vsprintf (message, format, args);  
-  va_end (args);
+  else
+    {
+      va_start (args, format);
+      if (!_dbus_string_append_printf_valist (&str, format, args))
+        {
+          _dbus_string_free (&str);
+          goto nomem;
+        }
+      va_end (args);
+    }
 
   real = (DBusRealError *)error;
+
+  if (!_dbus_string_steal_data (&str, &real->message))
+    {
+      _dbus_string_free (&str);
+      goto nomem;
+    }
   
   real->name = name;
-  real->message = message;
   real->const_message = FALSE;
+
+  _dbus_string_free (&str);
+
+  return;
+  
+ nomem:
+  dbus_set_error_const (error, DBUS_ERROR_NO_MEMORY, NULL);      
 }
 
 /** @} */

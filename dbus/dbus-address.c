@@ -25,6 +25,7 @@
 #include "dbus-address.h"
 #include "dbus-internals.h"
 #include "dbus-list.h"
+#include "dbus-string.h"
 
 /**
  * @defgroup DBusAddress Address parsing
