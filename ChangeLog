@@ -1,5 +1,12 @@
 2003-04-02  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-string.c (set_length): fix a bug - we allocated max of
+	current alloc and needed new length, not max of the doubled
+	allocation and needed new length. Also, when building tests, 
+	don't do the double-allocation stuff, just realloc every time.
+
+2003-04-02  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-sysdeps.c (_dbus_file_get_contents): include filenames
 	in error messages
 	(_dbus_string_get_dirname): new

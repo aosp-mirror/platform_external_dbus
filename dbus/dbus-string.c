@@ -361,8 +361,17 @@ set_length (DBusRealString *real,
       else
         new_allocated = real->allocated * 2;
 
+      /* if you change the code just above here, run the tests without
+       * the following before you commit
+       */
+#ifdef DBUS_BUILD_TESTS
+      new_allocated = 0; /* ensure a realloc every time so that we go
+                          * through all malloc failure codepaths
+                          */
+#endif
+      
       /* But be sure we always alloc at least space for the new length */
-      new_allocated = MAX (real->allocated, new_length + ALLOCATION_PADDING);
+      new_allocated = MAX (new_allocated, new_length + ALLOCATION_PADDING);
         
       new_str = dbus_realloc (real->str - real->align_offset, new_allocated);
       if (new_str == NULL)
