@@ -1819,6 +1819,20 @@
       </glossdef>
     </glossentry>
 
+    <glossentry id="namespace"><glossterm>Namespace</glossterm>
+      <glossdef>
+	<para>Used to prevent collisions when defining message and
+	service names. The convention used is the same as Java uses
+	for defining classes: a reversed domain name. 
+      </glossdef>
+    </glossentry>
+    <glossentry id="peer-to-peer"><glossterm>Peer-to-peer</glossterm>
+      <glossdef>
+	<para>
+          An application talking directly to another application, without going through a message bus. 
+        </para>
+      </glossdef>
+    </glossentry>
     <glossentry id="term-service"><glossterm>Service</glossterm>
       <glossdef>
         <para>
@@ -1833,7 +1847,15 @@
         </para>
       </glossdef>
     </glossentry>
-
+    <glossentry id="term-service-name"><glossterm>Service name</glossterm>
+      <glossdef>
+	<para>
+          The name used when referring to a service. If the service is
+          a base service it has a unique service name, for example
+          ":1-20", and otherwise it should be namespaced.
+        </para>
+      </glossdef>
+    </glossentry>
     <glossentry id="term-service-description-files"><glossterm>Service Description Files</glossterm>
       <glossdef>
         <para>
