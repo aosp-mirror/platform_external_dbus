@@ -1,3 +1,9 @@
+2003-10-15  Seth Nickell  <seth@gnome.org>
+
+	* python/Makefile.am:
+
+	Include dbus_h_wrapper.h in the dist tarball.
+
 2003-10-14  Havoc Pennington  <hp@redhat.com>
 
 	* bus/bus.c (bus_context_check_security_policy): revamp this to
