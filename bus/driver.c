@@ -32,12 +32,12 @@
 static void bus_driver_send_welcome_message (DBusConnection *connection,
 					     DBusMessage    *hello_message);
 
-static void
-bus_driver_send_service_deleted (DBusConnection *connection, const char *name)
+void
+bus_driver_send_service_deleted (const char *service_name)
 {
   DBusMessage *message;
 
-  _dbus_verbose ("sending service deleted: %s\n", name);
+  _dbus_verbose ("sending service deleted: %s\n", service_name);
   
   _DBUS_HANDLE_OOM (message = dbus_message_new (DBUS_SERVICE_BROADCAST,
 						DBUS_MESSAGE_SERVICE_DELETED));
@@ -45,14 +45,14 @@ bus_driver_send_service_deleted (DBusConnection *connection, const char *name)
   _DBUS_HANDLE_OOM (dbus_message_set_sender (message, DBUS_SERVICE_DBUS));
 
   _DBUS_HANDLE_OOM (dbus_message_append_fields (message,
-						DBUS_TYPE_STRING, name,
+						DBUS_TYPE_STRING, service_name,
 						0));
   bus_dispatch_broadcast_message (message);
   dbus_message_unref (message);  
 }
 
 static void
-bus_driver_send_service_created (DBusConnection *connection, const char *name)
+bus_driver_send_service_created (const char *service_name)
 {
   DBusMessage *message;
 
@@ -62,9 +62,45 @@ bus_driver_send_service_created (DBusConnection *connection, const char *name)
   _DBUS_HANDLE_OOM (dbus_message_set_sender (message, DBUS_SERVICE_DBUS));
 
   _DBUS_HANDLE_OOM (dbus_message_append_fields (message,
-						DBUS_TYPE_STRING, name,
+						DBUS_TYPE_STRING, service_name,
 						0));
   bus_dispatch_broadcast_message (message);
+  dbus_message_unref (message);
+}
+
+void
+bus_driver_send_service_lost (DBusConnection *connection,
+			      const char *service_name)
+{
+  DBusMessage *message;
+
+  _DBUS_HANDLE_OOM (message = dbus_message_new (DBUS_SERVICE_BROADCAST,
+						DBUS_MESSAGE_SERVICE_LOST));
+  
+  _DBUS_HANDLE_OOM (dbus_message_set_sender (message, DBUS_SERVICE_DBUS));
+  _DBUS_HANDLE_OOM (dbus_message_append_fields (message,
+						DBUS_TYPE_STRING, service_name,
+						0));
+  _DBUS_HANDLE_OOM (dbus_connection_send_message (connection, message, NULL, NULL));
+  
+  dbus_message_unref (message);
+}
+
+void
+bus_driver_send_service_acquired (DBusConnection *connection,
+				  const char *service_name)
+{
+  DBusMessage *message;
+
+  _DBUS_HANDLE_OOM (message = dbus_message_new (DBUS_SERVICE_BROADCAST,
+						DBUS_MESSAGE_SERVICE_ACQUIRED));
+  
+  _DBUS_HANDLE_OOM (dbus_message_set_sender (message, DBUS_SERVICE_DBUS));
+  _DBUS_HANDLE_OOM (dbus_message_append_fields (message,
+						DBUS_TYPE_STRING, service_name,
+						0));
+  _DBUS_HANDLE_OOM (dbus_connection_send_message (connection, message, NULL, NULL));
+  
   dbus_message_unref (message);
 }
 
@@ -158,7 +194,8 @@ bus_driver_handle_hello (DBusConnection *connection,
   
   /* Create the service */
   _DBUS_HANDLE_OOM (service = bus_service_lookup (&unique_name, TRUE));
-
+  bus_service_set_prohibit_replacement (service, TRUE);
+  
   /* Add the connection as the owner */
   _DBUS_HANDLE_OOM (bus_service_add_owner (service, connection));
   _DBUS_HANDLE_OOM (bus_connection_set_name (connection, &unique_name));
@@ -171,7 +208,7 @@ bus_driver_handle_hello (DBusConnection *connection,
   _DBUS_HANDLE_OOM (bus_driver_send_welcome_message (connection, message));
 
   /* Broadcast a service created message */
-  bus_driver_send_service_created (connection, bus_service_get_name (service));
+  bus_driver_send_service_created (bus_service_get_name (service));
 }
 
 static void
@@ -184,7 +221,7 @@ bus_driver_send_welcome_message (DBusConnection *connection,
   name = bus_connection_get_name (connection);
   _dbus_assert (name != NULL);
   
-  _DBUS_HANDLE_OOM (welcome = dbus_message_new_reply (DBUS_MESSAGE_WELCOME,
+  _DBUS_HANDLE_OOM (welcome = dbus_message_new_reply (DBUS_MESSAGE_HELLO_REPLY,
 						      hello_message));
   
   _DBUS_HANDLE_OOM (dbus_message_set_sender (welcome, DBUS_SERVICE_DBUS));
@@ -206,7 +243,7 @@ bus_driver_handle_list_services (DBusConnection *connection,
   int len, i;
   char **services;
 
-  _DBUS_HANDLE_OOM (reply = dbus_message_new_reply (DBUS_MESSAGE_SERVICES, message));
+  _DBUS_HANDLE_OOM (reply = dbus_message_new_reply (DBUS_MESSAGE_LIST_SERVICES_REPLY, message));
 
   _DBUS_HANDLE_OOM (services = bus_services_list (&len));
 
@@ -226,26 +263,125 @@ bus_driver_handle_list_services (DBusConnection *connection,
     }
 }
 
-void
-bus_driver_remove_connection (DBusConnection *connection)
+static void
+bus_driver_handle_own_service (DBusConnection *connection,
+			       DBusMessage    *message)
 {
-  BusService *service;
+  DBusMessage *reply;
+  DBusResultCode result;
   DBusString service_name;
-  const char *name;
-
-  name = bus_connection_get_name (connection);
-
-  if (name == NULL)
-    return;
+  BusService *service;  
+  char *name;
+  int service_reply;
+  int flags;
   
+  _DBUS_HANDLE_OOM ((result = dbus_message_get_fields (message,
+						       DBUS_TYPE_STRING, &name,
+						       DBUS_TYPE_UINT32, &flags,
+						       0)) != DBUS_RESULT_NO_MEMORY);
+  
+  if (result != DBUS_RESULT_SUCCESS)
+    {
+      dbus_free (name);
+      dbus_connection_disconnect (connection);
+      return;
+    }
+
+  _dbus_verbose ("Trying to own service %s with flags %d\n", name, flags);
+
   _dbus_string_init_const (&service_name, name);
-  
-  service = bus_service_lookup (&service_name, FALSE);
+  service = bus_service_lookup (&service_name, TRUE);
 
-  bus_driver_send_service_deleted (connection, name);
+  _DBUS_HANDLE_OOM ((reply = dbus_message_new_reply (DBUS_MESSAGE_ACQUIRE_SERVICE_REPLY, message)));
   
-  if (service)
-    bus_service_free (service);
+  /*
+   * Check if the service already has an owner
+   */
+  if (bus_service_get_primary_owner (service) != NULL)
+    {
+      if (bus_service_has_owner (service, connection))
+	service_reply = DBUS_SERVICE_REPLY_ALREADY_OWNER;
+      else if (!(flags & DBUS_SERVICE_FLAG_REPLACE_EXISTING))
+	service_reply = DBUS_SERVICE_REPLY_SERVICE_EXISTS;
+      else
+	{
+	  if (bus_service_get_prohibit_replacement (service))
+	    {
+	      
+	      /* Queue the connection */
+	      _DBUS_HANDLE_OOM (bus_service_add_owner (service, connection));
+	      
+	      service_reply = DBUS_SERVICE_REPLY_IN_QUEUE;
+	    }
+	  else
+	    {
+	      DBusConnection *owner;
+	      
+	      /* We can replace the primary owner */
+	      owner = bus_service_get_primary_owner (service);
+
+	      /* We enqueue the new owner and remove the first one because
+	       * that will cause ServiceAcquired and ServiceLost messages to
+	       * be sent.
+	       */
+	      _DBUS_HANDLE_OOM (bus_service_add_owner (service, connection));
+	      bus_service_remove_owner (service, owner);
+	      _dbus_assert (connection == bus_service_get_primary_owner (service));
+	    }
+	}
+    }
+  else
+    {
+      bus_service_set_prohibit_replacement (service,
+					    (flags & DBUS_SERVICE_FLAG_PROHIBIT_REPLACEMENT));
+      
+      /* Broadcast service created message */
+      bus_driver_send_service_created (bus_service_get_name (service));
+      
+      _DBUS_HANDLE_OOM (bus_service_add_owner (service, connection));
+			
+      service_reply = DBUS_SERVICE_REPLY_PRIMARY_OWNER;
+    }
+
+  /* Send service reply */
+  _DBUS_HANDLE_OOM (dbus_connection_send_message (connection, reply, NULL, NULL));
+  dbus_free (name);
+  dbus_message_unref (reply);
+}
+
+static void
+bus_driver_handle_service_exists (DBusConnection *connection,
+				  DBusMessage    *message)
+{
+  DBusMessage *reply;
+  DBusResultCode result;
+  DBusString service_name;
+  BusService *service;
+  char *name;
+  
+  _DBUS_HANDLE_OOM ((result = dbus_message_get_fields (message,
+						       DBUS_TYPE_STRING, &name,
+						       0)) != DBUS_RESULT_NO_MEMORY);
+ if (result != DBUS_RESULT_SUCCESS)
+    {
+      dbus_free (name);
+      dbus_connection_disconnect (connection);
+      return;
+    }
+
+ _dbus_string_init_const (&service_name, name);
+ service = bus_service_lookup (&service_name, FALSE);
+ 
+ _DBUS_HANDLE_OOM ((reply = dbus_message_new_reply (DBUS_MESSAGE_ACQUIRE_SERVICE_REPLY, message)));
+ _DBUS_HANDLE_OOM (dbus_message_set_sender (message, DBUS_SERVICE_DBUS));
+
+ _DBUS_HANDLE_OOM (dbus_message_append_fields (message,
+					       DBUS_TYPE_UINT32, (service != NULL ? 1 : 0),
+					       0));
+ _DBUS_HANDLE_OOM (dbus_connection_send_message (connection, message, NULL, NULL));
+ 
+ dbus_message_unref (message);
+ dbus_free (name);
 }
 
 void
@@ -272,4 +408,15 @@ bus_driver_handle_message (DBusConnection *connection,
     bus_driver_handle_hello (connection, message);
   else if (strcmp (name, DBUS_MESSAGE_LIST_SERVICES) == 0)
     bus_driver_handle_list_services (connection, message);
+  else if (strcmp (name, DBUS_MESSAGE_ACQUIRE_SERVICE) == 0)
+    bus_driver_handle_own_service (connection, message);
+  else if (strcmp (name, DBUS_MESSAGE_SERVICE_EXISTS) == 0)
+    bus_driver_handle_service_exists (connection, message);
+  
+}
+
+void
+bus_driver_remove_connection (DBusConnection *connection)
+{
+  /* Does nothing for now */
 }

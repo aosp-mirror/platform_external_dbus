@@ -2,6 +2,7 @@
 /* services.c  Service management
  *
  * Copyright (C) 2003  Red Hat, Inc.
+ * Copyright (C) 2003  CodeFactory AB
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -20,6 +21,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+#include "driver.h"
 #include "services.h"
 #include "connection.h"
 #include <dbus/dbus-hash.h>
@@ -30,6 +32,8 @@ struct BusService
 {
   char *name;
   DBusList *owners;
+
+  unsigned int prohibit_replacement:1;
 };
 
 static DBusHashTable *service_hash = NULL;
@@ -98,17 +102,6 @@ bus_service_lookup (const DBusString *service_name,
   return service;
 }
 
-void
-bus_service_free (BusService *service)
-{
-  _dbus_assert (service->owners == NULL);
-
-  _dbus_hash_table_remove_string (service_hash, service->name);
-  
-  dbus_free (service->name);
-  _dbus_mem_pool_dealloc (service_pool, service);
-}
-
 dbus_bool_t
 bus_service_add_owner (BusService     *service,
                        DBusConnection *owner)
@@ -123,6 +116,10 @@ bus_service_add_owner (BusService     *service,
       return FALSE;
     }
 
+ /* Send service acquired message */
+  if (bus_service_get_primary_owner (service) == owner)
+    bus_driver_send_service_acquired (owner, service->name);
+  
   return TRUE;
 }
 
@@ -130,8 +127,29 @@ void
 bus_service_remove_owner (BusService     *service,
                           DBusConnection *owner)
 {
+  /* Send service lost message */
+  if (bus_service_get_primary_owner (service) == owner)
+    bus_driver_send_service_lost (owner, service->name);
+  
   _dbus_list_remove_last (&service->owners, owner);
   bus_connection_remove_owned_service (owner, service);
+
+  if (service->owners == NULL)
+    {
+      /* Delete service */
+      bus_driver_send_service_deleted (service->name);
+      
+      _dbus_hash_table_remove_string (service_hash, service->name);
+      
+      dbus_free (service->name);
+      _dbus_mem_pool_dealloc (service_pool, service);
+    }
+  else 
+    {
+      /* Send service acquired to the new owner */
+      bus_driver_send_service_acquired (bus_service_get_primary_owner (service),
+					service->name);
+    }
 }
 
 DBusConnection*
@@ -201,4 +219,38 @@ bus_services_list (int *array_len)
   dbus_free (retval);
 
   return NULL;
+}
+
+void
+bus_service_set_prohibit_replacement (BusService  *service,
+				      dbus_bool_t  prohibit_replacement)
+{
+  _dbus_assert (service->owners == NULL);
+  
+  service->prohibit_replacement = prohibit_replacement != FALSE;
+}
+
+dbus_bool_t
+bus_service_get_prohibit_replacement (BusService *service)
+{
+  return service->prohibit_replacement;
+}
+
+dbus_bool_t
+bus_service_has_owner (BusService     *service,
+		       DBusConnection *owner)
+{
+  DBusList *link;
+
+  link = _dbus_list_get_first_link (&service->owners);
+  
+  while (link != NULL)
+    {
+      if (link->data == owner)
+	return TRUE;
+      
+      link = _dbus_list_get_next_link (&service->owners, link);
+    }
+
+  return FALSE;
 }

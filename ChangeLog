@@ -1,3 +1,60 @@
+2003-01-27  Anders Carlsson  <andersca@codefactory.se>
+
+	* bus/dispatch.c: (bus_dispatch_message_handler):
+	Dispatch messages sent to services.
+	
+	* bus/driver.c: (bus_driver_send_service_deleted),
+	(bus_driver_send_service_created), (bus_driver_send_service_lost),
+	(bus_driver_send_service_acquired):
+	Add helper functions for sending service related messages.
+
+	(bus_driver_send_welcome_message):
+	Send HELLO_REPLY instead of WELCOME.
+	
+	(bus_driver_handle_list_services):
+	Send LIST_SERVICES_REPLY instead of SERVICES.
+	
+	(bus_driver_handle_own_service),
+	(bus_driver_handle_service_exists):
+	New message handlers.
+	
+	(bus_driver_handle_message):
+	Invoke new message handlers.
+	
+	(bus_driver_remove_connection):
+	Don't remove any services here since that's done automatically
+	by bus_service_remove_owner now.
+	
+	* bus/driver.h:
+	New function signatures.
+	
+	* bus/services.c: (bus_service_add_owner):
+	Send ServiceAcquired message if we're the only primary owner.
+	
+	(bus_service_remove_owner):
+	Send ServiceAcquired/ServiceLost messages.
+	
+	(bus_service_set_prohibit_replacement),
+	(bus_service_get_prohibit_replacement):
+	Functions for setting prohibit replacement.
+	
+	(bus_service_has_owner):
+	New function that checks if a connection is in the owner queue of 
+	a certain service.
+	
+	* bus/services.h:
+	Add new function signatures.
+	
+	* dbus/dbus-list.c: (_dbus_list_test):
+	Add tests for _dbus_list_remove_last and traversing the list backwards.
+	
+	* dbus/dbus-list.h:
+	Fix a typo in _dbus_list_get_prev_link, if we're at the first element we can't
+	go any further, so return NULL then.
+	
+	* dbus/dbus-protocol.h:
+	Add new messages, service flags and service replies.
+	
 2003-01-26  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-message-builder.c: implement, completely untested.

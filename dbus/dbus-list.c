@@ -341,6 +341,7 @@ _dbus_list_remove_last (DBusList **list,
   DBusList *link;
 
   link = _dbus_list_get_last_link (list);
+
   while (link != NULL)
     {
       if (link->data == data)
@@ -884,10 +885,22 @@ _dbus_list_test (void)
       link1 = _dbus_list_get_next_link (&list1, link1);
       ++i;
     }
-  
+
+  --i;
+  link1 = _dbus_list_get_last_link (&list1);
+  while (link1 != NULL)
+    {
+      verify_list (&link1); /* pretend this link is the head */
+
+      _dbus_assert (_DBUS_POINTER_TO_INT (link1->data) == i);
+      
+      link1 = _dbus_list_get_prev_link (&list1, link1);
+      --i;
+    }
+
   _dbus_list_clear (&list1);
   _dbus_list_clear (&list2);
-  
+
   /* Test remove */
   
   i = 0;
@@ -1106,6 +1119,18 @@ _dbus_list_test (void)
   
   _dbus_list_clear (&list1);
 
+  /* using remove_last */
+  _dbus_list_append (&list1, _DBUS_INT_TO_POINTER (2));
+  _dbus_list_append (&list1, _DBUS_INT_TO_POINTER (1));
+  _dbus_list_append (&list1, _DBUS_INT_TO_POINTER (3));
+
+  _dbus_list_remove_last (&list1, _DBUS_INT_TO_POINTER (2));
+  
+  verify_list (&list1);
+  _dbus_assert (is_ascending_sequence (&list1));
+  
+  _dbus_list_clear (&list1);
+  
   return TRUE;
 }
 

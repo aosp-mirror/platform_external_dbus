@@ -71,7 +71,7 @@ void _dbus_list_foreach (DBusList            **list,
                          void                 *data);
 
 #define _dbus_list_get_next_link(list, link) ((link)->next == *(list) ? NULL : (link)->next)
-#define _dbus_list_get_prev_link(list, link) ((link)->prev == *(list) ? NULL : (link)->prev)
+#define _dbus_list_get_prev_link(list, link) ((link) == *(list) ? NULL : (link)->prev)
 
 DBUS_END_DECLS;
 

@@ -50,16 +50,16 @@ bus_dispatch_message_handler (DBusMessageHandler *handler,
 			      DBusMessage        *message,
 			      void               *user_data)
 {
-  const char *sender, *service;
+  const char *sender, *service_name;
   
   /* Assign a sender to the message */
   sender = bus_connection_get_name (connection);
   _DBUS_HANDLE_OOM (dbus_message_set_sender (message, sender));
 
-  service = dbus_message_get_service (message);
+  service_name = dbus_message_get_service (message);
   
   /* See if the message is to the driver */
-  if (strcmp (service, DBUS_SERVICE_DBUS) == 0)
+  if (strcmp (service_name, DBUS_SERVICE_DBUS) == 0)
     {
       bus_driver_handle_message (connection, message);
     }
@@ -68,13 +68,23 @@ bus_dispatch_message_handler (DBusMessageHandler *handler,
       _dbus_verbose ("Received message from non-registered client. Disconnecting.\n");
       dbus_connection_disconnect (connection);
     }
-  else if (strcmp (service, DBUS_SERVICE_BROADCAST) == 0)
+  else if (strcmp (service_name, DBUS_SERVICE_BROADCAST) == 0)
     {
       bus_dispatch_broadcast_message (message);
     }
   else  
     {
+      DBusString service_string;
+      BusService *service;
+
+      _dbus_string_init_const (&service_string, service_name);
+      service = bus_service_lookup (&service_string, FALSE);
+
+      _dbus_assert (bus_service_get_primary_owner (service) != NULL);
+      
       /* Dispatch the message */
+      _DBUS_HANDLE_OOM (dbus_connection_send_message (bus_service_get_primary_owner (service),
+						      message, NULL, NULL));
     }
 
   return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
@@ -118,7 +128,7 @@ bus_dispatch_remove_connection (DBusConnection *connection)
 {
   /* Here we tell the bus driver that we want to get off. */
   bus_driver_remove_connection (connection);
-  
+
   dbus_connection_set_data (connection,
 			    message_handler_slot,
 			    NULL, NULL);
