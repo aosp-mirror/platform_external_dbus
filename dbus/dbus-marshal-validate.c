@@ -729,13 +729,13 @@ _dbus_validate_error_name (const DBusString  *str,
 
 /* This assumes the first char exists and is ':' */
 static dbus_bool_t
-_dbus_validate_base_service (const DBusString  *str,
-                             int                start,
-                             int                len)
+_dbus_validate_unique_name (const DBusString  *str,
+                            int                start,
+                            int                len)
 {
   const unsigned char *s;
   const unsigned char *end;
-  const unsigned char *service;
+  const unsigned char *name;
 
   _dbus_assert (start >= 0);
   _dbus_assert (len >= 0);
@@ -749,10 +749,10 @@ _dbus_validate_base_service (const DBusString  *str,
 
   _dbus_assert (len > 0);
 
-  service = _dbus_string_get_const_data (str) + start;
-  end = service + len;
-  _dbus_assert (*service == ':');
-  s = service + 1;
+  name = _dbus_string_get_const_data (str) + start;
+  end = name + len;
+  _dbus_assert (*name == ':');
+  s = name + 1;
 
   while (s != end)
     {
@@ -776,9 +776,9 @@ _dbus_validate_base_service (const DBusString  *str,
 }
 
 /**
- * Checks that the given range of the string is a valid service name
- * in the D-BUS protocol. This includes a length restriction, etc.,
- * see the specification.
+ * Checks that the given range of the string is a valid bus name in
+ * the D-BUS protocol. This includes a length restriction, etc., see
+ * the specification.
  *
  * @todo this is inconsistent with most of DBusString in that
  * it allows a start,len range that extends past the string end.
@@ -789,14 +789,14 @@ _dbus_validate_base_service (const DBusString  *str,
  * @returns #TRUE if the byte range exists and is a valid name
  */
 dbus_bool_t
-_dbus_validate_service (const DBusString  *str,
-                        int                start,
-                        int                len)
+_dbus_validate_bus_name (const DBusString  *str,
+                         int                start,
+                         int                len)
 {
   if (_DBUS_UNLIKELY (len == 0))
     return FALSE;
   if (_dbus_string_get_byte (str, start) == ':')
-    return _dbus_validate_base_service (str, start, len);
+    return _dbus_validate_unique_name (str, start, len);
   else
     return _dbus_validate_interface (str, start, len);
 }
@@ -836,8 +836,8 @@ DEFINE_DBUS_NAME_CHECK(interface);
 DEFINE_DBUS_NAME_CHECK(member);
 /** define _dbus_check_is_valid_error_name() */
 DEFINE_DBUS_NAME_CHECK(error_name);
-/** define _dbus_check_is_valid_service() */
-DEFINE_DBUS_NAME_CHECK(service);
+/** define _dbus_check_is_valid_bus_name() */
+DEFINE_DBUS_NAME_CHECK(bus_name);
 /** define _dbus_check_is_valid_signature() */
 DEFINE_DBUS_NAME_CHECK(signature);
 
@@ -974,7 +974,7 @@ _dbus_marshal_validate_test (void)
     "foo bar"
   };
 
-  const char *valid_base_services[] = {
+  const char *valid_unique_names[] = {
     ":0",
     ":a",
     ":",
@@ -985,7 +985,7 @@ _dbus_marshal_validate_test (void)
     ":.blah",
     ":abce.freedesktop.blah"
   };
-  const char *invalid_base_services[] = {
+  const char *invalid_unique_names[] = {
     ":-",
     ":!",
     ":0-10",
@@ -1104,7 +1104,7 @@ _dbus_marshal_validate_test (void)
       ++i;
     }
 
-  /* Service validation (check that valid interfaces are valid services,
+  /* Bus name validation (check that valid interfaces are valid bus names,
    * and invalid interfaces are invalid services except if they start with ':')
    */
   i = 0;
@@ -1112,11 +1112,11 @@ _dbus_marshal_validate_test (void)
     {
       _dbus_string_init_const (&str, valid_interfaces[i]);
 
-      if (!_dbus_validate_service (&str, 0,
+      if (!_dbus_validate_bus_name (&str, 0,
                                    _dbus_string_get_length (&str)))
         {
-          _dbus_warn ("Service \"%s\" should have been valid\n", valid_interfaces[i]);
-          _dbus_assert_not_reached ("invalid service");
+          _dbus_warn ("Bus name \"%s\" should have been valid\n", valid_interfaces[i]);
+          _dbus_assert_not_reached ("invalid bus name");
         }
 
       ++i;
@@ -1129,43 +1129,43 @@ _dbus_marshal_validate_test (void)
         {
           _dbus_string_init_const (&str, invalid_interfaces[i]);
 
-          if (_dbus_validate_service (&str, 0,
-                                      _dbus_string_get_length (&str)))
+          if (_dbus_validate_bus_name (&str, 0,
+                                       _dbus_string_get_length (&str)))
             {
-              _dbus_warn ("Service \"%s\" should have been invalid\n", invalid_interfaces[i]);
-              _dbus_assert_not_reached ("valid service");
+              _dbus_warn ("Bus name \"%s\" should have been invalid\n", invalid_interfaces[i]);
+              _dbus_assert_not_reached ("valid bus name");
             }
         }
 
       ++i;
     }
 
-  /* Base service validation */
+  /* unique name validation */
   i = 0;
-  while (i < (int) _DBUS_N_ELEMENTS (valid_base_services))
+  while (i < (int) _DBUS_N_ELEMENTS (valid_unique_names))
     {
-      _dbus_string_init_const (&str, valid_base_services[i]);
+      _dbus_string_init_const (&str, valid_unique_names[i]);
 
-      if (!_dbus_validate_service (&str, 0,
-                                   _dbus_string_get_length (&str)))
+      if (!_dbus_validate_bus_name (&str, 0,
+                                    _dbus_string_get_length (&str)))
         {
-          _dbus_warn ("Service \"%s\" should have been valid\n", valid_base_services[i]);
-          _dbus_assert_not_reached ("invalid base service");
+          _dbus_warn ("Bus name \"%s\" should have been valid\n", valid_unique_names[i]);
+          _dbus_assert_not_reached ("invalid unique name");
         }
 
       ++i;
     }
 
   i = 0;
-  while (i < (int) _DBUS_N_ELEMENTS (invalid_base_services))
+  while (i < (int) _DBUS_N_ELEMENTS (invalid_unique_names))
     {
-      _dbus_string_init_const (&str, invalid_base_services[i]);
+      _dbus_string_init_const (&str, invalid_unique_names[i]);
 
-      if (_dbus_validate_service (&str, 0,
-                                  _dbus_string_get_length (&str)))
+      if (_dbus_validate_bus_name (&str, 0,
+                                   _dbus_string_get_length (&str)))
         {
-          _dbus_warn ("Service \"%s\" should have been invalid\n", invalid_base_services[i]);
-          _dbus_assert_not_reached ("valid base service");
+          _dbus_warn ("Bus name \"%s\" should have been invalid\n", invalid_unique_names[i]);
+          _dbus_assert_not_reached ("valid unique name");
         }
 
       ++i;
@@ -1271,7 +1271,7 @@ _dbus_marshal_validate_test (void)
 
   /* Validate claimed length longer than real length */
   _dbus_string_init_const (&str, "abc.efg");
-  if (_dbus_validate_service (&str, 0, 8))
+  if (_dbus_validate_bus_name (&str, 0, 8))
     _dbus_assert_not_reached ("validated too-long string");
   if (_dbus_validate_interface (&str, 0, 8))
     _dbus_assert_not_reached ("validated too-long string");
@@ -1294,7 +1294,7 @@ _dbus_marshal_validate_test (void)
     if (!_dbus_string_append (&str, "abc.def"))
       _dbus_assert_not_reached ("no memory");
 
-  if (_dbus_validate_service (&str, 0, _dbus_string_get_length (&str)))
+  if (_dbus_validate_bus_name (&str, 0, _dbus_string_get_length (&str)))
     _dbus_assert_not_reached ("validated overmax string");
   if (_dbus_validate_interface (&str, 0, _dbus_string_get_length (&str)))
     _dbus_assert_not_reached ("validated overmax string");
@@ -1310,14 +1310,14 @@ _dbus_marshal_validate_test (void)
   if (_dbus_validate_member (&str, 0, _dbus_string_get_length (&str)))
     _dbus_assert_not_reached ("validated overmax string");
 
-  /* overlong base service */
+  /* overlong unique name */
   _dbus_string_set_length (&str, 0);
   _dbus_string_append (&str, ":");
   while (_dbus_string_get_length (&str) <= DBUS_MAXIMUM_NAME_LENGTH)
     if (!_dbus_string_append (&str, "abc"))
       _dbus_assert_not_reached ("no memory");
 
-  if (_dbus_validate_service (&str, 0, _dbus_string_get_length (&str)))
+  if (_dbus_validate_bus_name (&str, 0, _dbus_string_get_length (&str)))
     _dbus_assert_not_reached ("validated overmax string");
 
   _dbus_string_free (&str);

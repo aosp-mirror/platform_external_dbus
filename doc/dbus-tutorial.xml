@@ -7,8 +7,8 @@
 <article id="index">
   <articleinfo>
     <title>D-BUS Tutorial</title>
-    <releaseinfo>Version 0.2</releaseinfo>
-    <date>10 August 2004</date>
+    <releaseinfo>Version 0.3</releaseinfo>
+    <date>18 January 2005</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -296,8 +296,8 @@
       </para>
     </sect2>
 
-    <sect2 id="services">
-      <title>Services</title>
+    <sect2 id="bus-names">
+      <title>Bus Names</title>
       
       <para>
         Object paths, interfaces, and messages exist on the level of 
@@ -306,55 +306,55 @@
       </para>
 
       <para>
-        Services, on the other hand, are a property of the message bus daemon.
-        A <firstterm>service</firstterm> is simply a name mapped to 
-        some application connected to the message bus daemon.
+        Bus names, on the other hand, are a property of the message bus daemon.
+        The bus maintains a mapping from names to message bus connections.
         These names are used to specify the origin and destination
         of messages passing through the message bus. When a name is mapped 
-        to a particular application, the application is said to 
-        <firstterm>own</firstterm> that service.
+        to a particular application's connection, that application is said to 
+        <firstterm>own</firstterm> that name.
       </para>
 
       <para>
         On connecting to the bus daemon, each application immediately owns a
-        special name called the <firstterm>base service</firstterm>.  A base
-        service begins with a ':' (colon) character; no other services are
-        allowed to begin with that character. Base services are special because
-        each one is unique. They are created dynamically, and are never re-used
-        during the lifetime of the same bus daemon. You know that a given
-        base service name will have the same owner at all times.
-        An example of a base service name might be <literal>:34-907</literal>.
+        special name called the <firstterm>unique connection name</firstterm>.
+        A unique name begins with a ':' (colon) character; no other names are
+        allowed to begin with that character. Unique names are special because
+        they are created dynamically, and are never re-used during the lifetime
+        of the same bus daemon. You know that a given unique name will have the
+        same owner at all times.  An example of a unique name might be
+        <literal>:34-907</literal>. The numbers after the colon have 
+        no meaning other than their uniqueness.
       </para>
 
       <para>
         Applications may ask to own additional <firstterm>well-known
-        services</firstterm>. For example, you could write a specification to
-        define a service called <literal>com.mycompany.TextEditor</literal>.
-        Your definition could specify that to own this service, an application
+        names</firstterm>. For example, you could write a specification to
+        define a name called <literal>com.mycompany.TextEditor</literal>.
+        Your definition could specify that to own this name, an application
         should have an object at the path
         <literal>/com/mycompany/TextFileManager</literal> supporting the
         interface <literal>org.freedesktop.FileHandler</literal>.        
       </para>
       
       <para>
-        Applications could then send messages to this service, 
+        Applications could then send messages to this bus name, 
         object, and interface to execute method calls.
       </para>
 
       <para>
-        You could think of the base service names as IP addresses, and the
-        well-known services as domain names. So
+        You could think of the unique names as IP addresses, and the
+        well-known names as domain names. So
         <literal>com.mycompany.TextEditor</literal> might map to something like
         <literal>:34-907</literal> just as <literal>mycompany.com</literal> maps
         to something like <literal>192.168.0.5</literal>.
       </para>
       
       <para>
-        Services have a second important use, other than routing messages.  They
+        Names have a second important use, other than routing messages.  They
         are used to track lifecycle. When an application exits (or crashes), its
         connection to the message bus will be closed by the operating system
         kernel. The message bus then sends out notification messages telling
-        remaining applications that the application's services have lost their
+        remaining applications that the application's names have lost their
         owner. By tracking these notifications, your application can reliably
         monitor the lifetime of other applications.
       </para>
@@ -408,12 +408,12 @@
         method call on a particular object instance, a number of 
         nested components have to be named:
         <programlisting>
-          Address -> [Service] -> Path -> Interface -> Method
+          Address -> [Bus Name] -> Path -> Interface -> Method
         </programlisting>
-        The service is in brackets to indicate that it's optional -- you only
-        provide a service name to route the method call to the right application
+        The bus name is in brackets to indicate that it's optional -- you only
+        provide a name to route the method call to the right application
         when using the bus daemon. If you have a direct connection to another
-        application, services aren't used; there's no bus daemon.
+        application, bus names aren't used; there's no bus daemon.
       </para>
 
       <para>
@@ -455,8 +455,8 @@ main (int argc, char **argv)
   GError *error;
   DBusGProxy *proxy;
   DBusGPendingCall *call;
-  char **service_list;
-  int service_list_len;
+  char **name_list;
+  int name_list_len;
   int i;
   
   g_type_init ();
@@ -472,24 +472,24 @@ main (int argc, char **argv)
       exit (1);
     }
 
-  /* Create a proxy object for the "bus driver" (service org.freedesktop.DBus) */
+  /* Create a proxy object for the "bus driver" (name "org.freedesktop.DBus") */
   
-  proxy = dbus_g_proxy_new_for_service (connection,
-                                        DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-                                        DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                        DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS);
+  proxy = dbus_g_proxy_new_for_name (connection,
+                                     DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                     DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                     DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS);
 
-  /* Call ListServices method */
+  /* Call ListNames method */
   
-  call = dbus_g_proxy_begin_call (proxy, "ListServices", DBUS_TYPE_INVALID);
+  call = dbus_g_proxy_begin_call (proxy, "ListNames", DBUS_TYPE_INVALID);
 
   error = NULL;
   if (!dbus_g_proxy_end_call (proxy, call, &amp;error,
                               DBUS_TYPE_ARRAY, DBUS_TYPE_STRING,
-                              &amp;service_list, &amp;service_list_len,
+                              &amp;name_list, &amp;name_list_len,
                               DBUS_TYPE_INVALID))
     {
-      g_printerr ("Failed to complete ListServices call: %s\n",
+      g_printerr ("Failed to complete ListNames call: %s\n",
                   error->message);
       g_error_free (error);
       exit (1);
@@ -497,17 +497,17 @@ main (int argc, char **argv)
 
   /* Print the results */
  
-  g_print ("Services on the message bus:\n");
+  g_print ("Names on the message bus:\n");
   i = 0;
-  while (i &lt; service_list_len)
+  while (i &lt; name_list_len)
     {
-      g_assert (service_list[i] != NULL);
-      g_print ("  %s\n", service_list[i]);
+      g_assert (name_list[i] != NULL);
+      g_print ("  %s\n", name_list[i]);
       ++i;
     }
-  g_assert (service_list[i] == NULL);
+  g_assert (name_list[i] == NULL);
 
-  g_strfreev (service_list);
+  g_strfreev (name_list);
 
   return 0;
 }

@@ -115,7 +115,7 @@ dbus_bool_t _dbus_validate_member     (const DBusString *str,
 dbus_bool_t _dbus_validate_error_name (const DBusString *str,
                                        int               start,
                                        int               len);
-dbus_bool_t _dbus_validate_service    (const DBusString *str,
+dbus_bool_t _dbus_validate_bus_name   (const DBusString *str,
                                        int               start,
                                        int               len);
 dbus_bool_t _dbus_validate_signature  (const DBusString *str,
@@ -159,7 +159,7 @@ DECLARE_DBUS_NAME_CHECK(path);
 DECLARE_DBUS_NAME_CHECK(interface);
 DECLARE_DBUS_NAME_CHECK(member);
 DECLARE_DBUS_NAME_CHECK(error_name);
-DECLARE_DBUS_NAME_CHECK(service);
+DECLARE_DBUS_NAME_CHECK(bus_name);
 DECLARE_DBUS_NAME_CHECK(signature);
 
 #endif /* DBUS_MARSHAL_VALIDATE_H */

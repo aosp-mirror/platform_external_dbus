@@ -58,8 +58,8 @@ main (int argc, char **argv)
   DBusGProxy *driver;
   DBusGProxy *proxy;
   DBusGPendingCall *call;
-  char **service_list;
-  int service_list_len;
+  char **name_list;
+  int name_list_len;
   int i;
   guint32 result;
   const char *v_STRING;
@@ -82,38 +82,38 @@ main (int argc, char **argv)
 
   /* Create a proxy object for the "bus driver" */
   
-  driver = dbus_g_proxy_new_for_service (connection,
-                                         DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-                                         DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                         DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS);
+  driver = dbus_g_proxy_new_for_name (connection,
+                                      DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                      DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                      DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS);
 
-  /* Call ListServices method */
+  /* Call ListNames method */
   
-  call = dbus_g_proxy_begin_call (driver, "ListServices", DBUS_TYPE_INVALID);
+  call = dbus_g_proxy_begin_call (driver, "ListNames", DBUS_TYPE_INVALID);
 
   error = NULL;
   if (!dbus_g_proxy_end_call (driver, call, &error,
                               DBUS_TYPE_ARRAY, DBUS_TYPE_STRING,
-                              &service_list, &service_list_len,
+                              &name_list, &name_list_len,
                               DBUS_TYPE_INVALID))
     {
-      g_printerr ("Failed to complete ListServices call: %s\n",
+      g_printerr ("Failed to complete ListNames call: %s\n",
                   error->message);
       g_error_free (error);
       exit (1);
     }
 
-  g_print ("Services on the message bus:\n");
+  g_print ("Names on the message bus:\n");
   i = 0;
-  while (i < service_list_len)
+  while (i < name_list_len)
     {
-      g_assert (service_list[i] != NULL);
-      g_print ("  %s\n", service_list[i]);
+      g_assert (name_list[i] != NULL);
+      g_print ("  %s\n", name_list[i]);
       ++i;
     }
-  g_assert (service_list[i] == NULL);
+  g_assert (name_list[i] == NULL);
 
-  g_strfreev (service_list);
+  g_strfreev (name_list);
 
   /* Test handling of unknown method */
   v_STRING = "blah blah blah blah blah";
@@ -140,7 +140,7 @@ main (int argc, char **argv)
   /* Activate a service */
   v_STRING = "org.freedesktop.DBus.TestSuiteEchoService";
   v_UINT32 = 0;
-  call = dbus_g_proxy_begin_call (driver, "ActivateService",
+  call = dbus_g_proxy_begin_call (driver, "StartServiceByName",
                                   DBUS_TYPE_STRING,
                                   &v_STRING,
                                   DBUS_TYPE_UINT32,
@@ -158,12 +158,12 @@ main (int argc, char **argv)
       exit (1);
     }
 
-  g_print ("Activation of echo service = 0x%x\n", result);
+  g_print ("Starting echo service result = 0x%x\n", result);
 
   /* Activate a service again */
   v_STRING = "org.freedesktop.DBus.TestSuiteEchoService";
   v_UINT32 = 0;
-  call = dbus_g_proxy_begin_call (driver, "ActivateService",
+  call = dbus_g_proxy_begin_call (driver, "StartServiceByName",
                                   DBUS_TYPE_STRING,
                                   &v_STRING,
                                   DBUS_TYPE_UINT32,
@@ -181,19 +181,19 @@ main (int argc, char **argv)
       exit (1);
     }
 
-  g_print ("Duplicate activation of echo service = 0x%x\n", result);
+  g_print ("Duplicate start of echo service = 0x%x\n", result);
 
   /* Talk to the new service */
   
-  proxy = dbus_g_proxy_new_for_service_owner (connection,
-                                              "org.freedesktop.DBus.TestSuiteEchoService",
-                                              "/org/freedesktop/TestSuite",
-                                              "org.freedesktop.TestSuite",
-                                              &error);
+  proxy = dbus_g_proxy_new_for_name_owner (connection,
+                                           "org.freedesktop.DBus.TestSuiteEchoService",
+                                           "/org/freedesktop/TestSuite",
+                                           "org.freedesktop.TestSuite",
+                                           &error);
   
   if (proxy == NULL)
     {
-      g_printerr ("Failed to create proxy for service owner: %s\n",
+      g_printerr ("Failed to create proxy for name owner: %s\n",
                   error->message);
       g_error_free (error);
       exit (1);      

@@ -1,5 +1,7 @@
 Important for 1.0
 ===
+
+ - change .service files to have Names=list rather than Name=string
   
  - How we will handle DCOP needs sorting out. Among other things, we
    need to check that service and service-ownership semantics map to DCOP 
@@ -38,17 +40,13 @@ Important for 1.0
    (though they are kind of a pita to pass in as size_t with the 
     varargs, so maybe not - what does glib do with g_object_get()?)
 
- - rename the service thing. unique service names (":1") and well-known
-   ("org.foo.bar") should have different names probably; something like 
-   "address" for the unique and "alias" for the well-known, or 
-   "application id" for the unique and "common name" or "published
-   name" for the well-known; not sure yet.
-
  - things are broken now when mixing endianness, because DBusMessage
    doesn't autoswap itself when you access a message of alternate
    endian.
 
  - add string array support back to append_args()
+
+ - auto-activate by default
 
 Important for 1.0 GLib Bindings
 ===
@@ -71,6 +69,8 @@ Important for 1.0 GLib Bindings
    so it can figure out how to invoke the callback, or we have to rely
    on having introspection data.
 
+ - DBusGProxy doesn't emit "destroy" when it should
+
 Might as Well for 1.0
 ===
 
@@ -89,6 +89,10 @@ Might as Well for 1.0
 
 Can Be Post 1.0
 ===
+
+ - The message bus internal code still says "service" for 
+   "name", "base service" for "unique name", "activate" for 
+   "start"; would be nice to clean up.
 
  - Property list feature on message bus (list of properties associated 
    with a connection). May also include message matching rules 

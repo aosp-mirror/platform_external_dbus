@@ -89,11 +89,11 @@ extern "C" {
 #define DBUS_STRUCT_END_CHAR     ((int) ')')
 #define DBUS_STRUCT_END_CHAR_AS_STRING     ")"
 
-/* Max length in bytes of a service or interface or member name (not
- * object path, paths are unlimited). This is limited because lots of
- * stuff is O(n) in this number, plus it would be obnoxious to type in
- * a paragraph-long method name so most likely something like that
- * would be an exploit.
+/* Max length in bytes of a bus name, interface, or member (not object
+ * path, paths are unlimited). This is limited because lots of stuff
+ * is O(n) in this number, plus it would be obnoxious to type in a
+ * paragraph-long method name so most likely something like that would
+ * be an exploit.
  */
 #define DBUS_MAXIMUM_NAME_LENGTH 255
 
@@ -142,7 +142,7 @@ extern "C" {
 
 /* Header flags */
 #define DBUS_HEADER_FLAG_NO_REPLY_EXPECTED 0x1
-#define DBUS_HEADER_FLAG_AUTO_ACTIVATION   0x2
+#define DBUS_HEADER_FLAG_AUTO_START        0x2
 
 /* Header fields */
 #define DBUS_HEADER_FIELD_INVALID        0
@@ -203,19 +203,19 @@ extern "C" {
  */
 #define DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL "org.freedesktop.Local"
 
-/* Service owner flags */
-#define DBUS_SERVICE_FLAG_PROHIBIT_REPLACEMENT 0x1
-#define DBUS_SERVICE_FLAG_REPLACE_EXISTING     0x2
+/* Owner flags */
+#define DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT 0x1
+#define DBUS_NAME_FLAG_REPLACE_EXISTING     0x2
 
-/* Service replies */
-#define DBUS_SERVICE_REPLY_PRIMARY_OWNER  0x1
-#define DBUS_SERVICE_REPLY_IN_QUEUE       0x2
-#define DBUS_SERVICE_REPLY_SERVICE_EXISTS 0x4
-#define DBUS_SERVICE_REPLY_ALREADY_OWNER  0x8
+/* Replies to request for a name */
+#define DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER  1
+#define DBUS_REQUEST_NAME_REPLY_IN_QUEUE       2
+#define DBUS_REQUEST_NAME_REPLY_EXISTS         3
+#define DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER  4
 
-/* Activation replies */
-#define DBUS_ACTIVATION_REPLY_ACTIVATED      0x0
-#define DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE 0x1
+/* Replies to service starts */
+#define DBUS_START_REPLY_SUCCESS         1
+#define DBUS_START_REPLY_ALREADY_RUNNING 2
 
 /* Errors */
 /* WARNING these get autoconverted to an enum in dbus-glib.h. Thus,
@@ -225,9 +225,8 @@ extern "C" {
  */
 #define DBUS_ERROR_FAILED                     "org.freedesktop.DBus.Error.Failed"
 #define DBUS_ERROR_NO_MEMORY                  "org.freedesktop.DBus.Error.NoMemory"
-#define DBUS_ERROR_ACTIVATE_SERVICE_NOT_FOUND "org.freedesktop.DBus.Error.ServiceNotFound"
-#define DBUS_ERROR_SERVICE_DOES_NOT_EXIST     "org.freedesktop.DBus.Error.ServiceDoesNotExist"
-#define DBUS_ERROR_SERVICE_HAS_NO_OWNER       "org.freedesktop.DBus.Error.ServiceHasNoOwner"
+#define DBUS_ERROR_SERVICE_UNKNOWN            "org.freedesktop.DBus.Error.ServiceUnknown"
+#define DBUS_ERROR_NAME_HAS_NO_OWNER          "org.freedesktop.DBus.Error.NameHasNoOwner"
 #define DBUS_ERROR_NO_REPLY                   "org.freedesktop.DBus.Error.NoReply"
 #define DBUS_ERROR_IO_ERROR                   "org.freedesktop.DBus.Error.IOError"
 #define DBUS_ERROR_BAD_ADDRESS                "org.freedesktop.DBus.Error.BadAddress"

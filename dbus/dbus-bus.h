@@ -35,25 +35,25 @@ DBusConnection *dbus_bus_get              (DBusBusType     type,
 					   DBusError      *error);
 dbus_bool_t     dbus_bus_register         (DBusConnection *connection,
 					   DBusError      *error);
-dbus_bool_t     dbus_bus_set_base_service (DBusConnection *connection,
-					   const char     *base_service);
-const char*     dbus_bus_get_base_service (DBusConnection *connection);
+dbus_bool_t     dbus_bus_set_unique_name  (DBusConnection *connection,
+					   const char     *unique_name);
+const char*     dbus_bus_get_unique_name  (DBusConnection *connection);
 unsigned long   dbus_bus_get_unix_user    (DBusConnection *connection,
-			                   const char     *service,
+			                   const char     *name,
                                            DBusError      *error);
-int             dbus_bus_acquire_service  (DBusConnection *connection,
-					   const char     *service_name,
+int             dbus_bus_request_name     (DBusConnection *connection,
+					   const char     *name,
 					   unsigned int    flags,
 					   DBusError      *error);
-dbus_bool_t     dbus_bus_service_exists   (DBusConnection *connection,
-					   const char     *service_name,
+dbus_bool_t     dbus_bus_name_has_owner   (DBusConnection *connection,
+					   const char     *name,
 					   DBusError      *error);
 
-dbus_bool_t     dbus_bus_activate_service (DBusConnection *connection,
-					   const char     *service_name,
-					   dbus_uint32_t   flags,
-					   dbus_uint32_t  *reply,
-					   DBusError      *error);
+dbus_bool_t     dbus_bus_start_service_by_name (DBusConnection *connection,
+                                                const char     *name,
+                                                dbus_uint32_t   flags,
+                                                dbus_uint32_t  *reply,
+                                                DBusError      *error);
 
 void            dbus_bus_add_match        (DBusConnection *connection,
                                            const char     *rule,

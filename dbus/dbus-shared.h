@@ -36,7 +36,7 @@ typedef enum
 {
   DBUS_BUS_SESSION,    /**< The login session bus */
   DBUS_BUS_SYSTEM,     /**< The systemwide bus */
-  DBUS_BUS_ACTIVATION  /**< The bus that activated us, if any */
+  DBUS_BUS_STARTER     /**< The bus that started us, if any */
 } DBusBusType;
 
 typedef enum

@@ -17,7 +17,7 @@ main (int argc, char **argv)
   loop = g_main_loop_new (NULL, FALSE);
 
   error = NULL;
-  connection = dbus_g_bus_get (DBUS_BUS_ACTIVATION,
+  connection = dbus_g_bus_get (DBUS_BUS_STARTER,
                                &error);
   if (connection == NULL)
     {

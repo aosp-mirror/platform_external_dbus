@@ -505,7 +505,7 @@ _dbus_header_copy (const DBusHeader *header,
  *
  * @param header the header
  * @param message_type the message type
- * @param destination service field or #NULL
+ * @param destination destination field or #NULL
  * @param path path field or #NULL
  * @param interface interface field or #NULL
  * @param member member field or #NULL
@@ -833,7 +833,7 @@ load_and_validate_field (DBusHeader     *header,
   switch (field)
     {
     case DBUS_HEADER_FIELD_DESTINATION:
-      string_validation_func = _dbus_validate_service;
+      string_validation_func = _dbus_validate_bus_name;
       bad_string_code = DBUS_INVALID_BAD_DESTINATION;
       break;
     case DBUS_HEADER_FIELD_INTERFACE:
@@ -861,7 +861,7 @@ load_and_validate_field (DBusHeader     *header,
       break;
 
     case DBUS_HEADER_FIELD_SENDER:
-      string_validation_func = _dbus_validate_service;
+      string_validation_func = _dbus_validate_bus_name;
       bad_string_code = DBUS_INVALID_BAD_SENDER;
       break;
 

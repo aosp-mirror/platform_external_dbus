@@ -30,7 +30,7 @@
 static void
 usage (char *name, int ecode)
 {
-  fprintf (stderr, "Usage: %s [--help] [--system | --session] [--dest=SERVICE] [--type=TYPE] [--print-reply] [--reply-timeout=MSEC] <destination object path> <message name> [contents ...]\n", name);
+  fprintf (stderr, "Usage: %s [--help] [--system | --session] [--dest=NAME] [--type=TYPE] [--print-reply] [--reply-timeout=MSEC] <destination object path> <message name> [contents ...]\n", name);
   exit (ecode);
 }
 

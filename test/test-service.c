@@ -165,7 +165,7 @@ main (int    argc,
   int result;
   
   dbus_error_init (&error);
-  connection = dbus_bus_get (DBUS_BUS_ACTIVATION, &error);
+  connection = dbus_bus_get (DBUS_BUS_STARTER, &error);
   if (connection == NULL)
     {
       fprintf (stderr, "*** Failed to open connection to activating message bus: %s\n",
@@ -191,8 +191,8 @@ main (int    argc,
                                              NULL))
     die ("No memory");
 
-  result = dbus_bus_acquire_service (connection, "org.freedesktop.DBus.TestSuiteEchoService",
-                                     0, &error);
+  result = dbus_bus_request_name (connection, "org.freedesktop.DBus.TestSuiteEchoService",
+                                  0, &error);
   if (dbus_error_is_set (&error))
     {
       fprintf (stderr, "Error %s\n", error.message);

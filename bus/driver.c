@@ -52,14 +52,14 @@ bus_driver_send_service_owner_changed (const char     *service_name,
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   null_service = "";
-  _dbus_verbose ("sending service owner changed: %s [%s -> %s]\n",
+  _dbus_verbose ("sending name owner changed: %s [%s -> %s]\n",
                  service_name, 
                  old_owner ? old_owner : null_service, 
                  new_owner ? new_owner : null_service);
 
   message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_DBUS,
                                      DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                     "ServiceOwnerChanged");
+                                     "NameOwnerChanged");
   
   if (message == NULL)
     {
@@ -102,7 +102,7 @@ bus_driver_send_service_lost (DBusConnection *connection,
   
   message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_DBUS,
                                      DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                     "ServiceLost");
+                                     "NameLost");
   
   if (message == NULL)
     {
@@ -145,7 +145,7 @@ bus_driver_send_service_acquired (DBusConnection *connection,
   
   message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_DBUS,
                                      DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                     "ServiceAcquired");
+                                     "NameAcquired");
 
   if (message == NULL)
     {
@@ -597,7 +597,7 @@ bus_driver_handle_activate_service (DBusConnection *connection,
                               DBUS_TYPE_INVALID))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
-      _dbus_verbose ("No memory to get arguments to ActivateService\n");
+      _dbus_verbose ("No memory to get arguments to StartServiceByName\n");
       return FALSE;
     }
 
@@ -795,17 +795,18 @@ bus_driver_handle_get_service_owner (DBusConnection *connection,
   if (service == NULL)
     {
       dbus_set_error (error, 
-		      DBUS_ERROR_SERVICE_HAS_NO_OWNER,
-		      "Could not get owner of service '%s': no such service", text);
+		      DBUS_ERROR_NAME_HAS_NO_OWNER,
+		      "Could not get owner of name '%s': no such name", text);
       goto failed;
     }
 
   base_name = bus_connection_get_name (bus_service_get_primary_owner (service));
   if (base_name == NULL)
     {
+      /* FIXME - how is this error possible? */
       dbus_set_error (error,
 		      DBUS_ERROR_FAILED,
-		      "Could not determine base service for '%s'", text);
+		      "Could not determine unique name for '%s'", text);
       goto failed;
     }
   _dbus_assert (*base_name == ':');
@@ -870,8 +871,8 @@ bus_driver_handle_get_connection_unix_user (DBusConnection *connection,
   if (serv == NULL)
     {
       dbus_set_error (error, 
-		      DBUS_ERROR_SERVICE_HAS_NO_OWNER,
-		      "Could not get owner of service '%s': no such service", service);
+		      DBUS_ERROR_NAME_HAS_NO_OWNER,
+		      "Could not get UID of name '%s': no such name", service);
       goto failed;
     }
 
@@ -946,8 +947,8 @@ bus_driver_handle_get_connection_unix_process_id (DBusConnection *connection,
   if (serv == NULL)
     {
       dbus_set_error (error, 
-		      DBUS_ERROR_SERVICE_HAS_NO_OWNER,
-		      "Could not get owner of service '%s': no such service", service);
+		      DBUS_ERROR_NAME_HAS_NO_OWNER,
+		      "Could not get PID of name '%s': no such name", service);
       goto failed;
     }
 
@@ -1026,14 +1027,14 @@ struct
                            DBusMessage    *message,
                            DBusError      *error);
 } message_handlers[] = {
-  { "AcquireService", bus_driver_handle_acquire_service },
-  { "ActivateService", bus_driver_handle_activate_service },
+  { "RequestName", bus_driver_handle_acquire_service },
+  { "StartServiceByName", bus_driver_handle_activate_service },
   { "Hello", bus_driver_handle_hello },
-  { "ServiceExists", bus_driver_handle_service_exists },
-  { "ListServices", bus_driver_handle_list_services },
+  { "NameHasOwner", bus_driver_handle_service_exists },
+  { "ListNames", bus_driver_handle_list_services },
   { "AddMatch", bus_driver_handle_add_match },
   { "RemoveMatch", bus_driver_handle_remove_match },
-  { "GetServiceOwner", bus_driver_handle_get_service_owner },
+  { "GetNameOwner", bus_driver_handle_get_service_owner },
   { "GetConnectionUnixUser", bus_driver_handle_get_connection_unix_user },
   { "GetConnectionUnixProcessID", bus_driver_handle_get_connection_unix_process_id },
   { "ReloadConfig", bus_driver_handle_reload_config }

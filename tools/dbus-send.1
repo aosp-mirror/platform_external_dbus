@@ -8,7 +8,7 @@ dbus-send \- Send a message to a message bus
 .SH SYNOPSIS
 .PP
 .B dbus-send
-[\-\-system | \-\-session] [\-\-dest=SERVICE] [\-\-print-reply]
+[\-\-system | \-\-session] [\-\-dest=NAME] [\-\-print-reply]
 [\-\-type=TYPE] <destination object path> <message name> [contents ...]
 
 .SH DESCRIPTION
@@ -27,9 +27,8 @@ specified, \fIdbus-send\fP sends to the session bus.
 
 .PP 
 Nearly all uses of \fIdbus-send\fP must provide the \-\-dest argument
-which is the name of a service on the bus to send the message to. If
-\-\-dest is omitted, a default service name of
-"org.freedesktop.Broadcast" is used.  
+which is the name of a connection on the bus to send the message to. If
+\-\-dest is omitted, no destination is set.
 
 .PP
 The object path and the name of the message to send must always be
@@ -43,7 +42,7 @@ these, but \fIdbus-send\fP currently does not.)
 Here is an example invocation:
 .nf
 
-  dbus-send \-\-dest='org.freedesktop.ExampleService'        \\
+  dbus-send \-\-dest='org.freedesktop.ExampleName            \\
             /org/freedesktop/sample/object/name              \\
             org.freedesktop.ExampleInterface.ExampleMethod   \\
             int32:47 string:'hello world' double:65.32
@@ -57,8 +56,8 @@ and the interface member are separate fields.
 .SH OPTIONS
 The following options are supported:
 .TP
-.I "--dest=SERVICE"
-Specify the service to receive the message.
+.I "--dest=NAME"
+Specify the name of the connection to receive the message.
 .TP
 .I "--print-reply"
 Block for a reply to the message sent, and print any reply received.

@@ -657,10 +657,10 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
               goto failed;
             }
 
-          if (!_dbus_validate_service (&tmp_str, 0, len))
+          if (!_dbus_validate_bus_name (&tmp_str, 0, len))
             {
               dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
-                              "Sender service name '%s' is invalid\n", value);
+                              "Sender name '%s' is invalid\n", value);
               goto failed;
             }
 
@@ -745,10 +745,10 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
               goto failed;
             }
 
-          if (!_dbus_validate_service (&tmp_str, 0, len))
+          if (!_dbus_validate_bus_name (&tmp_str, 0, len))
             {
               dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
-                              "Destination service name '%s' is invalid\n", value);
+                              "Destination name '%s' is invalid\n", value);
               goto failed;
             }
 

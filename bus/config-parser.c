@@ -1677,7 +1677,7 @@ set_limit (BusConfigParser *parser,
       must_be_positive = TRUE;
       parser->limits.max_message_size = value;
     }
-  else if (strcmp (name, "activation_timeout") == 0)
+  else if (strcmp (name, "service_start_timeout") == 0)
     {
       must_be_positive = TRUE;
       must_be_int = TRUE;
@@ -1713,13 +1713,13 @@ set_limit (BusConfigParser *parser,
       must_be_int = TRUE;
       parser->limits.max_connections_per_user = value;
     }
-  else if (strcmp (name, "max_pending_activations") == 0)
+  else if (strcmp (name, "max_pending_service_starts") == 0)
     {
       must_be_positive = TRUE;
       must_be_int = TRUE;
       parser->limits.max_pending_activations = value;
     }
-  else if (strcmp (name, "max_services_per_connection") == 0)
+  else if (strcmp (name, "max_names_per_connection") == 0)
     {
       must_be_positive = TRUE;
       must_be_int = TRUE;
@@ -2814,28 +2814,29 @@ all_are_equiv (const DBusString *target_directory)
       printf ("    %s\n", _dbus_string_get_const_data (&filename));
 
       parser = bus_config_load (&full_path, TRUE, NULL, &error);
-      _dbus_string_free (&full_path);
 
       if (parser == NULL)
 	{
 	  _dbus_warn ("Could not load file %s: %s\n",
 		      _dbus_string_get_const_data (&full_path),
 		      error.message);
+          _dbus_string_free (&full_path);
 	  dbus_error_free (&error);
 	  goto finished;
 	}
       else if (first_parser == NULL)
 	{
+          _dbus_string_free (&full_path);
 	  first_parser = parser;
 	}
       else
 	{
+          _dbus_string_free (&full_path);
 	  equal = config_parsers_equal (first_parser, parser);
 	  bus_config_parser_unref (parser);
 	  if (! equal)
 	    goto finished;
 	}
-
     }
 
   retval = TRUE;

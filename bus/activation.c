@@ -789,13 +789,13 @@ child_setup (void *data)
   /* If no memory, we simply have the child exit, so it won't try
    * to connect to the wrong thing.
    */
-  if (!_dbus_setenv ("DBUS_ACTIVATION_ADDRESS", activation->server_address))
+  if (!_dbus_setenv ("DBUS_STARTER_ADDRESS", activation->server_address))
     _dbus_exit (1);
   
   type = bus_context_get_type (activation->context);
   if (type != NULL)
     {
-      if (!_dbus_setenv ("DBUS_BUS_TYPE", type))
+      if (!_dbus_setenv ("DBUS_STARTER_BUS_TYPE", type))
         _dbus_exit (1);
 
       if (strcmp (type, "session") == 0)
@@ -920,7 +920,7 @@ bus_activation_service_created (BusActivation  *activation,
 		  goto error;
 		}
 
-              result = DBUS_ACTIVATION_REPLY_ACTIVATED;
+              result = DBUS_START_REPLY_SUCCESS;
               
 	      if (!dbus_message_append_args (message,
 					     DBUS_TYPE_UINT32, &result,
@@ -1280,8 +1280,8 @@ activation_find_entry (BusActivation *activation,
 
   if (!entry) 
     {
-      dbus_set_error (error, DBUS_ERROR_ACTIVATE_SERVICE_NOT_FOUND,
-		      "The service %s was not found in the activation entry list",
+      dbus_set_error (error, DBUS_ERROR_SERVICE_UNKNOWN,
+		      "The name %s was not provided by any .service files",
 		      service_name);
       return NULL;
     }
@@ -1347,7 +1347,7 @@ bus_activation_activate_service (BusActivation  *activation,
               return FALSE;
             }
 
-          result = DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE;
+          result = DBUS_START_REPLY_ALREADY_RUNNING;
           
           if (!dbus_message_append_args (message,
                                          DBUS_TYPE_UINT32, &result,

@@ -375,14 +375,14 @@ bus_registry_acquire_service (BusRegistry      *registry,
       _dbus_assert (current_owner == connection);
 
       bus_service_set_prohibit_replacement (service,
-					    (flags & DBUS_SERVICE_FLAG_PROHIBIT_REPLACEMENT));      
+					    (flags & DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT));      
 			
-      *result = DBUS_SERVICE_REPLY_PRIMARY_OWNER;      
+      *result = DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER;      
     }
   else if (old_owner == connection)
-    *result = DBUS_SERVICE_REPLY_ALREADY_OWNER;
-  else if (!((flags & DBUS_SERVICE_FLAG_REPLACE_EXISTING)))
-    *result = DBUS_SERVICE_REPLY_SERVICE_EXISTS;
+    *result = DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER;
+  else if (!((flags & DBUS_NAME_FLAG_REPLACE_EXISTING)))
+    *result = DBUS_REQUEST_NAME_REPLY_EXISTS;
   else if (bus_service_get_prohibit_replacement (service))
     {
       /* Queue the connection */
@@ -390,14 +390,14 @@ bus_registry_acquire_service (BusRegistry      *registry,
                                   transaction, error))
         goto out;
       
-      *result = DBUS_SERVICE_REPLY_IN_QUEUE;
+      *result = DBUS_REQUEST_NAME_REPLY_IN_QUEUE;
     }
   else
     {
       /* Replace the current owner */
 
       /* We enqueue the new owner and remove the first one because
-       * that will cause ServiceAcquired and ServiceLost messages to
+       * that will cause NameAcquired and NameLost messages to
        * be sent.
        */
       
@@ -410,7 +410,7 @@ bus_registry_acquire_service (BusRegistry      *registry,
         goto out;
       
       _dbus_assert (connection == bus_service_get_primary_owner (service));
-      *result = DBUS_SERVICE_REPLY_PRIMARY_OWNER;
+      *result = DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER;
     }
 
   activation = bus_context_get_activation (registry->context);

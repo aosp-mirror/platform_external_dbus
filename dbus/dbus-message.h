@@ -61,7 +61,7 @@ struct DBusMessageIter
 };
 
 DBusMessage* dbus_message_new               (int          message_type);
-DBusMessage* dbus_message_new_method_call   (const char  *service,
+DBusMessage* dbus_message_new_method_call   (const char  *bus_name,
                                              const char  *path,
                                              const char  *interface,
                                              const char  *method);
@@ -113,9 +113,9 @@ dbus_bool_t   dbus_message_is_signal        (DBusMessage   *message,
 dbus_bool_t   dbus_message_is_error         (DBusMessage   *message,
                                              const char    *error_name);
 dbus_bool_t   dbus_message_has_destination  (DBusMessage   *message,
-                                             const char    *service);
+                                             const char    *bus_name);
 dbus_bool_t   dbus_message_has_sender       (DBusMessage   *message,
-                                             const char    *service);
+                                             const char    *unique_bus_name);
 dbus_bool_t   dbus_message_has_signature    (DBusMessage   *message,
                                              const char    *signature);
 dbus_uint32_t dbus_message_get_serial       (DBusMessage   *message);
@@ -123,9 +123,9 @@ dbus_bool_t   dbus_message_set_reply_serial (DBusMessage   *message,
                                              dbus_uint32_t  reply_serial);
 dbus_uint32_t dbus_message_get_reply_serial (DBusMessage   *message);
 
-void          dbus_message_set_auto_activation (DBusMessage   *message,
-						dbus_bool_t    auto_activation);
-dbus_bool_t   dbus_message_get_auto_activation (DBusMessage   *message);
+void          dbus_message_set_auto_start   (DBusMessage   *message,
+                                             dbus_bool_t    auto_start);
+dbus_bool_t   dbus_message_get_auto_start   (DBusMessage   *message);
 
 dbus_bool_t   dbus_message_get_path_decomposed (DBusMessage   *message,
                                                 char        ***path);

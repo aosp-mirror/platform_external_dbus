@@ -728,7 +728,7 @@ dbus_message_new (int message_type)
  * that if multiple methods with the given name exist it is undefined
  * which one will be invoked.
   *
- * @param destination service that the message should be sent to or #NULL
+ * @param destination name that the message should be sent to or #NULL
  * @param path object path the message should be sent to
  * @param interface interface to invoke method on
  * @param method method to invoke
@@ -747,7 +747,7 @@ dbus_message_new_method_call (const char *destination,
   _dbus_return_val_if_fail (path != NULL, NULL);
   _dbus_return_val_if_fail (method != NULL, NULL);
   _dbus_return_val_if_fail (destination == NULL ||
-                            _dbus_check_is_valid_service (destination), NULL);
+                            _dbus_check_is_valid_bus_name (destination), NULL);
   _dbus_return_val_if_fail (_dbus_check_is_valid_path (path), NULL);
   _dbus_return_val_if_fail (interface == NULL ||
                             _dbus_check_is_valid_interface (interface), NULL);
@@ -2190,41 +2190,41 @@ dbus_message_get_no_reply (DBusMessage *message)
 }
 
 /**
- * Sets a flag indicating that the addressed service will be
- * auto-activated before the message is delivered. When this flag is
- * set, the message is held until the service is succesfully activated
- * or fails to activate. In case of failure, the reply will be an
- * activation error. If this flag is not set (the default
+ * Sets a flag indicating that an owner for the destination name will
+ * be automatically started before the message is delivered. When this
+ * flag is set, the message is held until a name owner finishes
+ * starting up, or fails to start up. In case of failure, the reply
+ * will be an error.
  *
  * @param message the message
- * @param auto_activation #TRUE if auto-activation is desired
+ * @param auto_start #TRUE if auto-starting is desired
  */
 void
-dbus_message_set_auto_activation (DBusMessage *message,
-				  dbus_bool_t  auto_activation)
+dbus_message_set_auto_start (DBusMessage *message,
+                             dbus_bool_t  auto_start)
 {
   _dbus_return_if_fail (message != NULL);
   _dbus_return_if_fail (!message->locked);
 
   _dbus_header_toggle_flag (&message->header,
-                            DBUS_HEADER_FLAG_AUTO_ACTIVATION,
-                            auto_activation);
+                            DBUS_HEADER_FLAG_AUTO_START,
+                            auto_start);
 }
 
 /**
- * Returns #TRUE if the message will cause the addressed service to be
- * auto-activated.
+ * Returns #TRUE if the message will cause an owner for
+ * destination name to be auto-started.
  *
  * @param message the message
- * @returns #TRUE if the message will use auto-activation
+ * @returns #TRUE if the message will use auto-start
  */
 dbus_bool_t
-dbus_message_get_auto_activation (DBusMessage *message)
+dbus_message_get_auto_start (DBusMessage *message)
 {
   _dbus_return_val_if_fail (message != NULL, FALSE);
 
   return _dbus_header_get_flag (&message->header,
-                                DBUS_HEADER_FLAG_AUTO_ACTIVATION);
+                                DBUS_HEADER_FLAG_AUTO_START);
 }
 
 
@@ -2462,10 +2462,13 @@ dbus_message_get_error_name (DBusMessage *message)
 }
 
 /**
- * Sets the message's destination service.
+ * Sets the message's destination. The destination is the name of
+ * another connection on the bus and may be either the unique name
+ * assigned by the bus to each connection, or a well-known name
+ * specified in advance.
  *
  * @param message the message
- * @param destination the destination service name or #NULL to unset
+ * @param destination the destination name or #NULL to unset
  * @returns #FALSE if not enough memory
  */
 dbus_bool_t
@@ -2475,7 +2478,7 @@ dbus_message_set_destination (DBusMessage  *message,
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_fail (!message->locked, FALSE);
   _dbus_return_val_if_fail (destination == NULL ||
-                            _dbus_check_is_valid_service (destination),
+                            _dbus_check_is_valid_bus_name (destination),
                             FALSE);
 
   return set_or_delete_string_field (message,
@@ -2485,11 +2488,10 @@ dbus_message_set_destination (DBusMessage  *message,
 }
 
 /**
- * Gets the destination service of a message or #NULL if there is
- * none set.
+ * Gets the destination of a message or #NULL if there is none set.
  *
  * @param message the message
- * @returns the message destination service (should not be freed) or #NULL
+ * @returns the message destination (should not be freed) or #NULL
  */
 const char*
 dbus_message_get_destination (DBusMessage *message)
@@ -2520,7 +2522,7 @@ dbus_message_set_sender (DBusMessage  *message,
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_fail (!message->locked, FALSE);
   _dbus_return_val_if_fail (sender == NULL ||
-                            _dbus_check_is_valid_service (sender),
+                            _dbus_check_is_valid_bus_name (sender),
                             FALSE);
 
   return set_or_delete_string_field (message,
@@ -2530,11 +2532,12 @@ dbus_message_set_sender (DBusMessage  *message,
 }
 
 /**
- * Gets the service which originated this message,
- * or #NULL if unknown or inapplicable.
+ * Gets the unique name of the connection which originated this
+ * message, or #NULL if unknown or inapplicable. The sender is filled
+ * in by the message bus.
  *
  * @param message the message
- * @returns the service name or #NULL
+ * @returns the unique name of the sender or #NULL
  */
 const char*
 dbus_message_get_sender (DBusMessage *message)
@@ -2706,67 +2709,65 @@ dbus_message_is_error (DBusMessage *message,
 }
 
 /**
- * Checks whether the message was sent to the given service.  If the
- * message has no service specified or has a different name, returns
- * #FALSE.
+ * Checks whether the message was sent to the given name.  If the
+ * message has no destination specified or has a different
+ * destination, returns #FALSE.
  *
  * @param message the message
- * @param service the service to check (must not be #NULL)
+ * @param name the name to check (must not be #NULL)
  *
- * @returns #TRUE if the message has the given destination service
+ * @returns #TRUE if the message has the given destination name
  */
 dbus_bool_t
 dbus_message_has_destination (DBusMessage  *message,
-                              const char   *service)
+                              const char   *name)
 {
   const char *s;
 
   _dbus_return_val_if_fail (message != NULL, FALSE);
-  _dbus_return_val_if_fail (service != NULL, FALSE);
-  /* don't check that service name is valid since it would be expensive,
-   * and not catch many common errors
+  _dbus_return_val_if_fail (name != NULL, FALSE);
+  /* don't check that name is valid since it would be expensive, and
+   * not catch many common errors
    */
 
   s = dbus_message_get_destination (message);
 
-  if (s && strcmp (s, service) == 0)
+  if (s && strcmp (s, name) == 0)
     return TRUE;
   else
     return FALSE;
 }
 
 /**
- * Checks whether the message has the given service as its sender.  If
- * the message has no sender specified or has a different sender,
- * returns #FALSE. Note that if a peer application owns multiple
- * services, its messages will have only one of those services as the
- * sender (usually the base service). So you can't use this
- * function to prove the sender didn't own service Foo, you can
- * only use it to prove that it did.
+ * Checks whether the message has the given unique name as its sender.
+ * If the message has no sender specified or has a different sender,
+ * returns #FALSE. Note that a peer application will always have the
+ * unique name of the connection as the sender. So you can't use this
+ * function to see whether a sender owned a well-known name.
  *
- * @todo this function is probably useless unless we make a hard guarantee
- * that the sender field in messages will always be the base service name
+ * Messages from the bus itself will have #DBUS_SERVICE_ORG_FREEDESKTOP_DBUS
+ * as the sender.
  *
  * @param message the message
- * @param service the service to check (must not be #NULL)
+ * @param name the name to check (must not be #NULL)
  *
- * @returns #TRUE if the message has the given origin service
+ * @returns #TRUE if the message has the given sender
  */
 dbus_bool_t
 dbus_message_has_sender (DBusMessage  *message,
-                         const char   *service)
+                         const char   *name)
 {
   const char *s;
 
   _dbus_return_val_if_fail (message != NULL, FALSE);
-  _dbus_return_val_if_fail (service != NULL, FALSE);
-  /* don't check that service name is valid since it would be expensive,
-   * and not catch many common errors
+  _dbus_return_val_if_fail (name != NULL, FALSE);
+  /* don't check that name is valid since it would be expensive, and
+   * not catch many common errors
    */
 
   s = dbus_message_get_sender (message);
 
-  if (s && strcmp (s, service) == 0)
+  if (s && strcmp (s, name) == 0)
     return TRUE;
   else
     return FALSE;

@@ -111,14 +111,14 @@ typedef struct DBusGProxyClass  DBusGProxyClass;
 
 
 GType             dbus_g_proxy_get_type              (void) G_GNUC_CONST;
-DBusGProxy*       dbus_g_proxy_new_for_service       (DBusGConnection   *connection,
-                                                      const char        *service_name,
-                                                      const char        *path_name,
-                                                      const char        *interface_name);
-DBusGProxy*       dbus_g_proxy_new_for_service_owner (DBusGConnection   *connection,
-                                                      const char        *service_name,
-                                                      const char        *path_name,
-                                                      const char        *interface_name,
+DBusGProxy*       dbus_g_proxy_new_for_name          (DBusGConnection   *connection,
+                                                      const char        *name,
+                                                      const char        *path,
+                                                      const char        *interface);
+DBusGProxy*       dbus_g_proxy_new_for_name_owner    (DBusGConnection   *connection,
+                                                      const char        *name,
+                                                      const char        *path,
+                                                      const char        *interface,
                                                       GError           **error);
 DBusGProxy*       dbus_g_proxy_new_for_peer          (DBusGConnection   *connection,
                                                       const char        *path_name,

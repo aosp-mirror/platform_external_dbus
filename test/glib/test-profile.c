@@ -423,19 +423,19 @@ with_bus_server_filter (DBusConnection     *connection,
                                     DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) &&
            dbus_message_is_signal (message,
                                    DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                   "ServiceOwnerChanged"))
+                                   "NameOwnerChanged"))
     {
-      const char *service_name, *old_owner, *new_owner;
+      const char *name, *old_owner, *new_owner;
       DBusError error;
 
-      service_name = NULL;
+      name = NULL;
       old_owner = NULL;
       new_owner = NULL;
 
       dbus_error_init (&error);
       if (!dbus_message_get_args (message,
                                   &error,
-                                  DBUS_TYPE_STRING, &service_name,
+                                  DBUS_TYPE_STRING, &name,
                                   DBUS_TYPE_STRING, &old_owner,
                                   DBUS_TYPE_STRING, &new_owner,
                                   DBUS_TYPE_INVALID))
@@ -445,12 +445,12 @@ with_bus_server_filter (DBusConnection     *connection,
         }
 
       if (g_hash_table_lookup (server->client_names,
-                               service_name) &&
+                               name) &&
           *old_owner != '\0' &&
           *new_owner == '\0')
         {
           g_hash_table_remove (server->client_names,
-                               service_name);
+                               name);
           server->sd->n_clients -= 1;
           if (server->sd->n_clients == 0)
             g_main_loop_quit (server->sd->loop);
@@ -525,13 +525,13 @@ with_bus_init_server (ServerData       *sd)
   
   connection = dbus_g_connection_get_connection (gconnection);
 
-  dbus_bus_acquire_service (connection,
-                            ECHO_SERVICE,
-                            0, NULL); /* ignore errors because we suck */
+  dbus_bus_request_name (connection,
+                         ECHO_SERVICE,
+                         0, NULL); /* ignore errors because we suck */
   
   rule = g_strdup_printf ("type='signal',sender='%s',member='%s'",
                           DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-                          "ServiceOwnerChanged");
+                          "NameOwnerChanged");
 
   /* ignore errors because we suck */
   dbus_bus_add_match (connection, rule, NULL);

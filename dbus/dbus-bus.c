@@ -61,7 +61,7 @@
 typedef struct
 {
   DBusConnection *connection; /**< Connection we're associated with */
-  char *base_service; /**< Base service name of this connection */
+  char *unique_name; /**< Unique name of this connection */
 
   unsigned int is_well_known : 1; /**< Is one of the well-known connections in our global array */
 } BusData;
@@ -76,7 +76,7 @@ static dbus_int32_t bus_data_slot = -1;
 static DBusConnection *bus_connections[N_BUS_TYPES];
 static char *bus_connection_addresses[N_BUS_TYPES] = { NULL, NULL, NULL };
 
-static DBusBusType activation_bus_type = DBUS_BUS_ACTIVATION;
+static DBusBusType activation_bus_type = DBUS_BUS_STARTER;
 
 static dbus_bool_t initialized = FALSE;
 
@@ -101,7 +101,7 @@ addresses_shutdown_func (void *data)
       ++i;
     }
 
-  activation_bus_type = DBUS_BUS_ACTIVATION;
+  activation_bus_type = DBUS_BUS_STARTER;
 }
 
 static dbus_bool_t
@@ -180,22 +180,22 @@ init_connections_unlocked (void)
                          bus_connection_addresses[DBUS_BUS_SESSION] : "none set");
         }
 
-      if (bus_connection_addresses[DBUS_BUS_ACTIVATION] == NULL)
+      if (bus_connection_addresses[DBUS_BUS_STARTER] == NULL)
         {
           _dbus_verbose ("Filling in activation bus address...\n");
           
-          if (!get_from_env (&bus_connection_addresses[DBUS_BUS_ACTIVATION],
-                             "DBUS_ACTIVATION_ADDRESS"))
+          if (!get_from_env (&bus_connection_addresses[DBUS_BUS_STARTER],
+                             "DBUS_STARTER_ADDRESS"))
             return FALSE;
           
-          _dbus_verbose ("  \"%s\"\n", bus_connection_addresses[DBUS_BUS_ACTIVATION] ?
-                         bus_connection_addresses[DBUS_BUS_ACTIVATION] : "none set");
+          _dbus_verbose ("  \"%s\"\n", bus_connection_addresses[DBUS_BUS_STARTER] ?
+                         bus_connection_addresses[DBUS_BUS_STARTER] : "none set");
         }
 
 
-      if (bus_connection_addresses[DBUS_BUS_ACTIVATION] != NULL)
+      if (bus_connection_addresses[DBUS_BUS_STARTER] != NULL)
         {
-          s = _dbus_getenv ("DBUS_ACTIVATION_BUS_TYPE");
+          s = _dbus_getenv ("DBUS_STARTER_BUS_TYPE");
               
           if (s != NULL)
             {
@@ -212,9 +212,9 @@ init_connections_unlocked (void)
           /* Default to the session bus instead if available */
           if (bus_connection_addresses[DBUS_BUS_SESSION] != NULL)
             {
-              bus_connection_addresses[DBUS_BUS_ACTIVATION] =
+              bus_connection_addresses[DBUS_BUS_STARTER] =
                 _dbus_strdup (bus_connection_addresses[DBUS_BUS_SESSION]);
-              if (bus_connection_addresses[DBUS_BUS_ACTIVATION] == NULL)
+              if (bus_connection_addresses[DBUS_BUS_STARTER] == NULL)
                 return FALSE;
             }
         }
@@ -260,7 +260,7 @@ bus_data_free (void *data)
       _DBUS_UNLOCK (bus);
     }
   
-  dbus_free (bd->base_service);
+  dbus_free (bd->unique_name);
   dbus_free (bd);
 
   dbus_connection_free_data_slot (&bus_data_slot);
@@ -352,9 +352,9 @@ dbus_bus_get (DBusBusType  type,
   /* Use the real type of the activation bus for getting its
    * connection, but only if the real type's address is available. (If
    * the activating bus isn't a well-known bus then
-   * activation_bus_type == DBUS_BUS_ACTIVATION)
+   * activation_bus_type == DBUS_BUS_STARTER)
    */
-  if (type == DBUS_BUS_ACTIVATION &&
+  if (type == DBUS_BUS_STARTER &&
       bus_connection_addresses[activation_bus_type] != NULL)
     type = activation_bus_type;
   
@@ -415,11 +415,8 @@ dbus_bus_get (DBusBusType  type,
 /**
  * Registers a connection with the bus. This must be the first
  * thing an application does when connecting to the message bus.
- * If registration succeeds, the base service name will be set,
- * and can be obtained using dbus_bus_get_base_service().
- *
- * @todo if we get an error reply, it has to be converted into
- * DBusError and returned
+ * If registration succeeds, the unique name will be set,
+ * and can be obtained using dbus_bus_get_unique_name().
  * 
  * @param connection the connection
  * @param error place to store errors
@@ -446,7 +443,7 @@ dbus_bus_register (DBusConnection *connection,
       return FALSE;
     }
 
-  if (bd->base_service != NULL)
+  if (bd->unique_name != NULL)
     {
       _dbus_warn ("Attempt to register the same DBusConnection with the message bus, but it is already registered\n");
       /* This isn't an error, it's a programming bug. We'll be nice
@@ -479,8 +476,8 @@ dbus_bus_register (DBusConnection *connection,
                                    DBUS_TYPE_INVALID))
     goto out;
   
-  bd->base_service = _dbus_strdup (name);
-  if (bd->base_service == NULL)
+  bd->unique_name = _dbus_strdup (name);
+  if (bd->unique_name == NULL)
     {
       _DBUS_SET_OOM (error);
       goto out;
@@ -500,45 +497,42 @@ dbus_bus_register (DBusConnection *connection,
 
 
 /**
- * Sets the base service name of the connection.
- * Can only be used if you registered with the
- * bus manually (i.e. if you did not call
- * dbus_bus_register()). Can only be called
- * once per connection.
+ * Sets the unique name of the connection.  Can only be used if you
+ * registered with the bus manually (i.e. if you did not call
+ * dbus_bus_register()). Can only be called once per connection.
  *
  * @param connection the connection
- * @param base_service the base service name
+ * @param unique_name the unique name
  * @returns #FALSE if not enough memory
  */
 dbus_bool_t
-dbus_bus_set_base_service (DBusConnection *connection,
-                           const char     *base_service)
+dbus_bus_set_unique_name (DBusConnection *connection,
+                          const char     *unique_name)
 {
   BusData *bd;
 
   _dbus_return_val_if_fail (connection != NULL, FALSE);
-  _dbus_return_val_if_fail (base_service != NULL, FALSE);
+  _dbus_return_val_if_fail (unique_name != NULL, FALSE);
   
   bd = ensure_bus_data (connection);
   if (bd == NULL)
     return FALSE;
 
-  _dbus_assert (bd->base_service == NULL);
+  _dbus_assert (bd->unique_name == NULL);
   
-  bd->base_service = _dbus_strdup (base_service);
-  return bd->base_service != NULL;
+  bd->unique_name = _dbus_strdup (unique_name);
+  return bd->unique_name != NULL;
 }
 
 /**
- * Gets the base service name of the connection.
- * Only possible after the connection has been registered
- * with the message bus.
+ * Gets the unique name of the connection.  Only possible after the
+ * connection has been registered with the message bus.
  *
  * @param connection the connection
- * @returns the base service name
+ * @returns the unique name
  */
 const char*
-dbus_bus_get_base_service (DBusConnection *connection)
+dbus_bus_get_unique_name (DBusConnection *connection)
 {
   BusData *bd;
 
@@ -548,27 +542,28 @@ dbus_bus_get_base_service (DBusConnection *connection)
   if (bd == NULL)
     return NULL;
   
-  return bd->base_service;
+  return bd->unique_name;
 }
 
 /**
- * Asks the bus to return the uid of a service.
+ * Asks the bus to return the uid of the named
+ * connection.
  *
  * @param connection the connection
- * @param service the service name
+ * @param name a name owned by the connection
  * @param error location to store the error
  * @returns a result code, -1 if error is set
  */ 
 unsigned long
 dbus_bus_get_unix_user (DBusConnection *connection,
-                        const char     *service,
+                        const char     *name,
                         DBusError      *error)
 {
   DBusMessage *message, *reply;
   dbus_uint32_t uid;
 
   _dbus_return_val_if_fail (connection != NULL, DBUS_UID_UNSET);
-  _dbus_return_val_if_fail (service != NULL, DBUS_UID_UNSET);
+  _dbus_return_val_if_fail (name != NULL, DBUS_UID_UNSET);
   _dbus_return_val_if_error_is_set (error, DBUS_UID_UNSET);
   
   message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
@@ -583,7 +578,7 @@ dbus_bus_get_unix_user (DBusConnection *connection,
     }
  
   if (!dbus_message_append_args (message,
-				 DBUS_TYPE_STRING, &service,
+				 DBUS_TYPE_STRING, &name,
 				 DBUS_TYPE_INVALID))
     {
       dbus_message_unref (message);
@@ -625,7 +620,7 @@ dbus_bus_get_unix_user (DBusConnection *connection,
 
 
 /**
- * Asks the bus to try to acquire a certain service.
+ * Asks the bus to assign the given name to this connection.
  *
  * @todo these docs are not complete, need to document the
  * return value and flags
@@ -634,28 +629,28 @@ dbus_bus_get_unix_user (DBusConnection *connection,
  * DBusError and returned
  *
  * @param connection the connection
- * @param service_name the service name
+ * @param name the name to request
  * @param flags flags
  * @param error location to store the error
  * @returns a result code, -1 if error is set
  */ 
 int
-dbus_bus_acquire_service (DBusConnection *connection,
-			  const char     *service_name,
-			  unsigned int    flags,
-                          DBusError      *error)
+dbus_bus_request_name (DBusConnection *connection,
+                       const char     *name,
+                       unsigned int    flags,
+                       DBusError      *error)
 {
   DBusMessage *message, *reply;
-  dbus_uint32_t service_result;
+  dbus_uint32_t result;
 
   _dbus_return_val_if_fail (connection != NULL, 0);
-  _dbus_return_val_if_fail (service_name != NULL, 0);
+  _dbus_return_val_if_fail (name != NULL, 0);
   _dbus_return_val_if_error_is_set (error, 0);
   
   message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
                                           DBUS_PATH_ORG_FREEDESKTOP_DBUS,
                                           DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                          "AcquireService");
+                                          "RequestName");
 
   if (message == NULL)
     {
@@ -664,7 +659,7 @@ dbus_bus_acquire_service (DBusConnection *connection,
     }
  
   if (!dbus_message_append_args (message,
-				 DBUS_TYPE_STRING, &service_name,
+				 DBUS_TYPE_STRING, &name,
 				 DBUS_TYPE_UINT32, &flags,
 				 DBUS_TYPE_INVALID))
     {
@@ -692,7 +687,7 @@ dbus_bus_acquire_service (DBusConnection *connection,
     }
   
   if (!dbus_message_get_args (reply, error,
-                              DBUS_TYPE_UINT32, &service_result,
+                              DBUS_TYPE_UINT32, &result,
                               DBUS_TYPE_INVALID))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -702,33 +697,33 @@ dbus_bus_acquire_service (DBusConnection *connection,
 
   dbus_message_unref (reply);
   
-  return service_result;
+  return result;
 }
 
 /**
- * Checks whether a certain service exists.
+ * Checks whether a certain name has an owner.
  *
  * @param connection the connection
- * @param service_name the service name
+ * @param name the name
  * @param error location to store any errors
- * @returns #TRUE if the service exists, #FALSE if not or on error
+ * @returns #TRUE if the name exists, #FALSE if not or on error
  */
 dbus_bool_t
-dbus_bus_service_exists (DBusConnection *connection,
-			 const char     *service_name,
+dbus_bus_name_has_owner (DBusConnection *connection,
+			 const char     *name,
                          DBusError      *error)
 {
   DBusMessage *message, *reply;
   dbus_bool_t exists;
 
   _dbus_return_val_if_fail (connection != NULL, FALSE);
-  _dbus_return_val_if_fail (service_name != NULL, FALSE);
+  _dbus_return_val_if_fail (name != NULL, FALSE);
   _dbus_return_val_if_error_is_set (error, FALSE);
   
   message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
                                           DBUS_PATH_ORG_FREEDESKTOP_DBUS,
                                           DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                          "ServiceExists");
+                                          "NameHasOwner");
   if (message == NULL)
     {
       _DBUS_SET_OOM (error);
@@ -736,7 +731,7 @@ dbus_bus_service_exists (DBusConnection *connection,
     }
   
   if (!dbus_message_append_args (message,
-				 DBUS_TYPE_STRING, &service_name,
+				 DBUS_TYPE_STRING, &name,
 				 DBUS_TYPE_INVALID))
     {
       dbus_message_unref (message);
@@ -767,26 +762,26 @@ dbus_bus_service_exists (DBusConnection *connection,
 }
 
 /**
- * Activates a given service
+ * Starts a service that will request ownership of the given name.
+ * The returned result will be one of be one of
+ * #DBUS_START_REPLY_SUCCESS or #DBUS_START_REPLY_ALREADY_RUNNING if
+ * successful.  Pass #NULL if you don't care about the result.
  *
  * @param connection the connection
- * @param service_name the service name
+ * @param name the name we want the new service to request
  * @param flags the flags
- * @param result a place to store the result of the activation, which will
- * be one of DBUS_ACTIVATION_REPLY_ACTIVATED or
- * DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE if successful.  Pass NULL if you
- * don't care about the result.
+ * @param result a place to store the result or #NULL
  * @param error location to store any errors
  * @returns #TRUE if the activation succeeded, #FALSE if not
  *
  * @todo document what the flags do
  */
 dbus_bool_t
-dbus_bus_activate_service (DBusConnection *connection,
-			   const char     *service_name,
-			   dbus_uint32_t   flags,
-			   dbus_uint32_t  *result,
-			   DBusError      *error)
+dbus_bus_start_service_by_name (DBusConnection *connection,
+                                const char     *name,
+                                dbus_uint32_t   flags,
+                                dbus_uint32_t  *result,
+                                DBusError      *error)
 {
   DBusMessage *msg;
   DBusMessage *reply;
@@ -794,9 +789,9 @@ dbus_bus_activate_service (DBusConnection *connection,
   msg = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
                                       DBUS_PATH_ORG_FREEDESKTOP_DBUS,
                                       DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                      "ActivateService");
+                                      "StartServiceByName");
 
-  if (!dbus_message_append_args (msg, DBUS_TYPE_STRING, &service_name,
+  if (!dbus_message_append_args (msg, DBUS_TYPE_STRING, &name,
 			  	 DBUS_TYPE_UINT32, &flags, DBUS_TYPE_INVALID))
     {
       dbus_message_unref (msg);
