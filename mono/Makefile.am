@@ -1,5 +1,7 @@
 DESTDIR=
 
+SUBDIRS=doc
+
 DLLS=dbus-sharp.dll
 NOINST_EXES=test-dbus-sharp.exe
 
