@@ -279,8 +279,10 @@ init_global_locks (void)
  * in efficiency. Note that this function must be called
  * BEFORE using any other D-BUS functions.
  *
- * @todo right now this function can only be called once,
- * maybe we should instead silently ignore multiple calls.
+ * This function may be called more than once, as long
+ * as you pass in the same functions each time. If it's
+ * called multiple times with different functions, then
+ * a warning is printed, because someone is confused.
  *
  * @param functions functions for using threads
  * @returns #TRUE on success, #FALSE if no memory
@@ -325,8 +327,20 @@ dbus_threads_init (const DBusThreadFunctions *functions)
   
   if (thread_functions.mask != 0)
     {
-      _dbus_warn ("dbus_threads_init() may only be called one time\n");
-      return FALSE;
+      /* Silently allow multiple init if the functions are the same ones.
+       * Well, we only bother checking two of them, just out of laziness.
+       */
+      if (thread_functions.mask == functions->mask &&
+          thread_functions.mutex_new == functions->mutex_new &&
+          thread_functions.condvar_new == functions->condvar_new)
+        {
+          return TRUE;
+        }
+      else
+        {
+          _dbus_warn ("dbus_threads_init() called twice with two different sets of functions\n");
+          return FALSE;
+        }
     }
   
   thread_functions.mutex_new = functions->mutex_new;

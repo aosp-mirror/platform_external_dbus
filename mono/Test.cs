@@ -6,10 +6,14 @@ class Test {
     DBus.Message m;
     DBus.Connection c;
 
-    c = new DBus.Connection ("unix:path=/tmp/foobar");
+    // c = new DBus.Connection ("unix:path=/tmp/foobar");
 
-    m = new DBus.Message ("org.freedesktop.Foo", null);
+    c = DBus.Connection.GetBus (DBus.Connection.BusType.Session);
+    
+    m = new DBus.Message ("org.freedesktop.Foo",
+                          "org.freedesktop.DBus.Broadcast");
 
-    Console.WriteLine ("Message name is {0}\n", m.Name);
+    c.Send (m);
+    c.Flush ();    
   }
 }

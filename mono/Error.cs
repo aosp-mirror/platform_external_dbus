@@ -21,9 +21,9 @@ namespace DBus {
       dbus_error_free (ref this);
     }
     
-    [DllImport (DBus.Internals.Libname, EntryPoint="dbus_error_init")]
+    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_error_init")]
     private extern static void dbus_error_init (ref Error error);
-    [DllImport (DBus.Internals.Libname, EntryPoint="dbus_error_free")]
+    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_error_free")]
     private extern static void dbus_error_free (ref Error error);
   }
 }
