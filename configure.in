@@ -31,14 +31,14 @@ AC_ARG_ENABLE(verbose-mode, [  --enable-verbose-mode support verbose debug mode]
 AC_ARG_ENABLE(asserts, [  --enable-asserts include assertion checks],enable_asserts=$enableval,enable_asserts=$USE_MAINTAINER_MODE)
 AC_ARG_ENABLE(checks,  [  --enable-checks  include sanity checks on public API],enable_checks=$enableval,enable_checks=yes)
 AC_ARG_ENABLE(docs,    [  --enable-docs    build documentation (requires Doxygen and jade)],enable_docs=$enableval,enable_docs=auto)
-AC_ARG_ENABLE(gcov,    [  --enable-gcov compile with coverage profiling instrumentation (gcc only)],enable_gcov=$enableval,enable_gcov=no)
+AC_ARG_ENABLE(gcov,    [  --enable-gcov    compile with coverage profiling instrumentation (gcc only)],enable_gcov=$enableval,enable_gcov=no)
 
-AC_ARG_WITH(xml,                [  --with-xml=[libxml/expat] XML library to use])
-AC_ARG_WITH(init-scripts,       [  --with-init-scripts=[redhat] Style of init scripts to install])
+AC_ARG_WITH(xml,                [  --with-xml=[libxml/expat]           XML library to use])
+AC_ARG_WITH(init-scripts,       [  --with-init-scripts=[redhat]        Style of init scripts to install])
 AC_ARG_WITH(session-socket-dir, [  --with-session-socket-dir=[dirname] Where to put sockets for the per-login-session message bus])
-AC_ARG_WITH(test-socket-dir,    [  --with-test-socket-dir=[dirname] Where to put sockets for make check])
-AC_ARG_WITH(system-pid-file,    [  --with-system-pid-file=[pidfile] PID file for systemwide daemon])
-AC_ARG_WITH(system-socket,      [  --with-system-socket=[filename] UNIX domain socket for systemwide daemon])
+AC_ARG_WITH(test-socket-dir,    [  --with-test-socket-dir=[dirname]    Where to put sockets for make check])
+AC_ARG_WITH(system-pid-file,    [  --with-system-pid-file=[pidfile]    PID file for systemwide daemon])
+AC_ARG_WITH(system-socket,      [  --with-system-socket=[filename]     UNIX domain socket for systemwide daemon])
 
 dnl DBUS_BUILD_TESTS controls unit tests built in to .c files 
 dnl and also some stuff in the test/ subdir
@@ -596,8 +596,8 @@ bus/Makefile
 tools/Makefile
 test/Makefile
 doc/Makefile
-dbus-1.0.pc
-dbus-glib-1.0.pc
+dbus-1.pc
+dbus-glib-1.pc
 test/data/valid-config-files/debug-allow-all.conf
 test/data/valid-config-files/debug-allow-all-sha1.conf
 test/data/valid-service-files/debug-echo.service

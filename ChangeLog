@@ -1,5 +1,17 @@
 2003-04-29  Havoc Pennington  <hp@redhat.com>
 
+	* dbus-1.pc.in, dbus-glib-1.pc.in: rename these from
+	dbus-1.0.pc.in, dbus-glib-1.0.pc.in. As these change with the
+	parallel install API version, not with the D-BUS package version.
+
+	* HACKING: move some of README over here
+
+	* README: updates, and document API/ABI policy
+
+	* configure.in: reindentation
+
+2003-04-29  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus.h: add "you have to define DBUS_API_SUBJECT_TO_CHANGE
 	to use this library" to be sure people have the right
 	expectations.

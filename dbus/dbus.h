@@ -27,7 +27,7 @@
 #define DBUS_INSIDE_DBUS_H 1
 
 #ifndef DBUS_API_SUBJECT_TO_CHANGE
-#error "Please define DBUS_API_SUBJECT_TO_CHANGE to acknowledge your understanding that D-BUS hasn't reached 1.0 and is subject to protocol and API churn. That said, you are encouraged to use it and we are actively fixing bugs and believe it to be functional."
+#error "Please define DBUS_API_SUBJECT_TO_CHANGE to acknowledge your understanding that D-BUS hasn't reached 1.0 and is subject to protocol and API churn. See the README for a full explanation."
 #endif
 
 #include <dbus/dbus-arch-deps.h>

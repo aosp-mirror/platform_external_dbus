@@ -1,52 +1,73 @@
 D-BUS is a simple IPC library based on messages.
 
+See also the file HACKING for notes of interest to developers working on D-BUS.
+
+See http://www.freedesktop.org/software/dbus/ for lots of documentation, 
+mailing lists, etc.
+
 Configuration flags
 ===
 
-These are the configuration flags that can be given to the ./configure program.
+These are the dbus-specific configuration flags that can be given to
+the ./configure program.
 
---enable-qt      	enable Qt-friendly client library
---enable-glib    	enable GLib-friendly client library
---enable-tests  	enable unit test code
---enable-ansi    	enable -ansi -pedantic gcc flags
---enable-verbose-mode 	support verbose debug mode
---enable-asserts 	include assertion checks
---enable-gcov 		compile with coverage profiling instrumentation (gcc only)
+  --enable-qt      enable Qt-friendly client library
+  --enable-glib    enable GLib-friendly client library
+  --enable-tests   enable unit test code
+  --enable-ansi    enable -ansi -pedantic gcc flags
+  --enable-verbose-mode support verbose debug mode
+  --enable-asserts include assertion checks
+  --enable-checks  include sanity checks on public API
+  --enable-docs    build documentation (requires Doxygen and jade)
+  --enable-gcov    compile with coverage profiling instrumentation (gcc only)
+
+  --with-xml=libxml/expat           XML library to use
+  --with-init-scripts=redhat        Style of init scripts to install
+  --with-session-socket-dir=dirname Where to put sockets for the per-login-session message bus
+  --with-test-socket-dir=dirname    Where to put sockets for make check
+  --with-system-pid-file=pidfile    PID file for systemwide daemon
+  --with-system-socket=filename     UNIX domain socket for systemwide daemon
 
 
-Environment variables
+API/ABI Policy
 ===
 
-These are the environment variables that are used by the D-BUS client library
+D-BUS API/ABI and protocol necessarily remain in flux until we are
+sure it will meet the various needs it's intended to meet. This means
+we need to see some significant sample usage in the contexts of GNOME,
+KDE, desktop applications, and systemwide uses such as print queue
+monitoring, hotplug events, or whatever. We need the flexibility to
+incorporate feedback from this sample usage.
 
-DBUS_VERBOSE=1
-Turns on printing verbose messages. This only works if D-BUS has been
-compiled with --enable-verbose-mode
+Once we feel confident in the protocol and the API, we will release a 
+version 1.0. At that point, the intent is:
 
-DBUS_MALLOC_FAIL_NTH=n
-Can be set to a number, causing every nth call to dbus_alloc or
-dbus_realloc to fail. This only works if D-BUS has been compiled with
---enable-tests.
+ - The protocol will never be broken again; any message bus should 
+   work with any client forever. However, extensions are possible
+   where the protocol is extensible.
 
-DBUS_MALLOC_FAIL_GREATER_THAN=n
-Can be set to a number, causing every call to dbus_alloc or
-dbus_realloc to fail if the number of bytes to be allocated is greater
-than the specified number. This only works if D-BUS has been compiled with
---enable-tests.
+ - If the library API is modified incompatibly, we will rename it 
+   as in http://ometer.com/parallel.html - in other words, 
+   it will always be possible to compile against and use the older 
+   API, and apps will always get the API they expect.
 
+Until 1.0 is released, feedback that requires API changes may be
+incorporated into D-BUS. This may break the API, the ABI, the
+protocol, or all three.
 
-Tests
-===
+To avoid a huge soname, the plan is to increment the soname only
+between official stable releases, not with every development snapshot.
+Versions numbered 0.x are considered development snapshots.
 
-These are the test programs that are built if dbus is compiled using
---enable-tests.
+Until 1.0 is released, you have to define -DDBUS_API_SUBJECT_TO_CHANGE
+just as a safety check to be sure everyone is aware of this API/ABI
+policy and has the right expectations.
 
-dbus/dbus-test
-This is the main unit test program that tests all aspects of the D-BUS
-client library.
+We do need people to test the APIs, so please do use the development
+snapshots of D-BUS. They are intended to work and we do actively
+address bugs.
 
-test/break-loader
-A test that tries to break the message loader by passing it invalid messages.
-
-test/bus-test
-A test that simulates a bus daemon and tests it.
+However, if you're shipping a commercial binary-only application that
+needs to keep running on M future versions of N operating systems, you
+might want to include your own copy of D-BUS rather than relying on
+the installed copy, for example.

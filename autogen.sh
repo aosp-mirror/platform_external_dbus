@@ -9,7 +9,7 @@ cd $srcdir
 
 PROJECT=dbus
 TEST_TYPE=-f
-FILE=dbus-1.0.pc.in
+FILE=dbus-1.pc.in
 
 DIE=0
 
