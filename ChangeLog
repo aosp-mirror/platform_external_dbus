@@ -1,3 +1,7 @@
+2004-07-31  Colin Walters  <walters@redhat.com>
+
+	* configure.in: Move #error in SELinux check to its own line.
+
 2004-07-31  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* dbus/dbus-internals.h (_DBUS_SET_OOM):
