@@ -47,7 +47,7 @@
             does not require users to understand any complex concepts such as a
             new type system or elaborate APIs. Libraries implementing D-BUS 
             may choose to abstract messages as "method calls" (see 
-            <xref linkend="method-conventions">).
+            <xref linkend="message-conventions-method">).
           </para>
         </listitem>
       </itemizedlist>
@@ -109,7 +109,65 @@
         in a type-dependent format.
       </para>
       <para>
-        The types are:
+        The type codes are as follows:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Type name</entry>
+                <entry>Code</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>INVALID</entry>
+                <entry>0</entry>
+                <entry>Not a valid type code (error if it appears in a message)</entry>
+              </row><row>
+                <entry>NIL</entry>
+                <entry>1</entry>
+                <entry>Marks an "unset" or "nonexistent" argument</entry>
+              </row><row>
+                <entry>INT32</entry>
+                <entry>2</entry>
+                <entry>32-bit signed integer</entry>
+              </row><row>
+                <entry>UINT32</entry>
+                <entry>3</entry>
+                <entry>32-bit unsigned integer</entry>
+              </row><row>
+                <entry>DOUBLE</entry>
+                <entry>4</entry>
+                <entry>IEEE 754 double</entry>
+              </row><row>
+                <entry>STRING</entry>
+                <entry>5</entry>
+                <entry>UTF-8 string (<emphasis>must</emphasis> be valid UTF-8)</entry>
+              </row><row>
+                <entry>INT32_ARRAY</entry>
+                <entry>6</entry>
+                <entry>Array of INT32</entry>
+              </row><row>
+                <entry>UINT32_ARRAY</entry>
+                <entry>7</entry>
+                <entry>Array of UINT32</entry>
+              </row><row>
+                <entry>DOUBLE_ARRAY</entry>
+                <entry>8</entry>
+                <entry>Array of DOUBLE</entry>
+              </row><row>
+                <entry>BYTE_ARRAY</entry>
+                <entry>9</entry>
+                <entry>Array of bytes</entry>
+              </row><row>
+                <entry>STRING_ARRAY</entry>
+                <entry>10</entry>
+                <entry>Array of STRING</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
       </para>
       <para>
         The types are encoded as follows:
@@ -138,23 +196,185 @@
     </para>
   </sect1>
 
-  <sect1 id="method-conventions">
-    <title>Method Call Mapping</title>
+  <sect1 id="message-conventions">
+    <title>Message Conventions</title>
     <para>
-      [document how something that looks like a method call is conventionally
-      represented in terms of messages, for method-call-style API bindings]
+      This section documents conventions that are not essential to D-BUS
+      functionality, but should generally be followed in order to simplify
+      programmer's lives.
     </para>
+    <sect2 id="message-conventions-naming">
+      <title>Message Naming</title>
+      <para>
+        Messages are normally named in the form 
+        "org.freedesktop.Peer.Ping", which has three 
+        distinct components:
+        <variablelist>
+          <varlistentry>
+            <term>Namespace e.g. <literal>org.freedesktop</literal></term>
+            <listitem>
+              <para>
+                Message names have a Java-style namespace: a reversed domain
+                name. The components of the domain are normally lowercase.
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>Package or object e.g. <literal>Peer</literal></term>
+            <listitem>
+              <para>
+                The next part of the message name can be thought of as the name
+                of a singleton object, or as the name of a package of related
+                messages.  More than one dot-separated component might be used
+                here. (Note that D-BUS does not define any idea of object
+                instances or object references.)  The package or object name is
+                capitalized LikeThis.
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>Method or operation e.g. <literal>Ping</literal></term>
+            <listitem>
+              <para>
+                The final part of the message name is the most specific, and
+                should be a verb indicating an operation to be performed on the
+                object.  The method or operation name is capitalized LikeThis.
+              </para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+      </para>
+      <para>
+        A reply to a message is conventionally named by 
+        appending the string <literal>:Reply</literal>. 
+        So the reply to <literal>org.freedesktop.Peer.Ping</literal>
+        is <literal>org.freedesktop.Peer.Ping:Reply</literal>.
+      </para>
+    </sect2>
+    <sect2 id="message-conventions-method">
+      <title>Method Call Mapping</title>
+      <para>
+        Some implementations of D-BUS may present an API that translates object
+        method calls into D-BUS messages. This document does not specify in
+        detail how such an API should look or work. However, it does specify how
+        message-based protocols should be designed to be friendly to such an
+        API.
+      </para>
+      <para>
+        Remember that D-BUS does not have object references or object instances.
+        So when one application sends the message
+        <literal>org.freedesktop.Peer.Ping</literal>, it sends it to another
+        application, not to any kind of sub-portion of that application.
+        However, a convenience API used within the recipient application may
+        route all messages that start with
+        <literal>org.freedesktop.Peer</literal> to a particular object instance,
+        and may invoke the <literal>Ping()</literal> method on said instance in
+        order to handle the message. This is a convenience API based on 
+        method calls.
+      </para>
+      <para>
+        A "method call" consists of a message and, optionally, a reply to that
+        message. The name of the "method" is the last component of the message,
+        for example, <literal>org.freedesktop.Peer.Ping</literal> would map to
+        the method <literal>Ping()</literal> on some object.
+      </para>
+      <para>
+        Arguments to a method may be considered "in" (processed by the
+        recipient of the message), or "out" (returned to the sender of the
+        message in the reply). "inout" arguments are both sent and received,
+        i.e. the caller passes in a value which is modified.
+      </para>
+      <para>
+        Given a method with zero or one return values, followed by zero or more
+        arguments, where each argument may be "in", "out", or "inout", the
+        caller constructs a message by appending each "in" or "inout" argument,
+        in order. "out" arguments are not represented in the caller's message.
+      </para>
+      <para>
+        The recipient constructs a reply by appending first the return value 
+        if any, then each "out" or "inout" argument, in order. 
+        "in" arguments are not represented in the reply message.
+      </para>
+    </sect2>
   </sect1>
 
   <sect1 id="standard-messages">
     <title>Standard Peer-to-Peer Messages</title>
     <para>
+      In the following message definitions, "method call notation" is presented
+      in addition to simply listing the message names and arguments. The special
+      type name ANY means any type other than NIL, and the special type name
+      ANY_OR_NIL means any valid type.
+      [FIXME the messages here are just made up to illustrate the 
+      format for defining them]
     </para>
     <sect2 id="standard-messages-ping">
-      <title>Ping Protocol</title>
+      <title><literal>org.freedesktop.Peer.Ping</literal></title>
+      <para>        
+        As a method:
+        <programlisting>
+          void Ping ()
+        </programlisting>
+      </para>
       <para>
-        <literal>org.freedesktop.Peer.Ping</literal> 
-        generates <literal>org.freedesktop.Peer.PingReply</literal> 
+        On receipt of the message <literal>org.freedesktop.Peer.Ping</literal>,
+        an application should reply with
+        <literal>org.freedesktop.Peer.Ping:Reply</literal>. Neither the 
+        message nor its reply have any arguments.
+      [FIXME the messages here are just made up to illustrate the 
+      format for defining them]
+      </para>
+    </sect2>
+    <sect2 id="standard-messages-get-props">
+      <title><literal>org.freedesktop.Props.Get</literal></title>
+      <para>
+        As a method:
+        <programlisting>
+          ANY_OR_NIL Get (in STRING property_name)
+        </programlisting>
+        Message arguments:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>STRING</entry>
+                <entry>Name of the property to get</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+        Reply arguments:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>ANY_OR_NIL</entry>
+                <entry>The value of the property. The type depends on the property.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </para>
+      <para>
+        
+      [FIXME the messages here are just made up to illustrate the 
+      format for defining them]
       </para>
     </sect2>
   </sect1>
