@@ -780,6 +780,7 @@ dbus_message_new_reply (const char  *name,
  *
  * @param message the message.
  * @returns the new message.
+ */
 DBusMessage *
 dbus_message_new_from_message (const DBusMessage *message)
 {
