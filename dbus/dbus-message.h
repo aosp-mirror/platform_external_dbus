@@ -33,8 +33,10 @@
 DBUS_BEGIN_DECLS;
 
 typedef struct DBusMessage DBusMessage;
+typedef struct DBusMessageIter DBusMessageIter;
 
-DBusMessage* dbus_message_new   (void);
+DBusMessage* dbus_message_new   (const char *service,
+				 const char *name);
 
 void         dbus_message_ref   (DBusMessage *message);
 void         dbus_message_unref (DBusMessage *message);
@@ -52,6 +54,20 @@ dbus_bool_t dbus_message_append_string     (DBusMessage         *message,
 dbus_bool_t dbus_message_append_byte_array (DBusMessage         *message,
 					    unsigned const char *value,
 					    int                  len);
+
+DBusMessageIter *dbus_message_get_fields_iter     (DBusMessage     *message);
+
+void        dbus_message_iter_ref            (DBusMessageIter *iter);
+void        dbus_message_iter_unref          (DBusMessageIter *iter);
+
+dbus_bool_t dbus_message_iter_has_next	     (DBusMessageIter *iter);
+dbus_bool_t dbus_message_iter_next           (DBusMessageIter *iter);
+int         dbus_message_iter_get_field_type (DBusMessageIter *iter);
+int         dbus_message_iter_get_int32      (DBusMessageIter *iter);
+int         dbus_message_iter_get_uint32     (DBusMessageIter *iter);
+double      dbus_message_iter_get_double     (DBusMessageIter *iter);
+char *      dbus_message_iter_get_string     (DBusMessageIter *iter);
+
 
 
 DBUS_END_DECLS;

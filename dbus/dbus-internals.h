@@ -72,6 +72,23 @@ do {                                                                            
 #define _DBUS_STRUCT_OFFSET(struct_type, member)	\
     ((long) ((unsigned char*) &((struct_type*) 0)->member))
 
+/* This alignment thing is from ORBit2 */
+/* Align a value upward to a boundary, expressed as a number of bytes.
+ * E.g. align to an 8-byte boundary with argument of 8.
+ */
+
+/*
+ *   (this + boundary - 1)
+ *          &
+ *    ~(boundary - 1)
+ */
+
+#define _DBUS_ALIGN_VALUE(this, boundary) \
+  (( ((unsigned long)(this)) + (((unsigned long)(boundary)) -1)) & (~(((unsigned long)(boundary))-1)))
+
+#define _DBUS_ALIGN_ADDRESS(this, boundary) \
+  ((void*)_DBUS_ALIGN_VALUE(this, boundary))
+
 char* _dbus_strdup (const char *str);
 
 #define _DBUS_INT_MIN	(-_DBUS_INT_MAX - 1)

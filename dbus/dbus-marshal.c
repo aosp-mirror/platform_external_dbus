@@ -53,23 +53,6 @@
 #define DBUS_UINT32_FROM_BE(val) (DBUS_UINT32_TO_BE (val))
 
 
-/* This alignment thing is from ORBit2 */
-/* Align a value upward to a boundary, expressed as a number of bytes.
- * E.g. align to an 8-byte boundary with argument of 8.
- */
-
-/*
- *   (this + boundary - 1)
- *          &
- *    ~(boundary - 1)
- */
-
-#define DBUS_ALIGN_VALUE(this, boundary) \
-  (( ((unsigned long)(this)) + (((unsigned long)(boundary)) -1)) & (~(((unsigned long)(boundary))-1)))
-
-#define DBUS_ALIGN_ADDRESS(this, boundary) \
-  ((void*)DBUS_ALIGN_VALUE(this, boundary))
-
 /* from ORBit */
 static void
 swap_bytes (unsigned char *data,
@@ -93,7 +76,7 @@ static dbus_uint32_t
 unpack_uint32 (int                  byte_order,
                const unsigned char *data)
 {
-  _dbus_assert (DBUS_ALIGN_ADDRESS (data, 4) == data);
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
   
   if (byte_order == DBUS_LITTLE_ENDIAN)
     return DBUS_UINT32_FROM_LE (*(dbus_uint32_t*)data);
@@ -101,11 +84,18 @@ unpack_uint32 (int                  byte_order,
     return DBUS_UINT32_FROM_BE (*(dbus_uint32_t*)data);
 }             
 
-static dbus_int32_t
-unpack_int32 (int                  byte_order,
-              const unsigned char *data)
+/**
+ * Unpacks a 32 bit unsigned integer from a data pointer
+ *
+ * @param byte_order The byte order to use
+ * @param data the data pointer
+ * @returns the integer
+ */
+dbus_int32_t
+dbus_unpack_int32 (int                  byte_order,
+		   const unsigned char *data)
 {
-  _dbus_assert (DBUS_ALIGN_ADDRESS (data, 4) == data);
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
   
   if (byte_order == DBUS_LITTLE_ENDIAN)
     return DBUS_INT32_FROM_LE (*(dbus_int32_t*)data);
@@ -125,6 +115,26 @@ unpack_int32 (int                  byte_order,
  */
 
 /**
+ * Packs a 32 bit unsigned integer into a data pointer.
+ *
+ * @param value the value
+ * @param byte_order the byte order to use
+ * @param data the data pointer
+ */
+void
+dbus_pack_int32 (dbus_int32_t   value,
+		 int            byte_order,
+		 unsigned char *data)
+{
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
+  
+  if ((byte_order) == DBUS_LITTLE_ENDIAN)                  
+    *((dbus_int32_t*)(data)) = DBUS_INT32_TO_LE (value);       
+  else
+    *((dbus_int32_t*)(data)) = DBUS_INT32_TO_BE (value);
+}
+
+/**
  * Marshals a double value.
  *
  * @param str the string to append the marshalled value to
@@ -137,6 +147,11 @@ _dbus_marshal_double (DBusString *str,
 		      int         byte_order,
 		      double      value)
 {
+  if (!_dbus_string_set_length (str,
+				_DBUS_ALIGN_VALUE (_dbus_string_get_length (str),
+						  sizeof (double))))
+    return FALSE;
+  
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
     swap_bytes ((unsigned char *)&value, sizeof (double));
 
@@ -157,7 +172,7 @@ _dbus_marshal_int32  (DBusString   *str,
 		      dbus_int32_t  value)
 {
   if (!_dbus_string_set_length (str,
-				DBUS_ALIGN_VALUE (_dbus_string_get_length (str),
+				_DBUS_ALIGN_VALUE (_dbus_string_get_length (str),
 						  sizeof (dbus_int32_t))))
     return FALSE;
   
@@ -181,7 +196,7 @@ _dbus_marshal_uint32 (DBusString    *str,
 		      dbus_uint32_t  value)
 {
   if (!_dbus_string_set_length (str,
-				DBUS_ALIGN_VALUE (_dbus_string_get_length (str),
+				_DBUS_ALIGN_VALUE (_dbus_string_get_length (str),
 						  sizeof (dbus_uint32_t))))
     return FALSE;
 
@@ -269,8 +284,8 @@ _dbus_demarshal_double (DBusString  *str,
   double retval;
   const char *buffer;
 
-  pos = DBUS_ALIGN_VALUE (pos, sizeof (double));
-  
+  pos = _DBUS_ALIGN_VALUE (pos, sizeof (double));
+
   _dbus_string_get_const_data_len (str, &buffer, pos, sizeof (double));
 
   retval = *(double *)buffer;
@@ -301,14 +316,14 @@ _dbus_demarshal_int32  (DBusString *str,
 {
   const char *buffer;
 
-  pos = DBUS_ALIGN_VALUE (pos, sizeof (dbus_int32_t));
+  pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_int32_t));
   
   _dbus_string_get_const_data_len (str, &buffer, pos, sizeof (dbus_int32_t));
 
   if (new_pos)
     *new_pos = pos + sizeof (dbus_int32_t);
 
-  return unpack_int32 (byte_order, buffer);
+  return dbus_unpack_int32 (byte_order, buffer);
 }
 
 /**
@@ -328,7 +343,7 @@ _dbus_demarshal_uint32  (DBusString *str,
 {
   const char *buffer;
 
-  pos = DBUS_ALIGN_VALUE (pos, sizeof (dbus_uint32_t));
+  pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_uint32_t));
   
   _dbus_string_get_const_data_len (str, &buffer, pos, sizeof (dbus_uint32_t));
 
@@ -368,7 +383,7 @@ _dbus_demarshal_string (DBusString *str,
   if (!retval)
     return NULL;
 
-  _dbus_string_get_const_data_len (str, &data, pos, 3);
+  _dbus_string_get_const_data_len (str, &data, pos, len);
 
   if (!data)
     return NULL;
@@ -379,6 +394,86 @@ _dbus_demarshal_string (DBusString *str,
     *new_pos = pos + len + 1;
   
   return retval;
+}
+
+/** 
+ * Returns the position right after the end position 
+ * end position of a field
+ *
+ * @param str a string
+ * @param byte_order the byte order to use
+ * @param pos the pos where the field starts
+ * @param end_pos pointer where the position right
+ * after the end position will follow
+ * @returns TRUE if more data exists after the field
+ */
+dbus_bool_t
+_dbus_marshal_get_field_end_pos (DBusString *str,
+				 int	     byte_order,
+				 int         pos,
+				 int        *end_pos)
+{
+  const char *data;
+
+  if (pos >= _dbus_string_get_length (str))
+    return FALSE;
+
+  _dbus_string_get_const_data_len (str, &data, pos, 1);
+  
+  switch (*data)
+    {
+    case DBUS_TYPE_INVALID:
+      return FALSE;
+      break;
+
+    case DBUS_TYPE_INT32:
+      *end_pos = _DBUS_ALIGN_VALUE (pos + 1, sizeof (dbus_int32_t)) + sizeof (dbus_int32_t);
+
+      break;
+
+    case DBUS_TYPE_UINT32:
+      *end_pos = _DBUS_ALIGN_VALUE (pos + 1, sizeof (dbus_uint32_t)) + sizeof (dbus_uint32_t);
+
+      break;
+
+    case DBUS_TYPE_DOUBLE:
+      *end_pos = _DBUS_ALIGN_VALUE (pos + 1, sizeof (double)) + sizeof (double);
+
+      break;
+
+    case DBUS_TYPE_STRING:
+      {
+	int len, new_pos;
+
+	/* Demarshal the length */
+	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &new_pos);
+
+	*end_pos = new_pos + len + 1;
+
+	break;
+      }
+
+    case DBUS_TYPE_BYTE_ARRAY:
+      {
+	int len, new_pos;
+
+	/* Demarshal the length */
+	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &new_pos);
+	
+	*end_pos = new_pos + len;
+
+	break;
+      }
+      
+    default:
+      _dbus_warn ("Unknown message field type %d\n", *data);
+      return FALSE;
+    }
+
+  if (*end_pos >= _dbus_string_get_length (str))
+    return FALSE;
+  
+  return TRUE;
 }
 
 /**
@@ -397,7 +492,7 @@ _dbus_verbose_bytes (const unsigned char *data,
   const unsigned char *aligned;
 
   /* Print blanks on first row if appropriate */
-  aligned = DBUS_ALIGN_ADDRESS (data, 4);
+  aligned = _DBUS_ALIGN_ADDRESS (data, 4);
   if (aligned > data)
     aligned -= 4;
   _dbus_assert (aligned <= data);
@@ -416,7 +511,7 @@ _dbus_verbose_bytes (const unsigned char *data,
   i = 0;
   while (i < len)
     {
-      if (DBUS_ALIGN_ADDRESS (&data[i], 4) == &data[i])
+      if (_DBUS_ALIGN_ADDRESS (&data[i], 4) == &data[i])
         {
           _dbus_verbose ("%5d\t%p: ",
                    i, &data[i]);
@@ -431,7 +526,7 @@ _dbus_verbose_bytes (const unsigned char *data,
 
       ++i;
 
-      if (DBUS_ALIGN_ADDRESS (&data[i], 4) == &data[i])
+      if (_DBUS_ALIGN_ADDRESS (&data[i], 4) == &data[i])
         {
           if (i > 3)
             _dbus_verbose ("big: %d little: %d",
@@ -486,7 +581,6 @@ _dbus_marshal_test (void)
     _dbus_assert_not_reached ("could not marshal double value");
   _dbus_assert (_dbus_demarshal_double (&str, DBUS_BIG_ENDIAN, pos, &pos) == 3.14);
 
-  
   if (!_dbus_marshal_double (&str, DBUS_LITTLE_ENDIAN, 3.14))
     _dbus_assert_not_reached ("could not marshal double value");
   _dbus_assert (_dbus_demarshal_double (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == 3.14);

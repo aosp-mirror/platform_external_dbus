@@ -92,6 +92,8 @@ struct DBusConnection
   int handlers_serial;          /**< Increments when the handler table is changed. */
   DBusDataSlot *data_slots;        /**< Data slots */
   int           n_slots; /**< Slots allocated so far. */
+
+  int client_serial;            /**< Client serial. Increments each time a message is sent  */
 };
 
 static void _dbus_connection_free_data_slots (DBusConnection *connection);
@@ -330,6 +332,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
 
   connection->data_slots = NULL;
   connection->n_slots = 0;
+  connection->client_serial = 1;
   
   _dbus_transport_ref (transport);
   _dbus_transport_set_connection (transport, connection);
@@ -348,6 +351,19 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
     _dbus_watch_list_free (watch_list);
   
   return NULL;
+}
+
+static dbus_int32_t
+_dbus_connection_get_next_client_serial (DBusConnection *connection)
+{
+  int serial;
+
+  serial = connection->client_serial++;
+
+  if (connection->client_serial < 0)
+    connection->client_serial = 1;
+  
+  return serial;
 }
 
 /**
@@ -580,7 +596,8 @@ dbus_connection_send_message (DBusConnection *connection,
 
   _dbus_verbose ("Message %p added to outgoing queue, %d pending to send\n",
                  message, connection->n_outgoing);
-  
+
+  _dbus_message_set_client_serial (message, _dbus_connection_get_next_client_serial (connection));
   _dbus_message_lock (message);
   
   if (connection->n_outgoing == 1)

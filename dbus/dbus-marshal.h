@@ -39,6 +39,13 @@
 #define DBUS_COMPILER_BYTE_ORDER DBUS_LITTLE_ENDIAN
 #endif
 
+void         dbus_pack_int32   (dbus_int32_t         value,
+				int                  byte_order,
+				unsigned char       *data);
+dbus_int32_t dbus_unpack_int32 (int                  byte_order,
+				const unsigned char *data);
+
+      
 dbus_bool_t _dbus_marshal_double     (DBusString          *str,
 				      int                  byte_order,
 				      double               value);
@@ -73,7 +80,10 @@ char *        _dbus_demarshal_string (DBusString *str,
 				      int         pos,
 				      int        *new_pos);
 
-
+dbus_bool_t _dbus_marshal_get_field_end_pos (DBusString *str,
+					     int 	 byte_order,
+					     int         pos,
+					     int        *end_pos);
 
 
 

@@ -29,12 +29,14 @@ DBUS_BEGIN_DECLS;
 
 typedef struct DBusMessageLoader DBusMessageLoader;
 
-void _dbus_message_get_network_data (DBusMessage          *message,
-                                     const DBusString    **header,
-                                     const DBusString    **body);
+void _dbus_message_get_network_data  (DBusMessage       *message,
+				      const DBusString **header,
+				      const DBusString **body);
 
-void _dbus_message_lock             (DBusMessage          *message);
+void _dbus_message_lock              (DBusMessage       *message);
 
+void _dbus_message_set_client_serial (DBusMessage       *message,
+				      dbus_int32_t       client_serial);
 
 DBusMessageLoader* _dbus_message_loader_new                   (void);
 void               _dbus_message_loader_ref                   (DBusMessageLoader  *loader);

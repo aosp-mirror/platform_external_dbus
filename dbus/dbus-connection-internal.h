@@ -51,7 +51,6 @@ void            _dbus_connection_remove_watch           (DBusConnection *connect
                                                          DBusWatch      *watch);
 DBusConnection* _dbus_connection_new_for_transport      (DBusTransport  *transport);
 
-
 void            _dbus_connection_do_iteration           (DBusConnection *connection,
                                                          unsigned int    flags,
                                                          int             timeout_milliseconds);

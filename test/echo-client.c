@@ -27,7 +27,7 @@ main (int    argc,
   setup_connection (connection);
 
   /* Send a message to get things going */
-  message = dbus_message_new ();
+  message = dbus_message_new ("org.freedesktop.DBus.Test", "org.freedesktop.DBus.Test");
   dbus_connection_send_message (connection,
                                 message,
                                 NULL);

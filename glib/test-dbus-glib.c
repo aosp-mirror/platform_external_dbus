@@ -10,7 +10,7 @@ message_handler (DBusConnection *connection,
   static int count = 0;
   DBusMessage *reply;
 
-  reply = dbus_message_new ();
+  reply = dbus_message_new ("org.freedesktop.DBus.Test", "org.freedesktop.DBus.Test");
   dbus_connection_send_message (connection,
 				reply,
 				NULL);
@@ -47,7 +47,7 @@ main (int argc, char **argv)
   g_source_attach (source, NULL);
   g_source_set_callback (source, (GSourceFunc)message_handler, NULL, NULL);
   
-  message = dbus_message_new ();
+  message = dbus_message_new ("org.freedesktop.DBus.Test", "org.freedesktop.DBus.Test");
   dbus_connection_send_message (connection,
                                 message,
                                 NULL);

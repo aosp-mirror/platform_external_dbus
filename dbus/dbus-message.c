@@ -2,6 +2,7 @@
 /* dbus-message.c  DBusMessage object
  *
  * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003  CodeFactory AB
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -64,7 +65,24 @@ struct DBusMessage
 
   DBusString body;   /**< Body network data. */
 
+  char byte_order; /**< Message byte order. */
+  
+  char *name; /**< Message name. */
+  char *service; /**< Message destination service. */
+  
+  dbus_int32_t client_serial; /**< Client serial or -1 if not set */
+  dbus_int32_t reply_serial; /**< Reply serial or -1 if not set */
+  
   unsigned int locked : 1; /**< Message being sent, no modifications allowed. */
+};
+
+struct DBusMessageIter
+{
+  int refcount; /**< Reference count */
+
+  int pos; /**< Current position in the string */
+  
+  DBusMessage *message; /**< Message used */
 };
 
 /**
@@ -89,6 +107,69 @@ _dbus_message_get_network_data (DBusMessage          *message,
 }
 
 /**
+ * Sets the client serial of a message. 
+ * This can only be done once on a message.
+ *
+ * @param message the message
+ * @param client_serial the client serial
+ */
+void
+_dbus_message_set_client_serial (DBusMessage  *message,
+				 dbus_int32_t  client_serial)
+{
+  _dbus_assert (message->client_serial == -1);
+  
+  message->client_serial = client_serial;
+}
+
+static void
+dbus_message_write_header (DBusMessage *message)
+{
+  char *header;
+  
+  _dbus_assert (message->client_serial != -1);
+  
+  _dbus_string_append_byte (&message->header, DBUS_COMPILER_BYTE_ORDER);
+  _dbus_string_append_len (&message->header, "\0\0\0", 3);
+
+  /* We just lengthen the string here and pack in the real length later */
+  _dbus_string_lengthen (&message->header, 4);
+  
+  _dbus_marshal_int32 (&message->header, DBUS_COMPILER_BYTE_ORDER, _dbus_string_get_length (&message->body));
+
+  /* Marshal client serial */
+  _dbus_marshal_int32 (&message->header, DBUS_COMPILER_BYTE_ORDER, message->client_serial);
+
+  /* Marshal message service */
+  if (message->service)
+    {
+      _dbus_string_append_len (&message->header, DBUS_HEADER_FIELD_SERVICE, 4);
+      _dbus_string_append_byte (&message->header, DBUS_TYPE_STRING);
+      
+      _dbus_marshal_string (&message->header, DBUS_COMPILER_BYTE_ORDER, message->service);
+    }
+
+  /* Marshal message name */
+  _dbus_string_append_len (&message->header, DBUS_HEADER_FIELD_NAME, 4);
+  _dbus_string_append_byte (&message->header, DBUS_TYPE_STRING);
+
+  _dbus_marshal_string (&message->header, DBUS_COMPILER_BYTE_ORDER, message->name);
+
+  /* Marshal reply serial */
+  if (message->reply_serial != -1)
+    {
+      _dbus_string_append_len (&message->header, DBUS_HEADER_FIELD_REPLY, 4);
+
+      _dbus_string_append_byte (&message->header, DBUS_TYPE_INT32);
+      _dbus_marshal_int32 (&message->header, DBUS_COMPILER_BYTE_ORDER, message->reply_serial);
+    }
+  
+  /* Fill in the length */
+  _dbus_string_get_data_len (&message->header, &header, 4, 4);
+  dbus_pack_int32 (_dbus_string_get_length (&message->header), DBUS_COMPILER_BYTE_ORDER, header);
+}
+
+/**
  * Locks a message. Allows checking that applications don't keep a
  * reference to a message in the outgoing queue and change it
  * underneath us. Messages are locked when they enter the outgoing
@@ -98,8 +179,11 @@ _dbus_message_get_network_data (DBusMessage          *message,
  * @param message the message to lock.
  */
 void
-_dbus_message_lock (DBusMessage *message)
+_dbus_message_lock (DBusMessage  *message)
 {
+  if (!message->locked)
+    dbus_message_write_header (message);
+  
   message->locked = TRUE;
 }
 
@@ -128,12 +212,16 @@ _dbus_message_lock (DBusMessage *message)
 /**
  * Constructs a new message. Returns #NULL if memory
  * can't be allocated for the message.
- * 
- * @return a new DBusMessage, free with dbus_message_unref()
+ *
+ * @param service service that the message should be sent to
+ * should be sent to
+ * @param name name of the message
+ * @returns a new DBusMessage, free with dbus_message_unref()
  * @see dbus_message_unref()
  */
 DBusMessage*
-dbus_message_new (void)
+dbus_message_new (const char *service,
+		  const char *name)
 {
   DBusMessage *message;
 
@@ -142,7 +230,14 @@ dbus_message_new (void)
     return NULL;
   
   message->refcount = 1;
+  message->byte_order = DBUS_COMPILER_BYTE_ORDER;
 
+  message->service = _dbus_strdup (service);
+  message->name = _dbus_strdup (name);
+  
+  message->client_serial = -1;
+  message->reply_serial = -1;
+  
   if (!_dbus_string_init (&message->header, _DBUS_MAX_MESSAGE_LENGTH))
     {
       dbus_free (message);
@@ -155,13 +250,6 @@ dbus_message_new (void)
       dbus_free (message);
       return NULL;
     }
-  
-  /* We need to decide what a message contains. ;-) */
-  /* (not bothering to check failure of these appends) */
-  _dbus_string_append (&message->header, "H");
-  _dbus_string_append_byte (&message->header, '\0');
-  _dbus_string_append (&message->body, "Body");
-  _dbus_string_append_byte (&message->body, '\0');
   
   return message;
 }
@@ -176,6 +264,8 @@ dbus_message_new (void)
 void
 dbus_message_ref (DBusMessage *message)
 {
+  _dbus_assert (message->refcount > 0);
+  
   message->refcount += 1;
 }
 
@@ -188,7 +278,6 @@ dbus_message_ref (DBusMessage *message)
 void
 dbus_message_unref (DBusMessage *message)
 {
-  _dbus_assert (message != NULL);
   _dbus_assert (message->refcount > 0);
 
   message->refcount -= 1;
@@ -197,6 +286,7 @@ dbus_message_unref (DBusMessage *message)
       _dbus_string_free (&message->header);
       _dbus_string_free (&message->body);
       
+      dbus_free (message->name);
       dbus_free (message);
     }
 }
@@ -210,9 +300,7 @@ dbus_message_unref (DBusMessage *message)
 const char*
 dbus_message_get_name (DBusMessage *message)
 {
-  /* FIXME */
-  
-  return NULL;
+  return message->name;
 }
 
 /**
@@ -226,7 +314,6 @@ dbus_bool_t
 dbus_message_append_int32 (DBusMessage  *message,
 			   dbus_int32_t  value)
 {
-  _dbus_assert (message != NULL);  
   _dbus_assert (!message->locked);
 
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_INT32))
@@ -250,7 +337,6 @@ dbus_bool_t
 dbus_message_append_uint32 (DBusMessage   *message,
 			    dbus_uint32_t  value)
 {
-  _dbus_assert (message != NULL);  
   _dbus_assert (!message->locked);
 
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_UINT32))
@@ -274,10 +360,9 @@ dbus_bool_t
 dbus_message_append_double (DBusMessage *message,
 			    double       value)
 {
-  _dbus_assert (message != NULL);  
   _dbus_assert (!message->locked);
 
-  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_INT32))
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_DOUBLE))
     {
       _dbus_string_shorten (&message->body, 1);
       return FALSE;
@@ -298,11 +383,9 @@ dbus_bool_t
 dbus_message_append_string (DBusMessage *message,
 			    const char  *value)
 {
-  _dbus_assert (message != NULL);
   _dbus_assert (!message->locked);
-  _dbus_assert (value != NULL);
 
-  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_UTF8_STRING))
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_STRING))
     {
       _dbus_string_shorten (&message->body, 1);
       return FALSE;
@@ -325,9 +408,7 @@ dbus_message_append_byte_array (DBusMessage         *message,
 				unsigned const char *value,
 				int                 len)
 {
-  _dbus_assert (message != NULL);
   _dbus_assert (!message->locked);
-  _dbus_assert (value != NULL);
 
   if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_BYTE_ARRAY))
     {
@@ -337,6 +418,198 @@ dbus_message_append_byte_array (DBusMessage         *message,
   
   return _dbus_marshal_byte_array (&message->body,
 				   DBUS_COMPILER_BYTE_ORDER, value, len);
+}
+
+/**
+ * Returns a DBusMessageIter representing the fields of the
+ * message passed in.
+ *
+ * @param message the message
+ * @returns a new iter.
+ */
+DBusMessageIter *
+dbus_message_get_fields_iter (DBusMessage *message)
+{
+  DBusMessageIter *iter;
+  
+  iter = dbus_new (DBusMessageIter, 1);
+
+  dbus_message_ref (message);
+  
+  iter->refcount = 1;
+  iter->message = message;
+  iter->pos = 0;
+
+  return iter;
+}
+
+/**
+ * Increments the reference count of a DBusMessageIter.
+ *
+ * @param iter the message iter
+ * @see dbus_message_iter_unref
+ */
+void
+dbus_message_iter_ref (DBusMessageIter *iter)
+{
+  _dbus_assert (iter->refcount > 0);
+  
+  iter->refcount += 1;
+}
+
+/**
+ * Decrements the reference count of a DBusMessageIter.
+ *
+ * @param iter The message iter
+ * @see dbus_message_iter_ref
+ */
+void
+dbus_message_iter_unref (DBusMessageIter *iter)
+{
+  _dbus_assert (iter->refcount > 0);
+
+  iter->refcount -= 1;
+
+  if (iter->refcount == 0)
+    {
+      dbus_message_unref (iter->message);
+
+      dbus_free (iter);
+    }
+}
+
+/**
+ * Checks if an iterator has any more fields.
+ *
+ * @param iter the message iter
+ * @returns #TRUE if there are more fields
+ * following
+ */
+dbus_bool_t
+dbus_message_iter_has_next (DBusMessageIter *iter)
+{
+  int end_pos;
+  
+  if (!_dbus_marshal_get_field_end_pos (&iter->message->body, iter->message->byte_order,
+					iter->pos, &end_pos))
+    return FALSE;
+  
+  if (end_pos >= _dbus_string_get_length (&iter->message->body))
+    return FALSE;
+  
+  return TRUE;  
+}
+
+/**
+ * Moves the iterator to the next field.
+ *
+ * @param iter The message iter
+ * @returns #TRUE if the iterator was moved to the next field
+ */
+dbus_bool_t
+dbus_message_iter_next (DBusMessageIter *iter)
+{
+  int end_pos;
+  
+  if (!_dbus_marshal_get_field_end_pos (&iter->message->body, iter->message->byte_order,
+					iter->pos, &end_pos))
+    return FALSE;
+
+  if (end_pos >= _dbus_string_get_length (&iter->message->body))
+    return FALSE;
+
+  iter->pos = end_pos;
+
+  return TRUE;
+}
+
+/**
+ * Returns the field type of the field that the
+ * message iterator points at.
+ *
+ * @param iter the message iter
+ * @returns the field type
+ */
+int
+dbus_message_iter_get_field_type (DBusMessageIter *iter)
+{
+  const char *data;
+  
+  if (iter->pos >= _dbus_string_get_length (&iter->message->body))
+    return DBUS_TYPE_INVALID;
+
+  _dbus_string_get_const_data_len (&iter->message->body, &data, iter->pos, 1);
+
+  if (*data > DBUS_TYPE_INVALID && *data <= DBUS_TYPE_STRING)
+    return *data;
+
+  return DBUS_TYPE_INVALID;
+}
+
+/**
+ * Returns the string value that an iterator may point to.
+ * Note that you need to check that the iterator points to
+ * a string value before using this function.
+ *
+ * @see dbus_message_iter_get_field_type
+ * @param iter the message iter
+ * @returns the string
+ */
+char *
+dbus_message_iter_get_string (DBusMessageIter *iter)
+{
+  _dbus_assert (dbus_message_iter_get_field_type (iter) == DBUS_TYPE_STRING);
+
+  return _dbus_demarshal_string (&iter->message->body, iter->message->byte_order,
+				iter->pos + 1, NULL);
+}
+
+/**
+ * Returns the 32 bit signed integer value that an iterator may point to.
+ * Note that you need to check that the iterator points to
+ * a string value before using this function.
+ *
+ * @see dbus_message_iter_get_field_type
+ * @param iter the message iter
+ * @returns the integer
+ */
+int
+dbus_message_iter_get_int32 (DBusMessageIter *iter)
+{
+  return _dbus_demarshal_int32 (&iter->message->body, iter->message->byte_order,
+				iter->pos + 1, NULL);
+}
+
+/**
+ * Returns the 32 bit unsigned integer value that an iterator may point to.
+ * Note that you need to check that the iterator points to
+ * a string value before using this function.
+ *
+ * @see dbus_message_iter_get_field_type
+ * @param iter the message iter
+ * @returns the integer
+ */
+int
+dbus_message_iter_get_uint32 (DBusMessageIter *iter)
+{
+  return _dbus_demarshal_uint32 (&iter->message->body, iter->message->byte_order,
+				 iter->pos + 1, NULL);
+}
+
+/**
+ * Returns the double value that an iterator may point to.
+ * Note that you need to check that the iterator points to
+ * a string value before using this function.
+ *
+ * @see dbus_message_iter_get_field_type
+ * @param iter the message iter
+ * @returns the double
+ */
+double
+dbus_message_iter_get_double (DBusMessageIter *iter)
+{
+  return _dbus_demarshal_double (&iter->message->body, iter->message->byte_order,
+				 iter->pos + 1, NULL);
 }
 
 /** @} */
@@ -478,6 +751,65 @@ _dbus_message_loader_get_buffer (DBusMessageLoader  *loader,
 }
 
 /**
+ * The smallest header size that can occur. 
+ * (It won't be valid)
+ */
+#define DBUS_MINIMUM_HEADER_SIZE 16
+
+static dbus_bool_t
+decode_header_data (DBusString   *data,
+		    int		  header_len,
+		    int           byte_order,
+		    dbus_int32_t *client_serial,
+		    char        **service,
+		    char        **name)
+{
+  const char *field;
+  int pos, new_pos;
+  
+  /* First demarshal the client serial */
+  *client_serial = _dbus_demarshal_int32 (data, byte_order, 12, &pos);
+
+  *service = NULL;
+  *name = NULL;
+  
+  /* Now handle the fields */
+  while (pos < header_len)
+    {
+      _dbus_string_get_const_data_len (data, &field, pos, 4);
+      pos += 4;
+
+      if (pos > header_len)
+	  return FALSE;
+      
+      if (strncmp (field, DBUS_HEADER_FIELD_SERVICE, 4) == 0)
+	{
+	  *service = _dbus_demarshal_string (data, byte_order, pos + 1, &new_pos);
+	}
+      else if (strncmp (field, DBUS_HEADER_FIELD_NAME, 4) == 0)
+	{
+	  *name = _dbus_demarshal_string (data, byte_order, pos + 1, &new_pos);
+	}
+      else
+	{
+	  _dbus_verbose ("Encountered an unknown header field: %c%c%c%c\n",
+			 field[0], field[1], field[2], field[3]);
+	  
+	  if (!_dbus_marshal_get_field_end_pos (data, byte_order, pos, &new_pos))
+	    return FALSE;
+	}
+
+      if (new_pos > header_len)
+	return FALSE;
+      
+      pos = new_pos;
+    }
+  
+  return TRUE;
+  
+}
+
+/**
  * Returns a buffer obtained from _dbus_message_loader_get_buffer(),
  * indicating to the loader how many bytes of the buffer were filled
  * in. This function must always be called, even if no bytes were
@@ -495,49 +827,67 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
   _dbus_assert (loader->buffer_outstanding);
   _dbus_assert (buffer == &loader->data);
 
-  /* FIXME fake implementation just creates a message for every 7
-   * bytes. The real implementation will pass ownership of
-   * loader->data bytes to new messages, to avoid memcpy.  We can also
-   * smart-realloc loader->data to shrink it if it's too big, though
-   * _dbus_message_loader_get_buffer() could strategically arrange for
-   * that to usually not happen.
-   */
-
   loader->buffer_outstanding = FALSE;
 
   if (loader->corrupted)
     return;
-  
-  while (_dbus_string_get_length (&loader->data) >= 7)
+
+  while (_dbus_string_get_length (&loader->data) >= 16)
     {
-      DBusMessage *message;
-      const char *d;
-
-      _dbus_string_get_const_data (&loader->data, &d);
-      if (d[0] != 'H' ||
-          d[1] != '\0' ||
-          d[2] != 'B' ||
-          d[3] != 'o' ||
-          d[4] != 'd' ||
-          d[5] != 'y' ||
-          d[6] != '\0')
-        {
-          _dbus_verbose_bytes (d,
-                               _dbus_string_get_length (&loader->data));
-          loader->corrupted = TRUE;
-          return;
-        }
+      DBusMessage *message;      
+      const char *header_data;
+      int byte_order, header_len, body_len;
       
-      message = dbus_message_new ();
-      if (message == NULL)
-        break; /* ugh, postpone this I guess. */
+      _dbus_string_get_const_data_len (&loader->data, &header_data, 0, 16);
+      byte_order = header_data[0];
 
-      _dbus_list_append (&loader->messages, message);
+      if (byte_order != DBUS_LITTLE_ENDIAN &&
+	  byte_order != DBUS_BIG_ENDIAN)
+	{
+	  loader->corrupted = TRUE;
+	  return;
+	}
 
-      _dbus_string_delete (&loader->data,
-                           0, 7);
-      
-      _dbus_verbose ("Loaded message %p\n", message);
+      header_len = dbus_unpack_int32 (byte_order, header_data + 4);
+      body_len = dbus_unpack_int32 (byte_order, header_data + 8);
+
+      if (header_len + body_len > _DBUS_MAX_MESSAGE_LENGTH)
+	{
+	  loader->corrupted = TRUE;
+
+	  return;
+	}
+
+      if (_dbus_string_get_length (&loader->data) >= header_len + body_len)
+	{
+	  dbus_int32_t client_serial;
+	  char *service, *name;
+	  
+	  if (!decode_header_data (&loader->data, header_len, byte_order,
+				   &client_serial, &service, &name))
+	    {
+	      loader->corrupted = TRUE;
+
+	      return;
+	    }
+
+	  message = dbus_message_new (service, name);
+	  dbus_free (service);
+	  dbus_free (name);
+	  
+	  if (message == NULL)
+	    break; /* ugh, postpone this I guess. */
+
+	  _dbus_string_copy (&loader->data, header_len, &message->body, 0);
+	  _dbus_message_set_client_serial (message, client_serial);
+	  
+	  _dbus_list_append (&loader->messages, message);
+	  _dbus_string_delete (&loader->data, 0, header_len + body_len);
+
+	  _dbus_verbose ("Loaded message %p\n", message);	  
+	}
+      else
+	break;
     }
 }
 
@@ -572,3 +922,129 @@ _dbus_message_loader_get_is_corrupted (DBusMessageLoader *loader)
 }
 
 /** @} */
+#ifdef DBUS_BUILD_TESTS
+#include "dbus-test.h"
+#include <stdio.h>
+
+static void
+message_iter_test (DBusMessage *message)
+{
+  DBusMessageIter *iter;
+  char *str;
+  
+  iter = dbus_message_get_fields_iter (message);
+
+  /* String tests */
+  if (dbus_message_iter_get_field_type (iter) != DBUS_TYPE_STRING)
+    _dbus_assert_not_reached ("Field type isn't string");
+
+  str = dbus_message_iter_get_string (iter);
+  if (strcmp (str, "Test string") != 0)
+    _dbus_assert_not_reached ("Strings differ");
+  dbus_free (str);
+
+  if (!dbus_message_iter_next (iter))
+    _dbus_assert_not_reached ("Reached end of fields");
+
+  /* Signed integer tests */
+  if (dbus_message_iter_get_field_type (iter) != DBUS_TYPE_INT32)
+    _dbus_assert_not_reached ("Field type isn't int32");
+
+  if (dbus_message_iter_get_int32 (iter) != -0x12345678)
+    _dbus_assert_not_reached ("Signed integers differ");
+
+  if (!dbus_message_iter_next (iter))
+    _dbus_assert_not_reached ("Reached end of fields");
+  
+  /* Unsigned integer tests */
+  if (dbus_message_iter_get_field_type (iter) != DBUS_TYPE_UINT32)
+    _dbus_assert_not_reached ("Field type isn't int32");
+
+  if (dbus_message_iter_get_int32 (iter) != 0xedd1e)
+    _dbus_assert_not_reached ("Unsigned integers differ");
+
+  if (!dbus_message_iter_next (iter))
+    _dbus_assert_not_reached ("Reached end of fields");
+
+  /* Double tests */
+  if (dbus_message_iter_get_field_type (iter) != DBUS_TYPE_DOUBLE)
+    _dbus_assert_not_reached ("Field type isn't double");
+
+  if (dbus_message_iter_get_double (iter) != 3.14159)
+    _dbus_assert_not_reached ("Doubles differ");
+
+  if (dbus_message_iter_next (iter))
+    _dbus_assert_not_reached ("Didn't reach end of fields");
+  
+  dbus_message_iter_unref (iter);
+}
+
+/**
+ * @ingroup DBusMessageInternals
+ * Unit test for DBusMessage.
+ *
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_message_test (void)
+{
+  DBusMessage *message;
+
+  DBusMessageLoader *loader;
+  int i;
+  const char *data;
+
+  message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");
+  message->client_serial = 1;
+  dbus_message_append_string (message, "Test string");
+  dbus_message_append_int32 (message, -0x12345678);
+  dbus_message_append_uint32 (message, 0xedd1e);
+  dbus_message_append_double (message, 3.14159);
+
+  message_iter_test (message);
+
+  /* Message loader test */
+  _dbus_message_lock (message);
+  loader = _dbus_message_loader_new ();
+
+  /* Write the header data one byte at a time */
+  _dbus_string_get_const_data (&message->header, &data);
+  for (i = 0; i < _dbus_string_get_length (&message->header); i++)
+    {
+      DBusString *buffer;
+
+      _dbus_message_loader_get_buffer (loader, &buffer);
+      _dbus_string_append_byte (buffer, data[i]);
+      _dbus_message_loader_return_buffer (loader, buffer, 1);
+    }
+
+  /* Write the body data one byte at a time */
+  _dbus_string_get_const_data (&message->body, &data);
+  for (i = 0; i < _dbus_string_get_length (&message->body); i++)
+    {
+      DBusString *buffer;
+
+      _dbus_message_loader_get_buffer (loader, &buffer);
+      _dbus_string_append_byte (buffer, data[i]);
+      _dbus_message_loader_return_buffer (loader, buffer, 1);
+    }
+
+  dbus_message_unref (message);
+
+  /* Now pop back the message */
+  if (_dbus_message_loader_get_is_corrupted (loader))
+    _dbus_assert_not_reached ("message loader corrupted");
+  
+  message = _dbus_message_loader_pop_message (loader);
+  if (!message)
+    _dbus_assert_not_reached ("received a NULL message");
+
+  message_iter_test (message);
+  
+  dbus_message_unref (message);
+  _dbus_message_loader_unref (loader);
+
+  return TRUE;
+}
+
+#endif /* DBUS_BUILD_TESTS */

@@ -1,5 +1,42 @@
 2003-01-07  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/dbus-connection-internal.h:
+	* dbus/dbus-connection.c: (_dbus_connection_new_for_transport),
+	(_dbus_connection_get_next_client_serial),
+	(dbus_connection_send_message):
+	* dbus/dbus-internals.h:
+	* dbus/dbus-marshal.c: (unpack_uint32), (dbus_unpack_int32),
+	(dbus_pack_int32), (_dbus_marshal_double), (_dbus_marshal_int32),
+	(_dbus_marshal_uint32), (_dbus_demarshal_double),
+	(_dbus_demarshal_int32), (_dbus_demarshal_uint32),
+	(_dbus_demarshal_string), (_dbus_marshal_get_field_end_pos),
+	(_dbus_verbose_bytes), (_dbus_marshal_test):
+	* dbus/dbus-marshal.h:
+	* dbus/dbus-message-internal.h:
+	* dbus/dbus-message.c: (_dbus_message_set_client_serial),
+	(dbus_message_write_header), (_dbus_message_lock),
+	(dbus_message_new), (dbus_message_ref), (dbus_message_unref),
+	(dbus_message_get_name), (dbus_message_append_int32),
+	(dbus_message_append_uint32), (dbus_message_append_double),
+	(dbus_message_append_string), (dbus_message_append_byte_array),
+	(dbus_message_get_fields_iter), (dbus_message_iter_ref),
+	(dbus_message_iter_unref), (dbus_message_iter_has_next),
+	(dbus_message_iter_next), (dbus_message_iter_get_field_type),
+	(dbus_message_iter_get_string), (dbus_message_iter_get_int32),
+	(dbus_message_iter_get_uint32), (dbus_message_iter_get_double),
+	(decode_header_data), (_dbus_message_loader_return_buffer),
+	(message_iter_test), (_dbus_message_test):
+	* dbus/dbus-message.h:
+	* dbus/dbus-protocol.h:
+	* dbus/dbus-test.c: (main):
+	* dbus/dbus-test.h:
+	* glib/test-dbus-glib.c: (message_handler), (main):
+	* test/echo-client.c: (main):
+	* test/watch.c: (check_messages):
+	Make messages sendable and receivable for real.
+	
+2003-01-07  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-marshal.c: (_dbus_marshal_double),
 	(_dbus_marshal_string), (_dbus_marshal_byte_array):
 	* dbus/dbus-message.c: (dbus_message_append_int32),

@@ -45,8 +45,13 @@ extern "C" {
 #define DBUS_TYPE_UINT32_ARRAY  5
 #define DBUS_TYPE_DOUBLE_ARRAY  6
 #define DBUS_TYPE_BYTE_ARRAY    7
-#define DBUS_TYPE_UTF8_STRING   8
+#define DBUS_TYPE_STRING        8
   
+/* Header fields */
+#define DBUS_HEADER_FIELD_NAME    "name"
+#define DBUS_HEADER_FIELD_SERVICE "srvc"
+#define DBUS_HEADER_FIELD_REPLY	  "rply"
+
 #ifdef __cplusplus
 }
 #endif
