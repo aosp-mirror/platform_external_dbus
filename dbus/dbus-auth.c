@@ -871,7 +871,7 @@ handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
     goto out_5;
 
   if (!_dbus_string_init (&correct_hash))
-    goto out_6;
+    goto out_5;
   
   if (!sha1_compute_hash (auth, val,
                           &server_challenge,

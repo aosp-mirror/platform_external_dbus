@@ -1,5 +1,24 @@
 2003-04-18  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-mainloop.c (_dbus_loop_iterate): fix UMR in verbose
+	debug spew
+
+	* dbus/dbus-auth.c (handle_client_data_cookie_sha1_mech): fix OOM
+	handling problem
+
+	* dbus/dbus-keyring.c (_dbus_keyring_new_homedir): only whine
+	about DBUS_TEST_HOMEDIR once
+
+	* bus/Makefile.am (TESTS_ENVIRONMENT): put DBUS_TEST_HOMEDIR in
+	the environment
+	
+	* bus/dispatch.c (bus_dispatch_sha1_test): actually load sha1
+	config file so we test the right thing
+
+	Throughout: assorted docs improvements
+
+2003-04-18  Havoc Pennington  <hp@pobox.com>
+
 	* glib/dbus-gmain.c: adapt to watch changes
 
 	* bus/bus.c, bus/activation.c, etc.: adjust to watch changes

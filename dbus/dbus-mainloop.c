@@ -588,11 +588,11 @@ _dbus_loop_iterate (DBusLoop     *loop,
               if (flags & DBUS_WATCH_WRITABLE)
                 fds[n_fds].events |= _DBUS_POLLOUT;
 
-              n_fds += 1;
-
 #if MAINLOOP_SPEW
               _dbus_verbose ("  polling watch on fd %d\n", fds[n_fds].fd);
 #endif
+
+              n_fds += 1;
             }
           else
             {

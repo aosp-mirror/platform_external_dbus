@@ -42,16 +42,61 @@
  *
  * A DBusConnection represents a connection to another
  * application. Messages can be sent and received via this connection.
- *
- * The connection maintains a queue of incoming messages and a queue
- * of outgoing messages. dbus_connection_pop_message() and friends
- * can be used to read incoming messages from the queue.
- * Outgoing messages are automatically discarded as they are
- * written to the network.
- *
- * In brief a DBusConnection is a message queue associated with some
- * message transport mechanism such as a socket.
+ * The other application may be a message bus; for convenience, the
+ * function dbus_bus_get() is provided to automatically open a
+ * connection to the well-known message buses.
  * 
+ * In brief a DBusConnection is a message queue associated with some
+ * message transport mechanism such as a socket.  The connection
+ * maintains a queue of incoming messages and a queue of outgoing
+ * messages.
+ *
+ * Incoming messages are normally processed by calling
+ * dbus_connection_dispatch(). dbus_connection_dispatch() runs any
+ * handlers registered for the topmost message in the message queue,
+ * then discards the message, then returns.
+ * 
+ * dbus_connection_get_dispatch_status() indicates whether
+ * messages are currently in the queue that need dispatching.
+ * dbus_connection_set_dispatch_status_function() allows
+ * you to set a function to be used to monitor the dispatch status.
+ *
+ * If you're using GLib or Qt add-on libraries for D-BUS, there are
+ * special convenience functions in those libraries that hide
+ * all the details of dispatch and watch/timeout monitoring.
+ * For example, dbus_connection_setup_with_g_main().
+ *
+ * If you aren't using these add-on libraries, you have to manually
+ * call dbus_connection_set_dispatch_status_function(),
+ * dbus_connection_set_watch_functions(),
+ * dbus_connection_set_timeout_functions() providing appropriate
+ * functions to integrate the connection with your application's main
+ * loop.
+ *
+ * When you use dbus_connection_send() or one of its variants to send
+ * a message, the message is added to the outgoing queue.  It's
+ * actually written to the network later; either in
+ * dbus_watch_handle() invoked by your main loop, or in
+ * dbus_connection_flush() which blocks until it can write out the
+ * entire outgoing queue. The GLib/Qt add-on libraries again
+ * handle the details here for you by setting up watch functions.
+ *
+ * When a connection is disconnected, you are guaranteed to get a
+ * message with the name #DBUS_MESSAGE_LOCAL_DISCONNECT.
+ *
+ * You may not drop the last reference to a #DBusConnection
+ * until that connection has been disconnected.
+ *
+ * You may dispatch the unprocessed incoming message queue even if the
+ * connection is disconnected. However, #DBUS_MESSAGE_LOCAL_DISCONNECT
+ * will always be the last message in the queue (obviously no messages
+ * are received after disconnection).
+ *
+ * #DBusConnection has thread locks and drops them when invoking user
+ * callbacks, so in general is transparently threadsafe. However,
+ * #DBusMessage does NOT have thread locks; you must not send the same
+ * message to multiple #DBusConnection that will be used from
+ * different threads.
  */
 
 /**
@@ -1668,12 +1713,12 @@ _dbus_connection_wait_for_borrowed (DBusConnection *connection)
  * Returns the first-received message from the incoming message queue,
  * leaving it in the queue. If the queue is empty, returns #NULL.
  * 
- * The caller does not own a reference to the returned message, and must
- * either return it using dbus_connection_return_message or keep it after
- * calling dbus_connection_steal_borrowed_message. No one can get at the
- * message while its borrowed, so return it as quickly as possible and
- * don't keep a reference to it after returning it. If you need to keep
- * the message, make a copy of it.
+ * The caller does not own a reference to the returned message, and
+ * must either return it using dbus_connection_return_message() or
+ * keep it after calling dbus_connection_steal_borrowed_message(). No
+ * one can get at the message while its borrowed, so return it as
+ * quickly as possible and don't keep a reference to it after
+ * returning it. If you need to keep the message, make a copy of it.
  *
  * @param connection the connection.
  * @returns next message in the incoming queue.
@@ -1706,7 +1751,11 @@ dbus_connection_borrow_message  (DBusConnection *connection)
 }
 
 /**
- * @todo docs
+ * Used to return a message after peeking at it using
+ * dbus_connection_borrow_message().
+ *
+ * @param connection the connection
+ * @param message the message from dbus_connection_borrow_message()
  */
 void
 dbus_connection_return_message (DBusConnection *connection,
@@ -1723,7 +1772,13 @@ dbus_connection_return_message (DBusConnection *connection,
 }
 
 /**
- * @todo docs
+ * Used to keep a message after peeking at it using
+ * dbus_connection_borrow_message(). Before using this function, see
+ * the caveats/warnings in the documentation for
+ * dbus_connection_pop_message().
+ *
+ * @param connection the connection
+ * @param message the message from dbus_connection_borrow_message()
  */
 void
 dbus_connection_steal_borrowed_message (DBusConnection *connection,
@@ -1804,6 +1859,12 @@ _dbus_connection_pop_message_unlocked (DBusConnection *connection)
  * Returns the first-received message from the incoming message queue,
  * removing it from the queue. The caller owns a reference to the
  * returned message. If the queue is empty, returns #NULL.
+ *
+ * This function bypasses any message handlers that are registered,
+ * and so using it is usually wrong. Instead, let the main loop invoke
+ * dbus_connection_dispatch(). Popping messages manually is only
+ * useful in very simple programs that don't share a #DBusConnection
+ * with any libraries or other modules.
  *
  * @param connection the connection.
  * @returns next message in the incoming queue.
@@ -2478,6 +2539,11 @@ dbus_connection_set_unix_user_function (DBusConnection             *connection,
  * Filters added during a filter callback won't be run on the
  * message being processed.
  *
+ * The connection does NOT add a reference to the message handler;
+ * instead, if the message handler is finalized, the connection simply
+ * forgets about it. Thus the caller of this function must keep a
+ * reference to the message handler.
+ *
  * @param connection the connection
  * @param handler the handler
  * @returns #TRUE on success, #FALSE if not enough memory.
@@ -2540,6 +2606,11 @@ dbus_connection_remove_filter (DBusConnection      *connection,
  * this function with the name of a message that already has a
  * handler. If the function returns #FALSE, the handlers were not
  * registered due to lack of memory.
+ *
+ * The connection does NOT add a reference to the message handler;
+ * instead, if the message handler is finalized, the connection simply
+ * forgets about it. Thus the caller of this function must keep a
+ * reference to the message handler.
  *
  * @todo the messages_to_handle arg may be more convenient if it's a
  * single string instead of an array. Though right now MessageHandler

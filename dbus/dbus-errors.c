@@ -38,13 +38,28 @@
  * In essence D-BUS error reporting works as follows:
  *
  * @code
- * DBusResultCode result = DBUS_RESULT_SUCCESS;
- * dbus_some_function (arg1, arg2, &result);
- * if (result != DBUS_RESULT_SUCCESS)
- *   printf ("an error occurred\n");
+ * DBusError error;
+ * _dbus_error_init (&error);
+ * dbus_some_function (arg1, arg2, &error);
+ * if (dbus_error_is_set (&error))
+ *   {
+ *     fprintf (stderr, "an error occurred: %s\n", error.message);
+ *     dbus_error_free (&error);
+ *   }
  * @endcode
  *
- * @todo add docs with DBusError
+ * There are some rules. An error passed to a D-BUS function must
+ * always be unset; you can't pass in an error that's already set.  If
+ * a function has a return code indicating whether an error occurred,
+ * and also a #DBusError parameter, then the error will always be set
+ * if and only if the return code indicates an error occurred. i.e.
+ * the return code and the error are never going to disagree.
+ *
+ * An error only needs to be freed if it's been set, not if
+ * it's merely been initialized.
+ *
+ * You can check the specific error that occurred using
+ * dbus_error_has_name().
  * 
  * @{
  */
@@ -156,9 +171,10 @@ dbus_error_free (DBusError *error)
 }
 
 /**
- * Assigns an error name and message to a DBusError.
- * Does nothing if error is #NULL. The message may
- * be NULL only if the error is DBUS_ERROR_NO_MEMORY.
+ * Assigns an error name and message to a DBusError.  Does nothing if
+ * error is #NULL. The message may be NULL, which means a default
+ * message will be deduced from the name. If the error name is unknown
+ * to D-BUS the default message will be totally useless, though.
  *
  * @param error the error.
  * @param name the error name (not copied!!!)
@@ -261,7 +277,9 @@ dbus_error_is_set (const DBusError *error)
  * Assigns an error name and message to a DBusError.
  * Does nothing if error is #NULL.
  *
- * The format may be NULL only if the error is DBUS_ERROR_NO_MEMORY.
+ * The format may be NULL, which means a default message will be
+ * deduced from the name. If the error name is unknown to D-BUS the
+ * default message will be totally useless, though.
  *
  * If no memory can be allocated for the error message, 
  * an out-of-memory error message will be set instead.

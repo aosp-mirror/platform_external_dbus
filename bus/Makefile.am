@@ -63,7 +63,7 @@ dbus_daemon_1_LDADD=					\
 ## so if adding tests not to be run in make check, don't add them to 
 ## TESTS
 if DBUS_BUILD_TESTS
-TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_builddir)/test/data
+TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_builddir)/test/data DBUS_TEST_HOMEDIR=$(top_builddir)/dbus
 TESTS=bus-test 
 else
 TESTS=

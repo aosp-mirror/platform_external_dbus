@@ -1958,7 +1958,7 @@ bus_dispatch_sha1_test (const DBusString *test_data_dir)
   _dbus_verbose ("Testing SHA1 context\n");
   
   context = bus_context_new_test (test_data_dir,
-                                  "valid-config-files/debug-allow-all.conf");
+                                  "valid-config-files/debug-allow-all-sha1.conf");
   if (context == NULL)
     return FALSE;
 

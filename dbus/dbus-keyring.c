@@ -731,7 +731,12 @@ _dbus_keyring_new_homedir (const DBusString *username,
      }
    else
      {
-       _dbus_warn ("Using your real home directory for testing, set DBUS_TEST_HOMEDIR to avoid\n");
+       static dbus_bool_t already_warned = FALSE;
+       if (!already_warned)
+         {
+           _dbus_warn ("Using your real home directory for testing, set DBUS_TEST_HOMEDIR to avoid\n");
+           already_warned = TRUE;
+         }
      }
  }
 #endif

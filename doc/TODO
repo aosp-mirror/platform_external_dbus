@@ -86,3 +86,6 @@
    not on how many can be buffered for a given connection.
 
  - make client serial and reply serial unsigned and add dbus_message_get_is_reply()
+
+ - other apps can send you a fake DBUS_MESSAGE_LOCAL_DISCONNECT; need to 
+   check for that and disallow it.
