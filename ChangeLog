@@ -1,3 +1,7 @@
+2004-05-19  Owen Fraser-Green  <owen@discobabe.net>
+
+	* HACKING: Updated release instructions concerning the wiki page.
+
 2004-05-18  Kristian Høgsberg  <krh@redhat.com>
 
  	* dbus/dbus-auth.c (client_try_next_mechanism): Remove logic to

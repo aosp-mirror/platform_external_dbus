@@ -94,8 +94,15 @@ To make a release of D-BUS, do the following:
    to /home/www/twiki/Software/dbus/releases. This should 
    be possible if you're in group "dbus"
 
- - update the wiki page http://pdx.freedesktop.org/Software/dbus
-   to list your new release
+ - update the wiki page http://pdx.freedesktop.org/Software/dbus by
+   adding the new release under the Download heading. Then, cut the
+   link and changelog for the previous that was there.
+
+ - update the wiki page
+   http://pdx.freedesktop.org/Software/DbusReleaseArchive pasting the
+   previous release. Note that bullet points for each of the changelog
+   items must be indented three more spaces to conform to the
+   formatting of the other releases there.
   
  - post to message-bus-list@freedesktop.org announcing the release.
  
