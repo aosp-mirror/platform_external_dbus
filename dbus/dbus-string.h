@@ -54,6 +54,7 @@ struct DBusString
  * to inline non-exported symbols across files in the library.
  * Note that these break type safety (due to the casts)
  */
+#define _dbus_string_get_data(s) ((char*)(((DBusString*)(s))->dummy1))
 #define _dbus_string_get_length(s) (((DBusString*)(s))->dummy2)
 #define _dbus_string_set_byte(s, i, b) ((((unsigned char*)(((DBusString*)(s))->dummy1))[(i)]) = (unsigned char) (b))
 #define _dbus_string_get_byte(s, i) (((const unsigned char*)(((DBusString*)(s))->dummy1))[(i)])
@@ -71,7 +72,9 @@ dbus_bool_t   _dbus_string_init_preallocated     (DBusString        *str,
                                                   int                allocate_size);
 void          _dbus_string_free                  (DBusString        *str);
 void          _dbus_string_lock                  (DBusString        *str);
+#ifndef _dbus_string_get_data
 char*         _dbus_string_get_data              (DBusString        *str);
+#endif /* _dbus_string_get_data */
 #ifndef _dbus_string_get_const_data
 const char*   _dbus_string_get_const_data        (const DBusString  *str);
 #endif /* _dbus_string_get_const_data */
@@ -204,11 +207,6 @@ dbus_bool_t   _dbus_string_parse_uint            (const DBusString  *str,
 dbus_bool_t   _dbus_string_parse_double          (const DBusString  *str,
                                                   int                start,
                                                   double            *value,
-                                                  int               *end_return);
-dbus_bool_t   _dbus_string_parse_basic_type      (const DBusString  *str,
-						  char               type,
-                                                  int                start,
-                                                  void              *value,
                                                   int               *end_return);
 dbus_bool_t   _dbus_string_find                  (const DBusString  *str,
                                                   int                start,

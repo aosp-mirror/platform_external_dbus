@@ -230,6 +230,8 @@ trace 'reachable' through hardcoded function calls, if a function is
 called only through a vtable, it won't be marked reachable (and
 neither will its children in the call graph).
 
+Also, the sizes mentioned are more or less completely bogus.
+
 """
     
     print "The following are hardcoded in as vtable roots: %s" % vtable_roots

@@ -1628,149 +1628,6 @@ _dbus_user_info_free (DBusUserInfo *info)
   dbus_free (info->homedir);
 }
 
-static dbus_bool_t
-fill_user_info_from_group (struct group  *g,
-                           DBusGroupInfo *info,
-                           DBusError     *error)
-{
-  _dbus_assert (g->gr_name != NULL);
-  
-  info->gid = g->gr_gid;
-  info->groupname = _dbus_strdup (g->gr_name);
-
-  /* info->members = dbus_strdupv (g->gr_mem) */
-  
-  if (info->groupname == NULL)
-    {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      return FALSE;
-    }
-
-  return TRUE;
-}
-
-static dbus_bool_t
-fill_group_info (DBusGroupInfo    *info,
-                 dbus_gid_t        gid,
-                 const DBusString *groupname,
-                 DBusError        *error)
-{
-  const char *group_c_str;
-
-  _dbus_assert (groupname != NULL || gid != DBUS_GID_UNSET);
-  _dbus_assert (groupname == NULL || gid == DBUS_GID_UNSET);
-
-  if (groupname)
-    group_c_str = _dbus_string_get_const_data (groupname);
-  else
-    group_c_str = NULL;
-  
-  /* For now assuming that the getgrnam() and getgrgid() flavors
-   * always correspond to the pwnam flavors, if not we have
-   * to add more configure checks.
-   */
-  
-#if defined (HAVE_POSIX_GETPWNAME_R) || defined (HAVE_NONPOSIX_GETPWNAME_R)
-  {
-    struct group *g;
-    int result;
-    char buf[1024];
-    struct group g_str;
-
-    g = NULL;
-#ifdef HAVE_POSIX_GETPWNAME_R
-
-    if (group_c_str)
-      result = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf),
-                           &g);
-    else
-      result = getgrgid_r (gid, &g_str, buf, sizeof (buf),
-                           &g);
-#else
-    p = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf));
-    result = 0;
-#endif /* !HAVE_POSIX_GETPWNAME_R */
-    if (result == 0 && g == &g_str)
-      {
-        return fill_user_info_from_group (g, info, error);
-      }
-    else
-      {
-        dbus_set_error (error, _dbus_error_from_errno (errno),
-                        "Group %s unknown or failed to look it up\n",
-                        group_c_str ? group_c_str : "???");
-        return FALSE;
-      }
-  }
-#else /* ! HAVE_GETPWNAM_R */
-  {
-    /* I guess we're screwed on thread safety here */
-    struct group *g;
-
-    g = getgrnam (group_c_str);
-
-    if (g != NULL)
-      {
-        return fill_user_info_from_group (g, info, error);
-      }
-    else
-      {
-        dbus_set_error (error, _dbus_error_from_errno (errno),
-                        "Group %s unknown or failed to look it up\n",
-                        group_c_str ? group_c_str : "???");
-        return FALSE;
-      }
-  }
-#endif  /* ! HAVE_GETPWNAM_R */
-}
-
-/**
- * Initializes the given DBusGroupInfo struct
- * with information about the given group name.
- *
- * @param info the group info struct
- * @param groupname name of group
- * @param error the error return
- * @returns #FALSE if error is set
- */
-dbus_bool_t
-_dbus_group_info_fill (DBusGroupInfo    *info,
-                       const DBusString *groupname,
-                       DBusError        *error)
-{
-  return fill_group_info (info, DBUS_GID_UNSET,
-                          groupname, error);
-
-}
-
-/**
- * Initializes the given DBusGroupInfo struct
- * with information about the given group ID.
- *
- * @param info the group info struct
- * @param gid group ID
- * @param error the error return
- * @returns #FALSE if error is set
- */
-dbus_bool_t
-_dbus_group_info_fill_gid (DBusGroupInfo *info,
-                           dbus_gid_t     gid,
-                           DBusError     *error)
-{
-  return fill_group_info (info, gid, NULL, error);
-}
-
-/**
- * Frees the members of info (but not info itself).
- *
- * @param info the group info
- */
-void
-_dbus_group_info_free (DBusGroupInfo    *info)
-{
-  dbus_free (info->groupname);
-}
-
 /**
  * Sets fields in DBusCredentials to DBUS_PID_UNSET,
  * DBUS_UID_UNSET, DBUS_GID_UNSET.
@@ -1849,6 +1706,7 @@ _dbus_getuid (void)
   return getuid ();
 }
 
+#ifdef DBUS_BUILD_TESTS
 /** Gets our GID
  * @returns process GID
  */
@@ -1857,6 +1715,7 @@ _dbus_getgid (void)
 {
   return getgid ();
 }
+#endif
 
 _DBUS_DEFINE_GLOBAL_LOCK (atomic);
 
@@ -2467,118 +2326,6 @@ _dbus_concat_dir_and_file (DBusString       *dir,
                             _dbus_string_get_length (dir));
 }
 
-/**
- * Internals of directory iterator
- */
-struct DBusDirIter
-{
-  DIR *d; /**< The DIR* from opendir() */
-  
-};
-
-/**
- * Open a directory to iterate over.
- *
- * @param filename the directory name
- * @param error exception return object or #NULL
- * @returns new iterator, or #NULL on error
- */
-DBusDirIter*
-_dbus_directory_open (const DBusString *filename,
-                      DBusError        *error)
-{
-  DIR *d;
-  DBusDirIter *iter;
-  const char *filename_c;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  filename_c = _dbus_string_get_const_data (filename);
-
-  d = opendir (filename_c);
-  if (d == NULL)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to read directory \"%s\": %s",
-                      filename_c,
-                      _dbus_strerror (errno));
-      return NULL;
-    }
-  iter = dbus_new0 (DBusDirIter, 1);
-  if (iter == NULL)
-    {
-      closedir (d);
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                      "Could not allocate memory for directory iterator");
-      return NULL;
-    }
-
-  iter->d = d;
-
-  return iter;
-}
-
-/**
- * Get next file in the directory. Will not return "." or ".."  on
- * UNIX. If an error occurs, the contents of "filename" are
- * undefined. The error is never set if the function succeeds.
- *
- * @todo for thread safety, I think we have to use
- * readdir_r(). (GLib has the same issue, should file a bug.)
- *
- * @param iter the iterator
- * @param filename string to be set to the next file in the dir
- * @param error return location for error
- * @returns #TRUE if filename was filled in with a new filename
- */
-dbus_bool_t
-_dbus_directory_get_next_file (DBusDirIter      *iter,
-                               DBusString       *filename,
-                               DBusError        *error)
-{
-  struct dirent *ent;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
- again:
-  errno = 0;
-  ent = readdir (iter->d);
-  if (ent == NULL)
-    {
-      if (errno != 0)
-        dbus_set_error (error,
-                        _dbus_error_from_errno (errno),
-                        "%s", _dbus_strerror (errno));
-      return FALSE;
-    }
-  else if (ent->d_name[0] == '.' &&
-           (ent->d_name[1] == '\0' ||
-            (ent->d_name[1] == '.' && ent->d_name[2] == '\0')))
-    goto again;
-  else
-    {
-      _dbus_string_set_length (filename, 0);
-      if (!_dbus_string_append (filename, ent->d_name))
-        {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                          "No memory to read directory entry");
-          return FALSE;
-        }
-      else
-        return TRUE;
-    }
-}
-
-/**
- * Closes a directory iteration.
- */
-void
-_dbus_directory_close (DBusDirIter *iter)
-{
-  closedir (iter->d);
-  dbus_free (iter);
-}
-
 static dbus_bool_t
 pseudorandom_generate_random_bytes (DBusString *str,
                                     int         n_bytes)
@@ -2859,62 +2606,6 @@ _dbus_exit (int code)
 }
 
 /**
- * Creates a full-duplex pipe (as in socketpair()).
- * Sets both ends of the pipe nonblocking.
- *
- * @param fd1 return location for one end
- * @param fd2 return location for the other end
- * @param blocking #TRUE if pipe should be blocking
- * @param error error return
- * @returns #FALSE on failure (if error is set)
- */
-dbus_bool_t
-_dbus_full_duplex_pipe (int        *fd1,
-                        int        *fd2,
-                        dbus_bool_t blocking,
-                        DBusError  *error)
-{
-#ifdef HAVE_SOCKETPAIR
-  int fds[2];
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  if (socketpair (AF_UNIX, SOCK_STREAM, 0, fds) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Could not create full-duplex pipe");
-      return FALSE;
-    }
-
-  if (!blocking &&
-      (!_dbus_set_fd_nonblocking (fds[0], NULL) ||
-       !_dbus_set_fd_nonblocking (fds[1], NULL)))
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Could not set full-duplex pipe nonblocking");
-      
-      close (fds[0]);
-      close (fds[1]);
-      
-      return FALSE;
-    }
-  
-  *fd1 = fds[0];
-  *fd2 = fds[1];
-
-  _dbus_verbose ("full-duplex pipe %d <-> %d\n",
-                 *fd1, *fd2);
-  
-  return TRUE;  
-#else
-  _dbus_warn ("_dbus_full_duplex_pipe() not implemented on this OS\n");
-  dbus_set_error (error, DBUS_ERROR_FAILED,
-                  "_dbus_full_duplex_pipe() not implemented on this OS");
-  return FALSE;
-#endif
-}
-
-/**
  * Closes a file descriptor.
  *
  * @param fd the file descriptor
@@ -3053,6 +2744,67 @@ _dbus_parse_uid (const DBusString      *uid_str,
   *uid = val;
 
   return TRUE;
+}
+
+/**
+ * Creates a full-duplex pipe (as in socketpair()).
+ * Sets both ends of the pipe nonblocking.
+ *
+ * @todo libdbus only uses this for the debug-pipe server, so in
+ * principle it could be in dbus-sysdeps-util.c, except that
+ * dbus-sysdeps-util.c isn't in libdbus when tests are enabled and the
+ * debug-pipe server is used.
+ * 
+ * @param fd1 return location for one end
+ * @param fd2 return location for the other end
+ * @param blocking #TRUE if pipe should be blocking
+ * @param error error return
+ * @returns #FALSE on failure (if error is set)
+ */
+dbus_bool_t
+_dbus_full_duplex_pipe (int        *fd1,
+                        int        *fd2,
+                        dbus_bool_t blocking,
+                        DBusError  *error)
+{
+#ifdef HAVE_SOCKETPAIR
+  int fds[2];
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  if (socketpair (AF_UNIX, SOCK_STREAM, 0, fds) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not create full-duplex pipe");
+      return FALSE;
+    }
+
+  if (!blocking &&
+      (!_dbus_set_fd_nonblocking (fds[0], NULL) ||
+       !_dbus_set_fd_nonblocking (fds[1], NULL)))
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not set full-duplex pipe nonblocking");
+      
+      close (fds[0]);
+      close (fds[1]);
+      
+      return FALSE;
+    }
+  
+  *fd1 = fds[0];
+  *fd2 = fds[1];
+
+  _dbus_verbose ("full-duplex pipe %d <-> %d\n",
+                 *fd1, *fd2);
+  
+  return TRUE;  
+#else
+  _dbus_warn ("_dbus_full_duplex_pipe() not implemented on this OS\n");
+  dbus_set_error (error, DBUS_ERROR_FAILED,
+                  "_dbus_full_duplex_pipe() not implemented on this OS");
+  return FALSE;
+#endif
 }
 
 /** @} end of sysdeps */

@@ -62,15 +62,16 @@ DBUS_LIB_SOURCES=				\
 	dbus-marshal-validate.h			\
 	dbus-message.c				\
 	dbus-message-internal.h			\
+	dbus-message-private.h			\
 	dbus-object-tree.c			\
 	dbus-object-tree.h			\
 	dbus-pending-call.c			\
 	dbus-resources.c			\
 	dbus-resources.h			\
 	dbus-server.c				\
-	dbus-server-protected.h			\
 	dbus-server-debug-pipe.c		\
 	dbus-server-debug-pipe.h		\
+	dbus-server-protected.h			\
 	dbus-server-unix.c			\
 	dbus-server-unix.h			\
 	dbus-sha.c				\
@@ -121,16 +122,18 @@ DBUS_SHARED_SOURCES=				\
 ### should be underscore-prefixed but don't really need 
 ### to be unless they move to DBUS_SHARED_SOURCES later)
 DBUS_UTIL_SOURCES=				\
+	dbus-auth-util.c			\
 	dbus-mainloop.c				\
 	dbus-mainloop.h				\
+	dbus-marshal-recursive-util.c		\
+	dbus-message-util.c			\
 	dbus-spawn.c				\
 	dbus-spawn.h				\
+	dbus-string-util.c			\
 	dbus-sysdeps-util.c			\
-	dbus-sysdeps-util.h			\
 	dbus-test.c				\
 	dbus-test.h				\
-	dbus-userdb-util.c			\
-	dbus-userdb-util.h
+	dbus-userdb-util.c
 
 libdbus_1_la_SOURCES=				\
 	$(DBUS_LIB_SOURCES)			\

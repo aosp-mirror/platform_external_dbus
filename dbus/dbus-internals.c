@@ -174,6 +174,8 @@ _dbus_warn (const char *format,
   va_end (args);
 }
 
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+
 static dbus_bool_t verbose_initted = FALSE;
 
 /**
@@ -237,6 +239,8 @@ _dbus_verbose_reset_real (void)
 {
   verbose_initted = FALSE;
 }
+
+#endif /* DBUS_ENABLE_VERBOSE_MODE */
 
 /**
  * Duplicates a string. Result must be freed with
@@ -354,6 +358,7 @@ _dbus_string_array_contains (const char **array,
   return FALSE;
 }
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Returns a string describing the given name.
  *
@@ -387,6 +392,7 @@ _dbus_header_field_to_string (int header_field)
       return "unknown";
     }
 }
+#endif /* DBUS_BUILD_TESTS */
 
 #ifndef DBUS_DISABLE_CHECKS
 /** String used in _dbus_return_if_fail macro */

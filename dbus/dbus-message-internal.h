@@ -71,4 +71,4 @@ long               _dbus_message_loader_get_max_message_size  (DBusMessageLoader
 
 DBUS_END_DECLS
 
-#endif /* DBUS_MESSAGE_H */
+#endif /* DBUS_MESSAGE_INTERNAL_H */

@@ -442,6 +442,7 @@ _dbus_user_database_new (void)
   return NULL;
 }
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Increments refcount of user database.
  * @param db the database
@@ -456,6 +457,7 @@ _dbus_user_database_ref (DBusUserDatabase  *db)
 
   return db;
 }
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Decrements refcount of user database.

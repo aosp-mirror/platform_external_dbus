@@ -152,11 +152,6 @@ typedef union
      DBUS_UINT32_FROM_BE (*(dbus_uint32_t*)(data)))
 #endif
 
-void          _dbus_pack_int32    (dbus_int32_t         value,
-                                   int                  byte_order,
-                                   unsigned char       *data);
-dbus_int32_t  _dbus_unpack_int32  (int                  byte_order,
-                                   const unsigned char *data);
 void          _dbus_pack_uint32   (dbus_uint32_t        value,
                                    int                  byte_order,
                                    unsigned char       *data);

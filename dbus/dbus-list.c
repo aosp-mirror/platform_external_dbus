@@ -126,6 +126,7 @@ link_before (DBusList **list,
     }
 }
 
+#ifdef DBUS_BUILD_TESTS
 static void
 link_after (DBusList **list,
             DBusList  *after_this_link,
@@ -145,6 +146,7 @@ link_after (DBusList **list,
       link->next->prev = link;
     }
 }
+#endif /* DBUS_BUILD_TESTS */
 
 /** @} */
 
@@ -313,6 +315,7 @@ _dbus_list_prepend_link (DBusList **list,
   link_before (list, *list, link);
 }
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Inserts data into the list before the given existing link.
  * 
@@ -341,7 +344,9 @@ _dbus_list_insert_before (DBusList **list,
   
   return TRUE;
 }
+#endif /* DBUS_BUILD_TESTS */
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Inserts data into the list after the given existing link.
  * 
@@ -370,6 +375,7 @@ _dbus_list_insert_after (DBusList **list,
   
   return TRUE;
 }
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Inserts a link into the list before the given existing link.
@@ -389,6 +395,7 @@ _dbus_list_insert_before_link (DBusList **list,
     link_before (list, before_this_link, link);
 }
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Inserts a link into the list after the given existing link.
  * 
@@ -406,6 +413,7 @@ _dbus_list_insert_after_link (DBusList **list,
   else  
     link_after (list, after_this_link, link);
 }
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Removes a value from the list. Only removes the
@@ -690,6 +698,7 @@ _dbus_list_pop_last (DBusList **list)
   return data;
 }
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Removes the last link in the list and returns it.  This is a
  * constant-time operation.
@@ -710,6 +719,7 @@ _dbus_list_pop_last_link (DBusList **list)
 
   return link;
 }
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Copies a list. This is a linear-time operation.  If there isn't

@@ -1,5 +1,29 @@
 2005-01-16  Havoc Pennington  <hp@redhat.com>
 
+        This is about it on what can be disabled/deleted from libdbus
+	easily, back below 150K anyhow. Deeper cuts are more work than 
+	just turning the code off as I've done here.
+	
+	* dbus/dbus-marshal-basic.c (_dbus_pack_int32): we don't need the
+	signed int convenience funcs
+
+	* dbus/dbus-internals.c (_dbus_verbose_real): omit when not in
+	verbose mode
+
+	* dbus/dbus-string-util.c, dbus/dbus-string.c: more breaking
+	things out of libdbus
+
+	* dbus/dbus-sysdeps.c, dbus/dbus-sysdeps-util.c: same
+	
+	* dbus/dbus-hash.c: purge the TWO_STRINGS crap (well, make it
+	tests-enabled-only, though it should probably be deleted)
+
+	* dbus/dbus-message-util.c: same stuff
+
+	* dbus/dbus-auth-util.c: same stuff
+
+2005-01-16  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-userdb-util.c: split out part of dbus-userdb.c
 
 	* dbus/dbus-sysdeps.c (_dbus_uid_from_string): move here to pave

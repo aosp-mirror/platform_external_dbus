@@ -69,61 +69,6 @@
  */
 
 /**
- * @defgroup DBusStringInternals DBusString implementation details
- * @ingroup  DBusInternals
- * @brief DBusString implementation details
- *
- * The guts of DBusString.
- *
- * @{
- */
-
-/**
- * This is the maximum max length (and thus also the maximum length)
- * of a DBusString
- */
-#define MAX_MAX_LENGTH (_DBUS_INT_MAX - _DBUS_STRING_ALLOCATION_PADDING)
-
-/**
- * Checks a bunch of assertions about a string object
- *
- * @param real the DBusRealString
- */
-#define DBUS_GENERIC_STRING_PREAMBLE(real) _dbus_assert ((real) != NULL); _dbus_assert (!(real)->invalid); _dbus_assert ((real)->len >= 0); _dbus_assert ((real)->allocated >= 0); _dbus_assert ((real)->max_length >= 0); _dbus_assert ((real)->len <= ((real)->allocated - _DBUS_STRING_ALLOCATION_PADDING)); _dbus_assert ((real)->len <= (real)->max_length)
-
-/**
- * Checks assertions about a string object that needs to be
- * modifiable - may not be locked or const. Also declares
- * the "real" variable pointing to DBusRealString. 
- * @param str the string
- */
-#define DBUS_STRING_PREAMBLE(str) DBusRealString *real = (DBusRealString*) str; \
-  DBUS_GENERIC_STRING_PREAMBLE (real);                                          \
-  _dbus_assert (!(real)->constant);                                             \
-  _dbus_assert (!(real)->locked)
-
-/**
- * Checks assertions about a string object that may be locked but
- * can't be const. i.e. a string object that we can free.  Also
- * declares the "real" variable pointing to DBusRealString.
- *
- * @param str the string
- */
-#define DBUS_LOCKED_STRING_PREAMBLE(str) DBusRealString *real = (DBusRealString*) str; \
-  DBUS_GENERIC_STRING_PREAMBLE (real);                                                 \
-  _dbus_assert (!(real)->constant)
-
-/**
- * Checks assertions about a string that may be const or locked.  Also
- * declares the "real" variable pointing to DBusRealString.
- * @param str the string.
- */
-#define DBUS_CONST_STRING_PREAMBLE(str) const DBusRealString *real = (DBusRealString*) str; \
-  DBUS_GENERIC_STRING_PREAMBLE (real)
-
-/** @} */
-
-/**
  * @addtogroup DBusString
  * @{
  */
@@ -207,7 +152,7 @@ _dbus_string_init_preallocated (DBusString *str,
   real->len = 0;
   real->str[real->len] = '\0';
   
-  real->max_length = MAX_MAX_LENGTH;
+  real->max_length = _DBUS_STRING_MAX_MAX_LENGTH;
   real->constant = FALSE;
   real->locked = FALSE;
   real->invalid = FALSE;
@@ -231,6 +176,7 @@ _dbus_string_init (DBusString *str)
   return _dbus_string_init_preallocated (str, 0);
 }
 
+#ifdef DBUS_BUILD_TESTS
 /* The max length thing is sort of a historical artifact
  * from a feature that turned out to be dumb; perhaps
  * we should purge it entirely. The problem with
@@ -247,6 +193,7 @@ set_max_length (DBusString *str,
 
   real->max_length = max_length;
 }
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Initializes a constant string. The value parameter is not copied
@@ -286,7 +233,7 @@ _dbus_string_init_const_len (DBusString *str,
   
   _dbus_assert (str != NULL);
   _dbus_assert (value != NULL);
-  _dbus_assert (len <= MAX_MAX_LENGTH);
+  _dbus_assert (len <= _DBUS_STRING_MAX_MAX_LENGTH);
   _dbus_assert (len >= 0);
   
   real = (DBusRealString*) str;
@@ -376,8 +323,8 @@ reallocate_for_length (DBusRealString *real,
   /* at least double our old allocation to avoid O(n), avoiding
    * overflow
    */
-  if (real->allocated > (MAX_MAX_LENGTH + _DBUS_STRING_ALLOCATION_PADDING) / 2)
-    new_allocated = MAX_MAX_LENGTH + _DBUS_STRING_ALLOCATION_PADDING;
+  if (real->allocated > (_DBUS_STRING_MAX_MAX_LENGTH + _DBUS_STRING_ALLOCATION_PADDING) / 2)
+    new_allocated = _DBUS_STRING_MAX_MAX_LENGTH + _DBUS_STRING_ALLOCATION_PADDING;
   else
     new_allocated = real->allocated * 2;
 
@@ -454,6 +401,7 @@ open_gap (int             len,
   return TRUE;
 }
 
+#ifndef _dbus_string_get_data
 /**
  * Gets the raw character buffer from the string.  The returned buffer
  * will be nul-terminated, but note that strings may contain binary
@@ -472,6 +420,7 @@ _dbus_string_get_data (DBusString *str)
   
   return real->str;
 }
+#endif /* _dbus_string_get_data */
 
 /* only do the function if we don't have the macro */
 #ifndef _dbus_string_get_const_data
@@ -683,6 +632,7 @@ _dbus_string_steal_data (DBusString        *str,
   return TRUE;
 }
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Like _dbus_string_get_data_len(), but removes the gotten data from
  * the original string. The caller must free the data returned. This
@@ -733,7 +683,7 @@ _dbus_string_steal_data_len (DBusString        *str,
   _dbus_string_free (&dest);
   return TRUE;
 }
-
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Copies the data from the string into a char*
@@ -758,6 +708,7 @@ _dbus_string_copy_data (const DBusString  *str,
   return TRUE;
 }
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Copies a segment of the string into a char*
  *
@@ -802,30 +753,7 @@ _dbus_string_copy_data_len (const DBusString  *str,
   _dbus_string_free (&dest);
   return TRUE;
 }
-
-/**
- * Copies the contents of a DBusString into a different
- * buffer. The resulting buffer will be nul-terminated.
- * 
- * @param str a string
- * @param buffer a C buffer to copy data to
- * @param avail_len maximum length of C buffer
- */
-void
-_dbus_string_copy_to_buffer (const DBusString  *str,
-			     char              *buffer,
-			     int                avail_len)
-{
-  int copy_len;
-  DBUS_CONST_STRING_PREAMBLE (str);
-
-  _dbus_assert (avail_len >= 0);
-
-  copy_len = MIN (avail_len, real->len+1);
-  memcpy (buffer, real->str, copy_len);
-  if (avail_len > 0 && avail_len == copy_len)
-    buffer[avail_len-1] = '\0';
-}
+#endif /* DBUS_BUILD_TESTS */
 
 /* Only have the function if we don't have the macro */
 #ifndef _dbus_string_get_length
@@ -1046,6 +974,7 @@ _dbus_string_append (DBusString *str,
   return append (real, buffer, buffer_len);
 }
 
+
 /** assign 4 bytes from one string to another */
 #define ASSIGN_4_OCTETS(p, octets) \
   *((dbus_uint32_t*)(p)) = *((dbus_uint32_t*)(octets));
@@ -1074,6 +1003,7 @@ do {                                            \
 } while (0)
 #endif /* DBUS_HAVE_INT64 */
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Appends 4 bytes aligned on a 4 byte boundary
  * with any alignment padding initialized to 0.
@@ -1095,7 +1025,9 @@ _dbus_string_append_4_aligned (DBusString         *str,
 
   return TRUE;
 }
+#endif /* DBUS_BUILD_TESTS */
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Appends 8 bytes aligned on an 8 byte boundary
  * with any alignment padding initialized to 0.
@@ -1117,6 +1049,7 @@ _dbus_string_append_8_aligned (DBusString         *str,
 
   return TRUE;
 }
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Inserts 4 bytes aligned on a 4 byte boundary
@@ -1299,6 +1232,7 @@ _dbus_string_append_byte (DBusString    *str,
   return TRUE;
 }
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Appends a single Unicode character, encoding the character
  * in UTF-8 format.
@@ -1369,6 +1303,7 @@ _dbus_string_append_unichar (DBusString    *str,
 
   return TRUE;
 }
+#endif /* DBUS_BUILD_TESTS */
 
 static void
 delete (DBusRealString *real,
@@ -1730,6 +1665,7 @@ _dbus_string_replace_len (const DBusString *source,
      ((Char) < 0xFDD0 || (Char) > 0xFDEF) &&  \
      ((Char) & 0xFFFF) != 0xFFFF)
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Gets a unicode character from a UTF-8 string. Does no validation;
  * you must verify that the string is valid UTF-8 in advance and must
@@ -1776,6 +1712,7 @@ _dbus_string_get_unichar (const DBusString *str,
   if (end_return)
     *end_return = start + len;
 }
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Finds the given substring in the string,
@@ -1877,43 +1814,6 @@ _dbus_string_find_to (const DBusString *str,
 }
 
 /**
- * Find the given byte scanning backward from the given start.
- * Sets *found to -1 if the byte is not found.
- *
- * @param str the string
- * @param start the place to start scanning (will not find the byte at this point)
- * @param byte the byte to find
- * @param found return location for where it was found
- * @returns #TRUE if found
- */
-dbus_bool_t
-_dbus_string_find_byte_backward (const DBusString  *str,
-                                 int                start,
-                                 unsigned char      byte,
-                                 int               *found)
-{
-  int i;
-  DBUS_CONST_STRING_PREAMBLE (str);
-  _dbus_assert (start <= real->len);
-  _dbus_assert (start >= 0);
-  _dbus_assert (found != NULL);
-
-  i = start - 1;
-  while (i >= 0)
-    {
-      if (real->str[i] == byte)
-        break;
-      
-      --i;
-    }
-
-  if (found)
-    *found = i;
-
-  return i >= 0;
-}
-
-/**
  * Finds a blank (space or tab) in the string. Returns #TRUE
  * if found, #FALSE otherwise. If a blank is not found sets
  * *found to the length of the string.
@@ -1975,43 +1875,6 @@ _dbus_string_skip_blank (const DBusString *str,
   while (i < real->len)
     {
       if (!(real->str[i] == ' ' ||
-            real->str[i] == '\t'))
-        break;
-      
-      ++i;
-    }
-
-  _dbus_assert (i == real->len || !(real->str[i] == ' ' ||
-                                    real->str[i] == '\t'));
-  
-  if (end)
-    *end = i;
-}
-
-/**
- * Skips whitespace from start, storing the first non-whitespace in *end.
- * (whitespace is space, tab, newline, CR).
- *
- * @param str the string
- * @param start where to start
- * @param end where to store the first non-whitespace byte index
- */
-void
-_dbus_string_skip_white (const DBusString *str,
-                         int               start,
-                         int              *end)
-{
-  int i;
-  DBUS_CONST_STRING_PREAMBLE (str);
-  _dbus_assert (start <= real->len);
-  _dbus_assert (start >= 0);
-  
-  i = start;
-  while (i < real->len)
-    {
-      if (!(real->str[i] == ' ' ||
-            real->str[i] == '\n' ||
-            real->str[i] == '\r' ||
             real->str[i] == '\t'))
         break;
       
@@ -2092,6 +1955,7 @@ _dbus_string_pop_line (DBusString *source,
   return TRUE;
 }
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Deletes up to and including the first blank space
  * in the string.
@@ -2108,7 +1972,9 @@ _dbus_string_delete_first_word (DBusString *str)
 
   _dbus_string_delete (str, 0, i);
 }
+#endif
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Deletes any leading blanks in the string
  *
@@ -2124,6 +1990,7 @@ _dbus_string_delete_leading_blanks (DBusString *str)
   if (i > 0)
     _dbus_string_delete (str, 0, i);
 }
+#endif
 
 /**
  * Tests two DBusString for equality.
@@ -2164,6 +2031,7 @@ _dbus_string_equal (const DBusString *a,
   return TRUE;
 }
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Tests two DBusString for equality up to the given length.
  * The strings may be shorter than the given length.
@@ -2208,6 +2076,7 @@ _dbus_string_equal_len (const DBusString *a,
 
   return TRUE;
 }
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Tests two sub-parts of two DBusString for equality.  The specified
@@ -2302,6 +2171,7 @@ _dbus_string_equal_c_str (const DBusString *a,
   return TRUE;
 }
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Checks whether a string starts with the given C string.
  *
@@ -2337,49 +2207,7 @@ _dbus_string_starts_with_c_str (const DBusString *a,
   else
     return FALSE;
 }
-
-/**
- * Returns whether a string ends with the given suffix
- *
- * @todo memcmp might make this faster.
- * 
- * @param a the string
- * @param c_str the C-style string
- * @returns #TRUE if the string ends with the suffix
- */
-dbus_bool_t
-_dbus_string_ends_with_c_str (const DBusString *a,
-                              const char       *c_str)
-{
-  const unsigned char *ap;
-  const unsigned char *bp;
-  const unsigned char *a_end;
-  unsigned long c_str_len;
-  const DBusRealString *real_a = (const DBusRealString*) a;
-  DBUS_GENERIC_STRING_PREAMBLE (real_a);
-  _dbus_assert (c_str != NULL);
-  
-  c_str_len = strlen (c_str);
-  if (((unsigned long)real_a->len) < c_str_len)
-    return FALSE;
-  
-  ap = real_a->str + (real_a->len - c_str_len);
-  bp = (const unsigned char*) c_str;
-  a_end = real_a->str + real_a->len;
-  while (ap != a_end)
-    {
-      if (*ap != *bp)
-        return FALSE;
-      
-      ++ap;
-      ++bp;
-    }
-
-  _dbus_assert (*ap == '\0');
-  _dbus_assert (*bp == '\0');
-  
-  return TRUE;
-}
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Encodes a string in hex, the way MD5 and SHA-1 are usually
@@ -2773,643 +2601,4 @@ _dbus_string_zero (DBusString *str)
 }
 /** @} */
 
-#ifdef DBUS_BUILD_TESTS
-#include "dbus-test.h"
-#include <stdio.h>
-
-/**
- * Parses a basic type defined by type contained in a DBusString. The
- * end_return parameter may be #NULL if you aren't interested in it. The
- * type is parsed and stored in value_return. Return parameters are not
- * initialized if the function returns #FALSE.
- *
- * @param str the string
- * @param type the type of the basic type
- * @param start the byte index of the start of the type
- * @param value_return return location of the value or #NULL
- * @param end_return return location of the end of the type, or #NULL
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_string_parse_basic_type (const DBusString  *str,
-			       char               type,
-			       int                start,
-			       void              *value,
-			       int               *end_return)
-{
-  int end = start;
-
-  switch (type)
-    {
-    case DBUS_TYPE_BOOLEAN:
-      {
-	int len = _dbus_string_get_length (str) - start;
-	if (len >= 5 && _dbus_string_find_to (str, start, start + 5, "false", NULL))
-	  {
-	    end += 5;
-	    *(unsigned char *) value = TRUE;
-	  }
-	else if (len >= 4 && _dbus_string_find_to (str, start, start + 4, "true", NULL))
-	  {
-	    end += 4;
-	    *(unsigned char *) value = FALSE;
-	  }
-	else
-	  _dbus_warn ("could not parse BOOLEAN\n");
-	break;
-      }
-    case DBUS_TYPE_BYTE:
-      {
-	long val = 0;
-
-	if (_dbus_string_get_byte (str, start) == '\'' &&
-	    _dbus_string_get_length (str) >= start + 4 &&
-	    _dbus_string_get_byte (str, start + 1) == '\\' &&
-	    _dbus_string_get_byte (str, start + 2) == '\'' &&
-	    _dbus_string_get_byte (str, start + 3) == '\'')
-	  {
-	    val = '\'';
-	    end += 4;
-	  }
-	else if (_dbus_string_get_byte (str, start) == '\'' &&
-		 _dbus_string_get_length (str) >= start + 3 &&
-		 _dbus_string_get_byte (str, start + 2) == '\'')
-	  {
-	    val = _dbus_string_get_byte (str, start + 1);
-	    end += 3;
-	  }
-	else
-	  {
-	    if (!_dbus_string_parse_int (str, start, &val, &end)) 
-	      _dbus_warn ("Failed to parse integer for BYTE\n");
-	  }
-
-	if (val > 255)
-	  _dbus_warn ("A byte must be in range 0-255 not %ld\n", val);
-
-	*(unsigned char *) value = val;
-	break;
-      }
-    case DBUS_TYPE_INT32:
-      {
-	long val;
-	if (_dbus_string_parse_int (str, start, &val, &end))
-	  *(dbus_int32_t *)value = val;
-	break;
-      }
-    case DBUS_TYPE_UINT32:
-      {
-	unsigned long val;
-	if (_dbus_string_parse_uint (str, start, &val, &end))
-	  *(dbus_uint32_t *)value = val;
-	break;
-      }
-#ifdef DBUS_HAVE_INT64
-    case DBUS_TYPE_INT64:
-    case DBUS_TYPE_UINT64: 
-      /* use stroll oull */
-      _dbus_assert_not_reached ("string -> [u]int64 not supported yet");
-      break;
-#endif /* DBUS_HAVE_INT64 */
-    case DBUS_TYPE_DOUBLE:
-      _dbus_string_parse_double (str, start, value, &end);
-      break;
-    default:
-      _dbus_assert_not_reached ("not a basic type");
-      break;
-    }
-  if (end_return)
-    *end_return = end;
-
-  return end != start;
-}
-
-static void
-test_max_len (DBusString *str,
-              int         max_len)
-{
-  if (max_len > 0)
-    {
-      if (!_dbus_string_set_length (str, max_len - 1))
-        _dbus_assert_not_reached ("setting len to one less than max should have worked");
-    }
-
-  if (!_dbus_string_set_length (str, max_len))
-    _dbus_assert_not_reached ("setting len to max len should have worked");
-
-  if (_dbus_string_set_length (str, max_len + 1))
-    _dbus_assert_not_reached ("setting len to one more than max len should not have worked");
-
-  if (!_dbus_string_set_length (str, 0))
-    _dbus_assert_not_reached ("setting len to zero should have worked");
-}
-
-static void
-test_hex_roundtrip (const unsigned char *data,
-                    int                  len)
-{
-  DBusString orig;
-  DBusString encoded;
-  DBusString decoded;
-  int end;
-
-  if (len < 0)
-    len = strlen (data);
-  
-  if (!_dbus_string_init (&orig))
-    _dbus_assert_not_reached ("could not init string");
-
-  if (!_dbus_string_init (&encoded))
-    _dbus_assert_not_reached ("could not init string");
-  
-  if (!_dbus_string_init (&decoded))
-    _dbus_assert_not_reached ("could not init string");
-
-  if (!_dbus_string_append_len (&orig, data, len))
-    _dbus_assert_not_reached ("couldn't append orig data");
-
-  if (!_dbus_string_hex_encode (&orig, 0, &encoded, 0))
-    _dbus_assert_not_reached ("could not encode");
-
-  if (!_dbus_string_hex_decode (&encoded, 0, &end, &decoded, 0))
-    _dbus_assert_not_reached ("could not decode");
-    
-  _dbus_assert (_dbus_string_get_length (&encoded) == end);
-
-  if (!_dbus_string_equal (&orig, &decoded))
-    {
-      const char *s;
-      
-      printf ("Original string %d bytes encoded %d bytes decoded %d bytes\n",
-              _dbus_string_get_length (&orig),
-              _dbus_string_get_length (&encoded),
-              _dbus_string_get_length (&decoded));
-      printf ("Original: %s\n", data);
-      s = _dbus_string_get_const_data (&decoded);
-      printf ("Decoded: %s\n", s);
-      _dbus_assert_not_reached ("original string not the same as string decoded from hex");
-    }
-  
-  _dbus_string_free (&orig);
-  _dbus_string_free (&encoded);
-  _dbus_string_free (&decoded);  
-}
-
-typedef void (* TestRoundtripFunc) (const unsigned char *data,
-                                    int                  len);
-static void
-test_roundtrips (TestRoundtripFunc func)
-{
-  (* func) ("Hello this is a string\n", -1);
-  (* func) ("Hello this is a string\n1", -1);
-  (* func) ("Hello this is a string\n12", -1);
-  (* func) ("Hello this is a string\n123", -1);
-  (* func) ("Hello this is a string\n1234", -1);
-  (* func) ("Hello this is a string\n12345", -1);
-  (* func) ("", 0);
-  (* func) ("1", 1);
-  (* func) ("12", 2);
-  (* func) ("123", 3);
-  (* func) ("1234", 4);
-  (* func) ("12345", 5);
-  (* func) ("", 1);
-  (* func) ("1", 2);
-  (* func) ("12", 3);
-  (* func) ("123", 4);
-  (* func) ("1234", 5);
-  (* func) ("12345", 6);
-  {
-    unsigned char buf[512];
-    int i;
-    
-    i = 0;
-    while (i < _DBUS_N_ELEMENTS (buf))
-      {
-        buf[i] = i;
-        ++i;
-      }
-    i = 0;
-    while (i < _DBUS_N_ELEMENTS (buf))
-      {
-        (* func) (buf, i);
-        ++i;
-      }
-  }
-}
-
-
-/**
- * @ingroup DBusStringInternals
- * Unit test for DBusString.
- *
- * @todo Need to write tests for _dbus_string_copy() and
- * _dbus_string_move() moving to/from each of start/middle/end of a
- * string. Also need tests for _dbus_string_move_len ()
- * 
- * @returns #TRUE on success.
- */
-dbus_bool_t
-_dbus_string_test (void)
-{
-  DBusString str;
-  DBusString other;
-  int i, end;
-  long v;
-  double d;
-  int lens[] = { 0, 1, 2, 3, 4, 5, 10, 16, 17, 18, 25, 31, 32, 33, 34, 35, 63, 64, 65, 66, 67, 68, 69, 70, 71, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136 };
-  char *s;
-  dbus_unichar_t ch;
-  
-  i = 0;
-  while (i < _DBUS_N_ELEMENTS (lens))
-    {
-      if (!_dbus_string_init (&str))
-        _dbus_assert_not_reached ("failed to init string");
-
-      set_max_length (&str, lens[i]);
-      
-      test_max_len (&str, lens[i]);
-      _dbus_string_free (&str);
-
-      ++i;
-    }
-
-  /* Test shortening and setting length */
-  i = 0;
-  while (i < _DBUS_N_ELEMENTS (lens))
-    {
-      int j;
-      
-      if (!_dbus_string_init (&str))
-        _dbus_assert_not_reached ("failed to init string");
-
-      set_max_length (&str, lens[i]);
-      
-      if (!_dbus_string_set_length (&str, lens[i]))
-        _dbus_assert_not_reached ("failed to set string length");
-
-      j = lens[i];
-      while (j > 0)
-        {
-          _dbus_assert (_dbus_string_get_length (&str) == j);
-          if (j > 0)
-            {
-              _dbus_string_shorten (&str, 1);
-              _dbus_assert (_dbus_string_get_length (&str) == (j - 1));
-            }
-          --j;
-        }
-      
-      _dbus_string_free (&str);
-
-      ++i;
-    }
-
-  /* Test appending data */
-  if (!_dbus_string_init (&str))
-    _dbus_assert_not_reached ("failed to init string");
-
-  i = 0;
-  while (i < 10)
-    {
-      if (!_dbus_string_append (&str, "a"))
-        _dbus_assert_not_reached ("failed to append string to string\n");
-
-      _dbus_assert (_dbus_string_get_length (&str) == i * 2 + 1);
-
-      if (!_dbus_string_append_byte (&str, 'b'))
-        _dbus_assert_not_reached ("failed to append byte to string\n");
-
-      _dbus_assert (_dbus_string_get_length (&str) == i * 2 + 2);
-                    
-      ++i;
-    }
-
-  _dbus_string_free (&str);
-
-  /* Check steal_data */
-  
-  if (!_dbus_string_init (&str))
-    _dbus_assert_not_reached ("failed to init string");
-
-  if (!_dbus_string_append (&str, "Hello World"))
-    _dbus_assert_not_reached ("could not append to string");
-
-  i = _dbus_string_get_length (&str);
-  
-  if (!_dbus_string_steal_data (&str, &s))
-    _dbus_assert_not_reached ("failed to steal data");
-
-  _dbus_assert (_dbus_string_get_length (&str) == 0);
-  _dbus_assert (((int)strlen (s)) == i);
-
-  dbus_free (s);
-
-  /* Check move */
-  
-  if (!_dbus_string_append (&str, "Hello World"))
-    _dbus_assert_not_reached ("could not append to string");
-
-  i = _dbus_string_get_length (&str);
-
-  if (!_dbus_string_init (&other))
-    _dbus_assert_not_reached ("could not init string");
-  
-  if (!_dbus_string_move (&str, 0, &other, 0))
-    _dbus_assert_not_reached ("could not move");
-
-  _dbus_assert (_dbus_string_get_length (&str) == 0);
-  _dbus_assert (_dbus_string_get_length (&other) == i);
-
-  if (!_dbus_string_append (&str, "Hello World"))
-    _dbus_assert_not_reached ("could not append to string");
-  
-  if (!_dbus_string_move (&str, 0, &other, _dbus_string_get_length (&other)))
-    _dbus_assert_not_reached ("could not move");
-
-  _dbus_assert (_dbus_string_get_length (&str) == 0);
-  _dbus_assert (_dbus_string_get_length (&other) == i * 2);
-
-    if (!_dbus_string_append (&str, "Hello World"))
-    _dbus_assert_not_reached ("could not append to string");
-  
-  if (!_dbus_string_move (&str, 0, &other, _dbus_string_get_length (&other) / 2))
-    _dbus_assert_not_reached ("could not move");
-
-  _dbus_assert (_dbus_string_get_length (&str) == 0);
-  _dbus_assert (_dbus_string_get_length (&other) == i * 3);
-  
-  _dbus_string_free (&other);
-
-  /* Check copy */
-  
-  if (!_dbus_string_append (&str, "Hello World"))
-    _dbus_assert_not_reached ("could not append to string");
-
-  i = _dbus_string_get_length (&str);
-  
-  if (!_dbus_string_init (&other))
-    _dbus_assert_not_reached ("could not init string");
-  
-  if (!_dbus_string_copy (&str, 0, &other, 0))
-    _dbus_assert_not_reached ("could not copy");
-
-  _dbus_assert (_dbus_string_get_length (&str) == i);
-  _dbus_assert (_dbus_string_get_length (&other) == i);
-
-  if (!_dbus_string_copy (&str, 0, &other, _dbus_string_get_length (&other)))
-    _dbus_assert_not_reached ("could not copy");
-
-  _dbus_assert (_dbus_string_get_length (&str) == i);
-  _dbus_assert (_dbus_string_get_length (&other) == i * 2);
-  _dbus_assert (_dbus_string_equal_c_str (&other,
-                                          "Hello WorldHello World"));
-
-  if (!_dbus_string_copy (&str, 0, &other, _dbus_string_get_length (&other) / 2))
-    _dbus_assert_not_reached ("could not copy");
-
-  _dbus_assert (_dbus_string_get_length (&str) == i);
-  _dbus_assert (_dbus_string_get_length (&other) == i * 3);
-  _dbus_assert (_dbus_string_equal_c_str (&other,
-                                          "Hello WorldHello WorldHello World"));
-  
-  _dbus_string_free (&str);
-  _dbus_string_free (&other);
-
-  /* Check replace */
-
-  if (!_dbus_string_init (&str))
-    _dbus_assert_not_reached ("failed to init string");
-  
-  if (!_dbus_string_append (&str, "Hello World"))
-    _dbus_assert_not_reached ("could not append to string");
-
-  i = _dbus_string_get_length (&str);
-  
-  if (!_dbus_string_init (&other))
-    _dbus_assert_not_reached ("could not init string");
-  
-  if (!_dbus_string_replace_len (&str, 0, _dbus_string_get_length (&str),
-                                 &other, 0, _dbus_string_get_length (&other)))
-    _dbus_assert_not_reached ("could not replace");
-
-  _dbus_assert (_dbus_string_get_length (&str) == i);
-  _dbus_assert (_dbus_string_get_length (&other) == i);
-  _dbus_assert (_dbus_string_equal_c_str (&other, "Hello World"));
-  
-  if (!_dbus_string_replace_len (&str, 0, _dbus_string_get_length (&str),
-                                 &other, 5, 1))
-    _dbus_assert_not_reached ("could not replace center space");
-
-  _dbus_assert (_dbus_string_get_length (&str) == i);
-  _dbus_assert (_dbus_string_get_length (&other) == i * 2 - 1);
-  _dbus_assert (_dbus_string_equal_c_str (&other,
-                                          "HelloHello WorldWorld"));
-
-  
-  if (!_dbus_string_replace_len (&str, 1, 1,
-                                 &other,
-                                 _dbus_string_get_length (&other) - 1,
-                                 1))
-    _dbus_assert_not_reached ("could not replace end character");
-  
-  _dbus_assert (_dbus_string_get_length (&str) == i);
-  _dbus_assert (_dbus_string_get_length (&other) == i * 2 - 1);
-  _dbus_assert (_dbus_string_equal_c_str (&other,
-                                          "HelloHello WorldWorle"));
-  
-  _dbus_string_free (&str);
-  _dbus_string_free (&other);
-  
-  /* Check append/get unichar */
-  
-  if (!_dbus_string_init (&str))
-    _dbus_assert_not_reached ("failed to init string");
-
-  ch = 0;
-  if (!_dbus_string_append_unichar (&str, 0xfffc))
-    _dbus_assert_not_reached ("failed to append unichar");
-
-  _dbus_string_get_unichar (&str, 0, &ch, &i);
-
-  _dbus_assert (ch == 0xfffc);
-  _dbus_assert (i == _dbus_string_get_length (&str));
-
-  _dbus_string_free (&str);
-
-  /* Check insert/set/get byte */
-  
-  if (!_dbus_string_init (&str))
-    _dbus_assert_not_reached ("failed to init string");
-
-  if (!_dbus_string_append (&str, "Hello"))
-    _dbus_assert_not_reached ("failed to append Hello");
-
-  _dbus_assert (_dbus_string_get_byte (&str, 0) == 'H');
-  _dbus_assert (_dbus_string_get_byte (&str, 1) == 'e');
-  _dbus_assert (_dbus_string_get_byte (&str, 2) == 'l');
-  _dbus_assert (_dbus_string_get_byte (&str, 3) == 'l');
-  _dbus_assert (_dbus_string_get_byte (&str, 4) == 'o');
-
-  _dbus_string_set_byte (&str, 1, 'q');
-  _dbus_assert (_dbus_string_get_byte (&str, 1) == 'q');
-
-  if (!_dbus_string_insert_bytes (&str, 0, 1, 255))
-    _dbus_assert_not_reached ("can't insert byte");
-
-  if (!_dbus_string_insert_bytes (&str, 2, 4, 'Z'))
-    _dbus_assert_not_reached ("can't insert byte");
-
-  if (!_dbus_string_insert_bytes (&str, _dbus_string_get_length (&str), 1, 'W'))
-    _dbus_assert_not_reached ("can't insert byte");
-  
-  _dbus_assert (_dbus_string_get_byte (&str, 0) == 255);
-  _dbus_assert (_dbus_string_get_byte (&str, 1) == 'H');
-  _dbus_assert (_dbus_string_get_byte (&str, 2) == 'Z');
-  _dbus_assert (_dbus_string_get_byte (&str, 3) == 'Z');
-  _dbus_assert (_dbus_string_get_byte (&str, 4) == 'Z');
-  _dbus_assert (_dbus_string_get_byte (&str, 5) == 'Z');
-  _dbus_assert (_dbus_string_get_byte (&str, 6) == 'q');
-  _dbus_assert (_dbus_string_get_byte (&str, 7) == 'l');
-  _dbus_assert (_dbus_string_get_byte (&str, 8) == 'l');
-  _dbus_assert (_dbus_string_get_byte (&str, 9) == 'o');
-  _dbus_assert (_dbus_string_get_byte (&str, 10) == 'W');
-
-  _dbus_string_free (&str);
-  
-  /* Check append/parse int/double */
-  
-  if (!_dbus_string_init (&str))
-    _dbus_assert_not_reached ("failed to init string");
-
-  if (!_dbus_string_append_int (&str, 27))
-    _dbus_assert_not_reached ("failed to append int");
-
-  i = _dbus_string_get_length (&str);
-
-  if (!_dbus_string_parse_int (&str, 0, &v, &end))
-    _dbus_assert_not_reached ("failed to parse int");
-
-  _dbus_assert (v == 27);
-  _dbus_assert (end == i);
-
-  _dbus_string_free (&str);
-  
-  if (!_dbus_string_init (&str))
-    _dbus_assert_not_reached ("failed to init string");
-  
-  if (!_dbus_string_append_double (&str, 50.3))
-    _dbus_assert_not_reached ("failed to append float");
-
-  i = _dbus_string_get_length (&str);
-
-  if (!_dbus_string_parse_double (&str, 0, &d, &end))
-    _dbus_assert_not_reached ("failed to parse float");
-
-  _dbus_assert (d > (50.3 - 1e-6) && d < (50.3 + 1e-6));
-  _dbus_assert (end == i);
-
-  _dbus_string_free (&str);
-
-  /* Test find */
-  if (!_dbus_string_init (&str))
-    _dbus_assert_not_reached ("failed to init string");
-
-  if (!_dbus_string_append (&str, "Hello"))
-    _dbus_assert_not_reached ("couldn't append to string");
-  
-  if (!_dbus_string_find (&str, 0, "He", &i))
-    _dbus_assert_not_reached ("didn't find 'He'");
-  _dbus_assert (i == 0);
-
-  if (!_dbus_string_find (&str, 0, "Hello", &i))
-    _dbus_assert_not_reached ("didn't find 'Hello'");
-  _dbus_assert (i == 0);
-  
-  if (!_dbus_string_find (&str, 0, "ello", &i))
-    _dbus_assert_not_reached ("didn't find 'ello'");
-  _dbus_assert (i == 1);
-
-  if (!_dbus_string_find (&str, 0, "lo", &i))
-    _dbus_assert_not_reached ("didn't find 'lo'");
-  _dbus_assert (i == 3);
-
-  if (!_dbus_string_find (&str, 2, "lo", &i))
-    _dbus_assert_not_reached ("didn't find 'lo'");
-  _dbus_assert (i == 3);
-
-  if (_dbus_string_find (&str, 4, "lo", &i))
-    _dbus_assert_not_reached ("did find 'lo'");
-  
-  if (!_dbus_string_find (&str, 0, "l", &i))
-    _dbus_assert_not_reached ("didn't find 'l'");
-  _dbus_assert (i == 2);
-
-  if (!_dbus_string_find (&str, 0, "H", &i))
-    _dbus_assert_not_reached ("didn't find 'H'");
-  _dbus_assert (i == 0);
-
-  if (!_dbus_string_find (&str, 0, "", &i))
-    _dbus_assert_not_reached ("didn't find ''");
-  _dbus_assert (i == 0);
-  
-  if (_dbus_string_find (&str, 0, "Hello!", NULL))
-    _dbus_assert_not_reached ("Did find 'Hello!'");
-
-  if (_dbus_string_find (&str, 0, "Oh, Hello", NULL))
-    _dbus_assert_not_reached ("Did find 'Oh, Hello'");
-  
-  if (_dbus_string_find (&str, 0, "ill", NULL))
-    _dbus_assert_not_reached ("Did find 'ill'");
-
-  if (_dbus_string_find (&str, 0, "q", NULL))
-    _dbus_assert_not_reached ("Did find 'q'");
-
-  if (!_dbus_string_find_to (&str, 0, 2, "He", NULL))
-    _dbus_assert_not_reached ("Didn't find 'He'");
-
-  if (_dbus_string_find_to (&str, 0, 2, "Hello", NULL))
-    _dbus_assert_not_reached ("Did find 'Hello'");
-
-  if (!_dbus_string_find_byte_backward (&str, _dbus_string_get_length (&str), 'H', &i))
-    _dbus_assert_not_reached ("Did not find 'H'");
-  _dbus_assert (i == 0);
-
-  if (!_dbus_string_find_byte_backward (&str, _dbus_string_get_length (&str), 'o', &i))
-    _dbus_assert_not_reached ("Did not find 'o'");
-  _dbus_assert (i == _dbus_string_get_length (&str) - 1);
-
-  if (_dbus_string_find_byte_backward (&str, _dbus_string_get_length (&str) - 1, 'o', &i))
-    _dbus_assert_not_reached ("Did find 'o'");
-  _dbus_assert (i == -1);
-
-  if (_dbus_string_find_byte_backward (&str, 1, 'e', &i))
-    _dbus_assert_not_reached ("Did find 'e'");
-  _dbus_assert (i == -1);
-
-  if (!_dbus_string_find_byte_backward (&str, 2, 'e', &i))
-    _dbus_assert_not_reached ("Didn't find 'e'");
-  _dbus_assert (i == 1);
-  
-  _dbus_string_free (&str);
-
-  /* Hex encoding */
-  _dbus_string_init_const (&str, "cafebabe, this is a bogus hex string");
-  if (!_dbus_string_init (&other))
-    _dbus_assert_not_reached ("could not init string");
-
-  if (!_dbus_string_hex_decode (&str, 0, &end, &other, 0))
-    _dbus_assert_not_reached ("deccoded bogus hex string with no error");
-
-  _dbus_assert (end == 8);
-
-  _dbus_string_free (&other);
-
-  test_roundtrips (test_hex_roundtrip);
-  
-  _dbus_string_free (&str);
-  
-  return TRUE;
-}
-
-#endif /* DBUS_BUILD_TESTS */
+/* tests are in dbus-string-util.c */

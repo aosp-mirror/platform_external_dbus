@@ -53,6 +53,62 @@ typedef struct
   unsigned int   align_offset : 3; /**< str - align_offset is the actual malloc block */
 } DBusRealString;
 
+
+/**
+ * @defgroup DBusStringInternals DBusString implementation details
+ * @ingroup  DBusInternals
+ * @brief DBusString implementation details
+ *
+ * The guts of DBusString.
+ *
+ * @{
+ */
+
+/**
+ * This is the maximum max length (and thus also the maximum length)
+ * of a DBusString
+ */
+#define _DBUS_STRING_MAX_MAX_LENGTH (_DBUS_INT_MAX - _DBUS_STRING_ALLOCATION_PADDING)
+
+/**
+ * Checks a bunch of assertions about a string object
+ *
+ * @param real the DBusRealString
+ */
+#define DBUS_GENERIC_STRING_PREAMBLE(real) _dbus_assert ((real) != NULL); _dbus_assert (!(real)->invalid); _dbus_assert ((real)->len >= 0); _dbus_assert ((real)->allocated >= 0); _dbus_assert ((real)->max_length >= 0); _dbus_assert ((real)->len <= ((real)->allocated - _DBUS_STRING_ALLOCATION_PADDING)); _dbus_assert ((real)->len <= (real)->max_length)
+
+/**
+ * Checks assertions about a string object that needs to be
+ * modifiable - may not be locked or const. Also declares
+ * the "real" variable pointing to DBusRealString. 
+ * @param str the string
+ */
+#define DBUS_STRING_PREAMBLE(str) DBusRealString *real = (DBusRealString*) str; \
+  DBUS_GENERIC_STRING_PREAMBLE (real);                                          \
+  _dbus_assert (!(real)->constant);                                             \
+  _dbus_assert (!(real)->locked)
+
+/**
+ * Checks assertions about a string object that may be locked but
+ * can't be const. i.e. a string object that we can free.  Also
+ * declares the "real" variable pointing to DBusRealString.
+ *
+ * @param str the string
+ */
+#define DBUS_LOCKED_STRING_PREAMBLE(str) DBusRealString *real = (DBusRealString*) str; \
+  DBUS_GENERIC_STRING_PREAMBLE (real);                                                 \
+  _dbus_assert (!(real)->constant)
+
+/**
+ * Checks assertions about a string that may be const or locked.  Also
+ * declares the "real" variable pointing to DBusRealString.
+ * @param str the string.
+ */
+#define DBUS_CONST_STRING_PREAMBLE(str) const DBusRealString *real = (DBusRealString*) str; \
+  DBUS_GENERIC_STRING_PREAMBLE (real)
+
+/** @} */
+
 DBUS_END_DECLS
 
 #endif /* DBUS_STRING_PRIVATE_H */

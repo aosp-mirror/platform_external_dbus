@@ -88,21 +88,6 @@ _dbus_pack_uint32 (dbus_uint32_t   value,
   pack_4_octets (value, byte_order, data);
 }
 
-/**
- * Packs a 32 bit signed integer into a data pointer.
- *
- * @param value the value
- * @param byte_order the byte order to use
- * @param data the data pointer
- */
-void
-_dbus_pack_int32 (dbus_int32_t   value,
-                  int            byte_order,
-                  unsigned char *data)
-{
-  pack_4_octets ((dbus_uint32_t) value, byte_order, data);
-}
-
 #ifndef DBUS_HAVE_INT64
 /* from ORBit */
 static void
@@ -182,20 +167,6 @@ _dbus_unpack_uint32 (int                  byte_order,
     return DBUS_UINT32_FROM_BE (*(dbus_uint32_t*)data);
 }
 #endif /* _dbus_unpack_uint32 */
-
-/**
- * Unpacks a 32 bit signed integer from a data pointer
- *
- * @param byte_order The byte order to use
- * @param data the data pointer
- * @returns the integer
- */
-dbus_int32_t
-_dbus_unpack_int32 (int                  byte_order,
-                    const unsigned char *data)
-{
-  return (dbus_int32_t) _dbus_unpack_uint32 (byte_order, data);
-}
 
 static void
 set_4_octets (DBusString          *str,

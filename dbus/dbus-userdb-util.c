@@ -32,7 +32,6 @@
  * @{
  */
 
-
 /**
  * Checks to see if the UID sent in is the console user
  *

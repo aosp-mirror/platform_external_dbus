@@ -39,9 +39,6 @@ DBUS_BEGIN_DECLS
 
 void _dbus_warn               (const char *format,
                                ...) _DBUS_GNUC_PRINTF (1, 2);
-void _dbus_verbose_real       (const char *format,
-                               ...) _DBUS_GNUC_PRINTF (1, 2);
-void _dbus_verbose_reset_real (void);
 
 #if defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
 #define _DBUS_FUNCTION_NAME __func__
@@ -79,6 +76,11 @@ void _dbus_verbose_reset_real (void);
 #endif
 
 #ifdef DBUS_ENABLE_VERBOSE_MODE
+
+void _dbus_verbose_real       (const char *format,
+                               ...) _DBUS_GNUC_PRINTF (1, 2);
+void _dbus_verbose_reset_real (void);
+
 #  define _dbus_verbose _dbus_verbose_real
 #  define _dbus_verbose_reset _dbus_verbose_reset_real
 #else
