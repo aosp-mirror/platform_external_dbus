@@ -1,3 +1,15 @@
+2004-07-18  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus.py:
+	* python/dbus_bindings.pyx.in:
+	* python/tests/test-client.py:
+
+	Add dbus.ByteArray and dbus_bindings.ByteArray
+	types so that byte streams can be passed back.
+
+	Give jdahlin the heaps of credit that are so
+	rightfully his.
+	
 2004-07-12  Seth Nickell  <seth@gnome.org>
 
 	* python/dbus.py:
