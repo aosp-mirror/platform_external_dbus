@@ -25,6 +25,10 @@
 #include <dbus/dbus.h>
 #include "dbus-glib.h"
 
+/** @addtogroup DBusGLibInternals
+ * @{
+ */
+
 static DBusMutex * dbus_gmutex_new        (void);
 static void        dbus_gmutex_free       (DBusMutex   *mutex);
 static dbus_bool_t dbus_gmutex_lock       (DBusMutex   *mutex);
@@ -149,7 +153,17 @@ dbus_gcondvar_wake_all (DBusCondVar *cond)
   g_cond_broadcast ((GCond *)cond);
 }
 
+/** @} End of internals */
 
+/** @addtogroup DBusGLib
+ * @{
+ */
+/**
+ * Initializes the D-BUS thread system to use
+ * GLib threads. This function may only be called
+ * once and must be called prior to calling any
+ * other function in the D-BUS API.
+ */
 void
 dbus_gthread_init (void)
 {
@@ -158,3 +172,5 @@ dbus_gthread_init (void)
     
   dbus_threads_init (&functions);
 }
+
+/** @} end of public API */

@@ -28,6 +28,7 @@
 #include <dbus/dbus-timeout.h>
 #include <dbus/dbus-watch.h>
 #include <dbus/dbus-resources.h>
+#include <dbus/dbus-dataslot.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -61,6 +62,8 @@ struct DBusServer
                                                */
 
   int max_connections;                        /**< Max number of connections allowed at once. */
+
+  DBusDataSlotList slot_list;   /**< Data stored by allocated integer ID */
   
   DBusNewConnectionFunction  new_connection_function;
   /**< Callback to invoke when a new connection is created. */

@@ -1,3 +1,34 @@
+2003-02-26  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-connection.c
+	(dbus_connection_send_message_with_reply_and_block): fix crash
+	where we ref'd the outgoing message instead of the returned reply
+
+	* dbus/dbus-transport-unix.c (do_authentication): check read watch
+	at the end of this function, so if we didn't need to read for
+	authentication, we reinstall it for receiving messages
+
+	* dbus/dbus-message.c (dbus_message_new_reply): allow replies to 
+	a NULL sender for peer-to-peer case
+
+	* dbus/dbus-transport-unix.c (check_read_watch): handle
+	!authenticated case correctly
+
+	* glib/dbus-gmain.c: add support for DBusServer
+
+	* dbus/dbus-server.c: add data slot support
+
+	* glib/dbus-gmain.c (dbus_connection_setup_with_g_main): check
+	return values and handle errors
+
+	* dbus/dbus-dataslot.c: factor out the data slot stuff from
+	DBusConnection
+
+	* Doxyfile.in (INPUT): add glib subdir
+
+	* glib/dbus-gmain.c (dbus_connection_setup_with_g_main): rename 
+	setup_with_g_main instead of hookup_with_g_main; write docs
+	
 2003-02-24  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-marshal.c: (_dbus_marshal_validate_arg):

@@ -33,6 +33,7 @@
 #include "dbus-message-handler.h"
 #include "dbus-threads.h"
 #include "dbus-protocol.h"
+#include "dbus-dataslot.h"
 
 /**
  * @defgroup DBusConnection DBusConnection
@@ -66,15 +67,6 @@
 
 static dbus_bool_t _dbus_modify_sigpipe = TRUE;
 
-/** Opaque typedef for DBusDataSlot */
-typedef struct DBusDataSlot DBusDataSlot;
-/** DBusDataSlot is used to store application data on the connection */
-struct DBusDataSlot
-{
-  void *data;                      /**< The application data */
-  DBusFreeFunction free_data_func; /**< Free the application data */
-};
-
 /**
  * Implementation details of DBusConnection. All fields are private.
  */
@@ -105,8 +97,8 @@ struct DBusConnection
   
   DBusHashTable *handler_table; /**< Table of registered DBusMessageHandler */
   DBusList *filter_list;        /**< List of filters. */
-  DBusDataSlot *data_slots;        /**< Data slots */
-  int           n_slots; /**< Slots allocated so far. */
+
+  DBusDataSlotList slot_list;   /**< Data stored by allocated integer ID */
 
   DBusHashTable *pending_replies;  /**< Hash of message serials and their message handlers. */  
   DBusCounter *connection_counter; /**< Counter that we decrement when finalized */
@@ -130,7 +122,6 @@ typedef struct
 
 static void reply_handler_data_free (ReplyHandlerData *data);
 
-static void _dbus_connection_free_data_slots_nolock (DBusConnection *connection);
 static void _dbus_connection_remove_timeout_locked (DBusConnection *connection,
 						    DBusTimeout    *timeout);
 
@@ -572,8 +563,8 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection->pending_replies = pending_replies;
   connection->filter_list = NULL;
 
-  connection->data_slots = NULL;
-  connection->n_slots = 0;
+  _dbus_data_slot_list_init (&connection->slot_list);
+
   connection->client_serial = 1;
 
   connection->disconnect_message_link = disconnect_link;
@@ -798,8 +789,9 @@ _dbus_connection_last_unref (DBusConnection *connection)
   
   _dbus_timeout_list_free (connection->timeouts);
   connection->timeouts = NULL;
-  
-  _dbus_connection_free_data_slots_nolock (connection);
+
+  /* calls out to application code... */
+  _dbus_data_slot_list_free (&connection->slot_list);
   
   _dbus_hash_iter_init (connection->handler_table, &iter);
   while (_dbus_hash_iter_next (&iter))
@@ -1078,6 +1070,10 @@ reply_handler_data_free (ReplyHandlerData *data)
  * you want a very short or very long timeout.  There is no way to
  * avoid a timeout entirely, other than passing INT_MAX for the
  * timeout to postpone it indefinitely.
+ *
+ * @todo I think we should rename this function family
+ * dbus_connection_send(), send_with_reply(), etc. (i.e.
+ * drop the "message" part), the names are too long.
  * 
  * @param connection the connection
  * @param message the message to send
@@ -1085,13 +1081,6 @@ reply_handler_data_free (ReplyHandlerData *data)
  * @param timeout_milliseconds timeout in milliseconds or -1 for default
  * @param result return location for result code
  * @returns #TRUE if the message is successfully queued, #FALSE if no memory.
- *
- * @todo this function isn't implemented because we need message serials
- * and other slightly more rich DBusMessage implementation in order to
- * implement it. The basic idea will be to keep a hash of serials we're
- * expecting a reply to, and also to add a way to tell GLib or Qt to
- * install a timeout. Then install a timeout which is the shortest
- * timeout of any pending reply.
  *
  */
 dbus_bool_t
@@ -1227,10 +1216,9 @@ dbus_connection_send_message_with_reply (DBusConnection     *connection,
  * wrong, result is set to whatever is appropriate, such as
  * #DBUS_RESULT_NO_MEMORY.
  *
- * @todo I believe if we get EINTR or otherwise interrupt the
- * do_iteration call in here, we won't block the required length of
- * time. I think there probably has to be a loop: "while (!timeout_elapsed)
- * { check_for_reply_in_queue(); iterate_with_remaining_timeout(); }"
+ * @todo could use performance improvements (it keeps scanning
+ * the whole message queue for example) and has thread issues,
+ * see comments in source
  *
  * @param connection the connection
  * @param message the message to send
@@ -1247,22 +1235,47 @@ dbus_connection_send_message_with_reply_and_block (DBusConnection     *connectio
 {
   dbus_int32_t client_serial;
   DBusList *link;
+  long start_tv_sec, start_tv_usec;
+  long end_tv_sec, end_tv_usec;
+  long tv_sec, tv_usec;
 
   if (timeout_milliseconds == -1)
     timeout_milliseconds = DEFAULT_TIMEOUT_VALUE;
+
+  /* it would probably seem logical to pass in _DBUS_INT_MAX
+   * for infinite timeout, but then math below would get
+   * all overflow-prone, so smack that down.
+   */
+  if (timeout_milliseconds > _DBUS_ONE_HOUR_IN_MILLISECONDS * 6)
+    timeout_milliseconds = _DBUS_ONE_HOUR_IN_MILLISECONDS * 6;
   
   if (!dbus_connection_send_message (connection, message, &client_serial, result))
     return NULL;
 
+  message = NULL;
+  
   /* Flush message queue */
   dbus_connection_flush (connection);
 
   dbus_mutex_lock (connection->mutex);
+
+  _dbus_get_current_time (&start_tv_sec, &start_tv_usec);
+  end_tv_sec = start_tv_sec + timeout_milliseconds / 1000;
+  end_tv_usec = start_tv_usec + (timeout_milliseconds % 1000) * 1000;
+  end_tv_sec += end_tv_usec / _DBUS_USEC_PER_SECOND;
+  end_tv_usec = end_tv_usec % _DBUS_USEC_PER_SECOND;
+
+  _dbus_verbose ("will block %d milliseconds from %ld sec %ld usec to %ld sec %ld usec\n",
+                 timeout_milliseconds,
+                 start_tv_sec, start_tv_usec,
+                 end_tv_sec, end_tv_usec);
   
   /* Now we wait... */
   /* THREAD TODO: This is busted. What if a dispatch_message or pop_message
    * gets the message before we do?
    */
+ block_again:  
+  
   _dbus_connection_do_iteration (connection,
 				 DBUS_ITERATION_DO_READING |
 				 DBUS_ITERATION_BLOCK,
@@ -1278,7 +1291,7 @@ dbus_connection_send_message_with_reply_and_block (DBusConnection     *connectio
       if (_dbus_message_get_reply_serial (reply) == client_serial)
 	{
 	  _dbus_list_remove (&connection->incoming_messages, link);
-	  dbus_message_ref (message);
+	  dbus_message_ref (reply);
 
 	  if (result)
 	    *result = DBUS_RESULT_SUCCESS;
@@ -1289,8 +1302,27 @@ dbus_connection_send_message_with_reply_and_block (DBusConnection     *connectio
       link = _dbus_list_get_next_link (&connection->incoming_messages, link);
     }
 
-  if (result)
-    *result = DBUS_RESULT_NO_REPLY;
+  _dbus_get_current_time (&tv_sec, &tv_usec);
+  
+  if (tv_sec < start_tv_sec)
+    ; /* clock set backward, bail out */
+  else if (connection->disconnect_message_link == NULL)
+    ; /* we're disconnected, bail out */
+  else if (tv_sec < end_tv_sec ||
+           (tv_sec == end_tv_sec && tv_usec < end_tv_usec))
+    {
+      timeout_milliseconds = (end_tv_sec - tv_sec) * 1000 +
+        (end_tv_usec - tv_usec) / 1000;
+      _dbus_verbose ("%d milliseconds remain\n", timeout_milliseconds);
+      _dbus_assert (timeout_milliseconds > 0);
+
+      goto block_again; /* not expired yet */
+    }
+
+  if (dbus_connection_get_is_connected (connection))
+    dbus_set_result (result, DBUS_RESULT_NO_REPLY);
+  else
+    dbus_set_result (result, DBUS_RESULT_DISCONNECTED);
 
   dbus_mutex_unlock (connection->mutex);
 
@@ -1850,6 +1882,12 @@ dbus_connection_remove_filter (DBusConnection      *connection,
  * this function with the name of a message that already has a
  * handler. If the function returns #FALSE, the handlers were not
  * registered due to lack of memory.
+ *
+ * @todo the messages_to_handle arg may be more convenient if it's a
+ * single string instead of an array. Though right now MessageHandler
+ * is sort of designed to say be associated with an entire object with
+ * multiple methods, that's why for example the connection only
+ * weakrefs it.  So maybe the "manual" API should be different.
  * 
  * @param connection the connection
  * @param handler the handler
@@ -1969,24 +2007,22 @@ dbus_connection_unregister_handler (DBusConnection     *connection,
   dbus_mutex_unlock (connection->mutex);
 }
 
-static int *allocated_slots = NULL;
-static int  n_allocated_slots = 0;
-static int  n_used_slots = 0;
-static DBusMutex *allocated_slots_lock = NULL;
+static DBusDataSlotAllocator slot_allocator;
 
 /**
- * Initialize the mutex used for #DBusConnecton data
+ * Initialize the mutex used for #DBusConnection data
  * slot reservations.
  *
  * @returns the mutex
  */
 DBusMutex *
-_dbus_allocated_slots_init_lock (void)
+_dbus_connection_slots_init_lock (void)
 {
-  allocated_slots_lock = dbus_mutex_new ();
-  return allocated_slots_lock;
+  if (!_dbus_data_slot_allocator_init (&slot_allocator))
+    return NULL;
+  else
+    return slot_allocator.lock;
 }
-
 
 /**
  * Allocates an integer ID to be used for storing application-specific
@@ -2001,50 +2037,7 @@ _dbus_allocated_slots_init_lock (void)
 int
 dbus_connection_allocate_data_slot (void)
 {
-  int slot;
-  
-  if (!dbus_mutex_lock (allocated_slots_lock))
-    return -1;
-
-  if (n_used_slots < n_allocated_slots)
-    {
-      slot = 0;
-      while (slot < n_allocated_slots)
-        {
-          if (allocated_slots[slot] < 0)
-            {
-              allocated_slots[slot] = slot;
-              n_used_slots += 1;
-              break;
-            }
-          ++slot;
-        }
-
-      _dbus_assert (slot < n_allocated_slots);
-    }
-  else
-    {
-      int *tmp;
-      
-      slot = -1;
-      tmp = dbus_realloc (allocated_slots,
-                          sizeof (int) * (n_allocated_slots + 1));
-      if (tmp == NULL)
-        goto out;
-
-      allocated_slots = tmp;
-      slot = n_allocated_slots;
-      n_allocated_slots += 1;
-      n_used_slots += 1;
-      allocated_slots[slot] = slot;
-    }
-
-  _dbus_assert (slot >= 0);
-  _dbus_assert (slot < n_allocated_slots);
-  
- out:
-  dbus_mutex_unlock (allocated_slots_lock);
-  return slot;
+  return _dbus_data_slot_allocator_alloc (&slot_allocator);
 }
 
 /**
@@ -2061,22 +2054,7 @@ dbus_connection_allocate_data_slot (void)
 void
 dbus_connection_free_data_slot (int slot)
 {
-  dbus_mutex_lock (allocated_slots_lock);
-
-  _dbus_assert (slot < n_allocated_slots);
-  _dbus_assert (allocated_slots[slot] == slot);
-  
-  allocated_slots[slot] = -1;
-  n_used_slots -= 1;
-
-  if (n_used_slots == 0)
-    {
-      dbus_free (allocated_slots);
-      allocated_slots = NULL;
-      n_allocated_slots = 0;
-    }
-  
-  dbus_mutex_unlock (allocated_slots_lock);
+  _dbus_data_slot_allocator_free (&slot_allocator, slot);
 }
 
 /**
@@ -2100,50 +2078,25 @@ dbus_connection_set_data (DBusConnection   *connection,
 {
   DBusFreeFunction old_free_func;
   void *old_data;
+  dbus_bool_t retval;
   
   dbus_mutex_lock (connection->mutex);
-  _dbus_assert (slot < n_allocated_slots);
-  _dbus_assert (allocated_slots[slot] == slot);
+
+  retval = _dbus_data_slot_list_set (&slot_allocator,
+                                     &connection->slot_list,
+                                     slot, data, free_data_func,
+                                     &old_free_func, &old_data);
   
-  if (slot >= connection->n_slots)
-    {
-      DBusDataSlot *tmp;
-      int i;
-      
-      tmp = dbus_realloc (connection->data_slots,
-                          sizeof (DBusDataSlot) * (slot + 1));
-      if (tmp == NULL)
-	{
-	  dbus_mutex_unlock (connection->mutex);
-	  return FALSE;
-	}
-      
-      connection->data_slots = tmp;
-      i = connection->n_slots;
-      connection->n_slots = slot + 1;
-      while (i < connection->n_slots)
-        {
-          connection->data_slots[i].data = NULL;
-          connection->data_slots[i].free_data_func = NULL;
-          ++i;
-        }
-    }
-
-  _dbus_assert (slot < connection->n_slots);
-
-  old_data = connection->data_slots[slot].data;
-  old_free_func = connection->data_slots[slot].free_data_func;
-
-  connection->data_slots[slot].data = data;
-  connection->data_slots[slot].free_data_func = free_data_func;
-
   dbus_mutex_unlock (connection->mutex);
 
-  /* Do the actual free outside the connection lock */
-  if (old_free_func)
-    (* old_free_func) (old_data);
+  if (retval)
+    {
+      /* Do the actual free outside the connection lock */
+      if (old_free_func)
+        (* old_free_func) (old_data);
+    }
 
-  return TRUE;
+  return retval;
 }
 
 /**
@@ -2161,15 +2114,11 @@ dbus_connection_get_data (DBusConnection   *connection,
   void *res;
   
   dbus_mutex_lock (connection->mutex);
+
+  res = _dbus_data_slot_list_get (&slot_allocator,
+                                  &connection->slot_list,
+                                  slot);
   
-  _dbus_assert (slot < n_allocated_slots);
-  _dbus_assert (allocated_slots[slot] == slot);
-
-  if (slot >= connection->n_slots)
-    res = NULL;
-  else
-    res = connection->data_slots[slot].data; 
-
   dbus_mutex_unlock (connection->mutex);
 
   return res;
@@ -2185,30 +2134,6 @@ void
 dbus_connection_set_change_sigpipe (dbus_bool_t will_modify_sigpipe)
 {
   _dbus_modify_sigpipe = will_modify_sigpipe;
-}
-
-/* This must be called with the connection lock not held to avoid
- * holding it over the free_data callbacks, so it can basically
- * only be called at last unref
- */
-static void
-_dbus_connection_free_data_slots_nolock (DBusConnection *connection)
-{
-  int i;
-
-  i = 0;
-  while (i < connection->n_slots)
-    {
-      if (connection->data_slots[i].free_data_func)
-        (* connection->data_slots[i].free_data_func) (connection->data_slots[i].data);
-      connection->data_slots[i].data = NULL;
-      connection->data_slots[i].free_data_func = NULL;
-      ++i;
-    }
-
-  dbus_free (connection->data_slots);
-  connection->data_slots = NULL;
-  connection->n_slots = 0;
 }
 
 /**

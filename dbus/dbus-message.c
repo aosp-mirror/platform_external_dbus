@@ -184,8 +184,12 @@ get_string_field (DBusMessage *message,
                   int          field,
                   int         *len)
 {
-  int offset = message->header_fields[field].offset;
+  int offset;
   const char *data;
+
+  offset = message->header_fields[field].offset;
+
+  _dbus_assert (field < FIELD_LAST);
   
   if (offset < 0)
     return NULL;
@@ -209,13 +213,17 @@ get_string_field (DBusMessage *message,
 
 static dbus_int32_t
 get_int_field (DBusMessage *message,
-                     int          field)
+               int          field)
 {
-  int offset = message->header_fields[field].offset;
+  int offset;
+
+  _dbus_assert (field < FIELD_LAST);
+  
+  offset = message->header_fields[field].offset;
   
   if (offset < 0)
     return -1; /* useless if -1 is a valid value of course */
-
+  
   return _dbus_demarshal_int32 (&message->header,
                                 message->byte_order,
                                 offset,
@@ -798,8 +806,8 @@ dbus_message_new_reply (DBusMessage *original_message)
                              FIELD_SENDER, NULL);
   name = get_string_field (original_message,
 			   FIELD_NAME, NULL);
-  
-  _dbus_assert (sender != NULL);
+
+  /* sender is allowed to be null here in peer-to-peer case */
   
   message = dbus_message_new (sender, name);
   
@@ -1702,6 +1710,10 @@ dbus_message_get_args_valist (DBusMessage *message,
  * iter uses (uninitialized or after changing the message).
  * ref/unref is kind of annoying to deal with, and slower too.
  * This implies not ref'ing the message from the iter.
+ *
+ * @todo I'd also name this dbus_message_iter_new() or
+ * for the static object dbus_message_iter_init() rather
+ * than making it a method on the message
  *
  * @param message the message
  * @returns a new iter.

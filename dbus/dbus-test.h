@@ -35,17 +35,18 @@ typedef enum
   _DBUS_MESSAGE_UNKNOWN
 } DBusMessageValidity;
 
-dbus_bool_t _dbus_hash_test     (void);
-dbus_bool_t _dbus_list_test     (void);
-dbus_bool_t _dbus_marshal_test  (void);
-dbus_bool_t _dbus_mem_pool_test (void);
-dbus_bool_t _dbus_string_test   (void);
-dbus_bool_t _dbus_address_test  (void);
-dbus_bool_t _dbus_message_test  (const char *test_data_dir);
-dbus_bool_t _dbus_auth_test     (const char *test_data_dir);
-dbus_bool_t _dbus_md5_test      (void);
-dbus_bool_t _dbus_sha_test      (const char *test_data_dir);
-dbus_bool_t _dbus_keyring_test  (void);
+dbus_bool_t _dbus_hash_test      (void);
+dbus_bool_t _dbus_list_test      (void);
+dbus_bool_t _dbus_marshal_test   (void);
+dbus_bool_t _dbus_mem_pool_test  (void);
+dbus_bool_t _dbus_string_test    (void);
+dbus_bool_t _dbus_address_test   (void);
+dbus_bool_t _dbus_message_test   (const char *test_data_dir);
+dbus_bool_t _dbus_auth_test      (const char *test_data_dir);
+dbus_bool_t _dbus_md5_test       (void);
+dbus_bool_t _dbus_sha_test       (const char *test_data_dir);
+dbus_bool_t _dbus_keyring_test   (void);
+dbus_bool_t _dbus_data_slot_test (void);
 
 void        dbus_internal_do_not_use_run_tests         (const char          *test_data_dir);
 dbus_bool_t dbus_internal_do_not_use_try_message_file  (const DBusString    *filename,

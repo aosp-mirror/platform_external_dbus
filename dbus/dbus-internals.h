@@ -118,6 +118,8 @@ char* _dbus_strdup (const char *str);
 #define _DBUS_MAX_SUN_PATH_LENGTH 99
 #define _DBUS_ONE_KILOBYTE 1024
 #define _DBUS_ONE_MEGABYTE 1024 * _DBUS_ONE_KILOBYTE
+#define _DBUS_ONE_HOUR_IN_MILLISECONDS (1000 * 60 * 60)
+#define _DBUS_USEC_PER_SECOND          (1000000)
 
 #undef	MAX
 #define MAX(a, b)  (((a) > (b)) ? (a) : (b))
@@ -155,12 +157,12 @@ dbus_bool_t _dbus_decrement_fail_alloc_counter (void);
 #endif /* !DBUS_BUILD_TESTS */
 
 /* Thread initializers */
-DBusMutex *_dbus_list_init_lock            (void);
-DBusMutex *_dbus_allocated_slots_init_lock (void);
-DBusMutex *_dbus_atomic_init_lock          (void);
-DBusMutex *_dbus_message_handler_init_lock (void);
-DBusMutex *_dbus_user_info_init_lock       (void);
-
+DBusMutex *_dbus_list_init_lock             (void);
+DBusMutex *_dbus_connection_slots_init_lock (void);
+DBusMutex *_dbus_server_slots_init_lock     (void);
+DBusMutex *_dbus_atomic_init_lock           (void);
+DBusMutex *_dbus_message_handler_init_lock  (void);
+DBusMutex *_dbus_user_info_init_lock        (void);
 
 DBUS_END_DECLS;
 

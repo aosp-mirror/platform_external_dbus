@@ -59,6 +59,10 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   if (!_dbus_string_test ())
     die ("strings");
 
+  printf ("%s: running data slot tests\n", "dbus-test");
+  if (!_dbus_data_slot_test ())
+    die ("dataslot");
+  
   printf ("%s: running keyring tests\n", "dbus-test");
   if (!_dbus_keyring_test ())
     die ("keyring");

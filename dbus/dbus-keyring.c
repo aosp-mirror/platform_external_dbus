@@ -168,7 +168,7 @@ free_keys (DBusKey *keys,
  */
 
 /** Maximum number of timeouts waiting for lock before we decide it's stale */
-#define MAX_LOCK_TIMEOUTS 16
+#define MAX_LOCK_TIMEOUTS 32
 /** Length of each timeout while waiting for a lock */
 #define LOCK_TIMEOUT_MILLISECONDS 250
 

@@ -205,7 +205,8 @@ init_static_locks(void)
     DBusMutex *mutex;
   } static_locks[] = {
     {&_dbus_list_init_lock},
-    {&_dbus_allocated_slots_init_lock},
+    {&_dbus_server_slots_init_lock},
+    {&_dbus_connection_slots_init_lock},
     {&_dbus_atomic_init_lock},
     {&_dbus_message_handler_init_lock},
     {&_dbus_user_info_init_lock}

@@ -24,32 +24,69 @@
 #include "dbus-glib.h"
 #include <glib.h>
 
-typedef struct _DBusGSource DBusGSource;
+/**
+ * @defgroup DBusGLib GLib bindings
+ * @ingroup  DBus
+ * @brief API for using D-BUS with GLib
+ *
+ * Convenience functions are provided for using D-BUS
+ * with the GLib library (see http://www.gtk.org for GLib
+ * information).
+ * 
+ */
 
-struct _DBusGSource
+/**
+ * @defgroup DBusGLibInternals GLib bindings implementation details
+ * @ingroup  DBusInternals
+ * @brief Implementation details of GLib bindings
+ *
+ * @{
+ */
+
+/** @typedef DBusGSource
+ * A GSource representing a #DBusConnection or #DBusServer
+ */
+typedef struct DBusGSource DBusGSource;
+
+struct DBusGSource
 {
-  GSource source;
+  GSource source; /**< the parent GSource */
 
-  DBusConnection *connection;
+  GList *poll_fds;      /**< descriptors we're watching */
+  GHashTable *watches;  /**< hash of DBusWatch objects */
 
-  GList *poll_fds;
-  GHashTable *watches;
+  void *connection_or_server; /**< DBusConnection or DBusServer */
 };
 
+static GStaticMutex connection_slot_lock = G_STATIC_MUTEX_INIT;
 static int connection_slot = -1;
+static GStaticMutex server_slot_lock = G_STATIC_MUTEX_INIT;
+static int server_slot = -1;
 
 static gboolean dbus_connection_prepare  (GSource     *source,
-					  gint        *timeout);
+                                          gint        *timeout);
 static gboolean dbus_connection_check    (GSource     *source);
 static gboolean dbus_connection_dispatch (GSource     *source,
-					  GSourceFunc  callback,
-					  gpointer     user_data);
+                                          GSourceFunc  callback,
+                                          gpointer     user_data);
+static gboolean dbus_server_prepare      (GSource     *source,
+                                          gint        *timeout);
+static gboolean dbus_server_check        (GSource     *source);
+static gboolean dbus_server_dispatch     (GSource     *source,
+                                          GSourceFunc  callback,
+                                          gpointer     user_data);
 
-
-static GSourceFuncs dbus_funcs = {
+static GSourceFuncs dbus_connection_funcs = {
   dbus_connection_prepare,
   dbus_connection_check,
   dbus_connection_dispatch,
+  NULL
+};
+
+static GSourceFuncs dbus_server_funcs = {
+  dbus_server_prepare,
+  dbus_server_check,
+  dbus_server_dispatch,
   NULL
 };
 
@@ -57,7 +94,7 @@ static gboolean
 dbus_connection_prepare (GSource *source,
 			 gint    *timeout)
 {
-  DBusConnection *connection = ((DBusGSource *)source)->connection;
+  DBusConnection *connection = ((DBusGSource *)source)->connection_or_server;
   
   *timeout = -1;
 
@@ -65,7 +102,16 @@ dbus_connection_prepare (GSource *source,
 }
 
 static gboolean
-dbus_connection_check (GSource *source)
+dbus_server_prepare (GSource *source,
+                     gint    *timeout)
+{
+  *timeout = -1;
+
+  return FALSE;
+}
+
+static gboolean
+dbus_gsource_check (GSource *source)
 {
   DBusGSource *dbus_source = (DBusGSource *)source;
   GList *list;
@@ -86,9 +132,22 @@ dbus_connection_check (GSource *source)
 }
 
 static gboolean
-dbus_connection_dispatch (GSource     *source,
-			  GSourceFunc  callback,
-			  gpointer     user_data)
+dbus_connection_check (GSource *source)
+{
+  return dbus_gsource_check (source);
+}
+
+static gboolean
+dbus_server_check (GSource *source)
+{
+  return dbus_gsource_check (source);
+}
+
+static gboolean
+dbus_gsource_dispatch (GSource     *source,
+                       GSourceFunc  callback,
+                       gpointer     user_data,
+                       dbus_bool_t  is_server)
 {
    DBusGSource *dbus_source = (DBusGSource *)source;
    GList *copy, *list;
@@ -115,21 +174,63 @@ dbus_connection_dispatch (GSource     *source,
 	     condition |= DBUS_WATCH_ERROR;
 	   if (poll_fd->revents & G_IO_HUP)
 	     condition |= DBUS_WATCH_HANGUP;
-	   
-	   dbus_connection_handle_watch (dbus_source->connection, watch, condition);
+
+           if (is_server)
+             dbus_server_handle_watch (dbus_source->connection_or_server,
+                                       watch, condition);
+           else
+             dbus_connection_handle_watch (dbus_source->connection_or_server,
+                                           watch, condition);
 	 }
 
        list = list->next;
      }
 
-   g_list_free (copy);
-   
-   /* Dispatch messages */
-   while (dbus_connection_dispatch_message (dbus_source->connection));
+   g_list_free (copy);   
 
    return TRUE;
 }
 
+static gboolean
+dbus_connection_dispatch (GSource     *source,
+			  GSourceFunc  callback,
+			  gpointer     user_data)
+{
+  DBusGSource *dbus_source = (DBusGSource *)source;
+  DBusConnection *connection = dbus_source->connection_or_server;
+
+  dbus_connection_ref (connection);
+
+  dbus_gsource_dispatch (source, callback, user_data,
+                         FALSE);
+  
+  /* Dispatch messages */
+  while (dbus_connection_dispatch_message (connection))
+    ;
+
+   dbus_connection_unref (connection);
+   
+   return TRUE;
+}
+
+static gboolean
+dbus_server_dispatch (GSource     *source,
+                      GSourceFunc  callback,
+                      gpointer     user_data)
+{
+  DBusGSource *dbus_source = (DBusGSource *)source;
+  DBusServer *server = dbus_source->connection_or_server;
+
+  dbus_server_ref (server);
+
+  dbus_gsource_dispatch (source, callback, user_data,
+                         TRUE);
+
+  dbus_server_unref (server);
+   
+  return TRUE;
+}
+     
 static void
 add_watch (DBusWatch *watch,
 	   gpointer   data)
@@ -184,7 +285,6 @@ timeout_handler (gpointer data)
   return FALSE;
 }
 
-
 static void
 add_timeout (DBusTimeout *timeout,
 	     void        *data)
@@ -204,7 +304,7 @@ remove_timeout (DBusTimeout *timeout,
   guint timeout_tag;
   
   timeout_tag = GPOINTER_TO_UINT (dbus_timeout_get_data (timeout));
-
+  
   g_source_remove (timeout_tag);
 }
 
@@ -214,33 +314,112 @@ free_source (GSource *source)
   g_source_destroy (source);
 }
 
-void
-dbus_connection_hookup_with_g_main (DBusConnection *connection)
+/** @} */ /* End of GLib bindings internals */
+
+/** @addtogroup DBusGLib
+ * @{
+ */
+
+static GSource*
+create_source (void         *connection_or_server,
+               GSourceFuncs *funcs)
 {
   GSource *source;
   DBusGSource *dbus_source;
 
-  source = g_source_new (&dbus_funcs, sizeof (DBusGSource));
+  source = g_source_new (funcs, sizeof (DBusGSource));
   
   dbus_source = (DBusGSource *)source;  
   dbus_source->watches = g_hash_table_new (NULL, NULL);
-  dbus_source->connection = connection;
+  dbus_source->connection_or_server = connection_or_server;
+
+  return source;
+}
+
+/**
+ * Sets the watch and timeout functions of a #DBusConnection
+ * to integrate the connection with the GLib main loop.
+ *
+ * @param connection the connection
+ */
+void
+dbus_connection_setup_with_g_main (DBusConnection *connection)
+{
+  GSource *source;
+
+  source = create_source (connection, &dbus_connection_funcs);
 
   dbus_connection_set_watch_functions (connection,
-				       add_watch,
-				       remove_watch,
-				       source, NULL);
-  dbus_connection_set_timeout_functions (connection,
-					 add_timeout,
-					 remove_timeout,
-					 NULL, NULL);
+                                       add_watch,
+                                       remove_watch,
+                                       source, NULL);
 
+  dbus_connection_set_timeout_functions (connection,
+                                         add_timeout,
+                                         remove_timeout,
+                                         NULL, NULL);
+      
   g_source_attach (source, NULL);
 
+  g_static_mutex_lock (&connection_slot_lock);
   if (connection_slot == -1 )
     connection_slot = dbus_connection_allocate_data_slot ();
+  g_static_mutex_unlock (&connection_slot_lock);
 
-  dbus_connection_set_data (connection, connection_slot, source,
-			    (DBusFreeFunction)free_source);
-  
+  if (connection_slot < 0)
+    goto nomem;
+
+  if (!dbus_connection_set_data (connection, connection_slot, source,
+                                 (DBusFreeFunction)free_source))
+    goto nomem;
+
+  return;
+
+ nomem:
+  g_error ("Not enough memory to set up DBusConnection for use with GLib");
 }
+
+/**
+ * Sets the watch and timeout functions of a #DBusServer
+ * to integrate the server with the GLib main loop.
+ *
+ * @param server the server
+ */
+void
+dbus_server_setup_with_g_main (DBusServer *server)
+{
+  GSource *source;
+
+  source = create_source (server, &dbus_server_funcs);
+
+  dbus_server_set_watch_functions (server,
+                                   add_watch,
+                                   remove_watch,
+                                   source, NULL);
+
+  dbus_server_set_timeout_functions (server,
+                                     add_timeout,
+                                     remove_timeout,
+                                     NULL, NULL);
+      
+  g_source_attach (source, NULL);
+
+  g_static_mutex_lock (&server_slot_lock);
+  if (server_slot == -1 )
+    server_slot = dbus_server_allocate_data_slot ();
+  g_static_mutex_unlock (&server_slot_lock);
+
+  if (server_slot < 0)
+    goto nomem;
+
+  if (!dbus_server_set_data (server, server_slot, source,
+                             (DBusFreeFunction)free_source))
+    goto nomem;
+
+  return;
+
+ nomem:
+  g_error ("Not enough memory to set up DBusServer for use with GLib");
+}
+
+/** @} */ /* end of public API */

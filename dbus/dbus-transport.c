@@ -485,6 +485,9 @@ _dbus_transport_do_iteration (DBusTransport  *transport,
 {
   _dbus_assert (transport->vtable->do_iteration != NULL);
 
+  _dbus_verbose ("Transport iteration flags 0x%x timeout %d connected = %d\n",
+                 flags, timeout_milliseconds, !transport->disconnected);
+  
   if ((flags & (DBUS_ITERATION_DO_WRITING |
                 DBUS_ITERATION_DO_READING)) == 0)
     return; /* Nothing to do */

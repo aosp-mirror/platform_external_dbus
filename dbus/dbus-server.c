@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-server.c DBusServer object
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003 Red Hat Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -37,6 +37,9 @@
  * A DBusServer represents a server that other applications
  * can connect to. Each connection from another application
  * is represented by a DBusConnection.
+ *
+ * @todo Thread safety hasn't been looked at for #DBusServer
+ * @todo Need notification to apps of disconnection, may matter for some transports
  */
 
 /**
@@ -86,6 +89,8 @@ _dbus_server_init_base (DBusServer             *server,
     }
 
   server->max_connections = 256; /* same as an X server, seems like a nice default */
+
+  _dbus_data_slot_list_init (&server->slot_list);
   
   return TRUE;
 }
@@ -99,6 +104,9 @@ _dbus_server_init_base (DBusServer             *server,
 void
 _dbus_server_finalize_base (DBusServer *server)
 {
+  /* calls out to application code... */
+  _dbus_data_slot_list_free (&server->slot_list);
+
   dbus_server_set_new_connection_function (server, NULL, NULL, NULL);
 
   if (!server->disconnected)
@@ -508,6 +516,132 @@ int
 dbus_server_get_n_connections (DBusServer *server)
 {
   return _dbus_counter_get_value (server->connection_counter);
+}
+
+
+static DBusDataSlotAllocator slot_allocator;
+
+/**
+ * Initialize the mutex used for #DBusConnection data
+ * slot reservations.
+ *
+ * @returns the mutex
+ */
+DBusMutex *
+_dbus_server_slots_init_lock (void)
+{
+  if (!_dbus_data_slot_allocator_init (&slot_allocator))
+    return NULL;
+  else
+    return slot_allocator.lock;
+}
+
+/**
+ * Allocates an integer ID to be used for storing application-specific
+ * data on any DBusServer. The allocated ID may then be used
+ * with dbus_server_set_data() and dbus_server_get_data().
+ * If allocation fails, -1 is returned. Again, the allocated
+ * slot is global, i.e. all DBusServer objects will
+ * have a slot with the given integer ID reserved.
+ *
+ * @returns -1 on failure, otherwise the data slot ID
+ */
+int
+dbus_server_allocate_data_slot (void)
+{
+  return _dbus_data_slot_allocator_alloc (&slot_allocator);
+}
+
+/**
+ * Deallocates a global ID for server data slots.
+ * dbus_server_get_data() and dbus_server_set_data()
+ * may no longer be used with this slot.
+ * Existing data stored on existing DBusServer objects
+ * will be freed when the server is finalized,
+ * but may not be retrieved (and may only be replaced
+ * if someone else reallocates the slot).
+ *
+ * @param slot the slot to deallocate
+ */
+void
+dbus_server_free_data_slot (int slot)
+{
+  _dbus_data_slot_allocator_free (&slot_allocator, slot);
+}
+
+/**
+ * Stores a pointer on a DBusServer, along
+ * with an optional function to be used for freeing
+ * the data when the data is set again, or when
+ * the server is finalized. The slot number
+ * must have been allocated with dbus_server_allocate_data_slot().
+ *
+ * @param server the server
+ * @param slot the slot number
+ * @param data the data to store
+ * @param free_data_func finalizer function for the data
+ * @returns #TRUE if there was enough memory to store the data
+ */
+dbus_bool_t
+dbus_server_set_data (DBusServer   *server,
+                      int               slot,
+                      void             *data,
+                      DBusFreeFunction  free_data_func)
+{
+  DBusFreeFunction old_free_func;
+  void *old_data;
+  dbus_bool_t retval;
+
+#if 0
+  dbus_mutex_lock (server->mutex);
+#endif
+  
+  retval = _dbus_data_slot_list_set (&slot_allocator,
+                                     &server->slot_list,
+                                     slot, data, free_data_func,
+                                     &old_free_func, &old_data);
+
+#if 0
+  dbus_mutex_unlock (server->mutex);
+#endif
+  
+  if (retval)
+    {
+      /* Do the actual free outside the server lock */
+      if (old_free_func)
+        (* old_free_func) (old_data);
+    }
+
+  return retval;
+}
+
+/**
+ * Retrieves data previously set with dbus_server_set_data().
+ * The slot must still be allocated (must not have been freed).
+ *
+ * @param server the server
+ * @param slot the slot to get data from
+ * @returns the data, or #NULL if not found
+ */
+void*
+dbus_server_get_data (DBusServer   *server,
+                      int               slot)
+{
+  void *res;
+  
+#if 0
+  dbus_mutex_lock (server->mutex);
+#endif
+  
+  res = _dbus_data_slot_list_get (&slot_allocator,
+                                  &server->slot_list,
+                                  slot);
+
+#if 0
+  dbus_mutex_unlock (server->mutex);
+#endif
+  
+  return res;
 }
 
 /** @} */

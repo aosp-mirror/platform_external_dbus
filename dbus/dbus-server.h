@@ -71,6 +71,15 @@ int  dbus_server_get_max_connections         (DBusServer                *server)
 
 int  dbus_server_get_n_connections           (DBusServer                *server);
 
+int         dbus_server_allocate_data_slot (void);
+void        dbus_server_free_data_slot     (int               slot);
+dbus_bool_t dbus_server_set_data           (DBusServer       *server,
+                                            int               slot,
+                                            void             *data,
+                                            DBusFreeFunction  free_data_func);
+void*       dbus_server_get_data           (DBusServer       *server,
+                                            int               slot);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_SERVER_H */

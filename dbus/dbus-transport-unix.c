@@ -157,7 +157,12 @@ check_write_watch (DBusTransport *transport)
       _dbus_watch_unref (unix_transport->write_watch);
       unix_transport->write_watch = NULL;
     }
-
+  else
+    {
+      _dbus_verbose ("Write watch is unchanged from %p on fd %d\n",
+                     unix_transport->write_watch, unix_transport->fd);
+    }
+  
  out:
   _dbus_transport_unref (transport);
 }
@@ -173,9 +178,16 @@ check_read_watch (DBusTransport *transport)
   
   _dbus_transport_ref (transport);
 
-  need_read_watch =
-    _dbus_counter_get_value (transport->live_messages_size) < transport->max_live_messages_size;
+  if (_dbus_transport_get_is_authenticated (transport))
+    need_read_watch =
+      _dbus_counter_get_value (transport->live_messages_size) < transport->max_live_messages_size;
+  else
+    need_read_watch = transport->receive_credentials_pending ||
+      _dbus_auth_do_work (transport->auth) == DBUS_AUTH_STATE_WAITING_FOR_INPUT;
 
+  _dbus_verbose ("need_read_watch = %d authenticated = %d\n",
+                 need_read_watch, _dbus_transport_get_is_authenticated (transport));
+  
   if (transport->disconnected)
     need_read_watch = FALSE;
   
@@ -213,7 +225,12 @@ check_read_watch (DBusTransport *transport)
       _dbus_watch_unref (unix_transport->read_watch);
       unix_transport->read_watch = NULL;
     }
-
+  else
+    {
+      _dbus_verbose ("Read watch is unchanged from %p on fd %d\n",
+                     unix_transport->read_watch, unix_transport->fd);
+    }
+  
  out:
   _dbus_transport_unref (transport);
 }
@@ -552,6 +569,7 @@ do_authentication (DBusTransport *transport,
     }
 
  out:
+  check_read_watch (transport);
   check_write_watch (transport);
   _dbus_transport_unref (transport);
 }
@@ -902,10 +920,12 @@ unix_do_iteration (DBusTransport *transport,
   dbus_bool_t do_select;
   int select_res;
 
-  _dbus_verbose (" iteration flags = %s%s timeout = %d\n",
+  _dbus_verbose (" iteration flags = %s%s timeout = %d read_watch = %p write_watch = %p\n",
                  flags & DBUS_ITERATION_DO_READING ? "read" : "",
                  flags & DBUS_ITERATION_DO_WRITING ? "write" : "",
-                 timeout_milliseconds);
+                 timeout_milliseconds,
+                 unix_transport->read_watch,
+                 unix_transport->write_watch);
   
   /* "again" has to be up here because on EINTR the fd sets become
    * undefined
@@ -948,13 +968,15 @@ unix_do_iteration (DBusTransport *transport,
       
       auth_state = _dbus_auth_do_work (transport->auth);
 
-      if (auth_state == DBUS_AUTH_STATE_WAITING_FOR_INPUT)
+      if (transport->receive_credentials_pending ||
+          auth_state == DBUS_AUTH_STATE_WAITING_FOR_INPUT)
         {
           FD_SET (unix_transport->fd, &read_set);
           do_select = TRUE;
         }
 
-      if (auth_state == DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND)
+      if (transport->send_credentials_pending ||
+          auth_state == DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND)
         {
           FD_SET (unix_transport->fd, &write_set);
           do_select = TRUE;

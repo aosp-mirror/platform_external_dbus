@@ -73,6 +73,8 @@ libdbus_1_la_SOURCES=				\
 noinst_LTLIBRARIES=libdbus-convenience.la
 
 libdbus_convenience_la_SOURCES=			\
+	dbus-dataslot.c				\
+	dbus-dataslot.h				\
 	dbus-hash.c				\
 	dbus-hash.h				\
 	dbus-internals.c			\
