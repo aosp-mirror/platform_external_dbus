@@ -755,10 +755,8 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
   _dbus_assert (sizeof (pid_t) <= sizeof (credentials->pid));
   _dbus_assert (sizeof (uid_t) <= sizeof (credentials->uid));
   _dbus_assert (sizeof (gid_t) <= sizeof (credentials->gid));
-  
-  credentials->pid = -1;
-  credentials->uid = -1;
-  credentials->gid = -1;
+
+  _dbus_credentials_clear (credentials);
 
 #if defined(LOCAL_CREDS) && defined(HAVE_CMSGCRED)
   /* Set the socket to receive credentials on the next message */
@@ -845,7 +843,10 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
 #endif
   }
 
-  _dbus_verbose ("Credentials: pid %d  uid %d  gid %d\n",
+  _dbus_verbose ("Credentials:"
+                 "  pid "DBUS_PID_FORMAT
+                 "  uid "DBUS_UID_FORMAT
+                 "  gid "DBUS_GID_FORMAT"\n",
 		 credentials->pid,
 		 credentials->uid,
 		 credentials->gid);
@@ -1367,7 +1368,7 @@ store_user_info (struct passwd    *p,
  */
 static dbus_bool_t
 get_user_info (const DBusString *username,
-               int               uid,
+               dbus_uid_t        uid,
                DBusCredentials  *credentials,
                DBusString       *homedir,
                DBusString       *username_out)
@@ -1376,14 +1377,10 @@ get_user_info (const DBusString *username,
       
   /* exactly one of username/uid provided */
   _dbus_assert (username != NULL || uid >= 0);
-  _dbus_assert (username == NULL || uid < 0);
+  _dbus_assert (username == NULL || uid == DBUS_UID_UNSET);
 
   if (credentials)
-    {
-      credentials->pid = -1;
-      credentials->uid = -1;
-      credentials->gid = -1;
-    }
+    _dbus_credentials_clear (credentials);
   
   if (username != NULL)
     username_c_str = _dbus_string_get_const_data (username);
@@ -1450,6 +1447,20 @@ get_user_info (const DBusString *username,
       }
   }
 #endif  /* ! HAVE_GETPWNAM_R */
+}
+
+/**
+ * Sets fields in DBusCredentials to DBUS_PID_UNSET,
+ * DBUS_UID_UNSET, DBUS_GID_UNSET.
+ *
+ * @param credentials the credentials object to fill in
+ */
+void
+_dbus_credentials_clear (DBusCredentials *credentials)
+{
+  credentials->pid = DBUS_PID_UNSET;
+  credentials->uid = DBUS_UID_UNSET;
+  credentials->gid = DBUS_GID_UNSET;
 }
 
 /**
@@ -1531,10 +1542,8 @@ _dbus_user_info_from_current_process (const DBusString      **username,
           _DBUS_UNLOCK (user_info);
           return FALSE;
         }
-      
-      u.creds.uid = -1;
-      u.creds.gid = -1;
-      u.creds.pid = -1;
+
+      _dbus_credentials_clear (&u.creds);
 
       if (!get_user_info (NULL, getuid (),
                           &u.creds, &u.dir, &u.name))
@@ -1596,9 +1605,7 @@ _dbus_credentials_from_uid_string (const DBusString      *uid_str,
   int end;
   long uid;
 
-  credentials->pid = -1;
-  credentials->uid = -1;
-  credentials->gid = -1;
+  _dbus_credentials_clear (credentials);
   
   if (_dbus_string_get_length (uid_str) == 0)
     {
@@ -1659,9 +1666,9 @@ dbus_bool_t
 _dbus_credentials_match (const DBusCredentials *expected_credentials,
                          const DBusCredentials *provided_credentials)
 {
-  if (provided_credentials->uid < 0)
+  if (provided_credentials->uid == DBUS_UID_UNSET)
     return FALSE;
-  else if (expected_credentials->uid < 0)
+  else if (expected_credentials->uid == DBUS_UID_UNSET)
     return FALSE;
   else if (provided_credentials->uid == 0)
     return TRUE;
@@ -1773,7 +1780,7 @@ _dbus_get_groups (unsigned long   uid,
 
   if (!get_user_info (NULL, uid, &creds,
                       NULL, &username) ||
-      creds.gid < 0)
+      creds.gid == DBUS_GID_UNSET)
     goto out;
 
   username_c = _dbus_string_get_const_data (&username);
@@ -1848,7 +1855,7 @@ _dbus_get_groups (unsigned long   uid,
 dbus_bool_t
 _dbus_string_append_our_uid (DBusString *str)
 {
-  return _dbus_string_append_int (str, getuid ());
+  return _dbus_string_append_uint (str, getuid ());
 }
 
 /**
@@ -3226,8 +3233,8 @@ _dbus_write_pid_file (const DBusString *filename,
  * @returns #FALSE on failure
  */
 dbus_bool_t
-_dbus_change_identity  (unsigned long  uid,
-                        unsigned long  gid,
+_dbus_change_identity  (dbus_uid_t     uid,
+                        dbus_gid_t     gid,
                         DBusError     *error)
 {
   /* Set GID first, or the setuid may remove our permission

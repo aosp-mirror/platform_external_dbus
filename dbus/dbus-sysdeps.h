@@ -47,7 +47,23 @@ DBUS_BEGIN_DECLS;
  * dbus-memory.c)
  */
 
-void _dbus_abort (void);
+#if     __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
+#define _DBUS_GNUC_PRINTF( format_idx, arg_idx )    \
+  __attribute__((__format__ (__printf__, format_idx, arg_idx)))
+#define _DBUS_GNUC_SCANF( format_idx, arg_idx )     \
+  __attribute__((__format__ (__scanf__, format_idx, arg_idx)))
+#define _DBUS_GNUC_FORMAT( arg_idx )                \
+  __attribute__((__format_arg__ (arg_idx)))
+#define _DBUS_GNUC_NORETURN                         \
+  __attribute__((__noreturn__))
+#else   /* !__GNUC__ */
+#define _DBUS_GNUC_PRINTF( format_idx, arg_idx )
+#define _DBUS_GNUC_SCANF( format_idx, arg_idx )
+#define _DBUS_GNUC_FORMAT( arg_idx )
+#define _DBUS_GNUC_NORETURN
+#endif  /* !__GNUC__ */
+
+void _dbus_abort (void) _DBUS_GNUC_NORETURN;
 
 const char* _dbus_getenv (const char *varname);
 dbus_bool_t _dbus_setenv (const char *varname,
@@ -68,12 +84,24 @@ int _dbus_write_two (int               fd,
                      int               start2,
                      int               len2);
 
+typedef unsigned long dbus_pid_t;
+typedef unsigned long dbus_uid_t;
+typedef unsigned long dbus_gid_t;
+
+#define DBUS_PID_UNSET ((dbus_pid_t) -1)
+#define DBUS_UID_UNSET ((dbus_uid_t) -1)
+#define DBUS_GID_UNSET ((dbus_gid_t) -1)
+
+#define DBUS_PID_FORMAT "%lu"
+#define DBUS_UID_FORMAT "%lu"
+#define DBUS_GID_FORMAT "%lu"
+
 typedef struct
 {
-  /* -1 if not available */
-  int pid;
-  int uid;
-  int gid;
+  /* Set to DBUS_PID_UNSET etc. if not available */
+  dbus_pid_t pid;
+  dbus_uid_t uid;
+  dbus_gid_t gid;
 } DBusCredentials;
 
 int _dbus_connect_unix_socket (const char     *path,
@@ -95,9 +123,10 @@ dbus_bool_t _dbus_send_credentials_unix_socket (int              server_fd,
                                                 DBusError       *error);
 
 
+void        _dbus_credentials_clear                (DBusCredentials       *credentials);
 dbus_bool_t _dbus_credentials_from_username        (const DBusString      *username,
                                                     DBusCredentials       *credentials);
-dbus_bool_t _dbus_credentials_from_user_id         (unsigned long          user_id,
+dbus_bool_t _dbus_credentials_from_user_id         (dbus_uid_t             user_id,
                                                     DBusCredentials       *credentials);
 dbus_bool_t _dbus_credentials_from_uid_string      (const DBusString      *uid_str,
                                                     DBusCredentials       *credentials);
@@ -114,9 +143,9 @@ dbus_bool_t _dbus_user_info_from_current_process (const DBusString      **userna
                                                   const DBusCredentials **credentials);
 
 dbus_bool_t _dbus_get_group_id (const DBusString  *group_name,
-                                unsigned long     *gid);
-dbus_bool_t _dbus_get_groups   (unsigned long      uid,
-                                unsigned long    **group_ids,
+                                dbus_gid_t        *gid);
+dbus_bool_t _dbus_get_groups   (dbus_uid_t         uid,
+                                dbus_gid_t       **group_ids,
                                 int               *n_group_ids);
 
 unsigned long _dbus_getpid (void);
@@ -192,14 +221,14 @@ void _dbus_disable_sigpipe (void);
 
 void _dbus_fd_set_close_on_exec (int fd);
 
-void _dbus_exit (int code);
+void _dbus_exit (int code) _DBUS_GNUC_NORETURN;
 
 typedef struct
 {
   unsigned long mode;
   unsigned long nlink;
-  unsigned long uid;
-  unsigned long gid;
+  dbus_uid_t    uid;
+  dbus_gid_t    gid;
   unsigned long size;
   unsigned long atime;
   unsigned long mtime;

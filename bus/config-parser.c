@@ -268,6 +268,9 @@ bus_config_parser_new (const DBusString *basedir)
   if (((parser->policy = bus_policy_new ()) == NULL) ||
       !_dbus_string_copy (basedir, 0, &parser->basedir, 0))
     {
+      if (parser->policy)
+        bus_policy_unref (parser->policy);
+      
       _dbus_string_free (&parser->basedir);
       dbus_free (parser);
       return NULL;

@@ -483,14 +483,15 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
                                                       auth_identity.uid,
                                                       transport->unix_user_data))
                 {
-                  _dbus_verbose ("Client UID %d was rejected, disconnecting\n",
+                  _dbus_verbose ("Client UID "DBUS_UID_FORMAT
+                                 " was rejected, disconnecting\n",
                                  auth_identity.uid);
                   _dbus_transport_disconnect (transport);
                   return FALSE;
                 }
               else
                 {
-                  _dbus_verbose ("Client UID %d authorized\n", auth_identity.uid);
+                  _dbus_verbose ("Client UID "DBUS_UID_FORMAT" authorized\n", auth_identity.uid);
                 }
             }
           else
@@ -502,14 +503,16 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
               if (!_dbus_credentials_match (&our_identity,
                                             &auth_identity))
                 {
-                  _dbus_verbose ("Client authorized as UID %d but our UID is %d, disconnecting\n",
+                  _dbus_verbose ("Client authorized as UID "DBUS_UID_FORMAT
+                                 " but our UID is "DBUS_UID_FORMAT", disconnecting\n",
                                  auth_identity.uid, our_identity.uid);
                   _dbus_transport_disconnect (transport);
                   return FALSE;
                 }
               else
                 {
-                  _dbus_verbose ("Client authorized as UID %d matching our UID %d\n",
+                  _dbus_verbose ("Client authorized as UID "DBUS_UID_FORMAT
+                                 " matching our UID "DBUS_UID_FORMAT"\n",
                                  auth_identity.uid, our_identity.uid);
                 }
             }

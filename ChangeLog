@@ -1,5 +1,16 @@
 2003-04-12  Havoc Pennington  <hp@pobox.com>
 
+	* bus/config-parser.c (bus_config_parser_new): fix a memleak
+
+	* dbus/dbus-sysdeps.c: change DBusCredentials to use longs for
+	the pid/gid/uid, just for paranoia.
+
+	* test/break-loader.c (randomly_do_n_things): find a byte
+	containing a type code, and randomly change it to a different 
+	type code.
+
+2003-04-12  Havoc Pennington  <hp@pobox.com>
+
 	* bus/policy.h: change BusPolicy to be the thing from the config
 	file, and rename old BusPolicy to BusClientPolicy
 

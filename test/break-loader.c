@@ -347,10 +347,12 @@ randomly_set_extreme_ints (const DBusString *orig_data,
     _DBUS_UINT_MAX - 1,
     _DBUS_INT_MAX - 2,
     _DBUS_UINT_MAX - 2,
-    (unsigned int) (_DBUS_INT_MAX + 1),
-    (unsigned int) (_DBUS_UINT_MAX + 1),
-    _DBUS_INT_MAX + 2,
-    _DBUS_UINT_MAX + 2,
+    _DBUS_INT_MAX - 17,
+    _DBUS_UINT_MAX - 17,
+    _DBUS_INT_MAX / 2,
+    _DBUS_INT_MAX / 3,
+    _DBUS_UINT_MAX / 2,
+    _DBUS_UINT_MAX / 3,
     0, 1, 2, 3,
     (unsigned int) -1,
     (unsigned int) -2,
@@ -390,6 +392,45 @@ randomly_set_extreme_ints (const DBusString *orig_data,
                             extreme_ints[which]);
 }
 
+static void
+randomly_change_one_type (const DBusString *orig_data,
+                          DBusString       *mutated)
+{
+  int i;
+  int len;
+  
+  if (orig_data != mutated)
+    {
+      _dbus_string_set_length (mutated, 0);
+      
+      if (!_dbus_string_copy (orig_data, 0, mutated, 0))
+        _dbus_assert_not_reached ("out of mem");
+    }
+
+  if (_dbus_string_get_length (mutated) == 0)
+    return;
+
+  len = _dbus_string_get_length (mutated);
+  i = random_int_in_range (0, len);
+
+  /* Look for a type starting at a random location,
+   * and replace with a different type
+   */
+  while (i < len)
+    {
+      int b;
+      b = _dbus_string_get_byte (mutated, i);
+      if (b > DBUS_TYPE_INVALID && b <= DBUS_TYPE_LAST)
+        {
+          _dbus_string_set_byte (mutated, i,
+                                 random_int_in_range (DBUS_TYPE_INVALID,
+                                                      DBUS_TYPE_LAST + 1));
+          return;
+        }
+      ++i;
+    }
+}
+
 static int times_we_did_each_thing[6] = { 0, };
 
 static void
@@ -406,7 +447,8 @@ randomly_do_n_things (const DBusString *orig_data,
       randomly_add_one_byte,
       randomly_remove_one_byte,
       randomly_modify_length,
-      randomly_set_extreme_ints
+      randomly_set_extreme_ints,
+      randomly_change_one_type
     };
 
   _dbus_string_set_length (mutated, 0);
@@ -497,6 +539,15 @@ find_breaks_based_on (const DBusString   *filename,
   while (i < 50)
     {
       randomly_set_extreme_ints (&orig_data, &mutated);
+      try_mutated_data (&mutated);
+
+      ++i;
+    }
+
+  i = 0;
+  while (i < 50)
+    {
+      randomly_change_one_type (&orig_data, &mutated);
       try_mutated_data (&mutated);
 
       ++i;

@@ -37,22 +37,6 @@
 
 DBUS_BEGIN_DECLS;
 
-#if     __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
-#define _DBUS_GNUC_PRINTF( format_idx, arg_idx )    \
-  __attribute__((__format__ (__printf__, format_idx, arg_idx)))
-#define _DBUS_GNUC_SCANF( format_idx, arg_idx )     \
-  __attribute__((__format__ (__scanf__, format_idx, arg_idx)))
-#define _DBUS_GNUC_FORMAT( arg_idx )                \
-  __attribute__((__format_arg__ (arg_idx)))
-#define _DBUS_GNUC_NORETURN                         \
-  __attribute__((__noreturn__))
-#else   /* !__GNUC__ */
-#define _DBUS_GNUC_PRINTF( format_idx, arg_idx )
-#define _DBUS_GNUC_SCANF( format_idx, arg_idx )
-#define _DBUS_GNUC_FORMAT( arg_idx )
-#define _DBUS_GNUC_NORETURN
-#endif  /* !__GNUC__ */
-
 void _dbus_warn               (const char *format,
                                ...) _DBUS_GNUC_PRINTF (1, 2);
 void _dbus_verbose_real       (const char *format,
