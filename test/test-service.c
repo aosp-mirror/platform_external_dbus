@@ -49,7 +49,7 @@ handle_echo (DBusConnection     *connection,
 
       dbus_message_unref (reply);
 
-      return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
 
   reply = dbus_message_new_method_return (message);
@@ -68,7 +68,7 @@ handle_echo (DBusConnection     *connection,
   
   dbus_message_unref (reply);
     
-  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
 static DBusHandlerResult
@@ -84,11 +84,11 @@ filter_func (DBusMessageHandler *handler,
     {
       dbus_connection_disconnect (connection);
       quit ();
-      return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+      return DBUS_HANDLER_RESULT_HANDLED;
     }
   else
     {
-      return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
 }
 

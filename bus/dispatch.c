@@ -305,7 +305,7 @@ bus_dispatch_message_handler (DBusMessageHandler *handler,
 {
   bus_dispatch (connection, message);
   
-  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
 static void

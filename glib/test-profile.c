@@ -76,9 +76,10 @@ client_filter (DBusMessageHandler *handler,
           exit (0);
         }
       send_echo_message (connection);
+      return DBUS_HANDLER_RESULT_HANDLED;
     }
   
-  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
 static void*
@@ -147,9 +148,10 @@ server_filter (DBusMessageHandler *handler,
                                   ECHO_MESSAGE))
     {
       send_echo_message (connection);
+      return DBUS_HANDLER_RESULT_HANDLED;
     }
   
-  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
 static void

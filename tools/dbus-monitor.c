@@ -40,7 +40,7 @@ handler_func (DBusMessageHandler *handler,
   if (dbus_message_has_name (message, DBUS_MESSAGE_LOCAL_DISCONNECT))
     exit (0);
   
-  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
 static void

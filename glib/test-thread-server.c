@@ -44,7 +44,7 @@ handle_test_message (DBusMessageHandler *handler,
   int i;
 
   if (!dbus_message_has_name (message, "org.freedesktop.ThreadTest"))
-    return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+    return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
   
   dbus_message_iter_init (message, &iter);
   
@@ -127,7 +127,7 @@ handle_test_message (DBusMessageHandler *handler,
   g_string_free (counter_str, TRUE);
   
  out:
-  return DBUS_HANDLER_RESULT_REMOVE_MESSAGE;
+  return DBUS_HANDLER_RESULT_HANDLED;
 }
 
 static DBusHandlerResult
@@ -136,7 +136,7 @@ handle_filter (DBusMessageHandler *handler,
 	       DBusMessage        *message,
 	       void               *user_data)
 {  
-  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
 static DBusHandlerResult
@@ -146,12 +146,12 @@ handle_disconnect (DBusMessageHandler *handler,
                    void               *user_data)
 {
   if (!dbus_message_has_name (message, DBUS_MESSAGE_LOCAL_DISCONNECT))
-    return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+    return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
   g_print ("connection disconnected\n");
   dbus_connection_unref (connection);
   
-  return DBUS_HANDLER_RESULT_REMOVE_MESSAGE;
+  return DBUS_HANDLER_RESULT_HANDLED;
 }
 
 static void

@@ -1,3 +1,13 @@
+2003-08-11  Havoc Pennington  <hp@pobox.com>
+
+	* bus/test.c (client_disconnect_handler): change to return
+	HANDLED (would have been REMOVE_MESSAGE)
+
+	* dbus/dbus-object.h (enum DBusHandlerResult): rename to
+	HANDLED/NOT_YET_HANDLED instead of
+	REMOVE_MESSAGE/ALLOW_MORE_HANDLERS to make it clearer how it 
+	should be used.
+
 2003-08-10  Havoc Pennington  <hp@pobox.com>
 
 	* tools/dbus-send.c (main): add --type argument, for now

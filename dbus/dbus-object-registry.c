@@ -705,7 +705,7 @@ handle_method_call_and_unlock (DBusObjectRegistry *registry,
 #endif
         _dbus_connection_unlock (registry->connection);
 
-      return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
   
   _dbus_assert (iface_entry->n_objects > 0);
@@ -729,7 +729,7 @@ handle_method_call_and_unlock (DBusObjectRegistry *registry,
   
   (* vtable->message) (&info, message);
 
-  return DBUS_HANDLER_RESULT_REMOVE_MESSAGE;
+  return DBUS_HANDLER_RESULT_HANDLED;
 }
 
 typedef struct
@@ -760,7 +760,7 @@ handle_signal_and_unlock (DBusObjectRegistry *registry,
 #endif
         _dbus_connection_unlock (registry->connection);
       
-      return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
   
   _dbus_assert (signal_entry->n_connections > 0);
@@ -865,7 +865,7 @@ handle_signal_and_unlock (DBusObjectRegistry *registry,
 #endif
     _dbus_connection_unlock (registry->connection);
 
-  return DBUS_HANDLER_RESULT_REMOVE_MESSAGE;
+  return DBUS_HANDLER_RESULT_HANDLED;
 }
 
 /**
@@ -902,7 +902,7 @@ _dbus_object_registry_handle_and_unlock (DBusObjectRegistry *registry,
 #endif
         _dbus_connection_unlock (registry->connection);
 
-      return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
 }
 
@@ -1202,7 +1202,8 @@ add_and_remove_objects (DBusObjectRegistry *registry)
       callback = dbus_callback_object_new (noop_message_function, NULL, NULL);
       if (callback == NULL)
         goto out;
-      
+
+      interfaces = NULL;
       switch (i % 3)
         {
         case 0:
@@ -1215,6 +1216,7 @@ add_and_remove_objects (DBusObjectRegistry *registry)
           interfaces = three_interfaces;
           break;
         }
+      _dbus_assert (interfaces != NULL);
       
       if (!_dbus_object_registry_add_and_unlock (registry,
                                                  interfaces,
@@ -1255,7 +1257,8 @@ add_and_remove_objects (DBusObjectRegistry *registry)
           callback = dbus_callback_object_new (noop_message_function, NULL, NULL);
           if (callback == NULL)
             goto out;
-          
+
+          interfaces = NULL;
           switch (i % 4)
             {
             case 0:
@@ -1271,6 +1274,7 @@ add_and_remove_objects (DBusObjectRegistry *registry)
               interfaces = three_interfaces;
               break;
             }
+          _dbus_assert (interfaces != NULL);
       
           if (!_dbus_object_registry_add_and_unlock (registry,
                                                      interfaces,
@@ -1292,7 +1296,7 @@ add_and_remove_objects (DBusObjectRegistry *registry)
   if (message != NULL)
     {
       if (_dbus_object_registry_handle_and_unlock (registry, message) !=
-          DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
+          DBUS_HANDLER_RESULT_HANDLED)
         _dbus_assert_not_reached ("message not handled\n");
       dbus_message_unref (message);
     }
@@ -1301,7 +1305,7 @@ add_and_remove_objects (DBusObjectRegistry *registry)
   if (message != NULL)
     {
       if (_dbus_object_registry_handle_and_unlock (registry, message) !=
-          DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
+          DBUS_HANDLER_RESULT_HANDLED)
         _dbus_assert_not_reached ("message not handled\n");
       dbus_message_unref (message);
     }
@@ -1310,7 +1314,7 @@ add_and_remove_objects (DBusObjectRegistry *registry)
   if (message != NULL)
     {
       if (_dbus_object_registry_handle_and_unlock (registry, message) !=
-          DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS)
+          DBUS_HANDLER_RESULT_NOT_YET_HANDLED)
         _dbus_assert_not_reached ("message handled but no handler was registered\n");
       dbus_message_unref (message);
     }

@@ -2306,7 +2306,7 @@ dbus_connection_dispatch (DBusConnection *connection)
 
   message = message_link->data;
   
-  result = DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  result = DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
   reply_serial = dbus_message_get_reply_serial (message);
   reply_handler_data = _dbus_hash_table_lookup_int (connection->pending_replies,
@@ -2346,7 +2346,7 @@ dbus_connection_dispatch (DBusConnection *connection)
       result = _dbus_message_handler_handle_message (handler, connection,
                                                      message);
 
-      if (result != DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS)
+      if (result != DBUS_HANDLER_RESULT_NOT_YET_HANDLED)
 	break;
 
       link = next;
@@ -2363,7 +2363,7 @@ dbus_connection_dispatch (DBusConnection *connection)
     /* FIXME */ ;
   
   /* Did a reply we were waiting on get filtered? */
-  if (reply_handler_data && result == DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
+  if (reply_handler_data && result == DBUS_HANDLER_RESULT_HANDLED)
     {
       /* Queue the timeout immediately! */
       if (reply_handler_data->timeout_link)
@@ -2379,7 +2379,7 @@ dbus_connection_dispatch (DBusConnection *connection)
 	}
     }
   
-  if (result == DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
+  if (result == DBUS_HANDLER_RESULT_HANDLED)
     goto out;
   
   if (reply_handler_data)
@@ -2405,7 +2405,7 @@ dbus_connection_dispatch (DBusConnection *connection)
                                                     message);
   
   CONNECTION_LOCK (connection);
-  if (result == DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
+  if (result == DBUS_HANDLER_RESULT_HANDLED)
     goto out;
 
   if (result == DBUS_HANDLER_RESULT_NEED_MEMORY)

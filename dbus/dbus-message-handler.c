@@ -130,7 +130,7 @@ _dbus_message_handler_handle_message (DBusMessageHandler        *handler,
   if (function != NULL)
     return (* function) (handler, connection, message, user_data);
   else
-    return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+    return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
 /** @} */
@@ -315,7 +315,7 @@ test_handler (DBusMessageHandler *handler,
               DBusMessage        *message,
               void               *user_data)
 {
-  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
 static void

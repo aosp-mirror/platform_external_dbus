@@ -109,7 +109,7 @@ client_disconnect_handler (DBusMessageHandler *handler,
 {
   if (!dbus_message_has_name (message,
                               DBUS_MESSAGE_LOCAL_DISCONNECT))
-    return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+    return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     
   _dbus_verbose ("Removing client %p in disconnect handler\n",
                  connection);
@@ -124,7 +124,7 @@ client_disconnect_handler (DBusMessageHandler *handler,
       client_loop = NULL;
     }
   
-  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+  return DBUS_HANDLER_RESULT_HANDLED;
 }
 
 static dbus_int32_t handler_slot = -1;
