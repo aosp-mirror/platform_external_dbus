@@ -71,6 +71,7 @@ struct DBusObjectSubtree
   DBusObjectSubtree                **subtrees;
   int                                n_subtrees;
   unsigned int                       subtrees_sorted : 1;
+  unsigned int                       invoke_as_fallback : 1;
   char                               name[1]; /**< Allocated as large as necessary */
 };
 
@@ -93,7 +94,8 @@ _dbus_object_tree_new (DBusConnection *connection)
   tree->root = _dbus_object_subtree_new ("/", NULL, NULL);
   if (tree->root == NULL)
     goto oom;
-
+  tree->root->invoke_as_fallback = TRUE;
+  
   return tree;
 
  oom:
@@ -221,7 +223,8 @@ find_subtree_recurse (DBusObjectSubtree  *subtree,
               next = find_subtree_recurse (subtree->subtrees[i],
                                            &path[1], return_deepest_match,
                                            create_if_not_found, index_in_parent);
-              if (next == NULL)
+              if (next == NULL &&
+                  subtree->invoke_as_fallback)
                 {
 #if VERBOSE_FIND
                   _dbus_verbose ("  no deeper match found, returning %s\n",
@@ -293,7 +296,7 @@ find_subtree_recurse (DBusObjectSubtree  *subtree,
                                    create_if_not_found, index_in_parent);
     }
   else
-    return return_deepest_match ? subtree : NULL;
+    return (return_deepest_match && subtree->invoke_as_fallback) ? subtree : NULL;
 }
 
 static DBusObjectSubtree*
@@ -339,6 +342,7 @@ ensure_subtree (DBusObjectTree *tree,
  * Registers a new subtree in the global object tree.
  *
  * @param tree the global object tree
+ * @param fallback #TRUE to handle messages to children of this path
  * @param path NULL-terminated array of path elements giving path to subtree
  * @param vtable the vtable used to traverse this subtree
  * @param user_data user data to pass to methods in the vtable
@@ -346,6 +350,7 @@ ensure_subtree (DBusObjectTree *tree,
  */
 dbus_bool_t
 _dbus_object_tree_register (DBusObjectTree              *tree,
+                            dbus_bool_t                  fallback,
                             const char                 **path,
                             const DBusObjectPathVTable  *vtable,
                             void                        *user_data)
@@ -360,17 +365,22 @@ _dbus_object_tree_register (DBusObjectTree              *tree,
   if (subtree == NULL)
     return FALSE;
 
+#ifndef DBUS_DISABLE_CHECKS
   if (subtree->message_function != NULL)
     {
       _dbus_warn ("A handler is already registered for the path starting with path[0] = \"%s\"\n",
                   path[0] ? path[0] : "null");
       return FALSE;
     }
+#else
+  _dbus_assert (subtree->message_function == NULL);
+#endif
 
   subtree->message_function = vtable->message_function;
   subtree->unregister_function = vtable->unregister_function;
   subtree->user_data = user_data;
-
+  subtree->invoke_as_fallback = fallback != FALSE;
+  
   return TRUE;
 }
 
@@ -395,6 +405,7 @@ _dbus_object_tree_unregister_and_unlock (DBusObjectTree          *tree,
 
   subtree = find_subtree (tree, path, &i);
 
+#ifndef DBUS_DISABLE_CHECKS
   if (subtree == NULL)
     {
       _dbus_warn ("Attempted to unregister path (path[0] = %s path[1] = %s) which isn't registered\n",
@@ -402,6 +413,9 @@ _dbus_object_tree_unregister_and_unlock (DBusObjectTree          *tree,
                   path[1] ? path[1] : "null");
       return;
     }
+#else
+  _dbus_assert (subtree != NULL);
+#endif
 
   _dbus_assert (subtree->parent == NULL ||
                 (i >= 0 && subtree->parent->subtrees[i] == subtree));
@@ -523,7 +537,7 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
   DBusList *link;
   DBusHandlerResult result;
   DBusObjectSubtree *subtree;
-
+  
 #if 0
   _dbus_verbose ("Dispatch of message by object path\n");
 #endif
@@ -540,10 +554,10 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
       _dbus_verbose ("No path field in message\n");
       return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
-
+  
   /* Find the deepest path that covers the path in the message */
   subtree = find_handler (tree, (const char**) path);
-
+  
   /* Build a list of all paths that cover the path in the message */
 
   list = NULL;
@@ -884,7 +898,7 @@ do_register (DBusObjectTree *tree,
   tree_test_data[i].handler_unregistered = FALSE;
   tree_test_data[i].path = path;
 
-  if (!_dbus_object_tree_register (tree, path,
+  if (!_dbus_object_tree_register (tree, TRUE, path,
                                    &vtable,
                                    &tree_test_data[i]))
     return FALSE;
@@ -1269,7 +1283,12 @@ object_tree_test_iteration (void *data)
   
  out:
   if (tree)
-    _dbus_object_tree_unref (tree);
+    {
+      /* test ref */
+      _dbus_object_tree_ref (tree);
+      _dbus_object_tree_unref (tree);
+      _dbus_object_tree_unref (tree);
+    }
 
   return TRUE;
 }

@@ -3049,8 +3049,8 @@ dbus_connection_remove_filter (DBusConnection            *connection,
 }
 
 /**
- * Registers a handler for a given subsection of the object hierarchy.
- * The given vtable handles messages at or below the given path.
+ * Registers a handler for a given path in the object hierarchy.
+ * The given vtable handles messages sent to exactly the given path.
  *
  *
  * @param connection the connection
@@ -3074,7 +3074,47 @@ dbus_connection_register_object_path (DBusConnection              *connection,
 
   CONNECTION_LOCK (connection);
 
-  retval = _dbus_object_tree_register (connection->objects, path, vtable,
+  retval = _dbus_object_tree_register (connection->objects,
+                                       FALSE,
+                                       path, vtable,
+                                       user_data);
+
+  CONNECTION_UNLOCK (connection);
+
+  return retval;
+}
+
+/**
+ * Registers a fallback handler for a given subsection of the object
+ * hierarchy.  The given vtable handles messages at or below the given
+ * path. You can use this to establish a default message handling
+ * policy for a whole "subdirectory."
+ *
+ *
+ * @param connection the connection
+ * @param path #NULL-terminated array of path elements
+ * @param vtable the virtual table
+ * @param user_data data to pass to functions in the vtable
+ * @returns #FALSE if not enough memory
+ */
+dbus_bool_t
+dbus_connection_register_fallback (DBusConnection              *connection,
+                                   const char                 **path,
+                                   const DBusObjectPathVTable  *vtable,
+                                   void                        *user_data)
+{
+  dbus_bool_t retval;
+  
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (path != NULL, FALSE);
+  _dbus_return_val_if_fail (path[0] != NULL, FALSE);
+  _dbus_return_val_if_fail (vtable != NULL, FALSE);
+
+  CONNECTION_LOCK (connection);
+
+  retval = _dbus_object_tree_register (connection->objects,
+                                       TRUE,
+                                       path, vtable,
                                        user_data);
 
   CONNECTION_UNLOCK (connection);

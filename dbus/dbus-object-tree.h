@@ -34,6 +34,7 @@ void            _dbus_object_tree_ref   (DBusObjectTree *tree);
 void            _dbus_object_tree_unref (DBusObjectTree *tree);
 
 dbus_bool_t       _dbus_object_tree_register              (DBusObjectTree              *tree,
+                                                           dbus_bool_t                  fallback,
                                                            const char                 **path,
                                                            const DBusObjectPathVTable  *vtable,
                                                            void                        *user_data);

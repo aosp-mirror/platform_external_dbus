@@ -1,3 +1,9 @@
+2003-09-06  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-connection.c (dbus_connection_register_fallback): add this
+	(dbus_connection_register_object_path): make this not handle
+	messages to paths below the given path
+
 2003-09-03  Havoc Pennington  <hp@pobox.com>
 
 	* test/glib/Makefile.am: add this with random glib-linked test
