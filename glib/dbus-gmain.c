@@ -21,8 +21,9 @@
  *
  */
 
+#include <config.h>
 #include "dbus-glib.h"
-#include <glib.h>
+#include "dbus-gtest.h"
 
 /**
  * @defgroup DBusGLib GLib bindings
@@ -491,3 +492,19 @@ dbus_server_setup_with_g_main (DBusServer   *server,
 }
 
 /** @} */ /* end of public API */
+
+#ifdef DBUS_BUILD_TESTS
+
+/**
+ * @ingroup DBusGLibInternals
+ * Unit test for GLib main loop integration
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_gmain_test (const char *test_data_dir)
+{
+  
+  return TRUE;
+}
+
+#endif /* DBUS_BUILD_TESTS */

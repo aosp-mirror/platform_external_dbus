@@ -22,24 +22,53 @@
  */
 
 #include "dbus-gidl.h"
+#include <locale.h>
+
+#ifdef DBUS_BUILD_TESTS
+static void run_all_tests (const char *test_data_dir);
+#endif
 
 int
 main (int argc, char **argv)
 {
-
+  setlocale(LC_ALL, "");
 
   return 0;
 }
 
 #ifdef DBUS_BUILD_TESTS
+static void
+test_die (const char *failure)
+{
+  fprintf (stderr, "Unit test failed: %s\n", failure);
+  exit (1);
+}
+
+static void
+run_all_tests (const char *test_data_dir)
+{
+  if (test_data_dir == NULL)
+    test_data_dir = _dbus_getenv ("DBUS_TEST_DATA");
+
+  if (test_data_dir != NULL)
+    printf ("Test data in %s\n", test_data_dir);
+  else
+    printf ("No test data!\n");
+
+  printf ("%s: running gtool tests\n", "dbus-glib-tool");
+  if (!_dbus_gtool_test (test_data_dir))
+    test_die ("gtool");
+
+  printf ("%s: completed successfully\n", "dbus-glib-test");
+}
 
 /**
- * @ingroup DBusGCompiler
- * Unit test for GLib stubs/skels compiler
+ * @ingroup DBusGTool
+ * Unit test for GLib utility tool
  * @returns #TRUE on success.
  */
 dbus_bool_t
-_dbus_gcompiler_test (void)
+_dbus_gtool_test (const char *test_data_dir)
 {
 
   return TRUE;

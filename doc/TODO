@@ -79,3 +79,6 @@
 
  - the invalid messages in the test suite are all useless because 
    they are invalid for the wrong reasons due to protocol changes
+
+ - Nuke the org.freedesktop.Broadcast service; instead, 
+   just broadcast messages of type signal

@@ -1,3 +1,8 @@
+2003-09-01  Havoc Pennington  <hp@pobox.com>
+
+	* glib/Makefile.am: rearrange a bunch of files and get "make
+	check" framework set up
+
 2003-08-31  Havoc Pennington  <hp@pobox.com>
 
 	* fix build with --disable-tests
