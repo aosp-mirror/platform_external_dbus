@@ -1,3 +1,12 @@
+2005-03-21  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/lvalue_cast_post_process.py - added post processor to fix Pyrex
+	  code so that it compiles with gcc4.0
+
+	* python/Makefile.am: Added lvalue_cast_post_process.py to EXTRA_DIST
+	  run dbus_bindings.c through lvalue_cast_post_process.py and copy the
+	  results back to dbus_binding.c
+
 2005-03-20  Colin Walters  <walters@verbum.org>
 
 	Patch suggested by Inguva Rajasekhar <ringuva@novell.com>.
