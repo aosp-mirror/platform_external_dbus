@@ -2,7 +2,7 @@
 /* driver.c  Bus client (driver)
  *
  * Copyright (C) 2003 CodeFactory AB
- * Copyright (C) 2003, 2004 Red Hat, Inc.
+ * Copyright (C) 2003, 2004, 2005 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -350,7 +350,7 @@ bus_driver_send_welcome_message (DBusConnection *connection,
       return FALSE;
     }
 
-  _dbus_assert (dbus_message_has_signature (welcome, "s"));
+  _dbus_assert (dbus_message_has_signature (welcome, DBUS_TYPE_STRING_AS_STRING));
   
   if (!bus_transaction_send_from_driver (transaction, connection, welcome))
     {
@@ -1032,22 +1032,57 @@ bus_driver_handle_reload_config (DBusConnection *connection,
 struct
 {
   const char *name;
+  const char *in_args;
+  const char *out_args;
   dbus_bool_t (* handler) (DBusConnection *connection,
                            BusTransaction *transaction,
                            DBusMessage    *message,
                            DBusError      *error);
 } message_handlers[] = {
-  { "RequestName", bus_driver_handle_acquire_service },
-  { "StartServiceByName", bus_driver_handle_activate_service },
-  { "Hello", bus_driver_handle_hello },
-  { "NameHasOwner", bus_driver_handle_service_exists },
-  { "ListNames", bus_driver_handle_list_services },
-  { "AddMatch", bus_driver_handle_add_match },
-  { "RemoveMatch", bus_driver_handle_remove_match },
-  { "GetNameOwner", bus_driver_handle_get_service_owner },
-  { "GetConnectionUnixUser", bus_driver_handle_get_connection_unix_user },
-  { "GetConnectionUnixProcessID", bus_driver_handle_get_connection_unix_process_id },
-  { "ReloadConfig", bus_driver_handle_reload_config }
+  { "RequestName",
+    DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_UINT32_AS_STRING,
+    DBUS_TYPE_UINT32_AS_STRING,
+    bus_driver_handle_acquire_service },
+  { "StartServiceByName",
+    DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_UINT32_AS_STRING,
+    DBUS_TYPE_UINT32_AS_STRING,
+    bus_driver_handle_activate_service },
+  { "Hello",
+    "",
+    DBUS_TYPE_STRING_AS_STRING,
+    bus_driver_handle_hello },
+  { "NameHasOwner",
+    DBUS_TYPE_STRING_AS_STRING,
+    DBUS_TYPE_BOOLEAN_AS_STRING,
+    bus_driver_handle_service_exists },
+  { "ListNames",
+    "",
+    DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_STRING_AS_STRING,
+    bus_driver_handle_list_services },
+  { "AddMatch",
+    DBUS_TYPE_STRING_AS_STRING,
+    "",
+    bus_driver_handle_add_match },
+  { "RemoveMatch",
+    DBUS_TYPE_STRING_AS_STRING,
+    "",
+    bus_driver_handle_remove_match },
+  { "GetNameOwner",
+    DBUS_TYPE_STRING_AS_STRING,
+    DBUS_TYPE_STRING_AS_STRING,
+    bus_driver_handle_get_service_owner },
+  { "GetConnectionUnixUser",
+    DBUS_TYPE_STRING_AS_STRING,
+    DBUS_TYPE_UINT32_AS_STRING,
+    bus_driver_handle_get_connection_unix_user },
+  { "GetConnectionUnixProcessID",
+    DBUS_TYPE_STRING_AS_STRING,
+    DBUS_TYPE_UINT32_AS_STRING,
+    bus_driver_handle_get_connection_unix_process_id },
+  { "ReloadConfig",
+    "",
+    "",
+    bus_driver_handle_reload_config }
 };
 
 static dbus_bool_t
@@ -1176,7 +1211,23 @@ bus_driver_handle_message (DBusConnection *connection,
     {
       if (strcmp (message_handlers[i].name, name) == 0)
         {
-          _dbus_verbose ("Running driver handler for %s\n", name);
+          _dbus_verbose ("Found driver handler for %s\n", name);
+
+          if (!dbus_message_has_signature (message, message_handlers[i].in_args))
+            {
+              _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+              _dbus_verbose ("Call to %s has wrong args (%s, expected %s)\n",
+                             name, dbus_message_get_signature (message),
+                             message_handlers[i].in_args);
+              
+              dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
+                              "Call to %s has wrong args (%s, expected %s)\n",
+                              name, dbus_message_get_signature (message),
+                              message_handlers[i].in_args);
+              _DBUS_ASSERT_ERROR_IS_SET (error);
+              return FALSE;
+            }
+          
           if ((* message_handlers[i].handler) (connection, transaction, message, error))
             {
               _DBUS_ASSERT_ERROR_IS_CLEAR (error);

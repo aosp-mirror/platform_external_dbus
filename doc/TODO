@@ -29,6 +29,8 @@ Important for 1.0
 
  - Ping isn't handled
 
+ - fix introspection format to handle all signatures
+
 Important for 1.0 GLib Bindings
 ===
 

@@ -1,3 +1,9 @@
+2005-02-12  Havoc Pennington  <hp@redhat.com>
+
+	* bus/driver.c: put the signature of each bus driver method in the
+	table of handlers and check it on incoming calls; this isn't
+	really useful, but going to add introspect support in a minute.
+
 2005-02-11  Joe Shaw  <joeshaw@novell.com>
 
 	* mono/Connection.cs: The unpredictability of finalizers in mono
