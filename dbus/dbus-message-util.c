@@ -74,6 +74,7 @@ dbus_message_iter_get_args (DBusMessageIter *iter,
 
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-test.h"
+#include "dbus-message-factory.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -554,6 +555,7 @@ dbus_internal_do_not_use_foreach_message_file (const char                *test_d
   return retval;
 }
 
+#if 0
 #define GET_AND_CHECK(iter, typename, literal)                                  \
   do {                                                                          \
     if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_##typename)         \
@@ -650,6 +652,7 @@ message_iter_test (DBusMessage *message)
   if (dbus_message_iter_next (&iter))
     _dbus_assert_not_reached ("Didn't reach end of arguments");
 }
+#endif
 
 static void
 verify_test_message (DBusMessage *message)
@@ -1077,84 +1080,19 @@ _dbus_message_test (const char *test_data_dir)
 
   _dbus_assert (strcmp (name1, name2) == 0);
 
-  dbus_message_unref (message);
   dbus_message_unref (copy);
-
-#if 0
-  /* FIXME */
-  message = dbus_message_new_method_call ("org.freedesktop.DBus.TestService",
-                                          "/org/freedesktop/TestPath",
-                                          "Foo.TestInterface",
-                                          "TestMethod");
-
-  _dbus_message_set_serial (message, 1);
-  dbus_message_set_reply_serial (message, 0x12345678);
-
-  dbus_message_iter_init_append (message, &iter);
-  dbus_message_iter_append_string (&iter, "Test string");
-  dbus_message_iter_append_int32 (&iter, -0x12345678);
-  dbus_message_iter_append_uint32 (&iter, 0xedd1e);
-  dbus_message_iter_append_double (&iter, 3.14159);
-
-  dbus_message_iter_append_array (&iter, &child_iter, DBUS_TYPE_DOUBLE);
-  dbus_message_iter_append_double (&child_iter, 1.5);
-  dbus_message_iter_append_double (&child_iter, 2.5);
-
-  /* dict */
-  dbus_message_iter_append_dict (&iter, &child_iter);
-  dbus_message_iter_append_dict_key (&child_iter, "test");
-  dbus_message_iter_append_uint32 (&child_iter, 0xDEADBEEF);
-
-  /* dict (in dict) */
-  dbus_message_iter_append_dict_key (&child_iter, "testdict");
-  dbus_message_iter_append_dict (&child_iter, &child_iter2);
-
-  dbus_message_iter_append_dict_key (&child_iter2, "dictkey");
-  dbus_message_iter_append_string (&child_iter2, "dictvalue");
-
-  /* array of array of int32  (in dict) */
-  dbus_message_iter_append_dict_key (&child_iter, "array");
-  dbus_message_iter_append_array (&child_iter, &child_iter2, DBUS_TYPE_ARRAY);
-  dbus_message_iter_append_array (&child_iter2, &child_iter3, DBUS_TYPE_INT32);
-  dbus_message_iter_append_int32 (&child_iter3, 0x12345678);
-  dbus_message_iter_append_int32 (&child_iter3, 0x23456781);
-  _dbus_warn ("next call expected to fail with wrong array type\n");
-  _dbus_assert (!dbus_message_iter_append_array (&child_iter2, &child_iter3, DBUS_TYPE_UINT32));
-  dbus_message_iter_append_array (&child_iter2, &child_iter3, DBUS_TYPE_INT32);
-  dbus_message_iter_append_int32 (&child_iter3, 0x34567812);
-  dbus_message_iter_append_int32 (&child_iter3, 0x45678123);
-  dbus_message_iter_append_int32 (&child_iter3, 0x56781234);
-
-  dbus_message_iter_append_byte (&iter, 0xF0);
-
-  dbus_message_iter_append_nil (&iter);
-
-  dbus_message_iter_append_custom (&iter, "MyTypeName",
-                                   "data", 5);
-
-  dbus_message_iter_append_byte (&iter, 0xF0);
-
-  dbus_message_iter_append_array (&iter, &child_iter, DBUS_TYPE_INT32);
-
-  dbus_message_iter_append_byte (&iter, 0xF0);
-
-  dbus_message_iter_append_dict (&iter, &child_iter);
-
-  dbus_message_iter_append_byte (&iter, 0xF0);
-
-  message_iter_test (message);
 
   /* Message loader test */
   _dbus_message_lock (message);
   loader = _dbus_message_loader_new ();
-
+  
   /* check ref/unref */
   _dbus_message_loader_ref (loader);
   _dbus_message_loader_unref (loader);
 
   /* Write the header data one byte at a time */
-  data = _dbus_string_get_const_data (&message->header);
-  for (i = 0; i < _dbus_string_get_length (&message->header); i++)
+  data = _dbus_string_get_const_data (&message->header.data);
+  for (i = 0; i < _dbus_string_get_length (&message->header.data); i++)
     {
       DBusString *buffer;
 
@@ -1174,7 +1112,6 @@ _dbus_message_test (const char *test_data_dir)
       _dbus_message_loader_return_buffer (loader, buffer, 1);
     }
 
-  copy = dbus_message_copy (message); /* save for tests below */
   dbus_message_unref (message);
 
   /* Now pop back the message */
@@ -1191,106 +1128,11 @@ _dbus_message_test (const char *test_data_dir)
   if (dbus_message_get_reply_serial (message) != 0x12345678)
     _dbus_assert_not_reached ("reply serial fields differ");
 
-  message_iter_test (message);
+  verify_test_message (message);
 
   dbus_message_unref (message);
   _dbus_message_loader_unref (loader);
 
-  message = dbus_message_new_method_return (copy);
-  if (message == NULL)
-    _dbus_assert_not_reached ("out of memory\n");
-  dbus_message_unref (copy);
-
-  if (!dbus_message_append_args (message,
-                                 DBUS_TYPE_STRING, "hello",
-                                 DBUS_TYPE_INVALID))
-    _dbus_assert_not_reached ("no memory");
-
-  if (!dbus_message_has_signature (message, "s"))
-    _dbus_assert_not_reached ("method return has wrong signature");
-
-  dbus_error_init (&error);
-  if (!dbus_message_get_args (message, &error, DBUS_TYPE_STRING,
-                              &t, DBUS_TYPE_INVALID))
-
-    {
-      _dbus_warn ("Failed to get expected string arg: %s\n", error.message);
-      exit (1);
-    }
-  dbus_free (t);
-
-  dbus_message_unref (message);
-
-  /* This ServiceAcquired message used to trigger a bug in
-   * setting header fields, adding to regression test.
-   */
-  message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                     DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                     "ServiceAcquired");
-
-  if (message == NULL)
-    _dbus_assert_not_reached ("out of memory");
-
-  _dbus_verbose ("Bytes after creation\n");
-  _dbus_verbose_bytes_of_string (&message->header, 0,
-                                 _dbus_string_get_length (&message->header));
-
-  if (!dbus_message_set_destination (message, ":1.0") ||
-      !dbus_message_append_args (message,
-                                 DBUS_TYPE_STRING, ":1.0",
-                                 DBUS_TYPE_INVALID))
-    _dbus_assert_not_reached ("out of memory");
-
-  _dbus_verbose ("Bytes after set_destination() and append_args()\n");
-  _dbus_verbose_bytes_of_string (&message->header, 0,
-                                 _dbus_string_get_length (&message->header));
-
-  if (!dbus_message_set_sender (message, "org.freedesktop.DBus"))
-    _dbus_assert_not_reached ("out of memory");
-
-  _dbus_verbose ("Bytes after set_sender()\n");
-  _dbus_verbose_bytes_of_string (&message->header, 0,
-                                 _dbus_string_get_length (&message->header));
-
-  /* When the bug happened the above set_destination() would
-   * corrupt the signature
-   */
-  if (!dbus_message_has_signature (message, "s"))
-    {
-      _dbus_warn ("Signature should be 's' but is '%s'\n",
-                  dbus_message_get_signature (message));
-      _dbus_assert_not_reached ("signal has wrong signature");
-    }
-
-  /* have to set destination again to reproduce the bug */
-  if (!dbus_message_set_destination (message, ":1.0"))
-    _dbus_assert_not_reached ("out of memory");
-
-  _dbus_verbose ("Bytes after set_destination()\n");
-  _dbus_verbose_bytes_of_string (&message->header, 0,
-                                 _dbus_string_get_length (&message->header));
-
-  /* When the bug happened the above set_destination() would
-   * corrupt the signature
-   */
-  if (!dbus_message_has_signature (message, "s"))
-    {
-      _dbus_warn ("Signature should be 's' but is '%s'\n",
-                  dbus_message_get_signature (message));
-      _dbus_assert_not_reached ("signal has wrong signature");
-    }
-
-  dbus_error_init (&error);
-  if (!dbus_message_get_args (message, &error, DBUS_TYPE_STRING,
-                              &t, DBUS_TYPE_INVALID))
-
-    {
-      _dbus_warn ("Failed to get expected string arg for signal: %s\n", error.message);
-      exit (1);
-    }
-  dbus_free (t);
-
-  dbus_message_unref (message);
 
   /* Now load every message in test_data_dir if we have one */
   if (test_data_dir == NULL)
@@ -1299,11 +1141,7 @@ _dbus_message_test (const char *test_data_dir)
   return dbus_internal_do_not_use_foreach_message_file (test_data_dir,
                                                         (DBusForeachMessageFileFunc)
                                                         dbus_internal_do_not_use_try_message_file,
-                                                        NULL);
-
-#endif /* Commented out most tests for now */
-
-  return TRUE;
+                                                        NULL);  
 }
 
 #endif /* DBUS_BUILD_TESTS */

@@ -1,3 +1,8 @@
+2005-01-22  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-faq.xml, doc/dbus-tutorial: add a FAQ and update
+	tutorial, based on work from David Wheeler.
+
 2005-01-21  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-bus.c: add more return_if_fail checks
