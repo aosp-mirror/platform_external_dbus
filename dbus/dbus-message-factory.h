@@ -40,10 +40,11 @@ typedef struct
 
 } DBusMessageData;
 
+#define _DBUS_MESSAGE_DATA_MAX_NESTING 10
 typedef struct
 {
-  int generator;
-  int sequence;
+  int sequence_nos[_DBUS_MESSAGE_DATA_MAX_NESTING];
+  int depth;
 } DBusMessageDataIter;
 
 void        _dbus_message_data_free              (DBusMessageData     *data);

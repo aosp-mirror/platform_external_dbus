@@ -69,8 +69,10 @@ typedef dbus_bool_t (* DBusForeachMessageFileFunc) (const DBusString   *filename
 dbus_bool_t dbus_internal_do_not_use_foreach_message_file (const char                 *test_data_dir,
                                                            DBusForeachMessageFileFunc  func,
                                                            void                       *user_data);
-
-                                                           
+dbus_bool_t dbus_internal_do_not_use_generate_bodies    (int           sequence,
+                                                         int           byte_order,
+                                                         DBusString   *signature,
+                                                         DBusString   *body);
 
 
 #endif /* DBUS_TEST_H */

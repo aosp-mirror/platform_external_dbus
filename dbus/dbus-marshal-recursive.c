@@ -923,7 +923,7 @@ _dbus_type_reader_read_fixed_multi (const DBusTypeReader  *reader,
   _dbus_assert (reader->klass == &array_reader_class);
 
   element_type = _dbus_first_type_in_signature (reader->type_str,
-                                          reader->type_pos);
+                                                reader->type_pos);
 
   _dbus_assert (element_type != DBUS_TYPE_INVALID); /* why we don't use get_current_type() */
   _dbus_assert (_dbus_type_is_fixed (element_type));

@@ -1148,7 +1148,9 @@ _dbus_message_test (const char *test_data_dir)
   {
     DBusMessageDataIter diter;
     DBusMessageData mdata;
+    int count;
 
+    count = 0;
     _dbus_message_data_iter_init (&diter);
     
     while (_dbus_message_data_iter_get_and_next (&diter,
@@ -1157,14 +1159,17 @@ _dbus_message_test (const char *test_data_dir)
         if (!dbus_internal_do_not_use_try_message_data (&mdata.data,
                                                         mdata.expected_validity))
           {
-            _dbus_warn ("expected validity %d and did not get it; generator %d sequence %d\n",
-                        mdata.expected_validity,
-                        diter.generator, diter.sequence);
+            _dbus_warn ("expected validity %d and did not get it\n",
+                        mdata.expected_validity);
             _dbus_assert_not_reached ("message data failed");
           }
 
         _dbus_message_data_free (&mdata);
+
+        count += 1;
       }
+
+    printf ("%d sample messages tested\n", count);
   }
   
   check_memleaks ();

@@ -2970,13 +2970,6 @@ _dbus_message_loader_get_buffer (DBusMessageLoader  *loader,
 }
 
 /**
- * The smallest header size that can occur.  (It won't be valid due to
- * missing required header fields.) This is 4 bytes, two uint32, an
- * array length.
- */
-#define DBUS_MINIMUM_HEADER_SIZE 16
-
-/**
  * Returns a buffer obtained from _dbus_message_loader_get_buffer(),
  * indicating to the loader how many bytes of the buffer were filled
  * in. This function must always be called, even if no bytes were

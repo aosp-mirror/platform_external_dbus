@@ -1425,6 +1425,87 @@ value_generator (int *ip)
 }
 
 static void
+build_body (TestTypeNode **nodes,
+            int            n_nodes,
+            int            byte_order,
+            DBusString    *signature,
+            DBusString    *body)
+{
+  int i;
+  DataBlock block;
+  DBusTypeReader reader;
+  DBusTypeWriter writer;
+
+  i = 0;
+  while (i < n_nodes)
+    {
+      if (! node_build_signature (nodes[i], signature))
+        _dbus_assert_not_reached ("no memory");
+      
+      ++i;
+    }
+
+  if (!data_block_init (&block, byte_order, 0))
+    _dbus_assert_not_reached ("no memory");
+  
+  data_block_init_reader_writer (&block,
+                                 &reader, &writer);
+  
+  /* DBusTypeWriter assumes it's writing into an existing signature,
+   * so doesn't add nul on its own. We have to do that.
+   */
+  if (!_dbus_string_insert_byte (&block.signature,
+                                 0, '\0'))
+    _dbus_assert_not_reached ("no memory");
+
+  i = 0;
+  while (i < n_nodes)
+    {
+      if (!node_write_value (nodes[i], &block, &writer, i))
+        _dbus_assert_not_reached ("no memory");
+
+      ++i;
+    }
+
+  if (!_dbus_string_copy_len (&block.body, 0,
+                              _dbus_string_get_length (&block.body) - N_FENCE_BYTES,
+                              body, 0))
+    _dbus_assert_not_reached ("oom");
+
+  data_block_free (&block);  
+}
+
+dbus_bool_t
+dbus_internal_do_not_use_generate_bodies (int           sequence,
+                                          int           byte_order,
+                                          DBusString   *signature,
+                                          DBusString   *body)
+{
+  TestTypeNode *nodes[1];
+  int i;
+  int n_nodes;
+
+  nodes[0] = value_generator (&sequence);
+
+  if (nodes[0] == NULL)
+    return FALSE;
+
+  n_nodes = 1;
+  
+  build_body (nodes, n_nodes, byte_order, signature, body);
+
+
+  i = 0;
+  while (i < n_nodes)
+    {
+      node_destroy (nodes[i]);
+      ++i;
+    }
+  
+  return TRUE;
+}
+
+static void
 make_and_run_values_inside_container (const TestTypeNodeClass *container_klass,
                                       int                      n_nested)
 {
@@ -2305,18 +2386,26 @@ object_path_from_seed (char *buf,
 
   v = (unsigned char) ('A' + seed);
 
-  i = 0;
-  while (i + 1 < len)
+  if (len < 2)
     {
-      if (v < 'A' || v > 'z')
-        v = 'A';
+      buf[0] = '/';
+      i = 1;
+    }
+  else
+    {
+      i = 0;
+      while (i + 1 < len)
+        {
+          if (v < 'A' || v > 'z')
+            v = 'A';
 
-      buf[i] = '/';
-      ++i;
-      buf[i] = v;
-      ++i;
-
-      v += 1;
+          buf[i] = '/';
+          ++i;
+          buf[i] = v;
+          ++i;
+          
+          v += 1;
+        }
     }
 
   buf[i] = '\0';

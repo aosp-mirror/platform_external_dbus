@@ -1,3 +1,10 @@
+2005-01-24  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-message-factory.c: more testing of message validation
+
+	* dbus/dbus-protocol.h (DBUS_MINIMUM_HEADER_SIZE): move to this
+	header
+
 2005-01-23  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-message-factory.c, dbus/dbus-message-util.c: 

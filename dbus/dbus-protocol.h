@@ -184,6 +184,14 @@ extern "C" {
      DBUS_STRUCT_END_CHAR_AS_STRING
 
 
+/**
+ * The smallest header size that can occur.  (It won't be valid due to
+ * missing required header fields.) This is 4 bytes, two uint32, an
+ * array length. This isn't any kind of resource limit, just the
+ * necessary/logical outcome of the header signature.
+ */
+#define DBUS_MINIMUM_HEADER_SIZE 16
+
 /* Services */
 #define DBUS_SERVICE_ORG_FREEDESKTOP_DBUS      "org.freedesktop.DBus"
 

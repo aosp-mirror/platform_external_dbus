@@ -193,7 +193,7 @@ validate_body_helper (DBusTypeReader       *reader,
             dbus_uint32_t claimed_len;
 
             a = _DBUS_ALIGN_ADDRESS (p, 4);
-            if (a + 4 >= end)
+            if (a + 4 > end)
               return DBUS_INVALID_NOT_ENOUGH_DATA;
             while (p != a)
               {
@@ -205,6 +205,9 @@ validate_body_helper (DBusTypeReader       *reader,
             claimed_len = _dbus_unpack_uint32 (byte_order, p);
             p += 4;
 
+            /* p may now be == end */
+            _dbus_assert (p <= end);
+            
             if (current_type == DBUS_TYPE_ARRAY)
               {
                 int array_elem_type = _dbus_type_reader_get_element_type (reader);
@@ -1322,6 +1325,70 @@ _dbus_marshal_validate_test (void)
 
   _dbus_string_free (&str);
 
+  /* Body validation; test basic validation of valid bodies for both endian */
+  
+  {
+    int sequence;
+    DBusString signature;
+    DBusString body;
+
+    if (!_dbus_string_init (&signature) || !_dbus_string_init (&body))
+      _dbus_assert_not_reached ("oom");
+
+    sequence = 0;
+    while (dbus_internal_do_not_use_generate_bodies (sequence,
+                                                     DBUS_LITTLE_ENDIAN,
+                                                     &signature, &body))
+      {
+        DBusValidity validity;
+
+        validity = _dbus_validate_body_with_reason (&signature, 0,
+                                                    DBUS_LITTLE_ENDIAN,
+                                                    NULL, &body, 0,
+                                                    _dbus_string_get_length (&body));
+        if (validity != DBUS_VALID)
+          {
+            _dbus_warn ("invalid code %d expected valid on sequence %d little endian\n",
+                        validity, sequence);
+            _dbus_verbose_bytes_of_string (&signature, 0, _dbus_string_get_length (&signature));
+            _dbus_verbose_bytes_of_string (&body, 0, _dbus_string_get_length (&body));
+            _dbus_assert_not_reached ("test failed");
+          }
+
+        _dbus_string_set_length (&signature, 0);
+        _dbus_string_set_length (&body, 0);
+        ++sequence;
+      }
+                                                     
+    sequence = 0;
+    while (dbus_internal_do_not_use_generate_bodies (sequence,
+                                                     DBUS_BIG_ENDIAN,
+                                                     &signature, &body))
+      {
+        DBusValidity validity;
+
+        validity = _dbus_validate_body_with_reason (&signature, 0,
+                                                    DBUS_BIG_ENDIAN,
+                                                    NULL, &body, 0,
+                                                    _dbus_string_get_length (&body));
+        if (validity != DBUS_VALID)
+          {
+            _dbus_warn ("invalid code %d expected valid on sequence %d big endian\n",
+                        validity, sequence);
+            _dbus_verbose_bytes_of_string (&signature, 0, _dbus_string_get_length (&signature));
+            _dbus_verbose_bytes_of_string (&body, 0, _dbus_string_get_length (&body));
+            _dbus_assert_not_reached ("test failed");
+          }
+
+        _dbus_string_set_length (&signature, 0);
+        _dbus_string_set_length (&body, 0);
+        ++sequence;
+      }
+
+    _dbus_string_free (&signature);
+    _dbus_string_free (&body);
+  }
+  
   return TRUE;
 }
 
