@@ -1,5 +1,17 @@
 2003-04-05  Havoc Pennington  <hp@pobox.com>
 
+	* doc/config-file.txt (Elements): fix docs of <auth> to reflect 
+	reality; in fact multiple mechanisms are allowed.
+
+	* dbus/dbus-internals.c (_dbus_real_assert)
+	(_dbus_real_assert_not_reached): move guts of _dbus_assert() and
+	_dbus_assert_not_reached() into functions, so that they don't show
+	up in basic block counts for test coverage, and don't use up as
+	much disk space. Does mean slower execution speed though, so
+	assumes --disable-asserts is the normal production case.
+
+2003-04-05  Havoc Pennington  <hp@pobox.com>
+
 	* test/Makefile.am (dist-hook): also dist *.in files
 
 	* NEWS: update

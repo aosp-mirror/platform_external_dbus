@@ -76,26 +76,22 @@ const char* _dbus_strerror (int error_number);
 #ifdef DBUS_DISABLE_ASSERT
 #define _dbus_assert(condition)
 #else
+void _dbus_real_assert (dbus_bool_t  condition,
+                        const char  *condition_text,
+                        const char  *file,
+                        int          line);
 #define _dbus_assert(condition)                                         \
-do {                                                                    \
-  if (!(condition))                                                     \
-    {                                                                   \
-      _dbus_warn ("Assertion failed \"%s\" file \"%s\" line %d\n",      \
-                  #condition, __FILE__, __LINE__);                      \
-      _dbus_abort ();                                                   \
-    }                                                                   \
-} while (0)
+  _dbus_real_assert ((condition), #condition, __FILE__, __LINE__)
 #endif /* !DBUS_DISABLE_ASSERT */
 
 #ifdef DBUS_DISABLE_ASSERT
 #define _dbus_assert_not_reached(explanation)
 #else
+void _dbus_real_assert_not_reached (const char *explanation,
+                                    const char *file,
+                                    int         line);
 #define _dbus_assert_not_reached(explanation)                                   \
-do {                                                                            \
-    _dbus_warn ("File \"%s\" line %d should not have been reached: %s\n",       \
-               __FILE__, __LINE__, (explanation));                              \
-    _dbus_abort ();                                                             \
-} while (0)
+  _dbus_real_assert_not_reached (explanation, __FILE__, __LINE__)
 #endif /* !DBUS_DISABLE_ASSERT */
 
 #define _DBUS_N_ELEMENTS(array) ((int) (sizeof ((array)) / sizeof ((array)[0])))

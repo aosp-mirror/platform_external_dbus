@@ -89,7 +89,7 @@ Elements:
 
     Lists permitted authorization mechanisms. If this element doesn't
     exist, then all known mechanisms are allowed.  If there are
-    multiple <auth> elements, the last one wins (they are not merged).
+    multiple <auth> elements, all the listed mechanisms are allowed.
     The order in which mechanisms are listed is not meaningful.
     
     Example: <auth>EXTERNAL</auth>

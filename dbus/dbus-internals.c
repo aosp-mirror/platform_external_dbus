@@ -345,6 +345,53 @@ _dbus_type_to_string (int type)
     }
 }
 
+#ifndef DBUS_DISABLE_ASSERT
+/**
+ * Internals of _dbus_assert(); it's a function
+ * rather than a macro with the inline code so
+ * that the assertion failure blocks don't show up
+ * in test suite coverage, and to shrink code size.
+ *
+ * @param condition TRUE if assertion succeeded
+ * @param condition_text condition as a string
+ * @param file file the assertion is in
+ * @param line line the assertion is in
+ */
+void
+_dbus_real_assert (dbus_bool_t  condition,
+                   const char  *condition_text,
+                   const char  *file,
+                   int          line)
+{
+  if (!condition)
+    {
+      _dbus_warn ("Assertion failed \"%s\" file \"%s\" line %d\n",
+                  condition_text, file, line);
+      _dbus_abort ();
+    }
+}
+
+/**
+ * Internals of _dbus_assert_not_reached(); it's a function
+ * rather than a macro with the inline code so
+ * that the assertion failure blocks don't show up
+ * in test suite coverage, and to shrink code size.
+ *
+ * @param explanation what was reached that shouldn't have been
+ * @param file file the assertion is in
+ * @param line line the assertion is in
+ */
+void
+_dbus_real_assert_not_reached (const char *explanation,
+                               const char *file,
+                               int         line)
+{
+  _dbus_warn ("File \"%s\" line %d should not have been reached: %s\n",
+              file, line, explanation);
+  _dbus_abort ();
+}
+#endif /* DBUS_DISABLE_ASSERT */
+  
 #ifdef DBUS_BUILD_TESTS
 static dbus_bool_t
 run_failing_each_malloc (int                    n_mallocs,
