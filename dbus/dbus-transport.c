@@ -199,6 +199,35 @@ _dbus_transport_open (const char     *address,
 
 	  transport = _dbus_transport_new_for_domain_socket (path, FALSE, result);
 	}
+      else if (strcmp (method, "tcp") == 0)
+	{
+	  const char *host = dbus_address_entry_get_value (entries[i], "host");
+          const char *port = dbus_address_entry_get_value (entries[i], "port");
+          DBusString  str;
+          long lport;
+          dbus_bool_t sresult;
+          
+	  if (port == NULL)
+	    goto bad_address;
+
+          _dbus_string_init_const (&str, port);
+          sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
+          _dbus_string_free (&str);
+          
+          if (sresult == FALSE || lport <= 0 || lport > 65535)
+            goto bad_address;
+          
+	  transport = _dbus_transport_new_for_tcp_socket (host, lport, FALSE, result);
+	}
+      else if (strcmp (method, "tcp") == 0)
+	{
+	  const char *path = dbus_address_entry_get_value (entries[i], "path");
+
+	  if (path == NULL)
+	    goto bad_address;
+
+	  transport = _dbus_transport_new_for_domain_socket (path, FALSE, result);
+	}
 #ifdef DBUS_BUILD_TESTS
       else if (strcmp (method, "debug") == 0)
 	{

@@ -1118,6 +1118,43 @@ _dbus_transport_new_for_domain_socket (const char     *path,
   return transport;
 }
 
+/**
+ * Creates a new transport for the given hostname and port.
+ *
+ * @param host the host to connect to
+ * @param port the port to connect to
+ * @param server #TRUE if this transport is on the server side of a connection
+ * @param result location to store reason for failure.
+ * @returns a new transport, or #NULL on failure.
+ */
+DBusTransport*
+_dbus_transport_new_for_tcp_socket (const char     *host,
+                                    dbus_int32_t    port,
+                                    dbus_bool_t     server,
+                                    DBusResultCode *result)
+{
+  int fd;
+  DBusTransport *transport;
+  
+  fd = _dbus_connect_tcp_socket (host, port, result);
+  if (fd < 0)
+    return NULL;
+
+  _dbus_fd_set_close_on_exec (fd);
+  
+  _dbus_verbose ("Successfully connected to tcp socket %s:%d\n",
+                 host, port);
+  
+  transport = _dbus_transport_new_for_fd (fd, server);
+  if (transport == NULL)
+    {
+      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      close (fd);
+      fd = -1;
+    }
+
+  return transport;
+}
 
 /** @} */
 

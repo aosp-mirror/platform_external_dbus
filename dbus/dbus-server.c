@@ -19,7 +19,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- */
+ */ 
+#include <stdlib.h>
 #include "dbus-server.h"
 #include "dbus-server-unix.h"
 #ifdef DBUS_BUILD_TESTS
@@ -224,6 +225,29 @@ dbus_server_listen (const char     *address,
 	    goto bad_address;
 
 	  server = _dbus_server_new_for_domain_socket (path, result);
+
+	  if (server)
+	    break;
+	}
+      else if (strcmp (method, "tcp") == 0)
+	{
+	  const char *host = dbus_address_entry_get_value (entries[i], "host");
+          const char *port = dbus_address_entry_get_value (entries[i], "port");
+          DBusString  str;
+          long lport;
+          dbus_bool_t sresult;
+          
+	  if (port == NULL)
+	    goto bad_address;
+
+          _dbus_string_init_const (&str, port);
+          sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
+          _dbus_string_free (&str);
+          
+          if (sresult == FALSE || lport <= 0 || lport > 65535)
+            goto bad_address;
+          
+	  server = _dbus_server_new_for_tcp_socket (host, lport, result);
 
 	  if (server)
 	    break;

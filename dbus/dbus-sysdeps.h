@@ -79,6 +79,12 @@ int _dbus_connect_unix_socket (const char     *path,
                                DBusResultCode *result);
 int _dbus_listen_unix_socket  (const char     *path,
                                DBusResultCode *result);
+int _dbus_connect_tcp_socket  (const char     *host,
+                               dbus_uint32_t   port,
+                               DBusResultCode *result);
+int _dbus_listen_tcp_socket   (const char     *host,
+                               dbus_uint32_t   port,
+                               DBusResultCode *result);
 int _dbus_accept              (int             listen_fd);
 
 dbus_bool_t _dbus_read_credentials_unix_socket (int              client_fd,

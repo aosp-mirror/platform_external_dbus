@@ -40,6 +40,8 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <netinet/in.h>
+#include <netdb.h>
 
 #ifdef HAVE_WRITEV
 #include <sys/uio.h>
@@ -381,6 +383,161 @@ _dbus_listen_unix_socket (const char     *path,
       dbus_set_result (result, _dbus_result_from_errno (errno));      
       _dbus_verbose ("Failed to listen on socket \"%s\": %s\n",
                      path, _dbus_strerror (errno));
+      close (listen_fd);
+      return -1;
+    }
+
+  if (!_dbus_set_fd_nonblocking (listen_fd, result))
+    {
+      close (listen_fd);
+      return -1;
+    }
+  
+  return listen_fd;
+}
+
+/**
+ * Creates a socket and connects to a socket at the given host 
+ * and port. The connection fd is returned, and is set up as
+ * nonblocking.
+ *
+ * @param host the host name to connect to
+ * @param port the prot to connect to
+ * @param result return location for error code
+ * @returns connection file descriptor or -1 on error
+ */
+int
+_dbus_connect_tcp_socket (const char     *host,
+                          dbus_uint32_t   port,
+                          DBusResultCode *result)
+{
+  int fd;
+  struct sockaddr_in addr;
+  struct hostent *he;
+  struct in_addr *haddr;
+  
+  fd = socket (AF_INET, SOCK_STREAM, 0);
+  
+  if (fd < 0)
+    {
+      dbus_set_result (result,
+                       _dbus_result_from_errno (errno));
+      
+      _dbus_verbose ("Failed to create socket: %s\n",
+                     _dbus_strerror (errno)); 
+      
+      return -1;
+    }
+
+  if (host == NULL)
+    host = "localhost";
+
+  he = gethostbyname (host);
+  if (he == NULL) 
+    {
+      dbus_set_result (result,
+                       _dbus_result_from_errno (errno));
+      _dbus_verbose ("Failed to lookup hostname: %s\n",
+                     host);
+      return -1;
+    }
+  
+  haddr = ((struct in_addr *) (he->h_addr_list)[0]);
+
+  _DBUS_ZERO (addr);
+  memcpy (&addr.sin_addr, haddr, sizeof(struct in_addr));
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons (port);
+  
+  if (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0)
+    {      
+      dbus_set_result (result,
+                       _dbus_result_from_errno (errno));
+
+      _dbus_verbose ("Failed to connect to socket %s: %s:%d\n",
+                     host, port, _dbus_strerror (errno));
+
+      close (fd);
+      fd = -1;
+      
+      return -1;
+    }
+
+  if (!_dbus_set_fd_nonblocking (fd, result))
+    {
+      close (fd);
+      fd = -1;
+
+      return -1;
+    }
+
+  return fd;
+}
+
+/**
+ * Creates a socket and binds it to the given path,
+ * then listens on the socket. The socket is
+ * set to be nonblocking. 
+ *
+ * @param host the host name to listen on
+ * @param port the prot to listen on
+ * @param result return location for errors
+ * @returns the listening file descriptor or -1 on error
+ */
+int
+_dbus_listen_tcp_socket (const char     *host,
+                         dbus_uint32_t   port,
+                         DBusResultCode *result)
+{
+  int listen_fd;
+  struct sockaddr_in addr;
+  struct hostent *he;
+  struct in_addr *haddr;
+  
+  listen_fd = socket (AF_INET, SOCK_STREAM, 0);
+  
+  if (listen_fd < 0)
+    {
+      dbus_set_result (result, _dbus_result_from_errno (errno));
+      _dbus_verbose ("Failed to create socket \"%s:%d\": %s\n",
+                     host, port, _dbus_strerror (errno));
+      return -1;
+    }
+
+  if (host == NULL)
+    host = "localhost";
+  
+  he = gethostbyname (host);
+  if (he == NULL) 
+    {
+      dbus_set_result (result,
+                       _dbus_result_from_errno (errno));
+      _dbus_verbose ("Failed to lookup hostname: %s\n",
+                     host);
+      return -1;
+    }
+  
+  haddr = ((struct in_addr *) (he->h_addr_list)[0]);
+
+  _DBUS_ZERO (addr);
+  memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons (port);
+
+  if (bind (listen_fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
+    {
+      dbus_set_result (result, _dbus_result_from_errno (errno));
+      _dbus_verbose ("Failed to bind socket \"%s:%d\": %s\n",
+                     host, port, _dbus_strerror (errno));
+      close (listen_fd);
+      return -1;
+    }
+
+  if (listen (listen_fd, 30 /* backlog */) < 0)
+    {
+      dbus_set_result (result, _dbus_result_from_errno (errno));      
+      _dbus_verbose ("Failed to listen on socket \"%s:%d\": %s\n",
+                     host, port, _dbus_strerror (errno));
       close (listen_fd);
       return -1;
     }

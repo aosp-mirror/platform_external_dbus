@@ -1,3 +1,20 @@
+2003-02-19  Mikael Hallendal  <micke@codefactory.se>
+
+	* dbus/dbus-server.c (dbus_server_listen): Support tcp: addresses.
+
+	* dbus/dbus-transport-unix.c (_dbus_transport_new_for_tcp_socket): 
+	Added to create a transport connecting using a tcp/ip socket.
+
+	* dbus/dbus-sysdeps.c (_dbus_connect_tcp_socket): Added to connect
+	to a tcp socket at given host and port.
+	(_dbus_listen_tcp_socket): added to listen on tcp socket for given
+	hostname and port.
+
+	* dbus/dbus-server.c (dbus_server_listen): Support tcp: addresses.
+
+	* dbus/dbus-server-unix.c (_dbus_server_new_for_tcp_socket): 
+	Added to create a server listening on a TCP/IP socket.
+
 2003-02-19  Havoc Pennington  <hp@pobox.com>
 
 	Throughout: mop up all the Doxygen warnings and undocumented

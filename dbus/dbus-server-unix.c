@@ -264,5 +264,40 @@ _dbus_server_new_for_domain_socket (const char     *path,
   return server;
 }
 
+/**
+ * Creates a new server listening on the given hostname and port
+ *
+ * @param host the hostname to listen on.
+ * @param port the port to listen on.
+ * @param result location to store reason for failure.
+ * @returns the new server, or #NULL on failure.
+ */
+DBusServer*
+_dbus_server_new_for_tcp_socket (const char     *host,
+                                 dbus_uint32_t   port,
+                                 DBusResultCode *result)
+{
+  DBusServer *server;
+  int listen_fd;
+  
+  listen_fd = _dbus_listen_tcp_socket (host, port, result);
+  _dbus_fd_set_close_on_exec (listen_fd);
+  
+  if (listen_fd < 0)
+    return NULL;
+  
+  server = _dbus_server_new_for_fd (listen_fd);
+  if (server == NULL)
+    {
+      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      close (listen_fd);
+      return NULL;
+    }
+
+  return server;
+
+
+}
+
 /** @} */
 

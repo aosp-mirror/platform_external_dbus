@@ -31,6 +31,9 @@ DBUS_BEGIN_DECLS;
 DBusServer* _dbus_server_new_for_fd            (int             fd);
 DBusServer* _dbus_server_new_for_domain_socket (const char     *path,
                                                 DBusResultCode *result);
+DBusServer* _dbus_server_new_for_tcp_socket    (const char     *host,
+                                                dbus_uint32_t   port,
+                                                DBusResultCode *result);
 
 DBUS_END_DECLS;
 
