@@ -1,5 +1,17 @@
 2005-01-17  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-types.h: remove 16-bit types since we don't use them
+	ever
+
+	* dbus/dbus-marshal-validate.c (_dbus_validate_path): disallow any
+	"invalid name character" not only non-ASCII
+
+	* doc/dbus-specification.xml: further update spec, message bus 
+	parts are still out-of-date but the marshaling etc. stuff is now
+	accurate-ish
+
+2005-01-17  Havoc Pennington  <hp@redhat.com>
+
 	* doc/dbus-specification.xml: partially update spec
 
 2005-01-17  Havoc Pennington  <hp@redhat.com>

@@ -29,8 +29,6 @@
 
 #include <stddef.h>
 
-typedef unsigned short dbus_uint16_t;
-typedef short          dbus_int16_t;
 typedef unsigned int   dbus_uint32_t;
 typedef int            dbus_int32_t;
 typedef dbus_uint32_t  dbus_unichar_t;

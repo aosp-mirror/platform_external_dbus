@@ -482,6 +482,25 @@ _dbus_validate_body_with_reason (const DBusString *expected_signature,
 }
 
 /**
+ * Determine wether the given charater is valid as the first charater
+ * in a name.
+ */
+#define VALID_INITIAL_NAME_CHARACTER(c)         \
+  ( ((c) >= 'A' && (c) <= 'Z') ||               \
+    ((c) >= 'a' && (c) <= 'z') ||               \
+    ((c) == '_') )
+
+/**
+ * Determine wether the given charater is valid as a second or later
+ * character in a name
+ */
+#define VALID_NAME_CHARACTER(c)                 \
+  ( ((c) >= '0' && (c) <= '9') ||               \
+    ((c) >= 'A' && (c) <= 'Z') ||               \
+    ((c) >= 'a' && (c) <= 'z') ||               \
+    ((c) == '_') )
+
+/**
  * Checks that the given range of the string is a valid object path
  * name in the D-BUS protocol. Part of the validation ensures that
  * the object path contains only ASCII.
@@ -535,7 +554,7 @@ _dbus_validate_path (const DBusString  *str,
         }
       else
         {
-          if (_DBUS_UNLIKELY (!_DBUS_ISASCII (*s)))
+          if (_DBUS_UNLIKELY (!VALID_NAME_CHARACTER (*s)))
             return FALSE;
         }
 
@@ -548,25 +567,6 @@ _dbus_validate_path (const DBusString  *str,
 
   return TRUE;
 }
-
-/**
- * Determine wether the given charater is valid as the first charater
- * in a name.
- */
-#define VALID_INITIAL_NAME_CHARACTER(c)         \
-  ( ((c) >= 'A' && (c) <= 'Z') ||               \
-    ((c) >= 'a' && (c) <= 'z') ||               \
-    ((c) == '_') )
-
-/**
- * Determine wether the given charater is valid as a second or later
- * character in a name
- */
-#define VALID_NAME_CHARACTER(c)                 \
-  ( ((c) >= '0' && (c) <= '9') ||               \
-    ((c) >= 'A' && (c) <= 'Z') ||               \
-    ((c) >= 'a' && (c) <= 'z') ||               \
-    ((c) == '_') )
 
 /**
  * Checks that the given range of the string is a valid interface name
