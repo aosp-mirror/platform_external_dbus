@@ -1,3 +1,7 @@
+2004-05-25  Colin Walters  <walters@redhat.com>
+
+	* tools/dbus-monitor.c (main): Monitor all types of messages.
+
 2004-05-23  Owen Fraser-Green  <owen@discobabe.net>
 
 	* mono/Handler.cs, mono/Service.cs: Added UnregisterObject method
@@ -146,6 +150,7 @@
 	* mono/DBusType/Array.cs: Handle empty arrays
 	* mono/Arguments.cs: Handle empty arguments
 
+>>>>>>> 1.496
 2004-04-30  Owen Fraser-Green  <owen@discobabe.net>
 
 	* dbus-sharp.pc.in: Modified to include include Libs and Requires

@@ -94,9 +94,35 @@ main (int argc, char *argv[])
 
   dbus_connection_setup_with_g_main (connection, NULL);
 
-  dbus_connection_add_filter (connection, filter_func, NULL, NULL);
+  dbus_bus_add_match (connection,
+		      "type='signal'",
+		      &error);
+  if (dbus_error_is_set (&error))
+    goto lose;
+  dbus_bus_add_match (connection,
+		      "type='method_call'",
+		      &error);
+  if (dbus_error_is_set (&error))
+    goto lose;
+  dbus_bus_add_match (connection,
+		      "type='method_return'",
+		      &error);
+  if (dbus_error_is_set (&error))
+    goto lose;
+  dbus_bus_add_match (connection,
+		      "type='error'",
+		      &error);
+  if (dbus_error_is_set (&error))
+    goto lose;
+  if (!dbus_connection_add_filter (connection, filter_func, NULL, NULL)) {
+    fprintf (stderr, "Couldn't add filter!\n");
+    exit (1);
+  }
 
   g_main_loop_run (loop);
 
   exit (0);
+ lose:
+  fprintf (stderr, "Error: %s\n", error.message);
+  exit (1);
 }
