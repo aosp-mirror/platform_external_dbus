@@ -7,8 +7,8 @@
 <article id="index">
   <articleinfo>
     <title>D-BUS Specification</title>
-    <releaseinfo>Version 0.9</releaseinfo>
-    <date>17 January 2005</date>
+    <releaseinfo>Version 0.10</releaseinfo>
+    <date>28 January 2005</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -263,6 +263,28 @@
       </para>
 
       <para>
+        A <literal>DICT_ENTRY</literal> works exactly like a struct, but rather
+        than parentheses it uses curly braces, and it has more restrictions.
+        The restrictions are: it occurs only as an array element type; and it
+        has exactly two single complete types inside the curly
+        braces. Implementations must not accept dict entries outside of arrays,
+        and must not accept dict entries with zero, one, or more than two
+        fields. A dict entry is always a key-value pair.
+      </para>
+      
+      <para>
+        The first field in the <literal>DICT_ENTRY</literal> is always the key.
+        A message is considered corrupt if the same key occurs twice in the same
+        array of <literal>DICT_ENTRY</literal>. However, for performance reasons
+        implementations are not required to reject dicts with duplicate keys.
+      </para>
+
+      <para>
+        In most languages, an array of dict entry would be represented as a 
+        map, hash table, or dict object.
+      </para>
+
+      <para>
         The following table summarizes the D-BUS types.
         <informaltable>
           <tgroup cols="3">
@@ -286,6 +308,14 @@
 		<entry><literal>BOOLEAN</literal></entry>
 		<entry>98 (ASCII 'b')</entry>
 		<entry>Boolean value, 0 is <literal>FALSE</literal> and 1 is <literal>TRUE</literal>. Everything else is invalid.</entry>
+	      </row><row>
+                <entry><literal>INT16</literal></entry>
+                <entry>110 (ASCII 'n')</entry>
+                <entry>16-bit signed integer</entry>
+              </row><row>
+                <entry><literal>UINT16</literal></entry>
+                <entry>113 (ASCII 'q')</entry>
+                <entry>16-bit unsigned integer</entry>
 	      </row><row>
                 <entry><literal>INT32</literal></entry>
                 <entry>105 (ASCII 'i')</entry>
@@ -330,6 +360,10 @@
                 <entry><literal>VARIANT</literal></entry>
                 <entry>118 (ASCII 'v') </entry>
                 <entry>Variant type (the type of the value is part of the value itself)</entry>
+              </row><row>
+                <entry><literal>DICT_ENTRY</literal></entry>
+                <entry>101 (ASCII 'e'), 123 (ASCII '{'), 125 (ASCII '}') </entry>
+                <entry>Entry in a dict or map (array of key-value pairs)</entry>
               </row>
             </tbody>
           </tgroup>
@@ -391,6 +425,14 @@
                 <entry><literal>BOOLEAN</literal></entry>
                 <entry>As for <literal>UINT32</literal>, but only 0 and 1 are valid values.</entry>
                 <entry>4</entry>
+              </row><row>
+                <entry><literal>INT16</literal></entry>
+                <entry>16-bit signed integer in the message's byte order.</entry>
+                <entry>2</entry>
+              </row><row>
+                <entry><literal>UINT16</literal></entry>
+                <entry>16-bit unsigned integer in the message's byte order.</entry>
+                <entry>2</entry>
               </row><row>
                 <entry><literal>INT32</literal></entry>
                 <entry>32-bit signed integer in the message's byte order.</entry>
@@ -477,6 +519,14 @@
                 </entry>
                 <entry>
                   1 (alignment of the signature)
+                </entry>
+	      </row><row>
+                <entry><literal>DICT_ENTRY</literal></entry>
+                <entry>
+                  Identical to STRUCT.
+                </entry>
+                <entry>
+                  8
                 </entry>
 	      </row>
             </tbody>

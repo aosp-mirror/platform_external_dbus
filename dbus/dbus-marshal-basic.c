@@ -172,7 +172,7 @@ dbus_uint16_t
 _dbus_unpack_uint16 (int                  byte_order,
                      const unsigned char *data)
 {
-  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 2) == data);
 
   if (byte_order == DBUS_LITTLE_ENDIAN)
     return DBUS_UINT16_FROM_LE (*(dbus_uint16_t*)data);
@@ -1245,8 +1245,10 @@ _dbus_type_get_alignment (int typecode)
        * and it's simpler to just always align structs to 8;
        * we want the amount of padding in a struct of a given
        * type to be predictable, not location-dependent.
+       * DICT_ENTRY is always the same as struct.
        */
     case DBUS_TYPE_STRUCT:
+    case DBUS_TYPE_DICT_ENTRY:
       return 8;
 
     default:
@@ -1283,6 +1285,7 @@ _dbus_type_is_valid (int typecode)
     case DBUS_TYPE_SIGNATURE:
     case DBUS_TYPE_ARRAY:
     case DBUS_TYPE_STRUCT:
+    case DBUS_TYPE_DICT_ENTRY:
     case DBUS_TYPE_VARIANT:
       return TRUE;
 
@@ -1294,6 +1297,7 @@ _dbus_type_is_valid (int typecode)
 /** macro that checks whether a typecode is a container type */
 #define TYPE_IS_CONTAINER(typecode)             \
     ((typecode) == DBUS_TYPE_STRUCT ||          \
+     (typecode) == DBUS_TYPE_DICT_ENTRY ||      \
      (typecode) == DBUS_TYPE_VARIANT ||         \
      (typecode) == DBUS_TYPE_ARRAY)
 
@@ -1403,6 +1407,8 @@ _dbus_type_to_string (int typecode)
       return "signature";
     case DBUS_TYPE_STRUCT:
       return "struct";
+    case DBUS_TYPE_DICT_ENTRY:
+      return "dict_entry";
     case DBUS_TYPE_ARRAY:
       return "array";
     case DBUS_TYPE_VARIANT:
@@ -1411,6 +1417,10 @@ _dbus_type_to_string (int typecode)
       return "begin_struct";
     case DBUS_STRUCT_END_CHAR:
       return "end_struct";
+    case DBUS_DICT_ENTRY_BEGIN_CHAR:
+      return "begin_dict_entry";
+    case DBUS_DICT_ENTRY_END_CHAR:
+      return "end_dict_entry";
     default:
       return "unknown";
     }
@@ -1559,8 +1569,14 @@ _dbus_first_type_in_signature (const DBusString *str,
 
   if (t == DBUS_STRUCT_BEGIN_CHAR)
     return DBUS_TYPE_STRUCT;
+  else if (t == DBUS_DICT_ENTRY_BEGIN_CHAR)
+    return DBUS_TYPE_DICT_ENTRY;
   else
-    return t;
+    {
+      _dbus_assert (t != DBUS_STRUCT_END_CHAR);
+      _dbus_assert (t != DBUS_DICT_ENTRY_END_CHAR);
+      return t;
+    }
 }
 
 /** @} */

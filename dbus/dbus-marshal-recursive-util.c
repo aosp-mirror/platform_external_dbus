@@ -526,6 +526,19 @@ static dbus_bool_t struct_set_value        (TestTypeNode   *node,
                                             int             seed);
 static dbus_bool_t struct_build_signature  (TestTypeNode   *node,
                                             DBusString     *str);
+static dbus_bool_t dict_write_value        (TestTypeNode   *node,
+                                            DataBlock      *block,
+                                            DBusTypeWriter *writer,
+                                            int             seed);
+static dbus_bool_t dict_read_value         (TestTypeNode   *node,
+                                            DBusTypeReader *reader,
+                                            int             seed);
+static dbus_bool_t dict_set_value          (TestTypeNode   *node,
+                                            DBusTypeReader *reader,
+                                            DBusTypeReader *realign_root,
+                                            int             seed);
+static dbus_bool_t dict_build_signature    (TestTypeNode   *node,
+                                            DBusString     *str);
 static dbus_bool_t array_write_value       (TestTypeNode   *node,
                                             DataBlock      *block,
                                             DBusTypeWriter *writer,
@@ -551,6 +564,7 @@ static dbus_bool_t variant_set_value       (TestTypeNode   *node,
                                             DBusTypeReader *realign_root,
                                             int             seed);
 static void        container_destroy       (TestTypeNode   *node);
+
 
 
 static const TestTypeNodeClass int16_class = {
@@ -793,6 +807,20 @@ static const TestTypeNodeClass struct_2_class = {
   NULL
 };
 
+static const TestTypeNodeClass dict_1_class = {
+  DBUS_TYPE_ARRAY, /* this is correct, a dict is an array of dict entry */
+  sizeof (TestTypeNodeContainer),
+  1, /* number of entries */
+  NULL,
+  container_destroy,
+  dict_write_value,
+  dict_read_value,
+  dict_set_value,
+  dict_build_signature,
+  NULL,
+  NULL
+};
+
 static dbus_bool_t arrays_write_fixed_in_blocks = FALSE;
 
 static const TestTypeNodeClass array_0_class = {
@@ -892,7 +920,8 @@ container_nodes[] = {
   &struct_2_class,
   &array_0_class,
   &array_2_class,
-  &variant_class
+  &variant_class,
+  &dict_1_class /* last since we want struct and array before it */
   /* array_9_class is omitted on purpose, it's too slow;
    * we only use it in one hardcoded test below
    */
@@ -2157,8 +2186,8 @@ int16_read_multi (TestTypeNode   *node,
   _dbus_assert (n_elements == count);
 
   for (i = 0; i < count; i++)
-    _dbus_assert (((int)_dbus_unpack_uint16 (reader->byte_order,
-                                             (const unsigned char*)values + (i * 2))) ==
+    _dbus_assert (((dbus_int16_t)_dbus_unpack_uint16 (reader->byte_order,
+                                                      (const unsigned char*)values + (i * 2))) ==
                   int16_from_seed (seed + i));
 
   return TRUE;
@@ -3296,6 +3325,233 @@ variant_set_value (TestTypeNode   *node,
                    int             seed)
 {
   return variant_read_or_set_value (node, reader, realign_root, seed);
+}
+
+static dbus_bool_t
+dict_write_value (TestTypeNode   *node,
+                  DataBlock      *block,
+                  DBusTypeWriter *writer,
+                  int             seed)
+{
+  TestTypeNodeContainer *container = (TestTypeNodeContainer*) node;
+  DataBlockState saved;
+  DBusTypeWriter sub;
+  DBusString entry_value_signature;
+  DBusString dict_entry_signature;
+  int i;
+  int n_entries;
+  int entry_value_type;
+  TestTypeNode *child;
+
+  n_entries = node->klass->subclass_detail;
+
+  _dbus_assert (container->children != NULL);
+
+  data_block_save (block, &saved);
+
+  if (!_dbus_string_init (&entry_value_signature))
+    return FALSE;
+
+  if (!_dbus_string_init (&dict_entry_signature))
+    {
+      _dbus_string_free (&entry_value_signature);
+      return FALSE;
+    }
+  
+  child = _dbus_list_get_first (&container->children);
+
+  if (!node_build_signature (child,
+                             &entry_value_signature))
+    goto oom;
+
+  if (!_dbus_string_append (&dict_entry_signature,
+                            DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING
+                            DBUS_TYPE_INT32_AS_STRING))
+    goto oom;
+
+  if (!_dbus_string_copy (&entry_value_signature, 0,
+                          &dict_entry_signature,
+                          _dbus_string_get_length (&dict_entry_signature)))
+    goto oom;
+
+  if (!_dbus_string_append_byte (&dict_entry_signature,
+                                 DBUS_DICT_ENTRY_END_CHAR))
+    goto oom;
+  
+  entry_value_type = _dbus_first_type_in_signature (&entry_value_signature, 0);
+  
+  if (!_dbus_type_writer_recurse (writer, DBUS_TYPE_ARRAY,
+                                  &dict_entry_signature, 0,
+                                  &sub))
+    goto oom;
+
+  i = 0;
+  while (i < n_entries)
+    {
+      DBusTypeWriter entry_sub;
+      dbus_int32_t key;
+
+      if (!_dbus_type_writer_recurse (&sub, DBUS_TYPE_DICT_ENTRY,
+                                      NULL, 0,
+                                      &entry_sub))
+        goto oom;
+
+      key = int32_from_seed (seed + i);
+
+      if (!_dbus_type_writer_write_basic (&entry_sub,
+                                          DBUS_TYPE_INT32,
+                                          &key))
+        goto oom;
+      
+      if (!node_write_value (child, block, &entry_sub, seed + i))
+        goto oom;
+
+      if (!_dbus_type_writer_unrecurse (&sub, &entry_sub))
+        goto oom;
+      
+      ++i;
+    }
+
+  if (!_dbus_type_writer_unrecurse (writer, &sub))
+    goto oom;
+  
+  _dbus_string_free (&entry_value_signature);
+  _dbus_string_free (&dict_entry_signature);
+  return TRUE;
+
+ oom:
+  data_block_restore (block, &saved);
+  _dbus_string_free (&entry_value_signature);
+  _dbus_string_free (&dict_entry_signature);
+  return FALSE;
+}
+
+static dbus_bool_t
+dict_read_or_set_value (TestTypeNode   *node,
+                        DBusTypeReader *reader,
+                        DBusTypeReader *realign_root,
+                        int             seed)
+{
+  TestTypeNodeContainer *container = (TestTypeNodeContainer*) node;
+  DBusTypeReader sub;
+  int i;
+  int n_entries;
+  TestTypeNode *child;
+
+  n_entries = node->klass->subclass_detail;
+
+  check_expected_type (reader, DBUS_TYPE_ARRAY);
+
+  child = _dbus_list_get_first (&container->children);
+
+  if (n_entries > 0)
+    {
+      _dbus_type_reader_recurse (reader, &sub);
+
+      check_expected_type (&sub, DBUS_TYPE_DICT_ENTRY);
+      
+      i = 0;
+      while (i < n_entries)
+        {
+          DBusTypeReader entry_sub;
+
+          check_expected_type (&sub, DBUS_TYPE_DICT_ENTRY);
+          
+          _dbus_type_reader_recurse (&sub, &entry_sub);
+          
+          if (realign_root == NULL)
+            {
+              dbus_int32_t v;
+              
+              check_expected_type (&entry_sub, DBUS_TYPE_INT32);
+
+              _dbus_type_reader_read_basic (&entry_sub,
+                                            (dbus_int32_t*) &v);
+
+              _dbus_assert (v == int32_from_seed (seed + i));
+
+              NEXT_EXPECTING_TRUE (&entry_sub);
+              
+              if (!node_read_value (child, &entry_sub, seed + i))
+                return FALSE;
+
+              NEXT_EXPECTING_FALSE (&entry_sub);
+            }
+          else
+            {
+              dbus_int32_t v;
+              
+              v = int32_from_seed (seed + i);
+              
+              if (!_dbus_type_reader_set_basic (&entry_sub,
+                                                &v,
+                                                realign_root))
+                return FALSE;
+
+              NEXT_EXPECTING_TRUE (&entry_sub);
+              
+              if (!node_set_value (child, &entry_sub, realign_root, seed + i))
+                return FALSE;
+
+              NEXT_EXPECTING_FALSE (&entry_sub);
+            }
+          
+          if (i == (n_entries - 1))
+            NEXT_EXPECTING_FALSE (&sub);
+          else
+            NEXT_EXPECTING_TRUE (&sub);
+
+          ++i;
+        }
+    }
+
+  return TRUE;
+}
+
+static dbus_bool_t
+dict_read_value (TestTypeNode   *node,
+                 DBusTypeReader *reader,
+                 int             seed)
+{
+  return dict_read_or_set_value (node, reader, NULL, seed);
+}
+
+static dbus_bool_t
+dict_set_value (TestTypeNode   *node,
+                DBusTypeReader *reader,
+                DBusTypeReader *realign_root,
+                int             seed)
+{
+  return dict_read_or_set_value (node, reader, realign_root, seed);
+}
+
+static dbus_bool_t
+dict_build_signature (TestTypeNode   *node,
+                      DBusString     *str)
+{
+  TestTypeNodeContainer *container = (TestTypeNodeContainer*) node;
+  int orig_len;
+
+  orig_len = _dbus_string_get_length (str);
+
+  if (!_dbus_string_append_byte (str, DBUS_TYPE_ARRAY))
+    goto oom;
+
+  if (!_dbus_string_append (str, DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING DBUS_TYPE_INT32_AS_STRING))
+    goto oom;
+  
+  if (!node_build_signature (_dbus_list_get_first (&container->children),
+                             str))
+    goto oom;
+
+  if (!_dbus_string_append_byte (str, DBUS_DICT_ENTRY_END_CHAR))
+    goto oom;
+
+  return TRUE;
+
+ oom:
+  _dbus_string_set_length (str, orig_len);
+  return FALSE;
 }
 
 static void

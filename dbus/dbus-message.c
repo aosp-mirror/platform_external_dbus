@@ -2112,10 +2112,10 @@ dbus_message_iter_append_fixed_array (DBusMessageIter *iter,
  * dbus_message_iter_close_container(). Container types are for
  * example struct, variant, and array. For variants, the
  * contained_signature should be the type of the single value inside
- * the variant. For structs, contained_signature should be #NULL; it
- * will be set to whatever types you write into the struct.  For
- * arrays, contained_signature should be the type of the array
- * elements.
+ * the variant. For structs and dict entries, contained_signature
+ * should be #NULL; it will be set to whatever types you write into
+ * the struct.  For arrays, contained_signature should be the type of
+ * the array elements.
  *
  * @todo If this fails due to lack of memory, the message is hosed and
  * you have to start over building the whole message.
@@ -2142,7 +2142,21 @@ dbus_message_iter_open_container (DBusMessageIter *iter,
   _dbus_return_val_if_fail (sub != NULL, FALSE);
   _dbus_return_val_if_fail ((type == DBUS_TYPE_STRUCT &&
                              contained_signature == NULL) ||
+                            (type == DBUS_TYPE_DICT_ENTRY &&
+                             contained_signature == NULL) ||
                             contained_signature != NULL, FALSE);
+  _dbus_return_val_if_fail (type != DBUS_TYPE_DICT_ENTRY ||
+                            dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_ARRAY,
+                            FALSE);
+  
+#if 0
+  /* FIXME this would fail if the contained_signature is a dict entry,
+   * since dict entries are invalid signatures standalone (they must be in
+   * an array)
+   */
+  _dbus_return_val_if_fail (contained_signature == NULL ||
+                            _dbus_check_is_valid_signature (contained_signature));
+#endif
 
   if (!_dbus_message_iter_open_signature (real))
     return FALSE;

@@ -40,6 +40,10 @@
  * The range passed in should NOT include the terminating
  * nul/DBUS_TYPE_INVALID.
  *
+ * @todo verify that dict entries have exactly two fields
+ * 
+ * @todo require that dict entries are in an array
+ *
  * @param type_str the string
  * @param type_pos where the typecodes start
  * @param len length of typecodes
@@ -55,6 +59,7 @@ _dbus_validate_signature_with_reason (const DBusString *type_str,
   int last;
   int struct_depth;
   int array_depth;
+  int dict_entry_depth;
 
   _dbus_assert (type_str != NULL);
   _dbus_assert (type_pos < _DBUS_INT32_MAX - len);
@@ -68,6 +73,7 @@ _dbus_validate_signature_with_reason (const DBusString *type_str,
   end = _dbus_string_get_const_data_len (type_str, type_pos + len, 0);
   struct_depth = 0;
   array_depth = 0;
+  dict_entry_depth = 0;
   last = DBUS_TYPE_INVALID;
 
   while (p != end)
@@ -112,7 +118,28 @@ _dbus_validate_signature_with_reason (const DBusString *type_str,
           struct_depth -= 1;
           break;
 
-        case DBUS_TYPE_STRUCT: /* doesn't appear in signatures */
+        case DBUS_DICT_ENTRY_BEGIN_CHAR:
+          if (last != DBUS_TYPE_ARRAY)
+            return DBUS_INVALID_DICT_ENTRY_NOT_INSIDE_ARRAY;
+          
+          dict_entry_depth += 1;
+
+          if (dict_entry_depth > DBUS_MAXIMUM_TYPE_RECURSION_DEPTH)
+            return DBUS_INVALID_EXCEEDED_MAXIMUM_DICT_ENTRY_RECURSION;
+          break;
+
+        case DBUS_DICT_ENTRY_END_CHAR:
+          if (dict_entry_depth == 0)
+            return DBUS_INVALID_DICT_ENTRY_ENDED_BUT_NOT_STARTED;
+          
+          if (last == DBUS_DICT_ENTRY_BEGIN_CHAR)
+            return DBUS_INVALID_DICT_ENTRY_HAS_NO_FIELDS;
+
+          dict_entry_depth -= 1;
+          break;
+          
+        case DBUS_TYPE_STRUCT:     /* doesn't appear in signatures */
+        case DBUS_TYPE_DICT_ENTRY: /* ditto */
         default:
           return DBUS_INVALID_UNKNOWN_TYPECODE;
         }
@@ -130,6 +157,9 @@ _dbus_validate_signature_with_reason (const DBusString *type_str,
   if (struct_depth > 0)
     return DBUS_INVALID_STRUCT_STARTED_BUT_NOT_ENDED;
 
+  if (dict_entry_depth > 0)
+    return DBUS_INVALID_DICT_ENTRY_STARTED_BUT_NOT_ENDED;
+  
   return DBUS_VALID;
 }
 
@@ -377,6 +407,7 @@ validate_body_helper (DBusTypeReader       *reader,
           }
           break;
 
+        case DBUS_TYPE_DICT_ENTRY:
         case DBUS_TYPE_STRUCT:
           {
             DBusTypeReader sub;

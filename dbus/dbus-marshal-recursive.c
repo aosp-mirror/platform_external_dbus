@@ -159,24 +159,26 @@ base_reader_recurse (DBusTypeReader *sub,
 }
 
 static void
-struct_types_only_reader_recurse (DBusTypeReader *sub,
-                                  DBusTypeReader *parent)
+struct_or_dict_entry_types_only_reader_recurse (DBusTypeReader *sub,
+                                                DBusTypeReader *parent)
 {
   base_reader_recurse (sub, parent);
-
+  
   _dbus_assert (_dbus_string_get_byte (sub->type_str,
-                                       sub->type_pos) == DBUS_STRUCT_BEGIN_CHAR);
+                                       sub->type_pos) == DBUS_STRUCT_BEGIN_CHAR ||
+                _dbus_string_get_byte (sub->type_str,
+                                       sub->type_pos) == DBUS_DICT_ENTRY_BEGIN_CHAR);
 
   sub->type_pos += 1;
 }
 
 static void
-struct_reader_recurse (DBusTypeReader *sub,
-                       DBusTypeReader *parent)
+struct_or_dict_entry_reader_recurse (DBusTypeReader *sub,
+                                     DBusTypeReader *parent)
 {
-  struct_types_only_reader_recurse (sub, parent);
+  struct_or_dict_entry_types_only_reader_recurse (sub, parent);
 
-  /* struct has 8 byte alignment */
+  /* struct and dict entry have 8 byte alignment */
   sub->value_pos = _DBUS_ALIGN_VALUE (sub->value_pos, 8);
 }
 
@@ -321,11 +323,13 @@ skip_one_complete_type (const DBusString *type_str,
   p = start + *type_pos;
 
   _dbus_assert (*p != DBUS_STRUCT_END_CHAR);
+  _dbus_assert (*p != DBUS_DICT_ENTRY_END_CHAR);
   
   while (*p == DBUS_TYPE_ARRAY)
     ++p;
 
   _dbus_assert (*p != DBUS_STRUCT_END_CHAR);
+  _dbus_assert (*p != DBUS_DICT_ENTRY_END_CHAR);
   
   if (*p == DBUS_STRUCT_BEGIN_CHAR)
     {
@@ -344,6 +348,33 @@ skip_one_complete_type (const DBusString *type_str,
           if (*p == DBUS_STRUCT_BEGIN_CHAR)
             depth += 1;
           else if (*p == DBUS_STRUCT_END_CHAR)
+            {
+              depth -= 1;
+              if (depth == 0)
+                {
+                  ++p;
+                  break;
+                }
+            }
+        }
+    }
+  else if (*p == DBUS_DICT_ENTRY_BEGIN_CHAR)
+    {
+      int depth;
+
+      depth = 1;
+
+      while (TRUE)
+        {
+          _dbus_assert (*p != DBUS_TYPE_INVALID);
+
+          ++p;
+
+          _dbus_assert (*p != DBUS_TYPE_INVALID);
+
+          if (*p == DBUS_DICT_ENTRY_BEGIN_CHAR)
+            depth += 1;
+          else if (*p == DBUS_DICT_ENTRY_END_CHAR)
             {
               depth -= 1;
               if (depth == 0)
@@ -381,6 +412,7 @@ base_reader_next (DBusTypeReader *reader,
 {
   switch (current_type)
     {
+    case DBUS_TYPE_DICT_ENTRY:
     case DBUS_TYPE_STRUCT:
     case DBUS_TYPE_VARIANT:
       /* Scan forward over the entire container contents */
@@ -461,6 +493,27 @@ struct_reader_next (DBusTypeReader *reader,
 }
 
 static void
+dict_entry_reader_next (DBusTypeReader *reader,
+                        int             current_type)
+{
+  int t;
+
+  base_reader_next (reader, current_type);
+
+  /* for STRUCT containers we return FALSE at the end of the struct,
+   * for INVALID we return FALSE at the end of the signature.
+   * In both cases we arrange for get_current_type() to return INVALID
+   * which is defined to happen iff we're at the end (no more next())
+   */
+  t = _dbus_string_get_byte (reader->type_str, reader->type_pos);
+  if (t == DBUS_DICT_ENTRY_END_CHAR)
+    {
+      reader->type_pos += 1;
+      reader->finished = TRUE;
+    }
+}
+
+static void
 array_types_only_reader_next (DBusTypeReader *reader,
                               int             current_type)
 {
@@ -495,6 +548,7 @@ array_reader_next (DBusTypeReader *reader,
   switch (_dbus_first_type_in_signature (reader->type_str,
                                    reader->type_pos))
     {
+    case DBUS_TYPE_DICT_ENTRY:
     case DBUS_TYPE_STRUCT:
     case DBUS_TYPE_VARIANT:
       {
@@ -582,7 +636,7 @@ static const DBusTypeReaderClass body_types_only_reader_class = {
 static const DBusTypeReaderClass struct_reader_class = {
   "struct", 2,
   FALSE,
-  struct_reader_recurse,
+  struct_or_dict_entry_reader_recurse,
   NULL,
   struct_reader_next,
   NULL
@@ -591,14 +645,32 @@ static const DBusTypeReaderClass struct_reader_class = {
 static const DBusTypeReaderClass struct_types_only_reader_class = {
   "struct types", 3,
   TRUE,
-  struct_types_only_reader_recurse,
+  struct_or_dict_entry_types_only_reader_recurse,
   NULL,
   struct_reader_next,
   NULL
 };
 
+static const DBusTypeReaderClass dict_entry_reader_class = {
+  "dict_entry", 4,
+  FALSE,
+  struct_or_dict_entry_reader_recurse,
+  NULL,
+  dict_entry_reader_next,
+  NULL
+};
+
+static const DBusTypeReaderClass dict_entry_types_only_reader_class = {
+  "dict_entry types", 5,
+  TRUE,
+  struct_or_dict_entry_types_only_reader_recurse,
+  NULL,
+  dict_entry_reader_next,
+  NULL
+};
+
 static const DBusTypeReaderClass array_reader_class = {
-  "array", 4,
+  "array", 6,
   FALSE,
   array_reader_recurse,
   array_reader_check_finished,
@@ -607,7 +679,7 @@ static const DBusTypeReaderClass array_reader_class = {
 };
 
 static const DBusTypeReaderClass array_types_only_reader_class = {
-  "array types", 5,
+  "array types", 7,
   TRUE,
   array_types_only_reader_recurse,
   NULL,
@@ -616,7 +688,7 @@ static const DBusTypeReaderClass array_types_only_reader_class = {
 };
 
 static const DBusTypeReaderClass variant_reader_class = {
-  "variant", 6,
+  "variant", 8,
   FALSE,
   variant_reader_recurse,
   NULL,
@@ -630,6 +702,8 @@ all_reader_classes[] = {
   &body_types_only_reader_class,
   &struct_reader_class,
   &struct_types_only_reader_class,
+  &dict_entry_reader_class,
+  &dict_entry_types_only_reader_class,
   &array_reader_class,
   &array_types_only_reader_class,
   &variant_reader_class
@@ -798,11 +872,13 @@ _dbus_type_reader_get_current_type (const DBusTypeReader *reader)
     t = DBUS_TYPE_INVALID;
   else
     t = _dbus_first_type_in_signature (reader->type_str,
-                                 reader->type_pos);
+                                       reader->type_pos);
 
   _dbus_assert (t != DBUS_STRUCT_END_CHAR);
   _dbus_assert (t != DBUS_STRUCT_BEGIN_CHAR);
-
+  _dbus_assert (t != DBUS_DICT_ENTRY_END_CHAR);
+  _dbus_assert (t != DBUS_DICT_ENTRY_BEGIN_CHAR);
+  
 #if 0
   _dbus_verbose ("  type reader %p current type_pos = %d type = %s\n",
                  reader, reader->type_pos,
@@ -988,6 +1064,12 @@ _dbus_type_reader_recurse (DBusTypeReader *reader,
         sub->klass = &struct_types_only_reader_class;
       else
         sub->klass = &struct_reader_class;
+      break;
+    case DBUS_TYPE_DICT_ENTRY:
+      if (reader->klass->types_only)
+        sub->klass = &dict_entry_types_only_reader_class;
+      else
+        sub->klass = &dict_entry_reader_class;
       break;
     case DBUS_TYPE_ARRAY:
       if (reader->klass->types_only)
@@ -1734,11 +1816,12 @@ write_or_verify_typecode (DBusTypeWriter *writer,
 }
 
 static dbus_bool_t
-writer_recurse_struct (DBusTypeWriter   *writer,
-                       const DBusString *contained_type,
-                       int               contained_type_start,
-                       int               contained_type_len,
-                       DBusTypeWriter   *sub)
+writer_recurse_struct_or_dict_entry (DBusTypeWriter   *writer,
+                                     int               begin_char,
+                                     const DBusString *contained_type,
+                                     int               contained_type_start,
+                                     int               contained_type_len,
+                                     DBusTypeWriter   *sub)
 {
   /* FIXME right now contained_type is ignored; we could probably
    * almost trivially fix the code so if it's present we
@@ -1752,7 +1835,7 @@ writer_recurse_struct (DBusTypeWriter   *writer,
         return FALSE;
     }
 
-  if (!write_or_verify_typecode (sub, DBUS_STRUCT_BEGIN_CHAR))
+  if (!write_or_verify_typecode (sub, begin_char))
     _dbus_assert_not_reached ("failed to insert struct typecode after prealloc");
 
   if (writer->enabled)
@@ -2027,9 +2110,18 @@ _dbus_type_writer_recurse_contained_len (DBusTypeWriter   *writer,
   switch (container_type)
     {
     case DBUS_TYPE_STRUCT:
-      return writer_recurse_struct (writer,
-                                    contained_type, contained_type_start, contained_type_len,
-                                    sub);
+      return writer_recurse_struct_or_dict_entry (writer,
+                                                  DBUS_STRUCT_BEGIN_CHAR,
+                                                  contained_type,
+                                                  contained_type_start, contained_type_len,
+                                                  sub);
+      break;
+    case DBUS_TYPE_DICT_ENTRY:
+      return writer_recurse_struct_or_dict_entry (writer,
+                                                  DBUS_DICT_ENTRY_BEGIN_CHAR,
+                                                  contained_type,
+                                                  contained_type_start, contained_type_len,
+                                                  sub);
       break;
     case DBUS_TYPE_ARRAY:
       return writer_recurse_array (writer,
@@ -2151,6 +2243,11 @@ _dbus_type_writer_unrecurse (DBusTypeWriter *writer,
       if (!write_or_verify_typecode (sub, DBUS_STRUCT_END_CHAR))
         return FALSE;
     }
+  else if (sub->container_type == DBUS_TYPE_DICT_ENTRY)
+    {
+      if (!write_or_verify_typecode (sub, DBUS_DICT_ENTRY_END_CHAR))
+        return FALSE;
+    }
   else if (sub->container_type == DBUS_TYPE_ARRAY)
     {
       if (sub->u.array.len_pos >= 0) /* len_pos == -1 if we weren't enabled when we passed it */
@@ -2217,11 +2314,16 @@ _dbus_type_writer_unrecurse (DBusTypeWriter *writer,
    *   parent makes no difference since there's only one value
    *   and we just finished writing it and won't use type_pos again
    *       writer->type_pos should remain as-is
+   *
+   *
+   * For all these, DICT_ENTRY is the same as STRUCT
    */
   if (writer->type_str != NULL)
     {
-      if (sub->container_type == DBUS_TYPE_STRUCT &&
+      if ((sub->container_type == DBUS_TYPE_STRUCT ||
+           sub->container_type == DBUS_TYPE_DICT_ENTRY) &&
           (writer->container_type == DBUS_TYPE_STRUCT ||
+           writer->container_type == DBUS_TYPE_DICT_ENTRY ||
            writer->container_type == DBUS_TYPE_INVALID))
         {
           /* Advance the parent to the next struct field */

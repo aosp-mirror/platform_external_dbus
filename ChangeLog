@@ -1,3 +1,16 @@
+2005-01-28  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-specification.xml: update to describe 16-bit types and
+	dict entries
+
+	* dbus/dbus-marshal-basic.c (_dbus_unpack_uint16): fix broken
+	assertion
+
+	* dbus/dbus-protocol.h (DBUS_TYPE_DICT_ENTRY): add DICT_ENTRY as a
+	type
+
+	* dbus/dbus-marshal-recursive.c: implement
+
 2005-01-27  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-arch-deps.h.in: add 16/32-bit types

@@ -77,20 +77,27 @@ extern "C" {
 #define DBUS_TYPE_VARIANT       ((int) 'v')
 #define DBUS_TYPE_VARIANT_AS_STRING        "v"
 
-/* STRUCT is sort of special since its code can't appear in a type string,
- * instead DBUS_STRUCT_BEGIN_CHAR has to appear
+/* STRUCT and DICT_ENTRY are sort of special since their codes can't
+ * appear in a type string, instead
+ * DBUS_STRUCT_BEGIN_CHAR/DBUS_DICT_ENTRY_BEGIN_CHAR have to appear
  */
 #define DBUS_TYPE_STRUCT        ((int) 'r')
 #define DBUS_TYPE_STRUCT_AS_STRING         "r"
+#define DBUS_TYPE_DICT_ENTRY    ((int) 'e')
+#define DBUS_TYPE_DICT_ENTRY_AS_STRING     "e"
 
 /* Does not count INVALID */
-#define DBUS_NUMBER_OF_TYPES    (15)
+#define DBUS_NUMBER_OF_TYPES    (16)
 
 /* characters other than typecodes that appear in type signatures */
 #define DBUS_STRUCT_BEGIN_CHAR   ((int) '(')
 #define DBUS_STRUCT_BEGIN_CHAR_AS_STRING   "("
 #define DBUS_STRUCT_END_CHAR     ((int) ')')
 #define DBUS_STRUCT_END_CHAR_AS_STRING     ")"
+#define DBUS_DICT_ENTRY_BEGIN_CHAR   ((int) '{')
+#define DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING   "{"
+#define DBUS_DICT_ENTRY_END_CHAR     ((int) '}')
+#define DBUS_DICT_ENTRY_END_CHAR_AS_STRING     "}"
 
 /* Max length in bytes of a bus name, interface, or member (not object
  * path, paths are unlimited). This is limited because lots of stuff

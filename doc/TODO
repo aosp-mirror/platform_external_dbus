@@ -36,13 +36,14 @@ Important for 1.0
    yourself; is it an error, or allowed? If allowed, 
    we need to have a test for it in the test suite.
 
- - array lengths should probably be returned as size_t rather than int
-   (though they are kind of a pita to pass in as size_t with the 
-    varargs, so maybe not - what does glib do with g_object_get()?)
-
  - add string array support back to append_args()
 
+ - validate dict entry number of fields
+
  - just before 1.0, try a HAVE_INT64=0 build and be sure it runs
+
+ - the spec and implementation should probably require dict keys
+   to be basic types
 
 Important for 1.0 GLib Bindings
 ===

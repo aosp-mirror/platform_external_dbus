@@ -175,6 +175,7 @@ byteswap_body_helper (DBusTypeReader       *reader,
           break;
 
         case DBUS_TYPE_STRUCT:
+        case DBUS_TYPE_DICT_ENTRY:
           {
             DBusTypeReader sub;
 
