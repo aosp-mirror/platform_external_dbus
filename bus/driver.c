@@ -199,7 +199,8 @@ bus_driver_send_service_acquired (DBusConnection *connection,
 }
 
 static dbus_bool_t
-create_unique_client_name (DBusString *str)
+create_unique_client_name (BusRegistry *registry,
+                           DBusString  *str)
 {
   /* We never want to use the same unique client name twice, because
    * we want to guarantee that if you send a message to a given unique
@@ -246,7 +247,7 @@ create_unique_client_name (DBusString *str)
       next_minor_number += 1;
       
       /* Check if a client with the name exists */
-      if (bus_service_lookup (str) == NULL)
+      if (bus_registry_lookup (registry, str) == NULL)
 	break;
 
       /* drop the number again, try the next one. */
@@ -265,6 +266,7 @@ bus_driver_handle_hello (DBusConnection *connection,
   DBusString unique_name;
   BusService *service;
   dbus_bool_t retval;
+  BusRegistry *registry;
   
   if (!_dbus_string_init (&unique_name, _DBUS_INT_MAX))
     {
@@ -273,8 +275,10 @@ bus_driver_handle_hello (DBusConnection *connection,
     }
 
   retval = FALSE;
+
+  registry = bus_connection_get_registry (connection);
   
-  if (!create_unique_client_name (&unique_name))
+  if (!create_unique_client_name (registry, &unique_name))
     {
       BUS_SET_OOM (error);
       goto out_0;
@@ -297,7 +301,8 @@ bus_driver_handle_hello (DBusConnection *connection,
     goto out_0;
 
   /* Create the service */
-  service = bus_service_ensure (&unique_name, connection, transaction, error);
+  service = bus_registry_ensure (registry,
+                                 &unique_name, connection, transaction, error);
   if (service == NULL)
     goto out_0;
   
@@ -367,7 +372,10 @@ bus_driver_handle_list_services (DBusConnection *connection,
   DBusMessage *reply;
   int len;
   char **services;
-
+  BusRegistry *registry;
+  
+  registry = bus_connection_get_registry (connection);
+  
   reply = dbus_message_new_reply (message);
   if (reply == NULL)
     {
@@ -375,8 +383,7 @@ bus_driver_handle_list_services (DBusConnection *connection,
       return FALSE;
     }
 
-  services = bus_services_list (&len);
-  if (services == NULL)
+  if (!bus_registry_list_services (registry, &services, &len))
     {
       dbus_message_unref (reply);
       BUS_SET_OOM (error);
@@ -423,6 +430,9 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
   dbus_bool_t retval;
   DBusConnection *old_owner;
   DBusConnection *current_owner;
+  BusRegistry *registry;
+  
+  registry = bus_connection_get_registry (connection);
   
   if (!dbus_message_get_args (message,
                               error,
@@ -438,7 +448,7 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
 
   _dbus_string_init_const (&service_name, name);
   
-  service = bus_service_lookup (&service_name);
+  service = bus_registry_lookup (registry, &service_name);
 
   if (service != NULL)
     old_owner = bus_service_get_primary_owner (service);
@@ -454,7 +464,8 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
 
   if (service == NULL)
     {
-      service = bus_service_ensure (&service_name, connection, transaction, error);
+      service = bus_registry_ensure (registry,
+                                     &service_name, connection, transaction, error);
       if (service == NULL)
         goto out;
     }
@@ -542,6 +553,9 @@ bus_driver_handle_service_exists (DBusConnection *connection,
   BusService *service;
   char *name;
   dbus_bool_t retval;
+  BusRegistry *registry;
+  
+  registry = bus_connection_get_registry (connection);
   
   if (!dbus_message_get_args (message, error,
                               DBUS_TYPE_STRING, &name,
@@ -551,7 +565,7 @@ bus_driver_handle_service_exists (DBusConnection *connection,
   retval = FALSE;
   
   _dbus_string_init_const (&service_name, name);
-  service = bus_service_lookup (&service_name);
+  service = bus_registry_lookup (registry, &service_name);
  
   reply = dbus_message_new_reply (message);
   if (reply == NULL)
@@ -599,6 +613,9 @@ bus_driver_handle_activate_service (DBusConnection *connection,
   dbus_uint32_t flags;
   char *name;
   dbus_bool_t retval;
+  BusActivation *activation;
+
+  activation = bus_connection_get_activation (connection);
   
   if (!dbus_message_get_args (message, error,
                               DBUS_TYPE_STRING, &name,
@@ -608,7 +625,7 @@ bus_driver_handle_activate_service (DBusConnection *connection,
 
   retval = FALSE;
 
-  if (!bus_activation_activate_service (name, error))
+  if (!bus_activation_activate_service (activation, name, error))
     goto out;
 
   retval = TRUE;

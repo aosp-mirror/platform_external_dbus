@@ -33,20 +33,18 @@
 #define DBUS_SERVICE_NAME "Name"
 #define DBUS_SERVICE_EXEC "Exec"
 
-static DBusHashTable *activation_entries = NULL;
-static char *server_address = NULL;
+struct BusActivation
+{
+  int refcount;
+  DBusHashTable *entries;
+  char *server_address;
+};
 
 typedef struct
 {
   char *name;
   char *exec;
 } BusActivationEntry;
-
-static DBusHashTable *pending_activations = NULL;
-typedef struct
-{
-  char *service;
-} BusPendingActivation;
 
 static void
 bus_activation_entry_free (BusActivationEntry *entry)
@@ -59,7 +57,8 @@ bus_activation_entry_free (BusActivationEntry *entry)
 }
 
 static dbus_bool_t
-add_desktop_file_entry (BusDesktopFile *desktop_file,
+add_desktop_file_entry (BusActivation  *activation,
+                        BusDesktopFile *desktop_file,
                         DBusError      *error)
 {
   char *name, *exec;
@@ -92,7 +91,7 @@ add_desktop_file_entry (BusDesktopFile *desktop_file,
   /* FIXME we need a better-defined algorithm for which service file to
    * pick than "whichever one is first in the directory listing"
    */
-  if (_dbus_hash_table_lookup_string (activation_entries, name))
+  if (_dbus_hash_table_lookup_string (activation->entries, name))
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "Service %s already exists in activation entry list\n", name);
@@ -109,7 +108,7 @@ add_desktop_file_entry (BusDesktopFile *desktop_file,
   entry->name = name;
   entry->exec = exec;
 
-  if (!_dbus_hash_table_insert_string (activation_entries, entry->name, entry))
+  if (!_dbus_hash_table_insert_string (activation->entries, entry->name, entry))
     {
       BUS_SET_OOM (error);
       goto failed;
@@ -131,8 +130,9 @@ add_desktop_file_entry (BusDesktopFile *desktop_file,
  * hash entries it already added.
  */
 static dbus_bool_t
-load_directory (const char *directory,
-                DBusError  *error)
+load_directory (BusActivation *activation,
+                const char    *directory,
+                DBusError     *error)
 {
   DBusDirIter *iter;
   DBusString dir, filename;
@@ -213,7 +213,7 @@ load_directory (const char *directory,
 	  continue;
 	}
 
-      if (!add_desktop_file_entry (desktop_file, &tmp_error))
+      if (!add_desktop_file_entry (activation, desktop_file, &tmp_error))
 	{
 	  const char *full_path_c;
 
@@ -263,27 +263,34 @@ load_directory (const char *directory,
   return FALSE;
 }
 
-dbus_bool_t
-bus_activation_init (const char  *address,
-		     const char **directories,
-                     DBusError   *error)
+BusActivation*
+bus_activation_new (const char  *address,
+                    const char **directories,
+                    DBusError   *error)
 {
   int i;
+  BusActivation *activation;
 
-  _dbus_assert (server_address == NULL);
-  _dbus_assert (activation_entries == NULL);
+  activation = dbus_new0 (BusActivation, 1);
+  if (activation == NULL)
+    {
+      BUS_SET_OOM (error);
+      return NULL;
+    }
+  
+  activation->refcount = 1;
   
   /* FIXME: We should split up the server addresses. */
-  server_address = _dbus_strdup (address);
-  if (server_address == NULL)
+  activation->server_address = _dbus_strdup (address);
+  if (activation->server_address == NULL)
     {
       BUS_SET_OOM (error);
       goto failed;
     }
   
-  activation_entries = _dbus_hash_table_new (DBUS_HASH_STRING, NULL,
+  activation->entries = _dbus_hash_table_new (DBUS_HASH_STRING, NULL,
                                              (DBusFreeFunction)bus_activation_entry_free);
-  if (activation_entries == NULL)
+  if (activation->entries == NULL)
     {      
       BUS_SET_OOM (error);
       goto failed;
@@ -293,39 +300,63 @@ bus_activation_init (const char  *address,
   i = 0;
   while (directories[i] != NULL)
     {
-      if (!load_directory (directories[i], error))
+      if (!load_directory (activation, directories[i], error))
         goto failed;
       ++i;
     }
 
-  return TRUE;
+  return activation;
   
  failed:
-  dbus_free (server_address);
-  if (activation_entries)
-    _dbus_hash_table_unref (activation_entries);
+  bus_activation_unref (activation);  
+  return NULL;
+}
+
+void
+bus_activation_ref (BusActivation *activation)
+{
+  _dbus_assert (activation->refcount > 0);
   
-  return FALSE;
+  activation->refcount += 1;
+}
+
+void
+bus_activation_unref (BusActivation *activation)
+{
+  _dbus_assert (activation->refcount > 0);
+
+  activation->refcount -= 1;
+
+  if (activation->refcount == 0)
+    {
+      dbus_free (activation->server_address);
+      if (activation->entries)
+        _dbus_hash_table_unref (activation->entries);
+      dbus_free (activation);
+    }
 }
 
 static void
 child_setup (void *data)
 {
+  BusActivation *activation = data;
+  
   /* If no memory, we simply have the child exit, so it won't try
    * to connect to the wrong thing.
    */
-  if (!_dbus_setenv ("DBUS_ADDRESS", server_address))
+  if (!_dbus_setenv ("DBUS_ADDRESS", activation->server_address))
     _dbus_exit (1);
 }
 
 dbus_bool_t
-bus_activation_activate_service (const char  *service_name,
-				 DBusError   *error)
+bus_activation_activate_service (BusActivation *activation,
+                                 const char    *service_name,
+				 DBusError     *error)
 {
   BusActivationEntry *entry;
   char *argv[2];
   
-  entry = _dbus_hash_table_lookup_string (activation_entries, service_name);
+  entry = _dbus_hash_table_lookup_string (activation->entries, service_name);
 
   if (!entry)
     {
@@ -344,7 +375,7 @@ bus_activation_activate_service (const char  *service_name,
   argv[1] = NULL;
 
   if (!_dbus_spawn_async (argv,
-			  child_setup, NULL, 
+			  child_setup, activation, 
 			  error))
     return FALSE;
 

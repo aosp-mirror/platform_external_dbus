@@ -25,14 +25,26 @@
 #define BUS_CONNECTION_H
 
 #include <dbus/dbus.h>
-#include "services.h"
+#include "bus.h"
 
 typedef dbus_bool_t (* BusConnectionForeachFunction) (DBusConnection *connection, 
                                                       void           *data);
 
-dbus_bool_t bus_connection_init (void);
 
-dbus_bool_t bus_connection_setup (DBusConnection *connection);
+BusConnections* bus_connections_new              (BusContext                   *context);
+void            bus_connections_ref              (BusConnections               *connections);
+void            bus_connections_unref            (BusConnections               *connections);
+dbus_bool_t     bus_connections_setup_connection (BusConnections               *connections,
+                                                  DBusConnection               *connection);
+void            bus_connections_foreach          (BusConnections               *connections,
+                                                  BusConnectionForeachFunction  function,
+                                                  void                         *data);
+BusContext*     bus_connections_get_context      (BusConnections               *connections);
+
+BusContext*     bus_connection_get_context       (DBusConnection               *connection); 
+BusConnections* bus_connection_get_connections   (DBusConnection               *connection);
+BusRegistry*    bus_connection_get_registry      (DBusConnection               *connection);
+BusActivation*  bus_connection_get_activation    (DBusConnection               *connection);
 
 dbus_bool_t bus_connection_is_active (DBusConnection *connection);
 
@@ -50,14 +62,14 @@ void        bus_connection_remove_owned_service (DBusConnection *connection,
 dbus_bool_t bus_connection_set_name (DBusConnection               *connection,
 				     const DBusString             *name);
 const char *bus_connection_get_name (DBusConnection               *connection);
-void        bus_connection_foreach  (BusConnectionForeachFunction  function,
-				     void                         *data);
 
 /* called by dispatch.c when the connection is dropped */
 void        bus_connection_disconnected (DBusConnection *connection);
 
 /* transaction API so we can send or not send a block of messages as a whole */
-BusTransaction* bus_transaction_new              (void);
+BusTransaction* bus_transaction_new              (BusContext      *context);
+BusContext*     bus_transaction_get_context      (BusTransaction  *transaction);
+BusConnections* bus_transaction_get_connections  (BusTransaction  *transaction);
 dbus_bool_t     bus_transaction_send_message     (BusTransaction  *transaction,
                                                   DBusConnection  *connection,
                                                   DBusMessage     *message);

@@ -24,7 +24,9 @@
 #include "dispatch.h"
 #include "connection.h"
 #include "driver.h"
+#include "services.h"
 #include "utils.h"
+#include "bus.h"
 #include <dbus/dbus-internals.h>
 #include <string.h>
 
@@ -63,14 +65,18 @@ bus_dispatch_broadcast_message (BusTransaction *transaction,
 {
   DBusError tmp_error;
   SendMessageData d;
+  BusConnections *connections;
   
   _dbus_assert (dbus_message_get_sender (message) != NULL);
 
+  connections = bus_transaction_get_connections (transaction);
+  
   dbus_error_init (&tmp_error);
   d.message = message;
   d.transaction = transaction;
   d.error = &tmp_error;
-  bus_connection_foreach (send_one_message, &d);
+  
+  bus_connections_foreach (connections, send_one_message, &d);
 
   if (dbus_error_is_set (&tmp_error))
     {
@@ -145,9 +151,13 @@ bus_dispatch_message_handler (DBusMessageHandler *handler,
   const char *sender, *service_name, *message_name;
   DBusError error;
   BusTransaction *transaction;
-
+  BusContext *context;
+  
   transaction = NULL;
   dbus_error_init (&error);
+
+  context = bus_connection_get_context (connection);
+  _dbus_assert (context != NULL);
   
   /* If we can't even allocate an OOM error, we just go to sleep
    * until we can.
@@ -181,7 +191,7 @@ bus_dispatch_message_handler (DBusMessageHandler *handler,
   _dbus_assert (service_name != NULL); /* this message is intended for bus routing */
   
   /* Create our transaction */
-  transaction = bus_transaction_new ();
+  transaction = bus_transaction_new (context);
   if (transaction == NULL)
     {
       BUS_SET_OOM (&error);
@@ -224,9 +234,12 @@ bus_dispatch_message_handler (DBusMessageHandler *handler,
     {
       DBusString service_string;
       BusService *service;
+      BusRegistry *registry;
 
+      registry = bus_connection_get_registry (connection);
+      
       _dbus_string_init_const (&service_string, service_name);
-      service = bus_service_lookup (&service_string);
+      service = bus_registry_lookup (registry, &service_string);
 
       if (service == NULL)
         {

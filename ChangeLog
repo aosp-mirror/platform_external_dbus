@@ -1,3 +1,14 @@
+2003-03-12  Havoc Pennington  <hp@pobox.com>
+
+	Throughout: purge global variables, introduce BusActivation, 
+	BusConnections, BusRegistry, etc. objects instead.
+	
+	* bus/bus.h, bus/bus.c: introduce BusContext as a global 
+	message bus object
+
+	* test/Makefile.am (TEST_BINARIES): disable bus-test for now, 
+	going to redo this a bit differently I think
+	
 2003-03-12  Havoc Pennington  <hp@redhat.com>
 
         Mega-patch that gets the message bus daemon initially handling 

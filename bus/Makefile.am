@@ -11,6 +11,8 @@ noinst_LTLIBRARIES=libdbus-daemon.la
 libdbus_daemon_la_SOURCES=			\
 	activation.c				\
 	activation.h				\
+	bus.c					\
+	bus.h					\
 	connection.c				\
 	connection.h				\
 	desktop-file.c				\

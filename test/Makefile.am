@@ -2,7 +2,7 @@
 INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
 
 if DBUS_BUILD_TESTS
-TEST_BINARIES=echo-client echo-server unbase64 bus-test break-loader spawn-test
+TEST_BINARIES=echo-client echo-server unbase64 break-loader spawn-test
 else
 TEST_BINARIES=
 endif
@@ -22,13 +22,12 @@ echo_server_SOURCES=				\
 unbase64_SOURCES=				\
 	unbase64.c
 
-
-bus_test_SOURCES = 				\
-	debug-thread.c				\
-	debug-thread.h				\
-	bus-test.c				\
-	bus-test-loop.c				\
-	bus-test-loop.h
+# bus_test_SOURCES =				\
+# 	debug-thread.c				\
+# 	debug-thread.h				\
+# 	bus-test.c				\
+# 	bus-test-loop.c				\
+# 	bus-test-loop.h
 
 break_loader_SOURCES=				\
 	break-loader.c
@@ -42,7 +41,7 @@ echo_client_LDADD=$(TEST_LIBS)
 echo_server_LDADD=$(TEST_LIBS)
 unbase64_LDADD=$(TEST_LIBS)
 break_loader_LDADD= $(TEST_LIBS)
-bus_test_LDADD=$(TEST_LIBS) $(top_builddir)/bus/libdbus-daemon.la
+#bus_test_LDADD=$(TEST_LIBS) $(top_builddir)/bus/libdbus-daemon.la
 spawn_test_LDADD=$(TEST_LIBS)
 
 dist-hook:

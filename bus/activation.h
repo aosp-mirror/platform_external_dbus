@@ -25,12 +25,17 @@
 #define BUS_ACTIVATION_H
 
 #include <dbus/dbus.h>
+#include "bus.h"
 
-dbus_bool_t bus_activation_init             (const char  *address,
-					     const char **paths,
-                                             DBusError   *error);
-dbus_bool_t bus_activation_activate_service (const char  *service_name,
-					     DBusError   *error);
+BusActivation* bus_activation_new              (const char     *address,
+                                                const char    **paths,
+                                                DBusError      *error);
+void           bus_activation_ref              (BusActivation  *activation);
+void           bus_activation_unref            (BusActivation  *activation);
+dbus_bool_t    bus_activation_activate_service (BusActivation  *activation,
+                                                const char     *service_name,
+                                                DBusError      *error);
+
 
 
 #endif /* BUS_ACTIVATION_H */

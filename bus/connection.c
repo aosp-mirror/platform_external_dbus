@@ -29,11 +29,18 @@
 
 static void bus_connection_remove_transactions (DBusConnection *connection);
 
-static int connection_data_slot;
-static DBusList *connections = NULL;
+struct BusConnections
+{
+  int refcount;
+  DBusList *list; /**< List of all the connections */
+  BusContext *context;
+};
+
+static int connection_data_slot = -1;
 
 typedef struct
 {
+  BusConnections *connections;
   DBusConnection *connection;
   DBusList *services_owned;
   char *name;
@@ -74,7 +81,7 @@ bus_connection_disconnected (DBusConnection *connection)
     transaction = NULL;
     while (transaction == NULL)
       {
-        transaction = bus_transaction_new ();
+        transaction = bus_transaction_new (d->connections->context);
         bus_wait_for_memory ();
       }
     
@@ -107,12 +114,14 @@ bus_connection_disconnected (DBusConnection *connection)
                                        NULL);
 
   bus_connection_remove_transactions (connection);
-  
+
+  _dbus_list_remove (&d->connections->list, connection);
+
+  /* frees "d" as side effect */
   dbus_connection_set_data (connection,
                             connection_data_slot,
                             NULL, NULL);
-  
-  _dbus_list_remove (&connections, connection);
+
   dbus_connection_unref (connection);
 }
 
@@ -166,19 +175,55 @@ free_connection_data (void *data)
   dbus_free (d);
 }
 
-dbus_bool_t
-bus_connection_init (void)
+BusConnections*
+bus_connections_new (BusContext *context)
 {
-  connection_data_slot = dbus_connection_allocate_data_slot ();
+  BusConnections *connections;
 
   if (connection_data_slot < 0)
-    return FALSE;
+    {
+      connection_data_slot = dbus_connection_allocate_data_slot ();
+      
+      if (connection_data_slot < 0)
+        return NULL;
+    }
 
-  return TRUE;
+  connections = dbus_new0 (BusConnections, 1);
+  if (connections == NULL)
+    return NULL;
+  
+  connections->refcount = 1;
+  connections->context = context;
+  
+  return connections;
+}
+
+void
+bus_connections_ref (BusConnections *connections)
+{
+  _dbus_assert (connections->refcount > 0);
+  connections->refcount += 1;
+}
+
+void
+bus_connections_unref (BusConnections *connections)
+{
+  _dbus_assert (connections->refcount > 0);
+  connections->refcount -= 1;
+  if (connections->refcount == 0)
+    {
+      /* FIXME free each connection... */
+      _dbus_assert_not_reached ("shutting down connections not implemented");
+      
+      _dbus_list_clear (&connections->list);
+      
+      dbus_free (connections);      
+    }
 }
 
 dbus_bool_t
-bus_connection_setup (DBusConnection *connection)
+bus_connections_setup_connection (BusConnections *connections,
+                                  DBusConnection *connection)
 {
   BusConnectionData *d;
 
@@ -187,6 +232,7 @@ bus_connection_setup (DBusConnection *connection)
   if (d == NULL)
     return FALSE;
 
+  d->connections = connections;
   d->connection = connection;
   
   if (!dbus_connection_set_data (connection,
@@ -197,7 +243,7 @@ bus_connection_setup (DBusConnection *connection)
       return FALSE;
     }
   
-  if (!_dbus_list_append (&connections, connection))
+  if (!_dbus_list_append (&connections->list, connection))
     {
       /* this will free our data when connection gets finalized */
       dbus_connection_disconnect (connection);
@@ -217,6 +263,89 @@ bus_connection_setup (DBusConnection *connection)
     return FALSE;
   
   return TRUE;
+}
+
+
+/**
+ * Calls function on each connection; if the function returns
+ * #FALSE, stops iterating.
+ *
+ * @param connections the connections object
+ * @param function the function
+ * @param data data to pass to it as a second arg
+ */
+void
+bus_connections_foreach (BusConnections               *connections,
+                         BusConnectionForeachFunction  function,
+			void                          *data)
+{
+  DBusList *link;
+  
+  link = _dbus_list_get_first_link (&connections->list);
+  while (link != NULL)
+    {
+      DBusConnection *connection = link->data;
+      DBusList *next = _dbus_list_get_next_link (&connections->list, link);
+
+      if (!(* function) (connection, data))
+        break;
+      
+      link = next;
+    }
+}
+
+BusContext*
+bus_connections_get_context (BusConnections *connections)
+{
+  return connections->context;
+}
+
+BusContext*
+bus_connection_get_context (DBusConnection *connection)
+{
+  BusConnectionData *d;
+
+  d = BUS_CONNECTION_DATA (connection);
+
+  _dbus_assert (d != NULL);
+
+  return d->connections->context;
+}
+
+BusConnections*
+bus_connection_get_connections (DBusConnection *connection)
+{
+  BusConnectionData *d;
+    
+  d = BUS_CONNECTION_DATA (connection);
+
+  _dbus_assert (d != NULL);
+
+  return d->connections;
+}
+
+BusRegistry*
+bus_connection_get_registry (DBusConnection *connection)
+{
+  BusConnectionData *d;
+
+  d = BUS_CONNECTION_DATA (connection);
+
+  _dbus_assert (d != NULL);
+
+  return bus_context_get_registry (d->connections->context);
+}
+
+BusActivation*
+bus_connection_get_activation (DBusConnection *connection)
+{
+  BusConnectionData *d;
+
+  d = BUS_CONNECTION_DATA (connection);
+
+  _dbus_assert (d != NULL);
+
+  return bus_context_get_activation (d->connections->context);
 }
 
 /**
@@ -361,32 +490,6 @@ bus_connection_get_name (DBusConnection *connection)
   return d->name;
 }
 
-/**
- * Calls function on each connection; if the function returns
- * #FALSE, stops iterating.
- *
- * @param function the function
- * @param data data to pass to it as a second arg
- */
-void
-bus_connection_foreach (BusConnectionForeachFunction  function,
-			void                         *data)
-{
-  DBusList *link;
-  
-  link = _dbus_list_get_first_link (&connections);
-  while (link != NULL)
-    {
-      DBusConnection *connection = link->data;
-      DBusList *next = _dbus_list_get_next_link (&connections, link);
-
-      if (!(* function) (connection, data))
-        break;
-      
-      link = next;
-    }
-}
-
 typedef struct
 {
   BusTransaction *transaction;
@@ -397,7 +500,7 @@ typedef struct
 struct BusTransaction
 {
   DBusList *connections;
-
+  BusContext *context;
 };
 
 static void
@@ -414,7 +517,7 @@ message_to_send_free (DBusConnection *connection,
 }
 
 BusTransaction*
-bus_transaction_new (void)
+bus_transaction_new (BusContext *context)
 {
   BusTransaction *transaction;
 
@@ -422,7 +525,21 @@ bus_transaction_new (void)
   if (transaction == NULL)
     return NULL;
 
+  transaction->context = context;
+  
   return transaction;
+}
+
+BusContext*
+bus_transaction_get_context (BusTransaction  *transaction)
+{
+  return transaction->context;
+}
+
+BusConnections*
+bus_transaction_get_connections (BusTransaction  *transaction)
+{
+  return bus_context_get_connections (transaction->context);
 }
 
 dbus_bool_t
