@@ -3131,11 +3131,13 @@ _dbus_print_backtrace (void)
  * Does the chdir, fork, setsid, etc. to become a daemon process.
  *
  * @param pidfile #NULL, or pidfile to create
+ * @param print_pid_fd file descriptor to print pid to, or -1 for none
  * @param error return location for errors
  * @returns #FALSE on failure
  */
 dbus_bool_t
 _dbus_become_daemon (const DBusString *pidfile,
+		     int               print_pid_fd,
                      DBusError        *error)
 {
   const char *s;
@@ -3201,6 +3203,42 @@ _dbus_become_daemon (const DBusString *pidfile,
               return FALSE;
             }
         }
+
+      /* Write PID if requested */
+      if (print_pid_fd >= 0)
+	{
+	  DBusString pid;
+	  int bytes;
+	  
+	  if (!_dbus_string_init (&pid))
+	    {
+	      _DBUS_SET_OOM (error);
+              kill (child_pid, SIGTERM);
+	      return FALSE;
+	    }
+	  
+	  if (!_dbus_string_append_int (&pid, _dbus_getpid ()) ||
+	      !_dbus_string_append (&pid, "\n"))
+	    {
+	      _dbus_string_free (&pid);
+	      _DBUS_SET_OOM (error);
+              kill (child_pid, SIGTERM);
+	      return FALSE;
+	    }
+	  
+	  bytes = _dbus_string_get_length (&pid);
+	  if (_dbus_write (print_pid_fd, &pid, 0, bytes) != bytes)
+	    {
+	      dbus_set_error (error, DBUS_ERROR_FAILED,
+			      "Printing message bus PID: %s\n",
+			      _dbus_strerror (errno));
+	      _dbus_string_free (&pid);
+              kill (child_pid, SIGTERM);
+	      return FALSE;
+	    }
+	  
+	  _dbus_string_free (&pid);
+	}
       _dbus_verbose ("parent exiting\n");
       _exit (0);
       break;

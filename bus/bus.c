@@ -663,7 +663,9 @@ bus_context_new (const DBusString *config_file,
       if (context->pidfile)
         _dbus_string_init_const (&u, context->pidfile);
       
-      if (!_dbus_become_daemon (context->pidfile ? &u : NULL, error))
+      if (!_dbus_become_daemon (context->pidfile ? &u : NULL, 
+				print_pid_fd,
+				error))
 	{
 	  _DBUS_ASSERT_ERROR_IS_SET (error);
 	  goto failed;

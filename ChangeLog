@@ -1,5 +1,15 @@
 2004-10-29  Colin Walters  <walters@redhat.com>
 
+	* dbus/dbus-sysdeps.h (_dbus_become_daemon): Also take
+	parameter for fd to write pid to.	
+
+	* dbus/dbus-sysdeps.c (_dbus_become_daemon): Implement it.
+	
+	* bus/bus.c (bus_context_new): Pass print_pid_fd
+	to _dbus_become_daemon (bug #1720)
+
+2004-10-29  Colin Walters  <walters@redhat.com>
+
 	Patch from Ed Catmur <ed@catmur.co.uk>
 
 	* mono/doc/Makefile.am (install-data-local): Handle
