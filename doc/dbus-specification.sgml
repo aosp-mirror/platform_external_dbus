@@ -15,6 +15,16 @@
 	  </address>
 	</affiliation>
       </author>
+      <author>
+	<firstname>Anders</firstname>
+	<surname>Carlsson</surname>
+	<affiliation>
+	  <orgname>CodeFactory AB</orgname>
+	  <address>
+            <email>andersca@codefactory.se</email>
+          </address>
+	</affiliation>
+      </author>
     </authorgroup>
   </artheader>
 
@@ -410,8 +420,27 @@
   <sect1 id="addresses">
     <title>Server Addresses</title>
     <para>
-      [document the string format of an address, and how it maps 
-      to unix domain sockets, tcp, or whatever]
+      Server addresses consist of a transport name followed by a colon, and
+      then an optional, comma-separated list of keys and values in the form key=value.
+    </para>
+    <para>
+      For example: 
+      <programlisting>unix:path=/tmp/dbus-test</programlisting>
+      Which is the address to a unix socket with the path /tmp/dbus-test.
+    </para>
+    <para>
+      When connecting to a server, multiple server addresses can be
+      separated by a semi-colon. The library will then try to connect
+      to the first address and if that fails, it'll try to connect to
+      the next one specified, and so forth. For example
+      <programlisting>unix:path=/tmp/dbus-test;unix:path=/tmp/dbus-test2</programlisting>
+    </para>
+    <para>
+      Currently, a transport over local UNIX sockets exists, a debug
+      transport that only works in-process and therefore can be used
+      for for unit testing also exists. It is possible that other
+      transports are added, such as a TCP/IP transport, and a
+      transport that works over X11.
     </para>
   </sect1>
 
@@ -670,6 +699,7 @@
         interact with the message bus.
       </para>
       <para>
+        
         [document the messages here]
       </para>
     </sect2>

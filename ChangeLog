@@ -1,5 +1,10 @@
 2003-02-02  Anders Carlsson  <andersca@codefactory.se>
 
+	* doc/dbus-specification.sgml:
+	Update address format section.
+	
+2003-02-02  Anders Carlsson  <andersca@codefactory.se>
+
 	* test/Makefile.am:
 	* test/bus-test.c: (get_time), (add_timeout), (remove_timeout),
 	(message_handler), (new_connection_callback), (loop_quit),
