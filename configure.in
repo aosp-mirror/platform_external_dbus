@@ -1,0 +1,64 @@
+AC_INIT(dbus/dbus.h)
+
+AM_CONFIG_HEADER(config.h)
+
+AM_INIT_AUTOMAKE(dbus, 0.1)
+
+# Honor aclocal flags
+ACLOCAL="$ACLOCAL $ACLOCAL_FLAGS"
+
+GETTEXT_PACKAGE=dbus-1
+AC_SUBST(GETTEXT_PACKAGE)
+AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE,"$GETTEXT_PACKAGE")
+
+AM_MAINTAINER_MODE
+
+AC_PROG_CC
+AC_ISC_POSIX
+AC_HEADER_STDC
+AC_ARG_PROGRAM
+AM_PROG_LIBTOOL
+
+AC_ARG_ENABLE(qt,   [  --disable-qt      disable Qt-friendly client library],enable_qt=no,enable_qt=yes)
+AC_ARG_ENABLE(glib, [  --disable-glib    disable GLib-friendly client library],enable_glib=no,enable_glib=yes)
+
+changequote(,)dnl
+if test "x$GCC" = "xyes"; then
+  case " $CFLAGS " in
+  *[\ \	]-Wall[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wall" ;;
+  esac
+fi
+changequote([,])dnl
+
+AC_CHECK_SIZEOF(char)
+AC_CHECK_SIZEOF(short)
+AC_CHECK_SIZEOF(long)
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(void *)
+AC_CHECK_SIZEOF(long long)
+AC_CHECK_SIZEOF(__int64)
+
+## byte order
+AC_C_BIGENDIAN
+
+AC_CHECK_FUNCS(vsnprintf vasprintf)
+
+DBUS_CLIENT_CFLAGS=
+DBUS_CLIENT_LIBS=
+AC_SUBST(DBUS_CLIENT_CFLAGS)
+AC_SUBST(DBUS_CLIENT_LIBS)
+
+DBUS_SERVER_CFLAGS=
+DBUS_SERVER_LIBS=
+AC_SUBST(DBUS_SERVER_CFLAGS)
+AC_SUBST(DBUS_SERVER_LIBS)
+
+AC_OUTPUT([
+Makefile
+dbus/Makefile
+server/Makefile
+test/Makefile
+doc/Makefile
+dbus-1.0.pc
+])
