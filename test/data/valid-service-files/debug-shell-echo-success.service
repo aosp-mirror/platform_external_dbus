@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.freedesktop.DBus.TestSuiteShellEchoServiceSuccess
+Exec=/home/quinticent/devel/dbus-branch/dbus_1_0/test/test-shell-service -test "that" 'we get' back --what "we put in"

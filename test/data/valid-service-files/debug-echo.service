@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.freedesktop.DBus.TestSuiteEchoService
+Exec=/home/quinticent/devel/dbus-branch/dbus_1_0/test/test-service
