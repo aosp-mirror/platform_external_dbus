@@ -1,3 +1,12 @@
+2003-02-15  Anders Carlsson  <andersca@codefactory.se>
+
+	* bus/Makefile.am:
+	* bus/activation.c: (bus_activation_entry_free),
+	(add_desktop_file_entry), (load_directory), (bus_activation_init):
+	* bus/activation.h:
+	* bus/main.c: (main):
+	Add simple activation support, doesn't work yet though.
+
 2003-02-15   Zack Rusin  <zack@kde.org>
 
 	* qt/dbus-qthread.cpp:  small casting fix

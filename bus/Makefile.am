@@ -9,6 +9,8 @@ bin_PROGRAMS=dbus-daemon-1
 noinst_LTLIBRARIES=libdbus-daemon.la
 
 libdbus_daemon_la_SOURCES=			\
+	activation.c				\
+	activation.h				\
 	connection.c				\
 	connection.h				\
 	desktop-file.c				\

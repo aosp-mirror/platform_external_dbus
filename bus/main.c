@@ -21,6 +21,7 @@
  *
  */
 #include "loop.h"
+#include "activation.h"
 #include "connection.h"
 #include "driver.h"
 #include <dbus/dbus-list.h>
@@ -81,6 +82,17 @@ main (int argc, char **argv)
       return 1;
     }
 
+  if (argc < 3)
+    {
+      _dbus_warn ("No service location given, not activating activation\n");
+    }
+  else
+    {
+      char *paths[] = { argv[2], NULL };
+
+      bus_activation_init (paths);
+    }
+  
   server = dbus_server_listen (argv[1], &result);
   if (server == NULL)
     {
@@ -88,7 +100,7 @@ main (int argc, char **argv)
                   argv[1], dbus_result_to_string (result));
       return 1;
     }
-
+  
   setup_server (server);
 
   bus_connection_init ();
