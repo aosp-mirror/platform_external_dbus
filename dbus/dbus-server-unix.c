@@ -47,20 +47,23 @@ typedef struct DBusServerUnix DBusServerUnix;
  */
 struct DBusServerUnix
 {
-  DBusServer base;  /**< Parent class members. */
-  int fd;           /**< File descriptor or -1 if disconnected. */
-  DBusWatch *watch; /**< File descriptor watch. */
+  DBusServer base;   /**< Parent class members. */
+  int fd;            /**< File descriptor or -1 if disconnected. */
+  DBusWatch *watch;  /**< File descriptor watch. */
+  char *socket_name; /**< Name of domain socket, to unlink if appropriate */
 };
 
 static void
 unix_finalize (DBusServer *server)
 {
   DBusServerUnix *unix_server = (DBusServerUnix*) server;
-  
-  _dbus_server_finalize_base (server);
 
   if (unix_server->watch)
     _dbus_watch_unref (unix_server->watch);
+
+  dbus_free (unix_server->socket_name);
+  
+  _dbus_server_finalize_base (server);
   
   dbus_free (server);
 }
@@ -191,6 +194,13 @@ unix_disconnect (DBusServer *server)
   
   close (unix_server->fd);
   unix_server->fd = -1;
+
+  if (unix_server->socket_name != NULL)
+    {
+      DBusString tmp;
+      _dbus_string_init_const (&tmp, unix_server->socket_name);
+      _dbus_delete_file (&tmp, NULL);
+    }
 }
 
 static DBusServerVTable unix_vtable = {
@@ -267,8 +277,10 @@ _dbus_server_new_for_domain_socket (const char     *path,
                                     DBusError      *error)
 {
   DBusServer *server;
+  DBusServerUnix *unix_server;
   int listen_fd;
   DBusString address;
+  char *path_copy;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -281,9 +293,15 @@ _dbus_server_new_for_domain_socket (const char     *path,
   if (!_dbus_string_append (&address, "unix:path=") ||
       !_dbus_string_append (&address, path))
     {
-      _dbus_string_free (&address);
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      return NULL;
+      goto failed_0;
+    }
+
+  path_copy = _dbus_strdup (path);
+  if (path_copy == NULL)
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      goto failed_0;
     }
   
   listen_fd = _dbus_listen_unix_socket (path, error);
@@ -291,22 +309,32 @@ _dbus_server_new_for_domain_socket (const char     *path,
   
   if (listen_fd < 0)
     {
-      _dbus_string_free (&address);
-      return NULL;
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      goto failed_1;
     }
   
   server = _dbus_server_new_for_fd (listen_fd, &address);
   if (server == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      close (listen_fd);
-      _dbus_string_free (&address);
-      return NULL;
+      goto failed_2;
     }
 
+  unix_server = (DBusServerUnix*) server;
+  unix_server->socket_name = path_copy;
+  
   _dbus_string_free (&address);
   
   return server;
+
+ failed_2:
+  _dbus_close (listen_fd, NULL);
+ failed_1:
+  dbus_free (path_copy);
+ failed_0:
+  _dbus_string_free (&address);
+
+  return NULL;
 }
 
 /**

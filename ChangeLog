@@ -1,5 +1,17 @@
 2003-04-06  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-server-unix.c (_dbus_server_new_for_domain_socket):
+	save the domain socket name, and unlink it when we disconnect the
+	server. Means that at least when we exit normally, we won't leave
+	a bunch of junk in /tmp
+
+	* dbus/dbus-transport-unix.c
+	(_dbus_transport_new_for_domain_socket): code cleanup (nicer
+	memory management). (I was making a real change here but then
+	didn't)
+
+2003-04-06  Havoc Pennington  <hp@pobox.com>
+
 	* bus/bus.c (bus_context_new): fix wrong handling of
 	server_data_slot_unref() in the error case. 
 

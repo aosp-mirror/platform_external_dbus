@@ -1045,21 +1045,21 @@ _dbus_transport_new_for_domain_socket (const char     *path,
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
     }
-    
+
+  fd = -1;
+  
   if (!_dbus_string_append (&address, "unix:path=") ||
       !_dbus_string_append (&address, path))
     {
-      _dbus_string_free (&address);
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      return NULL;
+      goto failed_0;
     }
   
   fd = _dbus_connect_unix_socket (path, error);
   if (fd < 0)
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
-      _dbus_string_free (&address);
-      return NULL;
+      goto failed_0;
     }
 
   _dbus_fd_set_close_on_exec (fd);
@@ -1071,14 +1071,18 @@ _dbus_transport_new_for_domain_socket (const char     *path,
   if (transport == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      _dbus_string_free (&address);
-      _dbus_close (fd, NULL);
-      fd = -1;
+      goto failed_1;
     }
-
+  
   _dbus_string_free (&address);
   
   return transport;
+
+ failed_1:
+  _dbus_close (fd, NULL);
+ failed_0:
+  _dbus_string_free (&address);
+  return NULL;
 }
 
 /**
