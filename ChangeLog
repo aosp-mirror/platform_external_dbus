@@ -1,3 +1,9 @@
+2004-09-04  Harald Fernengel  <harry@kdevelop.org>
+
+	* qt/connection.*: Applied patch by Jérôme Lodewyck
+	<lodewyck@clipper.ens.fr> to integrate an existing
+	connection into the Qt eventloop
+
 2004-08-30  Jon Trowbridge  <trow@ximian.com>
 
 	* mono/BusDriver.cs: Added.  This is a class for interacting with
