@@ -1,0 +1,54 @@
+.\" 
+.\" dbus-launch manual page.
+.\" Copyright (C) 2003 Red Hat, Inc.
+.\"
+.TH dbus-launch 1
+.SH NAME
+dbus-launch \- Utility to start a message bus from a shell script
+.SH SYNOPSIS
+.PP
+.B dbus-launch [\-\-version] [\-\-exit-with-session]
+
+.SH DESCRIPTION
+
+The \fIdbus-launch\fP command is used to start \fIdbus-daemon-1\fP
+from a shell script. It would normally be called from a user's login
+scripts. Unlike the daemon itself, \fIdbus-launch\fP exits, so
+backticks or the $() construct can be used to read information from
+\fIdbus-launch\fP. \fIdbus-launch\fP prints information about the
+launched daemon in KEY=VALUE format.
+
+.PP
+See http://www.freedesktop.org/software/dbus/ for more information
+about D-BUS. See also the man page for \fIdbus-daemon-1\fP.
+
+.PP
+Here is an example of how to use \fIdbus-launch\fP with an 
+sh-compatible shell:
+.nf
+
+  VARIABLES=`dbus-launch`
+  eval $VARIABLES
+  echo "D-BUS per-session daemon address is: $DBUS_SESSION_BUS_ADDRESS"
+
+.fi
+
+.SH OPTIONS
+The following options are supported:
+.TP
+.I "--exit-with-session"
+If this option is provided, a persistent "babysitter" process will be 
+created that watches stdin for HUP and tries to connect to the X
+server. If this process gets a HUP on stdin or loses its X connection,
+it kills the message bus daemon.
+
+.TP
+.I "--version"
+Print the version of dbus-launch
+
+.SH AUTHOR
+See http://www.freedesktop.org/software/dbus/doc/AUTHORS
+
+.SH BUGS
+Please send bug reports to the D-BUS mailing list or bug tracker,
+see http://www.freedesktop.org/software/dbus/

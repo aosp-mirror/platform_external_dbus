@@ -47,7 +47,7 @@ signal_handler (int sig)
 static void
 usage (void)
 {
-  fprintf (stderr, "dbus-daemon-1 [--version] [--session] [--system] [--config-file=FILE] [--print-address[=descriptor]]\n");
+  fprintf (stderr, "dbus-daemon-1 [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]]\n");
   exit (1);
 }
 

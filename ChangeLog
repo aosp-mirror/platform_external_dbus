@@ -6,6 +6,15 @@
 
 2003-05-03  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-watch.c (dbus_watch_handle): warn and return if a
+	watch is invalid when handled
+
+	* tools/Makefile.am, tools/dbus-launch.c, tools/dbus-launch.1: add
+	dbus-launch utility to launch the bus from a shell script.  Didn't
+	actually implement dbus-launch yet, it's just a placeholder still.
+	
+2003-05-03  Havoc Pennington  <hp@pobox.com>
+
 	* bus/Makefile.am, bus/dbus-daemon-1.1.in: man page for the
 	daemon; also documents daemon config file, so replaces
 	doc/config-file.txt. Corrected some stuff from config-file.txt in

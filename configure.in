@@ -438,6 +438,27 @@ dnl Qt flags
 AC_SUBST(DBUS_QT_CXXFLAGS)
 AC_SUBST(DBUS_QT_LIBS)
 
+### X11 detection
+AC_PATH_XTRA
+DBUS_X_LIBS="$X_LIBS $X_PRE_LIBS -lX11 $X_EXTRA_LIBS"
+DBUS_X_CFLAGS="$X_CFLAGS"
+AC_SUBST(DBUS_X_CFLAGS)
+AC_SUBST(DBUS_X_LIBS)
+
+## for now enable_x11 just tracks have_x11, 
+## there's no --enable-x11
+if test x$no_x = xyes ; then
+   have_x11=no
+   enable_x11=no
+else
+   have_x11=yes
+   enable_x11=yes
+fi
+
+if test x$enable_x11 = xyes ; then
+   AC_DEFINE(DBUS_BUILD_X11,1,[Build X11-dependent code])
+fi
+
 ### Documentation
 
 AC_PATH_PROG(DOXYGEN, doxygen, no)
@@ -605,6 +626,11 @@ test/data/valid-service-files/debug-echo.service
 test/data/valid-service-files/debug-segfault.service
 ])
 
+### FIXME it's bizarre that have_qt and have_glib are used
+### instead of enable_ - should fix things so that enable 
+### is always whether it's enabled, and have is always whether 
+### it was found.
+
 dnl ==========================================================================
 echo "
                     D-BUS $VERSION
@@ -627,6 +653,7 @@ echo "
         Building checks:          ${enable_checks}
         Building Qt bindings:     ${have_qt}
         Building GLib bindings:   ${have_glib}
+        Building X11 code:        ${enable_x11}
         Building documentation:   ${enable_docs}
         Using XML parser:         ${with_xml}
         Init scripts style:       ${with_init_scripts}

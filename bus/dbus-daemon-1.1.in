@@ -49,6 +49,13 @@ The per-session daemon is used for various interprocess communication
 among desktop applications (however, it is not tied to X or the GUI 
 in any way).
 
+.PP
+There is no way to cause the D-BUS daemon to reload its configuration
+file (HUP will not do so). The reason is that changing configuration
+would break the semantics expected by applications connected to the
+message bus. Thus, changing configuration would require kicking all
+apps off the bus; so you may as well just restart the daemon.
+
 .SH OPTIONS
 The following options are supported:
 .TP
