@@ -1,3 +1,7 @@
+2003-09-25  Havoc Pennington  <hp@redhat.com>
+
+	* bus/session.conf.in: fix my mess
+
 2003-09-25  Havoc Pennington  <hp@pobox.com>
 
 	* bus/session.conf.in: fix security policy, reported by Seth Nickell
