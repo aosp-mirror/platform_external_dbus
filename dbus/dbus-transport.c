@@ -637,6 +637,35 @@ _dbus_transport_messages_pending (DBusTransport  *transport,
 }
 
 /**
+ * Get the UNIX file descriptor, if any.
+ *
+ * @param transport the transport
+ * @param fd_p pointer to fill in with the descriptor
+ * @returns #TRUE if a descriptor was available
+ */
+dbus_bool_t
+_dbus_transport_get_unix_fd (DBusTransport *transport,
+                             int           *fd_p)
+{
+  dbus_bool_t retval;
+  
+  if (transport->vtable->get_unix_fd == NULL)
+    return FALSE;
+
+  if (transport->disconnected)
+    return FALSE;
+
+  _dbus_transport_ref (transport);
+
+  retval = (* transport->vtable->get_unix_fd) (transport,
+                                               fd_p);
+  
+  _dbus_transport_unref (transport);
+
+  return retval;
+}
+
+/**
  * Performs a single poll()/select() on the transport's file
  * descriptors and then reads/writes data as appropriate,
  * queueing incoming messages and sending outgoing messages.

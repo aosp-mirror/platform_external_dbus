@@ -38,6 +38,7 @@ typedef struct BusPolicy        BusPolicy;
 typedef struct BusClientPolicy  BusClientPolicy;
 typedef struct BusPolicyRule    BusPolicyRule;
 typedef struct BusRegistry      BusRegistry;
+typedef struct BusSELinuxID     BusSELinuxID;
 typedef struct BusService       BusService;
 typedef struct BusTransaction   BusTransaction;
 typedef struct BusMatchmaker    BusMatchmaker;
@@ -78,8 +79,11 @@ BusActivation*    bus_context_get_activation                     (BusContext    
 BusMatchmaker*    bus_context_get_matchmaker                     (BusContext       *context);
 DBusLoop*         bus_context_get_loop                           (BusContext       *context);
 DBusUserDatabase* bus_context_get_user_database                  (BusContext       *context);
+
 dbus_bool_t       bus_context_allow_user                         (BusContext       *context,
                                                                   unsigned long     uid);
+BusPolicy*        bus_context_get_policy                         (BusContext       *context);
+
 BusClientPolicy*  bus_context_create_client_policy               (BusContext       *context,
                                                                   DBusConnection   *connection,
                                                                   DBusError        *error);
@@ -100,6 +104,5 @@ dbus_bool_t       bus_context_check_security_policy              (BusContext    
                                                                   DBusConnection   *proposed_recipient,
                                                                   DBusMessage      *message,
                                                                   DBusError        *error);
-
 
 #endif /* BUS_BUS_H */

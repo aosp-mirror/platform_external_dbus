@@ -1,0 +1,60 @@
+/* selinux.h  SELinux security check headers for D-BUS
+ *
+ * Author: Matthew Rickard <mjricka@epoch.ncsc.mil>
+ *
+ * Licensed under the Academic Free License version 2.0
+ * 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
+
+#ifndef BUS_SELINUX_H
+#define BUS_SELINUX_H
+
+#include <dbus/dbus-hash.h>
+#include <dbus/dbus-connection.h>
+#include "services.h"
+
+dbus_bool_t bus_selinux_init     (void);
+void        bus_selinux_shutdown (void);
+
+void bus_selinux_id_ref    (BusSELinuxID *sid);
+void bus_selinux_id_unref  (BusSELinuxID *sid);
+
+DBusHashTable* bus_selinux_id_table_new    (void);
+BusSELinuxID*  bus_selinux_id_table_lookup (DBusHashTable    *service_table,
+                                            const DBusString *service_name);
+dbus_bool_t    bus_selinux_id_table_insert (DBusHashTable    *service_table,
+                                            const char       *service_name,
+                                            const char       *service_context);
+DBusHashTable* bus_selinux_id_table_union  (DBusHashTable    *base,
+                                            DBusHashTable    *override);
+void           bus_selinux_id_table_print  (DBusHashTable    *service_table);
+
+
+
+dbus_bool_t bus_selinux_allows_acquire_service (DBusConnection *connection,
+                                                BusSELinuxID   *service_sid);
+dbus_bool_t bus_selinux_allows_send            (DBusConnection *sender,
+                                                DBusConnection *proposed_recipient);
+
+
+
+BusSELinuxID* bus_selinux_init_connection_id (DBusConnection *connection,
+                                              DBusError      *error);
+
+
+
+#endif /* BUS_SELINUX_H */

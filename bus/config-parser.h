@@ -29,6 +29,7 @@
 #include <dbus/dbus.h>
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-list.h>
+#include <dbus/dbus-hash.h>
 #include "bus.h"
 
 /* Whatever XML library we're using just pushes data into this API */
@@ -69,6 +70,8 @@ DBusList**  bus_config_parser_get_service_dirs (BusConfigParser *parser);
 BusPolicy*  bus_config_parser_steal_policy     (BusConfigParser *parser);
 void        bus_config_parser_get_limits       (BusConfigParser *parser,
                                                 BusLimits       *limits);
+
+DBusHashTable* bus_config_parser_steal_service_sid_table (BusConfigParser *parser);
 
 /* Loader functions (backended off one of the XML parsers).  Returns a
  * finished ConfigParser.

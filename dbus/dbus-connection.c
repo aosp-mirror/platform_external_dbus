@@ -2953,6 +2953,37 @@ dbus_connection_set_dispatch_status_function (DBusConnection             *connec
 }
 
 /**
+ * Get the UNIX file descriptor of the connection, if any.  This can
+ * be used for SELinux access control checks with getpeercon() for
+ * example. DO NOT read or write to the file descriptor, or try to
+ * select() on it; use DBusWatch for main loop integration. Not all
+ * connections will have a file descriptor. So for adding descriptors
+ * to the main loop, use dbus_watch_get_fd() and so forth.
+ *
+ * @param connection the connection
+ * @param fd return location for the file descriptor.
+ * @returns #TRUE if fd is successfully obtained.
+ */
+dbus_bool_t
+dbus_connection_get_unix_fd (DBusConnection *connection,
+                             int            *fd)
+{
+  dbus_bool_t retval;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (connection->transport != NULL, FALSE);
+  
+  CONNECTION_LOCK (connection);
+  
+  retval = _dbus_transport_get_unix_fd (connection->transport,
+                                        fd);
+
+  CONNECTION_UNLOCK (connection);
+
+  return retval;
+}
+
+/**
  * Gets the UNIX user ID of the connection if any.
  * Returns #TRUE if the uid is filled in.
  * Always returns #FALSE on non-UNIX platforms.

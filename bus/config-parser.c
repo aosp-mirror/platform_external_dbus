@@ -24,6 +24,7 @@
 #include "test.h"
 #include "utils.h"
 #include "policy.h"
+#include "selinux.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-internals.h>
 #include <string.h>
@@ -44,7 +45,9 @@ typedef enum
   ELEMENT_PIDFILE,
   ELEMENT_SERVICEDIR,
   ELEMENT_INCLUDEDIR,
-  ELEMENT_TYPE
+  ELEMENT_TYPE,
+  ELEMENT_SELINUX,
+  ELEMENT_ASSOCIATE
 } ElementType;
 
 typedef enum
@@ -117,6 +120,8 @@ struct BusConfigParser
 
   DBusList *included_files;  /**< Included files stack */
 
+  DBusHashTable *service_sid_table; /**< Map service names to SELinux contexts */
+
   unsigned int fork : 1; /**< TRUE to fork into daemon mode */
 
   unsigned int is_toplevel : 1; /**< FALSE if we are a sub-config-file inside another one */
@@ -157,6 +162,10 @@ element_type_to_name (ElementType type)
       return "includedir";
     case ELEMENT_TYPE:
       return "type";
+    case ELEMENT_SELINUX:
+      return "selinux";
+    case ELEMENT_ASSOCIATE:
+      return "associate";
     }
 
   _dbus_assert_not_reached ("bad element type");
@@ -235,6 +244,7 @@ merge_included (BusConfigParser *parser,
                 DBusError       *error)
 {
   DBusList *link;
+  DBusHashTable *table;
 
   if (!bus_policy_merge (parser->policy,
                          included->policy))
@@ -242,6 +252,17 @@ merge_included (BusConfigParser *parser,
       BUS_SET_OOM (error);
       return FALSE;
     }
+
+  table = bus_selinux_id_table_union (parser->service_sid_table,
+                                      included->service_sid_table);
+  if (table == NULL)
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  _dbus_hash_table_unref (parser->service_sid_table);
+  parser->service_sid_table = table;
   
   if (included->user != NULL)
     {
@@ -317,12 +338,17 @@ bus_config_parser_new (const DBusString      *basedir,
     }
 
   if (((parser->policy = bus_policy_new ()) == NULL) ||
-      !_dbus_string_copy (basedir, 0, &parser->basedir, 0))
+      !_dbus_string_copy (basedir, 0, &parser->basedir, 0) ||
+      ((parser->service_sid_table = bus_selinux_id_table_new ()) == NULL))
     {
       if (parser->policy)
         bus_policy_unref (parser->policy);
       
       _dbus_string_free (&parser->basedir);
+
+      if (parser->service_sid_table == NULL)
+        _dbus_hash_table_unref (parser->service_sid_table);
+      
       dbus_free (parser);
       return NULL;
     }
@@ -428,6 +454,9 @@ bus_config_parser_unref (BusConfigParser *parser)
       if (parser->policy)
         bus_policy_unref (parser->policy);
 
+      if (parser->service_sid_table)
+        _dbus_hash_table_unref (parser->service_sid_table);
+      
       dbus_free (parser);
     }
 }
@@ -658,7 +687,7 @@ start_busconfig_child (BusConfigParser   *parser,
           BUS_SET_OOM (error);
           return FALSE;
         }
-
+      
       return TRUE;
     }
   else if (strcmp (element_name, "includedir") == 0)
@@ -836,6 +865,22 @@ start_busconfig_child (BusConfigParser   *parser,
 
       e->d.limit.name = _dbus_strdup (name);
       if (e->d.limit.name == NULL)
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+
+      return TRUE;
+    }
+  else if (strcmp (element_name, "selinux") == 0)
+    {
+      Element *e;
+      const char *name;
+
+      if (!check_no_attributes (parser, "selinux", attribute_names, attribute_values, error))
+        return FALSE;
+
+      if (push_element (parser, ELEMENT_SELINUX) == NULL)
         {
           BUS_SET_OOM (error);
           return FALSE;
@@ -1390,6 +1435,58 @@ start_policy_child (BusConfigParser   *parser,
     }
 }
 
+static dbus_bool_t
+start_selinux_child (BusConfigParser   *parser,
+                     const char        *element_name,
+                     const char       **attribute_names,
+                     const char       **attribute_values,
+                     DBusError         *error)
+{
+  if (strcmp (element_name, "associate") == 0)
+    {
+      const char *own;
+      const char *context;
+      
+      if (!locate_attributes (parser, "associate",
+                              attribute_names,
+                              attribute_values,
+                              error,
+                              "own", &own,
+                              "context", &context,
+                              NULL))
+        return FALSE;
+      
+      if (push_element (parser, ELEMENT_ASSOCIATE) == NULL)
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+
+      if (own == NULL || context == NULL)
+        {
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+                          "Element <associate> must have attributes own=\"<servicename>\" and context=\"<selinux context>\"");
+          return FALSE;
+        }
+
+      if (!bus_selinux_id_table_insert (parser->service_sid_table,
+                                        own, context))
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+      
+      return TRUE;
+    }
+  else
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Element <%s> not allowed inside <%s> in configuration file",
+                      element_name, "selinux");
+      return FALSE;
+    }
+}
+
 dbus_bool_t
 bus_config_parser_start_element (BusConfigParser   *parser,
                                  const char        *element_name,
@@ -1439,6 +1536,12 @@ bus_config_parser_start_element (BusConfigParser   *parser,
       return start_policy_child (parser, element_name,
                                  attribute_names, attribute_values,
                                  error);
+    }
+  else if (t == ELEMENT_SELINUX)
+    {
+      return start_selinux_child (parser, element_name,
+                                  attribute_names, attribute_values,
+                                  error);
     }
   else
     {
@@ -1635,6 +1738,8 @@ bus_config_parser_end_element (BusConfigParser   *parser,
     case ELEMENT_ALLOW:
     case ELEMENT_DENY:
     case ELEMENT_FORK:
+    case ELEMENT_SELINUX:
+    case ELEMENT_ASSOCIATE:
       break;
     }
 
@@ -1867,6 +1972,8 @@ bus_config_parser_content (BusConfigParser   *parser,
     case ELEMENT_ALLOW:
     case ELEMENT_DENY:
     case ELEMENT_FORK:
+    case ELEMENT_SELINUX:
+    case ELEMENT_ASSOCIATE:
       if (all_whitespace (content))
         return TRUE;
       else
@@ -2158,6 +2265,20 @@ bus_config_parser_get_limits (BusConfigParser *parser,
                               BusLimits       *limits)
 {
   *limits = parser->limits;
+}
+
+DBusHashTable*
+bus_config_parser_steal_service_sid_table (BusConfigParser *parser)
+{
+  DBusHashTable *table;
+
+  _dbus_assert (parser->service_sid_table != NULL); /* can only steal once */
+
+  table = parser->service_sid_table;
+
+  parser->service_sid_table = NULL;
+
+  return table;
 }
 
 #ifdef DBUS_BUILD_TESTS
@@ -2493,6 +2614,8 @@ config_parsers_equal (const BusConfigParser *a,
     return FALSE;
   
   /* FIXME: compare policy */
+
+  /* FIXME: compare service selinux ID table */
 
   if (! limits_equal (&a->limits, &b->limits))
     return FALSE;

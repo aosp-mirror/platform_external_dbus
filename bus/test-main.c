@@ -27,6 +27,7 @@
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-sysdeps.h>
 #include <dbus/dbus-internals.h>
+#include "selinux.h"
 
 #ifdef DBUS_BUILD_TESTS
 static void
@@ -68,6 +69,9 @@ main (int argc, char **argv)
       fprintf (stderr, "Must specify test data directory as argv[1] or in DBUS_TEST_DATA env variable\n");
       return 1;
     }
+
+  if (!bus_selinux_init ())
+    die ("could not init selinux support");
 
   _dbus_string_init_const (&test_data_dir, dir);
 
@@ -119,6 +123,8 @@ main (int argc, char **argv)
   check_memleaks (argv[0]);
   
   printf ("%s: Success\n", argv[0]);
+
+  bus_selinux_shutdown ();
   
   return 0;
 #else /* DBUS_BUILD_TESTS */

@@ -29,6 +29,7 @@
 #include "policy.h"
 #include "config-parser.h"
 #include "signals.h"
+#include "selinux.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-internals.h>
@@ -403,6 +404,7 @@ process_config_every_time (BusContext      *context,
 {
   DBusString full_address;
   DBusList *link;
+  DBusHashTable *service_sid_table;
   
   dbus_bool_t retval;
 
@@ -480,6 +482,11 @@ process_config_every_time (BusContext      *context,
       goto failed;
     }
 
+  service_sid_table = bus_config_parser_steal_service_sid_table (parser);
+  bus_registry_set_service_sid_table (context->registry,
+                                      service_sid_table);
+  _dbus_hash_table_unref (service_sid_table);
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = TRUE;
 
@@ -569,6 +576,13 @@ bus_context_new (const DBusString *config_file,
       goto failed;
     }
 
+  context->registry = bus_registry_new (context);
+  if (context->registry == NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+  
   if (!load_config (context, FALSE, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -632,13 +646,6 @@ bus_context_new (const DBusString *config_file,
   
   context->connections = bus_connections_new (context);
   if (context->connections == NULL)
-    {
-      BUS_SET_OOM (error);
-      goto failed;
-    }
-
-  context->registry = bus_registry_new (context);
-  if (context->registry == NULL)
     {
       BUS_SET_OOM (error);
       goto failed;
@@ -958,6 +965,12 @@ bus_context_allow_user (BusContext   *context,
                                 uid);
 }
 
+BusPolicy *
+bus_context_get_policy (BusContext *context)
+{
+  return context->policy;
+}
+
 BusClientPolicy*
 bus_context_create_client_policy (BusContext      *context,
                                   DBusConnection  *connection,
@@ -1088,6 +1101,28 @@ bus_context_check_security_policy (BusContext     *context,
   
   if (sender != NULL)
     {
+      /* First verify the SELinux access controls.  If allowed then
+       * go on with the standard checks.
+       */
+      if (!bus_selinux_allows_send (sender, proposed_recipient))
+        {
+          const char *dest = dbus_message_get_destination (message);
+          dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                          "An SELinux policy prevents this sender "
+                          "from sending this message to this recipient "
+                          "(rejected message had interface \"%s\" "
+                          "member \"%s\" error name \"%s\" destination \"%s\")",
+                          dbus_message_get_interface (message) ?
+                          dbus_message_get_interface (message) : "(unset)",
+                          dbus_message_get_member (message) ?
+                          dbus_message_get_member (message) : "(unset)",
+                          dbus_message_get_error_name (message) ?
+                          dbus_message_get_error_name (message) : "(unset)",
+                          dest ? dest : DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
+          _dbus_verbose ("SELinux security check denying send to service\n");
+          return FALSE;
+        }
+       
       if (bus_connection_is_active (sender))
         {
           sender_policy = bus_connection_get_policy (sender);

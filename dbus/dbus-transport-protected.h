@@ -71,6 +71,10 @@ struct DBusTransportVTable
 
   void        (* live_messages_changed) (DBusTransport *transport);
   /**< Outstanding messages counter changed */
+
+  dbus_bool_t (* get_unix_fd) (DBusTransport *transport,
+                               int           *fd_p);
+  /**< Get UNIX file descriptor */
 };
 
 /**
@@ -102,6 +106,7 @@ struct DBusTransport
   
   DBusAllowUnixUserFunction unix_user_function; /**< Function for checking whether a user is authorized. */
   void *unix_user_data;                         /**< Data for unix_user_function */
+  
   DBusFreeFunction free_unix_user_data;         /**< Function to free unix_user_data */
   
   unsigned int disconnected : 1;              /**< #TRUE if we are disconnected. */

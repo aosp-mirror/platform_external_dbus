@@ -177,7 +177,7 @@ bus_policy_new (void)
                                                free_rule_list_func);
   if (policy->rules_by_gid == NULL)
     goto failed;
-  
+
   return policy;
   
  failed:
@@ -594,9 +594,10 @@ dbus_bool_t
 bus_policy_merge (BusPolicy *policy,
                   BusPolicy *to_absorb)
 {
-  /* Not properly atomic, but as used for configuration files
-   * we don't rely on it.
-   */  
+  /* FIXME Not properly atomic, but as used for configuration files we
+   * don't rely on it quite so much.
+   */
+  
   if (!append_copy_of_policy_list (&policy->default_rules,
                                    &to_absorb->default_rules))
     return FALSE;
@@ -670,7 +671,7 @@ bus_client_policy_unref (BusClientPolicy *policy)
                           NULL);
 
       _dbus_list_clear (&policy->rules);
-      
+
       dbus_free (policy);
     }
 }

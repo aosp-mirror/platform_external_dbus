@@ -38,7 +38,7 @@ AC_ARG_ENABLE(gcj,              [  --enable-gcj          build gcj bindings],ena
 AC_ARG_ENABLE(mono,             [  --enable-mono         build mono bindings],enable_mono=$enableval,enable_mono=auto)
 AC_ARG_ENABLE(mono_docs,        [  --enable-mono-docs    build mono docs],enable_mono_docs=$enableval,enable_mono_docs=auto)
 AC_ARG_ENABLE(python,           [  --enable-python       build python bindings],enable_python=$enableval,enable_python=auto)
-
+AC_ARG_ENABLE(selinux,          [  --enable-selinux      build with SELinux support],enable_selinux=$enableval,enable_selinux=auto)
 
 AC_ARG_WITH(xml,                [  --with-xml=[libxml/expat]           XML library to use])
 AC_ARG_WITH(init-scripts,       [  --with-init-scripts=[redhat]        Style of init scripts to install])
@@ -690,6 +690,40 @@ if $dbus_use_libxml; then
    XML_CFLAGS=$LIBXML_CFLAGS
 fi
 
+# SELinux detection
+if test x$enable_selinux = xno ; then
+    have_selinux=no;
+else
+    # See if we have SELinux library
+    AC_CHECK_LIB(selinux, is_selinux_enabled, 
+                 have_selinux=yes, have_selinux=no)
+
+    # see if we have the SELinux header with the new D-BUS stuff in it
+    if test x$have_selinux = xyes ; then
+        AC_EGREP_HEADER(DBUS__ACQUIRE_SVC, av_permissions.h,
+                        have_selinux=yes, have_selinux=no)
+    fi
+
+    if test x$enable_selinux = xauto ; then
+        if test x$have_selinux = xno ; then
+                AC_MSG_WARN([Sufficiently new SELinux library not found])
+        fi
+    else 
+        if test x$have_selinux = xno ; then
+                AC_MSG_ERROR([SElinux explicitly required, and SELinux library not found])
+        fi
+    fi
+fi
+
+AM_CONDITIONAL(HAVE_SELINUX, test x$have_selinux = xyes)
+
+if test x$have_selinux = xyes ; then
+    SELINUX_LIBS=-lselinux
+    AC_DEFINE(HAVE_SELINUX,1,[SELinux support])
+else
+    SELINUX_LIBS=
+fi
+
 #### Set up final flags
 DBUS_CLIENT_CFLAGS=
 DBUS_CLIENT_LIBS=
@@ -697,7 +731,7 @@ AC_SUBST(DBUS_CLIENT_CFLAGS)
 AC_SUBST(DBUS_CLIENT_LIBS)
 
 DBUS_BUS_CFLAGS=$XML_CFLAGS
-DBUS_BUS_LIBS=$XML_LIBS
+DBUS_BUS_LIBS="$XML_LIBS $SELINUX_LIBS"
 AC_SUBST(DBUS_BUS_CFLAGS)
 AC_SUBST(DBUS_BUS_LIBS)
 
@@ -1076,7 +1110,6 @@ fi
 
 AM_CONDITIONAL(HAVE_PYTHON, test x$have_python = xyes)
 
-
 AC_OUTPUT([
 Doxyfile
 dbus/dbus-arch-deps.h
@@ -1167,6 +1200,7 @@ echo "
         Building Qt bindings:     ${have_qt}
         Building GLib bindings:   ${have_glib}
         Building Python bindings: ${have_python}
+        Building SELinux support: ${have_selinux}
 	Building Mono bindings:	  ${enable_mono}
 	Building Mono docs:	  ${enable_mono_docs}
         Building GTK+ tools:      ${have_gtk}

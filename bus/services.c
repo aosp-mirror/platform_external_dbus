@@ -31,6 +31,8 @@
 #include "utils.h"
 #include "activation.h"
 #include "policy.h"
+#include "bus.h"
+#include "selinux.h"
 
 struct BusService
 {
@@ -51,6 +53,8 @@ struct BusRegistry
   
   DBusHashTable *service_hash;
   DBusMemPool   *service_pool;
+
+  DBusHashTable *service_sid_table;
 };
 
 BusRegistry*
@@ -75,6 +79,8 @@ bus_registry_new (BusContext *context)
   if (registry->service_pool == NULL)
     goto failed;
 
+  registry->service_sid_table = NULL;
+  
   return registry;
 
  failed:
@@ -103,7 +109,9 @@ bus_registry_unref  (BusRegistry *registry)
         _dbus_hash_table_unref (registry->service_hash);
       if (registry->service_pool)
         _dbus_mem_pool_free (registry->service_pool);
-
+      if (registry->service_sid_table)
+        _dbus_hash_table_unref (registry->service_sid_table);
+      
       dbus_free (registry);
     }
 }
@@ -263,6 +271,7 @@ bus_registry_acquire_service (BusRegistry      *registry,
   BusClientPolicy *policy;
   BusService *service;
   BusActivation  *activation;
+  BusSELinuxID *sid;
   
   retval = FALSE;
 
@@ -292,6 +301,24 @@ bus_registry_acquire_service (BusRegistry      *registry,
   policy = bus_connection_get_policy (connection);
   _dbus_assert (policy != NULL);
 
+  /* Note that if sid is #NULL then the bus's own context gets used
+   * in bus_connection_selinux_allows_acquire_service()
+   */
+  sid = bus_selinux_id_table_lookup (registry->service_sid_table,
+                                     service_name);
+
+  if (!bus_selinux_allows_acquire_service (connection, sid))
+    {
+      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                      "Connection \"%s\" is not allowed to own the service \"%s\" due "
+                      "to SELinux policy",
+                      bus_connection_is_active (connection) ?
+                      bus_connection_get_name (connection) :
+                      "(inactive)",
+		      service_name);
+      goto out;
+    }
+      
   if (!bus_client_policy_check_can_own (policy, connection,
                                         service_name))
     {
@@ -385,6 +412,19 @@ bus_registry_acquire_service (BusRegistry      *registry,
   
  out:
   return retval;
+}
+
+void
+bus_registry_set_service_sid_table (BusRegistry   *registry,
+                                    DBusHashTable *table)
+{
+  _dbus_assert (registry->service_sid_table != table);
+  
+  if (registry->service_sid_table)
+    _dbus_hash_table_unref (registry->service_sid_table);
+
+  registry->service_sid_table = table;
+  _dbus_hash_table_ref (table);
 }
 
 static void

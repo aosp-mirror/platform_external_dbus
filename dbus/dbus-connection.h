@@ -242,6 +242,9 @@ dbus_bool_t dbus_connection_list_registered        (DBusConnection              
                                                     const char                  *parent_path,
                                                     char                      ***child_entries);
 
+dbus_bool_t dbus_connection_get_unix_fd            (DBusConnection              *connection,
+                                                    int                         *fd);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_CONNECTION_H */

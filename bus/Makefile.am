@@ -10,7 +10,7 @@ EFENCE=
 
 CONFIG_IN_FILES=				\
 	session.conf.in				\
-	system.conf.in 
+	system.conf.in
 
 config_DATA=					\
 	session.conf				\
@@ -44,6 +44,8 @@ BUS_SOURCES=					\
 	expirelist.h				\
 	policy.c				\
 	policy.h				\
+	selinux.h				\
+	selinux.c				\
 	services.c				\
 	services.h				\
 	signals.c				\

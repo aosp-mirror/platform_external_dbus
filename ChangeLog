@@ -1,3 +1,34 @@
+2004-07-24  Havoc Pennington  <hp@redhat.com>
+
+	SELinux support from Matthew Rickard <mjricka@epoch.ncsc.mil>
+
+	* bus/selinux.c, bus/selinux.h: new file encapsulating selinux
+	functionality
+
+	* configure.in: add --enable-selinux
+	
+	* bus/policy.c (bus_policy_merge): add FIXME to a comment
+
+	* bus/main.c (main): initialize and shut down selinux
+
+	* bus/connection.c: store SELinux ID on each connection, to avoid 
+	repeated getting of the string context and converting it into 
+	an ID
+
+	* bus/bus.c (bus_context_get_policy): new accessor, though it
+	isn't used
+	(bus_context_check_security_policy): check whether the security
+	context of sender connection can send to the security context of
+	recipient connection
+
+	* bus/config-parser.c: add parsing for <selinux> and <associate>
+	
+	* dbus/dbus-transport.c (_dbus_transport_get_unix_fd): to
+	implement dbus_connection_get_unix_fd()
+
+	* dbus/dbus-connection.c (dbus_connection_get_unix_fd): new
+	function, used by the selinux stuff
+	
 2004-07-29  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* bus/config-loader-libxml.c: complete the implementation of

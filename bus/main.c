@@ -28,6 +28,7 @@
 #include <string.h>
 #include <signal.h>
 #include <errno.h>
+#include "selinux.h"
 
 static BusContext *context;
 
@@ -371,7 +372,13 @@ main (int argc, char **argv)
           print_pid_fd = val;
         }
     }
-  
+
+  if (!bus_selinux_init ())
+    {
+      _dbus_warn ("SELinux initialization failed\n");
+      exit (1);
+    }
+
   dbus_error_init (&error);
   context = bus_context_new (&config_file, force_fork,
                              print_addr_fd, print_pid_fd,
@@ -395,6 +402,7 @@ main (int argc, char **argv)
   
   bus_context_shutdown (context);
   bus_context_unref (context);
+  bus_selinux_shutdown ();
 
   return 0;
 }

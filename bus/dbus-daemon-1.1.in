@@ -463,6 +463,110 @@ received" are evaluated separately.
 Be careful with send_interface/receive_interface, because the 
 interface field in messages is optional.
 
+.TP
+.I "<selinux>"
+
+.PP
+The <selinux> element contains settings related to Security Enhanced Linux.
+More details below.
+
+.TP
+.I "<associate>"
+
+.PP
+An <associate> element appears below an <selinux> element and
+creates a mapping. Right now only one kind of association is possible:
+.nf
+   <associate own="org.freedesktop.Foobar" context="foo_t"/> 
+.fi
+
+.PP
+This means that if a connection asks to own the service
+"org.freedesktop.Foobar" then the source context will be the context
+of the connection and the target context will be "foo_t" - see the 
+short discussion of SELinux below.
+
+.PP
+Note, the context here is the target context when acquiring a service,
+NOT the context of the connection owning the service.
+
+.PP
+There's currently no way to set a default for owning any service, if
+we add this syntax it will look like:
+.nf
+   <associate own="*" context="foo_t"/> 
+.fi
+If you find a reason this is useful, let the developers know.
+Right now the default will be the security context of the bus itself.
+
+.PP
+If two <associate> elements specify the same service name, 
+the element appearing later in the configuration file will 
+be used.
+
+.SH SELinux
+
+.PP
+See http://www.nsa.gov/selinux/ for full details on SELinux. Some useful excerpts:
+
+.IP "" 8
+Every subject (process) and object (e.g. file, socket, IPC object,
+etc) in the system is assigned a collection of security attributes,
+known as a security context. A security context contains all of the
+security attributes associated with a particular subject or object
+that are relevant to the security policy.
+
+.IP "" 8
+In order to better encapsulate security contexts and to provide
+greater efficiency, the policy enforcement code of SELinux typically
+handles security identifiers (SIDs) rather than security contexts. A
+SID is an integer that is mapped by the security server to a security
+context at runtime.
+
+.IP "" 8
+When a security decision is required, the policy enforcement code
+passes a pair of SIDs (typically the SID of a subject and the SID of
+an object, but sometimes a pair of subject SIDs or a pair of object
+SIDs), and an object security class to the security server. The object
+security class indicates the kind of object, e.g. a process, a regular
+file, a directory, a TCP socket, etc.
+
+.IP "" 8
+Access decisions specify whether or not a permission is granted for a
+given pair of SIDs and class. Each object class has a set of
+associated permissions defined to control operations on objects with
+that class.
+
+.PP
+D-BUS performs SELinux security checks in two places.
+
+.PP
+First, any time a message is routed from one connection to another
+connection, the bus daemon will check permissions with the security context of
+the first connection as source, security context of the second connection
+as target, object class "dbus" and requested permission "send_msg".
+
+.PP
+If a security context is not available for a connection 
+(impossible when using UNIX domain sockets), then the target 
+context used is the context of the bus daemon itself.
+There is currently no way to change this default, because we're 
+assuming that only UNIX domain sockets will be used to 
+connect to the systemwide bus. If this changes, we'll 
+probably add a way to set the default connection context.
+
+.PP
+Second, any time a connection asks to own a service, 
+the bus daemon will check permissions with the security 
+context of the connection as source, the security context specified
+for the service name with an <associate> element as target, object 
+class "dbus" and requested permission "acquire_svc".
+
+.PP
+If the service name has no security context associated in the 
+configuration file, the security context of the bus daemon 
+itself will be used.
+
 .SH AUTHOR
 See http://www.freedesktop.org/software/dbus/doc/AUTHORS
 

@@ -26,6 +26,7 @@
 
 #include <dbus/dbus.h>
 #include <dbus/dbus-string.h>
+#include <dbus/dbus-hash.h>
 #include "connection.h"
 #include "bus.h"
 
@@ -55,6 +56,8 @@ dbus_bool_t  bus_registry_acquire_service (BusRegistry                 *registry
                                            dbus_uint32_t               *result,
                                            BusTransaction              *transaction,
                                            DBusError                   *error);
+void         bus_registry_set_service_sid_table (BusRegistry           *registry,
+                                                 DBusHashTable         *table);
 
 BusService*     bus_service_ref                      (BusService     *service);
 void            bus_service_unref                    (BusService     *service);

@@ -948,6 +948,18 @@ unix_live_messages_changed (DBusTransport *transport)
   check_read_watch (transport);
 }
 
+
+static dbus_bool_t
+unix_get_unix_fd (DBusTransport *transport,
+                  int           *fd_p)
+{
+  DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
+  
+  *fd_p = unix_transport->fd;
+
+  return TRUE;
+}
+
 static DBusTransportVTable unix_vtable = {
   unix_finalize,
   unix_handle_watch,
@@ -955,7 +967,8 @@ static DBusTransportVTable unix_vtable = {
   unix_connection_set,
   unix_messages_pending,
   unix_do_iteration,
-  unix_live_messages_changed
+  unix_live_messages_changed,
+  unix_get_unix_fd
 };
 
 /**

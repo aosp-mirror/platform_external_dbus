@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* connection.h  Client connections
  *
- * Copyright (C) 2003  Red Hat, Inc.
+ * Copyright (C) 2003, 2004  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.0
  * 
@@ -50,6 +50,7 @@ BusConnections* bus_connection_get_connections    (DBusConnection               
 BusRegistry*    bus_connection_get_registry       (DBusConnection               *connection);
 BusActivation*  bus_connection_get_activation     (DBusConnection               *connection);
 BusMatchmaker*  bus_connection_get_matchmaker     (DBusConnection               *connection);
+BusSELinuxID*   bus_connection_get_selinux_id     (DBusConnection               *connection);
 dbus_bool_t     bus_connections_check_limits      (BusConnections               *connections,
                                                    DBusConnection               *requesting_completion,
                                                    DBusError                    *error);
