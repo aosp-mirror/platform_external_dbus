@@ -12,7 +12,6 @@ namespace DBus
     private string pathName = null;
     private Introspector introspector = null;
     private object handledObject = null;
-    private Hashtable handledMethods = null;
     private DBusObjectPathVTable vTable;
     private Connection connection;
     private Service service;
@@ -99,33 +98,20 @@ namespace DBus
 	throw new OutOfMemoryException();
     }
 
-    private void RegisterMethod(MethodInfo method) 
-    {
-      string key = method.Name + " " + Arguments.ParseParameters(method);
-      handledMethods.Add(key, method);
-    }
-
     public object HandledObject 
     {
-      get 
-	{
-	  return this.handledObject;
-	}
+      get {
+	return this.handledObject;
+      }
       
-      set
-	{
-	  this.handledObject = value;
-
-	  object[] attributes;
-
-	  // Register the methods
-	  this.handledMethods = new Hashtable();
-	  this.introspector = new Introspector(value.GetType());
-	  
-	  foreach (MethodInfo method in this.introspector.Methods) {
-	    RegisterMethod(method);
-	  }  
-	}
+      set {
+	this.handledObject = value;
+	
+	object[] attributes;
+	
+	// Register the methods
+	this.introspector = Introspector.GetIntrospector(value.GetType());	  
+      }
     }
     
     public int Filter_Called(IntPtr rawConnection,
@@ -169,22 +155,14 @@ namespace DBus
     private Result HandleMethod(MethodCall methodCall)
     {
       methodCall.Service = service;
-
-      // Check the interface name matches
-      if (methodCall.InterfaceName != this.introspector.InterfaceName) {
+      
+      InterfaceProxy interfaceProxy = this.introspector.GetInterface(methodCall.InterfaceName);
+      if (interfaceProxy == null || !interfaceProxy.HasMethod(methodCall.Key)) {
+	// No such interface here.
 	return Result.NotYetHandled;
       }
-
-      // Iterate through getting the type codes
-      string key = methodCall.Name + " " + methodCall.Arguments;
-
-      // Check it's one of our methods
-      if (!handledMethods.Contains(key)) {
-	return Result.NotYetHandled;
-      }
-
-      // Got it!
-      MethodInfo method = (MethodInfo) handledMethods[key];
+      
+      MethodInfo method = interfaceProxy.GetMethod(methodCall.Key);
 
       // Now call the method. FIXME: Error handling
       object [] args = methodCall.Arguments.GetParameters(method);

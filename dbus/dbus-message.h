@@ -230,6 +230,8 @@ dbus_bool_t dbus_message_iter_append_double        (DBusMessageIter      *iter,
 						    double                value);
 dbus_bool_t dbus_message_iter_append_string        (DBusMessageIter      *iter,
 						    const char           *value);
+dbus_bool_t dbus_message_iter_append_object_path   (DBusMessageIter      *iter,
+						    const char           *value);
 dbus_bool_t dbus_message_iter_append_custom        (DBusMessageIter      *iter,
 						    const char           *name,
 						    const unsigned char  *data,
@@ -269,6 +271,9 @@ dbus_bool_t dbus_message_iter_append_byte_array    (DBusMessageIter      *iter,
 dbus_bool_t dbus_message_iter_append_string_array  (DBusMessageIter      *iter,
 						    const char          **value,
 						    int                   len);
+dbus_bool_t dbus_message_iter_append_object_path_array (DBusMessageIter      *iter,
+							const char          **value,
+							int                   len);
 
 
 

@@ -35,6 +35,7 @@ namespace DBus
     protected string pathName = null;
     protected string interfaceName = null;
     protected string name = null;    
+    private string key= null;
 
     protected Message()
     {
@@ -261,6 +262,17 @@ namespace DBus
 
 	  return this.name;
 	}
+    }
+
+    public string Key
+    {
+      get {
+	if (this.key == null) {
+	  this.key = Name + " " + Arguments;
+	}
+	
+	return this.key;
+      }
     }
 
     public Arguments Arguments

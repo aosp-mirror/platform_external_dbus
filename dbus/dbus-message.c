@@ -1916,7 +1916,8 @@ dbus_message_append_args_valist (DBusMessage *message,
 	    goto errorout;
 	  break;
         case DBUS_TYPE_OBJECT_PATH:
-
+	  if (!dbus_message_iter_append_object_path (&iter, va_arg (var_args, const char*)))
+	    goto errorout;
           break;
 	case DBUS_TYPE_CUSTOM:
 	  {
@@ -1975,6 +1976,10 @@ dbus_message_append_args_valist (DBusMessage *message,
 		break;
 	      case DBUS_TYPE_STRING:
 		if (!dbus_message_iter_append_string_array (&iter, (const char **)data, len))
+		  goto errorout;
+		break;
+	      case DBUS_TYPE_OBJECT_PATH:
+		if (!dbus_message_iter_append_object_path_array (&iter, (const char **)data, len))
 		  goto errorout;
 		break;
 	      case DBUS_TYPE_NIL:
@@ -2664,7 +2669,6 @@ dbus_message_iter_get_string (DBusMessageIter *iter)
   int type, pos;
 
   _dbus_return_val_if_fail (dbus_message_iter_check (real), NULL);
-
   pos = dbus_message_iter_get_data_start (real, &type);
   
   _dbus_assert (type == DBUS_TYPE_STRING);
@@ -2673,11 +2677,7 @@ dbus_message_iter_get_string (DBusMessageIter *iter)
                                  pos, NULL);
 }
 
-#if 0
 /**
- * @todo FIXME to finish this _dbus_demarshal_object_path() needs
- * to not explode the path.
- * 
  * Returns the object path value that an iterator may point to.
  * Note that you need to check that the iterator points to
  * an object path value before using this function.
@@ -2698,10 +2698,9 @@ dbus_message_iter_get_object_path (DBusMessageIter  *iter)
   
   _dbus_assert (type == DBUS_TYPE_OBJECT_PATH);
 
-  return _dbus_demarshal_object_path (&real->message->body, real->message->byte_order,
-                                      pos, NULL);
+  return _dbus_demarshal_string (&real->message->body, real->message->byte_order,
+                                 pos, NULL);
 }
-#endif
 
 /**
  * Returns the name and data from a custom type that an iterator may
@@ -3325,11 +3324,7 @@ dbus_message_iter_get_string_array (DBusMessageIter *iter,
     return TRUE;
 }
 
-#if 0
 /**
- * @todo FIXME to implement this _dbus_demarshal_object_path_array()
- * needs implementing
- * 
  * Returns the object path array that the iterator may point to.
  * Note that you need to check that the iterator points
  * to an object path array prior to using this function.
@@ -3361,13 +3356,12 @@ dbus_message_iter_get_object_path_array (DBusMessageIter *iter,
   type = iter_get_array_type (real, NULL);
   _dbus_assert (type == DBUS_TYPE_OBJECT_PATH);
 
-  if (!_dbus_demarshal_object_path_array (&real->message->body, real->message->byte_order,
-                                          pos, NULL, value, len))
+  if (!_dbus_demarshal_string_array (&real->message->body, real->message->byte_order,
+				     pos, NULL, value, len))
     return FALSE;
   else
     return TRUE;
 }
-#endif
 
 /**
  * Returns the key name fot the dict entry that an iterator
@@ -3786,6 +3780,37 @@ dbus_message_iter_append_string (DBusMessageIter *iter,
   _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
   
   if (!dbus_message_iter_append_type (real, DBUS_TYPE_STRING))
+    return FALSE;
+  
+  if (!_dbus_marshal_string (&real->message->body, real->message->byte_order, value))
+    {
+      _dbus_string_set_length (&real->message->body, real->pos);
+      return FALSE;
+    }
+
+  dbus_message_iter_append_done (real);
+  
+  return TRUE;
+}
+
+/**
+ * Appends an object path to the message.
+ *
+ * @todo add return_val_if_fail(UTF-8 is valid)
+ *
+ * @param iter an iterator pointing to the end of the message
+ * @param value the object path
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_iter_append_object_path (DBusMessageIter *iter,
+				      const char      *value)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
+  
+  if (!dbus_message_iter_append_type (real, DBUS_TYPE_OBJECT_PATH))
     return FALSE;
   
   if (!_dbus_marshal_string (&real->message->body, real->message->byte_order, value))
@@ -4317,6 +4342,37 @@ dbus_message_iter_append_string_array (DBusMessageIter *iter,
   _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!append_array_type (real, DBUS_TYPE_STRING, NULL, NULL))
+    return FALSE;
+  
+  if (!_dbus_marshal_string_array (&real->message->body, real->message->byte_order, value, len))
+    {
+      _dbus_string_set_length (&real->message->body, real->pos);
+      return FALSE;
+    }
+
+  dbus_message_iter_append_done (real);
+  
+  return TRUE;
+}
+
+/**
+ * Appends an object path array to the message.
+ *
+ * @param iter an iterator pointing to the end of the message
+ * @param value the array
+ * @param len the length of the array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_iter_append_object_path_array (DBusMessageIter *iter,
+					    const char     **value,
+					    int              len)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
+
+  if (!append_array_type (real, DBUS_TYPE_OBJECT_PATH, NULL, NULL))
     return FALSE;
   
   if (!_dbus_marshal_string_array (&real->message->body, real->message->byte_order, value, len))

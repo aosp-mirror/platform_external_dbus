@@ -170,22 +170,6 @@ namespace DBus
       return constructor;
     }
 
-    // Get the signature of a method
-    public static string ParseParameters(MethodInfo method) 
-    {
-      ParameterInfo[] pars = method.GetParameters();
-      string key = "";
- 
-      foreach (ParameterInfo par in pars) {
-	if (!par.IsOut) {
-	  Type dbusType = MatchType(par.ParameterType);
-	  key += GetCode(dbusType);
-	}
-      }
-
-      return key;
-    } 
-
     // Get the type code for a given D-BUS type
     public static char GetCode(Type dbusType) 
     {

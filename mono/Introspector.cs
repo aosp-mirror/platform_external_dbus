@@ -10,97 +10,72 @@ namespace DBus
   internal class Introspector
   {
     private Type type;
-    private string interfaceName;
+    private static Hashtable introspectors = new Hashtable();
+    private Hashtable interfaceProxies = null;
     
-    public Introspector(Type type)    {
-      object[] attributes = type.GetCustomAttributes(typeof(InterfaceAttribute), true);
-      if (attributes.Length != 1)
-	throw new ApplicationException("Type '" + type + "' is not a D-BUS interface.");
-      
-      InterfaceAttribute interfaceAttribute = (InterfaceAttribute) attributes[0];
-     
-      this.interfaceName = interfaceAttribute.InterfaceName;
+    public static Introspector GetIntrospector(Type type) 
+    {
+      if (!introspectors.Contains(type)) {
+	introspectors[type] = new Introspector(type);
+      }
+
+      return (Introspector) introspectors[type];
+    }
+
+    private Introspector(Type type) 
+    {
+      interfaceProxies = new Hashtable();
+      AddType(type);
       this.type = type;
     }
     
-    public string InterfaceName
+    private void AddType(Type type) 
     {
-      get
-	{
-	  return this.interfaceName;
-	}
+      if (type == typeof(object)) {
+	// Base case
+	return;
+      }
+
+      object[] attributes = type.GetCustomAttributes(typeof(InterfaceAttribute), false);
+      if (attributes.Length >= 1) {
+	// This is a D-BUS interface so add it to the hashtable
+	InterfaceProxy interfaceProxy = InterfaceProxy.GetInterface(type);
+	interfaceProxies.Add(interfaceProxy.InterfaceName, interfaceProxy);
+      }
+
+      AddType(type.BaseType);
+    }
+    
+    public InterfaceProxy GetInterface(string interfaceName) {
+      if (interfaceProxies.Contains(interfaceName)) {
+	return (InterfaceProxy) interfaceProxies[interfaceName];
+      } else {
+	return null;
+      }
+    }
+
+    public Hashtable InterfaceProxies
+    {
+      get {
+	return this.interfaceProxies;
+      }
     }
 
     public ConstructorInfo Constructor
     {
-      get
-	{
-	  ConstructorInfo ret = this.type.GetConstructor(new Type[0]);
-	  if (ret != null) {
-	    return ret;
-	  } else {
-	    return typeof(object).GetConstructor(new Type[0]);
-	  }
+      get {
+	ConstructorInfo ret = this.type.GetConstructor(new Type[0]);
+	if (ret != null) {
+	  return ret;
+	} else {
+	  return typeof(object).GetConstructor(new Type[0]);
 	}
+      }
     }
 
-    public IntrospectorMethods Methods
+    public override string ToString()
     {
-      get
-	{
-	  return new IntrospectorMethods(this.type);
-	}
-    }
-
-    public class IntrospectorMethods : IEnumerable
-    {
-      private Type type;
-      
-      public IntrospectorMethods(Type type)
-      {
-	this.type = type;
-      }
-
-      public IEnumerator GetEnumerator()
-      {
-	return new MethodEnumerator(this.type.GetMethods(BindingFlags.Public|BindingFlags.Instance).GetEnumerator());
-      }
-
-      private class MethodEnumerator : IEnumerator
-      {
-	private IEnumerator enumerator;
-	
-	public MethodEnumerator(IEnumerator enumerator)
-	{
-	  this.enumerator = enumerator;
-	}
-	
-	public bool MoveNext()
-	{
-	  while (enumerator.MoveNext()) {
-	    MethodInfo method = (MethodInfo) enumerator.Current;
-	    object[] attributes = method.GetCustomAttributes(typeof(MethodAttribute), true);
-	    if (attributes.GetLength(0) > 0) {
-	      return true;
-	    }
-	  }
-	  
-	  return false;
-	}
-	
-	public void Reset()
-	{
-	  enumerator.Reset();
-	}
-	
-	public object Current
-	{
-	  get
-	    {
-	      return enumerator.Current;
-	    }
-	}
-      }
+      return this.type.ToString();
     }
   }
 }

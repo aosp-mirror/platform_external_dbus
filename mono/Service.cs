@@ -68,8 +68,8 @@ namespace DBus
 			       string pathName) 
     {
       Handler handler = new Handler(handledObject, 
-					    pathName, 
-					    this);
+				    pathName, 
+				    this);
       registeredHandlers.Add(handledObject, handler);
     }
 

@@ -12,6 +12,7 @@ DBUS_SHARP_FILES= 		\
 	Error.cs		\
 	Handler.cs		\
 	InterfaceAttribute.cs	\
+	InterfaceProxy.cs	\
 	Introspector.cs		\
 	Message.cs		\
 	MethodAttribute.cs	\

@@ -50,13 +50,13 @@ namespace DBus
       this.service = service;
       this.pathName = pathName;
       this.type = type;
-      this.introspector = new Introspector(type);
+      this.introspector = Introspector.GetIntrospector(type);
     }
 
     private void BuildMethod(MethodInfo method, 
+			     InterfaceProxy interfaceProxy,
 			     ref TypeBuilder typeB, 
 			     FieldInfo serviceF,
-			     FieldInfo interfaceF,
 			     FieldInfo pathF)
     {
       ParameterInfo[] pars = method.GetParameters();
@@ -95,7 +95,7 @@ namespace DBus
       generator.Emit(OpCodes.Ldsfld, serviceF);
       generator.Emit(OpCodes.Ldarg_0);
       generator.Emit(OpCodes.Ldfld, pathF);
-      generator.Emit(OpCodes.Ldsfld, interfaceF);
+      generator.Emit(OpCodes.Ldstr, interfaceProxy.InterfaceName);
       generator.Emit(OpCodes.Ldstr, method.Name);
       generator.Emit(OpCodes.Newobj, MethodCall_C);
       generator.Emit(OpCodes.Stloc_0);
@@ -190,9 +190,9 @@ namespace DBus
       }
     }
     
-    public void BuildConstructor(ref TypeBuilder typeB, FieldInfo serviceF, FieldInfo interfaceF, FieldInfo pathF)
+    public void BuildConstructor(ref TypeBuilder typeB, FieldInfo serviceF, FieldInfo pathF)
     {
-      Type[] pars = {typeof(Service), typeof(string), typeof(string)};
+      Type[] pars = {typeof(Service), typeof(string)};
       ConstructorBuilder constructor = typeB.DefineConstructor(MethodAttributes.RTSpecialName | 
 							       MethodAttributes.Public,
 							       CallingConventions.Standard, pars);
@@ -202,10 +202,8 @@ namespace DBus
       generator.Emit(OpCodes.Call, this.introspector.Constructor);
       generator.Emit(OpCodes.Ldarg_1);
       generator.Emit(OpCodes.Stsfld, serviceF);
-      generator.Emit(OpCodes.Ldarg_2);
-      generator.Emit(OpCodes.Stsfld, interfaceF);
       generator.Emit(OpCodes.Ldarg_0);
-      generator.Emit(OpCodes.Ldarg_3);
+      generator.Emit(OpCodes.Ldarg_2);
       generator.Emit(OpCodes.Stfld, pathF);
 
       generator.Emit(OpCodes.Ret);
@@ -216,29 +214,28 @@ namespace DBus
       
       // Build the type
       TypeBuilder typeB = ServiceModuleBuilder.DefineType(ProxyName, TypeAttributes.Public, this.type);
-      //type.AddInterfaceImplementation(typeof(IProxy));
       
       FieldBuilder serviceF = typeB.DefineField("service", 
 						typeof(Service), 
 						FieldAttributes.Private | 
 						FieldAttributes.Static);
-      FieldBuilder interfaceF = typeB.DefineField("interfaceName", 
-						  typeof(string), 
-						  FieldAttributes.Private | 
-						  FieldAttributes.Static);
       FieldBuilder pathF = typeB.DefineField("pathName", 
 					     typeof(string), 
 					     FieldAttributes.Private);
 
-      BuildConstructor(ref typeB, serviceF, interfaceF, pathF);
+      BuildConstructor(ref typeB, serviceF, pathF);
 
       // Build the methods
-      foreach (MethodInfo method in this.introspector.Methods) {
-	BuildMethod(method, ref typeB, serviceF, interfaceF, pathF);
+      foreach (DictionaryEntry interfaceEntry in this.introspector.InterfaceProxies) {
+	InterfaceProxy interfaceProxy = (InterfaceProxy) interfaceEntry.Value;
+	foreach (DictionaryEntry methodEntry in interfaceProxy.Methods) {
+	  MethodInfo method = (MethodInfo) methodEntry.Value;
+	  BuildMethod(method, interfaceProxy, ref typeB, serviceF, pathF);
+	}
       }
       
-      Type [] parTypes = new Type[] {typeof(Service), typeof(string), typeof(string)};
-      object [] pars = new object[] {Service, this.introspector.InterfaceName, pathName};
+      Type [] parTypes = new Type[] {typeof(Service), typeof(string)};
+      object [] pars = new object[] {Service, pathName};
       
       Type proxyType = typeB.CreateType();
 
@@ -247,7 +244,7 @@ namespace DBus
       // monodis. Note that in order for this to work you should copy
       // the client assembly as a dll file so that monodis can pick it
       // up.
-      //ProxyAssembly.Save("proxy.dll");
+      ProxyAssembly.Save("proxy.dll");
 
       ConstructorInfo constructor = proxyType.GetConstructor(parTypes);
       object instance = constructor.Invoke(pars);
@@ -256,45 +253,41 @@ namespace DBus
 
     private ModuleBuilder ServiceModuleBuilder
     {
-      get
-	{
-	  if (Service.module == null) {
-	    Service.module = ProxyAssembly.DefineDynamicModule(Service.Name, "proxy.dll", true);
-	  }
-	  
-	  return Service.module;
+      get {
+	if (Service.module == null) {
+	  Service.module = ProxyAssembly.DefineDynamicModule(Service.Name, "proxy.dll", true);
 	}
+	
+	return Service.module;
+      }
     }
   
   private Service Service
     {
-      get
-	{
-	  return this.service;
-	}
+      get {
+	return this.service;
+      }
     }
 
     private string ProxyName
     {
-      get
-	{
-	  return this.introspector.InterfaceName + ".Proxy";
-	}
+      get {
+	return this.introspector.ToString() + ".Proxy";
+      }
     }
 
     private AssemblyBuilder ProxyAssembly
     {
-      get
-	{
-	  if (this.proxyAssembly == null){
-	    AssemblyName assemblyName = new AssemblyName();
-	    assemblyName.Name = "DBusProxy";
-	    this.proxyAssembly = Thread.GetDomain().DefineDynamicAssembly(assemblyName, 
-									  AssemblyBuilderAccess.RunAndSave);
-	  }
-	  
-	  return this.proxyAssembly;
+      get {
+	if (this.proxyAssembly == null){
+	  AssemblyName assemblyName = new AssemblyName();
+	  assemblyName.Name = "DBusProxy";
+	  this.proxyAssembly = Thread.GetDomain().DefineDynamicAssembly(assemblyName, 
+									AssemblyBuilderAccess.RunAndSave);
 	}
+	
+	return this.proxyAssembly;
+      }
     }
   }
 }
