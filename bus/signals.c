@@ -586,6 +586,15 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
   int i;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  if (_dbus_string_get_length (rule_text) > DBUS_MAXIMUM_MATCH_RULE_LENGTH)
+    {
+      dbus_set_error (error, DBUS_ERROR_LIMITS_EXCEEDED,
+                      "Match rule text is %d bytes, maximum is %d",
+                      _dbus_string_get_length (rule_text),
+                      DBUS_MAXIMUM_MATCH_RULE_LENGTH);
+      return NULL;
+    }
   
   memset (tokens, '\0', sizeof (tokens));
   

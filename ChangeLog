@@ -1,5 +1,15 @@
 2003-10-09  Havoc Pennington  <hp@redhat.com>
 
+	* configure.in: define DBUS_HAVE_GCC33_GCOV if we have
+	gcc 3.3. Not that we do anything about it yet.
+
+	* bus/signals.c (bus_match_rule_parse): impose max length on the
+	match rule text
+
+	* dbus/dbus-protocol.h: add DBUS_MAXIMUM_MATCH_RULE_LENGTH
+
+2003-10-09  Havoc Pennington  <hp@redhat.com>
+
         Make matching rules theoretically work (add parser).
 	
 	* bus/bus.c (bus_context_check_security_policy): fix up to handle

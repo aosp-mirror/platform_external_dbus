@@ -60,6 +60,9 @@ extern "C" {
 /* Max length in bytes of a service or interface or member name */
 #define DBUS_MAXIMUM_NAME_LENGTH 256
 
+/* Max length of a match rule string */
+#define DBUS_MAXIMUM_MATCH_RULE_LENGTH 1024
+
 /* Types of message */
 #define DBUS_MESSAGE_TYPE_INVALID       0
 #define DBUS_MESSAGE_TYPE_METHOD_CALL   1

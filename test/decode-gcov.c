@@ -38,6 +38,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef DBUS_HAVE_GCC33_GCOV
+#error "gcov support not yet implemented for gcc 3.3 and greater; the file format changed"
+#endif
+
 #ifndef DBUS_HAVE_INT64
 #error "gcov support can't be built without 64-bit integer support"
 #endif
