@@ -459,6 +459,16 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
   
   _dbus_verbose ("Trying to own service %s with flags 0x%x\n", name, flags);
 
+  if (*name == ':')
+    {
+      /* Not allowed; only base services can start with ':' */
+      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                      "Cannot acquire a service starting with ':' such as \"%s\"",
+                      name);
+      
+      goto out;
+    }
+  
   retval = FALSE;
   reply = NULL;
 

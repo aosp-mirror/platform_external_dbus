@@ -373,13 +373,16 @@ check_timeout (unsigned long    tv_sec,
       if (sec > interval_seconds ||
 	  (sec == interval_seconds && msec > interval_milliseconds))
 	{
-	  /* The system time has been set backwards, reset the timeout */
+          _dbus_verbose ("System clock went backward interval_seconds %ld interval_msecs %ld sec %ld msec %ld last_tv_sec %lu last_tv_usec %lu tv_sec %lu tv_usec %lu\n",
+                         interval_seconds, interval_milliseconds, sec, msec, tcb->last_tv_sec,
+                         tcb->last_tv_usec, tv_sec, tv_usec);
+          
+	  /* The system time has been set backwards, reset the timeout */          
+          
           tcb->last_tv_sec = tv_sec;
           tcb->last_tv_usec = tv_usec;
           
           msec = MIN (_DBUS_INT_MAX, interval);
-
-          _dbus_verbose ("System clock went backward\n");
 	}
       else
 	{

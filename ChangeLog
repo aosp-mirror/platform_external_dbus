@@ -1,3 +1,8 @@
+2003-04-07  Havoc Pennington  <hp@pobox.com>
+
+	* bus/driver.c (bus_driver_handle_acquire_service): return an
+	error if you try to acquire a service that starts with ':'
+
 2003-04-07  Havoc Pennington  <hp@redhat.com>
 
 	* doc/dbus-specification.sgml: require that base service names 
