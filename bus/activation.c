@@ -316,12 +316,12 @@ load_directory (BusActivation *activation,
 BusActivation*
 bus_activation_new (BusContext        *context,
 		    const DBusString  *address,
-                    const char       **directories,
+                    DBusList         **directories,
                     DBusError         *error)
 {
-  int i;
   BusActivation *activation;
-
+  DBusList *link;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   activation = dbus_new0 (BusActivation, 1);
@@ -358,12 +358,12 @@ bus_activation_new (BusContext        *context,
     }
   
   /* Load service files */
-  i = 0;
-  while (directories[i] != NULL)
+  link = _dbus_list_get_first_link (directories);
+  while (link != NULL)
     {
-      if (!load_directory (activation, directories[i], error))
+      if (!load_directory (activation, link->data, error))
         goto failed;
-      ++i;
+      link = _dbus_list_get_next_link (directories, link);
     }
 
   return activation;

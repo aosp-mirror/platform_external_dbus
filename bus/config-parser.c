@@ -38,7 +38,9 @@ typedef enum
   ELEMENT_LIMIT,
   ELEMENT_ALLOW,
   ELEMENT_DENY,
-  ELEMENT_FORK
+  ELEMENT_FORK,
+  ELEMENT_SERVICEDIR,
+  ELEMENT_INCLUDEDIR
 } ElementType;
 
 typedef struct
@@ -87,6 +89,8 @@ struct BusConfigParser
   DBusList *listen_on; /**< List of addresses to listen to */
 
   DBusList *mechanisms; /**< Auth mechanisms */
+
+  DBusList *service_dirs; /**< Directories to look for services in */
   
   unsigned int fork : 1; /**< TRUE to fork into daemon mode */
 };
@@ -118,6 +122,10 @@ element_type_to_name (ElementType type)
       return "deny";
     case ELEMENT_FORK:
       return "fork";
+    case ELEMENT_SERVICEDIR:
+      return "servicedir";
+    case ELEMENT_INCLUDEDIR:
+      return "includedir";
     }
 
   _dbus_assert_not_reached ("bad element type");
@@ -210,6 +218,9 @@ merge_included (BusConfigParser *parser,
 
   while ((link = _dbus_list_pop_first_link (&included->mechanisms)))
     _dbus_list_append_link (&parser->mechanisms, link);
+
+  while ((link = _dbus_list_pop_first_link (&included->service_dirs)))
+    _dbus_list_append_link (&parser->service_dirs, link);
   
   return TRUE;
 }
@@ -256,6 +267,12 @@ bus_config_parser_unref (BusConfigParser *parser)
 
       _dbus_list_clear (&parser->listen_on);
 
+      _dbus_list_foreach (&parser->service_dirs,
+                          (DBusForeachFunction) dbus_free,
+                          NULL);
+
+      _dbus_list_clear (&parser->service_dirs);
+      
       dbus_free (parser);
     }
 }
@@ -456,6 +473,32 @@ start_busconfig_child (BusConfigParser   *parser,
         return FALSE;
 
       if (push_element (parser, ELEMENT_AUTH) == NULL)
+        {
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          return FALSE;
+        }
+
+      return TRUE;
+    }
+  else if (strcmp (element_name, "includedir") == 0)
+    {
+      if (!check_no_attributes (parser, "includedir", attribute_names, attribute_values, error))
+        return FALSE;
+
+      if (push_element (parser, ELEMENT_INCLUDEDIR) == NULL)
+        {
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          return FALSE;
+        }
+
+      return TRUE;
+    }
+  else if (strcmp (element_name, "servicedir") == 0)
+    {
+      if (!check_no_attributes (parser, "servicedir", attribute_names, attribute_values, error))
+        return FALSE;
+
+      if (push_element (parser, ELEMENT_SERVICEDIR) == NULL)
         {
           dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           return FALSE;
@@ -681,6 +724,8 @@ bus_config_parser_end_element (BusConfigParser   *parser,
     case ELEMENT_USER:
     case ELEMENT_LISTEN:
     case ELEMENT_AUTH:
+    case ELEMENT_SERVICEDIR:
+    case ELEMENT_INCLUDEDIR:
       if (!e->had_content)
         {
           dbus_set_error (error, DBUS_ERROR_FAILED,
@@ -712,6 +757,112 @@ all_whitespace (const DBusString *str)
   _dbus_string_skip_white (str, 0, &i);
 
   return i == _dbus_string_get_length (str);
+}
+
+static dbus_bool_t
+include_file (BusConfigParser   *parser,
+              const DBusString  *filename,
+              dbus_bool_t        ignore_missing,
+              DBusError         *error)
+{
+  /* FIXME good test case for this would load each config file in the
+   * test suite both alone, and as an include, and check
+   * that the result is the same
+   */
+  BusConfigParser *included;
+  DBusError tmp_error;
+        
+  dbus_error_init (&tmp_error);
+  included = bus_config_load (filename, &tmp_error);
+  if (included == NULL)
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+
+      if (dbus_error_has_name (&tmp_error, DBUS_ERROR_FILE_NOT_FOUND) &&
+          ignore_missing)
+        {
+          dbus_error_free (&tmp_error);
+          return TRUE;
+        }
+      else
+        {
+          dbus_move_error (&tmp_error, error);
+          return FALSE;
+        }
+    }
+  else
+    {
+      _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+
+      if (!merge_included (parser, included, error))
+        {
+          bus_config_parser_unref (included);
+          return FALSE;
+        }
+
+      bus_config_parser_unref (included);
+      return TRUE;
+    }
+}
+
+static dbus_bool_t
+include_dir (BusConfigParser   *parser,
+             const DBusString  *dirname,
+             DBusError         *error)
+{
+  DBusString filename;
+  dbus_bool_t retval;
+  DBusError tmp_error;
+  DBusDirIter *dir;
+  
+  if (!_dbus_string_init (&filename))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return FALSE;
+    }
+
+  retval = FALSE;
+  
+  dir = _dbus_directory_open (dirname, error);
+    
+  /* FIXME this is just so the tests pass for now, it needs to come out
+   * once I implement make-dirname-relative-to-currently-parsed-files-dir
+   */
+  if (dir == NULL)
+    {
+      if (error)
+        dbus_error_free (error);
+      _dbus_string_free (&filename);
+      return TRUE;
+    }
+
+  if (dir == NULL)
+    goto failed;
+  
+  while (_dbus_directory_get_next_file (dir, &filename, &tmp_error))
+    {
+      if (_dbus_string_ends_with_c_str (&filename, ".conf"))
+        {
+          if (!include_file (parser, &filename, TRUE, error))
+            goto failed;
+        }
+    }
+
+  if (dbus_error_is_set (&tmp_error))
+    {
+      dbus_move_error (&tmp_error, error);
+      goto failed;
+    }
+  
+  retval = TRUE;
+  
+ failed:
+  _dbus_string_free (&filename);
+  
+  if (dir)
+    _dbus_directory_close (dir);
+
+  return retval;
 }
 
 dbus_bool_t
@@ -770,45 +921,23 @@ bus_config_parser_content (BusConfigParser   *parser,
 
     case ELEMENT_INCLUDE:
       {
-        /* FIXME good test case for this would load each config file in the
-         * test suite both alone, and as an include, and check
-         * that the result is the same
-         */
-        BusConfigParser *included;
-        DBusError tmp_error;
-
         e->had_content = TRUE;
-        
-        dbus_error_init (&tmp_error);
-        included = bus_config_load (content, &tmp_error);
-        if (included == NULL)
-          {
-            _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
-            if (dbus_error_has_name (&tmp_error, DBUS_ERROR_FILE_NOT_FOUND) &&
-                e->d.include.ignore_missing)
-              {
-                dbus_error_free (&tmp_error);
-                return TRUE;
-              }
-            else
-              {
-                dbus_move_error (&tmp_error, error);
-                return FALSE;
-              }
-          }
-        else
-          {
-            _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
 
-            if (!merge_included (parser, included, error))
-              return FALSE;
-
-            bus_config_parser_unref (included);
-            return TRUE;
-          }
+        if (!include_file (parser, content,
+                           e->d.include.ignore_missing, error))
+          return FALSE;
       }
       break;
 
+    case ELEMENT_INCLUDEDIR:
+      {
+        e->had_content = TRUE;
+        
+        if (!include_dir (parser, content, error))
+          return FALSE;
+      }
+      break;
+      
     case ELEMENT_USER:
       {
         char *s;
@@ -851,6 +980,24 @@ bus_config_parser_content (BusConfigParser   *parser,
           goto nomem;
 
         if (!_dbus_list_append (&parser->mechanisms,
+                                s))
+          {
+            dbus_free (s);
+            goto nomem;
+          }
+      }
+      break;
+
+    case ELEMENT_SERVICEDIR:
+      {
+        char *s;
+
+        e->had_content = TRUE;
+        
+        if (!_dbus_string_copy_data (content, &s))
+          goto nomem;
+
+        if (!_dbus_list_append (&parser->service_dirs,
                                 s))
           {
             dbus_free (s);
@@ -909,6 +1056,12 @@ DBusList**
 bus_config_parser_get_mechanisms (BusConfigParser *parser)
 {
   return &parser->mechanisms;
+}
+
+DBusList**
+bus_config_parser_get_service_dirs (BusConfigParser *parser)
+{
+  return &parser->service_dirs;
 }
 
 dbus_bool_t

@@ -187,7 +187,6 @@ bus_context_new (const DBusString *config_file,
   DBusList **addresses;
   BusConfigParser *parser;
   DBusString full_address;
-  const char *service_dirs[] = { NULL, NULL };
   const char *user;
   char **auth_mechanisms;
   DBusList **auth_mechanisms_list;
@@ -336,7 +335,8 @@ bus_context_new (const DBusString *config_file,
   /* Create activation subsystem */
   
   context->activation = bus_activation_new (context, &full_address,
-                                            service_dirs, error);
+                                            bus_config_parser_get_service_dirs (parser),
+                                            error);
   if (context->activation == NULL)
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);

@@ -3185,18 +3185,21 @@ _dbus_change_identity  (unsigned long  uid,
                         unsigned long  gid,
                         DBusError     *error)
 {
-  if (setuid (uid) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to set UID to %lu: %s", uid,
-                      _dbus_strerror (errno));
-      return FALSE;
-    }
-
+  /* Set GID first, or the setuid may remove our permission
+   * to change the GID
+   */
   if (setgid (gid) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to set GID to %lu: %s", gid,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+  
+  if (setuid (uid) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to set UID to %lu: %s", uid,
                       _dbus_strerror (errno));
       return FALSE;
     }

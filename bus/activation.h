@@ -25,11 +25,12 @@
 #define BUS_ACTIVATION_H
 
 #include <dbus/dbus.h>
+#include <dbus/dbus-list.h>
 #include "bus.h"
 
 BusActivation* bus_activation_new              (BusContext        *context,
                                                 const DBusString  *address,
-                                                const char       **paths,
+                                                DBusList         **directories,
                                                 DBusError         *error);
 void           bus_activation_ref              (BusActivation     *activation);
 void           bus_activation_unref            (BusActivation     *activation);
