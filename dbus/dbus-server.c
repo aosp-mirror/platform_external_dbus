@@ -228,6 +228,7 @@ dbus_server_listen (const char     *address,
 	  if (server)
 	    break;
 	}
+#ifdef DBUS_BUILD_TESTS
       else if (strcmp (method, "debug") == 0)
 	{
 	  const char *name = dbus_address_entry_get_value (entries[i], "name");
@@ -240,6 +241,7 @@ dbus_server_listen (const char     *address,
 	  if (server)
 	    break;
 	}
+#endif
       else
         goto bad_address;
     }

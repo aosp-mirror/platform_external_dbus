@@ -217,6 +217,7 @@ _dbus_transport_open (const char     *address,
 
 	  transport = _dbus_transport_new_for_domain_socket (path, FALSE, result);
 	}
+#ifdef DBUS_BUILD_TESTS
       else if (strcmp (method, "debug") == 0)
 	{
 	  const char *name = dbus_address_entry_get_value (entries[i], "name");
@@ -226,6 +227,7 @@ _dbus_transport_open (const char     *address,
 
 	  transport = _dbus_transport_debug_client_new (name, result);
 	}
+#endif      
       else
 	goto bad_address;
 

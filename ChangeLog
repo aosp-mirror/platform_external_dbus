@@ -1,3 +1,9 @@
+2003-02-02  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-server.c: (dbus_server_listen):
+	* dbus/dbus-transport.c: (_dbus_transport_open):
+	ifdef out the calls to the debug transport and server.
+	
 2003-02-02  Alexander Larsson  <alexl@redhat.com>
 
 	* dbus/dbus-watch.c (dbus_watch_get_flags):
