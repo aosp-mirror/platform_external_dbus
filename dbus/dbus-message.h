@@ -31,13 +31,42 @@
 
 DBUS_BEGIN_DECLS
 
+/**
+ * @defgroup Message
+ * @ingroup  DBus
+ * @brief Message handling.
+ *
+ * This functions deal with message structure
+ * within DBus.
+ *
+ * @{
+ */
+
 typedef struct DBusMessage DBusMessage;
 
+/**
+ * Constructs a new DBus message.
+ * @return New DBusMessage
+ */
 DBusMessage* dbus_message_new   (void);
+
+/**
+ * Increments a reference count on a message.
+ *
+ * @arg message It's the message whose reference count we're incrementing
+ * @see dbus_message_unref
+ */
 void         dbus_message_ref   (DBusMessage *message);
+
+/**
+ * Decrements a reference count on a message.
+ *
+ * @arg message It's the message whose reference count we're decrementing
+ */
 void         dbus_message_unref (DBusMessage *message);
 
 
+/** @} */
 
 DBUS_END_DECLS
 
