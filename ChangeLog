@@ -1,5 +1,11 @@
 2003-04-05  Havoc Pennington  <hp@pobox.com>
 
+	* NEWS: update
+
+	* configure.in: 0.8
+
+2003-04-05  Havoc Pennington  <hp@pobox.com>
+
 	* bus/bus.c (setup_server): fix this so dbus-daemon-1 doesn't 
 	crash on startup. Need to get "try starting the daemon" 
 	in the test suite I guess. ;-)
