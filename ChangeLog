@@ -1,3 +1,8 @@
+2003-10-28  David Zeuthen  <david@fubar.dk>
+
+	* python/dbus_bindings.pyx.in: add get_dict to handle dictionaries
+	return types. Fixup TYPE_* to reflect changes in dbus/dbus-protocol.h
+	
 2003-10-28  Havoc Pennington  <hp@redhat.com>
 
 	* bus/expirelist.c (do_expiration_with_current_time): detect
