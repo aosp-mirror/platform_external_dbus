@@ -757,10 +757,10 @@
                 to return the reply despite this flag.</entry>
               </row>
               <row>
-                <entry><literal>AUTO_START</literal></entry>
+                <entry><literal>NO_AUTO_START</literal></entry>
                 <entry>0x2</entry>
-                <entry>This message automatically launches an owner
-                  for the destination name before the message is delivered.
+                <entry>This message should not automatically launch an owner
+                  for the destination name.
                 </entry>
               </row>
             </tbody>
@@ -1027,8 +1027,8 @@
           flag and reply anyway.
         </para>
         <para>
-          If a message has the flag <literal>AUTO_START</literal> and the
-          destination name does not exist, then a program to own the destination
+          Unless a message has the flag <literal>NO_AUTO_START</literal>, if the
+          destination name does not exist then a program to own the destination
           name will be started before the message is delivered.  The message
           will be held until the new program is successfully started or has
           failed to start; in case of failure, an error will be returned. This

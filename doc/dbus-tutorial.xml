@@ -408,7 +408,7 @@
         method call on a particular object instance, a number of 
         nested components have to be named:
         <programlisting>
-          Address -> [Bus Name] -> Path -> Interface -> Method
+          Address -&gt; [Bus Name] -&gt; Path -&gt; Interface -&gt; Method
         </programlisting>
         The bus name is in brackets to indicate that it's optional -- you only
         provide a name to route the method call to the right application
@@ -467,7 +467,7 @@ main (int argc, char **argv)
   if (connection == NULL)
     {
       g_printerr ("Failed to open connection to bus: %s\n",
-                  error->message);
+                  error-&gt;message);
       g_error_free (error);
       exit (1);
     }
@@ -490,7 +490,7 @@ main (int argc, char **argv)
                               DBUS_TYPE_INVALID))
     {
       g_printerr ("Failed to complete ListNames call: %s\n",
-                  error->message);
+                  error-&gt;message);
       g_error_free (error);
       exit (1);
     }

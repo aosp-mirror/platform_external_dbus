@@ -24,6 +24,7 @@
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-mempool.h>
+#include <dbus/dbus-marshal-validate.h>
 
 #include "driver.h"
 #include "services.h"
@@ -283,12 +284,14 @@ bus_registry_acquire_service (BusRegistry      *registry,
   
   retval = FALSE;
 
-  if (_dbus_string_get_length (service_name) == 0)
+  if (!_dbus_validate_bus_name (service_name, 0,
+                                _dbus_string_get_length (service_name)))
     {
-      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
-                      "Zero-length service name is not allowed");
+      dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
+                      "Requested bus name \"%s\" is not valid",
+                      _dbus_string_get_const_data (service_name));
       
-      _dbus_verbose ("Attempt to acquire zero-length service name\n");
+      _dbus_verbose ("Attempt to acquire invalid service name\n");
       
       goto out;
     }
@@ -296,7 +299,7 @@ bus_registry_acquire_service (BusRegistry      *registry,
   if (_dbus_string_get_byte (service_name, 0) == ':')
     {
       /* Not allowed; only base services can start with ':' */
-      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+      dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
                       "Cannot acquire a service starting with ':' such as \"%s\"",
                       _dbus_string_get_const_data (service_name));
       

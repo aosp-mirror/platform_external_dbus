@@ -1,3 +1,17 @@
+2005-01-20  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-tutorial.xml: replace > with &gt;
+
+	* bus/services.c (bus_registry_acquire_service): validate the name
+	and return a better error if it's no good.
+
+	* doc/dbus-specification.xml: note NO_AUTO_START change
+
+	* dbus/dbus-protocol.h (DBUS_HEADER_FLAG_NO_AUTO_START): change
+	from AUTO_START, we're toggling the default
+
+	* bus/dispatch.c: adapt the tests to change of auto-start default
+
 2005-01-18  Havoc Pennington  <hp@redhat.com>
 
 	* rename dbus-daemon-1 to dbus-daemon throughout

@@ -983,7 +983,7 @@ check_double_hello_message (BusContext     *context,
 
   if (message == NULL)
     return TRUE;
-
+  
   if (!dbus_connection_send (connection, message, &serial))
     {
       dbus_message_unref (message);
@@ -1524,8 +1524,8 @@ check_hello_connection (BusContext *context)
  * but the correct thing may include OOM errors.
  */
 static dbus_bool_t
-check_nonexistent_service_activation (BusContext     *context,
-                                      DBusConnection *connection)
+check_nonexistent_service_no_auto_start (BusContext     *context,
+                                         DBusConnection *connection)
 {
   DBusMessage *message;
   dbus_uint32_t serial;
@@ -1541,6 +1541,8 @@ check_nonexistent_service_activation (BusContext     *context,
   if (message == NULL)
     return TRUE;
 
+  dbus_message_set_auto_start (message, FALSE);
+  
   flags = 0;
   if (!dbus_message_append_args (message,
                                  DBUS_TYPE_STRING, &nonexistent,
@@ -1628,8 +1630,8 @@ check_nonexistent_service_activation (BusContext     *context,
  * but the correct thing may include OOM errors.
  */
 static dbus_bool_t
-check_nonexistent_service_auto_activation (BusContext     *context,
-					   DBusConnection *connection)
+check_nonexistent_service_auto_start (BusContext     *context,
+                                      DBusConnection *connection)
 {
   DBusMessage *message;
   dbus_uint32_t serial;
@@ -1642,8 +1644,6 @@ check_nonexistent_service_auto_activation (BusContext     *context,
   
   if (message == NULL)
     return TRUE;
-
-  dbus_message_set_auto_start (message, TRUE);
  
   if (!dbus_connection_send (connection, message, &serial))
     {
@@ -2387,8 +2387,8 @@ check_got_service_info (DBusMessage *message)
  * but the correct thing may include OOM errors.
  */
 static dbus_bool_t
-check_existent_service_activation (BusContext     *context,
-                                   DBusConnection *connection)
+check_existent_service_no_auto_start (BusContext     *context,
+                                      DBusConnection *connection)
 {
   DBusMessage *message;
   DBusMessage *base_service_message;
@@ -2408,6 +2408,8 @@ check_existent_service_activation (BusContext     *context,
   if (message == NULL)
     return TRUE;
 
+  dbus_message_set_auto_start (message, FALSE);
+  
   flags = 0;
   if (!dbus_message_append_args (message,
                                  DBUS_TYPE_STRING, &existent,
@@ -2611,8 +2613,8 @@ check_existent_service_activation (BusContext     *context,
  * but the correct thing may include OOM errors.
  */
 static dbus_bool_t
-check_segfault_service_activation (BusContext     *context,
-                                   DBusConnection *connection)
+check_segfault_service_no_auto_start (BusContext     *context,
+                                      DBusConnection *connection)
 {
   DBusMessage *message;
   dbus_uint32_t serial;
@@ -2628,6 +2630,8 @@ check_segfault_service_activation (BusContext     *context,
   if (message == NULL)
     return TRUE;
 
+  dbus_message_set_auto_start (message, FALSE);
+  
   segv_service = "org.freedesktop.DBus.TestSuiteSegfaultService";
   flags = 0;
   if (!dbus_message_append_args (message,
@@ -2717,8 +2721,8 @@ check_segfault_service_activation (BusContext     *context,
  * but the correct thing may include OOM errors.
  */
 static dbus_bool_t
-check_segfault_service_auto_activation (BusContext     *context,
-					DBusConnection *connection)
+check_segfault_service_auto_start (BusContext     *context,
+                                   DBusConnection *connection)
 {
   DBusMessage *message;
   dbus_uint32_t serial;
@@ -2731,8 +2735,6 @@ check_segfault_service_auto_activation (BusContext     *context,
   
   if (message == NULL)
     return TRUE;
-
-  dbus_message_set_auto_start (message, TRUE);
   
   if (!dbus_connection_send (connection, message, &serial))
     {
@@ -2813,8 +2815,8 @@ check_segfault_service_auto_activation (BusContext     *context,
  * but the correct thing may include OOM errors.
  */
 static dbus_bool_t
-check_existent_service_auto_activation (BusContext     *context,
-					DBusConnection *connection)
+check_existent_service_auto_start (BusContext     *context,
+                                   DBusConnection *connection)
 {
   DBusMessage *message;
   DBusMessage *base_service_message;
@@ -2832,8 +2834,6 @@ check_existent_service_auto_activation (BusContext     *context,
   
   if (message == NULL)
     return TRUE;
-
-  dbus_message_set_auto_start (message, TRUE);
 
   text = TEST_ECHO_MESSAGE;
   if (!dbus_message_append_args (message,
@@ -3164,32 +3164,32 @@ bus_dispatch_test (const DBusString *test_data_dir)
   check1_try_iterations (context, "create_and_hello",
                          check_hello_connection);
   
-  check2_try_iterations (context, foo, "nonexistent_service_activation",
-                         check_nonexistent_service_activation);
+  check2_try_iterations (context, foo, "nonexistent_service_no_auto_start",
+                         check_nonexistent_service_no_auto_start);
 
-  check2_try_iterations (context, foo, "segfault_service_activation",
-                         check_segfault_service_activation);
+  check2_try_iterations (context, foo, "segfault_service_no_auto_start",
+                         check_segfault_service_no_auto_start);
   
-  check2_try_iterations (context, foo, "existent_service_activation",
-                         check_existent_service_activation);
+  check2_try_iterations (context, foo, "existent_service_no_auto_start",
+                         check_existent_service_no_auto_start);
   
-  check2_try_iterations (context, foo, "nonexistent_service_auto_activation",
-			 check_nonexistent_service_auto_activation);
+  check2_try_iterations (context, foo, "nonexistent_service_auto_start",
+			 check_nonexistent_service_auto_start);
   
-  check2_try_iterations (context, foo, "segfault_service_auto_activation",
-			 check_segfault_service_auto_activation);
+  check2_try_iterations (context, foo, "segfault_service_auto_start",
+			 check_segfault_service_auto_start);
 
 #if 0
   /* Note: need to resolve some issues with the testing code in order to run
    * this in oom (handle that we sometimes don't get replies back from the bus
    * when oom happens, without blocking the test).
    */
-  check2_try_iterations (context, foo, "existent_service_auto_activation",
-			 check_existent_service_auto_activation);
+  check2_try_iterations (context, foo, "existent_service_auto_auto_start",
+			 check_existent_service_auto_start);
 #endif
   
-  if (!check_existent_service_auto_activation (context, foo))
-    _dbus_assert_not_reached ("existent service auto activation failed");
+  if (!check_existent_service_auto_start (context, foo))
+    _dbus_assert_not_reached ("existent service auto start failed");
 
   _dbus_verbose ("Disconnecting foo, bar, and baz\n");
 

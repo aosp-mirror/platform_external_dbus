@@ -2207,8 +2207,8 @@ dbus_message_set_auto_start (DBusMessage *message,
   _dbus_return_if_fail (!message->locked);
 
   _dbus_header_toggle_flag (&message->header,
-                            DBUS_HEADER_FLAG_AUTO_START,
-                            auto_start);
+                            DBUS_HEADER_FLAG_NO_AUTO_START,
+                            !auto_start);
 }
 
 /**
@@ -2223,8 +2223,8 @@ dbus_message_get_auto_start (DBusMessage *message)
 {
   _dbus_return_val_if_fail (message != NULL, FALSE);
 
-  return _dbus_header_get_flag (&message->header,
-                                DBUS_HEADER_FLAG_AUTO_START);
+  return !_dbus_header_get_flag (&message->header,
+                                 DBUS_HEADER_FLAG_NO_AUTO_START);
 }
 
 
