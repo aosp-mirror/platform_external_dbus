@@ -573,7 +573,7 @@ _dbus_validate_path (const DBusString  *str,
   _dbus_assert (start >= 0);
   _dbus_assert (len >= 0);
   _dbus_assert (start <= _dbus_string_get_length (str));
-
+  
   if (len > _dbus_string_get_length (str) - start)
     return FALSE;
 

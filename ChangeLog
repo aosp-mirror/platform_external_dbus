@@ -1,3 +1,49 @@
+2005-01-30  Havoc Pennington  <hp@redhat.com>
+
+        dbus-viewer introspected and displayed the bus driver
+	
+	* dbus/dbus-object-tree.c 
+	(object_tree_test_iteration): add tests for a handler registered on "/"
+
+	* dbus/dbus-object-tree.c
+	(_dbus_decompose_path): fix to handle path "/" properly
+	(run_decompose_tests): add tests for path decomposition
+	
+	* glib/dbus-gutils.c (_dbus_gutils_split_path): fix to handle "/"
+	properly
+
+	* glib/dbus-gobject.c (handle_introspect): fix quotes
+
+	* test/glib/run-test.sh: support launching the bus, then running
+	dbus-viewer
+
+	* test/glib/test-service-glib.c (main): put in a trivial gobject
+	subclass and register it on the connection
+
+	* bus/driver.c (bus_driver_handle_introspect): implement
+	introspection of the bus driver service
+
+	* dbus/dbus-protocol.h: add #defines for the XML namespace,
+	identifiers, doctype decl
+
+	* bus/driver.c (bus_driver_handle_get_service_owner): handle
+	attempts to get owner of DBUS_SERVICE_ORG_FREEDESKTOP_DBUS by 
+	returning the service unchanged.
+	(bus_driver_handle_message): remove old check for reply_serial in
+	method calls, now the message type deals with that
+	(bus_driver_handle_message): handle NULL interface
+
+	* glib/dbus-gproxy.c (dbus_g_proxy_get_bus_name): new function
+
+	* glib/dbus-gloader-expat.c (description_load_from_string): allow
+	-1 for len
+
+	* tools/dbus-viewer.c: add support for introspecting a service on
+	a bus
+
+	* glib/dbus-gproxy.c (dbus_g_pending_call_ref): add
+	(dbus_g_pending_call_unref): add
+
 2005-01-29  Havoc Pennington  <hp@redhat.com>
 
 	* tools/dbus-tree-view.c: add support for displaying properties.
@@ -6,7 +52,7 @@
 
 	* glib/dbus-gobject.c (handle_introspect): return
 	org.freedesktop.Properties and org.freedesktop.Introspectable
-	interfaces when we are introspected.	
+	interfaces when we are introspected.
 
 	* doc/dbus-specification.xml: allow empty interface name when 
 	Get/Set a property

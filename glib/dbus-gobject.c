@@ -289,26 +289,28 @@ handle_introspect (DBusConnection *connection,
   
   xml = g_string_new (NULL);
 
+  g_string_append (xml, DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE);
+  
   g_string_append (xml, "<node>\n");
 
   /* We are introspectable, though I guess that was pretty obvious */
   g_string_append (xml, "  <interface name=\"org.freedesktop.Introspectable\">\n");
   g_string_append (xml, "    <method name=\"Introspect\">\n");
-  g_string_append (xml, "      <arg name=\"data\" direction=\"out\" type=\"string\"\"/>\n");
+  g_string_append (xml, "      <arg name=\"data\" direction=\"out\" type=\"string\"/>\n");
   g_string_append (xml, "    </method>\n");
   g_string_append (xml, "  </interface>\n");
 
   /* We support get/set properties */
   g_string_append (xml, "  <interface name=\"org.freedesktop.Properties\">\n");
   g_string_append (xml, "    <method name=\"Get\">\n");
-  g_string_append (xml, "      <arg name=\"interface\" direction=\"in\" type=\"string\"\"/>\n");
-  g_string_append (xml, "      <arg name=\"propname\" direction=\"in\" type=\"string\"\"/>\n");
-  g_string_append (xml, "      <arg name=\"value\" direction=\"out\" type=\"variant\"\"/>\n");
+  g_string_append (xml, "      <arg name=\"interface\" direction=\"in\" type=\"string\"/>\n");
+  g_string_append (xml, "      <arg name=\"propname\" direction=\"in\" type=\"string\"/>\n");
+  g_string_append (xml, "      <arg name=\"value\" direction=\"out\" type=\"variant\"/>\n");
   g_string_append (xml, "    </method>\n");
   g_string_append (xml, "    <method name=\"Set\">\n");
-  g_string_append (xml, "      <arg name=\"interface\" direction=\"in\" type=\"string\"\"/>\n");
-  g_string_append (xml, "      <arg name=\"propname\" direction=\"in\" type=\"string\"\"/>\n");
-  g_string_append (xml, "      <arg name=\"value\" direction=\"in\" type=\"variant\"\"/>\n");
+  g_string_append (xml, "      <arg name=\"interface\" direction=\"in\" type=\"string\"/>\n");
+  g_string_append (xml, "      <arg name=\"propname\" direction=\"in\" type=\"string\"/>\n");
+  g_string_append (xml, "      <arg name=\"value\" direction=\"in\" type=\"variant\"/>\n");
   g_string_append (xml, "    </method>\n");
   g_string_append (xml, "  </interface>\n");
   

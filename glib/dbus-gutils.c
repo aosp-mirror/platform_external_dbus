@@ -39,19 +39,25 @@ _dbus_gutils_split_path (const char *path)
   len = strlen (path);
 
   n_components = 0;
-  i = 0;
-  while (i < len)
+  if (path[1] != '\0') /* if not "/" */
     {
-      if (path[i] == '/')
-        n_components += 1;
-      ++i;
+      i = 0;
+      while (i < len)
+        {
+          if (path[i] == '/')
+            n_components += 1;
+          ++i;
+        }
     }
 
   split = g_new0 (char*, n_components + 1);
 
   comp = 0;
-  i = 0;
-  while (i < len)
+  if (n_components == 0)
+    i = 1;
+  else
+    i = 0;
+  while (comp < n_components)
     {
       if (path[i] == '/')
         ++i;

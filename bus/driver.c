@@ -792,24 +792,34 @@ bus_driver_handle_get_service_owner (DBusConnection *connection,
 
   _dbus_string_init_const (&str, text);
   service = bus_registry_lookup (registry, &str);
-  if (service == NULL)
+  if (service == NULL &&
+      _dbus_string_equal_c_str (&str, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+    {
+      /* ORG_FREEDESKTOP_DBUS owns itself */
+      base_name = DBUS_SERVICE_ORG_FREEDESKTOP_DBUS;
+    }
+  else if (service == NULL)
     {
       dbus_set_error (error, 
-		      DBUS_ERROR_NAME_HAS_NO_OWNER,
-		      "Could not get owner of name '%s': no such name", text);
+                      DBUS_ERROR_NAME_HAS_NO_OWNER,
+                      "Could not get owner of name '%s': no such name", text);
       goto failed;
+    }
+  else
+    {
+      base_name = bus_connection_get_name (bus_service_get_primary_owner (service));
+      if (base_name == NULL)
+        {
+          /* FIXME - how is this error possible? */
+          dbus_set_error (error,
+                          DBUS_ERROR_FAILED,
+                          "Could not determine unique name for '%s'", text);
+          goto failed;
+        }
+      _dbus_assert (*base_name == ':');      
     }
 
-  base_name = bus_connection_get_name (bus_service_get_primary_owner (service));
-  if (base_name == NULL)
-    {
-      /* FIXME - how is this error possible? */
-      dbus_set_error (error,
-		      DBUS_ERROR_FAILED,
-		      "Could not determine unique name for '%s'", text);
-      goto failed;
-    }
-  _dbus_assert (*base_name == ':');
+  _dbus_assert (base_name != NULL);
 
   reply = dbus_message_new_method_return (message);
   if (reply == NULL)
@@ -1040,13 +1050,89 @@ struct
   { "ReloadConfig", bus_driver_handle_reload_config }
 };
 
+static dbus_bool_t
+bus_driver_handle_introspect (DBusConnection *connection,
+                              BusTransaction *transaction,
+                              DBusMessage    *message,
+                              DBusError      *error)
+{
+  DBusString xml;
+  DBusMessage *reply;
+  const char *v_STRING;
+
+  _dbus_verbose ("Introspect() on bus driver\n");
+  
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  reply = NULL;
+
+  if (! dbus_message_get_args (message, error,
+			       DBUS_TYPE_INVALID))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      return FALSE;
+    }
+
+  if (!_dbus_string_init (&xml))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  if (!_dbus_string_append (&xml, DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE))
+    goto oom;
+  if (!_dbus_string_append (&xml, "<node>\n"))
+    goto oom;
+  if (!_dbus_string_append (&xml, "  <interface name=\"org.freedesktop.Introspectable\">\n"))
+    goto oom;
+  if (!_dbus_string_append (&xml, "    <method name=\"Introspect\">\n"))
+    goto oom;
+  if (!_dbus_string_append (&xml, "      <arg name=\"data\" direction=\"out\" type=\"string\"/>\n"))
+    goto oom;
+  if (!_dbus_string_append (&xml, "    </method>\n"))
+    goto oom;
+  if (!_dbus_string_append (&xml, "  </interface>\n"))
+    goto oom;
+  
+  if (!_dbus_string_append (&xml, "</node>\n"))
+    goto oom;
+
+  reply = dbus_message_new_method_return (message);
+  if (reply == NULL)
+    goto oom;
+
+  v_STRING = _dbus_string_get_const_data (&xml);
+  if (! dbus_message_append_args (reply,
+                                  DBUS_TYPE_STRING, &v_STRING,
+                                  DBUS_TYPE_INVALID))
+    goto oom;
+
+  if (! bus_transaction_send_from_driver (transaction, connection, reply))
+    goto oom;
+
+  dbus_message_unref (reply);
+  _dbus_string_free (&xml);
+
+  return TRUE;
+
+ oom:
+  BUS_SET_OOM (error);
+
+  if (reply)
+    dbus_message_unref (reply);
+
+  _dbus_string_free (&xml);
+  
+  return FALSE;
+}
+
 dbus_bool_t
 bus_driver_handle_message (DBusConnection *connection,
                            BusTransaction *transaction,
 			   DBusMessage    *message,
                            DBusError      *error)
 {
-  const char *name, *sender;
+  const char *name, *sender, *interface;
   int i;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
@@ -1057,17 +1143,25 @@ bus_driver_handle_message (DBusConnection *connection,
       return TRUE; /* we just ignore this */
     }
 
-  _dbus_assert (dbus_message_get_interface (message) != NULL);
+  if (dbus_message_is_method_call (message,
+                                   DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE,
+                                   "Introspect"))
+    return bus_driver_handle_introspect (connection, transaction, message, error);
+  
+  interface = dbus_message_get_interface (message);
+  if (interface == NULL)
+    interface = DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS;
+  
   _dbus_assert (dbus_message_get_member (message) != NULL);
-
+  
   name = dbus_message_get_member (message);
   sender = dbus_message_get_sender (message);
   
-  if (strcmp (dbus_message_get_interface (message),
+  if (strcmp (interface,
               DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS) != 0)
     {
       _dbus_verbose ("Driver got message to unknown interface \"%s\"\n",
-                     dbus_message_get_interface (message));
+                     interface);
       goto unknown;
     }
   
@@ -1076,12 +1170,6 @@ bus_driver_handle_message (DBusConnection *connection,
   
   /* security checks should have kept this from getting here */
   _dbus_assert (sender != NULL || strcmp (name, "Hello") == 0);
-
-  if (dbus_message_get_reply_serial (message) != 0)
-    {
-      _dbus_verbose ("Client sent a reply to the bus driver, ignoring it\n");
-      return TRUE;
-    }
   
   i = 0;
   while (i < _DBUS_N_ELEMENTS (message_handlers))

@@ -29,6 +29,7 @@
 #include "dbus-tree-view.h"
 #include <glib/dbus-gparser.h>
 #include <glib/dbus-gutils.h>
+#include <dbus/dbus-glib.h>
 
 #include <libintl.h>
 #define _(x) dgettext (GETTEXT_PACKAGE, x)
@@ -188,6 +189,133 @@ show_error_dialog (GtkWindow *transient_parent,
     }
 }
 
+static gboolean
+load_child_nodes (const char *service_name,
+                  NodeInfo   *parent,
+                  GError    **error)
+{
+  DBusGConnection *connection;
+  GSList *tmp;
+  
+  connection = dbus_g_bus_get (DBUS_BUS_SESSION, error);
+  if (connection == NULL)
+    return FALSE;
+
+  tmp = node_info_get_nodes (parent);
+  while (tmp != NULL)
+    {
+      DBusGProxy *proxy;
+      DBusGPendingCall *call;
+      const char *data;
+      NodeInfo *child;
+      NodeInfo *complete_child;
+
+      complete_child = NULL;
+      
+      child = tmp->data;
+
+      g_assert (*service_name == ':'); /* so we don't need new_for_name_owner */
+      proxy = dbus_g_proxy_new_for_name (connection,
+                                         service_name,
+                                         "/",
+                                         DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE);
+      g_assert (proxy != NULL);
+  
+      call = dbus_g_proxy_begin_call (proxy, "Introspect",
+                                      DBUS_TYPE_INVALID);
+      
+      data = NULL;
+      if (!dbus_g_proxy_end_call (proxy, call, error, DBUS_TYPE_STRING, &data,
+                                  DBUS_TYPE_INVALID))
+        goto done;
+      
+      complete_child = description_load_from_string (data, -1, error);
+      if (complete_child == NULL)
+        goto done;
+      
+    done:
+      dbus_g_pending_call_unref (call);
+      g_object_unref (proxy);
+
+      if (complete_child == NULL)
+        return FALSE;
+
+      /* change complete_child's name to relative */
+      base_info_set_name ((BaseInfo*)complete_child,
+                          base_info_get_name ((BaseInfo*)child));
+      
+      /* Stitch in complete_child rather than child */
+      node_info_replace_node (parent, child, complete_child);
+      node_info_unref (complete_child); /* ref still held by parent */
+      
+      /* Now recurse */
+      if (!load_child_nodes (service_name, complete_child, error))
+        return FALSE;
+      
+      tmp = tmp->next;
+    }
+
+  return TRUE;
+}
+
+static NodeInfo*
+load_from_service (const char *service_name,
+                   GError    **error)
+{
+  DBusGConnection *connection;
+  DBusGProxy *root_proxy;
+  DBusGPendingCall *call;
+  const char *data;
+  NodeInfo *node;
+
+  node = NULL;
+  call = NULL;
+  
+  connection = dbus_g_bus_get (DBUS_BUS_SESSION, error);
+  if (connection == NULL)
+    return NULL;
+
+  root_proxy = dbus_g_proxy_new_for_name_owner (connection,
+                                                service_name,
+                                                "/",
+                                                DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE,
+                                                error);
+  if (root_proxy == NULL)
+    return NULL;
+  
+  call = dbus_g_proxy_begin_call (root_proxy, "Introspect",
+                                  DBUS_TYPE_INVALID);
+
+  data = NULL;
+  if (!dbus_g_proxy_end_call (root_proxy, call, error, DBUS_TYPE_STRING, &data,
+                              DBUS_TYPE_INVALID))
+    goto out;
+
+  node = description_load_from_string (data, -1, error);
+
+  /* g_print ("%s\n", data); */
+  
+  if (node == NULL)
+    goto out;
+
+  base_info_set_name ((BaseInfo*)node, "/");
+  
+  if (!load_child_nodes (dbus_g_proxy_get_bus_name (root_proxy),
+                         node, error))
+    {
+      node_info_unref (node);
+      node = NULL;
+      goto out;
+    }
+  
+ out:
+  if (call)
+    dbus_g_pending_call_unref (call);
+    
+  g_object_unref (root_proxy);
+  return node;
+}
+
 static void
 usage (int ecode)
 {
@@ -214,6 +342,7 @@ main (int argc, char **argv)
   GSList *files;
   gboolean end_of_args;
   GSList *tmp;
+  gboolean services;
   
   bindtextdomain (GETTEXT_PACKAGE, DBUS_LOCALEDIR);
   bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
@@ -221,6 +350,7 @@ main (int argc, char **argv)
   
   gtk_init (&argc, &argv);
 
+  services = FALSE;
   end_of_args = FALSE;
   files = NULL;
   prev_arg = NULL;
@@ -237,6 +367,8 @@ main (int argc, char **argv)
             usage (0);
           else if (strcmp (arg, "--version") == 0)
             version ();
+          else if (strcmp (arg, "--services") == 0)
+            services = TRUE;
           else if (arg[0] == '-' &&
                    arg[1] == '-' &&
                    arg[2] == '\0')
@@ -270,8 +402,12 @@ main (int argc, char **argv)
       filename = tmp->data;
 
       error = NULL;
-      node = description_load_from_file (filename,
-                                         &error);
+      if (services)
+        node = load_from_service (filename, &error);
+      else
+        node = description_load_from_file (filename,
+                                           &error);
+      
       if (node == NULL)
         {
           g_assert (error != NULL);
@@ -312,9 +448,4 @@ main (int argc, char **argv)
   
   return 0;
 }
-
-
-
-
-
 

@@ -23,6 +23,7 @@
 
 #include "dbus-gparser.h"
 #include <expat.h>
+#include <string.h>
 
 static void*
 expat_g_malloc (size_t sz)
@@ -192,6 +193,9 @@ description_load_from_string (const char  *str,
   
   g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
+  if (len < 0)
+    len = strlen (str);
+  
   expat = NULL;
   context.parser = NULL;
   context.error = error;

@@ -83,6 +83,9 @@ void                node_info_add_interface       (NodeInfo            *info,
                                                    InterfaceInfo       *interface);
 void                node_info_add_node            (NodeInfo            *info,
                                                    NodeInfo            *child);
+void                node_info_replace_node        (NodeInfo            *info,
+                                                   NodeInfo            *old_child,
+                                                   NodeInfo            *new_child);
 InterfaceInfo*      interface_info_new            (const char          *name);
 InterfaceInfo*      interface_info_ref            (InterfaceInfo       *info);
 void                interface_info_unref          (InterfaceInfo       *info);

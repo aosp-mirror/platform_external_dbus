@@ -303,6 +303,20 @@ node_info_add_node (NodeInfo *info,
   info->nodes = g_slist_append (info->nodes, node);
 }
 
+void
+node_info_replace_node (NodeInfo            *info,
+                        NodeInfo            *old_child,
+                        NodeInfo            *new_child)
+{
+  GSList *link;
+
+  node_info_ref (new_child); /* before unref old_child in case they are the same */
+  link = g_slist_find (info->nodes, old_child);
+  g_assert (link != NULL);
+  node_info_unref (old_child);
+  link->data = new_child;
+}
+
 InterfaceInfo*
 interface_info_new (const char *name)
 {

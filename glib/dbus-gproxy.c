@@ -1032,9 +1032,28 @@ dbus_g_proxy_new_for_peer (DBusGConnection          *connection,
   g_return_val_if_fail (interface_name != NULL, NULL);
 
   proxy = dbus_g_proxy_new (connection, NULL,
-                           path_name, interface_name);
+                            path_name, interface_name);
 
   return proxy;
+}
+
+/**
+ * Gets the bus name a proxy is bound to (may be #NULL in some cases).
+ * If you created the proxy with dbus_g_proxy_new_for_name(), then
+ * the name you passed to that will be returned.
+ * If you created it with dbus_g_proxy_new_for_name_owner(), then the
+ * unique connection name will be returned. If you created it
+ * with dbus_g_proxy_new_for_peer() then #NULL will be returned.
+ *
+ * @param proxy the proxy
+ * @returns the bus name the proxy sends messages to
+ */
+const char*
+dbus_g_proxy_get_bus_name (DBusGProxy        *proxy)
+{
+  g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), NULL);
+
+  return proxy->name;
 }
 
 /**
@@ -1113,23 +1132,28 @@ dbus_g_proxy_begin_call (DBusGProxy *proxy,
  *
  * Otherwise, the "out" parameters and return value of the
  * method are stored in the provided varargs list.
- * The list should be terminated with DBUS_TYPE_INVALID.
+ * The list should be terminated with #DBUS_TYPE_INVALID.
  *
  * This function doesn't affect the reference count of the
  * #DBusPendingCall, the caller of dbus_g_proxy_begin_call() still owns
  * a reference.
  *
+ * @todo this should be changed to make a g_malloc() copy of the
+ * data returned probably; right now the data vanishes
+ * when you free the PendingCall which is sort of strange.
+ *
  * @param proxy a proxy for a remote interface
  * @param pending the pending call from dbus_g_proxy_begin_call()
  * @param error return location for an error
  * @param first_arg_type type of first "out" argument
- * @returns #FALSE if an error is set */
+ * @returns #FALSE if an error is set
+ */
 gboolean
 dbus_g_proxy_end_call (DBusGProxy          *proxy,
-                      DBusGPendingCall    *pending,
-                      GError             **error,
-                      int                  first_arg_type,
-                      ...)
+                       DBusGPendingCall    *pending,
+                       GError             **error,
+                       int                  first_arg_type,
+                       ...)
 {
   DBusMessage *message;
   va_list args;
@@ -1220,6 +1244,30 @@ dbus_g_proxy_call_no_reply (DBusGProxy               *proxy,
   
  oom:
   g_error ("Out of memory");
+}
+
+/**
+ * Increments refcount on a pending call.
+ *
+ * @param call the call
+ * @returns the same call
+ */
+DBusGPendingCall*
+dbus_g_pending_call_ref (DBusGPendingCall  *call)
+{
+  dbus_pending_call_ref (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (call));
+  return call;
+}
+
+/**
+ * Decrements refcount on a pending call.
+ *
+ * @param call the call
+ */
+void
+dbus_g_pending_call_unref (DBusGPendingCall  *call)
+{
+  dbus_pending_call_unref (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (call));
 }
 
 /**

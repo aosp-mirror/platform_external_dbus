@@ -145,7 +145,10 @@ void              dbus_g_proxy_call_no_reply         (DBusGProxy        *proxy,
                                                       const char        *method,
                                                       int                first_arg_type,
                                                       ...);
+const char*       dbus_g_proxy_get_bus_name          (DBusGProxy        *proxy);
 
+DBusGPendingCall* dbus_g_pending_call_ref            (DBusGPendingCall  *call);
+void              dbus_g_pending_call_unref          (DBusGPendingCall  *call);
 
 #undef DBUS_INSIDE_DBUS_GLIB_H
 
