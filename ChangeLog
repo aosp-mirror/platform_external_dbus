@@ -1,5 +1,11 @@
 2005-03-20  Colin Walters  <walters@verbum.org>
 
+	Patch suggested by Inguva Rajasekhar <ringuva@novell.com>.
+
+	* configure.in: Require GTK+ 2.6.
+	
+2005-03-20  Colin Walters  <walters@verbum.org>
+
 	* Makefile.am (SUBDIRS, DIST_SUBDIRS): Build tools before test.
 
 2005-03-17  Tom Parker  <palfrey@tevp.net>
