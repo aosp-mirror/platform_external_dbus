@@ -1821,9 +1821,11 @@
 
     <glossentry id="namespace"><glossterm>Namespace</glossterm>
       <glossdef>
-	<para>Used to prevent collisions when defining message and
-	service names. The convention used is the same as Java uses
-	for defining classes: a reversed domain name. 
+	<para>
+          Used to prevent collisions when defining message and service
+	  names. The convention used is the same as Java uses for
+	  defining classes: a reversed domain name.
+        </para>
       </glossdef>
     </glossentry>
     <glossentry id="peer-to-peer"><glossterm>Peer-to-peer</glossterm>
