@@ -1,3 +1,8 @@
+2004-04-30  Owen Fraser-Green  <owen@discobabe.net>
+
+	* dbus-sharp.pc.in: Modified to include include Libs and Requires
+	field
+
 2004-04-25  Kristian Høgsberg  <krh@redhat.com>
 
 	* test/data/valid-messages/standard-*.message: Update message

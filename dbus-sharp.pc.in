@@ -4,5 +4,6 @@ libdir=@libdir@
 
 Name: DBus#
 Description: DBus# - D-BUS .NET Bindings
-Version: 0.1
-
+Version: @VERSION@
+Requires: dbus-1 gtk-sharp
+Libs: -lib:${libdir} -r:dbus-sharp -r:glib-sharp
