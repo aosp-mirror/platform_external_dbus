@@ -48,8 +48,6 @@
    after the message bus has processed your message but before the service has replied, 
    it would be nice if the message bus sent you an error reply.
 
- - write a DTD for the dbus-daemon-1 configuration file
-
  - build and install the Doxygen manual in Makefile when --enable-docs
 
  - if you send the same message to multiple connections, the serial number 

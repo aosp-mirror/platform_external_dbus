@@ -1,5 +1,11 @@
 2003-08-09  Anders Carlsson  <andersca@codefactory.se>
 
+	* doc/TODO:
+	* doc/busconfig.dtd:
+	Add busconfig DTD.
+	
+2003-08-09  Anders Carlsson  <andersca@codefactory.se>
+
 	* doc/dbus-specification.sgml:
 	Add activation reply values.
 	
