@@ -118,6 +118,9 @@ int _dbus_poll (DBusPollFD *fds,
 
 void _dbus_sleep_milliseconds (int milliseconds);
 
+void _dbus_get_current_time (long *tv_sec,
+                             long *tv_usec);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_SYSDEPS_H */

@@ -36,34 +36,62 @@ static dbus_bool_t  bus_driver_send_welcome_message (DBusConnection *connection,
 						     DBusMessage    *hello_message);
 
 static dbus_bool_t
-create_unique_client_name (const char *name, DBusString *str)
+create_unique_client_name (const char *name,
+                           DBusString *str)
 {
-  int i, len;
-
-  if (!_dbus_string_init (str, _DBUS_INT_MAX))
-    return FALSE;
+  /* We never want to use the same unique client name twice, because
+   * we want to guarantee that if you send a message to a given unique
+   * name, you always get the same application. So we use two numbers
+   * for INT_MAX * INT_MAX combinations, should be pretty safe against
+   * wraparound.
+   */
+  static int next_major_number = 0;
+  static int next_minor_number = 0;
+  int len;
 
   if (!_dbus_string_append (str, name))
     return FALSE;
   
   len = _dbus_string_get_length (str);
   
-  i = 0;  
-  while (1)
+  while (TRUE)
     {
-      if (!_dbus_string_append_int (str, i))
-	{
-	  _dbus_string_free (str);
-	  return FALSE;
-	}
+      /* start out with 1-0, go to 1-1, 1-2, 1-3,
+       * up to 1-MAXINT, then 2-0, 2-1, etc.
+       */
+      if (next_minor_number <= 0)
+        {
+          next_major_number += 1;
+          next_minor_number = 0;
+          if (next_major_number <= 0)
+            _dbus_assert_not_reached ("INT_MAX * INT_MAX clients were added");
+        }
+
+      _dbus_assert (next_major_number > 0);
+      _dbus_assert (next_minor_number >= 0);
+
+      /* appname:MAJOR-MINOR */
+      
+      if (!_dbus_string_append (str, ":"))
+        return FALSE;
+      
+      if (!_dbus_string_append_int (str, next_major_number))
+        return FALSE;
+
+      if (!_dbus_string_append (str, "-"))
+        return FALSE;
+      
+      if (!_dbus_string_append_int (str, next_minor_number))
+        return FALSE;
+
+      next_minor_number += 1;
       
       /* Check if a client with the name exists */
       if (bus_service_lookup (str, FALSE) == NULL)
 	break;
 
+      /* drop the number again, try the next one. */
       _dbus_string_set_length (str, len);
-      
-      i++;
     }
 
   return TRUE;
@@ -87,8 +115,14 @@ bus_driver_handle_hello_message (DBusConnection *connection,
   if (result != DBUS_RESULT_SUCCESS)
     return FALSE;
 
-  if (!create_unique_client_name (name, &unique_name))
+  if (!_dbus_string_init (&unique_name, _DBUS_INT_MAX))
     return FALSE;
+  
+  if (!create_unique_client_name (name, &unique_name))
+    {
+      _dbus_string_free (&unique_name);
+      return FALSE;
+    }
 
   /* Create the service */
   service = bus_service_lookup (&unique_name, TRUE);

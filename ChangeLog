@@ -1,3 +1,13 @@
+2003-01-21  Havoc Pennington  <hp@pobox.com>
+
+        (patch untested because can't compile)
+	
+	* bus/driver.c (create_unique_client_name): make this function
+	never recycle client names. Also, caller should initialize 
+	the DBusString.
+
+	* dbus/dbus-sysdeps.c (_dbus_get_current_time): new function
+
 2003-01-21  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-marshal.c: (_dbus_marshal_double),

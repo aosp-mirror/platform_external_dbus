@@ -983,4 +983,24 @@ _dbus_sleep_milliseconds (int milliseconds)
 #endif
 }
 
+/**
+ * Get current time, as in gettimeofday().
+ *
+ * @param tv_sec return location for number of seconds
+ * @param tv_usec return location for number of microseconds (thousandths)
+ */
+void
+_dbus_get_current_time (long *tv_sec,
+                        long *tv_usec)
+{
+  struct timeval t;
+
+  gettimeofday (&t, NULL);
+
+  if (tv_sec)
+    *tv_sec = t.tv_sec;
+  if (tv_usec)
+    *tv_usec = t.tv_usec;
+}
+
 /** @} end of sysdeps */
