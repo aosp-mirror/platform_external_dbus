@@ -984,19 +984,16 @@ bus_dispatch_test (const DBusString *test_data_dir)
   dbus_connection_disconnect (foo);
   if (bus_connection_dispatch_one_message (foo))
     _dbus_assert_not_reached ("extra message in queue");
-  dbus_connection_unref (foo);
   _dbus_assert (!bus_test_client_listed (foo));
 
   dbus_connection_disconnect (bar);
   if (bus_connection_dispatch_one_message (bar))
     _dbus_assert_not_reached ("extra message in queue");
-  dbus_connection_unref (bar);
   _dbus_assert (!bus_test_client_listed (bar));
 
   dbus_connection_disconnect (baz);
   if (bus_connection_dispatch_one_message (baz))
     _dbus_assert_not_reached ("extra message in queue");
-  dbus_connection_unref (baz);
   _dbus_assert (!bus_test_client_listed (baz));
 
   bus_context_unref (context);

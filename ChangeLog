@@ -1,5 +1,13 @@
 2003-03-16  Havoc Pennington  <hp@pobox.com>
 
+	* bus/dispatch.c (bus_dispatch_test): remove double-unrefs of
+	connections
+
+	* dbus/dbus-address.c (create_entry): fix OOM handling when
+	failing to alloc entry->method
+
+2003-03-16  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-watch.c (_dbus_watch_new): handle failure to malloc
 	the watch
 

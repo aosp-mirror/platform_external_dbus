@@ -98,7 +98,10 @@ create_entry (void)
     return NULL;
 
   if (!_dbus_string_init (&entry->method, _DBUS_INT_MAX))
-    dbus_free (entry);
+    {
+      dbus_free (entry);
+      return NULL;
+    }
 
   return entry;
 }
