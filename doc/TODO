@@ -121,3 +121,10 @@
  - Better error checking for bogus configuration files. Currently if a 
    configuration file tries to include itself the bus crashes on start. We 
    should probably have a check against this.
+
+ - Perhaps the auth protocol should be able to negotiate a protocol 
+   version to the least-common-denominator between client and server?
+   Though in practice ever using this feature would be pretty tough, 
+   since protocol probably modifies the API. But we could have it there
+   as a safety net.
+
