@@ -52,7 +52,9 @@ extern "C" {
 #define DBUS_TYPE_BYTE_ARRAY    9
 #define DBUS_TYPE_STRING_ARRAY 10
   
-#
+/* Header flags */
+#define DBUS_HEADER_FLAG_IS_ERROR_REPLY 0x1
+  
 /* Header fields */
 #define DBUS_HEADER_FIELD_NAME    "name"
 #define DBUS_HEADER_FIELD_SERVICE "srvc"

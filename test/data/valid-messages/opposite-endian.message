@@ -31,4 +31,6 @@ STRING 'Hello this is a string'
 TYPE DOUBLE
 DOUBLE 3.14159
 
+TYPE NIL
+
 END_LENGTH Body

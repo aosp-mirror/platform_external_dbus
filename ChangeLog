@@ -1,3 +1,29 @@
+2003-01-31  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-address.c: (dbus_address_entry_free):
+	Free key and value lists.
+	
+	* dbus/dbus-internals.c: (_dbus_type_to_string):
+	Add the types we didn't have.
+	
+	* dbus/dbus-marshal.c: (_dbus_marshal_get_arg_end_pos),
+	(_dbus_marshal_validate_arg):
+	Add NIL types.
+	
+	* dbus/dbus-message.c: (dbus_message_set_sender):
+	Remove todo about being able to set sender to NULL.
+	
+	(dbus_message_set_is_error_reply),
+	(dbus_message_get_is_error_reply):
+	* dbus/dbus-message.h:
+	New functions.
+	
+	* dbus/dbus-protocol.h:
+	Add error reply flag.
+	
+	* test/data/valid-messages/opposite-endian.message:
+	Add NIL type to test.
+	
 2003-01-31  Havoc Pennington  <hp@pobox.com>
 
 	* doc/dbus-specification.sgml: fully specify the header.  Add

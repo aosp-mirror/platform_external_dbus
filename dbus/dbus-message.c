@@ -1612,8 +1612,6 @@ dbus_message_iter_get_string_array (DBusMessageIter *iter,
 /**
  * Sets the message sender.
  *
- * @todo implement #NULL sender to unset
- *
  * @param message the message
  * @param sender the sender
  * @returns #FALSE if not enough memory
@@ -1635,6 +1633,33 @@ dbus_message_set_sender (DBusMessage  *message,
                                FIELD_SENDER,
                                sender);
     }
+}
+
+void
+dbus_message_set_is_error_reply (DBusMessage *message,
+				 dbus_bool_t  is_error_reply)
+{
+  char *header;
+  
+  _dbus_assert (!message->locked);
+  
+  _dbus_string_get_data_len (&message->header, &header, 1, 1);
+  
+  if (is_error_reply)
+    *header |= DBUS_HEADER_FLAG_IS_ERROR_REPLY;
+  else
+    *header &= ~DBUS_HEADER_FLAG_IS_ERROR_REPLY;
+    
+}
+
+dbus_bool_t
+dbus_message_get_is_error_reply (DBusMessage *message)
+{
+  const char *header;
+
+  _dbus_string_get_data_len (&message->header, &header, 1, 1);
+
+  return (*header & DBUS_HEADER_FLAG_IS_ERROR_REPLY) != 0;
 }
 
 /**

@@ -875,6 +875,9 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
       return FALSE;
       break;
 
+    case DBUS_TYPE_NIL:
+      *end_pos = pos + 1;
+      
     case DBUS_TYPE_INT32:
       *end_pos = _DBUS_ALIGN_VALUE (pos + 1, sizeof (dbus_int32_t)) + sizeof (dbus_int32_t);
 
@@ -989,6 +992,7 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
  * @param str the string
  * @param byte_order the byte order
  * @param pos the unaligned string position (snap to next aligned)
+ * @param new_pos return location for new position.
  */
 static int
 demarshal_and_validate_len (const DBusString *str,
@@ -1094,6 +1098,10 @@ _dbus_marshal_validate_arg (const DBusString *str,
     {
     case DBUS_TYPE_INVALID:
       return FALSE;
+      break;
+
+    case DBUS_TYPE_NIL:
+      *end_pos = pos + 1;
       break;
       
     case DBUS_TYPE_INT32:

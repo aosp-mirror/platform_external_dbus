@@ -56,7 +56,8 @@ dbus_address_entry_free (DBusAddressEntry *entry)
       
       link = _dbus_list_get_next_link (&entry->keys, link);
     }
-
+  _dbus_list_clear (&entry->keys);
+  
   link = _dbus_list_get_first_link (&entry->values);
   while (link != NULL)
     {
@@ -65,6 +66,7 @@ dbus_address_entry_free (DBusAddressEntry *entry)
       
       link = _dbus_list_get_next_link (&entry->values, link);
     }
+  _dbus_list_clear (&entry->values);
   
   dbus_free (entry);
 }
@@ -73,8 +75,6 @@ dbus_address_entry_free (DBusAddressEntry *entry)
 /**
  * Frees a #NULL-terminated array of address entries.
  *
- * @todo dbus_address_entry_free() seems to leak list nodes
- * 
  * @param entries the array.
  */
 void
