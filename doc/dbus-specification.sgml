@@ -71,6 +71,13 @@
       application that accepts connections from multiple other applications, and
       forwards messages among them.
     </para>
+    <para>
+      Things that D-BUS can be used for is for example notification of
+      system changes (notification of when a camera is plugged in to a
+      computer, or a new version of some software has been installed),
+      or desktop interoperablity, for example a file monitoring
+      service or a configuration service.
+    </para>
   </sect1>
 
   <sect1 id="message-protocol">
@@ -1732,7 +1739,7 @@
                 <entry>0</entry>
                 <entry>UINT32</entry>
                 <entry>Result code; DBUS_ACTIVATION_REPLY_ACTIVATED if
-                the service was activated successfutly or
+                the service was activated successfully or
                 DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE if the service is
                 already active.</entry>
               </row>
@@ -1746,6 +1753,32 @@
             [FIXME need semantics in much more detail here; for example, 
             if I activate a service then send it a message, is the message 
             queued for the new service or is there a race]
+        </para>
+      </sect3>
+
+      <sect3 id="bus-messages-out-of-memory">
+        <title><literal>org.freedesktop.DBus.Error.NoMemory</literal></title>
+        <para>
+          As a method:
+          <programlisting>
+            void NoMemory ()
+          </programlisting>
+        </para>
+        <para>
+          Sent by the message bus when it can't process a message due to an out of memory failure.
+        </para>
+      </sect3>
+
+      <sect3 id="bus-messages-service-does-not-exist">
+        <title><literal>org.freedesktop.DBus.Error.ServiceDoesNotExist</literal></title>
+        <para>
+          As a method:
+          <programlisting>
+            void ServiceDoesNotExist (in STRING error)
+          </programlisting>
+        </para>
+        <para>
+          Sent by the message bus as a reply to a client that tried to send a message to a service that doesn't exist.
         </para>
       </sect3>
     </sect2>
