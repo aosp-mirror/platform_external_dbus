@@ -43,7 +43,7 @@
 /**
  * Default timeout interval when reading or writing.
  */
-#define DEFAULT_INTERVAL 10
+#define DEFAULT_INTERVAL 1
 
 /**
  * Opaque object representing a debug server implementation.
@@ -249,6 +249,8 @@ _dbus_server_debug_accept_transport (DBusServer     *server,
   if (!_dbus_server_add_timeout (server, timeout))
     goto failed;
 
+  _dbus_timeout_unref (timeout);
+  
   return TRUE;
 
  failed:

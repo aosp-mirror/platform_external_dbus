@@ -44,7 +44,7 @@
 /**
  * Default timeout interval when reading or writing.
  */
-#define DEFAULT_INTERVAL 10
+#define DEFAULT_INTERVAL 1
 
 /**
  * Opaque object representing a debug transport.

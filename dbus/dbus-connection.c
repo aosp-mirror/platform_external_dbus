@@ -334,6 +334,7 @@ _dbus_connection_remove_watch (DBusConnection *connection,
  * available. Otherwise records the timeout to be added when said
  * function is available. Also re-adds the timeout if the
  * DBusAddTimeoutFunction changes. May fail due to lack of memory.
+ * The timeout will fire only one time.
  *
  * @param connection the connection.
  * @param timeout the timeout to add.
@@ -1861,7 +1862,8 @@ dbus_connection_set_watch_functions (DBusConnection              *connection,
  * dbus_timeout_get_interval.
  *
  * Once a timeout occurs, dbus_timeout_handle should be called to invoke
- * the timeout's callback.
+ * the timeout's callback, and the timeout should be automatically
+ * removed. i.e. timeouts are one-shot.
  *
  * @param connection the connection.
  * @param add_function function to add a timeout.

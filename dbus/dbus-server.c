@@ -146,7 +146,7 @@ _dbus_server_remove_watch  (DBusServer *server,
 
 /**
  * Adds a timeout for this server, chaining out to application-provided
- * timeout handlers.
+ * timeout handlers. The timeout will fire only one time.
  *
  * @param server the server.
  * @param timeout the timeout to add.

@@ -1,3 +1,16 @@
+2003-03-14  Havoc Pennington  <hp@pobox.com>
+
+	* bus/loop.c (bus_loop_iterate): add this so we can "run loop
+	until no work remains" in test code. (the large diff here 
+	is just code movement, no actual changes)
+
+	* dbus/dbus-server-debug.c (DEFAULT_INTERVAL): change interval to
+	1, no point waiting around for test code.
+	(_dbus_server_debug_accept_transport): unref the timeout 
+	after adding it (right?)
+
+	* dbus/dbus-transport-debug.c (DEFAULT_INTERVAL): ditto
+	
 2003-03-13  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-timeout.c (_dbus_timeout_list_set_functions): handle

@@ -48,6 +48,7 @@ void        bus_loop_remove_timeout (DBusTimeout        *timeout,
                                      void               *data);
 void        bus_loop_run            (void);
 void        bus_loop_quit           (void);
+dbus_bool_t bus_loop_iterate        (dbus_bool_t         block);
 
 
 
