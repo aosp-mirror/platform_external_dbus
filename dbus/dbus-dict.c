@@ -80,7 +80,7 @@ dbus_dict_entry_free (DBusDictEntry *entry)
 {
   if (!entry)
     return;
-
+  
   switch (entry->type)
     {
     case DBUS_TYPE_INVALID:
@@ -131,6 +131,13 @@ dbus_dict_new (void)
     return NULL;
 
   dict->table = _dbus_hash_table_new (DBUS_HASH_STRING, dbus_free, (DBusFreeFunction)dbus_dict_entry_free);
+
+  if (!dict->table)
+    {
+      dbus_free (dict);
+      return NULL;
+    }
+  
   dict->refcount = 1;
   
   return dict;
@@ -247,10 +254,11 @@ dbus_dict_get_keys (DBusDict *dict,
       return TRUE;
     }
 
-  tmp = dbus_new0 (char *, size);
+  tmp = dbus_new0 (char *, size + 1);
   if (!tmp)
     return FALSE;
 
+  
   i = 0;
   _dbus_hash_iter_init (dict->table, &iter);
 
@@ -273,6 +281,37 @@ dbus_dict_get_keys (DBusDict *dict,
   return TRUE;
 }
 
+static dbus_bool_t
+insert_entry (DBusDict *dict, 
+              const char *key,
+              DBusDictEntry **entry)
+{
+  char *tmp;
+
+  tmp = _dbus_strdup (key);
+
+  if (!tmp)
+    return FALSE;
+  
+  *entry = dbus_new0 (DBusDictEntry, 1);
+  
+  if (!*entry)
+    {
+      dbus_free (tmp);
+      return FALSE;
+    }
+
+  if (!_dbus_hash_table_insert_string (dict->table, tmp, *entry))
+    {
+      dbus_free (tmp);
+      dbus_dict_entry_free (*entry);
+
+      return FALSE;
+    }
+
+  return TRUE;
+}
+	      
 /**
  * Adds a boolean value to the dict. If a value with the same key
  * already exists, then it will be replaced by the new value.
@@ -283,38 +322,21 @@ dbus_dict_get_keys (DBusDict *dict,
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_dict_put_boolean (DBusDict    *dict,
+dbus_dict_set_boolean (DBusDict    *dict,
 		       const char  *key,
 		       dbus_bool_t  value)
 {
   DBusDictEntry *entry;
-  char *tmp;
-  
-  entry = dbus_new0 (DBusDictEntry, 1);
 
-  if (!entry)
+  if (insert_entry (dict, key, &entry))
+    {
+      entry->type = DBUS_TYPE_BOOLEAN;
+      entry->v.boolean_value = value;
+
+      return TRUE;
+    }
+  else
     return FALSE;
-
-  entry->type = DBUS_TYPE_BOOLEAN;
-  entry->v.boolean_value = value;
-
-  tmp = _dbus_strdup (key);
-
-  if (!tmp)
-    {
-      dbus_dict_entry_free (entry);
-      return FALSE;
-    }
-  
-  if (!_dbus_hash_table_insert_string (dict->table, tmp, entry))
-    {
-      dbus_free (tmp);
-      dbus_dict_entry_free (entry);
-
-      return FALSE;
-    }
-
-  return TRUE;
 }
 
 /**
@@ -327,38 +349,21 @@ dbus_dict_put_boolean (DBusDict    *dict,
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_dict_put_int32 (DBusDict     *dict,
+dbus_dict_set_int32 (DBusDict     *dict,
 		     const char   *key,
 		     dbus_int32_t  value)
 {
   DBusDictEntry *entry;
-  char *tmp;
-  
-  entry = dbus_new0 (DBusDictEntry, 1);
 
-  if (!entry)
+  if (insert_entry (dict, key, &entry))
+    {
+      entry->type = DBUS_TYPE_INT32;
+      entry->v.int32_value = value;
+
+      return TRUE;
+    }
+  else
     return FALSE;
-
-  entry->type = DBUS_TYPE_INT32;
-  entry->v.int32_value = value;
-
-  tmp = _dbus_strdup (key);
-
-  if (!tmp)
-    {
-      dbus_dict_entry_free (entry);
-      return FALSE;
-    }
-  
-  if (!_dbus_hash_table_insert_string (dict->table, tmp, entry))
-    {
-      dbus_free (tmp);
-      dbus_dict_entry_free (entry);
-
-      return FALSE;
-    }
-
-  return TRUE;
 }
 
 /**
@@ -372,38 +377,21 @@ dbus_dict_put_int32 (DBusDict     *dict,
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_dict_put_uint32 (DBusDict      *dict,
+dbus_dict_set_uint32 (DBusDict      *dict,
 		      const char    *key,
 		      dbus_uint32_t  value)
 {
   DBusDictEntry *entry;
-  char *tmp;
-  
-  entry = dbus_new0 (DBusDictEntry, 1);
 
-  if (!entry)
+  if (insert_entry (dict, key, &entry))
+    {
+      entry->type = DBUS_TYPE_UINT32;
+      entry->v.uint32_value = value;
+
+      return TRUE;
+    }
+  else
     return FALSE;
-
-  entry->type = DBUS_TYPE_UINT32;
-  entry->v.uint32_value = value;
-
-  tmp = _dbus_strdup (key);
-
-  if (!tmp)
-    {
-      dbus_dict_entry_free (entry);
-      return FALSE;
-    }
-  
-  if (!_dbus_hash_table_insert_string (dict->table, tmp, entry))
-    {
-      dbus_free (tmp);
-      dbus_dict_entry_free (entry);
-
-      return FALSE;
-    }
-
-  return TRUE;
 }
 
 /**
@@ -416,38 +404,21 @@ dbus_dict_put_uint32 (DBusDict      *dict,
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_dict_put_double (DBusDict   *dict,
+dbus_dict_set_double (DBusDict   *dict,
 		      const char *key,
 		      double      value)
 {
   DBusDictEntry *entry;
-  char *tmp;
-  
-  entry = dbus_new0 (DBusDictEntry, 1);
 
-  if (!entry)
+  if (insert_entry (dict, key, &entry))
+    {
+      entry->type = DBUS_TYPE_DOUBLE;
+      entry->v.double_value = value;
+
+      return TRUE;
+    }
+  else
     return FALSE;
-
-  entry->type = DBUS_TYPE_DOUBLE;
-  entry->v.double_value = value;
-
-  tmp = _dbus_strdup (key);
-
-  if (!tmp)
-    {
-      dbus_dict_entry_free (entry);
-      return FALSE;
-    }
-  
-  if (!_dbus_hash_table_insert_string (dict->table, tmp, entry))
-    {
-      dbus_free (tmp);
-      dbus_dict_entry_free (entry);
-
-      return FALSE;
-    }
-
-  return TRUE;
 }
 
 /**
@@ -460,44 +431,27 @@ dbus_dict_put_double (DBusDict   *dict,
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_dict_put_string (DBusDict   *dict,
+dbus_dict_set_string (DBusDict   *dict,
 		      const char *key,
 		      const char *value)
 {
   DBusDictEntry *entry;
   char *tmp;
-  
-  entry = dbus_new0 (DBusDictEntry, 1);
 
-  if (!entry)
-    return FALSE;
-
-  entry->type = DBUS_TYPE_STRING;
-  entry->v.string_value = _dbus_strdup (value);
-
-  if (!entry->v.string_value)
-    {
-      dbus_dict_entry_free (entry);
-      return FALSE;
-    }
-
-  tmp = _dbus_strdup (key);
+  tmp = _dbus_strdup (value);
 
   if (!tmp)
-    {
-      dbus_dict_entry_free (entry);
-      return FALSE;
-    }
+    return FALSE;
   
-  if (!_dbus_hash_table_insert_string (dict->table, tmp, entry))
+  if (insert_entry (dict, key, &entry))
     {
-      dbus_free (tmp);
-      dbus_dict_entry_free (entry);
+      entry->type = DBUS_TYPE_STRING;
+      entry->v.string_value = tmp;
 
-      return FALSE;
+      return TRUE;
     }
-
-  return TRUE;
+  else
+    return FALSE;
 }
 
 /**
@@ -511,48 +465,31 @@ dbus_dict_put_string (DBusDict   *dict,
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_dict_put_boolean_array (DBusDict            *dict,
+dbus_dict_set_boolean_array (DBusDict            *dict,
 			     const char          *key,
 			     unsigned const char *value,
 			     int                  len)
 {
   DBusDictEntry *entry;
-  char *tmp;
-  
-  entry = dbus_new0 (DBusDictEntry, 1);
+  unsigned char *tmp;
 
-  if (!entry)
+  tmp = dbus_malloc (len);
+  
+  if (!tmp)
     return FALSE;
 
-  entry->type = DBUS_TYPE_BOOLEAN_ARRAY;
-
-  entry->v.boolean_array.value = dbus_malloc (len);
+  memcpy (tmp, value, len);
   
-  if (!entry->v.boolean_array.value)
+  if (insert_entry (dict, key, &entry))
     {
-      dbus_dict_entry_free (entry);
-      return FALSE;
+      entry->type = DBUS_TYPE_BOOLEAN_ARRAY;
+      entry->v.boolean_array.value = tmp;
+      entry->v.boolean_array.len = len;
+      
+      return TRUE;
     }
-  memcpy (entry->v.boolean_array.value, value, len);
-  entry->v.boolean_array.len = len;
-
-  tmp = _dbus_strdup (key);
-
-  if (!tmp)
-    {
-      dbus_dict_entry_free (entry);
-      return FALSE;
-    }
-  
-  if (!_dbus_hash_table_insert_string (dict->table, tmp, entry))
-    {
-      dbus_free (tmp);
-      dbus_dict_entry_free (entry);
-
-      return FALSE;
-    }
-
-  return TRUE;
+  else
+    return FALSE;
 }
 
 /**
@@ -566,47 +503,31 @@ dbus_dict_put_boolean_array (DBusDict            *dict,
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_dict_put_int32_array (DBusDict           *dict,
+dbus_dict_set_int32_array (DBusDict           *dict,
 			   const char         *key,
 			   const dbus_int32_t *value,
 			   int                 len)
 {
   DBusDictEntry *entry;
-  char *tmp;
-  
-  entry = dbus_new0 (DBusDictEntry, 1);
+  dbus_int32_t *tmp;
 
-  if (!entry)
-    return FALSE;
-
-  entry->type = DBUS_TYPE_INT32_ARRAY;
-  entry->v.int32_array.value = dbus_malloc (len * sizeof (dbus_int32_t));
-  
-  if (!entry->v.int32_array.value)
-    {
-      dbus_dict_entry_free (entry);
-      return FALSE;
-    }
-  memcpy (entry->v.int32_array.value, value, len * sizeof (dbus_int32_t));
-  entry->v.int32_array.len = len;
-
-  tmp = _dbus_strdup (key);
+  tmp = dbus_new (dbus_int32_t, len);
 
   if (!tmp)
-    {
-      dbus_dict_entry_free (entry);
-      return FALSE;
-    }
+    return FALSE;
+
+  memcpy (tmp, value, len * sizeof (dbus_int32_t));
   
-  if (!_dbus_hash_table_insert_string (dict->table, tmp, entry))
+  if (insert_entry (dict, key, &entry))
     {
-      dbus_free (tmp);
-      dbus_dict_entry_free (entry);
-
-      return FALSE;
+      entry->type = DBUS_TYPE_INT32_ARRAY;
+      entry->v.int32_array.value = tmp;
+      entry->v.int32_array.len = len;
+      
+      return TRUE;
     }
-
-  return TRUE;
+  else
+    return FALSE;
 }
 
 /**
@@ -621,47 +542,31 @@ dbus_dict_put_int32_array (DBusDict           *dict,
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_dict_put_uint32_array (DBusDict             *dict,
+dbus_dict_set_uint32_array (DBusDict             *dict,
 			    const char           *key,
 			    const dbus_uint32_t  *value,
 			    int                   len)
 {
   DBusDictEntry *entry;
-  char *tmp;
-  
-  entry = dbus_new0 (DBusDictEntry, 1);
+  dbus_uint32_t *tmp;
 
-  if (!entry)
-    return FALSE;
-
-  entry->type = DBUS_TYPE_UINT32_ARRAY;
-  entry->v.uint32_array.value = dbus_malloc (len * sizeof (dbus_uint32_t));
-  
-  if (!entry->v.uint32_array.value)
-    {
-      dbus_dict_entry_free (entry);
-      return FALSE;
-    }
-  memcpy (entry->v.uint32_array.value, value, len * sizeof (dbus_uint32_t));
-  entry->v.uint32_array.len = len;
-
-  tmp = _dbus_strdup (key);
+  tmp = dbus_new (dbus_uint32_t, len);
 
   if (!tmp)
-    {
-      dbus_dict_entry_free (entry);
-      return FALSE;
-    }
+    return FALSE;
+
+  memcpy (tmp, value, len * sizeof (dbus_uint32_t));
   
-  if (!_dbus_hash_table_insert_string (dict->table, tmp, entry))
+  if (insert_entry (dict, key, &entry))
     {
-      dbus_free (tmp);
-      dbus_dict_entry_free (entry);
+      entry->type = DBUS_TYPE_UINT32_ARRAY;
+      entry->v.uint32_array.value = tmp;
+      entry->v.int32_array.len = len;
 
-      return FALSE;
+      return TRUE;
     }
-
-  return TRUE;
+  else
+    return FALSE;
 }
 
 /**
@@ -675,47 +580,31 @@ dbus_dict_put_uint32_array (DBusDict             *dict,
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_dict_put_double_array (DBusDict     *dict,
+dbus_dict_set_double_array (DBusDict     *dict,
 			    const char   *key,
 			    const double *value,
 			    int           len)
 {
   DBusDictEntry *entry;
-  char *tmp;
-  
-  entry = dbus_new0 (DBusDictEntry, 1);
+  double *tmp;
 
-  if (!entry)
-    return FALSE;
-
-  entry->type = DBUS_TYPE_DOUBLE_ARRAY;
-  entry->v.double_array.value = dbus_malloc (len * sizeof (double));
-  
-  if (!entry->v.double_array.value)
-    {
-      dbus_dict_entry_free (entry);
-      return FALSE;
-    }
-  memcpy (entry->v.double_array.value, value, len * sizeof (double));
-  entry->v.double_array.len = len;
-
-  tmp = _dbus_strdup (key);
+  tmp = dbus_new (double, len);
 
   if (!tmp)
-    {
-      dbus_dict_entry_free (entry);
-      return FALSE;
-    }
+    return FALSE;
+
+  memcpy (tmp, value, len * sizeof (double));
   
-  if (!_dbus_hash_table_insert_string (dict->table, tmp, entry))
+  if (insert_entry (dict, key, &entry))
     {
-      dbus_free (tmp);
-      dbus_dict_entry_free (entry);
+      entry->type = DBUS_TYPE_DOUBLE_ARRAY;
+      entry->v.double_array.value = tmp;
+      entry->v.double_array.len = len;
 
-      return FALSE;
+      return TRUE;
     }
-
-  return TRUE;
+  else
+    return FALSE;
 }
 
 /**
@@ -729,57 +618,39 @@ dbus_dict_put_double_array (DBusDict     *dict,
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_dict_put_string_array (DBusDict    *dict,
+dbus_dict_set_string_array (DBusDict    *dict,
 			    const char  *key,
 			    const char **value,
 			    int          len)
 {
   DBusDictEntry *entry;
-  char *tmp;
+  char **tmp;
   int i;
-  
-  entry = dbus_new0 (DBusDictEntry, 1);
 
-  if (!entry)
+  tmp = dbus_new0 (char *, len + 1);
+  if (!tmp)
     return FALSE;
 
-  entry->type = DBUS_TYPE_STRING_ARRAY;
-  entry->v.string_array.value = dbus_new0 (char *, len + 1);
-  
-  if (!entry->v.string_array.value)
-    {
-      dbus_dict_entry_free (entry);
-      return FALSE;
-    }
-
-  entry->v.string_array.len = len;
   for (i = 0; i < len; i++)
     {
-      entry->v.string_array.value[i] = _dbus_strdup (value[i]);
-      if (!entry->v.string_array.value[i])
+      tmp[i] = _dbus_strdup (value[i]);
+      if (!tmp[i])
 	{
-	  dbus_dict_entry_free (entry);
+	  dbus_free_string_array (tmp);
 	  return FALSE;
 	}
     }
 
-  tmp = _dbus_strdup (key);
-
-  if (!tmp)
+  if (insert_entry (dict, key, &entry))
     {
-      dbus_dict_entry_free (entry);
-      return FALSE;
+      entry->type = DBUS_TYPE_STRING_ARRAY;
+      entry->v.string_array.value = tmp;
+      entry->v.string_array.len = len;
+      
+      return TRUE;
     }
-  
-  if (!_dbus_hash_table_insert_string (dict->table, tmp, entry))
-    {
-      dbus_free (tmp);
-      dbus_dict_entry_free (entry);
-
-      return FALSE;
-    }
-
-  return TRUE; 
+  else
+    return FALSE;
 }
 
 /**
@@ -1091,66 +962,66 @@ _dbus_dict_test (void)
   if (dbus_dict_get_value_type (dict, "foo") != DBUS_TYPE_NIL)
     _dbus_assert_not_reached ("didn't return DBUS_TYPE_NIL for non-existant entry");
 
-  if (!dbus_dict_put_boolean (dict, "boolean", TRUE))
+  if (!dbus_dict_set_boolean (dict, "boolean", TRUE))
     _dbus_assert_not_reached ("could not add boolean value");
 
   if (!dbus_dict_get_boolean (dict, "boolean", &our_bool) ||
       !our_bool)
     _dbus_assert_not_reached ("could not get boolean value");
 
-  if (!dbus_dict_put_int32 (dict, "int32", 0x12345678))
+  if (!dbus_dict_set_int32 (dict, "int32", 0x12345678))
     _dbus_assert_not_reached ("could not add int32 value");
 
   if (!dbus_dict_get_int32 (dict, "int32", &our_int) || our_int != 0x12345678)
     _dbus_assert_not_reached ("could not get int32 value or int32 values differ");
   
-  if (!dbus_dict_put_uint32 (dict, "uint32", 0x87654321))
+  if (!dbus_dict_set_uint32 (dict, "uint32", 0x87654321))
     _dbus_assert_not_reached ("could not add uint32 value");
 
   if (!dbus_dict_get_uint32 (dict, "uint32", &our_uint) || our_uint != 0x87654321)
     _dbus_assert_not_reached ("could not get uint32 value or uint32 values differ");
 
-  if (!dbus_dict_put_double (dict, "double", 3.14159))
+  if (!dbus_dict_set_double (dict, "double", 3.14159))
     _dbus_assert_not_reached ("could not add double value");
 
   if (!dbus_dict_get_double (dict, "double", &our_double) || our_double != 3.14159)
     _dbus_assert_not_reached ("could not get double value or double values differ");
 
-  if (!dbus_dict_put_string (dict, "string", "test string"))
+  if (!dbus_dict_set_string (dict, "string", "test string"))
     _dbus_assert_not_reached ("could not add string value");
 
   if (!dbus_dict_get_string (dict, "string", &our_string) || strcmp (our_string, "test string") != 0)
     _dbus_assert_not_reached ("could not get string value or string values differ");
 
-  if (!dbus_dict_put_boolean_array (dict, "boolean_array", boolean_array, 4))
+  if (!dbus_dict_set_boolean_array (dict, "boolean_array", boolean_array, 4))
     _dbus_assert_not_reached ("could not add boolean array");
 
   if (!dbus_dict_get_boolean_array (dict, "boolean_array", &our_boolean_array, &len) ||
       len != 4 || memcmp (boolean_array, our_boolean_array, 4) != 0)
     _dbus_assert_not_reached ("could not get boolean array value or boolean array values differ");
 
-  if (!dbus_dict_put_int32_array (dict, "int32_array", int32_array, 5))
+  if (!dbus_dict_set_int32_array (dict, "int32_array", int32_array, 5))
     _dbus_assert_not_reached ("could not add int32 array");
 
   if (!dbus_dict_get_int32_array (dict, "int32_array", &our_int32_array, &len) ||
       len != 5 || memcmp (int32_array, our_int32_array, 5 * sizeof (dbus_int32_t)) != 0)
     _dbus_assert_not_reached ("could not get int32 array value or int32 array values differ");
 
-  if (!dbus_dict_put_uint32_array (dict, "uint32_array", uint32_array, 5))
+  if (!dbus_dict_set_uint32_array (dict, "uint32_array", uint32_array, 5))
     _dbus_assert_not_reached ("could not add uint32 array");
 
   if (!dbus_dict_get_uint32_array (dict, "uint32_array", &our_uint32_array, &len) ||
       len != 5 || memcmp (uint32_array, our_uint32_array, 5 * sizeof (dbus_uint32_t) ) != 0)
     _dbus_assert_not_reached ("could not get uint32 array value or uint32 array values differ");
 
-  if (!dbus_dict_put_double_array (dict, "double_array", double_array, 3))
+  if (!dbus_dict_set_double_array (dict, "double_array", double_array, 3))
     _dbus_assert_not_reached ("could not add double array");
 
   if (!dbus_dict_get_double_array (dict, "double_array", &our_double_array, &len) ||
       len != 3 || memcmp (double_array, our_double_array, 3 * sizeof (double)) != 0)
     _dbus_assert_not_reached ("could not get double array value or double array values differ");
 
-  if (!dbus_dict_put_string_array (dict, "string_array", string_array, 4))
+  if (!dbus_dict_set_string_array (dict, "string_array", string_array, 4))
     _dbus_assert_not_reached ("could not add string array");
 
   if (!dbus_dict_get_string_array (dict, "string_array", &our_string_array, &len))

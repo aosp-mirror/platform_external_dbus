@@ -47,42 +47,42 @@ dbus_bool_t dbus_dict_get_keys       (DBusDict     *dict,
 				      char       ***keys,
 				      int          *len);
 
-dbus_bool_t dbus_dict_put_boolean       (DBusDict             *dict,
+dbus_bool_t dbus_dict_set_boolean       (DBusDict             *dict,
 					 const char           *key,
 					 dbus_bool_t           value);
-dbus_bool_t dbus_dict_put_int32         (DBusDict             *dict,
+dbus_bool_t dbus_dict_set_int32         (DBusDict             *dict,
 					 const char           *key,
 					 dbus_int32_t          value);
-dbus_bool_t dbus_dict_put_uint32        (DBusDict             *dict,
+dbus_bool_t dbus_dict_set_uint32        (DBusDict             *dict,
 					 const char           *key,
 					 dbus_uint32_t         value);
-dbus_bool_t dbus_dict_put_double        (DBusDict             *dict,
+dbus_bool_t dbus_dict_set_double        (DBusDict             *dict,
 					 const char           *key,
 					 double                value);
-dbus_bool_t dbus_dict_put_string        (DBusDict             *dict,
+dbus_bool_t dbus_dict_set_string        (DBusDict             *dict,
 					 const char           *key,
 					 const char           *value);
-dbus_bool_t dbus_dict_put_boolean_array (DBusDict             *dict,
+dbus_bool_t dbus_dict_set_boolean_array (DBusDict             *dict,
 					 const char           *key,
 					 unsigned const char  *value,
 					 int                   len);
-dbus_bool_t dbus_dict_put_int32_array   (DBusDict             *dict,
+dbus_bool_t dbus_dict_set_int32_array   (DBusDict             *dict,
 					 const char           *key,
 					 const dbus_int32_t   *value,
 					 int                   len);
-dbus_bool_t dbus_dict_put_uint32_array  (DBusDict             *dict,
+dbus_bool_t dbus_dict_set_uint32_array  (DBusDict             *dict,
 					 const char           *key,
 					 const dbus_uint32_t  *value,
 					 int                   len);
-dbus_bool_t dbus_dict_put_double_array  (DBusDict             *dict,
+dbus_bool_t dbus_dict_set_double_array  (DBusDict             *dict,
 					 const char           *key,
 					 const double         *value,
 					 int                   len);
-dbus_bool_t dbus_dict_put_byte_array    (DBusDict             *dict,
+dbus_bool_t dbus_dict_set_byte_array    (DBusDict             *dict,
 					 const char           *key,
 					 unsigned const char  *value,
 					 int                   len);
-dbus_bool_t dbus_dict_put_string_array  (DBusDict             *dict,
+dbus_bool_t dbus_dict_set_string_array  (DBusDict             *dict,
 					 const char           *key,
 					 const char          **value,
 					 int                   len);

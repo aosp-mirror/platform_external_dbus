@@ -1,3 +1,16 @@
+2003-03-07  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/Makefile.am:
+	* dbus/dbus-dict.c: (dbus_dict_entry_free), (dbus_dict_new),
+	(dbus_dict_get_keys), (insert_entry), (dbus_dict_set_boolean),
+	(dbus_dict_set_int32), (dbus_dict_set_uint32),
+	(dbus_dict_set_double), (dbus_dict_set_string),
+	(dbus_dict_set_boolean_array), (dbus_dict_set_int32_array),
+	(dbus_dict_set_uint32_array), (dbus_dict_set_double_array),
+	(dbus_dict_set_string_array), (_dbus_dict_test):
+	* dbus/dbus-dict.h:
+	Fix according to comments from Havoc.
+	
 2003-03-06  Michael Meeks  <michael@server.home>
 
 	* configure.in: if we don't have kde-config, disable have_qt.
