@@ -1,5 +1,13 @@
 2005-01-16  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-userdb-util.c: split out part of dbus-userdb.c
+
+	* dbus/dbus-sysdeps.c (_dbus_uid_from_string): move here to pave
+	way for stripping down dbus-userdb.c stuff included in libdbus.
+	Rename _dbus_parse_uid for consistency.
+
+2005-01-16  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-internals.c (_dbus_real_assert): print the function
 	name the assertion failed in
 

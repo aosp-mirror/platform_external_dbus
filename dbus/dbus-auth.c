@@ -26,8 +26,8 @@
 #include "dbus-internals.h"
 #include "dbus-keyring.h"
 #include "dbus-sha.h"
-#include "dbus-userdb.h"
 #include "dbus-protocol.h"
+#include "dbus-userdb.h"
 
 /**
  * @defgroup DBusAuth Authentication
@@ -1019,8 +1019,8 @@ handle_server_data_external_mech (DBusAuth         *auth,
     }
   else
     {
-      if (!_dbus_uid_from_string (&auth->identity,
-                                  &auth->desired_identity.uid))
+      if (!_dbus_parse_uid (&auth->identity,
+                            &auth->desired_identity.uid))
         {
           _dbus_verbose ("%s: could not get credentials from uid string\n",
                          DBUS_AUTH_NAME (auth));

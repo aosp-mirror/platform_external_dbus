@@ -128,7 +128,9 @@ DBUS_UTIL_SOURCES=				\
 	dbus-sysdeps-util.c			\
 	dbus-sysdeps-util.h			\
 	dbus-test.c				\
-	dbus-test.h
+	dbus-test.h				\
+	dbus-userdb-util.c			\
+	dbus-userdb-util.h
 
 libdbus_1_la_SOURCES=				\
 	$(DBUS_LIB_SOURCES)			\

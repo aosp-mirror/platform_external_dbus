@@ -30,6 +30,25 @@ DBUS_BEGIN_DECLS
 
 typedef struct DBusUserDatabase DBusUserDatabase;
 
+#ifdef DBUS_USERDB_INCLUDES_PRIVATE
+#include <dbus/dbus-hash.h>
+
+/**
+ * Internals of DBusUserDatabase
+ */
+struct DBusUserDatabase
+{
+  int refcount; /**< Reference count */
+
+  DBusHashTable *users; /**< Users in the database by UID */
+  DBusHashTable *groups; /**< Groups in the database by GID */
+  DBusHashTable *users_by_name; /**< Users in the database by name */
+  DBusHashTable *groups_by_name; /**< Groups in the database by name */
+
+};
+
+#endif /* DBUS_USERDB_INCLUDES_PRIVATE */
+
 DBusUserDatabase* _dbus_user_database_new           (void);
 DBusUserDatabase* _dbus_user_database_ref           (DBusUserDatabase     *db);
 void              _dbus_user_database_unref         (DBusUserDatabase     *db);
@@ -54,10 +73,19 @@ dbus_bool_t       _dbus_user_database_get_groupname (DBusUserDatabase     *db,
                                                      const DBusString     *groupname,
                                                      const DBusGroupInfo **info,
                                                      DBusError            *error);
-DBusUserInfo*     _dbus_user_database_lookup        (DBusUserDatabase     *db,
-                                                     dbus_uid_t            uid,
-                                                     const DBusString     *username,
-                                                     DBusError            *error);
+
+#ifdef DBUS_USERDB_INCLUDES_PRIVATE
+DBusUserInfo*  _dbus_user_database_lookup       (DBusUserDatabase *db,
+                                                 dbus_uid_t        uid,
+                                                 const DBusString *username,
+                                                 DBusError        *error);
+DBusGroupInfo* _dbus_user_database_lookup_group (DBusUserDatabase *db,
+                                                 dbus_gid_t        gid,
+                                                 const DBusString *groupname,
+                                                 DBusError        *error);
+void           _dbus_user_info_free_allocated   (DBusUserInfo     *info);
+void           _dbus_group_info_free_allocated  (DBusGroupInfo    *info);
+#endif /* DBUS_USERDB_INCLUDES_PRIVATE */
 
 DBusUserDatabase* _dbus_user_database_get_system    (void);
 void              _dbus_user_database_lock_system   (void);
@@ -71,8 +99,6 @@ dbus_bool_t _dbus_get_user_id                   (const DBusString  *username,
                                                  dbus_uid_t        *uid);
 dbus_bool_t _dbus_get_group_id                  (const DBusString  *group_name,
                                                  dbus_gid_t        *gid);
-dbus_bool_t _dbus_uid_from_string               (const DBusString  *uid_str,
-                                                 dbus_uid_t        *uid);
 dbus_bool_t _dbus_credentials_from_username     (const DBusString  *username,
                                                  DBusCredentials   *credentials);
 dbus_bool_t _dbus_credentials_from_uid          (dbus_uid_t         user_id,

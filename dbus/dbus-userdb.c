@@ -20,6 +20,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+#define DBUS_USERDB_INCLUDES_PRIVATE 1
 #include "dbus-userdb.h"
 #include "dbus-hash.h"
 #include "dbus-test.h"
@@ -28,24 +29,19 @@
 #include <string.h>
 
 /**
- * Internals of DBusUserDatabase
+ * @addtogroup DBusInternalsUtils
+ * @{
  */
-struct DBusUserDatabase
+
+/**
+ * Frees the given #DBusUserInfo's members with _dbus_user_info_free()
+ * and also calls dbus_free() on the block itself
+ *
+ * @param info the info
+ */
+void
+_dbus_user_info_free_allocated (DBusUserInfo *info)
 {
-  int refcount; /**< Reference count */
-
-  DBusHashTable *users; /**< Users in the database by UID */
-  DBusHashTable *groups; /**< Groups in the database by GID */
-  DBusHashTable *users_by_name; /**< Users in the database by name */
-  DBusHashTable *groups_by_name; /**< Groups in the database by name */
-
-};
-
-static void
-free_user_info (void *data)
-{
-  DBusUserInfo *info = data;
-
   if (info == NULL) /* hash table will pass NULL */
     return;
 
@@ -53,18 +49,34 @@ free_user_info (void *data)
   dbus_free (info);
 }
 
-static void
-free_group_info (void *data)
+/**
+ * Frees the given #DBusGroupInfo's members with _dbus_group_info_free()
+ * and also calls dbus_free() on the block itself
+ *
+ * @param info the info
+ */
+void
+_dbus_group_info_free_allocated (DBusGroupInfo *info)
 {
-  DBusGroupInfo *info = data;
-
   if (info == NULL) /* hash table will pass NULL */
     return;
 
-  _dbus_group_info_free (info);
+  _dbus_group_info_free_allocated (info);
   dbus_free (info);
 }
 
+/**
+ * Looks up a uid or username in the user database.  Only one of name
+ * or UID can be provided. There are wrapper functions for this that
+ * are better to use, this one does no locking or anything on the
+ * database and otherwise sort of sucks.
+ *
+ * @param db the database
+ * @param uid the user ID or #DBUS_UID_UNSET
+ * @param username username or #NULL 
+ * @param error error to fill in
+ * @returns the entry in the database
+ */
 DBusUserInfo*
 _dbus_user_database_lookup (DBusUserDatabase *db,
                             dbus_uid_t        uid,
@@ -104,7 +116,7 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
           if (!_dbus_user_info_fill_uid (info, uid, error))
             {
               _DBUS_ASSERT_ERROR_IS_SET (error);
-              free_user_info (info);
+              _dbus_user_info_free_allocated (info);
               return NULL;
             }
         }
@@ -113,7 +125,7 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
           if (!_dbus_user_info_fill (info, username, error))
             {
               _DBUS_ASSERT_ERROR_IS_SET (error);
-              free_user_info (info);
+              _dbus_user_info_free_allocated (info);
               return NULL;
             }
         }
@@ -126,7 +138,7 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
       if (!_dbus_hash_table_insert_ulong (db->users, info->uid, info))
         {
           dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-          free_user_info (info);
+          _dbus_user_info_free_allocated (info);
           return NULL;
         }
 
@@ -135,67 +147,6 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
                                            info))
         {
           _dbus_hash_table_remove_ulong (db->users, info->uid);
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-          return NULL;
-        }
-      
-      return info;
-    }
-}
-
-static DBusGroupInfo*
-_dbus_user_database_lookup_group (DBusUserDatabase *db,
-                                  dbus_gid_t        gid,
-                                  const DBusString *groupname,
-                                  DBusError        *error)
-{
-  DBusGroupInfo *info;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  if (gid != DBUS_GID_UNSET)
-    info = _dbus_hash_table_lookup_ulong (db->groups, gid);
-  else
-    info = _dbus_hash_table_lookup_string (db->groups_by_name,
-                                           _dbus_string_get_const_data (groupname));
-  if (info)
-    {
-      _dbus_verbose ("Using cache for GID "DBUS_GID_FORMAT" information\n",
-                     gid);
-      return info;
-    }
-  else
-    {
-      _dbus_verbose ("No cache for GID "DBUS_GID_FORMAT"\n",
-                     gid);
-      
-      info = dbus_new0 (DBusGroupInfo, 1);
-      if (info == NULL)
-        {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-          return NULL;
-        }
-
-      if (!_dbus_group_info_fill_gid (info, gid, error))
-        {
-          _DBUS_ASSERT_ERROR_IS_SET (error);
-          free_group_info (info);
-          return NULL;
-        }
-
-      if (!_dbus_hash_table_insert_ulong (db->groups, info->gid, info))
-        {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-          free_group_info (info);
-          return NULL;
-        }
-
-
-      if (!_dbus_hash_table_insert_string (db->groups_by_name,
-                                           info->groupname,
-                                           info))
-        {
-          _dbus_hash_table_remove_ulong (db->groups, info->gid);
           dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           return NULL;
         }
@@ -291,11 +242,6 @@ init_system_db (void)
 }
 
 /**
- * @addtogroup DBusInternalsUtils
- * @{
- */
-
-/**
  * Locks global system user database.
  */
 void
@@ -376,65 +322,6 @@ _dbus_homedir_from_current_process (const DBusString  **homedir)
 }
 
 /**
- * Gets user ID given username
- *
- * @param username the username
- * @param uid return location for UID
- * @returns #TRUE if username existed and we got the UID
- */
-dbus_bool_t
-_dbus_get_user_id (const DBusString  *username,
-                   dbus_uid_t        *uid)
-{
-  DBusCredentials creds;
-
-  if (!_dbus_credentials_from_username (username, &creds))
-    return FALSE;
-
-  if (creds.uid == DBUS_UID_UNSET)
-    return FALSE;
-
-  *uid = creds.uid;
-
-  return TRUE;
-}
-
-/**
- * Gets group ID given groupname
- *
- * @param groupname the groupname
- * @param gid return location for GID
- * @returns #TRUE if group name existed and we got the GID
- */
-dbus_bool_t
-_dbus_get_group_id (const DBusString  *groupname,
-                    dbus_gid_t        *gid)
-{
-  DBusUserDatabase *db;
-  const DBusGroupInfo *info;
-  _dbus_user_database_lock_system ();
-
-  db = _dbus_user_database_get_system ();
-  if (db == NULL)
-    {
-      _dbus_user_database_unlock_system ();
-      return FALSE;
-    }
-
-  if (!_dbus_user_database_get_groupname (db, groupname,
-                                          &info, NULL))
-    {
-      _dbus_user_database_unlock_system ();
-      return FALSE;
-    }
-
-  *gid = info->gid;
-  
-  _dbus_user_database_unlock_system ();
-  return TRUE;
-}
-
-/**
  * Gets the home directory for the given user.
  *
  * @param username the username
@@ -470,46 +357,6 @@ _dbus_homedir_from_username (const DBusString *username,
     }
   
   _dbus_user_database_unlock_system ();
-  return TRUE;
-}
-
-/**
- * Gets a UID from a UID string.
- *
- * @param uid_str the UID in string form
- * @param uid UID to fill in
- * @returns #TRUE if successfully filled in UID
- */
-dbus_bool_t
-_dbus_uid_from_string (const DBusString      *uid_str,
-                       dbus_uid_t            *uid)
-{
-  int end;
-  long val;
-  
-  if (_dbus_string_get_length (uid_str) == 0)
-    {
-      _dbus_verbose ("UID string was zero length\n");
-      return FALSE;
-    }
-
-  val = -1;
-  end = 0;
-  if (!_dbus_string_parse_int (uid_str, 0, &val,
-                               &end))
-    {
-      _dbus_verbose ("could not parse string as a UID\n");
-      return FALSE;
-    }
-  
-  if (end != _dbus_string_get_length (uid_str))
-    {
-      _dbus_verbose ("string contained trailing stuff after UID\n");
-      return FALSE;
-    }
-
-  *uid = val;
-
   return TRUE;
 }
 
@@ -551,45 +398,6 @@ _dbus_credentials_from_username (const DBusString *username,
 }
 
 /**
- * Gets the credentials corresponding to the given UID.
- *
- * @param uid the UID
- * @param credentials credentials to fill in
- * @returns #TRUE if the UID existed and we got some credentials
- */
-dbus_bool_t
-_dbus_credentials_from_uid (dbus_uid_t        uid,
-                            DBusCredentials  *credentials)
-{
-  DBusUserDatabase *db;
-  const DBusUserInfo *info;
-  _dbus_user_database_lock_system ();
-
-  db = _dbus_user_database_get_system ();
-  if (db == NULL)
-    {
-      _dbus_user_database_unlock_system ();
-      return FALSE;
-    }
-
-  if (!_dbus_user_database_get_uid (db, uid,
-                                    &info, NULL))
-    {
-      _dbus_user_database_unlock_system ();
-      return FALSE;
-    }
-
-  _dbus_assert (info->uid == uid);
-  
-  credentials->pid = DBUS_PID_UNSET;
-  credentials->uid = info->uid;
-  credentials->gid = info->primary_gid;
-  
-  _dbus_user_database_unlock_system ();
-  return TRUE;
-}
-
-/**
  * Creates a new user database object used to look up and
  * cache user information.
  * @returns new database, or #NULL on out of memory
@@ -606,13 +414,13 @@ _dbus_user_database_new (void)
   db->refcount = 1;
 
   db->users = _dbus_hash_table_new (DBUS_HASH_ULONG,
-                                    NULL, free_user_info);
+                                    NULL, (DBusFreeFunction) _dbus_user_info_free_allocated);
   
   if (db->users == NULL)
     goto failed;
 
   db->groups = _dbus_hash_table_new (DBUS_HASH_ULONG,
-                                     NULL, free_group_info);
+                                     NULL, (DBusFreeFunction) _dbus_group_info_free_allocated);
   
   if (db->groups == NULL)
     goto failed;
@@ -678,57 +486,6 @@ _dbus_user_database_unref (DBusUserDatabase  *db)
 }
 
 /**
- * Gets all groups for a particular user. Returns #FALSE
- * if no memory, or user isn't known, but always initializes
- * group_ids to a NULL array. Sets error to the reason
- * for returning #FALSE.
- *
- * @param db the user database object
- * @param uid the user ID
- * @param group_ids return location for array of group IDs
- * @param n_group_ids return location for length of returned array
- * @param error return location for error
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_user_database_get_groups (DBusUserDatabase  *db,
-                                dbus_uid_t         uid,
-                                dbus_gid_t       **group_ids,
-                                int               *n_group_ids,
-                                DBusError         *error)
-{
-  DBusUserInfo *info;
-  
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  *group_ids = NULL;
-  *n_group_ids = 0;
-  
-  info = _dbus_user_database_lookup (db, uid, NULL, error);
-  if (info == NULL)
-    {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
-      return FALSE;
-    }
-
-  if (info->n_group_ids > 0)
-    {
-      *group_ids = dbus_new (dbus_gid_t, info->n_group_ids);
-      if (*group_ids == NULL)
-        {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-          return FALSE;
-        }
-
-      *n_group_ids = info->n_group_ids;
-
-      memcpy (*group_ids, info->group_ids, info->n_group_ids * sizeof (dbus_gid_t));
-    }
-
-  return TRUE;
-}
-
-/**
  * Gets the user information for the given UID,
  * returned user info should not be freed. 
  *
@@ -745,26 +502,6 @@ _dbus_user_database_get_uid (DBusUserDatabase    *db,
                              DBusError           *error)
 {
   *info = _dbus_user_database_lookup (db, uid, NULL, error);
-  return *info != NULL;
-}
-
-/**
- * Gets the user information for the given GID,
- * returned group info should not be freed. 
- *
- * @param db user database
- * @param gid the group ID
- * @param info return location for const ref to group info
- * @param error error location
- * @returns #FALSE if error is set
- */
-dbus_bool_t
-_dbus_user_database_get_gid (DBusUserDatabase     *db,
-                             dbus_gid_t            gid,
-                             const DBusGroupInfo **info,
-                             DBusError            *error)
-{
-  *info = _dbus_user_database_lookup_group (db, gid, NULL, error);
   return *info != NULL;
 }
 
@@ -787,52 +524,6 @@ _dbus_user_database_get_username  (DBusUserDatabase     *db,
   return *info != NULL;
 }
 
-/**
- * Gets the user information for the given group name,
- * returned group info should not be freed. 
- *
- * @param db user database
- * @param groupname the group name
- * @param info return location for const ref to group info
- * @param error error location
- * @returns #FALSE if error is set
- */
-dbus_bool_t
-_dbus_user_database_get_groupname (DBusUserDatabase     *db,
-                                   const DBusString     *groupname,
-                                   const DBusGroupInfo **info,
-                                   DBusError            *error)
-{
-  *info = _dbus_user_database_lookup_group (db, DBUS_GID_UNSET, groupname, error);
-  return *info != NULL;
-}
-
 /** @} */
 
-#ifdef DBUS_BUILD_TESTS
-#include <stdio.h>
-
-/**
- * Unit test for dbus-userdb.c.
- * 
- * @returns #TRUE on success.
- */
-dbus_bool_t
-_dbus_userdb_test (const char *test_data_dir)
-{
-  const DBusString *username;
-  const DBusString *homedir;
-
-  if (!_dbus_username_from_current_process (&username))
-    _dbus_assert_not_reached ("didn't get username");
-
-  if (!_dbus_homedir_from_current_process (&homedir))
-    _dbus_assert_not_reached ("didn't get homedir");  
-
-  printf ("    Current user: %s homedir: %s\n",
-          _dbus_string_get_const_data (username),
-          _dbus_string_get_const_data (homedir));
-  
-  return TRUE;
-}
-#endif /* DBUS_BUILD_TESTS */
+/* Tests in dbus-userdb-util.c */

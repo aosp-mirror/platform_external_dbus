@@ -345,6 +345,9 @@ dbus_bool_t _dbus_user_at_console (const char *username,
       _DBUS_BYTE_OF_PRIMITIVE (a, 6) == _DBUS_BYTE_OF_PRIMITIVE (b, 6) &&       \
       _DBUS_BYTE_OF_PRIMITIVE (a, 7) == _DBUS_BYTE_OF_PRIMITIVE (b, 7))
 
+dbus_bool_t _dbus_parse_uid (const DBusString  *uid_str,
+                             dbus_uid_t        *uid);
+
 DBUS_END_DECLS
 
 #endif /* DBUS_SYSDEPS_H */
