@@ -30,7 +30,7 @@ typedef void (*DBusMessageHandler) (DBusConnection *connection,
 				    DBusMessage    *message,
 				    gpointer        data);
 
-void dbus_threads_init  (void);
+void dbus_gthread_init  (void);
 
 GSource *dbus_connection_gsource_new (DBusConnection *connection);
 
