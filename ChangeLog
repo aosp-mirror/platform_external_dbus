@@ -1,3 +1,10 @@
+2003-10-14  David Zeuthen  <david@fubar.dk>
+
+	* python/dbus_bindings.pyx.in (MessageIter.get): fixed typo in
+	argtype to arg_type when raising unknown arg type exception.
+	Changed type list to reflect the changes in dbus-protocol.h so 
+	the bindings actually work.
+
 2003-10-14  Havoc Pennington  <hp@redhat.com>
 
 	* test/decode-gcov.c: support gcc 3.3 also, though gcc 3.3 seems
