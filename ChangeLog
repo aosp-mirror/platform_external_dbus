@@ -1,3 +1,12 @@
+2004-07-31  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* dbus/dbus-internals.h (_DBUS_SET_OOM):
+	* bus/utils.h (BUS_SET_OOM): use dbus_error_set_const instead of
+	dbus_error_set.
+
+	* bus/dispatch.c (check_send_exit_to_service): fix the test case,
+	broken by the change in the _SET_OOM macros.
+
 2004-07-31  Colin Walters  <walters@redhat.com>
 
 	* bus/selinux.c <HAVE_SELINUX>: Include utils.h to get

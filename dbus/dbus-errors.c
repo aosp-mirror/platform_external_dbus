@@ -368,7 +368,7 @@ dbus_set_error (DBusError  *error,
   return;
   
  nomem:
-  dbus_set_error_const (error, DBUS_ERROR_NO_MEMORY, NULL);      
+  _DBUS_SET_OOM (error);
 }
 
 /** @} */ /* End public API */

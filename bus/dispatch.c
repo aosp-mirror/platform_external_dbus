@@ -432,6 +432,16 @@ pop_message_waiting_for_memory (DBusConnection *connection)
   return dbus_connection_pop_message (connection);
 }
 
+static DBusMessage*
+borrow_message_waiting_for_memory (DBusConnection *connection)
+{
+  while (dbus_connection_get_dispatch_status (connection) ==
+         DBUS_DISPATCH_NEED_MEMORY)
+    _dbus_wait_for_memory ();
+
+  return dbus_connection_borrow_message (connection);
+}
+
 static void
 warn_unexpected_real (DBusConnection *connection,
                       DBusMessage    *message,
@@ -1902,16 +1912,11 @@ check_service_deactivated (BusContext     *context,
                            const char     *activated_name,
                            const char     *base_service)
 {
-  DBusMessage *message;
   dbus_bool_t retval;
-  DBusError error;
   CheckServiceDeletedData csdd;
 
-  message = NULL;
   retval = FALSE;
   
-  dbus_error_init (&error);
-
   /* Now we are expecting ServiceDeleted messages for the base
    * service and the activated_name.  The base service
    * notification is required to come last.
@@ -1935,9 +1940,6 @@ check_service_deactivated (BusContext     *context,
   retval = TRUE;
   
  out:
-  if (message)
-    dbus_message_unref (message);
-  
   return retval;
 }
 
@@ -1995,7 +1997,7 @@ check_send_exit_to_service (BusContext     *context,
 
   /* see if we got an error during message bus dispatching */
   bus_test_run_clients_loop (FALSE);
-  message = dbus_connection_borrow_message (connection);
+  message = borrow_message_waiting_for_memory (connection);
   got_error = message != NULL && dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR;
   if (message)
     {
@@ -2883,7 +2885,10 @@ check2_try_iterations (BusContext     *context,
   
   if (!_dbus_test_oom_handling (description, check_oom_check2_func,
                                 &d))
-    _dbus_assert_not_reached ("test failed");
+    {
+      _dbus_warn ("%s failed during oom\n", description);
+      _dbus_assert_not_reached ("test failed");
+    }
 }
 
 dbus_bool_t
