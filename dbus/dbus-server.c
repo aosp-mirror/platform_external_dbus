@@ -363,7 +363,7 @@ dbus_server_get_max_connections (DBusServer *server)
  * finalized will count in this total.
  *
  * @param server the server
- * @param returns the number of connections
+ * @returns the number of connections
  */
 int
 dbus_server_get_n_connections (DBusServer *server)

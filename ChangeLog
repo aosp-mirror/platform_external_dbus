@@ -1,5 +1,23 @@
 2003-01-19  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/Makefile.am: Add dbus-timeout.[cħ]
+	
+	* dbus/dbus-connection.c: (_dbus_connection_new_for_transport):
+	Create a DBusTimeoutList.	
+	(dbus_connection_set_timeout_functions): Add new function to
+	set timeout callbacks
+	
+	* dbus/dbus-connection.h: Add public DBusTimeout API.
+	
+	* dbus/dbus-message.c: (dbus_message_get_service):
+	* dbus/dbus-message.h:	New function.
+
+	* dbus/dbus-server.c: Fix small doc typo.
+	
+	* dbus/dbus-timeout.[ch]: New files for mainloop timeouts.
+
+2003-01-19  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-string.c (_dbus_string_move_len): Don't delete all
 	of the string, just as long as specified.
 

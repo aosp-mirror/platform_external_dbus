@@ -360,6 +360,18 @@ dbus_message_get_name (DBusMessage *message)
 }
 
 /**
+ * Gets the destination service of a message.
+ *
+ * @param message the message
+ * @returns the message destination service (should not be freed)
+ */
+const char*
+dbus_message_get_service (DBusMessage *message)
+{
+  return message->service;
+}
+
+/**
  * Appends fields to a message given a variable argument
  * list. The variable argument list should contain the type
  * of the field followed by the value to add.

@@ -35,6 +35,7 @@ DBUS_BEGIN_DECLS;
 
 typedef struct DBusConnection DBusConnection;
 typedef struct DBusWatch DBusWatch;
+typedef struct DBusTimeout DBusTimeout;
 typedef struct DBusMessageHandler DBusMessageHandler;
 
 typedef enum
@@ -54,14 +55,19 @@ typedef enum
                                  *   can be present in current state). */
 } DBusWatchFlags;
 
-typedef void (* DBusAddWatchFunction)    (DBusWatch      *watch,
-                                          void           *data);
+typedef void (* DBusAddWatchFunction)      (DBusWatch      *watch,
+					    void           *data);
 
-typedef void (* DBusRemoveWatchFunction) (DBusWatch      *watch,
-                                          void           *data);
+typedef void (* DBusRemoveWatchFunction)   (DBusWatch      *watch,
+					    void           *data);
 
-typedef void (* DBusDisconnectFunction)  (DBusConnection *connection,
-                                          void           *data);
+typedef void (* DBusAddTimeoutFunction)    (DBusTimeout    *timeout,
+					    void           *data);
+typedef void (* DBusRemoveTimeoutFunction) (DBusTimeout    *timeout,
+					    void           *data);
+
+typedef void (* DBusDisconnectFunction)    (DBusConnection *connection,
+					    void           *data);
 
 DBusConnection* dbus_connection_open                 (const char     *address,
                                                       DBusResultCode *result);
@@ -85,18 +91,24 @@ dbus_bool_t dbus_connection_send_message_with_reply (DBusConnection     *connect
                                                      int                 timeout_milliseconds,
                                                      DBusResultCode     *result);
 
-void dbus_connection_set_disconnect_function (DBusConnection          *connection,
-                                              DBusDisconnectFunction   function,
-                                              void                    *data,
-                                              DBusFreeFunction         free_data_function);
-void dbus_connection_set_watch_functions     (DBusConnection          *connection,
-                                              DBusAddWatchFunction     add_function,
-                                              DBusRemoveWatchFunction  remove_function,
-                                              void                    *data,
-                                              DBusFreeFunction         free_data_function);
-void dbus_connection_handle_watch            (DBusConnection          *connection,
-                                              DBusWatch               *watch,
-                                              unsigned int             condition);
+void dbus_connection_set_disconnect_function (DBusConnection            *connection,
+					      DBusDisconnectFunction     function,
+					      void                      *data,
+					      DBusFreeFunction           free_data_function);
+void dbus_connection_set_watch_functions     (DBusConnection            *connection,
+					      DBusAddWatchFunction       add_function,
+					      DBusRemoveWatchFunction    remove_function,
+					      void                      *data,
+					      DBusFreeFunction           free_data_function);
+void dbus_connection_set_timeout_functions   (DBusConnection            *connection,
+					      DBusAddTimeoutFunction     add_function,
+					      DBusRemoveTimeoutFunction  remove_function,
+					      void                      *data,
+					      DBusFreeFunction           free_data_function);
+void dbus_connection_handle_watch            (DBusConnection            *connection,
+					      DBusWatch                 *watch,
+					      unsigned int               condition);
+
 
 
 int          dbus_watch_get_fd    (DBusWatch        *watch);
@@ -105,6 +117,13 @@ void*        dbus_watch_get_data  (DBusWatch        *watch);
 void         dbus_watch_set_data  (DBusWatch        *watch,
                                    void             *data,
                                    DBusFreeFunction  free_data_function);
+
+int   dbus_timeout_get_interval (DBusTimeout      *timeout);
+void* dbus_timeout_get_data     (DBusTimeout      *timeout);
+void  dbus_timeout_set_data     (DBusTimeout      *timeout,
+				 void             *data,
+				 DBusFreeFunction  free_data_function);
+void  dbus_timeout_handle       (DBusTimeout      *timeout);
 
 
 /* Handlers */

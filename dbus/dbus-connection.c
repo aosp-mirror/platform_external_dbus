@@ -23,6 +23,7 @@
 
 #include "dbus-connection.h"
 #include "dbus-list.h"
+#include "dbus-timeout.h"
 #include "dbus-transport.h"
 #include "dbus-watch.h"
 #include "dbus-connection-internal.h"
@@ -82,6 +83,7 @@ struct DBusConnection
   
   DBusTransport *transport;    /**< Object that sends/receives messages over network. */
   DBusWatchList *watches;      /**< Stores active watches. */
+  DBusTimeoutList *timeouts;   /**< Stores active timeouts. */
   
   DBusDisconnectFunction disconnect_function;      /**< Callback on disconnect. */
   void *disconnect_data;                           /**< Data for disconnect callback. */
@@ -291,6 +293,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
 {
   DBusConnection *connection;
   DBusWatchList *watch_list;
+  DBusTimeoutList *timeout_list;
   DBusHashTable *handler_table;
   
   watch_list = NULL;
@@ -301,6 +304,10 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   if (watch_list == NULL)
     goto error;
 
+  timeout_list = _dbus_timeout_list_new ();
+  if (timeout_list == NULL)
+    goto error;
+  
   handler_table =
     _dbus_hash_table_new (DBUS_HASH_STRING,
                           dbus_free, NULL);
@@ -314,6 +321,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection->refcount = 1;
   connection->transport = transport;
   connection->watches = watch_list;
+  connection->timeouts = timeout_list;
   connection->handler_table = handler_table;
   connection->filter_list = NULL;
 
@@ -927,6 +935,37 @@ dbus_connection_set_watch_functions (DBusConnection              *connection,
   
   /* drop our paranoid refcount */
   dbus_connection_unref (connection);
+}
+
+/**
+ * Sets the timeout functions for the connection. These functions are
+ * responsible for making the application's main loop aware of timeouts.
+ * When using Qt, typically the DBusAddTimeoutFunction would create a
+ * QTimer. When using GLib, the DBusAddTimeoutFunction would call
+ * g_timeout_add.
+ *
+ * The DBusTimeout can be queried for the timer interval using
+ * dbus_timeout_get_interval.
+ *
+ * Once a timeout occurs, dbus_timeout_handle should be call to invoke
+ * the timeout's callback.
+ */
+void
+dbus_connection_set_timeout_functions   (DBusConnection            *connection,
+					 DBusAddTimeoutFunction     add_function,
+					 DBusRemoveTimeoutFunction  remove_function,
+					 void                      *data,
+					 DBusFreeFunction           free_data_function)
+{
+  /* ref connection for slightly better reentrancy */
+  dbus_connection_ref (connection);
+  
+  _dbus_timeout_list_set_functions (connection->timeouts,
+				    add_function, remove_function,
+				    data, free_data_function);
+  
+  /* drop our paranoid refcount */
+  dbus_connection_unref (connection);  
 }
 
 /**

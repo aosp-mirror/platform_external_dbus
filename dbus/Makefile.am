@@ -36,6 +36,8 @@ libdbus_1_la_SOURCES=				\
 	dbus-server-unix.h			\
 	dbus-test.c				\
 	dbus-test.h				\
+	dbus-timeout.c				\
+	dbus-timeout.h				\
 	dbus-threads.c				\
 	dbus-transport.c			\
 	dbus-transport.h			\
