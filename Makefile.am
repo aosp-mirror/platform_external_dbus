@@ -12,7 +12,7 @@ if DBUS_USE_GCJ
    GCJ_SUBDIR=gcj
 endif
 
-if DBUS_USE_MCS
+if DBUS_USE_CSC
    MONO_SUBDIR=mono
    MONO_PC=dbus-sharp.pc
 endif

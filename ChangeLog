@@ -1,6 +1,17 @@
 2004-05-15  Owen Fraser-Green  <owen@discobabe.net>
 
-	* mono/Makefile.am: Added SUBDIR for docs
+	* mono/dbus-sharp.dll.config.in: Added for GAC
+	* mono/dbus-sharp.snk: Added for GAC
+	* mono/Assembly.cs.in: Added for GAC
+	* mono/Makefile.am: Changes for GAC installation	
+	* configure.in: Added refs for dbus-sharp.dll.config.in and
+	Assembly.cs.in. More fixes for mono testing
+	* mono/example/Makefile.am: Changed var to CSC
+	* Makefile.am: Changed flag name to DBUS_USE_CSC
+
+2004-05-15  Owen Fraser-Green  <owen@discobabe.net>
+
+	* mono/Makefile.am: Added SUBDIRS for docs. Changed SUBDIRS order
 	* mono/doc/*: Added documentation framework
 	* configure.in: Added monodoc check
 	* README: Added description of mono configure flags

@@ -1,9 +1,10 @@
 DESTDIR=
 
-SUBDIRS=doc
+SUBDIRS=. doc example
 
-DLLS=dbus-sharp.dll
+TARGET=$(ASSEMBLY)
 NOINST_EXES=test-dbus-sharp.exe
+ASSEMBLY_NAME=dbus-sharp
 
 DBUS_SHARP_FILES= 		\
 	Arguments.cs		\
@@ -43,20 +44,35 @@ DBUS_SHARP_FILES= 		\
 
 TEST_DBUS_SHARP_FILES=Test.cs
 
-all: $(DLLS)
+ASSEMBLY=$(ASSEMBLY_NAME).dll
+
+DISTCLEANFILES=AssemblyInfo.cs $(ASSEMBLY).config
+
+all-am: $(TARGET)
 
 dbus-sharp.dll: $(DBUS_SHARP_FILES)
-	$(MCS) $(MCSFLAGS) --unsafe --target library -o dbus-sharp.dll $(DBUS_SHARP_FILES)
+	$(CSC) --unsafe --target library -o dbus-sharp.dll $(DBUS_SHARP_FILES) AssemblyInfo.cs
 
 test-dbus-sharp.exe: $(TEST_DBUS_SHARP_FILES)
-	$(MCS) $(MCSFLAGS) --unsafe --target exe -L . -r dbus-sharp.dll -r gtk-sharp.dll -o test-dbus-sharp.exe $(TEST_DBUS_SHARP_FILES)
+	$(CSC) --unsafe --target exe -L . -r dbus-sharp.dll -r gtk-sharp.dll -o test-dbus-sharp.exe $(TEST_DBUS_SHARP_FILES)
 
 clean:
-	rm -f $(DLLS) $(NOINST_EXES)
+	rm -f $(TARGET) $(NOINST_EXES)
 
-install: all
-	../mkinstalldirs $(DESTDIR)$(prefix)/lib && \
-	cp $(DLLS) $(DESTDIR)$(prefix)/lib || exit 1
+install-data-local:
+	@if test -n '$(TARGET)'; then                       \
+	  echo "$(GACUTIL) /i $(ASSEMBLY) /f /package dbus-sharp /root $(DESTDIR)$(libdir)";    \
+	  $(GACUTIL) /i $(ASSEMBLY) /f /package dbus-sharp /root $(DESTDIR)$(libdir) || exit 1; \
+	fi
 
-EXTRA_DIST=$(DBUS_SHARP_FILES)
+uninstall-local:
+	@if test -n '$(TARGET)'; then                       \
+	  echo "$(GACUTIL) /u $(ASSEMBLY_NAME) /package dbus-sharp /root $(DESTDIR)$(libdir)";  \
+	  $(GACUTIL) /u $(ASSEMBLY_NAME) /package dbus-sharp /root $(DESTDIR)$(libdir) || exit 1;   \
+	fi
 
+EXTRA_DIST=			\
+	$(DBUS_SHARP_FILES)	\
+	AssemblyInfo.cs.in	\
+	$(ASSEMBLY).config.in   \
+	dbus-sharp.snk
