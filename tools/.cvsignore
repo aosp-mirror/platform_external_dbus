@@ -12,3 +12,4 @@ dbus-launch
 *.bbg
 *.gcov
 *.da
+dbus-viewer

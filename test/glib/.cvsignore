@@ -1,0 +1,9 @@
+.deps
+.libs
+Makefile
+Makefile.in
+test-dbus-glib
+test-profile
+test-service-glib
+test-thread-client
+test-thread-server
