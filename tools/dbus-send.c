@@ -28,10 +28,10 @@
 #include "dbus-print-message.h"
 
 static void
-usage (char *name)
+usage (char *name, int ecode)
 {
-  fprintf (stderr, "Usage: %s [--session] [--dest=SERVICE] [--print-reply] <message type> [contents ...]\n", name);
-  exit (1);
+  fprintf (stderr, "Usage: %s [--help] [--session] [--dest=SERVICE] [--print-reply] <message type> [contents ...]\n", name);
+  exit (ecode);
 }
 
 int
@@ -43,12 +43,12 @@ main (int argc, char *argv[])
   int print_reply;
   DBusMessageIter iter;
   int i;
-  DBusBusType type = DBUS_BUS_SYSTEM;
+  DBusBusType type = DBUS_BUS_SESSION;
   char *dest = DBUS_SERVICE_BROADCAST;
   char *name = NULL;
 
   if (argc < 2)
-    usage (argv[0]);
+    usage (argv[0], 1);
 
   print_reply = FALSE;
   
@@ -56,20 +56,22 @@ main (int argc, char *argv[])
     {
       char *arg = argv[i];
 
-      if (strcmp (arg, "--session") == 0)
-	type = DBUS_BUS_SESSION;
+      if (strcmp (arg, "--system") == 0)
+	type = DBUS_BUS_SYSTEM;
       else if (strcmp (arg, "--print-reply") == 0)
         print_reply = TRUE;
       else if (strstr (arg, "--dest=") == arg)
 	dest = strchr (arg, '=') + 1;
+      else if (!strcmp(arg, "--help"))
+	usage (argv[0], 0);
       else if (arg[0] == '-')
-	usage (argv[0]);
+	usage (argv[0], 1);
       else
 	name = arg;
     }
 
   if (name == NULL)
-    usage (argv[0]);
+    usage (argv[0], 1);
 
   dbus_error_init (&error);
   connection = dbus_bus_get (type, &error);

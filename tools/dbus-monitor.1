@@ -8,7 +8,7 @@ dbus-monitor \- debug probe to print message bus messages
 .SH SYNOPSIS
 .PP
 .B dbus-monitor
-[\-\-session]
+[\-\-system]
 
 .SH DESCRIPTION
 
@@ -21,15 +21,17 @@ the big picture.
 There are two well-known message buses: the systemwide message bus
 (installed on many systems as the "messagebus" service) and the
 per-user-login-session message bus (started each time a user logs in).
-\fIdbus-monitor\fP by default monitors the systemwide bus; to monitor the
-session bus, specify \-\-session.
+\fIdbus-monitor\fP by default monitors the session bus; to monitor the
+system bus, specify \-\-system.
 
 .PP 
 The message bus configuration may keep \fIdbus-monitor\fP from seeing
 all messages, especially if you run the monitor as a non-root user.
 
 .SH OPTIONS
-No options are currently supported.
+.TP
+.I "--system"
+Use the system message bus instead of the session bus.
 
 .SH AUTHOR
 dbus-monitor was written by Philip Blundell.

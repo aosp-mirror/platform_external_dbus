@@ -7,7 +7,7 @@
 dbus-launch \- Utility to start a message bus from a shell script
 .SH SYNOPSIS
 .PP
-.B dbus-launch [\-\-version] [\-\-exit-with-session]
+.B dbus-launch [\-\-version] [\-\-sh-syntax] [\-\-csh-syntax] [\-\-auto-syntax] [\-\-exit-with-session] [PROGRAM] [ARGS...]
 
 .SH DESCRIPTION
 
@@ -15,8 +15,25 @@ The \fIdbus-launch\fP command is used to start \fIdbus-daemon-1\fP
 from a shell script. It would normally be called from a user's login
 scripts. Unlike the daemon itself, \fIdbus-launch\fP exits, so
 backticks or the $() construct can be used to read information from
-\fIdbus-launch\fP. \fIdbus-launch\fP prints information about the
-launched daemon in KEY=VALUE format.
+\fIdbus-launch\fP.
+
+With no arguments, \fIdbus-launch\fP will simply print the values of
+DBUS_SESSION_BUS_ADDRESS and DBUS_SESSION_BUS_PID.
+
+You may specify a program to be run; in this case, \fIdbus-launch\fP
+will then set the appropriate environment variables and execute the
+specified program, with the specified arguments.  See below for
+examples.
+
+Finally, you may use the \-\-auto-syntax command to cause
+\fIdbus-launch\fP to emit shell code to set up the environment.  This
+is useful in shell scripts.  With this option, \fIdbus-launch\fP looks
+at the value of the SHELL environment variable to determine which
+shell syntax should be used.  If SHELL ends in "csh", then
+csh-compatible code is emitted; otherwise Bourne shell code is
+emitted.  Instead of passing \-\-auto-syntax, you may explicity
+specify a particular one by using \-\-sh-syntax for Bourne syntax, or
+\-\-csh-syntax for csh syntax.
 
 .PP
 See http://www.freedesktop.org/software/dbus/ for more information
@@ -30,22 +47,43 @@ sh-compatible shell to start the per-session bus daemon:
   ## test for an existing bus daemon, just to be safe
   if test -z "$DBUS_SESSION_BUS_ADDRESS" ; then
       ## if not found, launch a new one
-      eval `dbus-launch --exit-with-session`
+      eval `dbus-launch --auto-syntax --exit-with-session`
       echo "D-BUS per-session daemon address is: $DBUS_SESSION_BUS_ADDRESS"
-      export DBUS_SESSION_BUS_ADDRESS
   fi
 
 .fi
 You might run something like that in your login scripts.
 
+.PP
+Another way to use \fIdbus-launch\fP is to run your main session
+program, like so:
+.nf
+
+dbus-launch gnome-session
+
+.fi
+The above would likely be appropriate for ~/.xsession.
+
 .SH OPTIONS
 The following options are supported:
+.TP
+.I "--auto-syntax"
+Attempt to detect the shell in use, and emit compatible code.
+
+.TP
+.I "--csh-syntax"
+Emit csh compatible code.
+
 .TP
 .I "--exit-with-session"
 If this option is provided, a persistent "babysitter" process will be 
 created that watches stdin for HUP and tries to connect to the X
 server. If this process gets a HUP on stdin or loses its X connection,
 it kills the message bus daemon.
+
+.TP
+.I "--sh-syntax"
+Emit Bourne-shell compatible code.
 
 .TP
 .I "--version"

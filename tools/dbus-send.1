@@ -8,7 +8,7 @@ dbus-send \- Send a message to a message bus
 .SH SYNOPSIS
 .PP
 .B dbus-send
-[\-\-session] [\-\-dest=SERVICE] [\-\-print-reply] <message name> [contents ...]
+[\-\-system] [\-\-dest=SERVICE] [\-\-print-reply] <message name> [contents ...]
 
 .SH DESCRIPTION
 
@@ -20,8 +20,8 @@ information about the big picture.
 There are two well-known message buses: the systemwide message bus 
 (installed on many systems as the "messagebus" service) and the 
 per-user-login-session message bus (started each time a user logs in).
-\fIdbus-send\fP sends messages to the system bus by default, and 
-to the per-session bus if you specify \-\-session.
+\fIdbus-send\fP sends messages to the session bus by default, and 
+to the system bus if you specify \-\-system.
 
 .PP 
 Nearly all uses of \fIdbus-send\fP must provide the \-\-dest 
@@ -56,8 +56,8 @@ Specify the service to receive the message.
 .I "--print-reply"
 Block for a reply to the message sent, and print any reply received.
 .TP
-.I "--session"
-Use the per-login-session message bus instead of the systemwide bus.
+.I "--system"
+Use the system message bus instead of the session bus.
 
 .SH AUTHOR
 dbus-send was written by Philip Blundell.

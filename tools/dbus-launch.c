@@ -77,10 +77,10 @@ verbose (const char *format,
 }
 
 static void
-usage (void)
+usage (int ecode)
 {
-  fprintf (stderr, "dbus-launch [--version] [--exit-with-session]\n");
-  exit (1);
+  fprintf (stderr, "dbus-launch [--version] [--help] [--sh-syntax] [--csh-syntax] [--auto-syntax] [--exit-with-session]\n");
+  exit (ecode);
 }
 
 static void
@@ -92,6 +92,26 @@ version (void)
           "There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n",
           VERSION);
   exit (0);
+}
+
+static char *
+xstrdup (const char *str)
+{
+  int len;
+  char *copy;
+  
+  if (str == NULL)
+    return NULL;
+  
+  len = strlen (str);
+
+  copy = malloc (len + 1);
+  if (copy == NULL)
+    return NULL;
+
+  memcpy (copy, str, len + 1);
+  
+  return copy;
 }
 
 typedef enum
@@ -277,6 +297,7 @@ x_io_error_handler (Display *xdisplay)
 {
   verbose ("X IO error\n");
   kill_bus_and_exit ();
+  return 0;
 }
 #endif
 
@@ -543,7 +564,13 @@ int
 main (int argc, char **argv)
 {
   const char *prev_arg;
+  const char *shname;
+  const char *runprog = NULL;
+  int remaining_args = 0;
   int exit_with_session;
+  int c_shell_syntax = FALSE;
+  int bourne_shell_syntax = FALSE;
+  int auto_shell_syntax = FALSE;
   int i;  
   int ret;
   int bus_pid_to_launcher_pipe[2];
@@ -561,20 +588,48 @@ main (int argc, char **argv)
       if (strcmp (arg, "--help") == 0 ||
           strcmp (arg, "-h") == 0 ||
           strcmp (arg, "-?") == 0)
-        usage ();
+        usage (0);
+      else if (strcmp (arg, "--auto-syntax") == 0)
+        auto_shell_syntax = TRUE;
+      else if (strcmp (arg, "-c") == 0 ||
+	       strcmp (arg, "--csh-syntax") == 0)
+        c_shell_syntax = TRUE;
+      else if (strcmp (arg, "-s") == 0 ||
+	       strcmp (arg, "--sh-syntax") == 0)
+        bourne_shell_syntax = TRUE;
       else if (strcmp (arg, "--version") == 0)
         version ();
       else if (strcmp (arg, "--exit-with-session") == 0)
         exit_with_session = TRUE;
+      else if (runprog)
+	usage (1);
       else
-        usage ();
+	{
+	  runprog = arg;
+	  remaining_args = i+1;
+	  break;
+	}
       
       prev_arg = arg;
       
       ++i;
     }
 
-  verbose ("--exit-with-session provided\n");
+  if (exit_with_session)
+    verbose ("--exit-with-session enabled\n");
+
+  if (auto_shell_syntax)
+    {
+      if ((shname = getenv ("SHELL")) != NULL)
+       {
+         if (!strncmp (shname + strlen (shname) - 3, "csh", 3))
+           c_shell_syntax = TRUE;
+         else
+           bourne_shell_syntax = TRUE;
+       }
+      else
+       bourne_shell_syntax = TRUE;
+    }  
 
   if (pipe (bus_pid_to_launcher_pipe) < 0 ||
       pipe (bus_address_to_launcher_pipe) < 0)
@@ -737,17 +792,62 @@ main (int argc, char **argv)
         }
 
       close (bus_pid_to_launcher_pipe[READ_END]);
+      
+      if (runprog)
+	{
+	  char *envvar;
+	  char **args;
 
-      printf ("DBUS_SESSION_BUS_ADDRESS='%s'\n",
-              bus_address);
+	  envvar = malloc (strlen ("DBUS_SESSION_BUS_ADDRESS=") + strlen (bus_address) + 1);
+	  args = malloc (sizeof (char *) * ((argc-remaining_args)+2));
 
-      printf ("DBUS_SESSION_BUS_PID=%ld\n",
-              (long) bus_pid);
+	  if (envvar == NULL || args == NULL)
+	    goto oom;
 
+	  args[0] = xstrdup (runprog);
+	  if (!args[0])
+	    goto oom;
+	  for (i = 1; i <= (argc-remaining_args); i++)
+	    {
+	      size_t len = strlen (argv[remaining_args+i-1])+1;
+	      args[i] = malloc (len);
+	      if (!args[i])
+		goto oom;
+	      strncpy (args[i], argv[remaining_args+i-1], len);
+	    }
+	  args[i] = NULL;
+
+	  strcpy (envvar, "DBUS_SESSION_BUS_ADDRESS=");
+	  strcat (envvar, bus_address);
+	  putenv (envvar);
+
+	  execvp (runprog, args);
+	  fprintf (stderr, "Couldn't exec %s: %s\n", runprog, strerror (errno));
+	  exit (1);
+	}
+      else
+	{
+	  if (c_shell_syntax)
+	    printf ("setenv DBUS_SESSION_BUS_ADDRESS '%s'\n", bus_address);	
+	  else
+	    {
+	      printf ("DBUS_SESSION_BUS_ADDRESS='%s'\n", bus_address);
+	      if (bourne_shell_syntax)
+		printf ("export DBUS_SESSION_BUS_ADDRESS\n");
+	    }
+	  if (c_shell_syntax)
+	    printf ("set DBUS_SESSION_BUS_PID=%ld\n", (long) bus_pid);
+	  else
+	    printf ("DBUS_SESSION_BUS_PID=%ld\n", (long) bus_pid);
+	}
+	  
       verbose ("dbus-launch exiting\n");
       
       exit (0);
     } 
   
   return 0;
+ oom:
+  fprintf (stderr, "Out of memory!");
+  exit (1);
 }

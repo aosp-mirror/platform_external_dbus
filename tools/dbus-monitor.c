@@ -46,7 +46,7 @@ handler_func (DBusMessageHandler *handler,
 static void
 usage (char *name, int ecode)
 {
-  fprintf (stderr, "Usage: %s [--session]\n", name);
+  fprintf (stderr, "Usage: %s [--system]\n", name);
   exit (ecode);
 }
 
@@ -55,7 +55,7 @@ main (int argc, char *argv[])
 {
   DBusConnection *connection;
   DBusError error;
-  DBusBusType type = DBUS_BUS_SYSTEM;
+  DBusBusType type = DBUS_BUS_SESSION;
   DBusMessageHandler *handler;
   GMainLoop *loop;
   int i;
@@ -65,7 +65,7 @@ main (int argc, char *argv[])
       char *arg = argv[i];
 
       if (!strcmp (arg, "--session"))
-	type = DBUS_BUS_SESSION;
+	type = DBUS_BUS_SYSTEM;
       else if (!strcmp (arg, "--help"))
 	usage (argv[0], 0);
       else if (!strcmp (arg, "--"))
