@@ -1,3 +1,9 @@
+2003-03-02  Havoc Pennington  <hp@pobox.com>
+
+	* configure.in: 0.5
+
+	* NEWS: Update.
+
 2003-03-01  Joe Shaw  <joe@ximian.com>
 
 	* configure.in: Check for "struct cmsgcred" and try to access its

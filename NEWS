@@ -1,3 +1,17 @@
+D-BUS 0.5
+===
+
+- Specification updates
+- port to OS X and other BSD variants
+- port to Solaris
+- Partial work on cookie-based authentication
+- Thread safety fixes
+- Lots of misc. bugfixes
+- Support for more array types
+- Add data slots to DBusServer
+- DBusString security audit fixes
+- Fix for systems (or valgrind) with unaligned malloc blocks
+
 D-BUS 0.4
 ===
 
