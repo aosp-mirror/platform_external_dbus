@@ -1,3 +1,14 @@
+2004-05-29  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus.py:
+	* python/examples/example-client.py:
+	* python/examples/example-service.py:
+	* python/examples/list-system-services.py:
+
+	Add SessionBus, SystemBus and ActivationBus classes
+	so you don't need to know the special little BUS_TYPE
+	flag.
+	
 2004-05-29  Havoc Pennington  <hp@redhat.com>
 
 	* bus/config-parser.c (process_test_valid_subdir): temporarily
