@@ -1023,7 +1023,7 @@ bus_transaction_send_error_reply (BusTransaction  *transaction,
                                   DBusMessage     *in_reply_to)
 {
   DBusMessage *reply;
-
+  
   _dbus_assert (error != NULL);
   _DBUS_ASSERT_ERROR_IS_SET (error);
   

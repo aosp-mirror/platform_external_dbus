@@ -70,6 +70,8 @@ bus_dispatch_broadcast_message (BusTransaction *transaction,
   DBusError tmp_error;
   SendMessageData d;
   BusConnections *connections;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   _dbus_assert (dbus_message_get_sender (message) != NULL);
 
@@ -101,7 +103,9 @@ send_service_nonexistent_error (BusTransaction *transaction,
   DBusMessage *error_reply;
   DBusString error_message;
   const char *error_str;
-	  
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   /* Trying to send a message to a non-existant service,
    * bounce back an error message.
    */

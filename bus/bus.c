@@ -143,6 +143,8 @@ bus_context_new (const char  *address,
                  DBusError   *error)
 {
   BusContext *context;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   context = dbus_new0 (BusContext, 1);
   if (context == NULL)

@@ -43,6 +43,8 @@ bus_driver_send_service_deleted (const char     *service_name,
 {
   DBusMessage *message;
   dbus_bool_t retval;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   _dbus_verbose ("sending service deleted: %s\n", service_name);
 
@@ -77,6 +79,8 @@ bus_driver_send_service_created (const char     *service_name,
 {
   DBusMessage *message;
   dbus_bool_t retval;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   message = dbus_message_new (DBUS_SERVICE_BROADCAST,
                               DBUS_MESSAGE_SERVICE_CREATED);
@@ -116,6 +120,8 @@ bus_driver_send_service_lost (DBusConnection *connection,
 {
   DBusMessage *message;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   message = dbus_message_new (bus_connection_get_name (connection),
                               DBUS_MESSAGE_SERVICE_LOST);
   if (message == NULL)
@@ -161,6 +167,8 @@ bus_driver_send_service_acquired (DBusConnection *connection,
 {
   DBusMessage *message;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   message = dbus_message_new (bus_connection_get_name (connection),
                               DBUS_MESSAGE_SERVICE_ACQUIRED);
   if (message == NULL)
@@ -267,6 +275,8 @@ bus_driver_handle_hello (DBusConnection *connection,
   BusService *service;
   dbus_bool_t retval;
   BusRegistry *registry;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   if (!_dbus_string_init (&unique_name, _DBUS_INT_MAX))
     {
@@ -323,6 +333,8 @@ bus_driver_send_welcome_message (DBusConnection *connection,
 {
   DBusMessage *welcome;
   const char *name;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   name = bus_connection_get_name (connection);
   _dbus_assert (name != NULL);
@@ -373,6 +385,8 @@ bus_driver_handle_list_services (DBusConnection *connection,
   int len;
   char **services;
   BusRegistry *registry;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   registry = bus_connection_get_registry (connection);
   
@@ -431,6 +445,8 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
   DBusConnection *old_owner;
   DBusConnection *current_owner;
   BusRegistry *registry;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   registry = bus_connection_get_registry (connection);
   
@@ -554,6 +570,8 @@ bus_driver_handle_service_exists (DBusConnection *connection,
   char *name;
   dbus_bool_t retval;
   BusRegistry *registry;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   registry = bus_connection_get_registry (connection);
   
@@ -615,6 +633,8 @@ bus_driver_handle_activate_service (DBusConnection *connection,
   dbus_bool_t retval;
   BusActivation *activation;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   activation = bus_connection_get_activation (connection);
   
   if (!dbus_message_get_args (message, error,
@@ -662,6 +682,8 @@ bus_driver_handle_message (DBusConnection *connection,
 {
   const char *name, *sender;
   int i;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   _dbus_verbose ("Driver got a message: %s\n",
 		 dbus_message_get_name (message));

@@ -1,3 +1,13 @@
+2003-03-25  Havoc Pennington  <hp@redhat.com>
+
+        * throughout - add more _DBUS_ASSERT_ERROR_IS_CLEAR
+	
+	* configure.in: add --with-xml option to specify XML library,
+	right now only libxml is supported.
+
+	* bus/config-loader-libxml.c, config-parser.c: sync some minor 
+	nonworking code between home and work, still just stubs
+
 2003-03-24  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-sysdeps.c (_dbus_set_fd_nonblocking): move to this

@@ -119,6 +119,8 @@ add_desktop_file_entry (BusActivation  *activation,
   char *name, *exec;
   BusActivationEntry *entry;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   name = NULL;
   exec = NULL;
   entry = NULL;
@@ -194,6 +196,8 @@ load_directory (BusActivation *activation,
   DBusString full_path;
   BusDesktopFile *desktop_file;
   DBusError tmp_error;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   _dbus_string_init_const (&dir, directory);
 
@@ -327,6 +331,8 @@ bus_activation_new (BusContext  *context,
   int i;
   BusActivation *activation;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   activation = dbus_new0 (BusActivation, 1);
   if (activation == NULL)
     {
@@ -424,6 +430,8 @@ bus_activation_service_created (BusActivation *activation,
   BusPendingActivation *pending_activation;
   DBusMessage *message;
   DBusList *link;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   /* Check if it's a pending activation */
   pending_activation = _dbus_hash_table_lookup_string (activation->pending_activations, service_name);
@@ -492,6 +500,8 @@ bus_activation_activate_service (BusActivation  *activation,
   DBusString service_str;
   char *argv[2];
   dbus_bool_t retval;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   entry = _dbus_hash_table_lookup_string (activation->entries, service_name);
 

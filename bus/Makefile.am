@@ -6,11 +6,17 @@ EFENCE=
 
 bin_PROGRAMS=dbus-daemon-1
 
+if DBUS_USE_LIBXML
+XML_SOURCES=config-loader-libxml.c
+endif
+
 BUS_SOURCES=					\
 	activation.c				\
 	activation.h				\
 	bus.c					\
 	bus.h					\
+	config-parser.c				\
+	config-parser.h				\
 	connection.c				\
 	connection.h				\
 	desktop-file.c				\
@@ -28,7 +34,8 @@ BUS_SOURCES=					\
 	test.c					\
 	test.h					\
 	utils.c					\
-	utils.h
+	utils.h					\
+	$(XML_SOURCES)
 
 dbus_daemon_1_SOURCES=				\
 	$(BUS_SOURCES)				\
@@ -57,7 +64,7 @@ bus_test_SOURCES=				\
 	$(BUS_SOURCES)				\
 	test-main.c
 
-bus_test_LDADD=$(top_builddir)/dbus/libdbus-convenience.la
+bus_test_LDADD=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_BUS_LIBS)
 
 ## mop up the gcov files
 clean-local:

@@ -20,8 +20,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-
 #include "config-parser.h"
+#include "test.h"
+#include <dbus/dbus-list.h>
+#include <dbus/dbus-internals.h>
 #include <string.h>
 
 typedef enum
@@ -82,8 +84,36 @@ struct BusConfigParser
 {
   int refcount;
 
-  DBusList *stack;
+  DBusList *stack; /**< stack of Element */
+
+  char *user;      /**< user to run as */
 };
+
+
+static Element*
+push_element (BusConfigParser *parser,
+              ElementType      type)
+{
+  Element *e;
+
+  e = dbus_new0 (Element, 1);
+  if (e == NULL)
+    return NULL;
+  
+  e->type = type;
+
+  return e;
+}
+
+static void
+pop_element (BusConfigParser *parser)
+{
+  Element *e;
+
+  e = _dbus_list_pop_last (&parser->stack);
+
+  dbus_free (e);
+}
 
 BusConfigParser*
 bus_config_parser_new (void)
@@ -116,7 +146,10 @@ bus_config_parser_unref (BusConfigParser *parser)
 
   if (parser->refcount == 0)
     {
-
+      while (parser->stack != NULL)
+        pop_element (parser);
+      
+      dbus_free (parser->user);
 
       dbus_free (parser);
     }
@@ -127,6 +160,8 @@ bus_config_parser_check_doctype (BusConfigParser   *parser,
                                  const char        *doctype,
                                  DBusError         *error)
 {
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   if (strcmp (doctype, "busconfig") != 0)
     {
       dbus_set_error (error,
@@ -146,7 +181,7 @@ bus_config_parser_start_element (BusConfigParser   *parser,
                                  const char       **attribute_values,
                                  DBusError         *error)
 {
-  
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);  
 
 }
 
@@ -155,7 +190,7 @@ bus_config_parser_end_element (BusConfigParser   *parser,
                                const char        *element_name,
                                DBusError         *error)
 {
-  
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
 }
 
@@ -164,7 +199,33 @@ bus_config_parser_content (BusConfigParser   *parser,
                            const DBusString  *content,
                            DBusError         *error)
 {
-  
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
 }
+
+dbus_bool_t
+bus_config_parser_finished (BusConfigParser   *parser,
+                            DBusError         *error)
+{
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);  
+
+}
+
+const char*
+bus_config_parser_get_user (BusConfigParser *parser)
+{
+
+
+}
+
+#ifdef DBUS_BUILD_TESTS
+
+dbus_bool_t
+bus_config_parser_test (const DBusString *test_data_dir)
+{
+  
+  return TRUE;
+}
+
+#endif /* DBUS_BUILD_TESTS */
 

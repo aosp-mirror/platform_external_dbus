@@ -31,6 +31,8 @@ AC_ARG_ENABLE(verbose-mode, [  --enable-verbose-mode support verbose debug mode]
 AC_ARG_ENABLE(asserts, [  --enable-asserts include assertion checks],enable_asserts=$enableval,enable_asserts=yes)
 AC_ARG_ENABLE(gcov, [  --enable-gcov compile with coverage profiling instrumentation (gcc only)],enable_gcov=$enableval,enable_gcov=no)
 
+AC_ARG_WITH(xml, [  --with-xml=[libxml] XML library to use])
+
 dnl DBUS_BUILD_TESTS controls unit tests built in to .c files 
 dnl and also some stuff in the test/ subdir
 AM_CONDITIONAL(DBUS_BUILD_TESTS, test x$enable_tests = xyes)
@@ -44,6 +46,23 @@ fi
 if test x$enable_asserts = xno; then
     AC_DEFINE(DBUS_DISABLE_ASSERT,1,[Disable assertion checking])
 fi
+
+dbus_use_libxml=false
+dbus_use_fooxml=false
+if test x$with_xml = xfooxml; then
+        dbus_use_fooxml=true
+elif test x$with_xml = xlibxml; then
+        dbus_use_libxml=true
+else
+        with_xml=libxml
+        dbus_use_libxml=true   
+fi
+
+AM_CONDITIONAL(DBUS_USE_LIBXML, $dbus_use_libxml)
+if $dbus_use_libxml; then
+      	PKG_CHECK_MODULES(LIBXML, libxml-2.0)
+fi
+AM_CONDITIONAL(DBUS_USE_FOOXML, $dbus_use_fooxml)
 
 if test "x$GCC" = "xyes"; then
   changequote(,)dnl
@@ -224,8 +243,8 @@ DBUS_CLIENT_LIBS=
 AC_SUBST(DBUS_CLIENT_CFLAGS)
 AC_SUBST(DBUS_CLIENT_LIBS)
 
-DBUS_BUS_CFLAGS=
-DBUS_BUS_LIBS=
+DBUS_BUS_CFLAGS=$LIBXML_CFLAGS
+DBUS_BUS_LIBS=$LIBXML_LIBS
 AC_SUBST(DBUS_BUS_CFLAGS)
 AC_SUBST(DBUS_BUS_LIBS)
 
@@ -329,6 +348,7 @@ echo "
         Building assertions:    ${enable_asserts}
         Building Qt bindings:   ${have_qt}
         Building GLib bindings: ${have_glib}
+        Using XML parser:       ${with_xml}
 "
 
 if test x$enable_tests = xyes; then

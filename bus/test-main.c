@@ -51,11 +51,19 @@ main (int argc, char **argv)
     dir = "";
 
   _dbus_string_init_const (&test_data_dir, dir);
+  
+  printf ("%s: Running config file parser test\n", argv[0]);
+  if (!bus_config_parser_test (&test_data_dir))
+    die ("parser");
 
+  printf ("%s: Running policy test\n", argv[0]);
+  if (!bus_policy_test (&test_data_dir))
+    die ("policy");
+  
   printf ("%s: Running message dispatch test\n", argv[0]);
   if (!bus_dispatch_test (&test_data_dir))
     die ("dispatch");
-
+  
   dbus_shutdown ();
   
   printf ("%s: checking for memleaks\n", argv[0]);

@@ -180,6 +180,8 @@ unescape_string (BusDesktopFileParser *parser,
                  DBusError            *error)
 {
   char *retval, *q;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   /* len + 1 is enough, because unescaping never makes the
    * string longer
@@ -389,6 +391,8 @@ parse_section_start (BusDesktopFileParser *parser, DBusError *error)
 {
   int line_end;
   char *section_name;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
     line_end = parser->len;
@@ -447,6 +451,8 @@ parse_key_value (BusDesktopFileParser *parser, DBusError *error)
   char *value, *tmp;
   DBusString key;
   BusDesktopFileLine *line;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
     line_end = parser->len;
@@ -549,7 +555,9 @@ report_error (BusDesktopFileParser *parser,
 	      DBusError            *error)
 {
   const char *section_name = NULL;
-    
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   if (parser->current_section != -1)
     section_name = parser->desktop_file->sections[parser->current_section].section_name;
 
@@ -589,6 +597,8 @@ bus_desktop_file_load (DBusString *filename,
   DBusString str;
   BusDesktopFileParser parser;
   DBusStat sb;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   /* Clearly there's a race here, but it's just to make it unlikely
    * that we do something silly, we still handle doing it below.

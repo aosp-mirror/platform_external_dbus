@@ -128,6 +128,8 @@ bus_registry_ensure (BusRegistry               *registry,
   const char *c_name;
   BusService *service;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   _dbus_assert (owner_if_created != NULL);
   _dbus_assert (transaction != NULL);
   
@@ -260,6 +262,8 @@ bus_service_add_owner (BusService     *service,
                        BusTransaction *transaction,
                        DBusError      *error)
 {
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
  /* Send service acquired message first, OOM will result
   * in cancelling the transaction
   */
@@ -292,6 +296,8 @@ bus_service_remove_owner (BusService     *service,
                           BusTransaction *transaction,
                           DBusError      *error)
 {
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   /* We send out notifications before we do any work we
    * might have to undo if the notification-sending failed
    */
