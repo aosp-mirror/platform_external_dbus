@@ -144,17 +144,20 @@ _dbus_mem_pool_new (int element_size,
    */
   _dbus_assert (element_size >= (int) sizeof (void*));
   _dbus_assert (element_size >= (int) sizeof (DBusFreedElement));
-  
-  pool->element_size = element_size;
+
+  /* align the element size to a pointer boundary so we won't get bus
+   * errors under other architectures.  
+   */
+  pool->element_size = _DBUS_ALIGN_VALUE (element_size, sizeof (void *));
+
   pool->zero_elements = zero_elements != FALSE;
 
   /* pick a size for the first block; it increases
    * for each block we need to allocate. This is
    * actually half the initial block size
    * since _dbus_mem_pool_alloc() unconditionally
-   * doubles it prior to creating a new block.
-   */
-  pool->block_size = element_size * 8;
+   * doubles it prior to creating a new block.  */
+  pool->block_size = pool->element_size * 8;
 
   _dbus_assert ((pool->block_size %
                  pool->element_size) == 0);

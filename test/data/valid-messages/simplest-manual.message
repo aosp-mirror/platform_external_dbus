@@ -1,6 +1,7 @@
 ## like simplest.message, but doesn't use VALID_HEADER
 ## convenience command. mostly to test the test framework.
 
+LITTLE_ENDIAN
 BYTE 'l'
 BYTE 0
 BYTE 0

@@ -1,3 +1,18 @@
+2003-02-19  Anders Carlsson  <andersca@codefactory.se>
+
+	* configure.in:
+	Add check for nonposix getpwnam_r
+	
+	* dbus/dbus-mempool.c: (_dbus_mem_pool_new):
+	Align the pool element size to a sizeof (void *) boundary.
+	
+	* dbus/dbus-sysdeps.c: (_dbus_setenv), (_dbus_connect_unix_socket),
+	(_dbus_listen_unix_socket), (_dbus_credentials_from_username):
+	General Solaris fixes.
+	
+	* test/data/valid-messages/simplest-manual.message:
+	Explicitly state that we want little-endian packing.
+	
 2003-02-19  Mikael Hallendal  <micke@codefactory.se>
 
 	* dbus/dbus-server.c (dbus_server_listen): Support tcp: addresses.

@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
@@ -54,6 +55,12 @@
 #define O_BINARY 0
 #endif
 
+#ifndef SUN_LEN
+/* This system is not POSIX.1g.         */
+#define SUN_LEN(ptr) ((size_t) (((struct sockaddr_un *) 0)->sun_path)  \
+       + strlen ((ptr)->sun_path))
+#endif
+
 /**
  * @addtogroup DBusInternalsUtils
  * @{
@@ -78,7 +85,28 @@ _dbus_abort (void)
 dbus_bool_t
 _dbus_setenv (const char *varname, const char *value)
 {
+#ifdef HAVE_SETENV
   return (setenv (varname, value, TRUE) == 0);
+#else
+  DBusString str;
+  char *putenv_value;
+
+  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+    return FALSE;
+
+  if (!_dbus_string_append (&str, varname) ||
+      !_dbus_string_append (&str, "=") ||
+      !_dbus_string_append (&str, value) ||
+      !_dbus_string_steal_data (&str, &putenv_value))
+    {
+      _dbus_string_free (&str);
+      return FALSE;
+    }
+
+  _dbus_string_free (&str);
+
+  return (putenv (putenv_value) == 0);
+#endif
 }
 
 /**
@@ -295,7 +323,7 @@ _dbus_connect_unix_socket (const char     *path,
   int fd;
   struct sockaddr_un addr;  
   
-  fd = socket (AF_LOCAL, SOCK_STREAM, 0);
+  fd = socket (PF_UNIX, SOCK_STREAM, 0);
   
   if (fd < 0)
     {
@@ -309,7 +337,7 @@ _dbus_connect_unix_socket (const char     *path,
     }
 
   _DBUS_ZERO (addr);
-  addr.sun_family = AF_LOCAL;
+  addr.sun_family = AF_UNIX;
   strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH);
   addr.sun_path[_DBUS_MAX_SUN_PATH_LENGTH] = '\0';
   
@@ -354,7 +382,7 @@ _dbus_listen_unix_socket (const char     *path,
   int listen_fd;
   struct sockaddr_un addr;
 
-  listen_fd = socket (AF_LOCAL, SOCK_STREAM, 0);
+  listen_fd = socket (PF_UNIX, SOCK_STREAM, 0);
   
   if (listen_fd < 0)
     {
@@ -365,7 +393,7 @@ _dbus_listen_unix_socket (const char     *path,
     }
 
   _DBUS_ZERO (addr);
-  addr.sun_family = AF_LOCAL;
+  addr.sun_family = AF_UNIX;
   strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH);
   addr.sun_path[_DBUS_MAX_SUN_PATH_LENGTH] = '\0';
   
@@ -973,7 +1001,7 @@ _dbus_credentials_from_username (const DBusString *username,
 
   _dbus_string_get_const_data (username, &username_c_str);
   
-#ifdef HAVE_GETPWNAM_R
+#if defined (HAVE_POSIX_GETPWNAME_R) || defined (HAVE_NONPOSIX_GETPWNAME_R)
   {
     struct passwd *p;
     int result;
@@ -981,9 +1009,13 @@ _dbus_credentials_from_username (const DBusString *username,
     struct passwd p_str;
 
     p = NULL;
+#ifdef HAVE_POSIX_GETPWNAME_R
     result = getpwnam_r (username_c_str, &p_str, buf, sizeof (buf),
                          &p);
-
+#else
+    p = getpwnam_r (username_c_str, &p_str, buf, sizeof (buf));
+    result = 0;
+#endif
     if (result == 0 && p == &p_str)
       {
         credentials->uid = p->pw_uid;
