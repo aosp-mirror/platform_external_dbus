@@ -31,20 +31,22 @@ namespace DBus.DBusType
     {
       IntPtr dictIter = Marshal.AllocCoTaskMem(Arguments.DBusMessageIterSize);
       
-      dbus_message_iter_init_dict_iterator(iter, dictIter);
+      bool empty = dbus_message_iter_init_dict_iterator(iter, dictIter);
 
       this.val = new Hashtable();
 
-      do {
-	string key = dbus_message_iter_get_dict_key(dictIter);
-
-	// Get the argument type and get the value
-	Type elementType = (Type) DBus.Arguments.DBusTypes[(char) dbus_message_iter_get_arg_type(dictIter)];
-	object [] pars = new Object[1];
-	pars[0] = dictIter;
-	DBusType.IDBusType dbusType = (DBusType.IDBusType) Activator.CreateInstance(elementType, pars);
-	this.val.Add(key, dbusType);
-      } while (dbus_message_iter_next(dictIter));
+      if (!empty) {
+	do {
+	  string key = dbus_message_iter_get_dict_key(dictIter);
+	  
+	  // Get the argument type and get the value
+	  Type elementType = (Type) DBus.Arguments.DBusTypes[(char) dbus_message_iter_get_arg_type(dictIter)];
+	  object [] pars = new Object[1];
+	  pars[0] = dictIter;
+	  DBusType.IDBusType dbusType = (DBusType.IDBusType) Activator.CreateInstance(elementType, pars);
+	  this.val.Add(key, dbusType);
+	} while (dbus_message_iter_next(dictIter));
+      }
       
       Marshal.FreeCoTaskMem(dictIter);
     }
@@ -120,7 +122,7 @@ namespace DBus.DBusType
     }    
 
     [DllImport("dbus-1")]
-    private extern static void dbus_message_iter_init_dict_iterator(IntPtr iter,
+    private extern static bool dbus_message_iter_init_dict_iterator(IntPtr iter,
 								    IntPtr dictIter);
  
     [DllImport("dbus-1")]

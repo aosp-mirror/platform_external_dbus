@@ -36,18 +36,20 @@ namespace DBus.DBusType
       IntPtr arrayIter = Marshal.AllocCoTaskMem(Arguments.DBusMessageIterSize);
       
       int elementTypeCode;
-      dbus_message_iter_init_array_iterator(iter, arrayIter, out elementTypeCode);
+      bool empty = dbus_message_iter_init_array_iterator(iter, arrayIter, out elementTypeCode);
       this.elementType = (Type) Arguments.DBusTypes[(char) elementTypeCode];
 
       elements = new ArrayList();
 
-      do {
-	object [] pars = new Object[2];
-	pars[0] = arrayIter;
-	pars[1] = service;
-	DBusType.IDBusType dbusType = (DBusType.IDBusType) Activator.CreateInstance(elementType, pars);
-	elements.Add(dbusType);
-      } while (dbus_message_iter_next(arrayIter));
+      if (!empty) {
+	do {
+	  object [] pars = new Object[2];
+	  pars[0] = arrayIter;
+	  pars[1] = service;
+	  DBusType.IDBusType dbusType = (DBusType.IDBusType) Activator.CreateInstance(elementType, pars);
+	  elements.Add(dbusType);
+	} while (dbus_message_iter_next(arrayIter));
+      }
       
       Marshal.FreeCoTaskMem(arrayIter);
     }
@@ -118,7 +120,7 @@ namespace DBus.DBusType
     }    
 
     [DllImport("dbus-1")]
-    private extern static void dbus_message_iter_init_array_iterator(IntPtr iter,
+    private extern static bool dbus_message_iter_init_array_iterator(IntPtr iter,
 								     IntPtr arrayIter,
 								     out int elementType);
  

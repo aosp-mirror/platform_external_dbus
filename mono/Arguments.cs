@@ -181,15 +181,17 @@ namespace DBus
       string key = "";
 
       // Iterate through the parameters getting the type codes to a string
-      dbus_message_iter_init(message.RawMessage, iter);
+      bool empty = dbus_message_iter_init(message.RawMessage, iter);
 
-      do {
-	char code = (char) dbus_message_iter_get_arg_type(iter);
-	if (code == '\0')
-	  return key;
-	
-	key += code;
-      } while (dbus_message_iter_next(iter));
+      if (!empty) {
+	do {
+	  char code = (char) dbus_message_iter_get_arg_type(iter);
+	  if (code == '\0')
+	    return key;
+	  
+	  key += code;
+	} while (dbus_message_iter_next(iter));
+      }
       
       Marshal.FreeCoTaskMem(iter);
 
@@ -219,6 +221,7 @@ namespace DBus
     {
       private Arguments arguments;
       private bool started = false;
+      private bool empty = false;
       private IntPtr iter = Marshal.AllocCoTaskMem(Arguments.DBusMessageIterSize);
       
       public ArgumentsEnumerator(Arguments arguments)
@@ -238,13 +241,13 @@ namespace DBus
 	  return dbus_message_iter_next(iter);
 	} else {
 	  started = true;
-	  return true;
+	  return !empty;
 	}
       }
       
       public void Reset()
       {
-	dbus_message_iter_init(arguments.message.RawMessage, iter);
+	empty = dbus_message_iter_init(arguments.message.RawMessage, iter);
 	started = false;
       }
       
@@ -274,7 +277,7 @@ namespace DBus
     private extern static bool dbus_message_iter_next(IntPtr iter);
 
     [DllImport("dbus-1")]
-    private extern static void dbus_message_iter_init(IntPtr rawMessage, IntPtr iter);
+    private extern static bool dbus_message_iter_init(IntPtr rawMessage, IntPtr iter);
 
     [DllImport("dbus-1")]
     private extern static int dbus_message_iter_get_arg_type(IntPtr iter);

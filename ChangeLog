@@ -1,3 +1,9 @@
+2004-05-01  Owen Fraser-Green  <owen@discobabe.net>
+
+	* mono/DBusType/Dict.cs: Handle empty dicts
+	* mono/DBusType/Array.cs: Handle empty arrays
+	* mono/Arguments.cs: Handle empty arguments
+
 2004-04-30  Owen Fraser-Green  <owen@discobabe.net>
 
 	* dbus-sharp.pc.in: Modified to include include Libs and Requires
