@@ -335,6 +335,67 @@ randomly_modify_length (const DBusString *orig_data,
 }
 
 static void
+randomly_set_extreme_ints (const DBusString *orig_data,
+                           DBusString       *mutated)
+{
+  int i;
+  int byte_order;
+  const char *d;
+  dbus_uint32_t orig;
+  static int which = 0;
+  unsigned int extreme_ints[] = {
+    _DBUS_INT_MAX,
+    _DBUS_UINT_MAX,
+    _DBUS_INT_MAX - 1,
+    _DBUS_UINT_MAX - 1,
+    _DBUS_INT_MAX - 2,
+    _DBUS_UINT_MAX - 2,
+    (unsigned int) (_DBUS_INT_MAX + 1),
+    (unsigned int) (_DBUS_UINT_MAX + 1),
+    _DBUS_INT_MAX + 2,
+    _DBUS_UINT_MAX + 2,
+    0, 1, 2, 3,
+    (unsigned int) -1,
+    (unsigned int) -2,
+    (unsigned int) -3
+  };
+    
+  if (orig_data != mutated)
+    {
+      _dbus_string_set_length (mutated, 0);
+      
+      if (!_dbus_string_copy (orig_data, 0, mutated, 0))
+        _dbus_assert_not_reached ("out of mem");
+    }
+
+  if (_dbus_string_get_length (mutated) < 12)
+    return;
+  
+  _dbus_string_get_const_data (mutated, &d);
+
+  if (!(*d == DBUS_LITTLE_ENDIAN ||
+        *d == DBUS_BIG_ENDIAN))
+    return;
+
+  byte_order = *d;
+  
+  i = random_int_in_range (4, _dbus_string_get_length (mutated) - 8);
+  i = _DBUS_ALIGN_VALUE (i, 4);
+
+  orig = _dbus_demarshal_uint32 (mutated, byte_order, i, NULL);
+
+  which = random_int_in_range (0, _DBUS_N_ELEMENTS (extreme_ints));
+
+  _dbus_assert (which >= 0);
+  _dbus_assert (which < _DBUS_N_ELEMENTS (extreme_ints));
+  
+  _dbus_marshal_set_uint32 (mutated, byte_order, i,
+                            extreme_ints[which]);
+}
+
+static int times_we_did_each_thing[6] = { 0, };
+
+static void
 randomly_do_n_things (const DBusString *orig_data,
                       DBusString       *mutated,
                       int               n)
@@ -347,7 +408,8 @@ randomly_do_n_things (const DBusString *orig_data,
       randomly_change_one_byte,
       randomly_add_one_byte,
       randomly_remove_one_byte,
-      randomly_modify_length
+      randomly_modify_length,
+      randomly_set_extreme_ints
     };
 
   _dbus_string_set_length (mutated, 0);
@@ -363,6 +425,7 @@ randomly_do_n_things (const DBusString *orig_data,
       which = random_int_in_range (0, _DBUS_N_ELEMENTS (functions));
 
       (* functions[which]) (mutated, mutated);
+      times_we_did_each_thing[which] += 1;
       
       ++i;
     }
@@ -428,6 +491,15 @@ find_breaks_based_on (const DBusString   *filename,
   while (i < 50)
     {
       randomly_add_one_byte (&orig_data, &mutated);
+      try_mutated_data (&mutated);
+
+      ++i;
+    }
+
+  i = 0;
+  while (i < 50)
+    {
+      randomly_set_extreme_ints (&orig_data, &mutated);
       try_mutated_data (&mutated);
 
       ++i;
@@ -588,6 +660,15 @@ main (int    argc,
           return 1;
         }
 
+      printf ("  did %d random mutations: %d %d %d %d %d %d\n",
+              _DBUS_N_ELEMENTS (times_we_did_each_thing),
+              times_we_did_each_thing[0],
+              times_we_did_each_thing[1],
+              times_we_did_each_thing[2],
+              times_we_did_each_thing[3],
+              times_we_did_each_thing[4],
+              times_we_did_each_thing[5]);
+      
       printf ("Found %d failures with seed %u stored in %s\n",
               failures_this_iteration, seed, failure_dir_c);
 

@@ -1,5 +1,21 @@
 2003-03-02  Havoc Pennington  <hp@pobox.com>
 
+	* test/break-loader.c (randomly_set_extreme_ints): add test that
+	sets really huge and small integers
+
+	* dbus/dbus-marshal.c (_dbus_marshal_validate_arg): add check
+	that length of boolean array fits in the string, and that 
+	string has room for boolean value in single-bool case.
+
+	* dbus/dbus-message-builder.c (_dbus_message_data_load): add
+	optional value to "ALIGN" command which is what to fill the
+	alignment with.
+
+	* test/data/valid-messages/no-padding.message: add regression
+	test for the message padding problem
+
+2003-03-02  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-message.c (decode_header_data): fix to always init
 	message_padding, from Benjamin Dauvergne
 

@@ -997,7 +997,9 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
  * Demarshals and validates a length; returns < 0 if the validation
  * fails. The length is required to be small enough that
  * len*sizeof(double) will not overflow, and small enough to fit in a
- * signed integer.
+ * signed integer. DOES NOT check whether the length points
+ * beyond the end of the string, because it doesn't know the
+ * size of array elements.
  *
  * @param str the string
  * @param byte_order the byte order
@@ -1012,6 +1014,8 @@ demarshal_and_validate_len (const DBusString *str,
 {
   int align_4 = _DBUS_ALIGN_VALUE (pos, 4);
   unsigned int len;
+
+  _dbus_assert (new_pos != NULL);
   
   if ((align_4 + 4) >= _dbus_string_get_length (str))
     {
@@ -1116,6 +1120,12 @@ _dbus_marshal_validate_arg (const DBusString *str,
       {
 	unsigned char c;
 
+        if (2 > _dbus_string_get_length (str) - pos)
+          {
+            _dbus_verbose ("no room for boolean value\n");
+            return FALSE;
+          }
+        
 	c = _dbus_string_get_byte (str, pos + 1);
 
 	if (c != 0 && c != 1)
@@ -1184,6 +1194,12 @@ _dbus_marshal_validate_arg (const DBusString *str,
         if (len < 0)
           return FALSE;
 
+        if (len > _dbus_string_get_length (str) - pos)
+          {
+            _dbus_verbose ("boolean array length outside length of the message\n");
+            return FALSE;
+          }
+        
 	i = 0;
 	while (i < len)
 	  {

@@ -334,6 +334,12 @@ _dbus_message_data_load (DBusString       *dest,
       _dbus_string_free (&file);
       return FALSE;
     }
+
+  {
+    const char *s;
+    _dbus_string_get_const_data (filename, &s);
+    _dbus_verbose ("Loading %s\n", s);
+  }
   
   if ((result = _dbus_file_get_contents (&file, filename)) != DBUS_RESULT_SUCCESS)
     {
@@ -439,24 +445,47 @@ _dbus_message_data_load (DBusString       *dest,
                                                "ALIGN"))
         {
           long val;
-
+          int end;
+          int orig_len;
+          
           _dbus_string_delete_first_word (&line);
 
-          if (!_dbus_string_parse_int (&line, 0, &val, NULL))
+          if (!_dbus_string_parse_int (&line, 0, &val, &end))
             {
               _dbus_warn ("Failed to parse integer\n");
               goto parse_failed;
             }
 
-          if (val > 16)
+          if (val > 8)
             {
               _dbus_warn ("Aligning to %ld boundary is crack\n",
                           val);
               goto parse_failed;
             }
+
+          orig_len = _dbus_string_get_length (dest);
           
           if (!_dbus_string_align_length (dest, val))
             goto parse_failed;
+
+          if (_dbus_string_parse_int (&line, end, &val, NULL))
+            {
+              /* If there's an optional second int argument,
+               * fill in align padding with that value
+               */
+              if (val < 0 || val > 255)
+                {
+                  _dbus_warn ("can't fill align padding with %ld, must be a byte value\n", val);
+                  goto parse_failed;
+                }
+
+              end = orig_len;
+              while (end < _dbus_string_get_length (dest))
+                {
+                  _dbus_string_set_byte (dest, end, val);
+                  ++end;
+                }
+            }
         }
       else if (_dbus_string_starts_with_c_str (&line, "UNALIGN"))
         {
