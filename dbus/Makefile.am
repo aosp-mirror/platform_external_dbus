@@ -8,15 +8,22 @@ lib_LTLIBRARIES=libdbus-1.la
 dbusinclude_HEADERS=				\
 	dbus.h					\
 	dbus-macros.h				\
+	dbus-memory.h				\
 	dbus-message.h
 
 libdbus_1_la_SOURCES=				\
+	dbus-memory.c				\
 	dbus-message.c
+
+## this library is linked into both libdbus and the bus 
+## itself, but does not export any symbols from libdbus.
+## It contains utility functions not in the public API.
 
 noinst_LTLIBRARIES=libdbus-convenience.la
 
 libdbus_convenience_la_SOURCES=			\
-	dbus-hash.c
+	dbus-hash.c				\
+	dbus-hash.h
 
 libdbus_1_la_LIBADD=  $(DBUS_CLIENT_LIBS) libdbus-convenience.la
 ## don't export symbols that start with "_" (we use this 

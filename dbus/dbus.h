@@ -29,12 +29,15 @@
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-message.h>
 
-/**
- * @defgroup DBus
- */
-
 #undef DBUS_INSIDE_DBUS_H
 
+/**
+ * @defgroup DBus D-BUS message system
+ *
+ * @{
+ */
+
 /** @} */
+
 
 #endif /* DBUS_H

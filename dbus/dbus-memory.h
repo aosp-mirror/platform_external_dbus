@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-message.c  DBusMessage object
+/* dbus-memory.h  D-BUS memory handling
  *
  * Copyright (C) 2002  Red Hat Inc.
  *
@@ -20,61 +20,27 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+#if !defined (DBUS_INSIDE_DBUS_H) && !defined (DBUS_COMPILATION)
+#error "Only <dbus/dbus.h> can be included directly, this file may disappear or change contents."
+#endif
 
-#include "dbus-message.h"
+#ifndef DBUS_MEMORY_H
+#define DBUS_MEMORY_H
 
-/**
- * @defgroup DBusMessage DBusMessage
- * @ingroup  DBus
- * @brief DBusMessage object
- *
- * Types and functions related to the DBusMessage object.
- *
- * @{
- */
+#include <dbus/dbus-macros.h>
+#include <sys/types.h> /* for size_t - is there a better header for this? */
 
-struct DBusMessage
-{
-  int refcount;
+DBUS_BEGIN_DECLS
 
-};
+void* dbus_malloc        (size_t bytes);
+void* dbus_malloc0       (size_t bytes);
+void* dbus_realloc       (void  *memory,
+                          size_t bytes);
+void  dbus_free          (void  *memory);
 
-/**
- * Constructs a new message.
- * @return a new DBusMessage, free with dbus_message_unref()
- * @see dbus_message_unref()
- */
-DBusMessage*
-dbus_message_new (void)
-{
-  
-  return NULL;
-}
+#define dbus_new(type, count)  ((type*)dbus_malloc (sizeof (type) * (count)));
+#define dbus_new0(type, count) ((type*)dbus_malloc0 (sizeof (type) * (count)));
 
+DBUS_END_DECLS
 
-/**
- * Increments the reference count of a DBusMessage.
- *
- * @param message The message
- * @see dbus_message_unref
- */
-void
-dbus_message_ref (DBusMessage *message)
-{
-  
-}
-
-/**
- * Decrements the reference count of a DBusMessage.
- *
- * @param message The message
- * @see dbus_message_ref
- */
-void
-dbus_message_unref (DBusMessage *message)
-{
-
-
-}
-
-/** @} */
+#endif /* DBUS_MESSAGE_H */

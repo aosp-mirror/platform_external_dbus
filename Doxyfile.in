@@ -41,7 +41,7 @@ SHOW_USED_FILES        = YES
 #---------------------------------------------------------------------------
 # configuration options related to warning and progress messages
 #---------------------------------------------------------------------------
-QUIET                  = NO
+QUIET                  = YES
 WARNINGS               = YES
 WARN_IF_UNDOCUMENTED   = YES
 WARN_FORMAT            = 
@@ -50,7 +50,7 @@ WARN_LOGFILE           =
 # configuration options related to the input files
 #---------------------------------------------------------------------------
 INPUT                  = dbus bus
-FILE_PATTERNS          = *.c
+FILE_PATTERNS          = *.c *.h
 RECURSIVE              = YES
 #EXCLUDE                = test
 

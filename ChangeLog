@@ -1,5 +1,15 @@
 2002-11-22  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus.h: fixups for doc warnings
+
+	* Doxyfile.in (FILE_PATTERNS): we need to scan .h to pick up 
+	macros
+	(QUIET): make it quiet so we can see warnings
+
+	* dbus/dbus-memory.c: teach D-BUS to allocate and free memory
+
+2002-11-22  Havoc Pennington  <hp@redhat.com>
+
 	* Makefile.am: include "Doxyfile" target in all-local
 
 	* configure.in: generate the Doxyfile
