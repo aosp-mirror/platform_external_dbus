@@ -1,5 +1,10 @@
 2005-01-20  Havoc Pennington  <hp@redhat.com>
 
+	* update-dbus-docs.sh: script to update docs on the web site, only
+	works for me though. neener.
+
+2005-01-20  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-sysdeps.c (_dbus_poll): amazingly, trying to compile
 	code can reveal bugs in it
 
