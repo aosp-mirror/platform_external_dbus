@@ -2,7 +2,7 @@
 INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
 
 if DBUS_BUILD_TESTS
-TEST_BINARIES=echo-client echo-server unbase64 break-loader spawn-test
+TEST_BINARIES=test-service echo-client echo-server unbase64 break-loader spawn-test
 else
 TEST_BINARIES=
 endif
@@ -16,6 +16,11 @@ echo_client_SOURCES=				\
 
 echo_server_SOURCES=				\
 	echo-server.c				\
+	watch.c					\
+	watch.h
+
+test_service_SOURCES=				\
+	test-service.c				\
 	watch.c					\
 	watch.h
 
@@ -39,6 +44,7 @@ TEST_LIBS=$(DBUS_TEST_LIBS) $(top_builddir)/dbus/libdbus-convenience.la
 
 echo_client_LDADD=$(TEST_LIBS)
 echo_server_LDADD=$(TEST_LIBS)
+test_service_LDADD=$(TEST_LIBS)
 unbase64_LDADD=$(TEST_LIBS)
 break_loader_LDADD= $(TEST_LIBS)
 #bus_test_LDADD=$(TEST_LIBS) $(top_builddir)/bus/libdbus-daemon.la

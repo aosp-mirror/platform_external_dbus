@@ -11,6 +11,9 @@
  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
 
+  <!-- Our well-known bus type, do not change this -->
+  <type>system</type>
+
   <!-- Run as special user -->
   <user>messagebus</user>
 

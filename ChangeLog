@@ -1,3 +1,28 @@
+2003-04-03  Havoc Pennington  <hp@pobox.com>
+
+	* bus/config-parser.c (bus_config_parser_unref): free 
+	list of mechanisms, bug discovered by test suite enhancements
+	(putting system.conf and session.conf into suite)
+
+	* test/Makefile.am, test/test-service.c: add placeholder for a
+	test service that we'll activate as part of test suite. Doesn't 
+	do anything yet.
+
+	* dbus/dbus-sysdeps.c (_dbus_setenv): support unsetenv by 
+	setting NULL value, and use system malloc not dbus_malloc() 
+	when we have unavoidable memleakage.
+
+	* dbus/dbus-bus.c (dbus_bus_get): fix bug where bus type of 0
+	didn't work, and support DBUS_BUS_ACTIVATION.
+	
+	* bus/activation.c (child_setup): pass our well-known bus type to
+	the child
+
+	* bus/config-parser.c: support <type> to specify well-known type
+
+	* doc/dbus-specification.sgml: document the env variables to 
+	locate well-known buses and find service activator
+
 2003-04-02  Havoc Pennington  <hp@redhat.com>
 
 	* test/Makefile.am (all-local): add a rule to copy tests to

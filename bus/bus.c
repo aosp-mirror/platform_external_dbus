@@ -36,6 +36,7 @@
 struct BusContext
 {
   int refcount;
+  char *type;
   char *address;
   DBusList *servers;
   BusConnections *connections;
@@ -290,6 +291,9 @@ bus_context_new (const DBusString *config_file,
       if (!_dbus_change_identity (creds.uid, creds.gid, error))
         goto failed;
     }
+
+  /* note that type may be NULL */
+  context->type = _dbus_strdup (bus_config_parser_get_type (parser));
   
   /* We have to build the address backward, so that
    * <listen> later in the config file have priority
@@ -496,10 +500,18 @@ bus_context_unref (BusContext *context)
           _dbus_hash_table_unref (context->rules_by_gid);
           context->rules_by_gid = NULL;
         }
-      
+
+      dbus_free (context->type);
       dbus_free (context->address);
       dbus_free (context);
     }
+}
+
+/* type may be NULL */
+const char*
+bus_context_get_type (BusContext *context)
+{
+  return context->type;
 }
 
 BusRegistry*

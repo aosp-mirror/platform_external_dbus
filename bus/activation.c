@@ -404,12 +404,20 @@ static void
 child_setup (void *data)
 {
   BusActivation *activation = data;
+  const char *type;
   
   /* If no memory, we simply have the child exit, so it won't try
    * to connect to the wrong thing.
    */
-  if (!_dbus_setenv ("DBUS_ADDRESS", activation->server_address))
+  if (!_dbus_setenv ("DBUS_ACTIVATION_ADDRESS", activation->server_address))
     _dbus_exit (1);
+
+  type = bus_context_get_type (activation->context);
+  if (type != NULL)
+    {
+      if (!_dbus_setenv ("DBUS_BUS_TYPE", type))
+        _dbus_exit (1);
+    }
 }
 
 dbus_bool_t

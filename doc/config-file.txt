@@ -27,6 +27,15 @@ Elements:
  
     Root element.
 
+ <type>
+
+    The well-known type of the message bus. Currently known values
+    are "system" and "session"; if other values are set, they should 
+    be either added to the D-BUS specification, or namespaced.
+    The last <type> element "wins"
+
+    Example: <type>session</type>
+
  <include>
   ignore_missing="(yes|no)"   optional attribute, defaults to no
    

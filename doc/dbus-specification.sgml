@@ -1235,8 +1235,20 @@
       </para>
       <para>
         The executable launched will have the environment variable
-        <literal>DBUS_BUS_ADDRESS</literal> set to the address of the
+        <literal>DBUS_ACTIVATION_ADDRESS</literal> set to the address of the
         message bus so it can connect and register the appropriate services.
+      </para>
+      <para>
+        The executable being launched may want to know whether the message bus
+        activating it is one of the well-known message buses (see <xref
+        linkend="message-bus-types">). To facilitate this, the bus MUST also set
+        the <literal>DBUS_ACTIVATION_BUS_TYPE</literal> environment variable if it is one
+        of the well-known buses. The currently-defined values for this variable
+        are <literal>system</literal> for the systemwide message bus,
+        and <literal>session</literal> for the per-login-session message
+        bus. The activated executable must still connect to the address given
+        in <literal>DBUS_ACTIVATION_ADDRESS</literal>, but may assume that the
+        resulting connection is to the well-known bus.
       </para>
       <para>
         [FIXME there should be a timeout somewhere, either specified
@@ -1247,7 +1259,7 @@
     </sect2>
 
     <sect2 id="message-bus-types">
-      <title>Standard Message Bus Instances</title>
+      <title>Well-known Message Bus Instances</title>
       <para>
         Two standard message bus instances are defined here, along with how 
         to locate them and where their service files live.
@@ -1257,9 +1269,17 @@
         <para>
           Each time a user logs in, a <firstterm>login session message
             bus</firstterm> may be started. All applications in the user's login
-          session may interact with one another using this message bus.  [specify
-          how to find the address of the login session message bus via
-          environment variable and/or X property]
+          session may interact with one another using this message bus.
+        </para>
+        <para>
+          The address of the login session message bus is given 
+          in the <literal>DBUS_SESSION_BUS_ADDRESS</literal> environment 
+          variable. If that variable is not set, applications may 
+          also try to read the address from the X Window System root 
+          window property <literal>_DBUS_SESSION_BUS_ADDRESS</literal>.
+          The root window property must have type <literal>STRING</literal>.
+          The environment variable should have precedence over the 
+          root window property.
         </para>
         <para>
           [FIXME specify location of .service files, probably using 
@@ -1272,8 +1292,22 @@
         <para>
           A computer may have a <firstterm>system message bus</firstterm>,
           accessible to all applications on the system. This message bus may be
-          used to broadcast system events, such as adding new hardware devices.
-          [specify how to find the address of the system message bus]
+          used to broadcast system events, such as adding new hardware devices, 
+          changes in the printer queue, and so forth.
+        </para>
+        <para>
+          The address of the login session message bus is given 
+          in the <literal>DBUS_SYSTEM_BUS_ADDRESS</literal> environment 
+          variable. If that variable is not set, applications should try 
+          to connect to the well-known address
+          <literal>unix:path=/var/run/dbus/system_bus_socket</literal>.
+          <footnote>
+            <para>
+              The D-BUS reference implementation actually honors the 
+              <literal>$(localstatedir)</literal> configure option 
+              for this address, on both client and server side.
+            </para>
+          </footnote>
         </para>
         <para>
           [FIXME specify location of system bus .service files]

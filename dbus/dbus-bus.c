@@ -25,6 +25,7 @@
 #include "dbus-bus.h"
 #include "dbus-protocol.h"
 #include "dbus-internals.h"
+#include <string.h>
 
 /**
  * @defgroup DBusBus Message bus APIs
@@ -61,11 +62,132 @@ static int bus_data_slot = -1;
  */
 static int bus_data_slot_refcount = 0;
 
+/** Number of bus types */
+#define N_BUS_TYPES 3
+
+static DBusConnection *bus_connections[N_BUS_TYPES];
+static char *bus_connection_addresses[N_BUS_TYPES] = { NULL, NULL, NULL };
+
+static DBusBusType activation_bus_type = DBUS_BUS_ACTIVATION;
+
+static dbus_bool_t initialized = FALSE;
+
 /**
- * Lock for bus_data_slot and bus_data_slot_refcount
+ * Lock for globals in this file
  */
 _DBUS_DEFINE_GLOBAL_LOCK (bus);
 
+static void
+addresses_shutdown_func (void *data)
+{
+  int i;
+
+  i = 0;
+  while (i < N_BUS_TYPES)
+    {
+      if (bus_connections[i] != NULL)
+        _dbus_warn ("dbus_shutdown() called but connections were still live!");
+      
+      dbus_free (bus_connection_addresses[i]);
+      bus_connection_addresses[i] = NULL;
+      ++i;
+    }
+
+  activation_bus_type = DBUS_BUS_ACTIVATION;
+}
+
+static dbus_bool_t
+get_from_env (char           **connection_p,
+              const char      *env_var)
+{
+  const char *s;
+  
+  _dbus_assert (*connection_p == NULL);
+  
+  s = _dbus_getenv (env_var);
+  if (s == NULL || *s == '\0')
+    return TRUE; /* successfully didn't use the env var */
+  else
+    {
+      *connection_p = _dbus_strdup (s);
+      return *connection_p != NULL;
+    }
+}
+
+static dbus_bool_t
+init_connections_unlocked (void)
+{
+  if (!initialized)
+    {
+      const char *s;
+      
+      bus_connections[0] = NULL;
+      bus_connections[1] = NULL;
+      bus_connections[2] = NULL;
+
+      /* Don't init these twice, we may run this code twice if
+       * init_connections_unlocked() fails midway through.
+       */
+      
+       if (bus_connection_addresses[DBUS_BUS_SYSTEM] == NULL)
+         {
+           if (!get_from_env (&bus_connection_addresses[DBUS_BUS_SYSTEM],
+                              "DBUS_SYSTEM_BUS_ADDRESS"))
+             return FALSE;
+           
+           if (bus_connection_addresses[DBUS_BUS_SYSTEM] == NULL)
+             {
+               /* Use default system bus address if none set in environment */
+               bus_connection_addresses[DBUS_BUS_SYSTEM] =
+                 _dbus_strdup ("unix:path=" DBUS_SYSTEM_BUS_PATH);
+               if (bus_connection_addresses[DBUS_BUS_SYSTEM] == NULL)
+                 return FALSE;
+             }
+         }
+          
+      if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
+        {
+          if (!get_from_env (&bus_connection_addresses[DBUS_BUS_SESSION],
+                             "DBUS_SESSION_BUS_ADDRESS"))
+            return FALSE;
+        }
+
+      if (bus_connection_addresses[DBUS_BUS_ACTIVATION] == NULL)
+        {
+          if (!get_from_env (&bus_connection_addresses[DBUS_BUS_ACTIVATION],
+                             "DBUS_ACTIVATION_ADDRESS"))
+            return FALSE;
+        }
+
+      s = _dbus_getenv ("DBUS_ACTIVATION_BUS_TYPE");
+
+      if (s != NULL)
+        {
+          if (strcmp (s, "system") == 0)
+            activation_bus_type = DBUS_BUS_SYSTEM;
+          else if (strcmp (s, "session") == 0)
+            activation_bus_type = DBUS_BUS_SESSION;
+        }
+
+      /* If we return FALSE we have to be sure that restarting
+       * the above code will work right
+       */
+      
+      if (!_dbus_setenv ("DBUS_ACTIVATION_ADDRESS", NULL))
+        return FALSE;
+
+      if (!_dbus_setenv ("DBUS_ACTIVATION_BUS_TYPE", NULL))
+        return FALSE;
+      
+      if (!_dbus_register_shutdown_func (addresses_shutdown_func,
+                                         NULL))
+        return FALSE;
+      
+      initialized = TRUE;
+    }
+
+  return initialized;
+}
 
 static dbus_bool_t
 data_slot_ref (void)
@@ -172,11 +294,6 @@ ensure_bus_data (DBusConnection *connection)
  * @{
  */
 
-/** Number of bus types */
-#define BUS_TYPES 2
-
-static DBusConnection *bus_connections[BUS_TYPES];
-
 /**
  * Connects to a bus daemon and registers the client with it.
  * If a connection to the bus already exists, then that connection is returned.
@@ -191,11 +308,14 @@ DBusConnection *
 dbus_bus_get (DBusBusType  type,
 	      DBusError   *error)
 {
-  const char *name, *value;
+  const char *address;
   DBusConnection *connection;
   BusData *bd;
+  DBusBusType address_type;
 
-  if (type <= 0 || type >= BUS_TYPES)
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  if (type < 0 || type >= N_BUS_TYPES)
     {
       _dbus_assert_not_reached ("Invalid bus type specified.");
 
@@ -203,6 +323,26 @@ dbus_bus_get (DBusBusType  type,
     }
 
   _DBUS_LOCK (bus);
+
+  if (!init_connections_unlocked ())
+    {
+      _DBUS_UNLOCK (bus);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return NULL;
+    }
+
+  /* We want to use the activation address even if the
+   * activating bus is the session or system bus,
+   * per the spec.
+   */
+  address_type = type;
+  
+  /* Use the real type of the activation bus for getting its
+   * connection. (If the activating bus isn't a well-known
+   * bus then activation_bus_type == DBUS_BUS_ACTIVATION)
+   */
+  if (type == DBUS_BUS_ACTIVATION)
+    type = activation_bus_type;
   
   if (bus_connections[type] != NULL)
     {
@@ -213,45 +353,27 @@ dbus_bus_get (DBusBusType  type,
       return connection;
     }
 
-  switch (type)
-    {
-    case DBUS_BUS_SESSION:
-      name = "DBUS_SESSION_BUS_ADDRESS";
-      break;
-    case DBUS_BUS_SYSTEM:
-      name = "DBUS_SYSTEM_BUS_ADDRESS";
-      break;
-    }
-
-  value = _dbus_getenv (name);
-
-  if (type == DBUS_BUS_SYSTEM &&
-      (value == NULL || *value == '\0'))
-    {
-      /* Use default system bus address if none set */
-      value = "unix:path=" DBUS_SYSTEM_BUS_PATH;
-    }
-  
-  if (value == NULL || *value == '\0')
+  address = bus_connection_addresses[address_type];
+  if (address == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
-		      "Environment variable %s not set, address of message bus unknown",
-                      name);
+                      "Unable to determine the address of the message bus");
       _DBUS_UNLOCK (bus);
-      
       return NULL;
     }
 
-  connection = dbus_connection_open (value, error);
+  connection = dbus_connection_open (address, error);
   
   if (!connection)
     {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
       _DBUS_UNLOCK (bus);
       return NULL;
     }
   
   if (!dbus_bus_register (connection, error))
     {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
       dbus_connection_disconnect (connection);
       dbus_connection_unref (connection);
 
@@ -265,7 +387,7 @@ dbus_bus_get (DBusBusType  type,
 
   bd->connection = &bus_connections[type];
 
-  _DBUS_UNLOCK (bus);  
+  _DBUS_UNLOCK (bus);
   return connection;
 }
 

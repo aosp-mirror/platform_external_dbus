@@ -82,37 +82,76 @@ _dbus_abort (void)
 }
 
 /**
- * Wrapper for setenv().
+ * Wrapper for setenv(). If the value is #NULL, unsets
+ * the environment variable.
+ *
+ * @todo if someone can verify it's safe, we could avoid the
+ * memleak when doing an unset.
  *
  * @param varname name of environment variable
  * @param value value of environment variable
  * @returns #TRUE on success.
  */
 dbus_bool_t
-_dbus_setenv (const char *varname, const char *value)
+_dbus_setenv (const char *varname,
+              const char *value)
 {
-#ifdef HAVE_SETENV
-  return (setenv (varname, value, TRUE) == 0);
-#else
-  DBusString str;
-  char *putenv_value;
-
-  if (!_dbus_string_init (&str))
-    return FALSE;
-
-  if (!_dbus_string_append (&str, varname) ||
-      !_dbus_string_append (&str, "=") ||
-      !_dbus_string_append (&str, value) ||
-      !_dbus_string_steal_data (&str, &putenv_value))
+  _dbus_assert (varname != NULL);
+  
+  if (value == NULL)
     {
-      _dbus_string_free (&str);
-      return FALSE;
-    }
+#ifdef HAVE_UNSETENV
+      unsetenv (varname);
+      return TRUE;
+#else
+      char *putenv_value;
+      size_t len;
 
-  _dbus_string_free (&str);
+      len = strlen (varname);
 
-  return (putenv (putenv_value) == 0);
+      /* Use system malloc to avoid memleaks that dbus_malloc
+       * will get upset about.
+       */
+      
+      putenv_value = malloc (len + 1);
+      if (putenv_value == NULL)
+        return FALSE;
+
+      strcpy (putenv_value, varname);
+      
+      return (putenv (putenv_value) == 0);
 #endif
+    }
+  else
+    {
+#ifdef HAVE_SETENV
+      return (setenv (varname, value, TRUE) == 0);
+#else
+      char *putenv_value;
+      size_t len;
+      size_t varname_len;
+      size_t value_len;
+
+      varname_len = strlen (varname);
+      value_len = strlen (value);
+      
+      len = varname_len + value_len + 1 /* '=' */ ;
+
+      /* Use system malloc to avoid memleaks that dbus_malloc
+       * will get upset about.
+       */
+      
+      putenv_value = malloc (len + 1);
+      if (putenv_value == NULL)
+        return FALSE;
+
+      strcpy (putenv_value, varname);
+      strcpy (putenv_value + varname_len, "=");
+      strcpy (putenv_value + varname_len + 1, value);
+      
+      return (putenv (putenv_value) == 0);
+#endif
+    }
 }
 
 /**

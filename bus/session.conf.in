@@ -5,6 +5,9 @@
 <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
+  <!-- Our well-known bus type, don't change this -->
+  <type>session</type>
+
   <!-- FIXME - this is fairly complicated to fix.
        Propose the following:
          - add "unix:tmpdir=/tmp" which means unix domain transport 
@@ -18,6 +21,7 @@
            reads the address from there and sets the env variable
     -->
   <listen>unix:path=/tmp/foobar</listen>
+
   <policy context="default">
     <!-- Allow everything -->
     <allow send="*"/>

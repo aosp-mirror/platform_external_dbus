@@ -41,7 +41,8 @@ typedef enum
   ELEMENT_DENY,
   ELEMENT_FORK,
   ELEMENT_SERVICEDIR,
-  ELEMENT_INCLUDEDIR
+  ELEMENT_INCLUDEDIR,
+  ELEMENT_TYPE
 } ElementType;
 
 typedef struct
@@ -56,11 +57,6 @@ typedef struct
     {
       unsigned int ignore_missing : 1;
     } include;
-
-    struct
-    {
-      char *mechanism;
-    } auth;
 
     struct
     {
@@ -89,6 +85,8 @@ struct BusConfigParser
 
   char *user;          /**< user to run as */
 
+  char *bus_type;          /**< Message bus type */
+  
   DBusList *listen_on; /**< List of addresses to listen to */
 
   DBusList *mechanisms; /**< Auth mechanisms */
@@ -129,6 +127,8 @@ element_type_to_name (ElementType type)
       return "servicedir";
     case ELEMENT_INCLUDEDIR:
       return "includedir";
+    case ELEMENT_TYPE:
+      return "type";
     }
 
   _dbus_assert_not_reached ("bad element type");
@@ -213,6 +213,13 @@ merge_included (BusConfigParser *parser,
       included->user = NULL;
     }
 
+  if (included->bus_type != NULL)
+    {
+      dbus_free (parser->bus_type);
+      parser->bus_type = included->bus_type;
+      included->bus_type = NULL;
+    }
+  
   if (included->fork)
     parser->fork = TRUE;
   
@@ -276,7 +283,8 @@ bus_config_parser_unref (BusConfigParser *parser)
         pop_element (parser);
 
       dbus_free (parser->user);
-
+      dbus_free (parser->bus_type);
+      
       _dbus_list_foreach (&parser->listen_on,
                           (DBusForeachFunction) dbus_free,
                           NULL);
@@ -289,6 +297,12 @@ bus_config_parser_unref (BusConfigParser *parser)
 
       _dbus_list_clear (&parser->service_dirs);
 
+      _dbus_list_foreach (&parser->mechanisms,
+                          (DBusForeachFunction) dbus_free,
+                          NULL);
+
+      _dbus_list_clear (&parser->mechanisms);
+      
       _dbus_string_free (&parser->basedir);
       
       dbus_free (parser);
@@ -451,7 +465,20 @@ start_busconfig_child (BusConfigParser   *parser,
 
       if (push_element (parser, ELEMENT_USER) == NULL)
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+
+      return TRUE;
+    }
+  else if (strcmp (element_name, "type") == 0)
+    {
+      if (!check_no_attributes (parser, "type", attribute_names, attribute_values, error))
+        return FALSE;
+
+      if (push_element (parser, ELEMENT_TYPE) == NULL)
+        {
+          BUS_SET_OOM (error);
           return FALSE;
         }
 
@@ -464,7 +491,7 @@ start_busconfig_child (BusConfigParser   *parser,
 
       if (push_element (parser, ELEMENT_FORK) == NULL)
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          BUS_SET_OOM (error);
           return FALSE;
         }
 
@@ -479,7 +506,7 @@ start_busconfig_child (BusConfigParser   *parser,
 
       if (push_element (parser, ELEMENT_LISTEN) == NULL)
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          BUS_SET_OOM (error);
           return FALSE;
         }
 
@@ -492,7 +519,7 @@ start_busconfig_child (BusConfigParser   *parser,
 
       if (push_element (parser, ELEMENT_AUTH) == NULL)
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          BUS_SET_OOM (error);
           return FALSE;
         }
 
@@ -505,7 +532,7 @@ start_busconfig_child (BusConfigParser   *parser,
 
       if (push_element (parser, ELEMENT_INCLUDEDIR) == NULL)
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          BUS_SET_OOM (error);
           return FALSE;
         }
 
@@ -518,7 +545,7 @@ start_busconfig_child (BusConfigParser   *parser,
 
       if (push_element (parser, ELEMENT_SERVICEDIR) == NULL)
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          BUS_SET_OOM (error);
           return FALSE;
         }
 
@@ -531,7 +558,7 @@ start_busconfig_child (BusConfigParser   *parser,
 
       if ((e = push_element (parser, ELEMENT_INCLUDE)) == NULL)
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          BUS_SET_OOM (error);
           return FALSE;
         }
 
@@ -570,7 +597,7 @@ start_busconfig_child (BusConfigParser   *parser,
 
       if ((e = push_element (parser, ELEMENT_POLICY)) == NULL)
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          BUS_SET_OOM (error);
           return FALSE;
         }
 
@@ -608,7 +635,7 @@ start_policy_child (BusConfigParser   *parser,
     {
       if (push_element (parser, ELEMENT_ALLOW) == NULL)
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          BUS_SET_OOM (error);
           return FALSE;
         }
       
@@ -618,7 +645,7 @@ start_policy_child (BusConfigParser   *parser,
     {
       if (push_element (parser, ELEMENT_DENY) == NULL)
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          BUS_SET_OOM (error);
           return FALSE;
         }
       
@@ -657,7 +684,7 @@ bus_config_parser_start_element (BusConfigParser   *parser,
           
           if (push_element (parser, ELEMENT_BUSCONFIG) == NULL)
             {
-              dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+              BUS_SET_OOM (error);
               return FALSE;
             }
 
@@ -725,7 +752,8 @@ bus_config_parser_end_element (BusConfigParser   *parser,
        * being paranoid about XML parsers
        */
       dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "XML element ended which was not the topmost element on the stack");
+                      "XML element <%s> ended but topmost element on the stack was <%s>",
+                      element_name, n);
       return FALSE;
     }
 
@@ -740,6 +768,7 @@ bus_config_parser_end_element (BusConfigParser   *parser,
 
     case ELEMENT_INCLUDE:
     case ELEMENT_USER:
+    case ELEMENT_TYPE:
     case ELEMENT_LISTEN:
     case ELEMENT_AUTH:
     case ELEMENT_SERVICEDIR:
@@ -1040,6 +1069,20 @@ bus_config_parser_content (BusConfigParser   *parser,
       }
       break;
 
+    case ELEMENT_TYPE:
+      {
+        char *s;
+
+        e->had_content = TRUE;
+
+        if (!_dbus_string_copy_data (content, &s))
+          goto nomem;
+        
+        dbus_free (parser->bus_type);
+        parser->bus_type = s;
+      }
+      break;
+      
     case ELEMENT_LISTEN:
       {
         char *s;
@@ -1147,6 +1190,12 @@ const char*
 bus_config_parser_get_user (BusConfigParser *parser)
 {
   return parser->user;
+}
+
+const char*
+bus_config_parser_get_type (BusConfigParser *parser)
+{
+  return parser->bus_type;
 }
 
 DBusList**
