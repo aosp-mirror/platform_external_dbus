@@ -25,6 +25,7 @@
 
 #include <dbus/dbus-message.h>
 #include <dbus/dbus-resources.h>
+#include <dbus/dbus-list.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -52,6 +53,7 @@ void               _dbus_message_loader_return_buffer         (DBusMessageLoader
                                                                int                 bytes_read);
 
 DBusMessage*       _dbus_message_loader_pop_message           (DBusMessageLoader  *loader);
+DBusList*          _dbus_message_loader_pop_message_link      (DBusMessageLoader  *loader);
 
 dbus_bool_t        _dbus_message_loader_get_is_corrupted      (DBusMessageLoader  *loader);
 

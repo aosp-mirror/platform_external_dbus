@@ -1,5 +1,18 @@
 2003-03-16  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-connection.c
+	(_dbus_connection_queue_received_message_link): new function that
+	can't fail due to OOM
+
+	* dbus/dbus-message.c (_dbus_message_loader_pop_message_link):
+	new function pops a message together with a list link 
+	containing it.
+
+	* dbus/dbus-transport-unix.c (queue_messages): use new link-based
+	message queuing functions to avoid needing to alloc memory
+
+2003-03-16  Havoc Pennington  <hp@pobox.com>
+
 	Oops - test code was only testing failure of around 30 of the
 	mallocs in the test path, but it turns out there are 500+
 	mallocs. I believe this was due to misguided linking setup such

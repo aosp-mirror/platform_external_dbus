@@ -181,19 +181,22 @@ do_io_error (DBusTransport *transport)
 static void
 queue_messages (DBusTransport *transport)
 {
-  DBusMessage *message;
+  DBusList *link;
   
   /* Queue any messages */
-  while ((message = _dbus_message_loader_pop_message (transport->loader)))
+  while ((link = _dbus_message_loader_pop_message_link (transport->loader)))
     {
+      DBusMessage *message;
+
+      message = link->data;
+      
       _dbus_verbose ("queueing received message %p\n", message);
 
       _dbus_message_add_size_counter (message, transport->live_messages_size);
-      if (!_dbus_connection_queue_received_message (transport->connection,
-                                                    message))
-        /* FIXME woops! */;
-        
-      dbus_message_unref (message);
+
+      /* pass ownership of link and message ref to connection */
+      _dbus_connection_queue_received_message_link (transport->connection,
+                                                    link);
     }
 
   if (_dbus_message_loader_get_is_corrupted (transport->loader))

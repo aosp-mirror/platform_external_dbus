@@ -2908,6 +2908,19 @@ _dbus_message_loader_pop_message (DBusMessageLoader *loader)
   return _dbus_list_pop_first (&loader->messages);
 }
 
+/**
+ * Pops a loaded message inside a list link (passing ownership of the
+ * message and link to the caller). Returns #NULL if no messages have
+ * been loaded.
+ *
+ * @param loader the loader.
+ * @returns the next message link, or #NULL if none.
+ */
+DBusList*
+_dbus_message_loader_pop_message_link (DBusMessageLoader *loader)
+{
+  return _dbus_list_pop_first_link (&loader->messages);
+}
 
 /**
  * Checks whether the loader is confused due to bad data.

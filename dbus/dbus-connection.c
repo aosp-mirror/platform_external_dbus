@@ -168,6 +168,7 @@ _dbus_connection_wakeup_mainloop (DBusConnection *connection)
 /**
  * Adds a message to the incoming message queue, returning #FALSE
  * if there's insufficient memory to queue the message.
+ * Does not take over refcount of the message.
  *
  * @param connection the connection.
  * @param message the message to queue.
@@ -177,15 +178,40 @@ dbus_bool_t
 _dbus_connection_queue_received_message (DBusConnection *connection,
                                          DBusMessage    *message)
 {
+  DBusList *link;
+
+  link = _dbus_list_alloc_link (message);
+  if (link == NULL)
+    return FALSE;
+
+  dbus_message_ref (message);
+  _dbus_connection_queue_received_message_link (connection, link);
+
+  return TRUE;
+}
+
+/**
+ * Adds a message-containing list link to the incoming message queue,
+ * taking ownership of the link and the message's current refcount.
+ * Cannot fail due to lack of memory.
+ *
+ * @param connection the connection.
+ * @param link the message link to queue.
+ */
+void
+_dbus_connection_queue_received_message_link (DBusConnection  *connection,
+                                              DBusList        *link)
+{
   ReplyHandlerData *reply_handler_data;
   dbus_int32_t reply_serial;
+  DBusMessage *message;
   
   _dbus_assert (_dbus_transport_get_is_authenticated (connection->transport));
   
-  if (!_dbus_list_append (&connection->incoming_messages,
-                          message))
-    return FALSE;
-
+  _dbus_list_append_link (&connection->incoming_messages,
+                          link);
+  message = link->data;
+  
   /* If this is a reply we're waiting on, remove timeout for it */
   reply_serial = dbus_message_get_reply_serial (message);
   if (reply_serial != -1)
@@ -201,7 +227,6 @@ _dbus_connection_queue_received_message (DBusConnection *connection,
 	}
     }
   
-  dbus_message_ref (message);
   connection->n_incoming += 1;
 
   _dbus_connection_wakeup_mainloop (connection);
@@ -211,8 +236,6 @@ _dbus_connection_queue_received_message (DBusConnection *connection,
                  message, dbus_message_get_name (message),
                  connection,
                  connection->n_incoming);
-  
-  return TRUE;
 }
 
 /**

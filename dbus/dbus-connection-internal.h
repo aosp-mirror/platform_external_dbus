@@ -28,6 +28,7 @@
 #include <dbus/dbus-message.h>
 #include <dbus/dbus-transport.h>
 #include <dbus/dbus-resources.h>
+#include <dbus/dbus-list.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -37,56 +38,48 @@ typedef enum
   DBUS_ITERATION_DO_READING = 1 << 1, /**< Read messages in. */
   DBUS_ITERATION_BLOCK      = 1 << 2  /**< Block if nothing to do. */
 } DBusIterationFlags;
+void              _dbus_connection_lock                        (DBusConnection     *connection);
+void              _dbus_connection_unlock                      (DBusConnection     *connection);
+void              _dbus_connection_ref_unlocked                (DBusConnection     *connection);
+dbus_bool_t       _dbus_connection_queue_received_message      (DBusConnection     *connection,
+                                                                DBusMessage        *message);
+void              _dbus_connection_queue_received_message_link (DBusConnection     *connection,
+                                                                DBusList           *link);
+dbus_bool_t       _dbus_connection_have_messages_to_send       (DBusConnection     *connection);
+DBusMessage*      _dbus_connection_get_message_to_send         (DBusConnection     *connection);
+void              _dbus_connection_message_sent                (DBusConnection     *connection,
+                                                                DBusMessage        *message);
+dbus_bool_t       _dbus_connection_add_watch                   (DBusConnection     *connection,
+                                                                DBusWatch          *watch);
+void              _dbus_connection_remove_watch                (DBusConnection     *connection,
+                                                                DBusWatch          *watch);
+void              _dbus_connection_toggle_watch                (DBusConnection     *connection,
+                                                                DBusWatch          *watch,
+                                                                dbus_bool_t         enabled);
+dbus_bool_t       _dbus_connection_add_timeout                 (DBusConnection     *connection,
+                                                                DBusTimeout        *timeout);
+void              _dbus_connection_remove_timeout              (DBusConnection     *connection,
+                                                                DBusTimeout        *timeout);
+void              _dbus_connection_toggle_timeout              (DBusConnection     *connection,
+                                                                DBusTimeout        *timeout,
+                                                                dbus_bool_t         enabled);
+DBusConnection*   _dbus_connection_new_for_transport           (DBusTransport      *transport);
+void              _dbus_connection_do_iteration                (DBusConnection     *connection,
+                                                                unsigned int        flags,
+                                                                int                 timeout_milliseconds);
+void              _dbus_connection_notify_disconnected         (DBusConnection     *connection);
+void              _dbus_connection_handler_destroyed_locked    (DBusConnection     *connection,
+                                                                DBusMessageHandler *handler);
+void              _dbus_connection_set_connection_counter      (DBusConnection     *connection,
+                                                                DBusCounter        *counter);
+dbus_bool_t       _dbus_message_handler_add_connection         (DBusMessageHandler *handler,
+                                                                DBusConnection     *connection);
+void              _dbus_message_handler_remove_connection      (DBusMessageHandler *handler,
+                                                                DBusConnection     *connection);
+DBusHandlerResult _dbus_message_handler_handle_message         (DBusMessageHandler *handler,
+                                                                DBusConnection     *connection,
+                                                                DBusMessage        *message);
 
-void             _dbus_connection_lock                  (DBusConnection *connection);
-void             _dbus_connection_unlock                (DBusConnection *connection);
-
-void             _dbus_connection_ref_unlocked          (DBusConnection *connection);
-
-dbus_bool_t     _dbus_connection_queue_received_message (DBusConnection *connection,
-                                                         DBusMessage    *message);
-dbus_bool_t     _dbus_connection_have_messages_to_send  (DBusConnection *connection);
-
-DBusMessage*    _dbus_connection_get_message_to_send    (DBusConnection *connection);
-void            _dbus_connection_message_sent           (DBusConnection *connection,
-                                                         DBusMessage    *message);
-
-dbus_bool_t     _dbus_connection_add_watch              (DBusConnection *connection,
-                                                         DBusWatch      *watch);
-void            _dbus_connection_remove_watch           (DBusConnection *connection,
-                                                         DBusWatch      *watch);
-void            _dbus_connection_toggle_watch           (DBusConnection *connection,
-                                                         DBusWatch      *watch,
-                                                         dbus_bool_t     enabled);
-dbus_bool_t     _dbus_connection_add_timeout            (DBusConnection *connection,
-							 DBusTimeout    *timeout);
-void            _dbus_connection_remove_timeout         (DBusConnection *connection,
-							 DBusTimeout    *timeout);
-void            _dbus_connection_toggle_timeout         (DBusConnection *connection,
-                                                         DBusTimeout    *timeout,
-                                                         dbus_bool_t     enabled);
-DBusConnection* _dbus_connection_new_for_transport      (DBusTransport  *transport);
-
-void            _dbus_connection_do_iteration           (DBusConnection *connection,
-                                                         unsigned int    flags,
-                                                         int             timeout_milliseconds);
-
-void            _dbus_connection_notify_disconnected      (DBusConnection *connection);
-
-void            _dbus_connection_handler_destroyed_locked (DBusConnection *connection,
-							   DBusMessageHandler *handler);
-
-
-void            _dbus_connection_set_connection_counter   (DBusConnection *connection,
-							   DBusCounter    *counter);
-
-dbus_bool_t       _dbus_message_handler_add_connection    (DBusMessageHandler *handler,
-                                                           DBusConnection     *connection);
-void              _dbus_message_handler_remove_connection (DBusMessageHandler *handler,
-                                                           DBusConnection     *connection);
-DBusHandlerResult _dbus_message_handler_handle_message    (DBusMessageHandler *handler,
-                                                           DBusConnection     *connection,
-                                                           DBusMessage        *message);
 
 
 
