@@ -1,3 +1,10 @@
+2004-05-07  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/dbus-bindings.pyx.in: Stopped the bindings from trashing
+	the stack by implicitly defining variable and parameter types and
+	removing the hack of defining C pointers as python objects and later
+	casting them.
+
 2004-05-02  Owen Fraser-Green  <owen@discobabe.net>
 
 	* mono/Makefile.am: Removed test-dbus-sharp.exe from all target
