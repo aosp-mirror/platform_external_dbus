@@ -415,16 +415,20 @@ warn_unexpected_real (DBusConnection *connection,
                       const char     *function,
                       int             line)
 {
-  _dbus_warn ("%s:%d received message interface \"%s\" member \"%s\" error name \"%s\" on %p, expecting %s\n",
-              function, line,
-              dbus_message_get_interface (message) ?
-              dbus_message_get_interface (message) : "(unset)",
-              dbus_message_get_member (message) ?
-              dbus_message_get_member (message) : "(unset)",
-              dbus_message_get_error_name (message) ?
-              dbus_message_get_error_name (message) : "(unset)",
-              connection,
-              expected);
+  if (message)
+    _dbus_warn ("%s:%d received message interface \"%s\" member \"%s\" error name \"%s\" on %p, expecting %s\n",
+                function, line,
+                dbus_message_get_interface (message) ?
+                dbus_message_get_interface (message) : "(unset)",
+                dbus_message_get_member (message) ?
+                dbus_message_get_member (message) : "(unset)",
+                dbus_message_get_error_name (message) ?
+                dbus_message_get_error_name (message) : "(unset)",
+                connection,
+                expected);
+  else
+    _dbus_warn ("%s:%d received no message on %p, expecting %s\n",
+                function, line, connection, expected);
 }
 
 #define warn_unexpected(connection, message, expected) \
@@ -1428,12 +1432,6 @@ check_service_deactivated (BusContext     *context,
 
   if (csdd.failed)
     goto out;
-      
-  if (!check_no_leftovers (context))
-    {
-      _dbus_warn ("Messages were left over after verifying results of service exiting\n");
-      goto out;
-    }
 
   retval = TRUE;
   
@@ -1519,6 +1517,13 @@ check_send_exit_to_service (BusContext     *context,
       message = pop_message_waiting_for_memory (connection);
       _dbus_assert (message != NULL);
 
+      if (dbus_message_get_reply_serial (message) != serial)
+        {
+          warn_unexpected (connection, message,
+                           "error with the correct reply serial");
+          goto out;
+        }
+      
       if (!dbus_message_is_error (message,
                                   DBUS_ERROR_NO_MEMORY))
         {
@@ -1540,8 +1545,45 @@ check_send_exit_to_service (BusContext     *context,
       if (!check_service_deactivated (context, connection,
                                       service_name, base_service))
         goto out;
-    }
 
+      /* Should now have a NoReply error from the Exit() method
+       * call; it should have come after all the deactivation
+       * stuff.
+       */
+      message = pop_message_waiting_for_memory (connection);
+          
+      if (message == NULL)
+        {
+          warn_unexpected (connection, NULL,
+                           "reply to Exit() method call");
+          goto out;
+        }
+      if (!dbus_message_is_error (message,
+                                  DBUS_ERROR_NO_REPLY))
+        {
+          warn_unexpected (connection, NULL,
+                           "NoReply error from Exit() method call");
+          goto out;
+        }
+
+      if (dbus_message_get_reply_serial (message) != serial)
+        {
+          warn_unexpected (connection, message,
+                           "error with the correct reply serial");
+          goto out;
+        }
+          
+      _dbus_verbose ("Got error %s after test service exited\n",
+                     dbus_message_get_error_name (message));
+      
+      if (!check_no_leftovers (context))
+        {
+          _dbus_warn ("Messages were left over after %s\n",
+                      _DBUS_FUNCTION_NAME);
+          goto out;
+        }
+    }
+  
   retval = TRUE;
   
  out:

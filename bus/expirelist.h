@@ -31,9 +31,9 @@
 typedef struct BusExpireList BusExpireList;
 typedef struct BusExpireItem BusExpireItem;
 
-typedef void (* BusExpireFunc) (BusExpireList *list,
-                                DBusList      *link,
-                                void          *data);
+typedef dbus_bool_t (* BusExpireFunc) (BusExpireList *list,
+                                       DBusList      *link,
+                                       void          *data);
 
 struct BusExpireList
 {

@@ -143,11 +143,16 @@ do_expiration_with_current_time (BusExpireList *list,
           _dbus_verbose ("Expiring an item %p\n", item);
 
           /* If the expire function fails, we just end up expiring
-           * this item next time we walk through the list. Which is in
-           * indeterminate time since we don't know what next_interval
-           * will be.
+           * this item next time we walk through the list. This would
+           * be an indeterminate time normally, so we set up the
+           * next_interval to be "shortly" (just enough to avoid
+           * a busy loop)
            */
-          (* list->expire_func) (list, link, list->data);
+          if (!(* list->expire_func) (list, link, list->data))
+            {
+              next_interval = _dbus_get_oom_wait ();
+              break;
+            }
         }
       else
         {
@@ -205,7 +210,7 @@ typedef struct
   int expire_count;
 } TestExpireItem;
 
-static void
+static dbus_bool_t
 test_expire_func (BusExpireList *list,
                   DBusList      *link,
                   void          *data)
@@ -215,6 +220,8 @@ test_expire_func (BusExpireList *list,
   t = (TestExpireItem*) link->data;
 
   t->expire_count += 1;
+
+  return TRUE;
 }
 
 static void

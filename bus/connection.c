@@ -80,9 +80,9 @@ typedef struct
   int stamp;               /**< connections->stamp last time we were traversed */
 } BusConnectionData;
 
-static void bus_pending_reply_expired (BusExpireList *list,
-                                       DBusList      *link,
-                                       void          *data);
+static dbus_bool_t bus_pending_reply_expired (BusExpireList *list,
+                                              DBusList      *link,
+                                              void          *data);
 
 static void bus_connection_drop_pending_replies (BusConnections  *connections,
                                                  DBusConnection  *connection);
@@ -1392,7 +1392,7 @@ bus_pending_reply_send_no_reply (BusConnections  *connections,
   return retval;
 }
 
-static void
+static dbus_bool_t
 bus_pending_reply_expired (BusExpireList *list,
                            DBusList      *link,
                            void          *data)
@@ -1414,20 +1414,22 @@ bus_pending_reply_expired (BusExpireList *list,
   
   transaction = bus_transaction_new (connections->context);
   if (transaction == NULL)
-    return;
+    return FALSE;
   
   if (!bus_pending_reply_send_no_reply (connections,
                                         transaction,
                                         pending))
     {
       bus_transaction_cancel_and_free (transaction);
-      return;
+      return FALSE;
     }
   
   _dbus_list_remove_link (&connections->pending_replies->items,
                           link);
   bus_pending_reply_free (pending);
   bus_transaction_execute_and_free (transaction);
+
+  return TRUE;
 }
 
 static void

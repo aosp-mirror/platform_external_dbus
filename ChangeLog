@@ -1,5 +1,15 @@
 2003-10-28  Havoc Pennington  <hp@redhat.com>
 
+	* bus/expirelist.c (do_expiration_with_current_time): detect
+	failure of the expire_func due to OOM
+
+	* bus/connection.c (bus_pending_reply_expired): return FALSE on OOM
+
+	* bus/dispatch.c (check_send_exit_to_service): fix to handle the
+	NoReply error that's now created by the bus when the service exits
+
+2003-10-28  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-message.c (_dbus_message_test): enable and fix the
 	tests for set_path, set_interface, set_member, etc.
 
