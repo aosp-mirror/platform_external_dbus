@@ -1486,6 +1486,12 @@ dbus_message_get_cached (void)
       return NULL;
     }
 
+  /* This is not necessarily true unless count > 0, and
+   * message_cache is uninitialized until the shutdown is
+   * registered
+   */
+  _dbus_assert (message_cache_shutdown_registered);
+  
   i = 0;
   while (i < MAX_MESSAGE_CACHE_SIZE)
     {
@@ -1498,6 +1504,7 @@ dbus_message_get_cached (void)
         }
       ++i;
     }
+  _dbus_assert (message_cache_count >= 0);
   _dbus_assert (i < MAX_MESSAGE_CACHE_SIZE);
   _dbus_assert (message != NULL);
 
@@ -1559,15 +1566,15 @@ dbus_message_cache_or_finalize (DBusMessage *message)
       MAX_MESSAGE_SIZE_TO_CACHE)
     goto out;
   
-  if (message_cache_count > MAX_MESSAGE_CACHE_SIZE)
+  if (message_cache_count >= MAX_MESSAGE_CACHE_SIZE)
     goto out;
 
+  /* Find empty slot */
   i = 0;
   while (message_cache[i] != NULL)
-    {
-      ++i;
-      _dbus_assert (i < MAX_MESSAGE_CACHE_SIZE);
-    }
+    ++i;
+
+  _dbus_assert (i < MAX_MESSAGE_CACHE_SIZE);
 
   _dbus_assert (message_cache[i] == NULL);
   message_cache[i] = message;
