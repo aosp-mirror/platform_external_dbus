@@ -1749,20 +1749,15 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
 
   reply = dbus_message_new_error (message, DBUS_ERROR_NO_REPLY,
                                   "No reply within specified time");
-  if (!reply)
-    {
-      CONNECTION_UNLOCK (connection);
-      dbus_pending_call_unref (pending);
-      return FALSE;
-    }
+  if (reply == NULL)
+    goto error;
 
   reply_link = _dbus_list_alloc_link (reply);
-  if (!reply)
+  if (reply_link == NULL)
     {
       CONNECTION_UNLOCK (connection);
       dbus_message_unref (reply);
-      dbus_pending_call_unref (pending);
-      return FALSE;
+      goto error_unlocked;
     }
 
   pending->timeout_link = reply_link;
@@ -1772,29 +1767,30 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
    * Also, add the timeout.
    */
   if (!_dbus_connection_attach_pending_call_unlocked (connection,
-                                                      pending))
-    {
-      CONNECTION_UNLOCK (connection);
-      dbus_pending_call_unref (pending);
-      return FALSE;
-    }
+						      pending))
+    goto error;
   
   if (!_dbus_connection_send_unlocked (connection, message, NULL))
     {
       _dbus_connection_detach_pending_call_and_unlock (connection,
-                                                       pending);
-      return FALSE;
+						       pending);
+      goto error_unlocked;
     }
 
   if (pending_return)
-    {
-      dbus_pending_call_ref (pending);
-      *pending_return = pending;
-    }
+    *pending_return = pending;
+  else
+    dbus_pending_call_unref (pending);
 
   CONNECTION_UNLOCK (connection);
   
   return TRUE;
+
+ error:
+  CONNECTION_UNLOCK (connection);
+ error_unlocked:
+  dbus_pending_call_unref (pending);
+  return FALSE;
 }
 
 static DBusMessage*

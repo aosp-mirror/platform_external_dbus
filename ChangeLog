@@ -1,3 +1,13 @@
+2004-03-27  Havoc Pennington  <hp@redhat.com>
+
+	Patch from Timo Teräs:
+	
+	* tools/dbus-send.c (main): if --print-reply, assume type is
+	method call; support boolean type args
+	
+	* dbus/dbus-connection.c (dbus_connection_send_with_reply): fix a
+	bunch of memleak and logic bugs
+	
 2004-03-23  Owen Fraser-Green  <owen@discobabe.net>
 
         * mono/Arguments.cs:

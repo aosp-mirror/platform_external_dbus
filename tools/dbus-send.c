@@ -64,7 +64,10 @@ main (int argc, char *argv[])
       else if (strcmp (arg, "--session") == 0)
 	type = DBUS_BUS_SESSION;
       else if (strcmp (arg, "--print-reply") == 0)
-        print_reply = TRUE;
+	{
+	  print_reply = TRUE;
+	  message_type = DBUS_MESSAGE_TYPE_METHOD_CALL;
+	}
       else if (strstr (arg, "--dest=") == arg)
 	dest = strchr (arg, '=') + 1;
       else if (strstr (arg, "--type=") == arg)
@@ -225,6 +228,18 @@ main (int argc, char *argv[])
 
 	case DBUS_TYPE_STRING:
 	  dbus_message_iter_append_string (&iter, c);
+	  break;
+
+	case DBUS_TYPE_BOOLEAN:
+          if (strcmp(c, "true") == 0)
+            dbus_message_iter_append_boolean (&iter, TRUE);
+	  else if (strcmp(c, "false") == 0)
+            dbus_message_iter_append_boolean (&iter, FALSE);
+	  else
+	    {
+	      fprintf (stderr, "%s: Expected \"true\" or \"false\" instead of \"%s\"\n", argv[0], c);
+	      exit (1);
+	    }
 	  break;
 
 	default:
