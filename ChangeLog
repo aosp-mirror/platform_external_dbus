@@ -1,5 +1,15 @@
 2005-01-30  Havoc Pennington  <hp@redhat.com>
 
+        I think this main loop thing is conceptually broken, but here are 
+	some band aids. I'll maybe rewrite it in a minute.
+	
+	* glib/dbus-gmain.c (add_timeout): timeout stuff doesn't use the
+	custom GSource, so don't pass it in; confusing
+	(gsource_server_finalize, gsource_connection_finalize): add
+	finalize handlers that remove all the watches.	
+
+2005-01-30  Havoc Pennington  <hp@redhat.com>
+
 	* glib/dbus-gobject.c (introspect_properties): fix the XML
 	generated
 

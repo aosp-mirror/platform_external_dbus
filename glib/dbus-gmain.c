@@ -2,6 +2,7 @@
 /* dbus-gmain.c GLib main loop integration
  *
  * Copyright (C) 2002, 2003 CodeFactory AB
+ * Copyright (C) 2005 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -99,6 +100,8 @@ watch_fd_new (void)
 static WatchFD * 
 watch_fd_ref (WatchFD *watch_fd)
 {
+  g_assert (watch_fd->refcount > 0);
+  
   watch_fd->refcount += 1;
 
   return watch_fd;
@@ -107,6 +110,8 @@ watch_fd_ref (WatchFD *watch_fd)
 static void
 watch_fd_unref (WatchFD *watch_fd)
 {
+  g_assert (watch_fd->refcount > 0);
+  
   watch_fd->refcount -= 1;
 
   if (watch_fd->refcount == 0)
@@ -126,25 +131,27 @@ static gboolean gsource_connection_check    (GSource     *source);
 static gboolean gsource_connection_dispatch (GSource     *source,
                                              GSourceFunc  callback,
                                              gpointer     user_data);
+static void     gsource_connection_finalize (GSource     *source);
 static gboolean gsource_server_prepare      (GSource     *source,
                                              gint        *timeout);
 static gboolean gsource_server_check        (GSource     *source);
 static gboolean gsource_server_dispatch     (GSource     *source,
                                              GSourceFunc  callback,
                                              gpointer     user_data);
+static void     gsource_server_finalize     (GSource     *source);
 
 static GSourceFuncs dbus_connection_funcs = {
   gsource_connection_prepare,
   gsource_connection_check,
   gsource_connection_dispatch,
-  NULL
+  gsource_connection_finalize
 };
 
 static GSourceFuncs dbus_server_funcs = {
   gsource_server_prepare,
   gsource_server_check,
   gsource_server_dispatch,
-  NULL
+  gsource_server_finalize
 };
 
 static gboolean
@@ -293,6 +300,8 @@ add_watch (DBusWatch *watch,
 
   if (!dbus_watch_get_enabled (watch))
     return TRUE;
+
+  g_assert (dbus_watch_get_data (watch) == NULL);
   
   dbus_source = data;
 
@@ -313,8 +322,33 @@ add_watch (DBusWatch *watch,
   g_source_add_poll ((GSource *)dbus_source, &watch_fd->poll_fd);
 
   dbus_source->watch_fds = g_list_prepend (dbus_source->watch_fds, watch_fd);
+  g_assert (!watch_fd->removed);
 
   return TRUE;
+}
+
+static void
+source_remove_watch_fd (DBusGSource *dbus_source,
+                        WatchFD     *watch_fd)
+{
+  g_assert (g_list_find (dbus_source->watch_fds, watch_fd) != NULL);
+  g_assert (!watch_fd->removed);
+
+  watch_fd_ref (watch_fd);
+  
+  watch_fd->removed = TRUE;
+  dbus_source->watch_fds = g_list_remove (dbus_source->watch_fds, watch_fd);
+
+  g_source_remove_poll ((GSource *)dbus_source, &watch_fd->poll_fd);
+
+  g_assert (watch_fd->watch != NULL);
+  dbus_watch_set_data (watch_fd->watch, NULL, NULL); /* needed due to watch_toggled
+                                                      * breaking add/remove symmetry
+                                                      */
+
+  watch_fd->watch = NULL;
+
+  watch_fd_unref (watch_fd);
 }
 
 static void
@@ -326,18 +360,13 @@ remove_watch (DBusWatch *watch,
   
   watch_fd = dbus_watch_get_data (watch);
   if (watch_fd == NULL)
-    return; /* probably a not-enabled watch that was added */
+    return; /* probably a not-enabled watch that was added,
+             * or the source has been finalized
+             */
 
-  watch_fd->removed = TRUE;
-  watch_fd->watch = NULL;
-  
-  dbus_source->watch_fds = g_list_remove (dbus_source->watch_fds, watch_fd);
+  g_assert (watch_fd->watch == watch);
 
-  g_source_remove_poll ((GSource *)dbus_source, &watch_fd->poll_fd);
-
-  dbus_watch_set_data (watch, NULL, NULL); /* needed due to watch_toggled
-                                            * breaking add/remove symmetry
-                                            */
+  source_remove_watch_fd (dbus_source, watch_fd);
 }
 
 static void
@@ -367,15 +396,17 @@ static dbus_bool_t
 add_timeout (DBusTimeout *timeout,
 	     void        *data)
 {
-  DBusGSource *dbus_source = data;
   GSource *source;
+  GMainContext *context;
 
+  context = data;
+  
   if (!dbus_timeout_get_enabled (timeout))
     return TRUE;
   
   source = g_timeout_source_new (dbus_timeout_get_interval (timeout));
   g_source_set_callback (source, timeout_handler, timeout, NULL);
-  g_source_attach (source, dbus_source->context);
+  g_source_attach (source, context);
   
   dbus_timeout_set_data (timeout, GUINT_TO_POINTER (g_source_get_id (source)),
       			 NULL);
@@ -423,6 +454,33 @@ wakeup_main (void *data)
   g_main_context_wakeup (dbus_source->context);
 }
 
+static void
+remove_all_watch_fd (DBusGSource *dbus_source)
+{
+  while (dbus_source->watch_fds)
+    {
+      WatchFD *watch_fd = dbus_source->watch_fds->data;
+
+      g_assert (!watch_fd->removed); /* should not be in the list if removed */
+      source_remove_watch_fd (dbus_source, watch_fd);
+    }
+}
+
+static void
+gsource_connection_finalize (GSource *source)
+{
+  DBusGSource *dbus_source = (DBusGSource *)source;
+
+  remove_all_watch_fd (dbus_source);
+}
+
+static void
+gsource_server_finalize (GSource *source)
+{
+  DBusGSource *dbus_source = (DBusGSource *)source;
+
+  remove_all_watch_fd (dbus_source);
+}
 
 /** @} */ /* End of GLib bindings internals */
 
@@ -502,7 +560,7 @@ dbus_connection_setup_with_g_main (DBusConnection *connection,
                                               add_timeout,
                                               remove_timeout,
                                               timeout_toggled,
-                                              source, NULL))
+                                              context, NULL))
     goto nomem;
     
   dbus_connection_set_wakeup_main_function (connection,
@@ -571,7 +629,7 @@ dbus_server_setup_with_g_main (DBusServer   *server,
                                      add_timeout,
                                      remove_timeout,
                                      timeout_toggled,
-                                     NULL, NULL);
+                                     context, NULL);
   
   g_source_attach (source, context);
 
