@@ -63,28 +63,26 @@ DBusMessage* dbus_message_new_error_reply  (DBusMessage       *original_message,
 					    const char        *error_message);
 DBusMessage *dbus_message_copy             (const DBusMessage *message);
 
-void         dbus_message_ref   (DBusMessage *message);
-void         dbus_message_unref (DBusMessage *message);
-
-const char*  dbus_message_get_name         (DBusMessage  *message);
-const char*  dbus_message_get_service      (DBusMessage  *message);
-dbus_bool_t  dbus_message_set_sender       (DBusMessage  *message,
-                                            const char   *sender);
-const char*  dbus_message_get_sender       (DBusMessage  *message);
-void         dbus_message_set_is_error     (DBusMessage  *message,
-                                            dbus_bool_t   is_error_reply);
-dbus_bool_t  dbus_message_get_is_error     (DBusMessage  *message);
-dbus_bool_t  dbus_message_name_is          (DBusMessage  *message,
-                                            const char   *name);
-dbus_bool_t  dbus_message_service_is       (DBusMessage  *message,
-                                            const char   *service);
-dbus_bool_t  dbus_message_sender_is        (DBusMessage  *message,
-                                            const char   *service);
-dbus_int32_t dbus_message_get_serial       (DBusMessage  *message);
-dbus_bool_t  dbus_message_set_reply_serial (DBusMessage  *message,
-                                            dbus_int32_t  reply_serial);
-dbus_int32_t dbus_message_get_reply_serial (DBusMessage  *message);
-
+void          dbus_message_ref              (DBusMessage   *message);
+void          dbus_message_unref            (DBusMessage   *message);
+const char*   dbus_message_get_name         (DBusMessage   *message);
+const char*   dbus_message_get_service      (DBusMessage   *message);
+dbus_bool_t   dbus_message_set_sender       (DBusMessage   *message,
+                                             const char    *sender);
+const char*   dbus_message_get_sender       (DBusMessage   *message);
+void          dbus_message_set_is_error     (DBusMessage   *message,
+                                             dbus_bool_t    is_error_reply);
+dbus_bool_t   dbus_message_get_is_error     (DBusMessage   *message);
+dbus_bool_t   dbus_message_name_is          (DBusMessage   *message,
+                                             const char    *name);
+dbus_bool_t   dbus_message_service_is       (DBusMessage   *message,
+                                             const char    *service);
+dbus_bool_t   dbus_message_sender_is        (DBusMessage   *message,
+                                             const char    *service);
+dbus_uint32_t dbus_message_get_serial       (DBusMessage   *message);
+dbus_bool_t   dbus_message_set_reply_serial (DBusMessage   *message,
+                                             dbus_uint32_t  reply_serial);
+dbus_uint32_t dbus_message_get_reply_serial (DBusMessage   *message);
 
 dbus_bool_t dbus_message_append_args          (DBusMessage     *message,
 					       int              first_arg_type,

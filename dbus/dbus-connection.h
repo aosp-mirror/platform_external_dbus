@@ -101,7 +101,7 @@ DBusDispatchStatus dbus_connection_get_dispatch_status          (DBusConnection 
 DBusDispatchStatus dbus_connection_dispatch                     (DBusConnection             *connection);
 dbus_bool_t        dbus_connection_send                         (DBusConnection             *connection,
                                                                  DBusMessage                *message,
-                                                                 dbus_int32_t               *client_serial);
+                                                                 dbus_uint32_t              *client_serial);
 dbus_bool_t        dbus_connection_send_with_reply              (DBusConnection             *connection,
                                                                  DBusMessage                *message,
                                                                  DBusMessageHandler         *reply_handler,
@@ -198,7 +198,7 @@ void                  dbus_connection_free_preallocated_send (DBusConnection    
 void                  dbus_connection_send_preallocated      (DBusConnection       *connection,
                                                               DBusPreallocatedSend *preallocated,
                                                               DBusMessage          *message,
-                                                              dbus_int32_t         *client_serial);
+                                                              dbus_uint32_t        *client_serial);
 
 
 DBUS_END_DECLS;

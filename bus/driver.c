@@ -620,7 +620,7 @@ bus_driver_handle_message (DBusConnection *connection,
       return FALSE;
     }
 
-  if (dbus_message_get_reply_serial (message) != -1)
+  if (dbus_message_get_reply_serial (message) != 0)
     {
       _dbus_verbose ("Client sent a reply to the bus driver, ignoring it\n");
       return TRUE;

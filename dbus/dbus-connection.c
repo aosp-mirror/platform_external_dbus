@@ -104,7 +104,7 @@ struct DBusConnection
 
   DBusHashTable *pending_replies;  /**< Hash of message serials and their message handlers. */  
   
-  int client_serial;            /**< Client serial. Increments each time a message is sent  */
+  dbus_uint32_t client_serial;       /**< Client serial. Increments each time a message is sent  */
   DBusList *disconnect_message_link; /**< Preallocated list node for queueing the disconnection message */
 
   DBusWakeupMainFunction wakeup_main_function; /**< Function to wake up the mainloop  */
@@ -728,7 +728,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   return NULL;
 }
 
-static dbus_int32_t
+static dbus_uint32_t
 _dbus_connection_get_next_client_serial (DBusConnection *connection)
 {
   int serial;
@@ -1147,9 +1147,9 @@ void
 dbus_connection_send_preallocated (DBusConnection       *connection,
                                    DBusPreallocatedSend *preallocated,
                                    DBusMessage          *message,
-                                   dbus_int32_t         *client_serial)
+                                   dbus_uint32_t        *client_serial)
 {
-  dbus_int32_t serial;
+  dbus_uint32_t serial;
   
   _dbus_assert (preallocated->connection == connection);
   _dbus_assert (dbus_message_get_name (message) != NULL);
@@ -1176,14 +1176,18 @@ dbus_connection_send_preallocated (DBusConnection       *connection,
                  connection,
                  connection->n_outgoing);
 
-  if (dbus_message_get_serial (message) == -1)
+  if (dbus_message_get_serial (message) == 0)
     {
       serial = _dbus_connection_get_next_client_serial (connection);
       _dbus_message_set_serial (message, serial);
+      if (client_serial)
+        *client_serial = serial;
     }
-  
-  if (client_serial)
-    *client_serial = dbus_message_get_serial (message);
+  else
+    {
+      if (client_serial)
+        *client_serial = dbus_message_get_serial (message);
+    }
   
   _dbus_message_lock (message);
 
@@ -1217,7 +1221,7 @@ dbus_connection_send_preallocated (DBusConnection       *connection,
 dbus_bool_t
 dbus_connection_send (DBusConnection *connection,
                       DBusMessage    *message,
-                      dbus_int32_t   *client_serial)
+                      dbus_uint32_t  *client_serial)
 {
   DBusPreallocatedSend *preallocated;
 
@@ -1379,7 +1383,7 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
   data->connection_added = TRUE;
   
   /* Assign a serial to the message */
-  if (dbus_message_get_serial (message) == -1)
+  if (dbus_message_get_serial (message) == 0)
     {
       serial = _dbus_connection_get_next_client_serial (connection);
       _dbus_message_set_serial (message, serial);
@@ -1433,7 +1437,7 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
 
 static DBusMessage*
 check_for_reply_unlocked (DBusConnection *connection,
-                          dbus_int32_t    client_serial)
+                          dbus_uint32_t   client_serial)
 {
   DBusList *link;
   
@@ -1483,7 +1487,7 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
                                            int                 timeout_milliseconds,
                                            DBusError          *error)
 {
-  dbus_int32_t client_serial;
+  dbus_uint32_t client_serial;
   long start_tv_sec, start_tv_usec;
   long end_tv_sec, end_tv_usec;
   long tv_sec, tv_usec;
@@ -1520,7 +1524,7 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
   end_tv_sec += end_tv_usec / _DBUS_USEC_PER_SECOND;
   end_tv_usec = end_tv_usec % _DBUS_USEC_PER_SECOND;
 
-  _dbus_verbose ("dbus_connection_send_with_reply_and_block(): will block %d milliseconds for reply serial %d from %ld sec %ld usec to %ld sec %ld usec\n",
+  _dbus_verbose ("dbus_connection_send_with_reply_and_block(): will block %d milliseconds for reply serial %u from %ld sec %ld usec to %ld sec %ld usec\n",
                  timeout_milliseconds,
                  client_serial,
                  start_tv_sec, start_tv_usec,

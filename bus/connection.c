@@ -951,7 +951,7 @@ bus_transaction_send (BusTransaction *transaction,
 
   _dbus_verbose ("  trying to add %s %s to transaction%s\n",
                  dbus_message_get_is_error (message) ? "error" :
-                 dbus_message_get_reply_serial (message) != -1 ? "reply" :
+                 dbus_message_get_reply_serial (message) != 0 ? "reply" :
                  "message",
                  dbus_message_get_name (message),
                  dbus_connection_get_is_connected (connection) ?

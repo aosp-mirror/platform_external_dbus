@@ -171,11 +171,10 @@
               </row>      
               <row>
                 <entry>4 bytes</entry>
-                <entry>The message's serial number, a signed 32-bit integer in
+                <entry>The message's serial number, an unsigned 32-bit integer in
                   the message's byte order. Applications MUST NOT reuse the same
                   serial number for different messages more often than 32-bit
-                  integer wraparound. Serial numbers must be greater than 
-                  zero.
+                  unsigned integer wraparound. Zero is not a valid serial number.
                 </entry>
               </row>
             </tbody>
@@ -247,7 +246,7 @@
               </row>
               <row>
                 <entry>rply</entry>
-                <entry>INT32</entry>
+                <entry>UINT32</entry>
                 <entry>The serial number of the message this message is a reply
                 to. (The serial number is one of the mandatory header fields,
                 see <xref linkend="message-protocol-header-encoding">.)</entry>

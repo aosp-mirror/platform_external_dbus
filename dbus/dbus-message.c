@@ -92,8 +92,8 @@ struct DBusMessage
                                            * of each field in "header"
                                            */
 
-  dbus_int32_t client_serial; /**< Cached client serial value for speed */
-  dbus_int32_t reply_serial;  /**< Cached reply serial value for speed */
+  dbus_uint32_t client_serial; /**< Cached client serial value for speed */
+  dbus_uint32_t reply_serial;  /**< Cached reply serial value for speed */
   
   int header_padding; /**< bytes of alignment in header */
   
@@ -204,6 +204,47 @@ adjust_field_offsets (DBusMessage *message,
     }
 }
 
+#ifdef DBUS_BUILD_TESTS
+/* tests-only until it's actually used */
+static dbus_int32_t
+get_int_field (DBusMessage *message,
+               int          field)
+{
+  int offset;
+
+  _dbus_assert (field < FIELD_LAST);
+  
+  offset = message->header_fields[field].offset;
+  
+  if (offset < 0)
+    return -1; /* useless if -1 is a valid value of course */
+  
+  return _dbus_demarshal_int32 (&message->header,
+                                message->byte_order,
+                                offset,
+                                NULL);
+}
+#endif
+
+static dbus_uint32_t
+get_uint_field (DBusMessage *message,
+                int          field)
+{
+  int offset;
+  
+  _dbus_assert (field < FIELD_LAST);
+  
+  offset = message->header_fields[field].offset;
+  
+  if (offset < 0)
+    return -1; /* useless if -1 is a valid value of course */
+  
+  return _dbus_demarshal_uint32 (&message->header,
+                                 message->byte_order,
+                                 offset,
+                                 NULL);
+}
+
 static const char*
 get_string_field (DBusMessage *message,
                   int          field,
@@ -235,25 +276,7 @@ get_string_field (DBusMessage *message,
   return data + (offset + 4); 
 }
 
-static dbus_int32_t
-get_int_field (DBusMessage *message,
-               int          field)
-{
-  int offset;
-
-  _dbus_assert (field < FIELD_LAST);
-  
-  offset = message->header_fields[field].offset;
-  
-  if (offset < 0)
-    return -1; /* useless if -1 is a valid value of course */
-  
-  return _dbus_demarshal_int32 (&message->header,
-                                message->byte_order,
-                                offset,
-                                NULL);
-}
-
+#ifdef DBUS_BUILD_TESTS
 static dbus_bool_t
 append_int_field (DBusMessage *message,
                   int          field,
@@ -285,6 +308,57 @@ append_int_field (DBusMessage *message,
   
   if (!_dbus_marshal_int32 (&message->header, message->byte_order,
                             value))
+    goto failed;
+
+  if (!append_header_padding (message))
+    goto failed;
+  
+  return TRUE;
+  
+ failed:
+  message->header_fields[field].offset = -1;
+  _dbus_string_set_length (&message->header, orig_len);
+
+  /* this must succeed because it was allocated on function entry and
+   * DBusString doesn't ever realloc smaller
+   */
+  if (!append_header_padding (message))
+    _dbus_assert_not_reached ("failed to reappend header padding");
+  return FALSE;
+}
+#endif
+
+static dbus_bool_t
+append_uint_field (DBusMessage *message,
+                   int          field,
+                   const char  *name,
+                   int          value)
+{
+  int orig_len;
+
+  _dbus_assert (!message->locked);
+
+  clear_header_padding (message);
+  
+  orig_len = _dbus_string_get_length (&message->header);
+  
+  if (!_dbus_string_align_length (&message->header, 4))
+    goto failed;  
+  
+  if (!_dbus_string_append_len (&message->header, name, 4))
+    goto failed;
+
+  if (!_dbus_string_append_byte (&message->header, DBUS_TYPE_UINT32))
+    goto failed;
+
+  if (!_dbus_string_align_length (&message->header, 4))
+    goto failed;
+  
+  message->header_fields[FIELD_REPLY_SERIAL].offset =
+    _dbus_string_get_length (&message->header);
+  
+  if (!_dbus_marshal_uint32 (&message->header, message->byte_order,
+                             value))
     goto failed;
 
   if (!append_header_padding (message))
@@ -360,8 +434,8 @@ append_string_field (DBusMessage *message,
  * keep it compiling if we need it in future
  */
 static void
-delete_int_field (DBusMessage *message,
-                  int          field)
+delete_int_or_uint_field (DBusMessage *message,
+                          int          field)
 {
   int offset = message->header_fields[field].offset;
 
@@ -424,6 +498,7 @@ delete_string_field (DBusMessage *message,
   append_header_padding (message);
 }
 
+#ifdef DBUS_BUILD_TESTS
 static dbus_bool_t
 set_int_field (DBusMessage *message,
                int          field,
@@ -439,10 +514,6 @@ set_int_field (DBusMessage *message,
 
       switch (field)
         {
-        case FIELD_REPLY_SERIAL:
-          return append_int_field (message, field,
-                                   DBUS_HEADER_FIELD_REPLY,
-                                   value);
         default:
           _dbus_assert_not_reached ("appending an int field we don't support appending");
           return FALSE;
@@ -457,6 +528,7 @@ set_int_field (DBusMessage *message,
       return TRUE;
     }
 }
+#endif
 
 static dbus_bool_t
 set_uint_field (DBusMessage  *message,
@@ -473,6 +545,10 @@ set_uint_field (DBusMessage  *message,
 
       switch (field)
         {
+        case FIELD_REPLY_SERIAL:
+          return append_uint_field (message, field,
+                                    DBUS_HEADER_FIELD_REPLY,
+                                    value);
         default:
           _dbus_assert_not_reached ("appending a uint field we don't support appending");
           return FALSE;
@@ -568,10 +644,10 @@ _dbus_message_set_serial (DBusMessage  *message,
                           dbus_int32_t  serial)
 {
   _dbus_assert (!message->locked);
-  _dbus_assert (dbus_message_get_serial (message) < 0);
+  _dbus_assert (dbus_message_get_serial (message) == 0);
   
-  set_int_field (message, FIELD_CLIENT_SERIAL,
-                 serial);
+  set_uint_field (message, FIELD_CLIENT_SERIAL,
+                  serial);
   message->client_serial = serial;
 }
 
@@ -584,13 +660,13 @@ _dbus_message_set_serial (DBusMessage  *message,
  * @returns #FALSE if not enough memory
  */
 dbus_bool_t
-dbus_message_set_reply_serial (DBusMessage  *message,
-                               dbus_int32_t  reply_serial)
+dbus_message_set_reply_serial (DBusMessage   *message,
+                               dbus_uint32_t  reply_serial)
 {
   _dbus_assert (!message->locked);
 
-  if (set_int_field (message, FIELD_REPLY_SERIAL,
-                     reply_serial))
+  if (set_uint_field (message, FIELD_REPLY_SERIAL,
+                      reply_serial))
     {
       message->reply_serial = reply_serial;
       return TRUE;
@@ -607,7 +683,7 @@ dbus_message_set_reply_serial (DBusMessage  *message,
  * @param message the message
  * @returns the client serial
  */
-dbus_int32_t
+dbus_uint32_t
 dbus_message_get_serial (DBusMessage *message)
 {
   return message->client_serial;
@@ -615,12 +691,12 @@ dbus_message_get_serial (DBusMessage *message)
 
 /**
  * Returns the serial that the message is
- * a reply to or -1 if none.
+ * a reply to or 0 if none.
  *
  * @param message the message
  * @returns the reply serial
  */
-dbus_int32_t
+dbus_uint32_t
 dbus_message_get_reply_serial  (DBusMessage *message)
 {
   return message->reply_serial;
@@ -823,8 +899,8 @@ dbus_message_new_empty_header (void)
   
   message->refcount = 1;
   message->byte_order = DBUS_COMPILER_BYTE_ORDER;
-  message->client_serial = -1;
-  message->reply_serial = -1;
+  message->client_serial = 0;
+  message->reply_serial = 0;
   
   i = 0;
   while (i < FIELD_LAST)
@@ -3926,10 +4002,11 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
           _dbus_assert (_dbus_string_get_length (&message->body) == body_len);
 
           /* Fill in caches */
-          message->reply_serial = get_int_field (message,
-                                                 FIELD_REPLY_SERIAL);
-          message->client_serial = get_int_field (message,
-                                                  FIELD_CLIENT_SERIAL);
+          /* FIXME there's no type check if the field has the wrong type */
+          message->reply_serial = get_uint_field (message,
+                                                  FIELD_REPLY_SERIAL);
+          message->client_serial = get_uint_field (message,
+                                                   FIELD_CLIENT_SERIAL);
           
 	  _dbus_verbose ("Loaded message %p\n", message);
 	}
@@ -4380,15 +4457,15 @@ check_message_handling (DBusMessage *message)
   DBusMessageIter iter;
   int type;
   dbus_bool_t retval;
-  dbus_int32_t client_serial;
+  dbus_uint32_t client_serial;
   
   retval = FALSE;
   
   client_serial = dbus_message_get_serial (message);
 
   /* can't use set_serial due to the assertions at the start of it */
-  set_int_field (message, FIELD_CLIENT_SERIAL,
-                 client_serial);
+  set_uint_field (message, FIELD_CLIENT_SERIAL,
+                  client_serial);
   
   if (client_serial != dbus_message_get_serial (message))
     {
