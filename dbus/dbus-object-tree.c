@@ -190,11 +190,14 @@ ensure_sorted (DBusObjectSubtree *subtree)
 static DBusObjectSubtree*
 find_subtree_recurse (DBusObjectSubtree  *subtree,
                       const char        **path,
-                      dbus_bool_t         return_deepest_match,
                       dbus_bool_t         create_if_not_found,
-                      int                *index_in_parent)
+                      int                *index_in_parent,
+                      dbus_bool_t        *exact_match)
 {
   int i;
+  dbus_bool_t return_deepest_match;
+
+  return_deepest_match = exact_match != NULL;
 
   _dbus_assert (!(return_deepest_match && create_if_not_found));
 
@@ -204,6 +207,8 @@ find_subtree_recurse (DBusObjectSubtree  *subtree,
       _dbus_verbose ("  path exhausted, returning %s\n",
                      subtree->name);
 #endif
+      if (exact_match != NULL)
+	*exact_match = TRUE;
       return subtree;
     }
 
@@ -246,8 +251,8 @@ find_subtree_recurse (DBusObjectSubtree  *subtree,
               DBusObjectSubtree *next;
 
               next = find_subtree_recurse (subtree->subtrees[i],
-                                           &path[1], return_deepest_match,
-                                           create_if_not_found, index_in_parent);
+                                           &path[1], create_if_not_found, 
+                                           index_in_parent, exact_match);
               if (next == NULL &&
                   subtree->invoke_as_fallback)
                 {
@@ -255,6 +260,8 @@ find_subtree_recurse (DBusObjectSubtree  *subtree,
                   _dbus_verbose ("  no deeper match found, returning %s\n",
                                  subtree->name);
 #endif
+		  if (exact_match != NULL)
+		    *exact_match = FALSE;
                   return subtree;
                 }
               else
@@ -262,8 +269,8 @@ find_subtree_recurse (DBusObjectSubtree  *subtree,
             }
           else
             return find_subtree_recurse (subtree->subtrees[i],
-                                         &path[1], return_deepest_match,
-                                         create_if_not_found, index_in_parent);
+                                         &path[1], create_if_not_found, 
+                                         index_in_parent, exact_match);
         }
       else if (v < 0)
         {
@@ -304,7 +311,7 @@ find_subtree_recurse (DBusObjectSubtree  *subtree,
           child->unregister_function = NULL;
           child->message_function = NULL;
           _dbus_object_subtree_unref (child);
-          return FALSE;
+          return NULL;
         }
 
       new_subtrees[subtree->n_subtrees] = child;
@@ -317,11 +324,15 @@ find_subtree_recurse (DBusObjectSubtree  *subtree,
       child->parent = subtree;
 
       return find_subtree_recurse (child,
-                                   &path[1], return_deepest_match,
-                                   create_if_not_found, index_in_parent);
+                                   &path[1], create_if_not_found, 
+                                   index_in_parent, exact_match);
     }
   else
-    return (return_deepest_match && subtree->invoke_as_fallback) ? subtree : NULL;
+    {
+      if (exact_match != NULL)
+	*exact_match = FALSE;
+      return (return_deepest_match && subtree->invoke_as_fallback) ? subtree : NULL;
+    }
 }
 
 static DBusObjectSubtree*
@@ -335,7 +346,7 @@ find_subtree (DBusObjectTree *tree,
   _dbus_verbose ("Looking for exact registered subtree\n");
 #endif
   
-  subtree = find_subtree_recurse (tree->root, path, FALSE, FALSE, index_in_parent);
+  subtree = find_subtree_recurse (tree->root, path, FALSE, index_in_parent, NULL);
 
   if (subtree && subtree->message_function == NULL)
     return NULL;
@@ -345,22 +356,24 @@ find_subtree (DBusObjectTree *tree,
 
 static DBusObjectSubtree*
 lookup_subtree (DBusObjectTree *tree,
-              const char    **path)
+                const char    **path)
 {
 #if VERBOSE_FIND
   _dbus_verbose ("Looking for subtree\n");
 #endif
-  return find_subtree_recurse (tree->root, path, FALSE, FALSE, NULL);
+  return find_subtree_recurse (tree->root, path, FALSE, NULL, NULL);
 }
 
 static DBusObjectSubtree*
 find_handler (DBusObjectTree *tree,
-              const char    **path)
+              const char    **path,
+              dbus_bool_t    *exact_match)
 {
 #if VERBOSE_FIND
   _dbus_verbose ("Looking for deepest handler\n");
 #endif
-  return find_subtree_recurse (tree->root, path, TRUE, FALSE, NULL);
+  _dbus_assert (exact_match != NULL);
+  return find_subtree_recurse (tree->root, path, FALSE, NULL, exact_match);
 }
 
 static DBusObjectSubtree*
@@ -370,7 +383,7 @@ ensure_subtree (DBusObjectTree *tree,
 #if VERBOSE_FIND
   _dbus_verbose ("Ensuring subtree\n");
 #endif
-  return find_subtree_recurse (tree->root, path, FALSE, TRUE, NULL);
+  return find_subtree_recurse (tree->root, path, TRUE, NULL, NULL);
 }
 
 /**
@@ -661,6 +674,7 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
                                        DBusMessage             *message)
 {
   char **path;
+  dbus_bool_t exact_match;
   DBusList *list;
   DBusList *link;
   DBusHandlerResult result;
@@ -695,7 +709,7 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
     }
   
   /* Find the deepest path that covers the path in the message */
-  subtree = find_handler (tree, (const char**) path);
+  subtree = find_handler (tree, (const char**) path, &exact_match);
   
   /* Build a list of all paths that cover the path in the message */
 
@@ -703,7 +717,7 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
 
   while (subtree != NULL)
     {
-      if (subtree->message_function != NULL)
+      if (subtree->message_function != NULL && (exact_match || subtree->invoke_as_fallback))
         {
           _dbus_object_subtree_ref (subtree);
 
@@ -716,6 +730,7 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
             }
         }
 
+      exact_match = FALSE;
       subtree = subtree->parent;
     }
 
@@ -858,7 +873,8 @@ _dbus_object_subtree_new (const char                  *name,
   subtree->subtrees = NULL;
   subtree->n_subtrees = 0;
   subtree->subtrees_sorted = TRUE;
-  
+  subtree->invoke_as_fallback = FALSE;
+
   return subtree;
 
  oom:
@@ -963,9 +979,17 @@ flatten_path (const char **path)
   return NULL;
 }
 
+
+typedef enum 
+{
+  STR_EQUAL,
+  STR_PREFIX,
+  STR_DIFFERENT
+} StrComparison;
+
 /* Returns TRUE if container is a parent of child
  */
-static dbus_bool_t
+static StrComparison
 path_contains (const char **container,
                const char **child)
 {
@@ -977,10 +1001,10 @@ path_contains (const char **container,
       int v;
 
       if (container[i] == NULL)
-        return TRUE; /* container ran out, child continues;
-                      * thus the container is a parent of the
-                      * child.
-                      */
+        return STR_PREFIX; /* container ran out, child continues;
+			* thus the container is a parent of the
+			* child.
+			*/
 
       _dbus_assert (container[i] != NULL);
       _dbus_assert (child[i] != NULL);
@@ -988,9 +1012,9 @@ path_contains (const char **container,
       v = strcmp (container[i], child[i]);
 
       if (v != 0)
-        return FALSE; /* they overlap until here and then are different,
-                       * not overlapping
-                       */
+        return STR_DIFFERENT; /* they overlap until here and then are different,
+			   * not overlapping
+			   */
 
       ++i;
     }
@@ -999,11 +1023,12 @@ path_contains (const char **container,
    * otherwise, the child is a parent of the container.
    */
   if (container[i] == NULL)
-    return TRUE; /* equal is counted as containing */
+    return STR_EQUAL;
   else
-    return FALSE;
+    return STR_DIFFERENT;
 }
 
+#if 0
 static void
 spew_subtree_recurse (DBusObjectSubtree *subtree,
                       int                indent)
@@ -1034,6 +1059,7 @@ spew_tree (DBusObjectTree *tree)
 {
   spew_subtree_recurse (tree->root, 0);
 }
+#endif
 
 /**
  * Callback data used in tests
@@ -1041,9 +1067,9 @@ spew_tree (DBusObjectTree *tree)
 typedef struct
 {
   const char **path; /**< Path */
+  dbus_bool_t handler_fallback; /**< true if the handler may be called as fallback */
   dbus_bool_t message_handled; /**< Gets set to true if message handler called */
   dbus_bool_t handler_unregistered; /**< gets set to true if handler is unregistered */
-
 } TreeTestData;
 
 
@@ -1071,6 +1097,7 @@ test_message_function (DBusConnection  *connection,
 static dbus_bool_t
 do_register (DBusObjectTree *tree,
              const char    **path,
+             dbus_bool_t     fallback,
              int             i,
              TreeTestData   *tree_test_data)
 {
@@ -1079,9 +1106,10 @@ do_register (DBusObjectTree *tree,
 
   tree_test_data[i].message_handled = FALSE;
   tree_test_data[i].handler_unregistered = FALSE;
+  tree_test_data[i].handler_fallback = fallback;
   tree_test_data[i].path = path;
 
-  if (!_dbus_object_tree_register (tree, TRUE, path,
+  if (!_dbus_object_tree_register (tree, fallback, path,
                                    &vtable,
                                    &tree_test_data[i]))
     return FALSE;
@@ -1132,11 +1160,21 @@ do_test_dispatch (DBusObjectTree *tree,
   while (j < n_test_data)
     {
       if (tree_test_data[j].message_handled)
-        _dbus_assert (path_contains (tree_test_data[j].path,
-                                     path));
+	{
+	  if (tree_test_data[j].handler_fallback)
+	    _dbus_assert (path_contains (tree_test_data[j].path,
+					 path) != STR_DIFFERENT);
+	  else
+	    _dbus_assert (path_contains (tree_test_data[j].path, path) == STR_EQUAL);
+	}
       else
-        _dbus_assert (!path_contains (tree_test_data[j].path,
-                                      path));
+	{
+	  if (tree_test_data[j].handler_fallback)
+	    _dbus_assert (path_contains (tree_test_data[j].path,
+					 path) == STR_DIFFERENT);
+	  else
+	    _dbus_assert (path_contains (tree_test_data[j].path, path) != STR_EQUAL);
+	}
 
       ++j;
     }
@@ -1174,6 +1212,7 @@ object_tree_test_iteration (void *data)
   DBusObjectTree *tree;
   TreeTestData tree_test_data[8];
   int i;
+  dbus_bool_t exact_match;
 
   tree = NULL;
 
@@ -1181,7 +1220,7 @@ object_tree_test_iteration (void *data)
   if (tree == NULL)
     goto out;
 
-  if (!do_register (tree, path1, 0, tree_test_data))
+  if (!do_register (tree, path1, TRUE, 0, tree_test_data))
     goto out;
 
   _dbus_assert (find_subtree (tree, path1, NULL));
@@ -1193,16 +1232,16 @@ object_tree_test_iteration (void *data)
   _dbus_assert (!find_subtree (tree, path7, NULL));
   _dbus_assert (!find_subtree (tree, path8, NULL));
 
-  _dbus_assert (find_handler (tree, path1));
-  _dbus_assert (find_handler (tree, path2));
-  _dbus_assert (find_handler (tree, path3));
-  _dbus_assert (find_handler (tree, path4));
-  _dbus_assert (find_handler (tree, path5) == tree->root);
-  _dbus_assert (find_handler (tree, path6) == tree->root);
-  _dbus_assert (find_handler (tree, path7) == tree->root);
-  _dbus_assert (find_handler (tree, path8) == tree->root);
+  _dbus_assert (find_handler (tree, path1, &exact_match) &&  exact_match);
+  _dbus_assert (find_handler (tree, path2, &exact_match) && !exact_match);
+  _dbus_assert (find_handler (tree, path3, &exact_match) && !exact_match);
+  _dbus_assert (find_handler (tree, path4, &exact_match) && !exact_match);
+  _dbus_assert (find_handler (tree, path5, &exact_match) == tree->root && !exact_match);
+  _dbus_assert (find_handler (tree, path6, &exact_match) == tree->root && !exact_match);
+  _dbus_assert (find_handler (tree, path7, &exact_match) == tree->root && !exact_match);
+  _dbus_assert (find_handler (tree, path8, &exact_match) == tree->root && !exact_match);
 
-  if (!do_register (tree, path2, 1, tree_test_data))
+  if (!do_register (tree, path2, TRUE, 1, tree_test_data))
     goto out;
 
   _dbus_assert (find_subtree (tree, path1, NULL));
@@ -1214,7 +1253,7 @@ object_tree_test_iteration (void *data)
   _dbus_assert (!find_subtree (tree, path7, NULL));
   _dbus_assert (!find_subtree (tree, path8, NULL));
 
-  if (!do_register (tree, path3, 2, tree_test_data))
+  if (!do_register (tree, path3, TRUE, 2, tree_test_data))
     goto out;
 
   _dbus_assert (find_subtree (tree, path1, NULL));
@@ -1226,7 +1265,7 @@ object_tree_test_iteration (void *data)
   _dbus_assert (!find_subtree (tree, path7, NULL));
   _dbus_assert (!find_subtree (tree, path8, NULL));
   
-  if (!do_register (tree, path4, 3, tree_test_data))
+  if (!do_register (tree, path4, TRUE, 3, tree_test_data))
     goto out;
 
   _dbus_assert (find_subtree (tree, path1, NULL));
@@ -1238,7 +1277,7 @@ object_tree_test_iteration (void *data)
   _dbus_assert (!find_subtree (tree, path7, NULL));
   _dbus_assert (!find_subtree (tree, path8, NULL));
   
-  if (!do_register (tree, path5, 4, tree_test_data))
+  if (!do_register (tree, path5, TRUE, 4, tree_test_data))
     goto out;
 
   _dbus_assert (find_subtree (tree, path1, NULL));
@@ -1250,16 +1289,16 @@ object_tree_test_iteration (void *data)
   _dbus_assert (!find_subtree (tree, path7, NULL));
   _dbus_assert (!find_subtree (tree, path8, NULL));
   
-  _dbus_assert (find_handler (tree, path1) != tree->root);
-  _dbus_assert (find_handler (tree, path2) != tree->root);
-  _dbus_assert (find_handler (tree, path3) != tree->root);
-  _dbus_assert (find_handler (tree, path4) != tree->root);
-  _dbus_assert (find_handler (tree, path5) != tree->root);
-  _dbus_assert (find_handler (tree, path6) != tree->root);
-  _dbus_assert (find_handler (tree, path7) != tree->root);
-  _dbus_assert (find_handler (tree, path8) == tree->root);
+  _dbus_assert (find_handler (tree, path1, &exact_match) != tree->root &&  exact_match);
+  _dbus_assert (find_handler (tree, path2, &exact_match) != tree->root &&  exact_match);
+  _dbus_assert (find_handler (tree, path3, &exact_match) != tree->root &&  exact_match);
+  _dbus_assert (find_handler (tree, path4, &exact_match) != tree->root &&  exact_match);
+  _dbus_assert (find_handler (tree, path5, &exact_match) != tree->root &&  exact_match);
+  _dbus_assert (find_handler (tree, path6, &exact_match) != tree->root && !exact_match);
+  _dbus_assert (find_handler (tree, path7, &exact_match) != tree->root && !exact_match);
+  _dbus_assert (find_handler (tree, path8, &exact_match) == tree->root && !exact_match);
 
-  if (!do_register (tree, path6, 5, tree_test_data))
+  if (!do_register (tree, path6, TRUE, 5, tree_test_data))
     goto out;
 
   _dbus_assert (find_subtree (tree, path1, NULL));
@@ -1271,7 +1310,7 @@ object_tree_test_iteration (void *data)
   _dbus_assert (!find_subtree (tree, path7, NULL));
   _dbus_assert (!find_subtree (tree, path8, NULL));
 
-  if (!do_register (tree, path7, 6, tree_test_data))
+  if (!do_register (tree, path7, TRUE, 6, tree_test_data))
     goto out;
 
   _dbus_assert (find_subtree (tree, path1, NULL));
@@ -1283,7 +1322,7 @@ object_tree_test_iteration (void *data)
   _dbus_assert (find_subtree (tree, path7, NULL));
   _dbus_assert (!find_subtree (tree, path8, NULL));
 
-  if (!do_register (tree, path8, 7, tree_test_data))
+  if (!do_register (tree, path8, TRUE, 7, tree_test_data))
     goto out;
 
   _dbus_assert (find_subtree (tree, path1, NULL));
@@ -1295,14 +1334,14 @@ object_tree_test_iteration (void *data)
   _dbus_assert (find_subtree (tree, path7, NULL));
   _dbus_assert (find_subtree (tree, path8, NULL));
   
-  _dbus_assert (find_handler (tree, path1) != tree->root);
-  _dbus_assert (find_handler (tree, path2) != tree->root);
-  _dbus_assert (find_handler (tree, path3) != tree->root);
-  _dbus_assert (find_handler (tree, path4) != tree->root);
-  _dbus_assert (find_handler (tree, path5) != tree->root);
-  _dbus_assert (find_handler (tree, path6) != tree->root);
-  _dbus_assert (find_handler (tree, path7) != tree->root);
-  _dbus_assert (find_handler (tree, path8) != tree->root);
+  _dbus_assert (find_handler (tree, path1, &exact_match) != tree->root && exact_match);
+  _dbus_assert (find_handler (tree, path2, &exact_match) != tree->root && exact_match);
+  _dbus_assert (find_handler (tree, path3, &exact_match) != tree->root && exact_match);
+  _dbus_assert (find_handler (tree, path4, &exact_match) != tree->root && exact_match);
+  _dbus_assert (find_handler (tree, path5, &exact_match) != tree->root && exact_match);
+  _dbus_assert (find_handler (tree, path6, &exact_match) != tree->root && exact_match);
+  _dbus_assert (find_handler (tree, path7, &exact_match) != tree->root && exact_match);
+  _dbus_assert (find_handler (tree, path8, &exact_match) != tree->root && exact_match);
   
   /* test the list_registered function */
 
@@ -1360,21 +1399,21 @@ object_tree_test_iteration (void *data)
   if (tree == NULL)
     goto out;
 
-  if (!do_register (tree, path1, 0, tree_test_data))
+  if (!do_register (tree, path1, TRUE, 0, tree_test_data))
     goto out;
-  if (!do_register (tree, path2, 1, tree_test_data))
+  if (!do_register (tree, path2, TRUE, 1, tree_test_data))
     goto out;
-  if (!do_register (tree, path3, 2, tree_test_data))
+  if (!do_register (tree, path3, TRUE, 2, tree_test_data))
     goto out;
-  if (!do_register (tree, path4, 3, tree_test_data))
+  if (!do_register (tree, path4, TRUE, 3, tree_test_data))
     goto out;
-  if (!do_register (tree, path5, 4, tree_test_data))
+  if (!do_register (tree, path5, TRUE, 4, tree_test_data))
     goto out;
-  if (!do_register (tree, path6, 5, tree_test_data))
+  if (!do_register (tree, path6, TRUE, 5, tree_test_data))
     goto out;
-  if (!do_register (tree, path7, 6, tree_test_data))
+  if (!do_register (tree, path7, TRUE, 6, tree_test_data))
     goto out;
-  if (!do_register (tree, path8, 7, tree_test_data))
+  if (!do_register (tree, path8, TRUE, 7, tree_test_data))
     goto out;
   
   _dbus_object_tree_unregister_and_unlock (tree, path1);
@@ -1475,21 +1514,21 @@ object_tree_test_iteration (void *data)
 
   /* Register it all again, and test dispatch */
 
-  if (!do_register (tree, path1, 0, tree_test_data))
+  if (!do_register (tree, path1, FALSE, 0, tree_test_data))
     goto out;
-  if (!do_register (tree, path2, 1, tree_test_data))
+  if (!do_register (tree, path2, TRUE, 1, tree_test_data))
     goto out;
-  if (!do_register (tree, path3, 2, tree_test_data))
+  if (!do_register (tree, path3, TRUE, 2, tree_test_data))
     goto out;
-  if (!do_register (tree, path4, 3, tree_test_data))
+  if (!do_register (tree, path4, TRUE, 3, tree_test_data))
     goto out;
-  if (!do_register (tree, path5, 4, tree_test_data))
+  if (!do_register (tree, path5, TRUE, 4, tree_test_data))
     goto out;
-  if (!do_register (tree, path6, 5, tree_test_data))
+  if (!do_register (tree, path6, FALSE, 5, tree_test_data))
     goto out;
-  if (!do_register (tree, path7, 6, tree_test_data))
+  if (!do_register (tree, path7, TRUE, 6, tree_test_data))
     goto out;
-  if (!do_register (tree, path8, 7, tree_test_data))
+  if (!do_register (tree, path8, TRUE, 7, tree_test_data))
     goto out;
 
 #if 0

@@ -1,3 +1,13 @@
+2004-06-01  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* dbus/dbus-object-tree.c
+	(_dbus_object_tree_dispatch_and_unlock): fix dispatch for
+	non-fallback handlers (bug #684).
+	(_dbus_object_subtree_new): initialize invoke_as_fallback field.
+	(find_subtree_recurse): report wether the returned subtree is an
+	exact match or a "fallback" match higher up in the tree.
+	(object_tree_test_iteration): update test case.
+
 2004-06-01  Seth Nickell  <seth@gnome.org>
 
 	* python/dbus_bindings.pyx.in:
