@@ -4,7 +4,7 @@
  * Copyright (C) 2004 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -14,7 +14,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -25,11 +25,24 @@
 #define DBUS_MARSHAL_RECURSIVE_H
 
 #include <config.h>
-#include <dbus/dbus-marshal-basic.h>
+#include <dbus/dbus-marshal-basic.h> /* this can become protocol.h when we merge */
 
 #ifndef PACKAGE
 #error "config.h not included here"
 #endif
+
+/* Features we need to port dbus-message:
+ *  - memoize a position of a reader for small/fast access later
+ *  - delete an array element and re-align the remainder of the array
+ *    (not necessary yet to re-align remainder of entire string,
+ *     though that's probably just as hard/easy)
+ *  - set string, int, etc. values at a memoized position
+ *    (implement generic set of any value? changes only
+ *     value_str not type_str)
+ *  - implement has_next()
+ *  - the all-in-one-block array accessors
+ *  - validation
+ */
 
 typedef struct DBusTypeReader      DBusTypeReader;
 typedef struct DBusTypeWriter      DBusTypeWriter;

@@ -22,6 +22,7 @@
  */
 
 #include "dbus-marshal-recursive.h"
+#include "dbus-marshal-basic.h"
 #include "dbus-internals.h"
 
 /**
@@ -147,6 +148,7 @@ array_reader_recurse (DBusTypeReader *sub,
                               DBUS_TYPE_UINT32,
                               &array_len,
                               sub->byte_order,
+                              sub->value_pos,
                               &sub->value_pos);
 
   sub->u.array.len = array_len;
@@ -291,31 +293,6 @@ skip_one_complete_type (const DBusString *type_str,
 }
 
 static void
-skip_array_values (int               element_type,
-                   const DBusString *value_str,
-                   int              *value_pos,
-                   int               byte_order)
-{
-  dbus_uint32_t array_len;
-  int pos;
-  int alignment;
-
-  pos = _DBUS_ALIGN_VALUE (*value_pos, 4);
-
-  _dbus_demarshal_basic_type (value_str,
-                              DBUS_TYPE_UINT32,
-                              &array_len,
-                              byte_order,
-                              &pos);
-
-  alignment = _dbus_type_get_alignment (element_type);
-
-  pos = _DBUS_ALIGN_VALUE (pos, alignment);
-
-  *value_pos = pos + array_len;
-}
-
-static void
 base_reader_next (DBusTypeReader *reader,
                   int             current_type)
 {
@@ -354,9 +331,10 @@ base_reader_next (DBusTypeReader *reader,
     case DBUS_TYPE_ARRAY:
       {
         if (!reader->klass->types_only)
-          skip_array_values (first_type_in_signature (reader->type_str,
-                                                      reader->type_pos + 1),
-                             reader->value_str, &reader->value_pos, reader->byte_order);
+          _dbus_marshal_skip_array (reader->value_str, reader->byte_order,
+                                    first_type_in_signature (reader->type_str,
+                                                             reader->type_pos + 1),
+                                    &reader->value_pos);
 
         skip_one_complete_type (reader->type_str, &reader->type_pos);
       }
@@ -441,9 +419,10 @@ array_reader_next (DBusTypeReader *reader,
 
     case DBUS_TYPE_ARRAY:
       {
-        skip_array_values (first_type_in_signature (reader->type_str,
-                                                    reader->type_pos + 1),
-                           reader->value_str, &reader->value_pos, reader->byte_order);
+        _dbus_marshal_skip_array (reader->value_str, reader->byte_order,
+                                  first_type_in_signature (reader->type_str,
+                                                           reader->type_pos + 1),
+                                  &reader->value_pos);
       }
       break;
 
@@ -581,18 +560,20 @@ dbus_bool_t
 _dbus_type_reader_array_is_empty (DBusTypeReader *reader)
 {
   dbus_uint32_t array_len;
-  int len_pos;
 
   _dbus_assert (_dbus_type_reader_get_current_type (reader) == DBUS_TYPE_ARRAY);
   _dbus_assert (!reader->klass->types_only);
 
-  len_pos = _DBUS_ALIGN_VALUE (reader->value_pos, 4);
+  /* reader is supposed to be at an array child */
+  _dbus_verbose ("checking array len at %d\n", reader->value_pos);
 
   _dbus_demarshal_basic_type (reader->value_str,
                               DBUS_TYPE_UINT32,
                               &array_len,
                               reader->byte_order,
-                              &len_pos);
+                              reader->value_pos,
+                              NULL);
+  _dbus_verbose (" ... array len = %d\n", array_len);
 
   return array_len == 0;
 }
@@ -602,22 +583,20 @@ _dbus_type_reader_read_basic (DBusTypeReader    *reader,
                               void              *value)
 {
   int t;
-  int next;
 
   _dbus_assert (!reader->klass->types_only);
 
   t = _dbus_type_reader_get_current_type (reader);
 
-  next = reader->value_pos;
   _dbus_demarshal_basic_type (reader->value_str,
                               t, value,
                               reader->byte_order,
-                              &next);
+                              reader->value_pos, NULL);
 
 
 #if RECURSIVE_MARSHAL_TRACE
-  _dbus_verbose ("  type reader %p read basic type_pos = %d value_pos = %d next = %d remaining sig '%s'\n",
-                 reader, reader->type_pos, reader->value_pos, next,
+  _dbus_verbose ("  type reader %p read basic type_pos = %d value_pos = %d remaining sig '%s'\n",
+                 reader, reader->type_pos, reader->value_pos,
                  _dbus_string_get_const_data_len (reader->type_str, reader->type_pos, 0));
 #endif
 }
@@ -765,23 +744,12 @@ _dbus_type_writer_write_basic_no_typecode (DBusTypeWriter *writer,
                                            int             type,
                                            const void     *value)
 {
-  int old_value_len;
-  int bytes_written;
-
-  old_value_len = _dbus_string_get_length (writer->value_str);
-
-  if (!_dbus_marshal_basic_type (writer->value_str,
-                                 writer->value_pos,
-                                 type,
-                                 value,
-                                 writer->byte_order))
-    return FALSE;
-
-  bytes_written = _dbus_string_get_length (writer->value_str) - old_value_len;
-
-  writer->value_pos += bytes_written;
-
-  return TRUE;
+  return _dbus_marshal_basic_type (writer->value_str,
+                                   writer->value_pos,
+                                   type,
+                                   value,
+                                   writer->byte_order,
+                                   &writer->value_pos);
 }
 
 /* If our parent is an array, things are a little bit complicated.
@@ -1037,8 +1005,9 @@ _dbus_type_writer_recurse_array (DBusTypeWriter *writer,
   _dbus_assert (sub->u.array.len_pos < sub->u.array.start_pos);
 
 #if RECURSIVE_MARSHAL_TRACE
-  _dbus_verbose ("  type writer %p recurse array done remaining sig '%s'\n", sub,
-                 _dbus_string_get_const_data_len (sub->type_str, sub->type_pos, 0));
+  _dbus_verbose ("  type writer %p recurse array done remaining sig '%s' array start_pos = %d len_pos = %d\n", sub,
+                 _dbus_string_get_const_data_len (sub->type_str, sub->type_pos, 0),
+                 sub->u.array.start_pos, sub->u.array.len_pos);
 #endif
 
   return TRUE;
@@ -1928,7 +1897,9 @@ run_test_nodes_iteration (void *data)
       ++i;
     }
 
-  /* FIXME type-iterate both signature and value */
+  /* FIXME type-iterate both signature and value and compare the resulting
+   * tree to the node tree
+   */
 
   return TRUE;
 }
@@ -2382,9 +2353,12 @@ _dbus_marshal_recursive_test (void)
 }
 
 #if 1
+dbus_bool_t _dbus_marshal_test (void);
 int
 main (int argc, char **argv)
 {
+  _dbus_marshal_test ();
+
   _dbus_marshal_recursive_test ();
 
   return 0;
@@ -2692,11 +2666,6 @@ double_write_value (TestTypeNode   *node,
                                         &v);
 }
 
-/* Maybe this macro should be in a real header,
- * depends on why it's needed which I don't understand yet
- */
-#define DOUBLES_BITWISE_EQUAL(a, b) \
-  (memcmp ((char*)&(a), (char*)&(b), 8) == 0)
 static dbus_bool_t
 double_read_value (TestTypeNode   *node,
                    DataBlock      *block,
@@ -2713,7 +2682,7 @@ double_read_value (TestTypeNode   *node,
 
   expected = double_from_seed (seed);
 
-  if (!DOUBLES_BITWISE_EQUAL (v, expected))
+  if (!_DBUS_DOUBLES_BITWISE_EQUAL (v, expected))
     {
 #ifdef DBUS_HAVE_INT64
       _dbus_warn ("Expected double %g got %g\n bits = 0x%llx vs.\n bits = 0x%llx)\n",
@@ -2748,7 +2717,7 @@ object_path_from_seed (char *buf,
       ++i;
       buf[i] = v;
       ++i;
-      
+
       v += 1;
     }
 
@@ -2813,7 +2782,7 @@ signature_from_seed (char *buf,
   };
 
   s = sample_signatures[seed % _DBUS_N_ELEMENTS(sample_signatures)];
-  
+
   for (i = 0; s[i]; i++)
     {
       buf[i] = s[i];
