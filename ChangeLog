@@ -1,5 +1,10 @@
 2003-04-30  Havoc Pennington  <hp@redhat.com>
 
+	* configure.in: print a note when building with unit tests and
+	without assertions
+
+2003-04-30  Havoc Pennington  <hp@redhat.com>
+
 	* Makefile.am: add a check-local that complains if you didn't
 	configure with --enable-tests
 

@@ -638,6 +638,9 @@ echo "
 if test x$enable_tests = xyes; then
         echo "NOTE: building with unit tests increases the size of the installed library and renders it insecure."
 fi
+if test x$enable_tests = xyes -a x$enable_asserts = xno; then
+        echo "NOTE: building with unit tests but without assertions means tests may not properly report failures (this configuration is only useful when doing something like profiling the tests)"
+fi
 if test x$enable_gcov = xyes; then
         echo "NOTE: building with coverage profiling is definitely for developers only."
 fi
