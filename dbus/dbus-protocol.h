@@ -76,6 +76,7 @@ extern "C" {
 #define DBUS_SERVICE_REPLY_ALREADY_OWNER  0x8
   
 /* Messages */
+#define DBUS_MESSAGE_ACTIVATE_SERVICE      "org.freedesktop.DBus.ActivateService"  
 #define DBUS_MESSAGE_SERVICE_EXISTS        "org.freedesktop.DBus.ServiceExists"
 #define DBUS_MESSAGE_HELLO                 "org.freedesktop.DBus.Hello"
 #define DBUS_MESSAGE_LIST_SERVICES         "org.freedesktop.DBus.ListServices"
@@ -84,7 +85,7 @@ extern "C" {
 #define DBUS_MESSAGE_SERVICE_CREATED       "org.freedesktop.DBus.ServiceCreated"
 #define DBUS_MESSAGE_SERVICE_DELETED       "org.freedesktop.DBus.ServiceDeleted"
 #define DBUS_MESSAGE_SERVICE_LOST          "org.freedesktop.DBus.ServiceLost"
-
+  
 #define DBUS_MESSAGE_LOCAL_DISCONNECT      "org.freedesktop.Local.Disconnect"
   
 #ifdef __cplusplus

@@ -49,9 +49,10 @@ struct DBusError
   void *padding1; /**< placeholder */
 };
 
-#define DBUS_ERROR_SPAWN_FORK_FAILED "org.freedesktop.DBus.Error.Spawn.ForkFailed"
-#define DBUS_ERROR_SPAWN_FAILED      "org.freedesktop.DBus.Error.Spawn.Failed"
-#define DBUS_ERROR_NO_MEMORY         "org.freedesktop.DBus.Error.NoMemory"
+#define DBUS_ERROR_ACTIVATE_SERVICE_NOT_FOUND "org.freedesktop.DBus.Activate.ServiceNotFound"
+#define DBUS_ERROR_SPAWN_FORK_FAILED          "org.freedesktop.DBus.Error.Spawn.ForkFailed"
+#define DBUS_ERROR_SPAWN_FAILED               "org.freedesktop.DBus.Error.Spawn.Failed"
+#define DBUS_ERROR_NO_MEMORY                  "org.freedesktop.DBus.Error.NoMemory"
 
 typedef enum
 {

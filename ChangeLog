@@ -1,3 +1,37 @@
+2003-02-16  Anders Carlsson  <andersca@codefactory.se>
+
+	* bus/activation.c: (load_directory), (bus_activation_init),
+	(bus_activation_activate_service):
+	* bus/activation.h:
+	* bus/driver.c: 
+	(bus_driver_handle_activate_service), (bus_driver_handle_message):
+	More work on the activation handling.
+	
+	* dbus/dbus-errors.h:
+	Add some error messages
+	
+	* dbus/dbus-message.c: (dbus_message_new_error_reply):
+	* dbus/dbus-message.h:
+	New function that creates an error message.
+	
+	* dbus/dbus-protocol.h:
+	Add ACTIVATE_SERVER message.
+	
+	* dbus/dbus-server-unix.c: (unix_handle_watch),
+	(_dbus_server_new_for_domain_socket):
+	Call _dbus_fd_set_close_on_exec.
+	
+	* dbus/dbus-sysdeps.c: (make_pipe), (do_exec),
+	(_dbus_spawn_async), (_dbus_disable_sigpipe),
+	(_dbus_fd_set_close_on_exec):
+	* dbus/dbus-sysdeps.h:
+	Add _dbus_fd_set_close_on exec function. Also add function that checks
+	that all open fds are set to close-on-exec and warns otherwise.
+	
+	* dbus/dbus-transport-unix.c:
+	(_dbus_transport_new_for_domain_socket):
+	Call _dbus_fd_set_close_on_exec.
+
 2003-02-16  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-connection.c (dbus_connection_set_change_sigpipe):

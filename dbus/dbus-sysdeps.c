@@ -281,7 +281,7 @@ _dbus_connect_unix_socket (const char     *path,
   struct sockaddr_un addr;  
   
   fd = socket (AF_LOCAL, SOCK_STREAM, 0);
-
+  
   if (fd < 0)
     {
       dbus_set_result (result,
@@ -340,7 +340,7 @@ _dbus_listen_unix_socket (const char     *path,
   struct sockaddr_un addr;
 
   listen_fd = socket (AF_LOCAL, SOCK_STREAM, 0);
-
+  
   if (listen_fd < 0)
     {
       dbus_set_result (result, _dbus_result_from_errno (errno));
@@ -1490,7 +1490,11 @@ make_pipe (int        p[2],
       return FALSE;
     }
   else
-    return TRUE;
+    {
+      _dbus_fd_set_close_on_exec (p[0]);
+      _dbus_fd_set_close_on_exec (p[1]);      
+      return TRUE;
+    }
 }
 
 enum
@@ -1563,6 +1567,23 @@ static void
 do_exec (int    child_err_report_fd,
 	 char **argv)
 {
+#ifdef DBUS_BUILD_TESTS
+  int i, max_open;
+  
+  max_open = sysconf (_SC_OPEN_MAX);
+
+  
+  for (i = 3; i < max_open; i++)
+    {
+      int retval;
+
+      retval = fcntl (i, F_GETFD);
+
+      if (retval != -1 && !(retval & FD_CLOEXEC))
+	_dbus_warn ("Fd %d did not have the close-on-exec flag set!\n", i);
+    }
+#endif
+  
   execvp (argv[0], argv);
 
   /* Exec failed */
@@ -1577,19 +1598,13 @@ _dbus_spawn_async (char      **argv,
 {
   int pid = -1, grandchild_pid;
   int child_err_report_pipe[2] = { -1, -1 };
-  int child_pid_report_pipe[2] = { -1, -1 };
   int status;
   
-  printf ("spawning application: %s\n", argv[0]);
-
   if (!make_pipe (child_err_report_pipe, error))
     return FALSE;
 
-  if (!make_pipe (child_pid_report_pipe, error))
-    goto cleanup_and_fail;
-  
   pid = fork ();
-
+  
   if (pid < 0)
     {
       dbus_set_error (error,
@@ -1612,7 +1627,6 @@ _dbus_spawn_async (char      **argv,
        * though
        */
       close_and_invalidate (&child_err_report_pipe[0]);
-      close_and_invalidate (&child_pid_report_pipe[0]);
 
       /* We need to fork an intermediate child that launches the
        * final child. The purpose of the intermediate child
@@ -1623,10 +1637,6 @@ _dbus_spawn_async (char      **argv,
       
       if (grandchild_pid < 0)
 	{
-	  /* report -1 as child PID */
-	  write (child_pid_report_pipe[1], &grandchild_pid,
-		 sizeof(grandchild_pid));
-	  
 	  write_err_and_exit (child_err_report_pipe[1],
 			      CHILD_FORK_FAILED);              
 	}
@@ -1637,9 +1647,6 @@ _dbus_spawn_async (char      **argv,
 	}
       else
 	{
-	  write (child_pid_report_pipe[1], &grandchild_pid, sizeof(grandchild_pid));
-	  close_and_invalidate (&child_pid_report_pipe[1]);
-              
 	  _exit (0);
 	}
     }
@@ -1652,7 +1659,6 @@ _dbus_spawn_async (char      **argv,
       
       /* Close the uncared-about ends of the pipes */
       close_and_invalidate (&child_err_report_pipe[1]);
-      close_and_invalidate (&child_pid_report_pipe[1]);
 
     wait_again:
       if (waitpid (pid, &status, 0) < 0)
@@ -1716,8 +1722,6 @@ _dbus_spawn_async (char      **argv,
   
   close_and_invalidate (&child_err_report_pipe[0]);
   close_and_invalidate (&child_err_report_pipe[1]);
-  close_and_invalidate (&child_pid_report_pipe[0]);
-  close_and_invalidate (&child_pid_report_pipe[1]);
 
   return FALSE;
 }
@@ -1729,6 +1733,21 @@ void
 _dbus_disable_sigpipe (void)
 {
   signal (SIGPIPE, SIG_IGN);
+}
+
+void
+_dbus_fd_set_close_on_exec (int fd)
+{
+  int val;
+  
+  val = fcntl (fd, F_GETFD, 0);
+  
+  if (val < 0)
+    return;
+
+  val |= FD_CLOEXEC;
+  
+  fcntl (fd, F_SETFD, val);
 }
 
 /** @} end of sysdeps */

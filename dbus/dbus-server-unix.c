@@ -145,6 +145,7 @@ unix_handle_watch (DBusServer  *server,
         }
       else
         {
+	  _dbus_fd_set_close_on_exec (client_fd);	  
           handle_new_client_fd (server, client_fd);
         }
     }
@@ -247,6 +248,8 @@ _dbus_server_new_for_domain_socket (const char     *path,
   int listen_fd;
 
   listen_fd = _dbus_listen_unix_socket (path, result);
+  _dbus_fd_set_close_on_exec (listen_fd);
+  
   if (listen_fd < 0)
     return NULL;
   

@@ -21,6 +21,7 @@
  *
  */
 
+#include "activation.h"
 #include "connection.h"
 #include "driver.h"
 #include "dispatch.h"
@@ -169,7 +170,7 @@ bus_driver_handle_hello (DBusConnection *connection,
 {
   DBusString unique_name;
   BusService *service;
-  
+
   BUS_HANDLE_OOM (_dbus_string_init (&unique_name, _DBUS_INT_MAX));
   BUS_HANDLE_OOM (create_unique_client_name (&unique_name));
 
@@ -208,7 +209,7 @@ bus_driver_send_welcome_message (DBusConnection *connection,
 					    NULL));
   
   BUS_HANDLE_OOM (dbus_connection_send_message (connection, welcome, NULL, NULL));
-
+  
   dbus_message_unref (welcome);
 }
 
@@ -363,6 +364,39 @@ bus_driver_handle_service_exists (DBusConnection *connection,
   dbus_free (name);
 }
 
+static void
+bus_driver_handle_activate_service (DBusConnection *connection,
+				    DBusMessage    *message)
+{
+  DBusResultCode result;
+  dbus_uint32_t flags;
+  char *name;
+  DBusError error;
+  
+  BUS_HANDLE_OOM ((result = dbus_message_get_args (message,
+						   DBUS_TYPE_STRING, &name,
+						   DBUS_TYPE_UINT32, &flags,
+						   0)) != DBUS_RESULT_NO_MEMORY);
+  if (result != DBUS_RESULT_SUCCESS)
+    {
+      dbus_free (name);
+      dbus_connection_disconnect (connection);
+      return;
+    }
+
+  if (!bus_activation_activate_service (name, &error))
+    {
+      DBusMessage *error_reply;
+      
+      BUS_HANDLE_OOM (error_reply = dbus_message_new_error_reply (message,
+								  error.name, error.message));
+      dbus_error_free (&error);
+
+      BUS_HANDLE_OOM (dbus_connection_send_message (connection, error_reply, NULL, NULL));
+      dbus_message_unref (error_reply);
+    }
+}
+
 void
 bus_driver_handle_message (DBusConnection *connection,
 			   DBusMessage    *message)
@@ -391,7 +425,8 @@ bus_driver_handle_message (DBusConnection *connection,
     bus_driver_handle_acquire_service (connection, message);
   else if (strcmp (name, DBUS_MESSAGE_SERVICE_EXISTS) == 0)
     bus_driver_handle_service_exists (connection, message);
-  
+  else if (strcmp (name, DBUS_MESSAGE_ACTIVATE_SERVICE) == 0)
+    bus_driver_handle_activate_service (connection, message);
 }
 
 void

@@ -1102,6 +1102,8 @@ _dbus_transport_new_for_domain_socket (const char     *path,
   if (fd < 0)
     return NULL;
 
+  _dbus_fd_set_close_on_exec (fd);
+  
   _dbus_verbose ("Successfully connected to unix socket %s\n",
                  path);
   

@@ -41,6 +41,12 @@ typedef struct
   char *exec;
 } BusActivationEntry;
 
+static DBusHashTable *pending_activations = NULL;
+typedef struct
+{
+  char *service;
+} BusPendingActivation;
+
 static void
 bus_activation_entry_free (BusActivationEntry *entry)
 {
@@ -164,36 +170,6 @@ load_directory (const char *directory)
       bus_desktop_file_free (desktop_file);
       _dbus_string_free (&full_path);
     }
-
-#if 0
-  while ((directory_entry = readdir (directory_handle)))
-    {
-      DBusString path, filename;
-      BusDesktopFile *desktop_file;
-      DBusError error;
-      const char *filename_c;
-
-      
-      _dbus_string_init_const (&filename, directory_entry->d_name);
-
-
-      _dbus_string_get_const_data (&path, &filename_c);      
-
-      if (!desktop_file)
-	{
-	  _dbus_verbose ("Could not load %s: %s\n", filename_c,
-			 error.message);
-	  dbus_error_free (&error);
-	  _dbus_string_free (&path);
-	  continue;
-	}
-
-      if (!add_desktop_file_entry (desktop_file))
-	{
-	  _dbus_verbose ("Could not add %s to activation entry list.\n", filename_c);
-	}
-    }
-#endif
 }
 
 
@@ -213,4 +189,31 @@ bus_activation_init (const char **directories)
       load_directory (directories[i]);
       i++;
     }
+}
+
+dbus_bool_t
+bus_activation_activate_service (const char  *service_name,
+				 DBusError   *error)
+{
+  BusActivationEntry *entry;
+  char *argv[2];
+  
+  entry = _dbus_hash_table_lookup_string (activation_entries, service_name);
+
+  if (!entry)
+    {
+      dbus_set_error (error, DBUS_ERROR_ACTIVATE_SERVICE_NOT_FOUND,
+		      "The service %s was not found in the activation entry list",
+		      service_name);
+      return FALSE;
+    }
+
+  /* Now try to spawn the process */
+  argv[0] = entry->exec;
+  argv[1] = NULL;
+
+  if (!_dbus_spawn_async (argv, error))
+    return FALSE;
+
+  return TRUE;
 }

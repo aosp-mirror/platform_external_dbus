@@ -817,6 +817,50 @@ dbus_message_new_reply (DBusMessage *original_message)
 }
 
 /**
+ * Creates a new message that is an error reply to a certain message.
+ *
+ * @param original_message the original message
+ * @param error_name the error name
+ * @param error_message the error message string
+ * @returns a new error message
+ */
+DBusMessage*
+dbus_message_new_error_reply (DBusMessage *original_message,
+			      const char  *error_name,
+			      const char  *error_message)
+{
+  DBusMessage *message;
+  const char *sender;
+
+  sender = get_string_field (original_message,
+                             FIELD_SENDER, NULL);
+  
+  _dbus_assert (sender != NULL);
+  
+  message = dbus_message_new (sender, error_name);
+  
+  if (message == NULL)
+    return NULL;
+
+  if (!_dbus_message_set_reply_serial (message,
+                                       _dbus_message_get_client_serial (original_message)))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+
+  if (!dbus_message_append_string (message, error_message))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+
+  dbus_message_set_is_error (message, TRUE);
+  
+  return message;
+}
+
+/**
  * Creates a new message that is an exact replica of the message
  * specified, except that its refcount is set to 1.
  *

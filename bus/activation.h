@@ -24,6 +24,11 @@
 #ifndef BUS_ACTIVATION_H
 #define BUS_ACTIVATION_H
 
-void bus_activation_init (const char **paths);
+#include <dbus/dbus.h>
+
+void        bus_activation_init             (const char **paths);
+dbus_bool_t bus_activation_activate_service (const char  *service_name,
+					     DBusError   *error);
+
 
 #endif /* BUS_ACTIVATION_H */
