@@ -1488,6 +1488,14 @@ static dbus_bool_t array_2_read_value       (TestTypeNode   *node,
                                              DataBlock      *block,
                                              DBusTypeReader *reader,
                                              int             seed);
+static dbus_bool_t array_9_write_value      (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeWriter *writer,
+                                             int             seed);
+static dbus_bool_t array_9_read_value       (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeReader *reader,
+                                             int             seed);
 static void        container_destroy        (TestTypeNode   *node);
 
 
@@ -1582,6 +1590,16 @@ static const TestTypeNodeClass array_2_class = {
   array_build_signature
 };
 
+static const TestTypeNodeClass array_9_class = {
+  DBUS_TYPE_ARRAY,
+  sizeof (TestTypeNodeContainer),
+  NULL,
+  container_destroy,
+  array_9_write_value,
+  array_9_read_value,
+  array_build_signature
+};
+
 static const TestTypeNodeClass* const
 basic_nodes[] = {
   &int32_class,
@@ -1598,6 +1616,9 @@ container_nodes[] = {
   &struct_2_class,
   &array_0_class,
   &array_2_class
+  /* array_9_class is omitted on purpose, it's too slow;
+   * we only use it in one hardcoded test below
+   */
 };
 #define N_CONTAINERS (_DBUS_N_ELEMENTS (container_nodes))
 
@@ -2057,6 +2078,30 @@ make_and_run_test_nodes (void)
     node_destroy (node);
   }
 
+  _dbus_verbose (">>> >>> Each value in a large array %d iterations\n",
+                 N_VALUES);
+  {
+    TestTypeNode *val;
+    TestTypeNode *node;
+
+    node = node_new (&array_9_class);
+
+    i = 0;
+    while ((val = value_generator (&i)))
+      {
+        TestTypeNodeContainer *container = (TestTypeNodeContainer*) node;
+
+        node_append_child (node, val);
+
+        run_test_nodes (&node, 1);
+
+        _dbus_list_clear (&container->children);
+        node_destroy (val);
+      }
+
+    node_destroy (node);
+  }
+  
   _dbus_verbose (">>> >>> Each container of each container of each value %d iterations\n",
                  N_CONTAINERS * N_CONTAINERS * N_VALUES);
   for (i = 0; i < N_CONTAINERS; i++)
@@ -2229,7 +2274,7 @@ int32_write_value (TestTypeNode   *node,
   dbus_int32_t v;
 
   v = int32_from_seed (seed);
-
+  
   return _dbus_type_writer_write_basic (writer,
                                         node->klass->typecode,
                                         &v);
@@ -2248,7 +2293,7 @@ int32_read_value (TestTypeNode   *node,
 
   _dbus_type_reader_read_basic (reader,
                                 (dbus_int32_t*) &v);
-
+  
   _dbus_assert (v == int32_from_seed (seed));
 
   return TRUE;
@@ -2263,7 +2308,8 @@ int64_from_seed (int seed)
   
   v32 = int32_from_seed (seed);
 
-  v = (((dbus_int64_t)v32) << 32) | (~v32);
+  v = - (dbus_int32_t) ~ v32;
+  v |= (((dbus_int64_t)v32) << 32);
   
   return v;
 }
@@ -2280,7 +2326,7 @@ int64_write_value (TestTypeNode   *node,
   dbus_int64_t v;
 
   v = int64_from_seed (seed);
-
+  
   return _dbus_type_writer_write_basic (writer,
                                         node->klass->typecode,
                                         &v);
@@ -2303,7 +2349,7 @@ int64_read_value (TestTypeNode   *node,
 
   _dbus_type_reader_read_basic (reader,
                                 (dbus_int64_t*) &v);
-
+  
   _dbus_assert (v == int64_from_seed (seed));
 
   return TRUE;
@@ -2686,6 +2732,25 @@ array_2_read_value (TestTypeNode   *node,
                     int             seed)
 {
   return array_N_read_value (node, block, reader, 2);
+}
+
+
+static dbus_bool_t
+array_9_write_value (TestTypeNode   *node,
+                     DataBlock      *block,
+                     DBusTypeWriter *writer,
+                     int             seed)
+{
+  return array_N_write_value (node, block, writer, 9);
+}
+
+static dbus_bool_t
+array_9_read_value (TestTypeNode   *node,
+                    DataBlock      *block,
+                    DBusTypeReader *reader,
+                    int             seed)
+{
+  return array_N_read_value (node, block, reader, 9);
 }
 
 static void
