@@ -1,5 +1,11 @@
 2003-04-11  Havoc Pennington  <hp@redhat.com>
 
+	* bus/messagebus.in: remove pid file when stopping the
+	message bus, since the bus won't have privileges to remove it
+	itself.
+
+2003-04-11  Havoc Pennington  <hp@redhat.com>
+
 	* bus/bus.c (bus_context_new): move credentials change after
 	creating pidfile
 

@@ -37,6 +37,7 @@ stop() {
     echo
     if [ $RETVAL -eq 0 ]; then
         rm -f @EXPANDED_LOCALSTATEDIR@/lock/subsys/messagebus
+        rm -f @DBUS_SYSTEM_PID_FILE@
     fi
 }
 
