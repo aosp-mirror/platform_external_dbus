@@ -30,7 +30,7 @@
 static void
 usage (char *name, int ecode)
 {
-  fprintf (stderr, "Usage: %s [--help] [--session] [--dest=SERVICE] [--print-reply] <message type> [contents ...]\n", name);
+  fprintf (stderr, "Usage: %s [--help] [--system | --session] [--dest=SERVICE] [--print-reply] <message type> [contents ...]\n", name);
   exit (ecode);
 }
 
@@ -58,6 +58,8 @@ main (int argc, char *argv[])
 
       if (strcmp (arg, "--system") == 0)
 	type = DBUS_BUS_SYSTEM;
+      else if (strcmp (arg, "--session") == 0)
+	type = DBUS_BUS_SESSION;
       else if (strcmp (arg, "--print-reply") == 0)
         print_reply = TRUE;
       else if (strstr (arg, "--dest=") == arg)

@@ -1,3 +1,11 @@
+2003-06-19  Philip Blundell  <philb@gnu.org>
+
+	* tools/dbus-print-message.c (print_message): Handle BOOLEAN.
+
+	* tools/dbus-send.c: Accept both --system and --session.
+        
+	* tools/dbus-monitor.c: Same here.
+	
 2003-06-19  Anders Carlsson  <andersca@codefactory.se>
 
 	* glib/dbus-glib.h: Fix so that dbus-glib.h can be used

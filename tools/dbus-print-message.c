@@ -43,6 +43,7 @@ print_message (DBusMessage *message)
       dbus_int32_t int32;
       double d;
       unsigned char byte;
+      dbus_bool_t boolean;
 
       if (type == DBUS_TYPE_INVALID)
 	break;
@@ -72,6 +73,11 @@ print_message (DBusMessage *message)
 	case DBUS_TYPE_BYTE:
 	  byte = dbus_message_iter_get_byte (&iter);
 	  printf ("byte:%d\n", byte);
+	  break;
+
+	case DBUS_TYPE_BOOLEAN:
+	  boolean = dbus_message_iter_get_boolean (&iter);
+	  printf ("boolean:%s\n", boolean ? "true" : "false");
 	  break;
 
 	default:
