@@ -23,10 +23,6 @@
 
  - Recursive/composite/etc. types and associated API, see mailing list.
 
- - dbus-bus.h should contain convenience API for connecting to system 
-   and login-session message buses (automatically handling env
-   variables etc.)
-
  - Configuration file (working on that now)
 
  - Property list feature on message bus (list of properties associated 

@@ -1,3 +1,16 @@
+2003-03-31  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/Makefile.am (INCLUDES): use EXPANDED_LOCALSTATEDIR to
+	define DBUS_SYSTEM_BUS_PATH as we want to compile in the same 
+	final location that lands in the config file
+
+	* bus/config-loader-expat.c (bus_config_load): fix type of
+	XML_Parser variable
+
+	* doc/TODO: remove TODO item for dbus_bus_get()
+
+	* dbus/dbus-bus.c (bus_data_free): add missing lock/unlock
+
 2003-03-31  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-transport-unix.c (_dbus_transport_new_for_domain_socket)

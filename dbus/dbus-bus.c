@@ -117,7 +117,11 @@ bus_data_free (void *data)
   BusData *bd = data;
 
   if (bd->connection)
-    *bd->connection = NULL;
+    {
+      _DBUS_LOCK (bus);
+      *bd->connection = NULL;
+      _DBUS_UNLOCK (bus);
+    }
   
   dbus_free (bd->base_service);
   dbus_free (bd);

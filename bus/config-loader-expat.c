@@ -166,7 +166,7 @@ BusConfigParser*
 bus_config_load (const DBusString *file,
                  DBusError        *error)
 {
-  XML_Parser *expat;
+  XML_Parser expat;
   const char *filename;
   BusConfigParser *parser;
   ExpatParseContext context;
