@@ -277,6 +277,7 @@ main (int argc, char **argv)
   struct stat srcbuf;
   struct stat targetbuf;
   gboolean force;
+  gboolean ignore_unsupported;
 
   setlocale (LC_ALL, "");
   bindtextdomain (GETTEXT_PACKAGE, DBUS_LOCALEDIR);
@@ -290,6 +291,7 @@ main (int argc, char **argv)
   files = NULL;
   prev_arg = NULL;
   output_file = NULL;
+  ignore_unsupported = FALSE;
   force = FALSE;
   i = 1;
   while (i < argc)
@@ -322,6 +324,8 @@ main (int argc, char **argv)
 	      else
 		usage (1);
 	    }
+          else if (strcmp (arg, "--ignore-unsupported") == 0)
+            ignore_unsupported = TRUE;
 	  else if (strncmp (arg, "--output=", 9) == 0)
 	    {
 	      output_file = arg + 9;
@@ -413,7 +417,7 @@ main (int argc, char **argv)
 		lose_gerror (_("Compilation failed"), error);
 	      break;
 	    case DBUS_BINDING_OUTPUT_GLIB_CLIENT:
-	      if (!dbus_binding_tool_output_glib_client ((BaseInfo *) node, channel, &error))
+	      if (!dbus_binding_tool_output_glib_client ((BaseInfo *) node, channel, ignore_unsupported, &error))
 		lose_gerror (_("Compilation failed"), error);
 	      break;
 	    case DBUS_BINDING_OUTPUT_NONE:

@@ -1,3 +1,35 @@
+2005-03-12  Colin Walters  <walters@verbum.org>
+
+	* bus/driver.c (write_args_for_direction): New function,
+	parses a type signature into arguments and outputs to
+	XML.
+	(bus_driver_handle_introspect): Use it instead of
+	hardcoding XML for certain signatures.
+	
+	* bus/Makefile.am (dbus-bus-introspect.xml): Add
+	dependency on dbus-daemon.
+
+	* glib/dbus-glib-tool.c (main): Parse ignore_unsupported
+	argument, pass it to dbus_binding_tool_output_glib_client.
+
+	* glib/dbus-binding-tool-glib.c
+	(generate_client_glue): Protect against multiple inclusion.
+	(dbus_binding_tool_output_glib_client): Add
+	G_BEGIN_DECLS/G_END_DECLS.
+
+	* glib/dbus-binding-tool-glib.c (compute_client_method_name):
+	Change to just take iface prefix directly.
+	(write_formal_parameters): Clarify error message.
+	(check_supported_parameters): New function; checks to see type
+	signatures of method parameters are supported.
+	(generate_client_glue): Handle ignore_unsupported flag.
+	(dbus_binding_tool_output_glib_client): Handle ignore_unsupported
+	parameter.
+
+	* glib/Makefile.am (dbus-glib-bindings.h): Pass
+	--ignore-unsupported by default until glib bindings
+	support arrays.
+
 2005-03-11  Colin Walters  <walters@verbum.org>
 
 	* glib/Makefile.am: Generate dbus-glib-bindings.h and

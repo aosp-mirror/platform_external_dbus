@@ -92,7 +92,7 @@ run-with-tmp-session-bus.sh: dbus-daemon
 
 all-local: dbus-bus-introspect.xml
 
-dbus-bus-introspect.xml: $(srcdir)/run-with-tmp-session-bus.sh
+dbus-bus-introspect.xml: $(srcdir)/run-with-tmp-session-bus.sh dbus-daemon
 	DBUS_TOP_BUILDDIR=$(top_builddir) $(srcdir)/run-with-tmp-session-bus.sh ./print-introspect org.freedesktop.DBus /org/freedesktop/DBus > dbus-bus-introspect.xml.tmp && mv dbus-bus-introspect.xml.tmp dbus-bus-introspect.xml
 
 ## mop up the gcov files

@@ -31,6 +31,7 @@
 #include "utils.h"
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-internals.h>
+#include <dbus/dbus-marshal-recursive.h>
 #include <string.h>
 
 static dbus_bool_t bus_driver_send_welcome_message (DBusConnection *connection,
@@ -1099,6 +1100,34 @@ struct
 };
 
 static dbus_bool_t
+write_args_for_direction (DBusString *xml,
+			  const char *signature,
+			  dbus_bool_t in)
+{
+  DBusTypeReader typereader;
+  DBusString sigstr;
+  int current_type;
+  
+  _dbus_string_init_const (&sigstr, signature);
+  _dbus_type_reader_init_types_only (&typereader, &sigstr, 0);
+      
+  while ((current_type = _dbus_type_reader_get_current_type (&typereader)) != DBUS_TYPE_INVALID)
+    {
+      const DBusString *subsig;
+      int start, len;
+
+      _dbus_type_reader_get_signature (&typereader, &subsig, &start, &len);
+      if (!_dbus_string_append_printf (xml, "      <arg direction=\"%s\" type=\"%s\"/>\n", in ? "in" : "out", _dbus_string_get_const_data_len (subsig, start, len)))
+	goto oom;
+
+      _dbus_type_reader_next (&typereader);
+    }
+  return TRUE;
+ oom:
+  return FALSE;
+}
+
+static dbus_bool_t
 bus_driver_handle_introspect (DBusConnection *connection,
                               BusTransaction *transaction,
                               DBusMessage    *message,
@@ -1150,73 +1179,19 @@ bus_driver_handle_introspect (DBusConnection *connection,
   i = 0;
   while (i < _DBUS_N_ELEMENTS (message_handlers))
     {
+	  
       if (!_dbus_string_append_printf (&xml, "    <method name=\"%s\">\n",
                                        message_handlers[i].name))
         goto oom;
 
-      /* This hacky mess can probably get mopped up eventually when the
-       * introspection format is related to the signature format
-       */
-      
-      if (strcmp (message_handlers[i].in_args, "") == 0)
-        ;
-      else if (strcmp (message_handlers[i].in_args,
-                       DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_UINT32_AS_STRING) == 0)
-        {
-          if (!_dbus_string_append_printf (&xml, "      <arg direction=\"in\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING))
-            goto oom;
-          if (!_dbus_string_append_printf (&xml, "      <arg direction=\"in\" type=\"%s\"/>\n", DBUS_TYPE_UINT32_AS_STRING))
-            goto oom;
-        }
-      else if (strcmp (message_handlers[i].in_args,
-                       DBUS_TYPE_STRING_AS_STRING) == 0)
-        {
-          if (!_dbus_string_append_printf (&xml, "      <arg direction=\"in\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING))
-            goto oom;
-        }
-      else
-        {
-          _dbus_warn ("Lack introspection code for in sig '%s'\n",
-                      message_handlers[i].in_args);
-          _dbus_assert_not_reached ("FIXME introspection missing");
-        }
+      if (!write_args_for_direction (&xml, message_handlers[i].in_args, TRUE))
+	goto oom;
 
-      if (strcmp (message_handlers[i].out_args, "") == 0)
-        ;
-      else if (strcmp (message_handlers[i].out_args,
-                       DBUS_TYPE_STRING_AS_STRING) == 0)
-        {
-          if (!_dbus_string_append_printf (&xml, "      <arg direction=\"out\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING))
-            goto oom;
-        }
-      else if (strcmp (message_handlers[i].out_args,
-                       DBUS_TYPE_BOOLEAN_AS_STRING) == 0)
-        {
-          if (!_dbus_string_append_printf (&xml, "      <arg direction=\"out\" type=\"%s\"/>\n", DBUS_TYPE_BOOLEAN_AS_STRING))
-            goto oom;
-        }
-      else if (strcmp (message_handlers[i].out_args,
-                       DBUS_TYPE_UINT32_AS_STRING) == 0)
-        {
-          if (!_dbus_string_append_printf (&xml, "      <arg direction=\"out\" type=\"%s\"/>\n", DBUS_TYPE_UINT32_AS_STRING))
-            goto oom;
-        }
-      else if (strcmp (message_handlers[i].out_args,
-                       DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_STRING_AS_STRING) == 0)
-        {
-          /* FIXME introspection format doesn't handle arrays yet */
-          if (!_dbus_string_append_printf (&xml, "      <arg direction=\"out\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING))
-            goto oom;
-        }
-      else
-        {
-          _dbus_warn ("Lack introspection code for out sig '%s'\n",
-                      message_handlers[i].out_args);
-          _dbus_assert_not_reached ("FIXME introspection missing");
-        }
-      
+      if (!write_args_for_direction (&xml, message_handlers[i].out_args, FALSE))
+	goto oom;
+
       if (!_dbus_string_append (&xml, "    </method>\n"))
-        goto oom;
+	goto oom;
       
       ++i;
     }

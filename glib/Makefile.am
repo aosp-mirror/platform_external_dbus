@@ -51,7 +51,7 @@ dbus_binding_tool_SOURCES =			\
 dbus_binding_tool_LDADD= -lexpat libdbus-gtool.la
 
 dbus-glib-bindings.h: $(top_builddir)/bus/dbus-bus-introspect.xml dbus-binding-tool
-	./dbus-binding-tool --mode=glib-client --output=dbus-glib-bindings.h $(top_builddir)/bus/dbus-bus-introspect.xml
+	./dbus-binding-tool --ignore-unsupported --mode=glib-client --output=dbus-glib-bindings.h $(top_builddir)/bus/dbus-bus-introspect.xml # FIXME - remove --ignore-unsupported when we can do arrays
 
 BUILT_SOURCES = dbus-glib-bindings.h
 
