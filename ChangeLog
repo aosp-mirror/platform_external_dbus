@@ -1,5 +1,15 @@
 2003-01-04  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-sysdeps.c (_dbus_sleep_milliseconds): new function
+	(_dbus_poll): new function
+
+	* dbus/dbus-internals.h (_DBUS_STRUCT_OFFSET): new macro
+	copied from GLib
+
+	* bus/loop.c: initial code for the daemon main loop
+
+2003-01-04  Havoc Pennington  <hp@pobox.com>
+
 	* test/watch.c (error_handler): make it safe if the error handler 
 	is called multiple times (if we s/error handler/disconnect
 	handler/ we should just guarantee it's called only once)

@@ -34,10 +34,13 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <pwd.h>
+#include <time.h>
 #ifdef HAVE_WRITEV
 #include <sys/uio.h>
 #endif
-
+#ifdef HAVE_POLL
+#include <sys/poll.h>
+#endif
 
 /**
  * @addtogroup DBusInternalsUtils
@@ -889,6 +892,95 @@ dbus_bool_t
 _dbus_string_append_our_uid (DBusString *str)
 {
   return _dbus_string_append_int (str, getuid ());
+}
+
+
+/**
+ * Wrapper for poll().
+ *
+ * @todo need a fallback implementation using select()
+ *
+ * @param fds the file descriptors to poll
+ * @param n_fds number of descriptors in the array
+ * @param timeout_milliseconds timeout or -1 for infinite
+ * @returns numbers of fds with revents, or <0 on error
+ */
+int
+_dbus_poll (DBusPollFD *fds,
+            int         n_fds,
+            int         timeout_milliseconds)
+{
+#ifdef HAVE_POLL
+  /* This big thing is a constant expression and should get optimized
+   * out of existence. So it's more robust than a configure check at
+   * no cost.
+   */
+  if (_DBUS_POLLIN == POLLIN &&
+      _DBUS_POLLPRI == POLLPRI &&
+      _DBUS_POLLOUT == POLLOUT &&
+      _DBUS_POLLERR == POLLERR &&
+      _DBUS_POLLHUP == POLLHUP &&
+      _DBUS_POLLNVAL == POLLNVAL &&
+      sizeof (DBusPollFD) == sizeof (struct pollfd) &&
+      _DBUS_STRUCT_OFFSET (DBusPollFD, fd) ==
+      _DBUS_STRUCT_OFFSET (struct pollfd, fd) &&
+      _DBUS_STRUCT_OFFSET (DBusPollFD, events) ==
+      _DBUS_STRUCT_OFFSET (struct pollfd, events) &&
+      _DBUS_STRUCT_OFFSET (DBusPollFD, revents) ==
+      _DBUS_STRUCT_OFFSET (struct pollfd, revents))
+    {
+      return poll ((struct pollfd*) fds,
+                   n_fds, 
+                   timeout_milliseconds);
+    }
+  else
+    {
+      /* We have to convert the DBusPollFD to an array of
+       * struct pollfd, poll, and convert back.
+       */
+      _dbus_warn ("didn't implement poll() properly for this system yet\n");
+      return -1;
+    }
+#else /* ! HAVE_POLL */
+  _dbus_warn ("need to implement select() fallback for systems with no poll()\n");
+  return -1;
+#endif
+}
+
+/** nanoseconds in a second */
+#define NANOSECONDS_PER_SECOND       1000000000
+/** microseconds in a second */
+#define MICROSECONDS_PER_SECOND      1000000
+/** milliseconds in a second */
+#define MILLISECONDS_PER_SECOND      1000
+/** nanoseconds in a millisecond */
+#define NANOSECONDS_PER_MILLISECOND  1000000
+/** microseconds in a millisecond */
+#define MICROSECONDS_PER_MILLISECOND 1000
+
+/**
+ * Sleeps the given number of milliseconds.
+ * @param milliseconds number of milliseconds
+ */
+void
+_dbus_sleep_milliseconds (int milliseconds)
+{
+#ifdef HAVE_NANOSLEEP
+  struct timespec req;
+  struct timespec rem;
+
+  req.tv_sec = milliseconds / MILLISECONDS_PER_SECOND;
+  req.tv_nsec = (milliseconds % MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND;
+  rem.tv_sec = 0;
+  rem.tv_nsec = 0;
+
+  while (nanosleep (&req, &rem) < 0 && errno == EINTR)
+    req = rem;
+#elif defined (HAVE_USLEEP)
+  usleep (milliseconds * MICROSECONDS_PER_MILLISECOND);
+#else /* ! HAVE_USLEEP */
+  sleep (MAX (milliseconds / 1000, 1));
+#endif
 }
 
 /** @} end of sysdeps */

@@ -69,6 +69,9 @@ do {                                                                            
 
 #define _DBUS_ZERO(object) (memset (&(object), '\0', sizeof ((object))))
 
+#define _DBUS_STRUCT_OFFSET(struct_type, member)	\
+    ((long) ((unsigned char*) &((struct_type*) 0)->member))
+
 char* _dbus_strdup (const char *str);
 
 #define _DBUS_INT_MIN	(-_DBUS_INT_MAX - 1)
@@ -76,6 +79,15 @@ char* _dbus_strdup (const char *str);
 #define _DBUS_MAX_SUN_PATH_LENGTH 99
 #define _DBUS_ONE_KILOBYTE 1024
 #define _DBUS_ONE_MEGABYTE 1024 * _DBUS_ONE_KILOBYTE
+
+#undef	MAX
+#define MAX(a, b)  (((a) > (b)) ? (a) : (b))
+
+#undef	MIN
+#define MIN(a, b)  (((a) < (b)) ? (a) : (b))
+
+#undef	ABS
+#define ABS(a)	   (((a) < 0) ? -(a) : (a))
 
 typedef void (* DBusForeachFunction) (void *element,
                                       void *data);

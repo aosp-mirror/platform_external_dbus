@@ -96,6 +96,28 @@ dbus_bool_t _dbus_credentials_match                (const DBusCredentials *expec
 
 dbus_bool_t _dbus_string_append_our_uid (DBusString *str);
 
+
+
+#define _DBUS_POLLIN      0x0001    /* There is data to read */
+#define _DBUS_POLLPRI     0x0002    /* There is urgent data to read */
+#define _DBUS_POLLOUT     0x0004    /* Writing now will not block */
+#define _DBUS_POLLERR     0x0008    /* Error condition */
+#define _DBUS_POLLHUP     0x0010    /* Hung up */
+#define _DBUS_POLLNVAL    0x0020    /* Invalid request: fd not open */
+
+typedef struct
+{
+  int fd;
+  short events;
+  short revents;
+} DBusPollFD;
+
+int _dbus_poll (DBusPollFD *fds,
+                int         n_fds,
+                int         timeout_milliseconds);
+
+void _dbus_sleep_milliseconds (int milliseconds);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_SYSDEPS_H */
