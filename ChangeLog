@@ -1,3 +1,7 @@
+2004-12-26  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-internals.h: add _DBUS_GNUC_NORETURN to _dbus_assert
+
 2005-01-03  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-sysdeps.c (_dbus_sysdeps_test): fix using == on
