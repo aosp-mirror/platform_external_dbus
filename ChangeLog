@@ -1,3 +1,60 @@
+2005-02-27  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-gidl.c (property_info_get_type, arg_info_get_type):
+	Change return value to const char * instead of int so we can do
+	full signatures.
+	(struct PropertyInfo, struct ArgInfo): Store char *.
+	(property_info_new, arg_info_new): Update parameters, strdup.
+	(property_info_unref, arg_info_unref): Free.
+
+	* glib/dbus-gidl.h: Update prototypes.
+
+	* glib/dbus-gparser.c (basic_type_from_string): Delete.
+	(validate_signature): New function, just validates signature and
+	sets GError.
+	(parse_property, parse_arg): Invoke validate_signature.  Store
+	signature instead of just type code.
+
+	* glib/dbus-gvalue.c (base_type_from_signature): New utility
+	function to return a primary type for a signature, dropping
+	information about types in container types.
+	(dbus_gvalue_genmarshal_name_from_type)
+	(dbus_gvalue_binding_type_from_type)
+	(dbus_gvalue_ctype_from_type): Update to take full signature
+	 instead of type code.
+	(dbus_gtype_to_dbus_type): Moved here from glib/dbus-gobject.c.
+
+	* glib/dbus-gvalue.h: Update prototypes for above.
+
+	* glib/dbus-gobject.c (gtype_to_dbus_type): Moved to
+	glib/dbus-gvalue.c as dbus_gtype_to_dbus_type.
+	(introspect_properties, introspect_signals, write_interface):
+	Update to handle signatures, and remove usage of
+	_dbus_gutils_type_to_string.
+	(handle_introspect): Print out type codes instead of e.g. "string"
+	in hardcoded introspection XML; also use x_AS_STRING constants
+	instead of hardcoding in string.
+
+	* glib/dbus-glib-tool.c (pretty_print): Handle signature change
+	to string.  Remove usage of _dbus_gutils_type_to_string.
+
+	* glib/dbus-gutils.c (_dbus_gutils_type_to_string): Delete.
+
+	* glib/dbus-gutils.h (_dbus_gutils_type_to_string): Update for
+	deletion.
+	
+	* glib/dbus-binding-tool-glib.c (compute_marshaller)
+	(compute_marshaller_name, generate_glue): Handle signature change
+	to string.
+	(write_formal_parameters, write_args_for_direction): Ditto, and
+	remove FIXME.
+
+	* tools/dbus-tree-view.c (type_to_string): Delete.
+	(info_set_func_text): Update to print full signatures.
+
+	* test/glib/test-service-glib.xml: Change types to new
+	introspection format.
+
 2005-02-26  Havoc Pennington  <hp@redhat.com>
 
 	* doc/TODO: remove the "guid" item

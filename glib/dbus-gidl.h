@@ -128,20 +128,20 @@ void                signal_info_add_arg           (SignalInfo          *info,
                                                    ArgInfo             *arg);
 int                 signal_info_get_n_args        (SignalInfo          *info);
 PropertyInfo*       property_info_new             (const char          *name,
-                                                   int                  type,
+                                                   const char          *type,
                                                    PropertyAccessFlags  access);
 PropertyInfo*       property_info_ref             (PropertyInfo        *info);
 void                property_info_unref           (PropertyInfo        *info);
 const char*         property_info_get_name        (PropertyInfo        *info);
-int                 property_info_get_type        (PropertyInfo        *info);
+const char*         property_info_get_type        (PropertyInfo        *info);
 PropertyAccessFlags property_info_get_access      (PropertyInfo        *info);
 ArgInfo*            arg_info_new                  (const char          *name,
                                                    ArgDirection         direction,
-                                                   int                  type);
+                                                   const char          *type);
 ArgInfo*            arg_info_ref                  (ArgInfo             *info);
 void                arg_info_unref                (ArgInfo             *info);
 const char*         arg_info_get_name             (ArgInfo             *info);
-int                 arg_info_get_type             (ArgInfo             *info);
+const char*         arg_info_get_type             (ArgInfo             *info);
 ArgDirection        arg_info_get_direction        (ArgInfo             *info);
 
 G_END_DECLS

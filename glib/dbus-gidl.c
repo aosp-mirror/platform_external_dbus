@@ -66,14 +66,14 @@ struct SignalInfo
 struct PropertyInfo
 {
   BaseInfo base;
-  int type;
+  char *type;
   PropertyAccessFlags access;
 };
 
 struct ArgInfo
 {
   BaseInfo base;
-  int type;
+  char *type;
   ArgDirection direction;
 };
 
@@ -631,7 +631,7 @@ signal_info_add_arg (SignalInfo    *info,
 
 PropertyInfo*
 property_info_new (const char          *name,
-                   int                  type,
+                   const char          *type,
                    PropertyAccessFlags  access)
 {
   PropertyInfo *info;
@@ -641,7 +641,7 @@ property_info_new (const char          *name,
   info->base.name = g_strdup (name);
   info->base.type = INFO_TYPE_PROPERTY;
 
-  info->type = type;
+  info->type = g_strdup (type);
   info->access = access;
   
   return info;
@@ -662,6 +662,7 @@ property_info_unref (PropertyInfo *info)
   if (info->base.refcount == 0)
     {
       base_info_free (info);
+      g_free (info->type);
     }
 }
 
@@ -671,7 +672,7 @@ property_info_get_name (PropertyInfo *info)
   return info->base.name;
 }
 
-int
+const char *
 property_info_get_type (PropertyInfo *info)
 {
   return info->type;
@@ -686,7 +687,7 @@ property_info_get_access (PropertyInfo *info)
 ArgInfo*
 arg_info_new (const char  *name,
               ArgDirection direction,
-              int          type)
+              const char  *type)
 {
   ArgInfo *info;
 
@@ -697,7 +698,7 @@ arg_info_new (const char  *name,
   /* name can be NULL */
   info->base.name = g_strdup (name);
   info->direction = direction;
-  info->type = type;
+  info->type = g_strdup (type);
 
   return info;
 }
@@ -717,6 +718,7 @@ arg_info_unref (ArgInfo *info)
   if (info->base.refcount == 0)
     {
       base_info_free (info);
+      g_free (info->type);
     }
 }
 const char*
@@ -725,7 +727,7 @@ arg_info_get_name (ArgInfo *info)
   return info->base.name;
 }
 
-int
+const char *
 arg_info_get_type (ArgInfo *info)
 {
   return info->type;

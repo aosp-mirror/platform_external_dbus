@@ -68,13 +68,15 @@ compute_marshaller (MethodInfo *method, GError **error)
 
       if (arg_info_get_direction (arg) == ARG_IN)
 	{
-	  const char *marshal_name = dbus_gvalue_genmarshal_name_from_type (arg_info_get_type (arg));
+	  const char *marshal_name;
+
+	  marshal_name = dbus_gvalue_genmarshal_name_from_type (arg_info_get_type (arg));
 	  if (!marshal_name)
 	    {
 	      g_set_error (error,
 			   DBUS_BINDING_TOOL_ERROR,
 			   DBUS_BINDING_TOOL_ERROR_UNSUPPORTED_CONVERSION,
-			   _("Unsupported conversion from D-BUS type %d to glib-genmarshal type"),
+			   _("Unsupported conversion from D-BUS type %s to glib-genmarshal type"),
 			   arg_info_get_type (arg));
 	      g_string_free (ret, TRUE);
 	      return NULL;
@@ -129,7 +131,7 @@ compute_marshaller_name (MethodInfo *method, GError **error)
       if (arg_info_get_direction (arg) == ARG_IN)
 	{
 	  const char *marshal_name;
-	  int type; 
+	  const char *type;
 
 	  type = arg_info_get_type (arg);
 	  marshal_name = dbus_gvalue_genmarshal_name_from_type (type);
@@ -145,7 +147,7 @@ compute_marshaller_name (MethodInfo *method, GError **error)
 	    }
 
 	  g_string_append (ret, "_");
-	  g_string_append (ret, dbus_gvalue_genmarshal_name_from_type (arg_info_get_type (arg)));
+	  g_string_append (ret, dbus_gvalue_genmarshal_name_from_type (type));
 	}
     }
 
@@ -385,7 +387,7 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 	      g_string_append_c (object_introspection_data_blob, direction);
 	      g_string_append_c (object_introspection_data_blob, '\0');
 
-	      g_string_append_c (object_introspection_data_blob, arg_info_get_type (arg));
+	      g_string_append (object_introspection_data_blob, arg_info_get_type (arg));
 	      g_string_append_c (object_introspection_data_blob, '\0');
 	    }
 
@@ -608,7 +610,6 @@ write_formal_parameters (InterfaceInfo *iface, MethodInfo *method, GIOChannel *c
 
       direction = arg_info_get_direction (arg);
 
-      /* FIXME - broken for containers */
       type_str = dbus_gvalue_ctype_from_type (arg_info_get_type (arg), direction == ARG_IN);
 
       if (!type_str)
@@ -616,7 +617,7 @@ write_formal_parameters (InterfaceInfo *iface, MethodInfo *method, GIOChannel *c
 	  g_set_error (error,
 		       DBUS_BINDING_TOOL_ERROR,
 		       DBUS_BINDING_TOOL_ERROR_UNSUPPORTED_CONVERSION,
-		       _("Unsupported conversion from D-BUS type %d to glib C type"),
+		       _("Unsupported conversion from D-BUS type %s to glib C type"),
 		       arg_info_get_type (arg));
 	  return FALSE;
 	}
@@ -660,15 +661,14 @@ write_args_for_direction (InterfaceInfo *iface, MethodInfo *method, GIOChannel *
       if (direction != arg_info_get_direction (arg))
 	continue;
 
-      /* FIXME - broken for containers */
       type_str = dbus_gvalue_binding_type_from_type (arg_info_get_type (arg));
       if (!type_str)
 	{
 	  g_set_error (error,
 		       DBUS_BINDING_TOOL_ERROR,
 		       DBUS_BINDING_TOOL_ERROR_UNSUPPORTED_CONVERSION,
-		       _("Unsupported conversion from D-BUS type %c"),
-		       (char) arg_info_get_type (arg));
+		       _("Unsupported conversion from D-BUS type %s"),
+		       arg_info_get_type (arg));
 	  return FALSE;
 	}
 

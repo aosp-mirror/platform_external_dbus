@@ -20,11 +20,13 @@ typedef union
   char * chararray_val;
 } DBusBasicGValue;
 
-const char *   dbus_gvalue_genmarshal_name_from_type (int type);
+const char *   dbus_gvalue_genmarshal_name_from_type (const char *type);
 
-const char *   dbus_gvalue_ctype_from_type           (int type, gboolean in);
+const char *   dbus_gvalue_ctype_from_type           (const char *type, gboolean in);
 
-const char *   dbus_gvalue_binding_type_from_type    (int type);
+const char *   dbus_gvalue_binding_type_from_type    (const char *type);
+
+const char *   dbus_gtype_to_dbus_type    (GType            type);
 
 gboolean       dbus_gvalue_init           (int              type,
 					   GValue          *value);

@@ -11,8 +11,8 @@
 
     <method name="Increment">
       <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object_increment"/>
-      <arg type="uint32" name="x" />
-      <arg type="uint32" direction="out" />
+      <arg type="u" name="x" />
+      <arg type="u" direction="out" />
     </method>
 
     <method name="ThrowError">
@@ -21,17 +21,17 @@
 
     <method name="Uppercase">
       <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object_uppercase"/>
-      <arg type="string" direction="in" />
-      <arg type="string" direction="out" />
+      <arg type="s" direction="in" />
+      <arg type="s" direction="out" />
     </method>
 
     <method name="ManyArgs">
       <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object_many_args"/>
-      <arg type="uint32" name="x" direction="in" />
-      <arg type="string" name="str" direction="in" />
-      <arg type="double" name="trouble" direction="in" />
-      <arg type="double" name="d_ret" direction="out" />
-      <arg type="string" name="str_ret" direction="out" />
+      <arg type="u" name="x" direction="in" />
+      <arg type="s" name="str" direction="in" />
+      <arg type="d" name="trouble" direction="in" />
+      <arg type="d" name="d_ret" direction="out" />
+      <arg type="s" name="str_ret" direction="out" />
     </method>
 
   </interface>

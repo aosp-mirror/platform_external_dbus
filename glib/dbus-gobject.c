@@ -247,47 +247,6 @@ gobject_unregister_function (DBusConnection  *connection,
 
 }
 
-static int
-gtype_to_dbus_type (GType type)
-{
-  switch (type)
-    {
-    case G_TYPE_CHAR:
-    case G_TYPE_UCHAR:
-      return DBUS_TYPE_BYTE;
-      
-    case G_TYPE_BOOLEAN:
-      return DBUS_TYPE_BOOLEAN;
-
-      /* long gets cut to 32 bits so the remote API is consistent
-       * on all architectures
-       */
-      
-    case G_TYPE_LONG:
-    case G_TYPE_INT:
-      return DBUS_TYPE_INT32;
-    case G_TYPE_ULONG:
-    case G_TYPE_UINT:
-      return DBUS_TYPE_UINT32;
-
-    case G_TYPE_INT64:
-      return DBUS_TYPE_INT64;
-
-    case G_TYPE_UINT64:
-      return DBUS_TYPE_UINT64;
-      
-    case G_TYPE_FLOAT:
-    case G_TYPE_DOUBLE:
-      return DBUS_TYPE_DOUBLE;
-
-    case G_TYPE_STRING:
-      return DBUS_TYPE_STRING;
-
-    default:
-      return DBUS_TYPE_INVALID;
-    }
-}
-
 static void
 introspect_properties (GObject *object, GString *xml)
 {
@@ -303,13 +262,13 @@ introspect_properties (GObject *object, GString *xml)
   for (i = 0; i < n_specs; i++ )
     {
       char *s;
-      int dbus_type;
+      const char *dbus_type;
       gboolean can_set;
       gboolean can_get;
       GParamSpec *spec = specs[i];
       
-      dbus_type = gtype_to_dbus_type (G_PARAM_SPEC_VALUE_TYPE (spec));
-      if (dbus_type == DBUS_TYPE_INVALID)
+      dbus_type = dbus_gtype_to_dbus_type (G_PARAM_SPEC_VALUE_TYPE (spec));
+      if (dbus_type == NULL)
 	continue;
       
       if (spec->owner_type != last_type)
@@ -341,7 +300,7 @@ introspect_properties (GObject *object, GString *xml)
           g_string_append (xml, "    <property name=\"");
           g_string_append (xml, s);
           g_string_append (xml, "\" type=\"");
-          g_string_append (xml, _dbus_gutils_type_to_string (dbus_type));
+          g_string_append (xml, dbus_type);
           g_string_append (xml, "\" access=\"");
 
           if (can_set && can_get)
@@ -397,10 +356,10 @@ introspect_signals (GType type, GString *xml)
 
       for (arg = 0; arg < query.n_params; arg++)
 	{
-	  int dbus_type = gtype_to_dbus_type (query.param_types[arg]);
+	  const char *dbus_type = dbus_gtype_to_dbus_type (query.param_types[arg]);
 
           g_string_append (xml, "      <arg type=\"");
-          g_string_append (xml, _dbus_gutils_type_to_string (dbus_type));
+          g_string_append (xml, dbus_type);
           g_string_append (xml, "\"/>\n");
 	}
 
@@ -455,7 +414,7 @@ write_interface (gpointer key, gpointer val, gpointer user_data)
 
 	  /* FIXME - handle container types */
 	  g_string_append_printf (xml, "      <arg name=\"%s\" type=\"%s\" direction=\"%s\"/>\n",
-				  name, _dbus_gutils_type_to_string (type[0]), arg_in ? "in" : "out");
+				  name, type, arg_in ? "in" : "out");
 
 	}
       g_string_append (xml, "    </method>\n");
@@ -543,21 +502,21 @@ handle_introspect (DBusConnection *connection,
   /* We are introspectable, though I guess that was pretty obvious */
   g_string_append_printf (xml, "  <interface name=\"%s\">\n", DBUS_INTERFACE_INTROSPECTABLE);
   g_string_append (xml, "    <method name=\"Introspect\">\n");
-  g_string_append (xml, "      <arg name=\"data\" direction=\"out\" type=\"string\"/>\n");
+  g_string_append_printf (xml, "      <arg name=\"data\" direction=\"out\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING);
   g_string_append (xml, "    </method>\n");
   g_string_append (xml, "  </interface>\n");
 
   /* We support get/set properties */
   g_string_append_printf (xml, "  <interface name=\"%s\">\n", DBUS_INTERFACE_PROPERTIES);
   g_string_append (xml, "    <method name=\"Get\">\n");
-  g_string_append (xml, "      <arg name=\"interface\" direction=\"in\" type=\"string\"/>\n");
-  g_string_append (xml, "      <arg name=\"propname\" direction=\"in\" type=\"string\"/>\n");
-  g_string_append (xml, "      <arg name=\"value\" direction=\"out\" type=\"variant\"/>\n");
+  g_string_append_printf (xml, "      <arg name=\"interface\" direction=\"in\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING);
+  g_string_append_printf (xml, "      <arg name=\"propname\" direction=\"in\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING);
+  g_string_append_printf (xml, "      <arg name=\"value\" direction=\"out\" type=\"%s\"/>\n", DBUS_TYPE_VARIANT_AS_STRING);
   g_string_append (xml, "    </method>\n");
   g_string_append (xml, "    <method name=\"Set\">\n");
-  g_string_append (xml, "      <arg name=\"interface\" direction=\"in\" type=\"string\"/>\n");
-  g_string_append (xml, "      <arg name=\"propname\" direction=\"in\" type=\"string\"/>\n");
-  g_string_append (xml, "      <arg name=\"value\" direction=\"in\" type=\"variant\"/>\n");
+  g_string_append_printf (xml, "      <arg name=\"interface\" direction=\"in\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING);
+  g_string_append_printf (xml, "      <arg name=\"propname\" direction=\"in\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING);
+  g_string_append_printf (xml, "      <arg name=\"value\" direction=\"in\" type=\"%s\"/>\n", DBUS_TYPE_VARIANT_AS_STRING);
   g_string_append (xml, "    </method>\n");
   g_string_append (xml, "  </interface>\n");
   

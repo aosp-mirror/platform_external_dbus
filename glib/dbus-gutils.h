@@ -32,7 +32,6 @@
 G_BEGIN_DECLS
 
 char      **_dbus_gutils_split_path     (const char *path);
-const char *_dbus_gutils_type_to_string (int         type);
 
 char       *_dbus_gutils_wincaps_to_uscore (const char *uscore);
 

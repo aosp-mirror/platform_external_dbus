@@ -25,49 +25,6 @@
 #include "dbus-tree-view.h"
 #include <glib/gi18n.h>
 
-/* FIXME this function should just be in the library */
-static const char *
-type_to_string (int type)
-{
-  switch (type)
-    {
-    case DBUS_TYPE_INVALID:
-      return "invalid";
-    case DBUS_TYPE_BOOLEAN:
-      return "boolean";
-    case DBUS_TYPE_BYTE:
-      return "byte";
-    case DBUS_TYPE_INT16:
-      return "int16";
-    case DBUS_TYPE_UINT16:
-      return "uint16";
-    case DBUS_TYPE_INT32:
-      return "int32";
-    case DBUS_TYPE_UINT32:
-      return "uint32";
-    case DBUS_TYPE_DOUBLE:
-      return "double";
-    case DBUS_TYPE_STRING:
-      return "string";
-    case DBUS_TYPE_OBJECT_PATH:
-      return "object_path";
-    case DBUS_TYPE_SIGNATURE:
-      return "signature";
-    case DBUS_TYPE_STRUCT:
-      return "struct";
-    case DBUS_TYPE_ARRAY:
-      return "array";
-    case DBUS_TYPE_VARIANT:
-      return "variant";
-    case DBUS_STRUCT_BEGIN_CHAR:
-      return "begin_struct";
-    case DBUS_STRUCT_END_CHAR:
-      return "end_struct";
-    default:
-      return "unknown";
-    }
-}
-
 enum
 {
   MODEL_COLUMN_INFO,
@@ -334,14 +291,14 @@ info_set_func_text (GtkTreeViewColumn *tree_column,
     case INFO_TYPE_PROPERTY:
       g_string_append (str, "<i>property</i>");
       g_string_append_printf (str, " <b>%s</b>",
-                              type_to_string (property_info_get_type ((PropertyInfo*)info)));
+                              property_info_get_type ((PropertyInfo*)info));
       break;
     case INFO_TYPE_ARG:
       g_string_append_printf (str, "<i>arg</i> %s",
                               arg_info_get_direction ((ArgInfo*)info) == ARG_IN ?
                               "in" : "out");
       g_string_append_printf (str, " <b>%s</b>",
-                              type_to_string (arg_info_get_type ((ArgInfo*)info)));
+                              arg_info_get_type ((ArgInfo*)info));
       break;
     }
 

@@ -177,13 +177,13 @@ pretty_print (BaseInfo *base,
     case INFO_TYPE_PROPERTY:
       {
         PropertyInfo *a = (PropertyInfo*) base;
-        int pt = property_info_get_type (a);
+        const char *pt = property_info_get_type (a);
         PropertyAccessFlags acc = property_info_get_access (a);
 
         printf ("%s%s %s",
                 acc & PROPERTY_READ ? "read" : "",
                 acc & PROPERTY_WRITE ? "write" : "",
-                _dbus_gutils_type_to_string (pt));
+                pt);
         if (name)
           printf (" %s\n", name);
         else
@@ -193,12 +193,12 @@ pretty_print (BaseInfo *base,
     case INFO_TYPE_ARG:
       {
         ArgInfo *a = (ArgInfo*) base;
-        int at = arg_info_get_type (a);
+        const char *at = arg_info_get_type (a);
         ArgDirection d = arg_info_get_direction (a);
 
         printf ("%s %s",
                 d == ARG_IN ? "in" : "out",
-                _dbus_gutils_type_to_string (at));
+                at);
         if (name)
           printf (" %s\n", name);
         else

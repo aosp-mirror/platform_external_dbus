@@ -83,48 +83,6 @@ _dbus_gutils_split_path (const char *path)
   return split;
 }
 
-const char *
-_dbus_gutils_type_to_string (int type)
-{
-  switch (type)
-    {
-    case DBUS_TYPE_INVALID:
-      return "invalid";
-    case DBUS_TYPE_BOOLEAN:
-      return "boolean";
-    case DBUS_TYPE_BYTE:
-      return "byte";
-    case DBUS_TYPE_INT16:
-      return "int16";
-    case DBUS_TYPE_UINT16:
-      return "uint16";
-    case DBUS_TYPE_INT32:
-      return "int32";
-    case DBUS_TYPE_UINT32:
-      return "uint32";
-    case DBUS_TYPE_DOUBLE:
-      return "double";
-    case DBUS_TYPE_STRING:
-      return "string";
-    case DBUS_TYPE_OBJECT_PATH:
-      return "object_path";
-    case DBUS_TYPE_SIGNATURE:
-      return "signature";
-    case DBUS_TYPE_STRUCT:
-      return "struct";
-    case DBUS_TYPE_ARRAY:
-      return "array";
-    case DBUS_TYPE_VARIANT:
-      return "variant";
-    case DBUS_STRUCT_BEGIN_CHAR:
-      return "begin_struct";
-    case DBUS_STRUCT_END_CHAR:
-      return "end_struct";
-    default:
-      return "unknown";
-    }
-}
-
 char*
 _dbus_gutils_wincaps_to_uscore (const char *caps)
 {

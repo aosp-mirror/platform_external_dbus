@@ -23,6 +23,7 @@
  */
 
 #include <dbus-gvalue.h>
+#include "dbus/dbus-signature.h"
 
 /* This is slightly evil, we don't use g_value_set_foo() functions */
 #define MAP_BASIC_INIT(d_t, g_t)                                     \
@@ -71,9 +72,24 @@ dbus_gvalue_init      (int     type,
   return can_convert;
 }
 
-const char *
-dbus_gvalue_genmarshal_name_from_type (int type)
+/* FIXME - broken for containers
+ */
+static int
+base_type_from_signature  (const char *signature)
 {
+  DBusSignatureIter iter;
+
+  dbus_signature_iter_init (&iter, signature);
+
+  return dbus_signature_iter_get_current_type (&iter);
+}
+
+const char *
+dbus_gvalue_genmarshal_name_from_type (const char *signature)
+{
+  int type;
+
+  type = base_type_from_signature (signature);
   switch (type)
     {
     case DBUS_TYPE_BOOLEAN:
@@ -109,8 +125,12 @@ dbus_gvalue_genmarshal_name_from_type (int type)
 }
 
 const char *
-dbus_gvalue_binding_type_from_type (int type)
+dbus_gvalue_binding_type_from_type (const char *signature)
 {
+  int type;
+
+  type = base_type_from_signature (signature);
+
 #define STRINGIFY(x) \
   case x: \
     return (#x)
@@ -142,8 +162,12 @@ dbus_gvalue_binding_type_from_type (int type)
 }
 
 const char *
-dbus_gvalue_ctype_from_type (int type, gboolean in)
+dbus_gvalue_ctype_from_type (const char *signature, gboolean in)
 {
+  int type;
+
+  type = base_type_from_signature (signature);
+
   switch (type)
     {
     case DBUS_TYPE_BOOLEAN:
@@ -179,6 +203,47 @@ dbus_gvalue_ctype_from_type (int type, gboolean in)
       return NULL;
     }
   return NULL;
+}
+
+const char *
+dbus_gtype_to_dbus_type (GType type)
+{
+  switch (type)
+    {
+    case G_TYPE_CHAR:
+    case G_TYPE_UCHAR:
+      return DBUS_TYPE_BYTE_AS_STRING;
+      
+    case G_TYPE_BOOLEAN:
+      return DBUS_TYPE_BOOLEAN_AS_STRING;
+
+      /* long gets cut to 32 bits so the remote API is consistent
+       * on all architectures
+       */
+      
+    case G_TYPE_LONG:
+    case G_TYPE_INT:
+      return DBUS_TYPE_INT32_AS_STRING;
+    case G_TYPE_ULONG:
+    case G_TYPE_UINT:
+      return DBUS_TYPE_UINT32_AS_STRING;
+
+    case G_TYPE_INT64:
+      return DBUS_TYPE_INT64_AS_STRING;
+
+    case G_TYPE_UINT64:
+      return DBUS_TYPE_UINT64_AS_STRING;
+      
+    case G_TYPE_FLOAT:
+    case G_TYPE_DOUBLE:
+      return DBUS_TYPE_DOUBLE_AS_STRING;
+
+    case G_TYPE_STRING:
+      return DBUS_TYPE_STRING_AS_STRING;
+
+    default:
+      return NULL;
+    }
 }
 
 gboolean

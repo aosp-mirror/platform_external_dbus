@@ -21,7 +21,9 @@
  *
  */
 #include "dbus-gparser.h"
+#include "dbus/dbus-glib-lowlevel.h"
 #include "dbus-gidl.h"
+#include "dbus/dbus-signature.h"
 #include <string.h>
 
 #include <libintl.h>
@@ -461,59 +463,21 @@ parse_signal (Parser      *parser,
   return TRUE;
 }
 
-static int
-basic_type_from_string (const char *str)
+static gboolean
+validate_signature (const char *str,
+		    const char *element_name,
+		    GError    **error)
 {
-  if (strcmp (str, "string") == 0)
-    return DBUS_TYPE_STRING;
-  else if (strcmp (str, "int16") == 0)
-    return DBUS_TYPE_INT16;
-  else if (strcmp (str, "uint16") == 0)
-    return DBUS_TYPE_UINT16;
-  else if (strcmp (str, "int32") == 0)
-    return DBUS_TYPE_INT32;
-  else if (strcmp (str, "uint32") == 0)
-    return DBUS_TYPE_UINT32;
-  else if (strcmp (str, "int64") == 0)
-    return DBUS_TYPE_INT64;
-  else if (strcmp (str, "uint64") == 0)
-    return DBUS_TYPE_UINT64;
-  else if (strcmp (str, "double") == 0)
-    return DBUS_TYPE_DOUBLE;
-  else if (strcmp (str, "byte") == 0)
-    return DBUS_TYPE_BYTE;
-  else if (strcmp (str, "boolean") == 0)
-    return DBUS_TYPE_BOOLEAN;
-  else if (strcmp (str, "byte") == 0)
-    return DBUS_TYPE_BYTE;
-  else if (strcmp (str, "object") == 0)
-    return DBUS_TYPE_OBJECT_PATH;
-  else if (strcmp (str, "variant") == 0)
-    return DBUS_TYPE_VARIANT;
-  else
-    return DBUS_TYPE_INVALID;
-}
+  DBusError derror;
 
-/* FIXME we have to allow type signatures, not just basic types
- */
-static int
-type_from_string (const char *str,
-                  const char *element_name,
-                  GError    **error)
-{
-  int t;
+  dbus_error_init (&derror);
   
-  t = basic_type_from_string (str);
-
-  if (t == DBUS_TYPE_INVALID)
+  if (!dbus_signature_validate (str, &derror))
     {
-      g_set_error (error, G_MARKUP_ERROR,
-                   G_MARKUP_ERROR_PARSE,
-                   _("Type \"%s\" not understood on <%s> element "),
-                   str, element_name);
+      dbus_set_g_error (error, &derror);
+      return FALSE;
     }
-
-  return t;
+  return TRUE;
 }
 
 static gboolean
@@ -529,7 +493,6 @@ parse_property (Parser      *parser,
   PropertyInfo *property;
   NodeInfo *top;
   PropertyAccessFlags access_flags;
-  int t;
   
   if (parser->interface == NULL ||
       parser->node_stack == NULL ||
@@ -582,8 +545,7 @@ parse_property (Parser      *parser,
       return FALSE;
     }
 
-  t = type_from_string (type, element_name, error);
-  if (t == DBUS_TYPE_INVALID)
+  if (!validate_signature (type, element_name, error))
     return FALSE;
 
   access_flags = 0;
@@ -604,7 +566,7 @@ parse_property (Parser      *parser,
   
   top = parser->node_stack->data;
   
-  property = property_info_new (name, t, access_flags);
+  property = property_info_new (name, type, access_flags);
   interface_info_add_property (parser->interface, property);
   property_info_unref (property);
 
@@ -624,7 +586,6 @@ parse_arg (Parser      *parser,
   const char *type;
   const char *direction;
   ArgDirection dir;
-  int t;
   ArgInfo *arg;
   char *generated_name;
   
@@ -694,8 +655,7 @@ parse_arg (Parser      *parser,
       return FALSE;
     }
 
-  t = type_from_string (type, element_name, error);
-  if (t == DBUS_TYPE_INVALID)
+  if (!validate_signature (type, element_name, error))
     return FALSE;
 
   generated_name = NULL;
@@ -706,7 +666,7 @@ parse_arg (Parser      *parser,
                                       signal_info_get_n_args (parser->signal));
                                       
   
-  arg = arg_info_new (name ? name : generated_name, dir, t);
+  arg = arg_info_new (name ? name : generated_name, dir, type);
   if (parser->method)
     method_info_add_arg (parser->method, arg);
   else if (parser->signal)
