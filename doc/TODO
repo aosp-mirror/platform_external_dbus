@@ -68,7 +68,7 @@
    perhaps.
 
  - modify the auth protocol to also support other initial-handshake
-   type of information
+   type of information such as protocol version
 
  - document the auth protocol as a set of states and transitions, and
    then reimplement it in those terms
@@ -84,6 +84,7 @@
    from the args themselves. Make the name of TYPE_CUSTOM part 
    of the type signature, rather than part of the value.
    Then you have the full typecheck in a single string.
+   See http://freedesktop.org/pipermail/dbus/2004-June/001169.html
 
  - dbus_message_iter_init_array_iterator has "iter" and "iterator" 
    in the same function name
