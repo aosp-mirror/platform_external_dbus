@@ -6,7 +6,9 @@ EFENCE=
 
 bin_PROGRAMS=dbus-daemon-1
 
-dbus_daemon_1_SOURCES=				\
+noinst_LTLIBRARIES=libdbus-daemon.la
+
+libdbus_daemon_la_SOURCES=			\
 	connection.c				\
 	connection.h				\
 	dispatch.c				\
@@ -15,12 +17,17 @@ dbus_daemon_1_SOURCES=				\
 	driver.h				\
 	loop.c					\
 	loop.h					\
-	main.c					\
 	services.c				\
 	services.h
+
+libdbus_daemon_la_LIBADD=				\
+	$(top_builddir)/dbus/libdbus-convenience.la
+
+dbus_daemon_1_SOURCES=				\
+	main.c					
 
 dbus_daemon_1_LDADD=					\
 	$(EFENCE)					\
 	$(DBUS_BUS_LIBS)				\
-	$(top_builddir)/dbus/libdbus-convenience.la	\
+	$(top_builddir)/bus/libdbus-daemon.la		\
 	$(top_builddir)/dbus/libdbus-1.la
