@@ -1,3 +1,28 @@
+2003-01-04  Havoc Pennington  <hp@pobox.com>
+
+	* test/watch.c (error_handler): make it safe if the error handler 
+	is called multiple times (if we s/error handler/disconnect
+	handler/ we should just guarantee it's called only once)
+
+	* dbus/dbus-transport.c (_dbus_transport_disconnect): call the
+	error handler on disconnect (it's quite possible we should
+	just change the error handler to a "disconnect handler," I'm 
+	not sure we have any other meaningful errors)
+
+	* configure.in: check for getpwnam_r
+
+	* dbus/dbus-transport.c, dbus/dbus-transport-unix.c,
+	dbus/dbus-auth.c: add credentials support, add EXTERNAL auth
+	mechanism as in SASL spec, using socket credentials
+
+	* dbus/dbus-sysdeps.c (_dbus_read_credentials_unix_socket): new function
+	(_dbus_send_credentials_unix_socket): new function
+
+	* dbus/dbus-sysdeps.c (_dbus_accept_unix_socket): rename just
+	dbus_accept()
+	(_dbus_write): only check errno if <0 returned
+	(_dbus_write_two): ditto
+
 2003-01-02  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-marshal.c: (_dbus_marshal_utf8_string),

@@ -128,7 +128,7 @@ unix_handle_watch (DBusServer  *server,
       
       listen_fd = dbus_watch_get_fd (watch);
 
-      client_fd = _dbus_accept_unix_socket (listen_fd);
+      client_fd = _dbus_accept (listen_fd);
       
       if (client_fd < 0)
         {

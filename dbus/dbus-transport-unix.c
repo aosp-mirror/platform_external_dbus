@@ -123,7 +123,8 @@ check_write_watch (DBusTransport *transport)
   if (_dbus_transport_get_is_authenticated (transport))
     need_write_watch = transport->messages_need_sending;
   else
-    need_write_watch = _dbus_auth_do_work (transport->auth) == DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND;
+    need_write_watch = transport->send_credentials_pending ||
+      _dbus_auth_do_work (transport->auth) == DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND;
 
   if (transport->disconnected)
     need_write_watch = FALSE;
@@ -391,15 +392,70 @@ recover_unused_bytes (DBusTransport *transport)
 }
 
 static void
+exchange_credentials (DBusTransport *transport,
+                      dbus_bool_t    do_reading,
+                      dbus_bool_t    do_writing)
+{
+  DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
+
+  if (do_writing && transport->send_credentials_pending)
+    {
+      if (_dbus_send_credentials_unix_socket (unix_transport->fd,
+                                              NULL))
+        {
+          transport->send_credentials_pending = FALSE;
+        }
+      else
+        {
+          _dbus_verbose ("Failed to write credentials\n");
+          do_io_error (transport);
+        }
+    }
+  
+  if (do_reading && transport->receive_credentials_pending)
+    {
+      if (_dbus_read_credentials_unix_socket (unix_transport->fd,
+                                               &transport->credentials,
+                                               NULL))
+        {
+          transport->receive_credentials_pending = FALSE;
+        }
+      else
+        {
+          _dbus_verbose ("Failed to read credentials\n");
+          do_io_error (transport);
+        }
+    }
+
+  if (!(transport->send_credentials_pending ||
+        transport->receive_credentials_pending))
+    {
+      _dbus_auth_set_credentials (transport->auth,
+                                  &transport->credentials);
+    }
+}
+
+static void
 do_authentication (DBusTransport *transport,
                    dbus_bool_t    do_reading,
                    dbus_bool_t    do_writing)
-{
+{  
   _dbus_transport_ref (transport);
   
   while (!_dbus_transport_get_is_authenticated (transport) &&
          _dbus_transport_get_is_connected (transport))
     {
+      exchange_credentials (transport, do_reading, do_writing);
+      
+      if (transport->send_credentials_pending ||
+          transport->receive_credentials_pending)
+        {
+          _dbus_verbose ("send_credentials_pending = %d receive_credentials_pending = %d\n",
+                         transport->send_credentials_pending,
+                         transport->receive_credentials_pending);
+          goto out;
+        }
+      
       switch (_dbus_auth_do_work (transport->auth))
         {
         case DBUS_AUTH_STATE_WAITING_FOR_INPUT:
@@ -963,7 +1019,7 @@ _dbus_transport_new_for_domain_socket (const char     *path,
       close (fd);
       fd = -1;
     }
-
+  
   return transport;
 }
 

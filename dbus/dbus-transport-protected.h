@@ -77,9 +77,14 @@ struct DBusTransport
 
   DBusAuth *auth;                             /**< Authentication conversation */
 
+  DBusCredentials credentials;                /**< Credentials of other end */
+  
   unsigned int disconnected : 1;              /**< #TRUE if we are disconnected. */
   unsigned int authenticated : 1;             /**< Cache of auth state; use _dbus_transport_get_is_authenticated() to query value */
   unsigned int messages_need_sending : 1;     /**< #TRUE if we need to write messages out */
+  unsigned int send_credentials_pending : 1;  /**< #TRUE if we need to send credentials */
+  unsigned int receive_credentials_pending : 1; /**< #TRUE if we need to receive credentials */
+  unsigned int is_server : 1;                 /**< #TRUE if on the server side */
 };
 
 dbus_bool_t _dbus_transport_init_base     (DBusTransport             *transport,

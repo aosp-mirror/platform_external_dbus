@@ -65,6 +65,12 @@ typedef struct
 } DBusAuthCommandHandler;
 
 /**
+ * This function appends an initial client response to the given string
+ */
+typedef dbus_bool_t (* DBusInitialResponseFunction)  (DBusAuth         *auth,
+                                                      DBusString       *response);
+
+/**
  * This function processes a block of data received from the peer.
  * i.e. handles a DATA command.
  */
@@ -97,6 +103,7 @@ typedef struct
   DBusAuthEncodeFunction server_encode_func;
   DBusAuthDecodeFunction server_decode_func;
   DBusAuthShutdownFunction server_shutdown_func;
+  DBusInitialResponseFunction client_initial_response_func;
   DBusAuthDataFunction client_data_func;
   DBusAuthEncodeFunction client_encode_func;
   DBusAuthDecodeFunction client_decode_func;
@@ -116,6 +123,14 @@ struct DBusAuth
   const DBusAuthCommandHandler *handlers; /**< Handlers for commands */
 
   const DBusAuthMechanismHandler *mech;   /**< Current auth mechanism */
+
+  DBusString identity;                   /**< Current identity we're authorizing
+                                          *   as.
+                                          */
+  
+  DBusCredentials credentials;      /**< Credentials, fields may be -1 */
+
+  DBusCredentials authorized_identity; /**< Credentials that are authorized */
   
   unsigned int needed_memory : 1;   /**< We needed memory to continue since last
                                      * successful getting something done
@@ -125,6 +140,7 @@ struct DBusAuth
   unsigned int authenticated_pending_output : 1; /**< Authenticated once we clear outgoing buffer */
   unsigned int authenticated_pending_begin : 1;  /**< Authenticated once we get BEGIN */
   unsigned int already_got_mechanisms : 1;       /**< Client already got mech list */
+  unsigned int already_asked_for_initial_response : 1; /**< Already sent a blank challenge to get an initial response */
 };
 
 typedef struct
@@ -228,6 +244,14 @@ _dbus_auth_new (int size)
   
   auth->refcount = 1;
 
+  auth->credentials.pid = -1;
+  auth->credentials.uid = -1;
+  auth->credentials.gid = -1;
+
+  auth->authorized_identity.pid = -1;
+  auth->authorized_identity.uid = -1;
+  auth->authorized_identity.gid = -1;
+  
   /* note that we don't use the max string length feature,
    * because you can't use that feature if you're going to
    * try to recover from out-of-memory (it creates
@@ -244,6 +268,14 @@ _dbus_auth_new (int size)
 
   if (!_dbus_string_init (&auth->outgoing, _DBUS_INT_MAX))
     {
+      _dbus_string_free (&auth->incoming);
+      dbus_free (auth);
+      return NULL;
+    }
+  
+  if (!_dbus_string_init (&auth->identity, _DBUS_INT_MAX))
+    {
+      _dbus_string_free (&auth->incoming);
       _dbus_string_free (&auth->outgoing);
       dbus_free (auth);
       return NULL;
@@ -278,6 +310,11 @@ shutdown_mech (DBusAuth *auth)
   /* Cancel any auth */
   auth->authenticated_pending_begin = FALSE;
   auth->authenticated = FALSE;
+  auth->already_asked_for_initial_response = FALSE;
+  _dbus_string_set_length (&auth->identity, 0);
+  auth->authorized_identity.pid = -1;
+  auth->authorized_identity.uid = -1;
+  auth->authorized_identity.gid = -1;
   
   if (auth->mech != NULL)
     {
@@ -353,6 +390,163 @@ handle_decode_stupid_test_mech (DBusAuth         *auth,
   return TRUE;
 }
 
+static dbus_bool_t
+do_rejection (DBusAuth *auth)
+{
+  if (_dbus_string_append (&auth->outgoing,
+                           "REJECTED\r\n"))
+    {
+      shutdown_mech (auth);
+      _dbus_verbose ("rejected client auth\n");
+      return TRUE;
+    }
+  else
+    return FALSE;
+}
+
+static dbus_bool_t
+handle_server_data_external_mech (DBusAuth         *auth,
+                                  const DBusString *data)
+{
+  DBusCredentials desired_identity;
+
+  if (auth->credentials.uid < 0)
+    {
+      _dbus_verbose ("no credentials, mechanism EXTERNAL can't authenticate\n");
+      return do_rejection (auth);
+    }
+  
+  if (_dbus_string_get_length (data) > 0)
+    {
+      if (_dbus_string_get_length (&auth->identity) > 0)
+        {
+          /* Tried to send two auth identities, wtf */
+          return do_rejection (auth);
+        }
+      else
+        {
+          /* this is our auth identity */
+          if (!_dbus_string_copy (data, 0, &auth->identity, 0))
+            return FALSE;
+        }
+    }
+
+  /* Poke client for an auth identity, if none given */
+  if (_dbus_string_get_length (&auth->identity) == 0 &&
+      !auth->already_asked_for_initial_response)
+    {
+      if (_dbus_string_append (&auth->outgoing,
+                               "DATA\r\n"))
+        {
+          _dbus_verbose ("sending empty challenge asking client for auth identity\n");
+          auth->already_asked_for_initial_response = TRUE;
+          return TRUE;
+        }
+      else
+        return FALSE;
+    }
+
+  desired_identity.pid = -1;
+  desired_identity.uid = -1;
+  desired_identity.gid = -1;
+  
+  /* If auth->identity is still empty here, then client
+   * responded with an empty string after we poked it for
+   * an initial response. This means to try to auth the
+   * identity provided in the credentials.
+   */
+  if (_dbus_string_get_length (&auth->identity) == 0)
+    {
+      desired_identity.uid = auth->credentials.uid;
+    }
+  else
+    {
+      if (!_dbus_credentials_from_uid_string (&auth->identity,
+                                              &desired_identity))
+        return do_rejection (auth);
+    }
+
+  if (desired_identity.uid < 0)
+    {
+      _dbus_verbose ("desired UID %d is no good\n", desired_identity.uid);
+      return do_rejection (auth);
+    }
+  
+  if (_dbus_credentials_match (&auth->credentials,
+                               &desired_identity))
+    {
+      /* client has authenticated */
+      _dbus_verbose ("authenticated client with UID %d matching socket credentials UID %d\n",
+                     desired_identity.uid,
+                     auth->credentials.uid);
+      
+      if (!_dbus_string_append (&auth->outgoing,
+                                "OK\r\n"))
+        return FALSE;
+
+      auth->authorized_identity.uid = desired_identity.uid;
+      
+      auth->authenticated_pending_begin = TRUE;
+      
+      return TRUE;
+    }
+  else
+    {
+      return do_rejection (auth);
+    }
+}
+
+static void
+handle_server_shutdown_external_mech (DBusAuth *auth)
+{
+
+}
+
+static dbus_bool_t
+handle_client_initial_response_external_mech (DBusAuth         *auth,
+                                              DBusString       *response)
+{
+  /* We always append our UID as an initial response, so the server
+   * doesn't have to send back an empty challenge to check whether we
+   * want to specify an identity. i.e. this avoids a round trip that
+   * the spec for the EXTERNAL mechanism otherwise requires.
+   */
+  DBusString plaintext;
+
+  if (!_dbus_string_init (&plaintext, _DBUS_INT_MAX))
+    return FALSE;
+  
+  if (!_dbus_string_append_our_uid (&plaintext))
+    goto failed;
+
+  if (!_dbus_string_base64_encode (&plaintext, 0,
+                                   response,
+                                   _dbus_string_get_length (response)))
+    goto failed;
+
+  _dbus_string_free (&plaintext);
+  
+  return TRUE;
+
+ failed:
+  _dbus_string_free (&plaintext);
+  return FALSE;  
+}
+
+static dbus_bool_t
+handle_client_data_external_mech (DBusAuth         *auth,
+                                  const DBusString *data)
+{
+  
+  return TRUE;
+}
+
+static void
+handle_client_shutdown_external_mech (DBusAuth *auth)
+{
+
+}
+
 /* Put mechanisms here in order of preference.
  * What I eventually want to have is:
  *
@@ -364,11 +558,21 @@ handle_decode_stupid_test_mech (DBusAuth         *auth,
  */
 static const DBusAuthMechanismHandler
 all_mechanisms[] = {
+  { "EXTERNAL",
+    handle_server_data_external_mech,
+    NULL, NULL,
+    handle_server_shutdown_external_mech,
+    handle_client_initial_response_external_mech,
+    handle_client_data_external_mech,
+    NULL, NULL,
+    handle_client_shutdown_external_mech },
+  /* Obviously this has to die for production use */
   { "DBUS_STUPID_TEST_MECH",
     handle_server_data_stupid_test_mech,
     handle_encode_stupid_test_mech,
     handle_decode_stupid_test_mech,
     handle_server_shutdown_stupid_test_mech,
+    NULL,
     handle_client_data_stupid_test_mech,
     handle_encode_stupid_test_mech,
     handle_decode_stupid_test_mech,
@@ -496,8 +700,9 @@ process_auth (DBusAuth         *auth,
       auth->mech = find_mech (&mech);
       if (auth->mech != NULL)
         {
-          _dbus_verbose ("Trying mechanism %s\n",
-                         auth->mech->mechanism);
+          _dbus_verbose ("Trying mechanism %s with initial response of %d bytes\n",
+                         auth->mech->mechanism,
+                         _dbus_string_get_length (&decoded_response));
           
           if (!(* auth->mech->server_data_func) (auth,
                                                  &decoded_response))
@@ -702,15 +907,30 @@ client_try_next_mechanism (DBusAuth *auth)
     {
       _dbus_string_free (&auth_command);
       return FALSE;
-    }
-
+    }  
+  
   if (!_dbus_string_append (&auth_command,
                             mech->mechanism))
     {
       _dbus_string_free (&auth_command);
       return FALSE;
     }
-        
+
+  if (mech->client_initial_response_func != NULL)
+    {
+      if (!_dbus_string_append (&auth_command, " "))
+        {
+          _dbus_string_free (&auth_command);
+          return FALSE;
+        }
+      
+      if (!(* mech->client_initial_response_func) (auth, &auth_command))
+        {
+          _dbus_string_free (&auth_command);
+          return FALSE;
+        }
+    }
+  
   if (!_dbus_string_append (&auth_command,
                             "\r\n"))
     {
@@ -1326,5 +1546,43 @@ _dbus_auth_decode_data (DBusAuth         *auth,
                                 _dbus_string_get_length (plaintext));
     }
 }
+
+/**
+ * Sets credentials received via reliable means from the operating
+ * system.
+ *
+ * @param auth the auth conversation
+ * @param credentials the credentials received
+ */
+void
+_dbus_auth_set_credentials (DBusAuth               *auth,
+                            const DBusCredentials  *credentials)
+{
+  auth->credentials = *credentials;
+}
+
+/**
+ * Gets the identity we authorized the client as.  Apps may have
+ * different policies as to what identities they allow.
+ *
+ * @param auth the auth conversation
+ * @param credentials the credentials we've authorized
+ */
+void
+_dbus_auth_get_identity (DBusAuth               *auth,
+                         DBusCredentials        *credentials)
+{
+  if (auth->authenticated)
+    {
+      *credentials = auth->authorized_identity;
+    }
+  else
+    {
+      credentials->pid = -1;
+      credentials->uid = -1;
+      credentials->gid = -1;
+    }
+}
+
 
 /** @} */

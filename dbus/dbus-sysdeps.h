@@ -65,12 +65,36 @@ int _dbus_write_two (int               fd,
                      int               start2,
                      int               len2);
 
+typedef struct
+{
+  /* -1 if not available */
+  int pid;
+  int uid;
+  int gid;
+} DBusCredentials;
+
 int _dbus_connect_unix_socket (const char     *path,
                                DBusResultCode *result);
 int _dbus_listen_unix_socket  (const char     *path,
                                DBusResultCode *result);
-int _dbus_accept_unix_socket  (int             listen_fd);
+int _dbus_accept              (int             listen_fd);
 
+dbus_bool_t _dbus_read_credentials_unix_socket (int              client_fd,
+                                                DBusCredentials *credentials,
+                                                DBusResultCode  *result);
+dbus_bool_t _dbus_send_credentials_unix_socket (int              server_fd,
+                                                DBusResultCode  *result);
+
+
+dbus_bool_t _dbus_credentials_from_username        (const DBusString      *username,
+                                                    DBusCredentials       *credentials);
+dbus_bool_t _dbus_credentials_from_uid_string      (const DBusString      *uid_str,
+                                                    DBusCredentials       *credentials);
+void        _dbus_credentials_from_current_process (DBusCredentials       *credentials);
+dbus_bool_t _dbus_credentials_match                (const DBusCredentials *expected_credentials,
+                                                    const DBusCredentials *provided_credentials);
+
+dbus_bool_t _dbus_string_append_our_uid (DBusString *str);
 
 DBUS_END_DECLS;
 

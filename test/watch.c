@@ -305,6 +305,9 @@ error_handler (DBusConnection *connection,
            "Error on connection: %s\n",
            dbus_result_to_string (error_code));
 
+  /* we don't want to be called again since we're dropping the connection */
+  dbus_connection_set_error_function (connection, NULL, NULL, NULL);
+  
   _dbus_list_remove (&connections, connection);
   dbus_connection_unref (connection);
   quit_mainloop ();

@@ -19,7 +19,7 @@ The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY"
 in this document are to be interpreted as defined in "Key words for
 use in RFCs to Indicate Requirement Levels" [RFC 2119]
 
-Overview
+Protocol Overview
 ===
 
 The protocol is a line-based protocol, where each line ends with
@@ -51,6 +51,27 @@ From server to client are as follows:
    DATA <data in base 64 encoding>
 
    ERROR
+
+
+Special credentials-passing nul byte
+===
+
+Immediately after connecting to the server, the client must send a
+single nul byte. This byte may be accompanied by credentials
+information on some operating systems that use sendmsg() with
+SCM_CREDS or SCM_CREDENTIALS to pass credentials over UNIX domain
+sockets. However, the nul byte MUST be sent even on other kinds of
+socket, and even on operating systems that do not require a byte to be
+sent in order to transmit credentials. The text protocol described in
+this document begins after the single nul byte. If the first byte
+received from the client is not a nul byte, the server may disconnect 
+that client.
+
+A nul byte in any context other than the initial byte is an error; 
+the protocol is ASCII-only.
+
+The credentials sent along with the nul byte may be used with the 
+SASL mechanism EXTERNAL.
 
 AUTH Command
 ===

@@ -101,7 +101,7 @@ AC_CHECK_SIZEOF(__int64)
 ## byte order
 AC_C_BIGENDIAN
 
-AC_CHECK_FUNCS(vsnprintf vasprintf)
+AC_CHECK_FUNCS(vsnprintf vasprintf getpwnam_r)
 
 dnl check for writev header and writev function so we're 
 dnl good to go if HAVE_WRITEV gets defined.

@@ -105,6 +105,13 @@ _dbus_transport_init_base (DBusTransport             *transport,
   transport->authenticated = FALSE;
   transport->messages_need_sending = FALSE;
   transport->disconnected = FALSE;
+  transport->send_credentials_pending = !server;
+  transport->receive_credentials_pending = server;
+  transport->is_server = server;
+  
+  transport->credentials.pid = -1;
+  transport->credentials.uid = -1;
+  transport->credentials.gid = -1;
   
   return TRUE;
 }
@@ -205,8 +212,12 @@ _dbus_transport_disconnect (DBusTransport *transport)
 
   DBUS_TRANSPORT_HOLD_REF (transport);
   (* transport->vtable->disconnect) (transport);
-
+  
   transport->disconnected = TRUE;
+
+  _dbus_connection_transport_error (transport->connection,
+                                    DBUS_RESULT_DISCONNECTED);
+  
   DBUS_TRANSPORT_RELEASE_REF (transport);
 }
 
@@ -238,9 +249,45 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
     return TRUE;
   else
     {
+      if (transport->disconnected)
+        return FALSE;
+      
       transport->authenticated =
+        (!(transport->send_credentials_pending ||
+           transport->receive_credentials_pending)) &&
         _dbus_auth_do_work (transport->auth) == DBUS_AUTH_STATE_AUTHENTICATED;
 
+      /* If we've authenticated as some identity, check that the auth
+       * identity is the same as our own identity.  In the future, we
+       * may have API allowing applications to specify how this is
+       * done, for example they may allow connection as any identity,
+       * but then impose restrictions on certain identities.
+       * Or they may give certain identities extra privileges.
+       */
+      
+      if (transport->authenticated && transport->is_server)
+        {
+          DBusCredentials auth_identity;
+          DBusCredentials our_identity;
+
+          _dbus_credentials_from_current_process (&our_identity);
+          _dbus_auth_get_identity (transport->auth, &auth_identity);
+          
+          if (!_dbus_credentials_match (&our_identity,
+                                        &auth_identity))
+            {
+              _dbus_verbose ("Client authorized as UID %d but our UID is %d, disconnecting\n",
+                             auth_identity.uid, our_identity.uid);
+              _dbus_transport_disconnect (transport);
+              return FALSE;
+            }
+          else
+            {
+              _dbus_verbose ("Client authorized as UID %d matching our UID %d\n",
+                             auth_identity.uid, our_identity.uid);
+            }
+        }
+      
       return transport->authenticated;
     }
 }

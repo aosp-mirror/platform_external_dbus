@@ -33,6 +33,7 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <pwd.h>
 #ifdef HAVE_WRITEV
 #include <sys/uio.h>
 #endif
@@ -151,7 +152,7 @@ _dbus_write (int               fd,
 
   bytes_written = write (fd, data, len);
 
-  if (errno == EINTR)
+  if (bytes_written < 0 && errno == EINTR)
     goto again;
 
 #if 0
@@ -226,7 +227,7 @@ _dbus_write_two (int               fd,
                             vectors,
                             data2 ? 2 : 1);
 
-    if (errno == EINTR)
+    if (bytes_written < 0 && errno == EINTR)
       goto again;
    
     return bytes_written;
@@ -367,17 +368,184 @@ _dbus_listen_unix_socket (const char     *path,
   return listen_fd;
 }
 
+/* try to read a single byte and return #TRUE if we read it
+ * and it's equal to nul.
+ */
+static dbus_bool_t
+read_credentials_byte (int             client_fd,
+                       DBusResultCode *result)
+{
+  char buf[1];
+  int bytes_read;
+
+ again:
+  bytes_read = read (client_fd, buf, 1);
+  if (bytes_read < 0)
+    {
+      if (errno == EINTR)
+        goto again;
+      else
+        {
+          dbus_set_result (result, _dbus_result_from_errno (errno));      
+          _dbus_verbose ("Failed to read credentials byte: %s\n",
+                         _dbus_strerror (errno));
+          return FALSE;
+        }
+    }
+  else if (bytes_read == 0)
+    {
+      dbus_set_result (result, DBUS_RESULT_IO_ERROR);
+      _dbus_verbose ("EOF reading credentials byte\n");
+      return FALSE;
+    }
+  else
+    {
+      _dbus_assert (bytes_read == 1);
+
+      if (buf[0] != '\0')
+        {
+          dbus_set_result (result, DBUS_RESULT_FAILED);
+          _dbus_verbose ("Credentials byte was not nul\n");
+          return FALSE;
+        }
+
+      _dbus_verbose ("read credentials byte\n");
+      
+      return TRUE;
+    }
+}
+
+static dbus_bool_t
+write_credentials_byte (int             server_fd,
+                        DBusResultCode *result)
+{
+  int bytes_written;
+  char buf[1] = { '\0' };
+  
+ again:
+
+  bytes_written = write (server_fd, buf, 1);
+
+  if (bytes_written < 0 && errno == EINTR)
+    goto again;
+
+  if (bytes_written < 0)
+    {
+      dbus_set_result (result, _dbus_result_from_errno (errno));      
+      _dbus_verbose ("Failed to write credentials byte: %s\n",
+                     _dbus_strerror (errno));
+      return FALSE;
+    }
+  else if (bytes_written == 0)
+    {
+      dbus_set_result (result, DBUS_RESULT_IO_ERROR);
+      _dbus_verbose ("wrote zero bytes writing credentials byte\n");
+      return FALSE;
+    }
+  else
+    {
+      _dbus_assert (bytes_written == 1);
+      _dbus_verbose ("wrote credentials byte\n");
+      return TRUE;
+    }
+}
+
 /**
- * Accepts a connection on a listening UNIX socket.
- * Specific to UNIX domain sockets because we might
- * add extra args to this function later to get client
- * credentials. Handles EINTR for you.
+ * Reads a single byte which must be nul (an error occurs otherwise),
+ * and reads unix credentials if available. Fills in pid/uid/gid with
+ * -1 if no credentials are available. Return value indicates whether
+ * a byte was read, not whether we got valid credentials. On some
+ * systems, such as Linux, reading/writing the byte isn't actually
+ * required, but we do it anyway just to avoid multiple codepaths.
+ * 
+ * Fails if no byte is available, so you must select() first.
+ *
+ * The point of the byte is that on some systems we have to
+ * use sendmsg()/recvmsg() to transmit credentials.
+ *
+ * @param client_fd the client file descriptor
+ * @param credentials struct to fill with credentials of client
+ * @param result location to store result code
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_read_credentials_unix_socket  (int              client_fd,
+                                     DBusCredentials *credentials,
+                                     DBusResultCode  *result)
+{
+  credentials->pid = -1;
+  credentials->uid = -1;
+  credentials->gid = -1;
+  
+#ifdef SO_PEERCRED
+  if (read_credentials_byte (client_fd, result))
+    {
+      struct ucred cr;   
+      int cr_len = sizeof (cr);
+   
+      if (getsockopt (client_fd, SOL_SOCKET, SO_PEERCRED, &cr, &cr_len) == 0 &&
+          cr_len == sizeof (cr))
+        {
+          credentials->pid = cr.pid;
+          credentials->uid = cr.uid;
+          credentials->gid = cr.gid;
+          _dbus_verbose ("Got credentials pid %d uid %d gid %d\n",
+                         credentials->pid,
+                         credentials->uid,
+                         credentials->gid);
+        }
+      else
+        {
+          _dbus_verbose ("Failed to getsockopt() credentials, returned len %d/%d: %s\n",
+                         cr_len, (int) sizeof (cr), _dbus_strerror (errno));
+        }
+
+      return TRUE;
+    }
+  else
+    return FALSE;
+#else /* !SO_PEERCRED */
+  _dbus_verbose ("Socket credentials not supported on this OS\n");
+  return TRUE;
+#endif
+}
+
+/**
+ * Sends a single nul byte with our UNIX credentials as ancillary
+ * data.  Returns #TRUE if the data was successfully written.  On
+ * systems that don't support sending credentials, just writes a byte,
+ * doesn't send any credentials.  On some systems, such as Linux,
+ * reading/writing the byte isn't actually required, but we do it
+ * anyway just to avoid multiple codepaths.
+ *
+ * Fails if no byte can be written, so you must select() first.
+ *
+ * The point of the byte is that on some systems we have to
+ * use sendmsg()/recvmsg() to transmit credentials.
+ *
+ * @param server_fd file descriptor for connection to server
+ * @param result return location for error code
+ * @returns #TRUE if the byte was sent
+ */
+dbus_bool_t
+_dbus_send_credentials_unix_socket  (int              server_fd,
+                                     DBusResultCode  *result)
+{
+  if (write_credentials_byte (server_fd, result))
+    return TRUE;
+  else
+    return FALSE;
+}
+
+/**
+ * Accepts a connection on a listening socket.
+ * Handles EINTR for you.
  *
  * @param listen_fd the listen file descriptor
  * @returns the connection fd of the client, or -1 on error
  */
 int
-_dbus_accept_unix_socket  (int listen_fd)
+_dbus_accept  (int listen_fd)
 {
   int client_fd;
   
@@ -389,7 +557,7 @@ _dbus_accept_unix_socket  (int listen_fd)
       if (errno == EINTR)
         goto retry;
     }
-
+  
   return client_fd;
 }
 
@@ -559,4 +727,168 @@ _dbus_string_parse_double (const DBusString *str,
   return TRUE;
 }
 
-/** @} end of DBusString */
+/**
+ * Gets the credentials corresponding to the given username.
+ *
+ * @param username the username
+ * @param credentials credentials to fill in
+ * @returns #TRUE if the username existed and we got some credentials
+ */
+dbus_bool_t
+_dbus_credentials_from_username (const DBusString *username,
+                                 DBusCredentials  *credentials)
+{
+  const char *username_c_str;
+  
+  credentials->pid = -1;
+  credentials->uid = -1;
+  credentials->gid = -1;
+
+  _dbus_string_get_const_data (username, &username_c_str);
+  
+#ifdef HAVE_GETPWNAM_R
+  {
+    struct passwd *p;
+    int result;
+    char buf[1024];
+    struct passwd p_str;
+
+    p = NULL;
+    result = getpwnam_r (username_c_str, &p_str, buf, sizeof (buf),
+                         &p);
+
+    if (result == 0 && p == &p_str)
+      {
+        credentials->uid = p->pw_uid;
+        credentials->gid = p->pw_gid;
+
+        _dbus_verbose ("Username %s has uid %d gid %d\n",
+                       username_c_str, credentials->uid, credentials->gid);
+        return TRUE;
+      }
+    else
+      {
+        _dbus_verbose ("User %s unknown\n", username_c_str);
+        return FALSE;
+      }
+  }
+#else /* ! HAVE_GETPWNAM_R */
+  {
+    /* I guess we're screwed on thread safety here */
+    struct passwd *p;
+
+    p = getpwnam (username_c_str);
+
+    if (p != NULL)
+      {
+        credentials->uid = p->pw_uid;
+        credentials->gid = p->pw_gid;
+
+        _dbus_verbose ("Username %s has uid %d gid %d\n",
+                       username_c_str, credentials->uid, credentials->gid);
+        return TRUE;
+      }
+    else
+      {
+        _dbus_verbose ("User %s unknown\n", username_c_str);
+        return FALSE;
+      }
+  }
+#endif  
+}
+
+/**
+ * Gets credentials from a UID string. (Parses a string to a UID
+ * and converts to a DBusCredentials.)
+ *
+ * @param uid_str the UID in string form
+ * @param credentials credentials to fill in
+ * @returns #TRUE if successfully filled in some credentials
+ */
+dbus_bool_t
+_dbus_credentials_from_uid_string (const DBusString      *uid_str,
+                                   DBusCredentials       *credentials)
+{
+  int end;
+  long uid;
+
+  credentials->pid = -1;
+  credentials->uid = -1;
+  credentials->gid = -1;
+  
+  if (_dbus_string_get_length (uid_str) == 0)
+    {
+      _dbus_verbose ("UID string was zero length\n");
+      return FALSE;
+    }
+
+  uid = -1;
+  end = 0;
+  if (!_dbus_string_parse_int (uid_str, 0, &uid,
+                               &end))
+    {
+      _dbus_verbose ("could not parse string as a UID\n");
+      return FALSE;
+    }
+  
+  if (end != _dbus_string_get_length (uid_str))
+    {
+      _dbus_verbose ("string contained trailing stuff after UID\n");
+      return FALSE;
+    }
+
+  credentials->uid = uid;
+
+  return TRUE;
+}
+
+/**
+ * Gets the credentials of the current process.
+ *
+ * @param credentials credentials to fill in.
+ */
+void
+_dbus_credentials_from_current_process (DBusCredentials *credentials)
+{
+  credentials->pid = getpid ();
+  credentials->uid = getuid ();
+  credentials->gid = getgid ();
+}
+
+/**
+ * Checks whether the provided_credentials are allowed to log in
+ * as the expected_credentials.
+ *
+ * @param expected_credentials credentials we're trying to log in as
+ * @param provided_credentials credentials we have
+ * @returns #TRUE if we can log in
+ */
+dbus_bool_t
+_dbus_credentials_match (const DBusCredentials *expected_credentials,
+                         const DBusCredentials *provided_credentials)
+{
+  if (provided_credentials->uid < 0)
+    return FALSE;
+  else if (expected_credentials->uid < 0)
+    return FALSE;
+  else if (provided_credentials->uid == 0)
+    return TRUE;
+  else if (provided_credentials->uid == expected_credentials->uid)
+    return TRUE;
+  else
+    return FALSE;
+}
+
+/**
+ * Appends the uid of the current process to the given string.
+ *
+ * @param str the string to append to
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_string_append_our_uid (DBusString *str)
+{
+  return _dbus_string_append_int (str, getuid ());
+}
+
+/** @} end of sysdeps */
