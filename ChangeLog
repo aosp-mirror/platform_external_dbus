@@ -1,3 +1,9 @@
+2003-04-03  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-spawn.c: Move dbus-spawn into a separate file 
+	in preparation for modifying it, dbus-sysdeps is getting 
+	a bit unmanageable.
+
 2003-04-03  Havoc Pennington  <hp@redhat.com>
 
 	* bus/loop.h, bus/loop.c: make the mainloop an object so we can

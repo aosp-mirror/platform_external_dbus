@@ -84,6 +84,8 @@ UTIL_SOURCES=					\
 	dbus-mempool.h				\
 	dbus-message-builder.c			\
 	dbus-message-builder.h			\
+	dbus-spawn.c				\
+	dbus-spawn.h				\
 	dbus-string.c				\
 	dbus-string.h				\
 	dbus-string-private.h			\
