@@ -111,7 +111,7 @@ libdbus_1_la_LDFLAGS= -export-symbols-regex "^[^_].*"
 ## so if adding tests not to be run in make check, don't add them to 
 ## TESTS
 if DBUS_BUILD_TESTS
-TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_srcdir)/test/data DBUS_TEST_HOMEDIR=$(top_builddir)/dbus
+TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_builddir)/test/data DBUS_TEST_HOMEDIR=$(top_builddir)/dbus
 TESTS=dbus-test
 else
 TESTS=

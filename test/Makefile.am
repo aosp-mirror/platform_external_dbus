@@ -44,24 +44,67 @@ break_loader_LDADD= $(TEST_LIBS)
 #bus_test_LDADD=$(TEST_LIBS) $(top_builddir)/bus/libdbus-daemon.la
 spawn_test_LDADD=$(TEST_LIBS)
 
-EXTRA_DIST=fix-standard-tests.sh
+EXTRA_DIST=
+
+## keep these in creation order, i.e. uppermost dirs first 
+TESTDIRS=					\
+	data					\
+	data/valid-messages			\
+	data/invalid-messages			\
+	data/incomplete-messages		\
+	data/auth				\
+	data/sha-1				\
+	data/valid-config-files			\
+	data/valid-config-files/basic.d
+
+FIND_TESTS=find -name "*.message" -o -name "*.message-raw" -o -name "*.auth-script" -o -name "*.sha1" -o -name "*.txt" -o -name "*.conf"
 
 dist-hook:
-	DIRS="data data/valid-messages data/invalid-messages data/incomplete-messages data/auth data/sha-1 data/valid-config-files"; \
-	for D in $$DIRS; do									   \
-		test -d $(distdir)/$$D || mkdir $(distdir)/$$D ;				   \
-	done ;											   \
-	FILES=`find -name "*.message" -o -name "*.message-raw" -o -name "*.auth-script" -o -name "*.sha1" -o -name "*.txt" -o -name "*.conf"` ;	   \
-        for F in $$FILES; do									   \
-                echo '-- Disting file '$$F ;							   \
-		cp $$F $(distdir)/$$F ;								   \
+	for D in $(TESTDIRS); do						\
+		test -d $(distdir)/$$D || mkdir $(distdir)/$$D || exit 1 ;	\
+	done ;									\
+	FILES=`$(FIND_TESTS)` ;							\
+        for F in $$FILES; do							\
+                echo '-- Disting file '$$F ;					\
+		cp $$F $(distdir)/$$F || exit 1 ;				\
 	done
 
+## copy tests to builddir so that generated tests and static tests 
+## are all in one place.
+all-local:
+	for D in $(TESTDIRS); do								\
+		test -d $(top_builddir)/test/$$D || mkdir $(top_builddir)/test/$$D || exit 1 ;	\
+	done ;											\
+	if test $(srcdir) != . ; then								\
+		FILES=`(cd $(srcdir) && $(FIND_TESTS))` ;					\
+	        for F in $$FILES; do								\
+			SRC=$(srcdir)/$$F ;							\
+			DEST=$(top_builddir)/test/$$F ;						\
+	                echo '-- Copying test file '$$F ;					\
+			cp $$SRC $$DEST || exit 1 ;						\
+			chmod u+w $$DEST || exit 1 ;						\
+		done ;										\
+	else											\
+		echo '-- No need to copy test data as srcdir = builddir' ;			\
+	fi ;											\
+	echo '-- Copying' $(top_builddir)/bus/*.conf 'to test directory' ;			\
+	cp $(top_builddir)/bus/*.conf $(top_builddir)/test/data/valid-config-files || exit 1 ;  \
+	chmod u+w $(top_builddir)/test/data/valid-config-files/*.conf || exit 1
 
-### we want our standard session.conf and system.conf in the test suite, 
-### right now we manually sync copies of them over to the test suite 
-### from time to time
-update-standard-tests:
-	cp -f $(top_builddir)/bus/system.conf.in data/valid-config-files/system.conf ;		\
-	cp -f $(top_builddir)/bus/session.conf.in data/valid-config-files/session.conf ; 	\
-	$(srcdir)/fix-standard-tests.sh
+## this doesn't clean generated test data files when srcdir=builddir
+clean-local:
+	if test $(srcdir) != . ; then					\
+		FILES=`(cd $(top_builddir)/test && $(FIND_TESTS))` ;	\
+	        for F in $$FILES; do					\
+			DEST=$(top_builddir)/test/$$F ;			\
+	                echo '-- Deleting test file '$$F ;		\
+			rm $$DEST || exit 1 ;				\
+		done ;							\
+		REVERSEDIRS= ;						\
+		for D in $(TESTDIRS); do				\
+			REVERSEDIRS="$$D $$REVERSEDIRS" ;		\
+		done ;							\
+		for D in $$REVERSEDIRS; do				\
+			rmdir $(top_builddir)/test/$$D || exit 1 ;	\
+		done ;							\
+	fi

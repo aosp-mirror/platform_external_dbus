@@ -1,5 +1,12 @@
 2003-04-02  Havoc Pennington  <hp@redhat.com>
 
+	* test/Makefile.am (all-local): add a rule to copy tests to
+	builddir, so we can have generated tests. Use this to remove the
+	silly hack for testing system.conf and session.conf. Will use this 
+	shortly to generate .service files pointing to test binaries.
+
+2003-04-02  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-string.c (set_length): fix a bug - we allocated max of
 	current alloc and needed new length, not max of the doubled
 	allocation and needed new length. Also, when building tests, 
