@@ -633,13 +633,19 @@ dbus_free_string_array (char **str_array)
  */
 int _dbus_current_generation = 1;
 
+/**
+ * Represents a function to be called on shutdown.
+ */
 typedef struct ShutdownClosure ShutdownClosure;
 
+/**
+ * This struct represents a function to be called on shutdown.
+ */
 struct ShutdownClosure
 {
-  ShutdownClosure *next;
-  DBusShutdownFunction func;
-  void *data;
+  ShutdownClosure *next;     /**< Next ShutdownClosure */
+  DBusShutdownFunction func; /**< Function to call */
+  void *data;                /**< Data for function */
 };
 
 _DBUS_DEFINE_GLOBAL_LOCK (shutdown_funcs);

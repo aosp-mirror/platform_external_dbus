@@ -1,5 +1,13 @@
 2003-04-05  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-string.c: docs warning
+	
+	* dbus/dbus-spawn.c: missing docs
+
+	* dbus/dbus-memory.c (struct ShutdownClosure): missing docs
+
+2003-04-05  Havoc Pennington  <hp@pobox.com>
+
 	* bus/loop.c (bus_loop_iterate): fix the timeout code, using 
 	magic from GLib
 

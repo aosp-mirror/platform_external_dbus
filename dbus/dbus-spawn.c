@@ -42,11 +42,14 @@
  * if you thought about it a bit.
  */
 
+/**
+ * Enumeration for status of a read()
+ */
 typedef enum
 {
-  READ_STATUS_OK,
-  READ_STATUS_ERROR,
-  READ_STATUS_EOF
+  READ_STATUS_OK,    /**< Read succeeded */
+  READ_STATUS_ERROR, /**< Some kind of error */
+  READ_STATUS_EOF    /**< EOF returned */
 } ReadStatus;
 
 static ReadStatus
@@ -709,7 +712,9 @@ _dbus_babysitter_handle_watch (DBusBabysitter  *sitter,
   return TRUE;
 }
 
+/** Helps remember which end of the pipe is which */
 #define READ_END 0
+/** Helps remember which end of the pipe is which */
 #define WRITE_END 1
 
 

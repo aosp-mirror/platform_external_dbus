@@ -1462,6 +1462,7 @@ _dbus_string_find_to (const DBusString *str,
  * Sets *found to -1 if the byte is not found.
  *
  * @param str the string
+ * @param start the place to start scanning (will not find the byte at this point)
  * @param byte the byte to find
  * @param found return location for where it was found
  * @returns #TRUE if found
