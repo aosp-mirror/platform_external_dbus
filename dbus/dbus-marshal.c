@@ -384,6 +384,8 @@ _dbus_demarshal_string (DBusString *str,
 /**
  * If in verbose mode, print a block of binary data.
  *
+ * @todo right now it prints even if not in verbose mode
+ * 
  * @param data the data
  * @param len the length of the data
  */
