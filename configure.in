@@ -21,8 +21,17 @@ AC_ISC_POSIX
 AC_HEADER_STDC
 AM_PROG_LIBTOOL
 
-AC_ARG_ENABLE(qt,   [  --disable-qt      disable Qt-friendly client library],enable_qt=no,enable_qt=yes)
-AC_ARG_ENABLE(glib, [  --disable-glib    disable GLib-friendly client library],enable_glib=no,enable_glib=yes)
+AC_ARG_ENABLE(qt,      [  --disable-qt      disable Qt-friendly client library],enable_qt=no,enable_qt=yes)
+AC_ARG_ENABLE(glib,    [  --disable-glib    disable GLib-friendly client library],enable_glib=no,enable_glib=yes)
+AC_ARG_ENABLE(tests,   [  --enable-tests enable unit test code],enable_tests=yes,enable_tests=no)
+AC_ARG_ENABLE(ansi,    [  --enable-ansi enable -ansi -pedantic gcc flags],enable_ansi=yes,enable_ansi=no)
+
+dnl DBUS_BUILD_TESTS controls unit tests built in to .c files 
+dnl and also some stuff in the test/ subdir
+AM_CONDITIONAL(DBUS_BUILD_TESTS, test x$enable_tests = xyes)
+if test x$enable_tests = xyes; then
+    AC_DEFINE(DBUS_BUILD_TESTS,1,[Build test code])
+fi
 
 changequote(,)dnl
 if test "x$GCC" = "xyes"; then
@@ -30,6 +39,53 @@ if test "x$GCC" = "xyes"; then
   *[\ \	]-Wall[\ \	]*) ;;
   *) CFLAGS="$CFLAGS -Wall" ;;
   esac
+
+  case " $CFLAGS " in
+  *[\ \	]-Wchar-subscripts[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wchar-subscripts" ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-Wmissing-declarations[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wmissing-declarations" ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-Wmissing-prototypes[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wmissing-prototypes" ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-Wnested-externs[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wnested-externs" ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-Wpointer-arith[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wpointer-arith" ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-Wcast-align[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wcast-align" ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-Wsign-compare[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wsign-compare" ;;
+  esac
+
+  if test "x$enable_ansi" = "xyes"; then
+    case " $CFLAGS " in
+    *[\ \	]-ansi[\ \	]*) ;;
+    *) CFLAGS="$CFLAGS -ansi" ;;
+    esac
+
+    case " $CFLAGS " in
+    *[\ \	]-pedantic[\ \	]*) ;;
+    *) CFLAGS="$CFLAGS -pedantic" ;;
+    esac
+  fi
 fi
 changequote([,])dnl
 
@@ -65,3 +121,28 @@ test/Makefile
 doc/Makefile
 dbus-1.0.pc
 ])
+
+dnl ==========================================================================
+echo "
+                    D-BUS $VERSION
+                  ==============
+
+	prefix:                 ${prefix}
+	source code location:	${srcdir}
+	compiler:		${CC}
+
+        Building unit tests:    ${enable_tests}
+        Building Qt bindings:   ${enable_qt}
+        Building GLib bindings: ${enable_glib}
+"
+
+if test x$enable_tests = xyes; then
+        echo "NOTE: building with unit tests increases the size of the installed library"
+fi
+if test x$enable_qt = xyes; then
+        echo "NOTE: Qt bindings don't actually exist yet"
+fi
+if test x$enable_glib = xyes; then
+        echo "NOTE: GLib bindings don't actually exist yet"
+fi
+

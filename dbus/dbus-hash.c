@@ -74,460 +74,627 @@
  * accordance with the terms specified in this license.
  */
 
-#include "dbus-memory.h"
+#include "dbus-hash.h"
+#include "dbus-internals.h"
 
-typedef struct DBusHashEntry DBusHashEntry;
-
-
-#if 0
-
-/*
- * Forward declaration of Tcl_HashTable.  Needed by some C++ compilers
- * to prevent errors when the forward reference to Tcl_HashTable is
- * encountered in the Tcl_HashEntry structure.
+/**
+ * @defgroup DBusHashTable Hash table
+ * @ingroup  DBusInternals
+ * @brief DBusHashTable data structure
+ *
+ * Types and functions related to DBusHashTable.
  */
 
-#ifdef __cplusplus
-struct Tcl_HashTable;
-#endif
-
-/*
- * Structure definition for an entry in a hash table.  No-one outside
- * Tcl should access any of these fields directly;  use the macros
- * defined below.
+/**
+ * @defgroup DBusHashTableInternals Hash table implementation details
+ * @ingroup  DBusInternals
+ * @brief DBusHashTable implementation details
+ *
+ * The guts of DBusHashTable.
+ *
+ * @{
  */
 
-typedef struct Tcl_HashEntry {
-    struct Tcl_HashEntry *nextPtr;	/* Pointer to next entry in this
-					 * hash bucket, or NULL for end of
-					 * chain. */
-    struct Tcl_HashTable *tablePtr;	/* Pointer to table containing entry. */
-    struct Tcl_HashEntry **bucketPtr;	/* Pointer to bucket that points to
-					 * first entry in this entry's chain:
-					 * used for deleting the entry. */
-    ClientData clientData;		/* Application stores something here
-					 * with Tcl_SetHashValue. */
-    union {				/* Key has one of these forms: */
-	char *oneWordValue;		/* One-word value for key. */
-	int words[1];			/* Multiple integer words for key.
-					 * The actual size will be as large
-					 * as necessary for this table's
-					 * keys. */
-	char string[4];			/* String for key.  The actual size
-					 * will be as large as needed to hold
-					 * the key. */
-    } key;				/* MUST BE LAST FIELD IN RECORD!! */
-} Tcl_HashEntry;
-
-/*
- * Structure definition for a hash table.  Must be in tcl.h so clients
- * can allocate space for these structures, but clients should never
- * access any fields in this structure.
- */
-
-#define TCL_SMALL_HASH_TABLE 4
-typedef struct Tcl_HashTable {
-    Tcl_HashEntry **buckets;		/* Pointer to bucket array.  Each
-					 * element points to first entry in
-					 * bucket's hash chain, or NULL. */
-    Tcl_HashEntry *staticBuckets[TCL_SMALL_HASH_TABLE];
-					/* Bucket array used for small tables
-					 * (to avoid mallocs and frees). */
-    int numBuckets;			/* Total number of buckets allocated
-					 * at **bucketPtr. */
-    int numEntries;			/* Total number of entries present
-					 * in table. */
-    int rebuildSize;			/* Enlarge table when numEntries gets
-					 * to be this large. */
-    int downShift;			/* Shift count used in hashing
-					 * function.  Designed to use high-
-					 * order bits of randomized keys. */
-    int mask;				/* Mask value used in hashing
-					 * function. */
-    int keyType;			/* Type of keys used in this table. 
-					 * It's either TCL_STRING_KEYS,
-					 * TCL_ONE_WORD_KEYS, or an integer
-					 * giving the number of ints that
-                                         * is the size of the key.
-					 */
-    Tcl_HashEntry *(*findProc) _ANSI_ARGS_((struct Tcl_HashTable *tablePtr,
-	    CONST char *key));
-    Tcl_HashEntry *(*createProc) _ANSI_ARGS_((struct Tcl_HashTable *tablePtr,
-	    CONST char *key, int *newPtr));
-} Tcl_HashTable;
-
-/*
- * Structure definition for information used to keep track of searches
- * through hash tables:
- */
-
-typedef struct Tcl_HashSearch {
-    Tcl_HashTable *tablePtr;		/* Table being searched. */
-    int nextIndex;			/* Index of next bucket to be
-					 * enumerated after present one. */
-    Tcl_HashEntry *nextEntryPtr;	/* Next entry to be enumerated in the
-					 * the current bucket. */
-} Tcl_HashSearch;
-
-
-/*
+/**
  * When there are this many entries per bucket, on average, rebuild
  * the hash table to make it larger.
  */
+#define REBUILD_MULTIPLIER  3
 
-#define REBUILD_MULTIPLIER	3
-
-
-/*
- * The following macro takes a preliminary integer hash value and
- * produces an index into a hash tables bucket list.  The idea is
- * to make it so that preliminary values that are arbitrarily similar
- * will end up in different buckets.  The hash function was taken
- * from a random-number generator.
+/**
+ * Takes a preliminary integer hash value and produces an index into a
+ * hash tables bucket list.  The idea is to make it so that
+ * preliminary values that are arbitrarily similar will end up in
+ * different buckets.  The hash function was taken from a
+ * random-number generator. (This is used to hash integers.)
  */
+#define RANDOM_INDEX(table, i) \
+    (((((long) (i))*1103515245) >> (table)->down_shift) & (table)->mask)
 
-#define RANDOM_INDEX(tablePtr, i) \
-    (((((long) (i))*1103515245) >> (tablePtr)->downShift) & (tablePtr)->mask)
-
-/*
- * Procedure prototypes for static procedures in this file:
+/**
+ * Initial number of buckets in hash table (hash table statically
+ * allocates its buckets for this size and below).
  */
+#define DBUS_SMALL_HASH_TABLE 4
 
-static Tcl_HashEntry *	ArrayFind (Tcl_HashTable *tablePtr,
-                                   CONST char *key);
-static Tcl_HashEntry *	ArrayCreate (Tcl_HashTable *tablePtr,
-                                     CONST char *key, int *newPtr);
-static Tcl_HashEntry *	BogusFind (Tcl_HashTable *tablePtr,
-                                   CONST char *key);
-static Tcl_HashEntry *	BogusCreate (Tcl_HashTable *tablePtr,
-                                     CONST char *key, int *newPtr);
-static unsigned int	HashString (CONST char *string);
-static void		RebuildTable (Tcl_HashTable *tablePtr);
-static Tcl_HashEntry *	StringFind (Tcl_HashTable *tablePtr,
-                                    CONST char *key);
-static Tcl_HashEntry *	StringCreate (Tcl_HashTable *tablePtr,
-                                      CONST char *key, int *newPtr);
-static Tcl_HashEntry *	OneWordFind (Tcl_HashTable *tablePtr,
-                                     CONST char *key);
-static Tcl_HashEntry *	OneWordCreate (Tcl_HashTable *tablePtr,
-                                       CONST char *key, int *newPtr);
-
-/*
- *----------------------------------------------------------------------
- *
- * Tcl_InitHashTable --
- *
- *	Given storage for a hash table, set up the fields to prepare
- *	the hash table for use.
- *
- * Results:
- *	None.
- *
- * Side effects:
- *	TablePtr is now ready to be passed to Tcl_FindHashEntry and
- *	Tcl_CreateHashEntry.
- *
- *----------------------------------------------------------------------
+/**
+ * Typedef for DBusHashEntry
  */
+typedef struct DBusHashEntry DBusHashEntry;
 
-void
-Tcl_InitHashTable(tablePtr, keyType)
-     register Tcl_HashTable *tablePtr;	/* Pointer to table record, which
-					 * is supplied by the caller. */
-     int keyType;			/* Type of keys to use in table:
-					 * TCL_STRING_KEYS, TCL_ONE_WORD_KEYS,
-					 * or an integer >= 2. */
+/**
+ * A single entry (key-value pair) in the hash table.
+ * Internal to hash table implementation.
+ */
+struct DBusHashEntry
 {
-#if (TCL_SMALL_HASH_TABLE != 4) 
-  panic("Tcl_InitHashTable: TCL_SMALL_HASH_TABLE is %d, not 4\n",
-        TCL_SMALL_HASH_TABLE);
-#endif
-    
-  tablePtr->buckets = tablePtr->staticBuckets;
-  tablePtr->staticBuckets[0] = tablePtr->staticBuckets[1] = 0;
-  tablePtr->staticBuckets[2] = tablePtr->staticBuckets[3] = 0;
-  tablePtr->numBuckets = TCL_SMALL_HASH_TABLE;
-  tablePtr->numEntries = 0;
-  tablePtr->rebuildSize = TCL_SMALL_HASH_TABLE*REBUILD_MULTIPLIER;
-  tablePtr->downShift = 28;
-  tablePtr->mask = 3;
-  tablePtr->keyType = keyType;
-  if (keyType == TCL_STRING_KEYS) {
-    tablePtr->findProc = StringFind;
-    tablePtr->createProc = StringCreate;
-  } else if (keyType == TCL_ONE_WORD_KEYS) {
-    tablePtr->findProc = OneWordFind;
-    tablePtr->createProc = OneWordCreate;
-  } else {
-    tablePtr->findProc = ArrayFind;
-    tablePtr->createProc = ArrayCreate;
-  };
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * Tcl_DeleteHashEntry --
- *
- *	Remove a single entry from a hash table.
- *
- * Results:
- *	None.
- *
- * Side effects:
- *	The entry given by entryPtr is deleted from its table and
- *	should never again be used by the caller.  It is up to the
- *	caller to free the clientData field of the entry, if that
- *	is relevant.
- *
- *----------------------------------------------------------------------
+  DBusHashEntry *next;    /**< Pointer to next entry in this
+                           * hash bucket, or #NULL for end of
+                           * chain.
+                           */
+  void *key;              /**< Hash key */
+  void *value;            /**< Hash value */
+};
+
+/**
+ * Function used to find and optionally create a hash entry.
+ */
+typedef DBusHashEntry* (* DBusFindEntryFunction) (DBusHashTable   *table,
+                                                  void            *key,
+                                                  dbus_bool_t      create_if_not_found,
+                                                  DBusHashEntry ***bucket);
+
+/**
+ * Hash table internal members.
+ */
+struct DBusHashTable {
+  int refcount;                       /**< Reference count */
+  
+  DBusHashEntry **buckets;            /**< Pointer to bucket array.  Each
+                                       * element points to first entry in
+                                       * bucket's hash chain, or #NULL.
+                                       */
+  DBusHashEntry *static_buckets[DBUS_SMALL_HASH_TABLE];
+                                       /**< Bucket array used for small tables
+                                        * (to avoid mallocs and frees).
+                                        */
+  int n_buckets;                       /**< Total number of buckets allocated
+                                        * at **buckets.
+                                        */
+  int n_entries;                       /**< Total number of entries present
+                                        * in table.
+                                        */
+  int rebuild_size;                    /**< Enlarge table when numEntries gets
+                                        * to be this large.
+                                        */
+  int down_shift;                      /**< Shift count used in hashing
+                                        * function.  Designed to use high-
+                                        * order bits of randomized keys.
+                                        */
+  int mask;                            /**< Mask value used in hashing
+                                        * function.
+                                        */
+  DBusHashType key_type;               /**< Type of keys used in this table */
+
+
+  DBusFindEntryFunction find_function; /**< Function for finding entries */
+
+  DBusFreeFunction free_key_function;   /**< Function to free keys */
+  DBusFreeFunction free_value_function; /**< Function to free values */
+};
+
+/**
+ * Internals of DBusHashIter.
+ */
+typedef struct
+{
+  DBusHashTable *table;     /**< Pointer to table containing entry. */
+  DBusHashEntry **bucket;   /**< Pointer to bucket that points to
+                             * first entry in this entry's chain:
+                             * used for deleting the entry.
+                             */
+  DBusHashEntry *entry;      /**< Current hash entry */
+  DBusHashEntry *next_entry; /**< Next entry to be iterated onto in current bucket */
+  int next_bucket;           /**< index of next bucket */
+  int n_entries_on_init;     /**< used to detect table resize since initialization */
+} DBusRealHashIter;
+
+static DBusHashEntry* find_int_function    (DBusHashTable   *table,
+                                            void            *key,
+                                            dbus_bool_t      create_if_not_found,
+                                            DBusHashEntry ***bucket);
+static DBusHashEntry* find_string_function (DBusHashTable   *table,
+                                            void            *key,
+                                            dbus_bool_t      create_if_not_found,
+                                            DBusHashEntry ***bucket);
+static unsigned int   string_hash          (const char      *str);
+static void           rebuild_table        (DBusHashTable   *table);
+static DBusHashEntry* alloc_entry          (DBusHashTable   *table);
+static void           remove_entry         (DBusHashTable   *table,
+                                            DBusHashEntry  **bucket,
+                                            DBusHashEntry   *entry);
+static void           free_entry           (DBusHashTable   *table,
+                                            DBusHashEntry   *entry);
+
+/** }@ */
+
+/**
+ * @addtogroup DBusHashTable
+ * @{
  */
 
-void
-Tcl_DeleteHashEntry(entryPtr)
-     Tcl_HashEntry *entryPtr;
-{
-  register Tcl_HashEntry *prevPtr;
+/**
+ * @typedef DBusHashIter
+ *
+ * Public opaque hash table iterator object.
+ */
 
-  if (*entryPtr->bucketPtr == entryPtr) {
-    *entryPtr->bucketPtr = entryPtr->nextPtr;
-  } else {
-    for (prevPtr = *entryPtr->bucketPtr; ; prevPtr = prevPtr->nextPtr) {
-      if (prevPtr == NULL) {
-        panic("malformed bucket chain in Tcl_DeleteHashEntry");
-      }
-      if (prevPtr->nextPtr == entryPtr) {
-        prevPtr->nextPtr = entryPtr->nextPtr;
-        break;
-      }
+/**
+ * @typedef DBusHashTable
+ *
+ * Public opaque hash table object.
+ */
+
+/**
+ * @typedef DBusHashType
+ *
+ * Indicates the type of a key in the hash table.
+ */
+
+/**
+ * Constructs a new hash table. Should be freed with
+ * _dbus_hash_table_unref(). If memory cannot be
+ * allocated for the hash table, returns #NULL.
+ *
+ * @param type the type of hash key to use.
+ * @param key_free_function function to free hash keys.
+ * @param value_free_function function to free hash values.
+ * @returns a new DBusHashTable or #NULL if no memory.
+ */
+DBusHashTable*
+_dbus_hash_table_new (DBusHashType     type,
+                      DBusFreeFunction key_free_function,
+                      DBusFreeFunction value_free_function)
+{
+  DBusHashTable *table;
+
+  table = dbus_new0 (DBusHashTable, 1);
+  if (table == NULL)
+    return NULL;
+  
+  table->refcount = 1;
+
+  _dbus_assert (DBUS_SMALL_HASH_TABLE == _DBUS_N_ELEMENTS (table->static_buckets));
+  
+  table->buckets = table->static_buckets;  
+  table->n_buckets = DBUS_SMALL_HASH_TABLE;
+  table->n_entries = 0;
+  table->rebuild_size = DBUS_SMALL_HASH_TABLE * REBUILD_MULTIPLIER;
+  table->down_shift = 28;
+  table->mask = 3;
+  table->key_type = type;
+  
+  switch (table->key_type)
+    {
+    case DBUS_HASH_INT:
+      table->find_function = find_int_function;
+      break;
+    case DBUS_HASH_STRING:
+      table->find_function = find_string_function;
+      break;
+    default:
+      _dbus_assert_not_reached ("Unknown hash table type");
+      break;
     }
-  }
-  entryPtr->tablePtr->numEntries--;
-  ckfree((char *) entryPtr);
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * Tcl_DeleteHashTable --
- *
- *	Free up everything associated with a hash table except for
- *	the record for the table itself.
- *
- * Results:
- *	None.
- *
- * Side effects:
- *	The hash table is no longer useable.
- *
- *----------------------------------------------------------------------
- */
 
+  table->free_key_function = key_free_function;
+  table->free_value_function = value_free_function;
+
+  return table;
+}
+
+
+/**
+ * Increments the reference count for a hash table.
+ *
+ * @param table the hash table to add a reference to.
+ */
 void
-Tcl_DeleteHashTable(tablePtr)
-     register Tcl_HashTable *tablePtr;		/* Table to delete. */
+_dbus_hash_table_ref (DBusHashTable *table)
 {
-  register Tcl_HashEntry *hPtr, *nextPtr;
-  int i;
+  table->refcount += 1;
+}
 
-  /*
-   * Free up all the entries in the table.
-   */
+/**
+ * Decrements the reference count for a hash table,
+ * freeing the hash table if the count reaches zero.
+ *
+ * @param table the hash table to remove a reference from.
+ */
+void
+_dbus_hash_table_unref (DBusHashTable *table)
+{
+  table->refcount -= 1;
 
-  for (i = 0; i < tablePtr->numBuckets; i++) {
-    hPtr = tablePtr->buckets[i];
-    while (hPtr != NULL) {
-      nextPtr = hPtr->nextPtr;
-      ckfree((char *) hPtr);
-      hPtr = nextPtr;
+  if (table->refcount == 0)
+    {
+      DBusHashEntry *entry;
+      DBusHashEntry *next;
+      int i;
+
+      /* Free the entries in the table. */
+      
+      for (i = 0; i < table->n_buckets; i++)
+        {
+          entry = table->buckets[i];
+          while (entry != NULL)
+            {
+              next = entry->next;
+
+              free_entry (table, entry);
+              
+              entry = next;
+            }
+        }
+
+      /* Free the bucket array, if it was dynamically allocated. */
+      if (table->buckets != table->static_buckets)
+        dbus_free (table->buckets);
+
+      dbus_free (table);
     }
-  }
-
-  /*
-   * Free up the bucket array, if it was dynamically allocated.
-   */
-
-  if (tablePtr->buckets != tablePtr->staticBuckets) {
-    ckfree((char *) tablePtr->buckets);
-  }
-
-  /*
-   * Arrange for panics if the table is used again without
-   * re-initialization.
-   */
-
-  tablePtr->findProc = BogusFind;
-  tablePtr->createProc = BogusCreate;
 }
-
-/*
- *----------------------------------------------------------------------
- *
- * Tcl_FirstHashEntry --
- *
- *	Locate the first entry in a hash table and set up a record
- *	that can be used to step through all the remaining entries
- *	of the table.
- *
- * Results:
- *	The return value is a pointer to the first entry in tablePtr,
- *	or NULL if tablePtr has no entries in it.  The memory at
- *	*searchPtr is initialized so that subsequent calls to
- *	Tcl_NextHashEntry will return all of the entries in the table,
- *	one at a time.
- *
- * Side effects:
- *	None.
- *
- *----------------------------------------------------------------------
- */
 
-Tcl_HashEntry *
-Tcl_FirstHashEntry(tablePtr, searchPtr)
-     Tcl_HashTable *tablePtr;		/* Table to search. */
-     Tcl_HashSearch *searchPtr;		/* Place to store information about
-					 * progress through the table. */
+static DBusHashEntry*
+alloc_entry (DBusHashTable *table)
 {
-  searchPtr->tablePtr = tablePtr;
-  searchPtr->nextIndex = 0;
-  searchPtr->nextEntryPtr = NULL;
-  return Tcl_NextHashEntry(searchPtr);
+  DBusHashEntry *entry;
+
+  entry = dbus_new0 (DBusHashEntry, 1);
+
+  return entry;
 }
-
-/*
- *----------------------------------------------------------------------
- *
- * Tcl_NextHashEntry --
- *
- *	Once a hash table enumeration has been initiated by calling
- *	Tcl_FirstHashEntry, this procedure may be called to return
- *	successive elements of the table.
- *
- * Results:
- *	The return value is the next entry in the hash table being
- *	enumerated, or NULL if the end of the table is reached.
- *
- * Side effects:
- *	None.
- *
- *----------------------------------------------------------------------
- */
 
-Tcl_HashEntry *
-Tcl_NextHashEntry(searchPtr)
-     register Tcl_HashSearch *searchPtr;	/* Place to store information about
-                                                 * progress through the table.  Must
-                                                 * have been initialized by calling
-                                                 * Tcl_FirstHashEntry. */
+static void
+free_entry (DBusHashTable  *table,
+            DBusHashEntry  *entry)
 {
-  Tcl_HashEntry *hPtr;
+  if (table->free_key_function)
+    (* table->free_key_function) (entry->key);
+  if (table->free_value_function)
+    (* table->free_value_function) (entry->value);
+              
+  dbus_free (entry);
+}
 
-  while (searchPtr->nextEntryPtr == NULL) {
-    if (searchPtr->nextIndex >= searchPtr->tablePtr->numBuckets) {
+static void
+remove_entry (DBusHashTable  *table,
+              DBusHashEntry **bucket,
+              DBusHashEntry  *entry)
+{
+  _dbus_assert (table != NULL);
+  _dbus_assert (bucket != NULL);
+  _dbus_assert (*bucket != NULL);  
+  _dbus_assert (entry != NULL);
+  
+  if (*bucket == entry)
+    *bucket = entry->next;
+  else
+    {
+      DBusHashEntry *prev;
+      prev = *bucket;
+
+      while (prev->next != entry)
+        prev = prev->next;      
+      
+      _dbus_assert (prev != NULL);
+
+      prev->next = entry->next;
+    }
+  
+  table->n_entries -= 1;
+  free_entry (table, entry);
+}
+
+/**
+ * Initializes a hash table iterator. To iterate over all entries in a
+ * hash table, use the following code (the printf assumes a hash
+ * from strings to strings obviously):
+ *
+ * @code
+ * DBusHashIter iter;
+ *
+ * _dbus_hash_iter_init (table, &iter);
+ * while (_dbus_hash_iter_next (&iter))
+ *   {
+ *      printf ("The first key is %s and value is %s\n",
+ *              _dbus_hash_iter_get_string_key (&iter),
+ *              _dbus_hash_iter_get_value (&iter));
+ *   }
+ * 
+ * 
+ * @endcode
+ *
+ * The iterator is initialized pointing "one before" the first hash
+ * entry. The first call to _dbus_hash_iter_next() moves it onto
+ * the first valid entry or returns #FALSE if the hash table is
+ * empty. Subsequent calls move to the next valid entry or return
+ * #FALSE if there are no more entries.
+ *
+ * Note that it is guaranteed to be safe to remove a hash entry during
+ * iteration, but it is not safe to add a hash entry.
+ * 
+ * @param table the hash table to iterate over.
+ * @param iter the iterator to initialize.
+ */
+void
+_dbus_hash_iter_init (DBusHashTable *table,
+                      DBusHashIter  *iter)
+{
+  DBusRealHashIter *real;
+  
+  _dbus_assert (sizeof (DBusHashIter) == sizeof (DBusRealHashIter));
+  
+  real = (DBusRealHashIter*) iter;
+
+  real->table = table;
+  real->bucket = NULL;
+  real->entry = NULL;
+  real->next_entry = NULL;
+  real->next_bucket = 0;
+  real->n_entries_on_init = table->n_entries;
+}
+
+/**
+ * Move the hash iterator forward one step, to the next hash entry.
+ * The documentation for _dbus_hash_iter_init() explains in more
+ * detail.
+ *
+ * @param iter the iterator to move forward.
+ * @returns #FALSE if there are no more entries to move to.
+ */
+dbus_bool_t
+_dbus_hash_iter_next (DBusHashIter  *iter)
+{
+  DBusRealHashIter *real;
+  
+  _dbus_assert (sizeof (DBusHashIter) == sizeof (DBusRealHashIter));
+  
+  real = (DBusRealHashIter*) iter;
+
+  /* if this assertion failed someone probably added hash entries
+   * during iteration, which is bad.
+   */
+  _dbus_assert (real->n_entries_on_init >= real->table->n_entries);
+  
+  /* Remember that real->entry may have been deleted */
+  
+  while (real->next_entry == NULL)
+    {
+      if (real->next_bucket >= real->table->n_buckets)
+        {
+          /* invalidate iter and return false */
+          real->entry = NULL;
+          real->table = NULL;
+          real->bucket = NULL;
+          return FALSE;
+        }
+
+      real->bucket = &(real->table->buckets[real->next_bucket]);
+      real->next_entry = *(real->bucket);
+      real->next_bucket += 1;
+    }
+
+  _dbus_assert (real->next_entry != NULL);
+  _dbus_assert (real->bucket != NULL);
+  
+  real->entry = real->next_entry;
+  real->next_entry = real->entry->next;
+  
+  return TRUE;
+}
+
+/**
+ * Removes the current entry from the hash table.
+ * If a key_free_function or value_free_function
+ * was provided to _dbus_hash_table_new(),
+ * frees the key and/or value for this entry.
+ *
+ * @param iter the hash table iterator.
+ */
+void
+_dbus_hash_iter_remove_entry (DBusHashIter *iter)
+{
+  DBusRealHashIter *real;
+
+  real = (DBusRealHashIter*) iter;
+
+  _dbus_assert (real->table != NULL);
+  _dbus_assert (real->entry != NULL);
+  _dbus_assert (real->bucket != NULL);
+  
+  remove_entry (real->table, real->bucket, real->entry);
+
+  real->entry = NULL; /* make it crash if you try to use this entry */
+}
+
+/**
+ * Gets the value of the current entry.
+ *
+ * @param iter the hash table iterator.
+ */
+void*
+_dbus_hash_iter_get_value (DBusHashIter *iter)
+{
+  DBusRealHashIter *real;
+
+  real = (DBusRealHashIter*) iter;
+
+  _dbus_assert (real->table != NULL);
+  _dbus_assert (real->entry != NULL);
+
+  return real->entry->value;
+}
+
+/**
+ * Sets the value of the current entry.
+ * If the hash table has a value_free_function
+ * it will be used to free the previous value.
+ * The hash table will own the passed-in value
+ * (it will not be copied).
+ *
+ * @param iter the hash table iterator.
+ * @param value the new value.
+ */
+void
+_dbus_hash_iter_set_value (DBusHashIter *iter,
+                           void         *value)
+{
+  DBusRealHashIter *real;
+
+  real = (DBusRealHashIter*) iter;
+
+  _dbus_assert (real->table != NULL);
+  _dbus_assert (real->entry != NULL);
+
+  if (real->table->free_value_function && value != real->entry->value)    
+    (* real->table->free_value_function) (real->entry->value);
+  
+  real->entry->value = value;
+}
+
+/**
+ * Gets the key for the current entry.
+ * Only works for hash tables of type #DBUS_HASH_INT.
+ *
+ * @param iter the hash table iterator.
+ */
+int
+_dbus_hash_iter_get_int_key (DBusHashIter *iter)
+{
+  DBusRealHashIter *real;
+
+  real = (DBusRealHashIter*) iter;
+
+  _dbus_assert (real->table != NULL);
+  _dbus_assert (real->entry != NULL);
+
+  return _DBUS_POINTER_TO_INT (real->entry->key);
+}
+
+/**
+ * Gets the key for the current entry.
+ * Only works for hash tables of type #DBUS_HASH_STRING
+ * @param iter the hash table iterator.
+ */
+const char*
+_dbus_hash_iter_get_string_key (DBusHashIter *iter)
+{
+  DBusRealHashIter *real;
+
+  real = (DBusRealHashIter*) iter;
+
+  _dbus_assert (real->table != NULL);
+  _dbus_assert (real->entry != NULL);
+
+  return real->entry->key;
+}
+
+/**
+ * A low-level but efficient interface for manipulating the hash
+ * table.  It's efficient because you can get, set, and optionally
+ * create the hash entry while only running the hash function one
+ * time.
+ *
+ * Note that while calling _dbus_hash_iter_next() on the iterator
+ * filled in by this function may work, it's completely
+ * undefined which entries are after this iter and which
+ * are before it. So it would be silly to iterate using this
+ * iterator.
+ *
+ * If the hash entry is created, its value will be initialized
+ * to all bits zero.
+ *
+ * #FALSE may be returned due to memory allocation failure, or
+ * because create_if_not_found was #FALSE and the entry
+ * did not exist.
+ *
+ * For a hash table of type #DBUS_HASH_INT, cast the int
+ * key to the key parameter using #_DBUS_INT_TO_POINTER().
+ * 
+ * @param table the hash table.
+ * @param key the hash key.
+ * @param create_if_not_found if #TRUE, create the entry if it didn't exist.
+ * @param iter the iterator to initialize.
+ * @returns #TRUE if the hash entry now exists (and the iterator is thus valid).
+ */
+dbus_bool_t
+_dbus_hash_iter_lookup (DBusHashTable *table,
+                        void          *key,
+                        dbus_bool_t    create_if_not_found,
+                        DBusHashIter  *iter)
+{
+  DBusRealHashIter *real;
+  DBusHashEntry *entry;
+  DBusHashEntry **bucket;
+  
+  _dbus_assert (sizeof (DBusHashIter) == sizeof (DBusRealHashIter));
+  
+  real = (DBusRealHashIter*) iter;
+
+  entry = (* table->find_function) (table, key, create_if_not_found, &bucket);
+
+  if (entry == NULL)
+    return FALSE;
+  
+  real->table = table;
+  real->bucket = bucket;
+  real->entry = entry;
+  real->next_entry = entry->next;
+  real->next_bucket = (bucket - table->buckets) + 1;
+  real->n_entries_on_init = table->n_entries; 
+
+  _dbus_assert (&(table->buckets[real->next_bucket-1]) == real->bucket);
+  
+  return TRUE;
+}
+
+static DBusHashEntry*
+add_entry (DBusHashTable   *table, 
+           unsigned int     idx,
+           void            *key,
+           DBusHashEntry ***bucket)
+{
+  DBusHashEntry  *entry;
+  DBusHashEntry **b;
+  
+  entry = alloc_entry (table);
+  if (entry == NULL)
+    {
+      if (bucket)
+        *bucket = NULL;
       return NULL;
     }
-    searchPtr->nextEntryPtr =
-      searchPtr->tablePtr->buckets[searchPtr->nextIndex];
-    searchPtr->nextIndex++;
-  }
-  hPtr = searchPtr->nextEntryPtr;
-  searchPtr->nextEntryPtr = hPtr->nextPtr;
-  return hPtr;
+  
+  entry->key = key;
+  
+  b = &(table->buckets[idx]);
+  entry->next = *b;
+  *b = entry;
+
+  if (bucket)
+    *bucket = b;
+  
+  table->n_entries += 1;
+  
+  if (table->n_entries >= table->rebuild_size)
+    rebuild_table (table);
+
+  return entry;
 }
-
-/*
- *----------------------------------------------------------------------
- *
- * Tcl_HashStats --
- *
- *	Return statistics describing the layout of the hash table
- *	in its hash buckets.
- *
- * Results:
- *	The return value is a malloc-ed string containing information
- *	about tablePtr.  It is the caller's responsibility to free
- *	this string.
- *
- * Side effects:
- *	None.
- *
- *----------------------------------------------------------------------
- */
-
-char *
-Tcl_HashStats(tablePtr)
-     Tcl_HashTable *tablePtr;		/* Table for which to produce stats. */
-{
-#define NUM_COUNTERS 10
-  int count[NUM_COUNTERS], overflow, i, j;
-  double average, tmp;
-  register Tcl_HashEntry *hPtr;
-  char *result, *p;
-
-  /*
-   * Compute a histogram of bucket usage.
-   */
-
-  for (i = 0; i < NUM_COUNTERS; i++) {
-    count[i] = 0;
-  }
-  overflow = 0;
-  average = 0.0;
-  for (i = 0; i < tablePtr->numBuckets; i++) {
-    j = 0;
-    for (hPtr = tablePtr->buckets[i]; hPtr != NULL; hPtr = hPtr->nextPtr) {
-      j++;
-    }
-    if (j < NUM_COUNTERS) {
-      count[j]++;
-    } else {
-      overflow++;
-    }
-    tmp = j;
-    average += (tmp+1.0)*(tmp/tablePtr->numEntries)/2.0;
-  }
-
-  /*
-   * Print out the histogram and a few other pieces of information.
-   */
-
-  result = (char *) ckalloc((unsigned) ((NUM_COUNTERS*60) + 300));
-  sprintf(result, "%d entries in table, %d buckets\n",
-          tablePtr->numEntries, tablePtr->numBuckets);
-  p = result + strlen(result);
-  for (i = 0; i < NUM_COUNTERS; i++) {
-    sprintf(p, "number of buckets with %d entries: %d\n",
-            i, count[i]);
-    p += strlen(p);
-  }
-  sprintf(p, "number of buckets with %d or more entries: %d\n",
-          NUM_COUNTERS, overflow);
-  p += strlen(p);
-  sprintf(p, "average search distance for entry: %.1f", average);
-  return result;
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * HashString --
- *
- *	Compute a one-word summary of a text string, which can be
- *	used to generate a hash index.
- *
- * Results:
- *	The return value is a one-word summary of the information in
- *	string.
- *
- * Side effects:
- *	None.
- *
- *----------------------------------------------------------------------
- */
-
+           
 static unsigned int
-HashString(string)
-     register CONST char *string;/* String from which to compute hash value. */
+string_hash (const char *str)
 {
   register unsigned int result;
   register int c;
@@ -549,535 +716,669 @@ HashString(string)
    */
 
   result = 0;
-  while (1) {
-    c = *string;
-    string++;
-    if (c == 0) {
-      break;
+  while (TRUE)
+    {
+      c = *str;
+      str++;
+      if (c == 0)
+        break;
+      
+      result += (result << 3) + c;
     }
-    result += (result<<3) + c;
-  }
+  
   return result;
 }
-
-/*
- *----------------------------------------------------------------------
- *
- * StringFind --
- *
- *	Given a hash table with string keys, and a string key, find
- *	the entry with a matching key.
- *
- * Results:
- *	The return value is a token for the matching entry in the
- *	hash table, or NULL if there was no matching entry.
- *
- * Side effects:
- *	None.
- *
- *----------------------------------------------------------------------
- */
 
-static Tcl_HashEntry *
-StringFind(tablePtr, key)
-     Tcl_HashTable *tablePtr;	/* Table in which to lookup entry. */
-     CONST char *key;		/* Key to use to find matching entry. */
+static DBusHashEntry*
+find_string_function (DBusHashTable   *table,
+                      void            *key,
+                      dbus_bool_t      create_if_not_found,
+                      DBusHashEntry ***bucket)
 {
-  register Tcl_HashEntry *hPtr;
-  register CONST char *p1, *p2;
-  int index;
+  DBusHashEntry *entry;
+  unsigned int idx;
 
-  index = HashString(key) & tablePtr->mask;
+  if (bucket)
+    *bucket = NULL;
+  
+  idx = string_hash (key) & table->mask;
 
-  /*
-   * Search all of the entries in the appropriate bucket.
-   */
-
-  for (hPtr = tablePtr->buckets[index]; hPtr != NULL;
-       hPtr = hPtr->nextPtr) {
-    for (p1 = key, p2 = hPtr->key.string; ; p1++, p2++) {
-      if (*p1 != *p2) {
-        break;
-      }
-      if (*p1 == '\0') {
-        return hPtr;
-      }
+  /* Search all of the entries in this bucket. */
+  entry = table->buckets[idx];
+  while (entry != NULL)
+    {
+      if (strcmp (key, entry->key) == 0)
+        {
+          if (bucket)
+            *bucket = &(table->buckets[idx]);
+          return entry;
+        }
+      
+      entry = entry->next;
     }
-  }
-  return NULL;
+
+  if (create_if_not_found)
+    entry = add_entry (table, idx, key, bucket);
+
+  return entry;
 }
-
-/*
- *----------------------------------------------------------------------
- *
- * StringCreate --
- *
- *	Given a hash table with string keys, and a string key, find
- *	the entry with a matching key.  If there is no matching entry,
- *	then create a new entry that does match.
- *
- * Results:
- *	The return value is a pointer to the matching entry.  If this
- *	is a newly-created entry, then *newPtr will be set to a non-zero
- *	value;  otherwise *newPtr will be set to 0.  If this is a new
- *	entry the value stored in the entry will initially be 0.
- *
- * Side effects:
- *	A new entry may be added to the hash table.
- *
- *----------------------------------------------------------------------
- */
 
-static Tcl_HashEntry *
-StringCreate(tablePtr, key, newPtr)
-     Tcl_HashTable *tablePtr;	/* Table in which to lookup entry. */
-     CONST char *key;		/* Key to use to find or create matching
-				 * entry. */
-     int *newPtr;		/* Store info here telling whether a new
-				 * entry was created. */
+static DBusHashEntry*
+find_int_function (DBusHashTable   *table,
+                   void            *key,
+                   dbus_bool_t      create_if_not_found,
+                   DBusHashEntry ***bucket)
 {
-  register Tcl_HashEntry *hPtr;
-  register CONST char *p1, *p2;
-  int index;
+  DBusHashEntry *entry;
+  unsigned int idx;
 
-  index = HashString(key) & tablePtr->mask;
+  if (bucket)
+    *bucket = NULL;
+  
+  idx = RANDOM_INDEX (table, key) & table->mask;
 
-  /*
-   * Search all of the entries in this bucket.
-   */
-
-  for (hPtr = tablePtr->buckets[index]; hPtr != NULL;
-       hPtr = hPtr->nextPtr) {
-    for (p1 = key, p2 = hPtr->key.string; ; p1++, p2++) {
-      if (*p1 != *p2) {
-        break;
-      }
-      if (*p1 == '\0') {
-        *newPtr = 0;
-        return hPtr;
-      }
+  /* Search all of the entries in this bucket. */
+  entry = table->buckets[idx];
+  while (entry != NULL)
+    {
+      if (key == entry->key)
+        {
+          if (bucket)
+            *bucket = &(table->buckets[idx]);
+          return entry;
+        }
+      
+      entry = entry->next;
     }
-  }
 
-  /*
-   * Entry not found.  Add a new one to the bucket.
-   */
+  /* Entry not found.  Add a new one to the bucket. */
+  if (create_if_not_found)
+    entry = add_entry (table, idx, key, bucket);
 
-  *newPtr = 1;
-  hPtr = (Tcl_HashEntry *) ckalloc((unsigned)
-                                   (sizeof(Tcl_HashEntry) + strlen(key) - (sizeof(hPtr->key) -1)));
-  hPtr->tablePtr = tablePtr;
-  hPtr->bucketPtr = &(tablePtr->buckets[index]);
-  hPtr->nextPtr = *hPtr->bucketPtr;
-  hPtr->clientData = 0;
-  strcpy(hPtr->key.string, key);
-  *hPtr->bucketPtr = hPtr;
-  tablePtr->numEntries++;
-
-  /*
-   * If the table has exceeded a decent size, rebuild it with many
-   * more buckets.
-   */
-
-  if (tablePtr->numEntries >= tablePtr->rebuildSize) {
-    RebuildTable(tablePtr);
-  }
-  return hPtr;
+  return entry;
 }
-
-/*
- *----------------------------------------------------------------------
- *
- * OneWordFind --
- *
- *	Given a hash table with one-word keys, and a one-word key, find
- *	the entry with a matching key.
- *
- * Results:
- *	The return value is a token for the matching entry in the
- *	hash table, or NULL if there was no matching entry.
- *
- * Side effects:
- *	None.
- *
- *----------------------------------------------------------------------
- */
-
-static Tcl_HashEntry *
-OneWordFind(tablePtr, key)
-     Tcl_HashTable *tablePtr;	/* Table in which to lookup entry. */
-     register CONST char *key;	/* Key to use to find matching entry. */
-{
-  register Tcl_HashEntry *hPtr;
-  int index;
-
-  index = RANDOM_INDEX(tablePtr, key);
-
-  /*
-   * Search all of the entries in the appropriate bucket.
-   */
-
-  for (hPtr = tablePtr->buckets[index]; hPtr != NULL;
-       hPtr = hPtr->nextPtr) {
-    if (hPtr->key.oneWordValue == key) {
-      return hPtr;
-    }
-  }
-  return NULL;
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * OneWordCreate --
- *
- *	Given a hash table with one-word keys, and a one-word key, find
- *	the entry with a matching key.  If there is no matching entry,
- *	then create a new entry that does match.
- *
- * Results:
- *	The return value is a pointer to the matching entry.  If this
- *	is a newly-created entry, then *newPtr will be set to a non-zero
- *	value;  otherwise *newPtr will be set to 0.  If this is a new
- *	entry the value stored in the entry will initially be 0.
- *
- * Side effects:
- *	A new entry may be added to the hash table.
- *
- *----------------------------------------------------------------------
- */
-
-static Tcl_HashEntry *
-OneWordCreate(tablePtr, key, newPtr)
-     Tcl_HashTable *tablePtr;	/* Table in which to lookup entry. */
-     register CONST char *key;	/* Key to use to find or create matching
-				 * entry. */
-     int *newPtr;		/* Store info here telling whether a new
-				 * entry was created. */
-{
-  register Tcl_HashEntry *hPtr;
-  int index;
-
-  index = RANDOM_INDEX(tablePtr, key);
-
-  /*
-   * Search all of the entries in this bucket.
-   */
-
-  for (hPtr = tablePtr->buckets[index]; hPtr != NULL;
-       hPtr = hPtr->nextPtr) {
-    if (hPtr->key.oneWordValue == key) {
-      *newPtr = 0;
-      return hPtr;
-    }
-  }
-
-  /*
-   * Entry not found.  Add a new one to the bucket.
-   */
-
-  *newPtr = 1;
-  hPtr = (Tcl_HashEntry *) ckalloc(sizeof(Tcl_HashEntry));
-  hPtr->tablePtr = tablePtr;
-  hPtr->bucketPtr = &(tablePtr->buckets[index]);
-  hPtr->nextPtr = *hPtr->bucketPtr;
-  hPtr->clientData = 0;
-  hPtr->key.oneWordValue = (char *) key;	/* CONST XXXX */
-  *hPtr->bucketPtr = hPtr;
-  tablePtr->numEntries++;
-
-  /*
-   * If the table has exceeded a decent size, rebuild it with many
-   * more buckets.
-   */
-
-  if (tablePtr->numEntries >= tablePtr->rebuildSize) {
-    RebuildTable(tablePtr);
-  }
-  return hPtr;
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * ArrayFind --
- *
- *	Given a hash table with array-of-int keys, and a key, find
- *	the entry with a matching key.
- *
- * Results:
- *	The return value is a token for the matching entry in the
- *	hash table, or NULL if there was no matching entry.
- *
- * Side effects:
- *	None.
- *
- *----------------------------------------------------------------------
- */
-
-static Tcl_HashEntry *
-ArrayFind(tablePtr, key)
-     Tcl_HashTable *tablePtr;	/* Table in which to lookup entry. */
-     CONST char *key;		/* Key to use to find matching entry. */
-{
-  register Tcl_HashEntry *hPtr;
-  int *arrayPtr = (int *) key;
-  register int *iPtr1, *iPtr2;
-  int index, count;
-
-  for (index = 0, count = tablePtr->keyType, iPtr1 = arrayPtr;
-       count > 0; count--, iPtr1++) {
-    index += *iPtr1;
-  }
-  index = RANDOM_INDEX(tablePtr, index);
-
-  /*
-   * Search all of the entries in the appropriate bucket.
-   */
-
-  for (hPtr = tablePtr->buckets[index]; hPtr != NULL;
-       hPtr = hPtr->nextPtr) {
-    for (iPtr1 = arrayPtr, iPtr2 = hPtr->key.words,
-           count = tablePtr->keyType; ; count--, iPtr1++, iPtr2++) {
-      if (count == 0) {
-        return hPtr;
-      }
-      if (*iPtr1 != *iPtr2) {
-        break;
-      }
-    }
-  }
-  return NULL;
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * ArrayCreate --
- *
- *	Given a hash table with one-word keys, and a one-word key, find
- *	the entry with a matching key.  If there is no matching entry,
- *	then create a new entry that does match.
- *
- * Results:
- *	The return value is a pointer to the matching entry.  If this
- *	is a newly-created entry, then *newPtr will be set to a non-zero
- *	value;  otherwise *newPtr will be set to 0.  If this is a new
- *	entry the value stored in the entry will initially be 0.
- *
- * Side effects:
- *	A new entry may be added to the hash table.
- *
- *----------------------------------------------------------------------
- */
-
-static Tcl_HashEntry *
-ArrayCreate(tablePtr, key, newPtr)
-     Tcl_HashTable *tablePtr;	/* Table in which to lookup entry. */
-     register CONST char *key;	/* Key to use to find or create matching
-				 * entry. */
-     int *newPtr;		/* Store info here telling whether a new
-				 * entry was created. */
-{
-  register Tcl_HashEntry *hPtr;
-  int *arrayPtr = (int *) key;
-  register int *iPtr1, *iPtr2;
-  int index, count;
-
-  for (index = 0, count = tablePtr->keyType, iPtr1 = arrayPtr;
-       count > 0; count--, iPtr1++) {
-    index += *iPtr1;
-  }
-  index = RANDOM_INDEX(tablePtr, index);
-
-  /*
-   * Search all of the entries in the appropriate bucket.
-   */
-
-  for (hPtr = tablePtr->buckets[index]; hPtr != NULL;
-       hPtr = hPtr->nextPtr) {
-    for (iPtr1 = arrayPtr, iPtr2 = hPtr->key.words,
-           count = tablePtr->keyType; ; count--, iPtr1++, iPtr2++) {
-      if (count == 0) {
-        *newPtr = 0;
-        return hPtr;
-      }
-      if (*iPtr1 != *iPtr2) {
-        break;
-      }
-    }
-  }
-
-  /*
-   * Entry not found.  Add a new one to the bucket.
-   */
-
-  *newPtr = 1;
-  hPtr = (Tcl_HashEntry *) ckalloc((unsigned) (sizeof(Tcl_HashEntry)
-                                               + (tablePtr->keyType*sizeof(int)) - 4));
-  hPtr->tablePtr = tablePtr;
-  hPtr->bucketPtr = &(tablePtr->buckets[index]);
-  hPtr->nextPtr = *hPtr->bucketPtr;
-  hPtr->clientData = 0;
-  for (iPtr1 = arrayPtr, iPtr2 = hPtr->key.words, count = tablePtr->keyType;
-       count > 0; count--, iPtr1++, iPtr2++) {
-    *iPtr2 = *iPtr1;
-  }
-  *hPtr->bucketPtr = hPtr;
-  tablePtr->numEntries++;
-
-  /*
-   * If the table has exceeded a decent size, rebuild it with many
-   * more buckets.
-   */
-
-  if (tablePtr->numEntries >= tablePtr->rebuildSize) {
-    RebuildTable(tablePtr);
-  }
-  return hPtr;
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * BogusFind --
- *
- *	This procedure is invoked when an Tcl_FindHashEntry is called
- *	on a table that has been deleted.
- *
- * Results:
- *	If panic returns (which it shouldn't) this procedure returns
- *	NULL.
- *
- * Side effects:
- *	Generates a panic.
- *
- *----------------------------------------------------------------------
- */
-
-/* ARGSUSED */
-static Tcl_HashEntry *
-BogusFind(tablePtr, key)
-     Tcl_HashTable *tablePtr;	/* Table in which to lookup entry. */
-     CONST char *key;		/* Key to use to find matching entry. */
-{
-  panic("called Tcl_FindHashEntry on deleted table");
-  return NULL;
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * BogusCreate --
- *
- *	This procedure is invoked when an Tcl_CreateHashEntry is called
- *	on a table that has been deleted.
- *
- * Results:
- *	If panic returns (which it shouldn't) this procedure returns
- *	NULL.
- *
- * Side effects:
- *	Generates a panic.
- *
- *----------------------------------------------------------------------
- */
-
-/* ARGSUSED */
-static Tcl_HashEntry *
-BogusCreate(tablePtr, key, newPtr)
-     Tcl_HashTable *tablePtr;	/* Table in which to lookup entry. */
-     CONST char *key;		/* Key to use to find or create matching
-				 * entry. */
-     int *newPtr;		/* Store info here telling whether a new
-				 * entry was created. */
-{
-  panic("called Tcl_CreateHashEntry on deleted table");
-  return NULL;
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * RebuildTable --
- *
- *	This procedure is invoked when the ratio of entries to hash
- *	buckets becomes too large.  It creates a new table with a
- *	larger bucket array and moves all of the entries into the
- *	new table.
- *
- * Results:
- *	None.
- *
- * Side effects:
- *	Memory gets reallocated and entries get re-hashed to new
- *	buckets.
- *
- *----------------------------------------------------------------------
- */
 
 static void
-RebuildTable(tablePtr)
-     register Tcl_HashTable *tablePtr;	/* Table to enlarge. */
+rebuild_table (DBusHashTable *table)
 {
-  int oldSize, count, index;
-  Tcl_HashEntry **oldBuckets;
-  register Tcl_HashEntry **oldChainPtr, **newChainPtr;
-  register Tcl_HashEntry *hPtr;
-
-  oldSize = tablePtr->numBuckets;
-  oldBuckets = tablePtr->buckets;
+  int old_size;
+  DBusHashEntry **old_buckets;
+  DBusHashEntry **old_chain;
+  DBusHashEntry *entry;
 
   /*
    * Allocate and initialize the new bucket array, and set up
    * hashing constants for new array size.
    */
+  
+  old_size = table->n_buckets;
+  old_buckets = table->buckets;
 
-  tablePtr->numBuckets *= 4;
-  tablePtr->buckets = (Tcl_HashEntry **) ckalloc((unsigned)
-                                                 (tablePtr->numBuckets * sizeof(Tcl_HashEntry *)));
-  for (count = tablePtr->numBuckets, newChainPtr = tablePtr->buckets;
-       count > 0; count--, newChainPtr++) {
-    *newChainPtr = NULL;
-  }
-  tablePtr->rebuildSize *= 4;
-  tablePtr->downShift -= 2;
-  tablePtr->mask = (tablePtr->mask << 2) + 3;
+  table->n_buckets *= 4;
+  table->buckets = dbus_new0 (DBusHashEntry*, table->n_buckets);  
+  if (table->buckets == NULL)
+    {
+      /* out of memory, yay - just don't reallocate, the table will
+       * still work, albeit more slowly.
+       */
+      table->n_buckets /= 4;
+      table->buckets = old_buckets;
+      return;
+    }
+
+  table->rebuild_size *= 4;
+  table->down_shift -= 2;
+  table->mask = (table->mask << 2) + 3;
 
   /*
    * Rehash all of the existing entries into the new bucket array.
    */
 
-  for (oldChainPtr = oldBuckets; oldSize > 0; oldSize--, oldChainPtr++) {
-    for (hPtr = *oldChainPtr; hPtr != NULL; hPtr = *oldChainPtr) {
-      *oldChainPtr = hPtr->nextPtr;
-      if (tablePtr->keyType == TCL_STRING_KEYS) {
-        index = HashString(hPtr->key.string) & tablePtr->mask;
-      } else if (tablePtr->keyType == TCL_ONE_WORD_KEYS) {
-        index = RANDOM_INDEX(tablePtr, hPtr->key.oneWordValue);
-      } else {
-        register int *iPtr;
-        int count;
+  for (old_chain = old_buckets; old_size > 0; old_size--, old_chain++)
+    {
+      for (entry = *old_chain; entry != NULL; entry = *old_chain)
+        {
+          unsigned int idx;
+          DBusHashEntry **bucket;
+          
+          *old_chain = entry->next;
+          switch (table->key_type)
+            {
+            case DBUS_HASH_STRING:
+              idx = string_hash (entry->key) & table->mask;
+              break;
+            case DBUS_HASH_INT:
+              idx = RANDOM_INDEX (table, entry->key);
+              break;
+            default:
+              idx = 0;
+              _dbus_assert_not_reached ("Unknown hash table type");
+              break;
+            }
 
-        for (index = 0, count = tablePtr->keyType,
-               iPtr = hPtr->key.words; count > 0; count--, iPtr++) {
-          index += *iPtr;
+          bucket = &(table->buckets[idx]);
+          entry->next = *bucket;
+          *bucket = entry;
         }
-        index = RANDOM_INDEX(tablePtr, index);
-      }
-      hPtr->bucketPtr = &(tablePtr->buckets[index]);
-      hPtr->nextPtr = *hPtr->bucketPtr;
-      *hPtr->bucketPtr = hPtr;
     }
-  }
+  
+  /* Free the old bucket array, if it was dynamically allocated. */
 
-  /*
-   * Free up the old bucket array, if it was dynamically allocated.
+  if (old_buckets != table->static_buckets)
+    dbus_free (old_buckets);
+}
+
+/**
+ * Looks up the value for a given string in a hash table
+ * of type #DBUS_HASH_STRING. Returns %NULL if the value
+ * is not present. (A not-present entry is indistinguishable
+ * from an entry with a value of %NULL.)
+ * @param table the hash table.
+ * @param key the string to look up.
+ * @returns the value of the hash entry.
+ */
+void*
+_dbus_hash_table_lookup_string (DBusHashTable *table,
+                                const char    *key)
+{
+  DBusHashEntry *entry;
+
+  _dbus_assert (table->key_type == DBUS_HASH_STRING);
+  
+  entry = (* table->find_function) (table, (char*) key, FALSE, NULL);
+
+  if (entry)
+    return entry->value;
+  else
+    return NULL;
+}
+
+/**
+ * Looks up the value for a given integer in a hash table
+ * of type #DBUS_HASH_INT. Returns %NULL if the value
+ * is not present. (A not-present entry is indistinguishable
+ * from an entry with a value of %NULL.)
+ * @param table the hash table.
+ * @param key the integer to look up.
+ * @returns the value of the hash entry.
+ */
+void*
+_dbus_hash_table_lookup_int (DBusHashTable *table,
+                             int            key)
+{
+  DBusHashEntry *entry;
+
+  _dbus_assert (table->key_type == DBUS_HASH_INT);
+  
+  entry = (* table->find_function) (table, _DBUS_INT_TO_POINTER (key), FALSE, NULL);
+
+  if (entry)
+    return entry->value;
+  else
+    return NULL;
+}
+
+/**
+ * Removes the hash entry for the given key. If no hash entry
+ * for the key exists, does nothing.
+ *
+ * @param table the hash table.
+ * @param key the hash key.
+ */
+void
+_dbus_hash_table_remove_string (DBusHashTable *table,
+                                const char    *key)
+{
+  DBusHashEntry *entry;
+  DBusHashEntry **bucket;
+  
+  _dbus_assert (table->key_type == DBUS_HASH_STRING);
+  
+  entry = (* table->find_function) (table, (char*) key, FALSE, &bucket);
+
+  if (entry)
+    remove_entry (table, bucket, entry);
+}
+
+/**
+ * Removes the hash entry for the given key. If no hash entry
+ * for the key exists, does nothing.
+ *
+ * @param table the hash table.
+ * @param key the hash key.
+ */
+void
+_dbus_hash_table_remove_int (DBusHashTable *table,
+                             int            key)
+{
+  DBusHashEntry *entry;
+  DBusHashEntry **bucket;
+  
+  _dbus_assert (table->key_type == DBUS_HASH_INT);
+  
+  entry = (* table->find_function) (table, _DBUS_INT_TO_POINTER (key), FALSE, &bucket);
+  
+  if (entry)
+    remove_entry (table, bucket, entry);
+}
+
+/**
+ * Creates a hash entry with the given key and value.
+ * The key and value are not copied; they are stored
+ * in the hash table by reference. If an entry with the
+ * given key already exists, the previous key and value
+ * are overwritten (and freed if the hash table has
+ * a key_free_function and/or value_free_function).
+ *
+ * Returns #FALSE if memory for the new hash entry
+ * can't be allocated.
+ * 
+ * @param table the hash table.
+ * @param key the hash entry key.
+ * @param value the hash entry value.
+ */
+dbus_bool_t
+_dbus_hash_table_insert_string (DBusHashTable *table,
+                                char          *key,
+                                void          *value)
+{
+  DBusHashEntry *entry;
+
+  _dbus_assert (table->key_type == DBUS_HASH_STRING);
+  
+  entry = (* table->find_function) (table, key, TRUE, NULL);
+
+  if (entry == NULL)
+    return FALSE; /* no memory */
+
+  if (table->free_key_function && entry->key != key)
+    (* table->free_key_function) (entry->key);
+
+  if (table->free_value_function && entry->value != value)
+    (* table->free_value_function) (entry->value);
+      
+  entry->key = key;
+  entry->value = value;
+
+  return TRUE;
+}
+
+/**
+ * Creates a hash entry with the given key and value.
+ * The key and value are not copied; they are stored
+ * in the hash table by reference. If an entry with the
+ * given key already exists, the previous key and value
+ * are overwritten (and freed if the hash table has
+ * a key_free_function and/or value_free_function).
+ *
+ * Returns #FALSE if memory for the new hash entry
+ * can't be allocated.
+ * 
+ * @param table the hash table.
+ * @param key the hash entry key.
+ * @param value the hash entry value.
+ */
+dbus_bool_t
+_dbus_hash_table_insert_int (DBusHashTable *table,
+                             int            key,
+                             void          *value)
+{
+  DBusHashEntry *entry;
+
+  _dbus_assert (table->key_type == DBUS_HASH_INT);
+  
+  entry = (* table->find_function) (table, _DBUS_INT_TO_POINTER (key), TRUE, NULL);
+
+  if (entry == NULL)
+    return FALSE; /* no memory */
+
+  if (table->free_key_function && entry->key != _DBUS_INT_TO_POINTER (key))
+    (* table->free_key_function) (entry->key);
+  
+  if (table->free_value_function && entry->value != value)
+    (* table->free_value_function) (entry->value);
+  
+  entry->key = _DBUS_INT_TO_POINTER (key);
+  entry->value = value;
+
+  return TRUE;
+}
+
+/**
+ * Gets the number of hash entries in a hash table.
+ *
+ * @param table the hash table.
+ * @returns the number of entries in the table.
+ */
+int
+_dbus_hash_table_get_n_entries (DBusHashTable *table)
+{
+  return table->n_entries;
+}
+
+/** }@ */
+
+#ifdef DBUS_BUILD_TESTS
+#include "dbus-test.h"
+#include <stdio.h>
+
+static int
+count_entries (DBusHashTable *table)
+{
+  DBusHashIter iter;
+  int count;
+
+  count = 0;
+  _dbus_hash_iter_init (table, &iter);
+  while (_dbus_hash_iter_next (&iter))
+    ++count;
+
+  _dbus_assert (count == _dbus_hash_table_get_n_entries (table));
+  
+  return count;
+}
+
+/**
+ * @ingroup DBusHashTableInternals
+ * Unit test for DBusHashTable
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_hash_test (void)
+{
+  int i;
+  DBusHashTable *table1;
+  DBusHashTable *table2;
+  DBusHashIter iter;
+  
+  table1 = _dbus_hash_table_new (DBUS_HASH_STRING,
+                                 dbus_free, dbus_free);
+  if (table1 == NULL)
+    return FALSE;
+
+  table2 = _dbus_hash_table_new (DBUS_HASH_INT,
+                                 NULL, dbus_free);
+  if (table2 == NULL)
+    return FALSE;
+
+  /* Insert and remove a bunch of stuff, counting the table in between
+   * to be sure it's not broken and that iteration works
    */
+  i = 0;
+  while (i < 3000)
+    {
+      char buf[256];
+      sprintf (buf, "Hash key %d", i);
+      void *value;
+      char *key;
 
-  if (oldBuckets != tablePtr->staticBuckets) {
-    ckfree((char *) oldBuckets);
-  }
+      key = _dbus_strdup (buf);
+      if (key == NULL)
+        return FALSE;
+      value = _dbus_strdup ("Value!");
+      if (value == NULL)
+        return FALSE;
+      
+      if (!_dbus_hash_table_insert_string (table1,
+                                           key, value))
+        return FALSE;
+
+      value = _dbus_strdup (buf);
+      if (value == NULL)
+        return FALSE;
+      
+      if (!_dbus_hash_table_insert_int (table2,
+                                        i, value))
+        return FALSE;
+      
+      _dbus_assert (count_entries (table1) == i + 1);
+      _dbus_assert (count_entries (table2) == i + 1);
+
+      value = _dbus_hash_table_lookup_string (table1, buf);
+      _dbus_assert (value != NULL);
+      _dbus_assert (strcmp (value, "Value!") == 0);
+
+      value = _dbus_hash_table_lookup_int (table2, i);
+      _dbus_assert (value != NULL);
+      _dbus_assert (strcmp (value, buf) == 0);
+      
+      ++i;
+    }
+
+  --i;
+  while (i >= 0)
+    {
+      char buf[256];
+      sprintf (buf, "Hash key %d", i);
+      
+      _dbus_hash_table_remove_string (table1,
+                                      buf);
+
+      _dbus_hash_table_remove_int (table2, i);
+
+      _dbus_assert (count_entries (table1) == i);
+      _dbus_assert (count_entries (table2) == i);
+
+      --i;
+    }
+
+  _dbus_hash_table_ref (table1);
+  _dbus_hash_table_ref (table2);
+  _dbus_hash_table_unref (table1);
+  _dbus_hash_table_unref (table2);
+  _dbus_hash_table_unref (table1);
+  _dbus_hash_table_unref (table2);
+
+
+  /* Insert a bunch of stuff then check
+   * that iteration works correctly (finds the right
+   * values, iter_set_value works, etc.)
+   */
+  table1 = _dbus_hash_table_new (DBUS_HASH_STRING,
+                                 dbus_free, dbus_free);
+  if (table1 == NULL)
+    return FALSE;
+  
+  table2 = _dbus_hash_table_new (DBUS_HASH_INT,
+                                 NULL, dbus_free);
+  if (table2 == NULL)
+    return FALSE;
+  
+  i = 0;
+  while (i < 5000)
+    {
+      char buf[256];
+      sprintf (buf, "Hash key %d", i);
+      char *key;
+      void *value;      
+      
+      key = _dbus_strdup (buf);
+      if (key == NULL)
+        return FALSE;
+      value = _dbus_strdup ("Value!");
+      if (value == NULL)
+        return FALSE;
+      
+      if (!_dbus_hash_table_insert_string (table1,
+                                           key, value))
+        return FALSE;
+
+      value = _dbus_strdup (buf);
+      if (value == NULL)
+        return FALSE;
+      
+      if (!_dbus_hash_table_insert_int (table2,
+                                        i, value))
+        return FALSE;
+      
+      _dbus_assert (count_entries (table1) == i + 1);
+      _dbus_assert (count_entries (table2) == i + 1);
+      
+      ++i;
+    }
+
+  _dbus_hash_iter_init (table1, &iter);
+  while (_dbus_hash_iter_next (&iter))
+    {
+      const char *key;
+      void *value;
+
+      key = _dbus_hash_iter_get_string_key (&iter);
+      value = _dbus_hash_iter_get_value (&iter);
+
+      _dbus_assert (_dbus_hash_table_lookup_string (table1, key) == value);
+
+      value = _dbus_strdup ("Different value!");
+      if (value == NULL)
+        return FALSE;
+      
+      _dbus_hash_iter_set_value (&iter, value);
+
+      _dbus_assert (_dbus_hash_table_lookup_string (table1, key) == value);
+    }
+  
+  _dbus_hash_iter_init (table1, &iter);
+  while (_dbus_hash_iter_next (&iter))
+    {
+      _dbus_hash_iter_remove_entry (&iter);
+      _dbus_assert (count_entries (table1) == i - 1);
+      --i;
+    }
+
+  _dbus_hash_iter_init (table2, &iter);
+  while (_dbus_hash_iter_next (&iter))
+    {
+      int key;
+      void *value;
+
+      key = _dbus_hash_iter_get_int_key (&iter);
+      value = _dbus_hash_iter_get_value (&iter);
+
+      _dbus_assert (_dbus_hash_table_lookup_int (table2, key) == value);
+
+      value = _dbus_strdup ("Different value!");
+      if (value == NULL)
+        return FALSE;
+      
+      _dbus_hash_iter_set_value (&iter, value);
+
+      _dbus_assert (_dbus_hash_table_lookup_int (table2, key) == value);
+    }
+
+  i = count_entries (table2);
+  _dbus_hash_iter_init (table2, &iter);
+  while (_dbus_hash_iter_next (&iter))
+    {
+      _dbus_hash_iter_remove_entry (&iter);
+      _dbus_assert (count_entries (table2) + 1 == i);
+      --i;
+    }
+  
+  _dbus_hash_table_unref (table1);
+  _dbus_hash_table_unref (table2);
+
+
+  /* Now do a bunch of things again using _dbus_hash_iter_lookup() to
+   * be sure that interface works.
+   */
+  table1 = _dbus_hash_table_new (DBUS_HASH_STRING,
+                                 dbus_free, dbus_free);
+  if (table1 == NULL)
+    return FALSE;
+  
+  table2 = _dbus_hash_table_new (DBUS_HASH_INT,
+                                 NULL, dbus_free);
+  if (table2 == NULL)
+    return FALSE;
+  
+  i = 0;
+  while (i < 3000)
+    {
+      char buf[256];
+      sprintf (buf, "Hash key %d", i);
+      void *value;
+      char *key;
+
+      key = _dbus_strdup (buf);
+      if (key == NULL)
+        return FALSE;
+      value = _dbus_strdup ("Value!");
+      if (value == NULL)
+        return FALSE;
+      
+      if (!_dbus_hash_iter_lookup (table1,
+                                   key, TRUE, &iter))
+        return FALSE;
+      _dbus_assert (_dbus_hash_iter_get_value (&iter) == NULL);
+      _dbus_hash_iter_set_value (&iter, value);
+
+      value = _dbus_strdup (buf);
+      if (value == NULL)
+        return FALSE;
+
+      if (!_dbus_hash_iter_lookup (table2,
+                                   _DBUS_INT_TO_POINTER (i), TRUE, &iter))
+        return FALSE;
+      _dbus_assert (_dbus_hash_iter_get_value (&iter) == NULL);
+      _dbus_hash_iter_set_value (&iter, value); 
+      
+      _dbus_assert (count_entries (table1) == i + 1);
+      _dbus_assert (count_entries (table2) == i + 1);
+
+      if (!_dbus_hash_iter_lookup (table1, buf, FALSE, &iter))
+        return FALSE;
+      
+      value = _dbus_hash_iter_get_value (&iter);
+      _dbus_assert (value != NULL);
+      _dbus_assert (strcmp (value, "Value!") == 0);
+
+      /* Iterate just to be sure it works, though
+       * it's a stupid thing to do
+       */
+      while (_dbus_hash_iter_next (&iter))
+        ;
+      
+      if (!_dbus_hash_iter_lookup (table2, _DBUS_INT_TO_POINTER (i), FALSE, &iter))
+        return FALSE;
+
+      value = _dbus_hash_iter_get_value (&iter);
+      _dbus_assert (value != NULL);
+      _dbus_assert (strcmp (value, buf) == 0);
+
+      /* Iterate just to be sure it works, though
+       * it's a stupid thing to do
+       */
+      while (_dbus_hash_iter_next (&iter))
+        ;
+      
+      ++i;
+    }
+
+  --i;
+  while (i >= 0)
+    {
+      char buf[256];
+      sprintf (buf, "Hash key %d", i);
+
+      if (!_dbus_hash_iter_lookup (table1, buf, FALSE, &iter))
+        _dbus_assert_not_reached ("hash entry should have existed");
+      _dbus_hash_iter_remove_entry (&iter);
+      
+      if (!_dbus_hash_iter_lookup (table2, _DBUS_INT_TO_POINTER (i), FALSE, &iter))
+        _dbus_assert_not_reached ("hash entry should have existed");
+      _dbus_hash_iter_remove_entry (&iter);
+
+      _dbus_assert (count_entries (table1) == i);
+      _dbus_assert (count_entries (table2) == i);
+
+      --i;
+    }
+
+  _dbus_hash_table_unref (table1);
+  _dbus_hash_table_unref (table2);
+
+  
+  return TRUE;
 }
 
 #endif

@@ -33,9 +33,14 @@
  * @{
  */
 
+/**
+ * @struct DBusMessage
+ * Object representing a message received from or to be sent to
+ * another application.
+ */
 struct DBusMessage
 {
-  int refcount;
+  int refcount; /**< Reference count */
 
 };
 

@@ -50,4 +50,47 @@
 #  endif /* !__cplusplus */
 #endif
 
+/* Normally docs are in .c files, but there isn't a .c file for this. */
+/**
+ * @defgroup DBusMacros Utility macros
+ * @ingroup  DBus
+ * @brief #TRUE, #FALSE, #NULL, and so on
+ *
+ * Utility macros.
+ *
+ * @{
+ */
+
+/**
+ * @def DBUS_BEGIN_DECLS
+ *
+ * Macro used prior to declaring functions in the D-BUS header
+ * files. Expands to "extern "C"" when using a C++ compiler,
+ * and expands to nothing when using a C compiler.
+ */
+/**
+ * @def DBUS_END_DECLS
+ *
+ * Macro used after declaring functions in the D-BUS header
+ * files. Expands to "}" when using a C++ compiler,
+ * and expands to nothing when using a C compiler.
+ */
+/**
+ * @def TRUE
+ *
+ * Expands to "1"
+ */
+/**
+ * @def FALSE
+ *
+ * Expands to "0"
+ */
+/**
+ * @def NULL
+ *
+ * A null pointer, defined appropriately for C or C++.
+ */
+
+/** }@ */
+
 #endif /* DBUS_MACROS_H */

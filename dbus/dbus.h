@@ -28,11 +28,13 @@
 
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-message.h>
+#include <dbus/dbus-types.h>
 
 #undef DBUS_INSIDE_DBUS_H
 
 /**
- * @defgroup DBus D-BUS message system
+ * @defgroup DBus D-BUS message system public API
+ * @brief The exported public API of the D-BUS library.
  *
  * @{
  */

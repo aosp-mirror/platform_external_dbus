@@ -1,3 +1,24 @@
+2002-11-23  Havoc Pennington  <hp@pobox.com>
+
+	* configure.in: pile on more warning flags if using gcc
+
+	* Doxyfile.in (EXTRACT_STATIC): set to NO, so we don't have 
+	to document static functions
+
+	* configure.in: add summary to end of configure so it 
+	looks nice and attractive
+
+	* dbus/dbus-hash.c: finish implementation and write unit 
+	tests and docs
+
+	* configure.in: add --enable-tests to enable unit tests
+
+	* dbus/dbus-test.c: test program to run unit tests 
+	for all files in dbus/*, initially runs a test for 
+	dbus-hash.c
+	
+	* dbus/dbus-internals.h: file to hold some internal utility stuff
+
 2002-11-22  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-hash.c: copy in Tcl hash table, not yet 

@@ -25,7 +25,7 @@
 #include <stdlib.h>
 
 /**
- * @defgroup Memory Memory Allocation
+ * @defgroup DBusMemory Memory Allocation
  * @ingroup  DBus
  * @brief dbus_malloc(), dbus_free(), etc.
  *
@@ -45,7 +45,7 @@
  *
  * @param type type name to allocate
  * @param count number of instances in the allocated array
- * @returns the new memory block or NULL on failure
+ * @returns the new memory block or #NULL on failure
  */
 
 /**
@@ -59,7 +59,7 @@
  *
  * @param type type name to allocate
  * @param count number of instances in the allocated array
- * @returns the new memory block or NULL on failure
+ * @returns the new memory block or #NULL on failure
  */
 
 /**
@@ -72,12 +72,12 @@
 
 /**
  * Allocates the given number of bytes, as with standard
- * malloc(). Guaranteed to return NULL if bytes is zero
- * on all platforms. Returns NULL if the allocation fails.
+ * malloc(). Guaranteed to return #NULL if bytes is zero
+ * on all platforms. Returns #NULL if the allocation fails.
  * The memory must be released with dbus_free().
  *
  * @param bytes number of bytes to allocate
- * @return allocated memory, or NULL if the allocation fails.
+ * @return allocated memory, or #NULL if the allocation fails.
  */
 void*
 dbus_malloc (size_t bytes)
@@ -91,11 +91,11 @@ dbus_malloc (size_t bytes)
 /**
  * Allocates the given number of bytes, as with standard malloc(), but
  * all bytes are initialized to zero as with calloc(). Guaranteed to
- * return NULL if bytes is zero on all platforms. Returns NULL if the
+ * return #NULL if bytes is zero on all platforms. Returns #NULL if the
  * allocation fails.  The memory must be released with dbus_free().
  *
  * @param bytes number of bytes to allocate
- * @return allocated memory, or NULL if the allocation fails.
+ * @return allocated memory, or #NULL if the allocation fails.
  */
 void*
 dbus_malloc0 (size_t bytes)
@@ -108,13 +108,13 @@ dbus_malloc0 (size_t bytes)
 
 /**
  * Resizes a block of memory previously allocated by dbus_malloc() or
- * dbus_malloc0(). Guaranteed to free the memory and return NULL if bytes
- * is zero on all platforms. Returns NULL if the resize fails.
+ * dbus_malloc0(). Guaranteed to free the memory and return #NULL if bytes
+ * is zero on all platforms. Returns #NULL if the resize fails.
  * If the resize fails, the memory is not freed.
  *
  * @param memory block to be resized
  * @param bytes new size of the memory block
- * @return allocated memory, or NULL if the resize fails.
+ * @return allocated memory, or #NULL if the resize fails.
  */
 void*
 dbus_realloc (void  *memory,
@@ -133,7 +133,7 @@ dbus_realloc (void  *memory,
 
 /**
  * Frees a block of memory previously allocated by dbus_malloc() or
- * dbus_malloc0().
+ * dbus_malloc0(). If passed #NULL, does nothing.
  * 
  * @param memory block to be freed
  */

@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-memory.h  D-BUS memory handling
+/* dbus-test.c  Program to run all tests
  *
  * Copyright (C) 2002  Red Hat Inc.
  *
@@ -20,29 +20,26 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#if !defined (DBUS_INSIDE_DBUS_H) && !defined (DBUS_COMPILATION)
-#error "Only <dbus/dbus.h> can be included directly, this file may disappear or change contents."
-#endif
 
-#ifndef DBUS_MEMORY_H
-#define DBUS_MEMORY_H
+#include "dbus-types.h"
+#include <stdio.h>
 
-#include <dbus/dbus-macros.h>
-#include <stddef.h>
+/* To add a test, write a function like this one,
+ * declare it here, define it in the file to be tested,
+ * then call it from main() below. Test functions
+ * should return FALSE on failure.
+ */
+dbus_bool_t _dbus_hash_test (void);
 
-DBUS_BEGIN_DECLS
+int
+main (int    argc,
+      char **argv)
+{
+  printf ("%s: running hash table tests\n", argv[0]);
+  if (!_dbus_hash_test ())
+    return 1;
 
-void* dbus_malloc        (size_t bytes);
-void* dbus_malloc0       (size_t bytes);
-void* dbus_realloc       (void  *memory,
-                          size_t bytes);
-void  dbus_free          (void  *memory);
-
-#define dbus_new(type, count)  ((type*)dbus_malloc (sizeof (type) * (count)));
-#define dbus_new0(type, count) ((type*)dbus_malloc0 (sizeof (type) * (count)));
-
-typedef void (* DBusFreeFunction) (void *memory);
-
-DBUS_END_DECLS
-
-#endif /* DBUS_MESSAGE_H */
+  
+  printf ("%s: completed successfully\n", argv[0]);
+  return 0;
+}

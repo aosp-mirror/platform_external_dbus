@@ -24,13 +24,10 @@
 #ifndef DBUS_HASH_H
 #define DBUS_HASH_H
 
-DBUS_BEGIN_DECLS
-
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
 
-typedef struct DBusHashTable DBusHashTable;
-typedef struct DBusHashIter  DBusHashIter;
+DBUS_BEGIN_DECLS
 
 /* The iterator is on the stack, but its real fields are
  * hidden privately.
@@ -38,18 +35,25 @@ typedef struct DBusHashIter  DBusHashIter;
 struct DBusHashIter
 {
   void *dummy1;
-  int   dummy2;
-  void *dummy3;  
+  void *dummy2;
+  void *dummy3;
+  void *dummy4;
+  int   dummy5;
+  int   dummy6;
 };
 
+typedef struct DBusHashTable DBusHashTable;
+typedef struct DBusHashIter  DBusHashIter;
+
 /* Allowing an arbitrary function as with GLib
- * would probably be nicer, but this is internal API so
- * who cares
+ * would be nicer for a public API, but for
+ * an internal API this saves typing, we can add
+ * more whenever we feel like it.
  */
 typedef enum
 {
-  DBUS_HASH_STRING,
-  DBUS_HASH_INT
+  DBUS_HASH_STRING, /**< Hash keys are strings. */
+  DBUS_HASH_INT     /**< Hash keys are integers. */
 } DBusHashType;
 
 DBusHashTable* _dbus_hash_table_new   (DBusHashType     type,
@@ -58,31 +62,37 @@ DBusHashTable* _dbus_hash_table_new   (DBusHashType     type,
 void           _dbus_hash_table_ref   (DBusHashTable   *table);
 void           _dbus_hash_table_unref (DBusHashTable   *table);
 
-/* usage "while (_dbus_hash_table_iterate (table, &iter)) { }" */
-dbus_bool_t _dbus_hash_table_iterate (DBusHashTable *table,
-                                      DBusHashIter  *iter);
+void        _dbus_hash_iter_init (DBusHashTable *table,
+                                  DBusHashIter  *iter);
+dbus_bool_t _dbus_hash_iter_next (DBusHashIter  *iter);
 
-void*       _dbus_hash_iter_get_value      (DBusHashEntry *iter);
-void        _dbus_hash_iter_set_value      (DBusHashEntry *iter,
+void        _dbus_hash_iter_remove_entry   (DBusHashIter *iter);
+void*       _dbus_hash_iter_get_value      (DBusHashIter *iter);
+void        _dbus_hash_iter_set_value      (DBusHashIter *iter,
+                                            void         *value);
+int         _dbus_hash_iter_get_int_key    (DBusHashIter *iter);
+const char* _dbus_hash_iter_get_string_key (DBusHashIter *iter);
+
+dbus_bool_t _dbus_hash_iter_lookup         (DBusHashTable *table,
+                                            void          *key,
+                                            dbus_bool_t    create_if_not_found,
+                                            DBusHashIter  *iter);
+
+void*       _dbus_hash_table_lookup_string (DBusHashTable *table,
+                                            const char    *key);
+void*       _dbus_hash_table_lookup_int    (DBusHashTable *table,
+                                            int            key);
+void        _dbus_hash_table_remove_string (DBusHashTable *table,
+                                            const char    *key);
+void        _dbus_hash_table_remove_int    (DBusHashTable *table,
+                                            int            key);
+dbus_bool_t _dbus_hash_table_insert_string (DBusHashTable *table,
+                                            char          *key,
                                             void          *value);
-int         _dbus_hash_iter_get_int_key    (DBusHashIter  *iter);
-const char* _dbus_hash_iter_get_string_key (DBusHashIter  *iter);
-
-void* _dbus_hash_table_lookup_string (DBusHashTable *table,
-                                      const char    *key);
-void* _dbus_hash_table_lookup_int    (DBusHashTable *table,
-                                      int            key);
-void  _dbus_hash_table_remove_string (DBusHashTable *table,
-                                      const char    *key);
-void  _dbus_hash_table_remove_int    (DBusHashTable *table,
-                                      int            key);
-void  _dbus_hash_table_insert_string (DBusHashTable *table,
-                                      const char    *key,
-                                      void          *value);
-void  _dbus_hash_table_insert_int    (DBusHashTable *table,
-                                      int            key,
-                                      void          *value);
-
+dbus_bool_t _dbus_hash_table_insert_int    (DBusHashTable *table,
+                                            int            key,
+                                            void          *value);
+int         _dbus_hash_table_get_n_entries (DBusHashTable *table);
 
 DBUS_END_DECLS
 

@@ -29,4 +29,7 @@
 
 typedef unsigned int dbus_bool_t;
 
+typedef unsigned int dbus_uint32_t;
+typedef int          dbus_int32_t;
+
 #endif /* DBUS_TYPES_H */
