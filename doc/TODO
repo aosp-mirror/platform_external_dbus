@@ -23,15 +23,6 @@ Important for 1.0
    that generates messages, more like the tests for
    dbus-marshal-recursive.c
 
- - modify the auth protocol to also support other initial-handshake
-   type of information:
-
-   Perhaps the auth protocol should be able to negotiate a protocol 
-   version to the least-common-denominator between client and server?
-   Though in practice ever using this feature would be pretty tough, 
-   since protocol probably modifies the API. But we could have it there
-   as a safety net.
-
  - need to define bus behavior if you send a message to 
    yourself; is it an error, or allowed? If allowed, 
    we need to have a test for it in the test suite.
@@ -44,6 +35,13 @@ Important for 1.0
 
  - the spec and implementation should probably require dict keys
    to be basic types
+
+ - in dbus-keyring.c, enforce that the keyring dir is not 
+   world readable/writable
+
+ - the "server addresses" section of the spec is busted; need to 
+   support escaping in the addresses, be sure multiple addresses 
+   in one env variable work, etc.
 
 Important for 1.0 GLib Bindings
 ===

@@ -1,3 +1,8 @@
+2005-01-28  Havoc Pennington  <hp@redhat.com>
+
+	* doc/TODO, doc/dbus-specification.xml: spec and TODO tweaks
+	related to authentication protocol
+
 2005-01-28  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/dbus_bindings.pyx.in: Updated to handle new D-BUS type system

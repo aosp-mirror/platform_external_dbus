@@ -1394,6 +1394,14 @@
         should try something other than whatever caused the error; 
         if only canceling/rejecting the authentication.
       </para>
+      <para>
+        If the D-BUS protocol changes incompatibly at some future time,
+        applications implementing the new protocol would probably be able to
+        check for support of the new protocol by sending a new command and
+        receiving an ERROR from applications that don't understand it. Thus the
+        ERROR feature of the auth protocol is an escape hatch that lets us
+        negotiate extensions or changes to the D-BUS protocol in the future.
+      </para>
     </sect2>
     <sect2 id="auth-examples">
       <title>Authentication examples</title>
@@ -1930,7 +1938,7 @@
           nonzero length, and may not contain the characters slash ("/"),
           backslash ("\"), space (" "), newline ("\n"), carriage return ("\r"),
           tab ("\t"), or period ("."). There is a default context,
-          "org_freedesktop_global" that's used by servers that do not specify
+          "org_freedesktop_general" that's used by servers that do not specify
           otherwise.
         </para>
         <para>
@@ -1958,13 +1966,15 @@
             </listitem>
             <listitem>
               <para>
-                The cookie itself, a hex-encoded random block of bytes.
+                The cookie itself, a hex-encoded random block of bytes. The cookie
+                may be of any length, though obviously security increases 
+                as the length increases.
               </para>
             </listitem>
           </itemizedlist>
         </para>
         <para>
-          Only server processes modify the cookie file. 
+          Only server processes modify the cookie file.
           They must do so with this procedure:
           <itemizedlist>
             <listitem>
