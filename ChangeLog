@@ -1,3 +1,10 @@
+2003-05-03  Colin Walters  <walters@verbum.org>
+
+	* dbus/dbus-sysdeps.c (fill_user_info): Test against
+	DBUS_UID_UNSET to determine whether to do a uid lookup or not.
+
+	* Makefile.am: Update to use new .pc versioning scheme.
+
 2003-05-02  Havoc Pennington  <hp@redhat.com>
 
 	* bus/system.conf.in: allow send/receive to/from message bus

@@ -1378,7 +1378,7 @@ fill_user_info (DBusUserInfo       *info,
       result = getpwnam_r (username_c, &p_str, buf, sizeof (buf),
                            &p);
 #else
-    if (uid >= 0)
+    if (uid != DBUS_UID_UNSET)
       p = getpwuid_r (uid, &p_str, buf, sizeof (buf));
     else
       p = getpwnam_r (username_c, &p_str, buf, sizeof (buf));
@@ -1403,7 +1403,7 @@ fill_user_info (DBusUserInfo       *info,
     /* I guess we're screwed on thread safety here */
     struct passwd *p;
 
-    if (uid >= 0)
+    if (uid != DBUS_UID_UNSET)
       p = getpwuid (uid);
     else
       p = getpwnam (username_c);
@@ -3047,6 +3047,12 @@ _dbus_become_daemon (const DBusString *pidfile,
       break;
 
     case 0:
+
+
+      s = _dbus_getenv ("DBUS_DEBUG_DAEMONIZE");
+      if (s != NULL)
+	      kill (_dbus_getpid (), SIGSTOP);
+      
       s = _dbus_getenv ("DBUS_DEBUG_OUTPUT");
       if (s == NULL || *s == '\0')
         {

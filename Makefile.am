@@ -1,7 +1,7 @@
 
 if HAVE_GLIB
     GLIB_SUBDIR=glib
-    GLIB_PC=dbus-glib-1.0.pc
+    GLIB_PC=dbus-glib-1.pc
 endif
 
 if HAVE_QT
@@ -11,16 +11,16 @@ endif
 SUBDIRS=dbus bus test doc $(GLIB_SUBDIR) $(QT_SUBDIR) tools
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = dbus-1.0.pc $(GLIB_PC)
+pkgconfig_DATA = dbus-1.pc $(GLIB_PC)
 
 DISTCLEANFILES = 		\
-	dbus-1.0.pc		\
+	dbus-1.pc		\
 	$(GLIB_PC)
 
 EXTRA_DIST =			\
 	HACKING			\
-	dbus-1.0.pc.in		\
-	dbus-glib-1.0.pc.in
+	dbus-1.pc.in		\
+	dbus-glib-1.pc.in
 
 all-local: Doxyfile
 
