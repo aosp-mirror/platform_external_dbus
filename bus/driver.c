@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* bus.c  Bus client (driver)
+/* driver.c  Bus client (driver)
  *
  * Copyright (C) 2003  CodeFactory AB
  *
@@ -225,6 +225,8 @@ bus_driver_add_connection (DBusConnection *connection)
       return FALSE;
     }
 
+  /* FIXME we are leaking the DBusMessageHandler */
+  
   _dbus_verbose ("D-Bus driver on board...\n");
   
   return TRUE;

@@ -717,6 +717,19 @@ dbus_connection_send_message_with_reply (DBusConnection     *connection,
  * Sends a message and blocks a certain time period while waiting for a reply.
  * This function does not dispatch any message handlers until the main loop
  * has been reached. This function is used to do non-reentrant "method calls."
+ * If a reply is received, it is returned, and removed from the incoming
+ * message queue. If it is not received, #NULL is returned and the
+ * result is set to #DBUS_RESULT_NO_REPLY. If something else goes
+ * wrong, result is set to whatever is appropriate, such as
+ * #DBUS_RESULT_NO_MEMORY.
+ *
+ * @todo I believe if we get EINTR or otherwise interrupt the
+ * do_iteration call in here, we won't block the required length of
+ * time. I think there probably has to be a loop: "while (!timeout_elapsed)
+ * { check_for_reply_in_queue(); iterate_with_remaining_timeout(); }"
+ *
+ * @todo need to remove the reply from the message queue, or someone
+ * else might process it again later.
  *
  * @param connection the connection
  * @param message the message to send

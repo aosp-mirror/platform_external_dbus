@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* bus.h  Bus client (driver)
+/* driver.h  Bus client (driver)
  *
  * Copyright (C) 2003  CodeFactory AB
  *
