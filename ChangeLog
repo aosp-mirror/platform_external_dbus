@@ -1,3 +1,12 @@
+2003-01-15  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-test.c (dbus_internal_symbol_do_not_use_run_tests):
+	fix build when --disable-tests
+
+	* Makefile.am (EXTRA_DIST): put HACKING in here
+
+	* HACKING: document procedure for making a tarball release.
+
 2003-01-14  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/connection.c: (connection_error_handler),

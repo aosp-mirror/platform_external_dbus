@@ -59,4 +59,37 @@ Coding Style
    data). Avoiding heuristics is also important for security reasons;
    if it looks funny, ignore it (or exit, or disconnect).
 
+Making a release
+===
+
+To make a release of D-BUS, do the following:
+
+ - check out a fresh copy from CVS
+
+ - increment the version number in configure.in
+
+ - verify that the libtool versioning/library soname is 
+   changed if it needs to be, or not changed if not
+
+ - update the file NEWS based on the ChangeLog
+
+ - "make distcheck" (DO NOT just "make dist" - pass the check!)
+
+ - if make distcheck fails, fix it.
+
+ - once distcheck succeeds, "cvs commit"
+
+ - if someone else made changes and the commit fails, 
+   you have to "cvs up" and run "make distcheck" again
+
+ - once the commit succeeds, "cvs tag DBUS_X_Y_Z" where 
+   X_Y_Z map to version X.Y.Z
+
+ - check out the "web" module, copy the tarball to 
+   web/content/software/dbus/releases, "cvs add -kb dbus-x.y.z.tar.gz"
+
+ - update web/content/software/dbus/main.in with a pointer to the 
+   tarball
+  
+ - post to message-bus-list@freedesktop.org announcing the release.
  

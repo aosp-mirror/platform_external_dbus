@@ -42,6 +42,7 @@ die (const char *failure)
 void
 dbus_internal_symbol_do_not_use_run_tests (void)
 {
+#ifdef DBUS_BUILD_TESTS
   printf ("%s: running string tests\n", "dbus-test");
   if (!_dbus_string_test ())
     die ("strings");
@@ -67,6 +68,9 @@ dbus_internal_symbol_do_not_use_run_tests (void)
     die ("hash tables");
   
   printf ("%s: completed successfully\n", "dbus-test");
+#else
+  printf ("Not compiled with unit tests, not running any\n");
+#endif
 }
 
 

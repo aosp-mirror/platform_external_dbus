@@ -18,6 +18,7 @@ DISTCLEANFILES = 		\
 	$(GLIB_PC)
 
 EXTRA_DIST =			\
+	HACKING			\
 	dbus-1.0.pc.in		\
 	dbus-glib-1.0.pc.in
 
