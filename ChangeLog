@@ -1,3 +1,13 @@
+2005-02-05  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-marshal-validate.c (validate_body_helper): fix crash
+	if the signature of a variant was empty
+	(_dbus_validate_signature_with_reason): catch "(a)" (array inside
+	struct with no element type)
+
+	* dbus/dbus-message-factory.c (generate_uint32_changed): add more
+	mangled messages to break things
+
 2005-02-04  Havoc Pennington  <hp@redhat.com>
 
 	* glib/dbus-gproxy.c (dbus_g_proxy_disconnect_signal): use

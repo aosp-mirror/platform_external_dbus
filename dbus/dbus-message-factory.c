@@ -28,6 +28,12 @@
 #include "dbus-test.h"
 #include <stdio.h>
 
+typedef enum
+  {
+    CHANGE_TYPE_ADJUST,
+    CHANGE_TYPE_ABSOLUTE
+  } ChangeType;
+
 #define BYTE_ORDER_OFFSET  0
 #define BODY_LENGTH_OFFSET 4
 
@@ -36,11 +42,13 @@ iter_recurse (DBusMessageDataIter *iter)
 {
   iter->depth += 1;
   _dbus_assert (iter->depth < _DBUS_MESSAGE_DATA_MAX_NESTING);
+  _dbus_assert (iter->sequence_nos[iter->depth] >= 0);
 }
 
 static int
 iter_get_sequence (DBusMessageDataIter *iter)
 {
+  _dbus_assert (iter->sequence_nos[iter->depth] >= 0);
   return iter->sequence_nos[iter->depth];
 }
 
@@ -48,6 +56,7 @@ static void
 iter_set_sequence (DBusMessageDataIter *iter,
                    int                  sequence)
 {
+  _dbus_assert (sequence >= 0);
   iter->sequence_nos[iter->depth] = sequence;
 }
 
@@ -354,7 +363,7 @@ generate_byte_changed (DBusMessageDataIter *iter,
   byte_seq = iter_get_sequence (iter);
   iter_next (iter);
   iter_unrecurse (iter);
-
+  
   if (byte_seq == _dbus_string_get_length (data))
     {
       _dbus_string_set_length (data, 0);
@@ -381,6 +390,137 @@ generate_byte_changed (DBusMessageDataIter *iter,
 
 typedef struct
 {
+  ChangeType type;
+  dbus_uint32_t value; /* cast to signed for adjusts */
+} UIntChange;
+
+static const UIntChange uint32_changes[] = {
+  { CHANGE_TYPE_ADJUST, (dbus_uint32_t) -1 },
+  { CHANGE_TYPE_ADJUST, (dbus_uint32_t) -2 },
+  { CHANGE_TYPE_ADJUST, (dbus_uint32_t) -3 },
+  { CHANGE_TYPE_ADJUST, (dbus_uint32_t) 1 },
+  { CHANGE_TYPE_ADJUST, (dbus_uint32_t) 2 },
+  { CHANGE_TYPE_ADJUST, (dbus_uint32_t) 3 },
+  { CHANGE_TYPE_ABSOLUTE, _DBUS_UINT32_MAX },
+  { CHANGE_TYPE_ABSOLUTE, 0 },
+  { CHANGE_TYPE_ABSOLUTE, 1 },
+  { CHANGE_TYPE_ABSOLUTE, _DBUS_UINT32_MAX - 1 },
+  { CHANGE_TYPE_ABSOLUTE, _DBUS_UINT32_MAX - 5 }
+};
+
+static dbus_bool_t
+generate_uint32_changed (DBusMessageDataIter *iter,
+                         DBusString          *data,
+                         DBusValidity        *expected_validity)
+{
+  int body_seq;
+  int byte_seq;
+  int change_seq;
+  dbus_uint32_t v_UINT32;
+  int byte_order;
+  const UIntChange *change;
+  int base_depth;
+
+  /* Outer loop is each body, next loop is each change,
+   * inner loop is each change location
+   */
+
+  base_depth = iter->depth;
+  
+ next_body:
+  _dbus_assert (iter->depth == (base_depth + 0));
+  _dbus_string_set_length (data, 0);
+  body_seq = iter_get_sequence (iter);
+  
+  if (!generate_many_bodies (iter, data, expected_validity))
+    return FALSE;
+
+  _dbus_assert (iter->depth == (base_depth + 0));
+
+  iter_set_sequence (iter, body_seq); /* undo the "next" from generate_many_bodies */
+  iter_recurse (iter);
+ next_change:
+  _dbus_assert (iter->depth == (base_depth + 1));
+  change_seq = iter_get_sequence (iter);
+  
+  if (change_seq == _DBUS_N_ELEMENTS (uint32_changes))
+    {
+      /* Reset change count */
+      iter_set_sequence (iter, 0);
+      iter_unrecurse (iter);
+      iter_next (iter);
+      goto next_body;
+    }
+
+  _dbus_assert (iter->depth == (base_depth + 1));
+  
+  iter_recurse (iter);
+  _dbus_assert (iter->depth == (base_depth + 2));
+  byte_seq = iter_get_sequence (iter);
+  /* skip 4 bytes at a time */
+  iter_next (iter);
+  iter_next (iter);
+  iter_next (iter);
+  iter_next (iter);
+  iter_unrecurse (iter);
+
+  _dbus_assert (_DBUS_ALIGN_VALUE (byte_seq, 4) == (unsigned) byte_seq);
+  if (byte_seq >= (_dbus_string_get_length (data) - 4))
+    {
+      /* reset byte count */
+      _dbus_assert (iter->depth == (base_depth + 1));
+      iter_recurse (iter);
+      _dbus_assert (iter->depth == (base_depth + 2));
+      iter_set_sequence (iter, 0);
+      iter_unrecurse (iter);
+      _dbus_assert (iter->depth == (base_depth + 1));
+      iter_next (iter);
+      goto next_change;
+    }
+  
+  _dbus_assert (byte_seq <= (_dbus_string_get_length (data) - 4));
+
+  byte_order = _dbus_string_get_byte (data, BYTE_ORDER_OFFSET);
+  
+  v_UINT32 = _dbus_marshal_read_uint32 (data, byte_seq, byte_order, NULL);
+
+  change = &uint32_changes[change_seq];
+
+  if (change->type == CHANGE_TYPE_ADJUST)
+    {
+      v_UINT32 += (int) change->value;
+    }
+  else
+    {
+      v_UINT32 = change->value;
+    }
+
+#if 0
+  printf ("body %d change %d pos %d ",
+          body_seq, change_seq, byte_seq);
+
+  if (change->type == CHANGE_TYPE_ADJUST)
+    printf ("adjust by %d", (int) change->value);
+  else
+    printf ("set to %u", change->value);
+  
+  printf (" \t%u -> %u\n",
+          _dbus_marshal_read_uint32 (data, byte_seq, byte_order, NULL),
+          v_UINT32);
+#endif
+  
+  _dbus_marshal_set_uint32 (data, byte_seq, v_UINT32, byte_order);
+  *expected_validity = DBUS_VALIDITY_UNKNOWN;
+
+  _dbus_assert (iter->depth == (base_depth + 1));
+  iter_unrecurse (iter);
+  _dbus_assert (iter->depth == (base_depth + 0));
+          
+  return TRUE;
+}
+
+typedef struct
+{
   const char *name;
   DBusMessageGeneratorFunc func;  
 } DBusMessageGenerator;
@@ -388,6 +528,7 @@ typedef struct
 static const DBusMessageGenerator generators[] = {
   { "trivial example of each message type", generate_trivial },
   { "assorted arguments", generate_many_bodies },
+  { "each uint32 modified", generate_uint32_changed },
   { "wrong body lengths", generate_wrong_length },
   { "each byte modified", generate_byte_changed }
 };
@@ -409,7 +550,8 @@ _dbus_message_data_iter_init (DBusMessageDataIter *iter)
     {
       iter->sequence_nos[i] = 0;
       ++i;
-    } 
+    }
+  iter->count = 0;
 }
 
 dbus_bool_t
@@ -428,7 +570,10 @@ _dbus_message_data_iter_get_and_next (DBusMessageDataIter *iter,
   iter_recurse (iter);
   
   if (iter_first_in_series (iter))
-    printf (" testing message loading: %s\n", generators[generator].name);
+    {
+      printf (" testing message loading: %s ", generators[generator].name);
+      fflush (stdout);
+    }
   
   func = generators[generator].func;
 
@@ -443,10 +588,12 @@ _dbus_message_data_iter_get_and_next (DBusMessageDataIter *iter,
       iter_unrecurse (iter);
       iter_next (iter); /* next generator */
       _dbus_string_free (&data->data);
+      printf ("%d test loads cumulative\n", iter->count);
       goto restart;
     }
   iter_unrecurse (iter);
-  
+
+  iter->count += 1;
   return TRUE;
 }
 

@@ -45,6 +45,7 @@ typedef struct
 {
   int sequence_nos[_DBUS_MESSAGE_DATA_MAX_NESTING];
   int depth;
+  int count;
 } DBusMessageDataIter;
 
 void        _dbus_message_data_free              (DBusMessageData     *data);

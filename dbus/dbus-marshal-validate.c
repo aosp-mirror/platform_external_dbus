@@ -144,8 +144,16 @@ _dbus_validate_signature_with_reason (const DBusString *type_str,
           return DBUS_INVALID_UNKNOWN_TYPECODE;
         }
 
-      if (*p != DBUS_TYPE_ARRAY)
-        array_depth = 0;
+      if (array_depth > 0)
+        {
+          if (*p == DBUS_TYPE_ARRAY)
+            ;
+          else if (*p == DBUS_STRUCT_END_CHAR ||
+                   *p == DBUS_DICT_ENTRY_END_CHAR)
+            return DBUS_INVALID_MISSING_ARRAY_ELEMENT_TYPE;
+          else
+            array_depth = 0;
+        }
 
       last = *p;
       ++p;
@@ -159,6 +167,10 @@ _dbus_validate_signature_with_reason (const DBusString *type_str,
 
   if (dict_entry_depth > 0)
     return DBUS_INVALID_DICT_ENTRY_STARTED_BUT_NOT_ENDED;
+
+  _dbus_assert (last != DBUS_TYPE_ARRAY);
+  _dbus_assert (last != DBUS_STRUCT_BEGIN_CHAR);
+  _dbus_assert (last != DBUS_DICT_ENTRY_BEGIN_CHAR);
   
   return DBUS_VALID;
 }
@@ -362,6 +374,7 @@ validate_body_helper (DBusTypeReader       *reader,
             DBusTypeReader sub;
             DBusValidity validity;
             int contained_alignment;
+            int contained_type;
 
             claimed_len = *p;
             ++p;
@@ -381,7 +394,11 @@ validate_body_helper (DBusTypeReader       *reader,
               return DBUS_INVALID_VARIANT_SIGNATURE_MISSING_NUL;
             ++p;
 
-            contained_alignment = _dbus_type_get_alignment (_dbus_first_type_in_signature (&sig, 0));
+            contained_type = _dbus_first_type_in_signature (&sig, 0);
+            if (contained_type == DBUS_TYPE_INVALID)
+              return DBUS_INVALID_VARIANT_SIGNATURE_EMPTY;
+            
+            contained_alignment = _dbus_type_get_alignment (contained_type);
             
             a = _DBUS_ALIGN_ADDRESS (p, contained_alignment);
             if (a > end)
@@ -395,8 +412,7 @@ validate_body_helper (DBusTypeReader       *reader,
 
             _dbus_type_reader_init_types_only (&sub, &sig, 0);
 
-            if (_dbus_type_reader_get_current_type (&sub) == DBUS_TYPE_INVALID)
-              return DBUS_INVALID_VARIANT_SIGNATURE_EMPTY;
+            _dbus_assert (_dbus_type_reader_get_current_type (&sub) != DBUS_TYPE_INVALID);
 
             validity = validate_body_helper (&sub, byte_order, FALSE, p, end, &p);
             if (validity != DBUS_VALID)
