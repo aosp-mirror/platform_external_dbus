@@ -1,5 +1,11 @@
 2004-07-10  Seth Nickell  <seth@gnome.org>
 
+	* python/examples/Makefile.am:
+
+	Fix distcheck breakage caused by new examples.
+
+2004-07-10  Seth Nickell  <seth@gnome.org>
+
 	* python/dbus.py:
 
 	Add "message" argument to service-side dbus.Object
