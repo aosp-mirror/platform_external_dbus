@@ -1,5 +1,10 @@
 2003-01-25  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/dbus-list.c: (alloc_link), (free_link):
+	Use a memory pool for the links.
+	
+2003-01-25  Anders Carlsson  <andersca@codefactory.se>
+
 	* bus/connection.c: (bus_connection_foreach):
 	* bus/connection.h:
 	Add new bus_connection_foreach function.

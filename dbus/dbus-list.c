@@ -23,6 +23,7 @@
 
 #include "dbus-internals.h"
 #include "dbus-list.h"
+#include "dbus-mempool.h"
 
 /**
  * @defgroup DBusList Linked list
@@ -32,6 +33,8 @@
  * Types and functions related to DBusList.
  */
 
+static DBusMemPool *list_pool;
+
 /**
  * @defgroup DBusListInternals Linked list implementation details
  * @ingroup  DBusInternals
@@ -39,8 +42,6 @@
  *
  * The guts of DBusList.
  *
- * @todo should use a memory pool for the list nodes, to avoid
- * a memory allocation for every link.
  * @{
  */
 
@@ -49,7 +50,10 @@ alloc_link (void *data)
 {
   DBusList *link;
 
-  link = dbus_new0 (DBusList, 1);
+  if (!list_pool)
+    list_pool = _dbus_mem_pool_new (sizeof (DBusList), TRUE);
+
+  link = _dbus_mem_pool_alloc (list_pool);
   link->data = data;
 
   return link;
@@ -58,7 +62,7 @@ alloc_link (void *data)
 static void
 free_link (DBusList *link)
 {
-  dbus_free (link);
+  _dbus_mem_pool_dealloc (list_pool, link);
 }
 
 static void
