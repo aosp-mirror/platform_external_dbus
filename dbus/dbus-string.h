@@ -48,6 +48,9 @@ dbus_bool_t _dbus_string_init           (DBusString *str,
                                          int         max_length);
 void        _dbus_string_init_const     (DBusString *str,
                                          const char *value);
+void        _dbus_string_init_const_len (DBusString *str,
+                                         const char *value,
+                                         int         len);
 void        _dbus_string_free           (DBusString *str);
 void        _dbus_string_lock           (DBusString *str);
 
@@ -63,6 +66,8 @@ void        _dbus_string_get_const_data_len (const DBusString  *str,
                                              const char       **data_return,
                                              int                start,
                                              int                len);
+char        _dbus_string_get_byte           (const DBusString  *str,
+                                             int                start);
 dbus_bool_t _dbus_string_steal_data         (DBusString        *str,
                                              char             **data_return);
 dbus_bool_t _dbus_string_steal_data_len     (DBusString        *str,
@@ -118,6 +123,12 @@ dbus_bool_t _dbus_string_copy_len   (const DBusString *source,
                                      DBusString       *dest,
                                      int               insert_at);
 
+dbus_bool_t _dbus_string_replace_len (const DBusString *source,
+                                      int               start,
+                                      int               len,
+                                      DBusString       *dest,
+                                      int               replace_at,
+                                      int               replace_len);
 
 void       _dbus_string_get_unichar (const DBusString *str,
                                      int               start,

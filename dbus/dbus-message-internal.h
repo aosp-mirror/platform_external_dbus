@@ -39,6 +39,8 @@ void         _dbus_message_unlock            (DBusMessage  *message);
 void         _dbus_message_set_client_serial (DBusMessage  *message,
 					      dbus_int32_t  client_serial);
 dbus_int32_t _dbus_message_get_client_serial (DBusMessage  *message);
+dbus_bool_t  _dbus_message_set_reply_serial  (DBusMessage  *message,
+                                              dbus_int32_t  reply_serial);
 dbus_int32_t _dbus_message_get_reply_serial  (DBusMessage  *message);
 void         _dbus_message_add_size_counter  (DBusMessage  *message,
 					      DBusCounter  *counter);

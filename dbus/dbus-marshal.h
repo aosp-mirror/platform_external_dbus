@@ -46,11 +46,12 @@
     (((dbus_uint32_t) (val) & (dbus_uint32_t) 0xff000000U) >> 24)))
 
 #define DBUS_UINT32_SWAP_LE_BE(val) (DBUS_UINT32_SWAP_LE_BE_CONSTANT (val))
+#define DBUS_INT32_SWAP_LE_BE(val)  ((dbus_int32_t)DBUS_UINT32_SWAP_LE_BE_CONSTANT (val))
 
 #ifdef WORDS_BIGENDIAN
 #define DBUS_INT32_TO_BE(val)	((dbus_int32_t) (val))
 #define DBUS_UINT32_TO_BE(val)	((dbus_uint32_t) (val))
-#define DBUS_INT32_TO_LE(val)	((dbus_int32_t) DBUS_UINT32_SWAP_LE_BE (val))
+#define DBUS_INT32_TO_LE(val)	(DBUS_INT32_SWAP_LE_BE (val))
 #define DBUS_UINT32_TO_LE(val)	(DBUS_UINT32_SWAP_LE_BE (val))
 #else
 #define DBUS_INT32_TO_LE(val)	((dbus_int32_t) (val))
@@ -75,6 +76,19 @@ void          _dbus_pack_uint32   (dbus_uint32_t        value,
                                    unsigned char       *data);
 dbus_uint32_t _dbus_unpack_uint32 (int                  byte_order,
                                    const unsigned char *data);
+
+void        _dbus_marshal_set_int32  (DBusString       *str,
+                                      int               byte_order,
+                                      int               offset,
+                                      dbus_int32_t      value);
+void        _dbus_marshal_set_uint32 (DBusString       *str,
+                                      int               byte_order,
+                                      int               offset,
+                                      dbus_uint32_t     value);
+dbus_bool_t _dbus_marshal_set_string (DBusString       *str,
+                                      int               byte_order,
+                                      int               offset,
+                                      const DBusString *value);
 
 
 dbus_bool_t _dbus_marshal_int32       (DBusString          *str,

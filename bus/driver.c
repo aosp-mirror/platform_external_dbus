@@ -147,6 +147,7 @@ bus_driver_handle_hello (DBusConnection *connection,
     {
       dbus_free (name);
       dbus_connection_disconnect (connection);
+      return;
     }
   
   _DBUS_HANDLE_OOM (_dbus_string_init (&unique_name, _DBUS_INT_MAX));

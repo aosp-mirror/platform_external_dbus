@@ -195,6 +195,25 @@ void
 _dbus_string_init_const (DBusString *str,
                          const char *value)
 {
+  _dbus_string_init_const_len (str, value,
+                               strlen (value));
+}
+
+/**
+ * Initializes a constant string with a length. The value parameter is
+ * not copied (should be static), and the string may never be
+ * modified.  It is safe but not necessary to call _dbus_string_free()
+ * on a const string.
+ * 
+ * @param str memory to use for the string
+ * @param value a string to be stored in str (not copied!!!)
+ * @param len the length to use
+ */
+void
+_dbus_string_init_const_len (DBusString *str,
+                             const char *value,
+                             int         len)
+{
   DBusRealString *real;
   
   _dbus_assert (str != NULL);
@@ -203,7 +222,7 @@ _dbus_string_init_const (DBusString *str,
   real = (DBusRealString*) str;
   
   real->str = (char*) value;
-  real->len = strlen (real->str);
+  real->len = len;
   real->allocated = real->len;
   real->max_length = real->len;
   real->constant = TRUE;
@@ -355,6 +374,23 @@ _dbus_string_get_const_data_len (const DBusString  *str,
   _dbus_assert ((start + len) <= real->len);
   
   *data_return = real->str + start;
+}
+
+/**
+ * Gets the byte at the given position.
+ *
+ * @param str the string
+ * @param start the position
+ * @returns the byte at that position
+ */
+char
+_dbus_string_get_byte (const DBusString  *str,
+                       int                start)
+{
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start < real->len);
+
+  return real->str[start];
 }
 
 /**
@@ -760,7 +796,7 @@ _dbus_string_delete (DBusString       *str,
   _dbus_assert (start >= 0);
   _dbus_assert (len >= 0);
   _dbus_assert ((start + len) <= real->len);
-
+  
   delete (real, start, len);
 }
 
@@ -789,9 +825,12 @@ copy (DBusRealString *source,
       DBusRealString *dest,
       int             insert_at)
 {
+  if (len == 0)
+    return TRUE;
+
   if (!open_gap (len, dest, insert_at))
     return FALSE;
-    
+  
   memcpy (dest->str + insert_at,
           source->str + start,
           len);
@@ -936,6 +975,44 @@ _dbus_string_copy_len (const DBusString *source,
   return copy (real_source, start, len,
                real_dest,
                insert_at);
+}
+
+/**
+ * Replaces a segment of dest string with a segment of source string.
+ *
+ * @todo optimize the case where the two lengths are the same, and
+ * avoid memmoving the data in the trailing part of the string twice.
+ * 
+ * @param source the source string
+ * @param start where to start copying the source string
+ * @param len length of segment to copy
+ * @param dest the destination string
+ * @param replace_at start of segment of dest string to replace
+ * @param replace_len length of segment of dest string to replace
+ * @returns #FALSE if not enough memory
+ *
+ */
+dbus_bool_t
+_dbus_string_replace_len (const DBusString *source,
+                          int               start,
+                          int               len,
+                          DBusString       *dest,
+                          int               replace_at,
+                          int               replace_len)
+{
+  DBUS_STRING_COPY_PREAMBLE (source, start, dest, replace_at);
+  _dbus_assert (len >= 0);
+  _dbus_assert ((start + len) <= real_source->len);
+  _dbus_assert (replace_at >= 0);
+  _dbus_assert ((replace_at + replace_len) <= real_dest->len);
+
+  if (!copy (real_source, start, len,
+             real_dest, replace_at))
+    return FALSE;
+
+  delete (real_dest, replace_at + len, replace_len);
+
+  return TRUE;
 }
 
 /* Unicode macros from GLib */
@@ -1931,6 +2008,51 @@ _dbus_string_test (void)
   _dbus_string_free (&str);
   _dbus_string_free (&other);
 
+  /* Check replace */
+
+  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+    _dbus_assert_not_reached ("failed to init string");
+  
+  if (!_dbus_string_append (&str, "Hello World"))
+    _dbus_assert_not_reached ("could not append to string");
+
+  i = _dbus_string_get_length (&str);
+  
+  if (!_dbus_string_init (&other, _DBUS_INT_MAX))
+    _dbus_assert_not_reached ("could not init string");
+  
+  if (!_dbus_string_replace_len (&str, 0, _dbus_string_get_length (&str),
+                                 &other, 0, _dbus_string_get_length (&other)))
+    _dbus_assert_not_reached ("could not replace");
+
+  _dbus_assert (_dbus_string_get_length (&str) == i);
+  _dbus_assert (_dbus_string_get_length (&other) == i);
+  _dbus_assert (_dbus_string_equal_c_str (&other, "Hello World"));
+  
+  if (!_dbus_string_replace_len (&str, 0, _dbus_string_get_length (&str),
+                                 &other, 5, 1))
+    _dbus_assert_not_reached ("could not replace center space");
+
+  _dbus_assert (_dbus_string_get_length (&str) == i);
+  _dbus_assert (_dbus_string_get_length (&other) == i * 2 - 1);
+  _dbus_assert (_dbus_string_equal_c_str (&other,
+                                          "HelloHello WorldWorld"));
+
+  
+  if (!_dbus_string_replace_len (&str, 1, 1,
+                                 &other,
+                                 _dbus_string_get_length (&other) - 1,
+                                 1))
+    _dbus_assert_not_reached ("could not replace end character");
+  
+  _dbus_assert (_dbus_string_get_length (&str) == i);
+  _dbus_assert (_dbus_string_get_length (&other) == i * 2 - 1);
+  _dbus_assert (_dbus_string_equal_c_str (&other,
+                                          "HelloHello WorldWorle"));
+  
+  _dbus_string_free (&str);
+  _dbus_string_free (&other);
+  
   /* Check append/get unichar */
   
   if (!_dbus_string_init (&str, _DBUS_INT_MAX))

@@ -302,6 +302,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   watch_list = NULL;
   connection = NULL;
   handler_table = NULL;
+  timeout_list = NULL;
   
   watch_list = _dbus_watch_list_new ();
   if (watch_list == NULL)
@@ -657,7 +658,7 @@ dbus_connection_send_message (DBusConnection *connection,
     }
   
   if (client_serial)
-    *client_serial = serial;
+    *client_serial = _dbus_message_get_client_serial (message);
   
   _dbus_message_lock (message);
   

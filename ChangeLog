@@ -1,3 +1,34 @@
+2003-01-26  Havoc Pennington  <hp@pobox.com>
+
+        The unit tests pass, but otherwise untested.  If it breaks, the
+	tests should have been better. ;-)
+	
+	* bus/driver.c (bus_driver_handle_hello): return if we disconnect
+	the connection.
+
+	* dbus/dbus-message.c: redo everything so we maintain 
+	message->header as the only copy of the various fields.
+	This avoids the possibility of out-of-memory in some cases,
+	for example dbus_message_lock() can't run out of memory anymore,
+	and avoids extra copying. Figured I may as well go ahead and do 
+	this since it was busted for dbus_message_lock to not return 
+	failure on OOM, and dbus_message_write_header was totally
+	unchecked for OOM. Also fixed some random other bugs.
+
+	* dbus/dbus-marshal.c (_dbus_marshal_get_field_end_pos): verify
+	that strings are nul-terminated. Also, end_pos can be equal 
+	to string length just not greater than, I think.
+	(_dbus_marshal_set_int32): new function
+	(_dbus_marshal_set_uint32): new function
+	(_dbus_marshal_set_string): new function
+
+	* dbus/dbus-connection.c (_dbus_connection_new_for_transport): fix
+	a warning, init timeout_list to NULL
+	(dbus_connection_send_message): don't use uninitialized variable
+	"serial"
+
+	* dbus/dbus-string.c (_dbus_string_replace_len): new function
+
 2003-01-26  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/driver.c: (bus_driver_handle_hello),

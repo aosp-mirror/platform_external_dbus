@@ -135,6 +135,98 @@ _dbus_pack_int32 (dbus_int32_t   value,
 }
 
 /**
+ * Sets the 4 bytes at the given offset to a marshaled signed integer,
+ * replacing anything found there previously.
+ *
+ * @param str the string to write the marshalled int to
+ * @param offset the byte offset where int should be written
+ * @param byte_order the byte order to use
+ * @param value the value
+ * 
+ */
+void
+_dbus_marshal_set_int32 (DBusString          *str,
+                         int                  byte_order,
+                         int                  offset,
+                         dbus_int32_t         value)
+{
+  char *data;
+  
+  _dbus_assert (byte_order == DBUS_LITTLE_ENDIAN ||
+                byte_order == DBUS_BIG_ENDIAN);
+  
+  _dbus_string_get_data_len (str, &data, offset, 4);
+
+  _dbus_pack_int32 (value, byte_order, data);
+}
+
+/**
+ * Sets the 4 bytes at the given offset to a marshaled unsigned
+ * integer, replacing anything found there previously.
+ *
+ * @param str the string to write the marshalled int to
+ * @param offset the byte offset where int should be written
+ * @param byte_order the byte order to use
+ * @param value the value
+ * 
+ */
+void
+_dbus_marshal_set_uint32 (DBusString          *str,
+                          int                  byte_order,
+                          int                  offset,
+                          dbus_uint32_t        value)
+{
+  char *data;
+  
+  _dbus_assert (byte_order == DBUS_LITTLE_ENDIAN ||
+                byte_order == DBUS_BIG_ENDIAN);
+  
+  _dbus_string_get_data_len (str, &data, offset, 4);
+
+  _dbus_pack_uint32 (value, byte_order, data);
+}
+
+/**
+ * Sets the existing marshaled string at the given offset with
+ * a new marshaled string. The given offset must point to
+ * an existing string or the wrong length will be deleted
+ * and replaced with the new string.
+ *
+ * @param str the string to write the marshalled string to
+ * @param offset the byte offset where string should be written
+ * @param byte_order the byte order to use
+ * @param value the value
+ * @returns #TRUE on success
+ * 
+ */
+dbus_bool_t
+_dbus_marshal_set_string (DBusString          *str,
+                          int                  byte_order,
+                          int                  offset,
+                          const DBusString    *value)
+{
+  int old_len;
+  int new_len;
+  
+  _dbus_assert (byte_order == DBUS_LITTLE_ENDIAN ||
+                byte_order == DBUS_BIG_ENDIAN);
+  
+  old_len = _dbus_demarshal_uint32 (str, byte_order,
+                                    offset, NULL);
+
+  new_len = _dbus_string_get_length (value);
+  
+  if (!_dbus_string_replace_len (value, 0, new_len,
+                                 str, offset + 4, old_len))
+    return FALSE;
+
+  _dbus_marshal_set_uint32 (str, byte_order,
+                            offset, new_len);
+
+  return TRUE;
+}
+
+/**
  * Marshals a double value.
  *
  * @param str the string to append the marshalled value to
@@ -175,7 +267,7 @@ _dbus_marshal_int32  (DBusString   *str,
     return FALSE;
   
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-    swap_bytes ((unsigned char *)&value, sizeof (dbus_int32_t));
+    value = DBUS_INT32_SWAP_LE_BE (value);
 
   return _dbus_string_append_len (str, (const char *)&value, sizeof (dbus_int32_t));
 }
@@ -197,7 +289,7 @@ _dbus_marshal_uint32 (DBusString    *str,
     return FALSE;
   
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-    swap_bytes ((unsigned char *)&value, sizeof (dbus_uint32_t));
+    value = DBUS_UINT32_SWAP_LE_BE (value);
 
   return _dbus_string_append_len (str, (const char *)&value, sizeof (dbus_uint32_t));
 }
@@ -752,8 +844,13 @@ _dbus_demarshal_string_array (DBusString *str,
 
 /** 
  * Returns the position right after the end position 
- * end position of a field
+ * end position of a field. Validates the field
+ * contents as required (e.g. ensures that
+ * string fields have a valid length and
+ * are nul-terminated).
  *
+ * @todo security: audit the field validation code.
+ * 
  * @todo warns on invalid type in a message, but
  * probably the whole message needs to be dumped,
  * or we might even drop the connection due
@@ -810,6 +907,18 @@ _dbus_marshal_get_field_end_pos (DBusString *str,
 
 	*end_pos = pos + len + 1;
 
+        if (*end_pos > _dbus_string_get_length (str))
+          {
+            _dbus_verbose ("string length outside length of the message\n");
+            return FALSE;
+          }
+
+        if (_dbus_string_get_byte (str, pos+len) != '\0')
+          {
+            _dbus_verbose ("string field not nul-terminated\n");
+            return FALSE;
+          }
+        
 	break;
       }
 
@@ -888,7 +997,7 @@ _dbus_marshal_get_field_end_pos (DBusString *str,
       return FALSE;
     }
 
-  if (*end_pos >= _dbus_string_get_length (str))
+  if (*end_pos > _dbus_string_get_length (str))
     return FALSE;
   
   return TRUE;

@@ -35,6 +35,7 @@
 #include <sys/un.h>
 #include <pwd.h>
 #include <time.h>
+#include <sys/time.h>
 #ifdef HAVE_WRITEV
 #include <sys/uio.h>
 #endif
