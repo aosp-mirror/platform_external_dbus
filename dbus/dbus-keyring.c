@@ -277,11 +277,12 @@ add_new_key (DBusKey  **keys_p,
   dbus_bool_t retval;
   DBusKey *keys;
   int n_keys;
-      
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   if (!_dbus_string_init (&bytes, _DBUS_INT_MAX))
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                      "No memory to generate new secret key");
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return FALSE;
     }
 
@@ -294,8 +295,7 @@ add_new_key (DBusKey  **keys_p,
       
   if (!_dbus_generate_random_bytes (&bytes, 4))
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                      "No memory to generate new secret key");
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       goto out;
     }
 
@@ -320,16 +320,14 @@ add_new_key (DBusKey  **keys_p,
   _dbus_string_set_length (&bytes, 0);
   if (!_dbus_generate_random_bytes (&bytes, KEY_LENGTH_BYTES))
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                      "No memory to generate new secret key");
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       goto out;
     }
 
   new = dbus_realloc (keys, sizeof (DBusKey) * (n_keys + 1));
   if (new == NULL)
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                      "No memory to reallocate secret key list");
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       goto out;
     }
 
@@ -340,8 +338,7 @@ add_new_key (DBusKey  **keys_p,
                           _DBUS_INT_MAX))
     {
       n_keys -= 1; /* we don't want to free the one we didn't init */
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                      "No memory to store secret key");
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       goto out;
     }
 
@@ -353,8 +350,7 @@ add_new_key (DBusKey  **keys_p,
                           &keys[n_keys-1].secret,
                           0))
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                      "No memory to store secret key");
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       goto out;
     }
   
@@ -392,7 +388,6 @@ _dbus_keyring_reload (DBusKeyring *keyring,
 {
   DBusString contents;
   DBusString line;
-  DBusResultCode result;
   dbus_bool_t retval;
   dbus_bool_t have_lock;
   DBusKey *keys;
@@ -400,18 +395,18 @@ _dbus_keyring_reload (DBusKeyring *keyring,
   int i;
   long now;
   DBusError tmp_error;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   if (!_dbus_string_init (&contents, _DBUS_INT_MAX))
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                      "No memory to reload keyring");
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return FALSE;
     }
 
   if (!_dbus_string_init (&line, _DBUS_INT_MAX))
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                      "No memory to reload keyring");
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       _dbus_string_free (&contents);
       return FALSE;
     }
@@ -508,8 +503,7 @@ _dbus_keyring_reload (DBusKeyring *keyring,
       new = dbus_realloc (keys, sizeof (DBusKey) * (n_keys + 1));
       if (new == NULL)
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                          "No memory to reallocate secret key list");
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           goto out;
         }
 
@@ -520,8 +514,7 @@ _dbus_keyring_reload (DBusKeyring *keyring,
                               _DBUS_INT_MAX))
         {
           n_keys -= 1; /* we don't want to free the one we didn't init */
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                          "No memory to store secret key");
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           goto out;
         }
       
@@ -531,8 +524,7 @@ _dbus_keyring_reload (DBusKeyring *keyring,
                                     &keys[n_keys-1].secret,
                                     0))
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                          "No memory to store secret key or invalid hex encoding");
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           goto out;
         }
     }
@@ -580,19 +572,13 @@ _dbus_keyring_reload (DBusKeyring *keyring,
           continue;
 
         nomem:
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                          "No memory to save secret keyring");
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           goto out;
         }
       
-      result = _dbus_string_save_to_file (&contents, &keyring->filename);
-      if (result != DBUS_RESULT_SUCCESS)
-        {
-          dbus_set_error (error, DBUS_ERROR_FAILED,
-                          "Failed to save keyring file: %s",
-                          dbus_result_to_string (result));
-          goto out;
-        }
+      if (!_dbus_string_save_to_file (&contents, &keyring->filename,
+                                      error))
+        goto out;
     }
 
   dbus_free (keyring->keys);
@@ -697,6 +683,8 @@ _dbus_keyring_new_homedir (const DBusString *username,
   dbus_bool_t error_set;
   DBusString dotdir;
   DBusError tmp_error;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   keyring = NULL;
   error_set = FALSE;
@@ -919,6 +907,8 @@ _dbus_keyring_get_best_key (DBusKeyring  *keyring,
 {
   DBusKey *key;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   key = find_recent_key (keyring);
   if (key)
     return key->id;

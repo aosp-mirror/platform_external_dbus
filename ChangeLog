@@ -1,3 +1,19 @@
+2003-03-24  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-sysdeps.c (_dbus_set_fd_nonblocking): move to this
+	file
+
+	* dbus/dbus-errors.c (dbus_set_error, dbus_set_error_const): allow 
+	NULL argument for "message" if the error is a well-known one, 
+	fill in a generic message in this case.
+
+	* dbus/dbus-errors.h (DBusResultCode): Kill DBusResultCode in
+	favor of DBusError
+
+	* bus/test.c (bus_test_flush_bus): add
+
+	* bus/policy.c (bus_policy_test): test code stub
+
 2003-03-24  Havoc Pennington  <hp@pobox.com>
 
 	* bus/connection.c (bus_connections_setup_connection): set up 

@@ -71,30 +71,6 @@ struct DBusError
 #define DBUS_ERROR_FILE_NOT_FOUND             "org.freedesktop.DBus.Error.FileNotFound"
 #define DBUS_ERROR_UNKNOWN_MESSAGE            "org.freedesktop.DBus.Error.UnknownMessage"
 
-typedef enum
-{
-  DBUS_RESULT_SUCCESS,         /**< Operation was successful. */
-  DBUS_RESULT_FAILED,          /**< Operation failed for unspecified reason. */
-  DBUS_RESULT_NO_MEMORY,       /**< Operation failed for lack of memory. */
-  DBUS_RESULT_IO_ERROR,        /**< Operation failed because of an IO error,
-                                *   typically the other end closed the
-                                *   connection.
-                                */
-  DBUS_RESULT_BAD_ADDRESS,     /**< Address was bad, could not be parsed. */
-  DBUS_RESULT_NOT_SUPPORTED,   /**< Feature is not supported. */
-  DBUS_RESULT_LIMITS_EXCEEDED, /**< Some kernel resource limit exceeded. */
-  DBUS_RESULT_ACCESS_DENIED,   /**< Some sort of permissions/security problem. */
-  DBUS_RESULT_AUTH_FAILED,     /**< Could not authenticate. */
-  DBUS_RESULT_NO_SERVER,       /**< No one listening on the other end. */
-  DBUS_RESULT_TIMEOUT,         /**< Timed out trying to connect. */
-  DBUS_RESULT_NO_NETWORK,      /**< Can't find the network */
-  DBUS_RESULT_ADDRESS_IN_USE,  /**< Someone's already using the address */
-  DBUS_RESULT_DISCONNECTED,    /**< No more connection. */
-  DBUS_RESULT_INVALID_ARGS,    /**< One or more invalid arguments encountered. */
-  DBUS_RESULT_NO_REPLY,        /**< Did not get a reply message. */
-  DBUS_RESULT_FILE_NOT_FOUND   /**< File doesn't exist */
-} DBusResultCode;
-
 void        dbus_error_init      (DBusError       *error);
 void        dbus_error_free      (DBusError       *error);
 void        dbus_set_error       (DBusError       *error,
@@ -109,11 +85,6 @@ void        dbus_move_error      (DBusError       *src,
 dbus_bool_t dbus_error_has_name  (const DBusError *error,
                                   const char      *name);
 dbus_bool_t dbus_error_is_set    (const DBusError *error);
-
-
-void        dbus_set_result       (DBusResultCode *code_address,
-                                   DBusResultCode  code);
-const char* dbus_result_to_string (DBusResultCode  code);
 
 DBUS_END_DECLS;
 

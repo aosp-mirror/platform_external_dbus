@@ -6,7 +6,6 @@ int
 main (int argc, char **argv)
 {
   DBusConnection *connection;
-  DBusResultCode result;
   DBusMessage *message, *reply;  
   GMainLoop *loop;
   DBusError error;
@@ -19,11 +18,13 @@ main (int argc, char **argv)
 
   loop = g_main_loop_new (NULL, FALSE);
 
-  connection = dbus_connection_open (argv[1], &result);
+  dbus_error_init (&error);
+  connection = dbus_connection_open (argv[1], &error);
   if (connection == NULL)
     {
       g_printerr ("Failed to open connection to %s: %s\n", argv[1],
-                  dbus_result_to_string (result));
+                  error.message);
+      dbus_error_free (&error);
       return 1;
     }
 

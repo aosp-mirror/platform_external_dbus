@@ -251,40 +251,6 @@ _dbus_strdup (const char *str)
 }
 
 /**
- * Sets a file descriptor to be nonblocking.
- *
- * @param fd the file descriptor.
- * @param result address of result code.
- * @returns #TRUE on success.
- */
-dbus_bool_t
-_dbus_set_fd_nonblocking (int             fd,
-                          DBusResultCode *result)
-{
-  int val;
-
-  val = fcntl (fd, F_GETFL, 0);
-  if (val < 0)
-    {
-      dbus_set_result (result, _dbus_result_from_errno (errno));
-      _dbus_verbose ("Failed to get flags for fd %d: %s\n", fd,
-                     _dbus_strerror (errno));
-      return FALSE;
-    }
-
-  if (fcntl (fd, F_SETFL, val | O_NONBLOCK) < 0)
-    {
-      dbus_set_result (result, _dbus_result_from_errno (errno));      
-      _dbus_verbose ("Failed to set fd %d nonblocking: %s\n",
-                     fd, _dbus_strerror (errno));
-
-      return FALSE;
-    }
-
-  return TRUE;
-}
-
-/**
  * Returns a string describing the given type.
  *
  * @param type the type to describe

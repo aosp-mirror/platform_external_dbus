@@ -133,21 +133,23 @@ static DBusServerVTable debug_vtable = {
  * Creates a new debug server using an in-process pipe
  *
  * @param server_name the name of the server.
- * @param result address where a result code can be returned.
+ * @param error address where an error can be returned.
  * @returns a new server, or #NULL on failure.
  */
 DBusServer*
 _dbus_server_debug_pipe_new (const char     *server_name,
-                             DBusResultCode *result)
+                             DBusError      *error)
 {
   DBusServerDebugPipe *debug_server;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   if (!pipe_hash_ref ())
     return NULL;
   
   if (_dbus_hash_table_lookup_string (server_pipe_hash, server_name) != NULL)
     {
-      dbus_set_result (result, DBUS_RESULT_ADDRESS_IN_USE);
+      dbus_set_error (error, DBUS_ERROR_ADDRESS_IN_USE, NULL);
       pipe_hash_unref ();
       return NULL;
     }
@@ -166,7 +168,7 @@ _dbus_server_debug_pipe_new (const char     *server_name,
       dbus_free (debug_server->name);
       dbus_free (debug_server);
 
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 
       pipe_hash_unref ();
       return NULL;
@@ -178,7 +180,7 @@ _dbus_server_debug_pipe_new (const char     *server_name,
       dbus_free (debug_server->name);      
       dbus_free (debug_server);
 
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 
       pipe_hash_unref ();
       return NULL;
@@ -192,13 +194,11 @@ _dbus_server_debug_pipe_new (const char     *server_name,
       dbus_free (debug_server->name);      
       dbus_free (debug_server);
 
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 
       pipe_hash_unref ();
       return NULL;
     }
-  
-  dbus_set_result (result, DBUS_RESULT_SUCCESS);
   
   return (DBusServer *)debug_server;
 }
@@ -214,7 +214,7 @@ _dbus_server_debug_pipe_new (const char     *server_name,
  */
 DBusTransport*
 _dbus_transport_debug_pipe_new (const char     *server_name,
-                                DBusResultCode *result)
+                                DBusError      *error)
 {
   DBusTransport *client_transport;
   DBusTransport *server_transport;
@@ -222,12 +222,14 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
   int client_fd, server_fd;
   DBusServer *server;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   server = _dbus_hash_table_lookup_string (server_pipe_hash,
                                            server_name);
   if (server == NULL ||
       ((DBusServerDebugPipe*)server)->disconnected)
     {
-      dbus_set_result (result, DBUS_RESULT_BAD_ADDRESS);
+      dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS, NULL);
       return NULL;
     }
   
@@ -235,7 +237,7 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
                                NULL))
     {
       _dbus_verbose ("failed to create full duplex pipe\n");
-      dbus_set_result (result, DBUS_RESULT_FAILED);
+      dbus_set_error (error, DBUS_ERROR_FAILED, "Could not create full-duplex pipe");
       return NULL;
     }
 
@@ -248,7 +250,7 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
     {
       _dbus_close (client_fd, NULL);
       _dbus_close (server_fd, NULL);
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
     }
 
@@ -260,7 +262,7 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
     {
       _dbus_transport_unref (client_transport);
       _dbus_close (server_fd, NULL);
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
     }
 
@@ -273,7 +275,7 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
   if (connection == NULL)
     {
       _dbus_transport_unref (client_transport);
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
     }
 

@@ -35,7 +35,7 @@ typedef struct DBusAddressEntry DBusAddressEntry;
 dbus_bool_t dbus_parse_address            (const char         *address,
 					   DBusAddressEntry ***entry,
 					   int                *array_len,
-					   DBusResultCode     *result);
+					   DBusError          *error);
 const char *dbus_address_entry_get_value  (DBusAddressEntry   *entry,
 					   const char         *key);
 const char *dbus_address_entry_get_method (DBusAddressEntry   *entry);

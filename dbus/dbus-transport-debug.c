@@ -307,28 +307,30 @@ _dbus_transport_debug_server_new (DBusTransport *client)
  *
  * @param server_name name of the server transport that
  * the client should try to connect to.
- * @param result address where a result code can be returned.
+ * @param error address where an error can be returned.
  * @returns a new transport, or #NULL on failure. 
  */
 DBusTransport*
 _dbus_transport_debug_client_new (const char     *server_name,
-				  DBusResultCode *result)
+				  DBusError      *error)
 {
   DBusServer *debug_server;
   DBusTransportDebug *debug_transport;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   debug_server = _dbus_server_debug_lookup (server_name);
 
   if (!debug_server)
     {
-      dbus_set_result (result, DBUS_RESULT_NO_SERVER);
+      dbus_set_error (error, DBUS_ERROR_NO_SERVER, NULL);
       return NULL;
     }
 
   debug_transport = dbus_new0 (DBusTransportDebug, 1);
   if (debug_transport == NULL)
     {
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
     }
 
@@ -337,7 +339,7 @@ _dbus_transport_debug_client_new (const char     *server_name,
 				  FALSE))
     {
       dbus_free (debug_transport);
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
     }
   
@@ -345,7 +347,7 @@ _dbus_transport_debug_client_new (const char     *server_name,
     {
       _dbus_transport_finalize_base (&debug_transport->base);
       dbus_free (debug_transport);
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
     }
   
@@ -355,7 +357,7 @@ _dbus_transport_debug_client_new (const char     *server_name,
       _dbus_timeout_unref (debug_transport->timeout);
       _dbus_transport_finalize_base (&debug_transport->base);
       dbus_free (debug_transport);
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
     }
 

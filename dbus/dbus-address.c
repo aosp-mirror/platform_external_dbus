@@ -177,13 +177,15 @@ dbus_bool_t
 dbus_parse_address (const char         *address,
 		    DBusAddressEntry ***entry,
 		    int                *array_len,
-		    DBusResultCode     *result)
+                    DBusError          *error)
 {
   DBusString str;
   int pos, end_pos, len, i;
   DBusList *entries, *link;
   DBusAddressEntry **entry_array;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   _dbus_string_init_const (&str, address);
 
   entries = NULL;
@@ -199,7 +201,7 @@ dbus_parse_address (const char         *address,
       entry = create_entry ();
       if (!entry)
 	{
-	  dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+	  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 
 	  goto error;
 	}
@@ -207,7 +209,7 @@ dbus_parse_address (const char         *address,
       /* Append the entry */
       if (!_dbus_list_append (&entries, entry))
 	{
-	  dbus_set_result (result, DBUS_RESULT_NO_MEMORY);	  
+	  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 	  dbus_address_entry_free (entry);
 	  goto error;
 	}
@@ -219,13 +221,13 @@ dbus_parse_address (const char         *address,
       /* Look for the colon : */
       if (!_dbus_string_find_to (&str, pos, end_pos, ":", &found_pos))
 	{
-	  dbus_set_result (result, DBUS_RESULT_BAD_ADDRESS);
+	  dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS, "Address does not contain a colon");
 	  goto error;
 	}
 
       if (!_dbus_string_copy_len (&str, pos, found_pos - pos, &entry->method, 0))
 	{
-	  dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+	  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 	  goto error;
 	}
 	  
@@ -241,8 +243,9 @@ dbus_parse_address (const char         *address,
 	  if (!_dbus_string_find (&str, pos, "=", &equals_pos) ||
 	      equals_pos == pos || equals_pos + 1 == end_pos)
 	    {
-	      dbus_set_result (result, DBUS_RESULT_BAD_ADDRESS);
-	      goto error;
+	      dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                              "'=' character not found or has no value following it");
+              goto error;
 	    }
 	  else
 	    {
@@ -253,21 +256,21 @@ dbus_parse_address (const char         *address,
 
 	      if (!key)
 		{
-		  dbus_set_result (result, DBUS_RESULT_NO_MEMORY);		  
+		  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);		  
 		  goto error;
 		}
 
 	      value = dbus_new0 (DBusString, 1);
 	      if (!value)
 		{
-		  dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+		  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 		  dbus_free (key);
 		  goto error;
 		}
 	      
 	      if (!_dbus_string_init (key, _DBUS_INT_MAX))
 		{
-		  dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+		  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 		  dbus_free (key);
 		  dbus_free (value);
 		  
@@ -276,7 +279,7 @@ dbus_parse_address (const char         *address,
 	      
 	      if (!_dbus_string_init (value, _DBUS_INT_MAX))
 		{
-		  dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+		  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 		  _dbus_string_free (key);
 
 		  dbus_free (key);
@@ -286,7 +289,7 @@ dbus_parse_address (const char         *address,
 
 	      if (!_dbus_string_copy_len (&str, pos, equals_pos - pos, key, 0))
 		{
-		  dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+		  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 		  _dbus_string_free (key);
 		  _dbus_string_free (value);
 
@@ -297,7 +300,7 @@ dbus_parse_address (const char         *address,
 
 	      if (!_dbus_string_copy_len (&str, equals_pos + 1, comma_pos - equals_pos - 1, value, 0))
 		{
-		  dbus_set_result (result, DBUS_RESULT_NO_MEMORY);		  
+		  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);		  
 		  _dbus_string_free (key);
 		  _dbus_string_free (value);
 
@@ -308,7 +311,7 @@ dbus_parse_address (const char         *address,
 
 	      if (!_dbus_list_append (&entry->keys, key))
 		{
-		  dbus_set_result (result, DBUS_RESULT_NO_MEMORY);		  
+		  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);		  
 		  _dbus_string_free (key);
 		  _dbus_string_free (value);
 
@@ -319,7 +322,7 @@ dbus_parse_address (const char         *address,
 
 	      if (!_dbus_list_append (&entry->values, value))
 		{
-		  dbus_set_result (result, DBUS_RESULT_NO_MEMORY);		  
+		  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);		  
 		  _dbus_string_free (value);
 
 		  dbus_free (value);
@@ -339,7 +342,7 @@ dbus_parse_address (const char         *address,
 
   if (!entry_array)
     {
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       
       goto error;
     }
@@ -358,7 +361,6 @@ dbus_parse_address (const char         *address,
   _dbus_list_clear (&entries);
   *entry = entry_array;
 
-  dbus_set_result (result, DBUS_RESULT_SUCCESS);
   return TRUE;
 
  error:
@@ -387,10 +389,12 @@ _dbus_address_test (void)
 {
   DBusAddressEntry **entries;
   int len;  
-  DBusResultCode result;
+  DBusError error;
 
+  dbus_error_init (&error);
+  
   if (!dbus_parse_address ("unix:path=/tmp/foo;debug:name=test,sliff=sloff;",
-			   &entries, &len, &result))
+			   &entries, &len, &error))
     _dbus_assert_not_reached ("could not parse address");
   _dbus_assert (len == 2);
   _dbus_assert (strcmp (dbus_address_entry_get_value (entries[0], "path"), "/tmp/foo") == 0);
@@ -400,26 +404,40 @@ _dbus_address_test (void)
   dbus_address_entries_free (entries);
 
   /* Different possible errors */
-  if (dbus_parse_address ("foo", &entries, &len, &result))
+  if (dbus_parse_address ("foo", &entries, &len, &error))
     _dbus_assert_not_reached ("Parsed incorrect address.");
-
-  if (dbus_parse_address ("foo:bar", &entries, &len, &result))
+  else
+    dbus_error_free (&error);
+  
+  if (dbus_parse_address ("foo:bar", &entries, &len, &error))
     _dbus_assert_not_reached ("Parsed incorrect address.");
-
-  if (dbus_parse_address ("foo:bar,baz", &entries, &len, &result))
+  else
+    dbus_error_free (&error);
+  
+  if (dbus_parse_address ("foo:bar,baz", &entries, &len, &error))
     _dbus_assert_not_reached ("Parsed incorrect address.");
-
-  if (dbus_parse_address ("foo:bar=foo,baz", &entries, &len, &result))
+  else
+    dbus_error_free (&error);
+  
+  if (dbus_parse_address ("foo:bar=foo,baz", &entries, &len, &error))
     _dbus_assert_not_reached ("Parsed incorrect address.");
-
-  if (dbus_parse_address ("foo:bar=foo;baz", &entries, &len, &result))
+  else
+    dbus_error_free (&error);
+  
+  if (dbus_parse_address ("foo:bar=foo;baz", &entries, &len, &error))
     _dbus_assert_not_reached ("Parsed incorrect address.");
-
-  if (dbus_parse_address ("foo:=foo", &entries, &len, &result))
+  else
+    dbus_error_free (&error);
+  
+  if (dbus_parse_address ("foo:=foo", &entries, &len, &error))
     _dbus_assert_not_reached ("Parsed incorrect address.");
-
-  if (dbus_parse_address ("foo:foo=", &entries, &len, &result))
+  else
+    dbus_error_free (&error);
+  
+  if (dbus_parse_address ("foo:foo=", &entries, &len, &error))
     _dbus_assert_not_reached ("Parsed incorrect address.");
+  else
+    dbus_error_free (&error);
   
   return TRUE;
 }

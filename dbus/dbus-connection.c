@@ -800,19 +800,24 @@ _dbus_connection_set_connection_counter (DBusConnection *connection,
  * in the reason for failure.
  * 
  * @param address the address.
- * @param result address where a result code can be returned.
+ * @param error address where an error can be returned.
  * @returns new connection, or #NULL on failure.
  */
 DBusConnection*
 dbus_connection_open (const char     *address,
-                      DBusResultCode *result)
+                      DBusError      *error)
 {
   DBusConnection *connection;
   DBusTransport *transport;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  transport = _dbus_transport_open (address, result);
+  transport = _dbus_transport_open (address, error);
   if (transport == NULL)
-    return NULL;
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      return NULL;
+    }
   
   connection = _dbus_connection_new_for_transport (transport);
 
@@ -820,7 +825,7 @@ dbus_connection_open (const char     *address,
   
   if (connection == NULL)
     {
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
     }
   
@@ -1424,6 +1429,8 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
   long end_tv_sec, end_tv_usec;
   long tv_sec, tv_usec;
   DBusDispatchStatus status;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   if (timeout_milliseconds == -1)
     timeout_milliseconds = DEFAULT_TIMEOUT_VALUE;

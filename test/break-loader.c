@@ -154,7 +154,7 @@ try_mutated_data (const DBusString *data)
       if (failed)
         {
           const char *filename_c;
-          DBusResultCode result;
+          DBusError error;
 
           _dbus_string_append (&filename, ".message-raw");
           
@@ -162,12 +162,12 @@ try_mutated_data (const DBusString *data)
           printf ("Child failed, writing %s\n",
                   filename_c);
 
-          result = _dbus_string_save_to_file (data, &filename);
-
-          if (result != DBUS_RESULT_SUCCESS)
+          dbus_error_init (&error);
+          if (!_dbus_string_save_to_file (data, &filename, &error))
             {
               fprintf (stderr, "Failed to save failed message data: %s\n",
-                       dbus_result_to_string (result));
+                       error.message);
+              dbus_error_free (&error);
               exit (1); /* so we can see the seed that was printed out */
             }
 

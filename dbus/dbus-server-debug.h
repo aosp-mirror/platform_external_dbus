@@ -30,7 +30,7 @@
 DBUS_BEGIN_DECLS;
 
 DBusServer* _dbus_server_debug_new              (const char     *server_name,
-						 DBusResultCode *result);
+                                                 DBusError      *error);
 DBusServer* _dbus_server_debug_lookup           (const char     *server_name);
 dbus_bool_t _dbus_server_debug_accept_transport (DBusServer     *server,
 						 DBusTransport  *transport);

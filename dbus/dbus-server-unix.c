@@ -250,17 +250,19 @@ _dbus_server_new_for_fd (int fd)
  * Creates a new server listening on the given Unix domain socket.
  *
  * @param path the path for the domain socket.
- * @param result location to store reason for failure.
+ * @param error location to store reason for failure.
  * @returns the new server, or #NULL on failure.
  */
 DBusServer*
 _dbus_server_new_for_domain_socket (const char     *path,
-                                    DBusResultCode *result)
+                                    DBusError      *error)
 {
   DBusServer *server;
   int listen_fd;
 
-  listen_fd = _dbus_listen_unix_socket (path, result);
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  listen_fd = _dbus_listen_unix_socket (path, error);
   _dbus_fd_set_close_on_exec (listen_fd);
   
   if (listen_fd < 0)
@@ -269,7 +271,7 @@ _dbus_server_new_for_domain_socket (const char     *path,
   server = _dbus_server_new_for_fd (listen_fd);
   if (server == NULL)
     {
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       close (listen_fd);
       return NULL;
     }
@@ -278,22 +280,25 @@ _dbus_server_new_for_domain_socket (const char     *path,
 }
 
 /**
- * Creates a new server listening on the given hostname and port
+ * Creates a new server listening on the given hostname and port.
+ * If the hostname is NULL, listens on localhost.
  *
  * @param host the hostname to listen on.
  * @param port the port to listen on.
- * @param result location to store reason for failure.
+ * @param error location to store reason for failure.
  * @returns the new server, or #NULL on failure.
  */
 DBusServer*
 _dbus_server_new_for_tcp_socket (const char     *host,
                                  dbus_uint32_t   port,
-                                 DBusResultCode *result)
+                                 DBusError      *error)
 {
   DBusServer *server;
   int listen_fd;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  listen_fd = _dbus_listen_tcp_socket (host, port, result);
+  listen_fd = _dbus_listen_tcp_socket (host, port, error);
   _dbus_fd_set_close_on_exec (listen_fd);
   
   if (listen_fd < 0)
@@ -302,7 +307,7 @@ _dbus_server_new_for_tcp_socket (const char     *host,
   server = _dbus_server_new_for_fd (listen_fd);
   if (server == NULL)
     {
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       close (listen_fd);
       return NULL;
     }

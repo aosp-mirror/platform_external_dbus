@@ -184,6 +184,8 @@ dbus_bus_register (DBusConnection *connection,
   char *name;
   BusData *bd;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   bd = ensure_bus_data (connection);
   if (bd == NULL)
     {
@@ -363,6 +365,8 @@ dbus_bus_service_exists (DBusConnection *connection,
 {
   DBusMessage *message, *reply;
   unsigned int exists;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   message = dbus_message_new (DBUS_SERVICE_DBUS,
                               DBUS_MESSAGE_SERVICE_EXISTS);

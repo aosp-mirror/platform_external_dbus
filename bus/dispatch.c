@@ -441,22 +441,6 @@ typedef dbus_bool_t (* Check2Func) (BusContext     *context,
 
 static dbus_bool_t check_no_leftovers (BusContext *context);
 
-static void
-flush_bus (BusContext *context)
-{
-  /* This is race condition city, obviously. since we're all in one
-   * process we can't block, we just have to wait for data we put in
-   * one end of the debug pipe to come out the other end...
-   * a more robust setup would be good.
-   */
-  
-  while (bus_loop_iterate (FALSE))
-    ;
-  _dbus_sleep_milliseconds (15);
-  while (bus_loop_iterate (FALSE))
-    ;
-}
-
 typedef struct
 {
   const char *expected_service_name;
@@ -549,7 +533,7 @@ kill_client_connection (BusContext     *context,
   /* kick in the disconnect handler that unrefs the connection */
   dbus_connection_disconnect (connection);
 
-  flush_bus (context);
+  bus_test_flush_bus (context);
 
   _dbus_assert (bus_test_client_listed (connection));
   
@@ -742,7 +726,7 @@ check_hello_message (BusContext     *context,
   dbus_message_unref (message);
   message = NULL;
   
-  flush_bus (context);
+  bus_test_flush_bus (context);
 
   if (!dbus_connection_get_is_connected (connection))
     {
@@ -891,13 +875,15 @@ static dbus_bool_t
 check_hello_connection (BusContext *context)
 {
   DBusConnection *connection;
-  DBusResultCode result;
+  DBusError error;
 
-  result = DBUS_RESULT_SUCCESS;
-  connection = dbus_connection_open ("debug-pipe:name=test-server", &result);
+  dbus_error_init (&error);
+
+  connection = dbus_connection_open ("debug-pipe:name=test-server", &error);
   if (connection == NULL)
     {
-      _dbus_assert (result != DBUS_RESULT_SUCCESS);
+      _DBUS_ASSERT_ERROR_IS_SET (&error);
+      dbus_error_free (&error);
       return TRUE;
     }
 
@@ -980,7 +966,6 @@ bus_dispatch_test (const DBusString *test_data_dir)
   DBusConnection *foo;
   DBusConnection *bar;
   DBusConnection *baz;
-  DBusResultCode result;
 
   dbus_error_init (&error);
   context = bus_context_new ("debug-pipe:name=test-server",
@@ -989,7 +974,7 @@ bus_dispatch_test (const DBusString *test_data_dir)
   if (context == NULL)
     _dbus_assert_not_reached ("could not alloc context");
   
-  foo = dbus_connection_open ("debug-pipe:name=test-server", &result);
+  foo = dbus_connection_open ("debug-pipe:name=test-server", &error);
   if (foo == NULL)
     _dbus_assert_not_reached ("could not alloc connection");
 
@@ -999,7 +984,7 @@ bus_dispatch_test (const DBusString *test_data_dir)
   if (!check_hello_message (context, foo))
     _dbus_assert_not_reached ("hello message failed");
   
-  bar = dbus_connection_open ("debug-pipe:name=test-server", &result);
+  bar = dbus_connection_open ("debug-pipe:name=test-server", &error);
   if (bar == NULL)
     _dbus_assert_not_reached ("could not alloc connection");
 
@@ -1009,7 +994,7 @@ bus_dispatch_test (const DBusString *test_data_dir)
   if (!check_hello_message (context, bar))
     _dbus_assert_not_reached ("hello message failed");
   
-  baz = dbus_connection_open ("debug-pipe:name=test-server", &result);
+  baz = dbus_connection_open ("debug-pipe:name=test-server", &error);
   if (baz == NULL)
     _dbus_assert_not_reached ("could not alloc connection");
 

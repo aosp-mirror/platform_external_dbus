@@ -31,7 +31,7 @@ DBUS_BEGIN_DECLS;
 typedef struct DBusTransport DBusTransport;
 
 DBusTransport*     _dbus_transport_open                       (const char                *address,
-                                                               DBusResultCode            *result);
+                                                               DBusError                 *error);
 void               _dbus_transport_ref                        (DBusTransport             *transport);
 void               _dbus_transport_unref                      (DBusTransport             *transport);
 void               _dbus_transport_disconnect                 (DBusTransport             *transport);

@@ -246,22 +246,30 @@ _dbus_server_toggle_timeout (DBusServer  *server,
  * DBusResultCode is a bit limiting here.
  *
  * @param address the address of this server.
- * @param result location to store rationale for failure.
+ * @param error location to store rationale for failure.
  * @returns a new DBusServer, or #NULL on failure.
  * 
  */
 DBusServer*
 dbus_server_listen (const char     *address,
-                    DBusResultCode *result)
+                    DBusError      *error)
 {
   DBusServer *server;
   DBusAddressEntry **entries;
   int len, i;
+  const char *address_problem_type;
+  const char *address_problem_field;
+  const char *address_problem_other;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  if (!dbus_parse_address (address, &entries, &len, result))
+  if (!dbus_parse_address (address, &entries, &len, error))
     return NULL;
 
   server = NULL;
+  address_problem_type = NULL;
+  address_problem_field = NULL;
+  address_problem_other = NULL;
   
   for (i = 0; i < len; i++)
     {
@@ -272,9 +280,13 @@ dbus_server_listen (const char     *address,
 	  const char *path = dbus_address_entry_get_value (entries[i], "path");
 
 	  if (path == NULL)
-	    goto bad_address;
+            {
+              address_problem_type = "unix";
+              address_problem_field = "path";
+              goto bad_address;
+            }
 
-	  server = _dbus_server_new_for_domain_socket (path, result);
+	  server = _dbus_server_new_for_domain_socket (path, error);
 
 	  if (server)
 	    break;
@@ -288,16 +300,23 @@ dbus_server_listen (const char     *address,
           dbus_bool_t sresult;
           
 	  if (port == NULL)
-	    goto bad_address;
+            {
+              address_problem_type = "tcp";
+              address_problem_field = "port";
+              goto bad_address;
+            }
 
           _dbus_string_init_const (&str, port);
           sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
           _dbus_string_free (&str);
           
           if (sresult == FALSE || lport <= 0 || lport > 65535)
-            goto bad_address;
+            {
+              address_problem_other = "Port is not an integer between 0 and 65535";
+              goto bad_address;
+            }
           
-	  server = _dbus_server_new_for_tcp_socket (host, lport, result);
+	  server = _dbus_server_new_for_tcp_socket (host, lport, error);
 
 	  if (server)
 	    break;
@@ -308,9 +327,13 @@ dbus_server_listen (const char     *address,
 	  const char *name = dbus_address_entry_get_value (entries[i], "name");
 
 	  if (name == NULL)
-	    goto bad_address;
+            {
+              address_problem_type = "debug";
+              address_problem_field = "name";
+              goto bad_address;
+            }
 
-	  server = _dbus_server_debug_new (name, result);
+	  server = _dbus_server_debug_new (name, error);
 
 	  if (server)
 	    break;
@@ -320,16 +343,23 @@ dbus_server_listen (const char     *address,
 	  const char *name = dbus_address_entry_get_value (entries[i], "name");
 
 	  if (name == NULL)
-	    goto bad_address;
+            {
+              address_problem_type = "debug-pipe";
+              address_problem_field = "name";
+              goto bad_address;
+            }
 
-	  server = _dbus_server_debug_pipe_new (name, result);
+	  server = _dbus_server_debug_pipe_new (name, error);
 
 	  if (server)
 	    break;
 	}
 #endif
       else
-        goto bad_address;
+        {
+          address_problem_other = "Unknown address type (examples of valid types are \"unix\" and \"tcp\")";
+          goto bad_address;
+        }
     }
   
   dbus_address_entries_free (entries);
@@ -337,7 +367,14 @@ dbus_server_listen (const char     *address,
 
  bad_address:
   dbus_address_entries_free (entries);
-  dbus_set_result (result, DBUS_RESULT_BAD_ADDRESS);
+  if (address_problem_type != NULL)
+    dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                    "Server address of type %s was missing argument %s",
+                    address_problem_type, address_problem_field);
+  else
+    dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                    "Could not parse server address: %s",
+                    address_problem_other);
 
   return NULL;
 }

@@ -202,7 +202,7 @@ main (int argc, char *argv[])
 {
   GMainLoop *loop;
   DBusServer *server;
-  DBusResultCode result;
+  DBusError error;
 
   g_thread_init (NULL);
   dbus_gthread_init ();
@@ -213,11 +213,13 @@ main (int argc, char *argv[])
       return 1;
     }
 
-  server = dbus_server_listen (argv[1], &result);
+  dbus_error_init (&error);
+  server = dbus_server_listen (argv[1], &error);
   if (server == NULL)
     {
       fprintf (stderr, "Failed to start server on %s: %s\n",
-               argv[1], dbus_result_to_string (result));
+               argv[1], error.message);
+      dbus_error_free (&error);
       return 1;
     }
 

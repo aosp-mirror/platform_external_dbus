@@ -319,25 +319,26 @@ _dbus_write_two (int               fd,
  * nonblocking.
  *
  * @param path the path to UNIX domain socket
- * @param result return location for error code
+ * @param error return location for error code
  * @returns connection file descriptor or -1 on error
  */
 int
 _dbus_connect_unix_socket (const char     *path,
-                           DBusResultCode *result)
+                           DBusError      *error)
 {
   int fd;
   struct sockaddr_un addr;  
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   fd = socket (PF_UNIX, SOCK_STREAM, 0);
   
   if (fd < 0)
     {
-      dbus_set_result (result,
-                       _dbus_result_from_errno (errno));
-      
-      _dbus_verbose ("Failed to create socket: %s\n",
-                     _dbus_strerror (errno)); 
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to create socket: %s",
+                      _dbus_strerror (errno)); 
       
       return -1;
     }
@@ -349,11 +350,10 @@ _dbus_connect_unix_socket (const char     *path,
   
   if (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0)
     {      
-      dbus_set_result (result,
-                       _dbus_result_from_errno (errno));
-
-      _dbus_verbose ("Failed to connect to socket %s: %s\n",
-                     path, _dbus_strerror (errno));
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to connect to socket %s: %s",
+                      path, _dbus_strerror (errno));
 
       close (fd);
       fd = -1;
@@ -361,8 +361,10 @@ _dbus_connect_unix_socket (const char     *path,
       return -1;
     }
 
-  if (!_dbus_set_fd_nonblocking (fd, result))
+  if (!_dbus_set_fd_nonblocking (fd, error))
     {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      
       close (fd);
       fd = -1;
 
@@ -378,23 +380,25 @@ _dbus_connect_unix_socket (const char     *path,
  * set to be nonblocking. 
  *
  * @param path the socket name
- * @param result return location for errors
+ * @param error return location for errors
  * @returns the listening file descriptor or -1 on error
  */
 int
 _dbus_listen_unix_socket (const char     *path,
-                          DBusResultCode *result)
+                          DBusError      *error)
 {
   int listen_fd;
   struct sockaddr_un addr;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   listen_fd = socket (PF_UNIX, SOCK_STREAM, 0);
   
   if (listen_fd < 0)
     {
-      dbus_set_result (result, _dbus_result_from_errno (errno));
-      _dbus_verbose ("Failed to create socket \"%s\": %s\n",
-                     path, _dbus_strerror (errno));
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to create socket \"%s\": %s",
+                      path, _dbus_strerror (errno));
       return -1;
     }
 
@@ -405,24 +409,25 @@ _dbus_listen_unix_socket (const char     *path,
   
   if (bind (listen_fd, (struct sockaddr*) &addr, SUN_LEN (&addr)) < 0)
     {
-      dbus_set_result (result, _dbus_result_from_errno (errno));
-      _dbus_verbose ("Failed to bind socket \"%s\": %s\n",
-                     path, _dbus_strerror (errno));
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to bind socket \"%s\": %s",
+                      path, _dbus_strerror (errno));
       close (listen_fd);
       return -1;
     }
 
   if (listen (listen_fd, 30 /* backlog */) < 0)
     {
-      dbus_set_result (result, _dbus_result_from_errno (errno));      
-      _dbus_verbose ("Failed to listen on socket \"%s\": %s\n",
-                     path, _dbus_strerror (errno));
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to listen on socket \"%s\": %s",
+                      path, _dbus_strerror (errno));
       close (listen_fd);
       return -1;
     }
 
-  if (!_dbus_set_fd_nonblocking (listen_fd, result))
+  if (!_dbus_set_fd_nonblocking (listen_fd, error))
     {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
       close (listen_fd);
       return -1;
     }
@@ -437,28 +442,29 @@ _dbus_listen_unix_socket (const char     *path,
  *
  * @param host the host name to connect to
  * @param port the prot to connect to
- * @param result return location for error code
+ * @param error return location for error code
  * @returns connection file descriptor or -1 on error
  */
 int
 _dbus_connect_tcp_socket (const char     *host,
                           dbus_uint32_t   port,
-                          DBusResultCode *result)
+                          DBusError      *error)
 {
   int fd;
   struct sockaddr_in addr;
   struct hostent *he;
   struct in_addr *haddr;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   fd = socket (AF_INET, SOCK_STREAM, 0);
   
   if (fd < 0)
     {
-      dbus_set_result (result,
-                       _dbus_result_from_errno (errno));
-      
-      _dbus_verbose ("Failed to create socket: %s\n",
-                     _dbus_strerror (errno)); 
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to create socket: %s",
+                      _dbus_strerror (errno)); 
       
       return -1;
     }
@@ -469,10 +475,10 @@ _dbus_connect_tcp_socket (const char     *host,
   he = gethostbyname (host);
   if (he == NULL) 
     {
-      dbus_set_result (result,
-                       _dbus_result_from_errno (errno));
-      _dbus_verbose ("Failed to lookup hostname: %s\n",
-                     host);
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to lookup hostname: %s",
+                      host);
       return -1;
     }
   
@@ -485,11 +491,10 @@ _dbus_connect_tcp_socket (const char     *host,
   
   if (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0)
     {      
-      dbus_set_result (result,
-                       _dbus_result_from_errno (errno));
-
-      _dbus_verbose ("Failed to connect to socket %s: %s:%d\n",
-                     host, _dbus_strerror (errno), port);
+      dbus_set_error (error,
+                       _dbus_error_from_errno (errno),
+                      "Failed to connect to socket %s: %s:%d",
+                      host, _dbus_strerror (errno), port);
 
       close (fd);
       fd = -1;
@@ -497,7 +502,7 @@ _dbus_connect_tcp_socket (const char     *host,
       return -1;
     }
 
-  if (!_dbus_set_fd_nonblocking (fd, result))
+  if (!_dbus_set_fd_nonblocking (fd, error))
     {
       close (fd);
       fd = -1;
@@ -515,26 +520,28 @@ _dbus_connect_tcp_socket (const char     *host,
  *
  * @param host the host name to listen on
  * @param port the prot to listen on
- * @param result return location for errors
+ * @param error return location for errors
  * @returns the listening file descriptor or -1 on error
  */
 int
 _dbus_listen_tcp_socket (const char     *host,
                          dbus_uint32_t   port,
-                         DBusResultCode *result)
+                         DBusError      *error)
 {
   int listen_fd;
   struct sockaddr_in addr;
   struct hostent *he;
   struct in_addr *haddr;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   listen_fd = socket (AF_INET, SOCK_STREAM, 0);
   
   if (listen_fd < 0)
     {
-      dbus_set_result (result, _dbus_result_from_errno (errno));
-      _dbus_verbose ("Failed to create socket \"%s:%d\": %s\n",
-                     host, port, _dbus_strerror (errno));
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to create socket \"%s:%d\": %s",
+                      host, port, _dbus_strerror (errno));
       return -1;
     }
 
@@ -544,10 +551,10 @@ _dbus_listen_tcp_socket (const char     *host,
   he = gethostbyname (host);
   if (he == NULL) 
     {
-      dbus_set_result (result,
-                       _dbus_result_from_errno (errno));
-      _dbus_verbose ("Failed to lookup hostname: %s\n",
-                     host);
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to lookup hostname: %s",
+                      host);
       return -1;
     }
   
@@ -560,23 +567,23 @@ _dbus_listen_tcp_socket (const char     *host,
 
   if (bind (listen_fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
     {
-      dbus_set_result (result, _dbus_result_from_errno (errno));
-      _dbus_verbose ("Failed to bind socket \"%s:%d\": %s\n",
-                     host, port, _dbus_strerror (errno));
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to bind socket \"%s:%d\": %s",
+                      host, port, _dbus_strerror (errno));
       close (listen_fd);
       return -1;
     }
 
   if (listen (listen_fd, 30 /* backlog */) < 0)
     {
-      dbus_set_result (result, _dbus_result_from_errno (errno));      
-      _dbus_verbose ("Failed to listen on socket \"%s:%d\": %s\n",
-                     host, port, _dbus_strerror (errno));
+      dbus_set_error (error, _dbus_error_from_errno (errno),  
+                      "Failed to listen on socket \"%s:%d\": %s",
+                      host, port, _dbus_strerror (errno));
       close (listen_fd);
       return -1;
     }
 
-  if (!_dbus_set_fd_nonblocking (listen_fd, result))
+  if (!_dbus_set_fd_nonblocking (listen_fd, error))
     {
       close (listen_fd);
       return -1;
@@ -587,10 +594,12 @@ _dbus_listen_tcp_socket (const char     *host,
 
 static dbus_bool_t
 write_credentials_byte (int             server_fd,
-                        DBusResultCode *result)
+                        DBusError      *error)
 {
   int bytes_written;
   char buf[1] = { '\0' };
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
  again:
 
@@ -601,15 +610,15 @@ write_credentials_byte (int             server_fd,
 
   if (bytes_written < 0)
     {
-      dbus_set_result (result, _dbus_result_from_errno (errno));      
-      _dbus_verbose ("Failed to write credentials byte: %s\n",
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to write credentials byte: %s",
                      _dbus_strerror (errno));
       return FALSE;
     }
   else if (bytes_written == 0)
     {
-      dbus_set_result (result, DBUS_RESULT_IO_ERROR);
-      _dbus_verbose ("wrote zero bytes writing credentials byte\n");
+      dbus_set_error (error, DBUS_ERROR_IO_ERROR,
+                      "wrote zero bytes writing credentials byte");
       return FALSE;
     }
   else
@@ -635,13 +644,13 @@ write_credentials_byte (int             server_fd,
  *
  * @param client_fd the client file descriptor
  * @param credentials struct to fill with credentials of client
- * @param result location to store result code
+ * @param error location to store error code
  * @returns #TRUE on success
  */
 dbus_bool_t
 _dbus_read_credentials_unix_socket  (int              client_fd,
                                      DBusCredentials *credentials,
-                                     DBusResultCode  *result)
+                                     DBusError       *error)
 {
   struct msghdr msg;
   struct iovec iov;
@@ -652,6 +661,8 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
   struct cmsghdr *cmsg = (struct cmsghdr *) cmsgmem;
 #endif
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   /* The POSIX spec certainly doesn't promise this, but
    * we need these assertions to fail as soon as we're wrong about
    * it so we can do the porting fixups
@@ -695,23 +706,23 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
       if (errno == EINTR)
 	goto again;
 
-      dbus_set_result (result, _dbus_result_from_errno (errno));
-      _dbus_verbose ("Failed to read credentials byte: %s\n",
-		     _dbus_strerror (errno));
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to read credentials byte: %s",
+                      _dbus_strerror (errno));
       return FALSE;
     }
 
   if (buf != '\0')
     {
-      dbus_set_result (result, DBUS_RESULT_FAILED);
-      _dbus_verbose ("Credentials byte was not nul\n");
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Credentials byte was not nul");
       return FALSE;
     }
 
 #ifdef HAVE_CMSGCRED
   if (cmsg->cmsg_len < sizeof (cmsgmem) || cmsg->cmsg_type != SCM_CREDS)
     {
-      dbus_set_result (result, DBUS_RESULT_FAILED);
+      dbus_set_error (error, DBUS_ERROR_FAILED);
       _dbus_verbose ("Message from recvmsg() was not SCM_CREDS\n");
       return FALSE;
     }
@@ -771,14 +782,16 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
  * use sendmsg()/recvmsg() to transmit credentials.
  *
  * @param server_fd file descriptor for connection to server
- * @param result return location for error code
+ * @param error return location for error code
  * @returns #TRUE if the byte was sent
  */
 dbus_bool_t
 _dbus_send_credentials_unix_socket  (int              server_fd,
-                                     DBusResultCode  *result)
+                                     DBusError       *error)
 {
-  if (write_credentials_byte (server_fd, result))
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  if (write_credentials_byte (server_fd, error))
     return TRUE;
   else
     return FALSE;
@@ -1805,7 +1818,7 @@ _dbus_get_current_time (long *tv_sec,
 
 /**
  * Appends the contents of the given file to the string,
- * returning result code. At the moment, won't open a file
+ * returning error code. At the moment, won't open a file
  * more than a megabyte in size.
  *
  * @param str the string to append to
@@ -1824,6 +1837,8 @@ _dbus_file_get_contents (DBusString       *str,
   int total;
   const char *filename_c;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   _dbus_string_get_const_data (filename, &filename_c);
   
   /* O_BINARY useful on Cygwin */
@@ -1937,11 +1952,13 @@ append_unique_chars (DBusString *str)
  *
  * @param str the string to write out
  * @param filename the file to save string to
- * @returns result code
+ * @param error error to be filled in on failure
+ * @returns #FALSE on failure
  */
-DBusResultCode
+dbus_bool_t
 _dbus_string_save_to_file (const DBusString *str,
-                           const DBusString *filename)
+                           const DBusString *filename,
+                           DBusError        *error)
 {
   int fd;
   int bytes_to_write;
@@ -1949,24 +1966,38 @@ _dbus_string_save_to_file (const DBusString *str,
   DBusString tmp_filename;
   const char *tmp_filename_c;
   int total;
-  DBusResultCode result;
   dbus_bool_t need_unlink;
+  dbus_bool_t retval;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   fd = -1;
-  result = DBUS_RESULT_FAILED;
+  retval = FALSE;
   need_unlink = FALSE;
   
   if (!_dbus_string_init (&tmp_filename, _DBUS_INT_MAX))
-    return DBUS_RESULT_NO_MEMORY;
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return FALSE;
+    }
 
   if (!_dbus_string_copy (filename, 0, &tmp_filename, 0))
-    return DBUS_RESULT_NO_MEMORY;
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return FALSE;
+    }
   
   if (!_dbus_string_append (&tmp_filename, "."))
-    return DBUS_RESULT_NO_MEMORY;
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return FALSE;
+    }
   
   if (!append_unique_chars (&tmp_filename))
-    return DBUS_RESULT_NO_MEMORY;
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return FALSE;
+    }
     
   _dbus_string_get_const_data (filename, &filename_c);
   _dbus_string_get_const_data (&tmp_filename, &tmp_filename_c);
@@ -1975,7 +2006,9 @@ _dbus_string_save_to_file (const DBusString *str,
              0600);
   if (fd < 0)
     {
-      result = _dbus_result_from_errno (errno);
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not create %s: %s", tmp_filename_c,
+                      _dbus_strerror (errno));
       goto out;
     }
 
@@ -1993,12 +2026,9 @@ _dbus_string_save_to_file (const DBusString *str,
 
       if (bytes_written <= 0)
         {
-          DBusResultCode result;
-          
-          result = _dbus_result_from_errno (errno); /* prior to close() */
-          
-          _dbus_verbose ("write() failed: %s",
-                         _dbus_strerror (errno));
+          dbus_set_error (error, _dbus_error_from_errno (errno),
+                          "Could not write to %s: %s", tmp_filename_c,
+                          _dbus_strerror (errno));
           
           goto out;
         }
@@ -2008,7 +2038,10 @@ _dbus_string_save_to_file (const DBusString *str,
 
   if (close (fd) < 0)
     {
-      _dbus_verbose ("close() failed: %s\n", _dbus_strerror (errno));
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not close file %s: %s",
+                      tmp_filename_c, _dbus_strerror (errno));
+
       goto out;
     }
 
@@ -2016,13 +2049,17 @@ _dbus_string_save_to_file (const DBusString *str,
   
   if (rename (tmp_filename_c, filename_c) < 0)
     {
-      _dbus_verbose ("rename() failed: %s\n", _dbus_strerror (errno));
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not rename %s to %s: %s",
+                      tmp_filename_c, filename_c,
+                      _dbus_strerror (errno));
+
       goto out;
     }
 
   need_unlink = FALSE;
   
-  result = DBUS_RESULT_SUCCESS;
+  retval = TRUE;
   
  out:
   /* close first, then unlink, to prevent ".nfs34234235" garbage
@@ -2037,8 +2074,11 @@ _dbus_string_save_to_file (const DBusString *str,
                    tmp_filename_c, _dbus_strerror (errno));
 
   _dbus_string_free (&tmp_filename);
+
+  if (!retval)
+    _DBUS_ASSERT_ERROR_IS_SET (error);
   
-  return result;
+  return retval;
 }
 
 /** Creates the given file, failing if the file already exists.
@@ -2054,6 +2094,8 @@ _dbus_create_file_exclusively (const DBusString *filename,
   int fd;
   const char *filename_c;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   _dbus_string_get_const_data (filename, &filename_c);
   
   fd = open (filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
@@ -2095,6 +2137,8 @@ _dbus_delete_file (const DBusString *filename,
 {
   const char *filename_c;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   _dbus_string_get_const_data (filename, &filename_c);
 
   if (unlink (filename_c) < 0)
@@ -2122,6 +2166,8 @@ _dbus_create_directory (const DBusString *filename,
 {
   const char *filename_c;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   _dbus_string_get_const_data (filename, &filename_c);
 
   if (mkdir (filename_c, 0700) < 0)
@@ -2196,6 +2242,8 @@ _dbus_directory_open (const DBusString *filename,
   DBusDirIter *iter;
   const char *filename_c;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   _dbus_string_get_const_data (filename, &filename_c);
 
   d = opendir (filename_c);
@@ -2237,12 +2285,10 @@ _dbus_directory_get_next_file (DBusDirIter      *iter,
                                DBusString       *filename,
                                DBusError        *error)
 {
-  /* we always have to put something in result, since return
-   * value means whether there's a filename and doesn't
-   * reliably indicate whether an error was set.
-   */
   struct dirent *ent;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
  again:
   errno = 0;
   ent = readdir (iter->d);
@@ -2415,6 +2461,8 @@ static dbus_bool_t
 make_pipe (int        p[2],
            DBusError *error)
 {
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   if (pipe (p) < 0)
     {
       dbus_set_error (error,
@@ -2458,6 +2506,8 @@ read_ints (int        fd,
 	   DBusError *error)
 {
   size_t bytes = 0;    
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   while (TRUE)
     {
@@ -2556,6 +2606,8 @@ _dbus_spawn_async (char                    **argv,
   int pid = -1, grandchild_pid;
   int child_err_report_pipe[2] = { -1, -1 };
   int status;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   if (!make_pipe (child_err_report_pipe, error))
     return FALSE;
@@ -2715,105 +2767,6 @@ _dbus_fd_set_close_on_exec (int fd)
   fcntl (fd, F_SETFD, val);
 }
 
-
-/**
- * Converts a UNIX errno into a DBusResultCode.
- *
- * @todo should cover more errnos, specifically those
- * from open().
- * 
- * @param error_number the errno.
- * @returns the result code.
- */
-DBusResultCode
-_dbus_result_from_errno (int error_number)
-{
-  switch (error_number)
-    {
-    case 0:
-      return DBUS_RESULT_SUCCESS;
-      
-#ifdef EPROTONOSUPPORT
-    case EPROTONOSUPPORT:
-      return DBUS_RESULT_NOT_SUPPORTED;
-#endif
-#ifdef EAFNOSUPPORT
-    case EAFNOSUPPORT:
-      return DBUS_RESULT_NOT_SUPPORTED;
-#endif
-#ifdef ENFILE
-    case ENFILE:
-      return DBUS_RESULT_LIMITS_EXCEEDED; /* kernel out of memory */
-#endif
-#ifdef EMFILE
-    case EMFILE:
-      return DBUS_RESULT_LIMITS_EXCEEDED;
-#endif
-#ifdef EACCES
-    case EACCES:
-      return DBUS_RESULT_ACCESS_DENIED;
-#endif
-#ifdef EPERM
-    case EPERM:
-      return DBUS_RESULT_ACCESS_DENIED;
-#endif
-#ifdef ENOBUFS
-    case ENOBUFS:
-      return DBUS_RESULT_NO_MEMORY;
-#endif
-#ifdef ENOMEM
-    case ENOMEM:
-      return DBUS_RESULT_NO_MEMORY;
-#endif
-#ifdef EINVAL
-    case EINVAL:
-      return DBUS_RESULT_FAILED;
-#endif
-#ifdef EBADF
-    case EBADF:
-      return DBUS_RESULT_FAILED;
-#endif
-#ifdef EFAULT
-    case EFAULT:
-      return DBUS_RESULT_FAILED;
-#endif
-#ifdef ENOTSOCK
-    case ENOTSOCK:
-      return DBUS_RESULT_FAILED;
-#endif
-#ifdef EISCONN
-    case EISCONN:
-      return DBUS_RESULT_FAILED;
-#endif
-#ifdef ECONNREFUSED
-    case ECONNREFUSED:
-      return DBUS_RESULT_NO_SERVER;
-#endif
-#ifdef ETIMEDOUT
-    case ETIMEDOUT:
-      return DBUS_RESULT_TIMEOUT;
-#endif
-#ifdef ENETUNREACH
-    case ENETUNREACH:
-      return DBUS_RESULT_NO_NETWORK;
-#endif
-#ifdef EADDRINUSE
-    case EADDRINUSE:
-      return DBUS_RESULT_ADDRESS_IN_USE;
-#endif
-#ifdef EEXIST
-    case EEXIST:
-      return DBUS_RESULT_FILE_NOT_FOUND;
-#endif
-#ifdef ENOENT
-    case ENOENT:
-      return DBUS_RESULT_FILE_NOT_FOUND;
-#endif
-    }
-
-  return DBUS_RESULT_FAILED;
-}
-
 /**
  * Converts a UNIX errno into a #DBusError name.
  *
@@ -2938,6 +2891,8 @@ _dbus_stat (const DBusString *filename,
 {
   const char *filename_c;
   struct stat sb;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   _dbus_string_get_const_data (filename, &filename_c);
 
@@ -2977,6 +2932,8 @@ _dbus_full_duplex_pipe (int       *fd1,
 #ifdef HAVE_SOCKETPAIR
   int fds[2];
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   if (socketpair (AF_UNIX, SOCK_STREAM, 0, fds) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
@@ -3019,6 +2976,8 @@ dbus_bool_t
 _dbus_close (int        fd,
              DBusError *error)
 {
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
  again:
   if (close (fd) < 0)
     {
@@ -3027,6 +2986,46 @@ _dbus_close (int        fd,
 
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not close fd %d", fd);
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
+/**
+ * Sets a file descriptor to be nonblocking.
+ *
+ * @param fd the file descriptor.
+ * @param error address of error location.
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_set_fd_nonblocking (int             fd,
+                          DBusError      *error)
+{
+  int val;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  val = fcntl (fd, F_GETFL, 0);
+  if (val < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to get flags from file descriptor %d: %s",
+                      fd, _dbus_strerror (errno));
+      _dbus_verbose ("Failed to get flags for fd %d: %s\n", fd,
+                     _dbus_strerror (errno));
+      return FALSE;
+    }
+
+  if (fcntl (fd, F_SETFL, val | O_NONBLOCK) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to set nonblocking flag of file descriptor %d: %s",
+                      fd, _dbus_strerror (errno));
+      _dbus_verbose ("Failed to set fd %d nonblocking: %s\n",
+                     fd, _dbus_strerror (errno));
+
       return FALSE;
     }
 

@@ -109,29 +109,32 @@ _dbus_server_debug_lookup (const char *server_name)
  * Creates a new debug server.
  *
  * @param server_name the name of the server.
- * @param result address where a result code can be returned.
+ * @param error address where an error can be returned.
  * @returns a new server, or #NULL on failure.
  */
 DBusServer*
 _dbus_server_debug_new (const char     *server_name,
-			DBusResultCode *result)
+                        DBusError      *error)
 {
   DBusServerDebug *debug_server;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   if (!server_hash)
     {
       server_hash = _dbus_hash_table_new (DBUS_HASH_STRING, NULL, NULL);
 
       if (!server_hash)
 	{
-	  dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+	  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 	  return NULL;
 	}
     }
 
   if (_dbus_hash_table_lookup_string (server_hash, server_name) != NULL)
     {
-      dbus_set_result (result, DBUS_RESULT_ADDRESS_IN_USE);
+      dbus_set_error (error, DBUS_ERROR_ADDRESS_IN_USE,
+                      NULL);
       return NULL;
     }
   
@@ -146,7 +149,7 @@ _dbus_server_debug_new (const char     *server_name,
       dbus_free (debug_server->name);
       dbus_free (debug_server);
 
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
     }
   
   if (!_dbus_server_init_base (&debug_server->base,
@@ -155,7 +158,7 @@ _dbus_server_debug_new (const char     *server_name,
       dbus_free (debug_server->name);      
       dbus_free (debug_server);
 
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 
       return NULL;
     }
@@ -168,12 +171,10 @@ _dbus_server_debug_new (const char     *server_name,
       dbus_free (debug_server->name);      
       dbus_free (debug_server);
 
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 
       return NULL;
     }
-  
-  dbus_set_result (result, DBUS_RESULT_SUCCESS);
   
   return (DBusServer *)debug_server;
 }

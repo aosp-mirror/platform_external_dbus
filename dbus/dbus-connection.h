@@ -81,7 +81,7 @@ typedef dbus_bool_t (* DBusAllowUnixUserFunction)  (DBusConnection *connection,
                                                     void           *data);
 
 DBusConnection*    dbus_connection_open                      (const char                 *address,
-                                                              DBusResultCode             *result);
+                                                              DBusError                  *error);
 void               dbus_connection_ref                       (DBusConnection             *connection);
 void               dbus_connection_unref                     (DBusConnection             *connection);
 void               dbus_connection_disconnect                (DBusConnection             *connection);

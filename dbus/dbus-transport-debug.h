@@ -29,7 +29,7 @@ DBUS_BEGIN_DECLS;
 
 DBusTransport* _dbus_transport_debug_server_new (DBusTransport  *client);
 DBusTransport* _dbus_transport_debug_client_new (const char     *server_name,
-						 DBusResultCode *result);
+                                                 DBusError      *error);
 
 DBUS_END_DECLS;
 

@@ -267,4 +267,22 @@ bus_test_client_listed (DBusConnection *connection)
   return FALSE;
 }
 
+
+void
+bus_test_flush_bus (BusContext *context)
+{
+  /* This is race condition city, obviously. since we're all in one
+   * process we can't block, we just have to wait for data we put in
+   * one end of the debug pipe to come out the other end...
+   * a more robust setup would be good. Blocking on the other
+   * end of pipes we've pushed data into or something.
+   */
+  
+  while (bus_loop_iterate (FALSE))
+    ;
+  _dbus_sleep_milliseconds (15);
+  while (bus_loop_iterate (FALSE))
+    ;
+}
+
 #endif

@@ -30,10 +30,10 @@
 
 DBUS_BEGIN_DECLS;
 
-DBusServer* _dbus_server_debug_pipe_new    (const char     *server_name,
-                                            DBusResultCode *result);
-DBusTransport* _dbus_transport_debug_pipe_new (const char     *server_name,
-                                               DBusResultCode *result);
+DBusServer*    _dbus_server_debug_pipe_new    (const char *server_name,
+                                               DBusError  *error);
+DBusTransport* _dbus_transport_debug_pipe_new (const char *server_name,
+                                               DBusError  *error);
 
 DBUS_END_DECLS;
 

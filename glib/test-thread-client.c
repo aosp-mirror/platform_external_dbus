@@ -56,7 +56,7 @@ int
 main (int argc, char *argv[])
 {
   GMainLoop *loop;
-  DBusResultCode result;
+  DBusError error;
   int i;
 
   g_thread_init (NULL);
@@ -68,10 +68,12 @@ main (int argc, char *argv[])
       return 1;
     }
 
-  connection = dbus_connection_open (argv[1], &result);
+  dbus_error_init (&error);
+  connection = dbus_connection_open (argv[1], &error);
   if (connection == NULL)
     {
-      g_printerr ("could not open connection\n");
+      g_printerr ("could not open connection: %s\n", error.message);
+      dbus_error_free (&error);
       return 1;
     }
 

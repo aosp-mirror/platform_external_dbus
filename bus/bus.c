@@ -143,7 +143,6 @@ bus_context_new (const char  *address,
                  DBusError   *error)
 {
   BusContext *context;
-  DBusResultCode result;
   
   context = dbus_new0 (BusContext, 1);
   if (context == NULL)
@@ -161,14 +160,9 @@ bus_context_new (const char  *address,
       goto failed;
     }
   
-  context->server = dbus_server_listen (address, &result);
+  context->server = dbus_server_listen (address, error);
   if (context->server == NULL)
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Failed to start server on %s: %s\n",
-                      address, dbus_result_to_string (result));
-      goto failed;
-    }
+    goto failed;
 
   context->activation = bus_activation_new (context, address, service_dirs,
                                             error);

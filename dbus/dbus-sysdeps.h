@@ -76,22 +76,22 @@ typedef struct
 } DBusCredentials;
 
 int _dbus_connect_unix_socket (const char     *path,
-                               DBusResultCode *result);
+                               DBusError      *error);
 int _dbus_listen_unix_socket  (const char     *path,
-                               DBusResultCode *result);
+                               DBusError      *error);
 int _dbus_connect_tcp_socket  (const char     *host,
                                dbus_uint32_t   port,
-                               DBusResultCode *result);
+                               DBusError      *error);
 int _dbus_listen_tcp_socket   (const char     *host,
                                dbus_uint32_t   port,
-                               DBusResultCode *result);
+                               DBusError      *error);
 int _dbus_accept              (int             listen_fd);
 
 dbus_bool_t _dbus_read_credentials_unix_socket (int              client_fd,
                                                 DBusCredentials *credentials,
-                                                DBusResultCode  *result);
+                                                DBusError       *error);
 dbus_bool_t _dbus_send_credentials_unix_socket (int              server_fd,
-                                                DBusResultCode  *result);
+                                                DBusError       *error);
 
 
 dbus_bool_t _dbus_credentials_from_username        (const DBusString      *username,
@@ -146,11 +146,13 @@ void _dbus_sleep_milliseconds (int milliseconds);
 void _dbus_get_current_time (long *tv_sec,
                              long *tv_usec);
 
+
 dbus_bool_t _dbus_file_get_contents   (DBusString       *str,
                                        const DBusString *filename,
                                        DBusError        *error);
-DBusResultCode _dbus_string_save_to_file (const DBusString *str,
-                                          const DBusString *filename);
+dbus_bool_t _dbus_string_save_to_file (const DBusString *str,
+                                       const DBusString *filename,
+                                       DBusError        *error);
 
 dbus_bool_t    _dbus_create_file_exclusively (const DBusString *filename,
                                               DBusError        *error);

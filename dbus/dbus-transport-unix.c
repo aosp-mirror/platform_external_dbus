@@ -1028,20 +1028,25 @@ _dbus_transport_new_for_fd (int         fd,
  *
  * @param path the path to the domain socket.
  * @param server #TRUE if this transport is on the server side of a connection
- * @param result location to store reason for failure.
+ * @param error location to store reason for failure.
  * @returns a new transport, or #NULL on failure.
  */
 DBusTransport*
 _dbus_transport_new_for_domain_socket (const char     *path,
                                        dbus_bool_t     server,
-                                       DBusResultCode *result)
+                                       DBusError      *error)
 {
   int fd;
   DBusTransport *transport;
 
-  fd = _dbus_connect_unix_socket (path, result);
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  fd = _dbus_connect_unix_socket (path, error);
   if (fd < 0)
-    return NULL;
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      return NULL;
+    }
 
   _dbus_fd_set_close_on_exec (fd);
   
@@ -1051,7 +1056,7 @@ _dbus_transport_new_for_domain_socket (const char     *path,
   transport = _dbus_transport_new_for_fd (fd, server);
   if (transport == NULL)
     {
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       _dbus_close (fd, NULL);
       fd = -1;
     }
@@ -1072,14 +1077,19 @@ DBusTransport*
 _dbus_transport_new_for_tcp_socket (const char     *host,
                                     dbus_int32_t    port,
                                     dbus_bool_t     server,
-                                    DBusResultCode *result)
+                                    DBusError      *error)
 {
   int fd;
   DBusTransport *transport;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  fd = _dbus_connect_tcp_socket (host, port, result);
+  fd = _dbus_connect_tcp_socket (host, port, error);
   if (fd < 0)
-    return NULL;
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      return NULL;
+    }
 
   _dbus_fd_set_close_on_exec (fd);
   
@@ -1089,7 +1099,7 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
   transport = _dbus_transport_new_for_fd (fd, server);
   if (transport == NULL)
     {
-      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       _dbus_close (fd, NULL);
       fd = -1;
     }

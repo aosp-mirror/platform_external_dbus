@@ -7,7 +7,7 @@ main (int    argc,
       char **argv)
 {
   DBusConnection *connection;
-  DBusResultCode result;
+  DBusError error;
   DBusMessage *message;
   
   if (argc < 2)
@@ -15,12 +15,14 @@ main (int    argc,
       fprintf (stderr, "Give the server address as an argument\n");
       return 1;
     }
-  
-  connection = dbus_connection_open (argv[1], &result);
+
+  dbus_error_init (&error);
+  connection = dbus_connection_open (argv[1], &error);
   if (connection == NULL)
     {
       fprintf (stderr, "Failed to open connection to %s: %s\n",
-               argv[1], dbus_result_to_string (result));
+               argv[1], error.message);
+      dbus_error_free (&error);
       return 1;
     }
 

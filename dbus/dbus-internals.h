@@ -73,8 +73,6 @@ void _dbus_verbose_real (const char *format,
 
 const char* _dbus_strerror (int error_number);
 
-DBusResultCode _dbus_result_from_errno (int error_number);
-
 #ifdef DBUS_DISABLE_ASSERT
 #define _dbus_assert(condition)
 #else
@@ -110,7 +108,8 @@ do {                                                                            
 #define _DBUS_STRUCT_OFFSET(struct_type, member)	\
     ((long) ((unsigned char*) &((struct_type*) 0)->member))
 
-#define _DBUS_ASSERT_ERROR_IS_SET(error) _dbus_assert ((error) == NULL || dbus_error_is_set ((error)))
+#define _DBUS_ASSERT_ERROR_IS_SET(error)   _dbus_assert ((error) == NULL || dbus_error_is_set ((error)))
+#define _DBUS_ASSERT_ERROR_IS_CLEAR(error) _dbus_assert ((error) == NULL || !dbus_error_is_set ((error)))
 
 /* This alignment thing is from ORBit2 */
 /* Align a value upward to a boundary, expressed as a number of bytes.
@@ -153,7 +152,7 @@ typedef void (* DBusForeachFunction) (void *element,
                                       void *data);
 
 dbus_bool_t _dbus_set_fd_nonblocking (int             fd,
-                                      DBusResultCode *result);
+                                      DBusError      *error);
 
 void _dbus_verbose_bytes           (const unsigned char *data,
                                     int                  len);

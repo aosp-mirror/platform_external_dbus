@@ -1555,9 +1555,11 @@ dbus_message_get_args (DBusMessage *message,
 		       int          first_arg_type,
 		       ...)
 {
-  DBusResultCode retval;
+  dbus_bool_t retval;
   va_list var_args;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   va_start (var_args, first_arg_type);
   retval = dbus_message_get_args_valist (message, error, first_arg_type, var_args);
   va_end (var_args);
@@ -1593,13 +1595,14 @@ dbus_message_get_args_valist (DBusMessage *message,
   int spec_type, msg_type, i;
   DBusMessageIter *iter;
   dbus_bool_t retval;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   iter = dbus_message_get_args_iter (message);
 
   if (iter == NULL)
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                      "No memory to get message arguments");
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return FALSE;
     }
 
@@ -1675,8 +1678,7 @@ dbus_message_get_args_valist (DBusMessage *message,
 
 	    if (!*ptr)
               {
-                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                                "No memory for argument %d", i);
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
                 goto out;
               }
 	    
@@ -1693,8 +1695,7 @@ dbus_message_get_args_valist (DBusMessage *message,
 
 	    if (!dbus_message_iter_get_boolean_array (iter, ptr, len))
               {
-                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                                "No memory for argument %d", i);
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
                 goto out;
               }
 	    break;
@@ -1710,8 +1711,7 @@ dbus_message_get_args_valist (DBusMessage *message,
 
 	    if (!dbus_message_iter_get_int32_array (iter, ptr, len))
               {
-                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                                "No memory for argument %d", i);
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
                 goto out;
               }
 	    
@@ -1728,8 +1728,7 @@ dbus_message_get_args_valist (DBusMessage *message,
 
 	    if (!dbus_message_iter_get_uint32_array (iter, ptr, len))
               {
-                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                                "No memory for argument %d", i);
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
                 goto out;
               }
 	    
@@ -1746,8 +1745,7 @@ dbus_message_get_args_valist (DBusMessage *message,
 
 	    if (!dbus_message_iter_get_double_array (iter, ptr, len))
               {
-                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                                "No memory for argument %d", i);
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
                 goto out;
               }
 	    break;
@@ -1763,8 +1761,7 @@ dbus_message_get_args_valist (DBusMessage *message,
 
 	    if (!dbus_message_iter_get_byte_array (iter, ptr, len))
               {
-                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                                "No memory for argument %d", i);
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
                 goto out;
               }
 	    break;
@@ -1779,8 +1776,7 @@ dbus_message_get_args_valist (DBusMessage *message,
 
 	    if (!dbus_message_iter_get_string_array (iter, ptr, len))
               {
-                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                                "No memory for argument %d", i);
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
                 goto out;
               }
 	    break;
@@ -1793,8 +1789,7 @@ dbus_message_get_args_valist (DBusMessage *message,
 
 	    if (!dbus_message_iter_get_dict (iter, dict))
               {
-                dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
-                                "No memory for argument %d", i);
+                dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
                 goto out;
               }
 	    break;

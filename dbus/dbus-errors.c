@@ -25,6 +25,7 @@
 #include "dbus-internals.h"
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 /**
  * @defgroup DBusErrors Error reporting
@@ -65,73 +66,50 @@ typedef struct
 } DBusRealError;
 
 /**
- * Set a result code at a result code location,
- * if code_address is not #NULL.
+ * Returns a longer message describing an error name.
+ * If the error name is unknown, returns the name
+ * itself.
  *
- * @param code_address place to store the result code.
- * @param code the result code itself.
+ * @param error the error to describe
+ * @returns a constant string describing the error.
  */
-void
-dbus_set_result (DBusResultCode *code_address,
-                 DBusResultCode  code)
+static const char*
+message_from_error (const char *error)
 {
-  if (code_address)
-    *code_address = code;
-}
-
-/**
- * Returns a string describing the given result code.
- *
- * @param code the result code to describe.
- * @returns a constant string describing the code.
- */
-const char*
-dbus_result_to_string (DBusResultCode code)
-{
-  /* This is a switch to the compiler will complain if we
-   * aren't handling some codes
-   */
-  switch (code)
-    {
-    case DBUS_RESULT_SUCCESS:
-      return "Success";
-    case DBUS_RESULT_FAILED:
-      return "Unknown error";
-    case DBUS_RESULT_NO_MEMORY:
-      return "Not enough memory available";
-    case DBUS_RESULT_IO_ERROR:
-      return "Error reading or writing data";
-    case DBUS_RESULT_BAD_ADDRESS:
-      return "Could not parse address";
-    case DBUS_RESULT_NOT_SUPPORTED:
-      return "Feature not supported";
-    case DBUS_RESULT_LIMITS_EXCEEDED:
-      return "Resource limits exceeded";
-    case DBUS_RESULT_ACCESS_DENIED:
-      return "Permission denied";
-    case DBUS_RESULT_AUTH_FAILED:
-      return "Could not authenticate to server";
-    case DBUS_RESULT_NO_SERVER:
-      return "No server";
-    case DBUS_RESULT_TIMEOUT:
-      return "Connection timed out";
-    case DBUS_RESULT_NO_NETWORK:
-      return "Network unavailable";
-    case DBUS_RESULT_ADDRESS_IN_USE:
-      return "Address already in use";
-    case DBUS_RESULT_DISCONNECTED:
-      return "Disconnected.";
-    case DBUS_RESULT_INVALID_ARGS:
-      return "Invalid argumemts.";
-    case DBUS_RESULT_NO_REPLY:
-      return "Did not get a reply message.";
-    case DBUS_RESULT_FILE_NOT_FOUND:
-      return "File doesn't exist.";
-      
-      /* no default, it would break our compiler warnings */
-    }
-
-  return "Invalid error code";
+  if (strcmp (error, DBUS_ERROR_FAILED) == 0)
+    return "Unknown error";
+  else if (strcmp (error, DBUS_ERROR_NO_MEMORY) == 0)
+    return "Not enough memory available";
+  else if (strcmp (error, DBUS_ERROR_IO_ERROR) == 0)
+    return "Error reading or writing data";
+  else if (strcmp (error, DBUS_ERROR_BAD_ADDRESS) == 0)
+    return "Could not parse address";
+  else if (strcmp (error, DBUS_ERROR_NOT_SUPPORTED) == 0)
+    return "Feature not supported";
+  else if (strcmp (error, DBUS_ERROR_LIMITS_EXCEEDED) == 0)
+    return "Resource limits exceeded";
+  else if (strcmp (error, DBUS_ERROR_ACCESS_DENIED) == 0)
+    return "Permission denied";
+  else if (strcmp (error, DBUS_ERROR_AUTH_FAILED) == 0)
+    return "Could not authenticate to server";
+  else if (strcmp (error, DBUS_ERROR_NO_SERVER) == 0)
+    return "No server";
+  else if (strcmp (error, DBUS_ERROR_TIMEOUT) == 0)
+    return "Connection timed out";
+  else if (strcmp (error, DBUS_ERROR_NO_NETWORK) == 0)
+    return "Network unavailable";
+  else if (strcmp (error, DBUS_ERROR_ADDRESS_IN_USE) == 0)
+    return "Address already in use";
+  else if (strcmp (error, DBUS_ERROR_DISCONNECTED) == 0)
+    return "Disconnected.";
+  else if (strcmp (error, DBUS_ERROR_INVALID_ARGS) == 0)
+    return "Invalid argumemts.";
+  else if (strcmp (error, DBUS_ERROR_NO_REPLY) == 0)
+    return "Did not get a reply message.";
+  else if (strcmp (error, DBUS_ERROR_FILE_NOT_FOUND) == 0)
+    return "File doesn't exist.";
+  else
+    return error;
 }
 
 /**
@@ -179,7 +157,8 @@ dbus_error_free (DBusError *error)
 
 /**
  * Assigns an error name and message to a DBusError.
- * Does nothing if error is #NULL.
+ * Does nothing if error is #NULL. The message may
+ * be NULL only if the error is DBUS_ERROR_NO_MEMORY.
  *
  * @param error the error.
  * @param name the error name (not copied!!!)
@@ -199,7 +178,9 @@ dbus_set_error_const (DBusError  *error,
   _dbus_assert (error->name == NULL);
   _dbus_assert (error->message == NULL);
   _dbus_assert (name != NULL);
-  _dbus_assert (message != NULL);
+
+  if (message == NULL)
+    message = message_from_error (name);
   
   real = (DBusRealError *)error;
   
@@ -280,6 +261,8 @@ dbus_error_is_set (const DBusError *error)
  * Assigns an error name and message to a DBusError.
  * Does nothing if error is #NULL.
  *
+ * The format may be NULL only if the error is DBUS_ERROR_NO_MEMORY.
+ *
  * If no memory can be allocated for the error message, 
  * an out-of-memory error message will be set instead.
  *
@@ -309,7 +292,9 @@ dbus_set_error (DBusError  *error,
   _dbus_assert (error->name == NULL);
   _dbus_assert (error->message == NULL);
   _dbus_assert (name != NULL);
-  _dbus_assert (format != NULL);
+
+  if (format == NULL)
+    format = message_from_error (name);
   
   va_start (args, format);
   /* Measure the message length */
@@ -320,8 +305,7 @@ dbus_set_error (DBusError  *error,
   
   if (!message)
     {
-      dbus_set_error_const (error, DBUS_ERROR_NO_MEMORY,
-			    "Failed to allocate memory for error message.");
+      dbus_set_error_const (error, DBUS_ERROR_NO_MEMORY, NULL);
       return;
     }
   
