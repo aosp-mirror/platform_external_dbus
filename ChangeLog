@@ -1,3 +1,8 @@
+2003-04-11  Havoc Pennington  <hp@redhat.com>
+
+	* bus/bus.c (bus_context_new): move credentials change after
+	creating pidfile
+
 2003-04-11  Havoc Pennington  <hp@pobox.com>
 
 	* test/decode-gcov.c: add "below average functions" to the

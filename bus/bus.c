@@ -455,31 +455,6 @@ bus_context_new (const DBusString *config_file,
       link = _dbus_list_get_next_link (addresses, link);
     }
 
-  /* Here we change our credentials if required,
-   * as soon as we've set up our sockets
-   */
-  user = bus_config_parser_get_user (parser);
-  if (user != NULL)
-    {
-      DBusCredentials creds;
-      DBusString u;
-
-      _dbus_string_init_const (&u, user);
-
-      if (!_dbus_credentials_from_username (&u, &creds) ||
-          creds.uid < 0 ||
-          creds.gid < 0)
-        {
-          dbus_set_error (error, DBUS_ERROR_FAILED,
-                          "Could not get UID and GID for username \"%s\"",
-                          user);
-          goto failed;
-        }
-      
-      if (!_dbus_change_identity (creds.uid, creds.gid, error))
-        goto failed;
-    }
-
   /* note that type may be NULL */
   context->type = _dbus_strdup (bus_config_parser_get_type (parser));
   
@@ -636,6 +611,31 @@ bus_context_new (const DBusString *config_file,
 
   /* keep around the pid filename so we can delete it later */
   context->pidfile = _dbus_strdup (pidfile);
+
+  /* Here we change our credentials if required,
+   * as soon as we've set up our sockets and pidfile
+   */
+  user = bus_config_parser_get_user (parser);
+  if (user != NULL)
+    {
+      DBusCredentials creds;
+      DBusString u;
+
+      _dbus_string_init_const (&u, user);
+
+      if (!_dbus_credentials_from_username (&u, &creds) ||
+          creds.uid < 0 ||
+          creds.gid < 0)
+        {
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+                          "Could not get UID and GID for username \"%s\"",
+                          user);
+          goto failed;
+        }
+      
+      if (!_dbus_change_identity (creds.uid, creds.gid, error))
+        goto failed;
+    }
   
   bus_config_parser_unref (parser);
   _dbus_string_free (&full_address);
