@@ -29,6 +29,17 @@
 
 #ifdef DBUS_BUILD_TESTS
 
+/**
+ * @defgroup DBusServerDebug DBusServerDebug
+ * @ingroup  DBusInternals
+ * @brief In-process debug server used in unit tests.
+ *
+ * Types and functions related to DBusServerDebug.
+ * This is used for unit testing.
+ *
+ * @{
+ */
+
 #define DEFAULT_INTERVAL 10
 
 typedef struct DBusServerDebug DBusServerDebug;
@@ -44,6 +55,9 @@ struct DBusServerDebug
   char *name; /**< Server name. */
 };
 
+/* Not thread safe, but OK since we don't use
+ * threads in the bus
+ */
 static DBusHashTable *server_hash;
 
 static void
@@ -210,13 +224,14 @@ _dbus_server_debug_accept_transport (DBusServer     *server,
 
   if (!_dbus_server_add_timeout (server, timeout))
     {
-      _dbus_timeout_unref (timeout);
-      
+      _dbus_timeout_unref (timeout);      
       return FALSE;
     }
 
   return TRUE;
 }
+
+/** @} */
 
 #endif /* DBUS_BUILD_TESTS */
 

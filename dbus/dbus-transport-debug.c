@@ -30,6 +30,16 @@
 
 #ifdef DBUS_BUILD_TESTS
 
+/**
+ * @defgroup DBusTransportDebug DBusTransportDebug
+ * @ingroup  DBusInternals
+ * @brief In-process debug transport used in unit tests.
+ *
+ * Types and functions related to DBusTransportDebug.
+ * This is used for unit testing.
+ *
+ * @{
+ */
 
 #define DEFAULT_INTERVAL 10
 
@@ -303,5 +313,7 @@ _dbus_transport_debug_client_new (const char     *server_name,
   
   return (DBusTransport *)debug_transport;
 }
+
+/** @} */
 
 #endif /* DBUS_BUILD_TESTS */
