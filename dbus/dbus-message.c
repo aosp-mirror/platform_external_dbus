@@ -422,6 +422,36 @@ set_int_field (DBusMessage *message,
 }
 
 static dbus_bool_t
+set_uint_field (DBusMessage  *message,
+                int           field,
+                dbus_uint32_t value)
+{
+  int offset = message->header_fields[field].offset;
+
+  _dbus_assert (!message->locked);
+  
+  if (offset < 0)
+    {
+      /* need to append the field */
+
+      switch (field)
+        {
+        default:
+          _dbus_assert_not_reached ("appending a uint field we don't support appending");
+          return FALSE;
+        }
+    }
+  else
+    {
+      _dbus_marshal_set_uint32 (&message->header,
+                                message->byte_order,
+                                offset, value);
+
+      return TRUE;
+    }
+}
+
+static dbus_bool_t
 set_string_field (DBusMessage *message,
                   int          field,
                   const char  *value)
@@ -581,19 +611,28 @@ static dbus_bool_t
 dbus_message_create_header (DBusMessage *message,
                             const char  *service,
                             const char  *name)
-{  
+{
+  unsigned int flags;
+  
   if (!_dbus_string_append_byte (&message->header, message->byte_order))
     return FALSE;
-  
-  if (!_dbus_string_append_len (&message->header, "\0\0\0", 3))
+
+  flags = 0;
+  if (!_dbus_string_append_byte (&message->header, flags))
+    return FALSE;
+
+  if (!_dbus_string_append_byte (&message->header, DBUS_MAJOR_PROTOCOL_VERSION))
+    return FALSE;
+
+  if (!_dbus_string_append_byte (&message->header, 0))
     return FALSE;
 
   message->header_fields[FIELD_HEADER_LENGTH].offset = 4;
-  if (!_dbus_marshal_int32 (&message->header, message->byte_order, 0))
+  if (!_dbus_marshal_uint32 (&message->header, message->byte_order, 0))
     return FALSE;
 
   message->header_fields[FIELD_BODY_LENGTH].offset = 8;
-  if (!_dbus_marshal_int32 (&message->header, message->byte_order, 0))
+  if (!_dbus_marshal_uint32 (&message->header, message->byte_order, 0))
     return FALSE;
 
   message->header_fields[FIELD_CLIENT_SERIAL].offset = 12;
@@ -635,13 +674,13 @@ _dbus_message_lock (DBusMessage  *message)
   if (!message->locked)
     {
       /* Fill in our lengths */
-      set_int_field (message,
-                     FIELD_HEADER_LENGTH,
-                     _dbus_string_get_length (&message->header));
+      set_uint_field (message,
+                      FIELD_HEADER_LENGTH,
+                      _dbus_string_get_length (&message->header));
 
-      set_int_field (message,
-                     FIELD_BODY_LENGTH,
-                     _dbus_string_get_length (&message->body));
+      set_uint_field (message,
+                      FIELD_BODY_LENGTH,
+                      _dbus_string_get_length (&message->body));
 
       message->locked = TRUE;
     }
@@ -1955,6 +1994,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
       DBusMessage *message;      
       const char *header_data;
       int byte_order, header_len, body_len;
+      dbus_uint32_t header_len_unsigned, body_len_unsigned;
       
       _dbus_string_get_const_data_len (&loader->data, &header_data, 0, 16);
 
@@ -1971,18 +2011,34 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 	  return;
 	}
 
-      header_len = _dbus_unpack_int32 (byte_order, header_data + 4);
-      body_len = _dbus_unpack_int32 (byte_order, header_data + 8);
+      header_len_unsigned = _dbus_unpack_uint32 (byte_order, header_data + 4);
+      body_len_unsigned = _dbus_unpack_uint32 (byte_order, header_data + 8);
 
-      if (header_len < 16 || body_len < 0)
+      if (header_len_unsigned < 16)
         {
-          _dbus_verbose ("Message had broken too-small header or body len %d %d\n",
-                         header_len, body_len);
+          _dbus_verbose ("Message had broken too-small header length %u\n",
+                         header_len_unsigned);
           loader->corrupted = TRUE;
           return;
         }
 
-      if (_DBUS_ALIGN_VALUE (header_len, 8) != (unsigned int) header_len)
+      if (header_len_unsigned > (unsigned) MAX_SANE_MESSAGE_SIZE ||
+          body_len_unsigned > (unsigned) MAX_SANE_MESSAGE_SIZE)
+        {
+          _dbus_verbose ("Header or body length too large (%u %u)\n",
+                         header_len_unsigned,
+                         body_len_unsigned);
+          loader->corrupted = TRUE;
+          return;
+        }      
+
+      /* Now that we know the values are in signed range, get
+       * rid of stupid unsigned, just causes bugs
+       */
+      header_len = header_len_unsigned;
+      body_len = body_len_unsigned;
+      
+      if (_DBUS_ALIGN_VALUE (header_len, 8) != header_len_unsigned)
         {
           _dbus_verbose ("header length %d is not aligned to 8 bytes\n",
                          header_len);
@@ -1998,7 +2054,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 	  return;
 	}
 
-      if (_dbus_string_get_length (&loader->data) >= header_len + body_len)
+      if (_dbus_string_get_length (&loader->data) >= (header_len + body_len))
 	{
           HeaderField fields[FIELD_LAST];
           int i;

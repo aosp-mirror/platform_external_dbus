@@ -36,6 +36,9 @@ extern "C" {
 #define DBUS_LITTLE_ENDIAN ('l')  /* LSB first */
 #define DBUS_BIG_ENDIAN    ('B')  /* MSB first */    
 
+/* Protocol version */
+#define DBUS_MAJOR_PROTOCOL_VERSION 0
+
 /* Data types */
 #define DBUS_TYPE_INVALID       0
 #define DBUS_TYPE_NIL           1

@@ -312,8 +312,8 @@ append_saved_length (DBusString       *dest,
       return FALSE;
     }
   
-  if (!_dbus_marshal_int32 (dest, endian,
-                            -1))
+  if (!_dbus_marshal_uint32 (dest, endian,
+                             -1))
     {
       _dbus_warn ("failed to append a length\n");
       return FALSE;

@@ -83,7 +83,95 @@
     <sect2 id="message-protocol-header-encoding">
       <title>Header Encoding</title>
       <para>
-        [document the required header fields and how they are encoded]
+        Following the mandatory fields, there are zero or more named fields (see
+        <xref linkend="message-protocol-header-fields">), and then nul bytes
+        padding the header such that its total length in bytes is a multiple of
+        8.
+      </para>
+      <para>
+        The header MUST begin with the following mandatory fields in the following
+        order:
+        <informaltable>
+          <tgroup cols=2>
+            <thead>
+              <row>
+                <entry>Size</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>1 byte</entry>
+                <entry>Endianness flag; ASCII 'l' for little-endian 
+                  or ASCII 'B' for big-endian.</entry>
+              </row>
+              <row>
+                <entry>1 byte</entry>
+                <entry>Bitwise OR of flags. Unknown flags
+                  MUST be ignored. Currently-defined flags are described below.
+                </entry>
+              </row>
+              <row>
+                <entry>1 byte</entry>
+                <entry>Major protocol version of the sending application.  If
+                the major protocol version of the receiving application does not
+                match, the applications will not be able to communicate and the
+                D-BUS connection MUST be disconnected. The major protocol
+                version for this version of the specification is 0.
+                </entry>
+              </row>
+              <row>
+                <entry>1 byte</entry>
+                <entry>A nul byte, reserved for future use.
+                  Any value for this byte MUST be accepted.
+                </entry>
+              </row>
+              <row>
+                <entry>4 bytes</entry>
+                <entry>An unsigned 32-bit integer in the
+                  message's byte order, indicating the total length in bytes of
+                  the header including named fields and any alignment padding.
+                  MUST be a multiple of 8.
+                </entry>
+              </row>
+              <row>
+                <entry>4 bytes</entry>
+                <entry>An unsigned 32-bit integer in the
+                  message's byte order, indicating the total length in bytes of
+                  the message body.
+                </entry>
+              </row>      
+              <row>
+                <entry>4 bytes</entry>
+                <entry>The message's serial number, a signed 32-bit integer in
+                  the message's byte order. Applications MUST NOT reuse the same
+                  serial number for different messages more often than 32-bit
+                  integer wraparound. Serial numbers must be greater than 
+                  zero.
+                </entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </para>
+      <para>
+        Flags that can appear in the second byte of the header:
+        <informaltable id="message-protocol-header-flags">
+          <tgroup cols=2>
+            <thead>
+              <row>
+                <entry>Hex value</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0x1</entry>
+                <entry>This message is an error reply.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
       </para>
     </sect2>
 
@@ -100,7 +188,22 @@
           invent their own header fields; only changes to 
           this specification may introduce new header fields.
       </para>
+      
     </sect2>
+    <sect2 id="message-protocol-header-padding">
+      <title>Header Alignment Padding</title>
+      <para>
+        To allow implementations to keep the header and the body in a single
+        buffer while keeping data types aligned, the total length of the header
+        must be a multiple of 8 bytes.  To achieve this, the header MUST be padded
+        with nul bytes to align its total length on an 8-byte boundary. 
+        The minimum number of padding bytes MUST be used. Because all possible 
+        named fields use at least 8 bytes, implementations can distinguish 
+        padding (which must be less than 8 bytes) from additional named fields
+        (which must be at least 8 bytes).
+      </para>
+    </sect2>
+
     <sect2 id="message-protocol-arguments">
       <title>Message Arguments</title>
       <para>

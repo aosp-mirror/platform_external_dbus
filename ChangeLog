@@ -1,3 +1,17 @@
+2003-01-31  Havoc Pennington  <hp@pobox.com>
+
+	* doc/dbus-specification.sgml: fully specify the header.  Add
+	flags and major protocol version, and change header/body len to
+	unsigned.
+
+	* dbus/dbus-message-builder.c (append_saved_length): append length
+	as uint32
+
+	* dbus/dbus-message.c (dbus_message_create_header): change header
+	length and body length to unsigned. Add the new fields from the
+	spec
+	(_dbus_message_loader_return_buffer): unsigned header/body len
+
 2003-01-30  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-auth.c: rework to use only REJECTED, no 
