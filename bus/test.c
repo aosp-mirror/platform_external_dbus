@@ -231,10 +231,12 @@ bus_test_client_listed (DBusConnection *connection)
 
 void
 bus_test_run_clients_loop (dbus_bool_t block_once)
-{
+{  
   if (client_loop == NULL)
     return;
 
+  _dbus_verbose ("---> Dispatching on \"client side\"\n");
+  
   /* dispatch before we block so pending dispatches
    * won't make our block return early
    */
@@ -250,12 +252,16 @@ bus_test_run_clients_loop (dbus_bool_t block_once)
   /* Then mop everything up */
   while (_dbus_loop_iterate (client_loop, FALSE))
     ;
+
+  _dbus_verbose ("---> Done dispatching on \"client side\"\n");
 }
 
 void
 bus_test_run_bus_loop (BusContext *context,
                        dbus_bool_t block_once)
 {
+  _dbus_verbose ("---> Dispatching on \"server side\"\n");
+  
   /* dispatch before we block so pending dispatches
    * won't make our block return early
    */
@@ -271,6 +277,8 @@ bus_test_run_bus_loop (BusContext *context,
   /* Then mop everything up */
   while (_dbus_loop_iterate (bus_context_get_loop (context), FALSE))
     ;
+
+  _dbus_verbose ("---> Done dispatching on \"server side\"\n");
 }
 
 void

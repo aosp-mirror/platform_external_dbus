@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-mainloop.c  Main loop utility
  *
- * Copyright (C) 2003  Red Hat, Inc.
+ * Copyright (C) 2003, 2004  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -29,6 +29,27 @@
 #include <dbus/dbus-sysdeps.h>
 
 #define MAINLOOP_SPEW 0
+
+#ifdef MAINLOOP_SPEW
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+static const char*
+watch_flags_to_string (int flags)
+{
+  const char *watch_type;
+
+  if ((flags & DBUS_WATCH_READABLE) &&
+      (flags & DBUS_WATCH_WRITABLE))
+    watch_type = "readwrite";
+  else if (flags & DBUS_WATCH_READABLE)
+    watch_type = "read";
+  else if (flags & DBUS_WATCH_WRITABLE)
+    watch_type = "write";
+  else
+    watch_type = "not read or write";
+  return watch_type;
+}
+#endif /* DBUS_ENABLE_VERBOSE_MODE */
+#endif /* MAINLOOP_SPEW */
 
 struct DBusLoop
 {
@@ -597,7 +618,8 @@ _dbus_loop_iterate (DBusLoop     *loop,
                 fds[n_fds].events |= _DBUS_POLLOUT;
 
 #if MAINLOOP_SPEW
-              _dbus_verbose ("  polling watch on fd %d\n", fds[n_fds].fd);
+              _dbus_verbose ("  polling watch on fd %d  %s\n",
+                             fds[n_fds].fd, watch_flags_to_string (flags));
 #endif
 
               n_fds += 1;
@@ -605,8 +627,9 @@ _dbus_loop_iterate (DBusLoop     *loop,
           else
             {
 #if MAINLOOP_SPEW
-              _dbus_verbose ("  skipping disabled watch on fd %d\n",
-                             dbus_watch_get_fd (wcb->watch));
+              _dbus_verbose ("  skipping disabled watch on fd %d  %s\n",
+                             dbus_watch_get_fd (wcb->watch),
+                             watch_flags_to_string (dbus_watch_get_flags (wcb->watch)));
 #endif
             }
         }

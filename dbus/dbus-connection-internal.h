@@ -52,7 +52,7 @@ dbus_bool_t       _dbus_connection_queue_received_message      (DBusConnection  
                                                                 DBusMessage        *message);
 void              _dbus_connection_queue_received_message_link (DBusConnection     *connection,
                                                                 DBusList           *link);
-dbus_bool_t       _dbus_connection_have_messages_to_send       (DBusConnection     *connection);
+dbus_bool_t       _dbus_connection_has_messages_to_send_unlocked (DBusConnection     *connection);
 DBusMessage*      _dbus_connection_get_message_to_send         (DBusConnection     *connection);
 void              _dbus_connection_message_sent                (DBusConnection     *connection,
                                                                 DBusMessage        *message);

@@ -58,11 +58,10 @@ static void
 unix_finalize (DBusServer *server)
 {
   DBusServerUnix *unix_server = (DBusServerUnix*) server;
-
-  dbus_free (unix_server->socket_name);
   
   _dbus_server_finalize_base (server);
-  
+
+  dbus_free (unix_server->socket_name);
   dbus_free (server);
 }
 

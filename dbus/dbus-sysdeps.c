@@ -3019,6 +3019,9 @@ _dbus_full_duplex_pipe (int        *fd1,
   
   *fd1 = fds[0];
   *fd2 = fds[1];
+
+  _dbus_verbose ("full-duplex pipe %d <-> %d\n",
+                 *fd1, *fd2);
   
   return TRUE;  
 #else

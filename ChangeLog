@@ -1,3 +1,66 @@
+2004-11-25  Havoc Pennington  <hp@redhat.com>
+
+        The primary change here is to always write() once before adding
+	the write watch, which gives us about a 10% performance increase.
+	
+	* dbus/dbus-transport-unix.c: a number of modifications to cope
+	with removing messages_pending
+	(check_write_watch): properly handle
+	DBUS_AUTH_STATE_WAITING_FOR_MEMORY; adapt to removal of
+	messages_pending stuff
+	(check_read_watch): properly handle WAITING_FOR_MEMORY and
+	AUTHENTICATED cases
+	(unix_handle_watch): after writing, see if the write watch can be
+	removed
+	(unix_do_iteration): assert that write_watch/read_watch are
+	non-NULL rather than testing that they aren't, since they 
+	aren't allowed to be NULL. check_write_watch() at the end so 
+	we add the watch if we did not finish writing (e.g. got EAGAIN)
+
+	* dbus/dbus-transport-protected.h: remove messages_pending call,
+	since it resulted in too much inefficient watch adding/removing; 
+	instead we now require that the transport user does an iteration 
+	after queueing outgoing messages, and after trying the first
+	write() we add a write watch if we got EAGAIN or exceeded our 
+	max bytes to write per iteration setting
+
+	* dbus/dbus-string.c (_dbus_string_validate_signature): add this
+	function
+
+	* dbus/dbus-server-unix.c (unix_finalize): the socket name was
+	freed and then accessed, valgrind flagged this bug, fix it
+
+	* dbus/dbus-message.c: fix several bugs where HEADER_FIELD_LAST was taken
+	as the last valid field plus 1, where really it is equal to the
+	last valid field. Corrects some message corruption issues.
+
+	* dbus/dbus-mainloop.c: verbosity changes
+
+	* dbus/dbus-keyring.c (_dbus_keyring_new_homedir): handle OOM
+	instead of aborting in one of the test codepaths
+
+	* dbus/dbus-internals.c (_dbus_verbose_real): fix a bug that
+	caused not printing the pid ever again if a verbose was missing
+	the newline at the end
+	(_dbus_header_field_to_string): add HEADER_FIELD_SIGNATURE
+
+	* dbus/dbus-connection.c: verbosity changes; 
+	(dbus_connection_has_messages_to_send): new function
+	(_dbus_connection_message_sent): no longer call transport->messages_pending
+	(_dbus_connection_send_preallocated_unlocked): do one iteration to
+	try to write() immediately, so we can avoid the write watch. This
+	is the core purpose of this patchset
+	(_dbus_connection_get_dispatch_status_unlocked): if disconnected,
+	dump the outgoing message queue, so nobody will get confused
+	trying to send them or thinking stuff is pending to be sent
+
+	* bus/test.c: verbosity changes
+
+	* bus/driver.c: verbosity/assertion changes
+
+	* bus/dispatch.c: a bunch of little tweaks to get it working again
+	because this patchset changes when/where you need to block.
+
 2004-11-23  Havoc Pennington  <hp@redhat.com>
 
 	* test/glib/test-profile.c: modify to accept a plain_sockets

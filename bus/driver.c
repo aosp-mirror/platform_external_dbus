@@ -2,7 +2,7 @@
 /* driver.c  Bus client (driver)
  *
  * Copyright (C) 2003 CodeFactory AB
- * Copyright (C) 2003 Red Hat, Inc.
+ * Copyright (C) 2003, 2004 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -51,7 +51,8 @@ bus_driver_send_service_owner_changed (const char     *service_name,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  _dbus_verbose ("sending service owner changed: %s [%s -> %s]", service_name, 
+  _dbus_verbose ("sending service owner changed: %s [%s -> %s]\n",
+                 service_name, 
                  old_owner ? old_owner : null_service, 
                  new_owner ? new_owner : null_service);
 
@@ -75,6 +76,8 @@ bus_driver_send_service_owner_changed (const char     *service_name,
                                  DBUS_TYPE_INVALID))
     goto oom;
 
+  _dbus_assert (dbus_message_has_signature (message, "sss"));
+  
   retval = bus_dispatch_matches (transaction, NULL, NULL, message, error);
   dbus_message_unref (message);
 
@@ -346,6 +349,8 @@ bus_driver_send_welcome_message (DBusConnection *connection,
       return FALSE;
     }
 
+  _dbus_assert (dbus_message_has_signature (welcome, "s"));
+  
   if (!bus_transaction_send_from_driver (transaction, connection, welcome))
     {
       dbus_message_unref (welcome);

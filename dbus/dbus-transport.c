@@ -141,7 +141,6 @@ _dbus_transport_init_base (DBusTransport             *transport,
   transport->auth = auth;
   transport->live_messages_size = counter;
   transport->authenticated = FALSE;
-  transport->messages_need_sending = FALSE;
   transport->disconnected = FALSE;
   transport->send_credentials_pending = !server;
   transport->receive_credentials_pending = server;
@@ -608,32 +607,6 @@ _dbus_transport_set_connection (DBusTransport  *transport,
   _dbus_transport_unref (transport);
 
   return transport->connection != NULL;
-}
-
-/**
- * Notifies the transport when the outgoing message queue goes from
- * empty to non-empty or vice versa. Typically causes the transport to
- * add or remove its DBUS_WATCH_WRITABLE watch.
- *
- * @param transport the transport.
- * @param queue_length the length of the outgoing message queue.
- *
- */
-void
-_dbus_transport_messages_pending (DBusTransport  *transport,
-                                  int             queue_length)
-{
-  _dbus_assert (transport->vtable->messages_pending != NULL);
-
-  if (transport->disconnected)
-    return;
-
-  transport->messages_need_sending = queue_length > 0;
-
-  _dbus_transport_ref (transport);
-  (* transport->vtable->messages_pending) (transport,
-                                           queue_length);
-  _dbus_transport_unref (transport);
 }
 
 /**

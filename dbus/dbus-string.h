@@ -253,6 +253,9 @@ dbus_bool_t   _dbus_string_validate_error_name   (const DBusString  *str,
 dbus_bool_t   _dbus_string_validate_service      (const DBusString  *str,
                                                   int                start,
                                                   int                len);
+dbus_bool_t   _dbus_string_validate_signature    (const DBusString  *str,
+                                                  int                start,
+                                                  int                len);
 void          _dbus_string_zero                  (DBusString        *str);
 
 

@@ -90,6 +90,9 @@ Might as Well for 1.0
  - dbus_message_iter_init_array_iterator has "iter" and "iterator" 
    in the same function name
 
+ - connection_open/connection_disconnect lacks symmetry, open/close
+   or connect/disconnect
+
 Can Be Post 1.0
 ===
 

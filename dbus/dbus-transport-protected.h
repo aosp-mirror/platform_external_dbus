@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-transport-protected.h Used by subclasses of DBusTransport object (internal to D-BUS implementation)
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2004  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -56,12 +56,6 @@ struct DBusTransportVTable
   dbus_bool_t (* connection_set)        (DBusTransport *transport);
   /**< Called when transport->connection has been filled in */
 
-  void        (* messages_pending)      (DBusTransport *transport,
-                                         int            queue_length);
-  /**< Called when the outgoing message queue goes from empty
-   * to non-empty or vice versa.
-   */
-
   void        (* do_iteration)          (DBusTransport *transport,
                                          unsigned int   flags,
                                          int            timeout_milliseconds);
@@ -111,7 +105,6 @@ struct DBusTransport
   
   unsigned int disconnected : 1;              /**< #TRUE if we are disconnected. */
   unsigned int authenticated : 1;             /**< Cache of auth state; use _dbus_transport_get_is_authenticated() to query value */
-  unsigned int messages_need_sending : 1;     /**< #TRUE if we need to write messages out */
   unsigned int send_credentials_pending : 1;  /**< #TRUE if we need to send credentials */
   unsigned int receive_credentials_pending : 1; /**< #TRUE if we need to receive credentials */
   unsigned int is_server : 1;                 /**< #TRUE if on the server side */

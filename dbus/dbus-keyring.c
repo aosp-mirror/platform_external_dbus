@@ -759,7 +759,7 @@ _dbus_keyring_new_homedir (const DBusString *username,
      {
        _dbus_string_set_length (&homedir, 0);
        if (!_dbus_string_append (&homedir, override))
-         _dbus_assert_not_reached ("no memory");
+         goto failed;
 
        _dbus_verbose ("Using fake homedir for testing: %s\n",
                       _dbus_string_get_const_data (&homedir));

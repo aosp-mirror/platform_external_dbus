@@ -105,6 +105,7 @@ void               dbus_connection_steal_borrowed_message       (DBusConnection 
 DBusMessage*       dbus_connection_pop_message                  (DBusConnection             *connection);
 DBusDispatchStatus dbus_connection_get_dispatch_status          (DBusConnection             *connection);
 DBusDispatchStatus dbus_connection_dispatch                     (DBusConnection             *connection);
+dbus_bool_t        dbus_connection_has_messages_to_send         (DBusConnection *connection);
 dbus_bool_t        dbus_connection_send                         (DBusConnection             *connection,
                                                                  DBusMessage                *message,
                                                                  dbus_uint32_t              *client_serial);

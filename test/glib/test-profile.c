@@ -689,7 +689,7 @@ static const ProfileRunVTable plain_sockets_vtable = {
   plain_sockets_main_loop_run
 };
 
-static void
+static double
 do_profile_run (const ProfileRunVTable *vtable)
 {
   GTimer *timer;
@@ -726,6 +726,8 @@ do_profile_run (const ProfileRunVTable *vtable)
   (* vtable->stop_server) (&sd, server);
   
   g_main_loop_unref (sd.loop);
+
+  return secs;
 }
 
 int
@@ -744,10 +746,18 @@ main (int argc, char *argv[])
 
   if (argc > 1 && strcmp (argv[1], "plain_sockets") == 0)
     do_profile_run (&plain_sockets_vtable);
+  if (argc > 1 && strcmp (argv[1], "both") == 0)
+    {
+      double e1, e2;
+      
+      e1 = do_profile_run (&plain_sockets_vtable);
+      e2 = do_profile_run (&with_bus_vtable);
+
+      g_printerr ("libdbus version is %g times slower than plain sockets\n",
+                  e2/e1);
+    }
   else
     do_profile_run (&with_bus_vtable);
   
   return 0;
 }
-
-  

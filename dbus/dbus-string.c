@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-string.c String utility class (internal to D-BUS implementation)
  * 
- * Copyright (C) 2002, 2003 Red Hat, Inc.
+ * Copyright (C) 2002, 2003, 2004 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -2362,7 +2362,7 @@ _dbus_string_hex_decode (const DBusString *source,
  * string, returns #FALSE.
  *
  * @todo this is inconsistent with most of DBusString in that
- * it allows a start,len range that isn't in the string.
+ * it allows a start,len range that extends past the string end.
  * 
  * @param str the string
  * @param start first byte index to check
@@ -2406,7 +2406,7 @@ _dbus_string_validate_ascii (const DBusString *str,
  * boundaries, returns #FALSE.
  *
  * @todo this is inconsistent with most of DBusString in that
- * it allows a start,len range that isn't in the string.
+ * it allows a start,len range that extends past the string end.
  * 
  * @param str the string
  * @param start first byte index to check
@@ -2504,7 +2504,7 @@ _dbus_string_validate_utf8  (const DBusString *str,
  * #FALSE.
  *
  * @todo this is inconsistent with most of DBusString in that
- * it allows a start,len range that isn't in the string.
+ * it allows a start,len range that extends past the string end.
  * 
  * @param str the string
  * @param start first byte index to check
@@ -2545,7 +2545,7 @@ _dbus_string_validate_nul (const DBusString *str,
  * to be done separately for now.
  *
  * @todo this is inconsistent with most of DBusString in that
- * it allows a start,len range that isn't in the string.
+ * it allows a start,len range that extends past the string end.
  *
  * @todo change spec to disallow more things, such as spaces in the
  * path name
@@ -2631,7 +2631,7 @@ _dbus_string_validate_path (const DBusString  *str,
  * ASCII subset, see the specification.
  *
  * @todo this is inconsistent with most of DBusString in that
- * it allows a start,len range that isn't in the string.
+ * it allows a start,len range that extends past the string end.
  * 
  * @param str the string
  * @param start first byte index to check
@@ -2708,7 +2708,7 @@ _dbus_string_validate_interface (const DBusString  *str,
  * see the specification.
  *
  * @todo this is inconsistent with most of DBusString in that
- * it allows a start,len range that isn't in the string.
+ * it allows a start,len range that extends past the string end.
  * 
  * @param str the string
  * @param start first byte index to check
@@ -2770,7 +2770,7 @@ _dbus_string_validate_member (const DBusString  *str,
  * see the specification.
  *
  * @todo this is inconsistent with most of DBusString in that
- * it allows a start,len range that isn't in the string.
+ * it allows a start,len range that extends past the string end.
  * 
  * @param str the string
  * @param start first byte index to check
@@ -2841,7 +2841,7 @@ _dbus_string_validate_base_service (const DBusString  *str,
  * see the specification.
  *
  * @todo this is inconsistent with most of DBusString in that
- * it allows a start,len range that isn't in the string.
+ * it allows a start,len range that extends past the string end.
  * 
  * @param str the string
  * @param start first byte index to check
@@ -2859,6 +2859,64 @@ _dbus_string_validate_service (const DBusString  *str,
     return _dbus_string_validate_base_service (str, start, len);
   else
     return _dbus_string_validate_interface (str, start, len);
+}
+
+/**
+ * Checks that the given range of the string is a valid message type
+ * signature in the D-BUS protocol.
+ *
+ * @todo this is inconsistent with most of DBusString in that
+ * it allows a start,len range that extends past the string end.
+ * 
+ * @param str the string
+ * @param start first byte index to check
+ * @param len number of bytes to check
+ * @returns #TRUE if the byte range exists and is a valid signature
+ */
+dbus_bool_t
+_dbus_string_validate_signature (const DBusString  *str,
+                                 int                start,
+                                 int                len)
+{
+  const unsigned char *s;
+  const unsigned char *end;
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start >= 0);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (len >= 0);
+  
+  if (len > real->len - start)
+    return FALSE;
+  
+  s = real->str + start;
+  end = s + len;
+  while (s != end)
+    {
+      switch (*s)
+        {
+        case DBUS_TYPE_NIL:
+        case DBUS_TYPE_BYTE:
+        case DBUS_TYPE_BOOLEAN:
+        case DBUS_TYPE_INT32:
+        case DBUS_TYPE_UINT32:
+        case DBUS_TYPE_INT64:
+        case DBUS_TYPE_UINT64:
+        case DBUS_TYPE_DOUBLE:
+        case DBUS_TYPE_STRING:
+        case DBUS_TYPE_CUSTOM:
+        case DBUS_TYPE_ARRAY:
+        case DBUS_TYPE_DICT:
+        case DBUS_TYPE_OBJECT_PATH:
+          break;
+          
+        default:
+          return FALSE;
+        }
+      
+      ++s;
+    }
+  
+  return TRUE;
 }
 
 /**
@@ -3226,6 +3284,21 @@ _dbus_string_test (void)
     "",
     "   ",
     "foo bar"
+  };
+
+  const char *valid_signatures[] = {
+    "",
+    "sss",
+    "i",
+    "b"
+  };
+
+  const char *invalid_signatures[] = {
+    " ",
+    "not a valid signature",
+    "123",
+    ".",
+    "("
   };
   
   i = 0;
@@ -3811,6 +3884,37 @@ _dbus_string_test (void)
       ++i;
     }
 
+  /* Signature validation */
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (valid_signatures))
+    {
+      _dbus_string_init_const (&str, valid_signatures[i]);
+
+      if (!_dbus_string_validate_signature (&str, 0,
+                                            _dbus_string_get_length (&str)))
+        {
+          _dbus_warn ("Signature \"%s\" should have been valid\n", valid_signatures[i]);
+          _dbus_assert_not_reached ("invalid signature");
+        }
+      
+      ++i;
+    }
+
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (invalid_signatures))
+    {
+      _dbus_string_init_const (&str, invalid_signatures[i]);
+      
+      if (_dbus_string_validate_signature (&str, 0,
+                                           _dbus_string_get_length (&str)))
+        {
+          _dbus_warn ("Signature \"%s\" should have been invalid\n", invalid_signatures[i]);
+          _dbus_assert_not_reached ("valid signature");
+        }
+      
+      ++i;
+    }
+  
   /* Validate claimed length longer than real length */
   _dbus_string_init_const (&str, "abc.efg");
   if (_dbus_string_validate_service (&str, 0, 8))
@@ -3824,6 +3928,10 @@ _dbus_string_test (void)
   if (_dbus_string_validate_member (&str, 0, 4))
     _dbus_assert_not_reached ("validated too-long string");
 
+  _dbus_string_init_const (&str, "sss");
+  if (_dbus_string_validate_signature (&str, 0, 4))
+    _dbus_assert_not_reached ("validated too-long signature");
+  
   /* Validate string exceeding max name length */
   if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("no memory");

@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-transport-unix.c UNIX socket subclasses of DBusTransport
  *
- * Copyright (C) 2002, 2003  Red Hat Inc.
+ * Copyright (C) 2002, 2003, 2004  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -114,7 +114,7 @@ static void
 check_write_watch (DBusTransport *transport)
 {
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
-  dbus_bool_t need_write_watch;
+  dbus_bool_t needed;
 
   if (transport->connection == NULL)
     return;
@@ -128,14 +128,37 @@ check_write_watch (DBusTransport *transport)
   _dbus_transport_ref (transport);
 
   if (_dbus_transport_get_is_authenticated (transport))
-    need_write_watch = transport->messages_need_sending;
+    needed = _dbus_connection_has_messages_to_send_unlocked (transport->connection);
   else
-    need_write_watch = transport->send_credentials_pending ||
-      _dbus_auth_do_work (transport->auth) == DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND;
+    {
+      if (transport->send_credentials_pending)
+        needed = TRUE;
+      else
+        {
+          DBusAuthState auth_state;
+          
+          auth_state = _dbus_auth_do_work (transport->auth);
+          
+          /* If we need memory we install the write watch just in case,
+           * if there's no need for it, it will get de-installed
+           * next time we try reading.
+           */
+          if (auth_state == DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND ||
+              auth_state == DBUS_AUTH_STATE_WAITING_FOR_MEMORY)
+            needed = TRUE;
+          else
+            needed = FALSE;
+        }
+    }
+
+  _dbus_verbose ("check_write_watch(): needed = %d on connection %p watch %p fd = %d outgoing messages exist %d\n",
+                 needed, transport->connection, unix_transport->write_watch,
+                 unix_transport->fd,
+                 _dbus_connection_has_messages_to_send_unlocked (transport->connection));
 
   _dbus_connection_toggle_watch (transport->connection,
                                  unix_transport->write_watch,
-                                 need_write_watch);
+                                 needed);
 
   _dbus_transport_unref (transport);
 }
@@ -146,6 +169,9 @@ check_read_watch (DBusTransport *transport)
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
   dbus_bool_t need_read_watch;
 
+  _dbus_verbose ("%s: fd = %d\n",
+                 _DBUS_FUNCTION_NAME, unix_transport->fd);
+  
   if (transport->connection == NULL)
     return;
 
@@ -161,9 +187,35 @@ check_read_watch (DBusTransport *transport)
     need_read_watch =
       _dbus_counter_get_value (transport->live_messages_size) < transport->max_live_messages_size;
   else
-    need_read_watch = transport->receive_credentials_pending ||
-      _dbus_auth_do_work (transport->auth) == DBUS_AUTH_STATE_WAITING_FOR_INPUT;
+    {
+      if (transport->receive_credentials_pending)
+        need_read_watch = TRUE;
+      else
+        {
+          /* The reason to disable need_read_watch when not WAITING_FOR_INPUT
+           * is to avoid spinning on the file descriptor when we're waiting
+           * to write or for some other part of the auth process
+           */
+          DBusAuthState auth_state;
+          
+          auth_state = _dbus_auth_do_work (transport->auth);
 
+          /* If we need memory we install the read watch just in case,
+           * if there's no need for it, it will get de-installed
+           * next time we try reading. If we're authenticated we
+           * install it since we normally have it installed while
+           * authenticated.
+           */
+          if (auth_state == DBUS_AUTH_STATE_WAITING_FOR_INPUT ||
+              auth_state == DBUS_AUTH_STATE_WAITING_FOR_MEMORY ||
+              auth_state == DBUS_AUTH_STATE_AUTHENTICATED)
+            need_read_watch = TRUE;
+          else
+            need_read_watch = FALSE;
+        }
+    }
+
+  _dbus_verbose ("  setting read watch enabled = %d\n", need_read_watch);
   _dbus_connection_toggle_watch (transport->connection,
                                  unix_transport->read_watch,
                                  need_read_watch);
@@ -326,12 +378,24 @@ do_authentication (DBusTransport *transport,
 {
   dbus_bool_t oom;
   dbus_bool_t orig_auth_state;
-  
-  _dbus_transport_ref (transport);
 
   oom = FALSE;
   
   orig_auth_state = _dbus_transport_get_is_authenticated (transport);
+
+  /* This is essential to avoid the check_write_watch() at the end,
+   * we don't want to add a write watch in do_iteration before
+   * we try writing and get EAGAIN
+   */
+  if (orig_auth_state)
+    {
+      if (auth_completed)
+        *auth_completed = FALSE;
+      return TRUE;
+    }
+  
+  _dbus_transport_ref (transport);
+  
   while (!_dbus_transport_get_is_authenticated (transport) &&
          _dbus_transport_get_is_connected (transport))
     {      
@@ -418,16 +482,17 @@ do_writing (DBusTransport *transport)
       return TRUE;
     }
 
-#if 0
-  _dbus_verbose ("do_writing(), have_messages = %d\n",
-                 _dbus_connection_have_messages_to_send (transport->connection));
+#if 1
+  _dbus_verbose ("do_writing(), have_messages = %d, fd = %d\n",
+                 _dbus_connection_has_messages_to_send_unlocked (transport->connection),
+                 unix_transport->fd);
 #endif
   
   oom = FALSE;
   total = 0;
 
   while (!transport->disconnected &&
-         _dbus_connection_have_messages_to_send (transport->connection))
+         _dbus_connection_has_messages_to_send_unlocked (transport->connection))
     {
       int bytes_written;
       DBusMessage *message;
@@ -440,12 +505,6 @@ do_writing (DBusTransport *transport)
         {
           _dbus_verbose ("%d bytes exceeds %d bytes written per iteration, returning\n",
                          total, unix_transport->max_bytes_written_per_iteration);
-          goto out;
-        }
-
-      if (!dbus_watch_get_enabled (unix_transport->write_watch))
-        {
-          _dbus_verbose ("write watch disabled, not writing more stuff\n");
           goto out;
         }
       
@@ -580,6 +639,9 @@ do_reading (DBusTransport *transport)
   int total;
   dbus_bool_t oom;
 
+  _dbus_verbose ("%s: fd = %d\n", _DBUS_FUNCTION_NAME,
+                 unix_transport->fd);
+  
   /* No messages without authentication! */
   if (!_dbus_transport_get_is_authenticated (transport))
     return TRUE;
@@ -722,6 +784,7 @@ unix_handle_watch (DBusTransport *transport,
 
   _dbus_assert (watch == unix_transport->read_watch ||
                 watch == unix_transport->write_watch);
+  _dbus_assert (watch != NULL);
   
   /* Disconnect in case of an error.  In case of hangup do not
    * disconnect the transport because data can still be in the buffer
@@ -741,8 +804,9 @@ unix_handle_watch (DBusTransport *transport,
       (flags & DBUS_WATCH_READABLE))
     {
       dbus_bool_t auth_finished;
-#if 0
-      _dbus_verbose ("handling read watch (%x)\n", flags);
+#if 1
+      _dbus_verbose ("handling read watch %p flags = %x\n",
+                     watch, flags);
 #endif
       if (!do_authentication (transport, TRUE, FALSE, &auth_finished))
         return FALSE;
@@ -761,13 +825,17 @@ unix_handle_watch (DBusTransport *transport,
 	      return FALSE;
 	    }
 	}
+      else
+        {
+          _dbus_verbose ("Not reading anything since we just completed the authentication\n");
+        }
     }
   else if (watch == unix_transport->write_watch &&
            (flags & DBUS_WATCH_WRITABLE))
     {
-#if 0
-      _dbus_verbose ("handling write watch, messages_need_sending = %d\n",
-                     transport->messages_need_sending);
+#if 1
+      _dbus_verbose ("handling write watch, have_outgoing_messages = %d\n",
+                     _dbus_connection_has_messages_to_send_unlocked (transport->connection));
 #endif
       if (!do_authentication (transport, FALSE, TRUE, NULL))
         return FALSE;
@@ -777,6 +845,9 @@ unix_handle_watch (DBusTransport *transport,
           _dbus_verbose ("no memory to write\n");
           return FALSE;
         }
+
+      /* See if we still need the write watch */
+      check_write_watch (transport);
     }
 #ifdef DBUS_ENABLE_VERBOSE_MODE
   else
@@ -838,13 +909,6 @@ unix_connection_set (DBusTransport *transport)
   return TRUE;
 }
 
-static void
-unix_messages_pending (DBusTransport *transport,
-                       int            messages_pending)
-{
-  check_write_watch (transport);
-}
-
 /**
  * @todo We need to have a way to wake up the select sleep if
  * a new iteration request comes in with a flag (read/write) that
@@ -862,20 +926,18 @@ unix_do_iteration (DBusTransport *transport,
   int poll_res;
   int poll_timeout;
 
-  _dbus_verbose (" iteration flags = %s%s timeout = %d read_watch = %p write_watch = %p\n",
+  _dbus_verbose (" iteration flags = %s%s timeout = %d read_watch = %p write_watch = %p fd = %d\n",
                  flags & DBUS_ITERATION_DO_READING ? "read" : "",
                  flags & DBUS_ITERATION_DO_WRITING ? "write" : "",
                  timeout_milliseconds,
                  unix_transport->read_watch,
-                 unix_transport->write_watch);
+                 unix_transport->write_watch,
+                 unix_transport->fd);
   
   /* the passed in DO_READING/DO_WRITING flags indicate whether to
    * read/write messages, but regardless of those we may need to block
    * for reading/writing to do auth.  But if we do reading for auth,
    * we don't want to read any messages yet if not given DO_READING.
-   *
-   * Also, if read_watch == NULL or write_watch == NULL, we don't
-   * want to read/write so don't.
    */
 
   poll_fd.fd = unix_transport->fd;
@@ -883,12 +945,12 @@ unix_do_iteration (DBusTransport *transport,
   
   if (_dbus_transport_get_is_authenticated (transport))
     {
-      if (unix_transport->read_watch &&
-          (flags & DBUS_ITERATION_DO_READING))
+      _dbus_assert (unix_transport->read_watch);
+      if (flags & DBUS_ITERATION_DO_READING)
 	poll_fd.events |= _DBUS_POLLIN;
-      
-      if (unix_transport->write_watch &&
-          (flags & DBUS_ITERATION_DO_WRITING))
+
+      _dbus_assert (unix_transport->write_watch);
+      if (flags & DBUS_ITERATION_DO_WRITING)
 	poll_fd.events |= _DBUS_POLLOUT;
     }
   else
@@ -904,7 +966,7 @@ unix_do_iteration (DBusTransport *transport,
       if (transport->send_credentials_pending ||
           auth_state == DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND)
 	poll_fd.events |= _DBUS_POLLOUT;
-    } 
+    }
 
   if (poll_fd.events)
     {
@@ -947,7 +1009,7 @@ unix_do_iteration (DBusTransport *transport,
 
 	      /* See comment in unix_handle_watch. */
 	      if (authentication_completed)
-		return;
+                goto out;
                                  
               if (need_read && (flags & DBUS_ITERATION_DO_READING))
                 do_reading (transport);
@@ -961,6 +1023,22 @@ unix_do_iteration (DBusTransport *transport,
                          _dbus_strerror (errno));
         }
     }
+
+
+ out:
+  /* We need to install the write watch only if we did not
+   * successfully write everything. Note we need to be careful that we
+   * don't call check_write_watch *before* do_writing, since it's
+   * inefficient to add the write watch, and we can avoid it most of
+   * the time since we can write immediately.
+   * 
+   * However, we MUST always call check_write_watch(); DBusConnection code
+   * relies on the fact that running an iteration will notice that
+   * messages are pending.
+   */
+  check_write_watch (transport);
+
+  _dbus_verbose (" ... leaving do_iteration()\n");
 }
 
 static void
@@ -987,7 +1065,6 @@ static DBusTransportVTable unix_vtable = {
   unix_handle_watch,
   unix_disconnect,
   unix_connection_set,
-  unix_messages_pending,
   unix_do_iteration,
   unix_live_messages_changed,
   unix_get_unix_fd

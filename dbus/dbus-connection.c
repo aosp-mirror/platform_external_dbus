@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-connection.c DBusConnection object
  *
- * Copyright (C) 2002, 2003  Red Hat Inc.
+ * Copyright (C) 2002, 2003, 2004  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -53,6 +53,12 @@
 #define CONNECTION_LOCK(connection)    dbus_mutex_lock ((connection)->mutex)
 #define CONNECTION_UNLOCK(connection)  dbus_mutex_unlock ((connection)->mutex)
 #endif
+
+#define DISPATCH_STATUS_NAME(s)                                            \
+                     ((s) == DBUS_DISPATCH_COMPLETE ? "complete" :         \
+                      (s) == DBUS_DISPATCH_DATA_REMAINS ? "data remains" : \
+                      (s) == DBUS_DISPATCH_NEED_MEMORY ? "need memory" :   \
+                      "???")
 
 /**
  * @defgroup DBusConnection DBusConnection
@@ -350,12 +356,15 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
 
   _dbus_connection_wakeup_mainloop (connection);
   
-  _dbus_verbose ("Message %p (%d %s '%s') added to incoming queue %p, %d incoming\n",
+  _dbus_verbose ("Message %p (%d %s %s '%s') added to incoming queue %p, %d incoming\n",
                  message,
                  dbus_message_get_type (message),
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface",
+                 dbus_message_get_member (message) ?
+                 dbus_message_get_member (message) :
+                 "no member",
                  dbus_message_get_signature (message),
                  connection,
                  connection->n_incoming);
@@ -388,14 +397,35 @@ _dbus_connection_queue_synthesized_message_link (DBusConnection *connection,
 
 /**
  * Checks whether there are messages in the outgoing message queue.
+ * Called with connection lock held.
  *
  * @param connection the connection.
  * @returns #TRUE if the outgoing queue is non-empty.
  */
 dbus_bool_t
-_dbus_connection_have_messages_to_send (DBusConnection *connection)
+_dbus_connection_has_messages_to_send_unlocked (DBusConnection *connection)
 {
   return connection->outgoing_messages != NULL;
+}
+
+/**
+ * Checks whether there are messages in the outgoing message queue.
+ *
+ * @param connection the connection.
+ * @returns #TRUE if the outgoing queue is non-empty.
+ */
+dbus_bool_t
+dbus_connection_has_messages_to_send (DBusConnection *connection)
+{
+  dbus_bool_t v;
+  
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+
+  CONNECTION_LOCK (connection);
+  v = _dbus_connection_has_messages_to_send_unlocked (connection);
+  CONNECTION_UNLOCK (connection);
+
+  return v;
 }
 
 /**
@@ -424,8 +454,11 @@ _dbus_connection_message_sent (DBusConnection *connection,
                                DBusMessage    *message)
 {
   DBusList *link;
-  
-  _dbus_assert (_dbus_transport_get_is_authenticated (connection->transport));
+
+  /* This can be called before we even complete authentication, since
+   * it's called on disconnect to clean up the outgoing queue.
+   * It's also called as we successfully send each message.
+   */
   
   link = _dbus_list_get_last_link (&connection->outgoing_messages);
   _dbus_assert (link != NULL);
@@ -438,12 +471,15 @@ _dbus_connection_message_sent (DBusConnection *connection,
   
   connection->n_outgoing -= 1;
 
-  _dbus_verbose ("Message %p (%d %s '%s') removed from outgoing queue %p, %d left to send\n",
+  _dbus_verbose ("Message %p (%d %s %s '%s') removed from outgoing queue %p, %d left to send\n",
                  message,
                  dbus_message_get_type (message),
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface",
+                 dbus_message_get_member (message) ?
+                 dbus_message_get_member (message) :
+                 "no member",
                  dbus_message_get_signature (message),
                  connection, connection->n_outgoing);
 
@@ -453,10 +489,6 @@ _dbus_connection_message_sent (DBusConnection *connection,
   _dbus_list_prepend_link (&connection->link_cache, link);
   
   dbus_message_unref (message);
-  
-  if (connection->n_outgoing == 0)
-    _dbus_transport_messages_pending (connection->transport,
-                                      connection->n_outgoing);  
 }
 
 /**
@@ -501,6 +533,7 @@ _dbus_connection_remove_watch (DBusConnection *connection,
  * Toggles a watch and notifies app via connection's
  * DBusWatchToggledFunction if available. It's an error to call this
  * function on a watch that was not previously added.
+ * Connection lock should be held when calling this.
  *
  * @param connection the connection.
  * @param watch the watch to toggle.
@@ -511,6 +544,8 @@ _dbus_connection_toggle_watch (DBusConnection *connection,
                                DBusWatch      *watch,
                                dbus_bool_t     enabled)
 {
+  _dbus_assert (watch != NULL);
+  
   if (connection->watches) /* null during finalize */
     _dbus_watch_list_toggle_watch (connection->watches,
                                    watch, enabled);
@@ -777,6 +812,8 @@ _dbus_connection_release_io_path (DBusConnection *connection)
  * wasn't specified, then it's impossible to block, even if
  * you specify DBUS_ITERATION_BLOCK; in that case the function
  * returns immediately.
+ *
+ * Called with connection lock held.
  * 
  * @param connection the connection.
  * @param flags iteration flags.
@@ -1001,11 +1038,11 @@ _dbus_connection_unref_unlocked (DBusConnection *connection)
   
 #ifdef DBUS_HAVE_ATOMIC_INT
   last_unref = (_dbus_atomic_dec (&connection->refcount) == 1);
-#else  
+#else
   _dbus_assert (connection->refcount.value > 0);
 
   connection->refcount.value -= 1;
-  last_unref = (connection->refcount.value == 0);
+  last_unref = (connection->refcount.value == 0);  
 #if 0
   printf ("unref_unlocked() connection %p count = %d\n", connection, connection->refcount.value);
 #endif
@@ -1311,6 +1348,8 @@ dbus_connection_disconnect (DBusConnection *connection)
   DBusDispatchStatus status;
   
   _dbus_return_if_fail (connection != NULL);
+
+  _dbus_verbose ("Disconnecting %p\n", connection);
   
   CONNECTION_LOCK (connection);
   _dbus_transport_disconnect (connection->transport);
@@ -1504,6 +1543,7 @@ _dbus_connection_send_preallocated_unlocked (DBusConnection       *connection,
                                              dbus_uint32_t        *client_serial)
 {
   dbus_uint32_t serial;
+  const char *sig;
 
   preallocated->queue_link->data = message;
   _dbus_list_prepend_link (&connection->outgoing_messages,
@@ -1519,13 +1559,27 @@ _dbus_connection_send_preallocated_unlocked (DBusConnection       *connection,
   
   connection->n_outgoing += 1;
 
-  _dbus_verbose ("Message %p (%d %s '%s') added to outgoing queue %p, %d pending to send\n",
+  sig = dbus_message_get_signature (message);
+#ifndef DBUS_DISABLE_ASSERT
+  {
+    DBusString foo;
+    _dbus_verbose (" validating signature '%s'\n", sig);
+    _dbus_string_init_const (&foo, sig);
+    _dbus_assert (_dbus_string_validate_signature (&foo, 0,
+                                                   _dbus_string_get_length (&foo)));
+  }
+#endif
+  
+  _dbus_verbose ("Message %p (%d %s %s '%s') added to outgoing queue %p, %d pending to send\n",
                  message,
                  dbus_message_get_type (message),
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface",
-                 dbus_message_get_signature (message),
+                 dbus_message_get_member (message) ?
+                 dbus_message_get_member (message) :
+                 "no member",
+                 sig,
                  connection,
                  connection->n_outgoing);
 
@@ -1544,11 +1598,16 @@ _dbus_connection_send_preallocated_unlocked (DBusConnection       *connection,
   
   _dbus_message_lock (message);
 
-  if (connection->n_outgoing == 1)
-    _dbus_transport_messages_pending (connection->transport,
-				      connection->n_outgoing);
+  /* Now we need to run an iteration to hopefully just write the messages
+   * out immediately, and otherwise get them queued up
+   */
+  _dbus_connection_do_iteration (connection,
+                                 DBUS_ITERATION_DO_WRITING,
+                                 -1);
   
-  _dbus_connection_wakeup_mainloop (connection);
+  /* If stuff is still queued up, be sure we wake up the main loop */
+  if (connection->n_outgoing > 0)
+    _dbus_connection_wakeup_mainloop (connection);
 }
 
 /**
@@ -2195,12 +2254,15 @@ _dbus_connection_pop_message_link_unlocked (DBusConnection *connection)
       link = _dbus_list_pop_first_link (&connection->incoming_messages);
       connection->n_incoming -= 1;
 
-      _dbus_verbose ("Message %p (%d %s '%s') removed from incoming queue %p, %d incoming\n",
+      _dbus_verbose ("Message %p (%d %s %s '%s') removed from incoming queue %p, %d incoming\n",
                      link->data,
                      dbus_message_get_type (link->data),
                      dbus_message_get_interface (link->data) ?
                      dbus_message_get_interface (link->data) :
                      "no interface",
+                     dbus_message_get_member (link->data) ?
+                     dbus_message_get_member (link->data) :
+                     "no member",
                      dbus_message_get_signature (link->data),
                      connection, connection->n_incoming);
 
@@ -2246,12 +2308,15 @@ _dbus_connection_putback_message_link_unlocked (DBusConnection *connection,
                            message_link);
   connection->n_incoming += 1;
 
-  _dbus_verbose ("Message %p (%d %s '%s') put back into queue %p, %d incoming\n",
+  _dbus_verbose ("Message %p (%d %s %s '%s') put back into queue %p, %d incoming\n",
                  message_link->data,
                  dbus_message_get_type (message_link->data),
                  dbus_message_get_interface (message_link->data) ?
                  dbus_message_get_interface (message_link->data) :
                  "no interface",
+                 dbus_message_get_member (message_link->data) ?
+                 dbus_message_get_member (message_link->data) :
+                 "no member",
                  dbus_message_get_signature (message_link->data),
                  connection, connection->n_incoming);
 }
@@ -2347,19 +2412,46 @@ _dbus_connection_get_dispatch_status_unlocked (DBusConnection *connection)
   else
     {
       DBusDispatchStatus status;
+      dbus_bool_t is_connected;
       
       status = _dbus_transport_get_dispatch_status (connection->transport);
+      is_connected = _dbus_transport_get_is_connected (connection->transport);
 
-      if (status == DBUS_DISPATCH_COMPLETE &&
-          connection->disconnect_message_link &&
-          !_dbus_transport_get_is_connected (connection->transport))
+      _dbus_verbose ("dispatch status = %s is_connected = %d\n",
+                     DISPATCH_STATUS_NAME (status), is_connected);
+      
+      if (!is_connected)
         {
-          /* We haven't sent the disconnect message already,
-           * and all real messages have been queued up.
+          if (status == DBUS_DISPATCH_COMPLETE &&
+              connection->disconnect_message_link)
+            {
+              _dbus_verbose ("Sending disconnect message from %s\n",
+                             _DBUS_FUNCTION_NAME);
+                             
+              /* We haven't sent the disconnect message already,
+               * and all real messages have been queued up.
+               */
+              _dbus_connection_queue_synthesized_message_link (connection,
+                                                               connection->disconnect_message_link);
+              connection->disconnect_message_link = NULL;
+            }
+
+          /* Dump the outgoing queue, we aren't going to be able to
+           * send it now, and we'd like accessors like
+           * dbus_connection_get_outgoing_size() to be accurate.
            */
-          _dbus_connection_queue_synthesized_message_link (connection,
-                                                           connection->disconnect_message_link);
-          connection->disconnect_message_link = NULL;
+          if (connection->n_outgoing > 0)
+            {
+              DBusList *link;
+              
+              _dbus_verbose ("Dropping %d outgoing messages since we're disconnected\n",
+                             connection->n_outgoing);
+              
+              while ((link = _dbus_list_get_last_link (&connection->outgoing_messages)))
+                {
+                  _dbus_connection_message_sent (connection, link->data);
+                }
+            }
         }
       
       if (status != DBUS_DISPATCH_COMPLETE)
@@ -2397,10 +2489,7 @@ _dbus_connection_update_dispatch_status_and_unlock (DBusConnection    *connectio
     {
       _dbus_verbose ("Notifying of change to dispatch status of %p now %d (%s)\n",
                      connection, new_status,
-                     new_status == DBUS_DISPATCH_COMPLETE ? "complete" :
-                     new_status == DBUS_DISPATCH_DATA_REMAINS ? "data remains" :
-                     new_status == DBUS_DISPATCH_NEED_MEMORY ? "need memory" :
-                     "???");
+                     DISPATCH_STATUS_NAME (new_status));
       (* function) (connection, new_status, data);      
     }
   
@@ -2470,6 +2559,8 @@ dbus_connection_dispatch (DBusConnection *connection)
 
   _dbus_return_val_if_fail (connection != NULL, DBUS_DISPATCH_COMPLETE);
 
+  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  
   CONNECTION_LOCK (connection);
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
   if (status != DBUS_DISPATCH_DATA_REMAINS)
@@ -2497,6 +2588,8 @@ dbus_connection_dispatch (DBusConnection *connection)
     {
       /* another thread dispatched our stuff */
 
+      _dbus_verbose ("another thread dispatched message\n");
+      
       _dbus_connection_release_dispatch (connection);
 
       status = _dbus_connection_get_dispatch_status_unlocked (connection);
@@ -2509,6 +2602,17 @@ dbus_connection_dispatch (DBusConnection *connection)
     }
 
   message = message_link->data;
+
+  _dbus_verbose (" dispatching message %p (%d %s %s '%s')\n",
+                 message,
+                 dbus_message_get_type (message),
+                 dbus_message_get_interface (message) ?
+                 dbus_message_get_interface (message) :
+                 "no interface",
+                 dbus_message_get_member (message) ?
+                 dbus_message_get_member (message) :
+                 "no member",
+                 dbus_message_get_signature (message));
   
   result = DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
@@ -2563,7 +2667,10 @@ dbus_connection_dispatch (DBusConnection *connection)
   CONNECTION_LOCK (connection);
 
   if (result == DBUS_HANDLER_RESULT_NEED_MEMORY)
-    goto out;
+    {
+      _dbus_verbose ("No memory in %s\n", _DBUS_FUNCTION_NAME);
+      goto out;
+    }
   
   /* Did a reply we were waiting on get filtered? */
   if (pending && result == DBUS_HANDLER_RESULT_HANDLED)
@@ -2583,7 +2690,10 @@ dbus_connection_dispatch (DBusConnection *connection)
     }
   
   if (result == DBUS_HANDLER_RESULT_HANDLED)
-    goto out;
+    {
+      _dbus_verbose ("filter handled message in dispatch\n");
+      goto out;
+    }
   
   if (pending)
     {
@@ -2592,18 +2702,22 @@ dbus_connection_dispatch (DBusConnection *connection)
       pending = NULL;
       
       CONNECTION_LOCK (connection);
+      _dbus_verbose ("pending call completed in dispatch\n");
       goto out;
     }
 
   /* We're still protected from dispatch() reentrancy here
    * since we acquired the dispatcher
    */
-  _dbus_verbose ("  running object path dispatch on message %p (%d %s '%s')\n",
+  _dbus_verbose ("  running object path dispatch on message %p (%d %s %s '%s')\n",
                  message,
                  dbus_message_get_type (message),
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface",
+                 dbus_message_get_member (message) ?
+                 dbus_message_get_member (message) :
+                 "no member",
                  dbus_message_get_signature (message));
   
   result = _dbus_object_tree_dispatch_and_unlock (connection->objects,
@@ -2612,7 +2726,10 @@ dbus_connection_dispatch (DBusConnection *connection)
   CONNECTION_LOCK (connection);
 
   if (result != DBUS_HANDLER_RESULT_NOT_YET_HANDLED)
-    goto out;
+    {
+      _dbus_verbose ("object tree handled message in dispatch\n");
+      goto out;
+    }
 
   if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_METHOD_CALL)
     {
@@ -2626,6 +2743,7 @@ dbus_connection_dispatch (DBusConnection *connection)
       if (!_dbus_string_init (&str))
         {
           result = DBUS_HANDLER_RESULT_NEED_MEMORY;
+          _dbus_verbose ("no memory for error string in dispatch\n");
           goto out;
         }
               
@@ -2636,6 +2754,7 @@ dbus_connection_dispatch (DBusConnection *connection)
         {
           _dbus_string_free (&str);
           result = DBUS_HANDLER_RESULT_NEED_MEMORY;
+          _dbus_verbose ("no memory for error string in dispatch\n");
           goto out;
         }
       
@@ -2647,6 +2766,7 @@ dbus_connection_dispatch (DBusConnection *connection)
       if (reply == NULL)
         {
           result = DBUS_HANDLER_RESULT_NEED_MEMORY;
+          _dbus_verbose ("no memory for error reply in dispatch\n");
           goto out;
         }
       
@@ -2656,6 +2776,7 @@ dbus_connection_dispatch (DBusConnection *connection)
         {
           dbus_message_unref (reply);
           result = DBUS_HANDLER_RESULT_NEED_MEMORY;
+          _dbus_verbose ("no memory for error send in dispatch\n");
           goto out;
         }
 
@@ -2667,11 +2788,14 @@ dbus_connection_dispatch (DBusConnection *connection)
       result = DBUS_HANDLER_RESULT_HANDLED;
     }
   
-  _dbus_verbose ("  done dispatching %p (%d %s '%s') on connection %p\n", message,
+  _dbus_verbose ("  done dispatching %p (%d %s %s '%s') on connection %p\n", message,
                  dbus_message_get_type (message),
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface",
+                 dbus_message_get_member (message) ?
+                 dbus_message_get_member (message) :
+                 "no member",
                  dbus_message_get_signature (message),
                  connection);
   
@@ -2689,7 +2813,7 @@ dbus_connection_dispatch (DBusConnection *connection)
     }
   else
     {
-      _dbus_verbose ("Done with message in %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_verbose (" ... done dispatching in %s\n", _DBUS_FUNCTION_NAME);
       
       if (connection->exit_on_disconnect &&
           dbus_message_is_signal (message,

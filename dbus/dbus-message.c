@@ -525,8 +525,10 @@ iterate_one_field (const DBusString *str,
   int value_end;
   int pos;
 
+#if 0
   _dbus_verbose ("%s: name_offset=%d, append to %p\n",
                  _DBUS_FUNCTION_NAME, name_offset, append_copy_to);
+#endif
   
   pos = name_offset;
   
@@ -547,9 +549,12 @@ iterate_one_field (const DBusString *str,
       array_type = _dbus_string_get_byte (str, pos);
     }
 
-  _dbus_verbose ("%s: name %d, type '%c' %d at %d len %d, array type '%c' %d\n",
+#if 0
+  _dbus_verbose ("%s: name %s, type '%c' %d at %d len %d, array type '%c' %d\n",
                  _DBUS_FUNCTION_NAME,
-                 name, type, type, type_pos, type_len, array_type, array_type);
+                 _dbus_header_field_to_string (name),
+                 type, type, type_pos, type_len, array_type, array_type);
+#endif
   
 #ifndef DBUS_DISABLE_ASSERT
   if (!_dbus_type_is_valid (array_type))
@@ -631,7 +636,7 @@ verify_header_fields (DBusMessage *message)
 {
   int i;
   i = 0;
-  while (i < DBUS_HEADER_FIELD_LAST)
+  while (i <= DBUS_HEADER_FIELD_LAST)
     {
       if (message->header_fields[i].name_offset >= 0)
         _dbus_assert (_dbus_string_get_byte (&message->header,
@@ -656,7 +661,7 @@ delete_one_and_re_align (DBusMessage *message,
   int next_offset;
   int field_name;
   dbus_bool_t retval;
-  HeaderField new_header_fields[DBUS_HEADER_FIELD_LAST];
+  HeaderField new_header_fields[DBUS_HEADER_FIELD_LAST+1];
   
   _dbus_assert (name_offset_to_delete < _dbus_string_get_length (&message->header));
   verify_header_fields (message);
@@ -703,7 +708,11 @@ delete_one_and_re_align (DBusMessage *message,
                           &field_name, NULL, NULL, NULL))
     _dbus_assert_not_reached ("shouldn't have failed to alloc memory to skip the deleted field");
 
-  if (field_name < DBUS_HEADER_FIELD_LAST)
+  _dbus_verbose ("  Skipping %s field which will be deleted; next_offset = %d\n",
+                 _dbus_header_field_to_string (field_name), next_offset);
+  
+  /* This field no longer exists */
+  if (field_name <= DBUS_HEADER_FIELD_LAST)
     {
       new_header_fields[field_name].name_offset = -1;
       new_header_fields[field_name].value_offset = -1;
@@ -728,10 +737,16 @@ delete_one_and_re_align (DBusMessage *message,
           goto out_1;
         }
       
-      if (field_name < DBUS_HEADER_FIELD_LAST)
+      if (field_name <= DBUS_HEADER_FIELD_LAST)
         {
           new_header_fields[field_name].name_offset = copy_name_offset - new_fields_front_padding + name_offset_to_delete;
           new_header_fields[field_name].value_offset = copy_value_offset - new_fields_front_padding + name_offset_to_delete;
+          
+          _dbus_verbose ("  Re-adding %s field at name_offset = %d value_offset = %d; next_offset = %d\n",
+                         _dbus_header_field_to_string (field_name),
+                         new_header_fields[field_name].name_offset,
+                         new_header_fields[field_name].value_offset,
+                         next_offset);
         }
     }
 
@@ -801,6 +816,9 @@ set_int_field (DBusMessage *message,
   int offset = message->header_fields[field].value_offset;
 
   _dbus_assert (!message->locked);
+
+  _dbus_verbose ("set_int_field() field %d value '%d'\n",
+                 field, value);
   
   if (offset < 0)
     {
@@ -826,6 +844,9 @@ set_uint_field (DBusMessage  *message,
   int offset = message->header_fields[field].value_offset;
 
   _dbus_assert (!message->locked);
+
+  _dbus_verbose ("set_uint_field() field %d value '%u'\n",
+                 field, value);
   
   if (offset < 0)
     {
@@ -860,8 +881,8 @@ set_string_field (DBusMessage *message,
    */
   prealloc = value_len + MAX_BYTES_OVERHEAD_TO_APPEND_A_STRING;
 
-  _dbus_verbose ("set_string_field() field %d prealloc %d\n",
-                 field, prealloc);
+  _dbus_verbose ("set_string_field() field %d prealloc %d value '%s'\n",
+                 field, prealloc, value);
   
   if (!delete_field (message, field, prealloc))
     return FALSE;
@@ -5118,8 +5139,6 @@ decode_header_data (const DBusString   *data,
 				    &field_data, pos, type))
             return FALSE;
 
-#if 0
-          /* FIXME */
 	  if (!_dbus_string_validate_signature (&field_data, 0,
                                                 _dbus_string_get_length (&field_data)))
 	    {
@@ -5127,7 +5146,6 @@ decode_header_data (const DBusString   *data,
 			     _dbus_string_get_const_data (&field_data));
 	      return FALSE;
 	    }
-#endif
 	  break;
           
         default:
@@ -7315,6 +7333,77 @@ _dbus_message_test (const char *test_data_dir)
       exit (1);
     }
   dbus_free (t);
+  
+  dbus_message_unref (message);
+
+  /* This ServiceAcquired message used to trigger a bug in
+   * setting header fields, adding to regression test.
+   */
+  message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                     DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                     "ServiceAcquired");
+  
+  if (message == NULL)
+    _dbus_assert_not_reached ("out of memory");
+
+  _dbus_verbose ("Bytes after creation\n");
+  _dbus_verbose_bytes_of_string (&message->header, 0,
+                                 _dbus_string_get_length (&message->header));
+  
+  if (!dbus_message_set_destination (message, ":1.0") ||
+      !dbus_message_append_args (message,
+                                 DBUS_TYPE_STRING, ":1.0",
+                                 DBUS_TYPE_INVALID))
+    _dbus_assert_not_reached ("out of memory");
+
+  _dbus_verbose ("Bytes after set_destination() and append_args()\n");
+  _dbus_verbose_bytes_of_string (&message->header, 0,
+                                 _dbus_string_get_length (&message->header));
+  
+  if (!dbus_message_set_sender (message, "org.freedesktop.DBus"))
+    _dbus_assert_not_reached ("out of memory");
+
+  _dbus_verbose ("Bytes after set_sender()\n");
+  _dbus_verbose_bytes_of_string (&message->header, 0,
+                                 _dbus_string_get_length (&message->header));
+
+  /* When the bug happened the above set_destination() would
+   * corrupt the signature
+   */
+  if (!dbus_message_has_signature (message, "s"))
+    {
+      _dbus_warn ("Signature should be 's' but is '%s'\n",
+                  dbus_message_get_signature (message));
+      _dbus_assert_not_reached ("signal has wrong signature");
+    }
+  
+  /* have to set destination again to reproduce the bug */
+  if (!dbus_message_set_destination (message, ":1.0"))
+    _dbus_assert_not_reached ("out of memory");
+
+  _dbus_verbose ("Bytes after set_destination()\n");
+  _dbus_verbose_bytes_of_string (&message->header, 0,
+                                 _dbus_string_get_length (&message->header));
+  
+  /* When the bug happened the above set_destination() would
+   * corrupt the signature
+   */
+  if (!dbus_message_has_signature (message, "s"))
+    {
+      _dbus_warn ("Signature should be 's' but is '%s'\n",
+                  dbus_message_get_signature (message));
+      _dbus_assert_not_reached ("signal has wrong signature");
+    }
+
+  dbus_error_init (&error);
+  if (!dbus_message_get_args (message, &error, DBUS_TYPE_STRING,
+                              &t, DBUS_TYPE_INVALID))
+    
+    {
+      _dbus_warn ("Failed to get expected string arg for signal: %s\n", error.message);
+      exit (1);
+    }
+  dbus_free (t);  
   
   dbus_message_unref (message);
   

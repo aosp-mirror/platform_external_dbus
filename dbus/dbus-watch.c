@@ -268,8 +268,27 @@ _dbus_watch_list_set_functions (DBusWatchList           *watch_list,
           DBusList *next = _dbus_list_get_next_link (&watch_list->watches,
                                                      link);
 
-          _dbus_verbose ("Adding a watch on fd %d using newly-set add watch function\n",
-                         dbus_watch_get_fd (link->data));
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+          {
+            const char *watch_type;
+            int flags;
+
+            flags = dbus_watch_get_flags (link->data);
+            if ((flags & DBUS_WATCH_READABLE) &&
+                (flags & DBUS_WATCH_WRITABLE))
+              watch_type = "readwrite";
+            else if (flags & DBUS_WATCH_READABLE)
+              watch_type = "read";
+            else if (flags & DBUS_WATCH_WRITABLE)
+              watch_type = "write";
+            else
+              watch_type = "not read or write";
+            
+            _dbus_verbose ("Adding a %s watch on fd %d using newly-set add watch function\n",
+                           watch_type,
+                           dbus_watch_get_fd (link->data));
+          }
+#endif /* DBUS_ENABLE_VERBOSE_MODE */
           
           if (!(* add_function) (link->data, data))
             {
@@ -402,8 +421,8 @@ _dbus_watch_list_toggle_watch (DBusWatchList           *watch_list,
   
   if (watch_list->watch_toggled_function != NULL)
     {
-      _dbus_verbose ("Toggling watch on fd %d to %d\n",
-                     dbus_watch_get_fd (watch), watch->enabled);
+      _dbus_verbose ("Toggling watch %p on fd %d to %d\n",
+                     watch, dbus_watch_get_fd (watch), watch->enabled);
       
       (* watch_list->watch_toggled_function) (watch,
                                               watch_list->watch_data);

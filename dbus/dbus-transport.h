@@ -44,8 +44,6 @@ dbus_bool_t        _dbus_transport_handle_watch           (DBusTransport        
                                                            unsigned int                condition);
 dbus_bool_t        _dbus_transport_set_connection         (DBusTransport              *transport,
                                                            DBusConnection             *connection);
-void               _dbus_transport_messages_pending       (DBusTransport              *transport,
-                                                           int                         queue_length);
 void               _dbus_transport_do_iteration           (DBusTransport              *transport,
                                                            unsigned int                flags,
                                                            int                         timeout_milliseconds);

@@ -2,7 +2,7 @@
 /* dispatch.c  Message dispatcher
  *
  * Copyright (C) 2003  CodeFactory AB
- * Copyright (C) 2003  Red Hat, Inc.
+ * Copyright (C) 2003, 2004  Red Hat, Inc.
  * Copyright (C) 2004  Imendio HB
  *
  * Licensed under the Academic Free License version 2.1
@@ -401,6 +401,12 @@ bus_dispatch_remove_connection (DBusConnection *connection)
 
 #include <stdio.h>
 
+/* This is used to know whether we need to block in order to finish
+ * sending a message, or whether the initial dbus_connection_send()
+ * already flushed the queue.
+ */
+#define SEND_PENDING(connection) (dbus_connection_has_messages_to_send (connection))
+
 typedef dbus_bool_t (* Check1Func) (BusContext     *context);
 typedef dbus_bool_t (* Check2Func) (BusContext     *context,
                                     DBusConnection *connection);
@@ -409,8 +415,11 @@ static dbus_bool_t check_no_leftovers (BusContext *context);
 
 static void
 block_connection_until_message_from_bus (BusContext     *context,
-                                         DBusConnection *connection)
+                                         DBusConnection *connection,
+                                         const char     *what_is_expected)
 {
+  _dbus_verbose ("expecting: %s\n", what_is_expected);
+  
   while (dbus_connection_get_dispatch_status (connection) ==
          DBUS_DISPATCH_COMPLETE &&
          dbus_connection_get_is_connected (connection))
@@ -418,6 +427,20 @@ block_connection_until_message_from_bus (BusContext     *context,
       bus_test_run_bus_loop (context, TRUE);
       bus_test_run_clients_loop (FALSE);
     }
+}
+
+static void
+spin_connection_until_authenticated (BusContext     *context,
+                                     DBusConnection *connection)
+{
+  _dbus_verbose ("Spinning to auth connection %p\n", connection);
+  while (!dbus_connection_get_is_authenticated (connection) &&
+         dbus_connection_get_is_connected (connection))
+    {
+      bus_test_run_bus_loop (context, FALSE);
+      bus_test_run_clients_loop (FALSE);
+    }
+  _dbus_verbose (" ... done spinning to auth connection %p\n", connection);
 }
 
 /* compensate for fact that pop_message() can return #NULL due to OOM */
@@ -737,24 +760,46 @@ check_hello_message (BusContext     *context,
   if (message == NULL)
     return TRUE;
 
+  dbus_connection_ref (connection); /* because we may get disconnected */
+  
   if (!dbus_connection_send (connection, message, &serial))
     {
       dbus_message_unref (message);
+      dbus_connection_unref (connection);
       return TRUE;
     }
 
+  _dbus_assert (dbus_message_has_signature (message, ""));
+  
   dbus_message_unref (message);
   message = NULL;
 
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected (presumably auth failed)\n");
+      
+      dbus_connection_unref (connection);
+      
+      return TRUE;
+    }
+  
   /* send our message */
-  bus_test_run_clients_loop (TRUE);
-
-  dbus_connection_ref (connection); /* because we may get disconnected */
-  block_connection_until_message_from_bus (context, connection);
+  bus_test_run_clients_loop (SEND_PENDING (connection));
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected\n");
+      _dbus_verbose ("connection was disconnected (presumably auth failed)\n");
+      
+      dbus_connection_unref (connection);
+      
+      return TRUE;
+    }
+  
+  block_connection_until_message_from_bus (context, connection, "reply to Hello");
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected (presumably auth failed)\n");
       
       dbus_connection_unref (connection);
       
@@ -945,14 +990,14 @@ check_double_hello_message (BusContext     *context,
   message = NULL;
 
   /* send our message */
-  bus_test_run_clients_loop (TRUE);
+  bus_test_run_clients_loop (SEND_PENDING (connection));
 
   dbus_connection_ref (connection); /* because we may get disconnected */
-  block_connection_until_message_from_bus (context, connection);
+  block_connection_until_message_from_bus (context, connection, "reply to Hello");
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected\n");
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
       
       dbus_connection_unref (connection);
       
@@ -1044,17 +1089,17 @@ check_get_connection_unix_user (BusContext     *context,
     }
 
   /* send our message */
-  bus_test_run_clients_loop (TRUE);
+  bus_test_run_clients_loop (SEND_PENDING (connection));
 
   dbus_message_unref (message);
   message = NULL;
 
   dbus_connection_ref (connection); /* because we may get disconnected */
-  block_connection_until_message_from_bus (context, connection);
+  block_connection_until_message_from_bus (context, connection, "reply to GetConnectionUnixUser");
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected\n");
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
       
       dbus_connection_unref (connection);
       
@@ -1181,17 +1226,17 @@ check_get_connection_unix_process_id (BusContext     *context,
     }
 
   /* send our message */
-  bus_test_run_clients_loop (TRUE);
+  bus_test_run_clients_loop (SEND_PENDING (connection));
 
   dbus_message_unref (message);
   message = NULL;
 
   dbus_connection_ref (connection); /* because we may get disconnected */
-  block_connection_until_message_from_bus (context, connection);
+  block_connection_until_message_from_bus (context, connection, "reply to GetConnectionUnixProcessID");
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected\n");
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
       
       dbus_connection_unref (connection);
       
@@ -1331,15 +1376,25 @@ check_add_match_all (BusContext     *context,
   dbus_message_unref (message);
   message = NULL;
 
-  /* send our message */
-  bus_test_run_clients_loop (TRUE);
-
   dbus_connection_ref (connection); /* because we may get disconnected */
-  block_connection_until_message_from_bus (context, connection);
+  
+  /* send our message */
+  bus_test_run_clients_loop (SEND_PENDING (connection));
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected\n");
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      
+      dbus_connection_unref (connection);
+      
+      return TRUE;
+    }
+  
+  block_connection_until_message_from_bus (context, connection, "reply to AddMatch");
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
       
       dbus_connection_unref (connection);
       
@@ -1435,6 +1490,8 @@ check_hello_connection (BusContext *context)
       return TRUE;
     }
 
+  spin_connection_until_authenticated (context, connection);
+  
   if (!check_hello_message (context, connection))
     return FALSE;
   
@@ -1496,12 +1553,12 @@ check_nonexistent_service_activation (BusContext     *context,
   message = NULL;
 
   bus_test_run_everything (context);
-  block_connection_until_message_from_bus (context, connection);
+  block_connection_until_message_from_bus (context, connection, "reply to ActivateService on nonexistent");
   bus_test_run_everything (context);
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected\n");
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
       return TRUE;
     }
   
@@ -1590,12 +1647,12 @@ check_nonexistent_service_auto_activation (BusContext     *context,
   message = NULL;
 
   bus_test_run_everything (context);
-  block_connection_until_message_from_bus (context, connection);
+  block_connection_until_message_from_bus (context, connection, "reply to Echo");
   bus_test_run_everything (context);
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected\n");
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
       return TRUE;
     }
   
@@ -2116,7 +2173,7 @@ check_send_exit_to_service (BusContext     *context,
   message = NULL;
 
   /* send message */
-  bus_test_run_clients_loop (TRUE);
+  bus_test_run_clients_loop (SEND_PENDING (connection));
 
   /* read it in and write it out to test service */
   bus_test_run_bus_loop (context, FALSE);
@@ -2134,7 +2191,7 @@ check_send_exit_to_service (BusContext     *context,
   if (!got_error)
     {
       /* If no error, wait for the test service to exit */
-      block_connection_until_message_from_bus (context, connection);
+      block_connection_until_message_from_bus (context, connection, "test service to exit");
               
       bus_test_run_everything (context);
     }
@@ -2394,13 +2451,13 @@ check_existent_service_activation (BusContext     *context,
   /* now wait for the message bus to hear back from the activated
    * service.
    */
-  block_connection_until_message_from_bus (context, connection);
+  block_connection_until_message_from_bus (context, connection, "activated service to connect");
 
   bus_test_run_everything (context);
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected\n");
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
       return TRUE;
     }
   
@@ -2458,7 +2515,7 @@ check_existent_service_activation (BusContext     *context,
       message = NULL;
 
       /* We may need to block here for the test service to exit or finish up */
-      block_connection_until_message_from_bus (context, connection);
+      block_connection_until_message_from_bus (context, connection, "test service to exit or finish up");
       
       message = dbus_connection_borrow_message (connection);
       if (message == NULL)
@@ -2514,7 +2571,7 @@ check_existent_service_activation (BusContext     *context,
 	     */
 	    if (message_kind != GOT_ERROR)
 	      {
-		block_connection_until_message_from_bus (context, connection);
+		block_connection_until_message_from_bus (context, connection, "error about service exiting");
               
 		/* and process everything again */
 		bus_test_run_everything (context);
@@ -2608,12 +2665,12 @@ check_segfault_service_activation (BusContext     *context,
   message = NULL;
 
   bus_test_run_everything (context);
-  block_connection_until_message_from_bus (context, connection);
+  block_connection_until_message_from_bus (context, connection, "reply to activating segfault service");
   bus_test_run_everything (context);
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected\n");
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
       return TRUE;
     }
   
@@ -2703,12 +2760,12 @@ check_segfault_service_auto_activation (BusContext     *context,
   message = NULL;
 
   bus_test_run_everything (context);
-  block_connection_until_message_from_bus (context, connection);
+  block_connection_until_message_from_bus (context, connection, "reply to Echo on segfault service");
   bus_test_run_everything (context);
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected\n");
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
       return TRUE;
     }
   
@@ -2814,12 +2871,12 @@ check_existent_service_auto_activation (BusContext     *context,
   /* now wait for the message bus to hear back from the activated
    * service.
    */
-  block_connection_until_message_from_bus (context, connection);
+  block_connection_until_message_from_bus (context, connection, "reply to Echo on existent service");
   bus_test_run_everything (context);
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected\n");
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
       return TRUE;
     }
 
@@ -2849,7 +2906,7 @@ check_existent_service_auto_activation (BusContext     *context,
       message = NULL;
 
       /* We may need to block here for the test service to exit or finish up */
-      block_connection_until_message_from_bus (context, connection);
+      block_connection_until_message_from_bus (context, connection, "service to exit");
 
       /* Should get a service creation notification for the activated
        * service name, or a service deletion on the base service name
@@ -2924,7 +2981,7 @@ check_existent_service_auto_activation (BusContext     *context,
   /* Note: if this test is run in OOM mode, it will block when the bus
    * doesn't send a reply due to OOM.
    */
-  block_connection_until_message_from_bus (context, connection);
+  block_connection_until_message_from_bus (context, connection, "reply from echo message after auto-activation");
       
   message = pop_message_waiting_for_memory (connection);
   if (message == NULL)
@@ -3064,6 +3121,8 @@ bus_dispatch_test (const DBusString *test_data_dir)
   if (!bus_setup_debug_client (foo))
     _dbus_assert_not_reached ("could not set up connection");
 
+  spin_connection_until_authenticated (context, foo);
+  
   if (!check_hello_message (context, foo))
     _dbus_assert_not_reached ("hello message failed");
 
@@ -3080,6 +3139,8 @@ bus_dispatch_test (const DBusString *test_data_dir)
   if (!bus_setup_debug_client (bar))
     _dbus_assert_not_reached ("could not set up connection");
 
+  spin_connection_until_authenticated (context, bar);
+  
   if (!check_hello_message (context, bar))
     _dbus_assert_not_reached ("hello message failed");
 
@@ -3093,6 +3154,8 @@ bus_dispatch_test (const DBusString *test_data_dir)
   if (!bus_setup_debug_client (baz))
     _dbus_assert_not_reached ("could not set up connection");
 
+  spin_connection_until_authenticated (context, baz);
+  
   if (!check_hello_message (context, baz))
     _dbus_assert_not_reached ("hello message failed");
 
@@ -3176,6 +3239,8 @@ bus_dispatch_sha1_test (const DBusString *test_data_dir)
   if (!bus_setup_debug_client (foo))
     _dbus_assert_not_reached ("could not set up connection");
 
+  spin_connection_until_authenticated (context, foo);
+  
   if (!check_hello_message (context, foo))
     _dbus_assert_not_reached ("hello message failed");
 
