@@ -610,12 +610,11 @@ dbus_g_bus_get (DBusBusType     type,
     {
       dbus_set_g_error (error, &derror);
       dbus_error_free (&derror);
+      return NULL;
     }
-  else
-    {
-      /* does nothing if it's already been done */
-      dbus_connection_setup_with_g_main (connection, NULL);
-    }
+
+  /* does nothing if it's already been done */
+  dbus_connection_setup_with_g_main (connection, NULL);
 
   return DBUS_G_CONNECTION_FROM_CONNECTION (connection);
 }

@@ -1,3 +1,11 @@
+2004-10-07  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* dbus/dbus-sysdeps.c (_dbus_file_get_contents): fix an incorrect
+	format string.
+
+	* glib/dbus-dbus-gmain.c (dbus_g_bus_get): do not mangle NULL
+	pointer (bug #1540, Leonardo Boiko).
+
 2004-09-28  Jon Trowbridge  <trow@ximian.com>
 
 	* mono/BusDriver.cs: Changed BusDriver struct to remove

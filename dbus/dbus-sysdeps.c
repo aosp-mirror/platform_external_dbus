@@ -2122,7 +2122,7 @@ _dbus_file_get_contents (DBusString       *str,
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "File size %lu of \"%s\" is too large.",
-                      filename_c, (unsigned long) sb.st_size);
+                      (unsigned long) sb.st_size, filename_c);
       close (fd);
       return FALSE;
     }
