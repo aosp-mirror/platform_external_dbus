@@ -3528,9 +3528,9 @@ _dbus_sysdeps_test (void)
       _dbus_warn ("Failed to parse double");
       exit (1);
     }
-  if (ABS (0xff - val) < 1e-6)
+  if (ABS (0xff - val) > 1e-6)
     {
-      _dbus_warn ("Failed to parse 0xff correctly, got: %f", val);
+      _dbus_warn ("Failed to parse 0xff correctly, got: %f\n", val);
       exit (1);
     }
   if (pos != 4)
