@@ -227,11 +227,11 @@ dbus_pending_call_set_notify (DBusPendingCall              *pending,
 }
 
 /**
- * Cancels the pending call, such that any reply
- * or error received will just be ignored.
- * Drops at least one reference to the #DBusPendingCall
- * so will free the call if nobody else is holding
- * a reference.
+ * Cancels the pending call, such that any reply or error received
+ * will just be ignored.  Drops the dbus library's internal reference
+ * to the #DBusPendingCall so will free the call if nobody else is
+ * holding a reference. However you usually get a reference
+ * from dbus_connection_send() so probably your app owns a ref also.
  * 
  * @param pending the pending call
  */

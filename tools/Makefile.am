@@ -31,6 +31,8 @@ dbus_cleanup_sockets_SOURCES=			\
 	dbus-cleanup-sockets.c
 
 dbus_viewer_SOURCES=				\
+	dbus-names-model.c			\
+	dbus-names-model.h			\
 	dbus-tree-view.c			\
 	dbus-tree-view.h			\
 	dbus-viewer.c

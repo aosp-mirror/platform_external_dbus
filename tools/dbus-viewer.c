@@ -27,58 +27,19 @@
 #include <string.h>
 #include <gtk/gtk.h>
 #include "dbus-tree-view.h"
+#include "dbus-names-model.h"
 #include <glib/dbus-gparser.h>
 #include <glib/dbus-gutils.h>
 #include <dbus/dbus-glib.h>
-
-#include <libintl.h>
-#define _(x) dgettext (GETTEXT_PACKAGE, x)
-#define N_(x) x
-
-typedef struct
-{
-  int refcount;
-  char *name;
-
-} ServiceData;
-
-static ServiceData*
-service_data_new (const char *name)
-{
-  ServiceData *sd;
-
-  sd = g_new0 (ServiceData, 1);
-
-  sd->refcount = 1;
-  sd->name = g_strdup (name);
-
-  return sd;
-}
-
-static void
-service_data_ref (ServiceData *sd)
-{
-  sd->refcount += 1;
-}
-
-static void
-service_data_unref (ServiceData *sd)
-{
-  sd->refcount -= 1;
-  if (sd->refcount == 0)
-    {
-      g_free (sd->name);
-      g_free (sd);
-    }
-}
+#include <glib/gi18n.h>
 
 typedef struct
 {
   GtkWidget *window;
   GtkWidget *treeview;
-  GtkWidget *service_menu;
+  GtkWidget *name_menu;
 
-  GSList *services;
+  GtkTreeModel *names_model;
   
 } TreeWindow;
 
@@ -92,12 +53,14 @@ window_closed_callback (GtkWidget  *window,
 }
 
 static TreeWindow*
-tree_window_new (void)
+tree_window_new (DBusGConnection *connection,
+                 GtkTreeModel    *names_model)
 {
   TreeWindow *w;
   GtkWidget *sw;
   GtkWidget *vbox;
   GtkWidget *hbox;
+  GtkWidget *combo;
 
   /* Should use glade, blah */
   
@@ -117,6 +80,17 @@ tree_window_new (void)
   hbox = gtk_hbox_new (FALSE, 6);
   gtk_container_add (GTK_CONTAINER (vbox), hbox);
 
+
+  /* Create names option menu */
+  if (connection)
+    {
+      w->names_model = names_model;
+
+      combo = gtk_combo_box_new_with_model (w->names_model);
+
+      gtk_box_pack_start (GTK_BOX (vbox), combo, FALSE, FALSE, 0);
+    }
+  
   /* Create tree view */
   
   sw = gtk_scrolled_window_new (NULL, NULL);
@@ -129,10 +103,6 @@ tree_window_new (void)
   w->treeview = dbus_tree_view_new ();
 
   gtk_container_add (GTK_CONTAINER (sw), w->treeview);
-
-  /* Create services option menu */
-
-  
 
   /* Show everything */
   gtk_widget_show_all (w->window);
@@ -287,11 +257,11 @@ load_child_nodes (const char *service_name,
 }
 
 static NodeInfo*
-load_from_service (const char *service_name,
-                   GError    **error)
+load_from_service (DBusGConnection *connection,
+                   const char      *service_name,
+                   GError         **error)
 {
-  DBusGConnection *connection;
-  DBusGProxy *root_proxy;
+   DBusGProxy *root_proxy;
   DBusGPendingCall *call;
   const char *data;
   NodeInfo *node;
@@ -300,11 +270,7 @@ load_from_service (const char *service_name,
   node = NULL;
   call = NULL;
   path = NULL;
-  
-  connection = dbus_g_bus_get (DBUS_BUS_SESSION, error);
-  if (connection == NULL)
-    return NULL;
-
+ 
 #if 1
   /* this will end up autolaunching the service when we introspect it */
   root_proxy = dbus_g_proxy_new_for_name (connection,
@@ -396,6 +362,9 @@ main (int argc, char **argv)
   gboolean end_of_args;
   GSList *tmp;
   gboolean services;
+  DBusGConnection *connection;
+  GError *error;
+  GtkTreeModel *names_model;
   
   bindtextdomain (GETTEXT_PACKAGE, DBUS_LOCALEDIR);
   bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
@@ -443,20 +412,41 @@ main (int argc, char **argv)
       ++i;
     }
 
+  if (services)
+    {
+      error = NULL;
+      connection = dbus_g_bus_get (DBUS_BUS_SESSION, &error);
+      if (connection == NULL)
+        {
+          g_printerr ("Could not open bus connection: %s\n",
+                      error->message);
+          g_error_free (error);
+          exit (1);
+        }
+
+      g_assert (connection == dbus_g_bus_get (DBUS_BUS_SESSION, NULL));
+
+      names_model = names_model_new (connection);
+    }
+  else
+    {
+      connection = NULL;
+      names_model = NULL;
+    }
+  
   files = g_slist_reverse (files);
 
   tmp = files;
   while (tmp != NULL)
     {
       NodeInfo *node;
-      GError *error;
       const char *filename;
 
       filename = tmp->data;
 
       error = NULL;
       if (services)
-        node = load_from_service (filename, &error);
+        node = load_from_service (connection, filename, &error);
       else
         node = description_load_from_file (filename,
                                            &error);
@@ -485,7 +475,7 @@ main (int argc, char **argv)
 
           path = _dbus_gutils_split_path (name);
           
-          w = tree_window_new ();          
+          w = tree_window_new (connection, names_model); 
           dbus_tree_view_update (GTK_TREE_VIEW (w->treeview),
                                  (const char**) path,
                                  node);

@@ -1,5 +1,20 @@
 2005-01-30  Havoc Pennington  <hp@redhat.com>
 
+	* glib/dbus-glib.c (dbus_g_pending_call_set_notify): new function
+	(dbus_g_pending_call_cancel): new function
+
+	* dbus/dbus-glib.h: move GType decls for connection/message here;
+	* dbus/dbus-glib.c: move all the g_type and ref/unref stuff in
+	here, just kind of rationalizing how we handle all that
+
+	* tools/dbus-names-model.c: new file for a tree model listing the
+	services on a bus
+
+	* tools/dbus-tree-view.c (model_new): use proper typing on the
+	model rows
+
+2005-01-30  Havoc Pennington  <hp@redhat.com>
+
 	* glib/dbus-gmain.c: add a custom GSource back that just checks
 	whether the message queue has anything in it; otherwise, there are 
 	cases where we won't see messages in the queue since there was no 

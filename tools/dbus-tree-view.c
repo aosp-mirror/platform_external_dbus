@@ -23,10 +23,7 @@
 #include <string.h>
 #include <config.h>
 #include "dbus-tree-view.h"
-
-#include <libintl.h>
-#define _(x) dgettext (GETTEXT_PACKAGE, x)
-#define N_(x) x
+#include <glib/gi18n.h>
 
 enum
 {
@@ -52,12 +49,7 @@ model_new (void)
   GtkTreeStore *store;
 
   store = gtk_tree_store_new (MODEL_COLUMN_LAST,
-                              G_TYPE_POINTER);
-  /* FIXME, BASE_INFO_TYPE doesn't work right (crashes),
-   * G_TYPE_POINTER has a memleak. BASE_INFO_TYPE problem maybe just a
-   * bad GTK build on my laptop.
-   */
-  /* BASE_INFO_TYPE); */
+                              BASE_INFO_TYPE);
 
   model = GTK_TREE_MODEL (store);
 
@@ -114,7 +106,6 @@ set_info (GtkTreeModel *model,
    */
   if (root != NULL)
     {
-      base_info_ref (info); /* FIXME once boxed types are working */
       gtk_tree_store_set (store, root,
                           MODEL_COLUMN_INFO, info,
                           -1);

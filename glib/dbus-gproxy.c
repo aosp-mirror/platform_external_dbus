@@ -1122,10 +1122,8 @@ dbus_g_proxy_begin_call (DBusGProxy *proxy,
  * Collects the results of a method call. The method call was normally
  * initiated with dbus_g_proxy_end_call(). This function will block if
  * the results haven't yet been received; use
- * dbus_pending_call_set_notify() to be notified asynchronously that a
- * pending call has been completed. Use
- * dbus_pending_call_get_completed() to check whether a call has been
- * completed. If it's completed, it will not block.
+ * dbus_g_pending_call_set_notify() to be notified asynchronously that a
+ * pending call has been completed. If it's completed, it will not block.
  *
  * If the call results in an error, the error is set as normal for
  * GError and the function returns #FALSE.
@@ -1135,7 +1133,7 @@ dbus_g_proxy_begin_call (DBusGProxy *proxy,
  * The list should be terminated with #DBUS_TYPE_INVALID.
  *
  * This function doesn't affect the reference count of the
- * #DBusPendingCall, the caller of dbus_g_proxy_begin_call() still owns
+ * #DBusGPendingCall, the caller of dbus_g_proxy_begin_call() still owns
  * a reference.
  *
  * @todo this should be changed to make a g_malloc() copy of the
@@ -1244,30 +1242,6 @@ dbus_g_proxy_call_no_reply (DBusGProxy               *proxy,
   
  oom:
   g_error ("Out of memory");
-}
-
-/**
- * Increments refcount on a pending call.
- *
- * @param call the call
- * @returns the same call
- */
-DBusGPendingCall*
-dbus_g_pending_call_ref (DBusGPendingCall  *call)
-{
-  dbus_pending_call_ref (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (call));
-  return call;
-}
-
-/**
- * Decrements refcount on a pending call.
- *
- * @param call the call
- */
-void
-dbus_g_pending_call_unref (DBusGPendingCall  *call)
-{
-  dbus_pending_call_unref (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (call));
 }
 
 /**

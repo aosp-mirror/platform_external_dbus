@@ -34,11 +34,11 @@ G_BEGIN_DECLS
 
 
 /**
- * Convert to DBusConnection with dbus_g_connection_get_connection()
+ * Convert to DBusConnection with dbus_g_connection_get_connection() in dbus-glib-lowlevel.h
  */
 typedef struct DBusGConnection DBusGConnection;
 /**
- * Convert to DBusMessage with dbus_g_message_get_message()
+ * Convert to DBusMessage with dbus_g_message_get_message() in dbus-glib-lowlevel.h
  */
 typedef struct DBusGMessage DBusGMessage;
 /**
@@ -46,7 +46,33 @@ typedef struct DBusGMessage DBusGMessage;
  */
 typedef struct DBusGPendingCall DBusGPendingCall;
 
-void dbus_g_connection_flush (DBusGConnection *connection);
+typedef void (* DBusGPendingCallNotify) (DBusGPendingCall *pending,
+                                         void             *user_data);
+
+
+#define DBUS_TYPE_G_CONNECTION   (dbus_g_connection_get_g_type ())
+#define DBUS_TYPE_G_MESSAGE      (dbus_g_message_get_g_type ())
+#define DBUS_TYPE_G_PENDING_CALL (dbus_g_message_get_g_type ())
+GType dbus_g_connection_get_g_type   (void) G_GNUC_CONST;
+GType dbus_g_message_get_g_type      (void) G_GNUC_CONST;
+GType dbus_g_pending_call_get_g_type (void) G_GNUC_CONST;
+
+
+DBusGConnection*  dbus_g_connection_ref          (DBusGConnection        *connection);
+void              dbus_g_connection_unref        (DBusGConnection        *connection);
+DBusGPendingCall* dbus_g_pending_call_ref        (DBusGPendingCall       *call);
+void              dbus_g_pending_call_unref      (DBusGPendingCall       *call);
+DBusGMessage*     dbus_g_message_ref             (DBusGMessage           *message);
+void              dbus_g_message_unref           (DBusGMessage           *message);
+
+void              dbus_g_connection_flush        (DBusGConnection        *connection);
+
+void              dbus_g_pending_call_set_notify (DBusGPendingCall       *call,
+                                                  DBusGPendingCallNotify  callback,
+                                                  void                   *callback_data,
+                                                  GDestroyNotify          free_data_func);
+void              dbus_g_pending_call_cancel     (DBusGPendingCall       *call);
+
 
 GQuark dbus_g_error_quark (void);
 #define DBUS_GERROR dbus_g_error_quark ()
@@ -146,9 +172,6 @@ void              dbus_g_proxy_call_no_reply         (DBusGProxy        *proxy,
                                                       int                first_arg_type,
                                                       ...);
 const char*       dbus_g_proxy_get_bus_name          (DBusGProxy        *proxy);
-
-DBusGPendingCall* dbus_g_pending_call_ref            (DBusGPendingCall  *call);
-void              dbus_g_pending_call_unref          (DBusGPendingCall  *call);
 
 #undef DBUS_INSIDE_DBUS_GLIB_H
 

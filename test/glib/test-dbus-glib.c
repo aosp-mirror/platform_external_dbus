@@ -80,6 +80,11 @@ main (int argc, char **argv)
       exit (1);
     }
 
+  /* should always get the same one */
+  g_assert (connection == dbus_g_bus_get (DBUS_BUS_SESSION, NULL));
+  g_assert (connection == dbus_g_bus_get (DBUS_BUS_SESSION, NULL));
+  g_assert (connection == dbus_g_bus_get (DBUS_BUS_SESSION, NULL));
+  
   /* Create a proxy object for the "bus driver" */
   
   driver = dbus_g_proxy_new_for_name (connection,

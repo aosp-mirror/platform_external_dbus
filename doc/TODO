@@ -51,16 +51,9 @@ Important for 1.0 GLib Bindings
  - finish dbus-glib-tool support for adding introspection 
    data to GObject and autoexporting GObject using same
 
- - the GLib bindings varargs take DBUS_TYPE_WHATEVER and 
-   return stuff allocated with dbus_malloc(); should this 
-   be made more "G" at some expense in code duplication?
-   You also still have to use some D-BUS functions such as 
-   dbus_message_get_args() which takes a DBusError. 
-   Probably we need to either fully encapsulate and hide 
-   dbus/dbus.h, or encapsulate it slightly less e.g. no 
-   GError. Or maybe it's as simple as "never return dbus_malloc() 
-   memory" and just fully encapsulate the get_args() type of 
-   stuff.
+ - Need to make sure that dbus-glib.h never returns any 
+   dbus_malloc() memory, only g_malloc(). 
+   dbus_g_proxy_end_call() is the major offender. 
 
  - dbus_gproxy_connect_signal() has to take a signature for the signal 
    so it can figure out how to invoke the callback, or we have to rely
