@@ -377,9 +377,9 @@ main (int argc, char **argv)
     }
   _dbus_string_free (&pid_fd);
 
-  if (!bus_selinux_init ())
+  if (!bus_selinux_pre_init ())
     {
-      _dbus_warn ("SELinux initialization failed\n");
+      _dbus_warn ("SELinux pre-initialization failed\n");
       exit (1);
     }
 
@@ -393,6 +393,12 @@ main (int argc, char **argv)
       _dbus_warn ("Failed to start message bus: %s\n",
                   error.message);
       dbus_error_free (&error);
+      exit (1);
+    }
+
+  if (!bus_selinux_full_init ())
+    {
+      _dbus_warn ("SELinux initialization failed\n");
       exit (1);
     }
 

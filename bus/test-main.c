@@ -56,7 +56,9 @@ static void
 test_pre_hook (void)
 {
   
-  if (_dbus_getenv ("DBUS_TEST_SELINUX") && !bus_selinux_init ())
+  if (_dbus_getenv ("DBUS_TEST_SELINUX")
+      && !bus_selinux_pre_init ()
+      && !bus_selinux_full_init ())
     die ("could not init selinux support");
 }
 

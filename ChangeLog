@@ -1,3 +1,18 @@
+2004-11-02  Colin Walters  <walters@verbum.org>
+
+	* bus/selinux.c (bus_selinux_init): Split into two functions,
+	bus_selinux_pre_init and bus_selinux_post_init.
+	(bus_selinux_pre_init): Just determine whether SELinux is
+	enabled.
+	(bus_selinux_post_init): Do everything else.
+
+	* bus/main.c (main): Call bus_selinux_pre_init before parsing
+	config file, and bus_selinux_post_init after.  This ensures that
+	we don't lose the policyreload notification thread that
+	bus_selinux_init created before forking previously.
+	
+	* bus/test-main.c (test_pre_hook): Update for split.
+
 2004-10-31  Owen Fraser-Green  <owen@discobabe.net>
 
 	Patch from Johan Fischer <linux@fischaz.com>

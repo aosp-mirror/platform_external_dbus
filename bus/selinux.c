@@ -205,11 +205,10 @@ bus_selinux_enabled (void)
 }
 
 /**
- * Initialize the user space access vector cache (AVC) for D-BUS and set up
- * logging callbacks.
+ * Do early initialization; determine whether SELinux is enabled.
  */
 dbus_bool_t
-bus_selinux_init (void)
+bus_selinux_pre_init (void)
 {
 #ifdef HAVE_SELINUX
   int r;
@@ -227,7 +226,25 @@ bus_selinux_init (void)
     }
 
   selinux_enabled = r != 0;
+  return TRUE;
+#else
+  return TRUE;
+#endif
+}
 
+/**
+ * Initialize the user space access vector cache (AVC) for D-BUS and set up
+ * logging callbacks.
+ */
+dbus_bool_t
+bus_selinux_full_init (void)
+{
+#ifdef HAVE_SELINUX
+  int r;
+  char *bus_context;
+
+  _dbus_assert (bus_sid == SECSID_WILD);
+  
   if (!selinux_enabled)
     {
       _dbus_verbose ("SELinux not enabled in this kernel.\n");
