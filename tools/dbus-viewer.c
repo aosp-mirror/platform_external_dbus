@@ -378,14 +378,21 @@ static void
 name_combo_changed_callback (GtkComboBox *combo,
                              TreeWindow  *w)
 {
-  char *text;
+  GtkTreeIter iter;
 
-  text = gtk_combo_box_get_active_text (combo);
-
-  if (text)
+  if (gtk_combo_box_get_active_iter (combo, &iter))
     {
-      tree_window_set_service (w, text);
-      g_free (text);
+      GtkTreeModel *model;
+      char *text;
+
+      model = gtk_combo_box_get_model (combo);
+      gtk_tree_model_get (model, &iter, 0, &text, -1);
+
+      if (text)
+        {
+          tree_window_set_service (w, text);
+          g_free (text);
+        }
     }
 }
 

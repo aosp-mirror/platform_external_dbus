@@ -1,3 +1,11 @@
+2005-03-30  Havoc Pennington  <hp@redhat.com>
+
+	* configure.in: change check to gtk 2.4
+
+	* tools/dbus-viewer.c (name_combo_changed_callback): remove
+	gtk_combo_box_get_active_text() usage to decrement GTK requirement
+	to 2.4
+
 2005-03-29  John (J5) Palmieri  <johnp@redhat.com>
 
 	* News: Update 0.32

@@ -853,8 +853,8 @@ if test x$have_glib = xno ; then
     AC_MSG_WARN([Can't use GTK+ since GLib not enabled])
     have_gtk=no
 else
-    PKG_CHECK_MODULES(DBUS_GTK, gtk+-2.0 >= 2.6, have_gtk=yes, have_gtk=no)
-    PKG_CHECK_MODULES(DBUS_GTK_THREADS, gtk+-2.0 >= 2.6 gthread-2.0, have_gtk_threads=yes, have_gtk_threads=no)
+    PKG_CHECK_MODULES(DBUS_GTK, gtk+-2.0 >= 2.4, have_gtk=yes, have_gtk=no)
+    PKG_CHECK_MODULES(DBUS_GTK_THREADS, gtk+-2.0 >= 2.4 gthread-2.0, have_gtk_threads=yes, have_gtk_threads=no)
 fi
 
 if test x$have_gtk = xno ; then
