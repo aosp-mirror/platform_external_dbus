@@ -1,3 +1,7 @@
+2002-12-25  Harri Porten  <porten@kde.org>
+
+	* qt/dbus-qt.h: adjusted ctor and getter to KDE/Qt conventions
+
 2002-12-24  Zack Rusin  <zack@kde.org>
 
 	* qt/dbus-qthread.cc: adding - integrates QMutex into Dbus

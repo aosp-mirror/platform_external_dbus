@@ -32,11 +32,12 @@
 class DBusQtConnection : public QObject {
   Q_OBJECT
 public:
-  DBusQtConnection( QObject *parent=0, const char *address=0 );
+  DBusQtConnection( const char *address=0, QObject *parent=0,
+                    const char *name=0 );
 
   bool         open( const char *address );
   bool         isConnected() const;
-  int          getNumberOfMessages() const;
+  int          numMessages() const;
 
 public slots:
   void disconnect();
@@ -56,17 +57,17 @@ private:
 class DBusQtNotifier : public QObject {
   Q_OBJECT
 public:
-  static DBusQtNotifier* dbus_qt_notifier ();
-  void addConnection (DBusConnection* connection);
+  static DBusQtNotifier* dbus_qt_notifier();
+  void addConnection(DBusConnection* connection);
 signals:
   void message (DBusConnection* connection, DBusMessage* message);
 
 private:
-  DBusQtNotifier (QObject *parent);
+  DBusQtNotifier(QObject *parent);
 private slots:
   void processNotifiers( int socket );
 private:
-  //implemnted in terms of QSocketNotifiers
+  //implemented in terms of QSocketNotifiers
   QAsciiDict<DBusConnection> mReadNotifiers;
   QAsciiDict<DBusConnection> mWriteNotifiers;
 };
