@@ -249,6 +249,12 @@
                 optimization. However, it is compliant with this specification
                 to return the reply despite this flag.</entry>
               </row>
+              <row>
+                <entry>AUTO_ACTIVATION</entry>
+                <entry>0x2</entry>
+                <entry>This message automatically activates the
+                addressed service before the message is delivered.</entry>
+              </row>
             </tbody>
           </tgroup>
         </informaltable>
@@ -673,6 +679,13 @@
           whether the reply would have been METHOD_RETURN or ERROR). 
           However, it is also acceptable to ignore the NO_REPLY_EXPECTED
           flag and reply anyway.
+        </para>
+        <para>
+          If a message has the flag AUTO_ACTIVATION, then the addressed
+          service will be activated before the message is delivered, if
+          not already active. The message will be held until the service
+          is successfully activated or has failed to activate; in case
+          of failure, an activation error will be returned.
         </para>
         <sect4 id="message-protocol-types-method-apis">
           <title>Mapping method calls to native APIs</title>

@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2003  CodeFactory AB
  * Copyright (C) 2003  Red Hat, Inc.
+ * Copyright (C) 2004  Imendio HB
  *
  * Licensed under the Academic Free License version 2.0
  * 
@@ -26,6 +27,7 @@
 #include "connection.h"
 #include "driver.h"
 #include "services.h"
+#include "activation.h"
 #include "utils.h"
 #include "bus.h"
 #include "signals.h"
@@ -257,7 +259,27 @@ bus_dispatch (DBusConnection *connection,
       _dbus_string_init_const (&service_string, service_name);
       service = bus_registry_lookup (registry, &service_string);
 
-      if (service == NULL)
+      if (service == NULL && dbus_message_get_auto_activation (message))
+        {
+	  BusActivation *activation;
+
+	  /* We can't do the security policy check here, since the addressed
+	   * recipient service doesn't exist yet. We do it before sending the
+	   * message after the service has been created.
+	   */
+	  activation = bus_connection_get_activation (connection);
+
+	  if (!bus_activation_activate_service (activation, connection, transaction, TRUE,
+						message, service_name, &error))
+	    {
+	      _DBUS_ASSERT_ERROR_IS_SET (&error);
+	      _dbus_verbose ("bus_activation_activate_service() failed\n");
+	      goto out;
+	    }
+	  
+	  goto out;
+	}
+      else if (service == NULL)
         {
           dbus_set_error (&error,
                           DBUS_ERROR_SERVICE_DOES_NOT_EXIST,
@@ -377,6 +399,8 @@ bus_dispatch_remove_connection (DBusConnection *connection)
 }
 
 #ifdef DBUS_BUILD_TESTS
+
+#include <stdio.h>
 
 typedef dbus_bool_t (* Check1Func) (BusContext     *context);
 typedef dbus_bool_t (* Check2Func) (BusContext     *context,
@@ -1170,6 +1194,104 @@ check_nonexistent_service_activation (BusContext     *context,
   return retval;
 }
 
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
+check_nonexistent_service_auto_activation (BusContext     *context,
+					   DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_uint32_t serial;
+  dbus_bool_t retval;
+  DBusError error;
+    
+  dbus_error_init (&error);
+
+  message = dbus_message_new_method_call (NONEXISTENT_SERVICE_NAME,
+                                          "/org/freedesktop/TestSuite",
+                                          "org.freedesktop.TestSuite",
+                                          "Echo");
+  
+  if (message == NULL)
+    return TRUE;
+
+  dbus_message_set_auto_activation (message, TRUE);
+ 
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  bus_test_run_everything (context);
+  block_connection_until_message_from_bus (context, connection);
+  bus_test_run_everything (context);
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected\n");
+      return TRUE;
+    }
+  
+  retval = FALSE;
+  
+  message = pop_message_waiting_for_memory (connection);
+
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a reply to %s %d on %p\n",
+                  "Echo message (auto activation)", serial, connection);
+      goto out;
+    }
+
+  verbose_message_received (connection, message);
+
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
+    {
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+        {
+          _dbus_warn ("Message has wrong sender %s\n",
+                      dbus_message_get_sender (message) ?
+                      dbus_message_get_sender (message) : "(none)");
+          goto out;
+        }
+      
+      if (dbus_message_is_error (message,
+                                 DBUS_ERROR_NO_MEMORY))
+        {
+          ; /* good, this is a valid response */
+        }
+      else if (dbus_message_is_error (message,
+                                      DBUS_ERROR_ACTIVATE_SERVICE_NOT_FOUND))
+        {
+          ; /* good, this is expected also */
+        }
+      else
+        {
+          warn_unexpected (connection, message, "not this error");
+          goto out;
+        }
+    }
+  else
+    {
+      _dbus_warn ("Did not expect to successfully activate %s\n",
+                  NONEXISTENT_SERVICE_NAME);
+      goto out;
+    }
+
+  retval = TRUE;
+  
+ out:
+  if (message)
+    dbus_message_unref (message);
+  
+  return retval;
+}
+
 static dbus_bool_t
 check_base_service_activated (BusContext     *context,
                               DBusConnection *connection,
@@ -1388,6 +1510,94 @@ check_service_activated (BusContext     *context,
       goto out;
     }
 
+  retval = TRUE;
+  
+ out:
+  if (message)
+    dbus_message_unref (message);
+  
+  return retval;
+}
+
+static dbus_bool_t
+check_service_auto_activated (BusContext     *context,
+			      DBusConnection *connection,
+			      const char     *activated_name,
+			      const char     *base_service_name,
+			      DBusMessage    *initial_message)
+{
+  DBusMessage *message;
+  dbus_bool_t retval;
+  DBusError error;
+  
+  retval = FALSE;
+  
+  dbus_error_init (&error);
+
+  message = initial_message;
+  dbus_message_ref (message);
+
+  if (dbus_message_is_signal (message,
+                              DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                              "ServiceCreated"))
+    {
+      char *service_name;
+      CheckServiceCreatedData scd;
+      
+    reget_service_name_arg:
+      if (!dbus_message_get_args (message, &error,
+                                  DBUS_TYPE_STRING, &service_name,
+                                  DBUS_TYPE_INVALID))
+        {
+          if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
+            {
+              dbus_error_free (&error);
+              _dbus_wait_for_memory ();
+              goto reget_service_name_arg;
+            }
+          else
+            {
+              _dbus_warn ("Message %s doesn't have a service name: %s\n",
+                          "ServiceCreated",
+                          error.message);
+              dbus_error_free (&error);
+              goto out;
+            }
+        }
+      
+      if (strcmp (service_name, activated_name) != 0)
+        {
+          _dbus_warn ("Expected to see service %s created, saw %s instead\n",
+                      activated_name, service_name);
+          dbus_free (service_name);
+          goto out;
+        }
+      
+      scd.skip_connection = connection;
+      scd.failed = FALSE;
+      scd.expected_service_name = service_name;
+      bus_test_clients_foreach (check_service_created_foreach,
+				&scd);
+      
+      dbus_free (service_name);
+      
+      if (scd.failed)
+        goto out;
+      
+      /* Note that this differs from regular activation in that we don't get a
+       * reply to ActivateService here.
+       */
+      
+      dbus_message_unref (message);
+      message = NULL;
+    }
+  else
+    {
+      warn_unexpected (connection, message, "ServiceCreated for the activated name");
+      
+      goto out;
+    }
+  
   retval = TRUE;
   
  out:
@@ -1974,6 +2184,340 @@ check_segfault_service_activation (BusContext     *context,
   return retval;
 }
 
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
+check_segfault_service_auto_activation (BusContext     *context,
+					DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_uint32_t serial;
+  dbus_bool_t retval;
+  DBusError error;
+
+  dbus_error_init (&error);
+
+  dbus_error_init (&error);
+
+  message = dbus_message_new_method_call ("org.freedesktop.DBus.TestSuiteSegfaultService",
+                                          "/org/freedesktop/TestSuite",
+                                          "org.freedesktop.TestSuite",
+                                          "Echo");
+  
+  if (message == NULL)
+    return TRUE;
+
+  dbus_message_set_auto_activation (message, TRUE);
+  
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  bus_test_run_everything (context);
+  block_connection_until_message_from_bus (context, connection);
+  bus_test_run_everything (context);
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected\n");
+      return TRUE;
+    }
+  
+  retval = FALSE;
+  
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a reply to %s %d on %p\n",
+                  "Echo message (auto activation)", serial, connection);
+      goto out;
+    }
+
+  verbose_message_received (connection, message);
+
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
+    {
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+        {
+          _dbus_warn ("Message has wrong sender %s\n",
+                      dbus_message_get_sender (message) ?
+                      dbus_message_get_sender (message) : "(none)");
+          goto out;
+        }
+      
+      if (dbus_message_is_error (message,
+                                 DBUS_ERROR_NO_MEMORY))
+        {
+          ; /* good, this is a valid response */
+        }
+      else if (dbus_message_is_error (message,
+                                      DBUS_ERROR_SPAWN_CHILD_SIGNALED))
+        {
+          ; /* good, this is expected also */
+        }
+      else
+        {
+          warn_unexpected (connection, message, "not this error");
+
+          goto out;
+        }
+    }
+  else
+    {
+      _dbus_warn ("Did not expect to successfully activate segfault service\n");
+      goto out;
+    }
+
+  retval = TRUE;
+  
+ out:
+  if (message)
+    dbus_message_unref (message);
+  
+  return retval;
+}
+
+#define TEST_ECHO_MESSAGE "Test echo message"
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
+check_existent_service_auto_activation (BusContext     *context,
+					DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_uint32_t serial;
+  dbus_bool_t retval;
+  DBusError error;
+  char *base_service;
+
+  base_service = NULL;
+
+  dbus_error_init (&error);
+
+  message = dbus_message_new_method_call (EXISTENT_SERVICE_NAME,
+                                          "/org/freedesktop/TestSuite",
+                                          "org.freedesktop.TestSuite",
+                                          "Echo");
+  
+  if (message == NULL)
+    return TRUE;
+
+  dbus_message_set_auto_activation (message, TRUE);
+
+  if (!dbus_message_append_args (message,
+                                 DBUS_TYPE_STRING, TEST_ECHO_MESSAGE,
+                                 DBUS_TYPE_INVALID))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  bus_test_run_everything (context);
+
+  /* now wait for the message bus to hear back from the activated
+   * service.
+   */
+  block_connection_until_message_from_bus (context, connection);
+  bus_test_run_everything (context);
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected\n");
+      return TRUE;
+    }
+
+  retval = FALSE;
+  
+  /* Should get ServiceCreated for the base service, or an error. */
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive any messages after auto activation %d on %p\n",
+                  serial, connection);
+      goto out;
+    }
+
+  verbose_message_received (connection, message);
+  _dbus_verbose ("  (after sending %s)\n", "ActivateService");
+
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
+    {
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+        {
+          _dbus_warn ("Message has wrong sender %s\n",
+                      dbus_message_get_sender (message) ?
+                      dbus_message_get_sender (message) : "(none)");
+	  goto out;
+        }
+
+      if (dbus_message_is_error (message, DBUS_ERROR_NO_MEMORY) ||
+	  dbus_message_is_error (message, DBUS_ERROR_SPAWN_CHILD_EXITED) ||
+	  dbus_message_is_error (message, DBUS_ERROR_TIMED_OUT))
+        {
+          ; /* good, those are expected */
+	  retval = TRUE;
+	  goto out;
+        }
+      else
+        {
+          _dbus_warn ("Did not expect error %s\n",
+                      dbus_message_get_error_name (message));
+          goto out;
+        }
+    }
+  else
+    {
+      dbus_bool_t got_service_deleted;
+      dbus_bool_t got_error;
+      
+      if (!check_base_service_activated (context, connection,
+                                         message, &base_service))
+	goto out;
+
+      dbus_message_unref (message);
+      message = NULL;
+
+      /* We may need to block here for the test service to exit or finish up */
+      block_connection_until_message_from_bus (context, connection);
+
+      /* Should get ServiceCreated for the activated service name,
+       * ServiceDeleted on the base service name, or an error.
+       */
+      message = dbus_connection_borrow_message (connection);
+      if (message == NULL)
+        {
+          _dbus_warn ("Did not receive any messages after base service creation notification\n");
+          goto out;
+        }
+
+      got_service_deleted = dbus_message_is_signal (message,
+                                                    DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                                    "ServiceDeleted");
+      got_error = dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR;
+
+      dbus_connection_return_message (connection, message);
+      message = NULL;
+
+      if (got_error)
+        {
+          if (!check_got_error (context, connection,
+                                DBUS_ERROR_SPAWN_CHILD_EXITED,
+                                DBUS_ERROR_NO_MEMORY,
+                                NULL))
+            goto out;
+
+          /* A service deleted should be coming along now after this error.
+           * We can also get the error *after* the service deleted.
+           */
+          got_service_deleted = TRUE;
+        }
+      
+      if (got_service_deleted)
+        {
+          /* The service started up and got a base address, but then
+           * failed to register under EXISTENT_SERVICE_NAME
+           */
+          CheckServiceDeletedData csdd;
+          
+          csdd.expected_service_name = base_service;
+          csdd.failed = FALSE;
+          bus_test_clients_foreach (check_service_deleted_foreach,
+                                    &csdd);
+
+          if (csdd.failed)
+            goto out;
+	  
+          /* Now we should get an error about the service exiting
+           * if we didn't get it before.
+           */
+          if (!got_error)
+            {
+              block_connection_until_message_from_bus (context, connection);
+              
+              /* and process everything again */
+              bus_test_run_everything (context);
+
+              if (!check_got_error (context, connection,
+                                    DBUS_ERROR_SPAWN_CHILD_EXITED,
+                                    NULL))
+                goto out;
+            }
+        }
+      else
+        {
+	  message = pop_message_waiting_for_memory (connection);
+	  if (message == NULL)
+            {
+              _dbus_warn ("Failed to pop message we just put back! should have been a ServiceCreated\n");
+              goto out;
+            }
+
+	  /* Check that ServiceCreated was correctly received */
+          if (!check_service_auto_activated (context, connection, EXISTENT_SERVICE_NAME,
+					     base_service, message))
+            goto out;
+
+          dbus_message_unref (message);
+          message = NULL;
+	}
+
+      /* Note: if this test is run in OOM mode, it will block when the bus
+       * doesn't send a reply due to OOM.
+       */
+      block_connection_until_message_from_bus (context, connection);
+      
+      message = pop_message_waiting_for_memory (connection);
+      if (message == NULL)
+	{
+	  _dbus_warn ("Failed to pop message! Should have been reply from echo message\n");
+	  goto out;
+	}
+
+      if (dbus_message_get_reply_serial (message) != serial)
+	{
+	  _dbus_warn ("Wrong reply serial\n");
+	  goto out;
+	}
+
+      dbus_message_unref (message);
+      message = NULL;
+      
+      if (!check_send_exit_to_service (context, connection,
+				       EXISTENT_SERVICE_NAME,
+				       base_service))
+	goto out;
+    }
+  
+  retval = TRUE;
+
+ out:
+  if (message)
+    dbus_message_unref (message);
+
+  if (base_service)
+    dbus_free (base_service);
+
+  return retval;
+}
+
 typedef struct
 {
   Check1Func func;
@@ -2126,6 +2670,24 @@ bus_dispatch_test (const DBusString *test_data_dir)
   check2_try_iterations (context, foo, "existent_service_activation",
                          check_existent_service_activation);
   
+  check2_try_iterations (context, foo, "nonexistent_service_auto_activation",
+			 check_nonexistent_service_auto_activation);
+  
+  check2_try_iterations (context, foo, "segfault_service_auto_activation",
+			 check_segfault_service_auto_activation);
+
+#if 0
+  /* Note: need to resolve some issues with the testing code in order to run
+   * this in oom (handle that we sometimes don't get replies back from the bus
+   * when oom happens, without blocking the test).
+   */
+  check2_try_iterations (context, foo, "existent_service_auto_activation",
+			 check_existent_service_auto_activation);
+#endif
+  
+  if (!check_existent_service_auto_activation (context, foo))
+    _dbus_assert_not_reached ("existent service auto activation failed");
+
   _dbus_verbose ("Disconnecting foo, bar, and baz\n");
 
   kill_client_connection_unchecked (foo);

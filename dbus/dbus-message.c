@@ -4387,6 +4387,35 @@ dbus_message_get_no_reply (DBusMessage *message)
   return (*header & DBUS_HEADER_FLAG_NO_REPLY_EXPECTED) != 0;
 }
 
+void
+dbus_message_set_auto_activation (DBusMessage *message,
+				  dbus_bool_t  auto_activation)
+{
+  char *header;
+
+  _dbus_return_if_fail (message != NULL);
+  _dbus_return_if_fail (!message->locked);
+  
+  header = _dbus_string_get_data_len (&message->header, FLAGS_OFFSET, 1);
+  
+  if (auto_activation)
+    *header |= DBUS_HEADER_FLAG_AUTO_ACTIVATION;
+  else
+    *header &= ~DBUS_HEADER_FLAG_AUTO_ACTIVATION;
+}
+
+dbus_bool_t
+dbus_message_get_auto_activation (DBusMessage *message)
+{
+  const char *header;
+
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  
+  header = _dbus_string_get_const_data_len (&message->header, FLAGS_OFFSET, 1);
+
+  return (*header & DBUS_HEADER_FLAG_AUTO_ACTIVATION) != 0;
+}
+
 /**
  * Gets the service which originated this message,
  * or #NULL if unknown or inapplicable.

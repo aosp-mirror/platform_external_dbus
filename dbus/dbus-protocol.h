@@ -72,6 +72,7 @@ extern "C" {
   
 /* Header flags */
 #define DBUS_HEADER_FLAG_NO_REPLY_EXPECTED 0x1
+#define DBUS_HEADER_FLAG_AUTO_ACTIVATION   0x2
   
 /* Header fields */
 #define DBUS_HEADER_FIELD_INVALID        0

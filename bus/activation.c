@@ -76,6 +76,8 @@ struct BusPendingActivationEntry
 {
   DBusMessage *activation_message;
   DBusConnection *connection;
+
+  dbus_bool_t auto_activation;
 };
 
 typedef struct
@@ -904,30 +906,90 @@ bus_activation_service_created (BusActivation  *activation,
       
       if (dbus_connection_get_is_connected (entry->connection))
 	{
-	  message = dbus_message_new_method_return (entry->activation_message);
-	  if (!message)
+	  /* Only send activation replies to regular activation requests. */
+	  if (!entry->auto_activation)
 	    {
-	      BUS_SET_OOM (error);
-	      goto error;
+	      message = dbus_message_new_method_return (entry->activation_message);
+	      if (!message)
+		{
+		  BUS_SET_OOM (error);
+		  goto error;
+		}
+	      
+	      if (!dbus_message_append_args (message,
+					     DBUS_TYPE_UINT32, DBUS_ACTIVATION_REPLY_ACTIVATED,
+					     DBUS_TYPE_INVALID))
+		{
+		  dbus_message_unref (message);
+		  BUS_SET_OOM (error);
+		  goto error;
+		}
+	      
+	      if (!bus_transaction_send_from_driver (transaction, entry->connection, message))
+		{
+		  dbus_message_unref (message);
+		  BUS_SET_OOM (error);
+		  goto error;
+		}
+	      
+	      dbus_message_unref (message);
 	    }
+	}
+      
+      link = next;
+    }
 
-	  if (!dbus_message_append_args (message,
-					 DBUS_TYPE_UINT32, DBUS_ACTIVATION_REPLY_ACTIVATED,
-					 DBUS_TYPE_INVALID))
+  return TRUE;
+
+ error:
+  return FALSE;
+}
+
+dbus_bool_t
+bus_activation_send_pending_auto_activation_messages (BusActivation  *activation,
+						      BusService     *service,
+						      BusTransaction *transaction,
+						      DBusError      *error)
+{
+  BusPendingActivation *pending_activation;
+  DBusList *link;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  /* Check if it's a pending activation */
+  pending_activation = _dbus_hash_table_lookup_string (activation->pending_activations,
+						       bus_service_get_name (service));
+
+  if (!pending_activation)
+    return TRUE;
+
+  link = _dbus_list_get_first_link (&pending_activation->entries);
+  while (link != NULL)
+    {
+      BusPendingActivationEntry *entry = link->data;
+      DBusList *next = _dbus_list_get_next_link (&pending_activation->entries, link);
+
+      if (entry->auto_activation && dbus_connection_get_is_connected (entry->connection))
+	{
+	  DBusConnection *addressed_recipient;
+	  
+	  addressed_recipient = bus_service_get_primary_owner (service);
+
+	  /* Check the security policy, which has the side-effect of adding an
+	   * expected pending reply.
+	   */
+          if (!bus_context_check_security_policy (activation->context, transaction,
+						  entry->connection,
+						  addressed_recipient,
+						  addressed_recipient,
+						  entry->activation_message, error))
+	    goto error;
+
+	  if (!bus_transaction_send (transaction, addressed_recipient, entry->activation_message))
 	    {
-	      dbus_message_unref (message);
 	      BUS_SET_OOM (error);
 	      goto error;
 	    }
-          
-	  if (!bus_transaction_send_from_driver (transaction, entry->connection, message))
-	    {
-	      dbus_message_unref (message);
-	      BUS_SET_OOM (error);
-	      goto error;
-	    }
-          
-          dbus_message_unref (message);
 	}
 
       link = next;
@@ -940,7 +1002,7 @@ bus_activation_service_created (BusActivation  *activation,
       goto error;
     }
   
-  _dbus_hash_table_remove_string (activation->pending_activations, service_name);
+  _dbus_hash_table_remove_string (activation->pending_activations, bus_service_get_name (service));
 
   return TRUE;
 
@@ -1225,6 +1287,7 @@ dbus_bool_t
 bus_activation_activate_service (BusActivation  *activation,
 				 DBusConnection *connection,
                                  BusTransaction *transaction,
+				 dbus_bool_t     auto_activation,
 				 DBusMessage    *activation_message,
                                  const char     *service_name,
 				 DBusError      *error)
@@ -1299,6 +1362,8 @@ bus_activation_activate_service (BusActivation  *activation,
       BUS_SET_OOM (error);
       return FALSE;
     }
+
+  pending_activation_entry->auto_activation = auto_activation;
 
   pending_activation_entry->activation_message = activation_message;
   dbus_message_ref (activation_message);

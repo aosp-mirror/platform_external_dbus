@@ -1,3 +1,23 @@
+2004-03-16  Richard Hult  <richard@imendio.com>
+
+	* bus/activation.c: (bus_activation_service_created),
+	(bus_activation_send_pending_auto_activation_messages),
+	(bus_activation_activate_service):
+	* bus/activation.h:
+	* bus/dispatch.c: (bus_dispatch),
+	(check_nonexistent_service_auto_activation),
+	(check_service_auto_activated),
+	(check_segfault_service_auto_activation),
+	(check_existent_service_auto_activation), (bus_dispatch_test):
+	* bus/driver.c: (bus_driver_handle_activate_service):
+	* bus/services.c: (bus_registry_acquire_service):
+	* dbus/dbus-message.c: (dbus_message_set_auto_activation),
+	(dbus_message_get_auto_activation):
+	* dbus/dbus-message.h:
+	* dbus/dbus-protocol.h: Implement auto-activation.
+	
+	* doc/dbus-specification.xml: Add auto-activation to the spec.
+
 2004-03-12  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* dbus/dbus-marshal.c (_dbus_marshal_get_arg_end_pos):

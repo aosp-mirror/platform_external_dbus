@@ -587,7 +587,7 @@ bus_driver_handle_activate_service (DBusConnection *connection,
 
   retval = FALSE;
 
-  if (!bus_activation_activate_service (activation, connection, transaction,
+  if (!bus_activation_activate_service (activation, connection, transaction, FALSE,
                                         message, name, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);

@@ -262,6 +262,7 @@ bus_registry_acquire_service (BusRegistry      *registry,
   DBusConnection *current_owner;
   BusClientPolicy *policy;
   BusService *service;
+  BusActivation  *activation;
   
   retval = FALSE;
 
@@ -376,7 +377,11 @@ bus_registry_acquire_service (BusRegistry      *registry,
       *result = DBUS_SERVICE_REPLY_PRIMARY_OWNER;
     }
 
-  retval = TRUE;
+  activation = bus_context_get_activation (registry->context);
+  retval = bus_activation_send_pending_auto_activation_messages (activation,
+								 service,
+								 transaction,
+								 error);
   
  out:
   return retval;

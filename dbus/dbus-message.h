@@ -119,6 +119,10 @@ dbus_bool_t   dbus_message_set_reply_serial (DBusMessage   *message,
                                              dbus_uint32_t  reply_serial);
 dbus_uint32_t dbus_message_get_reply_serial (DBusMessage   *message);
 
+void          dbus_message_set_auto_activation (DBusMessage   *message,
+						dbus_bool_t    auto_activation);
+dbus_bool_t   dbus_message_get_auto_activation (DBusMessage   *message);
+
 dbus_bool_t   dbus_message_get_path_decomposed (DBusMessage   *message,
                                                 char        ***path);
 
