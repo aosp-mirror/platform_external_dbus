@@ -1,5 +1,8 @@
 2003-06-29  Miloslav Trmac  <mitr@volny.cz>
 
+	* dbus/dbus-marshal.c (_dbus_marshal_set_int64) 
+	(_dbus_marshal_set_uint64): Fix comment.
+
 	* dbus/dbus-message.c (append_int_field, append_uint_field): Don't
 	hardcode FIELD_REPLY_SERIAL.
 

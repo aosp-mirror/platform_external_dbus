@@ -342,7 +342,7 @@ _dbus_marshal_set_uint32 (DBusString          *str,
 #ifdef DBUS_HAVE_INT64
 
 /**
- * Sets the 4 bytes at the given offset to a marshaled signed integer,
+ * Sets the 8 bytes at the given offset to a marshaled signed integer,
  * replacing anything found there previously.
  *
  * @param str the string to write the marshalled int to
@@ -363,7 +363,7 @@ _dbus_marshal_set_int64 (DBusString          *str,
 }
 
 /**
- * Sets the 4 bytes at the given offset to a marshaled unsigned
+ * Sets the 8 bytes at the given offset to a marshaled unsigned
  * integer, replacing anything found there previously.
  *
  * @param str the string to write the marshalled int to
