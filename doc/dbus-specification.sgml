@@ -1687,7 +1687,7 @@
         <para>
           As a method:
           <programlisting>
-            void ActivateService (in STRING service_name, in UINT32 flags)
+            UINT32 ActivateService (in STRING service_name, in UINT32 flags)
           </programlisting>
           Message arguments:
           <informaltable>
@@ -1713,6 +1713,28 @@
               </tbody>
             </tgroup>
           </informaltable>
+        Reply arguments:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>UINT32</entry>
+                <entry>Result code; DBUS_ACTIVATION_REPLY_ACTIVATED if
+                the service was activated successfutly or
+                DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE if the service is
+                already active.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
         </para>
         <para>
           Tries to launch the executable associated with a service. For more information, see <xref linkend="message-bus-activation">.

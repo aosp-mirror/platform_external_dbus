@@ -1,5 +1,10 @@
 2003-03-16  Anders Carlsson  <andersca@codefactory.se>
 
+	* doc/dbus-specification.sgml:
+	Document reply message for ActivateService.
+	
+2003-03-16  Anders Carlsson  <andersca@codefactory.se>
+
 	* bus/activation.c: (bus_pending_activation_entry_free),
 	(bus_pending_activation_free), (bus_activation_new),
 	(bus_activation_unref), (bus_activation_service_created),
