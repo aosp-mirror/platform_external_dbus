@@ -1,5 +1,39 @@
 2003-02-26  Havoc Pennington  <hp@redhat.com>
 
+        All kinds of audit fixes from Owen, plus initial attempt to 
+	handle unaligned memory returned from malloc.
+	
+	* dbus/dbus-string.c (_dbus_string_init): clamp max length to 
+	leave room for align_offset and nul byte
+	(fixup_alignment): function to track an align_offset and 
+	ensure real->str is aligned
+	(DBUS_GENERIC_STRING_PREAMBLE): len must be less than allocated, 
+	to allow a nul byte plus align offset
+	(_dbus_string_lock): fix overflow issue
+	(_dbus_string_init_const_len): add assertions on sanity of len, 
+	assign allocated to be ALLOCATION_PADDING larger than len
+	(set_length): fixup the overflow handling
+	(_dbus_string_get_data_len): fix overflow in assertion
+	(open_gap): detect overflow in size of gap to be opened
+	(_dbus_string_lengthen): add overflow check
+	(_dbus_string_align_length): fix overflow with _DBUS_ALIGN_VALUE
+	(_dbus_string_append): add overflow check
+	(_dbus_string_append_unichar): overflow
+	(_dbus_string_delete): fix overflow in assertion
+	(_dbus_string_copy_len): overflow in assertion
+	(_dbus_string_replace_len): overflows in assertions
+	(_dbus_string_find): change to implement in terms of 
+	_dbus_string_find_to
+	(_dbus_string_find_to): assorted fixage
+	(_dbus_string_equal_c_str): assert c_str != NULL, 
+	fix logic so the function works
+	(_dbus_string_ends_with_c_str): fix overflow thingy
+	(_dbus_string_base64_encode): overflow fix
+	(_dbus_string_validate_ascii): overflow
+	(_dbus_string_validate_nul): overflow
+	
+2003-02-26  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-marshal.c (_dbus_marshal_test): fix to work with DISABLE_ASSERTS
 
 2003-02-26  Alexander Larsson  <alexl@redhat.com>

@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-string.c String utility class (internal to D-BUS implementation)
  * 
- * Copyright (C) 2002  Red Hat, Inc.
+ * Copyright (C) 2002, 2003 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -74,18 +74,32 @@ typedef struct
   unsigned char *str;            /**< String data, plus nul termination */
   int            len;            /**< Length without nul */
   int            allocated;      /**< Allocated size of data */
-  int            max_length;     /**< Max length of this string. */
+  int            max_length;     /**< Max length of this string, without nul byte */
   unsigned int   constant : 1;   /**< String data is not owned by DBusString */
   unsigned int   locked : 1;     /**< DBusString has been locked and can't be changed */
   unsigned int   invalid : 1;    /**< DBusString is invalid (e.g. already freed) */
+  unsigned int   align_offset : 3; /**< str - align_offset is the actual malloc block */
 } DBusRealString;
+
+/**
+ * We allocate 1 byte for nul termination, plus 7 bytes for possible
+ * align_offset, so we always need 8 bytes on top of the string's
+ * length to be in the allocated block.
+ */
+#define ALLOCATION_PADDING 8
+
+/**
+ * This is the maximum max length (and thus also the maximum length)
+ * of a DBusString
+ */
+#define MAX_MAX_LENGTH (_DBUS_INT_MAX - ALLOCATION_PADDING)
 
 /**
  * Checks a bunch of assertions about a string object
  *
  * @param real the DBusRealString
  */
-#define DBUS_GENERIC_STRING_PREAMBLE(real) _dbus_assert ((real) != NULL); _dbus_assert (!(real)->invalid); _dbus_assert ((real)->len >= 0); _dbus_assert ((real)->allocated >= 0); _dbus_assert ((real)->max_length >= 0); _dbus_assert ((real)->len <= (real)->allocated); _dbus_assert ((real)->len <= (real)->max_length)
+#define DBUS_GENERIC_STRING_PREAMBLE(real) _dbus_assert ((real) != NULL); _dbus_assert (!(real)->invalid); _dbus_assert ((real)->len >= 0); _dbus_assert ((real)->allocated >= 0); _dbus_assert ((real)->max_length >= 0); _dbus_assert ((real)->len <= ((real)->allocated - ALLOCATION_PADDING)); _dbus_assert ((real)->len <= (real)->max_length)
 
 /**
  * Checks assertions about a string object that needs to be
@@ -124,15 +138,35 @@ typedef struct
  * @{
  */
 
-/** Assert that the string's memory is 8-byte aligned.
- *
- *  @todo Currently we just hope libc returns 8-byte aligned memory
- *  (which is true for GNU libc), but really we need to ensure it by
- *  allocating 8 extra bytes and keeping an "align_offset : 3" field
- *  in DBusString, or something along those lines.
- */
-#define ASSERT_8_BYTE_ALIGNED(s) \
-  _dbus_assert (_DBUS_ALIGN_ADDRESS (((const DBusRealString*)s)->str, 8) == ((const DBusRealString*)s)->str)
+static void
+fixup_alignment (DBusRealString *real)
+{
+  char *aligned;
+  char *real_block;
+  unsigned int old_align_offset;
+
+  /* we have to have extra space in real->allocated for the align offset and nul byte */
+  _dbus_assert (real->len <= real->allocated - ALLOCATION_PADDING);
+  
+  old_align_offset = real->align_offset;
+  real_block = real->str - old_align_offset;
+  
+  aligned = _DBUS_ALIGN_ADDRESS (real_block, 8);
+
+  real->align_offset = aligned - real_block;
+  real->str = aligned;
+  
+  if (old_align_offset != real->align_offset)
+    {
+      /* Here comes the suck */
+      memmove (real_block + real->align_offset,
+               real_block + old_align_offset,
+               real->len + 1);
+    }
+
+  _dbus_assert (real->align_offset < 8);
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (real->str, 8) == real->str);
+}
 
 /**
  * Initializes a string. The maximum length may be _DBUS_INT_MAX for
@@ -173,22 +207,23 @@ _dbus_string_init (DBusString *str,
    * an existing string, e.g. in _dbus_string_steal_data()
    */
   
-#define INITIAL_ALLOC 2
-  
-  real->str = dbus_malloc (INITIAL_ALLOC);
+  real->str = dbus_malloc (ALLOCATION_PADDING);
   if (real->str == NULL)
     return FALSE;  
   
-  real->allocated = INITIAL_ALLOC;
+  real->allocated = ALLOCATION_PADDING;
   real->len = 0;
   real->str[real->len] = '\0';
   
   real->max_length = max_length;
+  if (real->max_length > MAX_MAX_LENGTH)
+    real->max_length = MAX_MAX_LENGTH;
   real->constant = FALSE;
   real->locked = FALSE;
   real->invalid = FALSE;
-
-  ASSERT_8_BYTE_ALIGNED (str);
+  real->align_offset = 0;
+  
+  fixup_alignment (real);
   
   return TRUE;
 }
@@ -197,7 +232,7 @@ _dbus_string_init (DBusString *str,
  * Initializes a constant string. The value parameter is not copied
  * (should be static), and the string may never be modified.
  * It is safe but not necessary to call _dbus_string_free()
- * on a const string.
+ * on a const string. The string has a length limit of MAXINT - 8.
  * 
  * @param str memory to use for the string
  * @param value a string to be stored in str (not copied!!!)
@@ -206,6 +241,8 @@ void
 _dbus_string_init_const (DBusString *str,
                          const char *value)
 {
+  _dbus_assert (value != NULL);
+  
   _dbus_string_init_const_len (str, value,
                                strlen (value));
 }
@@ -229,13 +266,15 @@ _dbus_string_init_const_len (DBusString *str,
   
   _dbus_assert (str != NULL);
   _dbus_assert (value != NULL);
-
+  _dbus_assert (len <= MAX_MAX_LENGTH);
+  _dbus_assert (len >= 0);
+  
   real = (DBusRealString*) str;
   
   real->str = (char*) value;
   real->len = len;
-  real->allocated = real->len;
-  real->max_length = real->len;
+  real->allocated = real->len + ALLOCATION_PADDING; /* a lie, just to avoid special-case assertions... */
+  real->max_length = real->len + 1;
   real->constant = TRUE;
   real->invalid = FALSE;
 
@@ -263,11 +302,11 @@ _dbus_string_free (DBusString *str)
 }
 
 /**
- * Locks a string such that any attempts to change the string
- * will result in aborting the program. Also, if the string
- * is wasting a lot of memory (allocation is larger than what
- * the string is really using), _dbus_string_lock() will realloc
- * the string's data to "compact" it.
+ * Locks a string such that any attempts to change the string will
+ * result in aborting the program. Also, if the string is wasting a
+ * lot of memory (allocation is sufficiently larger than what the
+ * string is really using), _dbus_string_lock() will realloc the
+ * string's data to "compact" it.
  *
  * @param str the string to lock.
  */
@@ -281,20 +320,21 @@ _dbus_string_lock (DBusString *str)
   /* Try to realloc to avoid excess memory usage, since
    * we know we won't change the string further
    */
-#define MAX_WASTE 24
-  if (real->allocated > (real->len + MAX_WASTE))
+#define MAX_WASTE 48
+  if (real->allocated - MAX_WASTE > real->len)
     {
       char *new_str;
       int new_allocated;
 
-      new_allocated = real->len + 1;
+      new_allocated = real->len + ALLOCATION_PADDING;
 
-      new_str = dbus_realloc (real->str, new_allocated);
+      new_str = dbus_realloc (real->str - real->align_offset,
+                              new_allocated);
       if (new_str != NULL)
         {
-          real->str = new_str;
+          real->str = new_str + real->align_offset;
           real->allocated = new_allocated;
-          ASSERT_8_BYTE_ALIGNED (str);
+          fixup_alignment (real);
         }
     }
 }
@@ -309,23 +349,29 @@ set_length (DBusRealString *real,
   if (new_length > real->max_length)
     return FALSE;
   
-  while (new_length >= real->allocated)
+  if (new_length > (real->allocated - ALLOCATION_PADDING))
     {
       int new_allocated;
       char *new_str;
-      
-      new_allocated = 2 + real->allocated * 2;
-      if (new_allocated < real->allocated)
-        return FALSE; /* overflow */
+
+      /* at least double our old allocation to avoid O(n), avoiding
+       * overflow
+       */
+      if (real->allocated > (MAX_MAX_LENGTH + ALLOCATION_PADDING) / 2)
+        new_allocated = MAX_MAX_LENGTH + ALLOCATION_PADDING;
+      else
+        new_allocated = real->allocated * 2;
+
+      /* But be sure we always alloc at least space for the new length */
+      new_allocated = MAX (real->allocated, new_length + ALLOCATION_PADDING);
         
-      new_str = dbus_realloc (real->str, new_allocated);
+      new_str = dbus_realloc (real->str - real->align_offset, new_allocated);
       if (new_str == NULL)
         return FALSE;
 
-      real->str = new_str;
+      real->str = new_str + real->align_offset;
       real->allocated = new_allocated;
-
-      ASSERT_8_BYTE_ALIGNED (real);
+      fixup_alignment (real);
     }
 
   real->len = new_length;
@@ -342,6 +388,9 @@ open_gap (int             len,
   if (len == 0)
     return TRUE;
 
+  if (len > dest->max_length - dest->len)
+    return FALSE; /* detected overflow of dest->len + len below */
+  
   if (!set_length (dest, dest->len + len))
     return FALSE;
 
@@ -416,7 +465,8 @@ _dbus_string_get_data_len (DBusString *str,
   _dbus_assert (data_return != NULL);
   _dbus_assert (start >= 0);
   _dbus_assert (len >= 0);
-  _dbus_assert ((start + len) <= real->len);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (len <= real->len - start);
   
   *data_return = real->str + start;
 }
@@ -443,7 +493,8 @@ _dbus_string_get_const_data_len (const DBusString  *str,
   _dbus_assert (data_return != NULL);
   _dbus_assert (start >= 0);
   _dbus_assert (len >= 0);
-  _dbus_assert ((start + len) <= real->len);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (len <= real->len - start);
   
   *data_return = real->str + start;
 }
@@ -462,7 +513,8 @@ _dbus_string_set_byte (DBusString    *str,
 {
   DBUS_STRING_PREAMBLE (str);
   _dbus_assert (i < real->len);
-
+  _dbus_assert (i >= 0);
+  
   real->str[i] = byte;
 }
 
@@ -479,7 +531,8 @@ _dbus_string_get_byte (const DBusString  *str,
 {
   DBUS_CONST_STRING_PREAMBLE (str);
   _dbus_assert (start < real->len);
-
+  _dbus_assert (start >= 0);
+  
   return real->str[start];
 }
 
@@ -498,7 +551,8 @@ _dbus_string_insert_byte (DBusString   *str,
 {
   DBUS_STRING_PREAMBLE (str);
   _dbus_assert (i <= real->len);
-
+  _dbus_assert (i >= 0);
+  
   if (!open_gap (1, real, i))
     return FALSE;
   
@@ -544,6 +598,9 @@ _dbus_string_steal_data (DBusString        *str,
  * function may fail due to lack of memory, and return #FALSE.
  * The returned string is nul-terminated and has length len.
  *
+ * @todo this function is broken because on failure it
+ * may corrupt the source string.
+ * 
  * @param str the string
  * @param data_return location to return the buffer
  * @param start the start of segment to steal
@@ -562,7 +619,8 @@ _dbus_string_steal_data_len (DBusString        *str,
   _dbus_assert (data_return != NULL);
   _dbus_assert (start >= 0);
   _dbus_assert (len >= 0);
-  _dbus_assert ((start + len) <= real->len);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (len <= real->len - start);
 
   if (!_dbus_string_init (&dest, real->max_length))
     return FALSE;
@@ -572,7 +630,8 @@ _dbus_string_steal_data_len (DBusString        *str,
       _dbus_string_free (&dest);
       return FALSE;
     }
-  
+
+  _dbus_warn ("Broken code in _dbus_string_steal_data_len(), FIXME\n");
   if (!_dbus_string_steal_data (&dest, data_return))
     {
       _dbus_string_free (&dest);
@@ -602,7 +661,7 @@ _dbus_string_get_length (const DBusString  *str)
  * integer, and checks for exceeding a string's max length.
  * The new bytes are not initialized, other than nul-terminating
  * the end of the string. The uninitialized bytes may contain
- * unexpected nul bytes or other junk.
+ * nul bytes or other junk.
  *
  * @param str a string
  * @param additional_length length to add to the string.
@@ -614,9 +673,9 @@ _dbus_string_lengthen (DBusString *str,
 {
   DBUS_STRING_PREAMBLE (str);  
   _dbus_assert (additional_length >= 0);
-  
-  if ((real->len + additional_length) < real->len)
-    return FALSE; /* overflow */
+
+  if (additional_length > real->max_length - real->len)
+    return FALSE; /* would overflow */
   
   return set_length (real,
                      real->len + additional_length);
@@ -672,14 +731,16 @@ dbus_bool_t
 _dbus_string_align_length (DBusString *str,
                            int         alignment)
 {
-  int new_len;
+  unsigned long new_len; /* ulong to avoid _DBUS_ALIGN_VALUE overflow */
   int delta;
   DBUS_STRING_PREAMBLE (str);
   _dbus_assert (alignment >= 1);
   _dbus_assert (alignment <= 8); /* it has to be a bug if > 8 */
 
   new_len = _DBUS_ALIGN_VALUE (real->len, alignment);
-
+  if (new_len > (unsigned long) real->max_length)
+    return FALSE;
+  
   delta = new_len - real->len;
   _dbus_assert (delta >= 0);
 
@@ -724,13 +785,15 @@ dbus_bool_t
 _dbus_string_append (DBusString *str,
                      const char *buffer)
 {
-  int buffer_len;
+  unsigned long buffer_len;
   
   DBUS_STRING_PREAMBLE (str);
   _dbus_assert (buffer != NULL);
   
   buffer_len = strlen (buffer);
-
+  if (buffer_len > (unsigned long) real->max_length)
+    return FALSE;
+  
   return append (real, buffer, buffer_len);
 }
 
@@ -829,6 +892,9 @@ _dbus_string_append_unichar (DBusString    *str,
       len = 6;
     }
 
+  if (len > (real->max_length - real->len))
+    return FALSE; /* real->len + len would overflow */
+  
   if (!set_length (real, real->len + len))
     return FALSE;
 
@@ -874,7 +940,8 @@ _dbus_string_delete (DBusString       *str,
   DBUS_STRING_PREAMBLE (str);
   _dbus_assert (start >= 0);
   _dbus_assert (len >= 0);
-  _dbus_assert ((start + len) <= real->len);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (len <= real->len - start);
   
   delete (real, start, len);
 }
@@ -1029,7 +1096,8 @@ _dbus_string_copy_len (const DBusString *source,
 {
   DBUS_STRING_COPY_PREAMBLE (source, start, dest, insert_at);
   _dbus_assert (len >= 0);
-  _dbus_assert ((start + len) <= real_source->len);
+  _dbus_assert (start <= real_source->len);
+  _dbus_assert (len <= real_source->len - start);
   
   return copy (real_source, start, len,
                real_dest,
@@ -1041,6 +1109,12 @@ _dbus_string_copy_len (const DBusString *source,
  *
  * @todo optimize the case where the two lengths are the same, and
  * avoid memmoving the data in the trailing part of the string twice.
+ *
+ * @todo avoid inserting the source into dest, then deleting
+ * the replaced chunk of dest (which creates a potentially large
+ * intermediate string). Instead, extend the replaced chunk
+ * of dest with padding to the same size as the source chunk,
+ * then copy in the source bytes.
  * 
  * @param source the source string
  * @param start where to start copying the source string
@@ -1061,9 +1135,11 @@ _dbus_string_replace_len (const DBusString *source,
 {
   DBUS_STRING_COPY_PREAMBLE (source, start, dest, replace_at);
   _dbus_assert (len >= 0);
-  _dbus_assert ((start + len) <= real_source->len);
+  _dbus_assert (start <= real_source->len);
+  _dbus_assert (len <= real_source->len - start);
   _dbus_assert (replace_at >= 0);
-  _dbus_assert ((replace_at + replace_len) <= real_dest->len);
+  _dbus_assert (replace_at <= real_dest->len);
+  _dbus_assert (replace_len <= real_dest->len - replace_at);
 
   if (!copy (real_source, start, len,
              real_dest, replace_at))
@@ -1167,7 +1243,6 @@ _dbus_string_replace_len (const DBusString *source,
  * @param start the start of the UTF-8 character.
  * @param ch_return location to return the character
  * @param end_return location to return the byte index of next character
- * @returns #TRUE on success, #FALSE otherwise.
  */
 void
 _dbus_string_get_unichar (const DBusString *str,
@@ -1180,7 +1255,9 @@ _dbus_string_get_unichar (const DBusString *str,
   unsigned char c;
   unsigned char *p;
   DBUS_CONST_STRING_PREAMBLE (str);
-
+  _dbus_assert (start >= 0);
+  _dbus_assert (start <= real->len);
+  
   if (ch_return)
     *ch_return = 0;
   if (end_return)
@@ -1224,51 +1301,9 @@ _dbus_string_find (const DBusString *str,
                    const char       *substr,
                    int              *found)
 {
-  int i;
-  DBUS_CONST_STRING_PREAMBLE (str);
-  _dbus_assert (substr != NULL);
-  _dbus_assert (start <= real->len);
-  
-  /* we always "find" an empty string */
-  if (*substr == '\0')
-    {
-      if (found)
-        *found = 0;
-      return TRUE;
-    }
-  
-  i = start;
-  while (i < real->len)
-    {
-      if (real->str[i] == substr[0])
-        {
-          int j = i + 1;
-          
-          while (j < real->len)
-            {
-              if (substr[j - i] == '\0')
-                break;
-              else if (real->str[j] != substr[j - i])
-                break;
-              
-              ++j;
-            }
-
-          if (substr[j - i] == '\0')
-            {
-              if (found)
-                *found = i;
-              return TRUE;
-            }
-        }
-      
-      ++i;
-    }
-
-  if (found)
-    *found = real->len;
-  
-  return FALSE;
+  return _dbus_string_find_to (str, start,
+                               ((const DBusRealString*)str)->len,
+                               substr, found);
 }
 
 /**
@@ -1298,25 +1333,27 @@ _dbus_string_find_to (const DBusString *str,
   DBUS_CONST_STRING_PREAMBLE (str);
   _dbus_assert (substr != NULL);
   _dbus_assert (start <= real->len);
+  _dbus_assert (start >= 0);
+  _dbus_assert (substr != NULL);
   _dbus_assert (end <= real->len);
-  _dbus_assert (start < end);
+  _dbus_assert (start <= end);
 
   /* we always "find" an empty string */
   if (*substr == '\0')
     {
       if (found)
-        *found = 0;
+        *found = start;
       return TRUE;
     }
 
   i = start;
-  while (i < real->len && i < end)
+  while (i < end)
     {
       if (real->str[i] == substr[0])
         {
           int j = i + 1;
           
-          while (j < real->len && j < end)
+          while (j < end)
             {
               if (substr[j - i] == '\0')
                 break;
@@ -1361,6 +1398,7 @@ _dbus_string_find_blank (const DBusString *str,
   int i;
   DBUS_CONST_STRING_PREAMBLE (str);
   _dbus_assert (start <= real->len);
+  _dbus_assert (start >= 0);
   
   i = start;
   while (i < real->len)
@@ -1397,6 +1435,7 @@ _dbus_string_skip_blank (const DBusString *str,
   int i;
   DBUS_CONST_STRING_PREAMBLE (str);
   _dbus_assert (start <= real->len);
+  _dbus_assert (start >= 0);
   
   i = start;
   while (i < real->len)
@@ -1420,6 +1459,11 @@ _dbus_string_skip_blank (const DBusString *str,
  * of the string to the given dest string. The dest string's previous
  * contents are deleted. If the source string contains no newline,
  * moves the entire source string to the dest string.
+ *
+ * @todo owen correctly notes that this is a stupid function (it was
+ * written purely for test code,
+ * e.g. dbus-message-builder.c). Probably should be enforced as test
+ * code only with #ifdef DBUS_BUILD_TESTS
  * 
  * @param source the source string
  * @param dest the destination string (contents are replaced)
@@ -1488,7 +1532,6 @@ _dbus_string_delete_first_word (DBusString *str)
 {
   int i;
   
-  i = 0;
   if (_dbus_string_find_blank (str, 0, &i))
     _dbus_string_skip_blank (str, i, &i);
 
@@ -1505,7 +1548,6 @@ _dbus_string_delete_leading_blanks (DBusString *str)
 {
   int i;
   
-  i = 0;
   _dbus_string_skip_blank (str, 0, &i);
 
   if (i > 0)
@@ -1514,6 +1556,8 @@ _dbus_string_delete_leading_blanks (DBusString *str)
 
 /**
  * Tests two DBusString for equality.
+ *
+ * @todo memcmp is probably faster
  *
  * @param a first string
  * @param b second string
@@ -1553,6 +1597,8 @@ _dbus_string_equal (const DBusString *a,
  * Tests two DBusString for equality up to the given length.
  *
  * @todo write a unit test
+ *
+ * @todo memcmp is probably faster
  *
  * @param a first string
  * @param b second string
@@ -1607,7 +1653,8 @@ _dbus_string_equal_c_str (const DBusString *a,
   const unsigned char *a_end;
   const DBusRealString *real_a = (const DBusRealString*) a;
   DBUS_GENERIC_STRING_PREAMBLE (real_a);
-
+  _dbus_assert (c_str != NULL);
+  
   ap = real_a->str;
   bp = (const unsigned char*) c_str;
   a_end = real_a->str + real_a->len;
@@ -1620,9 +1667,7 @@ _dbus_string_equal_c_str (const DBusString *a,
       ++bp;
     }
 
-  if (*ap && *bp == '\0')
-    return FALSE;
-  else if (ap == a_end && *bp)
+  if (ap != a_end || *bp)
     return FALSE;
   
   return TRUE;
@@ -1644,7 +1689,8 @@ _dbus_string_starts_with_c_str (const DBusString *a,
   const unsigned char *a_end;
   const DBusRealString *real_a = (const DBusRealString*) a;
   DBUS_GENERIC_STRING_PREAMBLE (real_a);
-
+  _dbus_assert (c_str != NULL);
+  
   ap = real_a->str;
   bp = (const unsigned char*) c_str;
   a_end = real_a->str + real_a->len;
@@ -1666,6 +1712,8 @@ _dbus_string_starts_with_c_str (const DBusString *a,
 /**
  * Returns whether a string ends with the given suffix
  *
+ * @todo memcmp might make this faster.
+ * 
  * @param a the string
  * @param c_str the C-style string
  * @returns #TRUE if the string ends with the suffix
@@ -1677,12 +1725,13 @@ _dbus_string_ends_with_c_str (const DBusString *a,
   const unsigned char *ap;
   const unsigned char *bp;
   const unsigned char *a_end;
-  int c_str_len;
+  unsigned long c_str_len;
   const DBusRealString *real_a = (const DBusRealString*) a;
   DBUS_GENERIC_STRING_PREAMBLE (real_a);
-
+  _dbus_assert (c_str != NULL);
+  
   c_str_len = strlen (c_str);
-  if (real_a->len < c_str_len)
+  if (((unsigned long)real_a->len) < c_str_len)
     return FALSE;
   
   ap = real_a->str + (real_a->len - c_str_len);
@@ -1877,7 +1926,7 @@ _dbus_string_base64_encode (const DBusString *source,
                             int               insert_at)
 {
   int source_len;
-  int dest_len;
+  unsigned int dest_len; /* unsigned for overflow checks below */
   const unsigned char *s;
   unsigned char *d;
   const unsigned char *triplet_end;
@@ -1885,7 +1934,7 @@ _dbus_string_base64_encode (const DBusString *source,
   DBUS_STRING_COPY_PREAMBLE (source, start, dest, insert_at);  
   _dbus_assert (source != dest);
   
-  /* For each 24 bits (3 bytes) of input, we have 4 chars of
+  /* For each 24 bits (3 bytes) of input, we have 4 bytes of
    * output.
    */
   source_len = real_source->len - start;
@@ -1893,6 +1942,9 @@ _dbus_string_base64_encode (const DBusString *source,
   if (source_len % 3 != 0)
     dest_len += 4;
 
+  if (dest_len > (unsigned int) real_dest->max_length)
+    return FALSE;
+  
   if (source_len == 0)
     return TRUE;
   
@@ -1964,6 +2016,11 @@ _dbus_string_base64_encode (const DBusString *source,
 /**
  * Decodes a string from Base64, as documented in RFC 2045.
  *
+ * @todo sort out the AUDIT comment in here. The case it mentions
+ * ("====" or "x===") is not allowed in correct base64, so need to
+ * decide what to do with that kind of input. Probably ignore it
+ * since we ignore any other junk seen.
+ *
  * @param source the string to decode
  * @param start byte index to start decode
  * @param dest string where decoded data should be placed
@@ -2034,6 +2091,18 @@ _dbus_string_base64_decode (const DBusString *source,
           if (sextet_count == 4)
             {
               /* no pad = 3 bytes, 1 pad = 2 bytes, 2 pad = 1 byte */
+
+
+	      /* AUDIT: Comment doesn't mention 4 pad => 0,
+	       *         3 pad => 1 byte, though the code should
+	       *        work fine if those are the required outputs.
+	       *
+	       *        I assume that the spec requires dropping
+	       *        the top two bits of, say, ///= which is > 2 
+	       *        bytes worth of bits. (Or otherwise, you couldn't
+	       *        actually represent 2 byte sequences.
+	       */
+              
               if (pad_count < 1)
                 _dbus_string_append_byte (&result,
                                           triplet >> 16);
@@ -2261,9 +2330,12 @@ _dbus_string_hex_decode (const DBusString *source,
 
 /**
  * Checks that the given range of the string is valid ASCII with no
- * nul bytes. If the given range is not contained in the string,
- * returns #FALSE.
+ * nul bytes. If the given range is not entirely contained in the
+ * string, returns #FALSE.
  *
+ * @todo this is inconsistent with most of DBusString in that
+ * it allows a start,len range that isn't in the string.
+ * 
  * @param str the string
  * @param start first byte index to check
  * @param len number of bytes to check
@@ -2278,9 +2350,10 @@ _dbus_string_validate_ascii (const DBusString *str,
   const unsigned char *end;
   DBUS_CONST_STRING_PREAMBLE (str);
   _dbus_assert (start >= 0);
+  _dbus_assert (start <= real->len);
   _dbus_assert (len >= 0);
   
-  if ((start + len) > real->len)
+  if (len > real->len - start)
     return FALSE;
   
   s = real->str + start;
@@ -2298,13 +2371,15 @@ _dbus_string_validate_ascii (const DBusString *str,
 }
 
 /**
- * Checks that the given range of the string
- * is valid UTF-8. If the given range is not contained
- * in the string, returns #FALSE. If the string
- * contains any nul bytes in the given range, returns
- * #FALSE.
+ * Checks that the given range of the string is valid UTF-8. If the
+ * given range is not entirely contained in the string, returns
+ * #FALSE. If the string contains any nul bytes in the given range,
+ * returns #FALSE.
  *
  * @todo right now just calls _dbus_string_validate_ascii()
+ *
+ * @todo this is inconsistent with most of DBusString in that
+ * it allows a start,len range that isn't in the string.
  * 
  * @param str the string
  * @param start first byte index to check
@@ -2321,9 +2396,12 @@ _dbus_string_validate_utf8  (const DBusString *str,
 }
 
 /**
- * Checks that the given range of the string
- * is all nul bytes. If the given range is
- * not contained in the string, returns #FALSE.
+ * Checks that the given range of the string is all nul bytes. If the
+ * given range is not entirely contained in the string, returns
+ * #FALSE.
+ *
+ * @todo this is inconsistent with most of DBusString in that
+ * it allows a start,len range that isn't in the string.
  * 
  * @param str the string
  * @param start first byte index to check
@@ -2340,8 +2418,9 @@ _dbus_string_validate_nul (const DBusString *str,
   DBUS_CONST_STRING_PREAMBLE (str);
   _dbus_assert (start >= 0);
   _dbus_assert (len >= 0);
+  _dbus_assert (start <= real->len);
   
-  if ((start + len) > real->len)
+  if (len > real->len - start)
     return FALSE;
   
   s = real->str + start;

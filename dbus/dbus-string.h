@@ -39,9 +39,10 @@ struct DBusString
   int   dummy2; /**< placeholder */
   int   dummy3; /**< placeholder */
   int   dummy4; /**< placeholder */
-  unsigned int dummy5 : 1; /** placeholder */
-  unsigned int dummy6 : 1; /** placeholder */
-  unsigned int dummy7 : 1; /** placeholder */
+  unsigned int dummy5 : 1; /**< placeholder */
+  unsigned int dummy6 : 1; /**< placeholder */
+  unsigned int dummy7 : 1; /**< placeholder */
+  unsigned int dummy8 : 3; /**< placeholder */
 };
 
 dbus_bool_t _dbus_string_init           (DBusString *str,
