@@ -1,5 +1,10 @@
 2003-04-05  Havoc Pennington  <hp@pobox.com>
 
+	* bus/Makefile.am (install-data-hook): add missing DESTDIR, 
+	patch from Colin Walters
+
+2003-04-05  Havoc Pennington  <hp@pobox.com>
+
 	* doc/config-file.txt (Elements): fix docs of <auth> to reflect 
 	reality; in fact multiple mechanisms are allowed.
 

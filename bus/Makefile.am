@@ -86,7 +86,7 @@ clean-local:
 	/bin/rm *.bb *.bbg *.da *.gcov || true
 
 install-data-hook:
-	$(mkinstalldirs) $(localstatedir)/run/dbus
+	$(mkinstalldirs) $(DESTDIR)/$(localstatedir)/run/dbus
 
 #### Init scripts fun
 SCRIPT_IN_FILES=messagebus.in
