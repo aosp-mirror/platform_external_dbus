@@ -40,13 +40,6 @@ typedef enum
   ARG_OUT
 } ArgDirection;
 
-typedef enum
-{
-  METHOD_SYNC,
-  METHOD_ASYNC,
-  METHOD_CANCELLABLE
-} MethodStyle;
-
 InterfaceInfo* interface_info_new         (const char    *name);
 void           interface_info_ref         (InterfaceInfo *info);
 void           interface_info_unref       (InterfaceInfo *info);
@@ -57,8 +50,7 @@ void           interface_info_add_method  (InterfaceInfo *info,
 void           interface_info_add_signal  (InterfaceInfo *info,
                                            SignalInfo    *signal);
 
-MethodInfo*    method_info_new            (const char    *name,
-                                           MethodStyle    style);
+MethodInfo*    method_info_new            (const char    *name);
 void           method_info_ref            (MethodInfo    *info);
 void           method_info_unref          (MethodInfo    *info);
 

@@ -1,5 +1,14 @@
 2003-08-29  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-object-tree.c: modify to allow overlapping paths to be
+	registered
+	(struct DBusObjectSubtree): shrink this
+	a lot, since we may have a lot of them
+	(_dbus_object_tree_free_all_unlocked): implement
+	(_dbus_object_tree_dispatch_and_unlock): implement
+
+2003-08-29  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-internals.h: fix _DBUS_N_GLOBAL_LOCKS
 
 2003-08-28  Havoc Pennington  <hp@pobox.com>

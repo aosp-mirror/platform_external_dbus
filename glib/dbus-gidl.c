@@ -37,7 +37,6 @@ struct MethodInfo
   int refcount;
   GSList *args;
   char *name;
-  MethodStyle style;
 };
 
 struct SignalInfo
@@ -157,15 +156,13 @@ free_arg_list (GSList **args_p)
 }
 
 MethodInfo*
-method_info_new (const char *name,
-                 MethodStyle style)
+method_info_new (const char *name)
 {
   MethodInfo *info;
 
   info = g_new0 (MethodInfo, 1);
   info->refcount = 1;
   info->name = g_strdup (name);
-  info->style = style;
   
   return info;
 }
