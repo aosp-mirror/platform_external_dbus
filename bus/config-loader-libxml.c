@@ -26,8 +26,33 @@
 #include <libxml/xmlreader.h>
 #include <libxml/parser.h>
 #include <libxml/globals.h>
+#include <libxml/xmlmemory.h>
 #include <errno.h>
 #include <string.h>
+
+static void*
+libxml_malloc (size_t size)
+{
+  return dbus_malloc (size);
+}
+
+static void*
+libxml_realloc (void *ptr, size_t size)
+{
+  return dbus_realloc (ptr, size);
+}
+
+static void
+libxml_free (void *ptr)
+{
+  dbus_free (ptr);
+}
+
+static char*
+libxml_strdup (const char *str)
+{
+  return _dbus_strdup (str);
+}
 
 static void
 xml_text_reader_error (void                   *arg,
@@ -57,6 +82,30 @@ bus_config_load (const DBusString *file,
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   _dbus_string_get_const_data (file, &filename);
+  parser = NULL;
+  reader = NULL;
+  dbus_error_init (&tmp_error);
+
+  if (xmlMemSetup (libxml_free,
+                   libxml_malloc,
+                   libxml_realloc,
+                   libxml_strdup) != 0)
+    {
+      /* Current libxml can't possibly fail here, but just being
+       * paranoid; don't really know why xmlMemSetup() returns an
+       * error code, assuming some version of libxml had a reason.
+       */
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "xmlMemSetup() didn't work for some reason\n");
+      return NULL;
+    }
+  
+  parser = bus_config_parser_new ();
+  if (parser == NULL)
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return NULL;
+    }
   
   errno = 0;
   reader = xmlNewTextReaderFilename (filename);
@@ -68,24 +117,35 @@ bus_config_load (const DBusString *file,
                       filename,
                       errno != 0 ? strerror (errno) : "Unknown error");
         
-      return NULL;
+      goto failed;
     }
 
-  dbus_error_init (&tmp_error);
   xmlTextReaderSetErrorHandler (reader, xml_text_reader_error, &tmp_error);
 
-  while (xmlTextReaderRead(reader) == 1)
+  while (xmlTextReaderRead (reader) == 1)
     {
+      int type;
+      
+      if (dbus_error_is_set (&tmp_error))
+        goto reader_out;
+      
+      /* "enum" anyone? http://dotgnu.org/pnetlib-doc/System/Xml/XmlNodeType.html for
+       * the magic numbers
+       */
+      type = xmlTextReaderNodeType (reader);
       if (dbus_error_is_set (&tmp_error))
         goto reader_out;
 
-      
-
-
+      /* FIXME I don't really know exactly what I need to do to
+       * resolve all entities and so on to get the full content of a
+       * node or attribute value. I'm worried about whether I need to
+       * manually handle stuff like &lt;
+       */
     }
   
  reader_out:
   xmlFreeTextReader (reader);
+  reader = NULL;
   if (dbus_error_is_set (&tmp_error))
     {
       dbus_move_error (&tmp_error, error);
@@ -100,6 +160,8 @@ bus_config_load (const DBusString *file,
   
  failed:
   _DBUS_ASSERT_ERROR_IS_SET (error);
-  bus_config_parser_unref (parser);
+  if (parser)
+    bus_config_parser_unref (parser);
+  _dbus_assert (reader == NULL); /* must go to reader_out first */
   return NULL;
 }

@@ -35,6 +35,21 @@ die (const char *failure)
   fprintf (stderr, "Unit test failed: %s\n", failure);
   exit (1);
 }
+
+static void
+check_memleaks (void)
+{
+  dbus_shutdown ();
+
+  printf ("%s: checking for memleaks\n", "dbus-test");
+  if (_dbus_get_malloc_blocks_outstanding () != 0)
+    {
+      _dbus_warn ("%d dbus_malloc blocks were not freed\n",
+                  _dbus_get_malloc_blocks_outstanding ());
+      die ("memleaks");
+    }
+}
+
 #endif /* DBUS_BUILD_TESTS */
 
 /**
@@ -61,66 +76,82 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   printf ("%s: running string tests\n", "dbus-test");
   if (!_dbus_string_test ())
     die ("strings");
+
+  check_memleaks ();
   
   printf ("%s: running data slot tests\n", "dbus-test");
   if (!_dbus_data_slot_test ())
     die ("dataslot");
+
+  check_memleaks ();
   
   printf ("%s: running keyring tests\n", "dbus-test");
   if (!_dbus_keyring_test ())
     die ("keyring");
+
+  check_memleaks ();
   
 #if 0
   printf ("%s: running md5 tests\n", "dbus-test");
   if (!_dbus_md5_test ())
     die ("md5");
+
+  check_memleaks ();
 #endif
   
   printf ("%s: running SHA-1 tests\n", "dbus-test");
   if (!_dbus_sha_test (test_data_dir))
     die ("SHA-1");
+
+  check_memleaks ();
   
   printf ("%s: running auth tests\n", "dbus-test");
   if (!_dbus_auth_test (test_data_dir))
     die ("auth");
+
+  check_memleaks ();
   
   printf ("%s: running address parse tests\n", "dbus-test");
   if (!_dbus_address_test ())
     die ("address parsing");
+
+  check_memleaks ();
   
   printf ("%s: running marshalling tests\n", "dbus-test");
   if (!_dbus_marshal_test ())
     die ("marshalling");
 
+  check_memleaks ();
+  
   printf ("%s: running message tests\n", "dbus-test");
   if (!_dbus_message_test (test_data_dir))
     die ("messages");
 
+  check_memleaks ();
+  
   printf ("%s: running memory pool tests\n", "dbus-test");
   if (!_dbus_mem_pool_test ())
     die ("memory pools");
+
+  check_memleaks ();
   
   printf ("%s: running linked list tests\n", "dbus-test");
   if (!_dbus_list_test ())
     die ("lists");
 
+  check_memleaks ();
+  
   printf ("%s: running hash table tests\n", "dbus-test");
   if (!_dbus_hash_test ())
     die ("hash tables");
+
+  check_memleaks ();
   
   printf ("%s: running dict tests\n", "dbus-test");
   if (!_dbus_dict_test ())
     die ("dicts");
 
-  dbus_shutdown ();
-
-  printf ("%s: checking for memleaks\n", "dbus-test");
-  if (_dbus_get_malloc_blocks_outstanding () != 0)
-    {
-      _dbus_warn ("%d dbus_malloc blocks were not freed\n",
-                  _dbus_get_malloc_blocks_outstanding ());
-      die ("memleaks");
-    }
+  check_memleaks ();
   
   printf ("%s: completed successfully\n", "dbus-test");
 #else

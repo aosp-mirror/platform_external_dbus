@@ -35,6 +35,20 @@ die (const char *failure)
   exit (1);
 }
 
+static void
+check_memleaks (const char *name)
+{
+  dbus_shutdown ();
+  
+  printf ("%s: checking for memleaks\n", name);
+  if (_dbus_get_malloc_blocks_outstanding () != 0)
+    {
+      _dbus_warn ("%d dbus_malloc blocks were not freed\n",
+                  _dbus_get_malloc_blocks_outstanding ());
+      die ("memleaks");
+    }
+}
+
 int
 main (int argc, char **argv)
 {
@@ -56,23 +70,19 @@ main (int argc, char **argv)
   if (!bus_config_parser_test (&test_data_dir))
     die ("parser");
 
+  check_memleaks (argv[0]);
+  
   printf ("%s: Running policy test\n", argv[0]);
   if (!bus_policy_test (&test_data_dir))
     die ("policy");
+
+  check_memleaks (argv[0]);
   
   printf ("%s: Running message dispatch test\n", argv[0]);
   if (!bus_dispatch_test (&test_data_dir))
     die ("dispatch");
-  
-  dbus_shutdown ();
-  
-  printf ("%s: checking for memleaks\n", argv[0]);
-  if (_dbus_get_malloc_blocks_outstanding () != 0)
-    {
-      _dbus_warn ("%d dbus_malloc blocks were not freed\n",
-                  _dbus_get_malloc_blocks_outstanding ());
-      die ("memleaks");
-    }
+
+  check_memleaks (argv[0]);
   
   printf ("%s: Success\n", argv[0]);
   

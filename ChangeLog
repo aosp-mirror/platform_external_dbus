@@ -1,3 +1,18 @@
+2003-03-26  Havoc Pennington  <hp@pobox.com>
+
+	* bus/test-main.c, dbus/dbus-test.c (main): check memleaks
+	after every test so it's quick and easy to see which leaked, and
+	so we test multiple dbus_shutdown() calls
+
+	* configure.in: change configure.in XML stuff to also support
+	expat
+
+	* config-loader-libxml.c: some hacking
+
+	* config-loader-expat.c: some hacking
+
+	* config-parser.c: some hacking, plus tests
+
 2003-03-25  Havoc Pennington  <hp@redhat.com>
 
         * throughout - add more _DBUS_ASSERT_ERROR_IS_CLEAR

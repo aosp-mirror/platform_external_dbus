@@ -9,6 +9,9 @@ bin_PROGRAMS=dbus-daemon-1
 if DBUS_USE_LIBXML
 XML_SOURCES=config-loader-libxml.c
 endif
+if DBUS_USE_EXPAT
+XML_SOURCES=config-loader-expat.c
+endif
 
 BUS_SOURCES=					\
 	activation.c				\
