@@ -1,3 +1,11 @@
+2004-05-23  Kristian Høgsberg  <krh@redhat.com>
+ 
+        Patch from Timo Teräs <ext-timo.teras@nokia.com> (#614):
+         
+	* dbus/dbus-message.c (dbus_message_iter_get_args_valist): Swap
+        operands to && so we call dbus_message_iter_next () for the last
+        argument also.
+
 2004-05-21  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* dbus/dbus-object-tree.c

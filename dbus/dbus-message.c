@@ -2180,7 +2180,7 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
   spec_type = first_arg_type;
   i = 0;
   
-  while (spec_type != 0)
+  while (spec_type != DBUS_TYPE_INVALID)
     {
       msg_type = dbus_message_iter_get_arg_type (iter);      
       
@@ -2379,9 +2379,9 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 	  _dbus_warn ("Unknown field type %d\n", spec_type);
 	  goto out;
 	}
-      
+
       spec_type = va_arg (var_args, int);
-      if (spec_type != 0 && !dbus_message_iter_next (iter))
+      if (!dbus_message_iter_next (iter) && spec_type != DBUS_TYPE_INVALID)
         {
           dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
                           "Message has only %d arguments, but more were expected", i);
@@ -7000,9 +7000,6 @@ verify_test_message (DBusMessage *message)
     _dbus_assert_not_reached ("bool array had wrong values");
 
   dbus_free (our_boolean_array);
-  
-  if (!dbus_message_iter_next (&iter))
-    _dbus_assert_not_reached ("Reached end of arguments");
 
   if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_DICT)
     _dbus_assert_not_reached ("not dict type");
