@@ -38,9 +38,6 @@ struct Connection::Private
 Connection::Connection( const QString& host )
 {
   d = new Private;
-  d->integrator = new Integrator( this );
-  connect( d->integrator, SIGNAL(readReady()),
-           SLOT(dispatchRead()) );
 
   if ( !host.isEmpty() )
     init( host );
@@ -50,6 +47,9 @@ void Connection::init( const QString& host )
 {
   dbus_error_init( &d->error );
   d->connection = dbus_connection_open( host.ascii(), &d->error );
+  d->integrator = new Integrator( d->connection, this );
+  connect( d->integrator, SIGNAL(readReady()),
+           SLOT(dispatchRead()) );
   //dbus_connection_allocate_data_slot( &d->connectionSlot );
   //dbus_connection_set_data( d->connection, d->connectionSlot, 0, 0 );
 }
@@ -88,6 +88,16 @@ void Connection::dispatchRead()
 DBusConnection* Connection::connection() const
 {
   return d->connection;
+}
+
+Connection::Connection( DBusConnection *connection, QObject *parent  )
+  : QObject( parent )
+{
+  d = new Private;
+  d->connection = connection;
+  d->integrator = new Integrator( d->connection, this );
+  connect( d->integrator, SIGNAL(readReady()),
+           SLOT(dispatchRead()) );
 }
 
 /////////////////////////////////////////////////////////

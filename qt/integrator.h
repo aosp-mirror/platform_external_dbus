@@ -60,10 +60,12 @@ namespace DBusQt
     {
       Q_OBJECT
     public:
-      Integrator( Connection* parent );
+      Integrator( DBusConnection *connection, QObject *parent );
+      Integrator( DBusServer *server, QObject *parent );
 
     signals:
       void readReady();
+      void newConnection( Connection* );
 
     protected slots:
       void slotRead( int );
@@ -76,10 +78,13 @@ namespace DBusQt
 
       void addTimeout( DBusTimeout* );
       void removeTimeout( DBusTimeout* );
+
+      void handleConnection( DBusConnection* );
     private:
       QIntDict<Watch> m_watches;
       QPtrDict<Timeout> m_timeouts;
-      Connection* m_parent;
+      DBusConnection *m_connection;
+      DBusServer *m_server;
     };
   }
 }

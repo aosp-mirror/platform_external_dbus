@@ -1,3 +1,13 @@
+2003-11-25  Zack Rusin  <zack@kde.org>
+
+	* qt/integrator.h, qt/integrator.cpp: Adding handling of DBusServer,
+
+	* qt/server.h, qt/server.cpp, qt/Makefile.am: Adding DBusServer 
+	wrappers,
+
+	* qt/connection.h, qt/connection.cpp: Adjusting to changes in 
+	the Integrator and to better fit with the server,
+
 2003-11-24  Zack Rusin  <zack@kde.org>
 
 	* qt/connection.h, qt/connection.cpp: removing initDbus method since

@@ -92,6 +92,13 @@ void dbusWakeupMain( void* )
 {
 }
 
+void dbusNewConnection( DBusServer     *server,
+                        DBusConnection *new_connection,
+                        void           *data )
+{
+  Integrator *itg = static_cast<Integrator*>( data );
+  itg->handleConnection( new_connection );
+}
 /////////////////////////////////////////////////////////////
 
 Timeout::Timeout( QObject *parent, DBusTimeout *t )
@@ -112,24 +119,45 @@ void Timeout::start()
   m_timer->start( dbus_timeout_get_interval( m_timeout ) );
 }
 
-Integrator::Integrator( Connection *parent )
-  : QObject( parent ), m_parent( parent )
+Integrator::Integrator( DBusConnection *conn, QObject *parent )
+  : QObject( parent ), m_connection( conn )
 {
   m_timeouts.setAutoDelete( true );
 
-  dbus_connection_set_watch_functions( m_parent->connection(),
+  dbus_connection_set_watch_functions( m_connection,
                                        dbusAddWatch,
                                        dbusRemoveWatch,
                                        dbusToggleWatch,
                                        this, 0 );
-  dbus_connection_set_timeout_functions( m_parent->connection(),
+  dbus_connection_set_timeout_functions( m_connection,
                                          dbusAddTimeout,
                                          dbusRemoveTimeout,
                                          dbusToggleTimeout,
                                          this, 0 );
-  dbus_connection_set_wakeup_main_function( m_parent->connection(),
+  dbus_connection_set_wakeup_main_function( m_connection,
 					    dbusWakeupMain,
 					    this, 0 );
+}
+
+Integrator::Integrator( DBusServer *server, QObject *parent )
+  : QObject( parent ), m_server( server )
+{
+  m_connection = reinterpret_cast<DBusConnection*>( m_server );
+  m_timeouts.setAutoDelete( true );
+
+  dbus_server_set_watch_functions( m_server,
+                                   dbusAddWatch,
+                                   dbusRemoveWatch,
+                                   dbusToggleWatch,
+                                   this, 0 );
+  dbus_server_set_timeout_functions( m_server,
+                                     dbusAddTimeout,
+                                     dbusRemoveTimeout,
+                                     dbusToggleTimeout,
+                                     this, 0 );
+  dbus_server_set_new_connection_function( m_server,
+                                           dbusNewConnection,
+                                           this,  0 );
 }
 
 void Integrator::slotRead( int fd )
@@ -197,6 +225,12 @@ void Integrator::addTimeout( DBusTimeout *timeout )
 void Integrator::removeTimeout( DBusTimeout *timeout )
 {
   m_timeouts.remove( timeout );
+}
+
+void Integrator::handleConnection( DBusConnection *c )
+{
+  Connection *con = new Connection( c, this );
+  emit newConnection( con );
 }
 
 }//end namespace Internal

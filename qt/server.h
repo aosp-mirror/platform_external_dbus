@@ -1,5 +1,5 @@
 // -*- Mode: C++; c-basic-offset: 2; indent-tabs-mode: nil; -*-
-/* connection.h: Qt wrapper for DBusConnection
+/* server.h: Qt wrapper for DBusServer
  *
  * Copyright (C) 2003  Zack Rusin <zack@kde.org>
  *
@@ -20,58 +20,38 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#ifndef DBUS_QT_CONNECTION_H
-#define DBUS_QT_CONNECTION_H
-
-#include "message.h"
+#ifndef DBUS_QT_SERVER_H
+#define DBUS_QT_SERVER_H
 
 #include <qobject.h>
-#include <qstring.h>
 
 #include "dbus/dbus.h"
 
-namespace DBusQt {
-  namespace Internal {
-    class Integrator;
-  }
-
-  class Connection : public QObject
+namespace DBusQt
+{
+  class Connection;
+  class Server : public QObject
   {
     Q_OBJECT
   public:
-    Connection( const QString& host = QString::null );
+    Server( const QString& addr = QString::null, QObject *parent=0 );
+    ~Server();
 
     bool isConnected() const;
-    bool isAuthenticated() const;
-
-    Message borrowMessage();
-    Message popMessage();
-    void stealBorrowMessage( const Message& );
+    QString address() const;
 
   public slots:
-    void open( const QString& );
-    void close();
-    void flush();
-    void send( const Message& );
-    void sendWithReply( const Message& );
-    void sendWithReplyAndBlock( const Message& );
+    void listen( const QString& addr );
+    void disconnect();
+  signals:
+    void newConnection( Connection* );
 
-  protected slots:
-    void dispatchRead();
-
-  protected:
-    void init( const QString& host );
-    virtual void* virtual_hook( int id, void* data );
   private:
-    friend class Internal::Integrator;
-    DBusConnection* connection() const;
-    Connection( DBusConnection *connection, QObject *parent );
+    void init( const QString& addr );
   private:
     struct Private;
     Private *d;
   };
-
 }
-
 
 #endif
