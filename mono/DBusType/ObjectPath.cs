@@ -60,7 +60,7 @@ namespace DBus.DBusType
 
     public static bool Suits(System.Type type) 
     {
-      object[] attributes = type.GetCustomAttributes(typeof(InterfaceAttribute), true);
+      object[] attributes = type.GetCustomAttributes(typeof(InterfaceAttribute), false);
       if (attributes.Length == 1) {
 	return true;
       } else {
