@@ -470,9 +470,9 @@ bus_selinux_allows_send (DBusConnection     *sender,
   if (!selinux_enabled)
     return TRUE;
 
-  if (!dbus_connection_get_unix_process_id (sender, &spid))
+  if (!sender || !dbus_connection_get_unix_process_id (sender, &spid))
     spid = 0;
-  if (!dbus_connection_get_unix_process_id (proposed_recipient, &tpid))
+  if (!proposed_recipient || !dbus_connection_get_unix_process_id (proposed_recipient, &tpid))
     tpid = 0;
 
   auxdata = dbus_new0 (DBusString, 1);
