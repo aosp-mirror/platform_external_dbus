@@ -40,7 +40,7 @@ typedef enum
 } BusMatchFlags;
 
 BusMatchRule* bus_match_rule_new   (DBusConnection *matches_go_to);
-void          bus_match_rule_ref   (BusMatchRule   *rule);
+BusMatchRule* bus_match_rule_ref   (BusMatchRule   *rule);
 void          bus_match_rule_unref (BusMatchRule   *rule);
 
 dbus_bool_t bus_match_rule_set_message_type (BusMatchRule *rule,
@@ -61,7 +61,7 @@ BusMatchRule* bus_match_rule_parse (DBusConnection   *matches_go_to,
                                     DBusError        *error);
 
 BusMatchmaker* bus_matchmaker_new   (void);
-void           bus_matchmaker_ref   (BusMatchmaker *matchmaker);
+BusMatchmaker* bus_matchmaker_ref   (BusMatchmaker *matchmaker);
 void           bus_matchmaker_unref (BusMatchmaker *matchmaker);
 
 dbus_bool_t bus_matchmaker_add_rule             (BusMatchmaker   *matchmaker,

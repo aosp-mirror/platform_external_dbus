@@ -59,12 +59,14 @@ bus_match_rule_new (DBusConnection *matches_go_to)
   return rule;
 }
 
-void
+BusMatchRule *
 bus_match_rule_ref (BusMatchRule *rule)
 {
   _dbus_assert (rule->refcount > 0);
 
   rule->refcount += 1;
+
+  return rule;
 }
 
 void
@@ -765,12 +767,14 @@ bus_matchmaker_new (void)
   return matchmaker;
 }
 
-void
+BusMatchmaker *
 bus_matchmaker_ref (BusMatchmaker *matchmaker)
 {
   _dbus_assert (matchmaker->refcount > 0);
 
   matchmaker->refcount += 1;
+
+  return matchmaker;
 }
 
 void

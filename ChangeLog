@@ -1,3 +1,9 @@
+2003-11-26  Mikael Hallendal  <micke@imendio.com>
+
+	* bus/*.[ch]:
+	* dbus/*.[ch]:
+	* glib/*.[ch]: Made ref functions return the pointer
+
 2003-11-25  Zack Rusin  <zack@kde.org>
 
 	* qt/integrator.h, qt/integrator.cpp: Adding handling of DBusServer,

@@ -1894,13 +1894,16 @@ _dbus_auth_client_new (void)
  * Increments the refcount of an auth object.
  *
  * @param auth the auth conversation
+ * @returns the auth conversation
  */
-void
+DBusAuth *
 _dbus_auth_ref (DBusAuth *auth)
 {
   _dbus_assert (auth != NULL);
   
   auth->refcount += 1;
+  
+  return auth;
 }
 
 /**

@@ -42,7 +42,7 @@ DBusWatch* _dbus_watch_new                (int               fd,
                                            DBusWatchHandler  handler,
                                            void             *data,
                                            DBusFreeFunction  free_data_function);
-void       _dbus_watch_ref                (DBusWatch        *watch);
+DBusWatch* _dbus_watch_ref                (DBusWatch        *watch);
 void       _dbus_watch_unref              (DBusWatch        *watch);
 void       _dbus_watch_invalidate         (DBusWatch        *watch);
 void       _dbus_watch_sanitize_condition (DBusWatch        *watch,

@@ -61,7 +61,7 @@ typedef enum
 DBusHashTable* _dbus_hash_table_new                (DBusHashType      type,
                                                     DBusFreeFunction  key_free_function,
                                                     DBusFreeFunction  value_free_function);
-void           _dbus_hash_table_ref                (DBusHashTable    *table);
+DBusHashTable* _dbus_hash_table_ref                (DBusHashTable    *table);
 void           _dbus_hash_table_unref              (DBusHashTable    *table);
 void           _dbus_hash_iter_init                (DBusHashTable    *table,
                                                     DBusHashIter     *iter);

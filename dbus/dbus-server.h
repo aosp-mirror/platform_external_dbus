@@ -41,7 +41,7 @@ typedef void (* DBusNewConnectionFunction) (DBusServer     *server,
 
 DBusServer* dbus_server_listen           (const char     *address,
                                           DBusError      *error);
-void        dbus_server_ref              (DBusServer     *server);
+DBusServer* dbus_server_ref              (DBusServer     *server);
 void        dbus_server_unref            (DBusServer     *server);
 void        dbus_server_disconnect       (DBusServer     *server);
 dbus_bool_t dbus_server_get_is_connected (DBusServer     *server);

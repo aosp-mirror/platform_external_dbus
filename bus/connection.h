@@ -33,7 +33,7 @@ typedef dbus_bool_t (* BusConnectionForeachFunction) (DBusConnection *connection
 
 
 BusConnections* bus_connections_new               (BusContext                   *context);
-void            bus_connections_ref               (BusConnections               *connections);
+BusConnections* bus_connections_ref               (BusConnections               *connections);
 void            bus_connections_unref             (BusConnections               *connections);
 dbus_bool_t     bus_connections_setup_connection  (BusConnections               *connections,
                                                    DBusConnection               *connection);

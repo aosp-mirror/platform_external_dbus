@@ -235,14 +235,17 @@ _dbus_babysitter_new (void)
  * Increment the reference count on the babysitter object.
  *
  * @param sitter the babysitter
+ * @returns the babysitter
  */
-void
+DBusBabysitter *
 _dbus_babysitter_ref (DBusBabysitter *sitter)
 {
   _dbus_assert (sitter != NULL);
   _dbus_assert (sitter->refcount > 0);
   
   sitter->refcount += 1;
+
+  return sitter;
 }
 
 /**

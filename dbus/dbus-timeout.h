@@ -38,7 +38,7 @@ DBusTimeout* _dbus_timeout_new          (int                 interval,
                                          DBusTimeoutHandler  handler,
                                          void               *data,
                                          DBusFreeFunction    free_data_function);
-void         _dbus_timeout_ref          (DBusTimeout        *timeout);
+DBusTimeout* _dbus_timeout_ref          (DBusTimeout        *timeout);
 void         _dbus_timeout_unref        (DBusTimeout        *timeout);
 void         _dbus_timeout_set_interval (DBusTimeout        *timeout,
                                          int                 interval);

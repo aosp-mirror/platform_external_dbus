@@ -95,7 +95,7 @@ typedef DBusHandlerResult (* DBusHandleMessageFunction) (DBusConnection     *con
 
 DBusConnection*    dbus_connection_open                         (const char                 *address,
                                                                  DBusError                  *error);
-void               dbus_connection_ref                          (DBusConnection             *connection);
+DBusConnection*    dbus_connection_ref                          (DBusConnection             *connection);
 void               dbus_connection_unref                        (DBusConnection             *connection);
 void               dbus_connection_disconnect                   (DBusConnection             *connection);
 dbus_bool_t        dbus_connection_get_is_connected             (DBusConnection             *connection);

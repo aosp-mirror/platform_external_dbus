@@ -31,7 +31,7 @@ DBUS_BEGIN_DECLS;
 typedef struct DBusUserDatabase DBusUserDatabase;
 
 DBusUserDatabase* _dbus_user_database_new           (void);
-void              _dbus_user_database_ref           (DBusUserDatabase     *db);
+DBusUserDatabase* _dbus_user_database_ref           (DBusUserDatabase     *db);
 void              _dbus_user_database_unref         (DBusUserDatabase     *db);
 dbus_bool_t       _dbus_user_database_get_groups    (DBusUserDatabase     *db,
                                                      dbus_uid_t            uid,

@@ -33,7 +33,7 @@
 
 DBUS_BEGIN_DECLS;
 
-void         dbus_pending_call_ref           (DBusPendingCall               *pending);
+DBusPendingCall* dbus_pending_call_ref       (DBusPendingCall               *pending);
 void         dbus_pending_call_unref         (DBusPendingCall               *pending);
 dbus_bool_t  dbus_pending_call_set_notify    (DBusPendingCall               *pending,
                                               DBusPendingCallNotifyFunction  function,

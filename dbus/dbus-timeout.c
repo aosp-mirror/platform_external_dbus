@@ -86,11 +86,14 @@ _dbus_timeout_new (int                 interval,
  * Increments the reference count of a DBusTimeout object.
  *
  * @param timeout the timeout object.
+ * @returns the timeout object.
  */
-void
+DBusTimeout *
 _dbus_timeout_ref (DBusTimeout *timeout)
 {
   timeout->refcount += 1;
+
+  return timeout;
 }
 
 /**

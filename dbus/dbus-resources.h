@@ -35,7 +35,7 @@ typedef void (* DBusCounterNotifyFunction) (DBusCounter *counter,
                                             void        *user_data);
 
 DBusCounter* _dbus_counter_new       (void);
-void         _dbus_counter_ref       (DBusCounter *counter);
+DBusCounter* _dbus_counter_ref       (DBusCounter *counter);
 void         _dbus_counter_unref     (DBusCounter *counter);
 void         _dbus_counter_adjust    (DBusCounter *counter,
                                       long         delta);

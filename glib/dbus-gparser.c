@@ -184,10 +184,12 @@ parser_new (void)
   return parser;
 }
 
-void
+Parser *
 parser_ref (Parser *parser)
 {
   parser->refcount += 1;
+
+  return parser;
 }
 
 void

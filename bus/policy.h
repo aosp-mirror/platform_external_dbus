@@ -101,11 +101,11 @@ struct BusPolicyRule
 
 BusPolicyRule* bus_policy_rule_new   (BusPolicyRuleType type,
                                       dbus_bool_t       allow);
-void           bus_policy_rule_ref   (BusPolicyRule    *rule);
+BusPolicyRule* bus_policy_rule_ref   (BusPolicyRule    *rule);
 void           bus_policy_rule_unref (BusPolicyRule    *rule);
 
 BusPolicy*       bus_policy_new                   (void);
-void             bus_policy_ref                   (BusPolicy        *policy);
+BusPolicy*       bus_policy_ref                   (BusPolicy        *policy);
 void             bus_policy_unref                 (BusPolicy        *policy);
 BusClientPolicy* bus_policy_create_client_policy  (BusPolicy        *policy,
                                                    DBusConnection   *connection,
@@ -127,7 +127,7 @@ dbus_bool_t      bus_policy_merge                 (BusPolicy        *policy,
                                                    BusPolicy        *to_absorb);
 
 BusClientPolicy* bus_client_policy_new               (void);
-void             bus_client_policy_ref               (BusClientPolicy  *policy);
+BusClientPolicy* bus_client_policy_ref               (BusClientPolicy  *policy);
 void             bus_client_policy_unref             (BusClientPolicy  *policy);
 dbus_bool_t      bus_client_policy_check_can_send    (BusClientPolicy  *policy,
                                                       BusRegistry      *registry,

@@ -471,11 +471,13 @@ bus_connections_new (BusContext *context)
   return NULL;
 }
 
-void
+BusConnections *
 bus_connections_ref (BusConnections *connections)
 {
   _dbus_assert (connections->refcount > 0);
   connections->refcount += 1;
+
+  return connections;
 }
 
 void

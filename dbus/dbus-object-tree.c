@@ -46,7 +46,7 @@ typedef struct DBusObjectSubtree DBusObjectSubtree;
 static DBusObjectSubtree* _dbus_object_subtree_new   (const char                  *name,
                                                       const DBusObjectPathVTable  *vtable,
                                                       void                        *user_data);
-static void               _dbus_object_subtree_ref   (DBusObjectSubtree           *subtree);
+static DBusObjectSubtree* _dbus_object_subtree_ref   (DBusObjectSubtree           *subtree);
 static void               _dbus_object_subtree_unref (DBusObjectSubtree           *subtree);
 
 /**
@@ -121,13 +121,16 @@ _dbus_object_tree_new (DBusConnection *connection)
 /**
  * Increment the reference count
  * @param tree the object tree
+ * @returns the object tree
  */
-void
+DBusObjectTree *
 _dbus_object_tree_ref (DBusObjectTree *tree)
 {
   _dbus_assert (tree->refcount > 0);
 
   tree->refcount += 1;
+
+  return tree;
 }
 
 /**
@@ -859,11 +862,13 @@ _dbus_object_subtree_new (const char                  *name,
   return NULL;
 }
 
-static void
+static DBusObjectSubtree *
 _dbus_object_subtree_ref (DBusObjectSubtree *subtree)
 {
   _dbus_assert (subtree->refcount.value > 0);
   _dbus_atomic_inc (&subtree->refcount);
+
+  return subtree;
 }
 
 static void

@@ -99,11 +99,13 @@ handle_timeout_callback (DBusTimeout   *timeout,
     _dbus_wait_for_memory ();
 }
 
-static void
+static BusPendingActivation * 
 bus_pending_activation_ref (BusPendingActivation *pending_activation)
 {
   _dbus_assert (pending_activation->refcount > 0);
   pending_activation->refcount += 1;
+
+  return pending_activation;
 }
 
 static void
@@ -445,12 +447,14 @@ bus_activation_new (BusContext        *context,
   return NULL;
 }
 
-void
+BusActivation *
 bus_activation_ref (BusActivation *activation)
 {
   _dbus_assert (activation->refcount > 0);
   
   activation->refcount += 1;
+
+  return activation;
 }
 
 void

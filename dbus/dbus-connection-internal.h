@@ -46,7 +46,7 @@ typedef enum
 
 void              _dbus_connection_lock                        (DBusConnection     *connection);
 void              _dbus_connection_unlock                      (DBusConnection     *connection);
-void              _dbus_connection_ref_unlocked                (DBusConnection     *connection);
+DBusConnection *  _dbus_connection_ref_unlocked                (DBusConnection     *connection);
 void              _dbus_connection_unref_unlocked              (DBusConnection     *connection);
 dbus_bool_t       _dbus_connection_queue_received_message      (DBusConnection     *connection,
                                                                 DBusMessage        *message);

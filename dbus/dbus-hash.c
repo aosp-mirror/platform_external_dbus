@@ -348,11 +348,14 @@ _dbus_hash_table_new (DBusHashType     type,
  * Increments the reference count for a hash table.
  *
  * @param table the hash table to add a reference to.
+ * @returns the hash table.
  */
-void
+DBusHashTable *
 _dbus_hash_table_ref (DBusHashTable *table)
 {
   table->refcount += 1;
+  
+  return table;
 }
 
 /**

@@ -33,7 +33,7 @@ typedef void (* BusServiceForeachFunction) (BusService       *service,
                                             void             *data);
 
 BusRegistry* bus_registry_new             (BusContext                  *context);
-void         bus_registry_ref             (BusRegistry                 *registry);
+BusRegistry* bus_registry_ref             (BusRegistry                 *registry);
 void         bus_registry_unref           (BusRegistry                 *registry);
 BusService*  bus_registry_lookup          (BusRegistry                 *registry,
                                            const DBusString            *service_name);
@@ -56,7 +56,7 @@ dbus_bool_t  bus_registry_acquire_service (BusRegistry                 *registry
                                            BusTransaction              *transaction,
                                            DBusError                   *error);
 
-void            bus_service_ref                      (BusService     *service);
+BusService*     bus_service_ref                      (BusService     *service);
 void            bus_service_unref                    (BusService     *service);
 dbus_bool_t     bus_service_add_owner                (BusService     *service,
                                                       DBusConnection *owner,

@@ -657,11 +657,14 @@ _dbus_keyring_reload (DBusKeyring *keyring,
  * Increments reference count of the keyring
  *
  * @param keyring the keyring
+ * @returns the keyring
  */
-void
+DBusKeyring *
 _dbus_keyring_ref (DBusKeyring *keyring)
 {
   keyring->refcount += 1;
+
+  return keyring;
 }
 
 /**

@@ -670,11 +670,13 @@ bus_context_shutdown (BusContext  *context)
     }
 }
 
-void
+BusContext *
 bus_context_ref (BusContext *context)
 {
   _dbus_assert (context->refcount > 0);
   context->refcount += 1;
+
+  return context;
 }
 
 void

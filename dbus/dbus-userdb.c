@@ -635,13 +635,16 @@ _dbus_user_database_new (void)
 /**
  * Increments refcount of user database.
  * @param db the database
+ * @returns the database
  */
-void
+DBusUserDatabase *
 _dbus_user_database_ref (DBusUserDatabase  *db)
 {
   _dbus_assert (db->refcount > 0);
 
   db->refcount += 1;
+
+  return db;
 }
 
 /**

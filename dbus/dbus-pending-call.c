@@ -138,13 +138,16 @@ _dbus_pending_call_notify (DBusPendingCall *pending)
  * Increments the reference count on a pending call.
  *
  * @param pending the pending call object
+ * @returns the pending call object
  */
-void
+DBusPendingCall *
 dbus_pending_call_ref (DBusPendingCall *pending)
 {
   _dbus_return_if_fail (pending != NULL);
 
   _dbus_atomic_inc (&pending->refcount);
+
+  return pending;
 }
 
 /**

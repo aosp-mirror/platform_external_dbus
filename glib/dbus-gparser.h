@@ -32,7 +32,7 @@ G_BEGIN_DECLS
 typedef struct Parser Parser;
 
 Parser*  parser_new           (void);
-void     parser_ref           (Parser      *parser);
+Parser*  parser_ref           (Parser      *parser);
 void     parser_unref         (Parser      *parser);
 gboolean parser_check_doctype (Parser      *parser,
                                const char  *doctype,

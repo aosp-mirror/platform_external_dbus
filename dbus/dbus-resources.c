@@ -96,13 +96,16 @@ _dbus_counter_new (void)
  * Increments refcount of the counter
  *
  * @param counter the counter
+ * @returns the counter
  */
-void
+DBusCounter *
 _dbus_counter_ref (DBusCounter *counter)
 {
   _dbus_assert (counter->refcount > 0);
   
   counter->refcount += 1;
+
+  return counter;
 }
 
 /**

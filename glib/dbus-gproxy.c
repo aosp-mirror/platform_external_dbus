@@ -93,7 +93,7 @@ struct DBusGProxyManager
 
 };
 
-static void              dbus_gproxy_manager_ref    (DBusGProxyManager *manager);
+static DBusGProxyManager *dbus_gproxy_manager_ref    (DBusGProxyManager *manager);
 static DBusHandlerResult dbus_gproxy_manager_filter (DBusConnection    *connection,
                                                      DBusMessage       *message,
                                                      void              *user_data);
@@ -152,7 +152,7 @@ dbus_gproxy_manager_get (DBusConnection *connection)
   return manager;
 }
 
-static void
+static DBusGProxyManager * 
 dbus_gproxy_manager_ref (DBusGProxyManager *manager)
 {
   g_assert (manager != NULL);
@@ -163,6 +163,8 @@ dbus_gproxy_manager_ref (DBusGProxyManager *manager)
   manager->refcount += 1;
 
   UNLOCK_MANAGER (manager);
+
+  return manager;
 }
 
 static void

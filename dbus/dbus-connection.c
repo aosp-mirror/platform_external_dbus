@@ -219,11 +219,13 @@ static void               _dbus_connection_update_dispatch_status_and_unlock (DB
                                                                               DBusDispatchStatus  new_status);
 static void               _dbus_connection_last_unref                        (DBusConnection     *connection);
 
-static void
+static DBusMessageFilter *
 _dbus_message_filter_ref (DBusMessageFilter *filter)
 {
   _dbus_assert (filter->refcount.value > 0);
   _dbus_atomic_inc (&filter->refcount);
+
+  return filter;
 }
 
 static void
@@ -963,8 +965,9 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
  * Requires that the caller already holds the connection lock.
  *
  * @param connection the connection.
+ * @returns the connection.
  */
-void
+DBusConnection *
 _dbus_connection_ref_unlocked (DBusConnection *connection)
 {
 #ifdef DBUS_HAVE_ATOMIC_INT
@@ -973,6 +976,8 @@ _dbus_connection_ref_unlocked (DBusConnection *connection)
   _dbus_assert (connection->refcount.value > 0);
   connection->refcount.value += 1;
 #endif
+
+  return connection;
 }
 
 /**
@@ -1117,11 +1122,12 @@ dbus_connection_open (const char     *address,
  * Increments the reference count of a DBusConnection.
  *
  * @param connection the connection.
+ * @returns the connection.
  */
-void
+DBusConnection *
 dbus_connection_ref (DBusConnection *connection)
 {
-  _dbus_return_if_fail (connection != NULL);
+  _dbus_return_val_if_fail (connection != NULL, NULL);
 
   /* The connection lock is better than the global
    * lock in the atomic increment fallback
@@ -1136,6 +1142,8 @@ dbus_connection_ref (DBusConnection *connection)
   connection->refcount.value += 1;
   CONNECTION_UNLOCK (connection);
 #endif
+
+  return connection;
 }
 
 static void

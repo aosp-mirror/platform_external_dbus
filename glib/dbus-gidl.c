@@ -67,13 +67,15 @@ struct ArgInfo
   ArgDirection direction;
 };
 
-void
+BaseInfo *
 base_info_ref (BaseInfo *info)
 {
   g_return_if_fail (info != NULL);
   g_return_if_fail (info->refcount > 0);
   
   info->refcount += 1;
+
+  return info;
 }
 
 static void
@@ -222,10 +224,12 @@ node_info_new (const char *name)
   return info;
 }
 
-void
+NodeInfo *
 node_info_ref (NodeInfo *info)
 {
   info->base.refcount += 1;
+
+  return info;
 }
 
 void
@@ -287,10 +291,12 @@ interface_info_new (const char *name)
   return info;
 }
 
-void
+InterfaceInfo *
 interface_info_ref (InterfaceInfo *info)
 {
   info->base.refcount += 1;
+
+  return info;
 }
 
 void
@@ -366,10 +372,12 @@ method_info_new (const char *name)
   return info;
 }
 
-void
+MethodInfo *
 method_info_ref (MethodInfo *info)
 {
   info->base.refcount += 1;
+
+  return info;
 }
 
 void
@@ -416,10 +424,12 @@ signal_info_new (const char *name)
   return info;
 }
 
-void
+SignalInfo *
 signal_info_ref (SignalInfo *info)
 {
   info->base.refcount += 1;
+
+  return info;
 }
 
 void
@@ -472,10 +482,12 @@ arg_info_new (const char  *name,
   return info;
 }
 
-void
+ArgInfo *
 arg_info_ref (ArgInfo *info)
 {
   info->base.refcount += 1;
+
+  return info;
 }
 
 void

@@ -37,7 +37,7 @@ typedef void        (* DBusTimeoutFunction) (DBusTimeout   *timeout,
                                              void          *data);
 
 DBusLoop*   _dbus_loop_new            (void);
-void        _dbus_loop_ref            (DBusLoop            *loop);
+DBusLoop*   _dbus_loop_ref            (DBusLoop            *loop);
 void        _dbus_loop_unref          (DBusLoop            *loop);
 dbus_bool_t _dbus_loop_add_watch      (DBusLoop            *loop,
                                        DBusWatch           *watch,

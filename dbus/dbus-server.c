@@ -450,13 +450,16 @@ dbus_server_listen (const char     *address,
  * Increments the reference count of a DBusServer.
  *
  * @param server the server.
+ * @returns the server
  */
-void
+DBusServer *
 dbus_server_ref (DBusServer *server)
 {
   _dbus_return_if_fail (server != NULL);
   
   server->refcount += 1;
+
+  return server;
 }
 
 /**

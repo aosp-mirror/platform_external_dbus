@@ -68,12 +68,14 @@ bus_policy_rule_new (BusPolicyRuleType type,
   return rule;
 }
 
-void
+BusPolicyRule *
 bus_policy_rule_ref (BusPolicyRule *rule)
 {
   _dbus_assert (rule->refcount > 0);
 
   rule->refcount += 1;
+
+  return rule;
 }
 
 void
@@ -178,12 +180,14 @@ bus_policy_new (void)
   return NULL;
 }
 
-void
+BusPolicy *
 bus_policy_ref (BusPolicy *policy)
 {
   _dbus_assert (policy->refcount > 0);
 
   policy->refcount += 1;
+
+  return policy;
 }
 
 void
@@ -628,12 +632,14 @@ bus_client_policy_new (void)
   return policy;
 }
 
-void
+BusClientPolicy *
 bus_client_policy_ref (BusClientPolicy *policy)
 {
   _dbus_assert (policy->refcount > 0);
 
   policy->refcount += 1;
+
+  return policy;
 }
 
 static void

@@ -189,13 +189,16 @@ dbus_message_handler_new (DBusHandleMessageFunction function,
  * Increments the reference count on a message handler.
  *
  * @param handler the handler
+ * @returns the handler
  */
-void
+DBusMessageHandler *
 dbus_message_handler_ref (DBusMessageHandler *handler)
 {
   _dbus_return_if_fail (handler != NULL);
 
   _dbus_atomic_inc (&handler->refcount);
+
+  return handler;
 }
 
 /**

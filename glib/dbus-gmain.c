@@ -88,10 +88,12 @@ watch_fd_new (void)
   return watch_fd;
 }
 
-static void
+static WatchFD * 
 watch_fd_ref (WatchFD *watch_fd)
 {
   watch_fd->refcount += 1;
+
+  return watch_fd;
 }
 
 static void

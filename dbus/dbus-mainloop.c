@@ -123,12 +123,14 @@ timeout_callback_new (DBusTimeout         *timeout,
   return cb;
 }
 
-static void
+static Callback * 
 callback_ref (Callback *cb)
 {
   _dbus_assert (cb->refcount > 0);
   
   cb->refcount += 1;
+
+  return cb;
 }
 
 static void
@@ -204,13 +206,15 @@ _dbus_loop_new (void)
   return loop;
 }
 
-void
+DBusLoop *
 _dbus_loop_ref (DBusLoop *loop)
 {
   _dbus_assert (loop != NULL);
   _dbus_assert (loop->refcount > 0);
 
   loop->refcount += 1;
+
+  return loop;
 }
 
 void

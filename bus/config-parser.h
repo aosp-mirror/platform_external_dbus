@@ -37,7 +37,7 @@ typedef struct BusConfigParser BusConfigParser;
 
 BusConfigParser* bus_config_parser_new           (const DBusString  *basedir,
                                                   dbus_bool_t        is_toplevel);
-void             bus_config_parser_ref           (BusConfigParser   *parser);
+BusConfigParser* bus_config_parser_ref           (BusConfigParser   *parser);
 void             bus_config_parser_unref         (BusConfigParser   *parser);
 dbus_bool_t      bus_config_parser_check_doctype (BusConfigParser   *parser,
                                                   const char        *doctype,

@@ -1504,17 +1504,20 @@ dbus_message_copy (const DBusMessage *message)
  * Increments the reference count of a DBusMessage.
  *
  * @param message The message
+ * @returns the message
  * @see dbus_message_unref
  */
-void
+DBusMessage *
 dbus_message_ref (DBusMessage *message)
 {
   dbus_int32_t old_refcount;
 
-  _dbus_return_if_fail (message != NULL);
+  _dbus_return_val_if_fail (message != NULL, NULL);
   
   old_refcount = _dbus_atomic_inc (&message->refcount);
   _dbus_assert (old_refcount >= 1);
+
+  return message;
 }
 
 static void
@@ -4781,11 +4784,14 @@ _dbus_message_loader_new (void)
  * Increments the reference count of the loader.
  *
  * @param loader the loader.
+ * @returns the loader
  */
-void
+DBusMessageLoader *
 _dbus_message_loader_ref (DBusMessageLoader *loader)
 {
   loader->refcount += 1;
+
+  return loader;
 }
 
 /**

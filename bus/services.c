@@ -82,11 +82,13 @@ bus_registry_new (BusContext *context)
   return NULL;
 }
 
-void
+BusRegistry *
 bus_registry_ref (BusRegistry *registry)
 {
   _dbus_assert (registry->refcount > 0);
   registry->refcount += 1;
+
+  return registry;
 }
 
 void
@@ -713,12 +715,14 @@ bus_service_remove_owner (BusService     *service,
   return TRUE;
 }
 
-void
+BusService *
 bus_service_ref (BusService *service)
 {
   _dbus_assert (service->refcount > 0);
   
   service->refcount += 1;
+
+  return service;
 }
 
 void

@@ -97,11 +97,14 @@ _dbus_watch_new (int               fd,
  * Increments the reference count of a DBusWatch object.
  *
  * @param watch the watch object.
+ * @returns the watch object.
  */
-void
+DBusWatch *
 _dbus_watch_ref (DBusWatch *watch)
 {
   watch->refcount += 1;
+
+  return watch;
 }
 
 /**

@@ -40,7 +40,7 @@ dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **si
                                                    DBusSpawnChildSetupFunc    child_setup,
                                                    void                      *user_data,
                                                    DBusError                 *error);
-void        _dbus_babysitter_ref                  (DBusBabysitter            *sitter);
+DBusBabysitter* _dbus_babysitter_ref              (DBusBabysitter            *sitter);
 void        _dbus_babysitter_unref                (DBusBabysitter            *sitter);
 void        _dbus_babysitter_kill_child           (DBusBabysitter            *sitter);
 dbus_bool_t _dbus_babysitter_get_child_exited     (DBusBabysitter            *sitter);

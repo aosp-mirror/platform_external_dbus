@@ -32,7 +32,7 @@ typedef struct DBusTransport DBusTransport;
 
 DBusTransport*     _dbus_transport_open                   (const char                 *address,
                                                            DBusError                  *error);
-void               _dbus_transport_ref                    (DBusTransport              *transport);
+DBusTransport*     _dbus_transport_ref                    (DBusTransport              *transport);
 void               _dbus_transport_unref                  (DBusTransport              *transport);
 void               _dbus_transport_disconnect             (DBusTransport              *transport);
 dbus_bool_t        _dbus_transport_get_is_connected       (DBusTransport              *transport);

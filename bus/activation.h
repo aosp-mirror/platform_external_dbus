@@ -32,7 +32,7 @@ BusActivation* bus_activation_new              (BusContext        *context,
                                                 const DBusString  *address,
                                                 DBusList         **directories,
                                                 DBusError         *error);
-void           bus_activation_ref              (BusActivation     *activation);
+BusActivation* bus_activation_ref              (BusActivation     *activation);
 void           bus_activation_unref            (BusActivation     *activation);
 dbus_bool_t    bus_activation_activate_service (BusActivation     *activation,
                                                 DBusConnection    *connection,

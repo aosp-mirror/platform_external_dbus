@@ -345,12 +345,14 @@ bus_config_parser_new (const DBusString *basedir,
   return parser;
 }
 
-void
+BusConfigParser *
 bus_config_parser_ref (BusConfigParser *parser)
 {
   _dbus_assert (parser->refcount > 0);
 
   parser->refcount += 1;
+
+  return parser;
 }
 
 void

@@ -365,13 +365,16 @@ _dbus_transport_open (const char     *address,
  * Increments the reference count for the transport.
  *
  * @param transport the transport.
+ * @returns the transport.
  */
-void
+DBusTransport *
 _dbus_transport_ref (DBusTransport *transport)
 {
   _dbus_assert (transport->refcount > 0);
   
   transport->refcount += 1;
+
+  return transport;
 }
 
 /**

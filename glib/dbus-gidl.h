@@ -54,7 +54,7 @@ typedef enum
 
 } InfoType;
 
-void           base_info_ref              (BaseInfo      *info);
+BaseInfo*      base_info_ref              (BaseInfo      *info);
 void           base_info_unref            (BaseInfo      *info);
 InfoType       base_info_get_type         (BaseInfo      *info);
 const char*    base_info_get_name         (BaseInfo      *info);
@@ -65,7 +65,7 @@ GType          base_info_get_gtype        (void);
 
 
 NodeInfo*      node_info_new              (const char    *name);
-void           node_info_ref              (NodeInfo      *info);
+NodeInfo*      node_info_ref              (NodeInfo      *info);
 void           node_info_unref            (NodeInfo      *info);
 const char*    node_info_get_name         (NodeInfo      *info);
 GSList*        node_info_get_interfaces   (NodeInfo      *info);
@@ -76,7 +76,7 @@ void           node_info_add_node         (NodeInfo      *info,
                                            NodeInfo      *child);
 
 InterfaceInfo* interface_info_new         (const char    *name);
-void           interface_info_ref         (InterfaceInfo *info);
+InterfaceInfo* interface_info_ref         (InterfaceInfo *info);
 void           interface_info_unref       (InterfaceInfo *info);
 const char*    interface_info_get_name    (InterfaceInfo *info);
 GSList*        interface_info_get_methods (InterfaceInfo *info);
@@ -87,7 +87,7 @@ void           interface_info_add_signal  (InterfaceInfo *info,
                                            SignalInfo    *signal);
 
 MethodInfo*    method_info_new            (const char    *name);
-void           method_info_ref            (MethodInfo    *info);
+MethodInfo*    method_info_ref            (MethodInfo    *info);
 void           method_info_unref          (MethodInfo    *info);
 
 const char*    method_info_get_name       (MethodInfo    *info);
@@ -96,7 +96,7 @@ void           method_info_add_arg        (MethodInfo    *info,
                                            ArgInfo       *arg);
 
 SignalInfo*    signal_info_new            (const char    *name);
-void           signal_info_ref            (SignalInfo    *info);
+SignalInfo*    signal_info_ref            (SignalInfo    *info);
 void           signal_info_unref          (SignalInfo    *info);
 
 const char*    signal_info_get_name       (SignalInfo    *info);
@@ -107,7 +107,7 @@ void           signal_info_add_arg        (SignalInfo    *info,
 ArgInfo*       arg_info_new               (const char    *name,
                                            ArgDirection   direction,
                                            int            type);
-void           arg_info_ref               (ArgInfo       *info);
+ArgInfo*       arg_info_ref               (ArgInfo       *info);
 void           arg_info_unref             (ArgInfo       *info);
 const char*    arg_info_get_name          (ArgInfo       *info);
 int            arg_info_get_type          (ArgInfo       *info);

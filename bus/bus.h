@@ -66,7 +66,7 @@ BusContext*       bus_context_new                                (const DBusStri
                                                                   int               print_pid_fd,
                                                                   DBusError        *error);
 void              bus_context_shutdown                           (BusContext       *context);
-void              bus_context_ref                                (BusContext       *context);
+BusContext*       bus_context_ref                                (BusContext       *context);
 void              bus_context_unref                              (BusContext       *context);
 const char*       bus_context_get_type                           (BusContext       *context);
 const char*       bus_context_get_address                        (BusContext       *context);

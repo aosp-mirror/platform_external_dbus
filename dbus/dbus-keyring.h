@@ -34,7 +34,7 @@ typedef struct DBusKeyring DBusKeyring;
 DBusKeyring* _dbus_keyring_new_homedir      (const DBusString  *username,
                                              const DBusString  *context,
                                              DBusError         *error);
-void         _dbus_keyring_ref              (DBusKeyring       *keyring);
+DBusKeyring* _dbus_keyring_ref              (DBusKeyring       *keyring);
 void         _dbus_keyring_unref            (DBusKeyring       *keyring);
 dbus_bool_t  _dbus_keyring_validate_context (const DBusString  *context);
 int          _dbus_keyring_get_best_key     (DBusKeyring       *keyring,

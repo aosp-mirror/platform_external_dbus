@@ -73,9 +73,9 @@ DBusMessage* dbus_message_new_error         (DBusMessage *reply_to,
                                              const char  *error_name,
                                              const char  *error_message);
 
-DBusMessage *dbus_message_copy              (const DBusMessage *message);
+DBusMessage* dbus_message_copy              (const DBusMessage *message);
 
-void          dbus_message_ref              (DBusMessage   *message);
+DBusMessage*  dbus_message_ref              (DBusMessage   *message);
 void          dbus_message_unref            (DBusMessage   *message);
 int           dbus_message_get_type         (DBusMessage   *message);
 dbus_bool_t   dbus_message_set_path         (DBusMessage   *message,

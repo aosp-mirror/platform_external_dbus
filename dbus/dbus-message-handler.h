@@ -43,7 +43,7 @@ DBusMessageHandler* dbus_message_handler_new (DBusHandleMessageFunction  functio
                                               DBusFreeFunction           free_user_data);
 
 
-void         dbus_message_handler_ref   (DBusMessageHandler *handler);
+DBusMessageHandler* dbus_message_handler_ref   (DBusMessageHandler *handler);
 void         dbus_message_handler_unref (DBusMessageHandler *handler);
 
 

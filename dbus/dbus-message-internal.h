@@ -48,7 +48,7 @@ void        _dbus_message_remove_size_counter   (DBusMessage  *message,
                                                  DBusList    **link_return);
 
 DBusMessageLoader* _dbus_message_loader_new                   (void);
-void               _dbus_message_loader_ref                   (DBusMessageLoader  *loader);
+DBusMessageLoader* _dbus_message_loader_ref                   (DBusMessageLoader  *loader);
 void               _dbus_message_loader_unref                 (DBusMessageLoader  *loader);
 
 void               _dbus_message_loader_get_buffer            (DBusMessageLoader  *loader,
