@@ -1,3 +1,8 @@
+2004-11-10  Colin Walters  <walters@verbum.org>
+
+	* dbus/dbus-spawn.c (check_babysit_events): Handle EINTR,
+	for extra paranoia.
+
 2004-11-09  Colin Walters  <walters@verbum.org>
 
 	* dbus/dbus-string.c (_dbus_string_get_length): New

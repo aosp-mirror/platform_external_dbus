@@ -864,7 +864,11 @@ check_babysit_events (pid_t grandchild_pid,
   pid_t ret;
   int status;
   
-  ret = waitpid (grandchild_pid, &status, WNOHANG);
+  do
+    {
+      ret = waitpid (grandchild_pid, &status, WNOHANG);
+    }
+  while (ret < 0 && errno == EINTR);
 
   if (ret == 0)
     {
