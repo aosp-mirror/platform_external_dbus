@@ -66,8 +66,6 @@ To make a release of D-BUS, do the following:
 
  - check out a fresh copy from CVS
 
- - increment the version number in configure.in
-
  - verify that the libtool versioning/library soname is 
    changed if it needs to be, or not changed if not
 

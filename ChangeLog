@@ -1,5 +1,12 @@
 2005-03-29  John (J5) Palmieri  <johnp@redhat.com>
 
+	* News: Update 0.32
+
+	* HACKING: Fixed realease instructions.  configure.in should be updated to
+	  the next release by the person who made the last release.
+
+2005-03-29  John (J5) Palmieri  <johnp@redhat.com>
+
 	* python/lvalue_cast_post_process.py - removed.  Patch has been
 	  submitted to Pyrex maintainers that fixes gcc4.0 errors
 

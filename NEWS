@@ -1,3 +1,14 @@
+D-BUS 0.32 (29 Mar 2005)
+===
+
+- mono bindings now compiles correctly
+- mono binding cleanups
+- glib bindings generates wrappers for bus methods in dbus-glib-bindings.h
+- glib binding cleanus
+- users and groups can now be specified by UID and GID in config files
+- numerous memory leak fixes
+- various other fixes
+
 D-BUS 0.31 (07 Mar 2005)
 ===
 
