@@ -96,12 +96,12 @@ struct DBusMessage
 
   char byte_order; /**< Message byte order. */
 
+  unsigned int locked : 1; /**< Message being sent, no modifications allowed. */
+  
   DBusList *size_counters;   /**< 0-N DBusCounter used to track message size. */
   long size_counter_delta;   /**< Size we incremented the size counters by.   */
 
   dbus_uint32_t changed_stamp; /**< Incremented when iterators are invalidated. */
-  
-  unsigned int locked : 1; /**< Message being sent, no modifications allowed. */
 
   DBusDataSlotList slot_list;   /**< Data stored by allocated integer ID */
 };
@@ -1353,22 +1353,232 @@ _dbus_message_remove_byte_from_signature (DBusMessage  *message)
  * sent to another application.
  */
 
+static void
+free_size_counter (void *element,
+                   void *data)
+{
+  DBusCounter *counter = element;
+  DBusMessage *message = data;
+  
+  _dbus_counter_adjust (counter, - message->size_counter_delta);
+
+  _dbus_counter_unref (counter);
+}
+
+static void
+dbus_message_finalize (DBusMessage *message)
+{
+  _dbus_assert (message->refcount.value == 0);
+  
+  /* This calls application callbacks! */
+  _dbus_data_slot_list_free (&message->slot_list);
+  
+  _dbus_list_foreach (&message->size_counters,
+                      free_size_counter, message);
+  _dbus_list_clear (&message->size_counters);
+  
+  _dbus_string_free (&message->header);
+  _dbus_string_free (&message->body);
+  
+  dbus_free (message);
+}
+
+/* Message Cache
+ * 
+ * We cache some DBusMessage to reduce the overhead of allocating
+ * them.  In my profiling this consistently made about an 8%
+ * difference.  It avoids the malloc for the message, the malloc for
+ * the slot list, the malloc for the header string and body string,
+ * and the associated free() calls. It does introduce another global
+ * lock which could be a performance issue in certain cases.
+ *
+ * For the echo client/server the round trip time goes from around
+ * .000077 to .000070 with the message cache. The sysprof change is as
+ * follows (numbers are cumulative percentage):
+ *
+ *  with cache:
+ *    new_empty_header           2.72
+ *      list_pop_first           1.88
+ *    unref                      3.3
+ *      list_prepend             1.63
+ * 
+ * without cache:
+ *    new_empty_header           6.7
+ *      string_init_preallocated 3.43
+ *        dbus_malloc            2.43
+ *      dbus_malloc0             2.59
+ * 
+ *    unref                      4.02
+ *      string_free              1.82
+ *        dbus_free              1.63
+ *      dbus_free                0.71
+ *
+ * The times for list operations with the cache seem to be from thread
+ * locks. So in a minute I'll try using an array instead of DBusList
+ * for the cache.
+ */
+
+/* Avoid caching huge messages */
+#define MAX_MESSAGE_SIZE_TO_CACHE _DBUS_ONE_MEGABYTE
+/* Avoid caching too many messages */
+#define MAX_MESSAGE_CACHE_SIZE    5
+
+_DBUS_DEFINE_GLOBAL_LOCK (message_cache);
+static DBusList *message_cache = NULL;
+static int message_cache_count = 0;
+static dbus_bool_t message_cache_shutdown_registered = FALSE;
+
+static void
+dbus_message_cache_shutdown (void *data)
+{
+  DBusList *link;
+
+  _DBUS_LOCK (message_cache);
+  
+  link = _dbus_list_get_first_link (&message_cache);
+  while (link != NULL)
+    {
+      DBusMessage *message = link->data;
+      DBusList *next = _dbus_list_get_next_link (&message_cache, link);
+
+      dbus_message_finalize (message);
+
+      _dbus_list_free_link (link);
+      
+      link = next;
+    }
+
+  message_cache = NULL;
+  message_cache_count = 0;
+  message_cache_shutdown_registered = FALSE;
+  
+  _DBUS_UNLOCK (message_cache);
+}
+
+/**
+ * Tries to get a message from the message cache.  The retrieved
+ * message will have junk in it, so it still needs to be cleared out
+ * in dbus_message_new_empty_header()
+ *
+ * @returns the message, or #NULL if none cached
+ */
+static DBusMessage*
+dbus_message_get_cached (void)
+{
+  DBusMessage *message;
+
+  message = NULL;
+  
+  _DBUS_LOCK (message_cache);
+
+  _dbus_assert (message_cache_count >= 0);
+  
+  if (message_cache_count == 0)
+    {
+      _DBUS_UNLOCK (message_cache);
+      return NULL;
+    }
+
+  message = _dbus_list_pop_first (&message_cache);
+  message_cache_count -= 1;
+
+  _DBUS_UNLOCK (message_cache);
+
+  _dbus_assert (message->refcount.value == 0);
+  _dbus_assert (message->size_counters == NULL);
+  
+  return message;
+}
+
+/**
+ * Tries to cache a message, otherwise finalize it.
+ *
+ * @param message the message
+ */
+static void
+dbus_message_cache_or_finalize (DBusMessage *message)
+{
+  dbus_bool_t was_cached;
+
+  _dbus_assert (message->refcount.value == 0);
+  
+  /* This calls application code and has to be done first thing
+   * without holding the lock
+   */
+  _dbus_data_slot_list_clear (&message->slot_list);
+  
+  _dbus_list_foreach (&message->size_counters,
+                      free_size_counter, message);
+  _dbus_list_clear (&message->size_counters);
+  
+  was_cached = FALSE;
+
+  _DBUS_LOCK (message_cache);
+
+  if (!message_cache_shutdown_registered)
+    {
+      if (!_dbus_register_shutdown_func (dbus_message_cache_shutdown, NULL))
+        goto out;
+
+      message_cache_shutdown_registered = TRUE;
+    }
+
+  _dbus_assert (message_cache_count >= 0);
+  
+  if ((_dbus_string_get_length (&message->header) +
+       _dbus_string_get_length (&message->body)) >
+      MAX_MESSAGE_SIZE_TO_CACHE)
+    goto out;
+  
+  if (message_cache_count > MAX_MESSAGE_CACHE_SIZE)
+    goto out;
+  
+  if (!_dbus_list_prepend (&message_cache, message))
+    goto out;
+
+  message_cache_count += 1;
+  was_cached = TRUE;
+  
+ out:
+  _DBUS_UNLOCK (message_cache);
+
+  if (!was_cached)
+    dbus_message_finalize (message);
+}
+
 static DBusMessage*
 dbus_message_new_empty_header (void)
 {
   DBusMessage *message;
   int i;
-  
-  message = dbus_new0 (DBusMessage, 1);
-  if (message == NULL)
-    return NULL;
-  
+  dbus_bool_t from_cache;
+
+  message = dbus_message_get_cached ();
+
+  if (message != NULL)
+    {
+      from_cache = TRUE;
+    }
+  else
+    {
+      from_cache = FALSE;
+      message = dbus_new (DBusMessage, 1);
+      if (message == NULL)
+        return NULL;
+    }
+
   message->refcount.value = 1;
   message->byte_order = DBUS_COMPILER_BYTE_ORDER;
   message->client_serial = 0;
   message->reply_serial = 0;
+  message->locked = FALSE;
+  message->header_padding = 0;
+  message->size_counters = NULL;
+  message->size_counter_delta = 0;
+  message->changed_stamp = 0;
 
-  _dbus_data_slot_list_init (&message->slot_list);
+  if (!from_cache)
+    _dbus_data_slot_list_init (&message->slot_list);
   
   i = 0;
   while (i <= DBUS_HEADER_FIELD_LAST)
@@ -1377,18 +1587,27 @@ dbus_message_new_empty_header (void)
       message->header_fields[i].value_offset = -1;
       ++i;
     }
-  
-  if (!_dbus_string_init_preallocated (&message->header, 256))
+
+  if (from_cache)
     {
-      dbus_free (message);
-      return NULL;
+      /* These can't fail since they shorten the string */
+      _dbus_string_set_length (&message->header, 0);
+      _dbus_string_set_length (&message->body, 0);
     }
-  
-  if (!_dbus_string_init_preallocated (&message->body, 64))
+  else
     {
-      _dbus_string_free (&message->header);
-      dbus_free (message);
-      return NULL;
+      if (!_dbus_string_init_preallocated (&message->header, 32))
+        {
+          dbus_free (message);
+          return NULL;
+        }
+      
+      if (!_dbus_string_init_preallocated (&message->body, 32))
+        {
+          _dbus_string_free (&message->header);
+          dbus_free (message);
+          return NULL;
+        }
     }
   
   return message;
@@ -1746,18 +1965,6 @@ dbus_message_ref (DBusMessage *message)
   return message;
 }
 
-static void
-free_size_counter (void *element,
-                   void *data)
-{
-  DBusCounter *counter = element;
-  DBusMessage *message = data;
-  
-  _dbus_counter_adjust (counter, - message->size_counter_delta);
-
-  _dbus_counter_unref (counter);
-}
-
 /**
  * Decrements the reference count of a DBusMessage.
  *
@@ -1777,17 +1984,8 @@ dbus_message_unref (DBusMessage *message)
 
   if (old_refcount == 1)
     {
-      /* This calls application callbacks! */
-      _dbus_data_slot_list_free (&message->slot_list);
-      
-      _dbus_list_foreach (&message->size_counters,
-                          free_size_counter, message);
-      _dbus_list_clear (&message->size_counters);
-      
-      _dbus_string_free (&message->header);
-      _dbus_string_free (&message->body);
-      
-      dbus_free (message);
+      /* Calls application callbacks! */
+      dbus_message_cache_or_finalize (message);
     }
 }
 

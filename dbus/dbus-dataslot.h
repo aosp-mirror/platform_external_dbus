@@ -87,6 +87,7 @@ dbus_bool_t _dbus_data_slot_list_set        (DBusDataSlotAllocator  *allocator,
 void*       _dbus_data_slot_list_get        (DBusDataSlotAllocator  *allocator,
                                              DBusDataSlotList       *list,
                                              int                     slot);
+void        _dbus_data_slot_list_clear      (DBusDataSlotList       *list);
 void        _dbus_data_slot_list_free       (DBusDataSlotList       *list);
 
 

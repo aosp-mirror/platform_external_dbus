@@ -316,14 +316,13 @@ _dbus_data_slot_list_get  (DBusDataSlotAllocator *allocator,
 }
 
 /**
- * Frees the data slot list and all data slots contained
- * in it, calling application-provided free functions
- * if they exist.
+ * Frees all data slots contained in the list, calling
+ * application-provided free functions if they exist.
  *
- * @param list the list to free
+ * @param list the list to clear
  */
 void
-_dbus_data_slot_list_free (DBusDataSlotList *list)
+_dbus_data_slot_list_clear (DBusDataSlotList *list)
 {
   int i;
 
@@ -336,7 +335,20 @@ _dbus_data_slot_list_free (DBusDataSlotList *list)
       list->slots[i].free_data_func = NULL;
       ++i;
     }
+}
 
+/**
+ * Frees the data slot list and all data slots contained
+ * in it, calling application-provided free functions
+ * if they exist.
+ *
+ * @param list the list to free
+ */
+void
+_dbus_data_slot_list_free (DBusDataSlotList *list)
+{
+  _dbus_data_slot_list_clear (list);
+  
   dbus_free (list->slots);
   list->slots = NULL;
   list->n_slots = 0;

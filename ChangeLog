@@ -1,3 +1,15 @@
+2004-11-26  Havoc Pennington  <hp@redhat.com>
+	
+	* dbus/dbus-message.c (struct DBusMessage): put the locked bit and
+	the "char byte_order" next to each other to save 4 bytes
+	(dbus_message_new_empty_header): reduce preallocation, since the
+	message cache should achieve a similar effect
+	(dbus_message_cache_or_finalize, dbus_message_get_cached): add a
+	message cache that keeps a few DBusMessage around in a pool,
+	another 8% speedup or so.
+
+	* dbus/dbus-dataslot.c (_dbus_data_slot_list_clear): new function
+
 2004-11-25  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-transport-unix.c (unix_do_iteration): if we're going

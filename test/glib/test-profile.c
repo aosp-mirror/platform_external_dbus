@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* test-profile.c Program that does basic message-response for timing
  *
- * Copyright (C) 2003  Red Hat Inc.
+ * Copyright (C) 2003, 2004  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -47,7 +47,8 @@
  * higher in the profile the larger the number of threads.
  */
 #define N_CLIENT_THREADS 1
-#define N_ITERATIONS 150000
+#define N_ITERATIONS 1500000
+#define N_PROGRESS_UPDATES 20
 #define PAYLOAD_SIZE 30
 #define ECHO_PATH "/org/freedesktop/EchoTest"
 #define ECHO_INTERFACE "org.freedesktop.EchoTest"
@@ -139,9 +140,14 @@ client_filter (DBusConnection     *connection,
       cd->iterations += 1;
       if (cd->iterations >= N_ITERATIONS)
         {
-          g_print ("Completed %d iterations\n", N_ITERATIONS);
+          g_printerr ("\nCompleted %d iterations\n", N_ITERATIONS);
           g_main_loop_quit (cd->loop);
         }
+      else if (cd->iterations % (N_ITERATIONS/N_PROGRESS_UPDATES) == 0)
+        {
+          g_printerr ("%d%% ", (int) (cd->iterations/(double)N_ITERATIONS * 100.0));
+        }
+      
       send_echo_method_call (connection);
       return DBUS_HANDLER_RESULT_HANDLED;
     }
@@ -339,7 +345,7 @@ read_and_drop_on_floor (int fd,
     }
 
 #if 0
-  g_print ("%p read %d bytes from fd %d\n",
+  g_printerr ("%p read %d bytes from fd %d\n",
            g_thread_self(), bytes_read, fd);
 #endif
 }
@@ -378,7 +384,7 @@ write_junk (int fd,
     }
 
 #if 0
-  g_print ("%p wrote %d bytes to fd %d\n",
+  g_printerr ("%p wrote %d bytes to fd %d\n",
            g_thread_self(), bytes_written, fd);
 #endif
 }
@@ -482,7 +488,7 @@ plain_sockets_init_server (ServerData *sd)
       ++p;
     }
 
-  g_print ("Socket is %s\n", path);
+  g_printerr ("Socket is %s\n", path);
   
   server->listen_fd = socket (PF_UNIX, SOCK_STREAM, 0);
   
@@ -579,8 +585,12 @@ plain_sockets_client_side_watch (GIOChannel   *source,
       cd->iterations += 1;
       if (cd->iterations >= N_ITERATIONS)
         {
-          g_print ("Completed %d iterations\n", N_ITERATIONS);
+          g_printerr ("\nCompleted %d iterations\n", N_ITERATIONS);
           g_main_loop_quit (cd->loop);
+        }
+      else if (cd->iterations % (N_ITERATIONS/N_PROGRESS_UPDATES) == 0)
+        {
+          g_printerr ("%d%% ", (int) (cd->iterations/(double)N_ITERATIONS * 100.0));
         }
       
       write_junk (fd, echo_call_size);
