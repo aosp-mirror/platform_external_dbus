@@ -73,6 +73,13 @@ namespace DBus
       }
     }
 
+    public void UnregisterObject(object handledObject) 
+    {
+      Handler handler = (Handler) registeredHandlers[handledObject];
+      registeredHandlers.Remove(handledObject);
+      handler.Dispose();
+    }
+
     public void RegisterObject(object handledObject, 
 			       string pathName) 
     {

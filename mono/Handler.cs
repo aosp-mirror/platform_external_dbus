@@ -13,7 +13,7 @@ namespace DBus
     NeedMemory = 2
   }
 
-  internal class Handler
+  internal class Handler : IDisposable
   {
     private string[] path = null;
     private string pathName = null;
@@ -22,6 +22,7 @@ namespace DBus
     private DBusObjectPathVTable vTable;
     private Connection connection;
     private Service service;
+    private bool disposed = false;
     
     internal delegate void DBusObjectPathUnregisterFunction(IntPtr rawConnection,
 							    IntPtr userData);
@@ -52,12 +53,38 @@ namespace DBus
       }
     }
 
+    public void Dispose() 
+    {
+      Dispose(true);
+      GC.SuppressFinalize(this);
+    }
+    
+    private void Dispose(bool disposing) 
+    {
+      if (!disposed) {	
+	if (disposing) {
+	  // Clean up managed resources
+	}
+
+	service = null;
+
+	// Clean up unmanaged resources
+	if (Connection != null && Connection.RawConnection != IntPtr.Zero && path != null) {
+	  dbus_connection_unregister_object_path(Connection.RawConnection,
+						 Path);
+	}	
+
+	connection = null;
+	introspector = null;
+	handledObject = null;
+      }
+      
+      disposed = true;    
+    }
+
     ~Handler() 
     {
-      if (Connection != null && Connection.RawConnection != IntPtr.Zero && path != null) {
-	dbus_connection_unregister_object_path(Connection.RawConnection,
-					       Path);
-      } 
+      Dispose(false);
     }
 
     public Handler(object handledObject, 
@@ -119,7 +146,11 @@ namespace DBus
     public void Unregister_Called(IntPtr rawConnection, 
 				  IntPtr userData)
     {
-      System.Console.WriteLine("FIXME: Unregister called.");
+      if (service != null) {
+	service.UnregisterObject(HandledObject);
+      }
+
+      path = null;
     }
 
     private int Message_Called(IntPtr rawConnection, 

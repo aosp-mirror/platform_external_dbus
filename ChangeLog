@@ -1,3 +1,8 @@
+2004-05-23  Owen Fraser-Green  <owen@discobabe.net>
+
+	* mono/Handler.cs, mono/Service.cs: Added UnregisterObject method
+	which unregisters the object path and disposes the handler.
+
 2004-05-23  Kristian Høgsberg  <krh@redhat.com>
  
         Patch from Timo Teräs <ext-timo.teras@nokia.com> (#614):
