@@ -1,5 +1,15 @@
 2002-11-22  Havoc Pennington  <hp@redhat.com>
 
+	* Makefile.am: include "Doxyfile" target in all-local
+
+	* configure.in: generate the Doxyfile
+
+	* Doxyfile.in: move Doxyfile here, so we can use 
+	configure to generate a Doxyfile with the right 
+	version number etc.
+
+2002-11-22  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-message.c: move inline docs into .c file
 
 	* Doxyfile (OUTPUT_DIRECTORY): move output to doc/api

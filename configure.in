@@ -58,6 +58,7 @@ AC_SUBST(DBUS_BUS_LIBS)
 
 AC_OUTPUT([
 Makefile
+Doxyfile
 dbus/Makefile
 bus/Makefile
 test/Makefile
