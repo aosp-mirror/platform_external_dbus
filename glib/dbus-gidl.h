@@ -47,28 +47,39 @@ typedef enum
   METHOD_CANCELLABLE
 } MethodStyle;
 
-InterfaceInfo* interface_info_new         (void);
+InterfaceInfo* interface_info_new         (const char    *name);
 void           interface_info_ref         (InterfaceInfo *info);
 void           interface_info_unref       (InterfaceInfo *info);
 GSList*        interface_info_get_methods (InterfaceInfo *info);
 GSList*        interface_info_get_signals (InterfaceInfo *info);
+void           interface_info_add_method  (InterfaceInfo *info,
+                                           MethodInfo    *method);
+void           interface_info_add_signal  (InterfaceInfo *info,
+                                           SignalInfo    *signal);
 
-MethodInfo*    method_info_new            (void);
+MethodInfo*    method_info_new            (const char    *name,
+                                           MethodStyle    style);
 void           method_info_ref            (MethodInfo    *info);
 void           method_info_unref          (MethodInfo    *info);
 
 const char*    method_info_get_name       (MethodInfo    *info);
 GSList*        method_info_get_args       (MethodInfo    *info);
 MethodStyle    method_info_get_style      (MethodInfo    *info);
+void           method_info_add_arg        (MethodInfo    *info,
+                                           ArgInfo       *arg);
 
-SignalInfo*    signal_info_new            (void);
+SignalInfo*    signal_info_new            (const char    *name);
 void           signal_info_ref            (SignalInfo    *info);
 void           signal_info_unref          (SignalInfo    *info);
 
 const char*    signal_info_get_name       (SignalInfo    *info);
 GSList*        signal_info_get_args       (SignalInfo    *info);
+void           signal_info_add_arg        (SignalInfo    *info,
+                                           ArgInfo       *arg);
 
-ArgInfo*       arg_info_new               (void);
+ArgInfo*       arg_info_new               (const char    *name,
+                                           ArgDirection   direction,
+                                           int            type);
 void           arg_info_ref               (ArgInfo       *info);
 void           arg_info_unref             (ArgInfo       *info);
 const char*    arg_info_get_name          (ArgInfo       *info);

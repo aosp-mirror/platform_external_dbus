@@ -1,10 +1,10 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-glib.h GLib integration
+/* dbus-compiler-main.c main() for GLib stubs/skels generator
  *
- * Copyright (C) 2002, 2003  CodeFactory AB
+ * Copyright (C) 2003  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -14,30 +14,35 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#ifndef DBUS_GLIB_H
-#define DBUS_GLIB_H
 
-#include <dbus/dbus.h>
-#include <glib.h>
+#include "dbus-gidl.h"
 
-G_BEGIN_DECLS
+int
+main (int argc, char **argv)
+{
 
-#define DBUS_INSIDE_DBUS_GLIB_H 1
 
-void dbus_gthread_init                 (void);
-void dbus_connection_setup_with_g_main (DBusConnection *connection,
-					GMainContext   *context);
-void dbus_server_setup_with_g_main     (DBusServer     *server,
-					GMainContext   *context);
+  return 0;
+}
 
-#undef DBUS_INSIDE_DBUS_GLIB_H
+#ifdef DBUS_BUILD_TESTS
 
-G_END_DECLS
+/**
+ * @ingroup DBusGCompiler
+ * Unit test for GLib stubs/skels compiler
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_gcompiler_test (void)
+{
 
-#endif /* DBUS_GLIB_H */
+  return TRUE;
+}
+
+#endif /* DBUS_BUILD_TESTS */

@@ -1,3 +1,14 @@
+2003-08-14  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-pending-call.c: start on new object that will replace
+	DBusMessageHandler and ReplyHandlerData for tracking outstanding
+	replies
+
+	* dbus/dbus-gproxy.c: start on proxy object used to communicate
+	with remote interfaces
+
+	* dbus/dbus-gidl.c: do the boring boilerplate in here
+	
 2003-08-12  Havoc Pennington  <hp@pobox.com>
 
 	* bus/dispatch.c (bus_dispatch): make this return proper 

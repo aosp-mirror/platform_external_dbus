@@ -1,17 +1,28 @@
-INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS)
+INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) -DDBUS_COMPILATION=1
 
 dbusincludedir=$(includedir)/dbus-1.0/dbus
 
 lib_LTLIBRARIES=libdbus-glib-1.la
 
 dbusinclude_HEADERS=				\
-	dbus-glib.h
+	dbus-glib.h				\
+	dbus-gproxy.h
 
 libdbus_glib_1_la_SOURCES = 			\
 	dbus-gmain.c				\
+	dbus-gproxy.c				\
 	dbus-gthread.c
 
 libdbus_glib_1_la_LIBADD= $(DBUS_GLIB_LIBS) $(top_builddir)/dbus/libdbus-1.la
+
+bin_PROGRAMS=dbus-glib-compiler
+
+dbus_glib_compiler_SOURCES =			\
+	dbus-gidl.c				\
+	dbus-gidl.h				\
+	dbus-compiler-main.c
+
+dbus_glib_compiler_LDADD= libdbus-glib-1.la $(DBUS_GLIB_LIBS) $(top_builddir)/dbus/libdbus-1.la
 
 if DBUS_BUILD_TESTS
 
