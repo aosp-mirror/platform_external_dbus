@@ -630,7 +630,7 @@ handle_default_introspect_and_unlock (DBusObjectTree          *tree,
   reply = NULL;
   
   if (!dbus_message_is_method_call (message,
-                                    DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE,
+                                    DBUS_INTERFACE_INTROSPECTABLE,
                                     "Introspect"))
     {
 #ifdef DBUS_BUILD_TESTS

@@ -203,25 +203,25 @@ extern "C" {
 #define DBUS_MINIMUM_HEADER_SIZE 16
 
 /* Services */
-#define DBUS_SERVICE_ORG_FREEDESKTOP_DBUS      "org.freedesktop.DBus"
+#define DBUS_SERVICE_DBUS      "org.freedesktop.DBus"
 
 /* Paths */
-#define DBUS_PATH_ORG_FREEDESKTOP_DBUS  "/org/freedesktop/DBus"
-#define DBUS_PATH_ORG_FREEDESKTOP_LOCAL "/org/freedesktop/Local"
+#define DBUS_PATH_DBUS  "/org/freedesktop/DBus"
+#define DBUS_PATH_LOCAL "/org/freedesktop/DBus/Local"
 
 /* Interfaces, these #define don't do much other than
  * catch typos at compile time
  */
-#define DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS           "org.freedesktop.DBus"
-#define DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE "org.freedesktop.Introspectable"
-#define DBUS_INTERFACE_ORG_FREEDESKTOP_PROPERTIES     "org.freedesktop.Properties"
-#define DBUS_INTERFACE_ORG_FREEDESKTOP_PEER           "org.freedesktop.Peer"
+#define DBUS_INTERFACE_DBUS           "org.freedesktop.DBus"
+#define DBUS_INTERFACE_INTROSPECTABLE "org.freedesktop.DBus.Introspectable"
+#define DBUS_INTERFACE_PROPERTIES     "org.freedesktop.DBus.Properties"
+#define DBUS_INTERFACE_PEER           "org.freedesktop.DBus.Peer"
 
 /* This is a special interface whose methods can only be invoked
  * by the local implementation (messages from remote apps aren't
  * allowed to specify this interface).
  */
-#define DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL "org.freedesktop.Local"
+#define DBUS_INTERFACE_LOCAL "org.freedesktop.DBus.Local"
 
 /* Owner flags */
 #define DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT 0x1

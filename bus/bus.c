@@ -1103,7 +1103,7 @@ bus_context_check_security_policy (BusContext     *context,
                 (sender == NULL && !bus_connection_is_active (proposed_recipient)));
   _dbus_assert (type == DBUS_MESSAGE_TYPE_SIGNAL ||
                 addressed_recipient != NULL ||
-                strcmp (dbus_message_get_destination (message), DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) == 0);
+                strcmp (dbus_message_get_destination (message), DBUS_SERVICE_DBUS) == 0);
   
   switch (type)
     {
@@ -1139,7 +1139,7 @@ bus_context_check_security_policy (BusContext     *context,
 				    dbus_message_get_interface (message),
 				    dbus_message_get_member (message),
 				    dbus_message_get_error_name (message),
-				    dest ? dest : DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+				    dest ? dest : DBUS_SERVICE_DBUS))
         {
           dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
                           "An SELinux policy prevents this sender "
@@ -1152,7 +1152,7 @@ bus_context_check_security_policy (BusContext     *context,
                           dbus_message_get_member (message) : "(unset)",
                           dbus_message_get_error_name (message) ?
                           dbus_message_get_error_name (message) : "(unset)",
-                          dest ? dest : DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
+                          dest ? dest : DBUS_SERVICE_DBUS);
           _dbus_verbose ("SELinux security check denying send to service\n");
           return FALSE;
         }
@@ -1192,7 +1192,7 @@ bus_context_check_security_policy (BusContext     *context,
            */
           if (proposed_recipient == NULL &&
               dbus_message_is_method_call (message,
-                                           DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                           DBUS_INTERFACE_DBUS,
                                            "Hello"))
             {
               _dbus_verbose ("security check allowing %s message\n",
@@ -1277,7 +1277,7 @@ bus_context_check_security_policy (BusContext     *context,
                       dbus_message_get_member (message) : "(unset)",
                       dbus_message_get_error_name (message) ?
                       dbus_message_get_error_name (message) : "(unset)",
-                      dest ? dest : DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
+                      dest ? dest : DBUS_SERVICE_DBUS);
       _dbus_verbose ("security policy disallowing message due to sender policy\n");
       return FALSE;
     }
@@ -1304,7 +1304,7 @@ bus_context_check_security_policy (BusContext     *context,
                       dbus_message_get_member (message) : "(unset)",
                       dbus_message_get_error_name (message) ?
                       dbus_message_get_error_name (message) : "(unset)",
-                      dest ? dest : DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                      dest ? dest : DBUS_SERVICE_DBUS,
                       dbus_message_get_reply_serial (message),
                       requested_reply);
       _dbus_verbose ("security policy disallowing message due to recipient policy\n");
@@ -1323,7 +1323,7 @@ bus_context_check_security_policy (BusContext     *context,
                       "The destination service \"%s\" has a full message queue",
                       dest ? dest : (proposed_recipient ?
                                      bus_connection_get_name (proposed_recipient) : 
-                                     DBUS_SERVICE_ORG_FREEDESKTOP_DBUS));
+                                     DBUS_SERVICE_DBUS));
       _dbus_verbose ("security policy disallowing message due to full message queue\n");
       return FALSE;
     }

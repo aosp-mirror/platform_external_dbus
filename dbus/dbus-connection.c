@@ -124,8 +124,8 @@
  *
  * When a connection is disconnected, you are guaranteed to get a
  * signal "Disconnected" from the interface
- * #DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL, path
- * #DBUS_PATH_ORG_FREEDESKTOP_LOCAL.
+ * #DBUS_INTERFACE_LOCAL, path
+ * #DBUS_PATH_LOCAL.
  *
  * You may not drop the last reference to a #DBusConnection
  * until that connection has been disconnected.
@@ -1137,8 +1137,8 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   if (io_path_cond == NULL)
     goto error;
 
-  disconnect_message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_LOCAL,
-                                                DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+  disconnect_message = dbus_message_new_signal (DBUS_PATH_LOCAL,
+                                                DBUS_INTERFACE_LOCAL,
                                                 "Disconnected");
   
   if (disconnect_message == NULL)
@@ -3214,7 +3214,7 @@ dbus_connection_dispatch (DBusConnection *connection)
       
       if (connection->exit_on_disconnect &&
           dbus_message_is_signal (message,
-                                  DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                                  DBUS_INTERFACE_LOCAL,
                                   "Disconnected"))
         {
           _dbus_verbose ("Exiting on Disconnected signal\n");

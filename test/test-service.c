@@ -143,7 +143,7 @@ filter_func (DBusConnection     *connection,
              void               *user_data)
 {
   if (dbus_message_is_signal (message,
-                              DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                              DBUS_INTERFACE_LOCAL,
                               "Disconnected"))
     {
       dbus_connection_disconnect (connection);

@@ -123,7 +123,7 @@
           generic <literal>TextEditor</literal>), have multiple objects (maybe
           <literal>/org/kde/documents/4352</literal> where the number changes
           according to the document), and each object could implement multiple
-          interfaces, such as <literal>org.freedesktop.Introspectable</literal>,
+          interfaces, such as <literal>org.freedesktop.DBus.Introspectable</literal>,
           <literal>org.freedesktop.BasicTextField</literal>,
           <literal>org.kde.RichTextDocument</literal>.
         </para>

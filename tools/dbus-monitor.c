@@ -35,7 +35,7 @@ filter_func (DBusConnection     *connection,
   print_message (message);
   
   if (dbus_message_is_signal (message,
-                              DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                              DBUS_INTERFACE_LOCAL,
                               "Disconnected"))
     exit (0);
   

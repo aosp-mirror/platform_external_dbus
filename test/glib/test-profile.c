@@ -143,7 +143,7 @@ with_or_without_bus_client_filter (DBusConnection     *connection,
                                    ClientData         *cd)
 {
   if (dbus_message_is_signal (message,
-                              DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                              DBUS_INTERFACE_LOCAL,
                               "Disconnected"))
     {
       g_printerr ("Client thread disconnected\n");
@@ -235,7 +235,7 @@ no_bus_server_filter (DBusConnection     *connection,
   ServerData *sd = user_data;
   
   if (dbus_message_is_signal (message,
-                              DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                              DBUS_INTERFACE_LOCAL,
                               "Disconnected"))
     {
       g_printerr ("Client disconnected from server\n");
@@ -411,16 +411,16 @@ with_bus_server_filter (DBusConnection     *connection,
   WithBusServer *server = user_data;
   
   if (dbus_message_is_signal (message,
-                              DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                              DBUS_INTERFACE_LOCAL,
                               "Disconnected"))
     {
       g_printerr ("Server disconnected from message bus\n");
       exit (1);
     }
   else if (dbus_message_has_sender (message,
-                                    DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) &&
+                                    DBUS_SERVICE_DBUS) &&
            dbus_message_is_signal (message,
-                                   DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                   DBUS_INTERFACE_DBUS,
                                    "NameOwnerChanged"))
     {
       const char *name, *old_owner, *new_owner;
@@ -528,7 +528,7 @@ with_bus_init_server (ServerData       *sd)
                          0, NULL); /* ignore errors because we suck */
   
   rule = g_strdup_printf ("type='signal',sender='%s',member='%s'",
-                          DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                          DBUS_SERVICE_DBUS,
                           "NameOwnerChanged");
 
   /* ignore errors because we suck */

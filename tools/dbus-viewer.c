@@ -169,7 +169,7 @@ load_child_nodes (const char *service_name,
           proxy = dbus_g_proxy_new_for_name (connection,
                                              service_name,
                                              path->str,
-                                             DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE);
+                                             DBUS_INTERFACE_INTROSPECTABLE);
           g_assert (proxy != NULL);
         }
       else
@@ -177,7 +177,7 @@ load_child_nodes (const char *service_name,
           proxy = dbus_g_proxy_new_for_name_owner (connection,
                                                    service_name,
                                                    path->str,
-                                                   DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE,
+                                                   DBUS_INTERFACE_INTROSPECTABLE,
                                                    error);
           if (proxy == NULL)
             goto done;
@@ -283,14 +283,14 @@ load_from_service_thread_func (void *thread_data)
   root_proxy = dbus_g_proxy_new_for_name (lfsd->connection,
                                           lfsd->service_name,
                                           "/",
-                                          DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE);
+                                          DBUS_INTERFACE_INTROSPECTABLE);
   g_assert (root_proxy != NULL);
 #else
   /* this will be an error if the service doesn't exist */
   root_proxy = dbus_g_proxy_new_for_name_owner (lfsd->connection,
                                                 lfsd->service_name,
                                                 "/",
-                                                DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE,
+                                                DBUS_INTERFACE_INTROSPECTABLE,
                                                 &lfsd->error);
   if (root_proxy == NULL)
     {

@@ -57,8 +57,8 @@ bus_driver_send_service_owner_changed (const char     *service_name,
                  old_owner ? old_owner : null_service, 
                  new_owner ? new_owner : null_service);
 
-  message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                     DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  message = dbus_message_new_signal (DBUS_PATH_DBUS,
+                                     DBUS_INTERFACE_DBUS,
                                      "NameOwnerChanged");
   
   if (message == NULL)
@@ -67,7 +67,7 @@ bus_driver_send_service_owner_changed (const char     *service_name,
       return FALSE;
     }
   
-  if (!dbus_message_set_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+  if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS))
     goto oom;
 
   if (!dbus_message_append_args (message,
@@ -100,8 +100,8 @@ bus_driver_send_service_lost (DBusConnection *connection,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                     DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  message = dbus_message_new_signal (DBUS_PATH_DBUS,
+                                     DBUS_INTERFACE_DBUS,
                                      "NameLost");
   
   if (message == NULL)
@@ -143,8 +143,8 @@ bus_driver_send_service_acquired (DBusConnection *connection,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                     DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  message = dbus_message_new_signal (DBUS_PATH_DBUS,
+                                     DBUS_INTERFACE_DBUS,
                                      "NameAcquired");
 
   if (message == NULL)
@@ -411,7 +411,7 @@ bus_driver_handle_list_services (DBusConnection *connection,
 
   {
     /* Include the bus driver in the list */
-    const char *v_STRING = DBUS_SERVICE_ORG_FREEDESKTOP_DBUS;
+    const char *v_STRING = DBUS_SERVICE_DBUS;
     if (!dbus_message_iter_append_basic (&sub, DBUS_TYPE_STRING,
                                          &v_STRING))
       {
@@ -548,7 +548,7 @@ bus_driver_handle_service_exists (DBusConnection *connection,
 
   retval = FALSE;
 
-  if (strcmp (name, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) == 0)
+  if (strcmp (name, DBUS_SERVICE_DBUS) == 0)
     {
       service_exists = TRUE;
     }
@@ -806,10 +806,10 @@ bus_driver_handle_get_service_owner (DBusConnection *connection,
   _dbus_string_init_const (&str, text);
   service = bus_registry_lookup (registry, &str);
   if (service == NULL &&
-      _dbus_string_equal_c_str (&str, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+      _dbus_string_equal_c_str (&str, DBUS_SERVICE_DBUS))
     {
       /* ORG_FREEDESKTOP_DBUS owns itself */
-      base_name = DBUS_SERVICE_ORG_FREEDESKTOP_DBUS;
+      base_name = DBUS_SERVICE_DBUS;
     }
   else if (service == NULL)
     {
@@ -1132,7 +1132,7 @@ bus_driver_handle_introspect (DBusConnection *connection,
     goto oom;
   if (!_dbus_string_append (&xml, "<node>\n"))
     goto oom;
-  if (!_dbus_string_append (&xml, "  <interface name=\"org.freedesktop.Introspectable\">\n"))
+  if (!_dbus_string_append_printf (&xml, "  <interface name=\"%s\">\n", DBUS_INTERFACE_INTROSPECTABLE))
     goto oom;
   if (!_dbus_string_append (&xml, "    <method name=\"Introspect\">\n"))
     goto oom;
@@ -1144,7 +1144,7 @@ bus_driver_handle_introspect (DBusConnection *connection,
     goto oom;
 
   if (!_dbus_string_append_printf (&xml, "  <interface name=\"%s\">\n",
-                                   DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS))
+                                   DBUS_INTERFACE_DBUS))
     goto oom;
 
   i = 0;
@@ -1274,13 +1274,13 @@ bus_driver_handle_message (DBusConnection *connection,
     }
 
   if (dbus_message_is_method_call (message,
-                                   DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE,
+                                   DBUS_INTERFACE_INTROSPECTABLE,
                                    "Introspect"))
     return bus_driver_handle_introspect (connection, transaction, message, error);
   
   interface = dbus_message_get_interface (message);
   if (interface == NULL)
-    interface = DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS;
+    interface = DBUS_INTERFACE_DBUS;
   
   _dbus_assert (dbus_message_get_member (message) != NULL);
   
@@ -1288,7 +1288,7 @@ bus_driver_handle_message (DBusConnection *connection,
   sender = dbus_message_get_sender (message);
   
   if (strcmp (interface,
-              DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS) != 0)
+              DBUS_INTERFACE_DBUS) != 0)
     {
       _dbus_verbose ("Driver got message to unknown interface \"%s\"\n",
                      interface);
@@ -1346,7 +1346,7 @@ bus_driver_handle_message (DBusConnection *connection,
 
   dbus_set_error (error, DBUS_ERROR_UNKNOWN_METHOD,
                   "%s does not understand message %s",
-                  DBUS_SERVICE_ORG_FREEDESKTOP_DBUS, name);
+                  DBUS_SERVICE_DBUS, name);
   
   return FALSE;
 }

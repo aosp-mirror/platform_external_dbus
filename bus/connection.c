@@ -1091,7 +1091,7 @@ bus_connection_preallocate_oom_error (DBusConnection *connection)
   if (!dbus_message_set_error_name (message, DBUS_ERROR_NO_MEMORY) ||
       !dbus_message_set_destination (message, d->name) ||
       !dbus_message_set_sender (message,
-                                DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+                                DBUS_SERVICE_DBUS))
     {
       dbus_connection_free_preallocated_send (connection, preallocated);
       dbus_message_unref (message);
@@ -1912,7 +1912,7 @@ bus_transaction_send_from_driver (BusTransaction *transaction,
                  dbus_message_get_error_name (message) ?
                  dbus_message_get_error_name (message) : "(no error name)");
                  
-  if (!dbus_message_set_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+  if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS))
     return FALSE;
 
   if (bus_connection_is_active (connection))

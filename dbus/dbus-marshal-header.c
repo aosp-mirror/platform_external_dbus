@@ -37,9 +37,9 @@
 /** Static #DBusString containing the signature of a message header */
 _DBUS_STRING_DEFINE_STATIC(_dbus_header_signature_str, DBUS_HEADER_SIGNATURE);
 /** Static #DBusString containing the local interface */
-_DBUS_STRING_DEFINE_STATIC(_dbus_local_interface_str,  DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL);
+_DBUS_STRING_DEFINE_STATIC(_dbus_local_interface_str,  DBUS_INTERFACE_LOCAL);
 /** Static #DBusString containing the local path */
-_DBUS_STRING_DEFINE_STATIC(_dbus_local_path_str,       DBUS_PATH_ORG_FREEDESKTOP_LOCAL);
+_DBUS_STRING_DEFINE_STATIC(_dbus_local_path_str,       DBUS_PATH_LOCAL);
 
 /** Offset from start of _dbus_header_signature_str to the signature of the fields array */
 #define FIELDS_ARRAY_SIGNATURE_OFFSET 6

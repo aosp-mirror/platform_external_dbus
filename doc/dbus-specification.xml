@@ -2208,17 +2208,17 @@
       that may be useful across various D-BUS applications.
     </para>
     <sect2 id="standard-interfaces-peer">
-      <title><literal>org.freedesktop.Peer</literal></title>
+      <title><literal>org.freedesktop.DBus.Peer</literal></title>
       <para>
-        The <literal>org.freedesktop.Peer</literal> interface 
+        The <literal>org.freedesktop.DBus.Peer</literal> interface 
         has one method:
         <programlisting>
-          org.freedesktop.Peer.Ping ()
+          org.freedesktop.DBus.Peer.Ping ()
         </programlisting>
       </para>
       <para>
         On receipt of the <literal>METHOD_CALL</literal> message
-        <literal>org.freedesktop.Peer.Ping</literal>, an application should do
+        <literal>org.freedesktop.DBus.Peer.Ping</literal>, an application should do
         nothing other than reply with a <literal>METHOD_RETURN</literal> as
         usual.  It does not matter which object path a ping is sent to.  The
         reference implementation should simply handle this method on behalf of
@@ -2228,11 +2228,11 @@
     </sect2>
 
     <sect2 id="standard-interfaces-introspectable">
-      <title><literal>org.freedesktop.Introspectable</literal></title>
+      <title><literal>org.freedesktop.DBus.Introspectable</literal></title>
       <para>
         This interface has one method:
         <programlisting>
-          org.freedesktop.Introspectable.Introspect (out STRING xml_data)
+          org.freedesktop.DBus.Introspectable.Introspect (out STRING xml_data)
         </programlisting>
       </para>
       <para>
@@ -2246,25 +2246,25 @@
       </para>
     </sect2>
     <sect2 id="standard-interfaces-properties">
-      <title><literal>org.freedesktop.Properties</literal></title>
+      <title><literal>org.freedesktop.DBus.Properties</literal></title>
       <para>
         Many native APIs will have a concept of object <firstterm>properties</firstterm> 
         or <firstterm>attributes</firstterm>. These can be exposed via the 
-        <literal>org.freedesktop.Properties</literal> interface.
+        <literal>org.freedesktop.DBus.Properties</literal> interface.
       </para>
       <para>
         <programlisting>
-              org.freedesktop.Properties.Get (in STRING interface_name,
-                                              in STRING property_name,
-                                              out VARIANT value);
-              org.freedesktop.Properties.Set (in STRING interface_name,
-                                              in STRING property_name,
-                                              in VARIANT value);
+              org.freedesktop.DBus.Properties.Get (in STRING interface_name,
+                                                   in STRING property_name,
+                                                   out VARIANT value);
+              org.freedesktop.DBus.Properties.Set (in STRING interface_name,
+                                                   in STRING property_name,
+                                                   in VARIANT value);
         </programlisting>
       </para>
       <para>
         The available properties and whether they are writable can be determined
-        by calling <literal>org.freedesktop.Introspectable.Introspect</literal>,
+        by calling <literal>org.freedesktop.DBus.Introspectable.Introspect</literal>,
         see <xref linkend="standard-interfaces-introspectable"/>.
       </para>
       <para>
@@ -2460,14 +2460,14 @@
         <literal>DESTINATION</literal> field is absent, the call is taken to be
         a standard one-to-one message and interpreted by the message bus
         itself. For example, sending an
-        <literal>org.freedesktop.Peer.Ping</literal> message with no
+        <literal>org.freedesktop.DBus.Peer.Ping</literal> message with no
         <literal>DESTINATION</literal> will cause the message bus itself to
         reply to the ping immediately; the message bus will not make this
         message visible to other applications.
       </para>
 
       <para>
-        Continuing the <literal>org.freedesktop.Peer.Ping</literal> example, if
+        Continuing the <literal>org.freedesktop.DBus.Peer.Ping</literal> example, if
         the ping message were sent with a <literal>DESTINATION</literal> name of
         <literal>com.yoyodyne.Screensaver</literal>, then the ping would be
         forwarded, and the Yoyodyne Corporation screensaver application would be

@@ -535,14 +535,14 @@ handle_introspect (DBusConnection *connection,
   g_string_append (xml, "<node>\n");
 
   /* We are introspectable, though I guess that was pretty obvious */
-  g_string_append (xml, "  <interface name=\"org.freedesktop.Introspectable\">\n");
+  g_string_append_printf (xml, "  <interface name=\"%s\">\n", DBUS_INTERFACE_INTROSPECTABLE);
   g_string_append (xml, "    <method name=\"Introspect\">\n");
   g_string_append (xml, "      <arg name=\"data\" direction=\"out\" type=\"string\"/>\n");
   g_string_append (xml, "    </method>\n");
   g_string_append (xml, "  </interface>\n");
 
   /* We support get/set properties */
-  g_string_append (xml, "  <interface name=\"org.freedesktop.Properties\">\n");
+  g_string_append_printf (xml, "  <interface name=\"%s\">\n", DBUS_INTERFACE_PROPERTIES);
   g_string_append (xml, "    <method name=\"Get\">\n");
   g_string_append (xml, "      <arg name=\"interface\" direction=\"in\" type=\"string\"/>\n");
   g_string_append (xml, "      <arg name=\"propname\" direction=\"in\" type=\"string\"/>\n");
@@ -945,7 +945,7 @@ gobject_message_function (DBusConnection  *connection,
   object = G_OBJECT (user_data);
 
   if (dbus_message_is_method_call (message,
-                                   DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE,
+                                   DBUS_INTERFACE_INTROSPECTABLE,
                                    "Introspect"))
     return handle_introspect (connection, message, object);
   
@@ -959,11 +959,11 @@ gobject_message_function (DBusConnection  *connection,
   getter = FALSE;
   setter = FALSE;
   if (dbus_message_is_method_call (message,
-                                   DBUS_INTERFACE_ORG_FREEDESKTOP_PROPERTIES,
+                                   DBUS_INTERFACE_PROPERTIES,
                                    "Get"))
     getter = TRUE;
   else if (dbus_message_is_method_call (message,
-                                        DBUS_INTERFACE_ORG_FREEDESKTOP_PROPERTIES,
+                                        DBUS_INTERFACE_PROPERTIES,
                                         "Set"))
     setter = TRUE;
 

@@ -1130,7 +1130,7 @@ match_rule_matches (BusMatchRule    *rule,
       if (sender == NULL)
         {
           if (strcmp (rule->sender,
-                      DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) != 0)
+                      DBUS_SERVICE_DBUS) != 0)
             return FALSE;
         }
       else
@@ -1153,7 +1153,7 @@ match_rule_matches (BusMatchRule    *rule,
       if (addressed_recipient == NULL)
         {          
           if (strcmp (rule->destination,
-                      DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) != 0)
+                      DBUS_SERVICE_DBUS) != 0)
             return FALSE;
         }
       else

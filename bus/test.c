@@ -107,7 +107,7 @@ client_disconnect_filter (DBusConnection     *connection,
                           void               *user_data)
 {
   if (!dbus_message_is_signal (message,
-                               DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                               DBUS_INTERFACE_LOCAL,
                                "Disconnected"))
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     

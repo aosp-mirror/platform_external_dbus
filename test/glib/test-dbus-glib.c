@@ -67,9 +67,9 @@ main (int argc, char **argv)
   /* Create a proxy object for the "bus driver" */
   
   driver = dbus_g_proxy_new_for_name (connection,
-                                      DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-                                      DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                      DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS);
+                                      DBUS_SERVICE_DBUS,
+                                      DBUS_PATH_DBUS,
+                                      DBUS_INTERFACE_DBUS);
 
   /* Call ListNames method */
   

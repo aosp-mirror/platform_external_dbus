@@ -180,7 +180,7 @@ bus_dispatch (DBusConnection *connection,
   if (service_name == NULL)
     {
       if (dbus_message_is_signal (message,
-                                  DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                                  DBUS_INTERFACE_LOCAL,
                                   "Disconnected"))
         {
           bus_connection_disconnected (connection);
@@ -226,7 +226,7 @@ bus_dispatch (DBusConnection *connection,
     }
   
   if (service_name &&
-      strcmp (service_name, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) == 0) /* to bus driver */
+      strcmp (service_name, DBUS_SERVICE_DBUS) == 0) /* to bus driver */
     {
       if (!bus_context_check_security_policy (context, transaction,
                                               connection, NULL, NULL, message, &error))
@@ -235,7 +235,7 @@ bus_dispatch (DBusConnection *connection,
           goto out;
         }
 
-      _dbus_verbose ("Giving message to %s\n", DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
+      _dbus_verbose ("Giving message to %s\n", DBUS_SERVICE_DBUS);
       if (!bus_driver_handle_message (connection, transaction, message, &error))
         goto out;
     }
@@ -543,7 +543,7 @@ check_service_owner_changed_foreach (DBusConnection *connection,
       goto out;
     }
   else if (!dbus_message_is_signal (message,
-                                    DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                    DBUS_INTERFACE_DBUS,
                                     "NameOwnerChanged"))
     {
       warn_unexpected (connection, message, "NameOwnerChanged");
@@ -752,9 +752,9 @@ check_hello_message (BusContext     *context,
 
   _dbus_verbose ("check_hello_message for %p\n", connection);
   
-  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+                                          DBUS_PATH_DBUS,
+                                          DBUS_INTERFACE_DBUS,
                                           "Hello");
 
   if (message == NULL)
@@ -818,7 +818,7 @@ check_hello_message (BusContext     *context,
 
   verbose_message_received (connection, message);
 
-  if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+  if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
     {
       _dbus_warn ("Message has wrong sender %s\n",
                   dbus_message_get_sender (message) ?
@@ -900,7 +900,7 @@ check_hello_message (BusContext     *context,
                       "NameAcquired");
           goto out;
         }
-      if (! dbus_message_is_signal (message, DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+      if (! dbus_message_is_signal (message, DBUS_INTERFACE_DBUS,
 				    "NameAcquired"))
         {
           _dbus_warn ("Expecting %s, got smthg else\n",
@@ -976,9 +976,9 @@ check_double_hello_message (BusContext     *context,
 
   _dbus_verbose ("check_double_hello_message for %p\n", connection);
   
-  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+                                          DBUS_PATH_DBUS,
+                                          DBUS_INTERFACE_DBUS,
                                           "Hello");
 
   if (message == NULL)
@@ -1020,7 +1020,7 @@ check_double_hello_message (BusContext     *context,
 
   verbose_message_received (connection, message);
 
-  if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+  if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
     {
       _dbus_warn ("Message has wrong sender %s\n",
                   dbus_message_get_sender (message) ?
@@ -1068,9 +1068,9 @@ check_get_connection_unix_user (BusContext     *context,
 
   _dbus_verbose ("check_get_connection_unix_user for %p\n", connection);
   
-  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+                                          DBUS_PATH_DBUS,
+                                          DBUS_INTERFACE_DBUS,
                                           "GetConnectionUnixUser");
 
   if (message == NULL)
@@ -1205,9 +1205,9 @@ check_get_connection_unix_process_id (BusContext     *context,
 
   _dbus_verbose ("check_get_connection_unix_process_id for %p\n", connection);
   
-  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+                                          DBUS_PATH_DBUS,
+                                          DBUS_INTERFACE_DBUS,
                                           "GetConnectionUnixProcessID");
 
   if (message == NULL)
@@ -1356,9 +1356,9 @@ check_add_match_all (BusContext     *context,
 
   _dbus_verbose ("check_add_match_all for %p\n", connection);
   
-  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+                                          DBUS_PATH_DBUS,
+                                          DBUS_INTERFACE_DBUS,
                                           "AddMatch");
 
   if (message == NULL)
@@ -1418,7 +1418,7 @@ check_add_match_all (BusContext     *context,
 
   verbose_message_received (connection, message);
 
-  if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+  if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
     {
       _dbus_warn ("Message has wrong sender %s\n",
                   dbus_message_get_sender (message) ?
@@ -1533,9 +1533,9 @@ check_nonexistent_service_no_auto_start (BusContext     *context,
   const char *nonexistent = NONEXISTENT_SERVICE_NAME;
   dbus_uint32_t flags;
   
-  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+                                          DBUS_PATH_DBUS,
+                                          DBUS_INTERFACE_DBUS,
                                           "StartServiceByName");
   
   if (message == NULL)
@@ -1586,7 +1586,7 @@ check_nonexistent_service_no_auto_start (BusContext     *context,
 
   if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
     {
-      if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
         {
           _dbus_warn ("Message has wrong sender %s\n",
                       dbus_message_get_sender (message) ?
@@ -1679,7 +1679,7 @@ check_nonexistent_service_auto_start (BusContext     *context,
 
   if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
     {
-      if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
         {
           _dbus_warn ("Message has wrong sender %s\n",
                       dbus_message_get_sender (message) ?
@@ -1741,7 +1741,7 @@ check_base_service_activated (BusContext     *context,
   dbus_message_ref (message);  
 
   if (dbus_message_is_signal (message,
-                              DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                              DBUS_INTERFACE_DBUS,
                               "NameOwnerChanged"))
     {
       CheckServiceOwnerChangedData socd;
@@ -1843,7 +1843,7 @@ check_service_activated (BusContext     *context,
   dbus_message_ref (message);
 
   if (dbus_message_is_signal (message,
-                              DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                              DBUS_INTERFACE_DBUS,
                               "NameOwnerChanged"))
     {
       CheckServiceOwnerChangedData socd;
@@ -2000,7 +2000,7 @@ check_service_auto_activated (BusContext     *context,
   dbus_message_ref (message);
 
   if (dbus_message_is_signal (message,
-                              DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                              DBUS_INTERFACE_DBUS,
                               "NameOwnerChanged"))
     {
       const char *service_name;
@@ -2334,7 +2334,7 @@ check_got_service_info (DBusMessage *message)
   GotServiceInfo message_kind;
 
   if (dbus_message_is_signal (message,
-                              DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                              DBUS_INTERFACE_DBUS,
                               "NameOwnerChanged"))
     {
       DBusError error;
@@ -2400,9 +2400,9 @@ check_existent_service_no_auto_start (BusContext     *context,
 
   base_service_message = NULL;
   
-  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+                                          DBUS_PATH_DBUS,
+                                          DBUS_INTERFACE_DBUS,
                                           "StartServiceByName");
 
   if (message == NULL)
@@ -2459,7 +2459,7 @@ check_existent_service_no_auto_start (BusContext     *context,
 
   if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
     {
-      if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
         {
           _dbus_warn ("Message has wrong sender %s\n",
                       dbus_message_get_sender (message) ?
@@ -2622,9 +2622,9 @@ check_segfault_service_no_auto_start (BusContext     *context,
   const char *segv_service;
   dbus_uint32_t flags;
   
-  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+                                          DBUS_PATH_DBUS,
+                                          DBUS_INTERFACE_DBUS,
                                           "StartServiceByName");
 
   if (message == NULL)
@@ -2676,7 +2676,7 @@ check_segfault_service_no_auto_start (BusContext     *context,
 
   if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
     {
-      if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
         {
           _dbus_warn ("Message has wrong sender %s\n",
                       dbus_message_get_sender (message) ?
@@ -2769,7 +2769,7 @@ check_segfault_service_auto_start (BusContext     *context,
 
   if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
     {
-      if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
         {
           _dbus_warn ("Message has wrong sender %s\n",
                       dbus_message_get_sender (message) ?

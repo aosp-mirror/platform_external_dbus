@@ -2853,7 +2853,7 @@ dbus_message_has_destination (DBusMessage  *message,
  * unique name of the connection as the sender. So you can't use this
  * function to see whether a sender owned a well-known name.
  *
- * Messages from the bus itself will have #DBUS_SERVICE_ORG_FREEDESKTOP_DBUS
+ * Messages from the bus itself will have #DBUS_SERVICE_DBUS
  * as the sender.
  *
  * @param message the message

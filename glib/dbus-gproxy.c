@@ -580,7 +580,7 @@ dbus_g_proxy_manager_filter (DBusConnection    *connection,
   LOCK_MANAGER (manager);
   
   if (dbus_message_is_signal (message,
-                              DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                              DBUS_INTERFACE_LOCAL,
                               "Disconnected"))
     {
       /* Destroy all the proxies, quite possibly resulting in unreferencing
@@ -1153,9 +1153,9 @@ dbus_g_proxy_new_for_name_owner (DBusGConnection          *connection,
   unique_name = NULL;
   reply = NULL;
 
-  request = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-					  DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-					  DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  request = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+					  DBUS_PATH_DBUS,
+					  DBUS_INTERFACE_DBUS,
 					  "GetNameOwner");
   if (request == NULL)
     g_error ("Out of memory");

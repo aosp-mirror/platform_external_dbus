@@ -227,9 +227,9 @@ main (int argc, char **argv)
                                        obj);
 
   driver_proxy = dbus_g_proxy_new_for_name (connection,
-                                            DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-                                            DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                            DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS);
+                                            DBUS_SERVICE_DBUS,
+                                            DBUS_PATH_DBUS,
+                                            DBUS_INTERFACE_DBUS);
 
   v_STRING = "org.freedesktop.DBus.TestSuiteGLibService";
   v_UINT32 = 0;

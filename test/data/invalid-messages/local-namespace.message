@@ -6,7 +6,7 @@ VALID_HEADER method_call
 
 HEADER_FIELD INTERFACE
 TYPE STRING
-STRING 'org.freedesktop.Local'
+STRING 'org.freedesktop.DBus.Local'
 HEADER_FIELD MEMBER
 TYPE STRING
 STRING 'Disconnected'

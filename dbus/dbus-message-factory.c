@@ -557,7 +557,7 @@ generate_special (DBusMessageDataIter   *iter,
     {
       message = simple_method_call ();
 
-      if (!dbus_message_set_interface (message, DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL))
+      if (!dbus_message_set_interface (message, DBUS_INTERFACE_LOCAL))
         _dbus_assert_not_reached ("oom");
       
       generate_from_message (data, expected_validity, message);
@@ -568,7 +568,7 @@ generate_special (DBusMessageDataIter   *iter,
     {
       message = simple_method_call ();
 
-      if (!dbus_message_set_path (message, DBUS_PATH_ORG_FREEDESKTOP_LOCAL))
+      if (!dbus_message_set_path (message, DBUS_PATH_LOCAL))
         _dbus_assert_not_reached ("oom");
       
       generate_from_message (data, expected_validity, message);

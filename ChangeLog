@@ -1,5 +1,29 @@
 2005-02-17  Colin Walters  <walters@verbum.org>
 
+	* dbus/dbus-protocol.h (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS):
+	Rename to DBUS_SERVICE_DBUS.
+	(DBUS_PATH_ORG_FREEDESKTOP_DBUS): Rename to DBUS_PATH_DBUS.
+	(DBUS_PATH_ORG_FREEDESKTOP_LOCAL): Rename to DBUS_PATH_LOCAL.
+	(DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS): Rename to DBUS_INTERFACE_DBUS.
+	(DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE): Rename to
+	DBUS_INTERFACE_INTROSPECTABLE.
+	(DBUS_INTERFACE_ORG_FREEDESKTOP_PROPERTIES): Rename to
+	DBUS_INTERFACE_PROPERTIES.
+	(DBUS_INTERFACE_ORG_FREEDESKTOP_PEER): Rename to
+	DBUS_INTERFACE_PEER.
+	(DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL): 
+	DBUS_INTERFACE_LOCAL.
+
+	All other users of those constants have been changed.
+
+	* bus/driver.c (bus_driver_handle_introspect): Use constants.
+
+	* glib/dbus-gobject.c (handle_introspect): Use constants.
+
+	* doc/dbus-faq.xml, doc/dbus-specification.xml: Update for rename.
+
+2005-02-17  Colin Walters  <walters@verbum.org>
+
 	* glib/dbus-gparser.c (struct Parser): Add in_annotation boolean.
 	(parse_node, parse_interface, parse_method, parse_signal)
 	(parse_property, parse_annotation): Lose if we're currently in an

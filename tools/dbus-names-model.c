@@ -245,9 +245,9 @@ names_model_set_connection (NamesModel      *names_model,
       
       names_model->driver_proxy =
         dbus_g_proxy_new_for_name (names_model->connection,
-                                   DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-                                   DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                   DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS);
+                                   DBUS_SERVICE_DBUS,
+                                   DBUS_PATH_DBUS,
+                                   DBUS_INTERFACE_DBUS);
       g_assert (names_model->driver_proxy);
 
       dbus_g_proxy_add_signal (names_model->driver_proxy,
