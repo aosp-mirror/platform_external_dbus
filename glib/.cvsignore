@@ -11,3 +11,4 @@ test-dbus-glib
 *.gcov
 test-thread-client
 test-thread-server
+test-profile

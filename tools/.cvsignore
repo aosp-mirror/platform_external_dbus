@@ -6,6 +6,8 @@ Makefile.in
 *.la
 dbus-send
 dbus-monitor
+dbus-cleanup-sockets
+dbus-launch
 *.bb
 *.bbg
 *.gcov

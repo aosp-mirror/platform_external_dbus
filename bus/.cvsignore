@@ -13,3 +13,4 @@ bus-test
 messagebus
 session.conf
 system.conf
+dbus-daemon-1.1

@@ -9,3 +9,4 @@ dbus-test
 *.bbg
 *.gcov
 *.da
+dbus-arch-deps.h
