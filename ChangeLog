@@ -1,5 +1,13 @@
 2003-04-28  Havoc Pennington  <hp@redhat.com>
 
+	* configure.in: add --enable-docs which by default is auto yes if
+	doxygen and db2html found, no otherwise; but can be forced on/off
+
+	* doc/Makefile.am: conditionalize whether to build docs on
+	--enable-docs
+
+2003-04-28  Havoc Pennington  <hp@redhat.com>
+
 	* configure.in: 0.10
 
 	* NEWS: update

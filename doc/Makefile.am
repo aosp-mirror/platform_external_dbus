@@ -7,17 +7,17 @@ EXTRA_DIST= 					\
 	dcop-howto.txt				\
 	file-boilerplate.c
 
-if MAINTAINER_MODE
+if DBUS_DOCS_ENABLED
 all-local: dbus-specification.html dbus-test-plan.html
 endif
 
 dbus-specification.html: dbus-specification.sgml
-	db2html -o . --nochunks dbus-specification.sgml &&	\
+	$(DB2HTML) -o . --nochunks dbus-specification.sgml &&	\
 	rm -r dbus-specification/stylesheet-images &&		\
 	(if test -d dbus-specification ; then rmdir dbus-specification ; fi)
 
 dbus-test-plan.html: dbus-test-plan.sgml
-	db2html -o . --nochunks dbus-test-plan.sgml &&		\
+	$(DB2HTML) -o . --nochunks dbus-test-plan.sgml &&		\
 	rm -r dbus-test-plan/stylesheet-images &&		\
 	(if test -d dbus-test-plan ; then rmdir dbus-test-plan ; fi)
 
