@@ -66,8 +66,14 @@ void        _dbus_string_get_const_data_len (const DBusString  *str,
                                              const char       **data_return,
                                              int                start,
                                              int                len);
-char        _dbus_string_get_byte           (const DBusString  *str,
+void        _dbus_string_set_byte           (DBusString        *str,
+                                             int                i,
+                                             unsigned char      byte);
+unsigned char _dbus_string_get_byte         (const DBusString  *str,
                                              int                start);
+dbus_bool_t _dbus_string_insert_byte        (DBusString        *str,
+                                             int                i,
+                                             unsigned char      byte);
 dbus_bool_t _dbus_string_steal_data         (DBusString        *str,
                                              char             **data_return);
 dbus_bool_t _dbus_string_steal_data_len     (DBusString        *str,
@@ -93,6 +99,8 @@ dbus_bool_t _dbus_string_append_len     (DBusString    *str,
                                          int            len);
 dbus_bool_t _dbus_string_append_int     (DBusString    *str,
                                          long           value);
+dbus_bool_t _dbus_string_append_uint    (DBusString    *str,
+                                         unsigned long  value);
 dbus_bool_t _dbus_string_append_double  (DBusString    *str,
                                          double         value);
 dbus_bool_t _dbus_string_append_byte    (DBusString    *str,

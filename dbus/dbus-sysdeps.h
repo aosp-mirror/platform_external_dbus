@@ -122,8 +122,10 @@ void _dbus_sleep_milliseconds (int milliseconds);
 void _dbus_get_current_time (long *tv_sec,
                              long *tv_usec);
 
-DBusResultCode _dbus_file_get_contents (DBusString       *str,
-                                        const DBusString *filename);
+DBusResultCode _dbus_file_get_contents   (DBusString       *str,
+                                          const DBusString *filename);
+DBusResultCode _dbus_string_save_to_file (const DBusString *str,
+                                          const DBusString *filename);
 
 dbus_bool_t _dbus_concat_dir_and_file (DBusString       *dir,
                                        const DBusString *next_component);

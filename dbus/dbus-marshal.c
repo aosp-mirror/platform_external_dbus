@@ -1225,7 +1225,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
       break;
       
     default:
-      _dbus_warn ("Unknown message arg type %d\n", *data);
+      _dbus_verbose ("Unknown message arg type %d\n", *data);
       return FALSE;
     }
 

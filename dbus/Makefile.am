@@ -85,12 +85,16 @@ libdbus_1_la_LIBADD=  $(DBUS_CLIENT_LIBS) libdbus-convenience.la
 ## convention for internal symbols)
 libdbus_1_la_LDFLAGS= -export-symbols-regex "^[^_].*"
 
+## FIXME it would be less annoying when hacking if we didn't have 
+## to relink these test binaries, so moving them to the test/* 
+## subdir would be nice.
+
 ## note that TESTS has special meaning (stuff to use in make check)
 ## so if adding tests not to be run in make check, don't add them to 
 ## TESTS
 if DBUS_BUILD_TESTS
 TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_srcdir)/test/data
-TESTS=dbus-test
+TESTS=dbus-test dbus-break-loader
 else
 TESTS=
 endif
@@ -103,3 +107,8 @@ dbus_test_SOURCES=				\
 	dbus-test-main.c
 
 dbus_test_LDADD= $(DBUS_CLIENT_LIBS) libdbus-convenience.la libdbus-1.la
+
+dbus_break_loader_SOURCES=			\
+	dbus-break-loader.c
+
+dbus_break_loader_LDADD= $(DBUS_CLIENT_LIBS) libdbus-convenience.la libdbus-1.la

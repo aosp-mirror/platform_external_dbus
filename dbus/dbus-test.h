@@ -43,10 +43,16 @@ dbus_bool_t _dbus_string_test   (void);
 dbus_bool_t _dbus_address_test  (void);
 dbus_bool_t _dbus_message_test  (const char *test_data_dir);
 
-void        dbus_internal_do_not_use_run_tests        (const char          *test_data_dir);
-dbus_bool_t dbus_internal_do_not_use_try_message_file (const DBusString    *filename,
-                                                       dbus_bool_t          is_raw,
-                                                       DBusMessageValidity  expected_validity);
+void        dbus_internal_do_not_use_run_tests         (const char          *test_data_dir);
+dbus_bool_t dbus_internal_do_not_use_try_message_file  (const DBusString    *filename,
+                                                        dbus_bool_t          is_raw,
+                                                        DBusMessageValidity  expected_validity);
+dbus_bool_t dbus_internal_do_not_use_try_message_data  (const DBusString    *data,
+                                                        DBusMessageValidity  expected_validity);
+dbus_bool_t dbus_internal_do_not_use_load_message_file (const DBusString    *filename,
+                                                        dbus_bool_t          is_raw,
+                                                        DBusString          *data);
+
 
 /* returns FALSE on fatal failure */
 typedef dbus_bool_t (* DBusForeachMessageFileFunc) (const DBusString   *filename,
@@ -55,8 +61,8 @@ typedef dbus_bool_t (* DBusForeachMessageFileFunc) (const DBusString   *filename
                                                     void               *data);
 
 dbus_bool_t dbus_internal_do_not_use_foreach_message_file (const char                 *test_data_dir,
-                                                    DBusForeachMessageFileFunc  func,
-                                                    void                       *user_data);
+                                                           DBusForeachMessageFileFunc  func,
+                                                           void                       *user_data);
 
                                                            
 

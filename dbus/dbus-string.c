@@ -299,6 +299,59 @@ _dbus_string_lock (DBusString *str)
     }
 }
 
+static dbus_bool_t
+set_length (DBusRealString *real,
+            int             new_length)
+{
+  /* Note, we are setting the length without nul termination */
+
+  /* exceeding max length is the same as failure to allocate memory */
+  if (new_length > real->max_length)
+    return FALSE;
+  
+  while (new_length >= real->allocated)
+    {
+      int new_allocated;
+      char *new_str;
+      
+      new_allocated = 2 + real->allocated * 2;
+      if (new_allocated < real->allocated)
+        return FALSE; /* overflow */
+        
+      new_str = dbus_realloc (real->str, new_allocated);
+      if (new_str == NULL)
+        return FALSE;
+
+      real->str = new_str;
+      real->allocated = new_allocated;
+
+      ASSERT_8_BYTE_ALIGNED (real);
+    }
+
+  real->len = new_length;
+  real->str[real->len] = '\0';
+
+  return TRUE;
+}
+
+static dbus_bool_t
+open_gap (int             len,
+          DBusRealString *dest,
+          int             insert_at)
+{
+  if (len == 0)
+    return TRUE;
+
+  if (!set_length (dest, dest->len + len))
+    return FALSE;
+
+  memmove (dest->str + insert_at + len, 
+           dest->str + insert_at,
+           dest->len - len - insert_at);
+
+  return TRUE;
+}
+
 /**
  * Gets the raw character buffer from the string.  The returned buffer
  * will be nul-terminated, but note that strings may contain binary
@@ -388,13 +441,31 @@ _dbus_string_get_const_data_len (const DBusString  *str,
 }
 
 /**
+ * Sets the value of the byte at the given position.
+ *
+ * @param str the string
+ * @param i the position
+ * @param byte the new value
+ */
+void
+_dbus_string_set_byte (DBusString    *str,
+                       int            i,
+                       unsigned char  byte)
+{
+  DBUS_STRING_PREAMBLE (str);
+  _dbus_assert (i < real->len);
+
+  real->str[i] = byte;
+}
+
+/**
  * Gets the byte at the given position.
  *
  * @param str the string
  * @param start the position
  * @returns the byte at that position
  */
-char
+unsigned char
 _dbus_string_get_byte (const DBusString  *str,
                        int                start)
 {
@@ -402,6 +473,30 @@ _dbus_string_get_byte (const DBusString  *str,
   _dbus_assert (start < real->len);
 
   return real->str[start];
+}
+
+/**
+ * Inserts the given byte at the given position.
+ *
+ * @param str the string
+ * @param i the position
+ * @param byte the value to insert
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_string_insert_byte (DBusString   *str,
+                          int           i,
+                          unsigned char byte)
+{
+  DBUS_STRING_PREAMBLE (str);
+  _dbus_assert (i <= real->len);
+
+  if (!open_gap (1, real, i))
+    return FALSE;
+  
+  real->str[i] = byte;
+
+  return TRUE;
 }
 
 /**
@@ -491,41 +586,6 @@ _dbus_string_get_length (const DBusString  *str)
   DBUS_CONST_STRING_PREAMBLE (str);
   
   return real->len;
-}
-
-static dbus_bool_t
-set_length (DBusRealString *real,
-            int             new_length)
-{
-  /* Note, we are setting the length without nul termination */
-
-  /* exceeding max length is the same as failure to allocate memory */
-  if (new_length > real->max_length)
-    return FALSE;
-  
-  while (new_length >= real->allocated)
-    {
-      int new_allocated;
-      char *new_str;
-      
-      new_allocated = 2 + real->allocated * 2;
-      if (new_allocated < real->allocated)
-        return FALSE; /* overflow */
-        
-      new_str = dbus_realloc (real->str, new_allocated);
-      if (new_str == NULL)
-        return FALSE;
-
-      real->str = new_str;
-      real->allocated = new_allocated;
-
-      ASSERT_8_BYTE_ALIGNED (real);
-    }
-
-  real->len = new_length;
-  real->str[real->len] = '\0';
-
-  return TRUE;
 }
 
 /**
@@ -809,24 +869,6 @@ _dbus_string_delete (DBusString       *str,
   _dbus_assert ((start + len) <= real->len);
   
   delete (real, start, len);
-}
-
-static dbus_bool_t
-open_gap (int             len,
-          DBusRealString *dest,
-          int             insert_at)
-{
-  if (len == 0)
-    return TRUE;
-
-  if (!set_length (dest, dest->len + len))
-    return FALSE;
-
-  memmove (dest->str + insert_at + len, 
-           dest->str + insert_at,
-           dest->len - len - insert_at);
-
-  return TRUE;
 }
 
 static dbus_bool_t
@@ -2280,6 +2322,43 @@ _dbus_string_test (void)
 
   _dbus_assert (ch == 0xfffc);
   _dbus_assert (i == _dbus_string_get_length (&str));
+
+  _dbus_string_free (&str);
+
+  /* Check insert/set/get byte */
+  
+  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+    _dbus_assert_not_reached ("failed to init string");
+
+  if (!_dbus_string_append (&str, "Hello"))
+    _dbus_assert_not_reached ("failed to append Hello");
+
+  _dbus_assert (_dbus_string_get_byte (&str, 0) == 'H');
+  _dbus_assert (_dbus_string_get_byte (&str, 1) == 'e');
+  _dbus_assert (_dbus_string_get_byte (&str, 2) == 'l');
+  _dbus_assert (_dbus_string_get_byte (&str, 3) == 'l');
+  _dbus_assert (_dbus_string_get_byte (&str, 4) == 'o');
+
+  _dbus_string_set_byte (&str, 1, 'q');
+  _dbus_assert (_dbus_string_get_byte (&str, 1) == 'q');
+
+  if (!_dbus_string_insert_byte (&str, 0, 255))
+    _dbus_assert_not_reached ("can't insert byte");
+
+  if (!_dbus_string_insert_byte (&str, 2, 'Z'))
+    _dbus_assert_not_reached ("can't insert byte");
+
+  if (!_dbus_string_insert_byte (&str, _dbus_string_get_length (&str), 'W'))
+    _dbus_assert_not_reached ("can't insert byte");
+  
+  _dbus_assert (_dbus_string_get_byte (&str, 0) == 255);
+  _dbus_assert (_dbus_string_get_byte (&str, 1) == 'H');
+  _dbus_assert (_dbus_string_get_byte (&str, 2) == 'Z');
+  _dbus_assert (_dbus_string_get_byte (&str, 3) == 'q');
+  _dbus_assert (_dbus_string_get_byte (&str, 4) == 'l');
+  _dbus_assert (_dbus_string_get_byte (&str, 5) == 'l');
+  _dbus_assert (_dbus_string_get_byte (&str, 6) == 'o');
+  _dbus_assert (_dbus_string_get_byte (&str, 7) == 'W');
 
   _dbus_string_free (&str);
   

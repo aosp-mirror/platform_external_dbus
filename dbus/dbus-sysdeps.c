@@ -618,6 +618,44 @@ _dbus_string_append_int (DBusString *str,
 }
 
 /**
+ * Appends an unsigned integer to a DBusString.
+ * 
+ * @param str the string
+ * @param value the integer value
+ * @returns #FALSE if not enough memory or other failure.
+ */
+dbus_bool_t
+_dbus_string_append_uint (DBusString    *str,
+                          unsigned long  value)
+{
+  /* this is wrong, but definitely on the high side. */
+#define MAX_ULONG_LEN (MAX_LONG_LEN * 2)
+  int orig_len;
+  int i;
+  char *buf;
+  
+  orig_len = _dbus_string_get_length (str);
+
+  if (!_dbus_string_lengthen (str, MAX_ULONG_LEN))
+    return FALSE;
+
+  _dbus_string_get_data_len (str, &buf, orig_len, MAX_ULONG_LEN);
+
+  snprintf (buf, MAX_ULONG_LEN, "%lu", value);
+
+  i = 0;
+  while (*buf)
+    {
+      ++buf;
+      ++i;
+    }
+  
+  _dbus_string_shorten (str, MAX_ULONG_LEN - i);
+  
+  return TRUE;
+}
+
+/**
  * Appends a double to a DBusString.
  * 
  * @param str the string
@@ -1100,6 +1138,59 @@ _dbus_file_get_contents (DBusString       *str,
       close (fd);
       return DBUS_RESULT_SUCCESS;
     }
+}
+
+/**
+ * Writes a string out to a file.
+ *
+ * @param str the string to write out
+ * @param filename the file to save string to
+ * @returns result code
+ */
+DBusResultCode
+_dbus_string_save_to_file (const DBusString *str,
+                           const DBusString *filename)
+{
+  int fd;
+  int bytes_to_write;
+  const char *filename_c;
+  int total;
+
+  _dbus_string_get_const_data (filename, &filename_c);
+  
+  fd = open (filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
+             0700);
+  if (fd < 0)
+    return _dbus_result_from_errno (errno);
+
+  total = 0;
+  bytes_to_write = _dbus_string_get_length (str);
+
+  while (total < bytes_to_write)
+    {
+      int bytes_written;
+
+      bytes_written = _dbus_write (fd, str, total,
+                                   bytes_to_write - total);
+
+      if (bytes_written <= 0)
+        {
+          DBusResultCode result;
+          
+          result = _dbus_result_from_errno (errno); /* prior to close() */
+          
+          _dbus_verbose ("write() failed: %s",
+                         _dbus_strerror (errno));
+          
+          close (fd);          
+          return result;
+        }
+
+      total += bytes_written;
+    }
+
+  close (fd);
+  return DBUS_RESULT_SUCCESS;
 }
 
 /**

@@ -1,3 +1,13 @@
+2003-02-01  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-break-loader.c (main): new program to find messages
+	that break the loader.
+
+	* dbus/dbus-sysdeps.c (_dbus_string_append_uint): new function
+	* dbus/dbus-sysdeps.c (_dbus_string_save_to_file): new function
+
+	* dbus/dbus-string.c (_dbus_string_set_byte): new
+	
 2003-01-31  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-message.c: refactor the test code to be more general, 

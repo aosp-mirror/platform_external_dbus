@@ -2483,11 +2483,56 @@ check_loader_results (DBusMessageLoader      *loader,
 
 
 /**
- * Tries loading the message in the given message file.
- * The file must end in .message for our message-builder language
- * or .message-raw for a binary file to be treated as a message
- * verbatim.
+ * Loads the message in the given message file.
  *
+ * @param filename filename to load
+ * @param is_raw if #TRUE load as binary data, if #FALSE as message builder language
+ * @param data string to load message into
+ * @returns #TRUE if the message was loaded
+ */
+dbus_bool_t
+dbus_internal_do_not_use_load_message_file (const DBusString    *filename,
+                                            dbus_bool_t          is_raw,
+                                            DBusString          *data)
+{
+  dbus_bool_t retval;
+
+  retval = FALSE;  
+
+  if (is_raw)
+    {
+      DBusResultCode result;
+
+      result = _dbus_file_get_contents (data, filename);
+      if (result != DBUS_RESULT_SUCCESS)
+        {
+          const char *s;      
+          _dbus_string_get_const_data (filename, &s);
+          _dbus_warn ("Could not load message file %s\n", s);
+          goto failed;
+        }
+    }
+  else
+    {
+      if (!_dbus_message_data_load (data, filename))
+        {
+          const char *s;      
+          _dbus_string_get_const_data (filename, &s);
+          _dbus_warn ("Could not load message file %s\n", s);
+          goto failed;
+        }
+    }
+
+  retval = TRUE;
+  
+ failed:
+
+  return retval;
+}
+
+/**
+ * Tries loading the message in the given message file
+ * and verifies that DBusMessageLoader can handle it.
  *
  * @param filename filename to load
  * @param is_raw if #TRUE load as binary data, if #FALSE as message builder language
@@ -2500,6 +2545,51 @@ dbus_internal_do_not_use_try_message_file (const DBusString    *filename,
                                            DBusMessageValidity  expected_validity)
 {
   DBusString data;
+  dbus_bool_t retval;
+
+  retval = FALSE;
+  
+  if (!_dbus_string_init (&data, _DBUS_INT_MAX))
+    _dbus_assert_not_reached ("could not allocate string\n");
+
+  if (!dbus_internal_do_not_use_load_message_file (filename, is_raw,
+                                                   &data))
+    goto failed;
+
+  retval = dbus_internal_do_not_use_try_message_data (&data, expected_validity);
+
+ failed:
+
+  if (!retval)
+    {
+      const char *s;
+
+      if (_dbus_string_get_length (&data) > 0)
+        _dbus_verbose_bytes_of_string (&data, 0,
+                                       _dbus_string_get_length (&data));
+      
+      _dbus_string_get_const_data (filename, &s);
+      _dbus_warn ("Failed message loader test on %s\n",
+                  s);
+    }
+  
+  _dbus_string_free (&data);
+
+  return retval;
+}
+
+/**
+ * Tries loading the given message data.
+ *
+ *
+ * @param data the message data
+ * @param expected_validity what the message has to be like to return #TRUE
+ * @returns #TRUE if the message has the expected validity
+ */
+dbus_bool_t
+dbus_internal_do_not_use_try_message_data (const DBusString    *data,
+                                           DBusMessageValidity  expected_validity)
+{
   DBusMessageLoader *loader;
   dbus_bool_t retval;
   int len;
@@ -2507,46 +2597,19 @@ dbus_internal_do_not_use_try_message_file (const DBusString    *filename,
 
   loader = NULL;
   retval = FALSE;
-  
-  if (!_dbus_string_init (&data, _DBUS_INT_MAX))
-    _dbus_assert_not_reached ("could not allocate string\n");
-
-  if (is_raw)
-    {
-      DBusResultCode result;
-
-      result = _dbus_file_get_contents (&data, filename);
-      if (result != DBUS_RESULT_SUCCESS)
-        {
-          const char *s;      
-          _dbus_string_get_const_data (filename, &s);
-          _dbus_warn ("Could not load message file %s\n", s);
-          goto failed;
-        }
-    }
-  else
-    {
-      if (!_dbus_message_data_load (&data, filename))
-        {
-          const char *s;      
-          _dbus_string_get_const_data (filename, &s);
-          _dbus_warn ("Could not load message file %s\n", s);
-          goto failed;
-        }
-    }
 
   /* Write the data one byte at a time */
   
   loader = _dbus_message_loader_new ();
 
-  len = _dbus_string_get_length (&data);
+  len = _dbus_string_get_length (data);
   for (i = 0; i < len; i++)
     {
       DBusString *buffer;
 
       _dbus_message_loader_get_buffer (loader, &buffer);
       _dbus_string_append_byte (buffer,
-                                _dbus_string_get_byte (&data, i));
+                                _dbus_string_get_byte (data, i));
       _dbus_message_loader_return_buffer (loader, buffer, 1);
     }
   
@@ -2564,7 +2627,7 @@ dbus_internal_do_not_use_try_message_file (const DBusString    *filename,
     DBusString *buffer;
     
     _dbus_message_loader_get_buffer (loader, &buffer);
-    _dbus_string_copy (&data, 0, buffer,
+    _dbus_string_copy (data, 0, buffer,
                        _dbus_string_get_length (buffer));
     _dbus_message_loader_return_buffer (loader, buffer, 1);
   }
@@ -2579,17 +2642,17 @@ dbus_internal_do_not_use_try_message_file (const DBusString    *filename,
   
   loader = _dbus_message_loader_new ();
 
-  len = _dbus_string_get_length (&data);
+  len = _dbus_string_get_length (data);
   for (i = 0; i < len; i += 2)
     {
       DBusString *buffer;
 
       _dbus_message_loader_get_buffer (loader, &buffer);
       _dbus_string_append_byte (buffer,
-                                _dbus_string_get_byte (&data, i));
+                                _dbus_string_get_byte (data, i));
       if ((i+1) < len)
         _dbus_string_append_byte (buffer,
-                                  _dbus_string_get_byte (&data, i+1));
+                                  _dbus_string_get_byte (data, i+1));
       _dbus_message_loader_return_buffer (loader, buffer, 1);
     }
   
@@ -2602,22 +2665,9 @@ dbus_internal_do_not_use_try_message_file (const DBusString    *filename,
   retval = TRUE;
   
  failed:
-  if (!retval)
-    {
-      const char *s;
-
-      if (_dbus_string_get_length (&data) > 0)
-        _dbus_verbose_bytes_of_string (&data, 0,
-                                       _dbus_string_get_length (&data));
-      
-      _dbus_string_get_const_data (filename, &s);
-      _dbus_warn ("Failed message loader test on %s\n",
-                  s);
-    }
   
   if (loader)
     _dbus_message_loader_unref (loader);
-  _dbus_string_free (&data);
   
   return retval;
 }
@@ -2648,7 +2698,7 @@ process_test_subdir (const DBusString          *test_base_dir,
     _dbus_assert_not_reached ("couldn't copy test_base_dir to test_directory");
   
   if (!_dbus_concat_dir_and_file (&test_directory, &filename))    
-    _dbus_assert_not_reached ("could't allocate full path");
+    _dbus_assert_not_reached ("couldn't allocate full path");
 
   _dbus_string_free (&filename);
   if (!_dbus_string_init (&filename, _DBUS_INT_MAX))
