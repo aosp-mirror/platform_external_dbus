@@ -825,6 +825,10 @@
           error that occurred. Error replies would generally 
           be mapped to exceptions in a programming language.
       </para>
+      <para>
+        [FIXME discuss mapping of broadcast messages + matching rules 
+        to signals and slots]
+      </para>
     </sect2>
   </sect1>
 
