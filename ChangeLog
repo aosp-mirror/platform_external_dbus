@@ -1,5 +1,26 @@
 2003-08-30  Havoc Pennington  <hp@pobox.com>
 
+	* test/data/valid-config-files/system.d/test.conf: change to 
+	root for the user so warnings don't get printed
+
+	* dbus/dbus-message.c: add dbus_message_get_path,
+	dbus_message_set_path
+	
+	* dbus/dbus-object-tree.c (do_test_dispatch): add test of
+	dispatching to a path
+
+	* dbus/dbus-string.c (_dbus_string_validate_path): add
+
+	* dbus/dbus-marshal.c (_dbus_demarshal_object_path): implement
+	(_dbus_marshal_object_path): implement
+
+	* dbus/dbus-protocol.h (DBUS_HEADER_FIELD_PATH): new header field 
+	to contain the path to the target object
+	(DBUS_HEADER_FIELD_SENDER_SERVICE): rename
+	DBUS_HEADER_FIELD_SENDER to explicitly say it's the sender service
+
+2003-08-30  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-object-tree.c: write tests and fix the discovered bugs
 
 2003-08-29  Havoc Pennington  <hp@pobox.com>

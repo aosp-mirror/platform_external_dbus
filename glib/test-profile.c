@@ -34,7 +34,8 @@
 #define N_CLIENT_THREADS 1
 #define N_ITERATIONS 1000
 #define PAYLOAD_SIZE 30
-#define ECHO_INTERFACE "org.freedekstop.EchoTest"
+#define ECHO_PATH "/org/freedesktop/EchoTest"
+#define ECHO_INTERFACE "org.freedesktop.EchoTest"
 #define ECHO_METHOD "EchoProfile"
 
 static const char *address;
@@ -45,7 +46,8 @@ send_echo_message (DBusConnection *connection)
 {
   DBusMessage *message;
 
-  message = dbus_message_new_method_call (ECHO_INTERFACE, ECHO_METHOD, NULL);
+  message = dbus_message_new_method_call (NULL, ECHO_PATH,
+                                          ECHO_INTERFACE, ECHO_METHOD);
   dbus_message_append_args (message,
                             DBUS_TYPE_STRING, "Hello World!",
                             DBUS_TYPE_INT32, 123456,

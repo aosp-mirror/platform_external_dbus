@@ -30,7 +30,7 @@
 static void
 usage (char *name, int ecode)
 {
-  fprintf (stderr, "Usage: %s [--help] [--system | --session] [--dest=SERVICE] [--type=TYPE] [--print-reply] <message name> [contents ...]\n", name);
+  fprintf (stderr, "Usage: %s [--help] [--system | --session] [--dest=SERVICE] [--type=TYPE] [--print-reply] <destination object path> <message name> [contents ...]\n", name);
   exit (ecode);
 }
 
@@ -45,11 +45,12 @@ main (int argc, char *argv[])
   int i;
   DBusBusType type = DBUS_BUS_SESSION;
   const char *dest = DBUS_SERVICE_ORG_FREEDESKTOP_BROADCAST;
-  char *name = NULL;
+  const char *name = NULL;
+  const char *path = NULL;
   int message_type = DBUS_MESSAGE_TYPE_SIGNAL;
   const char *type_str = NULL;
   
-  if (argc < 2)
+  if (argc < 3)
     usage (argv[0], 1);
 
   print_reply = FALSE;
@@ -72,8 +73,12 @@ main (int argc, char *argv[])
 	usage (argv[0], 0);
       else if (arg[0] == '-')
 	usage (argv[0], 1);
+      else if (path == NULL)
+        path = arg;
+      else if (name == NULL)
+        name = arg;
       else
-	name = arg;
+        usage (argv[0], 1);
     }
 
   if (name == NULL)
@@ -117,9 +122,10 @@ main (int argc, char *argv[])
         }
       *last_dot = '\0';
       
-      message = dbus_message_new_method_call (name,
-                                              last_dot + 1,
-                                              NULL);
+      message = dbus_message_new_method_call (NULL,
+                                              path,
+                                              name,
+                                              last_dot + 1);
     }
   else if (message_type == DBUS_MESSAGE_TYPE_SIGNAL)
     {
@@ -134,7 +140,7 @@ main (int argc, char *argv[])
         }
       *last_dot = '\0';
       
-      message = dbus_message_new_signal (name, last_dot + 1);
+      message = dbus_message_new_signal (path, name, last_dot + 1);
     }
   else
     {

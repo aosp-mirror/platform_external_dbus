@@ -81,7 +81,7 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
     die ("strings");
 
   check_memleaks ();
-
+  
   printf ("%s: running sysdeps tests\n", "dbus-test");
   if (!_dbus_sysdeps_test ())
     die ("sysdeps");

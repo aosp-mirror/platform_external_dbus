@@ -1,12 +1,7 @@
 # Dict with different values
 
 VALID_HEADER method_call
-FIELD_NAME ifce
-TYPE STRING
-STRING 'org.freedesktop.Foo'
-FIELD_NAME mebr
-TYPE STRING
-STRING 'Bar'
+REQUIRED_FIELDS
 ALIGN 8
 END_LENGTH Header
 START_LENGTH Body

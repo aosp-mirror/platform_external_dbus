@@ -30,9 +30,10 @@ main (int argc, char **argv)
 
   dbus_connection_setup_with_g_main (connection, NULL);
 
-  message = dbus_message_new_method_call (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                          "Hello",
-                                          DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
+  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                          "Hello");
 
   dbus_error_init (&error);
   reply = dbus_connection_send_with_reply_and_block (connection, message, -1, &error);

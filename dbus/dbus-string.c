@@ -2846,6 +2846,74 @@ _dbus_string_validate_nul (const DBusString *str,
 }
 
 /**
+ * Checks that the given range of the string is a valid object path
+ * name in the D-BUS protocol. This includes a length restriction,
+ * etc., see the specification. It does not validate UTF-8, that has
+ * to be done separately for now.
+ *
+ * @todo this is inconsistent with most of DBusString in that
+ * it allows a start,len range that isn't in the string.
+ *
+ * @todo change spec to disallow more things, such as spaces in the
+ * path name
+ * 
+ * @param str the string
+ * @param start first byte index to check
+ * @param len number of bytes to check
+ * @returns #TRUE if the byte range exists and is a valid name
+ */
+dbus_bool_t
+_dbus_string_validate_path (const DBusString  *str,
+                            int                start,
+                            int                len)
+{
+  const unsigned char *s;
+  const unsigned char *end;
+  const unsigned char *last_slash;
+  
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start >= 0);
+  _dbus_assert (len >= 0);
+  _dbus_assert (start <= real->len);
+  
+  if (len > real->len - start)
+    return FALSE;
+
+  if (len > DBUS_MAXIMUM_NAME_LENGTH)
+    return FALSE;
+
+  if (len == 0)
+    return FALSE;
+
+  s = real->str + start;
+  end = s + len;
+
+  if (*s != '/')
+    return FALSE;
+  last_slash = s;
+  ++s;
+  
+  while (s != end)
+    {
+      if (*s == '/')
+        {
+          if ((s - last_slash) < 2)
+            return FALSE; /* no empty path components allowed */
+
+          last_slash = s;
+        }
+      
+      ++s;
+    }
+
+  if ((end - last_slash) < 2 &&
+      len > 1)
+    return FALSE; /* trailing slash not allowed unless the string is "/" */
+  
+  return TRUE;
+}
+
+/**
  * Checks that the given range of the string is a valid interface name
  * in the D-BUS protocol. This includes a length restriction, etc.,
  * see the specification. It does not validate UTF-8, that has to be
@@ -3251,6 +3319,24 @@ _dbus_string_test (void)
   int lens[] = { 0, 1, 2, 3, 4, 5, 10, 16, 17, 18, 25, 31, 32, 33, 34, 35, 63, 64, 65, 66, 67, 68, 69, 70, 71, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136 };
   char *s;
   dbus_unichar_t ch;
+  const char *valid_paths[] = {
+    "/",
+    "/foo/bar",
+    "/foo",
+    "/foo/bar/baz"
+  };
+  const char *invalid_paths[] = {
+    "bar",
+    "bar/baz",
+    "/foo/bar/",
+    "/foo/"
+    "foo/",
+    "boo//blah",
+    "//",
+    "///",
+    "foo///blah/",
+    "Hello World"
+  };
   
   i = 0;
   while (i < _DBUS_N_ELEMENTS (lens))
@@ -3625,7 +3711,38 @@ _dbus_string_test (void)
   /* Base 64 and Hex encoding */
   test_roundtrips (test_base64_roundtrip);
   test_roundtrips (test_hex_roundtrip);
-  
+
+  /* Path validation */
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (valid_paths))
+    {
+      _dbus_string_init_const (&str, valid_paths[i]);
+
+      if (!_dbus_string_validate_path (&str, 0,
+                                       _dbus_string_get_length (&str)))
+        {
+          _dbus_warn ("Path \"%s\" should have been valid\n", valid_paths[i]);
+          _dbus_assert_not_reached ("invalid path");
+        }
+      
+      ++i;
+    }
+
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (invalid_paths))
+    {
+      _dbus_string_init_const (&str, invalid_paths[i]);
+      
+      if (_dbus_string_validate_path (&str, 0,
+                                      _dbus_string_get_length (&str)))
+        {
+          _dbus_warn ("Path \"%s\" should have been invalid\n", invalid_paths[i]);
+          _dbus_assert_not_reached ("valid path");
+        }
+      
+      ++i;
+    }
+         
   return TRUE;
 }
 

@@ -288,6 +288,56 @@ message_type_from_string (const DBusString *str,
     return -1;
 }
 
+static dbus_bool_t
+append_string_field (DBusString *dest,
+                     int         endian,
+                     const char *field_name,
+                     int         type,
+                     const char *value)
+{
+  int len;
+  
+  if (!_dbus_string_align_length (dest, 4))
+    {
+      _dbus_warn ("could not align field name\n");
+      return FALSE;
+    }
+
+  if (!_dbus_string_append (dest, field_name))
+    {
+      _dbus_warn ("couldn't append field name\n");
+      return FALSE;
+    }
+  
+  if (!_dbus_string_append_byte (dest, type))
+    {
+      _dbus_warn ("could not append typecode byte\n");
+      return FALSE;
+    }
+
+  len = strlen (value);
+
+  if (!_dbus_marshal_uint32 (dest, endian, len))
+    {
+      _dbus_warn ("couldn't append string length\n");
+      return FALSE;
+    }
+  
+  if (!_dbus_string_append (dest, value))
+    {
+      _dbus_warn ("couldn't append field value\n");
+      return FALSE;
+    }
+
+  if (!_dbus_string_append_byte (dest, 0))
+    {
+      _dbus_warn ("couldn't append string nul term\n");
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
 /**
  * Reads the given filename, which should be in "message description
  * language" (look at some examples), and builds up the message data
@@ -298,6 +348,7 @@ message_type_from_string (const DBusString *str,
  * The file format is:
  * @code
  *   VALID_HEADER <type> normal header; byte order, type, padding, header len, body len, serial
+ *   REQUIRED_FIELDS add required fields with placeholder values
  *   BIG_ENDIAN switch to big endian
  *   LITTLE_ENDIAN switch to little endian
  *   OPPOSITE_ENDIAN switch to opposite endian
@@ -322,6 +373,7 @@ message_type_from_string (const DBusString *str,
  *   UINT64 <N> marshals a UINT64
  *   DOUBLE <N> marshals a double
  *   STRING 'Foo' marshals a string
+ *   OBJECT_PATH '/foo/bar' marshals an object path
  *   BYTE_ARRAY { 'a', 3, 4, 5, 6} marshals a BYTE array
  *   BOOLEAN_ARRAY { false, true, false} marshals a BOOLEAN array
  *   INT32_ARRAY { 3, 4, 5, 6} marshals an INT32 array
@@ -466,6 +518,25 @@ _dbus_message_data_load (DBusString       *dest,
               _dbus_warn ("couldn't append client serial\n");
               goto parse_failed;
             }
+        }
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "REQUIRED_FIELDS"))
+        {
+          if (!append_string_field (dest, endian,
+                                    DBUS_HEADER_FIELD_INTERFACE,
+                                    DBUS_TYPE_STRING,
+                                    "org.freedesktop.BlahBlahInterface"))
+            goto parse_failed;
+          if (!append_string_field (dest, endian,
+                                    DBUS_HEADER_FIELD_MEMBER,
+                                    DBUS_TYPE_STRING,
+                                    "BlahBlahMethod"))
+            goto parse_failed;
+          if (!append_string_field (dest, endian,
+                                    DBUS_HEADER_FIELD_PATH,
+                                    DBUS_TYPE_OBJECT_PATH,
+                                    "/blah/blah/path"))
+            goto parse_failed;
         }
       else if (_dbus_string_starts_with_c_str (&line,
                                                "BIG_ENDIAN"))
@@ -648,6 +719,8 @@ _dbus_message_data_load (DBusString       *dest,
             code = DBUS_TYPE_DOUBLE;
           else if (_dbus_string_starts_with_c_str (&line, "STRING"))
             code = DBUS_TYPE_STRING;
+          else if (_dbus_string_starts_with_c_str (&line, "OBJECT_PATH"))
+            code = DBUS_TYPE_OBJECT_PATH;
           else if (_dbus_string_starts_with_c_str (&line, "NAMED"))
             code = DBUS_TYPE_NAMED;
           else if (_dbus_string_starts_with_c_str (&line, "ARRAY"))
@@ -1270,6 +1343,36 @@ _dbus_message_data_load (DBusString       *dest,
           
           PERFORM_UNALIGN (dest);
         }
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "OBJECT_PATH"))
+        {
+          SAVE_FOR_UNALIGN (dest, 4);
+          int size_offset;
+          int old_len;
+          
+          _dbus_string_delete_first_word (&line);
+          
+          size_offset = _dbus_string_get_length (dest);
+          size_offset = _DBUS_ALIGN_VALUE (size_offset, 4);
+          if (!_dbus_marshal_uint32 (dest, endian, 0))
+            {
+              _dbus_warn ("Failed to append string size\n");
+              goto parse_failed;
+            }
+
+          old_len = _dbus_string_get_length (dest);
+          if (!append_quoted_string (dest, &line, 0, NULL))
+            {
+              _dbus_warn ("Failed to append quoted string\n");
+              goto parse_failed;
+            }
+
+          _dbus_marshal_set_uint32 (dest, endian, size_offset,
+                                    /* subtract 1 for nul */
+                                    _dbus_string_get_length (dest) - old_len - 1);
+          
+          PERFORM_UNALIGN (dest);
+        }      
       else
         goto parse_failed;
       

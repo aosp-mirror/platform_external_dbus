@@ -403,10 +403,10 @@ dbus_bus_register (DBusConnection *connection,
       return TRUE;
     }
   
-  message = dbus_message_new_method_call (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                          "Hello",
-                                          DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
-			      
+  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                          "Hello"); 
 
   if (!message)
     {
@@ -522,9 +522,10 @@ dbus_bus_acquire_service (DBusConnection *connection,
   _dbus_return_val_if_fail (service_name != NULL, 0);
   _dbus_return_val_if_error_is_set (error, 0);
   
-  message = dbus_message_new_method_call (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                          "AcquireService",
-                                          DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
+  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                          "AcquireService");
 
   if (message == NULL)
     {
@@ -596,9 +597,10 @@ dbus_bus_service_exists (DBusConnection *connection,
   _dbus_return_val_if_fail (service_name != NULL, FALSE);
   _dbus_return_val_if_error_is_set (error, FALSE);
   
-  message = dbus_message_new_method_call (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                          "ServiceExists",
-                                          DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
+  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                          "ServiceExists");
   if (message == NULL)
     {
       _DBUS_SET_OOM (error);
@@ -659,9 +661,10 @@ dbus_bus_activate_service (DBusConnection *connection,
   DBusMessage *msg;
   DBusMessage *reply;
 
-  msg = dbus_message_new_method_call (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                      "ActivateService",
-                                      DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
+  msg = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                      DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                      DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                      "ActivateService");
 
   if (!dbus_message_append_args (msg, DBUS_TYPE_STRING, service_name,
 			  	 DBUS_TYPE_UINT32, flags, DBUS_TYPE_INVALID))

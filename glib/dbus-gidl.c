@@ -197,12 +197,6 @@ method_info_get_args (MethodInfo *info)
   return info->args;
 }
 
-MethodStyle
-method_info_get_style (MethodInfo *info)
-{
-  return info->style;
-}
-
 void
 method_info_add_arg (MethodInfo    *info,
                      ArgInfo       *arg)

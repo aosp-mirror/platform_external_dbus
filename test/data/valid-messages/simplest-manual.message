@@ -11,6 +11,9 @@ LENGTH Body
 ## client serial
 INT32 7
 
+FIELD_NAME path
+TYPE OBJECT_PATH
+OBJECT_PATH '/foo'
 FIELD_NAME ifce
 TYPE STRING
 STRING 'org.freedesktop.Foo'

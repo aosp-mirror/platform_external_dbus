@@ -56,7 +56,6 @@ void           method_info_unref          (MethodInfo    *info);
 
 const char*    method_info_get_name       (MethodInfo    *info);
 GSList*        method_info_get_args       (MethodInfo    *info);
-MethodStyle    method_info_get_style      (MethodInfo    *info);
 void           method_info_add_arg        (MethodInfo    *info,
                                            ArgInfo       *arg);
 

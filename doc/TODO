@@ -76,3 +76,6 @@
    really see how to do this without making the user pass around the
    call serial to all method calls all the time, or disallowing 
    async calls.
+
+ - the invalid messages in the test suite are all useless because 
+   they are invalid for the wrong reasons due to protocol changes

@@ -71,17 +71,22 @@ extern "C" {
 #define DBUS_HEADER_FLAG_NO_REPLY_EXPECTED 0x1
   
 /* Header fields */
-#define DBUS_HEADER_FIELD_INTERFACE  "ifce"
-#define DBUS_HEADER_FIELD_MEMBER     "mebr"
-#define DBUS_HEADER_FIELD_ERROR_NAME "ernm"
-#define DBUS_HEADER_FIELD_SERVICE    "srvc"
-#define DBUS_HEADER_FIELD_REPLY	     "rply"
-#define DBUS_HEADER_FIELD_SENDER     "sndr"
+#define DBUS_HEADER_FIELD_PATH           "path"
+#define DBUS_HEADER_FIELD_INTERFACE      "ifce"
+#define DBUS_HEADER_FIELD_MEMBER         "mebr"
+#define DBUS_HEADER_FIELD_ERROR_NAME     "ernm"
+#define DBUS_HEADER_FIELD_SERVICE        "srvc"
+#define DBUS_HEADER_FIELD_REPLY	         "rply"
+#define DBUS_HEADER_FIELD_SENDER_SERVICE "sdrs"
 
 /* Services */
 #define DBUS_SERVICE_ORG_FREEDESKTOP_DBUS      "org.freedesktop.DBus"
 #define DBUS_SERVICE_ORG_FREEDESKTOP_BROADCAST "org.freedesktop.Broadcast"
 
+/* Paths */
+#define DBUS_PATH_ORG_FREEDESKTOP_DBUS  "/org/freedesktop/DBus"
+#define DBUS_PATH_ORG_FREEDESKTOP_LOCAL "/org/freedesktop/Local"
+  
 /* Service owner flags */
 #define DBUS_SERVICE_FLAG_PROHIBIT_REPLACEMENT 0x1
 #define DBUS_SERVICE_FLAG_REPLACE_EXISTING     0x2

@@ -727,9 +727,10 @@ check_hello_message (BusContext     *context,
   acquired = NULL;
   message = NULL;
   
-  message = dbus_message_new_method_call (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                          "Hello",
-                                          DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
+  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                          "Hello");
 
   if (message == NULL)
     return TRUE;
@@ -958,9 +959,10 @@ check_nonexistent_service_activation (BusContext     *context,
   
   dbus_error_init (&error);
   
-  message = dbus_message_new_method_call (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                          "ActivateService",
-                                          DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
+  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                          "ActivateService");
 
   if (message == NULL)
     return TRUE;
@@ -1341,9 +1343,10 @@ check_send_exit_to_service (BusContext     *context,
   retval = FALSE;
   
   /* Kill off the test service by sending it a quit message */
-  message = dbus_message_new_method_call ("org.freedesktop.TestSuite",
-                                          "Exit",
-                                          service_name);
+  message = dbus_message_new_method_call (service_name,
+                                          "/org/freedesktop/TestSuite",
+                                          "org.freedesktop.TestSuite",
+                                          "Exit");
       
   if (message == NULL)
     {
@@ -1510,9 +1513,10 @@ check_existent_service_activation (BusContext     *context,
   
   dbus_error_init (&error);
   
-  message = dbus_message_new_method_call (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                          "ActivateService",
-                                          DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
+  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                          "ActivateService");
 
   if (message == NULL)
     return TRUE;
@@ -1720,9 +1724,10 @@ check_segfault_service_activation (BusContext     *context,
   
   dbus_error_init (&error);
   
-  message = dbus_message_new_method_call (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                          "ActivateService",
-                                          DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
+  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                          "ActivateService");
 
   if (message == NULL)
     return TRUE;

@@ -49,7 +49,8 @@ bus_driver_send_service_deleted (const char     *service_name,
   
   _dbus_verbose ("sending service deleted: %s\n", service_name);
 
-  message = dbus_message_new_signal (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                     DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
                                      "ServiceDeleted");
   
   if (message == NULL)
@@ -84,7 +85,8 @@ bus_driver_send_service_created (const char     *service_name,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  message = dbus_message_new_signal (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                     DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
                                      "ServiceCreated");
   
   if (message == NULL)
@@ -125,7 +127,8 @@ bus_driver_send_service_lost (DBusConnection *connection,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  message = dbus_message_new_signal (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                     DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
                                      "ServiceLost");
   
   if (message == NULL)
@@ -167,7 +170,8 @@ bus_driver_send_service_acquired (DBusConnection *connection,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  message = dbus_message_new_signal (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+  message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                     DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
                                      "ServiceAcquired");
 
   if (message == NULL)

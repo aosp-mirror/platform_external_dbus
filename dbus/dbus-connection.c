@@ -825,7 +825,8 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   if (io_path_cond == NULL)
     goto error;
 
-  disconnect_message = dbus_message_new_signal (DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+  disconnect_message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_LOCAL,
+                                                DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
                                                 "Disconnected");
   
   if (disconnect_message == NULL)
@@ -2522,7 +2523,7 @@ dbus_connection_dispatch (DBusConnection *connection)
   /* We're still protected from dispatch() reentrancy here
    * since we acquired the dispatcher
    */
-  _dbus_verbose ("  running object handler on message %p (%s)\n",
+  _dbus_verbose ("  running object path dispatch on message %p (%s)\n",
                  message,
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :

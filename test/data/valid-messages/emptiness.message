@@ -1,12 +1,7 @@
 # Empty arrays and strings
 
 VALID_HEADER method_call
-FIELD_NAME ifce
-TYPE STRING
-STRING 'org.freedesktop.Foo'
-FIELD_NAME mebr
-TYPE STRING
-STRING 'Bar'
+REQUIRED_FIELDS
 END_LENGTH Header
 ALIGN 8
 START_LENGTH Body

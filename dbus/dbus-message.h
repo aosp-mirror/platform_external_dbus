@@ -58,11 +58,13 @@ struct DBusMessageIter
 };
 
 DBusMessage* dbus_message_new               (int          message_type);
-DBusMessage* dbus_message_new_method_call   (const char  *interface,
-                                             const char  *method,
-                                             const char  *destination_service);
+DBusMessage* dbus_message_new_method_call   (const char  *service,
+                                             const char  *path,
+                                             const char  *interface,
+                                             const char  *method);
 DBusMessage* dbus_message_new_method_return (DBusMessage *method_call);
-DBusMessage* dbus_message_new_signal        (const char  *interface,
+DBusMessage* dbus_message_new_signal        (const char  *path,
+                                             const char  *interface,
                                              const char  *name);
 DBusMessage* dbus_message_new_error         (DBusMessage *reply_to,
                                              const char  *error_name,
@@ -73,6 +75,9 @@ DBusMessage *dbus_message_copy              (const DBusMessage *message);
 void          dbus_message_ref              (DBusMessage   *message);
 void          dbus_message_unref            (DBusMessage   *message);
 int           dbus_message_get_type         (DBusMessage   *message);
+dbus_bool_t   dbus_message_set_path         (DBusMessage   *message,
+                                             const char    *object_path);
+const char*   dbus_message_get_path         (DBusMessage   *message);
 dbus_bool_t   dbus_message_set_interface    (DBusMessage   *message,
                                              const char    *interface);
 const char*   dbus_message_get_interface    (DBusMessage   *message);
@@ -107,6 +112,9 @@ dbus_uint32_t dbus_message_get_serial       (DBusMessage   *message);
 dbus_bool_t   dbus_message_set_reply_serial (DBusMessage   *message,
                                              dbus_uint32_t  reply_serial);
 dbus_uint32_t dbus_message_get_reply_serial (DBusMessage   *message);
+
+dbus_bool_t   dbus_message_get_path_decomposed (DBusMessage   *message,
+                                                char        ***path);
 
 dbus_bool_t dbus_message_append_args          (DBusMessage     *message,
 					       int              first_arg_type,

@@ -223,6 +223,9 @@ dbus_bool_t   _dbus_string_validate_utf8         (const DBusString  *str,
 dbus_bool_t   _dbus_string_validate_nul          (const DBusString  *str,
                                                   int                start,
                                                   int                len);
+dbus_bool_t   _dbus_string_validate_path         (const DBusString  *str,
+                                                  int                start,
+                                                  int                len);
 dbus_bool_t   _dbus_string_validate_interface    (const DBusString  *str,
                                                   int                start,
                                                   int                len);

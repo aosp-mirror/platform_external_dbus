@@ -871,8 +871,6 @@ _dbus_marshal_string_array (DBusString  *str,
 
 /**
  * Marshals an object path value.
- *
- * @todo implement this function
  * 
  * @param str the string to append the marshalled value to
  * @param byte_order the byte order to use
@@ -886,7 +884,41 @@ _dbus_marshal_object_path (DBusString            *str,
                            const char           **path,
                            int                    path_len)
 {
+  int array_start, old_string_len;
+  int i;
+  
+  old_string_len = _dbus_string_get_length (str);
+  
+  /* Set the length to 0 temporarily */
+  if (!_dbus_marshal_uint32 (str, byte_order, 0))
+    goto nomem;
+
+  array_start = _dbus_string_get_length (str);
+  
+  i = 0;
+  while (i < path_len)
+    {
+      if (!_dbus_string_append_byte (str, '/'))
+        goto nomem;
+      
+      if (!_dbus_string_append (str, path[0]))
+        goto nomem;
+
+      ++i;
+    }
+
+  /* Write the length now that we know it */
+  _dbus_marshal_set_uint32 (str, byte_order,
+			    _DBUS_ALIGN_VALUE (old_string_len, sizeof(dbus_uint32_t)),
+			    _dbus_string_get_length (str) - array_start);  
+
   return TRUE;
+
+ nomem:
+  /* Restore the previous length */
+  _dbus_string_set_length (str, old_string_len);
+  
+  return FALSE;
 }
 
 static dbus_uint32_t
@@ -1438,10 +1470,10 @@ _dbus_demarshal_string_array (const DBusString   *str,
   return FALSE;
 }
 
+#define VERBOSE_DECOMPOSE 0
+
 /**
  * Demarshals an object path.
- *
- * @todo implement this function
  * 
  * @param str the string containing the data
  * @param byte_order the byte order
@@ -1458,7 +1490,82 @@ _dbus_demarshal_object_path (const DBusString *str,
                              char           ***path,
                              int              *path_len)
 {
+  int len;
+  char **retval;
+  const char *data;
+  int n_components;
+  int i, j, comp;
   
+  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+  data = _dbus_string_get_const_data_len (str, pos, len + 1);
+  _dbus_assert (data != NULL);
+
+#if VERBOSE_DECOMPOSE
+  _dbus_verbose ("Decomposing path \"%s\"\n",
+                 data);
+#endif
+  
+  n_components = 0;
+  i = 0;
+  while (i < len)
+    {
+      if (data[i] == '/')
+        n_components += 1;
+      ++i;
+    }
+  
+  retval = dbus_new0 (char*, n_components + 1);
+
+  if (retval == NULL)
+    return FALSE;
+
+  comp = 0;
+  i = 0;
+  while (i < len)
+    {
+      if (data[i] == '/')
+        ++i;
+      j = i;
+
+      while (j < len && data[j] != '/')
+        ++j;
+
+      /* Now [i, j) is the path component */
+      _dbus_assert (i < j);
+      _dbus_assert (data[i] != '/');
+      _dbus_assert (j == len || data[j] == '/');
+
+#if VERBOSE_DECOMPOSE
+      _dbus_verbose ("  (component in [%d,%d))\n",
+                     i, j);
+#endif
+      
+      retval[comp] = _dbus_memdup (&data[i], j - i + 1);
+      if (retval[comp] == NULL)
+        {
+          dbus_free_string_array (retval);
+          return FALSE;
+        }
+      retval[comp][j-i] = '\0';
+#if VERBOSE_DECOMPOSE
+      _dbus_verbose ("  (component %d = \"%s\")\n",
+                     comp, retval[comp]);
+#endif
+
+      ++comp;
+      i = j;
+    }
+  _dbus_assert (i == len);
+  _dbus_assert (retval[0] != NULL);
+  
+  *path = retval;
+  if (path_len)
+    *path_len = n_components;
+  
+  if (new_pos)
+    *new_pos = pos + len + 1;
+  
+  return TRUE;
 }
 
 /** 
@@ -1514,6 +1621,7 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
       *end_pos = _DBUS_ALIGN_VALUE (pos, 8) + 8;
       break;
 
+    case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_STRING:
       {
 	int len;
@@ -1540,8 +1648,7 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
 	*end_pos = pos + len;
       }
       break;
-
-    case DBUS_TYPE_OBJECT_PATH:
+      
     case DBUS_TYPE_ARRAY:
       {
 	int len;
@@ -1917,6 +2024,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
       }
       break;
 
+    case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_STRING:
       {
 	int len;
@@ -1930,6 +2038,12 @@ _dbus_marshal_validate_arg (const DBusString *str,
 
         if (!validate_string (str, pos, len, end_pos))
           return FALSE;
+
+        if (type == DBUS_TYPE_OBJECT_PATH)
+          {
+            if (!_dbus_string_validate_path (str, pos, len))
+              return FALSE;
+          }
       }
       break;
 
@@ -2521,7 +2635,6 @@ _dbus_marshal_test (void)
   s = _dbus_demarshal_string (&str, DBUS_BIG_ENDIAN, 0, NULL);
   _dbus_assert (strcmp (s, "Hello") == 0);
   dbus_free (s);
-
   
   _dbus_string_free (&str);
       

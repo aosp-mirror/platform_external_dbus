@@ -1,6 +1,9 @@
 # Standard org.freedesktop.DBus.ServiceExists message
 
 VALID_HEADER method_call
+FIELD_NAME path
+TYPE OBJECT_PATH
+OBJECT_PATH '/org/freedesktop/DBus'
 FIELD_NAME ifce
 TYPE STRING
 STRING 'org.freedesktop.DBus'

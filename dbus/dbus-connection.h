@@ -200,7 +200,6 @@ void                  dbus_connection_send_preallocated      (DBusConnection    
 /* Object tree functionality */
 
 typedef void              (* DBusObjectPathUnregisterFunction) (DBusConnection  *connection,
-                                                                const char     **path,
                                                                 void            *user_data);
 typedef DBusHandlerResult (* DBusObjectPathMessageFunction)    (DBusConnection  *connection,
                                                                 DBusMessage     *message,
