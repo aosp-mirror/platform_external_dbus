@@ -70,8 +70,6 @@ void              _dbus_connection_do_iteration                (DBusConnection  
 void              _dbus_connection_notify_disconnected         (DBusConnection     *connection);
 void              _dbus_connection_handler_destroyed_locked    (DBusConnection     *connection,
                                                                 DBusMessageHandler *handler);
-void              _dbus_connection_set_connection_counter      (DBusConnection     *connection,
-                                                                DBusCounter        *counter);
 dbus_bool_t       _dbus_message_handler_add_connection         (DBusMessageHandler *handler,
                                                                 DBusConnection     *connection);
 void              _dbus_message_handler_remove_connection      (DBusMessageHandler *handler,

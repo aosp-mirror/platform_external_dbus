@@ -90,6 +90,8 @@ struct DBusConnection
   
   int n_outgoing;              /**< Length of outgoing queue. */
   int n_incoming;              /**< Length of incoming queue. */
+
+  DBusCounter *outgoing_counter; /**< Counts size of outgoing messages. */
   
   DBusTransport *transport;    /**< Object that sends/receives messages over network. */
   DBusWatchList *watches;      /**< Stores active watches. */
@@ -101,7 +103,6 @@ struct DBusConnection
   DBusDataSlotList slot_list;   /**< Data stored by allocated integer ID */
 
   DBusHashTable *pending_replies;  /**< Hash of message serials and their message handlers. */  
-  DBusCounter *connection_counter; /**< Counter that we decrement when finalized */
   
   int client_serial;            /**< Client serial. Increments each time a message is sent  */
   DBusList *disconnect_message_link; /**< Preallocated list node for queueing the disconnection message */
@@ -320,6 +321,8 @@ _dbus_connection_message_sent (DBusConnection *connection,
                  message, dbus_message_get_name (message),
                  connection, connection->n_outgoing);
 
+  _dbus_message_remove_size_counter (message, connection->outgoing_counter);
+  
   dbus_message_unref (message);
   
   if (connection->n_outgoing == 0)
@@ -588,7 +591,8 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   DBusCondVar *io_path_cond;
   DBusList *disconnect_link;
   DBusMessage *disconnect_message;
-
+  DBusCounter *outgoing_counter;
+  
   watch_list = NULL;
   connection = NULL;
   handler_table = NULL;
@@ -600,6 +604,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   io_path_cond = NULL;
   disconnect_link = NULL;
   disconnect_message = NULL;
+  outgoing_counter = NULL;
   
   watch_list = _dbus_watch_list_new ();
   if (watch_list == NULL)
@@ -649,6 +654,10 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   if (disconnect_link == NULL)
     goto error;
 
+  outgoing_counter = _dbus_counter_new ();
+  if (outgoing_counter == NULL)
+    goto error;
+  
   if (_dbus_modify_sigpipe)
     _dbus_disable_sigpipe ();
   
@@ -662,6 +671,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection->timeouts = timeout_list;
   connection->handler_table = handler_table;
   connection->pending_replies = pending_replies;
+  connection->outgoing_counter = outgoing_counter;
   connection->filter_list = NULL;
   connection->last_dispatch_status = DBUS_DISPATCH_COMPLETE; /* so we're notified first time there's data */
   
@@ -711,6 +721,9 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
 
   if (timeout_list)
     _dbus_timeout_list_free (timeout_list);
+
+  if (outgoing_counter)
+    _dbus_counter_unref (outgoing_counter);
   
   return NULL;
 }
@@ -770,25 +783,6 @@ _dbus_connection_handler_destroyed_locked (DBusConnection     *connection,
       link = next;
     }
   dbus_mutex_unlock (connection->mutex);
-}
-
-/**
- * Adds the counter used to count the number of open connections.
- * Increments the counter by one, and saves it to be decremented
- * again when this connection is finalized.
- *
- * @param connection a #DBusConnection
- * @param counter counter that tracks number of connections
- */
-void
-_dbus_connection_set_connection_counter (DBusConnection *connection,
-                                         DBusCounter    *counter)
-{
-  _dbus_assert (connection->connection_counter == NULL);
-  
-  connection->connection_counter = counter;
-  _dbus_counter_ref (connection->connection_counter);
-  _dbus_counter_adjust (connection->connection_counter, 1);
 }
 
 /** @} */
@@ -872,6 +866,17 @@ _dbus_connection_ref_unlocked (DBusConnection *connection)
   connection->refcount += 1;
 }
 
+static void
+free_outgoing_message (void *element,
+                       void *data)
+{
+  DBusMessage *message = element;
+  DBusConnection *connection = data;
+
+  _dbus_message_remove_size_counter (message,
+                                     connection->outgoing_counter);
+  dbus_message_unref (message);
+}
 
 /* This is run without the mutex held, but after the last reference
  * to the connection has been dropped we should have no thread-related
@@ -891,14 +896,6 @@ _dbus_connection_last_unref (DBusConnection *connection)
    * you won't get the disconnected message.
    */
   _dbus_assert (!_dbus_transport_get_is_connected (connection->transport));
-  
-  if (connection->connection_counter != NULL)
-    {
-      /* subtract ourselves from the counter */
-      _dbus_counter_adjust (connection->connection_counter, - 1);
-      _dbus_counter_unref (connection->connection_counter);
-      connection->connection_counter = NULL;
-    }
 
   /* ---- We're going to call various application callbacks here, hope it doesn't break anything... */
   dbus_connection_set_dispatch_status_function (connection, NULL, NULL, NULL);
@@ -942,14 +939,16 @@ _dbus_connection_last_unref (DBusConnection *connection)
   _dbus_list_clear (&connection->filter_list);
   
   _dbus_list_foreach (&connection->outgoing_messages,
-		      (DBusForeachFunction) dbus_message_unref,
-		      NULL);
+                      free_outgoing_message,
+		      connection);
   _dbus_list_clear (&connection->outgoing_messages);
   
   _dbus_list_foreach (&connection->incoming_messages,
 		      (DBusForeachFunction) dbus_message_unref,
 		      NULL);
   _dbus_list_clear (&connection->incoming_messages);
+
+  _dbus_counter_unref (connection->outgoing_counter);
   
   _dbus_transport_unref (connection->transport);
 
@@ -1063,6 +1062,14 @@ dbus_connection_get_is_authenticated (DBusConnection *connection)
   return res;
 }
 
+struct DBusPreallocatedSend
+{
+  DBusConnection *connection;
+  DBusList *queue_link;
+  DBusList *counter_link;
+};
+
+
 /**
  * Preallocates resources needed to send a message, allowing the message 
  * to be sent without the possibility of memory allocation failure.
@@ -1075,11 +1082,32 @@ dbus_connection_get_is_authenticated (DBusConnection *connection)
 DBusPreallocatedSend*
 dbus_connection_preallocate_send (DBusConnection *connection)
 {
-  /* we store "connection" in the link just to enforce via
-   * assertion that preallocated links are only used
-   * with the connection they were created for.
-   */
-  return (DBusPreallocatedSend*) _dbus_list_alloc_link (connection);
+  DBusPreallocatedSend *preallocated;
+
+  preallocated = dbus_new (DBusPreallocatedSend, 1);
+  if (preallocated == NULL)
+    return NULL;
+
+  preallocated->queue_link = _dbus_list_alloc_link (NULL);
+  if (preallocated->queue_link == NULL)
+    goto failed_0;
+  
+  preallocated->counter_link = _dbus_list_alloc_link (connection->outgoing_counter);
+  if (preallocated->counter_link == NULL)
+    goto failed_1;
+
+  _dbus_counter_ref (preallocated->counter_link->data);
+
+  preallocated->connection = connection;
+  
+  return preallocated;
+  
+ failed_1:
+  _dbus_list_free_link (preallocated->queue_link);
+ failed_0:
+  dbus_free (preallocated);
+
+  return NULL;
 }
 
 /**
@@ -1095,9 +1123,12 @@ void
 dbus_connection_free_preallocated_send (DBusConnection       *connection,
                                         DBusPreallocatedSend *preallocated)
 {
-  DBusList *link = (DBusList*) preallocated;
-  _dbus_assert (link->data == connection);
-  _dbus_list_free_link (link);
+  _dbus_assert (connection == preallocated->connection);
+  
+  _dbus_list_free_link (preallocated->queue_link);
+  _dbus_counter_unref (preallocated->counter_link->data);
+  _dbus_list_free_link (preallocated->counter_link);
+  dbus_free (preallocated);
 }
 
 /**
@@ -1118,19 +1149,25 @@ dbus_connection_send_preallocated (DBusConnection       *connection,
                                    DBusMessage          *message,
                                    dbus_int32_t         *client_serial)
 {
-  DBusList *link = (DBusList*) preallocated;
   dbus_int32_t serial;
   
-  _dbus_assert (link->data == connection);
+  _dbus_assert (preallocated->connection == connection);
   _dbus_assert (dbus_message_get_name (message) != NULL);
   
   dbus_mutex_lock (connection->mutex);
 
-  link->data = message;
+  preallocated->queue_link->data = message;
   _dbus_list_prepend_link (&connection->outgoing_messages,
-                           link);
+                           preallocated->queue_link);
 
+  _dbus_message_add_size_counter_link (message,
+                                       preallocated->counter_link);
+
+  dbus_free (preallocated);
+  preallocated = NULL;
+  
   dbus_message_ref (message);
+  
   connection->n_outgoing += 1;
 
   _dbus_verbose ("Message %p (%s) added to outgoing queue %p, %d pending to send\n",
@@ -2801,27 +2838,47 @@ dbus_connection_get_max_message_size (DBusConnection *connection)
  * @param size the maximum size in bytes of all outstanding messages
  */
 void
-dbus_connection_set_max_live_messages_size (DBusConnection *connection,
-                                            long            size)
+dbus_connection_set_max_received_size (DBusConnection *connection,
+                                                long            size)
 {
   dbus_mutex_lock (connection->mutex);
-  _dbus_transport_set_max_live_messages_size (connection->transport,
-                                              size);
+  _dbus_transport_set_max_received_size (connection->transport,
+                                         size);
   dbus_mutex_unlock (connection->mutex);
 }
 
 /**
- * Gets the value set by dbus_connection_set_max_live_messages_size().
+ * Gets the value set by dbus_connection_set_max_received_size().
  *
  * @param connection the connection
  * @returns the max size of all live messages
  */
 long
-dbus_connection_get_max_live_messages_size (DBusConnection *connection)
+dbus_connection_get_max_received_size (DBusConnection *connection)
 {
   long res;
   dbus_mutex_lock (connection->mutex);
-  res = _dbus_transport_get_max_live_messages_size (connection->transport);
+  res = _dbus_transport_get_max_received_size (connection->transport);
+  dbus_mutex_unlock (connection->mutex);
+  return res;
+}
+
+/**
+ * Gets the approximate size in bytes of all messages in the outgoing
+ * message queue. The size is approximate in that you shouldn't use
+ * it to decide how many bytes to read off the network or anything
+ * of that nature, as optimizations may choose to tell small white lies
+ * to avoid performance overhead.
+ *
+ * @param connection the connection
+ * @returns the number of bytes that have been queued up but not sent
+ */
+long
+dbus_connection_get_outgoing_size (DBusConnection *connection)
+{
+  long res;
+  dbus_mutex_lock (connection->mutex);
+  res = _dbus_counter_get_value (connection->outgoing_counter);
   dbus_mutex_unlock (connection->mutex);
   return res;
 }

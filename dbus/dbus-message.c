@@ -101,8 +101,8 @@ struct DBusMessage
 
   char byte_order; /**< Message byte order. */
 
-  DBusCounter *size_counter; /**< Counter for the size of the message, or #NULL */
-  long size_counter_delta;   /**< Size we incremented the size counter by. */
+  DBusList *size_counters;   /**< 0-N DBusCounter used to track message size. */
+  long size_counter_delta;   /**< Size we incremented the size counters by.   */
 
   dbus_uint32_t changed_stamp;
   
@@ -630,35 +630,84 @@ dbus_message_get_reply_serial  (DBusMessage *message)
  * Adds a counter to be incremented immediately with the
  * size of this message, and decremented by the size
  * of this message when this message if finalized.
+ * The link contains a counter with its refcount already
+ * incremented, but the counter itself not incremented.
+ * Ownership of link and counter refcount is passed to
+ * the message.
+ *
+ * @param message the message
+ * @param link link with counter as data
+ */
+void
+_dbus_message_add_size_counter_link (DBusMessage  *message,
+                                     DBusList     *link)
+{
+  /* right now we don't recompute the delta when message
+   * size changes, and that's OK for current purposes
+   * I think, but could be important to change later.
+   * Do recompute it whenever there are no outstanding counters,
+   * since it's basically free.
+   */
+  if (message->size_counters == NULL)
+    {
+      message->size_counter_delta =
+        _dbus_string_get_length (&message->header) +
+        _dbus_string_get_length (&message->body);
+      
+#if 0
+      _dbus_verbose ("message has size %ld\n",
+                     message->size_counter_delta);
+#endif
+    }
+  
+  _dbus_list_append_link (&message->size_counters, link);
+  
+  _dbus_counter_adjust (link->data, message->size_counter_delta);
+}
+
+/**
+ * Adds a counter to be incremented immediately with the
+ * size of this message, and decremented by the size
+ * of this message when this message if finalized.
+ *
+ * @param message the message
+ * @param counter the counter
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_message_add_size_counter (DBusMessage *message,
+                                DBusCounter *counter)
+{
+  DBusList *link;
+
+  link = _dbus_list_alloc_link (counter);
+  if (link == NULL)
+    return FALSE;
+
+  _dbus_counter_ref (counter);
+  _dbus_message_add_size_counter_link (message, link);
+
+  return TRUE;
+}
+
+/**
+ * Removes a counter tracking the size of this message, and decrements
+ * the counter by the size of this message.
  *
  * @param message the message
  * @param counter the counter
  */
 void
-_dbus_message_add_size_counter (DBusMessage *message,
-                                DBusCounter *counter)
+_dbus_message_remove_size_counter (DBusMessage  *message,
+                                   DBusCounter  *counter)
 {
-  _dbus_assert (message->size_counter == NULL); /* If this fails we may need to keep a list of
-                                                 * counters instead of just one
-                                                 */
+  if (!_dbus_list_remove_last (&message->size_counters,
+                               counter))
+    _dbus_assert_not_reached ("Removed a message size counter that was not added");
 
-  message->size_counter = counter;
-  _dbus_counter_ref (message->size_counter);
+  _dbus_counter_adjust (counter, message->size_counter_delta);
 
-  /* When we can change message size, we may want to
-   * update this each time we do so, or we may want to
-   * just KISS like this.
-   */
-  message->size_counter_delta =
-    _dbus_string_get_length (&message->header) +
-    _dbus_string_get_length (&message->body);
-
-#if 0
-  _dbus_verbose ("message has size %ld\n",
-                 message->size_counter_delta);
-#endif
-  
-  _dbus_counter_adjust (message->size_counter, message->size_counter_delta);
+  _dbus_counter_unref (counter);
 }
 
 static dbus_bool_t
@@ -999,6 +1048,18 @@ dbus_message_ref (DBusMessage *message)
   _dbus_assert (refcount > 1);
 }
 
+static void
+free_size_counter (void *element,
+                   void *data)
+{
+  DBusCounter *counter = element;
+  DBusMessage *message = data;
+
+  _dbus_counter_adjust (counter, - message->size_counter_delta);
+
+  _dbus_counter_unref (counter);
+}
+
 /**
  * Decrements the reference count of a DBusMessage.
  *
@@ -1016,12 +1077,9 @@ dbus_message_unref (DBusMessage *message)
 
   if (refcount == 0)
     {
-      if (message->size_counter != NULL)
-        {
-          _dbus_counter_adjust (message->size_counter,
-                                - message->size_counter_delta);
-          _dbus_counter_unref (message->size_counter);
-        }
+      _dbus_list_foreach (&message->size_counters,
+                          free_size_counter, message);
+      _dbus_list_clear (&message->size_counters);
       
       _dbus_string_free (&message->header);
       _dbus_string_free (&message->body);
@@ -3924,6 +3982,19 @@ DBusList*
 _dbus_message_loader_pop_message_link (DBusMessageLoader *loader)
 {
   return _dbus_list_pop_first_link (&loader->messages);
+}
+
+/**
+ * Returns a popped message link, used to undo a pop.
+ *
+ * @param loader the loader
+ * @param link the link with a message in it
+ */
+void
+_dbus_message_loader_putback_message_link (DBusMessageLoader  *loader,
+                                           DBusList           *link)
+{
+  _dbus_list_prepend_link (&loader->messages, link);
 }
 
 /**

@@ -109,9 +109,6 @@ handle_new_client_fd (DBusServer *server,
   
   if (connection == NULL)
     return FALSE;
-
-  _dbus_connection_set_connection_counter (connection,
-                                           server->connection_counter);
   
   /* See if someone wants to handle this new connection,
    * self-referencing for paranoia

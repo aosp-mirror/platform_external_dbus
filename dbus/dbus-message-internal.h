@@ -35,12 +35,16 @@ void _dbus_message_get_network_data  (DBusMessage       *message,
 				      const DBusString **header,
 				      const DBusString **body);
 
-void         _dbus_message_lock             (DBusMessage  *message);
-void         _dbus_message_unlock           (DBusMessage  *message);
-void         _dbus_message_set_serial       (DBusMessage  *message,
-                                             dbus_int32_t  serial);
-void         _dbus_message_add_size_counter (DBusMessage  *message,
-                                             DBusCounter  *counter);
+void        _dbus_message_lock                  (DBusMessage  *message);
+void        _dbus_message_unlock                (DBusMessage  *message);
+void        _dbus_message_set_serial            (DBusMessage  *message,
+                                                 dbus_int32_t  serial);
+dbus_bool_t _dbus_message_add_size_counter      (DBusMessage  *message,
+                                                 DBusCounter  *counter);
+void        _dbus_message_add_size_counter_link (DBusMessage  *message,
+                                                 DBusList     *link);
+void        _dbus_message_remove_size_counter   (DBusMessage  *message,
+                                                 DBusCounter  *counter);
 
 DBusMessageLoader* _dbus_message_loader_new                   (void);
 void               _dbus_message_loader_ref                   (DBusMessageLoader  *loader);
@@ -55,6 +59,8 @@ dbus_bool_t        _dbus_message_loader_queue_messages        (DBusMessageLoader
 DBusMessage*       _dbus_message_loader_peek_message          (DBusMessageLoader  *loader);
 DBusMessage*       _dbus_message_loader_pop_message           (DBusMessageLoader  *loader);
 DBusList*          _dbus_message_loader_pop_message_link      (DBusMessageLoader  *loader);
+void               _dbus_message_loader_putback_message_link  (DBusMessageLoader  *loader,
+                                                               DBusList           *link);
 
 dbus_bool_t        _dbus_message_loader_get_is_corrupted      (DBusMessageLoader  *loader);
 

@@ -1,3 +1,16 @@
+2003-04-16  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-message.c (_dbus_message_add_size_counter): keep a
+	list of size counters
+	(_dbus_message_loader_putback_message_link): put back a popped link
+
+	* dbus/dbus-connection.c
+	(dbus_connection_set_max_live_messages_size): rename 
+	max_received_size
+	(dbus_connection_get_outgoing_size): get size of outgoing 
+	queue
+	(_dbus_connection_set_connection_counter): remove this cruft
+	
 2003-04-14  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-userdb.c: user database abstraction, mostly to get

@@ -830,11 +830,19 @@ _dbus_transport_queue_messages (DBusTransport *transport)
       
       _dbus_verbose ("queueing received message %p\n", message);
 
-      _dbus_message_add_size_counter (message, transport->live_messages_size);
-
-      /* pass ownership of link and message ref to connection */
-      _dbus_connection_queue_received_message_link (transport->connection,
-                                                    link);
+      if (!_dbus_message_add_size_counter (message, transport->live_messages_size))
+        {
+          _dbus_message_loader_putback_message_link (transport->loader,
+                                                     link);
+          status = DBUS_DISPATCH_NEED_MEMORY;
+          break;
+        }
+      else
+        {
+          /* pass ownership of link and message ref to connection */
+          _dbus_connection_queue_received_message_link (transport->connection,
+                                                        link);
+        }
     }
 
   if (_dbus_message_loader_get_is_corrupted (transport->loader))
@@ -872,14 +880,14 @@ _dbus_transport_get_max_message_size (DBusTransport  *transport)
 }
 
 /**
- * See dbus_connection_set_max_live_messages_size().
+ * See dbus_connection_set_max_received_size().
  *
  * @param transport the transport
  * @param size the max size of all incoming messages
  */
 void
-_dbus_transport_set_max_live_messages_size (DBusTransport  *transport,
-                                            long            size)
+_dbus_transport_set_max_received_size (DBusTransport  *transport,
+                                       long            size)
 {
   transport->max_live_messages_size = size;
   _dbus_counter_set_notify (transport->live_messages_size,
@@ -890,13 +898,13 @@ _dbus_transport_set_max_live_messages_size (DBusTransport  *transport,
 
 
 /**
- * See dbus_connection_get_max_live_messages_size().
+ * See dbus_connection_get_max_received_size().
  *
  * @param transport the transport
  * @returns max bytes for all live messages
  */
 long
-_dbus_transport_get_max_live_messages_size (DBusTransport  *transport)
+_dbus_transport_get_max_received_size (DBusTransport  *transport)
 {
   return transport->max_live_messages_size;
 }

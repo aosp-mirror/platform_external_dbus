@@ -71,7 +71,6 @@ _dbus_server_init_base (DBusServer             *server,
   server->address = NULL;
   server->watches = NULL;
   server->timeouts = NULL;
-  server->connection_counter = NULL;
   
   if (!_dbus_string_copy_data (address, &server->address))
     goto failed;
@@ -82,10 +81,6 @@ _dbus_server_init_base (DBusServer             *server,
 
   server->timeouts = _dbus_timeout_list_new ();
   if (server->timeouts == NULL)
-    goto failed;
-  
-  server->connection_counter = _dbus_counter_new ();
-  if (server->connection_counter == NULL)
     goto failed;
 
   _dbus_data_slot_list_init (&server->slot_list);
@@ -104,11 +99,6 @@ _dbus_server_init_base (DBusServer             *server,
     {
       _dbus_timeout_list_free (server->timeouts);
       server->timeouts = NULL;
-    }
-  if (server->connection_counter)
-    {
-      _dbus_counter_unref (server->connection_counter);
-      server->connection_counter = NULL;
     }
   if (server->address)
     {
@@ -138,7 +128,6 @@ _dbus_server_finalize_base (DBusServer *server)
 
   _dbus_watch_list_free (server->watches);
   _dbus_timeout_list_free (server->timeouts);
-  _dbus_counter_unref (server->connection_counter);
 
   dbus_free (server->address);
 

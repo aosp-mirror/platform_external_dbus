@@ -55,11 +55,7 @@ struct DBusServer
   int refcount;                               /**< Reference count. */
   const DBusServerVTable *vtable;             /**< Virtual methods for this instance. */
   DBusWatchList *watches;                     /**< Our watches */
-  DBusTimeoutList *timeouts;                  /**< Our timeouts */
-  
-  DBusCounter *connection_counter;            /**< Number of non-finalized DBusConnection
-                                               *   to this server
-                                               */
+  DBusTimeoutList *timeouts;                  /**< Our timeouts */  
 
   char *address;                              /**< Address this server is listening on. */
   
