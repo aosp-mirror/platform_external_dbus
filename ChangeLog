@@ -1,5 +1,12 @@
 2004-11-26  Havoc Pennington  <hp@redhat.com>
 
+	* test/glib/test-profile.c: tweak a bit, add support for some
+	made-up minimal malloc overhead with plain sockets, since in 
+	real life some sort of buffers are unavoidable thus we could 
+	count them in the theoretical best case
+
+2004-11-26  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-message.c (dbus_message_cache_or_finalize): fix bug
 	where I was trying to cache one too many messages
 

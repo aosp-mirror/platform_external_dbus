@@ -47,14 +47,15 @@
  * higher in the profile the larger the number of threads.
  */
 #define N_CLIENT_THREADS 1
-#define N_ITERATIONS 1500000
+#define N_ITERATIONS 750000
 #define N_PROGRESS_UPDATES 20
-#define PAYLOAD_SIZE 30
+/* Don't make PAYLOAD_SIZE too huge because it gets used as a static buffer size */
+#define PAYLOAD_SIZE 0
 #define ECHO_PATH "/org/freedesktop/EchoTest"
 #define ECHO_INTERFACE "org.freedesktop.EchoTest"
 #define ECHO_METHOD "EchoProfile"
 
-static const char *with_bus_address;
+static const char *messages_address;
 static const char *plain_sockets_address;
 static unsigned char *payload;
 static int echo_call_size;
@@ -97,7 +98,7 @@ send_echo_method_call (DBusConnection *connection)
   dbus_message_append_args (message,
                             DBUS_TYPE_STRING, "Hello World!",
                             DBUS_TYPE_INT32, 123456,
-#if 0
+#if PAYLOAD_SIZE > 0
                             DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE,
                             payload, PAYLOAD_SIZE,
 #endif
@@ -156,7 +157,7 @@ client_filter (DBusConnection     *connection,
 }
 
 static void*
-with_bus_thread_func (void *data)
+messages_thread_func (void *data)
 {
   DBusError error;
   GMainContext *context;
@@ -166,7 +167,7 @@ with_bus_thread_func (void *data)
   g_printerr ("Starting client thread %p\n", g_thread_self());  
   
   dbus_error_init (&error);
-  connection = dbus_connection_open (with_bus_address, &error);
+  connection = dbus_connection_open (messages_address, &error);
   if (connection == NULL)
     {
       g_printerr ("could not open connection: %s\n", error.message);
@@ -251,11 +252,11 @@ new_connection_callback (DBusServer     *server,
 }
 
 static void*
-with_bus_init_server (ServerData *sd)
+messages_init_server (ServerData *sd)
 {
   DBusServer *server;
   DBusError error;
-
+  
 #ifndef DBUS_DISABLE_ASSERT
   g_printerr ("You should probably --disable-asserts before you profile as they have noticeable overhead\n");
 #endif
@@ -270,7 +271,7 @@ with_bus_init_server (ServerData *sd)
       exit (1);
     }
 
-  with_bus_address = dbus_server_get_address (server);
+  messages_address = dbus_server_get_address (server);
   
   dbus_server_set_new_connection_function (server,
                                            new_connection_callback,
@@ -282,7 +283,7 @@ with_bus_init_server (ServerData *sd)
 }
 
 static void
-with_bus_stop_server (ServerData *sd,
+messages_stop_server (ServerData *sd,
                       void       *server)
 {
   g_printerr ("The following g_warning is because we try to call g_source_remove_poll() after g_source_destroy() in dbus-gmain.c, I think we need to add a source free func that clears out the watch/timeout funcs\n");
@@ -291,17 +292,17 @@ with_bus_stop_server (ServerData *sd,
 }
 
 static void
-with_bus_main_loop_run (GMainLoop *loop)
+messages_main_loop_run (GMainLoop *loop)
 {
   g_main_loop_run (loop);
 }
 
-static const ProfileRunVTable with_bus_vtable = {
-  "with bus",
-  with_bus_init_server,
-  with_bus_stop_server,
-  with_bus_thread_func,
-  with_bus_main_loop_run
+static const ProfileRunVTable messages_vtable = {
+  "with dbus messages",
+  messages_init_server,
+  messages_stop_server,
+  messages_thread_func,
+  messages_main_loop_run
 };
 
 typedef struct
@@ -311,21 +312,38 @@ typedef struct
   unsigned int source_id;
 } PlainSocketServer;
 
+static gboolean fake_malloc_overhead = FALSE;
+
 static void
 read_and_drop_on_floor (int fd,
                         int count)
 {
   int bytes_read;
   int val;
-  char buf[512];
+  char *buf;
+  char *allocated;
+  char not_allocated[512+PAYLOAD_SIZE];
 
+  g_assert (count < (int) sizeof(not_allocated));
+  
+  if (fake_malloc_overhead)
+    {
+      allocated = g_malloc (count);
+      buf = allocated;
+    }
+  else
+    {
+      allocated = NULL;
+      buf = not_allocated;
+    }
+  
   bytes_read = 0;
 
   while (bytes_read < count)
     {
     again:
       
-      val = read (fd, buf, MIN (count - bytes_read, (int) sizeof(buf)));
+      val = read (fd, buf + bytes_read, count - bytes_read);                  
       
       if (val < 0)
         {
@@ -344,6 +362,9 @@ read_and_drop_on_floor (int fd,
         }
     }
 
+  if (fake_malloc_overhead)
+    g_free (allocated);
+
 #if 0
   g_printerr ("%p read %d bytes from fd %d\n",
            g_thread_self(), bytes_read, fd);
@@ -356,15 +377,42 @@ write_junk (int fd,
 {
   int bytes_written;
   int val;
-  char buf[512];
+  char *buf;
+  char *allocated;
+  char not_allocated[512+PAYLOAD_SIZE];
 
+  g_assert (count < (int) sizeof(not_allocated));
+  
+  if (fake_malloc_overhead)
+    {
+      int i;
+      
+      allocated = g_malloc (count);
+      buf = allocated;
+
+      /* Write some stuff into the allocated buffer to simulate
+       * creating some sort of data
+       */
+      i = 0;
+      while (i < count)
+        {
+          allocated[i] = (char) i;
+          ++i;
+        }
+    }
+  else
+    {
+      allocated = NULL;
+      buf = not_allocated;
+    }
+  
   bytes_written = 0;
   
   while (bytes_written < count)
     {
     again:
       
-      val = write (fd, buf, MIN (count - bytes_written, (int) sizeof(buf)));
+      val = write (fd, buf + bytes_written, count - bytes_written);
       
       if (val < 0)
         {
@@ -383,6 +431,9 @@ write_junk (int fd,
         }
     }
 
+  if (fake_malloc_overhead)
+    g_free (allocated);
+  
 #if 0
   g_printerr ("%p wrote %d bytes to fd %d\n",
            g_thread_self(), bytes_written, fd);
@@ -699,6 +750,14 @@ static const ProfileRunVTable plain_sockets_vtable = {
   plain_sockets_main_loop_run
 };
 
+static const ProfileRunVTable plain_sockets_with_malloc_vtable = {
+  "plain sockets with malloc overhead",
+  plain_sockets_init_server,
+  plain_sockets_stop_server,
+  plain_sockets_thread_func,
+  plain_sockets_main_loop_run
+};
+
 static double
 do_profile_run (const ProfileRunVTable *vtable)
 {
@@ -708,6 +767,8 @@ do_profile_run (const ProfileRunVTable *vtable)
   ServerData sd;
   void *server;
 
+  g_printerr ("Profiling %s\n", vtable->name);
+  
   sd.handled = 0;
   sd.n_clients = 0;
   sd.loop = g_main_loop_new (NULL, FALSE);
@@ -751,23 +812,34 @@ main (int argc, char *argv[])
   /* The actual size of the DBusMessage on the wire, as of Nov 23 2004,
    * without the payload
    */
-  echo_call_size = 140;
+  echo_call_size = 140 + PAYLOAD_SIZE;
   echo_return_size = 32;
 
   if (argc > 1 && strcmp (argv[1], "plain_sockets") == 0)
     do_profile_run (&plain_sockets_vtable);
-  if (argc > 1 && strcmp (argv[1], "both") == 0)
+  else if (argc > 1 && strcmp (argv[1], "plain_sockets_with_malloc") == 0)
     {
-      double e1, e2;
-      
-      e1 = do_profile_run (&plain_sockets_vtable);
-      e2 = do_profile_run (&with_bus_vtable);
+      fake_malloc_overhead = TRUE;
+      do_profile_run (&plain_sockets_with_malloc_vtable);
+    }
+  else if (argc > 1 && strcmp (argv[1], "all") == 0)
+    {
+      double e1, e2, e3;
 
-      g_printerr ("libdbus version is %g times slower than plain sockets\n",
-                  e2/e1);
+      fake_malloc_overhead = FALSE;
+      e1 = do_profile_run (&plain_sockets_vtable);
+      fake_malloc_overhead = TRUE;
+      e2 = do_profile_run (&plain_sockets_with_malloc_vtable);
+      fake_malloc_overhead = FALSE;
+      e3 = do_profile_run (&messages_vtable);
+
+      g_printerr ("parsed dbus messages %g times slower than plain sockets without buffer allocation or population\n",
+                  e3/e1);
+      g_printerr ("parsed dbus messages %g times slower than plain sockets with buffer allocation and population\n",
+                  e3/e2);
     }
   else
-    do_profile_run (&with_bus_vtable);
+    do_profile_run (&messages_vtable);
   
   return 0;
 }
