@@ -140,12 +140,12 @@ array_reader_get_array_len (const DBusTypeReader *reader)
   /* array_len_offset is the offset back from start_pos to end of the len */
   len_pos = reader->u.array.start_pos - ((int)reader->array_len_offset) - 4;
 
-  _dbus_demarshal_basic_type (reader->value_str,
-                              len_pos,
-                              DBUS_TYPE_UINT32,
-                              &array_len,
-                              reader->byte_order,
-                              NULL);
+  _dbus_marshal_read_basic (reader->value_str,
+                            len_pos,
+                            DBUS_TYPE_UINT32,
+                            &array_len,
+                            reader->byte_order,
+                            NULL);
 
   _dbus_verbose ("   reader %p len_pos %d array len %u len_offset %d\n",
                  reader, len_pos, array_len, reader->array_len_offset);
@@ -333,9 +333,9 @@ base_reader_next (DBusTypeReader *reader,
 
     default:
       if (!reader->klass->types_only)
-        _dbus_marshal_skip_basic_type (reader->value_str,
-                                       current_type, reader->byte_order,
-                                       &reader->value_pos);
+        _dbus_marshal_skip_basic (reader->value_str,
+                                  current_type, reader->byte_order,
+                                  &reader->value_pos);
 
       reader->type_pos += 1;
       break;
@@ -421,9 +421,9 @@ array_reader_next (DBusTypeReader *reader,
 
     default:
       {
-        _dbus_marshal_skip_basic_type (reader->value_str,
-                                       current_type, reader->byte_order,
-                                       &reader->value_pos);
+        _dbus_marshal_skip_basic (reader->value_str,
+                                  current_type, reader->byte_order,
+                                  &reader->value_pos);
       }
       break;
     }
@@ -660,12 +660,12 @@ _dbus_type_reader_array_is_empty (const DBusTypeReader *reader)
    _dbus_verbose ("checking array len at %d\n", reader->value_pos);
 #endif
 
-  _dbus_demarshal_basic_type (reader->value_str,
-                              reader->value_pos,
-                              DBUS_TYPE_UINT32,
-                              &array_len,
-                              reader->byte_order,
-                              NULL);
+   _dbus_marshal_read_basic (reader->value_str,
+                             reader->value_pos,
+                             DBUS_TYPE_UINT32,
+                             &array_len,
+                             reader->byte_order,
+                             NULL);
 #if RECURSIVE_MARSHAL_TRACE
   _dbus_verbose (" ... array len = %d\n", array_len);
 #endif
@@ -683,11 +683,11 @@ _dbus_type_reader_read_basic (const DBusTypeReader    *reader,
 
   t = _dbus_type_reader_get_current_type (reader);
 
-  _dbus_demarshal_basic_type (reader->value_str,
-                              reader->value_pos,
-                              t, value,
-                              reader->byte_order,
-                              NULL);
+  _dbus_marshal_read_basic (reader->value_str,
+                            reader->value_pos,
+                            t, value,
+                            reader->byte_order,
+                            NULL);
 
 
 #if RECURSIVE_MARSHAL_TRACE
@@ -859,16 +859,16 @@ _dbus_type_reader_get_signature (const DBusTypeReader  *reader,
 }
 
 static void
-reader_fixed_length_set_basic (DBusTypeReader *reader,
+reader_set_basic_fixed_length (DBusTypeReader *reader,
                                int             current_type,
                                const void     *value)
 {
-  _dbus_marshal_set_basic_type ((DBusString*) reader->value_str,
-                                reader->value_pos,
-                                current_type,
-                                value,
-                                reader->byte_order,
-                                NULL, NULL);
+  _dbus_marshal_set_basic ((DBusString*) reader->value_str,
+                           reader->value_pos,
+                           current_type,
+                           value,
+                           reader->byte_order,
+                           NULL, NULL);
 }
 
 /**
@@ -905,11 +905,12 @@ _dbus_type_reader_set_basic (DBusTypeReader *reader,
 
   if (!_dbus_type_length_varies (current_type))
     {
-      reader_fixed_length_set_basic (reader, current_type, value);
+      reader_set_basic_fixed_length (reader, current_type, value);
       return TRUE;
     }
 
-  /* FIXME */
+  /* In the harder case, we have to fix alignment after we insert. */
+
 
   retval = TRUE;
 
@@ -975,12 +976,12 @@ _dbus_type_writer_write_basic_no_typecode (DBusTypeWriter *writer,
                                            int             type,
                                            const void     *value)
 {
-  return _dbus_marshal_basic_type (writer->value_str,
-                                   writer->value_pos,
-                                   type,
-                                   value,
-                                   writer->byte_order,
-                                   &writer->value_pos);
+  return _dbus_marshal_write_basic (writer->value_str,
+                                    writer->value_pos,
+                                    type,
+                                    value,
+                                    writer->byte_order,
+                                    &writer->value_pos);
 }
 
 /* If our parent is an array, things are a little bit complicated.

@@ -2,7 +2,7 @@
 /* dbus-marshal-basic.h  Marshalling routines for basic (primitive) types
  *
  * Copyright (C) 2002  CodeFactory AB
- * Copyright (C) 2004  Red Hat, Inc.
+ * Copyright (C) 2004, 2005  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
  *
@@ -262,53 +262,54 @@ dbus_uint32_t _dbus_unpack_uint32 (int                  byte_order,
                                    const unsigned char *data);
 
 
-dbus_bool_t   _dbus_marshal_set_basic_type   (DBusString       *str,
-                                              int               pos,
-                                              int               type,
-                                              const void       *value,
-                                              int               byte_order,
-                                              int              *old_end_pos,
-                                              int              *new_end_pos);
-dbus_bool_t   _dbus_marshal_basic_type       (DBusString       *str,
-                                              int               insert_at,
-                                              int               type,
-                                              const void       *value,
-                                              int               byte_order,
-                                              int              *pos_after);
-dbus_bool_t   _dbus_marshal_basic_type_array (DBusString       *str,
-                                              int               insert_at,
-                                              int               element_type,
-                                              const void       *value,
-                                              int               len,
-                                              int               byte_order,
-                                              int              *pos_after);
-void          _dbus_demarshal_basic_type     (const DBusString *str,
-                                              int               pos,
-                                              int               type,
-                                              void             *value,
-                                              int               byte_order,
-                                              int              *new_pos);
-void          _dbus_marshal_skip_basic_type  (const DBusString *str,
-                                              int               type,
-                                              int               byte_order,
-                                              int              *pos);
-void          _dbus_marshal_skip_array       (const DBusString *str,
-                                              int               element_type,
-                                              int               byte_order,
-                                              int              *pos);
-void          _dbus_marshal_set_uint32       (DBusString       *str,
-                                              int               pos,
-                                              dbus_uint32_t     value,
-                                              int               byte_order);
-dbus_uint32_t _dbus_demarshal_uint32         (const DBusString *str,
-                                              int               pos,
-                                              int               byte_order,
-                                              int              *new_pos);
-dbus_bool_t   _dbus_type_is_valid            (int               typecode);
-int           _dbus_type_get_alignment       (int               typecode);
-dbus_bool_t   _dbus_type_is_basic            (int               typecode);
-dbus_bool_t   _dbus_type_is_container        (int               typecode);
-dbus_bool_t   _dbus_type_length_varies       (int               typecode);
+dbus_bool_t   _dbus_marshal_set_basic         (DBusString       *str,
+                                               int               pos,
+                                               int               type,
+                                               const void       *value,
+                                               int               byte_order,
+                                               int              *old_end_pos,
+                                               int              *new_end_pos);
+dbus_bool_t   _dbus_marshal_write_basic       (DBusString       *str,
+                                               int               insert_at,
+                                               int               type,
+                                               const void       *value,
+                                               int               byte_order,
+                                               int              *pos_after);
+dbus_bool_t   _dbus_marshal_write_basic_array (DBusString       *str,
+                                               int               insert_at,
+                                               int               element_type,
+                                               const void       *value,
+                                               int               len,
+                                               int               byte_order,
+                                               int              *pos_after);
+void          _dbus_marshal_read_basic        (const DBusString *str,
+                                               int               pos,
+                                               int               type,
+                                               void             *value,
+                                               int               byte_order,
+                                               int              *new_pos);
+void          _dbus_marshal_skip_basic        (const DBusString *str,
+                                               int               type,
+                                               int               byte_order,
+                                               int              *pos);
+void          _dbus_marshal_skip_array        (const DBusString *str,
+                                               int               element_type,
+                                               int               byte_order,
+                                               int              *pos);
+void          _dbus_marshal_set_uint32        (DBusString       *str,
+                                               int               pos,
+                                               dbus_uint32_t     value,
+                                               int               byte_order);
+dbus_uint32_t _dbus_marshal_read_uint32       (const DBusString *str,
+                                               int               pos,
+                                               int               byte_order,
+                                               int              *new_pos);
+dbus_bool_t   _dbus_type_is_valid             (int               typecode);
+int           _dbus_type_get_alignment        (int               typecode);
+dbus_bool_t   _dbus_type_is_basic             (int               typecode);
+dbus_bool_t   _dbus_type_is_container         (int               typecode);
+dbus_bool_t   _dbus_type_length_varies        (int               typecode);
+
 
 
 

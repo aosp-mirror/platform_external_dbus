@@ -283,7 +283,7 @@ set_string (DBusString          *str,
 
   _dbus_string_init_const (&dstr, value);
 
-  old_len = _dbus_demarshal_uint32 (str, pos, byte_order, NULL);
+  old_len = _dbus_marshal_read_uint32 (str, pos, byte_order, NULL);
 
   new_len = _dbus_string_get_length (&dstr);
 
@@ -358,13 +358,13 @@ set_signature (DBusString          *str,
  * @returns #FALSE if no memory
  */
 dbus_bool_t
-_dbus_marshal_set_basic_type (DBusString       *str,
-                              int               pos,
-                              int               type,
-                              const void       *value,
-                              int               byte_order,
-                              int              *old_end_pos,
-                              int              *new_end_pos)
+_dbus_marshal_set_basic (DBusString       *str,
+                         int               pos,
+                         int               type,
+                         const void       *value,
+                         int               byte_order,
+                         int              *old_end_pos,
+                         int              *new_end_pos)
 {
   const DBusBasicValue *vp;
 
@@ -419,10 +419,10 @@ _dbus_marshal_set_basic_type (DBusString       *str,
 }
 
 static dbus_uint32_t
-demarshal_4_octets (const DBusString *str,
-                    int               pos,
-                    int               byte_order,
-                    int              *new_pos)
+read_4_octets (const DBusString *str,
+               int               pos,
+               int               byte_order,
+               int              *new_pos)
 {
   pos = _DBUS_ALIGN_VALUE (pos, 4);
 
@@ -443,16 +443,16 @@ demarshal_4_octets (const DBusString *str,
  * @returns the demarshaled integer.
  */
 dbus_uint32_t
-_dbus_demarshal_uint32  (const DBusString *str,
-			 int               pos,
-                         int               byte_order,
-			 int              *new_pos)
+_dbus_marshal_read_uint32  (const DBusString *str,
+                            int               pos,
+                            int               byte_order,
+                            int              *new_pos)
 {
-  return demarshal_4_octets (str, pos, byte_order, new_pos);
+  return read_4_octets (str, pos, byte_order, new_pos);
 }
 
 /**
- * Demarshals a basic type. The "value" pointer is always
+ * Demarshals a basic-typed value. The "value" pointer is always
  * the address of a variable of the basic type. So e.g.
  * if the basic type is "double" then the pointer is
  * a double*, and if it's "char*" then the pointer is
@@ -473,12 +473,12 @@ _dbus_demarshal_uint32  (const DBusString *str,
  * @param new_pos pointer to update with new position, or #NULL
  **/
 void
-_dbus_demarshal_basic_type (const DBusString      *str,
-                            int                    pos,
-			    int                    type,
-			    void                  *value,
-			    int                    byte_order,
-                            int                   *new_pos)
+_dbus_marshal_read_basic (const DBusString      *str,
+                          int                    pos,
+                          int                    type,
+                          void                  *value,
+                          int                    byte_order,
+                          int                   *new_pos)
 {
   const char *str_data;
   DBusBasicValue *vp;
@@ -523,7 +523,7 @@ _dbus_demarshal_basic_type (const DBusString      *str,
       {
         int len;
 
-        len = _dbus_demarshal_uint32 (str, pos, byte_order, &pos);
+        len = _dbus_marshal_read_uint32 (str, pos, byte_order, &pos);
 
         vp->str = (char*) str_data + pos;
 
@@ -711,11 +711,11 @@ marshal_signature (DBusString    *str,
 }
 
 /**
- * Marshals a basic type. The "value" pointer is always the
+ * Marshals a basic-typed value. The "value" pointer is always the
  * address of a variable containing the basic type value.
  * So for example for int32 it will be dbus_int32_t*, and
  * for string it will be const char**. This is for symmetry
- * with _dbus_demarshal_basic_type() and to have a simple
+ * with _dbus_marshal_read_basic() and to have a simple
  * consistent rule.
  *
  * @param str string to marshal to
@@ -727,12 +727,12 @@ marshal_signature (DBusString    *str,
  * @returns #TRUE on success
  **/
 dbus_bool_t
-_dbus_marshal_basic_type (DBusString *str,
-                          int         insert_at,
-			  int         type,
-			  const void *value,
-			  int         byte_order,
-                          int        *pos_after)
+_dbus_marshal_write_basic (DBusString *str,
+                           int         insert_at,
+                           int         type,
+                           const void *value,
+                           int         byte_order,
+                           int        *pos_after)
 {
   const DBusBasicValue *vp;
 
@@ -909,13 +909,13 @@ marshal_8_octets_array (DBusString           *str,
  * @returns #TRUE on success
  **/
 dbus_bool_t
-_dbus_marshal_basic_type_array (DBusString *str,
-                                int         insert_at,
-				int         element_type,
-				const void *value,
-				int         len,
-				int         byte_order,
-                                int        *pos_after)
+_dbus_marshal_write_basic_array (DBusString *str,
+                                 int         insert_at,
+                                 int         element_type,
+                                 const void *value,
+                                 int         len,
+                                 int         byte_order,
+                                 int        *pos_after)
 {
   /* FIXME use the insert_at arg and fill in pos_after */
 
@@ -956,19 +956,19 @@ _dbus_marshal_basic_type_array (DBusString *str,
 
 
 /**
- * Skips over a basic type, reporting the following position.
+ * Skips over a basic-typed value, reporting the following position.
  *
  * @param str the string containing the data
- * @param type type of value to demarshal
+ * @param type type of value to read
  * @param byte_order the byte order
  * @param pos pointer to position in the string,
  *            updated on return to new position
  **/
 void
-_dbus_marshal_skip_basic_type (const DBusString      *str,
-                               int                    type,
-                               int                    byte_order,
-                               int                   *pos)
+_dbus_marshal_skip_basic (const DBusString      *str,
+                          int                    type,
+                          int                    byte_order,
+                          int                   *pos)
 {
   switch (type)
     {
@@ -992,7 +992,7 @@ _dbus_marshal_skip_basic_type (const DBusString      *str,
       {
         int len;
 
-        len = _dbus_demarshal_uint32 (str, *pos, byte_order, pos);
+        len = _dbus_marshal_read_uint32 (str, *pos, byte_order, pos);
 
         *pos += len + 1; /* length plus nul */
       }
@@ -1035,12 +1035,7 @@ _dbus_marshal_skip_array (const DBusString  *str,
 
   i = _DBUS_ALIGN_VALUE (*pos, 4);
 
-  _dbus_demarshal_basic_type (str,
-                              i,
-                              DBUS_TYPE_UINT32,
-                              &array_len,
-                              byte_order,
-                              &i);
+  array_len = _dbus_marshal_read_uint32 (str, i, byte_order, &i);
 
   alignment = _dbus_type_get_alignment (element_type);
 
@@ -1155,7 +1150,7 @@ _dbus_type_is_container (int typecode)
  *
  * This function is defined to return #TRUE for exactly those
  * types that can be written with _dbus_marshal_basic_type()
- * and read with _dbus_demarshal_basic_type().
+ * and read with _dbus_marshal_read_basic().
  *
  * This function will crash if passed a typecode that isn't
  * in dbus-protocol.h
@@ -1320,7 +1315,7 @@ _dbus_verbose_bytes_of_string (const DBusString    *str,
 #define MARSHAL_BASIC(typename, byte_order, literal)                    \
   do {                                                                  \
      v_##typename = literal;                                            \
-     if (!_dbus_marshal_basic_type (&str, pos, DBUS_TYPE_##typename,    \
+     if (!_dbus_marshal_write_basic (&str, pos, DBUS_TYPE_##typename,   \
                                     &v_##typename,                      \
                                     byte_order, NULL))                  \
        _dbus_assert_not_reached ("no memory");                          \
@@ -1328,7 +1323,7 @@ _dbus_verbose_bytes_of_string (const DBusString    *str,
 
 #define DEMARSHAL_BASIC(typename, byte_order)                                   \
   do {                                                                          \
-    _dbus_demarshal_basic_type (&str, pos, DBUS_TYPE_##typename, &v_##typename, \
+    _dbus_marshal_read_basic (&str, pos, DBUS_TYPE_##typename, &v_##typename,   \
                                 byte_order, &pos);                              \
   } while (0)
 
@@ -1621,23 +1616,23 @@ _dbus_marshal_test (void)
       _dbus_string_init_const (&t, "Hello world foo");
 
       v_STRING = _dbus_string_get_const_data (&t);
-      _dbus_marshal_set_basic_type (&str, 0, DBUS_TYPE_STRING,
-                                    &v_STRING, byte_order, NULL, NULL);
+      _dbus_marshal_set_basic (&str, 0, DBUS_TYPE_STRING,
+                               &v_STRING, byte_order, NULL, NULL);
 
-      _dbus_demarshal_basic_type (&str, 0, DBUS_TYPE_STRING,
-                                  &v_STRING, byte_order,
-                                  NULL);
+      _dbus_marshal_read_basic (&str, 0, DBUS_TYPE_STRING,
+                                &v_STRING, byte_order,
+                                NULL);
       _dbus_assert (strcmp (v_STRING, "Hello world foo") == 0);
 
       /* Set it to something shorter */
       _dbus_string_init_const (&t, "Hello");
 
       v_STRING = _dbus_string_get_const_data (&t);
-      _dbus_marshal_set_basic_type (&str, 0, DBUS_TYPE_STRING,
-                                    &v_STRING, byte_order, NULL, NULL);
-      _dbus_demarshal_basic_type (&str, 0, DBUS_TYPE_STRING,
-                                  &v_STRING, byte_order,
-                                  NULL);
+      _dbus_marshal_set_basic (&str, 0, DBUS_TYPE_STRING,
+                               &v_STRING, byte_order, NULL, NULL);
+      _dbus_marshal_read_basic (&str, 0, DBUS_TYPE_STRING,
+                                &v_STRING, byte_order,
+                                NULL);
       _dbus_assert (strcmp (v_STRING, "Hello") == 0);
 
       /* Do the other byte order */
