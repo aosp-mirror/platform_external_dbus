@@ -1270,7 +1270,7 @@ dbus_message_append_args_valist (DBusMessage *message,
                                                  &array))
             goto failed;
           
-          if (_dbus_type_is_fixed (element_type))
+          if (dbus_type_is_fixed (element_type))
             {
               const DBusBasicValue **value;
               int n_elements;
@@ -1676,6 +1676,9 @@ dbus_message_iter_get_basic (DBusMessageIter  *iter,
  * such as integers, bool, double. The block read will be from the
  * current position in the array until the end of the array.
  *
+ * This function should only be used if #dbus_type_is_fixed returns
+ * #TRUE for the element type.
+ *
  * The value argument should be the address of a location to store the
  * returned array. So for int32 it should be a "const dbus_int32_t**"
  * The returned value is by reference and should not be freed.
@@ -1693,7 +1696,7 @@ dbus_message_iter_get_fixed_array (DBusMessageIter  *iter,
 
   _dbus_return_if_fail (_dbus_message_iter_check (real));
   _dbus_return_if_fail (value != NULL);
-  _dbus_return_if_fail (_dbus_type_is_fixed (_dbus_type_reader_get_element_type (&real->u.reader)));
+  _dbus_return_if_fail (dbus_type_is_fixed (_dbus_type_reader_get_element_type (&real->u.reader)));
 
   _dbus_type_reader_read_fixed_multi (&real->u.reader,
                                       value, n_elements);
@@ -1778,7 +1781,7 @@ _dbus_message_iter_get_args_valist (DBusMessageIter *iter,
               goto out;
             }
 
-          if (_dbus_type_is_fixed (spec_element_type))
+          if (dbus_type_is_fixed (spec_element_type))
             {
               ptr = va_arg (var_args, const DBusBasicValue**);
               n_elements_p = va_arg (var_args, int*);
@@ -2138,7 +2141,7 @@ dbus_message_iter_append_fixed_array (DBusMessageIter *iter,
 
   _dbus_return_val_if_fail (_dbus_message_iter_append_check (real), FALSE);
   _dbus_return_val_if_fail (real->iter_type == DBUS_MESSAGE_ITER_TYPE_WRITER, FALSE);
-  _dbus_return_val_if_fail (_dbus_type_is_fixed (element_type), FALSE);
+  _dbus_return_val_if_fail (dbus_type_is_fixed (element_type), FALSE);
   _dbus_return_val_if_fail (real->u.writer.container_type == DBUS_TYPE_ARRAY, FALSE);
   _dbus_return_val_if_fail (value != NULL, FALSE);
   _dbus_return_val_if_fail (n_elements >= 0, FALSE);

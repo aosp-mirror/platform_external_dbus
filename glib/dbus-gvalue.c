@@ -26,50 +26,51 @@
 #include "dbus/dbus-signature.h"
 
 /* This is slightly evil, we don't use g_value_set_foo() functions */
-#define MAP_BASIC_INIT(d_t, g_t)                                     \
-    case DBUS_TYPE_##d_t:                                       \
-      g_value_init (value, G_TYPE_##g_t);                       \
-      break
+#define MAP_BASIC(d_t, g_t)                     \
+    case DBUS_TYPE_##d_t:                       \
+      return G_TYPE_##g_t;
 
-gboolean
-dbus_gvalue_init      (int     type,
-		       GValue *value)
+static GType
+dbus_dbus_type_to_gtype (int type)
 {
-  gboolean can_convert;
-
-  can_convert = TRUE;
-
   switch (type)
     {
-      MAP_BASIC_INIT (BOOLEAN, BOOLEAN);
-      MAP_BASIC_INIT (BYTE,    UCHAR);
-      MAP_BASIC_INIT (INT32,   INT);
-      MAP_BASIC_INIT (UINT32,  UINT);
-      MAP_BASIC_INIT (INT64,   INT64);
-      MAP_BASIC_INIT (UINT64,  UINT64);
-      MAP_BASIC_INIT (DOUBLE,  DOUBLE);
-
+      MAP_BASIC (BOOLEAN, BOOLEAN);
+      MAP_BASIC (BYTE,    UCHAR);
+      MAP_BASIC (INT32,   INT);
+      MAP_BASIC (UINT32,  UINT);
+      MAP_BASIC (INT64,   INT64);
+      MAP_BASIC (UINT64,  UINT64);
+      MAP_BASIC (DOUBLE,  DOUBLE);
     case DBUS_TYPE_INT16:
-        g_value_init (value, G_TYPE_INT);
-      break;
+      return G_TYPE_INT;
     case DBUS_TYPE_UINT16:
-        g_value_init (value, G_TYPE_UINT);
-      break;
-      
+      return G_TYPE_UINT;
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_SIGNATURE:
-        g_value_init (value, G_TYPE_STRING);
-      break;
-      
+      return G_TYPE_STRING;
     case DBUS_TYPE_STRUCT:
     case DBUS_TYPE_ARRAY:
     case DBUS_TYPE_VARIANT:
     default:
-      can_convert = FALSE;
+      return G_TYPE_INVALID;
     }
-#undef MAP_BASIC_INIT
-  return can_convert;
+}
+
+#undef MAP_BASIC
+
+gboolean
+dbus_gvalue_init (int     type,
+		  GValue *value)
+{
+  GType gtype;
+
+  gtype = dbus_dbus_type_to_gtype (type);
+  if (gtype == G_TYPE_INVALID)
+    return FALSE;
+  g_value_init (value, gtype);
+  return TRUE;
 }
 
 /* FIXME - broken for containers
@@ -121,43 +122,6 @@ dbus_gvalue_genmarshal_name_from_type (const char *signature)
     case DBUS_TYPE_VARIANT:
       return NULL;
     }
-  return NULL;
-}
-
-const char *
-dbus_gvalue_binding_type_from_type (const char *signature)
-{
-  int type;
-
-  type = base_type_from_signature (signature);
-
-#define STRINGIFY(x) \
-  case x: \
-    return (#x)
-  
-  switch (type)
-    {
-      STRINGIFY(DBUS_TYPE_BOOLEAN);
-      STRINGIFY(DBUS_TYPE_BYTE);
-      STRINGIFY(DBUS_TYPE_INT32);
-      STRINGIFY(DBUS_TYPE_UINT32);
-      STRINGIFY(DBUS_TYPE_INT64);
-      STRINGIFY(DBUS_TYPE_UINT64);
-      STRINGIFY(DBUS_TYPE_DOUBLE);
-    case DBUS_TYPE_INT16:
-      return "DBUS_TYPE_INT32";
-    case DBUS_TYPE_UINT16:
-      return "DBUS_TYPE_UINT32";
-    STRINGIFY(DBUS_TYPE_STRING);
-    STRINGIFY(DBUS_TYPE_OBJECT_PATH);
-    STRINGIFY(DBUS_TYPE_SIGNATURE);
-
-    case DBUS_TYPE_STRUCT:
-    case DBUS_TYPE_ARRAY:
-    case DBUS_TYPE_VARIANT:
-      return NULL;
-    }
-#undef STRINGIFY
   return NULL;
 }
 
@@ -249,69 +213,96 @@ dbus_gtype_to_dbus_type (GType type)
 gboolean
 dbus_gvalue_demarshal (DBusMessageIter *iter, GValue *value)
 {
-  gboolean can_convert = TRUE;
-
   g_assert (sizeof (dbus_bool_t) == sizeof (value->data[0].v_int));
 
   dbus_gvalue_init (dbus_message_iter_get_arg_type (iter), value);
   
-/* This is slightly evil, we don't use g_value_set_foo() functions */
-#define MAP_BASIC(d_t, g_t)                                     \
-    case DBUS_TYPE_##d_t:                                       \
-      dbus_message_iter_get_basic (iter, &value->data[0]);      \
-      break
-
   switch (dbus_message_iter_get_arg_type (iter))
     {
-      MAP_BASIC (BOOLEAN, BOOLEAN);
-      MAP_BASIC (BYTE,    UCHAR);
-      MAP_BASIC (INT32,   INT);
-      MAP_BASIC (UINT32,  UINT);
-      MAP_BASIC (INT64,   INT64);
-      MAP_BASIC (UINT64,  UINT64);
-      MAP_BASIC (DOUBLE,  DOUBLE);
-
+    case DBUS_TYPE_BOOLEAN:
+      {
+	dbus_bool_t bool;
+	dbus_message_iter_get_basic (iter, &bool);
+	g_value_set_boolean (value, bool);
+	return TRUE;
+      }
+    case DBUS_TYPE_BYTE:
+      {
+	unsigned char byte;
+	dbus_message_iter_get_basic (iter, &byte);
+	g_value_set_uchar (value, byte);
+	return TRUE;
+      }
+    case DBUS_TYPE_INT32:
+      {
+	dbus_int32_t intval;
+	dbus_message_iter_get_basic (iter, &intval);
+	g_value_set_int (value, intval);
+	return TRUE;
+      }
+    case DBUS_TYPE_UINT32:
+      {
+	dbus_uint32_t intval;
+	dbus_message_iter_get_basic (iter, &intval);
+	g_value_set_uint (value, intval);
+	return TRUE;
+      }
+    case DBUS_TYPE_INT64:
+      {
+	dbus_int64_t intval;
+	dbus_message_iter_get_basic (iter, &intval);
+	g_value_set_int64 (value, intval);
+	return TRUE;
+      }
+    case DBUS_TYPE_UINT64:
+      {
+	dbus_uint64_t intval;
+	dbus_message_iter_get_basic (iter, &intval);
+	g_value_set_uint64 (value, intval);
+	return TRUE;
+      }
+    case DBUS_TYPE_DOUBLE:
+      {
+	double dval;
+	dbus_message_iter_get_basic (iter, &dval);
+	g_value_set_double (value, dval);
+	return TRUE;
+      }
     case DBUS_TYPE_INT16:
       {
         dbus_int16_t v;
         dbus_message_iter_get_basic (iter, &v);
         g_value_set_int (value, v);
+	return TRUE;
       }
-      break;
     case DBUS_TYPE_UINT16:
       {
         dbus_uint16_t v;
         dbus_message_iter_get_basic (iter, &v);
         g_value_set_uint (value, v);
+	return TRUE;
       }
-      break;
-      
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_SIGNATURE:
       {
         const char *s;
-
         dbus_message_iter_get_basic (iter, &s);
         g_value_set_string (value, s);
+	return TRUE;
       }
-      break;
-      
     case DBUS_TYPE_STRUCT:
     case DBUS_TYPE_ARRAY:
     case DBUS_TYPE_VARIANT:
     default:
-      can_convert = FALSE;
+      return FALSE;
     }
-#undef MAP_BASIC
-  return can_convert;
 }
     
 gboolean
 dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
 {
-  gboolean can_convert = TRUE;
-  GType value_type = G_VALUE_TYPE (value);
+  GType value_type;
 
   value_type = G_VALUE_TYPE (value);
   
@@ -325,7 +316,7 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
                                              &b))
           goto nomem;
       }
-      break;
+      return TRUE;
     case G_TYPE_UCHAR:
       {
         unsigned char b = g_value_get_uchar (value);
@@ -334,7 +325,7 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
                                              &b))
           goto nomem;
       }
-      break;
+      return TRUE;
     case G_TYPE_BOOLEAN:
       {
         dbus_bool_t b = g_value_get_boolean (value);
@@ -343,7 +334,7 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
                                              &b))
           goto nomem;
       }
-      break;
+      return TRUE;
     case G_TYPE_INT:
       {
         dbus_int32_t v = g_value_get_int (value);
@@ -352,7 +343,7 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
                                              &v))
           goto nomem;
       }
-      break;
+      return TRUE;
     case G_TYPE_UINT:
       {
         dbus_uint32_t v = g_value_get_uint (value);
@@ -361,7 +352,7 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
                                              &v))
           goto nomem;
       }
-      break;
+      return TRUE;
       /* long gets cut to 32 bits so the remote API is consistent
        * on all architectures
        */
@@ -373,7 +364,7 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
                                              &v))
           goto nomem;
       }
-      break;
+      return TRUE;
     case G_TYPE_ULONG:
       {
         dbus_uint32_t v = g_value_get_ulong (value);
@@ -382,7 +373,7 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
                                              &v))
           goto nomem;
       }
-      break;
+      return TRUE;
     case G_TYPE_INT64:
       {
         gint64 v = g_value_get_int64 (value);
@@ -391,7 +382,7 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
                                              &v))
           goto nomem;
       }
-      break;
+      return TRUE;
     case G_TYPE_UINT64:
       {
         guint64 v = g_value_get_uint64 (value);
@@ -400,7 +391,7 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
                                              &v))
           goto nomem;
       }
-      break;
+      return TRUE;
     case G_TYPE_FLOAT:
       {
         double v = g_value_get_float (value);
@@ -410,7 +401,7 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
                                              &v))
           goto nomem;
       }
-      break;
+      return TRUE;
     case G_TYPE_DOUBLE:
       {
         double v = g_value_get_double (value);
@@ -420,7 +411,7 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
                                              &v))
           goto nomem;
       }
-      break;
+      return TRUE;
     case G_TYPE_STRING:
       /* FIXME, the GValue string may not be valid UTF-8 */
       {
@@ -430,19 +421,62 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
                                              &v))
           goto nomem;
       }
-      break;
+      return TRUE;
       
     default:
       /* FIXME: we need to define custom boxed types for arrays
 	 etc. so we can map them transparently / pleasantly */
-      can_convert = FALSE;
-      break;
+      return FALSE;
     }
-
-  return can_convert;
 
  nomem:
   g_error ("no memory");
   return FALSE;
 }
 
+/* FIXME is there a better way to do this? */
+gboolean
+dbus_gvalue_store (GValue          *value,
+		   gpointer        storage)
+{
+  switch (G_VALUE_TYPE (value))
+    {
+    case G_TYPE_CHAR:
+      *((gchar *) storage) = g_value_get_char (value);
+      return TRUE;
+    case G_TYPE_UCHAR:
+      *((guchar *) storage) = g_value_get_uchar (value);
+      return TRUE;
+    case G_TYPE_BOOLEAN:
+      *((gboolean *) storage) = g_value_get_boolean (value);
+      return TRUE;
+    case G_TYPE_LONG:
+      *((glong *) storage) = g_value_get_long (value);
+      return TRUE;
+    case G_TYPE_ULONG:
+      *((gulong *) storage) = g_value_get_ulong (value);
+      return TRUE;
+    case G_TYPE_INT:
+      *((gint *) storage) = g_value_get_int (value);
+      return TRUE;
+    case G_TYPE_UINT:
+      *((guint *) storage) = g_value_get_uint (value);
+      return TRUE;
+    case G_TYPE_INT64:
+      *((gint64 *) storage) = g_value_get_int64 (value);
+      return TRUE;
+    case G_TYPE_UINT64:
+      *((guint64 *) storage) = g_value_get_uint64 (value);
+      return TRUE;
+    case G_TYPE_FLOAT:
+    case G_TYPE_DOUBLE:
+      *((gdouble *) storage) = g_value_get_double (value);
+      return TRUE;
+    case G_TYPE_STRING:
+      /* FIXME - should optimize by not duping string twice */
+      *((gchar **) storage) = g_value_dup_string (value);
+      return TRUE;
+    default:
+      return FALSE;
+    }
+}

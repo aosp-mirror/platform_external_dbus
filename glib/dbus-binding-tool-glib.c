@@ -140,7 +140,7 @@ compute_marshaller_name (MethodInfo *method, GError **error)
 	      g_set_error (error,
 			   DBUS_BINDING_TOOL_ERROR,
 			   DBUS_BINDING_TOOL_ERROR_UNSUPPORTED_CONVERSION,
-			   _("Unsupported conversion from D-BUS type %d to glib-genmarshal type"),
+			   _("Unsupported conversion from D-BUS type %s to glib-genmarshal type"),
 			   type);
 	      g_string_free (ret, TRUE);
 	      return NULL;
@@ -647,6 +647,33 @@ write_formal_parameters (InterfaceInfo *iface, MethodInfo *method, GIOChannel *c
 }
 
 static gboolean
+write_args_sig_for_direction (InterfaceInfo *iface, MethodInfo *method, GIOChannel *channel, int direction, GError **error)
+{
+  GSList *args;
+
+  WRITE_OR_LOSE ("\"");
+
+  for (args = method_info_get_args (method); args; args = args->next)
+    {
+      ArgInfo *arg;
+
+      arg = args->data;
+
+      if (direction != arg_info_get_direction (arg))
+	continue;
+
+      if (!write_printf_to_iochannel ("%s", channel, error, arg_info_get_type (arg)))
+	goto io_lose;
+    }
+
+  WRITE_OR_LOSE ("\", ");
+
+  return TRUE;
+ io_lose:
+  return FALSE;
+}
+
+static gboolean
 write_args_for_direction (InterfaceInfo *iface, MethodInfo *method, GIOChannel *channel, int direction, GError **error)
 {
   GSList *args;
@@ -654,35 +681,20 @@ write_args_for_direction (InterfaceInfo *iface, MethodInfo *method, GIOChannel *
   for (args = method_info_get_args (method); args; args = args->next)
     {
       ArgInfo *arg;
-      const char *type_str;
 
       arg = args->data;
 
       if (direction != arg_info_get_direction (arg))
 	continue;
 
-      type_str = dbus_gvalue_binding_type_from_type (arg_info_get_type (arg));
-      if (!type_str)
-	{
-	  g_set_error (error,
-		       DBUS_BINDING_TOOL_ERROR,
-		       DBUS_BINDING_TOOL_ERROR_UNSUPPORTED_CONVERSION,
-		       _("Unsupported conversion from D-BUS type %s"),
-		       arg_info_get_type (arg));
-	  return FALSE;
-	}
-
-      
       switch (direction)
 	{
 	case ARG_IN:
-	  if (!write_printf_to_iochannel ("                                  %s, &IN_%s,\n", channel, error,
-					  type_str, arg_info_get_name (arg)))
+	  if (!write_printf_to_iochannel ("IN_%s, ", channel, error, arg_info_get_name (arg)))
 	    goto io_lose;
 	  break;
 	case ARG_OUT:
-	  if (!write_printf_to_iochannel ("                               %s, OUT_%s,\n", channel, error,
-					  type_str, arg_info_get_name (arg)))
+	  if (!write_printf_to_iochannel ("OUT_%s, ", channel, error, arg_info_get_name (arg)))
 	    goto io_lose;
 	  break;
 	case ARG_INVALID:
@@ -746,7 +758,7 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
 
 	  method_name = compute_client_method_name (interface, method);
 
-	  WRITE_OR_LOSE ("static gboolean\n");
+	  WRITE_OR_LOSE ("static\n#ifdef G_HAVE_INLINE\ninline\n#endif\ngboolean\n");
 	  if (!write_printf_to_iochannel ("%s (DBusGProxy *proxy", channel, error,
 					  method_name))
 	    goto io_lose;
@@ -758,29 +770,26 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
 	  WRITE_OR_LOSE (", GError **error)\n\n");
 	  
 	  WRITE_OR_LOSE ("{\n");
-	  WRITE_OR_LOSE ("  gboolean ret;\n\n");
-	  WRITE_OR_LOSE ("  DBusGPendingCall *call;\n\n");
 	  
-	  if (!write_printf_to_iochannel ("  call = dbus_g_proxy_begin_call (proxy, \"%s\",\n",
-					  channel, error,
+	  if (!write_printf_to_iochannel ("  return dbus_g_proxy_invoke (proxy, \"%s\", ", channel, error,
 					  method_info_get_name (method)))
 	    goto io_lose;
+
+	  if (!write_args_sig_for_direction (interface, method, channel, ARG_IN, error))
+	    goto io_lose;
+
+	  if (!write_args_sig_for_direction (interface, method, channel, ARG_OUT, error))
+	    goto io_lose;
+
+	  WRITE_OR_LOSE ("error, ");
 
 	  if (!write_args_for_direction (interface, method, channel, ARG_IN, error))
 	    goto io_lose;
 
-	  WRITE_OR_LOSE ("                                  DBUS_TYPE_INVALID);\n");
-	  WRITE_OR_LOSE ("  ret = dbus_g_proxy_end_call (proxy, call, error,\n");
-	  
 	  if (!write_args_for_direction (interface, method, channel, ARG_OUT, error))
 	    goto io_lose;
 
-	  WRITE_OR_LOSE ("                               DBUS_TYPE_INVALID);\n");
-
-	  WRITE_OR_LOSE ("  dbus_g_pending_call_unref (call);\n");
-	  WRITE_OR_LOSE ("  return ret;\n");
-
-	  WRITE_OR_LOSE ("}\n\n");
+	  WRITE_OR_LOSE ("NULL);\n}\n\n");
 	}
     }
   return TRUE;

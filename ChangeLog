@@ -1,3 +1,58 @@
+2005-03-09  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-gproxy.c (dbus_g_proxy_invoke): New method; calls
+	to this are generated for client-side wrappers.  Invokes a
+	D-BUS method and returns reply values.  
+
+	* glib/dbus-binding-tool-glib.c (write_args_sig_for_direction): New
+	function; writes signature string for argument direction.
+	(write_args_for_direction): Change to pass input values directly
+	instead of via address, and fix indentation.
+	(generate_client_glue): Change to invoke dbus_g_proxy_invoke.  Also
+	make generated wrappers inlineable.
+
+	* dbus/dbus-message.c (dbus_message_iter_get_fixed_array): Add
+	note about using dbus_type_is_fixed.
+
+	* dbus/dbus-marshal-basic.c (_dbus_type_is_fixed): Moved to
+	dbus/dbus-signature.c as dbus_type_is_fixed.
+
+	All callers updated.
+
+	* dbus/dbus-signature.c (dbus_type_is_fixed): Moved here
+	from dbus/dbus-marshal-basic.c:_dbus_type_is_fixed.
+
+	* dbus/dbus-signature.h: Prototype.
+
+	* glib/dbus-binding-tool-glib.c (compute_marshaller_name): Fix
+	error printf code.
+
+	* test/glib/test-dbus-glib.c (main): Be sure to clear error as
+	appropriate instead of just freeing it.
+	(main): Free returned strings using g_free.
+
+	* test/glib/Makefile.am (test-service-glib-glue.h)
+	(test-service-glib-bindings.h): Add dependency on dbus-binding-tool.
+
+	* glib/dbus-gvalue.c (MAP_BASIC): Refactored from MAP_BASIC_INIT;
+	simply maps a simple D-BUS type to GType.
+	(dbus_dbus_type_to_gtype): Function which maps D-BUS type to
+	GType.
+	(dbus_gvalue_init): Just invoke dbus_dbus_type_to_gtype and
+	initialize the value with it.
+	(dbus_gvalue_binding_type_from_type): Unused, delete.
+	(dbus_gvalue_demarshal): Switch to hardcoding demarshalling for
+	various types instead of unmarshalling to value data directly.
+	Remove can_convert boolean.
+	(dbus_gvalue_marshal): Remove duplicate initialization; switch to
+	returning directly instead of using can_convert boolean.
+	(dbus_gvalue_store): New function; not related to D-BUS per-se.
+	Stores a GValue in a pointer to a value of its corresponding C
+	type.
+
+	* glib/dbus-gvalue.h: Remove dbus_gvalue_binding_type_from_type,
+	add dbus_gvalue_store.
+
 2005-03-08  Joe Shaw  <joeshaw@novell.com>
 
 	Fix a bunch of lifecycle and memory management problems

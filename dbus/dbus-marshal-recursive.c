@@ -1018,7 +1018,7 @@ _dbus_type_reader_read_fixed_multi (const DBusTypeReader  *reader,
                                                 reader->type_pos);
 
   _dbus_assert (element_type != DBUS_TYPE_INVALID); /* why we don't use get_current_type() */
-  _dbus_assert (_dbus_type_is_fixed (element_type));
+  _dbus_assert (dbus_type_is_fixed (element_type));
 
   alignment = _dbus_type_get_alignment (element_type);
 
@@ -1464,7 +1464,7 @@ _dbus_type_reader_set_basic (DBusTypeReader       *reader,
 
   _dbus_assert (dbus_type_is_basic (current_type));
 
-  if (_dbus_type_is_fixed (current_type))
+  if (dbus_type_is_fixed (current_type))
     {
       reader_set_basic_fixed_length (reader, current_type, value);
       return TRUE;
@@ -2404,7 +2404,7 @@ _dbus_type_writer_write_basic (DBusTypeWriter *writer,
 
 /**
  * Writes a block of fixed-length basic values, i.e. those that are
- * both _dbus_type_is_fixed() and _dbus_type_is_basic(). The block
+ * both dbus_type_is_fixed() and _dbus_type_is_basic(). The block
  * must be written inside an array.
  *
  * The value parameter should be the address of said array of values,
@@ -2423,7 +2423,7 @@ _dbus_type_writer_write_fixed_multi (DBusTypeWriter        *writer,
                                      int                    n_elements)
 {
   _dbus_assert (writer->container_type == DBUS_TYPE_ARRAY);
-  _dbus_assert (_dbus_type_is_fixed (element_type));
+  _dbus_assert (dbus_type_is_fixed (element_type));
   _dbus_assert (writer->type_pos_is_expectation);
   _dbus_assert (n_elements >= 0);
 

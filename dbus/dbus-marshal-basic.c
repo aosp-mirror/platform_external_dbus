@@ -620,7 +620,7 @@ _dbus_marshal_read_fixed_multi  (const DBusString *str,
   int array_len;
   int alignment;
 
-  _dbus_assert (_dbus_type_is_fixed (element_type));
+  _dbus_assert (dbus_type_is_fixed (element_type));
   _dbus_assert (dbus_type_is_basic (element_type));
 
 #if 0
@@ -1054,7 +1054,7 @@ marshal_fixed_multi (DBusString           *str,
 
 /**
  * Marshals a block of values of fixed-length type all at once, as an
- * optimization.  _dbus_type_is_fixed() returns #TRUE for fixed-length
+ * optimization.  dbus_type_is_fixed() returns #TRUE for fixed-length
  * types, which are the basic types minus the string-like types.
  *
  * The value argument should be the adddress of an
@@ -1080,7 +1080,7 @@ _dbus_marshal_write_fixed_multi (DBusString *str,
 {
   const void* vp = *(const DBusBasicValue**)value;
   
-  _dbus_assert (_dbus_type_is_fixed (element_type));
+  _dbus_assert (dbus_type_is_fixed (element_type));
   _dbus_assert (n_elements >= 0);
 
 #if 0
@@ -1293,34 +1293,6 @@ _dbus_type_is_valid (int typecode)
     case DBUS_TYPE_VARIANT:
       return TRUE;
 
-    default:
-      return FALSE;
-    }
-}
-
-/**
- * Tells you whether values of this type can change length if you set
- * them to some other value. For this purpose, you assume that the
- * first byte of the old and new value would be in the same location,
- * so alignment padding is not a factor.
- *
- * @returns #FALSE if the type can occupy different lengths
- */
-dbus_bool_t
-_dbus_type_is_fixed (int typecode)
-{
-  switch (typecode)
-    {
-    case DBUS_TYPE_BYTE:
-    case DBUS_TYPE_BOOLEAN:
-    case DBUS_TYPE_INT16:
-    case DBUS_TYPE_UINT16:
-    case DBUS_TYPE_INT32:
-    case DBUS_TYPE_UINT32:
-    case DBUS_TYPE_INT64:
-    case DBUS_TYPE_UINT64:
-    case DBUS_TYPE_DOUBLE:
-      return TRUE;
     default:
       return FALSE;
     }

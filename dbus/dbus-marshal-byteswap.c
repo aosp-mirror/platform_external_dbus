@@ -23,6 +23,7 @@
 
 #include "dbus-marshal-byteswap.h"
 #include "dbus-marshal-basic.h"
+#include "dbus-signature.h"
 
 /**
  * @addtogroup DBusMarshal
@@ -103,7 +104,7 @@ byteswap_body_helper (DBusTypeReader       *reader,
 
                 p = _DBUS_ALIGN_ADDRESS (p, alignment);
                 
-                if (_dbus_type_is_fixed (elem_type))
+                if (dbus_type_is_fixed (elem_type))
                   {
                     if (alignment > 1)
                       _dbus_swap_array (p, array_len / alignment, alignment);

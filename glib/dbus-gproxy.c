@@ -22,11 +22,14 @@
  */
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus-glib-lowlevel.h>
+#include <dbus/dbus-signature.h>
 #include "dbus-gutils.h"
 #include "dbus-gmarshal.h"
 #include "dbus-gvalue.h"
 #include "dbus-gobject.h"
 #include <string.h>
+#include <glib/gi18n.h>
+#include <gobject/gvaluecollector.h>
 
 /**
  * @addtogroup DBusGLibInternals
@@ -1394,6 +1397,208 @@ dbus_g_proxy_end_call (DBusGProxy          *proxy,
   dbus_set_g_error (error, &derror);
   dbus_error_free (&derror);
   return FALSE;
+}
+
+/**
+ * Function for invoking a method and receiving reply values.
+ * Normally this is not used directly - calls to it are generated
+ * from client-side wrappers (see dbus-binding-tool).
+ *
+ * This function takes two type signatures, one for method arguments,
+ * and one for return values.  The remaining arguments after the
+ * error parameter should be values of the input arguments,
+ * followed by pointer values to storage for return values.
+ *
+ * @param proxy a proxy for a remote interface
+ * @param method method to invoke
+ * @param insig signature of input values
+ * @param outsig signature of output values
+ * @param error return location for an error
+ * @returns #FALSE if an error is set, TRUE otherwise
+ */
+gboolean
+dbus_g_proxy_invoke (DBusGProxy        *proxy,
+		     const char        *method,
+		     const char        *insig,
+		     const char        *outsig,
+		     GError           **error,
+		     ...)
+{
+  DBusPendingCall *pending;
+  DBusMessage *message;
+  DBusMessage *reply;
+  va_list args;
+  va_list args_unwind;
+  int n_retvals_processed;
+  DBusMessageIter msgiter;
+  DBusSignatureIter sigiter;
+  int expected_type;
+  gboolean ret;
+  DBusError derror;
+  
+  g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), FALSE);
+  g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), FALSE);
+
+  va_start (args, error);
+  /* Keep around a copy of output arguments so we
+   * can free on error. */
+  G_VA_COPY (args_unwind, args);
+
+  ret = FALSE;
+  pending = NULL;
+  reply = NULL;
+  n_retvals_processed = 0;
+  message = dbus_message_new_method_call (proxy->name,
+                                          proxy->path,
+                                          proxy->interface,
+                                          method);
+  if (message == NULL)
+    goto oom;
+
+  dbus_signature_iter_init (&sigiter, insig);
+  dbus_message_iter_init_append (message, &msgiter);
+  while ((expected_type = dbus_signature_iter_get_current_type (&sigiter)) != DBUS_TYPE_INVALID)
+    {
+      GValue gvalue = {0, };
+      char *collect_err;
+
+      if (!dbus_gvalue_init (expected_type, &gvalue))
+	{
+	  g_set_error (error, DBUS_GERROR,
+		       DBUS_GERROR_INVALID_ARGS,
+		       _("Unsupported type '%c'"), expected_type);
+	  goto out;
+	} 
+      
+      G_VALUE_COLLECT (&gvalue, args, G_VALUE_NOCOPY_CONTENTS, &collect_err);
+
+      if (collect_err)
+	{
+	  g_set_error (error, DBUS_GERROR,
+		       DBUS_GERROR_INVALID_ARGS,
+		       collect_err);
+	  goto out;
+	}
+
+      /* Anything we can init must be marshallable */
+      if (!dbus_gvalue_marshal (&msgiter, &gvalue))
+	g_assert_not_reached ();
+      g_value_unset (&gvalue);
+
+      dbus_signature_iter_next (&sigiter);
+    }
+
+  if (!dbus_connection_send_with_reply (proxy->manager->connection,
+                                        message,
+                                        &pending,
+                                        -1))
+    goto oom;
+
+  dbus_pending_call_block (pending);
+  reply = dbus_pending_call_steal_reply (pending);
+
+  g_assert (reply != NULL);
+
+  dbus_error_init (&derror);
+
+  switch (dbus_message_get_type (reply))
+    {
+    case DBUS_MESSAGE_TYPE_METHOD_RETURN:
+
+      dbus_signature_iter_init (&sigiter, outsig);
+      dbus_message_iter_init (reply, &msgiter);
+      while ((expected_type = dbus_signature_iter_get_current_type (&sigiter)) != DBUS_TYPE_INVALID)
+	{
+	  int arg_type;
+	  gpointer *value_ret;
+	  GValue gvalue = { 0, };
+
+	  value_ret = va_arg (args, gpointer *);
+
+	  arg_type = dbus_message_iter_get_arg_type (&msgiter);
+	  if (expected_type != arg_type)
+	    {
+	      if (arg_type == DBUS_TYPE_INVALID)
+		  g_set_error (error, DBUS_GERROR,
+			       DBUS_GERROR_INVALID_ARGS,
+			       _("Too few arguments in reply"));
+	      else
+		  g_set_error (error, DBUS_GERROR,
+			       DBUS_GERROR_INVALID_ARGS,
+			       _("Reply argument was \"%c\", expected \"%c\""),
+			       arg_type, expected_type);  
+	      goto out;
+	    }
+	  
+	  if (!dbus_gvalue_demarshal (&msgiter, &gvalue))
+	    {
+	      g_set_error (error,
+			   DBUS_GERROR,
+			   DBUS_GERROR_INVALID_ARGS,
+			   _("Couldn't convert argument type \"%c\""), expected_type);
+	      goto out;
+	    }
+	  /* Anything that can be demarshaled must be storable */
+	  if (!dbus_gvalue_store (&gvalue, value_ret))
+	    g_assert_not_reached ();
+	  g_value_unset (&gvalue);
+	  
+	  n_retvals_processed++;
+	  dbus_signature_iter_next (&sigiter);
+	  dbus_message_iter_next (&msgiter);
+	}
+      if (dbus_message_iter_get_arg_type (&msgiter) != DBUS_TYPE_INVALID)
+	{
+	  g_set_error (error, DBUS_GERROR,
+		       DBUS_GERROR_INVALID_ARGS,
+		       _("Too many arguments"));
+	  goto out;
+	}
+      break;
+    case DBUS_MESSAGE_TYPE_ERROR:
+      dbus_set_error_from_message (&derror, reply);
+      dbus_set_g_error (error, &derror);
+      dbus_error_free (&derror);
+      goto out;
+      break;
+    default:
+      dbus_set_error (&derror, DBUS_ERROR_FAILED,
+                      "Reply was neither a method return nor an exception");
+      dbus_set_g_error (error, &derror);
+      dbus_error_free (&derror);
+      goto out;
+      break;
+    }
+
+  ret = TRUE;
+ out:
+  va_end (args);
+
+  if (ret == FALSE)
+    {
+      int i;
+      for (i = 0; i < n_retvals_processed; i++)
+	{
+	  gpointer retval;
+
+	  retval = va_arg (args_unwind, gpointer);
+
+	  g_free (retval);
+	}
+    }
+  va_end (args_unwind);
+
+  if (pending)
+    dbus_pending_call_unref (pending);
+  if (message)
+    dbus_message_unref (message);
+  if (reply)
+    dbus_message_unref (reply);
+  return ret;
+ oom:
+  g_error ("Out of memory");
+  ret = FALSE;
+  goto out;
 }
 
 /**

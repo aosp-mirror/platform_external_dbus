@@ -262,6 +262,36 @@ dbus_type_is_basic (int typecode)
   return !(typecode == DBUS_TYPE_INVALID || TYPE_IS_CONTAINER (typecode));
 }
 
+/**
+ * Tells you whether values of this type can change length if you set
+ * them to some other value. For this purpose, you assume that the
+ * first byte of the old and new value would be in the same location,
+ * so alignment padding is not a factor.
+ *
+ * This function is useful to determine whether #dbus_message_iter_get_fixed_array
+ * may be used.
+ *
+ * @returns #FALSE if the type can occupy different lengths
+ */
+dbus_bool_t
+dbus_type_is_fixed (int typecode)
+{
+  switch (typecode)
+    {
+    case DBUS_TYPE_BYTE:
+    case DBUS_TYPE_BOOLEAN:
+    case DBUS_TYPE_INT16:
+    case DBUS_TYPE_UINT16:
+    case DBUS_TYPE_INT32:
+    case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_INT64:
+    case DBUS_TYPE_UINT64:
+    case DBUS_TYPE_DOUBLE:
+      return TRUE;
+    default:
+      return FALSE;
+    }
+}
 
 #ifdef DBUS_BUILD_TESTS
 

@@ -174,6 +174,13 @@ void              dbus_g_proxy_call_no_reply         (DBusGProxy        *proxy,
 
 const char*       dbus_g_proxy_get_bus_name          (DBusGProxy        *proxy);
 
+gboolean          dbus_g_proxy_invoke                (DBusGProxy        *proxy,
+						      const char        *method,
+						      const char        *insig,
+						      const char        *outsig,
+						      GError           **error,
+						      ...);
+
 #undef DBUS_INSIDE_DBUS_GLIB_H
 
 G_END_DECLS

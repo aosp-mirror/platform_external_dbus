@@ -3074,7 +3074,7 @@ array_write_value (TestTypeNode   *node,
     goto oom;
 
   if (arrays_write_fixed_in_blocks &&
-      _dbus_type_is_fixed (element_type) &&
+      dbus_type_is_fixed (element_type) &&
       child->klass->write_multi)
     {
       if (!node_write_multi (child, block, &sub, seed, n_copies))
@@ -3138,7 +3138,7 @@ array_read_or_set_value (TestTypeNode   *node,
       _dbus_type_reader_recurse (reader, &sub);
 
       if (realign_root == NULL && arrays_write_fixed_in_blocks &&
-          _dbus_type_is_fixed (_dbus_type_reader_get_element_type (reader)) &&
+          dbus_type_is_fixed (_dbus_type_reader_get_element_type (reader)) &&
           child->klass->read_multi)
         {
           if (!node_read_multi (child, &sub, seed, n_copies))

@@ -24,8 +24,6 @@ const char *   dbus_gvalue_genmarshal_name_from_type (const char *type);
 
 const char *   dbus_gvalue_ctype_from_type           (const char *type, gboolean in);
 
-const char *   dbus_gvalue_binding_type_from_type    (const char *type);
-
 const char *   dbus_gtype_to_dbus_type    (GType            type);
 
 gboolean       dbus_gvalue_init           (int              type,
@@ -36,6 +34,8 @@ gboolean       dbus_gvalue_demarshal      (DBusMessageIter *iter,
 gboolean       dbus_gvalue_marshal        (DBusMessageIter *iter,
 					   GValue          *value);
 
+gboolean       dbus_gvalue_store          (GValue          *value,
+					   gpointer         storage);
 
 G_END_DECLS
 

@@ -267,7 +267,7 @@ main (int argc, char **argv)
     lose ("ThrowError call unexpectedly succeeded!");
 
   g_print ("ThrowError failed (as expected) returned error: %s\n", error->message);
-  g_error_free (error);
+  g_clear_error (&error);
 
   v_STRING = "foobar";
   call = dbus_g_proxy_begin_call (proxy, "Uppercase",
@@ -313,12 +313,13 @@ main (int argc, char **argv)
     lose ("(wrapped) ThrowError call unexpectedly succeeded!");
 
   g_print ("(wrapped) ThrowError failed (as expected) returned error: %s\n", error->message);
-  g_error_free (error);
+  g_clear_error (&error);
 
   if (!org_freedesktop_DBus_Tests_MyObject_uppercase (proxy, "foobar", &v_STRING_2, &error)) 
     lose_gerror ("Failed to complete (wrapped) Uppercase call", error);
   if (strcmp ("FOOBAR", v_STRING_2) != 0)
     lose ("(wrapped) Uppercase call returned unexpected string %s", v_STRING_2);
+  g_free (v_STRING_2);
 
   if (!org_freedesktop_DBus_Tests_MyObject_many_args (proxy, 26, "bazwhee", G_PI,
 						      &v_DOUBLE_2, &v_STRING_2, &error))
@@ -330,6 +331,7 @@ main (int argc, char **argv)
 
   if (strcmp ("BAZWHEE", v_STRING_2) != 0)
     lose ("(wrapped) ManyArgs call returned unexpected string %s", v_STRING_2);
+  g_free (v_STRING_2);
 
   g_object_unref (G_OBJECT (proxy));
 
