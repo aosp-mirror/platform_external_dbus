@@ -86,8 +86,7 @@ void              _dbus_message_handler_remove_connection      (DBusMessageHandl
 DBusHandlerResult _dbus_message_handler_handle_message         (DBusMessageHandler *handler,
                                                                 DBusConnection     *connection,
                                                                 DBusMessage        *message);
-void              _dbus_connection_init_id                     (DBusConnection     *connection,
-                                                                DBusObjectID       *id);
+
 DBusPendingCall*  _dbus_pending_call_new                       (DBusConnection     *connection,
                                                                 int                 timeout_milliseconds,
                                                                 DBusTimeoutHandler  timeout_handler);

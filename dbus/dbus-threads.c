@@ -227,7 +227,6 @@ init_global_locks (void)
     LOCK_ADDR (message_slots),
     LOCK_ADDR (atomic),
     LOCK_ADDR (message_handler),
-    LOCK_ADDR (callback_object),
     LOCK_ADDR (bus),
     LOCK_ADDR (shutdown_funcs),
     LOCK_ADDR (system_users)

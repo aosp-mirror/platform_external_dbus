@@ -234,7 +234,6 @@ _DBUS_DECLARE_GLOBAL_LOCK (server_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (message_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (atomic);
 _DBUS_DECLARE_GLOBAL_LOCK (message_handler);
-_DBUS_DECLARE_GLOBAL_LOCK (callback_object);
 _DBUS_DECLARE_GLOBAL_LOCK (bus);
 _DBUS_DECLARE_GLOBAL_LOCK (shutdown_funcs);
 _DBUS_DECLARE_GLOBAL_LOCK (system_users);

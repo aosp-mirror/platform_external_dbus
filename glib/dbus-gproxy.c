@@ -35,7 +35,7 @@ struct DBusGProxy
   DBusConnection *connection;
   char *service;
   char *interface;
-  DBusObjectID object_id;
+  char *path;
 };
 
 #define LOCK_PROXY(proxy)   (g_static_mutex_lock (&(proxy)->lock))
@@ -248,7 +248,7 @@ dbus_gproxy_send (DBusGProxy          *proxy,
     {
       /* FIXME */
     }
-  if (!dbus_object_id_is_null (&proxy->object_id))
+  if (proxy->path)
     {
       /* FIXME */
     }

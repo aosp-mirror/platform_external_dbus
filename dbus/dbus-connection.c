@@ -35,9 +35,9 @@
 #include "dbus-threads.h"
 #include "dbus-protocol.h"
 #include "dbus-dataslot.h"
-#include "dbus-object-registry.h"
 #include "dbus-string.h"
 #include "dbus-pending-call.h"
+#include "dbus-object-tree.h"
 
 #if 0
 #define CONNECTION_LOCK(connection)   do {                      \
@@ -179,7 +179,7 @@ struct DBusConnection
   DBusList *link_cache; /**< A cache of linked list links to prevent contention
                          *   for the global linked list mempool lock
                          */
-  DBusObjectRegistry *objects; /**< Objects registered with this connection */
+  DBusObjectTree *objects; /**< Object path handlers registered with this connection */
 };
 
 static void               _dbus_connection_remove_timeout_locked             (DBusConnection     *connection,
@@ -775,7 +775,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   DBusList *disconnect_link;
   DBusMessage *disconnect_message;
   DBusCounter *outgoing_counter;
-  DBusObjectRegistry *objects;
+  DBusObjectTree *objects;
   
   watch_list = NULL;
   connection = NULL;
@@ -839,7 +839,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   if (outgoing_counter == NULL)
     goto error;
 
-  objects = _dbus_object_registry_new (connection);
+  objects = _dbus_object_tree_new (connection);
   if (objects == NULL)
     goto error;
   
@@ -908,7 +908,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
     _dbus_counter_unref (outgoing_counter);
 
   if (objects)
-    _dbus_object_registry_unref (objects);
+    _dbus_object_tree_unref (objects);
   
   return NULL;
 }
@@ -1048,25 +1048,6 @@ _dbus_connection_handle_watch (DBusWatch                   *watch,
   return retval;
 }
 
-/**
- * Get the server ID to be used in the object ID for an object
- * registered with this connection.
- *
- * @todo implement this function
- * 
- * @param connection the connection.
- * @returns the  portion of the object ID
- */
-void
-_dbus_connection_init_id (DBusConnection *connection,
-                          DBusObjectID   *object_id)
-{
-  /* FIXME */
-  dbus_object_id_set_server_bits (object_id, 15);
-  dbus_object_id_set_client_bits (object_id, 31);
-  dbus_object_id_set_is_server_bit (object_id, FALSE);
-}
-
 /** @} */
 
 /**
@@ -1178,7 +1159,7 @@ _dbus_connection_last_unref (DBusConnection *connection)
   _dbus_assert (!_dbus_transport_get_is_connected (connection->transport));
 
   /* ---- We're going to call various application callbacks here, hope it doesn't break anything... */
-  _dbus_object_registry_free_all_unlocked (connection->objects);
+  _dbus_object_tree_free_all_unlocked (connection->objects);
   
   dbus_connection_set_dispatch_status_function (connection, NULL, NULL, NULL);
   dbus_connection_set_wakeup_main_function (connection, NULL, NULL, NULL);
@@ -1204,7 +1185,7 @@ _dbus_connection_last_unref (DBusConnection *connection)
       link = next;
     }
 
-  _dbus_object_registry_unref (connection->objects);  
+  _dbus_object_tree_unref (connection->objects);  
 
   _dbus_hash_table_unref (connection->pending_replies);
   connection->pending_replies = NULL;
@@ -2547,8 +2528,8 @@ dbus_connection_dispatch (DBusConnection *connection)
                  dbus_message_get_interface (message) :
                  "no interface");
   
-  result = _dbus_object_registry_handle_and_unlock (connection->objects,
-                                                    message);
+  result = _dbus_object_tree_dispatch_and_unlock (connection->objects,
+                                                  message);
   
   CONNECTION_LOCK (connection);
 
@@ -3026,67 +3007,58 @@ dbus_connection_remove_filter (DBusConnection      *connection,
 }
 
 /**
- * Registers an object with the connection. This object is assigned an
- * object ID, and will be visible under this ID and with the provided
- * interfaces to the peer application on the other end of the
- * connection. The object instance should be passed in as object_impl;
- * the instance can be any datatype, as long as it fits in a void*.
+ * Registers a handler for a given subsection of the object hierarchy.
+ * The given vtable handles messages at or below the given path.
  *
- * As a side effect of calling this function, the "registered"
- * callback in the #DBusObjectVTable will be invoked.
  *
- * If the object is deleted, be sure to unregister it with
- * dbus_connection_unregister_object() or it will continue to get
- * messages.
- *
- * @param connection the connection to register the instance with
- * @param interfaces #NULL-terminated array of interface names the instance supports
- * @param vtable virtual table of functions for manipulating the instance
- * @param object_impl object instance
- * @param object_id if non-#NULL, object ID to initialize with the new object's ID
- * @returns #FALSE if not enough memory to register the object instance
+ * @param connection the connection
+ * @param path #NULL-terminated array of path elements
+ * @param vtable the virtual table
+ * @param user_data data to pass to functions in the vtable
+ * @returns #FALSE if not enough memory
  */
 dbus_bool_t
-dbus_connection_register_object (DBusConnection          *connection,
-                                 const char             **interfaces,
-                                 const DBusObjectVTable  *vtable,
-                                 void                    *object_impl,
-                                 DBusObjectID            *object_id)
+dbus_connection_register_object_path (DBusConnection              *connection,
+                                      const char                 **path,
+                                      const DBusObjectPathVTable  *vtable,
+                                      void                        *user_data)
 {
-  _dbus_return_val_if_fail (connection != NULL, FALSE);
-  _dbus_return_val_if_fail (vtable != NULL, FALSE);
-  _dbus_return_val_if_fail (vtable->dbus_internal_pad1 == NULL, FALSE);
-  _dbus_return_val_if_fail (vtable->dbus_internal_pad2 == NULL, FALSE);
-  _dbus_return_val_if_fail (vtable->dbus_internal_pad3 == NULL, FALSE);
+  dbus_bool_t retval;
   
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (path != NULL, FALSE);
+  _dbus_return_val_if_fail (path[0] != NULL, FALSE);
+  _dbus_return_val_if_fail (vtable != NULL, FALSE);
+
   CONNECTION_LOCK (connection);
 
-  return _dbus_object_registry_add_and_unlock (connection->objects,
-                                               interfaces,
-                                               vtable,
-                                               object_impl,
-                                               object_id);
+  retval = _dbus_object_tree_register (connection->objects, path, vtable,
+                                       user_data);
+
+  CONNECTION_UNLOCK (connection);
+
+  return retval;
 }
 
 /**
- * Reverses the effects of dbus_connection_register_object(),
- * and invokes the "unregistered" callback in the #DBusObjectVTable
- * for the given object. The passed-in object ID must be a valid,
- * registered object ID or the results are undefined.
+ * Unregisters the handler registered with exactly the given path.
+ * It's a bug to call this function for a path that isn't registered.
  *
- * @param connection the connection to unregister the object ID from
- * @param object_id the object ID to unregister
+ * @param connection the connection
+ * @param path the #NULL-terminated array of path elements
  */
 void
-dbus_connection_unregister_object (DBusConnection     *connection,
-                                   const DBusObjectID *object_id)
+dbus_connection_unregister_object_path (DBusConnection              *connection,
+                                        const char                 **path)
 {
-  _dbus_return_if_fail (connection != NULL);  
+  _dbus_return_if_fail (connection != NULL);
+  _dbus_return_if_fail (path != NULL);
+  _dbus_return_if_fail (path[0] != NULL);
 
   CONNECTION_LOCK (connection);
 
-  return _dbus_object_registry_remove_and_unlock (connection->objects,
-                                                  object_id);
+  return _dbus_object_tree_unregister_and_unlock (connection->objects,
+                                                  path);
 }
 
 static DBusDataSlotAllocator slot_allocator;

@@ -80,7 +80,6 @@ typedef union
   dbus_uint64_t u;
 #endif
   double d;
-  DBusObjectID object_id;
 } DBusOctets8;
 
 static DBusOctets8
@@ -426,26 +425,27 @@ _dbus_marshal_set_string (DBusString          *str,
 }
 
 /**
- * Sets the existing marshaled object ID at the given offset to a new
- * value. The given offset must point to an existing object ID or this
+ * Sets the existing marshaled object path at the given offset to a new
+ * value. The given offset must point to an existing object path or this
  * function doesn't make sense.
  *
- * @param str the string to write the marshalled string to
- * @param offset the byte offset where string should be written
+ * @todo implement this function
+ *
+ * @param str the string to write the marshalled path to
+ * @param offset the byte offset where path should be written
  * @param byte_order the byte order to use
- * @param value the new value
+ * @param path the new path
+ * @param path_len number of elements in the path
  */
 void
-_dbus_marshal_set_object_id (DBusString         *str,
-                             int                 byte_order,
-                             int                 offset,
-                             const DBusObjectID *value)
+_dbus_marshal_set_object_path (DBusString         *str,
+                               int                 byte_order,
+                               int                 offset,
+                               const char        **path,
+                               int                 path_len)
 {
-  DBusOctets8 r;
-  
-  r.object_id = *value;
-  
-  set_8_octets (str, byte_order, offset, r);
+
+  /* FIXME */
 }
 
 static dbus_bool_t
@@ -870,23 +870,23 @@ _dbus_marshal_string_array (DBusString  *str,
 }
 
 /**
- * Marshals an object ID value.
+ * Marshals an object path value.
  *
+ * @todo implement this function
+ * 
  * @param str the string to append the marshalled value to
  * @param byte_order the byte order to use
- * @param value the value
+ * @param path the path
+ * @param path_len length of the path
  * @returns #TRUE on success
  */
 dbus_bool_t
-_dbus_marshal_object_id (DBusString            *str,
-                         int                    byte_order,
-                         const DBusObjectID    *value)
+_dbus_marshal_object_path (DBusString            *str,
+                           int                    byte_order,
+                           const char           **path,
+                           int                    path_len)
 {
-  DBusOctets8 r;
-
-  r.object_id = *value;
-  
-  return marshal_8_octets (str, byte_order, r);
+  return TRUE;
 }
 
 static dbus_uint32_t
@@ -1439,26 +1439,26 @@ _dbus_demarshal_string_array (const DBusString   *str,
 }
 
 /**
- * Demarshals an object ID.
+ * Demarshals an object path.
  *
+ * @todo implement this function
+ * 
  * @param str the string containing the data
  * @param byte_order the byte order
  * @param pos the position in the string
  * @param new_pos the new position of the string
- * @param value address to store new object ID
+ * @param path address to store new object path
+ * @param path_len length of stored path
  */
-void
-_dbus_demarshal_object_id (const DBusString *str,
-                           int               byte_order,
-                           int               pos,
-                           int              *new_pos,
-                           DBusObjectID     *value)
+dbus_bool_t
+_dbus_demarshal_object_path (const DBusString *str,
+                             int               byte_order,
+                             int               pos,
+                             int              *new_pos,
+                             char           ***path,
+                             int              *path_len)
 {
-  DBusOctets8 r;
-
-  r = demarshal_8_octets (str, byte_order, pos, new_pos);
-
-  *value = r.object_id;
+  
 }
 
 /** 
@@ -1509,7 +1509,6 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
 
     case DBUS_TYPE_INT64:
     case DBUS_TYPE_UINT64:
-    case DBUS_TYPE_OBJECT_ID:
     case DBUS_TYPE_DOUBLE:
       
       *end_pos = _DBUS_ALIGN_VALUE (pos, 8) + 8;
@@ -1541,7 +1540,8 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
 	*end_pos = pos + len;
       }
       break;
-      
+
+    case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_ARRAY:
       {
 	int len;
@@ -1718,6 +1718,7 @@ validate_array_data (const DBusString *str,
     case DBUS_TYPE_NIL:
       break;
 
+    case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_NAMED:      
     case DBUS_TYPE_ARRAY:
@@ -1771,7 +1772,6 @@ validate_array_data (const DBusString *str,
     case DBUS_TYPE_INT64:
     case DBUS_TYPE_UINT64:
     case DBUS_TYPE_DOUBLE:
-    case DBUS_TYPE_OBJECT_ID:
       /* Call validate arg one time to check alignment padding
        * at start of array
        */
@@ -1802,7 +1802,9 @@ validate_array_data (const DBusString *str,
  *
  * @todo For array types that can't be invalid, we should not
  * walk the whole array validating it. e.g. just skip all the
- * int values in an int array.
+ * int values in an int array. (maybe this is already done now -hp)
+ *
+ * @todo support DBUS_TYPE_OBJECT_PATH
  * 
  * @param str a string
  * @param byte_order the byte order to use
@@ -1899,7 +1901,6 @@ _dbus_marshal_validate_arg (const DBusString *str,
     case DBUS_TYPE_INT64:
     case DBUS_TYPE_UINT64:      
     case DBUS_TYPE_DOUBLE:
-    case DBUS_TYPE_OBJECT_ID:
       {
         int align_8 = _DBUS_ALIGN_VALUE (pos, 8);
 
@@ -2219,7 +2220,6 @@ _dbus_marshal_test (void)
 #endif
   char *s;
   DBusString t;
-  DBusObjectID obj_id, obj_id2;
   
   if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");
@@ -2280,23 +2280,6 @@ _dbus_marshal_test (void)
   if (!(_dbus_demarshal_uint64 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == DBUS_UINT64_CONSTANT (0x123456789abc7)))
     _dbus_assert_not_reached ("demarshal failed");
 #endif /* DBUS_HAVE_INT64 */
-
-  /* Marshal object IDs */
-  dbus_object_id_set_server_bits (&obj_id, 0xfffe);
-  dbus_object_id_set_client_bits (&obj_id, 0xaacc);
-  dbus_object_id_set_instance_bits (&obj_id, 0x70f00f0f);
-
-  if (!_dbus_marshal_object_id (&str, DBUS_BIG_ENDIAN, &obj_id))
-    _dbus_assert_not_reached ("could not marshal object ID value");
-  _dbus_demarshal_object_id (&str, DBUS_BIG_ENDIAN, pos, &pos, &obj_id2);
-  if (!dbus_object_id_equal (&obj_id, &obj_id2))
-    _dbus_assert_not_reached ("demarshal failed");
-
-  if (!_dbus_marshal_object_id (&str, DBUS_LITTLE_ENDIAN, &obj_id))
-    _dbus_assert_not_reached ("could not marshal object ID value");
-  _dbus_demarshal_object_id (&str, DBUS_LITTLE_ENDIAN, pos, &pos, &obj_id2);
-  if (!dbus_object_id_equal (&obj_id, &obj_id2))
-    _dbus_assert_not_reached ("demarshal failed");
   
   /* Marshal strings */
   tmp1 = "This is the dbus test string";

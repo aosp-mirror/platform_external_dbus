@@ -29,7 +29,6 @@
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-arch-deps.h>
 #include <dbus/dbus-string.h>
-#include <dbus/dbus-objectid.h>
 
 #ifndef PACKAGE
 #error "config.h not included here"
@@ -154,15 +153,16 @@ void        _dbus_marshal_set_uint64 (DBusString       *str,
                                       dbus_uint64_t     value);
 #endif /* DBUS_HAVE_INT64 */
 
-dbus_bool_t _dbus_marshal_set_string    (DBusString         *str,
-                                         int                 byte_order,
-                                         int                 offset,
-                                         const DBusString   *value,
-                                         int                 len);
-void        _dbus_marshal_set_object_id (DBusString         *str,
-                                         int                 byte_order,
-                                         int                 offset,
-                                         const DBusObjectID *value);
+dbus_bool_t _dbus_marshal_set_string      (DBusString         *str,
+                                           int                 byte_order,
+                                           int                 offset,
+                                           const DBusString   *value,
+                                           int                 len);
+void        _dbus_marshal_set_object_path (DBusString         *str,
+                                           int                 byte_order,
+                                           int                 offset,
+                                           const char        **path,
+                                           int                 path_len);
 
 dbus_bool_t   _dbus_marshal_int32          (DBusString            *str,
 					    int                    byte_order,
@@ -214,9 +214,10 @@ dbus_bool_t   _dbus_marshal_string_array   (DBusString            *str,
 					    int                    byte_order,
 					    const char           **value,
 					    int                    len);
-dbus_bool_t   _dbus_marshal_object_id      (DBusString            *str,
+dbus_bool_t   _dbus_marshal_object_path    (DBusString            *str,
 					    int                    byte_order,
-					    const DBusObjectID    *value);
+                                            const char           **path,
+                                            int                    path_len);
 
 double        _dbus_demarshal_double       (const DBusString      *str,
 					    int                    byte_order,
@@ -288,11 +289,12 @@ dbus_bool_t   _dbus_demarshal_string_array (const DBusString      *str,
 					    int                   *new_pos,
 					    char                ***array,
 					    int                   *array_len);
-void          _dbus_demarshal_object_id    (const DBusString      *str,
+dbus_bool_t   _dbus_demarshal_object_path  (const DBusString      *str,
 					    int                    byte_order,
 					    int                    pos,
                                             int                   *new_pos,
-                                            DBusObjectID          *value);
+                                            char                ***path,
+                                            int                   *path_len);
 
 dbus_bool_t _dbus_marshal_get_arg_end_pos (const DBusString *str,
                                            int               byte_order,

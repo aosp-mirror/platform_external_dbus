@@ -42,8 +42,8 @@ DBusGProxy*      dbus_gproxy_new_for_service_owner (DBusConnection      *connect
                                                     const char          *service_name,
                                                     const char          *interface_name,
                                                     GError             **error);
-DBusGProxy*      dbus_gproxy_new_for_object_id     (DBusConnection      *connection,
-                                                    const DBusObjectID  *object_id,
+DBusGProxy*      dbus_gproxy_new_for_object_path   (DBusConnection      *connection,
+                                                    const char          *path,
                                                     const char          *interface_name);
 DBusGProxy*      dbus_gproxy_new_for_interface     (DBusConnection      *connection,
                                                     const char          *interface_name);

@@ -35,12 +35,13 @@ void            _dbus_object_tree_unref (DBusObjectTree *tree);
 
 dbus_bool_t       _dbus_object_tree_register              (DBusObjectTree              *tree,
                                                            const char                 **path,
-                                                           const DBusObjectTreeVTable  *vtable,
+                                                           const DBusObjectPathVTable  *vtable,
                                                            void                        *user_data);
 void              _dbus_object_tree_unregister_and_unlock (DBusObjectTree              *tree,
                                                            const char                 **path);
 DBusHandlerResult _dbus_object_tree_dispatch_and_unlock   (DBusObjectTree              *tree,
                                                            DBusMessage                 *message);
+void              _dbus_object_tree_free_all_unlocked     (DBusObjectTree              *tree);
 
 
 DBUS_END_DECLS;

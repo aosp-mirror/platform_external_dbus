@@ -1,3 +1,20 @@
+2003-08-28  Havoc Pennington  <hp@pobox.com>
+
+	purge DBusObjectID
+	
+	* dbus/dbus-connection.c: port to no ObjectID, create a
+	DBusObjectTree, rename ObjectTree to ObjectPath in public API
+
+	* dbus/dbus-connection.h (struct DBusObjectTreeVTable): delete 
+	everything except UnregisterFunction and MessageFunction
+	
+	* dbus/dbus-marshal.c: port away from DBusObjectID, 
+	add DBUS_TYPE_OBJECT_PATH
+	
+	* dbus/dbus-object-registry.[hc], dbus/dbus-object.[hc], 
+	dbus/dbus-objectid.[hc]: remove these, we are moving to 
+	path-based object IDs
+
 2003-08-25  Havoc Pennington  <hp@pobox.com>
 
         Just noticed that dbus_message_test is hosed, I wonder when I

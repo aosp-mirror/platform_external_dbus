@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-connection.h DBusConnection object
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -29,7 +29,7 @@
 
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-memory.h>
-#include <dbus/dbus-object.h>
+#include <dbus/dbus-message.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -38,6 +38,8 @@ typedef struct DBusTimeout DBusTimeout;
 typedef struct DBusMessageHandler DBusMessageHandler;
 typedef struct DBusPreallocatedSend DBusPreallocatedSend;
 typedef struct DBusPendingCall DBusPendingCall;
+typedef struct DBusConnection DBusConnection;
+typedef struct DBusObjectPathVTable DBusObjectPathVTable;
 
 typedef enum
 {
@@ -56,6 +58,13 @@ typedef enum
   DBUS_DISPATCH_COMPLETE,      /**< All currently available data has been processed. */
   DBUS_DISPATCH_NEED_MEMORY    /**< More memory is needed to continue. */
 } DBusDispatchStatus;
+
+typedef enum
+{
+  DBUS_HANDLER_RESULT_HANDLED,         /**< Message has had its effect */ 
+  DBUS_HANDLER_RESULT_NOT_YET_HANDLED, /**< Message has not had any effect */
+  DBUS_HANDLER_RESULT_NEED_MEMORY      /**< Need more memory to return another result */
+} DBusHandlerResult;
 
 typedef dbus_bool_t (* DBusAddWatchFunction)       (DBusWatch      *watch,
                                                     void           *data);
@@ -159,16 +168,6 @@ dbus_bool_t dbus_connection_add_filter         (DBusConnection      *connection,
 void        dbus_connection_remove_filter      (DBusConnection      *connection,
                                                 DBusMessageHandler  *handler);
 
-/* Objects */
-dbus_bool_t dbus_connection_register_object   (DBusConnection          *connection,
-                                               const char             **interfaces,
-                                               const DBusObjectVTable  *vtable,
-                                               void                    *object_impl,
-                                               DBusObjectID            *object_id);
-void        dbus_connection_unregister_object (DBusConnection          *connection,
-                                               const DBusObjectID      *object_id);
-
-
 /* Other */
 dbus_bool_t dbus_connection_allocate_data_slot (dbus_int32_t     *slot_p);
 void        dbus_connection_free_data_slot     (dbus_int32_t     *slot_p);
@@ -200,37 +199,17 @@ void                  dbus_connection_send_preallocated      (DBusConnection    
 
 /* Object tree functionality */
 
-typedef struct DBusObjectTreeVTable DBusObjectTreeVTable;
-
-typedef void              (* DBusObjectTreeUnregisterFunction) (DBusConnection  *connection,
+typedef void              (* DBusObjectPathUnregisterFunction) (DBusConnection  *connection,
                                                                 const char     **path,
                                                                 void            *user_data);
-typedef DBusHandlerResult (* DBusObjectTreeMessageFunction)    (DBusConnection  *connection,
+typedef DBusHandlerResult (* DBusObjectPathMessageFunction)    (DBusConnection  *connection,
                                                                 DBusMessage     *message,
                                                                 void            *user_data);
-typedef dbus_bool_t       (* DBusObjectTreeSubdirsFunction)    (DBusConnection  *connection,
-                                                                const char     **path,
-                                                                char          ***subdirs,
-                                                                int             *n_subdirs,
-                                                                void            *user_data);
-typedef dbus_bool_t       (* DBusObjectTreeObjectsFunction)    (DBusConnection  *connection,
-                                                                const char     **path,
-                                                                DBusObjectID   **object_ids,
-                                                                int             *n_object_ids,
-                                                                void            *user_data);
-typedef dbus_bool_t       (* DBusObjectTreeMethodsFunction)    (DBusConnection  *connection,
-                                                                const char     **path,
-                                                                DBusObjectID   **object_ids,
-                                                                int             *n_object_ids,
-                                                                void            *user_data);
 
-struct DBusObjectTreeVTable
+struct DBusObjectPathVTable
 {
-  DBusObjectTreeUnregisterFunction   unregister_function;
-  DBusObjectTreeMessageFunction      message_function;
-  DBusObjectTreeSubdirsFunction      subdirs_function;
-  DBusObjectTreeObjectsFunction      objects_function;
-  DBusObjectTreeMethodsFunction      methods_function;
+  DBusObjectPathUnregisterFunction   unregister_function;
+  DBusObjectPathMessageFunction      message_function;
   
   void (* dbus_internal_pad1) (void *);
   void (* dbus_internal_pad2) (void *);
@@ -238,11 +217,11 @@ struct DBusObjectTreeVTable
   void (* dbus_internal_pad4) (void *);
 };
 
-dbus_bool_t dbus_connection_register_object_tree   (DBusConnection              *connection,
+dbus_bool_t dbus_connection_register_object_path   (DBusConnection              *connection,
                                                     const char                 **path,
-                                                    const DBusObjectTreeVTable  *vtable,
+                                                    const DBusObjectPathVTable  *vtable,
                                                     void                        *user_data);
-void        dbus_connection_unregister_object_tree (DBusConnection              *connection,
+void        dbus_connection_unregister_object_path (DBusConnection              *connection,
                                                     const char                 **path);
 
 

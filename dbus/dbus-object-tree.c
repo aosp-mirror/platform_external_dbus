@@ -42,7 +42,7 @@
 typedef struct DBusObjectSubtree DBusObjectSubtree;
 
 DBusObjectSubtree* _dbus_object_subtree_new   (const char                 **path,
-                                               const DBusObjectTreeVTable  *vtable,
+                                               const DBusObjectPathVTable  *vtable,
                                                void                        *user_data);
 void               _dbus_object_subtree_ref   (DBusObjectSubtree           *subtree);
 void               _dbus_object_subtree_unref (DBusObjectSubtree           *subtree);
@@ -66,7 +66,7 @@ struct DBusObjectSubtree
   int                   refcount;
   char                **path;
   int                   n_path_elements;
-  DBusObjectTreeVTable  vtable;
+  DBusObjectPathVTable  vtable;
   void                 *user_data;
 };
 
@@ -299,7 +299,7 @@ check_overlap (DBusObjectTree *tree,
 dbus_bool_t
 _dbus_object_tree_register (DBusObjectTree              *tree,
                             const char                 **path,
-                            const DBusObjectTreeVTable  *vtable,
+                            const DBusObjectPathVTable  *vtable,
                             void                        *user_data)
 {
   DBusObjectSubtree  *subtree;
@@ -382,9 +382,26 @@ _dbus_object_tree_unregister_and_unlock (DBusObjectTree          *tree,
 }
 
 /**
+ * Free all the handlers in the tree. Lock on tree's connection
+ * must not be held.
+ *
+ * @todo implement
+ * 
+ * @param tree the object tree
+ */
+void
+_dbus_object_tree_free_all_unlocked (DBusObjectTree *tree)
+{
+
+
+}
+
+/**
  * Tries to dispatch a message by directing it to the object tree
  * node listed in the message header, if any.
  *
+ * @todo implement
+ * 
  * @param tree the global object tree
  * @param message the message to dispatch
  * @returns whether message was handled successfully
@@ -399,7 +416,7 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
 
 DBusObjectSubtree*
 _dbus_object_subtree_new (const char                 **path,
-                          const DBusObjectTreeVTable  *vtable,
+                          const DBusObjectPathVTable  *vtable,
                           void                        *user_data)
 {
   DBusObjectSubtree *subtree;
@@ -476,7 +493,7 @@ test_subtree_cmp (const char **path1,
   DBusObjectSubtree *subtree1;
   DBusObjectSubtree *subtree2;
   dbus_bool_t retval;
-  DBusObjectTreeVTable vtable;
+  DBusObjectPathVTable vtable;
 
   _DBUS_ZERO (vtable);
 
