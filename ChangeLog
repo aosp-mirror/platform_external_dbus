@@ -1,3 +1,13 @@
+2003-02-20  Alexander Larsson  <alexl@redhat.com>
+
+	* dbus/dbus-transport-unix.c (unix_do_iteration):
+	Unlock the connection mutex during a blocking select call.
+	Add todo about how we need a way to wake up the select.
+
+	* dbus/dbus-connection-internal.h: 
+	* dbus/dbus-connection.c:
+	Add _dbus_connection_lock and _dbus_connection_unlock.
+
 2003-02-19  Havoc Pennington  <hp@pobox.com>
 
 	* Doxyfile.in (PREDEFINED): put DOXYGEN_SHOULD_SKIP_THIS in

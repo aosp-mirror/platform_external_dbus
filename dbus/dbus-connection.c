@@ -134,6 +134,27 @@ static void _dbus_connection_free_data_slots_nolock (DBusConnection *connection)
 static void _dbus_connection_remove_timeout_locked (DBusConnection *connection,
 						    DBusTimeout    *timeout);
 
+/**
+ * Acquires the connection lock.
+ *
+ * @param connection the connection.
+ */
+void
+_dbus_connection_lock (DBusConnection *connection)
+{
+  dbus_mutex_lock (connection->mutex);
+}
+
+/**
+ * Releases the connection lock.
+ *
+ * @param connection the connection.
+ */
+void
+_dbus_connection_unlock (DBusConnection *connection)
+{
+  dbus_mutex_unlock (connection->mutex);
+}
 
 
 /**
@@ -336,9 +357,9 @@ static void
 _dbus_connection_remove_timeout_locked (DBusConnection *connection,
 					DBusTimeout    *timeout)
 {
-    dbus_mutex_lock (connection->mutex);
-    _dbus_connection_remove_timeout (connection, timeout);
-    dbus_mutex_unlock (connection->mutex);
+  dbus_mutex_lock (connection->mutex);
+  _dbus_connection_remove_timeout (connection, timeout);
+  dbus_mutex_unlock (connection->mutex);
 }
 
 

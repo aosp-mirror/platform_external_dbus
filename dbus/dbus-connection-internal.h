@@ -38,6 +38,9 @@ typedef enum
   DBUS_ITERATION_BLOCK      = 1 << 2  /**< Block if nothing to do. */
 } DBusIterationFlags;
 
+void             _dbus_connection_lock                  (DBusConnection *connection);
+void             _dbus_connection_unlock                (DBusConnection *connection);
+
 void             _dbus_connection_ref_unlocked          (DBusConnection *connection);
 
 dbus_bool_t     _dbus_connection_queue_received_message (DBusConnection *connection,

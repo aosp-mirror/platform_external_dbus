@@ -884,6 +884,13 @@ unix_messages_pending (DBusTransport *transport,
 }
 
 /* FIXME use _dbus_poll(), not select() */
+/**
+ * @todo We need to have a way to wake up the select sleep if
+ * a new iteration request comes in with a flag (read/write) that
+ * we're not currently serving. Otherwise a call that just reads
+ * could block a write call forever (if there are no incoming
+ * messages).
+ */
 static  void
 unix_do_iteration (DBusTransport *transport,
                    unsigned int   flags,
@@ -893,6 +900,7 @@ unix_do_iteration (DBusTransport *transport,
   fd_set read_set;
   fd_set write_set;
   dbus_bool_t do_select;
+  int select_res;
 
   _dbus_verbose (" iteration flags = %s%s timeout = %d\n",
                  flags & DBUS_ITERATION_DO_READING ? "read" : "",
@@ -984,9 +992,24 @@ unix_do_iteration (DBusTransport *transport,
           timeout.tv_usec = 0;
           use_timeout = TRUE;
         }
+
+      /* For blocking selects we drop the connection lock here
+       * to avoid blocking out connection access during a potentially
+       * indefinite blocking call. The io path is still protected
+       * by the io_path_cond condvar, so we won't reenter this.
+       */
+      if (flags & DBUS_ITERATION_BLOCK)
+	_dbus_connection_unlock (transport->connection);
       
-      if (select (unix_transport->fd + 1, &read_set, &write_set, &err_set,
-                  use_timeout ? &timeout : NULL) >= 0)
+      select_res = select (unix_transport->fd + 1,
+			   &read_set, &write_set, &err_set,
+			   use_timeout ? &timeout : NULL);
+
+      if (flags & DBUS_ITERATION_BLOCK)
+	_dbus_connection_lock (transport->connection);
+      
+      
+      if (select_res >= 0)
         {
           if (FD_ISSET (unix_transport->fd, &err_set))
             do_io_error (transport);
