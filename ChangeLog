@@ -1,4 +1,4 @@
-2003-02-24  Anders Carlsson  <set EMAIL_ADDRESS environment variable>
+2003-02-24  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-internals.c: (_dbus_type_to_string):
 	* dbus/dbus-marshal.c: (_dbus_marshal_get_arg_end_pos),
@@ -14,7 +14,8 @@
 	* dbus/dbus-protocol.h:
 	* doc/dbus-specification.sgml:
 	* test/data/valid-messages/lots-of-arguments.message:
-
+	Add support for boolean and boolean array types.
+	
 2003-02-23  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-keyring.c: finish most of this implementation and 
