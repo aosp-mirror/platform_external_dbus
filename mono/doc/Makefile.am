@@ -3,6 +3,7 @@ TARGETS = dbus-sharp-docs.zip dbus-sharp-docs.tree dbus-sharp-docs.source
 DOCDIR = `$(MONODOC) --get-sourcesdir`
 
 install-data-local:
+	install -d -m 755 $(DESTDIR)/`monodoc --get-sourcesdir`
 	install -m 644 $(srcdir)/dbus-sharp-docs.source $(DESTDIR)/`monodoc --get-sourcesdir`
 	install -m 644 $(srcdir)/dbus-sharp-docs.tree $(DESTDIR)/`monodoc --get-sourcesdir`
 	install -m 644 $(srcdir)/dbus-sharp-docs.zip $(DESTDIR)/`monodoc --get-sourcesdir`

@@ -1,3 +1,10 @@
+2004-10-31  Owen Fraser-Green  <owen@discobabe.net>
+
+	Patch from Johan Fischer <linux@fischaz.com>
+	
+	* mono/doc/Makefile.am (install-data-local): Added directory
+	install for DESTDIR
+
 2004-10-29  Colin Walters  <walters@redhat.com>
 
 	* dbus/dbus-sysdeps.h (_dbus_become_daemon): Also take
