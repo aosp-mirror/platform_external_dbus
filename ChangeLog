@@ -1,3 +1,9 @@
+2002-12-24  Zack Rusin  <zack@kde.org>
+
+	* qt/dbus-qthread.cc: adding - integrates QMutex into Dbus
+	* qt/dbus-qt.h: skeleton with two sample implemenatation of the
+	main loop stuff
+
 2002-12-24  Havoc Pennington  <hp@pobox.com>
 
 	* glib/dbus-gthread.c: fix include
