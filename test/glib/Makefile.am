@@ -10,7 +10,7 @@ else
 TESTS=
 endif
 
-EXTRA_DIST=run-test.sh
+EXTRA_DIST=run-test.sh test-service-glib.xml
 
 if DBUS_BUILD_TESTS
 
