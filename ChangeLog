@@ -1,3 +1,8 @@
+2004-11-03  Colin Walters  <walters@verbum.org>
+
+	* bus/test-main.c (test_pre_hook): Fix test logic,
+	thanks Joerg Barfurth <Joerg.Barfurth@Sun.COM>.
+
 2004-11-02  Colin Walters  <walters@redhat.com>
 
 	* bus/selinux.c (bus_selinux_init): Split into two functions,
