@@ -59,6 +59,9 @@
  * @{
  */
 
+/** default timeout value when waiting for a message reply */
+#define DEFAULT_TIMEOUT_VALUE (15 * 1000)
+
 /** Opaque typedef for DBusDataSlot */
 typedef struct DBusDataSlot DBusDataSlot;
 /** DBusDataSlot is used to store application data on the connection */
@@ -615,14 +618,19 @@ dbus_connection_get_is_authenticated (DBusConnection *connection)
  * 
  * @param connection the connection.
  * @param message the message to write.
+ * @param client_serial return location for client serial.
  * @param result address where result code can be placed.
  * @returns #TRUE on success.
  */
 dbus_bool_t
 dbus_connection_send_message (DBusConnection *connection,
                               DBusMessage    *message,
+			      dbus_int32_t   *client_serial,			      
                               DBusResultCode *result)
-{  
+
+{
+  dbus_int32_t serial;
+  
   if (!_dbus_list_prepend (&connection->outgoing_messages,
                            message))
     {
@@ -636,7 +644,12 @@ dbus_connection_send_message (DBusConnection *connection,
   _dbus_verbose ("Message %p added to outgoing queue, %d pending to send\n",
                  message, connection->n_outgoing);
 
-  _dbus_message_set_client_serial (message, _dbus_connection_get_next_client_serial (connection));
+  serial = _dbus_connection_get_next_client_serial (connection);
+  _dbus_message_set_client_serial (message, serial);
+
+  if (client_serial)
+    *client_serial = serial;
+  
   _dbus_message_lock (message);
   
   if (connection->n_outgoing == 1)
@@ -688,12 +701,6 @@ dbus_connection_send_message (DBusConnection *connection,
  * install a timeout. Then install a timeout which is the shortest
  * timeout of any pending reply.
  *
- * @todo implement non-reentrant "block for reply" variant.  i.e. send
- * a message, block until we get a reply, then pull reply out of
- * message queue and return it, *without dispatching any handlers for
- * any other messages* - used for non-reentrant "method calls" We can
- * block properly for this using _dbus_connection_do_iteration().
- * 
  */
 dbus_bool_t
 dbus_connection_send_message_with_reply (DBusConnection     *connection,
@@ -703,7 +710,68 @@ dbus_connection_send_message_with_reply (DBusConnection     *connection,
                                          DBusResultCode     *result)
 {
   /* FIXME */
-  return dbus_connection_send_message (connection, message, result);
+  return dbus_connection_send_message (connection, message, NULL, result);
+}
+
+/**
+ * Sends a message and blocks a certain time period while waiting for a reply.
+ * This function does not dispatch any message handlers until the main loop
+ * has been reached. This function is used to do non-reentrant "method calls."
+ *
+ * @param connection the connection
+ * @param message the message to send
+ * @param timeout_milliseconds timeout in milliseconds or -1 for default
+ * @param result return location for result code
+ * @returns the message that is the reply or #NULL with an error code if the
+ * function fails.
+ */
+DBusMessage *
+dbus_connection_send_message_with_reply_and_block (DBusConnection     *connection,
+						   DBusMessage        *message,
+						   int                 timeout_milliseconds,
+						   DBusResultCode     *result)
+{
+  dbus_int32_t client_serial;
+  DBusList *link;
+
+  if (timeout_milliseconds == -1)
+    timeout_milliseconds = DEFAULT_TIMEOUT_VALUE;
+  
+  if (!dbus_connection_send_message (connection, message, &client_serial, result))
+    return NULL;
+
+  /* Flush message queue */
+  dbus_connection_flush (connection);
+  
+  /* Now we wait... */
+  _dbus_connection_do_iteration (connection,
+				 DBUS_ITERATION_DO_READING |
+				 DBUS_ITERATION_BLOCK,
+				 timeout_milliseconds);
+
+  /* Check if we've gotten a reply */
+  link = _dbus_list_get_first_link (&connection->incoming_messages);
+
+  while (link != NULL)
+    {
+      DBusMessage *reply = link->data;
+
+      if (_dbus_message_get_reply_serial (reply) == client_serial)
+	{
+	  dbus_message_ref (message);
+
+	  if (result)
+	    *result = DBUS_RESULT_SUCCESS;
+	  
+	  return reply;
+	}
+      link = _dbus_list_get_next_link (&connection->incoming_messages, link);
+    }
+
+  if (result)
+    *result = DBUS_RESULT_NO_REPLY;
+  
+  return NULL;
 }
 
 /**

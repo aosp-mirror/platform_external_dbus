@@ -62,6 +62,7 @@ struct DBusMessage
   
   char *name; /**< Message name. */
   char *service; /**< Message destination service. */
+  char *sender; /**< Message sender service. */
   
   dbus_int32_t client_serial; /**< Client serial or -1 if not set */
   dbus_int32_t reply_serial; /**< Reply serial or -1 if not set */
@@ -121,6 +122,35 @@ _dbus_message_set_client_serial (DBusMessage  *message,
   _dbus_assert (message->client_serial == -1);
   
   message->client_serial = client_serial;
+}
+
+/**
+ * Returns the serial that the message is
+ * a reply to.
+ *
+ * @param message the message
+ * @returns the reply serial
+ */
+dbus_int32_t
+_dbus_message_get_reply_serial  (DBusMessage *message)
+{
+  return message->client_serial;
+}
+
+/**
+ * Sets the message sender. This can only
+ * be done once on a message.
+ *
+ * @param message the message
+ * @param sender the sender
+ */
+void
+_dbus_message_set_sender (DBusMessage  *message,
+			  const char   *sender)
+{
+  _dbus_assert (message->sender == NULL);
+
+  message->sender = _dbus_strdup (sender);
 }
 
 /**
@@ -199,11 +229,23 @@ dbus_message_write_header (DBusMessage *message)
   /* Marshal reply serial */
   if (message->reply_serial != -1)
     {
+      _dbus_string_align_length (&message->header, 4);
       _dbus_string_append_len (&message->header, DBUS_HEADER_FIELD_REPLY, 4);
 
       _dbus_string_append_byte (&message->header, DBUS_TYPE_INT32);
       _dbus_marshal_int32 (&message->header, DBUS_COMPILER_BYTE_ORDER,
                            message->reply_serial);
+    }
+
+  /* Marshal sender */
+  if (message->sender)
+    {
+      _dbus_string_align_length (&message->header, 4);
+      _dbus_string_append_len (&message->header, DBUS_HEADER_FIELD_SENDER, 4);
+      _dbus_string_append_byte (&message->header, DBUS_TYPE_STRING);
+
+      _dbus_marshal_string (&message->header, DBUS_COMPILER_BYTE_ORDER,
+			    message->sender);
     }
   
   /* Fill in the length */
@@ -299,6 +341,35 @@ dbus_message_new (const char *service,
       return NULL;
     }
   
+  return message;
+}
+
+/**
+ * Constructs a message that is a reply to some other
+ * message. Returns #NULL if memory can't be allocated
+ * for the message.
+ *
+ * @param name the name of the message
+ * @param original_message the message which the created
+ * message is a reply to.
+ * @returns a new DBusMessage, free with dbus_message_unref()
+ * @see dbus_message_new(), dbus_message_unref()
+ */ 
+DBusMessage*
+dbus_message_new_reply (const char  *name,
+			DBusMessage *original_message)
+{
+  DBusMessage *message;
+
+  _dbus_assert (original_message->sender != NULL);
+  
+  message = dbus_message_new (original_message->sender, name);
+  
+  if (message == NULL)
+    return NULL;
+
+  message->reply_serial = original_message->client_serial;
+
   return message;
 }
 
@@ -1126,6 +1197,11 @@ _dbus_message_loader_get_buffer (DBusMessageLoader  *loader,
 #define DBUS_HEADER_FIELD_REPLY_AS_UINT32   \
   FOUR_CHARS_TO_UINT32 ('r', 'p', 'l', 'y')
 
+/** DBUS_HEADER_FIELD_SENDER Packed into a dbus_uint32_t */
+#define DBUS_HEADER_FIELD_SENDER_AS_UINT32  \
+  FOUR_CHARS_TO_UINT32 ('s', 'n', 'd', 'r')
+
+
 /* FIXME should be using DBusString for the stuff we demarshal.  char*
  * evil. Also, out of memory handling here seems suboptimal.
  * Should probably report it as a distinct error from "corrupt message,"
@@ -1137,8 +1213,10 @@ decode_header_data (DBusString   *data,
 		    int		  header_len,
 		    int           byte_order,
 		    dbus_int32_t *client_serial,
+		    dbus_int32_t *reply_serial,
 		    char        **service,
-		    char        **name)
+		    char        **name,
+		    char        **sender)
 {
   const char *field;
   int pos, new_pos;
@@ -1148,6 +1226,7 @@ decode_header_data (DBusString   *data,
 
   *service = NULL;
   *name = NULL;
+  *sender = NULL;
   
   /* Now handle the fields */
   while (pos < header_len)
@@ -1189,6 +1268,21 @@ decode_header_data (DBusString   *data,
 	  *name = _dbus_demarshal_string (data, byte_order, pos + 1, &new_pos);
           /* FIXME check for demarshal failure SECURITY */
           break;
+	case DBUS_HEADER_FIELD_SENDER_AS_UINT32:
+	  if (*sender != NULL)
+	    {
+	      _dbus_verbose ("%s field provided twice\n",
+			     DBUS_HEADER_FIELD_NAME);
+	      goto failed;
+	    }
+
+	  *sender = _dbus_demarshal_string (data, byte_order, pos + 1, &new_pos);
+          /* FIXME check for demarshal failure SECURITY */
+	  break;
+	case DBUS_HEADER_FIELD_REPLY_AS_UINT32:
+	  *reply_serial = _dbus_demarshal_int32 (data, byte_order, pos + 1, &new_pos);
+
+	  break;
         default:
 	  _dbus_verbose ("Ignoring an unknown header field: %c%c%c%c\n",
 			 field[0], field[1], field[2], field[3]);
@@ -1268,23 +1362,29 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 
       if (_dbus_string_get_length (&loader->data) >= header_len + body_len)
 	{
-	  dbus_int32_t client_serial;
-	  char *service, *name;
+	  dbus_int32_t client_serial, reply_serial;
+	  char *service, *name, *sender;
 
           /* FIXME right now if this doesn't have enough memory, the
            * loader becomes corrupted. Instead we should just not
            * parse this message for now.
            */
  	  if (!decode_header_data (&loader->data, header_len, byte_order,
-				   &client_serial, &service, &name))
+				   &client_serial, &reply_serial, &service, &name, &sender))
 	    {
 	      loader->corrupted = TRUE;
 	      return;
 	    }
 
+
   	  message = dbus_message_new (service, name);
+	  message->reply_serial = reply_serial;
+	  message->client_serial = client_serial;
+	  _dbus_message_set_sender (message, sender);
+	  
           dbus_free (service);
 	  dbus_free (name);
+	  dbus_free (sender);
 	  
 	  if (message == NULL)
             break; /* ugh, postpone this I guess. */
@@ -1297,7 +1397,7 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 
           _dbus_assert (_dbus_string_get_length (&message->header) == 0);
           _dbus_assert (_dbus_string_get_length (&message->body) == 0);
-          
+
 	  if (!_dbus_string_move_len (&loader->data, 0, header_len, &message->header, 0))
             {
               _dbus_list_remove_last (&loader->messages, message);
@@ -1486,6 +1586,8 @@ _dbus_message_test (void)
   
   message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");
   message->client_serial = 1;
+  message->reply_serial = 0x12345678;
+
   dbus_message_append_string (message, "Test string");
   dbus_message_append_int32 (message, -0x12345678);
   dbus_message_append_uint32 (message, 0xedd1e);
@@ -1529,6 +1631,9 @@ _dbus_message_test (void)
   if (!message)
     _dbus_assert_not_reached ("received a NULL message");
 
+  if (message->reply_serial != 0x12345678)
+    _dbus_assert_not_reached ("reply serial fields differ");
+  
   message_iter_test (message);
   
   dbus_message_unref (message);

@@ -50,7 +50,8 @@ typedef enum
   DBUS_RESULT_NO_NETWORK,      /**< Can't find the network */
   DBUS_RESULT_ADDRESS_IN_USE,  /**< Someone's already using the address */
   DBUS_RESULT_DISCONNECTED,    /**< No more connection. */
-  DBUS_RESULT_INVALID_FIELDS   /**< One or more invalid fields encountered. */
+  DBUS_RESULT_INVALID_FIELDS,  /**< One or more invalid fields encountered. */
+  DBUS_RESULT_NO_REPLY,        /**< Did not get a reply message. */
 } DBusResultCode;
 
 void        dbus_set_result       (DBusResultCode *code_address,

@@ -36,15 +36,16 @@ DBUS_BEGIN_DECLS;
 typedef struct DBusMessage DBusMessage;
 typedef struct DBusMessageIter DBusMessageIter;
 
-DBusMessage* dbus_message_new   (const char *service,
-				 const char *name);
+DBusMessage* dbus_message_new       (const char  *service,
+				     const char  *name);
+DBusMessage* dbus_message_new_reply (const char  *name,
+				     DBusMessage *original_message);
 
 void         dbus_message_ref   (DBusMessage *message);
 void         dbus_message_unref (DBusMessage *message);
 
-const char*  dbus_message_get_name (DBusMessage *message);
-const char*  dbus_message_get_service (DBusMessage *message);
-
+const char*  dbus_message_get_name         (DBusMessage *message);
+const char*  dbus_message_get_service      (DBusMessage *message);
 
 dbus_bool_t dbus_message_append_fields        (DBusMessage         *message,
                                                int                  first_field_type,

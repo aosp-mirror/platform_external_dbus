@@ -151,6 +151,7 @@ check_messages (void)
           reply = dbus_message_new ("org.freedesktop.DBus.Test", "org.freedesktop.DBus.Test");
           dbus_connection_send_message (connection,
                                         reply,
+					NULL, 
                                         NULL);
           dbus_message_unref (reply);
 

@@ -82,14 +82,20 @@ DBusMessage*    dbus_connection_peek_message         (DBusConnection *connection
 DBusMessage*    dbus_connection_pop_message          (DBusConnection *connection);
 dbus_bool_t     dbus_connection_dispatch_message     (DBusConnection *connection);
 
-dbus_bool_t dbus_connection_send_message            (DBusConnection     *connection,
-                                                     DBusMessage        *message,
-                                                     DBusResultCode     *result);
-dbus_bool_t dbus_connection_send_message_with_reply (DBusConnection     *connection,
-                                                     DBusMessage        *message,
-                                                     DBusMessageHandler *reply_handler,
-                                                     int                 timeout_milliseconds,
-                                                     DBusResultCode     *result);
+dbus_bool_t  dbus_connection_send_message                      (DBusConnection     *connection,
+								DBusMessage        *message,
+								dbus_int32_t       *client_serial,
+								DBusResultCode     *result);
+dbus_bool_t  dbus_connection_send_message_with_reply           (DBusConnection     *connection,
+								DBusMessage        *message,
+								DBusMessageHandler *reply_handler,
+								int                 timeout_milliseconds,
+								DBusResultCode     *result);
+DBusMessage *dbus_connection_send_message_with_reply_and_block (DBusConnection     *connection,
+								DBusMessage        *message,
+								int                 timeout_milliseconds,
+								DBusResultCode     *result);
+
 
 void dbus_connection_set_disconnect_function (DBusConnection            *connection,
 					      DBusDisconnectFunction     function,

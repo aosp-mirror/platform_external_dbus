@@ -1,3 +1,45 @@
+2003-01-21  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-connection.c: (dbus_connection_send_message):
+	Add a new client_serial parameter.
+	
+	(dbus_connection_send_message_with_reply):
+	Remove a @todo since we've implemented the blocking function.
+	
+	(dbus_connection_send_message_with_reply_and_block):
+	New function that sends a message and waits for a reply and
+	then returns the reply.
+	
+	* dbus/dbus-connection.h:
+	Add new functions.
+	
+	* dbus/dbus-errors.c: (dbus_result_to_string):
+	* dbus/dbus-errors.h:
+	Add new DBUS_RESULT.
+	
+	* dbus/dbus-message-internal.h:
+	* dbus/dbus-message.c: (_dbus_message_get_reply_serial),
+	(_dbus_message_set_sender), (dbus_message_write_header),
+	(dbus_message_new_reply), (decode_header_data),
+	(_dbus_message_loader_return_buffer), (_dbus_message_test):
+	* dbus/dbus-message.h:
+	Add new functions that set the reply serial and sender.
+	Also marshal and demarshal them correctly and add test.
+	
+	* dbus/dbus-protocol.h:
+	Add new DBUS_MESSAGE_TYPE_SENDER.
+	
+	* glib/dbus-glib.h:
+	* glib/dbus-gmain.c: (watch_callback), (free_callback_data),
+	(add_watch), (remove_watch), (add_timeout), (remove_timeout),
+	(dbus_connection_hookup_with_g_main):
+	* glib/test-dbus-glib.c: (main):
+	Rewrite to use GIOChannel and remove the GSource crack.
+	
+	* test/echo-client.c: (main):
+	* test/watch.c: (check_messages):
+	Update for changed APIs
+	
 2003-01-19  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/Makefile.am: Add dbus-timeout.[cħ]

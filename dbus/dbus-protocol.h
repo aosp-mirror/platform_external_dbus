@@ -51,7 +51,8 @@ extern "C" {
 #define DBUS_HEADER_FIELD_NAME    "name"
 #define DBUS_HEADER_FIELD_SERVICE "srvc"
 #define DBUS_HEADER_FIELD_REPLY	  "rply"
-
+#define DBUS_HEADER_FIELD_SENDER  "sndr"
+  
 #ifdef __cplusplus
 }
 #endif

@@ -30,6 +30,7 @@ main (int    argc,
   message = dbus_message_new ("org.freedesktop.DBus.Test", "org.freedesktop.DBus.Test");
   dbus_connection_send_message (connection,
                                 message,
+				NULL, 
                                 NULL);
   dbus_message_unref (message);
   

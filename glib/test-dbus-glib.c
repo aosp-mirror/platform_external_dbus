@@ -1,37 +1,14 @@
 #include "dbus-glib.h"
 #include <stdio.h>
 
-GMainLoop *loop;
-
-static void
-message_handler (DBusConnection *connection,
-		 DBusMessage *message, gpointer user_data)
-{
-  static int count = 0;
-  DBusMessage *reply;
-
-  reply = dbus_message_new ("org.freedesktop.DBus.Test", "org.freedesktop.DBus.Test");
-  dbus_connection_send_message (connection,
-				reply,
-				NULL);
-  dbus_message_unref (reply);
-  count += 1;
-  
-  if (count > 100)
-    {
-      printf ("Saw %d messages, exiting\n", count);
-      g_main_loop_quit (loop);
-    }
-}
-
 int
 main (int argc, char **argv)
 {
-  GSource *source;
-  
   DBusConnection *connection;
   DBusResultCode result;
-  DBusMessage *message;
+  DBusMessage *message, *reply;
+  
+  GMainLoop *loop;
   
   loop = g_main_loop_new (NULL, FALSE);
 
@@ -43,16 +20,15 @@ main (int argc, char **argv)
       return 1;
     }
 
-  source = dbus_connection_gsource_new (connection);
-  g_source_attach (source, NULL);
-  g_source_set_callback (source, (GSourceFunc)message_handler, NULL, NULL);
-  
-  message = dbus_message_new ("org.freedesktop.DBus.Test", "org.freedesktop.DBus.Test");
-  dbus_connection_send_message (connection,
-                                message,
-                                NULL);
-  dbus_message_unref (message);
-  
+  dbus_connection_hookup_with_g_main (connection);
+
+  message = dbus_message_new ("org.freedesktop.DBus", "org.freedesktop.DBus.Hello");
+  dbus_message_append_fields (message,
+			      DBUS_TYPE_STRING, "glib-test",
+			      0);
+
+  reply = dbus_connection_send_message_with_reply_and_block (connection, message, -1, &result);
+  g_print ("reply name: %s\n", dbus_message_get_name (reply));
   
   g_main_loop_run (loop);
   

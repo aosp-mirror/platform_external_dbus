@@ -101,6 +101,8 @@ dbus_result_to_string (DBusResultCode code)
       return "Disconnected.";
     case DBUS_RESULT_INVALID_FIELDS:
       return "Invalid fields.";
+    case DBUS_RESULT_NO_REPLY:
+      return "Did not get a reply message.";
       
       /* no default, it would break our compiler warnings */
     }
