@@ -814,23 +814,66 @@ _dbus_type_writer_unrecurse (DBusTypeWriter *writer,
                      len, sub->u.array.len_pos);
     }
 
-  /* Jump the parent writer to the new location */
-  if (!writer->inside_array)
+  /* Now get type_pos right for the parent writer. Here are the cases:
+   *
+   * Cases !writer->inside_array:
+   *   (in these cases we want to update to the new insertion point)
+   * 
+   * - we recursed from STRUCT or INVALID into STRUCT and type_pos
+   *   is the new insertion point in all cases
+   *       writer->type_pos = sub->type_pos
+   * 
+   * - we recursed from STRUCT or INVALID into ARRAY, so type_pos in
+   *   the child is the array element type, and type_pos in the parent
+   *   currently is the child array type but should be set to the
+   *   insertion point just after the element type
+   *       writer->type_pos = sub->element_type_pos + sub->element_type_len
+   *
+   * Cases where writer->inside_array:
+   *   (in these cases we want to update to next expected write)
+   * 
+   * - we recursed from STRUCT into STRUCT somewhere inside an array
+   *   element; type_pos in parent is at the child's begin_struct, and
+   *   type_pos in the child is at the next field type for the parent
+   *       writer->type_pos = sub->type_pos
+   *
+   * - we recursed from STRUCT or INVALID into ARRAY somewhere inside
+   *   an array element, so type_pos in the parent is at the child's
+   *   array typecode, and type_pos in the child is at the array
+   *   element type
+   *       writer->type_pos = sub->element_type_pos + sub->element_type_len
+   * 
+   * - we recursed from ARRAY into STRUCT, so type_pos in the
+   *   parent is the element type starting with STRUCT,
+   *   and type_pos in the child is just after the end_struct code
+   *       writer->type_pos should remain as-is
+   * 
+   * - we recursed from ARRAY into ARRAY, so type_pos in the
+   *   parent is the element type starting with child's ARRAY code,
+   *   type_pos in the child is the element type of the
+   *   sub-array
+   *       writer->type_pos should remain as-is
+   */
+  if (writer->container_type == DBUS_TYPE_ARRAY)
     {
-      if (sub->inside_array)
-        {
-          /* Transition back to type_pos = insertion point from type_pos = expected */
-          
-          _dbus_assert (sub->container_type == DBUS_TYPE_ARRAY);
-          writer->type_pos = sub->u.array.element_type_pos + sub->u.array.element_type_len;
-        }
-      else
-        {
-          writer->type_pos = sub->type_pos;
-        }
+      /* Don't do anything, because sub was an element, and the type
+       * of subsequent elements should be the same
+       */
     }
+  else if (sub->container_type == DBUS_TYPE_ARRAY)
+    {
+      /* Jump to the next type in the parent's type signature,
+       * which is after our array element type
+       */
+      _dbus_assert (writer->container_type != DBUS_TYPE_ARRAY);
+      writer->type_pos = sub->u.array.element_type_pos + sub->u.array.element_type_len;
+    }
+  else
+    {
+      writer->type_pos = sub->type_pos;
+    }
+  
   writer->value_pos = sub->value_pos;
-
 
   _dbus_verbose ("  type writer %p unrecursed type_pos = %d value_pos = %d remaining sig '%s'\n",
                  writer, writer->type_pos, writer->value_pos,
@@ -1596,6 +1639,71 @@ read_struct_of_array_of_int32 (DataBlock      *block,
 }
 
 static dbus_bool_t
+write_struct_of_struct_of_array_of_int32 (DataBlock      *block,
+                                          DBusTypeWriter *writer)
+{
+  DataBlockState saved;
+  DBusTypeWriter sub;
+
+  data_block_save (block, &saved);
+  
+  if (!_dbus_type_writer_recurse (writer,
+                                  DBUS_TYPE_STRUCT,
+                                  &sub))
+    return FALSE;
+
+  if (!write_struct_of_array_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+  if (!write_struct_of_array_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+  if (!write_struct_of_array_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+
+  if (!_dbus_type_writer_unrecurse (writer, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+read_struct_of_struct_of_array_of_int32 (DataBlock      *block,
+                                         DBusTypeReader *reader)
+{
+  DBusTypeReader sub;
+  
+  check_expected_type (reader, DBUS_TYPE_STRUCT);
+  
+  _dbus_type_reader_recurse (reader, &sub);
+
+  if (!read_struct_of_array_of_int32 (block, &sub))
+    return FALSE;
+
+  NEXT_EXPECTING_TRUE (&sub);
+  if (!read_struct_of_array_of_int32 (block, &sub))
+    return FALSE;
+
+  NEXT_EXPECTING_TRUE (&sub);
+  if (!read_struct_of_array_of_int32 (block, &sub))
+    return FALSE;
+  
+  NEXT_EXPECTING_FALSE (&sub);
+  
+  return TRUE;
+}
+
+static dbus_bool_t
 write_array_of_struct_of_int32 (DataBlock      *block,
                                 DBusTypeWriter *writer)
 {
@@ -1669,19 +1777,245 @@ read_array_of_struct_of_int32 (DataBlock      *block,
   return TRUE;
 }
 
+
+static dbus_bool_t
+write_array_of_array_of_struct_of_int32 (DataBlock      *block,
+                                         DBusTypeWriter *writer)
+{
+  DataBlockState saved;
+  DBusTypeWriter sub;
+
+  data_block_save (block, &saved);
+
+  if (!_dbus_type_writer_recurse_array (writer,
+                                        DBUS_TYPE_ARRAY_AS_STRING
+                                        DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+                                        DBUS_TYPE_INT32_AS_STRING
+                                        DBUS_TYPE_INT32_AS_STRING
+                                        DBUS_STRUCT_END_CHAR_AS_STRING,
+                                        &sub))
+    return FALSE;
+
+  if (!write_array_of_struct_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+
+  if (!write_array_of_struct_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+
+  if (!write_array_of_struct_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+  
+  if (!_dbus_type_writer_unrecurse (writer, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+read_array_of_array_of_struct_of_int32 (DataBlock      *block,
+                                        DBusTypeReader *reader)
+{
+  DBusTypeReader sub;
+
+  check_expected_type (reader, DBUS_TYPE_ARRAY);
+  
+  _dbus_type_reader_recurse (reader, &sub);
+
+  check_expected_type (&sub, DBUS_TYPE_ARRAY);
+
+  if (!read_array_of_struct_of_int32 (block, &sub))
+    return FALSE;
+  
+  NEXT_EXPECTING_TRUE (&sub);
+
+  if (!read_array_of_struct_of_int32 (block, &sub))
+    return FALSE;
+  
+  NEXT_EXPECTING_TRUE (&sub);
+
+  if (!read_array_of_struct_of_int32 (block, &sub))
+    return FALSE;
+  
+  NEXT_EXPECTING_FALSE (&sub);
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+write_struct_of_array_of_struct_of_int32 (DataBlock      *block,
+                                          DBusTypeWriter *writer)
+{
+  DataBlockState saved;
+  DBusTypeWriter sub;
+
+  data_block_save (block, &saved);
+  
+  if (!_dbus_type_writer_recurse (writer,
+                                  DBUS_TYPE_STRUCT,
+                                  &sub))
+    return FALSE;
+
+  if (!write_array_of_struct_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+  if (!write_array_of_struct_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+  if (!write_array_of_struct_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+
+  if (!_dbus_type_writer_unrecurse (writer, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+read_struct_of_array_of_struct_of_int32 (DataBlock      *block,
+                                         DBusTypeReader *reader)
+{
+  DBusTypeReader sub;
+  
+  check_expected_type (reader, DBUS_TYPE_STRUCT);
+  
+  _dbus_type_reader_recurse (reader, &sub);
+  
+  if (!read_array_of_struct_of_int32 (block, &sub))
+    return FALSE;
+
+  NEXT_EXPECTING_TRUE (&sub);
+  if (!read_array_of_struct_of_int32 (block, &sub))
+    return FALSE;
+
+  NEXT_EXPECTING_TRUE (&sub);
+  if (!read_array_of_struct_of_int32 (block, &sub))
+    return FALSE;
+  
+  NEXT_EXPECTING_FALSE (&sub);
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+write_array_of_struct_of_array_of_int32 (DataBlock      *block,
+                                         DBusTypeWriter *writer)
+{
+  DataBlockState saved;
+  DBusTypeWriter sub;
+
+  data_block_save (block, &saved);
+
+  if (!_dbus_type_writer_recurse_array (writer,
+                                        DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+                                        DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_INT32_AS_STRING
+                                        DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_INT32_AS_STRING
+                                        DBUS_STRUCT_END_CHAR_AS_STRING,
+                                        &sub))
+    return FALSE;
+
+  if (!write_struct_of_array_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+
+  if (!write_struct_of_array_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+
+  if (!write_struct_of_array_of_int32 (block, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+  
+  if (!_dbus_type_writer_unrecurse (writer, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+read_array_of_struct_of_array_of_int32 (DataBlock      *block,
+                                        DBusTypeReader *reader)
+{
+  DBusTypeReader sub;
+
+  check_expected_type (reader, DBUS_TYPE_ARRAY);
+  
+  _dbus_type_reader_recurse (reader, &sub);
+
+  check_expected_type (&sub, DBUS_TYPE_STRUCT);
+
+  if (!read_struct_of_array_of_int32 (block, &sub))
+    return FALSE;
+  
+  NEXT_EXPECTING_TRUE (&sub);
+
+  if (!read_struct_of_array_of_int32 (block, &sub))
+    return FALSE;
+  
+  NEXT_EXPECTING_TRUE (&sub);
+
+  if (!read_struct_of_array_of_int32 (block, &sub))
+    return FALSE;
+  
+  NEXT_EXPECTING_FALSE (&sub);
+  
+  return TRUE;
+}
+
 typedef enum {
   ITEM_INVALID = -1,
+
   ITEM_INT32 = 0,
+
   ITEM_STRUCT_OF_INT32,
   ITEM_STRUCT_OF_STRUCTS,
   ITEM_STRUCT_OF_STRUCTS_OF_STRUCTS,
+
   ITEM_ARRAY_OF_INT32,
   ITEM_ARRAY_OF_INT32_EMPTY,
   ITEM_ARRAY_OF_ARRAY_OF_INT32,
   ITEM_ARRAY_OF_ARRAY_OF_INT32_EMPTY,
   ITEM_ARRAY_OF_ARRAY_OF_ARRAY_OF_INT32,
+
   ITEM_STRUCT_OF_ARRAY_OF_INT32,
+  ITEM_STRUCT_OF_STRUCT_OF_ARRAY_OF_INT32,
+
   ITEM_ARRAY_OF_STRUCT_OF_INT32,
+  ITEM_ARRAY_OF_ARRAY_OF_STRUCT_OF_INT32,
+
+  ITEM_STRUCT_OF_ARRAY_OF_STRUCT_OF_INT32,
+  ITEM_ARRAY_OF_STRUCT_OF_ARRAY_OF_INT32,
+
   ITEM_LAST
 } WhichItem;
 
@@ -1725,8 +2059,21 @@ static CheckMarshalItem items[] = {
     write_array_of_array_of_array_of_int32, read_array_of_array_of_array_of_int32 },
   { "struct of array of int32",
     ITEM_STRUCT_OF_ARRAY_OF_INT32, write_struct_of_array_of_int32, read_struct_of_array_of_int32 },
+  { "struct of struct of array of int32",
+    ITEM_STRUCT_OF_STRUCT_OF_ARRAY_OF_INT32,
+    write_struct_of_struct_of_array_of_int32, read_struct_of_struct_of_array_of_int32 },
   { "array of struct of int32",
     ITEM_ARRAY_OF_STRUCT_OF_INT32, write_array_of_struct_of_int32, read_array_of_struct_of_int32 },
+  { "array of array of struct of int32",
+    ITEM_ARRAY_OF_ARRAY_OF_STRUCT_OF_INT32,
+    write_array_of_array_of_struct_of_int32, read_array_of_array_of_struct_of_int32 },
+
+  { "struct of array of struct of int32",
+    ITEM_STRUCT_OF_ARRAY_OF_STRUCT_OF_INT32,
+    write_struct_of_array_of_struct_of_int32, read_struct_of_array_of_struct_of_int32 },
+  { "array of struct of array of int32",
+    ITEM_ARRAY_OF_STRUCT_OF_ARRAY_OF_INT32,
+    write_array_of_struct_of_array_of_int32, read_array_of_struct_of_array_of_int32 },
 };
 
 typedef struct
