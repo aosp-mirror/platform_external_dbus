@@ -1,3 +1,26 @@
+2003-09-24  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus.py:
+
+	Connect Object methods (when you are sharing an object) up... pass
+	in a list of methods to be shared. Sharing all the methods just
+	worked out too weird. You can now create nice Services over the
+	DBus in Python. :-)
+	
+	* python/dbus_bindings.pyx.in:
+
+	Keep references to user_data tuples passed into C functions so 
+	Python doesn't garbage collect on us.
+
+	Implement MethodReturn and Error subclasses of Message for creating
+	DBusMessage's of those types.
+	
+	* python/examples/example-client.py:
+	* python/examples/example-service.py:
+
+	Simple example code showing both how create DBus services and objects,
+	and how to use them.
+
 2003-09-23  Havoc Pennington  <hp@pobox.com>
 
 	* glib/dbus-gproxy.c (dbus_gproxy_manager_filter): implement

@@ -159,18 +159,35 @@ class Object:
     def __init__(self, object_path, methods_to_share, service):
         self._object_path = object_path
         self._service = service
-        self._object_methods = methods_to_share
         self._bus = service.get_bus()
         self._connection = self._bus.get_connection()
+
+        self._method_name_to_method = self._build_method_dictionary(methods_to_share)
         
         self._connection.register_object_path(object_path, self._unregister_cb, self._message_cb)
 
     def _unregister_cb(self, connection):
         print ("Unregister")
         
-    def message_cb(self, connection, message):
-        print ("Message %s received" % (message))
-        print ("MethodCall %s" % (message.get_member()))
+    def _message_cb(self, connection, message):
+        target_method_name = message.get_member()
+        target_method = self._method_name_to_method[target_method_name]
+        args = message.get_args_list()
+        
+        retval = target_method(*args)
+
+        reply = dbus_bindings.MethodReturn(message)
+        if retval != None:
+            reply.append(retval)
+        self._connection.send(reply)
+
+    def _build_method_dictionary(self, methods):
+        dictionary = {}
+        for method in methods:
+            if dictionionary.has_key(method.__name__):
+                print ('WARNING: registering DBus Object methods, already have a method named %s' % (method.__name__)
+            dictionary[method.__name__] = method
+        return dictionary
         
 class RemoteService:
     """A remote service providing objects.

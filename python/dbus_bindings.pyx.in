@@ -53,6 +53,8 @@ ctypedef struct DBusObjectPathVTable:
   void (* dbus_internal_pad4) (void *)
 
 
+_user_data_references = [ ]
+
 class DBusException(Exception):
     pass
 
@@ -72,6 +74,7 @@ cdef DBusHandlerResult cmessage_function_handler (DBusConnection *connection,
                                                   void *user_data):
     print ("cmessage_function_handler() called")
     tup = <object>user_data
+    print (type(tup))
     print (tup)
     function = tup[1]
     message = Message(_create=0)
@@ -102,7 +105,7 @@ cdef class Connection:
     # FIXME: this is a major major hack. We use this because casting values to
     # python objects and returning seemed to be corrupting them. This is a "global variable" :-(
     cdef char **_parsed_path
-    
+
     def __init__(self, address=None, _conn=None):
         cdef DBusError error
         dbus_error_init(&error)
@@ -301,7 +304,8 @@ cdef class Connection:
         cvtable.message_function    = cmessage_function_handler
 
         user_data = [unregister_cb, message_cb]
-        #Py_XINCREF(user_data)
+        global _user_data_references
+        _user_data_references.append(user_data)
         
         path_element_list = path[1:].split('/')
         self._build_parsed_path(path_element_list)
@@ -316,9 +320,8 @@ cdef class Connection:
         cvtable.message_function    = cmessage_function_handler
 
         user_data = [unregister_cb, message_cb]
-        Py_XINCREF(user_data)
-
-        print ("Ref inced")
+        global _user_data_references
+        _user_data_references.append(user_data)        
         
         path_element_list = path[1:].split('/')
         self._build_parsed_path(path_element_list)
@@ -586,8 +589,11 @@ cdef class MessageIter:
 cdef class Message:
     cdef DBusMessage *msg
 
-    def __init__(self, message_type=MESSAGE_TYPE_INVALID, service=None, path=None, interface=None,
-                 method=None, name=None, reply_to=None, error_name=None, error_message=None,
+    def __init__(self, message_type=MESSAGE_TYPE_INVALID,
+                 service=None, path=None, interface=None, method=None,
+                 method_call=None,
+                 name=None,
+                 reply_to=None, error_name=None, error_message=None,
                  _create=1):
         cdef char *cservice
         if (service == None):
@@ -596,18 +602,20 @@ cdef class Message:
             cservice = service
             
         if not _create:
-            return 0
+            return
 
         if message_type == MESSAGE_TYPE_METHOD_CALL:
             self.msg = dbus_message_new_method_call(cservice, path, interface, method)
         elif message_type == MESSAGE_TYPE_METHOD_RETURN:
-            msg = method_call._get_msg()
-            self.msg = dbus_message_new_method_return(<DBusMessage*>msg)
+            print ("Doing this")
+            cmsg = method_call._get_msg()
+            self.msg = dbus_message_new_method_return(<DBusMessage*>cmsg)
+            print ("Done")
         elif message_type == MESSAGE_TYPE_SIGNAL:
             self.msg = dbus_message_new_signal(path, interface, name)
         elif message_type == MESSAGE_TYPE_ERROR:
-            msg = reply_to._get_msg()
-            self.msg = dbus_message_new_error(<DBusMessage*>msg, error_name, error_message)
+            cmsg = reply_to._get_msg()
+            self.msg = dbus_message_new_error(<DBusMessage*>cmsg, error_name, error_message)
             
     def type_to_name(self, type):
         if type == MESSAGE_TYPE_SIGNAL:
@@ -797,6 +805,14 @@ class MethodCall(Message):
     def __init__(self, mpath, minterface, mmethod):
         Message.__init__(self, MESSAGE_TYPE_METHOD_CALL, path=mpath, interface=minterface, method=mmethod)
 
+class MethodReturn(Message):
+    def __init__(self, method_call):
+        Message.__init__(self, MESSAGE_TYPE_METHOD_RETURN, method_call=method_call)
+
+class Error(Message):
+    def __init__(self, reply_to, error_name, error_message):
+        Message.__init__(self, MESSAGE_TYPE_ERROR, reply_to=reply_to, error_name=error_name, error_message=error_message)
+        
 cdef class Server:
     cdef DBusServer *server
     def __init__(self, address):
