@@ -172,16 +172,38 @@ remove_watch (DBusWatch *watch,
   g_free (poll_fd);
 }
 
+static gboolean
+timeout_handler (gpointer data)
+{
+  DBusTimeout *timeout = data;
+
+  dbus_timeout_handle (timeout);
+
+  return FALSE;
+}
+
+
 static void
 add_timeout (DBusTimeout *timeout,
 	     void        *data)
 {
+  guint timeout_tag;
+
+  timeout_tag = g_timeout_add (dbus_timeout_get_interval (timeout),
+			       timeout_handler, timeout);
+  
+  dbus_timeout_set_data (timeout, GUINT_TO_POINTER (timeout_tag), NULL);
 }
 
 static void
 remove_timeout (DBusTimeout *timeout,
 		void        *data)
 {
+  guint timeout_tag;
+  
+  timeout_tag = GPOINTER_TO_UINT (dbus_timeout_get_data (timeout));
+
+  g_source_remove (timeout_tag);
 }
 
 void
