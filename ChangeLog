@@ -1,3 +1,10 @@
+2003-07-30  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-bus.c (init_connections_unlocked): fix default system
+	bus address to be abstract if we have abstract sockets
+
+	* NEWS: update
+
 2003-07-28  Havoc Pennington  <hp@redhat.com>
 
 	* bus/messagebus.in: fix to avoid processname/servicename 

@@ -1,3 +1,27 @@
+D-BUS 0.12
+===
+
+- fix "service messagebus status" on Red Hat
+- fix demarshaling of DBUS_TYPE_NAMED
+- fix "eval `dbus-launch --exit-with-session`" to exit properly
+- fix build without --prefix
+- useless fooling with Mono bindings
+- useless fooling with gcj bindings
+- fix srcdir != builddir
+- fix various compiler warnings and other issues
+- add get/set data to DBusMessage
+- fix headers for C++
+- OS X build fixes
+- abstract domain sockets support (Linux only)
+- add dbus-cleanup-sockets utility for people
+  not using linux
+- be consistent about defaulting to --session/--system 
+  with command line tools
+- merge in policies from included config files
+- fix build on non-x86
+- docs updates
+- lots of other bugfixes
+
 D-BUS 0.11
 ===
 

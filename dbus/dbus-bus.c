@@ -32,8 +32,13 @@
  * @ingroup DBus
  * @brief Functions for communicating with the message bus
  *
+ * @todo right now the default address of the system bus is hardcoded,
+ * so if you change it in the global config file suddenly you have to
+ * set DBUS_SYSTEM_BUS_ADDRESS env variable.  Might be nice if the
+ * client lib somehow read the config file, or if the bus on startup
+ * somehow wrote out its address to a well-known spot, but might also
+ * not be worth it.
  */
-
 
 /**
  * @defgroup DBusBusInternals Message bus APIs internals
@@ -141,7 +146,11 @@ init_connections_unlocked (void)
              {
                /* Use default system bus address if none set in environment */
                bus_connection_addresses[DBUS_BUS_SYSTEM] =
+#ifdef HAVE_ABSTRACT_SOCKETS
+                 _dbus_strdup ("unix:abstract=" DBUS_SYSTEM_BUS_PATH);
+#else
                  _dbus_strdup ("unix:path=" DBUS_SYSTEM_BUS_PATH);
+#endif
                if (bus_connection_addresses[DBUS_BUS_SYSTEM] == NULL)
                  return FALSE;
              }
