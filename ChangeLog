@@ -1,3 +1,14 @@
+2003-04-17  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-mainloop.c (_dbus_loop_iterate): fix logic so that if
+	there was an OOM watch we skipped, we always return TRUE so we
+	iterate again to have a look at it again. Fixes test suite hang.
+	Code rearrangement also lets us lose some memset and only iterate
+	over callbacks once.
+
+	* bus/driver.c (bus_driver_handle_message): sense of test for
+	reply was backward
+
 2003-04-16  Havoc Pennington  <hp@pobox.com>
 
 	* doc/dbus-specification.sgml: make spec say serials are unsigned

@@ -1922,7 +1922,7 @@ bus_dispatch_test (const DBusString *test_data_dir)
       _dbus_assert_not_reached ("initial connection setup failed");
     }
   
-  check1_try_iterations (context, "create_and_hello_sha1",
+  check1_try_iterations (context, "create_and_hello",
                          check_hello_connection);
   
   check2_try_iterations (context, foo, "nonexistent_service_activation",
@@ -1978,7 +1978,7 @@ bus_dispatch_sha1_test (const DBusString *test_data_dir)
       _dbus_assert_not_reached ("initial connection setup failed");
     }
   
-  check1_try_iterations (context, "create_and_hello",
+  check1_try_iterations (context, "create_and_hello_sha1",
                          check_hello_connection);
 
   kill_client_connection_unchecked (foo);

@@ -725,14 +725,17 @@ unix_handle_watch (DBusTransport *transport,
   if (watch == unix_transport->read_watch &&
       (flags & DBUS_WATCH_READABLE))
     {
-#if 0
+#if 1
       _dbus_verbose ("handling read watch\n");
 #endif
       if (!do_authentication (transport, TRUE, FALSE))
         return FALSE;
       
       if (!do_reading (transport))
-        return FALSE;
+        {
+          _dbus_verbose ("no memory to read\n");
+          return FALSE;
+        }
     }
   else if (watch == unix_transport->write_watch &&
            (flags & DBUS_WATCH_WRITABLE))
@@ -745,7 +748,10 @@ unix_handle_watch (DBusTransport *transport,
         return FALSE;
       
       if (!do_writing (transport))
-        return FALSE;
+        {
+          _dbus_verbose ("no memory to write\n");
+          return FALSE;
+        }
     }
 #ifdef DBUS_ENABLE_VERBOSE_MODE
   else

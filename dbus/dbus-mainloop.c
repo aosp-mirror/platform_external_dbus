@@ -489,13 +489,13 @@ dbus_bool_t
 _dbus_loop_iterate (DBusLoop     *loop,
                     dbus_bool_t   block)
 {  
-#define N_STATIC_DESCRIPTORS 64
+#define N_STACK_DESCRIPTORS 64
   dbus_bool_t retval;
   DBusPollFD *fds;
-  DBusPollFD static_fds[N_STATIC_DESCRIPTORS];
+  DBusPollFD stack_fds[N_STACK_DESCRIPTORS];
   int n_fds;
   WatchCallback **watches_for_fds;
-  WatchCallback *static_watches_for_fds[N_STATIC_DESCRIPTORS];
+  WatchCallback *stack_watches_for_fds[N_STACK_DESCRIPTORS];
   int i;
   DBusList *link;
   int n_ready;
@@ -504,8 +504,8 @@ _dbus_loop_iterate (DBusLoop     *loop,
   dbus_bool_t oom_watch_pending;
   int orig_depth;
   
-  retval = FALSE;
-      
+  retval = FALSE;      
+
   fds = NULL;
   watches_for_fds = NULL;
   n_fds = 0;
@@ -520,7 +520,30 @@ _dbus_loop_iterate (DBusLoop     *loop,
   if (loop->callbacks == NULL)
     goto next_iteration;
 
-  /* count enabled watches */
+  if (loop->watch_count > N_STACK_DESCRIPTORS)
+    {
+      fds = dbus_new0 (DBusPollFD, loop->watch_count);
+      
+      while (fds == NULL)
+        {
+          _dbus_wait_for_memory ();
+          fds = dbus_new0 (DBusPollFD, loop->watch_count);
+        }
+      
+      watches_for_fds = dbus_new (WatchCallback*, loop->watch_count);
+      while (watches_for_fds == NULL)
+        {
+          _dbus_wait_for_memory ();
+          watches_for_fds = dbus_new (WatchCallback*, loop->watch_count);
+        }
+    }
+  else
+    {      
+      fds = stack_fds;
+      watches_for_fds = stack_watches_for_fds;
+    }
+
+  /* fill our array of fds and watches */
   n_fds = 0;
   link = _dbus_list_get_first_link (&loop->callbacks);
   while (link != NULL)
@@ -529,95 +552,60 @@ _dbus_loop_iterate (DBusLoop     *loop,
       Callback *cb = link->data;
       if (cb->type == CALLBACK_WATCH)
         {
+          unsigned int flags;
           WatchCallback *wcb = WATCH_CALLBACK (cb);
 
-          if (!wcb->last_iteration_oom &&
-              dbus_watch_get_enabled (wcb->watch))
-            ++n_fds;
+          if (wcb->last_iteration_oom)
+            {
+              /* we skip this one this time, but reenable it next time,
+               * and have a timeout on this iteration
+               */
+              wcb->last_iteration_oom = FALSE;
+              oom_watch_pending = TRUE;
+              
+              retval = TRUE; /* return TRUE here to keep the loop going,
+                              * since we don't know the watch is inactive
+                              */
+
+#if MAINLOOP_SPEW
+              _dbus_verbose ("  skipping watch on fd %d as it was out of memory last time\n",
+                             dbus_watch_get_fd (wcb->watch));
+#endif
+            }
+          else if (dbus_watch_get_enabled (wcb->watch))
+            {
+              watches_for_fds[n_fds] = wcb;
+
+              callback_ref (cb);
+                  
+              flags = dbus_watch_get_flags (wcb->watch);
+                  
+              fds[n_fds].fd = dbus_watch_get_fd (wcb->watch);
+              fds[n_fds].revents = 0;
+              fds[n_fds].events = 0;
+              if (flags & DBUS_WATCH_READABLE)
+                fds[n_fds].events |= _DBUS_POLLIN;
+              if (flags & DBUS_WATCH_WRITABLE)
+                fds[n_fds].events |= _DBUS_POLLOUT;
+
+              n_fds += 1;
+
+#if MAINLOOP_SPEW
+              _dbus_verbose ("  polling watch on fd %d\n", fds[n_fds].fd);
+#endif
+            }
+          else
+            {
+#if MAINLOOP_SPEW
+              _dbus_verbose ("  skipping disabled watch on fd %d\n",
+                             dbus_watch_get_fd (wcb->watch));
+#endif
+            }
         }
-      
+              
       link = next;
     }
-
-  /* fill our array of fds and watches */
-  if (n_fds > 0)
-    {
-      if (n_fds > N_STATIC_DESCRIPTORS)
-        {
-          fds = dbus_new0 (DBusPollFD, n_fds);
-
-          while (fds == NULL)
-            {
-              _dbus_wait_for_memory ();
-              fds = dbus_new0 (DBusPollFD, n_fds);
-            }
-          
-          watches_for_fds = dbus_new (WatchCallback*, n_fds);
-          while (watches_for_fds == NULL)
-            {
-              _dbus_wait_for_memory ();
-              watches_for_fds = dbus_new (WatchCallback*, n_fds);
-            }
-        }
-      else
-        {
-          memset (static_fds, '\0', sizeof (static_fds[0]) * n_fds);
-          memset (static_watches_for_fds, '\0', sizeof (static_watches_for_fds[0]) * n_fds);
-          
-          fds = static_fds;
-          watches_for_fds = static_watches_for_fds;
-        }
-      
-      i = 0;
-      link = _dbus_list_get_first_link (&loop->callbacks);
-      while (link != NULL)
-        {
-          DBusList *next = _dbus_list_get_next_link (&loop->callbacks, link);
-          Callback *cb = link->data;
-          if (cb->type == CALLBACK_WATCH)
-            {
-              unsigned int flags;
-              WatchCallback *wcb = WATCH_CALLBACK (cb);
-
-              if (wcb->last_iteration_oom)
-                {
-                  /* we skip this one this time, but reenable it next time,
-                   * and have a timeout on this iteration
-                   */
-                  wcb->last_iteration_oom = FALSE;
-                  oom_watch_pending = TRUE;
-
-                  retval = TRUE; /* return TRUE here to keep the loop going,
-                                  * since we don't know the watch is inactive
-                                  */
-                  
-                  _dbus_verbose ("  skipping watch on fd %d as it was out of memory last time\n",
-                                 dbus_watch_get_fd (wcb->watch));
-                }
-              else if (dbus_watch_get_enabled (wcb->watch))
-                {
-                  watches_for_fds[i] = wcb;
-
-                  callback_ref (cb);
-                  
-                  flags = dbus_watch_get_flags (wcb->watch);
-                  
-                  fds[i].fd = dbus_watch_get_fd (wcb->watch);
-                  if (flags & DBUS_WATCH_READABLE)
-                    fds[i].events |= _DBUS_POLLIN;
-                  if (flags & DBUS_WATCH_WRITABLE)
-                    fds[i].events |= _DBUS_POLLOUT;
-
-                  ++i;
-                }
-            }
-              
-          link = next;
-        }
-
-      _dbus_assert (i == n_fds);
-    }
-
+  
   timeout = -1;
   if (loop->timeout_count > 0)
     {
@@ -784,7 +772,7 @@ _dbus_loop_iterate (DBusLoop     *loop,
     }
       
  next_iteration:
-  if (fds && fds != static_fds)
+  if (fds && fds != stack_fds)
     dbus_free (fds);
   if (watches_for_fds)
     {
@@ -795,13 +783,13 @@ _dbus_loop_iterate (DBusLoop     *loop,
           ++i;
         }
       
-      if (watches_for_fds != static_watches_for_fds)
+      if (watches_for_fds != stack_watches_for_fds)
         dbus_free (watches_for_fds);
     }
   
   if (_dbus_loop_dispatch (loop))
     retval = TRUE;
-
+  
 #if MAINLOOP_SPEW
   _dbus_verbose ("Returning %d\n", retval);
 #endif
