@@ -62,7 +62,10 @@ main (int argc, char **argv)
     dir = _dbus_getenv ("DBUS_TEST_DATA");
 
   if (dir == NULL)
-    dir = "";
+    {
+      fprintf (stderr, "Must specify test data directory as argv[1] or in DBUS_TEST_DATA env variable\n");
+      return 1;
+    }
 
   _dbus_string_init_const (&test_data_dir, dir);
   

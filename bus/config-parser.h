@@ -28,6 +28,7 @@
 
 #include <dbus/dbus.h>
 #include <dbus/dbus-string.h>
+#include <dbus/dbus-list.h>
 
 /* Whatever XML library we're using just pushes data into this API */
 
@@ -55,7 +56,7 @@ dbus_bool_t      bus_config_parser_finished      (BusConfigParser   *parser,
 
 /* Functions for extracting the parse results */
 const char*      bus_config_parser_get_user      (BusConfigParser   *parser);
-
+DBusList**       bus_config_parser_get_addresses (BusConfigParser   *parser);
 
 /* Loader functions (backended off one of the XML parsers).  Returns a
  * finished ConfigParser.

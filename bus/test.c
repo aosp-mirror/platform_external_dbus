@@ -287,4 +287,57 @@ bus_test_flush_bus (BusContext *context)
     ;
 }
 
+BusContext*
+bus_context_new_test (const DBusString *test_data_dir,
+                      const char       *filename)
+{
+  DBusError error;
+  DBusString config_file;
+  DBusString relative;
+  BusContext *context;
+  
+  if (!_dbus_string_init (&config_file, _DBUS_INT_MAX))
+    {
+      _dbus_warn ("No memory\n");
+      return NULL;
+    }
+
+  if (!_dbus_string_copy (test_data_dir, 0,
+                          &config_file, 0))
+    {
+      _dbus_warn ("No memory\n");
+      _dbus_string_free (&config_file);
+      return NULL;
+    }
+
+  _dbus_string_init_const (&relative, filename);
+
+  if (!_dbus_concat_dir_and_file (&config_file, &relative))
+    {
+      _dbus_warn ("No memory\n");
+      _dbus_string_free (&config_file);
+      return NULL;
+    }
+  
+  dbus_error_init (&error);
+  context = bus_context_new (&config_file, &error);
+  if (context == NULL)
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (&error);
+      
+      _dbus_warn ("Failed to create debug bus context from configuration file %s: %s\n",
+                  filename, error.message);
+
+      dbus_error_free (&error);
+      
+      _dbus_string_free (&config_file);
+      
+      return NULL;
+    }
+
+  _dbus_string_free (&config_file);
+  
+  return context;
+}
+
 #endif

@@ -61,6 +61,8 @@ struct DBusServer
                                                *   to this server
                                                */
 
+  char *address;                              /**< Address this server is listening on. */
+  
   int max_connections;                        /**< Max number of connections allowed at once. */
 
   DBusDataSlotList slot_list;   /**< Data stored by allocated integer ID */
@@ -78,7 +80,8 @@ struct DBusServer
 };
 
 dbus_bool_t _dbus_server_init_base      (DBusServer             *server,
-                                         const DBusServerVTable *vtable);
+                                         const DBusServerVTable *vtable,
+                                         const DBusString       *address);
 void        _dbus_server_finalize_base  (DBusServer             *server);
 dbus_bool_t _dbus_server_add_watch      (DBusServer             *server,
                                          DBusWatch              *watch);

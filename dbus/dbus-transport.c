@@ -82,16 +82,19 @@ live_messages_size_notify (DBusCounter *counter,
  * @param transport the transport being created.
  * @param vtable the subclass vtable.
  * @param server #TRUE if this transport is on the server side of a connection
+ * @param address the address of the transport
  * @returns #TRUE on success.
  */
 dbus_bool_t
 _dbus_transport_init_base (DBusTransport             *transport,
                            const DBusTransportVTable *vtable,
-                           dbus_bool_t                server)
+                           dbus_bool_t                server,
+                           const DBusString          *address)
 {
   DBusMessageLoader *loader;
   DBusAuth *auth;
   DBusCounter *counter;
+  char *address_copy;
   
   loader = _dbus_message_loader_new ();
   if (loader == NULL)
@@ -113,6 +116,24 @@ _dbus_transport_init_base (DBusTransport             *transport,
       _dbus_auth_unref (auth);
       _dbus_message_loader_unref (loader);
       return FALSE;
+    }  
+  
+  if (server)
+    {
+      _dbus_assert (address == NULL);
+      address_copy = NULL;
+    }
+  else
+    {
+      _dbus_assert (address != NULL);
+
+      if (!_dbus_string_copy_data (address, &address_copy))
+        {
+          _dbus_counter_unref (counter);
+          _dbus_auth_unref (auth);
+          _dbus_message_loader_unref (loader);
+          return FALSE;
+        }
     }
   
   transport->refcount = 1;
@@ -126,7 +147,8 @@ _dbus_transport_init_base (DBusTransport             *transport,
   transport->send_credentials_pending = !server;
   transport->receive_credentials_pending = server;
   transport->is_server = server;
-
+  transport->address = address_copy;
+  
   transport->unix_user_function = NULL;
   transport->unix_user_data = NULL;
   transport->free_unix_user_data = NULL;
@@ -144,6 +166,9 @@ _dbus_transport_init_base (DBusTransport             *transport,
                             transport->max_live_messages_size,
                             live_messages_size_notify,
                             transport);
+
+  if (transport->address)
+    _dbus_verbose ("Initialized transport on address %s\n", transport->address);
   
   return TRUE;
 }
@@ -168,6 +193,7 @@ _dbus_transport_finalize_base (DBusTransport *transport)
   _dbus_counter_set_notify (transport->live_messages_size,
                             0, NULL, NULL);
   _dbus_counter_unref (transport->live_messages_size);
+  dbus_free (transport->address);
 }
 
 /**
@@ -217,7 +243,7 @@ _dbus_transport_open (const char     *address,
               goto bad_address;
             }
 
-	  transport = _dbus_transport_new_for_domain_socket (path, FALSE, error);
+	  transport = _dbus_transport_new_for_domain_socket (path, error);
 	}
       else if (strcmp (method, "tcp") == 0)
 	{
@@ -244,7 +270,7 @@ _dbus_transport_open (const char     *address,
               goto bad_address;
             }
           
-	  transport = _dbus_transport_new_for_tcp_socket (host, lport, FALSE, error);
+	  transport = _dbus_transport_new_for_tcp_socket (host, lport, error);
 	}
 #ifdef DBUS_BUILD_TESTS
       else if (strcmp (method, "debug") == 0)
@@ -458,6 +484,19 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
       
       return transport->authenticated;
     }
+}
+
+/**
+ * Gets the address of a transport. It will be
+ * #NULL for a server-side transport.
+ *
+ * @param transport the transport
+ * @returns transport's address
+ */
+const char*
+_dbus_transport_get_address (DBusTransport *transport)
+{
+  return transport->address;
 }
 
 /**

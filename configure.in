@@ -47,6 +47,8 @@ if test x$enable_asserts = xno; then
     AC_DEFINE(DBUS_DISABLE_ASSERT,1,[Disable assertion checking])
 fi
 
+#### gcc warning flags
+
 if test "x$GCC" = "xyes"; then
   changequote(,)dnl
   case " $CFLAGS " in
@@ -119,6 +121,8 @@ else
     AC_MSG_ERROR([--enable-gcov can only be used with gcc])
   fi
 fi
+
+#### Assorted checks
 
 AC_CHECK_SIZEOF(char)
 AC_CHECK_SIZEOF(short)
@@ -350,9 +354,33 @@ dnl Qt flags
 AC_SUBST(DBUS_QT_CXXFLAGS)
 AC_SUBST(DBUS_QT_LIBS)
 
+##### Set up location for system bus socket
+## name of socket relative to localstatedir
+DBUS_SYSTEM_SOCKET=run/dbus/system_bus_socket
+AC_SUBST(DBUS_SYSTEM_SOCKET)
+
+#### find the actual value for $prefix that we'll end up with
+REAL_PREFIX=
+if test "x$prefix" = "xNONE"; then
+  REAL_PREFIX=$ac_default_prefix
+else
+  REAL_PREFIX=$prefix
+fi
+
+#### Have to go $localstatedir->$prefix/var->/usr/local/var   
+#### someone please fix this a better way...
+LOCALSTATEDIR_TMP="$localstatedir"
+old_prefix=$prefix
+prefix=$REAL_PREFIX
+EXPANDED_LOCALSTATEDIR=`eval echo $LOCALSTATEDIR_TMP`
+prefix=$old_prefix
+AC_SUBST(EXPANDED_LOCALSTATEDIR)
+
 AC_OUTPUT([
-Makefile
 Doxyfile
+bus/system.conf
+bus/session.conf
+Makefile
 dbus/Makefile
 glib/Makefile
 qt/Makefile
@@ -381,17 +409,18 @@ echo "
         Building Qt bindings:   ${have_qt}
         Building GLib bindings: ${have_glib}
         Using XML parser:       ${with_xml}
+        System bus socket:      ${EXPANDED_LOCALSTATEDIR}/${DBUS_SYSTEM_SOCKET}
 "
 
 if test x$enable_tests = xyes; then
-        echo "NOTE: building with unit tests increases the size of the installed library and renders it insecure"
+        echo "NOTE: building with unit tests increases the size of the installed library and renders it insecure."
 fi
 if test x$enable_gcov = xyes; then
-        echo "NOTE: building with coverage profiling is definitely for developers only"
+        echo "NOTE: building with coverage profiling is definitely for developers only."
 fi
 if test x$enable_verbose_mode = xyes; then
-        echo "NOTE: building with verbose mode increases library size and may slightly increase security risk, but aids debugging."
+        echo "NOTE: building with verbose mode increases library size, may slightly increase security risk, and may cause a slight performance decrease, but aids debugging."
 fi
 if test x$enable_asserts = xyes; then
-        echo "NOTE: building with assertions increases library size, but is probably a good idea anyway."
+        echo "NOTE: building with assertions increases library size, but will help a lot when tracking down bugs in software using D-BUS."
 fi

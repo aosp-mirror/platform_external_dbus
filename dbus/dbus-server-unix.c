@@ -83,7 +83,7 @@ handle_new_client_fd (DBusServer *server,
   if (!_dbus_set_fd_nonblocking (client_fd, NULL))
     return TRUE;
   
-  transport = _dbus_transport_new_for_fd (client_fd, TRUE);
+  transport = _dbus_transport_new_for_fd (client_fd, TRUE, NULL);
   if (transport == NULL)
     {
       close (client_fd);
@@ -201,11 +201,13 @@ static DBusServerVTable unix_vtable = {
  * accept new client connections.
  *
  * @param fd the file descriptor.
+ * @param address the server's address
  * @returns the new server, or #NULL if no memory.
  * 
  */
 DBusServer*
-_dbus_server_new_for_fd (int fd)
+_dbus_server_new_for_fd (int               fd,
+                         const DBusString *address)
 {
   DBusServerUnix *unix_server;
   DBusWatch *watch;
@@ -224,7 +226,7 @@ _dbus_server_new_for_fd (int fd)
     }
   
   if (!_dbus_server_init_base (&unix_server->base,
-                               &unix_vtable))
+                               &unix_vtable, address))
     {
       _dbus_watch_unref (watch);
       dbus_free (unix_server);
@@ -259,23 +261,44 @@ _dbus_server_new_for_domain_socket (const char     *path,
 {
   DBusServer *server;
   int listen_fd;
-
+  DBusString address;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return NULL;
+    }
+
+  if (!_dbus_string_append (&address, "unix:path=") ||
+      !_dbus_string_append (&address, path))
+    {
+      _dbus_string_free (&address);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return NULL;
+    }
   
   listen_fd = _dbus_listen_unix_socket (path, error);
   _dbus_fd_set_close_on_exec (listen_fd);
   
   if (listen_fd < 0)
-    return NULL;
+    {
+      _dbus_string_free (&address);
+      return NULL;
+    }
   
-  server = _dbus_server_new_for_fd (listen_fd);
+  server = _dbus_server_new_for_fd (listen_fd, &address);
   if (server == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       close (listen_fd);
+      _dbus_string_free (&address);
       return NULL;
     }
 
+  _dbus_string_free (&address);
+  
   return server;
 }
 
@@ -295,23 +318,46 @@ _dbus_server_new_for_tcp_socket (const char     *host,
 {
   DBusServer *server;
   int listen_fd;
-
+  DBusString address;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return NULL;
+    }
+
+  if (!_dbus_string_append (&address, "tcp:host=") ||
+      !_dbus_string_append (&address, host) ||
+      !_dbus_string_append (&address, ",port=") ||
+      !_dbus_string_append_int (&address, port))
+    {
+      _dbus_string_free (&address);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return NULL;
+    }
   
   listen_fd = _dbus_listen_tcp_socket (host, port, error);
   _dbus_fd_set_close_on_exec (listen_fd);
   
   if (listen_fd < 0)
-    return NULL;
+    {
+      _dbus_string_free (&address);
+      return NULL;
+    }
   
-  server = _dbus_server_new_for_fd (listen_fd);
+  server = _dbus_server_new_for_fd (listen_fd, &address);
   if (server == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       close (listen_fd);
+      _dbus_string_free (&address);
       return NULL;
     }
 
+  _dbus_string_free (&address);
+  
   return server;
 
 

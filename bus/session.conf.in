@@ -1,0 +1,31 @@
+<!-- This configuration file controls the per-user-login-session message bus.
+     Add a session-local.conf and edit that rather than changing this 
+     file directly. -->
+
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <!-- FIXME - this is fairly complicated to fix.
+       Propose the following:
+         - add "unix:tmpdir=/tmp" which means unix domain transport 
+           creates a socket with a random secure name 
+         - add dbus_server_get_address() that gets the actual 
+           server address 
+         - add command line option or env variable to the daemon 
+           causing it to print its list of addresses to a given 
+           file descriptor
+         - session manager or whatever launches the session bus 
+           reads the address from there and sets the env variable
+    -->
+  <listen>unix:path=/tmp/foobar</listen>
+  <policy context="default">
+    <!-- Allow everything -->
+    <allow send="*"/>
+    <allow receive="*"/>
+    <allow own="*"/>
+  </policy>
+
+  <!-- This is included last so local configuration can override what's 
+       in this standard file -->
+  <include ignore_missing="yes">session-local.conf</include>
+</busconfig>

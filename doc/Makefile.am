@@ -1,4 +1,5 @@
 EXTRA_DIST= 					\
+	config-file.txt				\
 	dbus-specification.html			\
 	dbus-specification.sgml			\
 	dbus-test-plan.html			\

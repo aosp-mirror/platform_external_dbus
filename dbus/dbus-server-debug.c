@@ -117,7 +117,8 @@ _dbus_server_debug_new (const char     *server_name,
                         DBusError      *error)
 {
   DBusServerDebug *debug_server;
-
+  DBusString address;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   if (!server_hash)
@@ -143,40 +144,43 @@ _dbus_server_debug_new (const char     *server_name,
   if (debug_server == NULL)
     return NULL;
 
+  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
+    goto nomem_0;
+
+  if (!_dbus_string_append (&address, "debug:name=") ||
+      !_dbus_string_append (&address, server_name))
+    goto nomem_1;
+  
   debug_server->name = _dbus_strdup (server_name);
   if (debug_server->name == NULL)
-    {
-      dbus_free (debug_server->name);
-      dbus_free (debug_server);
-
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-    }
+    goto nomem_1;
   
   if (!_dbus_server_init_base (&debug_server->base,
-			       &debug_vtable))
-    {
-      dbus_free (debug_server->name);      
-      dbus_free (debug_server);
-
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-
-      return NULL;
-    }
+			       &debug_vtable,
+                               &address))
+    goto nomem_2;
 
   if (!_dbus_hash_table_insert_string (server_hash,
 				       debug_server->name,
 				       debug_server))
-    {
-      _dbus_server_finalize_base (&debug_server->base);
-      dbus_free (debug_server->name);      
-      dbus_free (debug_server);
+    goto nomem_3;
 
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-
-      return NULL;
-    }
+  _dbus_string_free (&address);
   
   return (DBusServer *)debug_server;
+
+ nomem_3:
+  _dbus_server_finalize_base (&debug_server->base);
+ nomem_2:
+  dbus_free (debug_server->name);
+ nomem_1:
+  _dbus_string_free (&address);
+ nomem_0:
+  dbus_free (debug_server);
+
+  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+  
+  return NULL;
 }
 
 typedef struct

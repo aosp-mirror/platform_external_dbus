@@ -28,6 +28,7 @@
 #include "services.h"
 #include "utils.h"
 #include "policy.h"
+#include "config-parser.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-internals.h>
@@ -36,7 +37,7 @@ struct BusContext
 {
   int refcount;
   char *address;
-  DBusServer *server;
+  DBusList *servers;
   BusConnections *connections;
   BusActivation *activation;
   BusRegistry *registry;
@@ -51,24 +52,24 @@ server_watch_callback (DBusWatch     *watch,
                        unsigned int   condition,
                        void          *data)
 {
-  BusContext *context = data;
+  DBusServer *server = data;
 
-  return dbus_server_handle_watch (context->server, watch, condition);
+  return dbus_server_handle_watch (server, watch, condition);
 }
 
 static dbus_bool_t
 add_server_watch (DBusWatch  *watch,
-                  BusContext *context)
+                  void       *data)
 {
-  return bus_loop_add_watch (watch, server_watch_callback, context,
+  return bus_loop_add_watch (watch, server_watch_callback, data,
                              NULL);
 }
 
 static void
 remove_server_watch (DBusWatch  *watch,
-                     BusContext *context)
+                     void       *data)
 {
-  bus_loop_remove_watch (watch, server_watch_callback, context);
+  bus_loop_remove_watch (watch, server_watch_callback, data);
 }
 
 
@@ -82,16 +83,16 @@ server_timeout_callback (DBusTimeout   *timeout,
 
 static dbus_bool_t
 add_server_timeout (DBusTimeout *timeout,
-                    BusContext  *context)
+                    void        *data)
 {
-  return bus_loop_add_timeout (timeout, server_timeout_callback, context, NULL);
+  return bus_loop_add_timeout (timeout, server_timeout_callback, data, NULL);
 }
 
 static void
 remove_server_timeout (DBusTimeout *timeout,
-                       BusContext  *context)
+                       void        *data)
 {
-  bus_loop_remove_timeout (timeout, server_timeout_callback, context);
+  bus_loop_remove_timeout (timeout, server_timeout_callback, data);
 }
 
 static void
@@ -137,37 +138,136 @@ free_rule_list_func (void *data)
   dbus_free (list);
 }
 
+static dbus_bool_t
+setup_server (BusContext *context,
+              DBusServer *server,
+              DBusError  *error)
+{  
+  dbus_server_set_new_connection_function (server,
+                                           new_connection_callback,
+                                           context, NULL);
+  
+  if (!dbus_server_set_watch_functions (server,
+                                        add_server_watch,
+                                        remove_server_watch,
+                                        NULL,
+                                        server,
+                                        NULL))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  if (!dbus_server_set_timeout_functions (server,
+                                          add_server_timeout,
+                                          remove_server_timeout,
+                                          NULL,
+                                          server, NULL))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
 BusContext*
-bus_context_new (const char  *address,
-                 const char **service_dirs,
-                 DBusError   *error)
+bus_context_new (const DBusString *config_file,
+                 DBusError        *error)
 {
   BusContext *context;
-
+  DBusList *link;
+  DBusList **addresses;
+  BusConfigParser *parser;
+  DBusString full_address;
+  const char *service_dirs[] = { NULL, NULL };
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  if (!_dbus_string_init (&full_address, _DBUS_INT_MAX))
+    return NULL;
+
+  parser = NULL;
+  context = NULL;
+  
+  parser = bus_config_load (config_file, error);
+  if (parser == NULL)
+    goto failed;
   
   context = dbus_new0 (BusContext, 1);
   if (context == NULL)
     {
       BUS_SET_OOM (error);
-      return NULL;
+      goto failed;
     }
   
   context->refcount = 1;
+  
+  addresses = bus_config_parser_get_addresses (parser);  
+  
+  link = _dbus_list_get_first_link (addresses);
+  while (link != NULL)
+    {
+      DBusServer *server;
+      
+      server = dbus_server_listen (link->data, error);
+      if (server == NULL)
+        goto failed;
+      else if (!setup_server (context, server, error))
+        goto failed;
 
-  context->address = _dbus_strdup (address);
-  if (context->address == NULL)
+      if (!_dbus_list_append (&context->servers, server))
+        {
+          BUS_SET_OOM (error);
+          goto failed;
+        }          
+      
+      link = _dbus_list_get_next_link (addresses, link);
+    }
+
+  /* We have to build the address backward, so that
+   * <listen> later in the config file have priority
+   */
+  link = _dbus_list_get_last_link (&context->servers);
+  while (link != NULL)
+    {
+      char *addr;
+      
+      addr = dbus_server_get_address (link->data);
+      if (addr == NULL)
+        {
+          BUS_SET_OOM (error);
+          goto failed;
+        }
+
+      if (_dbus_string_get_length (&full_address) > 0)
+        {
+          if (!_dbus_string_append (&full_address, ";"))
+            {
+              BUS_SET_OOM (error);
+              goto failed;
+            }
+        }
+
+      if (!_dbus_string_append (&full_address, addr))
+        {
+          BUS_SET_OOM (error);
+          goto failed;
+        }
+
+      dbus_free (addr);
+
+      link = _dbus_list_get_prev_link (&context->servers, link);
+    }
+
+  if (!_dbus_string_copy_data (&full_address, &context->address))
     {
       BUS_SET_OOM (error);
       goto failed;
     }
   
-  context->server = dbus_server_listen (address, error);
-  if (context->server == NULL)
-    goto failed;
-
-  context->activation = bus_activation_new (context, address, service_dirs,
-                                            error);
+  context->activation = bus_activation_new (context, &full_address,
+                                            service_dirs, error);
   if (context->activation == NULL)
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -205,59 +305,58 @@ bus_context_new (const char  *address,
       BUS_SET_OOM (error);
       goto failed;
     }
-  
-  dbus_server_set_new_connection_function (context->server,
-                                           new_connection_callback,
-                                           context, NULL);
-  
-  if (!dbus_server_set_watch_functions (context->server,
-                                        (DBusAddWatchFunction) add_server_watch,
-                                        (DBusRemoveWatchFunction) remove_server_watch,
-                                        NULL,
-                                        context,
-                                        NULL))
-    {
-      BUS_SET_OOM (error);
-      goto failed;
-    }
 
-  if (!dbus_server_set_timeout_functions (context->server,
-                                          (DBusAddTimeoutFunction) add_server_timeout,
-                                          (DBusRemoveTimeoutFunction) remove_server_timeout,
-                                          NULL,
-                                          context, NULL))
-    {
-      BUS_SET_OOM (error);
-      goto failed;
-    }
+  bus_config_parser_unref (parser);
+  _dbus_string_free (&full_address);
   
   return context;
   
  failed:
-  bus_context_unref (context);
+  if (parser != NULL)
+    bus_config_parser_unref (parser);
+
+  if (context != NULL)
+    bus_context_unref (context);
+
+  _dbus_string_free (&full_address);
   return NULL;
 }
 
-void
-bus_context_shutdown (BusContext  *context)
+static void
+shutdown_server (BusContext *context,
+                 DBusServer *server)
 {
-  if (context->server == NULL ||
-      !dbus_server_get_is_connected (context->server))
+  if (server == NULL ||
+      !dbus_server_get_is_connected (server))
     return;
   
-  if (!dbus_server_set_watch_functions (context->server,
+  if (!dbus_server_set_watch_functions (server,
                                         NULL, NULL, NULL,
                                         context,
                                         NULL))
     _dbus_assert_not_reached ("setting watch functions to NULL failed");
   
-  if (!dbus_server_set_timeout_functions (context->server,
+  if (!dbus_server_set_timeout_functions (server,
                                           NULL, NULL, NULL,
                                           context,
                                           NULL))
     _dbus_assert_not_reached ("setting timeout functions to NULL failed");
   
-  dbus_server_disconnect (context->server);
+  dbus_server_disconnect (server);
+}
+
+void
+bus_context_shutdown (BusContext  *context)
+{
+  DBusList *link;
+
+  link = _dbus_list_get_first_link (&context->servers);
+  while (link != NULL)
+    {
+      shutdown_server (context, link->data);
+
+      link = _dbus_list_get_next_link (&context->servers, link);
+    }
 }
 
 void
@@ -275,6 +374,8 @@ bus_context_unref (BusContext *context)
 
   if (context->refcount == 0)
     {
+      DBusList *link;
+      
       _dbus_verbose ("Finalizing bus context %p\n", context);
       
       bus_context_shutdown (context);
@@ -296,12 +397,15 @@ bus_context_unref (BusContext *context)
           bus_activation_unref (context->activation);
           context->activation = NULL;
         }
-      
-      if (context->server)
+
+      link = _dbus_list_get_first_link (&context->servers);
+      while (link != NULL)
         {
-          dbus_server_unref (context->server);
-          context->server = NULL;
+          dbus_server_unref (link->data);
+          
+          link = _dbus_list_get_next_link (&context->servers, link);
         }
+      _dbus_list_clear (&context->servers);
 
       if (context->rules_by_uid)
         {

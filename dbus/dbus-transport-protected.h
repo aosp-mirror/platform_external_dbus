@@ -88,6 +88,8 @@ struct DBusTransport
   DBusCounter *live_messages_size;            /**< Counter for size of all live messages. */
 
 
+  char *address;                              /**< Address of this server */
+  
   DBusAllowUnixUserFunction unix_user_function; /**< Function for checking whether a user is authorized. */
   void *unix_user_data;                         /**< Data for unix_user_function */
   DBusFreeFunction free_unix_user_data;         /**< Function to free unix_user_data */
@@ -102,7 +104,8 @@ struct DBusTransport
 
 dbus_bool_t _dbus_transport_init_base     (DBusTransport             *transport,
                                            const DBusTransportVTable *vtable,
-                                           dbus_bool_t                server);
+                                           dbus_bool_t                server,
+                                           const DBusString          *address);
 void        _dbus_transport_finalize_base (DBusTransport             *transport);
 
 

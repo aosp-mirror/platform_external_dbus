@@ -33,7 +33,7 @@ bus_get_oom_wait (void)
 {
 #ifdef DBUS_BUILD_TESTS
   /* make tests go fast */
-  return 10;
+  return 0;
 #else
   return 500;
 #endif

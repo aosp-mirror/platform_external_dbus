@@ -57,43 +57,68 @@
  *
  * @param server the server.
  * @param vtable the vtable for the subclass.
+ * @param address the server's address
  * @returns #TRUE on success.
  */
 dbus_bool_t
 _dbus_server_init_base (DBusServer             *server,
-                        const DBusServerVTable *vtable)
+                        const DBusServerVTable *vtable,
+                        const DBusString       *address)
 {
   server->vtable = vtable;
   server->refcount = 1;
 
+  server->address = NULL;
+  server->watches = NULL;
+  server->timeouts = NULL;
+  server->connection_counter = NULL;
+  
+  if (!_dbus_string_copy_data (address, &server->address))
+    goto failed;
+  
   server->watches = _dbus_watch_list_new ();
   if (server->watches == NULL)
-    return FALSE;
+    goto failed;
 
   server->timeouts = _dbus_timeout_list_new ();
   if (server->timeouts == NULL)
-    {
-      _dbus_watch_list_free (server->watches);
-      server->watches = NULL;
-      return FALSE;
-    }
+    goto failed;
   
   server->connection_counter = _dbus_counter_new ();
   if (server->connection_counter == NULL)
-    {
-      _dbus_watch_list_free (server->watches);
-      server->watches = NULL;
-      _dbus_timeout_list_free (server->timeouts);
-      server->timeouts = NULL;
-      
-      return FALSE;
-    }
+    goto failed;  
 
   server->max_connections = 256; /* same as an X server, seems like a nice default */
 
   _dbus_data_slot_list_init (&server->slot_list);
+
+  _dbus_verbose ("Initialized server on address %s\n", server->address);
   
   return TRUE;
+
+ failed:
+  if (server->watches)
+    {
+      _dbus_watch_list_free (server->watches);
+      server->watches = NULL;
+    }
+  if (server->timeouts)
+    {
+      _dbus_timeout_list_free (server->timeouts);
+      server->timeouts = NULL;
+    }
+  if (server->connection_counter)
+    {
+      _dbus_counter_unref (server->connection_counter);
+      server->connection_counter = NULL;
+    }
+  if (server->address)
+    {
+      dbus_free (server->address);
+      server->address = NULL;
+    }
+  
+  return FALSE;
 }
 
 /**
@@ -116,6 +141,8 @@ _dbus_server_finalize_base (DBusServer *server)
   _dbus_watch_list_free (server->watches);
   _dbus_timeout_list_free (server->timeouts);
   _dbus_counter_unref (server->connection_counter);
+
+  dbus_free (server->address);
 }
 
 /**
@@ -442,6 +469,19 @@ dbus_bool_t
 dbus_server_get_is_connected (DBusServer *server)
 {
   return !server->disconnected;
+}
+
+/**
+ * Returns the address of the server, as a newly-allocated
+ * string which must be freed by the caller.
+ *
+ * @param server the server
+ * @returns the address or #NULL if no memory
+ */
+char*
+dbus_server_get_address (DBusServer *server)
+{
+  return _dbus_strdup (server->address);
 }
 
 /**

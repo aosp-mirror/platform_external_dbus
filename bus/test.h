@@ -41,6 +41,9 @@ void        bus_test_clients_foreach (BusConnectionForeachFunction  function,
 dbus_bool_t bus_test_client_listed   (DBusConnection               *connection);
 void        bus_test_flush_bus       (BusContext                   *context);
 
+BusContext* bus_context_new_test     (const DBusString             *test_data_dir,
+                                      const char                   *filename);
+
 #endif
 
 #endif /* BUS_TEST_H */

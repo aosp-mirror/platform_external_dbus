@@ -221,10 +221,18 @@ dbus_bus_get (DBusBusType  type,
 
   value = _dbus_getenv (name);
 
-  if (!value)
+  if (type == DBUS_BUS_SYSTEM &&
+      (value == NULL || *value == '\0'))
+    {
+      /* Use default system bus address if none set */
+      value = "unix:path=" DBUS_SYSTEM_BUS_PATH;
+    }
+  
+  if (value == NULL || *value == '\0')
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
-		      "Could not get bus daemon address.");
+		      "Environment variable %s not set, address of message bus unknown",
+                      name);
       _DBUS_UNLOCK (bus);
       
       return NULL;

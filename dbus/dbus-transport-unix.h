@@ -27,15 +27,15 @@
 
 DBUS_BEGIN_DECLS;
 
-DBusTransport* _dbus_transport_new_for_fd            (int             fd,
-                                                      dbus_bool_t     server);
-DBusTransport* _dbus_transport_new_for_domain_socket (const char     *path,
-                                                      dbus_bool_t     server,
-                                                      DBusError      *error);
-DBusTransport* _dbus_transport_new_for_tcp_socket    (const char     *host,
-                                                      dbus_int32_t    port,
-                                                      dbus_bool_t     server,
-                                                      DBusError      *error);
+DBusTransport* _dbus_transport_new_for_fd            (int               fd,
+                                                      dbus_bool_t       server,
+                                                      const DBusString *address);
+DBusTransport* _dbus_transport_new_for_domain_socket (const char       *path,
+                                                      DBusError        *error);
+DBusTransport* _dbus_transport_new_for_tcp_socket    (const char       *host,
+                                                      dbus_int32_t      port,
+                                                      DBusError        *error);
+
 
 DBUS_END_DECLS;
 

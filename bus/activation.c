@@ -323,10 +323,10 @@ load_directory (BusActivation *activation,
 }
 
 BusActivation*
-bus_activation_new (BusContext  *context,
-		    const char  *address,
-                    const char **directories,
-                    DBusError   *error)
+bus_activation_new (BusContext        *context,
+		    const DBusString  *address,
+                    const char       **directories,
+                    DBusError         *error)
 {
   int i;
   BusActivation *activation;
@@ -343,9 +343,7 @@ bus_activation_new (BusContext  *context,
   activation->refcount = 1;
   activation->context = context;
   
-  /* FIXME: We should split up the server addresses. */
-  activation->server_address = _dbus_strdup (address);
-  if (activation->server_address == NULL)
+  if (!_dbus_string_copy_data (address, &activation->server_address))
     {
       BUS_SET_OOM (error);
       goto failed;

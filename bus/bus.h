@@ -38,19 +38,17 @@ typedef struct BusRegistry    BusRegistry;
 typedef struct BusService     BusService;
 typedef struct BusTransaction BusTransaction;
 
-BusContext*     bus_context_new                      (const char      *address,
-                                                      const char     **service_dirs,
-                                                      DBusError       *error);
-void            bus_context_shutdown                 (BusContext      *context);
-void            bus_context_ref                      (BusContext      *context);
-void            bus_context_unref                    (BusContext      *context);
-BusRegistry*    bus_context_get_registry             (BusContext      *context);
-BusConnections* bus_context_get_connections          (BusContext      *context);
-BusActivation*  bus_context_get_activation           (BusContext      *context);
-dbus_bool_t     bus_context_allow_user               (BusContext      *context,
-                                                      unsigned long    uid);
-BusPolicy*      bus_context_create_connection_policy (BusContext      *context,
-                                                      DBusConnection  *connection);
-
+BusContext*     bus_context_new                      (const DBusString *config_file,
+                                                      DBusError        *error);
+void            bus_context_shutdown                 (BusContext       *context);
+void            bus_context_ref                      (BusContext       *context);
+void            bus_context_unref                    (BusContext       *context);
+BusRegistry*    bus_context_get_registry             (BusContext       *context);
+BusConnections* bus_context_get_connections          (BusContext       *context);
+BusActivation*  bus_context_get_activation           (BusContext       *context);
+dbus_bool_t     bus_context_allow_user               (BusContext       *context,
+                                                      unsigned long     uid);
+BusPolicy*      bus_context_create_connection_policy (BusContext       *context,
+                                                      DBusConnection   *connection);
 
 #endif /* BUS_BUS_H */

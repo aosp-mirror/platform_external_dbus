@@ -963,11 +963,13 @@ static DBusTransportVTable unix_vtable = {
  *
  * @param fd the file descriptor.
  * @param server #TRUE if this transport is on the server side of a connection
+ * @param address the transport's address
  * @returns the new transport, or #NULL if no memory.
  */
 DBusTransport*
-_dbus_transport_new_for_fd (int         fd,
-                            dbus_bool_t server)
+_dbus_transport_new_for_fd (int               fd,
+                            dbus_bool_t       server,
+                            const DBusString *address)
 {
   DBusTransportUnix *unix_transport;
   
@@ -997,7 +999,7 @@ _dbus_transport_new_for_fd (int         fd,
   
   if (!_dbus_transport_init_base (&unix_transport->base,
                                   &unix_vtable,
-                                  server))
+                                  server, address))
     goto failed_4;
   
   unix_transport->fd = fd;
@@ -1024,27 +1026,41 @@ _dbus_transport_new_for_fd (int         fd,
 
 /**
  * Creates a new transport for the given Unix domain socket
- * path.
+ * path. This creates a client-side of a transport.
  *
  * @param path the path to the domain socket.
- * @param server #TRUE if this transport is on the server side of a connection
  * @param error address where an error can be returned.
  * @returns a new transport, or #NULL on failure.
  */
 DBusTransport*
 _dbus_transport_new_for_domain_socket (const char     *path,
-                                       dbus_bool_t     server,
                                        DBusError      *error)
 {
   int fd;
   DBusTransport *transport;
-
+  DBusString address;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return NULL;
+    }
+    
+  if (!_dbus_string_append (&address, "unix:path=") ||
+      !_dbus_string_append (&address, path))
+    {
+      _dbus_string_free (&address);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return NULL;
+    }
   
   fd = _dbus_connect_unix_socket (path, error);
   if (fd < 0)
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
+      _dbus_string_free (&address);
       return NULL;
     }
 
@@ -1052,14 +1068,17 @@ _dbus_transport_new_for_domain_socket (const char     *path,
   
   _dbus_verbose ("Successfully connected to unix socket %s\n",
                  path);
-  
-  transport = _dbus_transport_new_for_fd (fd, server);
+
+  transport = _dbus_transport_new_for_fd (fd, FALSE, &address);
   if (transport == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_string_free (&address);
       _dbus_close (fd, NULL);
       fd = -1;
     }
+
+  _dbus_string_free (&address);
   
   return transport;
 }
@@ -1069,25 +1088,41 @@ _dbus_transport_new_for_domain_socket (const char     *path,
  *
  * @param host the host to connect to
  * @param port the port to connect to
- * @param server #TRUE if this transport is on the server side of a connection
  * @param error location to store reason for failure.
  * @returns a new transport, or #NULL on failure.
  */
 DBusTransport*
 _dbus_transport_new_for_tcp_socket (const char     *host,
                                     dbus_int32_t    port,
-                                    dbus_bool_t     server,
                                     DBusError      *error)
 {
   int fd;
   DBusTransport *transport;
-
+  DBusString address;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return NULL;
+    }
+  
+  if (!_dbus_string_append (&address, "tcp:host=") ||
+      !_dbus_string_append (&address, host) ||
+      !_dbus_string_append (&address, ",port=") ||
+      !_dbus_string_append_int (&address, port))
+    {
+      _dbus_string_free (&address);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return NULL;
+    }
   
   fd = _dbus_connect_tcp_socket (host, port, error);
   if (fd < 0)
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
+      _dbus_string_free (&address);
       return NULL;
     }
 
@@ -1096,14 +1131,17 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
   _dbus_verbose ("Successfully connected to tcp socket %s:%d\n",
                  host, port);
   
-  transport = _dbus_transport_new_for_fd (fd, server);
+  transport = _dbus_transport_new_for_fd (fd, FALSE, &address);
   if (transport == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       _dbus_close (fd, NULL);
+      _dbus_string_free (&address);
       fd = -1;
     }
 
+  _dbus_string_free (&address);
+  
   return transport;
 }
 

@@ -828,6 +828,13 @@ bus_config_parser_finished (BusConfigParser   *parser,
 
       return FALSE;
     }
+
+  if (parser->listen_on == NULL)
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Configuration file needs one or more <listen> elements giving addresses"); 
+      return FALSE;
+    }
   
   return TRUE;
 }
@@ -836,6 +843,12 @@ const char*
 bus_config_parser_get_user (BusConfigParser *parser)
 {
   return parser->user;
+}
+
+DBusList**
+bus_config_parser_get_addresses (BusConfigParser *parser)
+{
+  return &parser->listen_on;
 }
 
 #ifdef DBUS_BUILD_TESTS

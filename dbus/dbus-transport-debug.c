@@ -277,7 +277,7 @@ _dbus_transport_debug_server_new (DBusTransport *client)
 
   if (!_dbus_transport_init_base (&debug_transport->base,
 				  &debug_vtable,
-				  TRUE))
+				  TRUE, NULL))
     {
       dbus_free (debug_transport);
       return NULL;
@@ -316,7 +316,8 @@ _dbus_transport_debug_client_new (const char     *server_name,
 {
   DBusServer *debug_server;
   DBusTransportDebug *debug_transport;
-
+  DBusString address;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   debug_server = _dbus_server_debug_lookup (server_name);
@@ -327,21 +328,39 @@ _dbus_transport_debug_client_new (const char     *server_name,
       return NULL;
     }
 
-  debug_transport = dbus_new0 (DBusTransportDebug, 1);
-  if (debug_transport == NULL)
+  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
     }
 
+  if (!_dbus_string_append (&address, "debug-pipe:name=") ||
+      !_dbus_string_append (&address, server_name))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_string_free (&address);
+      return NULL;
+    }
+  
+  debug_transport = dbus_new0 (DBusTransportDebug, 1);
+  if (debug_transport == NULL)
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_string_free (&address);
+      return NULL;
+    }
+
   if (!_dbus_transport_init_base (&debug_transport->base,
 				  &debug_vtable,
-				  FALSE))
+				  FALSE, &address))
     {
       dbus_free (debug_transport);
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_string_free (&address);
       return NULL;
     }
+
+  _dbus_string_free (&address);
   
   if (!create_timeout_object (debug_transport))
     {

@@ -29,19 +29,23 @@ main (int argc, char **argv)
 {
   BusContext *context;
   DBusError error;
-  const char *paths[] = { NULL, NULL };
+  DBusString config_file;
+
+  /* FIXME I think the arguments should be like:
+   * --system    use standard system config file
+   * --session   use standard session config file
+   * --config-file=foo.conf  use some other file
+   */
   
-  if (argc < 3)
+  if (argc != 2)
     {
-      /* FIXME obviously just for testing */
-      _dbus_warn ("Give the server address as an argument and activation directory as args\n");
+      _dbus_warn ("The message bus configuration file must be given as the only argument\n");
       return 1;
     }
-
-  paths[0] = argv[2];
   
   dbus_error_init (&error);
-  context = bus_context_new (argv[1], paths, &error);
+  _dbus_string_init_const (&config_file, argv[1]);
+  context = bus_context_new (&config_file, &error);
   if (context == NULL)
     {
       _dbus_warn ("Failed to start message bus: %s\n",
@@ -55,6 +59,6 @@ main (int argc, char **argv)
   
   bus_context_shutdown (context);
   bus_context_unref (context);
-
+ 
   return 0;
 }

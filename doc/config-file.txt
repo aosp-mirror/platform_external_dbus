@@ -62,7 +62,10 @@ Elements:
     Example: <listen>unix:path=/tmp/foo</listen>
 
     If there are multiple <listen> elements, then the bus listens 
-    on multiple addresses.
+    on multiple addresses. The bus will pass its address to 
+    activated services or other interested parties with 
+    the last address given in <listen> first. That is, 
+    apps will try to connect to the last <listen> address first.
 
  <auth>
 
@@ -72,6 +75,13 @@ Elements:
     
     Example: <auth>EXTERNAL</auth>
     Example: <auth>DBUS_COOKIE_SHA1</auth>
+
+ <servicedir>
+
+    Adds a directory to scan for .service files. Directories are
+    scanned starting with the last to appear in the config file 
+    (the first .service file found that provides a particular 
+    service will be used).
 
  <policy>
   context="(default|mandatory)"  one of the context/user/group

@@ -958,18 +958,17 @@ dbus_bool_t
 bus_dispatch_test (const DBusString *test_data_dir)
 {
   BusContext *context;
-  DBusError error;
-  const char *activation_dirs[] = { NULL, NULL };
   DBusConnection *foo;
   DBusConnection *bar;
   DBusConnection *baz;
+  DBusError error;
+  
+  context = bus_context_new_test (test_data_dir,
+                                  "valid-config-files/debug-allow-all.conf");
+  if (context == NULL)
+    return FALSE;
 
   dbus_error_init (&error);
-  context = bus_context_new ("debug-pipe:name=test-server",
-                             activation_dirs,
-                             &error);
-  if (context == NULL)
-    _dbus_assert_not_reached ("could not alloc context");
   
   foo = dbus_connection_open ("debug-pipe:name=test-server", &error);
   if (foo == NULL)

@@ -141,7 +141,8 @@ _dbus_server_debug_pipe_new (const char     *server_name,
                              DBusError      *error)
 {
   DBusServerDebugPipe *debug_server;
-
+  DBusString address;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   if (!pipe_hash_ref ())
@@ -155,52 +156,47 @@ _dbus_server_debug_pipe_new (const char     *server_name,
     }
   
   debug_server = dbus_new0 (DBusServerDebugPipe, 1);
-
   if (debug_server == NULL)
-    {
-      pipe_hash_unref ();
-      return NULL;
-    }
+    goto nomem_0;
 
+  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
+    goto nomem_1;
+
+  if (!_dbus_string_append (&address, "debug-pipe:name=") ||
+      !_dbus_string_append (&address, server_name))
+    goto nomem_2;
+  
   debug_server->name = _dbus_strdup (server_name);
   if (debug_server->name == NULL)
-    {
-      dbus_free (debug_server->name);
-      dbus_free (debug_server);
-
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-
-      pipe_hash_unref ();
-      return NULL;
-    }
+    goto nomem_2;
   
   if (!_dbus_server_init_base (&debug_server->base,
-			       &debug_vtable))
-    {
-      dbus_free (debug_server->name);      
-      dbus_free (debug_server);
-
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-
-      pipe_hash_unref ();
-      return NULL;
-    }
+			       &debug_vtable, &address))
+    goto nomem_3;
 
   if (!_dbus_hash_table_insert_string (server_pipe_hash,
 				       debug_server->name,
 				       debug_server))
-    {
-      _dbus_server_finalize_base (&debug_server->base);
-      dbus_free (debug_server->name);      
-      dbus_free (debug_server);
+    goto nomem_4;
 
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+  _dbus_string_free (&address);
 
-      pipe_hash_unref ();
-      return NULL;
-    }
+  /* server keeps the pipe hash ref */
   
   return (DBusServer *)debug_server;
+
+ nomem_4:
+  _dbus_server_finalize_base (&debug_server->base);
+ nomem_3:
+  dbus_free (debug_server->name);
+ nomem_2:
+  _dbus_string_free (&address);
+ nomem_1:
+  dbus_free (debug_server);
+ nomem_0:
+  pipe_hash_unref ();
+  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+  return NULL;
 }
 
 /**
@@ -221,7 +217,8 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
   DBusConnection *connection;
   int client_fd, server_fd;
   DBusServer *server;
-
+  DBusString address;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   server = _dbus_hash_table_lookup_string (server_pipe_hash,
@@ -232,12 +229,27 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
       dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS, NULL);
       return NULL;
     }
+
+  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return NULL;
+    }
+
+  if (!_dbus_string_append (&address, "debug-pipe:name=") ||
+      !_dbus_string_append (&address, server_name))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_string_free (&address);
+      return NULL;
+    }
   
   if (!_dbus_full_duplex_pipe (&client_fd, &server_fd,
                                NULL))
     {
       _dbus_verbose ("failed to create full duplex pipe\n");
       dbus_set_error (error, DBUS_ERROR_FAILED, "Could not create full-duplex pipe");
+      _dbus_string_free (&address);
       return NULL;
     }
 
@@ -245,19 +257,22 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
   _dbus_fd_set_close_on_exec (server_fd);
   
   client_transport = _dbus_transport_new_for_fd (client_fd,
-                                                 FALSE);
+                                                 FALSE, &address);
   if (client_transport == NULL)
     {
       _dbus_close (client_fd, NULL);
       _dbus_close (server_fd, NULL);
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_string_free (&address);
       return NULL;
     }
 
+  _dbus_string_free (&address);
+  
   client_fd = -1;
   
   server_transport = _dbus_transport_new_for_fd (server_fd,
-                                                 TRUE);
+                                                 TRUE, NULL);
   if (server_transport == NULL)
     {
       _dbus_transport_unref (client_transport);

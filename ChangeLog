@@ -1,3 +1,30 @@
+2003-03-31  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-transport-unix.c (_dbus_transport_new_for_domain_socket)
+	(_dbus_transport_new_for_tcp_socket): these didn't need the "server"
+	argument since they are always client side
+
+	* dbus/dbus-server.c (dbus_server_get_address): new function
+
+	* bus/main.c (main): take the configuration file as an argument.
+
+	* test/data/valid-config-files/debug-allow-all.conf: new file to 
+	use with dispatch.c tests for example
+
+	* bus/test-main.c (main): require test data dir
+
+	* bus/bus.c (bus_context_new): change this to take a
+	configuration file name as argument
+
+	* doc/config-file.txt (Elements): add <servicedir>
+
+	* bus/system.conf, bus/session.conf: new files
+	
+	* dbus/dbus-bus.c (dbus_bus_get): look for system bus on
+	well-known socket if none set
+
+	* configure.in: create system.conf and session.conf
+
 2003-03-30  Havoc Pennington  <hp@pobox.com>
 
 	* bus/config-parser.c: hacking

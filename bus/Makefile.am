@@ -4,6 +4,12 @@ INCLUDES=-I$(top_srcdir) $(DBUS_BUS_CFLAGS) \
 
 EFENCE=
 
+configdir=$(sysconfdir)/dbus-1
+
+config_DATA=					\
+	system.conf				\
+	session.conf
+
 bin_PROGRAMS=dbus-daemon-1
 
 if DBUS_USE_LIBXML
