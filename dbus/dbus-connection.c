@@ -1320,7 +1320,7 @@ dbus_connection_send_message_with_reply_and_block (DBusConnection     *connectio
 
       if (_dbus_message_get_reply_serial (reply) == client_serial)
 	{
-	  _dbus_list_remove (&connection->incoming_messages, link);
+	  _dbus_list_remove_link (&connection->incoming_messages, link);
 	  dbus_message_ref (reply);
 
 	  if (result)

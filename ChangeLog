@@ -1,5 +1,15 @@
 2003-02-27  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-connection.c
+	(dbus_connection_send_message_with_reply_and_block): fix doh!
+	doh! doh! bug that resulted in never removing a reply from the
+	queue, no wonder we called get_reply_serial so much ;-)
+	
+	* dbus/dbus-message.c (struct DBusMessage): cache reply serial
+	and client serial instead of demarshaling them every time
+
+2003-02-27  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-marshal.c (_dbus_demarshal_int32): rewrite to be much
 	more inlined, using dbus-string-private.h, speeds things up 
 	substantially

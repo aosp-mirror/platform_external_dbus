@@ -91,6 +91,10 @@ struct DBusMessage
   HeaderField header_fields[FIELD_LAST]; /**< Track the location
                                            * of each field in "header"
                                            */
+
+  dbus_int32_t client_serial; /**< Cached client serial value for speed */
+  dbus_int32_t reply_serial;  /**< Cached reply serial value for speed */
+  
   int header_padding; /**< bytes of alignment in header */
   
   DBusString body;   /**< Body network data. */
@@ -528,9 +532,10 @@ _dbus_message_set_client_serial (DBusMessage  *message,
 {
   _dbus_assert (!message->locked);
   _dbus_assert (_dbus_message_get_client_serial (message) < 0);
-
+  
   set_int_field (message, FIELD_CLIENT_SERIAL,
                  client_serial);
+  message->client_serial = client_serial;
 }
 
 /**
@@ -547,8 +552,14 @@ _dbus_message_set_reply_serial (DBusMessage  *message,
 {
   _dbus_assert (!message->locked);
 
-  return set_int_field (message, FIELD_REPLY_SERIAL,
-                        reply_serial);
+  if (set_int_field (message, FIELD_REPLY_SERIAL,
+                     reply_serial))
+    {
+      message->reply_serial = reply_serial;
+      return TRUE;
+    }
+  else
+    return FALSE;
 }
 
 /**
@@ -566,7 +577,7 @@ _dbus_message_set_reply_serial (DBusMessage  *message,
 dbus_int32_t
 _dbus_message_get_client_serial (DBusMessage *message)
 {
-  return get_int_field (message, FIELD_CLIENT_SERIAL);
+  return message->client_serial;
 }
 
 /**
@@ -579,7 +590,7 @@ _dbus_message_get_client_serial (DBusMessage *message)
 dbus_int32_t
 _dbus_message_get_reply_serial  (DBusMessage *message)
 {
-  return get_int_field (message, FIELD_REPLY_SERIAL);
+  return message->reply_serial;
 }
 
 /**
@@ -728,6 +739,8 @@ dbus_message_new_empty_header (void)
   
   message->refcount = 1;
   message->byte_order = DBUS_COMPILER_BYTE_ORDER;
+  message->client_serial = -1;
+  message->reply_serial = -1;
   
   i = 0;
   while (i < FIELD_LAST)
@@ -2722,6 +2735,12 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
           _dbus_assert (_dbus_string_get_length (&message->header) == header_len);
           _dbus_assert (_dbus_string_get_length (&message->body) == body_len);
 
+          /* Fill in caches */
+          message->reply_serial = get_int_field (message,
+                                                 FIELD_REPLY_SERIAL);
+          message->client_serial = get_int_field (message,
+                                                  FIELD_CLIENT_SERIAL);
+          
 	  _dbus_verbose ("Loaded message %p\n", message);
 	}
       else
