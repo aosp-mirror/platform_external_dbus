@@ -1,3 +1,10 @@
+2004-05-15  Owen Fraser-Green  <owen@discobabe.net>
+
+	* mono/Makefile.am: Added SUBDIR for docs
+	* mono/doc/*: Added documentation framework
+	* configure.in: Added monodoc check
+	* README: Added description of mono configure flags
+
 2004-05-11  John (J5) Palmieri  <johnp@redhat.com>:
 
 	* doc/dbus-specification.xml: Added a "Required" column to the 

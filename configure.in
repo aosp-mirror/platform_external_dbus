@@ -36,6 +36,7 @@ AC_ARG_ENABLE(gcov,             [  --enable-gcov         compile with coverage p
 AC_ARG_ENABLE(abstract-sockets, [  --enable-abstract-sockets  use abstract socket namespace (linux only)],enable_abstract_sockets=$enableval,enable_abstract_sockets=auto)
 AC_ARG_ENABLE(gcj,              [  --enable-gcj          build gcj bindings],enable_gcj=$enableval,enable_gcj=no)
 AC_ARG_ENABLE(mono,             [  --enable-mono         build mono bindings],enable_mono=$enableval,enable_mono=auto)
+AC_ARG_ENABLE(mono_docs,        [  --enable-mono-docs    build mono docs],enable_mono_docs=$enableval,enable_mono_docs=auto)
 AC_ARG_ENABLE(python,           [  --enable-python       build python bindings],enable_python=$enableval,enable_python=auto)
 
 
@@ -210,6 +211,41 @@ if test x$enable_mono = xyes; then
 fi
 
 AM_CONDITIONAL(DBUS_USE_MCS, test x$enable_mono = xyes)
+
+#### Look for monodoc
+MONODOC_REQUIRED_VERSION=0.15
+AC_SUBST(MONODOC_REQUIRED_VERSION)
+PKG_CHECK_MODULES(MONODOC_DEPENDENCY, monodoc >= $MONODOC_REQUIRED_VERSION, have_monodoc=yes, have_monodoc=no)
+
+if test x$enable_mono_docs = xyes; then
+    if test x$have_monodoc = xno ; then
+	AC_MSG_ERROR([Building Mono docs explicitly required, but monodoc not found])
+    else
+        AC_PATH_PROG(MONODOC, monodoc, no)
+        if test x$MONODOC = xno; then
+           AC_MSG_ERROR([Building Mono docs explicitly required, but monodoc not found])	
+	fi
+    fi
+fi
+
+if test x$enable_mono_docs = xauto ; then
+    if test x$have_monodoc = xno ; then
+        enable_mono_docs=no
+	MONODOC=
+    else
+        AC_PATH_PROG(MONODOC, monodoc, no)
+        if test x$MONODOC = xno; then
+           enable_mono_docs=no
+           MONODOC=
+	else
+	   enable_mono_docs=yes
+        fi
+    fi
+fi
+
+AC_SUBST(MONODOC)
+
+AM_CONDITIONAL(ENABLE_MONODOC, test "x$enable_mono_docs" = "xyes")
 
 changequote(,)dnl
 # let ourselves use our own unstable API
@@ -1024,6 +1060,7 @@ gcj/org/freedesktop/Makefile
 gcj/org/freedesktop/dbus/Makefile
 mono/Makefile
 mono/example/Makefile
+mono/doc/Makefile
 bus/Makefile
 tools/Makefile
 test/Makefile
@@ -1094,6 +1131,7 @@ echo "
         Building GLib bindings:   ${have_glib}
         Building Python bindings: ${have_python}
 	Building Mono bindings:	  ${enable_mono}
+	Building Mono docs:	  ${enable_mono_docs}
         Building GTK+ tools:      ${have_gtk}
         Building X11 code:        ${enable_x11}
         Building Doxygen docs:    ${enable_doxygen_docs}

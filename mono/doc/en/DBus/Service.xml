@@ -1,0 +1,148 @@
+<Type Name="Service" FullName="DBus.Service">
+  <TypeSignature Language="C#" Value="public class Service" Maintainer="auto" />
+  <AssemblyInfo>
+    <AssemblyName>dbus-sharp</AssemblyName>
+    <AssemblyPublicKey>
+    </AssemblyPublicKey>
+    <AssemblyVersion>0.0.0.0</AssemblyVersion>
+    <AssemblyCulture>neutral</AssemblyCulture>
+    <Attributes />
+  </AssemblyInfo>
+  <ThreadSafetyStatement>Gtk# is thread aware, but not thread safe; See the <link location="node:gtk-sharp/programming/threads">Gtk# Thread Programming</link> for details.</ThreadSafetyStatement>
+  <Docs>
+    <summary>To be added</summary>
+    <remarks>To be added</remarks>
+  </Docs>
+  <Base>
+    <BaseTypeName>System.Object</BaseTypeName>
+  </Base>
+  <Interfaces />
+  <Attributes />
+  <Members>
+    <Member MemberName="Exists">
+      <MemberSignature Language="C#" Value="public static bool Exists (DBus.Connection connection, string name);" />
+      <MemberType>Method</MemberType>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="connection" Type="DBus.Connection" />
+        <Parameter Name="name" Type="System.String" />
+      </Parameters>
+      <Docs>
+        <summary>To be added</summary>
+        <param name="connection">a <see cref="T:DBus.Connection" /></param>
+        <param name="name">a <see cref="T:System.String" /></param>
+        <returns>a <see cref="T:System.Boolean" /></returns>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="Get">
+      <MemberSignature Language="C#" Value="public static DBus.Service Get (DBus.Connection connection, string name);" />
+      <MemberType>Method</MemberType>
+      <ReturnValue>
+        <ReturnType>DBus.Service</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="connection" Type="DBus.Connection" />
+        <Parameter Name="name" Type="System.String" />
+      </Parameters>
+      <Docs>
+        <summary>To be added</summary>
+        <param name="connection">a <see cref="T:DBus.Connection" /></param>
+        <param name="name">a <see cref="T:System.String" /></param>
+        <returns>a <see cref="T:DBus.Service" /></returns>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="RegisterObject">
+      <MemberSignature Language="C#" Value="public void RegisterObject (object handledObject, string pathName);" />
+      <MemberType>Method</MemberType>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="handledObject" Type="System.Object" />
+        <Parameter Name="pathName" Type="System.String" />
+      </Parameters>
+      <Docs>
+        <summary>To be added</summary>
+        <param name="handledObject">a <see cref="T:System.Object" /></param>
+        <param name="pathName">a <see cref="T:System.String" /></param>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="GetObject">
+      <MemberSignature Language="C#" Value="public object GetObject (Type type, string pathName);" />
+      <MemberType>Method</MemberType>
+      <ReturnValue>
+        <ReturnType>System.Object</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="type" Type="System.Type" />
+        <Parameter Name="pathName" Type="System.String" />
+      </Parameters>
+      <Docs>
+        <summary>To be added</summary>
+        <param name="type">a <see cref="T:System.Type" /></param>
+        <param name="pathName">a <see cref="T:System.String" /></param>
+        <returns>a <see cref="T:System.Object" /></returns>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName=".ctor">
+      <MemberSignature Language="C#" Value="public Service (DBus.Connection connection, string name);" />
+      <MemberType>Constructor</MemberType>
+      <ReturnValue />
+      <Parameters>
+        <Parameter Name="connection" Type="DBus.Connection" />
+        <Parameter Name="name" Type="System.String" />
+      </Parameters>
+      <Docs>
+        <summary>To be added</summary>
+        <param name="connection">a <see cref="T:DBus.Connection" /></param>
+        <param name="name">a <see cref="T:System.String" /></param>
+        <returns>a <see cref="T:DBus.Service" /></returns>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="Name">
+      <MemberSignature Language="C#" Value="public string Name { get; };" />
+      <MemberType>Property</MemberType>
+      <ReturnValue>
+        <ReturnType>System.String</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>To be added</summary>
+        <returns>a <see cref="T:System.String" /></returns>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="Connection">
+      <MemberSignature Language="C#" Value="public DBus.Connection Connection { set; get; };" />
+      <MemberType>Property</MemberType>
+      <ReturnValue>
+        <ReturnType>DBus.Connection</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>To be added</summary>
+        <returns>a <see cref="T:DBus.Connection" /></returns>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="SignalCalled">
+      <MemberSignature Language="C#" Value="public event DBus.Service+SignalCalledHandler SignalCalled;" />
+      <MemberType>Event</MemberType>
+      <ReturnValue>
+        <ReturnType>DBus.Service+SignalCalledHandler</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>To be added</summary>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+  </Members>
+</Type>

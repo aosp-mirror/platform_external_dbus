@@ -13,6 +13,8 @@ the ./configure program.
 
   --enable-qt      enable Qt-friendly client library
   --enable-glib    enable GLib-friendly client library
+  --enable-mono    enable mono bindings
+  --enable-mono-docs build mono documentation (requires monodoc)
   --enable-tests   enable unit test code
   --enable-ansi    enable -ansi -pedantic gcc flags
   --enable-verbose-mode support verbose debug mode

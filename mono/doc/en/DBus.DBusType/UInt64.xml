@@ -1,0 +1,168 @@
+<Type Name="UInt64" FullName="DBus.DBusType.UInt64">
+  <TypeSignature Language="C#" Value="public class UInt64 : IDBusType" Maintainer="auto" />
+  <AssemblyInfo>
+    <AssemblyName>dbus-sharp</AssemblyName>
+    <AssemblyPublicKey>
+    </AssemblyPublicKey>
+    <AssemblyVersion>0.0.0.0</AssemblyVersion>
+    <AssemblyCulture>neutral</AssemblyCulture>
+    <Attributes />
+  </AssemblyInfo>
+  <ThreadSafetyStatement>Gtk# is thread aware, but not thread safe; See the <link location="node:gtk-sharp/programming/threads">Gtk# Thread Programming</link> for details.</ThreadSafetyStatement>
+  <Docs>
+    <summary>To be added</summary>
+    <remarks>To be added</remarks>
+  </Docs>
+  <Base>
+    <BaseTypeName>System.Object</BaseTypeName>
+  </Base>
+  <Interfaces>
+    <Interface>
+      <InterfaceName>DBus.DBusType.IDBusType</InterfaceName>
+    </Interface>
+  </Interfaces>
+  <Attributes />
+  <Members>
+    <Member MemberName="Code">
+      <MemberSignature Language="C#" Value="public static char Code;" />
+      <MemberType>Field</MemberType>
+      <ReturnValue>
+        <ReturnType>System.Char</ReturnType>
+      </ReturnValue>
+      <Parameters>
+      </Parameters>
+      <Docs>
+        <summary>To be added</summary>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="Suits">
+      <MemberSignature Language="C#" Value="public static bool Suits (Type type);" />
+      <MemberType>Method</MemberType>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="type" Type="System.Type" />
+      </Parameters>
+      <Docs>
+        <summary>To be added</summary>
+        <param name="type">a <see cref="T:System.Type" /></param>
+        <returns>a <see cref="T:System.Boolean" /></returns>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="EmitMarshalIn">
+      <MemberSignature Language="C#" Value="public static void EmitMarshalIn (System.Reflection.Emit.ILGenerator generator, Type type);" />
+      <MemberType>Method</MemberType>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="generator" Type="System.Reflection.Emit.ILGenerator" />
+        <Parameter Name="type" Type="System.Type" />
+      </Parameters>
+      <Docs>
+        <summary>To be added</summary>
+        <param name="generator">a <see cref="T:System.Reflection.Emit.ILGenerator" /></param>
+        <param name="type">a <see cref="T:System.Type" /></param>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="EmitMarshalOut">
+      <MemberSignature Language="C#" Value="public static void EmitMarshalOut (System.Reflection.Emit.ILGenerator generator, Type type, bool isReturn);" />
+      <MemberType>Method</MemberType>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="generator" Type="System.Reflection.Emit.ILGenerator" />
+        <Parameter Name="type" Type="System.Type" />
+        <Parameter Name="isReturn" Type="System.Boolean" />
+      </Parameters>
+      <Docs>
+        <summary>To be added</summary>
+        <param name="generator">a <see cref="T:System.Reflection.Emit.ILGenerator" /></param>
+        <param name="type">a <see cref="T:System.Type" /></param>
+        <param name="isReturn">a <see cref="T:System.Boolean" /></param>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="Append">
+      <MemberSignature Language="C#" Value="public virtual void Append (IntPtr iter);" />
+      <MemberType>Method</MemberType>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="iter" Type="System.IntPtr" />
+      </Parameters>
+      <Docs>
+        <summary>To be added</summary>
+        <param name="iter">a <see cref="T:System.IntPtr" /></param>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="Get">
+      <MemberSignature Language="C#" Value="public virtual object Get ();" />
+      <MemberType>Method</MemberType>
+      <ReturnValue>
+        <ReturnType>System.Object</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>To be added</summary>
+        <returns>a <see cref="T:System.Object" /></returns>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="Get">
+      <MemberSignature Language="C#" Value="public virtual object Get (Type type);" />
+      <MemberType>Method</MemberType>
+      <ReturnValue>
+        <ReturnType>System.Object</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="type" Type="System.Type" />
+      </Parameters>
+      <Docs>
+        <summary>To be added</summary>
+        <param name="type">a <see cref="T:System.Type" /></param>
+        <returns>a <see cref="T:System.Object" /></returns>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName=".ctor">
+      <MemberSignature Language="C#" Value="public UInt64 (ulong val, DBus.Service service);" />
+      <MemberType>Constructor</MemberType>
+      <ReturnValue />
+      <Parameters>
+        <Parameter Name="val" Type="System.UInt64" />
+        <Parameter Name="service" Type="DBus.Service" />
+      </Parameters>
+      <Docs>
+        <summary>To be added</summary>
+        <param name="val">a <see cref="T:System.UInt64" /></param>
+        <param name="service">a <see cref="T:DBus.Service" /></param>
+        <returns>a <see cref="T:DBus.DBusType.UInt64" /></returns>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName=".ctor">
+      <MemberSignature Language="C#" Value="public UInt64 (IntPtr iter, DBus.Service service);" />
+      <MemberType>Constructor</MemberType>
+      <ReturnValue />
+      <Parameters>
+        <Parameter Name="iter" Type="System.IntPtr" />
+        <Parameter Name="service" Type="DBus.Service" />
+      </Parameters>
+      <Docs>
+        <summary>To be added</summary>
+        <param name="iter">a <see cref="T:System.IntPtr" /></param>
+        <param name="service">a <see cref="T:DBus.Service" /></param>
+        <returns>a <see cref="T:DBus.DBusType.UInt64" /></returns>
+        <remarks>To be added</remarks>
+      </Docs>
+    </Member>
+  </Members>
+</Type>
