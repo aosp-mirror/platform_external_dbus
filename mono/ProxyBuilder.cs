@@ -412,6 +412,10 @@ namespace DBus
 							       CallingConventions.Standard, pars);
 
       ILGenerator generator = constructor.GetILGenerator();
+
+      LocalBuilder handlerL = generator.DeclareLocal (typeof (Service.SignalCalledHandler));
+      handlerL.SetLocalSymInfo ("handler");
+
       generator.Emit(OpCodes.Ldarg_0);
       generator.Emit(OpCodes.Call, this.introspector.Constructor);
       //generator.EmitWriteLine("service = myService");
@@ -422,17 +426,19 @@ namespace DBus
       generator.Emit(OpCodes.Ldarg_2);
       generator.Emit(OpCodes.Stfld, pathF);
 
-      //generator.EmitWriteLine("this.delegate_created = new Service.SignalCalledHandler(Service_SignalCalled)");      
+      //generator.EmitWriteLine("handler = new Service.SignalCalledHandler(Service_SignalCalled)");      
       generator.Emit(OpCodes.Ldarg_1);
       generator.Emit(OpCodes.Ldarg_0);
       generator.Emit(OpCodes.Ldftn, signalCalledMI);
       generator.Emit(OpCodes.Newobj, Service_SignalCalledHandlerC);
       generator.Emit(OpCodes.Stloc_0);
+
+      //generator.EmitWriteLine("this.delegate_created = handler");
       generator.Emit(OpCodes.Ldarg_0);
       generator.Emit(OpCodes.Ldloc_0);
       generator.Emit(OpCodes.Stfld, deleF);
 
-      //generator.EmitWriteLine("myService.SignalCalled += this.delegate_created");
+      //generator.EmitWriteLine("myService.SignalCalled += handler");
       generator.Emit(OpCodes.Ldloc_0);
       generator.EmitCall(OpCodes.Callvirt, Service_AddSignalCalledMI, null);
 
@@ -469,7 +475,7 @@ namespace DBus
        // because that is always going to be a nop, lets just ignore that here.
        // If you are trying to find the right code, look at what mcs does ;-).
 
-       MethodBuilder mb = tb.DefineMethod("Finalize", 
+       MethodBuilder mb = tb.DefineMethod("Finalize",
 					  MethodAttributes.Family |
 					  MethodAttributes.HideBySig |
 					  MethodAttributes.Virtual, 
@@ -571,7 +577,7 @@ namespace DBus
 	// monodis. Note that in order for this to work you should copy
 	// the client assembly as a dll file so that monodis can pick it
 	// up.
-	//Service.ProxyAssembly.Save("proxy.dll");
+	//Service.ProxyAssembly.Save(Service.Name + ".proxy.dll");
       }
 
       Type [] parTypes = new Type[] {typeof(Service), typeof(string)};
