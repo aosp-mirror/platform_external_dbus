@@ -166,7 +166,6 @@ else
      AC_SUBST(GCJFLAGS)
 fi
 
-echo "enable_gcj=$enable_gcj"
 if test x$enable_gcj = xauto ; then
     if test x$have_gcj = xno ; then
         enable_gcj=no
