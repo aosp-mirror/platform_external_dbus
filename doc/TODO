@@ -107,9 +107,6 @@
    (though they are kind of a pita to pass in as size_t with the 
     varargs, so maybe not - what does glib do with g_object_get()?)
 
- - the varargs dbus_message_get_args() needs to support OBJECT_PATH 
-   and OBJECT_PATH_ARRAY
-
  - recursive dispatch, see dbus_connection_dispatch()
 
  - Perhaps the auth protocol should be able to negotiate a protocol 

@@ -2480,6 +2480,23 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 	    break;
 	  }
 
+	  case DBUS_TYPE_OBJECT_PATH:
+	  {
+	    char **ptr;
+
+	    ptr = va_arg (var_args, char **);
+
+	    *ptr = dbus_message_iter_get_object_path (iter);
+
+	    if (!*ptr)
+	      {
+	        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+	        goto out;
+	      }
+
+	    break;
+	  }
+
 	case DBUS_TYPE_CUSTOM:
 	  {
 	    char **name;
@@ -2548,6 +2565,10 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 	      case DBUS_TYPE_STRING:
 		err = !dbus_message_iter_get_string_array (iter, (char ***)data, len);
 		break;
+	      case DBUS_TYPE_OBJECT_PATH:
+	        err = !dbus_message_iter_get_object_path_array (iter, (char ***)data, len);
+	        break;
+
 	      case DBUS_TYPE_NIL:
 	      case DBUS_TYPE_ARRAY:
 	      case DBUS_TYPE_CUSTOM:

@@ -1,3 +1,8 @@
+2004-05-28  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-message.c (dbus_message_get_args): Added support for
+	OBJECT_PATH and OBJECT_PATH_ARRAY
+
 2004-05-28  Seth Nickell  <seth@gnome.org>
 
 	* python/examples/Makefile.am:
