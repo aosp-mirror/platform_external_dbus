@@ -1,3 +1,9 @@
+2003-03-18  Anders Carlsson  <andersca@codefactory.se>
+
+	* configure.in: 0.6
+
+	* NEWS: Update.
+	
 2003-03-17  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-internals.h: add gcc attributes so that 

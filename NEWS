@@ -1,3 +1,10 @@
+D-BUS 0.6
+===
+- Vastly improved bus daemon test suite
+- Lots of misc. bugfixes and memory leak fixes
+- Support for marshalling key/value data
+- Activation improvements.
+
 D-BUS 0.5
 ===
 
