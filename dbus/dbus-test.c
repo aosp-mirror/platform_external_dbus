@@ -197,6 +197,12 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
     die ("auth");
 
   check_memleaks ();
+
+  printf ("%s: running pending call tests\n", "dbus-test");
+  if (!_dbus_pending_call_test (test_data_dir))
+    die ("auth");
+
+  check_memleaks ();
   
   printf ("%s: completed successfully\n", "dbus-test");
 #else

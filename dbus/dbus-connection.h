@@ -37,6 +37,7 @@ typedef struct DBusWatch DBusWatch;
 typedef struct DBusTimeout DBusTimeout;
 typedef struct DBusMessageHandler DBusMessageHandler;
 typedef struct DBusPreallocatedSend DBusPreallocatedSend;
+typedef struct DBusPendingCall DBusPendingCall;
 
 typedef enum
 {
@@ -76,6 +77,9 @@ typedef dbus_bool_t (* DBusAllowUnixUserFunction)  (DBusConnection *connection,
                                                     unsigned long   uid,
                                                     void           *data);
 
+typedef void (* DBusPendingCallNotifyFunction) (DBusPendingCall *pending,
+                                                void            *user_data);
+
 DBusConnection*    dbus_connection_open                         (const char                 *address,
                                                                  DBusError                  *error);
 void               dbus_connection_ref                          (DBusConnection             *connection);
@@ -97,7 +101,7 @@ dbus_bool_t        dbus_connection_send                         (DBusConnection 
                                                                  dbus_uint32_t              *client_serial);
 dbus_bool_t        dbus_connection_send_with_reply              (DBusConnection             *connection,
                                                                  DBusMessage                *message,
-                                                                 DBusMessageHandler         *reply_handler,
+                                                                 DBusPendingCall           **pending_return,
                                                                  int                         timeout_milliseconds);
 DBusMessage *      dbus_connection_send_with_reply_and_block    (DBusConnection             *connection,
                                                                  DBusMessage                *message,

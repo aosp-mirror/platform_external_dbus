@@ -22,11 +22,11 @@
  */
 
 #include "dbus-internals.h"
-#include "dbus-message-pending.h"
+#include "dbus-connection-internal.h"
+#include "dbus-pending-call.h"
 #include "dbus-list.h"
 #include "dbus-threads.h"
 #include "dbus-test.h"
-#include "dbus-connection-internal.h"
 
 /**
  * @defgroup DBusPendingCallInternals DBusPendingCall implementation details
@@ -39,53 +39,62 @@
  */
 
 /**
- * @brief Internals of DBusPendingCall
- *
- * Object representing a reply message that we're waiting for.
- */
-struct DBusPendingCall
-{
-  DBusAtomic refcount;                            /**< reference count */
-
-  DBusPendingCallNotifyFunction function;         /**< Notifier when reply arrives. */
-  void                     *user_data;            /**< user data for function */
-  DBusFreeFunction          free_user_data;       /**< free the user data */
-
-  DBusConnection *connection;                     /**< Connections we're associated with */
-  DBusMessage *reply;                             /**< Reply (after we've received it) */
-  DBusTimeout *timeout;                           /**< Timeout */
-
-  DBusList *timeout_link;                         /**< Preallocated timeout response */
-  
-  dbus_uint32_t reply_serial;                     /**< Expected serial of reply */
-
-  unsigned int completed : 1;                     /**< TRUE if completed */
-  unsigned int timeout_added : 1;                 /**< Have added the timeout */
-};
-
-/**
  * Creates a new pending reply object.
  *
  * @param connection connection where reply will arrive
- * @param reply_serial reply serial of the expected reply
+ * @param timeout_milliseconds length of timeout, -1 for default
+ * @param timeout_handler timeout handler, takes pending call as data
  * @returns a new #DBusPendingCall or #NULL if no memory.
  */
 DBusPendingCall*
-_dbus_pending_call_new (DBusConnection *connection,
-                       dbus_uint32_t    reply_serial)
+_dbus_pending_call_new (DBusConnection    *connection,
+                        int                timeout_milliseconds,
+                        DBusTimeoutHandler timeout_handler)
 {
   DBusPendingCall *pending;
+  DBusTimeout *timeout;
 
+  _dbus_return_val_if_fail (timeout_milliseconds >= 0 || timeout_milliseconds == -1, FALSE);
+  
+  if (timeout_milliseconds == -1)
+    timeout_milliseconds = _DBUS_DEFAULT_TIMEOUT_VALUE;
+  
   pending = dbus_new (DBusPendingCall, 1);
   
   if (pending == NULL)
     return NULL;
 
+  timeout = _dbus_timeout_new (timeout_milliseconds,
+                               timeout_handler,
+			       pending, NULL);  
+
+  if (timeout == NULL)
+    {
+      dbus_free (pending);
+      return NULL;
+    }
+  
   pending->refcount.value = 1;
   pending->connection = connection;
-  pending->reply_serial = reply_serial;
-
+  pending->timeout = timeout;
+  
   return pending;
+}
+
+/**
+ * Calls notifier function for the pending call
+ * and sets the call to completed.
+ *
+ * @param pending the pending call
+ * 
+ */
+void
+_dbus_pending_call_notify (DBusPendingCall *pending)
+{
+  pending->completed = TRUE;
+
+  if (pending->function)
+    (* pending->function) (pending, pending->user_data);
 }
 
 /** @} */
@@ -138,14 +147,24 @@ dbus_pending_call_unref (DBusPendingCall *pending)
 
   if (last_unref)
     {
+      /* If we get here, we should be already detached
+       * from the connection, or never attached.
+       */
+      _dbus_assert (pending->connection == NULL);
+      _dbus_assert (!pending->timeout_added);  
+
+      /* this assumes we aren't holding connection lock... */
       if (pending->free_user_data)
         (* pending->free_user_data) (pending->user_data);
 
-
-      if (pending->connection != NULL)
+      if (pending->timeout != NULL)
+        _dbus_timeout_unref (pending->timeout);
+      
+      if (pending->timeout_link)
         {
-          _dbus_connection_pending_destroyed_locked (connection, pending);
-          pending->connection = NULL;
+          dbus_message_unref ((DBusMessage *)pending->timeout_link->data);
+          _dbus_list_free_link (pending->timeout_link);
+          pending->timeout_link = NULL;
         }
 
       if (pending->reply)
@@ -179,36 +198,65 @@ dbus_pending_call_set_notify (DBusPendingCall              *pending,
 
   _dbus_return_if_fail (pending != NULL);
 
-  _DBUS_LOCK (pending_call);
   old_free_func = pending->free_user_data;
   old_user_data = pending->user_data;
 
   pending->user_data = user_data;
   pending->free_user_data = free_user_data;
   pending->function = function;
-  _DBUS_UNLOCK (pending_call);
 
   if (old_free_func)
     (* old_free_func) (old_user_data);
 }
 
+/**
+ * Cancels the pending call, such that any reply
+ * or error received will just be ignored.
+ * Drops at least one reference to the #DBusPendingCall
+ * so will free the call if nobody else is holding
+ * a reference.
+ * 
+ * @param pending the pending call
+ */
+void
+dbus_pending_call_cancel (DBusPendingCall *pending)
+{
+  if (pending->connection)
+    _dbus_connection_remove_pending_call (pending->connection,
+                                          pending);
+}
+
+/**
+ * Checks whether the pending call has received a reply
+ * yet, or not.
+ *
+ * @param pending the pending call
+ * @returns #TRUE if a reply has been received
+ */
+dbus_bool_t
+dbus_pending_call_get_completed (DBusPendingCall *pending)
+{
+  return pending->completed;
+}
+
+/**
+ * Gets the reply, or returns #NULL if none has been received yet. The
+ * reference count is not incremented on the returned message, so you
+ * have to keep a reference count on the pending call (or add one
+ * to the message).
+ *
+ * @param pending the pending call
+ * @returns the reply message or #NULL.
+ */
+DBusMessage*
+dbus_pending_call_get_reply (DBusPendingCall *pending)
+{
+  return pending->reply;
+}
+
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS
-static DBusPendingResult
-test_pending (DBusPendingCall *pending,
-              DBusConnection     *connection,
-              DBusMessage        *message,
-              void               *user_data)
-{
-  return DBUS_PENDING_RESULT_NOT_YET_HANDLED;
-}
-
-static void
-free_test_data (void *data)
-{
-  /* does nothing */
-}
 
 /**
  * @ingroup DBusPendingCallInternals

@@ -19,6 +19,7 @@ dbusinclude_HEADERS=				\
 	dbus-message-handler.h			\
 	dbus-object.h				\
 	dbus-objectid.h				\
+	dbus-pending-call.h			\
 	dbus-protocol.h				\
 	dbus-server.h				\
 	dbus-threads.h				\
@@ -48,6 +49,7 @@ DBUS_LIB_SOURCES=				\
 	dbus-objectid.c				\
 	dbus-object-registry.c			\
 	dbus-object-registry.h			\
+	dbus-pending-call.c			\
 	dbus-resources.c			\
 	dbus-resources.h			\
 	dbus-server.c				\

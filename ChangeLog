@@ -1,3 +1,8 @@
+2003-08-15  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-connection.c, 
+	dbus/dbus-pending-call.c: Finish the pending call stuff
+
 2003-08-14  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-pending-call.c: start on new object that will replace

@@ -33,22 +33,15 @@
 
 DBUS_BEGIN_DECLS;
 
-typedef void (* DBusPendingCallNotifyFunction) (DBusPendingCall *pending,
-                                                void            *user_data);
-
-DBusPendingCall* _dbus_pending_call_new          (DBusConnection   *connection,
-                                                  dbus_uint32_t     reply_serial);
-
 void         dbus_pending_call_ref           (DBusPendingCall               *pending);
 void         dbus_pending_call_unref         (DBusPendingCall               *pending);
 void         dbus_pending_call_set_notify    (DBusPendingCall               *pending,
                                               DBusPendingCallNotifyFunction  function,
                                               void                          *user_data,
                                               DBusFreeFunction               free_user_data);
+void         dbus_pending_call_cancel        (DBusPendingCall               *pending);
 dbus_bool_t  dbus_pending_call_get_completed (DBusPendingCall               *pending);
 DBusMessage* dbus_pending_call_get_reply     (DBusPendingCall               *pending);
-
-
 
 DBUS_END_DECLS;
 
