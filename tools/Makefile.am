@@ -21,6 +21,7 @@ else
 GTK_TOOLS=
 endif
 
+if HAVE_GLIB
 noinst_PROGRAMS = print-introspect
 
 print_introspect_SOURCES = print-introspect.c
@@ -28,6 +29,7 @@ print_introspect_LDADD = $(top_builddir)/glib/libdbus-glib-1.la
 
 dbus-bus-introspect.xml: $(top_builddir)/bus/dbus-daemon dbus-launch print-introspect $(top_builddir)/bus/dbus-daemon
 	DBUS_TOP_BUILDDIR=$(top_builddir) $(srcdir)/run-with-tmp-session-bus.sh ./print-introspect org.freedesktop.DBus /org/freedesktop/DBus > dbus-bus-introspect.xml.tmp && mv dbus-bus-introspect.xml.tmp dbus-bus-introspect.xml
+endif
 
 bin_PROGRAMS=dbus-send $(GLIB_TOOLS) dbus-launch dbus-cleanup-sockets $(GTK_TOOLS)
 

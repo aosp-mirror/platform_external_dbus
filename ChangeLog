@@ -1,3 +1,8 @@
+2005-03-24  Daniel Reed  <n@ml.org>
+
+	* tools/Makefile.am: Make print-introspect and
+	dbus-bus-introspect.xml building conditional on HAVE_GLIB.
+
 2005-03-22  John (J5) Palmieri  <johnp@redhat.com>
 
 	* tools/Makefile.am: Patch by Colin Walters that fixes distcheck
