@@ -485,6 +485,8 @@ _dbus_md5_compute (const DBusString *data,
                                 _dbus_string_get_length (ascii_output)))
     goto error;
 
+  _dbus_string_free (&digest);
+  
   return TRUE;
 
  error:

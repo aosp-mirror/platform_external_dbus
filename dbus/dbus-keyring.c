@@ -733,6 +733,8 @@ _dbus_keyring_new_homedir (const DBusString *username,
                           &keyring->directory, 0))
     goto failed;
 
+  _dbus_string_free (&homedir);
+  
   if (!_dbus_concat_dir_and_file (&keyring->directory,
                                   &dotdir))
     goto failed;
@@ -1012,6 +1014,9 @@ _dbus_keyring_test (void)
     }
 
   printf (" %d keys in test\n", ring1->n_keys);
+
+  _dbus_keyring_unref (ring1);
+  _dbus_keyring_unref (ring2);
   
   return TRUE;
 

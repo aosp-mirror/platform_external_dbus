@@ -617,6 +617,8 @@ send_rejected (DBusAuth *auth)
   _dbus_assert (DBUS_AUTH_IS_SERVER (auth));
   server_auth = DBUS_AUTH_SERVER (auth);
   server_auth->failures += 1;
+
+  _dbus_string_free (&command);
   
   return TRUE;
 
@@ -1674,6 +1676,7 @@ process_test_subdir (const DBusString          *test_base_dir,
           _dbus_string_get_const_data (&filename, &filename_c);
           _dbus_verbose ("Skipping non-.auth-script file %s\n",
                          filename_c);
+	  _dbus_string_free (&full_path);
           goto next;
         }
 
