@@ -16,27 +16,31 @@
 # Source function library.
 . @EXPANDED_SYSCONFDIR@/rc.d/init.d/functions
 
+# so we can rearrange this easily
+processname=dbus-daemon-1
+servicename=messagebus
+
 RETVAL=0
 
 start() {
     echo -n $"Starting system message bus: "
-    daemon --check messagebus dbus-daemon-1 --system
+    daemon --check $servicename $processname --system
     RETVAL=$?
     echo
-    [ $RETVAL -eq 0 ] && touch @EXPANDED_LOCALSTATEDIR@/lock/subsys/messagebus
+    [ $RETVAL -eq 0 ] && touch @EXPANDED_LOCALSTATEDIR@/lock/subsys/$servicename
 }
 
 stop() {
     echo -n $"Stopping system message bus: "
 
-    ## we don't want to kill all the per-user dbus-daemon-1, we want
+    ## we don't want to kill all the per-user $processname, we want
     ## to use the pid file *only*; because we use the fake nonexistent 
-    ## program name "messagebus" that should be safe-ish
-    killproc messagebus -TERM
+    ## program name "$servicename" that should be safe-ish
+    killproc $servicename -TERM
     RETVAL=$?
     echo
     if [ $RETVAL -eq 0 ]; then
-        rm -f @EXPANDED_LOCALSTATEDIR@/lock/subsys/messagebus
+        rm -f @EXPANDED_LOCALSTATEDIR@/lock/subsys/$servicename
         rm -f @DBUS_SYSTEM_PID_FILE@
     fi
 }
@@ -50,7 +54,7 @@ case "$1" in
         stop
         ;;
     status)
-        status messagebus
+        status $processname
         RETVAL=$?
         ;;
     restart)
@@ -58,7 +62,7 @@ case "$1" in
         start
         ;;
     condrestart)
-        if [ -f @EXPANDED_LOCALSTATEDIR@/lock/subsys/messagebus ]; then
+        if [ -f @EXPANDED_LOCALSTATEDIR@/lock/subsys/$servicename ]; then
             stop
             start
         fi

@@ -1,3 +1,9 @@
+2003-07-28  Havoc Pennington  <hp@redhat.com>
+
+	* bus/messagebus.in: fix to avoid processname/servicename 
+	confusion, from Michael Kearey
+	https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=100965
+	
 2003-07-23  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-message.c (dbus_message_iter_get_named): 
