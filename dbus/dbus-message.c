@@ -2325,6 +2325,21 @@ dbus_message_append_args (DBusMessage *message,
   return retval;
 }
 
+/* Swap into our byte order if message isn't already.
+ * Done only when required, which allows the bus to avoid
+ * ever doing this as it routes messages.
+ */
+static void
+_dbus_message_ensure_our_byte_order (DBusMessage *message)
+{
+  if (message->byte_order == DBUS_COMPILER_BYTE_ORDER)
+    return;
+
+  
+
+
+}
+
 /**
  * Gets arguments from a message given a variable argument list.
  * The variable argument list should contain the type of the
@@ -5188,7 +5203,8 @@ decode_string_field (const DBusString   *data,
 /* FIXME because the service/interface/member/error names are already
  * validated to be in the particular ASCII subset, UTF-8 validating
  * them could be skipped as a probably-interesting optimization.
- * The UTF-8 validation definitely shows up in profiles.
+ * The UTF-8 validation shows up in callgrind-type profiles but
+ * not so much in sample/time-based profiles.
  */
 static dbus_bool_t
 decode_header_data (const DBusString   *data,

@@ -2394,8 +2394,7 @@ _dbus_string_validate_ascii (const DBusString *str,
   end = s + len;
   while (s != end)
     {
-      if (_DBUS_UNLIKELY (*s == '\0' ||
-                          ((*s & ~0x7f) != 0)))
+      if (_DBUS_UNLIKELY (!_DBUS_ISASCII (*s)))
         return FALSE;
         
       ++s;

@@ -198,6 +198,8 @@ char**      _dbus_dup_string_array      (const char **array);
 #undef	ABS
 #define ABS(a)	   (((a) < 0) ? -(a) : (a))
 
+#define _DBUS_ISASCII(c) ((c) != '\0' && (((c) & ~0x7f) == 0))
+
 typedef void (* DBusForeachFunction) (void *element,
                                       void *data);
 

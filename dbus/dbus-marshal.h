@@ -345,4 +345,4 @@ dbus_bool_t _dbus_marshal_validate_arg    (const DBusString *str,
 
 dbus_bool_t _dbus_type_is_valid           (int               typecode);
 
-#endif /* DBUS_PROTOCOL_H */
+#endif /* DBUS_MARSHAL_H */

@@ -1,3 +1,15 @@
+2004-12-18  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-string.c (_dbus_string_validate_ascii): use ISASCII
+	macro
+
+	* dbus/dbus-message.c: fix a comment, and add a still-unused
+	not-implemented function
+
+	* dbus/dbus-marshal.h: fix comment
+
+	* dbus/dbus-internals.h (_DBUS_ISASCII): new macro
+
 2004-12-17  Joe Shaw  <joeshaw@novell.com>
 
 	* mono/DBusType/Byte.cs, mono/DBusType/Int32.cs,
