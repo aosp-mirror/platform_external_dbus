@@ -32,8 +32,6 @@
 #include <dbus/dbus-internals.h>
 #include <string.h>
 
-static dbus_int32_t message_handler_slot = -1;
-
 typedef struct
 {
   BusContext     *context;
@@ -316,61 +314,21 @@ bus_dispatch (DBusConnection *connection,
 }
 
 static DBusHandlerResult
-bus_dispatch_message_handler (DBusMessageHandler *handler,
-			      DBusConnection     *connection,
-			      DBusMessage        *message,
-			      void               *user_data)
+bus_dispatch_message_filter (DBusConnection     *connection,
+                             DBusMessage        *message,
+                             void               *user_data)
 {
   return bus_dispatch (connection, message);
 }
 
-static void
-free_message_handler (void *data)
-{
-  DBusMessageHandler *handler = data;
-  
-  _dbus_assert (message_handler_slot >= 0);
-  
-  dbus_message_handler_unref (handler);
-  dbus_connection_free_data_slot (&message_handler_slot);
-}
-
 dbus_bool_t
 bus_dispatch_add_connection (DBusConnection *connection)
-{
-  DBusMessageHandler *handler;
-
-  if (!dbus_connection_allocate_data_slot (&message_handler_slot))
+{  
+  if (!dbus_connection_add_filter (connection,
+                                   bus_dispatch_message_filter,
+                                   NULL, NULL))
     return FALSE;
   
-  handler = dbus_message_handler_new (bus_dispatch_message_handler, NULL, NULL);  
-  if (handler == NULL)
-    {
-      dbus_connection_free_data_slot (&message_handler_slot);
-      return FALSE;
-    }    
-  
-  if (!dbus_connection_add_filter (connection, handler))
-    {
-      dbus_message_handler_unref (handler);
-      dbus_connection_free_data_slot (&message_handler_slot);
-      
-      return FALSE;
-    }
-
-  _dbus_assert (message_handler_slot >= 0);
-  
-  if (!dbus_connection_set_data (connection,
-				 message_handler_slot,
-				 handler,
-                                 free_message_handler))
-    {
-      dbus_message_handler_unref (handler);
-      dbus_connection_free_data_slot (&message_handler_slot);
-
-      return FALSE;
-    }
-
   return TRUE;
 }
 
@@ -380,9 +338,9 @@ bus_dispatch_remove_connection (DBusConnection *connection)
   /* Here we tell the bus driver that we want to get off. */
   bus_driver_remove_connection (connection);
 
-  dbus_connection_set_data (connection,
-			    message_handler_slot,
-			    NULL, NULL);
+  dbus_connection_remove_filter (connection,
+                                 bus_dispatch_message_filter,
+                                 NULL);
 }
 
 #ifdef DBUS_BUILD_TESTS

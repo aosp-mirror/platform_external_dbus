@@ -35,7 +35,6 @@ DBUS_BEGIN_DECLS;
 
 typedef struct DBusWatch DBusWatch;
 typedef struct DBusTimeout DBusTimeout;
-typedef struct DBusMessageHandler DBusMessageHandler;
 typedef struct DBusPreallocatedSend DBusPreallocatedSend;
 typedef struct DBusPendingCall DBusPendingCall;
 typedef struct DBusConnection DBusConnection;
@@ -88,6 +87,11 @@ typedef dbus_bool_t (* DBusAllowUnixUserFunction)  (DBusConnection *connection,
 
 typedef void (* DBusPendingCallNotifyFunction) (DBusPendingCall *pending,
                                                 void            *user_data);
+
+
+typedef DBusHandlerResult (* DBusHandleMessageFunction) (DBusConnection     *connection,
+                                                         DBusMessage        *message,
+                                                         void               *user_data);
 
 DBusConnection*    dbus_connection_open                         (const char                 *address,
                                                                  DBusError                  *error);
@@ -162,11 +166,16 @@ void        dbus_timeout_set_data     (DBusTimeout      *timeout,
 dbus_bool_t dbus_timeout_handle       (DBusTimeout      *timeout);
 dbus_bool_t dbus_timeout_get_enabled  (DBusTimeout      *timeout);
 
-/* Handlers */
-dbus_bool_t dbus_connection_add_filter         (DBusConnection      *connection,
-                                                DBusMessageHandler  *handler);
-void        dbus_connection_remove_filter      (DBusConnection      *connection,
-                                                DBusMessageHandler  *handler);
+/* Filters */
+
+dbus_bool_t dbus_connection_add_filter    (DBusConnection            *connection,
+                                           DBusHandleMessageFunction  function,
+                                           void                      *user_data,
+                                           DBusFreeFunction           free_data_function);
+void        dbus_connection_remove_filter (DBusConnection            *connection,
+                                           DBusHandleMessageFunction  function,
+                                           void                      *user_data);
+
 
 /* Other */
 dbus_bool_t dbus_connection_allocate_data_slot (dbus_int32_t     *slot_p);

@@ -31,7 +31,6 @@
 #include "dbus-list.h"
 #include "dbus-hash.h"
 #include "dbus-message-internal.h"
-#include "dbus-message-handler.h"
 #include "dbus-threads.h"
 #include "dbus-protocol.h"
 #include "dbus-dataslot.h"
@@ -125,6 +124,16 @@
  * @{
  */
 
+typedef struct DBusMessageFilter DBusMessageFilter;
+
+struct DBusMessageFilter
+{
+  DBusAtomic refcount;
+  DBusHandleMessageFunction function;
+  void *user_data;
+  DBusFreeFunction free_user_data_function;
+};
+
 static dbus_bool_t _dbus_modify_sigpipe = TRUE;
 
 /**
@@ -189,6 +198,26 @@ static void               _dbus_connection_update_dispatch_status_and_unlock (DB
                                                                               DBusDispatchStatus  new_status);
 static void               _dbus_connection_last_unref                        (DBusConnection     *connection);
 
+static void
+_dbus_message_filter_ref (DBusMessageFilter *filter)
+{
+  _dbus_assert (filter->refcount.value > 0);
+  _dbus_atomic_inc (&filter->refcount);
+}
+
+static void
+_dbus_message_filter_unref (DBusMessageFilter *filter)
+{
+  _dbus_assert (filter->refcount.value > 0);
+
+  if (_dbus_atomic_dec (&filter->refcount) == 1)
+    {
+      if (filter->free_user_data_function)
+        (* filter->free_user_data_function) (filter->user_data);
+      
+      dbus_free (filter);
+    }
+}
 
 /**
  * Acquires the connection lock.
@@ -978,40 +1007,6 @@ _dbus_connection_get_next_client_serial (DBusConnection *connection)
 }
 
 /**
- * Used to notify a connection when a DBusMessageHandler is
- * destroyed, so the connection can drop any reference
- * to the handler. This is a private function, but still
- * takes the connection lock. Don't call it with the lock held.
- *
- * @todo needs to check in pending_replies too.
- * 
- * @param connection the connection
- * @param handler the handler
- */
-void
-_dbus_connection_handler_destroyed_locked (DBusConnection     *connection,
-					   DBusMessageHandler *handler)
-{
-  DBusList *link;
-
-  CONNECTION_LOCK (connection);
-
-  link = _dbus_list_get_first_link (&connection->filter_list);
-  while (link != NULL)
-    {
-      DBusMessageHandler *h = link->data;
-      DBusList *next = _dbus_list_get_next_link (&connection->filter_list, link);
-
-      if (h == handler)
-        _dbus_list_remove_link (&connection->filter_list,
-                                link);
-      
-      link = next;
-    }
-  CONNECTION_UNLOCK (connection);
-}
-
-/**
  * A callback for use with dbus_watch_new() to create a DBusWatch.
  * 
  * @todo This is basically a hack - we could delete _dbus_transport_handle_watch()
@@ -1173,18 +1168,22 @@ _dbus_connection_last_unref (DBusConnection *connection)
   connection->timeouts = NULL;
 
   _dbus_data_slot_list_free (&connection->slot_list);
-  /* ---- Done with stuff that invokes application callbacks */
   
   link = _dbus_list_get_first_link (&connection->filter_list);
   while (link != NULL)
     {
-      DBusMessageHandler *h = link->data;
+      DBusMessageFilter *filter = link->data;
       DBusList *next = _dbus_list_get_next_link (&connection->filter_list, link);
-      
-      _dbus_message_handler_remove_connection (h, connection);
+
+      filter->function = NULL;
+      _dbus_message_filter_unref (filter); /* calls app callback */
+      link->data = NULL;
       
       link = next;
     }
+  _dbus_list_clear (&connection->filter_list);
+  
+  /* ---- Done with stuff that invokes application callbacks */
 
   _dbus_object_tree_unref (connection->objects);  
 
@@ -2456,7 +2455,7 @@ dbus_connection_dispatch (DBusConnection *connection)
     }
   
   _dbus_list_foreach (&filter_list_copy,
-		      (DBusForeachFunction)dbus_message_handler_ref,
+		      (DBusForeachFunction)_dbus_message_filter_ref,
 		      NULL);
 
   /* We're still protected from dispatch() reentrancy here
@@ -2467,12 +2466,11 @@ dbus_connection_dispatch (DBusConnection *connection)
   link = _dbus_list_get_first_link (&filter_list_copy);
   while (link != NULL)
     {
-      DBusMessageHandler *handler = link->data;
+      DBusMessageFilter *filter = link->data;
       DBusList *next = _dbus_list_get_next_link (&filter_list_copy, link);
 
       _dbus_verbose ("  running filter on message %p\n", message);
-      result = _dbus_message_handler_handle_message (handler, connection,
-                                                     message);
+      result = (* filter->function) (connection, message, filter->user_data);
 
       if (result != DBUS_HANDLER_RESULT_NOT_YET_HANDLED)
 	break;
@@ -2481,7 +2479,7 @@ dbus_connection_dispatch (DBusConnection *connection)
     }
 
   _dbus_list_foreach (&filter_list_copy,
-		      (DBusForeachFunction)dbus_message_handler_unref,
+		      (DBusForeachFunction)_dbus_message_filter_unref,
 		      NULL);
   _dbus_list_clear (&filter_list_copy);
   
@@ -2928,83 +2926,126 @@ dbus_connection_set_unix_user_function (DBusConnection             *connection,
 }
 
 /**
- * Adds a message filter. Filters are handlers that are run on
- * all incoming messages, prior to the objects
- * registered with dbus_connection_register_object().
- * Filters are run in the order that they were added.
- * The same handler can be added as a filter more than once, in
- * which case it will be run more than once.
- * Filters added during a filter callback won't be run on the
- * message being processed.
- *
- * The connection does NOT add a reference to the message handler;
- * instead, if the message handler is finalized, the connection simply
- * forgets about it. Thus the caller of this function must keep a
- * reference to the message handler.
+ * Adds a message filter. Filters are handlers that are run on all
+ * incoming messages, prior to the objects registered with
+ * dbus_connection_register_object_path().  Filters are run in the
+ * order that they were added.  The same handler can be added as a
+ * filter more than once, in which case it will be run more than once.
+ * Filters added during a filter callback won't be run on the message
+ * being processed.
  *
  * @todo we don't run filters on messages while blocking without
  * entering the main loop, since filters are run as part of
  * dbus_connection_dispatch().
  *
  * @param connection the connection
- * @param handler the handler
+ * @param function function to handle messages
+ * @param user_data user data to pass to the function
+ * @param free_data_function function to use for freeing user data
  * @returns #TRUE on success, #FALSE if not enough memory.
  */
 dbus_bool_t
-dbus_connection_add_filter (DBusConnection      *connection,
-                            DBusMessageHandler  *handler)
+dbus_connection_add_filter (DBusConnection            *connection,
+                            DBusHandleMessageFunction  function,
+                            void                      *user_data,
+                            DBusFreeFunction           free_data_function)
 {
+  DBusMessageFilter *filter;
+  
   _dbus_return_val_if_fail (connection != NULL, FALSE);
-  _dbus_return_val_if_fail (handler != NULL, FALSE);
+  _dbus_return_val_if_fail (function != NULL, FALSE);
 
+  filter = dbus_new0 (DBusMessageFilter, 1);
+  if (filter == NULL)
+    return FALSE;
+
+  filter->refcount.value = 1;
+  
   CONNECTION_LOCK (connection);
-  if (!_dbus_message_handler_add_connection (handler, connection))
-    {
-      CONNECTION_UNLOCK (connection);
-      return FALSE;
-    }
 
   if (!_dbus_list_append (&connection->filter_list,
-                          handler))
+                          filter))
     {
-      _dbus_message_handler_remove_connection (handler, connection);
+      _dbus_message_filter_unref (filter);
       CONNECTION_UNLOCK (connection);
       return FALSE;
     }
 
+  /* Fill in filter after all memory allocated,
+   * so we don't run the free_user_data_function
+   * if the add_filter() fails
+   */
+  
+  filter->function = function;
+  filter->user_data = user_data;
+  filter->free_user_data_function = free_data_function;
+        
   CONNECTION_UNLOCK (connection);
   return TRUE;
 }
 
 /**
  * Removes a previously-added message filter. It is a programming
- * error to call this function for a handler that has not
- * been added as a filter. If the given handler was added
- * more than once, only one instance of it will be removed
- * (the most recently-added instance).
+ * error to call this function for a handler that has not been added
+ * as a filter. If the given handler was added more than once, only
+ * one instance of it will be removed (the most recently-added
+ * instance).
  *
  * @param connection the connection
  * @param handler the handler to remove
  *
  */
 void
-dbus_connection_remove_filter (DBusConnection      *connection,
-                               DBusMessageHandler  *handler)
+dbus_connection_remove_filter (DBusConnection            *connection,
+                               DBusHandleMessageFunction  function,
+                               void                      *user_data)
 {
+  DBusList *link;
+  DBusMessageFilter *filter;
+  
   _dbus_return_if_fail (connection != NULL);
-  _dbus_return_if_fail (handler != NULL);
+  _dbus_return_if_fail (function != NULL);
   
   CONNECTION_LOCK (connection);
-  if (!_dbus_list_remove_last (&connection->filter_list, handler))
+
+  filter = NULL;
+  
+  link = _dbus_list_get_last_link (&connection->filter_list);
+  while (link != NULL)
     {
-      _dbus_warn ("Tried to remove a DBusConnection filter that had not been added\n");
-      CONNECTION_UNLOCK (connection);
+      filter = link->data;
+
+      if (filter->function == function &&
+          filter->user_data == user_data)
+        {
+          _dbus_list_remove_link (&connection->filter_list, link);
+          filter->function = NULL;
+          
+          break;
+        }
+        
+      link = _dbus_list_get_prev_link (&connection->filter_list, link);
+    }
+  
+  CONNECTION_UNLOCK (connection);
+
+#ifndef DBUS_DISABLE_CHECKS
+  if (filter == NULL)
+    {
+      _dbus_warn ("Attempt to remove filter function %p user data %p, but no such filter has been added\n",
+                  function, user_data);
       return;
     }
+#endif
+  
+  /* Call application code */
+  if (filter->free_user_data_function)
+    (* filter->free_user_data_function) (filter->user_data);
 
-  _dbus_message_handler_remove_connection (handler, connection);
-
-  CONNECTION_UNLOCK (connection);
+  filter->free_user_data_function = NULL;
+  filter->user_data = NULL;
+  
+  _dbus_message_filter_unref (filter);
 }
 
 /**

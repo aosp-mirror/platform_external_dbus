@@ -77,15 +77,6 @@ void              _dbus_connection_do_iteration                (DBusConnection  
                                                                 unsigned int        flags,
                                                                 int                 timeout_milliseconds);
 void              _dbus_connection_notify_disconnected         (DBusConnection     *connection);
-void              _dbus_connection_handler_destroyed_locked    (DBusConnection     *connection,
-                                                                DBusMessageHandler *handler);
-dbus_bool_t       _dbus_message_handler_add_connection         (DBusMessageHandler *handler,
-                                                                DBusConnection     *connection);
-void              _dbus_message_handler_remove_connection      (DBusMessageHandler *handler,
-                                                                DBusConnection     *connection);
-DBusHandlerResult _dbus_message_handler_handle_message         (DBusMessageHandler *handler,
-                                                                DBusConnection     *connection,
-                                                                DBusMessage        *message);
 
 DBusPendingCall*  _dbus_pending_call_new                       (DBusConnection     *connection,
                                                                 int                 timeout_milliseconds,

@@ -1,5 +1,12 @@
 2003-08-30  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-connection.c: purge DBusMessageHandler
+
+	* dbus/dbus-message-handler.c: remove DBusMessageHandler, just 
+	use callbacks everywhere
+
+2003-08-30  Havoc Pennington  <hp@pobox.com>
+
 	* test/data/valid-config-files/system.d/test.conf: change to 
 	root for the user so warnings don't get printed
 

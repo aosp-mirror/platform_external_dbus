@@ -102,10 +102,9 @@ remove_client_timeout (DBusTimeout    *timeout,
 }
 
 static DBusHandlerResult
-client_disconnect_handler (DBusMessageHandler *handler,
-                           DBusConnection     *connection,
-                           DBusMessage        *message,
-                           void               *user_data)
+client_disconnect_filter (DBusConnection     *connection,
+                          DBusMessage        *message,
+                          void               *user_data)
 {
   if (!dbus_message_is_signal (message,
                                DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
@@ -128,35 +127,15 @@ client_disconnect_handler (DBusMessageHandler *handler,
   return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static dbus_int32_t handler_slot = -1;
-
-static void
-free_handler (void *data)
-{
-  DBusMessageHandler *handler = data;
-
-  dbus_message_handler_unref (handler);
-  dbus_connection_free_data_slot (&handler_slot);
-}
-
 dbus_bool_t
 bus_setup_debug_client (DBusConnection *connection)
 {
-  DBusMessageHandler *disconnect_handler;
-  dbus_bool_t retval;
-  
-  disconnect_handler = dbus_message_handler_new (client_disconnect_handler,
-                                                 NULL, NULL);
-
-  if (disconnect_handler == NULL)
-    return FALSE;
+  dbus_bool_t retval;  
 
   if (!dbus_connection_add_filter (connection,
-                                   disconnect_handler))
-    {
-      dbus_message_handler_unref (disconnect_handler);
-      return FALSE;
-    }
+                                   client_disconnect_filter,
+                                   NULL, NULL))
+    return FALSE;
 
   retval = FALSE;
 
@@ -184,25 +163,15 @@ bus_setup_debug_client (DBusConnection *connection)
 
   if (!_dbus_list_append (&clients, connection))
     goto out;
-
-  if (!dbus_connection_allocate_data_slot (&handler_slot))
-    goto out;
-
-  /* Set up handler to be destroyed */  
-  if (!dbus_connection_set_data (connection, handler_slot,
-                                 disconnect_handler,
-                                 free_handler))
-    {
-      dbus_connection_free_data_slot (&handler_slot);
-      goto out;
-    }
   
   retval = TRUE;
   
  out:
   if (!retval)
     {
-      dbus_message_handler_unref (disconnect_handler); /* unregisters it */
+      dbus_connection_remove_filter (connection,
+                                     client_disconnect_filter,
+                                     NULL);
       
       dbus_connection_set_watch_functions (connection,
                                            NULL, NULL, NULL, NULL, NULL);

@@ -37,7 +37,6 @@
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-message.h>
-#include <dbus/dbus-message-handler.h>
 #include <dbus/dbus-pending-call.h>
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-server.h>

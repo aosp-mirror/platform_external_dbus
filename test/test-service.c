@@ -72,8 +72,7 @@ handle_echo (DBusConnection     *connection,
 }
 
 static DBusHandlerResult
-filter_func (DBusMessageHandler *handler,
-             DBusConnection     *connection,
+filter_func (DBusConnection     *connection,
              DBusMessage        *message,
              void               *user_data)
 {  
@@ -104,7 +103,6 @@ main (int    argc,
 {
   DBusConnection *connection;
   DBusError error;
-  DBusMessageHandler *handler;
   int result;
   
   dbus_error_init (&error);
@@ -124,11 +122,8 @@ main (int    argc,
   if (!test_connection_setup (loop, connection))
     die ("No memory\n");
 
-  handler = dbus_message_handler_new (filter_func, NULL, NULL);
-  if (handler == NULL)
-    die ("No memory");
-  
-  if (!dbus_connection_add_filter (connection, handler))
+  if (!dbus_connection_add_filter (connection,
+                                   filter_func, NULL, NULL))
     die ("No memory");
 
   result = dbus_bus_acquire_service (connection, "org.freedesktop.DBus.TestSuiteEchoService",
@@ -145,10 +140,10 @@ main (int    argc,
   _dbus_loop_run (loop);
 
   test_connection_shutdown (loop, connection);
+
+  dbus_connection_remove_filter (connection, filter_func, NULL);
   
   dbus_connection_unref (connection);
-  
-  dbus_message_handler_unref (handler);
 
   _dbus_loop_unref (loop);
   loop = NULL;

@@ -25,13 +25,8 @@ thread_test_data_free (ThreadTestData *data)
   g_free (data);
 }
 
-static DBusMessageHandler *disconnect_handler;
-static DBusMessageHandler *filter_handler;
-static dbus_int32_t handler_slot = -1;
-
 static DBusHandlerResult
-handle_test_message (DBusMessageHandler *handler,
-		     DBusConnection     *connection,
+filter_test_message (DBusConnection     *connection,
 		     DBusMessage        *message,
 		     void               *user_data)
 {
@@ -132,17 +127,7 @@ handle_test_message (DBusMessageHandler *handler,
 }
 
 static DBusHandlerResult
-handle_filter (DBusMessageHandler *handler,
-	       DBusConnection     *connection,
-	       DBusMessage        *message,
-	       void               *user_data)
-{  
-  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
-}
-
-static DBusHandlerResult
-handle_disconnect (DBusMessageHandler *handler,
-                   DBusConnection     *connection,
+filter_disconnect (DBusConnection     *connection,
                    DBusMessage        *message,
                    void               *user_data)
 {
@@ -161,7 +146,6 @@ new_connection_callback (DBusServer     *server,
                          DBusConnection *new_connection,
                          void           *user_data)
 {
-  DBusMessageHandler *test_message_handler;
   ThreadTestData * data;
 
   g_print ("new_connection_callback\n");
@@ -171,26 +155,13 @@ new_connection_callback (DBusServer     *server,
 
   data = thread_test_data_new ();
   
-  test_message_handler =
-    dbus_message_handler_new (handle_test_message,
-			      data, (DBusFreeFunction)thread_test_data_free);
-  
   if (!dbus_connection_add_filter (new_connection,
-                                   test_message_handler))
-    goto nomem;
-
-  if (!dbus_connection_set_data (new_connection,
-				 handler_slot,
-				 test_message_handler,
-				 (DBusFreeFunction)dbus_message_handler_unref))
+                                   filter_test_message, data,
+                                   (DBusFreeFunction) thread_test_data_free))
     goto nomem;
   
   if (!dbus_connection_add_filter (new_connection,
-                                   disconnect_handler))
-    goto nomem;
-  
-  if (!dbus_connection_add_filter (new_connection,
-				   filter_handler))
+                                   filter_disconnect, NULL, NULL))
     goto nomem;
 
   return;
@@ -224,19 +195,6 @@ main (int argc, char *argv[])
       dbus_error_free (&error);
       return 1;
     }
-
-  if (!dbus_connection_allocate_data_slot (&handler_slot))
-    g_error ("no memory for data slot");
-  
-  filter_handler =
-    dbus_message_handler_new (handle_filter, NULL, NULL);
-  if (filter_handler == NULL)
-    g_error ("no memory for handler");
-  
-  disconnect_handler =
-    dbus_message_handler_new (handle_disconnect, NULL, NULL);
-  if (disconnect_handler == NULL)
-    g_error ("no memory for handler");
   
   dbus_server_set_new_connection_function (server,
                                            new_connection_callback,

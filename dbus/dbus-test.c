@@ -135,12 +135,6 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
     die ("messages");
 
   check_memleaks ();
-
-  printf ("%s: running message handler tests\n", "dbus-test");
-  if (!_dbus_message_handler_test (test_data_dir))
-    die ("message handler");
-
-  check_memleaks ();
   
   printf ("%s: running hash table tests\n", "dbus-test");
   if (!_dbus_hash_test ())

@@ -233,11 +233,10 @@ _DBUS_DECLARE_GLOBAL_LOCK (connection_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (server_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (message_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (atomic);
-_DBUS_DECLARE_GLOBAL_LOCK (message_handler);
 _DBUS_DECLARE_GLOBAL_LOCK (bus);
 _DBUS_DECLARE_GLOBAL_LOCK (shutdown_funcs);
 _DBUS_DECLARE_GLOBAL_LOCK (system_users);
-#define _DBUS_N_GLOBAL_LOCKS (9)
+#define _DBUS_N_GLOBAL_LOCKS (8)
 
 dbus_bool_t _dbus_threads_init_debug (void);
 

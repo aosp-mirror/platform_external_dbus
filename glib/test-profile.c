@@ -63,8 +63,7 @@ send_echo_message (DBusConnection *connection)
 }
 
 static DBusHandlerResult
-client_filter (DBusMessageHandler *handler,
-	       DBusConnection     *connection,
+client_filter (DBusConnection     *connection,
 	       DBusMessage        *message,
 	       void               *user_data)
 {
@@ -99,7 +98,6 @@ thread_func (void *data)
   DBusError error;
   GMainContext *context;
   GMainLoop *loop;
-  DBusMessageHandler *handler;
   DBusConnection *connection;
   int iterations;
   
@@ -116,14 +114,9 @@ thread_func (void *data)
 
   iterations = 1;
   
-  handler = dbus_message_handler_new (client_filter,
-                                      &iterations, NULL);
-  
   if (!dbus_connection_add_filter (connection,
-				   handler))
+				   client_filter, &iterations, NULL))
     g_error ("no memory");
-
-  /* FIXME we leak the handler */
   
   context = g_main_context_new ();
   loop = g_main_loop_new (context, FALSE);
@@ -145,8 +138,7 @@ thread_func (void *data)
 }
 
 static DBusHandlerResult
-server_filter (DBusMessageHandler *handler,
-	       DBusConnection     *connection,
+server_filter (DBusConnection     *connection,
 	       DBusMessage        *message,
 	       void               *user_data)
 {
@@ -172,17 +164,12 @@ static void
 new_connection_callback (DBusServer     *server,
                          DBusConnection *new_connection,
                          void           *user_data)
-{
-  DBusMessageHandler *handler;
-  
+{  
   dbus_connection_ref (new_connection);
   dbus_connection_setup_with_g_main (new_connection, NULL);  
-
-  handler = dbus_message_handler_new (server_filter,
-                                      NULL, NULL);
   
   if (!dbus_connection_add_filter (new_connection,
-				   handler))
+                                   server_filter, NULL, NULL))
     g_error ("no memory");
   
 
