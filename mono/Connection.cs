@@ -18,6 +18,7 @@ namespace DBus {
         error.Free ();
         throw e;
       }
+      dbus_connection_setup_with_g_main (raw, IntPtr.Zero);
     }
 
     // Keep in sync with C
