@@ -62,7 +62,7 @@ message_handler (DBusMessageHandler *handler,
 		 DBusMessage        *message,
 		 void               *user_data)
 {
-  printf ("server got a message!: %s\n",
+  printf ("client got a message!: %s\n",
 	  dbus_message_get_name (message));
   return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
 }

@@ -99,6 +99,8 @@ bus_service_lookup (const DBusString *service_name,
       return NULL;
     }
 
+  bus_driver_send_service_created (service->name);
+  
   return service;
 }
 

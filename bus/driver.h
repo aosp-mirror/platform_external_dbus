@@ -34,6 +34,7 @@ void bus_driver_send_service_lost     (DBusConnection *connection,
 				       const char     *service_name);
 void bus_driver_send_service_acquired (DBusConnection *connection,
 				       const char     *service_name);
+void bus_driver_send_service_created  (const char     *service_name);
 
 
 

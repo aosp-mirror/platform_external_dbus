@@ -52,7 +52,7 @@ bus_driver_send_service_deleted (const char *service_name)
   dbus_message_unref (message);  
 }
 
-static void
+void
 bus_driver_send_service_created (const char *service_name)
 {
   DBusMessage *message;
@@ -172,24 +172,21 @@ bus_driver_handle_hello (DBusConnection *connection,
   
   BUS_HANDLE_OOM (_dbus_string_init (&unique_name, _DBUS_INT_MAX));
   BUS_HANDLE_OOM (create_unique_client_name (&unique_name));
+
+  BUS_HANDLE_OOM (bus_connection_set_name (connection, &unique_name));
+  BUS_HANDLE_OOM (dbus_message_set_sender (message,
+					   bus_connection_get_name (connection)));
   
+  BUS_HANDLE_OOM (bus_driver_send_welcome_message (connection, message));
+
   /* Create the service */
   BUS_HANDLE_OOM (service = bus_service_lookup (&unique_name, TRUE));
   bus_service_set_prohibit_replacement (service, TRUE);
   
   /* Add the connection as the owner */
   BUS_HANDLE_OOM (bus_service_add_owner (service, connection));
-  BUS_HANDLE_OOM (bus_connection_set_name (connection, &unique_name));
 
-  BUS_HANDLE_OOM (dbus_message_set_sender (message,
-					   bus_connection_get_name (connection)));
-  
   _dbus_string_free (&unique_name);
-
-  BUS_HANDLE_OOM (bus_driver_send_welcome_message (connection, message));
-
-  /* Broadcast a service created message */
-  bus_driver_send_service_created (bus_service_get_name (service));
 }
 
 static void

@@ -1,5 +1,15 @@
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
+	* bus/driver.c: (bus_driver_handle_hello):
+	* bus/driver.h:
+	* bus/services.c: (bus_service_lookup):
+	Reorder message sending so we get a more sane order.
+	
+	* test/bus-test.c: (message_handler):
+	Fix tyop.
+	
+2003-02-13  Anders Carlsson  <andersca@codefactory.se>
+
 	* bus/driver.c: (bus_driver_send_service_deleted),
 	(bus_driver_send_service_created), (bus_driver_send_service_lost),
 	(bus_driver_send_service_acquired), (bus_driver_handle_hello),
