@@ -610,6 +610,8 @@ send_rejected (DBusAuth *auth)
                           _dbus_string_get_length (&auth->outgoing)))
     goto nomem;
 
+  shutdown_mech (auth);
+  
   _dbus_assert (DBUS_AUTH_IS_SERVER (auth));
   server_auth = DBUS_AUTH_SERVER (auth);
   server_auth->failures += 1;

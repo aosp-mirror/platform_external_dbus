@@ -1,5 +1,12 @@
 2003-02-13  Havoc Pennington  <hp@pobox.com>
 
+	* test/data/auth/fail-after-n-attempts.auth-script: new test
+
+	* dbus/dbus-auth.c (send_rejected): shutdown_mech() when we
+	reject the client.
+
+2003-02-13  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-auth.c (handle_server_data_external_mech): args to
 	dbus_credentials_match were backward
 
