@@ -24,7 +24,7 @@ SHORT_NAMES            = NO
 HIDE_SCOPE_NAMES       = NO
 VERBATIM_HEADERS       = YES
 SHOW_INCLUDE_FILES     = YES
-JAVADOC_AUTOBRIEF      = NO
+JAVADOC_AUTOBRIEF      = YES
 INHERIT_DOCS           = YES
 INLINE_INFO            = YES
 SORT_MEMBER_DOCS       = YES
@@ -138,12 +138,12 @@ GENERATE_XML           = NO
 # Configuration options related to the preprocessor   
 #---------------------------------------------------------------------------
 ENABLE_PREPROCESSING   = YES
-MACRO_EXPANSION        = NO
-EXPAND_ONLY_PREDEF     = NO
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
 SEARCH_INCLUDES        = YES
 INCLUDE_PATH           = 
 INCLUDE_FILE_PATTERNS  = 
-PREDEFINED             = 
+PREDEFINED             = "DBUS_BEGIN_DECLS=" "DBUS_END_DECLS="
 EXPAND_AS_DEFINED      = 
 SKIP_FUNCTION_MACROS   = YES
 #---------------------------------------------------------------------------

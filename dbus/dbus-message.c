@@ -34,6 +34,8 @@
  */
 
 /**
+ * @brief Internals of DBusMessage
+ * 
  * Object representing a message received from or to be sent to
  * another application. This is an opaque object, all members
  * are private.

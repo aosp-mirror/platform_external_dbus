@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-hash.c  Generic hash table utility (internal to D-BUS implementation)
+/* dbus-hash.c Generic hash table utility (internal to D-BUS implementation)
  * 
  * Copyright (C) 2002  Red Hat, Inc.
  * Copyright (c) 1991-1993 The Regents of the University of California.
@@ -123,6 +123,8 @@
 typedef struct DBusHashEntry DBusHashEntry;
 
 /**
+ * @brief Internal representation of a hash entry.
+ * 
  * A single entry (key-value pair) in the hash table.
  * Internal to hash table implementation.
  */
@@ -145,8 +147,10 @@ typedef DBusHashEntry* (* DBusFindEntryFunction) (DBusHashTable   *table,
                                                   DBusHashEntry ***bucket);
 
 /**
- * Hash table internal members. Hash tables are opaque objects,
- * they must be used via accessor functions.
+ * @brief Internals of DBusHashTable.
+ * 
+ * Hash table internals. Hash tables are opaque objects, they must be
+ * used via accessor functions.
  */
 struct DBusHashTable {
   int refcount;                       /**< Reference count */
@@ -184,8 +188,8 @@ struct DBusHashTable {
   DBusFreeFunction free_value_function; /**< Function to free values */
 };
 
-/**
- * Internals of DBusHashIter.
+/** 
+ * @brief Internals of DBusHashIter.
  */
 typedef struct
 {

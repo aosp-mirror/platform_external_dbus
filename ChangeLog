@@ -1,5 +1,15 @@
 2002-11-23  Havoc Pennington  <hp@pobox.com>
 
+	* Doxyfile.in (INCLUDE_FILE_PATTERNS): expand DBUS_BEGIN_DECLS/
+	DBUS_END_DECLS to nothing, that should fix this once and for all
+
+	* Doxyfile.in (JAVADOC_AUTOBRIEF): set to YES
+
+	* dbus/dbus-message.c, dbus/dbus-hash.c: 
+	add some missing @brief
+
+2002-11-23  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-message.h: put semicolons after DEBUG_BEGIN_DECLS 
 	to avoid confusing Doxygen
 

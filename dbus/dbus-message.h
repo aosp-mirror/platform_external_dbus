@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-message.h  DBusMessage object
+/* dbus-message.h DBusMessage object
  *
  * Copyright (C) 2002  Red Hat Inc.
  *
