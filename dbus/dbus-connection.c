@@ -866,6 +866,8 @@ _dbus_connection_last_unref (DBusConnection *connection)
   DBusHashIter iter;
   DBusList *link;
 
+  _dbus_assert (connection->refcount == 0);
+  
   /* You have to disconnect the connection before unref:ing it. Otherwise
    * you won't get the disconnected message.
    */

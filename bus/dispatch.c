@@ -980,7 +980,7 @@ bus_dispatch_test (const DBusString *test_data_dir)
 
   check1_try_iterations (context, "create_and_hello",
                          check_hello_connection);
-
+  
   dbus_connection_disconnect (foo);
   if (bus_connection_dispatch_one_message (foo))
     _dbus_assert_not_reached ("extra message in queue");

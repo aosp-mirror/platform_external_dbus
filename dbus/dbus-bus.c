@@ -83,12 +83,16 @@ data_slot_ref (void)
   dbus_mutex_lock (slot_lock);
 
   if (bus_data_slot < 0)
-    bus_data_slot = dbus_connection_allocate_data_slot ();
-
-  if (bus_data_slot < 0)
     {
-      dbus_mutex_unlock (slot_lock);
-      return FALSE;
+      bus_data_slot = dbus_connection_allocate_data_slot ();
+      
+      if (bus_data_slot < 0)
+        {
+          dbus_mutex_unlock (slot_lock);
+          return FALSE;
+        }
+
+      _dbus_assert (bus_data_slot_refcount == 0);
     }
 
   bus_data_slot_refcount += 1;
@@ -103,8 +107,8 @@ data_slot_unref (void)
 {
   dbus_mutex_lock (slot_lock);
 
-  _dbus_assert (bus_data_slot >= 0);
   _dbus_assert (bus_data_slot_refcount > 0);
+  _dbus_assert (bus_data_slot >= 0);
 
   bus_data_slot_refcount -= 1;
 
@@ -149,7 +153,7 @@ ensure_bus_data (DBusConnection *connection)
       if (!dbus_connection_set_data (connection, bus_data_slot, bd,
                                      bus_data_free))
         {
-          bus_data_free (bd);
+          dbus_free (bd);
           data_slot_unref ();
           return NULL;
         }
