@@ -1,5 +1,11 @@
 2003-04-11  Havoc Pennington  <hp@redhat.com>
 
+	* NEWS: update
+
+	* configure.in: 0.9
+
+2003-04-11  Havoc Pennington  <hp@redhat.com>
+
 	* bus/messagebus.in: remove pid file when stopping the
 	message bus, since the bus won't have privileges to remove it
 	itself.

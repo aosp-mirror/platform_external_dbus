@@ -1,3 +1,20 @@
+D-BUS 0.9
+===
+
+- implemented a test case for service activation,
+  and fixed many bugs exposed by that
+- implemented recursive argument marshaling/demarshaling 
+  for messages, allowing multidimensional arrays
+- fixed up integration of message dispatch with 
+  main loop by adding a callback on change of 
+  dispatch status
+- add a pidfile feature to daemon
+- some build fixes
+- clean up unix domain sockets on exit
+- add --print-address and the ability 
+  to create a random server address 
+  in a temporary directory
+
 D-BUS 0.8
 ===
 
