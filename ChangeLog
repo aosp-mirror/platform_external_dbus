@@ -1,5 +1,10 @@
 2005-01-20  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-sysdeps.c (_dbus_poll): amazingly, trying to compile
+	code can reveal bugs in it
+
+2005-01-20  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-sysdeps.c (_dbus_poll): fix several bugs in the
 	select() version, patches from Tor Lillqvist
 

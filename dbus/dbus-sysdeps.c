@@ -1840,7 +1840,7 @@ _dbus_poll (DBusPollFD *fds,
 
   for (i = 0; i < n_fds; i++)
     {
-      DBusPollFD *fdp = fds[i];
+      DBusPollFD *fdp = &fds[i];
 
       if (fdp->events & _DBUS_POLLIN)
 	FD_SET (fdp->fd, &read_set);
@@ -1863,7 +1863,7 @@ _dbus_poll (DBusPollFD *fds,
     {
       for (i = 0; i < n_fds; i++)
 	{
-	  DBusPollFD *fdp = fds[i];
+	  DBusPollFD *fdp = &fds[i];
 
 	  fdp->revents = 0;
 
