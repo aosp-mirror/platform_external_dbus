@@ -4471,6 +4471,10 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
  * @todo we need to check that the proper named header fields exist
  * for each message type.
  * 
+ * @todo If a message has unknown type, we should probably eat it
+ * right here rather than passing it out to applications.  However
+ * it's not an error to see messages of unknown type.
+ * 
  * @param loader the loader.
  * @returns #TRUE if we had enough memory to finish.
  */

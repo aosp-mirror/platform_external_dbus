@@ -1274,7 +1274,6 @@ add_and_remove_objects (DBusObjectRegistry *registry)
               interfaces = three_interfaces;
               break;
             }
-          _dbus_assert (interfaces != NULL);
       
           if (!_dbus_object_registry_add_and_unlock (registry,
                                                      interfaces,

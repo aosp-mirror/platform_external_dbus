@@ -1,3 +1,10 @@
+2003-08-16  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-object-registry.c (add_and_remove_objects): remove
+	broken assertion
+
+	* glib/dbus-gproxy.c: some hacking
+
 2003-08-15  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-pending-call.c (dbus_pending_call_block): implement

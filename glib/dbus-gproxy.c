@@ -30,6 +30,7 @@
 
 struct DBusGProxy
 {
+  GStaticMutex lock;
   int refcount;
   DBusConnection *connection;
   char *service;
@@ -37,17 +38,22 @@ struct DBusGProxy
   DBusObjectID object_id;
 };
 
+#define LOCK_PROXY(proxy)   (g_static_mutex_lock (&(proxy)->lock))
+#define UNLOCK_PROXY(proxy) (g_static_mutex_unlock (&(proxy)->lock))
+
 static DBusGProxy*
 _dbus_gproxy_new (DBusConnection *connection)
 {
   DBusGProxy *proxy;
 
   proxy = g_new0 (DBusGProxy, 1);
-
+  
   proxy->refcount = 1;
   proxy->connection = connection;
   dbus_connection_ref (connection);
 
+  g_static_mutex_init (&proxy->lock);
+  
   return proxy;
 }
 
@@ -96,6 +102,8 @@ dbus_gproxy_new_for_service (DBusConnection *connection,
 /**
  * Increment reference count on proxy object.
  *
+ * @todo use GAtomic to avoid locking
+ * 
  * @param proxy the proxy
  */
 void
@@ -103,11 +111,17 @@ dbus_gproxy_ref (DBusGProxy *proxy)
 {
   g_return_if_fail (proxy != NULL);
 
+  LOCK_PROXY (proxy);
+  
   proxy->refcount += 1;
+
+  UNLOCK_PROXY (proxy);
 }
 
 /**
  * Decrement reference count on proxy object.
+ * 
+ * @todo use GAtomic to avoid locking
  *
  * @param proxy the proxy
  */
@@ -116,23 +130,35 @@ dbus_gproxy_unref (DBusGProxy *proxy)
 {
   g_return_if_fail (proxy != NULL);
 
-  proxy->refcount -= 1;
+  LOCK_PROXY (proxy);
+  
+  proxy->refcount -= 1;  
+  
   if (proxy->refcount == 0)
     {
+      UNLOCK_PROXY (proxy);
+      
       dbus_connection_unref (proxy->connection);
       g_free (proxy->interface);
       g_free (proxy->service);
+      g_static_mutex_free (&proxy->lock);
       g_free (proxy);
+    }
+  else
+    {
+      UNLOCK_PROXY (proxy);
     }
 }
 
 /**
  * Invokes a method on a remote interface. This function does not
- * block; instead it returns an opaque #DBusGPendingCall object that
+ * block; instead it returns an opaque #DBusPendingCall object that
  * tracks the pending call.  The method call will not be sent over the
  * wire until the application returns to the main loop, or blocks in
  * dbus_connection_flush() to write out pending data.  The call will
  * be completed after a timeout, or when a reply is received.
+ * To collect the results of the call (which may be an error,
+ * or a reply), use dbus_gproxy_end_call().
  *
  * @param proxy a proxy for a remote interface
  * @param method the name of the method to invoke
@@ -141,14 +167,96 @@ dbus_gproxy_unref (DBusGProxy *proxy)
  * @returns opaque pending call object
  * 
  */
-DBusGPendingCall*
+DBusPendingCall*
 dbus_gproxy_begin_call (DBusGProxy *proxy,
                         const char *method,
                         int         first_arg_type,
                         ...)
 {
+  g_return_val_if_fail (proxy != NULL, NULL);
+  LOCK_PROXY (proxy);
+
+  UNLOCK_PROXY (proxy);
+}
+
+/**
+ * Collects the results of a method call. The method call was normally
+ * initiated with dbus_gproxy_end_call(). This function will block if
+ * the results haven't yet been received; use
+ * dbus_pending_call_set_notify() to be notified asynchronously that a
+ * pending call has been completed.
+ *
+ * If the call results in an error, the error is set as normal for
+ * GError and the function returns #FALSE.
+ *
+ * Otherwise, the "out" parameters and return value of the
+ * method are stored in the provided varargs list.
+ * The list should be terminated with DBUS_TYPE_INVALID.
+ *
+ * @param proxy a proxy for a remote interface
+ * @param pending the pending call from dbus_gproxy_begin_call()
+ * @param error return location for an error
+ * @param first_arg_type type of first "out" argument
+ * @returns #FALSE if an error is set
+ */
+gboolean
+dbus_gproxy_end_call (DBusGProxy          *proxy,
+                      DBusPendingCall     *pending,
+                      GError             **error,
+                      int                  first_arg_type,
+                      ...)
+{
+  g_return_val_if_fail (proxy != NULL, FALSE);
+  LOCK_PROXY (proxy);
+
+  UNLOCK_PROXY (proxy);
+}
+
+/**
+ * Sends a message to the interface we're proxying for.  Does not
+ * block or wait for a reply. The message is only actually written out
+ * when you return to the main loop or block in
+ * dbus_connection_flush().
+ *
+ * The message is modified to be addressed to the target interface.
+ * That is, a destination service field or whatever is needed
+ * will be added to the message.
+ *
+ * This function adds a reference to the message, so the caller
+ * still owns its original reference.
+ *
+ * @todo fix for sending to interfaces and object IDs
+ * 
+ * @param proxy a proxy for a remote interface
+ * @param message the message to address and send
+ * @param client_serial return location for message's serial, or #NULL
+ */
+void
+dbus_gproxy_send (DBusGProxy          *proxy,
+                  DBusMessage         *message,
+                  dbus_uint32_t       *client_serial)
+{
+  g_return_if_fail (proxy != NULL);
+  LOCK_PROXY (proxy);
   
-  
+  if (proxy->service)
+    {
+      if (!dbus_message_set_destination (message, proxy->service))
+        g_error ("Out of memory\n");
+    }
+  if (proxy->interface)
+    {
+      /* FIXME */
+    }
+  if (!dbus_object_id_is_null (&proxy->object_id))
+    {
+      /* FIXME */
+    }
+
+  if (!dbus_connection_send (proxy->connection, message, client_serial))
+    g_error ("Out of memory\n");
+
+  UNLOCK_PROXY (proxy);
 }
 
 /** @} End of DBusGLib public */

@@ -34,7 +34,6 @@
 G_BEGIN_DECLS
 
 typedef struct DBusGProxy       DBusGProxy;
-typedef struct DBusPendingCall DBusPendingCall;
 
 DBusGProxy*      dbus_gproxy_new_for_service       (DBusConnection      *connection,
                                                     const char          *service_name,
@@ -60,18 +59,18 @@ DBusPendingCall* dbus_gproxy_begin_call            (DBusGProxy          *proxy,
                                                     const char          *method,
                                                     int                  first_arg_type,
                                                     ...);
+gboolean         dbus_gproxy_end_call              (DBusGProxy          *proxy,
+                                                    DBusPendingCall     *pending,
+                                                    GError             **error,
+                                                    int                  first_arg_type,
+                                                    ...);
 void             dbus_gproxy_oneway_call           (DBusGProxy          *proxy,
                                                     const char          *method,
                                                     int                  first_arg_type,
                                                     ...);
-gboolean         dbus_pending_call_is_complete     (DBusPendingCall     *call);
-void             dbus_pending_call_cancel_and_free (DBusPendingCall     *call);
-gboolean         dbus_pending_call_block_and_free  (DBusPendingCall     *call,
-                                                    GError             **error,
-                                                    int                  first_arg_type,
-                                                    ...);
-
-
+void             dbus_gproxy_send                  (DBusGProxy          *proxy,
+                                                    DBusMessage         *message,
+                                                    dbus_uint32_t       *client_serial);
 
 
 G_END_DECLS
