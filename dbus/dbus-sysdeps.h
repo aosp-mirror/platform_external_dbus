@@ -329,6 +329,21 @@ dbus_bool_t _dbus_user_at_console (const char *username,
 #  endif /* va_list is a pointer */
 #endif /* !DBUS_VA_COPY */
 
+/* On x86 there is an 80-bit FPU, and if you do "a == b" it may have a
+ * or b in an 80-bit register, thus failing to compare the two 64-bit
+ * doubles for bitwise equality.
+ */
+#define _DBUS_BYTE_OF_PRIMITIVE(p, i) \
+    (((const char*)&(p))[(i)])
+#define _DBUS_DOUBLES_BITWISE_EQUAL(a, b)                                       \
+     (_DBUS_BYTE_OF_PRIMITIVE (a, 0) == _DBUS_BYTE_OF_PRIMITIVE (b, 0) &&       \
+      _DBUS_BYTE_OF_PRIMITIVE (a, 1) == _DBUS_BYTE_OF_PRIMITIVE (b, 1) &&       \
+      _DBUS_BYTE_OF_PRIMITIVE (a, 2) == _DBUS_BYTE_OF_PRIMITIVE (b, 2) &&       \
+      _DBUS_BYTE_OF_PRIMITIVE (a, 3) == _DBUS_BYTE_OF_PRIMITIVE (b, 3) &&       \
+      _DBUS_BYTE_OF_PRIMITIVE (a, 4) == _DBUS_BYTE_OF_PRIMITIVE (b, 4) &&       \
+      _DBUS_BYTE_OF_PRIMITIVE (a, 5) == _DBUS_BYTE_OF_PRIMITIVE (b, 5) &&       \
+      _DBUS_BYTE_OF_PRIMITIVE (a, 6) == _DBUS_BYTE_OF_PRIMITIVE (b, 6) &&       \
+      _DBUS_BYTE_OF_PRIMITIVE (a, 7) == _DBUS_BYTE_OF_PRIMITIVE (b, 7))
 
 DBUS_END_DECLS
 

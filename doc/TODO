@@ -58,6 +58,10 @@ Important for 1.0
    (though they are kind of a pita to pass in as size_t with the 
     varargs, so maybe not - what does glib do with g_object_get()?)
 
+ - it's probably obnoxious that reading/writing bools doesn't return dbus_bool_t; 
+   the only possible solution I think is to change dbus_bool_t to unsigned char, 
+   but that may cause wackiness elsewhere.
+
  - rename the service thing. unique service names (":1") and well-known
    ("org.foo.bar") should have different names probably; something like 
    "address" for the unique and "alias" for the well-known, or 

@@ -1,3 +1,8 @@
+2005-01-01  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-sysdeps.h: add _DBUS_DOUBLES_BITWISE_EQUAL macro, 
+	for a variety of reasons '==' doesn't do this.
+
 2004-12-31  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-string.c (_dbus_string_equal_substrings): new function
