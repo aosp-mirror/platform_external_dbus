@@ -1,12 +1,14 @@
 
-INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS)
+INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION
 
 dbusincludedir=$(includedir)/dbus-1.0/dbus
 
 lib_LTLIBRARIES=libdbus-1.la
 
 dbusinclude_HEADERS=				\
-	dbus.h
+	dbus.h					\
+	dbus-macros.h				\
+	dbus-message.h
 
 libdbus_1_la_SOURCES=				\
 	dbus-message.c

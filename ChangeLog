@@ -1,5 +1,22 @@
 2002-11-21  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/Makefile.am (INCLUDES): define DBUS_COMPILATION 
+	so we can allow ourselves to include files directly, 
+	instead of having to use dbus.h
+
+	* dbus/dbus.h: fill in
+
+	* dbus/dbus-message.h: sketch out a sample header file.
+	Include griping if you include it directly instead of 
+	via dbus.h
+
+	* dbus/dbus-macros.h: new file with macros for extern "C", 
+	TRUE/FALSE, NULL, etc.
+
+	* doc/file-boilerplate.c: put include guards in here
+
+2002-11-21  Havoc Pennington  <hp@redhat.com>
+
 	* doc/file-boilerplate.c: include both AFL and GPL boilerplate.
 
 	* COPYING: include the GPL as well, and license code 

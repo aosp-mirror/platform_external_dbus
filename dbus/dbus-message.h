@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-message.c  DBusMessage object
+/* dbus-message.h  DBusMessage object
  *
  * Copyright (C) 2002  Red Hat Inc.
  *
@@ -20,18 +20,25 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+#if !defined (DBUS_INSIDE_DBUS_H) && !defined (DBUS_COMPILATION)
+#error "Only <dbus/dbus.h> can be included directly, this file may disappear or change contents."
+#endif
 
-#include "dbus-message.h"
+#ifndef DBUS_MESSAGE_H
+#define DBUS_MESSAGE_H
 
-struct DBusMessage
-{
-  int refcount;
+#include <dbus/dbus-macros.h>
 
-};
+DBUS_BEGIN_DECLS
 
-DBusMessage*
-dbus_message_new (void)
-{
-  
-  return NULL;
-}
+typedef struct DBusMessage DBusMessage;
+
+DBusMessage* dbus_message_new   (void);
+void         dbus_message_ref   (DBusMessage *message);
+void         dbus_message_unref (DBusMessage *message);
+
+
+
+DBUS_END_DECLS
+
+#endif /* DBUS_MESSAGE_H */
