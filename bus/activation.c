@@ -204,13 +204,13 @@ load_directory (BusActivation *activation,
   iter = NULL;
   desktop_file = NULL;
   
-  if (!_dbus_string_init (&filename, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&filename))
     {
       BUS_SET_OOM (error);
       return FALSE;
     }
 
-  if (!_dbus_string_init (&full_path, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&full_path))
     {
       BUS_SET_OOM (error);
       _dbus_string_free (&filename);
@@ -244,10 +244,8 @@ load_directory (BusActivation *activation,
       
       if (!_dbus_string_ends_with_c_str (&filename, ".service"))
 	{
-          const char *filename_c;
-          _dbus_string_get_const_data (&filename, &filename_c);
           _dbus_verbose ("Skipping non-.service file %s\n",
-                         filename_c);
+                         _dbus_string_get_const_data (&filename));
           continue;
 	}
       
@@ -255,11 +253,8 @@ load_directory (BusActivation *activation,
 
       if (desktop_file == NULL)
 	{
-	  const char *full_path_c;
-
-          _dbus_string_get_const_data (&full_path, &full_path_c);
-	  
-	  _dbus_verbose ("Could not load %s: %s\n", full_path_c,
+	  _dbus_verbose ("Could not load %s: %s\n",
+                         _dbus_string_get_const_data (&full_path),
 			 tmp_error.message);
 
           if (dbus_error_has_name (&tmp_error, DBUS_ERROR_NO_MEMORY))
@@ -274,15 +269,11 @@ load_directory (BusActivation *activation,
 
       if (!add_desktop_file_entry (activation, desktop_file, &tmp_error))
 	{
-	  const char *full_path_c;
-
           bus_desktop_file_free (desktop_file);
           desktop_file = NULL;
-          
-          _dbus_string_get_const_data (&full_path, &full_path_c);
 	  
 	  _dbus_verbose ("Could not add %s to activation entry list: %s\n",
-                         full_path_c, tmp_error.message);
+                         _dbus_string_get_const_data (&full_path), tmp_error.message);
 
           if (dbus_error_has_name (&tmp_error, DBUS_ERROR_NO_MEMORY))
             {

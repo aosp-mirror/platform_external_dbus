@@ -109,16 +109,16 @@ _dbus_keyring_new (void)
   if (keyring == NULL)
     goto out_0;
   
-  if (!_dbus_string_init (&keyring->directory, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&keyring->directory))
     goto out_1;
 
-  if (!_dbus_string_init (&keyring->filename, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&keyring->filename))
     goto out_2;
 
-  if (!_dbus_string_init (&keyring->filename_lock, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&keyring->filename_lock))
     goto out_3;
 
-  if (!_dbus_string_init (&keyring->username, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&keyring->username))
     goto out_4;
   
   keyring->refcount = 1;
@@ -280,7 +280,7 @@ add_new_key (DBusKey  **keys_p,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  if (!_dbus_string_init (&bytes, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&bytes))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return FALSE;
@@ -299,7 +299,7 @@ add_new_key (DBusKey  **keys_p,
       goto out;
     }
 
-  _dbus_string_get_const_data (&bytes, (const char**) &s);
+  s = (const unsigned char*) _dbus_string_get_const_data (&bytes);
       
   id = s[0] | (s[1] << 8) | (s[2] << 16) | (s[3] << 24);
   if (id < 0)
@@ -334,8 +334,7 @@ add_new_key (DBusKey  **keys_p,
   keys = new;
   n_keys += 1;
 
-  if (!_dbus_string_init (&keys[n_keys-1].secret,
-                          _DBUS_INT_MAX))
+  if (!_dbus_string_init (&keys[n_keys-1].secret))
     {
       n_keys -= 1; /* we don't want to free the one we didn't init */
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -398,13 +397,13 @@ _dbus_keyring_reload (DBusKeyring *keyring,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  if (!_dbus_string_init (&contents, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&contents))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return FALSE;
     }
 
-  if (!_dbus_string_init (&line, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&line))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       _dbus_string_free (&contents);
@@ -510,8 +509,7 @@ _dbus_keyring_reload (DBusKeyring *keyring,
       keys = new;
       n_keys += 1;
 
-      if (!_dbus_string_init (&keys[n_keys-1].secret,
-                              _DBUS_INT_MAX))
+      if (!_dbus_string_init (&keys[n_keys-1].secret))
         {
           n_keys -= 1; /* we don't want to free the one we didn't init */
           dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -689,7 +687,7 @@ _dbus_keyring_new_homedir (const DBusString *username,
   keyring = NULL;
   error_set = FALSE;
   
-  if (!_dbus_string_init (&homedir, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&homedir))
     return FALSE;
 
   _dbus_string_init_const (&dotdir, ".dbus-keyrings");
@@ -1022,7 +1020,7 @@ _dbus_keyring_test (void)
   _dbus_string_init_const (&context, "foo bar");
   _dbus_assert (!_dbus_keyring_validate_context (&context));
   
-  if (!_dbus_string_init (&context, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&context))
     _dbus_assert_not_reached ("no memory");
   if (!_dbus_string_append_byte (&context, '\0'))
     _dbus_assert_not_reached ("no memory");

@@ -636,7 +636,7 @@ recover_unused_bytes (DBusTransport *transport)
       DBusString *buffer;
       int orig_len;
       
-      if (!_dbus_string_init (&plaintext, _DBUS_INT_MAX))
+      if (!_dbus_string_init (&plaintext))
         goto nomem;
       
       _dbus_auth_get_unused_bytes (transport->auth,

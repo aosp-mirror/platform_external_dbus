@@ -432,9 +432,9 @@ _dbus_sha_update (DBusSHAContext   *context,
                   const DBusString *data)
 {
   unsigned int inputLen;
-  unsigned char *input;
+  const unsigned char *input;
 
-  _dbus_string_get_const_data (data, (const char**) &input);
+  input = (const unsigned char*) _dbus_string_get_const_data (data);
   inputLen = _dbus_string_get_length (data);
 
   sha_append (context, input, inputLen);
@@ -489,7 +489,7 @@ _dbus_sha_compute (const DBusString *data,
 
   _dbus_sha_update (&context, data);
 
-  if (!_dbus_string_init (&digest, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&digest))
     return FALSE;
 
   if (!_dbus_sha_final (&context, &digest))
@@ -526,7 +526,7 @@ check_sha_binary (const unsigned char *input,
   _dbus_string_init_const_len (&input_str, input, input_len);
   _dbus_string_init_const (&expected_str, expected);
 
-  if (!_dbus_string_init (&results, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&results))
     _dbus_assert_not_reached ("no memory for SHA-1 results");
 
   if (!_dbus_sha_compute (&input_str, &results))
@@ -534,10 +534,9 @@ check_sha_binary (const unsigned char *input,
 
   if (!_dbus_string_equal (&expected_str, &results))
     {
-      const char *s;
-      _dbus_string_get_const_data (&results, &s);
       _dbus_warn ("Expected hash %s got %s for SHA-1 sum\n",
-                  expected, s);
+                  expected,
+                  _dbus_string_get_const_data (&results));
       _dbus_string_free (&results);
       return FALSE;
     }
@@ -569,10 +568,8 @@ decode_compact_string (const DBusString *line,
 
   if (!_dbus_string_parse_int (line, offset, &val, &next))
     {
-      const char *s;
-      _dbus_string_get_const_data (line, &s);
       fprintf (stderr, "could not parse length at start of compact string: %s\n",
-               s);
+               _dbus_string_get_const_data (line));
       return FALSE;
     }
 
@@ -581,10 +578,8 @@ decode_compact_string (const DBusString *line,
   offset = next;
   if (!_dbus_string_parse_int (line, offset, &val, &next))
     {
-      const char *s;
-      _dbus_string_get_const_data (line, &s);
       fprintf (stderr, "could not parse start bit 'b' in compact string: %s\n",
-               s);
+               _dbus_string_get_const_data (line));
       return FALSE;
     }
   
@@ -668,7 +663,7 @@ get_next_expected_result (DBusString *results,
 
   retval = FALSE;
   
-  if (!_dbus_string_init (&line, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&line))
     _dbus_assert_not_reached ("no memory");
   
  next_iteration:
@@ -682,8 +677,6 @@ get_next_expected_result (DBusString *results,
         goto next_iteration;
       else if (_dbus_string_starts_with_c_str (&line, "H>"))
         {
-          const char *s;          
-          _dbus_string_get_const_data (&line, &s);
           /* don't print */
         }
       else if (_dbus_string_starts_with_c_str (&line, "D>") ||
@@ -756,19 +749,19 @@ process_test_data (const char *test_data_dir)
   
   retval = FALSE;
   
-  if (!_dbus_string_init (&tests_file, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&tests_file))
     _dbus_assert_not_reached ("no memory");
 
-  if (!_dbus_string_init (&results_file, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&results_file))
     _dbus_assert_not_reached ("no memory");
 
-  if (!_dbus_string_init (&tests, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&tests))
     _dbus_assert_not_reached ("no memory");
 
-  if (!_dbus_string_init (&results, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&results))
     _dbus_assert_not_reached ("no memory");
 
-  if (!_dbus_string_init (&line, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&line))
     _dbus_assert_not_reached ("no memory");
   
   if (!_dbus_string_append (&tests_file, test_data_dir))
@@ -788,20 +781,17 @@ process_test_data (const char *test_data_dir)
   dbus_error_init (&error);
   if (!_dbus_file_get_contents (&tests, &tests_file, &error))
     {
-      const char *s;
-      _dbus_string_get_const_data (&tests_file, &s);
       fprintf (stderr, "could not load test data file %s: %s\n",
-               s, error.message);
+               _dbus_string_get_const_data (&tests_file),
+               error.message);
       dbus_error_free (&error);
       goto out;
     }
 
   if (!_dbus_file_get_contents (&results, &results_file, &error))
     {
-      const char *s;
-      _dbus_string_get_const_data (&results_file, &s);
       fprintf (stderr, "could not load results data file %s: %s\n",
-               s, error.message);
+               _dbus_string_get_const_data (&results_file), error.message);
       dbus_error_free (&error);
       goto out;
     }
@@ -821,9 +811,7 @@ process_test_data (const char *test_data_dir)
         goto next_iteration;
       else if (_dbus_string_starts_with_c_str (&line, "H>"))
         {
-          const char *s;          
-          _dbus_string_get_const_data (&line, &s);
-          printf ("SHA-1: %s\n", s);
+          printf ("SHA-1: %s\n", _dbus_string_get_const_data (&line));
 
           if (_dbus_string_find (&line, 0, "Type 3", NULL))
             {
@@ -850,16 +838,16 @@ process_test_data (const char *test_data_dir)
 
           success = FALSE;
           
-          if (!_dbus_string_init (&next_line, _DBUS_INT_MAX))
+          if (!_dbus_string_init (&next_line))
             _dbus_assert_not_reached ("no memory");
 
-          if (!_dbus_string_init (&expected, _DBUS_INT_MAX))
+          if (!_dbus_string_init (&expected))
             _dbus_assert_not_reached ("no memory");
           
-          if (!_dbus_string_init (&test, _DBUS_INT_MAX))
+          if (!_dbus_string_init (&test))
             _dbus_assert_not_reached ("no memory");
 
-          if (!_dbus_string_init (&result, _DBUS_INT_MAX))
+          if (!_dbus_string_init (&result))
             _dbus_assert_not_reached ("no memory");
 
           /* the "compact strings" are "^"-terminated not
@@ -892,22 +880,15 @@ process_test_data (const char *test_data_dir)
             }
           
           if (!_dbus_string_equal (&result, &expected))
-            {
-              const char *s1;
-              const char *s2;
-
-              _dbus_string_get_const_data (&result, &s1);
-              _dbus_string_get_const_data (&expected, &s2);
-              
+            {              
               fprintf (stderr, " for line %d got hash %s expected %s\n",
-                       line_no, s1, s2);
+                       line_no,
+                       _dbus_string_get_const_data (&result),
+                       _dbus_string_get_const_data (&expected));
               goto failure;
             }
           else
             {
-              const char *s;
-              _dbus_string_get_const_data (&result, &s);
-              /* printf (" Got expected: %s\n", s); */
               success_count += 1;
             }
 

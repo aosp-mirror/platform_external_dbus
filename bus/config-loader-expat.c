@@ -178,9 +178,9 @@ bus_config_load (const DBusString *file,
   context.error = error;
   context.failed = FALSE;
 
-  _dbus_string_get_const_data (file, &filename);
+  filename = _dbus_string_get_const_data (file);
 
-  if (!_dbus_string_init (&context.content, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&context.content))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
@@ -212,7 +212,7 @@ bus_config_load (const DBusString *file,
     DBusString data;
     const char *data_str;
 
-    if (!_dbus_string_init (&data, _DBUS_INT_MAX))
+    if (!_dbus_string_init (&data))
       {
         dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
         goto failed;
@@ -224,7 +224,7 @@ bus_config_load (const DBusString *file,
         goto failed;
       }
 
-    _dbus_string_get_const_data (&data, &data_str);
+    data_str = _dbus_string_get_const_data (&data);
 
     if (!XML_Parse (expat, data_str, _dbus_string_get_length (&data), TRUE))
       {

@@ -732,20 +732,17 @@ dbus_bool_t
 bus_connection_set_name (DBusConnection   *connection,
 			 const DBusString *name)
 {
-  const char *c_name;
   BusConnectionData *d;
   
   d = BUS_CONNECTION_DATA (connection);
   _dbus_assert (d != NULL);
   _dbus_assert (d->name == NULL);
 
-  _dbus_string_get_const_data (name, &c_name);
-
-  d->name = _dbus_strdup (c_name);
-
-  if (d->name == NULL)
+  if (!_dbus_string_copy_data (name, &d->name))
     return FALSE;
 
+  _dbus_assert (d->name != NULL);
+  
   _dbus_verbose ("Name %s assigned to %p\n", d->name, connection);
   
   return TRUE;

@@ -144,7 +144,7 @@ _dbus_server_debug_new (const char     *server_name,
   if (debug_server == NULL)
     return NULL;
 
-  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&address))
     goto nomem_0;
 
   if (!_dbus_string_append (&address, "debug:name=") ||

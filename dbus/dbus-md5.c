@@ -475,7 +475,7 @@ _dbus_md5_compute (const DBusString *data,
 
   _dbus_md5_update (&context, data);
 
-  if (!_dbus_string_init (&digest, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&digest))
     return FALSE;
 
   if (!_dbus_md5_final (&context, &digest))
@@ -512,7 +512,7 @@ check_md5_binary (const unsigned char *input,
   _dbus_string_init_const_len (&input_str, input, input_len);
   _dbus_string_init_const (&expected_str, expected);
 
-  if (!_dbus_string_init (&results, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&results))
     _dbus_assert_not_reached ("no memory for md5 results");
 
   if (!_dbus_md5_compute (&input_str, &results))

@@ -110,7 +110,7 @@ send_service_nonexistent_error (BusTransaction *transaction,
    * bounce back an error message.
    */
 	  
-  if (!_dbus_string_init (&error_message, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&error_message))
     {
       BUS_SET_OOM (error);
       return FALSE;
@@ -125,7 +125,7 @@ send_service_nonexistent_error (BusTransaction *transaction,
       return FALSE;
     }
               
-  _dbus_string_get_const_data (&error_message, &error_str);
+  error_str = _dbus_string_get_const_data (&error_message);
   error_reply = dbus_message_new_error_reply (in_reply_to,
                                               DBUS_ERROR_SERVICE_DOES_NOT_EXIST,
                                               error_str);

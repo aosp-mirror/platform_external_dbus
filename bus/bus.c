@@ -184,7 +184,7 @@ bus_context_new (const DBusString *config_file,
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  if (!_dbus_string_init (&full_address, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&full_address))
     return NULL;
 
   parser = NULL;

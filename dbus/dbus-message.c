@@ -209,8 +209,7 @@ get_string_field (DBusMessage *message,
                                    offset,
                                    NULL);
 
-  _dbus_string_get_const_data (&message->header,
-                               &data);
+  data = _dbus_string_get_const_data (&message->header);
   
   return data + (offset + 4); 
 }
@@ -759,13 +758,13 @@ dbus_message_new_empty_header (void)
       ++i;
     }
   
-  if (!_dbus_string_init (&message->header, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&message->header))
     {
       dbus_free (message);
       return NULL;
     }
   
-  if (!_dbus_string_init (&message->body, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&message->body))
     {
       _dbus_string_free (&message->header);
       dbus_free (message);
@@ -915,13 +914,13 @@ dbus_message_copy (const DBusMessage *message)
   retval->header_padding = message->header_padding;
   retval->locked = FALSE;
   
-  if (!_dbus_string_init (&retval->header, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&retval->header))
     {
       dbus_free (retval);
       return NULL;
     }
   
-  if (!_dbus_string_init (&retval->body, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&retval->body))
     {
       _dbus_string_free (&retval->header);
       dbus_free (retval);
@@ -1949,7 +1948,7 @@ dbus_message_iter_get_arg_type (DBusMessageIter *iter)
   if (iter->pos >= _dbus_string_get_length (&iter->message->body))
     return DBUS_TYPE_INVALID;
 
-  _dbus_string_get_const_data_len (&iter->message->body, &data, iter->pos, 1);
+  data = _dbus_string_get_const_data_len (&iter->message->body, iter->pos, 1);
 
   if (*data > DBUS_TYPE_INVALID && *data <= DBUS_TYPE_DICT)
     return *data;
@@ -2262,7 +2261,7 @@ dbus_message_set_is_error (DBusMessage *message,
   
   _dbus_assert (!message->locked);
   
-  _dbus_string_get_data_len (&message->header, &header, 1, 1);
+  header = _dbus_string_get_data_len (&message->header, 1, 1);
   
   if (is_error_reply)
     *header |= DBUS_HEADER_FLAG_ERROR;
@@ -2282,7 +2281,7 @@ dbus_message_get_is_error (DBusMessage *message)
 {
   const char *header;
 
-  _dbus_string_get_const_data_len (&message->header, &header, 1, 1);
+  header = _dbus_string_get_const_data_len (&message->header, 1, 1);
 
   return (*header & DBUS_HEADER_FLAG_ERROR) != 0;
 }
@@ -2469,7 +2468,7 @@ _dbus_message_loader_new (void)
    */
   loader->max_message_size = _DBUS_ONE_MEGABYTE * 32;
   
-  if (!_dbus_string_init (&loader->data, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&loader->data))
     {
       dbus_free (loader);
       return NULL;
@@ -2612,7 +2611,7 @@ decode_header_data (const DBusString   *data,
       if ((pos + 4) > header_len)
         return FALSE;      
       
-      _dbus_string_get_const_data_len (data, &field, pos, 4);
+      field =_dbus_string_get_const_data_len (data, pos, 4);
       pos += 4;
 
       _dbus_assert (_DBUS_ALIGN_ADDRESS (field, 4) == field);
@@ -2766,7 +2765,7 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
       int byte_order, header_len, body_len, header_padding;
       dbus_uint32_t header_len_unsigned, body_len_unsigned;
       
-      _dbus_string_get_const_data_len (&loader->data, &header_data, 0, 16);
+      header_data = _dbus_string_get_const_data_len (&loader->data, 0, 16);
 
       _dbus_assert (_DBUS_ALIGN_ADDRESS (header_data, 4) == header_data);
 
@@ -3373,9 +3372,9 @@ dbus_internal_do_not_use_load_message_file (const DBusString    *filename,
       dbus_error_init (&error);
       if (!_dbus_file_get_contents (data, filename, &error))
         {
-          const char *s;      
-          _dbus_string_get_const_data (filename, &s);
-          _dbus_warn ("Could not load message file %s: %s\n", s, error.message);
+          _dbus_warn ("Could not load message file %s: %s\n",
+                      _dbus_string_get_const_data (filename),
+                      error.message);
           dbus_error_free (&error);
           goto failed;
         }
@@ -3384,9 +3383,8 @@ dbus_internal_do_not_use_load_message_file (const DBusString    *filename,
     {
       if (!_dbus_message_data_load (data, filename))
         {
-          const char *s;      
-          _dbus_string_get_const_data (filename, &s);
-          _dbus_warn ("Could not load message file %s\n", s);
+          _dbus_warn ("Could not load message file %s\n",
+                      _dbus_string_get_const_data (filename));
           goto failed;
         }
     }
@@ -3417,7 +3415,7 @@ dbus_internal_do_not_use_try_message_file (const DBusString    *filename,
 
   retval = FALSE;
   
-  if (!_dbus_string_init (&data, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&data))
     _dbus_assert_not_reached ("could not allocate string\n");
 
   if (!dbus_internal_do_not_use_load_message_file (filename, is_raw,
@@ -3430,15 +3428,12 @@ dbus_internal_do_not_use_try_message_file (const DBusString    *filename,
 
   if (!retval)
     {
-      const char *s;
-
       if (_dbus_string_get_length (&data) > 0)
         _dbus_verbose_bytes_of_string (&data, 0,
                                        _dbus_string_get_length (&data));
       
-      _dbus_string_get_const_data (filename, &s);
       _dbus_warn ("Failed message loader test on %s\n",
-                  s);
+                  _dbus_string_get_const_data (filename));
     }
   
   _dbus_string_free (&data);
@@ -3556,7 +3551,7 @@ process_test_subdir (const DBusString          *test_base_dir,
   retval = FALSE;
   dir = NULL;
   
-  if (!_dbus_string_init (&test_directory, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&test_directory))
     _dbus_assert_not_reached ("didn't allocate test_directory\n");
 
   _dbus_string_init_const (&filename, subdir);
@@ -3569,16 +3564,15 @@ process_test_subdir (const DBusString          *test_base_dir,
     _dbus_assert_not_reached ("couldn't allocate full path");
 
   _dbus_string_free (&filename);
-  if (!_dbus_string_init (&filename, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&filename))
     _dbus_assert_not_reached ("didn't allocate filename string\n");
 
   dbus_error_init (&error);
   dir = _dbus_directory_open (&test_directory, &error);
   if (dir == NULL)
     {
-      const char *s;
-      _dbus_string_get_const_data (&test_directory, &s);
-      _dbus_warn ("Could not open %s: %s\n", s,
+      _dbus_warn ("Could not open %s: %s\n",
+                  _dbus_string_get_const_data (&test_directory),
                   error.message);
       dbus_error_free (&error);
       goto failed;
@@ -3592,7 +3586,7 @@ process_test_subdir (const DBusString          *test_base_dir,
       DBusString full_path;
       dbus_bool_t is_raw;
       
-      if (!_dbus_string_init (&full_path, _DBUS_INT_MAX))
+      if (!_dbus_string_init (&full_path))
         _dbus_assert_not_reached ("couldn't init string");
 
       if (!_dbus_string_copy (&test_directory, 0, &full_path, 0))
@@ -3607,19 +3601,14 @@ process_test_subdir (const DBusString          *test_base_dir,
         is_raw = TRUE;
       else
         {
-          const char *filename_c;
-          _dbus_string_get_const_data (&filename, &filename_c);
           _dbus_verbose ("Skipping non-.message file %s\n",
-                         filename_c);
+                         _dbus_string_get_const_data (&filename));
 	  _dbus_string_free (&full_path);
           goto next;
         }
 
-      {
-        const char *s;
-        _dbus_string_get_const_data (&filename, &s);
-        printf ("    %s\n", s);
-      }
+      printf ("    %s\n",
+              _dbus_string_get_const_data (&filename));
       
       _dbus_verbose (" expecting %s\n",
                      validity == _DBUS_MESSAGE_VALID ? "valid" :
@@ -3637,10 +3626,9 @@ process_test_subdir (const DBusString          *test_base_dir,
 
   if (dbus_error_is_set (&error))
     {
-      const char *s;
-      _dbus_string_get_const_data (&test_directory, &s);
       _dbus_warn ("Could not get next file in %s: %s\n",
-                  s, error.message);
+                  _dbus_string_get_const_data (&test_directory),
+                  error.message);
       dbus_error_free (&error);
       goto failed;
     }
@@ -3801,7 +3789,7 @@ _dbus_message_test (const char *test_data_dir)
   loader = _dbus_message_loader_new ();
 
   /* Write the header data one byte at a time */
-  _dbus_string_get_const_data (&message->header, &data);
+  data = _dbus_string_get_const_data (&message->header);
   for (i = 0; i < _dbus_string_get_length (&message->header); i++)
     {
       DBusString *buffer;
@@ -3812,7 +3800,7 @@ _dbus_message_test (const char *test_data_dir)
     }
 
   /* Write the body data one byte at a time */
-  _dbus_string_get_const_data (&message->body, &data);
+  data = _dbus_string_get_const_data (&message->body);
   for (i = 0; i < _dbus_string_get_length (&message->body); i++)
     {
       DBusString *buffer;

@@ -24,10 +24,10 @@ main (int    argc,
 
   _dbus_string_init_const (&filename, argv[1]);
   
-  if (!_dbus_string_init (&contents, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&contents))
     return 1;
 
-  if (!_dbus_string_init (&decoded, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&decoded))
     return 1;
 
   dbus_error_init (&error);
@@ -42,7 +42,7 @@ main (int    argc,
                                    &decoded, 0))
     return 1;
 
-  _dbus_string_get_const_data (&decoded, &s);
+  s = _dbus_string_get_const_data (&decoded);
   
   fputs (s, stdout);
   

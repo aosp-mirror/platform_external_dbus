@@ -96,7 +96,7 @@ _dbus_setenv (const char *varname, const char *value)
   DBusString str;
   char *putenv_value;
 
-  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&str))
     return FALSE;
 
   if (!_dbus_string_append (&str, varname) ||
@@ -158,7 +158,7 @@ _dbus_read (int               fd,
       return -1;
     }
 
-  _dbus_string_get_data_len (buffer, &data, start, count);
+  data = _dbus_string_get_data_len (buffer, start, count);
 
  again:
   
@@ -208,7 +208,7 @@ _dbus_write (int               fd,
   const char *data;
   int bytes_written;
   
-  _dbus_string_get_const_data_len (buffer, &data, start, len);
+  data = _dbus_string_get_const_data_len (buffer, start, len);
   
  again:
 
@@ -267,10 +267,10 @@ _dbus_write_two (int               fd,
     const char *data2;
     int bytes_written;
 
-    _dbus_string_get_const_data_len (buffer1, &data1, start1, len1);
+    data1 = _dbus_string_get_const_data_len (buffer1, start1, len1);
 
     if (buffer2 != NULL)
-      _dbus_string_get_const_data_len (buffer2, &data2, start2, len2);
+      data2 = _dbus_string_get_const_data_len (buffer2, start2, len2);
     else
       {
         data2 = NULL;
@@ -854,7 +854,7 @@ _dbus_string_append_int (DBusString *str,
   if (!_dbus_string_lengthen (str, MAX_LONG_LEN))
     return FALSE;
 
-  _dbus_string_get_data_len (str, &buf, orig_len, MAX_LONG_LEN);
+  buf = _dbus_string_get_data_len (str, orig_len, MAX_LONG_LEN);
 
   snprintf (buf, MAX_LONG_LEN, "%ld", value);
 
@@ -892,7 +892,7 @@ _dbus_string_append_uint (DBusString    *str,
   if (!_dbus_string_lengthen (str, MAX_ULONG_LEN))
     return FALSE;
 
-  _dbus_string_get_data_len (str, &buf, orig_len, MAX_ULONG_LEN);
+  buf = _dbus_string_get_data_len (str, orig_len, MAX_ULONG_LEN);
 
   snprintf (buf, MAX_ULONG_LEN, "%lu", value);
 
@@ -929,7 +929,7 @@ _dbus_string_append_double (DBusString *str,
   if (!_dbus_string_lengthen (str, MAX_DOUBLE_LEN))
     return FALSE;
 
-  _dbus_string_get_data_len (str, &buf, orig_len, MAX_DOUBLE_LEN);
+  buf = _dbus_string_get_data_len (str, orig_len, MAX_DOUBLE_LEN);
 
   snprintf (buf, MAX_LONG_LEN, "%g", value);
 
@@ -967,8 +967,8 @@ _dbus_string_parse_int (const DBusString *str,
   const char *p;
   char *end;
 
-  _dbus_string_get_const_data_len (str, &p, start,
-                                   _dbus_string_get_length (str) - start);
+  p = _dbus_string_get_const_data_len (str, start,
+                                       _dbus_string_get_length (str) - start);
 
   end = NULL;
   errno = 0;
@@ -1006,8 +1006,8 @@ _dbus_string_parse_uint (const DBusString *str,
   const char *p;
   char *end;
 
-  _dbus_string_get_const_data_len (str, &p, start,
-                                   _dbus_string_get_length (str) - start);
+  p = _dbus_string_get_const_data_len (str, start,
+                                       _dbus_string_get_length (str) - start);
 
   end = NULL;
   errno = 0;
@@ -1051,8 +1051,8 @@ _dbus_string_parse_double (const DBusString *str,
 
   _dbus_warn ("_dbus_string_parse_double() needs to be made locale-independent\n");
   
-  _dbus_string_get_const_data_len (str, &p, start,
-                                   _dbus_string_get_length (str) - start);
+  p = _dbus_string_get_const_data_len (str, start,
+                                       _dbus_string_get_length (str) - start);
 
   end = NULL;
   errno = 0;
@@ -1151,7 +1151,7 @@ get_user_info (const DBusString *username,
     }
   
   if (username != NULL)
-    _dbus_string_get_const_data (username, &username_c_str);
+    username_c_str = _dbus_string_get_const_data (username);
   else
     username_c_str = NULL;
 
@@ -1284,13 +1284,13 @@ _dbus_user_info_from_current_process (const DBusString      **username,
 
   if (initialized_generation != _dbus_current_generation)
     {
-      if (!_dbus_string_init (&u.name, _DBUS_INT_MAX))
+      if (!_dbus_string_init (&u.name))
         {
           _DBUS_UNLOCK (user_info);
           return FALSE;
         }
 
-      if (!_dbus_string_init (&u.dir, _DBUS_INT_MAX))
+      if (!_dbus_string_init (&u.dir))
         {
           _dbus_string_free (&u.name);
           _DBUS_UNLOCK (user_info);
@@ -1448,8 +1448,8 @@ _dbus_get_group_id (const DBusString *group_name,
                     unsigned long    *gid)
 {
   const char *group_c_str;
-
-  _dbus_string_get_const_data (group_name, &group_c_str);
+  
+  group_c_str = _dbus_string_get_const_data (group_name);
   
   /* For now assuming that the getgrnam() and getgrgid() flavors
    * always correspond to the pwnam flavors, if not we have
@@ -1533,7 +1533,7 @@ _dbus_get_groups (unsigned long   uid,
 
   retval = FALSE;
 
-  if (!_dbus_string_init (&username, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&username))
     return FALSE;
 
   if (!get_user_info (NULL, uid, &creds,
@@ -1541,7 +1541,7 @@ _dbus_get_groups (unsigned long   uid,
       creds.gid < 0)
     goto out;
 
-  _dbus_string_get_const_data (&username, &username_c);
+  username_c = _dbus_string_get_const_data (&username);
   
 #ifdef HAVE_GETGROUPLIST
   {
@@ -1839,7 +1839,7 @@ _dbus_file_get_contents (DBusString       *str,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  _dbus_string_get_const_data (filename, &filename_c);
+  filename_c = _dbus_string_get_const_data (filename);
   
   /* O_BINARY useful on Cygwin */
   fd = open (filename_c, O_RDONLY | O_BINARY);
@@ -1975,7 +1975,7 @@ _dbus_string_save_to_file (const DBusString *str,
   retval = FALSE;
   need_unlink = FALSE;
   
-  if (!_dbus_string_init (&tmp_filename, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&tmp_filename))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return FALSE;
@@ -1999,8 +1999,8 @@ _dbus_string_save_to_file (const DBusString *str,
       return FALSE;
     }
     
-  _dbus_string_get_const_data (filename, &filename_c);
-  _dbus_string_get_const_data (&tmp_filename, &tmp_filename_c);
+  filename_c = _dbus_string_get_const_data (filename);
+  tmp_filename_c = _dbus_string_get_const_data (&tmp_filename);
 
   fd = open (tmp_filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
              0600);
@@ -2096,7 +2096,7 @@ _dbus_create_file_exclusively (const DBusString *filename,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  _dbus_string_get_const_data (filename, &filename_c);
+  filename_c = _dbus_string_get_const_data (filename);
   
   fd = open (filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
              0600);
@@ -2139,7 +2139,7 @@ _dbus_delete_file (const DBusString *filename,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  _dbus_string_get_const_data (filename, &filename_c);
+  filename_c = _dbus_string_get_const_data (filename);
 
   if (unlink (filename_c) < 0)
     {
@@ -2168,7 +2168,7 @@ _dbus_create_directory (const DBusString *filename,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  _dbus_string_get_const_data (filename, &filename_c);
+  filename_c = _dbus_string_get_const_data (filename);
 
   if (mkdir (filename_c, 0700) < 0)
     {
@@ -2244,7 +2244,7 @@ _dbus_directory_open (const DBusString *filename,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  _dbus_string_get_const_data (filename, &filename_c);
+  filename_c = _dbus_string_get_const_data (filename);
 
   d = opendir (filename_c);
   if (d == NULL)
@@ -2894,7 +2894,7 @@ _dbus_stat (const DBusString *filename,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  _dbus_string_get_const_data (filename, &filename_c);
+  filename_c = _dbus_string_get_const_data (filename);
 
   if (stat (filename_c, &sb) < 0)
     {

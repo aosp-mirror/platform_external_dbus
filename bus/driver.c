@@ -278,7 +278,7 @@ bus_driver_handle_hello (DBusConnection *connection,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  if (!_dbus_string_init (&unique_name, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&unique_name))
     {
       BUS_SET_OOM (error);
       return FALSE;

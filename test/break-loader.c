@@ -124,7 +124,7 @@ try_mutated_data (const DBusString *data)
 
       failed = FALSE;
 
-      if (!_dbus_string_init (&filename, _DBUS_INT_MAX) ||
+      if (!_dbus_string_init (&filename) ||
           !_dbus_string_copy (&failure_dir, 0,
                               &filename, 0) ||
           !_dbus_string_append_byte (&filename, '/'))
@@ -153,14 +153,11 @@ try_mutated_data (const DBusString *data)
 
       if (failed)
         {
-          const char *filename_c;
           DBusError error;
 
           _dbus_string_append (&filename, ".message-raw");
           
-          _dbus_string_get_const_data (&filename, &filename_c);
-          printf ("Child failed, writing %s\n",
-                  filename_c);
+          printf ("Child failed, writing %s\n", _dbus_string_get_const_data (&filename));
 
           dbus_error_init (&error);
           if (!_dbus_string_save_to_file (data, &filename, &error))
@@ -315,7 +312,7 @@ randomly_modify_length (const DBusString *orig_data,
   if (_dbus_string_get_length (mutated) < 12)
     return;
   
-  _dbus_string_get_const_data (mutated, &d);
+  d = _dbus_string_get_const_data (mutated);
 
   if (!(*d == DBUS_LITTLE_ENDIAN ||
         *d == DBUS_BIG_ENDIAN))
@@ -371,7 +368,7 @@ randomly_set_extreme_ints (const DBusString *orig_data,
   if (_dbus_string_get_length (mutated) < 12)
     return;
   
-  _dbus_string_get_const_data (mutated, &d);
+  d = _dbus_string_get_const_data (mutated);
 
   if (!(*d == DBUS_LITTLE_ENDIAN ||
         *d == DBUS_BIG_ENDIAN))
@@ -443,14 +440,14 @@ find_breaks_based_on (const DBusString   *filename,
   dbus_bool_t retval;
   int i;
 
-  _dbus_string_get_const_data (filename, &filename_c);
+  filename_c = _dbus_string_get_const_data (filename);
 
   retval = FALSE;
 
-  if (!_dbus_string_init (&orig_data, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&orig_data))
     _dbus_assert_not_reached ("could not allocate string\n");
 
-  if (!_dbus_string_init (&mutated, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&mutated))
     _dbus_assert_not_reached ("could not allocate string\n");
 
   if (!dbus_internal_do_not_use_load_message_file (filename, is_raw,
@@ -562,7 +559,7 @@ get_random_seed (void)
 
   seed = 0;
 
-  if (!_dbus_string_init (&bytes, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&bytes))
     exit (1);
 
   fd = open ("/dev/urandom", O_RDONLY);
@@ -574,7 +571,7 @@ get_random_seed (void)
 
   close (fd);
 
-  _dbus_string_get_const_data (&bytes, &s);
+  s = _dbus_string_get_const_data (&bytes);
 
   seed = * (unsigned int*) s;
   goto out;
@@ -615,7 +612,7 @@ main (int    argc,
   total_failures_found = 0;
   total_attempts = 0;
 
-  if (!_dbus_string_init (&failure_dir, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&failure_dir))
     return 1;
 
   /* so you can leave it overnight safely */
@@ -637,7 +634,7 @@ main (int    argc,
       if (!_dbus_string_append_uint (&failure_dir, seed))
         return 1;
 
-      _dbus_string_get_const_data (&failure_dir, &failure_dir_c);
+      failure_dir_c = _dbus_string_get_const_data (&failure_dir);
 
       if (mkdir (failure_dir_c, 0700) < 0)
         {

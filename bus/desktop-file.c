@@ -514,7 +514,7 @@ parse_key_value (BusDesktopFileParser *parser, DBusError *error)
       return FALSE;
     }
   
-  if (!_dbus_string_init (&key, key_end - key_start))
+  if (!_dbus_string_init (&key))
     {
       parser_free (parser);
       return FALSE;
@@ -613,7 +613,7 @@ bus_desktop_file_load (DBusString *filename,
       return NULL;
     }
   
-  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&str))
     return NULL;
   
   if (!_dbus_file_get_contents (&str, filename, error))

@@ -198,16 +198,16 @@ _dbus_auth_script_run (const DBusString *filename)
 
   _dbus_string_init_const (&context, "org_freedesktop_test");
   
-  if (!_dbus_string_init (&file, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&file))
     return FALSE;
 
-  if (!_dbus_string_init (&line, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&line))
     {
       _dbus_string_free (&file);
       return FALSE;
     }
 
-  if (!_dbus_string_init (&from_auth, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&from_auth))
     {
       _dbus_string_free (&file);
       _dbus_string_free (&line);
@@ -216,10 +216,8 @@ _dbus_auth_script_run (const DBusString *filename)
 
   dbus_error_init (&error);
   if (!_dbus_file_get_contents (&file, filename, &error))    {
-      const char *s;
-      _dbus_string_get_const_data (filename, &s);
       _dbus_warn ("Getting contents of %s failed: %s\n",
-                  s, error.message);
+                  _dbus_string_get_const_data (filename), error.message);
       dbus_error_free (&error);
       goto out;
     }
@@ -335,7 +333,7 @@ _dbus_auth_script_run (const DBusString *filename)
           
           _dbus_string_delete_first_word (&line);
 
-          if (!_dbus_string_init (&to_send, _DBUS_INT_MAX))
+          if (!_dbus_string_init (&to_send))
             {
               _dbus_warn ("no memory to allocate string\n");
               goto out;
@@ -349,11 +347,7 @@ _dbus_auth_script_run (const DBusString *filename)
               goto out;
             }
 
-          {
-            const char *s4;
-            _dbus_string_get_const_data (&to_send, &s4);
-            _dbus_verbose ("Sending '%s'\n", s4);
-          }
+          _dbus_verbose ("Sending '%s'\n", _dbus_string_get_const_data (&to_send));
           
           if (!_dbus_string_append (&to_send, "\r\n"))
             {
@@ -372,7 +366,7 @@ _dbus_auth_script_run (const DBusString *filename)
               {
                 DBusString username;
 
-                if (!_dbus_string_init (&username, _DBUS_INT_MAX))
+                if (!_dbus_string_init (&username))
                   {
                     _dbus_warn ("no memory for userid\n");
                     _dbus_string_free (&to_send);
@@ -406,7 +400,7 @@ _dbus_auth_script_run (const DBusString *filename)
                 DBusString username;
                 const DBusString *u;
                 
-                if (!_dbus_string_init (&username, _DBUS_INT_MAX))
+                if (!_dbus_string_init (&username))
                   {
                     _dbus_warn ("no memory for username\n");
                     _dbus_string_free (&to_send);
@@ -486,7 +480,7 @@ _dbus_auth_script_run (const DBusString *filename)
           
           _dbus_string_delete_first_word (&line);
 
-          if (!_dbus_string_init (&received, _DBUS_INT_MAX))
+          if (!_dbus_string_init (&received))
             {
               _dbus_warn ("no mem to allocate string received\n");
               goto out;
@@ -494,21 +488,18 @@ _dbus_auth_script_run (const DBusString *filename)
 
           if (!_dbus_string_pop_line (&from_auth, &received))
             {
-              const char *command;
-              _dbus_string_get_const_data (&line, &command);
               _dbus_warn ("no line popped from the DBusAuth being tested, expected command %s on line %d\n",
-                          command, line_no);
+                          _dbus_string_get_const_data (&line), line_no);
               _dbus_string_free (&received);
               goto out;
             }
 
           if (!same_first_word (&received, &line))
             {
-              const char *s1, *s2;
-              _dbus_string_get_const_data (&line, &s1);
-              _dbus_string_get_const_data (&received, &s2);
               _dbus_warn ("line %d expected command '%s' and got '%s'\n",
-                          line_no, s1, s2);
+                          line_no,
+                          _dbus_string_get_const_data (&line),
+                          _dbus_string_get_const_data (&received));
               _dbus_string_free (&received);
               goto out;
             }
@@ -523,7 +514,7 @@ _dbus_auth_script_run (const DBusString *filename)
           
           _dbus_string_delete_first_word (&line);
 
-          if (!_dbus_string_init (&expected, _DBUS_INT_MAX))
+          if (!_dbus_string_init (&expected))
             {
               _dbus_warn ("no mem to allocate string expected\n");
               goto out;
@@ -546,11 +537,9 @@ _dbus_auth_script_run (const DBusString *filename)
             }
           else
             {
-              const char *e1, *h1;
-              _dbus_string_get_const_data (&expected, &e1);
-              _dbus_string_get_const_data (unused, &h1);
               _dbus_warn ("Expected unused bytes '%s' and have '%s'\n",
-                          e1, h1);
+                          _dbus_string_get_const_data (&expected),
+                          _dbus_string_get_const_data (unused));
               _dbus_string_free (&expected);
               goto out;
             }
@@ -562,7 +551,7 @@ _dbus_auth_script_run (const DBusString *filename)
           
           _dbus_string_delete_first_word (&line);
 
-          if (!_dbus_string_init (&expected, _DBUS_INT_MAX))
+          if (!_dbus_string_init (&expected))
             {
               _dbus_warn ("no mem to allocate string expected\n");
               goto out;
@@ -585,11 +574,9 @@ _dbus_auth_script_run (const DBusString *filename)
             }
           else
             {
-              const char *e1, *h1;
-              _dbus_string_get_const_data (&expected, &e1);
-              _dbus_string_get_const_data (&from_auth, &h1);
               _dbus_warn ("Expected exact string '%s' and have '%s'\n",
-                          e1, h1);
+                          _dbus_string_get_const_data (&expected),
+                          _dbus_string_get_const_data (&from_auth));
               _dbus_string_free (&expected);
               goto out;
             }
@@ -601,10 +588,8 @@ _dbus_auth_script_run (const DBusString *filename)
       
     parse_failed:
       {
-        const char *s;
-        _dbus_string_get_const_data (&line, &s);
         _dbus_warn ("couldn't process line %d \"%s\"\n",
-                    line_no, s);
+                    line_no, _dbus_string_get_const_data (&line));
         goto out;
       }
     }
@@ -618,10 +603,8 @@ _dbus_auth_script_run (const DBusString *filename)
 
   if (_dbus_string_get_length (&from_auth) > 0)
     {
-      const char *s;
       _dbus_warn ("script did not have EXPECT_ statements for all the data received from the DBusAuth\n");
-      _dbus_string_get_const_data (&from_auth, &s);
-      _dbus_warn ("Leftover data: %s\n", s);
+      _dbus_warn ("Leftover data: %s\n", _dbus_string_get_const_data (&from_auth));
       goto out;
     }
   

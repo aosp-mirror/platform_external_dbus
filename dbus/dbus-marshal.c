@@ -157,7 +157,7 @@ _dbus_marshal_set_int32 (DBusString          *str,
   _dbus_assert (byte_order == DBUS_LITTLE_ENDIAN ||
                 byte_order == DBUS_BIG_ENDIAN);
   
-  _dbus_string_get_data_len (str, &data, offset, 4);
+  data = _dbus_string_get_data_len (str, offset, 4);
 
   _dbus_pack_int32 (value, byte_order, data);
 }
@@ -183,7 +183,7 @@ _dbus_marshal_set_uint32 (DBusString          *str,
   _dbus_assert (byte_order == DBUS_LITTLE_ENDIAN ||
                 byte_order == DBUS_BIG_ENDIAN);
   
-  _dbus_string_get_data_len (str, &data, offset, 4);
+  data = _dbus_string_get_data_len (str, offset, 4);
 
   _dbus_pack_uint32 (value, byte_order, data);
 }
@@ -705,7 +705,7 @@ _dbus_demarshal_double (const DBusString  *str,
 
   pos = _DBUS_ALIGN_VALUE (pos, sizeof (double));
 
-  _dbus_string_get_const_data_len (str, &buffer, pos, sizeof (double));
+  buffer = _dbus_string_get_const_data_len (str, pos, sizeof (double));
 
   retval = *(double *)buffer;
   
@@ -807,7 +807,7 @@ _dbus_demarshal_string (const DBusString *str,
   if (!retval)
     return NULL;
 
-  _dbus_string_get_const_data_len (str, &data, pos, len);
+  data = _dbus_string_get_const_data_len (str, pos, len);
 
   if (!data)
     return NULL;
@@ -865,7 +865,7 @@ _dbus_demarshal_byte_array (const DBusString  *str,
   if (!retval)
     return FALSE;
 
-  _dbus_string_get_const_data_len (str, &data, pos, len);
+  data = _dbus_string_get_const_data_len (str, pos, len);
 
   if (!data)
     {
@@ -1342,7 +1342,7 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
   if (pos >= _dbus_string_get_length (str))
     return FALSE;
 
-  _dbus_string_get_const_data_len (str, &data, pos, 1);
+  data = _dbus_string_get_const_data_len (str, pos, 1);
   
   switch (*data)
     {
@@ -1602,7 +1602,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
   if (pos >= _dbus_string_get_length (str))
     return FALSE;
 
-  _dbus_string_get_const_data_len (str, &data, pos, 1);
+  data = _dbus_string_get_const_data_len (str, pos, 1);
   
   switch (*data)
     {
@@ -1957,8 +1957,7 @@ _dbus_verbose_bytes_of_string (const DBusString    *str,
       len = real_len - start;
     }
   
-  
-  _dbus_string_get_const_data_len (str, &d, start, len);
+  d = _dbus_string_get_const_data_len (str, start, len);
 
   _dbus_verbose_bytes (d, len);
 }
@@ -1993,7 +1992,7 @@ _dbus_marshal_test (void)
   const char **our_string_array;
   DBusDict *dict;
   
-  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");
 
   /* Marshal doubles */

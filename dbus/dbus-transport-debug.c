@@ -328,7 +328,7 @@ _dbus_transport_debug_client_new (const char     *server_name,
       return NULL;
     }
 
-  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&address))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;

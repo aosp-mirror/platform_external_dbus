@@ -941,7 +941,7 @@ process_test_subdir (const DBusString *test_base_dir,
   retval = FALSE;
   dir = NULL;
 
-  if (!_dbus_string_init (&test_directory, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&test_directory))
     _dbus_assert_not_reached ("didn't allocate test_directory\n");
 
   _dbus_string_init_const (&filename, subdir);
@@ -954,16 +954,15 @@ process_test_subdir (const DBusString *test_base_dir,
     _dbus_assert_not_reached ("couldn't allocate full path");
 
   _dbus_string_free (&filename);
-  if (!_dbus_string_init (&filename, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&filename))
     _dbus_assert_not_reached ("didn't allocate filename string\n");
 
   dbus_error_init (&error);
   dir = _dbus_directory_open (&test_directory, &error);
   if (dir == NULL)
     {
-      const char *s;
-      _dbus_string_get_const_data (&test_directory, &s);
-      _dbus_warn ("Could not open %s: %s\n", s,
+      _dbus_warn ("Could not open %s: %s\n",
+                  _dbus_string_get_const_data (&test_directory),
                   error.message);
       dbus_error_free (&error);
       goto failed;
@@ -977,7 +976,7 @@ process_test_subdir (const DBusString *test_base_dir,
       DBusString full_path;
       LoaderOomData d;
 
-      if (!_dbus_string_init (&full_path, _DBUS_INT_MAX))
+      if (!_dbus_string_init (&full_path))
         _dbus_assert_not_reached ("couldn't init string");
 
       if (!_dbus_string_copy (&test_directory, 0, &full_path, 0))
@@ -988,19 +987,13 @@ process_test_subdir (const DBusString *test_base_dir,
 
       if (!_dbus_string_ends_with_c_str (&full_path, ".conf"))
         {
-          const char *filename_c;
-          _dbus_string_get_const_data (&filename, &filename_c);
           _dbus_verbose ("Skipping non-.conf file %s\n",
-                         filename_c);
+                         _dbus_string_get_const_data (&filename));
 	  _dbus_string_free (&full_path);
           goto next;
         }
 
-      {
-        const char *s;
-        _dbus_string_get_const_data (&filename, &s);
-        printf ("    %s\n", s);
-      }
+      printf ("    %s\n", _dbus_string_get_const_data (&filename));
 
       _dbus_verbose (" expecting %s\n",
                      validity == VALID ? "valid" :
@@ -1017,10 +1010,9 @@ process_test_subdir (const DBusString *test_base_dir,
 
   if (dbus_error_is_set (&error))
     {
-      const char *s;
-      _dbus_string_get_const_data (&test_directory, &s);
       _dbus_warn ("Could not get next file in %s: %s\n",
-                  s, error.message);
+                  _dbus_string_get_const_data (&test_directory),
+                  error.message);
       dbus_error_free (&error);
       goto failed;
     }

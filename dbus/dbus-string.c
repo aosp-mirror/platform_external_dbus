@@ -168,33 +168,18 @@ undo_alignment (DBusRealString *real)
 }
 
 /**
- * Initializes a string. The maximum length may be _DBUS_INT_MAX for
- * no maximum. The string starts life with zero length.
- * The string must eventually be freed with _dbus_string_free().
- *
- * @todo the max length feature is useless, because it looks to the
- * app like out of memory, and the app might try to "recover" - but
- * recovery in this case is impossible, as we can't ever "get more
- * memory" - so should delete the max length feature I think. Well, at
- * least there's a strong caveat that it can only be used when
- * out-of-memory is a permanent fatal error.
- *
- * @todo we could make this init routine not alloc any memory and
- * return void, would simplify a lot of code, however it might
- * complexify things elsewhere because _dbus_string_get_data()
- * etc. could suddenly fail as they'd need to alloc new memory.
+ * Initializes a string. The string starts life with zero length.  The
+ * string must eventually be freed with _dbus_string_free().
  * 
  * @param str memory to hold the string
- * @param max_length the maximum size of the string
- * @returns #TRUE on success */
+ * @returns #TRUE on success, #FALSE if no memory
+ */
 dbus_bool_t
-_dbus_string_init (DBusString *str,
-                   int         max_length)
+_dbus_string_init (DBusString *str)
 {
   DBusRealString *real;
   
   _dbus_assert (str != NULL);
-  _dbus_assert (max_length >= 0);
 
   _dbus_assert (sizeof (DBusString) == sizeof (DBusRealString));
   
@@ -214,9 +199,7 @@ _dbus_string_init (DBusString *str,
   real->len = 0;
   real->str[real->len] = '\0';
   
-  real->max_length = max_length;
-  if (real->max_length > MAX_MAX_LENGTH)
-    real->max_length = MAX_MAX_LENGTH;
+  real->max_length = MAX_MAX_LENGTH;
   real->constant = FALSE;
   real->locked = FALSE;
   real->invalid = FALSE;
@@ -225,6 +208,23 @@ _dbus_string_init (DBusString *str,
   fixup_alignment (real);
   
   return TRUE;
+}
+
+/* The max length thing is sort of a historical artifact
+ * from a feature that turned out to be dumb; perhaps
+ * we should purge it entirely. The problem with
+ * the feature is that it looks like memory allocation
+ * failure, but is not a transient or resolvable failure.
+ */
+static void
+set_max_length (DBusString *str,
+                int         max_length)
+{
+  DBusRealString *real;
+  
+  real = (DBusRealString*) str;
+
+  real->max_length = max_length;
 }
 
 /**
@@ -409,36 +409,28 @@ open_gap (int             len,
  * function on a const string.
  *
  * @param str the string
- * @param data_return place to store the returned data
+ * @returns the data
  */
-void
-_dbus_string_get_data (DBusString        *str,
-                       char             **data_return)
+char*
+_dbus_string_get_data (DBusString *str)
 {
   DBUS_STRING_PREAMBLE (str);
-  _dbus_assert (data_return != NULL);
   
-  *data_return = real->str;
+  return real->str;
 }
 
 /**
  * Gets the raw character buffer from a const string.
  *
- * @todo should return the const char* instead of using an out param;
- * the temporary variable encourages a bug where you use const data
- * after modifying the string and possibly causing a realloc.
- *
  * @param str the string
- * @param data_return location to store returned data
+ * @returns the string data
  */
-void
-_dbus_string_get_const_data (const DBusString  *str,
-                             const char       **data_return)
+const char*
+_dbus_string_get_const_data (const DBusString  *str)
 {
   DBUS_CONST_STRING_PREAMBLE (str);
-  _dbus_assert (data_return != NULL);
   
-  *data_return = real->str;
+  return real->str;
 }
 
 /**
@@ -450,24 +442,22 @@ _dbus_string_get_const_data (const DBusString  *str,
  * string, not at start + len.
  *
  * @param str the string
- * @param data_return location to return the buffer
  * @param start byte offset to return
  * @param len length of segment to return
+ * @returns the string data
  */
-void
+char*
 _dbus_string_get_data_len (DBusString *str,
-                           char      **data_return,
                            int         start,
                            int         len)
 {
   DBUS_STRING_PREAMBLE (str);
-  _dbus_assert (data_return != NULL);
   _dbus_assert (start >= 0);
   _dbus_assert (len >= 0);
   _dbus_assert (start <= real->len);
   _dbus_assert (len <= real->len - start);
   
-  *data_return = real->str + start;
+  return real->str + start;
 }
 
 /**
@@ -478,24 +468,22 @@ _dbus_string_get_data_len (DBusString *str,
  * after modifying the string and possibly causing a realloc.
  * 
  * @param str the string
- * @param data_return location to return the buffer
  * @param start byte offset to return
  * @param len length of segment to return
+ * @returns the string data
  */
-void
+const char*
 _dbus_string_get_const_data_len (const DBusString  *str,
-                                 const char       **data_return,
                                  int                start,
                                  int                len)
 {
   DBUS_CONST_STRING_PREAMBLE (str);
-  _dbus_assert (data_return != NULL);
   _dbus_assert (start >= 0);
   _dbus_assert (len >= 0);
   _dbus_assert (start <= real->len);
   _dbus_assert (len <= real->len - start);
   
-  *data_return = real->str + start;
+  return real->str + start;
 }
 
 /**
@@ -574,6 +562,7 @@ dbus_bool_t
 _dbus_string_steal_data (DBusString        *str,
                          char             **data_return)
 {
+  int old_max_length;
   DBUS_STRING_PREAMBLE (str);
   _dbus_assert (data_return != NULL);
 
@@ -581,8 +570,10 @@ _dbus_string_steal_data (DBusString        *str,
   
   *data_return = real->str;
 
+  old_max_length = real->max_length;
+  
   /* reset the string */
-  if (!_dbus_string_init (str, real->max_length))
+  if (!_dbus_string_init (str))
     {
       /* hrm, put it back then */
       real->str = *data_return;
@@ -590,6 +581,8 @@ _dbus_string_steal_data (DBusString        *str,
       fixup_alignment (real);
       return FALSE;
     }
+
+  real->max_length = old_max_length;
 
   return TRUE;
 }
@@ -616,7 +609,6 @@ _dbus_string_steal_data_len (DBusString        *str,
                              int                len)
 {
   DBusString dest;
-  
   DBUS_STRING_PREAMBLE (str);
   _dbus_assert (data_return != NULL);
   _dbus_assert (start >= 0);
@@ -624,9 +616,11 @@ _dbus_string_steal_data_len (DBusString        *str,
   _dbus_assert (start <= real->len);
   _dbus_assert (len <= real->len - start);
 
-  if (!_dbus_string_init (&dest, real->max_length))
+  if (!_dbus_string_init (&dest))
     return FALSE;
 
+  set_max_length (&dest, real->max_length);
+  
   if (!_dbus_string_move_len (str, start, len, &dest, 0))
     {
       _dbus_string_free (&dest);
@@ -692,8 +686,10 @@ _dbus_string_copy_data_len (const DBusString  *str,
   _dbus_assert (start <= real->len);
   _dbus_assert (len <= real->len - start);
 
-  if (!_dbus_string_init (&dest, real->max_length))
+  if (!_dbus_string_init (&dest))
     return FALSE;
+
+  set_max_length (&dest, real->max_length);
 
   if (!_dbus_string_copy_len (str, start, len, &dest, 0))
     {
@@ -2160,7 +2156,7 @@ _dbus_string_base64_decode (const DBusString *source,
   if (source_len == 0)
     return TRUE;
 
-  if (!_dbus_string_init (&result, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&result))
     return FALSE;
 
   pad_count = 0;
@@ -2283,12 +2279,12 @@ _dbus_string_hex_encode (const DBusString *source,
   
   _dbus_assert (start <= _dbus_string_get_length (source));
 
-  if (!_dbus_string_init (&result, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&result))
     return FALSE;
 
   retval = FALSE;
   
-  _dbus_string_get_const_data (source, (const char**) &p);
+  p = (const unsigned char*) _dbus_string_get_const_data (source);
   end = p + _dbus_string_get_length (source);
   p += start;
   
@@ -2338,13 +2334,13 @@ _dbus_string_hex_decode (const DBusString *source,
   
   _dbus_assert (start <= _dbus_string_get_length (source));
 
-  if (!_dbus_string_init (&result, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&result))
     return FALSE;
 
   retval = FALSE;
 
   high_bits = TRUE;
-  _dbus_string_get_const_data (source, (const char**) &p);
+  p = (const unsigned char*) _dbus_string_get_const_data (source);
   end = p + _dbus_string_get_length (source);
   p += start;
   
@@ -2652,13 +2648,13 @@ test_base64_roundtrip (const unsigned char *data,
   if (len < 0)
     len = strlen (data);
   
-  if (!_dbus_string_init (&orig, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&orig))
     _dbus_assert_not_reached ("could not init string");
 
-  if (!_dbus_string_init (&encoded, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&encoded))
     _dbus_assert_not_reached ("could not init string");
   
-  if (!_dbus_string_init (&decoded, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&decoded))
     _dbus_assert_not_reached ("could not init string");
 
   if (!_dbus_string_append_len (&orig, data, len))
@@ -2679,7 +2675,7 @@ test_base64_roundtrip (const unsigned char *data,
               _dbus_string_get_length (&encoded),
               _dbus_string_get_length (&decoded));
       printf ("Original: %s\n", data);
-      _dbus_string_get_const_data (&decoded, &s);
+      s = _dbus_string_get_const_data (&decoded);
       printf ("Decoded: %s\n", s);
       _dbus_assert_not_reached ("original string not the same as string decoded from base64");
     }
@@ -2700,13 +2696,13 @@ test_hex_roundtrip (const unsigned char *data,
   if (len < 0)
     len = strlen (data);
   
-  if (!_dbus_string_init (&orig, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&orig))
     _dbus_assert_not_reached ("could not init string");
 
-  if (!_dbus_string_init (&encoded, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&encoded))
     _dbus_assert_not_reached ("could not init string");
   
-  if (!_dbus_string_init (&decoded, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&decoded))
     _dbus_assert_not_reached ("could not init string");
 
   if (!_dbus_string_append_len (&orig, data, len))
@@ -2727,7 +2723,7 @@ test_hex_roundtrip (const unsigned char *data,
               _dbus_string_get_length (&encoded),
               _dbus_string_get_length (&decoded));
       printf ("Original: %s\n", data);
-      _dbus_string_get_const_data (&decoded, &s);
+      s = _dbus_string_get_const_data (&decoded);
       printf ("Decoded: %s\n", s);
       _dbus_assert_not_reached ("original string not the same as string decoded from base64");
     }
@@ -2805,8 +2801,10 @@ _dbus_string_test (void)
   i = 0;
   while (i < _DBUS_N_ELEMENTS (lens))
     {
-      if (!_dbus_string_init (&str, lens[i]))
+      if (!_dbus_string_init (&str))
         _dbus_assert_not_reached ("failed to init string");
+
+      set_max_length (&str, lens[i]);
       
       test_max_len (&str, lens[i]);
       _dbus_string_free (&str);
@@ -2820,8 +2818,10 @@ _dbus_string_test (void)
     {
       int j;
       
-      if (!_dbus_string_init (&str, lens[i]))
+      if (!_dbus_string_init (&str))
         _dbus_assert_not_reached ("failed to init string");
+
+      set_max_length (&str, lens[i]);
       
       if (!_dbus_string_set_length (&str, lens[i]))
         _dbus_assert_not_reached ("failed to set string length");
@@ -2844,7 +2844,7 @@ _dbus_string_test (void)
     }
 
   /* Test appending data */
-  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");
 
   i = 0;
@@ -2867,7 +2867,7 @@ _dbus_string_test (void)
 
   /* Check steal_data */
   
-  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");
 
   if (!_dbus_string_append (&str, "Hello World"))
@@ -2890,7 +2890,7 @@ _dbus_string_test (void)
 
   i = _dbus_string_get_length (&str);
 
-  if (!_dbus_string_init (&other, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&other))
     _dbus_assert_not_reached ("could not init string");
   
   if (!_dbus_string_move (&str, 0, &other, 0))
@@ -2926,7 +2926,7 @@ _dbus_string_test (void)
 
   i = _dbus_string_get_length (&str);
   
-  if (!_dbus_string_init (&other, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&other))
     _dbus_assert_not_reached ("could not init string");
   
   if (!_dbus_string_copy (&str, 0, &other, 0))
@@ -2956,7 +2956,7 @@ _dbus_string_test (void)
 
   /* Check replace */
 
-  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");
   
   if (!_dbus_string_append (&str, "Hello World"))
@@ -2964,7 +2964,7 @@ _dbus_string_test (void)
 
   i = _dbus_string_get_length (&str);
   
-  if (!_dbus_string_init (&other, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&other))
     _dbus_assert_not_reached ("could not init string");
   
   if (!_dbus_string_replace_len (&str, 0, _dbus_string_get_length (&str),
@@ -3001,7 +3001,7 @@ _dbus_string_test (void)
   
   /* Check append/get unichar */
   
-  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");
 
   ch = 0;
@@ -3017,7 +3017,7 @@ _dbus_string_test (void)
 
   /* Check insert/set/get byte */
   
-  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");
 
   if (!_dbus_string_append (&str, "Hello"))
@@ -3054,7 +3054,7 @@ _dbus_string_test (void)
   
   /* Check append/parse int/double */
   
-  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");
 
   if (!_dbus_string_append_int (&str, 27))
@@ -3070,7 +3070,7 @@ _dbus_string_test (void)
 
   _dbus_string_free (&str);
   
-  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");
   
   if (!_dbus_string_append_double (&str, 50.3))
@@ -3087,7 +3087,7 @@ _dbus_string_test (void)
   _dbus_string_free (&str);
 
   /* Test find */
-  if (!_dbus_string_init (&str, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");
 
   if (!_dbus_string_append (&str, "Hello"))

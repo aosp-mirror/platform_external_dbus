@@ -159,7 +159,7 @@ _dbus_server_debug_pipe_new (const char     *server_name,
   if (debug_server == NULL)
     goto nomem_0;
 
-  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&address))
     goto nomem_1;
 
   if (!_dbus_string_append (&address, "debug-pipe:name=") ||
@@ -230,7 +230,7 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
       return NULL;
     }
 
-  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&address))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;

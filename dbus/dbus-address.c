@@ -97,7 +97,7 @@ create_entry (void)
   if (entry == NULL)
     return NULL;
 
-  if (!_dbus_string_init (&entry->method, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&entry->method))
     {
       dbus_free (entry);
       return NULL;
@@ -116,11 +116,7 @@ create_entry (void)
 const char *
 dbus_address_entry_get_method (DBusAddressEntry *entry)
 {
-  const char *method;
-
-  _dbus_string_get_const_data (&entry->method, &method);
-
-  return method;
+  return _dbus_string_get_const_data (&entry->method);
 }
 
 /**
@@ -144,12 +140,8 @@ dbus_address_entry_get_value (DBusAddressEntry *entry,
       _dbus_assert (values != NULL);
 
       if (_dbus_string_equal_c_str (keys->data, key))
-	{
-	  const char *str;
+        return _dbus_string_get_const_data (values->data);
 
-	  _dbus_string_get_const_data (values->data, &str);
-	  return str;
-	}
       keys = _dbus_list_get_next_link (&entry->keys, keys);
       values = _dbus_list_get_next_link (&entry->values, values);
     }
@@ -268,7 +260,7 @@ dbus_parse_address (const char         *address,
 		  goto error;
 		}
 	      
-	      if (!_dbus_string_init (key, _DBUS_INT_MAX))
+	      if (!_dbus_string_init (key))
 		{
 		  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 		  dbus_free (key);
@@ -277,7 +269,7 @@ dbus_parse_address (const char         *address,
 		  goto error;
 		}
 	      
-	      if (!_dbus_string_init (value, _DBUS_INT_MAX))
+	      if (!_dbus_string_init (value))
 		{
 		  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 		  _dbus_string_free (key);

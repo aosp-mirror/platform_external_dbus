@@ -977,12 +977,10 @@ _dbus_transport_new_for_fd (int               fd,
   if (unix_transport == NULL)
     return NULL;
 
-  if (!_dbus_string_init (&unix_transport->encoded_outgoing,
-                          _DBUS_INT_MAX))
+  if (!_dbus_string_init (&unix_transport->encoded_outgoing))
     goto failed_0;
 
-  if (!_dbus_string_init (&unix_transport->encoded_incoming,
-                          _DBUS_INT_MAX))
+  if (!_dbus_string_init (&unix_transport->encoded_incoming))
     goto failed_1;
   
   unix_transport->write_watch = _dbus_watch_new (fd,
@@ -1042,7 +1040,7 @@ _dbus_transport_new_for_domain_socket (const char     *path,
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&address))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
@@ -1102,7 +1100,7 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&address))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;

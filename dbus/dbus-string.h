@@ -45,8 +45,7 @@ struct DBusString
   unsigned int dummy8 : 3; /**< placeholder */
 };
 
-dbus_bool_t _dbus_string_init           (DBusString *str,
-                                         int         max_length);
+dbus_bool_t _dbus_string_init           (DBusString *str);
 void        _dbus_string_init_const     (DBusString *str,
                                          const char *value);
 void        _dbus_string_init_const_len (DBusString *str,
@@ -55,16 +54,12 @@ void        _dbus_string_init_const_len (DBusString *str,
 void        _dbus_string_free           (DBusString *str);
 void        _dbus_string_lock           (DBusString *str);
 
-void        _dbus_string_get_data           (DBusString        *str,
-                                             char             **data_return);
-void        _dbus_string_get_const_data     (const DBusString  *str,
-                                             const char       **data_return);
-void        _dbus_string_get_data_len       (DBusString        *str,
-                                             char             **data_return,
+char*       _dbus_string_get_data           (DBusString        *str);
+const char* _dbus_string_get_const_data     (const DBusString  *str);
+char*       _dbus_string_get_data_len       (DBusString        *str,
                                              int                start,
                                              int                len);
-void        _dbus_string_get_const_data_len (const DBusString  *str,
-                                             const char       **data_return,
+const char* _dbus_string_get_const_data_len (const DBusString  *str,
                                              int                start,
                                              int                len);
 void        _dbus_string_set_byte           (DBusString        *str,

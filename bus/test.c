@@ -296,7 +296,7 @@ bus_context_new_test (const DBusString *test_data_dir,
   DBusString relative;
   BusContext *context;
   
-  if (!_dbus_string_init (&config_file, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&config_file))
     {
       _dbus_warn ("No memory\n");
       return NULL;

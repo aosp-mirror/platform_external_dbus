@@ -107,13 +107,10 @@ BusService*
 bus_registry_lookup (BusRegistry      *registry,
                      const DBusString *service_name)
 {
-  const char *c_name;
   BusService *service;
-  
-  _dbus_string_get_const_data (service_name, &c_name);
 
   service = _dbus_hash_table_lookup_string (registry->service_hash,
-                                            c_name);
+                                            _dbus_string_get_const_data (service_name));
 
   return service;
 }
@@ -125,18 +122,15 @@ bus_registry_ensure (BusRegistry               *registry,
                      BusTransaction            *transaction,
                      DBusError                 *error)
 {
-  const char *c_name;
   BusService *service;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   _dbus_assert (owner_if_created != NULL);
   _dbus_assert (transaction != NULL);
-  
-  _dbus_string_get_const_data (service_name, &c_name);
 
   service = _dbus_hash_table_lookup_string (registry->service_hash,
-                                            c_name);
+                                            _dbus_string_get_const_data (service_name));
   if (service != NULL)
     return service;
   
@@ -149,8 +143,7 @@ bus_registry_ensure (BusRegistry               *registry,
 
   service->registry = registry;  
 
-  service->name = _dbus_strdup (c_name);
-  if (service->name == NULL)
+  if (!_dbus_string_copy_data (service_name, &service->name))
     {
       _dbus_mem_pool_dealloc (registry->service_pool, service);
       BUS_SET_OOM (error);

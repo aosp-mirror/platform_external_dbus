@@ -51,10 +51,8 @@ check_two_config_files (const DBusString *config_file,
 {
   if (_dbus_string_get_length (config_file) > 0)
     {
-      const char *s;
-      _dbus_string_get_const_data (config_file, &s);
       fprintf (stderr, "--%s specified but configuration file %s already requested\n",
-               extra_arg, s);
+               extra_arg, _dbus_string_get_const_data (config_file));
       exit (1);
     }
 }
@@ -68,7 +66,7 @@ main (int argc, char **argv)
   const char *prev_arg;
   int i;
 
-  if (!_dbus_string_init (&config_file, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&config_file))
     return 1;
   
   prev_arg = NULL;

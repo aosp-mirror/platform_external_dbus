@@ -265,7 +265,7 @@ _dbus_server_new_for_domain_socket (const char     *path,
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&address))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
@@ -322,7 +322,7 @@ _dbus_server_new_for_tcp_socket (const char     *host,
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  if (!_dbus_string_init (&address, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&address))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;

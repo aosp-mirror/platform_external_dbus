@@ -295,19 +295,19 @@ _dbus_auth_new (int size)
    * overlong buffers in _dbus_auth_do_work().
    */
   
-  if (!_dbus_string_init (&auth->incoming, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&auth->incoming))
     goto enomem_0;
 
-  if (!_dbus_string_init (&auth->outgoing, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&auth->outgoing))
     goto enomem_1;
     
-  if (!_dbus_string_init (&auth->identity, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&auth->identity))
     goto enomem_2;
 
-  if (!_dbus_string_init (&auth->context, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&auth->context))
     goto enomem_3;
 
-  if (!_dbus_string_init (&auth->challenge, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&auth->challenge))
     goto enomem_4;
 
   /* default context if none is specified */
@@ -381,7 +381,7 @@ sha1_compute_hash (DBusAuth         *auth,
 
   retval = FALSE;
   
-  if (!_dbus_string_init (&cookie, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&cookie))
     return FALSE;
 
   if (!_dbus_keyring_get_hex_key (auth->keyring, cookie_id,
@@ -394,7 +394,7 @@ sha1_compute_hash (DBusAuth         *auth,
       goto out_0;
     }
 
-  if (!_dbus_string_init (&to_hash, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&to_hash))
     goto out_0;
   
   if (!_dbus_string_copy (server_challenge, 0,
@@ -474,10 +474,10 @@ sha1_handle_first_client_response (DBusAuth         *auth,
       return send_rejected (auth);
     }
       
-  if (!_dbus_string_init (&tmp, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&tmp))
     return FALSE;
 
-  if (!_dbus_string_init (&tmp2, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&tmp2))
     {
       _dbus_string_free (&tmp);
       return FALSE;
@@ -621,10 +621,10 @@ sha1_handle_second_client_response (DBusAuth         *auth,
       return send_rejected (auth);
     }
   
-  if (!_dbus_string_init (&client_challenge, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&client_challenge))
     goto out_0;
 
-  if (!_dbus_string_init (&client_hash, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&client_hash))
     goto out_1;  
 
   if (!_dbus_string_copy_len (data, 0, i, &client_challenge,
@@ -648,7 +648,7 @@ sha1_handle_second_client_response (DBusAuth         *auth,
       goto out_2;
     }
 
-  if (!_dbus_string_init (&correct_hash, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&correct_hash))
     goto out_2;
 
   if (!sha1_compute_hash (auth, auth->cookie_id,
@@ -769,7 +769,7 @@ handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
       goto out_0;
     }
 
-  if (!_dbus_string_init (&context, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&context))
     goto out_0;
 
   if (!_dbus_string_copy_len (data, 0, i,
@@ -785,14 +785,14 @@ handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
       goto out_1;
     }
 
-  if (!_dbus_string_init (&cookie_id_str, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&cookie_id_str))
     goto out_1;
   
   if (!_dbus_string_copy_len (data, i, j - i,
                               &cookie_id_str, 0))
     goto out_2;  
 
-  if (!_dbus_string_init (&server_challenge, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&server_challenge))
     goto out_2;
 
   i = j;
@@ -867,19 +867,19 @@ handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
   
   _dbus_assert (auth->keyring != NULL);
   
-  if (!_dbus_string_init (&tmp, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&tmp))
     goto out_3;
   
   if (!_dbus_generate_random_bytes (&tmp, N_CHALLENGE_BYTES))
     goto out_4;
 
-  if (!_dbus_string_init (&client_challenge, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&client_challenge))
     goto out_4;
 
   if (!_dbus_string_hex_encode (&tmp, 0, &client_challenge, 0))
     goto out_5;
 
-  if (!_dbus_string_init (&correct_hash, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&correct_hash))
     goto out_6;
   
   if (!sha1_compute_hash (auth, val,
@@ -1069,7 +1069,7 @@ handle_client_initial_response_external_mech (DBusAuth         *auth,
    */
   DBusString plaintext;
 
-  if (!_dbus_string_init (&plaintext, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&plaintext))
     return FALSE;
   
   if (!_dbus_string_append_our_uid (&plaintext))
@@ -1159,7 +1159,7 @@ send_rejected (DBusAuth *auth)
   DBusAuthServer *server_auth;
   int i;
   
-  if (!_dbus_string_init (&command, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&command))
     return FALSE;
   
   if (!_dbus_string_append (&command,
@@ -1233,16 +1233,16 @@ process_auth (DBusAuth         *auth,
       
       _dbus_string_find_blank (args, 0, &i);
 
-      if (!_dbus_string_init (&mech, _DBUS_INT_MAX))
+      if (!_dbus_string_init (&mech))
         return FALSE;
 
-      if (!_dbus_string_init (&base64_response, _DBUS_INT_MAX))
+      if (!_dbus_string_init (&base64_response))
         {
           _dbus_string_free (&mech);
           return FALSE;
         }
       
-      if (!_dbus_string_init (&decoded_response, _DBUS_INT_MAX))
+      if (!_dbus_string_init (&decoded_response))
         {
           _dbus_string_free (&mech);
           _dbus_string_free (&base64_response);
@@ -1329,7 +1329,7 @@ process_data_server (DBusAuth         *auth,
     {
       DBusString decoded;
 
-      if (!_dbus_string_init (&decoded, _DBUS_INT_MAX))
+      if (!_dbus_string_init (&decoded))
         return FALSE;
 
       if (!_dbus_string_base64_decode (args, 0, &decoded, 0))
@@ -1341,11 +1341,7 @@ process_data_server (DBusAuth         *auth,
 #ifdef DBUS_ENABLE_VERBOSE_MODE
       if (_dbus_string_validate_ascii (&decoded, 0,
                                        _dbus_string_get_length (&decoded)))
-        {
-          const char *s;
-          _dbus_string_get_const_data (&decoded, &s);
-          _dbus_verbose ("data: '%s'\n", s);
-        }
+        _dbus_verbose ("data: '%s'\n", _dbus_string_get_const_data (&decoded));
 #endif
       
       if (!(* auth->mech->server_data_func) (auth, &decoded))
@@ -1416,7 +1412,7 @@ record_mechanisms (DBusAuth         *auth,
       DBusString m;
       const DBusAuthMechanismHandler *mech;
       
-      if (!_dbus_string_init (&m, _DBUS_INT_MAX))
+      if (!_dbus_string_init (&m))
         goto nomem;
       
       if (!get_word (args, &next, &m))
@@ -1444,11 +1440,8 @@ record_mechanisms (DBusAuth         *auth,
         }
       else
         {
-          const char *s;
-
-          _dbus_string_get_const_data (&m, &s);
           _dbus_verbose ("Server offered mechanism \"%s\" that we don't know how to use\n",
-                         s);
+                         _dbus_string_get_const_data (&m));
         }
 
       _dbus_string_free (&m);
@@ -1475,7 +1468,7 @@ client_try_next_mechanism (DBusAuth *auth)
 
   mech = DBUS_AUTH_CLIENT (auth)->mechs_to_try->data;
 
-  if (!_dbus_string_init (&auth_command, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&auth_command))
     return FALSE;
       
   if (!_dbus_string_append (&auth_command,
@@ -1582,7 +1575,7 @@ process_data_client (DBusAuth         *auth,
     {
       DBusString decoded;
 
-      if (!_dbus_string_init (&decoded, _DBUS_INT_MAX))
+      if (!_dbus_string_init (&decoded))
         return FALSE;
 
       if (!_dbus_string_base64_decode (args, 0, &decoded, 0))
@@ -1595,9 +1588,8 @@ process_data_client (DBusAuth         *auth,
       if (_dbus_string_validate_ascii (&decoded, 0,
                                        _dbus_string_get_length (&decoded)))
         {
-          const char *s;
-          _dbus_string_get_const_data (&decoded, &s);
-          _dbus_verbose ("data: '%s'\n", s);
+          _dbus_verbose ("data: '%s'\n",
+                         _dbus_string_get_const_data (&decoded));
         }
 #endif
       
@@ -1657,13 +1649,13 @@ process_command (DBusAuth *auth)
   if (!_dbus_string_find (&auth->incoming, 0, "\r\n", &eol))
     return FALSE;
   
-  if (!_dbus_string_init (&command, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&command))
     {
       auth->needed_memory = TRUE;
       return FALSE;
     }
 
-  if (!_dbus_string_init (&args, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&args))
     {
       _dbus_string_free (&command);
       auth->needed_memory = TRUE;
@@ -1692,11 +1684,7 @@ process_command (DBusAuth *auth)
         goto next_command;
     }
   
-  {
-    const char *q;
-    _dbus_string_get_const_data (&command, &q);
-    _dbus_verbose ("got command \"%s\"\n", q);
-  }
+  _dbus_verbose ("got command \"%s\"\n", _dbus_string_get_const_data (&command));
   
   _dbus_string_find_blank (&command, 0, &i);
   _dbus_string_skip_blank (&command, i, &j);
@@ -1983,11 +1971,8 @@ void
 _dbus_auth_bytes_sent (DBusAuth *auth,
                        int       bytes_sent)
 {
-  {
-    const char *s;
-    _dbus_string_get_const_data (&auth->outgoing, &s);
-    _dbus_verbose ("Sent %d bytes of: %s\n", bytes_sent, s);
-  }
+  _dbus_verbose ("Sent %d bytes of: %s\n", bytes_sent,
+                 _dbus_string_get_const_data (&auth->outgoing));
   
   _dbus_string_delete (&auth->outgoing,
                        0, bytes_sent);
@@ -2264,7 +2249,7 @@ process_test_subdir (const DBusString          *test_base_dir,
   retval = FALSE;
   dir = NULL;
   
-  if (!_dbus_string_init (&test_directory, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&test_directory))
     _dbus_assert_not_reached ("didn't allocate test_directory\n");
 
   _dbus_string_init_const (&filename, subdir);
@@ -2277,16 +2262,15 @@ process_test_subdir (const DBusString          *test_base_dir,
     _dbus_assert_not_reached ("couldn't allocate full path");
 
   _dbus_string_free (&filename);
-  if (!_dbus_string_init (&filename, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&filename))
     _dbus_assert_not_reached ("didn't allocate filename string\n");
 
   dbus_error_init (&error);
   dir = _dbus_directory_open (&test_directory, &error);
   if (dir == NULL)
     {
-      const char *s;
-      _dbus_string_get_const_data (&test_directory, &s);
-      _dbus_warn ("Could not open %s: %s\n", s,
+      _dbus_warn ("Could not open %s: %s\n",
+                  _dbus_string_get_const_data (&test_directory),
                   error.message);
       dbus_error_free (&error);
       goto failed;
@@ -2299,7 +2283,7 @@ process_test_subdir (const DBusString          *test_base_dir,
     {
       DBusString full_path;
       
-      if (!_dbus_string_init (&full_path, _DBUS_INT_MAX))
+      if (!_dbus_string_init (&full_path))
         _dbus_assert_not_reached ("couldn't init string");
 
       if (!_dbus_string_copy (&test_directory, 0, &full_path, 0))
@@ -2310,19 +2294,13 @@ process_test_subdir (const DBusString          *test_base_dir,
 
       if (!_dbus_string_ends_with_c_str (&filename, ".auth-script"))
         {
-          const char *filename_c;
-          _dbus_string_get_const_data (&filename, &filename_c);
           _dbus_verbose ("Skipping non-.auth-script file %s\n",
-                         filename_c);
+                         _dbus_string_get_const_data (&filename));
 	  _dbus_string_free (&full_path);
           goto next;
         }
 
-      {
-        const char *s;
-        _dbus_string_get_const_data (&filename, &s);
-        printf ("    %s\n", s);
-      }
+      printf ("    %s\n", _dbus_string_get_const_data (&filename));
       
       if (!_dbus_auth_script_run (&full_path))
         {
@@ -2335,10 +2313,8 @@ process_test_subdir (const DBusString          *test_base_dir,
 
   if (dbus_error_is_set (&error))
     {
-      const char *s;
-      _dbus_string_get_const_data (&test_directory, &s);
       _dbus_warn ("Could not get next file in %s: %s\n",
-                  s, error.message);
+                  _dbus_string_get_const_data (&test_directory), error.message);
       dbus_error_free (&error);
       goto failed;
     }

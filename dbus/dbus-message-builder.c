@@ -67,8 +67,8 @@ ensure_saved_length (DBusHashTable    *hash,
 {
   SavedLength *sl;
   const char *s;
-
-  _dbus_string_get_const_data (name, &s);
+  
+  s = _dbus_string_get_const_data (name);
 
   sl = _dbus_hash_table_lookup_string (hash, s);
   if (sl != NULL)
@@ -76,7 +76,7 @@ ensure_saved_length (DBusHashTable    *hash,
   
   sl = dbus_new0 (SavedLength, 1);
 
-  if (!_dbus_string_init (&sl->name, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&sl->name))
     {
       dbus_free (sl);
       return NULL;
@@ -85,7 +85,7 @@ ensure_saved_length (DBusHashTable    *hash,
   if (!_dbus_string_copy (name, 0, &sl->name, 0))
     goto failed;
 
-  _dbus_string_get_const_data (&sl->name, &s);
+  s = _dbus_string_get_const_data (&sl->name);
 
   if (!_dbus_hash_table_insert_string (hash, (char*)s, sl))
     goto failed;
@@ -326,28 +326,22 @@ _dbus_message_data_load (DBusString       *dest,
   retval = FALSE;
   length_hash = NULL;
   
-  if (!_dbus_string_init (&file, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&file))
     return FALSE;
 
-  if (!_dbus_string_init (&line, _DBUS_INT_MAX))
+  if (!_dbus_string_init (&line))
     {
       _dbus_string_free (&file);
       return FALSE;
     }
 
-  {
-    const char *s;
-    _dbus_string_get_const_data (filename, &s);
-    _dbus_verbose ("Loading %s\n", s);
-  }
+  _dbus_verbose ("Loading %s\n", _dbus_string_get_const_data (filename));
 
   dbus_error_init (&error);
   if (!_dbus_file_get_contents (&file, filename, &error))
     {
-      const char *s;
-      _dbus_string_get_const_data (filename, &s);
       _dbus_warn ("Getting contents of %s failed: %s\n",
-                  s, error.message);
+                  _dbus_string_get_const_data (filename), error.message);
       dbus_error_free (&error);
       goto out;
     }
@@ -600,10 +594,8 @@ _dbus_message_data_load (DBusString       *dest,
 
           if (_dbus_string_get_length (&line) != 4)
             {
-              const char *s;
-              _dbus_string_get_const_data (&line, &s);
               _dbus_warn ("Field name must be four characters not \"%s\"\n",
-                             s);
+                          _dbus_string_get_const_data (&line));
               goto parse_failed;
             }
 
@@ -653,9 +645,7 @@ _dbus_message_data_load (DBusString       *dest,
             code = DBUS_TYPE_DICT;
           else
             {
-              const char *s;
-              _dbus_string_get_const_data (&line, &s);
-              _dbus_warn ("%s is not a valid type name\n", s);
+              _dbus_warn ("%s is not a valid type name\n", _dbus_string_get_const_data (&line));
               goto parse_failed;
             }
 
@@ -972,7 +962,7 @@ _dbus_message_data_load (DBusString       *dest,
 	  if (b != '{')
 	    goto parse_failed;
 
-	  _dbus_string_init (&val_str, _DBUS_INT_MAX);
+	  _dbus_string_init (&val_str);
 	  while (i < _dbus_string_get_length (&line))
 	    {
 	      _dbus_string_skip_blank (&line, i, &i);
@@ -1157,10 +1147,8 @@ _dbus_message_data_load (DBusString       *dest,
       
     parse_failed:
       {
-        const char *s;
-        _dbus_string_get_const_data (&line, &s);
         _dbus_warn ("couldn't process line %d \"%s\"\n",
-                    line_no, s);
+                    line_no, _dbus_string_get_const_data (&line));
         goto out;
       }
     }
@@ -1171,7 +1159,7 @@ _dbus_message_data_load (DBusString       *dest,
       SavedLength *sl = _dbus_hash_iter_get_value (&iter);
       const char *s;
 
-      _dbus_string_get_const_data (&sl->name, &s);
+      s = _dbus_string_get_const_data (&sl->name);
       
       if (sl->length < 0)
         {

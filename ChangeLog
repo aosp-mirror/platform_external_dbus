@@ -1,5 +1,17 @@
 2003-03-31  Havoc Pennington  <hp@redhat.com>
 
+        Fix some annoying DBusString API and fix all affected code.
+	
+	* dbus/dbus-string.c (_dbus_string_init): get rid of annoying
+	max_length argument
+	(_dbus_string_get_data): change to return string instead of using 
+	an out param
+	(_dbus_string_get_const_data): ditto
+	(_dbus_string_get_data_len): ditto
+	(_dbus_string_get_const_data_len): ditto
+
+2003-03-31  Havoc Pennington  <hp@redhat.com>
+
 	* bus/main.c (main): fix up the command line arguments to be nicer
 
 2003-03-31  Havoc Pennington  <hp@redhat.com>
