@@ -44,7 +44,7 @@ die (const char *failure)
  * @param test_data_dir the directory with test data (test/data normally)
  */
 void
-dbus_internal_symbol_do_not_use_run_tests (const char *test_data_dir)
+dbus_internal_do_not_use_run_tests (const char *test_data_dir)
 {
 #ifdef DBUS_BUILD_TESTS
   if (test_data_dir == NULL)

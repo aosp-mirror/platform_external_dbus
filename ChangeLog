@@ -1,5 +1,11 @@
 2003-01-31  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-message.c: refactor the test code to be more general, 
+	in preparation for writing a "randomly permute test cases to 
+	try to break the loader" program.
+
+2003-01-31  Havoc Pennington  <hp@pobox.com>
+	
 	* doc/dbus-specification.sgml: work on the specification
 
 	* dbus/dbus-message.c (_dbus_message_loader_return_buffer): check 
