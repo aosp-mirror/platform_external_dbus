@@ -1,3 +1,8 @@
+2003-01-19  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-string.c (_dbus_string_move_len): Don't delete all
+	of the string, just as long as specified.
+
 2003-01-19  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-connection.c (dbus_connection_get_is_authenticated):

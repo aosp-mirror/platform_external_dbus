@@ -906,7 +906,7 @@ _dbus_string_move_len (DBusString       *source,
     return FALSE;
 
   delete (real_source, start,
-          real_source->len - start);
+          len);
 
   return TRUE;
 }
@@ -1763,7 +1763,7 @@ test_base64_roundtrip (const unsigned char *data,
  *
  * @todo Need to write tests for _dbus_string_copy() and
  * _dbus_string_move() moving to/from each of start/middle/end of a
- * string.
+ * string. Also need tests for _dbus_string_move_len ()
  * 
  * @returns #TRUE on success.
  */
