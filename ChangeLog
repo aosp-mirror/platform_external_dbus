@@ -1,3 +1,8 @@
+2003-02-09  Zack Rusin  <zack@kde.org>
+
+	* test/bus-test.c: make_it_compile
+	* doc/dbus-specification.sgml: minimal semantic fix
+
 2003-02-06  Anders Carlsson  <andersca@codefactory.se>
 
 	Release 0.3

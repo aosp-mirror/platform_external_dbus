@@ -43,7 +43,7 @@
         </listitem>
         <listitem>
           <para>
-            D-BUS is <emphasis>low-overhead</emphasis> because it is uses a
+            D-BUS is <emphasis>low-overhead</emphasis> because it uses a
             binary protocol, and does not have to convert to and from a text
             format such as XML. Because D-BUS is intended for potentially
             high-resolution same-machine IPC, not primarily for Internet IPC,

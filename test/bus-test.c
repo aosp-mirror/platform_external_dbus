@@ -12,7 +12,7 @@ typedef struct
 {
   long time;
   DBusTimeout *timeout;
-  
+
 } LoopTimeout;
 
 static DBusList *timeouts;
@@ -22,7 +22,7 @@ get_time (void)
 {
   struct timeval r;
   long time;
-  
+
   /* Can't use dbus-sysdeps here since that isn't
    * available outside of libdbus.
    */
@@ -53,7 +53,7 @@ remove_timeout (DBusTimeout *timeout,
 		void        *data)
 {
   printf ("remove timeout!\n");
-  
+
 }
 
 static DBusHandlerResult
@@ -96,9 +96,9 @@ loop_quit (void)
 static void
 loop_run (void)
 {
-  running_loop = TRUE;
   long start_time = get_time ();
-  
+  running_loop = TRUE;
+
   /* Horribly inefficient main loop */
   while (running_loop)
     {
@@ -108,7 +108,7 @@ loop_run (void)
       time = get_time ();
 
       _dbus_list_copy (&timeouts, &list_copy);
-      
+
       link = _dbus_list_get_first_link (&list_copy);
       while (link != NULL)
 	{
@@ -139,7 +139,7 @@ main (int    argc,
   DBusResultCode result;
   DBusMessage *message;
   DBusMessageHandler *handler;
-  
+
   server = dbus_server_listen ("debug:name=test-server", &result);
   dbus_server_set_new_connection_function (server,
                                            new_connection_callback,
@@ -157,7 +157,7 @@ main (int    argc,
   connection = dbus_connection_open ("debug:name=test-server", &result);
   dbus_connection_set_timeout_functions (connection,
 					 add_timeout, remove_timeout,
-					 NULL, NULL);  
+					 NULL, NULL);
   if (connection == NULL)
     {
       fprintf (stderr, "Failed to connect to server: %s\n",
@@ -173,7 +173,7 @@ main (int    argc,
 
   handler = dbus_message_handler_new (message_handler, NULL, NULL);
   dbus_connection_add_filter (connection, handler);
-  
+
   dbus_connection_send_message (connection, message, NULL, NULL);
   dbus_message_unref (message);
 
