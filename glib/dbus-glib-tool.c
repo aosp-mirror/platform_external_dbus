@@ -107,22 +107,22 @@ pretty_print (BaseInfo *base,
     case INFO_TYPE_INTERFACE:
       {
         InterfaceInfo *i = (InterfaceInfo*) base;
-	GSList *binding_types, *elt;
+	GSList *annotations, *elt;
 
         g_assert (name != NULL);
 
         printf (_("interface \"%s\" {\n"), name);
 
-	binding_types = interface_info_get_binding_names (i);
-	for (elt = binding_types; elt; elt = elt->next)
+	annotations = interface_info_get_annotations (i);
+	for (elt = annotations; elt; elt = elt->next)
 	  {
-	    const char *binding_type = elt->data;
-	    const char *binding_name = interface_info_get_binding_name (i, binding_type);
+	    const char *name = elt->data;
+	    const char *value = interface_info_get_annotation (i, name);
 
 	    printf (_(" (binding \"%s\": \"%s\") "),
-		    binding_type, binding_name);
+		    name, value);
 	  }
-	g_slist_free (binding_types);
+	g_slist_free (annotations);
 
         pretty_print_list (interface_info_get_methods (i), depth + 1);
         pretty_print_list (interface_info_get_signals (i), depth + 1);
@@ -135,21 +135,21 @@ pretty_print (BaseInfo *base,
     case INFO_TYPE_METHOD:
       {
         MethodInfo *m = (MethodInfo*) base;
-	GSList *binding_types, *elt;
+	GSList *annotations, *elt;
 
         g_assert (name != NULL);
 
-	binding_types = method_info_get_binding_names (m);
+	annotations = method_info_get_annotations (m);
         printf (_("method \"%s\""), name);
-	for (elt = binding_types; elt; elt = elt->next)
+	for (elt = annotations; elt; elt = elt->next)
 	  {
-	    const char *binding_type = elt->data;
-	    const char *binding_name = method_info_get_binding_name (m, binding_type);
+	    const char *name = elt->data;
+	    const char *value = method_info_get_annotation (m, name);
 
-	    printf (_(" (binding \"%s\": \"%s\") "),
-		    binding_type, binding_name);
+	    printf (_(" (annotation \"%s\": \"%s\") "),
+		    name, value);
 	  }
-	g_slist_free (binding_types);
+	g_slist_free (annotations);
 
         pretty_print_list (method_info_get_args (m), depth + 1);
 

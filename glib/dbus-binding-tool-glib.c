@@ -201,7 +201,7 @@ gather_marshallers (BaseInfo *base, DBusBindingToolCData *data, GError **error)
       const char *interface_c_name;
 
       interface = (InterfaceInfo *) base;
-      interface_c_name = interface_info_get_binding_name (interface, "C");
+      interface_c_name = interface_info_get_annotation (interface, DBUS_GLIB_ANNOTATION_C_SYMBOL);
       if (interface_c_name == NULL)
         {
           return TRUE;
@@ -217,7 +217,7 @@ gather_marshallers (BaseInfo *base, DBusBindingToolCData *data, GError **error)
           char *marshaller_name;
 
           method = (MethodInfo *) tmp->data;
-          if (method_info_get_binding_name (method, "C") == NULL)
+          if (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_C_SYMBOL) == NULL)
             {
               continue;
             }
@@ -306,7 +306,7 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
       channel = data->channel;
 
       interface = (InterfaceInfo *) base;
-      interface_c_name = interface_info_get_binding_name (interface, "C");
+      interface_c_name = interface_info_get_annotation (interface, DBUS_GLIB_ANNOTATION_C_SYMBOL);
       if (interface_c_name == NULL)
         {
           return TRUE;
@@ -319,7 +319,7 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 
       /* Table of marshalled methods. */
 
-      if (!write_printf_to_iochannel ("static const DBusGMethodInfo dbus_glib_%s_methods[] = {\n", channel, error, interface_info_get_binding_name (interface, "C")))
+      if (!write_printf_to_iochannel ("static const DBusGMethodInfo dbus_glib_%s_methods[] = {\n", channel, error, interface_info_get_annotation (interface, DBUS_GLIB_ANNOTATION_C_SYMBOL)))
 	goto io_lose;
       for (tmp = methods; tmp != NULL; tmp = g_slist_next (tmp))
         {
@@ -329,7 +329,7 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 	  GSList *args;
 
           method = (MethodInfo *) tmp->data;
-	  method_c_name = method_info_get_binding_name (method, "C");
+	  method_c_name = method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_C_SYMBOL);
           if (method_c_name == NULL)
             {
               continue;

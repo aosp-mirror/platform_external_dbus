@@ -2,25 +2,31 @@
 
 <node name="/org/freedesktop/DBus/Tests/MyTestObject">
 
-  <interface name="org.freedesktop.DBus.Tests.MyObject" c_name="my_object">
+  <interface name="org.freedesktop.DBus.Tests.MyObject">
+    <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object"/>
 
-    <method name="DoNothing" c_name="my_object_do_nothing">
+    <method name="DoNothing">
+      <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object_do_nothing"/>
     </method>
 
-    <method name="Increment" c_name="my_object_increment">
+    <method name="Increment">
+      <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object_increment"/>
       <arg type="uint32" name="x" />
       <arg type="uint32" direction="out" />
     </method>
 
-    <method name="ThrowError" c_name="my_object_throw_error">
+    <method name="ThrowError">
+      <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object_throw_error"/>
     </method>
 
-    <method name="Uppercase" c_name="my_object_uppercase">
+    <method name="Uppercase">
+      <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object_uppercase"/>
       <arg type="string" direction="in" />
       <arg type="string" direction="out" />
     </method>
 
-    <method name="ManyArgs" c_name="my_object_many_args">
+    <method name="ManyArgs">
+      <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object_many_args"/>
       <arg type="uint32" name="x" direction="in" />
       <arg type="string" name="str" direction="in" />
       <arg type="double" name="trouble" direction="in" />

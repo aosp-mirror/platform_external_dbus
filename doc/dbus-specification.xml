@@ -2296,6 +2296,7 @@
             &lt;method name="Frobate"&gt;
               &lt;arg name="foo" type="int32" direction="in"/&gt;
               &lt;arg name="bar" type="string" direction="out"/&gt;
+              &lt;annotation name="org.freedesktop.DBus.Deprecated" value="true"/&gt;
             &lt;/method&gt;
             &lt;signal name="Changed"&gt;
               &lt;arg name="new_value" type="boolean"/&gt;
@@ -2367,23 +2368,41 @@
         </listitem>
         <listitem>
           <para>
-            The method, interface, property, and signal elements may have 
-            an attribute deprecated="yes|no". If the attribute is not 
-            present, the default value for an interface is "no", and 
-            the default value for methods, properties, and signals is 
-            the deprecation status of the interface.
-          </para>
-        </listitem>
-        <listitem>
-          <para>
             The "name" attribute on arguments is optional.
           </para>
         </listitem>
       </itemizedlist>
     </para>
-
+    <para>
+        Method, interface, property, and signal elements may have
+        "annotations", which are generic key/value pairs of metadata.
+	They are similar conceptually to Java's annotations and C# attributes.
+        Well-known annotations:
+     </para>
+     <informaltable>
+       <tgroup cols="3">
+	 <thead>
+	   <row>
+	     <entry>Name</entry>
+	     <entry>Values (separated by ,)</entry>
+	     <entry>Description</entry>
+	   </row>
+	 </thead>
+	 <tbody>
+	   <row>
+	     <entry>org.freedesktop.DBus.Deprecated</entry>
+	     <entry>true,false</entry>
+	     <entry>Whether or not the entity is deprecated; defaults to false</entry>
+	   </row>
+	   <row>
+	     <entry>org.freedesktop.DBus.GLib.CSymbol</entry>
+	     <entry>(string)</entry>
+	     <entry>The C symbol; may be used for methods and interfaces</entry>
+	   </row>
+	 </tbody>
+       </tgroup>
+     </informaltable>
   </sect1>
-
   <sect1 id="message-bus">
     <title>Message Bus Specification</title>
     <sect2 id="message-bus-overview">

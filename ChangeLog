@@ -1,5 +1,47 @@
 2005-02-17  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-gparser.c (struct Parser): Add in_annotation boolean.
+	(parse_node, parse_interface, parse_method, parse_signal)
+	(parse_property, parse_annotation): Lose if we're currently in an
+	annotation.
+	(parse_annotation): New function.
+	(parser_start_element, parser_end_element): Handle annotation.
+	(parse_method, parse_interface): Remove support for c_name attribute,
+	switch to annotations.
+
+	* glib/dbus-gidl.h (interface_info_get_binding_names)
+	(method_info_get_binding_names)
+	(interface_info_get_binding_name, method_info_get_binding_name)
+	(interface_info_set_binding_name, method_info_set_binding_name):
+	Remove.
+	(interface_info_get_annotations, method_info_get_annotations)
+	(interface_info_get_annotation, method_info_get_annotation)
+	(interface_info_add_annotation, method_info_add_annotation):
+	Prototype.
+
+	* glib/dbus-gidl.c (struct InterfaceInfo): Substitute "annotations"
+	for "bindings".
+	(struct MethodInfo): Ditto.
+	Straightfoward conversion of binding methods into annotation methods
+	as prototyped.
+
+	* glib/dbus-glib-tool.c (pretty_print): Print annotations.
+
+	* glib/dbus-binding-tool-glib.h (DBUS_GLIB_ANNOTATION_C_SYMBOL): Define.
+
+	* glib/dbus-binding-tool-glib.c (gather_marshallers, generate_glue):
+	Use new annotation API.
+
+	* doc/introspect.dtd: Fix a number of DTD syntax errors.  Add
+	annotation element.
 	
+	* doc/dbus-specification.xml: Discuss introspection annotations,
+	include list of well-known annotations.
+
+	* test/glib/test-service-glib.xml: Make validate against new DTD.
+
+2005-02-17  Colin Walters  <walters@verbum.org>
+
 	This patch is based on initial work from
 	Paul Kuliniewicz <kuliniew@purdue.edu>.
 

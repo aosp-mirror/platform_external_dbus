@@ -43,7 +43,7 @@ struct NodeInfo
 struct InterfaceInfo
 {
   BaseInfo base;
-  GHashTable *bindings;
+  GHashTable *annotations;
   /* Since we have BaseInfo now these could be one list */
   GSList *methods;
   GSList *signals;
@@ -53,7 +53,7 @@ struct InterfaceInfo
 struct MethodInfo
 {
   BaseInfo base;
-  GHashTable *bindings;
+  GHashTable *annotations;
   GSList *args;
 };
 
@@ -345,9 +345,9 @@ interface_info_new (const char *name)
   info->base.refcount = 1;
   info->base.name = g_strdup (name);
   info->base.type = INFO_TYPE_INTERFACE;
-  info->bindings = g_hash_table_new_full (g_str_hash, g_str_equal,
-					  (GDestroyNotify) g_free,
-					  (GDestroyNotify) g_free);
+  info->annotations = g_hash_table_new_full (g_str_hash, g_str_equal,
+					     (GDestroyNotify) g_free,
+					     (GDestroyNotify) g_free);
   
   return info;
 }
@@ -366,7 +366,7 @@ interface_info_unref (InterfaceInfo *info)
   info->base.refcount -= 1;
   if (info->base.refcount == 0)
     {
-      g_hash_table_destroy (info->bindings);
+      g_hash_table_destroy (info->annotations);
       free_method_list (&info->methods);
       free_signal_list (&info->signals);
       free_property_list (&info->properties);
@@ -381,16 +381,16 @@ interface_info_get_name (InterfaceInfo *info)
 }
 
 GSList *
-interface_info_get_binding_names (InterfaceInfo *info)
+interface_info_get_annotations (InterfaceInfo *info)
 {
-  return get_hash_keys (info->bindings);
+  return get_hash_keys (info->annotations);
 }
 
 const char*
-interface_info_get_binding_name (InterfaceInfo *info,
-				 const char    *binding_type)
+interface_info_get_annotation (InterfaceInfo *info,
+			       const char    *name)
 {
-  return g_hash_table_lookup (info->bindings, binding_type);
+  return g_hash_table_lookup (info->annotations, name);
 }
 
 GSList*
@@ -412,13 +412,13 @@ interface_info_get_properties (InterfaceInfo *info)
 }
 
 void
-interface_info_set_binding_name (InterfaceInfo *info,
-				 const char    *binding_type,
-				 const char    *bound_name)
+interface_info_add_annotation (InterfaceInfo *info,
+			       const char    *name,
+			       const char    *value)
 {
-  g_hash_table_insert (info->bindings,
-		       g_strdup (binding_type),
-		       g_strdup (bound_name));
+  g_hash_table_insert (info->annotations,
+		       g_strdup (name),
+		       g_strdup (value));
 }
 
 void
@@ -470,7 +470,7 @@ method_info_new (const char *name)
   info->base.refcount = 1;
   info->base.name = g_strdup (name);
   info->base.type = INFO_TYPE_METHOD;
-  info->bindings = g_hash_table_new_full (g_str_hash, g_str_equal,
+  info->annotations = g_hash_table_new_full (g_str_hash, g_str_equal,
 					  (GDestroyNotify) g_free,
 					  (GDestroyNotify) g_free);
   
@@ -491,7 +491,7 @@ method_info_unref (MethodInfo *info)
   info->base.refcount -= 1;
   if (info->base.refcount == 0)
     {
-      g_hash_table_destroy (info->bindings);
+      g_hash_table_destroy (info->annotations);
       free_arg_list (&info->args);
       base_info_free (info);
     }
@@ -504,16 +504,16 @@ method_info_get_name (MethodInfo *info)
 }
 
 GSList *
-method_info_get_binding_names (MethodInfo *info)
+method_info_get_annotations (MethodInfo *info)
 {
-  return get_hash_keys (info->bindings);
+  return get_hash_keys (info->annotations);
 }
 
 const char*
-method_info_get_binding_name (MethodInfo *info,
-			      const char *binding_type)
+method_info_get_annotation (MethodInfo *info,
+			    const char *name)
 {
-  return g_hash_table_lookup (info->bindings, binding_type);
+  return g_hash_table_lookup (info->annotations, name);
 }
 
 GSList*
@@ -544,13 +544,13 @@ args_sort_by_direction (const void *a,
 }                  
 
 void
-method_info_set_binding_name (MethodInfo  *info,
-			      const char  *binding_type,
-			      const char  *bound_name)
+method_info_add_annotation (MethodInfo  *info,
+			    const char  *name,
+			    const char  *value)
 {
-  g_hash_table_insert (info->bindings,
-		       g_strdup (binding_type),
-		       g_strdup (bound_name));
+  g_hash_table_insert (info->annotations,
+		       g_strdup (name),
+		       g_strdup (value));
 }
 
 void

@@ -90,15 +90,15 @@ InterfaceInfo*      interface_info_new            (const char          *name);
 InterfaceInfo*      interface_info_ref            (InterfaceInfo       *info);
 void                interface_info_unref          (InterfaceInfo       *info);
 const char*         interface_info_get_name       (InterfaceInfo       *info);
-GSList*             interface_info_get_binding_names(InterfaceInfo     *info);
-const char*         interface_info_get_binding_name(InterfaceInfo*info,
-						    const char         *binding_type);
+GSList*             interface_info_get_annotations(InterfaceInfo       *info);
+const char*         interface_info_get_annotation (InterfaceInfo*info,
+						   const char         *annotation);
 GSList*             interface_info_get_methods    (InterfaceInfo       *info);
 GSList*             interface_info_get_signals    (InterfaceInfo       *info);
 GSList*             interface_info_get_properties (InterfaceInfo       *info);
-void                interface_info_set_binding_name(InterfaceInfo      *info,
-						    const char         *name,
-						    const char         *value);
+void                interface_info_add_annotation (InterfaceInfo      *info,
+						   const char         *name,
+						   const char         *value);
 void                interface_info_add_method     (InterfaceInfo       *info,
                                                    MethodInfo          *method);
 void                interface_info_add_signal     (InterfaceInfo       *info,
@@ -109,12 +109,12 @@ MethodInfo*         method_info_new               (const char          *name);
 MethodInfo*         method_info_ref               (MethodInfo          *info);
 void                method_info_unref             (MethodInfo          *info);
 const char*         method_info_get_name          (MethodInfo          *info);
-GSList*             method_info_get_binding_names (MethodInfo          *info);
-const char*         method_info_get_binding_name  (MethodInfo          *info,
-						   const char          *binding_type);
-void                method_info_set_binding_name  (MethodInfo          *info,
-						   const char          *binding_type,
-						   const char          *bound_name);
+GSList*             method_info_get_annotations   (MethodInfo          *info);
+const char*         method_info_get_annotation    (MethodInfo          *info,
+						   const char          *annotation);
+void                method_info_add_annotation    (MethodInfo          *info,
+						   const char          *name,
+						   const char          *value);
 GSList*             method_info_get_args          (MethodInfo          *info);
 void                method_info_add_arg           (MethodInfo          *info,
                                                    ArgInfo             *arg);
