@@ -1,4 +1,6 @@
- 
+ - Probably no point in a version number in the daemon name
+   (s/dbus-daemon-1/dbus-daemon/)
+  
  - How we will handle DCOP needs sorting out. Among other things, we
    need to check that service and service-ownership semantics map to DCOP 
    reasonably well.
