@@ -166,13 +166,11 @@ connection_setup_new (GMainContext   *context,
 }
 
 static void
-io_handler_source_destroyed (gpointer data)
+io_handler_source_finalized (gpointer data)
 {
   IOHandler *handler;
 
   handler = data;
-
-  handler->cs->ios = g_slist_remove (handler->cs->ios, handler);
 
   if (handler->watch)
     dbus_watch_set_data (handler->watch, NULL, NULL);
@@ -191,6 +189,7 @@ io_handler_destroy_source (void *data)
     {
       GSource *source = handler->source;
       handler->source = NULL;
+      handler->cs->ios = g_slist_remove (handler->cs->ios, handler);
       g_source_destroy (source);
     }
 }
@@ -281,7 +280,7 @@ connection_setup_add_watch (ConnectionSetup *cs,
   
   handler->source = g_io_create_watch (channel, condition);
   g_source_set_callback (handler->source, (GSourceFunc) io_handler_dispatch, handler,
-                         io_handler_source_destroyed);
+                         io_handler_source_finalized);
   g_source_attach (handler->source, cs->context);
 
   cs->ios = g_slist_prepend (cs->ios, handler);
@@ -304,14 +303,12 @@ connection_setup_remove_watch (ConnectionSetup *cs,
 }
 
 static void
-timeout_handler_source_destroyed (gpointer data)
+timeout_handler_source_finalized (gpointer data)
 {
   TimeoutHandler *handler;
 
   handler = data;
 
-  handler->cs->timeouts = g_slist_remove (handler->cs->timeouts, handler);
-  
   if (handler->timeout)
     dbus_timeout_set_data (handler->timeout, NULL, NULL);
   
@@ -329,6 +326,7 @@ timeout_handler_destroy_source (void *data)
     {
       GSource *source = handler->source;
       handler->source = NULL;
+      handler->cs->timeouts = g_slist_remove (handler->cs->timeouts, handler);
       g_source_destroy (source);
     }
 }
@@ -374,7 +372,7 @@ connection_setup_add_timeout (ConnectionSetup *cs,
 
   handler->source = g_timeout_source_new (dbus_timeout_get_interval (timeout));
   g_source_set_callback (handler->source, timeout_handler_dispatch, handler,
-                         timeout_handler_source_destroyed);
+                         timeout_handler_source_finalized);
   g_source_attach (handler->source, handler->cs->context);
 
   cs->timeouts = g_slist_prepend (cs->timeouts, handler);

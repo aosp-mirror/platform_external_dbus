@@ -1,3 +1,19 @@
+2005-04-05  David Zeuthen  <davidz@redhat.com>
+
+	Fix https://bugs.freedesktop.org/show_bug.cgi?id=2889
+
+	* glib/dbus-gmain.c:
+	(io_handler_destroy_source): Remove from list of IO handlers
+	of the ConnectionSetup object
+	(timeout_handler_destroy_source): -do- for timeout handlers
+	(io_handler_source_finalized): Don't remove from list since
+	we now do that in io_handler_destroy_source(). Renamed from
+	io_handler_source_destroyed
+	(timeout_handler_source_destroyed): -do- for timeout handlers
+	(connection_setup_free): It is now safe to iterate over all
+	IO and timeout handlers as the _destroy_source removes them
+	from the list synchronously
+
 2005-03-30  Havoc Pennington  <hp@redhat.com>
 
 	* configure.in: change check to gtk 2.4
