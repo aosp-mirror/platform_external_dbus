@@ -8,6 +8,7 @@ libdbus_glib_1_la_SOURCES = 			\
 	dbus-gmarshal.c				\
 	dbus-gmarshal.h				\
 	dbus-gobject.c				\
+	dbus-gobject.h				\
 	dbus-gproxy.c				\
 	dbus-gtest.c				\
 	dbus-gtest.h				\
