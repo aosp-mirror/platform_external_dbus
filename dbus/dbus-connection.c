@@ -1443,6 +1443,7 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
       if (dbus_message_get_reply_serial (reply) == client_serial)
 	{
 	  _dbus_list_remove_link (&connection->incoming_messages, link);
+	  connection->n_incoming  -= 1;
 	  dbus_message_ref (reply);
 	  
 	  dbus_mutex_unlock (connection->mutex);

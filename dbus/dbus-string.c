@@ -2394,7 +2394,9 @@ _dbus_string_validate_utf8  (const DBusString *str,
                              int               len)
 {
   /* FIXME actually validate UTF-8 */
-  return _dbus_string_validate_ascii (str, start, len);
+  return TRUE;
+
+  /*return _dbus_string_validate_ascii (str, start, len);*/
 }
 
 /**

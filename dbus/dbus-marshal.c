@@ -352,7 +352,10 @@ _dbus_marshal_byte_array (DBusString          *str,
       return FALSE;
     }
 
-  return _dbus_string_append_len (str, value, len);
+  if (len == 0)
+    return TRUE;
+  else
+    return _dbus_string_append_len (str, value, len);
 }
 
 /**
@@ -521,7 +524,7 @@ _dbus_marshal_dict (DBusString *str,
     return TRUE;
 
   if (!_dbus_marshal_string_array (str, byte_order,
-				   keys, len))
+				   (const char **)keys, len))
     goto error;
 
   for (i = 0; i < len; i++)
@@ -656,13 +659,13 @@ _dbus_marshal_dict (DBusString *str,
 	    if (!dbus_dict_get_string_array (dict, keys[i], &value, &len))
 	      goto error;
 
-	    if (!_dbus_marshal_string_array (str, byte_order, value, len))
+	    if (!_dbus_marshal_string_array (str, byte_order, (const char **)value, len))
 	      goto error;
 	    
 	    break;
 	  }
 	default:
-	  _dbus_warn ("unknwon value type %d\n", dbus_dict_get_value_type (dict, keys[i]));
+	  _dbus_warn ("unkown value type %d\n", dbus_dict_get_value_type (dict, keys[i]));
 	  _dbus_assert_not_reached ("unknown value type in dict");
 	}
     }
@@ -826,16 +829,18 @@ _dbus_demarshal_string (const DBusString *str,
  * @param str the string containing the data
  * @param byte_order the byte order
  * @param pos the position in the string
- * @param new_pos the new position of the string
+ * @param array the array
  * @param array_len length of the demarshaled data
- * @returns the demarshaled data.
+ 
+ * @returns #TRUE on success
  */
-unsigned char *
-_dbus_demarshal_byte_array (const DBusString *str,
-			    int         byte_order,
-			    int         pos,
-			    int        *new_pos,
-			    int        *array_len)
+dbus_bool_t
+_dbus_demarshal_byte_array (const DBusString  *str,
+			    int                byte_order,
+			    int                pos,
+			    int               *new_pos,
+			    unsigned char    **array,
+			    int               *array_len)
 {
   int len;
   unsigned char *retval;
@@ -843,25 +848,39 @@ _dbus_demarshal_byte_array (const DBusString *str,
 
   len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
 
+  if (len == 0)
+    {
+      *array_len = len;
+      *array = NULL;
+
+      if (new_pos)
+	*new_pos = pos;
+      
+      return TRUE;
+    }
+  
   retval = dbus_malloc (len);
 
   if (!retval)
-    return NULL;
+    return FALSE;
 
   _dbus_string_get_const_data_len (str, &data, pos, len);
 
   if (!data)
-    return NULL;
+    {
+      dbus_free (retval);
+      return FALSE;
+    }
 
   memcpy (retval, data, len);
 
   if (new_pos)
     *new_pos = pos + len;
 
-  if (array_len)
-    *array_len = len;
-
-  return retval;
+  *array = retval;
+  *array_len = len;
+  
+  return TRUE;
 }
 
 /**
@@ -871,25 +890,38 @@ _dbus_demarshal_byte_array (const DBusString *str,
  * @param byte_order the byte order
  * @param pos the position in the string
  * @param new_pos the new position of the string
+ * @param array the array
  * @param array_len length of the demarshaled data
- * @returns the demarshaled data.
+ * @returns #TRUE on success
  */
-dbus_int32_t *
-_dbus_demarshal_int32_array (const DBusString *str,
-			     int         byte_order,
-			     int         pos,
-			     int        *new_pos,
-			     int        *array_len)
+dbus_bool_t
+_dbus_demarshal_int32_array (const DBusString  *str,
+			     int                byte_order,
+			     int                pos,
+			     int               *new_pos,
+			     dbus_int32_t     **array,
+			     int               *array_len)
 {
   int len, i;
   dbus_int32_t *retval;
   
   len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
 
-  retval = dbus_new (dbus_int32_t, len);
+  if (len == 0)
+    {
+      *array_len = 0;
+      *array = NULL;
 
+      if (new_pos)
+	*new_pos = pos;
+      
+      return TRUE;
+    }
+  
+  retval = dbus_new (dbus_int32_t, len);
+  
   if (!retval)
-    return NULL;
+    return FALSE;
 
   for (i = 0; i < len; i++)
     retval[i] = _dbus_demarshal_int32 (str, byte_order, pos, &pos);
@@ -897,10 +929,10 @@ _dbus_demarshal_int32_array (const DBusString *str,
   if (new_pos)
     *new_pos = pos;
 
-  if (array_len)
-    *array_len = len;
+  *array_len = len;
+  *array = retval;
   
-  return retval;
+  return TRUE;
 }
 
 /**
@@ -910,25 +942,38 @@ _dbus_demarshal_int32_array (const DBusString *str,
  * @param byte_order the byte order
  * @param pos the position in the string
  * @param new_pos the new position of the string
+ * @param array the array
  * @param array_len length of the demarshaled data
- * @returns the demarshaled data.
+ * @returns #TRUE on success
  */
-dbus_uint32_t *
-_dbus_demarshal_uint32_array (const DBusString *str,
-			      int         byte_order,
-			      int         pos,
-			      int        *new_pos,
-			      int        *array_len)
+dbus_bool_t
+_dbus_demarshal_uint32_array (const DBusString  *str,
+			      int                byte_order,
+			      int                pos,
+			      int               *new_pos,
+			      dbus_uint32_t    **array,
+			      int               *array_len)
 {
   int len, i;
   dbus_uint32_t *retval;
   
   len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
 
+  if (len == 0)
+    {
+      *array_len = 0;
+      *array = NULL;
+
+      if (new_pos)
+	*new_pos = pos;
+      
+      return TRUE;
+    }
+  
   retval = dbus_new (dbus_uint32_t, len);
 
   if (!retval)
-    return NULL;
+    return FALSE;
 
   for (i = 0; i < len; i++)
     retval[i] = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
@@ -936,10 +981,10 @@ _dbus_demarshal_uint32_array (const DBusString *str,
   if (new_pos)
     *new_pos = pos;
 
-  if (array_len)
-    *array_len = len;
+  *array_len = len;
+  *array = retval;
   
-  return retval;  
+  return TRUE;  
 }
 
 /**
@@ -949,25 +994,38 @@ _dbus_demarshal_uint32_array (const DBusString *str,
  * @param byte_order the byte order
  * @param pos the position in the string
  * @param new_pos the new position of the string
+ * @param array the array
  * @param array_len length of the demarshaled data
- * @returns the demarshaled data.
+ * @returns #TRUE on success
  */
-double *
-_dbus_demarshal_double_array (const DBusString *str,
-			      int         byte_order,
-			      int         pos,
-			      int        *new_pos,
-			      int        *array_len)
+dbus_bool_t
+_dbus_demarshal_double_array (const DBusString  *str,
+			      int                byte_order,
+			      int                pos,
+			      int               *new_pos,
+			      double           **array,
+			      int               *array_len)
 {
   int len, i;
   double *retval;
   
   len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
 
+  if (len == 0)
+    {
+      *array_len = 0;
+      *array = NULL;
+
+      if (new_pos)
+	*new_pos = pos;
+      
+      return TRUE;
+    }
+  
   retval = dbus_new (double, len);
 
   if (!retval)
-    return NULL;
+    return FALSE;
 
   for (i = 0; i < len; i++)
     retval[i] = _dbus_demarshal_double (str, byte_order, pos, &pos);
@@ -975,10 +1033,10 @@ _dbus_demarshal_double_array (const DBusString *str,
   if (new_pos)
     *new_pos = pos;
 
-  if (array_len)
-    *array_len = len;
+  *array_len = len;
+  *array = retval;
   
-  return retval;  
+  return TRUE; 
 }
 
 /**
@@ -988,25 +1046,38 @@ _dbus_demarshal_double_array (const DBusString *str,
  * @param byte_order the byte order
  * @param pos the position in the string
  * @param new_pos the new position of the string
+ * @param array the array
  * @param array_len length of the demarshaled data
- * @returns the demarshaled data.
+ * @returns #TRUE on success
  */
-char **
-_dbus_demarshal_string_array (const DBusString *str,
-			      int         byte_order,
-			      int         pos,
-			      int        *new_pos,
-			      int        *array_len)
+dbus_bool_t
+_dbus_demarshal_string_array (const DBusString   *str,
+			      int                 byte_order,
+			      int                 pos,
+			      int                *new_pos,
+			      char             ***array,
+			      int                *array_len)
 {
   int len, i, j;
   char **retval;
 
   len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
 
+  if (len == 0)
+    {
+      *array_len = 0;
+      *array = NULL;
+
+      if (new_pos)
+	*new_pos = pos;
+      
+      return TRUE;
+    }
+  
   retval = dbus_new (char *, len + 1);
 
   if (!retval)
-    return NULL;
+    return FALSE;
 
   retval[len] = NULL;
   
@@ -1021,17 +1092,17 @@ _dbus_demarshal_string_array (const DBusString *str,
  if (new_pos)
     *new_pos = pos;
 
-  if (array_len)
-    *array_len = len;
+ *array = retval;
+ *array_len = len;
   
-  return retval;
+  return TRUE;
 
  error:
   for (j = 0; j < i; j++)
     dbus_free (retval[i]);
   dbus_free (retval);
 
-  return NULL;
+  return FALSE;
 }
 
 /**
@@ -1041,25 +1112,24 @@ _dbus_demarshal_string_array (const DBusString *str,
  * @param byte_order the byte order
  * @param pos the position in the string
  * @param new_pos the new position in the string
- * @returns the demarshalled dict
+ * @param dict the dict
+ * @returns #TRUE on success.
  */
-DBusDict *
+dbus_bool_t
 _dbus_demarshal_dict (const DBusString *str,
 		      int               byte_order,
 		      int               pos,
-		      int              *new_pos)
+		      int              *new_pos,
+		      DBusDict       **dict)
 {
   char **keys;
   int i, len;
-  DBusDict *dict;
   
-  dict = dbus_dict_new ();
-  if (!dict)
-    return NULL;
+  *dict = dbus_dict_new ();
+  if (!*dict)
+    return FALSE;
 
-  keys = _dbus_demarshal_string_array (str, byte_order, pos, &pos, &len);
-  
-  if (!keys)
+  if (!_dbus_demarshal_string_array (str, byte_order, pos, &pos, &keys, &len))
     goto error;
 
   for (i = 0; i < len; i++)
@@ -1074,7 +1144,7 @@ _dbus_demarshal_dict (const DBusString *str,
 
 	    value = _dbus_string_get_byte (str, pos ++);
 
-	    if (!dbus_dict_set_boolean (dict, keys[i], value))
+	    if (!dbus_dict_set_boolean (*dict, keys[i], value))
 	      goto error;
 	    break;
 	  }
@@ -1084,7 +1154,7 @@ _dbus_demarshal_dict (const DBusString *str,
 
 	    value = _dbus_demarshal_int32 (str, byte_order, pos, &pos);
 
-	    if (!dbus_dict_set_int32 (dict, keys[i], value))
+	    if (!dbus_dict_set_int32 (*dict, keys[i], value))
 	      goto error;
 	    
 	    break;
@@ -1095,7 +1165,7 @@ _dbus_demarshal_dict (const DBusString *str,
 
 	    value = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
 
-	    if (!dbus_dict_set_uint32 (dict, keys[i], value))
+	    if (!dbus_dict_set_uint32 (*dict, keys[i], value))
 	      goto error;
 	    
 	    break;
@@ -1106,7 +1176,7 @@ _dbus_demarshal_dict (const DBusString *str,
 
 	    value = _dbus_demarshal_double (str, byte_order, pos, &pos);
 
-	    if (!dbus_dict_set_double (dict, keys[i], value))
+	    if (!dbus_dict_set_double (*dict, keys[i], value))
 	      goto error;
 	    
 	    break;
@@ -1120,7 +1190,7 @@ _dbus_demarshal_dict (const DBusString *str,
 	    if (!value)
 	      goto error;
 
-	    if (!dbus_dict_set_string (dict, keys[i], value))
+	    if (!dbus_dict_set_string (*dict, keys[i], value))
 	      {
 		dbus_free (value);
 		goto error;
@@ -1135,12 +1205,10 @@ _dbus_demarshal_dict (const DBusString *str,
 	    unsigned char *value;
 	    int len;
 	    
-	    value = _dbus_demarshal_byte_array (str, byte_order, pos, &pos, &len);
-
-	    if (!value)
+	    if (!_dbus_demarshal_byte_array (str, byte_order, pos, &pos, &value, &len))
 	      goto error;
 
-	    if (!dbus_dict_set_boolean_array (dict, keys[i], value, len))
+	    if (!dbus_dict_set_boolean_array (*dict, keys[i], value, len))
 	      {
 		dbus_free (value);
 		goto error;
@@ -1154,12 +1222,10 @@ _dbus_demarshal_dict (const DBusString *str,
 	    dbus_int32_t *value;
 	    int len;
 	    
-	    value = _dbus_demarshal_int32_array (str, byte_order, pos, &pos, &len);
-
-	    if (!value)
+	    if (!_dbus_demarshal_int32_array (str, byte_order, pos, &pos, &value, &len))
 	      goto error;
 
-	    if (!dbus_dict_set_int32_array (dict, keys[i], value, len))
+	    if (!dbus_dict_set_int32_array (*dict, keys[i], value, len))
 	      {
 		dbus_free (value);
 		goto error;
@@ -1173,12 +1239,10 @@ _dbus_demarshal_dict (const DBusString *str,
 	    dbus_uint32_t *value;
 	    int len;
 	    
-	    value = _dbus_demarshal_uint32_array (str, byte_order, pos, &pos, &len);
-
-	    if (!value)
+	    if (!_dbus_demarshal_uint32_array (str, byte_order, pos, &pos, &value, &len))
 	      goto error;
 
-	    if (!dbus_dict_set_uint32_array (dict, keys[i], value, len))
+	    if (!dbus_dict_set_uint32_array (*dict, keys[i], value, len))
 	      {
 		dbus_free (value);
 		goto error;
@@ -1192,12 +1256,27 @@ _dbus_demarshal_dict (const DBusString *str,
 	    double *value;
 	    int len;
 	    
-	    value = _dbus_demarshal_double_array (str, byte_order, pos, &pos, &len);
-
-	    if (!value)
+	    if (!_dbus_demarshal_double_array (str, byte_order, pos, &pos, &value, &len))
 	      goto error;
 
-	    if (!dbus_dict_set_double_array (dict, keys[i], value, len))
+	    if (!dbus_dict_set_double_array (*dict, keys[i], value, len))
+	      {
+		dbus_free (value);
+		goto error;
+	      }
+
+	    dbus_free (value);
+	    break;
+	  }
+	case DBUS_TYPE_BYTE_ARRAY:
+	  {
+	    unsigned char *value;
+	    int len;
+	    
+	    if (!_dbus_demarshal_byte_array (str, byte_order, pos, &pos, &value, &len))
+	      goto error;
+
+	    if (!dbus_dict_set_byte_array (*dict, keys[i], value, len))
 	      {
 		dbus_free (value);
 		goto error;
@@ -1211,12 +1290,10 @@ _dbus_demarshal_dict (const DBusString *str,
 	    char **value;
 	    int len;
 	    
-	    value = _dbus_demarshal_string_array (str, byte_order, pos, &pos, &len);
-
-	    if (!value)
+	    if (!_dbus_demarshal_string_array (str, byte_order, pos, &pos, &value, &len))
 	      goto error;
 
-	    if (!dbus_dict_set_string_array (dict, keys[i], value, len))
+	    if (!dbus_dict_set_string_array (*dict, keys[i], (const char **)value, len))
 	      {
 		dbus_free_string_array (value);
 		goto error;
@@ -1232,12 +1309,13 @@ _dbus_demarshal_dict (const DBusString *str,
     }
   
   dbus_free_string_array (keys);
-  return dict;
+  return TRUE;
   
  error:
   dbus_free_string_array (keys);
-  dbus_dict_unref (dict);
-  return NULL;
+  dbus_dict_unref (*dict);
+  
+  return FALSE;
 }
 
 /** 
@@ -1436,7 +1514,7 @@ demarshal_and_validate_len (const DBusString *str,
 
   _dbus_assert (new_pos != NULL);
   
-  if ((align_4 + 4) >= _dbus_string_get_length (str))
+  if ((align_4 + 4) > _dbus_string_get_length (str))
     {
       _dbus_verbose ("not enough room in message for array length\n");
       return -1;
@@ -1671,15 +1749,20 @@ _dbus_marshal_validate_arg (const DBusString *str,
         if (len < 0)
           return FALSE;
 
-        align_8 = _DBUS_ALIGN_VALUE (pos, 8);
-        if (!_dbus_string_validate_nul (str, pos,
-                                        align_8 - pos))
-          {
-            _dbus_verbose ("double array alignment padding not initialized to nul\n");
-            return FALSE;
-          }
-        
-	*end_pos = align_8 + len * 8;
+	if (len == 0)
+	  *end_pos = pos;
+	else
+	  {
+	    align_8 = _DBUS_ALIGN_VALUE (pos, 8);
+	    if (!_dbus_string_validate_nul (str, pos,
+					    align_8 - pos))
+	      {
+		_dbus_verbose ("double array alignment padding not initialized to nul\n");
+		return FALSE;
+	      }
+
+	    *end_pos = align_8 + len * 8;
+	  }
       }
       break;
       
@@ -1965,7 +2048,8 @@ _dbus_marshal_test (void)
   /* Marshal signed integer arrays */
   if (!_dbus_marshal_int32_array (&str, DBUS_BIG_ENDIAN, array1, 3))
     _dbus_assert_not_reached ("could not marshal integer array");
-  array2 = _dbus_demarshal_int32_array (&str, DBUS_BIG_ENDIAN, pos, &pos, &len);
+  if (!_dbus_demarshal_int32_array (&str, DBUS_BIG_ENDIAN, pos, &pos, &array2, &len))
+    _dbus_assert_not_reached ("could not demarshal integer array");
 
   if (len != 3)
     _dbus_assert_not_reached ("Signed integer array lengths differ!\n");
@@ -2013,7 +2097,8 @@ _dbus_marshal_test (void)
   
   dbus_dict_unref (dict);
   
-  dict = _dbus_demarshal_dict (&str, DBUS_BIG_ENDIAN, pos, &pos);
+  if (!_dbus_demarshal_dict (&str, DBUS_BIG_ENDIAN, pos, &pos, &dict))
+    _dbus_assert_not_reached ("could not demarshal dict");
 
   if (!dbus_dict_get_boolean (dict, "boolean", &our_bool) ||
       !our_bool)

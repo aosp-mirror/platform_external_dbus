@@ -1,3 +1,45 @@
+2003-03-16  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-connection.c:
+	(dbus_connection_send_with_reply_and_block):
+	Decrease connection->n_incoming when removing an entry 
+	from the list.
+	* dbus/dbus-dict.c: (dbus_dict_entry_free),
+	(dbus_dict_set_boolean_array), (dbus_dict_set_int32_array),
+	(dbus_dict_set_uint32_array), (dbus_dict_set_double_array),
+	(dbus_dict_set_byte_array), (dbus_dict_set_string_array),
+	(dbus_dict_get_boolean_array), (dbus_dict_get_double_array),
+	(dbus_dict_get_byte_array):
+	Handle NULL arrays and strings. Also add support for byte arrays.
+	
+	* dbus/dbus-marshal.c: (_dbus_marshal_byte_array),
+	(_dbus_marshal_dict), (_dbus_demarshal_byte_array),
+	(_dbus_demarshal_int32_array), (_dbus_demarshal_uint32_array),
+	(_dbus_demarshal_double_array), (_dbus_demarshal_string_array),
+	(_dbus_demarshal_dict), (demarshal_and_validate_len),
+	(_dbus_marshal_validate_arg), (_dbus_marshal_test):
+	* dbus/dbus-marshal.h:
+	Add support for marshalling and demarshalling empty arrays and strings.
+	
+	* dbus/dbus-message.c: (dbus_message_append_args_valist),
+	(dbus_message_append_string_array),
+	(dbus_message_iter_get_boolean),
+	(dbus_message_iter_get_boolean_array),
+	(dbus_message_iter_get_int32_array),
+	(dbus_message_iter_get_uint32_array),
+	(dbus_message_iter_get_double_array),
+	(dbus_message_iter_get_byte_array),
+	(dbus_message_iter_get_string_array), (dbus_message_iter_get_dict),
+	(check_message_handling):
+	Add support for getting empty arrays and dicts.
+	
+	* dbus/dbus-string.c: (_dbus_string_validate_utf8):
+	Don't do any validation at all for now, that's better than just checking
+	for ASCII.
+	
+	* test/data/valid-messages/emptiness.message:
+	New test message with lots of empty arrays.
+	
 2003-03-16  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-connection.c

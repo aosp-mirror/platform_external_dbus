@@ -55,7 +55,7 @@ typedef struct
     struct {
       unsigned char *value;
       int len;
-    } boolean_array;
+    } byte_array;
     struct {
       dbus_int32_t *value;
       int len;
@@ -92,8 +92,9 @@ dbus_dict_entry_free (DBusDictEntry *entry)
     case DBUS_TYPE_STRING:
       dbus_free (entry->v.string_value);
       break;
+    case DBUS_TYPE_BYTE_ARRAY:
     case DBUS_TYPE_BOOLEAN_ARRAY:
-      dbus_free (entry->v.boolean_array.value);
+      dbus_free (entry->v.byte_array.value);
       break;
     case DBUS_TYPE_INT32_ARRAY:
       dbus_free (entry->v.int32_array.value);
@@ -473,18 +474,23 @@ dbus_dict_set_boolean_array (DBusDict            *dict,
   DBusDictEntry *entry;
   unsigned char *tmp;
 
-  tmp = dbus_malloc (len);
-  
-  if (!tmp)
-    return FALSE;
+  if (len == 0)
+    tmp = NULL;
+  else
+    {
+      tmp = dbus_malloc (len);
+      
+      if (!tmp)
+	return FALSE;
 
-  memcpy (tmp, value, len);
+      memcpy (tmp, value, len);
+    }
   
   if (insert_entry (dict, key, &entry))
     {
       entry->type = DBUS_TYPE_BOOLEAN_ARRAY;
-      entry->v.boolean_array.value = tmp;
-      entry->v.boolean_array.len = len;
+      entry->v.byte_array.value = tmp;
+      entry->v.byte_array.len = len;
       
       return TRUE;
     }
@@ -511,11 +517,16 @@ dbus_dict_set_int32_array (DBusDict           *dict,
   DBusDictEntry *entry;
   dbus_int32_t *tmp;
 
-  tmp = dbus_new (dbus_int32_t, len);
-
-  if (!tmp)
-    return FALSE;
-
+  if (len == 0)
+    tmp = NULL;
+  else
+    {
+      tmp = dbus_new (dbus_int32_t, len);
+  
+      if (!tmp)
+	return FALSE;
+    }
+  
   memcpy (tmp, value, len * sizeof (dbus_int32_t));
   
   if (insert_entry (dict, key, &entry))
@@ -550,12 +561,17 @@ dbus_dict_set_uint32_array (DBusDict             *dict,
   DBusDictEntry *entry;
   dbus_uint32_t *tmp;
 
-  tmp = dbus_new (dbus_uint32_t, len);
-
-  if (!tmp)
-    return FALSE;
-
-  memcpy (tmp, value, len * sizeof (dbus_uint32_t));
+  if (len == 0)
+    tmp = NULL;
+  else
+    {
+      tmp = dbus_new (dbus_uint32_t, len);
+      
+      if (!tmp)
+	return FALSE;
+      
+      memcpy (tmp, value, len * sizeof (dbus_uint32_t));
+    }
   
   if (insert_entry (dict, key, &entry))
     {
@@ -588,12 +604,17 @@ dbus_dict_set_double_array (DBusDict     *dict,
   DBusDictEntry *entry;
   double *tmp;
 
-  tmp = dbus_new (double, len);
+  if (len == 0)
+    tmp = NULL;
+  else
+    {
+      tmp = dbus_new (double, len);
 
-  if (!tmp)
-    return FALSE;
+      if (!tmp)
+	return FALSE;
 
-  memcpy (tmp, value, len * sizeof (double));
+      memcpy (tmp, value, len * sizeof (double));
+    }
   
   if (insert_entry (dict, key, &entry))
     {
@@ -606,6 +627,40 @@ dbus_dict_set_double_array (DBusDict     *dict,
   else
     return FALSE;
 }
+
+dbus_bool_t
+dbus_dict_set_byte_array (DBusDict             *dict,
+			  const char           *key,
+			  unsigned const char  *value,
+			  int                   len)
+{
+  DBusDictEntry *entry;
+  unsigned char *tmp;
+
+  if (len == 0)
+    tmp = NULL;
+  else
+    {
+      tmp = dbus_malloc (len);
+      
+      if (!tmp)
+	return FALSE;
+
+      memcpy (tmp, value, len);
+    }
+  
+  if (insert_entry (dict, key, &entry))
+    {
+      entry->type = DBUS_TYPE_BYTE_ARRAY;
+      entry->v.byte_array.value = tmp;
+      entry->v.byte_array.len = len;
+      
+      return TRUE;
+    }
+  else
+    return FALSE;
+}
+
 
 /**
  * Adds a string array to the dict. If a value with the same key
@@ -631,6 +686,8 @@ dbus_dict_set_string_array (DBusDict    *dict,
   if (!tmp)
     return FALSE;
 
+  tmp[len] = NULL;
+  
   for (i = 0; i < len; i++)
     {
       tmp[i] = _dbus_strdup (value[i]);
@@ -806,8 +863,8 @@ dbus_dict_get_boolean_array (DBusDict             *dict,
   if (!entry || entry->type != DBUS_TYPE_BOOLEAN_ARRAY)
     return FALSE;
 
-  *value = entry->v.boolean_array.value;
-  *len = entry->v.boolean_array.len;
+  *value = entry->v.byte_array.value;
+  *len = entry->v.byte_array.len;
   
   return TRUE;
 }
@@ -895,6 +952,25 @@ dbus_dict_get_double_array (DBusDict      *dict,
 
   *value = entry->v.double_array.value;
   *len = entry->v.double_array.len;
+  
+  return TRUE;
+}
+
+dbus_bool_t
+dbus_dict_get_byte_array (DBusDict             *dict,
+			  const char           *key,
+			  unsigned const char **value,
+			  int                  *len)
+{
+  DBusDictEntry *entry;
+  
+  entry = _dbus_hash_table_lookup_string (dict->table, key);
+  
+  if (!entry || entry->type != DBUS_TYPE_BYTE_ARRAY)
+    return FALSE;
+
+  *value = entry->v.byte_array.value;
+  *len = entry->v.byte_array.len;
   
   return TRUE;
 }

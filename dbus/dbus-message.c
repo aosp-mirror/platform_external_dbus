@@ -1167,7 +1167,7 @@ dbus_message_append_args_valist (DBusMessage *message,
 	case DBUS_TYPE_STRING_ARRAY:
 	  {
 	    int len;
-	    const char **data;
+	    char **data;
 	    
 	    data = va_arg (var_args, const char **);
 	    len = va_arg (var_args, int);
@@ -1184,6 +1184,7 @@ dbus_message_append_args_valist (DBusMessage *message,
 
 	    if (!dbus_message_append_dict (message, dict))
 	      goto enomem;
+	    break;
 	  }
 	default:
 	  _dbus_warn ("Unknown field type %d\n", type);
@@ -1487,9 +1488,9 @@ dbus_message_append_byte_array (DBusMessage         *message,
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_message_append_string_array (DBusMessage *message,
-				  const char **value,
-				  int          len)
+dbus_message_append_string_array (DBusMessage  *message,
+				  const char  **value,
+				  int           len)
 {
   _dbus_assert (!message->locked);
 
@@ -1497,7 +1498,7 @@ dbus_message_append_string_array (DBusMessage *message,
     return FALSE;
 
   if (!_dbus_marshal_string_array (&message->body, message->byte_order,
-				   value, len))
+				   (const char **)value, len))
     {
       _dbus_string_shorten (&message->body, 1);
       return FALSE;
@@ -1991,7 +1992,6 @@ dbus_message_iter_get_boolean (DBusMessageIter *iter)
   _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_BOOLEAN);
 
   value = _dbus_string_get_byte (&iter->message->body, iter->pos + 1);
-  iter->pos += 2;
   
   return value;
 }
@@ -2067,10 +2067,8 @@ dbus_message_iter_get_boolean_array (DBusMessageIter   *iter,
 {
   _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_BOOLEAN_ARRAY);
 
-  *value = _dbus_demarshal_byte_array (&iter->message->body, iter->message->byte_order,
-				       iter->pos + 1, NULL, len);
-  
-  if (!*value)
+  if (!_dbus_demarshal_byte_array (&iter->message->body, iter->message->byte_order,
+				   iter->pos + 1, NULL, value, len))
     return FALSE;
   else
     return TRUE;
@@ -2093,10 +2091,8 @@ dbus_message_iter_get_int32_array  (DBusMessageIter *iter,
 {
   _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_INT32_ARRAY);
 
-  *value = _dbus_demarshal_int32_array (&iter->message->body, iter->message->byte_order,
-					iter->pos + 1, NULL, len);
-  
-  if (!*value)
+  if (!_dbus_demarshal_int32_array (&iter->message->body, iter->message->byte_order,
+				    iter->pos + 1, NULL, value, len))
     return FALSE;
   else
     return TRUE;
@@ -2119,10 +2115,8 @@ dbus_message_iter_get_uint32_array  (DBusMessageIter *iter,
 {
   _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_UINT32_ARRAY);
 
-  *value = _dbus_demarshal_uint32_array (&iter->message->body, iter->message->byte_order,
-					 iter->pos + 1, NULL, len);
-  
-  if (!*value)
+  if (!_dbus_demarshal_uint32_array (&iter->message->body, iter->message->byte_order,
+				     iter->pos + 1, NULL, value, len))
     return FALSE;
   else
     return TRUE;
@@ -2145,10 +2139,8 @@ dbus_message_iter_get_double_array  (DBusMessageIter *iter,
 {
   _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_DOUBLE_ARRAY);
 
-  *value = _dbus_demarshal_double_array (&iter->message->body, iter->message->byte_order,
-					 iter->pos + 1, NULL, len);
-  
-  if (!*value)
+  if (!_dbus_demarshal_double_array (&iter->message->body, iter->message->byte_order,
+				     iter->pos + 1, NULL, value, len))
     return FALSE;
   else
     return TRUE;
@@ -2170,11 +2162,9 @@ dbus_message_iter_get_byte_array (DBusMessageIter  *iter,
                                   int              *len)
 {
   _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_BYTE_ARRAY);
-  
-  *value = _dbus_demarshal_byte_array (&iter->message->body, iter->message->byte_order,
-				       iter->pos + 1, NULL, len);
 
-  if (!*value)
+  if (!_dbus_demarshal_byte_array (&iter->message->body, iter->message->byte_order,
+				   iter->pos + 1, NULL, value, len))
     return FALSE;
   else
     return TRUE;
@@ -2202,10 +2192,8 @@ dbus_message_iter_get_string_array (DBusMessageIter *iter,
 {
   _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_STRING_ARRAY);
 
-  *value = _dbus_demarshal_string_array (&iter->message->body, iter->message->byte_order,
-					 iter->pos + 1, NULL, len);
-
-  if (!*value)
+  if (!_dbus_demarshal_string_array (&iter->message->body, iter->message->byte_order,
+				     iter->pos + 1, NULL, value, len))
     return FALSE;
   else
     return TRUE;
@@ -2226,10 +2214,8 @@ dbus_message_iter_get_dict (DBusMessageIter *iter,
 {
   _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_DICT);
 
-  *dict = _dbus_demarshal_dict (&iter->message->body, iter->message->byte_order,
-				 iter->pos + 1, NULL);
-  
-  if (!*dict)
+  if (!_dbus_demarshal_dict (&iter->message->body, iter->message->byte_order,
+			     iter->pos + 1, NULL, dict))
     return FALSE;
   else
     return TRUE;
@@ -3076,6 +3062,17 @@ check_message_handling (DBusMessage *message)
             dbus_free (str);
           }
           break;
+        case DBUS_TYPE_BOOLEAN_ARRAY:
+          {
+	    unsigned char *values;
+	    int len;
+	    
+            if (!dbus_message_iter_get_boolean_array (iter, &values, &len))
+	      return FALSE;
+
+	    dbus_free (values);
+          }
+          break;
         case DBUS_TYPE_INT32_ARRAY:
           {
 	    dbus_int32_t *values;
@@ -3127,7 +3124,6 @@ check_message_handling (DBusMessage *message)
 
 	    if (!dbus_message_iter_get_dict (iter, &dict))
 	      return FALSE;
-
 	    dbus_dict_unref (dict);
 	  }
 	  break;
