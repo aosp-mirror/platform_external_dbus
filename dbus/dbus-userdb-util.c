@@ -203,7 +203,7 @@ _dbus_user_database_lookup_group (DBusUserDatabase *db,
   if (info)
     {
       _dbus_verbose ("Using cache for GID "DBUS_GID_FORMAT" information\n",
-                     gid);
+                     info->gid);
       return info;
     }
   else

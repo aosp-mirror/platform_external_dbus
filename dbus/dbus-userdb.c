@@ -96,7 +96,7 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
   if (info)
     {
       _dbus_verbose ("Using cache for UID "DBUS_UID_FORMAT" information\n",
-                     uid);
+                     info->uid);
       return info;
     }
   else
