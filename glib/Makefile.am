@@ -1,0 +1,26 @@
+INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS)
+
+dbusincludedir=$(includedir)/dbus-1.0/dbus
+
+lib_LTLIBRARIES=libdbus-glib-1.la
+
+dbusinclude_HEADERS=				\
+	dbus-glib.h
+
+libdbus_glib_1_la_SOURCES = 			\
+	dbus-gmain.c				\
+	dbus-gthread.c
+
+libdbus_glib_1_la_LIBADD= $(DBUS_GLIB_LIBS) $(top_builddir)/dbus/libdbus-1.la
+
+
+if DBUS_BUILD_TESTS
+
+noinst_PROGRAMS= test-dbus-glib
+
+test_dbus_glib_SOURCES=				\
+	test-dbus-glib.c				
+
+test_dbus_glib_LDADD= $(top_builddir)/glib/libdbus-glib-1.la
+
+endif

@@ -1,3 +1,20 @@
+2002-12-16  Anders Carlsson  <andersca@codefactory.se>
+
+	* Makefile.am:
+	* configure.in:
+	Add GLib checks and fixup .pc files
+	
+	* glib/Makefile.am:
+	* glib/dbus-glib.h:
+	* glib/dbus-gmain.c: (gdbus_connection_prepare),
+	(gdbus_connection_check), (gdbus_connection_dispatch),
+	(gdbus_add_connection_watch), (gdbus_remove_connection_watch),
+	(dbus_connection_gsource_new):
+	* glib/dbus-gthread.c: (dbus_gmutex_new), (dbus_gmutex_free),
+	(dbus_gmutex_lock), (dbus_gmutex_unlock), (dbus_gthread_init):
+	* glib/test-dbus-glib.c: (message_handler), (main):
+	Add GLib support.
+	
 2002-12-15  Harri Porten  <porten@kde.org>
 
 	* autogen.sh: check for libtoolize before attempting to use it 
