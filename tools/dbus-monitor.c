@@ -39,6 +39,10 @@ filter_func (DBusConnection     *connection,
                               "Disconnected"))
     exit (0);
   
+  /* Conceptually we want this to be
+   * DBUS_HANDLER_RESULT_NOT_YET_HANDLED, but this raises
+   * some problems.  See bug 1719.
+   */
   return DBUS_HANDLER_RESULT_HANDLED;
 }
 
