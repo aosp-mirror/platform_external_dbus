@@ -1089,10 +1089,10 @@ dbus_gproxy_end_call (DBusGProxy          *proxy,
  * @param first_arg_type type of the first argument
  */
 void
-dbus_gproxy_oneway_call (DBusGProxy               *proxy,
-                         const char               *method,
-                         int                       first_arg_type,
-                         ...)
+dbus_gproxy_call_no_reply (DBusGProxy               *proxy,
+                           const char               *method,
+                           int                       first_arg_type,
+                           ...)
 {
   DBusMessage *message;
   va_list args;

@@ -443,6 +443,11 @@ create_source (void         *connection_or_server,
  * Pass in #NULL for the #GMainContext unless you're
  * doing something specialized.
  *
+ * If called twice for the same context, does nothing the second
+ * time. If called once with context A and once with context B,
+ * context B replaces context A as the context monitoring the
+ * connection.
+ *
  * @param connection the connection
  * @param context the #GMainContext or #NULL for default context
  */
@@ -451,7 +456,29 @@ dbus_connection_setup_with_g_main (DBusConnection *connection,
 				   GMainContext   *context)
 {
   GSource *source;
+  
+  /* FIXME we never free the slot, so its refcount just keeps growing,
+   * which is kind of broken.
+   */
+  dbus_connection_allocate_data_slot (&connection_slot);
+  if (connection_slot < 0)
+    goto nomem;
 
+  /* So we can test for equality below */
+  if (context == NULL)
+    context = g_main_context_default ();
+  
+  source = dbus_connection_get_data (connection, connection_slot);
+  if (source != NULL)
+    {
+      if (source->context == context)
+        return; /* nothing to do */
+
+      /* Remove the previous source and move to a new context */
+      dbus_connection_set_data (connection, connection_slot, NULL, NULL);
+      source = NULL;
+    }
+  
   source = create_source (connection, &dbus_connection_funcs, context);
 
   if (!dbus_connection_set_watch_functions (connection,
@@ -474,13 +501,6 @@ dbus_connection_setup_with_g_main (DBusConnection *connection,
       
   g_source_attach (source, context);
 
-  /* FIXME we never free the slot, so its refcount just keeps growing,
-   * which is kind of broken.
-   */
-  dbus_connection_allocate_data_slot (&connection_slot);
-  if (connection_slot < 0)
-    goto nomem;
-
   if (!dbus_connection_set_data (connection, connection_slot, source,
                                  (DBusFreeFunction)free_source))
     goto nomem;
@@ -496,6 +516,11 @@ dbus_connection_setup_with_g_main (DBusConnection *connection,
  * to integrate the server with the GLib main loop.
  * In most cases the context argument should be #NULL.
  *
+ * If called twice for the same context, does nothing the second
+ * time. If called once with context A and once with context B,
+ * context B replaces context A as the context monitoring the
+ * connection.
+ *
  * @param server the server
  * @param context the #GMainContext or #NULL for default
  */
@@ -505,6 +530,25 @@ dbus_server_setup_with_g_main (DBusServer   *server,
 {
   GSource *source;
 
+  dbus_server_allocate_data_slot (&server_slot);
+  if (server_slot < 0)
+    goto nomem;
+
+  /* So we can test for equality below */
+  if (context == NULL)
+    context = g_main_context_default ();
+  
+  source = dbus_server_get_data (server, server_slot);
+  if (source != NULL)
+    {
+      if (source->context == context)
+        return; /* nothing to do */
+
+      /* Remove the previous source and move to a new context */
+      dbus_server_set_data (server, server_slot, NULL, NULL);
+      source = NULL;
+    }
+  
   source = create_source (server, &dbus_server_funcs, context);
 
   dbus_server_set_watch_functions (server,
@@ -521,13 +565,6 @@ dbus_server_setup_with_g_main (DBusServer   *server,
   
   g_source_attach (source, context);
 
-  /* FIXME we never free the slot, so its refcount just keeps growing,
-   * which is kind of broken.
-   */
-  dbus_server_allocate_data_slot (&server_slot);
-  if (server_slot < 0)
-    goto nomem;
-
   if (!dbus_server_set_data (server, server_slot, source,
                              (DBusFreeFunction)free_source))
     goto nomem;
@@ -536,6 +573,40 @@ dbus_server_setup_with_g_main (DBusServer   *server,
 
  nomem:
   g_error ("Not enough memory to set up DBusServer for use with GLib");
+}
+
+/**
+ * Calls dbus_bus_get() then calls dbus_connection_setup_with_g_main()
+ * on the result and returns the bus connection.
+ *
+ * @param type bus type
+ * @param error address where an error can be returned.
+ * @returns a DBusConnection
+ */
+DBusConnection*
+dbus_bus_get_with_g_main (DBusBusType     type,
+                          GError        **error)
+{
+  DBusConnection *connection;
+  DBusError derror;
+
+  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
+  
+  dbus_error_init (&derror);
+
+  connection = dbus_bus_get (type, &derror);
+  if (connection == NULL)
+    {
+      dbus_set_g_error (error, &derror);
+      dbus_error_free (&derror);
+    }
+  else
+    {
+      /* does nothing if it's already been done */
+      dbus_connection_setup_with_g_main (connection, NULL);
+    }
+
+  return connection;
 }
 
 /**

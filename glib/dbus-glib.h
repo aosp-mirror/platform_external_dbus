@@ -51,11 +51,13 @@ typedef enum
 void dbus_set_g_error (GError   **gerror,
                        DBusError *derror);
 
-void dbus_g_thread_init                (void);
-void dbus_connection_setup_with_g_main (DBusConnection *connection,
-					GMainContext   *context);
-void dbus_server_setup_with_g_main     (DBusServer     *server,
-					GMainContext   *context);
+void            dbus_g_thread_init                (void);
+void            dbus_connection_setup_with_g_main (DBusConnection  *connection,
+                                                   GMainContext    *context);
+void            dbus_server_setup_with_g_main     (DBusServer      *server,
+                                                   GMainContext    *context);
+DBusConnection* dbus_bus_get_with_g_main          (DBusBusType      type,
+                                                   GError         **error);
 
 typedef struct DBusGObjectInfo DBusGObjectInfo;
 typedef struct DBusGMethodInfo DBusGMethodInfo;
@@ -137,7 +139,7 @@ gboolean         dbus_gproxy_end_call              (DBusGProxy               *pr
                                                     GError                  **error,
                                                     int                       first_arg_type,
                                                     ...);
-void             dbus_gproxy_oneway_call           (DBusGProxy               *proxy,
+void             dbus_gproxy_call_no_reply         (DBusGProxy               *proxy,
                                                     const char               *method,
                                                     int                       first_arg_type,
                                                     ...);

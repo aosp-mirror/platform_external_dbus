@@ -1,3 +1,13 @@
+2003-10-02  Havoc Pennington  <hp@pobox.com>
+
+	* glib/dbus-gproxy.c (dbus_gproxy_call_no_reply): rename from
+	dbus_gproxy_oneway_call
+
+	* glib/dbus-gmain.c (dbus_connection_setup_with_g_main) 
+	(dbus_server_setup_with_g_main): fix to allow calling them more
+	than once on the same args
+	(dbus_bus_get_with_g_main): new function
+
 2003-10-02  Havoc Pennington  <hp@redhat.com>
 
 	* doc/dbus-tutorial.xml: write some stuff
