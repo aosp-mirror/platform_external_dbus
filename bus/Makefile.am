@@ -1,10 +1,12 @@
 
-INCLUDES=-I$(top_srcdir) $(DBUS_BUS_CFLAGS) \
-	-DDAEMON_NAME=\"dbus-daemon-1\"  -DDBUS_COMPILATION
+configdir=$(sysconfdir)/dbus-1
+
+INCLUDES=-I$(top_srcdir) $(DBUS_BUS_CFLAGS)				\
+	-DDAEMON_NAME=\"dbus-daemon-1\"  -DDBUS_COMPILATION		\
+	-DDBUS_SYSTEM_CONFIG_FILE=\""$(configdir)/system.conf"\"	\
+	-DDBUS_SESSION_CONFIG_FILE=\""$(configdir)/session.conf"\"
 
 EFENCE=
-
-configdir=$(sysconfdir)/dbus-1
 
 config_DATA=					\
 	system.conf				\

@@ -39,6 +39,12 @@
    idea. The definitiion of "valid" is slightly fuzzy. I think it might 
    be better to just silently "fix" the UTF-8, or perhaps return an error.
 
+   Owen says we should only validate the UTF-8 on dbus_message_get_string()
+   (changing get_string to have an error return, and allowing a type error 
+   as a possible return)
+
  - We might consider returning a "no such operation" error in dbus-connection.c 
    for unhandled messages.
 
+ - Abstract the user database, so you can use something other than the system password 
+   database.

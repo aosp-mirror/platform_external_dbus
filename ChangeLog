@@ -1,5 +1,9 @@
 2003-03-31  Havoc Pennington  <hp@redhat.com>
 
+	* bus/main.c (main): fix up the command line arguments to be nicer
+
+2003-03-31  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/Makefile.am (INCLUDES): use EXPANDED_LOCALSTATEDIR to
 	define DBUS_SYSTEM_BUS_PATH as we want to compile in the same 
 	final location that lands in the config file
