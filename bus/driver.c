@@ -1136,7 +1136,7 @@ bus_driver_handle_introspect (DBusConnection *connection,
     goto oom;
   if (!_dbus_string_append (&xml, "    <method name=\"Introspect\">\n"))
     goto oom;
-  if (!_dbus_string_append (&xml, "      <arg name=\"data\" direction=\"out\" type=\"string\"/>\n"))
+  if (!_dbus_string_append_printf (&xml, "      <arg name=\"data\" direction=\"out\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING))
     goto oom;
   if (!_dbus_string_append (&xml, "    </method>\n"))
     goto oom;
@@ -1163,15 +1163,15 @@ bus_driver_handle_introspect (DBusConnection *connection,
       else if (strcmp (message_handlers[i].in_args,
                        DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_UINT32_AS_STRING) == 0)
         {
-          if (!_dbus_string_append (&xml, "      <arg direction=\"in\" type=\"string\"/>\n"))
+          if (!_dbus_string_append_printf (&xml, "      <arg direction=\"in\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING))
             goto oom;
-          if (!_dbus_string_append (&xml, "      <arg direction=\"in\" type=\"uint32\"/>\n"))
+          if (!_dbus_string_append_printf (&xml, "      <arg direction=\"in\" type=\"%s\"/>\n", DBUS_TYPE_UINT32_AS_STRING))
             goto oom;
         }
       else if (strcmp (message_handlers[i].in_args,
                        DBUS_TYPE_STRING_AS_STRING) == 0)
         {
-          if (!_dbus_string_append (&xml, "      <arg direction=\"in\" type=\"string\"/>\n"))
+          if (!_dbus_string_append_printf (&xml, "      <arg direction=\"in\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING))
             goto oom;
         }
       else
@@ -1186,26 +1186,26 @@ bus_driver_handle_introspect (DBusConnection *connection,
       else if (strcmp (message_handlers[i].out_args,
                        DBUS_TYPE_STRING_AS_STRING) == 0)
         {
-          if (!_dbus_string_append (&xml, "      <arg direction=\"out\" type=\"string\"/>\n"))
+          if (!_dbus_string_append_printf (&xml, "      <arg direction=\"out\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING))
             goto oom;
         }
       else if (strcmp (message_handlers[i].out_args,
                        DBUS_TYPE_BOOLEAN_AS_STRING) == 0)
         {
-          if (!_dbus_string_append (&xml, "      <arg direction=\"out\" type=\"boolean\"/>\n"))
+          if (!_dbus_string_append_printf (&xml, "      <arg direction=\"out\" type=\"%s\"/>\n", DBUS_TYPE_BOOLEAN_AS_STRING))
             goto oom;
         }
       else if (strcmp (message_handlers[i].out_args,
                        DBUS_TYPE_UINT32_AS_STRING) == 0)
         {
-          if (!_dbus_string_append (&xml, "      <arg direction=\"out\" type=\"uint32\"/>\n"))
+          if (!_dbus_string_append_printf (&xml, "      <arg direction=\"out\" type=\"%s\"/>\n", DBUS_TYPE_UINT32_AS_STRING))
             goto oom;
         }
       else if (strcmp (message_handlers[i].out_args,
                        DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_STRING_AS_STRING) == 0)
         {
           /* FIXME introspection format doesn't handle arrays yet */
-          if (!_dbus_string_append (&xml, "      <arg direction=\"out\" type=\"string\"/>\n"))
+          if (!_dbus_string_append_printf (&xml, "      <arg direction=\"out\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING))
             goto oom;
         }
       else

@@ -1,3 +1,24 @@
+2005-03-11  Colin Walters  <walters@verbum.org>
+
+	* glib/Makefile.am: Generate dbus-glib-bindings.h and
+	install it.
+
+	* bus/print-introspect.c: New file; prints introspection
+	data for a given name and object path.
+
+	* bus/run-with-tmp-session-bus.sh: New file, refactored
+	from test/glib/run-test.sh.  Creates a temporary session
+	bus and runs another program.
+
+	* test/glib/run-test.sh: Refactor to invoke
+	run-with-tmp-session-bus.sh.
+
+	* bus/driver.c (bus_driver_handle_introspect): Fix to print new
+	introspection format.  Also change to use DBUS_TYPE_x_AS_STRING
+	macros instead of hardcoding.
+
+	* glib/.cvsignore, bus/.cvsignore, test/glib/.cvsignore: Update.
+
 2005-03-11  Joe Shaw  <joeshaw@novell.com>
 
 	* dbus/dbus-connection.c (dbus_connection_send_with_reply): Remove

@@ -77,7 +77,7 @@ endif
 
 ## we use noinst_PROGRAMS not check_PROGRAMS so that we build 
 ## even when not doing "make check"
-noinst_PROGRAMS=$(TESTS)
+noinst_PROGRAMS=$(TESTS) print-introspect
 
 bus_test_SOURCES=				\
 	$(BUS_SOURCES)				\
@@ -85,9 +85,20 @@ bus_test_SOURCES=				\
 
 bus_test_LDADD=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_BUS_LIBS)
 
+print_introspect_SOURCES = print-introspect.c
+print_introspect_LDADD = $(top_builddir)/dbus/libdbus-convenience.la $(DBUS_BUS_LIBS)
+
+run-with-tmp-session-bus.sh: dbus-daemon
+
+all-local: dbus-bus-introspect.xml
+
+dbus-bus-introspect.xml: $(srcdir)/run-with-tmp-session-bus.sh
+	DBUS_TOP_BUILDDIR=$(top_builddir) $(srcdir)/run-with-tmp-session-bus.sh ./print-introspect org.freedesktop.DBus /org/freedesktop/DBus > dbus-bus-introspect.xml.tmp && mv dbus-bus-introspect.xml.tmp dbus-bus-introspect.xml
+
 ## mop up the gcov files
 clean-local:
 	/bin/rm *.bb *.bbg *.da *.gcov || true
+	/bin/rm -f run-with-tmp-session-bus.conf
 
 install-data-hook:
 	$(mkinstalldirs) $(DESTDIR)/$(localstatedir)/run/dbus
@@ -125,4 +136,4 @@ man_MANS = dbus-daemon.1
 
 #### Extra dist 
 
-EXTRA_DIST=$(CONFIG_IN_FILES) $(SCRIPT_IN_FILES) $(man_MANS) $(MAN_IN_FILES)
+EXTRA_DIST=$(CONFIG_IN_FILES) $(SCRIPT_IN_FILES) $(man_MANS) $(MAN_IN_FILES) run-with-tmp-session-bus.sh

@@ -2,3 +2,4 @@ debug-allow-all.conf
 debug-allow-all-sha1.conf
 session.conf
 system.conf
+run-with-tmp-session-bus.conf

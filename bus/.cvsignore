@@ -14,4 +14,7 @@ rc.messagebus
 messagebus
 session.conf
 system.conf
+run-with-tmp-session-bus.conf
 dbus-daemon.1
+print-introspect
+dbus-bus-introspect.xml
