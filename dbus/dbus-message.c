@@ -1422,6 +1422,45 @@ dbus_message_new_error (DBusMessage *reply_to,
 }
 
 /**
+ * Creates a new message that is an error reply to a certain message.
+ * Error replies are possible in response to method calls primarily.
+ *
+ * @param reply_to the original message
+ * @param error_name the error name
+ * @param error_format the error message string to be printed
+ * @param ... value of first argument, list of additional values to print
+ * @returns a new error message
+ */
+DBusMessage*
+dbus_message_new_error_printf (DBusMessage *reply_to,
+			       const char  *error_name,
+			       const char  *error_format,
+			       ...)
+{
+  va_list args;
+  DBusString str;
+  DBusMessage *message;
+
+  if (!_dbus_string_init (&str))
+    return NULL;
+
+  va_start (args, error_format);
+
+  if (_dbus_string_append_printf_valist (&str, error_format, args))
+    message = dbus_message_new_error (reply_to, error_name,
+				      _dbus_string_get_const_data (&str));
+  else
+    message = NULL;
+  
+  _dbus_string_free (&str);
+
+  va_end (args);
+
+  return message;
+}
+
+
+/**
  * Creates a new message that is an exact replica of the message
  * specified, except that its refcount is set to 1.
  *

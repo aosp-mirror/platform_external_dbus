@@ -184,7 +184,7 @@ AM_CONDITIONAL(DBUS_USE_GCJ, test x$enable_gcj = xyes)
 AM_PROG_LIBTOOL
 
 #### Look for mono
-AC_CHECK_TOOL(MCS, mcs, mcs)
+AC_CHECK_TOOL(MCS, mcs)
 if test -z "$MCS" ; then
      have_mcs=no
 else

@@ -72,6 +72,10 @@ DBusMessage* dbus_message_new_signal        (const char  *path,
 DBusMessage* dbus_message_new_error         (DBusMessage *reply_to,
                                              const char  *error_name,
                                              const char  *error_message);
+DBusMessage* dbus_message_new_error_printf  (DBusMessage *reply_to,
+                                             const char  *error_name,
+                                             const char  *error_format,
+					     ...);
 
 DBusMessage* dbus_message_copy              (const DBusMessage *message);
 

@@ -1,3 +1,13 @@
+2004-03-29  Michael Meeks  <michael@ximian.com>
+
+	* dbus/dbus-message.c
+	(dbus_message_new_error_printf): impl.
+
+	* dbus/dbus-connection.c
+	(dbus_connection_unregister_object_path): fix warning.
+
+	* configure.in: fix no-mono-installed situation.
+
 2004-03-27  Havoc Pennington  <hp@redhat.com>
 
 	Patch from Timo Teräs:

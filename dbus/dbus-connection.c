@@ -3237,8 +3237,7 @@ dbus_connection_unregister_object_path (DBusConnection              *connection,
 
   CONNECTION_LOCK (connection);
 
-  return _dbus_object_tree_unregister_and_unlock (connection->objects,
-                                                  path);
+  _dbus_object_tree_unregister_and_unlock (connection->objects, path);
 }
 
 /**
