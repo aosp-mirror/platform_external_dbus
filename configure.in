@@ -1082,6 +1082,7 @@ Makefile
 dbus/Makefile
 glib/Makefile
 python/Makefile
+python/examples/Makefile
 qt/Makefile
 gcj/Makefile
 gcj/org/Makefile

@@ -1,5 +1,17 @@
 2004-05-27  Seth Nickell  <seth@gnome.org>
 
+	* configure.in:
+	* python/Makefile.am:
+
+	Include the example python apps in the tarball.
+	
+	* python/examples/list-system-services.py
+
+	Add a python new example that fetches the list of services
+	from the system bus.
+	
+2004-05-27  Seth Nickell  <seth@gnome.org>
+
 	* python/dbus.py:
 	* python/dbus_bindings.pyx.in:
 
