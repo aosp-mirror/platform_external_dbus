@@ -145,7 +145,8 @@ typedef DBusHashEntry* (* DBusFindEntryFunction) (DBusHashTable   *table,
                                                   DBusHashEntry ***bucket);
 
 /**
- * Hash table internal members.
+ * Hash table internal members. Hash tables are opaque objects,
+ * they must be used via accessor functions.
  */
 struct DBusHashTable {
   int refcount;                       /**< Reference count */
@@ -216,7 +217,7 @@ static void           remove_entry         (DBusHashTable   *table,
 static void           free_entry           (DBusHashTable   *table,
                                             DBusHashEntry   *entry);
 
-/** }@ */
+/** @} */
 
 /**
  * @addtogroup DBusHashTable
@@ -1056,7 +1057,7 @@ _dbus_hash_table_get_n_entries (DBusHashTable *table)
   return table->n_entries;
 }
 
-/** }@ */
+/** @} */
 
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-test.h"

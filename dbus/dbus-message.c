@@ -24,6 +24,29 @@
 #include "dbus-message.h"
 
 /**
+ * @defgroup DBusMessageInternals DBusMessage implementation details
+ * @ingroup DBusInternals
+ * @brief DBusMessage private implementation details.
+ *
+ * The guts of DBusMessage and its methods.
+ *
+ * @{
+ */
+
+/**
+ * Object representing a message received from or to be sent to
+ * another application. This is an opaque object, all members
+ * are private.
+ */
+struct DBusMessage
+{
+  int refcount; /**< Reference count */
+  
+};
+
+/** @} */
+
+/**
  * @defgroup DBusMessage DBusMessage
  * @ingroup  DBus
  * @brief DBusMessage object
@@ -34,15 +57,11 @@
  */
 
 /**
- * @struct DBusMessage
- * Object representing a message received from or to be sent to
- * another application.
+ * @typedef DBusMessage
+ *
+ * Opaque data type representing a message received from or to be
+ * sent to another application.
  */
-struct DBusMessage
-{
-  int refcount; /**< Reference count */
-
-};
 
 /**
  * Constructs a new message.

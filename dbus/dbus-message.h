@@ -29,7 +29,7 @@
 
 #include <dbus/dbus-macros.h>
 
-DBUS_BEGIN_DECLS
+DBUS_BEGIN_DECLS;
 
 typedef struct DBusMessage DBusMessage;
 
@@ -39,6 +39,6 @@ void         dbus_message_ref   (DBusMessage *message);
 void         dbus_message_unref (DBusMessage *message);
 
 
-DBUS_END_DECLS
+DBUS_END_DECLS;
 
 #endif /* DBUS_MESSAGE_H */

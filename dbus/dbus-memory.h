@@ -30,7 +30,7 @@
 #include <dbus/dbus-macros.h>
 #include <stddef.h>
 
-DBUS_BEGIN_DECLS
+DBUS_BEGIN_DECLS;
 
 void* dbus_malloc        (size_t bytes);
 void* dbus_malloc0       (size_t bytes);
@@ -43,6 +43,6 @@ void  dbus_free          (void  *memory);
 
 typedef void (* DBusFreeFunction) (void *memory);
 
-DBUS_END_DECLS
+DBUS_END_DECLS;
 
 #endif /* DBUS_MESSAGE_H */

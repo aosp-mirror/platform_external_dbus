@@ -27,7 +27,7 @@
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
 
-DBUS_BEGIN_DECLS
+DBUS_BEGIN_DECLS;
 
 /* The iterator is on the stack, but its real fields are
  * hidden privately.
@@ -94,6 +94,6 @@ dbus_bool_t _dbus_hash_table_insert_int    (DBusHashTable *table,
                                             void          *value);
 int         _dbus_hash_table_get_n_entries (DBusHashTable *table);
 
-DBUS_END_DECLS
+DBUS_END_DECLS;
 
 #endif /* DBUS_HASH_H */

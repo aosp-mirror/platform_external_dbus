@@ -1,5 +1,15 @@
 2002-11-23  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-message.h: put semicolons after DEBUG_BEGIN_DECLS 
+	to avoid confusing Doxygen
+
+	* dbus/dbus-hash.c: @} not }@
+
+	* dbus/dbus-message.c (struct DBusMessage): split out 
+	internals docs
+
+2002-11-23  Havoc Pennington  <hp@pobox.com>
+
 	* configure.in: pile on more warning flags if using gcc
 
 	* Doxyfile.in (EXTRACT_STATIC): set to NO, so we don't have 
