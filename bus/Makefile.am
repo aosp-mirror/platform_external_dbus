@@ -92,7 +92,7 @@ clean-local:
 install-data-hook:
 	$(mkinstalldirs) $(DESTDIR)/$(localstatedir)/run/dbus
 	$(mkinstalldirs) $(DESTDIR)/$(configdir)/system.d
-	$(mkinstalldirs) $(DESTDIR)/$(libdir)/dbus-1.0/services
+	$(mkinstalldirs) $(DESTDIR)/$(datadir)/dbus-1/services
 
 #### Init scripts fun
 SCRIPT_IN_FILES=messagebus.in

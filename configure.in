@@ -984,6 +984,10 @@ LIBDIR_TMP="$libdir"
 EXPANDED_LIBDIR=`eval echo $LIBDIR_TMP`
 AC_SUBST(EXPANDED_LIBDIR)
 
+DATADIR_TMP="$datadir"
+EXPANDED_DATADIR=`eval echo $DATADIR_TMP`
+AC_SUBST(EXPANDED_DATADIR)
+
 ## put prefix and exec_prefix back
 prefix=$old_prefix
 exec_prefix=$old_exec_prefix
@@ -1168,6 +1172,7 @@ echo "
         bindir:                   ${EXPANDED_BINDIR}
         sysconfdir:               ${EXPANDED_SYSCONFDIR}
         localstatedir:            ${EXPANDED_LOCALSTATEDIR}
+	datadir:              ${EXPANDED_DATADIR}
 	source code location:	  ${srcdir}
 	compiler:		  ${CC}
 	cflags:		          ${CFLAGS}

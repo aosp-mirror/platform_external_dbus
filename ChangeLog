@@ -1,3 +1,14 @@
+2004-10-25  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-sysdeps.c (fill_user_info): On errors do not free
+	the DBusUserInfo structure since this is passed into the function.
+	This would cause a double free when the function that allocated
+	the structure would try to free it when an error occured.
+
+	* (bus/session.conf.in, bus/Makefile.am, dbus/configure.in):
+	use /usr/share/dbus-1/services instead of /usr/lib/dbus-1.0/services
+	for service activation to avoid 32bit/64bit parallel install issues
+
 2004-10-21  Colin Walters  <walters@verbum.org>
 
 	* AUTHORS: Fix my email address, the @gnu.org one

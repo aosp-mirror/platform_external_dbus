@@ -1566,7 +1566,6 @@ fill_user_info (DBusUserInfo       *info,
   
  failed:
   _DBUS_ASSERT_ERROR_IS_SET (error);
-  _dbus_user_info_free (info);
   return FALSE;
 }
 
