@@ -65,25 +65,26 @@ dbus_bool_t dbus_message_append_byte_array    (DBusMessage         *message,
 
 
 DBusMessageIter *dbus_message_get_fields_iter     (DBusMessage     *message);
+DBusResultCode   dbus_message_get_fields          (DBusMessage     *message,
+						   int              first_field_type,
+						   ...);
+DBusResultCode  dbus_message_get_fields_valist   (DBusMessage     *message,
+						  int              first_field_type,
+						  va_list          var_args);
 
-dbus_bool_t dbus_message_get_fields          (DBusMessage *message,
-                                              int          first_field_type,
-					      ...);
-dbus_bool_t dbus_message_get_fields_valist   (DBusMessage *message,
-                                              int          first_field_type,
-					      va_list      var_args);
+void             dbus_message_iter_ref            (DBusMessageIter *iter);
+void             dbus_message_iter_unref          (DBusMessageIter *iter);
 
-void        dbus_message_iter_ref            (DBusMessageIter *iter);
-void        dbus_message_iter_unref          (DBusMessageIter *iter);
+dbus_bool_t      dbus_message_iter_has_next       (DBusMessageIter *iter);
+dbus_bool_t      dbus_message_iter_next           (DBusMessageIter *iter);
+int              dbus_message_iter_get_field_type (DBusMessageIter *iter);
+int              dbus_message_iter_get_int32      (DBusMessageIter *iter);
+int              dbus_message_iter_get_uint32     (DBusMessageIter *iter);
+double           dbus_message_iter_get_double     (DBusMessageIter *iter);
+char *           dbus_message_iter_get_string     (DBusMessageIter *iter);
+unsigned char *  dbus_message_iter_get_byte_array (DBusMessageIter *iter,
+						   int             *len);
 
-dbus_bool_t dbus_message_iter_has_next	     (DBusMessageIter *iter);
-dbus_bool_t dbus_message_iter_next           (DBusMessageIter *iter);
-int         dbus_message_iter_get_field_type (DBusMessageIter *iter);
-int         dbus_message_iter_get_int32      (DBusMessageIter *iter);
-int         dbus_message_iter_get_uint32     (DBusMessageIter *iter);
-double      dbus_message_iter_get_double     (DBusMessageIter *iter);
-char *      dbus_message_iter_get_string     (DBusMessageIter *iter);
-unsigned char *dbus_message_iter_get_byte_array (DBusMessageIter *iter, int *len);
 
 
 

@@ -543,14 +543,14 @@ dbus_message_append_byte_array (DBusMessage         *message,
  * @param message the message
  * @param first_field_type the first field type
  * @param ... location for first field value, then list of type-location pairs
- * @returns #TRUE on success
+ * @returns result code
  */
-dbus_bool_t
+DBusResultCode
 dbus_message_get_fields (DBusMessage *message,
                          int          first_field_type,
 			 ...)
 {
-  dbus_bool_t retval;
+  DBusResultCode retval;
   va_list var_args;
 
   va_start (var_args, first_field_type);
@@ -570,13 +570,15 @@ dbus_message_get_fields (DBusMessage *message,
  * to the arg that's bad, as that would be a security hole
  * (allow one app to force another to leak memory)
  *
+ * @todo We need to free the field data when an error occurs.
+ *
  * @see dbus_message_get_fields
  * @param message the message
  * @param first_field_type type of the first field
  * @param var_args return location for first field, followed by list of type/location pairs
- * @returns #TRUE on success
+ * @returns result code
  */
-dbus_bool_t
+DBusResultCode
 dbus_message_get_fields_valist (DBusMessage *message,
                                 int          first_field_type,
 				va_list      var_args)
@@ -598,13 +600,13 @@ dbus_message_get_fields_valist (DBusMessage *message,
       
       if (msg_type != spec_type)
 	{
-	  _dbus_warn ("Field %d is specified to be of type \"%s\", but "
-		      "is actually of type \"%s\"\n", i,
-		      _dbus_type_to_string (spec_type),
-		      _dbus_type_to_string (msg_type));
+	  _dbus_verbose ("Field %d is specified to be of type \"%s\", but "
+			 "is actually of type \"%s\"\n", i,
+			 _dbus_type_to_string (spec_type),
+			 _dbus_type_to_string (msg_type));
 	  dbus_message_iter_unref (iter);
 
-	  return FALSE;
+	  return DBUS_RESULT_INVALID_FIELDS;
 	}
 
       switch (spec_type)
@@ -645,6 +647,10 @@ dbus_message_get_fields_valist (DBusMessage *message,
 	    ptr = va_arg (var_args, char **);
 
 	    *ptr = dbus_message_iter_get_string (iter);
+
+	    if (!*ptr)
+	      return DBUS_RESULT_NO_MEMORY;
+	    
 	    break;
 	  }
 
@@ -657,6 +663,10 @@ dbus_message_get_fields_valist (DBusMessage *message,
 	    len = va_arg (var_args, int *);
 
 	    *ptr = dbus_message_iter_get_byte_array (iter, len);
+
+	    if (!*ptr)
+	      return DBUS_RESULT_NO_MEMORY;
+	    
 	    break;
 	  }
 	default:	  
@@ -666,16 +676,16 @@ dbus_message_get_fields_valist (DBusMessage *message,
       spec_type = va_arg (var_args, int);
       if (spec_type != 0 && !dbus_message_iter_next (iter))
 	{
-	  _dbus_warn ("More fields than exist in the message were specified\n");
+	  _dbus_verbose ("More fields than exist in the message were specified\n");
 
 	  dbus_message_iter_unref (iter);  
-	  return FALSE;
+	  return DBUS_RESULT_INVALID_FIELDS;
 	}
       i++;
     }
 
   dbus_message_iter_unref (iter);
-  return TRUE;
+  return DBUS_RESULT_SUCCESS;
 }
 
 /**
@@ -1338,11 +1348,11 @@ _dbus_message_test (void)
 			      DBUS_TYPE_DOUBLE, 3.14159,
 			      0);
 
-  if (!dbus_message_get_fields (message,
-				DBUS_TYPE_INT32, &our_int,
-				DBUS_TYPE_STRING, &our_str,
-				DBUS_TYPE_DOUBLE, &our_double,
-				0))
+  if (dbus_message_get_fields (message,
+			       DBUS_TYPE_INT32, &our_int,
+			       DBUS_TYPE_STRING, &our_str,
+			       DBUS_TYPE_DOUBLE, &our_double,
+			       0) != DBUS_RESULT_SUCCESS)
     _dbus_assert_not_reached ("Could not get fields");
 
   if (our_int != -0x12345678)

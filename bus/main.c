@@ -95,7 +95,8 @@ main (int argc, char **argv)
   dbus_server_set_new_connection_function (server,
                                            new_connection_callback,
                                            NULL, NULL);
-  
+
+  _dbus_verbose ("We are on D-Bus...\n");
   bus_loop_run ();
   
   dbus_server_disconnect (server);

@@ -43,7 +43,7 @@ connection_error_handler (DBusConnection *connection,
 {
   BusConnectionData *d;
   BusService *service;
-  
+
   _dbus_warn ("Error on connection: %s\n",
               dbus_result_to_string (error_code));
 
@@ -123,7 +123,8 @@ bus_connection_setup (DBusConnection *connection)
 {
   BusConnectionData *d;
 
-  d = dbus_new (BusConnectionData, 1);
+  d = dbus_new0 (BusConnectionData, 1);
+  
   if (d == NULL)
     return FALSE;
   

@@ -1,3 +1,19 @@
+2003-01-14  Anders Carlsson  <andersca@codefactory.se>
+
+	* bus/connection.c: (connection_error_handler),
+	(bus_connection_setup):
+	* bus/main.c: (main):
+	Make sure that the DBusConnectionData struct is NULLed
+	out to prevent a segfault.
+	
+	* dbus/dbus-errors.c: (dbus_result_to_string):
+	* dbus/dbus-errors.h:
+	* dbus/dbus-message.c: (dbus_message_get_fields),
+	(dbus_message_get_fields_valist), (_dbus_message_test):
+	* dbus/dbus-message.h:
+	Make dbus_message_get_fields return a result code so we can
+	track invalid fields as well as oom.
+	
 2003-01-11  Havoc Pennington  <hp@pobox.com>
 
 	* configure.in: change --enable-test/--enable-ansi action-if-given

@@ -99,6 +99,8 @@ dbus_result_to_string (DBusResultCode code)
       return "Address already in use";
     case DBUS_RESULT_DISCONNECTED:
       return "Disconnected.";
+    case DBUS_RESULT_INVALID_FIELDS:
+      return "Invalid fields.";
       
       /* no default, it would break our compiler warnings */
     }
