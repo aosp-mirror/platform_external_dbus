@@ -299,7 +299,8 @@ bus_registry_acquire_service (BusRegistry      *registry,
                       "to security policies in the configuration file",
                       bus_connection_is_active (connection) ?
                       bus_connection_get_name (connection) :
-                      "(inactive)");
+                      "(inactive)",
+		      service_name);
       goto out;
     }
 

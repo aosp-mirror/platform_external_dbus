@@ -1,3 +1,8 @@
+2004-02-24  Joe Shaw  <joe@ximian.com>
+
+	* bus/services.c (bus_registry_acquire_service): We need to pass
+	in the service name to dbus_set_error() to prevent a crash.
+
 2003-12-26  Anders Carlsson  <andersca@gnome.org>
 
 	* AUTHORS: Reveal my True identity.
