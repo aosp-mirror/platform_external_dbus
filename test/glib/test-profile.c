@@ -305,8 +305,6 @@ static void
 no_bus_stop_server (ServerData *sd,
                       void       *server)
 {
-  g_printerr ("The following g_warning is because we try to call g_source_remove_poll() after g_source_destroy() in dbus-gmain.c, I think we need to add a source free func that clears out the watch/timeout funcs\n");
-  
   dbus_server_unref (server);
 }
 

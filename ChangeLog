@@ -1,5 +1,8 @@
 2005-01-30  Havoc Pennington  <hp@redhat.com>
 
+	* test/glib/test-profile.c (no_bus_stop_server): remove the
+	warning about the g_warning that I just fixed
+
 	* glib/dbus-gmain.c: rewrite the main loop stuff to avoid the
 	custom source, seems to be a lot easier to understand and work
 	better.
