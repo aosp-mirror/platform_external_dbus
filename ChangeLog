@@ -1,5 +1,9 @@
 2004-04-13  Michael Meeks  <michael@ximian.com>
 
+	* glib/dbus-gobject.c (handle_introspect): split out
+	(introspect_properties): this.
+	(handle_introspect): implement this.
+
 	* test/glib/Makefile.am: use the absolute path so the bus
 	daemon's chdir ("/") doesn't kill us dead.
 

@@ -179,48 +179,29 @@ dbus_type_to_string (int type)
     }
 }
 
-static DBusHandlerResult
-handle_introspect (DBusConnection *connection,
-                   DBusMessage    *message,
-                   GObject        *object)
+static void
+introspect_properties (GObject *object, GString *xml)
 {
-  GString *xml;
-  GParamSpec **specs;
-  unsigned int n_specs;
   unsigned int i;
+  unsigned int n_specs;
   GType last_type;
-  DBusMessage *ret;
-  char **path;
-  char **children;
-  
-  if (!dbus_message_get_path_decomposed (message, &path))
-    g_error ("Out of memory");
-
-  if (!dbus_connection_list_registered (connection, (const char**) path,
-                                        &children))
-    g_error ("Out of memory");
-  
-  xml = g_string_new (NULL);
-
-  g_string_append (xml, "<node>\n");
+  GParamSpec **specs;
 
   last_type = G_TYPE_INVALID;
-
   specs = g_object_class_list_properties (G_OBJECT_GET_CLASS (object),
                                           &n_specs);
 
-  i = 0;
-  while (i < n_specs)
+  for (i = 0; i < n_specs; i++ )
     {
-      GParamSpec *spec = specs[i];
-      gboolean can_set;
-      gboolean can_get;
       char *s;
       int dbus_type;
+      gboolean can_set;
+      gboolean can_get;
+      GParamSpec *spec = specs[i];
       
       dbus_type = gtype_to_dbus_type (G_PARAM_SPEC_VALUE_TYPE (spec));
       if (dbus_type == DBUS_TYPE_INVALID)
-        goto next;
+	continue;
       
       if (spec->owner_type != last_type)
 	{
@@ -232,7 +213,6 @@ handle_introspect (DBusConnection *connection,
            * general?  should people be able to set it for their
            * objects?
            */
-          
           g_string_append (xml, "  <interface name=\"org.gtk.objects.");
           g_string_append (xml, g_type_name (spec->owner_type));
           g_string_append (xml, "\">\n");
@@ -241,8 +221,8 @@ handle_introspect (DBusConnection *connection,
 	}
 
       can_set = ((spec->flags & G_PARAM_WRITABLE) != 0 &&
-                    (spec->flags & G_PARAM_CONSTRUCT_ONLY) == 0);
-
+		 (spec->flags & G_PARAM_CONSTRUCT_ONLY) == 0);
+      
       can_get = (spec->flags & G_PARAM_READABLE) != 0;
 
       s = uscore_to_wincaps (spec->name);
@@ -270,28 +250,89 @@ handle_introspect (DBusConnection *connection,
         }
 
       g_free (s);
-
-    next:
-      ++i;
     }
 
   if (last_type != G_TYPE_INVALID)
     g_string_append (xml, "  </interface>\n");
 
   g_free (specs);
+}
+
+static void
+introspect_signals (GType type, GString *xml)
+{
+  guint i;
+  guint *ids, n_ids;
+
+  ids = g_signal_list_ids (type, &n_ids);
+  if (!n_ids)
+    return;
+
+  g_string_append (xml, "  <interface name=\"org.gtk.objects.");
+  g_string_append (xml, g_type_name (type));
+  g_string_append (xml, "\">\n");
+
+  /* FIXME: recurse to parent types ? */
+  for (i = 0; i < n_ids; i++)
+    {
+      guint arg;
+      GSignalQuery query;
+      
+      g_signal_query (ids[i], &query);
+
+      if (query.return_type)
+	continue; /* FIXME: these could be listed as methods ? */
+
+      g_string_append (xml, "    <signal name=\"");
+      g_string_append (xml, query.signal_name);
+      g_string_append (xml, "\">\n");
+
+      for (arg = 0; arg < query.n_params; arg++)
+	{
+	  int dbus_type = gtype_to_dbus_type (query.param_types[arg]);
+
+          g_string_append (xml, "      <arg type=\"");
+          g_string_append (xml, dbus_type_to_string (dbus_type));
+          g_string_append (xml, "\"/>\n");
+	}
+
+      g_string_append (xml, "    </signal>\n");
+    }
+
+  g_string_append (xml, "  </interface>\n");
+}
+
+static DBusHandlerResult
+handle_introspect (DBusConnection *connection,
+                   DBusMessage    *message,
+                   GObject        *object)
+{
+  GString *xml;
+  unsigned int i;
+  DBusMessage *ret;
+  char **path;
+  char **children;
+  
+  if (!dbus_message_get_path_decomposed (message, &path))
+    g_error ("Out of memory");
+
+  if (!dbus_connection_list_registered (connection, (const char**) path,
+                                        &children))
+    g_error ("Out of memory");
+  
+  xml = g_string_new (NULL);
+
+  introspect_signals (G_OBJECT_TYPE (object), xml);
+  introspect_properties (object, xml);
+	  
+  g_string_append (xml, "<node>\n");
 
   /* Append child nodes */
-  
-  i = 0;
-  while (children[i])
-    {
+  for (i = 0; children[i]; i++)
       g_string_append_printf (xml, "  <node name=\"%s\"/>\n",
                               children[i]);
-      ++i;
-    }
   
   /* Close the XML, and send it to the requesting app */
-
   g_string_append (xml, "</node>\n");
 
   ret = dbus_message_new_method_return (message);
