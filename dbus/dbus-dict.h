@@ -128,4 +128,6 @@ dbus_bool_t dbus_dict_get_string_array  (DBusDict              *dict,
 					 int                   *len);
 
 
+DBUS_END_DECLS
+
 #endif /* DBUS_DICT_H */
