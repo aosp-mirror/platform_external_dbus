@@ -924,6 +924,142 @@ check_hello_message (BusContext     *context,
  * but the correct thing may include OOM errors.
  */
 static dbus_bool_t
+check_get_connection_unix_user (BusContext     *context,
+                                DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_uint32_t serial;
+  dbus_bool_t retval;
+  DBusError error;
+  const char *base_service_name;
+  dbus_uint32_t uid;
+
+  retval = FALSE;
+  dbus_error_init (&error);
+  message = NULL;
+
+  _dbus_verbose ("check_get_connection_unix_user for %p\n", connection);
+  
+  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                          "GetConnectionUnixUser");
+
+  if (message == NULL)
+    return TRUE;
+
+  base_service_name = dbus_bus_get_base_service (connection);
+
+  if (!dbus_message_append_args (message, 
+                                 DBUS_TYPE_STRING, base_service_name,
+                                 DBUS_TYPE_INVALID))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  /* send our message */
+  bus_test_run_clients_loop (TRUE);
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  dbus_connection_ref (connection); /* because we may get disconnected */
+  block_connection_until_message_from_bus (context, connection);
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected\n");
+      
+      dbus_connection_unref (connection);
+      
+      return TRUE;
+    }
+
+  dbus_connection_unref (connection);
+
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a reply to %s %d on %p\n",
+                  "GetConnectionUnixUser", serial, connection);
+      goto out;
+    }
+
+  verbose_message_received (connection, message);
+
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
+    {
+      if (dbus_message_is_error (message, DBUS_ERROR_NO_MEMORY))
+        {
+          ; /* good, this is a valid response */
+        }
+      else
+        {
+          warn_unexpected (connection, message, "not this error");
+
+          goto out;
+        }
+    }
+  else
+    {
+      if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
+        {
+          ; /* good, expected */
+        }
+      else
+        {
+          warn_unexpected (connection, message,
+	                   "method_return for GetConnectionUnixUser");
+
+          goto out;
+        }
+
+    retry_get_property:
+
+      if (!dbus_message_get_args (message, &error,
+                                  DBUS_TYPE_UINT32, &uid,
+                                  DBUS_TYPE_INVALID))
+        {
+          if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
+            {
+              _dbus_verbose ("no memory to get uid by GetProperty\n");
+              dbus_error_free (&error);
+              _dbus_wait_for_memory ();
+              goto retry_get_property;
+            }
+          else
+            {
+              _dbus_assert (dbus_error_is_set (&error));
+              _dbus_warn ("Did not get the expected DBUS_TYPE_UINT32 from GetProperty\n");
+              goto out;
+            }
+        }
+    }
+
+  if (!check_no_leftovers (context))
+    goto out;
+
+  retval = TRUE;
+
+ out:
+  dbus_error_free (&error);
+  
+  if (message)
+    dbus_message_unref (message);
+  
+  return retval;
+}
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
 check_add_match_all (BusContext     *context,
                      DBusConnection *connection)
 {

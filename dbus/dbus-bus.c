@@ -546,6 +546,79 @@ dbus_bus_get_base_service (DBusConnection *connection)
 }
 
 /**
+ * Asks the bus to return the uid of a service.
+ *
+ * @param connection the connection
+ * @param service_name the service name
+ * @param error location to store the error
+ * @returns a result code, -1 if error is set
+ */ 
+unsigned long
+dbus_bus_get_unix_user (DBusConnection *connection,
+                        const char     *service,
+                        DBusError      *error)
+{
+  DBusMessage *message, *reply;
+  dbus_uint32_t uid;
+
+  _dbus_return_val_if_fail (connection != NULL, DBUS_UID_UNSET);
+  _dbus_return_val_if_fail (service != NULL, DBUS_UID_UNSET);
+  _dbus_return_val_if_error_is_set (error, DBUS_UID_UNSET);
+  
+  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                          "GetConnectionUnixUser");
+
+  if (message == NULL)
+    {
+      _DBUS_SET_OOM (error);
+      return DBUS_UID_UNSET;
+    }
+ 
+  if (!dbus_message_append_args (message,
+				 DBUS_TYPE_STRING, service,
+				 DBUS_TYPE_INVALID))
+    {
+      dbus_message_unref (message);
+      _DBUS_SET_OOM (error);
+      return DBUS_UID_UNSET;
+    }
+  
+  reply = dbus_connection_send_with_reply_and_block (connection, message, -1,
+                                                     error);
+  
+  dbus_message_unref (message);
+  
+  if (reply == NULL)
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      return DBUS_UID_UNSET;
+    }  
+
+  if (dbus_set_error_from_message (error, reply))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_message_unref (reply);
+      return DBUS_UID_UNSET;
+    }
+  
+  if (!dbus_message_get_args (reply, error,
+                              DBUS_TYPE_UINT32, &uid,
+                              DBUS_TYPE_INVALID))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_message_unref (reply);
+      return DBUS_UID_UNSET;
+    }
+
+  dbus_message_unref (reply);
+  
+  return (unsigned long) uid;
+}
+
+
+/**
  * Asks the bus to try to acquire a certain service.
  *
  * @todo these docs are not complete, need to document the

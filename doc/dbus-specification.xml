@@ -2497,6 +2497,57 @@
        </para>
       </sect3>
 
+      <sect3 id="bus-messages-get-connection-unix-user">
+        <title><literal>org.freedesktop.DBus.GetConnectionUnixUser</literal></title>
+        <para>
+          As a method:
+          <programlisting>
+            UINT32 GetConnectionUnixUser (in STRING connection_name)
+          </programlisting>
+          Message arguments:
+          <informaltable>
+            <tgroup cols="3">
+              <thead>
+                <row>
+                  <entry>Argument</entry>
+                  <entry>Type</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>0</entry>
+                  <entry>STRING</entry>
+                  <entry>Name of the connection/service to query</entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </informaltable>
+        Reply arguments:
+        <informaltable>
+          <tgroup cols="3">
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>UINT32</entry>
+                <entry>unix user id</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+        Returns the unix uid of the process connected to the server. If unable to
+	determine it, a <literal>org.freedesktop.DBus.Error.Failed</literal>
+	error is returned.
+       </para>
+      </sect3>
+
       <sect3 id="bus-messages-out-of-memory">
         <title><literal>org.freedesktop.DBus.Error.NoMemory</literal></title>
         <para>

@@ -38,6 +38,9 @@ dbus_bool_t     dbus_bus_register         (DBusConnection *connection,
 dbus_bool_t     dbus_bus_set_base_service (DBusConnection *connection,
 					   const char     *base_service);
 const char*     dbus_bus_get_base_service (DBusConnection *connection);
+unsigned long   dbus_bus_get_unix_user    (DBusConnection *connection,
+			                   const char     *service,
+                                           DBusError      *error);
 int             dbus_bus_acquire_service  (DBusConnection *connection,
 					   const char     *service_name,
 					   unsigned int    flags,

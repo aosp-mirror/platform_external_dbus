@@ -1,3 +1,12 @@
+2004-06-28  Kay Sievers <kay.sievers@vrfy.org>
+
+	* bus/driver.c (bus_driver_handle_get_connection_unix_user)
+	* dbus/bus.c (dbus_bus_get_unix_user)
+	* doc/dbus-specification.xml: implement GetConnectionUnixUser
+	method of org.freedesktop.DBus interface.
+
+	* bus/dispatch.c: test case
+
 2004-06-23  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/Makefile.am: switched include directory from glib/ to dbus/
