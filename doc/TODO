@@ -58,6 +58,9 @@ Important for 1.0
    (though they are kind of a pita to pass in as size_t with the 
     varargs, so maybe not - what does glib do with g_object_get()?)
 
+Important for 1.0 GLib Bindings
+===
+
  - finish dbus-glib-tool support for adding introspection 
    data to GObject and autoexporting GObject using same
 
