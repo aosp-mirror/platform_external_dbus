@@ -30,6 +30,7 @@
 #include "dbus-hash.h"
 #include "dbus-internals.h"
 #include "dbus-marshal.h"
+#include "dbus-userdb.h"
 
 /**
  * @defgroup DBusAuthScript code for running unit test scripts for DBusAuth
@@ -373,7 +374,8 @@ _dbus_auth_script_run (const DBusString *filename)
                     goto out;
                   }
 
-                if (!_dbus_string_append_our_uid (&username))
+                if (!_dbus_string_append_uint (&username,
+                                               _dbus_getuid ()))
                   {
                     _dbus_warn ("no memory for userid\n");
                     _dbus_string_free (&username);
@@ -407,7 +409,7 @@ _dbus_auth_script_run (const DBusString *filename)
                     goto out;
                   }
 
-                if (!_dbus_user_info_from_current_process (&u, NULL, NULL) ||
+                if (!_dbus_username_from_current_process (&u) ||
                     !_dbus_string_copy (u, 0, &username,
                                         _dbus_string_get_length (&username)))
                   {

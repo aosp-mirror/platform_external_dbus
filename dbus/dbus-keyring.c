@@ -22,6 +22,7 @@
  */
 
 #include "dbus-keyring.h"
+#include "dbus-userdb.h"
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-sysdeps.h>
@@ -699,10 +700,9 @@ _dbus_keyring_new_homedir (const DBusString *username,
   if (username == NULL)
     {
       const DBusString *const_homedir;
-      
-      if (!_dbus_user_info_from_current_process (&username,
-                                                 &const_homedir,
-                                                 NULL))
+
+      if (!_dbus_username_from_current_process (&username) ||
+          !_dbus_homedir_from_current_process (&const_homedir))
         goto failed;
 
       if (!_dbus_string_copy (const_homedir, 0,

@@ -26,6 +26,7 @@
 #include "dbus-internals.h"
 #include "dbus-keyring.h"
 #include "dbus-sha.h"
+#include "dbus-userdb.h"
 
 /* See doc/dbus-sasl-profile.txt */
 
@@ -712,8 +713,7 @@ handle_client_initial_response_cookie_sha1_mech (DBusAuth   *auth,
 
   retval = FALSE;
 
-  if (!_dbus_user_info_from_current_process (&username,
-                                             NULL, NULL))
+  if (!_dbus_username_from_current_process (&username))
     goto out_0;
 
   if (!_dbus_string_base64_encode (username, 0,
@@ -1000,8 +1000,8 @@ handle_server_data_external_mech (DBusAuth         *auth,
     }
   else
     {
-      if (!_dbus_credentials_from_uid_string (&auth->identity,
-                                              &auth->desired_identity))
+      if (!_dbus_uid_from_string (&auth->identity,
+                                  &auth->desired_identity.uid))
         {
           _dbus_verbose ("could not get credentials from uid string\n");
           return send_rejected (auth);
@@ -1066,7 +1066,8 @@ handle_client_initial_response_external_mech (DBusAuth         *auth,
   if (!_dbus_string_init (&plaintext))
     return FALSE;
   
-  if (!_dbus_string_append_our_uid (&plaintext))
+  if (!_dbus_string_append_uint (&plaintext,
+                                 _dbus_getuid ()))
     goto failed;
 
   if (!_dbus_string_base64_encode (&plaintext, 0,

@@ -124,34 +124,50 @@ dbus_bool_t _dbus_send_credentials_unix_socket (int              server_fd,
 
 
 void        _dbus_credentials_clear                (DBusCredentials       *credentials);
-dbus_bool_t _dbus_credentials_from_username        (const DBusString      *username,
-                                                    DBusCredentials       *credentials);
-dbus_bool_t _dbus_credentials_from_user_id         (dbus_uid_t             user_id,
-                                                    DBusCredentials       *credentials);
-dbus_bool_t _dbus_credentials_from_uid_string      (const DBusString      *uid_str,
-                                                    DBusCredentials       *credentials);
 void        _dbus_credentials_from_current_process (DBusCredentials       *credentials);
 dbus_bool_t _dbus_credentials_match                (const DBusCredentials *expected_credentials,
                                                     const DBusCredentials *provided_credentials);
 
-dbus_bool_t _dbus_get_user_id                    (const DBusString  *username,
-                                                  dbus_uid_t        *uid);
-dbus_bool_t _dbus_string_append_our_uid (DBusString *str);
 
-dbus_bool_t _dbus_homedir_from_username          (const DBusString       *username,
-                                                  DBusString             *homedir);
-dbus_bool_t _dbus_user_info_from_current_process (const DBusString      **username,
-                                                  const DBusString      **homedir,
-                                                  const DBusCredentials **credentials);
+typedef struct DBusUserInfo  DBusUserInfo;
+typedef struct DBusGroupInfo DBusGroupInfo;
 
-dbus_bool_t _dbus_get_group_id (const DBusString  *group_name,
-                                dbus_gid_t        *gid);
-dbus_bool_t _dbus_get_groups   (dbus_uid_t         uid,
-                                dbus_gid_t       **group_ids,
-                                int               *n_group_ids,
-                                DBusError         *error);
+struct DBusUserInfo
+{
+  dbus_uid_t  uid;            /**< UID */
+  dbus_gid_t  primary_gid;    /**< GID */
+  dbus_gid_t *group_ids;      /**< Groups IDs, *including* above primary group */
+  int         n_group_ids;    /**< Size of group IDs array */
+  char       *username;       /**< Username */
+  char       *homedir;        /**< Home directory */
+};
+
+struct DBusGroupInfo
+{
+  dbus_gid_t  gid;            /**< GID */
+  char       *groupname;      /**< Group name */
+};
+
+dbus_bool_t _dbus_user_info_fill     (DBusUserInfo     *info,
+                                      const DBusString *username,
+                                      DBusError        *error);
+dbus_bool_t _dbus_user_info_fill_uid (DBusUserInfo     *info,
+                                      dbus_uid_t        uid,
+                                      DBusError        *error);
+void        _dbus_user_info_free     (DBusUserInfo     *info);
+
+dbus_bool_t _dbus_group_info_fill     (DBusGroupInfo    *info,
+                                       const DBusString *groupname,
+                                       DBusError        *error);
+dbus_bool_t _dbus_group_info_fill_gid (DBusGroupInfo    *info,
+                                       dbus_gid_t        gid,
+                                       DBusError        *error);
+void        _dbus_group_info_free     (DBusGroupInfo    *info);
+
 
 unsigned long _dbus_getpid (void);
+dbus_uid_t    _dbus_getuid (void);
+dbus_gid_t    _dbus_getgid (void);
 
 typedef int dbus_atomic_t;
 

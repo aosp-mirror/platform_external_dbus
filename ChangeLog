@@ -1,5 +1,10 @@
 2003-04-17  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-userdb.c, dbus/dbus-sysdeps.c: redo all the passwd
+	database usage so it all goes via the DBusUserDatabase cache.
+
+2003-04-17  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-mainloop.c (_dbus_loop_iterate): fix logic so that if
 	there was an OOM watch we skipped, we always return TRUE so we
 	iterate again to have a look at it again. Fixes test suite hang.

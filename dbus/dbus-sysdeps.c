@@ -1310,85 +1310,52 @@ _dbus_string_parse_double (const DBusString *str,
  * @addtogroup DBusInternalsUtils
  * @{
  */
-
 static dbus_bool_t
-store_user_info (struct passwd    *p,
-                 DBusCredentials  *credentials,
-                 DBusString       *homedir,
-                 DBusString       *username_out,
-                 DBusError        *error)
+fill_user_info_from_passwd (struct passwd *p,
+                            DBusUserInfo  *info,
+                            DBusError     *error)
 {
-  int old_homedir_len;
+  _dbus_assert (p->pw_name != NULL);
+  _dbus_assert (p->pw_dir != NULL);
   
-  if (credentials != NULL)
-    {
-      credentials->uid = p->pw_uid;
-      credentials->gid = p->pw_gid;
-    }
-
-  old_homedir_len = 0;
-  if (homedir != NULL)
-    {
-      old_homedir_len = _dbus_string_get_length (homedir);
-      
-      if (!_dbus_string_append (homedir, p->pw_dir))
-        {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-          return FALSE;
-        }
-    }
+  info->uid = p->pw_uid;
+  info->primary_gid = p->pw_gid;
+  info->username = _dbus_strdup (p->pw_name);
+  info->homedir = _dbus_strdup (p->pw_dir);
   
-  if (username_out &&
-      !_dbus_string_append (username_out, p->pw_name))
+  if (info->username == NULL ||
+      info->homedir == NULL)
     {
-      if (homedir)
-        _dbus_string_set_length (homedir, old_homedir_len);
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return FALSE;
     }
-      
-  _dbus_verbose ("Username %s has uid %d gid %d homedir %s\n",
-                 p->pw_name, (int) p->pw_uid, (int) p->pw_gid,
-                 p->pw_dir);
 
   return TRUE;
 }
-  
-/**
- * Gets user info using either username or uid. Only
- * one of these may be passed in, either username
- * must be #NULL or uid must be < 0.
- *
- * @param username the username
- * @param uid the user ID
- * @param credentials to fill in or #NULL
- * @param homedir string to append homedir to or #NULL
- * @param username_out string to append username to or #NULL
- * @param error return location for reason for failure
- *
- * @returns #TRUE on success
- */
+
 static dbus_bool_t
-get_user_info (const DBusString *username,
-               dbus_uid_t        uid,
-               DBusCredentials  *credentials,
-               DBusString       *homedir,
-               DBusString       *username_out,
-               DBusError        *error)
+fill_user_info (DBusUserInfo       *info,
+                dbus_uid_t          uid,
+                const DBusString   *username,
+                DBusError          *error)
 {
-  const char *username_c_str;
-      
+  const char *username_c;
+  
   /* exactly one of username/uid provided */
-  _dbus_assert (username != NULL || uid >= 0);
+  _dbus_assert (username != NULL || uid != DBUS_UID_UNSET);
   _dbus_assert (username == NULL || uid == DBUS_UID_UNSET);
 
-  if (credentials)
-    _dbus_credentials_clear (credentials);
+  info->uid = DBUS_UID_UNSET;
+  info->primary_gid = DBUS_GID_UNSET;
+  info->group_ids = NULL;
+  info->n_group_ids = 0;
+  info->username = NULL;
+  info->homedir = NULL;
   
   if (username != NULL)
-    username_c_str = _dbus_string_get_const_data (username);
+    username_c = _dbus_string_get_const_data (username);
   else
-    username_c_str = NULL;
+    username_c = NULL;
 
   /* For now assuming that the getpwnam() and getpwuid() flavors
    * are always symmetrical, if not we have to add more configure
@@ -1408,26 +1375,26 @@ get_user_info (const DBusString *username,
       result = getpwuid_r (uid, &p_str, buf, sizeof (buf),
                            &p);
     else
-      result = getpwnam_r (username_c_str, &p_str, buf, sizeof (buf),
+      result = getpwnam_r (username_c, &p_str, buf, sizeof (buf),
                            &p);
 #else
     if (uid >= 0)
       p = getpwuid_r (uid, &p_str, buf, sizeof (buf));
     else
-      p = getpwnam_r (username_c_str, &p_str, buf, sizeof (buf));
+      p = getpwnam_r (username_c, &p_str, buf, sizeof (buf));
     result = 0;
 #endif /* !HAVE_POSIX_GETPWNAME_R */
     if (result == 0 && p == &p_str)
       {
-        return store_user_info (p, credentials, homedir,
-                                username_out, error);
+        if (!fill_user_info_from_passwd (p, info, error))
+          return FALSE;
       }
     else
       {
-        dbus_set_error (error, DBUS_ERROR_FAILED,
+        dbus_set_error (error, _dbus_error_from_errno (errno),
                         "User \"%s\" unknown or no memory to allocate password entry\n",
-                        username_c_str);
-        _dbus_verbose ("User %s unknown\n", username_c_str);
+                        username_c ? username_c : "???");
+        _dbus_verbose ("User %s unknown\n", username_c ? username_c : "???");
         return FALSE;
       }
   }
@@ -1439,23 +1406,269 @@ get_user_info (const DBusString *username,
     if (uid >= 0)
       p = getpwuid (uid);
     else
-      p = getpwnam (username_c_str);
+      p = getpwnam (username_c);
 
     if (p != NULL)
       {
-        return store_user_info (p, credentials, homedir,
-                                username_out, error);
+        if (!fill_user_info_from_passwd (p, info, error))
+          return FALSE;
       }
     else
       {
-        dbus_set_error (error, DBUS_ERROR_FAILED,
+        dbus_set_error (error, _dbus_error_from_errno (errno),
                         "User \"%s\" unknown or no memory to allocate password entry\n",
-                        username_c_str);
-        _dbus_verbose ("User %s unknown\n", username_c_str);
+                        username_c ? username_c : "???");
+        _dbus_verbose ("User %s unknown\n", username_c ? username_c : "???");
         return FALSE;
       }
   }
 #endif  /* ! HAVE_GETPWNAM_R */
+
+  /* Fill this in so we can use it to get groups */
+  username_c = info->username;
+  
+#ifdef HAVE_GETGROUPLIST
+  {
+    gid_t *buf;
+    int buf_count;
+    int i;
+    
+    buf_count = 17;
+    buf = dbus_new (gid_t, buf_count);
+    if (buf == NULL)
+      {
+        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+        goto failed;
+      }
+    
+    if (getgrouplist (username_c,
+                      info->primary_gid,
+                      buf, &buf_count) < 0)
+      {
+        gid_t *new = dbus_realloc (buf, buf_count * sizeof (buf[0]));
+        if (new == NULL)
+          {
+            dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+            dbus_free (buf);
+            goto failed;
+          }
+        
+        buf = new;
+
+        getgrouplist (username_c, info->primary_gid, buf, &buf_count);
+      }
+
+    info->group_ids = dbus_new (dbus_gid_t, buf_count);
+    if (info->group_ids == NULL)
+      {
+        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+        dbus_free (buf);
+        goto failed;
+      }
+    
+    for (i = 0; i < buf_count; ++i)
+      info->group_ids[i] = buf[i];
+
+    info->n_group_ids = buf_count;
+    
+    dbus_free (buf);
+  }
+#else  /* HAVE_GETGROUPLIST */
+  {
+    /* We just get the one group ID */
+    info->group_ids = dbus_new (dbus_gid_t, 1);
+    if (info->group_ids == NULL)
+      {
+        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+        goto out;
+      }
+
+    info->n_group_ids = 1;
+
+    (info->group_ids)[0] = info->primary_gid;
+  }
+#endif /* HAVE_GETGROUPLIST */
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  return TRUE;
+  
+ failed:
+  _DBUS_ASSERT_ERROR_IS_SET (error);
+  _dbus_user_info_free (info);
+  return FALSE;
+}
+
+/**
+ * Gets user info for the given username.
+ *
+ * @param info user info object to initialize
+ * @param username the username
+ * @param error error return
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_user_info_fill (DBusUserInfo     *info,
+                      const DBusString *username,
+                      DBusError        *error)
+{
+  return fill_user_info (info, DBUS_UID_UNSET,
+                         username, error);
+}
+
+/**
+ * Gets user info for the given user ID.
+ *
+ * @param info user info object to initialize
+ * @param username the username
+ * @param error error return
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_user_info_fill_uid (DBusUserInfo *info,
+                          dbus_uid_t    uid,
+                          DBusError    *error)
+{
+  return fill_user_info (info, uid,
+                         NULL, error);
+}
+
+/**
+ * Frees the members of info
+ * (but not info itself)
+ * @param info the user info struct
+ */
+void
+_dbus_user_info_free (DBusUserInfo *info)
+{
+  dbus_free (info->group_ids);
+  dbus_free (info->username);
+  dbus_free (info->homedir);
+}
+
+static dbus_bool_t
+fill_user_info_from_group (struct group  *g,
+                           DBusGroupInfo *info,
+                           DBusError     *error)
+{
+  _dbus_assert (g->gr_name != NULL);
+  
+  info->gid = g->gr_gid;
+  info->groupname = _dbus_strdup (g->gr_name);
+
+  /* info->members = dbus_strdupv (g->gr_mem) */
+  
+  if (info->groupname == NULL)
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
+static dbus_bool_t
+fill_group_info (DBusGroupInfo    *info,
+                 dbus_gid_t        gid,
+                 const DBusString *groupname,
+                 DBusError        *error)
+{
+  const char *group_c_str;
+
+  _dbus_assert (groupname != NULL || gid != DBUS_GID_UNSET);
+  _dbus_assert (groupname == NULL || gid == DBUS_GID_UNSET);
+
+  if (groupname)
+    group_c_str = _dbus_string_get_const_data (groupname);
+  else
+    group_c_str = NULL;
+  
+  /* For now assuming that the getgrnam() and getgrgid() flavors
+   * always correspond to the pwnam flavors, if not we have
+   * to add more configure checks.
+   */
+  
+#if defined (HAVE_POSIX_GETPWNAME_R) || defined (HAVE_NONPOSIX_GETPWNAME_R)
+  {
+    struct group *g;
+    int result;
+    char buf[1024];
+    struct group g_str;
+
+    g = NULL;
+#ifdef HAVE_POSIX_GETPWNAME_R
+
+    if (group_c_str)
+      result = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf),
+                           &g);
+    else
+      result = getgrgid_r (gid, &g_str, buf, sizeof (buf),
+                           &g);
+#else
+    p = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf));
+    result = 0;
+#endif /* !HAVE_POSIX_GETPWNAME_R */
+    if (result == 0 && g == &g_str)
+      {
+        return fill_user_info_from_group (g, info, error);
+      }
+    else
+      {
+        dbus_set_error (error, _dbus_error_from_errno (errno),
+                        "Group %s unknown or failed to look it up\n",
+                        group_c_str ? group_c_str : "???");
+        return FALSE;
+      }
+  }
+#else /* ! HAVE_GETPWNAM_R */
+  {
+    /* I guess we're screwed on thread safety here */
+    struct group *g;
+
+    g = getgrnam (group_c_str);
+
+    if (g != NULL)
+      {
+        return fill_user_info_from_group (g, info, error);
+      }
+    else
+      {
+        dbus_set_error (error, _dbus_error_from_errno (errno),
+                        "Group %s unknown or failed to look it up\n",
+                        group_c_str ? group_c_str : "???");
+        return FALSE;
+      }
+  }
+#endif  /* ! HAVE_GETPWNAM_R */
+}
+
+dbus_bool_t
+_dbus_group_info_fill (DBusGroupInfo    *info,
+                       const DBusString *groupname,
+                       DBusError        *error)
+{
+  return fill_group_info (info, DBUS_GID_UNSET,
+                          groupname, error);
+
+}
+
+dbus_bool_t
+_dbus_group_info_fill_gid (DBusGroupInfo *info,
+                           dbus_gid_t     gid,
+                           DBusError     *error)
+{
+  return fill_group_info (info, gid, NULL, error);
+}
+
+/**
+ * Frees the members of info (but not info itself).
+ *
+ * @param info the group info
+ */
+void
+_dbus_group_info_free (DBusGroupInfo    *info)
+{
+  dbus_free (info->groupname);
 }
 
 /**
@@ -1470,200 +1683,6 @@ _dbus_credentials_clear (DBusCredentials *credentials)
   credentials->pid = DBUS_PID_UNSET;
   credentials->uid = DBUS_UID_UNSET;
   credentials->gid = DBUS_GID_UNSET;
-}
-
-/**
- * Gets the credentials corresponding to the given username.
- *
- * @param username the username
- * @param credentials credentials to fill in
- * @returns #TRUE if the username existed and we got some credentials
- */
-dbus_bool_t
-_dbus_credentials_from_username (const DBusString *username,
-                                 DBusCredentials  *credentials)
-{
-  return get_user_info (username, -1, credentials, NULL, NULL, NULL);
-}
-
-/**
- * Gets user ID given username
- *
- * @param username the username
- * @param uid return location for UID
- * @returns #TRUE if username existed and we got the UID
- */
-dbus_bool_t
-_dbus_get_user_id (const DBusString  *username,
-                   dbus_uid_t        *uid)
-{
-  DBusCredentials creds;
-
-  if (!_dbus_credentials_from_username (username, &creds))
-    return FALSE;
-
-  if (creds.uid == DBUS_UID_UNSET)
-    return FALSE;
-
-  *uid = creds.uid;
-
-  return TRUE;
-}
-
-/**
- * Gets the credentials corresponding to the given user ID.
- *
- * @param user_id the user ID
- * @param credentials credentials to fill in
- * @returns #TRUE if the username existed and we got some credentials
- */
-dbus_bool_t
-_dbus_credentials_from_user_id (unsigned long     user_id,
-                                DBusCredentials  *credentials)
-{
-  return get_user_info (NULL, user_id, credentials, NULL, NULL, NULL);
-}
-
-_DBUS_DEFINE_GLOBAL_LOCK (user_info);
-
-typedef struct
-{
-  DBusString name;
-  DBusString dir;
-  DBusCredentials creds;
-} UserInfo;
-
-static void
-shutdown_user_info (void *data)
-{
-  UserInfo *u = data;
-
-  _dbus_string_free (&u->name);
-  _dbus_string_free (&u->dir);
-}
-
-/**
- * Gets information about the user running this process.
- *
- * @param username return location for username or #NULL
- * @param homedir return location for home directory or #NULL
- * @param credentials return location for credentials or #NULL
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_user_info_from_current_process (const DBusString      **username,
-                                      const DBusString      **homedir,
-                                      const DBusCredentials **credentials)
-{
-  static UserInfo u;
-  static int initialized_generation = 0;
-  
-  if (!_DBUS_LOCK (user_info))
-    return FALSE;
-
-  if (initialized_generation != _dbus_current_generation)
-    {
-      if (!_dbus_string_init (&u.name))
-        {
-          _DBUS_UNLOCK (user_info);
-          return FALSE;
-        }
-
-      if (!_dbus_string_init (&u.dir))
-        {
-          _dbus_string_free (&u.name);
-          _DBUS_UNLOCK (user_info);
-          return FALSE;
-        }
-
-      _dbus_credentials_clear (&u.creds);
-
-      if (!get_user_info (NULL, getuid (),
-                          &u.creds, &u.dir, &u.name, NULL))
-        goto fail_init;
-      
-      if (!_dbus_register_shutdown_func (shutdown_user_info,
-                                         &u))
-        goto fail_init;
-      
-      initialized_generation = _dbus_current_generation;
-    fail_init:
-      if (initialized_generation != _dbus_current_generation)
-        {
-          _dbus_string_free (&u.name);
-          _dbus_string_free (&u.dir);
-          _DBUS_UNLOCK (user_info);
-          return FALSE;
-        }
-    }
-
-  if (username)
-    *username = &u.name;
-  if (homedir)
-    *homedir = &u.dir;
-  if (credentials)
-    *credentials = &u.creds;
-  
-  _DBUS_UNLOCK (user_info);
-
-  return TRUE;
-}
-
-/**
- * Gets the home directory for the given user.
- *
- * @param username the username
- * @param homedir string to append home directory to
- * @returns #TRUE if user existed and we appended their homedir
- */
-dbus_bool_t
-_dbus_homedir_from_username (const DBusString *username,
-                             DBusString       *homedir)
-{
-  return get_user_info (username, -1, NULL, homedir, NULL, NULL);
-}
-
-/**
- * Gets credentials from a UID string. (Parses a string to a UID
- * and converts to a DBusCredentials.)
- *
- * @param uid_str the UID in string form
- * @param credentials credentials to fill in
- * @returns #TRUE if successfully filled in some credentials
- */
-dbus_bool_t
-_dbus_credentials_from_uid_string (const DBusString      *uid_str,
-                                   DBusCredentials       *credentials)
-{
-  int end;
-  long uid;
-
-  _dbus_credentials_clear (credentials);
-  
-  if (_dbus_string_get_length (uid_str) == 0)
-    {
-      _dbus_verbose ("UID string was zero length\n");
-      return FALSE;
-    }
-
-  uid = -1;
-  end = 0;
-  if (!_dbus_string_parse_int (uid_str, 0, &uid,
-                               &end))
-    {
-      _dbus_verbose ("could not parse string as a UID\n");
-      return FALSE;
-    }
-  
-  if (end != _dbus_string_get_length (uid_str))
-    {
-      _dbus_verbose ("string contained trailing stuff after UID\n");
-      return FALSE;
-    }
-
-  credentials->uid = uid;
-
-  return TRUE;
 }
 
 /**
@@ -1712,202 +1731,6 @@ _dbus_credentials_match (const DBusCredentials *expected_credentials,
 }
 
 /**
- * Gets group ID from group name.
- *
- * @param group_name name of the group
- * @param gid location to store group ID
- * @returns #TRUE if group was known
- */
-dbus_bool_t
-_dbus_get_group_id (const DBusString *group_name,
-                    unsigned long    *gid)
-{
-  const char *group_c_str;
-  
-  group_c_str = _dbus_string_get_const_data (group_name);
-  
-  /* For now assuming that the getgrnam() and getgrgid() flavors
-   * always correspond to the pwnam flavors, if not we have
-   * to add more configure checks.
-   */
-  
-#if defined (HAVE_POSIX_GETPWNAME_R) || defined (HAVE_NONPOSIX_GETPWNAME_R)
-  {
-    struct group *g;
-    int result;
-    char buf[1024];
-    struct group g_str;
-
-    g = NULL;
-#ifdef HAVE_POSIX_GETPWNAME_R
-
-    result = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf),
-                         &g);
-#else
-    p = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf));
-    result = 0;
-#endif /* !HAVE_POSIX_GETPWNAME_R */
-    if (result == 0 && g == &g_str)
-      {
-        *gid = g->gr_gid;
-        return TRUE;
-      }
-    else
-      {
-        _dbus_verbose ("Group %s unknown\n", group_c_str);
-        return FALSE;
-      }
-  }
-#else /* ! HAVE_GETPWNAM_R */
-  {
-    /* I guess we're screwed on thread safety here */
-    struct group *g;
-
-    g = getgrnam (group_c_str);
-
-    if (g != NULL)
-      {
-        *gid = g->gr_gid;
-        return TRUE;
-      }
-    else
-      {
-        _dbus_verbose ("Group %s unknown\n", group_c_str);
-        return FALSE;
-      }
-  }
-#endif  /* ! HAVE_GETPWNAM_R */
-}
-
-/**
- * Gets all groups for a particular user. Returns #FALSE
- * if no memory, or user isn't known, but always initializes
- * group_ids to a NULL array. Sets error to the reason
- * for returning #FALSE.
- *
- * @param uid the user ID
- * @param group_ids return location for array of group IDs
- * @param n_group_ids return location for length of returned array
- * @param error return location for error
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_get_groups (unsigned long   uid,
-                  unsigned long **group_ids,
-                  int            *n_group_ids,
-                  DBusError      *error)
-{
-  DBusCredentials creds;
-  DBusString username;
-  const char *username_c;
-  dbus_bool_t retval;
-  
-  *group_ids = NULL;
-  *n_group_ids = 0;
-
-  retval = FALSE;
-
-  if (!_dbus_string_init (&username))
-    {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      return FALSE;
-    }
-
-  if (!get_user_info (NULL, uid, &creds,
-                      NULL, &username, error) ||
-      creds.gid == DBUS_GID_UNSET)
-    goto out;
-
-  username_c = _dbus_string_get_const_data (&username);
-  
-#ifdef HAVE_GETGROUPLIST
-  {
-    gid_t *buf;
-    int buf_count;
-    int i;
-    
-    buf_count = 17;
-    buf = dbus_new (gid_t, buf_count);
-    if (buf == NULL)
-      {
-        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-        goto out;
-      }
-    
-    if (getgrouplist (username_c,
-                      creds.gid,
-                      buf, &buf_count) < 0)
-      {
-        gid_t *new = dbus_realloc (buf, buf_count * sizeof (buf[0]));
-        if (new == NULL)
-          {
-            dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-            dbus_free (buf);
-            goto out;
-          }
-        
-        buf = new;
-
-        getgrouplist (username_c, creds.gid, buf, &buf_count);
-      }
-
-    *group_ids = dbus_new (unsigned long, buf_count);
-    if (*group_ids == NULL)
-      {
-        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-        dbus_free (buf);
-        goto out;
-      }
-    
-    for (i = 0; i < buf_count; ++i)
-      (*group_ids)[i] = buf[i];
-
-    *n_group_ids = buf_count;
-    
-    dbus_free (buf);
-  }
-#else  /* HAVE_GETGROUPLIST */
-  {
-    /* We just get the one group ID */
-    *group_ids = dbus_new (unsigned long, 1);
-    if (*group_ids == NULL)
-      {
-        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-        goto out;
-      }
-
-    *n_group_ids = 1;
-
-    (*group_ids)[0] = creds.gid;
-  }
-#endif /* HAVE_GETGROUPLIST */
-  
-  retval = TRUE;
-  
- out:
-  _dbus_string_free (&username);
-
-  if (retval)
-    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  else
-    _DBUS_ASSERT_ERROR_IS_SET (error);
-  
-  return retval;
-}
-
-/**
- * Appends the uid of the current process to the given string.
- *
- * @param str the string to append to
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_string_append_our_uid (DBusString *str)
-{
-  return _dbus_string_append_uint (str, getuid ());
-}
-
-/**
  * Gets our process ID
  * @returns process ID
  */
@@ -1916,6 +1739,25 @@ _dbus_getpid (void)
 {
   return getpid ();
 }
+
+/** Gets our UID
+ * @returns process UID
+ */
+dbus_uid_t
+_dbus_getuid (void)
+{
+  return getuid ();
+}
+
+/** Gets our GID
+ * @returns process GID
+ */
+dbus_gid_t
+_dbus_getgid (void)
+{
+  return getgid ();
+}
+
 
 _DBUS_DEFINE_GLOBAL_LOCK (atomic);
 
