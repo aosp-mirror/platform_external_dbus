@@ -1,3 +1,24 @@
+2003-03-14  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-memory.c: add a "detect buffer overwrites on free" 
+	cheesy hack
+
+	* dbus/dbus-transport-debug.c: rework this a good bit to be 
+	less complicated. hopefully still works.
+
+	* dbus/dbus-server-debug.c (handle_new_client): remove timeout
+	manually
+
+	* glib/dbus-gmain.c (timeout_handler): don't remove timeout 
+	after running it
+
+	* dbus/dbus-message.c (dbus_message_copy): rename from 
+	dbus_message_new_from_message, fix it up to copy 
+	all the message fields, add test case
+
+	* bus/dispatch.c (bus_dispatch_test): add some more test code, 
+	not quite passing yet
+
 2003-03-14  Havoc Pennington  <hp@pobox.com>
 
 	* bus/loop.c (bus_loop_iterate): add this so we can "run loop

@@ -136,7 +136,12 @@ check_write_watch (DBusTransport *transport)
         _dbus_watch_new (unix_transport->fd,
                          DBUS_WATCH_WRITABLE);
 
-      /* we can maybe add it some other time, just silently bomb */
+      /* FIXME this is total crack. The proper fix is probably to
+       * allocate the write watch on transport creation, keep it
+       * allocated. But that doesn't solve needing memory to add the
+       * watch.  messages_pending is going to have to handle OOM
+       * somehow (probably being part of PreallocatedSend)
+       */
       if (unix_transport->write_watch == NULL)
         goto out;
 

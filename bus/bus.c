@@ -46,7 +46,7 @@ server_watch_callback (DBusWatch     *watch,
 {
   BusContext *context = data;
 
-  dbus_server_handle_watch (context->server, watch, condition);
+  dbus_server_handle_watch (context->server, watch, condition);  
 }
 
 static dbus_bool_t
@@ -63,6 +63,7 @@ remove_server_watch (DBusWatch  *watch,
 {
   bus_loop_remove_watch (watch, server_watch_callback, context);
 }
+
 
 static void
 server_timeout_callback (DBusTimeout   *timeout,
@@ -95,7 +96,7 @@ new_connection_callback (DBusServer     *server,
   if (!bus_connections_setup_connection (context->connections, new_connection))
     _dbus_verbose ("No memory to setup new connection\n");
 
-  /* on OOM, we won't have ref'd the connection so it will die */
+  /* on OOM, we won't have ref'd the connection so it will die. */
 }
 
 BusContext*

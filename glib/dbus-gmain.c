@@ -284,7 +284,7 @@ timeout_handler (gpointer data)
 
   dbus_timeout_handle (timeout);
 
-  return FALSE;
+  return TRUE;
 }
 
 static dbus_bool_t

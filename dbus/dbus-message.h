@@ -43,7 +43,7 @@ DBusMessage* dbus_message_new_reply        (DBusMessage       *original_message)
 DBusMessage* dbus_message_new_error_reply  (DBusMessage       *original_message,
 					    const char        *error_name,
 					    const char        *error_message);
-DBusMessage *dbus_message_new_from_message (const DBusMessage *message);
+DBusMessage *dbus_message_copy             (const DBusMessage *message);
 
 void         dbus_message_ref   (DBusMessage *message);
 void         dbus_message_unref (DBusMessage *message);

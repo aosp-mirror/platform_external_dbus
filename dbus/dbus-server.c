@@ -145,8 +145,10 @@ _dbus_server_remove_watch  (DBusServer *server,
 }
 
 /**
- * Adds a timeout for this server, chaining out to application-provided
- * timeout handlers. The timeout will fire only one time.
+ * Adds a timeout for this server, chaining out to
+ * application-provided timeout handlers. The timeout should be
+ * repeatedly handled with dbus_timeout_handle() at its given interval
+ * until it is removed.
  *
  * @param server the server.
  * @param timeout the timeout to add.

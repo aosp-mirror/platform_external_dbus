@@ -207,8 +207,9 @@ _dbus_connection_queue_received_message (DBusConnection *connection,
   _dbus_connection_wakeup_mainloop (connection);
 
   _dbus_assert (dbus_message_get_name (message) != NULL);
-  _dbus_verbose ("Incoming message %p (%s) added to queue, %d incoming\n",
+  _dbus_verbose ("Message %p (%s) added to incoming queue %p, %d incoming\n",
                  message, dbus_message_get_name (message),
+                 connection,
                  connection->n_incoming);
   
   return TRUE;
@@ -234,8 +235,8 @@ _dbus_connection_queue_synthesized_message_link (DBusConnection *connection,
 
   _dbus_connection_wakeup_mainloop (connection);
   
-  _dbus_verbose ("Incoming synthesized message %p added to queue, %d incoming\n",
-                 link->data, connection->n_incoming);
+  _dbus_verbose ("Synthesized message %p added to incoming queue %p, %d incoming\n",
+                 link->data, connection, connection->n_incoming);
 }
 
 
@@ -283,8 +284,8 @@ _dbus_connection_message_sent (DBusConnection *connection,
   
   connection->n_outgoing -= 1;
 
-  _dbus_verbose ("Message %p removed from outgoing queue, %d left to send\n",
-                 message, connection->n_outgoing);
+  _dbus_verbose ("Message %p removed from outgoing queue %p, %d left to send\n",
+                 message, connection, connection->n_outgoing);
   
   if (connection->n_outgoing == 0)
     _dbus_transport_messages_pending (connection->transport,
@@ -334,7 +335,7 @@ _dbus_connection_remove_watch (DBusConnection *connection,
  * available. Otherwise records the timeout to be added when said
  * function is available. Also re-adds the timeout if the
  * DBusAddTimeoutFunction changes. May fail due to lack of memory.
- * The timeout will fire only one time.
+ * The timeout will fire repeatedly until removed.
  *
  * @param connection the connection.
  * @param timeout the timeout to add.
@@ -1035,9 +1036,10 @@ dbus_connection_send_preallocated (DBusConnection       *connection,
   dbus_message_ref (message);
   connection->n_outgoing += 1;
 
-  _dbus_verbose ("Message %p (%s) added to outgoing queue, %d pending to send\n",
+  _dbus_verbose ("Message %p (%s) added to outgoing queue %p, %d pending to send\n",
                  message,
                  dbus_message_get_name (message),
+                 connection,
                  connection->n_outgoing);
 
   if (dbus_message_get_serial (message) == -1)
@@ -1558,8 +1560,8 @@ _dbus_connection_pop_message_unlocked (DBusConnection *connection)
       message = _dbus_list_pop_first (&connection->incoming_messages);
       connection->n_incoming -= 1;
 
-      _dbus_verbose ("Incoming message %p removed from queue, %d incoming\n",
-                     message, connection->n_incoming);
+      _dbus_verbose ("Message %p removed from incoming queue %p, %d incoming\n",
+                     message, connection, connection->n_incoming);
 
       return message;
     }
@@ -1859,11 +1861,10 @@ dbus_connection_set_watch_functions (DBusConnection              *connection,
  * g_timeout_add.
  *
  * The DBusTimeout can be queried for the timer interval using
- * dbus_timeout_get_interval.
- *
- * Once a timeout occurs, dbus_timeout_handle should be called to invoke
- * the timeout's callback, and the timeout should be automatically
- * removed. i.e. timeouts are one-shot.
+ * dbus_timeout_get_interval(). dbus_timeout_handle() should
+ * be called repeatedly, each time the interval elapses, starting
+ * after it has elapsed once. The timeout stops firing when
+ * it is removed with the given remove_function.
  *
  * @param connection the connection.
  * @param add_function function to add a timeout.

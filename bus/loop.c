@@ -262,8 +262,8 @@ bus_loop_remove_timeout (DBusTimeout        *timeout,
               timeout, function, data);
 }
 
-/* Returns TRUE if we dispatch any callbacks, which is just used in
- * test code as a debug hack
+/* Returns TRUE if we have any timeouts or ready file descriptors,
+ * which is just used in test code as a debug hack
  */
 
 dbus_bool_t
@@ -283,7 +283,12 @@ bus_loop_iterate (dbus_bool_t block)
       
   fds = NULL;
   watches_for_fds = NULL;
-      
+
+#if 0
+  _dbus_verbose (" iterate %d timeouts %d watches\n",
+                 timeout_count, watch_count);
+#endif
+  
   if (callbacks == NULL)
     {
       bus_loop_quit ();
@@ -343,7 +348,9 @@ bus_loop_iterate (dbus_bool_t block)
     {
       unsigned long tv_sec;
       unsigned long tv_usec;
-          
+
+      retval = TRUE;
+      
       _dbus_get_current_time (&tv_sec, &tv_usec);
           
       link = _dbus_list_get_first_link (&callbacks);
@@ -445,16 +452,23 @@ bus_loop_iterate (dbus_bool_t block)
                 (tv_sec - tcb->last_tv_sec) * 1000 +
                 (tv_usec - tcb->last_tv_usec) / 1000;
 
+#if 0
+              _dbus_verbose ("  interval = %lu elapsed = %lu\n",
+                             interval, elapsed);
+#endif
+              
               if (interval <= elapsed)
                 {
                   /* Save last callback time and fire this timeout */
                   tcb->last_tv_sec = tv_sec;
                   tcb->last_tv_usec = tv_usec;
-                      
+
+#if 0
+                  _dbus_verbose ("  invoking timeout\n");
+#endif
+                  
                   (* tcb->function) (tcb->timeout,
                                      cb->data);
-
-                  retval = TRUE;
                 }
             }
 
@@ -504,6 +518,7 @@ bus_loop_iterate (dbus_bool_t block)
                   (* wcb->function) (wcb->watch,
                                      condition,
                                      ((Callback*)wcb)->data);
+
                   retval = TRUE;
                 }
             }

@@ -143,7 +143,8 @@ connection_watch_callback (DBusWatch     *watch,
   
   dbus_connection_handle_watch (connection, watch, condition);
 
-  while (dbus_connection_dispatch_message (connection));
+  while (dbus_connection_dispatch_message (connection))
+    ;
   dbus_connection_unref (connection);
 }
 
@@ -166,7 +167,15 @@ static void
 connection_timeout_callback (DBusTimeout   *timeout,
                              void          *data)
 {
+  DBusConnection *connection = data;
+
+  dbus_connection_ref (connection);
+  
   dbus_timeout_handle (timeout);
+
+  while (dbus_connection_dispatch_message (connection))
+    ;
+  dbus_connection_unref (connection);
 }
 
 static dbus_bool_t

@@ -897,7 +897,7 @@ dbus_message_new_error_reply (DBusMessage *original_message,
  * @returns the new message.
  */
 DBusMessage *
-dbus_message_new_from_message (const DBusMessage *message)
+dbus_message_copy (const DBusMessage *message)
 {
   DBusMessage *retval;
   int i;
@@ -908,7 +908,11 @@ dbus_message_new_from_message (const DBusMessage *message)
   
   retval->refcount = 1;
   retval->byte_order = message->byte_order;
-
+  retval->client_serial = message->client_serial;
+  retval->reply_serial = message->reply_serial;
+  retval->header_padding = message->header_padding;
+  retval->locked = FALSE;
+  
   if (!_dbus_string_init (&retval->header, _DBUS_INT_MAX))
     {
       dbus_free (retval);
@@ -3590,38 +3594,14 @@ dbus_internal_do_not_use_foreach_message_file (const char                *test_d
   return retval;
 }
 
-/**
- * @ingroup DBusMessageInternals
- * Unit test for DBusMessage.
- *
- * @returns #TRUE on success.
- */
-dbus_bool_t
-_dbus_message_test (const char *test_data_dir)
+static void
+verify_test_message (DBusMessage *message)
 {
-  DBusMessage *message;
-  DBusMessageLoader *loader;
-  int i;
-  const char *data;
   dbus_int32_t our_int;
   char *our_str;
   double our_double;
   dbus_bool_t our_bool;
   
-  /* Test the vararg functions */
-  message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");
-  _dbus_message_set_serial (message, 1);
-  dbus_message_append_args (message,
-			    DBUS_TYPE_INT32, -0x12345678,
-			    DBUS_TYPE_STRING, "Test string",
-			    DBUS_TYPE_DOUBLE, 3.14159,
-			    DBUS_TYPE_BOOLEAN, TRUE,
-			    0);
-  _dbus_verbose_bytes_of_string (&message->header, 0,
-                                 _dbus_string_get_length (&message->header));
-  _dbus_verbose_bytes_of_string (&message->body, 0,
-                                 _dbus_string_get_length (&message->body));
-
   if (!dbus_message_get_args (message, NULL,
                               DBUS_TYPE_INT32, &our_int,
                               DBUS_TYPE_STRING, &our_str,
@@ -3643,7 +3623,62 @@ _dbus_message_test (const char *test_data_dir)
     _dbus_assert_not_reached ("booleans differ");
   
   dbus_free (our_str);
+}
+
+/**
+ * @ingroup DBusMessageInternals
+ * Unit test for DBusMessage.
+ *
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_message_test (const char *test_data_dir)
+{
+  DBusMessage *message;
+  DBusMessageLoader *loader;
+  int i;
+  const char *data;
+  DBusMessage *copy;
+  const char *name1;
+  const char *name2;
+  
+  /* Test the vararg functions */
+  message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");
+  _dbus_message_set_serial (message, 1);
+  dbus_message_append_args (message,
+			    DBUS_TYPE_INT32, -0x12345678,
+			    DBUS_TYPE_STRING, "Test string",
+			    DBUS_TYPE_DOUBLE, 3.14159,
+			    DBUS_TYPE_BOOLEAN, TRUE,
+			    0);
+  _dbus_verbose_bytes_of_string (&message->header, 0,
+                                 _dbus_string_get_length (&message->header));
+  _dbus_verbose_bytes_of_string (&message->body, 0,
+                                 _dbus_string_get_length (&message->body));
+
+  verify_test_message (message);
+
+  copy = dbus_message_copy (message);
+  
+  _dbus_assert (message->client_serial == copy->client_serial);
+  _dbus_assert (message->reply_serial == copy->reply_serial);
+  _dbus_assert (message->header_padding == copy->header_padding);
+  
+  _dbus_assert (_dbus_string_get_length (&message->header) ==
+                _dbus_string_get_length (&copy->header));
+
+  _dbus_assert (_dbus_string_get_length (&message->body) ==
+                _dbus_string_get_length (&copy->body));
+
+  verify_test_message (copy);
+
+  name1 = dbus_message_get_name (message);
+  name2 = dbus_message_get_name (copy);
+
+  _dbus_assert (strcmp (name1, name2) == 0);
+  
   dbus_message_unref (message);
+  dbus_message_unref (copy);
   
   message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");
   _dbus_message_set_serial (message, 1);

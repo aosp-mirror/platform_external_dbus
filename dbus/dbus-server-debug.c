@@ -181,7 +181,7 @@ typedef struct
 {
   DBusServer *server;
   DBusTransport *transport;
-  
+  DBusTimeout *timeout;
 } ServerAndTransport;
 
 static void
@@ -190,12 +190,13 @@ handle_new_client (void *data)
   ServerAndTransport *st = data;
   DBusTransport *transport;
   DBusConnection *connection;
+
+  _dbus_verbose ("  new debug client transport %p connecting to server\n",
+                 st->transport);
   
   transport = _dbus_transport_debug_server_new (st->transport);
   if (transport == NULL)
-    {
-      return;
-    }
+    return;
 
   connection = _dbus_connection_new_for_transport (transport);
   _dbus_transport_unref (transport);
@@ -214,9 +215,14 @@ handle_new_client (void *data)
 					       st->server->new_connection_data);
       dbus_server_unref (st->server);
     }
+
+  _dbus_server_remove_timeout (st->server, st->timeout);
   
   /* If no one grabbed a reference, the connection will die. */
   dbus_connection_unref (connection);
+
+  /* killing timeout frees both "st" and "timeout" */
+  _dbus_timeout_unref (st->timeout);
 }
 
 /**
@@ -231,7 +237,6 @@ dbus_bool_t
 _dbus_server_debug_accept_transport (DBusServer     *server,
 				     DBusTransport  *transport)
 {
-  DBusTimeout *timeout = NULL;
   ServerAndTransport *st = NULL;
 
   st = dbus_new (ServerAndTransport, 1);
@@ -241,22 +246,21 @@ _dbus_server_debug_accept_transport (DBusServer     *server,
   st->transport = transport;
   st->server = server;
   
-  timeout = _dbus_timeout_new (DEFAULT_INTERVAL, handle_new_client, st, dbus_free);
+  st->timeout = _dbus_timeout_new (DEFAULT_INTERVAL, handle_new_client, st,
+                                   dbus_free);
 
-  if (timeout == NULL)
+  if (st->timeout == NULL)
     goto failed;
 
-  if (!_dbus_server_add_timeout (server, timeout))
+  if (!_dbus_server_add_timeout (server, st->timeout))
     goto failed;
-
-  _dbus_timeout_unref (timeout);
   
   return TRUE;
 
  failed:
+  if (st->timeout)
+    _dbus_timeout_unref (st->timeout);
   dbus_free (st);
-  if (timeout)
-    _dbus_timeout_unref (timeout);
   return FALSE;
 }
 

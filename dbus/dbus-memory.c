@@ -76,6 +76,13 @@
 static dbus_bool_t inited = FALSE;
 static int fail_counts = -1;
 static size_t fail_size = 0;
+static dbus_bool_t guards = FALSE;
+#define GUARD_VALUE 0xdeadbeef
+#define GUARD_INFO_SIZE 8
+#define GUARD_START_PAD 16
+#define GUARD_END_PAD 16
+#define GUARD_START_OFFSET (GUARD_START_PAD + GUARD_INFO_SIZE)
+#define GUARD_EXTRA_SIZE (GUARD_START_OFFSET + GUARD_END_PAD)
 #endif
 
 #ifdef DBUS_BUILD_TESTS
@@ -92,10 +99,133 @@ initialize_malloc_debug (void)
       
       if (_dbus_getenv ("DBUS_MALLOC_FAIL_GREATER_THAN") != NULL)
 	fail_size = atoi (_dbus_getenv ("DBUS_MALLOC_FAIL_GREATER_THAN"));
+
+      if (_dbus_getenv ("DBUS_MALLOC_GUARDS") != NULL)
+        guards = TRUE;
       
       inited = TRUE;
     }
 }
+
+typedef enum
+{
+  SOURCE_UNKNOWN,
+  SOURCE_MALLOC,
+  SOURCE_REALLOC,
+  SOURCE_MALLOC_ZERO,
+  SOURCE_REALLOC_NULL
+} BlockSource;
+
+static const char*
+source_string (BlockSource source)
+{
+  switch (source)
+    {
+    case SOURCE_UNKNOWN:
+      return "unknown";
+    case SOURCE_MALLOC:
+      return "malloc";
+    case SOURCE_REALLOC:
+      return "realloc";
+    case SOURCE_MALLOC_ZERO:
+      return "malloc0";
+    case SOURCE_REALLOC_NULL:
+      return "realloc(NULL)";
+    }
+  _dbus_assert_not_reached ("Invalid malloc block source ID");
+  return "invalid!";
+}
+
+static void
+check_guards (void *free_block)
+{
+  if (free_block != NULL)
+    {
+      unsigned char *block = ((unsigned char*)free_block) - GUARD_START_OFFSET;
+      size_t requested_bytes = *(dbus_uint32_t*)block;
+      BlockSource source = *(dbus_uint32_t*)(block + 4);
+      unsigned int i;
+      dbus_bool_t failed;
+
+      failed = FALSE;
+
+#if 0
+      _dbus_verbose ("Checking %d bytes request from source %s\n",
+                     requested_bytes, source_string (source));
+#endif
+      
+      i = GUARD_INFO_SIZE;
+      while (i < GUARD_START_OFFSET)
+        {
+          dbus_uint32_t value = *(dbus_uint32_t*) &block[i];
+          if (value != GUARD_VALUE)
+            {
+              _dbus_warn ("Block of %u bytes from %s had start guard value 0x%x at %d expected 0x%x\n",
+                          requested_bytes, source_string (source),
+                          value, i, GUARD_VALUE);
+              failed = TRUE;
+            }
+          
+          i += 4;
+        }
+
+      i = GUARD_START_OFFSET + requested_bytes;
+      while (i < (GUARD_START_OFFSET + requested_bytes + GUARD_END_PAD))
+        {
+          dbus_uint32_t value = *(dbus_uint32_t*) &block[i];
+          if (value != GUARD_VALUE)
+            {
+              _dbus_warn ("Block of %u bytes from %s had end guard value 0x%x at %d expected 0x%x\n",
+                          requested_bytes, source_string (source),
+                          value, i, GUARD_VALUE);
+              failed = TRUE;
+            }
+          
+          i += 4;
+        }
+
+      if (failed)
+        _dbus_assert_not_reached ("guard value corruption");
+    }
+}
+
+static void*
+set_guards (void       *real_block,
+            size_t      requested_bytes,
+            BlockSource source)
+{
+  unsigned char *block = real_block;
+  unsigned int i;
+  
+  if (block == NULL)
+    return NULL;
+
+  _dbus_assert (GUARD_START_OFFSET + GUARD_END_PAD == GUARD_EXTRA_SIZE);
+  
+  *((dbus_uint32_t*)block) = requested_bytes;
+  *((dbus_uint32_t*)(block + 4)) = source;
+
+  i = GUARD_INFO_SIZE;
+  while (i < GUARD_START_OFFSET)
+    {
+      (*(dbus_uint32_t*) &block[i]) = GUARD_VALUE;
+      
+      i += 4;
+    }
+
+  i = GUARD_START_OFFSET + requested_bytes;
+  while (i < (GUARD_START_OFFSET + requested_bytes + GUARD_END_PAD))
+    {
+      (*(dbus_uint32_t*) &block[i]) = GUARD_VALUE;
+      
+      i += 4;
+    }
+  
+  check_guards (block + GUARD_START_OFFSET);
+  
+  return block + GUARD_START_OFFSET;
+}
+
 #endif
 
 /**
@@ -127,6 +257,13 @@ dbus_malloc (size_t bytes)
 #if DBUS_BUILD_TESTS
   else if (fail_size != 0 && bytes > fail_size)
     return NULL;
+  else if (guards)
+    {
+      void *block;
+
+      block = malloc (bytes + GUARD_EXTRA_SIZE);
+      return set_guards (block, bytes, SOURCE_MALLOC);
+    }
 #endif
   else
     return malloc (bytes);
@@ -161,6 +298,13 @@ dbus_malloc0 (size_t bytes)
 #if DBUS_BUILD_TESTS
   else if (fail_size != 0 && bytes > fail_size)
     return NULL;
+  else if (guards)
+    {
+      void *block;
+
+      block = calloc (bytes + GUARD_EXTRA_SIZE, 1);
+      return set_guards (block, bytes, SOURCE_MALLOC_ZERO);
+    }
 #endif
   else
     return calloc (bytes, 1);
@@ -200,6 +344,30 @@ dbus_realloc (void  *memory,
 #if DBUS_BUILD_TESTS
   else if (fail_size != 0 && bytes > fail_size)
     return NULL;
+  else if (guards)
+    {
+      if (memory)
+        {
+          void *block;
+          
+          check_guards (memory);
+          
+          block = realloc (((unsigned char*)memory) - GUARD_START_OFFSET,
+                           bytes + GUARD_EXTRA_SIZE);
+          
+          /* old guards shouldn't have moved */
+          check_guards (((unsigned char*)block) + GUARD_START_OFFSET);
+          
+          return set_guards (block, bytes, SOURCE_REALLOC);
+        }
+      else
+        {
+          void *block;
+          
+          block = malloc (bytes + GUARD_EXTRA_SIZE);
+          return set_guards (block, bytes, SOURCE_REALLOC_NULL);   
+        }
+    }
 #endif
   else
     {
@@ -216,6 +384,16 @@ dbus_realloc (void  *memory,
 void
 dbus_free (void  *memory)
 {
+#ifdef DBUS_BUILD_TESTS
+  if (guards)
+    {
+      check_guards (memory);
+      if (memory)
+        free (((unsigned char*)memory) - GUARD_START_OFFSET);
+      return;
+    }
+#endif
+    
   if (memory) /* we guarantee it's safe to free (NULL) */
     free (memory);
 }

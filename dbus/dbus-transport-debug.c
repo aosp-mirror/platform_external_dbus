@@ -2,6 +2,7 @@
 /* dbus-transport-debug.c In-proc debug subclass of DBusTransport
  *
  * Copyright (C) 2003  CodeFactory AB
+ * Copyright (C) 2003  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -47,6 +48,13 @@
 #define DEFAULT_INTERVAL 1
 
 /**
+ * Hack due to lack of OOM handling in a couple places
+ */
+#define WAIT_FOR_MEMORY() _dbus_sleep_milliseconds (250)
+
+static void check_timeout (DBusTransport *transport);
+
+/**
  * Opaque object representing a debug transport.
  *
  */
@@ -59,96 +67,21 @@ struct DBusTransportDebug
 {
   DBusTransport base;                   /**< Parent instance */
 
-  DBusTimeout *write_timeout;           /**< Timeout for reading. */
-  DBusTimeout *read_timeout;            /**< Timeout for writing. */
+  DBusTimeout *timeout;                 /**< Timeout for moving messages. */
   
   DBusTransport *other_end;             /**< The transport that this transport is connected to. */
+
+  unsigned int timeout_added : 1;       /**< Whether timeout has been added */
 };
 
-static void
-debug_finalize (DBusTransport *transport)
-{
-  _dbus_transport_finalize_base (transport);  
-
-  dbus_free (transport);
-}
-
-static void
-do_reading (DBusTransport *transport)
+/* move messages in both directions */
+static dbus_bool_t
+move_messages (DBusTransport *transport)
 {
   DBusTransportDebug *debug_transport = (DBusTransportDebug*) transport;
   
   if (transport->disconnected)
-    return;
-
-  /* Now dispatch the messages */
-  if (dbus_connection_dispatch_message (transport->connection))
-    {
-      debug_transport->read_timeout =
-	_dbus_timeout_new (DEFAULT_INTERVAL, (DBusTimeoutHandler)do_reading,
-			   transport, NULL);
-      if (!_dbus_connection_add_timeout (transport->connection,
-					 debug_transport->read_timeout))
-	{
-	  _dbus_timeout_unref (debug_transport->read_timeout);
-	  debug_transport->read_timeout = NULL;
-	}
-    }
-}
-
-static void
-check_read_timeout (DBusTransport *transport)
-{
-  DBusTransportDebug *debug_transport = (DBusTransportDebug*) transport;
-  dbus_bool_t need_read_timeout;
-
-  if (transport->connection == NULL)
-    return;
-
-  _dbus_transport_ref (transport);
-  
-  need_read_timeout = dbus_connection_get_n_messages (transport->connection) > 0;
-  
-  if (transport->disconnected)
-    need_read_timeout = FALSE;
-  
-  if (need_read_timeout &&
-      debug_transport->read_timeout == NULL)
-    {
-      debug_transport->read_timeout =
-	_dbus_timeout_new (DEFAULT_INTERVAL, (DBusTimeoutHandler)do_reading,
-			   transport, NULL);
-
-      if (debug_transport->read_timeout == NULL)
-	goto out;
-
-      if (!_dbus_connection_add_timeout (transport->connection,
-					 debug_transport->read_timeout))
-	{
-	  _dbus_timeout_unref (debug_transport->read_timeout);
-	  debug_transport->read_timeout = NULL;
-
-	  goto out;
-	}
-    }
-  else if (!need_read_timeout &&
-	   debug_transport->read_timeout != NULL)
-    {
-      _dbus_connection_remove_timeout (transport->connection,
-				       debug_transport->read_timeout);
-      _dbus_timeout_unref (debug_transport->read_timeout);
-      debug_transport->read_timeout = NULL;
-    }
-
- out:
-  _dbus_transport_unref (transport);      
-}
-
-static void
-do_writing (DBusTransport *transport)
-{
-  if (transport->disconnected)
-    return;
+    return TRUE;
 
   while (!transport->disconnected &&
 	 _dbus_connection_have_messages_to_send (transport->connection))
@@ -156,65 +89,106 @@ do_writing (DBusTransport *transport)
       DBusMessage *message, *copy;
       
       message = _dbus_connection_get_message_to_send (transport->connection);
-      _dbus_message_lock (message);
+      _dbus_assert (message != NULL);
       
-      copy = dbus_message_new_from_message (message);
+      copy = dbus_message_copy (message);
+      if (copy == NULL)
+        return FALSE;
+        
+      _dbus_message_lock (message);
       
       _dbus_connection_message_sent (transport->connection,
 				     message);
+
+      _dbus_verbose ("   -->transporting message %s from %s %p to %s %p\n",
+                     dbus_message_get_name (copy),
+                     transport->is_server ? "server" : "client",
+                     transport->connection,
+                     debug_transport->other_end->is_server ? "server" : "client",
+                     debug_transport->other_end->connection);
       
-      _dbus_connection_queue_received_message (((DBusTransportDebug *)transport)->other_end->connection,
+      _dbus_connection_queue_received_message (debug_transport->other_end->connection,
                                                copy);
       dbus_message_unref (copy);
     }
 
-  check_read_timeout (((DBusTransportDebug *)transport)->other_end);
+  if (debug_transport->other_end &&
+      !debug_transport->other_end->disconnected &&
+      _dbus_connection_have_messages_to_send (debug_transport->other_end->connection))
+    {
+      if (!move_messages (debug_transport->other_end))
+        return FALSE;
+    }
+  
+  return TRUE;
 }
 
 static void
-check_write_timeout (DBusTransport *transport)
+timeout_handler (void *data)
 {
-  DBusTransportDebug *debug_transport = (DBusTransportDebug *)transport;
-  dbus_bool_t need_write_timeout;
+  DBusTransport *transport = data;
   
-  if (transport->connection == NULL)
-    return;
+  while (!move_messages (transport))
+    WAIT_FOR_MEMORY ();
 
-  _dbus_transport_ref (transport);
+  check_timeout (transport);
+}
 
-  need_write_timeout = transport->messages_need_sending;
+static void
+check_timeout (DBusTransport *transport)
+{
+  DBusTransportDebug *debug_transport = (DBusTransportDebug*) transport;
   
-  if (transport->disconnected)
-    need_write_timeout = FALSE;
-
-  if (need_write_timeout &&
-      debug_transport->write_timeout == NULL)
+  if (transport->connection &&
+      transport->authenticated &&
+      (transport->messages_need_sending ||
+       (debug_transport->other_end &&
+        debug_transport->other_end->messages_need_sending)))
     {
-      debug_transport->write_timeout =
-	_dbus_timeout_new (DEFAULT_INTERVAL, (DBusTimeoutHandler)do_writing,
-			   transport, NULL);
-
-      if (debug_transport->write_timeout == NULL)
-	goto out;
-
-      if (!_dbus_connection_add_timeout (transport->connection,
-					 debug_transport->write_timeout))
-	{
-	  _dbus_timeout_unref (debug_transport->write_timeout);
-	  debug_transport->write_timeout = NULL;
-	}
+      if (!debug_transport->timeout_added)
+        {
+          /* FIXME; messages_pending is going to have to
+           * handle OOM somehow (probably being part of
+           * PreallocatedSend). See also dbus-transport-unix.c
+           * check_write_watch()
+           */
+          while (!_dbus_connection_add_timeout (transport->connection,
+                                                debug_transport->timeout))
+            WAIT_FOR_MEMORY ();
+          debug_transport->timeout_added = TRUE;
+        }
     }
-  else if (!need_write_timeout &&
-	   debug_transport->write_timeout != NULL)
+  else
     {
-      _dbus_connection_remove_timeout (transport->connection,
-				       debug_transport->write_timeout);
-      _dbus_timeout_unref (debug_transport->write_timeout);
-      debug_transport->write_timeout = NULL;
+      if (debug_transport->timeout_added)
+        {
+          _dbus_connection_remove_timeout (transport->connection,
+                                           debug_transport->timeout);
+          debug_transport->timeout_added = FALSE;
+        }
     }
+}
 
- out:
-  _dbus_transport_unref (transport);
+static void
+debug_finalize (DBusTransport *transport)
+{
+  DBusTransportDebug *debug_transport = (DBusTransportDebug*) transport;
+  
+  if (debug_transport->timeout_added)
+    _dbus_connection_remove_timeout (transport->connection,
+                                     debug_transport->timeout);
+  
+  if (debug_transport->other_end)
+    {
+      _dbus_transport_disconnect (debug_transport->other_end);
+      debug_transport->other_end = NULL;
+    }
+  
+  _dbus_transport_finalize_base (transport);  
+
+  _dbus_timeout_unref (debug_transport->timeout);
+  
+  dbus_free (transport);
 }
 
 static void
@@ -232,13 +206,14 @@ debug_disconnect (DBusTransport *transport)
 static void
 debug_connection_set (DBusTransport *transport)
 {
+  check_timeout (transport);
 }
 
 static void
 debug_messages_pending (DBusTransport *transport,
 			int            messages_pending)
 {
-  check_write_timeout (transport);
+  check_timeout (transport);
 }
 
 static void
@@ -246,6 +221,7 @@ debug_do_iteration (DBusTransport *transport,
 		    unsigned int   flags,
 		    int            timeout_milliseconds)
 {
+  move_messages (transport);
 }
 
 static void
@@ -262,6 +238,16 @@ static DBusTransportVTable debug_vtable = {
   debug_do_iteration,
   debug_live_messages_changed
 };
+
+static dbus_bool_t
+create_timeout_object (DBusTransportDebug *debug_transport)
+{
+  debug_transport->timeout = _dbus_timeout_new (DEFAULT_INTERVAL,
+                                                timeout_handler,
+                                                debug_transport, NULL);
+  
+  return debug_transport->timeout != NULL;
+}
 
 /**
  * Creates a new debug server transport.
@@ -288,11 +274,21 @@ _dbus_transport_debug_server_new (DBusTransport *client)
       return NULL;
     }
 
+  if (!create_timeout_object (debug_transport))
+    {
+      _dbus_transport_finalize_base (&debug_transport->base);      
+      dbus_free (debug_transport);
+      return NULL;
+    }
+  
   debug_transport->base.authenticated = TRUE;
 
   /* Connect the two transports */
   debug_transport->other_end = client;
   ((DBusTransportDebug *)client)->other_end = (DBusTransport *)debug_transport;
+
+  _dbus_verbose ("  new debug server transport %p created, other end %p\n",
+                 debug_transport, debug_transport->other_end);
   
   return (DBusTransport *)debug_transport;
 }
@@ -335,19 +331,30 @@ _dbus_transport_debug_client_new (const char     *server_name,
       dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
       return NULL;
     }
-
-  if (!_dbus_server_debug_accept_transport (debug_server, (DBusTransport *)debug_transport))
+  
+  if (!create_timeout_object (debug_transport))
     {
       _dbus_transport_finalize_base (&debug_transport->base);
-
-      dbus_free (debug_transport);      
-      dbus_set_result (result, DBUS_RESULT_IO_ERROR);
+      dbus_free (debug_transport);
+      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
       return NULL;
-      
+    }
+  
+  if (!_dbus_server_debug_accept_transport (debug_server,
+                                            (DBusTransport *)debug_transport))
+    {
+      _dbus_timeout_unref (debug_transport->timeout);
+      _dbus_transport_finalize_base (&debug_transport->base);
+      dbus_free (debug_transport);
+      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
+      return NULL;
     }
 
   /* FIXME: Prolly wrong to do this. */
   debug_transport->base.authenticated = TRUE;
+
+  _dbus_verbose ("  new debug client transport %p created, other end %p\n",
+                 debug_transport, debug_transport->other_end);
   
   return (DBusTransport *)debug_transport;
 }

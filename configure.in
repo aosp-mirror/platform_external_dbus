@@ -330,13 +330,13 @@ echo "
 "
 
 if test x$enable_tests = xyes; then
-        echo "NOTE: building with unit tests increases the size of the installed library"
+        echo "NOTE: building with unit tests increases the size of the installed library and renders it insecure"
 fi
 if test x$enable_gcov = xyes; then
         echo "NOTE: building with coverage profiling is definitely for developers only"
 fi
 if test x$enable_verbose_mode = xyes; then
-        echo "NOTE: building with verbose mode increases library size, but is probably a good idea anyway."
+        echo "NOTE: building with verbose mode increases library size and may slightly increase security risk, but aids debugging."
 fi
 if test x$enable_asserts = xyes; then
         echo "NOTE: building with assertions increases library size, but is probably a good idea anyway."

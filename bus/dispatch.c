@@ -28,6 +28,7 @@
 #include "utils.h"
 #include "bus.h"
 #include "test.h"
+#include "loop.h"
 #include <dbus/dbus-internals.h>
 #include <string.h>
 
@@ -172,12 +173,15 @@ bus_dispatch (DBusConnection *connection,
 
   _dbus_assert (message_name != NULL); /* DBusMessageLoader is supposed to check this */
 
+  _dbus_verbose ("DISPATCH: %s to %s\n",
+                 message_name, service_name ? service_name : "peer");
+  
   /* If service_name is NULL, this is a message to the bus daemon, not intended
    * to actually go "on the bus"; e.g. a peer-to-peer ping. Handle these
    * immediately, especially disconnection messages.
    */
   if (service_name == NULL)
-    {
+    {      
       if (strcmp (message_name, DBUS_MESSAGE_LOCAL_DISCONNECT) == 0)
         bus_connection_disconnected (connection);
 
@@ -374,12 +378,15 @@ bus_dispatch_remove_connection (DBusConnection *connection)
 #ifdef DBUS_BUILD_TESTS
 
 static void
-run_test_bus (BusContext *context)
+flush_bus (BusContext *context)
 {
-  
-  
+  while (bus_loop_iterate (FALSE))
+    ;
 }
 
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
 static dbus_bool_t
 check_hello_message (BusContext     *context,
                      DBusConnection *connection)
@@ -391,11 +398,28 @@ check_hello_message (BusContext     *context,
 			      DBUS_MESSAGE_HELLO);
 
   if (message == NULL)
-    _dbus_assert_not_reached ("no memory");
+    return TRUE;
 
   if (!dbus_connection_send (connection, message, &serial))
-    _dbus_assert_not_reached ("no memory");
+    return TRUE;
 
+  dbus_message_unref (message);
+  
+  flush_bus (context);
+
+  message = dbus_connection_pop_message (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a reply to %s %d on %p\n",
+                  DBUS_MESSAGE_HELLO, serial, connection);
+      return FALSE;
+    }
+
+  _dbus_verbose ("Received %s on %p\n",
+                 dbus_message_get_name (message), connection);
+  
+  dbus_message_unref (message);
+  
   return TRUE;
 }
 
@@ -410,8 +434,6 @@ bus_dispatch_test (const DBusString *test_data_dir)
   DBusConnection *baz;
   DBusResultCode result;
 
-  return TRUE; /* FIXME */
-  
   dbus_error_init (&error);
   context = bus_context_new ("debug:name=test-server",
                              activation_dirs,
@@ -431,7 +453,12 @@ bus_dispatch_test (const DBusString *test_data_dir)
   if (baz == NULL)
     _dbus_assert_not_reached ("could not alloc connection");
   
-  
+  if (!check_hello_message (context, foo))
+    _dbus_assert_not_reached ("hello message failed");
+  if (!check_hello_message (context, bar))
+    _dbus_assert_not_reached ("hello message failed");
+  if (!check_hello_message (context, baz))
+    _dbus_assert_not_reached ("hello message failed");
   
   return TRUE;
 }

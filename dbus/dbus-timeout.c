@@ -319,7 +319,10 @@ _dbus_timeout_list_remove_timeout (DBusTimeoutList *timeout_list,
  */
 
 /**
- * Gets the timeout interval.
+ * Gets the timeout interval. The dbus_timeout_handle()
+ * should be called each time this interval elapses,
+ * starting after it elapses once.
+ *
  * @param timeout the DBusTimeout object.
  * @returns the interval in milliseconds.
  */

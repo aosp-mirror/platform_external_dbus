@@ -53,10 +53,14 @@ main (int argc, char **argv)
   
   if (!bus_dispatch_test (&test_data_dir))
     die ("dispatch");
+
+  printf ("Success\n");
   
   return 0;
 #else /* DBUS_BUILD_TESTS */
-      
+
+  printf ("Not compiled with test support\n");
+  
   return 0;
 #endif
 }
