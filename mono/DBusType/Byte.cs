@@ -41,7 +41,7 @@ namespace DBus.DBusType
 
     public static bool Suits(System.Type type) 
     {
-      if (type.IsEnum && type.UnderlyingSystemType == typeof(System.Byte)) {
+      if (type.IsEnum && Enum.GetUnderlyingType (type) == typeof(System.Byte)) {
 	return true;
       }
 
