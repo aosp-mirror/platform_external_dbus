@@ -65,6 +65,11 @@ unix_finalize (DBusServer *server)
   dbus_free (server);
 }
 
+/**
+ * @todo unreffing the connection at the end may cause
+ * us to drop the last ref to the connection before
+ * disconnecting it. That is invalid.
+ */
 static void
 handle_new_client_fd (DBusServer *server,
                       int         client_fd)

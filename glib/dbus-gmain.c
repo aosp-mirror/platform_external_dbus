@@ -314,6 +314,13 @@ free_source (GSource *source)
   g_source_destroy (source);
 }
 
+static void
+wakeup_main (void *data)
+{
+  g_main_context_wakeup (NULL);
+}
+
+
 /** @} */ /* End of GLib bindings internals */
 
 /** @addtogroup DBusGLib
@@ -359,6 +366,10 @@ dbus_connection_setup_with_g_main (DBusConnection *connection)
                                          remove_timeout,
                                          NULL, NULL);
       
+  dbus_connection_set_wakeup_main_function (connection,
+					    wakeup_main,
+					    NULL, NULL);
+      
   g_source_attach (source, NULL);
 
   g_static_mutex_lock (&connection_slot_lock);
@@ -401,7 +412,7 @@ dbus_server_setup_with_g_main (DBusServer *server)
                                      add_timeout,
                                      remove_timeout,
                                      NULL, NULL);
-      
+  
   g_source_attach (source, NULL);
 
   g_static_mutex_lock (&server_slot_lock);

@@ -177,9 +177,18 @@ _dbus_data_slot_list_set  (DBusDataSlotAllocator *allocator,
                            DBusFreeFunction       free_data_func,
                            DBusFreeFunction      *old_free_func,
                            void                 **old_data)
-{  
+{
+#ifndef DBUS_DISABLE_ASSERT
+  /* We need to take the allocator lock here, because the allocator could
+   * be e.g. realloc()ing allocated_slots. We avoid doing this if asserts
+   * are disabled, since then the asserts are empty.
+   */
+  if (!dbus_mutex_lock (allocator->lock))
+    return FALSE;
   _dbus_assert (slot < allocator->n_allocated_slots);
   _dbus_assert (allocator->allocated_slots[slot] == slot);
+  dbus_mutex_unlock (allocator->lock);
+#endif
   
   if (slot >= list->n_slots)
     {
@@ -227,8 +236,17 @@ _dbus_data_slot_list_get  (DBusDataSlotAllocator *allocator,
                            DBusDataSlotList      *list,
                            int                    slot)
 {
+#ifndef DBUS_DISABLE_ASSERT
+  /* We need to take the allocator lock here, because the allocator could
+   * be e.g. realloc()ing allocated_slots. We avoid doing this if asserts
+   * are disabled, since then the asserts are empty.
+   */
+  if (!dbus_mutex_lock (allocator->lock))
+    return FALSE;
   _dbus_assert (slot < allocator->n_allocated_slots);
   _dbus_assert (allocator->allocated_slots[slot] == slot);
+  dbus_mutex_unlock (allocator->lock);
+#endif
 
   if (slot >= list->n_slots)
     return NULL;

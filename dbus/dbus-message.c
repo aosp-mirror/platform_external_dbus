@@ -1725,12 +1725,15 @@ dbus_message_get_args_iter (DBusMessage *message)
   
   iter = dbus_new (DBusMessageIter, 1);
 
-  dbus_message_ref (message);
+  if (iter != NULL)
+    {
+      dbus_message_ref (message);
   
-  iter->refcount = 1;
-  iter->message = message;
-  iter->pos = 0;
-
+      iter->refcount = 1;
+      iter->message = message;
+      iter->pos = 0;
+    }
+  
   return iter;
 }
 

@@ -105,6 +105,10 @@ struct DBusConnection
   
   int client_serial;            /**< Client serial. Increments each time a message is sent  */
   DBusList *disconnect_message_link; /**< Preallocated list node for queueing the disconnection message */
+
+  DBusWakeupMainFunction wakeup_main_function; /**< Function to wake up the mainloop  */
+  void *wakeup_main_data; /**< Application data for wakeup_main_function */
+  DBusFreeFunction free_wakeup_main_data; /**< free wakeup_main_data */
 };
 
 typedef struct
@@ -147,6 +151,19 @@ _dbus_connection_unlock (DBusConnection *connection)
   dbus_mutex_unlock (connection->mutex);
 }
 
+/**
+ * Wakes up the main loop if it is sleeping
+ * Needed if we're e.g. queueing outgoing messages
+ * on a thread while the mainloop sleeps.
+ *
+ * @param connection the connection.
+ */
+static void
+_dbus_connection_wakeup_mainloop (DBusConnection *connection)
+{
+  if (connection->wakeup_main_function)
+    (*connection->wakeup_main_function) (connection->wakeup_main_data);
+}
 
 /**
  * Adds a message to the incoming message queue, returning #FALSE
@@ -187,6 +204,8 @@ _dbus_connection_queue_received_message (DBusConnection *connection,
   dbus_message_ref (message);
   connection->n_incoming += 1;
 
+  _dbus_connection_wakeup_mainloop (connection);
+  
   _dbus_verbose ("Incoming message %p added to queue, %d incoming\n",
                  message, connection->n_incoming);
   
@@ -211,6 +230,8 @@ _dbus_connection_queue_synthesized_message_link (DBusConnection *connection,
 
   connection->n_incoming += 1;
 
+  _dbus_connection_wakeup_mainloop (connection);
+  
   _dbus_verbose ("Incoming synthesized message %p added to queue, %d incoming\n",
                  link->data, connection->n_incoming);
 }
@@ -388,13 +409,17 @@ _dbus_connection_acquire_io_path (DBusConnection *connection,
 				  int timeout_milliseconds)
 {
   dbus_bool_t res = TRUE;
-  if (timeout_milliseconds != -1) 
-    res = dbus_condvar_wait_timeout (connection->io_path_cond,
-				     connection->mutex,
-				     timeout_milliseconds);
-  else
-    dbus_condvar_wait (connection->io_path_cond, connection->mutex);
 
+  if (connection->io_path_acquired)
+    {
+      if (timeout_milliseconds != -1) 
+	res = dbus_condvar_wait_timeout (connection->io_path_cond,
+					 connection->mutex,
+					 timeout_milliseconds);
+      else
+	dbus_condvar_wait (connection->io_path_cond, connection->mutex);
+    }
+  
   if (res)
     {
       _dbus_assert (!connection->io_path_acquired);
@@ -774,6 +799,9 @@ _dbus_connection_last_unref (DBusConnection *connection)
   DBusHashIter iter;
   DBusList *link;
 
+  /* You have to disconnect the connection before unref:ing it. Otherwise
+   * you won't get the disconnected message.
+   */
   _dbus_assert (!_dbus_transport_get_is_connected (connection->transport));
   
   if (connection->connection_counter != NULL)
@@ -953,7 +981,7 @@ dbus_connection_get_is_authenticated (DBusConnection *connection)
 dbus_bool_t
 dbus_connection_send_message (DBusConnection *connection,
                               DBusMessage    *message,
-			      dbus_int32_t   *client_serial,			      
+			      dbus_int32_t   *client_serial,
                               DBusResultCode *result)
 
 {
@@ -988,7 +1016,9 @@ dbus_connection_send_message (DBusConnection *connection,
 
   if (connection->n_outgoing == 1)
     _dbus_transport_messages_pending (connection->transport,
-                                      connection->n_outgoing);
+				      connection->n_outgoing);
+  
+  _dbus_connection_wakeup_mainloop (connection);
 
   dbus_mutex_unlock (connection->mutex);
   
@@ -1512,7 +1542,8 @@ dbus_connection_pop_message (DBusConnection *connection)
 static void
 _dbus_connection_acquire_dispatch (DBusConnection *connection)
 {
-  dbus_condvar_wait (connection->dispatch_cond, connection->mutex);
+  if (connection->dispatch_acquired)
+    dbus_condvar_wait (connection->dispatch_cond, connection->mutex);
   _dbus_assert (!connection->dispatch_acquired);
 
   connection->dispatch_acquired = TRUE;
@@ -1786,6 +1817,44 @@ dbus_connection_set_timeout_functions   (DBusConnection            *connection,
   dbus_mutex_unlock (connection->mutex);
   /* drop our paranoid refcount */
   dbus_connection_unref (connection);  
+}
+
+/**
+ * Sets the mainloop wakeup function for the connection. Thi function is
+ * responsible for waking up the main loop (if its sleeping) when some some
+ * change has happened to the connection that the mainloop needs to reconsiders
+ * (e.g. a message has been queued for writing).
+ * When using Qt, this typically results in a call to QEventLoop::wakeUp().
+ * When using GLib, it would call g_main_context_wakeup().
+ *
+ *
+ * @param connection the connection.
+ * @param wakeup_main_function function to wake up the mainloop
+ * @param data data to pass wakeup_main_function
+ * @param free_data_function function to be called to free the data.
+ */
+void
+dbus_connection_set_wakeup_main_function (DBusConnection            *connection,
+					  DBusWakeupMainFunction     wakeup_main_function,
+					  void                      *data,
+					  DBusFreeFunction           free_data_function)
+{
+  void *old_data;
+  DBusFreeFunction old_free_data;
+  
+  dbus_mutex_lock (connection->mutex);
+  old_data = connection->wakeup_main_data;
+  old_free_data = connection->free_wakeup_main_data;
+
+  connection->wakeup_main_function = wakeup_main_function;
+  connection->wakeup_main_data = data;
+  connection->free_wakeup_main_data = free_data_function;
+  
+  dbus_mutex_unlock (connection->mutex);
+
+  /* Callback outside the lock */
+  if (old_free_data)
+    (*old_free_data) (old_data);
 }
 
 /**

@@ -1,3 +1,33 @@
+2003-02-26  Alexander Larsson  <alexl@redhat.com>
+
+	* configure.in:
+	Set DBUS_GLIB_THREADS_LIBS for apps using gthread-2.0
+	
+	* dbus/dbus-connection.c:
+	* dbus/dbus-connection.h:
+	Fix _dbus_connection_acquire_io_path and _dbus_connection_acquire_dispatch.
+	Add dbus_connection_set_wakeup_main_function and use it when queueing
+	incoming and outgoing messages.
+	
+	
+	* dbus/dbus-dataslot.c:
+	Threadsafe usage of DBusDataSlotAllocator
+	
+	* dbus/dbus-message.c: (dbus_message_get_args_iter):
+	dbus_new can fail.
+	
+	* dbus/dbus-server-unix.c:
+	Add todo comment
+	
+	* glib/dbus-gmain.c:
+	Implement the new wakeup functions for glib.
+	
+	* glib/Makefile.am:
+	* glib/test-thread-client.c: 
+	* glib/test-thread-server.c: 
+	* glib/test-thread.h:
+	Initial cut at some thread test code. Not really done yet.
+
 2003-02-26  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-connection.c
