@@ -1,3 +1,8 @@
+2005-03-15  Joe Shaw  <joeshaw@novell.com>
+
+	* mono/ProxyBuilder.cs (BuildFinalizer): Fix some invalid IL when
+	generating the finalizer.  Fixes from Ben Maurer.
+
 2005-03-12  Joe Shaw  <joeshaw@novell.com>
 
 	* mono/BusDriver.cs: Update method names: ListServices

@@ -468,7 +468,7 @@ namespace DBus
       generator.Emit(OpCodes.Ret);
     }
     
-    public void BuildFinalizer (TypeBuilder tb, FieldInfo fi)
+    public void BuildFinalizer (TypeBuilder tb, FieldInfo serviceF, FieldInfo deleF)
     {
        // Note that this is a *HORRIBLE* example of how to build a finalizer
        // It doesn't use the try/finally to chain to Object::Finalize. However,
@@ -485,8 +485,10 @@ namespace DBus
 
        //generator.EmitWriteLine("this.service.SignalCalled -= this.delegate_created");
        generator.Emit (OpCodes.Ldarg_0);
-       generator.Emit (OpCodes.Ldfld, fi);
-       generator.Emit (OpCodes.Call, Service_RemoveSignalCalledMI);
+       generator.Emit (OpCodes.Ldfld, serviceF);
+       generator.Emit (OpCodes.Ldarg_0);
+       generator.Emit (OpCodes.Ldfld, deleF);
+       generator.EmitCall (OpCodes.Callvirt, Service_RemoveSignalCalledMI, null);
        generator.Emit (OpCodes.Ret);
     }
     
@@ -556,7 +558,7 @@ namespace DBus
 	FieldBuilder deleF = typeB.DefineField("delegate_created", 
 					       typeof(Service.SignalCalledHandler), 
 					       FieldAttributes.Private);
-	BuildFinalizer (typeB, deleF);
+	BuildFinalizer (typeB, serviceF, deleF);
 	
 	MethodInfo signalCalledMI = BuildSignalCalled(ref typeB, serviceF, pathF);
 	BuildConstructor(ref typeB, serviceF, pathF, signalCalledMI, deleF);
