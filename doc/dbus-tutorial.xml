@@ -1,0 +1,50 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd"
+[
+]>
+
+<article id="index">
+  <articleinfo>
+    <title>D-BUS Tutorial</title>
+    <releaseinfo>Version 0.1</releaseinfo>
+    <date>29 September 2003</date>
+    <authorgroup>
+      <author>
+	<firstname>Havoc</firstname>
+	<surname>Pennington</surname>
+	<affiliation>
+	  <orgname>Red Hat, Inc.</orgname>
+	  <address>
+	    <email>hp@pobox.com</email>
+	  </address>
+	</affiliation>
+      </author>
+    </authorgroup>
+  </articleinfo>
+
+  <sect1 id="introduction">
+    <title>Introduction</title>
+    <para>
+      D-BUS blah blah blah
+      <itemizedlist>
+        <listitem>
+          <para>
+            foo
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            bar
+          </para>
+        </listitem>
+      </itemizedlist>
+    </para>
+    <para>
+      blah blah blah
+    </para>
+    <para>
+      blah blah blah
+    </para>
+  </sect1>
+</article>

@@ -1,5 +1,13 @@
 2003-09-29  Havoc Pennington  <hp@pobox.com>
 
+	* configure.in: split checks for Doxygen from XML docs, check for
+	xmlto
+
+	* doc/Makefile.am: XML-ify all the docs, and add a blank
+	dbus-tutorial.xml
+
+2003-09-29  Havoc Pennington  <hp@pobox.com>
+
 	* Merge dbus-object-names branch. To see the entire patch 
 	do cvs diff -r DBUS_OBJECT_NAMES_BRANCHPOINT -r dbus-object-names,
 	it's huuuuge though.

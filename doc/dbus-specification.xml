@@ -1,7 +1,11 @@
-<!doctype article PUBLIC "-//OASIS//DTD DocBook V3.1//EN" [
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd"
+[
 ]>
+
 <article id="index">
-  <artheader>
+  <articleinfo>
     <title>D-BUS Specification</title>
     <releaseinfo>Version 0.8</releaseinfo>
     <date>06 September 2003</date>
@@ -10,7 +14,7 @@
 	<firstname>Havoc</firstname>
 	<surname>Pennington</surname>
 	<affiliation>
-	  <orgname>Red Hat, Inc</orgname>
+	  <orgname>Red Hat, Inc.</orgname>
 	  <address>
 	    <email>hp@pobox.com</email>
 	  </address>
@@ -30,14 +34,14 @@
 	<firstname>Alexander</firstname>
 	<surname>Larsson</surname>
 	<affiliation>
-	  <orgname>Red Hat, Inc</orgname>
+	  <orgname>Red Hat, Inc.</orgname>
 	  <address>
             <email>alexl@redhat.com</email>
           </address>
 	</affiliation>
       </author>
     </authorgroup>
-  </artheader>
+  </articleinfo>
 
   <sect1 id="introduction">
     <title>Introduction</title>
@@ -75,10 +79,10 @@
     </para>
     <para>
       The base D-BUS protocol is a peer-to-peer protocol, specified in <xref
-      linkend="message-protocol">. That is, it is a system for one application
+      linkend="message-protocol"/>. That is, it is a system for one application
       to talk to a single other application. However, the primary intended
       application of D-BUS is the D-BUS <firstterm>message bus</firstterm>,
-      specified in <xref linkend="message-bus">. The message bus is a special
+      specified in <xref linkend="message-bus"/>. The message bus is a special
       application that accepts connections from multiple other applications, and
       forwards messages among them.
     </para>
@@ -111,7 +115,7 @@
       <title>Header Encoding</title>
       <para>
         Following the mandatory fields, there are zero or more named fields (see
-        <xref linkend="message-protocol-header-fields">), and then nul bytes
+        <xref linkend="message-protocol-header-fields"/>), and then nul bytes
         padding the header such that its total length in bytes is a multiple of
         8.
       </para>
@@ -119,7 +123,7 @@
         The header MUST begin with the following mandatory fields in the following
         order:
         <informaltable>
-          <tgroup cols=2>
+          <tgroup cols="2">
             <thead>
               <row>
                 <entry>Size</entry>
@@ -185,7 +189,7 @@
       <para>
         Types that can appear in the second byte of the header:
         <informaltable>
-          <tgroup cols=3>
+          <tgroup cols="3">
             <thead>
               <row>
                 <entry>Conventional name</entry>
@@ -228,7 +232,7 @@
       <para>
         Flags that can appear in the third byte of the header:
         <informaltable>
-          <tgroup cols=3>
+          <tgroup cols="3">
             <thead>
               <row>
                 <entry>Conventional name</entry>
@@ -255,7 +259,7 @@
       <title>Header Fields</title>
       <para>
         In addition to the required header information mentioned 
-        in <xref linkend="message-protocol-header-encoding">, 
+        in <xref linkend="message-protocol-header-encoding"/>, 
           the header may contain zero or more named 
           header fields. Future versions of this protocol
           specification may add new fields. Implementations must
@@ -269,7 +273,7 @@
         of which are defined below. Following the name, the field MUST have
         a type code represented as a single unsigned byte, and then a
         properly-aligned value of that type.  See <xref
-        linkend="message-protocol-arguments"> for a description of how each
+        linkend="message-protocol-arguments"/> for a description of how each
         type is encoded. If an implementation sees a header field name that
         it does not understand, it MUST ignore that field.
       </para>
@@ -277,7 +281,7 @@
       <para>
         Here are the currently-defined named header fields:
         <informaltable>
-          <tgroup cols=3>
+          <tgroup cols="3">
             <thead>
               <row>
                 <entry>Conventional Name</entry>
@@ -326,7 +330,7 @@
                 <entry>UINT32</entry>
                 <entry>The serial number of the message this message is a reply
                 to. (The serial number is one of the mandatory header fields,
-                see <xref linkend="message-protocol-header-encoding">.)</entry>
+                see <xref linkend="message-protocol-header-encoding"/>.)</entry>
               </row>
               <row>
                 <entry>SERVICE</entry>
@@ -334,7 +338,7 @@
                 <entry>STRING</entry>
                 <entry>The name of the service this message should be routed to. 
                 Only used in combination with the message bus, see 
-                <xref linkend="message-bus">.</entry>
+                <xref linkend="message-bus"/>.</entry>
               </row>
               <row>
                 <entry>SENDER_SERVICE</entry>
@@ -373,7 +377,7 @@
       </para>
       <para>
         <informaltable>
-          <tgroup cols=3>
+          <tgroup cols="3">
             <thead>
               <row>
                 <entry>Type name</entry>
@@ -442,7 +446,7 @@
       <para>
         The types are encoded as follows:
         <informaltable>
-          <tgroup cols=2>
+          <tgroup cols="2">
             <thead>
               <row>
                 <entry>Type name</entry>
@@ -771,10 +775,10 @@
 
         <itemizedlist>
 	  <listitem><para>AUTH [mechanism] [initial-response]</para></listitem>
-	  <listitem><para>CANCEL</para></listitem
-	                                  <listitem><para>BEGIN</para></listitem>
-	                                  <listitem><para>DATA &lt;data in base 64 encoding&gt;</para></listitem>
-	                                  <listitem><para>ERROR [human-readable error explanation]</para></listitem>
+	  <listitem><para>CANCEL</para></listitem>
+	  <listitem><para>BEGIN</para></listitem>
+	  <listitem><para>DATA &lt;data in base 64 encoding&gt;</para></listitem>
+	  <listitem><para>ERROR [human-readable error explanation]</para></listitem>
 	</itemizedlist>
 
         From server to client are as follows:
@@ -1203,7 +1207,7 @@
   <sect1 id="standard-messages">
     <title>Standard Peer-to-Peer Messages</title>
     <para>
-      See <xref linkend="message-protocol-types-notation"> for details on 
+      See <xref linkend="message-protocol-types-notation"/> for details on 
        the notation used in this section.
     </para>
     <sect2 id="standard-messages-ping">
@@ -1232,7 +1236,7 @@
         </programlisting>
         Message arguments:
         <informaltable>
-          <tgroup cols=3>
+          <tgroup cols="3">
             <thead>
               <row>
                 <entry>Argument</entry>
@@ -1283,7 +1287,7 @@
       </para>
       <para>
         Messages may have a <literal>SERVICE</literal> field (see <xref
-                                                                  linkend="message-protocol-header-fields">).  When the message bus
+                                                                  linkend="message-protocol-header-fields"/>).  When the message bus
           receives a message, if the <literal>SERVICE</literal> field is absent, the
           message is taken to be a standard peer-to-peer message and interpreted
           by the message bus itself. For example, sending
@@ -1396,7 +1400,7 @@
         daemon looks for <firstterm>service description files</firstterm>.
         Service description files define a mapping from service names to
         executables. Different kinds of message bus will look for these files
-        in different places, see <xref linkend="message-bus-types">.
+        in different places, see <xref linkend="message-bus-types"/>.
       </para>
       <para>
         [FIXME the file format should be much better specified than
@@ -1439,7 +1443,7 @@
       <para>
         The executable being launched may want to know whether the message bus
         activating it is one of the well-known message buses (see <xref
-        linkend="message-bus-types">). To facilitate this, the bus MUST also set
+        linkend="message-bus-types"/>). To facilitate this, the bus MUST also set
         the <literal>DBUS_ACTIVATION_BUS_TYPE</literal> environment variable if it is one
         of the well-known buses. The currently-defined values for this variable
         are <literal>system</literal> for the systemwide message bus,
@@ -1530,7 +1534,7 @@
           </programlisting>
           Reply arguments:
           <informaltable>
-            <tgroup cols=3>
+            <tgroup cols="3">
               <thead>
                 <row>
                   <entry>Argument</entry>
@@ -1573,7 +1577,7 @@
           </programlisting>
           Reply arguments:
           <informaltable>
-            <tgroup cols=3>
+            <tgroup cols="3">
               <thead>
                 <row>
                   <entry>Argument</entry>
@@ -1604,7 +1608,7 @@
           </programlisting>
           Message arguments:
           <informaltable>
-            <tgroup cols=3>
+            <tgroup cols="3">
               <thead>
                 <row>
                   <entry>Argument</entry>
@@ -1623,7 +1627,7 @@
           </informaltable>
           Reply arguments:
           <informaltable>
-            <tgroup cols=3>
+            <tgroup cols="3">
               <thead>
                 <row>
                   <entry>Argument</entry>
@@ -1655,7 +1659,7 @@
           </programlisting>
           Message arguments:
           <informaltable>
-            <tgroup cols=3>
+            <tgroup cols="3">
               <thead>
                 <row>
                   <entry>Argument</entry>
@@ -1679,7 +1683,7 @@
           </informaltable>
           Reply arguments:
           <informaltable>
-            <tgroup cols=3>
+            <tgroup cols="3">
               <thead>
                 <row>
                   <entry>Argument</entry>
@@ -1702,7 +1706,7 @@
           specified can be the following values logically ORed together:
 
           <informaltable>
-            <tgroup cols=3>
+            <tgroup cols="3">
               <thead>
                 <row>
                   <entry>Identifier</entry>
@@ -1738,7 +1742,7 @@
           The return value can be one of the following values:
 
           <informaltable>
-            <tgroup cols=3>
+            <tgroup cols="3">
               <thead>
                 <row>
                   <entry>Identifier</entry>
@@ -1781,7 +1785,7 @@
           </programlisting>
           Message arguments:
           <informaltable>
-            <tgroup cols=3>
+            <tgroup cols="3">
               <thead>
                 <row>
                   <entry>Argument</entry>
@@ -1818,7 +1822,7 @@
           </programlisting>
           Message arguments:
           <informaltable>
-            <tgroup cols=3>
+            <tgroup cols="3">
               <thead>
                 <row>
                   <entry>Argument</entry>
@@ -1860,7 +1864,7 @@
           </programlisting>
           Message arguments:
           <informaltable>
-            <tgroup cols=3>
+            <tgroup cols="3">
               <thead>
                 <row>
                   <entry>Argument</entry>
@@ -1898,7 +1902,7 @@
           </programlisting>
           Message arguments:
           <informaltable>
-            <tgroup cols=3>
+            <tgroup cols="3">
               <thead>
                 <row>
                   <entry>Argument</entry>
@@ -1936,7 +1940,7 @@
           </programlisting>
           Message arguments:
           <informaltable>
-            <tgroup cols=3>
+            <tgroup cols="3">
               <thead>
                 <row>
                   <entry>Argument</entry>
@@ -1960,7 +1964,7 @@
           </informaltable>
         Reply arguments:
         <informaltable>
-          <tgroup cols=3>
+          <tgroup cols="3">
             <thead>
               <row>
                 <entry>Argument</entry>
@@ -1977,7 +1981,7 @@
             </tbody>
           </tgroup>
         </informaltable>
-          Tries to launch the executable associated with a service. For more information, see <xref linkend="message-bus-activation">.
+          Tries to launch the executable associated with a service. For more information, see <xref linkend="message-bus-activation"/>.
 
             [FIXME need semantics in much more detail here; for example, 
             if I activate a service then send it a message, is the message 
@@ -1986,7 +1990,7 @@
         <para>
           The return value can be one of the following values:
     <informaltable>
-            <tgroup cols=3>
+            <tgroup cols="3">
               <thead>
                 <row>
                   <entry>Identifier</entry>
@@ -2170,7 +2174,7 @@
           An application is said to <firstterm>own</firstterm> a service if the
           message bus has associated the application with the service name.
           Services may also have <firstterm>secondary owners</firstterm> (see
-          <xref linkend="term-secondary-owner">).
+          <xref linkend="term-secondary-owner"/>).
         </para>
       </glossdef>
     </glossentry>
@@ -2187,7 +2191,7 @@
       <glossdef>
         <para>
           ".service files" tell the bus how to activate a particular service.
-          See <xref linkend="term-activation">
+          See <xref linkend="term-activation"/>
         </para>
       </glossdef>
     </glossentry>

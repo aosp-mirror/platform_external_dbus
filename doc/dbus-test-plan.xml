@@ -1,7 +1,11 @@
-<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook V3.1//EN" [
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd"
+[
 ]>
+
 <article id="index">
-  <artheader>
+  <articleinfo>
     <title>D-BUS Test Plan</title>
     <date>14 February 2003</date>
     <authorgroup>
@@ -14,7 +18,7 @@
 	</affiliation>
       </author>
     </authorgroup>
-  </artheader>
+  </articleinfo>
   <sect1 id="introduction">
     <title>Introduction</title>
     <para>
