@@ -1393,16 +1393,27 @@ dbus_message_finalize (DBusMessage *message)
  * lock which could be a performance issue in certain cases.
  *
  * For the echo client/server the round trip time goes from around
- * .000077 to .000070 with the message cache. The sysprof change is as
- * follows (numbers are cumulative percentage):
+ * .000077 to .000069 with the message cache on my laptop. The sysprof
+ * change is as follows (numbers are cumulative percentage):
  *
- *  with cache:
+ *  with message cache implemented as array as it is now (0.000069 per):
+ *    new_empty_header           1.46
+ *      mutex_lock               0.56    # i.e. _DBUS_LOCK(message_cache)
+ *      mutex_unlock             0.25
+ *      self                     0.41
+ *    unref                      2.24
+ *      self                     0.68
+ *      list_clear               0.43
+ *      mutex_lock               0.33    # i.e. _DBUS_LOCK(message_cache)
+ *      mutex_unlock             0.25
+ *
+ *  with message cache implemented as list (0.000070 per roundtrip):
  *    new_empty_header           2.72
  *      list_pop_first           1.88
  *    unref                      3.3
  *      list_prepend             1.63
- * 
- * without cache:
+ *
+ * without cache (0.000077 per roundtrip):
  *    new_empty_header           6.7
  *      string_init_preallocated 3.43
  *        dbus_malloc            2.43
@@ -1413,9 +1424,9 @@ dbus_message_finalize (DBusMessage *message)
  *        dbus_free              1.63
  *      dbus_free                0.71
  *
- * The times for list operations with the cache seem to be from thread
- * locks. So in a minute I'll try using an array instead of DBusList
- * for the cache.
+ * If you implement the message_cache with a list, the primary reason
+ * it's slower is that you add another thread lock (on the DBusList
+ * mempool).
  */
 
 /* Avoid caching huge messages */
@@ -1424,31 +1435,26 @@ dbus_message_finalize (DBusMessage *message)
 #define MAX_MESSAGE_CACHE_SIZE    5
 
 _DBUS_DEFINE_GLOBAL_LOCK (message_cache);
-static DBusList *message_cache = NULL;
+static DBusMessage *message_cache[MAX_MESSAGE_CACHE_SIZE];
 static int message_cache_count = 0;
 static dbus_bool_t message_cache_shutdown_registered = FALSE;
 
 static void
 dbus_message_cache_shutdown (void *data)
 {
-  DBusList *link;
+  int i;
 
   _DBUS_LOCK (message_cache);
-  
-  link = _dbus_list_get_first_link (&message_cache);
-  while (link != NULL)
+
+  i = 0;
+  while (i < MAX_MESSAGE_CACHE_SIZE)
     {
-      DBusMessage *message = link->data;
-      DBusList *next = _dbus_list_get_next_link (&message_cache, link);
-
-      dbus_message_finalize (message);
-
-      _dbus_list_free_link (link);
+      if (message_cache[i])
+        dbus_message_finalize (message_cache[i]);
       
-      link = next;
+      ++i;
     }
 
-  message_cache = NULL;
   message_cache_count = 0;
   message_cache_shutdown_registered = FALSE;
   
@@ -1466,6 +1472,7 @@ static DBusMessage*
 dbus_message_get_cached (void)
 {
   DBusMessage *message;
+  int i;
 
   message = NULL;
   
@@ -1479,8 +1486,20 @@ dbus_message_get_cached (void)
       return NULL;
     }
 
-  message = _dbus_list_pop_first (&message_cache);
-  message_cache_count -= 1;
+  i = 0;
+  while (i < MAX_MESSAGE_CACHE_SIZE)
+    {
+      if (message_cache[i])
+        {
+          message = message_cache[i];
+          message_cache[i] = NULL;
+          message_cache_count -= 1;
+          break;
+        }
+      ++i;
+    }
+  _dbus_assert (i < MAX_MESSAGE_CACHE_SIZE);
+  _dbus_assert (message != NULL);
 
   _DBUS_UNLOCK (message_cache);
 
@@ -1499,6 +1518,7 @@ static void
 dbus_message_cache_or_finalize (DBusMessage *message)
 {
   dbus_bool_t was_cached;
+  int i;
 
   _dbus_assert (message->refcount.value == 0);
   
@@ -1517,9 +1537,18 @@ dbus_message_cache_or_finalize (DBusMessage *message)
 
   if (!message_cache_shutdown_registered)
     {
+      _dbus_assert (message_cache_count == 0);
+      
       if (!_dbus_register_shutdown_func (dbus_message_cache_shutdown, NULL))
         goto out;
 
+      i = 0;
+      while (i < MAX_MESSAGE_CACHE_SIZE)
+        {
+          message_cache[i] = NULL;
+          ++i;
+        }
+      
       message_cache_shutdown_registered = TRUE;
     }
 
@@ -1532,10 +1561,16 @@ dbus_message_cache_or_finalize (DBusMessage *message)
   
   if (message_cache_count > MAX_MESSAGE_CACHE_SIZE)
     goto out;
-  
-  if (!_dbus_list_prepend (&message_cache, message))
-    goto out;
 
+  i = 0;
+  while (message_cache[i] != NULL)
+    {
+      ++i;
+      _dbus_assert (i < MAX_MESSAGE_CACHE_SIZE);
+    }
+
+  _dbus_assert (message_cache[i] == NULL);
+  message_cache[i] = message;
   message_cache_count += 1;
   was_cached = TRUE;
   

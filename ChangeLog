@@ -1,5 +1,10 @@
 2004-11-26  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-message.c: reimplement message cache as an array which 
+	makes the cache about twice as fast and saves maybe 1.5% overall
+
+2004-11-26  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-threads.c (init_global_locks): forgot to put the
 	message cache lock here
 
