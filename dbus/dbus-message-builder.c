@@ -661,7 +661,6 @@ _dbus_message_data_load (DBusString       *dest,
 	  while (i < _dbus_string_get_length (&line))
 	    {
 	      _dbus_string_skip_blank (&line, i, &i);	      
-	      printf ("i is: %d\n", i);
 	      
 	      if (_dbus_string_find_to (&line, i, i + 5,
 					"false", NULL))

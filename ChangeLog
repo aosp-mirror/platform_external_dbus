@@ -1,5 +1,20 @@
 2003-02-24  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/dbus-marshal.c: (_dbus_marshal_validate_arg):
+	* dbus/dbus-message-builder.c: (_dbus_message_data_load):
+	* dbus/dbus-message.c: (dbus_message_append_boolean),
+	(dbus_message_append_boolean_array),
+	(dbus_message_get_args_valist), (_dbus_message_test):
+	* dbus/dbus-message.h:
+	* doc/dbus-specification.sgml:
+	Various fixes as pointed out by Havoc.
+	
+	* test/data/invalid-messages/bad-boolean-array.message:
+	* test/data/invalid-messages/bad-boolean.message:
+	Add invalid boolean value test cases.
+	
+2003-02-24  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-internals.c: (_dbus_type_to_string):
 	* dbus/dbus-marshal.c: (_dbus_marshal_get_arg_end_pos),
 	(_dbus_marshal_validate_arg):

@@ -1109,9 +1109,20 @@ _dbus_marshal_validate_arg (const DBusString *str,
       break;
 
     case DBUS_TYPE_BOOLEAN:
+      {
+	unsigned char c;
+
+	c = _dbus_string_get_byte (str, pos + 1);
+
+	if (c != 0 && c != 1)
+	  {
+	    _dbus_verbose ("boolean value must be either 0 or 1, not %d\n", c);
+	    return FALSE;
+	  }
+	
       *end_pos = pos + 2;
       break;
-      
+      }
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
       {
@@ -1162,6 +1173,29 @@ _dbus_marshal_validate_arg (const DBusString *str,
       break;
 
     case DBUS_TYPE_BOOLEAN_ARRAY:
+      {
+	int len, i;
+
+	len = demarshal_and_validate_len (str, byte_order, pos + 1, &pos);
+        if (len < 0)
+          return FALSE;
+
+	i = 0;
+	while (i < len)
+	  {
+	    unsigned char c = _dbus_string_get_byte (str, pos + i);
+
+	    if (c != 0 && c != 1)
+	      {
+		_dbus_verbose ("boolean value must be either 0 or 1, not %d (pos %d)\n", c, pos);
+		return FALSE;
+	      }
+
+	    i++;
+	  }
+	*end_pos = pos + len;
+	break;
+      }
     case DBUS_TYPE_BYTE_ARRAY:
       {
 	int len;

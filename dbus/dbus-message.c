@@ -1180,7 +1180,7 @@ dbus_message_append_nil (DBusMessage *message)
  */
 dbus_bool_t
 dbus_message_append_boolean (DBusMessage  *message,
-			     unsigned char value)
+			     dbus_bool_t   value)
 {
   _dbus_assert (!message->locked);
   
@@ -1305,9 +1305,9 @@ dbus_message_append_string (DBusMessage *message,
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_message_append_boolean_array (DBusMessage   *message,
-				   unsigned char *value,
-				   int            len)
+dbus_message_append_boolean_array (DBusMessage         *message,
+				   unsigned const char *value,
+				   int                  len)
 {
   _dbus_assert (!message->locked);
 
@@ -1543,9 +1543,9 @@ dbus_message_get_args_valist (DBusMessage *message,
 	  break;
 	case DBUS_TYPE_BOOLEAN:
 	  {
-	    unsigned char *ptr;
+	    dbus_bool_t *ptr;
 
-	    ptr = va_arg (var_args, unsigned char *);
+	    ptr = va_arg (var_args, dbus_bool_t *);
 
 	    *ptr = dbus_message_iter_get_boolean (iter);
 	    break;
@@ -1854,7 +1854,7 @@ dbus_message_iter_get_string (DBusMessageIter *iter)
  * @param iter the message iter
  * @returns the string
  */
-unsigned char 
+dbus_bool_t
 dbus_message_iter_get_boolean (DBusMessageIter *iter)
 {
   unsigned char value;
@@ -3421,6 +3421,7 @@ _dbus_message_test (const char *test_data_dir)
   dbus_int32_t our_int;
   char *our_str;
   double our_double;
+  dbus_bool_t our_bool;
   
   /* Test the vararg functions */
   message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");
@@ -3429,6 +3430,7 @@ _dbus_message_test (const char *test_data_dir)
 			    DBUS_TYPE_INT32, -0x12345678,
 			    DBUS_TYPE_STRING, "Test string",
 			    DBUS_TYPE_DOUBLE, 3.14159,
+			    DBUS_TYPE_BOOLEAN, TRUE,
 			    0);
   _dbus_verbose_bytes_of_string (&message->header, 0,
                                  _dbus_string_get_length (&message->header));
@@ -3439,6 +3441,7 @@ _dbus_message_test (const char *test_data_dir)
 			     DBUS_TYPE_INT32, &our_int,
 			     DBUS_TYPE_STRING, &our_str,
 			     DBUS_TYPE_DOUBLE, &our_double,
+			     DBUS_TYPE_BOOLEAN, &our_bool,
 			     0) != DBUS_RESULT_SUCCESS)
     _dbus_assert_not_reached ("Could not get arguments");
 
@@ -3451,6 +3454,9 @@ _dbus_message_test (const char *test_data_dir)
   if (strcmp (our_str, "Test string") != 0)
     _dbus_assert_not_reached ("strings differ!");
 
+  if (!our_bool)
+    _dbus_assert_not_reached ("booleans differ");
+  
   dbus_free (our_str);
   dbus_message_unref (message);
   

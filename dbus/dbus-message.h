@@ -67,7 +67,7 @@ dbus_bool_t dbus_message_append_args_valist   (DBusMessage          *message,
 					       va_list               var_args);
 dbus_bool_t dbus_message_append_nil           (DBusMessage          *message);
 dbus_bool_t dbus_message_append_boolean       (DBusMessage          *message,
-					       unsigned char         value);
+					       dbus_bool_t           value);
 dbus_bool_t dbus_message_append_int32         (DBusMessage          *message,
 					       dbus_int32_t          value);
 dbus_bool_t dbus_message_append_uint32        (DBusMessage          *message,
@@ -77,7 +77,7 @@ dbus_bool_t dbus_message_append_double        (DBusMessage          *message,
 dbus_bool_t dbus_message_append_string        (DBusMessage          *message,
 					       const char           *value);
 dbus_bool_t dbus_message_append_boolean_array (DBusMessage          *message,
-					       unsigned char        *value,
+					       unsigned const char  *value,
 					       int                   len);
 dbus_bool_t dbus_message_append_int32_array   (DBusMessage          *message,
 					       const dbus_int32_t   *value,
@@ -111,7 +111,7 @@ void          dbus_message_iter_unref             (DBusMessageIter   *iter);
 dbus_bool_t   dbus_message_iter_has_next          (DBusMessageIter   *iter);
 dbus_bool_t   dbus_message_iter_next              (DBusMessageIter   *iter);
 int           dbus_message_iter_get_arg_type      (DBusMessageIter   *iter);
-unsigned char dbus_message_iter_get_boolean       (DBusMessageIter   *iter);
+dbus_bool_t   dbus_message_iter_get_boolean       (DBusMessageIter   *iter);
 int           dbus_message_iter_get_int32         (DBusMessageIter   *iter);
 int           dbus_message_iter_get_uint32        (DBusMessageIter   *iter);
 double        dbus_message_iter_get_double        (DBusMessageIter   *iter);

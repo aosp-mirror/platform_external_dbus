@@ -300,7 +300,7 @@
               </row><row>
 		<entry>BOOLEAN</entry>
 		<entry>2</entry>
-		<entry>Boolean value, 0 is FALSE and everything else is TRUE.</entry>
+		<entry>Boolean value, 0 is FALSE and 1 is TRUE. Everything else is invalid.</entry>
 	      </row><row>
                 <entry>INT32</entry>
                 <entry>3</entry>

@@ -1,0 +1,14 @@
+## a message with an invalid boolean array
+
+## VALID_HEADER includes a LENGTH Header and LENGTH Body
+VALID_HEADER
+ALIGN 8
+END_LENGTH Header
+START_LENGTH Body
+TYPE BOOLEAN_ARRAY
+ALIGN 4
+INT32 3
+BYTE 0
+BYTE 1
+BYTE 3
+END_LENGTH Body
