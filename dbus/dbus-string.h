@@ -181,6 +181,14 @@ dbus_bool_t _dbus_string_validate_ascii (const DBusString *str,
                                          int               start,
                                          int               len);
 
+dbus_bool_t _dbus_string_validate_utf8  (const DBusString *str,
+                                         int               start,
+                                         int               len);
+
+dbus_bool_t _dbus_string_validate_nul   (const DBusString *str,
+                                         int               start,
+                                         int               len);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_STRING_H */

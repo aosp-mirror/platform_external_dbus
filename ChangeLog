@@ -1,3 +1,27 @@
+2003-01-30  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-message.c: use message->byte_order instead of 
+	DBUS_COMPILER_BYTE_ORDER throughout.
+	(dbus_message_create_header): pad header to align the 
+	start of the body of the message to 8-byte boundary
+
+	* dbus/dbus-marshal.h: make all the demarshalers take const 
+	DBusString arguments.
+
+	* dbus/dbus-message.c (_dbus_message_loader_return_buffer):
+	validate message args here, so we don't have to do slow validation
+	later, and so we catch bad messages as they are incoming. Also add
+	better checks on header_len and body_len. Also fill in
+	message->byte_order
+
+	* dbus/dbus-string.c (_dbus_string_validate_utf8): new (not
+	implemented properly)
+	(_dbus_string_validate_nul): new function to check all-nul
+
+	* dbus/dbus-marshal.c (_dbus_marshal_get_field_end_pos): rename 
+	get_arg_end_pos and remove all validation
+	(_dbus_marshal_validate_arg): actually do validation here.
+
 2003-01-29  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-message.c (check_message_handling): fix assertion

@@ -608,7 +608,7 @@ _dbus_string_align_length (DBusString *str,
   int delta;
   DBUS_STRING_PREAMBLE (str);
   _dbus_assert (alignment >= 1);
-  _dbus_assert (alignment <= 16); /* arbitrary */
+  _dbus_assert (alignment <= 8); /* it has to be a bug if > 8 */
 
   new_len = _DBUS_ALIGN_VALUE (real->len, alignment);
 
@@ -1837,6 +1837,65 @@ _dbus_string_validate_ascii (const DBusString *str,
           ((*s & ~0x7f) != 0))
         return FALSE;
         
+      ++s;
+    }
+  
+  return TRUE;
+}
+
+/**
+ * Checks that the given range of the string
+ * is valid UTF-8. If the given range is not contained
+ * in the string, returns #FALSE. If the string
+ * contains any nul bytes in the given range, returns
+ * #FALSE.
+ *
+ * @todo right now just calls _dbus_string_validate_ascii()
+ * 
+ * @param str the string
+ * @param start first byte index to check
+ * @param len number of bytes to check
+ * @returns #TRUE if the byte range exists and is all valid UTF-8
+ */
+dbus_bool_t
+_dbus_string_validate_utf8  (const DBusString *str,
+                             int               start,
+                             int               len)
+{
+  /* FIXME actually validate UTF-8 */
+  return _dbus_string_validate_ascii (str, start, len);
+}
+
+/**
+ * Checks that the given range of the string
+ * is all nul bytes. If the given range is
+ * not contained in the string, returns #FALSE.
+ * 
+ * @param str the string
+ * @param start first byte index to check
+ * @param len number of bytes to check
+ * @returns #TRUE if the byte range exists and is all nul bytes
+ */
+dbus_bool_t
+_dbus_string_validate_nul (const DBusString *str,
+                           int               start,
+                           int               len)
+{
+  const unsigned char *s;
+  const unsigned char *end;
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start >= 0);
+  _dbus_assert (len >= 0);
+  
+  if ((start + len) > real->len)
+    return FALSE;
+  
+  s = real->str + start;
+  end = s + len;
+  while (s != end)
+    {
+      if (*s != '\0')
+        return FALSE;
       ++s;
     }
   

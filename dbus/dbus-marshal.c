@@ -73,7 +73,7 @@ _dbus_unpack_uint32 (int                  byte_order,
     return DBUS_UINT32_FROM_LE (*(dbus_uint32_t*)data);
   else
     return DBUS_UINT32_FROM_BE (*(dbus_uint32_t*)data);
-}             
+}  
 
 /**
  * Unpacks a 32 bit signed integer from a data pointer
@@ -504,7 +504,7 @@ _dbus_marshal_string_array (DBusString  *str,
  * @returns the demarshaled double.
  */
 double
-_dbus_demarshal_double (DBusString  *str,
+_dbus_demarshal_double (const DBusString  *str,
 			int          byte_order,
 			int          pos,
 			int         *new_pos)
@@ -537,7 +537,7 @@ _dbus_demarshal_double (DBusString  *str,
  * @returns the demarshaled integer.
  */
 dbus_int32_t
-_dbus_demarshal_int32  (DBusString *str,
+_dbus_demarshal_int32  (const DBusString *str,
 			int         byte_order,
 			int         pos,
 			int        *new_pos)
@@ -564,7 +564,7 @@ _dbus_demarshal_int32  (DBusString *str,
  * @returns the demarshaled integer.
  */
 dbus_uint32_t
-_dbus_demarshal_uint32  (DBusString *str,
+_dbus_demarshal_uint32  (const DBusString *str,
 			 int         byte_order,
 			 int         pos,
 			 int        *new_pos)
@@ -598,7 +598,7 @@ _dbus_demarshal_uint32  (DBusString *str,
  * @returns the demarshaled string.
  */
 char *
-_dbus_demarshal_string (DBusString *str,
+_dbus_demarshal_string (const DBusString *str,
 			int         byte_order,
 			int         pos,
 			int        *new_pos)
@@ -606,7 +606,7 @@ _dbus_demarshal_string (DBusString *str,
   int len;
   char *retval;
   const char *data;
-
+  
   len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
 
   retval = dbus_malloc (len + 1);
@@ -641,7 +641,7 @@ _dbus_demarshal_string (DBusString *str,
  * @returns the demarshaled data.
  */
 unsigned char *
-_dbus_demarshal_byte_array (DBusString *str,
+_dbus_demarshal_byte_array (const DBusString *str,
 			    int         byte_order,
 			    int         pos,
 			    int        *new_pos,
@@ -685,7 +685,7 @@ _dbus_demarshal_byte_array (DBusString *str,
  * @returns the demarshaled data.
  */
 dbus_int32_t *
-_dbus_demarshal_int32_array (DBusString *str,
+_dbus_demarshal_int32_array (const DBusString *str,
 			     int         byte_order,
 			     int         pos,
 			     int        *new_pos,
@@ -724,7 +724,7 @@ _dbus_demarshal_int32_array (DBusString *str,
  * @returns the demarshaled data.
  */
 dbus_uint32_t *
-_dbus_demarshal_uint32_array (DBusString *str,
+_dbus_demarshal_uint32_array (const DBusString *str,
 			      int         byte_order,
 			      int         pos,
 			      int        *new_pos,
@@ -763,7 +763,7 @@ _dbus_demarshal_uint32_array (DBusString *str,
  * @returns the demarshaled data.
  */
 double *
-_dbus_demarshal_double_array (DBusString *str,
+_dbus_demarshal_double_array (const DBusString *str,
 			      int         byte_order,
 			      int         pos,
 			      int        *new_pos,
@@ -802,7 +802,7 @@ _dbus_demarshal_double_array (DBusString *str,
  * @returns the demarshaled data.
  */
 char **
-_dbus_demarshal_string_array (DBusString *str,
+_dbus_demarshal_string_array (const DBusString *str,
 			      int         byte_order,
 			      int         pos,
 			      int        *new_pos,
@@ -843,32 +843,24 @@ _dbus_demarshal_string_array (DBusString *str,
 }
 
 /** 
- * Returns the position right after the end position 
- * end position of a field. Validates the field
- * contents as required (e.g. ensures that
- * string fields have a valid length and
- * are nul-terminated).
+ * Returns the position right after the end of an argument.  PERFORMS
+ * NO VALIDATION WHATSOEVER. The message must have been previously
+ * validated.
  *
- * @todo security: audit the field validation code.
- * 
- * @todo warns on invalid type in a message, but
- * probably the whole message needs to be dumped,
- * or we might even drop the connection due
- * to bad protocol. Needs better error handling.
- * Possible security issue.
+ * @todo handle DBUS_TYPE_NIL
  *
  * @param str a string
  * @param byte_order the byte order to use
- * @param pos the pos where the field starts
+ * @param pos the pos where the arg starts
  * @param end_pos pointer where the position right
  * after the end position will follow
- * @returns TRUE if more data exists after the field
+ * @returns TRUE if more data exists after the arg
  */
 dbus_bool_t
-_dbus_marshal_get_field_end_pos (DBusString *str,
-				 int	     byte_order,
-				 int         pos,
-				 int        *end_pos)
+_dbus_marshal_get_arg_end_pos (const DBusString *str,
+                               int               byte_order,
+                               int               pos,
+                               int              *end_pos)
 {
   const char *data;
 
@@ -906,21 +898,8 @@ _dbus_marshal_get_field_end_pos (DBusString *str,
 	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &pos);
 
 	*end_pos = pos + len + 1;
-
-        if (*end_pos > _dbus_string_get_length (str))
-          {
-            _dbus_verbose ("string length outside length of the message\n");
-            return FALSE;
-          }
-
-        if (_dbus_string_get_byte (str, pos+len) != '\0')
-          {
-            _dbus_verbose ("string field not nul-terminated\n");
-            return FALSE;
-          }
-        
-	break;
       }
+      break;
 
     case DBUS_TYPE_BYTE_ARRAY:
       {
@@ -930,9 +909,8 @@ _dbus_marshal_get_field_end_pos (DBusString *str,
 	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &pos);
 	
 	*end_pos = pos + len;
-
-	break;
       }
+      break;
 
     case DBUS_TYPE_INT32_ARRAY:
       {
@@ -943,9 +921,8 @@ _dbus_marshal_get_field_end_pos (DBusString *str,
 	
 	*end_pos = _DBUS_ALIGN_VALUE (new_pos, sizeof (dbus_int32_t))
 	  + (len * sizeof (dbus_int32_t));
-
-	break;
       }
+      break;
 
     case DBUS_TYPE_UINT32_ARRAY:
       {
@@ -956,9 +933,8 @@ _dbus_marshal_get_field_end_pos (DBusString *str,
 
 	*end_pos = _DBUS_ALIGN_VALUE (new_pos, sizeof (dbus_uint32_t))
 	  + (len * sizeof (dbus_uint32_t));
-	
-	break;
       }
+      break;
 
     case DBUS_TYPE_DOUBLE_ARRAY:
       {
@@ -969,9 +945,8 @@ _dbus_marshal_get_field_end_pos (DBusString *str,
 
 	*end_pos = _DBUS_ALIGN_VALUE (new_pos, sizeof (double))
 	  + (len * sizeof (double));
-	
-	break;
       }
+      break;
       
     case DBUS_TYPE_STRING_ARRAY:
       {
@@ -990,10 +965,12 @@ _dbus_marshal_get_field_end_pos (DBusString *str,
 	  }
 
 	*end_pos = pos;
-	break;
-      }      
+      }
+      break;
+      
     default:
-      _dbus_warn ("Unknown message field type %d\n", *data);
+      _dbus_warn ("Unknown message arg type %d\n", *data);
+      _dbus_assert_not_reached ("Unknown message argument type\n");
       return FALSE;
     }
 
@@ -1002,6 +979,257 @@ _dbus_marshal_get_field_end_pos (DBusString *str,
   
   return TRUE;
 }
+
+/**
+ * Demarshals and validates a length; returns < 0 if the validation
+ * fails. The length is required to be small enough that
+ * len*sizeof(double) will not overflow, and small enough to fit in a
+ * signed integer.
+ *
+ * @param str the string
+ * @param byte_order the byte order
+ * @param pos the unaligned string position (snap to next aligned)
+ */
+static int
+demarshal_and_validate_len (const DBusString *str,
+                            int               byte_order,
+                            int               pos,
+                            int              *new_pos)
+{
+  int align_4 = _DBUS_ALIGN_VALUE (pos, 4);
+  unsigned int len;
+  
+  if ((align_4 + 4) >= _dbus_string_get_length (str))
+    {
+      _dbus_verbose ("not enough room in message for array length\n");
+      return -1;
+    }
+  
+  if (!_dbus_string_validate_nul (str, pos,
+                                  align_4 - pos))
+    {
+      _dbus_verbose ("array length alignment padding not initialized to nul\n");
+      return -1;
+    }
+
+  len = _dbus_demarshal_uint32 (str, byte_order, align_4, new_pos);
+
+  /* note that the len may be a number of doubles, so we need it to be
+   * at least SIZE_T_MAX / 8, but make it smaller just to keep things
+   * sane.  We end up using ints for most sizes to avoid unsigned mess
+   * so limit to maximum 32-bit signed int divided by at least 8, more
+   * for a bit of paranoia margin. INT_MAX/32 is about 65 megabytes.
+   */  
+#define MAX_ARRAY_LENGTH (((unsigned int)_DBUS_INT_MAX) / 32)
+  if (len > MAX_ARRAY_LENGTH)
+    {
+      _dbus_verbose ("array length %u exceeds maximum of %u\n",
+                     len, MAX_ARRAY_LENGTH);
+      return -1;
+    }
+  else
+    return (int) len;
+}
+
+static dbus_bool_t
+validate_string (const DBusString *str,
+                 int               pos,
+                 int               len_without_nul,
+                 int              *end_pos)
+{
+  *end_pos = pos + len_without_nul + 1;
+  
+  if (*end_pos > _dbus_string_get_length (str))
+    {
+      _dbus_verbose ("string length outside length of the message\n");
+      return FALSE;
+    }
+  
+  if (_dbus_string_get_byte (str, pos + len_without_nul) != '\0')
+    {
+      _dbus_verbose ("string arg not nul-terminated\n");
+      return FALSE;
+    }
+  
+  if (!_dbus_string_validate_utf8 (str, pos, len_without_nul))
+    {
+      _dbus_verbose ("string is not valid UTF-8\n");
+      return FALSE;
+    }
+
+  return TRUE;
+}   
+
+/** 
+ * Validates an argument, checking that it is well-formed, for example
+ * no ludicrous length fields, strings are nul-terminated, etc.
+ * Returns the end position of the argument in end_pos, and
+ * returns #TRUE if a valid arg begins at "pos"
+ *
+ * @todo security: need to audit this function.
+ *
+ * @todo handle DBUS_TYPE_NIL
+ * 
+ * @param str a string
+ * @param byte_order the byte order to use
+ * @param pos the pos where the arg starts (offset of its typecode)
+ * @param end_pos pointer where the position right
+ * after the end position will follow
+ * @returns #TRUE if the arg is valid.
+ */
+dbus_bool_t
+_dbus_marshal_validate_arg (const DBusString *str,
+                            int	              byte_order,
+                            int               pos,
+                            int              *end_pos)
+{
+  const char *data;
+
+  if (pos >= _dbus_string_get_length (str))
+    return FALSE;
+
+  _dbus_string_get_const_data_len (str, &data, pos, 1);
+  
+  switch (*data)
+    {
+    case DBUS_TYPE_INVALID:
+      return FALSE;
+      break;
+      
+    case DBUS_TYPE_INT32:
+    case DBUS_TYPE_UINT32:
+      {
+        int align_4 = _DBUS_ALIGN_VALUE (pos + 1, 4);
+        
+        if (!_dbus_string_validate_nul (str, pos + 1,
+                                        align_4 - pos - 1))
+          {
+            _dbus_verbose ("int32/uint32 alignment padding not initialized to nul\n");
+            return FALSE;
+          }
+
+        *end_pos = align_4 + 4;
+      }
+      break;
+
+    case DBUS_TYPE_DOUBLE:
+      {
+        int align_8 = _DBUS_ALIGN_VALUE (pos + 1, 8);
+
+        _dbus_verbose_bytes_of_string (str, pos, (align_8 + 8 - pos));
+        
+        if (!_dbus_string_validate_nul (str, pos + 1,
+                                        align_8 - pos - 1))
+          {
+            _dbus_verbose ("double alignment padding not initialized to nul\n");
+            return FALSE;
+          }
+
+        *end_pos = align_8 + 8;
+      }
+      break;
+
+    case DBUS_TYPE_STRING:
+      {
+	int len;
+
+	/* Demarshal the length, which does NOT include
+         * nul termination
+         */
+	len = demarshal_and_validate_len (str, byte_order, pos + 1, &pos);
+        if (len < 0)
+          return FALSE;
+
+        if (!validate_string (str, pos, len, end_pos))
+          return FALSE;
+      }
+      break;
+
+    case DBUS_TYPE_BYTE_ARRAY:
+      {
+	int len;
+
+	len = demarshal_and_validate_len (str, byte_order, pos + 1, &pos);
+        if (len < 0)
+          return FALSE;
+	
+	*end_pos = pos + len;
+      }
+      break;
+
+    case DBUS_TYPE_INT32_ARRAY:
+    case DBUS_TYPE_UINT32_ARRAY:
+      {
+	int len;
+
+        len = demarshal_and_validate_len (str, byte_order, pos + 1, &pos);
+        if (len < 0)
+          return FALSE;
+
+        _dbus_assert (_DBUS_ALIGN_VALUE (pos, 4) == (unsigned int) pos);
+        
+	*end_pos = pos + len * 4;
+      }
+      break;
+
+    case DBUS_TYPE_DOUBLE_ARRAY:
+      {
+	int len;
+        int align_8;
+
+        len = demarshal_and_validate_len (str, byte_order, pos + 1, &pos);
+        if (len < 0)
+          return FALSE;
+
+        align_8 = _DBUS_ALIGN_VALUE (pos, 8);
+        if (!_dbus_string_validate_nul (str, pos,
+                                        align_8 - pos))
+          {
+            _dbus_verbose ("double array alignment padding not initialized to nul\n");
+            return FALSE;
+          }
+        
+	*end_pos = align_8 + len * 8;
+      }
+      break;
+      
+    case DBUS_TYPE_STRING_ARRAY:
+      {
+        int len;
+        int i;
+        
+        len = demarshal_and_validate_len (str, byte_order, pos + 1, &pos);
+        if (len < 0)
+          return FALSE;
+
+	for (i = 0; i < len; i++)
+	  {
+	    int str_len;
+	    
+	    str_len = demarshal_and_validate_len (str, byte_order,
+                                                  pos, &pos);
+            if (str_len < 0)
+              return FALSE;
+
+            if (!validate_string (str, pos, str_len, &pos))
+              return FALSE;            
+	  }
+
+	*end_pos = pos;
+      }
+      break;
+      
+    default:
+      _dbus_warn ("Unknown message arg type %d\n", *data);
+      return FALSE;
+    }
+
+  if (*end_pos > _dbus_string_get_length (str))
+    return FALSE;
+  
+  return TRUE;
+}
+
 
 /**
  * If in verbose mode, print a block of binary data.
@@ -1018,6 +1246,8 @@ _dbus_verbose_bytes (const unsigned char *data,
   int i;
   const unsigned char *aligned;
 
+  _dbus_assert (len >= 0);
+  
   /* Print blanks on first row if appropriate */
   aligned = _DBUS_ALIGN_ADDRESS (data, 4);
   if (aligned > data)
@@ -1026,7 +1256,7 @@ _dbus_verbose_bytes (const unsigned char *data,
 
   if (aligned != data)
     {
-      _dbus_verbose ("%5d\t%p: ", - (data - aligned), aligned); 
+      _dbus_verbose ("%4d\t%p: ", - (data - aligned), aligned); 
       while (aligned != data)
         {
           _dbus_verbose ("    ");
@@ -1040,7 +1270,7 @@ _dbus_verbose_bytes (const unsigned char *data,
     {
       if (_DBUS_ALIGN_ADDRESS (&data[i], 4) == &data[i])
         {
-          _dbus_verbose ("%5d\t%p: ",
+          _dbus_verbose ("%4d\t%p: ",
                    i, &data[i]);
         }
       
@@ -1056,9 +1286,16 @@ _dbus_verbose_bytes (const unsigned char *data,
       if (_DBUS_ALIGN_ADDRESS (&data[i], 4) == &data[i])
         {
           if (i > 3)
-            _dbus_verbose ("big: %d little: %d",
+            _dbus_verbose ("BE: %d LE: %d",
                            _dbus_unpack_uint32 (DBUS_BIG_ENDIAN, &data[i-4]),
                            _dbus_unpack_uint32 (DBUS_LITTLE_ENDIAN, &data[i-4]));
+
+          if (i > 7 && 
+              _DBUS_ALIGN_ADDRESS (&data[i], 8) == &data[i])
+            {
+              _dbus_verbose (" dbl: %g",
+                             *(double*)&data[i-8]);
+            }
           
           _dbus_verbose ("\n");
         }
@@ -1080,7 +1317,27 @@ _dbus_verbose_bytes_of_string (const DBusString    *str,
                                int                  len)
 {
   const char *d;
+  int real_len;
 
+  real_len = _dbus_string_get_length (str);
+
+  _dbus_assert (start >= 0);
+  
+  if (start > real_len)
+    {
+      _dbus_verbose ("  [%d,%d) is not inside string of length %d\n",
+                     start, len, real_len);
+      return;
+    }
+
+  if ((start + len) > real_len)
+    {
+      _dbus_verbose ("  [%d,%d) extends outside string of length %d\n",
+                     start, len, real_len);
+      len = real_len - start;
+    }
+  
+  
   _dbus_string_get_const_data_len (str, &d, start, len);
 
   _dbus_verbose_bytes (d, len);

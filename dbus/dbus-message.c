@@ -91,6 +91,7 @@ struct DBusMessage
   HeaderField header_fields[FIELD_LAST]; /**< Track the location
                                            * of each field in "header"
                                            */
+  int header_padding; /**< bytes of alignment in header */
   
   DBusString body;   /**< Body network data. */
 
@@ -135,6 +136,27 @@ _dbus_message_get_network_data (DBusMessage          *message,
   
   *header = &message->header;
   *body = &message->body;
+}
+
+static void
+clear_header_padding (DBusMessage *message)
+{
+  _dbus_string_shorten (&message->header,
+                        message->header_padding);
+  message->header_padding = 0;
+}                      
+
+static dbus_bool_t
+append_header_padding (DBusMessage *message)
+{
+  int old_len;
+  old_len = _dbus_string_get_length (&message->header);
+  if (!_dbus_string_align_length (&message->header, 8))
+    return FALSE;
+
+  message->header_padding = _dbus_string_get_length (&message->header) - old_len;
+
+  return TRUE;
 }
 
 static void
@@ -209,6 +231,8 @@ append_int_field (DBusMessage *message,
   int orig_len;
 
   _dbus_assert (!message->locked);
+
+  clear_header_padding (message);
   
   orig_len = _dbus_string_get_length (&message->header);
   
@@ -227,15 +251,24 @@ append_int_field (DBusMessage *message,
   message->header_fields[FIELD_REPLY_SERIAL].offset =
     _dbus_string_get_length (&message->header);
   
-  if (!_dbus_marshal_int32 (&message->header, DBUS_COMPILER_BYTE_ORDER,
+  if (!_dbus_marshal_int32 (&message->header, message->byte_order,
                             value))
     goto failed;
 
+  if (!append_header_padding (message))
+    goto failed;
+  
   return TRUE;
   
  failed:
   message->header_fields[field].offset = -1;
   _dbus_string_set_length (&message->header, orig_len);
+
+  /* this must succeed because it was allocated on function entry and
+   * DBusString doesn't ever realloc smaller
+   */
+  if (!append_header_padding (message))
+    _dbus_assert_not_reached ("failed to reappend header padding");
   return FALSE;
 }
 
@@ -248,6 +281,8 @@ append_string_field (DBusMessage *message,
   int orig_len;
 
   _dbus_assert (!message->locked);
+
+  clear_header_padding (message);
   
   orig_len = _dbus_string_get_length (&message->header);
 
@@ -266,15 +301,25 @@ append_string_field (DBusMessage *message,
   message->header_fields[field].offset =
     _dbus_string_get_length (&message->header);
   
-  if (!_dbus_marshal_string (&message->header, DBUS_COMPILER_BYTE_ORDER,
+  if (!_dbus_marshal_string (&message->header, message->byte_order,
                              value))
     goto failed;
 
+  if (!append_header_padding (message))
+    goto failed;
+  
   return TRUE;
   
  failed:
   message->header_fields[field].offset = -1;
   _dbus_string_set_length (&message->header, orig_len);
+
+  /* this must succeed because it was allocated on function entry and
+   * DBusString doesn't ever realloc smaller
+   */
+  if (!append_header_padding (message))
+    _dbus_assert_not_reached ("failed to reappend header padding");
+  
   return FALSE;
 }
 
@@ -290,6 +335,8 @@ delete_int_field (DBusMessage *message,
   if (offset < 0)
     return;  
 
+  clear_header_padding (message);
+  
   /* The field typecode and name take up 8 bytes */
   _dbus_string_delete (&message->header,
                        offset - 8,
@@ -300,6 +347,8 @@ delete_int_field (DBusMessage *message,
   adjust_field_offsets (message,
                         offset - 8,
                         - 12);
+
+  append_header_padding (message);
 }
 
 static void
@@ -316,6 +365,8 @@ delete_string_field (DBusMessage *message,
   if (offset < 0)
     return;
 
+  clear_header_padding (message);
+  
   get_string_field (message, field, &len);
   
   /* The field typecode and name take up 8 bytes, and the nul
@@ -332,6 +383,8 @@ delete_string_field (DBusMessage *message,
   adjust_field_offsets (message,
                         offset - 8,
                         - delete_len);
+
+  append_header_padding (message);
 }
 
 static dbus_bool_t
@@ -528,8 +581,8 @@ static dbus_bool_t
 dbus_message_create_header (DBusMessage *message,
                             const char  *service,
                             const char  *name)
-{
-  if (!_dbus_string_append_byte (&message->header, DBUS_COMPILER_BYTE_ORDER))
+{  
+  if (!_dbus_string_append_byte (&message->header, message->byte_order))
     return FALSE;
   
   if (!_dbus_string_append_len (&message->header, "\0\0\0", 3))
@@ -563,7 +616,7 @@ dbus_message_create_header (DBusMessage *message,
                             DBUS_HEADER_FIELD_NAME,
                             name))
     return FALSE;
-
+  
   return TRUE;
 }
 
@@ -969,7 +1022,7 @@ dbus_message_append_int32 (DBusMessage  *message,
     }
   
   return _dbus_marshal_int32 (&message->body,
-			      DBUS_COMPILER_BYTE_ORDER, value);
+			      message->byte_order, value);
 }
 
 /**
@@ -992,7 +1045,7 @@ dbus_message_append_uint32 (DBusMessage   *message,
     }
   
   return _dbus_marshal_uint32 (&message->body,
-			       DBUS_COMPILER_BYTE_ORDER, value);
+			       message->byte_order, value);
 }
 
 /**
@@ -1015,7 +1068,7 @@ dbus_message_append_double (DBusMessage *message,
     }
   
   return _dbus_marshal_double (&message->body,
-			       DBUS_COMPILER_BYTE_ORDER, value);
+			       message->byte_order, value);
 }
 
 /**
@@ -1038,7 +1091,7 @@ dbus_message_append_string (DBusMessage *message,
     }
   
   return _dbus_marshal_string (&message->body,
-			       DBUS_COMPILER_BYTE_ORDER, value);
+			       message->byte_order, value);
 }
 
 /**
@@ -1063,7 +1116,7 @@ dbus_message_append_byte_array (DBusMessage         *message,
     }
   
   return _dbus_marshal_byte_array (&message->body,
-				   DBUS_COMPILER_BYTE_ORDER, value, len);
+				   message->byte_order, value, len);
 }
 
 /**
@@ -1088,7 +1141,7 @@ dbus_message_append_string_array (DBusMessage *message,
     }
   
   return _dbus_marshal_string_array (&message->body,
-				     DBUS_COMPILER_BYTE_ORDER, value, len);
+				     message->byte_order, value, len);
 }
 
 /**
@@ -1342,9 +1395,9 @@ dbus_message_iter_has_next (DBusMessageIter *iter)
 {
   int end_pos;
   
-  if (!_dbus_marshal_get_field_end_pos (&iter->message->body,
-                                        iter->message->byte_order,
-					iter->pos, &end_pos))
+  if (!_dbus_marshal_get_arg_end_pos (&iter->message->body,
+                                      iter->message->byte_order,
+                                      iter->pos, &end_pos))
     return FALSE;
   
   if (end_pos >= _dbus_string_get_length (&iter->message->body))
@@ -1364,8 +1417,9 @@ dbus_message_iter_next (DBusMessageIter *iter)
 {
   int end_pos;
   
-  if (!_dbus_marshal_get_field_end_pos (&iter->message->body, iter->message->byte_order,
-					iter->pos, &end_pos))
+  if (!_dbus_marshal_get_arg_end_pos (&iter->message->body,
+                                      iter->message->byte_order,
+                                      iter->pos, &end_pos))
     return FALSE;
 
   if (end_pos >= _dbus_string_get_length (&iter->message->body))
@@ -1570,6 +1624,12 @@ dbus_message_get_sender (DBusMessage *message)
  * 
  */
 
+/* we definitely use signed ints for sizes, so don't exceed
+ * _DBUS_INT_MAX; and add 16 for paranoia, since a message
+ * over 128M is pretty nuts anyhow.
+ */
+#define MAX_SANE_MESSAGE_SIZE (_DBUS_INT_MAX/16)
+
 /**
  * Implementation details of DBusMessageLoader.
  * All members are private.
@@ -1724,18 +1784,11 @@ _dbus_message_loader_get_buffer (DBusMessageLoader  *loader,
 #define DBUS_HEADER_FIELD_SENDER_AS_UINT32  \
   FOUR_CHARS_TO_UINT32 ('s', 'n', 'd', 'r')
 
-
-/* FIXME should be using DBusString for the stuff we demarshal.  char*
- * evil. Also, out of memory handling here seems suboptimal.
- * Should probably report it as a distinct error from "corrupt message,"
- * so we can postpone parsing this message. Also, we aren't
- * checking for demarshal failure everywhere.
- */
 static dbus_bool_t
-decode_header_data (DBusString   *data,
-		    int		  header_len,
-		    int           byte_order,
-                    HeaderField   fields[FIELD_LAST])
+decode_header_data (const DBusString   *data,
+		    int		        header_len,
+		    int                 byte_order,
+                    HeaderField         fields[FIELD_LAST])
 {
   const char *field;
   int pos, new_pos;
@@ -1743,7 +1796,7 @@ decode_header_data (DBusString   *data,
   
   if (header_len < 16)
     return FALSE;
-
+  
   i = 0;
   while (i < FIELD_LAST)
     {
@@ -1755,9 +1808,14 @@ decode_header_data (DBusString   *data,
   fields[FIELD_BODY_LENGTH].offset = 8;   
   fields[FIELD_CLIENT_SERIAL].offset = 12;
   
-  /* Now handle the fields */
+  /* Now handle the named fields. A real named field is at least 4
+   * bytes for the name, plus a type code (1 byte) plus padding.  So
+   * if we have less than 8 bytes left, it must be alignment padding,
+   * not a field. While >= 8 bytes can't be entirely alignment
+   * padding.
+   */  
   pos = 16;
-  while (pos < header_len)
+  while ((pos + 7) < header_len)
     {
       pos = _DBUS_ALIGN_VALUE (pos, 4);
       
@@ -1833,14 +1891,26 @@ decode_header_data (DBusString   *data,
 			 field[0], field[1], field[2], field[3]);
 	}
 
-      /* This function has to validate the fields */
-      if (!_dbus_marshal_get_field_end_pos (data, byte_order, pos, &new_pos))
+      if (!_dbus_marshal_validate_arg (data, byte_order, pos, &new_pos))
         return FALSE;
 
       if (new_pos > header_len)
 	return FALSE;
       
       pos = new_pos;
+    }
+
+  if (pos < header_len)
+    {
+      /* Alignment padding, verify that it's nul */
+      _dbus_assert ((header_len - pos) < 8);
+
+      if (!_dbus_string_validate_nul (data,
+                                      pos, (header_len - pos)))
+        {
+          _dbus_verbose ("header alignment padding is not nul\n");
+          return FALSE;
+        }
     }
   
   return TRUE;
@@ -1893,6 +1963,22 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
       header_len = _dbus_unpack_int32 (byte_order, header_data + 4);
       body_len = _dbus_unpack_int32 (byte_order, header_data + 8);
 
+      if (header_len < 16 || body_len < 0)
+        {
+          _dbus_verbose ("Message had broken too-small header or body len %d %d\n",
+                         header_len, body_len);
+          loader->corrupted = TRUE;
+          return;
+        }
+
+      if (_DBUS_ALIGN_VALUE (header_len, 8) != (unsigned int) header_len)
+        {
+          _dbus_verbose ("header length %d is not aligned to 8 bytes\n",
+                         header_len);
+          loader->corrupted = TRUE;
+          return;
+        }
+      
       if (header_len + body_len > loader->max_message_size)
 	{
           _dbus_verbose ("Message claimed length header = %d body = %d exceeds max message length %d\n",
@@ -1905,22 +1991,47 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 	{
           HeaderField fields[FIELD_LAST];
           int i;
-          
-          /* FIXME right now if this doesn't have enough memory, the
-           * loader becomes corrupted. Instead we should just not
-           * parse this message for now.
-           */
+          int next_arg;          
+
  	  if (!decode_header_data (&loader->data, header_len, byte_order,
                                    fields))
 	    {
 	      loader->corrupted = TRUE;
 	      return;
 	    }
+          
+          next_arg = header_len;
+          while (next_arg < (header_len + body_len))
+            {
+              int prev = next_arg;
+
+              if (!_dbus_marshal_validate_arg (&loader->data,
+                                               byte_order,
+                                               next_arg,
+                                               &next_arg))
+                {
+                  loader->corrupted = TRUE;
+                  return;
+                }
+
+              _dbus_assert (next_arg > prev);
+            }
+          
+          if (next_arg > (header_len + body_len))
+            {
+              _dbus_verbose ("end of last arg at %d but message has len %d+%d=%d\n",
+                             next_arg, header_len, body_len,
+                             header_len + body_len);
+              loader->corrupted = TRUE;
+              return;
+            }
 
   	  message = dbus_message_new_empty_header ();
 	  if (message == NULL)
             break; /* ugh, postpone this I guess. */
 
+          message->byte_order = byte_order;
+          
           /* Copy in the offsets we found */
           i = 0;
           while (i < FIELD_LAST)
@@ -2012,6 +2123,12 @@ void
 _dbus_message_loader_set_max_message_size (DBusMessageLoader  *loader,
                                            long                size)
 {
+  if (size > MAX_SANE_MESSAGE_SIZE)
+    {
+      _dbus_verbose ("clamping requested max message size %ld to %d\n",
+                     size, MAX_SANE_MESSAGE_SIZE);
+      size = MAX_SANE_MESSAGE_SIZE;
+    }
   loader->max_message_size = size;
 }
 

@@ -9,6 +9,7 @@ LENGTH Header
 LENGTH Body
 ## client serial
 INT32 7
+ALIGN 8
 END_LENGTH Header
 START_LENGTH Body
 END_LENGTH Body
