@@ -73,6 +73,11 @@ To make a release of D-BUS, do the following:
 
  - update the file NEWS based on the ChangeLog
 
+ - add a ChangeLog entry containing the version number 
+   you're releasing ("Released 0.3" or something)
+   so people can see which changes were before and after
+   a given release.
+
  - "make distcheck" (DO NOT just "make dist" - pass the check!)
 
  - if make distcheck fails, fix it.

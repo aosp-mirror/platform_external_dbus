@@ -1,5 +1,11 @@
 2003-01-15  Havoc Pennington  <hp@redhat.com>
 
+        Release 0.1.
+	
+	* NEWS: update	
+
+2003-01-15  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-test.c (dbus_internal_symbol_do_not_use_run_tests):
 	fix build when --disable-tests
 
