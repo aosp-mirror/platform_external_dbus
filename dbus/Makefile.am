@@ -126,6 +126,7 @@ DBUS_UTIL_SOURCES=				\
 	dbus-mainloop.c				\
 	dbus-mainloop.h				\
 	dbus-marshal-recursive-util.c		\
+	dbus-marshal-validate-util.c		\
 	dbus-message-factory.c			\
 	dbus-message-factory.h			\
 	dbus-message-util.c			\

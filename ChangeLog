@@ -1,4 +1,9 @@
 2005-01-26  Havoc Pennington  <hp@redhat.com>
+	
+	* dbus/dbus-marshal-validate-util.c: break this out (and fix
+	build, apparently - nobody noticed?)
+	
+2005-01-26  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-marshal-recursive.h: remove todo comment
 

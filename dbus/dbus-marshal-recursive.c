@@ -420,7 +420,7 @@ base_reader_next (DBusTypeReader *reader,
         if (!reader->klass->types_only)
           _dbus_marshal_skip_array (reader->value_str,
                                     _dbus_first_type_in_signature (reader->type_str,
-                                                             reader->type_pos + 1),
+                                                                   reader->type_pos + 1),
                                     reader->byte_order,
                                     &reader->value_pos);
 
