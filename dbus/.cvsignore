@@ -10,3 +10,4 @@ dbus-test
 *.gcov
 *.da
 dbus-arch-deps.h
+.dbus-keyrings
