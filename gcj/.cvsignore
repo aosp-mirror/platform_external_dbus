@@ -1,0 +1,13 @@
+.deps
+.libs
+Makefile
+Makefile.in
+*.lo
+*.la
+dbus-test
+*.bb
+*.bbg
+*.gcov
+*.da
+dbus-arch-deps.h
+.dbus-keyrings

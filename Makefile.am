@@ -8,7 +8,16 @@ if HAVE_QT
    QT_SUBDIR=qt
 endif
 
-SUBDIRS=dbus bus test doc $(GLIB_SUBDIR) $(QT_SUBDIR) tools
+if DBUS_USE_GCJ
+   GCJ_SUBDIR=gcj
+endif
+
+if DBUS_USE_MCS
+   MONO_SUBDIR=mono
+endif
+
+
+SUBDIRS=dbus bus test doc $(GLIB_SUBDIR) $(GCJ_SUBDIR) $(MONO_SUBDIR) $(QT_SUBDIR) tools
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = dbus-1.pc $(GLIB_PC)

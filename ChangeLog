@@ -1,3 +1,10 @@
+2003-06-22  Havoc Pennington  <hp@pobox.com>
+
+	* mono/*, gcj/*, configure.in, Makefile.am: 
+	Check in makefiles and subdirs for mono and gcj bindings. 
+	Neither binding actually exists, just trying to get through 
+	all the build and other boring bits.
+
 2003-06-21  Philip Blundell  <philb@gnu.org>
 
 	* tools/dbus-monitor.1: Updated.
