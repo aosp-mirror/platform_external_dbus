@@ -383,10 +383,10 @@ do_authentication (DBusTransport *transport,
         }
     }
 
+ out:
   if (auth_completed)
     *auth_completed = (orig_auth_state != _dbus_transport_get_is_authenticated (transport));
   
- out:
   check_read_watch (transport);
   check_write_watch (transport);
   _dbus_transport_unref (transport);

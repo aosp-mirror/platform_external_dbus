@@ -1,5 +1,10 @@
 2004-11-07  Colin Walters  <walters@verbum.org>
 
+	* dbus/dbus-transport-unix.c (do_authentication): Always
+	initialize auth_completed.
+	
+2004-11-07  Colin Walters  <walters@verbum.org>
+
 	* bus/bus.c (load_config): Break into three
 	separate functions: process_config_first_time_only,
 	process_config_every_time, and process_config_postinit.
