@@ -27,10 +27,6 @@
 #include "dbus-connection-internal.h"
 #include <sys/types.h>
 #include <unistd.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <errno.h>
-#include <fcntl.h>
 
 /**
  * @defgroup DBusServerUnix DBusServer implementations for UNIX
@@ -132,14 +128,13 @@ unix_handle_watch (DBusServer  *server,
       
       listen_fd = dbus_watch_get_fd (watch);
 
-    retry:
-      client_fd = accept (listen_fd, NULL, NULL);
+      client_fd = _dbus_accept_unix_socket (listen_fd);
       
       if (client_fd < 0)
         {
-          if (errno == EINTR)
-            goto retry;
-          else if (errno == EAGAIN || errno == EWOULDBLOCK)
+          /* EINTR handled for us */
+          
+          if (errno == EAGAIN || errno == EWOULDBLOCK)
             _dbus_verbose ("No client available to accept after all\n");
           else
             _dbus_verbose ("Failed to accept a client connection: %s\n",
@@ -247,46 +242,10 @@ _dbus_server_new_for_domain_socket (const char     *path,
 {
   DBusServer *server;
   int listen_fd;
-  struct sockaddr_un addr;
 
-  listen_fd = socket (AF_LOCAL, SOCK_STREAM, 0);
-
+  listen_fd = _dbus_listen_unix_socket (path, result);
   if (listen_fd < 0)
-    {
-      dbus_set_result (result, _dbus_result_from_errno (errno));
-      _dbus_verbose ("Failed to create socket \"%s\": %s\n",
-                     path, _dbus_strerror (errno));
-      return NULL;
-    }
-
-  if (!_dbus_set_fd_nonblocking (listen_fd, result))
-    {
-      close (listen_fd);
-      return NULL;
-    }
-
-  _DBUS_ZERO (addr);
-  addr.sun_family = AF_LOCAL;
-  strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH);
-  addr.sun_path[_DBUS_MAX_SUN_PATH_LENGTH] = '\0';
-  
-  if (bind (listen_fd, (struct sockaddr*) &addr, SUN_LEN (&addr)) < 0)
-    {
-      dbus_set_result (result, _dbus_result_from_errno (errno));
-      _dbus_verbose ("Failed to bind socket \"%s\": %s\n",
-                     path, _dbus_strerror (errno));
-      close (listen_fd);
-      return NULL;
-    }
-
-  if (listen (listen_fd, 30 /* backlog */) < 0)
-    {
-      dbus_set_result (result, _dbus_result_from_errno (errno));      
-      _dbus_verbose ("Failed to listen on socket \"%s\": %s\n",
-                     path, _dbus_strerror (errno));
-      close (listen_fd);
-      return NULL;
-    }
+    return NULL;
   
   server = _dbus_server_new_for_fd (listen_fd);
   if (server == NULL)

@@ -21,6 +21,7 @@
  *
  */
 
+#include "dbus-internals.h"
 #include "dbus-string.h"
 /* we allow a system header here, for speed/convenience */
 #include <string.h>

@@ -5,6 +5,9 @@
 #include <dbus/dbus-list.h>
 #undef DBUS_COMPILATION
 
+#include <sys/types.h>
+#include <unistd.h>
+
 /* Cheesy main loop used in test programs.  Any real app would use the
  * GLib or Qt or other non-sucky main loops.
  */ 

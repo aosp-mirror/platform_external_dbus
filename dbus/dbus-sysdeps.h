@@ -31,6 +31,9 @@
  */
 #include <string.h>
 
+/* and it would just be annoying to abstract this */
+#include <errno.h>
+
 DBUS_BEGIN_DECLS;
 
 /* The idea of this file is to encapsulate everywhere that we're
@@ -45,6 +48,29 @@ DBUS_BEGIN_DECLS;
 void _dbus_abort (void);
 
 const char* _dbus_getenv (const char *varname);
+
+
+int _dbus_read      (int               fd,
+                     DBusString       *buffer,
+                     int               count);
+int _dbus_write     (int               fd,
+                     const DBusString *buffer,
+                     int               start,
+                     int               len);
+int _dbus_write_two (int               fd,
+                     const DBusString *buffer1,
+                     int               start1,
+                     int               len1,
+                     const DBusString *buffer2,
+                     int               start2,
+                     int               len2);
+
+int _dbus_connect_unix_socket (const char     *path,
+                               DBusResultCode *result);
+int _dbus_listen_unix_socket  (const char     *path,
+                               DBusResultCode *result);
+int _dbus_accept_unix_socket  (int             listen_fd);
+
 
 DBUS_END_DECLS;
 

@@ -28,13 +28,7 @@
 #include "dbus-watch.h"
 #include <sys/types.h>
 #include <unistd.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <errno.h>
-#include <fcntl.h>
-#ifdef HAVE_WRITEV
-#include <sys/uio.h>
-#endif
+
 
 /**
  * @defgroup DBusTransportUnix DBusTransport implementations for UNIX
@@ -99,15 +93,13 @@ do_writing (DBusTransport *transport)
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
   
   total = 0;
-  
- again:
 
   while (_dbus_connection_have_messages_to_send (transport->connection))
     {
       int bytes_written;
       DBusMessage *message;
-      const unsigned char *header;
-      const unsigned char *body;
+      const DBusString *header;
+      const DBusString *body;
       int header_len, body_len;
       
       if (total > unix_transport->max_bytes_written_per_iteration)
@@ -122,42 +114,37 @@ do_writing (DBusTransport *transport)
       _dbus_message_lock (message);
 
       _dbus_message_get_network_data (message,
-                                      &header, &header_len,
-                                      &body, &body_len);
+                                      &header, &body);
 
+      header_len = _dbus_string_get_length (header);
+      body_len = _dbus_string_get_length (body);
+      
       if (unix_transport->message_bytes_written < header_len)
         {
-#ifdef HAVE_WRITEV
-          struct iovec vectors[2];
-
-          vectors[0].iov_base = header + unix_transport->message_bytes_written;
-          vectors[0].iov_len = header_len - unix_transport->message_bytes_written;
-          vectors[1].iov_base = body;
-          vectors[1].iov_len = body_len;
-          
-          bytes_written = writev (unix_transport->fd,
-                                  vectors, _DBUS_N_ELEMENTS (vectors));
-#else
-          bytes_written = write (unix_transport->fd,
-                                 header + unix_transport->message_bytes_written, 
-                                 header_len - unix_transport->message_bytes_written);
-#endif
+          bytes_written =
+            _dbus_write_two (unix_transport->fd,
+                             header,
+                             unix_transport->message_bytes_written,
+                             header_len - unix_transport->message_bytes_written,
+                             body,
+                             0, body_len);
         }
       else
         {
-          bytes_written = write (unix_transport->fd,
-                                 body +
-                                 (unix_transport->message_bytes_written - header_len), 
-                                 body_len -
-                                 (unix_transport->message_bytes_written - body_len));
+          bytes_written =
+            _dbus_write (unix_transport->fd,
+                         body,
+                         (unix_transport->message_bytes_written - header_len),
+                         body_len -
+                         (unix_transport->message_bytes_written - header_len));
         }
 
       if (bytes_written < 0)
         {
-          if (errno == EINTR)
-            goto again;
-          else if (errno == EAGAIN ||
-                   errno == EWOULDBLOCK)
+          /* EINTR already handled for us */
+          
+          if (errno == EAGAIN ||
+              errno == EWOULDBLOCK)
             goto out;
           else
             {
@@ -194,15 +181,15 @@ static void
 do_reading (DBusTransport *transport)
 {
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
-  unsigned char *buffer;
+  DBusString *buffer;
   int buffer_len;
   int bytes_read;
   int total;
   
   total = 0;
-  
- again:
 
+ again:
+  
   if (total > unix_transport->max_bytes_read_per_iteration)
     {
       _dbus_verbose ("%d bytes exceeds %d bytes read per iteration, returning\n",
@@ -210,23 +197,24 @@ do_reading (DBusTransport *transport)
       goto out;
     }
 
-  if (!_dbus_message_loader_get_buffer (transport->loader,
-                                        &buffer, &buffer_len))
-    goto out; /* no memory for a buffer */
+  _dbus_message_loader_get_buffer (transport->loader,
+                                   &buffer);
+
+  buffer_len = _dbus_string_get_length (buffer);  
   
-  bytes_read = read (unix_transport->fd,
-                     buffer, buffer_len);
+  bytes_read = _dbus_read (unix_transport->fd,
+                           buffer, unix_transport->max_bytes_read_per_iteration);
 
   _dbus_message_loader_return_buffer (transport->loader,
                                       buffer,
                                       bytes_read < 0 ? 0 : bytes_read);
   
   if (bytes_read < 0)
-    {      
-      if (errno == EINTR)
-        goto again;
-      else if (errno == EAGAIN ||
-               errno == EWOULDBLOCK)
+    {
+      /* EINTR already handled for us */
+      
+      if (errno == EAGAIN ||
+          errno == EWOULDBLOCK)
         goto out;
       else
         {
@@ -519,49 +507,10 @@ _dbus_transport_new_for_domain_socket (const char     *path,
 {
   int fd;
   DBusTransport *transport;
-  struct sockaddr_un addr;
-  
-  transport = NULL;
-  
-  fd = socket (AF_LOCAL, SOCK_STREAM, 0);
 
+  fd = _dbus_connect_unix_socket (path, result);
   if (fd < 0)
-    {
-      dbus_set_result (result,
-                       _dbus_result_from_errno (errno));
-      
-      _dbus_verbose ("Failed to create socket: %s\n",
-                     _dbus_strerror (errno)); 
-      
-      goto out;
-    }
-
-  _DBUS_ZERO (addr);
-  addr.sun_family = AF_LOCAL;
-  strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH);
-  addr.sun_path[_DBUS_MAX_SUN_PATH_LENGTH] = '\0';
-  
-  if (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0)
-    {      
-      dbus_set_result (result,
-                       _dbus_result_from_errno (errno));
-
-      _dbus_verbose ("Failed to connect to socket %s: %s\n",
-                     path, _dbus_strerror (errno));
-
-      close (fd);
-      fd = -1;
-      
-      goto out;
-    }
-
-  if (!_dbus_set_fd_nonblocking (fd, result))
-    {
-      close (fd);
-      fd = -1;
-
-      goto out;
-    }
+    return NULL;
   
   transport = _dbus_transport_new_for_fd (fd);
   if (transport == NULL)
@@ -569,10 +518,8 @@ _dbus_transport_new_for_domain_socket (const char     *path,
       dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
       close (fd);
       fd = -1;
-      goto out;
     }
-  
- out:  
+
   return transport;
 }
 

@@ -39,6 +39,13 @@
  */
 
 /**
+ * The largest-length message we allow
+ *
+ * @todo match this up with whatever the protocol spec says.
+ */
+#define _DBUS_MAX_MESSAGE_LENGTH (_DBUS_INT_MAX/16)
+
+/**
  * @brief Internals of DBusMessage
  * 
  * Object representing a message received from or to be sent to
@@ -49,14 +56,12 @@ struct DBusMessage
 {
   int refcount; /**< Reference count */
 
-  unsigned char *header; /**< Header network data, stored
-                          * separately from body so we can
-                          * independently realloc it.
-                          */
-  int header_len;        /**< Length of header data. */
+  DBusString header; /**< Header network data, stored
+                      * separately from body so we can
+                      * independently realloc it.
+                      */
 
-  unsigned char *body;   /**< Body network data. */
-  int body_len;          /**< Length of body data. */
+  DBusString body;   /**< Body network data. */
 
   unsigned int locked : 1; /**< Message being sent, no modifications allowed. */
 };
@@ -69,23 +74,17 @@ struct DBusMessage
  *
  * @param message the message.
  * @param header return location for message header data.
- * @param header_len return location for header length in bytes.
  * @param body return location for message body data.
- * @param body_len return location for body length in bytes.
  */
 void
 _dbus_message_get_network_data (DBusMessage          *message,
-                                const unsigned char **header,
-                                int                  *header_len,
-                                const unsigned char **body,
-                                int                  *body_len)
+                                const DBusString    **header,
+                                const DBusString    **body)
 {
   _dbus_assert (message->locked);
   
-  *header = message->header;
-  *header_len = message->header_len;
-  *body = message->body;
-  *body_len = message->body_len;
+  *header = &message->header;
+  *body = &message->body;
 }
 
 /**
@@ -143,11 +142,25 @@ dbus_message_new (void)
   
   message->refcount = 1;
 
+  if (!_dbus_string_init (&message->header, _DBUS_MAX_MESSAGE_LENGTH))
+    {
+      dbus_free (message);
+      return NULL;
+    }
+
+  if (!_dbus_string_init (&message->body, _DBUS_MAX_MESSAGE_LENGTH))
+    {
+      _dbus_string_free (&message->header);
+      dbus_free (message);
+      return NULL;
+    }
+  
   /* We need to decide what a message contains. ;-) */
-  message->header = _dbus_strdup ("H");
-  message->header_len = 2;
-  message->body = _dbus_strdup ("Body");
-  message->body_len = 5;
+  /* (not bothering to check failure of these appends) */
+  _dbus_string_append (&message->header, "H");
+  _dbus_string_append_byte (&message->header, '\0');
+  _dbus_string_append (&message->body, "Body");
+  _dbus_string_append_byte (&message->body, '\0');
   
   return message;
 }
@@ -180,6 +193,8 @@ dbus_message_unref (DBusMessage *message)
   message->refcount -= 1;
   if (message->refcount == 0)
     {
+      _dbus_string_free (&message->header);
+      _dbus_string_free (&message->body);
       
       dbus_free (message);
     }
@@ -212,12 +227,9 @@ dbus_message_unref (DBusMessage *message)
 struct DBusMessageLoader
 {
   int refcount;        /**< Reference count. */
+
+  DBusString data;     /**< Buffered data */
   
-  int allocated;       /**< Allocated size of "data" */
-  int length;          /**< Used size of "data" */
-
-  unsigned char *data; /**< Buffered data. */
-
   DBusList *messages;  /**< Complete messages. */
   
   unsigned int buffer_outstanding : 1; /**< Someone is using the buffer to read */
@@ -251,14 +263,15 @@ _dbus_message_loader_new (void)
     return NULL;
   
   loader->refcount = 1;  
-  
-  /* Header, plus room for averagish other fields */
-  loader->allocated = INITIAL_LOADER_DATA_LEN;
-  loader->data = dbus_malloc (loader->allocated);
-  if (loader->data == NULL)
-    loader->allocated = 0;
-  
-  loader->length = 0;
+
+  if (!_dbus_string_init (&loader->data, _DBUS_INT_MAX))
+    {
+      dbus_free (loader);
+      return NULL;
+    }
+
+  /* preallocate the buffer for speed, ignore failure */
+  (void) _dbus_string_set_length (&loader->data, INITIAL_LOADER_DATA_LEN);
   
   return loader;
 }
@@ -290,7 +303,7 @@ _dbus_message_loader_unref (DBusMessageLoader *loader)
                           (DBusForeachFunction) dbus_message_unref,
                           NULL);
       _dbus_list_clear (&loader->messages);
-      dbus_free (loader->data);
+      _dbus_string_free (&loader->data);
       dbus_free (loader);
     }
 }
@@ -309,50 +322,17 @@ _dbus_message_loader_unref (DBusMessageLoader *loader)
  * or reallocs.
  * 
  * @param loader the message loader.
- * @param buffer address to store the buffer.
- * @param buffer_len address to store the buffer length.
- * @returns #FALSE if no buffer can be allocated.
+ * @param buffer the buffer
  */
-dbus_bool_t
+void
 _dbus_message_loader_get_buffer (DBusMessageLoader  *loader,
-                                 unsigned char     **buffer,
-                                 int                *buffer_len)
+                                 DBusString        **buffer)
 {
   _dbus_assert (!loader->buffer_outstanding);
-  
-#define MIN_BUFSIZE INITIAL_LOADER_DATA_LEN
-  
-  if ((loader->length + MIN_BUFSIZE) >= loader->allocated)
-    {
-      unsigned char *buf;
-      int new_allocated;
 
-      /* double (and add MIN_BUFSIZE, in case allocated == 0) */
-      new_allocated = MIN_BUFSIZE + loader->allocated * 2;
-
-      if (new_allocated <= loader->allocated)
-        {
-          /* ugh, overflow. Maybe someone is trying to screw us. */
-          /* (we could overflow so far that new_allocated > loader->allocated
-           *  but nothing should break in that case)
-           */
-          return FALSE;
-        }
-      
-      buf = dbus_realloc (loader->data, new_allocated);
-      if (buf == NULL)
-        return FALSE;
-
-      loader->data = buf;
-      loader->allocated = new_allocated;
-    }
-
-  *buffer = loader->data + loader->length;
-  *buffer_len = loader->allocated - loader->length;
+  *buffer = &loader->data;
   
   loader->buffer_outstanding = TRUE;
-
-  return TRUE;
 }
 
 /**
@@ -367,24 +347,23 @@ _dbus_message_loader_get_buffer (DBusMessageLoader  *loader,
  */
 void
 _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
-                                    unsigned char      *buffer,
+                                    DBusString         *buffer,
                                     int                 bytes_read)
 {
   _dbus_assert (loader->buffer_outstanding);
+  _dbus_assert (buffer == &loader->data);
 
   /* FIXME fake implementation just creates a message for every 7
    * bytes. The real implementation will pass ownership of
-   * loader->data to new messages, to avoid memcpy.  We can also
+   * loader->data bytes to new messages, to avoid memcpy.  We can also
    * smart-realloc loader->data to shrink it if it's too big, though
    * _dbus_message_loader_get_buffer() could strategically arrange for
    * that to usually not happen.
    */
-  
-  loader->length += bytes_read;
 
   loader->buffer_outstanding = FALSE;
 
-  while (loader->length >= 7)
+  while (_dbus_string_get_length (&loader->data) >= 7)
     {
       DBusMessage *message;
       
@@ -394,10 +373,9 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 
       _dbus_list_append (&loader->messages, message);
 
-      memmove (loader->data, loader->data + 7,
-               loader->length - 7);
-      loader->length -= 7;
-
+      _dbus_string_delete (&loader->data,
+                           0, 7);
+      
       _dbus_verbose ("Loaded message %p\n", message);
     }
 }

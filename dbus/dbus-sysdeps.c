@@ -21,12 +21,22 @@
  *
  */
 
+#include "dbus-internals.h"
 #include "dbus-sysdeps.h"
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#ifdef HAVE_WRITEV
+#include <sys/uio.h>
+#endif
+
 
 /**
  * @addtogroup DBusInternalsUtils
@@ -52,6 +62,324 @@ const char*
 _dbus_getenv (const char *varname)
 {  
   return getenv (varname);
+}
+
+/**
+ * Thin wrapper around the read() system call that appends
+ * the data it reads to the DBusString buffer. It appends
+ * up to the given count, and returns the same value
+ * and same errno as read(). The only exception is that
+ * _dbus_read() handles EINTR for you.
+ *
+ * @param fd the file descriptor to read from
+ * @param buffer the buffer to append data to
+ * @param count the amount of data to read
+ * @returns the number of bytes read or -1
+ */
+int
+_dbus_read (int               fd,
+            DBusString       *buffer,
+            int               count)
+{
+  int bytes_read;
+  int start;
+  char *data;
+
+  _dbus_assert (count >= 0);
+  
+  start = _dbus_string_get_length (buffer);
+
+  if (!_dbus_string_lengthen (buffer, count))
+    {
+      errno = ENOMEM;
+      return -1;
+    }
+
+  _dbus_string_get_data_len (buffer, &data, start, count);
+
+ again:
+  
+  bytes_read = read (fd, data, count);
+
+  if (bytes_read < 0)
+    {
+      if (errno == EINTR)
+        goto again;
+      else
+        {
+          /* put length back (note that this doesn't actually realloc anything) */
+          _dbus_string_set_length (buffer, start);
+          return -1;
+        }
+    }
+  else
+    {
+      /* put length back (doesn't actually realloc) */
+      _dbus_string_set_length (buffer, start + bytes_read);
+      return bytes_read;
+    }
+}
+
+/**
+ * Thin wrapper around the write() system call that writes a part of a
+ * DBusString and handles EINTR for you.
+ * 
+ * @param fd the file descriptor to write
+ * @param buffer the buffer to write data from
+ * @param start the first byte in the buffer to write
+ * @param len the number of bytes to try to write
+ * @returns the number of bytes written or -1 on error
+ */
+int
+_dbus_write (int               fd,
+             const DBusString *buffer,
+             int               start,
+             int               len)
+{
+  const char *data;
+  int bytes_written;
+  
+  _dbus_string_get_const_data_len (buffer, &data, start, len);
+  
+ again:
+
+  bytes_written = write (fd, data, len);
+
+  if (errno == EINTR)
+    goto again;
+
+  return bytes_written;
+}
+
+/**
+ * Like _dbus_write() but will use writev() if possible
+ * to write both buffers in sequence. The return value
+ * is the number of bytes written in the first buffer,
+ * plus the number written in the second. If the first
+ * buffer is written successfully and an error occurs
+ * writing the second, the number of bytes in the first
+ * is returned (i.e. the error is ignored), on systems that
+ * don't have writev. Handles EINTR for you.
+ * The second buffer may be #NULL.
+ *
+ * @param fd the file descriptor
+ * @param buffer1 first buffer
+ * @param start1 first byte to write in first buffer
+ * @param len1 number of bytes to write from first buffer
+ * @param buffer2 second buffer, or #NULL
+ * @param start2 first byte to write in second buffer
+ * @param len2 number of bytes to write in second buffer
+ * @returns total bytes written from both buffers, or -1 on error
+ */
+int
+_dbus_write_two (int               fd,
+                 const DBusString *buffer1,
+                 int               start1,
+                 int               len1,
+                 const DBusString *buffer2,
+                 int               start2,
+                 int               len2)
+{
+  _dbus_assert (buffer1 != NULL);
+  _dbus_assert (start1 >= 0);
+  _dbus_assert (start2 >= 0);
+  _dbus_assert (len1 >= 0);
+  _dbus_assert (len2 >= 0);
+  
+#ifdef HAVE_WRITEV
+  {
+    struct iovec vectors[2];
+    const char *data1;
+    const char *data2;
+    int bytes_written;
+
+    _dbus_string_get_const_data_len (buffer1, &data1, start1, len1);
+
+    if (buffer2 != NULL)
+      _dbus_string_get_const_data_len (buffer2, &data2, start2, len2);
+    else
+      {
+        data2 = NULL;
+        start2 = 0;
+        len2 = 0;
+      }
+   
+    vectors[0].iov_base = (char*) data1;
+    vectors[0].iov_len = len1;
+    vectors[1].iov_base = (char*) data2;
+    vectors[1].iov_len = len2;
+
+  again:
+   
+    bytes_written = writev (fd,
+                            vectors,
+                            data2 ? 2 : 1);
+
+    if (errno == EINTR)
+      goto again;
+   
+    return bytes_written;
+  }
+#else /* HAVE_WRITEV */
+  {
+    int ret1;
+    
+    ret1 = _dbus_write (fd, buffer1, start1, len1);
+    if (ret1 == len1 && buffer2 != NULL)
+      {
+        ret2 = _dbus_write (fd, buffer2, start2, len2);
+        if (ret2 < 0)
+          ret2 = 0; /* we can't report an error as the first write was OK */
+       
+        return ret1 + ret2;
+      }
+    else
+      return ret1;
+  }
+#endif /* !HAVE_WRITEV */   
+}
+
+/**
+ * Creates a socket and connects it to the UNIX domain socket at the
+ * given path.  The connection fd is returned, and is set up as
+ * nonblocking.
+ *
+ * @param path the path to UNIX domain socket
+ * @param result return location for error code
+ * @returns connection file descriptor or -1 on error
+ */
+int
+_dbus_connect_unix_socket (const char     *path,
+                           DBusResultCode *result)
+{
+  int fd;
+  struct sockaddr_un addr;  
+  
+  fd = socket (AF_LOCAL, SOCK_STREAM, 0);
+
+  if (fd < 0)
+    {
+      dbus_set_result (result,
+                       _dbus_result_from_errno (errno));
+      
+      _dbus_verbose ("Failed to create socket: %s\n",
+                     _dbus_strerror (errno)); 
+      
+      return -1;
+    }
+
+  _DBUS_ZERO (addr);
+  addr.sun_family = AF_LOCAL;
+  strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH);
+  addr.sun_path[_DBUS_MAX_SUN_PATH_LENGTH] = '\0';
+  
+  if (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0)
+    {      
+      dbus_set_result (result,
+                       _dbus_result_from_errno (errno));
+
+      _dbus_verbose ("Failed to connect to socket %s: %s\n",
+                     path, _dbus_strerror (errno));
+
+      close (fd);
+      fd = -1;
+      
+      return -1;
+    }
+
+  if (!_dbus_set_fd_nonblocking (fd, result))
+    {
+      close (fd);
+      fd = -1;
+
+      return -1;
+    }
+
+  return fd;
+}
+
+/**
+ * Creates a socket and binds it to the given path,
+ * then listens on the socket. The socket is
+ * set to be nonblocking. 
+ *
+ * @param path the socket name
+ * @param result return location for errors
+ * @returns the listening file descriptor or -1 on error
+ */
+int
+_dbus_listen_unix_socket (const char     *path,
+                          DBusResultCode *result)
+{
+  int listen_fd;
+  struct sockaddr_un addr;
+
+  listen_fd = socket (AF_LOCAL, SOCK_STREAM, 0);
+
+  if (listen_fd < 0)
+    {
+      dbus_set_result (result, _dbus_result_from_errno (errno));
+      _dbus_verbose ("Failed to create socket \"%s\": %s\n",
+                     path, _dbus_strerror (errno));
+      return -1;
+    }
+
+  _DBUS_ZERO (addr);
+  addr.sun_family = AF_LOCAL;
+  strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH);
+  addr.sun_path[_DBUS_MAX_SUN_PATH_LENGTH] = '\0';
+  
+  if (bind (listen_fd, (struct sockaddr*) &addr, SUN_LEN (&addr)) < 0)
+    {
+      dbus_set_result (result, _dbus_result_from_errno (errno));
+      _dbus_verbose ("Failed to bind socket \"%s\": %s\n",
+                     path, _dbus_strerror (errno));
+      close (listen_fd);
+      return -1;
+    }
+
+  if (listen (listen_fd, 30 /* backlog */) < 0)
+    {
+      dbus_set_result (result, _dbus_result_from_errno (errno));      
+      _dbus_verbose ("Failed to listen on socket \"%s\": %s\n",
+                     path, _dbus_strerror (errno));
+      close (listen_fd);
+      return -1;
+    }
+
+  if (!_dbus_set_fd_nonblocking (listen_fd, result))
+    {
+      close (listen_fd);
+      return -1;
+    }
+  
+  return listen_fd;
+}
+
+/**
+ * Accepts a connection on a listening UNIX socket.
+ * Specific to UNIX domain sockets because we might
+ * add extra args to this function later to get client
+ * credentials. Handles EINTR for you.
+ *
+ * @param listen_fd the listen file descriptor
+ * @returns the connection fd of the client, or -1 on error
+ */
+int
+_dbus_accept_unix_socket  (int listen_fd)
+{
+  int client_fd;
+  
+ retry:
+  client_fd = accept (listen_fd, NULL, NULL);
+  
+  if (client_fd < 0)
+    {
+      if (errno == EINTR)
+        goto retry;
+    }
+
+  return client_fd;
 }
 
 /** @} */

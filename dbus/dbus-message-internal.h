@@ -30,10 +30,8 @@ DBUS_BEGIN_DECLS;
 typedef struct DBusMessageLoader DBusMessageLoader;
 
 void _dbus_message_get_network_data (DBusMessage          *message,
-                                     const unsigned char **header,
-                                     int                  *header_len,
-                                     const unsigned char **body,
-                                     int                  *body_len);
+                                     const DBusString    **header,
+                                     const DBusString    **body);
 
 void _dbus_message_lock             (DBusMessage          *message);
 
@@ -41,11 +39,10 @@ void _dbus_message_lock             (DBusMessage          *message);
 DBusMessageLoader* _dbus_message_loader_new                   (void);
 void               _dbus_message_loader_ref                   (DBusMessageLoader  *loader);
 void               _dbus_message_loader_unref                 (DBusMessageLoader  *loader);
-dbus_bool_t        _dbus_message_loader_get_buffer            (DBusMessageLoader  *loader,
-                                                               unsigned char     **buffer,
-                                                               int                *buffer_len);
+void               _dbus_message_loader_get_buffer            (DBusMessageLoader  *loader,
+                                                               DBusString        **buffer);
 void               _dbus_message_loader_return_buffer         (DBusMessageLoader  *loader,
-                                                               unsigned char      *buffer,
+                                                               DBusString         *buffer,
                                                                int                 bytes_read);
 
 DBusMessage*       _dbus_message_loader_pop_message           (DBusMessageLoader  *loader);

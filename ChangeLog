@@ -1,3 +1,17 @@
+2002-12-12  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-transport-unix.c, dbus/dbus-server-unix.c: use the
+	below new interfaces and include fewer system headers.
+
+	* dbus/dbus-sysdeps.c (_dbus_read): new function
+	(_dbus_write): new function
+	(_dbus_write_two): new function
+	(_dbus_connect_unix_socket): new function
+	(_dbus_listen_unix_socket): new function
+
+	* dbus/dbus-message-internal.h: change interfaces to use
+	DBusString
+
 2002-12-11  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-types.h: add dbus_unichar
