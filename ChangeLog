@@ -1,5 +1,10 @@
 2003-04-25  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-transport.c (_dbus_transport_get_unix_user): fix bug
+	where we used >= 0 instead of != DBUS_UID_UNSET.
+
+2003-04-25  Havoc Pennington  <hp@redhat.com>
+
 	* glib/dbus-gmain.c (remove_watch): fix for a crash when watches
 	were toggled without add/remove, fix from Anders Gustafsson
 

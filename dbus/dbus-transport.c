@@ -932,7 +932,7 @@ _dbus_transport_get_unix_user (DBusTransport *transport,
   
   _dbus_auth_get_identity (transport->auth, &auth_identity);
 
-  if (auth_identity.uid >= 0)
+  if (auth_identity.uid != DBUS_UID_UNSET)
     {
       *uid = auth_identity.uid;
       return TRUE;
