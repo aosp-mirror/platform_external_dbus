@@ -1,3 +1,12 @@
+2003-11-24  Zack Rusin  <zack@kde.org>
+
+	* qt/integrator.h, qt/integrator.cpp, Makefile.am: Adding 
+	Integrator class which integrates D-BUS with the Qt event loop,
+
+	* qt/connection.h, qt/connection.cpp: Move all the code which
+	was dealing with D-BUS integration to the Integrator class,
+	and start using Integrator,
+
 2003-11-23  Zack Rusin  <zack@kde.org>
 
 	* qt/connection.h, qt/connection.cpp: Adding the DBusConnection 
