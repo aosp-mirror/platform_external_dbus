@@ -73,10 +73,10 @@ Connection::Connection( const QString& host, QObject *parent )
     init( host );
 }
 
-Connection::Connection(DBusBusType type, QObject* parent)
+Connection::Connection( DBusBusType type, QObject* parent )
   : QObject( parent )
 {
-  d = new Private(this);
+  d = new Private( this );
   d->setConnection( dbus_bus_get(type, &d->error) );
 }
 
@@ -89,10 +89,12 @@ void Connection::init( const QString& host )
 
 bool Connection::isConnected() const
 {
+  return dbus_connection_get_is_connected( d->connection );
 }
 
 bool Connection::isAuthenticated() const
 {
+  return dbus_connection_get_is_authenticated( d->connection );
 }
 
 void Connection::open( const QString& host )
