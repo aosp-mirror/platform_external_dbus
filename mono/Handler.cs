@@ -15,8 +15,7 @@ namespace DBus
 
   internal class Handler : IDisposable
   {
-    private string[] path = null;
-    private string pathName = null;
+    private string path = null;
     private Introspector introspector = null;
     private object handledObject = null;
     private DBusObjectPathVTable vTable;
@@ -69,7 +68,7 @@ namespace DBus
 	service = null;
 
 	// Clean up unmanaged resources
-	if (Connection != null && Connection.RawConnection != IntPtr.Zero && path != null) {
+	if (Connection != null && Connection.RawConnection != IntPtr.Zero && Path != null) {
 	  dbus_connection_unregister_object_path(Connection.RawConnection,
 						 Path);
 	}	
@@ -88,17 +87,13 @@ namespace DBus
     }
 
     public Handler(object handledObject, 
-		   string pathName, 
+		   string path, 
 		   Service service)
     {
       Service = service;
       Connection = service.Connection;
       HandledObject = handledObject;
-
-      // Strip the leading / off if there is one and get the path as an array
-      pathName = pathName.TrimStart('/');
-      this.path = pathName.Split('/');
-      this.pathName = "/" + pathName;
+      this.path = path;
       
       // Create the vTable and register the path
       vTable = new DBusObjectPathVTable(new DBusObjectPathUnregisterFunction(Unregister_Called), 
@@ -115,7 +110,7 @@ namespace DBus
 
     private void RegisterSignalHandlers()
     {
-      ProxyBuilder proxyBuilder = new ProxyBuilder(Service, HandledObject.GetType(), this.pathName);
+      ProxyBuilder proxyBuilder = new ProxyBuilder(Service, HandledObject.GetType(), Path);
 
       foreach (DictionaryEntry interfaceEntry in this.introspector.InterfaceProxies) {
 	InterfaceProxy interfaceProxy = (InterfaceProxy) interfaceEntry.Value;
@@ -195,19 +190,11 @@ namespace DBus
       return Result.Handled;
     }
 
-    internal string[] Path 
+    internal string Path 
     {
       get 
 	{
 	  return path;
-	}
-    }
-
-    public string PathName
-    {
-      get
-	{
-	  return pathName;
 	}
     }
 
@@ -238,10 +225,10 @@ namespace DBus
     }
 
     [DllImport ("dbus-1")]
-    private extern static bool dbus_connection_register_object_path (IntPtr rawConnection, string[] path, ref DBusObjectPathVTable vTable, IntPtr userData);
+    private extern static bool dbus_connection_register_object_path (IntPtr rawConnection, string path, ref DBusObjectPathVTable vTable, IntPtr userData);
 
     [DllImport ("dbus-1")]
-    private extern static void dbus_connection_unregister_object_path (IntPtr rawConnection, string[] path);
+    private extern static void dbus_connection_unregister_object_path (IntPtr rawConnection, string path);
 
   }
 }

@@ -54,7 +54,7 @@ dbus-sharp.dll: $(DBUS_SHARP_FILES)
 	$(CSC) --unsafe --target library -o dbus-sharp.dll $(DBUS_SHARP_FILES) AssemblyInfo.cs
 
 test-dbus-sharp.exe: $(TEST_DBUS_SHARP_FILES)
-	$(CSC) --unsafe --target exe -L . -r dbus-sharp.dll -r gtk-sharp.dll -o test-dbus-sharp.exe $(TEST_DBUS_SHARP_FILES)
+	$(CSC) --unsafe --target exe -L . -r dbus-sharp.dll -pkg:gtk-sharp -o test-dbus-sharp.exe $(TEST_DBUS_SHARP_FILES)
 
 clean:
 	rm -f $(TARGET) $(NOINST_EXES)

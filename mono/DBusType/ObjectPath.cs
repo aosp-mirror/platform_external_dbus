@@ -12,7 +12,7 @@ namespace DBus.DBusType
   public class ObjectPath : IDBusType
   {
     public const char Code = 'o';
-    private string pathName = null;
+    private string path = null;
     private object val = null;
     private Service service = null;
     
@@ -29,25 +29,25 @@ namespace DBus.DBusType
     public ObjectPath(IntPtr iter, Service service)
     {
       
-      this.pathName = Marshal.PtrToStringAnsi(dbus_message_iter_get_object_path(iter));
+      this.path = Marshal.PtrToStringAnsi(dbus_message_iter_get_object_path(iter));
       this.service = service;
     }
 
-    private string PathName 
+    private string Path
     {
       get {
-	if (this.pathName == null && this.val != null) {
+	if (this.path == null && this.val != null) {
 	  Handler handler = this.service.GetHandler(this.val);
-	  this.pathName = handler.PathName;
+	  this.path = handler.Path;
 	}
 
-	return this.pathName;
+	return this.path;
       }
     }
 
     public void Append(IntPtr iter) 
     {
-      if (!dbus_message_iter_append_object_path(iter, Marshal.StringToHGlobalAnsi(PathName)))
+      if (!dbus_message_iter_append_object_path(iter, Marshal.StringToHGlobalAnsi(Path)))
 	throw new ApplicationException("Failed to append OBJECT_PATH argument:" + val);
     }
 
@@ -84,7 +84,7 @@ namespace DBus.DBusType
     public object Get(System.Type type)
     {
       try {
-	return this.service.GetObject(type, PathName);
+	return this.service.GetObject(type, Path);
       } catch(Exception ex) {
 	throw new ArgumentException("Cannot cast object pointed to by Object Path to type '" + type.ToString() + "': " + ex);
       }
@@ -94,6 +94,6 @@ namespace DBus.DBusType
     private extern static IntPtr dbus_message_iter_get_object_path(IntPtr iter);
  
     [DllImport("dbus-1")]
-    private extern static bool dbus_message_iter_append_object_path(IntPtr iter, IntPtr pathName);
+    private extern static bool dbus_message_iter_append_object_path(IntPtr iter, IntPtr path);
   }
 }

@@ -1,3 +1,15 @@
+2004-06-07  Owen Fraser-Green  <owen@discobabe.net>
+
+	* mono/DBusType/ObjectPath.cs: Renamed PathName argument to Path
+
+	* mono/Handler.cs: Updated to follow new path argument for
+	(un-)registering objects.
+
+	* mono/example/Makefile.am:
+	* mono/Makefile.am:
+	* configure.in: Bumped required version for mono and use new -pkg
+	syntax for deps
+
 2004-06-05  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* dbus/dbus-connection.h, dbus/dbus-connection.c: have object path
