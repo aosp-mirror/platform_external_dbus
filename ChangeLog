@@ -1,5 +1,18 @@
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
+	* bus/driver.c: (bus_driver_send_welcome_message),
+	(bus_driver_handle_list_services),
+	(bus_driver_handle_acquire_service),
+	(bus_driver_handle_service_exists), (bus_driver_handle_message):
+	Update for API changes in libdbus.
+	
+	* dbus/dbus-message.c: (dbus_message_new_reply):
+	* dbus/dbus-message.h:
+	Remove the name argument. The spec states that replies shouldn't
+	have a name.
+
+2003-02-13  Anders Carlsson  <andersca@codefactory.se>
+
 	* bus/desktop-file.c: (parse_section_start), (parse_key_value),
 	(report_error), (bus_desktop_file_load), (lookup_section),
 	(lookup_line), (bus_desktop_file_get_raw),

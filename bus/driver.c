@@ -201,8 +201,7 @@ bus_driver_send_welcome_message (DBusConnection *connection,
   name = bus_connection_get_name (connection);
   _dbus_assert (name != NULL);
   
-  _DBUS_HANDLE_OOM (welcome = dbus_message_new_reply (DBUS_MESSAGE_HELLO,
-						      hello_message));
+  _DBUS_HANDLE_OOM (welcome = dbus_message_new_reply (hello_message));
   
   _DBUS_HANDLE_OOM (dbus_message_set_sender (welcome, DBUS_SERVICE_DBUS));
   
@@ -223,7 +222,7 @@ bus_driver_handle_list_services (DBusConnection *connection,
   int len, i;
   char **services;
 
-  _DBUS_HANDLE_OOM (reply = dbus_message_new_reply (DBUS_MESSAGE_LIST_SERVICES, message));
+  _DBUS_HANDLE_OOM (reply = dbus_message_new_reply (message));
 
   _DBUS_HANDLE_OOM (services = bus_services_list (&len));
 
@@ -244,8 +243,8 @@ bus_driver_handle_list_services (DBusConnection *connection,
 }
 
 static void
-bus_driver_handle_own_service (DBusConnection *connection,
-			       DBusMessage    *message)
+bus_driver_handle_acquire_service (DBusConnection *connection,
+				   DBusMessage    *message)
 {
   DBusMessage *reply;
   DBusResultCode result;
@@ -272,7 +271,7 @@ bus_driver_handle_own_service (DBusConnection *connection,
   _dbus_string_init_const (&service_name, name);
   service = bus_service_lookup (&service_name, TRUE);
 
-  _DBUS_HANDLE_OOM ((reply = dbus_message_new_reply (DBUS_MESSAGE_ACQUIRE_SERVICE, message)));
+  _DBUS_HANDLE_OOM ((reply = dbus_message_new_reply (message)));
   
   /*
    * Check if the service already has an owner
@@ -355,7 +354,7 @@ bus_driver_handle_service_exists (DBusConnection *connection,
  _dbus_string_init_const (&service_name, name);
  service = bus_service_lookup (&service_name, FALSE);
  
- _DBUS_HANDLE_OOM ((reply = dbus_message_new_reply (DBUS_MESSAGE_ACQUIRE_SERVICE, message)));
+ _DBUS_HANDLE_OOM ((reply = dbus_message_new_reply (message)));
  _DBUS_HANDLE_OOM (dbus_message_set_sender (reply, DBUS_SERVICE_DBUS));
 
  _DBUS_HANDLE_OOM (dbus_message_append_fields (reply,
@@ -391,7 +390,7 @@ bus_driver_handle_message (DBusConnection *connection,
   else if (strcmp (name, DBUS_MESSAGE_LIST_SERVICES) == 0)
     bus_driver_handle_list_services (connection, message);
   else if (strcmp (name, DBUS_MESSAGE_ACQUIRE_SERVICE) == 0)
-    bus_driver_handle_own_service (connection, message);
+    bus_driver_handle_acquire_service (connection, message);
   else if (strcmp (name, DBUS_MESSAGE_SERVICE_EXISTS) == 0)
     bus_driver_handle_service_exists (connection, message);
   

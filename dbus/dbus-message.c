@@ -787,15 +787,16 @@ dbus_message_new (const char *service,
  * @see dbus_message_new(), dbus_message_unref()
  */ 
 DBusMessage*
-dbus_message_new_reply (const char  *name,
-			DBusMessage *original_message)
+dbus_message_new_reply (DBusMessage *original_message)
 {
   DBusMessage *message;
-  const char *sender;
+  const char *sender, *name;
 
   sender = get_string_field (original_message,
                              FIELD_SENDER, NULL);
-
+  name = get_string_field (original_message,
+			   FIELD_NAME, NULL);
+  
   _dbus_assert (sender != NULL);
   
   message = dbus_message_new (sender, name);
