@@ -10,7 +10,7 @@ namespace DBus {
                     string dest_service) {
       // the assignment bumps the refcount
       raw = dbus_message_new (name, dest_service);
-      if (raw == (IntPtr) 0)
+      if (raw == IntPtr.Zero)
         throw new OutOfMemoryException ();
       dbus_message_unref (raw);
     }
@@ -25,7 +25,7 @@ namespace DBus {
       IntPtr gch_ptr;
       
       gch_ptr = dbus_message_get_data (ptr, wrapper_slot);
-      if (gch_ptr != (IntPtr) 0) {
+      if (gch_ptr != IntPtr.Zero) {
         return (DBus.Message) ((GCHandle)gch_ptr).Target;
       } else {
         return new Message (ptr);
@@ -43,15 +43,15 @@ namespace DBus {
         if (value == raw_)
           return;
         
-        if (raw_ != (IntPtr) 0) {
+        if (raw_ != IntPtr.Zero) {
           IntPtr gch_ptr;
           
           gch_ptr = dbus_message_get_data (raw_,
                                            wrapper_slot);
-          Debug.Assert (gch_ptr != (IntPtr) 0);
+          Debug.Assert (gch_ptr != IntPtr.Zero);
 
           dbus_message_set_data (raw_, wrapper_slot,
-                                 (IntPtr) 0, (IntPtr) 0);
+                                 IntPtr.Zero, IntPtr.Zero);
           
           ((GCHandle) gch_ptr).Free ();
           
@@ -60,7 +60,7 @@ namespace DBus {
         
         raw_ = value;
 
-        if (raw_ != (IntPtr) 0) {
+        if (raw_ != IntPtr.Zero) {
           GCHandle gch;
 
           dbus_message_ref (raw_);
@@ -69,13 +69,13 @@ namespace DBus {
           gch = GCHandle.Alloc (this, GCHandleType.WeakTrackResurrection);
           
           dbus_message_set_data (raw_, wrapper_slot,
-                                 (IntPtr) gch, (IntPtr) 0);
+                                 (IntPtr) gch, IntPtr.Zero);
         }
       }
     }
 
     ~Message () {
-      raw = (IntPtr) 0; // free the native object
+      raw = IntPtr.Zero; // free the native object
     }
     
     Message (IntPtr r) {

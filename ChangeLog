@@ -1,3 +1,7 @@
+2003-06-24  Havoc Pennington  <hp@pobox.com>
+
+	* mono/*.cs: Use IntPtr.Zero instead of ((IntPtr) 0)
+
 2003-06-23  Anders Carlsson  <andersca@codefactory.se>
 
 	* configure.in:

@@ -17,7 +17,7 @@ namespace DBus {
     internal static void Init () {
       if (!initialized) {
         initialized = true;
-        g_thread_init ((IntPtr) 0);
+        g_thread_init (IntPtr.Zero);
         dbus_gthread_init ();
       }
     }

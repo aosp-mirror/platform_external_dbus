@@ -11,7 +11,7 @@ namespace DBus {
       Error error = new Error ();
       error.Init ();
       raw = dbus_connection_open (address, ref error);
-      if (raw != (IntPtr) 0) {
+      if (raw != IntPtr.Zero) {
         dbus_connection_unref (raw);
       } else {
         Exception e = new Exception (ref error);
@@ -33,14 +33,14 @@ namespace DBus {
       error.Init ();
       
       IntPtr ptr = dbus_bus_get ((int) bus, ref error);
-      if (ptr != (IntPtr) 0) {
+      if (ptr != IntPtr.Zero) {
         Connection c = Wrap (ptr);
         dbus_connection_unref (ptr);
         return c;
       } else {
         Exception e = new Exception (ref error);
         error.Free ();
-        throw e;        
+        throw e;   
       }
     }
     
@@ -67,7 +67,7 @@ namespace DBus {
       IntPtr gch_ptr;
       
       gch_ptr = dbus_connection_get_data (ptr, wrapper_slot);
-      if (gch_ptr != (IntPtr) 0) {
+      if (gch_ptr != IntPtr.Zero) {
         return (DBus.Connection) ((GCHandle)gch_ptr).Target;
       } else {
         return new Connection (ptr);
@@ -85,15 +85,15 @@ namespace DBus {
         if (value == raw_)
           return;
         
-        if (raw_ != (IntPtr) 0) {
+        if (raw_ != IntPtr.Zero) {
           IntPtr gch_ptr;
           
           gch_ptr = dbus_connection_get_data (raw_,
                                               wrapper_slot);
-          Debug.Assert (gch_ptr != (IntPtr) 0);
+          Debug.Assert (gch_ptr != IntPtr.Zero);
 
           dbus_connection_set_data (raw_, wrapper_slot,
-                                    (IntPtr) 0, (IntPtr) 0);
+                                    IntPtr.Zero, IntPtr.Zero);
           
           ((GCHandle) gch_ptr).Free ();
           
@@ -102,7 +102,7 @@ namespace DBus {
         
         raw_ = value;
 
-        if (raw_ != (IntPtr) 0) {
+        if (raw_ != IntPtr.Zero) {
           GCHandle gch;
 
           dbus_connection_ref (raw_);
@@ -111,16 +111,16 @@ namespace DBus {
           gch = GCHandle.Alloc (this, GCHandleType.WeakTrackResurrection);
           
           dbus_connection_set_data (raw_, wrapper_slot,
-                                    (IntPtr) gch, (IntPtr) 0);
+                                    (IntPtr) gch, IntPtr.Zero);
         }
       }
     }
 
     ~Connection () {
-      if (raw != (IntPtr) 0) {
+      if (raw != IntPtr.Zero) {
         Disconnect ();
       }
-      raw = (IntPtr) 0; // free the native object
+      raw = IntPtr.Zero; // free the native object
     }
     
     Connection (IntPtr r) {
