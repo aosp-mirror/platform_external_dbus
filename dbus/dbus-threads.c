@@ -172,12 +172,18 @@ dbus_threads_init (const DBusThreadFunctions *functions)
 /**
  * Lock a static mutex
  *
+ * @todo currently broken on some platforms due to
+ * non-workingness of "double checked locking"
+ * see http://bugzilla.gnome.org/show_bug.cgi?id=69668
+ * and http://www.cs.umd.edu/~pugh/java/memoryModel/DoubleCheckedLocking.html
+ * for example.
+ * 
  * @param mutex the mutex to lock
  * @returns #TRUE on success
  */
 dbus_bool_t
 dbus_static_mutex_lock (DBusStaticMutex *mutex)
-{
+{ 
   if (_DBUS_STATIC_MUTEX_IMPL (mutex))
     return dbus_mutex_lock (_DBUS_STATIC_MUTEX_IMPL (mutex));
 
