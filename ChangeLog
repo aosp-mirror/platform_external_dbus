@@ -1,3 +1,8 @@
+2003-05-02  Havoc Pennington  <hp@redhat.com>
+
+	* bus/system.conf.in: allow send/receive to/from message bus
+	service
+
 2003-04-30  Havoc Pennington  <hp@redhat.com>
 
 	* configure.in: print a note when building with unit tests and

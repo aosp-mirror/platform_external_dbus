@@ -36,6 +36,9 @@
     <deny own="*"/>
     <!-- But allow all users to connect -->
     <allow user="*"/>
+    <!-- Allow anyone to talk to the message bus -->
+    <allow send_to="org.freedesktop.DBus"/>
+    <allow receive_from="org.freedesktop.DBus"/>
   </policy>
 
   <!-- Config files are placed here that among other things, punch 
