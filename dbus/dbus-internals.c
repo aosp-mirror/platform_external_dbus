@@ -349,6 +349,8 @@ _dbus_type_to_string (int type)
 {
   switch (type)
     {
+    case DBUS_TYPE_INVALID:
+      return "invalid";
     case DBUS_TYPE_INT32:
       return "int32";
     case DBUS_TYPE_UINT32:
@@ -357,6 +359,8 @@ _dbus_type_to_string (int type)
       return "double";
     case DBUS_TYPE_STRING:
       return "string";
+    case DBUS_TYPE_BYTE_ARRAY:
+      return "byte array";
     default:
       return "unknown";
     }

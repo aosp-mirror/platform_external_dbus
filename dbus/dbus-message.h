@@ -79,6 +79,7 @@ int         dbus_message_iter_get_int32      (DBusMessageIter *iter);
 int         dbus_message_iter_get_uint32     (DBusMessageIter *iter);
 double      dbus_message_iter_get_double     (DBusMessageIter *iter);
 char *      dbus_message_iter_get_string     (DBusMessageIter *iter);
+unsigned char *dbus_message_iter_get_byte_array (DBusMessageIter *iter, int *len);
 
 
 

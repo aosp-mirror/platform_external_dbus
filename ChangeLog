@@ -1,3 +1,17 @@
+2003-01-08  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-internals.c: (_dbus_type_to_string):
+	New function that returns a string describing a type.
+	
+	* dbus/dbus-marshal.c: (_dbus_demarshal_byte_array):
+	* dbus/dbus-marshal.h:
+	* dbus/dbus-message.c: (dbus_message_get_fields_valist),
+	(dbus_message_iter_get_field_type), (dbus_message_iter_get_double),
+	(dbus_message_iter_get_byte_array):
+	* dbus/dbus-message.h:
+	Add new convenience functions for appending and getting message fields.
+	Also add demarshalling routines for byte arrays.
+
 2003-01-07  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-connection-internal.h:

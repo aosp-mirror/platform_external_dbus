@@ -396,6 +396,40 @@ _dbus_demarshal_string (DBusString *str,
   return retval;
 }
 
+unsigned char *
+_dbus_demarshal_byte_array (DBusString *str,
+			    int         byte_order,
+			    int         pos,
+			    int        *new_pos,
+			    int        *array_len)
+{
+  int len;
+  unsigned char *retval;
+  const char *data;
+
+  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+
+  retval = dbus_malloc (len);
+
+  if (!retval)
+    return NULL;
+
+  _dbus_string_get_const_data_len (str, &data, pos, len);
+
+  if (!data)
+    return NULL;
+
+  memcpy (retval, data, len);
+
+  if (new_pos)
+    *new_pos = pos + len;
+
+  if (array_len)
+    *array_len = len;
+
+  return retval;
+}
+
 /** 
  * Returns the position right after the end position 
  * end position of a field

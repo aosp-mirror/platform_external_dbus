@@ -559,7 +559,7 @@ dbus_message_get_fields_valist (DBusMessage *message,
   while (spec_type != 0)
     {
       msg_type = dbus_message_iter_get_field_type (iter);      
-
+      
       if (msg_type != spec_type)
 	{
 	  _dbus_warn ("Field %d is specified to be of type \"%s\", but "
@@ -611,15 +611,26 @@ dbus_message_get_fields_valist (DBusMessage *message,
 	    *ptr = dbus_message_iter_get_string (iter);
 	    break;
 	  }
-	  
-	default:
+
+	case DBUS_TYPE_BYTE_ARRAY:
+	  {
+	    char **ptr;
+	    int *len;
+
+	    ptr = va_arg (var_args, char **);
+	    len = va_arg (var_args, int *);
+
+	    *ptr = dbus_message_iter_get_byte_array (iter, len);
+	    break;
+	  }
+	default:	  
 	  _dbus_warn ("Unknown field type %d\n", spec_type);
 	}
       
       spec_type = va_arg (var_args, int);
       if (spec_type != 0 && !dbus_message_iter_next (iter))
 	{
-	  _dbus_warn ("More fields than exists in the message were specified");
+	  _dbus_warn ("More fields than exist in the message were specified\n");
 
 	  dbus_message_iter_unref (iter);	  
 	  return FALSE;
@@ -745,7 +756,7 @@ int
 dbus_message_iter_get_field_type (DBusMessageIter *iter)
 {
   const char *data;
-  
+
   if (iter->pos >= _dbus_string_get_length (&iter->message->body))
     return DBUS_TYPE_INVALID;
 
@@ -821,6 +832,15 @@ dbus_message_iter_get_double (DBusMessageIter *iter)
 {
   return _dbus_demarshal_double (&iter->message->body, iter->message->byte_order,
 				 iter->pos + 1, NULL);
+}
+
+unsigned char *
+dbus_message_iter_get_byte_array (DBusMessageIter *iter, int *len)
+{
+  _dbus_assert (dbus_message_iter_get_field_type (iter) == DBUS_TYPE_BYTE_ARRAY);
+
+  return _dbus_demarshal_byte_array (&iter->message->body, iter->message->byte_order,
+				     iter->pos + 1, NULL, len);
 }
 
 /** @} */
