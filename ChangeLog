@@ -1,3 +1,8 @@
+2005-01-03  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-internals.h: I'm an idiot, _dbus_assert certainly can
+	return
+	
 2004-12-26  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-internals.h: add _DBUS_GNUC_NORETURN to _dbus_assert

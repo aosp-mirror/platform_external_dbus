@@ -100,7 +100,7 @@ const char* _dbus_strerror (int error_number);
 void _dbus_real_assert (dbus_bool_t  condition,
                         const char  *condition_text,
                         const char  *file,
-                        int          line) _DBUS_GNUC_NORETURN;
+                        int          line);
 #define _dbus_assert(condition)                                         \
   _dbus_real_assert ((condition) != 0, #condition, __FILE__, __LINE__)
 #endif /* !DBUS_DISABLE_ASSERT */
