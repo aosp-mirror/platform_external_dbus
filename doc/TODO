@@ -102,7 +102,9 @@
    dbus_message_get_args() which takes a DBusError. 
    Probably we need to either fully encapsulate and hide 
    dbus/dbus.h, or encapsulate it slightly less e.g. no 
-   GError.
+   GError. Or maybe it's as simple as "never return dbus_malloc() 
+   memory" and just fully encapsulate the get_args() type of 
+   stuff.
 
  - need to define bus behavior if you send a message to 
    yourself; is it an error, or allowed? If allowed, 

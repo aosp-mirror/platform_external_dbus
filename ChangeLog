@@ -1,3 +1,8 @@
+2003-11-01  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-specification.xml: add state machine docs on the auth
+	protocol; just a first draft, I'm sure it's wrong.	
+
 2003-10-28  David Zeuthen  <david@fubar.dk>
 
 	* python/dbus_bindings.pyx.in: add get_dict to handle dictionaries

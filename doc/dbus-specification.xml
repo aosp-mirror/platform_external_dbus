@@ -1048,8 +1048,163 @@
       <title>Authentication state diagrams</title>
       
       <para>
-        WRITEME
+        This section documents the auth protocol in terms of 
+        a state machine for the client and the server. This is 
+        probably the most robust way to implement the protocol.
       </para>
+
+      <sect3 id="auth-states-client">
+        <title>Client states</title>
+        
+        <formalpara>
+          <title><emphasis>Start</emphasis></title>
+          <para>
+            <itemizedlist>
+              <listitem><para>send AUTH with initial data -&gt; <emphasis>WaitingForData</emphasis></para></listitem>
+              <listitem><para>send AUTH with no initial data -&gt; <emphasis>WaitingForData</emphasis> or <emphasis>NeedSendData</emphasis> (depends on mechanism)</para></listitem>
+            </itemizedlist>
+            The <emphasis>Start</emphasis> state is stateful (it has a list of
+            available mechanisms and those it has already attempted). This list
+            is used to decide which AUTH command to send. When the list is 
+            exhausted, the client should give up and close the connection.
+          </para>
+        </formalpara>
+
+        <formalpara>
+          <title><emphasis>WaitingForData</emphasis></title>
+          <para>
+            
+            <itemizedlist>
+              <listitem><para>receive OK -&gt; <emphasis>NeedSendBegin</emphasis></para></listitem>
+              <listitem><para>receive REJECTED -&gt; <emphasis>Start</emphasis></para></listitem>
+              <listitem><para>receive ERROR -&gt; <emphasis>Start</emphasis></para></listitem>
+              <listitem><para>receive DATA -&gt; <emphasis>NeedSendData</emphasis></para></listitem>
+              <listitem><para>receive anything else -&gt; <emphasis>NeedSendError</emphasis></para></listitem>
+            </itemizedlist>
+            When going back to <emphasis>Start</emphasis>, the mechanism in 
+            progress should be marked as failed and not retried (at least not 
+            with the same parameters). When receiving REJECTED with a list of 
+            mechanisms, the list should be recorded and used to select
+            a mechanism.
+          </para>
+        </formalpara>
+
+        <formalpara>
+          <title><emphasis>NeedSendData</emphasis></title>
+          <para>
+            <itemizedlist>
+              <listitem><para>send DATA -&gt; <emphasis>WaitingForData</emphasis></para></listitem>
+              <listitem><para>send CANCEL -&gt; <emphasis>Start</emphasis></para></listitem>
+            </itemizedlist>
+          </para>
+        </formalpara>
+
+        <formalpara>
+          <title><emphasis>NeedSendError</emphasis></title>
+          <para>
+            
+            <itemizedlist>
+              <listitem><para>send ERROR -&gt; return to previous state</para></listitem>
+            </itemizedlist>
+          </para>
+        </formalpara>
+
+        <formalpara>
+          <title><emphasis>NeedSendBegin</emphasis></title>
+          <para>
+            
+            <itemizedlist>
+              <listitem><para>send BEGIN -&gt; Authorized</para></listitem>
+            </itemizedlist>
+          </para>
+        </formalpara>
+
+        <formalpara>
+          <title><emphasis>Authorized</emphasis></title>
+          <para>
+            This is the end state, flow of messages begins.
+          </para>
+        </formalpara>
+
+      </sect3>
+
+      <sect3 id="auth-states-server">
+        <title>Server states</title>
+        
+        <formalpara>
+          <title><emphasis>WaitingForAuth</emphasis></title>
+          <para>
+            <itemizedlist>
+              <listitem><para>receive AUTH with initial response -&gt; <emphasis>NeedSendData</emphasis></para></listitem>
+              <listitem><para>receive AUTH without initial response -&gt; <emphasis>NeedSendData</emphasis> or <emphasis>WaitingForData</emphasis> depending on mechanism</para></listitem>
+            </itemizedlist>
+          </para>
+        </formalpara>
+
+        <formalpara>
+          <title><emphasis>NeedSendData</emphasis></title>
+          <para>
+            <itemizedlist>
+              <listitem><para>send DATA -&gt; <emphasis>WaitingForData</emphasis></para></listitem>
+              <listitem><para>send ERROR -&gt; <emphasis>WaitingForData</emphasis></para></listitem>
+              <listitem><para>send REJECTED -&gt; <emphasis>WaitingForAuth</emphasis></para></listitem>
+              <listitem><para>send OK -&gt; <emphasis>WaitingForBegin</emphasis></para></listitem>
+            </itemizedlist>
+          </para>
+        </formalpara>
+
+        <formalpara>
+          <title><emphasis>WaitingForData</emphasis></title>
+          <para>
+            <itemizedlist>
+              <listitem><para>receive DATA -&gt; <emphasis>NeedSendData</emphasis></para></listitem>
+              <listitem><para>receive CANCEL -&gt; <emphasis>NeedSendRejected</emphasis></para></listitem>
+              <listitem><para>receive ERROR -&gt; <emphasis>NeedSendRejected</emphasis></para></listitem>
+              <listitem><para>receive anything else -&gt; <emphasis>NeedSendError</emphasis></para></listitem>
+            </itemizedlist>
+          </para>
+        </formalpara>
+
+        <formalpara>
+          <title><emphasis>NeedSendError</emphasis></title>
+          <para>
+            
+            <itemizedlist>
+              <listitem><para>send ERROR -&gt; return to previous state</para></listitem>
+            </itemizedlist>
+          </para>
+        </formalpara>
+
+        <formalpara>
+          <title><emphasis>NeedSendRejected</emphasis></title>
+          <para>
+            
+            <itemizedlist>
+              <listitem><para>send REJECTED -&gt; <emphasis>WaitingForAuth</emphasis></para></listitem>
+            </itemizedlist>
+          </para>
+        </formalpara>
+
+        <formalpara>
+          <title><emphasis>WaitingForBegin</emphasis></title>
+          <para>
+            
+            <itemizedlist>
+              <listitem><para>receive BEGIN -&gt; <emphasis>Authorized</emphasis></para></listitem>
+              <listitem><para>receive anything else -&gt; <emphasis>NeedSendError</emphasis></para></listitem>
+            </itemizedlist>
+          </para>
+        </formalpara>
+
+        <formalpara>
+          <title><emphasis>Authorized</emphasis></title>
+          <para>
+            This is the end state, flow of messages begins.
+          </para>
+        </formalpara>
+
+      </sect3>
+      
     </sect2>
     <sect2 id="auth-mechanisms">
       <title>Authentication mechanisms</title>
