@@ -24,6 +24,14 @@ EXTRA_DIST =			\
 
 all-local: Doxyfile
 
+if DBUS_BUILD_TESTS
+### nothing
+else
+check-local:
+	echo "You have to configure with --enable-tests to make check" ; \
+	exit 1
+endif
+
 if DBUS_GCOV_ENABLED
 clean-gcov:
 	find -name "*.da" -o -name "*.gcov" | xargs rm || true

@@ -103,3 +103,11 @@ endif
 #### Extra dist 
 
 EXTRA_DIST=$(CONFIG_IN_FILES) $(SCRIPT_IN_FILES)
+
+if DBUS_BUILD_TESTS
+### nothing
+else
+check-local:
+	echo "You have to configure with --enable-tests to make check" ; \
+	exit 1
+endif
