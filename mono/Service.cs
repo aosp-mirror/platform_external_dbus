@@ -14,9 +14,6 @@ namespace DBus
     private string name;
     private bool local = false;
     private Hashtable registeredHandlers = new Hashtable();
-    private delegate int DBusHandleMessageFunction(IntPtr rawConnection,
-						   IntPtr rawMessage,
-						   IntPtr userData);
     private DBusHandleMessageFunction filterCalled;
     public delegate void SignalCalledHandler(Signal signal);
     public event SignalCalledHandler SignalCalled;
@@ -48,12 +45,6 @@ namespace DBus
       this.connection = connection;
       this.name = name;
       this.local = true;
-    }
-
-    ~Service ()
-    {
-      if (this.filterCalled != null)
-        RemoveFilter ();
     }
 
     public static bool HasOwner(Connection connection, string name)
@@ -116,23 +107,9 @@ namespace DBus
     {
       // Setup the filter function
       this.filterCalled = new DBusHandleMessageFunction(Service_FilterCalled);
-      if (!dbus_connection_add_filter(Connection.RawConnection,
-				      this.filterCalled,
-				      IntPtr.Zero,
-				      IntPtr.Zero))
-	throw new OutOfMemoryException();
-
-      dbus_bus_add_match(connection.RawConnection, MatchRule, IntPtr.Zero);
-    }
-
-    private void RemoveFilter() 
-    {
-      dbus_connection_remove_filter (Connection.RawConnection,
-				     this.filterCalled,
-				     IntPtr.Zero);
-      this.filterCalled = null;
-
-      dbus_bus_remove_match (connection.RawConnection, MatchRule, IntPtr.Zero);
+      Connection.AddFilter (this.filterCalled);
+      // Add a match for signals. FIXME: Can we filter the service?
+      Connection.AddMatch ("type='signal'");
     }
 
     private int Service_FilterCalled(IntPtr rawConnection,
@@ -209,27 +186,6 @@ namespace DBus
     private extern static bool dbus_bus_name_has_owner(IntPtr rawConnection, 
 						       string serviceName, 
 						       ref Error error);    
-
-    [DllImport("dbus-1")]
-    private extern static bool dbus_connection_add_filter(IntPtr rawConnection,
-							  DBusHandleMessageFunction filter,
-							  IntPtr userData,
-							  IntPtr freeData);
-
-    [DllImport("dbus-1")]
-    private extern static void dbus_connection_remove_filter(IntPtr rawConnection,
-							     DBusHandleMessageFunction filter,
-							     IntPtr userData);
-
-    [DllImport("dbus-1")]
-    private extern static void dbus_bus_add_match(IntPtr rawConnection,
-						  string rule,
-						  IntPtr erro);
-
-    [DllImport("dbus-1")]
-    private extern static void dbus_bus_remove_match(IntPtr rawConnection,
-						     string rule,
-						     IntPtr erro);
 
   }
 }

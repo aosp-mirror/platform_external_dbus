@@ -1,3 +1,13 @@
+2005-02-11  Joe Shaw  <joeshaw@novell.com>
+
+	* mono/Connection.cs: The unpredictability of finalizers in mono
+	prevents us from deterministically disconnecting the filters from
+	the Service class's finalizer, so move tracking of filters and
+	matches here.  Add API for that.
+
+	* mono/Service.cs: Remove the code, add code which calls the
+	methods now on the Connection class.
+
 2005-02-11  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/dbus.py (class Sender): added to support dbus signals better

@@ -8,6 +8,10 @@ namespace DBus
   using System.IO;
   using System.Collections;
   
+  public delegate int DBusHandleMessageFunction (IntPtr rawConnection,
+						 IntPtr rawMessage,
+						 IntPtr userData);
+
   public class Connection 
   {
     /// <summary>
@@ -21,6 +25,9 @@ namespace DBus
     private static int slot = -1;
     
     private int timeout = -1;
+
+    private ArrayList filters = new ArrayList (); // of DBusHandleMessageFunction
+    private ArrayList matches = new ArrayList (); // of string
 
     internal Connection(IntPtr rawConnection)
     {
@@ -56,6 +63,12 @@ namespace DBus
     {
       if (RawConnection != IntPtr.Zero) 
 	{
+          foreach (DBusHandleMessageFunction func in this.filters)
+            RemoveFilter (func);
+
+          foreach (string match_rule in this.matches)
+            RemoveMatch (match_rule);
+
 	  dbus_connection_disconnect(rawConnection);
 	}
       RawConnection = IntPtr.Zero; // free the native object
@@ -74,6 +87,38 @@ namespace DBus
       
       // If it doesn't exist then create a new connection around it
       return new Connection(rawConnection);
+    }
+
+    public void AddFilter (DBusHandleMessageFunction func)
+    {
+      if (!dbus_connection_add_filter (RawConnection,
+				       func,
+				       IntPtr.Zero,
+				       IntPtr.Zero))
+        throw new OutOfMemoryException ();
+
+      this.filters.Add (func);
+    }
+
+    public void RemoveFilter (DBusHandleMessageFunction func)
+    {
+      dbus_connection_remove_filter (RawConnection, func, IntPtr.Zero);
+
+      this.filters.Remove (func);
+    }
+
+    public void AddMatch (string match_rule)
+    {
+      dbus_bus_add_match (RawConnection, match_rule, IntPtr.Zero);
+
+      this.matches.Add (match_rule);
+    }
+
+    public void RemoveMatch (string match_rule)
+    {
+      dbus_bus_remove_match (RawConnection, match_rule, IntPtr.Zero);
+
+      this.matches.Remove (match_rule);
     }
 
     public string UniqueName
@@ -193,5 +238,26 @@ namespace DBus
 
     [DllImport ("dbus-1")]
     private extern static IntPtr dbus_bus_get_unique_name (IntPtr ptr);
+
+    [DllImport("dbus-1")]
+    private extern static bool dbus_connection_add_filter(IntPtr rawConnection,
+							  DBusHandleMessageFunction filter,
+							  IntPtr userData,
+							  IntPtr freeData);
+
+    [DllImport("dbus-1")]
+    private extern static void dbus_connection_remove_filter(IntPtr rawConnection,
+							     DBusHandleMessageFunction filter,
+							     IntPtr userData);
+
+    [DllImport("dbus-1")]
+    private extern static void dbus_bus_add_match(IntPtr rawConnection,
+						  string rule,
+						  IntPtr erro);
+
+    [DllImport("dbus-1")]
+    private extern static void dbus_bus_remove_match(IntPtr rawConnection,
+						     string rule,
+						     IntPtr erro);
   }
 }
