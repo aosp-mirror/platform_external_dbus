@@ -1,3 +1,10 @@
+2004-12-24  Havoc Pennington  <hp@redhat.com>
+
+	* test/decode-gcov.c: change to use .gcno and .gcda files, but the
+	file format has also changed and I haven't adapted to that yet
+	
+	* Makefile.am: load .gcno files from latest gcc
+
 2004-12-23  John (J5) Palmieri  <johnp@redhat.com>
 	* Patch from Rob Taylor <robtaylor@fastmail.fm>
 

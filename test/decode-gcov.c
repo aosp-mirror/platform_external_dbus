@@ -1274,15 +1274,26 @@ load_functions_for_c_file (const DBusString *filename,
 {
   DBusString bbg_filename;
   DBusString da_filename;
+  DBusString gcno_filename;
+  DBusString gcda_filename;
   DBusString contents;
+  DBusString *name;
   DBusError error;
 
+  /* With latest gcc it's .gcno instead of .bbg and
+   * gcda instead of .da
+   */
+  
   dbus_error_init (&error);
   
   if (!_dbus_string_init (&bbg_filename) ||
       !_dbus_string_init (&da_filename) ||
+      !_dbus_string_init (&gcno_filename) ||
+      !_dbus_string_init (&gcda_filename) ||
       !_dbus_string_copy (filename, 0, &bbg_filename, 0) ||
       !_dbus_string_copy (filename, 0, &da_filename, 0) ||
+      !_dbus_string_copy (filename, 0, &gcno_filename, 0) ||
+      !_dbus_string_copy (filename, 0, &gcda_filename, 0) ||
       !_dbus_string_init (&contents))
     die ("no memory\n");
 
@@ -1290,10 +1301,17 @@ load_functions_for_c_file (const DBusString *filename,
   _dbus_string_shorten (&da_filename, 2);
 
   if (!_dbus_string_append (&bbg_filename, ".bbg") ||
-      !_dbus_string_append (&da_filename, ".da"))
+      !_dbus_string_append (&da_filename, ".da") ||
+      !_dbus_string_append (&bbg_filename, ".gcno") ||
+      !_dbus_string_append (&bbg_filename, ".gcda"))
     die ("no memory\n");
-      
-  if (!_dbus_file_get_contents (&contents, &bbg_filename,
+
+  if (_dbus_file_exists (_dbus_string_get_const_data (&gcno_filename)))
+    name = &gcno_filename;
+  else
+    name = &bbg_filename;
+  
+  if (!_dbus_file_get_contents (&contents, name,
                                 &error))
     {
       fprintf (stderr, "Could not open file: %s\n",
@@ -1305,25 +1323,30 @@ load_functions_for_c_file (const DBusString *filename,
 
   _dbus_string_set_length (&contents, 0);
 
-  if (!_dbus_file_get_contents (&contents, &da_filename,
+  if (_dbus_file_exists (_dbus_string_get_const_data (&gcda_filename)))
+    name = &gcda_filename;
+  else
+    name = &da_filename;
+  
+  if (!_dbus_file_get_contents (&contents, name,
                                 &error))
     {
       /* Try .libs/file.da */
       int slash;
 
-      if (_dbus_string_find_byte_backward (&da_filename,
-                                            _dbus_string_get_length (&da_filename),
-                                            '/',
-                                            &slash))
+      if (_dbus_string_find_byte_backward (name,
+                                           _dbus_string_get_length (name),
+                                           '/',
+                                           &slash))
         {
           DBusString libs;
           _dbus_string_init_const (&libs, "/.libs");
 
-          if (!_dbus_string_copy (&libs, 0, &da_filename, slash))
+          if (!_dbus_string_copy (&libs, 0, name, slash))
             die ("no memory");
 
           dbus_error_free (&error);
-          if (!_dbus_file_get_contents (&contents, &da_filename,
+          if (!_dbus_file_get_contents (&contents, name,
                                         &error))
             {
               fprintf (stderr, "Could not open file: %s\n",
