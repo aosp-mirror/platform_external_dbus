@@ -537,7 +537,7 @@ load_config (BusContext *context,
 
 BusContext*
 bus_context_new (const DBusString *config_file,
-                 dbus_bool_t       force_fork,
+                 ForceForkSetting  force_fork,
                  int               print_addr_fd,
                  int               print_pid_fd,
                  DBusError        *error)
@@ -656,7 +656,7 @@ bus_context_new (const DBusString *config_file,
     }
   
   /* Now become a daemon if appropriate */
-  if (force_fork || context->fork)
+  if ((force_fork != FORK_NEVER && context->fork) || force_fork == FORK_ALWAYS)
     {
       DBusString u;
 

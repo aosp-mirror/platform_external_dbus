@@ -1,3 +1,14 @@
+2004-09-12  David Zeuthen  <david@fubar.dk>
+
+	Patch from Kay Sievers <kay.sievers@vrfy.org>
+
+	* bus/bus.c (bus_context_new):
+	* bus/bus.h:
+	* bus/main.c (usage)
+	(main):
+	Add commandline option --nofork to override configuration file
+	setting.
+
 2004-09-09  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* dbus/dbus-*.h: remove the ; after DBUS_(BEGIN|END)_DECLS. Some C

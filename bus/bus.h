@@ -61,8 +61,15 @@ typedef struct
   int reply_timeout;                  /**< How long to wait before timing out a reply */
 } BusLimits;
 
+typedef enum
+{
+  FORK_FOLLOW_CONFIG_FILE,
+  FORK_ALWAYS,
+  FORK_NEVER
+} ForceForkSetting;
+
 BusContext*       bus_context_new                                (const DBusString *config_file,
-                                                                  dbus_bool_t       force_fork,
+                                                                  ForceForkSetting  force_fork,
                                                                   int               print_addr_fd,
                                                                   int               print_pid_fd,
                                                                   DBusError        *error);

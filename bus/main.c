@@ -62,7 +62,7 @@ signal_handler (int sig)
 static void
 usage (void)
 {
-  fprintf (stderr, "dbus-daemon-1 [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork]\n");
+  fprintf (stderr, "dbus-daemon-1 [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork] [--nofork]\n");
   exit (1);
 }
 
@@ -200,8 +200,8 @@ main (int argc, char **argv)
   int i;
   dbus_bool_t print_address;
   dbus_bool_t print_pid;
-  dbus_bool_t force_fork;
-  
+  int force_fork;
+
   if (!_dbus_string_init (&config_file))
     return 1;
 
@@ -210,25 +210,27 @@ main (int argc, char **argv)
 
   if (!_dbus_string_init (&pid_fd))
     return 1;
-  
+
   print_address = FALSE;
   print_pid = FALSE;
-  force_fork = FALSE;
-  
+  force_fork = FORK_FOLLOW_CONFIG_FILE;
+
   prev_arg = NULL;
   i = 1;
   while (i < argc)
     {
       const char *arg = argv[i];
-      
+
       if (strcmp (arg, "--help") == 0 ||
           strcmp (arg, "-h") == 0 ||
           strcmp (arg, "-?") == 0)
         usage ();
       else if (strcmp (arg, "--version") == 0)
         version ();
+      else if (strcmp (arg, "--nofork") == 0)
+        force_fork = FORK_NEVER;
       else if (strcmp (arg, "--fork") == 0)
-        force_fork = TRUE;
+        force_fork = FORK_ALWAYS;
       else if (strcmp (arg, "--system") == 0)
         {
           check_two_config_files (&config_file, "system");
