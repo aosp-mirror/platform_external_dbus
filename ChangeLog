@@ -1,3 +1,14 @@
+2005-01-11  Joe Shaw  <joeshaw@novell.com>
+
+	Patch from Timo Teräs <ext-timo.teras@nokia.com>
+
+	* dbus/dbus-connection.c
+	(_dbus_connection_queue_received_message_link): Call
+	_dbus_connection_remove_timeout() instead of the _locked()
+	variant, since it's always called from
+	_dbus_connection_handle_watch(), which handles the locking.
+	Removed the _locked() variant since it's no longer used.
+
 2005-01-03  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-internals.h: I'm an idiot, _dbus_assert certainly can

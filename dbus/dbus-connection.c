@@ -224,8 +224,6 @@ struct DBusConnection
 #endif 
 };
 
-static void               _dbus_connection_remove_timeout_locked             (DBusConnection     *connection,
-                                                                              DBusTimeout        *timeout);
 static DBusDispatchStatus _dbus_connection_get_dispatch_status_unlocked      (DBusConnection     *connection);
 static void               _dbus_connection_update_dispatch_status_and_unlock (DBusConnection     *connection,
                                                                               DBusDispatchStatus  new_status);
@@ -349,8 +347,8 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
       if (pending != NULL)
 	{
 	  if (pending->timeout_added)
-	    _dbus_connection_remove_timeout_locked (connection,
-                                                    pending->timeout);
+	    _dbus_connection_remove_timeout (connection,
+                                             pending->timeout);
 
 	  pending->timeout_added = FALSE;
 	}
@@ -592,15 +590,6 @@ _dbus_connection_remove_timeout (DBusConnection *connection,
   if (connection->timeouts) /* null during finalize */
     _dbus_timeout_list_remove_timeout (connection->timeouts,
 				       timeout);
-}
-
-static void
-_dbus_connection_remove_timeout_locked (DBusConnection *connection,
-					DBusTimeout    *timeout)
-{
-  CONNECTION_LOCK (connection);
-  _dbus_connection_remove_timeout (connection, timeout);
-  CONNECTION_UNLOCK (connection);
 }
 
 /**
