@@ -1,5 +1,21 @@
 2005-02-04  Havoc Pennington  <hp@redhat.com>
 
+	* glib/dbus-gproxy.c (dbus_g_proxy_disconnect_signal): use
+	g_quark_try_string() so it actually can return 0
+	(dbus_g_proxy_connect_signal): ditto
+
+2005-02-04  Havoc Pennington  <hp@redhat.com>
+
+	* glib/dbus-gproxy.c (dbus_g_proxy_emit_remote_signal): fix a
+	bogus warning
+	(tristring_from_message): assert cleanly on null path/interface
+	(should not be possible though I decided later)
+	(dbus_g_proxy_dispose): move proxy manager unregistration here
+	(DBUS_G_PROXY_DESTROYED): add this macro, and use it in a bunch of
+	g_return_if_fail() checks
+
+2005-02-04  Havoc Pennington  <hp@redhat.com>
+
 	* doc/Makefile.am (EXTRA_DIST): add DTDs to makefile
 
 	* doc/introspect.dtd: add introspect.dtd from David A. Wheeler

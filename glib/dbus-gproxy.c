@@ -355,10 +355,18 @@ tristring_from_proxy (DBusGProxy *proxy)
 static char*
 tristring_from_message (DBusMessage *message)
 {
+  const char *path;
+  const char *interface;
+
+  path = dbus_message_get_path (message);
+  interface = dbus_message_get_interface (message);
+
+  g_assert (path);
+  g_assert (interface);
+  
   return tristring_alloc_from_strings (0,
                                        dbus_message_get_sender (message),
-                                       dbus_message_get_path (message),
-                                       dbus_message_get_interface (message));
+                                       path, interface);
 }
 
 static DBusGProxyList*
@@ -556,8 +564,8 @@ dbus_g_proxy_manager_list_all (DBusGProxyManager *manager)
 
 static DBusHandlerResult
 dbus_g_proxy_manager_filter (DBusConnection    *connection,
-                            DBusMessage       *message,
-                            void              *user_data)
+                             DBusMessage       *message,
+                             void              *user_data)
 {
   DBusGProxyManager *manager;
   
@@ -608,6 +616,11 @@ dbus_g_proxy_manager_filter (DBusConnection    *connection,
     {
       char *tri;
       DBusGProxyList *list;
+
+      /* dbus spec requires these, libdbus validates */
+      g_assert (dbus_message_get_path (message) != NULL);
+      g_assert (dbus_message_get_interface (message) != NULL);
+      g_assert (dbus_message_get_member (message) != NULL);
       
       tri = tristring_from_message (message);
 
@@ -667,6 +680,8 @@ dbus_g_proxy_manager_filter (DBusConnection    *connection,
 
 
 /*      ---------- DBusGProxy --------------   */
+
+#define DBUS_G_PROXY_DESTROYED(proxy)  (DBUS_G_PROXY (proxy)->manager == NULL)
 
 static void
 marshal_dbus_message_to_g_marshaller (GClosure     *closure,
@@ -728,6 +743,13 @@ dbus_g_proxy_dispose (GObject *object)
 
   proxy = DBUS_G_PROXY (object);
 
+  if (proxy->manager)
+    {
+      dbus_g_proxy_manager_unregister (proxy->manager, proxy);
+      dbus_g_proxy_manager_unref (proxy->manager);
+      proxy->manager = NULL;
+    }
+  
   g_datalist_clear (&proxy->signal_signatures);
   
   g_signal_emit (object, signals[DESTROY], 0);
@@ -739,14 +761,10 @@ static void
 dbus_g_proxy_finalize (GObject *object)
 {
   DBusGProxy *proxy;
-
+  
   proxy = DBUS_G_PROXY (object);
 
-  if (proxy->manager)
-    {
-      dbus_g_proxy_manager_unregister (proxy->manager, proxy);
-      dbus_g_proxy_manager_unref (proxy->manager);
-    }
+  g_return_if_fail (DBUS_G_PROXY_DESTROYED (proxy));
   
   g_free (proxy->name);
   g_free (proxy->path);
@@ -954,6 +972,8 @@ dbus_g_proxy_emit_remote_signal (DBusGProxy  *proxy,
   const char *signal;
   char *name;
   GQuark q;
+
+  g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
   
   interface = dbus_message_get_interface (message);
   signal = dbus_message_get_member (message);
@@ -976,8 +996,13 @@ dbus_g_proxy_emit_remote_signal (DBusGProxy  *proxy,
       signature = g_datalist_id_get_data (&proxy->signal_signatures, q);
       if (signature == NULL)
         {
+#if 0
+          /* this should not trigger a warning, as you shouldn't have to
+           * add signals you don't care about
+           */
           g_warning ("Signal '%s' has not been added to this proxy object\n",
                      name);
+#endif
         }
       else if (!dbus_message_has_signature (message, signature))
         {
@@ -1249,6 +1274,7 @@ const char*
 dbus_g_proxy_get_bus_name (DBusGProxy        *proxy)
 {
   g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), NULL);
+  g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), NULL);
 
   return proxy->name;
 }
@@ -1283,6 +1309,7 @@ dbus_g_proxy_begin_call (DBusGProxy *proxy,
   va_list args;
   
   g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), NULL);
+  g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), NULL);
 
   message = dbus_message_new_method_call (proxy->name,
                                           proxy->path,
@@ -1355,6 +1382,7 @@ dbus_g_proxy_end_call (DBusGProxy          *proxy,
   DBusError derror;
   
   g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), FALSE);
+  g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), FALSE);
   g_return_val_if_fail (pending != NULL, FALSE);
 
   dbus_pending_call_block (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (pending));
@@ -1414,6 +1442,7 @@ dbus_g_proxy_call_no_reply (DBusGProxy               *proxy,
   va_list args;
   
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
+  g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
 
   message = dbus_message_new_method_call (proxy->name,
                                           proxy->path,
@@ -1465,6 +1494,7 @@ dbus_g_proxy_send (DBusGProxy          *proxy,
                    dbus_uint32_t       *client_serial)
 {
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
+  g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
   
   if (proxy->name)
     {
@@ -1503,6 +1533,7 @@ dbus_g_proxy_add_signal  (DBusGProxy        *proxy,
   char *name;
 
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
+  g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
   g_return_if_fail (signal_name != NULL);
   g_return_if_fail (signature != NULL);
 #ifndef G_DISABLE_CHECKS
@@ -1547,15 +1578,16 @@ dbus_g_proxy_connect_signal (DBusGProxy             *proxy,
   GQuark q;
 
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
+  g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
   g_return_if_fail (signal_name != NULL);
   g_return_if_fail (handler != NULL);
   
   name = create_signal_name (proxy->interface, signal_name);
 
-  q = g_quark_from_string (name);
+  q = g_quark_try_string (name);
 
 #ifndef G_DISABLE_CHECKS
-  if (g_datalist_id_get_data (&proxy->signal_signatures, q) == NULL)
+  if (q == 0 || g_datalist_id_get_data (&proxy->signal_signatures, q) == NULL)
     {
       g_warning ("Must add the signal '%s' with dbus_g_proxy_add_signal() prior to connecting to it\n", name);
       g_free (name);
@@ -1592,12 +1624,13 @@ dbus_g_proxy_disconnect_signal (DBusGProxy             *proxy,
   GQuark q;
   
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
+  g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
   g_return_if_fail (signal_name != NULL);
   g_return_if_fail (handler != NULL);
 
   name = create_signal_name (proxy->interface, signal_name);
 
-  q = g_quark_from_string (name);
+  q = g_quark_try_string (name);
   
   if (q != 0)
     {
