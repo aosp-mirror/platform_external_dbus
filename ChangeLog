@@ -1,3 +1,19 @@
+2004-05-30  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus_bindings.pyx.in:
+
+	Add support for ObjectPath type.
+
+	* python/dbus.py:
+
+	Refactor message handling code to a common function.
+	
+	* python/tests/test-client.py:
+	* python/tests/test-server.py:
+
+	Add tests that check to make sure values of all types
+	can be echoed from a service w/o mangling.
+	
 2004-05-29  Seth Nickell  <seth@gnome.org>
 
 	* python/dbus.py:
