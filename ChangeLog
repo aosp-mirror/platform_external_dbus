@@ -1,3 +1,8 @@
+2004-05-17  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* dbus/dbus-connection.c (check_for_reply_unlocked): plug a memory
+	leak.
+
 2004-05-15  Owen Fraser-Green  <owen@discobabe.net>
 
 	* mono/dbus-sharp.dll.config.in: Added for GAC

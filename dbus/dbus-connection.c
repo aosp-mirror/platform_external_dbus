@@ -1809,7 +1809,6 @@ check_for_reply_unlocked (DBusConnection *connection,
 	{
 	  _dbus_list_remove_link (&connection->incoming_messages, link);
 	  connection->n_incoming  -= 1;
-	  dbus_message_ref (reply);
 	  return reply;
 	}
       link = _dbus_list_get_next_link (&connection->incoming_messages, link);
