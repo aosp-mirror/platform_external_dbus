@@ -22,7 +22,6 @@
  */
 #include "message.h"
 
-#include <kdebug.h>
 
 namespace DBus {
 
@@ -48,7 +47,7 @@ Message::iterator::iterator()
 Message::iterator::iterator( DBusMessage* msg)
 {
   d = new IteratorData;
-  d->iter = dbus_message_get_fields_iter( msg );
+  dbus_message_iter_init( msg, d->iter );
   d->end = false;
 }
 
@@ -59,7 +58,6 @@ Message::iterator::iterator( DBusMessage* msg)
 Message::iterator::iterator( const iterator& itr )
 {
   d = new IteratorData;
-  dbus_message_iter_ref( itr.d->iter );
   d->iter = itr.d->iter;
   d->var  = itr.d->var;
   d->end  = itr.d->end;
@@ -70,7 +68,6 @@ Message::iterator::iterator( const iterator& itr )
  */
 Message::iterator::~iterator()
 {
-  dbus_message_iter_unref( d->iter );
   delete d; d=0;
 }
 
@@ -82,13 +79,10 @@ Message::iterator::~iterator()
 Message::iterator&
 Message::iterator::operator=( const iterator& itr )
 {
-  //in case we'll ever go fot exception safety
-  dbus_message_iter_ref( itr.d->iter );
   IteratorData *tmp = new IteratorData;
   tmp->iter = itr.d->iter;
   tmp->var  = itr.d->var;
   tmp->end  = itr.d->end;
-  dbus_message_iter_unref( d->iter );
   delete d; d=tmp;
   return *this;
 }
@@ -181,7 +175,7 @@ Message::iterator::operator!=( const iterator& it )
 void
 Message::iterator::fillVar()
 {
-  switch ( dbus_message_iter_get_field_type( d->iter ) ) {
+  switch ( dbus_message_iter_get_arg_type( d->iter ) ) {
   case DBUS_TYPE_INT32:
     d->var = QVariant( dbus_message_iter_get_int32( d->iter ) );
     break;
@@ -194,24 +188,8 @@ Message::iterator::fillVar()
   case DBUS_TYPE_STRING:
     d->var = QVariant( QString(dbus_message_iter_get_string( d->iter )) );
     break;
-  case DBUS_TYPE_BYTE_ARRAY:
-    {
-      QByteArray a;
-      int len;
-      char *ar;
-      ar = reinterpret_cast<char*>( dbus_message_iter_get_byte_array( d->iter, &len ) );
-      a.setRawData( ar, len );
-      QDataStream stream( a, IO_ReadOnly );
-      stream >> d->var;
-      a.resetRawData( ar, len );
-    }
-    break;
-  case DBUS_TYPE_STRING_ARRAY:
-#warning "String array not implemented"
-    //d->var = QVariant( dbus_message_iter_get_string_array );
-    break;
   default:
-    kdWarning()<<k_funcinfo<<" Serious problem!! "<<endl;
+    qDebug( "not implemented" );
     d->var = QVariant();
     break;
   }
@@ -232,14 +210,25 @@ struct Message::MessagePrivate {
 };
 
 /**
+ *
+ */
+Message::Message( int messageType )
+{
+  d = new MessagePrivate;
+  d->msg = dbus_message_new( messageType );
+}
+
+/**
  * Constructs a new Message with the given service and name.
  * @param service service service that the message should be sent to
  * @param name name of the message
  */
-Message::Message( const QString& service, const QString& name )
+Message::Message( const QString& service, const QString& path,
+                  const QString& interface, const QString& method )
 {
   d = new MessagePrivate;
-  d->msg = dbus_message_new( service.latin1(), name.latin1() );
+  d->msg = dbus_message_new_method_call( service.latin1(), path.latin1(),
+                                         interface.latin1(), method.latin1() );
 }
 
 /**
@@ -249,22 +238,32 @@ Message::Message( const QString& service, const QString& name )
  * @param replayingTo original_message the message which the created
  * message is a reply to.
  */
-Message::Message( const QString& name, const Message& replayingTo )
+Message::Message( const Message& replayingTo )
 {
   d = new MessagePrivate;
-  d->msg = dbus_message_new_reply( name.latin1(), replayingTo );
+  d->msg = dbus_message_new_method_return( replayingTo.d->msg );
 }
 
-/**
- * Creates a message just like @p other
- * @param other the copied message
- */
-Message::Message( const Message& other )
+Message:: Message( const QString& path, const QString& interface,
+                   const QString& name )
 {
   d = new MessagePrivate;
-  d->msg = dbus_message_new_from_message( other );
+  d->msg = dbus_message_new_signal( path.ascii(), interface.ascii(),
+                                    name.ascii() );
 }
 
+Message::Message( const Message& replayingTo, const QString& errorName,
+                  const QString& errorMessage )
+{
+  d = new MessagePrivate;
+  d->msg = dbus_message_new_error( replayingTo.d->msg, errorName.utf8(),
+                                   errorMessage.utf8() );
+}
+
+Message Message::operator=( const Message& other )
+{
+  //FIXME: ref the other.d->msg instead of copying it?
+}
 /**
  * Destructs message.
  */
@@ -272,6 +271,61 @@ Message::~Message()
 {
   dbus_message_unref( d->msg );
   delete d; d=0;
+}
+
+int Message::type() const
+{
+  return dbus_message_get_type( d->msg );
+}
+
+void Message::setPath( const QString& path )
+{
+  dbus_message_set_path( d->msg, path.ascii() );
+}
+
+QString Message::path() const
+{
+  return dbus_message_get_path( d->msg );
+}
+
+void Message::setInterface( const QString& iface )
+{
+  dbus_message_set_interface( d->msg, iface.ascii() );
+}
+
+QString Message::interface() const
+{
+  return dbus_message_get_interface( d->msg );
+}
+
+void Message::setMember( const QString& member )
+{
+  dbus_message_set_member( d->msg, member.ascii() );
+}
+
+QString Message::member() const
+{
+  return dbus_message_get_member( d->msg );
+}
+
+void Message::setErrorName( const QString& err )
+{
+  dbus_message_set_error_name( d->msg, err );
+}
+
+QString Message::errorName() const
+{
+  return dbus_message_get_error_name( d->msg );
+}
+
+void Message::setDestination( const QString& dest )
+{
+  dbus_message_set_destination( d->msg, dest );
+}
+
+QString Message::destination() const
+{
+  return dbus_message_get_destination( d->msg );
 }
 
 /**
@@ -286,37 +340,6 @@ Message::setSender( const QString& sender )
 }
 
 /**
- * Sets a flag indicating that the message is an error reply
- * message, i.e. an "exception" rather than a normal response.
- * @param error true if this is an error message.
- */
-void
-Message::setError( bool error )
-{
-  return dbus_message_set_is_error( d->msg, error );
-}
-
-/**
- * Returns name of this message.
- * @return name
- */
-QString
-Message::name() const
-{
-  return dbus_message_get_name( d->msg );
-}
-
-/**
- * Returns service associated with this message.
- * @return service
- */
-QString
-Message::service() const
-{
-  return dbus_message_get_service( d->msg );
-}
-
-/**
  * Returns sender of this message.
  * @return sender
  */
@@ -326,14 +349,9 @@ Message::sender() const
   return dbus_message_get_sender( d->msg );
 }
 
-/**
- * Checks whether this message is an error indicating message.
- * @return true if this is an error message
- */
-bool
-Message::isError() const
+QString Message::signature() const
 {
-  return dbus_message_get_is_error( d->msg );
+  return dbus_message_get_signature( d->msg );
 }
 
 /**

@@ -23,7 +23,8 @@
 
 #include <qvariant.h>
 #include <qstring.h>
-#include <dbus.h>
+
+#include "dbus/dbus.h"
 
 namespace DBus {
 
@@ -52,20 +53,43 @@ namespace DBus {
       IteratorData *d;
     };
 
-    Message( const QString& service, const QString& name );
-    Message( const QString& name,
-             const Message& replayingTo );
-    Message( const Message& other );
+    Message( int messageType );
+    Message( const QString& service, const QString& path,
+             const QString& interface, const QString& method );
+    Message( const Message& replayingTo );
+    Message( const QString& path, const QString& interface,
+             const QString& name );
+    Message( const Message& replayingTo, const QString& errorName,
+             const QString& errorMessage );
+
+    Message operator=( const Message& other );
 
     virtual ~Message();
 
+    int type() const;
+
+    void setPath( const QString& );
+    QString path() const;
+
+    void setInterface( const QString& );
+    QString interface() const;
+
+    void setMember( const QString& );
+    QString member() const;
+
+    void setErrorName( const QString& );
+    QString errorName() const;
+
+    void setDestination( const QString& );
+    QString destination() const;
+
     bool    setSender( const QString& sender );
-    void    setError( bool error );
+    QString    sender() const;
+
+    QString signature() const;
 
     QString name() const;
     QString service() const;
-    QString sender() const;
-    bool    isError() const;
 
     virtual void append( const QVariant& var );
 
@@ -75,6 +99,25 @@ namespace DBus {
     iterator end() const;
 
     QVariant at( int i );
+
+
+  public:
+    Message& operator<<( bool );
+    Message& operator<<( Q_INT8 );
+    Message& operator<<( Q_INT32 );
+    Message& operator<<( Q_UINT32 );
+    Message& operator<<( Q_INT64 );
+    Message& operator<<( Q_UINT64 );
+    Message& operator<<( double );
+    Message& operator<<( const QString& );
+    Message& operator<<( const QVariant& );
+    //Message& operator<<();
+    //Message& operator<<();
+    //Message& operator<<();
+    //Message& operator<<();
+    //Message& operator<<();
+    //Message& operator<<();
+    //Message& operator<<();
 
   protected:
     DBusMessage* message() const;
