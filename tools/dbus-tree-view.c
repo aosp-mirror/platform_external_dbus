@@ -134,6 +134,8 @@ set_info (GtkTreeModel *model,
                          interface_info_get_methods ((InterfaceInfo*)info));
       append_child_list (model, root,
                          interface_info_get_signals ((InterfaceInfo*)info));
+      append_child_list (model, root,
+                         interface_info_get_properties ((InterfaceInfo*)info));
       break;
     case INFO_TYPE_METHOD:
       append_child_list (model, root,
@@ -142,6 +144,9 @@ set_info (GtkTreeModel *model,
     case INFO_TYPE_SIGNAL:
       append_child_list (model, root,
                          signal_info_get_args ((SignalInfo*)info));
+      break;
+    case INFO_TYPE_PROPERTY:
+      /* no children */
       break;
     case INFO_TYPE_ARG:
       /* no children */
@@ -291,6 +296,9 @@ info_set_func_text (GtkTreeViewColumn *tree_column,
       break;
     case INFO_TYPE_SIGNAL:
       g_string_append (str, "<i>signal</i>");
+      break;
+    case INFO_TYPE_PROPERTY:
+      g_string_append (str, "<i>property</i>");
       break;
     case INFO_TYPE_ARG:
       g_string_append (str, "<i>arg</i>");

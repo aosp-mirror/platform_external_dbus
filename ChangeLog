@@ -1,5 +1,18 @@
 2005-01-29  Havoc Pennington  <hp@redhat.com>
 
+	* tools/dbus-tree-view.c: add support for displaying properties.
+	(run dbus-viewer with an introspect xml file as arg, then resize
+	the window so the tree elements show up, not sure what that is)
+
+	* glib/dbus-gobject.c (handle_introspect): return
+	org.freedesktop.Properties and org.freedesktop.Introspectable
+	interfaces when we are introspected.	
+
+	* doc/dbus-specification.xml: allow empty interface name when 
+	Get/Set a property
+
+2005-01-29  Havoc Pennington  <hp@redhat.com>
+
 	* glib/Makefile.am: rename dbus-glib-tool to dbus-binding-tool;
 	though it uses glib, it could be extended for any binding in
 	principle

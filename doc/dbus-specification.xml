@@ -2147,6 +2147,13 @@
         by calling <literal>org.freedesktop.Introspectable.Introspect</literal>,
         see <xref linkend="standard-interfaces-introspectable"/>.
       </para>
+      <para>
+        An empty string may be provided for the interface name; in this case, 
+        if there are multiple properties on an object with the same name, 
+        the results are undefined (picking one by according to an arbitrary 
+        deterministic rule, or returning an error, are the reasonable 
+        possibilities).
+      </para>
     </sect2>
   </sect1>
 

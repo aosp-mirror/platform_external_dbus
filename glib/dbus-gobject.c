@@ -290,6 +290,27 @@ handle_introspect (DBusConnection *connection,
   xml = g_string_new (NULL);
 
   g_string_append (xml, "<node>\n");
+
+  /* We are introspectable, though I guess that was pretty obvious */
+  g_string_append (xml, "  <interface name=\"org.freedesktop.Introspectable\">\n");
+  g_string_append (xml, "    <method name=\"Introspect\">\n");
+  g_string_append (xml, "      <arg name=\"data\" direction=\"out\" type=\"string\"\"/>\n");
+  g_string_append (xml, "    </method>\n");
+  g_string_append (xml, "  </interface>\n");
+
+  /* We support get/set properties */
+  g_string_append (xml, "  <interface name=\"org.freedesktop.Properties\">\n");
+  g_string_append (xml, "    <method name=\"Get\">\n");
+  g_string_append (xml, "      <arg name=\"interface\" direction=\"in\" type=\"string\"\"/>\n");
+  g_string_append (xml, "      <arg name=\"propname\" direction=\"in\" type=\"string\"\"/>\n");
+  g_string_append (xml, "      <arg name=\"value\" direction=\"out\" type=\"variant\"\"/>\n");
+  g_string_append (xml, "    </method>\n");
+  g_string_append (xml, "    <method name=\"Set\">\n");
+  g_string_append (xml, "      <arg name=\"interface\" direction=\"in\" type=\"string\"\"/>\n");
+  g_string_append (xml, "      <arg name=\"propname\" direction=\"in\" type=\"string\"\"/>\n");
+  g_string_append (xml, "      <arg name=\"value\" direction=\"in\" type=\"variant\"\"/>\n");
+  g_string_append (xml, "    </method>\n");
+  g_string_append (xml, "  </interface>\n");
   
   introspect_signals (G_OBJECT_TYPE (object), xml);
   introspect_properties (object, xml);
@@ -409,7 +430,7 @@ gobject_message_function (DBusConnection  *connection,
   gboolean getter;
   char *s;
   const char *wincaps_propname;
-  const char *wincaps_propiface;
+  /* const char *wincaps_propiface; */
   DBusMessageIter iter;
 
   object = G_OBJECT (user_data);
@@ -460,7 +481,10 @@ gobject_message_function (DBusConnection  *connection,
       g_warning ("Property get or set does not have an interface string as first arg\n");
       return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
-  dbus_message_iter_get_basic (&iter, &wincaps_propiface);
+  /* We never use the interface name; if we did, we'd need to
+   * remember that it can be empty string for "pick one for me"
+   */
+  /* dbus_message_iter_get_basic (&iter, &wincaps_propiface); */
   dbus_message_iter_next (&iter);
 
   if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_STRING)
