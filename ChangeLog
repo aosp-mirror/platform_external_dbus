@@ -1,3 +1,9 @@
+2004-11-23  Havoc Pennington  <hp@redhat.com>
+
+	* test/glib/test-profile.c: modify to accept a plain_sockets
+	argument in which case it will bench plain sockets instead of
+	libdbus, for comparison purposes.
+
 2004-11-22  Havoc Pennington  <hp@redhat.com>
 
 	* test/glib/test-profile.c (N_CLIENT_THREADS): run multiple
