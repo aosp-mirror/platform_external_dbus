@@ -1,5 +1,11 @@
 2005-02-13  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-connection.c: use separate mutexes for the condition
+	variables; this is some kind of baseline for sanity, but the
+	condition variables still aren't used correctly afaict
+
+2005-02-13  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-object-tree.c (handle_default_introspect_and_unlock):
 	fix a double-unlock
 

@@ -188,8 +188,10 @@ struct DBusConnection
 
   DBusMutex *mutex; /**< Lock on the entire DBusConnection */
 
-  DBusCondVar *dispatch_cond;    /**< Protects dispatch() */
-  DBusCondVar *io_path_cond;     /**< Protects transport io path */
+  DBusMutex *dispatch_mutex;     /**< Protects dispatch() */
+  DBusCondVar *dispatch_cond;    /**< Notify when dispatch_mutex is available */
+  DBusMutex *io_path_mutex;      /**< Protects transport io path */
+  DBusCondVar *io_path_cond;     /**< Notify when io_path_mutex is available */
   
   DBusList *outgoing_messages; /**< Queue of messages we need to send, send the end of the list first. */
   DBusList *incoming_messages; /**< Queue of messages we have received, end of the list received most recently. */
@@ -896,7 +898,7 @@ _dbus_pending_call_complete_and_unlock (DBusPendingCall *pending,
 /**
  * Acquire the transporter I/O path. This must be done before
  * doing any I/O in the transporter. May sleep and drop the
- * connection mutex while waiting for the I/O path.
+ * IO path mutex while waiting for the I/O path.
  *
  * @param connection the connection.
  * @param timeout_milliseconds maximum blocking time, or -1 for no limit.
@@ -913,20 +915,12 @@ _dbus_connection_acquire_io_path (DBusConnection *connection,
   
   if (connection->io_path_acquired)
     {
-#ifndef DBUS_DISABLE_CHECKS
-      connection->have_connection_lock = FALSE;
-#endif
-      
       if (timeout_milliseconds != -1) 
 	res = dbus_condvar_wait_timeout (connection->io_path_cond,
-					 connection->mutex,
+					 connection->io_path_mutex,
 					 timeout_milliseconds);
       else
-	dbus_condvar_wait (connection->io_path_cond, connection->mutex);
-
-#ifndef DBUS_DISABLE_CHECKS
-      connection->have_connection_lock = TRUE;
-#endif
+	dbus_condvar_wait (connection->io_path_cond, connection->io_path_mutex);
     }
   
   if (res)
@@ -1030,6 +1024,8 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   DBusTimeoutList *timeout_list;
   DBusHashTable *pending_replies;
   DBusMutex *mutex;
+  DBusMutex *io_path_mutex;
+  DBusMutex *dispatch_mutex;
   DBusCondVar *message_returned_cond;
   DBusCondVar *dispatch_cond;
   DBusCondVar *io_path_cond;
@@ -1043,6 +1039,8 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   pending_replies = NULL;
   timeout_list = NULL;
   mutex = NULL;
+  io_path_mutex = NULL;
+  dispatch_mutex = NULL;
   message_returned_cond = NULL;
   dispatch_cond = NULL;
   io_path_cond = NULL;
@@ -1072,6 +1070,14 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
 
   mutex = dbus_mutex_new ();
   if (mutex == NULL)
+    goto error;
+
+  io_path_mutex = dbus_mutex_new ();
+  if (io_path_mutex == NULL)
+    goto error;
+
+  dispatch_mutex = dbus_mutex_new ();
+  if (dispatch_mutex == NULL)
     goto error;
   
   message_returned_cond = dbus_condvar_new ();
@@ -1111,7 +1117,9 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection->refcount.value = 1;
   connection->mutex = mutex;
   connection->dispatch_cond = dispatch_cond;
+  connection->dispatch_mutex = dispatch_mutex;
   connection->io_path_cond = io_path_cond;
+  connection->io_path_mutex = io_path_mutex;
   connection->message_returned_cond = message_returned_cond;
   connection->transport = transport;
   connection->watches = watch_list;
@@ -1162,6 +1170,12 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   if (mutex != NULL)
     dbus_mutex_free (mutex);
 
+  if (io_path_mutex != NULL)
+    dbus_mutex_free (io_path_mutex);
+
+  if (dispatch_mutex != NULL)
+    dbus_mutex_free (dispatch_mutex);
+  
   if (connection != NULL)
     dbus_free (connection);
 
@@ -1483,7 +1497,10 @@ _dbus_connection_last_unref (DBusConnection *connection)
   dbus_condvar_free (connection->dispatch_cond);
   dbus_condvar_free (connection->io_path_cond);
   dbus_condvar_free (connection->message_returned_cond);  
-  
+
+  dbus_mutex_free (connection->io_path_mutex);
+  dbus_mutex_free (connection->dispatch_mutex);
+
   dbus_mutex_free (connection->mutex);
   
   dbus_free (connection);
@@ -2666,13 +2683,7 @@ _dbus_connection_acquire_dispatch (DBusConnection *connection)
 {
   if (connection->dispatch_acquired)
     {
-#ifndef DBUS_DISABLE_CHECKS
-      connection->have_connection_lock = FALSE;
-#endif
-      dbus_condvar_wait (connection->dispatch_cond, connection->mutex);
-#ifndef DBUS_DISABLE_CHECKS
-      connection->have_connection_lock = TRUE;
-#endif
+      dbus_condvar_wait (connection->dispatch_cond, connection->dispatch_mutex);
     }
   _dbus_assert (!connection->dispatch_acquired);
 
