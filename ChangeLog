@@ -1,3 +1,11 @@
+2005-03-12  Joe Shaw  <joeshaw@novell.com>
+                                                                                
+	* mono/ProxyBuilder.cs: Add a finalizer to the generated proxy
+	classes that disconnects the signal handler delegate from the
+	service object.  Fixes a big leak of proxy objects on the
+	client side of things.  Patch from Ben Maurer
+	<bmaurer@ximian.com>
+
 2005-03-12  Colin Walters  <walters@verbum.org>
 
 	* bus/driver.c (write_args_for_direction): New function,
