@@ -77,3 +77,8 @@
  - dbus_error_has_name(), dbus_message_name_is()
 
  - add DBUS_TYPE_INT64 ? 
+
+ - if you send a message to a service then block for reply, and the service exits/crashes
+   after the message bus has processed your message but before the service has replied, 
+   it would be nice if the message bus sent you an error reply.
+

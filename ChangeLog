@@ -1,5 +1,9 @@
 2003-04-11  Havoc Pennington  <hp@redhat.com>
 
+	* configure.in: add another directory to look for qt in.
+
+2003-04-11  Havoc Pennington  <hp@redhat.com>
+
 	* AUTHORS: add Colin Walters
 
 2003-04-11  Havoc Pennington  <hp@redhat.com>

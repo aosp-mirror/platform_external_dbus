@@ -355,7 +355,7 @@ if test -n "$QTDIR" -a -f "$QTDIR/include/qglobal.h"; then
     have_qt=yes
     DBUS_QT_CXXFLAGS="-I$QTDIR/include"
 else
-    for dir in "${prefix}/include/qt" "/usr/include/qt3" "/usr/include/qt" "/usr/lib/qt/include"; do
+    for dir in "${prefix}/include/qt" "/usr/include/qt-3.1" "/usr/include/qt3" "/usr/include/qt" "/usr/lib/qt/include"; do
         if test -f "$dir/qglobal.h"; then
             have_qt=yes
             DBUS_QT_CXXFLAGS="-I$dir"
