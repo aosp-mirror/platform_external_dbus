@@ -36,6 +36,17 @@ extern "C" {
 #define DBUS_LITTLE_ENDIAN ('l')  /* LSB first */
 #define DBUS_BIG_ENDIAN    ('B')  /* MSB first */    
 
+/* Data types */
+#define DBUS_TYPE_INVALID       0
+#define DBUS_TYPE_INT32         1
+#define DBUS_TYPE_UINT32        2
+#define DBUS_TYPE_DOUBLE        3
+#define DBUS_TYPE_INT32_ARRAY   4
+#define DBUS_TYPE_UINT32_ARRAY  5
+#define DBUS_TYPE_DOUBLE_ARRAY  6
+#define DBUS_TYPE_BYTE_ARRAY    7
+#define DBUS_TYPE_UTF8_STRING   8
+  
 #ifdef __cplusplus
 }
 #endif

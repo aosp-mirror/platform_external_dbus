@@ -22,6 +22,7 @@
  */
 
 #include "dbus-internals.h"
+#include "dbus-marshal.h"
 #include "dbus-message.h"
 #include "dbus-message-internal.h"
 #include "dbus-memory.h"
@@ -202,6 +203,7 @@ dbus_message_unref (DBusMessage *message)
 
 /**
  * Gets the name of a message.
+ *
  * @param message the message
  * @returns the message name (should not be freed)
  */
@@ -211,6 +213,115 @@ dbus_message_get_name (DBusMessage *message)
   /* FIXME */
   
   return NULL;
+}
+
+/**
+ * Appends a 32 bit signed integer to the message.
+ *
+ * @param message the message
+ * @param value the integer value
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_int32 (DBusMessage  *message,
+			   dbus_int32_t  value)
+{
+  _dbus_assert (message != NULL);  
+  _dbus_assert (!message->locked);
+
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_INT32))
+    return FALSE;
+  
+  return _dbus_marshal_int32 (&message->body,
+			      DBUS_COMPILER_BYTE_ORDER, value);
+}
+
+/**
+ * Appends a 32 bit unsigned integer to the message.
+ *
+ * @param message the message
+ * @param value the integer value
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_uint32 (DBusMessage   *message,
+			    dbus_uint32_t  value)
+{
+  _dbus_assert (message != NULL);  
+  _dbus_assert (!message->locked);
+
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_UINT32))
+    return FALSE;
+  
+  return _dbus_marshal_uint32 (&message->body,
+			       DBUS_COMPILER_BYTE_ORDER, value);
+}
+
+/**
+ * Appends a double value to the message.
+ *
+ * @param message the message
+ * @param value the double value
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_double (DBusMessage *message,
+			    double       value)
+{
+  _dbus_assert (message != NULL);  
+  _dbus_assert (!message->locked);
+
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_INT32))
+    return FALSE;
+  
+  return _dbus_marshal_double (&message->body,
+			       DBUS_COMPILER_BYTE_ORDER, value);
+}
+
+/**
+ * Appends a UTF-8 string to the message.
+ *
+ * @param message the message
+ * @param value the string
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_string (DBusMessage *message,
+			    const char  *value)
+{
+  _dbus_assert (message != NULL);
+  _dbus_assert (!message->locked);
+  _dbus_assert (value != NULL);
+
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_UTF8_STRING))
+    return FALSE;
+  
+  return _dbus_marshal_string (&message->body,
+			       DBUS_COMPILER_BYTE_ORDER, value);
+}
+
+/**
+ * Appends a byte array to the message.
+ *
+ * @param message the message
+ * @param value the array
+ * @param len the length of the array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_byte_array (DBusMessage         *message,
+				unsigned const char *value,
+				int                 len)
+{
+  _dbus_assert (message != NULL);
+  _dbus_assert (!message->locked);
+  _dbus_assert (value != NULL);
+
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_BYTE_ARRAY))
+    return FALSE;
+  
+  return _dbus_marshal_byte_array (&message->body,
+				   DBUS_COMPILER_BYTE_ORDER, value, len);
 }
 
 /** @} */

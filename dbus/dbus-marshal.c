@@ -124,6 +124,14 @@ unpack_int32 (int                  byte_order,
  * @{
  */
 
+/**
+ * Marshals a double value.
+ *
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param value the value
+ * @returns #TRUE on success
+ */
 dbus_bool_t
 _dbus_marshal_double (DBusString *str,
 		      int         byte_order,
@@ -140,6 +148,14 @@ _dbus_marshal_double (DBusString *str,
   return _dbus_string_append_len (str, (const char *)&value, sizeof (double));
 }
 
+/**
+ * Marshals a 32 bit signed integer value.
+ *
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param value the value
+ * @returns #TRUE on success
+ */
 dbus_bool_t
 _dbus_marshal_int32  (DBusString   *str,
 		      int           byte_order,
@@ -156,6 +172,14 @@ _dbus_marshal_int32  (DBusString   *str,
   return _dbus_string_append_len (str, (const char *)&value, sizeof (dbus_int32_t));
 }
 
+/**
+ * Marshals a 32 bit unsigned integer value.
+ *
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param value the value
+ * @returns #TRUE on success
+ */
 dbus_bool_t
 _dbus_marshal_uint32 (DBusString    *str,
 		      int            byte_order,
@@ -172,10 +196,18 @@ _dbus_marshal_uint32 (DBusString    *str,
   return _dbus_string_append_len (str, (const char *)&value, sizeof (dbus_uint32_t));
 }
 
+/**
+ * Marshals a UTF-8 string
+ *
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param value the string
+ * @returns #TRUE on success
+ */
 dbus_bool_t
-_dbus_marshal_utf8_string (DBusString    *str,
-			   int            byte_order,
-			   const char    *value)
+_dbus_marshal_string (DBusString    *str,
+		      int            byte_order,
+		      const char    *value)
 {
   int len;
 
@@ -187,6 +219,15 @@ _dbus_marshal_utf8_string (DBusString    *str,
   return _dbus_string_append_len (str, value, len + 1);
 }
 
+/**
+ * Marshals a byte array
+ *
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param value the byte array
+ * @param len the length of the byte array
+ * @returns #TRUE on success
+ */
 dbus_bool_t
 _dbus_marshal_byte_array (DBusString          *str,
 			  int                  byte_order,
@@ -199,6 +240,15 @@ _dbus_marshal_byte_array (DBusString          *str,
   return _dbus_string_append_len (str, value, len);
 }
 
+/**
+ * Demarshals a double.
+ *
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @returns the demarshaled double.
+ */
 double
 _dbus_demarshal_double (DBusString  *str,
 			int          byte_order,
@@ -223,6 +273,15 @@ _dbus_demarshal_double (DBusString  *str,
   return retval;  
 }
 
+/**
+ * Demarshals a 32 bit signed integer.
+ *
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @returns the demarshaled integer.
+ */
 dbus_int32_t
 _dbus_demarshal_int32  (DBusString *str,
 			int         byte_order,
@@ -241,6 +300,15 @@ _dbus_demarshal_int32  (DBusString *str,
   return unpack_int32 (byte_order, buffer);
 }
 
+/**
+ * Demarshals a 32 bit unsigned integer.
+ *
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @returns the demarshaled integer.
+ */
 dbus_uint32_t
 _dbus_demarshal_uint32  (DBusString *str,
 			 int         byte_order,
@@ -259,11 +327,24 @@ _dbus_demarshal_uint32  (DBusString *str,
   return unpack_uint32 (byte_order, buffer);
 }
 
+/**
+ * Demarshals an UTF-8 string.
+ *
+ * @todo Should we check the string to make sure
+ * that it's  valid UTF-8, and maybe "fix" the string
+ * if it's broken?
+ *
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @returns the demarshaled string.
+ */
 char *
-_dbus_demarshal_utf8_string (DBusString *str,
-			     int         byte_order,
-			     int         pos,
-			     int        *new_pos)
+_dbus_demarshal_string (DBusString *str,
+			int         byte_order,
+			int         pos,
+			int        *new_pos)
 {
   int len;
   char *retval;
@@ -417,16 +498,16 @@ _dbus_marshal_test (void)
 
   /* Marshal strings */
   tmp1 = "This is the dbus test string";
-  if (!_dbus_marshal_utf8_string (&str, DBUS_BIG_ENDIAN, tmp1))
+  if (!_dbus_marshal_string (&str, DBUS_BIG_ENDIAN, tmp1))
     _dbus_assert_not_reached ("could not marshal string");
-  tmp2 = _dbus_demarshal_utf8_string (&str, DBUS_BIG_ENDIAN, pos, &pos);
+  tmp2 = _dbus_demarshal_string (&str, DBUS_BIG_ENDIAN, pos, &pos);
   _dbus_assert (strcmp (tmp1, tmp2) == 0);
   dbus_free (tmp2);
 
   tmp1 = "This is the dbus test string";
-  if (!_dbus_marshal_utf8_string (&str, DBUS_LITTLE_ENDIAN, tmp1))
+  if (!_dbus_marshal_string (&str, DBUS_LITTLE_ENDIAN, tmp1))
     _dbus_assert_not_reached ("could not marshal string");
-  tmp2 = _dbus_demarshal_utf8_string (&str, DBUS_LITTLE_ENDIAN, pos, &pos);
+  tmp2 = _dbus_demarshal_string (&str, DBUS_LITTLE_ENDIAN, pos, &pos);
   _dbus_assert (strcmp (tmp1, tmp2) == 0);
   dbus_free (tmp2);
 

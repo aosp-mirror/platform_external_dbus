@@ -41,6 +41,19 @@ void         dbus_message_unref (DBusMessage *message);
 
 const char*  dbus_message_get_name (DBusMessage *message);
 
+dbus_bool_t dbus_message_append_int32      (DBusMessage         *message,
+					    dbus_int32_t         value);
+dbus_bool_t dbus_message_append_uint32     (DBusMessage         *message,
+					    dbus_uint32_t        value);
+dbus_bool_t dbus_message_append_double     (DBusMessage         *message,
+					    double               value);
+dbus_bool_t dbus_message_append_string     (DBusMessage         *message,
+					    const char          *value);
+dbus_bool_t dbus_message_append_byte_array (DBusMessage         *message,
+					    unsigned const char *value,
+					    int                  len);
+
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_MESSAGE_H */

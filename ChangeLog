@@ -1,3 +1,20 @@
+2003-01-07  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-marshal.c: (_dbus_marshal_string),
+	(_dbus_demarshal_string), (_dbus_marshal_test):
+	* dbus/dbus-marshal.h:
+	* dbus/dbus-message.c: (dbus_message_get_name),
+	Document these functions.
+	
+	(dbus_message_append_int32), (dbus_message_append_uint32),
+	(dbus_message_append_double), (dbus_message_append_string),
+	(dbus_message_append_byte_array):
+	* dbus/dbus-message.h:
+	Add functions for adding message fields of different types.
+	
+	* dbus/dbus-protocol.h:
+	Add the different types.
+
 2003-01-05  Havoc Pennington  <hp@pobox.com>
 
 	* bus/connection.c: implement routines for handling connections,
