@@ -1,22 +1,22 @@
 .\" 
-.\" dbus-daemon-1 manual page.
+.\" dbus-daemon manual page.
 .\" Copyright (C) 2003 Red Hat, Inc.
 .\"
-.TH dbus-daemon-1 1
+.TH dbus-daemon 1
 .SH NAME
-dbus-daemon-1 \- Message bus daemon
+dbus-daemon \- Message bus daemon
 .SH SYNOPSIS
 .PP
-.B dbus-daemon-1
-dbus-daemon-1 [\-\-version] [\-\-session] [\-\-system] [\-\-config-file=FILE]
+.B dbus-daemon
+dbus-daemon [\-\-version] [\-\-session] [\-\-system] [\-\-config-file=FILE]
 [\-\-print-address[=DESCRIPTOR]] [\-\-print-pid[=DESCRIPTOR]] [\-\-fork]
 
 .SH DESCRIPTION
 
-\fIdbus-daemon-1\fP is the D-BUS message bus daemon. See
+\fIdbus-daemon\fP is the D-BUS message bus daemon. See
 http://www.freedesktop.org/software/dbus/ for more information about
 the big picture. D-BUS is first a library that provides one-to-one
-communication between any two applications; \fIdbus-daemon-1\fP is an
+communication between any two applications; \fIdbus-daemon\fP is an
 application that uses this library to implement a message bus
 daemon. Multiple programs connect to the message bus daemon and can
 exchange messages with one another.
@@ -25,7 +25,7 @@ exchange messages with one another.
 There are two standard message bus instances: the systemwide message bus 
 (installed on many systems as the "messagebus" init service) and the 
 per-user-login-session message bus (started each time a user logs in).
-\fIdbus-daemon-1\fP is used for both of these instances, but with 
+\fIdbus-daemon\fP is used for both of these instances, but with 
 a different configuration file.
 
 .PP

@@ -756,7 +756,7 @@ main (int argc, char **argv)
       verbose ("=== Bus exec process created\n");
       
       /* Now we are the bus process (well, almost;
-       * dbus-daemon-1 itself forks again)
+       * dbus-daemon itself forks again)
        */
       close (bus_pid_to_launcher_pipe[READ_END]);
       close (bus_address_to_launcher_pipe[READ_END]);
@@ -771,8 +771,8 @@ main (int argc, char **argv)
 
       verbose ("Calling exec()\n");
       
-      execlp ("dbus-daemon-1",
-              "dbus-daemon-1",
+      execlp ("dbus-daemon",
+              "dbus-daemon",
               "--fork",
               "--print-pid", write_pid_fd_as_string,
               "--print-address", write_address_fd_as_string,

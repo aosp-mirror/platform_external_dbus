@@ -1141,7 +1141,7 @@ bus/system.conf
 bus/session.conf
 bus/messagebus
 bus/rc.messagebus
-bus/dbus-daemon-1.1
+bus/dbus-daemon.1
 Makefile
 dbus/Makefile
 glib/Makefile

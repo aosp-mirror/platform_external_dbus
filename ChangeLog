@@ -1,5 +1,9 @@
 2005-01-18  Havoc Pennington  <hp@redhat.com>
 
+	* rename dbus-daemon-1 to dbus-daemon throughout
+
+2005-01-18  Havoc Pennington  <hp@redhat.com>
+
         * Throughout, grand renaming to strip out the use of "service",
 	just say "name" instead (or "bus name" when ambiguous).  Did not
 	change the internal code of the message bus itself, only the

@@ -62,7 +62,7 @@ signal_handler (int sig)
 static void
 usage (void)
 {
-  fprintf (stderr, "dbus-daemon-1 [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork] [--nofork]\n");
+  fprintf (stderr, DAEMON_NAME " [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork] [--nofork]\n");
   exit (1);
 }
 

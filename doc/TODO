@@ -74,13 +74,7 @@ Important for 1.0 GLib Bindings
 Might as Well for 1.0
 ===
 
- - Probably no point in a version number in the daemon name
-   (s/dbus-daemon-1/dbus-daemon/)
-
  - add dbus_message_has_path(), maybe has_member/interface
-
- - dbus_message_iter_init_array_iterator has "iter" and "iterator" 
-   in the same function name
 
  - connection_open/connection_disconnect lacks symmetry, open/close
    or connect/disconnect

@@ -11,7 +11,7 @@ dbus-launch \- Utility to start a message bus from a shell script
 
 .SH DESCRIPTION
 
-The \fIdbus-launch\fP command is used to start \fIdbus-daemon-1\fP
+The \fIdbus-launch\fP command is used to start \fIdbus-daemon\fP
 from a shell script. It would normally be called from a user's login
 scripts. Unlike the daemon itself, \fIdbus-launch\fP exits, so
 backticks or the $() construct can be used to read information from
@@ -40,7 +40,7 @@ know which shell your script is written in.
 
 .PP
 See http://www.freedesktop.org/software/dbus/ for more information
-about D-BUS. See also the man page for \fIdbus-daemon-1\fP.
+about D-BUS. See also the man page for \fIdbus-daemon\fP.
 
 .PP
 Here is an example of how to use \fIdbus-launch\fP with an 
@@ -76,7 +76,7 @@ Choose \-\-csh-syntax or \-\-sh-syntax based on the SHELL environment variable.
 .TP
 .I "--config-file=FILENAME"
 Pass \-\-config-file=FILENAME to the bus daemon, instead of passing it 
-the \-\-session argument. See the man page for dbus-daemon-1
+the \-\-session argument. See the man page for dbus-daemon
 
 .TP
 .I "--csh-syntax"

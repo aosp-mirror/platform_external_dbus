@@ -2,7 +2,7 @@
 configdir=$(sysconfdir)/dbus-1
 
 INCLUDES=-I$(top_srcdir) $(DBUS_BUS_CFLAGS)				\
-	-DDAEMON_NAME=\"dbus-daemon-1\"  -DDBUS_COMPILATION		\
+	-DDAEMON_NAME=\"dbus-daemon\"  -DDBUS_COMPILATION		\
 	-DDBUS_SYSTEM_CONFIG_FILE=\""$(configdir)/system.conf"\"	\
 	-DDBUS_SESSION_CONFIG_FILE=\""$(configdir)/session.conf"\"
 
@@ -16,7 +16,7 @@ config_DATA=					\
 	session.conf				\
 	system.conf
 
-bin_PROGRAMS=dbus-daemon-1
+bin_PROGRAMS=dbus-daemon
 
 if DBUS_USE_LIBXML
 XML_SOURCES=config-loader-libxml.c
@@ -56,11 +56,11 @@ BUS_SOURCES=					\
 	utils.h					\
 	$(XML_SOURCES)
 
-dbus_daemon_1_SOURCES=				\
+dbus_daemon_SOURCES=				\
 	$(BUS_SOURCES)				\
 	main.c					
 
-dbus_daemon_1_LDADD=					\
+dbus_daemon_LDADD=					\
 	$(EFENCE)					\
 	$(DBUS_BUS_LIBS)				\
 	$(top_builddir)/dbus/libdbus-convenience.la
@@ -108,7 +108,7 @@ initd_SCRIPTS= 	\
 
 endif
  ## Red Hat end
- 
+
 ## Slackware start
 if DBUS_INIT_SCRIPTS_SLACKWARE
 
@@ -120,8 +120,8 @@ initd_SCRIPTS= 	\
 endif
 ## Slackware end
 
-MAN_IN_FILES=dbus-daemon-1.1.in
-man_MANS = dbus-daemon-1.1
+MAN_IN_FILES=dbus-daemon.1.in
+man_MANS = dbus-daemon.1
 
 #### Extra dist 
 

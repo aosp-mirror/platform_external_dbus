@@ -6,18 +6,18 @@
 # description:  This is a daemon which broadcasts notifications of system events \
 #               and other messages. See http://www.freedesktop.org/software/dbus/
 #
-# processname: dbus-daemon-1
+# processname: dbus-daemon
 # pidfile: @DBUS_SYSTEM_PID_FILE@
 #
 
 # Sanity checks.
-[ -x @EXPANDED_BINDIR@/dbus-daemon-1 ] || exit 0
+[ -x @EXPANDED_BINDIR@/dbus-daemon ] || exit 0
 
 # Source function library.
 . @EXPANDED_SYSCONFDIR@/rc.d/init.d/functions
 
 # so we can rearrange this easily
-processname=dbus-daemon-1
+processname=dbus-daemon
 servicename=messagebus
 
 RETVAL=0

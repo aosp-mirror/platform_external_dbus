@@ -43,7 +43,7 @@ export MALLOC_CHECK_=2
 unset DBUS_SESSION_BUS_ADDRESS
 unset DBUS_SESSION_BUS_PID
 
-echo "Using daemon "`type dbus-daemon-1`
+echo "Using daemon "`type dbus-daemon`
 
 eval `$DBUS_TOP_BUILDDIR/tools/dbus-launch --sh-syntax --config-file=$CONFIG_FILE`
 
