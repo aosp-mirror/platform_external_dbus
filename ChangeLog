@@ -1,5 +1,10 @@
 2003-01-26  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-message.c (dbus_message_set_sender): support deleting
+	the sender by setting to NULL
+
+2003-01-26  Havoc Pennington  <hp@pobox.com>
+
         The unit tests pass, but otherwise untested.  If it breaks, the
 	tests should have been better. ;-)
 	

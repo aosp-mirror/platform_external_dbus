@@ -53,6 +53,17 @@ enum
   FIELD_LAST
 };
 
+static dbus_bool_t field_is_named[FIELD_LAST] =
+{
+  FALSE, /* FIELD_HEADER_LENGTH */
+  FALSE, /* FIELD_BODY_LENGTH */
+  FALSE, /* FIELD_CLIENT_SERIAL */
+  TRUE,  /* FIELD_NAME */
+  TRUE,  /* FIELD_SERVICE */
+  TRUE,  /* FIELD_SENDER */
+  TRUE   /* FIELD_REPLY_SERIAL */
+};
+
 typedef struct
 {
   int offset; /**< Offset to start of field (location of name of field
@@ -162,10 +173,10 @@ get_string_field (DBusMessage *message,
    */
   
   if (len)
-    *len = _dbus_demarshal_int32 (&message->header,
-                                  message->byte_order,
-                                  offset,
-                                  NULL);
+    *len = _dbus_demarshal_uint32 (&message->header,
+                                   message->byte_order,
+                                   offset,
+                                   NULL);
 
   _dbus_string_get_const_data (&message->header,
                                &data);
@@ -264,6 +275,62 @@ append_string_field (DBusMessage *message,
   message->header_fields[field].offset = -1;
   _dbus_string_set_length (&message->header, orig_len);
   return FALSE;
+}
+
+static void
+delete_int_field (DBusMessage *message,
+                  int          field)
+{
+  int offset = message->header_fields[field].offset;
+
+  _dbus_assert (!message->locked);
+  _dbus_assert (field_is_named[field]);
+  
+  if (offset < 0)
+    return;  
+
+  /* The field typecode and name take up 8 bytes */
+  _dbus_string_delete (&message->header,
+                       offset - 8,
+                       12);
+
+  message->header_fields[field].offset = -1;
+  
+  adjust_field_offsets (message,
+                        offset - 8,
+                        - 12);
+}
+
+static void
+delete_string_field (DBusMessage *message,
+                     int          field)
+{
+  int offset = message->header_fields[field].offset;
+  int len;
+  int delete_len;
+  
+  _dbus_assert (!message->locked);
+  _dbus_assert (field_is_named[field]);
+  
+  if (offset < 0)
+    return;
+
+  get_string_field (message, field, &len);
+  
+  /* The field typecode and name take up 8 bytes, and the nul
+   * termination is 1 bytes, string length integer is 4 bytes
+   */
+  delete_len = 8 + 4 + 1 + len;
+  
+  _dbus_string_delete (&message->header,
+                       offset - 8,
+                       delete_len);
+
+  message->header_fields[field].offset = -1;
+  
+  adjust_field_offsets (message,
+                        offset - 8,
+                        - delete_len);
 }
 
 static dbus_bool_t
@@ -1392,7 +1459,7 @@ dbus_message_set_sender (DBusMessage  *message,
 
   if (sender == NULL)
     {
-      _dbus_warn ("need to implement unsetting sender field\n");
+      delete_string_field (message, FIELD_SENDER);
       return TRUE;
     }
   else
