@@ -22,23 +22,20 @@
  */
 
 #include "dbus-types.h"
+#include "dbus-test.h"
 #include <stdio.h>
-
-/* To add a test, write a function like this one,
- * declare it here, define it in the file to be tested,
- * then call it from main() below. Test functions
- * should return FALSE on failure.
- */
-dbus_bool_t _dbus_hash_test (void);
 
 int
 main (int    argc,
       char **argv)
 {
+  printf ("%s: running linked list tests\n", argv[0]);
+  if (!_dbus_list_test ())
+    return 1;
+
   printf ("%s: running hash table tests\n", argv[0]);
   if (!_dbus_hash_test ())
     return 1;
-
   
   printf ("%s: completed successfully\n", argv[0]);
   return 0;

@@ -84,6 +84,17 @@
  */
 
 /**
+ * @def _DBUS_INT_MIN
+ *
+ * Minimum value of type "int"
+ */
+/**
+ * @def _DBUS_INT_MAX
+ *
+ * Maximum value of type "int"
+ */
+
+/**
  * Prints a warning message to stderr.
  *
  * @param format printf-style format string.

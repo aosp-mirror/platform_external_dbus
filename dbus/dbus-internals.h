@@ -60,6 +60,9 @@ do {                                                                            
 
 char* _dbus_strdup (const char *str);
 
+#define _DBUS_INT_MIN	(-_DBUS_INT_MAX - 1)
+#define _DBUS_INT_MAX	2147483647
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_INTERNALS_H */

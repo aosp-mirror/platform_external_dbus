@@ -82,9 +82,9 @@ void*       _dbus_hash_table_lookup_string (DBusHashTable *table,
                                             const char    *key);
 void*       _dbus_hash_table_lookup_int    (DBusHashTable *table,
                                             int            key);
-void        _dbus_hash_table_remove_string (DBusHashTable *table,
+dbus_bool_t _dbus_hash_table_remove_string (DBusHashTable *table,
                                             const char    *key);
-void        _dbus_hash_table_remove_int    (DBusHashTable *table,
+dbus_bool_t _dbus_hash_table_remove_int    (DBusHashTable *table,
                                             int            key);
 dbus_bool_t _dbus_hash_table_insert_string (DBusHashTable *table,
                                             char          *key,

@@ -92,6 +92,13 @@
  *
  * The guts of DBusHashTable.
  *
+ * @todo rebuild_table() should be modified to also shrink the hash bucket
+ * array when appropriate; otherwise if a hash table has been
+ * very large but is now small, iteration becomes inefficient.
+ * We should still only shrink when adding hash entries though, not
+ * when removing them, so that you can still iterate over the hash
+ * removing entries. So if you added 5000, removed 4000, the
+ * shrinking would happen next time an entry was added.
  * @{
  */
 
@@ -929,8 +936,9 @@ _dbus_hash_table_lookup_int (DBusHashTable *table,
  *
  * @param table the hash table.
  * @param key the hash key.
+ * @returns #TRUE if the entry existed
  */
-void
+dbus_bool_t
 _dbus_hash_table_remove_string (DBusHashTable *table,
                                 const char    *key)
 {
@@ -942,7 +950,12 @@ _dbus_hash_table_remove_string (DBusHashTable *table,
   entry = (* table->find_function) (table, (char*) key, FALSE, &bucket);
 
   if (entry)
-    remove_entry (table, bucket, entry);
+    {
+      remove_entry (table, bucket, entry);
+      return TRUE;
+    }
+  else
+    return FALSE;
 }
 
 /**
@@ -951,8 +964,9 @@ _dbus_hash_table_remove_string (DBusHashTable *table,
  *
  * @param table the hash table.
  * @param key the hash key.
+ * @returns #TRUE if the entry existed
  */
-void
+dbus_bool_t
 _dbus_hash_table_remove_int (DBusHashTable *table,
                              int            key)
 {
@@ -964,7 +978,12 @@ _dbus_hash_table_remove_int (DBusHashTable *table,
   entry = (* table->find_function) (table, _DBUS_INT_TO_POINTER (key), FALSE, &bucket);
   
   if (entry)
-    remove_entry (table, bucket, entry);
+    {
+      remove_entry (table, bucket, entry);
+      return TRUE;
+    }
+  else
+    return FALSE;
 }
 
 /**

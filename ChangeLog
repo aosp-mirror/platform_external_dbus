@@ -1,5 +1,23 @@
 2002-11-23  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-internals.h (_DBUS_INT_MAX): add _DBUS_INT_MIN 
+	_DBUS_INT_MAX
+
+	* dbus/dbus-test.c (main): add list test, and include 
+	dbus-test.h as intended
+
+	* dbus/dbus-hash.c (_dbus_hash_table_remove_string) 
+	(_dbus_hash_table_remove_int): return value indicates 
+	whether the entry existed to remove
+
+	* dbus/dbus-list.c: add linked list utility class, 
+	with docs and tests
+
+	* dbus/dbus-hash.c: add TODO item about shrinking the hash bucket 
+	array sometimes.
+
+2002-11-23  Havoc Pennington  <hp@pobox.com>
+
 	* Doxyfile.in (INCLUDE_FILE_PATTERNS): expand DBUS_BEGIN_DECLS/
 	DBUS_END_DECLS to nothing, that should fix this once and for all
 

@@ -26,7 +26,9 @@ libdbus_convenience_la_SOURCES=			\
 	dbus-hash.c				\
 	dbus-hash.h				\
 	dbus-internals.c			\
-	dbus-internals.h
+	dbus-internals.h			\
+	dbus-list.c				\
+	dbus-list.h
 
 libdbus_1_la_LIBADD=  $(DBUS_CLIENT_LIBS) libdbus-convenience.la
 ## don't export symbols that start with "_" (we use this 
