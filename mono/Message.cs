@@ -10,6 +10,8 @@ namespace DBus {
                     string dest_service) {
       // the assignment bumps the refcount
       raw = dbus_message_new (name, dest_service);
+      if (raw == (IntPtr) 0)
+        throw new OutOfMemoryException ();
       dbus_message_unref (raw);
     }
 
@@ -92,34 +94,33 @@ namespace DBus {
 
     // slot used to store the C# object on the C object
     static int wrapper_slot = -1;
-    const string libname = "libdbus-1.so.0";
     
-    [DllImport (libname, EntryPoint="dbus_message_new")]
+    [DllImport (DBus.Internals.Libname, EntryPoint="dbus_message_new")]
       private extern static IntPtr dbus_message_new (string name,
                                                      string dest_service);
 
-    [DllImport (libname, EntryPoint="dbus_message_unref")]
+    [DllImport (DBus.Internals.Libname, EntryPoint="dbus_message_unref")]
       private extern static void dbus_message_unref (IntPtr ptr);
 
-    [DllImport (libname, EntryPoint="dbus_message_ref")]
+    [DllImport (DBus.Internals.Libname, EntryPoint="dbus_message_ref")]
       private extern static void dbus_message_ref (IntPtr ptr);
 
-    [DllImport (libname, EntryPoint="dbus_message_get_name")]
+    [DllImport (DBus.Internals.Libname, EntryPoint="dbus_message_get_name")]
       private extern static string dbus_message_get_name (IntPtr ptr);
 
-    [DllImport (libname, EntryPoint="dbus_message_allocate_data_slot")]
+    [DllImport (DBus.Internals.Libname, EntryPoint="dbus_message_allocate_data_slot")]
       private extern static bool dbus_message_allocate_data_slot (ref int slot);
 
-    [DllImport (libname, EntryPoint="dbus_message_free_data_slot")]
+    [DllImport (DBus.Internals.Libname, EntryPoint="dbus_message_free_data_slot")]
       private extern static void dbus_message_free_data_slot (ref int slot);
 
-    [DllImport (libname, EntryPoint="dbus_message_set_data")]
+    [DllImport (DBus.Internals.Libname, EntryPoint="dbus_message_set_data")]
       private extern static bool dbus_message_set_data (IntPtr ptr,
                                                         int    slot,
                                                         IntPtr data,
                                                         IntPtr free_data_func);
 
-    [DllImport (libname, EntryPoint="dbus_message_get_data")]
+    [DllImport (DBus.Internals.Libname, EntryPoint="dbus_message_get_data")]
       private extern static IntPtr dbus_message_get_data (IntPtr ptr,
                                                           int    slot);
   }

@@ -1,5 +1,10 @@
 2003-06-22  Havoc Pennington  <hp@pobox.com>
 
+	* mono/Connection.cs, mono/DBus.cs, mono/Error.cs: 
+	Start wrapping more stuff.
+
+2003-06-22  Havoc Pennington  <hp@pobox.com>
+
 	* mono/Message.cs: implement Message.Wrap() that ensures we only
 	have a single C# wrapper per DBusMessage, assuming it works which 
 	it probably doesn't.
