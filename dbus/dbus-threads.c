@@ -350,6 +350,7 @@ dbus_threads_init (const DBusThreadFunctions *functions)
   return TRUE;
 }
 
+/** @} */
 
 #ifdef DBUS_BUILD_TESTS
 /** Fake mutex used for debugging */
@@ -489,5 +490,3 @@ _dbus_threads_init_debug (void)
 }
 
 #endif /* DBUS_BUILD_TESTS */
-
-/** @} */

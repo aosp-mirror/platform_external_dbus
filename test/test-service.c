@@ -11,10 +11,8 @@ die (const char *message)
 }
 
 static DBusHandlerResult
-echo_handler (DBusMessageHandler *handler,
-              DBusConnection     *connection,
-              DBusMessage        *message,
-              void               *user_data)
+handle_echo (DBusConnection     *connection,
+             DBusMessage        *message)
 {
   DBusError error;
   DBusMessage *reply;
@@ -59,6 +57,25 @@ echo_handler (DBusMessageHandler *handler,
   return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
 }
 
+static DBusHandlerResult
+filter_func (DBusMessageHandler *handler,
+             DBusConnection     *connection,
+             DBusMessage        *message,
+             void               *user_data)
+{
+  if (dbus_message_name_is (message, "org.freedesktop.DBus.TestSuiteEcho"))
+    return handle_echo (connection, message);
+  else if (dbus_message_name_is (message, DBUS_MESSAGE_LOCAL_DISCONNECT))
+    {
+      _dbus_loop_quit (loop);
+      return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+    }
+  else
+    {
+      return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+    }
+}
+
 int
 main (int    argc,
       char **argv)
@@ -66,7 +83,10 @@ main (int    argc,
   DBusConnection *connection;
   DBusError error;
   DBusMessageHandler *handler;
-  const char *to_handle[] = { "org.freedesktop.DBus.TestSuiteEcho" };
+  const char *to_handle[] = {
+    "org.freedesktop.DBus.TestSuiteEcho",
+    DBUS_MESSAGE_LOCAL_DISCONNECT,
+  };
   int result;
   
   dbus_error_init (&error);
@@ -86,11 +106,12 @@ main (int    argc,
   if (!test_connection_setup (loop, connection))
     die ("No memory\n");
 
-  handler = dbus_message_handler_new (echo_handler, NULL, NULL);
+  handler = dbus_message_handler_new (filter_func, NULL, NULL);
   if (handler == NULL)
     die ("No memory");
   
-  if (!dbus_connection_register_handler (connection, handler, to_handle, 1))
+  if (!dbus_connection_register_handler (connection, handler, to_handle,
+                                         _DBUS_N_ELEMENTS (to_handle)))
     die ("No memory");
 
   result = dbus_bus_acquire_service (connection, "org.freedesktop.DBus.TestSuiteEchoService",
@@ -106,7 +127,7 @@ main (int    argc,
   _dbus_loop_run (loop);
 
   dbus_connection_unref (connection);
-
+  
   dbus_message_handler_unref (handler);
 
   _dbus_loop_unref (loop);

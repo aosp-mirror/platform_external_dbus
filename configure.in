@@ -350,9 +350,22 @@ AC_SUBST(DBUS_GLIB_THREADS_LIBS)
 
 # Qt detection
 have_qt=no
-if test -n "$QTDIR" -a -f $QTDIR/include/qglobal.h; then
+AC_MSG_CHECKING([for qglobal.h])
+if test -n "$QTDIR" -a -f "$QTDIR/include/qglobal.h"; then
     have_qt=yes
-    DBUS_QT_CXXFLAGS=-I$QTDIR/include
+    DBUS_QT_CXXFLAGS="-I$QTDIR/include"
+else
+    for dir in "${prefix}/include/qt" "/usr/include/qt3" "/usr/include/qt" "/usr/lib/qt/include"; do
+        if test -f "$dir/qglobal.h"; then
+            have_qt=yes
+            DBUS_QT_CXXFLAGS="-I$dir"
+       fi
+    done
+fi
+if test x"$have_qt" = x"yes"; then
+   AC_MSG_RESULT([found])
+else
+   AC_MSG_RESULT([not found])
 fi
 
 dnl linking to kdecore will give us a bit of help from libtool
@@ -360,10 +373,10 @@ if (! kde-config >& /dev/null); then
     have_qt=no
 else
     kdelibs=`kde-config --install lib --expandvars 2>/dev/null`
-    if test -z $kdelibs -a -f $kdelibs/libkdecore.la; then
+    if test -z $kdelibs -o ! -f $kdelibs/libkdecore.la; then
         have_qt=no
     else
-        DBUS_QT_LIBS=$kdelibs/libkdecore.la
+        DBUS_QT_LIBS="$kdelibs/libkdecore.la"
     fi
 fi
 

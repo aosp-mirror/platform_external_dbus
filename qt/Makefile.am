@@ -1,6 +1,11 @@
 INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_QT_CXXFLAGS)
 
+dbusincludedir=$(includedir)/dbus-1.0/dbus
+
 lib_LTLIBRARIES=libdbus-qt-1.la
+
+dbusinclude_HEADERS=				\
+	dbus-qt.h
 
 libdbus_qt_1_la_SOURCES = 			\
 	dbus-qthread.cpp

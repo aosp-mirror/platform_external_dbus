@@ -1,5 +1,17 @@
 2003-04-06  Havoc Pennington  <hp@pobox.com>
 
+	* qt/Makefile.am (dbusinclude_HEADERS): install dbus-qt.h, 
+	from Colin Walters
+
+	* configure.in: fixes to Qt detection from Colin Walters
+
+	* doc/Makefile.am: Only remove generated docbook dirs if they
+	exist, from Colin Walters
+
+	* dbus/dbus-bus.c: change how we set well-known connections to
+	NULL, so that it works if a single connection is stored in 
+	two well-known array slots.
+
 	* test/Makefile.am: remove a lot of stuff that isn't immediately
 	useful, it's in CVS history if we want it.
 

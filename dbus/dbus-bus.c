@@ -50,9 +50,10 @@
  */
 typedef struct
 {
+  DBusConnection *connection; /**< Connection we're associated with */
   char *base_service; /**< Base service name of this connection */
 
-  DBusConnection **connection; /**< Pointer to bus_connections entry */
+  unsigned int is_well_known : 1; /**< Is one of the well-known connections in our global array */
 } BusData;
 
 /** The slot we have reserved to store BusData
@@ -120,10 +121,14 @@ init_connections_unlocked (void)
   if (!initialized)
     {
       const char *s;
-      
-      bus_connections[0] = NULL;
-      bus_connections[1] = NULL;
-      bus_connections[2] = NULL;
+      int i;
+
+      i = 0;
+      while (i < N_BUS_TYPES)
+        {
+          bus_connections[i] = NULL;
+          ++i;
+        }
 
       /* Don't init these twice, we may run this code twice if
        * init_connections_unlocked() fails midway through.
@@ -238,10 +243,19 @@ bus_data_free (void *data)
 {
   BusData *bd = data;
 
-  if (bd->connection)
+  if (bd->is_well_known)
     {
+      int i;
       _DBUS_LOCK (bus);
-      *bd->connection = NULL;
+      /* We may be stored in more than one slot */
+      i = 0;
+      while (i < N_BUS_TYPES)
+        {
+          if (bus_connections[i] == bd->connection)
+            bus_connections[i] = NULL;
+
+          ++i;
+        }
       _DBUS_UNLOCK (bus);
     }
   
@@ -268,6 +282,8 @@ ensure_bus_data (DBusConnection *connection)
           data_slot_unref ();
           return NULL;
         }
+
+      bd->connection = connection;
       
       if (!dbus_connection_set_data (connection, bus_data_slot, bd,
                                      bus_data_free))
@@ -385,7 +401,7 @@ dbus_bus_get (DBusBusType  type,
   bd = ensure_bus_data (connection);
   _dbus_assert (bd != NULL);
 
-  bd->connection = &bus_connections[type];
+  bd->is_well_known = TRUE;
 
   _DBUS_UNLOCK (bus);
   return connection;
