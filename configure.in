@@ -3,7 +3,7 @@ AC_PREREQ(2.52)
 
 AC_INIT(dbus/dbus.h)
 
-AM_INIT_AUTOMAKE(dbus, 0.6)
+AM_INIT_AUTOMAKE(dbus, 0.7)
 
 AM_CONFIG_HEADER(config.h)
 

@@ -1,5 +1,13 @@
 2003-04-05  Havoc Pennington  <hp@pobox.com>
 
+	* test/Makefile.am (dist-hook): also dist *.in files
+
+	* NEWS: update
+
+	* configure.in: 0.7
+	
+2003-04-05  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-string.c: docs warning
 	
 	* dbus/dbus-spawn.c: missing docs

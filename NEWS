@@ -1,3 +1,15 @@
+D-BUS 0.7
+===
+
+- implement configuration file used to control bus characteristics
+- implement daemon mode, changing user ID, and other system
+  bus features
+- add init scripts for systemwide bus
+- add "make check-coverage" target to check test coverage
+- more test suite additions
+- many, many bugfixes
+- many API changes/fixes
+
 D-BUS 0.6
 ===
 - Vastly improved bus daemon test suite

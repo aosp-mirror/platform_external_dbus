@@ -89,7 +89,7 @@ dist-hook:
 	for D in $(TESTDIRS); do						\
 		test -d $(distdir)/$$D || mkdir $(distdir)/$$D || exit 1 ;	\
 	done ;									\
-	FILES=`$(FIND_TESTS)` ;							\
+	FILES=`$(FIND_TESTS) -o -name "*.in"` ;					\
         for F in $$FILES; do							\
                 echo '-- Disting file '$$F ;					\
 		cp $$F $(distdir)/$$F || exit 1 ;				\
