@@ -645,7 +645,8 @@ bus_driver_handle_activate_service (DBusConnection *connection,
 
   retval = FALSE;
 
-  if (!bus_activation_activate_service (activation, connection, message, name, error))
+  if (!bus_activation_activate_service (activation, connection, transaction,
+                                        message, name, error))
     goto out;
 
   retval = TRUE;

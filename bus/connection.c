@@ -1030,11 +1030,14 @@ bus_transaction_send_error_reply (BusTransaction  *transaction,
   if (reply == NULL)
     return FALSE;
 
-  if (!bus_transaction_send_message (transaction, connection, reply))
+  if (!dbus_message_set_sender (reply, DBUS_SERVICE_DBUS) ||
+      !bus_transaction_send_message (transaction, connection, reply))
     {
       dbus_message_unref (reply);
       return FALSE;
     }
 
+  dbus_message_unref (reply);
+  
   return TRUE;
 }

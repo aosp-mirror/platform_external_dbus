@@ -36,11 +36,13 @@ void           bus_activation_ref              (BusActivation     *activation);
 void           bus_activation_unref            (BusActivation     *activation);
 dbus_bool_t    bus_activation_activate_service (BusActivation     *activation,
                                                 DBusConnection    *connection,
+                                                BusTransaction    *transaction,
                                                 DBusMessage       *activation_message,
                                                 const char        *service_name,
                                                 DBusError         *error);
 dbus_bool_t    bus_activation_service_created  (BusActivation     *activation,
                                                 const char        *service_name,
+                                                BusTransaction    *transaction,
                                                 DBusError         *error);
 
 

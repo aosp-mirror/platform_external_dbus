@@ -2,6 +2,7 @@
 /* activation.c  Activation of services
  *
  * Copyright (C) 2003  CodeFactory AB
+ * Copyright (C) 2003  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -412,9 +413,10 @@ child_setup (void *data)
 }
 
 dbus_bool_t
-bus_activation_service_created (BusActivation *activation,
-				const char    *service_name,
-				DBusError     *error)
+bus_activation_service_created (BusActivation  *activation,
+				const char     *service_name,
+                                BusTransaction *transaction,
+				DBusError      *error)
 {
   BusPendingActivation *pending_activation;
   DBusMessage *message;
@@ -443,7 +445,8 @@ bus_activation_service_created (BusActivation *activation,
 	      goto error;
 	    }
 
-	  if (!dbus_message_append_args (message,
+	  if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS) ||
+              !dbus_message_append_args (message,
 					 DBUS_TYPE_UINT32, DBUS_ACTIVATION_REPLY_ACTIVATED,
 					 0))
 	    {
@@ -451,8 +454,8 @@ bus_activation_service_created (BusActivation *activation,
 	      BUS_SET_OOM (error);
 	      goto error;
 	    }
-
-	  if (!dbus_connection_send (entry->connection, message, NULL))
+          
+	  if (!bus_transaction_send_message (transaction, entry->connection, message))
 	    {
 	      dbus_message_unref (message);
 	      BUS_SET_OOM (error);
@@ -478,6 +481,7 @@ bus_activation_service_created (BusActivation *activation,
 dbus_bool_t
 bus_activation_activate_service (BusActivation  *activation,
 				 DBusConnection *connection,
+                                 BusTransaction *transaction,
 				 DBusMessage    *activation_message,
                                  const char     *service_name,
 				 DBusError      *error)
@@ -514,7 +518,8 @@ bus_activation_activate_service (BusActivation  *activation,
 	  return FALSE;
 	}
 
-      if (!dbus_message_append_args (message,
+      if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS) ||
+          !dbus_message_append_args (message,
 				     DBUS_TYPE_UINT32, DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE, 
 				     0))
 	{
@@ -523,7 +528,7 @@ bus_activation_activate_service (BusActivation  *activation,
 	  return FALSE;
 	}
 
-      retval = dbus_connection_send (connection, message, NULL);
+      retval = bus_transaction_send_message (transaction, connection, message);
       dbus_message_unref (message);
       if (!retval)
 	BUS_SET_OOM (error);

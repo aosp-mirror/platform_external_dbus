@@ -1,3 +1,12 @@
+2003-04-02  Havoc Pennington  <hp@redhat.com>
+
+	* bus/connection.c (bus_transaction_send_error_reply): set sender
+	service for the error, and unref the reply on success
+
+	* bus/activation.c: convert to use BusTransaction so OOM can be
+	handled correctly
+	(bus_activation_service_created): set sender of the message
+
 2003-04-01  Havoc Pennington  <hp@redhat.com>
 
 	* bus/config-parser.c, bus/bus.c: implement <servicedir> and

@@ -158,7 +158,7 @@ bus_registry_ensure (BusRegistry               *registry,
     }
 
   if (!bus_activation_service_created (bus_context_get_activation (registry->context),
-				       service->name, error))
+				       service->name, transaction, error))
     {
       dbus_free (service->name);
       _dbus_mem_pool_dealloc (registry->service_pool, service);
