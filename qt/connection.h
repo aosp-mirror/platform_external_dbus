@@ -50,6 +50,7 @@ namespace DBusQt {
     Message borrowMessage();
     Message popMessage();
     void stealBorrowMessage( const Message& );
+    void dbus_connection_setup_with_qt_main (DBusConnection *connection);
 
   public slots:
     void open( const QString& );

@@ -156,6 +156,13 @@ void* Connection::virtual_hook( int, void*  )
 {
 }
 
+void Connection::dbus_connection_setup_with_qt_main (DBusConnection *connection)
+{
+  d->setConnection( connection );
+}
+
+
+
 /////////////////////////////////////////////////////////
 
 #include "connection.moc"

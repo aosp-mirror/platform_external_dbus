@@ -162,13 +162,18 @@ Integrator::Integrator( DBusServer *server, QObject *parent )
 
 void Integrator::slotRead( int fd )
 {
-  Q_UNUSED( fd );
+  QIntDictIterator<Watch>	it( m_watches );
+  for ( ; it.current(); ++it )
+    dbus_watch_handle ( it.current()->watch, DBUS_WATCH_READABLE );
+
   emit readReady();
 }
 
 void Integrator::slotWrite( int fd )
 {
-  Q_UNUSED( fd );
+  QIntDictIterator<Watch>       it( m_watches );
+  for ( ; it.current(); ++it )
+    dbus_watch_handle ( it.current()->watch, DBUS_WATCH_WRITABLE );
 }
 
 void Integrator::slotTimeout( DBusTimeout *timeout )
