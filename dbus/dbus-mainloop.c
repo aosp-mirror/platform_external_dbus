@@ -328,8 +328,8 @@ check_timeout (unsigned long    tv_sec,
                TimeoutCallback *tcb,
                int             *timeout)
 {
-  long sec;
-  long msec;
+  long sec_remaining;
+  long msec_remaining;
   unsigned long expiration_tv_sec;
   unsigned long expiration_tv_usec;
   long interval_seconds;
@@ -348,9 +348,26 @@ check_timeout (unsigned long    tv_sec,
       expiration_tv_usec -= 1000000;
       expiration_tv_sec += 1;
     }
+
+  if (expiration_tv_sec < tv_sec ||
+      (expiration_tv_sec == tv_sec && expiration_tv_usec < tv_usec))
+    {
+      _dbus_verbose ("System clock went backward interval_seconds %ld interval_msecs %ld last_tv_sec %lu last_tv_usec %lu tv_sec %lu tv_usec %lu\n",
+                     interval_seconds, interval_milliseconds,
+                     tcb->last_tv_sec, tcb->last_tv_usec, tv_sec, tv_usec);
+          
+      /* The system time has been set backwards, reset the timeout to "interval" in the future */  
+      
+      tcb->last_tv_sec = tv_sec;
+      tcb->last_tv_usec = tv_usec;
+
+      *timeout = interval;
+
+      return FALSE;
+    }
   
-  sec = expiration_tv_sec - tv_sec;
-  msec = (expiration_tv_usec - tv_usec) / 1000;
+  sec_remaining = expiration_tv_sec - tv_sec;
+  msec_remaining = (expiration_tv_usec - tv_usec) / 1000;
 
 #if 0
   printf ("Interval is %ld seconds %ld msecs\n",
@@ -360,50 +377,37 @@ check_timeout (unsigned long    tv_sec,
           tv_sec, tv_usec);
   printf ("Exp is %lu seconds %lu usecs\n",
           expiration_tv_sec, expiration_tv_usec);
-  printf ("Pre-correction, remaining sec %ld msec %ld\n", sec, msec);
+  printf ("Pre-correction, remaining sec_remaining %ld msec_remaining %ld\n", sec_remaining, msec_remaining);
 #endif
   
   /* We do the following in a rather convoluted fashion to deal with
    * the fact that we don't have an integral type big enough to hold
    * the difference of two timevals in millseconds.
    */
-  if (sec < 0 || (sec == 0 && msec < 0))
-    msec = 0;
+  if (sec_remaining < 0 || (sec_remaining == 0 && msec_remaining < 0))
+    msec_remaining = 0;
   else
     {
-      if (msec < 0)
+      if (msec_remaining < 0)
 	{
-	  msec += 1000;
-	  sec -= 1;
+	  msec_remaining += 1000;
+	  sec_remaining -= 1;
 	}
-      
-      if (sec > interval_seconds ||
-	  (sec == interval_seconds && msec > interval_milliseconds))
-	{
-          _dbus_verbose ("System clock went backward interval_seconds %ld interval_msecs %ld sec %ld msec %ld last_tv_sec %lu last_tv_usec %lu tv_sec %lu tv_usec %lu\n",
-                         interval_seconds, interval_milliseconds, sec, msec, tcb->last_tv_sec,
-                         tcb->last_tv_usec, tv_sec, tv_usec);
-          
-	  /* The system time has been set backwards, reset the timeout */          
-          
-          tcb->last_tv_sec = tv_sec;
-          tcb->last_tv_usec = tv_usec;
-          
-          msec = MIN (_DBUS_INT_MAX, interval);
-	}
-      else
-	{
-	  msec = MIN (_DBUS_INT_MAX, (unsigned int)msec + 1000 * (unsigned int)sec);
-	}
+
+      if (msec_remaining > _DBUS_INT_MAX)
+        {
+          /* Not going to fit in a 32-bit integer */
+          msec_remaining = _DBUS_INT_MAX;
+        }
     }
 
-  *timeout = msec;
+  *timeout = msec_remaining;
 
 #if 0
   printf ("Timeout expires in %d milliseconds\n", *timeout);
 #endif
   
-  return msec == 0;
+  return msec_remaining == 0;
 }
 
 static void

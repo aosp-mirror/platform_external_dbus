@@ -1,5 +1,10 @@
 2003-04-09  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-mainloop.c (check_timeout): fix timeouts, I thought
+	I'd checked this in earlier but hadn't.
+
+2003-04-09  Havoc Pennington  <hp@redhat.com>
+
 	* bus/dispatch.c (bus_dispatch_test): get a bit further through
 	the activation test (man this is getting old!)
 
