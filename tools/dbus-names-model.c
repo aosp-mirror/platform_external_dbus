@@ -22,6 +22,7 @@
  */
 #include "dbus-names-model.h"
 #include <glib/gi18n.h>
+#include <string.h>
 
 enum
 {
@@ -112,6 +113,81 @@ have_names_notify (DBusGPendingCall *call,
   g_strfreev (names);
 }
 
+static gboolean
+names_model_find_name (NamesModel  *names_model,
+                       const char  *name,
+                       GtkTreeIter *iter_p)
+{
+  GtkTreeIter iter;
+  
+  if (!gtk_tree_model_get_iter_first (GTK_TREE_MODEL (names_model),
+                                      &iter))
+    return FALSE;
+  
+  do
+    {
+      char *s;
+      
+      gtk_tree_model_get (GTK_TREE_MODEL (names_model),
+                          &iter,
+                          MODEL_COLUMN_NAME, &s,
+                          -1);
+      if (s && strcmp (s, name) == 0)
+        {
+          *iter_p = iter;
+          g_free (s);
+          return TRUE;
+        }
+      
+      g_free (s);
+    }
+  while (gtk_tree_model_iter_next (GTK_TREE_MODEL (names_model),
+                                   &iter));
+
+  return FALSE;
+}
+
+static void
+name_owner_changed (DBusGProxy *driver_proxy,
+                    const char *name,
+                    const char *old_owner,
+                    const char *new_owner,
+                    void       *data)
+{
+  NamesModel *names_model = NAMES_MODEL (data);
+
+#if 0
+  g_printerr ("Name '%s' changed owner '%s' -> '%s'\n",
+              name, old_owner, new_owner);
+#endif
+
+  if (*new_owner == '\0')
+    {
+      /* this name has vanished */
+      GtkTreeIter iter;
+
+      if (names_model_find_name (names_model, name, &iter))
+        gtk_tree_store_remove (GTK_TREE_STORE (names_model),
+                               &iter);
+    }
+  else if (*old_owner == '\0')
+    {
+      /* this name has been added */
+      GtkTreeIter iter;
+      
+      if (!names_model_find_name (names_model, name, &iter))
+        {
+          gtk_tree_store_append (GTK_TREE_STORE (names_model),
+                                 &iter, NULL);
+          
+          gtk_tree_store_set (GTK_TREE_STORE (names_model),
+                              &iter,
+                              MODEL_COLUMN_NAME, name,
+                              -1);
+        }
+    }
+}
+
 static void
 names_model_reload (NamesModel *names_model)
 {
@@ -144,8 +220,6 @@ static void
 names_model_set_connection (NamesModel      *names_model,
                             DBusGConnection *connection)
 {
-  const char *match_rule = "type='signal',member='NameOwnerChanged'";
-
   g_return_if_fail (IS_NAMES_MODEL (names_model));
   
   if (connection == names_model->connection)
@@ -153,10 +227,11 @@ names_model_set_connection (NamesModel      *names_model,
 
   if (names_model->connection)
     {
-      dbus_g_proxy_call_no_reply (names_model->driver_proxy,
-                                  "RemoveMatch", 
-                                  DBUS_TYPE_STRING, &match_rule,
-                                  DBUS_TYPE_INVALID);
+      dbus_g_proxy_disconnect_signal (names_model->driver_proxy,
+                                      "NameOwnerChanged",
+                                      G_CALLBACK (name_owner_changed),
+                                      names_model);
+      
       g_object_unref (names_model->driver_proxy);
       names_model->driver_proxy = NULL;
       dbus_g_connection_unref (names_model->connection);
@@ -174,6 +249,18 @@ names_model_set_connection (NamesModel      *names_model,
                                    DBUS_PATH_ORG_FREEDESKTOP_DBUS,
                                    DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS);
       g_assert (names_model->driver_proxy);
+
+      dbus_g_proxy_add_signal (names_model->driver_proxy,
+                               "NameOwnerChanged",
+                               DBUS_TYPE_STRING_AS_STRING
+                               DBUS_TYPE_STRING_AS_STRING
+                               DBUS_TYPE_STRING_AS_STRING);
+      
+      dbus_g_proxy_connect_signal (names_model->driver_proxy,
+                                   "NameOwnerChanged", 
+                                   G_CALLBACK (name_owner_changed),
+                                   names_model,
+                                   NULL);
     }
 
   names_model_reload (names_model);

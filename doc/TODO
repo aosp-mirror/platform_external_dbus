@@ -55,9 +55,9 @@ Important for 1.0 GLib Bindings
    dbus_malloc() memory, only g_malloc(). 
    dbus_g_proxy_end_call() is the major offender. 
 
- - dbus_gproxy_connect_signal() has to take a signature for the signal 
-   so it can figure out how to invoke the callback, or we have to rely
-   on having introspection data.
+ - DBusGProxy signals feature is a complete fiasco;
+   right now the problem is that it dynamically creates
+   signals on the global DBusGProxy class and never frees them
 
  - DBusGProxy doesn't emit "destroy" when it should
 

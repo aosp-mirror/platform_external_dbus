@@ -819,6 +819,13 @@ fi
 AM_CONDITIONAL(HAVE_GLIB, test x$have_glib = xyes)
 AM_CONDITIONAL(HAVE_GLIB_THREADS, test x$have_glib_threads = xyes)
 
+if test x$have_glib = xyes; then
+   GLIB_GENMARSHAL=`$PKG_CONFIG --variable=glib_genmarshal glib-2.0`
+else
+   GLIB_GENMARSHAL=glib-not-enabled-so-there-is-no-genmarshal
+fi
+AC_SUBST(GLIB_GENMARSHAL)
+
 dnl GLib flags
 AC_SUBST(DBUS_GLIB_CFLAGS)
 AC_SUBST(DBUS_GLIB_LIBS)

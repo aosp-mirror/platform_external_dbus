@@ -1,5 +1,17 @@
 2005-01-30  Havoc Pennington  <hp@redhat.com>
 
+	* tools/dbus-names-model.c: dynamically watch NameOwnerChanged
+
+	* autogen.sh: change to autotools 1.9
+
+	* glib/dbus-gproxy.c: completely change how signals work
+	(dbus_g_proxy_add_signal): new function to specify signature of a
+	signal
+	(dbus_g_proxy_emit_received): marshal the dbus message to GValues,
+	and g_warning if the incoming message has the wrong signature.
+
+2005-01-30  Havoc Pennington  <hp@redhat.com>
+
 	* tools/dbus-names-model.c (have_names_notify): fix this
 
 	* dbus/dbus-message.c (_dbus_message_iter_get_args_valist): clean

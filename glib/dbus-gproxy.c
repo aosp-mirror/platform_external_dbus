@@ -23,6 +23,8 @@
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus-glib-lowlevel.h>
 #include "dbus-gutils.h"
+#include "dbus-gmarshal.h"
+#include "dbus-gvalue.h"
 #include <string.h>
 
 /**
@@ -48,6 +50,8 @@ struct DBusGProxy
   char *name;                 /**< Name messages go to or NULL */
   char *path;                 /**< Path messages go to or NULL */
   char *interface;            /**< Interface messages go to or NULL */
+
+  GData *signal_signatures;   /**< D-BUS signatures for each signal */
 };
 
 /**
@@ -58,14 +62,13 @@ struct DBusGProxyClass
   GObjectClass parent_class;  /**< Parent class */
 };
 
-static void dbus_g_proxy_init          (DBusGProxy      *proxy);
-static void dbus_g_proxy_class_init    (DBusGProxyClass *klass);
-static void dbus_g_proxy_finalize      (GObject         *object);
-static void dbus_g_proxy_dispose       (GObject         *object);
-static void dbus_g_proxy_destroy       (DBusGProxy      *proxy);
-static void dbus_g_proxy_emit_received (DBusGProxy      *proxy,
-                                       DBusMessage     *message);
-
+static void dbus_g_proxy_init               (DBusGProxy      *proxy);
+static void dbus_g_proxy_class_init         (DBusGProxyClass *klass);
+static void dbus_g_proxy_finalize           (GObject         *object);
+static void dbus_g_proxy_dispose            (GObject         *object);
+static void dbus_g_proxy_destroy            (DBusGProxy      *proxy);
+static void dbus_g_proxy_emit_remote_signal (DBusGProxy      *proxy,
+                                             DBusMessage     *message);
 
 /**
  * A list of proxies with a given name+path+interface, used to
@@ -641,7 +644,7 @@ dbus_g_proxy_manager_filter (DBusConnection    *connection,
               proxy = DBUS_G_PROXY (tmp->data);
 
               UNLOCK_MANAGER (manager);
-              dbus_g_proxy_emit_received (proxy, message);
+              dbus_g_proxy_emit_remote_signal (proxy, message);
               g_object_unref (G_OBJECT (proxy));
               LOCK_MANAGER (manager);
               
@@ -670,7 +673,6 @@ dbus_g_proxy_manager_filter (DBusConnection    *connection,
 enum
 {
   DESTROY,
-  RECEIVED,
   LAST_SIGNAL
 };
 
@@ -680,7 +682,7 @@ static guint signals[LAST_SIGNAL] = { 0 };
 static void
 dbus_g_proxy_init (DBusGProxy *proxy)
 {
-  /* Nothing */
+  g_datalist_init (&proxy->signal_signatures);
 }
 
 static void
@@ -701,16 +703,6 @@ dbus_g_proxy_class_init (DBusGProxyClass *klass)
 		  NULL, NULL,
                   g_cclosure_marshal_VOID__VOID,
 		  G_TYPE_NONE, 0);
-  
-  signals[RECEIVED] =
-    g_signal_new ("received",
-		  G_OBJECT_CLASS_TYPE (object_class),
-		  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-		  NULL, NULL,
-                  g_cclosure_marshal_VOID__BOXED,
-		  G_TYPE_NONE, 1,
-                  DBUS_TYPE_MESSAGE);
 }
 
 
@@ -721,6 +713,8 @@ dbus_g_proxy_dispose (GObject *object)
 
   proxy = DBUS_G_PROXY (object);
 
+  g_datalist_clear (&proxy->signal_signatures);
+  
   g_signal_emit (object, signals[DESTROY], 0);
   
   G_OBJECT_CLASS (parent_class)->dispose (object);
@@ -755,28 +749,102 @@ dbus_g_proxy_destroy (DBusGProxy *proxy)
   g_object_run_dispose (G_OBJECT (proxy));
 }
 
+/* this is to avoid people using g_signal_connect() directly,
+ * to avoid confusion with local signal names, and because
+ * of the horribly broken current setup (signals are added
+ * globally to all proxies)
+ */
 static char*
-create_signal_detail (const char *interface,
-                      const char *signal)
+create_signal_name (const char *interface,
+                    const char *signal)
 {
   GString *str;
+  char *p;
 
   str = g_string_new (interface);
 
-  g_string_append (str, ".");
-
+  g_string_append (str, "-");
+  
   g_string_append (str, signal);
 
+  /* GLib will silently barf on '.' in signal names */
+  p = str->str;
+  while (*p)
+    {
+      if (*p == '.')
+        *p = '-';
+      ++p;
+    }
+  
   return g_string_free (str, FALSE);
 }
 
 static void
-dbus_g_proxy_emit_received (DBusGProxy  *proxy,
-                           DBusMessage *message)
+emit_remote_internal (DBusGProxy  *proxy,
+                      DBusMessage *message,
+                      guint        signal_id,
+                      gboolean     marshal_args)
+{
+#define MAX_SIGNATURE_ARGS 20
+  GValue values[MAX_SIGNATURE_ARGS];
+  int arg;
+  int i;
+
+  memset (&values[0], 0, sizeof (values));
+  
+  arg = 0;
+      
+  g_value_init (&values[arg], G_TYPE_FROM_INSTANCE (proxy));
+  g_value_set_instance (&values[arg], proxy);
+  ++arg;
+
+  if (marshal_args)
+    {
+      DBusMessageIter iter;
+      int dtype;
+
+      dbus_message_iter_init (message, &iter);
+      
+      while ((dtype = dbus_message_iter_get_arg_type (&iter)) != DBUS_TYPE_INVALID)
+        {
+          if (arg == MAX_SIGNATURE_ARGS)
+            {
+              g_warning ("Don't support more than %d signal args\n", MAX_SIGNATURE_ARGS);
+              goto out;
+            }
+          
+          if (!dbus_gvalue_demarshal (&iter, &values[arg]))
+            {
+              g_warning ("Unable to convert arg type %d to GValue to emit DBusGProxy signal", dtype);
+              goto out;
+            }
+          
+          ++arg;
+          dbus_message_iter_next (&iter);
+        }
+    }
+      
+  g_signal_emitv (&values[0],
+                  signal_id,
+                  0,
+                  NULL);
+
+ out:
+  i = 0;
+  while (i < arg)
+    {
+      g_value_unset (&values[i]);
+      ++i;
+    }
+}
+
+static void
+dbus_g_proxy_emit_remote_signal (DBusGProxy  *proxy,
+                                 DBusMessage *message)
 {
   const char *interface;
   const char *signal;
-  char *detail;
+  char *name;
   GQuark q;
   
   interface = dbus_message_get_interface (message);
@@ -785,21 +853,43 @@ dbus_g_proxy_emit_received (DBusGProxy  *proxy,
   g_assert (interface != NULL);
   g_assert (signal != NULL);
 
-  detail = create_signal_detail (interface, signal);
+  name = create_signal_name (interface, signal);
 
   /* If the quark isn't preexisting, there's no way there
    * are any handlers connected. We don't want to create
    * extra quarks for every possible signal.
    */
-  q = g_quark_try_string (detail);
+  q = g_quark_try_string (name);
 
   if (q != 0)
-    g_signal_emit (G_OBJECT (proxy),
-                   signals[RECEIVED],
-                   q,
-                   message);
+    {
+      const char *signature;
 
-  g_free (detail);
+      signature = g_datalist_id_get_data (&proxy->signal_signatures, q);
+      if (signature == NULL)
+        {
+          g_warning ("Signal '%s' has not been added to this proxy object\n",
+                     name);
+        }
+      else if (!dbus_message_has_signature (message, signature))
+        {
+          g_warning ("Signature '%s' expected for signal '%s', actual signature '%s'\n",
+                     signature,
+                     name,
+                     dbus_message_get_signature (message));
+        }
+      else
+        {
+          guint signal_id;
+
+          signal_id = g_signal_lookup (name, G_OBJECT_TYPE (proxy));
+          g_assert (signal_id != 0); /* because we have the signature */
+          
+          emit_remote_internal (proxy, message, signal_id, signature != NULL);
+        }
+    }
+
+  g_free (name);
 }
 
 /** @} End of DBusGLibInternals */
@@ -1264,8 +1354,8 @@ dbus_g_proxy_call_no_reply (DBusGProxy               *proxy,
  * @param client_serial return location for message's serial, or #NULL */
 void
 dbus_g_proxy_send (DBusGProxy          *proxy,
-                  DBusMessage         *message,
-                  dbus_uint32_t       *client_serial)
+                   DBusMessage         *message,
+                   dbus_uint32_t       *client_serial)
 {
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
   
@@ -1289,14 +1379,102 @@ dbus_g_proxy_send (DBusGProxy          *proxy,
     g_error ("Out of memory\n");
 }
 
+static gboolean
+siginfo_from_signature (const char         *signature,
+                        GSignalCMarshaller *c_marshaller,
+                        GType              *return_type,
+                        guint              *n_params,
+                        GType             **param_types)
+{
+  /* FIXME (which marshalers should we include?
+   * probably need public API to add your own
+   */
+  
+  if (strcmp (signature, "sss") == 0)
+    {
+      *c_marshaller = _dbus_g_marshal_NONE__STRING_STRING_STRING;
+      *return_type = G_TYPE_NONE;
+      *n_params = 3;
+      *param_types = g_new0 (GType, *n_params);
+      (*param_types)[0] = G_TYPE_STRING;
+      (*param_types)[1] = G_TYPE_STRING;
+      (*param_types)[2] = G_TYPE_STRING;
+
+      return TRUE;
+    }
+
+  return FALSE;
+}
+
+/**
+ * Specifies the signature of a signal, such that it's possible to
+ * connect to the signal on this proxy.
+ *
+ * @param proxy the proxy for a remote interface
+ * @param signal_name the name of the signal
+ * @param signature D-BUS signature of the signal
+ */
+void
+dbus_g_proxy_add_signal  (DBusGProxy        *proxy,
+                          const char        *signal_name,
+                          const char        *signature)
+{
+  GSignalCMarshaller c_marshaller;
+  GType return_type;
+  int n_params;
+  GType *params;
+  
+  g_return_if_fail (DBUS_IS_G_PROXY (proxy));
+  g_return_if_fail (signal_name != NULL);
+  g_return_if_fail (signature != NULL);
+
+  if (siginfo_from_signature (signature,
+                              &c_marshaller,
+                              &return_type,
+                              &n_params,
+                              &params))
+    {
+      GQuark q;
+      char *name;
+
+      name = create_signal_name (proxy->interface, signal_name);
+      
+      q = g_quark_from_string (name);
+      
+      g_return_if_fail (g_datalist_id_get_data (&proxy->signal_signatures, q) == NULL);
+      
+      g_datalist_id_set_data_full (&proxy->signal_signatures,
+                                   q, g_strdup (signature),
+                                   g_free);
+
+      /* hackaround global nature of g_signal_newv()... this whole thing needs unhosing */
+
+      if (g_signal_lookup (name,
+                           G_OBJECT_TYPE (proxy)) == 0)
+        {
+          g_signal_newv (name,
+                         G_OBJECT_TYPE (proxy),
+                         G_SIGNAL_RUN_LAST,
+                         0,
+                         NULL, NULL,
+                         c_marshaller,
+                         return_type, n_params, params);
+        }
+
+      g_free (params);
+      g_free (name);
+    }
+  else
+    {
+      g_warning ("DBusGProxy doesn't know how to create a signal with signature '%s'\n",
+                 signature);
+    }
+}
+
 /**
  * Connect a signal handler to a proxy for a remote interface.  When
  * the remote interface emits the specified signal, the proxy will
  * emit a corresponding GLib signal.
- *
- * @todo Right now there's no way to specify the signature to use
- * for invoking the GCallback. Need to either rely on introspection,
- * or require signature here.
  *
  * @param proxy a proxy for a remote interface
  * @param signal_name the DBus signal name to listen for
@@ -1306,27 +1484,40 @@ dbus_g_proxy_send (DBusGProxy          *proxy,
  */
 void
 dbus_g_proxy_connect_signal (DBusGProxy             *proxy,
-                            const char             *signal_name,
-                            GCallback               handler,
-                            void                   *data,
-                            GClosureNotify          free_data_func)
+                             const char             *signal_name,
+                             GCallback               handler,
+                             void                   *data,
+                             GClosureNotify          free_data_func)
 {
-  GClosure *closure;
-  char *detail;
+  char *name;
+  guint signal_id;
 
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
   g_return_if_fail (signal_name != NULL);
   g_return_if_fail (handler != NULL);
   
-  detail = create_signal_detail (proxy->interface, signal_name);
-  
-  closure = g_cclosure_new (G_CALLBACK (handler), data, free_data_func);
-  g_signal_connect_closure_by_id (G_OBJECT (proxy),
-                                  signals[RECEIVED],
-                                  g_quark_from_string (detail),
-                                  closure, FALSE);
+  name = create_signal_name (proxy->interface, signal_name);
 
-  g_free (detail);
+  g_printerr ("Looking up signal '%s'\n", name);
+  signal_id = g_signal_lookup (name,
+                               G_OBJECT_TYPE (proxy));
+  if (signal_id != 0)
+    {
+      GClosure *closure;
+      
+      closure = g_cclosure_new (G_CALLBACK (handler), data, free_data_func);
+      g_signal_connect_closure_by_id (G_OBJECT (proxy),
+                                      signal_id,
+                                      0,
+                                      closure, FALSE);
+    }
+  else
+    {
+      g_warning ("You have to add signal '%s' with dbus_g_proxy_add_signal() before you can connect to it\n",
+                 name);
+    }
+  
+  g_free (name);
 }
 
 /**
@@ -1340,38 +1531,38 @@ dbus_g_proxy_connect_signal (DBusGProxy             *proxy,
  */
 void
 dbus_g_proxy_disconnect_signal (DBusGProxy             *proxy,
-                               const char             *signal_name,
-                               GCallback               handler,
-                               void                   *data)
+                                const char             *signal_name,
+                                GCallback               handler,
+                                void                   *data)
 {
-  char *detail;
-  GQuark q;
+  char *name;
+  guint signal_id;
   
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
   g_return_if_fail (signal_name != NULL);
   g_return_if_fail (handler != NULL);
 
-  detail = create_signal_detail (proxy->interface, signal_name);
-  q = g_quark_try_string (detail);
-  g_free (detail);
+  name = create_signal_name (proxy->interface, signal_name);
 
-#ifndef G_DISABLE_CHECKS
-  if (q == 0)
+  signal_id = g_signal_lookup (name, G_OBJECT_TYPE (proxy));
+  if (signal_id != 0)
     {
-      g_warning ("%s: No signal handlers for %s found on this DBusGProxy",
-                 G_GNUC_FUNCTION, signal_name);
-      return;
+      g_signal_handlers_disconnect_matched (G_OBJECT (proxy),
+                                            G_SIGNAL_MATCH_DETAIL |
+                                            G_SIGNAL_MATCH_FUNC   |
+                                            G_SIGNAL_MATCH_DATA,
+                                            signal_id,
+                                            0,
+                                            NULL,
+                                            G_CALLBACK (handler), data);
     }
-#endif
+  else
+    {
+      g_warning ("Attempt to disconnect from signal '%s' which is not registered\n",
+                 name);
+    }
 
-  g_signal_handlers_disconnect_matched (G_OBJECT (proxy),
-                                        G_SIGNAL_MATCH_DETAIL |
-                                        G_SIGNAL_MATCH_FUNC   |
-                                        G_SIGNAL_MATCH_DATA,
-                                        signals[RECEIVED],
-                                        q,
-                                        NULL,
-                                        G_CALLBACK (handler), data);
+  g_free (name);
 }
 
 /** @} End of DBusGLib public */

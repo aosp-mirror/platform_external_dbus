@@ -5,6 +5,8 @@ lib_LTLIBRARIES=libdbus-glib-1.la
 libdbus_glib_1_la_SOURCES = 			\
 	dbus-glib.c				\
 	dbus-gmain.c				\
+	dbus-gmarshal.c				\
+	dbus-gmarshal.h				\
 	dbus-gobject.c				\
 	dbus-gproxy.c				\
 	dbus-gtest.c				\
@@ -40,6 +42,15 @@ dbus_binding_tool_SOURCES =			\
 	dbus-glib-tool.c
 
 dbus_binding_tool_LDADD= -lexpat libdbus-gtool.la
+
+## we just rebuilt these manually and check them into cvs; easier than
+## convincing automake/make to do this properly
+regenerate-built-sources:
+	@GLIB_GENMARSHAL@ --prefix=_dbus_g_marshal dbus-gmarshal.list --header > dbus-gmarshal.h && \
+	echo '#include "dbus-gmarshal.h"' > dbus-gmarshal.c &&					    \
+        @GLIB_GENMARSHAL@ --prefix=_dbus_g_marshal dbus-gmarshal.list --body >> dbus-gmarshal.c
+
+EXTRA_DIST=dbus-gmarshal.list
 
 if DBUS_BUILD_TESTS
 

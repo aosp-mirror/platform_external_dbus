@@ -149,6 +149,9 @@ DBusGProxy*       dbus_g_proxy_new_for_name_owner    (DBusGConnection   *connect
 DBusGProxy*       dbus_g_proxy_new_for_peer          (DBusGConnection   *connection,
                                                       const char        *path_name,
                                                       const char        *interface_name);
+void              dbus_g_proxy_add_signal            (DBusGProxy        *proxy,
+                                                      const char        *signal_name,
+                                                      const char        *signature);
 void              dbus_g_proxy_connect_signal        (DBusGProxy        *proxy,
                                                       const char        *signal_name,
                                                       GCallback          handler,
