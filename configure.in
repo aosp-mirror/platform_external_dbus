@@ -530,6 +530,7 @@ dbus-1.0.pc
 dbus-glib-1.0.pc
 test/data/valid-config-files/debug-allow-all.conf
 test/data/valid-service-files/debug-echo.service
+test/data/valid-service-files/debug-segfault.service
 ])
 
 dnl ==========================================================================

@@ -1,7 +1,15 @@
 2003-04-10  Havoc Pennington  <hp@pobox.com>
 
+	* bus/dispatch.c (check_segfault_service_activation): add test
+	for launching an executable that just crashes.
+
+	* test/test-segfault.c (main): try setting coredumpsize to 0 so we
+	don't leave a million cores. We'll see how portable this is.
+
+2003-04-10  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-spawn.c (_dbus_spawn_async_with_babysitter): move all
-	the possible parent failures before we fork, so that we don't 
+	the possible parent failures before we fork, so that we don't q
 	fail to create a babysitter after creating the child.
 
 	* bus/activation.c (bus_activation_activate_service): kill child

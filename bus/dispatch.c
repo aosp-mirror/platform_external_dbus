@@ -1571,16 +1571,9 @@ check_existent_service_activation (BusContext     *context,
           ; /* good, this is a valid response */
         }
       else if (dbus_message_name_is (message,
-                                     DBUS_ERROR_ACTIVATE_SERVICE_NOT_FOUND))
-        {
-          ; /* good, this is expected also */
-        }
-      else if (dbus_message_name_is (message,
                                      DBUS_ERROR_SPAWN_CHILD_EXITED))
         {
-          ; /* good, this is expected also (child will exit if for example we don't
-             * have memory to register it)
-             */
+          ; /* good, this is expected also */
         }
       else
         {
@@ -1687,7 +1680,7 @@ check_existent_service_activation (BusContext     *context,
             goto out;
         }
     }
-
+  
   retval = TRUE;
   
  out:
@@ -1696,6 +1689,110 @@ check_existent_service_activation (BusContext     *context,
 
   if (base_service)
     dbus_free (base_service);
+  
+  return retval;
+}
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
+check_segfault_service_activation (BusContext     *context,
+                                   DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_int32_t serial;
+  dbus_bool_t retval;
+  DBusError error;
+  
+  dbus_error_init (&error);
+  
+  message = dbus_message_new (DBUS_SERVICE_DBUS,
+			      DBUS_MESSAGE_ACTIVATE_SERVICE);
+
+  if (message == NULL)
+    return TRUE;
+
+  if (!dbus_message_append_args (message,
+                                 DBUS_TYPE_STRING,
+                                 "org.freedesktop.DBus.TestSuiteSegfaultService",
+                                 DBUS_TYPE_UINT32, 0,
+                                 DBUS_TYPE_INVALID))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+  
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  bus_test_run_everything (context);
+  block_connection_until_message_from_bus (context, connection);
+  bus_test_run_everything (context);
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected\n");
+      return TRUE;
+    }
+  
+  retval = FALSE;
+  
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a reply to %s %d on %p\n",
+                  DBUS_MESSAGE_ACTIVATE_SERVICE, serial, connection);
+      goto out;
+    }
+
+  _dbus_verbose ("Received %s on %p\n",
+                 dbus_message_get_name (message), connection);
+
+  if (dbus_message_get_is_error (message))
+    {
+      if (!dbus_message_sender_is (message, DBUS_SERVICE_DBUS))
+        {
+          _dbus_warn ("Message has wrong sender %s\n",
+                      dbus_message_get_sender (message) ?
+                      dbus_message_get_sender (message) : "(none)");
+          goto out;
+        }
+      
+      if (dbus_message_name_is (message,
+                                DBUS_ERROR_NO_MEMORY))
+        {
+          ; /* good, this is a valid response */
+        }
+      else if (dbus_message_name_is (message,
+                                     DBUS_ERROR_SPAWN_CHILD_SIGNALED))
+        {
+          ; /* good, this is expected also */
+        }
+      else
+        {
+          _dbus_warn ("Did not expect error %s\n",
+                      dbus_message_get_name (message));
+          goto out;
+        }
+    }
+  else
+    {
+      _dbus_warn ("Did not expect to successfully activate segfault service\n");
+      goto out;
+    }
+
+  retval = TRUE;
+  
+ out:
+  if (message)
+    dbus_message_unref (message);
   
   return retval;
 }
@@ -1825,16 +1922,17 @@ bus_dispatch_test (const DBusString *test_data_dir)
   if (!check_hello_message (context, baz))
     _dbus_assert_not_reached ("hello message failed");
 
-#if 1
-  check2_try_iterations (context, foo, "existent_service_activation",
-                         check_existent_service_activation);
-#endif
+  check1_try_iterations (context, "create_and_hello",
+                         check_hello_connection);
   
   check2_try_iterations (context, foo, "nonexistent_service_activation",
                          check_nonexistent_service_activation);
 
-  check1_try_iterations (context, "create_and_hello",
-                         check_hello_connection);
+  check2_try_iterations (context, foo, "segfault_service_activation",
+                         check_segfault_service_activation);
+  
+  check2_try_iterations (context, foo, "existent_service_activation",
+                         check_existent_service_activation);
   
   _dbus_verbose ("Disconnecting foo, bar, and baz\n");
 

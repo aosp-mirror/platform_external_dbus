@@ -287,6 +287,9 @@ _dbus_babysitter_unref (DBusBabysitter *sitter)
             }
           else
             {
+              _dbus_verbose ("Reaped %ld, waiting for babysitter %ld\n",
+                             (long) ret, (long) sitter->sitter_pid);
+              
               if (WIFEXITED (sitter->status))
                 _dbus_verbose ("Babysitter exited with status %d\n",
                                WEXITSTATUS (sitter->status));
