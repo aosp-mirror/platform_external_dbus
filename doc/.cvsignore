@@ -7,3 +7,4 @@ Makefile.in
 *.o
 api
 dbus-specification.html
+dbus-test-plan.html

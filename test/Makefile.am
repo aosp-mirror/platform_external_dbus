@@ -45,7 +45,7 @@ break_loader_LDADD= $(TEST_LIBS)
 bus_test_LDADD=$(TEST_LIBS) $(top_builddir)/bus/libdbus-daemon.la
 spawn_test_LDADD=$(TEST_LIBS)
 
-dist-hook:											   \
+dist-hook:
 	DIRS="data data/valid-messages data/invalid-messages data/incomplete-messages data/auth" ; \
 	for D in $$DIRS; do									   \
 		test -d $(distdir)/$$D || mkdir $(distdir)/$$D ;				   \
