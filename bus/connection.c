@@ -27,6 +27,7 @@
 #include "utils.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
+#include <dbus/dbus-timeout.h>
 
 static void bus_connection_remove_transactions (DBusConnection *connection);
 
@@ -39,6 +40,7 @@ struct BusConnections
   int n_incomplete;     /**< Length of incomplete list */
   BusContext *context;
   DBusHashTable *completed_by_user; /**< Number of completed connections for each UID */
+  DBusTimeout *expire_timeout; /**< Timeout for expiring incomplete connections. */
 };
 
 static int connection_data_slot = -1;
@@ -55,7 +57,12 @@ typedef struct
   DBusMessage *oom_message;
   DBusPreallocatedSend *oom_preallocated;
   BusClientPolicy *policy;
+
+  long connection_tv_sec;  /**< Time when we connected (seconds component) */
+  long connection_tv_usec; /**< Time when we connected (microsec component) */
 } BusConnectionData;
+
+static dbus_bool_t expire_incomplete_timeout (void *data);
 
 #define BUS_CONNECTION_DATA(connection) (dbus_connection_get_data ((connection), connection_data_slot))
 
@@ -178,10 +185,7 @@ bus_connection_disconnected (DBusConnection *connection)
    * handle it other than sleeping; we can't "fail" the operation of
    * disconnecting a client, and preallocating a broadcast "service is
    * now gone" message for every client-service pair seems kind of
-   * involved. Probably we need to do that though, and also
-   * extend BusTransaction to be able to revert generic
-   * stuff, not just sending a message (so we can e.g. revert
-   * removal of service owners).
+   * involved. Probably we need to do that though.
    */
   while ((service = _dbus_list_get_last (&d->services_owned)))
     {
@@ -400,34 +404,59 @@ free_connection_data (void *data)
   dbus_free (d);
 }
 
+static void
+call_timeout_callback (DBusTimeout   *timeout,
+                       void          *data)
+{
+  /* can return FALSE on OOM but we just let it fire again later */
+  dbus_timeout_handle (timeout);
+}
+
 BusConnections*
 bus_connections_new (BusContext *context)
 {
   BusConnections *connections;
 
   if (!connection_data_slot_ref ())
-    return NULL;
+    goto failed_0;
 
   connections = dbus_new0 (BusConnections, 1);
   if (connections == NULL)
-    {
-      connection_data_slot_unref ();
-      return NULL;
-    }
+    goto failed_1;
 
   connections->completed_by_user = _dbus_hash_table_new (DBUS_HASH_ULONG,
                                                          NULL, NULL);
   if (connections->completed_by_user == NULL)
-    {
-      dbus_free (connections);
-      connection_data_slot_unref ();
-      return NULL;
-    }
+    goto failed_2;
+
+  connections->expire_timeout = _dbus_timeout_new (100, /* irrelevant */
+                                                   expire_incomplete_timeout,
+                                                   connections, NULL);
+  if (connections->expire_timeout == NULL)
+    goto failed_3;
+
+  _dbus_timeout_set_enabled (connections->expire_timeout, FALSE);
+
+  if (!_dbus_loop_add_timeout (bus_context_get_loop (context),
+                               connections->expire_timeout,
+                               call_timeout_callback, NULL, NULL))
+    goto failed_4;
   
   connections->refcount = 1;
   connections->context = context;
   
   return connections;
+
+ failed_4:
+  _dbus_timeout_unref (connections->expire_timeout);
+ failed_3:
+  _dbus_hash_table_unref (connections->completed_by_user);
+ failed_2:
+  dbus_free (connections);
+ failed_1:
+  connection_data_slot_unref ();
+ failed_0:
+  return NULL;
 }
 
 void
@@ -474,6 +503,12 @@ bus_connections_unref (BusConnections *connections)
 
       _dbus_assert (connections->n_completed == 0);
 
+      _dbus_loop_remove_timeout (bus_context_get_loop (connections->context),
+                                 connections->expire_timeout,
+                                 call_timeout_callback, NULL);
+      
+      _dbus_timeout_unref (connections->expire_timeout);
+      
       _dbus_hash_table_unref (connections->completed_by_user);
       
       dbus_free (connections);
@@ -497,6 +532,9 @@ bus_connections_setup_connection (BusConnections *connections,
   d->connections = connections;
   d->connection = connection;
 
+  _dbus_get_current_time (&d->connection_tv_sec,
+                          &d->connection_tv_usec);
+  
   _dbus_assert (connection_data_slot >= 0);
   
   if (!dbus_connection_set_data (connection,
@@ -556,7 +594,14 @@ bus_connections_setup_connection (BusConnections *connections,
   dbus_connection_ref (connection);
 
   /* Note that we might disconnect ourselves here, but it only takes
-   * effect on return to the main loop.
+   * effect on return to the main loop. We call this to free up
+   * expired connections if possible, and to queue the timeout for our
+   * own expiration.
+   */
+  bus_connections_expire_incomplete (connections);
+  
+  /* And we might also disconnect ourselves here, but again it
+   * only takes effect on return to main loop.
    */
   if (connections->n_incomplete >
       bus_context_get_max_incomplete_connections (connections->context))
@@ -611,6 +656,85 @@ bus_connections_setup_connection (BusConnections *connections,
     }
   
   return retval;
+}
+
+void
+bus_connections_expire_incomplete (BusConnections *connections)
+{    
+  int next_interval;
+  long tv_sec, tv_usec;
+  DBusList *link;
+  int auth_timeout;
+  
+  if (connections->incomplete == NULL)
+    return;
+
+  _dbus_get_current_time (&tv_sec, &tv_usec);
+  auth_timeout = bus_context_get_auth_timeout (connections->context);
+  next_interval = -1;
+  
+  link = _dbus_list_get_first_link (&connections->incomplete);
+  while (link != NULL)
+    {
+      DBusList *next = _dbus_list_get_next_link (&connections->incomplete, link);
+      DBusConnection *connection;
+      BusConnectionData *d;
+      double elapsed;
+      
+      connection = link->data;
+      
+      d = BUS_CONNECTION_DATA (connection);
+      
+      _dbus_assert (d != NULL);
+      
+      elapsed = ((double) tv_sec - (double) d->connection_tv_sec) * 1000.0 +
+        ((double) tv_usec - (double) d->connection_tv_usec) / 1000.0;
+
+      if (elapsed > (double) auth_timeout)
+        {
+          _dbus_verbose ("Timing out authentication for connection %p\n", connection);
+          dbus_connection_disconnect (connection);
+        }
+      else
+        {
+          /* We can end the loop, since the connections are in oldest-first order */
+          next_interval = auth_timeout - (int) elapsed;
+          _dbus_verbose ("Connection %p authentication expires in %d milliseconds\n",
+                         connection, next_interval);
+          
+          break;
+        }
+      
+      link = next;
+    }
+
+  if (next_interval >= 0)
+    {
+      _dbus_timeout_set_interval (connections->expire_timeout,
+                                  next_interval);
+      _dbus_timeout_set_enabled (connections->expire_timeout, TRUE);
+
+      _dbus_verbose ("Enabled incomplete connections timeout with interval %d, %d incomplete connections\n",
+                     next_interval, connections->n_incomplete);
+    }
+  else
+    {
+      _dbus_timeout_set_enabled (connections->expire_timeout, FALSE);
+
+      _dbus_verbose ("Disabled incomplete connections timeout, %d incomplete connections\n",
+                     connections->n_incomplete);
+    }
+}
+
+static dbus_bool_t
+expire_incomplete_timeout (void *data)
+{
+  BusConnections *connections = data;
+
+  /* note that this may remove the timeout */
+  bus_connections_expire_incomplete (connections);
+
+  return TRUE;
 }
 
 dbus_bool_t

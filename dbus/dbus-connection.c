@@ -2394,12 +2394,14 @@ dbus_connection_set_watch_functions (DBusConnection              *connection,
  * allocation. With Qt, QTimer::start() and QTimer::stop() can be used
  * to enable and disable. The toggled function may be NULL if a main
  * loop re-queries dbus_timeout_get_enabled() every time anyway.
+ * Whenever a timeout is toggled, its interval may change.
  *
  * The DBusTimeout can be queried for the timer interval using
- * dbus_timeout_get_interval(). dbus_timeout_handle() should
- * be called repeatedly, each time the interval elapses, starting
- * after it has elapsed once. The timeout stops firing when
- * it is removed with the given remove_function.
+ * dbus_timeout_get_interval(). dbus_timeout_handle() should be called
+ * repeatedly, each time the interval elapses, starting after it has
+ * elapsed once. The timeout stops firing when it is removed with the
+ * given remove_function.  The timer interval may change whenever the
+ * timeout is added, removed, or toggled.
  *
  * @param connection the connection.
  * @param add_function function to add a timeout.

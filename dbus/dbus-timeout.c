@@ -48,7 +48,7 @@ struct DBusTimeout
 };
 
 /**
- * Creates a new DBusTimeout.
+ * Creates a new DBusTimeout, enabled by default.
  * @param interval the timeout interval in milliseconds.
  * @param handler function to call when the timeout occurs.
  * @param data data to pass to the handler
@@ -112,6 +112,40 @@ _dbus_timeout_unref (DBusTimeout *timeout)
 }
 
 /**
+ * Changes the timeout interval. Note that you have to disable and
+ * re-enable the timeout using the timeout toggle function
+ * (_dbus_connection_toggle_timeout() etc.) to notify the application
+ * of this change.
+ *
+ * @param timeout the timeout
+ * @param interval the new interval
+ */
+void
+_dbus_timeout_set_interval (DBusTimeout *timeout,
+                            int          interval)
+{
+  timeout->interval = interval;
+}
+
+/**
+ * Changes the timeout's enabled-ness. Note that you should use
+ * _dbus_connection_toggle_timeout() etc. instead, if
+ * the timeout is passed out to an application main loop.
+ * i.e. you can't use this function in the D-BUS library, it's
+ * only used in the message bus daemon implementation.
+ *
+ * @param timeout the timeout
+ * @param interval the new interval
+ */
+void
+_dbus_timeout_set_enabled (DBusTimeout  *timeout,
+                           dbus_bool_t   enabled)
+{
+  timeout->enabled = enabled != FALSE;
+}
+
+
+/**
  * @typedef DBusTimeoutList
  *
  * Opaque data type representing a list of timeouts
@@ -133,7 +167,7 @@ struct DBusTimeoutList
 
   DBusAddTimeoutFunction add_timeout_function;       /**< Callback for adding a timeout. */
   DBusRemoveTimeoutFunction remove_timeout_function; /**< Callback for removing a timeout. */
-  DBusTimeoutToggledFunction timeout_toggled_function; /**< Callback when timeout is enabled/disabled */
+  DBusTimeoutToggledFunction timeout_toggled_function; /**< Callback when timeout is enabled/disabled or changes interval */
   void *timeout_data;                                /**< Data for timeout callbacks */
   DBusFreeFunction timeout_free_data_function;       /**< Free function for timeout callback data */
 };
@@ -354,6 +388,11 @@ _dbus_timeout_list_toggle_timeout (DBusTimeoutList           *timeout_list,
  * Gets the timeout interval. The dbus_timeout_handle()
  * should be called each time this interval elapses,
  * starting after it elapses once.
+ *
+ * The interval may change during the life of the
+ * timeout; if so, the timeout will be disabled and
+ * re-enabled (calling the "timeout toggled function")
+ * to notify you of the change.
  *
  * @param timeout the DBusTimeout object.
  * @returns the interval in milliseconds.

@@ -457,7 +457,7 @@ check_service_deleted_foreach (DBusConnection *connection,
                   connection, DBUS_MESSAGE_SERVICE_DELETED);
       goto out;
     }
-  else if (!dbus_message_name_is (message, DBUS_MESSAGE_SERVICE_DELETED))
+  else if (!dbus_message_has_name (message, DBUS_MESSAGE_SERVICE_DELETED))
     {
       _dbus_warn ("Received message %s on %p, expecting %s\n",
                   dbus_message_get_name (message),
@@ -624,7 +624,7 @@ check_service_created_foreach (DBusConnection *connection,
                   connection, DBUS_MESSAGE_SERVICE_CREATED);
       goto out;
     }
-  else if (!dbus_message_name_is (message, DBUS_MESSAGE_SERVICE_CREATED))
+  else if (!dbus_message_has_name (message, DBUS_MESSAGE_SERVICE_CREATED))
     {
       _dbus_warn ("Received message %s on %p, expecting %s\n",
                   dbus_message_get_name (message),
@@ -747,7 +747,7 @@ check_hello_message (BusContext     *context,
   _dbus_verbose ("Received %s on %p\n",
                  dbus_message_get_name (message), connection);
 
-  if (!dbus_message_sender_is (message, DBUS_SERVICE_DBUS))
+  if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
     {
       _dbus_warn ("Message has wrong sender %s\n",
                   dbus_message_get_sender (message) ?
@@ -757,8 +757,8 @@ check_hello_message (BusContext     *context,
   
   if (dbus_message_get_is_error (message))
     {
-      if (dbus_message_name_is (message,
-                                DBUS_ERROR_NO_MEMORY))
+      if (dbus_message_has_name (message,
+                                 DBUS_ERROR_NO_MEMORY))
         {
           ; /* good, this is a valid response */
         }
@@ -773,8 +773,8 @@ check_hello_message (BusContext     *context,
     {
       CheckServiceCreatedData scd;
       
-      if (dbus_message_name_is (message,
-                                DBUS_MESSAGE_HELLO))
+      if (dbus_message_has_name (message,
+                                 DBUS_MESSAGE_HELLO))
         {
           ; /* good, expected */
         }
@@ -985,7 +985,7 @@ check_nonexistent_service_activation (BusContext     *context,
 
   if (dbus_message_get_is_error (message))
     {
-      if (!dbus_message_sender_is (message, DBUS_SERVICE_DBUS))
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
         {
           _dbus_warn ("Message has wrong sender %s\n",
                       dbus_message_get_sender (message) ?
@@ -993,13 +993,13 @@ check_nonexistent_service_activation (BusContext     *context,
           goto out;
         }
       
-      if (dbus_message_name_is (message,
-                                DBUS_ERROR_NO_MEMORY))
+      if (dbus_message_has_name (message,
+                                 DBUS_ERROR_NO_MEMORY))
         {
           ; /* good, this is a valid response */
         }
-      else if (dbus_message_name_is (message,
-                                     DBUS_ERROR_ACTIVATE_SERVICE_NOT_FOUND))
+      else if (dbus_message_has_name (message,
+                                      DBUS_ERROR_ACTIVATE_SERVICE_NOT_FOUND))
         {
           ; /* good, this is expected also */
         }
@@ -1045,7 +1045,7 @@ check_base_service_activated (BusContext     *context,
   message = initial_message;
   dbus_message_ref (message);  
 
-  if (dbus_message_name_is (message, DBUS_MESSAGE_SERVICE_CREATED))
+  if (dbus_message_has_name (message, DBUS_MESSAGE_SERVICE_CREATED))
     {
       char *service_name;
       CheckServiceCreatedData scd;
@@ -1134,7 +1134,7 @@ check_service_activated (BusContext     *context,
   message = initial_message;
   dbus_message_ref (message);
 
-  if (dbus_message_name_is (message, DBUS_MESSAGE_SERVICE_CREATED))
+  if (dbus_message_has_name (message, DBUS_MESSAGE_SERVICE_CREATED))
     {
       char *service_name;
       CheckServiceCreatedData scd;
@@ -1195,7 +1195,7 @@ check_service_activated (BusContext     *context,
       goto out;
     }
   
-  if (!dbus_message_name_is (message, DBUS_MESSAGE_ACTIVATE_SERVICE))
+  if (!dbus_message_has_name (message, DBUS_MESSAGE_ACTIVATE_SERVICE))
     {
       _dbus_warn ("Expected reply to %s, got message %s instead\n",
                   DBUS_MESSAGE_ACTIVATE_SERVICE,
@@ -1380,7 +1380,7 @@ check_send_exit_to_service (BusContext     *context,
                       dbus_message_get_name (message));
           goto out;
         }
-      else if (!dbus_message_name_is (message, DBUS_ERROR_NO_MEMORY))
+      else if (!dbus_message_has_name (message, DBUS_ERROR_NO_MEMORY))
         {
           _dbus_warn ("not expecting error %s when asking test service to exit\n",
                       dbus_message_get_name (message));
@@ -1445,7 +1445,7 @@ check_got_error (BusContext     *context,
   error_name = first_error_name;
   while (error_name != NULL)
     {
-      if (dbus_message_name_is (message, error_name))
+      if (dbus_message_has_name (message, error_name))
         {
           error_found = TRUE;
           break;
@@ -1545,7 +1545,7 @@ check_existent_service_activation (BusContext     *context,
 
   if (dbus_message_get_is_error (message))
     {
-      if (!dbus_message_sender_is (message, DBUS_SERVICE_DBUS))
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
         {
           _dbus_warn ("Message has wrong sender %s\n",
                       dbus_message_get_sender (message) ?
@@ -1553,13 +1553,13 @@ check_existent_service_activation (BusContext     *context,
           goto out;
         }
       
-      if (dbus_message_name_is (message,
-                                DBUS_ERROR_NO_MEMORY))
+      if (dbus_message_has_name (message,
+                                 DBUS_ERROR_NO_MEMORY))
         {
           ; /* good, this is a valid response */
         }
-      else if (dbus_message_name_is (message,
-                                     DBUS_ERROR_SPAWN_CHILD_EXITED))
+      else if (dbus_message_has_name (message,
+                                      DBUS_ERROR_SPAWN_CHILD_EXITED))
         {
           ; /* good, this is expected also */
         }
@@ -1592,7 +1592,7 @@ check_existent_service_activation (BusContext     *context,
           goto out;
         }
 
-      got_service_deleted = dbus_message_name_is (message, DBUS_MESSAGE_SERVICE_DELETED);
+      got_service_deleted = dbus_message_has_name (message, DBUS_MESSAGE_SERVICE_DELETED);
       got_error = dbus_message_get_is_error (message);
       
       dbus_connection_return_message (connection, message);
@@ -1748,7 +1748,7 @@ check_segfault_service_activation (BusContext     *context,
 
   if (dbus_message_get_is_error (message))
     {
-      if (!dbus_message_sender_is (message, DBUS_SERVICE_DBUS))
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
         {
           _dbus_warn ("Message has wrong sender %s\n",
                       dbus_message_get_sender (message) ?
@@ -1756,12 +1756,12 @@ check_segfault_service_activation (BusContext     *context,
           goto out;
         }
       
-      if (dbus_message_name_is (message,
+      if (dbus_message_has_name (message,
                                 DBUS_ERROR_NO_MEMORY))
         {
           ; /* good, this is a valid response */
         }
-      else if (dbus_message_name_is (message,
+      else if (dbus_message_has_name (message,
                                      DBUS_ERROR_SPAWN_CHILD_SIGNALED))
         {
           ; /* good, this is expected also */

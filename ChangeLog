@@ -1,5 +1,16 @@
 2003-04-24  Havoc Pennington  <hp@redhat.com>
 
+	* bus/dispatch.c: somehow missed some name_is
+
+	* dbus/dbus-timeout.c (_dbus_timeout_set_enabled) 
+	(_dbus_timeout_set_interval): new
+
+	* bus/connection.c (bus_connections_setup_connection): record time
+	when each connection is first set up, and expire them after the 
+	auth timeout passes.
+
+2003-04-24  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-message.c (dbus_message_name_is): rename
 	(dbus_message_service_is): rename
 	(dbus_message_sender_is): rename
