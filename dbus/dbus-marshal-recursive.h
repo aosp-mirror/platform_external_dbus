@@ -34,7 +34,6 @@
 typedef struct DBusTypeReader      DBusTypeReader;
 typedef struct DBusTypeWriter      DBusTypeWriter;
 typedef struct DBusTypeReaderClass DBusTypeReaderClass;
-typedef struct DBusTypeWriterClass DBusTypeWriterClass;
 
 struct DBusTypeReader
 {
@@ -74,7 +73,6 @@ struct DBusTypeWriter
 
   dbus_uint32_t inside_array : 1;
 
-  /* const DBusTypeWriterClass *klass; */
   int container_type;
   union
   {

@@ -553,6 +553,16 @@ _dbus_type_reader_next (DBusTypeReader *reader)
   return _dbus_type_reader_get_current_type (reader) != DBUS_TYPE_INVALID;
 }
 
+
+/*
+ *
+ *
+ *         DBusTypeWriter
+ *
+ *
+ *
+ */
+
 void
 _dbus_type_writer_init (DBusTypeWriter *writer,
                         int             byte_order,
