@@ -1,3 +1,9 @@
+2005-02-14  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-userdb-util.c (_dbus_user_database_lookup_group):
+	properly handle looking up group information by name; fix 
+	from j@bootlab.org
+
 2005-02-13  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-connection.c (dbus_connection_return_message) 

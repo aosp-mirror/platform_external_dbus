@@ -218,12 +218,28 @@ _dbus_user_database_lookup_group (DBusUserDatabase *db,
           return NULL;
         }
 
-      if (!_dbus_group_info_fill_gid (info, gid, error))
+      if (gid != DBUS_GID_UNSET)
         {
-          _DBUS_ASSERT_ERROR_IS_SET (error);
-          _dbus_group_info_free_allocated (info);
-          return NULL;
+          if (!_dbus_group_info_fill_gid (info, gid, error))
+            {
+              _DBUS_ASSERT_ERROR_IS_SET (error);
+              _dbus_group_info_free_allocated (info);
+              return NULL;
+            }
         }
+      else
+        {
+          if (!_dbus_group_info_fill (info, groupname, error))
+            {
+              _DBUS_ASSERT_ERROR_IS_SET (error);
+              _dbus_group_info_free_allocated (info);
+              return NULL;
+            }
+        }
+
+      /* don't use these past here */
+      gid = DBUS_GID_UNSET;
+      groupname = NULL;
 
       if (!_dbus_hash_table_insert_ulong (db->groups, info->gid, info))
         {
