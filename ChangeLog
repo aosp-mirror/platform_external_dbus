@@ -1,3 +1,15 @@
+2003-09-25  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus.py:
+	* python/dbus_bindings.pyx.in:
+
+	Handle return values.
+	
+	* python/examples/example-client.py:
+	* python/examples/example-service.py:
+
+	Pass back return values from the service to the client.
+	
 2003-09-24  Seth Nickell  <seth@gnome.org>
 
 	* python/dbus.py:

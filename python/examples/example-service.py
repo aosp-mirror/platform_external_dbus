@@ -6,10 +6,11 @@ import gtk
 class MyObject(dbus.Object):
     def __init__(self):
         service = dbus.Service("org.designfu.SampleService")
-        dbus.Object("/MyObject", [self.HelloWorld], service)
+        dbus.Object("/SomeObject", [self.HelloWorld], service)
 
-    def HelloWorld(self, arg1):
-        print ("Hello World!: %s" % (arg1))
+    def HelloWorld(self, hello_message):
+        print (hello_message)
+        return "Hello from example-service.py"
 
 object = MyObject()
 

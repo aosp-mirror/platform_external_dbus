@@ -105,25 +105,20 @@ class RemoteMethod:
         self._method_name  = method_name
 
     def __call__(self, *args):
-        print ("Going to call object(%s).interface(%s).method(%s)"
-               % (self._object_path, self._interface, self._method_name))
-
         message = dbus_bindings.MethodCall(self._object_path, self._interface, self._method_name)
         message.set_destination(self._service_name)
         
         # Add the arguments to the function
         iter = message.get_iter()
         for arg in args:
-            print ("Adding arg %s" % (arg))
-            print ("Append success is %d" % (iter.append(arg)))
-            print ("Args now %s" % (message.get_args_list()))            
+            iter.append(arg)
 
         reply_message = self._connection.send_with_reply_and_block(message, 5000)
 
         args_tuple = reply_message.get_args_list()
-        if (len(args_tuple) == 0):
+        if len(args_tuple) == 0:
             return
-        elif (len(args_tuple) == 1):
+        elif len(args_tuple) == 1:
             return args_tuple[0]
         else:
             return args_tuple
@@ -174,20 +169,30 @@ class Object:
         target_method = self._method_name_to_method[target_method_name]
         args = message.get_args_list()
         
-        retval = target_method(*args)
-
-        reply = dbus_bindings.MethodReturn(message)
-        if retval != None:
-            reply.append(retval)
+        try:
+            retval = target_method(*args)
+        except Exception, e:
+            if e.__module__ == '__main__':
+                error_name = e.__class__
+            else:
+                error_name = e.__module__ + '.' + str(e.__class__)
+            error_contents = str(e)
+            reply = dbus_bindings.Error(message, error_name, error_contents)
+        else:
+            reply = dbus_bindings.MethodReturn(message)
+            if retval != None:
+                iter = reply.get_iter()
+                iter.append(retval)
+                
         self._connection.send(reply)
 
     def _build_method_dictionary(self, methods):
-        dictionary = {}
+        method_dict = {}
         for method in methods:
-            if dictionionary.has_key(method.__name__):
-                print ('WARNING: registering DBus Object methods, already have a method named %s' % (method.__name__)
-            dictionary[method.__name__] = method
-        return dictionary
+            if method_dict.has_key(method.__name__):
+                print ('WARNING: registering DBus Object methods, already have a method named %s' % (method.__name__))
+            method_dict[method.__name__] = method
+        return method_dict
         
 class RemoteService:
     """A remote service providing objects.

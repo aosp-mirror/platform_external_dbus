@@ -63,8 +63,8 @@ class ConnectionError(Exception):
 
 cdef void cunregister_function_handler (DBusConnection *connection,
                                         void *user_data):
-    print ("cunregister_function_handler() called")
     tup = <object>user_data
+    assert (type(tup) == list)    
     function = tup[0]
     args = [Connection(_conn=<object>connection)]
     function(*args)
@@ -72,10 +72,8 @@ cdef void cunregister_function_handler (DBusConnection *connection,
 cdef DBusHandlerResult cmessage_function_handler (DBusConnection *connection,
                                                   DBusMessage *msg,
                                                   void *user_data):
-    print ("cmessage_function_handler() called")
     tup = <object>user_data
-    print (type(tup))
-    print (tup)
+    assert (type(tup) == list)
     function = tup[1]
     message = Message(_create=0)
     message._set_msg(<object>msg)
@@ -90,6 +88,7 @@ cdef DBusHandlerResult chandle_message_function_handler (DBusConnection *connect
                                                         DBusMessage *msg,
                                                         void *user_data):
     function = <object>user_data
+    assert (type(function) == function)
     messagein = Message(_create=0)
     messagein._set_msg(<object>msg)
     args = [Connection(_conn=<object>connection),
@@ -232,15 +231,11 @@ cdef class Connection:
 
         msg = message._get_msg()
 
-        print ("About to block")
-
         retval = dbus_connection_send_with_reply_and_block(
             <DBusConnection*>self.conn,
             <DBusMessage*>msg,
             <int>timeout_milliseconds,
             &error)
-
-        print ("done")
 
         if dbus_error_is_set(&error):
             raise DBusException, error.message
@@ -346,7 +341,7 @@ cdef class Connection:
 
         i = 0
         child_entries = []
-        print ("cchild_entries[0] is %d" % (<int>cchild_entries[0]))
+
         while (cchild_entries[i] != NULL):
             child_entries.append(cchild_entries[i])
             i = i + 1
@@ -607,10 +602,8 @@ cdef class Message:
         if message_type == MESSAGE_TYPE_METHOD_CALL:
             self.msg = dbus_message_new_method_call(cservice, path, interface, method)
         elif message_type == MESSAGE_TYPE_METHOD_RETURN:
-            print ("Doing this")
             cmsg = method_call._get_msg()
             self.msg = dbus_message_new_method_return(<DBusMessage*>cmsg)
-            print ("Done")
         elif message_type == MESSAGE_TYPE_SIGNAL:
             self.msg = dbus_message_new_signal(path, interface, name)
         elif message_type == MESSAGE_TYPE_ERROR:
