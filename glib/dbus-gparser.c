@@ -620,6 +620,7 @@ parse_arg (Parser      *parser,
   ArgDirection dir;
   int t;
   ArgInfo *arg;
+  char *generated_name;
   
   if (!(parser->method || parser->signal) ||
       parser->node_stack == NULL ||
@@ -689,8 +690,16 @@ parse_arg (Parser      *parser,
   t = type_from_string (type, element_name, error);
   if (t == DBUS_TYPE_INVALID)
     return FALSE;
+
+  generated_name = NULL;
+  if (name == NULL)
+    generated_name = g_strdup_printf ("arg%d",
+                                      parser->method ?
+                                      method_info_get_n_args (parser->method) :
+                                      signal_info_get_n_args (parser->signal));
+                                      
   
-  arg = arg_info_new (name, dir, t);
+  arg = arg_info_new (name ? name : generated_name, dir, t);
   if (parser->method)
     method_info_add_arg (parser->method, arg);
   else if (parser->signal)
@@ -698,6 +707,8 @@ parse_arg (Parser      *parser,
   else
     g_assert_not_reached ();
 
+  g_free (generated_name);
+  
   arg_info_unref (arg);
 
   parser->arg = arg;

@@ -459,6 +459,12 @@ method_info_get_args (MethodInfo *info)
   return info->args;
 }
 
+int
+method_info_get_n_args (MethodInfo *info)
+{
+  return g_slist_length (info->args);
+}
+
 static int
 args_sort_by_direction (const void *a,
                         const void *b)
@@ -530,6 +536,12 @@ GSList*
 signal_info_get_args (SignalInfo *info)
 {
   return info->args;
+}
+
+int
+signal_info_get_n_args (SignalInfo *info)
+{
+  return g_slist_length (info->args);
 }
 
 void

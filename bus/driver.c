@@ -409,6 +409,19 @@ bus_driver_handle_list_services (DBusConnection *connection,
       return FALSE;
     }
 
+  {
+    /* Include the bus driver in the list */
+    const char *v_STRING = DBUS_SERVICE_ORG_FREEDESKTOP_DBUS;
+    if (!dbus_message_iter_append_basic (&sub, DBUS_TYPE_STRING,
+                                         &v_STRING))
+      {
+        dbus_free_string_array (services);
+        dbus_message_unref (reply);
+        BUS_SET_OOM (error);
+        return FALSE;
+      }
+  }
+  
   i = 0;
   while (i < len)
     {

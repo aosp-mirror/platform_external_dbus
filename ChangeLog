@@ -1,5 +1,18 @@
 2005-02-12  Havoc Pennington  <hp@redhat.com>
 
+	* tools/dbus-tree-view.c (info_set_func_text): display more
+	details on args
+
+	* bus/driver.c (bus_driver_handle_list_services): list the bus
+	driver
+
+	* glib/dbus-gparser.c (parse_arg): generate an arg name if none is supplied
+
+	* glib/dbus-gidl.c (signal_info_get_n_args): new function
+	(method_info_get_n_args): new function
+
+2005-02-12  Havoc Pennington  <hp@redhat.com>
+
 	* bus/driver.c (bus_driver_handle_introspect): add introspection
 	for bus driver
 

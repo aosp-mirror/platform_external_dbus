@@ -106,6 +106,7 @@ const char*         method_info_get_name          (MethodInfo          *info);
 GSList*             method_info_get_args          (MethodInfo          *info);
 void                method_info_add_arg           (MethodInfo          *info,
                                                    ArgInfo             *arg);
+int                 method_info_get_n_args        (MethodInfo          *info);
 SignalInfo*         signal_info_new               (const char          *name);
 SignalInfo*         signal_info_ref               (SignalInfo          *info);
 void                signal_info_unref             (SignalInfo          *info);
@@ -113,6 +114,7 @@ const char*         signal_info_get_name          (SignalInfo          *info);
 GSList*             signal_info_get_args          (SignalInfo          *info);
 void                signal_info_add_arg           (SignalInfo          *info,
                                                    ArgInfo             *arg);
+int                 signal_info_get_n_args        (SignalInfo          *info);
 PropertyInfo*       property_info_new             (const char          *name,
                                                    int                  type,
                                                    PropertyAccessFlags  access);
