@@ -457,7 +457,10 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
     return FALSE;
   
   _dbus_verbose ("Trying to own service %s with flags 0x%x\n", name, flags);
-
+  
+  retval = FALSE;
+  reply = NULL;
+  
   if (*name == ':')
     {
       /* Not allowed; only base services can start with ':' */
@@ -467,9 +470,6 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
       
       goto out;
     }
-  
-  retval = FALSE;
-  reply = NULL;
 
   _dbus_string_init_const (&service_name, name);
   

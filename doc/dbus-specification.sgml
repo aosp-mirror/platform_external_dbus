@@ -396,7 +396,7 @@
                 <entry>a byte giving the element type of the array followed
                 by an UINT32 (aligned to 4 bytes) giving the length of the
                 array data in bytes. This is then followed by a number of
-                entires with the same type, encoded like that type normally
+                entries with the same type, encoded like that type normally
                 would be encoded alone.
                 </entry>
               </row><row>

@@ -689,7 +689,7 @@ _dbus_message_data_load (DBusString       *dest,
 		  values = dbus_realloc (values, allocated * sizeof (unsigned char));
 		  if (!values)
 		    {
-		      _dbus_warn ("could not allocate memory for BOOLEAN_ARRAY\n");
+		      _dbus_warn ("could not allocate memory for BYTE_ARRAY\n");
 		      goto parse_failed;
 		    }
 		}

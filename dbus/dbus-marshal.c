@@ -1184,9 +1184,14 @@ _dbus_marshal_validate_type   (const DBusString *str,
  * returns #TRUE if a valid arg begins at "pos"
  *
  * @todo security: need to audit this function.
+ *
+ * @todo For array types that can't be invalid, we should not
+ * walk the whole array validating it. e.g. just skip all the
+ * int values in an int array.
  * 
  * @param str a string
  * @param byte_order the byte order to use
+ * @param depth current recursion depth, to prevent excessive recursion
  * @param type the type of the argument
  * @param pos the pos where the arg starts
  * @param end_pos pointer where the position right
@@ -1196,13 +1201,25 @@ _dbus_marshal_validate_type   (const DBusString *str,
 dbus_bool_t
 _dbus_marshal_validate_arg (const DBusString *str,
                             int	              byte_order,
+                            int               depth,
 			    int               type,
                             int               pos,
                             int              *end_pos)
 {
   if (pos > _dbus_string_get_length (str))
-    return FALSE;
+    {
+      _dbus_verbose ("Validation went off the end of the message\n");
+      return FALSE;
+    }
 
+#define MAX_VALIDATION_DEPTH 32
+  
+  if (depth > MAX_VALIDATION_DEPTH)
+    {
+      _dbus_verbose ("Maximum recursion depth reached validating message\n");
+      return FALSE;
+    }
+  
   switch (type)
     {
     case DBUS_TYPE_INVALID:
@@ -1216,7 +1233,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
     case DBUS_TYPE_BYTE:
       if (1 > _dbus_string_get_length (str) - pos)
 	{
-	  _dbus_verbose ("no room for boolean value\n");
+	  _dbus_verbose ("no room for byte value\n");
 	  return FALSE;
 	}
 	
@@ -1342,7 +1359,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
 	
 	while (pos < end)
 	  {
-	    if (!_dbus_marshal_validate_arg (str, byte_order,
+	    if (!_dbus_marshal_validate_arg (str, byte_order, depth + 1,
 					     array_type, pos, &pos))
 	      return FALSE;
 	  }
@@ -1378,7 +1395,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
 	while (pos < end)
 	  {
 	    /* Validate name */
-	    if (!_dbus_marshal_validate_arg (str, byte_order,
+	    if (!_dbus_marshal_validate_arg (str, byte_order, depth + 1,
 					     DBUS_TYPE_STRING, pos, &pos))
 	      return FALSE;
 	    
@@ -1389,7 +1406,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
 	      }
 	    
 	    /* Validate element */
-	    if (!_dbus_marshal_validate_arg (str, byte_order,
+	    if (!_dbus_marshal_validate_arg (str, byte_order, depth + 1,
 					     dict_type, pos, &pos))
 	      return FALSE;
 	  }

@@ -352,6 +352,10 @@ append_string_field (DBusMessage *message,
   return FALSE;
 }
 
+#ifdef DBUS_BUILD_TESTS
+/* This isn't used, but building it when tests are enabled just to
+ * keep it compiling if we need it in future
+ */
 static void
 delete_int_field (DBusMessage *message,
                   int          field)
@@ -379,6 +383,7 @@ delete_int_field (DBusMessage *message,
 
   append_header_padding (message);
 }
+#endif
 
 static void
 delete_string_field (DBusMessage *message,
@@ -1555,6 +1560,8 @@ dbus_message_iter_init (DBusMessage *message,
 			DBusMessageIter *iter)
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  _dbus_assert (sizeof (DBusMessageRealIter) <= sizeof (DBusMessageIter));
   
   real->message = message;
   real->parent_iter = NULL;
@@ -1771,7 +1778,7 @@ dbus_message_iter_get_string (DBusMessageIter *iter)
 
 /**
  * Returns the name and data from a named type that an
- * iterator may point to.Note that you need to check that
+ * iterator may point to. Note that you need to check that
  * the iterator points to a named type before using this
  * function.
  *
@@ -3520,7 +3527,7 @@ decode_header_data (const DBusString   *data,
 	  return FALSE;
 	}
       
-      if (!_dbus_marshal_validate_arg (data, byte_order, type, pos, &new_pos))
+      if (!_dbus_marshal_validate_arg (data, byte_order, 0, type, pos, &new_pos))
         {
           _dbus_verbose ("Failed to validate argument to named header field\n");
           return FALSE;
@@ -3701,6 +3708,7 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
       
               if (!_dbus_marshal_validate_arg (&loader->data,
                                                byte_order,
+                                               0,
 					       type,
                                                next_arg,
                                                &next_arg))
@@ -4029,7 +4037,7 @@ check_message_handling_type (DBusMessageIter *iter,
 	str = dbus_message_iter_get_string (iter);
 	if (str == NULL)
 	  {
-	    _dbus_warn ("NULL string int message\n");
+	    _dbus_warn ("NULL string in message\n");
 	    return FALSE;
 	  }
 	dbus_free (str);
@@ -4731,8 +4739,7 @@ _dbus_message_test (const char *test_data_dir)
   const char *name2;
   const dbus_uint32_t our_int32_array[] = { 0x12345678, 0x23456781, 0x34567812, 0x45678123 };
 
-
-  _dbus_assert (sizeof (DBusMessageRealIter) == sizeof (DBusMessageIter));
+  _dbus_assert (sizeof (DBusMessageRealIter) <= sizeof (DBusMessageIter));
 
   /* Test the vararg functions */
   message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");

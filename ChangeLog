@@ -1,3 +1,22 @@
+2003-04-08  Havoc Pennington  <hp@redhat.com>
+
+	* bus/driver.c (bus_driver_handle_acquire_service): init
+	retval/reply before checking name
+
+	* dbus/dbus-marshal.c (_dbus_marshal_validate_arg): add a
+	recursion depth argument
+
+	* dbus/dbus-message.h (struct DBusMessageIter): put some padding
+	in the public struct for future extension
+
+	* dbus/dbus-message-builder.c (_dbus_message_data_load): fix
+	typo
+
+	* dbus/dbus-marshal.c (_dbus_marshal_validate_arg): fix a verbose
+	message
+
+	* doc/dbus-specification.sgml: fix typo
+
 2003-04-08  Alexander Larsson  <alexl@redhat.com>
 
 	Implemented recursive types, named types and new-style iters

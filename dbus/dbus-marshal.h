@@ -183,6 +183,7 @@ dbus_bool_t _dbus_marshal_validate_type   (const DBusString *str,
 					   int              *type,
                                            int              *end_pos);
 dbus_bool_t _dbus_marshal_validate_arg    (const DBusString *str,
+                                           int               depth,
                                            int               byte_order,
 					   int               type,
                                            int               pos,

@@ -48,6 +48,9 @@ struct DBusMessageIter
   int dummy8;
   int dummy9;
   int dummy10;
+  int pad1;
+  int pad2;
+  void *pad3;
 };
 
 
