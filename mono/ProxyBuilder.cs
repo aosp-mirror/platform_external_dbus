@@ -108,7 +108,7 @@ namespace DBus
       for (int parN = 0; parN < pars.Length; parN++) {
 	ParameterInfo par = pars[parN];
 	if (!par.IsOut) {
-	  EmitIn(generator, par.ParameterType, parN);
+	  EmitIn(generator, par.ParameterType, parN, serviceF);
 	}
       }
       
@@ -145,7 +145,7 @@ namespace DBus
       typeB.DefineMethodOverride(methodBuilder, method);
     }
 
-    private void EmitIn(ILGenerator generator, Type parType, int parN)
+    private void EmitIn(ILGenerator generator, Type parType, int parN, FieldInfo serviceF)
     {
       Type inParType = Arguments.MatchType(parType);
       //generator.EmitWriteLine("methodCall.Arguments.Append(...)");
@@ -157,6 +157,7 @@ namespace DBus
       object[] pars = new object[] {generator, parType};
       inParType.InvokeMember("EmitMarshalIn", BindingFlags.Static | BindingFlags.Public | BindingFlags.InvokeMethod, null, null, pars, null);
 
+      generator.Emit(OpCodes.Ldsfld, serviceF);
       generator.Emit(OpCodes.Newobj, Arguments.GetDBusTypeConstructor(inParType, parType));
       generator.EmitCall(OpCodes.Callvirt, Arguments_AppendMI, null);
     }

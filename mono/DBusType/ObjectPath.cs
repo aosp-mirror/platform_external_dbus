@@ -20,19 +20,16 @@ namespace DBus.DBusType
     {
     }
     
-    public ObjectPath(object val) 
+    public ObjectPath(object val, Service service) 
     {
       this.val = val;
+      this.service = service;
     }
     
-    public ObjectPath(IntPtr iter)
+    public ObjectPath(IntPtr iter, Service service)
     {
       
       this.pathName = Marshal.PtrToStringAnsi(dbus_message_iter_get_object_path(iter));
-    }
-
-    public void SetService(Service service) 
-    {
       this.service = service;
     }
 
@@ -43,17 +40,13 @@ namespace DBus.DBusType
 	  Handler handler = this.service.GetHandler(this.val);
 	  this.pathName = handler.PathName;
 	}
-	
+
 	return this.pathName;
       }
     }
 
     public void Append(IntPtr iter) 
     {
-      if (PathName == null) {
-	throw new ApplicationException("Unable to append ObjectPath before calling SetService()");
-      }
-      
       if (!dbus_message_iter_append_object_path(iter, Marshal.StringToHGlobalAnsi(PathName)))
 	throw new ApplicationException("Failed to append OBJECT_PATH argument:" + val);
     }
@@ -90,10 +83,6 @@ namespace DBus.DBusType
 
     public object Get(System.Type type)
     {
-      if (this.service == null) {
-	throw new ApplicationException("Unable to get ObjectPath before calling SetService()");
-      }
-      
       try {
 	return this.service.GetObject(type, PathName);
       } catch(Exception ex) {

@@ -18,12 +18,12 @@ namespace DBus.DBusType
     {
     }
     
-    public Boolean(System.Boolean val) 
+    public Boolean(System.Boolean val, Service service) 
     {
       this.val = val;
     }
 
-    public Boolean(IntPtr iter)
+    public Boolean(IntPtr iter, Service service)
     {
       this.val = dbus_message_iter_get_boolean(iter);
     }

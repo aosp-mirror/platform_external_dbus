@@ -74,17 +74,15 @@ namespace DBus
     // Append an argument
     public void Append(DBusType.IDBusType dbusType)
     {
-      if (dbusType.GetType() == typeof(DBusType.ObjectPath)) {
-	((DBusType.ObjectPath) dbusType).SetService(message.Service);
-      }
       dbusType.Append(appenderIter);
     }
     
     // Append an argument of the specified type
     private void AppendType(Type type, object val)
     {
-      object [] pars = new Object[1];
+      object [] pars = new Object[2];
       pars[0] = val;
+      pars[1] = message.Service;
       DBusType.IDBusType dbusType = (DBusType.IDBusType) Activator.CreateInstance(MatchType(type), pars);
       Append(dbusType);
     }
@@ -163,7 +161,7 @@ namespace DBus
     // Get the appropriate constructor for a D-BUS type
     public static ConstructorInfo GetDBusTypeConstructor(Type dbusType, Type type) 
     {
-      ConstructorInfo constructor = dbusType.GetConstructor(new Type[] {type.UnderlyingSystemType});
+      ConstructorInfo constructor = dbusType.GetConstructor(new Type[] {type.UnderlyingSystemType, typeof(Service)});
       if (constructor == null)
 	throw new ArgumentException("There is no valid constructor for '" + dbusType + "' from type '" + type + "'");
       
@@ -254,17 +252,13 @@ namespace DBus
       {
 	get
 	  {
-	    object [] pars = new Object[1];
+	    object [] pars = new Object[2];
 	    pars[0] = iter;
+	    pars[1] = arguments.message.Service;
 	    
 	    Type type = (Type) DBusTypes[(char) dbus_message_iter_get_arg_type(iter)];
 	    DBusType.IDBusType dbusType = (DBusType.IDBusType) Activator.CreateInstance(type, pars);
 
-	    // Special case for ObjectPath
-	    if (type == typeof(DBusType.ObjectPath)) {
-	      ((DBusType.ObjectPath) dbusType).SetService(arguments.message.Service);
-	    }
-	    
 	    return dbusType;
 	  }
       }

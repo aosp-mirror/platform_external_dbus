@@ -19,7 +19,7 @@ namespace DBus.DBusType
     {
     }
     
-    public Dict(IDictionary val)
+    public Dict(IDictionary val, Service service)
     {
       this.val = new Hashtable();
       foreach (DictionaryEntry entry in val) {
@@ -27,7 +27,7 @@ namespace DBus.DBusType
       }
     }
 
-    public Dict(IntPtr iter)
+    public Dict(IntPtr iter, Service service)
     {
       IntPtr dictIter = Marshal.AllocCoTaskMem(Arguments.DBusMessageIterSize);
       

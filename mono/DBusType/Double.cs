@@ -18,12 +18,12 @@ namespace DBus.DBusType
     {
     }
     
-    public Double(System.Double val) 
+    public Double(System.Double val, Service service) 
     {
       this.val = val;
     }
 
-    public Double(IntPtr iter)
+    public Double(IntPtr iter, Service service)
     {
       this.val = dbus_message_iter_get_double(iter);
     }

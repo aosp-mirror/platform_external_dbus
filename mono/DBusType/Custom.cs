@@ -18,12 +18,12 @@ namespace DBus.DBusType
     {
     }
     
-    public Custom(DBus.Custom val) 
+    public Custom(DBus.Custom val, Service service) 
     {
       this.val = val;
     }
 
-    public Custom(IntPtr iter)
+    public Custom(IntPtr iter, Service service)
     {
       string name;
       IntPtr value;

@@ -18,12 +18,12 @@ namespace DBus.DBusType
     {
     }
     
-    public Int32(System.Int32 val) 
+    public Int32(System.Int32 val, Service service) 
     {
       this.val = val;
     }
 
-    public Int32(IntPtr iter)
+    public Int32(IntPtr iter, Service service)
     {
       this.val = dbus_message_iter_get_int32(iter);
     }

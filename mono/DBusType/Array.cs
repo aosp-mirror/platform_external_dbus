@@ -16,19 +16,23 @@ namespace DBus.DBusType
     private System.Array val;
     private ArrayList elements;
     private Type elementType;
+    private Service service = null;
     
     private Array()
     {
     }
     
-    public Array(System.Array val) 
+    public Array(System.Array val, Service service) 
     {
       this.val = val;
       this.elementType = Arguments.MatchType(val.GetType().UnderlyingSystemType);
+      this.service = service;
     }
 
-    public Array(IntPtr iter)
+    public Array(IntPtr iter, Service service)
     {
+      this.service = service;
+
       IntPtr arrayIter = Marshal.AllocCoTaskMem(Arguments.DBusMessageIterSize);
       
       int elementTypeCode;
@@ -38,8 +42,9 @@ namespace DBus.DBusType
       elements = new ArrayList();
 
       do {
-	object [] pars = new Object[1];
+	object [] pars = new Object[2];
 	pars[0] = arrayIter;
+	pars[1] = service;
 	DBusType.IDBusType dbusType = (DBusType.IDBusType) Activator.CreateInstance(elementType, pars);
 	elements.Add(dbusType);
       } while (dbus_message_iter_next(arrayIter));
@@ -58,8 +63,9 @@ namespace DBus.DBusType
       }
 
       foreach (object element in this.val) {
-	object [] pars = new Object[1];
+	object [] pars = new Object[2];
 	pars[0] = element;
+	pars[1] = this.service;
 	DBusType.IDBusType dbusType = (DBusType.IDBusType) Activator.CreateInstance(elementType, pars);
 	dbusType.Append(arrayIter);
       }

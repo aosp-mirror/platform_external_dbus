@@ -17,11 +17,11 @@ namespace DBus.DBusType
     {
     }
     
-    public Nil(object nil) 
+    public Nil(object nil, Service service) 
     {
     }
 
-    public Nil(IntPtr iter)
+    public Nil(IntPtr iter, Service service)
     {
     }
     

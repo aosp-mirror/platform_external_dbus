@@ -75,6 +75,10 @@ namespace DBus
 
     internal Handler GetHandler(object handledObject) 
     {
+      if (!registeredHandlers.Contains(handledObject)) {
+	throw new ArgumentException("No handler registered for object: " + handledObject);
+      }
+      
       return (Handler) registeredHandlers[handledObject];
     }
 

@@ -18,12 +18,12 @@ namespace DBus.DBusType
     {
     }
     
-    public String(string val) 
+    public String(string val, Service service) 
     {
       this.val = val;
     }
     
-    public String(IntPtr iter)
+    public String(IntPtr iter, Service service)
     {
       this.val = Marshal.PtrToStringAnsi(dbus_message_iter_get_string(iter));
     }
