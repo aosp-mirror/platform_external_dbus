@@ -21,7 +21,7 @@ libdbus_glib_1_la_SOURCES = 			\
 libdbus_glib_1_la_LIBADD= $(DBUS_GLIB_LIBS) $(top_builddir)/dbus/libdbus-1.la
 ## don't export symbols that start with "_" (we use this 
 ## convention for internal symbols)
-libdbus_glib_1_la_LDFLAGS= -export-symbols-regex "^[^_].*"
+libdbus_glib_1_la_LDFLAGS= -export-symbols-regex "^[^_].*" -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
 
 # convenience lib used here and by dbus-viewer
 noinst_LTLIBRARIES=libdbus-gtool.la

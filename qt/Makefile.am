@@ -10,12 +10,22 @@ dbusinclude_HEADERS=				\
 	server.h
 
 libdbus_qt_1_la_SOURCES = 			\
-	dbus-qthread.cpp message.cpp connection.cpp \
-	integrator.cpp server.cpp integrator.h
+	dbus-qthread.cpp \
+	$(top_srcdir)/qt/message.cpp \
+	$(top_srcdir)/qt/connection.cpp \
+	$(top_srcdir)/qt/integrator.cpp \
+	$(top_srcdir)/qt/server.cpp \
+	$(top_srcdir)/qt/connection.h \
+	$(top_srcdir)/qt/integrator.h \
+	$(top_srcdir)/qt/server.h
 
-connection.cpp: connection.moc
-integrator.cpp: integrator.moc
-server.cpp: server.moc
+
+$(top_srcdir)/qt/connection.cpp: connection.moc
+$(top_srcdir)/qt/integrator.cpp: integrator.moc
+$(top_srcdir)/qt/server.cpp: server.moc
+$(top_srcdir)/qt/connection.h: connection.moc
+$(top_srcdir)/qt/integrator.h: integrator.moc
+$(top_srcdir)/qt/server.h: server.moc
 
 CLEANFILES=connection.moc integrator.moc server.moc
 

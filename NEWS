@@ -1,3 +1,30 @@
+D-BUS 0.31 (07 Mar 2005)
+===
+
+- land the new message args API and recursive type system
+- add docs and fixed Doxygen warnings throught source
+- split out some functions not needed in libdbus to *-util.c source files
+- take out type convienience functions
+- libdbus now back below 150K
+- booleans are now 32-bit instead of 8-bit
+- specification updated
+- grand renaming to strip out the use of "service"
+  just say "name" instead (or "bus name" when ambiguous)
+- rename dbus-daemon-1 to dbus-daemon throughout
+- rename activation to auto-start
+- auto-start on by default now
+- note that libdbus is the low-level API
+- python bindings updated to the new API
+- mono bindings updated to the new API
+- add 16 bit types
+- dictionaries are now ARRAYS of DICT_ENTRY
+- dbus-glib-tool renamed to dbus-binding-tool
+- massive rewrite of the glib bindings
+- saner names for the dbus interface, object path and service defines
+- new functions for handling type signitures
+- bump sonames for libdbus and libdbus-glib
+- various small fixes
+
 D-BUS 0.23 (11 Jan 2005)
 ===
 

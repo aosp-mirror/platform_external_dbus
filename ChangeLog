@@ -1,3 +1,15 @@
+2005-03-07  John (J5) Palmieri  <johnp@redhat.com>
+	* NEWS: Update for 0.31
+
+	* configure.in: Release 0.31
+	add LT_CURRENT, LT_REVISION, LT_AGE for easy soname bumping
+
+	* qt/Makefile.am: fixed build
+
+	* dbus/Makefile.am: soname bump for libdbus
+
+	* glib/Makefile.am: soname bump for libdbus-glib
+
 2005-03-05  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-sysdeps.c:
