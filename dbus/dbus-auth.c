@@ -147,7 +147,7 @@ typedef struct
 {
   DBusAuth base;
 
-  DBusList *mechs_to_try;
+  DBusList *mechs_to_try; /**< Mechanisms we got from the server that we're going to try using */
   
 } DBusAuthClient;
 
@@ -155,6 +155,9 @@ typedef struct
 {
   DBusAuth base;
 
+  int failures;     /**< Number of times client has been rejected */
+  int max_failures; /**< Number of times we reject before disconnect */
+  
 } DBusAuthServer;
 
 static dbus_bool_t process_auth         (DBusAuth         *auth,
@@ -283,6 +286,11 @@ _dbus_auth_new (int size)
 static DBusAuthState
 get_state (DBusAuth *auth)
 {
+  if (DBUS_AUTH_IS_SERVER (auth) &&
+      DBUS_AUTH_SERVER (auth)->failures >=
+      DBUS_AUTH_SERVER (auth)->max_failures)
+    auth->need_disconnect = TRUE;
+  
   if (auth->need_disconnect)
     return DBUS_AUTH_STATE_NEED_DISCONNECT;
   else if (auth->authenticated)
@@ -585,6 +593,7 @@ static dbus_bool_t
 send_rejected (DBusAuth *auth)
 {
   DBusString command;
+  DBusAuthServer *server_auth;
   int i;
   
   if (!_dbus_string_init (&command, _DBUS_INT_MAX))
@@ -614,6 +623,10 @@ send_rejected (DBusAuth *auth)
   if (!_dbus_string_copy (&command, 0, &auth->outgoing,
                           _dbus_string_get_length (&auth->outgoing)))
     goto nomem;
+
+  _dbus_assert (DBUS_AUTH_IS_SERVER (auth));
+  server_auth = DBUS_AUTH_SERVER (auth);
+  server_auth->failures += 1;
   
   return TRUE;
 
@@ -1170,12 +1183,21 @@ DBusAuth*
 _dbus_auth_server_new (void)
 {
   DBusAuth *auth;
+  DBusAuthServer *server_auth;
 
   auth = _dbus_auth_new (sizeof (DBusAuthServer));
   if (auth == NULL)
     return NULL;
 
   auth->handlers = server_handlers;
+
+  server_auth = DBUS_AUTH_SERVER (auth);
+
+  /* perhaps this should be per-mechanism with a lower
+   * max
+   */
+  server_auth->failures = 0;
+  server_auth->max_failures = 6;
   
   return auth;
 }

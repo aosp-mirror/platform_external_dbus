@@ -1336,5 +1336,68 @@ _dbus_directory_close (DBusDirIter *iter)
   dbus_free (iter);
 }
 
+/**
+ * Generates the given number of random bytes,
+ * using the best mechanism we can come up with.
+ *
+ * @param str the string
+ * @param n_bytes the number of random bytes to append to string
+ * @returns #TRUE on success, #FALSE if no memory or other failure
+ */
+dbus_bool_t
+_dbus_generate_random_bytes (DBusString *str,
+                             int         n_bytes)
+{
+  int old_len;
+  int fd;
+  
+  old_len = _dbus_string_get_length (str);
+  fd = -1;
+
+  /* note, urandom on linux will fall back to pseudorandom */
+  fd = open ("/dev/urandom", O_RDONLY);
+  if (fd < 0)
+    {
+      unsigned long tv_usec;
+      int i;
+
+      /* fall back to pseudorandom */
+      
+      _dbus_get_current_time (NULL, &tv_usec);
+      srand (tv_usec);
+      
+      i = 0;
+      while (i < n_bytes)
+        {
+          double r;
+          int b;
+          
+          r = rand ();
+          b = (r / (double) RAND_MAX) * 255.0;
+          
+          if (!_dbus_string_append_byte (str, b))
+            goto failed;
+          
+          ++i;
+        }
+
+      return TRUE;
+    }
+  else
+    {
+      if (_dbus_read (fd, str, n_bytes) != n_bytes)
+        goto failed;
+
+      close (fd);
+
+      return TRUE;
+    }
+
+ failed:
+  _dbus_string_set_length (str, old_len);
+  if (fd >= 0)
+    close (fd);
+  return FALSE;
+}
 
 /** @} end of sysdeps */

@@ -140,6 +140,9 @@ dbus_bool_t  _dbus_directory_get_next_file (DBusDirIter      *iter,
 void         _dbus_directory_close         (DBusDirIter      *iter);
 
 
+dbus_bool_t _dbus_generate_random_bytes (DBusString *str,
+                                         int         n_bytes);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_SYSDEPS_H */

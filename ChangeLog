@@ -1,3 +1,13 @@
+2003-02-02  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-keyring.c, dbus/dbus-keyring.h: template files 
+	for code to manage cookies in your home directory
+
+	* dbus/dbus-sysdeps.c (_dbus_generate_random_bytes): new function
+
+	* dbus/dbus-auth.c (get_state): impose a maximum number of tries
+	to authenticate, then disconnect the client.
+
 2003-02-03  Alexander Larsson  <alexl@redhat.com>
 
 	* dbus/dbus-message.c (dbus_message_append_fields):

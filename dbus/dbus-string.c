@@ -374,7 +374,11 @@ _dbus_string_get_data (DBusString        *str,
 }
 
 /**
- * Gets the raw character buffer from a const string. 
+ * Gets the raw character buffer from a const string.
+ *
+ * @todo should return the const char* instead of using an out param;
+ * the temporary variable encourages a bug where you use const data
+ * after modifying the string and possibly causing a realloc.
  *
  * @param str the string
  * @param data_return location to store returned data
@@ -420,6 +424,10 @@ _dbus_string_get_data_len (DBusString *str,
 /**
  * const version of _dbus_string_get_data_len().
  *
+ * @todo should return the const char* instead of using an out param;
+ * the temporary variable encourages a bug where you use const data
+ * after modifying the string and possibly causing a realloc.
+ * 
  * @param str the string
  * @param data_return location to return the buffer
  * @param start byte offset to return
