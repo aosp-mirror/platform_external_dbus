@@ -642,7 +642,7 @@ _dbus_type_reader_recurse (DBusTypeReader *reader,
       break;
     case DBUS_TYPE_VARIANT:
       if (reader->klass->types_only)
-        _dbus_assert_not_reached ("variant types are inside the variant value, not in the signature");
+        _dbus_assert_not_reached ("can't recurse into variant typecode");
       else
         sub->klass = &variant_reader_class;
       break;
@@ -881,6 +881,9 @@ _dbus_type_writer_recurse_struct (DBusTypeWriter *writer,
   /* Ensure that we'll be able to add alignment padding and the typecode */
   if (!_dbus_string_alloc_space (sub->value_str, 8))
     return FALSE;
+
+  if (!_dbus_string_alloc_space (sub->type_str, 1))
+    return FALSE;
   
   if (!write_or_verify_typecode (sub, DBUS_STRUCT_BEGIN_CHAR))
     _dbus_assert_not_reached ("failed to insert struct typecode after prealloc");
@@ -908,30 +911,22 @@ _dbus_type_writer_recurse_array (DBusTypeWriter *writer,
   DBusString str;
   
   writer_recurse_init_and_check (writer, DBUS_TYPE_ARRAY, sub);
+
+  _dbus_string_init_const (&element_type_str, element_type);
+  element_type_len = _dbus_string_get_length (&element_type_str);
   
 #ifndef DBUS_DISABLE_CHECKS
   if (writer->container_type == DBUS_TYPE_ARRAY)
     {
-      DBusString parent_elements;
-
-      _dbus_assert (element_type != NULL);
-      
-      _dbus_string_init_const (&parent_elements,
-                               _dbus_string_get_const_data_len (writer->type_str,
-                                                                writer->u.array.element_type_pos + 1,
-                                                                0));
-                                                                
-      if (!_dbus_string_starts_with_c_str (&parent_elements, element_type))
+      if (!_dbus_string_equal_substring (&element_type_str, 0, element_type_len,
+                                         writer->type_str, writer->u.array.element_type_pos + 1))
         {
           _dbus_warn ("Writing an array of '%s' but this is incompatible with the expected type of elements in the parent array\n",
                       element_type);
           _dbus_assert_not_reached ("incompatible type for child array");
         }
     }
-#endif /* DBUS_DISABLE_CHECKS */
-  
-  _dbus_string_init_const (&element_type_str, element_type);
-  element_type_len = _dbus_string_get_length (&element_type_str);
+#endif /* DBUS_DISABLE_CHECKS */  
 
   /* 4 bytes for the array length and 4 bytes possible padding */
   if (!_dbus_string_alloc_space (sub->value_str, 8))
@@ -1229,6 +1224,7 @@ _dbus_type_writer_write_array (DBusTypeWriter *writer,
 
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-test.h"
+#include "dbus-list.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -1310,6 +1306,29 @@ data_block_init_reader_writer (DataBlock      *block,
                           _dbus_string_get_length (&block->body));
 }
 
+static void
+real_check_expected_type (DBusTypeReader *reader,
+                          int             expected,
+                          const char     *funcname,
+                          int             line)
+{
+  int t;
+
+  t = _dbus_type_reader_get_current_type (reader);
+  
+  if (t != expected)
+    {
+      _dbus_warn ("Read type %s while expecting %s at %s line %d\n",
+                  _dbus_type_to_string (t),
+                  _dbus_type_to_string (expected),
+                  funcname, line);
+      
+      exit (1);
+    }
+}
+
+#define check_expected_type(reader, expected) real_check_expected_type (reader, expected, _DBUS_FUNCTION_NAME, __LINE__)
+
 #define NEXT_EXPECTING_TRUE(reader)  do { if (!_dbus_type_reader_next (reader))         \
  {                                                                                      \
     _dbus_warn ("_dbus_type_reader_next() should have returned TRUE at %s %d\n",        \
@@ -1339,29 +1358,6 @@ write_int32 (DataBlock      *block,
                                         DBUS_TYPE_INT32,
                                         &v);
 }
-
-static void
-real_check_expected_type (DBusTypeReader *reader,
-                          int             expected,
-                          const char     *funcname,
-                          int             line)
-{
-  int t;
-
-  t = _dbus_type_reader_get_current_type (reader);
-  
-  if (t != expected)
-    {
-      _dbus_warn ("Read type %s while expecting %s at %s line %d\n",
-                  _dbus_type_to_string (t),
-                  _dbus_type_to_string (expected),
-                  funcname, line);
-      
-      exit (1);
-    }
-}
-
-#define check_expected_type(reader, expected) real_check_expected_type (reader, expected, _DBUS_FUNCTION_NAME, __LINE__)
 
 static dbus_bool_t
 read_int32 (DataBlock      *block,
@@ -2656,14 +2652,375 @@ recursive_marshal_test_iteration (void *data)
   return TRUE;
 }
 
+typedef struct TestTypeNode               TestTypeNode;
+typedef struct TestTypeNodeClass          TestTypeNodeClass;
+typedef struct TestTypeNodeContainer      TestTypeNodeContainer;
+typedef struct TestTypeNodeContainerClass TestTypeNodeContainerClass;
+
+struct TestTypeNode
+{
+  const TestTypeNodeClass *klass;
+  void *data; /* some data, such as the particular value we wrote that we expect to read again */
+};
+
+struct TestTypeNodeContainer
+{
+  TestTypeNode base;
+  DBusList    *children;
+};
+
+struct TestTypeNodeClass
+{
+  int typecode;
+
+  int instance_size;
+  
+  dbus_bool_t   (* construct)     (TestTypeNode   *node);
+  void          (* destroy)       (TestTypeNode   *node);
+  
+  dbus_bool_t (* write_value)     (TestTypeNode   *node,
+                                   DataBlock      *block,
+                                   DBusTypeWriter *writer);
+  dbus_bool_t (* read_value)      (TestTypeNode   *node,
+                                   DataBlock      *block,
+                                   DBusTypeReader *reader);
+  dbus_bool_t (* build_signature) (TestTypeNode   *node,
+                                   DBusString     *str);
+};
+
+struct TestTypeNodeContainerClass
+{
+  TestTypeNodeClass base;
+};
+
+static dbus_bool_t   int32_write_value        (TestTypeNode   *node,
+                                               DataBlock      *block,
+                                               DBusTypeWriter *writer);
+static dbus_bool_t   int32_read_value         (TestTypeNode   *node,
+                                               DataBlock      *block,
+                                               DBusTypeReader *reader);
+static dbus_bool_t   struct_1_write_value     (TestTypeNode   *node,
+                                               DataBlock      *block,
+                                               DBusTypeWriter *writer);
+static dbus_bool_t   struct_1_read_value      (TestTypeNode   *node,
+                                               DataBlock      *block,
+                                               DBusTypeReader *reader);
+static dbus_bool_t   struct_1_build_signature (TestTypeNode   *node,
+                                               DBusString     *str);
+
+static void          container_destroy        (TestTypeNode   *node);
+
+static const TestTypeNodeClass int32_class = {
+  DBUS_TYPE_INT32,
+  sizeof (TestTypeNode),
+  NULL,
+  NULL,
+  int32_write_value,
+  int32_read_value,
+  NULL
+};
+
+static const TestTypeNodeClass struct_1_class = {
+  DBUS_TYPE_STRUCT,
+  sizeof (TestTypeNodeContainer),
+  NULL,
+  container_destroy,
+  struct_1_write_value,
+  struct_1_read_value,
+  struct_1_build_signature
+};
+
+static const TestTypeNodeClass* const
+basic_nodes[] = {
+  &int32_class
+};
+
+static const TestTypeNodeClass* const
+container_nodes[] = {
+  &struct_1_class
+};
+
+static TestTypeNode*
+node_new (const TestTypeNodeClass *klass)
+{
+  TestTypeNode *node;
+
+  node = dbus_malloc0 (klass->instance_size);
+  if (node == NULL)
+    return NULL;
+
+  node->klass = klass;
+  
+  if (klass->construct)
+    {
+      if (!(* klass->construct) (node))
+        {
+          dbus_free (node);
+          return FALSE;
+        }
+    }
+
+  return node;
+}
+
+static void
+node_destroy (TestTypeNode *node)
+{
+  if (node->klass->destroy)
+    (* node->klass->destroy) (node);
+  dbus_free (node);
+}
+
+static dbus_bool_t
+node_write_value (TestTypeNode   *node,
+                  DataBlock      *block,
+                  DBusTypeWriter *writer)
+{
+  return (* node->klass->write_value) (node, block, writer);
+}
+
+static dbus_bool_t
+node_read_value (TestTypeNode   *node,
+                 DataBlock      *block,
+                 DBusTypeReader *reader)
+{
+  return (* node->klass->read_value) (node, block, reader);
+}
+
+static dbus_bool_t
+node_build_signature (TestTypeNode *node,
+                      DBusString   *str)
+{
+  if (node->klass->build_signature)
+    return (* node->klass->build_signature) (node, str);
+  else
+    return _dbus_string_append_byte (str, node->klass->typecode);
+}
+
+static dbus_bool_t
+node_append_child (TestTypeNode *node,
+                   TestTypeNode *child)
+{
+  TestTypeNodeContainer *container = (TestTypeNodeContainer*) node;
+
+  _dbus_assert (node->klass->instance_size >= (int) sizeof (TestTypeNodeContainer));
+
+  return _dbus_list_append (&container->children, child);
+}
+
+typedef struct
+{
+  const DBusString   *signature;
+  DataBlock    *block;
+  int           type_offset;
+  int           byte_order;
+  TestTypeNode *node;
+} NodeIterationData;
+
+static dbus_bool_t
+run_test_node_iteration (void *data)
+{
+  DBusTypeReader reader;
+  DBusTypeWriter writer;
+  NodeIterationData *nid = data;
+
+  /* Stuff to do:
+   * 1. write the value
+   * 2. strcmp-compare with the signature we built
+   * 3. read the value
+   * 4. type-iterate the signature and the value and see if they are the same type-wise
+   */
+  data_block_init_reader_writer (nid->block,
+                                 nid->byte_order,
+                                 &reader, &writer);
+  
+  if (!node_write_value (nid->node, nid->block, &writer))
+    return FALSE;
+
+  if (!_dbus_string_equal_substring (nid->signature, 0, _dbus_string_get_length (nid->signature),
+                                     &nid->block->signature, nid->type_offset))
+    {
+      _dbus_warn ("Expected signature '%s' and got '%s' with initial offset %d\n",
+                  _dbus_string_get_const_data (nid->signature),
+                  _dbus_string_get_const_data_len (&nid->block->signature, nid->type_offset, 0),
+                  nid->type_offset);
+      _dbus_assert_not_reached ("wrong signature");
+    }
+
+  if (!node_read_value (nid->node, nid->block, &reader))
+    return FALSE;
+
+  /* FIXME type-iterate both signature and value */
+  
+  return TRUE;
+}
+
+static void
+run_test_node_in_one_configuration (TestTypeNode     *node,
+                                    int               byte_order,
+                                    int               initial_offset,
+                                    const DBusString *signature)
+{
+  DataBlock block;
+  NodeIterationData nid;
+
+  if (!data_block_init (&block))
+    _dbus_assert_not_reached ("no memory");
+
+  if (!_dbus_string_lengthen (&block.signature, initial_offset))
+    _dbus_assert_not_reached ("no memory");
+  
+  if (!_dbus_string_lengthen (&block.body, initial_offset))
+    _dbus_assert_not_reached ("no memory");
+
+  nid.signature = signature;
+  nid.block = &block;
+  nid.type_offset = initial_offset;
+  nid.node = node;
+  nid.byte_order = byte_order;
+  
+  _dbus_test_oom_handling ("running test node",
+                           run_test_node_iteration,
+                           &nid);
+
+  data_block_free (&block);
+}
+
+static void
+run_test_node (TestTypeNode *node)
+{
+  int i;
+  DBusString signature;
+
+  if (!_dbus_string_init (&signature))
+    _dbus_assert_not_reached ("no memory");
+  
+  if (! node_build_signature (node, &signature))
+    _dbus_assert_not_reached ("no memory");
+
+  _dbus_verbose (">>> test node with signature '%s'\n",
+                 _dbus_string_get_const_data (&signature));
+  
+  i = 0;
+  while (i < 18)
+    {
+      run_test_node_in_one_configuration (node, DBUS_LITTLE_ENDIAN, i, &signature);
+      run_test_node_in_one_configuration (node, DBUS_BIG_ENDIAN, i, &signature);
+      
+      ++i;
+    }
+
+  _dbus_string_free (&signature);
+}
+
+static void
+make_and_run_test_nodes (void)
+{
+  int i, j;
+  
+  /* We try to do this in order of "complicatedness" so that test
+   * failures tend to show up in the simplest test case that
+   * demonstrates the failure.  There are also some tests that run
+   * more than once for this reason, first while going through simple
+   * cases, second while going through a broader range of complex
+   * cases.
+   */
+  /* Each basic node. The basic nodes should include:
+   *
+   * - each fixed-size type (in such a way that it has different values each time,
+   *                         so we can tell if we mix two of them up)
+   * - strings of length 0-9
+   * - object path
+   * - signature
+   */
+  /* Each container node. The container nodes should include:
+   *
+   *  struct with 1 and 2 copies of the contained item
+   *  array with 0, 1, 2 copies of the contained item
+   *  variant
+   */
+  /*  Let a "value" be a basic node, or a container containing a single basic node.
+   *  Let n_values be the number of such values i.e. (n_container * n_basic + n_basic)
+   *  When iterating through all values to make combinations, do the basic types
+   *  first and the containers second.
+   */
+  /* Each item is shown with its number of iterations so we can keep a handle
+   * on this unit test
+   */
+  
+  /* n_basic iterations */
+  _dbus_verbose (">>> >>> Each basic node by itself\n");
+  for (i = 0; i < _DBUS_N_ELEMENTS (basic_nodes); i++)
+    {
+      const TestTypeNodeClass *klass = basic_nodes[i];
+      TestTypeNode *node;
+      
+      node = node_new (klass);
+
+      run_test_node (node);
+
+      node_destroy (node);
+    }
+  
+  /* n_container * n_basic iterations */
+  _dbus_verbose (">>> >>> - Each container of each basic (redundant with later tests)\n");
+  for (i = 0; i < _DBUS_N_ELEMENTS (container_nodes); i++)
+    {
+      const TestTypeNodeClass *container_klass = container_nodes[i];
+      for (j = 0; j < _DBUS_N_ELEMENTS (basic_nodes); j++)
+        {
+          const TestTypeNodeClass *child_klass = basic_nodes[j];
+          TestTypeNode *child;
+          TestTypeNode *container;
+      
+          container = node_new (container_klass);
+          child = node_new (child_klass);
+
+          node_append_child (container, child);
+          
+          run_test_node (container);
+
+          node_destroy (container);
+        }
+    }
+  
+  /* n_values * n_values * 2 - each value,value pair combination as toplevel, in both orders */
+
+  /* 1 - all values in one big toplevel */
+
+  /* n_container * n_values - container of values */
+  
+  /* n_container * n_values - container of same container of values */
+  
+  /* n_container * n_values - container of same container of same container of values */
+
+  /* n_container * n_container * n_values - container of container of values */
+  /* n_container * n_container * n_container * n_values - container of container of container of values */
+
+  /* n_values * n_values * n_values * 6 - each trio of value,value,value in all orders */
+  
+  /* n_values * n_values * 2 - each value,value pair inside STRUCT, in both orders */
+
+  /* 1 - all values in one big STRUCT */
+}
+
 dbus_bool_t _dbus_marshal_recursive_test (void);
 
 dbus_bool_t
 _dbus_marshal_recursive_test (void)
 {
+  /* The new comprehensive tests */
+
+#if 1
+  make_and_run_test_nodes ();
+#endif
+  
+#if 1
+  /* The old tests */
   _dbus_test_oom_handling ("recursive marshaling",
                            recursive_marshal_test_iteration,
                            NULL);  
+#endif
   
   return TRUE;
 }
@@ -2677,5 +3034,221 @@ main (int argc, char **argv)
   return 0;
 }
 #endif /* main() */
+
+
+/*
+ *
+ *
+ *         Implementations of each type node class
+ *
+ *
+ *
+ */
+
+static dbus_bool_t
+int32_write_value (TestTypeNode   *node,
+                   DataBlock      *block,
+                   DBusTypeWriter *writer)
+{
+  /* also used for uint32 */
+  dbus_int32_t v = _DBUS_POINTER_TO_INT (node->data);
+  
+  return _dbus_type_writer_write_basic (writer,
+                                        node->klass->typecode,
+                                        &v);
+}
+
+static dbus_bool_t
+int32_read_value (TestTypeNode   *node,
+                  DataBlock      *block,
+                  DBusTypeReader *reader)
+{
+  /* also used for uint32 */
+  dbus_int32_t v;
+
+  check_expected_type (reader, node->klass->typecode);
+  
+  _dbus_type_reader_read_basic (reader,
+                                (dbus_int32_t*) &v);
+  
+  _dbus_assert (v == _DBUS_POINTER_TO_INT (node->data));
+
+  return TRUE;
+}
+
+static dbus_bool_t
+struct_N_write_value (TestTypeNode   *node,
+                      DataBlock      *block,
+                      DBusTypeWriter *writer,
+                      int             n_copies)
+{
+  TestTypeNodeContainer *container = (TestTypeNodeContainer*) node;
+  DataBlockState saved;
+  DBusTypeWriter sub;
+  int i;
+
+  _dbus_assert (container->children != NULL);
+  
+  data_block_save (block, &saved);
+  
+  if (!_dbus_type_writer_recurse_struct (writer,
+                                         &sub))
+    return FALSE;
+
+  i = 0;
+  while (i < n_copies)
+    {
+      DBusList *link;
+      
+      link = _dbus_list_get_first_link (&container->children);
+      while (link != NULL)
+        {
+          TestTypeNode *child = link->data;
+          DBusList *next = _dbus_list_get_next_link (&container->children, link);
+
+          node_write_value (child, block, &sub);
+          
+          link = next;
+        }
+
+      ++i;
+    }
+  
+  if (!_dbus_type_writer_unrecurse (writer, &sub))
+    {
+      data_block_restore (block, &saved);
+      return FALSE;
+    }
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+struct_N_read_value (TestTypeNode   *node,
+                     DataBlock      *block,
+                     DBusTypeReader *reader,
+                     int             n_copies)
+{
+  TestTypeNodeContainer *container = (TestTypeNodeContainer*) node;
+  DBusTypeReader sub;
+  int i;
+  
+  check_expected_type (reader, DBUS_TYPE_STRUCT);
+  
+  _dbus_type_reader_recurse (reader, &sub);
+
+  i = 0;
+  while (i < n_copies)
+    {
+      DBusList *link;
+      
+      link = _dbus_list_get_first_link (&container->children);
+      while (link != NULL)
+        {
+          TestTypeNode *child = link->data;
+          DBusList *next = _dbus_list_get_next_link (&container->children, link);
+
+          node_read_value (child, block, &sub);
+
+          if (i == (n_copies - 1) && next == NULL)
+            NEXT_EXPECTING_FALSE (&sub);
+          else
+            NEXT_EXPECTING_TRUE (&sub);
+          
+          link = next;
+        }
+
+      ++i;
+    }
+  
+  return TRUE;
+}
+
+static dbus_bool_t
+struct_N_build_signature (TestTypeNode   *node,
+                          DBusString     *str,
+                          int             n_copies)
+{
+  TestTypeNodeContainer *container = (TestTypeNodeContainer*) node;
+  int i;
+  int orig_len;
+
+  orig_len = _dbus_string_get_length (str);
+
+  if (!_dbus_string_append_byte (str, DBUS_STRUCT_BEGIN_CHAR))
+    goto oom;
+  
+  i = 0;
+  while (i < n_copies)
+    {
+      DBusList *link;
+      
+      link = _dbus_list_get_first_link (&container->children);
+      while (link != NULL)
+        {
+          TestTypeNode *child = link->data;
+          DBusList *next = _dbus_list_get_next_link (&container->children, link);
+
+          if (!node_build_signature (child, str))
+            goto oom;
+          
+          link = next;
+        }
+
+      ++i;
+    }
+
+  if (!_dbus_string_append_byte (str, DBUS_STRUCT_END_CHAR))
+    goto oom;
+  
+  return TRUE;
+  
+ oom:
+  _dbus_string_set_length (str, orig_len);
+  return FALSE;
+}
+
+static dbus_bool_t
+struct_1_write_value (TestTypeNode   *node,
+                      DataBlock      *block,
+                      DBusTypeWriter *writer)
+{
+  return struct_N_write_value (node, block, writer, 1);
+}
+
+static dbus_bool_t
+struct_1_read_value (TestTypeNode   *node,
+                     DataBlock      *block,
+                     DBusTypeReader *reader)
+{
+  return struct_N_read_value (node, block, reader, 1);
+}
+
+static dbus_bool_t
+struct_1_build_signature (TestTypeNode   *node,
+                          DBusString     *str)
+{
+  return struct_N_build_signature (node, str, 1);
+}
+
+static void
+container_destroy (TestTypeNode *node)
+{
+  TestTypeNodeContainer *container = (TestTypeNodeContainer*) node;
+  DBusList *link;
+  
+  link = _dbus_list_get_first_link (&container->children);
+  while (link != NULL)
+    {
+      TestTypeNode *child = link->data;
+      DBusList *next = _dbus_list_get_next_link (&container->children, link);
+
+      node_destroy (child);
+
+      _dbus_list_free_link (link);
+      
+      link = next;
+    }
+}
 
 #endif /* DBUS_BUILD_TESTS */
