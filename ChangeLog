@@ -1,3 +1,8 @@
+2004-06-09  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* bus/driver.c, dbus/dbus-bus.c: use BOOLEAN instead of UINT32 for
+	the reply value of the ServiceExists message.
+
 2004-06-07  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/dbus_bindings.pyx.in: No longer need to parse path

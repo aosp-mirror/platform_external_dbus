@@ -537,7 +537,7 @@ bus_driver_handle_service_exists (DBusConnection *connection,
     }
 
   if (!dbus_message_append_args (reply,
-                                 DBUS_TYPE_UINT32, service != NULL,
+                                 DBUS_TYPE_BOOLEAN, service != NULL,
                                  0))
     {
       BUS_SET_OOM (error);

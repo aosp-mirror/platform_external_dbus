@@ -629,8 +629,6 @@ dbus_bus_acquire_service (DBusConnection *connection,
 /**
  * Checks whether a certain service exists.
  *
- * @todo the SERVICE_EXISTS message should use BOOLEAN not UINT32
- *
  * @param connection the connection
  * @param service_name the service name
  * @param error location to store any errors
@@ -677,7 +675,7 @@ dbus_bus_service_exists (DBusConnection *connection,
     }
 
   if (!dbus_message_get_args (reply, error,
-                              DBUS_TYPE_UINT32, &exists,
+                              DBUS_TYPE_BOOLEAN, &exists,
                               DBUS_TYPE_INVALID))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
