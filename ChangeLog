@@ -1,5 +1,12 @@
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/dbus-errors.c:
+	* dbus/dbus-message.c:
+	* dbus/dbus-string.c:
+	Documentation fixes.
+
+2003-02-13  Anders Carlsson  <andersca@codefactory.se>
+
 	* glib/dbus-gmain.c: (timeout_handler), (add_timeout),
 	(remove_timeout):
 	Implement support for timeouts in dbus-glib.

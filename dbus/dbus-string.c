@@ -1556,6 +1556,7 @@ _dbus_string_equal (const DBusString *a,
  *
  * @param a first string
  * @param b second string
+ * @param len the lengh
  * @returns #TRUE if equal for the given number of bytes
  */
 dbus_bool_t

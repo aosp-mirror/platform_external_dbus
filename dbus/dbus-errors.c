@@ -124,6 +124,11 @@ dbus_result_to_string (DBusResultCode code)
   return "Invalid error code";
 }
 
+/**
+ * Initializes a DBusError structure.
+ *
+ * @param error the DBusError.
+ */
 void
 dbus_error_init (DBusError *error)
 {
@@ -141,6 +146,11 @@ dbus_error_init (DBusError *error)
   real->const_message = TRUE;
 }
 
+/**
+ * Frees an error created by dbus_error_init().
+ *
+ * @param error memory where the error is stored.
+ */
 void
 dbus_error_free (DBusError *error)
 {
@@ -152,6 +162,14 @@ dbus_error_free (DBusError *error)
     dbus_free (real->message);
 }
 
+/**
+ * Assigns an error name and message to a DBusError.
+ * Does nothing if error is #NULL.
+ *
+ * @param error the error.
+ * @param name the error name (not copied!!!)
+ * @param message the error message (not copied!!!)
+ */
 void
 dbus_set_error_const (DBusError  *error,
 		      const char *name,
@@ -171,6 +189,15 @@ dbus_set_error_const (DBusError  *error,
   real->const_message = TRUE;
 }
 
+/**
+ * Assigns an error name and message to a DBusError.
+ * Does nothing if error is #NULL.
+ *
+ * @param error the error.
+ * @param name the error name (not copied!!!)
+ * @param format printf-style format string.
+ * @returns #TRUE on success.
+ */
 dbus_bool_t
 dbus_set_error (DBusError  *error,
 		const char *name,

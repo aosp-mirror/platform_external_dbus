@@ -780,7 +780,6 @@ dbus_message_new (const char *service,
  * message. Returns #NULL if memory can't be allocated
  * for the message.
  *
- * @param name the name of the message
  * @param original_message the message which the created
  * message is a reply to.
  * @returns a new DBusMessage, free with dbus_message_unref()
