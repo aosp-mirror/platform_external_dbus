@@ -1,3 +1,15 @@
+2004-08-28  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-userdb.c (_dbus_is_console_user): remove unused variable
+
+        More fixes from Steve Grubb
+	
+	* dbus/dbus-sysdeps.c (_dbus_connect_tcp_socket): fix fd leak
+	(_dbus_listen_tcp_socket): fix fd leak
+
+	* dbus/dbus-spawn.c (read_pid, read_ints): move the "again:" for
+	EINTR to a bit lower in the code
+
 2004-08-26  Jon Trowbridge  <trow@ximian.com>
 
 	* bus/driver.c (bus_driver_handle_service_exists): Respond with

@@ -72,13 +72,13 @@ read_ints (int        fd,
     {
       size_t chunk;
       size_t to_read;
-      
-    again:
 
       to_read = sizeof (int) * n_ints_in_buf - bytes;
 
       if (to_read == 0)
         break;
+
+    again:
       
       chunk = read (fd,
                     ((char*)buf) + bytes,
@@ -128,11 +128,12 @@ read_pid (int        fd,
       size_t chunk;    
       size_t to_read;
       
-    again:
       to_read = sizeof (pid_t) - bytes;
 
       if (to_read == 0)
         break;
+
+    again:
       
       chunk = read (fd,
                     ((char*)buf) + bytes,

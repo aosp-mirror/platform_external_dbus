@@ -622,6 +622,7 @@ _dbus_connect_tcp_socket (const char     *host,
                       _dbus_error_from_errno (errno),
                       "Failed to lookup hostname: %s",
                       host);
+      close (fd);
       return -1;
     }
   
@@ -695,6 +696,7 @@ _dbus_listen_tcp_socket (const char     *host,
                       _dbus_error_from_errno (errno),
                       "Failed to lookup hostname: %s",
                       host);
+      close (listen_fd);
       return -1;
     }
   

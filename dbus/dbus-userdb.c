@@ -413,7 +413,6 @@ _dbus_is_console_user (dbus_uid_t uid,
 
   DBusUserDatabase *db;
   const DBusUserInfo *info;
-  DBusString *console_file;
   dbus_bool_t result = FALSE; 
 
   _dbus_user_database_lock_system ();
