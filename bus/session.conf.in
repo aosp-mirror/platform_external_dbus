@@ -14,8 +14,8 @@
 
   <policy context="default">
     <!-- Allow everything -->
-    <allow send="*"/>
-    <allow receive="*"/>
+    <allow send_interface="*"/>
+    <allow receive_interface="*"/>
     <allow own="*"/>
     <allow user="*"/>  
   </policy>

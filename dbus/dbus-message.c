@@ -4155,7 +4155,7 @@ dbus_message_is_error (DBusMessage *message,
   if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_ERROR)
     return FALSE;
 
-  n = dbus_message_get_member (message);
+  n = dbus_message_get_error_name (message);
 
   if (n && strcmp (n, error_name) == 0)
     return TRUE;
@@ -4529,7 +4529,8 @@ decode_string_field (const DBusString   *data,
           return FALSE;
         }
     }
-  else if (field == FIELD_SERVICE)
+  else if (field == FIELD_SERVICE ||
+           field == FIELD_SENDER)
     {
       if (!_dbus_string_validate_service (&tmp, 0, _dbus_string_get_length (&tmp)))
         {
@@ -4537,7 +4538,7 @@ decode_string_field (const DBusString   *data,
                          field_name, _dbus_string_get_const_data (&tmp));
           return FALSE;
         }
-    }
+    }  
   else
     {
       _dbus_assert_not_reached ("Unknown field\n");

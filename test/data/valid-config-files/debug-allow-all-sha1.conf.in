@@ -8,8 +8,8 @@
   <servicedir>@TEST_SERVICE_DIR@</servicedir>
   <auth>DBUS_COOKIE_SHA1</auth>
   <policy context="default">
-    <allow send="*"/>
-    <allow receive="*"/>
+    <allow send_interface="*"/>
+    <allow receive_interface="*"/>
     <allow own="*"/>
     <allow user="*"/>
   </policy>

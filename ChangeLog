@@ -1,3 +1,19 @@
+2003-08-19  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-message.c (decode_string_field): support FIELD_SENDER
+	(dbus_message_is_error): fix this function
+
+	* bus/dbus-daemon-1.1: clarify logic on when <deny>/<allow> rules
+	match
+
+	* bus/policy.c (bus_client_policy_check_can_receive): fix code to
+	reflect clarified man page
+	(bus_client_policy_check_can_send): ditto
+	
+	* bus/session.conf.in: fixup
+
+	* bus/system.conf.in: fixup
+
 2003-08-18  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-hash.c (_dbus_hash_table_insert_two_strings): fix

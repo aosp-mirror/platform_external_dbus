@@ -418,11 +418,14 @@ pop_message_waiting_for_memory (DBusConnection *connection)
 }
 
 static void
-warn_unexpected (DBusConnection *connection,
-                 DBusMessage    *message,
-                 const char     *expected)
+warn_unexpected_real (DBusConnection *connection,
+                      DBusMessage    *message,
+                      const char     *expected,
+                      const char     *function,
+                      int             line)
 {
-  _dbus_warn ("Received message interface \"%s\" member \"%s\" error name \"%s\" on %p, expecting %s\n",
+  _dbus_warn ("%s:%d received message interface \"%s\" member \"%s\" error name \"%s\" on %p, expecting %s\n",
+              function, line,
               dbus_message_get_interface (message) ?
               dbus_message_get_interface (message) : "(unset)",
               dbus_message_get_member (message) ?
@@ -431,6 +434,23 @@ warn_unexpected (DBusConnection *connection,
               dbus_message_get_error_name (message) : "(unset)",
               connection,
               expected);
+}
+
+#define warn_unexpected(connection, message, expected) \
+  warn_unexpected_real (connection, message, expected, _DBUS_FUNCTION_NAME, __LINE__)
+
+static void
+verbose_message_received (DBusConnection *connection,
+                          DBusMessage    *message)
+{
+  _dbus_verbose ("Received message interface \"%s\" member \"%s\" error name \"%s\" on %p\n",
+                 dbus_message_get_interface (message) ?
+                 dbus_message_get_interface (message) : "(unset)",
+                 dbus_message_get_member (message) ?
+                 dbus_message_get_member (message) : "(unset)",
+                 dbus_message_get_error_name (message) ?
+                 dbus_message_get_error_name (message) : "(unset)",
+                 connection);
 }
 
 typedef struct
@@ -748,8 +768,7 @@ check_hello_message (BusContext     *context,
       goto out;
     }
 
-  _dbus_verbose ("Received message %p on %p\n",
-                 message, connection);
+  verbose_message_received (connection, message);
 
   if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
     {
@@ -984,8 +1003,7 @@ check_nonexistent_service_activation (BusContext     *context,
       goto out;
     }
 
-  _dbus_verbose ("Received message %p on %p\n",
-                 message, connection);
+  verbose_message_received (connection, message);
 
   if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
     {
@@ -1542,8 +1560,8 @@ check_existent_service_activation (BusContext     *context,
       goto out;
     }
 
-  _dbus_verbose ("Received message %p on %p after sending %s\n",
-                 message, connection, "ActivateService");
+  verbose_message_received (connection, message);
+  _dbus_verbose ("  (after sending %s)\n", "ActivateService");
 
   if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
     {
@@ -1748,8 +1766,7 @@ check_segfault_service_activation (BusContext     *context,
       goto out;
     }
 
-  _dbus_verbose ("Received message %p on %p\n",
-                 message, connection);
+  verbose_message_received (connection, message);
 
   if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
     {

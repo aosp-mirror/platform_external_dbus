@@ -7,8 +7,8 @@
   <listen>unix:tmpdir=@TEST_SOCKET_DIR@</listen>
   <servicedir>@TEST_SERVICE_DIR@</servicedir>
   <policy context="default">
-    <allow send="*"/>
-    <allow receive="*"/>
+    <allow send_interface="*"/>
+    <allow receive_interface="*"/>
     <allow own="*"/>
     <allow user="*"/>
   </policy>
