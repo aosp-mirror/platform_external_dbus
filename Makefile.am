@@ -28,8 +28,8 @@ dist-local:
 		echo "You have to build with Qt and GLib to make dist" ;	\
 	fi 
 
-SUBDIRS=dbus bus doc $(GLIB_SUBDIR) $(GCJ_SUBDIR) $(MONO_SUBDIR) $(QT_SUBDIR) $(PYTHON_SUBDIR) test tools
-DIST_SUBDIRS=dbus bus doc glib qt gcj mono python test tools
+SUBDIRS=dbus bus doc $(GLIB_SUBDIR) $(GCJ_SUBDIR) $(MONO_SUBDIR) $(QT_SUBDIR) $(PYTHON_SUBDIR) tools test
+DIST_SUBDIRS=dbus bus doc glib qt gcj mono python tools test
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = dbus-1.pc $(GLIB_PC) $(MONO_PC)

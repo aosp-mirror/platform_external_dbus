@@ -1,3 +1,7 @@
+2005-03-20  Colin Walters  <walters@verbum.org>
+
+	* Makefile.am (SUBDIRS, DIST_SUBDIRS): Build tools before test.
+
 2005-03-17  Tom Parker  <palfrey@tevp.net>
 
 	* dbus/dbus-userdb.c (_dbus_user_database_lookup): Don't
