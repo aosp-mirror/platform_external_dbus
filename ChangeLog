@@ -1,5 +1,8 @@
 2005-01-12  Joe Shaw  <joeshaw@novell.com>
 
+	* mono/doc/Makefile.am: Need to uninstall the docs on "make
+	uninstall"
+
 	* mono/Makefile.am, mono/example/Makefile.am: Always build the 
 	dbus DLL with --debug.
 
