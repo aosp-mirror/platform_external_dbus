@@ -141,7 +141,10 @@ void        _dbus_type_reader_recurse                   (DBusTypeReader        *
                                                          DBusTypeReader        *subreader);
 dbus_bool_t _dbus_type_reader_next                      (DBusTypeReader        *reader);
 dbus_bool_t _dbus_type_reader_has_next                  (const DBusTypeReader  *reader);
-
+void        _dbus_type_reader_get_signature             (const DBusTypeReader  *reader,
+                                                         const DBusString     **str_p,
+                                                         int                   *start_p,
+                                                         int                   *len_p);
 
 void        _dbus_type_writer_init            (DBusTypeWriter *writer,
                                                int             byte_order,

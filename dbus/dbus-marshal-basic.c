@@ -481,7 +481,18 @@ _dbus_demarshal_uint32  (const DBusString *str,
 }
 
 /**
- * Demarshals a basic type
+ * Demarshals a basic type. The "value" pointer is always
+ * the address of a variable of the basic type. So e.g.
+ * if the basic type is "double" then the pointer is
+ * a double*, and if it's "char*" then the pointer is
+ * a "char**".
+ * 
+ * A value of type #DBusBasicValue is guaranteed to be large enough to
+ * hold any of the types that may be returned, which is handy if you
+ * are trying to do things generically. For example you can pass
+ * a DBusBasicValue* in to this function, and then pass the same
+ * DBusBasicValue* in to _dbus_marshal_basic_type() in order to
+ * move a value from one place to another.
  *
  * @param str the string containing the data
  * @param type type of value to demarshal
@@ -499,22 +510,24 @@ _dbus_demarshal_basic_type (const DBusString      *str,
                             int                   *new_pos)
 {
   const char *str_data;
+  DBusBasicValue *vp;
 
   str_data = _dbus_string_get_const_data (str);
-
+  vp = value;
+  
   switch (type)
     {
     case DBUS_TYPE_BYTE:
     case DBUS_TYPE_BOOLEAN:
-      *(unsigned char *) value = _dbus_string_get_byte (str, pos);
+      vp->byt = _dbus_string_get_byte (str, pos);
       (pos)++;
       break;
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
       pos = _DBUS_ALIGN_VALUE (pos, 4);
-      *(dbus_uint32_t *) value = *(dbus_uint32_t *)(str_data + pos);
+      vp->u32 = *(dbus_uint32_t *)(str_data + pos);
       if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-	*(dbus_uint32_t *) value = DBUS_UINT32_SWAP_LE_BE (*(dbus_uint32_t *) value);
+	vp->u32 = DBUS_UINT32_SWAP_LE_BE (*(dbus_uint32_t *) value);
       pos += 4;
       break;
 #ifdef DBUS_HAVE_INT64
@@ -523,12 +536,12 @@ _dbus_demarshal_basic_type (const DBusString      *str,
 #endif /* DBUS_HAVE_INT64 */
     case DBUS_TYPE_DOUBLE:
       pos = _DBUS_ALIGN_VALUE (pos, 8);
-      memcpy (value, str_data + pos, 8);
+      memcpy (vp, str_data + pos, 8);
       if (byte_order != DBUS_COMPILER_BYTE_ORDER)
 #ifdef DBUS_HAVE_INT64
-	*(dbus_uint64_t *) value = DBUS_UINT64_SWAP_LE_BE (*(dbus_uint64_t *) value);
+	vp->u64 = DBUS_UINT64_SWAP_LE_BE (*(dbus_uint64_t *) value);
 #else
-	swap_bytes (value, 8);
+      swap_bytes (value, 8);
 #endif
       pos += 8;
       break;
@@ -539,7 +552,7 @@ _dbus_demarshal_basic_type (const DBusString      *str,
 
         len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
 
-        *(const char**) value = str_data + pos;
+        vp->str = (char*) str_data + pos;
 
         pos += len + 1; /* length plus nul */
       }
@@ -551,7 +564,7 @@ _dbus_demarshal_basic_type (const DBusString      *str,
         len = _dbus_string_get_byte (str, pos);
         pos += 1;
 
-        *(const char**) value = str_data + pos;
+        vp->str = (char*) str_data + pos;
 
         pos += len + 1; /* length plus nul */
       }
@@ -1022,11 +1035,15 @@ _dbus_marshal_basic_type (DBusString *str,
 			  int         byte_order,
                           int        *pos_after)
 {
+  const DBusBasicValue *vp;
+
+  vp = value;
+  
   switch (type)
     {
     case DBUS_TYPE_BYTE:
     case DBUS_TYPE_BOOLEAN:
-      if (!_dbus_string_insert_byte (str, insert_at, *(const unsigned char *)value))
+      if (!_dbus_string_insert_byte (str, insert_at, vp->byt))
         return FALSE;
       if (pos_after)
         *pos_after = insert_at + 1;
@@ -1034,7 +1051,7 @@ _dbus_marshal_basic_type (DBusString *str,
       break;
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
-      return marshal_4_octets (str, insert_at, *(const dbus_uint32_t *)value,
+      return marshal_4_octets (str, insert_at, vp->u32,
                                byte_order, pos_after);
       break;
 #ifdef DBUS_HAVE_INT64
@@ -1042,7 +1059,7 @@ _dbus_marshal_basic_type (DBusString *str,
     case DBUS_TYPE_UINT64:
       {
         DBusOctets8 r;
-        r.u = *(const dbus_uint64_t *)value;
+        r.u = vp->u64;
         return marshal_8_octets (str, insert_at, r, byte_order, pos_after);
       }
       break;
@@ -1050,16 +1067,16 @@ _dbus_marshal_basic_type (DBusString *str,
     case DBUS_TYPE_DOUBLE:
       {
         DBusOctets8 r;
-        r.d = *(const double *)value;
+        r.d = vp->dbl;
         return marshal_8_octets (str, insert_at, r, byte_order, pos_after);
       }
       break;
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
-      return marshal_string (str, insert_at, *(const char**) value, byte_order, pos_after);
+      return marshal_string (str, insert_at, vp->str, byte_order, pos_after);
       break;
     case DBUS_TYPE_SIGNATURE:
-      return marshal_signature (str, insert_at, *(const char**) value, pos_after);
+      return marshal_signature (str, insert_at, vp->str, pos_after);
       break;
     default:
       _dbus_assert_not_reached ("not a basic type");

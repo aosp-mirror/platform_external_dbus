@@ -226,6 +226,20 @@ _hack_dbus_type_to_string (int type)
 #define DBUS_UINT64_FROM_BE(val) (DBUS_UINT64_TO_BE (val))
 #endif /* DBUS_HAVE_INT64 */
 
+typedef union
+{
+  dbus_int32_t  i32;
+  dbus_uint32_t u32;
+#ifdef DBUS_HAVE_INT64
+  dbus_int64_t  i64;
+  dbus_uint64_t u64;
+#endif
+  double dbl;
+  unsigned char byt;
+  unsigned char boo;
+  char *str;
+} DBusBasicValue;
+
 void          _dbus_pack_int32    (dbus_int32_t         value,
                                    int                  byte_order,
                                    unsigned char       *data);
