@@ -1,5 +1,8 @@
 2003-06-29  Miloslav Trmac  <mitr@volny.cz>
 
+	* doc/Makefile.am:
+	* tools/Makefile.am: Don't assume srcdir == builddir.
+
 	* dbus/dbus-memory.c (dbus_realloc): Don't check guards after shrinking
 	the allocated block.
 	(_dbus_memory_test): New function.

@@ -70,10 +70,10 @@ dist-hook:
 	for D in $(TESTDIRS); do						\
 		test -d $(distdir)/$$D || mkdir $(distdir)/$$D || exit 1 ;	\
 	done ;									\
-	FILES=`$(FIND_TESTS) -o -name "*.in"` ;					\
+	FILES=`(cd $(srcdir) && $(FIND_TESTS) -o -name "*.in" -a -not -name Makefile.in)` ;					\
         for F in $$FILES; do							\
                 echo '-- Disting file '$$F ;					\
-		cp $$F $(distdir)/$$F || exit 1 ;				\
+		cp $(srcdir)/$$F $(distdir)/$$F || exit 1 ;				\
 	done
 
 ## copy tests to builddir so that generated tests and static tests 
