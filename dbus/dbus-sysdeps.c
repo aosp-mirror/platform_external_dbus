@@ -3359,26 +3359,29 @@ _dbus_user_at_console (const char *username,
   DBusString f;
   dbus_bool_t result;
 
+  result = FALSE;
   if (!_dbus_string_init (&f))
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _DBUS_SET_OOM (error);
       return FALSE;
     }
 
   if (!_dbus_string_append (&f, DBUS_CONSOLE_DIR))
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      return FALSE;
+      _DBUS_SET_OOM (error);
+      goto out;
     }
 
 
   if (!_dbus_string_append (&f, username))
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      return FALSE;
+      _DBUS_SET_OOM (error);
+      goto out;
     }
 
   result = _dbus_file_exists (_dbus_string_get_const_data (&f));
+
+ out:
   _dbus_string_free (&f);
 
   return result;

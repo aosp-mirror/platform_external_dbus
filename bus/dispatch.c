@@ -934,6 +934,96 @@ check_hello_message (BusContext     *context,
  * but the correct thing may include OOM errors.
  */
 static dbus_bool_t
+check_double_hello_message (BusContext     *context,
+                            DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_uint32_t serial;
+  dbus_bool_t retval;
+  DBusError error;
+
+  retval = FALSE;
+  dbus_error_init (&error);
+  message = NULL;
+
+  _dbus_verbose ("check_double_hello_message for %p\n", connection);
+  
+  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                          "Hello");
+
+  if (message == NULL)
+    return TRUE;
+
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  /* send our message */
+  bus_test_run_clients_loop (TRUE);
+
+  dbus_connection_ref (connection); /* because we may get disconnected */
+  block_connection_until_message_from_bus (context, connection);
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected\n");
+      
+      dbus_connection_unref (connection);
+      
+      return TRUE;
+    }
+
+  dbus_connection_unref (connection);
+  
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a reply to %s %d on %p\n",
+                  "Hello", serial, connection);
+      goto out;
+    }
+
+  verbose_message_received (connection, message);
+
+  if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+    {
+      _dbus_warn ("Message has wrong sender %s\n",
+                  dbus_message_get_sender (message) ?
+                  dbus_message_get_sender (message) : "(none)");
+      goto out;
+    }
+  
+  if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_ERROR)
+    {
+      warn_unexpected (connection, message, "method return for Hello");
+      goto out;
+    }
+
+  if (!check_no_leftovers (context))
+    goto out;
+  
+  retval = TRUE;
+  
+ out:
+  dbus_error_free (&error);
+  
+  if (message)
+    dbus_message_unref (message);
+  
+  return retval;
+}
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
 check_get_connection_unix_user (BusContext     *context,
                                 DBusConnection *connection)
 {
@@ -2243,7 +2333,9 @@ check_existent_service_activation (BusContext     *context,
           ; /* good, this is a valid response */
         }
       else if (dbus_message_is_error (message,
-                                      DBUS_ERROR_SPAWN_CHILD_EXITED))
+                                      DBUS_ERROR_SPAWN_CHILD_EXITED) ||
+               dbus_message_is_error (message,
+                                      DBUS_ERROR_SPAWN_EXEC_FAILED))
         {
           ; /* good, this is expected also */
         }
@@ -2916,6 +3008,9 @@ bus_dispatch_test (const DBusString *test_data_dir)
 
   if (!check_hello_message (context, foo))
     _dbus_assert_not_reached ("hello message failed");
+
+  if (!check_double_hello_message (context, foo))
+    _dbus_assert_not_reached ("double hello message failed");
 
   if (!check_add_match_all (context, foo))
     _dbus_assert_not_reached ("AddMatch message failed");

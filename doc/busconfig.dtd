@@ -29,7 +29,8 @@
 <!ATTLIST policy 
           context (default|mandatory) #IMPLIED
           user CDATA #IMPLIED
-          group CDATA #IMPLIED>
+          group CDATA #IMPLIED
+          at_console (yes|no) #IMPLIED>
 
 <!ELEMENT allow EMPTY>
 <!ATTLIST allow 

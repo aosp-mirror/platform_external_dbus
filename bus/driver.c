@@ -278,6 +278,14 @@ bus_driver_handle_hello (DBusConnection *connection,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
+  if (bus_connection_is_active (connection))
+    {
+      /* We already handled an Hello message for this connection. */
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Already handled an Hello message");
+      return FALSE;
+    }
+
   /* Note that when these limits are exceeded we don't disconnect the
    * connection; we just sort of leave it hanging there until it times
    * out or disconnects itself or is dropped due to the max number of
