@@ -14,7 +14,7 @@ namespace DBus
     private string pathName = null;
     private Type type = null;
     private Introspector introspector = null;
-    private AssemblyBuilder proxyAssembly;
+    private static AssemblyBuilder proxyAssembly;
     
     private static MethodInfo Service_NameMI = typeof(Service).GetMethod("get_Name", 
 									    new Type[0]);
@@ -213,40 +213,44 @@ namespace DBus
     public object GetProxy() 
     {      
       
-      // Build the type
-      TypeBuilder typeB = ServiceModuleBuilder.DefineType(ProxyName, TypeAttributes.Public, this.type);
+      Type proxyType = ProxyAssembly.GetType(ProxyName);
       
-      FieldBuilder serviceF = typeB.DefineField("service", 
-						typeof(Service), 
-						FieldAttributes.Private | 
-						FieldAttributes.Static);
-      FieldBuilder pathF = typeB.DefineField("pathName", 
-					     typeof(string), 
-					     FieldAttributes.Private);
-
-      BuildConstructor(ref typeB, serviceF, pathF);
-
-      // Build the methods
-      foreach (DictionaryEntry interfaceEntry in this.introspector.InterfaceProxies) {
-	InterfaceProxy interfaceProxy = (InterfaceProxy) interfaceEntry.Value;
-	foreach (DictionaryEntry methodEntry in interfaceProxy.Methods) {
-	  MethodInfo method = (MethodInfo) methodEntry.Value;
-	  BuildMethod(method, interfaceProxy, ref typeB, serviceF, pathF);
+      if (proxyType == null) {
+	// Build the type
+	TypeBuilder typeB = ServiceModuleBuilder.DefineType(ProxyName, TypeAttributes.Public, this.type);
+	
+	FieldBuilder serviceF = typeB.DefineField("service", 
+						  typeof(Service), 
+						  FieldAttributes.Private | 
+						  FieldAttributes.Static);
+	FieldBuilder pathF = typeB.DefineField("pathName", 
+					       typeof(string), 
+					       FieldAttributes.Private);
+	
+	BuildConstructor(ref typeB, serviceF, pathF);
+	
+	// Build the methods
+	foreach (DictionaryEntry interfaceEntry in this.introspector.InterfaceProxies) {
+	  InterfaceProxy interfaceProxy = (InterfaceProxy) interfaceEntry.Value;
+	  foreach (DictionaryEntry methodEntry in interfaceProxy.Methods) {
+	    MethodInfo method = (MethodInfo) methodEntry.Value;
+	    BuildMethod(method, interfaceProxy, ref typeB, serviceF, pathF);
+	  }
 	}
-      }
+	
+	proxyType = typeB.CreateType();
       
+	// Uncomment the following line to produce a DLL of the
+	// constructed assembly which can then be examined using
+	// monodis. Note that in order for this to work you should copy
+	// the client assembly as a dll file so that monodis can pick it
+	// up.
+	//ProxyAssembly.Save("proxy.dll");
+      }
+
       Type [] parTypes = new Type[] {typeof(Service), typeof(string)};
       object [] pars = new object[] {Service, pathName};
       
-      Type proxyType = typeB.CreateType();
-
-      // Uncomment the following line to produce a DLL of the
-      // constructed assembly which can then be examined using
-      // monodis. Note that in order for this to work you should copy
-      // the client assembly as a dll file so that monodis can pick it
-      // up.
-      ProxyAssembly.Save("proxy.dll");
-
       ConstructorInfo constructor = proxyType.GetConstructor(parTypes);
       object instance = constructor.Invoke(pars);
       return instance;
@@ -280,14 +284,14 @@ namespace DBus
     private AssemblyBuilder ProxyAssembly
     {
       get {
-	if (this.proxyAssembly == null){
+	if (proxyAssembly == null){
 	  AssemblyName assemblyName = new AssemblyName();
 	  assemblyName.Name = "DBusProxy";
-	  this.proxyAssembly = Thread.GetDomain().DefineDynamicAssembly(assemblyName, 
-									AssemblyBuilderAccess.RunAndSave);
+	  proxyAssembly = Thread.GetDomain().DefineDynamicAssembly(assemblyName, 
+								   AssemblyBuilderAccess.RunAndSave);
 	}
 	
-	return this.proxyAssembly;
+	return proxyAssembly;
       }
     }
   }
