@@ -58,6 +58,3 @@
  - if you send a message to a service then block for reply, and the service exits/crashes
    after the message bus has processed your message but before the service has replied, 
    it would be nice if the message bus sent you an error reply.
-
- - We have a limit on the number of messages a connection can send, but 
-   not on how many can be buffered for a given connection.

@@ -436,6 +436,25 @@
         </informaltable>
       </para>
     </sect2>
+
+    <sect2 id="message-protocol-names">
+      <title>Valid names</title>
+      <para>
+        Messages and services have names with type STRING, meaning that 
+        they must be valid UTF-8. However, there are also some 
+        additional restrictions that apply to message and service names 
+        specifically:
+        <itemizedlist>
+	  <listitem><para>They must contain at least one '.' (period) character</para></listitem>
+	  <listitem><para>They must not begin with a '.' (period) character</para></listitem>
+	  <listitem><para>They must not exceed 256 bytes in length</para></listitem>
+	  <listitem><para>They must be at least 1 byte in length</para></listitem>
+        </itemizedlist>
+        As a special exception, base service names (those beginning with a colon (':') character)
+        need not contain a period.
+      </para>
+    </sect2>
+
   </sect1>
 
   <sect1 id="auth-protocol">
