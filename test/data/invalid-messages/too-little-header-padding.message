@@ -1,0 +1,13 @@
+## has one byte missing from header padding
+
+## VALID_HEADER includes a LENGTH Header and LENGTH Body
+VALID_HEADER
+FIELD_NAME unkn
+TYPE STRING
+STRING 'a'
+ALIGN 8
+## kill a padding byte
+CHOP 1
+END_LENGTH Header
+START_LENGTH Body
+END_LENGTH Body
