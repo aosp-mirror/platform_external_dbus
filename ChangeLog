@@ -1,3 +1,7 @@
+2003-03-14  Anders Carlsson  <andersca@codefactory.se>
+
+	* bus/dispatch.c (send_service_nonexistent_error): Fix typo.
+
 2003-03-13  Havoc Pennington  <hp@pobox.com>
 
 	* bus/test.c, bus/test.h, bus/Makefile.am, bus/test-main.c: 

@@ -110,7 +110,7 @@ send_service_nonexistent_error (BusTransaction *transaction,
 
   if (!_dbus_string_append (&error_message, "Service \"") ||
       !_dbus_string_append (&error_message, service_name) ||
-      !_dbus_string_append (&error_message, "does not exist"))
+      !_dbus_string_append (&error_message, "\" does not exist"))
     {
       _dbus_string_free (&error_message);
       BUS_SET_OOM (error);
