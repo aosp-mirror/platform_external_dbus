@@ -365,7 +365,12 @@ bus_dispatch_add_connection (DBusConnection *connection)
     return FALSE;
   
   handler = dbus_message_handler_new (bus_dispatch_message_handler, NULL, NULL);  
-
+  if (handler == NULL)
+    {
+      message_handler_slot_unref ();
+      return FALSE;
+    }
+  
   if (!dbus_connection_add_filter (connection, handler))
     {
       dbus_message_handler_unref (handler);

@@ -28,15 +28,21 @@
 
 const char bus_no_memory_message[] = "Memory allocation failure in message bus";
 
-void
-bus_wait_for_memory (void)
+int
+bus_get_oom_wait (void)
 {
 #ifdef DBUS_BUILD_TESTS
   /* make tests go fast */
-  _dbus_sleep_milliseconds (10);
+  return 10;
 #else
-  _dbus_sleep_milliseconds (500);
+  return 500;
 #endif
+}
+
+void
+bus_wait_for_memory (void)
+{
+  _dbus_sleep_milliseconds (bus_get_oom_wait ());
 }
 
 void

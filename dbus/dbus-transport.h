@@ -37,7 +37,7 @@ void               _dbus_transport_unref                      (DBusTransport  *t
 void               _dbus_transport_disconnect                 (DBusTransport  *transport);
 dbus_bool_t        _dbus_transport_get_is_connected           (DBusTransport  *transport);
 dbus_bool_t        _dbus_transport_get_is_authenticated       (DBusTransport  *transport);
-void               _dbus_transport_handle_watch               (DBusTransport  *transport,
+dbus_bool_t        _dbus_transport_handle_watch               (DBusTransport  *transport,
                                                                DBusWatch      *watch,
                                                                unsigned int    condition);
 dbus_bool_t        _dbus_transport_set_connection             (DBusTransport  *transport,

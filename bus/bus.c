@@ -39,14 +39,14 @@ struct BusContext
   BusRegistry *registry;
 };
 
-static void
+static dbus_bool_t
 server_watch_callback (DBusWatch     *watch,
                        unsigned int   condition,
                        void          *data)
 {
   BusContext *context = data;
 
-  dbus_server_handle_watch (context->server, watch, condition);  
+  return dbus_server_handle_watch (context->server, watch, condition);
 }
 
 static dbus_bool_t
@@ -69,6 +69,7 @@ static void
 server_timeout_callback (DBusTimeout   *timeout,
                          void          *data)
 {
+  /* can return FALSE on OOM but we just let it fire again later */
   dbus_timeout_handle (timeout);
 }
 

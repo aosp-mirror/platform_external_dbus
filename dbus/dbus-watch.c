@@ -63,6 +63,9 @@ _dbus_watch_new (int          fd,
   _dbus_assert ((flags & VALID_WATCH_FLAGS) == flags);
   
   watch = dbus_new0 (DBusWatch, 1);
+  if (watch == NULL)
+    return NULL;
+  
   watch->refcount = 1;
   watch->fd = fd;
   watch->flags = flags;

@@ -42,34 +42,38 @@ typedef enum
   DBUS_AUTH_STATE_AUTHENTICATED
 } DBusAuthState;
 
-DBusAuth*     _dbus_auth_server_new        (void);
-DBusAuth*     _dbus_auth_client_new        (void);
-void          _dbus_auth_ref               (DBusAuth               *auth);
-void          _dbus_auth_unref             (DBusAuth               *auth);
-DBusAuthState _dbus_auth_do_work           (DBusAuth               *auth);
-dbus_bool_t   _dbus_auth_get_bytes_to_send (DBusAuth               *auth,
-                                            const DBusString      **str);
-void          _dbus_auth_bytes_sent        (DBusAuth               *auth,
-                                            int                     bytes_sent);
-dbus_bool_t   _dbus_auth_bytes_received    (DBusAuth               *auth,
-                                            const DBusString       *str);
-dbus_bool_t   _dbus_auth_get_unused_bytes  (DBusAuth               *auth,
-                                            DBusString             *str);
-dbus_bool_t   _dbus_auth_needs_encoding    (DBusAuth               *auth);
-dbus_bool_t   _dbus_auth_encode_data       (DBusAuth               *auth,
-                                            const DBusString       *plaintext,
-                                            DBusString             *encoded);
-dbus_bool_t   _dbus_auth_needs_decoding    (DBusAuth               *auth);
-dbus_bool_t   _dbus_auth_decode_data       (DBusAuth               *auth,
-                                            const DBusString       *encoded,
-                                            DBusString             *plaintext);
-void          _dbus_auth_set_credentials   (DBusAuth               *auth,
-                                            const DBusCredentials  *credentials);
+DBusAuth*     _dbus_auth_server_new          (void);
+DBusAuth*     _dbus_auth_client_new          (void);
+void          _dbus_auth_ref                 (DBusAuth               *auth);
+void          _dbus_auth_unref               (DBusAuth               *auth);
+DBusAuthState _dbus_auth_do_work             (DBusAuth               *auth);
+dbus_bool_t   _dbus_auth_get_bytes_to_send   (DBusAuth               *auth,
+                                              const DBusString      **str);
+void          _dbus_auth_bytes_sent          (DBusAuth               *auth,
+                                              int                     bytes_sent);
+void          _dbus_auth_get_buffer          (DBusAuth               *auth,
+                                              DBusString            **buffer);
+void          _dbus_auth_return_buffer       (DBusAuth               *auth,
+                                              DBusString             *buffer,
+                                              int                     bytes_read);
+void          _dbus_auth_get_unused_bytes    (DBusAuth               *auth,
+                                              const DBusString      **str);
+void          _dbus_auth_delete_unused_bytes (DBusAuth               *auth);
+dbus_bool_t   _dbus_auth_needs_encoding      (DBusAuth               *auth);
+dbus_bool_t   _dbus_auth_encode_data         (DBusAuth               *auth,
+                                              const DBusString       *plaintext,
+                                              DBusString             *encoded);
+dbus_bool_t   _dbus_auth_needs_decoding      (DBusAuth               *auth);
+dbus_bool_t   _dbus_auth_decode_data         (DBusAuth               *auth,
+                                              const DBusString       *encoded,
+                                              DBusString             *plaintext);
+void          _dbus_auth_set_credentials     (DBusAuth               *auth,
+                                              const DBusCredentials  *credentials);
+void          _dbus_auth_get_identity        (DBusAuth               *auth,
+                                              DBusCredentials        *credentials);
+dbus_bool_t   _dbus_auth_set_context         (DBusAuth               *auth,
+                                              const DBusString       *context);
 
-void          _dbus_auth_get_identity      (DBusAuth               *auth,
-                                            DBusCredentials        *credentials);
-dbus_bool_t   _dbus_auth_set_context       (DBusAuth               *auth,
-                                            const DBusString       *context);
 
 DBUS_END_DECLS;
 

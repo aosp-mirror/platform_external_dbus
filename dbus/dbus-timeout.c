@@ -405,12 +405,19 @@ dbus_timeout_set_data (DBusTimeout      *timeout,
  * This function should be called when the timeout
  * occurs.
  *
+ * If this function returns #FALSE, then there wasn't
+ * enough memory to handle the timeout. Typically just
+ * letting the timeout fire again next time it naturally
+ * times out is an adequate response to that problem,
+ * but you could try to do more if you wanted.
+ *
  * @param timeout the DBusTimeout object.
+ * @returns #FALSE if there wasn't enough memory 
  */
-void
+dbus_bool_t
 dbus_timeout_handle (DBusTimeout *timeout)
 {
-  (* timeout->handler) (timeout->handler_data);
+  return (* timeout->handler) (timeout->handler_data);
 }
 
 

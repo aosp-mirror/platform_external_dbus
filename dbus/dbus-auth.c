@@ -169,6 +169,7 @@ struct DBusAuth
   unsigned int authenticated_pending_begin : 1;  /**< Authenticated once we get BEGIN */
   unsigned int already_got_mechanisms : 1;       /**< Client already got mech list */
   unsigned int already_asked_for_initial_response : 1; /**< Already sent a blank challenge to get an initial response */
+  unsigned int buffer_outstanding : 1; /**< Buffer is "checked out" for reading data into */
 };
 
 typedef struct
@@ -1996,35 +1997,40 @@ _dbus_auth_bytes_sent (DBusAuth *auth,
 }
 
 /**
- * Stores bytes received from the peer we're conversing with.
+ * Get a buffer to be used for reading bytes from the peer we're conversing
+ * with. Bytes should be appended to this buffer.
  *
  * @param auth the auth conversation
- * @param str the received bytes.
- * @returns #FALSE if not enough memory to store the bytes or we were already authenticated.
+ * @param buffer return location for buffer to append bytes to
  */
-dbus_bool_t
-_dbus_auth_bytes_received (DBusAuth   *auth,
-                           const DBusString *str)
+void
+_dbus_auth_get_buffer (DBusAuth     *auth,
+                       DBusString **buffer)
 {
   _dbus_assert (auth != NULL);
-  _dbus_assert (str != NULL);
+  _dbus_assert (!auth->buffer_outstanding);
   
-  if (DBUS_AUTH_IN_END_STATE (auth))
-    return FALSE;
+  *buffer = &auth->incoming;
 
-  auth->needed_memory = FALSE;
-  
-  if (!_dbus_string_copy (str, 0,
-                          &auth->incoming,
-                          _dbus_string_get_length (&auth->incoming)))
-    {
-      auth->needed_memory = TRUE;
-      return FALSE;
-    }
+  auth->buffer_outstanding = TRUE;
+}
 
-  _dbus_auth_do_work (auth);
-  
-  return TRUE;
+/**
+ * Returns a buffer with new data read into it.
+ *
+ * @param auth the auth conversation
+ * @param buffer the buffer being returned
+ * @param bytes_read number of new bytes added
+ */
+void
+_dbus_auth_return_buffer (DBusAuth               *auth,
+                          DBusString             *buffer,
+                          int                     bytes_read)
+{
+  _dbus_assert (buffer == &auth->incoming);
+  _dbus_assert (auth->buffer_outstanding);
+
+  auth->buffer_outstanding = FALSE;
 }
 
 /**
@@ -2034,22 +2040,32 @@ _dbus_auth_bytes_received (DBusAuth   *auth,
  * succeeded.
  *
  * @param auth the auth conversation
- * @param str string to append the unused bytes to
- * @returns #FALSE if not enough memory to return the bytes
+ * @param str return location for pointer to string of unused bytes
  */
-dbus_bool_t
-_dbus_auth_get_unused_bytes (DBusAuth   *auth,
-                             DBusString *str)
+void
+_dbus_auth_get_unused_bytes (DBusAuth           *auth,
+                             const DBusString **str)
 {
   if (!DBUS_AUTH_IN_END_STATE (auth))
-    return FALSE;
-  
-  if (!_dbus_string_move (&auth->incoming,
-                          0, str,
-                          _dbus_string_get_length (str)))
-    return FALSE;
+    return;
 
-  return TRUE;
+  *str = &auth->incoming;
+}
+
+
+/**
+ * Gets rid of unused bytes returned by _dbus_auth_get_unused_bytes()
+ * after we've gotten them and successfully moved them elsewhere.
+ *
+ * @param auth the auth conversation
+ */
+void
+_dbus_auth_delete_unused_bytes (DBusAuth *auth)
+{
+  if (!DBUS_AUTH_IN_END_STATE (auth))
+    return;
+
+  _dbus_string_set_length (&auth->incoming, 0);
 }
 
 /**

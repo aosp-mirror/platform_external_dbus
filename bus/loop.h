@@ -26,11 +26,11 @@
 
 #include <dbus/dbus.h>
 
-typedef void (* BusWatchFunction)   (DBusWatch     *watch,
-                                     unsigned int   condition,
-                                     void          *data);
-typedef void (* BusTimeoutFunction) (DBusTimeout   *timeout,
-                                     void          *data);
+typedef dbus_bool_t (* BusWatchFunction)   (DBusWatch     *watch,
+                                            unsigned int   condition,
+                                            void          *data);
+typedef void        (* BusTimeoutFunction) (DBusTimeout   *timeout,
+                                            void          *data);
 
 dbus_bool_t bus_loop_add_watch      (DBusWatch          *watch,
                                      BusWatchFunction    function,

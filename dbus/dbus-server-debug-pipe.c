@@ -73,12 +73,13 @@ debug_finalize (DBusServer *server)
   dbus_free (server);
 }
 
-static void
+static dbus_bool_t
 debug_handle_watch (DBusServer  *server,
 		    DBusWatch   *watch,
 		    unsigned int flags)
 {
-  
+
+  return TRUE;
 }
 
 static void
@@ -211,6 +212,7 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
     {
       _dbus_close (client_fd, NULL);
       _dbus_close (server_fd, NULL);
+      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
       return NULL;
     }
 
@@ -222,6 +224,7 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
     {
       _dbus_transport_unref (client_transport);
       _dbus_close (server_fd, NULL);
+      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
       return NULL;
     }
 
@@ -234,6 +237,7 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
   if (connection == NULL)
     {
       _dbus_transport_unref (client_transport);
+      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
       return NULL;
     }
 

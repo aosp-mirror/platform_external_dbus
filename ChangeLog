@@ -1,3 +1,39 @@
+2003-03-16  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-watch.c (_dbus_watch_new): handle failure to malloc
+	the watch
+
+	* dbus/dbus-server-debug-pipe.c (_dbus_transport_debug_pipe_new):
+	add some missing dbus_set_result
+
+	* bus/dispatch.c (bus_dispatch_add_connection): handle failure to 
+	alloc the DBusMessageHandler
+
+	* dbus/dbus-transport.c (_dbus_transport_disconnect): don't ref
+	the transport here, since we call this from the finalizer; it 
+	resulted in a double-finalize.
+
+	* dbus/dbus-transport.c (_dbus_transport_disconnect): fix a bug 
+	where we tried to use transport->connection that was NULL, 
+	happened when transport was disconnected early on due to OOM
+
+	* bus/*.c: adapt to handle OOM for watches/timeouts
+
+	* dbus/dbus-transport-unix.c: port to handle OOM during 
+	watch handling
+	
+	* dbus/dbus-auth.c (_dbus_auth_get_unused_bytes): return a
+	reference to unused bytes instead of a copy
+
+	* dbus/dbus-server.c (dbus_server_handle_watch): return FALSE for
+	out of memory
+
+	* dbus/dbus-connection.c (dbus_connection_handle_watch): return
+	FALSE on OOM
+
+	* dbus/dbus-timeout.c (dbus_timeout_handle): return FALSE for out
+	of memory
+
 2003-03-16  Anders Carlsson  <andersca@codefactory.se>
 
 	* doc/dbus-specification.sgml:

@@ -61,7 +61,7 @@ dbus_bool_t dbus_server_set_timeout_functions       (DBusServer                *
                                                      DBusTimeoutToggledFunction toggled_function,
                                                      void                      *data,
                                                      DBusFreeFunction           free_data_function);
-void        dbus_server_handle_watch                (DBusServer                *server,
+dbus_bool_t dbus_server_handle_watch                (DBusServer                *server,
                                                      DBusWatch                 *watch,
                                                      unsigned int               condition);
 void        dbus_server_set_max_connections         (DBusServer                *server,

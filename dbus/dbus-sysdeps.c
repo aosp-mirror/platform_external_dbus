@@ -130,7 +130,8 @@ _dbus_getenv (const char *varname)
  * the data it reads to the DBusString buffer. It appends
  * up to the given count, and returns the same value
  * and same errno as read(). The only exception is that
- * _dbus_read() handles EINTR for you.
+ * _dbus_read() handles EINTR for you. _dbus_read() can
+ * return ENOMEM, even though regular UNIX read doesn't.
  *
  * @param fd the file descriptor to read from
  * @param buffer the buffer to append data to

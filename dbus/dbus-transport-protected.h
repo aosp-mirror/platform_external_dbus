@@ -36,36 +36,36 @@ typedef struct DBusTransportVTable DBusTransportVTable;
 
 struct DBusTransportVTable
 {
-  void (* finalize)           (DBusTransport *transport);
+  void        (* finalize)              (DBusTransport *transport);
   /**< The finalize method must free the transport. */
 
-  void (* handle_watch)       (DBusTransport *transport,
-                               DBusWatch     *watch,
-                               unsigned int   flags);
+  dbus_bool_t (* handle_watch)          (DBusTransport *transport,
+                                         DBusWatch     *watch,
+                                         unsigned int   flags);
   /**< The handle_watch method handles reading/writing
    * data as indicated by the flags.
    */
 
-  void (* disconnect)         (DBusTransport *transport);
+  void        (* disconnect)            (DBusTransport *transport);
   /**< Disconnect this transport. */
 
-  dbus_bool_t (* connection_set)     (DBusTransport *transport);
+  dbus_bool_t (* connection_set)        (DBusTransport *transport);
   /**< Called when transport->connection has been filled in */
 
-  void (* messages_pending)   (DBusTransport *transport,
-                               int            queue_length);
+  void        (* messages_pending)      (DBusTransport *transport,
+                                         int            queue_length);
   /**< Called when the outgoing message queue goes from empty
    * to non-empty or vice versa.
    */
 
-  void (* do_iteration)       (DBusTransport *transport,
-                               unsigned int   flags,
-                               int            timeout_milliseconds);
+  void        (* do_iteration)          (DBusTransport *transport,
+                                         unsigned int   flags,
+                                         int            timeout_milliseconds);
   /**< Called to do a single "iteration" (block on select/poll
    * followed by reading or writing data).
    */
 
-  void (* live_messages_changed) (DBusTransport *transport);
+  void        (* live_messages_changed) (DBusTransport *transport);
   /**< Outstanding messages counter changed */
 };
 

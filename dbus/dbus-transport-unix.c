@@ -61,8 +61,11 @@ struct DBusTransportUnix
                                          *   outgoing message that have
                                          *   been written.
                                          */
-  DBusString encoded_message;           /**< Encoded version of current
+  DBusString encoded_outgoing;          /**< Encoded version of current
                                          *   outgoing message.
+                                         */
+  DBusString encoded_incoming;          /**< Encoded version of current
+                                         *   incoming data.
                                          */
 };
 
@@ -99,7 +102,8 @@ unix_finalize (DBusTransport *transport)
   
   free_watches (transport);
 
-  _dbus_string_free (&unix_transport->encoded_message);
+  _dbus_string_free (&unix_transport->encoded_outgoing);
+  _dbus_string_free (&unix_transport->encoded_incoming);
   
   _dbus_transport_finalize_base (transport);
 
@@ -180,51 +184,39 @@ do_io_error (DBusTransport *transport)
 
 /* return value is whether we successfully read any new data. */
 static dbus_bool_t
-read_data_into_auth (DBusTransport *transport)
+read_data_into_auth (DBusTransport *transport,
+                     dbus_bool_t   *oom)
 {
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
-  DBusString buffer;
+  DBusString *buffer;
   int bytes_read;
   
-  if (!_dbus_string_init (&buffer, _DBUS_INT_MAX))
-    {
-      /* just disconnect if we don't have memory
-       * to do an authentication
-       */
-      _dbus_verbose ("No memory for authentication\n");
-      do_io_error (transport);
-      return FALSE;
-    }
+  *oom = FALSE;
+
+  _dbus_auth_get_buffer (transport->auth, &buffer);
   
   bytes_read = _dbus_read (unix_transport->fd,
-                           &buffer, unix_transport->max_bytes_read_per_iteration);
+                           buffer, unix_transport->max_bytes_read_per_iteration);
+
+  _dbus_auth_return_buffer (transport->auth, buffer,
+                            bytes_read > 0 ? bytes_read : 0);
 
   if (bytes_read > 0)
     {
       _dbus_verbose (" read %d bytes in auth phase\n", bytes_read);
-      
-      if (_dbus_auth_bytes_received (transport->auth,
-                                     &buffer))
-        {
-          _dbus_string_free (&buffer);
-          return TRUE; /* We did read some data! woo! */
-        }
-      else
-        {
-          /* just disconnect if we don't have memory to do an
-           * authentication, don't fool with trying to save the buffer
-           * and who knows what.
-           */
-          _dbus_verbose ("No memory for authentication\n");
-          do_io_error (transport);
-        }
+
+      return TRUE;
     }
   else if (bytes_read < 0)
     {
       /* EINTR already handled for us */
-      
-      if (errno == EAGAIN ||
-          errno == EWOULDBLOCK)
+
+      if (errno == ENOMEM)
+        {
+          *oom = TRUE;
+        }
+      else if (errno == EAGAIN ||
+               errno == EWOULDBLOCK)
         ; /* do nothing, just return FALSE below */
       else
         {
@@ -232,15 +224,18 @@ read_data_into_auth (DBusTransport *transport)
                          _dbus_strerror (errno));
           do_io_error (transport);
         }
+
+      return FALSE;
     }
-  else if (bytes_read == 0)
+  else
     {
+      _dbus_assert (bytes_read == 0);
+      
       _dbus_verbose ("Disconnected from remote app\n");
-      do_io_error (transport);      
+      do_io_error (transport);
+
+      return FALSE;
     }
-  
-  _dbus_string_free (&buffer);
-  return FALSE;
 }
 
 /* Return value is whether we successfully wrote any bytes */
@@ -280,98 +275,6 @@ write_data_from_auth (DBusTransport *transport)
     }
 
   return FALSE;
-}
-
-static void
-recover_unused_bytes (DBusTransport *transport)
-{
-  
-  if (_dbus_auth_needs_decoding (transport->auth))
-    {
-      DBusString plaintext;
-      DBusString encoded;
-      DBusString *buffer;
-      int orig_len;
-      
-      if (!_dbus_string_init (&plaintext, _DBUS_INT_MAX))
-        goto nomem;
-
-      if (!_dbus_string_init (&encoded, _DBUS_INT_MAX))
-        {
-          _dbus_string_free (&plaintext);
-          goto nomem;
-        }
-      
-      if (!_dbus_auth_get_unused_bytes (transport->auth,
-                                        &encoded))
-        {
-          _dbus_string_free (&plaintext);
-          _dbus_string_free (&encoded);
-          goto nomem;
-        }
-      
-      if (!_dbus_auth_decode_data (transport->auth,
-                                   &encoded, &plaintext))
-        {
-          _dbus_string_free (&plaintext);
-          _dbus_string_free (&encoded);
-          goto nomem;
-        }
-      
-      _dbus_message_loader_get_buffer (transport->loader,
-                                       &buffer);
-      
-      orig_len = _dbus_string_get_length (buffer);
-
-      if (!_dbus_string_move (&plaintext, 0, buffer,
-                              orig_len))
-        {
-          _dbus_string_free (&plaintext);
-          _dbus_string_free (&encoded);
-          goto nomem;
-        }
-      
-      _dbus_verbose (" %d unused bytes sent to message loader\n", 
-                     _dbus_string_get_length (buffer) -
-                     orig_len);
-      
-      _dbus_message_loader_return_buffer (transport->loader,
-                                          buffer,
-                                          _dbus_string_get_length (buffer) -
-                                          orig_len);
-
-      _dbus_string_free (&plaintext);
-      _dbus_string_free (&encoded);
-    }
-  else
-    {
-      DBusString *buffer;
-      int orig_len;
-
-      _dbus_message_loader_get_buffer (transport->loader,
-                                       &buffer);
-                
-      orig_len = _dbus_string_get_length (buffer);
-                
-      if (!_dbus_auth_get_unused_bytes (transport->auth,
-                                        buffer))
-        goto nomem;
-                
-      _dbus_verbose (" %d unused bytes sent to message loader\n", 
-                     _dbus_string_get_length (buffer) -
-                     orig_len);
-      
-      _dbus_message_loader_return_buffer (transport->loader,
-                                          buffer,
-                                          _dbus_string_get_length (buffer) -
-                                          orig_len);
-    }
-  
-  return;
-
- nomem:
-  _dbus_verbose ("Not enough memory to transfer unused bytes from auth conversation\n");
-  do_io_error (transport);
 }
 
 static void
@@ -418,16 +321,20 @@ exchange_credentials (DBusTransport *transport,
     }
 }
 
-static void
+static dbus_bool_t
 do_authentication (DBusTransport *transport,
                    dbus_bool_t    do_reading,
                    dbus_bool_t    do_writing)
-{  
+{
+  dbus_bool_t oom;
+  
   _dbus_transport_ref (transport);
+
+  oom = FALSE;
   
   while (!_dbus_transport_get_is_authenticated (transport) &&
          _dbus_transport_get_is_connected (transport))
-    {
+    {      
       exchange_credentials (transport, do_reading, do_writing);
       
       if (transport->send_credentials_pending ||
@@ -443,14 +350,14 @@ do_authentication (DBusTransport *transport,
         {
         case DBUS_AUTH_STATE_WAITING_FOR_INPUT:
           _dbus_verbose (" auth state: waiting for input\n");
-          if (!do_reading || !read_data_into_auth (transport))
+          if (!do_reading || !read_data_into_auth (transport, &oom))
             goto out;
           break;
       
         case DBUS_AUTH_STATE_WAITING_FOR_MEMORY:
-          /* Screw it, just disconnect */
           _dbus_verbose (" auth state: waiting for memory\n");
-          do_io_error (transport);
+          oom = TRUE;
+          goto out;
           break;
       
         case DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND:
@@ -466,7 +373,8 @@ do_authentication (DBusTransport *transport,
       
         case DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES:
           _dbus_verbose (" auth state: auth with unused bytes\n");
-          recover_unused_bytes (transport);
+          /* We'll recover the unused bytes in dbus-transport.c */
+          goto out;
           break;
           
         case DBUS_AUTH_STATE_AUTHENTICATED:
@@ -474,26 +382,34 @@ do_authentication (DBusTransport *transport,
           break;
         }
     }
-
+  
  out:
   check_read_watch (transport);
   check_write_watch (transport);
   _dbus_transport_unref (transport);
+
+  if (oom)
+    return FALSE;
+  else
+    return TRUE;
 }
 
-static void
+/* returns false on oom */
+static dbus_bool_t
 do_writing (DBusTransport *transport)
 {
   int total;
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
-
+  dbus_bool_t oom;
+  
   /* No messages without authentication! */
   if (!_dbus_transport_get_is_authenticated (transport))
-    return;
+    return TRUE;
 
   if (transport->disconnected)
-    return;
-  
+    return TRUE;
+
+  oom = FALSE;
   total = 0;
 
   while (!transport->disconnected &&
@@ -513,9 +429,9 @@ do_writing (DBusTransport *transport)
           goto out;
         }
 
-      if (unix_transport->write_watch == NULL)
+      if (!dbus_watch_get_enabled (unix_transport->write_watch))
         {
-          _dbus_verbose ("write watch removed, not writing more stuff\n");
+          _dbus_verbose ("write watch disabled, not writing more stuff\n");
           goto out;
         }
       
@@ -535,21 +451,25 @@ do_writing (DBusTransport *transport)
 
       if (_dbus_auth_needs_encoding (transport->auth))
         {
-          if (_dbus_string_get_length (&unix_transport->encoded_message) == 0)
+          if (_dbus_string_get_length (&unix_transport->encoded_outgoing) == 0)
             {
               if (!_dbus_auth_encode_data (transport->auth,
-                                           header, &unix_transport->encoded_message))
-                goto out;
+                                           header, &unix_transport->encoded_outgoing))
+                {
+                  oom = TRUE;
+                  goto out;
+                }
               
               if (!_dbus_auth_encode_data (transport->auth,
-                                           body, &unix_transport->encoded_message))
+                                           body, &unix_transport->encoded_outgoing))
                 {
-                  _dbus_string_set_length (&unix_transport->encoded_message, 0);
+                  _dbus_string_set_length (&unix_transport->encoded_outgoing, 0);
+                  oom = TRUE;
                   goto out;
                 }
             }
           
-          total_bytes_to_write = _dbus_string_get_length (&unix_transport->encoded_message);
+          total_bytes_to_write = _dbus_string_get_length (&unix_transport->encoded_outgoing);
 
 #if 0
           _dbus_verbose ("encoded message is %d bytes\n",
@@ -558,7 +478,7 @@ do_writing (DBusTransport *transport)
           
           bytes_written =
             _dbus_write (unix_transport->fd,
-                         &unix_transport->encoded_message,
+                         &unix_transport->encoded_outgoing,
                          unix_transport->message_bytes_written,
                          total_bytes_to_write - unix_transport->message_bytes_written);
         }
@@ -621,7 +541,7 @@ do_writing (DBusTransport *transport)
           if (unix_transport->message_bytes_written == total_bytes_to_write)
             {
               unix_transport->message_bytes_written = 0;
-              _dbus_string_set_length (&unix_transport->encoded_message, 0);
+              _dbus_string_set_length (&unix_transport->encoded_outgoing, 0);
 
               _dbus_connection_message_sent (transport->connection,
                                              message);
@@ -630,20 +550,27 @@ do_writing (DBusTransport *transport)
     }
 
  out:
-  return; /* I think some C compilers require a statement after a label */
+  if (oom)
+    return FALSE;
+  else
+    return TRUE;
 }
 
-static void
+/* returns false on out-of-memory */
+static dbus_bool_t
 do_reading (DBusTransport *transport)
 {
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
   DBusString *buffer;
   int bytes_read;
   int total;
+  dbus_bool_t oom;
 
   /* No messages without authentication! */
   if (!_dbus_transport_get_is_authenticated (transport))
-    return;
+    return TRUE;
+
+  oom = FALSE;
   
   total = 0;
 
@@ -651,8 +578,8 @@ do_reading (DBusTransport *transport)
 
   /* See if we've exceeded max messages and need to disable reading */
   check_read_watch (transport);
-  if (unix_transport->read_watch == NULL)
-    return;
+  if (!dbus_watch_get_enabled (unix_transport->read_watch))
+    return TRUE;
   
   if (total > unix_transport->max_bytes_read_per_iteration)
     {
@@ -666,15 +593,16 @@ do_reading (DBusTransport *transport)
 
   if (_dbus_auth_needs_decoding (transport->auth))
     {
-      DBusString encoded;
+      if (_dbus_string_get_length (&unix_transport->encoded_incoming) > 0)
+        bytes_read = _dbus_string_get_length (&unix_transport->encoded_incoming);
+      else
+        bytes_read = _dbus_read (unix_transport->fd,
+                                 &unix_transport->encoded_incoming,
+                                 unix_transport->max_bytes_read_per_iteration);
 
-      if (!_dbus_string_init (&encoded, _DBUS_INT_MAX))
-        goto out; /* not enough memory for the moment */
-
-      bytes_read = _dbus_read (unix_transport->fd,
-                               &encoded,
-                               unix_transport->max_bytes_read_per_iteration);
-
+      _dbus_assert (_dbus_string_get_length (&unix_transport->encoded_incoming) ==
+                    bytes_read);
+      
       if (bytes_read > 0)
         {
           int orig_len;
@@ -685,24 +613,20 @@ do_reading (DBusTransport *transport)
           orig_len = _dbus_string_get_length (buffer);
           
           if (!_dbus_auth_decode_data (transport->auth,
-                                       &encoded, buffer))
+                                       &unix_transport->encoded_incoming,
+                                       buffer))
             {
-              /* FIXME argh, we are really fucked here - nowhere to
-               * put "encoded" while we wait for more memory.  Just
-               * screw it for now and disconnect.  The failure may be
-               * due to badly-encoded data instead of lack of memory
-               * anyhow.
-               */
-              _dbus_verbose ("Disconnected from remote app due to failure decoding data\n");
-              do_io_error (transport);
+              _dbus_verbose ("Out of memory decoding incoming data\n");
+              oom = TRUE;
+              goto out;
             }
 
           _dbus_message_loader_return_buffer (transport->loader,
                                               buffer,
                                               _dbus_string_get_length (buffer) - orig_len);
-        }
 
-      _dbus_string_free (&encoded);
+          _dbus_string_set_length (&unix_transport->encoded_incoming, 0);
+        }
     }
   else
     {
@@ -720,9 +644,15 @@ do_reading (DBusTransport *transport)
   if (bytes_read < 0)
     {
       /* EINTR already handled for us */
-      
-      if (errno == EAGAIN ||
-          errno == EWOULDBLOCK)
+
+      if (errno == ENOMEM)
+        {
+          _dbus_verbose ("Out of memory in read()/do_reading()\n");
+          oom = TRUE;
+          goto out;
+        }
+      else if (errno == EAGAIN ||
+               errno == EWOULDBLOCK)
         goto out;
       else
         {
@@ -745,7 +675,10 @@ do_reading (DBusTransport *transport)
       total += bytes_read;      
 
       if (_dbus_transport_queue_messages (transport) == DBUS_DISPATCH_NEED_MEMORY)
-        goto out;
+        {
+          oom = TRUE;
+          goto out;
+        }
       
       /* Try reading more data until we get EAGAIN and return, or
        * exceed max bytes per iteration.  If in blocking mode of
@@ -755,10 +688,13 @@ do_reading (DBusTransport *transport)
     }
 
  out:
-  return; /* I think some C compilers require a statement after a label */
+  if (oom)
+    return FALSE;
+  else
+    return TRUE;
 }
 
-static void
+static dbus_bool_t
 unix_handle_watch (DBusTransport *transport,
                    DBusWatch     *watch,
                    unsigned int   flags)
@@ -771,7 +707,7 @@ unix_handle_watch (DBusTransport *transport,
   if (flags & (DBUS_WATCH_HANGUP | DBUS_WATCH_ERROR))
     {
       _dbus_transport_disconnect (transport);
-      return;
+      return TRUE;
     }
   
   if (watch == unix_transport->read_watch &&
@@ -780,8 +716,11 @@ unix_handle_watch (DBusTransport *transport,
 #if 0
       _dbus_verbose ("handling read watch\n");
 #endif
-      do_authentication (transport, TRUE, FALSE);
-      do_reading (transport);
+      if (!do_authentication (transport, TRUE, FALSE))
+        return FALSE;
+      
+      if (!do_reading (transport))
+        return FALSE;
     }
   else if (watch == unix_transport->write_watch &&
            (flags & DBUS_WATCH_WRITABLE))
@@ -789,9 +728,14 @@ unix_handle_watch (DBusTransport *transport,
 #if 0
       _dbus_verbose ("handling write watch\n");
 #endif
-      do_authentication (transport, FALSE, TRUE);
-      do_writing (transport);
+      if (!do_authentication (transport, FALSE, TRUE))
+        return FALSE;
+      
+      if (!do_writing (transport))
+        return FALSE;
     }
+
+  return TRUE;
 }
 
 static void
@@ -1031,26 +975,30 @@ _dbus_transport_new_for_fd (int         fd,
   if (unix_transport == NULL)
     return NULL;
 
-  if (!_dbus_string_init (&unix_transport->encoded_message,
+  if (!_dbus_string_init (&unix_transport->encoded_outgoing,
                           _DBUS_INT_MAX))
     goto failed_0;
 
+  if (!_dbus_string_init (&unix_transport->encoded_incoming,
+                          _DBUS_INT_MAX))
+    goto failed_1;
+  
   unix_transport->write_watch = _dbus_watch_new (fd,
                                                  DBUS_WATCH_WRITABLE,
                                                  FALSE);
   if (unix_transport->write_watch == NULL)
-    goto failed_1;
+    goto failed_2;
   
   unix_transport->read_watch = _dbus_watch_new (fd,
                                                 DBUS_WATCH_READABLE,
                                                 FALSE);
   if (unix_transport->read_watch == NULL)
-    goto failed_2;
+    goto failed_3;
   
   if (!_dbus_transport_init_base (&unix_transport->base,
                                   &unix_vtable,
                                   server))
-    goto failed_3;
+    goto failed_4;
   
   unix_transport->fd = fd;
   unix_transport->message_bytes_written = 0;
@@ -1061,12 +1009,14 @@ _dbus_transport_new_for_fd (int         fd,
   
   return (DBusTransport*) unix_transport;
 
- failed_3:
+ failed_4:
   _dbus_watch_unref (unix_transport->read_watch);
- failed_2:
+ failed_3:
   _dbus_watch_unref (unix_transport->write_watch);
+ failed_2:
+  _dbus_string_free (&unix_transport->encoded_incoming);
  failed_1:
-  _dbus_string_free (&unix_transport->encoded_message);  
+  _dbus_string_free (&unix_transport->encoded_outgoing);
  failed_0:
   dbus_free (unix_transport);
   return NULL;

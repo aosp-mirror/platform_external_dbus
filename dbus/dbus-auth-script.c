@@ -437,14 +437,23 @@ _dbus_auth_script_run (const DBusString *filename)
                 _dbus_string_free (&username);
               }
           }
-          
-          if (!_dbus_auth_bytes_received (auth, &to_send))
-            {
-              _dbus_warn ("not enough memory to call bytes_received, or can't add bytes to auth object already in end state\n");
-              _dbus_string_free (&to_send);
-              goto out;
-            }
 
+          {
+            DBusString *buffer;
+
+            _dbus_auth_get_buffer (auth, &buffer);
+            if (!_dbus_string_copy (&to_send, 0,
+                                    buffer, _dbus_string_get_length (buffer)))
+              {
+                _dbus_warn ("not enough memory to call bytes_received, or can't add bytes to auth object already in end state\n");
+                _dbus_string_free (&to_send);
+                _dbus_auth_return_buffer (auth, buffer, 0);
+                goto out;
+              }
+
+            _dbus_auth_return_buffer (auth, buffer, _dbus_string_get_length (&to_send));
+          }
+          
           _dbus_string_free (&to_send);
         }
       else if (_dbus_string_starts_with_c_str (&line,
@@ -510,7 +519,7 @@ _dbus_auth_script_run (const DBusString *filename)
                                                "EXPECT_UNUSED"))
         {
           DBusString expected;
-          DBusString unused;
+          const DBusString *unused;
           
           _dbus_string_delete_first_word (&line);
 
@@ -528,35 +537,20 @@ _dbus_auth_script_run (const DBusString *filename)
               goto out;
             }
 
-          if (!_dbus_string_init (&unused, _DBUS_INT_MAX))
-            {
-              _dbus_warn ("no mem to allocate string unused\n");
-              _dbus_string_free (&expected);
-              goto out;
-            }
-
-          if (!_dbus_auth_get_unused_bytes (auth, &unused))
-            {
-              _dbus_warn ("couldn't get unused bytes\n");
-              _dbus_string_free (&expected);
-              _dbus_string_free (&unused);
-              goto out;
-            }
+          _dbus_auth_get_unused_bytes (auth, &unused);
           
-          if (_dbus_string_equal (&expected, &unused))
+          if (_dbus_string_equal (&expected, unused))
             {
               _dbus_string_free (&expected);
-              _dbus_string_free (&unused);
             }
           else
             {
               const char *e1, *h1;
               _dbus_string_get_const_data (&expected, &e1);
-              _dbus_string_get_const_data (&unused, &h1);
+              _dbus_string_get_const_data (unused, &h1);
               _dbus_warn ("Expected unused bytes '%s' and have '%s'\n",
                           e1, h1);
               _dbus_string_free (&expected);
-              _dbus_string_free (&unused);
               goto out;
             }
         }

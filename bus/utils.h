@@ -27,6 +27,7 @@
 
 #include <dbus/dbus.h>
 
+int  bus_get_oom_wait    (void);
 void bus_wait_for_memory (void);
 
 extern const char bus_no_memory_message[];

@@ -50,6 +50,8 @@ typedef struct
   Callback callback;
   BusWatchFunction function;
   DBusWatch *watch;
+  /* last watch handle failed due to OOM */
+  unsigned int last_iteration_oom : 1;
 } WatchCallback;
 
 typedef struct
@@ -78,6 +80,7 @@ watch_callback_new (DBusWatch        *watch,
 
   cb->watch = watch;
   cb->function = function;
+  cb->last_iteration_oom = FALSE;
   cb->callback.type = CALLBACK_WATCH;
   cb->callback.data = data;
   cb->callback.free_data_func = free_data_func;
@@ -278,11 +281,13 @@ bus_loop_iterate (dbus_bool_t block)
   int n_ready;
   int initial_serial;
   long timeout;
-
+  dbus_bool_t oom_watch_pending;
+  
   retval = FALSE;
       
   fds = NULL;
   watches_for_fds = NULL;
+  oom_watch_pending = FALSE;
 
 #if 0
   _dbus_verbose (" iterate %d timeouts %d watches\n",
@@ -306,7 +311,8 @@ bus_loop_iterate (dbus_bool_t block)
         {
           WatchCallback *wcb = WATCH_CALLBACK (cb);
 
-          if (dbus_watch_get_enabled (wcb->watch))
+          if (!wcb->last_iteration_oom &&
+              dbus_watch_get_enabled (wcb->watch))
             ++n_fds;
         }
       
@@ -341,7 +347,15 @@ bus_loop_iterate (dbus_bool_t block)
               unsigned int flags;
               WatchCallback *wcb = WATCH_CALLBACK (cb);
 
-              if (dbus_watch_get_enabled (wcb->watch))
+              if (wcb->last_iteration_oom)
+                {
+                  /* we skip this one this time, but reenable it next time,
+                   * and have a timeout on this iteration
+                   */
+                  wcb->last_iteration_oom = FALSE;
+                  oom_watch_pending = TRUE;
+                }
+              else if (dbus_watch_get_enabled (wcb->watch))
                 {
                   watches_for_fds[i] = wcb;
                   
@@ -423,7 +437,13 @@ bus_loop_iterate (dbus_bool_t block)
 
   if (!block)
     timeout = 0;
-      
+
+  /* if a watch is OOM, don't wait longer than the OOM
+   * wait to re-enable it
+   */
+  if (oom_watch_pending)
+    timeout = MIN (timeout, bus_get_oom_wait ());
+  
   n_ready = _dbus_poll (fds, n_fds, timeout);
 
   initial_serial = callback_list_serial;
@@ -538,9 +558,10 @@ bus_loop_iterate (dbus_bool_t block)
               if (condition != 0 &&
                   dbus_watch_get_enabled (wcb->watch))
                 {
-                  (* wcb->function) (wcb->watch,
-                                     condition,
-                                     ((Callback*)wcb)->data);
+                  if (!(* wcb->function) (wcb->watch,
+                                          condition,
+                                          ((Callback*)wcb)->data))
+                    wcb->last_iteration_oom = TRUE;
 
                   retval = TRUE;
                 }

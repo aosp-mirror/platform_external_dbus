@@ -71,11 +71,12 @@ debug_finalize (DBusServer *server)
 {
 }
 
-static void
+static dbus_bool_t
 debug_handle_watch (DBusServer  *server,
 		    DBusWatch   *watch,
 		    unsigned int flags)
 {
+  return TRUE;
 }
 
 static void
@@ -184,7 +185,7 @@ typedef struct
   DBusTimeout *timeout;
 } ServerAndTransport;
 
-static void
+static dbus_bool_t
 handle_new_client (void *data)
 {
   ServerAndTransport *st = data;
@@ -196,13 +197,13 @@ handle_new_client (void *data)
   
   transport = _dbus_transport_debug_server_new (st->transport);
   if (transport == NULL)
-    return;
+    return FALSE;
 
   connection = _dbus_connection_new_for_transport (transport);
   _dbus_transport_unref (transport);
 
   if (connection == NULL)
-    return;
+    return FALSE;
 
   /* See if someone wants to handle this new connection,
    * self-referencing for paranoia
@@ -223,6 +224,8 @@ handle_new_client (void *data)
 
   /* killing timeout frees both "st" and "timeout" */
   _dbus_timeout_unref (st->timeout);
+
+  return TRUE;
 }
 
 /**

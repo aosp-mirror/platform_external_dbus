@@ -133,20 +133,23 @@ bus_connection_disconnected (DBusConnection *connection)
   dbus_connection_unref (connection);
 }
 
-static void
+static dbus_bool_t
 connection_watch_callback (DBusWatch     *watch,
                            unsigned int   condition,
                            void          *data)
 {
   DBusConnection *connection = data;
+  dbus_bool_t retval;
 
   dbus_connection_ref (connection);
   
-  dbus_connection_handle_watch (connection, watch, condition);
+  retval = dbus_connection_handle_watch (connection, watch, condition);
 
   bus_connection_dispatch_all_messages (connection);
   
   dbus_connection_unref (connection);
+
+  return retval;
 }
 
 static dbus_bool_t
@@ -171,7 +174,8 @@ connection_timeout_callback (DBusTimeout   *timeout,
   DBusConnection *connection = data;
 
   dbus_connection_ref (connection);
-  
+
+  /* can return FALSE on OOM but we just let it fire again later */
   dbus_timeout_handle (timeout);
 
   bus_connection_dispatch_all_messages (connection);

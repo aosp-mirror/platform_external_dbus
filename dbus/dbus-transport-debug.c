@@ -48,11 +48,13 @@
 #define DEFAULT_INTERVAL 1
 
 /**
- * Hack due to lack of OOM handling in a couple places
+ * Hack due to lack of OOM handling in a couple places.
+ * Need to alloc timeout permanently and enabled/disable so
+ * that check_timeout won't fail in messages_pending
  */
 #define WAIT_FOR_MEMORY() _dbus_sleep_milliseconds (250)
 
-static void check_timeout (DBusTransport *transport);
+static dbus_bool_t check_timeout (DBusTransport *transport);
 
 /**
  * Opaque object representing a debug transport.
@@ -123,18 +125,21 @@ move_messages (DBusTransport *transport)
   return TRUE;
 }
 
-static void
+static dbus_bool_t
 timeout_handler (void *data)
 {
   DBusTransport *transport = data;
   
-  while (!move_messages (transport))
-    WAIT_FOR_MEMORY ();
+  if (!move_messages (transport))
+    return FALSE;
 
-  check_timeout (transport);
+  if (!check_timeout (transport))
+    return FALSE;
+
+  return TRUE;
 }
 
-static void
+static dbus_bool_t
 check_timeout (DBusTransport *transport)
 {
   DBusTransportDebug *debug_transport = (DBusTransportDebug*) transport;
@@ -150,9 +155,9 @@ check_timeout (DBusTransport *transport)
           /* FIXME this can be fixed now, by enabling/disabling
            * the timeout instead of adding it here
            */
-          while (!_dbus_connection_add_timeout (transport->connection,
-                                                debug_transport->timeout))
-            WAIT_FOR_MEMORY ();
+          if (!_dbus_connection_add_timeout (transport->connection,
+                                             debug_transport->timeout))
+            return FALSE;
           debug_transport->timeout_added = TRUE;
         }
     }
@@ -165,6 +170,8 @@ check_timeout (DBusTransport *transport)
           debug_transport->timeout_added = FALSE;
         }
     }
+
+  return TRUE;
 }
 
 static void
@@ -189,11 +196,12 @@ debug_finalize (DBusTransport *transport)
   dbus_free (transport);
 }
 
-static void
+static dbus_bool_t
 debug_handle_watch (DBusTransport *transport,
 		    DBusWatch     *watch,
 		    unsigned int   flags)
 {
+  return TRUE;
 }
 
 static void
@@ -204,7 +212,8 @@ debug_disconnect (DBusTransport *transport)
 static dbus_bool_t
 debug_connection_set (DBusTransport *transport)
 {
-  check_timeout (transport);
+  if (!check_timeout (transport))
+    return FALSE;
   return TRUE;
 }
 
@@ -212,7 +221,8 @@ static void
 debug_messages_pending (DBusTransport *transport,
 			int            messages_pending)
 {
-  check_timeout (transport);
+  while (!check_timeout (transport))
+    WAIT_FOR_MEMORY ();
 }
 
 static void

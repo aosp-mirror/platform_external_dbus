@@ -120,7 +120,7 @@ void               dbus_connection_set_wakeup_main_function  (DBusConnection    
                                                               DBusWakeupMainFunction      wakeup_main_function,
                                                               void                       *data,
                                                               DBusFreeFunction            free_data_function);
-void               dbus_connection_handle_watch              (DBusConnection             *connection,
+dbus_bool_t        dbus_connection_handle_watch              (DBusConnection             *connection,
                                                               DBusWatch                  *watch,
                                                               unsigned int                condition);
 
@@ -138,7 +138,7 @@ void*       dbus_timeout_get_data     (DBusTimeout      *timeout);
 void        dbus_timeout_set_data     (DBusTimeout      *timeout,
                                        void             *data,
                                        DBusFreeFunction  free_data_function);
-void        dbus_timeout_handle       (DBusTimeout      *timeout);
+dbus_bool_t dbus_timeout_handle       (DBusTimeout      *timeout);
 dbus_bool_t dbus_timeout_get_enabled  (DBusTimeout      *timeout);
 
 /* Handlers */

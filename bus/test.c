@@ -35,18 +35,21 @@
  */
 static DBusList *clients = NULL;
 
-static void
+static dbus_bool_t
 client_watch_callback (DBusWatch     *watch,
                            unsigned int   condition,
                            void          *data)
 {
   DBusConnection *connection = data;
-
+  dbus_bool_t retval;
+  
   dbus_connection_ref (connection);
   
-  dbus_connection_handle_watch (connection, watch, condition);
+  retval = dbus_connection_handle_watch (connection, watch, condition);
 
   dbus_connection_unref (connection);
+
+  return retval;
 }
 
 static dbus_bool_t
@@ -71,7 +74,8 @@ client_timeout_callback (DBusTimeout   *timeout,
   DBusConnection *connection = data;
 
   dbus_connection_ref (connection);
-  
+
+  /* can return FALSE on OOM but we just let it fire again later */
   dbus_timeout_handle (timeout);
 
   dbus_connection_unref (connection);

@@ -1166,7 +1166,7 @@ dbus_connection_send (DBusConnection *connection,
     }
 }
 
-static void
+static dbus_bool_t
 reply_handler_timeout (void *data)
 {
   DBusConnection *connection;
@@ -1187,6 +1187,8 @@ reply_handler_timeout (void *data)
   reply_handler_data->timeout_added = FALSE;
   
   dbus_mutex_unlock (connection->mutex);
+
+  return TRUE;
 }
 
 static void
@@ -2171,21 +2173,33 @@ dbus_connection_set_wakeup_main_function (DBusConnection            *connection,
  * is ready for reading or writing, or has an exception such
  * as a hangup.
  *
+ * If this function returns #FALSE, then the file descriptor may still
+ * be ready for reading or writing, but more memory is needed in order
+ * to do the reading or writing. If you ignore the #FALSE return, your
+ * application may spin in a busy loop on the file descriptor until
+ * memory becomes available, but nothing more catastrophic should
+ * happen.
+ *
  * @param connection the connection.
  * @param watch the watch.
  * @param condition the current condition of the file descriptors being watched.
+ * @returns #FALSE if the IO condition may not have been fully handled due to lack of memory
  */
-void
+dbus_bool_t
 dbus_connection_handle_watch (DBusConnection              *connection,
                               DBusWatch                   *watch,
                               unsigned int                 condition)
 {
+  dbus_bool_t retval;
+  
   dbus_mutex_lock (connection->mutex);
   _dbus_connection_acquire_io_path (connection, -1);
-  _dbus_transport_handle_watch (connection->transport,
-				watch, condition);
+  retval = _dbus_transport_handle_watch (connection->transport,
+                                         watch, condition);
   _dbus_connection_release_io_path (connection);
   dbus_mutex_unlock (connection->mutex);
+
+  return retval;
 }
 
 /**

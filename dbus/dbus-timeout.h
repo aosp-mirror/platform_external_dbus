@@ -32,7 +32,7 @@ typedef struct DBusTimeoutList DBusTimeoutList;
 
 /* Public methods on DBusTimeout are in dbus-connection.h */
 
-typedef void (* DBusTimeoutHandler) (void *data);
+typedef dbus_bool_t (* DBusTimeoutHandler) (void *data);
 
 DBusTimeout* _dbus_timeout_new   (int                 interval,
 				  DBusTimeoutHandler  handler,

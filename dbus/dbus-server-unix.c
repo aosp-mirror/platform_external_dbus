@@ -70,7 +70,8 @@ unix_finalize (DBusServer *server)
  * us to drop the last ref to the connection before
  * disconnecting it. That is invalid.
  */
-static void
+/* Return value is just for memory, not other failures. */
+static dbus_bool_t
 handle_new_client_fd (DBusServer *server,
                       int         client_fd)
 {
@@ -80,13 +81,13 @@ handle_new_client_fd (DBusServer *server,
   _dbus_verbose ("Creating new client connection with fd %d\n", client_fd);
           
   if (!_dbus_set_fd_nonblocking (client_fd, NULL))
-    return;
+    return TRUE;
   
   transport = _dbus_transport_new_for_fd (client_fd, TRUE);
   if (transport == NULL)
     {
       close (client_fd);
-      return;
+      return FALSE;
     }
 
   /* note that client_fd is now owned by the transport, and will be
@@ -97,7 +98,7 @@ handle_new_client_fd (DBusServer *server,
   _dbus_transport_unref (transport);
   
   if (connection == NULL)
-    return;
+    return FALSE;
 
   _dbus_connection_set_connection_counter (connection,
                                            server->connection_counter);
@@ -116,9 +117,11 @@ handle_new_client_fd (DBusServer *server,
   
   /* If no one grabbed a reference, the connection will die. */
   dbus_connection_unref (connection);
+
+  return TRUE;
 }
 
-static void
+static dbus_bool_t
 unix_handle_watch (DBusServer  *server,
                    DBusWatch   *watch,
                    unsigned int flags)
@@ -151,7 +154,9 @@ unix_handle_watch (DBusServer  *server,
       else
         {
 	  _dbus_fd_set_close_on_exec (client_fd);	  
-          handle_new_client_fd (server, client_fd);
+
+          if (!handle_new_client_fd (server, client_fd))
+            _dbus_verbose ("Rejected client connection due to lack of memory\n");
         }
     }
 
@@ -160,6 +165,8 @@ unix_handle_watch (DBusServer  *server,
 
   if (flags & DBUS_WATCH_HANGUP)
     _dbus_verbose ("Hangup on server listening socket\n");
+
+  return TRUE;
 }
   
 static void

@@ -265,6 +265,8 @@ _dbus_transport_open (const char     *address,
 void
 _dbus_transport_ref (DBusTransport *transport)
 {
+  _dbus_assert (transport->refcount > 0);
+  
   transport->refcount += 1;
 }
 
@@ -306,14 +308,12 @@ _dbus_transport_disconnect (DBusTransport *transport)
   if (transport->disconnected)
     return;
 
-  _dbus_transport_ref (transport);
   (* transport->vtable->disconnect) (transport);
   
   transport->disconnected = TRUE;
 
-  _dbus_connection_notify_disconnected (transport->connection);
-  
-  _dbus_transport_unref (transport);
+  if (transport->connection)
+    _dbus_connection_notify_disconnected (transport->connection);
 }
 
 /**
@@ -394,30 +394,35 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
  * @param transport the transport.
  * @param watch the watch.
  * @param condition the current state of the watched file descriptor.
+ * @returns #FALSE if not enough memory to fully handle the watch
  */
-void
+dbus_bool_t
 _dbus_transport_handle_watch (DBusTransport           *transport,
                               DBusWatch               *watch,
                               unsigned int             condition)
 {
+  dbus_bool_t retval;
+  
   _dbus_assert (transport->vtable->handle_watch != NULL);
 
   if (transport->disconnected)
-    return;
+    return TRUE;
 
   if (dbus_watch_get_fd (watch) < 0)
     {
       _dbus_warn ("Tried to handle an invalidated watch; this watch should have been removed\n");
-      return;
+      return TRUE;
     }
   
   _dbus_watch_sanitize_condition (watch, &condition);
 
   _dbus_transport_ref (transport);
   _dbus_watch_ref (watch);
-  (* transport->vtable->handle_watch) (transport, watch, condition);
+  retval = (* transport->vtable->handle_watch) (transport, watch, condition);
   _dbus_watch_unref (watch);
   _dbus_transport_unref (transport);
+
+  return retval;
 }
 
 /**
@@ -506,6 +511,98 @@ _dbus_transport_do_iteration (DBusTransport  *transport,
   _dbus_transport_unref (transport);
 }
 
+static dbus_bool_t
+recover_unused_bytes (DBusTransport *transport)
+{
+  if (_dbus_auth_do_work (transport->auth) != DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES)
+    return TRUE;
+  
+  if (_dbus_auth_needs_decoding (transport->auth))
+    {
+      DBusString plaintext;
+      const DBusString *encoded;
+      DBusString *buffer;
+      int orig_len;
+      
+      if (!_dbus_string_init (&plaintext, _DBUS_INT_MAX))
+        goto nomem;
+      
+      _dbus_auth_get_unused_bytes (transport->auth,
+                                   &encoded);
+
+      if (!_dbus_auth_decode_data (transport->auth,
+                                   encoded, &plaintext))
+        {
+          _dbus_string_free (&plaintext);
+          goto nomem;
+        }
+      
+      _dbus_message_loader_get_buffer (transport->loader,
+                                       &buffer);
+      
+      orig_len = _dbus_string_get_length (buffer);
+      
+      if (!_dbus_string_move (&plaintext, 0, buffer,
+                              orig_len))
+        {
+          _dbus_string_free (&plaintext);
+          goto nomem;
+        }
+      
+      _dbus_verbose (" %d unused bytes sent to message loader\n", 
+                     _dbus_string_get_length (buffer) -
+                     orig_len);
+      
+      _dbus_message_loader_return_buffer (transport->loader,
+                                          buffer,
+                                          _dbus_string_get_length (buffer) -
+                                          orig_len);
+
+      _dbus_auth_delete_unused_bytes (transport->auth);
+      
+      _dbus_string_free (&plaintext);
+    }
+  else
+    {
+      const DBusString *bytes;
+      DBusString *buffer;
+      int orig_len;
+      dbus_bool_t succeeded;
+
+      _dbus_message_loader_get_buffer (transport->loader,
+                                       &buffer);
+                
+      orig_len = _dbus_string_get_length (buffer);
+                
+      _dbus_auth_get_unused_bytes (transport->auth,
+                                   &bytes);
+
+      succeeded = TRUE;
+      if (!_dbus_string_copy (bytes, 0, buffer, _dbus_string_get_length (buffer)))
+        succeeded = FALSE;
+      
+      _dbus_verbose (" %d unused bytes sent to message loader\n", 
+                     _dbus_string_get_length (buffer) -
+                     orig_len);
+      
+      _dbus_message_loader_return_buffer (transport->loader,
+                                          buffer,
+                                          _dbus_string_get_length (buffer) -
+                                          orig_len);
+
+      if (succeeded)
+        _dbus_auth_delete_unused_bytes (transport->auth);
+      else
+        goto nomem;
+    }
+
+  return TRUE;
+
+ nomem:
+  _dbus_verbose ("Not enough memory to transfer unused bytes from auth conversation\n");
+  return FALSE;
+}
+
 /**
  * Reports our current dispatch status (whether there's buffered
  * data to be queued as messages, or not, or we need memory).
@@ -519,6 +616,21 @@ _dbus_transport_get_dispatch_status (DBusTransport *transport)
   if (_dbus_counter_get_value (transport->live_messages_size) >= transport->max_live_messages_size)
     return DBUS_DISPATCH_COMPLETE; /* complete for now */
 
+  if (!_dbus_transport_get_is_authenticated (transport))
+    {
+      switch (_dbus_auth_do_work (transport->auth))
+        {
+        case DBUS_AUTH_STATE_WAITING_FOR_MEMORY:
+          return DBUS_DISPATCH_NEED_MEMORY;
+        case DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES:
+          if (!recover_unused_bytes (transport))
+            return DBUS_DISPATCH_NEED_MEMORY;
+          break;
+        default:
+          break;
+        }
+    }
+  
   if (!_dbus_message_loader_queue_messages (transport->loader))
     return DBUS_DISPATCH_NEED_MEMORY;
 
