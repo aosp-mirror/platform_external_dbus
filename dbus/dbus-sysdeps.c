@@ -687,9 +687,6 @@ _dbus_listen_tcp_socket (const char     *host,
       return -1;
     }
 
-  if (host == NULL)
-    host = "localhost";
-  
   he = gethostbyname (host);
   if (he == NULL) 
     {

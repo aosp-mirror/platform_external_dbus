@@ -1,3 +1,13 @@
+2004-04-21  Kristian Høgsberg  <krh@redhat.com>
+
+	* dbus/dbus-server-unix.c (unix_finalize): Don't unref
+	unix_server->watch here, it is unreffed in disconnect.
+	(_dbus_server_new_for_tcp_socket): convert NULL host to
+	"localhost" here so we don't append NULL to address.
+	
+	* dbus/dbus-server.c (_dbus_server_test): Add test case for
+	various addresses, including tcp with no explicit host.
+
 2004-04-21  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* dbus/dbus-message.c (decode_header_data, decode_string_field):

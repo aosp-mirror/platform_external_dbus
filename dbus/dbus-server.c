@@ -788,3 +788,42 @@ dbus_server_get_data (DBusServer   *server,
 
 /** @} */
 
+#ifdef DBUS_BUILD_TESTS
+#include "dbus-test.h"
+
+dbus_bool_t
+_dbus_server_test (void)
+{
+  const char *valid_addresses[] = {
+    "tcp:port=1234",
+    "unix:path=./boogie",
+    "tcp:host=localhost,port=1234",
+    "tcp:host=localhost,port=1234;tcp:port=5678",
+    "tcp:port=1234;unix:path=./boogie",
+  };
+
+  DBusServer *server;
+  int i;
+  
+  for (i = 0; i < _DBUS_N_ELEMENTS (valid_addresses); i++)
+    {
+      server = dbus_server_listen (valid_addresses[i], NULL);
+      if (server == NULL)
+	_dbus_assert_not_reached ("Failed to listen for valid address.");
+
+      dbus_server_unref (server);
+
+      /* Try disconnecting before unreffing */
+      server = dbus_server_listen (valid_addresses[i], NULL);
+      if (server == NULL)
+	_dbus_assert_not_reached ("Failed to listen for valid address.");
+
+      dbus_server_disconnect (server);
+
+      dbus_server_unref (server);
+    }
+
+  return TRUE;
+}
+
+#endif /* DBUS_BUILD_TESTS */

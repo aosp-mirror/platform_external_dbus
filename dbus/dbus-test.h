@@ -42,6 +42,7 @@ dbus_bool_t _dbus_marshal_test         (void);
 dbus_bool_t _dbus_mem_pool_test        (void);
 dbus_bool_t _dbus_string_test          (void);
 dbus_bool_t _dbus_address_test         (void);
+dbus_bool_t _dbus_server_test          (void);
 dbus_bool_t _dbus_message_test         (const char *test_data_dir);
 dbus_bool_t _dbus_auth_test            (const char *test_data_dir);
 dbus_bool_t _dbus_md5_test             (void);

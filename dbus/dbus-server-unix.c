@@ -59,9 +59,6 @@ unix_finalize (DBusServer *server)
 {
   DBusServerUnix *unix_server = (DBusServerUnix*) server;
 
-  if (unix_server->watch)
-    _dbus_watch_unref (unix_server->watch);
-
   dbus_free (unix_server->socket_name);
   
   _dbus_server_finalize_base (server);
@@ -368,6 +365,9 @@ _dbus_server_new_for_tcp_socket (const char     *host,
       return NULL;
     }
 
+  if (host == NULL)
+    host = "localhost";
+  
   if (!_dbus_string_append (&address, "tcp:host=") ||
       !_dbus_string_append (&address, host) ||
       !_dbus_string_append (&address, ",port=") ||
