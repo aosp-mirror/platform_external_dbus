@@ -460,10 +460,11 @@ babysit (int   exit_with_session,
   char buf[MAX_PID_LEN];
   long val;
   char *end;
+  int dev_null_fd;
   
   /* We chdir ("/") since we are persistent and daemon-like, and fork
    * again so dbus-launch can reap the parent.  However, we don't
-   * setsid() or close fd 0,1,2 because the idea is to remain attached
+   * setsid() or close fd 0 because the idea is to remain attached
    * to the tty and the X server in order to kill the message bus
    * when the session ends.
    */
@@ -473,8 +474,24 @@ babysit (int   exit_with_session,
       fprintf (stderr, "Could not change to root directory: %s\n",
                strerror (errno));
       exit (1);
-    }      
+    }
 
+  /* Move stdout/stderr so we don't block an "eval" or otherwise
+   * lock up.
+   */
+  dev_null_fd = open ("/dev/null", O_RDWR);
+  if (dev_null_fd >= 0)
+    {
+      dup2 (dev_null_fd, 1);
+      dup2 (dev_null_fd, 2);
+    }
+  else
+    {
+      fprintf (stderr, "Failed to open /dev/null: %s\n",
+               strerror (errno));
+      /* continue, why not */
+    }
+  
   ret = fork ();
 
   if (ret < 0)
@@ -541,7 +558,7 @@ babysit (int   exit_with_session,
   /* Write data to launcher */
   write_pid (write_bus_pid_fd, bus_pid_to_kill);
   close (write_bus_pid_fd);
-
+  
   if (exit_with_session)
     {
       /* Bus is now started and launcher has needed info;

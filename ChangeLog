@@ -1,5 +1,12 @@
 2003-07-16  Havoc Pennington  <hp@pobox.com>
 
+	* tools/dbus-launch.c (babysit): close stdout/stderr in the
+	babysitter process, as suggested by Thomas Leonard, so 
+	an "eval `dbus-launch --exit-with-session`" will actually 
+	return
+
+2003-07-16  Havoc Pennington  <hp@pobox.com>
+
 	* configure.in: print out EXPANDED_* variables in the summary at
 	the end; clean up the code that computes EXPANDED_ variables and
 	get the ones using exec_prefix right. Should make things work
