@@ -37,7 +37,7 @@
 /* and it would just be annoying to abstract this */
 #include <errno.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 /* The idea of this file is to encapsulate everywhere that we're
  * relying on external libc features, for ease of security
@@ -329,6 +329,6 @@ dbus_bool_t _dbus_user_at_console (const char *username,
 #endif /* !DBUS_VA_COPY */
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_SYSDEPS_H */

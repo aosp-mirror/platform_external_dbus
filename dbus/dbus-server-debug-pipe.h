@@ -28,13 +28,13 @@
 #include <dbus/dbus-server-protected.h>
 #include <dbus/dbus-transport.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 DBusServer*    _dbus_server_debug_pipe_new    (const char *server_name,
                                                DBusError  *error);
 DBusTransport* _dbus_transport_debug_pipe_new (const char *server_name,
                                                DBusError  *error);
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_SERVER_DEBUG_PIPE_H */

@@ -35,7 +35,7 @@
 #include <dbus/dbus-sysdeps.h>
 #include <dbus/dbus-threads.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 void _dbus_warn               (const char *format,
                                ...) _DBUS_GNUC_PRINTF (1, 2);
@@ -269,6 +269,6 @@ _DBUS_DECLARE_GLOBAL_LOCK (system_users);
 
 dbus_bool_t _dbus_threads_init_debug (void);
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_INTERNALS_H */

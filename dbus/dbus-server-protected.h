@@ -30,7 +30,7 @@
 #include <dbus/dbus-resources.h>
 #include <dbus/dbus-dataslot.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusServerVTable DBusServerVTable;
 
@@ -97,6 +97,6 @@ void        _dbus_server_toggle_timeout (DBusServer             *server,
 
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_SERVER_PROTECTED_H */

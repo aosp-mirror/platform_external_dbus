@@ -28,7 +28,7 @@
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusList DBusList;
 
@@ -94,6 +94,6 @@ void _dbus_list_foreach (DBusList            **list,
 #define _dbus_list_get_next_link(list, link) ((link)->next == *(list) ? NULL : (link)->next)
 #define _dbus_list_get_prev_link(list, link) ((link) == *(list) ? NULL : (link)->prev)
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_LIST_H */

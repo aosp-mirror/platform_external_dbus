@@ -32,7 +32,7 @@
 
 #include <stdarg.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 /**
  * DBusString object
@@ -243,6 +243,6 @@ dbus_bool_t   _dbus_string_validate_service      (const DBusString  *str,
 void          _dbus_string_zero                  (DBusString        *str);
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_STRING_H */

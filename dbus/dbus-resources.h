@@ -27,7 +27,7 @@
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-connection.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusCounter DBusCounter;
 
@@ -47,6 +47,6 @@ void _dbus_counter_set_notify (DBusCounter               *counter,
                                void                      *user_data);
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_RESOURCES_H */

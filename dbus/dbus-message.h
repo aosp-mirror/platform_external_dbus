@@ -34,7 +34,7 @@
 #include <dbus/dbus-errors.h>
 #include <stdarg.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusMessage DBusMessage;
 typedef struct DBusMessageIter DBusMessageIter;
@@ -296,6 +296,6 @@ void*       dbus_message_get_data           (DBusMessage      *message,
 
 int dbus_message_type_from_string (const char *type_str);
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_MESSAGE_H */

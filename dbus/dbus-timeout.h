@@ -26,7 +26,7 @@
 #include <dbus/dbus-connection.h>
 #include <dbus/dbus-internals.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusTimeoutList DBusTimeoutList;
 
@@ -62,6 +62,6 @@ void             _dbus_timeout_list_toggle_timeout (DBusTimeoutList           *t
                                                     dbus_bool_t                enabled);
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_TIMEOUT_H */

@@ -29,7 +29,7 @@
 
 #include <dbus/dbus-connection.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 DBusConnection *dbus_bus_get              (DBusBusType     type,
 					   DBusError      *error);
@@ -62,6 +62,6 @@ void            dbus_bus_remove_match     (DBusConnection *connection,
                                            const char     *rule,
                                            DBusError      *error);
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_BUS_H */

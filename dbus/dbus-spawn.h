@@ -29,7 +29,7 @@
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-watch.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef void (* DBusSpawnChildSetupFunc) (void *user_data);
 
@@ -53,6 +53,6 @@ dbus_bool_t _dbus_babysitter_set_watch_functions  (DBusBabysitter            *si
                                                    void                      *data,
                                                    DBusFreeFunction           free_data_function);
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_SPAWN_H */

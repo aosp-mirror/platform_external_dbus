@@ -28,7 +28,7 @@
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-sysdeps.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusAuth DBusAuth;
 
@@ -76,6 +76,6 @@ dbus_bool_t   _dbus_auth_set_context         (DBusAuth               *auth,
                                               const DBusString       *context);
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_AUTH_H */

@@ -25,7 +25,7 @@
 
 #include <dbus/dbus-internals.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusDataSlotAllocator DBusDataSlotAllocator;
 typedef struct DBusDataSlotList DBusDataSlotList;
@@ -90,6 +90,6 @@ void*       _dbus_data_slot_list_get        (DBusDataSlotAllocator  *allocator,
 void        _dbus_data_slot_list_free       (DBusDataSlotList       *list);
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_DATASLOT_H */

@@ -27,7 +27,7 @@
 #include <dbus/dbus-connection.h>
 #include <dbus/dbus-protocol.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusTransport DBusTransport;
 
@@ -76,6 +76,6 @@ dbus_bool_t        _dbus_transport_set_auth_mechanisms    (DBusTransport        
 
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_TRANSPORT_H */

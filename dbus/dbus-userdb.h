@@ -26,7 +26,7 @@
 
 #include <dbus/dbus-sysdeps.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusUserDatabase DBusUserDatabase;
 
@@ -78,6 +78,6 @@ dbus_bool_t _dbus_is_console_user               (dbus_uid_t         uid,
                                                  DBusError         *error);
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_USERDB_H */

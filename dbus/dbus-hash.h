@@ -27,7 +27,7 @@
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 /** Hash iterator object. The iterator is on the stack, but its real
  * fields are hidden privately.
@@ -127,6 +127,6 @@ void                  _dbus_hash_table_insert_string_preallocated (DBusHashTable
                                                                    void                 *value);
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_HASH_H */

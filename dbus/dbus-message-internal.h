@@ -27,7 +27,7 @@
 #include <dbus/dbus-resources.h>
 #include <dbus/dbus-list.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusMessageLoader DBusMessageLoader;
 
@@ -69,6 +69,6 @@ void               _dbus_message_loader_set_max_message_size  (DBusMessageLoader
                                                                long                size);
 long               _dbus_message_loader_get_max_message_size  (DBusMessageLoader  *loader);
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_MESSAGE_H */

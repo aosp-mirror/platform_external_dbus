@@ -30,10 +30,10 @@
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-string.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 dbus_bool_t _dbus_auth_script_run (const DBusString *filename);
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_AUTH_SCRIPT_H */

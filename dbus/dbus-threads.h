@@ -30,7 +30,7 @@
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-types.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusMutex DBusMutex;
 typedef struct DBusCondVar DBusCondVar;
@@ -117,6 +117,6 @@ dbus_bool_t  dbus_threads_init         (const DBusThreadFunctions *functions);
 
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_THREADS_H */

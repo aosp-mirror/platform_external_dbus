@@ -26,7 +26,7 @@
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-server-protected.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 DBusServer* _dbus_server_new_for_fd            (int               fd,
                                                 const DBusString *address);
@@ -38,6 +38,6 @@ DBusServer* _dbus_server_new_for_tcp_socket    (const char       *host,
                                                 DBusError        *error);
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_SERVER_UNIX_H */

@@ -27,7 +27,7 @@
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-string.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusKeyring DBusKeyring;
 
@@ -45,6 +45,6 @@ dbus_bool_t  _dbus_keyring_get_hex_key      (DBusKeyring       *keyring,
                                              int                key_id,
                                              DBusString        *hex_key);
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_KEYRING_H */

@@ -1,3 +1,8 @@
+2004-09-09  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* dbus/dbus-*.h: remove the ; after DBUS_(BEGIN|END)_DECLS. Some C
+	compilers don't like it (bug #974).
+
 2004-09-04  Harald Fernengel  <harry@kdevelop.org>
 
 	* qt/connection.*: Applied patch by Jérôme Lodewyck

@@ -27,7 +27,7 @@
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-string.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusMD5Context DBusMD5Context;
 
@@ -49,6 +49,6 @@ dbus_bool_t _dbus_md5_final   (DBusMD5Context   *context,
 dbus_bool_t _dbus_md5_compute (const DBusString *data,
                                DBusString       *ascii_output);
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_MD5_H */

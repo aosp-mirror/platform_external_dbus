@@ -26,7 +26,7 @@
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-connection.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 /* Public methods on DBusWatch are in dbus-connection.h */
 
@@ -70,6 +70,6 @@ void           _dbus_watch_list_toggle_watch  (DBusWatchList           *watch_li
                                                dbus_bool_t              enabled);
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_WATCH_H */

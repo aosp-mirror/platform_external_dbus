@@ -27,7 +27,7 @@
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-string.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusSHAContext DBusSHAContext;
 
@@ -50,6 +50,6 @@ dbus_bool_t _dbus_sha_final   (DBusSHAContext   *context,
 dbus_bool_t _dbus_sha_compute (const DBusString *data,
                                DBusString       *ascii_output);
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_SHA_H */

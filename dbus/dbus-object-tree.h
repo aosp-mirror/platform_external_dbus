@@ -25,7 +25,7 @@
 
 #include <dbus/dbus-connection.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusObjectTree DBusObjectTree;
 
@@ -47,6 +47,6 @@ void              _dbus_object_tree_free_all_unlocked     (DBusObjectTree       
 dbus_bool_t _dbus_object_tree_list_registered_and_unlock (DBusObjectTree *tree,
                                                           const char    **parent_path,
                                                           char         ***child_entries);
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_OBJECT_TREE_H */

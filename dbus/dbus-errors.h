@@ -31,7 +31,7 @@
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-types.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusError DBusError;
 
@@ -67,6 +67,6 @@ dbus_bool_t dbus_error_has_name  (const DBusError *error,
                                   const char      *name);
 dbus_bool_t dbus_error_is_set    (const DBusError *error);
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_ERROR_H */

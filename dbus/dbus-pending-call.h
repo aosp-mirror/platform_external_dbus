@@ -31,7 +31,7 @@
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-connection.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 DBusPendingCall* dbus_pending_call_ref       (DBusPendingCall               *pending);
 void         dbus_pending_call_unref         (DBusPendingCall               *pending);
@@ -53,6 +53,6 @@ dbus_bool_t dbus_pending_call_set_data           (DBusPendingCall  *pending,
 void*       dbus_pending_call_get_data           (DBusPendingCall  *pending,
                                                   dbus_int32_t      slot);
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_PENDING_CALL_H */

@@ -32,7 +32,7 @@
 #include <dbus/dbus-message.h>
 #include <dbus/dbus-shared.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusWatch DBusWatch;
 typedef struct DBusTimeout DBusTimeout;
@@ -245,6 +245,6 @@ dbus_bool_t dbus_connection_list_registered        (DBusConnection              
 dbus_bool_t dbus_connection_get_unix_fd            (DBusConnection              *connection,
                                                     int                         *fd);
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_CONNECTION_H */

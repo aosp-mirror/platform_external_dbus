@@ -25,7 +25,7 @@
 
 #include <dbus/dbus-transport.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 DBusTransport* _dbus_transport_new_for_fd            (int               fd,
                                                       dbus_bool_t       server,
@@ -38,6 +38,6 @@ DBusTransport* _dbus_transport_new_for_tcp_socket    (const char       *host,
                                                       DBusError        *error);
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_TRANSPORT_UNIX_H */

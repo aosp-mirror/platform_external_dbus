@@ -28,7 +28,7 @@
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusMemPool DBusMemPool;
 
@@ -39,6 +39,6 @@ void*        _dbus_mem_pool_alloc   (DBusMemPool *pool);
 dbus_bool_t  _dbus_mem_pool_dealloc (DBusMemPool *pool,
                                      void        *element);
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_MEMPOOL_H */

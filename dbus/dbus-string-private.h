@@ -33,7 +33,7 @@
 #error "Don't go including dbus-string-private.h for no good reason"
 #endif
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 /**
  * @brief Internals of DBusString.
@@ -53,6 +53,6 @@ typedef struct
   unsigned int   align_offset : 3; /**< str - align_offset is the actual malloc block */
 } DBusRealString;
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_STRING_PRIVATE_H */

@@ -30,7 +30,7 @@
 #include <dbus/dbus-auth.h>
 #include <dbus/dbus-resources.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef struct DBusTransportVTable DBusTransportVTable;
 
@@ -126,6 +126,6 @@ void        _dbus_transport_finalize_base (DBusTransport             *transport)
 
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_TRANSPORT_PROTECTED_H */

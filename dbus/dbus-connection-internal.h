@@ -32,7 +32,7 @@
 #include <dbus/dbus-timeout.h>
 #include <dbus/dbus-dataslot.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 typedef enum
 {
@@ -123,6 +123,6 @@ struct DBusPendingCall
 /** @} End of DBusPendingCallInternals */
 
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_CONNECTION_INTERNAL_H */
