@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "test-service-glib-bindings.h"
+#include <glib/dbus-gidl.h>
+#include <glib/dbus-gparser.h>
 
 static GMainLoop *loop = NULL;
 static int n_times_foo_received = 0;
@@ -23,6 +25,30 @@ foo_signal_handler (DBusGProxy  *proxy,
   n_times_foo_received += 1;
 
   g_main_loop_quit (loop);
+}
+
+static void lose (const char *fmt, ...) G_GNUC_NORETURN G_GNUC_PRINTF (1, 2);
+static void lose_gerror (const char *prefix, GError *error) G_GNUC_NORETURN;
+
+static void
+lose (const char *str, ...)
+{
+  va_list args;
+
+  va_start (args, str);
+
+  vfprintf (stderr, str, args);
+  fputc ('\n', stderr);
+
+  va_end (args);
+
+  exit (1);
+}
+
+static void
+lose_gerror (const char *prefix, GError *error) 
+{
+  lose ("%s: %s", prefix, error->message);
 }
 
 int
@@ -52,12 +78,7 @@ main (int argc, char **argv)
   connection = dbus_g_bus_get (DBUS_BUS_SESSION,
                                &error);
   if (connection == NULL)
-    {
-      g_printerr ("Failed to open connection to bus: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);
-    }
+    lose_gerror ("Failed to open connection to bus", error);
 
   /* should always get the same one */
   g_assert (connection == dbus_g_bus_get (DBUS_BUS_SESSION, NULL));
@@ -80,12 +101,7 @@ main (int argc, char **argv)
                               DBUS_TYPE_ARRAY, DBUS_TYPE_STRING,
                               &name_list, &name_list_len,
                               DBUS_TYPE_INVALID))
-    {
-      g_printerr ("Failed to complete ListNames call: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);
-    }
+    lose_gerror ("Failed to complete ListNames call", error);
 
   g_print ("Names on the message bus:\n");
   i = 0;
@@ -111,14 +127,10 @@ main (int argc, char **argv)
 
   error = NULL;
   if (dbus_g_proxy_end_call (driver, call, &error,
-                            DBUS_TYPE_INVALID))
-    {
-      g_printerr ("Calling nonexistent method succeeded!\n");
-      exit (1);
-    }
+			     DBUS_TYPE_INVALID))
+    lose ("Calling nonexistent method succeeded!");
 
-  g_print ("Got EXPECTED error from calling unknown method: %s\n",
-           error->message);
+  g_print ("Got EXPECTED error from calling unknown method: %s\n", error->message);
   g_error_free (error);
   
   /* Activate a service */
@@ -135,12 +147,7 @@ main (int argc, char **argv)
   if (!dbus_g_proxy_end_call (driver, call, &error,
                               DBUS_TYPE_UINT32, &result,
                               DBUS_TYPE_INVALID))
-    {
-      g_printerr ("Failed to complete Activate call: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);
-    }
+    lose_gerror ("Failed to complete Activate call", error);
 
   g_print ("Starting echo service result = 0x%x\n", result);
 
@@ -158,12 +165,7 @@ main (int argc, char **argv)
   if (!dbus_g_proxy_end_call (driver, call, &error,
                              DBUS_TYPE_UINT32, &result,
                              DBUS_TYPE_INVALID))
-    {
-      g_printerr ("Failed to complete Activate call: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);
-    }
+    lose_gerror ("Failed to complete Activate call", error);
 
   g_print ("Duplicate start of echo service = 0x%x\n", result);
 
@@ -176,12 +178,7 @@ main (int argc, char **argv)
                                            &error);
   
   if (proxy == NULL)
-    {
-      g_printerr ("Failed to create proxy for name owner: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);      
-    }
+    lose_gerror ("Failed to create proxy for name owner", error);
 
   v_STRING = "my string hello";
   call = dbus_g_proxy_begin_call (proxy, "Echo",
@@ -193,12 +190,7 @@ main (int argc, char **argv)
   if (!dbus_g_proxy_end_call (proxy, call, &error,
                               DBUS_TYPE_STRING, &v_STRING,
                               DBUS_TYPE_INVALID))
-    {
-      g_printerr ("Failed to complete Echo call: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);
-    }
+    lose_gerror ("Failed to complete Echo call", error);
 
   g_print ("String echoed = \"%s\"\n", v_STRING);
 
@@ -220,12 +212,8 @@ main (int argc, char **argv)
   g_main_loop_run (loop);
 
   if (n_times_foo_received != 1)
-    {
-      g_printerr ("Foo signal received %d times, should have been 1\n",
-                  n_times_foo_received);
-      exit (1);
-    }
-
+    lose ("Foo signal received %d times, should have been 1", n_times_foo_received);
+  
   /* Activate test servie */ 
   g_print ("Activating TestSuiteGLibService\n");
   v_STRING = "org.freedesktop.DBus.TestSuiteGLibService";
@@ -241,12 +229,7 @@ main (int argc, char **argv)
   if (!dbus_g_proxy_end_call (driver, call, &error,
                              DBUS_TYPE_UINT32, &result,
                              DBUS_TYPE_INVALID))
-    {
-      g_printerr ("Failed to complete Activate call: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);
-    }
+    lose_gerror ("Failed to complete Activate call", error);
 
   g_object_unref (G_OBJECT (proxy));
 
@@ -257,23 +240,13 @@ main (int argc, char **argv)
                                            &error);
   
   if (proxy == NULL)
-    {
-      g_printerr ("Failed to create proxy for name owner: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);      
-    }
+    lose_gerror ("Failed to create proxy for name owner", error);
 
   call = dbus_g_proxy_begin_call (proxy, "DoNothing",
                                   DBUS_TYPE_INVALID);
   error = NULL;
   if (!dbus_g_proxy_end_call (proxy, call, &error, DBUS_TYPE_INVALID))
-    {
-      g_printerr ("Failed to complete DoNothing call: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);
-    }
+    lose_gerror ("Failed to complete DoNothing call", error);
 
   v_UINT32 = 42;
   call = dbus_g_proxy_begin_call (proxy, "Increment",
@@ -283,26 +256,15 @@ main (int argc, char **argv)
   if (!dbus_g_proxy_end_call (proxy, call, &error,
 			      DBUS_TYPE_UINT32, &v_UINT32_2,
 			      DBUS_TYPE_INVALID))
-    {
-      g_printerr ("Failed to complete Increment call: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);
-    }
+    lose_gerror ("Failed to complete Increment call", error);
 
   if (v_UINT32_2 != v_UINT32 + 1)
-    {
-      g_printerr ("Increment call returned %d, should be 43\n", v_UINT32_2);
-      exit (1);
-    }
+    lose ("Increment call returned %d, should be 43", v_UINT32_2);
 
   call = dbus_g_proxy_begin_call (proxy, "ThrowError", DBUS_TYPE_INVALID);
   error = NULL;
   if (dbus_g_proxy_end_call (proxy, call, &error, DBUS_TYPE_INVALID) != FALSE)
-    {
-      g_printerr ("ThrowError call unexpectedly succeeded!\n");
-      exit (1);
-    }
+    lose ("ThrowError call unexpectedly succeeded!");
 
   g_print ("ThrowError failed (as expected) returned error: %s\n", error->message);
   g_error_free (error);
@@ -315,17 +277,9 @@ main (int argc, char **argv)
   if (!dbus_g_proxy_end_call (proxy, call, &error,
 			      DBUS_TYPE_STRING, &v_STRING_2,
 			      DBUS_TYPE_INVALID))
-    {
-      g_printerr ("Failed to complete Uppercase call: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);
-    }
+    lose_gerror ("Failed to complete Uppercase call", error);
   if (strcmp ("FOOBAR", v_STRING_2) != 0)
-    {
-      g_printerr ("Uppercase call returned unexpected string %s\n", v_STRING_2);
-      exit (1);
-    }
+    lose ("Uppercase call returned unexpected string %s", v_STRING_2);
 
   v_STRING = "bazwhee";
   v_UINT32 = 26;
@@ -340,87 +294,119 @@ main (int argc, char **argv)
 			      DBUS_TYPE_DOUBLE, &v_DOUBLE_2,
 			      DBUS_TYPE_STRING, &v_STRING_2,
 			      DBUS_TYPE_INVALID))
-    {
-      g_printerr ("Failed to complete ManyArgs call: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);
-    }
+    lose_gerror ("Failed to complete ManyArgs call", error);
   if (v_DOUBLE_2 < 55 || v_DOUBLE_2 > 56)
-    {
-      g_printerr ("ManyArgs call returned unexpected double value %f\n", v_DOUBLE_2);
-      exit (1);
-    }
+    lose ("ManyArgs call returned unexpected double value %f", v_DOUBLE_2);
   if (strcmp ("BAZWHEE", v_STRING_2) != 0)
-    {
-      g_printerr ("ManyArgs call returned unexpected string %s\n", v_STRING_2);
-      exit (1);
-    }
+    lose ("ManyArgs call returned unexpected string %s", v_STRING_2);
 
   if (!org_freedesktop_DBus_Tests_MyObject_do_nothing (proxy, &error))
-    {
-      g_printerr ("Failed to complete (wrapped) DoNothing call: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);
-    }
+    lose_gerror ("Failed to complete (wrapped) DoNothing call", error);
 
   if (!org_freedesktop_DBus_Tests_MyObject_increment (proxy, 42, &v_UINT32_2, &error))
-    {
-      g_printerr ("Failed to complete (wrapped) Increment call: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);
-    }
+    lose_gerror ("Failed to complete (wrapped) Increment call", error);
 
   if (v_UINT32_2 != 43)
-    {
-      g_printerr ("(wrapped) increment call returned %d, should be 43\n", v_UINT32_2);
-      exit (1);
-    }
+    lose ("(wrapped) increment call returned %d, should be 43", v_UINT32_2);
 
   if (org_freedesktop_DBus_Tests_MyObject_throw_error (proxy, &error) != FALSE)
-    {
-      g_printerr ("(wrapped) ThrowError call unexpectedly succeeded!\n");
-      exit (1);
-    }
+    lose ("(wrapped) ThrowError call unexpectedly succeeded!");
 
   g_print ("(wrapped) ThrowError failed (as expected) returned error: %s\n", error->message);
   g_error_free (error);
 
   if (!org_freedesktop_DBus_Tests_MyObject_uppercase (proxy, "foobar", &v_STRING_2, &error)) 
-    {
-      g_printerr ("Failed to complete (wrapped) Uppercase call: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);
-    }
+    lose_gerror ("Failed to complete (wrapped) Uppercase call", error);
   if (strcmp ("FOOBAR", v_STRING_2) != 0)
-    {
-      g_printerr ("(wrapped) Uppercase call returned unexpected string %s\n", v_STRING_2);
-      exit (1);
-    }
+    lose ("(wrapped) Uppercase call returned unexpected string %s", v_STRING_2);
 
   if (!org_freedesktop_DBus_Tests_MyObject_many_args (proxy, 26, "bazwhee", G_PI,
 						      &v_DOUBLE_2, &v_STRING_2, &error))
-    {
-      g_printerr ("Failed to complete (wrapped) ManyArgs call: %s\n",
-                  error->message);
-      g_error_free (error);
-      exit (1);
-    }
+    lose_gerror ("Failed to complete (wrapped) ManyArgs call", error);
+
   if (v_DOUBLE_2 < 55 || v_DOUBLE_2 > 56)
-    {
-      g_printerr ("(wrapped) ManyArgs call returned unexpected double value %f\n", v_DOUBLE_2);
-      exit (1);
-    }
+    
+    lose ("(wrapped) ManyArgs call returned unexpected double value %f", v_DOUBLE_2);
+
   if (strcmp ("BAZWHEE", v_STRING_2) != 0)
-    {
-      g_printerr ("(wrapped) ManyArgs call returned unexpected string %s\n", v_STRING_2);
-      exit (1);
-    }
+    lose ("(wrapped) ManyArgs call returned unexpected string %s", v_STRING_2);
 
   g_object_unref (G_OBJECT (proxy));
+
+  proxy = dbus_g_proxy_new_for_name_owner (connection,
+                                           "org.freedesktop.DBus.TestSuiteGLibService",
+                                           "/org/freedesktop/DBus/Tests/MyTestObject",
+                                           "org.freedesktop.DBus.Introspectable",
+                                           &error);
+  
+  if (proxy == NULL)
+    lose_gerror ("Failed to create proxy for name owner", error);
+
+  call = dbus_g_proxy_begin_call (proxy, "Introspect",
+				  DBUS_TYPE_INVALID);
+  error = NULL;
+  if (!dbus_g_proxy_end_call (proxy, call, &error,
+			      DBUS_TYPE_STRING, &v_STRING,
+			      DBUS_TYPE_INVALID))
+    lose_gerror ("Failed to complete Introspect call", error);
+
+  /* Could just do strcmp(), but that seems more fragile */
+  {
+    NodeInfo *node;
+    GSList *elt;
+    gboolean found_introspectable;
+    gboolean found_properties;
+    gboolean found_myobject;
+    gboolean found_gtk_myobject;
+
+    node = description_load_from_string (v_STRING, strlen (v_STRING), &error);
+    if (!node)
+      lose_gerror ("Failed to parse introspection data: %s", error);
+
+    found_introspectable = FALSE;
+    found_properties = FALSE;
+    found_gtk_myobject = FALSE;
+    found_myobject = FALSE;
+    for (elt = node_info_get_interfaces (node); elt ; elt = elt->next)
+      {
+	InterfaceInfo *iface = elt->data;
+
+	if (!found_introspectable && strcmp (interface_info_get_name (iface), "org.freedesktop.DBus.Introspectable") == 0)
+	  found_introspectable = TRUE;
+	else if (!found_properties && strcmp (interface_info_get_name (iface), "org.freedesktop.DBus.Properties") == 0)
+	  found_properties = TRUE;
+	else if (!found_gtk_myobject && strcmp (interface_info_get_name (iface), "org.gtk.objects.MyObject") == 0)
+	  found_gtk_myobject = TRUE;
+	else if (!found_myobject && strcmp (interface_info_get_name (iface), "org.freedesktop.DBus.Tests.MyObject") == 0)
+	  {
+	    GSList *elt;
+	    gboolean found_manyargs;
+	    
+	    found_myobject = TRUE;
+	    
+	    found_manyargs = FALSE;
+	    for (elt = interface_info_get_methods (iface); elt; elt = elt->next)
+	      {
+		MethodInfo *method;
+
+		method = elt->data;
+		if (strcmp (method_info_get_name (method), "ManyArgs") == 0)
+		  {
+		    found_manyargs = TRUE;
+		    break;
+		  }
+	      }
+	    if (!found_manyargs)
+	      lose ("Missing method org.freedesktop.DBus.Tests.MyObject.ManyArgs");
+	  }
+	else
+	  lose ("Unexpected or duplicate interface %s", interface_info_get_name (iface));
+      }
+
+    if (!(found_introspectable && found_gtk_myobject && found_myobject && found_properties))
+      lose ("Missing interface"); 
+  }
+  
   g_object_unref (G_OBJECT (driver));
 
   g_print ("Successfully completed %s\n", argv[0]);

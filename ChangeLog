@@ -1,5 +1,12 @@
 2005-03-01  Colin Walters  <walters@verbum.org>
 
+	* test/glib/test-dbus-glib.c (lose, lose_gerror): Utility
+	functions copied from dbus-glib-tool.c.
+	(main): Convert lots of error code to use them.
+	Also add some testing for introspection bits.
+
+2005-03-01  Colin Walters  <walters@verbum.org>
+	
 	* doc/TODO: Remove introspection signature TODO.
 
 2005-02-27  Colin Walters  <walters@verbum.org>

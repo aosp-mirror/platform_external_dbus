@@ -37,7 +37,7 @@ noinst_PROGRAMS= test-dbus-glib test-service-glib $(THREAD_APPS)
 test_dbus_glib_SOURCES=				\
 	test-dbus-glib.c
 
-test_dbus_glib_LDADD= $(top_builddir)/glib/libdbus-glib-1.la
+test_dbus_glib_LDADD= $(DBUS_GLIB_TOOL_LIBS) $(top_builddir)/glib/libdbus-glib-1.la $(top_builddir)/glib/libdbus-gtool.la
 
 test_service_glib_SOURCES=				\
 	test-service-glib.c
