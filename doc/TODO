@@ -46,7 +46,7 @@ Important for 1.0
 
  - add string array support back to append_args()
 
- - auto-activate by default
+ - just before 1.0, try a HAVE_INT64=0 build and be sure it runs
 
 Important for 1.0 GLib Bindings
 ===

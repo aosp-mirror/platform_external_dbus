@@ -33,24 +33,6 @@
 #error "config.h not included here"
 #endif
 
-/* Features we need to port dbus-message:
- *  - memoize a position of a reader for small/fast access later
- *  - delete an array element and re-align the remainder of the array
- *    (not necessary yet to re-align remainder of entire string,
- *     though that's probably just as hard/easy)
- *    (really this one is to set a complex-type array element to
- *    a new value, but for dbus-message.c delete-and-reappend would
- *    be good enough)
- *  - set string, int, etc. values at a memoized position
- *    (implement generic set of any value? changes only
- *     value_str not type_str)
- *  - implement has_next()
- *  - the all-in-one-block array accessors
- *  - validation
- *
- * - remember to try a HAVE_INT64=0 build at the end
- */
-
 typedef struct DBusTypeMark        DBusTypeMark;
 typedef struct DBusTypeReader      DBusTypeReader;
 typedef struct DBusTypeWriter      DBusTypeWriter;
