@@ -1,3 +1,7 @@
+2003-05-18  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-message.c (dbus_message_new): Remove @todo.
+
 2003-05-17  Colin Walters  <walters@gnu.org>
 
 	* tools/dbus-send.c: Don't exit with an error code if --help was
