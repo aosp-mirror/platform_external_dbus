@@ -1,5 +1,15 @@
 2004-11-26  Havoc Pennington  <hp@redhat.com>
 
+	* test/glib/test-profile.c: add with_bus mode to profile echoes
+	that go through the bus.
+
+	* test/glib/run-test.sh: add ability to run test-profile
+
+	* bus/dbus-daemon-1.1.in: fix to say that SIGHUP causes partial
+	config file reload.
+
+2004-11-26  Havoc Pennington  <hp@redhat.com>
+
 	* test/glib/test-profile.c: clean up how the fake_malloc_overhead
 	thing was implemented
 

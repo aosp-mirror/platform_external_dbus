@@ -50,11 +50,10 @@ among desktop applications (however, it is not tied to X or the GUI
 in any way).
 
 .PP
-There is no way to cause the D-BUS daemon to reload its configuration
-file (HUP will not do so). The reason is that changing configuration
-would break the semantics expected by applications connected to the
-message bus. Thus, changing configuration would require kicking all
-apps off the bus; so you may as well just restart the daemon.
+SIGHUP will cause the D-BUS daemon to PARTIALLY reload its
+configuration file.  Some configuration changes would require kicking
+all apps off the bus; so they will only take effect if you restart the
+daemon. Policy changes should take effect with SIGHUP.
 
 .SH OPTIONS
 The following options are supported:

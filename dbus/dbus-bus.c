@@ -312,14 +312,15 @@ ensure_bus_data (DBusConnection *connection)
  */
 
 /**
- * Connects to a bus daemon and registers the client with it.
- * If a connection to the bus already exists, then that connection is returned.
+ * Connects to a bus daemon and registers the client with it.  If a
+ * connection to the bus already exists, then that connection is
+ * returned.  Caller owns a reference to the bus.
  *
  * @todo alex thinks we should nullify the connection when we get a disconnect-message.
  *
  * @param type bus type
  * @param error address where an error can be returned.
- * @returns a DBusConnection
+ * @returns a DBusConnection with new ref
  */
 DBusConnection *
 dbus_bus_get (DBusBusType  type,

@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* test-profile.c Program that does basic message-response for timing
+/* test-profile.c Program that does basic message-response for timing; doesn't really use glib bindings
  *
  * Copyright (C) 2003, 2004  Red Hat Inc.
  *
@@ -47,13 +47,16 @@
  * higher in the profile the larger the number of threads.
  */
 #define N_CLIENT_THREADS 1
+/* It seems like at least 750000 or so iterations reduces the variability to sane levels */
 #define N_ITERATIONS 750000
 #define N_PROGRESS_UPDATES 20
 /* Don't make PAYLOAD_SIZE too huge because it gets used as a static buffer size */
 #define PAYLOAD_SIZE 0
+
+#define ECHO_SERVICE "org.freedesktop.EchoTestServer"
 #define ECHO_PATH "/org/freedesktop/EchoTest"
 #define ECHO_INTERFACE "org.freedesktop.EchoTest"
-#define ECHO_METHOD "EchoProfile"
+#define ECHO_PING_METHOD "Ping"
 
 static const char *messages_address;
 static const char *plain_sockets_address;
@@ -93,13 +96,18 @@ struct ProfileRunVTable
   void  (* main_loop_run_func) (GMainLoop *loop);
 };
 
+/* Note, this is all crack-a-rific; it isn't using DBusGProxy and thus is
+ * a major pain
+ */
 static void
 send_echo_method_call (DBusConnection *connection)
 {
   DBusMessage *message;
 
-  message = dbus_message_new_method_call (NULL, ECHO_PATH,
-                                          ECHO_INTERFACE, ECHO_METHOD);
+  message = dbus_message_new_method_call (ECHO_SERVICE,
+                                          ECHO_PATH,
+                                          ECHO_INTERFACE,
+                                          ECHO_PING_METHOD);
   dbus_message_append_args (message,
                             DBUS_TYPE_STRING, "Hello World!",
                             DBUS_TYPE_INT32, 123456,
@@ -128,12 +136,10 @@ send_echo_method_return (DBusConnection *connection,
 }
 
 static DBusHandlerResult
-client_filter (DBusConnection     *connection,
-	       DBusMessage        *message,
-	       void               *user_data)
+with_or_without_bus_client_filter (DBusConnection     *connection,
+                                   DBusMessage        *message,
+                                   ClientData         *cd)
 {
-  ClientData *cd = user_data;
-  
   if (dbus_message_is_signal (message,
                               DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
                               "Disconnected"))
@@ -161,8 +167,18 @@ client_filter (DBusConnection     *connection,
   return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
+static DBusHandlerResult
+no_bus_client_filter (DBusConnection     *connection,
+                      DBusMessage        *message,
+                      void               *user_data)
+{
+  ClientData *cd = user_data;
+
+  return with_or_without_bus_client_filter (connection, message, cd);
+}
+
 static void*
-messages_thread_func (void *data)
+no_bus_thread_func (void *data)
 {
   DBusError error;
   GMainContext *context;
@@ -186,7 +202,7 @@ messages_thread_func (void *data)
   cd.loop = g_main_loop_new (context, FALSE);
   
   if (!dbus_connection_add_filter (connection,
-				   client_filter, &cd, NULL))
+				   no_bus_client_filter, &cd, NULL))
     g_error ("no memory");
   
   
@@ -210,9 +226,9 @@ messages_thread_func (void *data)
 }
 
 static DBusHandlerResult
-server_filter (DBusConnection     *connection,
-	       DBusMessage        *message,
-	       void               *user_data)
+no_bus_server_filter (DBusConnection     *connection,
+                      DBusMessage        *message,
+                      void               *user_data)
 {
   ServerData *sd = user_data;
   
@@ -227,7 +243,7 @@ server_filter (DBusConnection     *connection,
     }
   else if (dbus_message_is_method_call (message,
                                         ECHO_INTERFACE,
-                                        ECHO_METHOD))
+                                        ECHO_PING_METHOD))
     {
       sd->handled += 1;
       send_echo_method_return (connection, message);
@@ -238,9 +254,9 @@ server_filter (DBusConnection     *connection,
 }
 
 static void
-new_connection_callback (DBusServer     *server,
-                         DBusConnection *new_connection,
-                         void           *user_data)
+no_bus_new_connection_callback (DBusServer     *server,
+                                DBusConnection *new_connection,
+                                void           *user_data)
 {
   ServerData *sd = user_data;
   
@@ -248,7 +264,7 @@ new_connection_callback (DBusServer     *server,
   dbus_connection_setup_with_g_main (new_connection, NULL);  
   
   if (!dbus_connection_add_filter (new_connection,
-                                   server_filter, sd, NULL))
+                                   no_bus_server_filter, sd, NULL))
     g_error ("no memory");
 
   sd->n_clients += 1;
@@ -257,7 +273,7 @@ new_connection_callback (DBusServer     *server,
 }
 
 static void*
-messages_init_server (ServerData       *sd)
+no_bus_init_server (ServerData       *sd)
 {
   DBusServer *server;
   DBusError error;
@@ -279,7 +295,7 @@ messages_init_server (ServerData       *sd)
   messages_address = dbus_server_get_address (server);
   
   dbus_server_set_new_connection_function (server,
-                                           new_connection_callback,
+                                           no_bus_new_connection_callback,
                                            sd, NULL);
 
   dbus_server_setup_with_g_main (server, NULL);
@@ -288,7 +304,7 @@ messages_init_server (ServerData       *sd)
 }
 
 static void
-messages_stop_server (ServerData *sd,
+no_bus_stop_server (ServerData *sd,
                       void       *server)
 {
   g_printerr ("The following g_warning is because we try to call g_source_remove_poll() after g_source_destroy() in dbus-gmain.c, I think we need to add a source free func that clears out the watch/timeout funcs\n");
@@ -297,19 +313,286 @@ messages_stop_server (ServerData *sd,
 }
 
 static void
-messages_main_loop_run (GMainLoop *loop)
+no_bus_main_loop_run (GMainLoop *loop)
 {
   g_main_loop_run (loop);
 }
 
-static const ProfileRunVTable messages_vtable = {
-  "with dbus messages",
+static const ProfileRunVTable no_bus_vtable = {
+  "dbus direct without bus",
   FALSE,
-  messages_init_server,
-  messages_stop_server,
-  messages_thread_func,
-  messages_main_loop_run
+  no_bus_init_server,
+  no_bus_stop_server,
+  no_bus_thread_func,
+  no_bus_main_loop_run
 };
+
+typedef struct
+{
+  const ProfileRunVTable *vtable;
+  ServerData *sd;
+  GHashTable *client_names;
+  DBusConnection *connection;
+} WithBusServer;
+
+static DBusHandlerResult
+with_bus_client_filter (DBusConnection     *connection,
+                        DBusMessage        *message,
+                        void               *user_data)
+{
+  ClientData *cd = user_data;
+
+  return with_or_without_bus_client_filter (connection, message, cd);
+}
+
+static void*
+with_bus_thread_func (void *data)
+{
+  DBusError error;
+  DBusConnection *connection;
+  ClientData cd;
+  const char *address;
+  GMainContext *context;
+  
+  g_printerr ("Starting client thread %p\n", g_thread_self());  
+
+  address = g_getenv ("DBUS_SESSION_BUS_ADDRESS");
+  if (address == NULL)
+    {
+      g_printerr ("DBUS_SESSION_BUS_ADDRESS not set\n");
+      exit (1);
+    }
+  
+  dbus_error_init (&error);
+  connection = dbus_connection_open (address, &error);
+  if (connection == NULL)
+    {
+      g_printerr ("could not open connection to bus: %s\n", error.message);
+      dbus_error_free (&error);
+      exit (1);
+    }
+
+  if (!dbus_bus_register (connection, &error))
+    {
+      g_printerr ("could not register with bus: %s\n", error.message);
+      dbus_error_free (&error);
+      exit (1);
+    }
+  
+  context = g_main_context_new ();
+
+  cd.iterations = 1;
+  cd.loop = g_main_loop_new (context, FALSE);
+  
+  if (!dbus_connection_add_filter (connection,
+				   with_bus_client_filter, &cd, NULL))
+    g_error ("no memory");
+  
+  dbus_connection_setup_with_g_main (connection, context);
+
+  g_printerr ("Client thread sending message to prime pingpong\n");
+  send_echo_method_call (connection);
+  g_printerr ("Client thread sent message\n");
+
+  g_printerr ("Client thread entering main loop\n");
+  g_main_loop_run (cd.loop);
+  g_printerr ("Client thread %p exiting main loop\n",
+              g_thread_self());
+
+  dbus_connection_disconnect (connection);
+  
+  g_main_loop_unref (cd.loop);
+  g_main_context_unref (context);
+  
+  return NULL;
+}
+
+static DBusHandlerResult
+with_bus_server_filter (DBusConnection     *connection,
+                        DBusMessage        *message,
+                        void               *user_data)
+{
+  WithBusServer *server = user_data;
+  
+  if (dbus_message_is_signal (message,
+                              DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                              "Disconnected"))
+    {
+      g_printerr ("Server disconnected from message bus\n");
+      exit (1);
+    }
+  else if (dbus_message_has_sender (message,
+                                    DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) &&
+           dbus_message_is_signal (message,
+                                   DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                   "ServiceOwnerChanged"))
+    {
+      char *service_name, *old_owner, *new_owner;
+      DBusError error;
+
+      service_name = NULL;
+      old_owner = NULL;
+      new_owner = NULL;
+
+      dbus_error_init (&error);
+      if (!dbus_message_get_args (message,
+                                  &error,
+                                  DBUS_TYPE_STRING, &service_name,
+                                  DBUS_TYPE_STRING, &old_owner,
+                                  DBUS_TYPE_STRING, &new_owner,
+                                  DBUS_TYPE_INVALID))
+        {
+          g_printerr ("dbus_message_get_args(): %s\n", error.message);
+          exit (1);
+        }
+
+      if (g_hash_table_lookup (server->client_names,
+                               service_name) &&
+          *old_owner != '\0' &&
+          *new_owner == '\0')
+        {
+          g_hash_table_remove (server->client_names,
+                               service_name);
+          server->sd->n_clients -= 1;
+          if (server->sd->n_clients == 0)
+            g_main_loop_quit (server->sd->loop);
+        }
+
+      dbus_free (service_name);
+      dbus_free (old_owner);
+      dbus_free (new_owner);
+    }
+  else if (dbus_message_is_method_call (message,
+                                        ECHO_INTERFACE,
+                                        ECHO_PING_METHOD))
+    {
+      const char *sender;
+
+      sender = dbus_message_get_sender (message);
+
+      if (!g_hash_table_lookup (server->client_names,
+                                sender))
+        {
+          g_printerr ("First message from new client %s on bus\n", sender);
+          
+          g_hash_table_replace (server->client_names,
+                                g_strdup (sender),
+                                GINT_TO_POINTER (1));
+          server->sd->n_clients += 1;
+        }
+      
+      server->sd->handled += 1;
+      send_echo_method_return (connection, message);
+      return DBUS_HANDLER_RESULT_HANDLED;
+    }
+  
+  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+}
+
+static void*
+with_bus_init_server (ServerData       *sd)
+{
+  DBusGConnection *gconnection;
+  DBusConnection *connection;
+  GError *gerror;
+  const char *s;
+  WithBusServer *server;
+  char *rule;
+
+  server = g_new0 (WithBusServer, 1);
+
+  server->vtable = sd->vtable;
+  server->sd = sd;
+  
+  s = g_getenv ("DBUS_TEST_GLIB_RUN_TEST_SCRIPT");
+  if (s == NULL ||
+      *s != '1')
+    {
+      g_printerr ("You have to run with_bus mode with the run-test.sh script\n");
+      exit (1);
+    }
+  
+#ifndef DBUS_DISABLE_ASSERT
+  g_printerr ("You should probably --disable-asserts before you profile as they have noticeable overhead\n");
+#endif
+  
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+  g_printerr ("You should probably --disable-verbose-mode before you profile as verbose has noticeable overhead\n");
+#endif
+
+  /* Note that we use the standard global bus connection for the
+   * server, and the clients open their own connections so they can
+   * have their own main loops and because I'm not sure "talking to
+   * yourself" really works yet
+   */
+  gerror = NULL;
+  gconnection = dbus_g_bus_get (DBUS_BUS_SESSION, &gerror);
+  if (gconnection == NULL)
+    {
+      g_printerr ("could not open connection to bus: %s\n", gerror->message);
+      g_error_free (gerror);
+      exit (1);
+    }
+
+  server->client_names = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                                g_free, NULL);
+  
+  connection = dbus_g_connection_get_connection (gconnection);
+
+  dbus_bus_acquire_service (connection,
+                            ECHO_SERVICE,
+                            0, NULL); /* ignore errors because we suck */
+  
+  rule = g_strdup_printf ("type='signal',sender='%s',member='%s'",
+                          DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                          "ServiceOwnerChanged");
+
+  /* ignore errors because we suck */
+  dbus_bus_add_match (connection, rule, NULL);
+
+  g_free (rule);
+  
+  if (!dbus_connection_add_filter (connection,
+                                   with_bus_server_filter, server, NULL))
+    g_error ("no memory");
+
+  server->connection = connection;
+  server->client_names = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                                g_free, NULL);
+  
+  return server;
+}
+
+static void
+with_bus_stop_server (ServerData *sd,
+                      void       *serverv)
+{
+  WithBusServer *server = serverv;
+  
+  dbus_connection_remove_filter (server->connection,
+                                 with_bus_server_filter, server);
+
+  g_hash_table_destroy (server->client_names);
+  dbus_connection_unref (server->connection);
+  
+  g_free (server);
+}
+
+static void
+with_bus_main_loop_run (GMainLoop *loop)
+{
+  g_main_loop_run (loop);
+}
+
+static const ProfileRunVTable with_bus_vtable = {
+  "routing via a bus",
+  FALSE,
+  with_bus_init_server,
+  with_bus_stop_server,
+  with_bus_thread_func,
+  with_bus_main_loop_run
+};
+
 
 typedef struct
 {
@@ -812,6 +1095,16 @@ do_profile_run (const ProfileRunVTable *vtable)
   return secs;
 }
 
+static void
+print_result (const ProfileRunVTable *vtable,
+              double            seconds,
+              double            baseline)
+{
+  g_printerr (" %g times slower for %s (%g seconds, %f per iteration)\n",
+              seconds/baseline, vtable->name,
+              seconds, seconds / N_ITERATIONS);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -829,24 +1122,32 @@ main (int argc, char *argv[])
   if (argc > 1 && strcmp (argv[1], "plain_sockets") == 0)
     do_profile_run (&plain_sockets_vtable);
   else if (argc > 1 && strcmp (argv[1], "plain_sockets_with_malloc") == 0)
-    {
-      do_profile_run (&plain_sockets_with_malloc_vtable);
-    }
+    do_profile_run (&plain_sockets_with_malloc_vtable);
+  else if (argc > 1 && strcmp (argv[1], "no_bus") == 0)
+    do_profile_run (&no_bus_vtable);
+  else if (argc > 1 && strcmp (argv[1], "with_bus") == 0)
+    do_profile_run (&with_bus_vtable);
   else if (argc > 1 && strcmp (argv[1], "all") == 0)
     {
-      double e1, e2, e3;
+      double e1, e2, e3, e4;
 
       e1 = do_profile_run (&plain_sockets_vtable);
       e2 = do_profile_run (&plain_sockets_with_malloc_vtable);
-      e3 = do_profile_run (&messages_vtable);
+      e3 = do_profile_run (&no_bus_vtable);
+      e4 = do_profile_run (&with_bus_vtable);
 
-      g_printerr ("parsed dbus messages %g times slower than plain sockets without buffer allocation or population\n",
-                  e3/e1);
-      g_printerr ("parsed dbus messages %g times slower than plain sockets with buffer allocation and population\n",
-                  e3/e2);
+      g_printerr ("Baseline plain sockets time %g seconds for %d iterations\n",
+                  e1, N_ITERATIONS);
+      print_result (&plain_sockets_vtable, e1, e1);
+      print_result (&plain_sockets_with_malloc_vtable, e2, e1);
+      print_result (&no_bus_vtable, e3, e1);
+      print_result (&with_bus_vtable, e4, e1);
     }
   else
-    do_profile_run (&messages_vtable);
+    {
+      g_printerr ("Specify profile type plain_sockets, plain_sockets_with_malloc, no_bus, with_bus, all\n");
+      exit (1);
+    }
   
   return 0;
 }
