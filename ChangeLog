@@ -24,7 +24,7 @@
 	* tools/.cvsignore, glib/.cvsignore, bus/.cvsignore:
 	Update.
 
-2005-03-14  Colin Walters  <walters@verbum.org>
+2005-03-17  Colin Walters  <walters@verbum.org>
 
 	* bus/driver.c (write_args_for_direction): Use
 	_dbus_string_get_const_data to retrieve string;
