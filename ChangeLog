@@ -1,3 +1,12 @@
+2003-04-10  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-spawn.c (_dbus_spawn_async_with_babysitter): move all
+	the possible parent failures before we fork, so that we don't 
+	fail to create a babysitter after creating the child.
+
+	* bus/activation.c (bus_activation_activate_service): kill child
+	if we don't successfully complete the activation.
+
 2003-04-10  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-connection.c (dbus_connection_flush): don't spin on
@@ -9,7 +18,7 @@
 	pending activation if the function fails.
 
 	* dbus/dbus-list.c (_dbus_list_insert_before_link) 
-	(_dbus_list_insert_after_link): new code to facilitate 
+	(_dbus_list_insert_after_link): new code to facilitate
 	services.c fixes
 
 	* dbus/dbus-hash.c (_dbus_hash_table_insert_string_preallocated):

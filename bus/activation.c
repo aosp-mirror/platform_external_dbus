@@ -779,6 +779,45 @@ pending_activation_timed_out (void *data)
   return TRUE;
 }
 
+static void
+cancel_pending (void *data)
+{
+  BusPendingActivation *pending_activation = data;
+
+  _dbus_verbose ("Canceling pending activation of %s\n",
+                 pending_activation->service_name);
+
+  if (pending_activation->babysitter)
+    _dbus_babysitter_kill_child (pending_activation->babysitter);
+  
+  _dbus_hash_table_remove_string (pending_activation->activation->pending_activations,
+                                  pending_activation->service_name);
+}
+
+static void
+free_pending_cancel_data (void *data)
+{
+  BusPendingActivation *pending_activation = data;
+  
+  bus_pending_activation_unref (pending_activation);
+}
+
+static dbus_bool_t
+add_cancel_pending_to_transaction (BusTransaction       *transaction,
+                                   BusPendingActivation *pending_activation)
+{  
+  if (!bus_transaction_add_cancel_hook (transaction, cancel_pending,
+                                        pending_activation,
+                                        free_pending_cancel_data))
+    return FALSE;
+
+  bus_pending_activation_ref (pending_activation); 
+  
+  _dbus_verbose ("Saved pending activation to be canceled if the transaction fails\n");
+  
+  return TRUE;
+}
+
 dbus_bool_t
 bus_activation_activate_service (BusActivation  *activation,
 				 DBusConnection *connection,
@@ -817,6 +856,7 @@ bus_activation_activate_service (BusActivation  *activation,
 
       if (!message)
 	{
+          _dbus_verbose ("No memory to create reply to activate message\n");
 	  BUS_SET_OOM (error);
 	  return FALSE;
 	}
@@ -826,6 +866,7 @@ bus_activation_activate_service (BusActivation  *activation,
 				     DBUS_TYPE_UINT32, DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE, 
 				     0))
 	{
+          _dbus_verbose ("No memory to set args of reply to activate message\n");
 	  BUS_SET_OOM (error);
 	  dbus_message_unref (message);
 	  return FALSE;
@@ -834,7 +875,10 @@ bus_activation_activate_service (BusActivation  *activation,
       retval = bus_transaction_send_message (transaction, connection, message);
       dbus_message_unref (message);
       if (!retval)
-	BUS_SET_OOM (error);
+        {
+          _dbus_verbose ("Failed to send reply\n");
+          BUS_SET_OOM (error);
+        }
 
       return retval;
     }
@@ -842,6 +886,7 @@ bus_activation_activate_service (BusActivation  *activation,
   pending_activation_entry = dbus_new0 (BusPendingActivationEntry, 1);
   if (!pending_activation_entry)
     {
+      _dbus_verbose ("Failed to create pending activation entry\n");
       BUS_SET_OOM (error);
       return FALSE;
     }
@@ -855,11 +900,15 @@ bus_activation_activate_service (BusActivation  *activation,
   pending_activation = _dbus_hash_table_lookup_string (activation->pending_activations, service_name);
   if (pending_activation)
     {
+      /* FIXME security - a client could keep sending activations over and
+       * over, growing this queue.
+       */
       if (!_dbus_list_append (&pending_activation->entries, pending_activation_entry))
 	{
+          _dbus_verbose ("Failed to append a new entry to pending activation\n");
+          
 	  BUS_SET_OOM (error);
 	  bus_pending_activation_entry_free (pending_activation_entry);
-
 	  return FALSE;
 	}
     }
@@ -868,6 +917,8 @@ bus_activation_activate_service (BusActivation  *activation,
       pending_activation = dbus_new0 (BusPendingActivation, 1);
       if (!pending_activation)
 	{
+          _dbus_verbose ("Failed to create pending activation\n");
+          
 	  BUS_SET_OOM (error);
 	  bus_pending_activation_entry_free (pending_activation_entry);	  
 	  return FALSE;
@@ -879,6 +930,8 @@ bus_activation_activate_service (BusActivation  *activation,
       pending_activation->service_name = _dbus_strdup (service_name);
       if (!pending_activation->service_name)
 	{
+          _dbus_verbose ("Failed to copy service name for pending activation\n");
+          
 	  BUS_SET_OOM (error);
 	  bus_pending_activation_unref (pending_activation);
 	  bus_pending_activation_entry_free (pending_activation_entry);	  
@@ -892,6 +945,8 @@ bus_activation_activate_service (BusActivation  *activation,
                            NULL);
       if (!pending_activation->timeout)
 	{
+          _dbus_verbose ("Failed to create timeout for pending activation\n");
+          
 	  BUS_SET_OOM (error);
 	  bus_pending_activation_unref (pending_activation);
 	  bus_pending_activation_entry_free (pending_activation_entry);	  
@@ -904,6 +959,8 @@ bus_activation_activate_service (BusActivation  *activation,
                                    pending_activation,
                                    NULL))
 	{
+          _dbus_verbose ("Failed to add timeout for pending activation\n");
+          
 	  BUS_SET_OOM (error);
 	  bus_pending_activation_unref (pending_activation);
 	  bus_pending_activation_entry_free (pending_activation_entry);	  
@@ -914,6 +971,8 @@ bus_activation_activate_service (BusActivation  *activation,
       
       if (!_dbus_list_append (&pending_activation->entries, pending_activation_entry))
 	{
+          _dbus_verbose ("Failed to add entry to just-created pending activation\n");
+          
 	  BUS_SET_OOM (error);
 	  bus_pending_activation_unref (pending_activation);
 	  bus_pending_activation_entry_free (pending_activation_entry);	  
@@ -921,12 +980,24 @@ bus_activation_activate_service (BusActivation  *activation,
 	}
       
       if (!_dbus_hash_table_insert_string (activation->pending_activations,
-					   pending_activation->service_name, pending_activation))
+					   pending_activation->service_name,
+                                           pending_activation))
 	{
+          _dbus_verbose ("Failed to put pending activation in hash table\n");
+          
 	  BUS_SET_OOM (error);
 	  bus_pending_activation_unref (pending_activation);
 	  return FALSE;
 	}
+    }
+
+  if (!add_cancel_pending_to_transaction (transaction, pending_activation))
+    {
+      _dbus_verbose ("Failed to add pending activation cancel hook to transaction\n");
+      BUS_SET_OOM (error);
+      _dbus_hash_table_remove_string (activation->pending_activations,
+				      pending_activation->service_name);
+      return FALSE;
     }
   
   /* FIXME we need to support a full command line, not just a single
@@ -941,8 +1012,8 @@ bus_activation_activate_service (BusActivation  *activation,
                                           child_setup, activation, 
                                           error))
     {
-      _dbus_hash_table_remove_string (activation->pending_activations,
-				      pending_activation->service_name);
+      _dbus_verbose ("Failed to spawn child\n");
+      _DBUS_ASSERT_ERROR_IS_SET (error);
       return FALSE;
     }
 
@@ -956,9 +1027,7 @@ bus_activation_activate_service (BusActivation  *activation,
                                              NULL))
     {
       BUS_SET_OOM (error);
-      
-      _dbus_hash_table_remove_string (activation->pending_activations,
-				      pending_activation->service_name);
+      _dbus_verbose ("Failed to set babysitter watch functions\n");
       return FALSE;
     }
   

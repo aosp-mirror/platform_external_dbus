@@ -174,6 +174,8 @@ _dbus_warn (const char *format,
   va_end (args);
 }
 
+static dbus_bool_t verbose_initted = FALSE;
+
 /**
  * Prints a warning message to stderr
  * if the user has enabled verbose mode.
@@ -188,7 +190,6 @@ _dbus_verbose_real (const char *format,
 {
   va_list args;
   static dbus_bool_t verbose = TRUE;
-  static dbus_bool_t initted = FALSE;
   static unsigned long pid;
   
   /* things are written a bit oddly here so that
@@ -198,11 +199,11 @@ _dbus_verbose_real (const char *format,
   if (!verbose)
     return;
   
-  if (!initted)
+  if (!verbose_initted)
     {
       verbose = _dbus_getenv ("DBUS_VERBOSE") != NULL;
       pid = _dbus_getpid ();
-      initted = TRUE;
+      verbose_initted = TRUE;
       if (!verbose)
         return;
     }
@@ -212,6 +213,18 @@ _dbus_verbose_real (const char *format,
   va_start (args, format);
   vfprintf (stderr, format, args);
   va_end (args);
+}
+
+/**
+ * Reinitializes the verbose logging code, used
+ * as a hack in dbus-spawn.c so that a child
+ * process re-reads its pid
+ *
+ */
+void
+_dbus_verbose_reset_real (void)
+{
+  verbose_initted = FALSE;
 }
 
 /**

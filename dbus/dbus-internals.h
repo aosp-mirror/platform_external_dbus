@@ -53,14 +53,15 @@ DBUS_BEGIN_DECLS;
 #define _DBUS_GNUC_NORETURN
 #endif  /* !__GNUC__ */
 
-void _dbus_warn         (const char *format,
-                         ...) _DBUS_GNUC_PRINTF (1, 2);
-void _dbus_verbose_real (const char *format,
-                         ...) _DBUS_GNUC_PRINTF (1, 2);
-
+void _dbus_warn               (const char *format,
+                               ...) _DBUS_GNUC_PRINTF (1, 2);
+void _dbus_verbose_real       (const char *format,
+                               ...) _DBUS_GNUC_PRINTF (1, 2);
+void _dbus_verbose_reset_real (void);
 
 #ifdef DBUS_ENABLE_VERBOSE_MODE
 #  define _dbus_verbose _dbus_verbose_real
+#  define _dbus_verbose_reset _dbus_verbose_reset_real
 #else
 #  ifdef HAVE_ISO_VARARGS
 #    define _dbus_verbose(...)
@@ -69,6 +70,7 @@ void _dbus_verbose_real (const char *format,
 #  else
 #    error "This compiler does not support varargs macros and thus verbose mode can't be disabled meaningfully"
 #  endif
+#  define _dbus_verbose_reset()
 #endif /* !DBUS_ENABLE_VERBOSE_MODE */
 
 const char* _dbus_strerror (int error_number);

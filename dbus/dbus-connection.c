@@ -1527,9 +1527,9 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
   _dbus_get_current_time (&tv_sec, &tv_usec);
   
   if (tv_sec < start_tv_sec)
-    ; /* clock set backward, bail out */
+    _dbus_verbose ("dbus_connection_send_with_reply_and_block(): clock set backward\n");
   else if (connection->disconnect_message_link == NULL)
-    ; /* we're disconnected, bail out */
+    _dbus_verbose ("dbus_connection_send_with_reply_and_block(): disconnected\n");
   else if (tv_sec < end_tv_sec ||
            (tv_sec == end_tv_sec && tv_usec < end_tv_usec))
     {

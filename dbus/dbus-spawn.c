@@ -544,7 +544,6 @@ babysitter_iteration (DBusBabysitter *sitter,
  */
 #define LIVE_CHILDREN(sitter) ((sitter)->socket_to_babysitter >= 0 || (sitter)->error_pipe_from_child >= 0)
 
-
 /**
  * Blocks until the babysitter process gives us the PID of the spawned grandchild,
  * then kills the spawned grandchild.
@@ -559,6 +558,9 @@ _dbus_babysitter_kill_child (DBusBabysitter *sitter)
          sitter->grandchild_pid == -1)
     babysitter_iteration (sitter, TRUE);
 
+  _dbus_verbose ("Got child PID %ld for killing\n",
+                 (long) sitter->grandchild_pid);
+  
   if (sitter->grandchild_pid == -1)
     return; /* child is already dead, or we're so hosed we'll never recover */
 
@@ -826,6 +828,10 @@ do_exec (int                       child_err_report_fd,
   int i, max_open;
 #endif
 
+  _dbus_verbose_reset ();
+  _dbus_verbose ("Child process has PID %lu\n",
+                 _dbus_getpid ());
+  
   if (child_setup)
     (* child_setup) (user_data);
 
@@ -921,6 +927,11 @@ babysit (pid_t grandchild_pid,
 {
   int sigchld_pipe[2];
 
+  /* We don't exec, so we keep parent state, such as the pid that
+   * _dbus_verbose() uses. Reset the pid here.
+   */
+  _dbus_verbose_reset ();
+  
   /* I thought SIGCHLD would just wake up the poll, but
    * that didn't seem to work, so added this pipe.
    * Probably the pipe is more likely to work on busted
@@ -1029,6 +1040,43 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
 
   _dbus_fd_set_close_on_exec (babysitter_pipe[0]);
   _dbus_fd_set_close_on_exec (babysitter_pipe[1]);
+
+  /* Setting up the babysitter is only useful in the parent,
+   * but we don't want to run out of memory and fail
+   * after we've already forked, since then we'd leak
+   * child processes everywhere.
+   */
+  sitter->error_watch = _dbus_watch_new (child_err_report_pipe[READ_END],
+                                         DBUS_WATCH_READABLE,
+                                         TRUE);
+  if (sitter->error_watch == NULL)
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      goto cleanup_and_fail;
+    }
+        
+  if (!_dbus_watch_list_add_watch (sitter->watches,  sitter->error_watch))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      goto cleanup_and_fail;
+    }
+      
+  sitter->sitter_watch = _dbus_watch_new (babysitter_pipe[0],
+                                          DBUS_WATCH_READABLE,
+                                          TRUE);
+  if (sitter->sitter_watch == NULL)
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      goto cleanup_and_fail;
+    }
+      
+  if (!_dbus_watch_list_add_watch (sitter->watches,  sitter->sitter_watch))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      goto cleanup_and_fail;
+    }
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   pid = fork ();
   
@@ -1077,38 +1125,7 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
 	}
     }
   else
-    {
-      /* Parent */
-      sitter->error_watch = _dbus_watch_new (child_err_report_pipe[READ_END],
-                                             DBUS_WATCH_READABLE,
-                                             TRUE);
-      if (sitter->error_watch == NULL)
-        {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-          goto cleanup_and_fail;
-        }
-        
-      if (!_dbus_watch_list_add_watch (sitter->watches,  sitter->error_watch))
-        {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-          goto cleanup_and_fail;
-        }
-      
-      sitter->sitter_watch = _dbus_watch_new (babysitter_pipe[0],
-                                              DBUS_WATCH_READABLE,
-                                              TRUE);
-      if (sitter->sitter_watch == NULL)
-        {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-          goto cleanup_and_fail;
-        }
-      
-      if (!_dbus_watch_list_add_watch (sitter->watches,  sitter->sitter_watch))
-        {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-          goto cleanup_and_fail;
-        }
-      
+    {      
       /* Close the uncared-about ends of the pipes */
       close_and_invalidate (&child_err_report_pipe[WRITE_END]);
       close_and_invalidate (&babysitter_pipe[1]);

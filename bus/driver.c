@@ -584,13 +584,21 @@ bus_driver_handle_activate_service (DBusConnection *connection,
                               DBUS_TYPE_STRING, &name,
                               DBUS_TYPE_UINT32, &flags,
                               0))
-    return FALSE;
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      _dbus_verbose ("No memory to get arguments to ActivateService\n");
+      return FALSE;
+    }
 
   retval = FALSE;
 
   if (!bus_activation_activate_service (activation, connection, transaction,
                                         message, name, error))
-    goto out;
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      _dbus_verbose ("bus_activation_activate_service() failed\n");
+      goto out;
+    }
 
   retval = TRUE;
   
@@ -650,14 +658,25 @@ bus_driver_handle_message (DBusConnection *connection,
     {
       if (strcmp (message_handlers[i].name, name) == 0)
         {
+          _dbus_verbose ("Running driver handler for %s\n", name);
           if ((* message_handlers[i].handler) (connection, transaction, message, error))
-            return TRUE;
+            {
+              _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+              _dbus_verbose ("Driver handler succeeded\n");
+              return TRUE;
+            }
           else
-            return FALSE;
+            {
+              _DBUS_ASSERT_ERROR_IS_SET (error);
+              _dbus_verbose ("Driver handler returned failure\n");
+              return FALSE;
+            }
         }
       
       ++i;
     }
+
+  _dbus_verbose ("No driver handler for %s\n", name);
 
   dbus_set_error (error, DBUS_ERROR_UNKNOWN_MESSAGE,
                   "%s does not understand message %s",
