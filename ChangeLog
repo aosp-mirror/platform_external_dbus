@@ -1,5 +1,22 @@
 2003-05-16  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-connection.c: disable verbose lock spew
+
+	* tools/dbus-send.c: add --print-reply command line option
+
+	* tools/dbus-print-message.h (print_message): new util function 
+	shared by dbus-send and dbus-monitor
+
+	* tools/dbus-monitor.c (handler_func): exit on disconnect
+
+	* dbus/dbus-transport-unix.c (do_reading): if the transport is 
+	disconnected, don't try to use the read_watch
+
+	* dbus/dbus-watch.c (dbus_watch_get_enabled): assert watch != NULL
+	so we can find this bug more easily
+
+2003-05-16  Havoc Pennington  <hp@redhat.com>
+
 	* bus/policy.c (free_rule_list_func): avoid a crash when passed
 	NULL as DBusHashTable is annoyingly likely to do.
 

@@ -970,6 +970,7 @@ bus_context_check_security_policy (BusContext     *context,
                       "had name \"%s\" destination \"%s\")",
                       dbus_message_get_name (message),
                       dest ? dest : DBUS_SERVICE_DBUS);
+      _dbus_verbose ("security policy disallowing message due to sender policy\n");
       return FALSE;
     }
 
@@ -986,6 +987,7 @@ bus_context_check_security_policy (BusContext     *context,
                       "had name \"%s\" destination \"%s\")",
                       dbus_message_get_name (message),
                       dest ? dest : DBUS_SERVICE_DBUS);
+      _dbus_verbose ("security policy disallowing message due to recipient policy\n");
       return FALSE;
     }
 
@@ -998,8 +1000,10 @@ bus_context_check_security_policy (BusContext     *context,
       dbus_set_error (error, DBUS_ERROR_LIMITS_EXCEEDED,
                       "The destination service \"%s\" has a full message queue",
                       dest ? dest : DBUS_SERVICE_DBUS);
+      _dbus_verbose ("security policy disallowing message due to full message queue\n");
       return FALSE;
     }
-  
+
+  _dbus_verbose ("security policy allowing message\n");
   return TRUE;
 }

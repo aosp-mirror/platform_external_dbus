@@ -535,6 +535,7 @@ dbus_watch_set_data (DBusWatch        *watch,
 dbus_bool_t
 dbus_watch_get_enabled (DBusWatch *watch)
 {
+  _dbus_assert (watch != NULL);
   return watch->enabled;
 }
 

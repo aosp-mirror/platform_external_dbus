@@ -9,10 +9,14 @@ endif
 bin_PROGRAMS=dbus-send $(GLIB_TOOLS) dbus-launch
 
 dbus_send_SOURCES=				\
+	dbus-print-message.c			\
+	dbus-print-message.h			\
 	dbus-send.c
 
 dbus_monitor_SOURCES=				\
-	dbus-monitor.c
+	dbus-monitor.c				\
+	dbus-print-message.c			\
+	dbus-print-message.h
 
 dbus_launch_SOURCES=				\
 	dbus-launch.c

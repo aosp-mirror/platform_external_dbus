@@ -8,7 +8,7 @@ dbus-send \- Send a message to a message bus
 .SH SYNOPSIS
 .PP
 .B dbus-send
-[\-\-session] [\-\-dest=SERVICE] <message name> [contents ...]
+[\-\-session] [\-\-dest=SERVICE] [\-\-print-reply] <message name> [contents ...]
 
 .SH DESCRIPTION
 
@@ -50,11 +50,14 @@ Here is an example invocation:
 .SH OPTIONS
 The following options are supported:
 .TP
-.I "--session"
-Use the per-login-session message bus instead of the systemwide bus.
-.TP
 .I "--dest=SERVICE"
 Specify the service to receive the message.
+.TP
+.I "--print-reply"
+Block for a reply to the message sent, and print any reply received.
+.TP
+.I "--session"
+Use the per-login-session message bus instead of the systemwide bus.
 
 .SH AUTHOR
 dbus-send was written by Philip Blundell.

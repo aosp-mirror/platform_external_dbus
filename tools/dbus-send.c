@@ -25,10 +25,12 @@
 
 #include <dbus/dbus.h>
 
+#include "dbus-print-message.h"
+
 static void
 usage (char *name)
 {
-  fprintf (stderr, "Usage: %s [--session] [--dest=SERVICE] <message type> [contents ...]\n", name);
+  fprintf (stderr, "Usage: %s [--session] [--dest=SERVICE] [--print-reply] <message type> [contents ...]\n", name);
   exit (1);
 }
 
@@ -38,6 +40,7 @@ main (int argc, char *argv[])
   DBusConnection *connection;
   DBusError error;
   DBusMessage *message;
+  int print_reply;
   DBusMessageIter iter;
   int i;
   DBusBusType type = DBUS_BUS_SYSTEM;
@@ -47,12 +50,16 @@ main (int argc, char *argv[])
   if (argc < 2)
     usage (argv[0]);
 
+  print_reply = FALSE;
+  
   for (i = 1; i < argc && name == NULL; i++)
     {
       char *arg = argv[i];
 
-      if (!strcmp (arg, "--session"))
+      if (strcmp (arg, "--session") == 0)
 	type = DBUS_BUS_SESSION;
+      else if (strcmp (arg, "--print-reply") == 0)
+        print_reply = TRUE;
       else if (strstr (arg, "--dest=") == arg)
 	dest = strchr (arg, '=') + 1;
       else if (arg[0] == '-')
@@ -156,9 +163,32 @@ main (int argc, char *argv[])
 	}
     }
 
-  dbus_connection_send (connection, message, NULL);
+  if (print_reply)
+    {
+      DBusMessage *reply;
 
-  dbus_connection_flush (connection);
+      dbus_error_init (&error);
+      reply = dbus_connection_send_with_reply_and_block (connection,
+                                                         message, -1,
+                                                         &error);
+      if (dbus_error_is_set (&error))
+        {
+          fprintf (stderr, "Error: %s\n",
+                   error.message);
+          exit (1);
+        }
+
+      if (reply)
+        {
+          print_message (reply);
+          dbus_message_unref (reply);
+        }
+    }
+  else
+    {
+      dbus_connection_send (connection, message, NULL);
+      dbus_connection_flush (connection);
+    }
 
   dbus_message_unref (message);
 

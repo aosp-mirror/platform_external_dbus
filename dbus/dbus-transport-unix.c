@@ -593,11 +593,9 @@ do_reading (DBusTransport *transport)
   total = 0;
 
  again:
-
+  
   /* See if we've exceeded max messages and need to disable reading */
   check_read_watch (transport);
-  if (!dbus_watch_get_enabled (unix_transport->read_watch))
-    return TRUE;
   
   if (total > unix_transport->max_bytes_read_per_iteration)
     {
@@ -606,9 +604,15 @@ do_reading (DBusTransport *transport)
       goto out;
     }
 
+  _dbus_assert (unix_transport->read_watch != NULL ||
+                transport->disconnected);
+  
   if (transport->disconnected)
     goto out;
 
+  if (!dbus_watch_get_enabled (unix_transport->read_watch))
+    return TRUE;
+  
   if (_dbus_auth_needs_decoding (transport->auth))
     {
       if (_dbus_string_get_length (&unix_transport->encoded_incoming) > 0)

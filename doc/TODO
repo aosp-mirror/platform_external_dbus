@@ -56,3 +56,8 @@
    will only be right for one of them. Probably need to just write() the serial 
    number, rather than putting it in the DBusMessage, or something.
 
+ - currently the security policy stuff for messages to/from 
+   the bus driver is kind of strange; basically it's hardcoded that 
+   you can always talk to the driver, but the default config file 
+   has rules for it anyway, or something. it's conceptually 
+   screwy at the moment.

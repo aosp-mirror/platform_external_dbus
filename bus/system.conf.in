@@ -37,6 +37,8 @@
     <!-- But allow all users to connect -->
     <allow user="*"/>
     <!-- Allow anyone to talk to the message bus -->
+    <!-- FIXME I think currently these allow rules are always implicit 
+         even if they aren't in here -->
     <allow send_to="org.freedesktop.DBus"/>
     <allow receive_from="org.freedesktop.DBus"/>
   </policy>

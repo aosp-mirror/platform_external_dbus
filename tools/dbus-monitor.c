@@ -27,6 +27,7 @@
 #include <dbus/dbus.h>
  /* Don't copy this, for programs outside the dbus tree it's dbus/dbus-glib.h */
 #include <glib/dbus-glib.h>
+#include "dbus-print-message.h"
 
 static DBusHandlerResult
 handler_func (DBusMessageHandler *handler,
@@ -34,58 +35,11 @@ handler_func (DBusMessageHandler *handler,
 	      DBusMessage        *message,
 	      void               *user_data)
 {
-  DBusMessageIter iter;
-
-  printf ("message name=%s; sender=%s\n", dbus_message_get_name (message),
-          dbus_message_get_sender (message));
-
-  dbus_message_iter_init (message, &iter);
-
-  do
-    {
-      int type = dbus_message_iter_get_arg_type (&iter);
-      char *str;
-      dbus_uint32_t uint32;
-      dbus_int32_t int32;
-      double d;
-      unsigned char byte;
-
-      if (type == DBUS_TYPE_INVALID)
-	break;
-
-      switch (type)
-	{
-	case DBUS_TYPE_STRING:
-	  str = dbus_message_iter_get_string (&iter);
-	  printf ("string:%s\n", str);
-	  break;
-
-	case DBUS_TYPE_INT32:
-	  int32 = dbus_message_iter_get_int32 (&iter);
-	  printf ("int32:%d\n", int32);
-	  break;
-
-	case DBUS_TYPE_UINT32:
-	  uint32 = dbus_message_iter_get_uint32 (&iter);
-	  printf ("int32:%u\n", uint32);
-	  break;
-
-	case DBUS_TYPE_DOUBLE:
-	  d = dbus_message_iter_get_double (&iter);
-	  printf ("double:%f\n", d);
-	  break;
-
-	case DBUS_TYPE_BYTE:
-	  byte = dbus_message_iter_get_byte (&iter);
-	  printf ("byte:%d\n", byte);
-	  break;
-
-	default:
-	  printf ("(unknown arg type %d)\n", type);
-	  break;
-	}
-    } while (dbus_message_iter_next (&iter));
-
+  print_message (message);
+  
+  if (dbus_message_has_name (message, DBUS_MESSAGE_LOCAL_DISCONNECT))
+    exit (0);
+  
   return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
 }
 

@@ -36,7 +36,7 @@
 #include "dbus-protocol.h"
 #include "dbus-dataslot.h"
 
-#if 1
+#if 0
 #define CONNECTION_LOCK(connection)   do {                      \
     _dbus_verbose ("  LOCK: %s\n", _DBUS_FUNCTION_NAME);        \
     dbus_mutex_lock ((connection)->mutex);                      \
