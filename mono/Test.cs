@@ -17,11 +17,16 @@ namespace DBus.Test
       serverThread.Start();
 
       connection = Bus.GetSessionBus();
-      service = Service.Get(connection, "org.freedesktop.Test");      
+      service = Service.Get(connection, "org.freedesktop.Test");
+      Thread.Sleep (1000);
 
       TestObject testObject = (TestObject) service.GetObject(typeof(TestObject), "/org/freedesktop/Test/TestObject");
+
+      Console.WriteLine ("Got object [{0}]", testObject);
       
       System.Console.WriteLine(testObject.Test1("Hello"));
+
+      Console.WriteLine ("Got object [{0}]", testObject);
 
       //RunTests(testObject);
 
@@ -49,6 +54,8 @@ namespace DBus.Test
       service = new Service(connection, "org.freedesktop.Test");
       TestObject testObject = new TestObject();
       service.RegisterObject(testObject, "/org/freedesktop/Test/TestObject");
+      
+      System.Console.WriteLine("Foo!");
     }
     
     public void StartServer()
