@@ -1229,7 +1229,7 @@ dbus_message_get_destination (DBusMessage *message)
  * followed by the value to add.  Array values are specified by an int
  * typecode followed by a pointer to the array followed by an int
  * giving the length of the array.  The argument list must be
- * terminated with DBUS_TYPE_INVALID.
+ * terminated with #DBUS_TYPE_INVALID.
  *
  * This function doesn't support dicts or non-fundamental arrays.
  *
@@ -1421,7 +1421,7 @@ dbus_message_append_args_valist (DBusMessage *message,
  * Gets arguments from a message given a variable argument list.
  * The variable argument list should contain the type of the
  * argumen followed by a pointer to where the value should be
- * stored. The list is terminated with 0.
+ * stored. The list is terminated with #DBUS_TYPE_INVALID.
  *
  * @param message the message
  * @param error error to be filled in on failure

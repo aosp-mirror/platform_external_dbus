@@ -595,7 +595,7 @@ bus_activation_service_created (BusActivation  *activation,
 
 	  if (!dbus_message_append_args (message,
 					 DBUS_TYPE_UINT32, DBUS_ACTIVATION_REPLY_ACTIVATED,
-					 0))
+					 DBUS_TYPE_INVALID))
 	    {
 	      dbus_message_unref (message);
 	      BUS_SET_OOM (error);
@@ -877,7 +877,7 @@ bus_activation_activate_service (BusActivation  *activation,
 
       if (!dbus_message_append_args (message,
 				     DBUS_TYPE_UINT32, DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE, 
-				     0))
+				     DBUS_TYPE_INVALID))
 	{
           _dbus_verbose ("No memory to set args of reply to activate message\n");
 	  BUS_SET_OOM (error);

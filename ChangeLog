@@ -1,3 +1,22 @@
+2003-05-13  James Willcox  <jwillcox@gnome.org>
+
+	* configure.in:
+	* bus/activation.c: (bus_activation_service_created),
+	(bus_activation_activate_service):
+	* bus/driver.c: (bus_driver_send_service_deleted),
+	(bus_driver_send_service_created), (bus_driver_send_service_lost),
+	(bus_driver_send_service_acquired),
+	(bus_driver_send_welcome_message),
+	(bus_driver_handle_list_services):
+	* bus/session.conf.in:
+	* dbus/dbus-bus.c: (dbus_bus_acquire_service),
+	(dbus_bus_service_exists), (dbus_bus_activate_service):
+	* dbus/dbus-bus.h:
+
+	Add some convenience API which lets you activate a service, and did a
+	bunch of s/0/DBUS_TYPE_INVALID/ in calls to dbus_message_append_args()
+	and dbus_message_get_args()
+
 2003-05-11  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-marshal.c (_dbus_marshal_validate_arg): fix to avoid 

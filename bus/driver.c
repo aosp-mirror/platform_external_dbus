@@ -60,7 +60,7 @@ bus_driver_send_service_deleted (const char     *service_name,
   if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS) ||
       !dbus_message_append_args (message,
                                  DBUS_TYPE_STRING, service_name,
-                                 0))
+                                 DBUS_TYPE_INVALID))
     {
       dbus_message_unref (message);
       BUS_SET_OOM (error);
@@ -100,7 +100,7 @@ bus_driver_send_service_created (const char     *service_name,
   
   if (!dbus_message_append_args (message,
                                  DBUS_TYPE_STRING, service_name,
-                                 0))
+                                 DBUS_TYPE_INVALID))
     {
       dbus_message_unref (message);
       BUS_SET_OOM (error);
@@ -133,7 +133,7 @@ bus_driver_send_service_lost (DBusConnection *connection,
   
   if (!dbus_message_append_args (message,
                                  DBUS_TYPE_STRING, service_name,
-                                 0))
+                                 DBUS_TYPE_INVALID))
     {
       dbus_message_unref (message);
       BUS_SET_OOM (error);
@@ -174,7 +174,7 @@ bus_driver_send_service_acquired (DBusConnection *connection,
   
   if (!dbus_message_append_args (message,
                                  DBUS_TYPE_STRING, service_name,
-                                 0))
+                                 DBUS_TYPE_INVALID))
     {
       dbus_message_unref (message);
       BUS_SET_OOM (error);
@@ -352,7 +352,7 @@ bus_driver_send_welcome_message (DBusConnection *connection,
   
   if (!dbus_message_append_args (welcome,
                                  DBUS_TYPE_STRING, name,
-                                 NULL))
+                                 DBUS_TYPE_INVALID))
     {
       dbus_message_unref (welcome);
       BUS_SET_OOM (error);
@@ -403,7 +403,7 @@ bus_driver_handle_list_services (DBusConnection *connection,
   
   if (!dbus_message_append_args (reply,
                                  DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, services, len,
-                                 0))
+                                 DBUS_TYPE_INVALID))
     {
       dbus_free_string_array (services);
       dbus_message_unref (reply);
@@ -447,7 +447,7 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
   if (!dbus_message_get_args (message, error,
                               DBUS_TYPE_STRING, &name,
                               DBUS_TYPE_UINT32, &flags,
-                              0))
+                              DBUS_TYPE_INVALID))
     return FALSE;
   
   _dbus_verbose ("Trying to own service %s with flags 0x%x\n", name, flags);
@@ -510,7 +510,7 @@ bus_driver_handle_service_exists (DBusConnection *connection,
   
   if (!dbus_message_get_args (message, error,
                               DBUS_TYPE_STRING, &name,
-                              0))
+                              DBUS_TYPE_INVALID))
     return FALSE;
 
   retval = FALSE;
@@ -567,7 +567,7 @@ bus_driver_handle_activate_service (DBusConnection *connection,
   if (!dbus_message_get_args (message, error,
                               DBUS_TYPE_STRING, &name,
                               DBUS_TYPE_UINT32, &flags,
-                              0))
+                              DBUS_TYPE_INVALID))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
       _dbus_verbose ("No memory to get arguments to ActivateService\n");

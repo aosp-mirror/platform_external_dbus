@@ -53,6 +53,12 @@ dbus_bool_t     dbus_bus_service_exists   (DBusConnection *connection,
 					   const char     *service_name,
 					   DBusError      *error);
 
+dbus_bool_t     dbus_bus_activate_service (DBusConnection *connection,
+					   const char     *service_name,
+					   dbus_uint32_t   flags,
+					   dbus_uint32_t  *reply,
+					   DBusError      *error);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_BUS_H */

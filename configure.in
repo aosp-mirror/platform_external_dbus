@@ -548,6 +548,12 @@ EXPANDED_BINDIR=`eval echo $BINDIR_TMP`
 prefix=$old_prefix
 AC_SUBST(EXPANDED_BINDIR)
 
+old_exec_prefix=${exec_prefix}
+test "x$exec_prefix" = xNONE && eval exec_prefix=${prefix}
+eval EXPANDED_LIBDIR=${libdir}
+exec_prefix=${old_exec_prefix}
+AC_SUBST(EXPANDED_LIBDIR)
+
 #### Check our operating system
 operating_system=unknown
 if test -f /etc/redhat-release || test -f $EXPANDED_SYSCONFDIR/redhat-release ; then
@@ -628,6 +634,7 @@ else
    DBUS_SESSION_SOCKET_DIR=$DEFAULT_SOCKET_DIR
 fi
 AC_SUBST(DBUS_SESSION_SOCKET_DIR)
+
 
 
 AC_OUTPUT([

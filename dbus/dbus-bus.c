@@ -465,7 +465,7 @@ dbus_bus_register (DBusConnection *connection,
     goto out;
   else if (!dbus_message_get_args (reply, error,
                                    DBUS_TYPE_STRING, &name,
-                                   0))
+                                   DBUS_TYPE_INVALID))
     goto out;
   
   bd->base_service = name;
@@ -576,7 +576,7 @@ dbus_bus_acquire_service (DBusConnection *connection,
   if (!dbus_message_append_args (message,
 				 DBUS_TYPE_STRING, service_name,
 				 DBUS_TYPE_UINT32, flags,
-				 0))
+				 DBUS_TYPE_INVALID))
     {
       dbus_message_unref (message);
       _DBUS_SET_OOM (error);
@@ -603,7 +603,7 @@ dbus_bus_acquire_service (DBusConnection *connection,
   
   if (!dbus_message_get_args (reply, error,
                               DBUS_TYPE_UINT32, &service_result,
-                              0))
+                              DBUS_TYPE_INVALID))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
       dbus_message_unref (reply);
@@ -647,7 +647,7 @@ dbus_bus_service_exists (DBusConnection *connection,
   
   if (!dbus_message_append_args (message,
 				 DBUS_TYPE_STRING, service_name,
-				 0))
+				 DBUS_TYPE_INVALID))
     {
       dbus_message_unref (message);
       _DBUS_SET_OOM (error);
@@ -665,7 +665,7 @@ dbus_bus_service_exists (DBusConnection *connection,
 
   if (!dbus_message_get_args (reply, error,
                               DBUS_TYPE_UINT32, &exists,
-                              0))
+                              DBUS_TYPE_INVALID))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
       return FALSE;
@@ -673,5 +673,72 @@ dbus_bus_service_exists (DBusConnection *connection,
   
   return (exists != FALSE);
 }
+
+/**
+ * Activates a given service
+ *
+ * @param connection the connection
+ * @param service_name the service name
+ * @param flags the flags
+ * @param result a place to store the result of the activation, which will
+ * be one of DBUS_ACTIVATION_REPLY_ACTIVATED or
+ * DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE if successful.  Pass NULL if you
+ * don't care about the result.
+ * @param error location to store any errors
+ * @returns #TRUE if the activation succeeded, #FALSE if not
+ *
+ * @todo document what the flags do
+ */
+dbus_bool_t
+dbus_bus_activate_service (DBusConnection *connection,
+			   const char     *service_name,
+			   dbus_uint32_t   flags,
+			   dbus_uint32_t  *result,
+			   DBusError      *error)
+{
+  DBusMessage *msg;
+  DBusMessage *reply;
+
+  msg = dbus_message_new (DBUS_MESSAGE_ACTIVATE_SERVICE,
+      			  DBUS_SERVICE_DBUS);
+
+  if (!dbus_message_append_args (msg, DBUS_TYPE_STRING, service_name,
+			  	 DBUS_TYPE_UINT32, flags, DBUS_TYPE_INVALID))
+    {
+      dbus_message_unref (msg);
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  reply = dbus_connection_send_with_reply_and_block (connection, msg,
+		  					 -1, error);
+  dbus_message_unref (msg);
+
+  if (reply == NULL)
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      return FALSE;
+    }
+
+  if (dbus_set_error_from_message (error, reply))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_message_unref (reply);
+      return FALSE;
+    }
+
+  if (result != NULL &&
+      !dbus_message_get_args (reply, error, DBUS_TYPE_UINT32,
+	      		      result, DBUS_TYPE_INVALID))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_message_unref (reply);
+      return FALSE;
+    }
+  
+  dbus_message_unref (reply);
+  return TRUE;
+}
+
 
 /** @} */
