@@ -34,15 +34,15 @@ G_BEGIN_DECLS
 
 
 /**
- * Convert to/from DBusConnection with DBUS_CONNECTION_FROM_G_CONNECTION()
+ * Convert to DBusConnection with dbus_g_connection_get_connection()
  */
 typedef struct DBusGConnection DBusGConnection;
 /**
- * Convert to/from DBusMessage with DBUS_MESSAGE_FROM_G_MESSAGE()
+ * Convert to DBusMessage with dbus_g_message_get_message()
  */
 typedef struct DBusGMessage DBusGMessage;
 /**
- * Convert to/from DBusPendingCall with DBUS_PENDING_CALL_FROM_G_PENDING_CALL()
+ * Deliberately not possible to convert to DBusPendingCall
  */
 typedef struct DBusGPendingCall DBusGPendingCall;
 

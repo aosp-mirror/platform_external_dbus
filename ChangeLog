@@ -1,3 +1,8 @@
+2004-10-29 Colin Walters  <walters@redhat.com>
+
+	* dbus/dbus-glib.h: Update documentation to not
+	refer to internal APIs.
+
 2004-10-27  Joe Shaw  <joeshaw@novell.com>
 
 	* mono/Arguments.cs (GetDBusTypeConstructor):
