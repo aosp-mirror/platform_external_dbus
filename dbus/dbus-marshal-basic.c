@@ -671,6 +671,29 @@ _dbus_marshal_string_len (DBusString    *str,
   return TRUE;
 }
 
+static dbus_bool_t
+_dbus_marshal_signature (DBusString    *str,
+                         const char    *value)
+{
+  int len, old_string_len;
+
+  old_string_len = _dbus_string_get_length (str);
+  
+  len = strlen (value);
+
+  _dbus_assert (len <= DBUS_MAXIMUM_SIGNATURE_LENGTH);
+  
+  if (!_dbus_string_append_byte (str, len))
+    {
+      /* Restore the previous length */
+      _dbus_string_set_length (str, old_string_len);
+
+      return FALSE;
+    }
+
+  return _dbus_string_append_len (str, value, len + 1);
+}
+
 /**
  * Marshals a byte array
  *
@@ -1193,10 +1216,28 @@ _dbus_demarshal_basic_type (const DBusString      *str,
       *pos += 8;
       break;
     case DBUS_TYPE_STRING:
-      _dbus_assert_not_reached ("FIXME string is a basic type");
-      break;
     case DBUS_TYPE_OBJECT_PATH:
-      _dbus_assert_not_reached ("FIXME object path is a basic type");
+      {
+        int len;
+        
+        len = _dbus_demarshal_uint32 (str, byte_order, *pos, pos);
+        
+        *(const char**) value = str_data + *pos;
+
+        *pos += len + 1; /* length plus nul */
+      }
+      break;
+    case DBUS_TYPE_SIGNATURE:
+      {
+        int len;
+        
+        len = _dbus_string_get_byte (str, *pos);
+        *pos += 1;
+        
+        *(const char**) value = str_data + *pos;
+
+        *pos += len + 1; /* length plus nul */
+      }
       break;
     default:
       _dbus_verbose ("type %s not a basic type\n",
@@ -1824,10 +1865,23 @@ _dbus_marshal_skip_basic_type (const DBusString      *str,
       *pos += 8;
       break;
     case DBUS_TYPE_STRING:
-      _dbus_assert_not_reached ("FIXME string is a basic type");
-      break;
     case DBUS_TYPE_OBJECT_PATH:
-      _dbus_assert_not_reached ("FIXME object path is a basic type");
+      {
+        int len;
+        
+        len = _dbus_demarshal_uint32 (str, byte_order, *pos, pos);
+        
+        *pos += len + 1; /* length plus nul */
+      }
+      break;
+    case DBUS_TYPE_SIGNATURE:
+      {
+        int len;
+        
+        len = _dbus_string_get_byte (str, *pos);
+        
+        *pos += len + 2; /* length byte plus length plus nul */
+      }
       break;
     default:
       _dbus_verbose ("type %s not a basic type\n",
@@ -2606,6 +2660,13 @@ _dbus_marshal_basic_type (DBusString *str,
         r.d = *(const double *)value;
         retval = marshal_8_octets (str, insert_at, byte_order, r);
       }
+      break;
+    case DBUS_TYPE_STRING:
+    case DBUS_TYPE_OBJECT_PATH:
+      retval = _dbus_marshal_string (str, byte_order, (const char*) value);
+      break;
+    case DBUS_TYPE_SIGNATURE:
+      retval = _dbus_marshal_signature (str, (const char*) value);
       break;
     default:
       _dbus_assert_not_reached ("not a basic type");
