@@ -64,6 +64,8 @@ dbus_bool_t bus_config_parser_get_fork         (BusConfigParser *parser);
 const char* bus_config_parser_get_pidfile      (BusConfigParser *parser);
 DBusList**  bus_config_parser_get_service_dirs (BusConfigParser *parser);
 BusPolicy*  bus_config_parser_steal_policy     (BusConfigParser *parser);
+void        bus_config_parser_get_limits       (BusConfigParser *parser,
+                                                BusLimits       *limits);
 
 /* Loader functions (backended off one of the XML parsers).  Returns a
  * finished ConfigParser.

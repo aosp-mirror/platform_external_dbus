@@ -131,7 +131,35 @@ Elements:
     Appears below a <policy> element and establishes a resource
     limit. For example:
       <limit name="max_message_size">64</limit>
-      <limit name="max_connections">512</limit>
+      <limit name="max_completed_connections">512</limit>
+
+    Available limits are:
+      "max_incoming_bytes"         : total size in bytes of messages
+                                     incoming from a connection
+      "max_outgoing_bytes"         : total size in bytes of messages
+                                     queued up for a connection
+      "max_message_size"           : max size of a single message in
+                                     bytes
+      "activation_timeout"         : milliseconds (thousandths) until 
+                                     an activated service has to connect
+      "auth_timeout"               : milliseconds (thousandths) a
+                                     connection is given to
+                                     authenticate
+      "max_completed_connections"  : max number of authenticated connections  
+      "max_incomplete_connections" : max number of unauthenticated
+                                     connections
+      "max_connections_per_user"   : max number of completed connections from
+                                     the same user
+
+    Some notes:
+
+       - the max incoming/outgoing queue sizes allow a new message 
+         to be queued if one byte remains below the max. So you can 
+         in fact exceed the max by max_message_size
+
+       - max_completed_connections / max_connections_per_user is 
+         the number of users that can work together to DOS all 
+         other users by using up all connections
 
  <deny>
   send="messagename"

@@ -1,5 +1,13 @@
 2003-04-24  Havoc Pennington  <hp@redhat.com>
 
+	* test/data/valid-config-files/basic.conf: add <limit> tags to
+	this test
+	
+	* bus/config-parser.h, bus/config-parser.c, bus/bus.c: Implement
+	<limit> tag in configuration file.
+	
+2003-04-24  Havoc Pennington  <hp@redhat.com>
+
 	* bus/dispatch.c: somehow missed some name_is
 
 	* dbus/dbus-timeout.c (_dbus_timeout_set_enabled) 

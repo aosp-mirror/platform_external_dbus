@@ -78,6 +78,12 @@ typedef struct
       unsigned long gid_or_uid;      
     } policy;
 
+    struct
+    {
+      char *name;
+      long value;
+    } limit;
+    
   } d;
 
 } Element;
@@ -101,6 +107,8 @@ struct BusConfigParser
   DBusList *service_dirs; /**< Directories to look for services in */
 
   BusPolicy *policy;     /**< Security policy */
+
+  BusLimits limits;      /**< Limits */
   
   unsigned int fork : 1; /**< TRUE to fork into daemon mode */
 
@@ -175,7 +183,9 @@ push_element (BusConfigParser *parser,
 static void
 element_free (Element *e)
 {
-
+  if (e->type == ELEMENT_LIMIT)
+    dbus_free (e->d.limit.name);
+  
   dbus_free (e);
 }
 
@@ -280,6 +290,32 @@ bus_config_parser_new (const DBusString *basedir)
       dbus_free (parser);
       return NULL;
     }
+
+  /* Make up some numbers! woot! */
+  parser->limits.max_incoming_bytes = _DBUS_ONE_MEGABYTE * 63;
+  parser->limits.max_outgoing_bytes = _DBUS_ONE_MEGABYTE * 63;
+  parser->limits.max_message_size = _DBUS_ONE_MEGABYTE * 32;
+  
+#ifdef DBUS_BUILD_TESTS
+  parser->limits.activation_timeout = 6000;  /* 6 seconds */
+#else
+  parser->limits.activation_timeout = 15000; /* 15 seconds */
+#endif
+
+  /* Making this long risks making a DOS attack easier, but too short
+   * and legitimate auth will fail.  If interactive auth (ask user for
+   * password) is allowed, then potentially it has to be quite long.
+   */     
+  parser->limits.auth_timeout = 3000; /* 3 seconds */
+
+  parser->limits.max_incomplete_connections = 32;
+  parser->limits.max_connections_per_user = 128;
+
+  /* Note that max_completed_connections / max_connections_per_user
+   * is the number of users that would have to work together to
+   * DOS all the other users.
+   */
+  parser->limits.max_completed_connections = 1024;
   
   parser->refcount = 1;
 
@@ -713,6 +749,41 @@ start_busconfig_child (BusConfigParser   *parser,
       
       return TRUE;
     }
+  else if (strcmp (element_name, "limit") == 0)
+    {
+      Element *e;
+      const char *name;
+
+      if ((e = push_element (parser, ELEMENT_LIMIT)) == NULL)
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+      
+      if (!locate_attributes (parser, "limit",
+                              attribute_names,
+                              attribute_values,
+                              error,
+                              "name", &name,
+                              NULL))
+        return FALSE;
+
+      if (name == NULL)
+        {
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+                          "<limit> element must have a \"name\" attribute");
+          return FALSE;
+        }
+
+      e->d.limit.name = _dbus_strdup (name);
+      if (e->d.limit.name == NULL)
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+
+      return TRUE;
+    }
   else
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
@@ -1087,6 +1158,91 @@ bus_config_parser_start_element (BusConfigParser   *parser,
     }  
 }
 
+static dbus_bool_t
+set_limit (BusConfigParser *parser,
+           const char      *name,
+           long             value,
+           DBusError       *error)
+{
+  dbus_bool_t must_be_positive;
+  dbus_bool_t must_be_int;
+
+  must_be_int = FALSE;
+  must_be_positive = FALSE;
+  
+  if (strcmp (name, "max_incoming_bytes") == 0)
+    {
+      must_be_positive = TRUE;
+      parser->limits.max_incoming_bytes = value;
+    }
+  else if (strcmp (name, "max_outgoing_bytes") == 0)
+    {
+      must_be_positive = TRUE;
+      parser->limits.max_outgoing_bytes = value;
+    }
+  else if (strcmp (name, "max_message_size") == 0)
+    {
+      must_be_positive = TRUE;
+      parser->limits.max_message_size = value;
+    }
+  else if (strcmp (name, "activation_timeout") == 0)
+    {
+      must_be_positive = TRUE;
+      must_be_int = TRUE;
+      parser->limits.activation_timeout = value;
+    }
+  else if (strcmp (name, "auth_timeout") == 0)
+    {
+      must_be_positive = TRUE;
+      must_be_int = TRUE;
+      parser->limits.auth_timeout = value;
+    }
+  else if (strcmp (name, "max_completed_connections") == 0)
+    {
+      must_be_positive = TRUE;
+      must_be_int = TRUE;
+      parser->limits.max_completed_connections = value;
+    }
+  else if (strcmp (name, "max_incomplete_connections") == 0)
+    {
+      must_be_positive = TRUE;
+      must_be_int = TRUE;
+      parser->limits.max_incomplete_connections = value;
+    }
+  else if (strcmp (name, "max_connections_per_user") == 0)
+    {
+      must_be_positive = TRUE;
+      must_be_int = TRUE;
+      parser->limits.max_connections_per_user = value;
+    }
+  else
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "There is no limit called \"%s\"\n",
+                      name);
+      return FALSE;
+    }
+  
+  if (must_be_positive && value < 0)
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "<limit name=\"%s\"> must be a positive number\n",
+                      name);
+      return FALSE;
+    }
+
+  if (must_be_int &&
+      (value < _DBUS_INT_MIN || value > _DBUS_INT_MAX))
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "<limit name=\"%s\"> value is too large\n",
+                      name);
+      return FALSE;
+    }
+
+  return TRUE;  
+}
+
 dbus_bool_t
 bus_config_parser_end_element (BusConfigParser   *parser,
                                const char        *element_name,
@@ -1142,6 +1298,7 @@ bus_config_parser_end_element (BusConfigParser   *parser,
     case ELEMENT_AUTH:
     case ELEMENT_SERVICEDIR:
     case ELEMENT_INCLUDEDIR:
+    case ELEMENT_LIMIT:
       if (!e->had_content)
         {
           dbus_set_error (error, DBUS_ERROR_FAILED,
@@ -1149,11 +1306,17 @@ bus_config_parser_end_element (BusConfigParser   *parser,
                           element_type_to_name (e->type));
           return FALSE;
         }
+
+      if (e->type == ELEMENT_LIMIT)
+        {
+          if (!set_limit (parser, e->d.limit.name, e->d.limit.value,
+                          error))
+            return FALSE;
+        }
       break;
 
     case ELEMENT_BUSCONFIG:
     case ELEMENT_POLICY:
-    case ELEMENT_LIMIT:
     case ELEMENT_ALLOW:
     case ELEMENT_DENY:
     case ELEMENT_FORK:
@@ -1359,7 +1522,6 @@ bus_config_parser_content (BusConfigParser   *parser,
 
     case ELEMENT_BUSCONFIG:
     case ELEMENT_POLICY:
-    case ELEMENT_LIMIT:
     case ELEMENT_ALLOW:
     case ELEMENT_DENY:
     case ELEMENT_FORK:
@@ -1534,6 +1696,29 @@ bus_config_parser_content (BusConfigParser   *parser,
         _dbus_string_free (&full_path);
       }
       break;
+
+    case ELEMENT_LIMIT:
+      {
+        long val;
+
+        e->had_content = TRUE;
+
+        val = 0;
+        if (!_dbus_string_parse_int (content, 0, &val, NULL))
+          {
+            dbus_set_error (error, DBUS_ERROR_FAILED,
+                            "<limit name=\"%s\"> element has invalid value (could not parse as integer)",
+                            e->d.limit.name);
+            return FALSE;
+          }
+
+        e->d.limit.value = val;
+
+        _dbus_verbose ("Loaded value %ld for limit %s\n",
+                       e->d.limit.value,
+                       e->d.limit.name);
+      }
+      break;
     }
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
@@ -1623,6 +1808,14 @@ bus_config_parser_steal_policy (BusConfigParser *parser)
   parser->policy = NULL;
 
   return policy;
+}
+
+/* Overwrite any limits that were set in the configuration file */
+void
+bus_config_parser_get_limits (BusConfigParser *parser,
+                              BusLimits       *limits)
+{
+  *limits = parser->limits;
 }
 
 #ifdef DBUS_BUILD_TESTS
