@@ -40,72 +40,6 @@
  * @{
  */
 
-static dbus_bool_t
-pop_line (DBusString *source,
-          DBusString *dest)
-{
-  int eol;
-  dbus_bool_t have_newline;
-  
-  _dbus_string_set_length (dest, 0);
-  
-  eol = 0;
-  if (_dbus_string_find (source, 0, "\n", &eol))
-    {
-      have_newline = TRUE;
-      eol += 1; /* include newline */
-    }
-  else
-    {
-      eol = _dbus_string_get_length (source);
-      have_newline = FALSE;
-    }
-
-  if (eol == 0)
-    return FALSE; /* eof */
-  
-  if (!_dbus_string_move_len (source, 0, eol,
-                              dest, 0))
-    {
-      _dbus_warn ("failed to pop line\n");
-      return FALSE;
-    }
-
-  /* dump the newline */
-  if (have_newline)
-    {
-      _dbus_assert (_dbus_string_get_length (dest) > 0);
-      _dbus_string_set_length (dest,
-                               _dbus_string_get_length (dest) - 1);
-    }
-  
-  return TRUE;
-}
-
-static void
-strip_command_name (DBusString *str)
-{
-  int i;
-  
-  i = 0;
-  if (_dbus_string_find_blank (str, 0, &i))
-    _dbus_string_skip_blank (str, i, &i);
-
-  _dbus_string_delete (str, 0, i);
-}
-
-static void
-strip_leading_space (DBusString *str)
-{
-  int i;
-  
-  i = 0;
-  _dbus_string_skip_blank (str, 0, &i);
-
-  if (i > 0)
-    _dbus_string_delete (str, 0, i);
-}
-
 typedef struct
 {
   DBusString name;
@@ -394,7 +328,7 @@ _dbus_message_data_load (DBusString       *dest,
       const char *s;
       _dbus_string_get_const_data (filename, &s);
       _dbus_warn ("Getting contents of %s failed: %s\n",
-                     s, dbus_result_to_string (result));
+                  s, dbus_result_to_string (result));
                      
       goto out;
     }
@@ -409,14 +343,14 @@ _dbus_message_data_load (DBusString       *dest,
   unalign = FALSE;
   line_no = 0;
  next_iteration:
-  while (pop_line (&file, &line))
+  while (_dbus_string_pop_line (&file, &line))
     {
       dbus_bool_t just_set_unalign;
 
       just_set_unalign = FALSE;
       line_no += 1;
 
-      strip_leading_space (&line);
+      _dbus_string_delete_leading_blanks (&line);
 
       if (_dbus_string_get_length (&line) == 0)
         {
@@ -494,7 +428,7 @@ _dbus_message_data_load (DBusString       *dest,
         {
           long val;
 
-          strip_command_name (&line);
+          _dbus_string_delete_first_word (&line);
 
           if (!_dbus_string_parse_int (&line, 0, &val, NULL))
             {
@@ -525,7 +459,7 @@ _dbus_message_data_load (DBusString       *dest,
            * command, we segfault.
            */
           
-          strip_command_name (&line);
+          _dbus_string_delete_first_word (&line);
 
           if (!_dbus_string_parse_int (&line, 0, &val, NULL))
             {
@@ -547,7 +481,7 @@ _dbus_message_data_load (DBusString       *dest,
         {
           unsigned char the_byte;
           
-          strip_command_name (&line);
+          _dbus_string_delete_first_word (&line);
 
           if (_dbus_string_equal_c_str (&line, "'\\''"))
             the_byte = '\'';
@@ -578,7 +512,7 @@ _dbus_message_data_load (DBusString       *dest,
       else if (_dbus_string_starts_with_c_str (&line,
                                                "START_LENGTH"))
         {
-          strip_command_name (&line);
+          _dbus_string_delete_first_word (&line);
 
           if (!save_start (length_hash, &line,
                            _dbus_string_get_length (dest)))
@@ -590,7 +524,7 @@ _dbus_message_data_load (DBusString       *dest,
       else if (_dbus_string_starts_with_c_str (&line,
                                                "END_LENGTH"))
         {
-          strip_command_name (&line);
+          _dbus_string_delete_first_word (&line);
 
           if (!save_length (length_hash, &line,
                             _dbus_string_get_length (dest)))
@@ -604,7 +538,7 @@ _dbus_message_data_load (DBusString       *dest,
         {
           SAVE_FOR_UNALIGN (dest, 4);
           
-          strip_command_name (&line);
+          _dbus_string_delete_first_word (&line);
 
           if (!append_saved_length (dest, length_hash,
                                     &line,
@@ -620,7 +554,7 @@ _dbus_message_data_load (DBusString       *dest,
       else if (_dbus_string_starts_with_c_str (&line,
                                                "FIELD_NAME"))
         {
-          strip_command_name (&line);
+          _dbus_string_delete_first_word (&line);
 
           if (_dbus_string_get_length (&line) != 4)
             {
@@ -645,7 +579,7 @@ _dbus_message_data_load (DBusString       *dest,
         {
           int code;
           
-          strip_command_name (&line);          
+          _dbus_string_delete_first_word (&line);          
 
           if (_dbus_string_starts_with_c_str (&line, "INVALID"))
             code = DBUS_TYPE_INVALID;
@@ -689,7 +623,7 @@ _dbus_message_data_load (DBusString       *dest,
           SAVE_FOR_UNALIGN (dest, 4);
           long val;
           
-          strip_command_name (&line);
+          _dbus_string_delete_first_word (&line);
 
           if (!_dbus_string_parse_int (&line, 0, &val, NULL))
             {
@@ -712,7 +646,7 @@ _dbus_message_data_load (DBusString       *dest,
           SAVE_FOR_UNALIGN (dest, 4);
           long val;
           
-          strip_command_name (&line);
+          _dbus_string_delete_first_word (&line);
 
           /* FIXME should have _dbus_string_parse_uint32 */
           if (!_dbus_string_parse_int (&line, 0, &val, NULL))
@@ -733,7 +667,7 @@ _dbus_message_data_load (DBusString       *dest,
           SAVE_FOR_UNALIGN (dest, 8);
           double val;
           
-          strip_command_name (&line);
+          _dbus_string_delete_first_word (&line);
 
           if (!_dbus_string_parse_double (&line, 0, &val, NULL))
             goto parse_failed;
@@ -754,7 +688,7 @@ _dbus_message_data_load (DBusString       *dest,
           int size_offset;
           int old_len;
           
-          strip_command_name (&line);
+          _dbus_string_delete_first_word (&line);
 
           size_offset = _dbus_string_get_length (dest);
           size_offset = _DBUS_ALIGN_VALUE (size_offset, 4);

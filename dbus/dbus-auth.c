@@ -1301,7 +1301,7 @@ _dbus_auth_do_work (DBusAuth *auth)
   auth->needed_memory = FALSE;
 
   /* Max amount we'll buffer up before deciding someone's on crack */
-#define MAX_BUFFER (16 * 1024)
+#define MAX_BUFFER (16 * _DBUS_ONE_KILOBYTE)
 
   do
     {
@@ -1592,5 +1592,18 @@ _dbus_auth_get_identity (DBusAuth               *auth,
     }
 }
 
-
 /** @} */
+
+#ifdef DBUS_BUILD_TESTS
+#include "dbus-test.h"
+#include <stdio.h>
+
+dbus_bool_t
+_dbus_auth_test (const char *test_data_dir)
+{
+  
+
+  return TRUE;
+}
+
+#endif /* DBUS_BUILD_TESTS */

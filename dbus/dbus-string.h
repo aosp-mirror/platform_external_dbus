@@ -176,10 +176,20 @@ dbus_bool_t _dbus_string_equal        (const DBusString *a,
 dbus_bool_t _dbus_string_equal_c_str  (const DBusString *a,
                                        const char       *c_str);
 
+dbus_bool_t _dbus_string_equal_len    (const DBusString *a,
+                                       const DBusString *b,
+                                       int               len);
+
 dbus_bool_t _dbus_string_starts_with_c_str  (const DBusString *a,
                                              const char       *c_str);
 dbus_bool_t _dbus_string_ends_with_c_str    (const DBusString *a,
                                              const char       *c_str);
+
+dbus_bool_t _dbus_string_pop_line              (DBusString *source,
+                                                DBusString *dest);
+void        _dbus_string_delete_first_word     (DBusString *str);
+void        _dbus_string_delete_leading_blanks (DBusString *str);
+
 
 dbus_bool_t _dbus_string_base64_encode (const DBusString *source,
                                         int               start,

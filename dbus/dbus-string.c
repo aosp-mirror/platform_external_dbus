@@ -139,11 +139,12 @@ typedef struct
  * no maximum. The string starts life with zero length.
  * The string must eventually be freed with _dbus_string_free().
  *
- * @todo the max length feature is useless, because it looks
- * to the app like out of memory, and the app might try
- * to "recover" - but recovery in this case is impossible,
- * as we can't ever "get more memory" - so should delete the
- * max length feature I think.
+ * @todo the max length feature is useless, because it looks to the
+ * app like out of memory, and the app might try to "recover" - but
+ * recovery in this case is impossible, as we can't ever "get more
+ * memory" - so should delete the max length feature I think. Well, at
+ * least there's a strong caveat that it can only be used when
+ * out-of-memory is a permanent fatal error.
  *
  * @todo we could make this init routine not alloc any memory and
  * return void, would simplify a lot of code, however it might
@@ -152,8 +153,7 @@ typedef struct
  * 
  * @param str memory to hold the string
  * @param max_length the maximum size of the string
- * @returns #TRUE on success
- */
+ * @returns #TRUE on success */
 dbus_bool_t
 _dbus_string_init (DBusString *str,
                    int         max_length)
@@ -1416,6 +1416,92 @@ _dbus_string_skip_blank (const DBusString *str,
 }
 
 /**
+ * Assigns a newline-terminated line from the front of the string
+ * to the given dest string. The dest string's previous contents are
+ * deleted. If the source string contains no newline, moves the
+ * entire source string to the dest string.
+ * 
+ * @param source the source string
+ * @param dest the destination string (contents are replaced)
+ * @returns #FALSE if no memory, or source has length 0
+ */
+dbus_bool_t
+_dbus_string_pop_line (DBusString *source,
+                       DBusString *dest)
+{
+  int eol;
+  dbus_bool_t have_newline;
+  
+  _dbus_string_set_length (dest, 0);
+  
+  eol = 0;
+  if (_dbus_string_find (source, 0, "\n", &eol))
+    {
+      have_newline = TRUE;
+      eol += 1; /* include newline */
+    }
+  else
+    {
+      eol = _dbus_string_get_length (source);
+      have_newline = FALSE;
+    }
+
+  if (eol == 0)
+    return FALSE; /* eof */
+  
+  if (!_dbus_string_move_len (source, 0, eol,
+                              dest, 0))
+    {
+      return FALSE;
+    }
+
+  /* dump the newline */
+  if (have_newline)
+    {
+      _dbus_assert (_dbus_string_get_length (dest) > 0);
+      _dbus_string_set_length (dest,
+                               _dbus_string_get_length (dest) - 1);
+    }
+  
+  return TRUE;
+}
+
+/**
+ * Deletes up to and including the first blank space
+ * in the string.
+ *
+ * @param str the string
+ */
+void
+_dbus_string_delete_first_word (DBusString *str)
+{
+  int i;
+  
+  i = 0;
+  if (_dbus_string_find_blank (str, 0, &i))
+    _dbus_string_skip_blank (str, i, &i);
+
+  _dbus_string_delete (str, 0, i);
+}
+
+/**
+ * Deletes any leading blanks in the string
+ *
+ * @param str the string
+ */
+void
+_dbus_string_delete_leading_blanks (DBusString *str)
+{
+  int i;
+  
+  i = 0;
+  _dbus_string_skip_blank (str, 0, &i);
+
+  if (i > 0)
+    _dbus_string_delete (str, 0, i);
+}
+
+/**
  * Tests two DBusString for equality.
  *
  * @param a first string
@@ -1440,6 +1526,47 @@ _dbus_string_equal (const DBusString *a,
   ap = real_a->str;
   bp = real_b->str;
   a_end = real_a->str + real_a->len;
+  while (ap != a_end)
+    {
+      if (*ap != *bp)
+        return FALSE;
+      
+      ++ap;
+      ++bp;
+    }
+
+  return TRUE;
+}
+
+/**
+ * Tests two DBusString for equality up to the given length.
+ *
+ * @todo write a unit test
+ *
+ * @param a first string
+ * @param b second string
+ * @returns #TRUE if equal for the given number of bytes
+ */
+dbus_bool_t
+_dbus_string_equal_len (const DBusString *a,
+                        const DBusString *b,
+                        int               len)
+{
+  const unsigned char *ap;
+  const unsigned char *bp;
+  const unsigned char *a_end;
+  const DBusRealString *real_a = (const DBusRealString*) a;
+  const DBusRealString *real_b = (const DBusRealString*) b;
+  DBUS_GENERIC_STRING_PREAMBLE (real_a);
+  DBUS_GENERIC_STRING_PREAMBLE (real_b);
+
+  if (real_a->len != real_b->len &&
+      (real_a->len < len || real_b->len < len))
+    return FALSE;
+
+  ap = real_a->str;
+  bp = real_b->str;
+  a_end = real_a->str + MIN (real_a->len, len);
   while (ap != a_end)
     {
       if (*ap != *bp)

@@ -24,6 +24,8 @@ libdbus_1_la_SOURCES=				\
 	dbus-address.c				\
 	dbus-auth.c				\
 	dbus-auth.h				\
+	dbus-auth-script.c			\
+	dbus-auth-script.h			\
 	dbus-bus.c				\
 	dbus-connection.c			\
 	dbus-connection-internal.h		\

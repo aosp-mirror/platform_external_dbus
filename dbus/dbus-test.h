@@ -42,6 +42,7 @@ dbus_bool_t _dbus_mem_pool_test (void);
 dbus_bool_t _dbus_string_test   (void);
 dbus_bool_t _dbus_address_test  (void);
 dbus_bool_t _dbus_message_test  (const char *test_data_dir);
+dbus_bool_t _dbus_auth_test     (const char *test_data_dir);
 
 void        dbus_internal_do_not_use_run_tests         (const char          *test_data_dir);
 dbus_bool_t dbus_internal_do_not_use_try_message_file  (const DBusString    *filename,

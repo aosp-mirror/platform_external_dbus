@@ -231,8 +231,8 @@ dbus_bool_t
 _dbus_server_debug_accept_transport (DBusServer     *server,
 				     DBusTransport  *transport)
 {
-  DBusTimeout *timeout;
-  ServerAndTransport *st;
+  DBusTimeout *timeout = NULL;
+  ServerAndTransport *st = NULL;
 
   st = dbus_new (ServerAndTransport, 1);
   if (st == NULL)
@@ -244,18 +244,18 @@ _dbus_server_debug_accept_transport (DBusServer     *server,
   timeout = _dbus_timeout_new (DEFAULT_INTERVAL, handle_new_client, st, dbus_free);
 
   if (timeout == NULL)
-    {
-      dbus_free (st);
-      return FALSE;
-    }
+    goto failed;
 
   if (!_dbus_server_add_timeout (server, timeout))
-    {
-      _dbus_timeout_unref (timeout);      
-      return FALSE;
-    }
+    goto failed;
 
   return TRUE;
+
+ failed:
+  dbus_free (st);
+  if (timeout)
+    _dbus_timeout_unref (timeout);
+  return FALSE;
 }
 
 /** @} */

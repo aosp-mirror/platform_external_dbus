@@ -1,3 +1,13 @@
+2003-02-10  Havoc Pennington  <hp@pobox.com>
+
+        * dbus/dbus-auth-script.c, dbus/dbus-auth-script.h: sync 
+	initial cut at test framework for DBusAuth from laptop.
+	Doesn't quite work yet but it compiles and I need to get 
+	it off the 266mhz laptop. ;-)
+	
+	* dbus/dbus-server-debug.c (_dbus_server_debug_accept_transport):
+	fix a memleak in error case
+
 2003-02-12  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/Makefile.am:
