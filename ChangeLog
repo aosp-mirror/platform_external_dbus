@@ -1,3 +1,8 @@
+2004-04-19  Kristian Høgsberg  <krh@redhat.com>
+
+	* dbus/dbus-transport-unix.c (unix_do_iteration): Rewrite to use
+	_dbus_poll() instead of select().
+
 2004-04-15  Jon Trowbridge  <trow@ximian.com>
 
 	* bus/main.c (signal_handler): Reload the configuration files

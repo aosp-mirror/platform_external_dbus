@@ -1915,8 +1915,6 @@ _dbus_atomic_dec (DBusAtomic *atomic)
 /**
  * Wrapper for poll().
  *
- * @todo need a fallback implementation using select()
- *
  * @param fds the file descriptors to poll
  * @param n_fds number of descriptors in the array
  * @param timeout_milliseconds timeout or -1 for infinite

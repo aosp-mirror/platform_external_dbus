@@ -26,9 +26,6 @@
 #include "dbus-transport-unix.h"
 #include "dbus-transport-protected.h"
 #include "dbus-watch.h"
-#include <sys/types.h>
-#include <sys/time.h>
-#include <unistd.h>
 
 
 /**
@@ -831,7 +828,6 @@ unix_messages_pending (DBusTransport *transport,
   check_write_watch (transport);
 }
 
-/* FIXME use _dbus_poll(), not select() */
 /**
  * @todo We need to have a way to wake up the select sleep if
  * a new iteration request comes in with a flag (read/write) that
@@ -845,10 +841,9 @@ unix_do_iteration (DBusTransport *transport,
                    int            timeout_milliseconds)
 {
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
-  fd_set read_set;
-  fd_set write_set;
-  dbus_bool_t do_select;
-  int select_res;
+  DBusPollFD poll_fd;
+  int poll_res;
+  int poll_timeout;
 
   _dbus_verbose (" iteration flags = %s%s timeout = %d read_watch = %p write_watch = %p\n",
                  flags & DBUS_ITERATION_DO_READING ? "read" : "",
@@ -857,13 +852,6 @@ unix_do_iteration (DBusTransport *transport,
                  unix_transport->read_watch,
                  unix_transport->write_watch);
   
-  /* "again" has to be up here because on EINTR the fd sets become
-   * undefined
-   */
- again:
-  
-  do_select = FALSE;
-
   /* the passed in DO_READING/DO_WRITING flags indicate whether to
    * read/write messages, but regardless of those we may need to block
    * for reading/writing to do auth.  But if we do reading for auth,
@@ -873,24 +861,18 @@ unix_do_iteration (DBusTransport *transport,
    * want to read/write so don't.
    */
 
-  FD_ZERO (&read_set);
-  FD_ZERO (&write_set);
+  poll_fd.fd = unix_transport->fd;
+  poll_fd.events = 0;
   
   if (_dbus_transport_get_is_authenticated (transport))
     {
       if (unix_transport->read_watch &&
           (flags & DBUS_ITERATION_DO_READING))
-        {
-          FD_SET (unix_transport->fd, &read_set);
-          do_select = TRUE;
-        }
+	poll_fd.events |= _DBUS_POLLIN;
       
       if (unix_transport->write_watch &&
           (flags & DBUS_ITERATION_DO_WRITING))
-        {
-          FD_SET (unix_transport->fd, &write_set);
-          do_select = TRUE;
-        }
+	poll_fd.events |= _DBUS_POLLOUT;
     }
   else
     {
@@ -900,50 +882,19 @@ unix_do_iteration (DBusTransport *transport,
 
       if (transport->receive_credentials_pending ||
           auth_state == DBUS_AUTH_STATE_WAITING_FOR_INPUT)
-        {
-          FD_SET (unix_transport->fd, &read_set);
-          do_select = TRUE;
-        }
+	poll_fd.events |= _DBUS_POLLIN;
 
       if (transport->send_credentials_pending ||
           auth_state == DBUS_AUTH_STATE_HAVE_BYTES_TO_SEND)
-        {
-          FD_SET (unix_transport->fd, &write_set);
-          do_select = TRUE;
-        }
+	poll_fd.events |= _DBUS_POLLOUT;
     } 
 
-  if (do_select)
+  if (poll_fd.events)
     {
-      fd_set err_set;
-      struct timeval timeout;
-      dbus_bool_t use_timeout;
-      
-      FD_ZERO (&err_set);
-      FD_SET (unix_transport->fd, &err_set);
-  
       if (flags & DBUS_ITERATION_BLOCK)
-        {
-          if (timeout_milliseconds >= 0)
-            {
-              timeout.tv_sec = timeout_milliseconds / 1000;
-              timeout.tv_usec = (timeout_milliseconds % 1000) * 1000;
-              
-              /* Always use timeout if one is passed in. */
-              use_timeout = TRUE;
-            }
-          else
-            {
-              use_timeout = FALSE; /* NULL timeout to block forever */
-            }
-        }
+	poll_timeout = timeout_milliseconds;
       else
-        {
-          /* 0 timeout to not block */
-          timeout.tv_sec = 0;
-          timeout.tv_usec = 0;
-          use_timeout = TRUE;
-        }
+	poll_timeout = 0;
 
       /* For blocking selects we drop the connection lock here
        * to avoid blocking out connection access during a potentially
@@ -953,22 +904,23 @@ unix_do_iteration (DBusTransport *transport,
       if (flags & DBUS_ITERATION_BLOCK)
 	_dbus_connection_unlock (transport->connection);
       
-      select_res = select (unix_transport->fd + 1,
-			   &read_set, &write_set, &err_set,
-			   use_timeout ? &timeout : NULL);
+    again:
+      poll_res = _dbus_poll (&poll_fd, 1, poll_timeout);
+
+      if (poll_res < 0 && errno == EINTR)
+	goto again;
 
       if (flags & DBUS_ITERATION_BLOCK)
 	_dbus_connection_lock (transport->connection);
       
-      
-      if (select_res >= 0)
+      if (poll_res >= 0)
         {
-          if (FD_ISSET (unix_transport->fd, &err_set))
+          if (poll_fd.revents & _DBUS_POLLERR)
             do_io_error (transport);
           else
             {
-              dbus_bool_t need_read = FD_ISSET (unix_transport->fd, &read_set);
-              dbus_bool_t need_write = FD_ISSET (unix_transport->fd, &write_set);
+              dbus_bool_t need_read = (poll_fd.revents & _DBUS_POLLIN) > 0;
+              dbus_bool_t need_write = (poll_fd.revents & _DBUS_POLLOUT) > 0;
 
               _dbus_verbose ("in iteration, need_read=%d need_write=%d\n",
                              need_read, need_write);
@@ -980,11 +932,9 @@ unix_do_iteration (DBusTransport *transport,
                 do_writing (transport);
             }
         }
-      else if (errno == EINTR)
-        goto again;
       else
         {
-          _dbus_verbose ("Error from select(): %s\n",
+          _dbus_verbose ("Error from _dbus_poll(): %s\n",
                          _dbus_strerror (errno));
         }
     }
