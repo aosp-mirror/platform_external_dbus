@@ -1,5 +1,12 @@
 2004-10-29  Colin Walters  <walters@redhat.com>
 
+	Patch from Ed Catmur <ed@catmur.co.uk>
+
+	* mono/doc/Makefile.am (install-data-local): Handle
+	DESTDIR.
+
+2004-10-29  Colin Walters  <walters@redhat.com>
+
 	* bus/.cvsignore, qt/.cvsignore: Update.
 
 2004-10-29  Colin Walters  <walters@redhat.com>
