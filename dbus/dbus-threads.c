@@ -229,7 +229,8 @@ init_global_locks (void)
     LOCK_ADDR (atomic),
     LOCK_ADDR (bus),
     LOCK_ADDR (shutdown_funcs),
-    LOCK_ADDR (system_users)
+    LOCK_ADDR (system_users),
+    LOCK_ADDR (message_cache)
 #undef LOCK_ADDR
   };
 

@@ -1,5 +1,10 @@
 2004-11-26  Havoc Pennington  <hp@redhat.com>
-	
+
+	* dbus/dbus-threads.c (init_global_locks): forgot to put the
+	message cache lock here
+
+2004-11-26  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-message.c (struct DBusMessage): put the locked bit and
 	the "char byte_order" next to each other to save 4 bytes
 	(dbus_message_new_empty_header): reduce preallocation, since the
