@@ -305,18 +305,68 @@ dbus_server_listen (const char     *address,
       if (strcmp (method, "unix") == 0)
 	{
 	  const char *path = dbus_address_entry_get_value (entries[i], "path");
-
-	  if (path == NULL)
+          const char *tmpdir = dbus_address_entry_get_value (entries[i], "tmpdir");
+          
+	  if (path == NULL && tmpdir == NULL)
             {
               address_problem_type = "unix";
-              address_problem_field = "path";
+              address_problem_field = "path or tmpdir";
               goto bad_address;
             }
 
-	  server = _dbus_server_new_for_domain_socket (path, error);
+          if (path && tmpdir)
+            {
+              address_problem_other = "cannot specify both \"path\" and \"tmpdir\" at the same time";
+              goto bad_address;
+            }
 
-	  if (server)
-	    break;
+          if (tmpdir != NULL)
+            {
+              DBusString full_path;
+              DBusString filename;
+              
+              if (!_dbus_string_init (&full_path))
+                {
+                  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+                  goto out;
+                }
+                  
+              if (!_dbus_string_init (&filename))
+                {
+                  _dbus_string_free (&full_path);
+                  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+                  goto out;
+                }
+              
+              if (!_dbus_string_append (&filename,
+                                        "dbus-") ||
+                  !_dbus_generate_random_ascii (&filename, 10) ||
+                  !_dbus_string_append (&full_path, tmpdir) ||
+                  !_dbus_concat_dir_and_file (&full_path, &filename))
+                {
+                  _dbus_string_free (&full_path);
+                  _dbus_string_free (&filename);
+                  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+                  goto out;
+                }
+              
+              /* FIXME - we will unconditionally unlink() the path.
+               * unlink() does not follow symlinks, but would like
+               * independent confirmation this is safe enough. See
+               * also _dbus_listen_unix_socket() and comments therein.
+               */
+              
+              server =
+                _dbus_server_new_for_domain_socket (_dbus_string_get_const_data (&full_path),
+                                                    error);
+
+              _dbus_string_free (&full_path);
+              _dbus_string_free (&filename);
+            }
+          else
+            {
+              server = _dbus_server_new_for_domain_socket (path, error);
+            }
 	}
       else if (strcmp (method, "tcp") == 0)
 	{
@@ -361,9 +411,6 @@ dbus_server_listen (const char     *address,
             }
 
 	  server = _dbus_server_debug_new (name, error);
-
-	  if (server)
-	    break;
 	}
       else if (strcmp (method, "debug-pipe") == 0)
 	{
@@ -377,9 +424,6 @@ dbus_server_listen (const char     *address,
             }
 
 	  server = _dbus_server_debug_pipe_new (name, error);
-
-	  if (server)
-	    break;
 	}
 #endif
       else
@@ -387,7 +431,12 @@ dbus_server_listen (const char     *address,
           address_problem_other = "Unknown address type (examples of valid types are \"unix\" and \"tcp\")";
           goto bad_address;
         }
+      
+      if (server)
+        break;
     }
+
+ out:
   
   dbus_address_entries_free (entries);
   return server;

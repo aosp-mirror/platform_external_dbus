@@ -46,6 +46,7 @@ void            bus_context_shutdown                 (BusContext       *context)
 void            bus_context_ref                      (BusContext       *context);
 void            bus_context_unref                    (BusContext       *context);
 const char*     bus_context_get_type                 (BusContext       *context);
+const char*     bus_context_get_address              (BusContext       *context);
 BusRegistry*    bus_context_get_registry             (BusContext       *context);
 BusConnections* bus_context_get_connections          (BusContext       *context);
 BusActivation*  bus_context_get_activation           (BusContext       *context);

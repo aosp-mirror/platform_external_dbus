@@ -93,7 +93,7 @@ message_from_error (const char *error)
   else if (strcmp (error, DBUS_ERROR_AUTH_FAILED) == 0)
     return "Could not authenticate to server";
   else if (strcmp (error, DBUS_ERROR_NO_SERVER) == 0)
-    return "No server";
+    return "No server available at address";
   else if (strcmp (error, DBUS_ERROR_TIMEOUT) == 0)
     return "Connection timed out";
   else if (strcmp (error, DBUS_ERROR_NO_NETWORK) == 0)

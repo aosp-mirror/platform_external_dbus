@@ -8,19 +8,7 @@
   <!-- Our well-known bus type, don't change this -->
   <type>session</type>
 
-  <!-- FIXME - this is fairly complicated to fix.
-       Propose the following:
-         - add "unix:tmpdir=/tmp" which means unix domain transport 
-           creates a socket with a random secure name 
-         - add dbus_server_get_address() that gets the actual 
-           server address 
-         - add command line option or env variable to the daemon 
-           causing it to print its list of addresses to a given 
-           file descriptor
-         - session manager or whatever launches the session bus 
-           reads the address from there and sets the env variable
-    -->
-  <listen>unix:path=/tmp/foobar</listen>
+  <listen>unix:tmpdir=@DBUS_SESSION_SOCKET_DIR@</listen>
 
   <policy context="default">
     <!-- Allow everything -->

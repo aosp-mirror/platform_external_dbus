@@ -1,3 +1,36 @@
+2003-04-06  Havoc Pennington  <hp@pobox.com>
+
+	* bus/bus.c (bus_context_new): fix wrong handling of
+	server_data_slot_unref() in the error case. 
+
+	* dbus/dbus-internals.h (_dbus_assert): change so it passes
+	"(condition) != 0" to _dbus_real_assert so that
+	"_dbus_assert (pointer)" doesn't cause a warning
+
+	* bus/main.c (main): accept --print-address option to print out
+	the message bus address
+
+	* dbus/dbus-sysdeps.c (_dbus_generate_random_ascii): export this
+
+	* dbus/dbus-transport.c (_dbus_transport_open): special error for
+	"tmpdir" option to unix: address on client side
+
+	* dbus/dbus-server.c (dbus_server_listen): handle "tmpdir" option 
+	to unix: address
+	
+	* configure.in (TEST_SOCKET_DIR): locate a temporary directory 
+	we can use to create sockets in the test suite.
+
+	* bus/main.c (signal_handler): on SIGTERM, exit the daemon
+	cleanly. To be used for testing.
+
+	* dbus/dbus-spawn.c (babysit): use _dbus_set_signal_handler()
+
+	* dbus/dbus-sysdeps.c (_dbus_set_signal_handler): new
+
+	* dbus/dbus-server-debug-pipe.c (_dbus_transport_debug_pipe_new):
+	handle trying to call this when there's no servers active
+
 2003-04-05  Havoc Pennington  <hp@pobox.com>
 
 	* NEWS: update

@@ -2007,36 +2007,6 @@ _dbus_file_get_contents (DBusString       *str,
     }
 }
 
-static dbus_bool_t
-append_unique_chars (DBusString *str)
-{
-  static const char letters[] =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  int i;
-  int len;
-
-#define N_UNIQUE_CHARS 8
-  
-  if (!_dbus_generate_random_bytes (str, N_UNIQUE_CHARS))
-    return FALSE;
-  
-  len = _dbus_string_get_length (str);
-  i = len - N_UNIQUE_CHARS;
-  while (i < len)
-    {
-      _dbus_string_set_byte (str, i,
-                             letters[_dbus_string_get_byte (str, i) %
-                                     (sizeof (letters) - 1)]);
-
-      ++i;
-    }
-
-  _dbus_assert (_dbus_string_validate_ascii (str, len - N_UNIQUE_CHARS,
-                                             N_UNIQUE_CHARS));
-
-  return TRUE;
-}
-
 /**
  * Writes a string out to a file. If the file exists,
  * it will be atomically overwritten by the new data.
@@ -2083,8 +2053,9 @@ _dbus_string_save_to_file (const DBusString *str,
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return FALSE;
     }
-  
-  if (!append_unique_chars (&tmp_filename))
+
+#define N_TMP_FILENAME_RANDOM_BYTES 8
+  if (!_dbus_generate_random_ascii (&tmp_filename, N_TMP_FILENAME_RANDOM_BYTES))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return FALSE;
@@ -2487,13 +2458,52 @@ _dbus_directory_close (DBusDirIter *iter)
   dbus_free (iter);
 }
 
+static dbus_bool_t
+pseudorandom_generate_random_bytes (DBusString *str,
+                                    int         n_bytes)
+{
+  int old_len;
+  unsigned long tv_usec;
+  int i;
+  
+  old_len = _dbus_string_get_length (str);
+
+  /* fall back to pseudorandom */
+  _dbus_verbose ("Falling back to pseudorandom for %d bytes\n",
+                 n_bytes);
+  
+  _dbus_get_current_time (NULL, &tv_usec);
+  srand (tv_usec);
+  
+  i = 0;
+  while (i < n_bytes)
+    {
+      double r;
+      unsigned int b;
+          
+      r = rand ();
+      b = (r / (double) RAND_MAX) * 255.0;
+          
+      if (!_dbus_string_append_byte (str, b))
+        goto failed;
+          
+      ++i;
+    }
+
+  return TRUE;
+
+ failed:
+  _dbus_string_set_length (str, old_len);
+  return FALSE;
+}
+
 /**
  * Generates the given number of random bytes,
  * using the best mechanism we can come up with.
  *
  * @param str the string
  * @param n_bytes the number of random bytes to append to string
- * @returns #TRUE on success, #FALSE if no memory or other failure
+ * @returns #TRUE on success, #FALSE if no memory
  */
 dbus_bool_t
 _dbus_generate_random_bytes (DBusString *str,
@@ -2501,6 +2511,12 @@ _dbus_generate_random_bytes (DBusString *str,
 {
   int old_len;
   int fd;
+
+  /* FALSE return means "no memory", if it could
+   * mean something else then we'd need to return
+   * a DBusError. So we always fall back to pseudorandom
+   * if the I/O fails.
+   */
   
   old_len = _dbus_string_get_length (str);
   fd = -1;
@@ -2508,52 +2524,58 @@ _dbus_generate_random_bytes (DBusString *str,
   /* note, urandom on linux will fall back to pseudorandom */
   fd = open ("/dev/urandom", O_RDONLY);
   if (fd < 0)
+    return pseudorandom_generate_random_bytes (str, n_bytes);
+
+  if (_dbus_read (fd, str, n_bytes) != n_bytes)
     {
-      unsigned long tv_usec;
-      int i;
-
-      /* fall back to pseudorandom */
-      _dbus_verbose ("Falling back to pseudorandom for %d bytes\n",
-                     n_bytes);
-      
-      _dbus_get_current_time (NULL, &tv_usec);
-      srand (tv_usec);
-      
-      i = 0;
-      while (i < n_bytes)
-        {
-          double r;
-          unsigned int b;
-          
-          r = rand ();
-          b = (r / (double) RAND_MAX) * 255.0;
-          
-          if (!_dbus_string_append_byte (str, b))
-            goto failed;
-          
-          ++i;
-        }
-
-      return TRUE;
-    }
-  else
-    {
-      if (_dbus_read (fd, str, n_bytes) != n_bytes)
-        goto failed;
-
-      _dbus_verbose ("Read %d bytes from /dev/urandom\n",
-                     n_bytes);
-      
       close (fd);
-
-      return TRUE;
+      _dbus_string_set_length (str, old_len);
+      return pseudorandom_generate_random_bytes (str, n_bytes);
     }
 
- failed:
-  _dbus_string_set_length (str, old_len);
-  if (fd >= 0)
-    close (fd);
-  return FALSE;
+  _dbus_verbose ("Read %d bytes from /dev/urandom\n",
+                 n_bytes);
+  
+  close (fd);
+  
+  return TRUE;
+}
+
+/**
+ * Generates the given number of random bytes, where the bytes are
+ * chosen from the alphanumeric ASCII subset.
+ *
+ * @param str the string
+ * @param n_bytes the number of random ASCII bytes to append to string
+ * @returns #TRUE on success, #FALSE if no memory or other failure
+ */
+dbus_bool_t
+_dbus_generate_random_ascii (DBusString *str,
+                             int         n_bytes)
+{
+  static const char letters[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz";
+  int i;
+  int len;
+  
+  if (!_dbus_generate_random_bytes (str, n_bytes))
+    return FALSE;
+  
+  len = _dbus_string_get_length (str);
+  i = len - n_bytes;
+  while (i < len)
+    {
+      _dbus_string_set_byte (str, i,
+                             letters[_dbus_string_get_byte (str, i) %
+                                     (sizeof (letters) - 1)]);
+
+      ++i;
+    }
+
+  _dbus_assert (_dbus_string_validate_ascii (str, len - n_bytes,
+                                             n_bytes));
+
+  return TRUE;
 }
 
 /**
@@ -3004,6 +3026,26 @@ _dbus_change_identity  (unsigned long  uid,
   
   return TRUE;
 }
+
+/** Installs a UNIX signal handler
+ *
+ * @param sig the signal to handle
+ * @param handler the handler
+ */
+void
+_dbus_set_signal_handler (int               sig,
+                          DBusSignalHandler handler)
+{
+  struct sigaction act;
+  sigset_t empty_mask;
+  
+  sigemptyset (&empty_mask);
+  act.sa_handler = handler;
+  act.sa_mask    = empty_mask;
+  act.sa_flags   = 0;
+  sigaction (sig,  &act, 0);
+}
+
 
 #ifdef DBUS_BUILD_TESTS
 #include <stdlib.h>

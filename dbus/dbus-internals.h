@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-internals.h  random utility stuff (internal to D-BUS implementation)
  *
- * Copyright (C) 2002  Red Hat, Inc.
+ * Copyright (C) 2002, 2003  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -81,7 +81,7 @@ void _dbus_real_assert (dbus_bool_t  condition,
                         const char  *file,
                         int          line);
 #define _dbus_assert(condition)                                         \
-  _dbus_real_assert ((condition), #condition, __FILE__, __LINE__)
+  _dbus_real_assert ((condition) != 0, #condition, __FILE__, __LINE__)
 #endif /* !DBUS_DISABLE_ASSERT */
 
 #ifdef DBUS_DISABLE_ASSERT

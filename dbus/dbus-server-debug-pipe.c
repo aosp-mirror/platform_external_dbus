@@ -220,13 +220,19 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
   DBusString address;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  if (server_pipe_hash == NULL)
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_SERVER, NULL);
+      return NULL;
+    }
   
   server = _dbus_hash_table_lookup_string (server_pipe_hash,
                                            server_name);
   if (server == NULL ||
       ((DBusServerDebugPipe*)server)->disconnected)
     {
-      dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS, NULL);
+      dbus_set_error (error, DBUS_ERROR_NO_SERVER, NULL);
       return NULL;
     }
 

@@ -180,6 +180,8 @@ void         _dbus_directory_close         (DBusDirIter      *iter);
 
 dbus_bool_t _dbus_generate_random_bytes (DBusString *str,
                                          int         n_bytes);
+dbus_bool_t _dbus_generate_random_ascii (DBusString *str,
+                                         int         n_bytes);
 
 const char *_dbus_errno_to_string  (int errnum);
 const char* _dbus_error_from_errno (int error_number);
@@ -219,6 +221,12 @@ dbus_bool_t _dbus_become_daemon    (DBusError *error);
 dbus_bool_t _dbus_change_identity  (unsigned long  uid,
                                     unsigned long  gid,
                                     DBusError     *error);
+
+typedef void (* DBusSignalHandler) (int sig);
+
+void _dbus_set_signal_handler (int               sig,
+                               DBusSignalHandler handler);
+
 
 DBUS_END_DECLS;
 

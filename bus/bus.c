@@ -107,7 +107,10 @@ server_get_context (DBusServer *server)
 
   bd = BUS_SERVER_DATA (server);
   if (bd == NULL)
-    return NULL;
+    {
+      server_data_slot_unref ();
+      return NULL;
+    }
 
   context = bd->context;
 
@@ -314,7 +317,7 @@ bus_context_new (const DBusString *config_file,
       BUS_SET_OOM (error);
       return NULL;
     }
-  
+
   if (!server_data_slot_ref ())
     {
       BUS_SET_OOM (error);
@@ -339,6 +342,12 @@ bus_context_new (const DBusString *config_file,
   
   context->refcount = 1;
 
+  /* we need another ref of the server data slot for the context
+   * to own
+   */
+  if (!server_data_slot_ref ())
+    _dbus_assert_not_reached ("second ref of server data slot failed");
+  
 #ifdef DBUS_BUILD_TESTS
   context->activation_timeout = 6000;  /* 6 seconds */
 #else
@@ -542,6 +551,7 @@ bus_context_new (const DBusString *config_file,
   bus_config_parser_unref (parser);
   _dbus_string_free (&full_address);
   dbus_free_string_array (auth_mechanisms);
+  server_data_slot_unref ();
   
   return context;
   
@@ -676,6 +686,12 @@ const char*
 bus_context_get_type (BusContext *context)
 {
   return context->type;
+}
+
+const char*
+bus_context_get_address (BusContext *context)
+{
+  return context->address;
 }
 
 BusRegistry*

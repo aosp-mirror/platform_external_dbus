@@ -26,11 +26,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
+#include <errno.h>
+
+static BusContext *context;
+static dbus_bool_t got_sighup = FALSE;
+
+static void
+signal_handler (int sig)
+{
+  switch (sig)
+    {
+    case SIGHUP:
+      got_sighup = TRUE;
+    case SIGTERM:
+      bus_loop_quit (bus_context_get_loop (context));
+      break;
+    }
+}
 
 static void
 usage (void)
 {
-  fprintf (stderr, "dbus-daemon-1 [--session] [--system] [--config-file=FILE] [--version]\n");
+  fprintf (stderr, "dbus-daemon-1 [--version] [--session] [--system] [--config-file=FILE] [--print-address[=descriptor]]\n");
   exit (1);
 }
 
@@ -57,17 +75,36 @@ check_two_config_files (const DBusString *config_file,
     }
 }
 
+static void
+check_two_addr_descriptors (const DBusString *addr_fd,
+                            const char       *extra_arg)
+{
+  if (_dbus_string_get_length (addr_fd) > 0)
+    {
+      fprintf (stderr, "--%s specified but printing address to %s already requested\n",
+               extra_arg, _dbus_string_get_const_data (addr_fd));
+      exit (1);
+    }
+}
+
 int
 main (int argc, char **argv)
 {
-  BusContext *context;
   DBusError error;
   DBusString config_file;
+  DBusString addr_fd;
   const char *prev_arg;
+  int print_addr_fd;
   int i;
-
+  dbus_bool_t print_address;
+  
   if (!_dbus_string_init (&config_file))
     return 1;
+
+  if (!_dbus_string_init (&addr_fd))
+    return 1;
+  
+  print_address = FALSE;
   
   prev_arg = NULL;
   i = 1;
@@ -117,6 +154,32 @@ main (int argc, char **argv)
         }
       else if (strcmp (arg, "--config-file") == 0)
         ; /* wait for next arg */
+      else if (strstr (arg, "--print-address=") == arg)
+        {
+          const char *desc;
+
+          check_two_addr_descriptors (&addr_fd, "print-address");
+          
+          desc = strchr (arg, '=');
+          ++desc;
+
+          if (!_dbus_string_append (&addr_fd, desc))
+            exit (1);
+
+          print_address = TRUE;
+        }
+      else if (prev_arg &&
+               strcmp (prev_arg, "--print-address") == 0)
+        {
+          check_two_addr_descriptors (&addr_fd, "print-address");
+          
+          if (!_dbus_string_append (&addr_fd, arg))
+            exit (1);
+
+          print_address = TRUE;
+        }
+      else if (strcmp (arg, "--print-address") == 0)
+        print_address = TRUE; /* and we'll get the next arg if appropriate */
       else
         usage ();
       
@@ -130,6 +193,27 @@ main (int argc, char **argv)
       fprintf (stderr, "No configuration file specified.\n");
       usage ();
     }
+
+  print_addr_fd = -1;
+  if (print_address)
+    {
+      print_addr_fd = 1; /* stdout */
+      if (_dbus_string_get_length (&addr_fd) > 0)
+        {
+          long val;
+          int end;
+          if (!_dbus_string_parse_int (&addr_fd, 0, &val, &end) ||
+              end != _dbus_string_get_length (&addr_fd) ||
+              val < 0 || val > _DBUS_INT_MAX)
+            {
+              fprintf (stderr, "Invalid file descriptor: \"%s\"\n",
+                       _dbus_string_get_const_data (&addr_fd));
+              exit (1);
+            }
+
+          print_addr_fd = val;
+        }
+    }
   
   dbus_error_init (&error);
   context = bus_context_new (&config_file, &error);
@@ -139,14 +223,56 @@ main (int argc, char **argv)
       _dbus_warn ("Failed to start message bus: %s\n",
                   error.message);
       dbus_error_free (&error);
-      return 1;
+      exit (1);
     }
+
+  /* Note that we don't know whether the print_addr_fd is
+   * one of the sockets we're using to listen on, or some
+   * other random thing. But I think the answer is "don't do
+   * that then"
+   */
+  if (print_addr_fd >= 0)
+    {
+      DBusString addr;
+      const char *a = bus_context_get_address (context);
+      int bytes;
+      
+      _dbus_assert (a != NULL);
+      if (!_dbus_string_init (&addr) ||
+          !_dbus_string_append (&addr, a) ||
+          !_dbus_string_append (&addr, "\n"))
+        exit (1);
+
+      bytes = _dbus_string_get_length (&addr);
+      if (_dbus_write (print_addr_fd, &addr, 0, bytes) != bytes)
+        {
+          _dbus_warn ("Failed to print message bus address: %s\n",
+                      _dbus_strerror (errno));
+          exit (1);
+        }
+
+      if (print_addr_fd > 2)
+        _dbus_close (print_addr_fd, NULL);
+
+      _dbus_string_free (&addr);
+    }
+  
+  /* FIXME we have to handle this properly below _dbus_set_signal_handler (SIGHUP, signal_handler); */
+  _dbus_set_signal_handler (SIGTERM, signal_handler);
   
   _dbus_verbose ("We are on D-Bus...\n");
   bus_loop_run (bus_context_get_loop (context));
   
   bus_context_shutdown (context);
   bus_context_unref (context);
+
+  /* If we exited on TERM we just exit, if we exited on
+   * HUP we restart the daemon.
+   */
+  if (got_sighup)
+    {
+      /* FIXME execv (argv) basically */
+    }
   
   return 0;
 }

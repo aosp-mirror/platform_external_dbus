@@ -916,9 +916,7 @@ babysit_signal_handler (int signo)
 static void
 babysit (pid_t grandchild_pid,
          int   parent_pipe)
-{  
-  struct sigaction act;
-  sigset_t empty_mask;
+{
   int sigchld_pipe[2];
 
   /* I thought SIGCHLD would just wake up the poll, but
@@ -933,12 +931,8 @@ babysit (pid_t grandchild_pid,
     }
 
   babysit_sigchld_pipe = sigchld_pipe[WRITE_END];
-  
-  sigemptyset (&empty_mask);
-  act.sa_handler = babysit_signal_handler;
-  act.sa_mask    = empty_mask;
-  act.sa_flags   = 0;
-  sigaction (SIGCHLD,  &act, 0);
+
+  _dbus_set_signal_handler (SIGCHLD, babysit_signal_handler);
   
   write_pid (parent_pipe, grandchild_pid);
 

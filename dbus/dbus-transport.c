@@ -235,7 +235,14 @@ _dbus_transport_open (const char     *address,
       if (strcmp (method, "unix") == 0)
 	{
 	  const char *path = dbus_address_entry_get_value (entries[i], "path");
+          const char *tmpdir = dbus_address_entry_get_value (entries[i], "tmpdir");
 
+	  if (tmpdir != NULL)
+            {
+              address_problem_other = "cannot use the \"tmpdir\" option for an address to connect to, only in an address to listen on";
+              goto bad_address;
+            }
+          
 	  if (path == NULL)
             {
               address_problem_type = "unix";
@@ -243,7 +250,7 @@ _dbus_transport_open (const char     *address,
               goto bad_address;
             }
 
-	  transport = _dbus_transport_new_for_domain_socket (path, error);
+          transport = _dbus_transport_new_for_domain_socket (path, error);
 	}
       else if (strcmp (method, "tcp") == 0)
 	{
@@ -309,7 +316,7 @@ _dbus_transport_open (const char     *address,
       if (transport)
 	break;	  
     }
-  
+
   dbus_address_entries_free (entries);
   return transport;
 
