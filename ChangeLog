@@ -1,3 +1,25 @@
+2005-01-25  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/dbus_bindings.pyx.in: Rename of methods and bindings
+		- get_base_service -> get_unique_name
+		- bus_get_base_service -> bus_get_unique_name
+		- dbus_bus_get_base_service -> dbus_bus_get_unique_name
+		- ACTIVATION_REPLY_ACTIVATED -> DBUS_START_REPLY_SUCCESS 
+		- ACTIVATION_REPLY_ALREADY_ACTIVE -> DBUS_START_REPLY_ALREADY_RUNNING
+		- bus_activate_service -> bus_start_service_by_name
+		- dbus_bus_activate_service -> dbus_bus_start_service_by_name
+		- bus_acquire_service -> bus_request_name
+		- dbus_bus_acquire_service -> dbus_bus_request_name
+		- bus_service_exists -> bus_name_has_owner
+		- dbus_bus_service_exists -> dbus_bus_name_has_owner
+
+	* python/dbus.py: Rename of methods
+		- activate_service -> start_service_by_name
+		- bus_acquire_service -> bus_request_name
+		- ACTIVATION_REPLY_ACTIVATED -> START_REPLY_SUCCESS 
+		- ACTIVATION_REPLY_ALREADY_ACTIVE -> START_REPLY_ALREADY_RUNNING
+
+	
 2005-01-24  Joe Shaw  <joeshaw@novell.com>
 
 	* dbus/dbus-connection.c (dbus_connection_dispatch): Print out the
