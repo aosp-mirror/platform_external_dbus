@@ -21,8 +21,8 @@ DIE=0
 	DIE=1
 }
 
-AUTOMAKE=automake-1.6
-ACLOCAL=aclocal-1.6
+AUTOMAKE=automake-1.7
+ACLOCAL=aclocal-1.7
 
 ($AUTOMAKE --version) < /dev/null > /dev/null 2>&1 || {
         AUTOMAKE=automake

@@ -150,11 +150,3 @@ dbus_test_LDADD= $(DBUS_CLIENT_LIBS) libdbus-1.la
 ## mop up the gcov files
 clean-local:
 	/bin/rm *.bb *.bbg *.da *.gcov || true
-
-if DBUS_BUILD_TESTS
-### nothing
-else
-check-local:
-	echo "You have to configure with --enable-tests to make check" ; \
-	exit 1
-endif

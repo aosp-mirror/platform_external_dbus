@@ -85,6 +85,7 @@ clean-local:
 
 install-data-hook:
 	$(mkinstalldirs) $(DESTDIR)/$(localstatedir)/run/dbus
+	$(mkinstalldirs) $(DESTDIR)/$(configdir)/system.d
 
 #### Init scripts fun
 SCRIPT_IN_FILES=messagebus.in
@@ -92,7 +93,7 @@ SCRIPT_IN_FILES=messagebus.in
 ## Red Hat start
 if DBUS_INIT_SCRIPTS_RED_HAT
 
-initddir=$(sysconfdir)/init.d
+initddir=$(sysconfdir)/rc.d/init.d
 
 initd_SCRIPTS= 	\
 	messagebus
@@ -106,11 +107,3 @@ man_MANS = dbus-daemon-1.1
 #### Extra dist 
 
 EXTRA_DIST=$(CONFIG_IN_FILES) $(SCRIPT_IN_FILES) $(man_MANS) $(MAN_IN_FILES)
-
-if DBUS_BUILD_TESTS
-### nothing
-else
-check-local:
-	echo "You have to configure with --enable-tests to make check" ; \
-	exit 1
-endif

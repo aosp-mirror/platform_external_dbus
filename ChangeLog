@@ -1,3 +1,17 @@
+2003-05-15  Havoc Pennington  <hp@redhat.com>
+
+	* configure.in: 0.11
+
+	* NEWS: update
+
+	* bus/Makefile.am (initddir): apparently we are supposed to put
+	init scripts in /etc/rc.d/init.d not /etc/init.d
+
+	* bus/Makefile.am: remove the "you must --enable-tests to make
+	check" as it broke distcheck
+
+	* bus/Makefile.am (install-data-hook): create /etc/dbus-1/system.d
+	
 2003-05-13  James Willcox  <jwillcox@gnome.org>
 
 	* configure.in:

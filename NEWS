@@ -1,3 +1,25 @@
+D-BUS 0.11
+===
+
+- add --enable-docs to turn off/on the docbook stuff
+  (doesn't cover doxygen stuff yet)
+- make people define DBUS_API_SUBJECT_TO_CHANGE
+  and read warning in README so they don't 
+  expect the API to be frozen already
+- rename .pc files to "dbus-1.pc" instead of 
+  "dbus-1.0.pc" etc. - this will require changing 
+  pkg-config invocations
+- some docs cleanups
+- add man pages for all executables
+- allow send to/from bus driver in the default system.conf
+- fix user lookup bug
+- implement dbus-launch to launch the session message bus
+- fix some thread deadlocks
+- some performance profiling/optimization
+- add dbus_bus_activate_service() function
+- fix some minor bugs here and there
+- install Red Hat initscript in the right place
+
 D-BUS 0.10
 ===
 
