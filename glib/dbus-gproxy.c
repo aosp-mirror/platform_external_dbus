@@ -37,28 +37,61 @@ typedef struct
 {
   GStaticMutex lock; /**< Thread lock */
   int refcount;      /**< Reference count */
-
+  DBusConnection *connection; /**< Connection we're associated with. */
   
 
 } DBusGProxyManager;
-
 
 /** Lock the DBusGProxyManager */
 #define LOCK_MANAGER(mgr)   (g_static_mutex_lock (&(mgr)->lock))
 /** Unlock the DBusGProxyManager */
 #define UNLOCK_MANAGER(mgr) (g_static_mutex_unlock (&(mgr)->lock))
 
+static int gproxy_manager_slot = -1;
+
+/* Lock controlling get/set manager as data on each connection */
+static GStaticMutex connection_gproxy_lock = G_STATIC_MUTEX_INIT;
+
+static void dbus_gproxy_manager_ref (DBusGProxyManager *manager);
+
 static DBusGProxyManager*
-dbus_gproxy_manager_new (void)
+dbus_gproxy_manager_get (DBusConnection *connection)
 {
   DBusGProxyManager *manager;
 
+  dbus_connection_allocate_data_slot (&gproxy_manager_slot);
+  if (gproxy_manager_slot < 0)
+    g_error ("out of memory");
+  
+  g_static_mutex_lock (&connection_gproxy_lock);
+  
+  manager = dbus_connection_get_data (connection, gproxy_manager_slot);
+  if (manager != NULL)
+    {
+      dbus_connection_free_data_slot (&gproxy_manager_slot);
+      dbus_gproxy_manager_ref (manager);
+      g_static_mutex_unlock (&connection_gproxy_lock);
+      return manager;
+    }
+  
   manager = g_new0 (DBusGProxyManager, 1);
 
   manager->refcount = 1;
+  manager->connection = connection;
   
   g_static_mutex_init (&manager->lock);
 
+  /* Proxy managers keep the connection alive, which means that
+   * DBusGProxy indirectly does. To free a connection you have to free
+   * all the proxies referring to it.
+   */
+  dbus_connection_ref (manager->connection);
+
+  dbus_connection_set_data (connection, gproxy_manager_slot,
+                            manager, NULL);
+
+  g_static_mutex_unlock (&connection_gproxy_lock);
+  
   return manager;
 }
 
@@ -89,20 +122,23 @@ dbus_gproxy_manager_unref (DBusGProxyManager *manager)
       
       g_static_mutex_free (&manager->lock);
 
+      g_static_mutex_lock (&connection_gproxy_lock);
+      
+      dbus_connection_set_data (manager->connection,
+                                gproxy_manager_slot,
+                                NULL, NULL);
+
+      g_static_mutex_unlock (&connection_gproxy_lock);
+      
+      dbus_connection_unref (manager->connection);
       g_free (manager);
+
+      dbus_connection_free_data_slot (&gproxy_manager_slot);
     }
   else
     {
       UNLOCK_MANAGER (manager);
     }
-}
-
-static DBusGProxyManager*
-dbus_gproxy_manager_get_for_connection (DBusConnection *connection)
-{
-  /* FIXME */
-  
-  return NULL;
 }
 
 /**
@@ -112,7 +148,7 @@ struct DBusGProxy
 {
   GStaticMutex lock; /**< Thread lock */
   int refcount;      /**< Reference count */
-  DBusConnection *connection; /**< Connection to communicate over */
+  DBusGProxyManager *manager; /**< Proxy manager */
   char *service;             /**< Service messages go to or NULL */
   char *path;                /**< Path messages go to or NULL */
   char *interface;           /**< Interface messages go to or NULL */
@@ -131,8 +167,7 @@ _dbus_gproxy_new (DBusConnection *connection)
   proxy = g_new0 (DBusGProxy, 1);
   
   proxy->refcount = 1;
-  proxy->connection = connection;
-  dbus_connection_ref (connection);
+  proxy->manager = dbus_gproxy_manager_get (connection);
 
   g_static_mutex_init (&proxy->lock);
   
@@ -224,7 +259,7 @@ dbus_gproxy_unref (DBusGProxy *proxy)
     {
       UNLOCK_PROXY (proxy);
       
-      dbus_connection_unref (proxy->connection);
+      dbus_gproxy_manager_unref (proxy->manager);
       g_free (proxy->service);
       g_free (proxy->path);
       g_free (proxy->interface);
@@ -282,7 +317,7 @@ dbus_gproxy_begin_call (DBusGProxy *proxy,
     goto oom;
   va_end (args);
 
-  if (!dbus_connection_send_with_reply (proxy->connection,
+  if (!dbus_connection_send_with_reply (proxy->manager->connection,
                                         message,
                                         &pending,
                                         -1))
@@ -409,7 +444,7 @@ dbus_gproxy_send (DBusGProxy          *proxy,
         g_error ("Out of memory");
     }
   
-  if (!dbus_connection_send (proxy->connection, message, client_serial))
+  if (!dbus_connection_send (proxy->manager->connection, message, client_serial))
     g_error ("Out of memory\n");
 
   UNLOCK_PROXY (proxy);
