@@ -1,5 +1,9 @@
 2005-01-30  Havoc Pennington  <hp@redhat.com>
 
+	* tools/dbus-viewer.c: kind of half-ass hook up the option menu.
+
+2005-01-30  Havoc Pennington  <hp@redhat.com>
+
 	* tools/dbus-names-model.c: dynamically watch NameOwnerChanged
 
 	* autogen.sh: change to autotools 1.9

@@ -39,7 +39,7 @@ GType names_model_get_type (void);
 
 struct NamesModel
 {
-  GtkTreeStore parent;
+  GtkListStore parent;
   DBusGConnection *connection;
   DBusGProxy *driver_proxy;
   DBusGPendingCall *pending_list_names;
@@ -47,7 +47,7 @@ struct NamesModel
 
 struct NamesModelClass
 {
-  GtkTreeStoreClass parent;
+  GtkListStoreClass parent;
 };
 
 #define TYPE_NAMES_MODEL              (names_model_get_type ())
@@ -99,10 +99,10 @@ have_names_notify (DBusGPendingCall *call,
                   i, n_elements, names[i]);
 #endif
       
-      gtk_tree_store_append (GTK_TREE_STORE (names_model),
-                             &iter, NULL);
+      gtk_list_store_append (GTK_LIST_STORE (names_model),
+                             &iter);
 
-      gtk_tree_store_set (GTK_TREE_STORE (names_model),
+      gtk_list_store_set (GTK_LIST_STORE (names_model),
                           &iter,
                           MODEL_COLUMN_NAME, names[i],
                           -1);
@@ -167,7 +167,7 @@ name_owner_changed (DBusGProxy *driver_proxy,
       GtkTreeIter iter;
 
       if (names_model_find_name (names_model, name, &iter))
-        gtk_tree_store_remove (GTK_TREE_STORE (names_model),
+        gtk_list_store_remove (GTK_LIST_STORE (names_model),
                                &iter);
     }
   else if (*old_owner == '\0')
@@ -177,10 +177,10 @@ name_owner_changed (DBusGProxy *driver_proxy,
       
       if (!names_model_find_name (names_model, name, &iter))
         {
-          gtk_tree_store_append (GTK_TREE_STORE (names_model),
-                                 &iter, NULL);
+          gtk_list_store_append (GTK_LIST_STORE (names_model),
+                                 &iter);
           
-          gtk_tree_store_set (GTK_TREE_STORE (names_model),
+          gtk_list_store_set (GTK_LIST_STORE (names_model),
                               &iter,
                               MODEL_COLUMN_NAME, name,
                               -1);
@@ -191,9 +191,9 @@ name_owner_changed (DBusGProxy *driver_proxy,
 static void
 names_model_reload (NamesModel *names_model)
 {
-  GtkTreeStore *tree_store;
+  GtkListStore *list_store;
 
-  tree_store = GTK_TREE_STORE (names_model);
+  list_store = GTK_LIST_STORE (names_model);
 
   if (names_model->pending_list_names)
     {
@@ -202,7 +202,7 @@ names_model_reload (NamesModel *names_model)
       names_model->pending_list_names = NULL;
     }
   
-  gtk_tree_store_clear (tree_store);
+  gtk_list_store_clear (list_store);
   
   if (names_model->connection == NULL)
     return;
@@ -266,7 +266,7 @@ names_model_set_connection (NamesModel      *names_model,
   names_model_reload (names_model);
 }
 
-G_DEFINE_TYPE(NamesModel, names_model, GTK_TYPE_TREE_STORE)
+G_DEFINE_TYPE(NamesModel, names_model, GTK_TYPE_LIST_STORE)
 
 /* Properties */
 enum
@@ -348,13 +348,13 @@ names_model_get_property (GObject      *object,
 static void
 names_model_init (NamesModel *names_model)
 {
-  GtkTreeStore *tree_store;
+  GtkListStore *list_store;
   GType types[MODEL_COLUMN_LAST];
 
-  tree_store = GTK_TREE_STORE (names_model);
+  list_store = GTK_LIST_STORE (names_model);
 
   types[0] = G_TYPE_STRING; /* name */
-  gtk_tree_store_set_column_types (tree_store, MODEL_COLUMN_LAST, types);
+  gtk_list_store_set_column_types (list_store, MODEL_COLUMN_LAST, types);
 }
 
 static void

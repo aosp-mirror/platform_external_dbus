@@ -33,88 +33,6 @@
 #include <dbus/dbus-glib.h>
 #include <glib/gi18n.h>
 
-typedef struct
-{
-  GtkWidget *window;
-  GtkWidget *treeview;
-  GtkWidget *name_menu;
-
-  GtkTreeModel *names_model;
-  
-} TreeWindow;
-
-static void
-window_closed_callback (GtkWidget  *window,
-                        TreeWindow *w)
-{
-  g_assert (window == w->window);
-  w->window = NULL;
-  gtk_main_quit ();
-}
-
-static TreeWindow*
-tree_window_new (DBusGConnection *connection,
-                 GtkTreeModel    *names_model)
-{
-  TreeWindow *w;
-  GtkWidget *sw;
-  GtkWidget *vbox;
-  GtkWidget *hbox;
-  GtkWidget *combo;
-
-  /* Should use glade, blah */
-  
-  w = g_new0 (TreeWindow, 1);
-  w->window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-
-  gtk_window_set_title (GTK_WINDOW (w->window), "D-BUS Viewer");
-  gtk_window_set_default_size (GTK_WINDOW (w->window), 400, 500);
-
-  g_signal_connect (w->window, "destroy", G_CALLBACK (window_closed_callback),
-                    w);
-  gtk_container_set_border_width (GTK_CONTAINER (w->window), 6);
-
-  vbox = gtk_vbox_new (FALSE, 6);
-  gtk_container_add (GTK_CONTAINER (w->window), vbox);
-
-  /* Create names option menu */
-  if (connection)
-    {
-      GtkCellRenderer *cell;
-      w->names_model = names_model;
-
-      combo = gtk_combo_box_new_with_model (w->names_model);
-
-      cell = gtk_cell_renderer_text_new ();
-      gtk_cell_layout_pack_start (GTK_CELL_LAYOUT (combo), cell, TRUE);
-      gtk_cell_layout_set_attributes (GTK_CELL_LAYOUT (combo), cell,
-                                      "text", 0,
-                                      NULL);
-      
-      gtk_box_pack_start (GTK_BOX (vbox), combo, FALSE, FALSE, 0);
-    }
-  
-  /* Create tree view */
-  hbox = gtk_hbox_new (FALSE, 6);
-  gtk_container_add (GTK_CONTAINER (vbox), hbox);
-  
-  sw = gtk_scrolled_window_new (NULL, NULL);
-  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (sw),
-                                  GTK_POLICY_AUTOMATIC,
-                                  GTK_POLICY_AUTOMATIC);
-
-  gtk_box_pack_start (GTK_BOX (hbox), sw, TRUE, TRUE, 0);
-
-  w->treeview = dbus_tree_view_new ();
-
-  gtk_container_add (GTK_CONTAINER (sw), w->treeview);
-
-  /* Show everything */
-  gtk_widget_show_all (w->window);
-
-  return w;
-}
-
 static void
 show_error_dialog (GtkWindow *transient_parent,
                    GtkWidget **weak_ptr,
@@ -340,6 +258,162 @@ load_from_service (DBusGConnection *connection,
   return node;
 }
 
+typedef struct
+{
+  DBusGConnection *connection;
+  
+  GtkWidget *window;
+  GtkWidget *treeview;
+  GtkWidget *name_menu;
+
+  GtkTreeModel *names_model;
+
+  GtkWidget *error_dialog;
+  
+} TreeWindow;
+
+static void
+tree_window_set_node (TreeWindow *w,
+                      NodeInfo   *node)
+{
+  char **path;
+  const char *name;
+
+  name = node_info_get_name (node);
+  if (name == NULL ||
+      name[0] != '/')
+    {
+      g_printerr (_("Assuming root node is at path /, since no absolute path is specified"));
+      name = "/";
+    }
+
+  path = _dbus_gutils_split_path (name);
+  
+  dbus_tree_view_update (GTK_TREE_VIEW (w->treeview),
+                         (const char**) path,
+                         node);
+
+  g_strfreev (path);
+}
+
+static void
+tree_window_set_service (TreeWindow *w,
+                         const char *service_name)
+{
+  GError *error;
+  NodeInfo *node;
+  
+  error = NULL;
+  node = load_from_service (w->connection, service_name, &error);
+  if (node == NULL)
+    {
+      g_assert (error != NULL);
+      show_error_dialog (GTK_WINDOW (w->window), &w->error_dialog,
+                         _("Unable to load \"%s\": %s\n"),
+                         service_name, error->message);
+      g_error_free (error);
+      return;
+    }
+  
+  tree_window_set_node (w, node);
+
+  node_info_unref (node);
+}
+
+static void
+name_combo_changed_callback (GtkComboBox *combo,
+                             TreeWindow  *w)
+{
+  char *text;
+
+  text = gtk_combo_box_get_active_text (combo);
+
+  if (text)
+    {
+      tree_window_set_service (w, text);
+      g_free (text);
+    }
+}
+
+static void
+window_closed_callback (GtkWidget  *window,
+                        TreeWindow *w)
+{
+  g_assert (window == w->window);
+  w->window = NULL;
+  gtk_main_quit ();
+}
+
+static TreeWindow*
+tree_window_new (DBusGConnection *connection,
+                 GtkTreeModel    *names_model)
+{
+  TreeWindow *w;
+  GtkWidget *sw;
+  GtkWidget *vbox;
+  GtkWidget *hbox;
+  GtkWidget *combo;
+
+  /* Should use glade, blah */
+  
+  w = g_new0 (TreeWindow, 1);
+  w->window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+
+  gtk_window_set_title (GTK_WINDOW (w->window), "D-BUS Viewer");
+  gtk_window_set_default_size (GTK_WINDOW (w->window), 400, 500);
+
+  g_signal_connect (w->window, "destroy", G_CALLBACK (window_closed_callback),
+                    w);
+  gtk_container_set_border_width (GTK_CONTAINER (w->window), 6);
+
+  vbox = gtk_vbox_new (FALSE, 6);
+  gtk_container_add (GTK_CONTAINER (w->window), vbox);
+
+  /* Create names option menu */
+  if (connection)
+    {
+      GtkCellRenderer *cell;
+
+      w->connection = connection;
+      
+      w->names_model = names_model;
+
+      combo = gtk_combo_box_new_with_model (w->names_model);
+
+      cell = gtk_cell_renderer_text_new ();
+      gtk_cell_layout_pack_start (GTK_CELL_LAYOUT (combo), cell, TRUE);
+      gtk_cell_layout_set_attributes (GTK_CELL_LAYOUT (combo), cell,
+                                      "text", 0,
+                                      NULL);
+      
+      gtk_box_pack_start (GTK_BOX (vbox), combo, FALSE, FALSE, 0);
+
+      g_signal_connect (combo, "changed",
+                        G_CALLBACK (name_combo_changed_callback),
+                        w);
+    }
+  
+  /* Create tree view */
+  hbox = gtk_hbox_new (FALSE, 6);
+  gtk_container_add (GTK_CONTAINER (vbox), hbox);
+  
+  sw = gtk_scrolled_window_new (NULL, NULL);
+  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (sw),
+                                  GTK_POLICY_AUTOMATIC,
+                                  GTK_POLICY_AUTOMATIC);
+
+  gtk_box_pack_start (GTK_BOX (hbox), sw, TRUE, TRUE, 0);
+
+  w->treeview = dbus_tree_view_new ();
+
+  gtk_container_add (GTK_CONTAINER (sw), w->treeview);
+
+  /* Show everything */
+  gtk_widget_show_all (w->window);
+
+  return w;
+}
+
 static void
 usage (int ecode)
 {
@@ -417,7 +491,7 @@ main (int argc, char **argv)
       ++i;
     }
 
-  if (services)
+  if (services || files == NULL)
     {
       error = NULL;
       connection = dbus_g_bus_get (DBUS_BUS_SESSION, &error);
@@ -438,55 +512,51 @@ main (int argc, char **argv)
       connection = NULL;
       names_model = NULL;
     }
+
+  if (files == NULL)
+    {
+      TreeWindow *w;
+
+      w = tree_window_new (connection, names_model);
+    }
   
   files = g_slist_reverse (files);
 
   tmp = files;
   while (tmp != NULL)
     {
-      NodeInfo *node;
       const char *filename;
+      TreeWindow *w;
 
       filename = tmp->data;
-
-      error = NULL;
-      if (services)
-        node = load_from_service (connection, filename, &error);
-      else
-        node = description_load_from_file (filename,
-                                           &error);
       
-      if (node == NULL)
+      if (services)
         {
-          g_assert (error != NULL);
-          show_error_dialog (NULL, NULL,
-                             _("Unable to load \"%s\": %s\n"),
-                             filename, error->message);
-          g_error_free (error);
+          w = tree_window_new (connection, names_model);
+          tree_window_set_service (w, filename);
         }
       else
         {
-          TreeWindow *w;
-          char **path;
-          const char *name;
-
-          name = node_info_get_name (node);
-          if (name == NULL ||
-              name[0] != '/')
-            {
-              g_printerr (_("Assuming root node of \"%s\" is at path /, since no absolute path is specified"), filename);
-              name = "/";
-            }
-
-          path = _dbus_gutils_split_path (name);
+          NodeInfo *node;
           
-          w = tree_window_new (connection, names_model); 
-          dbus_tree_view_update (GTK_TREE_VIEW (w->treeview),
-                                 (const char**) path,
-                                 node);
-          node_info_unref (node);
-
-          g_strfreev (path);
+          error = NULL;
+          node = description_load_from_file (filename,
+                                             &error);
+          
+          if (node == NULL)
+            {
+              g_assert (error != NULL);
+              show_error_dialog (NULL, NULL,
+                                 _("Unable to load \"%s\": %s\n"),
+                                 filename, error->message);
+              g_error_free (error);
+            }
+          else
+            {
+              w = tree_window_new (connection, names_model);
+              tree_window_set_node (w, node);
+              node_info_unref (node);
+            }
         }
       
       tmp = tmp->next;
