@@ -39,7 +39,7 @@ filter_func (DBusConnection     *connection,
                               "Disconnected"))
     exit (0);
   
-  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+  return DBUS_HANDLER_RESULT_HANDLED;
 }
 
 static void

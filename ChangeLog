@@ -1,5 +1,12 @@
 2004-10-29  Colin Walters  <walters@redhat.com>
 
+	* tools/dbus-monitor.c (filter_func): Return
+	DBUS_HANDLER_RESULT_HANDLED in filter function
+	for now.  See:
+	http://freedesktop.org/pipermail/dbus/2004-August/001433.html
+
+2004-10-29  Colin Walters  <walters@redhat.com>
+
 	Patch from Matthew Rickard <mjricka@epoch.ncsc.mil>
 
 	* bus/services.c (bus_registry_acquire_service): 
