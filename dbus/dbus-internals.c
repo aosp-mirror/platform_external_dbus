@@ -424,7 +424,7 @@ _dbus_header_field_to_string (int header_field)
 #ifndef DBUS_DISABLE_CHECKS
 /** String used in _dbus_return_if_fail macro */
 const char _dbus_return_if_fail_warning_format[] =
-"Arguments to %s were incorrect, assertion \"%s\" failed in file %s line %d.\n"
+"Arguments to %s() were incorrect, assertion \"%s\" failed in file %s line %d.\n"
 "This is normally a bug in some application using the D-BUS library.\n";
 #endif
 

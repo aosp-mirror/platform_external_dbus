@@ -909,6 +909,7 @@ bus_context_check_security_policy (BusContext     *context,
   BusClientPolicy *sender_policy;
   BusClientPolicy *recipient_policy;
   int type;
+  dbus_bool_t requested_reply;
   
   type = dbus_message_get_type (message);
   
@@ -919,49 +920,54 @@ bus_context_check_security_policy (BusContext     *context,
                 addressed_recipient != NULL ||
                 strcmp (dbus_message_get_destination (message), DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) == 0);
   
+  switch (type)
+    {
+    case DBUS_MESSAGE_TYPE_METHOD_CALL:
+    case DBUS_MESSAGE_TYPE_SIGNAL:
+    case DBUS_MESSAGE_TYPE_METHOD_RETURN:
+    case DBUS_MESSAGE_TYPE_ERROR:
+      break;
+      
+    default:
+      _dbus_verbose ("security check disallowing message of unknown type %d\n",
+                     type);
+
+      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                      "Message bus will not accept messages of unknown type\n");
+              
+      return FALSE;
+    }
+
+  requested_reply = FALSE;
+  
   if (sender != NULL)
     {
       if (bus_connection_is_active (sender))
         {
           sender_policy = bus_connection_get_policy (sender);
           _dbus_assert (sender_policy != NULL);
-
-          switch (type)
+          
+          /* Fill in requested_reply variable with TRUE if this is a
+           * reply and the reply was pending.
+           */
+          if (dbus_message_get_reply_serial (message) != 0)
             {
-            case DBUS_MESSAGE_TYPE_METHOD_CALL:
-            case DBUS_MESSAGE_TYPE_SIGNAL:
-
-              /* Continue below to check security policy */
-              break;
-              
-            case DBUS_MESSAGE_TYPE_METHOD_RETURN:
-            case DBUS_MESSAGE_TYPE_ERROR:
-              /* These are only allowed if the reply is listed
-               * as pending, or the connection is eavesdropping.
-               * The idea is to prohibit confusing/fake replies.
-               * FIXME In principle a client that's asked to eavesdrop
-               * specifically should probably get bogus replies
-               * even to itself, but here we prohibit that.
-               */
-              
               if (proposed_recipient != NULL /* not to the bus driver */ &&
-                  addressed_recipient == proposed_recipient /* not eavesdropping */ &&
-                  !bus_connections_check_reply (bus_connection_get_connections (sender),
-                                                transaction,
-                                                sender, addressed_recipient, message,
-                                                error))
-                return FALSE;
-
-              /* Continue below to check security policy, since reply was expected */
-              break;
-              
-            default:
-              _dbus_verbose ("security check disallowing message of unknown type\n");
-
-              dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
-                              "Message bus will not accept messages of unknown type\n");
-              
-              return FALSE;
+                  addressed_recipient == proposed_recipient /* not eavesdropping */)
+                {
+                  DBusError error2;                  
+                  
+                  dbus_error_init (&error2);
+                  requested_reply = bus_connections_check_reply (bus_connection_get_connections (sender),
+                                                                 transaction,
+                                                                 sender, addressed_recipient, message,
+                                                                 &error2);
+                  if (dbus_error_is_set (&error2))
+                    {
+                      dbus_move_error (&error2, error);
+                      return FALSE;
+                    }
+                }
             }
         }
       else
@@ -992,7 +998,16 @@ bus_context_check_security_policy (BusContext     *context,
         }
     }
   else
-    sender_policy = NULL;
+    {
+      sender_policy = NULL;
+
+      /* If the sender is the bus driver, we assume any reply was a
+       * requested reply as bus driver won't send bogus ones
+       */
+      if (addressed_recipient == proposed_recipient /* not eavesdropping */ &&
+          dbus_message_get_reply_serial (message) != 0)
+        requested_reply = TRUE;
+    }
 
   _dbus_assert ((sender != NULL && sender_policy != NULL) ||
                 (sender == NULL && sender_policy == NULL));
@@ -1050,7 +1065,9 @@ bus_context_check_security_policy (BusContext     *context,
 
   if (recipient_policy &&
       !bus_client_policy_check_can_receive (recipient_policy,
-                                            context->registry, sender,
+                                            context->registry,
+                                            requested_reply,
+                                            sender,
                                             addressed_recipient, proposed_recipient,
                                             message))
     {
@@ -1059,14 +1076,16 @@ bus_context_check_security_policy (BusContext     *context,
                       "A security policy in place prevents this recipient "
                       "from receiving this message from this sender, "
                       "see message bus configuration file (rejected message "
-                      "had interface \"%s\" member \"%s\" error name \"%s\" destination \"%s\")",
+                      "had interface \"%s\" member \"%s\" error name \"%s\" destination \"%s\" reply serial %u requested_reply=%d)",
                       dbus_message_get_interface (message) ?
                       dbus_message_get_interface (message) : "(unset)",
                       dbus_message_get_member (message) ?
                       dbus_message_get_member (message) : "(unset)",
                       dbus_message_get_error_name (message) ?
                       dbus_message_get_error_name (message) : "(unset)",
-                      dest ? dest : DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
+                      dest ? dest : DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                      dbus_message_get_reply_serial (message),
+                      requested_reply);
       _dbus_verbose ("security policy disallowing message due to recipient policy\n");
       return FALSE;
     }

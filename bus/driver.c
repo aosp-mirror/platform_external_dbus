@@ -814,7 +814,7 @@ bus_driver_handle_message (DBusConnection *connection,
   /* security checks should have kept this from getting here */
   _dbus_assert (sender != NULL || strcmp (name, "Hello") == 0);
 
-  if (dbus_message_get_reply_serial (message) == 0)
+  if (dbus_message_get_reply_serial (message) != 0)
     {
       _dbus_verbose ("Client sent a reply to the bus driver, ignoring it\n");
       return TRUE;

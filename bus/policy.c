@@ -56,6 +56,10 @@ bus_policy_rule_new (BusPolicyRuleType type,
       break;
     case BUS_POLICY_RULE_RECEIVE:
       rule->d.receive.message_type = DBUS_MESSAGE_TYPE_INVALID;
+      /* allow rules default to TRUE (only requested replies allowed)
+       * deny rules default to FALSE (only unrequested replies denied)
+       */
+      rule->d.receive.requested_reply = rule->allow;
       break;
     case BUS_POLICY_RULE_OWN:
       break;
@@ -919,6 +923,7 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
 dbus_bool_t
 bus_client_policy_check_can_receive (BusClientPolicy *policy,
                                      BusRegistry     *registry,
+                                     dbus_bool_t      requested_reply,
                                      DBusConnection  *sender,
                                      DBusConnection  *addressed_recipient,
                                      DBusConnection  *proposed_recipient,
@@ -977,6 +982,30 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
         {
           _dbus_verbose ("  (policy) skipping deny rule since it only applies to eavesdropping\n");
           continue;
+        }
+
+      /* If it's a reply, the requested_reply flag kicks in */
+      if (dbus_message_get_reply_serial (message) != 0)
+        {
+          /* for allow, requested_reply=true means the rule applies
+           * only when reply was requested. requested_reply=false means
+           * always allow.
+           */
+          if (!requested_reply && rule->allow && rule->d.receive.requested_reply)
+            {
+              _dbus_verbose ("  (policy) skipping allow rule since it only applies to requested replies\n");
+              continue;
+            }
+
+          /* for deny, requested_reply=false means the rule applies only
+           * when the reply was not requested. requested_reply=true means the
+           * rule always applies.
+           */
+          if (requested_reply && !rule->allow && !rule->d.receive.requested_reply)
+            {
+              _dbus_verbose ("  (policy) skipping deny rule since it only applies to unrequested replies\n");
+              continue;
+            }
         }
       
       if (rule->d.receive.path != NULL)

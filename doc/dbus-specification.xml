@@ -645,6 +645,11 @@
           was successfully processed.
         </para>
         <para>
+          The METHOD_RETURN or ERROR reply message MUST have the REPLY_SERIAL 
+          header field. If this field is missing, it should be treated as 
+          a corrupt message.
+        </para>
+        <para>
           If a METHOD_CALL message has the flag NO_REPLY_EXPECTED, 
           then as an optimization the application receiving the method 
           call may choose to omit the reply message (regardless of 

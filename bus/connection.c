@@ -1510,7 +1510,7 @@ bus_connections_expect_reply (BusConnections  *connections,
   if (dbus_message_get_no_reply (reply_to_this))
     return TRUE; /* we won't allow a reply, since client doesn't care for one. */
   
-  reply_serial = dbus_message_get_reply_serial (reply_to_this);
+  reply_serial = dbus_message_get_serial (reply_to_this);
 
   link = _dbus_list_get_first_link (&connections->pending_replies->items);
   while (link != NULL)
@@ -1651,13 +1651,8 @@ bus_connections_check_reply (BusConnections *connections,
 
   if (link == NULL)
     {
-      _dbus_verbose ("No pending reply expected, disallowing this reply\n");
-      
-      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
-                      "%s message sent with reply serial %u, but no such reply was requested (or it has timed out already)\n",
-                      dbus_message_get_type (reply) == DBUS_MESSAGE_TYPE_METHOD_RETURN ?
-                      "method return" : "error",
-                      reply_serial);
+      _dbus_verbose ("No pending reply expected\n");
+
       return FALSE;
     }
 
@@ -1807,6 +1802,9 @@ bus_transaction_send_from_driver (BusTransaction *transaction,
   if (!dbus_message_set_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
     return FALSE;
 
+  /* bus driver never wants a reply */
+  dbus_message_set_no_reply (message, TRUE);
+  
   /* If security policy doesn't allow the message, we silently
    * eat it; the driver doesn't care about getting a reply.
    */

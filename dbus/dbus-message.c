@@ -217,7 +217,7 @@ get_uint_field (DBusMessage *message,
   offset = message->header_fields[field].value_offset;
   
   if (offset < 0)
-    return -1; /* useless if -1 is a valid value of course */
+    return 0; /* useless if 0 is a valid value of course */
   
   return _dbus_demarshal_uint32 (&message->header,
                                  message->byte_order,
@@ -808,9 +808,11 @@ dbus_message_set_reply_serial (DBusMessage   *message,
 }
 
 /**
- * Returns the serial of a message or -1 if none has been specified.
+ * Returns the serial of a message or 0 if none has been specified.
  * The message's serial number is provided by the application sending
- * the message and is used to identify replies to this message.
+ * the message and is used to identify replies to this message.  All
+ * messages received on a connection will have a serial, but messages
+ * you haven't sent yet may return 0.
  *
  * @param message the message
  * @returns the client serial
@@ -822,8 +824,7 @@ dbus_message_get_serial (DBusMessage *message)
 }
 
 /**
- * Returns the serial that the message is
- * a reply to or 0 if none.
+ * Returns the serial that the message is a reply to or 0 if none.
  *
  * @param message the message
  * @returns the reply serial
@@ -957,13 +958,16 @@ dbus_message_create_header (DBusMessage *message,
   if (!_dbus_string_append_byte (&message->header, DBUS_MAJOR_PROTOCOL_VERSION))
     return FALSE;
 
+  /* header length */
   if (!_dbus_marshal_uint32 (&message->header, message->byte_order, 0))
     return FALSE;
 
+  /* body length */
   if (!_dbus_marshal_uint32 (&message->header, message->byte_order, 0))
     return FALSE;
 
-  if (!_dbus_marshal_int32 (&message->header, message->byte_order, -1))
+  /* serial */
+  if (!_dbus_marshal_uint32 (&message->header, message->byte_order, 0))
     return FALSE;
   
   /* Marshal all the fields (Marshall Fields?) */
@@ -5024,8 +5028,18 @@ decode_header_data (const DBusString   *data,
           _dbus_verbose ("No error-name field provided\n");
           return FALSE;
         }
+      if (fields[DBUS_HEADER_FIELD_REPLY_SERIAL].value_offset < 0)
+        {
+          _dbus_verbose ("No reply serial field provided in error\n");
+          return FALSE;
+        }
       break;
     case DBUS_MESSAGE_TYPE_METHOD_RETURN:
+      if (fields[DBUS_HEADER_FIELD_REPLY_SERIAL].value_offset < 0)
+        {
+          _dbus_verbose ("No reply serial field provided in method return\n");
+          return FALSE;
+        }
       break;
     default:
       /* An unknown type, spec requires us to ignore it */
@@ -5059,6 +5073,243 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
   loader->buffer_outstanding = FALSE;
 }
 
+static dbus_bool_t
+load_one_message (DBusMessageLoader *loader,
+                  int                byte_order,
+                  int                message_type,
+                  int                header_len,
+                  int                body_len)
+{
+  DBusMessage *message;
+  HeaderField fields[DBUS_HEADER_FIELD_LAST + 1];
+  int i;
+  int next_arg;
+  dbus_bool_t oom;
+  int header_padding;
+  
+  message = NULL;
+  oom = FALSE;
+  
+#if 0
+  _dbus_verbose_bytes_of_string (&loader->data, 0, header_len + body_len);
+#endif	  
+
+  if (!decode_header_data (&loader->data,
+                           header_len, byte_order,
+                           message_type,
+                           fields, &header_padding))
+    {
+      _dbus_verbose ("Header was invalid\n");
+      loader->corrupted = TRUE;
+      goto failed;
+    }
+          
+  next_arg = header_len;
+  while (next_arg < (header_len + body_len))
+    {
+      int type;
+      int prev = next_arg;
+
+      if (!_dbus_marshal_validate_type (&loader->data, next_arg,
+                                        &type, &next_arg))
+        {
+          _dbus_verbose ("invalid typecode at offset %d\n", prev);
+          loader->corrupted = TRUE;
+          goto failed;
+        }
+      
+      if (!_dbus_marshal_validate_arg (&loader->data,
+                                       byte_order,
+                                       0,
+                                       type, -1,
+                                       next_arg,
+                                       &next_arg))
+        {
+          _dbus_verbose ("invalid type data at %d, next_arg\n", next_arg);
+          loader->corrupted = TRUE;
+          goto failed;
+        }
+
+      _dbus_assert (next_arg > prev);
+    }
+          
+  if (next_arg > (header_len + body_len))
+    {
+      _dbus_verbose ("end of last arg at %d but message has len %d+%d=%d\n",
+                     next_arg, header_len, body_len,
+                     header_len + body_len);
+      loader->corrupted = TRUE;
+      goto failed;
+    }
+
+  message = dbus_message_new_empty_header ();
+  if (message == NULL)
+    {
+      _dbus_verbose ("Failed to allocate empty message\n");
+      oom = TRUE;
+      goto failed;
+    }
+
+  message->byte_order = byte_order;
+  message->header_padding = header_padding;
+	  
+  /* Copy in the offsets we found */
+  i = 0;
+  while (i <= DBUS_HEADER_FIELD_LAST)
+    {
+      message->header_fields[i] = fields[i];
+      ++i;
+    }
+          
+  if (!_dbus_list_append (&loader->messages, message))
+    {
+      _dbus_verbose ("Failed to append new message to loader queue\n");
+      oom = TRUE;
+      goto failed;
+    }
+
+  _dbus_assert (_dbus_string_get_length (&message->header) == 0);
+  _dbus_assert (_dbus_string_get_length (&message->body) == 0);
+
+  _dbus_assert (_dbus_string_get_length (&loader->data) >=
+                (header_len + body_len));
+          
+  if (!_dbus_string_move_len (&loader->data, 0, header_len, &message->header, 0))
+    {
+      _dbus_verbose ("Failed to move header into new message\n");
+      oom = TRUE;
+      goto failed;
+    }
+          
+  if (!_dbus_string_move_len (&loader->data, 0, body_len, &message->body, 0))
+    {
+      _dbus_verbose ("Failed to move body into new message\n");
+      
+      oom = TRUE;
+      goto failed;
+    }
+
+  _dbus_assert (_dbus_string_get_length (&message->header) == header_len);
+  _dbus_assert (_dbus_string_get_length (&message->body) == body_len);
+
+  /* Fill in caches (we checked the types of these fields
+   * earlier)
+   */
+  message->reply_serial = get_uint_field (message,
+                                          DBUS_HEADER_FIELD_REPLY_SERIAL);
+  
+  message->client_serial = _dbus_demarshal_uint32 (&message->header,
+                                                   message->byte_order,
+                                                   CLIENT_SERIAL_OFFSET,
+                                                   NULL);
+  if (message->client_serial == 0 ||
+      (message->header_fields[DBUS_HEADER_FIELD_REPLY_SERIAL].value_offset >= 0 && message->reply_serial == 0))
+    {
+      _dbus_verbose ("client_serial = %d reply_serial = %d, one of these no good\n",
+                     message->client_serial,
+                     message->reply_serial);
+      
+      loader->corrupted = TRUE;
+      goto failed;
+    }
+          
+  /* Fill in signature (FIXME should do this during validation,
+   * but I didn't want to spend time on it since we want to change
+   * the wire format to contain the signature anyway)
+   */
+  {
+    DBusMessageIter iter;
+
+    dbus_message_iter_init (message, &iter);
+
+    do
+      {
+        int t;
+
+        t = dbus_message_iter_get_arg_type (&iter);
+        if (t == DBUS_TYPE_INVALID)
+          break;
+
+        if (!_dbus_string_append_byte (&message->signature,
+                                       t))
+          {
+            _dbus_verbose ("failed to append type byte to signature\n");
+            oom = TRUE;
+            goto failed;
+          }
+
+        if (t == DBUS_TYPE_ARRAY)
+          {
+            DBusMessageIter child_iter;
+            int array_type = t;
+
+            child_iter = iter;
+                    
+            while (array_type == DBUS_TYPE_ARRAY)
+              {
+                DBusMessageIter parent_iter = child_iter;
+                dbus_message_iter_init_array_iterator (&parent_iter,
+                                                       &child_iter,
+                                                       &array_type);
+                                            
+                if (!_dbus_string_append_byte (&message->signature,
+                                               array_type))
+                  {
+                    _dbus_verbose ("failed to append array type byte to signature\n");
+
+                    oom = TRUE;
+                    goto failed;
+                  }
+              }
+          }
+      }
+    while (dbus_message_iter_next (&iter));
+  }
+          
+  _dbus_verbose ("Loaded message %p\n", message);
+
+  _dbus_assert (!oom);
+  _dbus_assert (!loader->corrupted);
+
+  return TRUE;
+
+ failed:
+  
+  /* Clean up */
+  
+  if (message != NULL)
+    {
+      /* Put the data back so we can try again later if it was an OOM issue */
+      if (_dbus_string_get_length (&message->body) > 0)
+        {
+          dbus_bool_t result;
+          
+          result = _dbus_string_copy_len (&message->body, 0, body_len,
+                                          &loader->data, 0);
+          
+          _dbus_assert (result); /* because DBusString never reallocs smaller */
+        }
+      
+      if (_dbus_string_get_length (&message->header) > 0)
+        {
+          dbus_bool_t result;
+          
+          result = _dbus_string_copy_len (&message->header, 0, header_len,
+                                          &loader->data, 0);
+          
+          _dbus_assert (result); /* because DBusString never reallocs smaller */
+        }
+
+      /* does nothing if the message isn't in the list */
+      _dbus_list_remove_last (&loader->messages, message);
+
+      dbus_message_unref (message);
+    }
+
+  
+  return !oom;
+}
+
 /**
  * Converts buffered data into messages.
  *
@@ -5075,14 +5326,10 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 dbus_bool_t
 _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
 {
-  if (loader->corrupted)
-    return TRUE;
-
-  while (_dbus_string_get_length (&loader->data) >= 16)
+  while (!loader->corrupted && _dbus_string_get_length (&loader->data) >= 16)
     {
-      DBusMessage *message;      
       const char *header_data;
-      int byte_order, message_type, header_len, body_len, header_padding;
+      int byte_order, message_type, header_len, body_len;
       dbus_uint32_t header_len_unsigned, body_len_unsigned;
       
       header_data = _dbus_string_get_const_data_len (&loader->data, 0, 16);
@@ -5166,185 +5413,9 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
 
       if (_dbus_string_get_length (&loader->data) >= (header_len + body_len))
 	{
-          HeaderField fields[DBUS_HEADER_FIELD_LAST + 1];
-          int i;
-          int next_arg;          
-
-#if 0
-	  _dbus_verbose_bytes_of_string (&loader->data, 0, header_len + body_len);
-#endif	  
- 	  if (!decode_header_data (&loader->data,
-                                   header_len, byte_order,
-                                   message_type,
-                                   fields, &header_padding))
-	    {
-              _dbus_verbose ("Header was invalid\n");
-	      loader->corrupted = TRUE;
-	      return TRUE;
-	    }
-          
-          next_arg = header_len;
-          while (next_arg < (header_len + body_len))
-            {
-	      int type;
-              int prev = next_arg;
-
-	      if (!_dbus_marshal_validate_type (&loader->data, next_arg,
-						&type, &next_arg))
-		{
-		  _dbus_verbose ("invalid typecode at offset %d\n", prev);
-		  loader->corrupted = TRUE;
-		  return TRUE;
-		}
-      
-              if (!_dbus_marshal_validate_arg (&loader->data,
-                                               byte_order,
-                                               0,
-					       type, -1,
-                                               next_arg,
-                                               &next_arg))
-                {
-		  _dbus_verbose ("invalid type data at %d, next_arg\n", next_arg);
-                  loader->corrupted = TRUE;
-                  return TRUE;
-                }
-
-              _dbus_assert (next_arg > prev);
-            }
-          
-          if (next_arg > (header_len + body_len))
-            {
-              _dbus_verbose ("end of last arg at %d but message has len %d+%d=%d\n",
-                             next_arg, header_len, body_len,
-                             header_len + body_len);
-              loader->corrupted = TRUE;
-              return TRUE;
-            }
-
-  	  message = dbus_message_new_empty_header ();
-	  if (message == NULL)
-            {
-              _dbus_verbose ("Failed to allocate empty message\n");
-              return FALSE;
-            }
-
-          message->byte_order = byte_order;
-          message->header_padding = header_padding;
-	  
-          /* Copy in the offsets we found */
-          i = 0;
-          while (i <= DBUS_HEADER_FIELD_LAST)
-            {
-              message->header_fields[i] = fields[i];
-              ++i;
-            }
-          
-	  if (!_dbus_list_append (&loader->messages, message))
-            {
-              _dbus_verbose ("Failed to append new message to loader queue\n");
-              dbus_message_unref (message);
-              return FALSE;
-            }
-
-          _dbus_assert (_dbus_string_get_length (&message->header) == 0);
-          _dbus_assert (_dbus_string_get_length (&message->body) == 0);
-
-          _dbus_assert (_dbus_string_get_length (&loader->data) >=
-                        (header_len + body_len));
-          
-	  if (!_dbus_string_move_len (&loader->data, 0, header_len, &message->header, 0))
-            {
-              _dbus_verbose ("Failed to move header into new message\n");
-              _dbus_list_remove_last (&loader->messages, message);
-              dbus_message_unref (message);
-              return FALSE;
-            }
-          
-	  if (!_dbus_string_move_len (&loader->data, 0, body_len, &message->body, 0))
-            {
-              dbus_bool_t result;
-
-              _dbus_verbose ("Failed to move body into new message\n");
-              
-              /* put the header back, we'll try again later */
-              result = _dbus_string_copy_len (&message->header, 0, header_len,
-                                              &loader->data, 0);
-              _dbus_assert (result); /* because DBusString never reallocs smaller */
-
-              _dbus_list_remove_last (&loader->messages, message);
-              dbus_message_unref (message);
-              return FALSE;
-            }
-
-          _dbus_assert (_dbus_string_get_length (&message->header) == header_len);
-          _dbus_assert (_dbus_string_get_length (&message->body) == body_len);
-
-          /* Fill in caches (we checked the types of these fields
-           * earlier)
-           */
-          message->reply_serial = get_uint_field (message,
-						  DBUS_HEADER_FIELD_REPLY_SERIAL);
-	  
-          message->client_serial = _dbus_demarshal_uint32 (&message->header,
-							   message->byte_order,
-							   CLIENT_SERIAL_OFFSET,
-							   NULL);
-
-          /* Fill in signature (FIXME should do this during validation,
-           * but I didn't want to spend time on it since we want to change
-           * the wire format to contain the signature anyway)
-           */
-          {
-            DBusMessageIter iter;
-
-            dbus_message_iter_init (message, &iter);
-
-            do
-              {
-                int t;
-
-                t = dbus_message_iter_get_arg_type (&iter);
-                if (t == DBUS_TYPE_INVALID)
-                  break;
-
-                if (!_dbus_string_append_byte (&message->signature,
-                                               t))
-                  {
-                    _dbus_verbose ("failed to append type byte to signature\n");
-                    _dbus_list_remove_last (&loader->messages, message);
-                    dbus_message_unref (message);
-                    return FALSE;
-                  }
-
-                if (t == DBUS_TYPE_ARRAY)
-                  {
-                    DBusMessageIter child_iter;
-                    int array_type = t;
-
-                    child_iter = iter;
-                    
-                    while (array_type == DBUS_TYPE_ARRAY)
-                      {
-                        DBusMessageIter parent_iter = child_iter;
-                        dbus_message_iter_init_array_iterator (&parent_iter,
-                                                               &child_iter,
-                                                               &array_type);
-                                            
-                        if (!_dbus_string_append_byte (&message->signature,
-                                                       array_type))
-                          {
-                            _dbus_verbose ("failed to append array type byte to signature\n");
-                            _dbus_list_remove_last (&loader->messages, message);
-                            dbus_message_unref (message);
-                            return FALSE;
-                          }
-                      }
-                  }
-              }
-            while (dbus_message_iter_next (&iter));
-          }
-          
-	  _dbus_verbose ("Loaded message %p\n", message);
+          if (!load_one_message (loader, byte_order, message_type,
+                                 header_len, body_len))
+            return FALSE;
 	}
       else
         return TRUE;

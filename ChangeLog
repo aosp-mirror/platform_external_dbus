@@ -1,5 +1,33 @@
 2003-10-14  Havoc Pennington  <hp@redhat.com>
 
+	* bus/bus.c (bus_context_check_security_policy): revamp this to
+	work more sanely with new policy-based requested reply setup
+
+	* bus/connection.c (bus_transaction_send_from_driver): set bus
+	driver messages as no reply
+
+	* bus/policy.c (bus_client_policy_check_can_receive): handle a
+	requested_reply attribute on allow/deny rules
+
+	* bus/system.conf: add <allow requested_reply="true"/>
+
+	* bus/driver.c (bus_driver_handle_message): fix check for replies
+	sent to the bus driver, which was backward. How did this ever work
+	at all though? I think I'm missing something.
+
+	* dbus/dbus-message.c (decode_header_data): require error and
+	method return messages to have a reply serial field to be valid
+	(_dbus_message_loader_queue_messages): break up this function;
+	validate that reply serial and plain serial are nonzero; 
+	clean up the OOM/error handling.
+	(get_uint_field): don't return -1 from this
+	(dbus_message_create_header): fix signed/unsigned bug
+
+	* bus/connection.c (bus_connections_expect_reply): save serial of
+	the incoming message, not reply serial
+
+2003-10-14  Havoc Pennington  <hp@redhat.com>
+
 	* bus/connection.c: implement pending reply tracking using
 	BusExpireList
 

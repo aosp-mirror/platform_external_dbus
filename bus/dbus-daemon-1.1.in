@@ -356,7 +356,8 @@ The possible attributes of these elements are:
    receive_sender="service_name" 
    receive_type="method_call" | "method_return" | "signal" | "error"
    receive_path="/path/name"
-   
+
+   requested_reply="true" | "false"
    eavesdrop="true" | "false"
 
    own="servicename"
@@ -377,7 +378,7 @@ Examples:
 .fi
 
 .PP
-The <deny> attributes determine whether the deny "matches" a
+The <deny> element's attributes determine whether the deny "matches" a
 particular action. If it matches, the action is denied (unless later
 rules in the config file allow it).
 
@@ -407,6 +408,26 @@ only when eavesdropping. eavesdrop="false" is the default for <deny>
 also, but here it means that the rule applies always, even when 
 not eavesdropping. The eavesdrop attribute can only be combined with
 receive rules (with receive_* attributes).
+
+
+.PP
+The requested_reply attribute works similarly to the eavesdrop
+attribute. It controls whether the <deny> or <allow> matches a reply
+that is expected (corresponds to a previous method call message).
+This attribute only makes sense for reply messages (errors and method
+returns), and is ignored for other message types.
+
+.PP
+For <allow>, requested_reply="true" is the default and indicates that
+only requested replies are allowed by the
+rule. requested_reply="false" means that the rule allows any reply
+even if unexpected.
+
+.PP
+For <deny>, requested_reply="false" is the default but indicates that
+the rule matches only when the reply was not
+requested. requested_reply="true" indicates that the rule applies
+always, regardless of pending reply state.
 
 .PP
 user and group denials mean that the given user or group may 

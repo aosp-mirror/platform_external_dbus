@@ -61,7 +61,7 @@ struct BusPolicyRule
       char *interface;
       char *member;
       char *error;
-      char *destination;
+      char *destination;      
     } send;
 
     struct
@@ -75,6 +75,7 @@ struct BusPolicyRule
       char *error;
       char *origin;
       unsigned int eavesdrop : 1;
+      unsigned int requested_reply : 1;
     } receive;
 
     struct
@@ -134,6 +135,7 @@ dbus_bool_t      bus_client_policy_check_can_send    (BusClientPolicy  *policy,
                                                       DBusMessage      *message);
 dbus_bool_t      bus_client_policy_check_can_receive (BusClientPolicy  *policy,
                                                       BusRegistry      *registry,
+                                                      dbus_bool_t       requested_reply,
                                                       DBusConnection   *sender,
                                                       DBusConnection   *addressed_recipient,
                                                       DBusConnection   *proposed_recipient,

@@ -20,6 +20,13 @@ if HAVE_PYTHON
    PYTHON_SUBDIR=python
 endif
 
+## really we should require gcj/mcs/python also but since they are 
+## annoying to install, we don't for now
+dist-local:
+	if test -z "$(QT_SUBDIR)" || test -z "$(GLIB_SUBDIR)" ; then		\
+		echo "You have to build with Qt and GLib to make dist" ;	\
+	fi 
+
 SUBDIRS=dbus bus doc $(GLIB_SUBDIR) $(GCJ_SUBDIR) $(MONO_SUBDIR) $(QT_SUBDIR) $(PYTHON_SUBDIR) test tools
 
 pkgconfigdir = $(libdir)/pkgconfig
