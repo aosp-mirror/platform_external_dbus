@@ -1197,17 +1197,12 @@ dbus_message_get_name (DBusMessage *message)
 
 /**
  * Gets the destination service of a message.
- *
- * @todo I think if we have set_sender/get_sender,
- * this function might be better named set_destination/
- * get_destination for clarity, as the sender
- * is also a service name.
  * 
  * @param message the message
  * @returns the message destination service (should not be freed)
  */
 const char*
-dbus_message_get_service (DBusMessage *message)
+dbus_message_get_destination (DBusMessage *message)
 {
   _dbus_return_val_if_fail (message != NULL, NULL);
   
@@ -3743,8 +3738,8 @@ dbus_message_get_sender (DBusMessage *message)
  * @returns #TRUE if the message has the given name
  */
 dbus_bool_t
-dbus_message_name_is (DBusMessage *message,
-		      const char  *name)
+dbus_message_has_name (DBusMessage *message,
+                       const char  *name)
 {
   const char *n;
 
@@ -3770,15 +3765,15 @@ dbus_message_name_is (DBusMessage *message,
  * @returns #TRUE if the message has the given destination service
  */
 dbus_bool_t
-dbus_message_service_is (DBusMessage  *message,
-                         const char   *service)
+dbus_message_has_destination (DBusMessage  *message,
+                              const char   *service)
 {
   const char *s;
 
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_fail (service != NULL, FALSE);
   
-  s = dbus_message_get_service (message);
+  s = dbus_message_get_destination (message);
 
   if (s && strcmp (s, service) == 0)
     return TRUE;
@@ -3801,8 +3796,8 @@ dbus_message_service_is (DBusMessage  *message,
  * @returns #TRUE if the message has the given origin service
  */
 dbus_bool_t
-dbus_message_sender_is (DBusMessage  *message,
-                        const char   *service)
+dbus_message_has_sender (DBusMessage  *message,
+                         const char   *service)
 {
   const char *s;
 

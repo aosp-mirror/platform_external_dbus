@@ -693,8 +693,8 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
 
       if (rule->d.send.message_name != NULL)
         {
-          if (!dbus_message_name_is (message,
-                                     rule->d.send.message_name))
+          if (!dbus_message_has_name (message,
+                                      rule->d.send.message_name))
             continue;
         }
 
@@ -707,8 +707,8 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
            */
           if (receiver == NULL)
             {
-              if (!dbus_message_sender_is (message,
-                                           rule->d.send.destination))
+              if (!dbus_message_has_sender (message,
+                                            rule->d.send.destination))
                 continue;
             }
           else
@@ -765,8 +765,8 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
 
       if (rule->d.receive.message_name != NULL)
         {
-          if (!dbus_message_name_is (message,
-                                     rule->d.receive.message_name))
+          if (!dbus_message_has_name (message,
+                                      rule->d.receive.message_name))
             continue;
         }
 
@@ -779,8 +779,8 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
            */
           if (sender == NULL)
             {
-              if (!dbus_message_sender_is (message,
-                                           rule->d.receive.origin))
+              if (!dbus_message_has_sender (message,
+                                            rule->d.receive.origin))
                 continue;
             }
           else

@@ -125,7 +125,7 @@ bus_dispatch (DBusConnection *connection,
   /* Ref connection in case we disconnect it at some point in here */
   dbus_connection_ref (connection);
 
-  service_name = dbus_message_get_service (message);
+  service_name = dbus_message_get_destination (message);
   message_name = dbus_message_get_name (message);
 
   _dbus_assert (message_name != NULL); /* DBusMessageLoader is supposed to check this */
@@ -176,7 +176,7 @@ bus_dispatch (DBusConnection *connection,
        * reallocated, and thus the service_name pointer will become
        * invalid.
        */
-      service_name = dbus_message_get_service (message);
+      service_name = dbus_message_get_destination (message);
     }
 
   if (strcmp (service_name, DBUS_SERVICE_DBUS) == 0) /* to bus driver */

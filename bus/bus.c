@@ -889,7 +889,7 @@ bus_context_check_security_policy (BusContext     *context,
                                          context->registry, recipient,
                                          message))
     {
-      const char *dest = dbus_message_get_service (message);
+      const char *dest = dbus_message_get_destination (message);
       dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
                       "A security policy in place prevents this sender "
                       "from sending this message to this recipient, "
@@ -905,7 +905,7 @@ bus_context_check_security_policy (BusContext     *context,
                                             context->registry, sender,
                                             message))
     {
-      const char *dest = dbus_message_get_service (message);
+      const char *dest = dbus_message_get_destination (message);
       dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
                       "A security policy in place prevents this recipient "
                       "from receiving this message from this sender, "
@@ -921,7 +921,7 @@ bus_context_check_security_policy (BusContext     *context,
       dbus_connection_get_outgoing_size (recipient) >
       context->max_outgoing_bytes)
     {
-      const char *dest = dbus_message_get_service (message);
+      const char *dest = dbus_message_get_destination (message);
       dbus_set_error (error, DBUS_ERROR_LIMITS_EXCEEDED,
                       "The destination service \"%s\" has a full message queue",
                       dest ? dest : DBUS_SERVICE_DBUS);
