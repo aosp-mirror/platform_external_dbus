@@ -25,14 +25,23 @@ AM_PROG_LIBTOOL
 
 AC_ARG_ENABLE(qt,      [  --enable-qt      enable Qt-friendly client library],enable_qt=$enableval,enable_qt=auto)
 AC_ARG_ENABLE(glib,    [  --enable-glib    enable GLib-friendly client library],enable_glib=$enableval,enable_glib=auto)
-AC_ARG_ENABLE(tests,   [  --enable-tests enable unit test code],enable_tests=$enableval,enable_tests=$USE_MAINTAINER_MODE)
-AC_ARG_ENABLE(ansi,    [  --enable-ansi enable -ansi -pedantic gcc flags],enable_ansi=$enableval,enable_ansi=no)
+AC_ARG_ENABLE(tests,   [  --enable-tests   enable unit test code],enable_tests=$enableval,enable_tests=$USE_MAINTAINER_MODE)
+AC_ARG_ENABLE(ansi,    [  --enable-ansi    enable -ansi -pedantic gcc flags],enable_ansi=$enableval,enable_ansi=no)
+AC_ARG_ENABLE(verbose-mode, [  --enable-verbose-mode support verbose debug mode],enable_verbose_mode=$enableval,enable_verbose_mode=yes)
+AC_ARG_ENABLE(asserts, [  --enable-asserts include assertion checks],enable_asserts=$enableval,enable_asserts=yes)
 
 dnl DBUS_BUILD_TESTS controls unit tests built in to .c files 
 dnl and also some stuff in the test/ subdir
 AM_CONDITIONAL(DBUS_BUILD_TESTS, test x$enable_tests = xyes)
 if test x$enable_tests = xyes; then
     AC_DEFINE(DBUS_BUILD_TESTS,1,[Build test code])
+fi
+
+if test x$enable_verbose_mode = xyes; then
+    AC_DEFINE(DBUS_ENABLE_VERBOSE_MODE,1,[Support a verbose mode])
+fi
+if test x$enable_asserts = xno; then
+    AC_DEFINE(DBUS_DISABLE_ASSERT,1,[Disable assertion checking])
 fi
 
 changequote(,)dnl
@@ -107,6 +116,32 @@ AC_CHECK_FUNCS(vsnprintf vasprintf getpwnam_r nanosleep usleep poll)
 dnl check for writev header and writev function so we're 
 dnl good to go if HAVE_WRITEV gets defined.
 AC_CHECK_HEADERS(sys/uio.h, [AC_CHECK_FUNCS(writev)])
+
+dnl check for flavours of varargs macros (test from GLib)
+AC_MSG_CHECKING(for ISO C99 varargs macros in C)
+AC_TRY_COMPILE([],[
+int a(int p1, int p2, int p3);
+#define call_a(...) a(1,__VA_ARGS__)
+call_a(2,3);
+],dbus_have_iso_c_varargs=yes,dbus_have_iso_c_varargs=no)
+AC_MSG_RESULT($dbus_have_iso_c_varargs)
+
+AC_MSG_CHECKING(for GNUC varargs macros)
+AC_TRY_COMPILE([],[
+int a(int p1, int p2, int p3);
+#define call_a(params...) a(1,params)
+call_a(2,3);
+],dbus_have_gnuc_varargs=yes,dbus_have_gnuc_varargs=no)
+AC_MSG_RESULT($dbus_have_gnuc_varargs)
+
+dnl Output varargs tests
+if test x$dbus_have_iso_c_varargs = xyes; then
+    AC_DEFINE(HAVE_ISO_VARARGS,1,[Have ISO C99 varargs macros])
+fi
+if test x$dbus_have_gnuc_varargs = xyes; then
+    AC_DEFINE(HAVE_GNUC_VARARGS,1,[Have GNU-style varargs macros])
+fi
+
 
 DBUS_CLIENT_CFLAGS=
 DBUS_CLIENT_LIBS=
@@ -205,10 +240,18 @@ echo "
 
         Maintainer mode:        ${USE_MAINTAINER_MODE}
         Building unit tests:    ${enable_tests}
+        Building verbose mode:  ${enable_verbose_mode}
+        Building assertions:    ${enable_asserts}
         Building Qt bindings:   ${have_qt}
         Building GLib bindings: ${have_glib}
 "
 
 if test x$enable_tests = xyes; then
         echo "NOTE: building with unit tests increases the size of the installed library"
+fi
+if test x$enable_verbose_mode = xyes; then
+        echo "NOTE: building with verbose mode increases library size, but is probably a good idea anyway."
+fi
+if test x$enable_asserts = xyes; then
+        echo "NOTE: building with assertions increases library size, but is probably a good idea anyway."
 fi

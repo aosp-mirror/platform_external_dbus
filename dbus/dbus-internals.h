@@ -36,15 +36,31 @@
 
 DBUS_BEGIN_DECLS;
 
-void _dbus_warn    (const char *format,
-                    ...);
-void _dbus_verbose (const char *format,
-                    ...);
+void _dbus_warn         (const char *format,
+                         ...);
+void _dbus_verbose_real (const char *format,
+                         ...);
+
+
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+#  define _dbus_verbose _dbus_verbose_real
+#else
+#  ifdef HAVE_ISO_VARARGS
+#    define _dbus_verbose(...)
+#  elif defined (HAVE_GNUC_VARARGS)
+#    define _dbus_verbose(format...)
+#  else
+#    error "This compiler does not support varargs macros and thus verbose mode can't be disabled meaningfully"
+#  endif
+#endif /* !DBUS_ENABLE_VERBOSE_MODE */
 
 const char* _dbus_strerror (int error_number);
 
 DBusResultCode _dbus_result_from_errno (int error_number);
 
+#ifdef DBUS_DISABLE_ASSERT
+#define _dbus_assert(condition)
+#else
 #define _dbus_assert(condition)                                         \
 do {                                                                    \
   if (!(condition))                                                     \
@@ -54,13 +70,18 @@ do {                                                                    \
       _dbus_abort ();                                                   \
     }                                                                   \
 } while (0)
+#endif /* !DBUS_DISABLE_ASSERT */
 
+#ifdef DBUS_DISABLE_ASSERT
+#define _dbus_assert_not_reached(explanation)
+#else
 #define _dbus_assert_not_reached(explanation)                                   \
 do {                                                                            \
     _dbus_warn ("File \"%s\" line %d should not have been reached: %s\n",       \
                __FILE__, __LINE__, (explanation));                              \
     _dbus_abort ();                                                             \
 } while (0)
+#endif /* !DBUS_DISABLE_ASSERT */
 
 #define _DBUS_N_ELEMENTS(array) ((int) (sizeof ((array)) / sizeof ((array)[0])))
 

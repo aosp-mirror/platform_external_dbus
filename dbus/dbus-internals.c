@@ -147,12 +147,14 @@ _dbus_warn (const char *format,
 /**
  * Prints a warning message to stderr
  * if the user has enabled verbose mode.
+ * This is the real function implementation,
+ * use _dbus_verbose() macro in code.
  *
  * @param format printf-style format string.
  */
 void
-_dbus_verbose (const char *format,
-               ...)
+_dbus_verbose_real (const char *format,
+                    ...)
 {
   va_list args;
   static dbus_bool_t verbose = TRUE;
