@@ -9,6 +9,11 @@
 
 	* s/expected/required/ in a couple places for clarity
 
+2005-02-07  Colin Walters  <walters@verbum.org>
+
+	* bus/selinux.c (bus_selinux_allows_send): Handle NULL for
+	sender or proposed_recipient.
+
 2005-02-06  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-message-factory.c (generate_special): more tests
