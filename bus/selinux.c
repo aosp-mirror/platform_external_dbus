@@ -24,6 +24,7 @@
 #include "selinux.h"
 #include "services.h"
 #include "policy.h"
+#include "utils.h"
 #include "config-parser.h"
 
 #ifdef HAVE_SELINUX
