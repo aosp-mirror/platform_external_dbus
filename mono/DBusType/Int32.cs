@@ -36,11 +36,14 @@ namespace DBus.DBusType
 
     public static bool Suits(System.Type type) 
     {
+      if (type.IsEnum && type.UnderlyingSystemType == typeof(System.Int32)) {
+	return true;
+      }
+      
       switch (type.ToString()) {
       case "System.Int32":
       case "System.Int32&":
-	return true;
-      }
+	return true;      }
       
       return false;
     }
@@ -68,6 +71,10 @@ namespace DBus.DBusType
 
     public object Get(System.Type type)
     {
+      if (type.IsEnum) {
+	return Enum.ToObject(type, this.val);
+      }
+      
       switch (type.ToString()) {
       case "System.Int32":
       case "System.Int32&":

@@ -41,6 +41,10 @@ namespace DBus.DBusType
 
     public static bool Suits(System.Type type) 
     {
+      if (type.IsEnum && type.UnderlyingSystemType == typeof(System.Byte)) {
+	return true;
+      }
+
       switch (type.ToString()) {
       case "System.Byte":
       case "System.Byte&":
@@ -75,6 +79,10 @@ namespace DBus.DBusType
 
     public object Get(System.Type type)
     {
+      if (type.IsEnum) {
+	return Enum.ToObject(type, this.val);
+      }
+
       switch (type.ToString()) {
       case "System.Byte":
       case "System.Byte&":
