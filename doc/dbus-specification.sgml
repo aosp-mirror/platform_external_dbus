@@ -716,10 +716,10 @@
         to locate them.
       </para>
       <para>
-        Each time a user logs in, a <firstterm>desktop session message
+        Each time a user logs in, a <firstterm>login session message
         bus</firstterm> may be started. All applications in the user's login
         session may interact with one another using this message bus.  [specify
-        how to find the address of the desktop session message bus via
+        how to find the address of the login session message bus via
         environment variable and/or X property]
       </para>
       <para>
