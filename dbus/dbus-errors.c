@@ -21,6 +21,9 @@
  *
  */
 #include "dbus-errors.h"
+#include "dbus-internals.h"
+#include <stdarg.h>
+#include <stdio.h>
 
 /**
  * @defgroup DBusErrors Error reporting
@@ -41,6 +44,14 @@
  * 
  * @{
  */
+
+typedef struct
+{
+  const char *name; /**< error name */
+  char *message; /**< error message */
+
+  unsigned int const_message : 1; /** Message is not owned by DBusError */
+} DBusRealError;
 
 /**
  * Set a result code at a result code location,
@@ -110,6 +121,94 @@ dbus_result_to_string (DBusResultCode code)
     }
 
   return "Invalid error code";
+}
+
+void
+dbus_error_init (DBusError *error)
+{
+  DBusRealError *real;
+
+  _dbus_assert (error != NULL);
+
+  _dbus_assert (sizeof (DBusError) == sizeof (DBusRealError));
+
+  real = (DBusRealError *)error;
+  
+  real->name = NULL;  
+  real->message = NULL;
+
+  real->const_message = TRUE;
+}
+
+void
+dbus_error_free (DBusError *error)
+{
+  DBusRealError *real;
+
+  real = (DBusRealError *)error;
+
+  if (!real->const_message)
+    dbus_free (real->message);
+}
+
+void
+dbus_set_error_const (DBusError  *error,
+		      const char *name,
+		      const char *message)
+{
+  DBusRealError *real;
+
+  if (error == NULL)
+    return;
+
+  dbus_error_init (error);
+  
+  real = (DBusRealError *)error;
+  
+  real->name = name;
+  real->message = (char *)message;
+  real->const_message = TRUE;
+}
+
+dbus_bool_t
+dbus_set_error (DBusError  *error,
+		const char *name,
+		const char *format,
+		...)
+{
+  DBusRealError *real;
+  va_list args, args2;
+  int message_length;
+  char *message;
+  char c;
+
+  if (error == NULL)
+    return TRUE;
+  
+  va_start (args, format);
+
+  va_copy (args2, args);
+  
+  /* Measure the message length */
+  message_length = vsnprintf (&c, 1,format, args) + 1;
+
+  message = dbus_malloc (message_length);
+
+  vsprintf (message, format, args2);
+  
+  if (!message)
+    return FALSE;
+
+  va_end (args);
+
+  dbus_error_init (error);
+  real = (DBusRealError *)error;
+  
+  real->name = name;
+  real->message = message;
+  real->const_message = FALSE;
+  
+  return TRUE;
 }
 
 /** @} */

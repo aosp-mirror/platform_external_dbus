@@ -1,5 +1,12 @@
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/dbus-errors.c: (dbus_result_to_string), (dbus_error_init),
+	(dbus_error_free), (dbus_set_error_const), (dbus_set_error):
+	* dbus/dbus-errors.h:
+	Add DBusError structure.
+	
+2003-02-13  Anders Carlsson  <andersca@codefactory.se>
+
 	* test/data/valid-messages/standard-acquire-service.message:
 	* test/data/valid-messages/standard-hello.message:
 	* test/data/valid-messages/standard-list-services.message:
