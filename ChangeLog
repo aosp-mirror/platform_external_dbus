@@ -1,3 +1,9 @@
+2003-01-28  Havoc Pennington  <hp@pobox.com>
+
+	* test/Makefile.am (dist-hook): fix make distdir
+
+	* dbus/Makefile.am (TESTS_ENVIRONMENT): fix make check
+
 2003-01-27  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-mempool.c (time_for_size): replace printf with 

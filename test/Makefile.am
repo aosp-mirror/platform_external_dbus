@@ -25,12 +25,12 @@ echo_client_LDADD=$(TEST_LIBS)
 echo_server_LDADD=$(TEST_LIBS)
 
 dist-hook:
-	DIRS="data data/valid-messages" ;			\
-	for D in $DIRS; do					\
-		test -d $(distdir)/$D || mkdir $(distdir)/$D ;	\
-	done ;							\
-	FILES=`find -name "*.message"` ;			\
-        for F in $FILES; do					\
-                echo '-- Disting file '$$F ;			\
-		cp $F $(distdir)/$$F ;				\
+	DIRS="data data/valid-messages data/invalid-messages data/incomplete-messages" ; \
+	for D in $$DIRS; do						\
+		test -d $(distdir)/$$D || mkdir $(distdir)/$$D ;	\
+	done ;								\
+	FILES=`find -name "*.message"` ;				\
+        for F in $$FILES; do						\
+                echo '-- Disting file '$$F ;				\
+		cp $$F $(distdir)/$$F ;					\
 	done
