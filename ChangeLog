@@ -1,3 +1,12 @@
+2003-01-02  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-marshal.c: (_dbus_marshal_utf8_string),
+	(_dbus_marshal_byte_array), (_dbus_demarshal_utf8_string),
+	(_dbus_marshal_test):
+	* dbus/dbus-marshal.h:
+	Add _dbus_marshal_byte_array and rename _dbus_marshal_string
+	to _dbus_marshal_utf8_string. Also fix some tests.
+	
 2002-12-28  Harri Porten  <porten@kde.org>
 
 	* configure.in: added check for C++ compiler and a very cheesy

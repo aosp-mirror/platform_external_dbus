@@ -173,16 +173,11 @@ _dbus_marshal_uint32 (DBusString    *str,
 }
 
 dbus_bool_t
-_dbus_marshal_string (DBusString    *str,
-		      int            byte_order,
-		      const char    *value)
+_dbus_marshal_utf8_string (DBusString    *str,
+			   int            byte_order,
+			   const char    *value)
 {
   int len;
-
-  if (!_dbus_string_set_length (str,
-				DBUS_ALIGN_VALUE (_dbus_string_get_length (str),
-						  sizeof (dbus_uint32_t))))
-    return FALSE;
 
   len = strlen (value);
 
@@ -192,6 +187,17 @@ _dbus_marshal_string (DBusString    *str,
   return _dbus_string_append_len (str, value, len + 1);
 }
 
+dbus_bool_t
+_dbus_marshal_byte_array (DBusString          *str,
+			  int                  byte_order,
+			  const unsigned char *value,
+			  int                  len)
+{
+  if (!_dbus_marshal_uint32 (str, byte_order, len))
+    return FALSE;
+
+  return _dbus_string_append_len (str, value, len);
+}
 
 double
 _dbus_demarshal_double (DBusString  *str,
@@ -254,10 +260,10 @@ _dbus_demarshal_uint32  (DBusString *str,
 }
 
 char *
-_dbus_demarshal_string (DBusString *str,
-			int         byte_order,
-			int         pos,
-			int        *new_pos)
+_dbus_demarshal_utf8_string (DBusString *str,
+			     int         byte_order,
+			     int         pos,
+			     int        *new_pos)
 {
   int len;
   char *retval;
@@ -401,25 +407,29 @@ _dbus_marshal_test (void)
   _dbus_assert (_dbus_demarshal_int32 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == -12345678);
   
   /* Marshal unsigned integers */
+  if (!_dbus_marshal_uint32 (&str, DBUS_BIG_ENDIAN, 0x12345678))
+    _dbus_assert_not_reached ("could not marshal signed integer value");
+  _dbus_assert (_dbus_demarshal_uint32 (&str, DBUS_BIG_ENDIAN, pos, &pos) == 0x12345678);
+  
   if (!_dbus_marshal_uint32 (&str, DBUS_LITTLE_ENDIAN, 0x12345678))
     _dbus_assert_not_reached ("could not marshal signed integer value");
   _dbus_assert (_dbus_demarshal_uint32 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == 0x12345678);
 
   /* Marshal strings */
   tmp1 = "This is the dbus test string";
-  if (!_dbus_marshal_string (&str, DBUS_LITTLE_ENDIAN, tmp1))
+  if (!_dbus_marshal_utf8_string (&str, DBUS_BIG_ENDIAN, tmp1))
     _dbus_assert_not_reached ("could not marshal string");
-  tmp2 = _dbus_demarshal_string (&str, DBUS_LITTLE_ENDIAN, pos, &pos);
+  tmp2 = _dbus_demarshal_utf8_string (&str, DBUS_BIG_ENDIAN, pos, &pos);
   _dbus_assert (strcmp (tmp1, tmp2) == 0);
   dbus_free (tmp2);
 
   tmp1 = "This is the dbus test string";
-  if (!_dbus_marshal_string (&str, DBUS_LITTLE_ENDIAN, tmp1))
+  if (!_dbus_marshal_utf8_string (&str, DBUS_LITTLE_ENDIAN, tmp1))
     _dbus_assert_not_reached ("could not marshal string");
-  tmp2 = _dbus_demarshal_string (&str, DBUS_LITTLE_ENDIAN, pos, &pos);
+  tmp2 = _dbus_demarshal_utf8_string (&str, DBUS_LITTLE_ENDIAN, pos, &pos);
   _dbus_assert (strcmp (tmp1, tmp2) == 0);
   dbus_free (tmp2);
-  
+
   _dbus_string_free (&str);
   
   return TRUE;
