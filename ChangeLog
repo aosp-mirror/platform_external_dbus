@@ -1,5 +1,13 @@
 2003-11-24  Zack Rusin  <zack@kde.org>
 
+	* qt/connection.h, qt/connection.cpp: removing initDbus method since
+	the integrator handles it now
+
+	* qt/integrator.h, qt/integrator.cpp: reworking handling of timeouts,
+	since QTimer wasn't really meant to be used the way DBusTimeout is
+
+2003-11-24  Zack Rusin  <zack@kde.org>
+
 	* qt/integrator.h, qt/integrator.cpp, Makefile.am: Adding 
 	Integrator class which integrates D-BUS with the Qt event loop,
 

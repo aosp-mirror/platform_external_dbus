@@ -32,30 +32,91 @@ namespace DBusQt
 {
 namespace Internal {
 
-struct QtWatch {
-  QtWatch(): readSocket( 0 ), writeSocket( 0 ) { }
+struct Watch {
+  Watch(): readSocket( 0 ), writeSocket( 0 ) { }
 
   DBusWatch *watch;
   QSocketNotifier *readSocket;
   QSocketNotifier *writeSocket;
 };
 
-struct DBusQtTimeout {
-  DBusQtTimeout(): timer( 0 ), timeout( 0 ) { }
-  ~DBusQtTimeout() {
-    delete timer;
-  }
-  QTimer *timer;
-  DBusTimeout *timeout;
-};
+//////////////////////////////////////////////////////////////
+dbus_bool_t dbusAddWatch( DBusWatch *watch, void *data )
+{
+  Integrator *con = static_cast<Integrator*>( data );
+  con->addWatch( watch );
+  return true;
+}
+void dbusRemoveWatch( DBusWatch *watch, void *data )
+{
+  Integrator *con = static_cast<Integrator*>( data );
+  con->removeWatch( watch );
+}
+
+void dbusToggleWatch( DBusWatch *watch, void *data )
+{
+  Integrator *itg = static_cast<Integrator*>( data );
+  if ( dbus_watch_get_enabled( watch ) )
+    itg->addWatch( watch );
+  else
+    itg->removeWatch( watch );
+}
+
+dbus_bool_t dbusAddTimeout( DBusTimeout *timeout, void *data )
+{
+  if ( !dbus_timeout_get_enabled(timeout) )
+    return true;
+
+  Integrator *itg = static_cast<Integrator*>( data );
+  itg->addTimeout( timeout );
+  return true;
+}
+
+void dbusRemoveTimeout( DBusTimeout *timeout, void *data )
+{
+  Integrator *itg = static_cast<Integrator*>( data );
+  itg->removeTimeout( timeout );
+}
+
+void dbusToggleTimeout( DBusTimeout *timeout, void *data )
+{
+  Integrator *itg = static_cast<Integrator*>( data );
+
+  if ( dbus_timeout_get_enabled( timeout ) )
+    itg->addTimeout( timeout );
+  else
+    itg->removeTimeout( timeout );
+}
 
 void dbusWakeupMain( void* )
 {
 }
 
+/////////////////////////////////////////////////////////////
+
+Timeout::Timeout( QObject *parent, DBusTimeout *t )
+  : QObject( parent ),  m_timeout( t )
+{
+  m_timer = new QTimer( this );
+  connect( m_timer,  SIGNAL(timeout()),
+           SLOT(slotTimeout()) );
+}
+
+void Timeout::slotTimeout()
+{
+  emit timeout( m_timeout );
+}
+
+void Timeout::start()
+{
+  m_timer->start( dbus_timeout_get_interval( m_timeout ) );
+}
+
 Integrator::Integrator( Connection *parent )
   : QObject( parent ), m_parent( parent )
 {
+  m_timeouts.setAutoDelete( true );
+
   dbus_connection_set_watch_functions( m_parent->connection(),
                                        dbusAddWatch,
                                        dbusRemoveWatch,
@@ -82,12 +143,17 @@ void Integrator::slotWrite( int fd )
   Q_UNUSED( fd );
 }
 
+void Integrator::slotTimeout( DBusTimeout *timeout )
+{
+  dbus_timeout_handle( timeout );
+}
+
 void Integrator::addWatch( DBusWatch *watch )
 {
   if ( !dbus_watch_get_enabled( watch ) )
     return;
 
-  QtWatch *qtwatch = new QtWatch;
+  Watch *qtwatch = new Watch;
   qtwatch->watch = watch;
 
   int flags = dbus_watch_get_flags( watch );
@@ -110,7 +176,7 @@ void Integrator::removeWatch( DBusWatch *watch )
 {
   int key = dbus_watch_get_fd( watch );
 
-  QtWatch *qtwatch = m_watches.take( key );
+  Watch *qtwatch = m_watches.take( key );
 
   if ( qtwatch ) {
     delete qtwatch->readSocket;  qtwatch->readSocket = 0;
@@ -119,6 +185,19 @@ void Integrator::removeWatch( DBusWatch *watch )
   }
 }
 
+void Integrator::addTimeout( DBusTimeout *timeout )
+{
+  Timeout *mt = new Timeout( this, timeout );
+  m_timeouts.insert( timeout, mt );
+  connect( mt, SIGNAL(timeout(DBusTimeout*)),
+           SLOT(slotTimeout(DBusTimeout*)) );
+  mt->start();
+}
+
+void Integrator::removeTimeout( DBusTimeout *timeout )
+{
+  m_timeouts.remove( timeout );
+}
 
 }//end namespace Internal
 }//end namespace DBusQt

@@ -61,7 +61,6 @@ namespace DBusQt {
 
   protected:
     void init( const QString& host );
-    void initDbus();
     virtual void* virtual_hook( int id, void* data );
   private:
     friend class Internal::Integrator;

@@ -26,9 +26,11 @@
 #include <qobject.h>
 
 #include <qintdict.h>
-#include <qptrlist.h>
+#include <qptrdict.h>
 
 #include "dbus/dbus.h"
+
+class QTimer;
 
 namespace DBusQt
 {
@@ -36,8 +38,24 @@ namespace DBusQt
 
   namespace Internal
   {
-    struct QtWatch;
-    struct DBusQtTimeout;
+    struct Watch;
+
+    class Timeout : public QObject
+    {
+      Q_OBJECT
+    public:
+      Timeout( QObject *parent, DBusTimeout *t );
+    public:
+      void start();
+    signals:
+      void timeout( DBusTimeout* );
+    protected slots:
+      void slotTimeout();
+    private:
+      QTimer *m_timer;
+      DBusTimeout *m_timeout;
+    };
+
     class Integrator : public QObject
     {
       Q_OBJECT
@@ -50,65 +68,19 @@ namespace DBusQt
     protected slots:
       void slotRead( int );
       void slotWrite( int );
+      void slotTimeout( DBusTimeout *timeout );
 
-    protected:
+    public:
       void addWatch( DBusWatch* );
       void removeWatch( DBusWatch* );
 
       void addTimeout( DBusTimeout* );
       void removeTimeout( DBusTimeout* );
     private:
-      QIntDict<QtWatch> m_watches;
-      QPtrList<DBusQtTimeout> m_timeouts;
+      QIntDict<Watch> m_watches;
+      QPtrDict<Timeout> m_timeouts;
       Connection* m_parent;
-
-    private:
-      friend dbus_bool_t dbusAddWatch( DBusWatch*, void* );
-      friend void dbusRemoveWatch( DBusWatch*, void* );
-      friend void dbusToggleWatch( DBusWatch*, void* );
-
-      friend dbus_bool_t dbusAddTimeout( DBusTimeout*, void* );
-      friend void dbusRemoveTimeout( DBusTimeout*, void* );
-      friend void dbusToggleTimeout( DBusTimeout*, void* );
     };
-
-    //////////////////////////////////////////////////////////////
-    //Friends
-    dbus_bool_t dbusAddWatch( DBusWatch *watch, void *data )
-    {
-      Integrator *con = static_cast<Integrator*>( data );
-      con->addWatch( watch );
-      return true;
-    }
-    void dbusRemoveWatch( DBusWatch *watch, void *data )
-    {
-      Integrator *con = static_cast<Integrator*>( data );
-      con->removeWatch( watch );
-    }
-
-    void dbusToggleWatch( DBusWatch*, void* )
-    {
-      //I don't know how to handle this one right now
-//#warning "FIXME: implement"
-    }
-
-    dbus_bool_t dbusAddTimeout( DBusTimeout *timeout, void *data )
-    {
-      Integrator *con = static_cast<Integrator*>( data );
-      con->addTimeout( timeout );
-      return true;
-    }
-
-    void dbusRemoveTimeout( DBusTimeout *timeout, void *data )
-    {
-      Integrator *con = static_cast<Integrator*>( data );
-    }
-
-    void dbusToggleTimeout( DBusTimeout *timeout, void *data )
-    {
-      Integrator *con = static_cast<Integrator*>( data );
-    }
-    /////////////////////////////////////////////////////////////
   }
 }
 

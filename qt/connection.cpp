@@ -42,14 +42,8 @@ Connection::Connection( const QString& host )
   connect( d->integrator, SIGNAL(readReady()),
            SLOT(dispatchRead()) );
 
-  initDbus();
-
   if ( !host.isEmpty() )
     init( host );
-}
-
-void Connection::initDbus()
-{
 }
 
 void Connection::init( const QString& host )
@@ -58,7 +52,6 @@ void Connection::init( const QString& host )
   d->connection = dbus_connection_open( host.ascii(), &d->error );
   //dbus_connection_allocate_data_slot( &d->connectionSlot );
   //dbus_connection_set_data( d->connection, d->connectionSlot, 0, 0 );
-  initDbus();
 }
 
 bool Connection::isConnected() const
