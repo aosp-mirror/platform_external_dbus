@@ -1,3 +1,10 @@
+2003-02-13  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-message-builder.c: (_dbus_message_data_load):
+	* dbus/dbus-message.c: (process_test_subdir):
+	* test/break-loader.c: (find_breaks_based_on):
+	Plug some memory leaks.
+	
 2003-02-13  Richard Hult  <rhult@codefactory.se>
 
 	* bus/main.c: Fix build.

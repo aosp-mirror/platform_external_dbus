@@ -173,10 +173,15 @@ try_mutated_data (const DBusString *data)
 
           failures_this_iteration += 1;
 
+	  _dbus_string_free (&filename);
+	  
           return FALSE;
         }
       else
-        return TRUE;
+	{
+	  _dbus_string_free (&filename);	  
+	  return TRUE;
+	}
     }
 
   _dbus_assert_not_reached ("should not be reached");

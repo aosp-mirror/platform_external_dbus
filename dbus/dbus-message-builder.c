@@ -764,6 +764,8 @@ _dbus_message_data_load (DBusString       *dest,
                                    sl->offset,
                                    sl->length - sl->start);
         }
+
+      _dbus_hash_iter_remove_entry (&iter);
     }
   
   retval = TRUE;
