@@ -1,6 +1,15 @@
 2004-05-30  Seth Nickell  <seth@gnome.org>
 
 	* python/dbus_bindings.pyx.in:
+	* python/tests/test-client.py:
+
+	Add some more tests and fix errors that crop up.
+	Unfortunately, currently it seems like marshalling
+	and unmarshalling of lists is completely broken :-(
+
+2004-05-30  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus_bindings.pyx.in:
 
 	Add support for ObjectPath type.
 
