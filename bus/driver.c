@@ -353,14 +353,13 @@ bus_driver_handle_service_exists (DBusConnection *connection,
  service = bus_service_lookup (&service_name, FALSE);
  
  _DBUS_HANDLE_OOM ((reply = dbus_message_new_reply (DBUS_MESSAGE_ACQUIRE_SERVICE, message)));
- _DBUS_HANDLE_OOM (dbus_message_set_sender (message, DBUS_SERVICE_DBUS));
+ _DBUS_HANDLE_OOM (dbus_message_set_sender (reply, DBUS_SERVICE_DBUS));
 
- _DBUS_HANDLE_OOM (dbus_message_append_fields (message,
+ _DBUS_HANDLE_OOM (dbus_message_append_fields (reply,
 					       DBUS_TYPE_UINT32, (service != NULL ? 1 : 0),
 					       0));
- _DBUS_HANDLE_OOM (dbus_connection_send_message (connection, message, NULL, NULL));
- 
- dbus_message_unref (message);
+ _DBUS_HANDLE_OOM (dbus_connection_send_message (connection, reply, NULL, NULL));
+ dbus_message_unref (reply);
  dbus_free (name);
 }
 
