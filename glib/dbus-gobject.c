@@ -25,6 +25,7 @@
 #include "dbus-glib.h"
 #include "dbus-gtest.h"
 #include "dbus-gutils.h"
+#include "dbus-gvalue.h"
 #include <string.h>
 
 /**
@@ -318,137 +319,28 @@ set_object_property (DBusConnection *connection,
                      GObject        *object,
                      GParamSpec     *pspec)
 {
-  GValue value;
-  DBusMessageIter iter;
-  int type;
-  gboolean can_set;
+  GValue value = { 0, };
   DBusMessage *ret;
+  DBusMessageIter iter;
 
   dbus_message_iter_init (message, &iter);
-  type = dbus_message_get_type (message);
-
-  can_set = TRUE;
-  switch (type)
-    {
-    case DBUS_TYPE_BYTE:
-      {
-        unsigned char b;
-
-        b = dbus_message_iter_get_byte (&iter);
-
-        g_value_init (&value, G_TYPE_UCHAR);
-
-        g_value_set_uchar (&value, b);
-      }
-      break;
-    case DBUS_TYPE_BOOLEAN:
-      {
-        gboolean b;
-
-        b = dbus_message_iter_get_boolean (&iter);
-
-        g_value_init (&value, G_TYPE_BOOLEAN);
-
-        g_value_set_boolean (&value, b);
-      }
-      break;
-    case DBUS_TYPE_INT32:
-      {
-        gint32 i;
-
-        i = dbus_message_iter_get_int32 (&iter);
-
-        g_value_init (&value, G_TYPE_INT);
-
-        g_value_set_int (&value, i);
-      }
-      break;
-    case DBUS_TYPE_UINT32:
-      {
-        guint32 i;
-
-        i = dbus_message_iter_get_uint32 (&iter);
-
-        g_value_init (&value, G_TYPE_UINT);
-
-        g_value_set_uint (&value, i);
-      }
-      break;
-    case DBUS_TYPE_INT64:
-      {
-        gint64 i;
-
-        i = dbus_message_iter_get_int64 (&iter);
-
-        g_value_init (&value, G_TYPE_INT64);
-
-        g_value_set_int64 (&value, i);
-      }
-      break;
-    case DBUS_TYPE_UINT64:
-      {
-        guint64 i;
-
-        i = dbus_message_iter_get_uint64 (&iter);
-
-        g_value_init (&value, G_TYPE_UINT64);
-
-        g_value_set_uint64 (&value, i);
-      }
-      break;
-    case DBUS_TYPE_DOUBLE:
-      {
-        double d;
-
-        d = dbus_message_iter_get_double (&iter);
-
-        g_value_init (&value, G_TYPE_DOUBLE);
-
-        g_value_set_double (&value, d);
-      }
-      break;
-    case DBUS_TYPE_STRING:
-      {
-        char *s;
-
-        /* FIXME use a const string accessor */
-
-        s = dbus_message_iter_get_string (&iter);
-
-        g_value_init (&value, G_TYPE_STRING);
-
-        g_value_set_string (&value, s);
-
-        g_free (s);
-      }
-      break;
-
-      /* FIXME array and other types, especially byte array
-       * converted to G_TYPE_STRING
-       */
-
-    default:
-      can_set = FALSE;
-      break;
-    }
 
   /* The g_object_set_property() will transform some types, e.g. it
    * will let you use a uchar to set an int property etc. Note that
    * any error in value range or value conversion will just
    * g_warning(). These GObject skels are not for secure applications.
    */
-
-  if (can_set)
+  if (dbus_gvalue_demarshal (&iter, &value))
     {
       g_object_set_property (object,
                              pspec->name,
                              &value);
 
+      g_value_unset (&value);
+
       ret = dbus_message_new_method_return (message);
       if (ret == NULL)
         g_error ("out of memory");
-
-      g_value_unset (&value);
     }
   else
     {
@@ -469,9 +361,8 @@ get_object_property (DBusConnection *connection,
                      GParamSpec     *pspec)
 {
   GType value_type;
-  gboolean can_get;
-  DBusMessage *ret;
   GValue value;
+  DBusMessage *ret;
   DBusMessageIter iter;
 
   value_type = G_PARAM_SPEC_VALUE_TYPE (pspec);
@@ -480,76 +371,14 @@ get_object_property (DBusConnection *connection,
   if (ret == NULL)
     g_error ("out of memory");
 
-  can_get = TRUE;
   g_value_init (&value, value_type);
   g_object_get_property (object, pspec->name, &value);
 
   value_type = G_VALUE_TYPE (&value);
 
   dbus_message_append_iter_init (message, &iter);
-  
-  switch (value_type)
-    {
-    case G_TYPE_CHAR:
-      dbus_message_iter_append_byte (&iter,
-                                     g_value_get_char (&value));
-      break;
-    case G_TYPE_UCHAR:
-      dbus_message_iter_append_byte (&iter,
-                                     g_value_get_uchar (&value));
-      break;
-    case G_TYPE_BOOLEAN:
-      dbus_message_iter_append_boolean (&iter,
-                                        g_value_get_boolean (&value));
-      break;
-    case G_TYPE_INT:
-      dbus_message_iter_append_int32 (&iter,
-                                      g_value_get_int (&value));
-      break;
-    case G_TYPE_UINT:
-      dbus_message_iter_append_uint32 (&iter,
-                                       g_value_get_uint (&value));
-      break;
-      /* long gets cut to 32 bits so the remote API is consistent
-       * on all architectures
-       */
-    case G_TYPE_LONG:
-      dbus_message_iter_append_int32 (&iter,
-                                      g_value_get_long (&value));
-      break;
-    case G_TYPE_ULONG:
-      dbus_message_iter_append_uint32 (&iter,
-                                       g_value_get_ulong (&value));
-      break;
-    case G_TYPE_INT64:
-      dbus_message_iter_append_int64 (&iter,
-                                      g_value_get_int64 (&value));
-      break;
-    case G_TYPE_UINT64:
-      dbus_message_iter_append_uint64 (&iter,
-                                       g_value_get_uint64 (&value));
-      break;
-    case G_TYPE_FLOAT:
-      dbus_message_iter_append_double (&iter,
-                                       g_value_get_float (&value));
-      break;
-    case G_TYPE_DOUBLE:
-      dbus_message_iter_append_double (&iter,
-                                       g_value_get_double (&value));
-      break;
-    case G_TYPE_STRING:
-      /* FIXME, the GValue string may not be valid UTF-8 */
-      dbus_message_iter_append_string (&iter,
-                                       g_value_get_string (&value));
-      break;
-    default:
-      can_get = FALSE;
-      break;
-    }
 
-  g_value_unset (&value);
-
-  if (!can_get)
+  if (!dbus_gvalue_marshal (&iter, &value))
     {
       dbus_message_unref (ret);
       ret = dbus_message_new_error (message,

@@ -15,7 +15,9 @@ libdbus_glib_1_la_SOURCES = 			\
 	dbus-gtest.h				\
 	dbus-gthread.c				\
 	dbus-gutils.c				\
-	dbus-gutils.h
+	dbus-gutils.h				\
+	dbus-gvalue.c				\
+	dbus-gvalue.h
 
 libdbus_glib_1_la_LIBADD= $(DBUS_GLIB_LIBS) $(top_builddir)/dbus/libdbus-1.la
 ## don't export symbols that start with "_" (we use this 

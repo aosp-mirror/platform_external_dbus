@@ -1,5 +1,16 @@
 2004-03-29  Michael Meeks  <michael@ximian.com>
 
+	* glib/dbus-gobject.c (set_object_property): split out / 
+	re-work, use the property type, and not the message type(!)
+	(get_object_property): ditto.
+
+        * glib/dbus-gvalue.c (dbus_gvalue_demarshal),
+	(dbus_gvalue_marshal): make this code re-usable, needed
+	for signals too, also on both proxy and server side.
+	Re-write for more efficiency / readability.
+
+2004-03-29  Michael Meeks  <michael@ximian.com>
+
 	* dbus/dbus-message.c
 	(dbus_message_new_error_printf): impl.
 
