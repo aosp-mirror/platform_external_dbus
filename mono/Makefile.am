@@ -61,14 +61,14 @@ clean:
 
 install-data-local:
 	@if test -n '$(TARGET)'; then                       \
-	  echo "$(GACUTIL) /i $(ASSEMBLY) /f /package dbus-sharp /root $(DESTDIR)$(libdir)";    \
-	  $(GACUTIL) /i $(ASSEMBLY) /f /package dbus-sharp /root $(DESTDIR)$(libdir) || exit 1; \
+	  echo "$(GACUTIL) /i $(ASSEMBLY) /f /package dbus-sharp /gacdir $(DESTDIR)$(libdir)";    \
+	  $(GACUTIL) /i $(ASSEMBLY) /f /package dbus-sharp /gacdir $(DESTDIR)$(libdir) || exit 1; \
 	fi
 
 uninstall-local:
 	@if test -n '$(TARGET)'; then                       \
-	  echo "$(GACUTIL) /u $(ASSEMBLY_NAME) /package dbus-sharp /root $(DESTDIR)$(libdir)";  \
-	  $(GACUTIL) /u $(ASSEMBLY_NAME) /package dbus-sharp /root $(DESTDIR)$(libdir) || exit 1;   \
+	  echo "$(GACUTIL) /u $(ASSEMBLY_NAME) /package dbus-sharp /gacdir $(DESTDIR)$(libdir)";  \
+	  $(GACUTIL) /u $(ASSEMBLY_NAME) /package dbus-sharp /gacdir $(DESTDIR)$(libdir) || exit 1;   \
 	fi
 
 EXTRA_DIST=			\

@@ -189,23 +189,29 @@ MONO_REQUIRED_VERSION=0.95
 AC_SUBST(MONO_REQUIRED_VERSION)
 PKG_CHECK_MODULES(MONO_DEPENDENCY, mono >= $MONO_REQUIRED_VERSION, have_mono=true, have_mono=false)
 
-if test "x$have_mono" = "xtrue"; then
-if test `uname -s` = "Darwin"; then
-	AC_PATH_PROG(RUNTIME, mint, no)
-	AC_PATH_PROG(CSC, mcs, no)
-	LIB_PREFIX=
-    LIB_SUFFIX=.dylib
-else
-	AC_PATH_PROG(RUNTIME, mono, no)
-	AC_PATH_PROG(CSC, mcs, no)
-	LIB_PREFIX=.so
-    LIB_SUFFIX=
+if test "x$enable_mono" = "xyes"; then
+	if test "x$have_mono" = "xfalse"; then
+		AC_MSG_ERROR([Mono was not found])
+	fi
 fi
+
+if test "x$have_mono" = "xtrue"; then
+	if test `uname -s` = "Darwin"; then
+		AC_PATH_PROG(RUNTIME, mint, no)
+		AC_PATH_PROG(CSC, mcs, no)
+		LIB_PREFIX=
+		LIB_SUFFIX=.dylib
+	else
+		AC_PATH_PROG(RUNTIME, mono, no)
+		AC_PATH_PROG(CSC, mcs, no)
+		LIB_PREFIX=.so
+		LIB_SUFFIX=
+	fi
 else
-AC_PATH_PROG(CSC, csc.exe, no)
-RUNTIME=
-LIB_PREFIX=
-LIB_SUFFIX=.dylib
+	AC_PATH_PROG(CSC, csc.exe, no)
+	RUNTIME=
+	LIB_PREFIX=
+	LIB_SUFFIX=.dylib
 fi
 
 if test x$enable_mono = xyes; then
