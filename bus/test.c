@@ -107,8 +107,9 @@ client_disconnect_handler (DBusMessageHandler *handler,
                            DBusMessage        *message,
                            void               *user_data)
 {
-  if (!dbus_message_has_name (message,
-                              DBUS_MESSAGE_LOCAL_DISCONNECT))
+  if (!dbus_message_is_signal (message,
+                               DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                               "Disconnected"))
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     
   _dbus_verbose ("Removing client %p in disconnect handler\n",

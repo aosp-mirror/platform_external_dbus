@@ -1,9 +1,12 @@
 # Standard org.freedesktop.DBus.AcquireService message
 
-VALID_HEADER
-FIELD_NAME name
+VALID_HEADER method_call
+FIELD_NAME ifce
 TYPE STRING
-STRING 'org.freedesktop.DBus.AcquireService'
+STRING 'org.freedesktop.DBus'
+FIELD_NAME mebr
+TYPE STRING
+STRING 'AcquireService'
 FIELD_NAME srvc
 TYPE STRING
 STRING 'org.freedesktop.DBus'

@@ -43,7 +43,8 @@ handle_test_message (DBusMessageHandler *handler,
   GString *counter_str;
   int i;
 
-  if (!dbus_message_has_name (message, "org.freedesktop.ThreadTest"))
+  if (!dbus_message_is_method_call (message, "org.freedesktop.ThreadTest",
+                                    "TestMethod"))
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
   
   dbus_message_iter_init (message, &iter);
@@ -145,7 +146,8 @@ handle_disconnect (DBusMessageHandler *handler,
                    DBusMessage        *message,
                    void               *user_data)
 {
-  if (!dbus_message_has_name (message, DBUS_MESSAGE_LOCAL_DISCONNECT))
+  if (!dbus_message_is_signal (message, DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                               "Disconnected"))
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
   g_print ("connection disconnected\n");

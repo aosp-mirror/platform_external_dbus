@@ -826,7 +826,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
     goto error;
 
   disconnect_message = dbus_message_new_signal (DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
-                                                "Disconnect");
+                                                "Disconnected");
   
   if (disconnect_message == NULL)
     goto error;

@@ -21,6 +21,11 @@
  *
  */
 
+/* FIXME this test is wacky since both client and server keep
+ * sending each other method calls, but nobody sends
+ * a DBUS_MESSAGE_TYPE_METHOD_RETURN
+ */
+
 #include <config.h>
 #include <glib.h>
 #include "dbus-glib.h"
@@ -29,7 +34,9 @@
 #define N_CLIENT_THREADS 1
 #define N_ITERATIONS 1000
 #define PAYLOAD_SIZE 30
-#define ECHO_MESSAGE "org.freedesktop.DBus.Test.EchoProfile"
+#define ECHO_INTERFACE "org.freedekstop.EchoTest"
+#define ECHO_METHOD "EchoProfile"
+
 static const char *address;
 static unsigned char *payload;
 
@@ -38,7 +45,7 @@ send_echo_message (DBusConnection *connection)
 {
   DBusMessage *message;
 
-  message = dbus_message_new_method_call (ECHO_MESSAGE, NULL);
+  message = dbus_message_new_method_call (ECHO_INTERFACE, ECHO_METHOD, NULL);
   dbus_message_append_args (message,
                             DBUS_TYPE_STRING, "Hello World!",
                             DBUS_TYPE_INT32, 123456,
@@ -61,13 +68,15 @@ client_filter (DBusMessageHandler *handler,
 {
   int *iterations = user_data;
   
-  if (dbus_message_has_name (message, DBUS_MESSAGE_LOCAL_DISCONNECT))
+  if (dbus_message_is_signal (message,
+                              DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                              "Disconnected"))
     {
       g_printerr ("Client thread disconnected\n");
       exit (1);
     }
-  else if (dbus_message_has_name (message,
-                                  ECHO_MESSAGE))
+  else if (dbus_message_is_method_call (message,
+                                        ECHO_INTERFACE, ECHO_METHOD))
     {
       *iterations += 1;
       if (*iterations >= N_ITERATIONS)
@@ -139,13 +148,16 @@ server_filter (DBusMessageHandler *handler,
 	       DBusMessage        *message,
 	       void               *user_data)
 {
-  if (dbus_message_has_name (message, DBUS_MESSAGE_LOCAL_DISCONNECT))
+  if (dbus_message_is_signal (message,
+                              DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                              "Disconnected"))
     {
       g_printerr ("Server thread disconnected\n");
       exit (1);
     }
-  else if (dbus_message_has_name (message,
-                                  ECHO_MESSAGE))
+  else if (dbus_message_is_method_call (message,
+                                        ECHO_INTERFACE,
+                                        ECHO_METHOD))
     {
       send_echo_message (connection);
       return DBUS_HANDLER_RESULT_HANDLED;

@@ -801,8 +801,9 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
 
       if (rule->d.send.interface != NULL)
         {
-          if (!dbus_message_has_interface (message,
-                                           rule->d.send.interface))
+          if (dbus_message_get_interface (message) == NULL ||
+              strcmp (dbus_message_get_interface (message),
+                      rule->d.send.interface) != 0)
             {
               _dbus_verbose ("  (policy) skipping rule for different interface\n");
               continue;
@@ -810,8 +811,9 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
         }
       else if (rule->d.send.member != NULL)
         {
-          if (!dbus_message_has_member (message,
-                                        rule->d.send.member))
+          if (dbus_message_get_member (message) == NULL ||
+              strcmp (dbus_message_get_member (message),
+                      rule->d.send.member) != 0)
             {
               _dbus_verbose ("  (policy) skipping rule for different member\n");
               continue;
@@ -819,8 +821,9 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
         }
       else if (rule->d.send.error != NULL)
         {
-          if (!dbus_message_has_error_name (message,
-                                            rule->d.send.error))
+          if (dbus_message_get_error_name (message) == NULL ||
+              strcmp (dbus_message_get_error_name (message),
+                      rule->d.send.error) != 0)
             {
               _dbus_verbose ("  (policy) skipping rule for different error name\n");
               continue;
@@ -914,8 +917,9 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
 
       if (rule->d.receive.interface != NULL)
         {
-          if (!dbus_message_has_interface (message,
-                                           rule->d.receive.interface))
+          if (dbus_message_get_interface (message) == NULL ||
+              strcmp (dbus_message_get_interface (message),
+                      rule->d.receive.interface) != 0)
             {
               _dbus_verbose ("  (policy) skipping rule for different interface\n");
               continue;
@@ -923,8 +927,9 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
         }
       else if (rule->d.receive.member != NULL)
         {
-          if (!dbus_message_has_member (message,
-                                        rule->d.receive.member))
+          if (dbus_message_get_member (message) == NULL ||
+              strcmp (dbus_message_get_member (message),
+                      rule->d.receive.member) != 0)
             {
               _dbus_verbose ("  (policy) skipping rule for different member\n");
               continue;
@@ -932,8 +937,9 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
         }
       else if (rule->d.receive.error != NULL)
         {
-          if (!dbus_message_has_error_name (message,
-                                            rule->d.receive.error))
+          if (dbus_message_get_error_name (message) == NULL ||
+              strcmp (dbus_message_get_error_name (message),
+                      rule->d.receive.error) != 0)
             {
               _dbus_verbose ("  (policy) skipping rule for different error name\n");
               continue;

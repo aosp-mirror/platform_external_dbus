@@ -42,11 +42,15 @@ byte, boolean.  (D-BUS supports more types than these, but
 Here is an example invocation:
 .nf
 
-  dbus-send \-\-dest='org.freedesktop.ExampleService'     \\
-            org.freedesktop.ExampleMessage              \\
+  dbus-send \-\-dest='org.freedesktop.ExampleService'        \\
+            org.freedesktop.ExampleInterface.ExampleMethod   \\
             int32:47 string:'hello world' double:65.32
 
 .fi
+
+Note that the interface is separated from a method or signal 
+name by a dot, though in the actual protocol the interface
+and the interface member are separate fields.
 
 .SH OPTIONS
 The following options are supported:

@@ -10,9 +10,14 @@ LENGTH Header
 LENGTH Body
 ## client serial
 INT32 7
-FIELD_NAME name
+
+FIELD_NAME ifce
 TYPE STRING
 STRING 'org.freedesktop.Foo'
+FIELD_NAME mebr
+TYPE STRING
+STRING 'Bar'
+
 ALIGN 8
 END_LENGTH Header
 START_LENGTH Body

@@ -265,6 +265,29 @@ append_saved_length (DBusString       *dest,
   return TRUE;
 }
 
+static int
+message_type_from_string (const DBusString *str,
+                          int               start)
+{
+  const char *s;
+
+  s = _dbus_string_get_const_data_len (str, start,
+                                       _dbus_string_get_length (str) - start);
+
+  if (strncmp (s, "method_call", strlen ("method_call")) == 0)
+    return DBUS_MESSAGE_TYPE_METHOD_CALL;
+  else if (strncmp (s, "method_return", strlen ("method_return")) == 0)
+    return DBUS_MESSAGE_TYPE_METHOD_RETURN;
+  else if (strncmp (s, "signal", strlen ("signal")) == 0)
+    return DBUS_MESSAGE_TYPE_SIGNAL;
+  else if (strncmp (s, "error", strlen ("error")) == 0)
+    return DBUS_MESSAGE_TYPE_ERROR;
+  else if (strncmp (s, "invalid", strlen ("invalid")) == 0)
+    return DBUS_MESSAGE_TYPE_INVALID;
+  else
+    return -1;
+}
+
 /**
  * Reads the given filename, which should be in "message description
  * language" (look at some examples), and builds up the message data
@@ -274,7 +297,7 @@ append_saved_length (DBusString       *dest,
  * 
  * The file format is:
  * @code
- *   VALID_HEADER normal header; byte order, padding, header len, body len, serial
+ *   VALID_HEADER <type> normal header; byte order, type, padding, header len, body len, serial
  *   BIG_ENDIAN switch to big endian
  *   LITTLE_ENDIAN switch to little endian
  *   OPPOSITE_ENDIAN switch to opposite endian
@@ -386,6 +409,13 @@ _dbus_message_data_load (DBusString       *dest,
         {
           int i;
           DBusString name;
+          int message_type;
+
+          if (_dbus_string_get_length (&line) < strlen ("VALID_HEADER "))
+            {
+              _dbus_warn ("no args to VALID_HEADER\n");
+              goto parse_failed;
+            }
           
           if (!_dbus_string_append_byte (dest, endian))
             {
@@ -393,7 +423,15 @@ _dbus_message_data_load (DBusString       *dest,
               goto parse_failed;
             }
 
-          if (!_dbus_string_append_byte (dest, DBUS_MESSAGE_TYPE_METHOD_CALL))
+          message_type = message_type_from_string (&line,
+                                                   strlen ("VALID_HEADER "));
+          if (message_type < 0)
+            {
+              _dbus_warn ("VALID_HEADER not followed by space then known message type\n");
+              goto parse_failed;
+            }
+          
+          if (!_dbus_string_append_byte (dest, message_type))
             {
               _dbus_warn ("could not append message type\n");
               goto parse_failed;

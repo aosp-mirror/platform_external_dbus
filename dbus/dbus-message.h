@@ -91,12 +91,14 @@ const char*   dbus_message_get_sender       (DBusMessage   *message);
 void          dbus_message_set_no_reply     (DBusMessage   *message,
                                              dbus_bool_t    no_reply);
 dbus_bool_t   dbus_message_get_no_reply     (DBusMessage   *message);
-dbus_bool_t   dbus_message_has_interface    (DBusMessage   *message,
-                                             const char    *interface);
-dbus_bool_t   dbus_message_has_member       (DBusMessage   *message,
-                                             const char    *member);
-dbus_bool_t   dbus_message_has_error_name   (DBusMessage   *message,
-                                             const char    *name);
+dbus_bool_t   dbus_message_is_method_call   (DBusMessage   *message,
+                                             const char    *interface,
+                                             const char    *method);
+dbus_bool_t   dbus_message_is_signal        (DBusMessage   *message,
+                                             const char    *interface,
+                                             const char    *signal_name);
+dbus_bool_t   dbus_message_is_error         (DBusMessage   *message,
+                                             const char    *error_name);
 dbus_bool_t   dbus_message_has_destination  (DBusMessage   *message,
                                              const char    *service);
 dbus_bool_t   dbus_message_has_sender       (DBusMessage   *message,

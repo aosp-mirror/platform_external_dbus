@@ -870,8 +870,9 @@ bus_context_check_security_policy (BusContext     *context,
            * the hello message to the bus driver
            */
           if (recipient == NULL &&
-              dbus_message_has_interface (message, DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS) &&
-              dbus_message_has_member (message, "Hello"))
+              dbus_message_is_method_call (message,
+                                           DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                           "Hello"))
             {
               _dbus_verbose ("security check allowing %s message\n",
                              "Hello");

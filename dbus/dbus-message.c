@@ -4049,55 +4049,115 @@ dbus_message_get_sender (DBusMessage *message)
   return get_string_field (message, FIELD_SENDER, NULL);
 }
 
+static dbus_bool_t
+_dbus_message_has_type_interface_member (DBusMessage *message,
+                                         int          type,
+                                         const char  *interface,
+                                         const char  *method)
+{
+  const char *n;
+
+  _dbus_assert (message != NULL);
+  _dbus_assert (interface != NULL);
+  _dbus_assert (method != NULL);
+
+  if (dbus_message_get_type (message) != type)
+    return FALSE;
+
+  /* Optimize by checking the short method name first
+   * instead of the longer interface name
+   */  
+
+  n = dbus_message_get_member (message);
+
+  if (n && strcmp (n, method) == 0)
+    {
+      n = dbus_message_get_interface (message);
+      
+      if (n && strcmp (n, interface) == 0)
+        return TRUE;
+    }
+
+  return FALSE;
+}
+
 /**
- * Checks whether the message has the given interface field.  If the
- * message has no interface field or has a different one, returns
- * #FALSE.
+ * Checks whether the message is a method call with the given
+ * interface and member fields.  If the message is not
+ * #DBUS_MESSAGE_TYPE_METHOD_CALL, or has a different interface or member field,
+ * returns #FALSE.
  *
  * @param message the message
  * @param interface the name to check (must not be #NULL)
+ * @param method the name to check (must not be #NULL)
  * 
- * @returns #TRUE if the message has the given name
+ * @returns #TRUE if the message is the specified method call
  */
 dbus_bool_t
-dbus_message_has_interface (DBusMessage *message,
-                            const char  *interface)
+dbus_message_is_method_call (DBusMessage *message,
+                             const char  *interface,
+                             const char  *method)
 {
-  const char *n;
-
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_fail (interface != NULL, FALSE);
-  
-  n = dbus_message_get_interface (message);
+  _dbus_return_val_if_fail (method != NULL, FALSE);
 
-  if (n && strcmp (n, interface) == 0)
-    return TRUE;
-  else
-    return FALSE;
+  return _dbus_message_has_type_interface_member (message,
+                                                  DBUS_MESSAGE_TYPE_METHOD_CALL,
+                                                  interface, method);
 }
 
-
 /**
- * Checks whether the message has the given member field.  If the
- * message has no member field or has a different one, returns #FALSE.
+ * Checks whether the message is a signal with the given
+ * interface and member fields.  If the message is not
+ * #DBUS_MESSAGE_TYPE_SIGNAL, or has a different interface or member field,
+ * returns #FALSE.
  *
  * @param message the message
- * @param member the name to check (must not be #NULL)
+ * @param interface the name to check (must not be #NULL)
+ * @param signal_name the name to check (must not be #NULL)
  * 
- * @returns #TRUE if the message has the given name
+ * @returns #TRUE if the message is the specified signal
  */
 dbus_bool_t
-dbus_message_has_member (DBusMessage *message,
-                         const char  *member)
+dbus_message_is_signal (DBusMessage *message,
+                        const char  *interface,
+                        const char  *signal_name)
+{
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (interface != NULL, FALSE);
+  _dbus_return_val_if_fail (signal_name != NULL, FALSE);
+
+  return _dbus_message_has_type_interface_member (message,
+                                                  DBUS_MESSAGE_TYPE_SIGNAL,
+                                                  interface, signal_name);
+}
+
+/**
+ * Checks whether the message is an error reply with the given error
+ * name.  If the message is not #DBUS_MESSAGE_TYPE_ERROR, or has a
+ * different name, returns #FALSE.
+ *
+ * @param message the message
+ * @param error_name the name to check (must not be #NULL)
+ * 
+ * @returns #TRUE if the message is the specified error
+ */
+dbus_bool_t
+dbus_message_is_error (DBusMessage *message,
+                        const char  *error_name)
 {
   const char *n;
-
-  _dbus_return_val_if_fail (message != NULL, FALSE);
-  _dbus_return_val_if_fail (member != NULL, FALSE);
   
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (error_name != NULL, FALSE);
+
+  if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_ERROR)
+    return FALSE;
+
   n = dbus_message_get_member (message);
 
-  if (n && strcmp (n, member) == 0)
+  if (n && strcmp (n, error_name) == 0)
     return TRUE;
   else
     return FALSE;
@@ -4507,7 +4567,10 @@ decode_header_data (const DBusString   *data,
   int type;
   
   if (header_len < 16)
-    return FALSE;
+    {
+      _dbus_verbose ("Header length %d is too short\n", header_len);
+      return FALSE;
+    }
   
   i = 0;
   while (i < FIELD_LAST)
@@ -4532,7 +4595,10 @@ decode_header_data (const DBusString   *data,
       pos = _DBUS_ALIGN_VALUE (pos, 4);
       
       if ((pos + 4) > header_len)
-        return FALSE;      
+        {
+          _dbus_verbose ("not enough space remains in header for header field value\n");
+          return FALSE;
+        }
       
       field =_dbus_string_get_const_data_len (data, pos, 4);
       pos += 4;
@@ -4809,8 +4875,9 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
 #if 0
 	  _dbus_verbose_bytes_of_string (&loader->data, 0, header_len + body_len);
 #endif	  
- 	  if (!decode_header_data (&loader->data, message_type,
+ 	  if (!decode_header_data (&loader->data,
                                    header_len, byte_order,
+                                   message_type,
                                    fields, &header_padding))
 	    {
               _dbus_verbose ("Header was invalid\n");
@@ -5919,10 +5986,11 @@ process_test_subdir (const DBusString          *test_base_dir,
       printf ("    %s\n",
               _dbus_string_get_const_data (&filename));
       
-      _dbus_verbose (" expecting %s\n",
+      _dbus_verbose (" expecting %s for %s\n",
                      validity == _DBUS_MESSAGE_VALID ? "valid" :
                      (validity == _DBUS_MESSAGE_INVALID ? "invalid" :
-                      (validity == _DBUS_MESSAGE_INCOMPLETE ? "incomplete" : "unknown")));
+                      (validity == _DBUS_MESSAGE_INCOMPLETE ? "incomplete" : "unknown")),
+                     _dbus_string_get_const_data (&filename));
       
       if (! (*function) (&full_path, is_raw, validity, user_data))
         {
@@ -6245,8 +6313,8 @@ _dbus_message_test (const char *test_data_dir)
                                           "TestMethod",
                                           "org.freedesktop.DBus.TestService");
   _dbus_assert (dbus_message_has_destination (message, "org.freedesktop.DBus.TestService"));
-  _dbus_assert (dbus_message_has_interface (message, "Foo.TestInterface"));
-  _dbus_assert (dbus_message_has_member (message, "TestMethod"));
+  _dbus_assert (dbus_message_is_method_call (message, "Foo.TestInterface",
+                                             "TestMethod"));
   _dbus_message_set_serial (message, 1234);
   dbus_message_set_sender (message, "org.foo.bar");
   _dbus_assert (dbus_message_has_sender (message, "org.foo.bar"));

@@ -30,8 +30,9 @@ main (int argc, char **argv)
 
   dbus_connection_setup_with_g_main (connection, NULL);
 
-  message = dbus_message_new_method_call (DBUS_MESSAGE_HELLO,
-                                          DBUS_SERVICE_DBUS);
+  message = dbus_message_new_method_call (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                          "Hello",
+                                          DBUS_SERVICE_ORG_FREEDESKTOP_DBUS);
 
   dbus_error_init (&error);
   reply = dbus_connection_send_with_reply_and_block (connection, message, -1, &error);
@@ -42,7 +43,7 @@ main (int argc, char **argv)
       return 1;
     }
   
-  g_print ("reply name: %s\n", dbus_message_get_name (reply));
+  g_print ("reply received\n");
   
   g_main_loop_run (loop);
   

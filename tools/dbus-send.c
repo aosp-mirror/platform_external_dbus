@@ -44,7 +44,7 @@ main (int argc, char *argv[])
   DBusMessageIter iter;
   int i;
   DBusBusType type = DBUS_BUS_SESSION;
-  const char *dest = DBUS_SERVICE_BROADCAST;
+  const char *dest = DBUS_SERVICE_ORG_FREEDESKTOP_BROADCAST;
   char *name = NULL;
   int message_type = DBUS_MESSAGE_TYPE_SIGNAL;
   const char *type_str = NULL;
@@ -106,11 +106,35 @@ main (int argc, char *argv[])
 
   if (message_type == DBUS_MESSAGE_TYPE_METHOD_CALL)
     {
-      message = dbus_message_new_method_call (name, NULL);
+      char *last_dot;
+
+      last_dot = strrchr (name, '.');
+      if (last_dot == NULL)
+        {
+          fprintf (stderr, "Must use org.mydomain.Interface.Method notation, no dot in \"%s\"\n",
+                   name);
+          exit (1);
+        }
+      *last_dot = '\0';
+      
+      message = dbus_message_new_method_call (name,
+                                              last_dot + 1,
+                                              NULL);
     }
   else if (message_type == DBUS_MESSAGE_TYPE_SIGNAL)
     {
-      message = dbus_message_new_signal (name);
+      char *last_dot;
+
+      last_dot = strrchr (name, '.');
+      if (last_dot == NULL)
+        {
+          fprintf (stderr, "Must use org.mydomain.Interface.Signal notation, no dot in \"%s\"\n",
+                   name);
+          exit (1);
+        }
+      *last_dot = '\0';
+      
+      message = dbus_message_new_signal (name, last_dot + 1);
     }
   else
     {

@@ -1423,17 +1423,24 @@ _dbus_hash_table_insert_two_strings (DBusHashTable *table,
                                      char          *key,
                                      void          *value)
 {
-  DBusPreallocatedHash *preallocated;
-
-  _dbus_assert (table->key_type == DBUS_HASH_TWO_STRINGS);
-
-  preallocated = _dbus_hash_table_preallocate_entry (table);
-  if (preallocated == NULL)
-    return FALSE;
-
-  _dbus_hash_table_insert_string_preallocated (table, preallocated,
-                                               key, value);
+  DBusHashEntry *entry;
   
+  _dbus_assert (table->key_type == DBUS_HASH_TWO_STRINGS);
+  
+  entry = (* table->find_function) (table, key, TRUE, NULL, NULL);
+
+  if (entry == NULL)
+    return FALSE; /* no memory */
+
+  if (table->free_key_function && entry->key != key)
+    (* table->free_key_function) (entry->key);
+  
+  if (table->free_value_function && entry->value != value)
+    (* table->free_value_function) (entry->value);
+  
+  entry->key = key;
+  entry->value = value;
+
   return TRUE;
 }
 
@@ -1811,8 +1818,8 @@ _dbus_hash_test (void)
       if (value == NULL)
         goto out;
       
-      if (!_dbus_hash_table_insert_string (table4,
-                                           key, value))
+      if (!_dbus_hash_table_insert_two_strings (table4,
+                                                key, value))
         goto out;
       
       _dbus_assert (count_entries (table1) == i + 1);
@@ -1832,9 +1839,9 @@ _dbus_hash_test (void)
       _dbus_assert (value != NULL);
       _dbus_assert (strcmp (value, keys[i]) == 0);
 
-      value = _dbus_hash_table_lookup_ulong (table4, i);
+      value = _dbus_hash_table_lookup_two_strings (table4, keys[i]);
       _dbus_assert (value != NULL);
-      _dbus_assert (strcmp (value, keys[i]) == 0);
+      _dbus_assert (strcmp (value, "Value!") == 0);
       
       ++i;
     }

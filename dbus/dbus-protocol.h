@@ -106,20 +106,6 @@ extern "C" {
  * allowed to specify this interface).
  */
 #define DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL "org.freedesktop.Local"
-
-#if 0
-  /* these are a bad idea, FIXME */
-#define DBUS_METHOD_ORG_FREEDESKTOP_DBUS_ACTIVATE_SERVICE      "ActivateService"  
-#define DBUS_METHOD_ORG_FREEDESKTOP_DBUS_SERVICE_EXISTS        "ServiceExists"
-#define DBUS_METHOD_ORG_FREEDESKTOP_DBUS_HELLO                 "Hello"
-#define DBUS_METHOD_ORG_FREEDESKTOP_DBUS_LIST_SERVICES         "ListServices"
-#define DBUS_METHOD_ORG_FREEDESKTOP_DBUS_ACQUIRE_SERVICE       "AcquireService"
-
-#define DBUS_SIGNAL_ORG_FREEDESKTOP_DBUS_SERVICE_ACQUIRED      "ServiceAcquired"
-#define DBUS_SIGNAL_ORG_FREEDESKTOP_DBUS_SERVICE_CREATED       "ServiceCreated"
-#define DBUS_SIGNAL_ORG_FREEDESKTOP_DBUS_SERVICE_DELETED       "ServiceDeleted"
-#define DBUS_SIGNAL_ORG_FREEDESKTOP_DBUS_SERVICE_LOST          "ServiceLost"
-#endif /* #if 0 */
   
 #ifdef __cplusplus
 }

@@ -1,9 +1,12 @@
 # Standard org.freedesktop.DBus.ServiceExists message
 
-VALID_HEADER
-FIELD_NAME name
+VALID_HEADER method_call
+FIELD_NAME ifce
 TYPE STRING
-STRING 'org.freedesktop.DBus.ServiceExists'
+STRING 'org.freedesktop.DBus'
+FIELD_NAME mebr
+TYPE STRING
+STRING 'ServiceExists'
 FIELD_NAME srvc
 TYPE STRING
 STRING 'org.freedesktop.DBus'

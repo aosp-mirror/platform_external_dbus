@@ -48,12 +48,37 @@ print_message (DBusMessage *message)
 
   message_type = dbus_message_get_type (message);
   sender = dbus_message_get_sender (message); 
-  
-  printf ("%s name=%s; sender=%s\n",
-          type_to_name (message_type),
-          dbus_message_get_name (message),
-          sender ? sender : "(no sender)");
-  
+
+  switch (message_type)
+    {
+    case DBUS_MESSAGE_TYPE_METHOD_CALL:
+    case DBUS_MESSAGE_TYPE_SIGNAL:
+      printf ("%s interface=%s; member=%s; sender=%s\n",
+              type_to_name (message_type),
+              dbus_message_get_interface (message),
+              dbus_message_get_member (message),
+              sender ? sender : "(no sender)");
+      break;
+      
+    case DBUS_MESSAGE_TYPE_METHOD_RETURN:
+      printf ("%s; sender=%s\n",
+              type_to_name (message_type),
+              sender ? sender : "(no sender)");
+      break;
+
+    case DBUS_MESSAGE_TYPE_ERROR:
+      printf ("%s name=%s; sender=%s\n",
+              type_to_name (message_type),
+              dbus_message_get_error_name (message),
+              sender ? sender : "(no sender)");
+      break;
+
+    default:
+      printf ("Message of unknown type %d received\n",
+              message_type);
+      break;
+    }
+      
   dbus_message_iter_init (message, &iter);
 
   do

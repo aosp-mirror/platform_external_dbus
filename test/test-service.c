@@ -77,10 +77,16 @@ filter_func (DBusMessageHandler *handler,
              DBusMessage        *message,
              void               *user_data)
 {  
-  if (dbus_message_has_name (message, "org.freedesktop.DBus.TestSuiteEcho"))
+  if (dbus_message_is_method_call (message,
+                                   "org.freedesktop.TestSuite",
+                                   "Echo"))
     return handle_echo (connection, message);
-  else if (dbus_message_has_name (message, "org.freedesktop.DBus.TestSuiteExit") ||
-           dbus_message_has_name (message, DBUS_MESSAGE_LOCAL_DISCONNECT))
+  else if (dbus_message_is_method_call (message,
+                                        "org.freedesktop.TestSuite",
+                                        "Exit") ||
+           dbus_message_is_signal (message,
+                                   DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
+                                   "Disconnected"))
     {
       dbus_connection_disconnect (connection);
       quit ();

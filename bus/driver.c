@@ -49,7 +49,8 @@ bus_driver_send_service_deleted (const char     *service_name,
   
   _dbus_verbose ("sending service deleted: %s\n", service_name);
 
-  message = dbus_message_new_signal (DBUS_MESSAGE_SERVICE_DELETED);
+  message = dbus_message_new_signal (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                     "ServiceDeleted");
   
   if (message == NULL)
     {
@@ -57,7 +58,7 @@ bus_driver_send_service_deleted (const char     *service_name,
       return FALSE;
     }
   
-  if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS) ||
+  if (!dbus_message_set_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) ||
       !dbus_message_append_args (message,
                                  DBUS_TYPE_STRING, service_name,
                                  DBUS_TYPE_INVALID))
@@ -83,7 +84,8 @@ bus_driver_send_service_created (const char     *service_name,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  message = dbus_message_new_signal (DBUS_MESSAGE_SERVICE_CREATED);
+  message = dbus_message_new_signal (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                     "ServiceCreated");
   
   if (message == NULL)
     {
@@ -91,7 +93,7 @@ bus_driver_send_service_created (const char     *service_name,
       return FALSE;
     }
   
-  if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS))
+  if (!dbus_message_set_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
     {
       dbus_message_unref (message);
       BUS_SET_OOM (error);
@@ -123,7 +125,8 @@ bus_driver_send_service_lost (DBusConnection *connection,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  message = dbus_message_new_signal (DBUS_MESSAGE_SERVICE_LOST);
+  message = dbus_message_new_signal (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                     "ServiceLost");
   
   if (message == NULL)
     {
@@ -164,7 +167,8 @@ bus_driver_send_service_acquired (DBusConnection *connection,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  message = dbus_message_new_signal (DBUS_MESSAGE_SERVICE_ACQUIRED);
+  message = dbus_message_new_signal (DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                     "ServiceAcquired");
 
   if (message == NULL)
     {
@@ -604,11 +608,11 @@ struct
                            DBusMessage    *message,
                            DBusError      *error);
 } message_handlers[] = {
-  { DBUS_MESSAGE_ACQUIRE_SERVICE, bus_driver_handle_acquire_service },
-  { DBUS_MESSAGE_ACTIVATE_SERVICE, bus_driver_handle_activate_service },
-  { DBUS_MESSAGE_HELLO, bus_driver_handle_hello },
-  { DBUS_MESSAGE_SERVICE_EXISTS, bus_driver_handle_service_exists },
-  { DBUS_MESSAGE_LIST_SERVICES, bus_driver_handle_list_services }
+  { "AcquireService", bus_driver_handle_acquire_service },
+  { "ActivateService", bus_driver_handle_activate_service },
+  { "Hello", bus_driver_handle_hello },
+  { "ServiceExists", bus_driver_handle_service_exists },
+  { "ListServices", bus_driver_handle_list_services }
 };
 
 dbus_bool_t
@@ -621,15 +625,32 @@ bus_driver_handle_message (DBusConnection *connection,
   int i;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  _dbus_verbose ("Driver got a message: %s\n",
-		 dbus_message_get_name (message));
-  
-  name = dbus_message_get_name (message);
-  sender = dbus_message_get_sender (message);
 
+  if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_METHOD_CALL)
+    {
+      _dbus_verbose ("Driver got a non-method-call message, ignoring\n");
+      return TRUE; /* we just ignore this */
+    }
+
+  _dbus_assert (dbus_message_get_interface (message) != NULL);
+  _dbus_assert (dbus_message_get_member (message) != NULL);
+
+  name = dbus_message_get_member (message);
+  sender = dbus_message_get_sender (message);
+  
+  if (strcmp (dbus_message_get_interface (message),
+              DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS) != 0)
+    {
+      _dbus_verbose ("Driver got message to unknown interface \"%s\"\n",
+                     dbus_message_get_interface (message));
+      goto unknown;
+    }
+  
+  _dbus_verbose ("Driver got a method call: %s\n",
+		 dbus_message_get_member (message));
+  
   /* security checks should have kept this from getting here */
-  _dbus_assert (sender != NULL || strcmp (name, DBUS_MESSAGE_HELLO) == 0);
+  _dbus_assert (sender != NULL || strcmp (name, "Hello") == 0);
 
   if (dbus_message_get_reply_serial (message) == 0)
     {
@@ -660,11 +681,13 @@ bus_driver_handle_message (DBusConnection *connection,
       ++i;
     }
 
-  _dbus_verbose ("No driver handler for %s\n", name);
+ unknown:
+  _dbus_verbose ("No driver handler for message \"%s\"\n",
+                 name);
 
   dbus_set_error (error, DBUS_ERROR_UNKNOWN_METHOD,
                   "%s does not understand message %s",
-                  DBUS_SERVICE_DBUS, name);
+                  DBUS_SERVICE_ORG_FREEDESKTOP_DBUS, name);
   
   return FALSE;
 }

@@ -4,10 +4,20 @@ BYTE 'i'
 BYTE 1
 BYTE 0
 BYTE 0
+
 LENGTH Header
 LENGTH Body
-## client serial
-INT32 7
+
+FIELD_NAME ifce
+TYPE STRING
+STRING 'org.freedesktop.Foo'
+FIELD_NAME mebr
+TYPE STRING
+STRING 'Bar'
+
+ALIGN 8
+
 END_LENGTH Header
+
 START_LENGTH Body
 END_LENGTH Body

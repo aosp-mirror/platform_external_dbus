@@ -1,10 +1,15 @@
 ## a message with an invalid boolean value
 
 ## VALID_HEADER includes a LENGTH Header and LENGTH Body
-VALID_HEADER
-FIELD_NAME name
+VALID_HEADER method_call
+
+FIELD_NAME ifce
 TYPE STRING
 STRING 'org.freedesktop.Foo'
+FIELD_NAME mebr
+TYPE STRING
+STRING 'Bar'
+
 ALIGN 8
 END_LENGTH Header
 START_LENGTH Body

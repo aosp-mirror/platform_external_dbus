@@ -2853,6 +2853,9 @@ _dbus_string_validate_nul (const DBusString *str,
  *
  * @todo this is inconsistent with most of DBusString in that
  * it allows a start,len range that isn't in the string.
+ *
+ * @todo change spec to disallow more things, such as spaces in the
+ * interface name
  * 
  * @param str the string
  * @param start first byte index to check
@@ -2910,6 +2913,9 @@ _dbus_string_validate_interface (const DBusString  *str,
  *
  * @todo this is inconsistent with most of DBusString in that
  * it allows a start,len range that isn't in the string.
+ * 
+ * @todo change spec to disallow more things, such as spaces in the
+ * member name
  * 
  * @param str the string
  * @param start first byte index to check
@@ -2991,6 +2997,9 @@ _dbus_string_validate_error_name (const DBusString  *str,
  *
  * @todo this is inconsistent with most of DBusString in that
  * it allows a start,len range that isn't in the string.
+ *
+ * @todo change spec to disallow more things, such as spaces in the
+ * service name
  * 
  * @param str the string
  * @param start first byte index to check

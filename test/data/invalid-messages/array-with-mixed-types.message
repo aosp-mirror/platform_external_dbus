@@ -1,10 +1,15 @@
 # Message with an array of array where the child arrays are of
 # different types
 
-VALID_HEADER
-FIELD_NAME name
+VALID_HEADER method_call
+
+FIELD_NAME ifce
 TYPE STRING
 STRING 'org.freedesktop.Foo'
+FIELD_NAME mebr
+TYPE STRING
+STRING 'Bar'
+
 END_LENGTH Header
 ALIGN 8
 START_LENGTH Body

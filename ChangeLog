@@ -1,3 +1,27 @@
+2003-08-18  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-hash.c (_dbus_hash_table_insert_two_strings): fix
+
+	* dbus/dbus-message.c (_dbus_message_loader_queue_messages): fix
+	dumb bug created earlier (wrong order of args to
+	decode_header_data())
+	
+	* tools/dbus-send.c: port
+
+	* tools/dbus-print-message.c (print_message): port
+
+        * test/data/*messages: port all messages over
+	
+        * dbus/dbus-message-builder.c: support including 
+	message type
+	
+        * bus/driver.c: port over
+	
+	* bus/dispatch.c: port over to new stuff
+
+	* dbus/dbus-connection.c (_dbus_connection_new_for_transport):
+	rename disconnect signal to "Disconnected"
+
 2003-08-17  Havoc Pennington  <hp@pobox.com>
 
 	This doesn't compile yet, but syncing up so I can hack on it from

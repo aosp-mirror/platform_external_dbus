@@ -1,11 +1,18 @@
 # Message with lots of different argument types
 
-VALID_HEADER
-FIELD_NAME name
+VALID_HEADER method_call
+
+FIELD_NAME ifce
 TYPE STRING
 STRING 'org.freedesktop.Foo'
-END_LENGTH Header
+FIELD_NAME mebr
+TYPE STRING
+STRING 'Bar'
+
 ALIGN 8
+
+END_LENGTH Header
+
 START_LENGTH Body
 TYPE DICT
 LENGTH Dict

@@ -1560,7 +1560,7 @@ bus_transaction_send_error_reply (BusTransaction  *transaction,
   
   _dbus_assert (error != NULL);
   _DBUS_ASSERT_ERROR_IS_SET (error);
-
+  
   _dbus_verbose ("Sending error reply %s \"%s\"\n",
                  error->name, error->message);
 

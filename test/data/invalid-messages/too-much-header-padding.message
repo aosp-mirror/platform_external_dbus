@@ -1,7 +1,15 @@
 ## has one byte extra header padding
 
 ## VALID_HEADER includes a LENGTH Header and LENGTH Body
-VALID_HEADER
+VALID_HEADER method_call
+
+FIELD_NAME ifce
+TYPE STRING
+STRING 'org.freedesktop.Foo'
+FIELD_NAME mebr
+TYPE STRING
+STRING 'Bar'
+
 FIELD_NAME unkn
 TYPE STRING
 STRING 'a'
