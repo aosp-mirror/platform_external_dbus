@@ -1,3 +1,41 @@
+2003-01-25  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-connection.c: (dbus_connection_send_message):
+	Unlock the message in case it was sent earlier.
+	
+	(dbus_connection_send_message_with_reply_and_block):
+	Remove the reply message from the list.
+	
+	* dbus/dbus-marshal.c: (_dbus_demarshal_string_array):
+	Set array_len and new_pos correctly.
+	
+	(_dbus_marshal_test):
+	Remove debug output.
+	
+	* dbus/dbus-message-internal.h:
+	* dbus/dbus-message.c: (_dbus_message_get_reply_serial):
+	New function that returns the reply serial.
+	
+	(_dbus_message_unlock):
+	New function that unlocks a message and resets its header.
+
+	(dbus_message_append_string_array), 
+	(dbus_message_get_fields_valist),
+	(dbus_message_iter_get_field_type),
+	(dbus_message_iter_get_string_array),	
+	(dbus_message_get_fields),	
+	(dbus_message_append_fields_valist):
+	Handle string arrays.
+	
+	(dbus_message_set_sender):
+	Make this function public since the bus daemon needs it.
+	
+	(decode_header_data):
+	Set the reply serial to -1 initially.
+
+	* dbus/dbus-message.h:
+	Add dbus_message_set_sender.	
+
 2003-01-24  Havoc Pennington  <hp@pobox.com>
 
 	* doc/dbus-specification.sgml: add some stuff

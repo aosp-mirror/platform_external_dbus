@@ -134,23 +134,7 @@ _dbus_message_set_client_serial (DBusMessage  *message,
 dbus_int32_t
 _dbus_message_get_reply_serial  (DBusMessage *message)
 {
-  return message->client_serial;
-}
-
-/**
- * Sets the message sender. This can only
- * be done once on a message.
- *
- * @param message the message
- * @param sender the sender
- */
-void
-_dbus_message_set_sender (DBusMessage  *message,
-			  const char   *sender)
-{
-  _dbus_assert (message->sender == NULL);
-
-  message->sender = _dbus_strdup (sender);
+  return message->reply_serial;
 }
 
 /**
@@ -252,6 +236,25 @@ dbus_message_write_header (DBusMessage *message)
   _dbus_string_get_data_len (&message->header, &len_data, 4, 4);
   _dbus_pack_int32 (_dbus_string_get_length (&message->header),
                     DBUS_COMPILER_BYTE_ORDER, len_data);
+}
+
+/**
+ * Unlocks a message so that it can be re-sent to another client.
+ *
+ * @see _dbus_message_lock
+ * @param message the message to unlock.
+ */
+void
+_dbus_message_unlock (DBusMessage *message)
+{
+  if (!message->locked)
+    return;
+  
+  /* Restore header */
+  _dbus_string_set_length (&message->header, 0);
+
+  message->client_serial = -1;
+  message->locked = FALSE;
 }
 
 /**
@@ -522,6 +525,19 @@ dbus_message_append_fields_valist (DBusMessage *message,
 	      goto enomem;
 	  }
           break;
+	case DBUS_TYPE_STRING_ARRAY:
+	  {
+	    int len;
+	    const char **data;
+	    
+	    data = va_arg (var_args, const char **);
+	    len = va_arg (var_args, int);
+
+	    if (!dbus_message_append_string_array (message, data, len))
+	      goto enomem;
+	  }
+	  break;
+	  
 	default:
 	  _dbus_warn ("Unknown field type %d\n", type);
 	}
@@ -654,6 +670,31 @@ dbus_message_append_byte_array (DBusMessage         *message,
 }
 
 /**
+ * Appends a string array to the message.
+ *
+ * @param message the message
+ * @param value the array
+ * @param len the length of the array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_string_array (DBusMessage *message,
+				  const char **value,
+				  int          len)
+{
+  _dbus_assert (!message->locked);
+
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_STRING_ARRAY))
+    {
+      _dbus_string_shorten (&message->body, 1);
+      return FALSE;
+    }
+  
+  return _dbus_marshal_string_array (&message->body,
+				     DBUS_COMPILER_BYTE_ORDER, value, len);
+}
+
+/**
  * Gets fields from a message given a variable argument list.
  * The variable argument list should contain the type of the
  * field followed by a pointer to where the value should be
@@ -672,6 +713,8 @@ dbus_message_get_fields (DBusMessage *message,
   DBusResultCode retval;
   va_list var_args;
 
+  _dbus_verbose_bytes_of_string (&message->header, 0,
+				 _dbus_string_get_length (&message->header));
   va_start (var_args, first_field_type);
   retval = dbus_message_get_fields_valist (message, first_field_type, var_args);
   va_end (var_args);
@@ -708,7 +751,7 @@ dbus_message_get_fields_valist (DBusMessage *message,
   iter = dbus_message_get_fields_iter (message);
 
   if (iter == NULL)
-    return FALSE;
+    return DBUS_RESULT_NO_MEMORY;
   
   spec_type = first_field_type;
   i = 0;
@@ -775,14 +818,29 @@ dbus_message_get_fields_valist (DBusMessage *message,
 
 	case DBUS_TYPE_BYTE_ARRAY:
 	  {
-	    char **ptr;
+	    unsigned char **ptr;
 	    int *len;
 
-	    ptr = va_arg (var_args, char **);
+	    ptr = va_arg (var_args, unsigned char **);
 	    len = va_arg (var_args, int *);
 
 	    *ptr = dbus_message_iter_get_byte_array (iter, len);
 
+	    if (!*ptr)
+	      return DBUS_RESULT_NO_MEMORY;
+	    
+	    break;
+	  }
+	case DBUS_TYPE_STRING_ARRAY:
+	  {
+	    char ***ptr;
+	    int *len;
+
+	    ptr = va_arg (var_args, char ***);
+	    len = va_arg (var_args, int *);
+
+	    *ptr = dbus_message_iter_get_string_array (iter, len);
+	    
 	    if (!*ptr)
 	      return DBUS_RESULT_NO_MEMORY;
 	    
@@ -933,7 +991,7 @@ dbus_message_iter_get_field_type (DBusMessageIter *iter)
 
   _dbus_string_get_const_data_len (&iter->message->body, &data, iter->pos, 1);
 
-  if (*data > DBUS_TYPE_INVALID && *data <= DBUS_TYPE_STRING)
+  if (*data > DBUS_TYPE_INVALID && *data <= DBUS_TYPE_STRING_ARRAY)
     return *data;
 
   return DBUS_TYPE_INVALID;
@@ -1025,6 +1083,43 @@ dbus_message_iter_get_byte_array (DBusMessageIter *iter,
 
   return _dbus_demarshal_byte_array (&iter->message->body, iter->message->byte_order,
 				     iter->pos + 1, NULL, len);
+}
+
+/**
+ * Returns the string array that the iterator may point to.
+ * Note that you need to check that the iterator points
+ * to a byte array prior to using this function.
+ *
+ * @todo this function should probably take "char **" as
+ * an out param argument, and return boolean or result code.
+ *
+ * @param iter the iterator
+ * @param len return location for length of byte array
+ * @returns the byte array
+ */
+char **
+dbus_message_iter_get_string_array (DBusMessageIter *iter,
+				    int             *len)
+{
+  _dbus_assert (dbus_message_iter_get_field_type (iter) == DBUS_TYPE_STRING_ARRAY);
+
+  return _dbus_demarshal_string_array (&iter->message->body, iter->message->byte_order,
+				       iter->pos + 1, NULL, len);
+}
+
+/**
+ * Sets the message sender. 
+ *
+ * @param message the message
+ * @param sender the sender
+ */
+void
+dbus_message_set_sender (DBusMessage  *message,
+			  const char   *sender)
+{
+  _dbus_assert (!message->locked);  
+
+  message->sender = _dbus_strdup (sender);
 }
 
 /** @} */
@@ -1224,6 +1319,7 @@ decode_header_data (DBusString   *data,
   /* First demarshal the client serial */
   *client_serial = _dbus_demarshal_int32 (data, byte_order, 12, &pos);
 
+  *reply_serial = -1;
   *service = NULL;
   *name = NULL;
   *sender = NULL;
@@ -1376,11 +1472,10 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
 	      return;
 	    }
 
-
   	  message = dbus_message_new (service, name);
 	  message->reply_serial = reply_serial;
 	  message->client_serial = client_serial;
-	  _dbus_message_set_sender (message, sender);
+	  dbus_message_set_sender (message, sender);
 	  
           dbus_free (service);
 	  dbus_free (name);

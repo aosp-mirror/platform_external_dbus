@@ -35,10 +35,9 @@ void _dbus_message_get_network_data  (DBusMessage       *message,
 				      const DBusString **body);
 
 void         _dbus_message_lock              (DBusMessage  *message);
+void         _dbus_message_unlock            (DBusMessage  *message);
 void         _dbus_message_set_client_serial (DBusMessage  *message,
 					      dbus_int32_t  client_serial);
-void         _dbus_message_set_sender        (DBusMessage  *message,
-					      const char   *sender);
 dbus_int32_t _dbus_message_get_reply_serial  (DBusMessage  *message);
 void         _dbus_message_add_size_counter  (DBusMessage  *message,
 					      DBusCounter  *counter);

@@ -718,9 +718,9 @@ _dbus_demarshal_string_array (DBusString *str,
 {
   int len, i, j;
   char **retval;
-  
+
   len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
-  
+
   retval = dbus_new (char *, len);
 
   if (!retval)
@@ -734,6 +734,12 @@ _dbus_demarshal_string_array (DBusString *str,
 	goto error;
     }
 
+ if (new_pos)
+    *new_pos = pos;
+
+  if (array_len)
+    *array_len = len;
+  
   return retval;
 
  error:
@@ -1033,7 +1039,6 @@ _dbus_marshal_test (void)
   /* Marshal signed integer arrays */
   if (!_dbus_marshal_int32_array (&str, DBUS_BIG_ENDIAN, array1, 3))
     _dbus_assert_not_reached ("could not marshal integer array");
-  _dbus_verbose_bytes_of_string (&str, 0, _dbus_string_get_length (&str));
   array2 = _dbus_demarshal_int32_array (&str, DBUS_BIG_ENDIAN, pos, &pos, &len);
   printf ("length is: %d\n", len);
   if (len != 3)

@@ -44,26 +44,33 @@ DBusMessage* dbus_message_new_reply (const char  *name,
 void         dbus_message_ref   (DBusMessage *message);
 void         dbus_message_unref (DBusMessage *message);
 
-const char*  dbus_message_get_name         (DBusMessage *message);
-const char*  dbus_message_get_service      (DBusMessage *message);
+const char* dbus_message_get_name    (DBusMessage *message);
+const char* dbus_message_get_service (DBusMessage *message);
+void        dbus_message_set_sender  (DBusMessage *message,
+				      const char  *sender);
 
-dbus_bool_t dbus_message_append_fields        (DBusMessage         *message,
-                                               int                  first_field_type,
+
+dbus_bool_t dbus_message_append_fields        (DBusMessage          *message,
+					       int                   first_field_type,
 					       ...);
-dbus_bool_t dbus_message_append_fields_valist (DBusMessage         *message,
-                                               int                  first_field_type,
-					       va_list              var_args);
-dbus_bool_t dbus_message_append_int32         (DBusMessage         *message,
-					       dbus_int32_t         value);
-dbus_bool_t dbus_message_append_uint32        (DBusMessage         *message,
-					       dbus_uint32_t        value);
-dbus_bool_t dbus_message_append_double        (DBusMessage         *message,
-					       double               value);
-dbus_bool_t dbus_message_append_string        (DBusMessage         *message,
-					       const char          *value);
-dbus_bool_t dbus_message_append_byte_array    (DBusMessage         *message,
-					       unsigned const char *value,
-					       int                  len);
+dbus_bool_t dbus_message_append_fields_valist (DBusMessage          *message,
+					       int                   first_field_type,
+					       va_list               var_args);
+dbus_bool_t dbus_message_append_int32         (DBusMessage          *message,
+					       dbus_int32_t          value);
+dbus_bool_t dbus_message_append_uint32        (DBusMessage          *message,
+					       dbus_uint32_t         value);
+dbus_bool_t dbus_message_append_double        (DBusMessage          *message,
+					       double                value);
+dbus_bool_t dbus_message_append_string        (DBusMessage          *message,
+					       const char           *value);
+dbus_bool_t dbus_message_append_byte_array    (DBusMessage          *message,
+					       unsigned const char  *value,
+					       int                   len);
+dbus_bool_t dbus_message_append_string_array  (DBusMessage          *message,
+					       const char          **value,
+					       int                   len);
+
 
 
 DBusMessageIter *dbus_message_get_fields_iter     (DBusMessage     *message);
@@ -86,6 +93,8 @@ double           dbus_message_iter_get_double     (DBusMessageIter *iter);
 char *           dbus_message_iter_get_string     (DBusMessageIter *iter);
 unsigned char *  dbus_message_iter_get_byte_array (DBusMessageIter *iter,
 						   int             *len);
+char **          dbus_message_iter_get_string_array (DBusMessageIter *iter,
+						     int             *len)
 
 
 

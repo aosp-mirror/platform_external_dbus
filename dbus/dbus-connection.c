@@ -644,6 +644,9 @@ dbus_connection_send_message (DBusConnection *connection,
   _dbus_verbose ("Message %p added to outgoing queue, %d pending to send\n",
                  message, connection->n_outgoing);
 
+  /* Unlock the message, resetting its header. */
+  _dbus_message_unlock (message);
+  
   serial = _dbus_connection_get_next_client_serial (connection);
   _dbus_message_set_client_serial (message, serial);
 
@@ -728,9 +731,6 @@ dbus_connection_send_message_with_reply (DBusConnection     *connection,
  * time. I think there probably has to be a loop: "while (!timeout_elapsed)
  * { check_for_reply_in_queue(); iterate_with_remaining_timeout(); }"
  *
- * @todo need to remove the reply from the message queue, or someone
- * else might process it again later.
- *
  * @param connection the connection
  * @param message the message to send
  * @param timeout_milliseconds timeout in milliseconds or -1 for default
@@ -771,6 +771,7 @@ dbus_connection_send_message_with_reply_and_block (DBusConnection     *connectio
 
       if (_dbus_message_get_reply_serial (reply) == client_serial)
 	{
+	  _dbus_list_remove (&connection->incoming_messages, link);
 	  dbus_message_ref (message);
 
 	  if (result)
