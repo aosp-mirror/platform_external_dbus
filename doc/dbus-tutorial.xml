@@ -8,7 +8,7 @@
   <articleinfo>
     <title>D-BUS Tutorial</title>
     <releaseinfo>Version 0.1</releaseinfo>
-    <date>29 September 2003</date>
+    <date>02 October 2003</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -23,28 +23,427 @@
     </authorgroup>
   </articleinfo>
 
-  <sect1 id="introduction">
-    <title>Introduction</title>
+  <sect1 id="whatis">
+    <title>What is D-BUS?</title>
     <para>
-      D-BUS blah blah blah
+      D-BUS is a system for <firstterm>interprocess communication</firstterm>
+      (IPC). Architecturally, it has several layers:
+
       <itemizedlist>
         <listitem>
           <para>
-            foo
+            A library, libdbus, that allows two applications to connect
+            to each other and exchange messages.
           </para>
         </listitem>
         <listitem>
           <para>
-            bar
+            A message bus daemon executable, built on libdbus, that multiple 
+            applications can connect to. The daemon can route messages 
+            from one application to zero or more other applications.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Wrapper libraries based on particular application frameworks. 
+            For example, libdbus-glib and libdbus-qt. There are also 
+            bindings to languages such as Python. These wrapper libraries
+            are the API most people should use, as they simplify the 
+            details of D-BUS programming.
           </para>
         </listitem>
       </itemizedlist>
     </para>
+
     <para>
-      blah blah blah
+      libdbus only supports one-to-one connections, just like a raw network
+      socket. However, rather than sending byte streams over the connection, you
+      send <firstterm>messages</firstterm>. Messages have a header identifying
+      the kind of message, and a body containing a data payload. libdbus also
+      abstracts the exact transport used (sockets vs. whatever else), and
+      handles details such as authentication.
     </para>
+
     <para>
-      blah blah blah
+      The message bus daemon has multiple instances on a typical computer.  The
+      first instance is a machine-global singleton, that is, a system daemon
+      similar to sendmail or Apache. This instance has heavy security
+      restrictions on what messages it will accept, and is used for systemwide
+      communication. The other instances are created one per user login session.
+      These instances allow applications in the user's session to communicate 
+      with one another.
+    </para>
+
+    <para>
+      The systemwide and per-user daemons are separate.  Normal within-session
+      IPC does not involve the systemwide message bus process and vice versa.
+    </para>
+
+    <sect2 id="uses">
+      <title>D-BUS applications</title>
+      <para>
+        There are many, many technologies in the world that have "Inter-process
+        communication" or "networking" in their stated purpose: <ulink
+        url="http://www.mbus.org/">MBUS</ulink>, <ulink
+        url="http://www.omg.org">CORBA</ulink>, <ulink
+        url="http://www.xmlrpc.com">XML-RPC</ulink>, <ulink
+        url="http://www.w3.org/TR/SOAP/">SOAP</ulink>, and probably hundreds
+        more.  Each of these is tailored for particular kinds of application.
+        D-BUS is designed for two specific cases:
+        <itemizedlist>
+          <listitem>
+            <para>
+              Communication between desktop applications in the same desktop
+              session; to allow integration of the desktop session as a whole,
+              and address issues of process lifecycle (when do desktop components 
+              start and stop running).
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Communication between the desktop session and the operating system, 
+              where the operating system would typically include the kernel 
+              and any system daemons or processes.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </para>
+      <para>
+        For the within-desktop-session use case, the GNOME and KDE desktops 
+        have significant previous experience with different IPC solutions
+        such as CORBA and DCOP. D-BUS is built on that experience and 
+        carefully tailored to meet the needs of these desktop projects 
+        in particular.
+      </para>
+      <para>
+        The problem solved by the systemwide or communication-with-the-OS case 
+        is explained well by the following text from the Linux Hotplug project:
+        <blockquote>
+          <para>
+           A gap in current Linux support is that policies with any sort of
+           dynamic "interact with user" component aren't currently
+           supported. For example, that's often needed the first time a network
+           adapter or printer is connected, and to determine appropriate places
+           to mount disk drives. It would seem that such actions could be
+           supported for any case where a responsible human can be identified:
+           single user workstations, or any system which is remotely
+           administered.
+          </para>
+
+          <para>
+            This is a classic "remote sysadmin" problem, where in this case
+            hotplugging needs to deliver an event from one security domain
+            (operating system kernel, in this case) to another (desktop for
+            logged-in user, or remote sysadmin). Any effective response must go
+            the other way: the remote domain taking some action that lets the
+            kernel expose the desired device capabilities. (The action can often
+            be taken asynchronously, for example letting new hardware be idle
+            until a meeting finishes.) At this writing, Linux doesn't have
+            widely adopted solutions to such problems. However, the new D-Bus
+            work may begin to solve that problem.
+          </para>
+        </blockquote>
+      </para>
+      <para>
+        D-BUS may happen to be useful for purposes other than the one it was
+        designed for. Its general properties that distinguish it from 
+        other forms of IPC are:
+        <itemizedlist>
+          <listitem>
+            <para>
+              Binary protocol designed to be used asynchronously 
+              (similar in spirit to the X Window System protocol).
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Stateful, reliable connections held open over time.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              The message bus is a daemon, not a "swarm" or 
+              distributed architecture.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Many implementation and deployment issues are specified rather
+              than left ambiguous.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Semantics are similar to the existing DCOP system, allowing 
+              KDE to adopt it more easily.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Security features to support the systemwide mode of the 
+              message bus.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </para>
+    </sect2>
+  </sect1>
+  <sect1 id="concepts">
+    <title>Concepts</title>
+    <para>
+      Some basic concepts apply no matter what application framework you're
+      using to write a D-BUS application. The exact code you write will be
+      different for GLib vs. Qt vs. Python applications, however.
+    </para>
+
+    <sect2 id="objects">
+      <title>Objects and Object Paths</title>
+      <para>
+        Each application using D-BUS contains <firstterm>objects</firstterm>,
+        which generally map to GObject, QObject, C++ objects, or Python objects
+        (but need not).  An object is an <emphasis>instance</emphasis> rather
+        than a type.  When messages are received over a D-BUS connection, they
+        are sent to a specific object, not to the application as a whole.
+      </para>
+      <para>
+        To allow messages to specify their destination object, there has to be a
+        way to refer to an object. In your favorite programming language, this
+        is normally called a <firstterm>pointer</firstterm> or
+        <firstterm>reference</firstterm>. However, these references are
+        implemented as memory addresses relative to the address space of your
+        application, and thus can't be passed from one application to another.
+      </para>
+      <para>
+        To solve this, D-BUS introduces a name for each object. The name 
+        looks like a filesystem path, for example an object could be 
+        named <literal>/org/kde/kspread/sheets/3/cells/4/5</literal>. 
+        Human-readable paths are nice, but you are free to create an 
+        object named <literal>/com/mycompany/c5yo817y0c1y1c5b</literal> 
+        if it makes sense for your application.
+      </para>
+      <para>
+        Namespacing object paths is smart, by starting them with the components
+        of a domain name you own (e.g. <literal>/org/kde</literal>). This 
+        keeps different code modules in the same process from stepping 
+        on one another's toes.
+      </para>
+    </sect2>    
+
+    <sect2 id="interfaces">
+      <title>Interfaces</title>
+      <para>
+        Each object supports one or more <firstterm>interfaces</firstterm>.
+        Think of an interface as a named group of methods and signals, 
+        just as it is in GLib or Qt. Interfaces define the 
+        <emphasis>type</emphasis> of an object instance.
+      </para>
+    </sect2>
+      
+    <sect2 id="messages">
+      <title>Message Types</title>
+      <para>
+        Messages are not all the same; in particular, D-BUS has 
+        4 built-in message types:
+        <itemizedlist>
+          <listitem>
+            <para>
+              Method call messages ask to invoke a method 
+              on an object.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Method return messages return the results 
+              of invoking a method.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Error messages return an exception caused by 
+              invoking a method.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Signal messages are notifications that a given signal 
+              has been emitted (that an event has occurred). 
+              You could also think of these as "event" messages.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </para>
+      <para>
+        A method call maps very simply to messages, then: you send a method call
+        message, and receive either a method return message or an error message
+        in reply.
+      </para>
+    </sect2>
+
+    <sect2 id="services">
+      <title>Services</title>
+      
+      <para>
+        Object paths, interfaces, and messages exist on the level of 
+        libdbus and the D-BUS protocol; they are used even in the 
+        1-to-1 case with no message bus involved.
+      </para>
+
+      <para>
+        Services, on the other hand, are a property of the message bus daemon.
+        A <firstterm>service</firstterm> is simply a name mapped to 
+        some application connected to the message bus daemon.
+        These names are used to specify the origin and destination
+        of messages passing through the message bus. When a name is mapped 
+        to a particular application, the application is said to 
+        <firstterm>own</firstterm> that service.
+      </para>
+
+      <para>
+        On connecting to the bus daemon, each application immediately owns a
+        special name called the <firstterm>base service</firstterm>.  A base
+        service begins with a ':' (colon) character; no other services are
+        allowed to begin with that character. Base services are special because
+        each one is unique. They are created dynamically, and are never re-used
+        during the lifetime of the same bus daemon. You know that a given
+        base service name will have the same owner at all times.
+      </para>
+
+      <para>
+        Applications may ask to own additional <firstterm>well-known
+        services</firstterm>. For example, you could write a specification to
+        define a service called <literal>com.mycompany.TextEditor</literal>.
+        Your definition could specify that to own this service, an application
+        should have an object at the path
+        <literal>/com/mycompany/TextFileManager</literal> supporting the
+        interface <literal>org.freedesktop.FileHandler</literal>.        
+      </para>
+      
+      <para>
+        Applications could then send messages to this service, 
+        object, and interface to execute method calls.
+      </para>
+
+      <para>
+        Services have another important use, other than routing messages.  They
+        are used to track lifecycle. When an application exits (or crashes), its
+        connection to the message bus will be closed by the operating system
+        kernel. The message bus then sends out notification messages telling
+        remaining applications that the application's services have lost their
+        owner. By tracking these notifications, your application can reliably
+        monitor the lifetime of other applications.
+      </para>
+
+    </sect2>
+
+    <sect2 id="addresses">
+      <title>Addresses</title>
+
+      <para>
+        Applications using D-BUS are either servers or clients.  A server
+        listens for incoming connections; a client connects to a server. Once
+        the connection is established, it is a symmetric flow of messages; the
+        client-server distinction only matters when setting up the 
+        connection.
+      </para>
+
+      <para>
+        A D-BUS <firstterm>address</firstterm> specifies where a server will
+        listen, and where a client will connect.  For example, the address
+        <literal>unix:path=/tmp/abcdef</literal> specifies that the server will
+        listen on a UNIX domain socket at the path
+        <literal>/tmp/abcdef</literal> and the client will connect to that
+        socket. An address can also specify TCP/IP sockets, or any other
+        transport defined in future iterations of the D-BUS specification.
+      </para>
+
+      <para>
+        When using D-BUS with a message bus, the bus daemon is a server 
+        and all other applications are clients of the bus daemon.
+        libdbus automatically discovers the address of the per-session bus 
+        daemon by reading an environment variable. It discovers the 
+        systemwide bus daemon by checking a well-known UNIX domain socket path
+        (though you can override this address with an environment variable).
+      </para>
+
+      <para>
+        If you're using D-BUS without a bus daemon, it's up to you to 
+        define which application will be the server and which will be 
+        the client, and specify a mechanism for them to agree on 
+        the server's address.
+      </para>
+
+    </sect2>
+
+    <sect2 id="bigpicture">
+      <title>Big Conceptual Picture</title>
+
+      <para>
+        Pulling all these concepts together, to specify a particular 
+        method call on a particular object instance, a number of 
+        nested components have to be named:
+        <programlisting>
+          Address -> [Service] -> Path -> Interface -> Method
+        </programlisting>
+        The service is in brackets to indicate that it's optional -- you only
+        provide a service name to route the method call to the right application
+        when using the bus daemon. If you have a direct connection to another
+        application, services aren't used.
+      </para>
+
+      <para>
+        The interface is also optional, primarily for historical 
+        reasons; DCOP does not require specifying the interface, 
+        instead simply forbidding duplicate method names 
+        on the same object instance. D-BUS will thus let you 
+        omit the interface, but if your method name is ambiguous 
+        it is undefined which method will be invoked.
+      </para>
+      
+    </sect2>
+
+  </sect1>
+
+  <sect1 id="glib-client">
+    <title>GLib API: Using Remote Objects</title>
+    <para>
+      
     </para>
   </sect1>
+
+  <sect1 id="glib-server">
+    <title>GLib API: Implementing Objects</title>
+    <para>
+      
+    </para>
+  </sect1>
+
+  <sect1 id="qt-client">
+    <title>Qt API: Using Remote Objects</title>
+    <para>
+      
+    </para>
+  </sect1>
+
+  <sect1 id="qt-server">
+    <title>Qt API: Implementing Objects</title>
+    <para>
+      
+    </para>
+  </sect1>
+
+
+  <sect1 id="python-client">
+    <title>Python API: Using Remote Objects</title>
+    <para>
+      
+    </para>
+  </sect1>
+
+  <sect1 id="python-server">
+    <title>Python API: Implementing Objects</title>
+    <para>
+      
+    </para>
+  </sect1>
+
 </article>

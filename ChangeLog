@@ -1,3 +1,7 @@
+2003-10-02  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-tutorial.xml: write some stuff
+
 2003-09-29  Havoc Pennington  <hp@pobox.com>
 
 	* configure.in: split checks for Doxygen from XML docs, check for
