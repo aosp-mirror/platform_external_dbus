@@ -10,15 +10,25 @@
 	Rename to DBUS_SERVICE_DBUS.
 	(DBUS_PATH_ORG_FREEDESKTOP_DBUS): Rename to DBUS_PATH_DBUS.
 	(DBUS_PATH_ORG_FREEDESKTOP_LOCAL): Rename to DBUS_PATH_LOCAL.
+	Change the value from "org.freedesktop.Local"
+	to "org.freedesktop.DBus.Local".
 	(DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS): Rename to DBUS_INTERFACE_DBUS.
 	(DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE): Rename to
 	DBUS_INTERFACE_INTROSPECTABLE.
+	Change the value from "org.freedesktop.Introspectable"
+	to "org.freedesktop.DBus.Introspectable".
 	(DBUS_INTERFACE_ORG_FREEDESKTOP_PROPERTIES): Rename to
 	DBUS_INTERFACE_PROPERTIES.
+	Change the value from "org.freedesktop.Properties"
+	to "org.freedesktop.DBus.Properties".
 	(DBUS_INTERFACE_ORG_FREEDESKTOP_PEER): Rename to
 	DBUS_INTERFACE_PEER.
+	Change the value from "org.freedesktop.Peer"
+	to "org.freedesktop.DBus.Peer".
 	(DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL): 
 	DBUS_INTERFACE_LOCAL.
+	Change the value from "org.freedesktop.Local"
+	to "org.freedesktop.DBus.Local".
 
 	All other users of those constants have been changed.
 
