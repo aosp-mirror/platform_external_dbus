@@ -1062,7 +1062,7 @@ dbus_message_create_header (DBusMessage *message,
   if (service != NULL)
     {
       if (!append_string_field (message,
-                                DBUS_HEADER_FIELD_SERVICE,
+                                DBUS_HEADER_FIELD_DESTINATION,
 				DBUS_TYPE_STRING,
                                 service))
         return FALSE;
@@ -1289,7 +1289,7 @@ dbus_message_new_method_return (DBusMessage *method_call)
   _dbus_return_val_if_fail (method_call != NULL, NULL);
   
   sender = get_string_field (method_call,
-                             DBUS_HEADER_FIELD_SENDER_SERVICE,
+                             DBUS_HEADER_FIELD_SENDER,
 			     NULL);
   
   /* sender is allowed to be null here in peer-to-peer case */
@@ -1380,7 +1380,7 @@ dbus_message_new_error (DBusMessage *reply_to,
   _dbus_return_val_if_fail (error_name != NULL, NULL);
   
   sender = get_string_field (reply_to,
-                             DBUS_HEADER_FIELD_SENDER_SERVICE,
+                             DBUS_HEADER_FIELD_SENDER,
 			     NULL);
 
   /* sender may be NULL for non-message-bus case or
@@ -1825,7 +1825,7 @@ dbus_message_set_destination (DBusMessage  *message,
   _dbus_return_val_if_fail (!message->locked, FALSE);
 
   return set_string_field (message,
-                           DBUS_HEADER_FIELD_SERVICE,
+                           DBUS_HEADER_FIELD_DESTINATION,
                            DBUS_TYPE_STRING,
                            destination);
 }
@@ -1842,7 +1842,7 @@ dbus_message_get_destination (DBusMessage *message)
   _dbus_return_val_if_fail (message != NULL, NULL);
   
   return get_string_field (message,
-			   DBUS_HEADER_FIELD_SERVICE,
+			   DBUS_HEADER_FIELD_DESTINATION,
 			   NULL);
 }
 
@@ -4440,7 +4440,7 @@ dbus_message_set_sender (DBusMessage  *message,
   _dbus_return_val_if_fail (!message->locked, FALSE);
 
   return set_string_field (message,
-                           DBUS_HEADER_FIELD_SENDER_SERVICE,
+                           DBUS_HEADER_FIELD_SENDER,
                            DBUS_TYPE_STRING,
                            sender);
 }
@@ -4550,7 +4550,7 @@ dbus_message_get_sender (DBusMessage *message)
   _dbus_return_val_if_fail (message != NULL, NULL);
   
   return get_string_field (message, 
-			   DBUS_HEADER_FIELD_SENDER_SERVICE,
+			   DBUS_HEADER_FIELD_SENDER,
 			   NULL);
 }
 
@@ -5093,7 +5093,7 @@ decode_header_data (const DBusString   *data,
       
       switch (field)
         {
-        case DBUS_HEADER_FIELD_SERVICE:
+        case DBUS_HEADER_FIELD_DESTINATION:
           if (!decode_string_field (data, field, &fields[field],
 				    &field_data, pos, type))
             return FALSE;
@@ -5156,7 +5156,7 @@ decode_header_data (const DBusString   *data,
 	    }
           break;
           
-	case DBUS_HEADER_FIELD_SENDER_SERVICE:
+	case DBUS_HEADER_FIELD_SENDER:
           if (!decode_string_field (data, field, &fields[field],
 				    &field_data, pos, type))
             return FALSE;

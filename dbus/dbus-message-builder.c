@@ -691,10 +691,10 @@ _dbus_message_data_load (DBusString       *dest,
 	    field = DBUS_HEADER_FIELD_ERROR_NAME;
           else if (_dbus_string_starts_with_c_str (&line, "REPLY_SERIAL"))
 	    field = DBUS_HEADER_FIELD_REPLY_SERIAL;
-          else if (_dbus_string_starts_with_c_str (&line, "SERVICE"))
-	    field = DBUS_HEADER_FIELD_SERVICE;
-          else if (_dbus_string_starts_with_c_str (&line, "SENDER_SERVICE"))
-	    field = DBUS_HEADER_FIELD_SENDER_SERVICE;
+          else if (_dbus_string_starts_with_c_str (&line, "DESTINATION"))
+	    field = DBUS_HEADER_FIELD_DESTINATION;
+          else if (_dbus_string_starts_with_c_str (&line, "SENDER"))
+	    field = DBUS_HEADER_FIELD_SENDER;
 	  else if (_dbus_string_starts_with_c_str (&line, "UNKNOWN"))
 	    field = 22; /* random unknown header field */
           else

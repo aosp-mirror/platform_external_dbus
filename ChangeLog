@@ -66,6 +66,25 @@
 	use dbus_gproxy_new_for_service_owner so that we can receive the
 	signal. 
 
+2004-04-15  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-internals.c, dbus/dbus-message-builder.c,
+	dbus/dbus-message.c, dbus/dbus-protocol.h
+	(DBUS_HEADER_FIELD_SERVICE): renamed DBUS_HEADER_FIELD_DESTINATION
+
+	* dbus/dbus-internals.c, dbus/dbus-message-builder.c,
+	dbus/dbus-message.c, dbus/dbus-protocol.h
+	(DBUS_HEADER_FIELD_SENDER_SERVICE): renamed DBUS_HEADER_FIELD_SENDER
+
+	* dbus/dbus-internals.c (_dbus_header_field_to_string):
+	DBUS_HEADER_FIELD_DESTINATION resolves to "destination"
+	DBUS_HEADER_FIELD_SENDER resolves to "sender"
+
+	* doc/dbus-specification.xml (Header Fields Table):
+	s/SERVICE/DESTINATION
+	s/SENDER_SERVICE/SENDER
+
+
 2004-04-14  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* test/glib/test-dbus-glib.c (timed_exit): fail the test after

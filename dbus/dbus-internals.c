@@ -414,10 +414,10 @@ _dbus_header_field_to_string (int header_field)
       return "error-name";
     case DBUS_HEADER_FIELD_REPLY_SERIAL:
       return "reply-serial";
-    case DBUS_HEADER_FIELD_SERVICE:
-      return "service";
-    case DBUS_HEADER_FIELD_SENDER_SERVICE:
-      return "sender-service";
+    case DBUS_HEADER_FIELD_DESTINATION:
+      return "destination";
+    case DBUS_HEADER_FIELD_SENDER:
+      return "sender";
     default:
       return "unknown";
     }

@@ -339,7 +339,7 @@
                 see <xref linkend="message-protocol-header-encoding"/>.)</entry>
               </row>
               <row>
-                <entry>SERVICE</entry>
+                <entry>DESTINATION</entry>
 		<entry>6</entry>
                 <entry>STRING</entry>
                 <entry>The name of the service this message should be routed to. 
@@ -347,7 +347,7 @@
                 <xref linkend="message-bus"/>.</entry>
               </row>
               <row>
-                <entry>SENDER_SERVICE</entry>
+                <entry>SENDER</entry>
 		<entry>7</entry>
                 <entry>STRING</entry>
                 <entry>Sender service. The name of the base service that sent
