@@ -1197,6 +1197,8 @@ dbus_connection_preallocate_send (DBusConnection *connection)
   _dbus_counter_ref (preallocated->counter_link->data);
 
   preallocated->connection = connection;
+
+  dbus_mutex_unlock (connection->mutex);
   
   return preallocated;
   
