@@ -96,7 +96,8 @@ BusPolicy*       bus_policy_new                   (void);
 void             bus_policy_ref                   (BusPolicy        *policy);
 void             bus_policy_unref                 (BusPolicy        *policy);
 BusClientPolicy* bus_policy_create_client_policy  (BusPolicy        *policy,
-                                                   DBusConnection   *connection);
+                                                   DBusConnection   *connection,
+                                                   DBusError        *error);
 dbus_bool_t      bus_policy_allow_user            (BusPolicy        *policy,
                                                    DBusUserDatabase *user_database,
                                                    unsigned long     uid);

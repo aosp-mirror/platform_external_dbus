@@ -286,12 +286,8 @@ bus_registry_acquire_service (BusRegistry      *registry,
       goto out;
     }
 
-  policy = bus_connection_get_policy (connection, error);
-  if (policy == NULL)
-    {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
-      goto out;
-    }
+  policy = bus_connection_get_policy (connection);
+  _dbus_assert (policy != NULL);
 
   if (!bus_client_policy_check_can_own (policy, connection,
                                         service_name))

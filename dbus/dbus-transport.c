@@ -783,7 +783,7 @@ _dbus_transport_get_dispatch_status (DBusTransport *transport)
       if (_dbus_auth_do_work (transport->auth) ==
           DBUS_AUTH_STATE_WAITING_FOR_MEMORY)
         return DBUS_DISPATCH_NEED_MEMORY;
-      else
+      else if (!_dbus_transport_get_is_authenticated (transport))
         return DBUS_DISPATCH_COMPLETE;
     }
 

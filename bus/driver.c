@@ -298,9 +298,9 @@ bus_driver_handle_hello (DBusConnection *connection,
       goto out_0;
     }
 
-  if (!bus_connection_set_name (connection, &unique_name))
+  if (!bus_connection_complete (connection, &unique_name, error))
     {
-      BUS_SET_OOM (error);
+      _DBUS_ASSERT_ERROR_IS_SET (error);
       goto out_0;
     }
   
@@ -627,15 +627,8 @@ bus_driver_handle_message (DBusConnection *connection,
   name = dbus_message_get_name (message);
   sender = dbus_message_get_sender (message);
 
-  if (sender == NULL && (strcmp (name, DBUS_MESSAGE_HELLO) != 0))
-    {
-      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
-                      "Client tried to send a message other than %s without being registered",
-                      DBUS_MESSAGE_HELLO);
-
-      dbus_connection_disconnect (connection);
-      return FALSE;
-    }
+  /* security checks should have kept this from getting here */
+  _dbus_assert (sender != NULL || strcmp (name, DBUS_MESSAGE_HELLO) == 0);
 
   if (dbus_message_get_reply_serial (message) == 0)
     {

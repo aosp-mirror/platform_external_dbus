@@ -1024,8 +1024,11 @@ dbus_message_new_error_reply (DBusMessage *original_message,
   
   sender = get_string_field (original_message,
                              FIELD_SENDER, NULL);
-  
-  _dbus_assert (sender != NULL);
+
+  /* sender may be NULL for non-message-bus case or
+   * when the message bus is dealing with an unregistered
+   * connection.
+   */
   
   message = dbus_message_new (error_name, sender);
   

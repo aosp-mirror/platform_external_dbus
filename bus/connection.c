@@ -748,7 +748,8 @@ expire_incomplete_timeout (void *data)
 dbus_bool_t
 bus_connection_get_groups  (DBusConnection   *connection,
                             unsigned long   **groups,
-                            int              *n_groups)
+                            int              *n_groups,
+                            DBusError        *error)
 {
   BusConnectionData *d;
   unsigned long uid;
@@ -767,8 +768,9 @@ bus_connection_get_groups  (DBusConnection   *connection,
     {
       if (!_dbus_user_database_get_groups (user_database,
                                            uid, groups, n_groups,
-                                           NULL))
+                                           error))
         {
+          _DBUS_ASSERT_ERROR_IS_SET (error);
           _dbus_verbose ("Did not get any groups for UID %lu\n",
                          uid);
           return FALSE;
@@ -792,7 +794,8 @@ bus_connection_is_in_group (DBusConnection *connection,
   unsigned long *group_ids;
   int n_group_ids;
 
-  if (!bus_connection_get_groups (connection, &group_ids, &n_group_ids))
+  if (!bus_connection_get_groups (connection, &group_ids, &n_group_ids,
+                                  NULL))
     return FALSE;
 
   i = 0;
@@ -811,47 +814,14 @@ bus_connection_is_in_group (DBusConnection *connection,
 }
 
 BusClientPolicy*
-bus_connection_get_policy (DBusConnection *connection,
-                           DBusError      *error)
+bus_connection_get_policy (DBusConnection *connection)
 {
   BusConnectionData *d;
     
   d = BUS_CONNECTION_DATA (connection);
 
   _dbus_assert (d != NULL);
-
-  if (!dbus_connection_get_is_authenticated (connection))
-    {
-      _dbus_verbose ("Tried to get policy for unauthenticated connection!\n");
-      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
-                      "Connection is not yet authenticated; the pre-authentication "
-                      "implicit security policy is to deny everything");
-      return NULL;
-    }
-  
-  /* We do lazy creation of the policy because
-   * it can only be done post-authentication.
-   */
-  if (d->policy == NULL)
-    {
-      d->policy =
-        bus_context_create_client_policy (d->connections->context,
-                                          connection);
-
-      /* we may have a NULL policy on OOM or error getting list of
-       * groups for a user. In the latter case we don't handle it so
-       * well currently, as it will just keep failing over and over.
-       */
-    }
-
-  if (d->policy == NULL)
-    {
-      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
-                      "There was an error creating the security policy for connection \"%s\"; "
-                      "all operations will fail for now.",
-                      d->name ? d->name : "(inactive)");
-      return NULL;
-    }
+  _dbus_assert (d->policy != NULL);
   
   return d->policy;
 }
@@ -1142,8 +1112,9 @@ bus_connection_get_n_services_owned (DBusConnection *connection)
 }
 
 dbus_bool_t
-bus_connection_set_name (DBusConnection   *connection,
-			 const DBusString *name)
+bus_connection_complete (DBusConnection   *connection,
+			 const DBusString *name,
+                         DBusError        *error)
 {
   BusConnectionData *d;
   unsigned long uid;
@@ -1151,19 +1122,43 @@ bus_connection_set_name (DBusConnection   *connection,
   d = BUS_CONNECTION_DATA (connection);
   _dbus_assert (d != NULL);
   _dbus_assert (d->name == NULL);
+  _dbus_assert (d->policy == NULL);
   
   if (!_dbus_string_copy_data (name, &d->name))
-    return FALSE;
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
 
   _dbus_assert (d->name != NULL);
   
   _dbus_verbose ("Name %s assigned to %p\n", d->name, connection);
 
+  d->policy = bus_context_create_client_policy (d->connections->context,
+                                                connection,
+                                                error);
+
+  /* we may have a NULL policy on OOM or error getting list of
+   * groups for a user. In the latter case we don't handle it so
+   * well currently, as it will just keep failing over and over.
+   */
+
+  if (d->policy == NULL)
+    {
+      _dbus_verbose ("Failed to create security policy for connection %p\n",
+                     connection);
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_free (d->name);
+      d->name = NULL;
+      return FALSE;
+    }
+  
   if (dbus_connection_get_unix_user (connection, &uid))
     {
       if (!adjust_connections_for_uid (d->connections,
                                        uid, 1))
         {
+          BUS_SET_OOM (error);
           dbus_free (d->name);
           d->name = NULL;
           return FALSE;
@@ -1586,7 +1581,10 @@ bus_transaction_send_error_reply (BusTransaction  *transaction,
   
   _dbus_assert (error != NULL);
   _DBUS_ASSERT_ERROR_IS_SET (error);
-  
+
+  _dbus_verbose ("Sending error reply %s \"%s\"\n",
+                 error->name, error->message);
+
   reply = dbus_message_new_error_reply (in_reply_to,
                                         error->name,
                                         error->message);

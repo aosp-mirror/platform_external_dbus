@@ -56,10 +56,12 @@ void            bus_connections_expire_incomplete (BusConnections               
 
 
 dbus_bool_t bus_connection_is_active (DBusConnection *connection);
+const char *bus_connection_get_name  (DBusConnection *connection);
 
 dbus_bool_t bus_connection_preallocate_oom_error (DBusConnection *connection);
 void        bus_connection_send_oom_error        (DBusConnection *connection,
                                                   DBusMessage    *in_reply_to);
+
 
 /* called by services.c */
 dbus_bool_t bus_connection_add_owned_service      (DBusConnection *connection,
@@ -71,9 +73,9 @@ void        bus_connection_add_owned_service_link (DBusConnection *connection,
 int         bus_connection_get_n_services_owned   (DBusConnection *connection);
 
 /* called by driver.c */
-dbus_bool_t bus_connection_set_name (DBusConnection               *connection,
-				     const DBusString             *name);
-const char *bus_connection_get_name (DBusConnection               *connection);
+dbus_bool_t bus_connection_complete (DBusConnection               *connection,
+				     const DBusString             *name,
+                                     DBusError                    *error);
 
 /* called by dispatch.c when the connection is dropped */
 void        bus_connection_disconnected (DBusConnection *connection);
@@ -82,9 +84,9 @@ dbus_bool_t      bus_connection_is_in_group (DBusConnection       *connection,
                                              unsigned long         gid);
 dbus_bool_t      bus_connection_get_groups  (DBusConnection       *connection,
                                              unsigned long       **groups,
-                                             int                  *n_groups);
-BusClientPolicy* bus_connection_get_policy  (DBusConnection       *connection,
+                                             int                  *n_groups,
                                              DBusError            *error);
+BusClientPolicy* bus_connection_get_policy  (DBusConnection       *connection);
 
 /* transaction API so we can send or not send a block of messages as a whole */
 

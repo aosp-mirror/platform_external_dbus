@@ -641,7 +641,6 @@ try_send_activation_failure (BusPendingActivation *pending_activation,
                              const DBusError      *how)
 {
   BusActivation *activation;
-  DBusMessage *message;
   DBusList *link;
   BusTransaction *transaction;
   
@@ -659,21 +658,13 @@ try_send_activation_failure (BusPendingActivation *pending_activation,
       
       if (dbus_connection_get_is_connected (entry->connection))
 	{
-	  message = dbus_message_new_error_reply (entry->activation_message,
-                                                  how->name,
-                                                  how->message);
-	  if (!message)
+          if (!bus_transaction_send_error_reply (transaction,
+                                                 entry->connection,
+                                                 how,
+                                                 entry->activation_message))
             goto error;
-          
-	  if (!bus_transaction_send_from_driver (transaction, entry->connection, message))
-	    {
-	      dbus_message_unref (message);
-	      goto error;
-	    }
-
-          dbus_message_unref (message);
 	}
-
+      
       link = next;
     }
 

@@ -2103,6 +2103,10 @@ dbus_connection_get_dispatch_status (DBusConnection *connection)
  * the current incoming message queue, runs any handlers for it, and
  * unrefs the message. Returns a status indicating whether messages/data
  * remain, more memory is needed, or all data has been processed.
+ * 
+ * Even if the dispatch status is #DBUS_DISPATCH_DATA_REMAINS,
+ * does not necessarily dispatch a message, as the data may
+ * be part of authentication or the like.
  *
  * @param connection the connection
  * @returns dispatch status

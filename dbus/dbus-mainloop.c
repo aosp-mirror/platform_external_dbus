@@ -483,8 +483,8 @@ _dbus_loop_queue_dispatch (DBusLoop       *loop,
     return FALSE;
 }
 
-/* Returns TRUE if we have any timeouts or ready file descriptors,
- * which is just used in test code as a debug hack
+/* Returns TRUE if we invoked any timeouts or have ready file
+ * descriptors, which is just used in test code as a debug hack
  */
 
 dbus_bool_t
@@ -634,13 +634,24 @@ _dbus_loop_iterate (DBusLoop     *loop,
                 timeout = msecs_remaining;
               else
                 timeout = MIN (msecs_remaining, timeout);
+
+#if MAINLOOP_SPEW
+              _dbus_verbose ("  timeout added, %d remaining, aggregate timeout %d\n",
+                             msecs_remaining, timeout);
+#endif
               
               _dbus_assert (timeout >= 0);
                   
               if (timeout == 0)
                 break; /* it's not going to get shorter... */
             }
-              
+#if MAINLOOP_SPEW
+          else if (cb->type == CALLBACK_TIMEOUT)
+            {
+              _dbus_verbose ("  skipping disabled timeout\n");
+            }
+#endif
+          
           link = next;
         }
     }
@@ -717,6 +728,12 @@ _dbus_loop_iterate (DBusLoop     *loop,
 #endif
                 }
             }
+#if MAINLOOP_SPEW
+          else if (cb->type == CALLBACK_TIMEOUT)
+            {
+              _dbus_verbose ("  skipping invocation of disabled timeout\n");
+            }
+#endif
 
           link = next;
         }
@@ -780,6 +797,10 @@ _dbus_loop_iterate (DBusLoop     *loop,
     }
       
  next_iteration:
+#if MAINLOOP_SPEW
+  _dbus_verbose ("  moving to next iteration\n");
+#endif
+  
   if (fds && fds != stack_fds)
     dbus_free (fds);
   if (watches_for_fds)

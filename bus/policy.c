@@ -24,6 +24,7 @@
 #include "policy.h"
 #include "services.h"
 #include "test.h"
+#include "utils.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-internals.h>
@@ -233,20 +234,22 @@ add_list_to_client (DBusList        **list,
 
 BusClientPolicy*
 bus_policy_create_client_policy (BusPolicy      *policy,
-                                 DBusConnection *connection)
+                                 DBusConnection *connection,
+                                 DBusError      *error)
 {
   BusClientPolicy *client;
   unsigned long uid;
 
   _dbus_assert (dbus_connection_get_is_authenticated (connection));
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   client = bus_client_policy_new ();
   if (client == NULL)
-    return NULL;
+    goto nomem;
 
   if (!add_list_to_client (&policy->default_rules,
                            client))
-    goto failed;
+    goto nomem;
 
   /* we avoid the overhead of looking up user's groups
    * if we don't have any group rules anyway
@@ -257,7 +260,7 @@ bus_policy_create_client_policy (BusPolicy      *policy,
       int n_groups;
       int i;
       
-      if (!bus_connection_get_groups (connection, &groups, &n_groups))
+      if (!bus_connection_get_groups (connection, &groups, &n_groups, error))
         goto failed;
       
       i = 0;
@@ -273,7 +276,7 @@ bus_policy_create_client_policy (BusPolicy      *policy,
               if (!add_list_to_client (list, client))
                 {
                   dbus_free (groups);
-                  goto failed;
+                  goto nomem;
                 }
             }
           
@@ -284,7 +287,11 @@ bus_policy_create_client_policy (BusPolicy      *policy,
     }
 
   if (!dbus_connection_get_unix_user (connection, &uid))
-    goto failed;
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "No user ID known for connection, cannot determine security policy\n");
+      goto failed;
+    }
 
   if (_dbus_hash_table_get_n_entries (policy->rules_by_uid) > 0)
     {
@@ -296,20 +303,24 @@ bus_policy_create_client_policy (BusPolicy      *policy,
       if (list != NULL)
         {
           if (!add_list_to_client (list, client))
-            goto failed;
+            goto nomem;
         }
     }
 
   if (!add_list_to_client (&policy->mandatory_rules,
                            client))
-    goto failed;
+    goto nomem;
 
   bus_client_policy_optimize (client);
   
   return client;
-  
+
+ nomem:
+  BUS_SET_OOM (error);
  failed:
-  bus_client_policy_unref (client);
+  _DBUS_ASSERT_ERROR_IS_SET (error);
+  if (client)
+    bus_client_policy_unref (client);
   return NULL;
 }
 
@@ -675,6 +686,8 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
    * in the config file, i.e. last rule that applies wins
    */
 
+  _dbus_verbose ("  (policy) checking send rules\n");
+  
   allowed = FALSE;
   link = _dbus_list_get_first_link (&policy->rules);
   while (link != NULL)
@@ -689,13 +702,19 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
        */
       
       if (rule->type != BUS_POLICY_RULE_SEND)
-        continue;
+        {
+          _dbus_verbose ("  (policy) skipping non-send rule\n");
+          continue;
+        }
 
       if (rule->d.send.message_name != NULL)
         {
           if (!dbus_message_has_name (message,
                                       rule->d.send.message_name))
-            continue;
+            {
+              _dbus_verbose ("  (policy) skipping rule for different message name\n");
+              continue;
+            }
         }
 
       if (rule->d.send.destination != NULL)
@@ -707,9 +726,13 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
            */
           if (receiver == NULL)
             {
-              if (!dbus_message_has_sender (message,
-                                            rule->d.send.destination))
-                continue;
+              if (!dbus_message_has_destination (message,
+                                                 rule->d.send.destination))
+                {
+                  _dbus_verbose ("  (policy) skipping rule because message dest is not %s\n",
+                                 rule->d.send.destination);
+                  continue;
+                }
             }
           else
             {
@@ -720,15 +743,26 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
               
               service = bus_registry_lookup (registry, &str);
               if (service == NULL)
-                continue;
+                {
+                  _dbus_verbose ("  (policy) skipping rule because dest %s doesn't exist\n",
+                                 rule->d.send.destination);
+                  continue;
+                }
 
               if (!bus_service_has_owner (service, receiver))
-                continue;
+                {
+                  _dbus_verbose ("  (policy) skipping rule because dest %s isn't owned by receiver\n",
+                                 rule->d.send.destination);
+                  continue;
+                }
             }
         }
 
       /* Use this rule */
       allowed = rule->allow;
+
+      _dbus_verbose ("  (policy) used rule, allow now = %d\n",
+                     allowed);
     }
 
   return allowed;
@@ -747,6 +781,8 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
    * in the config file, i.e. last rule that applies wins
    */
 
+  _dbus_verbose ("  (policy) checking receive rules\n");
+  
   allowed = FALSE;
   link = _dbus_list_get_first_link (&policy->rules);
   while (link != NULL)
@@ -761,13 +797,19 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
        */
       
       if (rule->type != BUS_POLICY_RULE_RECEIVE)
-        continue;
+        {
+          _dbus_verbose ("  (policy) skipping non-receive rule\n");
+          continue;
+        }
 
       if (rule->d.receive.message_name != NULL)
         {
           if (!dbus_message_has_name (message,
                                       rule->d.receive.message_name))
-            continue;
+            {
+              _dbus_verbose ("  (policy) skipping rule for different message name\n");
+              continue;
+            }
         }
 
       if (rule->d.receive.origin != NULL)
@@ -781,7 +823,11 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
             {
               if (!dbus_message_has_sender (message,
                                             rule->d.receive.origin))
-                continue;
+                {
+                  _dbus_verbose ("  (policy) skipping rule because message sender is not %s\n",
+                                 rule->d.receive.origin);
+                  continue;
+                }
             }
           else
             {
@@ -793,15 +839,26 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
               service = bus_registry_lookup (registry, &str);
               
               if (service == NULL)
-                continue;
+                {
+                  _dbus_verbose ("  (policy) skipping rule because origin %s doesn't exist\n",
+                                 rule->d.receive.origin);
+                  continue;
+                }
 
               if (!bus_service_has_owner (service, sender))
-                continue;
+                {
+                  _dbus_verbose ("  (policy) skipping rule because origin %s isn't owned by sender\n",
+                                 rule->d.receive.origin);
+                  continue;
+                }
             }
         }
 
       /* Use this rule */
       allowed = rule->allow;
+
+      _dbus_verbose ("  (policy) used rule, allow now = %d\n",
+                     allowed);
     }
 
   return allowed;

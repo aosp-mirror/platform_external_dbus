@@ -1,3 +1,35 @@
+2003-04-27  Havoc Pennington  <hp@pobox.com>
+
+	Unbreak my code...
+
+	* dbus/dbus-transport.c (_dbus_transport_get_dispatch_status):
+	report correct status if we finish processing authentication
+	inside this function.
+	
+	* bus/activation.c (try_send_activation_failure): use
+	bus_transaction_send_error_reply
+
+	* bus/connection.c (bus_connection_get_groups): return an error
+	explaining the problem
+
+	* bus/bus.c (bus_context_check_security_policy): implement
+	restriction here that inactive connections can only send the
+	hello message. Also, allow bus driver to send anything to 
+	any recipient.
+
+	* bus/connection.c (bus_connection_complete): create the
+	BusClientPolicy here instead of on-demand.
+	(bus_connection_get_policy): don't return an error
+
+	* dbus/dbus-message.c (dbus_message_new_error_reply): allow NULL
+	sender field in message being replied to
+
+	* bus/bus.c (bus_context_check_security_policy): fix silly typo
+	causing it to return FALSE always
+
+	* bus/policy.c (bus_client_policy_check_can_send): fix bug where
+	we checked sender rather than destination
+
 2003-04-25  Havoc Pennington  <hp@redhat.com>
 
         test suite is slightly hosed at the moment, will fix soon

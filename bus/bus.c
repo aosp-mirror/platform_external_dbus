@@ -789,9 +789,12 @@ bus_context_allow_user (BusContext   *context,
 
 BusClientPolicy*
 bus_context_create_client_policy (BusContext      *context,
-                                  DBusConnection  *connection)
+                                  DBusConnection  *connection,
+                                  DBusError       *error)
 {
-  return bus_policy_create_client_policy (context->policy, connection);
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  return bus_policy_create_client_policy (context->policy, connection,
+                                          error);
 }
 
 int
@@ -848,36 +851,75 @@ bus_context_check_security_policy (BusContext     *context,
   BusClientPolicy *recipient_policy;
 
   /* NULL sender/receiver means the bus driver */
-  
+
   if (sender != NULL)
     {
-      _dbus_assert (dbus_connection_get_is_authenticated (sender));
-      sender_policy = bus_connection_get_policy (sender, error);
-      if (sender_policy == NULL)
+      if (bus_connection_is_active (sender))
         {
-          _DBUS_ASSERT_ERROR_IS_SET (error);
-          return FALSE;
+          sender_policy = bus_connection_get_policy (sender);
+          _dbus_assert (sender_policy != NULL);
         }
-      return FALSE;
+      else
+        {
+          /* Policy for inactive connections is that they can only send
+           * the hello message to the bus driver
+           */
+          if (recipient == NULL &&
+              dbus_message_has_name (message, DBUS_MESSAGE_HELLO))
+            {
+              _dbus_verbose ("security check allowing %s message\n",
+                             DBUS_MESSAGE_HELLO);
+              return TRUE;
+            }
+          else
+            {
+              _dbus_verbose ("security check disallowing non-%s message\n",
+                             DBUS_MESSAGE_HELLO);
+
+              dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                              "Client tried to send a message other than %s without being registered",
+                              DBUS_MESSAGE_HELLO);
+              
+              return FALSE;
+            }
+        }
     }
   else
     sender_policy = NULL;
 
+  _dbus_assert ((sender != NULL && sender_policy != NULL) ||
+                (sender == NULL && sender_policy == NULL));
+  
   if (recipient != NULL)
     {
-      _dbus_assert (dbus_connection_get_is_authenticated (recipient));
-      recipient_policy = bus_connection_get_policy (recipient, error);
-      if (recipient_policy == NULL)
+      /* only the bus driver can send to an inactive recipient (as it
+       * owns no services, so other apps can't address it). Inactive
+       * recipients can receive any message.
+       */
+      if (bus_connection_is_active (recipient))
         {
-          _DBUS_ASSERT_ERROR_IS_SET (error);
-          return FALSE;
+          recipient_policy = bus_connection_get_policy (recipient);
+          _dbus_assert (recipient_policy != NULL);
         }
-      return FALSE;
+      else if (sender == NULL)
+        {
+          _dbus_verbose ("security check using NULL recipient policy for message from bus\n");
+          recipient_policy = NULL;
+        }
+      else
+        {
+          _dbus_assert_not_reached ("a message was somehow sent to an inactive recipient from a source other than the message bus\n");
+          recipient_policy = NULL;
+        }
     }
   else
     recipient_policy = NULL;
-
-  if (sender &&
+  
+  _dbus_assert ((recipient != NULL && recipient_policy != NULL) ||
+                (recipient != NULL && sender == NULL && recipient_policy == NULL) ||
+                (recipient == NULL && recipient_policy == NULL));
+  
+  if (sender_policy &&
       !bus_client_policy_check_can_send (sender_policy,
                                          context->registry, recipient,
                                          message))
@@ -893,7 +935,7 @@ bus_context_check_security_policy (BusContext     *context,
       return FALSE;
     }
 
-  if (recipient &&
+  if (recipient_policy &&
       !bus_client_policy_check_can_receive (recipient_policy,
                                             context->registry, sender,
                                             message))

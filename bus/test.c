@@ -304,7 +304,11 @@ bus_test_run_clients_loop (dbus_bool_t block_once)
   _dbus_loop_dispatch (client_loop);
   
   /* Do one blocking wait, since we're expecting data */
-  _dbus_loop_iterate (client_loop, block_once);
+  if (block_once)
+    {
+      _dbus_verbose ("---> blocking on \"client side\"\n");
+      _dbus_loop_iterate (client_loop, TRUE);
+    }
 
   /* Then mop everything up */
   while (_dbus_loop_iterate (client_loop, FALSE))
@@ -321,7 +325,11 @@ bus_test_run_bus_loop (BusContext *context,
   _dbus_loop_dispatch (bus_context_get_loop (context));
   
   /* Do one blocking wait, since we're expecting data */
-  _dbus_loop_iterate (bus_context_get_loop (context), block_once);
+  if (block_once)
+    {
+      _dbus_verbose ("---> blocking on \"server side\"\n");
+      _dbus_loop_iterate (bus_context_get_loop (context), TRUE);
+    }
 
   /* Then mop everything up */
   while (_dbus_loop_iterate (bus_context_get_loop (context), FALSE))

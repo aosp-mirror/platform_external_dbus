@@ -295,17 +295,17 @@ bus_config_parser_new (const DBusString *basedir)
   parser->limits.max_incoming_bytes = _DBUS_ONE_MEGABYTE * 63;
   parser->limits.max_outgoing_bytes = _DBUS_ONE_MEGABYTE * 63;
   parser->limits.max_message_size = _DBUS_ONE_MEGABYTE * 32;
-  
-#ifdef DBUS_BUILD_TESTS
-  parser->limits.activation_timeout = 6000;  /* 6 seconds */
-#else
-  parser->limits.activation_timeout = 15000; /* 15 seconds */
-#endif
+
+  /* Making this long means the user has to wait longer for an error
+   * message if something screws up, but making it too short means
+   * they might see a false failure.
+   */
+  parser->limits.activation_timeout = 25000; /* 25 seconds */
 
   /* Making this long risks making a DOS attack easier, but too short
    * and legitimate auth will fail.  If interactive auth (ask user for
    * password) is allowed, then potentially it has to be quite long.
-   */     
+   */
   parser->limits.auth_timeout = 30000; /* 30 seconds */
 
   parser->limits.max_incomplete_connections = 32;

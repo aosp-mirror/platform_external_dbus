@@ -183,10 +183,14 @@ bus_dispatch (DBusConnection *connection,
     {
       if (!bus_context_check_security_policy (context,
                                               connection, NULL, message, &error))
-        goto out;
-      
+        {
+          _dbus_verbose ("Security policy rejected message\n");
+          goto out;
+        }
+
+      _dbus_verbose ("Giving message to %s\n", DBUS_SERVICE_DBUS);
       if (!bus_driver_handle_message (connection, transaction, message, &error))
-      	goto out;
+        goto out;
     }
   else if (!bus_connection_is_active (connection)) /* clients must talk to bus driver first */
     {
@@ -249,6 +253,7 @@ bus_dispatch (DBusConnection *connection,
           /* If we disconnected it, we won't bother to send it any error
            * messages.
            */
+          _dbus_verbose ("Not sending error to connection we disconnected\n");
         }
       else if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
         {

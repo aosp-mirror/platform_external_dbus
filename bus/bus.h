@@ -72,7 +72,9 @@ DBusUserDatabase* bus_context_get_user_database               (BusContext       
 dbus_bool_t       bus_context_allow_user                      (BusContext       *context,
                                                                unsigned long     uid);
 BusClientPolicy*  bus_context_create_client_policy            (BusContext       *context,
-                                                               DBusConnection   *connection);
+                                                               DBusConnection   *connection,
+                                                               DBusError        *error);
+
 int               bus_context_get_activation_timeout          (BusContext       *context);
 int               bus_context_get_auth_timeout                (BusContext       *context);
 int               bus_context_get_max_completed_connections   (BusContext       *context);
