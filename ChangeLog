@@ -1,3 +1,8 @@
+2005-02-23  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/dbus_bindings.pyx.in (PendingCall::get_reply):
+	s/dbus_pending_call_get_reply/dbus_pending_call_steal_reply
+
 2005-02-21  Colin Walters  <walters@verbum.org>
 
 	* dbus/dbus-test-main.c (main): Take optional specific test
