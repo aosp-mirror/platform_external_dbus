@@ -1434,7 +1434,7 @@ fill_user_info (DBusUserInfo       *info,
    * checks
    */
   
-#if defined (HAVE_POSIX_GETPWNAME_R) || defined (HAVE_NONPOSIX_GETPWNAME_R)
+#if defined (HAVE_POSIX_GETPWNAM_R) || defined (HAVE_NONPOSIX_GETPWNAM_R)
   {
     struct passwd *p;
     int result;
@@ -1442,8 +1442,8 @@ fill_user_info (DBusUserInfo       *info,
     struct passwd p_str;
 
     p = NULL;
-#ifdef HAVE_POSIX_GETPWNAME_R
-    if (uid >= 0)
+#ifdef HAVE_POSIX_GETPWNAM_R
+    if (uid != DBUS_UID_UNSET)
       result = getpwuid_r (uid, &p_str, buf, sizeof (buf),
                            &p);
     else
@@ -1455,7 +1455,7 @@ fill_user_info (DBusUserInfo       *info,
     else
       p = getpwnam_r (username_c, &p_str, buf, sizeof (buf));
     result = 0;
-#endif /* !HAVE_POSIX_GETPWNAME_R */
+#endif /* !HAVE_POSIX_GETPWNAM_R */
     if (result == 0 && p == &p_str)
       {
         if (!fill_user_info_from_passwd (p, info, error))
@@ -2327,7 +2327,7 @@ _dbus_concat_dir_and_file (DBusString       *dir,
                             _dbus_string_get_length (dir));
 }
 
-static dbus_bool_t
+static void
 pseudorandom_generate_random_bytes_buffer (char *buffer,
                                            int   n_bytes)
 {
@@ -2388,12 +2388,16 @@ _dbus_generate_random_bytes_buffer (char *buffer,
   DBusString str;
 
   if (!_dbus_string_init (&str))
-    return pseudorandom_generate_random_bytes_buffer (buffer, n_bytes);
+    {
+      pseudorandom_generate_random_bytes_buffer (buffer, n_bytes);
+      return;
+    }
 
   if (!_dbus_generate_random_bytes (&str, n_bytes))
     {
       _dbus_string_free (&str);
-      return pseudorandom_generate_random_bytes_buffer (buffer, n_bytes);
+      pseudorandom_generate_random_bytes_buffer (buffer, n_bytes);
+      return;
     }
 
   _dbus_string_copy_to_buffer (&str, buffer, n_bytes);

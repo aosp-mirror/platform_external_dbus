@@ -590,7 +590,7 @@ fill_group_info (DBusGroupInfo    *info,
    * to add more configure checks.
    */
   
-#if defined (HAVE_POSIX_GETPWNAME_R) || defined (HAVE_NONPOSIX_GETPWNAME_R)
+#if defined (HAVE_POSIX_GETPWNAM_R) || defined (HAVE_NONPOSIX_GETPWNAM_R)
   {
     struct group *g;
     int result;
@@ -598,7 +598,7 @@ fill_group_info (DBusGroupInfo    *info,
     struct group g_str;
 
     g = NULL;
-#ifdef HAVE_POSIX_GETPWNAME_R
+#ifdef HAVE_POSIX_GETPWNAM_R
 
     if (group_c_str)
       result = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf),
@@ -609,7 +609,7 @@ fill_group_info (DBusGroupInfo    *info,
 #else
     p = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf));
     result = 0;
-#endif /* !HAVE_POSIX_GETPWNAME_R */
+#endif /* !HAVE_POSIX_GETPWNAM_R */
     if (result == 0 && g == &g_str)
       {
         return fill_user_info_from_group (g, info, error);

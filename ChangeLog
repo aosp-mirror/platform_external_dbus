@@ -1,3 +1,13 @@
+2005-03-05  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-sysdeps.c:
+	(pseudorandom_generate_random_bytes_buffer): fix to have no return
+	value
+	(_dbus_generate_random_bytes_buffer): fix return value
+
+	* dbus/dbus-sysdeps-util.c: s/GETPWNAME/GETPWNAM/ so configure
+	checks actually work, from Tom Parker <fdo@tevp.net>
+
 2005-03-01  Colin Walters  <walters@verbum.org>
 
 	* test/glib/test-dbus-glib.c (lose, lose_gerror): Utility
