@@ -34,6 +34,7 @@
 #define DBUS_SERVICE_EXEC "Exec"
 
 static DBusHashTable *activation_entries = NULL;
+static char *server_address = NULL;
 
 typedef struct
 {
@@ -174,10 +175,14 @@ load_directory (const char *directory)
 
 
 void
-bus_activation_init (const char **directories)
+bus_activation_init (const char *address,
+		     const char **directories)
 {
   int i;
 
+  /* FIXME: We should split up the server addresses. */
+  BUS_HANDLE_OOM (server_address = _dbus_strdup (address));
+  
   BUS_HANDLE_OOM (activation_entries = _dbus_hash_table_new (DBUS_HASH_STRING, NULL,
 							     (DBusFreeFunction)bus_activation_entry_free));
 
@@ -189,6 +194,13 @@ bus_activation_init (const char **directories)
       load_directory (directories[i]);
       i++;
     }
+}
+
+static void
+child_setup (void *data)
+{
+  /* FIXME: Check return value in case of OOM */
+  _dbus_setenv ("DBUS_ADDRESS", server_address);
 }
 
 dbus_bool_t
@@ -212,7 +224,9 @@ bus_activation_activate_service (const char  *service_name,
   argv[0] = entry->exec;
   argv[1] = NULL;
 
-  if (!_dbus_spawn_async (argv, error))
+  if (!_dbus_spawn_async (argv,
+			  child_setup, NULL, 
+			  error))
     return FALSE;
 
   return TRUE;

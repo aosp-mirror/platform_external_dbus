@@ -238,13 +238,14 @@ dbus_set_error (DBusError  *error,
   
   va_start (args, format);
 
-  va_copy (args2, args);
-  
   /* Measure the message length */
   message_length = vsnprintf (&c, 1,format, args) + 1;
 
   message = dbus_malloc (message_length);
 
+  va_end (args);
+  
+  va_start (args, format);  
   vsprintf (message, format, args2);
   
   if (!message)

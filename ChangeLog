@@ -1,3 +1,25 @@
+2003-02-17  Anders Carlsson  <andersca@codefactory.se>
+
+	* bus/activation.c: (bus_activation_init), (child_setup),
+	(bus_activation_activate_service):
+	* bus/activation.h:
+	* bus/main.c: (main):
+	Set DBUS_ADDRESS environment variable.
+	
+	* dbus/dbus-errors.c: (dbus_set_error):
+	Don't use va_copy since that's a C99 feature.
+	
+	* dbus/dbus-sysdeps.c: (_dbus_setenv), (do_exec),
+	(_dbus_spawn_async):
+	* dbus/dbus-sysdeps.h:
+	Add child_setup_func to _dbus_spawn_async.
+	
+	* doc/dbus-specification.sgml:
+	Update specification.
+	
+	* test/spawn-test.c: (setup_func), (main):
+	Fix test.
+	
 2003-02-17  Alexander Larsson  <alexl@redhat.com>
 
 	* dbus/dbus-connection.c (_dbus_connection_handler_destroyed_locked):

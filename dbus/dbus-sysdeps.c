@@ -67,6 +67,19 @@ _dbus_abort (void)
 }
 
 /**
+ * Wrapper for setenv().
+ *
+ * @param varname name of environment variable
+ * @param value value of environment variable
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_setenv (const char *varname, const char *value)
+{
+  return (setenv (varname, value, TRUE) == 0);
+}
+
+/**
  * Wrapper for getenv().
  *
  * @param varname name of environment variable
@@ -1564,12 +1577,18 @@ read_ints (int        fd,
 }
 
 static void
-do_exec (int    child_err_report_fd,
-	 char **argv)
+do_exec (int                       child_err_report_fd,
+	 char                    **argv,
+	 DBusSpawnChildSetupFunc   child_setup,
+	 void                     *user_data)
 {
 #ifdef DBUS_BUILD_TESTS
   int i, max_open;
-  
+#endif
+
+  if (child_setup)
+    (* child_setup) (user_data);
+#ifdef DBUS_BUILD_TESTS
   max_open = sysconf (_SC_OPEN_MAX);
 
   
@@ -1593,8 +1612,10 @@ do_exec (int    child_err_report_fd,
 }
 
 dbus_bool_t
-_dbus_spawn_async (char      **argv,
-		   DBusError  *error)
+_dbus_spawn_async (char                    **argv,
+		   DBusSpawnChildSetupFunc   child_setup,
+		   void                     *user_data,
+		   DBusError                *error)
 {
   int pid = -1, grandchild_pid;
   int child_err_report_pipe[2] = { -1, -1 };
@@ -1643,7 +1664,8 @@ _dbus_spawn_async (char      **argv,
       else if (grandchild_pid == 0)
 	{
 	  do_exec (child_err_report_pipe[1],
-		   argv);
+		   argv,
+		   child_setup, user_data);
 	}
       else
 	{

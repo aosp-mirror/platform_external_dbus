@@ -698,15 +698,500 @@
         responds to a number of messages, allowing applications to 
         interact with the message bus.
       </para>
+    </sect2>
+    <sect2 id="bus-messages-hello">
+      <title><literal>org.freedesktop.DBus.Hello</literal></title>
       <para>
-        
-        [document the messages here]
+        As a method:
+        <programlisting>
+          STRING Hello ()
+        </programlisting>
+        Reply arguments:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>STRING</entry>
+                <entry>Name of the service assigned to the client</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </para>
+      <para>
+        Before a client is able to send messages to other clients it
+        must send the <literal>org.freedesktop.DBus.Hello</literal>
+        message to the message bus service. If a client tries to send
+        a message to another client, or a message to the message bus
+        service that isn't the
+        <literal>org.freedesktop.DBus.Hello</literal> message, it will
+        be disconnected from the bus.
+      </para>
+      <para>
+        The reply message contains the name of the base service. Any
+        messages sent to the base service will be rereouted by the
+        message bus, delivering it to the client.
+      </para>
+    </sect2>
+    <sect2 id="bus-messages-list-services">
+      <title><literal>org.freedesktop.DBus.ListServices</literal></title>
+      <para>
+        As a method:
+        <programlisting>
+          STRING_ARRAY ListServices ()
+        </programlisting>
+        Reply arguments:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>STRING_ARRAY</entry>
+                <entry>Array of strings where each string is the name of a service</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </para>
+      <para>
+        Returns a list of all existing services registered with the message bus. 
+      </para>
+    </sect2>
+    <sect2 id="bus-messages-service-exists">
+      <title><literal>org.freedesktop.DBus.ServiceExists</literal></title>
+      <para>
+        As a method:
+        <programlisting>
+          UINT32 ServiceExists (in STRING service_name)
+        </programlisting>
+        Message arguments:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>STRING</entry>
+                <entry>Name of the service</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+        Reply arguments:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>UINT32</entry>
+                <entry>Return value, 1 if the service exists and 0 otherwise</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </para>
+      <para>
+        Checks if a service with a specified name exists.
+      </para>
+    </sect2>
+
+    <sect2 id="bus-messages-acquire-service">
+      <title><literal>org.freedesktop.DBus.AcquireService</literal></title>
+      <para>
+        As a method:
+        <programlisting>
+          UINT32 AcquireService (in STRING service_name)
+        </programlisting>
+        Message arguments:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>STRING</entry>
+                <entry>Name of the service</entry>
+              </row>
+	      <row>
+		<entry>1</entry>
+		<entry>UINT32</entry>
+		<entry>Flags</entry>
+	      </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+        Reply arguments:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>UINT32</entry>
+                <entry>Return value</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </para>
+      <para>
+        Tries to become owner of a specific service. The flags
+        specified can be the following values logically ORed together:
+
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Identifier</entry>
+                <entry>Value</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+	      <row>
+		<entry>DBUS_SERVICE_FLAGS_PROHIBIT_REPLACEMENT</entry>
+		<entry>0x1</entry>
+		<entry>
+                  If the client succeeds in being the owner of the specified service,
+                  then ownership of the service can't be transferred until the service
+                  disconnects. If this flag is not set, then any client trying to become
+                  the owner of the service will succeed and the previous owner will be
+                  sent a <literal>org.freedesktop.DBus.ServiceLost</literal> message.
+</entry>
+	      </row>
+	      <row>
+		<entry>DBUS_SERVICE_FLAGS_REPLACE_EXISTING</entry>
+		<entry>0x2</entry>
+		<entry>Only become the owner of the service if there is no current owner.</entry>
+	      </row>
+	    </tbody>
+	  </tgroup>
+	</informaltable>
+
+        The return value can be one of the following values:
+
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Identifier</entry>
+                <entry>Value</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+	      <row>
+                <entry>DBUS_SERVICE_REPLY_PRIMARY_OWNER</entry>
+		<entry>0x1</entry>
+		<entry>The client is now the primary owner of the service.</entry>
+	      </row>
+	      <row>
+		<entry>DBUS_SERVICE_REPLY_IN_QUEUE</entry>
+		<entry>0x2</entry>
+		<entry>The service already has an owner which do not want to give up ownership and therefore the client has been put in a queue.</entry>
+	      </row>
+	      <row>
+		<entry>DBUS_SERVICE_REPLY_SERVICE_EXISTS</entry>
+		<entry>0x4</entry>
+		<entry>The service does already have a primary owner, and DBUS_SERVICE_FLAG_REPLACE_EXISTING was not specified when trying to acquire the service.</entry>
+	      </row>
+	      <row>
+		<entry>DBUS_SERVICE_REPLY_ALREADY_OWNER</entry>
+		<entry>0x8</entry>
+		<entry>The client trying to request ownership of the service is already the owner of it.</entry>
+	      </row>
+	    </tbody>
+	  </tgroup>
+	</informaltable>
+      </para>
+    </sect2>
+    <sect2 id="bus-messages-service-acquired">
+      <title><literal>org.freedesktop.DBus.ServiceAcquired</literal></title>
+      <para>
+        As a method:
+        <programlisting>
+          ServiceAcquired (in STRING service_name)
+        </programlisting>
+        Message arguments:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>STRING</entry>
+                <entry>Name of the service</entry>
+              </row>
+	      <row>
+		<entry>1</entry>
+		<entry>UINT32</entry>
+		<entry>Flags</entry>
+	      </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </para>
+      <para>
+        This message is sent to a specific client when it becomes the primary owner of a service.
+      </para>
+    </sect2>
+    <sect2 id="bus-messages-service-lost">
+      <title><literal>org.freedesktop.DBus.ServiceLost</literal></title>
+      <para>
+        As a method:
+        <programlisting>
+          ServiceLost (in STRING service_name)
+        </programlisting>
+        Message arguments:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>STRING</entry>
+                <entry>Name of the service</entry>
+              </row>
+	      <row>
+		<entry>1</entry>
+		<entry>UINT32</entry>
+		<entry>Flags</entry>
+	      </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </para>
+      <para>
+        This message is sent to a specific client when it loses primary ownership of a service.
+      </para>
+    </sect2>
+
+    <sect2 id="bus-messages-service-created">
+      <title><literal>org.freedesktop.DBus.ServiceCreated</literal></title>
+      <para>
+        As a method:
+        <programlisting>
+          ServiceCreated (in STRING service_name)
+        </programlisting>
+        Message arguments:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>STRING</entry>
+                <entry>Name of the service</entry>
+              </row>
+	      <row>
+		<entry>1</entry>
+		<entry>UINT32</entry>
+		<entry>Flags</entry>
+	      </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </para>
+      <para>
+        This message is broadcast to all clients when a service has been successfully registered on the message bus.
+      </para>
+    </sect2>
+
+    <sect2 id="bus-messages-service-deleted">
+      <title><literal>org.freedesktop.DBus.ServiceDeleted</literal></title>
+      <para>
+        As a method:
+        <programlisting>
+          ServiceDeleted (in STRING service_name)
+        </programlisting>
+        Message arguments:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>STRING</entry>
+                <entry>Name of the service</entry>
+              </row>
+	      <row>
+		<entry>1</entry>
+		<entry>UINT32</entry>
+		<entry>Flags</entry>
+	      </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </para>
+      <para>
+        This message is broadcast to all clients when a service has been deleted from the message bus.
+      </para>
+    </sect2>
+
+    <sect2 id="bus-messages-activate-service">
+      <title><literal>org.freedesktop.DBus.ActivateService</literal></title>
+      <para>
+        As a method:
+        <programlisting>
+          void ActivateService (in STRING service_name, in UINT32 flags)
+        </programlisting>
+        Message arguments:
+        <informaltable>
+          <tgroup cols=3>
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>STRING</entry>
+                <entry>Name of the service to activate</entry>
+              </row>
+	      <row>
+		<entry>1</entry>
+		<entry>UINT32</entry>
+		<entry>Flags (currently not used)</entry>
+	      </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+      </para>
+      <para>
+        Tries to launch the executable associated with a service. For more information, see the part on <xref linkend="message-bus-activation">
+      </para>
+    </sect2>
+
+    <sect2 id="services">
+      <title>Message Bus Services</title>
+      <para>
+        A service is a name that identifies a certain client. Each
+        client connected to the message bus has at least one service
+        name acquired through the
+        <literal>org.freedesktop.DBus.Hello</literal> message. In
+        addition, a client can request additional service names to be
+        associated with it using the
+        <literal>org.freedesktop.DBus.AcquireService</literal>
+        message.
+      </para>
+      <para>
+        Service ownership handling can be specified in the flags part
+        of the <literal>org.freedesktop.DBus.AcquireService</literal>
+        message. If a client specifies the
+        DBUS_SERVICE_FLAGS_PROHIBIT_REPLACEMENT flag, then all clients
+        trying to acquire the service will be put in a queue. When the
+        primary owner disconnects from the bus or removes ownership
+        from the service, the next client in the queue will be the
+        primary owner. If the DBUS_SERVICE_FLAGS_PROHIBIT_REPLACEMENT
+        flag is not specified, then the primary owner will lose
+        ownership whenever another client requests ownership of the
+        service.
       </para>
     </sect2>
     <sect2 id="message-bus-activation">
       <title>Message Bus Service Activation</title>
       <para>
-        [document file format, filesystem locations, etc. for activation]
+        Activation is a way to launch executables that handle certain
+        services. The bus daemon looks in certain directories
+        (possibly different depending on if it's a system bus or a
+        message bus) for service description files.
+      </para>
+      <para>
+        Service description files have the ".service" file
+        extension. The message bus will only load service description
+        files ending with .service; all other files will be ignored.
+        The file format is similar to that of <ulink
+        url="http://www.freedesktop.org/standards/desktop-entry-spec/desktop-entry-spec.html">desktop
+        entries</ulink>. All service description files must be in
+        UTF-8 encoding.
+
+        <figure>
+	  <title>Example service description file</title>
+	  <programlisting>
+            # Sample service description file
+            [D-BUS Service]
+            Name=org.gnome.ConfigurationDatabase
+            Exec=gconfd-2
+          </programlisting>
+	</figure>
+      </para>
+      <para>
+        When a client requests a service to be activated, the bus
+        daemon tries to find it in the list of activation entries. It
+        then tries to spawn the executable associated with it. If this
+        fails, it will report an error.
+      </para>
+      <para>
+        The executable launched will have the environment variable
+        <literal>DBUS_ADDRESS</literal> set to the address of the
+        server so it can connect and register the appropriate services.
       </para>
     </sect2>
     <sect2 id="message-bus-location">
@@ -730,16 +1215,17 @@
       </para>
     </sect2>
   </sect1>
-
+<!--
   <appendix id="implementation-notes">
     <title>Implementation notes</title>
     <sect1 id="implementation-notes-subsection">
       <title></title>
       <para>
-
       </para>
     </sect1>
   </appendix>
+-->
+
   <glossary><title>Glossary</title>
     <para>
       This glossary defines some of the terms used in this specification.

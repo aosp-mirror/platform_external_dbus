@@ -49,7 +49,8 @@ DBUS_BEGIN_DECLS;
 void _dbus_abort (void);
 
 const char* _dbus_getenv (const char *varname);
-
+dbus_bool_t _dbus_setenv (const char *varname,
+			  const char *value);
 
 int _dbus_read      (int               fd,
                      DBusString       *buffer,
@@ -148,8 +149,14 @@ dbus_bool_t _dbus_generate_random_bytes (DBusString *str,
                                          int         n_bytes);
 
 const char *_dbus_errno_to_string (int         errnum);
-dbus_bool_t _dbus_spawn_async     (char      **argv,
-				   DBusError  *error);
+
+typedef void (* DBusSpawnChildSetupFunc) (void *user_data);
+
+dbus_bool_t _dbus_spawn_async (char                    **argv,
+			       DBusSpawnChildSetupFunc   child_setup,
+			       void                     *user_data,
+			       DBusError                *error);
+
 
 void _dbus_disable_sigpipe (void);
 

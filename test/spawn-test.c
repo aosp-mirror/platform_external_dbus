@@ -5,6 +5,12 @@
 #undef DBUS_COMPILATION
 #include <stdio.h>
 
+static void
+setup_func (void *data)
+{
+  printf ("entering setup func.\n");
+}
+
 int
 main (int argc, char **argv)
 {
@@ -24,7 +30,7 @@ main (int argc, char **argv)
     argv_copy [i] = argv[i + 1];
   argv_copy[argc - 1] = NULL;
   
-  if (!_dbus_spawn_async (argv_copy, &error))
+  if (!_dbus_spawn_async (argv_copy, setup_func, NULL, &error))
     {
       fprintf (stderr, "Could not launch application: \"%s\"\n",
 	       error.message);

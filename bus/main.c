@@ -82,6 +82,15 @@ main (int argc, char **argv)
       return 1;
     }
 
+  
+  server = dbus_server_listen (argv[1], &result);
+  if (server == NULL)
+    {
+      _dbus_warn ("Failed to start server on %s: %s\n",
+                  argv[1], dbus_result_to_string (result));
+      return 1;
+    }
+
   if (argc < 3)
     {
       _dbus_warn ("No service location given, not activating activation\n");
@@ -90,15 +99,7 @@ main (int argc, char **argv)
     {
       char *paths[] = { argv[2], NULL };
 
-      bus_activation_init (paths);
-    }
-  
-  server = dbus_server_listen (argv[1], &result);
-  if (server == NULL)
-    {
-      _dbus_warn ("Failed to start server on %s: %s\n",
-                  argv[1], dbus_result_to_string (result));
-      return 1;
+      bus_activation_init (argv[1], paths);
     }
   
   setup_server (server);
