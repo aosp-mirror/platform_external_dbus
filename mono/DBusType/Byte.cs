@@ -23,6 +23,11 @@ namespace DBus.DBusType
       this.val = val;
     }
 
+    public Byte(System.Char val, Service service) 
+    {
+      this.val = (byte) val;
+    }
+
     public Byte(IntPtr iter, Service service)
     {
       this.val = dbus_message_iter_get_byte(iter);
@@ -39,6 +44,8 @@ namespace DBus.DBusType
       switch (type.ToString()) {
       case "System.Byte":
       case "System.Byte&":
+      case "System.Char":
+      case "System.Char&":
 	return true;
       }
       
@@ -72,6 +79,10 @@ namespace DBus.DBusType
       case "System.Byte":
       case "System.Byte&":
 	return this.val;
+      case "System.Char":
+      case "System.Char&":
+	char charVal = (char) this.val;
+	return charVal;
       default:
 	throw new ArgumentException("Cannot cast DBus.Type.Byte to type '" + type.ToString() + "'");
       }
