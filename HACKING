@@ -91,15 +91,15 @@ To make a release of D-BUS, do the following:
    X_Y_Z map to version X.Y.Z
 
  - scp your tarball to freedesktop.org server and copy it 
-   to /home/www/twiki/Software/dbus/releases. This should 
+   to /srv/dbus.freedesktop.org/releases. This should 
    be possible if you're in group "dbus"
 
- - update the wiki page http://pdx.freedesktop.org/Software/dbus by
+ - update the wiki page http://www.freedesktop.org/Software/dbus by
    adding the new release under the Download heading. Then, cut the
    link and changelog for the previous that was there.
 
  - update the wiki page
-   http://pdx.freedesktop.org/Software/DbusReleaseArchive pasting the
+   http://www.freedesktop.org/Software/DbusReleaseArchive pasting the
    previous release. Note that bullet points for each of the changelog
    items must be indented three more spaces to conform to the
    formatting of the other releases there.
