@@ -218,7 +218,7 @@ AC_SUBST(DBUS_TEST_LIBS)
 
 # Glib detection
 PKG_CHECK_MODULES(DBUS_GLIB, glib-2.0, have_glib=yes, have_glib=no)
-PKG_CHECK_MODULES(DBUS_GLIB_THREADS, glib-2.0 gthread-2.0)
+PKG_CHECK_MODULES(DBUS_GLIB_THREADS, glib-2.0 gthread-2.0, have_glib_threads=yes, have_glib_threads=no)
 
 if test x$have_glib = xno ; then
     AC_MSG_WARN([GLib development libraries not found])
@@ -235,6 +235,7 @@ if test x$enable_glib = xno; then
 fi
 
 AM_CONDITIONAL(HAVE_GLIB, test x$have_glib = xyes)
+AM_CONDITIONAL(HAVE_GLIB_THREADS, test x$have_glib_threads = xyes)
 
 dnl GLib flags
 AC_SUBST(DBUS_GLIB_CFLAGS)

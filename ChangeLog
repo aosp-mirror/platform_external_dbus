@@ -1,3 +1,10 @@
+2003-02-27  Alexander Larsson  <alexl@redhat.com>
+
+	* glib/Makefile.am: 
+	* configure.in:
+	Make gthreads-2.0 dependency optional. Don't build thread test if
+	its not found.
+
 2003-02-27  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-connection.c
