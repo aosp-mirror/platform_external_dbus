@@ -315,6 +315,22 @@ simple_method_return (void)
   return message;
 }
 
+static DBusMessage*
+simple_error (void)
+{
+  DBusMessage *message;
+  message =  dbus_message_new (DBUS_MESSAGE_TYPE_ERROR);
+  if (message == NULL)
+    _dbus_assert_not_reached ("oom");
+
+  if (!dbus_message_set_error_name (message, "foo.bar"))
+    _dbus_assert_not_reached ("oom");
+  
+  set_reply_serial (message);
+  
+  return message;
+}
+
 static dbus_bool_t
 generate_special (DBusMessageDataIter   *iter,
                   DBusString            *data,
@@ -354,7 +370,7 @@ generate_special (DBusMessageDataIter   *iter,
     }
   else if (item_seq == 1)
     {
-      char long_sig[DBUS_MAXIMUM_TYPE_RECURSION_DEPTH+1];
+      char long_sig[DBUS_MAXIMUM_TYPE_RECURSION_DEPTH+2];
       const char *v_STRING;
       int i;
       
@@ -372,6 +388,7 @@ generate_special (DBusMessageDataIter   *iter,
           long_sig[i] = DBUS_TYPE_ARRAY;
           ++i;
         }
+      long_sig[i] = DBUS_TYPE_INVALID;
 
       v_STRING = long_sig;
       if (!_dbus_header_set_field_basic (&message->header,
@@ -389,7 +406,7 @@ generate_special (DBusMessageDataIter   *iter,
     }
   else if (item_seq == 2)
     {
-      char long_sig[DBUS_MAXIMUM_TYPE_RECURSION_DEPTH*2+3];
+      char long_sig[DBUS_MAXIMUM_TYPE_RECURSION_DEPTH*2+4];
       const char *v_STRING;
       int i;
       
@@ -416,6 +433,7 @@ generate_special (DBusMessageDataIter   *iter,
           long_sig[i] = DBUS_STRUCT_END_CHAR;
           ++i;
         }
+      long_sig[i] = DBUS_TYPE_INVALID;
       
       v_STRING = long_sig;
       if (!_dbus_header_set_field_basic (&message->header,
@@ -591,6 +609,129 @@ generate_special (DBusMessageDataIter   *iter,
       generate_from_message (data, expected_validity, message);
       
       *expected_validity = DBUS_INVALID_MISSING_REPLY_SERIAL;
+    }
+  else if (item_seq == 15)
+    {
+      message = simple_error ();
+
+      if (!dbus_message_set_error_name (message, NULL))
+        _dbus_assert_not_reached ("oom");
+      
+      generate_from_message (data, expected_validity, message);
+      
+      *expected_validity = DBUS_INVALID_MISSING_ERROR_NAME;
+    }
+  else if (item_seq == 16)
+    {
+      char long_sig[DBUS_MAXIMUM_TYPE_RECURSION_DEPTH*3+6];
+      const char *v_STRING;
+      int i;
+      int n_begins;
+      
+      message = simple_method_call ();
+      if (!dbus_message_append_args (message,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INVALID))
+        _dbus_assert_not_reached ("oom");
+
+      i = 0;
+      while (i <= (DBUS_MAXIMUM_TYPE_RECURSION_DEPTH*2 + 2))
+        {
+          long_sig[i] = DBUS_TYPE_ARRAY;
+          ++i;
+          long_sig[i] = DBUS_DICT_ENTRY_BEGIN_CHAR;
+          ++i;
+        }
+      n_begins = i / 2;
+
+      long_sig[i] = DBUS_TYPE_INT32;
+      ++i;
+      long_sig[i] = DBUS_TYPE_INT32;
+      ++i;
+      
+      while (n_begins > 0)
+        {
+          long_sig[i] = DBUS_DICT_ENTRY_END_CHAR;
+          ++i;
+          n_begins -= 1;
+        }
+      long_sig[i] = DBUS_TYPE_INVALID;
+      
+      v_STRING = long_sig;
+      if (!_dbus_header_set_field_basic (&message->header,
+                                         DBUS_HEADER_FIELD_SIGNATURE,
+                                         DBUS_TYPE_SIGNATURE,
+                                         &v_STRING))
+        _dbus_assert_not_reached ("oom");
+      
+      _dbus_header_get_field_raw (&message->header,
+                                  DBUS_HEADER_FIELD_SIGNATURE,
+                                  NULL, &pos);
+      generate_from_message (data, expected_validity, message);
+      
+      *expected_validity = DBUS_INVALID_EXCEEDED_MAXIMUM_DICT_ENTRY_RECURSION;
+    }
+  else if (item_seq == 17)
+    {
+      message = simple_method_call ();
+      if (!dbus_message_append_args (message,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INVALID))
+        _dbus_assert_not_reached ("oom");
+                                     
+      _dbus_header_get_field_raw (&message->header,
+                                  DBUS_HEADER_FIELD_SIGNATURE,
+                                  NULL, &pos);
+      generate_from_message (data, expected_validity, message);
+
+      _dbus_string_set_byte (data, pos + 1, DBUS_TYPE_ARRAY);
+      _dbus_string_set_byte (data, pos + 2, DBUS_DICT_ENTRY_BEGIN_CHAR);
+      
+      *expected_validity = DBUS_INVALID_DICT_ENTRY_STARTED_BUT_NOT_ENDED;
+    }
+  else if (item_seq == 18)
+    {
+      message = simple_method_call ();
+      if (!dbus_message_append_args (message,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INVALID))
+        _dbus_assert_not_reached ("oom");
+                                     
+      _dbus_header_get_field_raw (&message->header,
+                                  DBUS_HEADER_FIELD_SIGNATURE,
+                                  NULL, &pos);
+      generate_from_message (data, expected_validity, message);
+      
+      _dbus_string_set_byte (data, pos + 1, DBUS_DICT_ENTRY_END_CHAR);
+      
+      *expected_validity = DBUS_INVALID_DICT_ENTRY_ENDED_BUT_NOT_STARTED;
+    }
+  else if (item_seq == 19)
+    {
+      message = simple_method_call ();
+      if (!dbus_message_append_args (message,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INVALID))
+        _dbus_assert_not_reached ("oom");
+                                     
+      _dbus_header_get_field_raw (&message->header,
+                                  DBUS_HEADER_FIELD_SIGNATURE,
+                                  NULL, &pos);
+      generate_from_message (data, expected_validity, message);
+
+      _dbus_string_set_byte (data, pos + 1, DBUS_TYPE_ARRAY);
+      _dbus_string_set_byte (data, pos + 2, DBUS_DICT_ENTRY_BEGIN_CHAR);
+      _dbus_string_set_byte (data, pos + 3, DBUS_DICT_ENTRY_END_CHAR);
+      
+      *expected_validity = DBUS_INVALID_DICT_ENTRY_HAS_NO_FIELDS;
     }
   else
     {

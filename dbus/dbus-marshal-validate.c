@@ -266,7 +266,7 @@ validate_body_helper (DBusTypeReader       *reader,
               }
 
             if (claimed_len > (unsigned long) (end - p))
-              return DBUS_INVALID_STRING_LENGTH_OUT_OF_BOUNDS;
+              return DBUS_INVALID_LENGTH_OUT_OF_BOUNDS;
 
             if (current_type == DBUS_TYPE_OBJECT_PATH)
               {
@@ -294,6 +294,9 @@ validate_body_helper (DBusTypeReader       *reader,
                 DBusValidity validity;
                 const unsigned char *array_end;
 
+                if (claimed_len > DBUS_MAXIMUM_ARRAY_LENGTH)
+                  return DBUS_INVALID_ARRAY_LENGTH_EXCEEDS_MAXIMUM;
+                
                 /* Remember that the reader is types only, so we can't
                  * use it to iterate over elements. It stays the same
                  * for all elements.

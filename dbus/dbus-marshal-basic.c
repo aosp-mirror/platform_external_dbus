@@ -577,8 +577,8 @@ _dbus_marshal_read_basic (const DBusString      *str,
       }
       break;
     default:
-      _dbus_warn ("type %s not a basic type\n",
-                  _dbus_type_to_string (type));
+      _dbus_warn ("type %s %d not a basic type\n",
+                  _dbus_type_to_string (type), type);
       _dbus_assert_not_reached ("not a basic type");
       break;
     }
@@ -757,6 +757,9 @@ marshal_len_followed_by_bytes (int                  marshal_as,
 
   if (marshal_as == MARSHAL_AS_SIGNATURE)
     {
+      _dbus_assert (data_len <= DBUS_MAXIMUM_SIGNATURE_LENGTH);
+      _dbus_assert (data_len <= 255); /* same as max sig len right now */
+      
       if (!_dbus_string_insert_byte (str, pos, data_len))
         goto oom;
 

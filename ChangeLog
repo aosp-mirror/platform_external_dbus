@@ -1,3 +1,10 @@
+2005-02-06  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-message-factory.c (generate_special): more tests
+
+	* dbus/dbus-marshal-validate.c (validate_body_helper): detect
+	array length that exceeds the maximum
+
 2005-02-05  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-message-factory.c (generate_special): more test cases,
