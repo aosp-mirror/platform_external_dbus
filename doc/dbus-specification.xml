@@ -2374,6 +2374,11 @@
             the deprecation status of the interface.
           </para>
         </listitem>
+        <listitem>
+          <para>
+            The "name" attribute on arguments is optional.
+          </para>
+        </listitem>
       </itemizedlist>
     </para>
 

@@ -1094,6 +1094,7 @@ bus_driver_handle_introspect (DBusConnection *connection,
   DBusString xml;
   DBusMessage *reply;
   const char *v_STRING;
+  int i;
 
   _dbus_verbose ("Introspect() on bus driver\n");
   
@@ -1126,6 +1127,87 @@ bus_driver_handle_introspect (DBusConnection *connection,
     goto oom;
   if (!_dbus_string_append (&xml, "    </method>\n"))
     goto oom;
+  if (!_dbus_string_append (&xml, "  </interface>\n"))
+    goto oom;
+
+  if (!_dbus_string_append_printf (&xml, "  <interface name=\"%s\">\n",
+                                   DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS))
+    goto oom;
+
+  i = 0;
+  while (i < _DBUS_N_ELEMENTS (message_handlers))
+    {
+      if (!_dbus_string_append_printf (&xml, "    <method name=\"%s\">\n",
+                                       message_handlers[i].name))
+        goto oom;
+
+      /* This hacky mess can probably get mopped up eventually when the
+       * introspection format is related to the signature format
+       */
+      
+      if (strcmp (message_handlers[i].in_args, "") == 0)
+        ;
+      else if (strcmp (message_handlers[i].in_args,
+                       DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_UINT32_AS_STRING) == 0)
+        {
+          if (!_dbus_string_append (&xml, "      <arg direction=\"in\" type=\"string\"/>\n"))
+            goto oom;
+          if (!_dbus_string_append (&xml, "      <arg direction=\"in\" type=\"uint32\"/>\n"))
+            goto oom;
+        }
+      else if (strcmp (message_handlers[i].in_args,
+                       DBUS_TYPE_STRING_AS_STRING) == 0)
+        {
+          if (!_dbus_string_append (&xml, "      <arg direction=\"in\" type=\"string\"/>\n"))
+            goto oom;
+        }
+      else
+        {
+          _dbus_warn ("Lack introspection code for in sig '%s'\n",
+                      message_handlers[i].in_args);
+          _dbus_assert_not_reached ("FIXME introspection missing");
+        }
+
+      if (strcmp (message_handlers[i].out_args, "") == 0)
+        ;
+      else if (strcmp (message_handlers[i].out_args,
+                       DBUS_TYPE_STRING_AS_STRING) == 0)
+        {
+          if (!_dbus_string_append (&xml, "      <arg direction=\"out\" type=\"string\"/>\n"))
+            goto oom;
+        }
+      else if (strcmp (message_handlers[i].out_args,
+                       DBUS_TYPE_BOOLEAN_AS_STRING) == 0)
+        {
+          if (!_dbus_string_append (&xml, "      <arg direction=\"out\" type=\"boolean\"/>\n"))
+            goto oom;
+        }
+      else if (strcmp (message_handlers[i].out_args,
+                       DBUS_TYPE_UINT32_AS_STRING) == 0)
+        {
+          if (!_dbus_string_append (&xml, "      <arg direction=\"out\" type=\"uint32\"/>\n"))
+            goto oom;
+        }
+      else if (strcmp (message_handlers[i].out_args,
+                       DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_STRING_AS_STRING) == 0)
+        {
+          /* FIXME introspection format doesn't handle arrays yet */
+          if (!_dbus_string_append (&xml, "      <arg direction=\"out\" type=\"string\"/>\n"))
+            goto oom;
+        }
+      else
+        {
+          _dbus_warn ("Lack introspection code for out sig '%s'\n",
+                      message_handlers[i].out_args);
+          _dbus_assert_not_reached ("FIXME introspection missing");
+        }
+      
+      if (!_dbus_string_append (&xml, "    </method>\n"))
+        goto oom;
+      
+      ++i;
+    }
+  
   if (!_dbus_string_append (&xml, "  </interface>\n"))
     goto oom;
   

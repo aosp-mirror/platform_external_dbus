@@ -1,5 +1,10 @@
 2005-02-12  Havoc Pennington  <hp@redhat.com>
 
+	* bus/driver.c (bus_driver_handle_introspect): add introspection
+	for bus driver
+
+2005-02-12  Havoc Pennington  <hp@redhat.com>
+
 	* bus/driver.c: put the signature of each bus driver method in the
 	table of handlers and check it on incoming calls; this isn't
 	really useful, but going to add introspect support in a minute.
