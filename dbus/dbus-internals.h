@@ -93,8 +93,6 @@ do {                                                                            
 #define _DBUS_STRUCT_OFFSET(struct_type, member)	\
     ((long) ((unsigned char*) &((struct_type*) 0)->member))
 
-#define _DBUS_HANDLE_OOM(stat) (stat)
-
 /* This alignment thing is from ORBit2 */
 /* Align a value upward to a boundary, expressed as a number of bytes.
  * E.g. align to an 8-byte boundary with argument of 8.

@@ -22,6 +22,7 @@
  */
 
 #include "loop.h"
+#include "utils.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-sysdeps.h>
 
@@ -100,12 +101,6 @@ bus_loop_remove_watch (DBusWatch        *watch,
               watch, function, data);
 }
 
-static void
-wait_for_memory (void)
-{
-  _dbus_sleep_milliseconds (500);
-}
-
 void
 bus_loop_run (void)
 {
@@ -133,14 +128,14 @@ bus_loop_run (void)
       fds = dbus_new0 (DBusPollFD, n_fds);
       while (fds == NULL)
         {
-          wait_for_memory ();
+          bus_wait_for_memory ();
           fds = dbus_new0 (DBusPollFD, n_fds);
         }
 
       watches_for_fds = dbus_new (WatchCallback*, n_fds);
       while (watches_for_fds == NULL)
         {
-          wait_for_memory ();
+          bus_wait_for_memory ();
           watches_for_fds = dbus_new (WatchCallback*, n_fds);
         }
       

@@ -26,10 +26,14 @@
 #include <dbus/dbus.h>
 #include <dbus/dbus-string.h>
 
+#define BUS_DESKTOP_PARSE_ERROR_INVALID_SYNTAX  "org.freedesktop.DBus.DesktopParseError.InvalidSyntax"
+#define BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES "org.freedesktop.DBus.DesktopParseError.InvalidEscapes"
+#define BUS_DESKTOP_PARSE_ERROR_INVALID_CHARS   "org.freedesktop.DBus.DesktopParseError.InvalidChars"
+
 typedef struct BusDesktopFile BusDesktopFile;
 
 BusDesktopFile *bus_desktop_file_load (DBusString     *filename,
-				       DBusResultCode *result);
+				       DBusError      *error);
 void            bus_desktop_file_free (BusDesktopFile *file);
 
 dbus_bool_t bus_desktop_file_get_raw    (BusDesktopFile  *desktop_file,

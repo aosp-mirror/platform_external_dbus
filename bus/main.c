@@ -21,6 +21,7 @@
  *
  */
 #include "loop.h"
+#include "activation.h"
 #include "connection.h"
 #include "driver.h"
 #include <dbus/dbus-list.h>

@@ -24,6 +24,7 @@
 #include "dispatch.h"
 #include "connection.h"
 #include "driver.h"
+#include "utils.h"
 #include <dbus/dbus-internals.h>
 #include <string.h>
 
@@ -32,7 +33,7 @@ static int message_handler_slot;
 static void
 send_one_message (DBusConnection *connection, void *data)
 {
-  _DBUS_HANDLE_OOM (dbus_connection_send_message (connection, data, NULL, NULL));
+  BUS_HANDLE_OOM (dbus_connection_send_message (connection, data, NULL, NULL));
 }
 
 void
@@ -54,7 +55,7 @@ bus_dispatch_message_handler (DBusMessageHandler *handler,
   
   /* Assign a sender to the message */
   sender = bus_connection_get_name (connection);
-  _DBUS_HANDLE_OOM (dbus_message_set_sender (message, sender));
+  BUS_HANDLE_OOM (dbus_message_set_sender (message, sender));
 
   service_name = dbus_message_get_service (message);
   
@@ -83,8 +84,8 @@ bus_dispatch_message_handler (DBusMessageHandler *handler,
       _dbus_assert (bus_service_get_primary_owner (service) != NULL);
       
       /* Dispatch the message */
-      _DBUS_HANDLE_OOM (dbus_connection_send_message (bus_service_get_primary_owner (service),
-						      message, NULL, NULL));
+      BUS_HANDLE_OOM (dbus_connection_send_message (bus_service_get_primary_owner (service),
+						    message, NULL, NULL));
     }
 
   return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;

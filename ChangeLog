@@ -1,5 +1,40 @@
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
+	* bus/Makefile.am:
+	Add utils.[ch]
+	
+	* bus/connection.c: (bus_connection_foreach):
+	Fix a warning.
+	
+	* bus/desktop-file.c: (grow_lines_in_section), (grow_sections),
+	(unescape_string), (new_section), (parse_section_start),
+	(parse_key_value), (report_error), (bus_desktop_file_load),
+	(bus_desktop_file_get_string):
+	* bus/desktop-file.h:
+	Use DBusError for error reporting.
+	
+	* bus/dispatch.c: (send_one_message),
+	(bus_dispatch_message_handler):
+	* bus/driver.c: (bus_driver_send_service_deleted),
+	(bus_driver_send_service_created), (bus_driver_send_service_lost),
+	(bus_driver_send_service_acquired), (bus_driver_handle_hello),
+	(bus_driver_send_welcome_message),
+	(bus_driver_handle_list_services),
+	(bus_driver_handle_acquire_service),
+	(bus_driver_handle_service_exists):
+	* bus/loop.c: (bus_loop_run):
+	* bus/main.c:
+	Use BUS_HANDLE_OOM instead of _DBUS_HANDLE_OOM.
+	
+	* bus/utils.c: (bus_wait_for_memory):
+	* bus/utils.h:
+	New files with general utility functions.
+	
+	* dbus/dbus-internals.h:
+	Remove _DBUS_HANDLE_OOM.
+	
+2003-02-13  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-errors.c: (dbus_result_to_string), (dbus_error_init),
 	(dbus_error_free), (dbus_set_error_const), (dbus_set_error):
 	* dbus/dbus-errors.h:

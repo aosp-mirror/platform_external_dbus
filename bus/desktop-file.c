@@ -24,13 +24,7 @@
 #include <dbus/dbus-sysdeps.h>
 #include <dbus/dbus-internals.h>
 #include "desktop-file.h"
-
-typedef enum 
-{
-  BUS_DESKTOP_PARSE_ERROR_INVALID_SYNTAX,
-  BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES,
-  BUS_DESKTOP_PARSE_ERROR_INVALID_CHARS
-} BusDesktopParseError;
+#include "utils.h"
 
 typedef struct
 {
@@ -87,10 +81,10 @@ unsigned char valid[256] = {
    0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 
 };
 
-static void report_error (BusDesktopFileParser   *parser,
-			  char                   *message,
-			  BusDesktopParseError    error_code,
-			  DBusResultCode         *result);
+static void report_error (BusDesktopFileParser *parser,
+			  char                 *message,
+			  const char           *error_name,
+			  DBusError            *error);
 
 static void
 parser_free (BusDesktopFileParser *parser)
@@ -143,8 +137,8 @@ grow_lines_in_section (BusDesktopFileSection *section)
   else
     new_n_lines = section->n_allocated_lines*2;
 
-  _DBUS_HANDLE_OOM (lines = dbus_realloc (section->lines,
-					  sizeof (BusDesktopFileLine) * new_n_lines));
+  BUS_HANDLE_OOM (lines = dbus_realloc (section->lines,
+					sizeof (BusDesktopFileLine) * new_n_lines));
   section->lines = lines;
   
   section->n_allocated_lines = new_n_lines;
@@ -161,8 +155,8 @@ grow_sections (BusDesktopFile *desktop_file)
   else
     new_n_sections = desktop_file->n_allocated_sections*2;
 
-  _DBUS_HANDLE_OOM (sections = dbus_realloc (desktop_file->sections,
-					     sizeof (BusDesktopFileSection) * new_n_sections));
+  BUS_HANDLE_OOM (sections = dbus_realloc (desktop_file->sections,
+					   sizeof (BusDesktopFileSection) * new_n_sections));
   desktop_file->sections = sections;
   
   desktop_file->n_allocated_sections = new_n_sections;
@@ -175,7 +169,7 @@ unescape_string (const DBusString *str, int pos, int end_pos)
   
   /* len + 1 is enough, because unescaping never makes the
    * string longer */
-  _DBUS_HANDLE_OOM (retval = dbus_malloc (end_pos - pos + 1));
+  BUS_HANDLE_OOM (retval = dbus_malloc (end_pos - pos + 1));
 
   q = retval;
   
@@ -247,7 +241,7 @@ new_section (BusDesktopFile *desktop_file,
 
   n = desktop_file->n_sections++;
 
-  _DBUS_HANDLE_OOM (desktop_file->sections[n].section_name = _dbus_strdup (name));
+  BUS_HANDLE_OOM (desktop_file->sections[n].section_name = _dbus_strdup (name));
 
   desktop_file->sections[n].n_lines = 0;
   desktop_file->sections[n].lines = NULL;
@@ -348,7 +342,7 @@ is_valid_section_name (const char *name)
 }
 
 static dbus_bool_t
-parse_section_start (BusDesktopFileParser *parser, DBusResultCode *result)
+parse_section_start (BusDesktopFileParser *parser, DBusError *error)
 {
   int line_end;
   char *section_name;
@@ -359,7 +353,7 @@ parse_section_start (BusDesktopFileParser *parser, DBusResultCode *result)
   if (line_end - parser->pos <= 2 ||
       _dbus_string_get_byte (&parser->data, line_end - 1) != ']')
     {
-      report_error (parser, "Invalid syntax for section header", BUS_DESKTOP_PARSE_ERROR_INVALID_SYNTAX, result);
+      report_error (parser, "Invalid syntax for section header", BUS_DESKTOP_PARSE_ERROR_INVALID_SYNTAX, error);
       parser_free (parser);
       return FALSE;
     }
@@ -368,14 +362,14 @@ parse_section_start (BusDesktopFileParser *parser, DBusResultCode *result)
 
   if (section_name == NULL)
     {
-      report_error (parser, "Invalid escaping in section name", BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES, result);
+      report_error (parser, "Invalid escaping in section name", BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES, error);
       parser_free (parser);
       return FALSE;
     }
 
   if (!is_valid_section_name (section_name))
     {
-      report_error (parser, "Invalid characters in section name", BUS_DESKTOP_PARSE_ERROR_INVALID_CHARS, result);
+      report_error (parser, "Invalid characters in section name", BUS_DESKTOP_PARSE_ERROR_INVALID_CHARS, error);
       parser_free (parser);
       dbus_free (section_name);
       return FALSE;
@@ -400,7 +394,7 @@ parse_section_start (BusDesktopFileParser *parser, DBusResultCode *result)
 }
 
 static dbus_bool_t
-parse_key_value (BusDesktopFileParser *parser, DBusResultCode *result)
+parse_key_value (BusDesktopFileParser *parser, DBusError *error)
 {
   int line_end;
   int key_start, key_end;
@@ -422,7 +416,7 @@ parse_key_value (BusDesktopFileParser *parser, DBusResultCode *result)
   
   if (key_start == key_end)
     {
-      report_error (parser, "Empty key name", BUS_DESKTOP_PARSE_ERROR_INVALID_SYNTAX, result);
+      report_error (parser, "Empty key name", BUS_DESKTOP_PARSE_ERROR_INVALID_SYNTAX, error);
       parser_free (parser);
       return FALSE;
     }
@@ -435,14 +429,14 @@ parse_key_value (BusDesktopFileParser *parser, DBusResultCode *result)
 
   if (p < line_end && _dbus_string_get_byte (&parser->data, p) != '=')
     {
-      report_error (parser, "Invalid characters in key name", BUS_DESKTOP_PARSE_ERROR_INVALID_CHARS, result);
+      report_error (parser, "Invalid characters in key name", BUS_DESKTOP_PARSE_ERROR_INVALID_CHARS, error);
       parser_free (parser);
       return FALSE;
     }
 
   if (p == line_end)
     {
-      report_error (parser, "No '=' in key/value pair", BUS_DESKTOP_PARSE_ERROR_INVALID_SYNTAX, result);
+      report_error (parser, "No '=' in key/value pair", BUS_DESKTOP_PARSE_ERROR_INVALID_SYNTAX, error);
       parser_free (parser);
       return FALSE;
     }
@@ -459,17 +453,17 @@ parse_key_value (BusDesktopFileParser *parser, DBusResultCode *result)
   value = unescape_string (&parser->data, value_start, line_end);
   if (value == NULL)
     {
-      report_error (parser, "Invalid escaping in value", BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES, result);
+      report_error (parser, "Invalid escaping in value", BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES, error);
       parser_free (parser);
       return FALSE;
     }
 
   line = new_line (parser);
 
-  _DBUS_HANDLE_OOM (_dbus_string_init (&key, key_end - key_start));
-  _DBUS_HANDLE_OOM (_dbus_string_copy_len (&parser->data, key_start, key_end - key_start,
-					   &key, 0));
-  _DBUS_HANDLE_OOM (_dbus_string_steal_data (&key, &tmp));
+  BUS_HANDLE_OOM (_dbus_string_init (&key, key_end - key_start));
+  BUS_HANDLE_OOM (_dbus_string_copy_len (&parser->data, key_start, key_end - key_start,
+					 &key, 0));
+  BUS_HANDLE_OOM (_dbus_string_steal_data (&key, &tmp));
   _dbus_string_free (&key);
   
   line->key = tmp;
@@ -486,10 +480,10 @@ parse_key_value (BusDesktopFileParser *parser, DBusResultCode *result)
 }
 
 static void
-report_error (BusDesktopFileParser   *parser,
-	      char                   *message,
-	      BusDesktopParseError    error_code,
-	      DBusResultCode         *result)
+report_error (BusDesktopFileParser *parser,
+	      char                 *message,
+	      const char           *error_name,
+	      DBusError            *error)
 {
   const char *section_name = NULL;
     
@@ -497,11 +491,11 @@ report_error (BusDesktopFileParser   *parser,
     section_name = parser->desktop_file->sections[parser->current_section].section_name;
 
   if (section_name)
-    _dbus_verbose ("Error in section %s at line %d: %s\n", section_name, parser->line_num, message);
+    BUS_HANDLE_OOM (dbus_set_error (error, error_name,
+				    "Error in section %s at line %d: %s\n", section_name, parser->line_num, message));
   else
-    _dbus_verbose ("Error at line %d: %s\n", parser->line_num, message);
-
-  dbus_set_result (result, DBUS_RESULT_FAILED);
+    BUS_HANDLE_OOM (dbus_set_error (error, error_name,
+				    "Error at line %d: %s\n", parser->line_num, message));
 }
 
 #if 0
@@ -526,8 +520,8 @@ dump_desktop_file (BusDesktopFile *file)
 #endif
 
 BusDesktopFile *
-bus_desktop_file_load (DBusString     *filename,
-		       DBusResultCode *result)
+bus_desktop_file_load (DBusString *filename,
+		       DBusError  *error)
 {
   DBusString str;
   DBusResultCode result_code;
@@ -535,15 +529,16 @@ bus_desktop_file_load (DBusString     *filename,
   
   /* FIXME: Check file size so we don't try to load a ridicously large file. */
 
-  _DBUS_HANDLE_OOM (_dbus_string_init (&str, _DBUS_INT_MAX));
+  BUS_HANDLE_OOM (_dbus_string_init (&str, _DBUS_INT_MAX));
   
-  _DBUS_HANDLE_OOM ((result_code = _dbus_file_get_contents (&str, filename)) !=
-		    DBUS_RESULT_NO_MEMORY);
-
+  BUS_HANDLE_OOM ((result_code = _dbus_file_get_contents (&str, filename)) !=
+		  DBUS_RESULT_NO_MEMORY);
+  
   if (result_code != DBUS_RESULT_SUCCESS)
     {
       _dbus_string_free (&str);
-      dbus_set_result (result, result_code);
+
+      /* FIXME: Set error */
       return NULL;
     }
 
@@ -551,12 +546,11 @@ bus_desktop_file_load (DBusString     *filename,
     {
       _dbus_string_free (&str);
       
-      /* FIXME: Use a better error code */
-      dbus_set_result (result, DBUS_RESULT_FAILED);
+      /* FIXME: Set error */
       return NULL;
     }
   
-  _DBUS_HANDLE_OOM (parser.desktop_file = dbus_malloc0 (sizeof (BusDesktopFile)));
+  BUS_HANDLE_OOM (parser.desktop_file = dbus_malloc0 (sizeof (BusDesktopFile)));
 
   parser.data = str;
   parser.line_num = 1;
@@ -568,7 +562,7 @@ bus_desktop_file_load (DBusString     *filename,
     {
       if (_dbus_string_get_byte (&parser.data, parser.pos) == '[')
 	{
-	  if (!parse_section_start (&parser, result))
+	  if (!parse_section_start (&parser, error))
 	    return NULL;
 	}
       else if (is_blank_line (&parser) ||
@@ -576,15 +570,13 @@ bus_desktop_file_load (DBusString     *filename,
 	parse_comment_or_blank (&parser);
       else
 	{
-	  if (!parse_key_value (&parser, result))
+	  if (!parse_key_value (&parser, error))
 	    return NULL;
 	}
     }
 
   _dbus_string_free (&parser.data);
 
-  dbus_set_result (result, DBUS_RESULT_SUCCESS);
-  
   return parser.desktop_file;
 }
 
@@ -669,7 +661,7 @@ bus_desktop_file_get_string (BusDesktopFile  *desktop_file,
   if (!bus_desktop_file_get_raw (desktop_file, section, keyname, &raw))
     return FALSE;
 
-  _DBUS_HANDLE_OOM (*val = _dbus_strdup (raw));
+  BUS_HANDLE_OOM (*val = _dbus_strdup (raw));
   
   return TRUE;
 }

@@ -20,7 +20,10 @@ libdbus_daemon_la_SOURCES=			\
 	loop.c					\
 	loop.h					\
 	services.c				\
-	services.h
+	services.h				\
+	utils.c					\
+	utils.h
+
 
 libdbus_daemon_la_LIBADD=				\
 	$(top_builddir)/dbus/libdbus-convenience.la

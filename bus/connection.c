@@ -232,5 +232,5 @@ void
 bus_connection_foreach (BusConnectionForeachFunction  function,
 			void                         *data)
 {
-  _dbus_list_foreach (&connections, function, data);
+  _dbus_list_foreach (&connections, (DBusForeachFunction)function, data);
 }
