@@ -579,53 +579,6 @@ _dbus_listen_tcp_socket (const char     *host,
   return listen_fd;
 }
 
-/* try to read a single byte and return #TRUE if we read it
- * and it's equal to nul.
- */
-static dbus_bool_t
-read_credentials_byte (int             client_fd,
-                       DBusResultCode *result)
-{
-  char buf[1];
-  int bytes_read;
-
- again:
-  bytes_read = read (client_fd, buf, 1);
-  if (bytes_read < 0)
-    {
-      if (errno == EINTR)
-        goto again;
-      else
-        {
-          dbus_set_result (result, _dbus_result_from_errno (errno));      
-          _dbus_verbose ("Failed to read credentials byte: %s\n",
-                         _dbus_strerror (errno));
-          return FALSE;
-        }
-    }
-  else if (bytes_read == 0)
-    {
-      dbus_set_result (result, DBUS_RESULT_IO_ERROR);
-      _dbus_verbose ("EOF reading credentials byte\n");
-      return FALSE;
-    }
-  else
-    {
-      _dbus_assert (bytes_read == 1);
-
-      if (buf[0] != '\0')
-        {
-          dbus_set_result (result, DBUS_RESULT_FAILED);
-          _dbus_verbose ("Credentials byte was not nul\n");
-          return FALSE;
-        }
-
-      _dbus_verbose ("read credentials byte\n");
-      
-      return TRUE;
-    }
-}
-
 static dbus_bool_t
 write_credentials_byte (int             server_fd,
                         DBusResultCode *result)
@@ -684,40 +637,110 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
                                      DBusCredentials *credentials,
                                      DBusResultCode  *result)
 {
+  struct msghdr msg;
+  struct iovec iov;
+  char buf;
+
+#ifdef HAVE_CMSGCRED 
+  char cmsgmem[CMSG_SPACE (sizeof (struct cmsgcred))];
+  struct cmsghdr *cmsg = (struct cmsghdr *) cmsgmem;
+#endif
+
   credentials->pid = -1;
   credentials->uid = -1;
   credentials->gid = -1;
-  
-  if (read_credentials_byte (client_fd, result))
-    {
-#ifdef SO_PEERCRED
-      struct ucred cr;   
-      int cr_len = sizeof (cr);
-   
-      if (getsockopt (client_fd, SOL_SOCKET, SO_PEERCRED, &cr, &cr_len) == 0 &&
-          cr_len == sizeof (cr))
-        {
-          credentials->pid = cr.pid;
-          credentials->uid = cr.uid;
-          credentials->gid = cr.gid;
-          _dbus_verbose ("Got credentials pid %d uid %d gid %d\n",
-                         credentials->pid,
-                         credentials->uid,
-                         credentials->gid);
-        }
-      else
-        {
-          _dbus_verbose ("Failed to getsockopt() credentials, returned len %d/%d: %s\n",
-                         cr_len, (int) sizeof (cr), _dbus_strerror (errno));
-        }
-#else /* !SO_PEERCRED */
-      _dbus_verbose ("Socket credentials not supported on this OS\n");
+
+#if defined(LOCAL_CREDS) && defined(HAVE_CMSGCRED)
+  /* Set the socket to receive credentials on the next message */
+  {
+    int on = 1;
+    if (setsockopt (client_fd, 0, LOCAL_CREDS, &on, sizeof (on)) < 0)
+      {
+	_dbus_verbose ("Unable to set LOCAL_CREDS socket option\n");
+	return FALSE;
+      }
+  }
 #endif
 
-      return TRUE;
+  iov.iov_base = &buf;
+  iov.iov_len = 1;
+
+  memset (&msg, 0, sizeof (msg));
+  msg.msg_iov = &iov;
+  msg.msg_iovlen = 1;
+
+#ifdef HAVE_CMSGCRED
+  memset (cmsgmem, 0, sizeof (cmsgmem));
+  msg.msg_control = cmsgmem;
+  msg.msg_controllen = sizeof (cmsgmem);
+#endif
+
+ again:
+  if (recvmsg (client_fd, &msg, 0) < 0)
+    {
+      if (errno == EINTR)
+	goto again;
+
+      dbus_set_result (result, _dbus_result_from_errno (errno));
+      _dbus_verbose ("Failed to read credentials byte: %s\n",
+		     _dbus_strerror (errno));
+      return FALSE;
     }
-  else
-    return FALSE;
+
+  if (buf != '\0')
+    {
+      dbus_set_result (result, DBUS_RESULT_FAILED);
+      _dbus_verbose ("Credentials byte was not nul\n");
+      return FALSE;
+    }
+
+#ifdef HAVE_CMSGCRED
+  if (cmsg->cmsg_len < sizeof (cmsgmem) || cmsg->cmsg_type != SCM_CREDS)
+    {
+      dbus_set_result (result, DBUS_RESULT_FAILED);
+      _dbus_verbose ("Message from recvmsg() was not SCM_CREDS\n");
+      return FALSE;
+    }
+#endif
+
+  _dbus_verbose ("read credentials byte\n");
+
+  {
+#ifdef SO_PEERCRED
+    struct ucred cr;   
+    int cr_len = sizeof (cr);
+   
+    if (getsockopt (client_fd, SOL_SOCKET, SO_PEERCRED, &cr, &cr_len) == 0 &&
+	cr_len == sizeof (cr))
+      {
+	credentials->pid = cr.pid;
+	credentials->uid = cr.uid;
+	credentials->gid = cr.gid;
+      }
+    else
+      {
+	_dbus_verbose ("Failed to getsockopt() credentials, returned len %d/%d: %s\n",
+		       cr_len, (int) sizeof (cr), _dbus_strerror (errno));
+      }
+#elif defined(HAVE_CMSGCRED)
+    struct cmsgcred *cred;
+
+    cred = (struct cmsgcred *) CMSG_DATA (cmsg);
+
+    credentials->pid = cred->cmcred_pid;
+    credentials->uid = cred->cmcred_euid;
+    credentials->gid = cred->cmcred_groups[0];
+#else /* !SO_PEERCRED && !HAVE_CMSGCRED */
+    _dbus_verbose ("Socket credentials not supported on this OS\n");
+#endif
+  }
+
+  _dbus_verbose ("Credentials: pid %d  uid %d  gid %d\n",
+		 credentials->pid,
+		 credentials->uid,
+		 credentials->gid);
+    
+  return TRUE;
 }
 
 /**

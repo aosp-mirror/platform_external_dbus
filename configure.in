@@ -200,6 +200,21 @@ if test x$dbus_have_gnuc_varargs = xyes; then
     AC_DEFINE(HAVE_GNUC_VARARGS,1,[Have GNU-style varargs macros])
 fi
 
+dnl Check for various credentials.
+AC_MSG_CHECKING(for struct cmsgcred)
+AC_TRY_COMPILE([
+#include <sys/types.h>
+#include <sys/socket.h>
+],[
+struct cmsgcred cred;
+
+cred.cmcred_pid = 0;
+],dbus_have_struct_cmsgcred=yes,dbus_have_struct_cmsgcred=no)
+AC_MSG_RESULT($dbus_have_struct_cmsgcred)
+
+if test x$dbus_have_struct_cmsgcred = xyes; then
+    AC_DEFINE(HAVE_CMSGCRED,1,[Have cmsgcred structure])
+fi
 
 DBUS_CLIENT_CFLAGS=
 DBUS_CLIENT_LIBS=

@@ -1,3 +1,14 @@
+2003-03-01  Joe Shaw  <joe@ximian.com>
+
+	* configure.in: Check for "struct cmsgcred" and try to access its
+	members for BSD-like unices.
+
+	* dbus/dbus-sysdeps.c (read_credentials_byte): Fold this back into
+	_dbus_read_credentials_unix_socket().
+	(_dbus_read_credentials_unix_socket): Use recvmsg() instead of
+	read() for reading the credential byte off the unix socket.  Use
+	struct cmsgcred on systems that support it.
+
 2003-02-27  Alexander Larsson  <alexl@redhat.com>
 
 	* glib/Makefile.am: 
