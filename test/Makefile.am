@@ -61,9 +61,10 @@ TESTDIRS=					\
 	data/auth				\
 	data/sha-1				\
 	data/valid-config-files			\
-	data/valid-config-files/basic.d
+	data/valid-config-files/basic.d		\
+	data/valid-service-files
 
-FIND_TESTS=find -name "*.message" -o -name "*.message-raw" -o -name "*.auth-script" -o -name "*.sha1" -o -name "*.txt" -o -name "*.conf"
+FIND_TESTS=find -name "*.message" -o -name "*.message-raw" -o -name "*.auth-script" -o -name "*.sha1" -o -name "*.txt" -o -name "*.conf" -o -name "*.service"
 
 dist-hook:
 	for D in $(TESTDIRS); do						\

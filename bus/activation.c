@@ -110,6 +110,8 @@ bus_activation_entry_free (BusActivationEntry *entry)
   
   dbus_free (entry->name);
   dbus_free (entry->exec);
+
+  dbus_free (entry);
 }
 
 static dbus_bool_t
@@ -197,7 +199,8 @@ load_directory (BusActivation *activation,
   DBusString full_path;
   BusDesktopFile *desktop_file;
   DBusError tmp_error;
-
+  dbus_bool_t retval;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   _dbus_string_init_const (&dir, directory);
@@ -218,14 +221,16 @@ load_directory (BusActivation *activation,
       return FALSE;
     }
 
-  /* from this point it's safe to "goto failed" */
+  retval = FALSE;
+  
+  /* from this point it's safe to "goto out" */
   
   iter = _dbus_directory_open (&dir, error);
   if (iter == NULL)
     {
       _dbus_verbose ("Failed to open directory %s: %s\n",
                      directory, error ? error->message : "unknown");
-      goto failed;
+      goto out;
     }
   
   /* Now read the files */
@@ -240,7 +245,7 @@ load_directory (BusActivation *activation,
           !_dbus_concat_dir_and_file (&full_path, &filename))
         {
           BUS_SET_OOM (error);
-          goto failed;
+          goto out;
         }
       
       if (!_dbus_string_ends_with_c_str (&filename, ".service"))
@@ -261,7 +266,7 @@ load_directory (BusActivation *activation,
           if (dbus_error_has_name (&tmp_error, DBUS_ERROR_NO_MEMORY))
             {
               dbus_move_error (&tmp_error, error);
-              goto failed;
+              goto out;
             }
           
 	  dbus_error_free (&tmp_error);
@@ -279,7 +284,7 @@ load_directory (BusActivation *activation,
           if (dbus_error_has_name (&tmp_error, DBUS_ERROR_NO_MEMORY))
             {
               dbus_move_error (&tmp_error, error);
-              goto failed;
+              goto out;
             }
 
           dbus_error_free (&tmp_error);
@@ -296,13 +301,16 @@ load_directory (BusActivation *activation,
   if (dbus_error_is_set (&tmp_error))
     {
       dbus_move_error (&tmp_error, error);
-      goto failed;
+      goto out;
     }
   
-  return TRUE;
+  retval = TRUE;
   
- failed:
-  _DBUS_ASSERT_ERROR_IS_SET (error);
+ out:
+  if (!retval)
+    _DBUS_ASSERT_ERROR_IS_SET (error);
+  else
+    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   if (iter != NULL)
     _dbus_directory_close (iter);
@@ -311,7 +319,7 @@ load_directory (BusActivation *activation,
   _dbus_string_free (&filename);
   _dbus_string_free (&full_path);
   
-  return FALSE;
+  return retval;
 }
 
 BusActivation*

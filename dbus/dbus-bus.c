@@ -534,7 +534,7 @@ dbus_bus_acquire_service (DBusConnection *connection,
                           DBusError      *error)
 {
   DBusMessage *message, *reply;
-  int service_result;
+  dbus_uint32_t service_result;
   
   message = dbus_message_new (DBUS_SERVICE_DBUS,
                               DBUS_MESSAGE_ACQUIRE_SERVICE);
@@ -564,16 +564,26 @@ dbus_bus_acquire_service (DBusConnection *connection,
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
       return -1;
-    }
+    }  
 
+  if (dbus_set_error_from_message (error, reply))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_message_unref (reply);
+      return -1;
+    }
+  
   if (!dbus_message_get_args (reply, error,
                               DBUS_TYPE_UINT32, &service_result,
                               0))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_message_unref (reply);
       return -1;
     }
 
+  dbus_message_unref (reply);
+  
   return service_result;
 }
 

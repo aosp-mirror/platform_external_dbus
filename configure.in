@@ -403,6 +403,15 @@ fi
 
 AM_CONDITIONAL(DBUS_INIT_SCRIPTS_RED_HAT, test x$with_init_scripts = xredhat)
 
+#### Tell tests where to find certain stuff in builddir
+ABSOLUTE_TOP_BUILDDIR=`cd ${ac_top_builddir}. && pwd`
+
+TEST_SERVICE_BINARY=${ABSOLUTE_TOP_BUILDDIR}/test/test-service
+AC_SUBST(TEST_SERVICE_BINARY)
+
+TEST_SERVICE_DIR=${ABSOLUTE_TOP_BUILDDIR}/test/data/valid-service-files
+AC_SUBST(TEST_SERVICE_DIR)
+
 AC_OUTPUT([
 Doxyfile
 bus/system.conf
@@ -417,6 +426,8 @@ test/Makefile
 doc/Makefile
 dbus-1.0.pc
 dbus-glib-1.0.pc
+test/data/valid-config-files/debug-allow-all.conf
+test/data/valid-service-files/debug-echo.service
 ])
 
 dnl ==========================================================================

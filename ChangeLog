@@ -1,3 +1,13 @@
+2003-04-03  Havoc Pennington  <hp@redhat.com>
+
+	* bus/activation.c (load_directory): fix up memleaks
+	(bus_activation_entry_free): free the entry
+
+	* dbus/dbus-bus.c (dbus_bus_acquire_service): return an error if
+	we get one from the message bus; fix memleaks.
+
+	* dbus/dbus-message.c (dbus_set_error_from_message): new function
+
 2003-04-03  Havoc Pennington  <hp@pobox.com>
 
 	* bus/config-parser.c (bus_config_parser_unref): free 

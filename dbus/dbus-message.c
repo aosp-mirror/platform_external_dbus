@@ -2381,6 +2381,45 @@ dbus_message_sender_is (DBusMessage  *message,
     return FALSE;
 }
 
+/**
+ * Sets a #DBusError based on the contents of the given
+ * message. The error is only set if the message
+ * is an error message, as in dbus_message_get_is_error().
+ * The name of the error is set to the name of the message,
+ * and the error message is set to the first argument
+ * if the argument exists and is a string.
+ *
+ * The return value indicates whether the error was set (the error is
+ * set if and only if the message is an error message).
+ * So you can check for an error reply and convert it to DBusError
+ * in one go.
+ *
+ * @param error the error to set
+ * @param message the message to set it from
+ * @returns #TRUE if dbus_message_get_is_error() returns #TRUE for the message
+ */
+dbus_bool_t
+dbus_set_error_from_message (DBusError   *error,
+                             DBusMessage *message)
+{
+  char *str;
+  
+  if (!dbus_message_get_is_error (message))
+    return FALSE;
+
+  str = NULL;
+  dbus_message_get_args (message, NULL,
+                         DBUS_TYPE_STRING, &str,
+                         DBUS_TYPE_INVALID);
+
+  dbus_set_error (error, dbus_message_get_name (message),
+                  str ? "%s" : NULL, str);
+
+  dbus_free (str);
+  
+  return TRUE;
+}
+
 /** @} */
 
 /**

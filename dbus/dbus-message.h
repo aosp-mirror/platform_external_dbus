@@ -148,6 +148,11 @@ dbus_bool_t   dbus_message_iter_get_string_array  (DBusMessageIter   *iter,
 dbus_bool_t   dbus_message_iter_get_dict          (DBusMessageIter   *iter,
 						   DBusDict         **dict);
 
+
+
+dbus_bool_t  dbus_set_error_from_message  (DBusError    *error,
+                                           DBusMessage  *message);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_MESSAGE_H */

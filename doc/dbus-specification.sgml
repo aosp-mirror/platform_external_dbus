@@ -184,7 +184,7 @@
             <tbody>
               <row>
                 <entry>0x1</entry>
-                <entry>This message is an error reply.</entry>
+                <entry>This message is an error reply. If the first argument exists and is a string, it is an error message.</entry>
               </row>
             </tbody>
           </tgroup>
@@ -978,12 +978,13 @@
         number of the message being replied to.
       </para>
       <para>
-        If an error occurs, an error reply may be sent in place of the 
-        standard reply. Error replies can be identified by a special 
-        header flag, see <xref linkend="message-protocol-header-encoding">.
-          Error replies have a name which reflects the type of 
-          error that occurred. Error replies would generally 
-          be mapped to exceptions in a programming language.
+        If an error occurs, an error reply may be sent in place of the standard
+        reply. Error replies can be identified by a special header flag, see
+        <xref linkend="message-protocol-header-encoding">.  Error replies have a
+        name which reflects the type of error that occurred. Error replies would
+        generally be mapped to exceptions in a programming language.  If an
+        error reply has a first argument, and that argument has type STRING,
+        then the argument must be an error message.
       </para>
       <para>
         [FIXME discuss mapping of broadcast messages + matching rules 
@@ -1220,7 +1221,7 @@
             # Sample service description file
             [D-BUS Service]
             Name=org.gnome.ConfigurationDatabase
-            Exec=gconfd-2
+            Exec=/usr/libexec/gconfd-2
           </programlisting>
 	</figure>
       </para>
