@@ -1,3 +1,7 @@
+2003-03-06  Michael Meeks  <michael@server.home>
+
+	* configure.in: if we don't have kde-config, disable have_qt.
+
 2003-03-07  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/Makefile.am:

@@ -266,11 +266,15 @@ if test -n "$QTDIR" -a -f $QTDIR/include/qglobal.h; then
 fi
 
 dnl linking to kdecore will give us a bit of help from libtool
-kdelibs=`kde-config --install lib --expandvars 2>/dev/null`
-if test -z $kdelibs -a -f $kdelibs/libkdecore.la; then
+if (! kde-config >& /dev/null); then
     have_qt=no
 else
-    DBUS_QT_LIBS=$kdelibs/libkdecore.la
+    kdelibs=`kde-config --install lib --expandvars 2>/dev/null`
+    if test -z $kdelibs -a -f $kdelibs/libkdecore.la; then
+        have_qt=no
+    else
+        DBUS_QT_LIBS=$kdelibs/libkdecore.la
+    fi
 fi
 
 if test x$have_qt = xno ; then
