@@ -132,8 +132,14 @@ else
   fi
 fi
 
-# compress spaces in cflags
+changequote(,)dnl
+# let ourselves use our own unstable API
+CPPFLAGS="-DDBUS_API_SUBJECT_TO_CHANGE=1 $CPPFLAGS"
+# compress spaces in flags
 CFLAGS=`echo "$CFLAGS" | sed -e 's/ +/ /g'`
+CXXFLAGS=`echo "$CXXFLAGS" | sed -e 's/ +/ /g'`
+CPPFLAGS=`echo "$CPPFLAGS" | sed -e 's/ +/ /g'`
+changequote([,])dnl
 
 if test x$enable_gcov = xyes; then
      ## so that config.h changes when you toggle gcov support
@@ -607,6 +613,8 @@ echo "
 	source code location:	  ${srcdir}
 	compiler:		  ${CC}
 	cflags:		          ${CFLAGS}
+	cppflags:		  ${CPPFLAGS}
+	cxxflags:		  ${CXXFLAGS}
         Doxygen:                  ${DOXYGEN}
         db2html:                  ${DB2HTML}
 

@@ -636,7 +636,7 @@ _dbus_loop_iterate (DBusLoop     *loop,
                 timeout = MIN (msecs_remaining, timeout);
 
 #if MAINLOOP_SPEW
-              _dbus_verbose ("  timeout added, %d remaining, aggregate timeout %d\n",
+              _dbus_verbose ("  timeout added, %d remaining, aggregate timeout %ld\n",
                              msecs_remaining, timeout);
 #endif
               
