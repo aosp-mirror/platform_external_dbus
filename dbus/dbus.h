@@ -29,7 +29,6 @@
 #include <dbus/dbus-address.h>
 #include <dbus/dbus-bus.h>
 #include <dbus/dbus-connection.h>
-#include <dbus/dbus-dict.h>
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-message.h>

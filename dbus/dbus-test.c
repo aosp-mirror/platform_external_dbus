@@ -162,12 +162,6 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
 
   check_memleaks ();
   
-  printf ("%s: running dict tests\n", "dbus-test");
-  if (!_dbus_dict_test ())
-    die ("dicts");
-
-  check_memleaks ();
-  
   printf ("%s: completed successfully\n", "dbus-test");
 #else
   printf ("Not compiled with unit tests, not running any\n");

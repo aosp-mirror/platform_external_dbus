@@ -472,10 +472,6 @@ _dbus_string_get_data_len (DBusString *str,
 /**
  * const version of _dbus_string_get_data_len().
  *
- * @todo should return the const char* instead of using an out param;
- * the temporary variable encourages a bug where you use const data
- * after modifying the string and possibly causing a realloc.
- * 
  * @param str the string
  * @param start byte offset to return
  * @param len length of segment to return

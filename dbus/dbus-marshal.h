@@ -25,7 +25,6 @@
 #define DBUS_MARSHAL_H
 
 #include <config.h>
-#include <dbus/dbus-dict.h>
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-string.h>
@@ -124,9 +123,6 @@ dbus_bool_t   _dbus_marshal_string_array   (DBusString            *str,
 					    int                    byte_order,
 					    const char           **value,
 					    int                    len);
-dbus_bool_t   _dbus_marshal_dict           (DBusString            *str,
-					    int                    byte_order,
-					    DBusDict              *dict);
 double        _dbus_demarshal_double       (const DBusString      *str,
 					    int                    byte_order,
 					    int                    pos,
@@ -173,21 +169,22 @@ dbus_bool_t   _dbus_demarshal_string_array (const DBusString      *str,
 					    int                   *new_pos,
 					    char                ***array,
 					    int                   *array_len);
-dbus_bool_t   _dbus_demarshal_dict         (const DBusString      *str,
-					    int                    byte_order,
-					    int                    pos,
-					    int                   *new_pos,
-					    DBusDict             **dict);
 
 
 
 
 dbus_bool_t _dbus_marshal_get_arg_end_pos (const DBusString *str,
                                            int               byte_order,
+					   int               type,
                                            int               pos,
+                                           int              *end_pos);
+dbus_bool_t _dbus_marshal_validate_type   (const DBusString *str,
+                                           int               pos,
+					   int              *type,
                                            int              *end_pos);
 dbus_bool_t _dbus_marshal_validate_arg    (const DBusString *str,
                                            int               byte_order,
+					   int               type,
                                            int               pos,
                                            int              *end_pos);
 

@@ -1,11 +1,15 @@
 # Message with lots of different argument types
 
 VALID_HEADER
+FIELD_NAME name
+TYPE STRING
+STRING 'org.freedesktop.Foo'
 END_LENGTH Header
 ALIGN 8
 START_LENGTH Body
 TYPE DICT
-STRING_ARRAY { 'int32', 'uint32' }
+STRING 'uint32'
 TYPE UINT32
 UINT32 0x8765432
+STRING 'uint32'
 END_LENGTH Body

@@ -27,6 +27,7 @@ handle_echo (DBusConnection     *connection,
 {
   DBusError error;
   DBusMessage *reply;
+  DBusMessageIter iter;
   char *s;
   
   dbus_error_init (&error);
@@ -55,7 +56,9 @@ handle_echo (DBusConnection     *connection,
   if (reply == NULL)
     die ("No memory\n");
 
-  if (!dbus_message_append_string (reply, s))
+  dbus_message_append_iter_init (message, &iter);
+  
+  if (!dbus_message_iter_append_string (&iter, s))
     die ("No memory");
 
   if (!dbus_connection_send (connection, reply, NULL))

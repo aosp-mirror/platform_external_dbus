@@ -405,7 +405,7 @@ bus_driver_handle_list_services (DBusConnection *connection,
     }
   
   if (!dbus_message_append_args (reply,
-                                 DBUS_TYPE_STRING_ARRAY, services, len,
+                                 DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, services, len,
                                  0))
     {
       dbus_free_string_array (services);
@@ -450,8 +450,7 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
   
   registry = bus_connection_get_registry (connection);
   
-  if (!dbus_message_get_args (message,
-                              error,
+  if (!dbus_message_get_args (message, error,
                               DBUS_TYPE_STRING, &name,
                               DBUS_TYPE_UINT32, &flags,
                               0))

@@ -1,7 +1,11 @@
 ## message that's missing an expected body
 
 VALID_HEADER
+FIELD_NAME name
+TYPE STRING
+STRING 'org.freedesktop.Foo'
 END_LENGTH Header
+ALIGN 8
 
 ## create the body, then chop it off
 START_LENGTH Body

@@ -305,49 +305,41 @@
                 <entry>1</entry>
                 <entry>Marks an "unset" or "nonexistent" argument</entry>
               </row><row>
-		<entry>BOOLEAN</entry>
+		<entry>BYTE</entry>
 		<entry>2</entry>
+		<entry>8-bit unsigned integer.</entry>
+              </row><row>
+		<entry>BOOLEAN</entry>
+		<entry>3</entry>
 		<entry>Boolean value, 0 is FALSE and 1 is TRUE. Everything else is invalid.</entry>
 	      </row><row>
                 <entry>INT32</entry>
-                <entry>3</entry>
+                <entry>4</entry>
                 <entry>32-bit signed integer</entry>
               </row><row>
                 <entry>UINT32</entry>
-                <entry>4</entry>
+                <entry>5</entry>
                 <entry>32-bit unsigned integer</entry>
               </row><row>
                 <entry>DOUBLE</entry>
-                <entry>5</entry>
+                <entry>6</entry>
                 <entry>IEEE 754 double</entry>
               </row><row>
                 <entry>STRING</entry>
-                <entry>6</entry>
-                <entry>UTF-8 string (<emphasis>must</emphasis> be valid UTF-8)</entry>
-              </row><row>
-		<entry>BOOLEAN_ARRAY</entry>
-		<entry>7</entry>
-		<entry>Array of BOOLEAN</entry>
-	      </row><row>
-                <entry>INT32_ARRAY</entry>
-                <entry>6</entry>
-                <entry>Array of INT32</entry>
-              </row><row>
-                <entry>UINT32_ARRAY</entry>
                 <entry>7</entry>
-                <entry>Array of UINT32</entry>
+                <entry>UTF-8 string (<emphasis>must</emphasis> be valid UTF-8). Must be zero terminated. </entry>
               </row><row>
-                <entry>DOUBLE_ARRAY</entry>
-                <entry>8</entry>
-                <entry>Array of DOUBLE</entry>
-              </row><row>
-                <entry>BYTE_ARRAY</entry>
+		<entry>NAMED</entry>
+		<entry>8</entry>
+		<entry>A named byte array, used for custom types</entry>
+	      </row><row>
+                <entry>ARRAY</entry>
                 <entry>9</entry>
-                <entry>Array of bytes</entry>
+                <entry>Array</entry>
               </row><row>
-                <entry>STRING_ARRAY</entry>
+                <entry>DICT</entry>
                 <entry>10</entry>
-                <entry>Array of STRING</entry>
+                <entry>A dictionary of key/value pairs</entry>
               </row>
             </tbody>
           </tgroup>
@@ -372,6 +364,12 @@
                 <entry>No data is encoded; the type code is followed immediately 
                 by the type code of the next argument.</entry>
               </row><row>
+                <entry>BYTE</entry>
+                <entry>a byte.</entry>
+              </row><row>
+                <entry>BOOLEAN</entry>
+                <entry>a byte, with valid values 0 and 1.</entry>
+              </row><row>
                 <entry>INT32</entry>
                 <entry>32-bit signed integer in the message's byte order, aligned to 4-byte boundary.</entry>
               </row><row>
@@ -388,35 +386,26 @@
                   byte.
                 </entry>
               </row><row>
-                <entry>INT32_ARRAY</entry>
-                <entry>UINT32 giving the number of values in the array, 
-                  followed by the given number of INT32 values.
+                <entry>NAMED</entry>
+                <entry>A string (encoded as the STRING type above) giving the
+                  name of the type followed by an UINT32 aligned to 4-byte boundary
+                  indicating the data length in bytes, followed by the data.
                 </entry>
               </row><row>
-                <entry>UINT32_ARRAY</entry>
-                <entry>UINT32 giving the number of values in the array, 
-                  followed by the given number of UINT32 values.
+                <entry>ARRAY</entry>
+                <entry>a byte giving the element type of the array followed
+                by an UINT32 (aligned to 4 bytes) giving the length of the
+                array data in bytes. This is then followed by a number of
+                entires with the same type, encoded like that type normally
+                would be encoded alone.
                 </entry>
               </row><row>
-                <entry>DOUBLE_ARRAY</entry>
-                <entry>UINT32 giving the number of values in the array, 
-                  followed by the given number of DOUBLE values aligned
-                  to 8-byte boundary.
-                </entry>
-              </row><row>
-                <entry>BYTE_ARRAY</entry>
-                <entry>UINT32 giving the number of values in the array, 
-                  followed by the given number of one-byte values.
-                </entry>
-              </row><row>
-                <entry>STRING_ARRAY</entry>
-                <entry>UINT32 giving the number of values in the array, 
-                  followed by the given number of STRING values.
-                </entry>
-              </row><row>
-		<entry>DICT</entry>
-		<entry>STRING_ARRAY with the keys, followed by the given
-                 number of values encoded as type code as a byte followed by the encoded value.
+                <entry>DICT</entry>
+                <entry>UINT32 giving the length of the dictionary data in bytes.
+                This is followed by a number of keyname/value pairs, where the
+                keyname is encoded as a STRING above, and the value is encoded
+                as a byte with typecode and how that type normally would be encoded
+                alone.
                 </entry>
 	      </row>
             </tbody>

@@ -26,6 +26,7 @@
 #include "dbus-test.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <locale.h>
 
 int
 main (int    argc,
@@ -33,6 +34,9 @@ main (int    argc,
 {
   const char *test_data_dir;
 
+  setlocale(LC_ALL, "");
+
+  
   if (argc > 1)
     test_data_dir = argv[1];
   else

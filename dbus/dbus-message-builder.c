@@ -297,9 +297,12 @@ append_saved_length (DBusString       *dest,
  *   UINT32 <N> marshals a UINT32
  *   DOUBLE <N> marshals a double
  *   STRING 'Foo' marshals a string
+ *   BYTE_ARRAY { 'a', 3, 4, 5, 6} marshals a BYTE array
+ *   BOOLEAN_ARRAY { false, true, false} marshals a BOOLEAN array
  *   INT32_ARRAY { 3, 4, 5, 6} marshals an INT32 array
  *   UINT32_ARRAY { 3, 4, 5, 6} marshals an UINT32 array
  *   DOUBLE_ARRAY { 1.0, 2.0, 3.0, 4.0} marshals a DOUBLE array  
+ *   STRING_ARRAY { "foo", "bar", "gazonk"} marshals a STRING array  
  * @endcode
  *
  * @todo add support for array types INT32_ARRAY { 3, 4, 5, 6 }
@@ -513,38 +516,6 @@ _dbus_message_data_load (DBusString       *dest,
           
           _dbus_string_shorten (dest, val);
         }
-      else if (_dbus_string_starts_with_c_str (&line, "BYTE"))
-        {
-          unsigned char the_byte;
-          
-          _dbus_string_delete_first_word (&line);
-
-          if (_dbus_string_equal_c_str (&line, "'\\''"))
-            the_byte = '\'';
-          else if (_dbus_string_get_byte (&line, 0) == '\'' &&
-                   _dbus_string_get_length (&line) >= 3 &&
-                   _dbus_string_get_byte (&line, 2) == '\'')
-            the_byte = _dbus_string_get_byte (&line, 1);
-          else
-            {
-              long val;
-              if (!_dbus_string_parse_int (&line, 0, &val, NULL))
-                {
-                  _dbus_warn ("Failed to parse integer for BYTE\n");
-                  goto parse_failed;
-                }
-
-              if (val > 255)
-                {
-                  _dbus_warn ("A byte must be in range 0-255 not %ld\n",
-                                 val);
-                  goto parse_failed;
-                }
-              the_byte = (unsigned char) val;
-            }
-
-          _dbus_string_append_byte (dest, the_byte);
-        }
       else if (_dbus_string_starts_with_c_str (&line,
                                                "START_LENGTH"))
         {
@@ -619,18 +590,8 @@ _dbus_message_data_load (DBusString       *dest,
             code = DBUS_TYPE_INVALID;
           else if (_dbus_string_starts_with_c_str (&line, "NIL"))
             code = DBUS_TYPE_NIL;
-          else if (_dbus_string_starts_with_c_str (&line, "BOOLEAN_ARRAY"))
-            code = DBUS_TYPE_BOOLEAN_ARRAY;
-          else if (_dbus_string_starts_with_c_str (&line, "INT32_ARRAY"))
-            code = DBUS_TYPE_INT32_ARRAY;
-          else if (_dbus_string_starts_with_c_str (&line, "UINT32_ARRAY"))
-            code = DBUS_TYPE_UINT32_ARRAY;
-          else if (_dbus_string_starts_with_c_str (&line, "DOUBLE_ARRAY"))
-            code = DBUS_TYPE_DOUBLE_ARRAY;
-          else if (_dbus_string_starts_with_c_str (&line, "BYTE_ARRAY"))
-            code = DBUS_TYPE_BYTE_ARRAY;
-          else if (_dbus_string_starts_with_c_str (&line, "STRING_ARRAY"))
-            code = DBUS_TYPE_STRING_ARRAY;
+          else if (_dbus_string_starts_with_c_str (&line, "BYTE"))
+            code = DBUS_TYPE_BYTE;
           else if (_dbus_string_starts_with_c_str (&line, "BOOLEAN"))
             code = DBUS_TYPE_BOOLEAN;
           else if (_dbus_string_starts_with_c_str (&line, "INT32"))
@@ -641,6 +602,10 @@ _dbus_message_data_load (DBusString       *dest,
             code = DBUS_TYPE_DOUBLE;
           else if (_dbus_string_starts_with_c_str (&line, "STRING"))
             code = DBUS_TYPE_STRING;
+          else if (_dbus_string_starts_with_c_str (&line, "NAMED"))
+            code = DBUS_TYPE_NAMED;
+          else if (_dbus_string_starts_with_c_str (&line, "ARRAY"))
+            code = DBUS_TYPE_ARRAY;
           else if (_dbus_string_starts_with_c_str (&line, "DICT"))
             code = DBUS_TYPE_DICT;
           else
@@ -655,6 +620,100 @@ _dbus_message_data_load (DBusString       *dest,
               goto parse_failed;
             }
         }
+      else if (_dbus_string_starts_with_c_str (&line,
+					       "BYTE_ARRAY"))
+	{
+	  SAVE_FOR_UNALIGN (dest, 4);
+	  int i, len, allocated;
+	  unsigned char *values;
+	  unsigned char b;
+	  long val;
+
+	  allocated = 4;
+	  values = dbus_new (unsigned char, allocated);
+	  if (!values)
+	    {
+	      _dbus_warn ("could not allocate memory for BYTE_ARRAY\n");
+	      goto parse_failed;
+	    }
+
+	  len = 0;
+	  
+	  _dbus_string_delete_first_word (&line);
+	  _dbus_string_skip_blank (&line, 0, &i);
+	  b = _dbus_string_get_byte (&line, i++);
+	  
+	  if (b != '{')
+	    goto parse_failed;
+
+	  while (i < _dbus_string_get_length (&line))
+	    {
+	      _dbus_string_skip_blank (&line, i, &i);	      
+
+	      if (_dbus_string_get_byte (&line, i) == '\'' &&
+		  _dbus_string_get_length (&line) >= i + 4 &&
+		  _dbus_string_get_byte (&line, i + 1) == '\\' &&
+		  _dbus_string_get_byte (&line, i + 2) == '\'' &&
+		  _dbus_string_get_byte (&line, i + 3) == '\'')
+		{
+		  val = '\'';
+		  i += 4;
+		}
+	      else if (_dbus_string_get_byte (&line, i) == '\'' &&
+		       _dbus_string_get_length (&line) >= i + 3 &&
+		       _dbus_string_get_byte (&line, i + 2) == '\'')
+		{
+		  val = _dbus_string_get_byte (&line, i + 1);
+		  i += 3;
+		}
+	      else
+		{
+		  if (!_dbus_string_parse_int (&line, i, &val, &i))
+		    {
+		      _dbus_warn ("Failed to parse integer for BYTE_ARRAY\n");
+		      goto parse_failed;
+		    }
+
+		  if (val < 0 || val > 255)
+		    {
+		      _dbus_warn ("A byte must be in range 0-255 not %ld\n",
+				  val);
+		      goto parse_failed;
+		    }
+		}
+
+	      values[len++] = val;
+	      if (len == allocated)
+		{
+		  allocated *= 2;
+		  values = dbus_realloc (values, allocated * sizeof (unsigned char));
+		  if (!values)
+		    {
+		      _dbus_warn ("could not allocate memory for BOOLEAN_ARRAY\n");
+		      goto parse_failed;
+		    }
+		}
+	      
+	      _dbus_string_skip_blank (&line, i, &i);
+	      
+	      b = _dbus_string_get_byte (&line, i++);
+
+	      if (b == '}')
+		break;
+	      else if (b != ',')
+		goto parse_failed;
+	    }
+
+	  if (!_dbus_marshal_int32 (dest, endian, len) ||
+	      !_dbus_string_append_len (dest, values, len))
+            {
+              _dbus_warn ("failed to append BYTE_ARRAY\n");
+              goto parse_failed;
+            }
+	  dbus_free (values);
+	  
+	  PERFORM_UNALIGN (dest);
+	}
       else if (_dbus_string_starts_with_c_str (&line,
 					       "BOOLEAN_ARRAY"))
 	{
@@ -949,7 +1008,7 @@ _dbus_message_data_load (DBusString       *dest,
 	  values = dbus_new (char *, allocated);
 	  if (!values)
 	    {
-	      _dbus_warn ("could not allocate memory for DOUBLE_ARRAY\n");
+	      _dbus_warn ("could not allocate memory for STRING_ARRAY\n");
 	      goto parse_failed;
 	    }
 	  
@@ -1017,6 +1076,38 @@ _dbus_message_data_load (DBusString       *dest,
 	  
 	  PERFORM_UNALIGN (dest);
 	}
+      else if (_dbus_string_starts_with_c_str (&line, "BYTE"))
+        {
+          unsigned char the_byte;
+          
+          _dbus_string_delete_first_word (&line);
+
+          if (_dbus_string_equal_c_str (&line, "'\\''"))
+            the_byte = '\'';
+          else if (_dbus_string_get_byte (&line, 0) == '\'' &&
+                   _dbus_string_get_length (&line) >= 3 &&
+                   _dbus_string_get_byte (&line, 2) == '\'')
+            the_byte = _dbus_string_get_byte (&line, 1);
+          else
+            {
+              long val;
+              if (!_dbus_string_parse_int (&line, 0, &val, NULL))
+                {
+                  _dbus_warn ("Failed to parse integer for BYTE\n");
+                  goto parse_failed;
+                }
+
+              if (val > 255)
+                {
+                  _dbus_warn ("A byte must be in range 0-255 not %ld\n",
+                                 val);
+                  goto parse_failed;
+                }
+              the_byte = (unsigned char) val;
+            }
+
+          _dbus_string_append_byte (dest, the_byte);
+        }
       else if (_dbus_string_starts_with_c_str (&line,
 					       "BOOLEAN"))
 	{

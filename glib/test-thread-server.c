@@ -36,41 +36,40 @@ handle_test_message (DBusMessageHandler *handler,
 		     void               *user_data)
 {
   ThreadTestData *data = user_data;
-  DBusMessageIter *iter;
+  DBusMessageIter iter;
   gint32 threadnr;
   guint32 counter;
   char *str, *expected_str;
   GString *counter_str;
   int i;
   
-  iter = dbus_message_get_args_iter (message);
-  g_assert (iter != NULL);
+  dbus_message_iter_init (message, &iter);
   
-  if (dbus_message_iter_get_arg_type (iter) != DBUS_TYPE_INT32)
+  if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_INT32)
     {
       g_print ("First arg not right type\n");
       goto out;
     }
-  threadnr = dbus_message_iter_get_int32 (iter);
+  threadnr = dbus_message_iter_get_int32 (&iter);
   if (threadnr < 0 || threadnr >= N_TEST_THREADS)
     {
       g_print ("Invalid thread nr\n");
       goto out;
     }
 
-  if (! dbus_message_iter_next (iter))
+  if (! dbus_message_iter_next (&iter))
     {
       g_print ("Couldn't get second arg\n");
       goto out;
     }
 
-  if (dbus_message_iter_get_arg_type (iter) != DBUS_TYPE_UINT32)
+  if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_UINT32)
     {
       g_print ("Second arg not right type\n");
       goto out;
     }
   
-  counter = dbus_message_iter_get_uint32 (iter);
+  counter = dbus_message_iter_get_uint32 (&iter);
 
   if (counter != data->counters[threadnr])
     {
@@ -79,19 +78,19 @@ handle_test_message (DBusMessageHandler *handler,
     }
   data->counters[threadnr]++;
   
-  if (! dbus_message_iter_next (iter))
+  if (! dbus_message_iter_next (&iter))
     {
       g_print ("Couldn't get third arg\n");
       goto out;
     }
 
-  if (dbus_message_iter_get_arg_type (iter) != DBUS_TYPE_STRING)
+  if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_STRING)
     {
       g_print ("Third arg not right type\n");
       goto out;
     }
 
-  str = dbus_message_iter_get_string (iter);
+  str = dbus_message_iter_get_string (&iter);
 
   if (str == NULL)
     {
@@ -108,7 +107,7 @@ handle_test_message (DBusMessageHandler *handler,
   g_free (str);
   g_free (expected_str);
 
-  if (dbus_message_iter_next (iter))
+  if (dbus_message_iter_next (&iter))
     {
       g_print ("Extra args on end of message\n");
       goto out;

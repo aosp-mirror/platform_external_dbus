@@ -11,7 +11,6 @@ dbusinclude_HEADERS=				\
 	dbus-address.h				\
 	dbus-bus.h				\
 	dbus-connection.h			\
-	dbus-dict.h				\
 	dbus-errors.h				\
 	dbus-macros.h				\
 	dbus-memory.h				\
@@ -33,7 +32,6 @@ DBUS_LIB_SOURCES=				\
 	dbus-bus.c				\
 	dbus-connection.c			\
 	dbus-connection-internal.h		\
-	dbus-dict.c				\
 	dbus-errors.c				\
 	dbus-keyring.c				\
 	dbus-keyring.h				\

@@ -298,6 +298,9 @@ _dbus_marshal_uint32 (DBusString    *str,
 /**
  * Marshals a UTF-8 string
  *
+ * @todo: If the string append fails we need to restore
+ * the old length. (also for other marshallers)
+ * 
  * @param str the string to append the marshalled value to
  * @param byte_order the byte order to use
  * @param value the string
@@ -377,7 +380,7 @@ _dbus_marshal_int32_array (DBusString         *str,
 
   old_string_len = _dbus_string_get_length (str);
 
-  if (!_dbus_marshal_uint32 (str, byte_order, len))
+  if (!_dbus_marshal_uint32 (str, byte_order, len * sizeof (dbus_int32_t)))
     goto error;
 
   for (i = 0; i < len; i++)
@@ -412,7 +415,7 @@ _dbus_marshal_uint32_array (DBusString          *str,
 
   old_string_len = _dbus_string_get_length (str);
 
-  if (!_dbus_marshal_uint32 (str, byte_order, len))
+  if (!_dbus_marshal_uint32 (str, byte_order, len * sizeof (dbus_uint32_t)))
     goto error;
 
   for (i = 0; i < len; i++)
@@ -443,17 +446,25 @@ _dbus_marshal_double_array (DBusString          *str,
 			    const double        *value,
 			    int                  len)
 {
-  int i, old_string_len;
+  int i, old_string_len, array_start;
 
   old_string_len = _dbus_string_get_length (str);
 
-  if (!_dbus_marshal_uint32 (str, byte_order, len))
+  /* Set the length to 0 temporarily */
+  if (!_dbus_marshal_uint32 (str, byte_order, 0))
     goto error;
-
+      
+  array_start = _dbus_string_get_length (str);
+      
   for (i = 0; i < len; i++)
     if (!_dbus_marshal_double (str, byte_order, value[i]))
       goto error;
 
+  /* Write the length now that we know it */
+  _dbus_marshal_set_uint32 (str, byte_order,
+			    _DBUS_ALIGN_VALUE (old_string_len, sizeof(dbus_uint32_t)),
+			    _dbus_string_get_length (str) - array_start);
+  
   return TRUE;
   
  error:
@@ -478,17 +489,25 @@ _dbus_marshal_string_array (DBusString  *str,
 			    const char **value,
 			    int          len)
 {
-  int i, old_string_len;
+  int i, old_string_len, array_start;
 
   old_string_len = _dbus_string_get_length (str);
 
-  if (!_dbus_marshal_uint32 (str, byte_order, len))
+  /* Set the length to 0 temporarily */
+  if (!_dbus_marshal_uint32 (str, byte_order, 0))
     goto error;
 
+  array_start = _dbus_string_get_length (str);
+  
   for (i = 0; i < len; i++)
     if (!_dbus_marshal_string (str, byte_order, value[i]))
       goto error;
 
+  /* Write the length now that we know it */
+  _dbus_marshal_set_uint32 (str, byte_order,
+			    _DBUS_ALIGN_VALUE (old_string_len, sizeof(dbus_uint32_t)),
+			    _dbus_string_get_length (str) - array_start);
+  
   return TRUE;
   
  error:
@@ -496,192 +515,6 @@ _dbus_marshal_string_array (DBusString  *str,
   _dbus_string_set_length (str, old_string_len);
   
   return FALSE;      
-}
-
-
-/**
- * Marshals a dict
- * @param str the string to append the marshalled value to
- * @param byte_order the byte order to use
- * @param dict the dict
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_marshal_dict (DBusString *str,
-		    int         byte_order,
-		    DBusDict   *dict)
-{
-  int old_string_len;
-  int i, len;
-  char **keys;
-  
-  old_string_len = _dbus_string_get_length (str);
-
-  if (!dbus_dict_get_keys (dict, &keys, &len))
-    goto error;
-
-  if (len == 0)
-    return TRUE;
-
-  if (!_dbus_marshal_string_array (str, byte_order,
-				   (const char **)keys, len))
-    goto error;
-
-  for (i = 0; i < len; i++)
-    {
-      int value_type;
-
-      value_type = dbus_dict_get_value_type (dict, keys[i]);
-
-      if (!_dbus_string_append_byte (str, value_type))
-	goto error;
-      
-      switch (dbus_dict_get_value_type (dict, keys[i]))
-	{
-	case DBUS_TYPE_BOOLEAN:
-	  {
-	    dbus_bool_t value;
-
-	    if (!dbus_dict_get_boolean (dict, keys[i], &value))
-	      goto error;
-	    
-	    if (!_dbus_string_append_byte (str, (value != FALSE)))
-	      goto error;
-
-	    break;
-	  }
-	  
-	case DBUS_TYPE_INT32:
-	  {
-	    dbus_int32_t value;
-	    
-	    if (!dbus_dict_get_int32 (dict, keys[i], &value))
-	      goto error;
-	    
-	    if (!_dbus_marshal_int32 (str, byte_order, value))
-	      goto error;
-
-	    break;
-	  }
-	case DBUS_TYPE_UINT32:
-	  {
-	    dbus_uint32_t value;
-	    
-	    if (!dbus_dict_get_uint32 (dict, keys[i], &value))
-	      goto error;
-	    
-	    if (!_dbus_marshal_uint32 (str, byte_order, value))
-	      goto error;
-
-	    break;
-	  }
-	case DBUS_TYPE_DOUBLE:
-	  {
-	    double value;
-	    
-	    if (!dbus_dict_get_double (dict, keys[i], &value))
-	      goto error;
-
-	    if (!_dbus_marshal_double (str, byte_order, value))
-	      goto error;
-
-	    break;
-	  }
-	case DBUS_TYPE_INT32_ARRAY:
-	  {
-	    const dbus_int32_t *value;
-	    int len;
-
-	    if (!dbus_dict_get_int32_array (dict, keys[i], &value, &len))
-	      goto error;
-
-	    if (!_dbus_marshal_int32_array (str, byte_order, value, len))
-	      goto error;
-	    
-	    break;
-	  }
-	case DBUS_TYPE_STRING:
-	  {
-	    const char *value;
-
-	    if (!dbus_dict_get_string (dict, keys[i], &value))
-	      goto error;
-
-	    if (!_dbus_marshal_string (str, byte_order, value))
-	      goto error;
-	    
-	    break;
-	  }	  
-	case DBUS_TYPE_BOOLEAN_ARRAY:
-	  {
-	    const unsigned char *value;
-	    int len;
-
-	    if (!dbus_dict_get_boolean_array (dict, keys[i], &value, &len))
-	      goto error;
-
-	    if (!_dbus_marshal_byte_array (str, byte_order, value, len))
-	      goto error;
-	    
-	    break;
-	  }	  
-	case DBUS_TYPE_UINT32_ARRAY:
-	  {
-	    const dbus_uint32_t *value;
-	    int len;
-
-	    if (!dbus_dict_get_uint32_array (dict, keys[i], &value, &len))
-	      goto error;
-
-	    if (!_dbus_marshal_uint32_array (str, byte_order, value, len))
-	      goto error;
-	    
-	    break;
-	  }	  
-	case DBUS_TYPE_DOUBLE_ARRAY:
-	  {
-	    const double *value;
-	    int len;
-
-	    if (!dbus_dict_get_double_array (dict, keys[i], &value, &len))
-	      goto error;
-
-	    if (!_dbus_marshal_double_array (str, byte_order, value, len))
-	      goto error;
-	    
-	    break;
-	  }
-	case DBUS_TYPE_STRING_ARRAY:
-	  {
-	    const char **value;
-	    int len;
-
-	    if (!dbus_dict_get_string_array (dict, keys[i], &value, &len))
-	      goto error;
-
-	    if (!_dbus_marshal_string_array (str, byte_order, (const char **)value, len))
-	      goto error;
-	    
-	    break;
-	  }
-	default:
-	  _dbus_warn ("unkown value type %d\n", dbus_dict_get_value_type (dict, keys[i]));
-	  _dbus_assert_not_reached ("unknown value type in dict");
-	}
-    }
-
-  dbus_free_string_array (keys);
-
-  return TRUE;
-  
- error:
-  
-  dbus_free_string_array (keys);
-  
-  /* Restore previous length */
-  _dbus_string_set_length (str, old_string_len);
-
-  return FALSE;
 }
 
 
@@ -807,7 +640,7 @@ _dbus_demarshal_string (const DBusString *str,
   if (!retval)
     return NULL;
 
-  data = _dbus_string_get_const_data_len (str, pos, len);
+  data = _dbus_string_get_const_data_len (str, pos, len + 1);
 
   if (!data)
     return NULL;
@@ -906,7 +739,7 @@ _dbus_demarshal_int32_array (const DBusString  *str,
   int len, i;
   dbus_int32_t *retval;
   
-  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos)  / sizeof (dbus_int32_t);
 
   if (len == 0)
     {
@@ -958,7 +791,7 @@ _dbus_demarshal_uint32_array (const DBusString  *str,
   int len, i;
   dbus_uint32_t *retval;
   
-  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos) / sizeof (dbus_uint32_t);
 
   if (len == 0)
     {
@@ -1010,7 +843,7 @@ _dbus_demarshal_double_array (const DBusString  *str,
   int len, i;
   double *retval;
   
-  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos) / sizeof (double);
 
   if (len == 0)
     {
@@ -1106,219 +939,6 @@ _dbus_demarshal_string_array (const DBusString   *str,
   return FALSE;
 }
 
-/**
- * Demarshals a dict
- *
- * @param str the string containing the data
- * @param byte_order the byte order
- * @param pos the position in the string
- * @param new_pos the new position in the string
- * @param dict the dict
- * @returns #TRUE on success.
- */
-dbus_bool_t
-_dbus_demarshal_dict (const DBusString *str,
-		      int               byte_order,
-		      int               pos,
-		      int              *new_pos,
-		      DBusDict       **dict)
-{
-  char **keys;
-  int i, len;
-  
-  *dict = dbus_dict_new ();
-  if (!*dict)
-    return FALSE;
-
-  if (!_dbus_demarshal_string_array (str, byte_order, pos, &pos, &keys, &len))
-    goto error;
-
-  for (i = 0; i < len; i++)
-    {
-      int value_type;
-      
-      switch ((value_type = _dbus_string_get_byte (str, pos ++)))
-	{
-	case DBUS_TYPE_BOOLEAN:
-	  {
-	    dbus_bool_t value;
-
-	    value = _dbus_string_get_byte (str, pos ++);
-
-	    if (!dbus_dict_set_boolean (*dict, keys[i], value))
-	      goto error;
-	    break;
-	  }
-	case DBUS_TYPE_INT32:
-	  {
-	    dbus_int32_t value;
-
-	    value = _dbus_demarshal_int32 (str, byte_order, pos, &pos);
-
-	    if (!dbus_dict_set_int32 (*dict, keys[i], value))
-	      goto error;
-	    
-	    break;
-	  }
-	case DBUS_TYPE_UINT32:
-	  {
-	    dbus_uint32_t value;
-
-	    value = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
-
-	    if (!dbus_dict_set_uint32 (*dict, keys[i], value))
-	      goto error;
-	    
-	    break;
-	  }
-	case DBUS_TYPE_DOUBLE:
-	  {
-	    double value;
-
-	    value = _dbus_demarshal_double (str, byte_order, pos, &pos);
-
-	    if (!dbus_dict_set_double (*dict, keys[i], value))
-	      goto error;
-	    
-	    break;
-	  }
-	case DBUS_TYPE_STRING:
-	  {
-	    char *value;
-
-	    value = _dbus_demarshal_string (str, byte_order, pos, &pos);
-
-	    if (!value)
-	      goto error;
-
-	    if (!dbus_dict_set_string (*dict, keys[i], value))
-	      {
-		dbus_free (value);
-		goto error;
-	      }
-
-	    dbus_free (value);
-	    
-	    break;
-	  }
-	case DBUS_TYPE_BOOLEAN_ARRAY:
-	  {
-	    unsigned char *value;
-	    int len;
-	    
-	    if (!_dbus_demarshal_byte_array (str, byte_order, pos, &pos, &value, &len))
-	      goto error;
-
-	    if (!dbus_dict_set_boolean_array (*dict, keys[i], value, len))
-	      {
-		dbus_free (value);
-		goto error;
-	      }
-
-	    dbus_free (value);
-	    break;
-	  }
-	case DBUS_TYPE_INT32_ARRAY:
-	  {
-	    dbus_int32_t *value;
-	    int len;
-	    
-	    if (!_dbus_demarshal_int32_array (str, byte_order, pos, &pos, &value, &len))
-	      goto error;
-
-	    if (!dbus_dict_set_int32_array (*dict, keys[i], value, len))
-	      {
-		dbus_free (value);
-		goto error;
-	      }
-
-	    dbus_free (value);
-	    break;
-	  }
-	case DBUS_TYPE_UINT32_ARRAY:
-	  {
-	    dbus_uint32_t *value;
-	    int len;
-	    
-	    if (!_dbus_demarshal_uint32_array (str, byte_order, pos, &pos, &value, &len))
-	      goto error;
-
-	    if (!dbus_dict_set_uint32_array (*dict, keys[i], value, len))
-	      {
-		dbus_free (value);
-		goto error;
-	      }
-
-	    dbus_free (value);
-	    break;
-	  }
-	case DBUS_TYPE_DOUBLE_ARRAY:
-	  {
-	    double *value;
-	    int len;
-	    
-	    if (!_dbus_demarshal_double_array (str, byte_order, pos, &pos, &value, &len))
-	      goto error;
-
-	    if (!dbus_dict_set_double_array (*dict, keys[i], value, len))
-	      {
-		dbus_free (value);
-		goto error;
-	      }
-
-	    dbus_free (value);
-	    break;
-	  }
-	case DBUS_TYPE_BYTE_ARRAY:
-	  {
-	    unsigned char *value;
-	    int len;
-	    
-	    if (!_dbus_demarshal_byte_array (str, byte_order, pos, &pos, &value, &len))
-	      goto error;
-
-	    if (!dbus_dict_set_byte_array (*dict, keys[i], value, len))
-	      {
-		dbus_free (value);
-		goto error;
-	      }
-
-	    dbus_free (value);
-	    break;
-	  }
-	case DBUS_TYPE_STRING_ARRAY:
-	  {
-	    char **value;
-	    int len;
-	    
-	    if (!_dbus_demarshal_string_array (str, byte_order, pos, &pos, &value, &len))
-	      goto error;
-
-	    if (!dbus_dict_set_string_array (*dict, keys[i], (const char **)value, len))
-	      {
-		dbus_free_string_array (value);
-		goto error;
-	      }
-
-	    dbus_free_string_array (value);
-	    break;
-	  }
-	default:
-	  _dbus_warn ("unknown value type %d\n", value_type);
-	  _dbus_assert_not_reached ("unknown value arg");
-	}
-    }
-  
-  dbus_free_string_array (keys);
-  return TRUE;
-  
- error:
-  dbus_free_string_array (keys);
-  dbus_dict_unref (*dict);
-  
-  return FALSE;
-}
-
 /** 
  * Returns the position right after the end of an argument.  PERFORMS
  * NO VALIDATION WHATSOEVER. The message must have been previously
@@ -1326,6 +946,7 @@ _dbus_demarshal_dict (const DBusString *str,
  *
  * @param str a string
  * @param byte_order the byte order to use
+ * @param type the type of the argument
  * @param pos the pos where the arg starts
  * @param end_pos pointer where the position right
  * after the end position will follow
@@ -1334,153 +955,97 @@ _dbus_demarshal_dict (const DBusString *str,
 dbus_bool_t
 _dbus_marshal_get_arg_end_pos (const DBusString *str,
                                int               byte_order,
+			       int               type,
                                int               pos,
                                int              *end_pos)
 {
-  const char *data;
-
   if (pos >= _dbus_string_get_length (str))
     return FALSE;
 
-  data = _dbus_string_get_const_data_len (str, pos, 1);
-  
-  switch (*data)
+  switch (type)
     {
     case DBUS_TYPE_INVALID:
       return FALSE;
       break;
 
     case DBUS_TYPE_NIL:
+      *end_pos = pos;
+      break;
+
+    case DBUS_TYPE_BYTE:
+      *end_pos = pos + 1;
+      break;
+      
+    case DBUS_TYPE_BOOLEAN:
       *end_pos = pos + 1;
       break;
 
-    case DBUS_TYPE_BOOLEAN:
-      *end_pos = pos + 2;
-      break;
-      
     case DBUS_TYPE_INT32:
-      *end_pos = _DBUS_ALIGN_VALUE (pos + 1, sizeof (dbus_int32_t)) + sizeof (dbus_int32_t);
+      *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_int32_t)) + sizeof (dbus_int32_t);
 
       break;
 
     case DBUS_TYPE_UINT32:
-      *end_pos = _DBUS_ALIGN_VALUE (pos + 1, sizeof (dbus_uint32_t)) + sizeof (dbus_uint32_t);
+      *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_uint32_t)) + sizeof (dbus_uint32_t);
 
       break;
 
     case DBUS_TYPE_DOUBLE:
-      *end_pos = _DBUS_ALIGN_VALUE (pos + 1, sizeof (double)) + sizeof (double);
+      *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (double)) + sizeof (double);
 
       break;
 
     case DBUS_TYPE_STRING:
       {
 	int len;
-
+	
 	/* Demarshal the length */
-	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &pos);
+	len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
 
 	*end_pos = pos + len + 1;
       }
       break;
 
-    case DBUS_TYPE_BOOLEAN_ARRAY:
-    case DBUS_TYPE_BYTE_ARRAY:
+    case DBUS_TYPE_NAMED:
+      {
+	int len;
+	
+	/* Demarshal the string length */
+	len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+
+	*end_pos = pos + len + 1;
+	
+	/* Demarshal the data length */
+	len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+
+	*end_pos = pos + len;
+      }
+      break;
+      
+    case DBUS_TYPE_ARRAY:
       {
 	int len;
 
-	/* Demarshal the length */
+	/* Demarshal the length (element type is at pos + 0 */
 	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &pos);
 	
 	*end_pos = pos + len;
       }
       break;
 
-    case DBUS_TYPE_INT32_ARRAY:
+    case DBUS_TYPE_DICT:
       {
-	int len, new_pos;
+	int len;
 
 	/* Demarshal the length */
-	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &new_pos);
+	len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
 	
-	*end_pos = _DBUS_ALIGN_VALUE (new_pos, sizeof (dbus_int32_t))
-	  + (len * sizeof (dbus_int32_t));
-      }
-      break;
-
-    case DBUS_TYPE_UINT32_ARRAY:
-      {
-	int len, new_pos;
-
-	/* Demarshal the length */
-	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &new_pos);
-
-	*end_pos = _DBUS_ALIGN_VALUE (new_pos, sizeof (dbus_uint32_t))
-	  + (len * sizeof (dbus_uint32_t));
-      }
-      break;
-
-    case DBUS_TYPE_DOUBLE_ARRAY:
-      {
-	int len, new_pos;
-	
-	/* Demarshal the length */
-	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &new_pos);
-
-	*end_pos = _DBUS_ALIGN_VALUE (new_pos, sizeof (double))
-	  + (len * sizeof (double));
+	*end_pos = pos + len;
       }
       break;
       
-    case DBUS_TYPE_STRING_ARRAY:
-      {
-	int len, i;
-	
-	/* Demarshal the length */
-	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &pos);
-
-	for (i = 0; i < len; i++)
-	  {
-	    int str_len;
-	    
-	    /* Demarshal string length */
-	    str_len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
-	    pos += str_len + 1;
-	  }
-
-	*end_pos = pos;
-      }
-      break;
-
-    case DBUS_TYPE_DICT:
-      {
-	int len, i;
-
-	/* Demarshal the length */
-	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &pos);
-
-	for (i = 0; i < len; i++)
-	  {
-	    int str_len;
-	    
-	    /* Demarshal string length */
-	    str_len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
-	    pos += str_len + 1;
-	  }
-
-	/* Now check the values */
-	for (i = 0; i < len; i++)
-	  {
-	    if (!_dbus_marshal_get_arg_end_pos (str, byte_order, pos, &pos))
-		return FALSE;
-	  }
-
-	*end_pos = pos;
-	
-	break;
-      }
     default:
-      _dbus_warn ("Unknown message arg type %d\n", *data);
+      _dbus_warn ("Unknown message arg type %d\n", type);
       _dbus_assert_not_reached ("Unknown message argument type\n");
       return FALSE;
     }
@@ -1530,8 +1095,8 @@ demarshal_and_validate_len (const DBusString *str,
 
   len = _dbus_demarshal_uint32 (str, byte_order, align_4, new_pos);
 
-  /* note that the len may be a number of doubles, so we need it to be
-   * at least SIZE_T_MAX / 8, but make it smaller just to keep things
+  /* note that the len is the number of bytes, so we need it to be
+   * at least SIZE_T_MAX, but make it smaller just to keep things
    * sane.  We end up using ints for most sizes to avoid unsigned mess
    * so limit to maximum 32-bit signed int divided by at least 8, more
    * for a bit of paranoia margin. INT_MAX/32 is about 65 megabytes.
@@ -1576,9 +1141,45 @@ validate_string (const DBusString *str,
   return TRUE;
 }   
 
+/**
+ * Validates and returns a typecode at a specific position
+ * in the message
+ *
+ * @param str a string
+ * @param type the type of the argument
+ * @param pos the pos where the typecode starts
+ * @param end_pos pointer where the position right
+ * after the end position will follow
+ * @returns #TRUE if the type is valid.
+ */
+dbus_bool_t
+_dbus_marshal_validate_type   (const DBusString *str,
+			       int               pos,
+			       int              *type,
+			       int              *end_pos)
+{
+  const char *data;
+  
+  if (pos >= _dbus_string_get_length (str))
+    return FALSE;
+
+  data = _dbus_string_get_const_data_len (str, pos, 1);
+
+  if (*data > DBUS_TYPE_INVALID && *data <= DBUS_TYPE_LAST)
+    {
+      *type = *data;
+      *end_pos = pos + 1;
+      return TRUE;
+    }
+  
+  return FALSE;
+}
+
+
 /** 
- * Validates an argument, checking that it is well-formed, for example
- * no ludicrous length fields, strings are nul-terminated, etc.
+ * Validates an argument of a specific type, checking that it
+ * is well-formed, for example no ludicrous length fields, strings
+ * are nul-terminated, etc.
  * Returns the end position of the argument in end_pos, and
  * returns #TRUE if a valid arg begins at "pos"
  *
@@ -1586,7 +1187,8 @@ validate_string (const DBusString *str,
  * 
  * @param str a string
  * @param byte_order the byte order to use
- * @param pos the pos where the arg starts (offset of its typecode)
+ * @param type the type of the argument
+ * @param pos the pos where the arg starts
  * @param end_pos pointer where the position right
  * after the end position will follow
  * @returns #TRUE if the arg is valid.
@@ -1594,37 +1196,44 @@ validate_string (const DBusString *str,
 dbus_bool_t
 _dbus_marshal_validate_arg (const DBusString *str,
                             int	              byte_order,
+			    int               type,
                             int               pos,
                             int              *end_pos)
 {
-  const char *data;
-
-  if (pos >= _dbus_string_get_length (str))
+  if (pos > _dbus_string_get_length (str))
     return FALSE;
 
-  data = _dbus_string_get_const_data_len (str, pos, 1);
-  
-  switch (*data)
+  switch (type)
     {
     case DBUS_TYPE_INVALID:
       return FALSE;
       break;
 
     case DBUS_TYPE_NIL:
-      *end_pos = pos + 1;
+      *end_pos = pos;
       break;
 
+    case DBUS_TYPE_BYTE:
+      if (1 > _dbus_string_get_length (str) - pos)
+	{
+	  _dbus_verbose ("no room for boolean value\n");
+	  return FALSE;
+	}
+	
+      *end_pos = pos + 1;
+      break;
+      
     case DBUS_TYPE_BOOLEAN:
       {
 	unsigned char c;
 
-        if (2 > _dbus_string_get_length (str) - pos)
+        if (1 > _dbus_string_get_length (str) - pos)
           {
             _dbus_verbose ("no room for boolean value\n");
             return FALSE;
           }
         
-	c = _dbus_string_get_byte (str, pos + 1);
+	c = _dbus_string_get_byte (str, pos);
 
 	if (c != 0 && c != 1)
 	  {
@@ -1632,16 +1241,16 @@ _dbus_marshal_validate_arg (const DBusString *str,
 	    return FALSE;
 	  }
 	
-      *end_pos = pos + 2;
+      *end_pos = pos + 1;
       break;
       }
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
       {
-        int align_4 = _DBUS_ALIGN_VALUE (pos + 1, 4);
+        int align_4 = _DBUS_ALIGN_VALUE (pos, 4);
         
-        if (!_dbus_string_validate_nul (str, pos + 1,
-                                        align_4 - pos - 1))
+        if (!_dbus_string_validate_nul (str, pos,
+                                        align_4 - pos))
           {
             _dbus_verbose ("int32/uint32 alignment padding not initialized to nul\n");
             return FALSE;
@@ -1653,12 +1262,12 @@ _dbus_marshal_validate_arg (const DBusString *str,
 
     case DBUS_TYPE_DOUBLE:
       {
-        int align_8 = _DBUS_ALIGN_VALUE (pos + 1, 8);
+        int align_8 = _DBUS_ALIGN_VALUE (pos, 8);
 
         _dbus_verbose_bytes_of_string (str, pos, (align_8 + 8 - pos));
         
-        if (!_dbus_string_validate_nul (str, pos + 1,
-                                        align_8 - pos - 1))
+        if (!_dbus_string_validate_nul (str, pos,
+                                        align_8 - pos))
           {
             _dbus_verbose ("double alignment padding not initialized to nul\n");
             return FALSE;
@@ -1675,7 +1284,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
 	/* Demarshal the length, which does NOT include
          * nul termination
          */
-	len = demarshal_and_validate_len (str, byte_order, pos + 1, &pos);
+	len = demarshal_and_validate_len (str, byte_order, pos, &pos);
         if (len < 0)
           return FALSE;
 
@@ -1684,109 +1293,64 @@ _dbus_marshal_validate_arg (const DBusString *str,
       }
       break;
 
-    case DBUS_TYPE_BOOLEAN_ARRAY:
+    case DBUS_TYPE_NAMED:
       {
-	int len, i;
+	int len;
 
-	len = demarshal_and_validate_len (str, byte_order, pos + 1, &pos);
+	/* Demarshal the string length, which does NOT include
+         * nul termination
+         */
+	len = demarshal_and_validate_len (str, byte_order, pos, &pos);
+        if (len < 0)
+          return FALSE;
+
+        if (!validate_string (str, pos, len, &pos))
+          return FALSE;
+
+	/* Validate data */
+	len = demarshal_and_validate_len (str, byte_order, pos, &pos);
+        if (len < 0)
+          return FALSE;
+
+	*end_pos = pos + len;
+      }
+      break;
+      
+    case DBUS_TYPE_ARRAY:
+      {
+	int len;
+	int end;
+	int array_type;
+
+	if (!_dbus_marshal_validate_type (str, pos, &array_type, &pos))
+	  {
+	    _dbus_verbose ("invalid array type\n");
+	    return FALSE;
+	  }
+	
+	len = demarshal_and_validate_len (str, byte_order, pos, &pos);
         if (len < 0)
           return FALSE;
 
         if (len > _dbus_string_get_length (str) - pos)
           {
-            _dbus_verbose ("boolean array length outside length of the message\n");
+            _dbus_verbose ("array length outside length of the message\n");
             return FALSE;
           }
-        
-	i = 0;
-	while (i < len)
-	  {
-	    unsigned char c = _dbus_string_get_byte (str, pos + i);
-
-	    if (c != 0 && c != 1)
-	      {
-		_dbus_verbose ("boolean value must be either 0 or 1, not %d (pos %d)\n", c, pos);
-		return FALSE;
-	      }
-
-	    i++;
-	  }
-	*end_pos = pos + len;
-	break;
-      }
-    case DBUS_TYPE_BYTE_ARRAY:
-      {
-	int len;
-
-	len = demarshal_and_validate_len (str, byte_order, pos + 1, &pos);
-        if (len < 0)
-          return FALSE;
 	
-	*end_pos = pos + len;
-      }
-      break;
-
-    case DBUS_TYPE_INT32_ARRAY:
-    case DBUS_TYPE_UINT32_ARRAY:
-      {
-	int len;
-
-        len = demarshal_and_validate_len (str, byte_order, pos + 1, &pos);
-        if (len < 0)
-          return FALSE;
-
-        _dbus_assert (_DBUS_ALIGN_VALUE (pos, 4) == (unsigned int) pos);
-        
-	*end_pos = pos + len * 4;
-      }
-      break;
-
-    case DBUS_TYPE_DOUBLE_ARRAY:
-      {
-	int len;
-        int align_8;
-
-        len = demarshal_and_validate_len (str, byte_order, pos + 1, &pos);
-        if (len < 0)
-          return FALSE;
-
-	if (len == 0)
-	  *end_pos = pos;
-	else
+	end = pos + len;
+	
+	while (pos < end)
 	  {
-	    align_8 = _DBUS_ALIGN_VALUE (pos, 8);
-	    if (!_dbus_string_validate_nul (str, pos,
-					    align_8 - pos))
-	      {
-		_dbus_verbose ("double array alignment padding not initialized to nul\n");
-		return FALSE;
-	      }
-
-	    *end_pos = align_8 + len * 8;
+	    if (!_dbus_marshal_validate_arg (str, byte_order,
+					     array_type, pos, &pos))
+	      return FALSE;
 	  }
-      }
-      break;
-      
-    case DBUS_TYPE_STRING_ARRAY:
-      {
-        int len;
-        int i;
-        
-        len = demarshal_and_validate_len (str, byte_order, pos + 1, &pos);
-        if (len < 0)
-          return FALSE;
-
-	for (i = 0; i < len; i++)
+	
+	if (pos > end)
 	  {
-	    int str_len;
-	    
-	    str_len = demarshal_and_validate_len (str, byte_order,
-                                                  pos, &pos);
-            if (str_len < 0)
-              return FALSE;
-
-            if (!validate_string (str, pos, str_len, &pos))
-              return FALSE;            
+	    _dbus_verbose ("array contents exceeds array length\n");
+	    return FALSE;
 	  }
 
 	*end_pos = pos;
@@ -1794,53 +1358,53 @@ _dbus_marshal_validate_arg (const DBusString *str,
       break;
 
       case DBUS_TYPE_DICT:
-	{
-	  int len;
-	  int i;
-
-	  len = demarshal_and_validate_len (str, byte_order, pos + 1, &pos);
-	  if (len < 0)
-	    return FALSE;
-	  
-	  for (i = 0; i < len; i++)
-	    {
-	      int str_len;
-	      
-	      str_len = demarshal_and_validate_len (str, byte_order,
-						    pos, &pos);
-	      if (str_len < 0)
-		return FALSE;
-	      
-	      if (!validate_string (str, pos, str_len, &pos))
-		return FALSE;            
-	    }
-
-	  /* Now validate each argument */
-	  for (i = 0; i < len; i++)
-	    {
-	      if (pos >= _dbus_string_get_length (str))
-		{
-		  _dbus_verbose ("not enough values in dict\n");
-		  return FALSE;
-		}
-
-	      if (_dbus_string_get_byte (str, pos) == DBUS_TYPE_NIL)
-		{
-		  _dbus_verbose ("can't have NIL values in dicts\n");
-		  return FALSE;
-		}
-	      
-	      if (!_dbus_marshal_validate_arg (str, byte_order, pos, &pos))
-		return FALSE;
-	    }
-
-	  *end_pos = pos;
-
-	  break;
-	}
+      {
+	int dict_type;
+	int len;
+	int end;
 	
+	len = demarshal_and_validate_len (str, byte_order, pos, &pos);
+        if (len < 0)
+          return FALSE;
+
+        if (len > _dbus_string_get_length (str) - pos)
+          {
+            _dbus_verbose ("dict length outside length of the message\n");
+            return FALSE;
+          }
+	
+	end = pos + len;
+	
+	while (pos < end)
+	  {
+	    /* Validate name */
+	    if (!_dbus_marshal_validate_arg (str, byte_order,
+					     DBUS_TYPE_STRING, pos, &pos))
+	      return FALSE;
+	    
+	    if (!_dbus_marshal_validate_type (str, pos, &dict_type, &pos))
+	      {
+		_dbus_verbose ("invalid dict entry type at offset %d\n", pos);
+		return FALSE;
+	      }
+	    
+	    /* Validate element */
+	    if (!_dbus_marshal_validate_arg (str, byte_order,
+					     dict_type, pos, &pos))
+	      return FALSE;
+	  }
+	
+	if (pos > end)
+	  {
+	    _dbus_verbose ("dict contents exceeds array length\n");
+	    return FALSE;
+	  }
+	*end_pos = pos;
+      }
+      break;
+      
     default:
-      _dbus_verbose ("Unknown message arg type %d\n", *data);
+      _dbus_verbose ("Unknown message arg type %d\n", type);
       return FALSE;
     }
 
@@ -1974,23 +1538,7 @@ _dbus_marshal_test (void)
   DBusString str;
   char *tmp1, *tmp2;
   dbus_int32_t array1[3] = { 0x123, 0x456, 0x789 }, *array2;
-  int pos = 0, i, len;
-  dbus_bool_t our_bool;
-  dbus_int32_t our_int;
-  dbus_uint32_t our_uint;
-  double our_double;
-  const char *our_string;
-  const unsigned char boolean_array[] = { TRUE, FALSE, FALSE, TRUE };
-  const unsigned char *our_boolean_array;
-  const dbus_int32_t int32_array[] = { 0x12345678, -1911, 0, 0xaffe, 0xedd1e };
-  const dbus_int32_t *our_int32_array;
-  const dbus_uint32_t uint32_array[] = { 0x12345678, 0, 0xdeadbeef, 0x87654321, 0xffffffff };
-  const dbus_uint32_t *our_uint32_array;
-  const double double_array[] = { 3.14159, 1.2345, 6.7890 };
-  const double *our_double_array;
-  const char *string_array[] = { "This", "Is", "A", "Test" };
-  const char **our_string_array;
-  DBusDict *dict;
+  int pos = 0, len;
   
   if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");
@@ -2054,98 +1602,6 @@ _dbus_marshal_test (void)
   if (len != 3)
     _dbus_assert_not_reached ("Signed integer array lengths differ!\n");
   dbus_free (array2);
-  
-
-  /* Marshal dicts */
-  dict = dbus_dict_new ();
-
-  if (dbus_dict_get_value_type (dict, "foo") != DBUS_TYPE_NIL)
-    _dbus_assert_not_reached ("didn't return DBUS_TYPE_NIL for non-existant entry");
-  
-  if (!dbus_dict_set_boolean (dict, "boolean", TRUE))
-    _dbus_assert_not_reached ("could not add boolean value");
-
-  if (!dbus_dict_set_int32 (dict, "int32", 0x12345678))
-    _dbus_assert_not_reached ("could not add int32 value");
-
-  if (!dbus_dict_set_uint32 (dict, "uint32", 0x87654321))
-    _dbus_assert_not_reached ("could not add uint32 value");
-
-  if (!dbus_dict_set_double (dict, "double", 3.14159))
-    _dbus_assert_not_reached ("could not add double value");
-
-  if (!dbus_dict_set_string (dict, "string", "test string"))
-    _dbus_assert_not_reached ("could not add string value");
-
-  if (!dbus_dict_set_boolean_array (dict, "boolean_array", boolean_array, 4))
-    _dbus_assert_not_reached ("could not add boolean array");
-
-  if (!dbus_dict_set_int32_array (dict, "int32_array", int32_array, 5))
-    _dbus_assert_not_reached ("could not add int32 array");
-
-  if (!dbus_dict_set_uint32_array (dict, "uint32_array", uint32_array, 5))
-    _dbus_assert_not_reached ("could not add uint32 array");
-
-  if (!dbus_dict_set_double_array (dict, "double_array", double_array, 3))
-    _dbus_assert_not_reached ("could not add double array");
-
-  if (!dbus_dict_set_string_array (dict, "string_array", string_array, 4))
-    _dbus_assert_not_reached ("could not add string array");
-
-  if (!_dbus_marshal_dict (&str, DBUS_BIG_ENDIAN, dict))
-    _dbus_assert_not_reached ("could not marshal dict");
-  
-  dbus_dict_unref (dict);
-  
-  if (!_dbus_demarshal_dict (&str, DBUS_BIG_ENDIAN, pos, &pos, &dict))
-    _dbus_assert_not_reached ("could not demarshal dict");
-
-  if (!dbus_dict_get_boolean (dict, "boolean", &our_bool) ||
-      !our_bool)
-    _dbus_assert_not_reached ("could not get boolean value");
-
-  if (!dbus_dict_get_int32 (dict, "int32", &our_int) || our_int != 0x12345678)
-    _dbus_assert_not_reached ("could not get int32 value or int32 values differ");
-  
-  if (!dbus_dict_get_uint32 (dict, "uint32", &our_uint) || our_uint != 0x87654321)
-    _dbus_assert_not_reached ("could not get uint32 value or uint32 values differ");
-
-  if (!dbus_dict_get_double (dict, "double", &our_double)
-      || our_double != 3.14159)
-     _dbus_assert_not_reached ("could not get double value or double values differ");
-
-  if (!dbus_dict_get_string (dict, "string", &our_string) || strcmp (our_string, "test string") != 0)
-    _dbus_assert_not_reached ("could not get string value or string values differ");
-
-  if (!dbus_dict_get_boolean_array (dict, "boolean_array", &our_boolean_array, &len) ||
-      len != 4 || memcmp (boolean_array, our_boolean_array, 4) != 0)
-    _dbus_assert_not_reached ("could not get boolean array value or boolean array values differ");
-
-  if (!dbus_dict_get_int32_array (dict, "int32_array", &our_int32_array, &len) ||
-      len != 5 || memcmp (int32_array, our_int32_array, 5 * sizeof (dbus_int32_t)) != 0)
-    _dbus_assert_not_reached ("could not get int32 array value or int32 array values differ");
-
-  if (!dbus_dict_get_uint32_array (dict, "uint32_array", &our_uint32_array, &len) ||
-      len != 5 || memcmp (uint32_array, our_uint32_array, 5 * sizeof (dbus_uint32_t) ) != 0)
-    _dbus_assert_not_reached ("could not get uint32 array value or uint32 array values differ");
-
-  if (!dbus_dict_get_double_array (dict, "double_array", &our_double_array, &len) ||
-      len != 3 || memcmp (double_array, our_double_array, 3 * sizeof (double)) != 0)
-    _dbus_assert_not_reached ("could not get double array value or double array values differ");
-
-  if (!dbus_dict_get_string_array (dict, "string_array", &our_string_array, &len))
-    _dbus_assert_not_reached ("could not get string array value");
-
-  if (len != 4)
-    _dbus_assert_not_reached ("string array lengths differ");
-
-  for (i = 0; i < len; i++)
-    {
-      if (strcmp (our_string_array[i], string_array[i]) != 0)
-	_dbus_assert_not_reached ("string array fields differ");
-    }
-  
-  dbus_dict_unref (dict);
   
   _dbus_string_free (&str);
   

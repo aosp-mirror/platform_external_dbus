@@ -1,3 +1,77 @@
+2003-04-08  Alexander Larsson  <alexl@redhat.com>
+
+	Implemented recursive types, named types and new-style iters
+
+	* bus/driver.c:
+	* glib/test-thread-client.c: (thread_func):
+	* glib/test-thread-server.c: (handle_test_message):
+	* test/test-service.c: (handle_echo):
+	Update to new api
+	
+	* dbus/Makefile.am:
+	* dbus/dbus-dict.c:
+	* dbus/dbus-dict.h:
+	* dbus/dbus.h
+	Remove DBusDict
+
+	* dbus/dbus-internals.c: (_dbus_type_to_string):
+	Update for new types.
+	
+	* dbus/dbus-marshal.[ch]:
+	Implement recursive types and the new marshalling format.
+	Remove hardcoded dict marshalling.
+	Marshal named types.
+	
+	* dbus/dbus-message-builder.c:
+	Add BYTE_ARRAY.
+	Remove references to old types
+	
+	* dbus/dbus-message.[ch]:
+	New non-refcounted iter API that supports recursive iters.
+	Use iters for appending, including support for recursive
+	iters.
+	Add byte and named type support.
+	Update everything to new marshalling formats.
+	Add tests for new API.
+	
+	* dbus/dbus-protocol.h:
+	Remove old array types.
+	Add types: BYTE, ARRAY, DICT, NAMED
+	
+	* dbus/dbus-string.c:
+	* dbus/dbus-sysdeps.c:
+	Make parse_double locale safe.
+	
+	* dbus/dbus-test-main.c:
+	Call setlocale.
+	
+	* dbus/dbus-test.c:
+	Kill dict test
+	
+	* doc/dbus-specification.sgml:
+	Update spec
+	
+	* test/data/incomplete-messages/missing-body.message:
+	* test/data/invalid-messages/bad-boolean.message:
+	* test/data/invalid-messages/bad-boolean-array.message:
+	* test/data/invalid-messages/boolean-array-length-too-long.message-raw:
+	* test/data/invalid-messages/boolean-has-no-value.message-raw:
+	* test/data/invalid-messages/too-short-dict.message:
+	* test/data/valid-messages/dict-simple.message:
+	* test/data/valid-messages/dict.message:
+	* test/data/valid-messages/emptiness.message:
+	* test/data/valid-messages/lots-of-arguments.message:
+	* test/data/valid-messages/no-padding.message:
+	* test/data/valid-messages/recursive-types.message:
+	Add missing NAME fields
+	Fix up dicts & arrays
+	
+	* test/data/invalid-messages/dict-with-nil-value.message:
+	Removed, this is not invalid anymore.
+	
+	* test/data/valid-messages/recursive-types.message:
+	Add new test for deeply recursive types.
+
 2003-04-07  Havoc Pennington  <hp@pobox.com>
 
 	* bus/driver.c (bus_driver_handle_acquire_service): return an

@@ -39,6 +39,7 @@
 #include <sys/un.h>
 #include <pwd.h>
 #include <time.h>
+#include <locale.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -1107,15 +1108,167 @@ _dbus_string_parse_uint (const DBusString *str,
   return TRUE;
 }
 
+static dbus_bool_t
+ascii_isspace (char c)
+{
+  return (c == ' ' ||
+	  c == '\f' ||
+	  c == '\n' ||
+	  c == '\r' ||
+	  c == '\t' ||
+	  c == '\v');
+}
+
+static dbus_bool_t
+ascii_isdigit (char c)
+{
+  return c >= '0' && c <= '9';
+}
+
+static dbus_bool_t
+ascii_isxdigit (char c)
+{
+  return (ascii_isdigit (c) ||
+	  (c >= 'a' && c <= 'f') ||
+	  (c >= 'A' && c <= 'F'));
+}
+
+
+/* Calls strtod in a locale-independent fashion, by looking at
+ * the locale data and patching the decimal comma to a point.
+ *
+ * Relicensed from glib.
+ */
+static double
+ascii_strtod (const char *nptr,
+	      char      **endptr)
+{
+  char *fail_pos;
+  double val;
+  struct lconv *locale_data;
+  const char *decimal_point;
+  int decimal_point_len;
+  const char *p, *decimal_point_pos;
+  const char *end = NULL; /* Silence gcc */
+
+  fail_pos = NULL;
+
+  locale_data = localeconv ();
+  decimal_point = locale_data->decimal_point;
+  decimal_point_len = strlen (decimal_point);
+
+  _dbus_assert (decimal_point_len != 0);
+  
+  decimal_point_pos = NULL;
+  if (decimal_point[0] != '.' ||
+      decimal_point[1] != 0)
+    {
+      p = nptr;
+      /* Skip leading space */
+      while (ascii_isspace (*p))
+	p++;
+      
+      /* Skip leading optional sign */
+      if (*p == '+' || *p == '-')
+	p++;
+      
+      if (p[0] == '0' &&
+	  (p[1] == 'x' || p[1] == 'X'))
+	{
+	  p += 2;
+	  /* HEX - find the (optional) decimal point */
+	  
+	  while (ascii_isxdigit (*p))
+	    p++;
+	  
+	  if (*p == '.')
+	    {
+	      decimal_point_pos = p++;
+	      
+	      while (ascii_isxdigit (*p))
+		p++;
+	      
+	      if (*p == 'p' || *p == 'P')
+		p++;
+	      if (*p == '+' || *p == '-')
+		p++;
+	      while (ascii_isdigit (*p))
+		p++;
+	      end = p;
+	    }
+	}
+      else
+	{
+	  while (ascii_isdigit (*p))
+	    p++;
+	  
+	  if (*p == '.')
+	    {
+	      decimal_point_pos = p++;
+	      
+	      while (ascii_isdigit (*p))
+		p++;
+	      
+	      if (*p == 'e' || *p == 'E')
+		p++;
+	      if (*p == '+' || *p == '-')
+		p++;
+	      while (ascii_isdigit (*p))
+		p++;
+	      end = p;
+	    }
+	}
+      /* For the other cases, we need not convert the decimal point */
+    }
+
+  /* Set errno to zero, so that we can distinguish zero results
+     and underflows */
+  errno = 0;
+  
+  if (decimal_point_pos)
+    {
+      char *copy, *c;
+
+      /* We need to convert the '.' to the locale specific decimal point */
+      copy = dbus_malloc (end - nptr + 1 + decimal_point_len);
+      
+      c = copy;
+      memcpy (c, nptr, decimal_point_pos - nptr);
+      c += decimal_point_pos - nptr;
+      memcpy (c, decimal_point, decimal_point_len);
+      c += decimal_point_len;
+      memcpy (c, decimal_point_pos + 1, end - (decimal_point_pos + 1));
+      c += end - (decimal_point_pos + 1);
+      *c = 0;
+
+      val = strtod (copy, &fail_pos);
+
+      if (fail_pos)
+	{
+	  if (fail_pos > decimal_point_pos)
+	    fail_pos = (char *)nptr + (fail_pos - copy) - (decimal_point_len - 1);
+	  else
+	    fail_pos = (char *)nptr + (fail_pos - copy);
+	}
+      
+      dbus_free (copy);
+	  
+    }
+  else
+    val = strtod (nptr, &fail_pos);
+
+  if (endptr)
+    *endptr = fail_pos;
+  
+  return val;
+}
+
+
 /**
  * Parses a floating point number contained in a DBusString. Either
  * return parameter may be #NULL if you aren't interested in it. The
  * integer is parsed and stored in value_return. Return parameters are
  * not initialized if the function returns #FALSE.
- *
- * @todo this function is currently locale-dependent. Should
- * ask alexl to relicense g_ascii_strtod() code and put that in
- * here instead, so it's locale-independent.
  *
  * @param str the string
  * @param start the byte index of the start of the float
@@ -1133,14 +1286,12 @@ _dbus_string_parse_double (const DBusString *str,
   const char *p;
   char *end;
 
-  _dbus_warn ("_dbus_string_parse_double() needs to be made locale-independent\n");
-  
   p = _dbus_string_get_const_data_len (str, start,
                                        _dbus_string_get_length (str) - start);
 
   end = NULL;
   errno = 0;
-  v = strtod (p, &end);
+  v = ascii_strtod (p, &end);
   if (end == NULL || end == p || errno != 0)
     return FALSE;
 
@@ -3173,6 +3324,10 @@ check_path_absolute (const char *path,
 dbus_bool_t
 _dbus_sysdeps_test (void)
 {
+  DBusString str;
+  double val;
+  int pos;
+  
   check_dirname ("foo", ".");
   check_dirname ("foo/bar", "foo");
   check_dirname ("foo//bar", "foo");
@@ -3191,6 +3346,25 @@ _dbus_sysdeps_test (void)
   check_dirname ("/", "/");
   check_dirname ("///", "/");
   check_dirname ("", ".");  
+
+
+  _dbus_string_init_const (&str, "3.5");
+  if (!_dbus_string_parse_double (&str,
+				  0, &val, &pos))
+    {
+      _dbus_warn ("Failed to parse double");
+      exit (1);
+    }
+  if (val != 3.5)
+    {
+      _dbus_warn ("Failed to parse 3.5 correctly, got: %f", val);
+      exit (1);
+    }
+  if (pos != 3)
+    {
+      _dbus_warn ("_dbus_string_parse_double of \"3.5\" returned wrong position %d", pos);
+      exit (1);
+    }
 
   check_path_absolute ("/", TRUE);
   check_path_absolute ("/foo", TRUE);

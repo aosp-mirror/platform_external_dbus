@@ -28,7 +28,6 @@
 #define DBUS_MESSAGE_H
 
 #include <dbus/dbus-macros.h>
-#include <dbus/dbus-dict.h>
 #include <dbus/dbus-types.h>
 #include <stdarg.h>
 
@@ -36,6 +35,21 @@ DBUS_BEGIN_DECLS;
 
 typedef struct DBusMessage DBusMessage;
 typedef struct DBusMessageIter DBusMessageIter;
+
+struct DBusMessageIter
+{
+  void *dummy1;
+  void *dummy2;
+  dbus_uint32_t dummy3;
+  int dummy4;
+  int dummy5;
+  int dummy6;
+  int dummy7;
+  int dummy8;
+  int dummy9;
+  int dummy10;
+};
+
 
 DBusMessage* dbus_message_new              (const char        *service,
 					    const char        *name);
@@ -68,85 +82,119 @@ dbus_bool_t  dbus_message_set_reply_serial (DBusMessage  *message,
 dbus_int32_t dbus_message_get_reply_serial (DBusMessage  *message);
 
 
-dbus_bool_t dbus_message_append_args          (DBusMessage          *message,
-					       int                   first_arg_type,
+dbus_bool_t dbus_message_append_args          (DBusMessage     *message,
+					       int              first_arg_type,
 					       ...);
-dbus_bool_t dbus_message_append_args_valist   (DBusMessage          *message,
-					       int                   first_arg_type,
-					       va_list               var_args);
-dbus_bool_t dbus_message_append_nil           (DBusMessage          *message);
-dbus_bool_t dbus_message_append_boolean       (DBusMessage          *message,
-					       dbus_bool_t           value);
-dbus_bool_t dbus_message_append_int32         (DBusMessage          *message,
-					       dbus_int32_t          value);
-dbus_bool_t dbus_message_append_uint32        (DBusMessage          *message,
-					       dbus_uint32_t         value);
-dbus_bool_t dbus_message_append_double        (DBusMessage          *message,
-					       double                value);
-dbus_bool_t dbus_message_append_string        (DBusMessage          *message,
-					       const char           *value);
-dbus_bool_t dbus_message_append_boolean_array (DBusMessage          *message,
-					       unsigned const char  *value,
-					       int                   len);
-dbus_bool_t dbus_message_append_int32_array   (DBusMessage          *message,
-					       const dbus_int32_t   *value,
-					       int                   len);
-dbus_bool_t dbus_message_append_uint32_array  (DBusMessage          *message,
-					       const dbus_uint32_t  *value,
-					       int                   len);
-dbus_bool_t dbus_message_append_double_array  (DBusMessage          *message,
-					       const double         *value,
-					       int                   len);
-dbus_bool_t dbus_message_append_byte_array    (DBusMessage          *message,
-					       unsigned const char  *value,
-					       int                   len);
-dbus_bool_t dbus_message_append_string_array  (DBusMessage          *message,
-					       const char          **value,
-					       int                   len);
-dbus_bool_t dbus_message_append_dict          (DBusMessage          *message,
-					       DBusDict             *dict);
-
-DBusMessageIter *dbus_message_get_args_iter   (DBusMessage *message);
-dbus_bool_t      dbus_message_get_args        (DBusMessage *message,
-                                               DBusError   *error,
-                                               int          first_arg_type,
-                                               ...);
-dbus_bool_t      dbus_message_get_args_valist (DBusMessage *message,
-                                               DBusError   *error,
-                                               int          first_arg_type,
-                                               va_list      var_args);
+dbus_bool_t dbus_message_append_args_valist   (DBusMessage     *message,
+					       int              first_arg_type,
+					       va_list          var_args);
+dbus_bool_t dbus_message_get_args             (DBusMessage     *message,
+					       DBusError       *error,
+					       int              first_arg_type,
+					       ...);
+dbus_bool_t dbus_message_get_args_valist      (DBusMessage     *message,
+					       DBusError       *error,
+					       int              first_arg_type,
+					       va_list          var_args);
+dbus_bool_t dbus_message_iter_get_args        (DBusMessageIter *iter,
+					       DBusError       *error,
+					       int              first_arg_type,
+					       ...);
+dbus_bool_t dbus_message_iter_get_args_valist (DBusMessageIter *iter,
+					       DBusError       *error,
+					       int              first_arg_type,
+					       va_list          var_args);
 
 
-void          dbus_message_iter_ref               (DBusMessageIter   *iter);
-void          dbus_message_iter_unref             (DBusMessageIter   *iter);
-dbus_bool_t   dbus_message_iter_has_next          (DBusMessageIter   *iter);
-dbus_bool_t   dbus_message_iter_next              (DBusMessageIter   *iter);
-int           dbus_message_iter_get_arg_type      (DBusMessageIter   *iter);
-dbus_bool_t   dbus_message_iter_get_boolean       (DBusMessageIter   *iter);
-int           dbus_message_iter_get_int32         (DBusMessageIter   *iter);
-int           dbus_message_iter_get_uint32        (DBusMessageIter   *iter);
-double        dbus_message_iter_get_double        (DBusMessageIter   *iter);
-char *        dbus_message_iter_get_string        (DBusMessageIter   *iter);
-dbus_bool_t   dbus_message_iter_get_boolean_array (DBusMessageIter   *iter,
+
+void          dbus_message_iter_init           (DBusMessage      *message,
+						DBusMessageIter  *iter);
+dbus_bool_t   dbus_message_iter_has_next       (DBusMessageIter  *iter);
+dbus_bool_t   dbus_message_iter_next           (DBusMessageIter  *iter);
+int           dbus_message_iter_get_arg_type   (DBusMessageIter  *iter);
+int           dbus_message_iter_get_array_type (DBusMessageIter  *iter);
+unsigned char dbus_message_iter_get_byte       (DBusMessageIter  *iter);
+dbus_bool_t   dbus_message_iter_get_boolean    (DBusMessageIter  *iter);
+dbus_int32_t  dbus_message_iter_get_int32      (DBusMessageIter  *iter);
+dbus_uint32_t dbus_message_iter_get_uint32     (DBusMessageIter  *iter);
+double        dbus_message_iter_get_double     (DBusMessageIter  *iter);
+char *        dbus_message_iter_get_string     (DBusMessageIter  *iter);
+char *        dbus_message_iter_get_dict_key   (DBusMessageIter  *iter);
+char *        dbus_message_iter_get_named      (DBusMessageIter  *iter,
+						unsigned char   **value,
+						int              *len);
+
+dbus_bool_t dbus_message_iter_init_array_iterator (DBusMessageIter   *iter,
+						   DBusMessageIter   *array_iter,
+						   int               *array_type);
+dbus_bool_t dbus_message_iter_init_dict_iterator  (DBusMessageIter   *iter,
+						   DBusMessageIter   *dict_iter);
+dbus_bool_t dbus_message_iter_get_byte_array      (DBusMessageIter   *iter,
 						   unsigned char    **value,
 						   int               *len);
-dbus_bool_t   dbus_message_iter_get_int32_array   (DBusMessageIter   *iter,
+dbus_bool_t dbus_message_iter_get_boolean_array   (DBusMessageIter   *iter,
+						   unsigned char    **value,
+						   int               *len);
+dbus_bool_t dbus_message_iter_get_int32_array     (DBusMessageIter   *iter,
 						   dbus_int32_t     **value,
 						   int               *len);
-dbus_bool_t   dbus_message_iter_get_uint32_array  (DBusMessageIter   *iter,
+dbus_bool_t dbus_message_iter_get_uint32_array    (DBusMessageIter   *iter,
 						   dbus_uint32_t    **value,
 						   int               *len);
-dbus_bool_t   dbus_message_iter_get_double_array  (DBusMessageIter   *iter,
+dbus_bool_t dbus_message_iter_get_double_array    (DBusMessageIter   *iter,
 						   double           **value,
 						   int               *len);
-dbus_bool_t   dbus_message_iter_get_byte_array    (DBusMessageIter   *iter,
-						   unsigned char    **value,
-						   int               *len);
-dbus_bool_t   dbus_message_iter_get_string_array  (DBusMessageIter   *iter,
+dbus_bool_t dbus_message_iter_get_string_array    (DBusMessageIter   *iter,
 						   char            ***value,
 						   int               *len);
-dbus_bool_t   dbus_message_iter_get_dict          (DBusMessageIter   *iter,
-						   DBusDict         **dict);
+
+
+void        dbus_message_append_iter_init          (DBusMessage          *message,
+						    DBusMessageIter      *iter);
+dbus_bool_t dbus_message_iter_append_nil           (DBusMessageIter      *iter);
+dbus_bool_t dbus_message_iter_append_boolean       (DBusMessageIter      *iter,
+						    dbus_bool_t           value);
+dbus_bool_t dbus_message_iter_append_byte          (DBusMessageIter      *iter,
+						    unsigned char         value);
+dbus_bool_t dbus_message_iter_append_int32         (DBusMessageIter      *iter,
+						    dbus_int32_t          value);
+dbus_bool_t dbus_message_iter_append_uint32        (DBusMessageIter      *iter,
+						    dbus_uint32_t         value);
+dbus_bool_t dbus_message_iter_append_double        (DBusMessageIter      *iter,
+						    double                value);
+dbus_bool_t dbus_message_iter_append_string        (DBusMessageIter      *iter,
+						    const char           *value);
+dbus_bool_t dbus_message_iter_append_named         (DBusMessageIter      *iter,
+						    const char           *name,
+						    const unsigned char  *data,
+						    int                   len);
+dbus_bool_t dbus_message_iter_append_dict_key      (DBusMessageIter      *iter,
+						    const char           *value);
+dbus_bool_t dbus_message_iter_append_array         (DBusMessageIter      *iter,
+						    DBusMessageIter      *array_iter,
+						    int                   element_type);
+dbus_bool_t dbus_message_iter_append_dict          (DBusMessageIter      *iter,
+						    DBusMessageIter      *dict_iter);
+
+/* Helpers for normal types: */
+dbus_bool_t dbus_message_iter_append_boolean_array (DBusMessageIter      *iter,
+						    unsigned const char  *value,
+						    int                   len);
+dbus_bool_t dbus_message_iter_append_int32_array   (DBusMessageIter      *iter,
+						    const dbus_int32_t   *value,
+						    int                   len);
+dbus_bool_t dbus_message_iter_append_uint32_array  (DBusMessageIter      *iter,
+						    const dbus_uint32_t  *value,
+						    int                   len);
+dbus_bool_t dbus_message_iter_append_double_array  (DBusMessageIter      *iter,
+						    const double         *value,
+						    int                   len);
+dbus_bool_t dbus_message_iter_append_byte_array    (DBusMessageIter      *iter,
+						    unsigned const char  *value,
+						    int                   len);
+dbus_bool_t dbus_message_iter_append_string_array  (DBusMessageIter      *iter,
+						    const char          **value,
+						    int                   len);
 
 
 

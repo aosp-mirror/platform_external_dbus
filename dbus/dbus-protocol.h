@@ -42,19 +42,18 @@ extern "C" {
 /* Data types */
 #define DBUS_TYPE_INVALID       0
 #define DBUS_TYPE_NIL           1
-#define DBUS_TYPE_BOOLEAN       2
-#define DBUS_TYPE_INT32         3
-#define DBUS_TYPE_UINT32        4
-#define DBUS_TYPE_DOUBLE        5
-#define DBUS_TYPE_STRING        6
-#define DBUS_TYPE_BOOLEAN_ARRAY 7
-#define DBUS_TYPE_INT32_ARRAY   8
-#define DBUS_TYPE_UINT32_ARRAY  9
-#define DBUS_TYPE_DOUBLE_ARRAY 10
-#define DBUS_TYPE_BYTE_ARRAY   11
-#define DBUS_TYPE_STRING_ARRAY 12
-#define DBUS_TYPE_DICT         13
-  
+#define DBUS_TYPE_BYTE          2
+#define DBUS_TYPE_BOOLEAN       3
+#define DBUS_TYPE_INT32         4
+#define DBUS_TYPE_UINT32        5
+#define DBUS_TYPE_DOUBLE        6
+#define DBUS_TYPE_STRING        7
+#define DBUS_TYPE_NAMED         8
+#define DBUS_TYPE_ARRAY         9
+#define DBUS_TYPE_DICT          10
+
+#define DBUS_TYPE_LAST DBUS_TYPE_DICT
+ 
 /* Header flags */
 #define DBUS_HEADER_FLAG_ERROR 0x1
   

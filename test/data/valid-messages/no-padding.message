@@ -10,7 +10,8 @@ STRING 'org.freedesktop.Foo'
 ## this byte array is filled with zeros to the natural length 
 ## of the header
 FIELD_NAME unkn
-TYPE BYTE_ARRAY
+TYPE ARRAY
+TYPE BYTE
 ALIGN 4
 LENGTH ThisByteArray
 START_LENGTH ThisByteArray

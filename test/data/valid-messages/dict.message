@@ -8,25 +8,42 @@ ALIGN 8
 END_LENGTH Header
 START_LENGTH Body
 TYPE DICT
-STRING_ARRAY { 'boolean', 'int32', 'uint32', 'double', 'string', 'boolean_array', 'int32_array', 'uint32_array', 'double_array', 'string_array' }
+LENGTH Dict
+START_LENGTH Dict
+STRING 'boolean'
 TYPE BOOLEAN
 BYTE 1
+STRING 'int32'
 TYPE INT32
 INT32 0x12345678
+STRING 'uint32'
 TYPE UINT32
 UINT32 0x8765432
+STRING 'double'
 TYPE DOUBLE
 DOUBLE 3.141592653589
+STRING 'string'
 TYPE STRING
 STRING 'This is a string'
-TYPE BOOLEAN_ARRAY
+STRING 'boolean_array'
+TYPE ARRAY
+TYPE BOOLEAN
 BOOLEAN_ARRAY { true, false, false, true, false }
-TYPE INT32_ARRAY
+STRING 'int32_array'
+TYPE ARRAY
+TYPE INT32
 INT32_ARRAY { 1, -2, 3, -4, 5, -6, 7, -8, 9, -10 }
-TYPE UINT32_ARRAY
+STRING 'uint32_array'
+TYPE ARRAY
+TYPE UINT32
 UINT32_ARRAY { 11, 12, 314, 1911, 57692, 1237, 2834 }
-TYPE DOUBLE_ARRAY
+STRING 'double_array'
+TYPE ARRAY
+TYPE DOUBLE
 DOUBLE_ARRAY { 0.1, 0.2, 3.1415926, 2.7183, 10.0, 9.99 }
-TYPE STRING_ARRAY
+STRING 'string_array'
+TYPE ARRAY
+TYPE STRING
 STRING_ARRAY { 'Hello', 'This', 'Is', 'A', 'String', 'Array!' }
+END_LENGTH Dict
 END_LENGTH Body
