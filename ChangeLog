@@ -1,5 +1,15 @@
 2005-02-13  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-connection.c (_dbus_connection_acquire_dispatch)
+	(_dbus_connection_release_dispatch)
+	(_dbus_connection_acquire_io_path)
+	(_dbus_connection_release_io_path): make the mutex and condvar
+	control access to the "acquired" flag. Drop the connection lock
+	while waiting on the condvar. Hopefully these are baby steps in
+	roughly the right direction.
+
+2005-02-13  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-connection.c: use separate mutexes for the condition
 	variables; this is some kind of baseline for sanity, but the
 	condition variables still aren't used correctly afaict

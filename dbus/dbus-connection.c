@@ -188,10 +188,10 @@ struct DBusConnection
 
   DBusMutex *mutex; /**< Lock on the entire DBusConnection */
 
-  DBusMutex *dispatch_mutex;     /**< Protects dispatch() */
-  DBusCondVar *dispatch_cond;    /**< Notify when dispatch_mutex is available */
-  DBusMutex *io_path_mutex;      /**< Protects transport io path */
-  DBusCondVar *io_path_cond;     /**< Notify when io_path_mutex is available */
+  DBusMutex *dispatch_mutex;     /**< Protects dispatch_acquired */
+  DBusCondVar *dispatch_cond;    /**< Notify when dispatch_acquired is available */
+  DBusMutex *io_path_mutex;      /**< Protects io_path_acquired */
+  DBusCondVar *io_path_cond;     /**< Notify when io_path_acquired is available */
   
   DBusList *outgoing_messages; /**< Queue of messages we need to send, send the end of the list first. */
   DBusList *incoming_messages; /**< Queue of messages we have received, end of the list received most recently. */
@@ -908,32 +908,63 @@ static dbus_bool_t
 _dbus_connection_acquire_io_path (DBusConnection *connection,
 				  int timeout_milliseconds)
 {
-  dbus_bool_t res = TRUE;
+  dbus_bool_t we_acquired;
+  
+  HAVE_LOCK_CHECK (connection);
+
+  /* We don't want the connection to vanish */
+  _dbus_connection_ref_unlocked (connection);
+
+  /* We will only touch io_path_acquired which is protected by our mutex */
+  CONNECTION_UNLOCK (connection);
+  
+  _dbus_verbose ("%s locking io_path_mutex\n", _DBUS_FUNCTION_NAME);
+  dbus_mutex_lock (connection->io_path_mutex);
 
   _dbus_verbose ("%s start connection->io_path_acquired = %d timeout = %d\n",
                  _DBUS_FUNCTION_NAME, connection->io_path_acquired, timeout_milliseconds);
+
+  we_acquired = FALSE;
   
   if (connection->io_path_acquired)
     {
-      if (timeout_milliseconds != -1) 
-	res = dbus_condvar_wait_timeout (connection->io_path_cond,
-					 connection->io_path_mutex,
-					 timeout_milliseconds);
+      if (timeout_milliseconds != -1)
+        {
+          _dbus_verbose ("%s waiting %d for IO path to be acquirable\n",
+                         _DBUS_FUNCTION_NAME, timeout_milliseconds);
+          dbus_condvar_wait_timeout (connection->io_path_cond,
+                                     connection->io_path_mutex,
+                                     timeout_milliseconds);
+        }
       else
-	dbus_condvar_wait (connection->io_path_cond, connection->io_path_mutex);
+        {
+          while (connection->io_path_acquired)
+            {
+              _dbus_verbose ("%s waiting for IO path to be acquirable\n", _DBUS_FUNCTION_NAME);
+              dbus_condvar_wait (connection->io_path_cond, connection->io_path_mutex);
+            }
+        }
     }
   
-  if (res)
+  if (!connection->io_path_acquired)
     {
-      _dbus_assert (!connection->io_path_acquired);
-
+      we_acquired = TRUE;
       connection->io_path_acquired = TRUE;
     }
-
-  _dbus_verbose ("%s end connection->io_path_acquired = %d res = %d\n",
-                 _DBUS_FUNCTION_NAME, connection->io_path_acquired, res);
   
-  return res;
+  _dbus_verbose ("%s end connection->io_path_acquired = %d we_acquired = %d\n",
+                 _DBUS_FUNCTION_NAME, connection->io_path_acquired, we_acquired);
+
+  _dbus_verbose ("%s unlocking io_path_mutex\n", _DBUS_FUNCTION_NAME);
+  dbus_mutex_unlock (connection->io_path_mutex);
+
+  CONNECTION_LOCK (connection);
+  
+  HAVE_LOCK_CHECK (connection);
+
+  _dbus_connection_unref_unlocked (connection);
+  
+  return we_acquired;
 }
 
 /**
@@ -946,6 +977,11 @@ _dbus_connection_acquire_io_path (DBusConnection *connection,
 static void
 _dbus_connection_release_io_path (DBusConnection *connection)
 {
+  HAVE_LOCK_CHECK (connection);
+  
+  _dbus_verbose ("%s locking io_path_mutex\n", _DBUS_FUNCTION_NAME);
+  dbus_mutex_lock (connection->io_path_mutex);
+  
   _dbus_assert (connection->io_path_acquired);
 
   _dbus_verbose ("%s start connection->io_path_acquired = %d\n",
@@ -953,8 +989,10 @@ _dbus_connection_release_io_path (DBusConnection *connection)
   
   connection->io_path_acquired = FALSE;
   dbus_condvar_wake_one (connection->io_path_cond);
-}
 
+  _dbus_verbose ("%s unlocking io_path_mutex\n", _DBUS_FUNCTION_NAME);
+  dbus_mutex_unlock (connection->io_path_mutex);
+}
 
 /**
  * Queues incoming messages and sends outgoing messages for this
@@ -999,10 +1037,14 @@ _dbus_connection_do_iteration_unlocked (DBusConnection *connection,
   if (_dbus_connection_acquire_io_path (connection,
 					(flags & DBUS_ITERATION_BLOCK) ? timeout_milliseconds : 0))
     {
+      HAVE_LOCK_CHECK (connection);
+      
       _dbus_transport_do_iteration (connection->transport,
 				    flags, timeout_milliseconds);
       _dbus_connection_release_io_path (connection);
     }
+
+  HAVE_LOCK_CHECK (connection);
 
   _dbus_verbose ("%s end\n", _DBUS_FUNCTION_NAME);
 }
@@ -1298,8 +1340,10 @@ _dbus_connection_handle_watch (DBusWatch                   *watch,
   
   CONNECTION_LOCK (connection);
   _dbus_connection_acquire_io_path (connection, -1);
+  HAVE_LOCK_CHECK (connection);
   retval = _dbus_transport_handle_watch (connection->transport,
                                          watch, condition);
+
   _dbus_connection_release_io_path (connection);
 
   HAVE_LOCK_CHECK (connection);
@@ -2671,23 +2715,38 @@ dbus_connection_pop_message (DBusConnection *connection)
 }
 
 /**
- * Acquire the dispatcher. This must be done before dispatching
- * messages in order to guarantee the right order of
- * message delivery. May sleep and drop the connection mutex
- * while waiting for the dispatcher.
+ * Acquire the dispatcher. This is a separate lock so the main
+ * connection lock can be dropped to call out to application dispatch
+ * handlers.
  *
  * @param connection the connection.
  */
 static void
 _dbus_connection_acquire_dispatch (DBusConnection *connection)
 {
-  if (connection->dispatch_acquired)
+  HAVE_LOCK_CHECK (connection);
+
+  _dbus_connection_ref_unlocked (connection);
+  CONNECTION_UNLOCK (connection);
+  
+  _dbus_verbose ("%s locking dispatch_mutex\n", _DBUS_FUNCTION_NAME);
+  dbus_mutex_lock (connection->dispatch_mutex);
+
+  while (connection->dispatch_acquired)
     {
+      _dbus_verbose ("%s waiting for dispatch to be acquirable\n", _DBUS_FUNCTION_NAME);
       dbus_condvar_wait (connection->dispatch_cond, connection->dispatch_mutex);
     }
+  
   _dbus_assert (!connection->dispatch_acquired);
 
   connection->dispatch_acquired = TRUE;
+
+  _dbus_verbose ("%s unlocking dispatch_mutex\n", _DBUS_FUNCTION_NAME);
+  dbus_mutex_unlock (connection->dispatch_mutex);
+  
+  CONNECTION_LOCK (connection);
+  _dbus_connection_unref_unlocked (connection);
 }
 
 /**
@@ -2700,10 +2759,18 @@ _dbus_connection_acquire_dispatch (DBusConnection *connection)
 static void
 _dbus_connection_release_dispatch (DBusConnection *connection)
 {
+  HAVE_LOCK_CHECK (connection);
+  
+  _dbus_verbose ("%s locking dispatch_mutex\n", _DBUS_FUNCTION_NAME);
+  dbus_mutex_lock (connection->dispatch_mutex);
+  
   _dbus_assert (connection->dispatch_acquired);
 
   connection->dispatch_acquired = FALSE;
   dbus_condvar_wake_one (connection->dispatch_cond);
+
+  _dbus_verbose ("%s unlocking dispatch_mutex\n", _DBUS_FUNCTION_NAME);
+  dbus_mutex_unlock (connection->dispatch_mutex);
 }
 
 static void
@@ -2893,7 +2960,8 @@ dbus_connection_dispatch (DBusConnection *connection)
   _dbus_connection_ref_unlocked (connection);
 
   _dbus_connection_acquire_dispatch (connection);
-  
+  HAVE_LOCK_CHECK (connection);
+
   /* This call may drop the lock during the execution (if waiting for
    * borrowed messages to be returned) but the order of message
    * dispatch if several threads call dispatch() is still
@@ -2940,6 +3008,7 @@ dbus_connection_dispatch (DBusConnection *connection)
   if (!_dbus_list_copy (&connection->filter_list, &filter_list_copy))
     {
       _dbus_connection_release_dispatch (connection);
+      HAVE_LOCK_CHECK (connection);
 
       _dbus_connection_failed_pop (connection, message_link);
 
@@ -3152,6 +3221,7 @@ dbus_connection_dispatch (DBusConnection *connection)
     }
   
   _dbus_connection_release_dispatch (connection);
+  HAVE_LOCK_CHECK (connection);
 
   _dbus_verbose ("%s before final status update\n", _DBUS_FUNCTION_NAME);
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
