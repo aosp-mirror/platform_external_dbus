@@ -215,7 +215,11 @@ _dbus_warn (const char *format,
 
 static dbus_bool_t verbose_initted = FALSE;
 
+#define PTHREAD_IN_VERBOSE 0
+#if PTHREAD_IN_VERBOSE
 #include <pthread.h>
+#endif
+
 /**
  * Prints a warning message to stderr
  * if the user has enabled verbose mode.
@@ -250,7 +254,14 @@ _dbus_verbose_real (const char *format,
 
   /* Print out pid before the line */
   if (need_pid)
-    fprintf (stderr, "%lu: 0x%lx: ", _dbus_getpid (), pthread_self ());
+    {
+#if PTHREAD_IN_VERBOSE
+      fprintf (stderr, "%lu: 0x%lx: ", _dbus_getpid (), pthread_self ());
+#else
+      fprintf (stderr, "%lu: ", _dbus_getpid ());
+#endif
+    }
+      
 
   /* Only print pid again if the next line is a new line */
   len = strlen (format);
