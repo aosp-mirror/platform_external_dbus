@@ -1,5 +1,9 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 #include <dbus/dbus-glib.h>
+/* NOTE - outside of D-BUS core this would be
+ * include <dbus/dbus-glib-bindings.h>
+ */
+#include "glib/dbus-glib-bindings.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -190,6 +194,8 @@ my_object_many_args (MyObject *obj, guint32 x, const char *str, double trouble, 
      
 static GMainLoop *loop;
 
+#define TEST_SERVICE_NAME "org.freedesktop.DBus.TestSuiteGLibService"
+
 int
 main (int argc, char **argv)
 {
@@ -197,9 +203,7 @@ main (int argc, char **argv)
   GError *error;
   GObject *obj;
   DBusGProxy *driver_proxy;
-  DBusGPendingCall *call;
-  const char *v_STRING;
-  guint32 v_UINT32;
+  guint32 request_name_ret;
 
   g_type_init ();
 
@@ -231,34 +235,24 @@ main (int argc, char **argv)
                                             DBUS_PATH_DBUS,
                                             DBUS_INTERFACE_DBUS);
 
-  v_STRING = "org.freedesktop.DBus.TestSuiteGLibService";
-  v_UINT32 = 0;
-  call = dbus_g_proxy_begin_call (driver_proxy, "RequestName",
-                                  DBUS_TYPE_STRING,
-                                  &v_STRING,
-                                  DBUS_TYPE_UINT32,
-                                  &v_UINT32,
-                                  DBUS_TYPE_INVALID);
-  if (!dbus_g_proxy_end_call (driver_proxy, call,
-                              &error, DBUS_TYPE_UINT32, &v_UINT32,
-                              DBUS_TYPE_INVALID))
+  if (!org_freedesktop_DBus_request_name (driver_proxy,
+					  TEST_SERVICE_NAME,
+					  0, &request_name_ret, &error))
     {
       g_assert (error != NULL);
       g_printerr ("Failed to get name: %s\n",
-                  error->message);
-      g_error_free (error);
+		  error->message);
+      g_clear_error (&error);
       exit (1);
     }
-  g_assert (error == NULL);
-  dbus_g_pending_call_unref (call);
 
-  if (!(v_UINT32 == DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER))
+  if (!(request_name_ret == DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER))
     {
-      g_printerr ("Got result code %u from requesting name\n", v_UINT32);
+      g_printerr ("Got result code %u from requesting name\n", request_name_ret);
       exit (1);
     }
 
-  g_printerr ("GLib test service has name '%s'\n", v_STRING);
+  g_printerr ("GLib test service has name '%s'\n", TEST_SERVICE_NAME);
   g_printerr ("GLib test service entering main loop\n");
 
   g_main_loop_run (loop);

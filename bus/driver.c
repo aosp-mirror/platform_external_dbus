@@ -1117,7 +1117,14 @@ write_args_for_direction (DBusString *xml,
       int start, len;
 
       _dbus_type_reader_get_signature (&typereader, &subsig, &start, &len);
-      if (!_dbus_string_append_printf (xml, "      <arg direction=\"%s\" type=\"%s\"/>\n", in ? "in" : "out", _dbus_string_get_const_data_len (subsig, start, len)))
+      if (!_dbus_string_append_printf (xml, "      <arg direction=\"%s\" type=\"",
+				       in ? "in" : "out"))
+	goto oom;
+      if (!_dbus_string_append_len (xml,
+				    _dbus_string_get_const_data (subsig) + start,
+				    len))
+	goto oom;
+      if (!_dbus_string_append (xml, "\"/>\n"))
 	goto oom;
 
       _dbus_type_reader_next (&typereader);

@@ -1,3 +1,14 @@
+2005-03-14  Colin Walters  <walters@verbum.org>
+
+	* bus/driver.c (write_args_for_direction): Use
+	_dbus_string_get_const_data to retrieve string;
+	_dbus_string_get_const_data_len doesn't actually return
+	a NULL-terminated substring.
+
+	* test/glib/test-service-glib.c: Include dbus-glib-bindings.h.
+	(main): Change to use org_freedesktop_DBus_request_name
+	instead of using g_proxy_begin_call/end_call.
+
 2005-03-15  Joe Shaw  <joeshaw@novell.com>
 
 	* mono/ProxyBuilder.cs (BuildFinalizer): Fix some invalid IL when
