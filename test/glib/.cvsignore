@@ -7,3 +7,4 @@ test-profile
 test-service-glib
 test-thread-client
 test-thread-server
+run-test.conf
