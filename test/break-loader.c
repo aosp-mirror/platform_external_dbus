@@ -454,7 +454,7 @@ randomly_change_one_type (const DBusString *orig_data,
     }
 }
 
-static int times_we_did_each_thing[6] = { 0, };
+static int times_we_did_each_thing[7] = { 0, };
 
 static void
 randomly_do_n_things (const DBusString *orig_data,
@@ -741,14 +741,15 @@ main (int    argc,
           return 1;
         }
 
-      printf ("  did %d random mutations: %d %d %d %d %d %d\n",
+      printf ("  did %d random mutations: %d %d %d %d %d %d %d\n",
               _DBUS_N_ELEMENTS (times_we_did_each_thing),
               times_we_did_each_thing[0],
               times_we_did_each_thing[1],
               times_we_did_each_thing[2],
               times_we_did_each_thing[3],
               times_we_did_each_thing[4],
-              times_we_did_each_thing[5]);
+              times_we_did_each_thing[5],
+              times_we_did_each_thing[6]);
       
       printf ("Found %d failures with seed %u stored in %s\n",
               failures_this_iteration, seed, failure_dir_c);
