@@ -205,7 +205,7 @@ Message::iterator::var() const
   return d->var;
 }
 
-struct Message::MessagePrivate {
+struct Message::Private {
   DBusMessage *msg;
 };
 
@@ -214,7 +214,7 @@ struct Message::MessagePrivate {
  */
 Message::Message( int messageType )
 {
-  d = new MessagePrivate;
+  d = new Private;
   d->msg = dbus_message_new( messageType );
 }
 
@@ -226,7 +226,7 @@ Message::Message( int messageType )
 Message::Message( const QString& service, const QString& path,
                   const QString& interface, const QString& method )
 {
-  d = new MessagePrivate;
+  d = new Private;
   d->msg = dbus_message_new_method_call( service.latin1(), path.latin1(),
                                          interface.latin1(), method.latin1() );
 }
@@ -240,14 +240,14 @@ Message::Message( const QString& service, const QString& path,
  */
 Message::Message( const Message& replayingTo )
 {
-  d = new MessagePrivate;
+  d = new Private;
   d->msg = dbus_message_new_method_return( replayingTo.d->msg );
 }
 
 Message:: Message( const QString& path, const QString& interface,
                    const QString& name )
 {
-  d = new MessagePrivate;
+  d = new Private;
   d->msg = dbus_message_new_signal( path.ascii(), interface.ascii(),
                                     name.ascii() );
 }
@@ -255,7 +255,7 @@ Message:: Message( const QString& path, const QString& interface,
 Message::Message( const Message& replayingTo, const QString& errorName,
                   const QString& errorMessage )
 {
-  d = new MessagePrivate;
+  d = new Private;
   d->msg = dbus_message_new_error( replayingTo.d->msg, errorName.utf8(),
                                    errorMessage.utf8() );
 }

@@ -116,8 +116,8 @@ namespace DBus {
     DBusMessage* message() const;
 
   private:
-    struct MessagePrivate;
-    MessagePrivate *d;
+    struct Private;
+    Private *d;
   };
 
 }
