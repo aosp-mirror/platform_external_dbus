@@ -1,5 +1,13 @@
 2003-02-15  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/dbus-list.c: (_dbus_list_append_link),
+	(_dbus_list_prepend_link):
+	* dbus/dbus-memory.c: (dbus_malloc), (dbus_malloc0),
+	(dbus_realloc):
+	Warning fixes.
+
+2003-02-15  Anders Carlsson  <andersca@codefactory.se>
+
 	* bus/Makefile.am:
 	* bus/activation.c: (bus_activation_entry_free),
 	(add_desktop_file_entry), (load_directory), (bus_activation_init):

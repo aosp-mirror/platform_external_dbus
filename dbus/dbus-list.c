@@ -287,8 +287,6 @@ _dbus_list_append_link (DBusList **list,
 
   /* Now cycle the list forward one so the prepended node is the tail */
   *list = (*list)->next;
-
-  return TRUE;
 }
 
 /**
@@ -304,8 +302,6 @@ _dbus_list_prepend_link (DBusList **list,
 			 DBusList *link)
 {
   link_before (list, *list, link);
-
-  return TRUE;
 }
 
 /**

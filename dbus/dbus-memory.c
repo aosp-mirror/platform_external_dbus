@@ -75,7 +75,7 @@
 #ifdef DBUS_BUILD_TESTS
 static dbus_bool_t inited = FALSE;
 static int fail_counts = -1;
-static int fail_size = -1;
+static size_t fail_size = 0;
 #endif
 
 #ifdef DBUS_BUILD_TESTS
@@ -125,7 +125,7 @@ dbus_malloc (size_t bytes)
   if (bytes == 0) /* some system mallocs handle this, some don't */
     return NULL;
 #if DBUS_BUILD_TESTS
-  else if (fail_size != -1 && bytes > fail_size)
+  else if (fail_size != 0 && bytes > fail_size)
     return NULL;
 #endif
   else
@@ -159,7 +159,7 @@ dbus_malloc0 (size_t bytes)
   if (bytes == 0)
     return NULL;
 #if DBUS_BUILD_TESTS
-  else if (fail_size != -1 && bytes > fail_size)
+  else if (fail_size != 0 && bytes > fail_size)
     return NULL;
 #endif
   else
@@ -198,7 +198,7 @@ dbus_realloc (void  *memory,
       return NULL;
     }
 #if DBUS_BUILD_TESTS
-  else if (fail_size != -1 && bytes > fail_size)
+  else if (fail_size != 0 && bytes > fail_size)
     return NULL;
 #endif
   else
