@@ -1,5 +1,13 @@
 2003-10-16  Havoc Pennington  <hp@redhat.com>
 
+	* glib/dbus-gtest-main.c: bracket with #ifdef DBUS_BUILD_TESTS
+
+	* Makefile.am (GCOV_DIRS): remove "test", we don't care about test
+	coverage of the tests
+	(coverage-report.txt): don't move the .da and .bbg files around
+
+2003-10-16  Havoc Pennington  <hp@redhat.com>
+
 	* bus/bus.c (struct BusContext): remove struct field I didn't mean
 	to put there
 
