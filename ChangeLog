@@ -1,3 +1,9 @@
+2003-02-17  Anders Carlsson  <andersca@codefactory.se.>
+
+	Release 0.4
+	
+	* NEWS: Update
+
 2003-02-17  Anders Carlsson  <andersca@codefactory.se>
 
 	* doc/dbus-specification.sgml:

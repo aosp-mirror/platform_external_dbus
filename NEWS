@@ -1,3 +1,13 @@
+D-BUS 0.4
+===
+
+- Preliminary activation support.
+- Better authentication test suite
+- Bus test program
+- Specification updates
+- Thread safety
+- Bug fixes
+
 D-BUS 0.3
 ===
 

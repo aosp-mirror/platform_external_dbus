@@ -3,8 +3,8 @@
 <article id="index">
   <artheader>
     <title>D-BUS Protocol Specification</title>
-    <releaseinfo>Version 0.1</releaseinfo>
-    <date>22 January 2003</date>
+    <releaseinfo>Version 0.4</releaseinfo>
+    <date>17 February 2003</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
