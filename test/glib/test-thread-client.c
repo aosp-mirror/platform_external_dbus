@@ -1,5 +1,5 @@
 #include <glib.h>
-#include "dbus-glib.h"
+#include <dbus/dbus-glib-lowlevel.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>

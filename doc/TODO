@@ -72,7 +72,9 @@ Important for 1.0
    memory" and just fully encapsulate the get_args() type of 
    stuff.
 
- - dbus_gproxy or dbus_g_proxy?
+ - dbus_gproxy_connect_signal() has to take a signature for the signal 
+   so it can figure out how to invoke the callback, or we have to rely
+   on having introspection data.
 
 Might as Well for 1.0
 ===

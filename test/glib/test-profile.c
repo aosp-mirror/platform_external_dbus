@@ -28,7 +28,7 @@
 
 #include <config.h>
 #include <glib.h>
-#include "dbus-glib.h"
+#include <dbus/dbus-glib-lowlevel.h>
 #include <stdlib.h>
 
 #define N_CLIENT_THREADS 1

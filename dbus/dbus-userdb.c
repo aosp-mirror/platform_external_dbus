@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-userdb.c User database abstraction
  * 
- * Copyright (C) 2003  Red Hat, Inc.
+ * Copyright (C) 2003, 2004  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.0
  * 
@@ -24,6 +24,7 @@
 #include "dbus-hash.h"
 #include "dbus-test.h"
 #include "dbus-internals.h"
+#include "dbus-protocol.h"
 #include <string.h>
 
 /**

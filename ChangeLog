@@ -1,3 +1,31 @@
+2004-06-20  Havoc Pennington  <hp@redhat.com>
+
+        * dbus/dbus-glib-error-enum.h: autogenerate the GError enum 
+	codes from the dbus error names
+	
+        * glib/dbus-glib.h: move to subdir dbus/ since it's included 
+	as dbus/dbus-glib.h and that breakage is now visible due to 
+	including dbus/dbus-glib.h in dbus-glib-lowlevel.h
+	
+	* glib/dbus-glib.h: s/gproxy/g_proxy/
+
+	* dbus/dbus-shared.h: new header to hold stuff shared with
+	binding APIs
+	
+	* dbus/dbus-protocol.h (DBUS_ERROR_*): move errors here rather
+	than dbus-errors.h
+
+	* glib/dbus-glib.h (dbus_set_g_error): move to
+	dbus-glib-lowlevel.h
+
+	* glib/dbus-glib.h: remove dbus/dbus.h from here; change a bunch
+	of stuff to enable this
+
+	* dbus/dbus-glib-lowlevel.h: put dbus/dbus.h here
+
+	* a bunch of other changes with the same basic "separate glib 
+	bindings from dbus.h" theme
+	
 2004-06-10  Owen Fraser-Green  <owen@discobabe.net>
 
 	* dbus-sharp.pc.in: Removed glib-sharp inclusion in Libs.

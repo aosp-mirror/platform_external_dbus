@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-auth.c Authentication
  *
- * Copyright (C) 2002, 2003 Red Hat Inc.
+ * Copyright (C) 2002, 2003, 2004 Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.0
  * 
@@ -27,6 +27,7 @@
 #include "dbus-keyring.h"
 #include "dbus-sha.h"
 #include "dbus-userdb.h"
+#include "dbus-protocol.h"
 
 /**
  * @defgroup DBusAuth Authentication

@@ -25,6 +25,7 @@
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
 #include "dbus-threads.h"
+#include "dbus-protocol.h"
 #include "dbus-test.h"
 #include <sys/types.h>
 #include <stdlib.h>

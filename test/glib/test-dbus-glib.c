@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-#include "dbus-glib.h"
+#include <dbus/dbus-glib.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,10 +16,15 @@ timed_exit (gpointer loop)
 
 static void
 foo_signal_handler (DBusGProxy  *proxy,
-                    DBusMessage *signal,
                     void        *user_data)
 {
+#if 0
   double d;
+  
+  /* FIXME - need to fix up dbus_gproxy_signal_connect() to be able to
+   * get signal args
+   */
+  
   DBusError derror;
   
   if (!dbus_message_is_signal (signal,
@@ -38,6 +43,7 @@ foo_signal_handler (DBusGProxy  *proxy,
       dbus_error_free (&derror);
       exit (1);
     }
+#endif
 
   n_times_foo_received += 1;
 
@@ -47,15 +53,15 @@ foo_signal_handler (DBusGProxy  *proxy,
 int
 main (int argc, char **argv)
 {
-  DBusConnection *connection;
+  DBusGConnection *connection;
   GError *error;
   DBusGProxy *driver;
   DBusGProxy *proxy;
-  DBusPendingCall *call;
+  DBusGPendingCall *call;
   char **service_list;
   int service_list_len;
   int i;
-  dbus_uint32_t result;
+  guint32 result;
   char *str;
   
   g_type_init ();
@@ -63,8 +69,8 @@ main (int argc, char **argv)
   loop = g_main_loop_new (NULL, FALSE);
 
   error = NULL;
-  connection = dbus_bus_get_with_g_main (DBUS_BUS_SESSION,
-                                         &error);
+  connection = dbus_g_bus_get (DBUS_BUS_SESSION,
+                               &error);
   if (connection == NULL)
     {
       g_printerr ("Failed to open connection to bus: %s\n",
@@ -75,20 +81,20 @@ main (int argc, char **argv)
 
   /* Create a proxy object for the "bus driver" */
   
-  driver = dbus_gproxy_new_for_service (connection,
-                                        DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
-                                        DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                        DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS);
+  driver = dbus_g_proxy_new_for_service (connection,
+                                         DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                         DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                         DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS);
 
   /* Call ListServices method */
   
-  call = dbus_gproxy_begin_call (driver, "ListServices", DBUS_TYPE_INVALID);
+  call = dbus_g_proxy_begin_call (driver, "ListServices", DBUS_TYPE_INVALID);
 
   error = NULL;
-  if (!dbus_gproxy_end_call (driver, call, &error,
-                             DBUS_TYPE_ARRAY, DBUS_TYPE_STRING,
-                             &service_list, &service_list_len,
-                             DBUS_TYPE_INVALID))
+  if (!dbus_g_proxy_end_call (driver, call, &error,
+                              DBUS_TYPE_ARRAY, DBUS_TYPE_STRING,
+                              &service_list, &service_list_len,
+                              DBUS_TYPE_INVALID))
     {
       g_printerr ("Failed to complete ListServices call: %s\n",
                   error->message);
@@ -105,11 +111,11 @@ main (int argc, char **argv)
       ++i;
     }
   g_assert (service_list[i] == NULL);
-  
-  dbus_free_string_array (service_list);
+
+  g_strfreev (service_list);
 
   /* Test handling of unknown method */
-  call = dbus_gproxy_begin_call (driver, "ThisMethodDoesNotExist",
+  call = dbus_g_proxy_begin_call (driver, "ThisMethodDoesNotExist",
                                  DBUS_TYPE_STRING,
                                  "blah blah blah blah blah",
                                  DBUS_TYPE_INT32,
@@ -117,7 +123,7 @@ main (int argc, char **argv)
                                  DBUS_TYPE_INVALID);
 
   error = NULL;
-  if (dbus_gproxy_end_call (driver, call, &error,
+  if (dbus_g_proxy_end_call (driver, call, &error,
                             DBUS_TYPE_INVALID))
     {
       g_printerr ("Calling nonexistent method succeeded!\n");
@@ -129,7 +135,7 @@ main (int argc, char **argv)
   g_error_free (error);
   
   /* Activate a service */
-  call = dbus_gproxy_begin_call (driver, "ActivateService",
+  call = dbus_g_proxy_begin_call (driver, "ActivateService",
                                  DBUS_TYPE_STRING,
                                  "org.freedesktop.DBus.TestSuiteEchoService",
                                  DBUS_TYPE_UINT32,
@@ -137,7 +143,7 @@ main (int argc, char **argv)
                                  DBUS_TYPE_INVALID);
 
   error = NULL;
-  if (!dbus_gproxy_end_call (driver, call, &error,
+  if (!dbus_g_proxy_end_call (driver, call, &error,
                              DBUS_TYPE_UINT32, &result,
                              DBUS_TYPE_INVALID))
     {
@@ -150,7 +156,7 @@ main (int argc, char **argv)
   g_print ("Activation of echo service = 0x%x\n", result);
 
   /* Activate a service again */
-  call = dbus_gproxy_begin_call (driver, "ActivateService",
+  call = dbus_g_proxy_begin_call (driver, "ActivateService",
                                  DBUS_TYPE_STRING,
                                  "org.freedesktop.DBus.TestSuiteEchoService",
                                  DBUS_TYPE_UINT32,
@@ -158,7 +164,7 @@ main (int argc, char **argv)
                                  DBUS_TYPE_INVALID);
 
   error = NULL;
-  if (!dbus_gproxy_end_call (driver, call, &error,
+  if (!dbus_g_proxy_end_call (driver, call, &error,
                              DBUS_TYPE_UINT32, &result,
                              DBUS_TYPE_INVALID))
     {
@@ -172,11 +178,11 @@ main (int argc, char **argv)
 
   /* Talk to the new service */
   
-  proxy = dbus_gproxy_new_for_service_owner (connection,
-					     "org.freedesktop.DBus.TestSuiteEchoService",
-					     "/org/freedesktop/TestSuite",
-					     "org.freedesktop.TestSuite",
-					     &error);
+  proxy = dbus_g_proxy_new_for_service_owner (connection,
+                                              "org.freedesktop.DBus.TestSuiteEchoService",
+                                              "/org/freedesktop/TestSuite",
+                                              "org.freedesktop.TestSuite",
+                                              &error);
   
   if (proxy == NULL)
     {
@@ -186,13 +192,13 @@ main (int argc, char **argv)
       exit (1);      
     }
 
-  call = dbus_gproxy_begin_call (proxy, "Echo",
+  call = dbus_g_proxy_begin_call (proxy, "Echo",
                                  DBUS_TYPE_STRING,
                                  "my string hello",
                                  DBUS_TYPE_INVALID);
 
   error = NULL;
-  if (!dbus_gproxy_end_call (proxy, call, &error,
+  if (!dbus_g_proxy_end_call (proxy, call, &error,
                              DBUS_TYPE_STRING, &str,
                              DBUS_TYPE_INVALID))
     {
@@ -203,18 +209,18 @@ main (int argc, char **argv)
     }
 
   g_print ("String echoed = \"%s\"\n", str);
-  dbus_free (str);
+  g_free (str);
 
   /* Test oneway call and signal handling */
 
-  dbus_gproxy_connect_signal (proxy, "Foo",
-                              foo_signal_handler,
-                              NULL, NULL);
+  dbus_g_proxy_connect_signal (proxy, "Foo",
+                               G_CALLBACK (foo_signal_handler),
+                               NULL, NULL);
   
-  dbus_gproxy_call_no_reply (proxy, "EmitFoo",
-                             DBUS_TYPE_INVALID);
-
-  dbus_connection_flush (connection);
+  dbus_g_proxy_call_no_reply (proxy, "EmitFoo",
+                              DBUS_TYPE_INVALID);
+  
+  dbus_g_connection_flush (connection);
   
   g_timeout_add (5000, timed_exit, loop);
 

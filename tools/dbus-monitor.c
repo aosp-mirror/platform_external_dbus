@@ -24,9 +24,7 @@
 #include <string.h>
 
 #include <glib.h>
-#include <dbus/dbus.h>
- /* Don't copy this, for programs outside the dbus tree it's dbus/dbus-glib.h */
-#include <glib/dbus-glib.h>
+#include <dbus/dbus-glib-lowlevel.h>
 #include "dbus-print-message.h"
 
 static DBusHandlerResult

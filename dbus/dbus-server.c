@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-server.c DBusServer object
  *
- * Copyright (C) 2002, 2003 Red Hat Inc.
+ * Copyright (C) 2002, 2003, 2004 Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.0
  * 
@@ -28,6 +28,7 @@
 #include "dbus-server-debug-pipe.h"
 #endif
 #include "dbus-address.h"
+#include "dbus-protocol.h"
 
 /**
  * @defgroup DBusServer DBusServer

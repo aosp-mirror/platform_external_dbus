@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-gmain.c GLib main loop integration
  *
- * Copyright (C) 2002, 2003  CodeFactory AB
+ * Copyright (C) 2002, 2003 CodeFactory AB
  *
  * Licensed under the Academic Free License version 2.0
  * 
@@ -22,8 +22,10 @@
  */
 
 #include <config.h>
-#include "dbus-glib.h"
+#include <dbus/dbus-glib.h>
+#include <dbus/dbus-glib-lowlevel.h>
 #include "dbus-gtest.h"
+#include "dbus-gutils.h"
 
 #include <libintl.h>
 #define _(x) dgettext (GETTEXT_PACKAGE, x)
@@ -582,16 +584,19 @@ dbus_server_setup_with_g_main (DBusServer   *server,
 }
 
 /**
- * Calls dbus_bus_get() then calls dbus_connection_setup_with_g_main()
- * on the result and returns the bus connection.
+ * Returns a connection to the given bus. The connection is a global variable
+ * shared with other callers of this function.
+ * 
+ * (Internally, calls dbus_bus_get() then calls
+ * dbus_connection_setup_with_g_main() on the result.)
  *
  * @param type bus type
  * @param error address where an error can be returned.
  * @returns a DBusConnection
  */
-DBusConnection*
-dbus_bus_get_with_g_main (DBusBusType     type,
-                          GError        **error)
+DBusGConnection*
+dbus_g_bus_get (DBusBusType     type,
+                GError        **error)
 {
   DBusConnection *connection;
   DBusError derror;
@@ -612,7 +617,7 @@ dbus_bus_get_with_g_main (DBusBusType     type,
       dbus_connection_setup_with_g_main (connection, NULL);
     }
 
-  return connection;
+  return DBUS_G_CONNECTION_FROM_CONNECTION (connection);
 }
 
 /**
@@ -688,6 +693,104 @@ dbus_message_get_g_type (void)
   return our_type;
 }
 
+static DBusGConnection*
+dbus_g_connection_ref (DBusGConnection *gconnection)
+{
+  DBusConnection *c;
+
+  c = DBUS_CONNECTION_FROM_G_CONNECTION (gconnection);
+  dbus_connection_ref (c);
+  return gconnection;
+}
+
+static void
+dbus_g_connection_unref (DBusGConnection *gconnection)
+{
+  DBusConnection *c;
+
+  c = DBUS_CONNECTION_FROM_G_CONNECTION (gconnection);
+  dbus_connection_unref (c);
+}
+
+
+static DBusGMessage*
+dbus_g_message_ref (DBusGMessage *gmessage)
+{
+  DBusMessage *c;
+
+  c = DBUS_MESSAGE_FROM_G_MESSAGE (gmessage);
+  dbus_message_ref (c);
+  return gmessage;
+}
+
+static void
+dbus_g_message_unref (DBusGMessage *gmessage)
+{
+  DBusMessage *c;
+
+  c = DBUS_MESSAGE_FROM_G_MESSAGE (gmessage);
+  dbus_message_unref (c);
+}
+
+/**
+ * Get the GLib type ID for a DBusGConnection boxed type.
+ *
+ * @returns GLib type
+ */
+GType
+dbus_g_connection_get_g_type (void)
+{
+  static GType our_type = 0;
+  
+  if (our_type == 0)
+    our_type = g_boxed_type_register_static ("DBusGConnection",
+                                             (GBoxedCopyFunc) dbus_g_connection_ref,
+                                             (GBoxedFreeFunc) dbus_g_connection_unref);
+
+  return our_type;
+}
+
+/**
+ * Get the GLib type ID for a DBusGMessage boxed type.
+ *
+ * @returns GLib type
+ */
+GType
+dbus_g_message_get_g_type (void)
+{
+  static GType our_type = 0;
+  
+  if (our_type == 0)
+    our_type = g_boxed_type_register_static ("DBusGMessage",
+                                             (GBoxedCopyFunc) dbus_g_message_ref,
+                                             (GBoxedFreeFunc) dbus_g_message_unref);
+
+  return our_type;
+}
+
+/**
+ * Get the DBusConnection corresponding to this DBusGConnection.
+ * The return value does not have its refcount incremented.
+ *
+ * @returns DBusConnection 
+ */
+DBusConnection*
+dbus_g_connection_get_connection (DBusGConnection *gconnection)
+{
+  return DBUS_CONNECTION_FROM_G_CONNECTION (gconnection);
+}
+
+/**
+ * Get the DBusMessage corresponding to this DBusGMessage.
+ * The return value does not have its refcount incremented.
+ *
+ * @returns DBusMessage 
+ */
+DBusMessage*
+dbus_g_message_get_message (DBusGMessage *gmessage)
+{
+  return DBUS_MESSAGE_FROM_G_MESSAGE (gmessage);
+}
 
 /** @} */ /* end of public API */
 
@@ -698,7 +801,7 @@ dbus_message_get_g_type (void)
  * Unit test for GLib main loop integration
  * @returns #TRUE on success.
  */
-dbus_bool_t
+gboolean
 _dbus_gmain_test (const char *test_data_dir)
 {
   

@@ -1,13 +1,9 @@
 INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) $(DBUS_GLIB_TOOL_CFLAGS) -DDBUS_COMPILATION=1 -DDBUS_LOCALEDIR=\"$(prefix)/@DATADIRNAME@/locale\"
 
-dbusincludedir=$(includedir)/dbus-1.0/dbus
-
 lib_LTLIBRARIES=libdbus-glib-1.la
 
-dbusinclude_HEADERS=				\
-	dbus-glib.h
-
 libdbus_glib_1_la_SOURCES = 			\
+	dbus-glib.c				\
 	dbus-gmain.c				\
 	dbus-gobject.c				\
 	dbus-gproxy.c				\

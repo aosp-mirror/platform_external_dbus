@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-spawn.c Wrapper around fork/exec
  * 
- * Copyright (C) 2002, 2003  Red Hat, Inc.
+ * Copyright (C) 2002, 2003, 2004  Red Hat, Inc.
  * Copyright (C) 2003 CodeFactory AB
  *
  * Licensed under the Academic Free License version 2.0
@@ -25,6 +25,7 @@
 #include "dbus-sysdeps.h"
 #include "dbus-internals.h"
 #include "dbus-test.h"
+#include "dbus-protocol.h"
 
 #include <unistd.h>
 #include <fcntl.h>

@@ -24,8 +24,8 @@
 #ifndef DBUS_GLIB_TOOL_TEST_H
 #define DBUS_GLIB_TOOL_TEST_H
 
-#include "dbus-glib.h"
+#include <dbus/dbus-glib.h>
 
-dbus_bool_t _dbus_gtool_test (const char *test_data_dir);
+gboolean _dbus_gtool_test (const char *test_data_dir);
 
 #endif /* DBUS_GLIB_TEST_H */

@@ -549,7 +549,7 @@ arg_info_get_direction (ArgInfo *info)
  * Unit test for GLib IDL internals
  * @returns #TRUE on success.
  */
-dbus_bool_t
+gboolean
 _dbus_gidl_test (void)
 {
 

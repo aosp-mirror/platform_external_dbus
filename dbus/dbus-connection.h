@@ -30,6 +30,7 @@
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-message.h>
+#include <dbus/dbus-shared.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -57,13 +58,6 @@ typedef enum
   DBUS_DISPATCH_COMPLETE,      /**< All currently available data has been processed. */
   DBUS_DISPATCH_NEED_MEMORY    /**< More memory is needed to continue. */
 } DBusDispatchStatus;
-
-typedef enum
-{
-  DBUS_HANDLER_RESULT_HANDLED,         /**< Message has had its effect */ 
-  DBUS_HANDLER_RESULT_NOT_YET_HANDLED, /**< Message has not had any effect */
-  DBUS_HANDLER_RESULT_NEED_MEMORY      /**< Need more memory to return another result */
-} DBusHandlerResult;
 
 typedef dbus_bool_t (* DBusAddWatchFunction)       (DBusWatch      *watch,
                                                     void           *data);

@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-gobject.c Exporting a GObject remotely
  *
- * Copyright (C) 2003 Red Hat, Inc.
+ * Copyright (C) 2003, 2004 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.0
  *
@@ -22,7 +22,8 @@
  */
 
 #include <config.h>
-#include "dbus-glib.h"
+#include <dbus/dbus-glib.h>
+#include <dbus/dbus-glib-lowlevel.h>
 #include "dbus-gtest.h"
 #include "dbus-gutils.h"
 #include "dbus-gvalue.h"
@@ -502,7 +503,7 @@ static DBusObjectPathVTable gobject_dbus_vtable = {
  * class_init() for the object class.
  *
  * Once introspection information has been installed, instances of the
- * object registered with dbus_connection_register_g_object() can have
+ * object registered with dbus_g_connection_register_g_object() can have
  * their methods invoked remotely.
  *
  * @param object_class class struct of the object
@@ -540,15 +541,15 @@ dbus_g_object_class_install_info (GObjectClass          *object_class,
  * @param object the object
  */
 void
-dbus_connection_register_g_object (DBusConnection        *connection,
-                                   const char            *at_path,
-                                   GObject               *object)
+dbus_g_connection_register_g_object (DBusGConnection       *connection,
+                                     const char            *at_path,
+                                     GObject               *object)
 {
   g_return_if_fail (connection != NULL);
   g_return_if_fail (at_path != NULL);
   g_return_if_fail (G_IS_OBJECT (object));
 
-  if (!dbus_connection_register_object_path (connection,
+  if (!dbus_connection_register_object_path (DBUS_CONNECTION_FROM_G_CONNECTION (connection),
                                              at_path,
                                              &gobject_dbus_vtable,
                                              object))
@@ -569,7 +570,7 @@ dbus_connection_register_g_object (DBusConnection        *connection,
  * Unit test for GLib GObject integration ("skeletons")
  * @returns #TRUE on success.
  */
-dbus_bool_t
+gboolean
 _dbus_gobject_test (const char *test_data_dir)
 {
   int i;

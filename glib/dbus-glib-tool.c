@@ -295,7 +295,7 @@ test_die (const char *failure)
  * Unit test for GLib utility tool
  * @returns #TRUE on success.
  */
-static dbus_bool_t
+static gboolean
 _dbus_gtool_test (const char *test_data_dir)
 {
 

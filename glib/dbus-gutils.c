@@ -118,7 +118,7 @@ _dbus_gutils_type_to_string (int type)
  * Unit test for GLib utils internals
  * @returns #TRUE on success.
  */
-dbus_bool_t
+gboolean
 _dbus_gutils_test (const char *test_data_dir)
 {
 

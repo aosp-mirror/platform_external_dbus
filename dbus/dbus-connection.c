@@ -22,6 +22,7 @@
  */
 
 #include <config.h>
+#include "dbus-shared.h"
 #include "dbus-connection.h"
 #include "dbus-list.h"
 #include "dbus-timeout.h"

@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-keyring.c Store secret cookies in your homedir
  *
- * Copyright (C) 2003  Red Hat Inc.
+ * Copyright (C) 2003, 2004  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.0
  * 
@@ -23,6 +23,7 @@
 
 #include "dbus-keyring.h"
 #include "dbus-userdb.h"
+#include "dbus-protocol.h"
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-sysdeps.h>

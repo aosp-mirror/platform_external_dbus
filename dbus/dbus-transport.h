@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-transport.h DBusTransport object (internal to D-BUS implementation)
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2004  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.0
  * 
@@ -25,6 +25,7 @@
 
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-connection.h>
+#include <dbus/dbus-protocol.h>
 
 DBUS_BEGIN_DECLS;
 

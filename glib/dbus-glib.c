@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-tree-view.h GtkTreeView for a D-BUS interface description
+/* dbus-glib.c General GLib binding stuff
  *
- * Copyright (C) 2003 Red Hat, Inc.
+ * Copyright (C) 2004 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.0
  * 
@@ -20,17 +20,48 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#ifndef DBUS_TREE_VIEW_H
-#define DBUS_TREE_VIEW_H
 
-#include <gtk/gtk.h>
+#include <config.h>
 #include <dbus/dbus-glib.h>
-#include <glib/dbus-gidl.h>
+#include <dbus/dbus-glib-lowlevel.h>
+#include "dbus-gtest.h"
+#include "dbus-gutils.h"
 
-GtkWidget*   dbus_tree_view_new    (void);
-void         dbus_tree_view_update (GtkTreeView  *view,
-                                    const char  **path,
-                                    NodeInfo     *info);
-void         dbus_tree_view_clear  (GtkTreeView  *view);
+#include <libintl.h>
+#define _(x) dgettext (GETTEXT_PACKAGE, x)
+#define N_(x) x
 
-#endif /* DBUS_TREE_VIEW_H */
+/**
+ * @ingroup DBusGLib
+ * @{
+ */
+
+/**
+ * Blocks until outgoing calls and signal emissions have been sent.
+ * 
+ * @param connection the connection to flush
+ */
+void
+dbus_g_connection_flush (DBusGConnection *connection)
+{
+  dbus_connection_flush (DBUS_CONNECTION_FROM_G_CONNECTION (connection));
+}
+
+/** @} */ /* end of public API */
+
+
+#ifdef DBUS_BUILD_TESTS
+
+/**
+ * @ingroup DBusGLibInternals
+ * Unit test for general glib stuff
+ * @returns #TRUE on success.
+ */
+gboolean
+_dbus_glib_test (const char *test_data_dir)
+{
+  
+  return TRUE;
+}
+
+#endif /* DBUS_BUILD_TESTS */

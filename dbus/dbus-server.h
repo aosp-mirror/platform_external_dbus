@@ -30,6 +30,7 @@
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-message.h>
 #include <dbus/dbus-connection.h>
+#include <dbus/dbus-protocol.h>
 
 DBUS_BEGIN_DECLS;
 

@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-server-unix.c Server implementation for Unix network protocols.
  *
- * Copyright (C) 2002, 2003  Red Hat Inc.
+ * Copyright (C) 2002, 2003, 2004  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.0
  * 

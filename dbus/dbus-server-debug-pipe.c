@@ -2,7 +2,7 @@
 /* dbus-server-debug-pipe.c In-proc debug server implementation 
  *
  * Copyright (C) 2003  CodeFactory AB
- * Copyright (C) 2003  Red Hat, Inc.
+ * Copyright (C) 2003, 2004  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.0
  * 
@@ -28,6 +28,7 @@
 #include "dbus-connection-internal.h"
 #include "dbus-hash.h"
 #include "dbus-string.h"
+#include "dbus-protocol.h"
 
 #ifdef DBUS_BUILD_TESTS
 

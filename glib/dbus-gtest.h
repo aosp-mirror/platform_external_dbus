@@ -24,11 +24,12 @@
 #ifndef DBUS_GLIB_TEST_H
 #define DBUS_GLIB_TEST_H
 
-#include "dbus-glib.h"
+#include <dbus/dbus-glib.h>
 
-dbus_bool_t _dbus_gmain_test   (const char *test_data_dir);
-dbus_bool_t _dbus_gobject_test (const char *test_data_dir);
-dbus_bool_t _dbus_gutils_test  (const char *test_data_dir);
+gboolean _dbus_gmain_test   (const char *test_data_dir);
+gboolean _dbus_gobject_test (const char *test_data_dir);
+gboolean _dbus_gutils_test  (const char *test_data_dir);
+gboolean _dbus_glib_test    (const char *test_data_dir);
 
 void dbus_glib_internal_do_not_use_run_tests (const char *test_data_dir);
 

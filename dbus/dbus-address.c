@@ -2,6 +2,7 @@
 /* dbus-address.c  Server address parser.
  *
  * Copyright (C) 2003  CodeFactory AB
+ * Copyright (C) 2004  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.0
  * 
@@ -26,6 +27,7 @@
 #include "dbus-internals.h"
 #include "dbus-list.h"
 #include "dbus-string.h"
+#include "dbus-protocol.h"
 
 /**
  * @defgroup DBusAddressInternals Address parsing

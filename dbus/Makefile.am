@@ -1,6 +1,20 @@
 
 INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION
 
+if HAVE_GLIB
+DBUS_GLIB_BUILT_INCLUDES=			\
+	dbus-glib-error-enum.h
+
+GLIB_INCLUDES=					\
+	dbus-glib.h				\
+	dbus-glib-lowlevel.h			\
+	$(DBUS_GLIB_BUILT_INCLUDES)
+
+dbus-glib-error-enum.h: dbus-protocol.h make-dbus-glib-error-enum.sh
+	$(srcdir)/make-dbus-glib-error-enum.sh dbus-protocol.h $@
+
+endif
+
 dbusincludedir=$(includedir)/dbus-1.0/dbus
 dbusarchincludedir=$(libdir)/dbus-1.0/include/dbus
 
@@ -18,8 +32,10 @@ dbusinclude_HEADERS=				\
 	dbus-pending-call.h			\
 	dbus-protocol.h				\
 	dbus-server.h				\
+	dbus-shared.h				\
 	dbus-threads.h				\
-	dbus-types.h
+	dbus-types.h				\
+	$(GLIB_INCLUDES)
 
 dbusarchinclude_HEADERS=			\
 	dbus-arch-deps.h
@@ -117,8 +133,9 @@ libdbus_convenience_la_SOURCES=			\
 	$(DBUS_SHARED_SOURCES)			\
 	$(DBUS_UTIL_SOURCES)
 
-BUILT_SOURCES=$(dbusarchinclude_HEADERS)
-EXTRA_DIST=dbus-arch-deps.h.in
+BUILT_SOURCES=$(dbusarchinclude_HEADERS) $(DBUS_GLIB_BUILT_INCLUDES)
+EXTRA_DIST=dbus-arch-deps.h.in make-dbus-glib-error-enum.sh
+CLEANFILES=$(DBUS_GLIB_BUILT_INCLUDES)
 
 ## this library is the same as libdbus, but exports all the symbols
 ## and is only used for static linking within the dbus package.
