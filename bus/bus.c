@@ -753,7 +753,8 @@ bus_context_new (const DBusString *config_file,
   if (context != NULL)
     bus_context_unref (context);
 
-  dbus_server_free_data_slot (&server_data_slot);
+  if (server_data_slot >= 0)
+    dbus_server_free_data_slot (&server_data_slot);
   
   return NULL;
 }
@@ -890,7 +891,8 @@ bus_context_unref (BusContext *context)
           dbus_free (context->pidfile); 
 	}
 
-      _dbus_user_database_unref (context->user_database);
+      if (context->user_database != NULL)
+	_dbus_user_database_unref (context->user_database);
       
       dbus_free (context);
 

@@ -38,7 +38,7 @@ dbus_viewer_SOURCES=				\
 dbus_send_LDADD= $(top_builddir)/dbus/libdbus-1.la
 dbus_monitor_LDADD= $(top_builddir)/glib/libdbus-glib-1.la
 dbus_launch_LDADD= $(DBUS_X_LIBS)
-dbus_viewer_LDADD= $(top_builddir)/glib/libdbus-gtool.la $(DBUS_GTK_LIBS)
+dbus_viewer_LDADD= $(DBUS_GLIB_TOOL_LIBS) $(top_builddir)/glib/libdbus-gtool.la $(DBUS_GTK_LIBS)
 
 man_MANS = dbus-send.1 dbus-monitor.1 dbus-launch.1 dbus-cleanup-sockets.1
 EXTRA_DIST = $(man_MANS)

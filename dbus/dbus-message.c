@@ -5018,7 +5018,7 @@ decode_string_field (const DBusString   *data,
   _dbus_string_init_const (field_data,
                            _dbus_string_get_const_data (data) + string_data_pos);
 
-  header_field->name_offset  = pos;
+  header_field->name_offset  = pos - 2;
   header_field->value_offset = _DBUS_ALIGN_VALUE (pos, 4);
   
 #if 0
@@ -5188,7 +5188,7 @@ decode_header_data (const DBusString   *data,
               return FALSE;
             }
 
-          fields[field].name_offset  = pos;
+          fields[field].name_offset  = pos - 2;
           fields[field].value_offset = _DBUS_ALIGN_VALUE (pos, 4);
 
           /* No forging signals from the local path */
@@ -5222,7 +5222,7 @@ decode_header_data (const DBusString   *data,
               return FALSE;
             }
           
-          fields[field].name_offset  = pos;
+          fields[field].name_offset  = pos - 2;
           fields[field].value_offset = _DBUS_ALIGN_VALUE (pos, 4);
 
           _dbus_verbose ("Found reply serial %u at offset %d\n",
