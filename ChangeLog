@@ -1,4 +1,4 @@
-2004-11-02  Colin Walters  <walters@verbum.org>
+2004-11-02  Colin Walters  <walters@redhat.com>
 
 	* bus/selinux.c (bus_selinux_init): Split into two functions,
 	bus_selinux_pre_init and bus_selinux_post_init.
