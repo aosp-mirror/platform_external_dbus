@@ -232,8 +232,8 @@ dbus_parse_address (const char         *address,
 	  if (!_dbus_string_find_to (&str, pos, end_pos, ",", &comma_pos))
 	    comma_pos = end_pos;
 	  
-	  if (!_dbus_string_find (&str, pos, "=", &equals_pos) ||
-	      equals_pos == pos || equals_pos + 1 == end_pos)
+	  if (!_dbus_string_find_to (&str, pos, comma_pos, "=", &equals_pos) ||
+	      equals_pos == pos || equals_pos + 1 == comma_pos)
 	    {
 	      dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
                               "'=' character not found or has no value following it");
@@ -430,7 +430,12 @@ _dbus_address_test (void)
     _dbus_assert_not_reached ("Parsed incorrect address.");
   else
     dbus_error_free (&error);
-  
+
+  if (dbus_parse_address ("foo:foo,bar=baz", &entries, &len, &error))
+    _dbus_assert_not_reached ("Parsed incorrect address.");
+  else
+    dbus_error_free (&error);
+
   return TRUE;
 }
 
