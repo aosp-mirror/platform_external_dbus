@@ -1,3 +1,10 @@
+2004-07-28  Anders Carlsson  <andersca@gnome.org>
+
+	* python/dbus.py:
+	* python/dbus_bindings.pyx.in:
+	Add dbus.init_gthreads (), allow emit_signal to pass
+	arguments to the signal.
+	
 2004-07-24  Havoc Pennington  <hp@redhat.com>
 
 	* AUTHORS: add some people, not really comprehensively, let me
