@@ -68,3 +68,11 @@
    files; they have to be in the toplevel file. when loading 
    a child file, we could just init its DBusLimits from the parent, 
    then after parsing copy its DBusLimits back to the parent
+
+ - when making a method call, if the call serial were globally unique,
+   we could forward the call serial along with any method calls made
+   as a result of the first method call, and allow reentrancy that was
+   strictly part of the call stack of said method call. But I don't
+   really see how to do this without making the user pass around the
+   call serial to all method calls all the time, or disallowing 
+   async calls.

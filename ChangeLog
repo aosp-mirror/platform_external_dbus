@@ -1,3 +1,7 @@
+2003-08-29  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-internals.h: fix _DBUS_N_GLOBAL_LOCKS
+
 2003-08-28  Havoc Pennington  <hp@pobox.com>
 
 	purge DBusObjectID
