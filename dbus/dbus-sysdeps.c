@@ -3288,8 +3288,8 @@ _dbus_change_identity  (dbus_uid_t     uid,
    * is going to work then setgroups() should also work.
    */
   if (setgroups (0, NULL) < 0)
-    dbus_warn ("Failed to drop supplementary groups: %s\n",
-               _dbus_strerror (errno));
+    _dbus_warn ("Failed to drop supplementary groups: %s\n",
+                _dbus_strerror (errno));
   
   /* Set GID first, or the setuid may remove our permission
    * to change the GID
