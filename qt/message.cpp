@@ -354,46 +354,6 @@ QString Message::signature() const
   return dbus_message_get_signature( d->msg );
 }
 
-/**
- * Message can be casted to DBusMessage* to make it easier to
- * use it with raw DBus.
- * @return underlying DBusMessage*
- */
-Message::operator DBusMessage*() const
-{
-  return d->msg;
-}
-
-/**
- * Appends data to this message. It can be anything QVariant accepts.
- * @param var Data to append
- */
-void
-Message::append( const QVariant& var )
-{
-  switch ( var.type() ) {
-  case QVariant::Int:
-    dbus_message_append_int32( d->msg, var.toInt() );
-    break;
-  case QVariant::UInt:
-    dbus_message_append_uint32( d->msg, var.toUInt() );
-    break;
-  case QVariant::String: //what about QVariant::CString ?
-    dbus_message_append_string( d->msg, var.toString() );
-    break;
-  case QVariant::Double:
-    dbus_message_append_double( d->msg, var.toDouble() );
-    break;
-  case QVariant::Invalid:
-    break;
-  default: // handles QVariant::ByteArray
-    QByteArray a;
-    QDataStream stream( a, IO_WriteOnly );
-    stream<<var;
-    dbus_message_append_byte_array( d->msg, a.data(), a.size() );
-  }
-}
-
 
 /**
  * Returns the starting iterator for the fields of this
@@ -443,6 +403,59 @@ DBusMessage*
 Message::message() const
 {
   return d->msg;
+}
+
+Message& Message::operator<<( bool b )
+{
+  dbus_message_append_args( d->msg, DBUS_TYPE_BOOLEAN, b,
+                            DBUS_TYPE_INVALID );
+}
+
+Message& Message::operator<<( Q_INT8 byte )
+{
+  dbus_message_append_args( d->msg, DBUS_TYPE_BYTE, byte,
+                            DBUS_TYPE_INVALID );
+}
+
+Message& Message::operator<<( Q_INT32 num )
+{
+  dbus_message_append_args( d->msg, DBUS_TYPE_INT32, num,
+                            DBUS_TYPE_INVALID );
+}
+
+Message& Message::operator<<( Q_UINT32 num )
+{
+  dbus_message_append_args( d->msg, DBUS_TYPE_UINT32, num,
+                            DBUS_TYPE_INVALID );
+}
+
+Message& Message::operator<<( Q_INT64 num )
+{
+  dbus_message_append_args( d->msg, DBUS_TYPE_INT64, num,
+                            DBUS_TYPE_INVALID );
+}
+
+Message& Message::operator<<( Q_UINT64 num )
+{
+  dbus_message_append_args( d->msg, DBUS_TYPE_UINT64, num,
+                            DBUS_TYPE_INVALID );
+}
+
+Message& Message::operator<<( double num )
+{
+  dbus_message_append_args( d->msg, DBUS_TYPE_DOUBLE, num,
+                            DBUS_TYPE_INVALID );
+}
+
+Message& Message::operator<<( const QString& str )
+{
+  dbus_message_append_args( d->msg, DBUS_TYPE_STRING, str.unicode(),
+                            DBUS_TYPE_INVALID );
+}
+
+Message& Message::operator<<( const QVariant& custom )
+{
+  //FIXME: imeplement
 }
 
 }

@@ -88,13 +88,6 @@ namespace DBus {
 
     QString signature() const;
 
-    QString name() const;
-    QString service() const;
-
-    virtual void append( const QVariant& var );
-
-    operator DBusMessage*() const;
-
     iterator begin() const;
     iterator end() const;
 
