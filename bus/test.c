@@ -267,7 +267,6 @@ bus_test_client_listed (DBusConnection *connection)
   return FALSE;
 }
 
-
 void
 bus_test_flush_bus (BusContext *context)
 {
@@ -276,11 +275,14 @@ bus_test_flush_bus (BusContext *context)
    * one end of the debug pipe to come out the other end...
    * a more robust setup would be good. Blocking on the other
    * end of pipes we've pushed data into or something.
+   * A simple hack might be to just make the debug server always
+   * poll for read on the other end of the pipe after writing.
    */
-  
   while (bus_loop_iterate (FALSE))
     ;
+#if 0
   _dbus_sleep_milliseconds (15);
+#endif
   while (bus_loop_iterate (FALSE))
     ;
 }

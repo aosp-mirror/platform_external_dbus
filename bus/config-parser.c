@@ -285,47 +285,18 @@ do_load (const DBusString *full_path,
     }
 }
 
-static dbus_bool_t
-check_oom_loading (const DBusString *full_path,
-                   Validity          validity)
+typedef struct
 {
-  int approx_mallocs;
+  const DBusString *full_path;
+  Validity          validity;
+} LoaderOomData;
 
-  /* Run once to see about how many mallocs are involved */
-  
-  _dbus_set_fail_alloc_counter (_DBUS_INT_MAX);
+static dbus_bool_t
+check_loader_oom_func (void *data)
+{
+  LoaderOomData *d = data;
 
-  if (!do_load (full_path, validity, FALSE))
-    return FALSE;
-
-  approx_mallocs = _DBUS_INT_MAX - _dbus_get_fail_alloc_counter ();
-
-  _dbus_verbose ("=================\nabout %d mallocs total\n=================\n",
-                 approx_mallocs);
-  
-  approx_mallocs += 10; /* fudge factor */
-  
-  /* Now run failing each malloc */
-  
-  while (approx_mallocs >= 0)
-    {
-      
-      _dbus_set_fail_alloc_counter (approx_mallocs);
-
-      _dbus_verbose ("\n===\n(will fail malloc %d)\n===\n",
-                     approx_mallocs);
-
-      if (!do_load (full_path, validity, TRUE))
-        return FALSE;
-      
-      approx_mallocs -= 1;
-    }
-
-  _dbus_set_fail_alloc_counter (_DBUS_INT_MAX);
-
-  _dbus_verbose ("=================\n all iterations passed\n=================\n");
-
-  return TRUE;
+  return do_load (d->full_path, d->validity, TRUE);
 }
 
 static dbus_bool_t
@@ -376,6 +347,7 @@ process_test_subdir (const DBusString *test_base_dir,
   while (_dbus_directory_get_next_file (dir, &filename, &error))
     {
       DBusString full_path;
+      LoaderOomData d;
       
       if (!_dbus_string_init (&full_path, _DBUS_INT_MAX))
         _dbus_assert_not_reached ("couldn't init string");
@@ -407,7 +379,9 @@ process_test_subdir (const DBusString *test_base_dir,
                      (validity == INVALID ? "invalid" :
                       (validity == UNKNOWN ? "unknown" : "???")));
 
-      if (!check_oom_loading (&full_path, validity))
+      d.full_path = &full_path;
+      d.validity = validity;
+      if (!_dbus_test_oom_handling ("config-loader", check_loader_oom_func, &d))
         _dbus_assert_not_reached ("test failed");
       
       _dbus_string_free (&full_path);

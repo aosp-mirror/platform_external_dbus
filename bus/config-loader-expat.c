@@ -25,29 +25,11 @@
 #include <dbus/dbus-internals.h>
 #include <expat.h>
 
-static void*
-expat_malloc (size_t size)
-{
-  return dbus_malloc (size);
-}
-
-static void*
-expat_realloc (void *ptr, size_t size)
-{
-  return dbus_realloc (ptr, size);
-}
-
-static void
-expat_free (void *ptr)
-{
-  dbus_free (ptr);
-}
-
 static XML_Memory_Handling_Suite memsuite =
 {
-  expat_malloc,
-  expat_realloc,
-  expat_free
+  dbus_malloc,
+  dbus_realloc,
+  dbus_free
 };
 
 typedef struct

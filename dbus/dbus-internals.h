@@ -170,9 +170,16 @@ extern const char _dbus_no_memory_message[];
 /* Memory debugging */
 void        _dbus_set_fail_alloc_counter        (int  until_next_fail);
 int         _dbus_get_fail_alloc_counter        (void);
+void        _dbus_set_fail_alloc_failures       (int  failures_per_failure);
+int         _dbus_get_fail_alloc_failures       (void);
 dbus_bool_t _dbus_decrement_fail_alloc_counter  (void);
 dbus_bool_t _dbus_disable_mem_pools             (void);
 int         _dbus_get_malloc_blocks_outstanding (void);
+
+typedef dbus_bool_t (* DBusTestMemoryFunction)  (void *data);
+dbus_bool_t _dbus_test_oom_handling (const char             *description,
+                                     DBusTestMemoryFunction  func,
+                                     void                   *data);
 #else
 #define _dbus_set_fail_alloc_counter(n)
 #define _dbus_get_fail_alloc_counter _DBUS_INT_MAX

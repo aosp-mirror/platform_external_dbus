@@ -244,8 +244,8 @@ elif test x$with_xml = xlibxml; then
         fi
 else
         ### expat is the default because libxml can't currently survive 
-        ### our brutal OOM-handling unit test setup. Need to find the 
-        ### bugs and submit to DV
+        ### our brutal OOM-handling unit test setup.
+        ### http://bugzilla.gnome.org/show_bug.cgi?id=109368
         if $have_expat ; then
                 with_xml=expat
                 dbus_use_expat=true

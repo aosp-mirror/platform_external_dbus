@@ -76,9 +76,11 @@
 
 #ifdef DBUS_BUILD_TESTS
 static dbus_bool_t debug_initialized = FALSE;
-static int fail_counts = -1;
+static int fail_nth = -1;
 static size_t fail_size = 0;
 static int fail_alloc_counter = _DBUS_INT_MAX;
+static int n_failures_per_failure = 1;
+static int n_failures_this_failure = 0;
 static dbus_bool_t guards = FALSE;
 static dbus_bool_t disable_mem_pools = FALSE;
 static dbus_bool_t backtrace_on_fail_alloc = FALSE;
@@ -106,9 +108,9 @@ _dbus_initialize_malloc_debug (void)
       
       if (_dbus_getenv ("DBUS_MALLOC_FAIL_NTH") != NULL)
 	{
-	  fail_counts = atoi (_dbus_getenv ("DBUS_MALLOC_FAIL_NTH"));
-          fail_alloc_counter = fail_counts;
-          _dbus_verbose ("Will fail malloc every %d times\n", fail_counts);
+	  fail_nth = atoi (_dbus_getenv ("DBUS_MALLOC_FAIL_NTH"));
+          fail_alloc_counter = fail_nth;
+          _dbus_verbose ("Will fail malloc every %d times\n", fail_nth);
 	}
       
       if (_dbus_getenv ("DBUS_MALLOC_FAIL_GREATER_THAN") != NULL)
@@ -185,6 +187,30 @@ _dbus_get_fail_alloc_counter (void)
 }
 
 /**
+ * Sets how many mallocs to fail when the fail alloc counter reaches
+ * 0.
+ *
+ * @param number to fail
+ */
+void
+_dbus_set_fail_alloc_failures (int failures_per_failure)
+{
+  n_failures_per_failure = failures_per_failure;
+}
+
+/**
+ * Gets the number of failures we'll have when the fail malloc
+ * counter reaches 0.
+ *
+ * @returns number of failures planned
+ */
+int
+_dbus_get_fail_alloc_failures (void)
+{
+  return n_failures_per_failure;
+}
+
+/**
  * Called when about to alloc some memory; if
  * it returns #TRUE, then the allocation should
  * fail. If it returns #FALSE, then the allocation
@@ -199,14 +225,23 @@ _dbus_decrement_fail_alloc_counter (void)
   
   if (fail_alloc_counter <= 0)
     {
-      if (fail_counts >= 0)
-        fail_alloc_counter = fail_counts;
-      else
-        fail_alloc_counter = _DBUS_INT_MAX;
-
-      _dbus_verbose ("reset fail alloc counter to %d\n", fail_alloc_counter);
       if (backtrace_on_fail_alloc)
         _dbus_print_backtrace ();
+
+      _dbus_verbose ("failure %d\n", n_failures_this_failure);
+      
+      n_failures_this_failure += 1;
+      if (n_failures_this_failure >= n_failures_per_failure)
+        {
+          if (fail_nth >= 0)
+            fail_alloc_counter = fail_nth;
+          else
+            fail_alloc_counter = _DBUS_INT_MAX;
+
+          n_failures_this_failure = 0;
+
+          _dbus_verbose ("reset fail alloc counter to %d\n", fail_alloc_counter);
+        }
       
       return TRUE;
     }

@@ -1,3 +1,22 @@
+2003-03-28  Havoc Pennington  <hp@pobox.com>
+
+	* bus/test.c (bus_test_flush_bus): remove the sleep from here, 
+	I think it may have just been superstition. Not sure.
+
+	* dbus/dbus-string.c (_dbus_string_base64_decode): catch some OOM
+	failures that were not being handled.
+
+	* dbus/dbus-auth.c (process_auth): fix a memleak in OOM handling
+
+	* dbus/dbus-memory.c: add ability to set number of mallocs in a
+	row that will fail on out-of-memory.
+
+	* dbus/dbus-internals.c (_dbus_test_oom_handling): convenience
+	function for testing out-of-memory handling.
+
+	* bus/config-loader-expat.c (memsuite): don't wrap the dbus
+	allocation functions, they do map exactly to the expat ones.
+
 2003-03-27  Havoc Pennington  <hp@redhat.com>
 
 	* bus/config-loader-libxml.c (bus_config_load): add another error

@@ -916,49 +916,42 @@ check_hello_connection (BusContext *context)
   return TRUE;
 }
 
+typedef struct
+{
+  Check1Func func;
+  BusContext *context;
+} Check1Data;
+
+static dbus_bool_t
+check_oom_check1_func (void *data)
+{
+  Check1Data *d = data;
+
+  if (! (* d->func) (d->context))
+    return FALSE;
+  
+  if (!check_no_leftovers (d->context))
+    {
+      _dbus_warn ("Messages were left over, should be covered by test suite");
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
 static void
 check1_try_iterations (BusContext *context,
                        const char *description,
                        Check1Func  func)
 {
-  int approx_mallocs;
+  Check1Data d;
 
-  /* Run once to see about how many mallocs are involved */
-  
-  _dbus_set_fail_alloc_counter (_DBUS_INT_MAX);
-  
-  if (! (*func) (context))
+  d.func = func;
+  d.context = context;
+
+  if (!_dbus_test_oom_handling (description, check_oom_check1_func,
+                                &d))
     _dbus_assert_not_reached ("test failed");
-
-  approx_mallocs = _DBUS_INT_MAX - _dbus_get_fail_alloc_counter ();
-
-  _dbus_verbose ("=================\n%s: about %d mallocs total\n=================\n",
-                 description, approx_mallocs);
-  
-  approx_mallocs += 10; /* fudge factor */
-  
-  /* Now run failing each malloc */
-  
-  while (approx_mallocs >= 0)
-    {
-      _dbus_set_fail_alloc_counter (approx_mallocs);
-
-      _dbus_verbose ("\n===\n %s: (will fail malloc %d)\n===\n",
-                     description, approx_mallocs);
-
-      if (! (*func) (context))
-        _dbus_assert_not_reached ("test failed");
-
-      if (!check_no_leftovers (context))
-        _dbus_assert_not_reached ("Messages were left over, should be covered by test suite");
-      
-      approx_mallocs -= 1;
-    }
-
-  _dbus_set_fail_alloc_counter (_DBUS_INT_MAX);
-
-  _dbus_verbose ("=================\n%s: all iterations passed\n=================\n",
-                 description);
 }
 
 dbus_bool_t

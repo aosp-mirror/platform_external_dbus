@@ -39,3 +39,10 @@
 
  - Automatic service activation, should probably be done through a message flag.
 
+ - Disconnecting the remote end on invalid UTF-8 is probably not a good 
+   idea. The definitiion of "valid" is slightly fuzzy. I think it might 
+   be better to just silently "fix" the UTF-8, or perhaps return an error.
+
+ - We might consider returning a "no such operation" error in dbus-connection.c 
+   for unhandled messages.
+

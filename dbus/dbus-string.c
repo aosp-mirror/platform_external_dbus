@@ -2108,15 +2108,22 @@ _dbus_string_base64_decode (const DBusString *source,
 	       */
               
               if (pad_count < 1)
-                _dbus_string_append_byte (&result,
-                                          triplet >> 16);
+                {
+                  if (!_dbus_string_append_byte (&result,
+                                                 triplet >> 16))
+                    goto failed;
+                }
               
               if (pad_count < 2)
-                _dbus_string_append_byte (&result,
-                                          (triplet >> 8) & 0xff);              
+                {
+                  if (!_dbus_string_append_byte (&result,
+                                                 (triplet >> 8) & 0xff))
+                    goto failed;
+                }
               
-              _dbus_string_append_byte (&result,
-                                        triplet & 0xff);
+              if (!_dbus_string_append_byte (&result,
+                                             triplet & 0xff))
+                goto failed;
               
               sextet_count = 0;
               pad_count = 0;
@@ -2136,6 +2143,11 @@ _dbus_string_base64_decode (const DBusString *source,
   _dbus_string_free (&result);
 
   return TRUE;
+
+ failed:
+  _dbus_string_free (&result);
+
+  return FALSE;
 }
 
 /**

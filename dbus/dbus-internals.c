@@ -292,4 +292,85 @@ _dbus_type_to_string (int type)
     }
 }
 
+static dbus_bool_t
+run_failing_each_malloc (int                    n_mallocs,
+                         const char            *description,
+                         DBusTestMemoryFunction func,
+                         void                  *data)
+{
+  n_mallocs += 10; /* fudge factor to ensure reallocs etc. are covered */
+  
+  while (n_mallocs >= 0)
+    {      
+      _dbus_set_fail_alloc_counter (n_mallocs);
+
+      _dbus_verbose ("\n===\n%s: (will fail malloc %d with %d failures)\n===\n",
+                     description, n_mallocs,
+                     _dbus_get_fail_alloc_failures ());
+
+      if (!(* func) (data))
+        return FALSE;
+      
+      n_mallocs -= 1;
+    }
+
+  _dbus_set_fail_alloc_counter (_DBUS_INT_MAX);
+
+  return TRUE;
+}                        
+
+/**
+ * Tests how well the given function responds to out-of-memory
+ * situations. Calls the function repeatedly, failing a different
+ * call to malloc() each time. If the function ever returns #FALSE,
+ * the test fails. The function should return #TRUE whenever something
+ * valid (such as returning an error, or succeeding) occurs, and #FALSE
+ * if it gets confused in some way.
+ *
+ * @param description description of the test used in verbose output
+ * @param func function to call
+ * @param data data to pass to function
+ * @returns #TRUE if the function never returns FALSE
+ */
+dbus_bool_t
+_dbus_test_oom_handling (const char             *description,
+                         DBusTestMemoryFunction  func,
+                         void                   *data)
+{
+  int approx_mallocs;
+
+  /* Run once to see about how many mallocs are involved */
+  
+  _dbus_set_fail_alloc_counter (_DBUS_INT_MAX);
+
+  if (!(* func) (data))
+    return FALSE;
+
+  approx_mallocs = _DBUS_INT_MAX - _dbus_get_fail_alloc_counter ();
+
+  _dbus_verbose ("=================\n%s: about %d mallocs total\n=================\n",
+                 description, approx_mallocs);
+
+  _dbus_set_fail_alloc_failures (1);
+  if (!run_failing_each_malloc (approx_mallocs, description, func, data))
+    return FALSE;
+
+  _dbus_set_fail_alloc_failures (2);
+  if (!run_failing_each_malloc (approx_mallocs, description, func, data))
+    return FALSE;
+  
+  _dbus_set_fail_alloc_failures (3);
+  if (!run_failing_each_malloc (approx_mallocs, description, func, data))
+    return FALSE;
+
+  _dbus_set_fail_alloc_failures (4);
+  if (!run_failing_each_malloc (approx_mallocs, description, func, data))
+    return FALSE;
+  
+  _dbus_verbose ("=================\n%s: all iterations passed\n=================\n",
+                 description);
+
+  return TRUE;
+}
+
 /** @} */

@@ -1241,14 +1241,14 @@ process_auth (DBusAuth         *auth,
           _dbus_string_free (&mech);
           return FALSE;
         }
-
+      
       if (!_dbus_string_init (&decoded_response, _DBUS_INT_MAX))
         {
           _dbus_string_free (&mech);
           _dbus_string_free (&base64_response);
           return FALSE;
         }
-      
+
       if (!_dbus_string_copy_len (args, 0, i, &mech, 0))
         goto failed;
 
@@ -1258,7 +1258,7 @@ process_auth (DBusAuth         *auth,
       if (!_dbus_string_base64_decode (&base64_response, 0,
                                        &decoded_response, 0))
         goto failed;
-
+      
       auth->mech = find_mech (&mech);
       if (auth->mech != NULL)
         {
@@ -1274,7 +1274,7 @@ process_auth (DBusAuth         *auth,
         {
           /* Unsupported mechanism */
           if (!send_rejected (auth))
-            return FALSE;
+            goto failed;
         }
 
       _dbus_string_free (&mech);      
