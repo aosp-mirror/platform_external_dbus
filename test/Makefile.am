@@ -84,7 +84,7 @@ dist-hook:
 	FILES=`(cd $(srcdir) && $(FIND_TESTS) -o -name "*.in" -a -not -name Makefile.in)` ;					\
         for F in $$FILES; do							\
                 echo '-- Disting file '$$F ;					\
-		cp $(srcdir)/$$F $(distdir)/$$F || exit 1 ;				\
+		cp -f $(srcdir)/$$F $(distdir)/$$F || exit 1 ;				\
 	done
 
 ## copy tests to builddir so that generated tests and static tests 

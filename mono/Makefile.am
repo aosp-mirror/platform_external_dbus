@@ -5,49 +5,50 @@ SUBDIRS=. doc example
 TARGET=$(ASSEMBLY)
 NOINST_EXES=test-dbus-sharp.exe
 ASSEMBLY_NAME=dbus-sharp
+GACUTIL=gacutil
 
-DBUS_SHARP_FILES= 		\
-	Arguments.cs		\
-	Bus.cs			\
-	BusDriver.cs		\
-	Connection.cs		\
-	Custom.cs		\
-	DBusException.cs	\
-	Error.cs		\
-	ErrorMessage.cs		\
-	Handler.cs		\
-	InterfaceAttribute.cs	\
-	InterfaceProxy.cs	\
-	Introspector.cs		\
-	Message.cs		\
-	MethodAttribute.cs	\
-	MethodCall.cs		\
-	MethodReturn.cs		\
-	ProxyBuilder.cs		\
-	Server.cs		\
-	Service.cs		\
-	Signal.cs		\
-	SignalAttribute.cs	\
-	DBusType/IDBusType.cs	\
-	DBusType/Array.cs	\
-	DBusType/Boolean.cs	\
-	DBusType/Byte.cs	\
-	DBusType/Custom.cs	\
-	DBusType/Dict.cs	\
-	DBusType/Double.cs	\
-	DBusType/Int32.cs	\
-	DBusType/Int64.cs	\
-	DBusType/Nil.cs		\
-	DBusType/ObjectPath.cs	\
-	DBusType/String.cs	\
-	DBusType/UInt32.cs	\
-	DBusType/UInt64.cs
+DBUS_SHARP_FILES= 				\
+	$(srcdir)/Arguments.cs			\
+	$(srcdir)/Bus.cs			\
+	$(srcdir)/BusDriver.cs			\
+	$(srcdir)/Connection.cs			\
+	$(srcdir)/Custom.cs			\
+	$(srcdir)/DBusException.cs		\
+	$(srcdir)/Error.cs			\
+	$(srcdir)/ErrorMessage.cs		\
+	$(srcdir)/Handler.cs			\
+	$(srcdir)/InterfaceAttribute.cs		\
+	$(srcdir)/InterfaceProxy.cs		\
+	$(srcdir)/Introspector.cs		\
+	$(srcdir)/Message.cs			\
+	$(srcdir)/MethodAttribute.cs		\
+	$(srcdir)/MethodCall.cs			\
+	$(srcdir)/MethodReturn.cs		\
+	$(srcdir)/ProxyBuilder.cs		\
+	$(srcdir)/Server.cs			\
+	$(srcdir)/Service.cs			\
+	$(srcdir)/Signal.cs			\
+	$(srcdir)/SignalAttribute.cs		\
+	$(srcdir)/DBusType/IDBusType.cs		\
+	$(srcdir)/DBusType/Array.cs		\
+	$(srcdir)/DBusType/Boolean.cs		\
+	$(srcdir)/DBusType/Byte.cs		\
+	$(srcdir)/DBusType/Custom.cs		\
+	$(srcdir)/DBusType/Dict.cs		\
+	$(srcdir)/DBusType/Double.cs		\
+	$(srcdir)/DBusType/Int32.cs		\
+	$(srcdir)/DBusType/Int64.cs		\
+	$(srcdir)/DBusType/Nil.cs		\
+	$(srcdir)/DBusType/ObjectPath.cs	\
+	$(srcdir)/DBusType/String.cs		\
+	$(srcdir)/DBusType/UInt32.cs		\
+	$(srcdir)/DBusType/UInt64.cs
 
 TEST_DBUS_SHARP_FILES=Test.cs
 
 ASSEMBLY=$(ASSEMBLY_NAME).dll
 
-DISTCLEANFILES=AssemblyInfo.cs $(ASSEMBLY).config
+DISTCLEANFILES=AssemblyInfo.cs $(ASSEMBLY).config $(ASSEMBLY)
 
 all-am: $(TARGET)
 
@@ -63,13 +64,13 @@ clean:
 install-data-local:
 	@if test -n '$(TARGET)'; then                       \
 	  echo "$(GACUTIL) /i $(ASSEMBLY) /f /package dbus-sharp /gacdir $(DESTDIR)$(libdir)";    \
-	  $(GACUTIL) /i $(ASSEMBLY) /f /package dbus-sharp /gacdir $(DESTDIR)$(libdir) || exit 1; \
+	  $(GACUTIL) /i $(ASSEMBLY) /f /package dbus-sharp /gacdir $(libdir) /root $(DESTDIR)$(libdir) || exit 1; \
 	fi
 
 uninstall-local:
 	@if test -n '$(TARGET)'; then                       \
 	  echo "$(GACUTIL) /u $(ASSEMBLY_NAME) /package dbus-sharp /gacdir $(DESTDIR)$(libdir)";  \
-	  $(GACUTIL) /u $(ASSEMBLY_NAME) /package dbus-sharp /gacdir $(DESTDIR)$(libdir) || exit 1;   \
+	  $(GACUTIL) /u $(ASSEMBLY_NAME) /package dbus-sharp /gacdir $(libdir) /root $(DESTDIR)$(libdir) || exit 1;   \
 	fi
 
 EXTRA_DIST=			\
