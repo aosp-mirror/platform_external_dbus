@@ -1180,6 +1180,9 @@ dbus_message_get_type (DBusMessage *message)
  * The last argument to this function must be #DBUS_TYPE_INVALID,
  * marking the end of the argument list.
  *
+ * String/signature/path arrays should be passed in as "const char***
+ * address_of_array" and "int n_elements"
+ *
  * @todo support DBUS_TYPE_STRUCT and DBUS_TYPE_VARIANT and complex arrays
  *
  * @todo If this fails due to lack of memory, the message is hosed and
@@ -1252,26 +1255,11 @@ dbus_message_append_args_valist (DBusMessage *message,
       else if (type == DBUS_TYPE_ARRAY)
         {
           int element_type;
-          const DBusBasicValue **value;
-          int n_elements;
           DBusMessageIter array;
           char buf[2];
 
           element_type = va_arg (var_args, int);
-
-#ifndef DBUS_DISABLE_CHECKS
-          if (!_dbus_type_is_fixed (element_type))
-            {
-              _dbus_warn ("arrays of %s can't be appended with %s for now\n",
-                          _dbus_type_to_string (element_type),
-                          _DBUS_FUNCTION_NAME);
-              goto failed;
-            }
-#endif
-
-          value = va_arg (var_args, const DBusBasicValue**);
-          n_elements = va_arg (var_args, int);
-
+              
           buf[0] = element_type;
           buf[1] = '\0';
           if (!dbus_message_iter_open_container (&iter,
@@ -1279,12 +1267,52 @@ dbus_message_append_args_valist (DBusMessage *message,
                                                  buf,
                                                  &array))
             goto failed;
+          
+          if (_dbus_type_is_fixed (element_type))
+            {
+              const DBusBasicValue **value;
+              int n_elements;
 
-          if (!dbus_message_iter_append_fixed_array (&array,
-                                                     element_type,
-                                                     value,
-                                                     n_elements))
-            goto failed;
+              value = va_arg (var_args, const DBusBasicValue**);
+              n_elements = va_arg (var_args, int);
+              
+              if (!dbus_message_iter_append_fixed_array (&array,
+                                                         element_type,
+                                                         value,
+                                                         n_elements))
+                goto failed;
+            }
+          else if (element_type == DBUS_TYPE_STRING ||
+                   element_type == DBUS_TYPE_SIGNATURE ||
+                   element_type == DBUS_TYPE_OBJECT_PATH)
+            {
+              const char ***value_p;
+              const char **value;
+              int n_elements;
+              int i;
+              
+              value_p = va_arg (var_args, const char***);
+              n_elements = va_arg (var_args, int);
+
+              value = *value_p;
+              
+              i = 0;
+              while (i < n_elements)
+                {
+                  if (!dbus_message_iter_append_basic (&array,
+                                                       element_type,
+                                                       &value[i]))
+                    goto failed;
+                  ++i;
+                }
+            }
+          else
+            {
+              _dbus_warn ("arrays of %s can't be appended with %s for now\n",
+                          _dbus_type_to_string (element_type),
+                          _DBUS_FUNCTION_NAME);
+              goto failed;
+            }
 
           if (!dbus_message_iter_close_container (&iter, &array))
             goto failed;
@@ -1318,7 +1346,8 @@ dbus_message_append_args_valist (DBusMessage *message,
  * In addition to those types, arrays of string, object path, and
  * signature are supported; but these are returned as allocated memory
  * and must be freed with dbus_free_string_array(), while the other
- * types are returned as const references.
+ * types are returned as const references. To get a string array
+ * pass in "char ***array_location" and "int *n_elements"
  *
  * The variable argument list should contain the type of the argument
  * followed by a pointer to where the value should be stored. The list

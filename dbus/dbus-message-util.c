@@ -733,6 +733,8 @@ verify_test_message (DBusMessage *message)
   int our_byte_array_len;
   const dbus_bool_t *our_boolean_array = (void*)0xdeadbeef;
   int our_boolean_array_len;
+  char **our_string_array;
+  int our_string_array_len;
 
   dbus_message_iter_init (message, &iter);
 
@@ -767,6 +769,8 @@ verify_test_message (DBusMessage *message)
                                    &our_byte_array, &our_byte_array_len,
                                    DBUS_TYPE_ARRAY, DBUS_TYPE_BOOLEAN,
                                    &our_boolean_array, &our_boolean_array_len,
+                                   DBUS_TYPE_ARRAY, DBUS_TYPE_STRING,
+                                   &our_string_array, &our_string_array_len,
 				   0))
     {
       _dbus_warn ("error: %s - %s\n", error.name,
@@ -874,6 +878,17 @@ verify_test_message (DBusMessage *message)
       our_boolean_array[4] != FALSE)
     _dbus_assert_not_reached ("bool array had wrong values");
 
+  if (our_string_array_len != 4)
+    _dbus_assert_not_reached ("string array was wrong length");
+
+  if (strcmp (our_string_array[0], "Foo") != 0 ||
+      strcmp (our_string_array[1], "bar") != 0 ||
+      strcmp (our_string_array[2], "") != 0 ||
+      strcmp (our_string_array[3], "woo woo woo woo") != 0)
+    _dbus_assert_not_reached ("string array had wrong values");
+
+  dbus_free_string_array (our_string_array);
+  
   if (dbus_message_iter_next (&iter))
     _dbus_assert_not_reached ("Didn't reach end of arguments");
 }
@@ -1080,6 +1095,8 @@ _dbus_message_test (const char *test_data_dir)
                             _DBUS_N_ELEMENTS (our_byte_array),
                             DBUS_TYPE_ARRAY, DBUS_TYPE_BOOLEAN, &v_ARRAY_BOOLEAN,
                             _DBUS_N_ELEMENTS (our_boolean_array),
+                            DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &v_ARRAY_STRING,
+                            _DBUS_N_ELEMENTS (our_string_array),
 			    DBUS_TYPE_INVALID);
 
   i = 0;
@@ -1112,7 +1129,9 @@ _dbus_message_test (const char *test_data_dir)
   sig[i++] = DBUS_TYPE_BYTE;
   sig[i++] = DBUS_TYPE_ARRAY;
   sig[i++] = DBUS_TYPE_BOOLEAN;
-  sig[i++] = DBUS_TYPE_INVALID;
+  sig[i++] = DBUS_TYPE_ARRAY;
+  sig[i++] = DBUS_TYPE_STRING;
+  sig[i++] = DBUS_TYPE_INVALID;  
 
   _dbus_assert (i < (int) _DBUS_N_ELEMENTS (sig));
 
