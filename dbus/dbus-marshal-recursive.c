@@ -1049,12 +1049,18 @@ write_or_verify_typecode (DBusTypeWriter *writer,
   return TRUE;
 }
 
-dbus_bool_t
-_dbus_type_writer_recurse_struct (DBusTypeWriter *writer,
-                                  DBusTypeWriter *sub)
+static dbus_bool_t
+writer_recurse_struct (DBusTypeWriter   *writer,
+                       const DBusString *contained_type,
+                       int               contained_type_start,
+                       int               contained_type_len,
+                       DBusTypeWriter   *sub)
 {
-  writer_recurse_init_and_check (writer, DBUS_TYPE_STRUCT, sub);
-
+  /* FIXME right now contained_type is ignored; we could probably
+   * almost trivially fix the code so if it's present we
+   * write it out and then set type_pos_is_expectation
+   */
+  
   /* Ensure that we'll be able to add alignment padding and the typecode */
   if (!_dbus_string_alloc_space (sub->value_str, 8))
     return FALSE;
@@ -1075,38 +1081,40 @@ _dbus_type_writer_recurse_struct (DBusTypeWriter *writer,
   return TRUE;
 }
 
-dbus_bool_t
-_dbus_type_writer_recurse_array (DBusTypeWriter *writer,
-                                 const char     *element_type,
-                                 DBusTypeWriter *sub)
+
+static dbus_bool_t
+writer_recurse_array (DBusTypeWriter   *writer,
+                      const DBusString *contained_type,
+                      int               contained_type_start,
+                      int               contained_type_len,
+                      DBusTypeWriter   *sub)
 {
-  int element_type_len;
-  DBusString element_type_str;
   dbus_uint32_t value = 0;
   int alignment;
   int aligned;
-  DBusString str;
-
-  writer_recurse_init_and_check (writer, DBUS_TYPE_ARRAY, sub);
-
-  _dbus_string_init_const (&element_type_str, element_type);
-  element_type_len = find_len_of_complete_type (&element_type_str, 0);
 
 #ifndef DBUS_DISABLE_CHECKS
   if (writer->container_type == DBUS_TYPE_ARRAY)
     {
-      if (!_dbus_string_equal_substring (&element_type_str, 0, element_type_len,
-                                         writer->type_str, writer->u.array.element_type_pos + 1))
+      if (!_dbus_string_equal_substring (contained_type,
+                                         contained_type_start,
+                                         contained_type_len,
+                                         writer->type_str,
+                                         writer->u.array.element_type_pos + 1))
         {
           _dbus_warn ("Writing an array of '%s' but this is incompatible with the expected type of elements in the parent array\n",
-                      element_type);
+                      _dbus_string_get_const_data_len (contained_type,
+                                                       contained_type_start,
+                                                       contained_type_len));
           _dbus_assert_not_reached ("incompatible type for child array");
         }
     }
 #endif /* DBUS_DISABLE_CHECKS */
 
-  /* 4 bytes for the array length and 4 bytes possible padding */
-  if (!_dbus_string_alloc_space (sub->value_str, 8))
+  /* 3 pad + 4 bytes for the array length, and 4 bytes possible padding
+   * before array values
+   */
+  if (!_dbus_string_alloc_space (sub->value_str, 3 + 4 + 4))
     return FALSE;
 
   sub->type_pos += 1; /* move to point to the element type, since type_pos
@@ -1118,10 +1126,8 @@ _dbus_type_writer_recurse_array (DBusTypeWriter *writer,
     {
       /* sub is a toplevel/outermost array so we need to write the type data */
 
-      /* alloc space for array typecode, element signature, possible 7
-       * bytes of padding
-       */
-      if (!_dbus_string_alloc_space (writer->type_str, 1 + element_type_len + 7))
+      /* alloc space for array typecode, element signature */
+      if (!_dbus_string_alloc_space (writer->type_str, 1 + contained_type_len))
         return FALSE;
 
       if (!_dbus_string_insert_byte (writer->type_str,
@@ -1129,8 +1135,10 @@ _dbus_type_writer_recurse_array (DBusTypeWriter *writer,
                                      DBUS_TYPE_ARRAY))
         _dbus_assert_not_reached ("failed to insert array typecode after prealloc");
 
-      if (!_dbus_string_copy_len (&element_type_str, 0, element_type_len,
-                                  sub->type_str, sub->u.array.element_type_pos))
+      if (!_dbus_string_copy_len (contained_type,
+                                  contained_type_start, contained_type_len,
+                                  sub->type_str,
+                                  sub->u.array.element_type_pos))
         _dbus_assert_not_reached ("should not have failed to insert array element typecodes");
     }
 
@@ -1138,7 +1146,7 @@ _dbus_type_writer_recurse_array (DBusTypeWriter *writer,
    * otherwise advance it to reflect the array value we just recursed into
    */
   if (writer->container_type != DBUS_TYPE_ARRAY)
-    writer->type_pos += 1 + element_type_len;
+    writer->type_pos += 1 + contained_type_len;
   else
     _dbus_assert (writer->type_pos_is_expectation); /* because it's an array */
 
@@ -1155,8 +1163,7 @@ _dbus_type_writer_recurse_array (DBusTypeWriter *writer,
    * Note that we write the padding *even for empty arrays*
    * to avoid wonky special cases
    */
-  _dbus_string_init_const (&str, element_type);
-  alignment = element_type_get_alignment (&str, 0);
+  alignment = element_type_get_alignment (contained_type, contained_type_start);
 
   aligned = _DBUS_ALIGN_VALUE (sub->value_pos, alignment);
   if (aligned != sub->value_pos)
@@ -1210,20 +1217,13 @@ _dbus_type_writer_recurse_array (DBusTypeWriter *writer,
  * 8-aligned. Then we know that re-8-aligning the start of the body
  * will always correctly align the full contents of the variant type.
  */
-dbus_bool_t
-_dbus_type_writer_recurse_variant (DBusTypeWriter *writer,
-                                   const char     *contained_type,
-                                   DBusTypeWriter *sub)
+static dbus_bool_t
+writer_recurse_variant (DBusTypeWriter   *writer,
+                        const DBusString *contained_type,
+                        int               contained_type_start,
+                        int               contained_type_len,
+                        DBusTypeWriter   *sub)
 {
-  int contained_type_len;
-  DBusString contained_type_str;
-
-  writer_recurse_init_and_check (writer, DBUS_TYPE_VARIANT, sub);
-
-  _dbus_string_init_const (&contained_type_str, contained_type);
-
-  contained_type_len = find_len_of_complete_type (&contained_type_str, 0);
-
   /* Allocate space for the worst case, which is 1 byte sig
    * length, nul byte at end of sig, and 7 bytes padding to
    * 8-boundary.
@@ -1246,7 +1246,7 @@ _dbus_type_writer_recurse_variant (DBusTypeWriter *writer,
   sub->type_str = sub->value_str;
   sub->type_pos = sub->value_pos;
 
-  if (!_dbus_string_copy_len (&contained_type_str, 0, contained_type_len,
+  if (!_dbus_string_copy_len (contained_type, contained_type_start, contained_type_len,
                               sub->value_str, sub->value_pos))
     _dbus_assert_not_reached ("should not have failed to insert variant type sig");
 
@@ -1267,6 +1267,61 @@ _dbus_type_writer_recurse_variant (DBusTypeWriter *writer,
   sub->value_pos = _DBUS_ALIGN_VALUE (sub->value_pos, 8);
 
   return TRUE;
+}
+
+static dbus_bool_t
+_dbus_type_writer_recurse_contained_len (DBusTypeWriter   *writer,
+                                         int               container_type,
+                                         const DBusString *contained_type,
+                                         int               contained_type_start,
+                                         int               contained_type_len,
+                                         DBusTypeWriter   *sub)
+{
+  writer_recurse_init_and_check (writer, container_type, sub);
+  
+  switch (container_type)
+    {
+    case DBUS_TYPE_STRUCT:
+      return writer_recurse_struct (writer,
+                                    contained_type, contained_type_start, contained_type_len,
+                                    sub);
+      break;
+    case DBUS_TYPE_ARRAY:
+      return writer_recurse_array (writer,
+                                   contained_type, contained_type_start, contained_type_len,
+                                   sub);
+      break;
+    case DBUS_TYPE_VARIANT:
+      return writer_recurse_variant (writer,
+                                     contained_type, contained_type_start, contained_type_len,
+                                     sub);
+      break;
+    default:
+      _dbus_assert_not_reached ("tried to recurse into type that doesn't support that");
+      return FALSE;
+      break;
+    }
+}
+
+dbus_bool_t
+_dbus_type_writer_recurse (DBusTypeWriter   *writer,
+                           int               container_type,
+                           const DBusString *contained_type,
+                           int               contained_type_start,
+                           DBusTypeWriter   *sub)
+{
+  int contained_type_len;
+
+  if (contained_type)
+    contained_type_len = find_len_of_complete_type (contained_type, contained_type_start);
+  else
+    contained_type_len = 0;
+
+  return _dbus_type_writer_recurse_contained_len (writer, container_type,
+                                                  contained_type,
+                                                  contained_type_start,
+                                                  contained_type_len,
+                                                  sub);
 }
 
 dbus_bool_t
@@ -1446,28 +1501,15 @@ _dbus_type_writer_write_reader (DBusTypeWriter *writer,
             const DBusString *sig_str;
             int sig_start;
             int sig_len;
-            dbus_bool_t ret;
 
             _dbus_type_reader_recurse (reader, &subreader);
 
             _dbus_type_reader_get_signature (&subreader, &sig_str,
                                              &sig_start, &sig_len);
 
-            /* FIXME once this is working, mop it up with a generic recurse */
-            if (current_type == DBUS_TYPE_STRUCT)
-              ret = _dbus_type_writer_recurse_struct (writer, &subwriter);
-            else if (current_type == DBUS_TYPE_VARIANT)
-              ret = _dbus_type_writer_recurse_variant (writer,
-                                                       _dbus_string_get_const_data_len (sig_str,
-                                                                                        sig_start, sig_len),
-                                                       &subwriter);
-            else
-              ret = _dbus_type_writer_recurse_array (writer,
-                                                     _dbus_string_get_const_data_len (sig_str,
-                                                                                      sig_start, sig_len),
-                                                     &subwriter);
-
-            if (!ret)
+            if (!_dbus_type_writer_recurse_contained_len (writer, current_type,
+                                                          sig_str, sig_start, sig_len,
+                                                          &subwriter))
               goto oom;
             
             if (!_dbus_type_writer_write_reader (&subwriter, &subreader))
@@ -1498,10 +1540,10 @@ _dbus_type_writer_write_reader (DBusTypeWriter *writer,
  oom:
   if (!writer->type_pos_is_expectation)
     {
-      new_bytes = orig_type_len - _dbus_string_get_length (writer->type_str);
+      new_bytes = _dbus_string_get_length (writer->type_str) - orig_type_len;
       _dbus_string_delete (writer->type_str, orig.type_pos, new_bytes);
     }
-  new_bytes = orig_value_len - _dbus_string_get_length (writer->value_str);
+  new_bytes = _dbus_string_get_length (writer->value_str) - orig_value_len;
   _dbus_string_delete (writer->value_str, orig.value_pos, new_bytes);
 
   *writer = orig;
@@ -2228,7 +2270,7 @@ run_test_copy (DataBlock *src)
   retval = FALSE;
   
   if (!data_block_init (&dest, src->byte_order, src->initial_offset))
-    goto out;
+    return FALSE;
 
   data_block_init_reader_writer (src, &reader, NULL);
   data_block_init_reader_writer (&dest, NULL, &writer);
@@ -3342,8 +3384,9 @@ struct_write_value (TestTypeNode   *node,
 
   data_block_save (block, &saved);
 
-  if (!_dbus_type_writer_recurse_struct (writer,
-                                         &sub))
+  if (!_dbus_type_writer_recurse (writer, DBUS_TYPE_STRUCT,
+                                  NULL, 0,
+                                  &sub))
     return FALSE;
 
   i = 0;
@@ -3495,9 +3538,9 @@ array_write_value (TestTypeNode   *node,
                              &element_signature))
     goto oom;
 
-  if (!_dbus_type_writer_recurse_array (writer,
-                                        _dbus_string_get_const_data (&element_signature),
-                                        &sub))
+  if (!_dbus_type_writer_recurse (writer, DBUS_TYPE_ARRAY,
+                                  &element_signature, 0,
+                                  &sub))
     goto oom;
 
   i = 0;
@@ -3638,9 +3681,9 @@ variant_write_value (TestTypeNode   *node,
                              &content_signature))
     goto oom;
 
-  if (!_dbus_type_writer_recurse_variant (writer,
-                                          _dbus_string_get_const_data (&content_signature),
-                                          &sub))
+  if (!_dbus_type_writer_recurse (writer, DBUS_TYPE_VARIANT,
+                                  &content_signature, 0,
+                                  &sub))
     goto oom;
 
   if (!node_write_value (child, block, &sub, VARIANT_SEED))
