@@ -1,3 +1,13 @@
+2003-09-25  Seth Nickell  <seth@gnome.org>
+
+	* python/examples/example-service.py:
+
+	Johan notices complete wrong code in example-service, but
+	completely wrong in a way that works exactly the same (!).
+	Johan is confused, how could this possibly work? Example
+	code fails to serve purpose of making things clear.
+	Seth fixes.
+
 2003-09-25  Mark McLoughlin  <mark@skynet.ie>
 
 	* doc/dbus-specification.sgml: don't require header fields
