@@ -1,5 +1,13 @@
 2003-01-18  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-connection.c (dbus_connection_unref): disconnect the 
+	connection if it hasn't been already.
+
+	* dbus/dbus-connection.h: kill off the idea of an ErrorFunction,
+	replace with DisconnectFunction.
+
+2003-01-18  Havoc Pennington  <hp@pobox.com>
+
         Building --disable-verbose-mode --disable-asserts --disable-tests
 	cuts the library from 112K to 45K or so
 	

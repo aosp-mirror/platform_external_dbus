@@ -166,8 +166,6 @@ do_io_error (DBusTransport *transport)
 {
   _dbus_transport_ref (transport);
   _dbus_transport_disconnect (transport);
-  _dbus_connection_transport_error (transport->connection,
-                                    DBUS_RESULT_DISCONNECTED);
   _dbus_transport_unref (transport);
 }
 
@@ -769,8 +767,6 @@ unix_handle_watch (DBusTransport *transport,
   if (flags & (DBUS_WATCH_HANGUP | DBUS_WATCH_ERROR))
     {
       _dbus_transport_disconnect (transport);
-      _dbus_connection_transport_error (transport->connection,
-                                        DBUS_RESULT_DISCONNECTED);
       return;
     }
   

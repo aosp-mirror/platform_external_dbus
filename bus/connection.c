@@ -37,21 +37,16 @@ typedef struct
 #define BUS_CONNECTION_DATA(connection) (dbus_connection_get_data ((connection), connection_data_slot))
 
 static void
-connection_error_handler (DBusConnection *connection,
-                          DBusResultCode  error_code,
-                          void           *data)
+connection_disconnect_handler (DBusConnection *connection,
+                               void           *data)
 {
   BusConnectionData *d;
   BusService *service;
 
-  _dbus_warn ("Error on connection: %s\n",
-              dbus_result_to_string (error_code));
+  _dbus_warn ("Disconnected\n");
 
   d = BUS_CONNECTION_DATA (connection);
-  _dbus_assert (d != NULL);
-  
-  /* we don't want to be called again since we're dropping the connection */
-  dbus_connection_set_error_function (connection, NULL, NULL, NULL);
+  _dbus_assert (d != NULL);  
 
   /* Drop any service ownership */
   while ((service = _dbus_list_get_last (&d->services_owned)))
@@ -151,9 +146,9 @@ bus_connection_setup (DBusConnection *connection)
                                        connection,
                                        NULL);
   
-  dbus_connection_set_error_function (connection,
-                                      connection_error_handler,
-                                      NULL, NULL);
+  dbus_connection_set_disconnect_function (connection,
+                                           connection_disconnect_handler,
+                                           NULL, NULL);
 
   return TRUE;
 }

@@ -40,7 +40,7 @@ typedef struct DBusMessageHandler DBusMessageHandler;
 typedef enum
 {
   DBUS_HANDLER_RESULT_REMOVE_MESSAGE,     /**< Remove this message, no further processing. */
-  DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS /**< Run any additional handlers that are interested on this message. */
+  DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS /**< Run any additional handlers that are interested in this message. */
 } DBusHandlerResult;
 
 typedef enum
@@ -60,9 +60,8 @@ typedef void (* DBusAddWatchFunction)    (DBusWatch      *watch,
 typedef void (* DBusRemoveWatchFunction) (DBusWatch      *watch,
                                           void           *data);
 
-typedef void (* DBusConnectionErrorFunction) (DBusConnection *connection,
-                                              DBusResultCode  error_code,
-                                              void           *data);
+typedef void (* DBusDisconnectFunction)  (DBusConnection *connection,
+                                          void           *data);
 
 DBusConnection* dbus_connection_open             (const char     *address,
                                                   DBusResultCode *result);
@@ -86,18 +85,19 @@ dbus_bool_t dbus_connection_send_message_with_reply (DBusConnection     *connect
                                                      int                 timeout_milliseconds,
                                                      DBusResultCode     *result);
 
-void dbus_connection_set_error_function  (DBusConnection              *connection,
-                                          DBusConnectionErrorFunction  error_function,
-                                          void                        *data,
-                                          DBusFreeFunction             free_data_function);
-void dbus_connection_set_watch_functions (DBusConnection              *connection,
-                                          DBusAddWatchFunction         add_function,
-                                          DBusRemoveWatchFunction      remove_function,
-                                          void                        *data,
-                                          DBusFreeFunction             free_data_function);
-void dbus_connection_handle_watch        (DBusConnection              *connection,
-                                          DBusWatch                   *watch,
-                                          unsigned int                 condition);
+void dbus_connection_set_disconnect_function (DBusConnection          *connection,
+                                              DBusDisconnectFunction   function,
+                                              void                    *data,
+                                              DBusFreeFunction         free_data_function);
+void dbus_connection_set_watch_functions     (DBusConnection          *connection,
+                                              DBusAddWatchFunction     add_function,
+                                              DBusRemoveWatchFunction  remove_function,
+                                              void                    *data,
+                                              DBusFreeFunction         free_data_function);
+void dbus_connection_handle_watch            (DBusConnection          *connection,
+                                              DBusWatch               *watch,
+                                              unsigned int             condition);
+
 
 int          dbus_watch_get_fd    (DBusWatch        *watch);
 unsigned int dbus_watch_get_flags (DBusWatch        *watch);

@@ -215,8 +215,7 @@ _dbus_transport_disconnect (DBusTransport *transport)
   
   transport->disconnected = TRUE;
 
-  _dbus_connection_transport_error (transport->connection,
-                                    DBUS_RESULT_DISCONNECTED);
+  _dbus_connection_notify_disconnected (transport->connection);
   
   DBUS_TRANSPORT_RELEASE_REF (transport);
 }
@@ -308,11 +307,7 @@ _dbus_transport_handle_watch (DBusTransport           *transport,
   _dbus_assert (transport->vtable->handle_watch != NULL);
 
   if (transport->disconnected)
-    {
-      _dbus_connection_transport_error (transport->connection,
-                                        DBUS_RESULT_DISCONNECTED);
-      return;
-    }
+    return;
 
   if (dbus_watch_get_fd (watch) < 0)
     {
@@ -367,11 +362,7 @@ _dbus_transport_messages_pending (DBusTransport  *transport,
   _dbus_assert (transport->vtable->messages_pending != NULL);
 
   if (transport->disconnected)
-    {
-      _dbus_connection_transport_error (transport->connection,
-                                        DBUS_RESULT_DISCONNECTED);
-      return;
-    }
+    return;
 
   transport->messages_need_sending = queue_length > 0;
 
@@ -404,11 +395,7 @@ _dbus_transport_do_iteration (DBusTransport  *transport,
     return; /* Nothing to do */
 
   if (transport->disconnected)
-    {
-      _dbus_connection_transport_error (transport->connection,
-                                        DBUS_RESULT_DISCONNECTED);
-      return;
-    }
+    return;
 
   DBUS_TRANSPORT_HOLD_REF (transport);
   (* transport->vtable->do_iteration) (transport, flags,

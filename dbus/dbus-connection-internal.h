@@ -55,8 +55,7 @@ void            _dbus_connection_do_iteration           (DBusConnection *connect
                                                          unsigned int    flags,
                                                          int             timeout_milliseconds);
 
-void            _dbus_connection_transport_error        (DBusConnection *connection,
-                                                         DBusResultCode  result_code);
+void            _dbus_connection_notify_disconnected    (DBusConnection *connection);
 
 void            _dbus_connection_handler_destroyed      (DBusConnection *connection,
                                                          DBusMessageHandler *handler);

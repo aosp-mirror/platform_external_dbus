@@ -83,9 +83,9 @@ struct DBusConnection
   DBusTransport *transport;    /**< Object that sends/receives messages over network. */
   DBusWatchList *watches;      /**< Stores active watches. */
   
-  DBusConnectionErrorFunction error_function; /**< Callback for errors. */
-  void *error_data;                           /**< Data for error callback. */
-  DBusFreeFunction error_free_data_function;  /**< Free function for error callback data. */
+  DBusDisconnectFunction disconnect_function;      /**< Callback on disconnect. */
+  void *disconnect_data;                           /**< Data for disconnect callback. */
+  DBusFreeFunction disconnect_free_data_function;  /**< Free function for disconnect callback data. */
   DBusHashTable *handler_table; /**< Table of registered DBusMessageHandler */
   DBusList *filter_list;        /**< List of filters. */
   int filters_serial;           /**< Increments when the list of filters is changed. */
@@ -94,6 +94,7 @@ struct DBusConnection
   int           n_slots; /**< Slots allocated so far. */
 
   int client_serial;            /**< Client serial. Increments each time a message is sent  */
+  unsigned int disconnect_notified : 1; /**< Already called disconnect_function */
 };
 
 static void _dbus_connection_free_data_slots (DBusConnection *connection);
@@ -215,41 +216,25 @@ _dbus_connection_remove_watch (DBusConnection *connection,
                                    watch);
 }
 
-static void
-handle_error (DBusConnection *connection,
-              DBusResultCode  result)
-{
-  if (result != DBUS_RESULT_SUCCESS &&
-      connection->error_function != NULL)
-    {
-      dbus_connection_ref (connection);
-      (* connection->error_function) (connection, result,
-                                      connection->error_data);
-      dbus_connection_unref (connection);
-    }
-}
-
-static void
-set_result_handled (DBusConnection *connection,
-                    DBusResultCode *result_address,
-                    DBusResultCode  result)
-{
-  dbus_set_result (result_address, result);
-  handle_error (connection, result);
-}
-
 /**
- * Reports a transport error to the connection. Typically
- * results in an application error callback being invoked.
+ * Tells the connection that the transport has been disconnected.
+ * Results in calling the application disconnect callback.
+ * Only has an effect the first time it's called.
  *
- * @param connection the connection.
- * @param result_code the error code.
+ * @param connection the connection
  */
 void
-_dbus_connection_transport_error (DBusConnection *connection,
-                                  DBusResultCode  result_code)
+_dbus_connection_notify_disconnected (DBusConnection *connection)
 {
-  handle_error (connection, result_code);
+  if (connection->disconnect_function != NULL &&
+      !connection->disconnect_notified)
+    {
+      connection->disconnect_notified = TRUE;
+      dbus_connection_ref (connection);
+      (* connection->disconnect_function) (connection,
+                                           connection->disconnect_data);
+      dbus_connection_unref (connection);
+    }
 }
 
 /**
@@ -333,6 +318,7 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection->data_slots = NULL;
   connection->n_slots = 0;
   connection->client_serial = 1;
+  connection->disconnect_notified = FALSE;
   
   _dbus_transport_ref (transport);
   _dbus_transport_set_connection (transport, connection);
@@ -482,10 +468,12 @@ dbus_connection_unref (DBusConnection *connection)
     {
       DBusHashIter iter;
       DBusList *link;
+
+      dbus_connection_disconnect (connection);
       
-      /* free error data as a side effect */
-      dbus_connection_set_error_function (connection,
-                                          NULL, NULL, NULL);
+      /* free disconnect data as a side effect */
+      dbus_connection_set_disconnect_function (connection,
+                                               NULL, NULL, NULL);
 
       _dbus_watch_list_free (connection->watches);
       connection->watches = NULL;
@@ -587,7 +575,7 @@ dbus_connection_send_message (DBusConnection *connection,
   if (!_dbus_list_prepend (&connection->outgoing_messages,
                            message))
     {
-      set_result_handled (connection, result, DBUS_RESULT_NO_MEMORY);
+      dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
       return FALSE;
     }
 
@@ -823,25 +811,27 @@ dbus_connection_dispatch_message (DBusConnection *connection)
 }
 
 /**
- * Sets the error handler function for the connection.
+ * Sets the disconnect handler function for the connection.
+ * Will be called exactly once, when the connection is
+ * disconnected.
  * 
  * @param connection the connection.
- * @param error_function the error handler.
- * @param data data to pass to the error handler.
+ * @param disconnect_function the disconnect handler.
+ * @param data data to pass to the disconnect handler.
  * @param free_data_function function to be called to free the data.
  */
 void
-dbus_connection_set_error_function  (DBusConnection              *connection,
-                                     DBusConnectionErrorFunction  error_function,
-                                     void                        *data,
-                                     DBusFreeFunction             free_data_function)
+dbus_connection_set_disconnect_function  (DBusConnection              *connection,
+                                          DBusDisconnectFunction       disconnect_function,
+                                          void                        *data,
+                                          DBusFreeFunction             free_data_function)
 {
-  if (connection->error_free_data_function != NULL)
-    (* connection->error_free_data_function) (connection->error_data);
+  if (connection->disconnect_free_data_function != NULL)
+    (* connection->disconnect_free_data_function) (connection->disconnect_data);
 
-  connection->error_function = error_function;
-  connection->error_data = data;
-  connection->error_free_data_function = free_data_function;
+  connection->disconnect_function = disconnect_function;
+  connection->disconnect_data = data;
+  connection->disconnect_free_data_function = free_data_function;
 }
 
 /**
