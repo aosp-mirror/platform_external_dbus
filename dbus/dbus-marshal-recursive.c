@@ -2693,22 +2693,51 @@ struct TestTypeNodeContainerClass
   TestTypeNodeClass base;
 };
 
-static dbus_bool_t   int32_write_value        (TestTypeNode   *node,
-                                               DataBlock      *block,
-                                               DBusTypeWriter *writer);
-static dbus_bool_t   int32_read_value         (TestTypeNode   *node,
-                                               DataBlock      *block,
-                                               DBusTypeReader *reader);
-static dbus_bool_t   struct_1_write_value     (TestTypeNode   *node,
-                                               DataBlock      *block,
-                                               DBusTypeWriter *writer);
-static dbus_bool_t   struct_1_read_value      (TestTypeNode   *node,
-                                               DataBlock      *block,
-                                               DBusTypeReader *reader);
-static dbus_bool_t   struct_1_build_signature (TestTypeNode   *node,
-                                               DBusString     *str);
+static dbus_bool_t int32_write_value        (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeWriter *writer);
+static dbus_bool_t int32_read_value         (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeReader *reader);
+static dbus_bool_t struct_1_write_value     (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeWriter *writer);
+static dbus_bool_t struct_1_read_value      (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeReader *reader);
+static dbus_bool_t struct_1_build_signature (TestTypeNode   *node,
+                                             DBusString     *str);
+static dbus_bool_t struct_2_write_value     (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeWriter *writer);
+static dbus_bool_t struct_2_read_value      (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeReader *reader);
+static dbus_bool_t struct_2_build_signature (TestTypeNode   *node,
+                                             DBusString     *str);
+static dbus_bool_t array_build_signature    (TestTypeNode   *node,
+                                             DBusString     *str);
+static dbus_bool_t array_1_write_value      (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeWriter *writer);
+static dbus_bool_t array_1_read_value       (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeReader *reader);
+static dbus_bool_t array_0_write_value      (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeWriter *writer);
+static dbus_bool_t array_0_read_value       (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeReader *reader);
+static dbus_bool_t array_2_write_value      (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeWriter *writer);
+static dbus_bool_t array_2_read_value       (TestTypeNode   *node,
+                                             DataBlock      *block,
+                                             DBusTypeReader *reader);
 
-static void          container_destroy        (TestTypeNode   *node);
+static void        container_destroy        (TestTypeNode   *node);
+
 
 static const TestTypeNodeClass int32_class = {
   DBUS_TYPE_INT32,
@@ -2717,6 +2746,16 @@ static const TestTypeNodeClass int32_class = {
   NULL,
   int32_write_value,
   int32_read_value,
+  NULL
+};
+
+static const TestTypeNodeClass uint32_class = {
+  DBUS_TYPE_UINT32,
+  sizeof (TestTypeNode),
+  NULL,
+  NULL,
+  int32_write_value, /* recycle from int32 */
+  int32_read_value,  /* recycle from int32 */
   NULL
 };
 
@@ -2730,14 +2769,59 @@ static const TestTypeNodeClass struct_1_class = {
   struct_1_build_signature
 };
 
+static const TestTypeNodeClass struct_2_class = {
+  DBUS_TYPE_STRUCT,
+  sizeof (TestTypeNodeContainer),
+  NULL,
+  container_destroy,
+  struct_2_write_value,
+  struct_2_read_value,
+  struct_2_build_signature
+};
+
+static const TestTypeNodeClass array_0_class = {
+  DBUS_TYPE_ARRAY,
+  sizeof (TestTypeNodeContainer),
+  NULL,
+  container_destroy,
+  array_0_write_value,
+  array_0_read_value,
+  array_build_signature
+};
+
+static const TestTypeNodeClass array_1_class = {
+  DBUS_TYPE_ARRAY,
+  sizeof (TestTypeNodeContainer),
+  NULL,
+  container_destroy,
+  array_1_write_value,
+  array_1_read_value,
+  array_build_signature
+};
+
+static const TestTypeNodeClass array_2_class = {
+  DBUS_TYPE_ARRAY,
+  sizeof (TestTypeNodeContainer),
+  NULL,
+  container_destroy,
+  array_2_write_value,
+  array_2_read_value,
+  array_build_signature
+};
+
 static const TestTypeNodeClass* const
 basic_nodes[] = {
-  &int32_class
+  &int32_class,
+  &uint32_class
 };
 
 static const TestTypeNodeClass* const
 container_nodes[] = {
-  &struct_1_class
+  &struct_1_class,
+  &array_1_class,
+  &struct_2_class,
+  &array_0_class,
+  &array_2_class
 };
 
 static TestTypeNode*
@@ -2811,18 +2895,20 @@ node_append_child (TestTypeNode *node,
 typedef struct
 {
   const DBusString   *signature;
-  DataBlock    *block;
-  int           type_offset;
-  int           byte_order;
-  TestTypeNode *node;
+  DataBlock          *block;
+  int                 type_offset;
+  int                 byte_order;
+  TestTypeNode      **nodes;
+  int                 n_nodes;
 } NodeIterationData;
 
 static dbus_bool_t
-run_test_node_iteration (void *data)
+run_test_nodes_iteration (void *data)
 {
+  NodeIterationData *nid = data;
   DBusTypeReader reader;
   DBusTypeWriter writer;
-  NodeIterationData *nid = data;
+  int i;
 
   /* Stuff to do:
    * 1. write the value
@@ -2833,9 +2919,15 @@ run_test_node_iteration (void *data)
   data_block_init_reader_writer (nid->block,
                                  nid->byte_order,
                                  &reader, &writer);
-  
-  if (!node_write_value (nid->node, nid->block, &writer))
-    return FALSE;
+
+  i = 0;
+  while (i < nid->n_nodes)
+    {
+      if (!node_write_value (nid->nodes[i], nid->block, &writer))
+        return FALSE;
+
+      ++i;
+    }
 
   if (!_dbus_string_equal_substring (nid->signature, 0, _dbus_string_get_length (nid->signature),
                                      &nid->block->signature, nid->type_offset))
@@ -2847,8 +2939,19 @@ run_test_node_iteration (void *data)
       _dbus_assert_not_reached ("wrong signature");
     }
 
-  if (!node_read_value (nid->node, nid->block, &reader))
-    return FALSE;
+  i = 0;
+  while (i < nid->n_nodes)
+    {
+      if (!node_read_value (nid->nodes[i], nid->block, &reader))
+        return FALSE;
+
+      if (i + 1 == nid->n_nodes)
+        NEXT_EXPECTING_FALSE (&reader);
+      else
+        NEXT_EXPECTING_TRUE (&reader);
+
+      ++i;
+    }
 
   /* FIXME type-iterate both signature and value */
   
@@ -2856,10 +2959,11 @@ run_test_node_iteration (void *data)
 }
 
 static void
-run_test_node_in_one_configuration (TestTypeNode     *node,
-                                    int               byte_order,
-                                    int               initial_offset,
-                                    const DBusString *signature)
+run_test_nodes_in_one_configuration (TestTypeNode    **nodes,
+                                     int               n_nodes,
+                                     const DBusString *signature,
+                                     int               byte_order,
+                                     int               initial_offset)
 {
   DataBlock block;
   NodeIterationData nid;
@@ -2876,41 +2980,96 @@ run_test_node_in_one_configuration (TestTypeNode     *node,
   nid.signature = signature;
   nid.block = &block;
   nid.type_offset = initial_offset;
-  nid.node = node;
+  nid.nodes = nodes;
+  nid.n_nodes = n_nodes;
   nid.byte_order = byte_order;
   
   _dbus_test_oom_handling ("running test node",
-                           run_test_node_iteration,
+                           run_test_nodes_iteration,
                            &nid);
 
   data_block_free (&block);
 }
 
 static void
-run_test_node (TestTypeNode *node)
+run_test_nodes (TestTypeNode **nodes,
+                int            n_nodes)
 {
   int i;
   DBusString signature;
 
   if (!_dbus_string_init (&signature))
     _dbus_assert_not_reached ("no memory");
-  
-  if (! node_build_signature (node, &signature))
-    _dbus_assert_not_reached ("no memory");
 
-  _dbus_verbose (">>> test node with signature '%s'\n",
+  i = 0;
+  while (i < n_nodes)
+    {
+      if (! node_build_signature (nodes[i], &signature))
+        _dbus_assert_not_reached ("no memory");
+
+      ++i;
+    }
+      
+  _dbus_verbose (">>> test nodes with signature '%s'\n",
                  _dbus_string_get_const_data (&signature));
   
   i = 0;
   while (i < 18)
     {
-      run_test_node_in_one_configuration (node, DBUS_LITTLE_ENDIAN, i, &signature);
-      run_test_node_in_one_configuration (node, DBUS_BIG_ENDIAN, i, &signature);
+      run_test_nodes_in_one_configuration (nodes, n_nodes, &signature,
+                                           DBUS_LITTLE_ENDIAN, i);
+      run_test_nodes_in_one_configuration (nodes, n_nodes, &signature,
+                                           DBUS_BIG_ENDIAN, i);
       
       ++i;
     }
 
   _dbus_string_free (&signature);
+}
+
+#define N_VALUES (_DBUS_N_ELEMENTS (basic_nodes) * _DBUS_N_ELEMENTS (container_nodes) + _DBUS_N_ELEMENTS (basic_nodes))
+
+static TestTypeNode*
+value_generator (int *ip)
+{
+  int i = *ip;
+  const TestTypeNodeClass *child_klass;
+  const TestTypeNodeClass *container_klass;
+  TestTypeNode *child;
+  TestTypeNode *node;
+  
+  if (i == N_VALUES)
+    {
+      return NULL;
+    }
+  else if (i < _DBUS_N_ELEMENTS (basic_nodes))
+    {
+      node = node_new (basic_nodes[i]);
+    }
+  else
+    {      
+      /* imagine an array:
+       * container 0 of basic 0
+       * container 0 of basic 1
+       * container 0 of basic 2
+       * container 1 of basic 0
+       * container 1 of basic 1
+       * container 1 of basic 2
+       */
+      i -= _DBUS_N_ELEMENTS (basic_nodes);
+
+      container_klass = container_nodes[i / _DBUS_N_ELEMENTS (basic_nodes)];
+      child_klass = basic_nodes[i % _DBUS_N_ELEMENTS (basic_nodes)];
+      
+      node = node_new (container_klass);
+      child = node_new (child_klass);
+      
+      node_append_child (node, child);
+    }
+  
+  *ip += 1; /* increment the generator */
+
+  return node;
 }
 
 static void
@@ -2957,13 +3116,13 @@ make_and_run_test_nodes (void)
       
       node = node_new (klass);
 
-      run_test_node (node);
+      run_test_nodes (&node, 1);
 
       node_destroy (node);
     }
   
   /* n_container * n_basic iterations */
-  _dbus_verbose (">>> >>> - Each container of each basic (redundant with later tests)\n");
+  _dbus_verbose (">>> >>> Each container of each basic (redundant with later tests)\n");
   for (i = 0; i < _DBUS_N_ELEMENTS (container_nodes); i++)
     {
       const TestTypeNodeClass *container_klass = container_nodes[i];
@@ -2978,17 +3137,68 @@ make_and_run_test_nodes (void)
 
           node_append_child (container, child);
           
-          run_test_node (container);
+          run_test_nodes (&container, 1);
 
           node_destroy (container);
         }
     }
   
-  /* n_values * n_values * 2 - each value,value pair combination as toplevel, in both orders */
+  /* n_values * n_values * 2 iterations */
+  _dbus_verbose (">>> >>> Each value,value pair combination as toplevel, in both orders\n");
+  {
+    TestTypeNode *nodes[2];
 
-  /* 1 - all values in one big toplevel */
+    i = 0;
+    while ((nodes[0] = value_generator (&i)))
+      {
+        j = 0;
+        while ((nodes[1] = value_generator (&j)))
+          {
+            run_test_nodes (nodes, 2);
 
-  /* n_container * n_values - container of values */
+            node_destroy (nodes[1]);
+          }
+
+        node_destroy (nodes[0]);
+      }
+  }
+
+  /* 1 iteration */
+  _dbus_verbose (">>> >>> All values in one big toplevel\n");
+  {
+    TestTypeNode *nodes[N_VALUES];
+
+    i = 0;
+    while ((nodes[i] = value_generator (&i)))
+      ;
+
+    run_test_nodes (nodes, N_VALUES);
+
+    for (i = 0; i < N_VALUES; i++)
+      node_destroy (nodes[i]);
+  }
+  
+  /* n_container * n_values iterations */
+  _dbus_verbose (">>> >>> Each container containing each value\n");
+  for (i = 0; i < _DBUS_N_ELEMENTS (container_nodes); i++)
+    {
+      const TestTypeNodeClass *container_klass = container_nodes[i];
+      TestTypeNode *child;
+      
+      j = 0;
+      while ((child = value_generator (&j)))
+        {
+          TestTypeNode *container;
+          
+          container = node_new (container_klass);
+
+          node_append_child (container, child);
+          
+          run_test_nodes (&container, 1);
+          
+          node_destroy (container);
+        }
+    }
   
   /* n_container * n_values - container of same container of values */
   
@@ -3015,7 +3225,7 @@ _dbus_marshal_recursive_test (void)
   make_and_run_test_nodes ();
 #endif
   
-#if 1
+#if 0
   /* The old tests */
   _dbus_test_oom_handling ("recursive marshaling",
                            recursive_marshal_test_iteration,
@@ -3106,7 +3316,11 @@ struct_N_write_value (TestTypeNode   *node,
           TestTypeNode *child = link->data;
           DBusList *next = _dbus_list_get_next_link (&container->children, link);
 
-          node_write_value (child, block, &sub);
+          if (!node_write_value (child, block, &sub))
+            {
+              data_block_restore (block, &saved);
+              return FALSE;
+            }
           
           link = next;
         }
@@ -3229,6 +3443,211 @@ struct_1_build_signature (TestTypeNode   *node,
                           DBusString     *str)
 {
   return struct_N_build_signature (node, str, 1);
+}
+
+
+static dbus_bool_t
+struct_2_write_value (TestTypeNode   *node,
+                      DataBlock      *block,
+                      DBusTypeWriter *writer)
+{
+  return struct_N_write_value (node, block, writer, 2);
+}
+
+static dbus_bool_t
+struct_2_read_value (TestTypeNode   *node,
+                     DataBlock      *block,
+                     DBusTypeReader *reader)
+{
+  return struct_N_read_value (node, block, reader, 2);
+}
+
+static dbus_bool_t
+struct_2_build_signature (TestTypeNode   *node,
+                          DBusString     *str)
+{
+  return struct_N_build_signature (node, str, 2);
+}
+
+static dbus_bool_t
+array_N_write_value (TestTypeNode   *node,
+                     DataBlock      *block,
+                     DBusTypeWriter *writer,
+                     int             n_copies)
+{
+  TestTypeNodeContainer *container = (TestTypeNodeContainer*) node;
+  DataBlockState saved;
+  DBusTypeWriter sub;
+  DBusString element_signature;
+  int i;
+
+  _dbus_assert (container->children != NULL);
+
+  data_block_save (block, &saved);
+  
+  if (!_dbus_string_init (&element_signature))
+    return FALSE;
+
+  if (!node_build_signature (_dbus_list_get_first (&container->children),
+                             &element_signature))
+    goto oom;
+  
+  if (!_dbus_type_writer_recurse_array (writer,
+                                        _dbus_string_get_const_data (&element_signature),
+                                        &sub))
+    goto oom;
+
+  i = 0;
+  while (i < n_copies)
+    {
+      DBusList *link;
+      
+      link = _dbus_list_get_first_link (&container->children);
+      while (link != NULL)
+        {
+          TestTypeNode *child = link->data;
+          DBusList *next = _dbus_list_get_next_link (&container->children, link);
+
+          if (!node_write_value (child, block, &sub))
+            goto oom;
+          
+          link = next;
+        }
+
+      ++i;
+    }
+  
+  if (!_dbus_type_writer_unrecurse (writer, &sub))
+    goto oom;
+  
+  return TRUE;
+
+ oom:
+  data_block_restore (block, &saved);
+  _dbus_string_free (&element_signature);
+  return FALSE;
+}
+
+static dbus_bool_t
+array_N_read_value (TestTypeNode   *node,
+                    DataBlock      *block,
+                    DBusTypeReader *reader,
+                    int             n_copies)
+{
+  TestTypeNodeContainer *container = (TestTypeNodeContainer*) node;
+  DBusTypeReader sub;
+  int i;
+  
+  check_expected_type (reader, DBUS_TYPE_ARRAY);
+
+  if (n_copies > 0)
+    {
+      _dbus_assert (!_dbus_type_reader_array_is_empty (reader));
+      
+      _dbus_type_reader_recurse (reader, &sub);
+
+      i = 0;
+      while (i < n_copies)
+        {
+          DBusList *link;
+          
+          link = _dbus_list_get_first_link (&container->children);
+          while (link != NULL)
+            {
+              TestTypeNode *child = link->data;
+              DBusList *next = _dbus_list_get_next_link (&container->children, link);
+              
+              node_read_value (child, block, &sub);
+              
+              if (i == (n_copies - 1) && next == NULL)
+                NEXT_EXPECTING_FALSE (&sub);
+              else
+                NEXT_EXPECTING_TRUE (&sub);
+              
+              link = next;
+            }
+          
+          ++i;
+        }
+    }
+  else
+    {
+      _dbus_assert (_dbus_type_reader_array_is_empty (reader));
+    }
+    
+  return TRUE;
+}
+
+static dbus_bool_t
+array_build_signature (TestTypeNode   *node,
+                       DBusString     *str)
+{
+  TestTypeNodeContainer *container = (TestTypeNodeContainer*) node;
+  int orig_len;
+  
+  orig_len = _dbus_string_get_length (str);
+
+  if (!_dbus_string_append_byte (str, DBUS_TYPE_ARRAY))
+    goto oom;
+
+  if (!node_build_signature (_dbus_list_get_first (&container->children),
+                             str))
+    goto oom;
+  
+  return TRUE;
+  
+ oom:
+  _dbus_string_set_length (str, orig_len);
+  return FALSE;
+}
+
+static dbus_bool_t
+array_0_write_value (TestTypeNode   *node,
+                     DataBlock      *block,
+                     DBusTypeWriter *writer)
+{
+  return array_N_write_value (node, block, writer, 0);
+}
+
+static dbus_bool_t
+array_0_read_value (TestTypeNode   *node,
+                    DataBlock      *block,
+                    DBusTypeReader *reader)
+{
+  return array_N_read_value (node, block, reader, 0);
+}
+
+
+static dbus_bool_t
+array_1_write_value (TestTypeNode   *node,
+                     DataBlock      *block,
+                     DBusTypeWriter *writer)
+{
+  return array_N_write_value (node, block, writer, 1);
+}
+
+static dbus_bool_t
+array_1_read_value (TestTypeNode   *node,
+                    DataBlock      *block,
+                    DBusTypeReader *reader)
+{
+  return array_N_read_value (node, block, reader, 1);
+}
+
+static dbus_bool_t
+array_2_write_value (TestTypeNode   *node,
+                     DataBlock      *block,
+                     DBusTypeWriter *writer)
+{
+  return array_N_write_value (node, block, writer, 2);
+}
+
+static dbus_bool_t
+array_2_read_value (TestTypeNode   *node,
+                    DataBlock      *block,
+                    DBusTypeReader *reader)
+{
+  return array_N_read_value (node, block, reader, 2);
 }
 
 static void
