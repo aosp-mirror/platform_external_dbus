@@ -1,5 +1,12 @@
 2005-01-11  Joe Shaw  <joeshaw@novell.com>
 
+	Patch from Sjoerd Simons <sjoerd@luon.net>
+
+	* mono/Makefile.am, mono/example/Makefile.am: Don't redefine
+	DESTDIR.  It breaks stuff.
+
+2005-01-11  Joe Shaw  <joeshaw@novell.com>
+
 	Patch from Tambet Ingo <tambet@ximian.com>
 
 	* mono/DBusType/Array.cs (Get): Get the underlying element type by

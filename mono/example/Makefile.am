@@ -1,5 +1,3 @@
-DESTDIR=
-
 NOINST_EXES=echo-server.exe echo-client.exe bus-listener.exe
 DISTCLEANFILES=$(NOINST_EXES)
 

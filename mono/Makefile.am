@@ -1,5 +1,3 @@
-DESTDIR=
-
 SUBDIRS=. doc example
 
 TARGET=$(ASSEMBLY)
