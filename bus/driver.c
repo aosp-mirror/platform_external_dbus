@@ -511,6 +511,7 @@ bus_driver_handle_service_exists (DBusConnection *connection,
   DBusMessage *reply;
   DBusString service_name;
   BusService *service;
+  dbus_bool_t service_exists;
   char *name;
   dbus_bool_t retval;
   BusRegistry *registry;
@@ -525,10 +526,18 @@ bus_driver_handle_service_exists (DBusConnection *connection,
     return FALSE;
 
   retval = FALSE;
+
+  if (strcmp (name, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) == 0)
+    {
+      service_exists = TRUE;
+    }
+  else
+    {
+      _dbus_string_init_const (&service_name, name);
+      service = bus_registry_lookup (registry, &service_name);
+      service_exists = service != NULL;
+    }
   
-  _dbus_string_init_const (&service_name, name);
-  service = bus_registry_lookup (registry, &service_name);
- 
   reply = dbus_message_new_method_return (message);
   if (reply == NULL)
     {
@@ -537,7 +546,7 @@ bus_driver_handle_service_exists (DBusConnection *connection,
     }
 
   if (!dbus_message_append_args (reply,
-                                 DBUS_TYPE_BOOLEAN, service != NULL,
+                                 DBUS_TYPE_BOOLEAN, service_exists,
                                  0))
     {
       BUS_SET_OOM (error);

@@ -1,3 +1,9 @@
+2004-08-26  Jon Trowbridge  <trow@ximian.com>
+
+	* bus/driver.c (bus_driver_handle_service_exists): Respond with
+	TRUE if we are inquiring about the existence of the built-in
+	org.freedesktop.DBus service.
+
 2004-08-25  John Palmieri  <johnp@redhat.com>
 	* bus/config-parser.c:
 	(struct PolicyType): Add POLICY_CONSOLE
