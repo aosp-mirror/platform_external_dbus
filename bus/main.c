@@ -22,6 +22,7 @@
  */
 #include "loop.h"
 #include "connection.h"
+#include "driver.h"
 #include <dbus/dbus-list.h>
 
 static void

@@ -98,6 +98,17 @@ bus_service_lookup (const DBusString *service_name,
   return service;
 }
 
+void
+bus_service_free (BusService *service)
+{
+  _dbus_assert (service->owners == NULL);
+
+  _dbus_hash_table_remove_string (service_hash, service->name);
+  
+  dbus_free (service->name);
+  _dbus_mem_pool_dealloc (service_pool, service);
+}
+
 dbus_bool_t
 bus_service_add_owner (BusService     *service,
                        DBusConnection *owner)

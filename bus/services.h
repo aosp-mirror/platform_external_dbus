@@ -39,15 +39,15 @@ typedef void (* BusServiceForeachFunction) (BusService       *service,
                                             void             *data);
 
 BusService*     bus_service_lookup            (const DBusString          *service_name,
-                                               dbus_bool_t                create_if_not_found);
+					       dbus_bool_t                create_if_not_found);
+void            bus_service_free              (BusService                *service);
 dbus_bool_t     bus_service_add_owner         (BusService                *service,
-                                               DBusConnection            *owner);
+					       DBusConnection            *owner);
 void            bus_service_remove_owner      (BusService                *service,
-                                               DBusConnection            *owner);
+					       DBusConnection            *owner);
 DBusConnection* bus_service_get_primary_owner (BusService                *service);
 const char*     bus_service_get_name          (BusService                *service);
-
 void            bus_service_foreach           (BusServiceForeachFunction  function,
-                                               void                      *data);
+					       void                      *data);
 
 #endif /* BUS_SERVICES_H */

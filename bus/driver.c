@@ -1,0 +1,217 @@
+/* -*- mode: C; c-file-style: "gnu" -*- */
+/* bus.c  Bus client (driver)
+ *
+ * Copyright (C) 2003  CodeFactory AB
+ *
+ * Licensed under the Academic Free License version 1.2
+ * 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
+
+#include "connection.h"
+#include "driver.h"
+#include "services.h"
+#include <dbus/dbus-internals.h>
+#include <dbus/dbus-string.h>
+#include <string.h>
+
+#define BUS_DRIVER_SERVICE_NAME "org.freedesktop.DBus"
+#define BUS_DRIVER_HELLO_NAME "org.freedesktop.DBus.Hello"
+#define BUS_DRIVER_WELCOME_NAME "org.freedesktop.DBus.Welcome"
+
+static dbus_bool_t  bus_driver_send_welcome_message (DBusConnection *connection,
+						     DBusMessage    *hello_message);
+
+static dbus_bool_t
+create_unique_client_name (const char *name, DBusString *str)
+{
+  int i, len;
+
+  if (!_dbus_string_init (str, _DBUS_INT_MAX))
+    return FALSE;
+
+  if (!_dbus_string_append (str, name))
+    return FALSE;
+  
+  len = _dbus_string_get_length (str);
+  
+  i = 0;  
+  while (1)
+    {
+      if (!_dbus_string_append_int (str, i))
+	{
+	  _dbus_string_free (str);
+	  return FALSE;
+	}
+      
+      /* Check if a client with the name exists */
+      if (bus_service_lookup (str, FALSE) == NULL)
+	break;
+
+      _dbus_string_set_length (str, len);
+      
+      i++;
+    }
+
+  return TRUE;
+}
+
+static dbus_bool_t
+bus_driver_handle_hello_message (DBusConnection *connection,
+				 DBusMessage    *message)
+{
+  DBusResultCode result;
+  char *name;
+  DBusString unique_name;
+  BusService *service;
+  dbus_bool_t retval;
+  
+  result = dbus_message_get_fields (message,
+				    DBUS_TYPE_STRING, &name,
+				    0);
+
+  /* FIXME: Handle this in a better way */
+  if (result != DBUS_RESULT_SUCCESS)
+    return FALSE;
+
+  if (!create_unique_client_name (name, &unique_name))
+    return FALSE;
+
+  /* Create the service */
+  service = bus_service_lookup (&unique_name, TRUE);
+  if (!service)
+    {
+      _dbus_string_free (&unique_name);
+      return FALSE;
+    }
+
+  /* FIXME: Error checks from this point */
+  
+  /* Add the connection as the owner */
+  bus_service_add_owner (service, connection);
+  bus_connection_set_name (connection, &unique_name);
+
+  /* We need to assign the sender to the message here */
+  _dbus_message_set_sender (message,
+			    bus_connection_get_name (connection));
+  
+  _dbus_string_free (&unique_name);
+
+  retval = bus_driver_send_welcome_message (connection, message);
+
+  return retval;
+}
+
+static dbus_bool_t
+bus_driver_send_welcome_message (DBusConnection *connection,
+				 DBusMessage    *hello_message)
+{
+  DBusMessage *welcome;
+  const char *name;
+  dbus_bool_t retval;
+  
+  
+  name = bus_connection_get_name (connection);
+  _dbus_assert (name != NULL);
+  
+  welcome = dbus_message_new_reply (BUS_DRIVER_WELCOME_NAME,
+				    hello_message);
+  if (welcome == NULL)
+    return FALSE;
+
+  /* FIXME: Return value */
+  _dbus_message_set_sender (welcome, BUS_DRIVER_SERVICE_NAME);
+  
+  if (!dbus_message_append_fields (welcome,
+				   DBUS_TYPE_STRING, name,
+				   NULL))
+    {
+      dbus_message_unref (welcome);
+      return FALSE;
+    }
+
+  retval = dbus_connection_send_message (connection, welcome, NULL, NULL);
+  dbus_message_unref (welcome);
+
+  return retval;
+}
+
+/* This is where all the magic occurs */
+static DBusHandlerResult
+bus_driver_message_handler (DBusMessageHandler *handler,
+			    DBusConnection     *connection,
+			    DBusMessage        *message,
+			    void               *user_data)
+{
+  const char *service, *name;
+
+  service = dbus_message_get_service (message);
+  name = dbus_message_get_name (message);
+
+  _dbus_message_set_sender (message,
+			    bus_connection_get_name (connection));
+  
+  if (strcmp (service, BUS_DRIVER_SERVICE_NAME) == 0)
+    {
+      if (strcmp (name, BUS_DRIVER_HELLO_NAME) == 0)
+	bus_driver_handle_hello_message (connection, message);
+    }
+  else
+    {
+      /* FIXME: Dispatch the message :-) */
+    }
+
+  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+}
+
+dbus_bool_t
+bus_driver_add_connection (DBusConnection *connection)
+{
+  DBusMessageHandler *handler;
+
+  handler = dbus_message_handler_new (bus_driver_message_handler, NULL, NULL);
+
+  if (!dbus_connection_add_filter (connection, handler))
+    {
+      dbus_message_handler_unref (handler);
+
+      return FALSE;
+    }
+
+  _dbus_verbose ("D-Bus driver on board...\n");
+  
+  return TRUE;
+}
+
+void
+bus_driver_remove_connection (DBusConnection *connection)
+{
+  BusService *service;
+  DBusString service_name;
+  const char *name;
+
+  name = bus_connection_get_name (connection);
+
+  if (name == NULL)
+    return;
+  
+  _dbus_string_init_const (&service_name, name);
+  
+  service = bus_service_lookup (&service_name, FALSE);
+
+  if (service)
+    bus_service_free (service);
+}

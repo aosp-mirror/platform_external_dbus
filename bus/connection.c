@@ -21,6 +21,7 @@
  *
  */
 #include "connection.h"
+#include "driver.h"
 #include "loop.h"
 #include "services.h"
 #include <dbus/dbus-list.h>
@@ -32,6 +33,7 @@ typedef struct
 {
   DBusList *services_owned;
 
+  char *name;
 } BusConnectionData;
 
 #define BUS_CONNECTION_DATA(connection) (dbus_connection_get_data ((connection), connection_data_slot))
@@ -52,6 +54,9 @@ connection_disconnect_handler (DBusConnection *connection,
   while ((service = _dbus_list_get_last (&d->services_owned)))
     bus_service_remove_owner (service, connection);
 
+  /* Tell bus driver that we want to get off */
+  bus_driver_remove_connection (connection);
+  
   /* no more watching */
   dbus_connection_set_watch_functions (connection,
                                        NULL, NULL,
@@ -74,6 +79,8 @@ connection_watch_callback (DBusWatch     *watch,
   DBusConnection *connection = data;
 
   dbus_connection_handle_watch (connection, watch, condition);
+
+  while (dbus_connection_dispatch_message (connection));
 }
 
 static void
@@ -98,6 +105,8 @@ free_connection_data (void *data)
 
   /* services_owned should be NULL since we should be disconnected */
   _dbus_assert (d->services_owned == NULL);
+
+  dbus_free (d->name);
   
   dbus_free (d);
 }
@@ -150,6 +159,9 @@ bus_connection_setup (DBusConnection *connection)
                                            connection_disconnect_handler,
                                            NULL, NULL);
 
+  if (!bus_driver_add_connection (connection))
+    return FALSE;
+  
   return TRUE;
 }
 
@@ -179,4 +191,36 @@ bus_connection_remove_owned_service (DBusConnection *connection,
   _dbus_assert (d != NULL);
 
   _dbus_list_remove_last (&d->services_owned, service);
+}
+
+dbus_bool_t
+bus_connection_set_name (DBusConnection   *connection,
+			 const DBusString *name)
+{
+  const char *c_name;
+  BusConnectionData *d;
+  
+  d = BUS_CONNECTION_DATA (connection);
+  _dbus_assert (d != NULL);
+  _dbus_assert (d->name == NULL);
+
+  _dbus_string_get_const_data (name, &c_name);
+
+  d->name = _dbus_strdup (c_name);
+
+  if (d->name == NULL)
+    return FALSE;
+
+  return TRUE;
+}
+
+const char *
+bus_connection_get_name (DBusConnection *connection)
+{
+  BusConnectionData *d;
+  
+  d = BUS_CONNECTION_DATA (connection);
+  _dbus_assert (d != NULL);
+  
+  return d->name;
 }

@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* connection.h  Client connections
+/* bus.h  Bus client (driver)
  *
- * Copyright (C) 2003  Red Hat, Inc.
+ * Copyright (C) 2003  CodeFactory AB
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -21,26 +21,12 @@
  *
  */
 
-#ifndef BUS_CONNECTION_H
-#define BUS_CONNECTION_H
+#ifndef BUS_DRIVER_H
+#define BUS_DRIVER_H
 
 #include <dbus/dbus.h>
-#include "services.h"
 
-dbus_bool_t bus_connection_init (void);
+dbus_bool_t bus_driver_add_connection    (DBusConnection *connection);
+void        bus_driver_remove_connection (DBusConnection *connection);
 
-dbus_bool_t bus_connection_setup (DBusConnection *connection);
-
-/* called by services.c */
-dbus_bool_t bus_connection_add_owned_service    (DBusConnection *connection,
-                                                 BusService     *service);
-void        bus_connection_remove_owned_service (DBusConnection *connection,
-                                                 BusService     *service);
-
-/* called by driver.c */
-dbus_bool_t bus_connection_set_name (DBusConnection   *connection,
-				     const DBusString *name);
-const char *bus_connection_get_name (DBusConnection   *connection);
-
-
-#endif /* BUS_CONNECTION_H */
+#endif /* BUS_DRIVER_H */

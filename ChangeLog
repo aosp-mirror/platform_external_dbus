@@ -1,5 +1,36 @@
 2003-01-21  Anders Carlsson  <andersca@codefactory.se>
 
+	* bus/Makefile.am:
+	Add driver.[ch]
+	
+	* bus/connection.c: (connection_disconnect_handler):
+	Remove the connection from the bus driver's list.
+	
+	(connection_watch_callback): Dispatch messages.
+
+	(free_connection_data): Free connection name.
+	
+	(bus_connection_setup): Add connection to the bus driver's list.
+	(bus_connection_remove_owned_service): 
+	(bus_connection_set_name), (bus_connection_get_name):
+	Add functions for setting and getting the connection's name.
+	
+	* bus/connection.h:
+	Add function headers.
+	
+	* bus/driver.c: (create_unique_client_name),
+	(bus_driver_handle_hello_message),
+	(bus_driver_send_welcome_message), (bus_driver_message_handler),
+	(bus_driver_add_connection), (bus_driver_remove_connection):
+	* bus/driver.h:
+	* bus/main.c:
+	* bus/services.c: (bus_service_free):
+	* bus/services.h:
+	New file that handles communication and registreation with the bus
+	itself. 
+	
+2003-01-21  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-connection.c: (dbus_connection_send_message):
 	Add a new client_serial parameter.
 	
