@@ -31,7 +31,7 @@ DOUBLE_ARRAY { 0.1, 0.2, 3.1415926, 2.7183, 10.0, 9.99 }
 TYPE ARRAY
 TYPE STRING
 STRING_ARRAY { 'Hello', 'This', 'Is', 'A', 'String', 'Array!' }
-TYPE NAMED
+TYPE CUSTOM
 STRING 'named type'
 BYTE_ARRAY { 'b', 'i', 'n', 'a', 'r', 'y', 'd', 'a', 't', 'a' }
 

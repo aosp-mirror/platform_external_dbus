@@ -4,11 +4,43 @@
 #include <stdlib.h>
 #include <string.h>
 
+static GMainLoop *loop = NULL;
+static int n_times_foo_received = 0;
+
+static void
+foo_signal_handler (DBusGProxy  *proxy,
+                    DBusMessage *signal,
+                    void        *user_data)
+{
+  double d;
+  DBusError derror;
+  
+  if (!dbus_message_is_signal (signal,
+                               "org.freedesktop.TestSuite",
+                               "Foo"))
+    {
+      g_printerr ("Signal handler received the wrong message\n");
+      exit (1);
+    }
+
+  dbus_error_init (&derror);
+  if (!dbus_message_get_args (signal, &derror, DBUS_TYPE_DOUBLE,
+                              &d, DBUS_TYPE_INVALID))
+    {
+      g_printerr ("failed to get signal args: %s\n", derror.message);
+      dbus_error_free (&derror);
+      exit (1);
+    }
+
+  n_times_foo_received += 1;
+
+  g_main_loop_quit (loop);
+}
+
 int
 main (int argc, char **argv)
 {
   DBusConnection *connection;
-  GMainLoop *loop;
   GError *error;
   DBusGProxy *driver;
   DBusGProxy *proxy;
@@ -135,7 +167,7 @@ main (int argc, char **argv)
   
   proxy = dbus_gproxy_new_for_service (connection,
                                        "org.freedesktop.DBus.TestSuiteEchoService",
-                                       "/fixme/the/test/service/ignores/this", /* FIXME */
+                                       "/org/freedesktop/TestSuite",
                                        "org.freedesktop.TestSuite");
   
   call = dbus_gproxy_begin_call (proxy, "Echo",
@@ -156,6 +188,26 @@ main (int argc, char **argv)
 
   g_print ("String echoed = \"%s\"\n", str);
   dbus_free (str);
+
+  /* Test oneway call and signal handling */
+
+  dbus_gproxy_connect_signal (proxy, "Foo",
+                              foo_signal_handler,
+                              NULL, NULL);
+  
+  dbus_gproxy_call_no_reply (proxy, "EmitFoo",
+                             DBUS_TYPE_INVALID);
+
+  dbus_connection_flush (connection);
+  
+  g_main_loop_run (loop);
+
+  if (n_times_foo_received != 1)
+    {
+      g_printerr ("Foo signal received %d times, should have been 1\n",
+                  n_times_foo_received);
+      exit (1);
+    }
   
   g_object_unref (G_OBJECT (driver));
   g_object_unref (G_OBJECT (proxy));

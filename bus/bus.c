@@ -919,6 +919,7 @@ bus_context_check_security_policy (BusContext     *context,
   type = dbus_message_get_type (message);
   
   /* dispatch.c was supposed to ensure these invariants */
+  /* FIXME this assertion is failing in make check */
   _dbus_assert (dbus_message_get_destination (message) != NULL ||
                 type == DBUS_MESSAGE_TYPE_SIGNAL);
   _dbus_assert (type == DBUS_MESSAGE_TYPE_SIGNAL ||

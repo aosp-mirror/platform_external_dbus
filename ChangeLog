@@ -1,3 +1,57 @@
+2003-10-20  Havoc Pennington  <hp@redhat.com>
+
+        hmm, make check is currently not passing.
+	
+	* doc/dbus-specification.xml: add requirement that custom type
+	names follow the same rules as interface names.
+
+	* dbus/dbus-protocol.h: change some of the byte codes, to avoid
+	duplication and allow 'c' to be 'custom'; dict is now 'm' for
+	'map'
+
+	* doc/dbus-specification.xml: update type codes to match
+	dbus-protocol.h, using the ASCII byte values. Rename type NAMED to
+	CUSTOM. Add type OBJECT_PATH to the spec.
+
+2003-10-17  Havoc Pennington  <hp@redhat.com>
+
+	* bus/driver.c (create_unique_client_name): use "." as separator
+	in base service names instead of '-'
+
+	* dbus/dbus-string.c (_dbus_string_get_byte): allow getting nul
+	byte at the end of the string
+
+	* dbus/dbus-internals.h (_DBUS_LIKELY, _DBUS_UNLIKELY): add
+	optimization macros since string validation seems to be a slow
+	point.
+	
+	* doc/dbus-specification.xml: restrict valid
+	service/interface/member/error names. Add test suite code for the
+	name validation.
+
+	* dbus/dbus-string.c: limit service/interface/member/error names 
+	to [0-9][A-Z][a-z]_
+
+	* dbus/dbus-connection.c (dbus_connection_dispatch): add missing
+	format arg to verbose spew
+
+	* glib/dbus-gproxy.c (dbus_gproxy_call_no_reply): if not out of
+	memory, return instead of g_error
+
+	* test/test-service.c (path_message_func): support emitting a
+	signal on request
+
+	* dbus/dbus-bus.c (init_connections_unlocked): only fill in
+	activation bus type if DBUS_BUS_ACTIVATION was set; default to
+	assuming the activation bus was the session bus so that services
+	started manually will still register.
+	(init_connections_unlocked): fix so that in OOM situation we get
+	the same semantics when retrying the function
+	
+	* test/test-service.c (main): change to use path registration, to
+	test those codepaths; register with DBUS_BUS_ACTIVATION rather
+	than DBUS_BUS_SESSION
+
 2003-10-16  Havoc Pennington  <hp@redhat.com>
 
 	* glib/dbus-gtest-main.c: bracket with #ifdef DBUS_BUILD_TESTS

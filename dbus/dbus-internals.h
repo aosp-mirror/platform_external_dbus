@@ -51,6 +51,33 @@ void _dbus_verbose_reset_real (void);
 #define _DBUS_FUNCTION_NAME "unknown function"
 #endif
 
+/*
+ * (code from GLib)
+ * 
+ * The _DBUS_LIKELY and _DBUS_UNLIKELY macros let the programmer give hints to 
+ * the compiler about the expected result of an expression. Some compilers
+ * can use this information for optimizations.
+ *
+ * The _DBUS_BOOLEAN_EXPR macro is intended to trigger a gcc warning when
+ * putting assignments in the macro arg
+ */
+#if defined(__GNUC__) && (__GNUC__ > 2) && defined(__OPTIMIZE__)
+#define _DBUS_BOOLEAN_EXPR(expr)                \
+ __extension__ ({                               \
+   int _dbus_boolean_var_;                      \
+   if (expr)                                    \
+      _dbus_boolean_var_ = 1;                   \
+   else                                         \
+      _dbus_boolean_var_ = 0;                   \
+   _dbus_boolean_var_;                          \
+})
+#define _DBUS_LIKELY(expr) (__builtin_expect (_DBUS_BOOLEAN_EXPR(expr), 1))
+#define _DBUS_UNLIKELY(expr) (__builtin_expect (_DBUS_BOOLEAN_EXPR(expr), 0))
+#else
+#define _DBUS_LIKELY(expr) (expr)
+#define _DBUS_UNLIKELY(expr) (expr)
+#endif
+
 #ifdef DBUS_ENABLE_VERBOSE_MODE
 #  define _dbus_verbose _dbus_verbose_real
 #  define _dbus_verbose_reset _dbus_verbose_reset_real

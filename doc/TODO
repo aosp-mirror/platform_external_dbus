@@ -26,18 +26,9 @@
    which of these functions to include, in light of the fact that 
    GLib/Qt native stubs will probably also exist.
 
- - The message handler interface needs rethinking, perhaps handlers should be able 
-   to return an error that automatically gets turned into a message; most likely 
-   some basic spec'ing out of the GLib/Qt level stubs/skels stuff will be 
-   needed to understand the right approach.
-
  - assorted _-prefixed symbols in libdbus aren't actually used by
    libdbus, only by the message bus. These bloat up the library
    size. Not sure how to fix, really.
-
- - if you send a message to a service then block for reply, and the service exits/crashes
-   after the message bus has processed your message but before the service has replied, 
-   it would be nice if the message bus sent you an error reply.
 
  - build and install the Doxygen manual in Makefile when --enable-docs
 
@@ -89,8 +80,6 @@
 
  - add dbus_message_has_path(), maybe has_member/interface
 
- - The OBJECT_PATH type is not documented in the spec.
-
  - re_align_field_recurse() in dbus-message.c is broken because it 
    crashes on some types of header field values. security problem.
 
@@ -99,11 +88,9 @@
    be coded to handle it restarting
 
  - modify the wire protocol to keep the args signature separate 
-   from the args themselves. Make the name of TYPE_NAMED part 
+   from the args themselves. Make the name of TYPE_CUSTOM part 
    of the type signature, rather than part of the value.
    Then you have the full typecheck in a single string.
-
- - rename TYPE_NAMED to TYPE_CUSTOM, probably a clearer name.
 
  - dbus_message_iter_init_array_iterator has "iter" and "iterator" 
    in the same function name
@@ -111,6 +98,11 @@
  - the GLib bindings varargs take DBUS_TYPE_WHATEVER and 
    return stuff allocated with dbus_malloc(); should this 
    be made more "G" at some expense in code duplication?
+   You also still have to use some D-BUS functions such as 
+   dbus_message_get_args() which takes a DBusError. 
+   Probably we need to either fully encapsulate and hide 
+   dbus/dbus.h, or encapsulate it slightly less e.g. no 
+   GError.
 
  - need to define bus behavior if you send a message to 
    yourself; is it an error, or allowed? If allowed, 
@@ -124,3 +116,9 @@
 
  - the varargs dbus_message_get_args() needs to support OBJECT_PATH 
    and OBJECT_PATH_ARRAY
+
+ - recursive dispatch, see dbus_connection_dispatch()
+
+ - the auth protocol may as well use hex encoding instead of 
+   base64, then we can dump the base64 implementation and 
+   save some bloat.

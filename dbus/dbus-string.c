@@ -544,7 +544,9 @@ _dbus_string_set_byte (DBusString    *str,
 }
 
 /**
- * Gets the byte at the given position.
+ * Gets the byte at the given position. It is
+ * allowed to ask for the nul byte at the end of
+ * the string.
  *
  * @param str the string
  * @param start the position
@@ -555,7 +557,7 @@ _dbus_string_get_byte (const DBusString  *str,
                        int                start)
 {
   DBUS_CONST_STRING_PREAMBLE (str);
-  _dbus_assert (start < real->len);
+  _dbus_assert (start <= real->len);
   _dbus_assert (start >= 0);
   
   return real->str[start];
@@ -2728,8 +2730,8 @@ _dbus_string_validate_ascii (const DBusString *str,
   end = s + len;
   while (s != end)
     {
-      if (*s == '\0' ||
-          ((*s & ~0x7f) != 0))
+      if (_DBUS_UNLIKELY (*s == '\0' ||
+                          ((*s & ~0x7f) != 0)))
         return FALSE;
         
       ++s;
@@ -2765,7 +2767,15 @@ _dbus_string_validate_utf8  (const DBusString *str,
   _dbus_assert (start <= real->len);
   _dbus_assert (len >= 0);
 
-  if (len > real->len - start)
+  /* we are doing _DBUS_UNLIKELY() here which might be
+   * dubious in a generic library like GLib, but in D-BUS
+   * we know we're validating messages and that it would
+   * only be evil/broken apps that would have invalid
+   * UTF-8. Also, this function seems to be a performance
+   * bottleneck in profiles.
+   */
+  
+  if (_DBUS_UNLIKELY (len > real->len - start))
     return FALSE;
   
   p = real->str + start;
@@ -2779,22 +2789,22 @@ _dbus_string_validate_utf8  (const DBusString *str,
       
       UTF8_COMPUTE (c, mask, char_len);
 
-      if (char_len == -1)
+      if (_DBUS_UNLIKELY (char_len == -1))
         break;
 
       /* check that the expected number of bytes exists in the remaining length */
-      if ((end - p) < char_len)
+      if (_DBUS_UNLIKELY ((end - p) < char_len))
         break;
         
       UTF8_GET (result, p, i, mask, char_len);
 
-      if (UTF8_LENGTH (result) != char_len) /* Check for overlong UTF-8 */
+      if (_DBUS_UNLIKELY (UTF8_LENGTH (result) != char_len)) /* Check for overlong UTF-8 */
         break;
 
-      if (result == (dbus_unichar_t)-1)
+      if (_DBUS_UNLIKELY (result == (dbus_unichar_t)-1))
         break;
 
-      if (!UNICODE_VALID (result))
+      if (_DBUS_UNLIKELY (!UNICODE_VALID (result)))
         break;
       
       p += char_len;
@@ -2803,7 +2813,7 @@ _dbus_string_validate_utf8  (const DBusString *str,
   /* See that we covered the entire length if a length was
    * passed in
    */
-  if (p != end)
+  if (_DBUS_UNLIKELY (p != end))
     return FALSE;
   else
     return TRUE;
@@ -2841,7 +2851,7 @@ _dbus_string_validate_nul (const DBusString *str,
   end = s + len;
   while (s != end)
     {
-      if (*s != '\0')
+      if (_DBUS_UNLIKELY (*s != '\0'))
         return FALSE;
       ++s;
     }
@@ -2917,17 +2927,24 @@ _dbus_string_validate_path (const DBusString  *str,
   return TRUE;
 }
 
+#define VALID_INITIAL_NAME_CHARACTER(c)         \
+  ( ((c) >= 'A' && (c) <= 'Z') ||               \
+    ((c) >= 'a' && (c) <= 'z') ||               \
+    ((c) == '_') )
+
+#define VALID_NAME_CHARACTER(c)                 \
+  ( ((c) >= '0' && (c) <= '9') ||               \
+    ((c) >= 'A' && (c) <= 'Z') ||               \
+    ((c) >= 'a' && (c) <= 'z') ||               \
+    ((c) == '_') )
+
 /**
  * Checks that the given range of the string is a valid interface name
- * in the D-BUS protocol. This includes a length restriction, etc.,
- * see the specification. It does not validate UTF-8, that has to be
- * done separately for now.
+ * in the D-BUS protocol. This includes a length restriction and an
+ * ASCII subset, see the specification.
  *
  * @todo this is inconsistent with most of DBusString in that
  * it allows a start,len range that isn't in the string.
- *
- * @todo change spec to disallow more things, such as spaces in the
- * interface name
  * 
  * @param str the string
  * @param start first byte index to check
@@ -2938,10 +2955,11 @@ dbus_bool_t
 _dbus_string_validate_interface (const DBusString  *str,
                                  int                start,
                                  int                len)
-{
+{  
   const unsigned char *s;
   const unsigned char *end;
-  dbus_bool_t saw_dot;
+  const unsigned char *iface;
+  const unsigned char *last_dot;
   
   DBUS_CONST_STRING_PREAMBLE (str);
   _dbus_assert (start >= 0);
@@ -2957,21 +2975,41 @@ _dbus_string_validate_interface (const DBusString  *str,
   if (len == 0)
     return FALSE;
 
-  saw_dot = FALSE;
-  s = real->str + start;
-  end = s + len;
+  last_dot = NULL;
+  iface = real->str + start;
+  end = iface + len;
+  s = iface;
+
+  /* check special cases of first char so it doesn't have to be done
+   * in the loop. Note we know len > 0
+   */
+  if (_DBUS_UNLIKELY (*s == '.')) /* disallow starting with a . */
+    return FALSE;
+  else if (_DBUS_UNLIKELY (!VALID_INITIAL_NAME_CHARACTER (*s)))
+    return FALSE;
+  else
+    ++s;
+  
   while (s != end)
     {
       if (*s == '.')
         {
-          saw_dot = TRUE;
-          break;
+          if (_DBUS_UNLIKELY ((s + 1) == end))
+            return FALSE;
+          else if (_DBUS_UNLIKELY (!VALID_INITIAL_NAME_CHARACTER (*(s + 1))))
+            return FALSE;
+          last_dot = s;
+          ++s; /* we just validated the next char, so skip two */
+        }
+      else if (_DBUS_UNLIKELY (!VALID_NAME_CHARACTER (*s)))
+        {
+          return FALSE;
         }
       
       ++s;
     }
 
-  if (!saw_dot)
+  if (_DBUS_UNLIKELY (last_dot == NULL))
     return FALSE;
   
   return TRUE;
@@ -2980,14 +3018,10 @@ _dbus_string_validate_interface (const DBusString  *str,
 /**
  * Checks that the given range of the string is a valid member name
  * in the D-BUS protocol. This includes a length restriction, etc.,
- * see the specification. It does not validate UTF-8, that has to be
- * done separately for now.
+ * see the specification.
  *
  * @todo this is inconsistent with most of DBusString in that
  * it allows a start,len range that isn't in the string.
- * 
- * @todo change spec to disallow more things, such as spaces in the
- * member name
  * 
  * @param str the string
  * @param start first byte index to check
@@ -3001,7 +3035,7 @@ _dbus_string_validate_member (const DBusString  *str,
 {
   const unsigned char *s;
   const unsigned char *end;
-  dbus_bool_t saw_dot;
+  const unsigned char *member;
   
   DBUS_CONST_STRING_PREAMBLE (str);
   _dbus_assert (start >= 0);
@@ -3017,23 +3051,28 @@ _dbus_string_validate_member (const DBusString  *str,
   if (len == 0)
     return FALSE;
 
-  saw_dot = FALSE;
-  s = real->str + start;
-  end = s + len;
+  member = real->str + start;
+  end = member + len;
+  s = member;
+
+  /* check special cases of first char so it doesn't have to be done
+   * in the loop. Note we know len > 0
+   */
+
+  if (_DBUS_UNLIKELY (!VALID_INITIAL_NAME_CHARACTER (*s)))
+    return FALSE;
+  else
+    ++s;
+  
   while (s != end)
     {
-      if (*s == '.')
+      if (_DBUS_UNLIKELY (!VALID_NAME_CHARACTER (*s)))
         {
-          saw_dot = TRUE;
-          break;
+          return FALSE;
         }
       
       ++s;
     }
-
-  /* No dot allowed in member names */
-  if (saw_dot)
-    return FALSE;
   
   return TRUE;
 }
@@ -3041,8 +3080,7 @@ _dbus_string_validate_member (const DBusString  *str,
 /**
  * Checks that the given range of the string is a valid error name
  * in the D-BUS protocol. This includes a length restriction, etc.,
- * see the specification. It does not validate UTF-8, that has to be
- * done separately for now.
+ * see the specification.
  *
  * @todo this is inconsistent with most of DBusString in that
  * it allows a start,len range that isn't in the string.
@@ -3061,32 +3099,15 @@ _dbus_string_validate_error_name (const DBusString  *str,
   return _dbus_string_validate_interface (str, start, len);
 }
 
-/**
- * Checks that the given range of the string is a valid service name
- * in the D-BUS protocol. This includes a length restriction, etc.,
- * see the specification. It does not validate UTF-8, that has to be
- * done separately for now.
- *
- * @todo this is inconsistent with most of DBusString in that
- * it allows a start,len range that isn't in the string.
- *
- * @todo change spec to disallow more things, such as spaces in the
- * service name
- * 
- * @param str the string
- * @param start first byte index to check
- * @param len number of bytes to check
- * @returns #TRUE if the byte range exists and is a valid name
- */
-dbus_bool_t
-_dbus_string_validate_service (const DBusString  *str,
-                               int                start,
-                               int                len)
+/* This assumes the first char exists and is ':' */
+static dbus_bool_t
+_dbus_string_validate_base_service (const DBusString  *str,
+                                    int                start,
+                                    int                len)
 {
   const unsigned char *s;
   const unsigned char *end;
-  dbus_bool_t saw_dot;
-  dbus_bool_t is_base_service;
+  const unsigned char *service;
   
   DBUS_CONST_STRING_PREAMBLE (str);
   _dbus_assert (start >= 0);
@@ -3099,30 +3120,58 @@ _dbus_string_validate_service (const DBusString  *str,
   if (len > DBUS_MAXIMUM_NAME_LENGTH)
     return FALSE;
 
-  if (len == 0)
-    return FALSE;
+  _dbus_assert (len > 0);
 
-  is_base_service = _dbus_string_get_byte (str, start) == ':';
-  if (is_base_service)
-    return TRUE; /* can have any content */
-
-  /* non-base-service must have the '.' indicating a namespace */
+  service = real->str + start;
+  end = service + len;
+  _dbus_assert (*service == ':');
+  s = service + 1;
   
-  saw_dot = FALSE;
-  s = real->str + start;
-  end = s + len;
   while (s != end)
     {
       if (*s == '.')
         {
-          saw_dot = TRUE;
-          break;
+          if (_DBUS_UNLIKELY ((s + 1) == end))
+            return FALSE;
+          if (_DBUS_UNLIKELY (!VALID_NAME_CHARACTER (*(s + 1))))
+            return FALSE;
+          ++s; /* we just validated the next char, so skip two */
+        }
+      else if (_DBUS_UNLIKELY (!VALID_NAME_CHARACTER (*s)))
+        {
+          return FALSE;
         }
       
       ++s;
     }
   
-  return saw_dot;
+  return TRUE;
+}
+
+/**
+ * Checks that the given range of the string is a valid service name
+ * in the D-BUS protocol. This includes a length restriction, etc.,
+ * see the specification.
+ *
+ * @todo this is inconsistent with most of DBusString in that
+ * it allows a start,len range that isn't in the string.
+ * 
+ * @param str the string
+ * @param start first byte index to check
+ * @param len number of bytes to check
+ * @returns #TRUE if the byte range exists and is a valid name
+ */
+dbus_bool_t
+_dbus_string_validate_service (const DBusString  *str,
+                               int                start,
+                               int                len)
+{
+  if (_DBUS_UNLIKELY (len == 0))
+    return FALSE;
+  if (_dbus_string_get_byte (str, start) == ':')
+    return _dbus_string_validate_base_service (str, start, len);
+  else
+    return _dbus_string_validate_interface (str, start, len);
 }
 
 /**
@@ -3339,7 +3388,95 @@ _dbus_string_test (void)
     "//",
     "///",
     "foo///blah/",
-    "Hello World"
+    "Hello World",
+    "",
+    "   ",
+    "foo bar"
+  };
+
+  const char *valid_interfaces[] = {
+    "org.freedesktop.Foo",
+    "Bar.Baz",
+    "Blah.Blah.Blah.Blah.Blah",
+    "a.b",
+    "a.b.c.d.e.f.g",
+    "a0.b1.c2.d3.e4.f5.g6",
+    "abc123.foo27"
+  };
+  const char *invalid_interfaces[] = {
+    ".",
+    "",
+    "..",
+    ".Foo.Bar",
+    "..Foo.Bar",
+    "Foo.Bar.",
+    "Foo.Bar..",
+    "Foo",
+    "9foo.bar.baz",
+    "foo.bar..baz",
+    "foo.bar...baz",
+    "foo.bar.b..blah",
+    ":",
+    ":0-1",
+    "10",
+    ":11.34324",
+    "0.0.0",
+    "0..0",
+    "foo.Bar.%",
+    "foo.Bar!!",
+    "!Foo.bar.bz",
+    "foo.$.blah",
+    "",
+    "   ",
+    "foo bar"
+  };
+
+  const char *valid_base_services[] = {
+    ":0",
+    ":a",
+    ":",
+    ":.a",
+    ":.1",
+    ":0.1",
+    ":000.2222",
+    ":.blah",
+    ":abce.freedesktop.blah"
+  };
+  const char *invalid_base_services[] = {
+    ":-",
+    ":!",
+    ":0-10",
+    ":blah.",
+    ":blah.",
+    ":blah..org",
+    ":blah.org..",
+    ":..blah.org",
+    "",
+    "   ",
+    "foo bar"
+  };
+
+  const char *valid_members[] = {
+    "Hello",
+    "Bar",
+    "foobar",
+    "_foobar",
+    "foo89"
+  };
+
+  const char *invalid_members[] = {
+    "9Hello",
+    "10",
+    "1",
+    "foo-bar",
+    "blah.org",
+    ".blah",
+    "blah.",
+    "Hello.",
+    "!foo",
+    "",
+    "   ",
+    "foo bar"
   };
   
   i = 0;
@@ -3749,7 +3886,221 @@ _dbus_string_test (void)
       
       ++i;
     }
-         
+
+  /* Interface validation */
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (valid_interfaces))
+    {
+      _dbus_string_init_const (&str, valid_interfaces[i]);
+
+      if (!_dbus_string_validate_interface (&str, 0,
+                                            _dbus_string_get_length (&str)))
+        {
+          _dbus_warn ("Interface \"%s\" should have been valid\n", valid_interfaces[i]);
+          _dbus_assert_not_reached ("invalid interface");
+        }
+      
+      ++i;
+    }
+
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (invalid_interfaces))
+    {
+      _dbus_string_init_const (&str, invalid_interfaces[i]);
+      
+      if (_dbus_string_validate_interface (&str, 0,
+                                           _dbus_string_get_length (&str)))
+        {
+          _dbus_warn ("Interface \"%s\" should have been invalid\n", invalid_interfaces[i]);
+          _dbus_assert_not_reached ("valid interface");
+        }
+      
+      ++i;
+    }
+
+  /* Service validation (check that valid interfaces are valid services,
+   * and invalid interfaces are invalid services except if they start with ':')
+   */
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (valid_interfaces))
+    {
+      _dbus_string_init_const (&str, valid_interfaces[i]);
+
+      if (!_dbus_string_validate_service (&str, 0,
+                                          _dbus_string_get_length (&str)))
+        {
+          _dbus_warn ("Service \"%s\" should have been valid\n", valid_interfaces[i]);
+          _dbus_assert_not_reached ("invalid service");
+        }
+      
+      ++i;
+    }
+
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (invalid_interfaces))
+    {
+      if (invalid_interfaces[i][0] != ':')
+        {
+          _dbus_string_init_const (&str, invalid_interfaces[i]);
+          
+          if (_dbus_string_validate_service (&str, 0,
+                                             _dbus_string_get_length (&str)))
+            {
+              _dbus_warn ("Service \"%s\" should have been invalid\n", invalid_interfaces[i]);
+              _dbus_assert_not_reached ("valid service");
+            }
+        }
+      
+      ++i;
+    }
+
+  /* Base service validation */
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (valid_base_services))
+    {
+      _dbus_string_init_const (&str, valid_base_services[i]);
+
+      if (!_dbus_string_validate_service (&str, 0,
+                                          _dbus_string_get_length (&str)))
+        {
+          _dbus_warn ("Service \"%s\" should have been valid\n", valid_base_services[i]);
+          _dbus_assert_not_reached ("invalid base service");
+        }
+      
+      ++i;
+    }
+
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (invalid_base_services))
+    {
+      _dbus_string_init_const (&str, invalid_base_services[i]);
+      
+      if (_dbus_string_validate_service (&str, 0,
+                                         _dbus_string_get_length (&str)))
+        {
+          _dbus_warn ("Service \"%s\" should have been invalid\n", invalid_base_services[i]);
+          _dbus_assert_not_reached ("valid base service");
+        }
+      
+      ++i;
+    }
+
+
+  /* Error name validation (currently identical to interfaces)
+   */
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (valid_interfaces))
+    {
+      _dbus_string_init_const (&str, valid_interfaces[i]);
+
+      if (!_dbus_string_validate_error_name (&str, 0,
+                                             _dbus_string_get_length (&str)))
+        {
+          _dbus_warn ("Error name \"%s\" should have been valid\n", valid_interfaces[i]);
+          _dbus_assert_not_reached ("invalid error name");
+        }
+      
+      ++i;
+    }
+
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (invalid_interfaces))
+    {
+      if (invalid_interfaces[i][0] != ':')
+        {
+          _dbus_string_init_const (&str, invalid_interfaces[i]);
+          
+          if (_dbus_string_validate_error_name (&str, 0,
+                                                _dbus_string_get_length (&str)))
+            {
+              _dbus_warn ("Error name \"%s\" should have been invalid\n", invalid_interfaces[i]);
+              _dbus_assert_not_reached ("valid error name");
+            }
+        }
+      
+      ++i;
+    }
+  
+  /* Member validation */
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (valid_members))
+    {
+      _dbus_string_init_const (&str, valid_members[i]);
+
+      if (!_dbus_string_validate_member (&str, 0,
+                                         _dbus_string_get_length (&str)))
+        {
+          _dbus_warn ("Member \"%s\" should have been valid\n", valid_members[i]);
+          _dbus_assert_not_reached ("invalid member");
+        }
+      
+      ++i;
+    }
+
+  i = 0;
+  while (i < (int) _DBUS_N_ELEMENTS (invalid_members))
+    {
+      _dbus_string_init_const (&str, invalid_members[i]);
+      
+      if (_dbus_string_validate_member (&str, 0,
+                                        _dbus_string_get_length (&str)))
+        {
+          _dbus_warn ("Member \"%s\" should have been invalid\n", invalid_members[i]);
+          _dbus_assert_not_reached ("valid member");
+        }
+      
+      ++i;
+    }
+
+  /* Validate claimed length longer than real length */
+  _dbus_string_init_const (&str, "abc.efg");
+  if (_dbus_string_validate_service (&str, 0, 8))
+    _dbus_assert_not_reached ("validated too-long string");
+  if (_dbus_string_validate_interface (&str, 0, 8))
+    _dbus_assert_not_reached ("validated too-long string");
+  if (_dbus_string_validate_error_name (&str, 0, 8))
+    _dbus_assert_not_reached ("validated too-long string");
+
+  _dbus_string_init_const (&str, "abc");
+  if (_dbus_string_validate_member (&str, 0, 4))
+    _dbus_assert_not_reached ("validated too-long string");
+
+  /* Validate string exceeding max name length */
+  if (!_dbus_string_init (&str))
+    _dbus_assert_not_reached ("no memory");
+
+  while (_dbus_string_get_length (&str) <= DBUS_MAXIMUM_NAME_LENGTH)
+    if (!_dbus_string_append (&str, "abc.def"))
+      _dbus_assert_not_reached ("no memory");
+
+  if (_dbus_string_validate_service (&str, 0, _dbus_string_get_length (&str)))
+    _dbus_assert_not_reached ("validated overmax string");
+  if (_dbus_string_validate_interface (&str, 0, _dbus_string_get_length (&str)))
+    _dbus_assert_not_reached ("validated overmax string");
+  if (_dbus_string_validate_error_name (&str, 0, _dbus_string_get_length (&str)))
+    _dbus_assert_not_reached ("validated overmax string");
+
+  /* overlong member */
+  _dbus_string_set_length (&str, 0);
+  while (_dbus_string_get_length (&str) <= DBUS_MAXIMUM_NAME_LENGTH)
+    if (!_dbus_string_append (&str, "abc"))
+      _dbus_assert_not_reached ("no memory");  
+
+  if (_dbus_string_validate_member (&str, 0, _dbus_string_get_length (&str)))
+    _dbus_assert_not_reached ("validated overmax string");
+
+  /* overlong base service */
+  _dbus_string_set_length (&str, 0);
+  _dbus_string_append (&str, ":");
+  while (_dbus_string_get_length (&str) <= DBUS_MAXIMUM_NAME_LENGTH)
+    if (!_dbus_string_append (&str, "abc"))
+      _dbus_assert_not_reached ("no memory");  
+
+  if (_dbus_string_validate_service (&str, 0, _dbus_string_get_length (&str)))
+    _dbus_assert_not_reached ("validated overmax string");
+  
+  _dbus_string_free (&str);
+  
   return TRUE;
 }
 

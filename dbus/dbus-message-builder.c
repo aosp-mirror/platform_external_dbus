@@ -735,8 +735,8 @@ _dbus_message_data_load (DBusString       *dest,
             code = DBUS_TYPE_STRING;
           else if (_dbus_string_starts_with_c_str (&line, "OBJECT_PATH"))
             code = DBUS_TYPE_OBJECT_PATH;
-          else if (_dbus_string_starts_with_c_str (&line, "NAMED"))
-            code = DBUS_TYPE_NAMED;
+          else if (_dbus_string_starts_with_c_str (&line, "CUSTOM"))
+            code = DBUS_TYPE_CUSTOM;
           else if (_dbus_string_starts_with_c_str (&line, "ARRAY"))
             code = DBUS_TYPE_ARRAY;
           else if (_dbus_string_starts_with_c_str (&line, "DICT"))

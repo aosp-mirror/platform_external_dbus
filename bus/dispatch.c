@@ -173,10 +173,8 @@ bus_dispatch (DBusConnection *connection,
 #endif /* DBUS_ENABLE_VERBOSE_MODE */
   
   /* If service_name is NULL, if it's a signal we send it to all
-   * connections with a match rule. If it's not a signal, it goes to
-   * the bus daemon but doesn't go "on the bus"; e.g. a peer-to-peer
-   * ping. Handle these immediately, especially disconnection
-   * messages. There are no security policy checks on these.
+   * connections with a match rule. If it's not a signal, there
+   * are some special cases here but mostly we just bail out.
    */
   if (service_name == NULL)
     {

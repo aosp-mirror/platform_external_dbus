@@ -167,8 +167,8 @@ dbus_type_to_string (int type)
       return "double";
     case DBUS_TYPE_STRING:
       return "string";
-    case DBUS_TYPE_NAMED:
-      return "named";
+    case DBUS_TYPE_CUSTOM:
+      return "custom";
     case DBUS_TYPE_ARRAY:
       return "array";
     case DBUS_TYPE_DICT:

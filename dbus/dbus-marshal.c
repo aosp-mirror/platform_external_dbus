@@ -1642,7 +1642,7 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
       }
       break;
 
-    case DBUS_TYPE_NAMED:
+    case DBUS_TYPE_CUSTOM:
       {
 	int len;
 	
@@ -1836,7 +1836,7 @@ validate_array_data (const DBusString *str,
 
     case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_STRING:
-    case DBUS_TYPE_NAMED:      
+    case DBUS_TYPE_CUSTOM:
     case DBUS_TYPE_ARRAY:
     case DBUS_TYPE_DICT:
       /* This clean recursion to validate_arg is what we
@@ -2050,7 +2050,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
       }
       break;
 
-    case DBUS_TYPE_NAMED:
+    case DBUS_TYPE_CUSTOM:
       {
 	int len;
 
@@ -2226,7 +2226,7 @@ _dbus_type_is_valid (int typecode)
     case DBUS_TYPE_UINT64:
     case DBUS_TYPE_DOUBLE:
     case DBUS_TYPE_STRING:
-    case DBUS_TYPE_NAMED:
+    case DBUS_TYPE_CUSTOM:
     case DBUS_TYPE_ARRAY:
     case DBUS_TYPE_DICT:
     case DBUS_TYPE_OBJECT_PATH:

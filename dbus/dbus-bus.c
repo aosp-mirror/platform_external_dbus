@@ -139,6 +139,9 @@ init_connections_unlocked (void)
 
       /* Don't init these twice, we may run this code twice if
        * init_connections_unlocked() fails midway through.
+       * In practice, each block below should contain only one
+       * "return FALSE" or running through twice may not
+       * work right.
        */
       
        if (bus_connection_addresses[DBUS_BUS_SYSTEM] == NULL)
@@ -148,22 +151,23 @@ init_connections_unlocked (void)
            if (!get_from_env (&bus_connection_addresses[DBUS_BUS_SYSTEM],
                               "DBUS_SYSTEM_BUS_ADDRESS"))
              return FALSE;
-           
-           if (bus_connection_addresses[DBUS_BUS_SYSTEM] == NULL)
-             {
-               /* Use default system bus address if none set in environment */
-               bus_connection_addresses[DBUS_BUS_SYSTEM] =
-                 _dbus_strdup (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS);
-               if (bus_connection_addresses[DBUS_BUS_SYSTEM] == NULL)
-                 return FALSE;
-
-               _dbus_verbose ("  used default system bus \"%s\"\n",
-                              bus_connection_addresses[DBUS_BUS_SYSTEM]);
-             }
-           else
-             _dbus_verbose ("  used env var system bus \"%s\"\n",
-                            bus_connection_addresses[DBUS_BUS_SYSTEM]);
          }
+
+                  
+       if (bus_connection_addresses[DBUS_BUS_SYSTEM] == NULL)
+         {
+           /* Use default system bus address if none set in environment */
+           bus_connection_addresses[DBUS_BUS_SYSTEM] =
+             _dbus_strdup (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS);
+           if (bus_connection_addresses[DBUS_BUS_SYSTEM] == NULL)
+             return FALSE;
+           
+           _dbus_verbose ("  used default system bus \"%s\"\n",
+                          bus_connection_addresses[DBUS_BUS_SYSTEM]);
+         }
+       else
+         _dbus_verbose ("  used env var system bus \"%s\"\n",
+                        bus_connection_addresses[DBUS_BUS_SYSTEM]);
           
       if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
         {
@@ -183,23 +187,38 @@ init_connections_unlocked (void)
           if (!get_from_env (&bus_connection_addresses[DBUS_BUS_ACTIVATION],
                              "DBUS_ACTIVATION_ADDRESS"))
             return FALSE;
-
+          
           _dbus_verbose ("  \"%s\"\n", bus_connection_addresses[DBUS_BUS_ACTIVATION] ?
                          bus_connection_addresses[DBUS_BUS_ACTIVATION] : "none set");
         }
 
-      s = _dbus_getenv ("DBUS_ACTIVATION_BUS_TYPE");
 
-      if (s != NULL)
+      if (bus_connection_addresses[DBUS_BUS_ACTIVATION] != NULL)
         {
-          _dbus_verbose ("Bus activation type was set to \"%s\"\n", s);
-          
-          if (strcmp (s, "system") == 0)
-            activation_bus_type = DBUS_BUS_SYSTEM;
-          else if (strcmp (s, "session") == 0)
-            activation_bus_type = DBUS_BUS_SESSION;
+          s = _dbus_getenv ("DBUS_ACTIVATION_BUS_TYPE");
+              
+          if (s != NULL)
+            {
+              _dbus_verbose ("Bus activation type was set to \"%s\"\n", s);
+                  
+              if (strcmp (s, "system") == 0)
+                activation_bus_type = DBUS_BUS_SYSTEM;
+              else if (strcmp (s, "session") == 0)
+                activation_bus_type = DBUS_BUS_SESSION;
+            }
         }
-
+      else
+        {
+          /* Default to the session bus instead if available */
+          if (bus_connection_addresses[DBUS_BUS_SESSION] != NULL)
+            {
+              bus_connection_addresses[DBUS_BUS_ACTIVATION] =
+                _dbus_strdup (bus_connection_addresses[DBUS_BUS_SESSION]);
+              if (bus_connection_addresses[DBUS_BUS_ACTIVATION] == NULL)
+                return FALSE;
+            }
+        }
+      
       /* If we return FALSE we have to be sure that restarting
        * the above code will work right
        */

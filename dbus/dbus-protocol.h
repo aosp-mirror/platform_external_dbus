@@ -50,9 +50,9 @@ extern "C" {
 #define DBUS_TYPE_UINT64        ((int) 't')
 #define DBUS_TYPE_DOUBLE        ((int) 'd')
 #define DBUS_TYPE_STRING        ((int) 's')
-#define DBUS_TYPE_NAMED         ((int) 'n')
+#define DBUS_TYPE_CUSTOM        ((int) 'c')
 #define DBUS_TYPE_ARRAY         ((int) 'a')
-#define DBUS_TYPE_DICT          ((int) 'c')
+#define DBUS_TYPE_DICT          ((int) 'm')
 #define DBUS_TYPE_OBJECT_PATH   ((int) 'o')
 
 #define DBUS_NUMBER_OF_TYPES    (13)

@@ -1830,6 +1830,10 @@ check_for_reply_unlocked (DBusConnection *connection,
  * the whole message queue for example) and has thread issues,
  * see comments in source
  *
+ * Does not re-enter the main loop or run filter/path-registered
+ * callbacks. The reply to the message will not be seen by
+ * filter callbacks.
+ *
  * @param connection the connection
  * @param client_serial the reply serial to wait for
  * @param timeout_milliseconds timeout in milliseconds or -1 for default
@@ -2430,8 +2434,15 @@ dbus_connection_get_dispatch_status (DBusConnection *connection)
  * @todo some FIXME in here about handling DBUS_HANDLER_RESULT_NEED_MEMORY
  *
  * @todo right now a message filter gets run on replies to a pending
- * call in here, but not in the case where we block without
- * entering the main loop.
+ * call in here, but not in the case where we block without entering
+ * the main loop. Simple solution might be to just have the pending
+ * call stuff run before the filters.
+ *
+ * @todo FIXME what if we call out to application code to handle a
+ * message, holding the dispatch lock, and the application code runs
+ * the main loop and dispatches again? Probably deadlocks at the
+ * moment. Maybe we want a dispatch status of DBUS_DISPATCH_IN_PROGRESS,
+ * and then the GSource etc. could handle the situation?
  * 
  * @param connection the connection
  * @returns dispatch status
@@ -2581,7 +2592,8 @@ dbus_connection_dispatch (DBusConnection *connection)
                  dbus_message_get_type (message),
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
-                 "no interface");
+                 "no interface",
+                 dbus_message_get_signature (message));
   
   result = _dbus_object_tree_dispatch_and_unlock (connection->objects,
                                                   message);
@@ -3009,7 +3021,9 @@ dbus_connection_set_unix_user_function (DBusConnection             *connection,
  *
  * @todo we don't run filters on messages while blocking without
  * entering the main loop, since filters are run as part of
- * dbus_connection_dispatch().
+ * dbus_connection_dispatch(). This is probably a feature, as filters
+ * could create arbitrary reentrancy. But kind of sucks if you're
+ * trying to filter METHOD_RETURN for some reason.
  *
  * @param connection the connection
  * @param function function to handle messages

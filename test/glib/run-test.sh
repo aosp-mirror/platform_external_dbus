@@ -5,6 +5,7 @@ SCRIPTNAME=$0
 function die() 
 {
     if ! test -z "$DBUS_SESSION_BUS_PID" ; then
+        echo "killing message bus"
         kill -9 $DBUS_SESSION_BUS_PID
     fi
     echo $SCRIPTNAME: $* >&2
@@ -45,7 +46,7 @@ fi
 
 echo "Started test bus pid $DBUS_SESSION_BUS_PID at $DBUS_SESSION_BUS_ADDRESS"
 
-$DBUS_TOP_BUILDDIR/test/glib/test-dbus-glib || die "test-dbus-glib failed"
+$DEBUG $DBUS_TOP_BUILDDIR/test/glib/test-dbus-glib || die "test-dbus-glib failed"
 
 ## we kill -TERM so gcov data can be written out
 

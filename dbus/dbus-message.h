@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-message.h DBusMessage object
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003 Red Hat Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -164,7 +164,7 @@ double                 dbus_message_iter_get_double      (DBusMessageIter  *iter
 char *                 dbus_message_iter_get_string      (DBusMessageIter  *iter);
 char *                 dbus_message_iter_get_object_path (DBusMessageIter  *iter);
 char *                 dbus_message_iter_get_dict_key    (DBusMessageIter  *iter);
-dbus_bool_t            dbus_message_iter_get_named       (DBusMessageIter  *iter,
+dbus_bool_t            dbus_message_iter_get_custom      (DBusMessageIter  *iter,
                                                           char            **name,
                                                           unsigned char   **value,
                                                           int              *len);
@@ -226,7 +226,7 @@ dbus_bool_t dbus_message_iter_append_double        (DBusMessageIter      *iter,
 						    double                value);
 dbus_bool_t dbus_message_iter_append_string        (DBusMessageIter      *iter,
 						    const char           *value);
-dbus_bool_t dbus_message_iter_append_named         (DBusMessageIter      *iter,
+dbus_bool_t dbus_message_iter_append_custom        (DBusMessageIter      *iter,
 						    const char           *name,
 						    const unsigned char  *data,
 						    int                   len);

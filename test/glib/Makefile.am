@@ -32,12 +32,17 @@ endif
 
 ## we use noinst_PROGRAMS not check_PROGRAMS for TESTS so that we
 ## build even when not doing "make check"
-noinst_PROGRAMS= test-dbus-glib $(THREAD_APPS)
+noinst_PROGRAMS= test-dbus-glib test-service-glib $(THREAD_APPS)
 
 test_dbus_glib_SOURCES=				\
 	test-dbus-glib.c
 
 test_dbus_glib_LDADD= $(top_builddir)/glib/libdbus-glib-1.la
+
+test_service_glib_SOURCES=				\
+	test-service-glib.c
+
+test_service_glib_LDADD= $(top_builddir)/glib/libdbus-glib-1.la
 
 else
 ### not building tests

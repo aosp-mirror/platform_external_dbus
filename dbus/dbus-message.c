@@ -488,13 +488,13 @@ re_align_field_recurse (DBusMessage *message,
     case DBUS_TYPE_DOUBLE:
       padding = _DBUS_ALIGN_VALUE (pos, 8) - pos;
       break;
-    case DBUS_TYPE_NAMED:
+    case DBUS_TYPE_CUSTOM:
     case DBUS_TYPE_ARRAY:
     case DBUS_TYPE_DICT:
       /* FIXME This is no good; we have to handle undefined header fields
        * also. SECURITY and spec compliance issue.
        */
-      _dbus_assert_not_reached ("no defined header fields may contain a named, array or dict value");
+      _dbus_assert_not_reached ("no defined header fields may contain a custom, array or dict value");
       break;
     case DBUS_TYPE_INVALID:
     default:
@@ -1832,7 +1832,7 @@ dbus_message_append_args_valist (DBusMessage *message,
 
   dbus_message_append_iter_init (message, &iter);
   
-  while (type != 0)
+  while (type != DBUS_TYPE_INVALID)
     {
       switch (type)
 	{
@@ -1873,7 +1873,7 @@ dbus_message_append_args_valist (DBusMessage *message,
         case DBUS_TYPE_OBJECT_PATH:
 
           break;
-	case DBUS_TYPE_NAMED:
+	case DBUS_TYPE_CUSTOM:
 	  {
 	    const char *name;
 	    unsigned char *data;
@@ -1883,7 +1883,7 @@ dbus_message_append_args_valist (DBusMessage *message,
 	    data = va_arg (var_args, unsigned char *);
 	    len = va_arg (var_args, int);
 
-	    if (!dbus_message_iter_append_named (&iter, name, data, len))
+	    if (!dbus_message_iter_append_custom (&iter, name, data, len))
 	      goto errorout;
 	    break;
 	  }
@@ -1934,7 +1934,7 @@ dbus_message_append_args_valist (DBusMessage *message,
 		break;
 	      case DBUS_TYPE_NIL:
 	      case DBUS_TYPE_ARRAY:
-	      case DBUS_TYPE_NAMED:
+	      case DBUS_TYPE_CUSTOM:
 	      case DBUS_TYPE_DICT:
 		_dbus_warn ("dbus_message_append_args_valist doesn't support recursive arrays\n");
 		goto errorout;
@@ -2194,7 +2194,7 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 	    break;
 	  }
 
-	case DBUS_TYPE_NAMED:
+	case DBUS_TYPE_CUSTOM:
 	  {
 	    char **name;
 	    unsigned char **data;
@@ -2204,7 +2204,7 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 	    data = va_arg (var_args, unsigned char **);
 	    len = va_arg (var_args, int *);
 
-	    if (!dbus_message_iter_get_named (iter, name, data, len))
+	    if (!dbus_message_iter_get_custom (iter, name, data, len))
 	      {
                 dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
 		goto out;
@@ -2295,7 +2295,7 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 		break;
 	      case DBUS_TYPE_NIL:
 	      case DBUS_TYPE_ARRAY:
-	      case DBUS_TYPE_NAMED:
+	      case DBUS_TYPE_CUSTOM:
 	      case DBUS_TYPE_DICT:
 		_dbus_warn ("dbus_message_get_args_valist doesn't support recursive arrays\n");
 		dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED, NULL);
@@ -2682,24 +2682,23 @@ dbus_message_iter_get_object_path (DBusMessageIter  *iter)
 #endif
 
 /**
- * Returns the name and data from a named type that an
- * iterator may point to. Note that you need to check that
- * the iterator points to a named type before using this
- * function.
+ * Returns the name and data from a custom type that an iterator may
+ * point to. Note that you need to check that the iterator points to a
+ * custom type before using this function.
  *
  * @see dbus_message_iter_get_arg_type
  * @param iter the message iter
- * @param name return location for the name
+ * @param name return location for the name of the custom type
  * @param value return location for data
  * @param len return location for length of data
  * @returns TRUE if get succeed
  * 
  */
 dbus_bool_t
-dbus_message_iter_get_named (DBusMessageIter   *iter,
-			     char             **name,
-			     unsigned char    **value,
-			     int               *len)
+dbus_message_iter_get_custom (DBusMessageIter   *iter,
+                              char             **name,
+                              unsigned char    **value,
+                              int               *len)
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
@@ -2709,7 +2708,7 @@ dbus_message_iter_get_named (DBusMessageIter   *iter,
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
-  _dbus_assert (type == DBUS_TYPE_NAMED);
+  _dbus_assert (type == DBUS_TYPE_CUSTOM);
   
   _name = _dbus_demarshal_string (&real->message->body, real->message->byte_order,
 				  pos, &pos);
@@ -3773,7 +3772,7 @@ dbus_message_iter_append_string (DBusMessageIter *iter,
 }
 
 /**
- * Appends a named type data chunk to the message. A named
+ * Appends a custom type data chunk to the message. A custom
  * type is simply an arbitrary UTF-8 string used as a type
  * tag, plus an array of arbitrary bytes to be interpreted
  * according to the type tag.
@@ -3785,16 +3784,16 @@ dbus_message_iter_append_string (DBusMessageIter *iter,
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_message_iter_append_named (DBusMessageIter      *iter,
-				const char           *name,
-				const unsigned char  *data,
-				int                   len)
+dbus_message_iter_append_custom (DBusMessageIter      *iter,
+                                 const char           *name,
+                                 const unsigned char  *data,
+                                 int                   len)
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
   _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
-  if (!dbus_message_iter_append_type (real, DBUS_TYPE_NAMED))
+  if (!dbus_message_iter_append_type (real, DBUS_TYPE_CUSTOM))
     return FALSE;
   
    if (!_dbus_marshal_string (&real->message->body, real->message->byte_order, name))
@@ -4865,6 +4864,11 @@ decode_string_field (const DBusString   *data,
   return TRUE;
 }
 
+/* FIXME because the service/interface/member/error names are already
+ * validated to be in the particular ASCII subset, UTF-8 validating
+ * them could be skipped as a probably-interesting optimization.
+ * The UTF-8 validation definitely shows up in profiles.
+ */
 static dbus_bool_t
 decode_header_data (const DBusString   *data,
 		    int		        header_len,
@@ -5753,6 +5757,7 @@ dbus_message_type_from_string (const char *type_str)
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-test.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 static void
 message_iter_test (DBusMessage *message)
@@ -5942,13 +5947,13 @@ message_iter_test (DBusMessage *message)
   if (!dbus_message_iter_next (&iter))
     _dbus_assert_not_reached ("Reached end of arguments");
   
-  if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_NAMED)
+  if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_CUSTOM)
     _dbus_assert_not_reached ("wrong type after dict");
 
-  if (!dbus_message_iter_get_named (&iter, &str, &data, &len))
-    _dbus_assert_not_reached ("failed to get named");
+  if (!dbus_message_iter_get_custom (&iter, &str, &data, &len))
+    _dbus_assert_not_reached ("failed to get custom type");
 
-  _dbus_assert (strcmp (str, "named")==0);
+  _dbus_assert (strcmp (str, "MyTypeName")==0);
   _dbus_assert (len == 5);
   _dbus_assert (strcmp (data, "data")==0);
   dbus_free (str);
@@ -6006,15 +6011,15 @@ check_message_handling_type (DBusMessageIter *iter,
 	dbus_free (str);
       }
       break;
-    case DBUS_TYPE_NAMED:
+    case DBUS_TYPE_CUSTOM:
       {
 	char *name;
 	unsigned char *data;
 	int len;
 	
-	if (!dbus_message_iter_get_named (iter, &name, &data, &len))
+	if (!dbus_message_iter_get_custom (iter, &name, &data, &len))
 	  {
-	    _dbus_warn ("error reading name from named type\n");
+	    _dbus_warn ("error reading name from custom type\n");
 	    return FALSE;
 	  }
 	dbus_free (data);
@@ -7083,8 +7088,8 @@ _dbus_message_test (const char *test_data_dir)
 
   dbus_message_iter_append_nil (&iter);
 
-  dbus_message_iter_append_named (&iter, "named",
-				  "data", 5);
+  dbus_message_iter_append_custom (&iter, "MyTypeName",
+                                   "data", 5);
   
   message_iter_test (message);
   

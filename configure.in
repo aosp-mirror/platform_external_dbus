@@ -857,6 +857,7 @@ AC_SUBST(TEST_$1)
 
 TEST_PATH(SERVICE_DIR, data/valid-service-files)
 TEST_PATH(SERVICE_BINARY, test-service)
+TEST_PATH(GLIB_SERVICE_BINARY, test-service-glib)
 TEST_PATH(EXIT_BINARY, test-exit)
 TEST_PATH(SEGFAULT_BINARY, test-segfault)
 TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)

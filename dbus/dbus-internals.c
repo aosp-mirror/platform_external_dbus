@@ -380,8 +380,8 @@ _dbus_type_to_string (int type)
       return "double";
     case DBUS_TYPE_STRING:
       return "string";
-    case DBUS_TYPE_NAMED:
-      return "named";
+    case DBUS_TYPE_CUSTOM:
+      return "custom";
     case DBUS_TYPE_ARRAY:
       return "array";
     case DBUS_TYPE_DICT:
@@ -448,7 +448,7 @@ _dbus_real_assert (dbus_bool_t  condition,
                    const char  *file,
                    int          line)
 {
-  if (!condition)
+  if (_DBUS_UNLIKELY (!condition))
     {
       _dbus_warn ("%lu: assertion failed \"%s\" file \"%s\" line %d\n",
                   _dbus_getpid (), condition_text, file, line);

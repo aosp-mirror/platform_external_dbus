@@ -377,7 +377,7 @@ gproxy_list_free (DBusGProxyList *list)
 static char*
 gproxy_get_match_rule (DBusGProxy *proxy)
 {
-  /* FIXME Some sort of escaping is required here I think */
+  /* FIXME Escaping is required here */
   
   if (proxy->service)
     return g_strdup_printf ("type='signal',sender='%s',path='%s',interface='%s'",
@@ -604,6 +604,14 @@ dbus_gproxy_manager_filter (DBusConnection    *connection,
       else
         list = NULL;
 
+#if 0
+      g_print ("proxy got %s,%s,%s = list %p\n",
+               tri,
+               tri + strlen (tri) + 1,
+               tri + strlen (tri) + 1 + strlen (tri + strlen (tri) + 1) + 1,
+               list);
+#endif
+      
       g_free (tri);
 
       /* Emit the signal */
@@ -1140,6 +1148,8 @@ dbus_gproxy_call_no_reply (DBusGProxy               *proxy,
                              NULL))
     goto oom;
 
+  return;
+  
  oom:
   g_error ("Out of memory");
 }

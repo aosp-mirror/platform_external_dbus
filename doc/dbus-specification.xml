@@ -300,7 +300,7 @@
               <row>
                 <entry>PATH</entry>
 		<entry>1</entry>
-                <entry>STRING</entry>
+                <entry>OBJECT_PATH</entry>
                 <entry>The object to send the message to; objects are identified by 
                 a path, "/foo/bar"</entry>
               </row>
@@ -388,56 +388,60 @@
             <tbody>
               <row>
                 <entry>INVALID</entry>
-                <entry>0</entry>
+                <entry>0 (ASCII NUL)</entry>
                 <entry>Not a valid type code (error if it appears in a message)</entry>
               </row><row>
                 <entry>NIL</entry>
-                <entry>1</entry>
-                <entry>Marks an "unset" or "nonexistent" argument</entry>
+                <entry>118 (ASCII 'v') </entry>
+                <entry>Marks a "void"/"unset"/"nonexistent"/"null" argument</entry>
               </row><row>
 		<entry>BYTE</entry>
-		<entry>2</entry>
+		<entry>121 (ASCII 'y')</entry>
 		<entry>8-bit unsigned integer</entry>
               </row><row>
 		<entry>BOOLEAN</entry>
-		<entry>3</entry>
+		<entry>98 (ASCII 'b')</entry>
 		<entry>Boolean value, 0 is FALSE and 1 is TRUE. Everything else is invalid.</entry>
 	      </row><row>
                 <entry>INT32</entry>
-                <entry>4</entry>
+                <entry>105 (ASCII 'i')</entry>
                 <entry>32-bit signed integer</entry>
               </row><row>
                 <entry>UINT32</entry>
-                <entry>5</entry>
+                <entry>117 (ASCII 'u')</entry>
                 <entry>32-bit unsigned integer</entry>
 	      </row><row>
                 <entry>INT64</entry>
-                <entry>6</entry>
+                <entry>120 (ASCII 'x')</entry>
                 <entry>64-bit signed integer</entry>
               </row><row>
                 <entry>UINT64</entry>
-                <entry>7</entry>
+                <entry>116 (ASCII 't')</entry>
                 <entry>64-bit unsigned integer</entry>
               </row><row>
                 <entry>DOUBLE</entry>
-                <entry>8</entry>
+                <entry>100 (ASCII 'd')</entry>
                 <entry>IEEE 754 double</entry>
               </row><row>
                 <entry>STRING</entry>
-                <entry>9</entry>
+                <entry>115 (ASCII 's')</entry>
                 <entry>UTF-8 string (<emphasis>must</emphasis> be valid UTF-8). Must be zero terminated. </entry>
               </row><row>
-		<entry>NAMED</entry>
-		<entry>10</entry>
+		<entry>CUSTOM</entry>
+		<entry>99 (ASCII 'c')</entry>
 		<entry>A named byte array, used for custom types</entry>
 	      </row><row>
                 <entry>ARRAY</entry>
-                <entry>11</entry>
+                <entry>97 (ASCII 'a')</entry>
                 <entry>Array</entry>
               </row><row>
                 <entry>DICT</entry>
-                <entry>12</entry>
+                <entry>109 (ASCII 'm')</entry>
                 <entry>A dictionary of key/value pairs</entry>
+              </row><row>
+                <entry>OBJECT_PATH</entry>
+                <entry>111 (ASCII 'o')</entry>
+                <entry>Name of an object</entry>
               </row>
             </tbody>
           </tgroup>
@@ -490,10 +494,12 @@
                   byte.
                 </entry>
               </row><row>
-                <entry>NAMED</entry>
+                <entry>CUSTOM</entry>
                 <entry>A string (encoded as the STRING type above) giving the
                   name of the type followed by an UINT32 aligned to 4-byte boundary
                   indicating the data length in bytes, followed by the data.
+                  The string has some restrictions on its content, see 
+                  <xref linkend="message-protocol-names"/>.
                 </entry>
               </row><row>
                 <entry>ARRAY</entry>
@@ -513,6 +519,10 @@
                 as a byte with typecode and how that type normally would be encoded
                 alone.
                 </entry>
+	      </row><row>
+                <entry>OBJECT_PATH</entry>
+                <entry>Encoded as if it were a STRING.
+                </entry>
 	      </row>
             </tbody>
           </tgroup>
@@ -523,41 +533,46 @@
     <sect2 id="message-protocol-names">
       <title>Valid names</title>
       <para>
-        The various header fields of type STRING have some restrictions 
-        on the string's format.
+        The various names in D-BUS messages have some restrictions.
       </para>
-      <sect3 id="message-protocol-names-service">
-        <title>Service names</title>
-        <para>
-          Services have names with type STRING, meaning that 
-          they must be valid UTF-8. However, there are also some 
-          additional restrictions that apply to service names 
-          specifically:
-          <itemizedlist>
-	    <listitem><para>They must contain at least one '.' (period) character</para></listitem>
-	    <listitem><para>They must not begin with a '.' (period) character</para></listitem>
-	    <listitem><para>They must not exceed 256 bytes in length</para></listitem>
-	    <listitem><para>They must be at least 1 byte in length</para></listitem>
-          </itemizedlist>
-          
-          As a special exception, base service names (those beginning with a colon
-          (':') character) need not contain a period.
-        </para>
-        <para>
-          FIXME really, shouldn't we ban basically everything non-alphanumeric 
-          so the name will work in all programming languages?
-        </para>
-      </sect3>
       <sect3 id="message-protocol-names-interface">
         <title>Interface names</title>
         <para>
-          Interface names have the same restrictions as service names, 
-          but do not have the special exception for names beginning with 
-          a colon.
+          Interfaces have names with type STRING, meaning that 
+          they must be valid UTF-8. However, there are also some 
+          additional restrictions that apply to interface names 
+          specifically:
+          <itemizedlist>
+            <listitem><para>They are composed of 1 or more elements separated by
+                a period ('.') character. All elements must contain at least 
+                one character.
+                </para>
+            </listitem>
+            <listitem><para>Each element must only contain the ASCII characters 
+                "[A-Z][a-z][0-9]_" and must not begin with a digit.
+                </para>
+            </listitem>
+
+	    <listitem><para>They must contain at least one '.' (period)
+              character (and thus at least two elements).
+              </para></listitem>
+
+	    <listitem><para>They must not begin with a '.' (period) character.</para></listitem>
+	    <listitem><para>They must not exceed 256 bytes in length.</para></listitem>
+	    <listitem><para>They must be at least 1 byte in length.</para></listitem>
+          </itemizedlist>
         </para>
+      </sect3>
+      <sect3 id="message-protocol-names-service">
+        <title>Service names</title>
         <para>
-          FIXME really, shouldn't we ban basically everything non-alphanumeric 
-          so the name will work in all programming languages?
+          Service names have the same restrictions as interface names, with a
+          special exception for base services. A base service name's first
+          element must start with a colon (':') character. After the colon, any
+          characters in the range "[A-Z][a-z][0-9]_" may appear. Elements after
+          the first must follow the usual rules, except that they may start with
+          a digit. Service names not starting with a colon have none of these 
+          exceptions and follow the same rules as interface names.
         </para>
       </sect3>
       <sect3 id="message-protocol-names-method">
@@ -565,24 +580,23 @@
         <para>
           Method names:
           <itemizedlist>
-	    <listitem><para>May not contain the '.' (period) character</para></listitem>
+	    <listitem><para>Must only contain the ASCII characters
+                "[A-Z][a-z][0-9]_" and may not begin with a
+                digit.</para></listitem>
+	    <listitem><para>Must not contain the '.' (period) character</para></listitem>
 	    <listitem><para>Must not exceed 256 bytes in length</para></listitem>
 	    <listitem><para>Must be at least 1 byte in length</para></listitem>
           </itemizedlist>
-        </para>
-        <para>
-          FIXME really, shouldn't we ban basically everything non-alphanumeric 
-          so the name will work in all programming languages?
         </para>
       </sect3>
       <sect3 id="message-protocol-names-path">
         <title>Path names</title>
         <para>
-          A path must begin with an ASCII '/' (slash) character. Paths may not
-          end with a slash character unless the path is the one-byte string
-          "/". Two slash characters may not appear adjacent to one another (the
-          empty string is not a valid "subdirectory"). Paths may not exceed
-          256 bytes in length.
+          A path (type OBJECT_PATH) must begin with an ASCII '/' (slash)
+          character. Paths may not end with a slash character unless the path is
+          the one-byte string "/". Two slash characters may not appear adjacent
+          to one another (the empty string is not a valid "subdirectory"). Paths
+          may not exceed 256 bytes in length.
         </para>
       </sect3>
       <sect3 id="message-protocol-names-error">
@@ -590,9 +604,12 @@
         <para>
           Error names have the same restrictions as interface names.
         </para>
+      </sect3>
+      <sect3 id="message-protocol-names-custom">
+        <title>Custom types</title>
         <para>
-          FIXME really, shouldn't we ban basically everything non-alphanumeric 
-          so the name will work in all programming languages?
+          Custom type names for values of type CUSTOM follow the same
+          restrictions as interface names.
         </para>
       </sect3>
     </sect2>

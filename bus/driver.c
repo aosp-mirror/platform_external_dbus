@@ -245,7 +245,7 @@ create_unique_client_name (BusRegistry *registry,
       if (!_dbus_string_append_int (str, next_major_number))
         return FALSE;
 
-      if (!_dbus_string_append (str, "-"))
+      if (!_dbus_string_append (str, "."))
         return FALSE;
       
       if (!_dbus_string_append_int (str, next_minor_number))
