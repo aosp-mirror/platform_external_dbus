@@ -306,7 +306,7 @@ bus_config_parser_new (const DBusString *basedir)
    * and legitimate auth will fail.  If interactive auth (ask user for
    * password) is allowed, then potentially it has to be quite long.
    */     
-  parser->limits.auth_timeout = 3000; /* 3 seconds */
+  parser->limits.auth_timeout = 30000; /* 30 seconds */
 
   parser->limits.max_incomplete_connections = 32;
   parser->limits.max_connections_per_user = 128;
@@ -316,6 +316,9 @@ bus_config_parser_new (const DBusString *basedir)
    * DOS all the other users.
    */
   parser->limits.max_completed_connections = 1024;
+
+  parser->limits.max_pending_activations = 256;
+  parser->limits.max_services_per_connection = 256;
   
   parser->refcount = 1;
 
@@ -1214,6 +1217,18 @@ set_limit (BusConfigParser *parser,
       must_be_positive = TRUE;
       must_be_int = TRUE;
       parser->limits.max_connections_per_user = value;
+    }
+  else if (strcmp (name, "max_pending_activations") == 0)
+    {
+      must_be_positive = TRUE;
+      must_be_int = TRUE;
+      parser->limits.max_pending_activations = value;
+    }
+  else if (strcmp (name, "max_services_per_connection") == 0)
+    {
+      must_be_positive = TRUE;
+      must_be_int = TRUE;
+      parser->limits.max_services_per_connection = value;
     }
   else
     {

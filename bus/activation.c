@@ -45,6 +45,10 @@ struct BusActivation
   DBusHashTable *pending_activations;
   char *server_address;
   BusContext *context;
+  int n_pending_activations; /**< This is in fact the number of BusPendingActivationEntry,
+                              * i.e. number of pending activation requests, not pending
+                              * activations per se
+                              */
 };
 
 typedef struct
@@ -67,6 +71,7 @@ typedef struct
   BusActivation *activation;
   char *service_name;
   DBusList *entries;
+  int n_entries;
   DBusBabysitter *babysitter;
   DBusTimeout *timeout;
   unsigned int timeout_added : 1;
@@ -150,6 +155,11 @@ bus_pending_activation_unref (BusPendingActivation *pending_activation)
       link = _dbus_list_get_next_link (&pending_activation->entries, link);
     }
   _dbus_list_clear (&pending_activation->entries);
+
+  pending_activation->activation->n_pending_activations -=
+    pending_activation->n_entries;
+
+  _dbus_assert (pending_activation->activation->n_pending_activations >= 0);
   
   dbus_free (pending_activation);
 }
@@ -394,6 +404,7 @@ bus_activation_new (BusContext        *context,
   
   activation->refcount = 1;
   activation->context = context;
+  activation->n_pending_activations = 0;
   
   if (!_dbus_string_copy_data (address, &activation->server_address))
     {
@@ -838,6 +849,15 @@ bus_activation_activate_service (BusActivation  *activation,
   dbus_bool_t retval;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  if (activation->n_pending_activations >=
+      bus_context_get_max_pending_activations (activation->context))
+    {
+      dbus_set_error (error, DBUS_ERROR_LIMITS_EXCEEDED,
+		      "The maximum number of pending activations has been reached, activation of %s failed",
+		      service_name);
+      return FALSE;
+    }
   
   entry = _dbus_hash_table_lookup_string (activation->entries, service_name);
 
@@ -902,9 +922,6 @@ bus_activation_activate_service (BusActivation  *activation,
   pending_activation = _dbus_hash_table_lookup_string (activation->pending_activations, service_name);
   if (pending_activation)
     {
-      /* FIXME security - a client could keep sending activations over and
-       * over, growing this queue.
-       */
       if (!_dbus_list_append (&pending_activation->entries, pending_activation_entry))
 	{
           _dbus_verbose ("Failed to append a new entry to pending activation\n");
@@ -913,6 +930,9 @@ bus_activation_activate_service (BusActivation  *activation,
 	  bus_pending_activation_entry_free (pending_activation_entry);
 	  return FALSE;
 	}
+
+      pending_activation->n_entries += 1;
+      pending_activation->activation->n_pending_activations += 1;
     }
   else
     {
@@ -980,6 +1000,9 @@ bus_activation_activate_service (BusActivation  *activation,
 	  bus_pending_activation_entry_free (pending_activation_entry);	  
 	  return FALSE;
 	}
+
+      pending_activation->n_entries += 1;
+      pending_activation->activation->n_pending_activations += 1;
       
       if (!_dbus_hash_table_insert_string (activation->pending_activations,
 					   pending_activation->service_name,

@@ -1,5 +1,26 @@
 2003-04-25  Havoc Pennington  <hp@redhat.com>
 
+        test suite is slightly hosed at the moment, will fix soon
+	
+	* bus/connection.c (bus_connections_expire_incomplete): fix to
+	properly disable the timeout when required
+	(bus_connection_set_name): check whether we can remove incomplete
+	connections timeout after we complete each connection.
+
+	* dbus/dbus-mainloop.c (check_timeout): fix this up a bit,
+	probably still broken.
+
+	* bus/services.c (bus_registry_acquire_service): implement max
+	number of services owned, and honor allow/deny rules on which 
+	services a connection can own.
+
+	* bus/connection.c (bus_connection_get_policy): report errors here
+
+	* bus/activation.c: implement limit on number of pending
+	activations
+
+2003-04-25  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-transport.c (_dbus_transport_get_unix_user): fix bug
 	where we used >= 0 instead of != DBUS_UID_UNSET.
 

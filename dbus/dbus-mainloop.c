@@ -356,10 +356,12 @@ check_timeout (unsigned long    tv_sec,
   long interval_milliseconds;
   int interval;
 
+  /* I'm pretty sure this function could suck (a lot) less */
+  
   interval = dbus_timeout_get_interval (tcb->timeout);
   
-  interval_seconds = interval / 1000;
-  interval_milliseconds = interval - interval_seconds * 1000;
+  interval_seconds = interval / 1000L;
+  interval_milliseconds = interval % 1000L;
   
   expiration_tv_sec = tcb->last_tv_sec + interval_seconds;
   expiration_tv_usec = tcb->last_tv_usec + interval_milliseconds * 1000;
@@ -368,44 +370,35 @@ check_timeout (unsigned long    tv_sec,
       expiration_tv_usec -= 1000000;
       expiration_tv_sec += 1;
     }
-
-  if (expiration_tv_sec < tv_sec ||
-      (expiration_tv_sec == tv_sec && expiration_tv_usec < tv_usec))
-    {
-      _dbus_verbose ("System clock went backward interval_seconds %ld interval_msecs %ld last_tv_sec %lu last_tv_usec %lu tv_sec %lu tv_usec %lu\n",
-                     interval_seconds, interval_milliseconds,
-                     tcb->last_tv_sec, tcb->last_tv_usec, tv_sec, tv_usec);
-          
-      /* The system time has been set backwards, reset the timeout to "interval" in the future */  
-      
-      tcb->last_tv_sec = tv_sec;
-      tcb->last_tv_usec = tv_usec;
-
-      *timeout = interval;
-
-      return FALSE;
-    }
   
   sec_remaining = expiration_tv_sec - tv_sec;
-  msec_remaining = (expiration_tv_usec - tv_usec) / 1000;
+  /* need to force this to be signed, as it is intended to sometimes
+   * produce a negative result
+   */
+  msec_remaining = ((long) expiration_tv_usec - (long) tv_usec) / 1000L;
 
-#if 0
-  printf ("Interval is %ld seconds %ld msecs\n",
-          interval_seconds,
-          interval_milliseconds);
-  printf ("Now is %lu seconds %lu usecs\n",
-          tv_sec, tv_usec);
-  printf ("Exp is %lu seconds %lu usecs\n",
-          expiration_tv_sec, expiration_tv_usec);
-  printf ("Pre-correction, remaining sec_remaining %ld msec_remaining %ld\n", sec_remaining, msec_remaining);
+#if MAINLOOP_SPEW
+  _dbus_verbose ("Interval is %ld seconds %ld msecs\n",
+                 interval_seconds,
+                 interval_milliseconds);
+  _dbus_verbose ("Now is  %lu seconds %lu usecs\n",
+                 tv_sec, tv_usec);
+  _dbus_verbose ("Last is %lu seconds %lu usecs\n",
+                 tcb->last_tv_sec, tcb->last_tv_usec);
+  _dbus_verbose ("Exp is  %lu seconds %lu usecs\n",
+                 expiration_tv_sec, expiration_tv_usec);
+  _dbus_verbose ("Pre-correction, sec_remaining %ld msec_remaining %ld\n",
+                 sec_remaining, msec_remaining);
 #endif
   
   /* We do the following in a rather convoluted fashion to deal with
    * the fact that we don't have an integral type big enough to hold
-   * the difference of two timevals in millseconds.
+   * the difference of two timevals in milliseconds.
    */
   if (sec_remaining < 0 || (sec_remaining == 0 && msec_remaining < 0))
-    msec_remaining = 0;
+    {
+      *timeout = 0;
+    }
   else
     {
       if (msec_remaining < 0)
@@ -414,20 +407,29 @@ check_timeout (unsigned long    tv_sec,
 	  sec_remaining -= 1;
 	}
 
-      if (msec_remaining > _DBUS_INT_MAX)
-        {
-          /* Not going to fit in a 32-bit integer */
-          msec_remaining = _DBUS_INT_MAX;
-        }
+      if (sec_remaining > (_DBUS_INT_MAX / 1000) ||
+          msec_remaining > _DBUS_INT_MAX)
+        *timeout = _DBUS_INT_MAX;
+      else
+        *timeout = sec_remaining * 1000 + msec_remaining;        
     }
 
-  *timeout = msec_remaining;
+  if (*timeout > interval)
+    {
+      /* This indicates that the system clock probably moved backward */
+      _dbus_verbose ("System clock set backward! Resetting timeout.\n");
+      
+      tcb->last_tv_sec = tv_sec;
+      tcb->last_tv_usec = tv_usec;
 
+      *timeout = interval;
+    }
+  
 #if MAINLOOP_SPEW
   _dbus_verbose ("  timeout expires in %d milliseconds\n", *timeout);
 #endif
   
-  return msec_remaining == 0;
+  return *timeout == 0;
 }
 
 dbus_bool_t
@@ -707,6 +709,12 @@ _dbus_loop_iterate (DBusLoop     *loop,
                                      cb->data);
 
                   retval = TRUE;
+                }
+              else
+                {
+#if MAINLOOP_SPEW
+                  _dbus_verbose ("  timeout has not expired\n");
+#endif
                 }
             }
 

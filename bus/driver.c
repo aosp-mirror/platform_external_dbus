@@ -204,10 +204,11 @@ create_unique_client_name (BusRegistry *registry,
    * for INT_MAX * INT_MAX combinations, should be pretty safe against
    * wraparound.
    */
+  /* FIXME these should be in BusRegistry rather than static vars */
   static int next_major_number = 0;
   static int next_minor_number = 0;
   int len;
-
+  
   len = _dbus_string_get_length (str);
   
   while (TRUE)

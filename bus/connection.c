@@ -52,6 +52,7 @@ typedef struct
   DBusList *link_in_connection_list;
   DBusConnection *connection;
   DBusList *services_owned;
+  int n_services_owned;
   char *name;
   DBusList *transaction_messages; /**< Stuff we need to send as part of a transaction */
   DBusMessage *oom_message;
@@ -387,6 +388,7 @@ free_connection_data (void *data)
 
   /* services_owned should be NULL since we should be disconnected */
   _dbus_assert (d->services_owned == NULL);
+  _dbus_assert (d->n_services_owned == 0);
   /* similarly */
   _dbus_assert (d->transaction_messages == NULL);
 
@@ -662,52 +664,54 @@ void
 bus_connections_expire_incomplete (BusConnections *connections)
 {    
   int next_interval;
-  long tv_sec, tv_usec;
-  DBusList *link;
-  int auth_timeout;
-  
-  if (connections->incomplete == NULL)
-    return;
 
-  _dbus_get_current_time (&tv_sec, &tv_usec);
-  auth_timeout = bus_context_get_auth_timeout (connections->context);
   next_interval = -1;
   
-  link = _dbus_list_get_first_link (&connections->incomplete);
-  while (link != NULL)
+  if (connections->incomplete != NULL)
     {
-      DBusList *next = _dbus_list_get_next_link (&connections->incomplete, link);
-      DBusConnection *connection;
-      BusConnectionData *d;
-      double elapsed;
+      long tv_sec, tv_usec;
+      DBusList *link;
+      int auth_timeout;
       
-      connection = link->data;
+      _dbus_get_current_time (&tv_sec, &tv_usec);
+      auth_timeout = bus_context_get_auth_timeout (connections->context);
+  
+      link = _dbus_list_get_first_link (&connections->incomplete);
+      while (link != NULL)
+        {
+          DBusList *next = _dbus_list_get_next_link (&connections->incomplete, link);
+          DBusConnection *connection;
+          BusConnectionData *d;
+          double elapsed;
       
-      d = BUS_CONNECTION_DATA (connection);
+          connection = link->data;
       
-      _dbus_assert (d != NULL);
+          d = BUS_CONNECTION_DATA (connection);
       
-      elapsed = ((double) tv_sec - (double) d->connection_tv_sec) * 1000.0 +
-        ((double) tv_usec - (double) d->connection_tv_usec) / 1000.0;
+          _dbus_assert (d != NULL);
+      
+          elapsed = ((double) tv_sec - (double) d->connection_tv_sec) * 1000.0 +
+            ((double) tv_usec - (double) d->connection_tv_usec) / 1000.0;
 
-      if (elapsed > (double) auth_timeout)
-        {
-          _dbus_verbose ("Timing out authentication for connection %p\n", connection);
-          dbus_connection_disconnect (connection);
-        }
-      else
-        {
-          /* We can end the loop, since the connections are in oldest-first order */
-          next_interval = auth_timeout - (int) elapsed;
-          _dbus_verbose ("Connection %p authentication expires in %d milliseconds\n",
-                         connection, next_interval);
+          if (elapsed >= (double) auth_timeout)
+            {
+              _dbus_verbose ("Timing out authentication for connection %p\n", connection);
+              dbus_connection_disconnect (connection);
+            }
+          else
+            {
+              /* We can end the loop, since the connections are in oldest-first order */
+              next_interval = ((double)auth_timeout) - elapsed;
+              _dbus_verbose ("Connection %p authentication expires in %d milliseconds\n",
+                             connection, next_interval);
           
-          break;
-        }
+              break;
+            }
       
-      link = next;
+          link = next;
+        }
     }
-
+  
   if (next_interval >= 0)
     {
       _dbus_timeout_set_interval (connections->expire_timeout,
@@ -717,13 +721,15 @@ bus_connections_expire_incomplete (BusConnections *connections)
       _dbus_verbose ("Enabled incomplete connections timeout with interval %d, %d incomplete connections\n",
                      next_interval, connections->n_incomplete);
     }
-  else
+  else if (dbus_timeout_get_enabled (connections->expire_timeout))
     {
       _dbus_timeout_set_enabled (connections->expire_timeout, FALSE);
 
       _dbus_verbose ("Disabled incomplete connections timeout, %d incomplete connections\n",
                      connections->n_incomplete);
     }
+  else
+    _dbus_verbose ("No need to disable incomplete connections timeout\n");
 }
 
 static dbus_bool_t
@@ -731,6 +737,8 @@ expire_incomplete_timeout (void *data)
 {
   BusConnections *connections = data;
 
+  _dbus_verbose ("Running %s\n", _DBUS_FUNCTION_NAME);
+  
   /* note that this may remove the timeout */
   bus_connections_expire_incomplete (connections);
 
@@ -803,7 +811,8 @@ bus_connection_is_in_group (DBusConnection *connection,
 }
 
 BusClientPolicy*
-bus_connection_get_policy (DBusConnection *connection)
+bus_connection_get_policy (DBusConnection *connection,
+                           DBusError      *error)
 {
   BusConnectionData *d;
     
@@ -814,6 +823,9 @@ bus_connection_get_policy (DBusConnection *connection)
   if (!dbus_connection_get_is_authenticated (connection))
     {
       _dbus_verbose ("Tried to get policy for unauthenticated connection!\n");
+      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                      "Connection is not yet authenticated; the pre-authentication "
+                      "implicit security policy is to deny everything");
       return NULL;
     }
   
@@ -828,11 +840,19 @@ bus_connection_get_policy (DBusConnection *connection)
 
       /* we may have a NULL policy on OOM or error getting list of
        * groups for a user. In the latter case we don't handle it so
-       * well currently, just keep pretending we're out of memory,
-       * which is kind of bizarre.
+       * well currently, as it will just keep failing over and over.
        */
     }
 
+  if (d->policy == NULL)
+    {
+      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                      "There was an error creating the security policy for connection \"%s\"; "
+                      "all operations will fail for now.",
+                      d->name ? d->name : "(inactive)");
+      return NULL;
+    }
+  
   return d->policy;
 }
 
@@ -1075,6 +1095,8 @@ bus_connection_add_owned_service_link (DBusConnection *connection,
   _dbus_assert (d != NULL);
 
   _dbus_list_append_link (&d->services_owned, link);
+
+  d->n_services_owned += 1;
 }
 
 dbus_bool_t
@@ -1103,6 +1125,20 @@ bus_connection_remove_owned_service (DBusConnection *connection,
   _dbus_assert (d != NULL);
 
   _dbus_list_remove_last (&d->services_owned, service);
+
+  d->n_services_owned -= 1;
+  _dbus_assert (d->n_services_owned >= 0);
+}
+
+int
+bus_connection_get_n_services_owned (DBusConnection *connection)
+{
+  BusConnectionData *d;
+
+  d = BUS_CONNECTION_DATA (connection);
+  _dbus_assert (d != NULL);
+  
+  return d->n_services_owned;
 }
 
 dbus_bool_t
@@ -1144,6 +1180,9 @@ bus_connection_set_name (DBusConnection   *connection,
 
   _dbus_assert (d->connections->n_incomplete >= 0);
   _dbus_assert (d->connections->n_completed > 0);
+
+  /* See if we can remove the timeout */
+  bus_connections_expire_incomplete (d->connections);
   
   return TRUE;
 }

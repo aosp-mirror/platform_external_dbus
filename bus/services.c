@@ -30,6 +30,7 @@
 #include "connection.h"
 #include "utils.h"
 #include "activation.h"
+#include "policy.h"
 
 struct BusService
 {
@@ -257,6 +258,7 @@ bus_registry_acquire_service (BusRegistry      *registry,
   dbus_bool_t retval;
   DBusConnection *old_owner;
   DBusConnection *current_owner;
+  BusClientPolicy *policy;
   BusService *service;
   
   retval = FALSE;
@@ -281,6 +283,37 @@ bus_registry_acquire_service (BusRegistry      *registry,
       _dbus_verbose ("Attempt to acquire invalid base service name \"%s\"",
                      _dbus_string_get_const_data (service_name));
       
+      goto out;
+    }
+
+  policy = bus_connection_get_policy (connection, error);
+  if (policy == NULL)
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      goto out;
+    }
+
+  if (!bus_client_policy_check_can_own (policy, connection,
+                                        service_name))
+    {
+      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                      "Connection \"%s\" is not allowed to own the service \"%s\" due "
+                      "to security policies in the configuration file",
+                      bus_connection_is_active (connection) ?
+                      bus_connection_get_name (connection) :
+                      "(inactive)");
+      goto out;
+    }
+
+  if (bus_connection_get_n_services_owned (connection) >=
+      bus_context_get_max_services_per_connection (registry->context))
+    {
+      dbus_set_error (error, DBUS_ERROR_LIMITS_EXCEEDED,
+                      "Connection \"%s\" is not allowed to own more services "
+                      "(increase limits in configuration file if required)",
+                      bus_connection_is_active (connection) ?
+                      bus_connection_get_name (connection) :
+                      "(inactive)");
       goto out;
     }
   

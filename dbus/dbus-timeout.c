@@ -124,6 +124,8 @@ void
 _dbus_timeout_set_interval (DBusTimeout *timeout,
                             int          interval)
 {
+  _dbus_assert (interval >= 0);
+  
   timeout->interval = interval;
 }
 

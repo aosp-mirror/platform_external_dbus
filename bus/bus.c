@@ -825,6 +825,18 @@ bus_context_get_max_connections_per_user (BusContext *context)
   return context->limits.max_connections_per_user;
 }
 
+int
+bus_context_get_max_pending_activations (BusContext *context)
+{
+  return context->limits.max_pending_activations;
+}
+
+int
+bus_context_get_max_services_per_connection (BusContext *context)
+{
+  return context->limits.max_services_per_connection;
+}
+
 dbus_bool_t
 bus_context_check_security_policy (BusContext     *context,
                                    DBusConnection *sender,
@@ -840,7 +852,13 @@ bus_context_check_security_policy (BusContext     *context,
   if (sender != NULL)
     {
       _dbus_assert (dbus_connection_get_is_authenticated (sender));
-      sender_policy = bus_connection_get_policy (sender);
+      sender_policy = bus_connection_get_policy (sender, error);
+      if (sender_policy == NULL)
+        {
+          _DBUS_ASSERT_ERROR_IS_SET (error);
+          return FALSE;
+        }
+      return FALSE;
     }
   else
     sender_policy = NULL;
@@ -848,12 +866,18 @@ bus_context_check_security_policy (BusContext     *context,
   if (recipient != NULL)
     {
       _dbus_assert (dbus_connection_get_is_authenticated (recipient));
-      recipient_policy = bus_connection_get_policy (recipient);
+      recipient_policy = bus_connection_get_policy (recipient, error);
+      if (recipient_policy == NULL)
+        {
+          _DBUS_ASSERT_ERROR_IS_SET (error);
+          return FALSE;
+        }
+      return FALSE;
     }
   else
     recipient_policy = NULL;
 
-  if (sender_policy &&
+  if (sender &&
       !bus_client_policy_check_can_send (sender_policy,
                                          context->registry, recipient,
                                          message))
@@ -869,7 +893,7 @@ bus_context_check_security_policy (BusContext     *context,
       return FALSE;
     }
 
-  if (recipient_policy &&
+  if (recipient &&
       !bus_client_policy_check_can_receive (recipient_policy,
                                             context->registry, sender,
                                             message))

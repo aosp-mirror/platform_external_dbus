@@ -68,7 +68,7 @@ void        bus_connection_remove_owned_service   (DBusConnection *connection,
                                                    BusService     *service);
 void        bus_connection_add_owned_service_link (DBusConnection *connection,
                                                    DBusList       *link);
-
+int         bus_connection_get_n_services_owned   (DBusConnection *connection);
 
 /* called by driver.c */
 dbus_bool_t bus_connection_set_name (DBusConnection               *connection,
@@ -83,7 +83,8 @@ dbus_bool_t      bus_connection_is_in_group (DBusConnection       *connection,
 dbus_bool_t      bus_connection_get_groups  (DBusConnection       *connection,
                                              unsigned long       **groups,
                                              int                  *n_groups);
-BusClientPolicy* bus_connection_get_policy  (DBusConnection       *connection);
+BusClientPolicy* bus_connection_get_policy  (DBusConnection       *connection,
+                                             DBusError            *error);
 
 /* transaction API so we can send or not send a block of messages as a whole */
 

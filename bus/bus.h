@@ -44,44 +44,46 @@ typedef struct BusTransaction   BusTransaction;
 
 typedef struct
 {
-  long max_incoming_bytes;          /**< How many incoming messages for a connection */
-  long max_outgoing_bytes;          /**< How many outgoing bytes can be queued for a connection */
+  long max_incoming_bytes;          /**< How many incoming messages for a single connection */
+  long max_outgoing_bytes;          /**< How many outgoing bytes can be queued for a single connection */
   long max_message_size;            /**< Max size of a single message in bytes */
   int activation_timeout;           /**< How long to wait for an activation to time out */
   int auth_timeout;                 /**< How long to wait for an authentication to time out */
   int max_completed_connections;    /**< Max number of authorized connections */
   int max_incomplete_connections;   /**< Max number of incomplete connections */
   int max_connections_per_user;     /**< Max number of connections auth'd as same user */
+  int max_pending_activations;      /**< Max number of pending activations for the entire bus */
+  int max_services_per_connection;  /**< Max number of owned services for a single connection */
 } BusLimits;
 
-BusContext*       bus_context_new                            (const DBusString *config_file,
-                                                              int               print_addr_fd,
-                                                              DBusError        *error);
-void              bus_context_shutdown                       (BusContext       *context);
-void              bus_context_ref                            (BusContext       *context);
-void              bus_context_unref                          (BusContext       *context);
-const char*       bus_context_get_type                       (BusContext       *context);
-const char*       bus_context_get_address                    (BusContext       *context);
-BusRegistry*      bus_context_get_registry                   (BusContext       *context);
-BusConnections*   bus_context_get_connections                (BusContext       *context);
-BusActivation*    bus_context_get_activation                 (BusContext       *context);
-DBusLoop*         bus_context_get_loop                       (BusContext       *context);
-DBusUserDatabase* bus_context_get_user_database              (BusContext       *context);
-dbus_bool_t       bus_context_allow_user                     (BusContext       *context,
-                                                              unsigned long     uid);
-BusClientPolicy*  bus_context_create_client_policy           (BusContext       *context,
-                                                              DBusConnection   *connection);
-int               bus_context_get_activation_timeout         (BusContext       *context);
-int               bus_context_get_auth_timeout               (BusContext       *context);
-int               bus_context_get_max_completed_connections  (BusContext       *context);
-int               bus_context_get_max_incomplete_connections (BusContext       *context);
-int               bus_context_get_max_connections_per_user   (BusContext       *context);
-dbus_bool_t       bus_context_check_security_policy          (BusContext       *context,
-                                                              DBusConnection   *sender,
-                                                              DBusConnection   *recipient,
-                                                              DBusMessage      *message,
-                                                              DBusError        *error);
-
-
+BusContext*       bus_context_new                             (const DBusString *config_file,
+                                                               int               print_addr_fd,
+                                                               DBusError        *error);
+void              bus_context_shutdown                        (BusContext       *context);
+void              bus_context_ref                             (BusContext       *context);
+void              bus_context_unref                           (BusContext       *context);
+const char*       bus_context_get_type                        (BusContext       *context);
+const char*       bus_context_get_address                     (BusContext       *context);
+BusRegistry*      bus_context_get_registry                    (BusContext       *context);
+BusConnections*   bus_context_get_connections                 (BusContext       *context);
+BusActivation*    bus_context_get_activation                  (BusContext       *context);
+DBusLoop*         bus_context_get_loop                        (BusContext       *context);
+DBusUserDatabase* bus_context_get_user_database               (BusContext       *context);
+dbus_bool_t       bus_context_allow_user                      (BusContext       *context,
+                                                               unsigned long     uid);
+BusClientPolicy*  bus_context_create_client_policy            (BusContext       *context,
+                                                               DBusConnection   *connection);
+int               bus_context_get_activation_timeout          (BusContext       *context);
+int               bus_context_get_auth_timeout                (BusContext       *context);
+int               bus_context_get_max_completed_connections   (BusContext       *context);
+int               bus_context_get_max_incomplete_connections  (BusContext       *context);
+int               bus_context_get_max_connections_per_user    (BusContext       *context);
+int               bus_context_get_max_pending_activations     (BusContext       *context);
+int               bus_context_get_max_services_per_connection (BusContext       *context);
+dbus_bool_t       bus_context_check_security_policy           (BusContext       *context,
+                                                               DBusConnection   *sender,
+                                                               DBusConnection   *recipient,
+                                                               DBusMessage      *message,
+                                                               DBusError        *error);
 
 #endif /* BUS_BUS_H */

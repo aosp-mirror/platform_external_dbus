@@ -135,9 +135,9 @@ Elements:
 
     Available limits are:
       "max_incoming_bytes"         : total size in bytes of messages
-                                     incoming from a connection
+                                     incoming from a single connection
       "max_outgoing_bytes"         : total size in bytes of messages
-                                     queued up for a connection
+                                     queued up for a single connection
       "max_message_size"           : max size of a single message in
                                      bytes
       "activation_timeout"         : milliseconds (thousandths) until 
@@ -150,6 +150,10 @@ Elements:
                                      connections
       "max_connections_per_user"   : max number of completed connections from
                                      the same user
+      "max_pending_activations"    : max number of activations in
+                                     progress at the same time
+      "max_services_per_connection": max number of services a single 
+                                     connection can own
 
     Some notes:
 
