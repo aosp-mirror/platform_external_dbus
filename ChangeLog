@@ -1,3 +1,14 @@
+2003-06-15  Joe Shaw  <joe@assbarn.com>
+
+	* configure.in: Check for socklen_t.
+
+	* dbus/dbus-sysdeps.c: Define socklen_t if it's not defined.
+
+	* test/test-segfault.c: Add #include <sys/time.h>
+
+	* tools/Makefile.am: Add DBUS_X_CFLAGS to the INCLUDES since
+	dbus-launch needs it.
+
 2003-06-09  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-sysdeps.c (_dbus_listen_unix_socket): don't use

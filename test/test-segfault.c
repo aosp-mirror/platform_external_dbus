@@ -1,6 +1,7 @@
 /* This is simply a process that segfaults */
 #include <signal.h>
 
+#include <sys/time.h>
 #include <sys/resource.h>
 
 int
