@@ -26,10 +26,14 @@
 #include <dbus/dbus.h>
 #include <glib.h>
 
+G_BEGIN_DECLS
+
 void dbus_gthread_init                 (void);
 void dbus_connection_setup_with_g_main (DBusConnection *connection,
 					GMainContext   *context);
 void dbus_server_setup_with_g_main     (DBusServer     *server,
 					GMainContext   *context);
+
+G_END_DECLS
 
 #endif /* DBUS_GLIB_H */

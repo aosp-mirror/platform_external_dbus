@@ -1,3 +1,8 @@
+2003-06-19  Anders Carlsson  <andersca@codefactory.se>
+
+	* glib/dbus-glib.h: Fix so that dbus-glib.h can be used
+	from C++ (Patch by Miloslav Trmac).
+
 2003-06-15  Joe Shaw  <joe@assbarn.com>
 
 	* configure.in: Check for socklen_t.
