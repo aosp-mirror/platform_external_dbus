@@ -151,8 +151,9 @@ const char *_dbus_errno_to_string (int         errnum);
 dbus_bool_t _dbus_spawn_async     (char      **argv,
 				   DBusError  *error);
 
-
 void _dbus_disable_sigpipe (void);
+
+void _dbus_fd_set_close_on_exec (int fd);
 
 DBUS_END_DECLS;
 
