@@ -66,6 +66,27 @@ _dbus_group_info_free_allocated (DBusGroupInfo *info)
 }
 
 /**
+ * Checks if a given string is actually a number 
+ * and converts it if it is 
+ *
+ * @param str the string to check
+ * @param num the memory location of the unsigned long to fill in
+ * @returns TRUE if str is a number and num is filled in 
+ */
+dbus_bool_t
+_dbus_is_a_number (const DBusString *str,
+             unsigned long    *num)
+{
+  int end;
+
+  if (_dbus_string_parse_int (str, 0, num, &end) &&
+      end == _dbus_string_get_length (str))
+    return TRUE;
+  else
+    return FALSE;
+}
+
+/**
  * Looks up a uid or username in the user database.  Only one of name
  * or UID can be provided. There are wrapper functions for this that
  * are better to use, this one does no locking or anything on the
@@ -87,7 +108,16 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   _dbus_assert (uid != DBUS_UID_UNSET || username != NULL);
-  
+
+  /* See if the username is really a number */
+  if (uid == DBUS_UID_UNSET)
+    {
+      unsigned long n;
+
+      if (_dbus_is_a_number (username, &n))
+        uid = n;
+    }
+
   if (uid != DBUS_UID_UNSET)
     info = _dbus_hash_table_lookup_ulong (db->users, uid);
   else

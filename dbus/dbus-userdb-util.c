@@ -195,6 +195,16 @@ _dbus_user_database_lookup_group (DBusUserDatabase *db,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
+   /* See if the group is really a number */
+   if (gid == DBUS_UID_UNSET)
+    {
+      unsigned long n;
+
+      if (_dbus_is_a_number (groupname, &n))
+        gid = n;
+    }
+
+
   if (gid != DBUS_GID_UNSET)
     info = _dbus_hash_table_lookup_ulong (db->groups, gid);
   else

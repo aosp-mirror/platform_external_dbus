@@ -106,6 +106,9 @@ dbus_bool_t _dbus_credentials_from_uid          (dbus_uid_t         user_id,
 dbus_bool_t _dbus_is_console_user               (dbus_uid_t         uid,
                                                  DBusError         *error);
 
+dbus_bool_t _dbus_is_a_number                   (const DBusString *str, 
+                                                 unsigned long    *num);
+
 
 DBUS_END_DECLS
 

@@ -3,13 +3,13 @@ INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) $(DBUS_X_CFLA
 if HAVE_GLIB
 GLIB_TOOLS=dbus-monitor
 
-libdbus_glib_HEADERS = dbus-glib-bindings.h
+nodist_libdbus_glib_HEADERS = dbus-glib-bindings.h
 libdbus_glibdir = $(includedir)/dbus-1.0/dbus
 
 dbus-glib-bindings.h: dbus-bus-introspect.xml $(top_builddir)/glib/dbus-binding-tool
 	$(top_builddir)/glib/dbus-binding-tool --ignore-unsupported --mode=glib-client --output=dbus-glib-bindings.h dbus-bus-introspect.xml # FIXME - remove --ignore-unsupported when we can do arrays
 
-BUILT_SOURCES = dbus-glib-bindings.h
+BUILT_SOURCES = dbus-glib-bindings.h dbus-bus-introspect.xml
 
 else
 GLIB_TOOLS=
@@ -26,9 +26,7 @@ noinst_PROGRAMS = print-introspect
 print_introspect_SOURCES = print-introspect.c
 print_introspect_LDADD = $(top_builddir)/glib/libdbus-glib-1.la
 
-run-with-tmp-session-bus.sh: $(top_builddir)/bus/dbus-daemon dbus-launch
-
-dbus-bus-introspect.xml: $(srcdir)/run-with-tmp-session-bus.sh print-introspect $(top_builddir)/bus/dbus-daemon
+dbus-bus-introspect.xml: $(top_builddir)/bus/dbus-daemon dbus-launch print-introspect $(top_builddir)/bus/dbus-daemon
 	DBUS_TOP_BUILDDIR=$(top_builddir) $(srcdir)/run-with-tmp-session-bus.sh ./print-introspect org.freedesktop.DBus /org/freedesktop/DBus > dbus-bus-introspect.xml.tmp && mv dbus-bus-introspect.xml.tmp dbus-bus-introspect.xml
 
 bin_PROGRAMS=dbus-send $(GLIB_TOOLS) dbus-launch dbus-cleanup-sockets $(GTK_TOOLS)
@@ -63,5 +61,7 @@ dbus_viewer_LDADD= $(DBUS_GLIB_TOOL_LIBS) $(top_builddir)/glib/libdbus-gtool.la 
 
 man_MANS = dbus-send.1 dbus-monitor.1 dbus-launch.1 dbus-cleanup-sockets.1
 EXTRA_DIST = $(man_MANS) run-with-tmp-session-bus.sh
-
-
+CLEANFILES = 				\
+	run-with-tmp-session-bus.conf	\
+	dbus-bus-introspect.xml		\
+	dbus-glib-bindings.h

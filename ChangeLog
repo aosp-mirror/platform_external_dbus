@@ -1,3 +1,19 @@
+2005-03-22  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/Makefile.am: Patch by Colin Walters that fixes distcheck
+
+	* dbus/dbus-userdb.c, dbus/dbus-userdb-util.c: Add patch we have 
+	  had in Red Hat packages for a while but for some reason never 
+	  got merged upstream
+	  (_dbus_is_a_number): New checks if a string
+	  can be converted to a number and does the conversion if it can
+	  (_dbus_user_database_lookup): Add check to see if the given username
+	  is a udi.  This allows udi's to be used instead of usernames in the
+	  config file.
+	  (_dbus_user_database_lookup_group): Add check to see if the given groupname
+	  is a gdi.  This allows gdi's to be used instead of groupnames in the
+	  config file.
+
 2005-03-21  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/lvalue_cast_post_process.py - added post processor to fix Pyrex
