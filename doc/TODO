@@ -31,8 +31,6 @@ Important for 1.0
 
  - fix introspection format to handle all signatures
 
- - make the mutex/condvar functions private
-
  - dbus-pending-call.c has some API and thread safety issues to review
 
  - make dbus_connection_open() return a shared connection from a pool.
