@@ -428,34 +428,6 @@ append_string_field (DBusMessage *message,
 }
 
 static int
-get_next_field (DBusMessage *message,
-		int          field)
-{
-  int offset;
-  int closest;
-  int i;
-  int retval;
-
-  offset = message->header_fields[field].name_offset;
-  retval = DBUS_HEADER_FIELD_INVALID;
-  
-  i = 0;
-  closest = _DBUS_INT_MAX;
-  while (i < DBUS_HEADER_FIELD_LAST)
-    {
-      if (message->header_fields[i].name_offset > offset &&
-	  message->header_fields[i].name_offset < closest)
-	{
-	  closest = message->header_fields[i].name_offset;
-	  retval = i;
-	}
-      ++i;
-    }
-
-  return retval;
-}
-
-static int
 get_type_alignment (int type)
 {
   int alignment;

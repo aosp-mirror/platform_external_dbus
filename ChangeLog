@@ -5,6 +5,10 @@
 	
 2003-10-28  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-message.c (get_next_field): delete unused function
+
+2003-10-28  Havoc Pennington  <hp@redhat.com>
+
 	* bus/expirelist.c (do_expiration_with_current_time): detect
 	failure of the expire_func due to OOM
 
