@@ -1,3 +1,8 @@
+2003-02-14  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-errors.h (struct DBusError): add a word of padding 
+	to DBusError
+
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/driver.c: (bus_driver_handle_hello):

@@ -42,6 +42,11 @@ struct DBusError
 
   unsigned int dummy1 : 1; /**< placeholder */
   unsigned int dummy2 : 1; /**< placeholder */
+  unsigned int dummy3 : 1; /**< placeholder */
+  unsigned int dummy4 : 1; /**< placeholder */
+  unsigned int dummy5 : 1; /**< placeholder */
+
+  void *padding1; /**< placeholder */
 };
 
 typedef enum

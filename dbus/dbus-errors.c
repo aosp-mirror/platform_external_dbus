@@ -42,6 +42,11 @@
  * if (result != DBUS_RESULT_SUCCESS)
  *   printf ("an error occurred\n");
  * @endcode
+ *
+ * @todo add docs with DBusError
+ *
+ * @todo add dbus_error_is_set() to check
+ * whether an error is set.
  * 
  * @{
  */
@@ -52,6 +57,14 @@ typedef struct
   char *message; /**< error message */
 
   unsigned int const_message : 1; /** Message is not owned by DBusError */
+
+  unsigned int dummy2 : 1; /**< placeholder */
+  unsigned int dummy3 : 1; /**< placeholder */
+  unsigned int dummy4 : 1; /**< placeholder */
+  unsigned int dummy5 : 1; /**< placeholder */
+
+  void *padding1; /**< placeholder */
+  
 } DBusRealError;
 
 /**
