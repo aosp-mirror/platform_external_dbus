@@ -1,4 +1,7 @@
 2005-03-12  Joe Shaw  <joeshaw@novell.com>
+
+	* mono/dbus-sharp.dll.config.in: Don't hardcode 0 for
+	LT_CURRENT.  Set it to the autoconf variable.
                                                                                 
 	* mono/ProxyBuilder.cs: Add a finalizer to the generated proxy
 	classes that disconnects the signal handler delegate from the
