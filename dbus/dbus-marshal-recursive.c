@@ -136,21 +136,22 @@ array_reader_get_array_len (const DBusTypeReader *reader)
 {
   dbus_uint32_t array_len;
   int len_pos;
-  
+
   /* array_len_offset is the offset back from start_pos to end of the len */
   len_pos = reader->u.array.start_pos - ((int)reader->array_len_offset) - 4;
-  
+
   _dbus_demarshal_basic_type (reader->value_str,
+                              len_pos,
                               DBUS_TYPE_UINT32,
                               &array_len,
                               reader->byte_order,
-                              len_pos, NULL);
+                              NULL);
 
   _dbus_verbose ("   reader %p len_pos %d array len %u len_offset %d\n",
                  reader, len_pos, array_len, reader->array_len_offset);
 
   _dbus_assert (reader->u.array.start_pos - len_pos - 4 < 8);
-  
+
   return array_len;
 }
 
@@ -168,7 +169,7 @@ array_reader_recurse (DBusTypeReader *sub,
   len_pos = sub->value_pos;
 
   sub->value_pos += 4; /* for the length */
-  
+
   alignment = element_type_get_alignment (sub->type_str,
                                           sub->type_pos);
 
@@ -231,7 +232,7 @@ array_reader_check_finished (const DBusTypeReader *reader)
 
   _dbus_assert (reader->value_pos <= end_pos);
   _dbus_assert (reader->value_pos >= reader->u.array.start_pos);
-  
+
   return reader->value_pos == end_pos;
 }
 
@@ -320,9 +321,10 @@ base_reader_next (DBusTypeReader *reader,
     case DBUS_TYPE_ARRAY:
       {
         if (!reader->klass->types_only)
-          _dbus_marshal_skip_array (reader->value_str, reader->byte_order,
+          _dbus_marshal_skip_array (reader->value_str,
                                     first_type_in_signature (reader->type_str,
                                                              reader->type_pos + 1),
+                                    reader->byte_order,
                                     &reader->value_pos);
 
         skip_one_complete_type (reader->type_str, &reader->type_pos);
@@ -409,9 +411,10 @@ array_reader_next (DBusTypeReader *reader,
 
     case DBUS_TYPE_ARRAY:
       {
-        _dbus_marshal_skip_array (reader->value_str, reader->byte_order,
+        _dbus_marshal_skip_array (reader->value_str,
                                   first_type_in_signature (reader->type_str,
                                                            reader->type_pos + 1),
+                                  reader->byte_order,
                                   &reader->value_pos);
       }
       break;
@@ -555,7 +558,7 @@ _dbus_type_reader_init_from_mark (DBusTypeReader     *reader,
 
   if (reader->klass->init_from_mark)
     (* reader->klass->init_from_mark) (reader, mark);
-  
+
 #if RECURSIVE_MARSHAL_TRACE
   _dbus_verbose ("  type reader %p init from mark type_pos = %d value_pos = %d remaining sig '%s'\n",
                  reader, reader->type_pos, reader->value_pos,
@@ -595,7 +598,7 @@ _dbus_type_reader_init_types_only_from_mark (DBusTypeReader     *reader,
 
   if (reader->klass->init_from_mark)
     (* reader->klass->init_from_mark) (reader, mark);
-  
+
 #if RECURSIVE_MARSHAL_TRACE
   _dbus_verbose ("  type reader %p init types only from mark type_pos = %d remaining sig '%s'\n",
                  reader, reader->type_pos,
@@ -631,7 +634,7 @@ _dbus_type_reader_get_current_type (const DBusTypeReader *reader)
   else
     t = first_type_in_signature (reader->type_str,
                                  reader->type_pos);
-  
+
   _dbus_assert (t != DBUS_STRUCT_END_CHAR);
   _dbus_assert (t != DBUS_STRUCT_BEGIN_CHAR);
 
@@ -658,10 +661,10 @@ _dbus_type_reader_array_is_empty (const DBusTypeReader *reader)
 #endif
 
   _dbus_demarshal_basic_type (reader->value_str,
+                              reader->value_pos,
                               DBUS_TYPE_UINT32,
                               &array_len,
                               reader->byte_order,
-                              reader->value_pos,
                               NULL);
 #if RECURSIVE_MARSHAL_TRACE
   _dbus_verbose (" ... array len = %d\n", array_len);
@@ -681,9 +684,10 @@ _dbus_type_reader_read_basic (const DBusTypeReader    *reader,
   t = _dbus_type_reader_get_current_type (reader);
 
   _dbus_demarshal_basic_type (reader->value_str,
+                              reader->value_pos,
                               t, value,
                               reader->byte_order,
-                              reader->value_pos, NULL);
+                              NULL);
 
 
 #if RECURSIVE_MARSHAL_TRACE
@@ -754,7 +758,7 @@ _dbus_type_reader_recurse (DBusTypeReader *reader,
     }
 
   _dbus_assert (sub->klass == all_reader_classes[sub->klass->id]);
-  
+
   (* sub->klass->recurse) (sub, reader);
 
 #if RECURSIVE_MARSHAL_TRACE
@@ -854,6 +858,66 @@ _dbus_type_reader_get_signature (const DBusTypeReader  *reader,
   *len_p = find_len_of_complete_type (reader->type_str, reader->type_pos);
 }
 
+static void
+reader_fixed_length_set_basic (DBusTypeReader *reader,
+                               int             current_type,
+                               const void     *value)
+{
+  _dbus_marshal_set_basic_type ((DBusString*) reader->value_str,
+                                reader->value_pos,
+                                current_type,
+                                value,
+                                reader->byte_order,
+                                NULL, NULL);
+}
+
+/**
+ *  Sets a new value for the basic type pointed to by the reader,
+ *  leaving the reader valid to continue reading. Any other
+ *  readers may of course be invalidated if you set a variable-length
+ *  type such as a string.
+ *
+ *  @todo DBusTypeReader currently takes "const" versions of the
+ *  type and value strings, and this function modifies those strings
+ *  by casting away the const, which is of course bad if we want to
+ *  get picky. (To be truly clean you'd have an object which contained
+ *  the type and value strings and set_basic would be a method on
+ *  that object... this would also make DBusTypeReader the same thing
+ *  as DBusTypeMark. But since DBusMessage is effectively that object
+ *  for D-BUS it doesn't seem worth creating some random object.)
+ *
+ * @param reader reader indicating where to set a new value
+ * @param value address of the value to set
+ * @returns #FALSE if not enough memory
+ */
+dbus_bool_t
+_dbus_type_reader_set_basic (DBusTypeReader *reader,
+                             const void     *value)
+{
+  int current_type;
+  dbus_bool_t retval;
+
+  retval = FALSE;
+
+  current_type = _dbus_type_reader_get_current_type (reader);
+
+  _dbus_assert (_dbus_type_is_basic (current_type));
+
+  if (!_dbus_type_length_varies (current_type))
+    {
+      reader_fixed_length_set_basic (reader, current_type, value);
+      return TRUE;
+    }
+
+  /* FIXME */
+
+  retval = TRUE;
+
+ out:
+
+  return retval;
+}
+
 /*
  *
  *
@@ -882,7 +946,7 @@ _dbus_type_reader_get_signature (const DBusTypeReader  *reader,
  * @param type_pos where to insert typecodes
  * @param value_str the string to write values into
  * @param value_pos where to insert values
- * 
+ *
  */
 void
 _dbus_type_writer_init (DBusTypeWriter *writer,
@@ -1060,7 +1124,7 @@ writer_recurse_struct (DBusTypeWriter   *writer,
    * almost trivially fix the code so if it's present we
    * write it out and then set type_pos_is_expectation
    */
-  
+
   /* Ensure that we'll be able to add alignment padding and the typecode */
   if (!_dbus_string_alloc_space (sub->value_str, 8))
     return FALSE;
@@ -1278,7 +1342,7 @@ _dbus_type_writer_recurse_contained_len (DBusTypeWriter   *writer,
                                          DBusTypeWriter   *sub)
 {
   writer_recurse_init_and_check (writer, container_type, sub);
-  
+
   switch (container_type)
     {
     case DBUS_TYPE_STRUCT:
@@ -1356,9 +1420,9 @@ _dbus_type_writer_unrecurse (DBusTypeWriter *writer,
       /* Set the array length */
       len = sub->value_pos - sub->u.array.start_pos;
       _dbus_marshal_set_uint32 (sub->value_str,
-                                sub->byte_order,
                                 sub->u.array.len_pos,
-                                len);
+                                len,
+                                sub->byte_order);
 #if RECURSIVE_MARSHAL_TRACE
       _dbus_verbose ("    filled in sub array len to %u at len_pos %d\n",
                      len, sub->u.array.len_pos);
@@ -1483,11 +1547,11 @@ _dbus_type_writer_write_reader (DBusTypeWriter *writer,
   int orig_value_len;
   int new_bytes;
   int current_type;
-  
+
   orig = *writer;
   orig_type_len = _dbus_string_get_length (writer->type_str);
   orig_value_len = _dbus_string_get_length (writer->value_str);
-  
+
   while ((current_type = _dbus_type_reader_get_current_type (reader)) != DBUS_TYPE_INVALID)
     {
       switch (current_type)
@@ -1511,7 +1575,7 @@ _dbus_type_writer_write_reader (DBusTypeWriter *writer,
                                                           sig_str, sig_start, sig_len,
                                                           &subwriter))
               goto oom;
-            
+
             if (!_dbus_type_writer_write_reader (&subwriter, &subreader))
               goto oom;
 
@@ -1523,7 +1587,7 @@ _dbus_type_writer_write_reader (DBusTypeWriter *writer,
         default:
           {
             DBusBasicValue val;
-            
+
             _dbus_type_reader_read_basic (reader, &val);
 
             if (!_dbus_type_writer_write_basic (writer, current_type, &val))
@@ -1531,7 +1595,7 @@ _dbus_type_writer_write_reader (DBusTypeWriter *writer,
           }
           break;
         }
-      
+
       _dbus_type_reader_next (reader);
     }
 
@@ -1547,7 +1611,7 @@ _dbus_type_writer_write_reader (DBusTypeWriter *writer,
   _dbus_string_delete (writer->value_str, orig.value_pos, new_bytes);
 
   *writer = orig;
-  
+
   return FALSE;
 }
 
@@ -1616,7 +1680,7 @@ data_block_init (DataBlock *block,
 
   block->byte_order = byte_order;
   block->initial_offset = initial_offset;
-  
+
   return TRUE;
 }
 
@@ -1651,7 +1715,7 @@ data_block_verify (DataBlock *block)
       offset = _dbus_string_get_length (&block->signature) - N_FENCE_BYTES - 8;
       if (offset < 0)
         offset = 0;
-      
+
       _dbus_verbose_bytes_of_string (&block->signature,
                                      offset,
                                      _dbus_string_get_length (&block->signature) - offset);
@@ -1671,7 +1735,7 @@ data_block_verify (DataBlock *block)
                                      _dbus_string_get_length (&block->body) - offset);
       _dbus_assert_not_reached ("block did not verify: bad bytes at end of body");
     }
-  
+
   _dbus_assert (_dbus_string_validate_nul (&block->signature,
                                            0, block->initial_offset));
   _dbus_assert (_dbus_string_validate_nul (&block->body,
@@ -1682,7 +1746,7 @@ static void
 data_block_free (DataBlock *block)
 {
   data_block_verify (block);
-  
+
   _dbus_string_free (&block->signature);
   _dbus_string_free (&block->body);
 }
@@ -1691,7 +1755,7 @@ static void
 data_block_reset (DataBlock *block)
 {
   data_block_verify (block);
-  
+
   _dbus_string_delete (&block->signature,
                        block->initial_offset,
                        _dbus_string_get_length (&block->signature) - N_FENCE_BYTES - block->initial_offset);
@@ -2195,14 +2259,14 @@ node_write_value (TestTypeNode   *node,
                   int             seed)
 {
   dbus_bool_t retval;
-  
+
   retval = (* node->klass->write_value) (node, block, writer, seed);
 
 #if 0
   /* Handy to see where things break, but too expensive to do all the time */
   data_block_verify (block);
 #endif
-  
+
   return retval;
 }
 
@@ -2216,7 +2280,7 @@ node_read_value (TestTypeNode   *node,
   DBusTypeReader restored;
 
   _dbus_type_reader_save_mark (reader, &mark);
-  
+
   if (!(* node->klass->read_value) (node, block, reader, seed))
     return FALSE;
 
@@ -2231,7 +2295,7 @@ node_read_value (TestTypeNode   *node,
 
   if (!(* node->klass->read_value) (node, block, &restored, seed))
     return FALSE;
-  
+
   return TRUE;
 }
 
@@ -2266,9 +2330,9 @@ run_test_copy (DataBlock *src)
   dbus_bool_t retval;
   DBusTypeReader reader;
   DBusTypeWriter writer;
-  
+
   retval = FALSE;
-  
+
   if (!data_block_init (&dest, src->byte_order, src->initial_offset))
     return FALSE;
 
@@ -2281,7 +2345,7 @@ run_test_copy (DataBlock *src)
   if (!_dbus_string_insert_byte (&dest.signature,
                                  dest.initial_offset, '\0'))
     goto out;
-  
+
   if (!_dbus_type_writer_write_reader (&writer, &reader))
     goto out;
 
@@ -2307,13 +2371,13 @@ run_test_copy (DataBlock *src)
                                      _dbus_string_get_length (&dest.body));
       _dbus_assert_not_reached ("bodies did not match");
     }
-  
+
   retval = TRUE;
 
  out:
 
   data_block_free (&dest);
-  
+
   return retval;
 }
 
@@ -2346,7 +2410,7 @@ run_test_nodes_iteration (void *data)
    * 4. type-iterate the signature and the value and see if they are the same type-wise
    */
   retval = FALSE;
-  
+
   data_block_init_reader_writer (nid->block,
                                  &reader, &writer);
 
@@ -2356,7 +2420,7 @@ run_test_nodes_iteration (void *data)
   if (!_dbus_string_insert_byte (&nid->block->signature,
                                  nid->type_offset, '\0'))
     goto out;
-  
+
   i = 0;
   while (i < nid->n_nodes)
     {
@@ -2392,17 +2456,17 @@ run_test_nodes_iteration (void *data)
 
   if (n_iterations_expected_this_test <= MAX_ITERATIONS_TO_TEST_COPYING)
     run_test_copy (nid->block);
-  
+
   /* FIXME type-iterate both signature and value and compare the resulting
    * tree to the node tree perhaps
    */
-  
+
   retval = TRUE;
-  
+
  out:
-  
+
   data_block_reset (nid->block);
-  
+
   return retval;
 }
 
@@ -2485,7 +2549,7 @@ run_test_nodes (TestTypeNode **nodes,
     {
       fprintf (stderr, " %d%% ", (int) (n_iterations_completed_this_test / (double) n_iterations_expected_this_test * 100));
     }
-  
+
   _dbus_string_free (&signature);
 }
 
@@ -2578,7 +2642,7 @@ start_next_test (const char *format,
   n_iterations_expected_this_test = expected;
 
   fprintf (stderr, ">>> >>> ");
-  fprintf (stderr, format, 
+  fprintf (stderr, format,
            n_iterations_expected_this_test);
 }
 
@@ -3075,7 +3139,7 @@ string_write_value (TestTypeNode   *node,
 
   string_from_seed (buf, node->klass->subclass_detail,
                     seed);
-  
+
   return _dbus_type_writer_write_basic (writer,
                                         node->klass->typecode,
                                         &v_string);
@@ -3265,7 +3329,7 @@ object_path_write_value (TestTypeNode   *node,
 {
   char buf[MAX_SAMPLE_OBJECT_PATH_LEN];
   const char *v_string = buf;
-  
+
   object_path_from_seed (buf, seed);
 
   return _dbus_type_writer_write_basic (writer,
@@ -3332,7 +3396,7 @@ signature_write_value (TestTypeNode   *node,
 {
   char buf[MAX_SAMPLE_SIGNATURE_LEN];
   const char *v_string = buf;
-  
+
   signature_from_seed (buf, seed);
 
   return _dbus_type_writer_write_basic (writer,

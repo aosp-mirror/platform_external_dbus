@@ -226,6 +226,14 @@ _hack_dbus_type_to_string (int type)
 #define DBUS_UINT64_FROM_BE(val) (DBUS_UINT64_TO_BE (val))
 #endif /* DBUS_HAVE_INT64 */
 
+#ifdef DBUS_HAVE_INT64
+typedef struct
+{
+  dbus_uint32_t first32;
+  dbus_uint32_t second32;
+} DBus8ByteStruct;
+#endif /* DBUS_HAVE_INT64 */
+
 typedef union
 {
   dbus_int32_t  i32;
@@ -233,6 +241,8 @@ typedef union
 #ifdef DBUS_HAVE_INT64
   dbus_int64_t  i64;
   dbus_uint64_t u64;
+#else
+  DBus8ByteStruct u64;
 #endif
   double dbl;
   unsigned char byt;
@@ -251,75 +261,55 @@ void          _dbus_pack_uint32   (dbus_uint32_t        value,
 dbus_uint32_t _dbus_unpack_uint32 (int                  byte_order,
                                    const unsigned char *data);
 
-#ifdef DBUS_HAVE_INT64
-void          _dbus_pack_int64    (dbus_int64_t         value,
-                                   int                  byte_order,
-                                   unsigned char       *data);
-dbus_int64_t  _dbus_unpack_int64  (int                  byte_order,
-                                   const unsigned char *data);
-void          _dbus_pack_uint64   (dbus_uint64_t        value,
-                                   int                  byte_order,
-                                   unsigned char       *data);
-dbus_uint64_t _dbus_unpack_uint64 (int                  byte_order,
-                                   const unsigned char *data);
-#endif /* DBUS_HAVE_INT64 */
 
-void        _dbus_marshal_set_int32  (DBusString       *str,
-                                      int               byte_order,
-                                      int               offset,
-                                      dbus_int32_t      value);
-void        _dbus_marshal_set_uint32 (DBusString       *str,
-                                      int               byte_order,
-                                      int               offset,
-                                      dbus_uint32_t     value);
-#ifdef DBUS_HAVE_INT64
-void        _dbus_marshal_set_int64  (DBusString       *str,
-                                      int               byte_order,
-                                      int               offset,
-                                      dbus_int64_t      value);
-void        _dbus_marshal_set_uint64 (DBusString       *str,
-                                      int               byte_order,
-                                      int               offset,
-                                      dbus_uint64_t     value);
-#endif /* DBUS_HAVE_INT64 */
-
-dbus_bool_t   _dbus_marshal_set_string       (DBusString       *str,
+dbus_bool_t   _dbus_marshal_set_basic_type   (DBusString       *str,
+                                              int               pos,
+                                              int               type,
+                                              const void       *value,
                                               int               byte_order,
-                                              int               offset,
-                                              const DBusString *value,
-                                              int               len);
+                                              int              *old_end_pos,
+                                              int              *new_end_pos);
 dbus_bool_t   _dbus_marshal_basic_type       (DBusString       *str,
                                               int               insert_at,
-                                              char              type,
+                                              int               type,
                                               const void       *value,
                                               int               byte_order,
                                               int              *pos_after);
 dbus_bool_t   _dbus_marshal_basic_type_array (DBusString       *str,
                                               int               insert_at,
-                                              char              element_type,
+                                              int               element_type,
                                               const void       *value,
                                               int               len,
                                               int               byte_order,
                                               int              *pos_after);
-dbus_uint32_t _dbus_demarshal_uint32         (const DBusString *str,
-                                              int               byte_order,
-                                              int               pos,
-                                              int              *new_pos);
 void          _dbus_demarshal_basic_type     (const DBusString *str,
+                                              int               pos,
                                               int               type,
                                               void             *value,
                                               int               byte_order,
-                                              int               pos,
                                               int              *new_pos);
 void          _dbus_marshal_skip_basic_type  (const DBusString *str,
                                               int               type,
                                               int               byte_order,
                                               int              *pos);
 void          _dbus_marshal_skip_array       (const DBusString *str,
-                                              int               byte_order,
                                               int               element_type,
+                                              int               byte_order,
                                               int              *pos);
+void          _dbus_marshal_set_uint32       (DBusString       *str,
+                                              int               pos,
+                                              dbus_uint32_t     value,
+                                              int               byte_order);
+dbus_uint32_t _dbus_demarshal_uint32         (const DBusString *str,
+                                              int               pos,
+                                              int               byte_order,
+                                              int              *new_pos);
 dbus_bool_t   _dbus_type_is_valid            (int               typecode);
 int           _dbus_type_get_alignment       (int               typecode);
+dbus_bool_t   _dbus_type_is_basic            (int               typecode);
+dbus_bool_t   _dbus_type_is_container        (int               typecode);
+dbus_bool_t   _dbus_type_length_varies       (int               typecode);
+
+
 
 #endif /* DBUS_MARSHAL_H */

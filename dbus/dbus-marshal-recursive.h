@@ -46,6 +46,8 @@
  *  - implement has_next()
  *  - the all-in-one-block array accessors
  *  - validation
+ *
+ * - remember to try a HAVE_INT64=0 build at the end
  */
 
 typedef struct DBusTypeMark        DBusTypeMark;
@@ -54,7 +56,12 @@ typedef struct DBusTypeWriter      DBusTypeWriter;
 typedef struct DBusTypeReaderClass DBusTypeReaderClass;
 
 /* The mark is a way to compress a TypeReader; it isn't all that
- * successful though.
+ * successful though. The idea was to use this for caching header
+ * fields in dbus-message.c. However now I'm thinking why not cache
+ * the actual values (e.g. char*) and if the field needs to be set or
+ * deleted, just linear search for it. Those operations are uncommon,
+ * and getting the values should be fast and not involve all this type
+ * reader nonsense.
  */
 struct DBusTypeMark
 {
@@ -145,6 +152,8 @@ void        _dbus_type_reader_get_signature             (const DBusTypeReader  *
                                                          const DBusString     **str_p,
                                                          int                   *start_p,
                                                          int                   *len_p);
+dbus_bool_t _dbus_type_reader_set_basic                 (DBusTypeReader        *reader,
+                                                         const void            *value);
 
 void        _dbus_type_writer_init         (DBusTypeWriter   *writer,
                                             int               byte_order,
@@ -168,7 +177,5 @@ dbus_bool_t _dbus_type_writer_unrecurse    (DBusTypeWriter   *writer,
                                             DBusTypeWriter   *sub);
 dbus_bool_t _dbus_type_writer_write_reader (DBusTypeWriter   *writer,
                                             DBusTypeReader   *reader);
-
-
 
 #endif /* DBUS_MARSHAL_RECURSIVE_H */
