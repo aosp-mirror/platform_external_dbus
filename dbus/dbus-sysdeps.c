@@ -26,7 +26,7 @@
 #include "dbus-sysdeps.h"
 #include "dbus-threads.h"
 #include "dbus-protocol.h"
-#include "dbus-test.h"
+#include "dbus-string.h"
 #include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
@@ -71,6 +71,7 @@
  * @addtogroup DBusInternalsUtils
  * @{
  */
+#ifndef DBUS_DISABLE_ASSERT
 /**
  * Aborts the program with SIGABRT (dumping core).
  */
@@ -86,6 +87,7 @@ _dbus_abort (void)
   abort ();
   _exit (1); /* in case someone manages to ignore SIGABRT */
 }
+#endif
 
 /**
  * Wrapper for setenv(). If the value is #NULL, unsets
@@ -1051,6 +1053,7 @@ _dbus_string_append_uint (DBusString    *str,
   return TRUE;
 }
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Appends a double to a DBusString.
  * 
@@ -1087,6 +1090,7 @@ _dbus_string_append_double (DBusString *str,
   
   return TRUE;
 }
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Parses an integer contained in a DBusString. Either return parameter
@@ -1169,6 +1173,7 @@ _dbus_string_parse_uint (const DBusString *str,
 }
 #endif /* DBUS_BUILD_TESTS */
 
+#ifdef DBUS_BUILD_TESTS
 static dbus_bool_t
 ascii_isspace (char c)
 {
@@ -1179,13 +1184,17 @@ ascii_isspace (char c)
 	  c == '\t' ||
 	  c == '\v');
 }
+#endif /* DBUS_BUILD_TESTS */
 
+#ifdef DBUS_BUILD_TESTS
 static dbus_bool_t
 ascii_isdigit (char c)
 {
   return c >= '0' && c <= '9';
 }
+#endif /* DBUS_BUILD_TESTS */
 
+#ifdef DBUS_BUILD_TESTS
 static dbus_bool_t
 ascii_isxdigit (char c)
 {
@@ -1193,8 +1202,9 @@ ascii_isxdigit (char c)
 	  (c >= 'a' && c <= 'f') ||
 	  (c >= 'A' && c <= 'F'));
 }
+#endif /* DBUS_BUILD_TESTS */
 
-
+#ifdef DBUS_BUILD_TESTS
 /* Calls strtod in a locale-independent fashion, by looking at
  * the locale data and patching the decimal comma to a point.
  *
@@ -1323,8 +1333,9 @@ ascii_strtod (const char *nptr,
   
   return val;
 }
+#endif /* DBUS_BUILD_TESTS */
 
-
+#ifdef DBUS_BUILD_TESTS
 /**
  * Parses a floating point number contained in a DBusString. Either
  * return parameter may be #NULL if you aren't interested in it. The
@@ -1363,6 +1374,7 @@ _dbus_string_parse_double (const DBusString *str,
 
   return TRUE;
 }
+#endif /* DBUS_BUILD_TESTS */
 
 /** @} */ /* DBusString group */
 
@@ -2416,34 +2428,6 @@ _dbus_create_directory (const DBusString *filename,
 }
 
 /**
- * Removes a directory; Directory must be empty
- * 
- * @param filename directory filename
- * @param error initialized error object
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_delete_directory (const DBusString *filename,
-			DBusError        *error)
-{
-  const char *filename_c;
-  
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  filename_c = _dbus_string_get_const_data (filename);
-
-  if (rmdir (filename_c) != 0)
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-		      "Failed to remove directory %s: %s\n",
-		      filename_c, _dbus_strerror (errno));
-      return FALSE;
-    }
-  
-  return TRUE;
-}
-
-/**
  * Appends the given filename to the given directory.
  *
  * @todo it might be cute to collapse multiple '/' such as "foo//"
@@ -2481,69 +2465,6 @@ _dbus_concat_dir_and_file (DBusString       *dir,
 
   return _dbus_string_copy (next_component, 0, dir,
                             _dbus_string_get_length (dir));
-}
-
-/**
- * Get the directory name from a complete filename
- * @param filename the filename
- * @param dirname string to append directory name to
- * @returns #FALSE if no memory
- */
-dbus_bool_t
-_dbus_string_get_dirname  (const DBusString *filename,
-                           DBusString       *dirname)
-{
-  int sep;
-  
-  _dbus_assert (filename != dirname);
-  _dbus_assert (filename != NULL);
-  _dbus_assert (dirname != NULL);
-
-  /* Ignore any separators on the end */
-  sep = _dbus_string_get_length (filename);
-  if (sep == 0)
-    return _dbus_string_append (dirname, "."); /* empty string passed in */
-    
-  while (sep > 0 && _dbus_string_get_byte (filename, sep - 1) == '/')
-    --sep;
-
-  _dbus_assert (sep >= 0);
-  
-  if (sep == 0)
-    return _dbus_string_append (dirname, "/");
-  
-  /* Now find the previous separator */
-  _dbus_string_find_byte_backward (filename, sep, '/', &sep);
-  if (sep < 0)
-    return _dbus_string_append (dirname, ".");
-  
-  /* skip multiple separators */
-  while (sep > 0 && _dbus_string_get_byte (filename, sep - 1) == '/')
-    --sep;
-
-  _dbus_assert (sep >= 0);
-  
-  if (sep == 0 &&
-      _dbus_string_get_byte (filename, 0) == '/')
-    return _dbus_string_append (dirname, "/");
-  else
-    return _dbus_string_copy_len (filename, 0, sep - 0,
-                                  dirname, _dbus_string_get_length (dirname));
-}
-
-/**
- * Checks whether the filename is an absolute path
- *
- * @param filename the filename
- * @returns #TRUE if an absolute path
- */
-dbus_bool_t
-_dbus_path_is_absolute (const DBusString *filename)
-{
-  if (_dbus_string_get_length (filename) > 0)
-    return _dbus_string_get_byte (filename, 0) == '/';
-  else
-    return FALSE;
 }
 
 /**
@@ -2938,45 +2859,6 @@ _dbus_exit (int code)
 }
 
 /**
- * stat() wrapper.
- *
- * @param filename the filename to stat
- * @param statbuf the stat info to fill in
- * @param error return location for error
- * @returns #FALSE if error was set
- */
-dbus_bool_t
-_dbus_stat (const DBusString *filename,
-            DBusStat         *statbuf,
-            DBusError        *error)
-{
-  const char *filename_c;
-  struct stat sb;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  filename_c = _dbus_string_get_const_data (filename);
-
-  if (stat (filename_c, &sb) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "%s", _dbus_strerror (errno));
-      return FALSE;
-    }
-
-  statbuf->mode = sb.st_mode;
-  statbuf->nlink = sb.st_nlink;
-  statbuf->uid = sb.st_uid;
-  statbuf->gid = sb.st_gid;
-  statbuf->size = sb.st_size;
-  statbuf->atime = sb.st_atime;
-  statbuf->mtime = sb.st_mtime;
-  statbuf->ctime = sb.st_ctime;
-
-  return TRUE;
-}
-
-/**
  * Creates a full-duplex pipe (as in socketpair()).
  * Sets both ends of the pipe nonblocking.
  *
@@ -3099,6 +2981,7 @@ _dbus_set_fd_nonblocking (int             fd,
   return TRUE;
 }
 
+#if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
 /**
  * On GNU libc systems, print a crude backtrace to the verbose log.
  * On other systems, print "no backtrace support"
@@ -3129,425 +3012,6 @@ _dbus_print_backtrace (void)
   _dbus_verbose ("  D-BUS not compiled with backtrace support\n");
 #endif
 }
-
-/**
- * Does the chdir, fork, setsid, etc. to become a daemon process.
- *
- * @param pidfile #NULL, or pidfile to create
- * @param print_pid_fd file descriptor to print pid to, or -1 for none
- * @param error return location for errors
- * @returns #FALSE on failure
- */
-dbus_bool_t
-_dbus_become_daemon (const DBusString *pidfile,
-		     int               print_pid_fd,
-                     DBusError        *error)
-{
-  const char *s;
-  pid_t child_pid;
-  int dev_null_fd;
-
-  _dbus_verbose ("Becoming a daemon...\n");
-
-  _dbus_verbose ("chdir to /\n");
-  if (chdir ("/") < 0)
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Could not chdir() to root directory");
-      return FALSE;
-    }
-
-  _dbus_verbose ("forking...\n");
-  switch ((child_pid = fork ()))
-    {
-    case -1:
-      _dbus_verbose ("fork failed\n");
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to fork daemon: %s", _dbus_strerror (errno));
-      return FALSE;
-      break;
-
-    case 0:
-      _dbus_verbose ("in child, closing std file descriptors\n");
-
-      /* silently ignore failures here, if someone
-       * doesn't have /dev/null we may as well try
-       * to continue anyhow
-       */
-      
-      dev_null_fd = open ("/dev/null", O_RDWR);
-      if (dev_null_fd >= 0)
-        {
-          dup2 (dev_null_fd, 0);
-          dup2 (dev_null_fd, 1);
-          
-          s = _dbus_getenv ("DBUS_DEBUG_OUTPUT");
-          if (s == NULL || *s == '\0')
-            dup2 (dev_null_fd, 2);
-          else
-            _dbus_verbose ("keeping stderr open due to DBUS_DEBUG_OUTPUT\n");
-        }
-
-      /* Get a predictable umask */
-      _dbus_verbose ("setting umask\n");
-      umask (022);
-      break;
-
-    default:
-      if (pidfile)
-        {
-          _dbus_verbose ("parent writing pid file\n");
-          if (!_dbus_write_pid_file (pidfile,
-                                     child_pid,
-                                     error))
-            {
-              _dbus_verbose ("pid file write failed, killing child\n");
-              kill (child_pid, SIGTERM);
-              return FALSE;
-            }
-        }
-
-      /* Write PID if requested */
-      if (print_pid_fd >= 0)
-	{
-	  DBusString pid;
-	  int bytes;
-	  
-	  if (!_dbus_string_init (&pid))
-	    {
-	      _DBUS_SET_OOM (error);
-              kill (child_pid, SIGTERM);
-	      return FALSE;
-	    }
-	  
-	  if (!_dbus_string_append_int (&pid, _dbus_getpid ()) ||
-	      !_dbus_string_append (&pid, "\n"))
-	    {
-	      _dbus_string_free (&pid);
-	      _DBUS_SET_OOM (error);
-              kill (child_pid, SIGTERM);
-	      return FALSE;
-	    }
-	  
-	  bytes = _dbus_string_get_length (&pid);
-	  if (_dbus_write (print_pid_fd, &pid, 0, bytes) != bytes)
-	    {
-	      dbus_set_error (error, DBUS_ERROR_FAILED,
-			      "Printing message bus PID: %s\n",
-			      _dbus_strerror (errno));
-	      _dbus_string_free (&pid);
-              kill (child_pid, SIGTERM);
-	      return FALSE;
-	    }
-	  
-	  _dbus_string_free (&pid);
-	}
-      _dbus_verbose ("parent exiting\n");
-      _exit (0);
-      break;
-    }
-
-  _dbus_verbose ("calling setsid()\n");
-  if (setsid () == -1)
-    _dbus_assert_not_reached ("setsid() failed");
-  
-  return TRUE;
-}
-
-/**
- * Creates a file containing the process ID.
- *
- * @param filename the filename to write to
- * @param pid our process ID
- * @param error return location for errors
- * @returns #FALSE on failure
- */
-dbus_bool_t
-_dbus_write_pid_file (const DBusString *filename,
-                      unsigned long     pid,
-		      DBusError        *error)
-{
-  const char *cfilename;
-  int fd;
-  FILE *f;
-
-  cfilename = _dbus_string_get_const_data (filename);
-  
-  fd = open (cfilename, O_WRONLY|O_CREAT|O_EXCL|O_BINARY, 0644);
-  
-  if (fd < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to open \"%s\": %s", cfilename,
-                      _dbus_strerror (errno));
-      return FALSE;
-    }
-
-  if ((f = fdopen (fd, "w")) == NULL)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to fdopen fd %d: %s", fd, _dbus_strerror (errno));
-      close (fd);
-      return FALSE;
-    }
-  
-  if (fprintf (f, "%lu\n", pid) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to write to \"%s\": %s", cfilename,
-                      _dbus_strerror (errno));
-      return FALSE;
-    }
-
-  if (fclose (f) == EOF)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to close \"%s\": %s", cfilename,
-                      _dbus_strerror (errno));
-      return FALSE;
-    }
-  
-  return TRUE;
-}
-
-/**
- * Changes the user and group the bus is running as.
- *
- * @param uid the new user ID
- * @param gid the new group ID
- * @param error return location for errors
- * @returns #FALSE on failure
- */
-dbus_bool_t
-_dbus_change_identity  (dbus_uid_t     uid,
-                        dbus_gid_t     gid,
-                        DBusError     *error)
-{
-  /* setgroups() only works if we are a privileged process,
-   * so we don't return error on failure; the only possible
-   * failure is that we don't have perms to do it.
-   * FIXME not sure this is right, maybe if setuid()
-   * is going to work then setgroups() should also work.
-   */
-  if (setgroups (0, NULL) < 0)
-    _dbus_warn ("Failed to drop supplementary groups: %s\n",
-                _dbus_strerror (errno));
-  
-  /* Set GID first, or the setuid may remove our permission
-   * to change the GID
-   */
-  if (setgid (gid) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to set GID to %lu: %s", gid,
-                      _dbus_strerror (errno));
-      return FALSE;
-    }
-  
-  if (setuid (uid) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to set UID to %lu: %s", uid,
-                      _dbus_strerror (errno));
-      return FALSE;
-    }
-  
-  return TRUE;
-}
-
-/** Installs a UNIX signal handler
- *
- * @param sig the signal to handle
- * @param handler the handler
- */
-void
-_dbus_set_signal_handler (int               sig,
-                          DBusSignalHandler handler)
-{
-  struct sigaction act;
-  sigset_t empty_mask;
-  
-  sigemptyset (&empty_mask);
-  act.sa_handler = handler;
-  act.sa_mask    = empty_mask;
-  act.sa_flags   = 0;
-  sigaction (sig,  &act, 0);
-}
-
-/** Checks if a file exists
-*
-* @param file full path to the file
-* @returns #TRUE if file exists
-*/
-dbus_bool_t 
-_dbus_file_exists (const char *file)
-{
-  return (access (file, F_OK) == 0);
-}
-
-/** Checks if user is at the console
-*
-* @param username user to check
-* @param error return location for errors
-* @returns #TRUE is the user is at the consolei and there are no errors
-*/
-dbus_bool_t 
-_dbus_user_at_console (const char *username,
-                       DBusError  *error)
-{
-
-  DBusString f;
-  dbus_bool_t result;
-
-  result = FALSE;
-  if (!_dbus_string_init (&f))
-    {
-      _DBUS_SET_OOM (error);
-      return FALSE;
-    }
-
-  if (!_dbus_string_append (&f, DBUS_CONSOLE_DIR))
-    {
-      _DBUS_SET_OOM (error);
-      goto out;
-    }
-
-
-  if (!_dbus_string_append (&f, username))
-    {
-      _DBUS_SET_OOM (error);
-      goto out;
-    }
-
-  result = _dbus_file_exists (_dbus_string_get_const_data (&f));
-
- out:
-  _dbus_string_free (&f);
-
-  return result;
-}
-
-#ifdef DBUS_BUILD_TESTS
-#include <stdlib.h>
-static void
-check_dirname (const char *filename,
-               const char *dirname)
-{
-  DBusString f, d;
-  
-  _dbus_string_init_const (&f, filename);
-
-  if (!_dbus_string_init (&d))
-    _dbus_assert_not_reached ("no memory");
-
-  if (!_dbus_string_get_dirname (&f, &d))
-    _dbus_assert_not_reached ("no memory");
-
-  if (!_dbus_string_equal_c_str (&d, dirname))
-    {
-      _dbus_warn ("For filename \"%s\" got dirname \"%s\" and expected \"%s\"\n",
-                  filename,
-                  _dbus_string_get_const_data (&d),
-                  dirname);
-      exit (1);
-    }
-
-  _dbus_string_free (&d);
-}
-
-static void
-check_path_absolute (const char *path,
-                     dbus_bool_t expected)
-{
-  DBusString p;
-
-  _dbus_string_init_const (&p, path);
-
-  if (_dbus_path_is_absolute (&p) != expected)
-    {
-      _dbus_warn ("For path \"%s\" expected absolute = %d got %d\n",
-                  path, expected, _dbus_path_is_absolute (&p));
-      exit (1);
-    }
-}
-
-/**
- * Unit test for dbus-sysdeps.c.
- * 
- * @returns #TRUE on success.
- */
-dbus_bool_t
-_dbus_sysdeps_test (void)
-{
-  DBusString str;
-  double val;
-  int pos;
-  
-  check_dirname ("foo", ".");
-  check_dirname ("foo/bar", "foo");
-  check_dirname ("foo//bar", "foo");
-  check_dirname ("foo///bar", "foo");
-  check_dirname ("foo/bar/", "foo");
-  check_dirname ("foo//bar/", "foo");
-  check_dirname ("foo///bar/", "foo");
-  check_dirname ("foo/bar//", "foo");
-  check_dirname ("foo//bar////", "foo");
-  check_dirname ("foo///bar///////", "foo");
-  check_dirname ("/foo", "/");
-  check_dirname ("////foo", "/");
-  check_dirname ("/foo/bar", "/foo");
-  check_dirname ("/foo//bar", "/foo");
-  check_dirname ("/foo///bar", "/foo");
-  check_dirname ("/", "/");
-  check_dirname ("///", "/");
-  check_dirname ("", ".");  
-
-
-  _dbus_string_init_const (&str, "3.5");
-  if (!_dbus_string_parse_double (&str,
-				  0, &val, &pos))
-    {
-      _dbus_warn ("Failed to parse double");
-      exit (1);
-    }
-  if (ABS(3.5 - val) > 1e-6)
-    {
-      _dbus_warn ("Failed to parse 3.5 correctly, got: %f", val);
-      exit (1);
-    }
-  if (pos != 3)
-    {
-      _dbus_warn ("_dbus_string_parse_double of \"3.5\" returned wrong position %d", pos);
-      exit (1);
-    }
-
-  _dbus_string_init_const (&str, "0xff");
-  if (!_dbus_string_parse_double (&str,
-				  0, &val, &pos))
-    {
-      _dbus_warn ("Failed to parse double");
-      exit (1);
-    }
-  if (ABS (0xff - val) > 1e-6)
-    {
-      _dbus_warn ("Failed to parse 0xff correctly, got: %f\n", val);
-      exit (1);
-    }
-  if (pos != 4)
-    {
-      _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
-      exit (1);
-    }
-  
-  check_path_absolute ("/", TRUE);
-  check_path_absolute ("/foo", TRUE);
-  check_path_absolute ("", FALSE);
-  check_path_absolute ("foo", FALSE);
-  check_path_absolute ("foo/bar", FALSE);
-  
-  return TRUE;
-}
-#endif /* DBUS_BUILD_TESTS */
+#endif /* asserts or tests enabled */
 
 /** @} end of sysdeps */
-

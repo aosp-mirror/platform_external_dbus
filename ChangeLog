@@ -1,5 +1,15 @@
 2005-01-16  Havoc Pennington  <hp@redhat.com>
 
+	* test/unused-code-gc.py: hacky script to find code that's used
+	only by the bus (not libdbus) or used only by tests or not used at
+	all. It has some false alarms, but looks like we can clean up a
+	lot of size from libdbus.
+
+	* dbus/dbus-sysdeps.c, dbus/dbus-sysdeps-utils.c,
+	dbus/Makefile.am: initially move 10K of binary size out of libdbus
+	
+2005-01-16  Havoc Pennington  <hp@redhat.com>
+
         * Add and fix docs according to Doxygen warnings throughout
 	source.
 	

@@ -54,7 +54,10 @@ dbus_bool_t       _dbus_user_database_get_groupname (DBusUserDatabase     *db,
                                                      const DBusString     *groupname,
                                                      const DBusGroupInfo **info,
                                                      DBusError            *error);
-
+DBusUserInfo*     _dbus_user_database_lookup        (DBusUserDatabase     *db,
+                                                     dbus_uid_t            uid,
+                                                     const DBusString     *username,
+                                                     DBusError            *error);
 
 DBusUserDatabase* _dbus_user_database_get_system    (void);
 void              _dbus_user_database_lock_system   (void);

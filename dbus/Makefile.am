@@ -75,8 +75,6 @@ DBUS_LIB_SOURCES=				\
 	dbus-server-unix.h			\
 	dbus-sha.c				\
 	dbus-sha.h				\
-	dbus-test.c				\
-	dbus-test.h				\
 	dbus-timeout.c				\
 	dbus-timeout.h				\
 	dbus-threads.c				\
@@ -109,8 +107,6 @@ DBUS_SHARED_SOURCES=				\
 	dbus-memory.c				\
 	dbus-mempool.c				\
 	dbus-mempool.h				\
-	dbus-spawn.c				\
-	dbus-spawn.h				\
 	dbus-string.c				\
 	dbus-string.h				\
 	dbus-string-private.h			\
@@ -126,7 +122,13 @@ DBUS_SHARED_SOURCES=				\
 ### to be unless they move to DBUS_SHARED_SOURCES later)
 DBUS_UTIL_SOURCES=				\
 	dbus-mainloop.c				\
-	dbus-mainloop.h
+	dbus-mainloop.h				\
+	dbus-spawn.c				\
+	dbus-spawn.h				\
+	dbus-sysdeps-util.c			\
+	dbus-sysdeps-util.h			\
+	dbus-test.c				\
+	dbus-test.h
 
 libdbus_1_la_SOURCES=				\
 	$(DBUS_LIB_SOURCES)			\
@@ -167,7 +169,7 @@ noinst_PROGRAMS=$(TESTS)
 dbus_test_SOURCES=				\
 	dbus-test-main.c
 
-dbus_test_LDADD= $(DBUS_CLIENT_LIBS) libdbus-1.la
+dbus_test_LDADD=libdbus-convenience.la
 
 ## mop up the gcov files
 clean-local:

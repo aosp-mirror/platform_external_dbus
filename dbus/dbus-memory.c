@@ -231,6 +231,7 @@ _dbus_get_fail_alloc_failures (void)
   return n_failures_per_failure;
 }
 
+#ifdef DBUS_BUILD_TESTS
 /**
  * Called when about to alloc some memory; if
  * it returns #TRUE, then the allocation should
@@ -272,6 +273,7 @@ _dbus_decrement_fail_alloc_counter (void)
       return FALSE;
     }
 }
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Get the number of outstanding malloc()'d blocks.

@@ -65,7 +65,7 @@ free_group_info (void *data)
   dbus_free (info);
 }
 
-static DBusUserInfo*
+DBusUserInfo*
 _dbus_user_database_lookup (DBusUserDatabase *db,
                             dbus_uid_t        uid,
                             const DBusString *username,
@@ -397,47 +397,6 @@ _dbus_get_user_id (const DBusString  *username,
   *uid = creds.uid;
 
   return TRUE;
-}
-
-/**
- * Checks to see if the UID sent in is the console user
- *
- * @param uid UID of person to check 
- * @param error return location for errors
- * @returns #TRUE if the UID is the same as the console user and there are no errors
- */
-dbus_bool_t
-_dbus_is_console_user (dbus_uid_t uid,
-		       DBusError *error)
-{
-
-  DBusUserDatabase *db;
-  const DBusUserInfo *info;
-  dbus_bool_t result = FALSE; 
-
-  _dbus_user_database_lock_system ();
-
-  db = _dbus_user_database_get_system ();
-  if (db == NULL)
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED, "Could not get system database.");
-      _dbus_user_database_unlock_system ();
-      return FALSE;
-    }
-
-  info = _dbus_user_database_lookup (db, uid, NULL, error);
-
-  if (info == NULL)
-    {
-      _dbus_user_database_unlock_system ();
-       return FALSE;
-    }
-
-  result = _dbus_user_at_console (info->username, error);
-
-  _dbus_user_database_unlock_system ();
-
-  return result;
 }
 
 /**
