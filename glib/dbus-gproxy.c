@@ -146,32 +146,55 @@ dbus_gproxy_manager_unref (DBusGProxyManager *manager)
  */
 struct DBusGProxy
 {
-  GStaticMutex lock; /**< Thread lock */
-  int refcount;      /**< Reference count */
+  GObject parent;
+  
   DBusGProxyManager *manager; /**< Proxy manager */
-  char *service;             /**< Service messages go to or NULL */
-  char *path;                /**< Path messages go to or NULL */
-  char *interface;           /**< Interface messages go to or NULL */
+  char *service;              /**< Service messages go to or NULL */
+  char *path;                 /**< Path messages go to or NULL */
+  char *interface;            /**< Interface messages go to or NULL */
 };
 
-/** Lock the DBusGProxy */
-#define LOCK_PROXY(proxy)   (g_static_mutex_lock (&(proxy)->lock))
-/** Unlock the DBusGProxy */
-#define UNLOCK_PROXY(proxy) (g_static_mutex_unlock (&(proxy)->lock))
+struct DBusGProxyClass
+{
+  GObjectClass parent_class;  
+};
 
-static DBusGProxy*
-_dbus_gproxy_new (DBusConnection *connection)
+static void dbus_gproxy_init        (DBusGProxy      *proxy);
+static void dbus_gproxy_class_init  (DBusGProxyClass *klass);
+static void dbus_gproxy_finalize    (GObject         *object);
+
+static void *parent_class;
+
+static void
+dbus_gproxy_init (DBusGProxy *proxy)
+{
+  /* Nothing */
+}
+
+static void
+dbus_gproxy_class_init (DBusGProxyClass *klass)
+{
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
+  
+  parent_class = g_type_class_peek_parent (klass);
+  
+  object_class->finalize = dbus_gproxy_finalize;
+}
+
+static void
+dbus_gproxy_finalize (GObject *object)
 {
   DBusGProxy *proxy;
 
-  proxy = g_new0 (DBusGProxy, 1);
-  
-  proxy->refcount = 1;
-  proxy->manager = dbus_gproxy_manager_get (connection);
+  proxy = DBUS_GPROXY (object);
 
-  g_static_mutex_init (&proxy->lock);
+  if (proxy->manager)
+    dbus_gproxy_manager_unref (proxy->manager);
+  g_free (proxy->service);
+  g_free (proxy->path);
+  g_free (proxy->interface);
   
-  return proxy;
+  G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
 /** @} End of DBusGLibInternals */
@@ -179,6 +202,39 @@ _dbus_gproxy_new (DBusConnection *connection)
 /** @addtogroup DBusGLib
  * @{
  */
+
+/**
+ * Standard GObject get_type() function for DBusGProxy.
+ *
+ * @returns type ID for DBusGProxy class
+ */
+GType
+dbus_gproxy_get_type (void)
+{
+  static GType object_type = 0;
+
+  if (!object_type)
+    {
+      static const GTypeInfo object_info =
+        {
+          sizeof (DBusGProxyClass),
+          (GBaseInitFunc) NULL,
+          (GBaseFinalizeFunc) NULL,
+          (GClassInitFunc) dbus_gproxy_class_init,
+          NULL,           /* class_finalize */
+          NULL,           /* class_data */
+          sizeof (DBusGProxy),
+          0,              /* n_preallocs */
+          (GInstanceInitFunc) dbus_gproxy_init,
+        };
+      
+      object_type = g_type_register_static (G_TYPE_OBJECT,
+                                            "DBusGProxy",
+                                            &object_info, 0);
+    }
+  
+  return object_type;
+}
 
 /**
  * Creates a new proxy for a remote interface. Method calls and signal
@@ -211,65 +267,19 @@ dbus_gproxy_new_for_service (DBusConnection *connection,
   g_return_val_if_fail (path_name != NULL, NULL);
   g_return_val_if_fail (interface_name != NULL, NULL);
   
-  proxy = _dbus_gproxy_new (connection);
+  proxy = g_object_new (DBUS_TYPE_GPROXY, NULL);
 
+  /* These should all be construct-only mandatory properties,
+   * for now we just don't let people use g_object_new().
+   */
+  
+  proxy->manager = dbus_gproxy_manager_get (connection);
+  
   proxy->service = g_strdup (service_name);
   proxy->path = g_strdup (path_name);
   proxy->interface = g_strdup (interface_name);
 
   return proxy;
-}
-
-/**
- * Increment reference count on proxy object.
- *
- * @todo use GAtomic to avoid locking
- * 
- * @param proxy the proxy
- */
-void
-dbus_gproxy_ref (DBusGProxy *proxy)
-{
-  g_return_if_fail (proxy != NULL);
-
-  LOCK_PROXY (proxy);
-  
-  proxy->refcount += 1;
-
-  UNLOCK_PROXY (proxy);
-}
-
-/**
- * Decrement reference count on proxy object.
- * 
- * @todo use GAtomic to avoid locking
- *
- * @param proxy the proxy
- */
-void
-dbus_gproxy_unref (DBusGProxy *proxy)
-{
-  g_return_if_fail (proxy != NULL);
-
-  LOCK_PROXY (proxy);
-  
-  proxy->refcount -= 1;  
-  
-  if (proxy->refcount == 0)
-    {
-      UNLOCK_PROXY (proxy);
-      
-      dbus_gproxy_manager_unref (proxy->manager);
-      g_free (proxy->service);
-      g_free (proxy->path);
-      g_free (proxy->interface);
-      g_static_mutex_free (&proxy->lock);
-      g_free (proxy);
-    }
-  else
-    {
-      UNLOCK_PROXY (proxy);
-    }
 }
 
 /**
@@ -302,7 +312,6 @@ dbus_gproxy_begin_call (DBusGProxy *proxy,
   va_list args;
   
   g_return_val_if_fail (proxy != NULL, NULL);
-  LOCK_PROXY (proxy);
 
   message = dbus_message_new_method_call (proxy->service,
                                           proxy->path,
@@ -322,8 +331,6 @@ dbus_gproxy_begin_call (DBusGProxy *proxy,
                                         &pending,
                                         -1))
     goto oom;
-  
-  UNLOCK_PROXY (proxy);
 
   return pending;
 
@@ -375,8 +382,6 @@ dbus_gproxy_end_call (DBusGProxy          *proxy,
   
   g_return_val_if_fail (proxy != NULL, FALSE);
   g_return_val_if_fail (pending != NULL, FALSE);
-  
-  LOCK_PROXY (proxy);
 
   dbus_pending_call_block (pending);
   message = dbus_pending_call_get_reply (pending);
@@ -391,8 +396,6 @@ dbus_gproxy_end_call (DBusGProxy          *proxy,
       goto error;
     }
   va_end (args);
-
-  UNLOCK_PROXY (proxy);
 
   return TRUE;
 
@@ -426,7 +429,6 @@ dbus_gproxy_send (DBusGProxy          *proxy,
                   dbus_uint32_t       *client_serial)
 {
   g_return_if_fail (proxy != NULL);
-  LOCK_PROXY (proxy);
   
   if (proxy->service)
     {
@@ -446,8 +448,6 @@ dbus_gproxy_send (DBusGProxy          *proxy,
   
   if (!dbus_connection_send (proxy->manager->connection, message, client_serial))
     g_error ("Out of memory\n");
-
-  UNLOCK_PROXY (proxy);
 }
 
 /** @} End of DBusGLib public */

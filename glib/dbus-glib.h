@@ -87,6 +87,17 @@ void dbus_connection_register_g_object (DBusConnection        *connection,
 
 
 typedef struct DBusGProxy       DBusGProxy;
+typedef struct DBusGProxyClass  DBusGProxyClass;
+
+
+#define DBUS_TYPE_GPROXY              (dbus_gproxy_get_type ())
+#define DBUS_GPROXY(object)           (G_TYPE_CHECK_INSTANCE_CAST ((object), DBUS_TYPE_GPROXY, DBusGProxy))
+#define DBUS_GPROXY_CLASS(klass)      (G_TYPE_CHECK_CLASS_CAST ((klass), DBUS_TYPE_GPROXY, DBusGProxyClass))
+#define DBUS_IS_GPROXY(object)        (G_TYPE_CHECK_INSTANCE_TYPE ((object), DBUS_TYPE_GPROXY))
+#define DBUS_IS_GPROXY_CLASS(klass)   (G_TYPE_CHECK_CLASS_TYPE ((klass), DBUS_TYPE_GPROXY))
+#define DBUS_GPROXY_GET_CLASS(obj)    (G_TYPE_INSTANCE_GET_CLASS ((obj), DBUS_TYPE_GPROXY, DBusGProxyClass))
+
+GType            dbus_gproxy_get_type              (void) G_GNUC_CONST;
 
 DBusGProxy*      dbus_gproxy_new_for_service       (DBusConnection   *connection,
                                                     const char       *service_name,
@@ -104,11 +115,16 @@ DBusGProxy*      dbus_gproxy_new_for_peer          (DBusConnection   *connection
 void             dbus_gproxy_ref                   (DBusGProxy          *proxy);
 void             dbus_gproxy_unref                 (DBusGProxy          *proxy);
 gboolean         dbus_gproxy_connect_signal        (DBusGProxy          *proxy,
+                                                    const char          *interface_name,
                                                     const char          *signal_name,
                                                     GCallback            callback,
                                                     void                *data,
-                                                    GFreeFunc            free_data_func,
-                                                    GError             **error);
+                                                    GFreeFunc            free_data_func);
+gboolean         dbus_gproxy_disconnect_signal     (DBusGProxy          *proxy,
+                                                    const char          *interface_name,
+                                                    const char          *signal_name,
+                                                    GCallback            callback,
+                                                    void                *data);
 DBusPendingCall* dbus_gproxy_begin_call            (DBusGProxy          *proxy,
                                                     const char          *method,
                                                     int                  first_arg_type,

@@ -1,3 +1,11 @@
+2003-09-23  Havoc Pennington  <hp@pobox.com>
+
+	* glib/dbus-gproxy.c (struct DBusGProxy): convert to a GObject
+	subclass. This means dropping the transparent thread safety of the
+	proxy; you now need a separate proxy per-thread, or your own
+	locking on the proxy. Probably right anyway.
+	(dbus_gproxy_ref, dbus_gproxy_unref): nuke, just use g_object_ref
+
 2003-09-22  Havoc Pennington  <hp@redhat.com>
 
 	* glib/dbus-gproxy.c (dbus_gproxy_manager_get): implement
