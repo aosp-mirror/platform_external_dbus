@@ -1,5 +1,20 @@
 2005-01-15  Havoc Pennington  <hp@redhat.com>
 
+	* test/glib/test-profile.c (with_bus_server_filter): fix crash
+
+	* dbus/dbus-marshal-basic.c (_dbus_unpack_uint32): inline as macro
+	when DBUS_DISABLE_ASSERT
+	(_dbus_marshal_set_basic): be sure we align for the string length
+
+	* dbus/dbus-marshal-recursive.c (skip_one_complete_type): make
+	this look faster
+
+	* dbus/dbus-string.c (_dbus_string_get_const_data_len): add an
+	inline macro version
+	(_dbus_string_set_byte): provide inline macro version
+
+2005-01-15  Havoc Pennington  <hp@redhat.com>
+
 	* Land the new message args API and type system.
 
 	This patch is huge, but the public API change is not 

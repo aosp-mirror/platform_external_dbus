@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-string.c String utility class (internal to D-BUS implementation)
  * 
- * Copyright (C) 2002, 2003, 2004 Red Hat, Inc.
+ * Copyright (C) 2002, 2003, 2004, 2005 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -517,6 +517,8 @@ _dbus_string_get_data_len (DBusString *str,
   return real->str + start;
 }
 
+/* only do the function if we don't have the macro */
+#ifndef _dbus_string_get_const_data_len
 /**
  * const version of _dbus_string_get_data_len().
  *
@@ -538,7 +540,10 @@ _dbus_string_get_const_data_len (const DBusString  *str,
   
   return real->str + start;
 }
+#endif /* _dbus_string_get_const_data_len */
 
+/* only do the function if we don't have the macro */
+#ifndef _dbus_string_set_byte
 /**
  * Sets the value of the byte at the given position.
  *
@@ -557,6 +562,7 @@ _dbus_string_set_byte (DBusString    *str,
   
   real->str[i] = byte;
 }
+#endif /* _dbus_string_set_byte */
 
 /* only have the function if we didn't create a macro */
 #ifndef _dbus_string_get_byte

@@ -55,8 +55,10 @@ struct DBusString
  * Note that these break type safety (due to the casts)
  */
 #define _dbus_string_get_length(s) (((DBusString*)(s))->dummy2)
+#define _dbus_string_set_byte(s, i, b) ((((unsigned char*)(((DBusString*)(s))->dummy1))[(i)]) = (unsigned char) (b))
 #define _dbus_string_get_byte(s, i) (((const unsigned char*)(((DBusString*)(s))->dummy1))[(i)])
 #define _dbus_string_get_const_data(s) ((const char*)(((DBusString*)(s))->dummy1))
+#define _dbus_string_get_const_data_len(s,start,len) (((const char*)(((DBusString*)(s))->dummy1)) + (start))
 #endif
 
 dbus_bool_t   _dbus_string_init                  (DBusString        *str);
@@ -76,12 +78,16 @@ const char*   _dbus_string_get_const_data        (const DBusString  *str);
 char*         _dbus_string_get_data_len          (DBusString        *str,
                                                   int                start,
                                                   int                len);
+#ifndef _dbus_string_get_const_data_len
 const char*   _dbus_string_get_const_data_len    (const DBusString  *str,
                                                   int                start,
                                                   int                len);
+#endif
+#ifndef _dbus_string_set_byte
 void          _dbus_string_set_byte              (DBusString        *str,
                                                   int                i,
                                                   unsigned char      byte);
+#endif
 #ifndef _dbus_string_get_byte
 unsigned char _dbus_string_get_byte              (const DBusString  *str,
                                                   int                start);

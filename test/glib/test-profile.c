@@ -48,7 +48,7 @@
  */
 #define N_CLIENT_THREADS 1
 /* It seems like at least 750000 or so iterations reduces the variability to sane levels */
-#define N_ITERATIONS 7500
+#define N_ITERATIONS 750000
 #define N_PROGRESS_UPDATES 20
 /* Don't make PAYLOAD_SIZE too huge because it gets used as a static buffer size */
 #define PAYLOAD_SIZE 0
@@ -425,7 +425,7 @@ with_bus_server_filter (DBusConnection     *connection,
                                    DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
                                    "ServiceOwnerChanged"))
     {
-      char *service_name, *old_owner, *new_owner;
+      const char *service_name, *old_owner, *new_owner;
       DBusError error;
 
       service_name = NULL;
@@ -455,10 +455,6 @@ with_bus_server_filter (DBusConnection     *connection,
           if (server->sd->n_clients == 0)
             g_main_loop_quit (server->sd->loop);
         }
-
-      dbus_free (service_name);
-      dbus_free (old_owner);
-      dbus_free (new_owner);
     }
   else if (dbus_message_is_method_call (message,
                                         ECHO_INTERFACE,

@@ -136,6 +136,13 @@ typedef union
   char *str;
 } DBusBasicValue;
 
+#ifdef DBUS_DISABLE_ASSERT
+#define _dbus_unpack_uint32(byte_order, data)           \
+   (((byte_order) == DBUS_LITTLE_ENDIAN) ?              \
+     DBUS_UINT32_FROM_LE (*(dbus_uint32_t*)(data)) :    \
+     DBUS_UINT32_FROM_BE (*(dbus_uint32_t*)(data)))
+#endif
+
 void          _dbus_pack_int32    (dbus_int32_t         value,
                                    int                  byte_order,
                                    unsigned char       *data);
@@ -144,9 +151,10 @@ dbus_int32_t  _dbus_unpack_int32  (int                  byte_order,
 void          _dbus_pack_uint32   (dbus_uint32_t        value,
                                    int                  byte_order,
                                    unsigned char       *data);
+#ifndef _dbus_unpack_uint32
 dbus_uint32_t _dbus_unpack_uint32 (int                  byte_order,
                                    const unsigned char *data);
-
+#endif
 
 dbus_bool_t   _dbus_marshal_set_basic         (DBusString       *str,
                                                int               pos,

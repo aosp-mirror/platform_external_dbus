@@ -119,7 +119,7 @@ static int
 first_type_in_signature (const DBusString *str,
                          int               pos)
 {
-  int t;
+  unsigned char t;
 
   t = _dbus_string_get_byte (str, pos);
 
@@ -213,13 +213,10 @@ array_reader_get_array_len (const DBusTypeReader *reader)
 
   len_pos = ARRAY_READER_LEN_POS (reader);
 
-  _dbus_marshal_read_basic (reader->value_str,
-                            len_pos,
-                            DBUS_TYPE_UINT32,
-                            &array_len,
-                            reader->byte_order,
-                            NULL);
-
+  _dbus_assert (_DBUS_ALIGN_VALUE (len_pos, 4) == (unsigned) len_pos);
+  array_len = _dbus_unpack_uint32 (reader->byte_order,
+                                   _dbus_string_get_const_data_len (reader->value_str, len_pos, 4));
+  
 #if RECURSIVE_MARSHAL_READ_TRACE
   _dbus_verbose ("   reader %p len_pos %d array len %u len_offset %d\n",
                  reader, len_pos, array_len, reader->array_len_offset);
@@ -311,37 +308,55 @@ array_reader_check_finished (const DBusTypeReader *reader)
   return reader->value_pos == end_pos;
 }
 
+/* this is written a little oddly to try and overoptimize */
 static void
 skip_one_complete_type (const DBusString *type_str,
                         int              *type_pos)
 {
-  while (_dbus_string_get_byte (type_str, *type_pos) == DBUS_TYPE_ARRAY)
-    *type_pos += 1;
+  const unsigned char *p;
+  const unsigned char *start;
+  
+  start = _dbus_string_get_const_data (type_str);
+  p = start + *type_pos;
 
-  if (_dbus_string_get_byte (type_str, *type_pos) == DBUS_STRUCT_BEGIN_CHAR)
+  while (*p == DBUS_TYPE_ARRAY)
+    ++p;
+  
+  if (*p == DBUS_STRUCT_BEGIN_CHAR)
     {
       int depth;
+      
       depth = 1;
-      *type_pos += 1;
-      while (depth > 0)
+      
+      while (TRUE)
         {
-          switch (_dbus_string_get_byte (type_str, *type_pos))
+          _dbus_assert (*p != DBUS_TYPE_INVALID);
+          
+          ++p;
+
+          _dbus_assert (*p != DBUS_TYPE_INVALID);
+          
+          if (*p == DBUS_STRUCT_BEGIN_CHAR)
+            depth += 1;
+          else if (*p == DBUS_STRUCT_END_CHAR)
             {
-            case DBUS_STRUCT_BEGIN_CHAR:
-              depth += 1;
-              break;
-            case DBUS_STRUCT_END_CHAR:
               depth -= 1;
-              break;
-            case DBUS_TYPE_INVALID:
-              _dbus_assert_not_reached ("unbalanced parens in signature");
-              break;
+              if (depth == 0)
+                {
+                  ++p;
+                  break;
+                }
             }
-          *type_pos += 1;
         }
     }
   else
-    *type_pos += 1;
+    {
+      ++p;
+    }
+
+  _dbus_assert (*p != DBUS_STRUCT_END_CHAR);
+
+  *type_pos = (int) (p - start);
 }
 
 static int
@@ -1831,10 +1846,13 @@ writer_recurse_array (DBusTypeWriter   *writer,
         {
           dbus_uint32_t len;
 
-          len = _dbus_marshal_read_uint32 (sub->value_str,
-                                           sub->u.array.len_pos,
-                                           sub->byte_order, NULL);
-
+          _dbus_assert (_DBUS_ALIGN_VALUE (sub->u.array.len_pos, 4) ==
+                        (unsigned) sub->u.array.len_pos);
+          len = _dbus_unpack_uint32 (sub->byte_order,
+                                     _dbus_string_get_const_data_len (sub->value_str,
+                                                                      sub->u.array.len_pos,
+                                                                      4));
+          
           sub->value_pos += len;
         }
     }
@@ -2432,9 +2450,12 @@ writer_write_reader_helper (DBusTypeWriter       *writer,
                 start_after_new_len +
                 bytes_written_after_start_after;
 
-              old_len = _dbus_marshal_read_uint32 (reader->value_str,
-                                                   fixup.len_pos_in_reader,
-                                                   reader->byte_order, NULL);
+              _dbus_assert (_DBUS_ALIGN_VALUE (fixup.len_pos_in_reader, 4) ==
+                            (unsigned) fixup.len_pos_in_reader);
+              
+              old_len = _dbus_unpack_uint32 (reader->byte_order,
+                                             _dbus_string_get_const_data_len (reader->value_str,
+                                                                              fixup.len_pos_in_reader, 4));
 
               if (old_len != fixup.new_len && !append_fixup (fixups, &fixup))
                 goto oom;

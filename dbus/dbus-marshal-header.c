@@ -328,14 +328,16 @@ set_basic_field (DBusTypeReader       *reader,
 {
   DBusTypeReader sub;
   DBusTypeReader variant;
-  unsigned char v_BYTE;
 
   _dbus_type_reader_recurse (reader, &sub);
 
   _dbus_assert (_dbus_type_reader_get_current_type (&sub) == DBUS_TYPE_BYTE);
 #ifndef DBUS_DISABLE_ASSERT
-  _dbus_type_reader_read_basic (&sub, &v_BYTE);
-  _dbus_assert (((int) v_BYTE) == field);
+ {
+   unsigned char v_BYTE;
+   _dbus_type_reader_read_basic (&sub, &v_BYTE);
+   _dbus_assert (((int) v_BYTE) == field);
+ }
 #endif
 
   if (!_dbus_type_reader_next (&sub))

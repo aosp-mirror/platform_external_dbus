@@ -103,18 +103,6 @@ _dbus_pack_int32 (dbus_int32_t   value,
   pack_4_octets ((dbus_uint32_t) value, byte_order, data);
 }
 
-static dbus_uint32_t
-unpack_4_octets (int                  byte_order,
-                 const unsigned char *data)
-{
-  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
-
-  if (byte_order == DBUS_LITTLE_ENDIAN)
-    return DBUS_UINT32_FROM_LE (*(dbus_uint32_t*)data);
-  else
-    return DBUS_UINT32_FROM_BE (*(dbus_uint32_t*)data);
-}
-
 #ifndef DBUS_HAVE_INT64
 /* from ORBit */
 static void
@@ -174,6 +162,7 @@ unpack_8_octets (int                  byte_order,
 }
 #endif
 
+#ifndef _dbus_unpack_uint32
 /**
  * Unpacks a 32 bit unsigned integer from a data pointer
  *
@@ -185,8 +174,14 @@ dbus_uint32_t
 _dbus_unpack_uint32 (int                  byte_order,
                      const unsigned char *data)
 {
-  return unpack_4_octets (byte_order, data);
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
+
+  if (byte_order == DBUS_LITTLE_ENDIAN)
+    return DBUS_UINT32_FROM_LE (*(dbus_uint32_t*)data);
+  else
+    return DBUS_UINT32_FROM_BE (*(dbus_uint32_t*)data);
 }
+#endif /* _dbus_unpack_uint32 */
 
 /**
  * Unpacks a 32 bit signed integer from a data pointer
@@ -199,7 +194,7 @@ dbus_int32_t
 _dbus_unpack_int32 (int                  byte_order,
                     const unsigned char *data)
 {
-  return (dbus_int32_t) unpack_4_octets (byte_order, data);
+  return (dbus_int32_t) _dbus_unpack_uint32 (byte_order, data);
 }
 
 static void
@@ -285,7 +280,9 @@ set_string (DBusString          *str,
 
   _dbus_string_init_const (&dstr, value);
 
-  old_len = _dbus_marshal_read_uint32 (str, pos, byte_order, NULL);
+  _dbus_assert (_DBUS_ALIGN_VALUE (pos, 4) == pos);
+  old_len = _dbus_unpack_uint32 (byte_order,
+                                 _dbus_string_get_const_data_len (str, pos, 4));
 
   new_len = _dbus_string_get_length (&dstr);
 
@@ -406,6 +403,7 @@ _dbus_marshal_set_basic (DBusString       *str,
       break;
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
+      pos = _DBUS_ALIGN_VALUE (pos, 4);
       _dbus_assert (vp->str != NULL);
       return set_string (str, pos, vp->str, byte_order,
                          old_end_pos, new_end_pos);
@@ -420,23 +418,6 @@ _dbus_marshal_set_basic (DBusString       *str,
       return FALSE;
       break;
     }
-}
-
-static dbus_uint32_t
-read_4_octets (const DBusString *str,
-               int               pos,
-               int               byte_order,
-               int              *new_pos)
-{
-  pos = _DBUS_ALIGN_VALUE (pos, 4);
-
-  if (new_pos)
-    *new_pos = pos + 4;
-
-  _dbus_assert (pos + 4 <= _dbus_string_get_length (str));
-  
-  return unpack_4_octets (byte_order,
-                          _dbus_string_get_const_data (str) + pos);
 }
 
 /**
@@ -454,7 +435,15 @@ _dbus_marshal_read_uint32  (const DBusString *str,
                             int               byte_order,
                             int              *new_pos)
 {
-  return read_4_octets (str, pos, byte_order, new_pos);
+  pos = _DBUS_ALIGN_VALUE (pos, 4);
+
+  if (new_pos)
+    *new_pos = pos + 4;
+
+  _dbus_assert (pos + 4 <= _dbus_string_get_length (str));
+  
+  return _dbus_unpack_uint32 (byte_order,
+                              _dbus_string_get_const_data (str) + pos);
 }
 
 /**
