@@ -1,5 +1,15 @@
 2003-02-16  Alexander Larsson  <alexl@redhat.com>
 
+	* dbus/dbus-connection.c:
+	Implement sent_message_with_reply. (with_reply_and block is still
+	busted).
+	Made dispatch_message not lose message if OOM.
+	
+	* dbus/dbus-errors.h:
+	Add NoReply error (for reply timeouts).
+
+2003-02-16  Alexander Larsson  <alexl@redhat.com>
+
 	* dbus/dbus-hash.c (_dbus_hash_table_unref):
 	Actually free keys and values when destroying hashtable.
 

@@ -54,6 +54,7 @@ struct DBusError
 #define DBUS_ERROR_SPAWN_FAILED               "org.freedesktop.DBus.Error.Spawn.Failed"
 #define DBUS_ERROR_NO_MEMORY                  "org.freedesktop.DBus.Error.NoMemory"
 #define DBUS_ERROR_SERVICE_DOES_NOT_EXIST     "org.freedesktop.DBus.Error.ServiceDoesNotExist"
+#define DBUS_ERROR_NO_REPLY                   "org.freedesktop.DBus.Error.NoReply"
 
 typedef enum
 {
