@@ -26,14 +26,19 @@
 #include "services.h"
 #include "utils.h"
 #include <dbus/dbus-list.h>
+#include <dbus/dbus-hash.h>
 
 static void bus_connection_remove_transactions (DBusConnection *connection);
 
 struct BusConnections
 {
   int refcount;
-  DBusList *list; /**< List of all the connections */
+  DBusList *completed;  /**< List of all completed connections */
+  int n_completed;      /**< Length of completed list */
+  DBusList *incomplete; /**< List of all not-yet-active connections */
+  int n_incomplete;     /**< Length of incomplete list */
   BusContext *context;
+  DBusHashTable *completed_by_user; /**< Number of completed connections for each UID */
 };
 
 static int connection_data_slot = -1;
@@ -42,6 +47,7 @@ static int connection_data_slot_refcount = 0;
 typedef struct
 {
   BusConnections *connections;
+  DBusList *link_in_connection_list;
   DBusConnection *connection;
   DBusList *services_owned;
   char *name;
@@ -94,6 +100,65 @@ connection_get_loop (DBusConnection *connection)
   d = BUS_CONNECTION_DATA (connection);
 
   return bus_context_get_loop (d->connections->context);
+}
+
+
+static int
+get_connections_for_uid (BusConnections *connections,
+                         dbus_uid_t      uid)
+{
+  void *val;
+  int current_count;
+
+  /* val is NULL is 0 when it isn't in the hash yet */
+  
+  val = _dbus_hash_table_lookup_ulong (connections->completed_by_user,
+                                       uid);
+
+  current_count = _DBUS_POINTER_TO_INT (val);
+
+  return current_count;
+}
+
+static dbus_bool_t
+adjust_connections_for_uid (BusConnections *connections,
+                            dbus_uid_t      uid,
+                            int             adjustment)
+{
+  int current_count;
+
+  current_count = get_connections_for_uid (connections, uid);
+
+  _dbus_verbose ("Adjusting connection count for UID " DBUS_UID_FORMAT
+                 ": was %d adjustment %d making %d\n",
+                 uid, current_count, adjustment, current_count + adjustment);
+  
+  _dbus_assert (current_count >= 0);
+  
+  current_count += adjustment;
+
+  _dbus_assert (current_count >= 0);
+
+  if (current_count == 0)
+    {
+      _dbus_hash_table_remove_ulong (connections->completed_by_user, uid);
+      return TRUE;
+    }
+  else
+    {
+      dbus_bool_t retval;
+      
+      retval = _dbus_hash_table_insert_ulong (connections->completed_by_user,
+                                              uid, _DBUS_INT_TO_POINTER (current_count));
+
+      /* only positive adjustment can fail as otherwise
+       * a hash entry should already exist
+       */
+      _dbus_assert (adjustment > 0 ||
+                    (adjustment <= 0 && retval));
+
+      return retval;
+    }
 }
 
 void
@@ -180,8 +245,34 @@ bus_connection_disconnected (DBusConnection *connection)
   
   bus_connection_remove_transactions (connection);
 
-  _dbus_list_remove (&d->connections->list, connection);
+  if (d->link_in_connection_list != NULL)
+    {
+      if (d->name != NULL)
+        {
+          unsigned long uid;
+          
+          _dbus_list_remove_link (&d->connections->completed, d->link_in_connection_list);
+          d->link_in_connection_list = NULL;
+          d->connections->n_completed -= 1;
 
+          if (dbus_connection_get_unix_user (connection, &uid))
+            {
+              if (!adjust_connections_for_uid (d->connections,
+                                               uid, -1))
+                _dbus_assert_not_reached ("adjusting downward should never fail");
+            }
+        }
+      else
+        {
+          _dbus_list_remove_link (&d->connections->incomplete, d->link_in_connection_list);
+          d->link_in_connection_list = NULL;
+          d->connections->n_incomplete -= 1;
+        }
+      
+      _dbus_assert (d->connections->n_incomplete >= 0);
+      _dbus_assert (d->connections->n_completed >= 0);
+    }
+  
   /* frees "d" as side effect */
   dbus_connection_set_data (connection,
                             connection_data_slot,
@@ -323,6 +414,15 @@ bus_connections_new (BusContext *context)
       connection_data_slot_unref ();
       return NULL;
     }
+
+  connections->completed_by_user = _dbus_hash_table_new (DBUS_HASH_ULONG,
+                                                         NULL, NULL);
+  if (connections->completed_by_user == NULL)
+    {
+      dbus_free (connections);
+      connection_data_slot_unref ();
+      return NULL;
+    }
   
   connections->refcount = 1;
   connections->context = context;
@@ -344,19 +444,37 @@ bus_connections_unref (BusConnections *connections)
   connections->refcount -= 1;
   if (connections->refcount == 0)
     {
-      while (connections->list != NULL)
+      /* drop all incomplete */
+      while (connections->incomplete != NULL)
         {
           DBusConnection *connection;
 
-          connection = connections->list->data;
+          connection = connections->incomplete->data;
 
           dbus_connection_ref (connection);
           dbus_connection_disconnect (connection);
           bus_connection_disconnected (connection);
           dbus_connection_unref (connection);
         }
+
+      _dbus_assert (connections->n_incomplete == 0);
       
-      _dbus_list_clear (&connections->list);
+      /* drop all real connections */
+      while (connections->completed != NULL)
+        {
+          DBusConnection *connection;
+
+          connection = connections->completed->data;
+
+          dbus_connection_ref (connection);
+          dbus_connection_disconnect (connection);
+          bus_connection_disconnected (connection);
+          dbus_connection_unref (connection);          
+        }
+
+      _dbus_assert (connections->n_completed == 0);
+
+      _dbus_hash_table_unref (connections->completed_by_user);
       
       dbus_free (connections);
 
@@ -405,8 +523,7 @@ bus_connections_setup_connection (BusConnections *connections,
                                               NULL,
                                               connection, NULL))
     goto out;
-
-
+  
   dbus_connection_set_unix_user_function (connection,
                                           allow_user_function,
                                           NULL, NULL);
@@ -415,16 +532,14 @@ bus_connections_setup_connection (BusConnections *connections,
                                                 dispatch_status_function,
                                                 bus_context_get_loop (connections->context),
                                                 NULL);
+
+  d->link_in_connection_list = _dbus_list_alloc_link (connection);
+  if (d->link_in_connection_list == NULL)
+    goto out;
   
   /* Setup the connection with the dispatcher */
   if (!bus_dispatch_add_connection (connection))
     goto out;
-  
-  if (!_dbus_list_append (&connections->list, connection))
-    {
-      bus_dispatch_remove_connection (connection);
-      goto out;
-    }
 
   if (dbus_connection_get_dispatch_status (connection) != DBUS_DISPATCH_COMPLETE)
     {
@@ -434,13 +549,36 @@ bus_connections_setup_connection (BusConnections *connections,
           goto out;
         }
     }
+
+  _dbus_list_append_link (&connections->incomplete, d->link_in_connection_list);
+  connections->n_incomplete += 1;
   
   dbus_connection_ref (connection);
+
+  /* Note that we might disconnect ourselves here, but it only takes
+   * effect on return to the main loop.
+   */
+  if (connections->n_incomplete >
+      bus_context_get_max_incomplete_connections (connections->context))
+    {
+      _dbus_verbose ("Number of incomplete connections exceeds max, dropping oldest one\n");
+      
+      _dbus_assert (connections->incomplete != NULL);
+      /* Disconnect the oldest unauthenticated connection.  FIXME
+       * would it be more secure to drop a *random* connection?  This
+       * algorithm seems to mean that if someone can create new
+       * connections quickly enough, they can keep anyone else from
+       * completing authentication. But random may or may not really
+       * help with that, a more elaborate solution might be required.
+       */
+      dbus_connection_disconnect (connections->incomplete->data);
+    }
+  
   retval = TRUE;
 
  out:
   if (!retval)
-    {        
+    {      
       if (!dbus_connection_set_watch_functions (connection,
                                                 NULL, NULL, NULL,
                                                 connection,
@@ -463,6 +601,13 @@ bus_connections_setup_connection (BusConnections *connections,
                                      connection_data_slot,
                                      NULL, NULL))
         _dbus_assert_not_reached ("failed to set connection data to null");
+
+      if (d->link_in_connection_list != NULL)
+        {
+          _dbus_assert (d->link_in_connection_list->next == NULL);
+          _dbus_assert (d->link_in_connection_list->prev == NULL);
+          _dbus_list_free_link (d->link_in_connection_list);
+        }
     }
   
   return retval;
@@ -567,6 +712,67 @@ bus_connection_get_policy (DBusConnection *connection)
   return d->policy;
 }
 
+static dbus_bool_t
+foreach_active (BusConnections               *connections,
+                BusConnectionForeachFunction  function,
+                void                         *data)
+{
+  DBusList *link;
+  
+  link = _dbus_list_get_first_link (&connections->completed);
+  while (link != NULL)
+    {
+      DBusConnection *connection = link->data;
+      DBusList *next = _dbus_list_get_next_link (&connections->completed, link);
+
+      if (!(* function) (connection, data))
+        return FALSE;
+      
+      link = next;
+    }
+
+  return TRUE;
+}
+
+static dbus_bool_t
+foreach_inactive (BusConnections               *connections,
+                  BusConnectionForeachFunction  function,
+                  void                         *data)
+{
+  DBusList *link;
+  
+  link = _dbus_list_get_first_link (&connections->incomplete);
+  while (link != NULL)
+    {
+      DBusConnection *connection = link->data;
+      DBusList *next = _dbus_list_get_next_link (&connections->incomplete, link);
+
+      if (!(* function) (connection, data))
+        return FALSE;
+      
+      link = next;
+    }
+
+  return TRUE;
+}
+
+/**
+ * Calls function on each active connection; if the function returns
+ * #FALSE, stops iterating. Active connections are authenticated
+ * and have sent a Hello message.
+ *
+ * @param connections the connections object
+ * @param function the function
+ * @param data data to pass to it as a second arg
+ */
+void
+bus_connections_foreach_active (BusConnections               *connections,
+                                BusConnectionForeachFunction  function,
+                                void                         *data)
+{
+  foreach_active (connections, function, data);
+}
+
 /**
  * Calls function on each connection; if the function returns
  * #FALSE, stops iterating.
@@ -578,21 +784,12 @@ bus_connection_get_policy (DBusConnection *connection)
 void
 bus_connections_foreach (BusConnections               *connections,
                          BusConnectionForeachFunction  function,
-			void                          *data)
+                         void                         *data)
 {
-  DBusList *link;
-  
-  link = _dbus_list_get_first_link (&connections->list);
-  while (link != NULL)
-    {
-      DBusConnection *connection = link->data;
-      DBusList *next = _dbus_list_get_next_link (&connections->list, link);
+  if (!foreach_active (connections, function, data))
+    return;
 
-      if (!(* function) (connection, data))
-        break;
-      
-      link = next;
-    }
+  foreach_inactive (connections, function, data);
 }
 
 BusContext*
@@ -789,17 +986,40 @@ bus_connection_set_name (DBusConnection   *connection,
 			 const DBusString *name)
 {
   BusConnectionData *d;
+  unsigned long uid;
   
   d = BUS_CONNECTION_DATA (connection);
   _dbus_assert (d != NULL);
   _dbus_assert (d->name == NULL);
-
+  
   if (!_dbus_string_copy_data (name, &d->name))
     return FALSE;
 
   _dbus_assert (d->name != NULL);
   
   _dbus_verbose ("Name %s assigned to %p\n", d->name, connection);
+
+  if (dbus_connection_get_unix_user (connection, &uid))
+    {
+      if (!adjust_connections_for_uid (d->connections,
+                                       uid, 1))
+        {
+          dbus_free (d->name);
+          d->name = NULL;
+          return FALSE;
+        }
+    }
+  
+  /* Now the connection is active, move it between lists */
+  _dbus_list_unlink (&d->connections->incomplete,
+                     d->link_in_connection_list);
+  d->connections->n_incomplete -= 1;
+  _dbus_list_append_link (&d->connections->completed,
+                          d->link_in_connection_list);
+  d->connections->n_completed += 1;
+
+  _dbus_assert (d->connections->n_incomplete >= 0);
+  _dbus_assert (d->connections->n_completed > 0);
   
   return TRUE;
 }
@@ -814,6 +1034,47 @@ bus_connection_get_name (DBusConnection *connection)
   
   return d->name;
 }
+
+/**
+ * Check whether completing the passed-in connection would
+ * exceed limits, and if so set error and return #FALSE
+ */
+dbus_bool_t
+bus_connections_check_limits (BusConnections  *connections,
+                              DBusConnection  *requesting_completion,
+                              DBusError       *error)
+{
+  BusConnectionData *d;
+  unsigned long uid;
+  
+  d = BUS_CONNECTION_DATA (requesting_completion);
+  _dbus_assert (d != NULL);
+
+  _dbus_assert (d->name == NULL);
+
+  if (connections->n_completed >=
+      bus_context_get_max_completed_connections (connections->context))
+    {
+      dbus_set_error (error, DBUS_ERROR_LIMITS_EXCEEDED,
+                      "The maximum number of active connections has been reached");
+      return FALSE;
+    }
+  
+  if (dbus_connection_get_unix_user (requesting_completion, &uid))
+    {
+      if (get_connections_for_uid (connections, uid) >=
+          bus_context_get_max_connections_per_user (connections->context))
+        {
+          dbus_set_error (error, DBUS_ERROR_LIMITS_EXCEEDED,
+                          "The maximum number of active connections for UID %lu has been reached",
+                          uid);
+          return FALSE;
+        }
+    }
+  
+  return TRUE;
+}
+
 
 /*
  * Transactions

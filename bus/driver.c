@@ -262,8 +262,23 @@ bus_driver_handle_hello (DBusConnection *connection,
   BusService *service;
   dbus_bool_t retval;
   BusRegistry *registry;
+  BusConnections *connections;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  /* Note that when these limits are exceeded we don't disconnect the
+   * connection; we just sort of leave it hanging there until it times
+   * out or disconnects itself or is dropped due to the max number of
+   * incomplete connections. It's even OK if the connection wants to
+   * retry the hello message, we support that.
+   */
+  connections = bus_connection_get_connections (connection);
+  if (!bus_connections_check_limits (connections, connection,
+                                     error))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      return FALSE;
+    }
   
   if (!_dbus_string_init (&unique_name))
     {

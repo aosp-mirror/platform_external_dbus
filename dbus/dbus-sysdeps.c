@@ -470,8 +470,8 @@ _dbus_listen_unix_socket (const char     *path,
    * But there doesn't seem to be a good way to do this.
    *
    * Just to be extra careful, I threw in the stat() - clearly
-   * the stat() can't *fix* any security issue, but it probably
-   * makes it harder to exploit.
+   * the stat() can't *fix* any security issue, but it at least
+   * avoids inadvertent/accidental data loss.
    */
   {
     struct stat sb;

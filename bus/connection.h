@@ -40,12 +40,18 @@ dbus_bool_t     bus_connections_setup_connection (BusConnections               *
 void            bus_connections_foreach          (BusConnections               *connections,
                                                   BusConnectionForeachFunction  function,
                                                   void                         *data);
+void            bus_connections_foreach_active   (BusConnections               *connections,
+                                                  BusConnectionForeachFunction  function,
+                                                  void                         *data);
 BusContext*     bus_connections_get_context      (BusConnections               *connections);
-
-BusContext*     bus_connection_get_context       (DBusConnection               *connection); 
+BusContext*     bus_connection_get_context       (DBusConnection               *connection);
 BusConnections* bus_connection_get_connections   (DBusConnection               *connection);
 BusRegistry*    bus_connection_get_registry      (DBusConnection               *connection);
 BusActivation*  bus_connection_get_activation    (DBusConnection               *connection);
+dbus_bool_t     bus_connections_check_limits     (BusConnections               *connections,
+                                                  DBusConnection               *requesting_completion,
+                                                  DBusError                    *error);
+
 
 dbus_bool_t bus_connection_is_active (DBusConnection *connection);
 

@@ -1,3 +1,17 @@
+2003-04-19  Havoc Pennington  <hp@pobox.com>
+
+	* bus/driver.c (bus_driver_handle_hello): check limits and 
+	return an error if they are exceeded.
+
+	* bus/connection.c: maintain separate lists of active and inactive
+	connections, and a count of each. Maintain count of completed
+	connections per user. Implement code to check connection limits.
+
+	* dbus/dbus-list.c (_dbus_list_unlink): export
+
+	* bus/bus.c (bus_context_check_security_policy): enforce a maximum
+	number of bytes in the message queue for a connection
+
 2003-04-18  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-auth.c (record_mechanisms): memleak fixes

@@ -470,7 +470,15 @@ _dbus_list_remove_last (DBusList **list,
   return FALSE;
 }
 
-static void
+/**
+ * Removes the given link from the list, but doesn't
+ * free it. _dbus_list_remove_link() both removes the
+ * link and also frees it.
+ *
+ * @param list the list
+ * @param link the link in the list
+ */
+void
 _dbus_list_unlink (DBusList **list,
                    DBusList  *link)
 {
@@ -487,6 +495,9 @@ _dbus_list_unlink (DBusList **list,
       if (*list == link)
         *list = link->next;
     }
+
+  link->next = NULL;
+  link->prev = NULL;
 }
 
 /**

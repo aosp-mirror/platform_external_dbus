@@ -45,8 +45,11 @@ struct BusContext
   BusRegistry *registry;
   BusPolicy *policy;
   DBusUserDatabase *user_database;
-  int activation_timeout;        /**< How long to wait for an activation to time out */
-  int auth_timeout;              /**< How long to wait for an authentication to time out */
+  long max_incoming_bytes;          /**< How many incoming messages for a connection */
+  long max_outgoing_bytes;          /**< How many outgoing bytes can be queued for a connection */
+  long max_message_size;            /**< Max size of a single message in bytes */
+  int activation_timeout;           /**< How long to wait for an activation to time out */
+  int auth_timeout;                 /**< How long to wait for an authentication to time out */
   int max_completed_connections;    /**< Max number of authorized connections */
   int max_incomplete_connections;   /**< Max number of incomplete connections */
   int max_connections_per_user;     /**< Max number of connections auth'd as same user */
@@ -210,6 +213,12 @@ new_connection_callback (DBusServer     *server,
        */
       dbus_connection_disconnect (new_connection);
     }
+
+  dbus_connection_set_max_received_size (new_connection,
+                                         context->max_incoming_bytes);
+
+  dbus_connection_set_max_message_size (new_connection,
+                                        context->max_message_size);
   
   /* on OOM, we won't have ref'd the connection so it will die. */
 }
@@ -353,6 +362,11 @@ bus_context_new (const DBusString *config_file,
    */
   if (!server_data_slot_ref ())
     _dbus_assert_not_reached ("second ref of server data slot failed");
+
+  /* Make up some numbers! woot! */
+  context->max_incoming_bytes = _DBUS_ONE_MEGABYTE * 63;  
+  context->max_outgoing_bytes = _DBUS_ONE_MEGABYTE * 63;
+  context->max_message_size = _DBUS_ONE_MEGABYTE * 32;
   
 #ifdef DBUS_BUILD_TESTS
   context->activation_timeout = 6000;  /* 6 seconds */
@@ -375,7 +389,7 @@ bus_context_new (const DBusString *config_file,
    * DOS all the other users.
    */
   context->max_completed_connections = 1024;
-
+  
   context->user_database = _dbus_user_database_new ();
   if (context->user_database == NULL)
     {
@@ -818,6 +832,30 @@ bus_context_get_activation_timeout (BusContext *context)
   return context->activation_timeout;
 }
 
+int
+bus_context_get_auth_timeout (BusContext *context)
+{
+  return context->auth_timeout;
+}
+
+int
+bus_context_get_max_completed_connections (BusContext *context)
+{
+  return context->max_completed_connections;
+}
+
+int
+bus_context_get_max_incomplete_connections (BusContext *context)
+{
+  return context->max_incomplete_connections;
+}
+
+int
+bus_context_get_max_connections_per_user (BusContext *context)
+{
+  return context->max_connections_per_user;
+}
+
 dbus_bool_t
 bus_context_check_security_policy (BusContext     *context,
                                    DBusConnection *sender,
@@ -878,5 +916,17 @@ bus_context_check_security_policy (BusContext     *context,
       return FALSE;
     }
 
+  /* See if limits on size have been exceeded */
+  if (recipient &&
+      dbus_connection_get_outgoing_size (recipient) >
+      context->max_outgoing_bytes)
+    {
+      const char *dest = dbus_message_get_service (message);
+      dbus_set_error (error, DBUS_ERROR_LIMITS_EXCEEDED,
+                      "The destination service \"%s\" has a full message queue",
+                      dest ? dest : DBUS_SERVICE_DBUS);
+      return FALSE;
+    }
+  
   return TRUE;
 }

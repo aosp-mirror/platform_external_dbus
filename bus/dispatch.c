@@ -48,9 +48,6 @@ static dbus_bool_t
 send_one_message (DBusConnection *connection, void *data)
 {
   SendMessageData *d = data;
-  
-  if (!bus_connection_is_active (connection))
-    return TRUE;
 
   if (!bus_context_check_security_policy (d->context,
                                           d->sender,
@@ -93,7 +90,7 @@ bus_dispatch_broadcast_message (BusTransaction *transaction,
   d.transaction = transaction;
   d.error = &tmp_error;
   
-  bus_connections_foreach (connections, send_one_message, &d);
+  bus_connections_foreach_active (connections, send_one_message, &d);
 
   if (dbus_error_is_set (&tmp_error))
     {
