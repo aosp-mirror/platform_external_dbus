@@ -1549,7 +1549,7 @@ fill_user_info (DBusUserInfo       *info,
     if (info->group_ids == NULL)
       {
         dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-        goto out;
+        goto failed;
       }
 
     info->n_group_ids = 1;

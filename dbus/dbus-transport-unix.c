@@ -686,7 +686,7 @@ do_reading (DBusTransport *transport)
       
       total += bytes_read;      
 
-      if (_dbus_transport_queue_messages (transport) == DBUS_DISPATCH_NEED_MEMORY)
+      if (!_dbus_transport_queue_messages (transport))
         {
           oom = TRUE;
           _dbus_verbose (" out of memory when queueing messages we just read in the transport\n");

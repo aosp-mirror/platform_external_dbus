@@ -3984,10 +3984,9 @@ dbus_message_append_args_valist (DBusMessage *message,
 	    goto errorout;
 	  break;
 	case DBUS_TYPE_BYTE:
-          /* FIXME if you pass an unsigned char to varargs it gets promoted to int,
-           * so probably we should read an int here.
-           */
-	  if (!dbus_message_iter_append_byte (&iter, va_arg (var_args, unsigned char)))
+	  /* Read an int from varargs, because the original unsigned
+	   * char has been promoted to int. */
+	  if (!dbus_message_iter_append_byte (&iter, va_arg (var_args, int)))
 	    goto errorout;
 	  break;
 	case DBUS_TYPE_BOOLEAN:

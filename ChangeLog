@@ -1,3 +1,25 @@
+2004-07-22  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* dbus/dbus-sysdeps.c (fill_user_info): fix inexistent label name,
+	breaking build on Solaris, reported by Farhad Saberi on the ML.
+
+	* dbus/dbus-message.c (dbus_message_append_args_valist): fix the
+	va_arg invocation to account for integer promotion in the case of
+	DBUS_TYPE_BYTE (unsigned char is promoted to int). (bug #901)
+
+	* bus/services.c (bus_service_remove_owner): fix bug #902, use
+	_dbus_list_get_first_link, not _dbus_list_get_first.
+
+	* dbus/dbus-bus.c (dbus_bus_service_exists): plug a memory leak.
+
+	* dbus/dbus-object-tree.c (free_subtree_recurse): always null
+	handler functions so that the asserts in _dbus_object_subtree_unref
+	do not fail.
+
+	* dbus/dbus-transport-unix.c (do_reading):
+	_dbus_transport_queue_messages return value is of type
+	dbus_bool_t, not DBusDispatchStatus.
+	
 2004-07-19  David Zeuthen  <david@fubar.dk>
 
 	* dbus/dbus-protocol.h: Add DBUS_ERROR_UNIX_PROCESS_ID_UNKNOWN

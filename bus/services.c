@@ -693,10 +693,9 @@ bus_service_remove_owner (BusService     *service,
   else
     {
       DBusList *link;
-      link = _dbus_list_get_first (&service->owners);
+      link = _dbus_list_get_first_link (&service->owners);
       _dbus_assert (link != NULL);
       link = _dbus_list_get_next_link (&service->owners, link);
-
       _dbus_assert (link != NULL);
 
       /* This will be our new owner */

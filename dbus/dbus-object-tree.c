@@ -536,13 +536,12 @@ free_subtree_recurse (DBusConnection    *connection,
 
   /* Call application code */
   if (subtree->unregister_function)
-    {
-      (* subtree->unregister_function) (connection,
-                                        subtree->user_data);
-      subtree->message_function = NULL;
-      subtree->unregister_function = NULL;
-      subtree->user_data = NULL;
-    }
+    (* subtree->unregister_function) (connection,
+				      subtree->user_data);
+
+  subtree->message_function = NULL;
+  subtree->unregister_function = NULL;
+  subtree->user_data = NULL;
 
   /* Now free ourselves */
   _dbus_object_subtree_unref (subtree);

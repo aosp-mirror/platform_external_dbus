@@ -713,7 +713,7 @@ dbus_bus_service_exists (DBusConnection *connection,
                          DBusError      *error)
 {
   DBusMessage *message, *reply;
-  unsigned int exists;
+  dbus_bool_t exists;
 
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (service_name != NULL, FALSE);
@@ -752,10 +752,12 @@ dbus_bus_service_exists (DBusConnection *connection,
                               DBUS_TYPE_INVALID))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_message_unref (reply);
       return FALSE;
     }
   
-  return (exists != FALSE);
+  dbus_message_unref (reply);
+  return exists;
 }
 
 /**
