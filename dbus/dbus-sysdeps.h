@@ -306,6 +306,20 @@ void _dbus_set_signal_handler (int               sig,
                                DBusSignalHandler handler);
 
 
+/* Define DBUS_VA_COPY() to do the right thing for copying va_list variables. 
+ * config.h may have already defined DBUS_VA_COPY as va_copy or __va_copy. 
+ */
+#if !defined (DBUS_VA_COPY)
+#  if defined (__GNUC__) && defined (__PPC__) && (defined (_CALL_SYSV) || defined (_WIN32))
+#    define DBUS_VA_COPY(ap1, ap2)   (*(ap1) = *(ap2))
+#  elif defined (DBUS_VA_COPY_AS_ARRAY)
+#    define DBUS_VA_COPY(ap1, ap2)   memcpy ((ap1), (ap2), sizeof (va_list))
+#  else /* va_list is a pointer */
+#    define DBUS_VA_COPY(ap1, ap2)   ((ap1) = (ap2))
+#  endif /* va_list is a pointer */
+#endif /* !DBUS_VA_COPY */
+
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_SYSDEPS_H */

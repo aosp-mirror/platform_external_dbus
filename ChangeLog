@@ -1,3 +1,15 @@
+2004-03-01  David Zeuthen  <david@fubar.dk>
+
+	* dbus/dbus-string.c (_dbus_string_append_printf_valist): Fix a
+	bug where args were used twice. This bug resulted in a segfault
+	on a Debian/PPC system when starting the messagebus daemon. Include
+	dbus-sysdeps.h for DBUS_VA_COPY
+
+	* dbus/dbus-sysdeps.h: Define DBUS_VA_COPY if neccessary. From GLib
+
+	* configure.in: Check for va_copy; define DBUS_VA_COPY to the
+	appropriate va_copy implementation. From GLib
+ 	
 2004-02-24  Joe Shaw  <joe@ximian.com>
 
 	* bus/services.c (bus_registry_acquire_service): We need to pass

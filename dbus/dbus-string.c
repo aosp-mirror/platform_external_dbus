@@ -31,6 +31,8 @@
 #define DBUS_CAN_USE_DBUS_STRING_PRIVATE 1
 #include "dbus-string-private.h"
 #include "dbus-protocol.h"
+/* for DBUS_VA_COPY */
+#include "dbus-sysdeps.h"
 
 /**
  * @defgroup DBusString string class
@@ -1013,16 +1015,26 @@ _dbus_string_append_printf_valist  (DBusString        *str,
 {
   int len;
   char c;
+  va_list args_copy;
+
   DBUS_STRING_PREAMBLE (str);
-  
+
+  DBUS_VA_COPY (args_copy, args);
+
   /* Measure the message length without terminating nul */
   len = vsnprintf (&c, 1, format, args);
 
   if (!_dbus_string_lengthen (str, len))
-    return FALSE;
-
+    {
+      /* don't leak the copy */
+      va_end (args_copy);
+      return FALSE;
+    }
+  
   vsprintf (real->str + (real->len - len),
-            format, args);
+            format, args_copy);
+
+  va_end (args_copy);
 
   return TRUE;
 }
