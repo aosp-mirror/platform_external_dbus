@@ -1,3 +1,11 @@
+2004-05-27  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus.py:
+	* python/dbus_bindings.pyx.in:
+
+	Fix failure to notify that a signal was not handled,
+	resulted in hung functions.
+	
 2004-05-25  Colin Walters  <walters@redhat.com>
 
 	* tools/dbus-monitor.c (main): Monitor all types of messages.
