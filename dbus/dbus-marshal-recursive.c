@@ -29,6 +29,16 @@
  * @{
  */
 
+struct DBusTypeReaderClass
+{
+  const char *name;
+  void        (* recurse)          (DBusTypeReader *sub,
+                                    DBusTypeReader *parent);
+  int         (* get_current_type) (DBusTypeReader *reader);
+  void        (* next)             (DBusTypeReader *reader,
+                                    int             current_type);
+};
+
 static int
 first_type_in_signature (const DBusString *str,
                          int               pos)
@@ -50,233 +60,137 @@ element_type_get_alignment (const DBusString *str,
   return _dbus_type_get_alignment (first_type_in_signature (str, pos));
 }
 
-void
-_dbus_type_reader_init (DBusTypeReader    *reader,
-                        int                byte_order,
-                        const DBusString  *type_str,
-                        int                type_pos,
-                        const DBusString  *value_str,
-                        int                value_pos)
+static void
+reader_init (DBusTypeReader    *reader,
+             int                byte_order,
+             const DBusString  *type_str,
+             int                type_pos,
+             const DBusString  *value_str,
+             int                value_pos)
 {
   reader->byte_order = byte_order;
   reader->type_str = type_str;
   reader->type_pos = type_pos;
   reader->value_str = value_str;
   reader->value_pos = value_pos;
-  reader->container_type = DBUS_TYPE_INVALID;
-
-  _dbus_verbose ("  type reader %p init type_pos = %d value_pos = %d remaining sig '%s'\n",
-                 reader, reader->type_pos, reader->value_pos,
-                 _dbus_string_get_const_data_len (reader->type_str, reader->type_pos, 0));
 }
 
-int
-_dbus_type_reader_get_current_type (DBusTypeReader *reader)
+static void
+base_reader_recurse (DBusTypeReader *sub,
+                     DBusTypeReader *parent)
+{  
+  /* point subreader at the same place as parent */
+  reader_init (sub,
+               parent->byte_order,
+               parent->type_str,
+               parent->type_pos,
+               parent->value_str,
+               parent->value_pos);
+}
+
+static void
+struct_reader_recurse (DBusTypeReader *sub,
+                       DBusTypeReader *parent)
+{
+  base_reader_recurse (sub, parent);
+
+  _dbus_assert (_dbus_string_get_byte (sub->type_str,
+                                       sub->type_pos) == DBUS_STRUCT_BEGIN_CHAR);
+  
+  sub->type_pos += 1;
+  
+  /* struct has 8 byte alignment */
+  sub->value_pos = _DBUS_ALIGN_VALUE (sub->value_pos, 8);
+  
+  sub->u.strct.finished = FALSE;
+}
+
+static void
+array_reader_recurse (DBusTypeReader *sub,
+                      DBusTypeReader *parent)
+{
+  dbus_uint32_t array_len;
+  int alignment;
+
+  _dbus_assert (!_dbus_type_reader_array_is_empty (parent));
+  
+  base_reader_recurse (sub, parent);
+  
+  /* point type_pos at the array element type */
+  sub->type_pos += 1;
+
+  sub->value_pos = _DBUS_ALIGN_VALUE (sub->value_pos, 4);
+      
+  _dbus_demarshal_basic_type (sub->value_str,
+                              DBUS_TYPE_UINT32,
+                              &array_len,
+                              sub->byte_order,
+                              &sub->value_pos);
+      
+  sub->u.array.len = array_len;
+      
+  alignment = element_type_get_alignment (sub->type_str,
+                                          sub->type_pos);
+      
+  sub->value_pos = _DBUS_ALIGN_VALUE (sub->value_pos, alignment);
+
+  sub->u.array.element_type = first_type_in_signature (sub->type_str,
+                                                       sub->type_pos);
+  sub->u.array.start_pos = sub->value_pos;
+
+  _dbus_verbose ("    type reader %p array start = %d array len = %d array element type = %s\n",
+                 sub,
+                 sub->u.array.start_pos,
+                 sub->u.array.len,
+                 _dbus_type_to_string (sub->u.array.element_type));
+}
+
+static int
+body_reader_get_current_type (DBusTypeReader *reader)
 {
   int t;
 
-  /* for INVALID t will == DBUS_TYPE_INVALID when we
-   * reach the end of type_str, for STRUCT we have to
-   * check the finished flag
-   */
-  if (reader->container_type == DBUS_TYPE_INVALID)
-    {
-      t = first_type_in_signature (reader->type_str,
-                                   reader->type_pos);
-    }
-  else if (reader->container_type == DBUS_TYPE_STRUCT)
-    {
-      if (reader->u.strct.finished)
-        t = DBUS_TYPE_INVALID;
-      else
-        t = first_type_in_signature (reader->type_str,
-                                     reader->type_pos);
-    }
-  else if (reader->container_type == DBUS_TYPE_ARRAY)
-    {
-      /* return the array element type if elements remain, and
-       * TYPE_INVALID otherwise
-       */
-      int end_pos;
+  t = first_type_in_signature (reader->type_str,
+                               reader->type_pos);
 
-      end_pos = reader->u.array.start_pos + reader->u.array.len;
-
-      _dbus_assert (reader->value_pos <= end_pos);
-      _dbus_assert (reader->value_pos >= reader->u.array.start_pos);
-
-      if (reader->value_pos < end_pos)
-        t = reader->u.array.element_type;
-      else
-        t = DBUS_TYPE_INVALID;
-    }
-  else
-    {
-      _dbus_assert_not_reached ("reader->container_type should not be set to this");
-      t = DBUS_TYPE_INVALID; /* quiet gcc */
-    }
-
-  _dbus_assert (t != DBUS_STRUCT_END_CHAR);
-  _dbus_assert (t != DBUS_STRUCT_BEGIN_CHAR);
-  
-#if 0
-  _dbus_verbose ("  type reader %p current type_pos = %d type = %s\n",
-                 reader, reader->type_pos,
-                 _dbus_type_to_string (t));
-#endif
-  
   return t;
 }
 
-dbus_bool_t
-_dbus_type_reader_array_is_empty (DBusTypeReader *reader)
-{
-  dbus_uint32_t array_len;
-  int len_pos;
-  
-  _dbus_return_val_if_fail (_dbus_type_reader_get_current_type (reader) == DBUS_TYPE_ARRAY,
-                            TRUE);
-
-  len_pos = _DBUS_ALIGN_VALUE (reader->value_pos, 4);
-  
-  _dbus_demarshal_basic_type (reader->value_str,
-                              DBUS_TYPE_UINT32,
-                              &array_len,
-                              reader->byte_order,
-                              &len_pos);
-
-  return array_len == 0;
-}
-
-void
-_dbus_type_reader_read_basic (DBusTypeReader    *reader,
-                              void              *value)
-{
-  if (reader->container_type == DBUS_TYPE_INVALID ||
-      reader->container_type == DBUS_TYPE_STRUCT ||
-      reader->container_type == DBUS_TYPE_ARRAY)
-    {
-      int t;
-      int next;
-      
-      t = _dbus_type_reader_get_current_type (reader);
-
-      next = reader->value_pos;
-      _dbus_demarshal_basic_type (reader->value_str,
-                                  t, value,
-                                  reader->byte_order,
-                                  &next);
-
-
-      _dbus_verbose ("  type reader %p read basic type_pos = %d value_pos = %d next = %d remaining sig '%s'\n",
-                     reader, reader->type_pos, reader->value_pos, next,
-                     _dbus_string_get_const_data_len (reader->type_str, reader->type_pos, 0));
-    }
-  else
-    {
-      _dbus_assert_not_reached ("reader->container_type should not be set to this");
-    }
-}
-
-dbus_bool_t
-_dbus_type_reader_read_array_of_basic (DBusTypeReader    *reader,
-                                       int                type,
-                                       void             **array,
-                                       int               *array_len)
-{
-  
-  
-}
-
-/**
- * Initialize a new reader pointing to the first type and
- * corresponding value that's a child of the current container. It's
- * an error to call this if the current type is a non-container.
- * 
- * Note that DBusTypeReader traverses values, not types. So if you
- * have an empty array of array of int, you can't recurse into it. You
- * can only recurse into each element.
- *
- * @param reader the reader
- * @param sub a reader to init pointing to the first child
- */
-void
-_dbus_type_reader_recurse (DBusTypeReader *reader,
-                           DBusTypeReader *sub)
+static int
+struct_reader_get_current_type (DBusTypeReader *reader)
 {
   int t;
   
-  t = first_type_in_signature (reader->type_str, reader->type_pos);
-  
-  /* point subreader at the same place as reader */
-  _dbus_type_reader_init (sub,
-                          reader->byte_order,
-                          reader->type_str,
-                          reader->type_pos,
-                          reader->value_str,
-                          reader->value_pos);
-
-  if (t == DBUS_TYPE_STRUCT)
-    {
-      sub->container_type = DBUS_TYPE_STRUCT;
-      
-      sub->type_pos += 1;
-
-      /* struct has 8 byte alignment */
-      sub->value_pos = _DBUS_ALIGN_VALUE (sub->value_pos, 8);
-
-      sub->u.strct.finished = FALSE;
-    }
-  else if (t == DBUS_TYPE_ARRAY)
-    {
-      dbus_uint32_t array_len;
-      int alignment;
-
-      _dbus_return_if_fail (!_dbus_type_reader_array_is_empty (reader));
-      
-      sub->container_type = DBUS_TYPE_ARRAY;
-      
-      /* point type_pos at the array element type */
-      sub->type_pos += 1;
-
-      sub->value_pos = _DBUS_ALIGN_VALUE (sub->value_pos, 4);
-      
-      _dbus_demarshal_basic_type (sub->value_str,
-                                  DBUS_TYPE_UINT32,
-                                  &array_len,
-                                  sub->byte_order,
-                                  &sub->value_pos);
-      
-      sub->u.array.len = array_len;
-      
-      alignment = element_type_get_alignment (sub->type_str,
-                                              sub->type_pos);
-      
-      sub->value_pos = _DBUS_ALIGN_VALUE (sub->value_pos, alignment);
-
-      sub->u.array.element_type = first_type_in_signature (sub->type_str,
-                                                           sub->type_pos);
-      sub->u.array.start_pos = sub->value_pos;
-
-      _dbus_verbose ("    type reader %p array start = %d array len = %d array element type = %s\n",
-                     reader,
-                     sub->u.array.start_pos,
-                     sub->u.array.len,
-                     _dbus_type_to_string (sub->u.array.element_type));
-    }
+  if (reader->u.strct.finished)
+    t = DBUS_TYPE_INVALID;
   else
-    {
-      _dbus_verbose ("recursing into type %s\n", _dbus_type_to_string (t));
-#ifndef DBUS_DISABLE_CHECKS
-      if (t == DBUS_TYPE_INVALID)
-        _dbus_warn ("You can't recurse into an empty array or off the end of a message body\n");
-#endif /* DBUS_DISABLE_CHECKS */
-      
-      _dbus_assert_not_reached ("don't yet handle recursing into this type");
-    }
+    t = first_type_in_signature (reader->type_str,
+                                 reader->type_pos);
 
-  _dbus_verbose ("  type reader %p RECURSED type_pos = %d value_pos = %d remaining sig '%s'\n",
-                 sub, sub->type_pos, sub->value_pos,
-                 _dbus_string_get_const_data_len (sub->type_str, sub->type_pos, 0));
+  return t;
+}
+
+static int
+array_reader_get_current_type (DBusTypeReader *reader)
+{
+  int t;
+  int end_pos;
+  
+  /* return the array element type if elements remain, and
+   * TYPE_INVALID otherwise
+   */
+  
+  end_pos = reader->u.array.start_pos + reader->u.array.len;
+  
+  _dbus_assert (reader->value_pos <= end_pos);
+  _dbus_assert (reader->value_pos >= reader->u.array.start_pos);
+  
+  if (reader->value_pos < end_pos)
+    t = reader->u.array.element_type;
+  else
+    t = DBUS_TYPE_INVALID;
+
+  return t;
 }
 
 static void
@@ -337,6 +251,275 @@ skip_array_values (int               element_type,
   *value_pos = pos + array_len;
 }
 
+static void
+base_reader_next (DBusTypeReader *reader,
+                  int             current_type)
+{
+  switch (current_type)
+    {
+    case DBUS_TYPE_STRUCT:
+      /* Scan forward over the entire container contents */
+      {
+        DBusTypeReader sub;
+        
+        /* Recurse into the struct */
+        _dbus_type_reader_recurse (reader, &sub);
+        
+        /* Skip everything in this subreader */
+        while (_dbus_type_reader_next (&sub))
+          {
+            /* nothing */;
+          }
+        
+        /* Now we are at the end of this container */
+        reader->type_pos = sub.type_pos;
+        reader->value_pos = sub.value_pos;
+      }
+      break;
+      
+    case DBUS_TYPE_ARRAY:
+      {
+        skip_array_values (first_type_in_signature (reader->type_str,
+                                                    reader->type_pos + 1),
+                           reader->value_str, &reader->value_pos, reader->byte_order);
+        skip_one_complete_type (reader->type_str, &reader->type_pos);
+      }
+      break;
+      
+    default:
+      _dbus_marshal_skip_basic_type (reader->value_str,
+                                     current_type, reader->byte_order,
+                                     &reader->value_pos);
+      reader->type_pos += 1;
+      break;
+    }
+}
+
+static void
+struct_reader_next (DBusTypeReader *reader,
+                    int             current_type)
+{
+  int t;
+  
+  base_reader_next (reader, current_type);
+  
+  /* for STRUCT containers we return FALSE at the end of the struct,
+   * for INVALID we return FALSE at the end of the signature.
+   * In both cases we arrange for get_current_type() to return INVALID
+   * which is defined to happen iff we're at the end (no more next())
+   */
+  t = _dbus_string_get_byte (reader->type_str, reader->type_pos);
+  if (t == DBUS_STRUCT_END_CHAR)
+    {
+      reader->type_pos += 1;
+      reader->u.strct.finished = TRUE;
+    }
+}
+
+static void
+array_reader_next (DBusTypeReader *reader,
+                   int             current_type)
+{
+  /* Skip one array element */
+  int end_pos;
+
+  end_pos = reader->u.array.start_pos + reader->u.array.len;
+
+  _dbus_assert (reader->value_pos < end_pos);
+  _dbus_assert (reader->value_pos >= reader->u.array.start_pos);
+
+  if (reader->u.array.element_type == DBUS_TYPE_STRUCT)
+    {
+      DBusTypeReader sub;
+          
+      /* Recurse into the struct */
+      _dbus_type_reader_recurse (reader, &sub);
+
+      /* Skip everything in this element */
+      while (_dbus_type_reader_next (&sub))
+        {
+          /* nothing */;
+        }
+
+      /* Now we are at the end of this element */
+      reader->value_pos = sub.value_pos;
+    }
+  else if (reader->u.array.element_type == DBUS_TYPE_ARRAY)
+    {
+      skip_array_values (first_type_in_signature (reader->type_str,
+                                                  reader->type_pos + 1),
+                         reader->value_str, &reader->value_pos, reader->byte_order);
+    }
+  else
+    {
+      _dbus_marshal_skip_basic_type (reader->value_str,
+                                     current_type, reader->byte_order,
+                                     &reader->value_pos);
+    }
+
+  _dbus_assert (reader->value_pos <= end_pos);
+      
+  if (reader->value_pos == end_pos)
+    {
+      skip_one_complete_type (reader->type_str,
+                              &reader->type_pos);
+    }
+}
+
+static const DBusTypeReaderClass body_reader_class = {
+  "body",
+  NULL, /* body is always toplevel, so doesn't get recursed into */
+  body_reader_get_current_type,
+  base_reader_next
+};
+
+static const DBusTypeReaderClass struct_reader_class = {
+  "struct",
+  struct_reader_recurse,
+  struct_reader_get_current_type,
+  struct_reader_next
+};
+
+static const DBusTypeReaderClass array_reader_class = {
+  "array",
+  array_reader_recurse,
+  array_reader_get_current_type,
+  array_reader_next
+};
+
+void
+_dbus_type_reader_init (DBusTypeReader    *reader,
+                        int                byte_order,
+                        const DBusString  *type_str,
+                        int                type_pos,
+                        const DBusString  *value_str,
+                        int                value_pos)
+{
+  reader->klass = &body_reader_class;
+  
+  reader_init (reader, byte_order, type_str, type_pos,
+               value_str, value_pos);
+  
+  _dbus_verbose ("  type reader %p init type_pos = %d value_pos = %d remaining sig '%s'\n",
+                 reader, reader->type_pos, reader->value_pos,
+                 _dbus_string_get_const_data_len (reader->type_str, reader->type_pos, 0));
+}
+
+int
+_dbus_type_reader_get_current_type (DBusTypeReader *reader)
+{
+  int t;
+
+  t = (* reader->klass->get_current_type) (reader);
+
+  _dbus_assert (t != DBUS_STRUCT_END_CHAR);
+  _dbus_assert (t != DBUS_STRUCT_BEGIN_CHAR);
+  
+#if 0
+  _dbus_verbose ("  type reader %p current type_pos = %d type = %s\n",
+                 reader, reader->type_pos,
+                 _dbus_type_to_string (t));
+#endif
+  
+  return t;
+}
+
+dbus_bool_t
+_dbus_type_reader_array_is_empty (DBusTypeReader *reader)
+{
+  dbus_uint32_t array_len;
+  int len_pos;
+  
+  _dbus_return_val_if_fail (_dbus_type_reader_get_current_type (reader) == DBUS_TYPE_ARRAY,
+                            TRUE);
+
+  len_pos = _DBUS_ALIGN_VALUE (reader->value_pos, 4);
+  
+  _dbus_demarshal_basic_type (reader->value_str,
+                              DBUS_TYPE_UINT32,
+                              &array_len,
+                              reader->byte_order,
+                              &len_pos);
+
+  return array_len == 0;
+}
+
+void
+_dbus_type_reader_read_basic (DBusTypeReader    *reader,
+                              void              *value)
+{
+  int t;
+  int next;
+  
+  t = _dbus_type_reader_get_current_type (reader);
+  
+  next = reader->value_pos;
+  _dbus_demarshal_basic_type (reader->value_str,
+                              t, value,
+                              reader->byte_order,
+                              &next);
+  
+  
+  _dbus_verbose ("  type reader %p read basic type_pos = %d value_pos = %d next = %d remaining sig '%s'\n",
+                 reader, reader->type_pos, reader->value_pos, next,
+                 _dbus_string_get_const_data_len (reader->type_str, reader->type_pos, 0));
+}
+
+dbus_bool_t
+_dbus_type_reader_read_array_of_basic (DBusTypeReader    *reader,
+                                       int                type,
+                                       void             **array,
+                                       int               *array_len)
+{
+  
+  
+}
+
+/**
+ * Initialize a new reader pointing to the first type and
+ * corresponding value that's a child of the current container. It's
+ * an error to call this if the current type is a non-container.
+ * 
+ * Note that DBusTypeReader traverses values, not types. So if you
+ * have an empty array of array of int, you can't recurse into it. You
+ * can only recurse into each element.
+ *
+ * @param reader the reader
+ * @param sub a reader to init pointing to the first child
+ */
+void
+_dbus_type_reader_recurse (DBusTypeReader *reader,
+                           DBusTypeReader *sub)
+{
+  int t;
+  
+  t = first_type_in_signature (reader->type_str, reader->type_pos);
+
+  switch (t)
+    {
+    case DBUS_TYPE_STRUCT:
+      sub->klass = &struct_reader_class;
+      break;
+    case DBUS_TYPE_ARRAY:
+      sub->klass = &array_reader_class;
+      break;
+    default:
+      _dbus_verbose ("recursing into type %s\n", _dbus_type_to_string (t));
+#ifndef DBUS_DISABLE_CHECKS
+      if (t == DBUS_TYPE_INVALID)
+        _dbus_warn ("You can't recurse into an empty array or off the end of a message body\n");
+#endif /* DBUS_DISABLE_CHECKS */
+      
+      _dbus_assert_not_reached ("don't yet handle recursing into this type");
+    }
+
+  (* sub->klass->recurse) (sub, reader);
+  
+  _dbus_verbose ("  type reader %p RECURSED type_pos = %d value_pos = %d remaining sig '%s'\n",
+                 sub, sub->type_pos, sub->value_pos,
+                 _dbus_string_get_const_data_len (sub->type_str, sub->type_pos, 0));
+}
+
 /**
  * Skip to the next value on this "level". e.g. the next field in a
  * struct, the next value in an array, the next key or value in a
@@ -359,115 +542,8 @@ _dbus_type_reader_next (DBusTypeReader *reader)
 
   if (t == DBUS_TYPE_INVALID)
     return FALSE;
-  
-  if (reader->container_type == DBUS_TYPE_INVALID ||
-      reader->container_type == DBUS_TYPE_STRUCT)
-    {
-      switch (t)
-        {
-        case DBUS_TYPE_STRUCT:
-          /* Scan forward over the entire container contents */
-          {
-            DBusTypeReader sub;
 
-            /* Recurse into the struct */
-            _dbus_type_reader_recurse (reader, &sub);
-
-            /* Skip everything in this subreader */
-            while (_dbus_type_reader_next (&sub))
-              {
-                /* nothing */;
-              }
-
-            /* Now we are at the end of this container */
-            reader->type_pos = sub.type_pos;
-            reader->value_pos = sub.value_pos;
-          }
-          break;
-          
-        case DBUS_TYPE_ARRAY:
-          {
-            skip_array_values (first_type_in_signature (reader->type_str,
-                                                        reader->type_pos + 1),
-                               reader->value_str, &reader->value_pos, reader->byte_order);
-            skip_one_complete_type (reader->type_str, &reader->type_pos);
-          }
-          break;
-
-        default:
-          _dbus_marshal_skip_basic_type (reader->value_str,
-                                         t, reader->byte_order,
-                                         &reader->value_pos);
-          reader->type_pos += 1;
-          break;
-        }
-
-      /* for STRUCT containers we return FALSE at the end of the struct,
-       * for INVALID we return FALSE at the end of the signature.
-       * In both cases we arrange for get_current_type() to return INVALID
-       * which is defined to happen iff we're at the end (no more next())
-       */
-      if (reader->container_type == DBUS_TYPE_STRUCT)
-        {
-          t = _dbus_string_get_byte (reader->type_str, reader->type_pos);
-          if (t == DBUS_STRUCT_END_CHAR)
-            {
-              reader->type_pos += 1;
-              reader->u.strct.finished = TRUE;
-            }
-        }
-    }
-  else if (reader->container_type == DBUS_TYPE_ARRAY)
-    {
-      /* Skip one array element */
-      int end_pos;
-
-      end_pos = reader->u.array.start_pos + reader->u.array.len;
-
-      _dbus_assert (reader->value_pos < end_pos);
-      _dbus_assert (reader->value_pos >= reader->u.array.start_pos);
-
-      if (reader->u.array.element_type == DBUS_TYPE_STRUCT)
-        {
-          DBusTypeReader sub;
-          
-          /* Recurse into the struct */
-          _dbus_type_reader_recurse (reader, &sub);
-
-            /* Skip everything in this element */
-          while (_dbus_type_reader_next (&sub))
-            {
-              /* nothing */;
-            }
-
-          /* Now we are at the end of this element */
-          reader->value_pos = sub.value_pos;
-        }
-      else if (reader->u.array.element_type == DBUS_TYPE_ARRAY)
-        {
-          skip_array_values (first_type_in_signature (reader->type_str,
-                                                      reader->type_pos + 1),
-                             reader->value_str, &reader->value_pos, reader->byte_order);
-        }
-      else
-        {
-          _dbus_marshal_skip_basic_type (reader->value_str,
-                                         t, reader->byte_order,
-                                         &reader->value_pos);
-        }
-
-      _dbus_assert (reader->value_pos <= end_pos);
-      
-      if (reader->value_pos == end_pos)
-        {
-          skip_one_complete_type (reader->type_str,
-                                  &reader->type_pos);
-        }
-    }
-  else
-    {
-      _dbus_assert_not_reached ("reader->container_type should not be set to this");
-    }
+  (* reader->klass->next) (reader, t);
   
   _dbus_verbose ("  type reader %p END next() type_pos = %d value_pos = %d remaining sig '%s' current_type = %s\n",
                  reader, reader->type_pos, reader->value_pos,

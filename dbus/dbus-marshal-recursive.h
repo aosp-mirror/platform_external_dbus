@@ -31,23 +31,10 @@
 #error "config.h not included here"
 #endif
 
-/* Notes on my plan to implement this:
- * - also have DBusTypeWriter (heh)
- * - TypeReader has accessors for:
- *    . basic type
- *    . array of basic type (efficiency hack)
- *    . another type reader
- * - a dict will appear to be a list of string, whatever, string, whatever
- * - a variant will contain another TypeReader
- * - a struct will be a list of whatever, whatever, whatever
- *
- * So the basic API usage is to go next, next, next; if the
- * item is a basic type or basic array then read the item;
- * if it's another type reader then process it; if it's
- * a container type (struct, array, variant, dict) then
- * recurse.
- * 
- */
+typedef struct DBusTypeReader      DBusTypeReader;
+typedef struct DBusTypeWriter      DBusTypeWriter;
+typedef struct DBusTypeReaderClass DBusTypeReaderClass;
+typedef struct DBusTypeWriterClass DBusTypeWriterClass;
 
 struct DBusTypeReader
 {
@@ -57,8 +44,7 @@ struct DBusTypeReader
   const DBusString *value_str;
   int value_pos;
 
-  /* Hmm - it might be cleaner to do TypeReaderClass *vtable for container type */
-  int container_type;
+  const DBusTypeReaderClass *klass;
   union
   {
     struct {
@@ -78,8 +64,6 @@ struct DBusTypeReader
   } u;
 };
 
-typedef struct DBusTypeReader DBusTypeReader;
-
 struct DBusTypeWriter
 {
   int byte_order;
@@ -90,6 +74,7 @@ struct DBusTypeWriter
 
   dbus_uint32_t inside_array : 1;
 
+  /* const DBusTypeWriterClass *klass; */
   int container_type;
   union
   {
@@ -106,8 +91,6 @@ struct DBusTypeWriter
     } dict;
   } u;
 };
-
-typedef struct DBusTypeWriter DBusTypeWriter;
 
 void        _dbus_type_reader_init                (DBusTypeReader    *reader,
                                                    int                byte_order,
