@@ -23,7 +23,7 @@
 #include "message.h"
 
 
-namespace DBus {
+namespace DBusQt {
 
 struct Message::iterator::IteratorData {
   DBusMessageIter *iter;

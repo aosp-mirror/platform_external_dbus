@@ -20,13 +20,15 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+#ifndef DBUS_QT_MESSAGE_H
+#define DBUS_QT_MESSAGE_H
 
 #include <qvariant.h>
 #include <qstring.h>
 
 #include "dbus/dbus.h"
 
-namespace DBus {
+namespace DBusQt {
 
   class Message
   {
@@ -121,3 +123,5 @@ namespace DBus {
   };
 
 }
+
+#endif

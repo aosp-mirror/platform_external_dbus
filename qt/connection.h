@@ -24,6 +24,7 @@
 #define DBUS_QT_CONNECTION_H
 
 #include <qobject.h>
+#include <qstring.h>
 
 #include "dbus/dbus.h"
 
@@ -33,23 +34,56 @@ namespace DBusQt {
   {
     Q_OBJECT
   public:
-    Connection();
+    Connection( const QString& host = QString::null );
 
-    bool isConnected();
-    bool isAuthenticated();
+    bool isConnected() const;
+    bool isAuthenticated() const;
 
   public slots:
-    bool connect( const QString& );
-    bool disconnect();
+    void open( const QString& );
+    void close();
     void flush();
 
-  protected:
-    virtual void* virtual_hook( int id, void* data );
+  protected slots:
+    void slotRead( int );
+    void slotWrite( int );
 
+  protected:
+    void addWatch( DBusWatch* );
+    void removeWatch( DBusWatch* );
+
+  public:
+    friend dbus_bool_t dbusAddWatch( DBusWatch*, void* );
+    friend dbus_bool_t dbusRemoveWatch( DBusWatch*, void* );
+    friend dbus_bool_t dbusToggleWatch( DBusWatch*, void* );
+
+  protected:
+    void init( const QString& host );
+    virtual void* virtual_hook( int id, void* data );
   private:
     struct Private;
     Private *d;
   };
+
+  //////////////////////////////////////////////////////////////
+  //Friends
+  dbus_bool_t dbusAddWatch( DBusWatch *watch, void *data )
+  {
+    Connection *con = static_cast<Connection*>( data );
+    con->addWatch( watch );
+  }
+  dbus_bool_t dbusRemoveWatch( DBusWatch *watch, void *data )
+  {
+    Connection *con = static_cast<Connection*>( data );
+    con->removeWatch( watch );
+  }
+
+  dbus_bool_t dbusToggleWatch( DBusWatch*, void* )
+  {
+    //I don't know how to handle this one right now
+#warning "FIXME: implement"
+  }
+  //////////////////////////////////////////////////////////////
 
 }
 
