@@ -49,6 +49,10 @@ struct DBusError
   void *padding1; /**< placeholder */
 };
 
+#define DBUS_ERROR_SPAWN_FORK_FAILED "org.freedesktop.DBus.Error.Spawn.ForkFailed"
+#define DBUS_ERROR_SPAWN_FAILED      "org.freedesktop.DBus.Error.Spawn.Failed"
+#define DBUS_ERROR_NO_MEMORY         "org.freedesktop.DBus.Error.NoMemory"
+
 typedef enum
 {
   DBUS_RESULT_SUCCESS,         /**< Operation was successful. */
@@ -75,7 +79,7 @@ typedef enum
 
 void        dbus_error_init      (DBusError  *error);
 void        dbus_error_free      (DBusError  *error);
-dbus_bool_t dbus_set_error       (DBusError  *error,
+void        dbus_set_error       (DBusError  *error,
 				  const char *name,
 				  const char *message,
 				  ...);

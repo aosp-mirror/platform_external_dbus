@@ -147,6 +147,11 @@ void         _dbus_directory_close         (DBusDirIter      *iter);
 dbus_bool_t _dbus_generate_random_bytes (DBusString *str,
                                          int         n_bytes);
 
+const char *_dbus_errno_to_string (int         errnum);
+dbus_bool_t _dbus_spawn_async     (char      **argv,
+				   DBusError  *error);
+
+			       
 DBUS_END_DECLS;
 
 #endif /* DBUS_SYSDEPS_H */

@@ -1,5 +1,20 @@
 2003-02-15  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/dbus-errors.c: (dbus_set_error):
+	* dbus/dbus-errors.h:
+	Add a few errors and make dbus_set_error void.
+	
+	* dbus/dbus-sysdeps.c: 
+	(_dbus_errno_to_string), (close_and_invalidate), (make_pipe),
+	(write_err_and_exit), (read_ints), (do_exec), (_dbus_spawn_async):
+	* dbus/dbus-sysdeps.h:
+	Add _dbus_spawn_async.
+	
+	* test/spawn-test.c: (main):
+	Test for _dbus_spawn_async.
+	
+2003-02-15  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-internals.h:
 	Fix build without tests.
 	

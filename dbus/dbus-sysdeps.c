@@ -39,6 +39,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 #ifdef HAVE_WRITEV
 #include <sys/uio.h>
@@ -1447,6 +1448,277 @@ _dbus_generate_random_bytes (DBusString *str,
   _dbus_string_set_length (str, old_len);
   if (fd >= 0)
     close (fd);
+  return FALSE;
+}
+
+const char *
+_dbus_errno_to_string (int errnum)
+{
+  return strerror (errnum);
+}
+
+/* Avoids a danger in threaded situations (calling close()
+ * on a file descriptor twice, and another thread has
+ * re-opened it since the first close)
+ */
+static int
+close_and_invalidate (int *fd)
+{
+  int ret;
+
+  if (*fd < 0)
+    return -1;
+  else
+    {
+      ret = close (*fd);
+      *fd = -1;
+    }
+
+  return ret;
+}
+
+static dbus_bool_t
+make_pipe (int        p[2],
+           DBusError *error)
+{
+  if (pipe (p) < 0)
+    {
+      dbus_set_error (error,
+		      DBUS_ERROR_SPAWN_FAILED,
+		      "Failed to create pipe for communicating with child process (%s)",
+		      _dbus_errno_to_string (errno));
+      return FALSE;
+    }
+  else
+    return TRUE;
+}
+
+enum
+{
+  CHILD_CHDIR_FAILED,
+  CHILD_EXEC_FAILED,
+  CHILD_DUP2_FAILED,
+  CHILD_FORK_FAILED
+};
+
+static void
+write_err_and_exit (int fd, int msg)
+{
+  int en = errno;
+  
+  write (fd, &msg, sizeof(msg));
+  write (fd, &en, sizeof(en));
+  
+  _exit (1);
+}
+
+static dbus_bool_t
+read_ints (int        fd,
+	   int       *buf,
+	   int        n_ints_in_buf,
+	   int       *n_ints_read,
+	   DBusError *error)
+{
+  size_t bytes = 0;    
+  
+  while (TRUE)
+    {
+      size_t chunk;    
+
+      if (bytes >= sizeof(int)*2)
+        break; /* give up, who knows what happened, should not be
+                * possible.
+                */
+          
+    again:
+      chunk = read (fd,
+                    ((char*)buf) + bytes,
+                    sizeof(int) * n_ints_in_buf - bytes);
+      if (chunk < 0 && errno == EINTR)
+        goto again;
+          
+      if (chunk < 0)
+        {
+          /* Some weird shit happened, bail out */
+              
+          dbus_set_error (error,
+			  DBUS_ERROR_SPAWN_FAILED,
+			  "Failed to read from child pipe (%s)",
+			  _dbus_errno_to_string (errno));
+
+          return FALSE;
+        }
+      else if (chunk == 0)
+        break; /* EOF */
+      else /* chunk > 0 */
+	bytes += chunk;
+    }
+
+  *n_ints_read = (int)(bytes / sizeof(int));
+
+  return TRUE;
+}
+
+static void
+do_exec (int    child_err_report_fd,
+	 char **argv)
+{
+  execvp (argv[0], argv);
+
+  /* Exec failed */
+  write_err_and_exit (child_err_report_fd,
+                      CHILD_EXEC_FAILED);
+  
+}
+
+dbus_bool_t
+_dbus_spawn_async (char      **argv,
+		   DBusError  *error)
+{
+  int pid = -1, grandchild_pid;
+  int child_err_report_pipe[2] = { -1, -1 };
+  int child_pid_report_pipe[2] = { -1, -1 };
+  int status;
+  
+  printf ("spawning application: %s\n", argv[0]);
+
+  if (!make_pipe (child_err_report_pipe, error))
+    return FALSE;
+
+  if (!make_pipe (child_pid_report_pipe, error))
+    goto cleanup_and_fail;
+  
+  pid = fork ();
+
+  if (pid < 0)
+    {
+      dbus_set_error (error,
+		      DBUS_ERROR_SPAWN_FORK_FAILED,
+		      "Failed to fork (%s)",
+		      _dbus_errno_to_string (errno));
+      return FALSE;
+    }
+  else if (pid == 0)
+    {
+      /* Immediate child. */
+      
+      /* Be sure we crash if the parent exits
+       * and we write to the err_report_pipe
+       */
+      signal (SIGPIPE, SIG_DFL);
+
+      /* Close the parent's end of the pipes;
+       * not needed in the close_descriptors case,
+       * though
+       */
+      close_and_invalidate (&child_err_report_pipe[0]);
+      close_and_invalidate (&child_pid_report_pipe[0]);
+
+      /* We need to fork an intermediate child that launches the
+       * final child. The purpose of the intermediate child
+       * is to exit, so we can waitpid() it immediately.
+       * Then the grandchild will not become a zombie.
+       */
+      grandchild_pid = fork ();
+      
+      if (grandchild_pid < 0)
+	{
+	  /* report -1 as child PID */
+	  write (child_pid_report_pipe[1], &grandchild_pid,
+		 sizeof(grandchild_pid));
+	  
+	  write_err_and_exit (child_err_report_pipe[1],
+			      CHILD_FORK_FAILED);              
+	}
+      else if (grandchild_pid == 0)
+	{
+	  do_exec (child_err_report_pipe[1],
+		   argv);
+	}
+      else
+	{
+	  write (child_pid_report_pipe[1], &grandchild_pid, sizeof(grandchild_pid));
+	  close_and_invalidate (&child_pid_report_pipe[1]);
+              
+	  _exit (0);
+	}
+    }
+  else
+    {
+      /* Parent */
+
+      int buf[2];
+      int n_ints = 0;    
+      
+      /* Close the uncared-about ends of the pipes */
+      close_and_invalidate (&child_err_report_pipe[1]);
+      close_and_invalidate (&child_pid_report_pipe[1]);
+
+    wait_again:
+      if (waitpid (pid, &status, 0) < 0)
+	{
+	  if (errno == EINTR)
+	    goto wait_again;
+	  else if (errno == ECHILD)
+	    ; /* do nothing, child already reaped */
+	  else
+	    _dbus_warn ("waitpid() should not fail in "
+			"'_dbus_spawn_async'");
+	}
+
+      if (!read_ints (child_err_report_pipe[0],
+                      buf, 2, &n_ints,
+                      error))
+	  goto cleanup_and_fail;
+      
+      if (n_ints >= 2)
+        {
+          /* Error from the child. */
+          switch (buf[0])
+            {
+	    default:
+              dbus_set_error (error,
+			      DBUS_ERROR_SPAWN_FAILED,
+			      "Unknown error executing child process \"%s\"",
+			      argv[0]);
+              break;
+	    }
+
+	  goto cleanup_and_fail;
+	}
+
+
+      /* Success against all odds! return the information */
+      close_and_invalidate (&child_err_report_pipe[0]);
+
+      return TRUE;
+    }
+
+ cleanup_and_fail:
+
+  /* There was an error from the Child, reap the child to avoid it being
+     a zombie.
+  */
+  if (pid > 0)
+    {
+    wait_failed:
+      if (waitpid (pid, NULL, 0) < 0)
+	{
+          if (errno == EINTR)
+            goto wait_failed;
+          else if (errno == ECHILD)
+            ; /* do nothing, child already reaped */
+          else
+            _dbus_warn ("waitpid() should not fail in "
+			"'_dbus_spawn_async'");
+	}
+    }
+  
+  close_and_invalidate (&child_err_report_pipe[0]);
+  close_and_invalidate (&child_err_report_pipe[1]);
+  close_and_invalidate (&child_pid_report_pipe[0]);
+  close_and_invalidate (&child_pid_report_pipe[1]);
+
   return FALSE;
 }
 

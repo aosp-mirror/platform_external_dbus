@@ -214,12 +214,14 @@ dbus_set_error_const (DBusError  *error,
  * Assigns an error name and message to a DBusError.
  * Does nothing if error is #NULL.
  *
+ * If no memory can be allocated for the error message, 
+ * an out-of-memory error message will be set instead.
+ * 
  * @param error the error.
  * @param name the error name (not copied!!!)
  * @param format printf-style format string.
- * @returns #TRUE on success.
  */
-dbus_bool_t
+void
 dbus_set_error (DBusError  *error,
 		const char *name,
 		const char *format,
@@ -232,7 +234,7 @@ dbus_set_error (DBusError  *error,
   char c;
 
   if (error == NULL)
-    return TRUE;
+    return;
   
   va_start (args, format);
 
@@ -246,8 +248,12 @@ dbus_set_error (DBusError  *error,
   vsprintf (message, format, args2);
   
   if (!message)
-    return FALSE;
-
+    {
+      dbus_set_error_const (error, DBUS_ERROR_NO_MEMORY,
+			    "Failed to allocate memory for error message.");
+      return;
+    }
+  
   va_end (args);
 
   dbus_error_init (error);
@@ -256,8 +262,6 @@ dbus_set_error (DBusError  *error,
   real->name = name;
   real->message = message;
   real->const_message = FALSE;
-  
-  return TRUE;
 }
 
 /** @} */
