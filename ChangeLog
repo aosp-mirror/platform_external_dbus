@@ -1,3 +1,7 @@
+2003-12-26  Anders Carlsson  <andersca@gnome.org>
+
+	* AUTHORS: Reveal my True identity.
+
 2003-12-17  Mikael Hallendal  <micke@imendio.com>
 
 	* dbus/dbus-message.c: (dbus_message_append_args_valist): 
