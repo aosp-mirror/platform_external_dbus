@@ -297,7 +297,7 @@ _dbus_watch_list_remove_watch  (DBusWatchList *watch_list,
 /**
  * @defgroup DBusWatch DBusWatch
  * @ingroup  DBus
- * @brief Object representing an file descriptor to be watched.
+ * @brief Object representing a file descriptor to be watched.
  *
  * Types and functions related to DBusWatch. A watch represents
  * a file descriptor that the main loop needs to monitor,
