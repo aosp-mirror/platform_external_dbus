@@ -50,9 +50,9 @@ const char* dbus_message_get_service          (DBusMessage *message);
 dbus_bool_t dbus_message_set_sender           (DBusMessage *message,
 					       const char  *sender);
 const char* dbus_message_get_sender           (DBusMessage *message);
-void        dbus_message_set_is_error_reply   (DBusMessage *message,
+void        dbus_message_set_is_error         (DBusMessage *message,
 					       dbus_bool_t  is_error_reply);
-dbus_bool_t dbus_message_get_is_error_reply   (DBusMessage *message);
+dbus_bool_t dbus_message_get_is_error         (DBusMessage *message);
 
 
 dbus_bool_t dbus_message_append_fields        (DBusMessage          *message,

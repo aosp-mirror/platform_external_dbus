@@ -1,3 +1,9 @@
+2003-01-31  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-message.c (dbus_message_set_is_error_reply): rename 
+	just set_is_error/get_is_error as this is a commonly-used
+	function, and write docs.
+
 2003-01-31  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-address.c: (dbus_address_entry_free):

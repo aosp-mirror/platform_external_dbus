@@ -1635,9 +1635,16 @@ dbus_message_set_sender (DBusMessage  *message,
     }
 }
 
+/**
+ * Sets a flag indicating that the message is an error reply
+ * message, i.e. an "exception" rather than a normal response.
+ *
+ * @param message the message
+ * @param is_error_reply #TRUE if this is an error message.
+ */
 void
-dbus_message_set_is_error_reply (DBusMessage *message,
-				 dbus_bool_t  is_error_reply)
+dbus_message_set_is_error (DBusMessage *message,
+                           dbus_bool_t  is_error_reply)
 {
   char *header;
   
@@ -1646,20 +1653,26 @@ dbus_message_set_is_error_reply (DBusMessage *message,
   _dbus_string_get_data_len (&message->header, &header, 1, 1);
   
   if (is_error_reply)
-    *header |= DBUS_HEADER_FLAG_IS_ERROR_REPLY;
+    *header |= DBUS_HEADER_FLAG_ERROR;
   else
-    *header &= ~DBUS_HEADER_FLAG_IS_ERROR_REPLY;
-    
+    *header &= ~DBUS_HEADER_FLAG_ERROR;    
 }
 
+/**
+ * Returns #TRUE if the message is an error
+ * reply to some previous message we sent.
+ *
+ * @param message the message
+ * @returns #TRUE if the message is an error
+ */
 dbus_bool_t
-dbus_message_get_is_error_reply (DBusMessage *message)
+dbus_message_get_is_error (DBusMessage *message)
 {
   const char *header;
 
-  _dbus_string_get_data_len (&message->header, &header, 1, 1);
+  _dbus_string_get_const_data_len (&message->header, &header, 1, 1);
 
-  return (*header & DBUS_HEADER_FLAG_IS_ERROR_REPLY) != 0;
+  return (*header & DBUS_HEADER_FLAG_ERROR) != 0;
 }
 
 /**
