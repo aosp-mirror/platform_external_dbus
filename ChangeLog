@@ -1,5 +1,12 @@
 2004-11-25  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-transport-unix.c (unix_do_iteration): if we're going
+	to write, without reading or blocking, try it before the poll()
+	and skip the poll() if nothing remains to write. This is about a
+	3% speedup in the echo client/server
+
+2004-11-25  Havoc Pennington  <hp@redhat.com>
+
         The primary change here is to always write() once before adding
 	the write watch, which gives us about a 10% performance increase.
 	

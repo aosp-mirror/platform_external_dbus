@@ -945,13 +945,36 @@ unix_do_iteration (DBusTransport *transport,
   
   if (_dbus_transport_get_is_authenticated (transport))
     {
+      /* This is kind of a hack; if we have stuff to write, then try
+       * to avoid the poll. This is probably about a 5% speedup on an
+       * echo client/server.
+       *
+       * If both reading and writing were requested, we want to avoid this
+       * since it could have funky effects:
+       *   - both ends spinning waiting for the other one to read
+       *     data so they can finish writing
+       *   - prioritizing all writing ahead of reading
+       */
+      if ((flags & DBUS_ITERATION_DO_WRITING) &&
+          !(flags & (DBUS_ITERATION_DO_READING | DBUS_ITERATION_BLOCK)) &&
+          !transport->disconnected &&
+          _dbus_connection_has_messages_to_send_unlocked (transport->connection))
+        {
+          do_writing (transport);
+
+          if (transport->disconnected ||
+              !_dbus_connection_has_messages_to_send_unlocked (transport->connection))
+            goto out;
+        }
+
+      /* If we get here, we decided to do the poll() after all */
       _dbus_assert (unix_transport->read_watch);
       if (flags & DBUS_ITERATION_DO_READING)
 	poll_fd.events |= _DBUS_POLLIN;
 
       _dbus_assert (unix_transport->write_watch);
       if (flags & DBUS_ITERATION_DO_WRITING)
-	poll_fd.events |= _DBUS_POLLOUT;
+        poll_fd.events |= _DBUS_POLLOUT;
     }
   else
     {
