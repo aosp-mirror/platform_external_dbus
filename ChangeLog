@@ -1,3 +1,40 @@
+2005-02-11  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/dbus.py (class Sender): added to support dbus signals better
+	(Bus::add_signal_receiver): added expand_args parameter which defaults
+	to True.  When expand args is True the signal handler will pass the 
+	message arguments as parameters to the signal handler.  If False
+	revert to previous behavior where the signal handler must get the
+	argument list from the message.  This is to help port applications
+	like HAL that have a tendancy to send variable length argument lists.
+	self._match_rule_to_receivers is now a dict of dicts.
+	(Bus::remove_signal_receiver): pop handler off the dict intead of 
+	removing it from a list
+	(Bus::_signal_func): change signal handlers so that interface,
+	signal_name, service, path and message are packed into a Sender
+	object and that is passed to the handler.  If expand_args is True
+	extract the args list from the message and append it to the parameter
+	list
+	
+	* python/dbus_bindings.pyx.in (class Signature): added to support 
+	signiature types
+	(MessageIter::__init__): changed iteration limit to match D-BUS
+	(MessageIter::get*): added INT16, UINT16, SIGNATURE, DICT_ENTRY, 
+	STRUCT and VARIENT type support
+	(MessageIter::python_value_to_dbus_sig): made recursive to support
+	recursive types
+	(MessageIter::append*): added Signature, dict, tuple 
+	support
+
+	* python/examples/example-client.py: added examples of getting tuples
+	and dicts
+
+	* python/examples/example-service.py: added examples of sending tuples
+	and dicts
+
+	* python/examples/example-signal-recipient.py: Fixed to handle new
+	signal callback format
+
 2005-02-10  Havoc Pennington  <hp@redhat.com>
 
 	* test/glib/test-dbus-glib.c (main): fix so this test doesn't fail
