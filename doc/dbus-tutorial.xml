@@ -65,7 +65,15 @@
     </para>
 
     <para>
-      The message bus daemon has multiple instances on a typical computer.  The
+      The message bus daemon forms the hub of a wheel. Each spoke of the wheel
+      is a one-to-one connection to an application using libdbus.  An
+      application sends a message to the bus daemon over its spoke, and the bus
+      daemon forwards the message to other connected applications as
+      appropriate. Think of the daemon as a router.
+    </para>
+
+    <para>
+      The bus daemon has multiple instances on a typical computer.  The
       first instance is a machine-global singleton, that is, a system daemon
       similar to sendmail or Apache. This instance has heavy security
       restrictions on what messages it will accept, and is used for systemwide
@@ -306,6 +314,7 @@
         each one is unique. They are created dynamically, and are never re-used
         during the lifetime of the same bus daemon. You know that a given
         base service name will have the same owner at all times.
+        An example of a base service name might be <literal>:34-907</literal>.
       </para>
 
       <para>
@@ -324,7 +333,15 @@
       </para>
 
       <para>
-        Services have another important use, other than routing messages.  They
+        You could think of the base service names as IP addresses, and the
+        well-known services as domain names. So
+        <literal>com.mycompany.TextEditor</literal> might map to something like
+        <literal>:34-907</literal> just as <literal>mycompany.com</literal> maps
+        to something like <literal>192.168.0.5</literal>.
+      </para>
+      
+      <para>
+        Services have a second important use, other than routing messages.  They
         are used to track lifecycle. When an application exits (or crashes), its
         connection to the message bus will be closed by the operating system
         kernel. The message bus then sends out notification messages telling
