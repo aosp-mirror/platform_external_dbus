@@ -451,6 +451,9 @@ _dbus_object_tree_unregister_and_unlock (DBusObjectTree          *tree,
 
   _dbus_assert (path != NULL);
 
+  unregister_function = NULL;
+  user_data = NULL;
+
   subtree = find_subtree (tree, path, &i);
 
 #ifndef DBUS_DISABLE_CHECKS
@@ -459,7 +462,7 @@ _dbus_object_tree_unregister_and_unlock (DBusObjectTree          *tree,
       _dbus_warn ("Attempted to unregister path (path[0] = %s path[1] = %s) which isn't registered\n",
                   path[0] ? path[0] : "null",
                   path[1] ? path[1] : "null");
-      return;
+      goto unlock;    
     }
 #else
   _dbus_assert (subtree != NULL);
@@ -495,6 +498,7 @@ _dbus_object_tree_unregister_and_unlock (DBusObjectTree          *tree,
     }
   subtree = NULL;
 
+unlock:
   connection = tree->connection;
 
   /* Unlock and call application code */

@@ -1,3 +1,10 @@
+2005-03-09  Joe Shaw  <joeshaw@novell.com>
+
+	* dbus/dbus-object-tree.c
+	(_dbus_object_tree_unregister_and_unlock): If checks are enabled
+	and we try to unregister a path that's not registered, still go
+	through the process of unlocking and don't just return.
+
 2005-03-09  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-gproxy.c (dbus_g_proxy_invoke): New method; calls
