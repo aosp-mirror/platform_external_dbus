@@ -1,3 +1,16 @@
+2003-02-02  Alexander Larsson  <alexl@redhat.com>
+
+	* dbus/dbus-watch.c (dbus_watch_get_flags):
+	Add note in the docs that ERROR or HANGUP won't be returned
+	and are assumed always on.
+
+	* glib/dbus-gmain.c (add_watch):
+	Always add IO_ERR | IO_HUP
+
+	* dbus/dbus-message.h:
+	Add semicolon after dbus_message_iter_get_string_array().
+	Makes qt code build again
+
 2003-02-01  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/driver.c: (create_unique_client_name),

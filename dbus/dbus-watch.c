@@ -330,6 +330,11 @@ dbus_watch_get_fd (DBusWatch *watch)
  * Gets flags from DBusWatchFlags indicating
  * what conditions should be monitored on the
  * file descriptor.
+ * 
+ * The flags returned will only contain DBUS_WATCH_READABLE
+ * and DBUS_WATCH_WRITABLE, never DBUS_WATCH_HANGUP or
+ * DBUS_WATCH_ERROR; all watches implicitly include a watch
+ * for hangups, errors, and other exceptional conditions.
  *
  * @param watch the DBusWatch object.
  * @returns the conditions to watch.

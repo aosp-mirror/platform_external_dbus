@@ -148,10 +148,7 @@ add_watch (DBusWatch *watch,
     poll_fd->events |= G_IO_IN;
   if (flags & DBUS_WATCH_WRITABLE)
     poll_fd->events |= G_IO_OUT;
-  if (flags & DBUS_WATCH_ERROR)
-    poll_fd->events |= G_IO_ERR;
-  if (flags & DBUS_WATCH_HANGUP)
-    poll_fd->events |= G_IO_HUP;
+  poll_fd->events |= G_IO_ERR | G_IO_HUP;
 
   g_source_add_poll ((GSource *)dbus_source, poll_fd);
 

@@ -99,7 +99,7 @@ char *           dbus_message_iter_get_string     (DBusMessageIter *iter);
 unsigned char *  dbus_message_iter_get_byte_array (DBusMessageIter *iter,
 						   int             *len);
 char **          dbus_message_iter_get_string_array (DBusMessageIter *iter,
-						     int             *len)
+						     int             *len);
 
 
 
