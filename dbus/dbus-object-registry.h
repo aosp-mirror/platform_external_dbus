@@ -43,8 +43,12 @@ void              _dbus_object_registry_remove_and_unlock (DBusObjectRegistry   
 DBusHandlerResult _dbus_object_registry_handle_and_unlock (DBusObjectRegistry      *registry,
                                                            DBusMessage             *message);
 void              _dbus_object_registry_free_all_unlocked (DBusObjectRegistry      *registry);
-
-
+dbus_bool_t       _dbus_object_registry_connect_locked    (DBusObjectRegistry      *registry,
+                                                           const DBusObjectID      *object_id,
+                                                           const char              *signal);
+void              _dbus_object_registry_disconnect_locked (DBusObjectRegistry      *registry,
+                                                           const DBusObjectID      *object_id,
+                                                           const char              *signal);
 
 DBUS_END_DECLS;
 

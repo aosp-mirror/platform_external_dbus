@@ -248,7 +248,7 @@ _dbus_verbose_reset_real (void)
 char*
 _dbus_strdup (const char *str)
 {
-  int len;
+  size_t len;
   char *copy;
   
   if (str == NULL)
@@ -264,6 +264,31 @@ _dbus_strdup (const char *str)
   
   return copy;
 }
+
+#ifdef DBUS_BUILD_TESTS /* memdup not used at the moment */
+/**
+ * Duplicates a block of memory. Returns
+ * #NULL on failure.
+ *
+ * @param mem memory to copy
+ * @param n_bytes number of bytes to copy
+ * @returns the copy
+ */
+void*
+_dbus_memdup (const void  *mem,
+              size_t       n_bytes)
+{
+  void *copy;
+
+  copy = dbus_malloc (n_bytes);
+  if (copy == NULL)
+    return NULL;
+
+  memcpy (copy, mem, n_bytes);
+  
+  return copy;
+}
+#endif
 
 /**
  * Duplicates a string array. Result may be freed with

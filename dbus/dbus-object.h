@@ -41,8 +41,9 @@ typedef struct DBusCallbackObject DBusCallbackObject;
 
 typedef enum
 {
-  DBUS_HANDLER_RESULT_REMOVE_MESSAGE,     /**< Remove this message, no further processing. */
-  DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS /**< Run any additional handlers that are interested in this message. */
+  DBUS_HANDLER_RESULT_REMOVE_MESSAGE,      /**< Remove this message, no further processing. */
+  DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS, /**< Run any additional handlers that are interested in this message. */
+  DBUS_HANDLER_RESULT_NEED_MEMORY          /**< Need more memory to handle this message. */
 } DBusHandlerResult;
 
 struct DBusObjectInfo

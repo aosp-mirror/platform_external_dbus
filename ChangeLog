@@ -1,3 +1,12 @@
+2003-08-06  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-object-registry.c: implement signal connection 
+	and dispatch
+
+	* dbus/dbus-connection.c (_dbus_connection_unref_unlocked): new
+
+	* dbus/dbus-internals.c (_dbus_memdup): new function
+
 2003-08-02  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-message.c (dbus_message_get_no_reply)

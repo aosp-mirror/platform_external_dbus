@@ -203,7 +203,7 @@ static void               _dbus_connection_remove_timeout_locked             (DB
 static DBusDispatchStatus _dbus_connection_get_dispatch_status_unlocked      (DBusConnection     *connection);
 static void               _dbus_connection_update_dispatch_status_and_unlock (DBusConnection     *connection,
                                                                               DBusDispatchStatus  new_status);
-
+static void               _dbus_connection_last_unref                        (DBusConnection     *connection);
 
 
 /**
@@ -822,6 +822,39 @@ _dbus_connection_ref_unlocked (DBusConnection *connection)
   _dbus_assert (connection->refcount.value > 0);
   connection->refcount.value += 1;
 #endif
+}
+
+/**
+ * Decrements the reference count of a DBusConnection.
+ * Requires that the caller already holds the connection lock.
+ *
+ * @param connection the connection.
+ */
+void
+_dbus_connection_unref_unlocked (DBusConnection *connection)
+{
+  dbus_bool_t last_unref;
+
+  _dbus_return_if_fail (connection != NULL);
+
+  /* The connection lock is better than the global
+   * lock in the atomic increment fallback
+   */
+  
+#ifdef DBUS_HAVE_ATOMIC_INT
+  last_unref = (_dbus_atomic_dec (&connection->refcount) == 1);
+#else  
+  _dbus_assert (connection->refcount.value > 0);
+
+  connection->refcount.value -= 1;
+  last_unref = (connection->refcount.value == 0);
+#if 0
+  printf ("unref_unlocked() connection %p count = %d\n", connection, connection->refcount.value);
+#endif
+#endif
+  
+  if (last_unref)
+    _dbus_connection_last_unref (connection);
 }
 
 static dbus_uint32_t
@@ -2215,6 +2248,8 @@ dbus_connection_get_dispatch_status (DBusConnection *connection)
  * does not necessarily dispatch a message, as the data may
  * be part of authentication or the like.
  *
+ * @todo some FIXME in here about handling DBUS_HANDLER_RESULT_NEED_MEMORY
+ * 
  * @param connection the connection
  * @returns dispatch status
  */
@@ -2310,7 +2345,7 @@ dbus_connection_dispatch (DBusConnection *connection)
       result = _dbus_message_handler_handle_message (handler, connection,
                                                      message);
 
-      if (result == DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
+      if (result != DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS)
 	break;
 
       link = next;
@@ -2323,6 +2358,9 @@ dbus_connection_dispatch (DBusConnection *connection)
   
   CONNECTION_LOCK (connection);
 
+  if (result == DBUS_HANDLER_RESULT_NEED_MEMORY)
+    /* FIXME */ ;
+  
   /* Did a reply we were waiting on get filtered? */
   if (reply_handler_data && result == DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
     {
@@ -2342,7 +2380,7 @@ dbus_connection_dispatch (DBusConnection *connection)
   
   if (result == DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
     goto out;
-
+  
   if (reply_handler_data)
     {
       CONNECTION_UNLOCK (connection);
@@ -2364,9 +2402,13 @@ dbus_connection_dispatch (DBusConnection *connection)
   
   result = _dbus_object_registry_handle_and_unlock (connection->objects,
                                                     message);
+  
   CONNECTION_LOCK (connection);
   if (result == DBUS_HANDLER_RESULT_REMOVE_MESSAGE)
     goto out;
+
+  if (result == DBUS_HANDLER_RESULT_NEED_MEMORY)
+    /* FIXME */ ; 
   
   _dbus_verbose ("  done dispatching %p (%s) on connection %p\n", message,
                  dbus_message_get_name (message), connection);

@@ -144,6 +144,8 @@ extern const char _dbus_return_if_fail_warning_format[];
   ((void*)_DBUS_ALIGN_VALUE(this, boundary))
 
 char*       _dbus_strdup                (const char  *str);
+void*       _dbus_memdup                (const void  *mem,
+                                         size_t       n_bytes);
 dbus_bool_t _dbus_string_array_contains (const char **array,
                                          const char  *str);
 char**      _dbus_dup_string_array      (const char **array);
