@@ -242,7 +242,7 @@ static void
 bus_data_free (void *data)
 {
   BusData *bd = data;
-
+  
   if (bd->is_well_known)
     {
       int i;
@@ -253,7 +253,7 @@ bus_data_free (void *data)
         {
           if (bus_connections[i] == bd->connection)
             bus_connections[i] = NULL;
-
+          
           ++i;
         }
       _DBUS_UNLOCK (bus);

@@ -1137,11 +1137,18 @@
         applications.
       </para>
       <para>
-        [FIXME I think we should define the format of the base service name, 
-        and specify that a regular service name can never be in that 
-        format; this allows us to categorically prevent "spoofing" - for 
-        example perhaps the base service name starts with a certain 
-        character that no real service name can start with]
+        Ownership of the base service is a prerequisite for interaction with 
+        the message bus. It logically follows that the base service is always 
+        the first service that an application comes to own, and the last 
+        service that it loses ownership of.
+      </para>
+      <para>
+        Base service names must begin with the character ':' (ASCII colon
+        character); service names that are not base service names must not begin
+        with this character. (The bus must reject any attempt by an application
+        to manually create a service name beginning with ':'.) This restriction
+        categorically prevents "spoofing"; messages sent to a base service name
+        will always go to a single application instance and that instance only.
       </para>
       <para>
         An application can request additional service names to be associated

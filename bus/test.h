@@ -39,8 +39,9 @@ dbus_bool_t bus_setup_debug_client    (DBusConnection               *connection)
 void        bus_test_clients_foreach  (BusConnectionForeachFunction  function,
                                        void                         *data);
 dbus_bool_t bus_test_client_listed    (DBusConnection               *connection);
-void        bus_test_run_bus_loop     (BusContext                   *context);
-void        bus_test_run_clients_loop (void);
+void        bus_test_run_bus_loop     (BusContext                   *context,
+                                       dbus_bool_t                   block);
+void        bus_test_run_clients_loop (dbus_bool_t                   block);
 void        bus_test_run_everything   (BusContext                   *context);
 BusContext* bus_context_new_test      (const DBusString             *test_data_dir,
                                        const char                   *filename);

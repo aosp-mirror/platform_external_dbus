@@ -1,3 +1,16 @@
+2003-04-07  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-specification.sgml: require that base service names 
+	start with ':' and that the base service is created/deleted 
+	as first and last things a connection does on the bus
+
+	* bus/dispatch.c (check_existent_service_activation): lots more 
+	work on the activation test; it doesn't fully pass yet...
+
+	* test/test-service.c (main): fix so we don't memleak the
+	connection to the message bus
+	(filter_func): accept a message asking us to exit
+
 2003-04-06  Havoc Pennington  <hp@pobox.com>
 
 	* qt/Makefile.am (dbusinclude_HEADERS): install dbus-qt.h, 

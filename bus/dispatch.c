@@ -1034,6 +1034,231 @@ check_nonexistent_service_activation (BusContext     *context,
   return retval;
 }
 
+static dbus_bool_t
+check_service_activated (BusContext     *context,
+                         DBusConnection *connection,
+                         const char     *activated_name,
+                         dbus_bool_t     require_base_service,
+                         DBusMessage    *initial_message,
+                         char          **base_service_p)
+{
+  DBusMessage *message;
+  dbus_bool_t retval;
+  DBusError error;
+  char *base_service;
+  dbus_uint32_t activation_result;
+  dbus_bool_t already_saw_base_created;
+  
+  base_service = NULL;
+  retval = FALSE;
+  
+  dbus_error_init (&error);
+
+  message = initial_message;
+  dbus_message_ref (message);
+  
+  /* This is kind of a mess since we get the creation of
+   * the base service only if the activated service didn't
+   * already exist. Right now the test kills and restarts
+   * the service each time, so the mess is pointless.
+   */
+  already_saw_base_created = FALSE;
+
+ recheck_service_created:
+  if (dbus_message_name_is (message, DBUS_MESSAGE_SERVICE_CREATED))
+    {
+      char *service_name;
+      CheckServiceCreatedData scd;
+          
+      if (!dbus_message_get_args (message, &error,
+                                  DBUS_TYPE_STRING, &service_name,
+                                  DBUS_TYPE_INVALID))
+        {
+          _dbus_warn ("Message %s doesn't have a service name: %s\n",
+                      dbus_message_get_name (message),
+                      error.message);
+          dbus_error_free (&error);
+          goto out;
+        }
+
+      if (!already_saw_base_created && *service_name == ':')
+        {
+          /* This is a base service name, mop up all the
+           * other messages about it
+           */
+              
+          base_service = service_name;
+          service_name = NULL;
+              
+          scd.skip_connection = connection;
+          scd.failed = FALSE;
+          scd.expected_service_name = base_service;
+          bus_test_clients_foreach (check_service_created_foreach,
+                                    &scd);
+              
+          if (scd.failed)
+            goto out;
+
+          already_saw_base_created = TRUE;
+
+          dbus_message_unref (message);
+          message = dbus_connection_pop_message (connection);
+          if (message == NULL)
+            {
+              _dbus_warn ("Expected a ServiceCreated for the activated service, got nothing\n");
+              goto out;
+            }
+              
+          goto recheck_service_created;
+        }
+      else if (require_base_service)
+        {
+          _dbus_warn ("Did not get a ServiceCreated for a base service\n");
+          goto out;
+        }
+
+      if (strcmp (service_name, activated_name) != 0)
+        {
+          _dbus_warn ("Expected to see service %s created, saw %s instead\n",
+                      activated_name, service_name);
+          dbus_free (service_name);
+          goto out;
+        }
+      
+      scd.skip_connection = connection;
+      scd.failed = FALSE;
+      scd.expected_service_name = service_name;
+      bus_test_clients_foreach (check_service_created_foreach,
+                                &scd);
+          
+      dbus_free (service_name);
+
+      if (scd.failed)
+        goto out;
+          
+      dbus_message_unref (message);
+      message = dbus_connection_pop_message (connection);
+      if (message == NULL)
+        {
+          _dbus_warn ("Expected a reply to %s, got nothing\n",
+                      DBUS_MESSAGE_ACTIVATE_SERVICE);
+          goto out;
+        }
+    }
+      
+  if (!dbus_message_name_is (message, DBUS_MESSAGE_ACTIVATE_SERVICE))
+    {
+      _dbus_warn ("Expected reply to %s, got message %s instead\n",
+                  DBUS_MESSAGE_ACTIVATE_SERVICE,
+                  dbus_message_get_name (message));
+      goto out;
+    }
+
+  activation_result = 0;
+  if (!dbus_message_get_args (message, &error,
+                              DBUS_TYPE_UINT32, &activation_result,
+                              DBUS_TYPE_INVALID))
+    {
+      if (!dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
+        {
+          _dbus_warn ("Did not have activation result first argument to %s: %s\n",
+                      DBUS_MESSAGE_ACTIVATE_SERVICE, error.message);
+          dbus_error_free (&error);
+          goto out;
+        }
+
+      dbus_error_free (&error);
+    }
+  else
+    {
+      if (activation_result == DBUS_ACTIVATION_REPLY_ACTIVATED)
+        ; /* Good */
+      else if (activation_result == DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE)
+        ; /* Good also */
+      else
+        {
+          _dbus_warn ("Activation result was 0x%x, no good.\n",
+                      activation_result);
+          goto out;
+        }
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+      
+  if (!check_no_leftovers (context))
+    {
+      _dbus_warn ("Messages were left over after verifying existent activation results\n");
+      goto out;
+    }
+
+  retval = TRUE;
+
+  if (base_service_p)
+    {
+      *base_service_p = base_service;
+      base_service = NULL;
+    }
+  
+ out:
+  if (message)
+    dbus_message_unref (message);
+
+  if (base_service)
+    dbus_free (base_service);
+  
+  return retval;
+}
+
+static dbus_bool_t
+check_service_deactivated (BusContext     *context,
+                           DBusConnection *connection,
+                           const char     *activated_name,
+                           const char     *base_service)
+{
+  DBusMessage *message;
+  dbus_bool_t retval;
+  DBusError error;
+  CheckServiceDeletedData csdd;
+
+  message = NULL;
+  retval = FALSE;
+  
+  dbus_error_init (&error);
+
+  /* Now we are expecting ServiceDeleted messages for the base
+   * service and the activated_name.  The base service
+   * notification is required to come second.
+   */
+  csdd.expected_service_name = activated_name;
+  csdd.failed = FALSE;
+  bus_test_clients_foreach (check_service_deleted_foreach,
+                            &csdd);      
+
+  if (csdd.failed)
+    goto out;
+      
+  csdd.expected_service_name = base_service;
+  csdd.failed = FALSE;
+  bus_test_clients_foreach (check_service_deleted_foreach,
+                            &csdd);
+
+  if (csdd.failed)
+    goto out;
+      
+  if (!check_no_leftovers (context))
+    {
+      _dbus_warn ("Messages were left over after verifying results of service exiting\n");
+      goto out;
+    }
+  
+ out:
+  if (message)
+    dbus_message_unref (message);
+  
+  return retval;
+}
+
 #define EXISTENT_SERVICE_NAME "org.freedesktop.DBus.TestSuiteEchoService"
 
 /* returns TRUE if the correct thing happens,
@@ -1047,6 +1272,9 @@ check_existent_service_activation (BusContext     *context,
   dbus_int32_t serial;
   dbus_bool_t retval;
   DBusError error;
+  char *base_service;
+
+  base_service = NULL;
   
   dbus_error_init (&error);
   
@@ -1079,7 +1307,7 @@ check_existent_service_activation (BusContext     *context,
   if (dbus_connection_get_dispatch_status (connection) ==
       DBUS_DISPATCH_COMPLETE)
     /* now wait for the message bus to hear back from the activated service */
-    bus_test_run_bus_loop (context);
+    bus_test_run_bus_loop (context, TRUE);
   
   /* and process everything again */
   bus_test_run_everything (context);
@@ -1132,9 +1360,51 @@ check_existent_service_activation (BusContext     *context,
     }
   else
     {
-      _dbus_warn ("Did not expect to successfully activate %s\n",
-                  EXISTENT_SERVICE_NAME);
-      goto out;
+      if (!check_service_activated (context, connection,
+                                    EXISTENT_SERVICE_NAME, TRUE,
+                                    message, &base_service))
+        goto out;
+
+      dbus_message_unref (message);
+      message = NULL;
+  
+      /* Now kill off the test service by sending it a quit message */
+      message = dbus_message_new (EXISTENT_SERVICE_NAME,
+                                  "org.freedesktop.DBus.TestSuiteExit");
+      
+      if (message == NULL)
+        {
+          dbus_free (base_service);
+          return TRUE;
+        }
+      
+      if (!dbus_connection_send (connection, message, &serial))
+        {
+          dbus_message_unref (message);
+          dbus_free (base_service);
+          return TRUE;
+        }
+
+      dbus_message_unref (message);
+      message = NULL;
+
+      /* send message */
+      bus_test_run_clients_loop (TRUE);
+
+      /* read it in and write it out to test service */
+      bus_test_run_bus_loop (context, FALSE);
+      
+      if (dbus_connection_get_dispatch_status (connection) ==
+          DBUS_DISPATCH_COMPLETE)
+        /* now wait for the message bus to hear back from the activated service exiting */
+        bus_test_run_bus_loop (context, TRUE);
+      
+      /* and process everything again */
+      bus_test_run_everything (context);
+
+      if (!check_service_deactivated (context, connection,
+                                      EXISTENT_SERVICE_NAME, base_service))
+        goto out;
     }
 
   retval = TRUE;
@@ -1142,6 +1412,9 @@ check_existent_service_activation (BusContext     *context,
  out:
   if (message)
     dbus_message_unref (message);
+
+  if (base_service)
+    dbus_free (base_service);
   
   return retval;
 }
@@ -1162,7 +1435,7 @@ check_oom_check1_func (void *data)
   
   if (!check_no_leftovers (d->context))
     {
-      _dbus_warn ("Messages were left over, should be covered by test suite");
+      _dbus_warn ("Messages were left over, should be covered by test suite\n");
       return FALSE;
     }
 

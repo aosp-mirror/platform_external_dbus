@@ -176,3 +176,23 @@ test_connection_setup (DBusLoop       *loop,
     cdata_free (cd);
   return FALSE;
 }
+
+void
+test_connection_shutdown (DBusLoop       *loop,
+                          DBusConnection *connection)
+{
+  if (!dbus_connection_set_watch_functions (connection,
+                                            NULL,
+                                            NULL,
+                                            NULL,
+                                            NULL, NULL))
+    _dbus_assert_not_reached ("setting watch functions to NULL failed");
+  
+  if (!dbus_connection_set_timeout_functions (connection,
+                                              NULL,
+                                              NULL,
+                                              NULL,
+                                              NULL, NULL))
+    _dbus_assert_not_reached ("setting timeout functions to NULL failed");
+
+}

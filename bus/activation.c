@@ -515,7 +515,7 @@ bus_activation_service_created (BusActivation  *activation,
 	      BUS_SET_OOM (error);
 	      goto error;
 	    }
-
+          
           dbus_message_unref (message);
 	}
 

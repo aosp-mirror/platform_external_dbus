@@ -297,13 +297,13 @@ bus_test_client_listed (DBusConnection *connection)
 }
 
 void
-bus_test_run_clients_loop (void)
+bus_test_run_clients_loop (dbus_bool_t block_once)
 {
   if (client_loop == NULL)
     return;
   
   /* Do one blocking wait, since we're expecting data */
-  _dbus_loop_iterate (client_loop, TRUE);
+  _dbus_loop_iterate (client_loop, block_once);
 
   /* Then mop everything up */
   while (_dbus_loop_iterate (client_loop, FALSE))
@@ -311,10 +311,11 @@ bus_test_run_clients_loop (void)
 }
 
 void
-bus_test_run_bus_loop (BusContext *context)
+bus_test_run_bus_loop (BusContext *context,
+                       dbus_bool_t block_once)
 {
   /* Do one blocking wait, since we're expecting data */
-  _dbus_loop_iterate (bus_context_get_loop (context), TRUE);
+  _dbus_loop_iterate (bus_context_get_loop (context), block_once);
 
   /* Then mop everything up */
   while (_dbus_loop_iterate (bus_context_get_loop (context), FALSE))

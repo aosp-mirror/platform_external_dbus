@@ -977,7 +977,7 @@ dbus_connection_unref (DBusConnection *connection)
   last_unref = (connection->refcount == 0);
 
 #if 0
-  _dbus_verbose ("unref() connection %p count = %d\n", connection, connection->refcount);
+  printf ("unref() connection %p count = %d\n", connection, connection->refcount);
 #endif
   
   dbus_mutex_unlock (connection->mutex);

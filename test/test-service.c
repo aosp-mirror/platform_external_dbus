@@ -2,6 +2,17 @@
 #include "test-utils.h"
 
 static DBusLoop *loop;
+static dbus_bool_t already_quit;
+
+static void
+quit (void)
+{
+  if (!already_quit)
+    {
+      _dbus_loop_quit (loop);
+      already_quit = TRUE;
+    }
+}
 
 static void
 die (const char *message)
@@ -62,12 +73,14 @@ filter_func (DBusMessageHandler *handler,
              DBusConnection     *connection,
              DBusMessage        *message,
              void               *user_data)
-{
+{  
   if (dbus_message_name_is (message, "org.freedesktop.DBus.TestSuiteEcho"))
     return handle_echo (connection, message);
-  else if (dbus_message_name_is (message, DBUS_MESSAGE_LOCAL_DISCONNECT))
+  else if (dbus_message_name_is (message, "org.freedesktop.DBus.TestSuiteExit") ||
+           dbus_message_name_is (message, DBUS_MESSAGE_LOCAL_DISCONNECT))
     {
-      _dbus_loop_quit (loop);
+      dbus_connection_disconnect (connection);
+      quit ();
       return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
     }
   else
@@ -85,6 +98,7 @@ main (int    argc,
   DBusMessageHandler *handler;
   const char *to_handle[] = {
     "org.freedesktop.DBus.TestSuiteEcho",
+    "org.freedesktop.DBus.TestSuiteExit",
     DBUS_MESSAGE_LOCAL_DISCONNECT,
   };
   int result;
@@ -121,11 +135,13 @@ main (int    argc,
       fprintf (stderr, "Failed to acquire service: %s\n",
                error.message);
       dbus_error_free (&error);
-      return 1;
+      exit (1);
     }
   
   _dbus_loop_run (loop);
 
+  test_connection_shutdown (loop, connection);
+  
   dbus_connection_unref (connection);
   
   dbus_message_handler_unref (handler);
@@ -134,6 +150,8 @@ main (int    argc,
   loop = NULL;
   
   dbus_shutdown ();
+
+  printf ("*** Test service exiting\n");
   
   return 0;
 }

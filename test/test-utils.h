@@ -11,7 +11,10 @@
 
 dbus_bool_t test_connection_setup                 (DBusLoop       *loop,
                                                    DBusConnection *connection);
+void        test_connection_shutdown              (DBusLoop       *loop,
+                                                   DBusConnection *connection);
 void        test_connection_dispatch_all_messages (DBusConnection *connection);
 dbus_bool_t test_connection_dispatch_one_message  (DBusConnection *connection);
+
 
 #endif
