@@ -56,7 +56,6 @@ dbus_bool_t       _dbus_user_database_get_groupname (DBusUserDatabase     *db,
                                                      DBusError            *error);
 
 
-
 DBusUserDatabase* _dbus_user_database_get_system    (void);
 void              _dbus_user_database_lock_system   (void);
 void              _dbus_user_database_unlock_system (void);
@@ -75,6 +74,8 @@ dbus_bool_t _dbus_credentials_from_username     (const DBusString  *username,
                                                  DBusCredentials   *credentials);
 dbus_bool_t _dbus_credentials_from_uid          (dbus_uid_t         user_id,
                                                  DBusCredentials   *credentials);
+dbus_bool_t _dbus_is_console_user               (dbus_uid_t         uid,
+                                                 DBusError         *error);
 
 
 DBUS_END_DECLS;

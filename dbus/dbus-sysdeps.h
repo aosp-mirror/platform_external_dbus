@@ -99,6 +99,8 @@ typedef unsigned long dbus_gid_t;
 #define DBUS_UID_FORMAT "%lu"
 #define DBUS_GID_FORMAT "%lu"
 
+#define DBUS_CONSOLE_DIR "/var/run/console/"
+
 /**
  * Struct representing socket credentials
  */
@@ -309,6 +311,9 @@ typedef void (* DBusSignalHandler) (int sig);
 void _dbus_set_signal_handler (int               sig,
                                DBusSignalHandler handler);
 
+dbus_bool_t _dbus_file_exists     (const char *file);
+dbus_bool_t _dbus_user_at_console (const char *username,
+                                   DBusError  *error);
 
 /* Define DBUS_VA_COPY() to do the right thing for copying va_list variables. 
  * config.h may have already defined DBUS_VA_COPY as va_copy or __va_copy. 

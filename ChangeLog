@@ -1,3 +1,33 @@
+2004-08-25  John Palmieri  <johnp@redhat.com>
+	* bus/config-parser.c:
+	(struct PolicyType): Add POLICY_CONSOLE
+	(struct Element.d.policy): s/gid_or_uid/gid_uid_or_at_console
+	(start_busconfig_child): Sets up console element when
+	<policy at_console=""> is encountered in a policy file
+	(append_rule_from_element): Convert console elements to console
+	rules.
+
+	* bus/policy.c: 
+	(bus_policy_create_client_policy): Add console rules to the client
+	policy based on if the client is at the console
+	(bus_policy_append_console_rule): New function for adding a
+	console rule to a policy
+	(bus_policy_merge): Handle console rule merging
+
+	* dbus/dbus-sysdeps.h: Added the DBUS_CONSOLE_DIR constant
+	where we check for console user files
+	
+	* dbus/dbus-sysdeps.c:
+	(_dbus_file_exists): New function which checks if the given
+	file exists
+	(_dbus_user_at_console): New function which does the system
+	specific process of checking if the user is at the console
+
+	* dbus/dbus-userdb.c:
+	(_dbus_is_console_user): New function converts a UID to user name
+	and then calls the system specific _dbus_user_at_console to 
+	see if the user is at the console and therefor a console user
+
 2004-08-25  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* bus/config-parser.c (set_limit):

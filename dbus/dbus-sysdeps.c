@@ -3332,6 +3332,55 @@ _dbus_set_signal_handler (int               sig,
   sigaction (sig,  &act, 0);
 }
 
+/** Checks if a file exists
+*
+* @param file full path to the file
+* @returns #TRUE if file exists
+*/
+dbus_bool_t 
+_dbus_file_exists (const char *file)
+{
+  return (access (file, F_OK) == 0);
+}
+
+/** Checks if user is at the console
+*
+* @param username user to check
+* @param error return location for errors
+* @returns #TRUE is the user is at the consolei and there are no errors
+*/
+dbus_bool_t 
+_dbus_user_at_console (const char *username,
+                       DBusError  *error)
+{
+
+  DBusString f;
+  dbus_bool_t result;
+
+  if (!_dbus_string_init (&f))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return FALSE;
+    }
+
+  if (!_dbus_string_append (&f, DBUS_CONSOLE_DIR))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return FALSE;
+    }
+
+
+  if (!_dbus_string_append (&f, username))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return FALSE;
+    }
+
+  result = _dbus_file_exists (_dbus_string_get_const_data (&f));
+  _dbus_string_free (&f);
+
+  return result;
+}
 
 #ifdef DBUS_BUILD_TESTS
 #include <stdlib.h>

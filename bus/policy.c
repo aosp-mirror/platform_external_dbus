@@ -125,10 +125,12 @@ struct BusPolicy
 {
   int refcount;
 
-  DBusList *default_rules;       /**< Default policy rules */
-  DBusList *mandatory_rules;     /**< Mandatory policy rules */
-  DBusHashTable *rules_by_uid;   /**< per-UID policy rules */
-  DBusHashTable *rules_by_gid;   /**< per-GID policy rules */
+  DBusList *default_rules;         /**< Default policy rules */
+  DBusList *mandatory_rules;       /**< Mandatory policy rules */
+  DBusHashTable *rules_by_uid;     /**< per-UID policy rules */
+  DBusHashTable *rules_by_gid;     /**< per-GID policy rules */
+  DBusList *at_console_true_rules; /**< console user policy rules where at_console="true"*/
+  DBusList *at_console_false_rules; /**< console user policy rules where at_console="false"*/
 };
 
 static void
@@ -209,7 +211,13 @@ bus_policy_unref (BusPolicy *policy)
 
       _dbus_list_foreach (&policy->mandatory_rules, free_rule_func, NULL);
       _dbus_list_clear (&policy->mandatory_rules);
-      
+
+      _dbus_list_foreach (&policy->at_console_true_rules, free_rule_func, NULL);
+      _dbus_list_clear (&policy->at_console_true_rules);
+
+      _dbus_list_foreach (&policy->at_console_false_rules, free_rule_func, NULL);
+      _dbus_list_clear (&policy->at_console_false_rules);
+
       if (policy->rules_by_uid)
         {
           _dbus_hash_table_unref (policy->rules_by_uid);
@@ -264,7 +272,8 @@ bus_policy_create_client_policy (BusPolicy      *policy,
                                  DBusError      *error)
 {
   BusClientPolicy *client;
-  unsigned long uid;
+  dbus_uid_t uid;
+  dbus_bool_t at_console;
 
   _dbus_assert (dbus_connection_get_is_authenticated (connection));
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
@@ -333,6 +342,23 @@ bus_policy_create_client_policy (BusPolicy      *policy,
         }
     }
 
+  /* Add console rules */
+  at_console = _dbus_is_console_user (uid, error);
+
+  if (at_console)
+    {
+      if (!add_list_to_client (&policy->at_console_true_rules, client))
+        goto nomem;
+    }
+  else if (dbus_error_is_set (error) == TRUE)
+    {
+      goto failed;
+    }
+  else if (!add_list_to_client (&policy->at_console_false_rules, client))
+    {
+      goto nomem;
+    }
+
   if (!add_list_to_client (&policy->mandatory_rules,
                            client))
     goto nomem;
@@ -367,7 +393,7 @@ list_allows_user (dbus_bool_t           def,
     {
       BusPolicyRule *rule = link->data;
       link = _dbus_list_get_next_link (list, link);
-      
+
       if (rule->type == BUS_POLICY_RULE_USER)
         {
           _dbus_verbose ("List %p user rule uid="DBUS_UID_FORMAT"\n",
@@ -471,6 +497,8 @@ bus_policy_append_mandatory_rule (BusPolicy      *policy,
   return TRUE;
 }
 
+
+
 static DBusList**
 get_list (DBusHashTable *hash,
           unsigned long  key)
@@ -533,6 +561,28 @@ bus_policy_append_group_rule (BusPolicy      *policy,
   bus_policy_rule_ref (rule);
 
   return TRUE;
+}
+
+dbus_bool_t
+bus_policy_append_console_rule (BusPolicy      *policy,
+                                dbus_bool_t     at_console,
+                                BusPolicyRule  *rule)
+{
+  if (at_console)
+    {
+      if (!_dbus_list_append (&policy->at_console_true_rules, rule))
+        return FALSE;
+    }
+    else
+    {
+      if (!_dbus_list_append (&policy->at_console_false_rules, rule))
+        return FALSE;
+    }
+
+  bus_policy_rule_ref (rule);
+
+  return TRUE;
+
 }
 
 static dbus_bool_t
@@ -604,6 +654,14 @@ bus_policy_merge (BusPolicy *policy,
   
   if (!append_copy_of_policy_list (&policy->mandatory_rules,
                                    &to_absorb->mandatory_rules))
+    return FALSE;
+
+  if (!append_copy_of_policy_list (&policy->at_console_true_rules,
+                                   &to_absorb->at_console_true_rules))
+    return FALSE;
+
+  if (!append_copy_of_policy_list (&policy->at_console_false_rules,
+                                   &to_absorb->at_console_false_rules))
     return FALSE;
 
   if (!merge_id_hash (policy->rules_by_uid,

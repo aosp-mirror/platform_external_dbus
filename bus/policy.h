@@ -26,6 +26,7 @@
 
 #include <dbus/dbus.h>
 #include <dbus/dbus-string.h>
+#include <dbus/dbus-list.h>
 #include <dbus/dbus-sysdeps.h>
 #include "bus.h"
 
@@ -96,7 +97,7 @@ struct BusPolicyRule
       /* can be DBUS_GID_UNSET meaning "any" */
       dbus_gid_t gid;
     } group;
-    
+
   } d;
 };
 
@@ -124,6 +125,10 @@ dbus_bool_t      bus_policy_append_user_rule      (BusPolicy        *policy,
 dbus_bool_t      bus_policy_append_group_rule     (BusPolicy        *policy,
                                                    dbus_gid_t        gid,
                                                    BusPolicyRule    *rule);
+dbus_bool_t      bus_policy_append_console_rule   (BusPolicy        *policy,
+                                                   dbus_bool_t        at_console,
+                                                   BusPolicyRule    *rule);
+
 dbus_bool_t      bus_policy_merge                 (BusPolicy        *policy,
                                                    BusPolicy        *to_absorb);
 
