@@ -52,13 +52,52 @@ struct DBusGSource
 {
   GSource source; /**< the parent GSource */
 
-  GList *poll_fds;      /**< descriptors we're watching */
-  GHashTable *watches;  /**< hash of DBusWatch objects */
+  GList *watch_fds;      /**< descriptors we're watching */
 
   GMainContext *context; /**< the GMainContext to use, NULL for default */
 
   void *connection_or_server; /**< DBusConnection or DBusServer */
 };
+
+typedef struct
+{
+  int refcount;
+
+  GPollFD poll_fd;
+  DBusWatch *watch;
+  
+  unsigned int removed : 1;
+} WatchFD;
+
+static WatchFD *
+watch_fd_new (void)
+{
+  WatchFD *watch_fd;
+
+  watch_fd = g_new0 (WatchFD, 1);
+  watch_fd->refcount = 1;
+
+  return watch_fd;
+}
+
+static void
+watch_fd_ref (WatchFD *watch_fd)
+{
+  watch_fd->refcount += 1;
+}
+
+static void
+watch_fd_unref (WatchFD *watch_fd)
+{
+  watch_fd->refcount -= 1;
+
+  if (watch_fd->refcount == 0)
+    {
+      g_assert (watch_fd->removed);
+  
+      g_free (watch_fd);
+    }
+}
 
 static dbus_int32_t connection_slot = -1;
 static dbus_int32_t server_slot = -1;
@@ -116,13 +155,13 @@ dbus_gsource_check (GSource *source)
   DBusGSource *dbus_source = (DBusGSource *)source;
   GList *list;
 
-  list = dbus_source->poll_fds;
+  list = dbus_source->watch_fds;
 
   while (list)
     {
-      GPollFD *poll_fd = list->data;
+      WatchFD *watch_fd = list->data;
 
-      if (poll_fd->revents != 0)
+      if (watch_fd->poll_fd.revents != 0)
 	return TRUE;
 
       list = list->next;
@@ -152,35 +191,35 @@ dbus_gsource_dispatch (GSource     *source,
    DBusGSource *dbus_source = (DBusGSource *)source;
    GList *copy, *list;
 
-   /* We need to traverse a copy of the list, since it can change in
-      dbus_watch_handle(). */
-   copy = g_list_copy (dbus_source->poll_fds);
-
+   /* Make a copy of the list and ref all WatchFDs */
+   copy = g_list_copy (dbus_source->watch_fds);
+   g_list_foreach (copy, (GFunc)watch_fd_ref, NULL);
+   
    list = copy;
    while (list)
      {
-       GPollFD *poll_fd = list->data;
+       WatchFD *watch_fd = list->data;
 
-       if (poll_fd->revents != 0)
+       if (!watch_fd->removed && watch_fd->poll_fd.revents != 0)
 	 {
-	   DBusWatch *watch = g_hash_table_lookup (dbus_source->watches, poll_fd);
 	   guint condition = 0;
 	   
-	   if (poll_fd->revents & G_IO_IN)
+	   if (watch_fd->poll_fd.revents & G_IO_IN)
 	     condition |= DBUS_WATCH_READABLE;
-	   if (poll_fd->revents & G_IO_OUT)
+	   if (watch_fd->poll_fd.revents & G_IO_OUT)
 	     condition |= DBUS_WATCH_WRITABLE;
-	   if (poll_fd->revents & G_IO_ERR)
+	   if (watch_fd->poll_fd.revents & G_IO_ERR)
 	     condition |= DBUS_WATCH_ERROR;
-	   if (poll_fd->revents & G_IO_HUP)
+	   if (watch_fd->poll_fd.revents & G_IO_HUP)
 	     condition |= DBUS_WATCH_HANGUP;
 
-           dbus_watch_handle (watch, condition);
+           dbus_watch_handle (watch_fd->watch, condition);
 	 }
 
        list = list->next;
      }
 
+   g_list_foreach (copy, (GFunc)watch_fd_unref, NULL);   
    g_list_free (copy);   
 
    return TRUE;
@@ -230,7 +269,7 @@ static dbus_bool_t
 add_watch (DBusWatch *watch,
 	   gpointer   data)
 {
-  GPollFD *poll_fd;
+  WatchFD *watch_fd;
   DBusGSource *dbus_source;
   guint flags;
 
@@ -238,23 +277,24 @@ add_watch (DBusWatch *watch,
     return TRUE;
   
   dbus_source = data;
-  
-  poll_fd = g_new (GPollFD, 1);
-  poll_fd->fd = dbus_watch_get_fd (watch);
-  poll_fd->events = 0;
+
+  watch_fd = watch_fd_new ();
+  watch_fd->poll_fd.fd = dbus_watch_get_fd (watch);
+  watch_fd->poll_fd.events = 0;
   flags = dbus_watch_get_flags (watch);
-  dbus_watch_set_data (watch, poll_fd, NULL);
+  dbus_watch_set_data (watch, watch_fd, (DBusFreeFunction)watch_fd_unref);
 
   if (flags & DBUS_WATCH_READABLE)
-    poll_fd->events |= G_IO_IN;
+    watch_fd->poll_fd.events |= G_IO_IN;
   if (flags & DBUS_WATCH_WRITABLE)
-    poll_fd->events |= G_IO_OUT;
-  poll_fd->events |= G_IO_ERR | G_IO_HUP;
+    watch_fd->poll_fd.events |= G_IO_OUT;
+  watch_fd->poll_fd.events |= G_IO_ERR | G_IO_HUP;
 
-  g_source_add_poll ((GSource *)dbus_source, poll_fd);
+  watch_fd->watch = watch;
+  
+  g_source_add_poll ((GSource *)dbus_source, &watch_fd->poll_fd);
 
-  dbus_source->poll_fds = g_list_prepend (dbus_source->poll_fds, poll_fd);
-  g_hash_table_insert (dbus_source->watches, poll_fd, watch);
+  dbus_source->watch_fds = g_list_prepend (dbus_source->watch_fds, watch_fd);
 
   return TRUE;
 }
@@ -264,21 +304,22 @@ remove_watch (DBusWatch *watch,
 	      gpointer   data)
 {
   DBusGSource *dbus_source = data;
-  GPollFD *poll_fd;
+  WatchFD *watch_fd;
   
-  poll_fd = dbus_watch_get_data (watch);
-  if (poll_fd == NULL)
+  watch_fd = dbus_watch_get_data (watch);
+  if (watch_fd == NULL)
     return; /* probably a not-enabled watch that was added */
+
+  watch_fd->removed = TRUE;
+  watch_fd->watch = NULL;  
   
-  dbus_source->poll_fds = g_list_remove (dbus_source->poll_fds, poll_fd);
-  g_hash_table_remove (dbus_source->watches, poll_fd);
-  g_source_remove_poll ((GSource *)dbus_source, poll_fd);
+  dbus_source->watch_fds = g_list_remove (dbus_source->watch_fds, watch_fd);
+
+  g_source_remove_poll ((GSource *)dbus_source, &watch_fd->poll_fd);
 
   dbus_watch_set_data (watch, NULL, NULL); /* needed due to watch_toggled
                                             * breaking add/remove symmetry
                                             */
-  
-  g_free (poll_fd);
 }
 
 static void
@@ -382,7 +423,6 @@ create_source (void         *connection_or_server,
   source = g_source_new (funcs, sizeof (DBusGSource));
   
   dbus_source = (DBusGSource *)source;  
-  dbus_source->watches = g_hash_table_new (NULL, NULL);
   dbus_source->connection_or_server = connection_or_server;
   dbus_source->context = context;
 

@@ -1,3 +1,10 @@
+2003-08-05  Anders Carlsson  <andersca@codefactory.se>
+
+	* glib/dbus-gmain.c: (watch_fd_new), (watch_fd_ref),
+	(watch_fd_unref), (dbus_gsource_check), (dbus_gsource_dispatch),
+	(add_watch), (remove_watch), (create_source):
+	Refcount fds, fixes some reentrancy issues.
+	
 2003-07-30  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-bus.c (init_connections_unlocked): fix default system
