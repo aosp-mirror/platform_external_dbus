@@ -253,7 +253,7 @@ bus_policy_create_client_policy (BusPolicy      *policy,
    */
   if (_dbus_hash_table_get_n_entries (policy->rules_by_gid) > 0)
     {
-      const unsigned long *groups;
+      unsigned long *groups;
       int n_groups;
       int i;
       
@@ -271,11 +271,16 @@ bus_policy_create_client_policy (BusPolicy      *policy,
           if (list != NULL)
             {
               if (!add_list_to_client (list, client))
-                goto failed;
+                {
+                  dbus_free (groups);
+                  goto failed;
+                }
             }
           
           ++i;
         }
+
+      dbus_free (groups);
     }
 
   if (!dbus_connection_get_unix_user (connection, &uid))
@@ -369,15 +374,17 @@ list_allows_user (dbus_bool_t           def,
 }
 
 dbus_bool_t
-bus_policy_allow_user (BusPolicy    *policy,
-                       unsigned long uid)
+bus_policy_allow_user (BusPolicy        *policy,
+                       DBusUserDatabase *user_database,
+                       unsigned long     uid)
 {
   dbus_bool_t allowed;
   unsigned long *group_ids;
   int n_group_ids;
 
   /* On OOM or error we always reject the user */
-  if (!_dbus_get_groups (uid, &group_ids, &n_group_ids, NULL))
+  if (!_dbus_user_database_get_groups (user_database,
+                                       uid, &group_ids, &n_group_ids, NULL))
     {
       _dbus_verbose ("Did not get any groups for UID %lu\n",
                      uid);

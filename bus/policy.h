@@ -93,22 +93,24 @@ void           bus_policy_rule_ref   (BusPolicyRule    *rule);
 void           bus_policy_rule_unref (BusPolicyRule    *rule);
 
 BusPolicy*       bus_policy_new                   (void);
-void             bus_policy_ref                   (BusPolicy      *policy);
-void             bus_policy_unref                 (BusPolicy      *policy);
-BusClientPolicy* bus_policy_create_client_policy  (BusPolicy      *policy,
-                                                   DBusConnection *connection);
-dbus_bool_t      bus_policy_allow_user            (BusPolicy      *policy,
-                                                   unsigned long   uid);
-dbus_bool_t      bus_policy_append_default_rule   (BusPolicy      *policy,
-                                                   BusPolicyRule  *rule);
-dbus_bool_t      bus_policy_append_mandatory_rule (BusPolicy      *policy,
-                                                   BusPolicyRule  *rule);
-dbus_bool_t      bus_policy_append_user_rule      (BusPolicy      *policy,
-                                                   dbus_uid_t      uid,
-                                                   BusPolicyRule  *rule);
-dbus_bool_t      bus_policy_append_group_rule     (BusPolicy      *policy,
-                                                   dbus_gid_t      gid,
-                                                   BusPolicyRule  *rule);
+void             bus_policy_ref                   (BusPolicy        *policy);
+void             bus_policy_unref                 (BusPolicy        *policy);
+BusClientPolicy* bus_policy_create_client_policy  (BusPolicy        *policy,
+                                                   DBusConnection   *connection);
+dbus_bool_t      bus_policy_allow_user            (BusPolicy        *policy,
+                                                   DBusUserDatabase *user_database,
+                                                   unsigned long     uid);
+dbus_bool_t      bus_policy_append_default_rule   (BusPolicy        *policy,
+                                                   BusPolicyRule    *rule);
+dbus_bool_t      bus_policy_append_mandatory_rule (BusPolicy        *policy,
+                                                   BusPolicyRule    *rule);
+dbus_bool_t      bus_policy_append_user_rule      (BusPolicy        *policy,
+                                                   dbus_uid_t        uid,
+                                                   BusPolicyRule    *rule);
+dbus_bool_t      bus_policy_append_group_rule     (BusPolicy        *policy,
+                                                   dbus_gid_t        gid,
+                                                   BusPolicyRule    *rule);
+
 
 BusClientPolicy* bus_client_policy_new               (void);
 void             bus_client_policy_ref               (BusClientPolicy  *policy);

@@ -73,7 +73,7 @@ void        bus_connection_disconnected (DBusConnection *connection);
 dbus_bool_t      bus_connection_is_in_group (DBusConnection       *connection,
                                              unsigned long         gid);
 dbus_bool_t      bus_connection_get_groups  (DBusConnection       *connection,
-                                             const unsigned long **groups,
+                                             unsigned long       **groups,
                                              int                  *n_groups);
 BusClientPolicy* bus_connection_get_policy  (DBusConnection       *connection);
 

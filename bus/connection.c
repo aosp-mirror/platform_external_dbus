@@ -48,8 +48,6 @@ typedef struct
   DBusList *transaction_messages; /**< Stuff we need to send as part of a transaction */
   DBusMessage *oom_message;
   DBusPreallocatedSend *oom_preallocated;
-  unsigned long *group_ids;
-  int n_group_ids;
   BusClientPolicy *policy;
 } BusConnectionData;
 
@@ -306,8 +304,6 @@ free_connection_data (void *data)
   if (d->policy)
     bus_client_policy_unref (d->policy);
   
-  dbus_free (d->group_ids);
-  
   dbus_free (d->name);
   
   dbus_free (d);
@@ -394,9 +390,6 @@ bus_connections_setup_connection (BusConnections *connections,
     }
 
   retval = FALSE;
-
-  d->n_group_ids = 0;
-  d->group_ids = NULL;
   
   if (!dbus_connection_set_watch_functions (connection,
                                             add_connection_watch,
@@ -476,45 +469,42 @@ bus_connections_setup_connection (BusConnections *connections,
 }
 
 dbus_bool_t
-bus_connection_get_groups  (DBusConnection       *connection,
-                            const unsigned long **groups,
-                            int                  *n_groups)
+bus_connection_get_groups  (DBusConnection   *connection,
+                            unsigned long   **groups,
+                            int              *n_groups)
 {
   BusConnectionData *d;
-    
+  unsigned long uid;
+  DBusUserDatabase *user_database;
+  
   d = BUS_CONNECTION_DATA (connection);
 
   _dbus_assert (d != NULL);
 
+  user_database = bus_context_get_user_database (d->connections->context);
+  
   *groups = NULL;
   *n_groups = 0;
 
-  /* we do a lazy lookup on groups a user is in for two reasons:
-   * 1) we can't do it on connection setup since the user
-   * hasn't authenticated and 2) it might be expensive
-   * and we don't need to do it if there are no group-based
-   * rules in the config file
-   */
-  
-  if (d->n_group_ids == 0)
+  if (dbus_connection_get_unix_user (connection, &uid))
     {
-      unsigned long uid;
-      
-      if (dbus_connection_get_unix_user (connection, &uid))
+      if (!_dbus_user_database_get_groups (user_database,
+                                           uid, groups, n_groups,
+                                           NULL))
         {
-          if (!_dbus_get_groups (uid, &d->group_ids, &d->n_group_ids, NULL))
-            {
-              _dbus_verbose ("Did not get any groups for UID %lu\n",
-                             uid);
-              return FALSE;
-            }
+          _dbus_verbose ("Did not get any groups for UID %lu\n",
+                         uid);
+          return FALSE;
+        }
+      else
+        {
+          _dbus_verbose ("Got %d groups for UID %lu\n",
+                         *n_groups, uid);
+          return TRUE;
         }
     }
-
-  *groups = d->group_ids;
-  *n_groups = d->n_group_ids;
-
-  return TRUE;
+  else
+    return TRUE; /* successfully got 0 groups */
 }
 
 dbus_bool_t
@@ -522,7 +512,7 @@ bus_connection_is_in_group (DBusConnection *connection,
                             unsigned long   gid)
 {
   int i;
-  const unsigned long *group_ids;
+  unsigned long *group_ids;
   int n_group_ids;
 
   if (!bus_connection_get_groups (connection, &group_ids, &n_group_ids))
@@ -532,10 +522,14 @@ bus_connection_is_in_group (DBusConnection *connection,
   while (i < n_group_ids)
     {
       if (group_ids[i] == gid)
-        return TRUE;
+        {
+          dbus_free (group_ids);
+          return TRUE;
+        }
       ++i;
     }
 
+  dbus_free (group_ids);
   return FALSE;
 }
 

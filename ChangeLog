@@ -1,3 +1,12 @@
+2003-04-15  Havoc Pennington  <hp@pobox.com>
+
+	* bus/bus.c: create and keep around a shared DBusUserDatabase 
+	object.
+
+	* bus/connection.c (bus_connection_get_groups): don't cache
+	groups for user in the connection object, since user database 
+	object now does that.
+
 2003-04-16  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-message.c (_dbus_message_add_size_counter): keep a

@@ -44,6 +44,7 @@ struct BusContext
   BusActivation *activation;
   BusRegistry *registry;
   BusPolicy *policy;
+  DBusUserDatabase *user_database;
   int activation_timeout;        /**< How long to wait for an activation to time out */
   int auth_timeout;              /**< How long to wait for an authentication to time out */
   int max_completed_connections;    /**< Max number of authorized connections */
@@ -371,6 +372,13 @@ bus_context_new (const DBusString *config_file,
    * DOS all the other users.
    */
   context->max_completed_connections = 1024;
+
+  context->user_database = _dbus_user_database_new ();
+  if (context->user_database == NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
   
   context->loop = _dbus_loop_new ();
   if (context->loop == NULL)
@@ -733,6 +741,8 @@ bus_context_unref (BusContext *context)
           dbus_free (context->pidfile); 
 	}
 
+      _dbus_user_database_unref (context->user_database);
+      
       dbus_free (context);
 
       server_data_slot_unref ();
@@ -776,11 +786,19 @@ bus_context_get_loop (BusContext *context)
   return context->loop;
 }
 
+DBusUserDatabase*
+bus_context_get_user_database (BusContext *context)
+{
+  return context->user_database;
+}
+
 dbus_bool_t
 bus_context_allow_user (BusContext   *context,
                         unsigned long uid)
 {
-  return bus_policy_allow_user (context->policy, uid);
+  return bus_policy_allow_user (context->policy,
+                                context->user_database,
+                                uid);
 }
 
 BusClientPolicy*
