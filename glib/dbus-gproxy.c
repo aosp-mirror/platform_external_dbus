@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-gcall.c convenience routines for calling methods, etc.
+/* dbus-gproxy.c Proxy for remote objects
  *
- * Copyright (C) 2003, 2004 Red Hat, Inc.
+ * Copyright (C) 2003, 2004, 2005 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -668,11 +668,18 @@ dbus_g_proxy_manager_filter (DBusConnection    *connection,
 
 /*      ---------- DBusGProxy --------------   */
 
-
+static void
+marshal_dbus_message_to_g_marshaller (GClosure     *closure,
+                                      GValue       *return_value,
+                                      guint         n_param_values,
+                                      const GValue *param_values,
+                                      gpointer      invocation_hint,
+                                      gpointer      marshal_data);
 
 enum
 {
   DESTROY,
+  RECEIVED,
   LAST_SIGNAL
 };
 
@@ -703,8 +710,16 @@ dbus_g_proxy_class_init (DBusGProxyClass *klass)
 		  NULL, NULL,
                   g_cclosure_marshal_VOID__VOID,
 		  G_TYPE_NONE, 0);
-}
 
+  signals[RECEIVED] =
+    g_signal_new ("received",
+		  G_OBJECT_CLASS_TYPE (object_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
+                  0,
+                  NULL, NULL,
+                  marshal_dbus_message_to_g_marshaller,
+                  G_TYPE_NONE, 2, DBUS_TYPE_MESSAGE, G_TYPE_STRING);
+}
 
 static void
 dbus_g_proxy_dispose (GObject *object)
@@ -779,61 +794,154 @@ create_signal_name (const char *interface,
   return g_string_free (str, FALSE);
 }
 
-static void
-emit_remote_internal (DBusGProxy  *proxy,
-                      DBusMessage *message,
-                      guint        signal_id,
-                      gboolean     marshal_args)
+static GSignalCMarshaller
+lookup_g_marshaller (DBusGProxy *proxy,
+                     const char *signature)
 {
+  /* The "proxy" arg would eventually be used if you could provide
+   * a marshaller when adding a signal to the proxy
+   */
+
+#define MATCH1(sig, t0)         ((sig)[0] == (DBUS_TYPE_##t0) && (sig)[1] == '\0')
+#define MATCH2(sig, t0, t1)     ((sig)[0] == (DBUS_TYPE_##t0) && (sig)[1] == (DBUS_TYPE_##t1) && (sig)[2] == '\0')
+#define MATCH3(sig, t0, t1, t2) ((sig)[0] == (DBUS_TYPE_##t0) && (sig)[1] == (DBUS_TYPE_##t1) && (sig)[2] == (DBUS_TYPE_##t2) && (sig)[3] == '\0')
+  
+  switch (*signature)
+    {
+    case '\0':
+      return g_cclosure_marshal_VOID__VOID;
+
+    case DBUS_TYPE_BOOLEAN:
+      if (MATCH1 (signature, BOOLEAN))
+        return g_cclosure_marshal_VOID__BOOLEAN;
+      break;
+      
+    case DBUS_TYPE_BYTE:
+      if (MATCH1 (signature, BYTE))
+        return g_cclosure_marshal_VOID__UCHAR;
+      break;
+
+    case DBUS_TYPE_INT16:
+      if (MATCH1 (signature, INT16))
+        return g_cclosure_marshal_VOID__INT;
+      break;
+
+    case DBUS_TYPE_UINT16:
+      if (MATCH1 (signature, UINT16))
+        return g_cclosure_marshal_VOID__UINT;
+      break;
+      
+    case DBUS_TYPE_INT32:
+      if (MATCH1 (signature, INT32))
+        return g_cclosure_marshal_VOID__INT;
+      break;
+
+    case DBUS_TYPE_UINT32:
+      if (MATCH1 (signature, UINT32))
+        return g_cclosure_marshal_VOID__UINT;
+      break;
+
+    case DBUS_TYPE_DOUBLE:
+      if (MATCH1 (signature, DOUBLE))
+        return g_cclosure_marshal_VOID__DOUBLE;
+      break;
+
+    case DBUS_TYPE_OBJECT_PATH:
+      if (MATCH1 (signature, OBJECT_PATH))
+        return g_cclosure_marshal_VOID__STRING;
+      break;
+
+    case DBUS_TYPE_SIGNATURE:
+      if (MATCH1 (signature, SIGNATURE))
+        return g_cclosure_marshal_VOID__STRING;
+      break;
+      
+    case DBUS_TYPE_STRING:
+      if (MATCH1 (signature, STRING))
+        return g_cclosure_marshal_VOID__STRING;
+      /* This is for NameOwnerChanged */
+      else if (MATCH3 (signature, STRING, STRING, STRING))
+        return _dbus_g_marshal_NONE__STRING_STRING_STRING;
+      break;
+    }
+
+  return NULL;
+}
+
+static void
+marshal_dbus_message_to_g_marshaller (GClosure     *closure,
+                                      GValue       *return_value,
+                                      guint         n_param_values,
+                                      const GValue *param_values,
+                                      gpointer      invocation_hint,
+                                      gpointer      marshal_data)
+{
+  /* Incoming here we have three params, the instance (Proxy), the
+   * DBusMessage, the signature. We want to convert that to an
+   * expanded GValue array, then call an appropriate normal GLib
+   * marshaller.
+   */
 #define MAX_SIGNATURE_ARGS 20
-  GValue values[MAX_SIGNATURE_ARGS];
+  GValue expanded[MAX_SIGNATURE_ARGS];
   int arg;
   int i;
+  DBusMessageIter iter;
+  int dtype;
+  GSignalCMarshaller c_marshaller;
+  DBusGProxy *proxy;
+  DBusMessage *message;
+  const char *signature;
 
-  memset (&values[0], 0, sizeof (values));
+  g_assert (n_param_values == 3);
+
+  proxy = g_value_get_object (&param_values[0]);
+  message = g_value_get_boxed (&param_values[1]);
+  signature = g_value_get_string (&param_values[2]);
+
+  g_return_if_fail (DBUS_IS_G_PROXY (proxy));
+  g_return_if_fail (message != NULL);
+  g_return_if_fail (signature != NULL);
+  
+  c_marshaller = lookup_g_marshaller (proxy, signature);
+
+  g_return_if_fail (c_marshaller != NULL);
+  
+  memset (&expanded[0], 0, sizeof (expanded));
   
   arg = 0;
       
-  g_value_init (&values[arg], G_TYPE_FROM_INSTANCE (proxy));
-  g_value_set_instance (&values[arg], proxy);
+  g_value_init (&expanded[arg], G_TYPE_FROM_INSTANCE (proxy));
+  g_value_set_instance (&expanded[arg], proxy);
   ++arg;
-
-  if (marshal_args)
+  
+  dbus_message_iter_init (message, &iter);
+  
+  while ((dtype = dbus_message_iter_get_arg_type (&iter)) != DBUS_TYPE_INVALID)
     {
-      DBusMessageIter iter;
-      int dtype;
-
-      dbus_message_iter_init (message, &iter);
-      
-      while ((dtype = dbus_message_iter_get_arg_type (&iter)) != DBUS_TYPE_INVALID)
+      if (arg == MAX_SIGNATURE_ARGS)
         {
-          if (arg == MAX_SIGNATURE_ARGS)
-            {
-              g_warning ("Don't support more than %d signal args\n", MAX_SIGNATURE_ARGS);
-              goto out;
-            }
-          
-          if (!dbus_gvalue_demarshal (&iter, &values[arg]))
-            {
-              g_warning ("Unable to convert arg type %d to GValue to emit DBusGProxy signal", dtype);
-              goto out;
-            }
-          
-          ++arg;
-          dbus_message_iter_next (&iter);
+          g_warning ("Don't support more than %d signal args\n", MAX_SIGNATURE_ARGS);
+          goto out;
         }
-    }
       
-  g_signal_emitv (&values[0],
-                  signal_id,
-                  0,
-                  NULL);
+      if (!dbus_gvalue_demarshal (&iter, &expanded[arg]))
+        {
+          g_warning ("Unable to convert arg type %d to GValue to emit DBusGProxy signal", dtype);
+          goto out;
+        }
+      
+      ++arg;
+      dbus_message_iter_next (&iter);
+    }
 
+  (* c_marshaller) (closure, return_value, arg, &expanded[0],
+                    invocation_hint, marshal_data);
+  
  out:
   i = 0;
   while (i < arg)
     {
-      g_value_unset (&values[i]);
+      g_value_unset (&expanded[i]);
       ++i;
     }
 }
@@ -880,12 +988,11 @@ dbus_g_proxy_emit_remote_signal (DBusGProxy  *proxy,
         }
       else
         {
-          guint signal_id;
-
-          signal_id = g_signal_lookup (name, G_OBJECT_TYPE (proxy));
-          g_assert (signal_id != 0); /* because we have the signature */
-          
-          emit_remote_internal (proxy, message, signal_id, signature != NULL);
+          g_signal_emit (proxy,
+                         signals[RECEIVED],
+                         q,
+                         message,
+                         signature);
         }
     }
 
@@ -1379,33 +1486,6 @@ dbus_g_proxy_send (DBusGProxy          *proxy,
     g_error ("Out of memory\n");
 }
 
-static gboolean
-siginfo_from_signature (const char         *signature,
-                        GSignalCMarshaller *c_marshaller,
-                        GType              *return_type,
-                        guint              *n_params,
-                        GType             **param_types)
-{
-  /* FIXME (which marshalers should we include?
-   * probably need public API to add your own
-   */
-  
-  if (strcmp (signature, "sss") == 0)
-    {
-      *c_marshaller = _dbus_g_marshal_NONE__STRING_STRING_STRING;
-      *return_type = G_TYPE_NONE;
-      *n_params = 3;
-      *param_types = g_new0 (GType, *n_params);
-      (*param_types)[0] = G_TYPE_STRING;
-      (*param_types)[1] = G_TYPE_STRING;
-      (*param_types)[2] = G_TYPE_STRING;
-
-      return TRUE;
-    }
-
-  return FALSE;
-}
-
 /**
  * Specifies the signature of a signal, such that it's possible to
  * connect to the signal on this proxy.
@@ -1419,56 +1499,29 @@ dbus_g_proxy_add_signal  (DBusGProxy        *proxy,
                           const char        *signal_name,
                           const char        *signature)
 {
-  GSignalCMarshaller c_marshaller;
-  GType return_type;
-  int n_params;
-  GType *params;
-  
+  GQuark q;
+  char *name;
+
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
   g_return_if_fail (signal_name != NULL);
   g_return_if_fail (signature != NULL);
+#ifndef G_DISABLE_CHECKS
+  if (lookup_g_marshaller (proxy, signature) == NULL)
+    g_warning ("No marshaller for signature '%s', we need to add API for providing your own",
+               signature);
+#endif
+  
+  name = create_signal_name (proxy->interface, signal_name);
+  
+  q = g_quark_from_string (name);
+  
+  g_return_if_fail (g_datalist_id_get_data (&proxy->signal_signatures, q) == NULL);
+  
+  g_datalist_id_set_data_full (&proxy->signal_signatures,
+                               q, g_strdup (signature),
+                               g_free);
 
-  if (siginfo_from_signature (signature,
-                              &c_marshaller,
-                              &return_type,
-                              &n_params,
-                              &params))
-    {
-      GQuark q;
-      char *name;
-
-      name = create_signal_name (proxy->interface, signal_name);
-      
-      q = g_quark_from_string (name);
-      
-      g_return_if_fail (g_datalist_id_get_data (&proxy->signal_signatures, q) == NULL);
-      
-      g_datalist_id_set_data_full (&proxy->signal_signatures,
-                                   q, g_strdup (signature),
-                                   g_free);
-
-      /* hackaround global nature of g_signal_newv()... this whole thing needs unhosing */
-
-      if (g_signal_lookup (name,
-                           G_OBJECT_TYPE (proxy)) == 0)
-        {
-          g_signal_newv (name,
-                         G_OBJECT_TYPE (proxy),
-                         G_SIGNAL_RUN_LAST,
-                         0,
-                         NULL, NULL,
-                         c_marshaller,
-                         return_type, n_params, params);
-        }
-
-      g_free (params);
-      g_free (name);
-    }
-  else
-    {
-      g_warning ("DBusGProxy doesn't know how to create a signal with signature '%s'\n",
-                 signature);
-    }
+  g_free (name);
 }
 
 /**
@@ -1490,7 +1543,8 @@ dbus_g_proxy_connect_signal (DBusGProxy             *proxy,
                              GClosureNotify          free_data_func)
 {
   char *name;
-  guint signal_id;
+  GClosure *closure;
+  GQuark q;
 
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
   g_return_if_fail (signal_name != NULL);
@@ -1498,24 +1552,23 @@ dbus_g_proxy_connect_signal (DBusGProxy             *proxy,
   
   name = create_signal_name (proxy->interface, signal_name);
 
-  g_printerr ("Looking up signal '%s'\n", name);
-  signal_id = g_signal_lookup (name,
-                               G_OBJECT_TYPE (proxy));
-  if (signal_id != 0)
+  q = g_quark_from_string (name);
+
+#ifndef G_DISABLE_CHECKS
+  if (g_datalist_id_get_data (&proxy->signal_signatures, q) == NULL)
     {
-      GClosure *closure;
-      
-      closure = g_cclosure_new (G_CALLBACK (handler), data, free_data_func);
-      g_signal_connect_closure_by_id (G_OBJECT (proxy),
-                                      signal_id,
-                                      0,
-                                      closure, FALSE);
+      g_warning ("Must add the signal '%s' with dbus_g_proxy_add_signal() prior to connecting to it\n", name);
+      g_free (name);
+      return;
     }
-  else
-    {
-      g_warning ("You have to add signal '%s' with dbus_g_proxy_add_signal() before you can connect to it\n",
-                 name);
-    }
+#endif
+  
+  closure = g_cclosure_new (G_CALLBACK (handler), data, free_data_func);
+  
+  g_signal_connect_closure_by_id (G_OBJECT (proxy),
+                                  signals[RECEIVED],
+                                  q,
+                                  closure, FALSE);
   
   g_free (name);
 }
@@ -1536,7 +1589,7 @@ dbus_g_proxy_disconnect_signal (DBusGProxy             *proxy,
                                 void                   *data)
 {
   char *name;
-  guint signal_id;
+  GQuark q;
   
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
   g_return_if_fail (signal_name != NULL);
@@ -1544,15 +1597,16 @@ dbus_g_proxy_disconnect_signal (DBusGProxy             *proxy,
 
   name = create_signal_name (proxy->interface, signal_name);
 
-  signal_id = g_signal_lookup (name, G_OBJECT_TYPE (proxy));
-  if (signal_id != 0)
+  q = g_quark_from_string (name);
+  
+  if (q != 0)
     {
       g_signal_handlers_disconnect_matched (G_OBJECT (proxy),
                                             G_SIGNAL_MATCH_DETAIL |
                                             G_SIGNAL_MATCH_FUNC   |
                                             G_SIGNAL_MATCH_DATA,
-                                            signal_id,
-                                            0,
+                                            signals[RECEIVED],
+                                            q,
                                             NULL,
                                             G_CALLBACK (handler), data);
     }
