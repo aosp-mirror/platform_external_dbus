@@ -1049,6 +1049,9 @@ dbus_message_append_args_valist (DBusMessage *message,
 	case DBUS_TYPE_NIL:
 	  if (!dbus_message_append_nil (message))
 	    goto enomem;
+	case DBUS_TYPE_BOOLEAN:
+	  if (!dbus_message_append_boolean (message, va_arg (var_args, dbus_bool_t)))
+	    goto enomem;
 	case DBUS_TYPE_INT32:
 	  if (!dbus_message_append_int32 (message, va_arg (var_args, dbus_int32_t)))
 	    goto enomem;
@@ -1064,6 +1067,18 @@ dbus_message_append_args_valist (DBusMessage *message,
 	case DBUS_TYPE_STRING:
 	  if (!dbus_message_append_string (message, va_arg (var_args, const char *)))
 	    goto enomem;
+	  break;
+	case DBUS_TYPE_BOOLEAN_ARRAY:
+	  {
+	    int len;
+	    unsigned char *data;
+
+	    data = va_arg (var_args, unsigned char *);
+	    len = va_arg (var_args, int);
+
+	    if (!dbus_message_append_boolean_array (message, data, len))
+	      goto enomem;
+	  }
 	  break;
 	case DBUS_TYPE_INT32_ARRAY:
 	  {
@@ -1154,6 +1169,31 @@ dbus_message_append_nil (DBusMessage *message)
       return FALSE;
   else
     return TRUE;
+}
+
+/**
+ * Appends a boolean value to the message
+ *
+ * @param message the message
+ * @param value the boolean value
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_boolean (DBusMessage  *message,
+			     unsigned char value)
+{
+  _dbus_assert (!message->locked);
+  
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_BOOLEAN))
+    return FALSE;
+
+  if (!_dbus_string_append_byte (&message->body, (value != FALSE)))
+    {
+      _dbus_string_shorten (&message->body, 1);
+      return FALSE;
+    }
+
+  return TRUE;
 }
 
 /**
@@ -1251,6 +1291,33 @@ dbus_message_append_string (DBusMessage *message,
     {
       _dbus_string_shorten (&message->body, 1);
       return FALSE;      
+    }
+
+  return TRUE;
+}
+
+/**
+ * Appends a boolean array to the message.
+ *
+ * @param message the message
+ * @param value the array
+ * @param len the length of the array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_boolean_array (DBusMessage   *message,
+				   unsigned char *value,
+				   int            len)
+{
+  _dbus_assert (!message->locked);
+
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_BOOLEAN_ARRAY))
+    return FALSE;
+
+  if (!_dbus_marshal_byte_array (&message->body, message->byte_order, value, len))
+    {
+      _dbus_string_shorten (&message->body, 1);
+      return FALSE;
     }
 
   return TRUE;
@@ -1472,6 +1539,17 @@ dbus_message_get_args_valist (DBusMessage *message,
 
       switch (spec_type)
 	{
+	case DBUS_TYPE_NIL:
+	  break;
+	case DBUS_TYPE_BOOLEAN:
+	  {
+	    unsigned char *ptr;
+
+	    ptr = va_arg (var_args, unsigned char *);
+
+	    *ptr = dbus_message_iter_get_boolean (iter);
+	    break;
+	  }
 	case DBUS_TYPE_INT32:
 	  {
 	    dbus_int32_t *ptr;
@@ -1515,6 +1593,20 @@ dbus_message_get_args_valist (DBusMessage *message,
 	    break;
 	  }
 
+	case DBUS_TYPE_BOOLEAN_ARRAY:
+	  {
+	    unsigned char **ptr;
+	    int *len;
+
+	    ptr = va_arg (var_args, unsigned char **);
+	    len = va_arg (var_args, int *);
+
+	    if (!dbus_message_iter_get_boolean_array (iter, ptr, len))
+	      return DBUS_RESULT_NO_MEMORY;
+	    
+	    break;
+	  }
+	  
 	case DBUS_TYPE_INT32_ARRAY:
 	  {
 	    dbus_int32_t **ptr;
@@ -1740,7 +1832,7 @@ dbus_message_iter_get_arg_type (DBusMessageIter *iter)
  * Note that you need to check that the iterator points to
  * a string value before using this function.
  *
- * @see dbus_message_iter_get_field_type
+ * @see dbus_message_iter_get_arg_type
  * @param iter the message iter
  * @returns the string
  */
@@ -1754,17 +1846,41 @@ dbus_message_iter_get_string (DBusMessageIter *iter)
 }
 
 /**
+ * Returns the boolean value that an iterator may point to.
+ * Note that you need to check that the iterator points to
+ * a boolean value before using this function.
+ *
+ * @see dbus_message_iter_get_arg_type
+ * @param iter the message iter
+ * @returns the string
+ */
+unsigned char 
+dbus_message_iter_get_boolean (DBusMessageIter *iter)
+{
+  unsigned char value;
+  
+  _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_BOOLEAN);
+
+  value = _dbus_string_get_byte (&iter->message->body, iter->pos + 1);
+  iter->pos += 2;
+  
+  return value;
+}
+
+/**
  * Returns the 32 bit signed integer value that an iterator may point to.
  * Note that you need to check that the iterator points to
  * an integer value before using this function.
  *
- * @see dbus_message_iter_get_field_type
+ * @see dbus_message_iter_get_arg_type
  * @param iter the message iter
  * @returns the integer
  */
 int
 dbus_message_iter_get_int32 (DBusMessageIter *iter)
 {
+  _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_INT32);
+  
   return _dbus_demarshal_int32 (&iter->message->body, iter->message->byte_order,
 				iter->pos + 1, NULL);
 }
@@ -1774,13 +1890,15 @@ dbus_message_iter_get_int32 (DBusMessageIter *iter)
  * Note that you need to check that the iterator points to
  * an unsigned integer value before using this function.
  *
- * @see dbus_message_iter_get_field_type
+ * @see dbus_message_iter_get_arg_type
  * @param iter the message iter
  * @returns the integer
  */
 int
 dbus_message_iter_get_uint32 (DBusMessageIter *iter)
 {
+  _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_UINT32);
+  
   return _dbus_demarshal_uint32 (&iter->message->body, iter->message->byte_order,
 				 iter->pos + 1, NULL);
 }
@@ -1790,15 +1908,43 @@ dbus_message_iter_get_uint32 (DBusMessageIter *iter)
  * Note that you need to check that the iterator points to
  * a string value before using this function.
  *
- * @see dbus_message_iter_get_field_type
+ * @see dbus_message_iter_get_arg_type
  * @param iter the message iter
  * @returns the double
  */
 double
 dbus_message_iter_get_double (DBusMessageIter *iter)
 {
+  _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_DOUBLE);
+  
   return _dbus_demarshal_double (&iter->message->body, iter->message->byte_order,
 				 iter->pos + 1, NULL);
+}
+
+/**
+ * Returns the boolean array that the iterator may point to. Note that
+ * you need to check that the iterator points to an array of the
+ * correct type prior to using this function.
+ *
+ * @param iter the iterator
+ * @param value return location for the array
+ * @param len return location for the array length
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_iter_get_boolean_array (DBusMessageIter   *iter,
+				     unsigned char    **value,
+				     int               *len)
+{
+  _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_BOOLEAN_ARRAY);
+
+  *value = _dbus_demarshal_byte_array (&iter->message->body, iter->message->byte_order,
+				       iter->pos + 1, NULL, len);
+  
+  if (!*value)
+    return FALSE;
+  else
+    return TRUE;
 }
 
 /**
@@ -2668,7 +2814,7 @@ message_iter_test (DBusMessage *message)
   if (dbus_message_iter_get_arg_type (iter) != DBUS_TYPE_UINT32)
     _dbus_assert_not_reached ("Argument type isn't int32");
 
-  if (dbus_message_iter_get_int32 (iter) != 0xedd1e)
+  if (dbus_message_iter_get_uint32 (iter) != 0xedd1e)
     _dbus_assert_not_reached ("Unsigned integers differ");
 
   if (!dbus_message_iter_next (iter))

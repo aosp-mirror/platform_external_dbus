@@ -1,3 +1,20 @@
+2003-02-24  Anders Carlsson  <set EMAIL_ADDRESS environment variable>
+
+	* dbus/dbus-internals.c: (_dbus_type_to_string):
+	* dbus/dbus-marshal.c: (_dbus_marshal_get_arg_end_pos),
+	(_dbus_marshal_validate_arg):
+	* dbus/dbus-message-builder.c: (_dbus_message_data_load):
+	* dbus/dbus-message.c: (dbus_message_append_args_valist),
+	(dbus_message_append_boolean), (dbus_message_append_boolean_array),
+	(dbus_message_get_args_valist), (dbus_message_iter_get_boolean),
+	(dbus_message_iter_get_int32), (dbus_message_iter_get_uint32),
+	(dbus_message_iter_get_double),
+	(dbus_message_iter_get_boolean_array), (message_iter_test):
+	* dbus/dbus-message.h:
+	* dbus/dbus-protocol.h:
+	* doc/dbus-specification.sgml:
+	* test/data/valid-messages/lots-of-arguments.message:
+
 2003-02-23  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-keyring.c: finish most of this implementation and 

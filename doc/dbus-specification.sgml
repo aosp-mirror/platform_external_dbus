@@ -279,10 +279,6 @@
         [FIXME perhaps we should add type BYTE with the primary 
         advantage being that it occupies 1 byte vs. 7 for UINT32,
         or perhaps space savings aren't worth the complexity]
-        [FIXME perhaps we should add type BOOL with the primary 
-        advantage being better type safety vs. overloading of 
-        UINT32]
-        The type codes are as follows:
         <informaltable>
           <tgroup cols=3>
             <thead>
@@ -302,22 +298,30 @@
                 <entry>1</entry>
                 <entry>Marks an "unset" or "nonexistent" argument</entry>
               </row><row>
+		<entry>BOOLEAN</entry>
+		<entry>2</entry>
+		<entry>Boolean value, 0 is FALSE and everything else is TRUE.</entry>
+	      </row><row>
                 <entry>INT32</entry>
-                <entry>2</entry>
+                <entry>3</entry>
                 <entry>32-bit signed integer</entry>
               </row><row>
                 <entry>UINT32</entry>
-                <entry>3</entry>
+                <entry>4</entry>
                 <entry>32-bit unsigned integer</entry>
               </row><row>
                 <entry>DOUBLE</entry>
-                <entry>4</entry>
+                <entry>5</entry>
                 <entry>IEEE 754 double</entry>
               </row><row>
                 <entry>STRING</entry>
-                <entry>5</entry>
+                <entry>6</entry>
                 <entry>UTF-8 string (<emphasis>must</emphasis> be valid UTF-8)</entry>
               </row><row>
+		<entry>BOOLEAN_ARRAY</entry>
+		<entry>7</entry>
+		<entry>Array of BOOLEAN</entry>
+	      </row><row>
                 <entry>INT32_ARRAY</entry>
                 <entry>6</entry>
                 <entry>Array of INT32</entry>

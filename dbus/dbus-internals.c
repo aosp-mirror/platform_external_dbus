@@ -355,6 +355,8 @@ _dbus_type_to_string (int type)
       return "invalid";
     case DBUS_TYPE_NIL:
       return "nil";
+    case DBUS_TYPE_BOOLEAN:
+      return "boolean";
     case DBUS_TYPE_INT32:
       return "int32";
     case DBUS_TYPE_UINT32:
@@ -363,6 +365,8 @@ _dbus_type_to_string (int type)
       return "double";
     case DBUS_TYPE_STRING:
       return "string";
+    case DBUS_TYPE_BOOLEAN_ARRAY:
+      return "boolean array";
     case DBUS_TYPE_INT32_ARRAY:
       return "int32 array";
     case DBUS_TYPE_UINT32_ARRAY:

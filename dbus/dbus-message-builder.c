@@ -597,6 +597,8 @@ _dbus_message_data_load (DBusString       *dest,
             code = DBUS_TYPE_INVALID;
           else if (_dbus_string_starts_with_c_str (&line, "NIL"))
             code = DBUS_TYPE_NIL;
+          else if (_dbus_string_starts_with_c_str (&line, "BOOLEAN_ARRAY"))
+            code = DBUS_TYPE_BOOLEAN_ARRAY;
           else if (_dbus_string_starts_with_c_str (&line, "INT32_ARRAY"))
             code = DBUS_TYPE_INT32_ARRAY;
           else if (_dbus_string_starts_with_c_str (&line, "UINT32_ARRAY"))
@@ -607,6 +609,8 @@ _dbus_message_data_load (DBusString       *dest,
             code = DBUS_TYPE_BYTE_ARRAY;
           else if (_dbus_string_starts_with_c_str (&line, "STRING_ARRAY"))
             code = DBUS_TYPE_STRING_ARRAY;
+          else if (_dbus_string_starts_with_c_str (&line, "BOOLEAN"))
+            code = DBUS_TYPE_BOOLEAN;
           else if (_dbus_string_starts_with_c_str (&line, "INT32"))
             code = DBUS_TYPE_INT32;
           else if (_dbus_string_starts_with_c_str (&line, "UINT32"))
@@ -629,6 +633,86 @@ _dbus_message_data_load (DBusString       *dest,
               goto parse_failed;
             }
         }
+      else if (_dbus_string_starts_with_c_str (&line,
+					       "BOOLEAN_ARRAY"))
+	{
+	  SAVE_FOR_UNALIGN (dest, 4);
+	  int i, len, allocated;
+	  unsigned char *values;
+	  unsigned char b, val;
+
+	  allocated = 4;
+	  values = dbus_new (unsigned char, allocated);
+	  if (!values)
+	    {
+	      _dbus_warn ("could not allocate memory for BOOLEAN_ARRAY\n");
+	      goto parse_failed;
+	    }
+
+	  len = 0;
+	  
+	  _dbus_string_delete_first_word (&line);
+	  _dbus_string_skip_blank (&line, 0, &i);
+	  b = _dbus_string_get_byte (&line, i++);
+	  
+	  if (b != '{')
+	    goto parse_failed;
+
+	  while (i < _dbus_string_get_length (&line))
+	    {
+	      _dbus_string_skip_blank (&line, i, &i);	      
+	      printf ("i is: %d\n", i);
+	      
+	      if (_dbus_string_find_to (&line, i, i + 5,
+					"false", NULL))
+		{
+		  i += 5;
+		  val = TRUE;
+		}
+	      else if (_dbus_string_find_to (&line, i, i + 4,
+					     "true", NULL))
+		{
+		  i += 4;
+		  val = FALSE;
+		}
+	      else
+		{
+		  _dbus_warn ("could not parse BOOLEAN_ARRAY\n");
+		  goto parse_failed;
+		}
+
+	      values[len++] = val;
+	      if (len == allocated)
+		{
+		  allocated *= 2;
+		  values = dbus_realloc (values, allocated * sizeof (unsigned char));
+		  if (!values)
+		    {
+		      _dbus_warn ("could not allocate memory for BOOLEAN_ARRAY\n");
+		      goto parse_failed;
+		    }
+		}
+	      
+	      _dbus_string_skip_blank (&line, i, &i);
+	      
+	      b = _dbus_string_get_byte (&line, i++);
+
+	      if (b == '}')
+		break;
+	      else if (b != ',')
+		goto parse_failed;
+	    }
+
+	  if (!_dbus_marshal_int32 (dest, endian, len) ||
+	      !_dbus_string_append_len (dest, values, len))
+            {
+              _dbus_warn ("failed to append BOOLEAN_ARRAY\n");
+              goto parse_failed;
+            }
+	  dbus_free (values);
+	  
+	  PERFORM_UNALIGN (dest);
+	}
       else if (_dbus_string_starts_with_c_str (&line,
 					       "INT32_ARRAY"))
 	{
@@ -912,6 +996,29 @@ _dbus_message_data_load (DBusString       *dest,
 	  
 	  PERFORM_UNALIGN (dest);
 	}
+      else if (_dbus_string_starts_with_c_str (&line,
+					       "BOOLEAN"))
+	{
+	  unsigned char val;
+
+	  _dbus_string_delete_first_word (&line);
+
+	  if (_dbus_string_starts_with_c_str (&line, "true"))
+	    val = TRUE;
+	  else if (_dbus_string_starts_with_c_str (&line, "false"))
+	    val = FALSE;
+	  else
+	    {
+	      _dbus_warn ("could not parse BOOLEAN\n");
+	      goto parse_failed;
+	    }
+	  if (!_dbus_string_append_byte (dest, val))
+            {
+              _dbus_warn ("failed to append BOOLEAN\n");
+              goto parse_failed;
+            }
+	}
+      
       else if (_dbus_string_starts_with_c_str (&line,
                                                "INT32"))
         {
