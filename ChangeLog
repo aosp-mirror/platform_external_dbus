@@ -1,3 +1,7 @@
+2003-08-30  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-object-tree.c: write tests and fix the discovered bugs
+
 2003-08-29  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-object-tree.c: modify to allow overlapping paths to be
