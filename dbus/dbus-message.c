@@ -746,12 +746,15 @@ dbus_message_new_empty_header (void)
 
 
 /**
- * Constructs a new message. Returns #NULL if memory
- * can't be allocated for the message.
+ * Constructs a new message. Returns #NULL if memory can't be
+ * allocated for the message. The service may be #NULL in which case
+ * no service is set; this is appropriate when using D-BUS in a
+ * peer-to-peer context (no message bus).
  *
- * @todo use DBusString internally to store service and name.
+ * @todo reverse the arguments, first 'name' then 'service'
+ * as 'name' is more fundamental
  *
- * @param service service that the message should be sent to
+ * @param service service that the message should be sent to or #NULL
  * @param name name of the message
  * @returns a new DBusMessage, free with dbus_message_unref()
  * @see dbus_message_unref()

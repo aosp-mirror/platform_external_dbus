@@ -1,3 +1,8 @@
+2003-02-15  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-message.c (dbus_message_new): fool around with the
+	docs
+
 2003-02-14  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-mempool.c: fail if the debug functions so indicate
