@@ -58,8 +58,11 @@ bus_connection_disconnected (DBusConnection *connection)
   BusService *service;
 
   d = BUS_CONNECTION_DATA (connection);
-  _dbus_assert (d != NULL);  
+  _dbus_assert (d != NULL);
 
+  _dbus_verbose ("%s disconnected, dropping all service ownership and releasing\n",
+                 d->name ? d->name : "(inactive)");
+  
   /* Drop any service ownership. FIXME Unfortunately, this requires
    * memory allocation and there doesn't seem to be a good way to
    * handle it other than sleeping; we can't "fail" the operation of
@@ -551,6 +554,8 @@ bus_connection_set_name (DBusConnection   *connection,
   if (d->name == NULL)
     return FALSE;
 
+  _dbus_verbose ("Name %s assigned to %p\n", d->name, connection);
+  
   return TRUE;
 }
 
@@ -654,11 +659,15 @@ bus_transaction_send_message (BusTransaction *transaction,
   to_send->message = message;
   to_send->transaction = transaction;
 
+  _dbus_verbose ("about to prepend message\n");
+  
   if (!_dbus_list_prepend (&d->transaction_messages, to_send))
     {
       message_to_send_free (connection, to_send);
       return FALSE;
     }
+
+  _dbus_verbose ("prepended message\n");
   
   /* See if we already had this connection in the list
    * for this transaction. If we have a pending message,

@@ -412,7 +412,16 @@ static dbus_bool_t check_no_leftovers (BusContext *context);
 
 static void
 flush_bus (BusContext *context)
-{  
+{
+  /* This is race condition city, obviously. since we're all in one
+   * process we can't block, we just have to wait for data we put in
+   * one end of the debug pipe to come out the other end...
+   * a more robust setup would be good.
+   */
+  
+  while (bus_loop_iterate (FALSE))
+    ;
+  _dbus_sleep_milliseconds (15);
   while (bus_loop_iterate (FALSE))
     ;
 }
@@ -863,6 +872,7 @@ check_hello_connection (BusContext *context)
         _dbus_assert_not_reached ("message other than disconnect dispatched after failure to register");
       dbus_connection_unref (connection);
       _dbus_assert (!bus_test_client_listed (connection));
+      
       return TRUE;
     }
   else

@@ -146,8 +146,13 @@ ensure_bus_data (DBusConnection *connection)
           return NULL;
         }
       
-      dbus_connection_set_data (connection, bus_data_slot, bd,
-                                bus_data_free);
+      if (!dbus_connection_set_data (connection, bus_data_slot, bd,
+                                     bus_data_free))
+        {
+          bus_data_free (bd);
+          data_slot_unref ();
+          return NULL;
+        }
 
       /* Data slot refcount now held by the BusData */
     }

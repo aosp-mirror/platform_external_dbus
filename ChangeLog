@@ -1,5 +1,13 @@
 2003-03-16  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-bus.c (ensure_bus_data): handle failure to set
+	connection data
+
+	* dbus/dbus-memory.c (_dbus_initialize_malloc_debug): support
+	DBUS_MALLOC_BACKTRACES to print trace when failing an alloc
+
+2003-03-16  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-string.c (_dbus_string_validate_utf8): oops, unbreak
 	this. always run the test suite before commit...
 

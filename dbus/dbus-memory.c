@@ -80,6 +80,7 @@ static size_t fail_size = 0;
 static int fail_alloc_counter = _DBUS_INT_MAX;
 static dbus_bool_t guards = FALSE;
 static dbus_bool_t disable_mem_pools = FALSE;
+static dbus_bool_t backtrace_on_fail_alloc = FALSE;
 
 /** value stored in guard padding for debugging buffer overrun */
 #define GUARD_VALUE 0xdeadbeef
@@ -125,6 +126,12 @@ _dbus_initialize_malloc_debug (void)
         {
           disable_mem_pools = TRUE;
           _dbus_verbose ("Will disable memory pools\n");
+        }
+
+      if (_dbus_getenv ("DBUS_MALLOC_BACKTRACES") != NULL)
+        {
+          backtrace_on_fail_alloc = TRUE;
+          _dbus_verbose ("Will backtrace on failing a malloc\n");
         }
     }
 }
@@ -196,6 +203,8 @@ _dbus_decrement_fail_alloc_counter (void)
         fail_alloc_counter = _DBUS_INT_MAX;
 
       _dbus_verbose ("reset fail alloc counter to %d\n", fail_alloc_counter);
+      if (backtrace_on_fail_alloc)
+        _dbus_print_backtrace ();
       
       return TRUE;
     }
