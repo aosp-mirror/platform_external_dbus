@@ -17,6 +17,7 @@ dbusinclude_HEADERS=				\
 	dbus-memory.h				\
 	dbus-message.h				\
 	dbus-message-handler.h			\
+	dbus-objectid.h				\
 	dbus-protocol.h				\
 	dbus-server.h				\
 	dbus-threads.h				\
@@ -42,6 +43,7 @@ DBUS_LIB_SOURCES=				\
 	dbus-message.c				\
 	dbus-message-handler.c			\
 	dbus-message-internal.h			\
+	dbus-objectid.c				\
 	dbus-resources.c			\
 	dbus-resources.h			\
 	dbus-server.c				\

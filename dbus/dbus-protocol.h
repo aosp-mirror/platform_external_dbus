@@ -53,8 +53,9 @@ extern "C" {
 #define DBUS_TYPE_NAMED         10
 #define DBUS_TYPE_ARRAY         11
 #define DBUS_TYPE_DICT          12
-
-#define DBUS_TYPE_LAST DBUS_TYPE_DICT
+#define DBUS_TYPE_OBJECT_ID     13
+  
+#define DBUS_TYPE_LAST DBUS_TYPE_OBJECT_ID
 
 /* Max length in bytes of a service or message name */
 #define DBUS_MAXIMUM_NAME_LENGTH 256

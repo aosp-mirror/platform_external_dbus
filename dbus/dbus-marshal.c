@@ -80,6 +80,19 @@ typedef union
   dbus_uint64_t u;
 #endif
   double d;
+#ifdef WORDS_BIGENDIAN
+  struct
+  {
+    dbus_uint32_t high;
+    dbus_uint32_t low;
+  } bits;
+#else
+  struct
+  {
+    dbus_uint32_t low;
+    dbus_uint32_t high;
+  } bits;  
+#endif
 } DBusOctets8;
 
 static DBusOctets8
@@ -421,6 +434,35 @@ _dbus_marshal_set_string (DBusString          *str,
                             offset, len);
 
   return TRUE;
+}
+
+/**
+ * Sets the existing marshaled object ID at the given offset to a new
+ * value. The given offset must point to an existing object ID or this
+ * function doesn't make sense.
+ *
+ * @param str the string to write the marshalled string to
+ * @param offset the byte offset where string should be written
+ * @param byte_order the byte order to use
+ * @param value the new value
+ */
+void
+_dbus_marshal_set_object_id (DBusString         *str,
+                             int                 byte_order,
+                             int                 offset,
+                             const DBusObjectID *value)
+{
+  DBusOctets8 r;
+#ifdef DBUS_HAVE_INT64
+  r.u = dbus_object_id_get_as_integer (value);
+#else
+  r.bits.low = dbus_object_id_get_low_bits (value);
+  r.bits.high = dbus_object_id_get_high_bits (value);
+#endif
+  _dbus_assert (r.bits.low == dbus_object_id_get_low_bits (value));
+  _dbus_assert (r.bits.high == dbus_object_id_get_high_bits (value));
+  
+  set_8_octets (str, byte_order, offset, r);
 }
 
 static dbus_bool_t
@@ -842,6 +884,32 @@ _dbus_marshal_string_array (DBusString  *str,
   _dbus_string_set_length (str, old_string_len);
   
   return FALSE;      
+}
+
+/**
+ * Marshals an object ID value.
+ *
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param value the value
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_marshal_object_id (DBusString            *str,
+                         int                    byte_order,
+                         const DBusObjectID    *value)
+{
+  DBusOctets8 r;
+#ifdef DBUS_HAVE_INT64
+  r.u = dbus_object_id_get_as_integer (value);
+#else
+  r.bits.low = dbus_object_id_get_low_bits (value);
+  r.bits.high = dbus_object_id_get_high_bits (value);
+#endif
+  _dbus_assert (r.bits.low == dbus_object_id_get_low_bits (value));
+  _dbus_assert (r.bits.high == dbus_object_id_get_high_bits (value));
+  
+  return marshal_8_octets (str, byte_order, r);
 }
 
 static dbus_uint32_t
@@ -1393,6 +1461,36 @@ _dbus_demarshal_string_array (const DBusString   *str,
   return FALSE;
 }
 
+/**
+ * Demarshals an object ID.
+ *
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @param value address to store new object ID
+ */
+void
+_dbus_demarshal_object_id (const DBusString *str,
+                           int               byte_order,
+                           int               pos,
+                           int              *new_pos,
+                           DBusObjectID     *value)
+{
+  DBusOctets8 r;
+
+  r = demarshal_8_octets (str, byte_order, pos, new_pos);
+
+#ifdef DBUS_HAVE_INT64
+  dbus_object_id_set_as_integer (value, r.u);
+#else
+  dbus_object_id_set_low_bits (value, r.bits.low);
+  dbus_object_id_set_high_bits (value, r.bits.high);
+#endif
+  _dbus_assert (dbus_object_id_get_low_bits (value) == r.bits.low);
+  _dbus_assert (dbus_object_id_get_high_bits (value) == r.bits.high);
+}
+
 /** 
  * Returns the position right after the end of an argument.  PERFORMS
  * NO VALIDATION WHATSOEVER. The message must have been previously
@@ -1435,30 +1533,16 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
       break;
 
     case DBUS_TYPE_INT32:
-      *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_int32_t)) + sizeof (dbus_int32_t);
-
-      break;
-
     case DBUS_TYPE_UINT32:
-      *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_uint32_t)) + sizeof (dbus_uint32_t);
-
+      *end_pos = _DBUS_ALIGN_VALUE (pos, 4) + 4;
       break;
 
-#ifdef DBUS_HAVE_INT64
     case DBUS_TYPE_INT64:
-      *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_int64_t)) + sizeof (dbus_int64_t);
-
-      break;
-
     case DBUS_TYPE_UINT64:
-      *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_uint64_t)) + sizeof (dbus_uint64_t);
-
-      break;
-#endif /* DBUS_HAVE_INT64 */
-      
+    case DBUS_TYPE_OBJECT_ID:
     case DBUS_TYPE_DOUBLE:
-      *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (double)) + sizeof (double);
-
+      
+      *end_pos = _DBUS_ALIGN_VALUE (pos, 8) + 8;
       break;
 
     case DBUS_TYPE_STRING:
@@ -1717,6 +1801,7 @@ validate_array_data (const DBusString *str,
     case DBUS_TYPE_INT64:
     case DBUS_TYPE_UINT64:
     case DBUS_TYPE_DOUBLE:
+    case DBUS_TYPE_OBJECT_ID:
       /* Call validate arg one time to check alignment padding
        * at start of array
        */
@@ -1842,22 +1927,9 @@ _dbus_marshal_validate_arg (const DBusString *str,
       break;
 
     case DBUS_TYPE_INT64:
-    case DBUS_TYPE_UINT64:
-      {
-        int align_8 = _DBUS_ALIGN_VALUE (pos, 8);
-        
-        if (!_dbus_string_validate_nul (str, pos,
-                                        align_8 - pos))
-          {
-            _dbus_verbose ("int64/uint64 alignment padding not initialized to nul\n");
-            return FALSE;
-          }
-
-        *end_pos = align_8 + 8;
-      }
-      break;
-      
+    case DBUS_TYPE_UINT64:      
     case DBUS_TYPE_DOUBLE:
+    case DBUS_TYPE_OBJECT_ID:
       {
         int align_8 = _DBUS_ALIGN_VALUE (pos, 8);
 
@@ -1866,7 +1938,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
         if (!_dbus_string_validate_nul (str, pos,
                                         align_8 - pos))
           {
-            _dbus_verbose ("double alignment padding not initialized to nul\n");
+            _dbus_verbose ("double/int64/uint64/objid alignment padding not initialized to nul\n");
             return FALSE;
           }
 
@@ -2177,6 +2249,7 @@ _dbus_marshal_test (void)
 #endif
   char *s;
   DBusString t;
+  DBusObjectID obj_id, obj_id2;
   
   if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");
@@ -2237,6 +2310,22 @@ _dbus_marshal_test (void)
   if (!(_dbus_demarshal_uint64 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == DBUS_UINT64_CONSTANT (0x123456789abc7)))
     _dbus_assert_not_reached ("demarshal failed");
 #endif /* DBUS_HAVE_INT64 */
+
+  /* Marshal object IDs */
+  dbus_object_id_set_high_bits (&obj_id, 0xfffe);
+  dbus_object_id_set_low_bits (&obj_id, 0xaacc);
+
+  if (!_dbus_marshal_object_id (&str, DBUS_BIG_ENDIAN, &obj_id))
+    _dbus_assert_not_reached ("could not marshal object ID value");
+  _dbus_demarshal_object_id (&str, DBUS_BIG_ENDIAN, pos, &pos, &obj_id2);
+  if (!dbus_object_id_equal (&obj_id, &obj_id2))
+    _dbus_assert_not_reached ("demarshal failed");
+
+  if (!_dbus_marshal_object_id (&str, DBUS_LITTLE_ENDIAN, &obj_id))
+    _dbus_assert_not_reached ("could not marshal object ID value");
+  _dbus_demarshal_object_id (&str, DBUS_LITTLE_ENDIAN, pos, &pos, &obj_id2);
+  if (!dbus_object_id_equal (&obj_id, &obj_id2))
+    _dbus_assert_not_reached ("demarshal failed");
   
   /* Marshal strings */
   tmp1 = "This is the dbus test string";

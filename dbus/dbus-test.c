@@ -99,6 +99,12 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
     die ("address parsing");
 
   check_memleaks ();
+
+  printf ("%s: running object ID tests\n", "dbus-test");
+  if (!_dbus_object_id_test ())
+    die ("object ID");
+  
+  check_memleaks ();
   
   printf ("%s: running marshalling tests\n", "dbus-test");
   if (!_dbus_marshal_test ())

@@ -1,3 +1,18 @@
+2003-07-06  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-marshal.c (_dbus_marshal_set_object_id): new function
+	(_dbus_marshal_object_id): new
+	(_dbus_demarshal_object_id): new
+	(_dbus_marshal_get_arg_end_pos): support object ID type, and
+	consolidate identical switch cases. Don't conditionalize handling 
+	of DBUS_TYPE_UINT64, need to handle the type always.
+	(_dbus_marshal_validate_arg): consolidate identical cases, and 
+	handle DBUS_TYPE_OBJECT_ID
+
+	* dbus/dbus-objectid.c: new file with DBusObjectID data type.
+
+	* dbus/dbus-protocol.h: add DBUS_TYPE_OBJECT_ID
+
 2003-06-29  Havoc Pennington  <hp@pobox.com>
 
 	* mono/Test.cs (class Test): fire up a main loop and run it

@@ -83,6 +83,10 @@ typedef dbus_uint32_t  dbus_unichar_t;
  *
  * A 64-bit unsigned integer on all platforms that support it.
  * If supported, #DBUS_HAVE_INT64 will be defined.
+ *
+ * C99 requires a 64-bit type and most likely all interesting
+ * compilers support one. GLib for example flat-out requires
+ * a 64-bit type.
  */
 
 /**
@@ -90,6 +94,10 @@ typedef dbus_uint32_t  dbus_unichar_t;
  *
  * A 64-bit signed integer on all platforms that support it.
  * If supported, #DBUS_HAVE_INT64 will be defined.
+ *
+ * C99 requires a 64-bit type and most likely all interesting
+ * compilers support one. GLib for example flat-out requires
+ * a 64-bit type.
  */
 
 /**
