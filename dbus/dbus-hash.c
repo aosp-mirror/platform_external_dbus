@@ -1405,4 +1405,4 @@ _dbus_hash_test (void)
   return TRUE;
 }
 
-#endif
+#endif /* DBUS_BUILD_TESTS */

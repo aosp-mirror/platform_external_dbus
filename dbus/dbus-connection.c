@@ -27,6 +27,7 @@
 #include "dbus-watch.h"
 #include "dbus-connection-internal.h"
 #include "dbus-list.h"
+#include "dbus-message-internal.h"
 
 /**
  * @defgroup DBusConnection DBusConnection
@@ -465,6 +466,8 @@ dbus_connection_send_message (DBusConnection *connection,
   if (connection->n_outgoing == 1)
     _dbus_transport_messages_pending (connection->transport,
                                       connection->n_outgoing);
+
+  return TRUE;
 }
 
 /**

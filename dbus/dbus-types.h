@@ -27,10 +27,10 @@
 #ifndef DBUS_TYPES_H
 #define DBUS_TYPES_H
 
-typedef unsigned int dbus_bool_t;
-typedef unsigned int dbus_uint32_t;
-typedef int          dbus_int32_t;
-
+typedef unsigned int  dbus_bool_t;
+typedef unsigned int  dbus_uint32_t;
+typedef int           dbus_int32_t;
+typedef dbus_uint32_t dbus_unichar_t;
 
 /* Normally docs are in .c files, but there isn't a .c file for this. */
 /**

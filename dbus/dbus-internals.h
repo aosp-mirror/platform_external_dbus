@@ -32,8 +32,7 @@
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-errors.h>
-#include <stdlib.h> /* for abort() */
-#include <string.h> /* just so it's there in every file */
+#include <dbus/dbus-sysdeps.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -52,7 +51,7 @@ do {                                                                    \
     {                                                                   \
       _dbus_warn ("Assertion failed \"%s\" file \"%s\" line %d\n",      \
                   #condition, __FILE__, __LINE__);                      \
-      abort ();                                                         \
+      _dbus_abort ();                                                   \
     }                                                                   \
 } while (0)
 
@@ -60,10 +59,10 @@ do {                                                                    \
 do {                                                                            \
     _dbus_warn ("File \"%s\" line %d should not have been reached: %s\n",       \
                __FILE__, __LINE__, (explanation));                              \
-    abort ();                                                                   \
+    _dbus_abort ();                                                             \
 } while (0)
 
-#define _DBUS_N_ELEMENTS(array) (sizeof ((array)) / sizeof ((array)[0]))
+#define _DBUS_N_ELEMENTS(array) ((int) (sizeof ((array)) / sizeof ((array)[0])))
 
 #define _DBUS_POINTER_TO_INT(pointer) ((long)(pointer))
 #define _DBUS_INT_TO_POINTER(integer) ((void*)((long)(integer)))

@@ -164,7 +164,7 @@ _dbus_verbose (const char *format,
   
   if (!initted)
     {
-      verbose = getenv ("DBUS_VERBOSE") != NULL;
+      verbose = _dbus_getenv ("DBUS_VERBOSE") != NULL;
       initted = TRUE;
       if (!verbose)
         return;

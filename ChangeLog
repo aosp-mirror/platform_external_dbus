@@ -1,3 +1,27 @@
+2002-12-11  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-types.h: add dbus_unichar
+
+	* dbus/dbus-internals.c (_dbus_verbose): use _dbus_getenv
+
+	* dbus/dbus-connection.c (dbus_connection_send_message): return
+	TRUE on success
+
+	* dbus/dbus-transport.c: include dbus-watch.h	
+
+	* dbus/dbus-connection.c: include dbus-message-internal.h
+
+	* HACKING: add file with coding guidelines stuff.
+
+	* dbus/dbus-string.h, dbus/dbus-string.c: Encapsulate all string
+	handling here, for security purposes (as in vsftpd). Not actually
+	using this class yet.
+
+	* dbus/dbus-sysdeps.h, dbus/dbus-sysdeps.c: Encapsulate all
+	system/libc usage here, as in vsftpd, for ease of auditing (and
+	should also simplify portability). Haven't actually moved all the
+	system/libc usage into here yet.
+	
 2002-11-25  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-internals.c (_dbus_verbose): fix to not 

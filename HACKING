@@ -1,0 +1,62 @@
+The guidelines in this file are the ideals; it's better to send a
+not-fully-following-guidelines patch than no patch at all, though.  We
+can always polish it up.
+
+Mailing list
+===
+
+The D-BUS mailing list is message-bus-list@freedesktop.org; discussion
+of patches, etc. should go there.
+
+Security
+===
+
+Most of D-BUS is security sensitive.  Guidelines related to that:
+
+ - avoid memcpy(), sprintf(), strlen(), snprintf, strlcat(),
+   strstr(), strtok(), or any of this stuff. Use DBusString. 
+   If DBusString doesn't have the feature you need, add it 
+   to DBusString. 
+
+   There are some exceptions, for example
+   if your strings are just used to index a hash table 
+   and you don't do any parsing/modification of them, perhaps
+   DBusString is wasteful and wouldn't help much. But definitely 
+   if you're doing any parsing, reallocation, etc. use DBusString.
+
+ - do not include system headers outside of dbus-memory.c, 
+   dbus-sysdeps.c, and other places where they are already 
+   included. This gives us one place to audit all external 
+   dependencies on features in libc, etc.
+
+ - do not use libc features that are "complicated" 
+   and may contain security holes. For example, you probably shouldn't
+   try to use regcomp() to compile an untrusted regular expression.
+   Regular expressions are just too complicated, and there are many 
+   different libc's out there.
+
+ - we need to design the message bus daemon (and any similar features)
+   to use limited privileges, run in a chroot jail, and so on.
+
+http://vsftpd.beasts.org/ has other good security suggestions.
+
+Coding Style
+===
+
+ - The C library uses GNU coding conventions, with GLib-like
+   extensions (e.g. lining up function arguments). The
+   Qt wrapper uses KDE coding conventions.
+
+ - Write docs for all non-static functions and structs and so on. try
+   "doxygen Doxyfile" prior to commit and be sure there are no
+   warnings printed.
+
+ - All external interfaces (network protocols, file formats, etc.)
+   should have documented specifications sufficient to allow an
+   alternative implementation to be written. Our implementation should
+   be strict about specification compliance (should not for example
+   heuristically parse a file and accept not-well-formed
+   data). Avoiding heuristics is also important for security reasons;
+   if it looks funny, ignore it (or exit, or disconnect).
+
+ 

@@ -29,6 +29,11 @@ int
 main (int    argc,
       char **argv)
 {
+
+  printf ("%s: running string tests\n", argv[0]);
+  if (!_dbus_string_test ())
+    return 1;
+  
   printf ("%s: running linked list tests\n", argv[0]);
   if (!_dbus_list_test ())
     return 1;

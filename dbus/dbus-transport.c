@@ -24,6 +24,7 @@
 #include "dbus-transport-protected.h"
 #include "dbus-transport-unix.h"
 #include "dbus-connection-internal.h"
+#include "dbus-watch.h"
 
 /**
  * @defgroup DBusTransport DBusTransport object
