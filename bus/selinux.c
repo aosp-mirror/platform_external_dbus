@@ -191,6 +191,16 @@ avc_free_lock (void *lock)
 #endif /* HAVE_SELINUX */
 
 /**
+ * Return whether or not SELinux is enabled; must be
+ * called after bus_selinux_init.
+ */
+dbus_bool_t
+bus_selinux_enabled (void)
+{
+  return selinux_enabled;
+}
+
+/**
  * Initialize the user space access vector cache (AVC) for D-BUS and set up
  * logging callbacks.
  */

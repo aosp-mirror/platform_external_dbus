@@ -74,6 +74,7 @@ typedef struct
     struct
     {
       unsigned int ignore_missing : 1;
+      unsigned int if_selinux_enabled : 1;
       unsigned int selinux_root_relative : 1;
     } include;
 
@@ -718,6 +719,7 @@ start_busconfig_child (BusConfigParser   *parser,
   else if (strcmp (element_name, "include") == 0)
     {
       Element *e;
+      const char *if_selinux_enabled;
       const char *ignore_missing;
       const char *selinux_root_relative;
 
@@ -728,6 +730,7 @@ start_busconfig_child (BusConfigParser   *parser,
         }
 
       e->d.include.ignore_missing = FALSE;
+      e->d.include.if_selinux_enabled = FALSE;
       e->d.include.selinux_root_relative = FALSE;
 
       if (!locate_attributes (parser, "include",
@@ -735,6 +738,7 @@ start_busconfig_child (BusConfigParser   *parser,
                               attribute_values,
                               error,
                               "ignore_missing", &ignore_missing,
+                              "if_selinux_enabled", &if_selinux_enabled,
                               "selinux_root_relative", &selinux_root_relative,
                               NULL))
         return FALSE;
@@ -751,6 +755,21 @@ start_busconfig_child (BusConfigParser   *parser,
                               "ignore_missing attribute must have value \"yes\" or \"no\"");
               return FALSE;
             }
+        }
+
+      if (if_selinux_enabled != NULL)
+        {
+          if (strcmp (if_selinux_enabled, "yes") == 0)
+            e->d.include.if_selinux_enabled = TRUE;
+          else if (strcmp (if_selinux_enabled, "no") == 0)
+            e->d.include.if_selinux_enabled = FALSE;
+          else
+            {
+              dbus_set_error (error, DBUS_ERROR_FAILED,
+                              "if_selinux_enabled attribute must have value"
+                              " \"yes\" or \"no\"");
+              return FALSE;
+	    }
         }
       
       if (selinux_root_relative != NULL)
@@ -2054,6 +2073,10 @@ bus_config_parser_content (BusConfigParser   *parser,
         DBusString full_path, selinux_policy_root;
 
         e->had_content = TRUE;
+
+	if (e->d.include.if_selinux_enabled
+	    && !bus_selinux_enabled ())
+	  break;
 
         if (!_dbus_string_init (&full_path))
           goto nomem;

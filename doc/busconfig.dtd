@@ -23,6 +23,7 @@
 <!ELEMENT include (#PCDATA)>
 <!ATTLIST include 
           ignore_missing (yes|no) "no"
+          if_selinux_enabled (yes|no) "no"
           selinux_root_relative (yes|no) "no">
 
 <!ELEMENT policy (allow|deny)*>

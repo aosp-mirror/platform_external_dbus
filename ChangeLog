@@ -1,3 +1,25 @@
+2004-10-18  Colin Walters  <walters@verbum.org>
+
+	* bus/selinux.h: Add bus_selinux_enabled.
+	
+	* bus/selinux.c (bus_selinux_enabled): Implement it.
+	
+	* bus/config-parser.c (struct include): Add
+	if_selinux_enabled member.
+	(start_busconfig_child): Parse if_selinux_enabled
+	attribute for include.
+	(bus_config_parser_content): Handle it.
+
+	* bus/session.conf.in, bus/system.conf.in: Add
+	inclusion of context mapping to default config files;
+	conditional on SELinux being enabled.
+	
+	* doc/busconfig.dtd: Add to if_selinux_enabled to default DTD.
+	
+	* test/data/invalid-config-files/badselinux-1.conf, 
+	test/data/invalid-config-files/badselinux-2.conf:
+	Test files for bad syntax.
+	
 2004-10-17  Colin Walters  <walters@verbum.org>
 
 	* dbus/dbus-memory.c (_dbus_initialize_malloc_debug, check_guards)

@@ -30,6 +30,8 @@
 dbus_bool_t bus_selinux_init     (void);
 void        bus_selinux_shutdown (void);
 
+dbus_bool_t bus_selinux_enabled  (void);
+
 void bus_selinux_id_ref    (BusSELinuxID *sid);
 void bus_selinux_id_unref  (BusSELinuxID *sid);
 

@@ -57,4 +57,6 @@
        in this standard file -->
   <include ignore_missing="yes">system-local.conf</include>
 
+  <include if_selinux_enabled="yes" selinux_root_relative="yes">contexts/dbus_contexts</include>
+
 </busconfig>
