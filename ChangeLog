@@ -1,3 +1,11 @@
+2005-03-17  Tom Parker  <palfrey@tevp.net>
+
+	* dbus/dbus-userdb.c (_dbus_user_database_lookup): Don't
+	print DBUS_UID_UNSET; instead print passed username.
+	
+	* dbus/dbus-userdb-util.c (_dbus_user_database_lookup_group): Ditto
+	for DBUS_GID_UNSET and groupname.
+
 2005-03-17  Colin Walters  <walters@verbum.org>
 
 	* bus/print-introspect.c: Move to tools/.

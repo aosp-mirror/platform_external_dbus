@@ -208,8 +208,12 @@ _dbus_user_database_lookup_group (DBusUserDatabase *db,
     }
   else
     {
-      _dbus_verbose ("No cache for GID "DBUS_GID_FORMAT"\n",
-                     gid);
+      if (gid != DBUS_GID_UNSET)
+	_dbus_verbose ("No cache for GID "DBUS_GID_FORMAT"\n",
+		       gid);
+      else
+	_dbus_verbose ("No cache for groupname \"%s\"\n",
+		       _dbus_string_get_const_data (groupname));
       
       info = dbus_new0 (DBusGroupInfo, 1);
       if (info == NULL)

@@ -101,8 +101,12 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
     }
   else
     {
-      _dbus_verbose ("No cache for UID "DBUS_UID_FORMAT"\n",
-                     uid);
+      if (uid != DBUS_UID_UNSET)
+	_dbus_verbose ("No cache for UID "DBUS_UID_FORMAT"\n",
+		       uid);
+      else
+	_dbus_verbose ("No cache for user \"%s\"\n",
+		       _dbus_string_get_const_data (username));
       
       info = dbus_new0 (DBusUserInfo, 1);
       if (info == NULL)
