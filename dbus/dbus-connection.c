@@ -620,6 +620,8 @@ _dbus_connection_get_next_client_serial (DBusConnection *connection)
  * to the handler. This is a private function, but still
  * takes the connection lock. Don't call it with the lock held.
  *
+ * @todo needs to check in pending_replies too.
+ * 
  * @param connection the connection
  * @param handler the handler
  */
