@@ -103,6 +103,8 @@ dbus_result_to_string (DBusResultCode code)
       return "Invalid fields.";
     case DBUS_RESULT_NO_REPLY:
       return "Did not get a reply message.";
+    case DBUS_RESULT_FILE_NOT_FOUND:
+      return "File doesn't exist.";
       
       /* no default, it would break our compiler warnings */
     }

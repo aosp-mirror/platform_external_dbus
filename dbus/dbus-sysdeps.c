@@ -23,12 +23,12 @@
 
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
+#include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/socket.h>
@@ -36,11 +36,16 @@
 #include <pwd.h>
 #include <time.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #ifdef HAVE_WRITEV
 #include <sys/uio.h>
 #endif
 #ifdef HAVE_POLL
 #include <sys/poll.h>
+#endif
+
+#ifndef O_BINARY
+#define O_BINARY 0
 #endif
 
 /**
@@ -1002,6 +1007,97 @@ _dbus_get_current_time (long *tv_sec,
     *tv_sec = t.tv_sec;
   if (tv_usec)
     *tv_usec = t.tv_usec;
+}
+
+/**
+ * Appends the contents of the given file to the string,
+ * returning result code. At the moment, won't open a file
+ * more than a megabyte in size.
+ *
+ * @param str the string to append to
+ * @param filename filename to load
+ * @returns result
+ */
+DBusResultCode
+_dbus_file_get_contents (DBusString       *str,
+                         const DBusString *filename)
+{
+  int fd;
+  struct stat sb;
+  int orig_len;
+  int total;
+  const char *filename_c;
+
+  _dbus_string_get_const_data (filename, &filename_c);
+  
+  /* O_BINARY useful on Cygwin */
+  fd = open (filename_c, O_RDONLY | O_BINARY);
+  if (fd < 0)
+    return _dbus_result_from_errno (errno);
+
+  if (fstat (fd, &sb) < 0)
+    {
+      DBusResultCode result;      
+
+      result = _dbus_result_from_errno (errno); /* prior to close() */
+
+      _dbus_verbose ("fstat() failed: %s",
+                     _dbus_strerror (errno));
+      
+      close (fd);
+      
+      return result;
+    }
+
+  if (sb.st_size > _DBUS_ONE_MEGABYTE)
+    {
+      _dbus_verbose ("File size %lu is too large.\n",
+                     (unsigned long) sb.st_size);
+      close (fd);
+      return DBUS_RESULT_FAILED;
+    }
+  
+  total = 0;
+  orig_len = _dbus_string_get_length (str);
+  if (sb.st_size > 0 && S_ISREG (sb.st_mode))
+    {
+      int bytes_read;
+
+      while (total < (int) sb.st_size)
+        {
+          bytes_read = _dbus_read (fd, str,
+                                   sb.st_size - total);
+          if (bytes_read <= 0)
+            {
+              DBusResultCode result;
+              
+              result = _dbus_result_from_errno (errno); /* prior to close() */
+
+              _dbus_verbose ("read() failed: %s",
+                             _dbus_strerror (errno));
+              
+              close (fd);
+              _dbus_string_set_length (str, orig_len);
+              return result;
+            }
+          else
+            total += bytes_read;
+        }
+
+      close (fd);
+      return DBUS_RESULT_SUCCESS;
+    }
+  else if (sb.st_size != 0)
+    {
+      _dbus_verbose ("Can only open regular files at the moment.\n");
+      close (fd);
+      return DBUS_RESULT_FAILED;
+    }
+  else
+    {
+      close (fd);
+      return DBUS_RESULT_SUCCESS;
+    }
 }
 
 /** @} end of sysdeps */

@@ -1,5 +1,15 @@
 2003-01-26  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-sysdeps.c (_dbus_file_get_contents): new function
+
+	* dbus/dbus-errors.c (dbus_result_to_string): add
+	file errors
+
+	* dbus/dbus-message-builder.c: new file, will contain code to load
+	up messages from files. Not implemented yet.
+
+2003-01-26  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-message.c (dbus_message_set_sender): support deleting
 	the sender by setting to NULL
 

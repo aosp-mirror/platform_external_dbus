@@ -196,6 +196,9 @@ _dbus_strerror (int error_number)
 /**
  * Converts a UNIX errno into a DBusResultCode.
  *
+ * @todo should cover more errnos, specifically those
+ * from open().
+ * 
  * @param error_number the errno.
  * @returns the result code.
  */
@@ -274,7 +277,15 @@ _dbus_result_from_errno (int error_number)
 #ifdef EADDRINUSE
     case EADDRINUSE:
       return DBUS_RESULT_ADDRESS_IN_USE;
-#endif      
+#endif
+#ifdef EEXIST
+    case EEXIST:
+      return DBUS_RESULT_FILE_NOT_FOUND;
+#endif
+#ifdef ENOENT
+    case ENOENT:
+      return DBUS_RESULT_FILE_NOT_FOUND;
+#endif
     }
 
   return DBUS_RESULT_FAILED;

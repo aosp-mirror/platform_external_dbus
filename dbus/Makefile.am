@@ -67,6 +67,8 @@ libdbus_convenience_la_SOURCES=			\
 	dbus-marshal.h				\
 	dbus-mempool.c				\
 	dbus-mempool.h				\
+	dbus-message-builder.c			\
+	dbus-message-builder.h			\
 	dbus-string.c				\
 	dbus-string.h				\
 	dbus-sysdeps.c				\

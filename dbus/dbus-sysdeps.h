@@ -121,6 +121,9 @@ void _dbus_sleep_milliseconds (int milliseconds);
 void _dbus_get_current_time (long *tv_sec,
                              long *tv_usec);
 
+DBusResultCode _dbus_file_get_contents (DBusString       *str,
+                                        const DBusString *filename);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_SYSDEPS_H */

@@ -52,6 +52,7 @@ typedef enum
   DBUS_RESULT_DISCONNECTED,    /**< No more connection. */
   DBUS_RESULT_INVALID_FIELDS,  /**< One or more invalid fields encountered. */
   DBUS_RESULT_NO_REPLY,        /**< Did not get a reply message. */
+  DBUS_RESULT_FILE_NOT_FOUND   /**< File doesn't exist */
 } DBusResultCode;
 
 void        dbus_set_result       (DBusResultCode *code_address,
