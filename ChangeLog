@@ -1,5 +1,11 @@
 2005-01-30  Havoc Pennington  <hp@redhat.com>
 
+	* glib/dbus-gmain.c: rewrite the main loop stuff to avoid the
+	custom source, seems to be a lot easier to understand and work
+	better.
+
+2005-01-30  Havoc Pennington  <hp@redhat.com>
+
         I think this main loop thing is conceptually broken, but here are 
 	some band aids. I'll maybe rewrite it in a minute.
 	

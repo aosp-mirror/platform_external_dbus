@@ -53,320 +53,313 @@
  * @{
  */
 
-/** @typedef DBusGSource
- * A GSource representing a #DBusConnection or #DBusServer
- */
-typedef struct DBusGSource DBusGSource;
-
-/**
- * A GSource subclass for a DBusConnection.
- */
-struct DBusGSource
-{
-  GSource source; /**< the parent GSource */
-
-  GList *watch_fds;      /**< descriptors we're watching */
-
-  GMainContext *context; /**< the GMainContext to use, NULL for default */
-
-  void *connection_or_server; /**< DBusConnection or DBusServer */
-};
-
-/**
- * Auxillary struct for pairing up a #DBusWatch and associated
- * #GPollFD
- */
 typedef struct
 {
-  int refcount;     /**< reference count */
+  GMainContext *context;      /**< the main context */
+  GSList *ios;                /**< all IOHandler */
+  GSList *timeouts;           /**< all TimeoutHandler */
+  DBusConnection *connection; /**< NULL if this is really for a server not a connection */
+} ConnectionSetup;
 
-  GPollFD poll_fd;  /**< the #GPollFD to use with g_source_add_poll() */
-  DBusWatch *watch; /**< the corresponding DBusWatch*/
-  
-  unsigned int removed : 1; /**< true if this #WatchFD has been removed */
-} WatchFD;
 
-static WatchFD *
-watch_fd_new (void)
+typedef struct
 {
-  WatchFD *watch_fd;
+  ConnectionSetup *cs;
+  GSource *source;
+  DBusWatch *watch;
+} IOHandler;
 
-  watch_fd = g_new0 (WatchFD, 1);
-  watch_fd->refcount = 1;
-
-  return watch_fd;
-}
-
-static WatchFD * 
-watch_fd_ref (WatchFD *watch_fd)
+typedef struct
 {
-  g_assert (watch_fd->refcount > 0);
-  
-  watch_fd->refcount += 1;
-
-  return watch_fd;
-}
-
-static void
-watch_fd_unref (WatchFD *watch_fd)
-{
-  g_assert (watch_fd->refcount > 0);
-  
-  watch_fd->refcount -= 1;
-
-  if (watch_fd->refcount == 0)
-    {
-      g_assert (watch_fd->removed);
-  
-      g_free (watch_fd);
-    }
-}
+  ConnectionSetup *cs;
+  GSource *source;
+  DBusTimeout *timeout;
+} TimeoutHandler;
 
 static dbus_int32_t connection_slot = -1;
 static dbus_int32_t server_slot = -1;
 
-static gboolean gsource_connection_prepare  (GSource     *source,
-                                             gint        *timeout);
-static gboolean gsource_connection_check    (GSource     *source);
-static gboolean gsource_connection_dispatch (GSource     *source,
-                                             GSourceFunc  callback,
-                                             gpointer     user_data);
-static void     gsource_connection_finalize (GSource     *source);
-static gboolean gsource_server_prepare      (GSource     *source,
-                                             gint        *timeout);
-static gboolean gsource_server_check        (GSource     *source);
-static gboolean gsource_server_dispatch     (GSource     *source,
-                                             GSourceFunc  callback,
-                                             gpointer     user_data);
-static void     gsource_server_finalize     (GSource     *source);
-
-static GSourceFuncs dbus_connection_funcs = {
-  gsource_connection_prepare,
-  gsource_connection_check,
-  gsource_connection_dispatch,
-  gsource_connection_finalize
-};
-
-static GSourceFuncs dbus_server_funcs = {
-  gsource_server_prepare,
-  gsource_server_check,
-  gsource_server_dispatch,
-  gsource_server_finalize
-};
-
-static gboolean
-gsource_connection_prepare (GSource *source,
-                            gint    *timeout)
+static ConnectionSetup*
+connection_setup_new (GMainContext *context)
 {
-  DBusConnection *connection = ((DBusGSource *)source)->connection_or_server;
+  ConnectionSetup *cs;
+
+  cs = g_new0 (ConnectionSetup, 1);
+
+  g_assert (context != NULL);
   
-  *timeout = -1;
-
-  return (dbus_connection_get_dispatch_status (connection) == DBUS_DISPATCH_DATA_REMAINS);  
+  cs->context = context;
+  g_main_context_ref (cs->context);
+  
+  return cs;
 }
 
-static gboolean
-gsource_server_prepare (GSource *source,
-                        gint    *timeout)
+static void
+io_handler_source_destroyed (gpointer data)
 {
-  *timeout = -1;
+  IOHandler *handler;
 
-  return FALSE;
+  handler = data;
+
+  handler->cs->ios = g_slist_remove (handler->cs->ios, handler);
+
+  if (handler->watch)
+    dbus_watch_set_data (handler->watch, NULL, NULL);
+  
+  g_free (handler);
 }
 
-static gboolean
-dbus_gsource_check (GSource *source)
+static void
+io_handler_destroy_source (void *data)
 {
-  DBusGSource *dbus_source = (DBusGSource *)source;
-  GList *list;
+  IOHandler *handler;
 
-  list = dbus_source->watch_fds;
+  handler = data;
 
-  while (list)
+  if (handler->source)
     {
-      WatchFD *watch_fd = list->data;
-
-      if (watch_fd->poll_fd.revents != 0)
-	return TRUE;
-
-      list = list->next;
+      GSource *source = handler->source;
+      handler->source = NULL;
+      g_source_destroy (source);
     }
+}
 
-  return FALSE;  
+static void
+io_handler_watch_freed (void *data)
+{
+  IOHandler *handler;
+
+  handler = data;
+
+  handler->watch = NULL;
+
+  io_handler_destroy_source (handler);
 }
 
 static gboolean
-gsource_connection_check (GSource *source)
+io_handler_dispatch (GIOChannel   *source,
+                     GIOCondition  condition,
+                     gpointer      data)
 {
-  return dbus_gsource_check (source);
-}
+  IOHandler *handler;
+  guint dbus_condition = 0;
+  DBusConnection *connection;
 
-static gboolean
-gsource_server_check (GSource *source)
-{
-  return dbus_gsource_check (source);
-}
+  handler = data;
 
-static gboolean
-dbus_gsource_dispatch (GSource     *source,
-                       GSourceFunc  callback,
-                       gpointer     user_data,
-                       dbus_bool_t  is_server)
-{
-   DBusGSource *dbus_source = (DBusGSource *)source;
-   GList *copy, *list;
-
-   /* Make a copy of the list and ref all WatchFDs */
-   copy = g_list_copy (dbus_source->watch_fds);
-   g_list_foreach (copy, (GFunc)watch_fd_ref, NULL);
-   
-   list = copy;
-   while (list)
-     {
-       WatchFD *watch_fd = list->data;
-
-       if (!watch_fd->removed && watch_fd->poll_fd.revents != 0)
-	 {
-	   guint condition = 0;
-	   
-	   if (watch_fd->poll_fd.revents & G_IO_IN)
-	     condition |= DBUS_WATCH_READABLE;
-	   if (watch_fd->poll_fd.revents & G_IO_OUT)
-	     condition |= DBUS_WATCH_WRITABLE;
-	   if (watch_fd->poll_fd.revents & G_IO_ERR)
-	     condition |= DBUS_WATCH_ERROR;
-	   if (watch_fd->poll_fd.revents & G_IO_HUP)
-	     condition |= DBUS_WATCH_HANGUP;
-
-           dbus_watch_handle (watch_fd->watch, condition);
-	 }
-
-       list = list->next;
-     }
-
-   g_list_foreach (copy, (GFunc)watch_fd_unref, NULL);   
-   g_list_free (copy);   
-
-   return TRUE;
-}
-
-static gboolean
-gsource_connection_dispatch (GSource     *source,
-                             GSourceFunc  callback,
-                             gpointer     user_data)
-{
-  DBusGSource *dbus_source = (DBusGSource *)source;
-  DBusConnection *connection = dbus_source->connection_or_server;
-
-  dbus_connection_ref (connection);
-
-  dbus_gsource_dispatch (source, callback, user_data,
-                         FALSE);
+  connection = handler->cs->connection;
   
-  /* Dispatch messages */
-  while (dbus_connection_dispatch (connection) == DBUS_DISPATCH_DATA_REMAINS)
-    ;
-
-   dbus_connection_unref (connection);
-   
-   return TRUE;
-}
-
-static gboolean
-gsource_server_dispatch (GSource     *source,
-                         GSourceFunc  callback,
-                         gpointer     user_data)
-{
-  DBusGSource *dbus_source = (DBusGSource *)source;
-  DBusServer *server = dbus_source->connection_or_server;
-
-  dbus_server_ref (server);
-
-  dbus_gsource_dispatch (source, callback, user_data,
-                         TRUE);
-
-  dbus_server_unref (server);
-   
-  return TRUE;
-}
-     
-static dbus_bool_t
-add_watch (DBusWatch *watch,
-	   gpointer   data)
-{
-  WatchFD *watch_fd;
-  DBusGSource *dbus_source;
-  guint flags;
-
-  if (!dbus_watch_get_enabled (watch))
-    return TRUE;
-
-  g_assert (dbus_watch_get_data (watch) == NULL);
+  if (connection)
+    dbus_connection_ref (connection);
   
-  dbus_source = data;
+  if (condition & G_IO_IN)
+    dbus_condition |= DBUS_WATCH_READABLE;
+  if (condition & G_IO_OUT)
+    dbus_condition |= DBUS_WATCH_WRITABLE;
+  if (condition & G_IO_ERR)
+    dbus_condition |= DBUS_WATCH_ERROR;
+  if (condition & G_IO_HUP)
+    dbus_condition |= DBUS_WATCH_HANGUP;
 
-  watch_fd = watch_fd_new ();
-  watch_fd->poll_fd.fd = dbus_watch_get_fd (watch);
-  watch_fd->poll_fd.events = 0;
-  flags = dbus_watch_get_flags (watch);
-  dbus_watch_set_data (watch, watch_fd, (DBusFreeFunction)watch_fd_unref);
+  /* Note that we don't touch the handler after this, because
+   * dbus may have disabled the watch and thus killed the
+   * handler.
+   */
+  dbus_watch_handle (handler->watch, dbus_condition);
+  handler = NULL;
 
-  if (flags & DBUS_WATCH_READABLE)
-    watch_fd->poll_fd.events |= G_IO_IN;
-  if (flags & DBUS_WATCH_WRITABLE)
-    watch_fd->poll_fd.events |= G_IO_OUT;
-  watch_fd->poll_fd.events |= G_IO_ERR | G_IO_HUP;
-
-  watch_fd->watch = watch;
+  if (connection)
+    {
+      /* Dispatch messages */
+      while (dbus_connection_dispatch (connection) == DBUS_DISPATCH_DATA_REMAINS)
+        ;
+      
+      dbus_connection_unref (connection);
+    }
   
-  g_source_add_poll ((GSource *)dbus_source, &watch_fd->poll_fd);
-
-  dbus_source->watch_fds = g_list_prepend (dbus_source->watch_fds, watch_fd);
-  g_assert (!watch_fd->removed);
-
   return TRUE;
 }
 
 static void
-source_remove_watch_fd (DBusGSource *dbus_source,
-                        WatchFD     *watch_fd)
+connection_setup_add_watch (ConnectionSetup *cs,
+                            DBusWatch       *watch)
 {
-  g_assert (g_list_find (dbus_source->watch_fds, watch_fd) != NULL);
-  g_assert (!watch_fd->removed);
-
-  watch_fd_ref (watch_fd);
+  guint flags;
+  GIOCondition condition;
+  GIOChannel *channel;
+  IOHandler *handler;
   
-  watch_fd->removed = TRUE;
-  dbus_source->watch_fds = g_list_remove (dbus_source->watch_fds, watch_fd);
+  if (!dbus_watch_get_enabled (watch))
+    return;
+  
+  g_assert (dbus_watch_get_data (watch) == NULL);
+  
+  flags = dbus_watch_get_flags (watch);
 
-  g_source_remove_poll ((GSource *)dbus_source, &watch_fd->poll_fd);
+  condition = G_IO_ERR | G_IO_HUP;
+  if (flags & DBUS_WATCH_READABLE)
+    condition |= G_IO_IN;
+  if (flags & DBUS_WATCH_WRITABLE)
+    condition |= G_IO_OUT;
 
-  g_assert (watch_fd->watch != NULL);
-  dbus_watch_set_data (watch_fd->watch, NULL, NULL); /* needed due to watch_toggled
-                                                      * breaking add/remove symmetry
-                                                      */
+  handler = g_new0 (IOHandler, 1);
+  handler->cs = cs;
+  handler->watch = watch;
+  
+  channel = g_io_channel_unix_new (dbus_watch_get_fd (watch));
+  
+  handler->source = g_io_create_watch (channel, condition);
+  g_source_set_callback (handler->source, (GSourceFunc) io_handler_dispatch, handler,
+                         io_handler_source_destroyed);
+  g_source_attach (handler->source, cs->context);
 
-  watch_fd->watch = NULL;
+  cs->ios = g_slist_prepend (cs->ios, handler);
+  
+  dbus_watch_set_data (watch, handler, io_handler_watch_freed);
+}
 
-  watch_fd_unref (watch_fd);
+static void
+connection_setup_remove_watch (ConnectionSetup *cs,
+                               DBusWatch       *watch)
+{
+  IOHandler *handler;
+
+  handler = dbus_watch_get_data (watch);
+
+  if (handler == NULL)
+    return;
+  
+  io_handler_destroy_source (handler);
+}
+
+static void
+timeout_handler_source_destroyed (gpointer data)
+{
+  TimeoutHandler *handler;
+
+  handler = data;
+
+  handler->cs->timeouts = g_slist_remove (handler->cs->timeouts, handler);
+  
+  if (handler->timeout)
+    dbus_timeout_set_data (handler->timeout, NULL, NULL);
+  
+  g_free (handler);
+}
+
+static void
+timeout_handler_destroy_source (void *data)
+{
+  TimeoutHandler *handler;
+
+  handler = data;
+
+  if (handler->source)
+    {
+      GSource *source = handler->source;
+      handler->source = NULL;
+      g_source_destroy (source);
+    }
+}
+
+static void
+timeout_handler_timeout_freed (void *data)
+{
+  TimeoutHandler *handler;
+
+  handler = data;
+
+  handler->timeout = NULL;
+
+  timeout_handler_destroy_source (handler);
+}
+
+static gboolean
+timeout_handler_dispatch (gpointer      data)
+{
+  TimeoutHandler *handler;
+
+  handler = data;
+
+  dbus_timeout_handle (handler->timeout);
+  
+  return TRUE;
+}
+
+static void
+connection_setup_add_timeout (ConnectionSetup *cs,
+                              DBusTimeout     *timeout)
+{
+  TimeoutHandler *handler;
+  
+  if (!dbus_timeout_get_enabled (timeout))
+    return;
+  
+  g_assert (dbus_timeout_get_data (timeout) == NULL);
+
+  handler = g_new0 (TimeoutHandler, 1);
+  handler->cs = cs;
+  handler->timeout = timeout;
+
+  handler->source = g_timeout_source_new (dbus_timeout_get_interval (timeout));
+  g_source_set_callback (handler->source, timeout_handler_dispatch, handler,
+                         timeout_handler_source_destroyed);
+  g_source_attach (handler->source, handler->cs->context);
+
+  cs->timeouts = g_slist_prepend (cs->timeouts, handler);
+
+  dbus_timeout_set_data (timeout, handler, timeout_handler_timeout_freed);
+}
+
+static void
+connection_setup_remove_timeout (ConnectionSetup *cs,
+                                 DBusTimeout       *timeout)
+{
+  TimeoutHandler *handler;
+  
+  handler = dbus_timeout_get_data (timeout);
+
+  if (handler == NULL)
+    return;
+  
+  timeout_handler_destroy_source (handler);
+}
+
+static void
+connection_setup_free (ConnectionSetup *cs)
+{
+  while (cs->ios)
+    io_handler_destroy_source (cs->ios->data);
+
+  while (cs->timeouts)
+    timeout_handler_destroy_source (cs->timeouts->data);
+  
+  g_main_context_unref (cs->context);
+  g_free (cs);
+}
+
+static dbus_bool_t
+add_watch (DBusWatch *watch,
+	   gpointer   data)
+{
+  ConnectionSetup *cs;
+
+  cs = data;
+
+  connection_setup_add_watch (cs, watch);
+  
+  return TRUE;
 }
 
 static void
 remove_watch (DBusWatch *watch,
 	      gpointer   data)
 {
-  DBusGSource *dbus_source = data;
-  WatchFD *watch_fd;
-  
-  watch_fd = dbus_watch_get_data (watch);
-  if (watch_fd == NULL)
-    return; /* probably a not-enabled watch that was added,
-             * or the source has been finalized
-             */
+  ConnectionSetup *cs;
 
-  g_assert (watch_fd->watch == watch);
+  cs = data;
 
-  source_remove_watch_fd (dbus_source, watch_fd);
+  connection_setup_remove_watch (cs, watch);
 }
 
 static void
@@ -382,34 +375,18 @@ watch_toggled (DBusWatch *watch,
     remove_watch (watch, data);
 }
 
-static gboolean
-timeout_handler (gpointer data)
-{
-  DBusTimeout *timeout = data;
-
-  dbus_timeout_handle (timeout);
-
-  return TRUE;
-}
-
 static dbus_bool_t
 add_timeout (DBusTimeout *timeout,
 	     void        *data)
 {
-  GSource *source;
-  GMainContext *context;
+  ConnectionSetup *cs;
 
-  context = data;
+  cs = data;
   
   if (!dbus_timeout_get_enabled (timeout))
     return TRUE;
-  
-  source = g_timeout_source_new (dbus_timeout_get_interval (timeout));
-  g_source_set_callback (source, timeout_handler, timeout, NULL);
-  g_source_attach (source, context);
-  
-  dbus_timeout_set_data (timeout, GUINT_TO_POINTER (g_source_get_id (source)),
-      			 NULL);
+
+  connection_setup_add_timeout (cs, timeout);
 
   return TRUE;
 }
@@ -418,12 +395,11 @@ static void
 remove_timeout (DBusTimeout *timeout,
 		void        *data)
 {
-  guint timeout_tag;
-  
-  timeout_tag = GPOINTER_TO_UINT (dbus_timeout_get_data (timeout));
+  ConnectionSetup *cs;
 
-  if (timeout_tag != 0) /* if 0, probably timeout was disabled */
-    g_source_remove (timeout_tag);
+  cs = data;
+
+  connection_setup_remove_timeout (cs, timeout);
 }
 
 static void
@@ -439,47 +415,48 @@ timeout_toggled (DBusTimeout *timeout,
     remove_timeout (timeout, data);
 }
 
-
-static void
-free_source (GSource *source)
-{  
-  g_source_destroy (source);
-}
-
 static void
 wakeup_main (void *data)
 {
-  DBusGSource *dbus_source = data;
+  ConnectionSetup *cs = data;
 
-  g_main_context_wakeup (dbus_source->context);
+  g_main_context_wakeup (cs->context);
 }
 
-static void
-remove_all_watch_fd (DBusGSource *dbus_source)
+
+/* Move to a new context */
+static ConnectionSetup*
+connection_setup_new_from_old (GMainContext    *context,
+                               ConnectionSetup *old)
 {
-  while (dbus_source->watch_fds)
+  GSList *tmp;
+  ConnectionSetup *cs;
+
+  g_assert (old->context != context);
+  
+  cs = connection_setup_new (context);
+  
+  tmp = old->ios;
+  while (tmp != NULL)
     {
-      WatchFD *watch_fd = dbus_source->watch_fds->data;
+      IOHandler *handler = tmp->data;
 
-      g_assert (!watch_fd->removed); /* should not be in the list if removed */
-      source_remove_watch_fd (dbus_source, watch_fd);
+      connection_setup_add_watch (cs, handler->watch);
+      
+      tmp = tmp->next;
     }
-}
 
-static void
-gsource_connection_finalize (GSource *source)
-{
-  DBusGSource *dbus_source = (DBusGSource *)source;
+  tmp = old->timeouts;
+  while (tmp != NULL)
+    {
+      TimeoutHandler *handler = tmp->data;
 
-  remove_all_watch_fd (dbus_source);
-}
+      connection_setup_add_timeout (cs, handler->timeout);
+      
+      tmp = tmp->next;
+    }
 
-static void
-gsource_server_finalize (GSource *source)
-{
-  DBusGSource *dbus_source = (DBusGSource *)source;
-
-  remove_all_watch_fd (dbus_source);
+  return cs;
 }
 
 /** @} */ /* End of GLib bindings internals */
@@ -487,23 +464,6 @@ gsource_server_finalize (GSource *source)
 /** @addtogroup DBusGLib
  * @{
  */
-
-static GSource*
-create_source (void         *connection_or_server,
-               GSourceFuncs *funcs,
-	       GMainContext *context)
-{
-  GSource *source;
-  DBusGSource *dbus_source;
-
-  source = g_source_new (funcs, sizeof (DBusGSource));
-  
-  dbus_source = (DBusGSource *)source;  
-  dbus_source->connection_or_server = connection_or_server;
-  dbus_source->context = context;
-
-  return source;
-}
 
 /**
  * Sets the watch and timeout functions of a #DBusConnection
@@ -523,7 +483,8 @@ void
 dbus_connection_setup_with_g_main (DBusConnection *connection,
 				   GMainContext   *context)
 {
-  GSource *source;
+  ConnectionSetup *old_setup;
+  ConnectionSetup *cs;
   
   /* FIXME we never free the slot, so its refcount just keeps growing,
    * which is kind of broken.
@@ -532,47 +493,51 @@ dbus_connection_setup_with_g_main (DBusConnection *connection,
   if (connection_slot < 0)
     goto nomem;
 
-  /* So we can test for equality below */
   if (context == NULL)
     context = g_main_context_default ();
+
+  cs = NULL;
   
-  source = dbus_connection_get_data (connection, connection_slot);
-  if (source != NULL)
+  old_setup = dbus_connection_get_data (connection, connection_slot);
+  if (old_setup != NULL)
     {
-      if (source->context == context)
+      if (old_setup->context == context)
         return; /* nothing to do */
 
-      /* Remove the previous source and move to a new context */
+      cs = connection_setup_new_from_old (context, old_setup);
+      
+      /* Nuke the old setup */
       dbus_connection_set_data (connection, connection_slot, NULL, NULL);
-      source = NULL;
+      old_setup = NULL;
     }
-  
-  source = create_source (connection, &dbus_connection_funcs, context);
 
+  if (cs == NULL)
+    cs = connection_setup_new (context);
+
+  if (!dbus_connection_set_data (connection, connection_slot, cs,
+                                 (DBusFreeFunction)connection_setup_free))
+    goto nomem;
+
+  cs->connection = connection;
+  
   if (!dbus_connection_set_watch_functions (connection,
                                             add_watch,
                                             remove_watch,
                                             watch_toggled,
-                                            source, NULL))
+                                            cs, NULL))
     goto nomem;
 
   if (!dbus_connection_set_timeout_functions (connection,
                                               add_timeout,
                                               remove_timeout,
                                               timeout_toggled,
-                                              context, NULL))
+                                              cs, NULL))
     goto nomem;
     
   dbus_connection_set_wakeup_main_function (connection,
 					    wakeup_main,
-					    source, NULL);
+					    cs, NULL);
       
-  g_source_attach (source, context);
-
-  if (!dbus_connection_set_data (connection, connection_slot, source,
-                                 (DBusFreeFunction)free_source))
-    goto nomem;
-
   return;
 
  nomem:
@@ -596,47 +561,55 @@ void
 dbus_server_setup_with_g_main (DBusServer   *server,
                                GMainContext *context)
 {
-  GSource *source;
-
+  ConnectionSetup *old_setup;
+  ConnectionSetup *cs;
+  
+  /* FIXME we never free the slot, so its refcount just keeps growing,
+   * which is kind of broken.
+   */
   dbus_server_allocate_data_slot (&server_slot);
   if (server_slot < 0)
     goto nomem;
 
-  /* So we can test for equality below */
   if (context == NULL)
     context = g_main_context_default ();
+
+  cs = NULL;
   
-  source = dbus_server_get_data (server, server_slot);
-  if (source != NULL)
+  old_setup = dbus_server_get_data (server, server_slot);
+  if (old_setup != NULL)
     {
-      if (source->context == context)
+      if (old_setup->context == context)
         return; /* nothing to do */
 
-      /* Remove the previous source and move to a new context */
+      cs = connection_setup_new_from_old (context, old_setup);
+      
+      /* Nuke the old setup */
       dbus_server_set_data (server, server_slot, NULL, NULL);
-      source = NULL;
+      old_setup = NULL;
     }
+
+  if (cs == NULL)
+    cs = connection_setup_new (context);
+
+  if (!dbus_server_set_data (server, server_slot, cs,
+                             (DBusFreeFunction)connection_setup_free))
+    goto nomem;
   
-  source = create_source (server, &dbus_server_funcs, context);
-
-  dbus_server_set_watch_functions (server,
-                                   add_watch,
-                                   remove_watch,
-                                   watch_toggled,
-                                   source, NULL);
-
-  dbus_server_set_timeout_functions (server,
-                                     add_timeout,
-                                     remove_timeout,
-                                     timeout_toggled,
-                                     context, NULL);
-  
-  g_source_attach (source, context);
-
-  if (!dbus_server_set_data (server, server_slot, source,
-                             (DBusFreeFunction)free_source))
+  if (!dbus_server_set_watch_functions (server,
+                                        add_watch,
+                                        remove_watch,
+                                        watch_toggled,
+                                        cs, NULL))
     goto nomem;
 
+  if (!dbus_server_set_timeout_functions (server,
+                                          add_timeout,
+                                          remove_timeout,
+                                          timeout_toggled,
+                                          cs, NULL))
+    goto nomem;
+      
   return;
 
  nomem:
