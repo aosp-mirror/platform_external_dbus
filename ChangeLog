@@ -1,3 +1,13 @@
+2004-05-31  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus_bindings.pyx.in:
+	* python/tests/test-client.py:
+
+	Test Suite: 1
+	Python Bindings: 0
+
+	(fix string array memory trashing bug... oops)
+
 2004-05-30  Seth Nickell  <seth@gnome.org>
 
 	* python/dbus.py:
