@@ -46,11 +46,13 @@ extern "C" {
 #define DBUS_TYPE_BOOLEAN       3
 #define DBUS_TYPE_INT32         4
 #define DBUS_TYPE_UINT32        5
-#define DBUS_TYPE_DOUBLE        6
-#define DBUS_TYPE_STRING        7
-#define DBUS_TYPE_NAMED         8
-#define DBUS_TYPE_ARRAY         9
-#define DBUS_TYPE_DICT          10
+#define DBUS_TYPE_INT64         6
+#define DBUS_TYPE_UINT64        7
+#define DBUS_TYPE_DOUBLE        8
+#define DBUS_TYPE_STRING        9
+#define DBUS_TYPE_NAMED         10
+#define DBUS_TYPE_ARRAY         11
+#define DBUS_TYPE_DICT          12
 
 #define DBUS_TYPE_LAST DBUS_TYPE_DICT
 

@@ -29,6 +29,7 @@
 
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-types.h>
+#include <dbus/dbus-arch-deps.h>
 #include <stdarg.h>
 
 DBUS_BEGIN_DECLS;
@@ -119,6 +120,10 @@ unsigned char dbus_message_iter_get_byte       (DBusMessageIter  *iter);
 dbus_bool_t   dbus_message_iter_get_boolean    (DBusMessageIter  *iter);
 dbus_int32_t  dbus_message_iter_get_int32      (DBusMessageIter  *iter);
 dbus_uint32_t dbus_message_iter_get_uint32     (DBusMessageIter  *iter);
+#ifdef DBUS_HAVE_INT64
+dbus_int64_t  dbus_message_iter_get_int64      (DBusMessageIter  *iter);
+dbus_uint64_t dbus_message_iter_get_uint64     (DBusMessageIter  *iter);
+#endif /* DBUS_HAVE_INT64 */
 double        dbus_message_iter_get_double     (DBusMessageIter  *iter);
 char *        dbus_message_iter_get_string     (DBusMessageIter  *iter);
 char *        dbus_message_iter_get_dict_key   (DBusMessageIter  *iter);
@@ -144,6 +149,14 @@ dbus_bool_t dbus_message_iter_get_int32_array     (DBusMessageIter   *iter,
 dbus_bool_t dbus_message_iter_get_uint32_array    (DBusMessageIter   *iter,
 						   dbus_uint32_t    **value,
 						   int               *len);
+#ifdef DBUS_HAVE_INT64
+dbus_bool_t dbus_message_iter_get_int64_array     (DBusMessageIter   *iter,
+						   dbus_int64_t     **value,
+						   int               *len);
+dbus_bool_t dbus_message_iter_get_uint64_array    (DBusMessageIter   *iter,
+						   dbus_uint64_t    **value,
+						   int               *len);
+#endif /* DBUS_HAVE_INT64 */
 dbus_bool_t dbus_message_iter_get_double_array    (DBusMessageIter   *iter,
 						   double           **value,
 						   int               *len);
@@ -163,6 +176,12 @@ dbus_bool_t dbus_message_iter_append_int32         (DBusMessageIter      *iter,
 						    dbus_int32_t          value);
 dbus_bool_t dbus_message_iter_append_uint32        (DBusMessageIter      *iter,
 						    dbus_uint32_t         value);
+#ifdef DBUS_HAVE_INT64
+dbus_bool_t dbus_message_iter_append_int64         (DBusMessageIter      *iter,
+						    dbus_int64_t          value);
+dbus_bool_t dbus_message_iter_append_uint64        (DBusMessageIter      *iter,
+						    dbus_uint64_t         value);
+#endif /* DBUS_HAVE_INT64 */
 dbus_bool_t dbus_message_iter_append_double        (DBusMessageIter      *iter,
 						    double                value);
 dbus_bool_t dbus_message_iter_append_string        (DBusMessageIter      *iter,
@@ -189,6 +208,14 @@ dbus_bool_t dbus_message_iter_append_int32_array   (DBusMessageIter      *iter,
 dbus_bool_t dbus_message_iter_append_uint32_array  (DBusMessageIter      *iter,
 						    const dbus_uint32_t  *value,
 						    int                   len);
+#ifdef DBUS_HAVE_INT64
+dbus_bool_t dbus_message_iter_append_int64_array   (DBusMessageIter      *iter,
+						    const dbus_int64_t   *value,
+						    int                   len);
+dbus_bool_t dbus_message_iter_append_uint64_array  (DBusMessageIter      *iter,
+						    const dbus_uint64_t  *value,
+						    int                   len);
+#endif /* DBUS_HAVE_INT64 */
 dbus_bool_t dbus_message_iter_append_double_array  (DBusMessageIter      *iter,
 						    const double         *value,
 						    int                   len);

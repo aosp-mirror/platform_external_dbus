@@ -68,8 +68,6 @@ fetch_long (long        *dest,
   return 0;
 }
 
-typedef DBUS_INT64_TYPE dbus_int64_t;
-
 static int
 fetch_long64 (dbus_int64_t *dest,
               const char   *source,

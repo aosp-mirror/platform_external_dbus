@@ -7,5 +7,5 @@ Name: dbus
 Description: Free desktop message bus
 Version: @VERSION@
 Libs: -L${libdir} -ldbus-1
-Cflags: -I${includedir}/dbus-1.0
+Cflags: -I${includedir}/dbus-1.0 -I${libdir}/dbus-1.0/include
 

@@ -115,10 +115,13 @@ dbus_bool_t _dbus_string_array_contains (const char **array,
                                          const char  *str);
 char**      _dbus_dup_string_array      (const char **array);
 
-
-#define _DBUS_INT_MIN	(-_DBUS_INT_MAX - 1)
-#define _DBUS_INT_MAX	2147483647
-#define _DBUS_UINT_MAX	0xffffffff
+#define _DBUS_INT_MIN	 (-_DBUS_INT_MAX - 1)
+#define _DBUS_INT_MAX	 2147483647
+#define _DBUS_UINT_MAX	 0xffffffff
+#ifdef DBUS_HAVE_INT64
+#define _DBUS_INT64_MAX	 DBUS_INT64_CONSTANT (9223372036854775807)
+#define _DBUS_UINT64_MAX DBUS_UINT64_CONSTANT (0xffffffffffffffff)
+#endif
 #define _DBUS_ONE_KILOBYTE 1024
 #define _DBUS_ONE_MEGABYTE 1024 * _DBUS_ONE_KILOBYTE
 #define _DBUS_ONE_HOUR_IN_MILLISECONDS (1000 * 60 * 60)

@@ -3,6 +3,7 @@ INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION		\
 	-DDBUS_SYSTEM_BUS_PATH=\""@DBUS_SYSTEM_SOCKET@"\"
 
 dbusincludedir=$(includedir)/dbus-1.0/dbus
+dbusarchincludedir=$(libdir)/dbus-1.0/include/dbus
 
 lib_LTLIBRARIES=libdbus-1.la
 
@@ -20,6 +21,9 @@ dbusinclude_HEADERS=				\
 	dbus-server.h				\
 	dbus-threads.h				\
 	dbus-types.h
+
+dbusarchinclude_HEADERS=			\
+	dbus-arch-deps.h
 
 ### source code that goes in the installed client library
 ### and is specific to library functionality
@@ -115,6 +119,9 @@ libdbus_convenience_la_SOURCES=			\
 	$(DBUS_LIB_SOURCES)			\
 	$(DBUS_SHARED_SOURCES)			\
 	$(DBUS_UTIL_SOURCES)
+
+BUILT_SOURCES=$(dbusarchinclude_HEADERS)
+EXTRA_DIST=dbus-arch-deps.h.in
 
 ## this library is the same as libdbus, but exports all the symbols
 ## and is only used for static linking within the dbus package.

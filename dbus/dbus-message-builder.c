@@ -295,6 +295,8 @@ append_saved_length (DBusString       *dest,
  * @code
  *   INT32 <N> marshals an INT32
  *   UINT32 <N> marshals a UINT32
+ *   INT64 <N> marshals an INT64
+ *   UINT64 <N> marshals a UINT64
  *   DOUBLE <N> marshals a double
  *   STRING 'Foo' marshals a string
  *   BYTE_ARRAY { 'a', 3, 4, 5, 6} marshals a BYTE array

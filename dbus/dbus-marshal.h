@@ -27,6 +27,7 @@
 #include <config.h>
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-types.h>
+#include <dbus/dbus-arch-deps.h>
 #include <dbus/dbus-string.h>
 
 #ifndef PACKAGE
@@ -39,25 +40,63 @@
 #define DBUS_COMPILER_BYTE_ORDER DBUS_LITTLE_ENDIAN
 #endif
 
-#define DBUS_UINT32_SWAP_LE_BE_CONSTANT(val)	((dbus_uint32_t) ( \
-    (((dbus_uint32_t) (val) & (dbus_uint32_t) 0x000000ffU) << 24) |  \
-    (((dbus_uint32_t) (val) & (dbus_uint32_t) 0x0000ff00U) <<  8) |  \
-    (((dbus_uint32_t) (val) & (dbus_uint32_t) 0x00ff0000U) >>  8) |  \
+#define DBUS_UINT32_SWAP_LE_BE_CONSTANT(val)	((dbus_uint32_t) (      \
+    (((dbus_uint32_t) (val) & (dbus_uint32_t) 0x000000ffU) << 24) |     \
+    (((dbus_uint32_t) (val) & (dbus_uint32_t) 0x0000ff00U) <<  8) |     \
+    (((dbus_uint32_t) (val) & (dbus_uint32_t) 0x00ff0000U) >>  8) |     \
     (((dbus_uint32_t) (val) & (dbus_uint32_t) 0xff000000U) >> 24)))
+
+#ifdef DBUS_HAVE_INT64
+
+#define DBUS_UINT64_SWAP_LE_BE_CONSTANT(val)	((dbus_uint64_t) (              \
+      (((dbus_uint64_t) (val) &                                                 \
+	(dbus_uint64_t) DBUS_UINT64_CONSTANT (0x00000000000000ff)) << 56) |    \
+      (((dbus_uint64_t) (val) &                                                 \
+	(dbus_uint64_t) DBUS_UINT64_CONSTANT (0x000000000000ff00)) << 40) |    \
+      (((dbus_uint64_t) (val) &                                                 \
+	(dbus_uint64_t) DBUS_UINT64_CONSTANT (0x0000000000ff0000)) << 24) |    \
+      (((dbus_uint64_t) (val) &                                                 \
+	(dbus_uint64_t) DBUS_UINT64_CONSTANT (0x00000000ff000000)) <<  8) |    \
+      (((dbus_uint64_t) (val) &                                                 \
+	(dbus_uint64_t) DBUS_UINT64_CONSTANT (0x000000ff00000000)) >>  8) |    \
+      (((dbus_uint64_t) (val) &                                                 \
+	(dbus_uint64_t) DBUS_UINT64_CONSTANT (0x0000ff0000000000)) >> 24) |    \
+      (((dbus_uint64_t) (val) &                                                 \
+	(dbus_uint64_t) DBUS_UINT64_CONSTANT (0x00ff000000000000)) >> 40) |    \
+      (((dbus_uint64_t) (val) &                                                 \
+	(dbus_uint64_t) DBUS_UINT64_CONSTANT (0xff00000000000000)) >> 56)))
+#endif /* DBUS_HAVE_INT64 */
 
 #define DBUS_UINT32_SWAP_LE_BE(val) (DBUS_UINT32_SWAP_LE_BE_CONSTANT (val))
 #define DBUS_INT32_SWAP_LE_BE(val)  ((dbus_int32_t)DBUS_UINT32_SWAP_LE_BE_CONSTANT (val))
+
+#ifdef DBUS_HAVE_INT64
+#define DBUS_UINT64_SWAP_LE_BE(val) (DBUS_UINT64_SWAP_LE_BE_CONSTANT (val))
+#define DBUS_INT64_SWAP_LE_BE(val)  ((dbus_int64_t)DBUS_UINT64_SWAP_LE_BE_CONSTANT (val))
+#endif /* DBUS_HAVE_INT64 */
 
 #ifdef WORDS_BIGENDIAN
 #define DBUS_INT32_TO_BE(val)	((dbus_int32_t) (val))
 #define DBUS_UINT32_TO_BE(val)	((dbus_uint32_t) (val))
 #define DBUS_INT32_TO_LE(val)	(DBUS_INT32_SWAP_LE_BE (val))
 #define DBUS_UINT32_TO_LE(val)	(DBUS_UINT32_SWAP_LE_BE (val))
+#  ifdef DBUS_HAVE_INT64
+#define DBUS_INT64_TO_BE(val)	((dbus_int64_t) (val))
+#define DBUS_UINT64_TO_BE(val)	((dbus_uint64_t) (val))
+#define DBUS_INT64_TO_LE(val)	(DBUS_INT64_SWAP_LE_BE (val))
+#define DBUS_UINT64_TO_LE(val)	(DBUS_UINT64_SWAP_LE_BE (val))
+#  endif /* DBUS_HAVE_INT64 */
 #else
 #define DBUS_INT32_TO_LE(val)	((dbus_int32_t) (val))
 #define DBUS_UINT32_TO_LE(val)	((dbus_uint32_t) (val))
 #define DBUS_INT32_TO_BE(val)	((dbus_int32_t) DBUS_UINT32_SWAP_LE_BE (val))
 #define DBUS_UINT32_TO_BE(val)	(DBUS_UINT32_SWAP_LE_BE (val))
+#  ifdef DBUS_HAVE_INT64
+#define DBUS_INT64_TO_LE(val)	((dbus_int64_t) (val))
+#define DBUS_UINT64_TO_LE(val)	((dbus_uint64_t) (val))
+#define DBUS_INT64_TO_BE(val)	((dbus_int64_t) DBUS_UINT64_SWAP_LE_BE (val))
+#define DBUS_UINT64_TO_BE(val)	(DBUS_UINT64_SWAP_LE_BE (val))
+#  endif /* DBUS_HAVE_INT64 */
 #endif
 
 /* The transformation is symmetric, so the FROM just maps to the TO. */
@@ -65,6 +104,12 @@
 #define DBUS_UINT32_FROM_LE(val) (DBUS_UINT32_TO_LE (val))
 #define DBUS_INT32_FROM_BE(val)	 (DBUS_INT32_TO_BE (val))
 #define DBUS_UINT32_FROM_BE(val) (DBUS_UINT32_TO_BE (val))
+#ifdef DBUS_HAVE_INT64
+#define DBUS_INT64_FROM_LE(val)	 (DBUS_INT64_TO_LE (val))
+#define DBUS_UINT64_FROM_LE(val) (DBUS_UINT64_TO_LE (val))
+#define DBUS_INT64_FROM_BE(val)	 (DBUS_INT64_TO_BE (val))
+#define DBUS_UINT64_FROM_BE(val) (DBUS_UINT64_TO_BE (val))
+#endif /* DBUS_HAVE_INT64 */
 
 void          _dbus_pack_int32    (dbus_int32_t         value,
                                    int                  byte_order,
@@ -76,6 +121,18 @@ void          _dbus_pack_uint32   (dbus_uint32_t        value,
                                    unsigned char       *data);
 dbus_uint32_t _dbus_unpack_uint32 (int                  byte_order,
                                    const unsigned char *data);
+#ifdef DBUS_HAVE_INT64
+void          _dbus_pack_int64    (dbus_int64_t         value,
+                                   int                  byte_order,
+                                   unsigned char       *data);
+dbus_int64_t  _dbus_unpack_int64  (int                  byte_order,
+                                   const unsigned char *data);
+void          _dbus_pack_uint64   (dbus_uint64_t        value,
+                                   int                  byte_order,
+                                   unsigned char       *data);
+dbus_uint64_t _dbus_unpack_uint64 (int                  byte_order,
+                                   const unsigned char *data);
+#endif /* DBUS_HAVE_INT64 */
 
 void        _dbus_marshal_set_int32  (DBusString       *str,
                                       int               byte_order,
@@ -85,6 +142,16 @@ void        _dbus_marshal_set_uint32 (DBusString       *str,
                                       int               byte_order,
                                       int               offset,
                                       dbus_uint32_t     value);
+#ifdef DBUS_HAVE_INT64
+void        _dbus_marshal_set_int64  (DBusString       *str,
+                                      int               byte_order,
+                                      int               offset,
+                                      dbus_int64_t      value);
+void        _dbus_marshal_set_uint64 (DBusString       *str,
+                                      int               byte_order,
+                                      int               offset,
+                                      dbus_uint64_t     value);
+#endif /* DBUS_HAVE_INT64 */
 dbus_bool_t _dbus_marshal_set_string (DBusString       *str,
                                       int               byte_order,
                                       int               offset,
@@ -97,6 +164,14 @@ dbus_bool_t   _dbus_marshal_int32          (DBusString            *str,
 dbus_bool_t   _dbus_marshal_uint32         (DBusString            *str,
 					    int                    byte_order,
 					    dbus_uint32_t          value);
+#ifdef DBUS_HAVE_INT64
+dbus_bool_t   _dbus_marshal_int64          (DBusString            *str,
+					    int                    byte_order,
+					    dbus_int64_t           value);
+dbus_bool_t   _dbus_marshal_uint64         (DBusString            *str,
+					    int                    byte_order,
+					    dbus_uint64_t          value);
+#endif /* DBUS_HAVE_INT64 */
 dbus_bool_t   _dbus_marshal_double         (DBusString            *str,
 					    int                    byte_order,
 					    double                 value);
@@ -115,6 +190,16 @@ dbus_bool_t   _dbus_marshal_uint32_array   (DBusString            *str,
 					    int                    byte_order,
 					    const dbus_uint32_t   *value,
 					    int                    len);
+#ifdef DBUS_HAVE_INT64
+dbus_bool_t   _dbus_marshal_int64_array    (DBusString            *str,
+					    int                    byte_order,
+					    const dbus_int64_t    *value,
+					    int                    len);
+dbus_bool_t   _dbus_marshal_uint64_array   (DBusString            *str,
+					    int                    byte_order,
+					    const dbus_uint64_t   *value,
+					    int                    len);
+#endif /* DBUS_HAVE_INT64 */
 dbus_bool_t   _dbus_marshal_double_array   (DBusString            *str,
 					    int                    byte_order,
 					    const double          *value,
@@ -135,6 +220,16 @@ dbus_uint32_t _dbus_demarshal_uint32       (const DBusString      *str,
 					    int                    byte_order,
 					    int                    pos,
 					    int                   *new_pos);
+#ifdef DBUS_HAVE_INT64
+dbus_int64_t  _dbus_demarshal_int64        (const DBusString      *str,
+					    int                    byte_order,
+					    int                    pos,
+					    int                   *new_pos);
+dbus_uint64_t _dbus_demarshal_uint64       (const DBusString      *str,
+					    int                    byte_order,
+					    int                    pos,
+					    int                   *new_pos);
+#endif /* DBUS_HAVE_INT64 */
 char *        _dbus_demarshal_string       (const DBusString      *str,
 					    int                    byte_order,
 					    int                    pos,
@@ -157,6 +252,20 @@ dbus_bool_t   _dbus_demarshal_uint32_array (const DBusString      *str,
 					    int                   *new_pos,
 					    dbus_uint32_t        **array,
 					    int                   *array_len);
+#ifdef DBUS_HAVE_INT64
+dbus_bool_t   _dbus_demarshal_int64_array  (const DBusString      *str,
+					    int                    byte_order,
+					    int                    pos,
+					    int                   *new_pos,
+					    dbus_int64_t         **array,
+					    int                   *array_len);
+dbus_bool_t   _dbus_demarshal_uint64_array (const DBusString      *str,
+					    int                    byte_order,
+					    int                    pos,
+					    int                   *new_pos,
+					    dbus_uint64_t        **array,
+					    int                   *array_len);
+#endif /* DBUS_HAVE_INT64 */
 dbus_bool_t   _dbus_demarshal_double_array (const DBusString      *str,
 					    int                    byte_order,
 					    int                    pos,

@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus.h  Convenience header including all other headers
+/* dbus-arch-deps.h Header with architecture/compiler specific information, installed to libdir
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2003 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -20,35 +20,32 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+#if !defined (DBUS_INSIDE_DBUS_H) && !defined (DBUS_COMPILATION)
+#error "Only <dbus/dbus.h> can be included directly, this file may disappear or change contents."
+#endif
 
-#ifndef DBUS_H
-#define DBUS_H
+#ifndef DBUS_ARCH_DEPS_H
+#define DBUS_ARCH_DEPS_H
 
-#define DBUS_INSIDE_DBUS_H 1
-
-#include <dbus/dbus-arch-deps.h>
-#include <dbus/dbus-address.h>
-#include <dbus/dbus-bus.h>
-#include <dbus/dbus-connection.h>
-#include <dbus/dbus-errors.h>
-#include <dbus/dbus-macros.h>
-#include <dbus/dbus-message.h>
-#include <dbus/dbus-message-handler.h>
-#include <dbus/dbus-protocol.h>
-#include <dbus/dbus-server.h>
-#include <dbus/dbus-threads.h>
 #include <dbus/dbus-types.h>
+#include <dbus/dbus-macros.h>
 
-#undef DBUS_INSIDE_DBUS_H
+DBUS_BEGIN_DECLS;
 
-/**
- * @defgroup DBus D-BUS message system public API
- * @brief The exported public API of the D-BUS library.
- *
- * @{
- */
+#if @DBUS_HAVE_INT64@
+#define DBUS_HAVE_INT64 1
+typedef @DBUS_INT64_TYPE@ dbus_int64_t;
+typedef unsigned @DBUS_INT64_TYPE@ dbus_uint64_t;
 
-/** @} */
+#define DBUS_INT64_CONSTANT(val)  @DBUS_INT64_CONSTANT@
+#define DBUS_UINT64_CONSTANT(val) @DBUS_UINT64_CONSTANT@
 
+#else
+#undef DBUS_HAVE_INT64
+#undef DBUS_INT64_CONSTANT
+#undef DBUS_UINT64_CONSTANT
+#endif
 
-#endif /* DBUS_H */
+DBUS_END_DECLS;
+
+#endif /* DBUS_ARCH_DEPS_H */

@@ -327,25 +327,33 @@
                 <entry>UINT32</entry>
                 <entry>5</entry>
                 <entry>32-bit unsigned integer</entry>
+	      </row><row>
+                <entry>INT64</entry>
+                <entry>6</entry>
+                <entry>64-bit signed integer</entry>
+              </row><row>
+                <entry>UINT64</entry>
+                <entry>7</entry>
+                <entry>64-bit unsigned integer</entry>
               </row><row>
                 <entry>DOUBLE</entry>
-                <entry>6</entry>
+                <entry>8</entry>
                 <entry>IEEE 754 double</entry>
               </row><row>
                 <entry>STRING</entry>
-                <entry>7</entry>
+                <entry>9</entry>
                 <entry>UTF-8 string (<emphasis>must</emphasis> be valid UTF-8). Must be zero terminated. </entry>
               </row><row>
 		<entry>NAMED</entry>
-		<entry>8</entry>
+		<entry>10</entry>
 		<entry>A named byte array, used for custom types</entry>
 	      </row><row>
                 <entry>ARRAY</entry>
-                <entry>9</entry>
+                <entry>11</entry>
                 <entry>Array</entry>
               </row><row>
                 <entry>DICT</entry>
-                <entry>10</entry>
+                <entry>12</entry>
                 <entry>A dictionary of key/value pairs</entry>
               </row>
             </tbody>
@@ -382,6 +390,12 @@
               </row><row>
                 <entry>UINT32</entry>
                 <entry>32-bit unsigned integer in the message's byte order, aligned to 4-byte boundary.</entry>
+              </row><row>
+                <entry>INT64</entry>
+                <entry>64-bit signed integer in the message's byte order, aligned to 8-byte boundary.</entry>
+              </row><row>
+                <entry>UINT64</entry>
+                <entry>64-bit unsigned integer in the message's byte order, aligned to 8-byte boundary.</entry>
               </row><row>
                 <entry>DOUBLE</entry>
                 <entry>64-bit IEEE 754 double in the message's byte order, aligned to 8-byte boundary.</entry>

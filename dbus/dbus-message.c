@@ -1195,14 +1195,17 @@ dbus_message_get_service (DBusMessage *message)
 }
 
 /**
- * Appends fields to a message given a variable argument
- * list. The variable argument list should contain the type
- * of the argument followed by the value to add.
- * Array values are specified by a int typecode followed by a pointer
- * to the array followed by an int giving the length of the array.
- * The argument list must be terminated with 0.
+ * Appends fields to a message given a variable argument list. The
+ * variable argument list should contain the type of the argument
+ * followed by the value to add.  Array values are specified by an int
+ * typecode followed by a pointer to the array followed by an int
+ * giving the length of the array.  The argument list must be
+ * terminated with DBUS_TYPE_INVALID.
  *
  * This function doesn't support dicts or non-fundamental arrays.
+ *
+ * This function supports #DBUS_TYPE_INT64 and #DBUS_TYPE_UINT64
+ * only if #DBUS_HAVE_INT64 is defined.
  *
  * @param message the message
  * @param first_arg_type type of the first argument
@@ -1227,10 +1230,11 @@ dbus_message_append_args (DBusMessage *message,
 }
 
 /**
- * This function takes a va_list for use by language bindings
+ * This function takes a va_list for use by language bindings.
+ * It's otherwise the same as dbus_message_append_args().
  *
  * @todo: Shouldn't this function clean up the changes to the message
- *        on failures?
+ *        on failures? (Yes)
   
  * @see dbus_message_append_args.  
  * @param message the message
@@ -1272,6 +1276,16 @@ dbus_message_append_args_valist (DBusMessage *message,
 	  if (!dbus_message_iter_append_uint32 (&iter, va_arg (var_args, dbus_uint32_t)))
 	    goto errorout;	    
 	  break;
+#ifdef DBUS_HAVE_INT64
+        case DBUS_TYPE_INT64:
+	  if (!dbus_message_iter_append_int64 (&iter, va_arg (var_args, dbus_int64_t)))
+	    goto errorout;
+	  break;
+	case DBUS_TYPE_UINT64:
+	  if (!dbus_message_iter_append_uint64 (&iter, va_arg (var_args, dbus_uint64_t)))
+	    goto errorout;	    
+	  break;
+#endif /* DBUS_HAVE_INT64 */
 	case DBUS_TYPE_DOUBLE:
 	  if (!dbus_message_iter_append_double (&iter, va_arg (var_args, double)))
 	    goto errorout;
@@ -1321,6 +1335,16 @@ dbus_message_append_args_valist (DBusMessage *message,
 		if (!dbus_message_iter_append_uint32_array (&iter, (dbus_uint32_t *)data, len))
 		  goto errorout;
 		break;
+#ifdef DBUS_HAVE_INT64
+              case DBUS_TYPE_INT64:
+		if (!dbus_message_iter_append_int64_array (&iter, (dbus_int64_t *)data, len))
+		  goto errorout;
+		break;
+	      case DBUS_TYPE_UINT64:
+		if (!dbus_message_iter_append_uint64_array (&iter, (dbus_uint64_t *)data, len))
+		  goto errorout;
+		break;
+#endif /* DBUS_HAVE_INT64 */
 	      case DBUS_TYPE_DOUBLE:
 		if (!dbus_message_iter_append_double_array (&iter, (double *)data, len))
 		  goto errorout;
@@ -1447,6 +1471,9 @@ dbus_message_iter_get_args (DBusMessageIter *iter,
 /**
  * This function takes a va_list for use by language bindings
  *
+ * This function supports #DBUS_TYPE_INT64 and #DBUS_TYPE_UINT64
+ * only if #DBUS_HAVE_INT64 is defined.
+ *
  * @todo this function (or some lower-level non-convenience function)
  * needs better error handling; should allow the application to
  * distinguish between out of memory, and bad data from the remote
@@ -1534,7 +1561,27 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 	    *ptr = dbus_message_iter_get_uint32 (iter);
 	    break;
 	  }
+#ifdef DBUS_HAVE_INT64
+	case DBUS_TYPE_INT64:
+	  {
+	    dbus_int64_t *ptr;
 
+	    ptr = va_arg (var_args, dbus_int64_t *);
+
+	    *ptr = dbus_message_iter_get_int64 (iter);
+	    break;
+	  }
+	case DBUS_TYPE_UINT64:
+	  {
+	    dbus_uint64_t *ptr;
+
+	    ptr = va_arg (var_args, dbus_uint64_t *);
+
+	    *ptr = dbus_message_iter_get_uint64 (iter);
+	    break;
+	  }
+#endif /* DBUS_HAVE_INT64 */
+          
 	case DBUS_TYPE_DOUBLE:
 	  {
 	    double *ptr;
@@ -1628,6 +1675,22 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 		    goto out;
 		  }
 		break;
+#ifdef DBUS_HAVE_INT64
+              case DBUS_TYPE_INT64:
+		if (!dbus_message_iter_get_int64_array (iter, (dbus_int64_t **)data, len))
+		  {
+		    dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+		    goto out;
+		  }
+		break;
+	      case DBUS_TYPE_UINT64:
+		if (!dbus_message_iter_get_uint64_array (iter, (dbus_uint64_t **)data, len))
+		  {
+		    dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+		    goto out;
+		  }
+		break;
+#endif /* DBUS_HAVE_INT64 */
 	      case DBUS_TYPE_DOUBLE:
 		if (!dbus_message_iter_get_double_array (iter, (double **)data, len))
 		  {
@@ -2077,7 +2140,7 @@ dbus_message_iter_get_boolean (DBusMessageIter *iter)
 /**
  * Returns the 32 bit signed integer value that an iterator may point to.
  * Note that you need to check that the iterator points to
- * an integer value before using this function.
+ * a 32-bit integer value before using this function.
  *
  * @see dbus_message_iter_get_arg_type
  * @param iter the message iter
@@ -2102,7 +2165,7 @@ dbus_message_iter_get_int32 (DBusMessageIter *iter)
 /**
  * Returns the 32 bit unsigned integer value that an iterator may point to.
  * Note that you need to check that the iterator points to
- * an unsigned integer value before using this function.
+ * a 32-bit unsigned integer value before using this function.
  *
  * @see dbus_message_iter_get_arg_type
  * @param iter the message iter
@@ -2123,6 +2186,64 @@ dbus_message_iter_get_uint32 (DBusMessageIter *iter)
   return _dbus_demarshal_uint32 (&real->message->body, real->message->byte_order,
 				 pos, NULL);
 }
+
+#ifdef DBUS_HAVE_INT64
+
+/**
+ * Returns the 64 bit signed integer value that an iterator may point
+ * to.  Note that you need to check that the iterator points to a
+ * 64-bit integer value before using this function.
+ *
+ * This function only exists if #DBUS_HAVE_INT64 is defined.
+ *
+ * @see dbus_message_iter_get_arg_type
+ * @param iter the message iter
+ * @returns the integer
+ */
+dbus_int64_t
+dbus_message_iter_get_int64 (DBusMessageIter *iter)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+  int type, pos;
+
+  dbus_message_iter_check (real);
+
+  pos = dbus_message_iter_get_data_start (real, &type);
+  
+  _dbus_assert (type == DBUS_TYPE_INT64);
+  
+  return _dbus_demarshal_int64 (&real->message->body, real->message->byte_order,
+				pos, NULL);
+}
+
+/**
+ * Returns the 64 bit unsigned integer value that an iterator may point to.
+ * Note that you need to check that the iterator points to
+ * a 64-bit unsigned integer value before using this function.
+ * 
+ * This function only exists if #DBUS_HAVE_INT64 is defined.
+ * 
+ * @see dbus_message_iter_get_arg_type
+ * @param iter the message iter
+ * @returns the integer
+ */
+dbus_uint64_t
+dbus_message_iter_get_uint64 (DBusMessageIter *iter)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+  int type, pos;
+
+  dbus_message_iter_check (real);
+
+  pos = dbus_message_iter_get_data_start (real, &type);
+  
+  _dbus_assert (type == DBUS_TYPE_UINT64);
+  
+  return _dbus_demarshal_uint64 (&real->message->body, real->message->byte_order,
+				 pos, NULL);
+}
+
+#endif /* DBUS_HAVE_INT64 */
 
 /**
  * Returns the double value that an iterator may point to.
@@ -2385,6 +2506,83 @@ dbus_message_iter_get_uint32_array  (DBusMessageIter *iter,
   else
     return TRUE;
 }
+
+#ifdef DBUS_HAVE_INT64
+
+/**
+ * Returns the 64 bit signed integer array that the iterator may point
+ * to. Note that you need to check that the iterator points to an
+ * array of the correct type prior to using this function.
+ * 
+ * This function only exists if #DBUS_HAVE_INT64 is defined.
+ *
+ * @param iter the iterator
+ * @param value return location for the array
+ * @param len return location for the array length
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_iter_get_int64_array  (DBusMessageIter *iter,
+				    dbus_int64_t   **value,
+				    int             *len)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+  int type, pos;
+
+  dbus_message_iter_check (real);
+
+  pos = dbus_message_iter_get_data_start (real, &type);
+  
+  _dbus_assert (type == DBUS_TYPE_ARRAY);
+
+  type = iter_get_array_type (real, NULL);
+  
+  _dbus_assert (type == DBUS_TYPE_INT64);
+
+  if (!_dbus_demarshal_int64_array (&real->message->body, real->message->byte_order,
+				    pos, NULL, value, len))
+    return FALSE;
+  else
+    return TRUE;
+}
+
+/**
+ * Returns the 64 bit unsigned integer array that the iterator may point
+ * to. Note that you need to check that the iterator points to an
+ * array of the correct type prior to using this function.
+ *
+ * This function only exists if #DBUS_HAVE_INT64 is defined.
+ *
+ * @param iter the iterator
+ * @param value return location for the array
+ * @param len return location for the array length
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_iter_get_uint64_array  (DBusMessageIter *iter,
+				     dbus_uint64_t  **value,
+				     int             *len)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+  int type, pos;
+
+  dbus_message_iter_check (real);
+
+  pos = dbus_message_iter_get_data_start (real, &type);
+  
+  _dbus_assert (type == DBUS_TYPE_ARRAY);
+
+  type = iter_get_array_type (real, NULL);
+  _dbus_assert (type == DBUS_TYPE_UINT64);
+
+  if (!_dbus_demarshal_uint64_array (&real->message->body, real->message->byte_order,
+				    pos, NULL, value, len))
+    return FALSE;
+  else
+    return TRUE;
+}
+
+#endif /* DBUS_HAVE_INT64 */
 
 /**
  * Returns the double array that the iterator may point to. Note that
@@ -2730,6 +2928,72 @@ dbus_message_iter_append_uint32 (DBusMessageIter *iter,
   
   return TRUE;
 }
+
+#ifdef DBUS_HAVE_INT64
+
+/**
+ * Appends a 64 bit signed integer to the message.
+ *
+ * This function only exists if #DBUS_HAVE_INT64 is defined.
+ *
+ * @param iter an iterator pointing to the end of the message
+ * @param value the integer value
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_iter_append_int64   (DBusMessageIter *iter,
+				  dbus_int64_t  value)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  dbus_message_iter_append_check (real);
+
+  if (!dbus_message_iter_append_type (real, DBUS_TYPE_INT64))
+    return FALSE;
+  
+  if (!_dbus_marshal_int64 (&real->message->body, real->message->byte_order, value))
+    {
+      _dbus_string_set_length (&real->message->body, real->pos);
+      return FALSE;
+    }
+
+  dbus_message_iter_append_done (real);
+  
+  return TRUE;
+}
+
+/**
+ * Appends a 64 bit unsigned integer to the message.
+ *
+ * This function only exists if #DBUS_HAVE_INT64 is defined.
+ *
+ * @param iter an iterator pointing to the end of the message
+ * @param value the integer value
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_iter_append_uint64 (DBusMessageIter *iter,
+				 dbus_uint64_t    value)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  dbus_message_iter_append_check (real);
+
+  if (!dbus_message_iter_append_type (real, DBUS_TYPE_UINT64))
+    return FALSE;
+  
+  if (!_dbus_marshal_uint64 (&real->message->body, real->message->byte_order, value))
+    {
+      _dbus_string_set_length (&real->message->body, real->pos);
+      return FALSE;
+    }
+
+  dbus_message_iter_append_done (real);
+  
+  return TRUE;
+}
+
+#endif /* DBUS_HAVE_INT64 */
 
 /**
  * Appends a double value to the message.
@@ -3144,6 +3408,75 @@ dbus_message_iter_append_uint32_array (DBusMessageIter     *iter,
   
   return TRUE;
 }
+
+#ifdef DBUS_HAVE_INT64
+
+/**
+ * Appends a 64 bit signed integer array to the message.
+ *
+ * This function only exists if #DBUS_HAVE_INT64 is defined.
+ *
+ * @param iter an iterator pointing to the end of the message
+ * @param value the array
+ * @param len the length of the array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_iter_append_int64_array (DBusMessageIter    *iter,
+				      const dbus_int64_t *value,
+				      int                 len)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  dbus_message_iter_append_check (real);
+
+  if (!append_array_type (real, DBUS_TYPE_INT64, NULL, NULL))
+    return FALSE;
+  
+  if (!_dbus_marshal_int64_array (&real->message->body, real->message->byte_order, value, len))
+    {
+      _dbus_string_set_length (&real->message->body, real->pos);
+      return FALSE;
+    }
+
+  dbus_message_iter_append_done (real);
+  
+  return TRUE;
+}
+
+/**
+ * Appends a 64 bit unsigned integer array to the message.
+ *
+ * This function only exists if #DBUS_HAVE_INT64 is defined.
+ *
+ * @param iter an iterator pointing to the end of the message
+ * @param value the array
+ * @param len the length of the array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_iter_append_uint64_array (DBusMessageIter     *iter,
+				       const dbus_uint64_t *value,
+				       int                  len)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  dbus_message_iter_append_check (real);
+
+  if (!append_array_type (real, DBUS_TYPE_UINT64, NULL, NULL))
+    return FALSE;
+  
+  if (!_dbus_marshal_uint64_array (&real->message->body, real->message->byte_order, value, len))
+    {
+      _dbus_string_set_length (&real->message->body, real->pos);
+      return FALSE;
+    }
+
+  dbus_message_iter_append_done (real);
+  
+  return TRUE;
+}
+#endif /* DBUS_HAVE_INT64 */
 
 /**
  * Appends a double array to the message.
@@ -3648,7 +3981,8 @@ decode_string_field (const DBusString   *data,
 
   if (type != DBUS_TYPE_STRING)
     {
-      _dbus_verbose ("%s field has wrong type\n", field_name);
+      _dbus_verbose ("%s field has wrong type %s\n",
+                     field_name, _dbus_type_to_string (type));
       return FALSE;
     }
 
@@ -4414,6 +4748,16 @@ check_message_handling_type (DBusMessageIter *iter,
     case DBUS_TYPE_UINT32:
       dbus_message_iter_get_uint32 (iter);
       break;
+    case DBUS_TYPE_INT64:
+#ifdef DBUS_HAVE_INT64
+      dbus_message_iter_get_int64 (iter);
+#endif
+      break;
+    case DBUS_TYPE_UINT64:
+#ifdef DBUS_HAVE_INT64
+      dbus_message_iter_get_uint64 (iter);
+#endif
+      break;
     case DBUS_TYPE_DOUBLE:
       dbus_message_iter_get_double (iter);
       break;
@@ -5029,12 +5373,18 @@ verify_test_message (DBusMessage *message)
   int our_int_array_len;
   DBusMessageIter iter, dict;
   DBusError error;
-
+#ifdef DBUS_HAVE_INT64
+  dbus_int64_t our_int64;
+#endif
+  
   dbus_message_iter_init (message, &iter);
 
   dbus_error_init (&error);
   if (!dbus_message_iter_get_args (&iter, &error,
 				   DBUS_TYPE_INT32, &our_int,
+#ifdef DBUS_HAVE_INT64
+                                   DBUS_TYPE_INT64, &our_int64,
+#endif
 				   DBUS_TYPE_STRING, &our_str,
 				   DBUS_TYPE_DOUBLE, &our_double,
 				   DBUS_TYPE_BOOLEAN, &our_bool,
@@ -5048,6 +5398,11 @@ verify_test_message (DBusMessage *message)
   if (our_int != -0x12345678)
     _dbus_assert_not_reached ("integers differ!");
 
+#ifdef DBUS_HAVE_INT64
+  if (our_int64 != -0x123456789abcd)
+    _dbus_assert_not_reached ("64-bit integers differ!");
+#endif
+  
   if (our_double != 3.14159)
     _dbus_assert_not_reached ("doubles differ!");
 
@@ -5134,6 +5489,9 @@ _dbus_message_test (const char *test_data_dir)
   _dbus_message_set_serial (message, 1);
   dbus_message_append_args (message,
 			    DBUS_TYPE_INT32, -0x12345678,
+#ifdef DBUS_HAVE_INT64
+                            DBUS_TYPE_INT64, -0x123456789abcd,
+#endif
 			    DBUS_TYPE_STRING, "Test string",
 			    DBUS_TYPE_DOUBLE, 3.14159,
 			    DBUS_TYPE_BOOLEAN, TRUE,

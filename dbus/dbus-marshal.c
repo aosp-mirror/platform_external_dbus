@@ -29,6 +29,30 @@
 
 #include <string.h>
 
+/**
+ * @defgroup DBusMarshal marshaling and unmarshaling
+ * @ingroup  DBusInternals
+ * @brief functions to marshal/unmarshal data from the wire
+ *
+ * Types and functions related to converting primitive data types from
+ * wire format to native machine format, and vice versa.
+ *
+ * @{
+ */
+
+static dbus_uint32_t
+unpack_4_octets (int                  byte_order,
+                 const unsigned char *data)
+{
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
+  
+  if (byte_order == DBUS_LITTLE_ENDIAN)
+    return DBUS_UINT32_FROM_LE (*(dbus_uint32_t*)data);
+  else
+    return DBUS_UINT32_FROM_BE (*(dbus_uint32_t*)data);
+}
+
+#ifndef DBUS_HAVE_INT64
 /* from ORBit */
 static void
 swap_bytes (unsigned char *data,
@@ -47,17 +71,38 @@ swap_bytes (unsigned char *data,
       ++p1;
     }
 }
+#endif /* !DBUS_HAVE_INT64 */
 
-/**
- * @defgroup DBusMarshal marshaling and unmarshaling
- * @ingroup  DBusInternals
- * @brief functions to marshal/unmarshal data from the wire
- *
- * Types and functions related to converting primitive data types from
- * wire format to native machine format, and vice versa.
- *
- * @{
- */
+typedef union
+{
+#ifdef DBUS_HAVE_INT64
+  dbus_int64_t  s;
+  dbus_uint64_t u;
+#endif
+  double d;
+} DBusOctets8;
+
+static DBusOctets8
+unpack_8_octets (int                  byte_order,
+                 const unsigned char *data)
+{
+  DBusOctets8 r;
+  
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 8) == data);
+  _dbus_assert (sizeof (r) == 8);
+  
+#ifdef DBUS_HAVE_INT64
+  if (byte_order == DBUS_LITTLE_ENDIAN)
+    r.u = DBUS_UINT64_FROM_LE (*(dbus_uint64_t*)data);
+  else
+    r.u = DBUS_UINT64_FROM_BE (*(dbus_uint64_t*)data);
+#else
+  r.d = *(double*)data;
+  swap_bytes (&r, sizeof (r));
+#endif
+  
+  return r;
+}
 
 /**
  * Unpacks a 32 bit unsigned integer from a data pointer
@@ -70,12 +115,7 @@ dbus_uint32_t
 _dbus_unpack_uint32 (int                  byte_order,
                      const unsigned char *data)
 {
-  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
-  
-  if (byte_order == DBUS_LITTLE_ENDIAN)
-    return DBUS_UINT32_FROM_LE (*(dbus_uint32_t*)data);
-  else
-    return DBUS_UINT32_FROM_BE (*(dbus_uint32_t*)data);
+  return unpack_4_octets (byte_order, data);
 }  
 
 /**
@@ -89,12 +129,78 @@ dbus_int32_t
 _dbus_unpack_int32 (int                  byte_order,
                     const unsigned char *data)
 {
+  return (dbus_int32_t) unpack_4_octets (byte_order, data);
+}
+
+#ifdef DBUS_HAVE_INT64
+/**
+ * Unpacks a 64 bit unsigned integer from a data pointer
+ *
+ * @param byte_order The byte order to use
+ * @param data the data pointer
+ * @returns the integer
+ */
+dbus_uint64_t
+_dbus_unpack_uint64 (int                  byte_order,
+                     const unsigned char *data)
+{
+  DBusOctets8 r;
+  
+  r = unpack_8_octets (byte_order, data);
+
+  return r.u;
+}  
+
+/**
+ * Unpacks a 64 bit signed integer from a data pointer
+ *
+ * @param byte_order The byte order to use
+ * @param data the data pointer
+ * @returns the integer
+ */
+dbus_int64_t
+_dbus_unpack_int64 (int                  byte_order,
+                    const unsigned char *data)
+{
+  DBusOctets8 r;
+  
+  r = unpack_8_octets (byte_order, data);
+
+  return r.s;
+}
+
+#endif /* DBUS_HAVE_INT64 */
+
+static void
+pack_4_octets (dbus_uint32_t   value,
+               int             byte_order,
+               unsigned char  *data)
+{
   _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
   
-  if (byte_order == DBUS_LITTLE_ENDIAN)
-    return DBUS_INT32_FROM_LE (*(dbus_int32_t*)data);
+  if ((byte_order) == DBUS_LITTLE_ENDIAN)                  
+    *((dbus_uint32_t*)(data)) = DBUS_UINT32_TO_LE (value);       
   else
-    return DBUS_INT32_FROM_BE (*(dbus_int32_t*)data);
+    *((dbus_uint32_t*)(data)) = DBUS_UINT32_TO_BE (value);
+}
+
+static void
+pack_8_octets (DBusOctets8     value,
+               int             byte_order,
+               unsigned char  *data)
+{
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 8) == data);
+
+#ifdef DBUS_HAVE_INT64
+  if ((byte_order) == DBUS_LITTLE_ENDIAN)                  
+    *((dbus_uint64_t*)(data)) = DBUS_UINT64_TO_LE (value.u); 
+  else
+    *((dbus_uint64_t*)(data)) = DBUS_UINT64_TO_BE (value.u);
+#else
+  memcpy (data, &value, 8);
+  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
+    swap_bytes ((unsigned char *)data, 8);
+#endif
 }
 
 /**
@@ -109,12 +215,7 @@ _dbus_pack_uint32 (dbus_uint32_t   value,
                    int             byte_order,
                    unsigned char  *data)
 {
-  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
-  
-  if ((byte_order) == DBUS_LITTLE_ENDIAN)                  
-    *((dbus_uint32_t*)(data)) = DBUS_UINT32_TO_LE (value);       
-  else
-    *((dbus_uint32_t*)(data)) = DBUS_UINT32_TO_BE (value);
+  pack_4_octets (value, byte_order, data);
 }
 
 /**
@@ -129,12 +230,75 @@ _dbus_pack_int32 (dbus_int32_t   value,
                   int            byte_order,
                   unsigned char *data)
 {
-  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
+  pack_4_octets ((dbus_uint32_t) value, byte_order, data);
+}
+
+#ifdef DBUS_HAVE_INT64
+/**
+ * Packs a 64 bit unsigned integer into a data pointer.
+ *
+ * @param value the value
+ * @param byte_order the byte order to use
+ * @param data the data pointer
+ */
+void
+_dbus_pack_uint64 (dbus_uint64_t   value,
+                   int             byte_order,
+                   unsigned char  *data)
+{
+  DBusOctets8 r;
+  r.u = value;
+  pack_8_octets (r, byte_order, data);
+}
+
+/**
+ * Packs a 64 bit signed integer into a data pointer.
+ *
+ * @param value the value
+ * @param byte_order the byte order to use
+ * @param data the data pointer
+ */
+void
+_dbus_pack_int64 (dbus_int64_t   value,
+                  int            byte_order,
+                  unsigned char *data)
+{
+  DBusOctets8 r;
+  r.s = value;
+  pack_8_octets (r, byte_order, data);
+}
+#endif /* DBUS_HAVE_INT64 */
+
+static void
+set_4_octets (DBusString          *str,
+              int                  byte_order,
+              int                  offset,
+              dbus_uint32_t        value)
+{
+  char *data;
   
-  if ((byte_order) == DBUS_LITTLE_ENDIAN)                  
-    *((dbus_int32_t*)(data)) = DBUS_INT32_TO_LE (value);       
-  else
-    *((dbus_int32_t*)(data)) = DBUS_INT32_TO_BE (value);
+  _dbus_assert (byte_order == DBUS_LITTLE_ENDIAN ||
+                byte_order == DBUS_BIG_ENDIAN);
+  
+  data = _dbus_string_get_data_len (str, offset, 4);
+
+  _dbus_pack_uint32 (value, byte_order, data);
+}
+
+static void
+set_8_octets (DBusString          *str,
+              int                  byte_order,
+              int                  offset,
+              DBusOctets8          value)
+{
+  char *data;
+  
+  _dbus_assert (byte_order == DBUS_LITTLE_ENDIAN ||
+                byte_order == DBUS_BIG_ENDIAN);
+  
+  data = _dbus_string_get_data_len (str, offset, 8);
+
+  pack_8_octets (value, byte_order, data);
 }
 
 /**
@@ -153,14 +317,7 @@ _dbus_marshal_set_int32 (DBusString          *str,
                          int                  offset,
                          dbus_int32_t         value)
 {
-  char *data;
-  
-  _dbus_assert (byte_order == DBUS_LITTLE_ENDIAN ||
-                byte_order == DBUS_BIG_ENDIAN);
-  
-  data = _dbus_string_get_data_len (str, offset, 4);
-
-  _dbus_pack_int32 (value, byte_order, data);
+  set_4_octets (str, byte_order, offset, (dbus_uint32_t) value);
 }
 
 /**
@@ -179,15 +336,53 @@ _dbus_marshal_set_uint32 (DBusString          *str,
                           int                  offset,
                           dbus_uint32_t        value)
 {
-  char *data;
-  
-  _dbus_assert (byte_order == DBUS_LITTLE_ENDIAN ||
-                byte_order == DBUS_BIG_ENDIAN);
-  
-  data = _dbus_string_get_data_len (str, offset, 4);
-
-  _dbus_pack_uint32 (value, byte_order, data);
+  set_4_octets (str, byte_order, offset, value);
 }
+
+#ifdef DBUS_HAVE_INT64
+
+/**
+ * Sets the 4 bytes at the given offset to a marshaled signed integer,
+ * replacing anything found there previously.
+ *
+ * @param str the string to write the marshalled int to
+ * @param offset the byte offset where int should be written
+ * @param byte_order the byte order to use
+ * @param value the value
+ * 
+ */
+void
+_dbus_marshal_set_int64 (DBusString          *str,
+                         int                  byte_order,
+                         int                  offset,
+                         dbus_int64_t         value)
+{
+  DBusOctets8 r;
+  r.s = value;
+  set_8_octets (str, byte_order, offset, r);
+}
+
+/**
+ * Sets the 4 bytes at the given offset to a marshaled unsigned
+ * integer, replacing anything found there previously.
+ *
+ * @param str the string to write the marshalled int to
+ * @param offset the byte offset where int should be written
+ * @param byte_order the byte order to use
+ * @param value the value
+ * 
+ */
+void
+_dbus_marshal_set_uint64 (DBusString          *str,
+                          int                  byte_order,
+                          int                  offset,
+                          dbus_uint64_t        value)
+{
+  DBusOctets8 r;
+  r.u = value;
+  set_8_octets (str, byte_order, offset, r);
+}
+#endif /* DBUS_HAVE_INT64 */
 
 /**
  * Sets the existing marshaled string at the given offset with
@@ -228,6 +423,38 @@ _dbus_marshal_set_string (DBusString          *str,
   return TRUE;
 }
 
+static dbus_bool_t
+marshal_4_octets (DBusString   *str,
+                  int           byte_order,
+                  dbus_uint32_t value)
+{
+  _dbus_assert (sizeof (value) == 4);
+  
+  if (!_dbus_string_align_length (str, sizeof (dbus_uint32_t)))
+    return FALSE;
+  
+  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
+    value = DBUS_UINT32_SWAP_LE_BE (value);
+
+  return _dbus_string_append_len (str, (const char *)&value, sizeof (dbus_uint32_t));
+}
+
+static dbus_bool_t
+marshal_8_octets (DBusString *str,
+                  int         byte_order,
+                  DBusOctets8 value)
+{
+  _dbus_assert (sizeof (value) == 8);
+
+  if (!_dbus_string_align_length (str, 8))
+    return FALSE;
+  
+  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
+    pack_8_octets (value, byte_order, (unsigned char*) &value); /* pack into self, swapping as we go */
+
+  return _dbus_string_append_len (str, (const char *)&value, 8);
+}
+
 /**
  * Marshals a double value.
  *
@@ -241,15 +468,9 @@ _dbus_marshal_double (DBusString *str,
 		      int         byte_order,
 		      double      value)
 {
-  _dbus_assert (sizeof (double) == 8);
-
-  if (!_dbus_string_align_length (str, sizeof (double)))
-    return FALSE;
-  
-  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-    swap_bytes ((unsigned char *)&value, sizeof (double));
-
-  return _dbus_string_append_len (str, (const char *)&value, sizeof (double));
+  DBusOctets8 r;
+  r.d = value;
+  return marshal_8_octets (str, byte_order, r);
 }
 
 /**
@@ -265,13 +486,7 @@ _dbus_marshal_int32  (DBusString   *str,
 		      int           byte_order,
 		      dbus_int32_t  value)
 {
-  if (!_dbus_string_align_length (str, sizeof (dbus_int32_t)))
-    return FALSE;
-  
-  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-    value = DBUS_INT32_SWAP_LE_BE (value);
-
-  return _dbus_string_append_len (str, (const char *)&value, sizeof (dbus_int32_t));
+  return marshal_4_octets (str, byte_order, (dbus_uint32_t) value);
 }
 
 /**
@@ -287,14 +502,48 @@ _dbus_marshal_uint32 (DBusString    *str,
 		      int            byte_order,
 		      dbus_uint32_t  value)
 {
-  if (!_dbus_string_align_length (str, sizeof (dbus_uint32_t)))
-    return FALSE;
-  
-  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-    value = DBUS_UINT32_SWAP_LE_BE (value);
-
-  return _dbus_string_append_len (str, (const char *)&value, sizeof (dbus_uint32_t));
+  return marshal_4_octets (str, byte_order, value);
 }
+
+
+#ifdef DBUS_HAVE_INT64
+/**
+ * Marshals a 64 bit signed integer value.
+ *
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param value the value
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_marshal_int64  (DBusString   *str,
+		      int           byte_order,
+		      dbus_int64_t  value)
+{
+  DBusOctets8 r;
+  r.s = value;
+  return marshal_8_octets (str, byte_order, r);
+}
+
+/**
+ * Marshals a 64 bit unsigned integer value.
+ *
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param value the value
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_marshal_uint64 (DBusString    *str,
+		      int            byte_order,
+		      dbus_uint64_t  value)
+{
+  DBusOctets8 r;
+  r.u = value;
+  return marshal_8_octets (str, byte_order, r);
+}
+
+#endif /* DBUS_HAVE_INT64 */
 
 /**
  * Marshals a UTF-8 string
@@ -362,6 +611,96 @@ _dbus_marshal_byte_array (DBusString          *str,
     return _dbus_string_append_len (str, value, len);
 }
 
+static dbus_bool_t
+marshal_4_octets_array (DBusString          *str,
+                        int                  byte_order,
+                        const dbus_uint32_t *value,
+                        int                  len)
+{
+  int old_string_len;
+  int array_start;
+
+  old_string_len = _dbus_string_get_length (str);
+
+  if (!_dbus_marshal_uint32 (str, byte_order, len * 4))
+    goto error;
+
+  array_start = _dbus_string_get_length (str);
+  
+  if (!_dbus_string_append_len (str, (const unsigned char*) value,
+                                len * 4))
+    goto error;
+  
+  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
+    {
+      const unsigned char *d;
+      const unsigned char *end;
+      
+      d = _dbus_string_get_data (str) + array_start;
+      end = d + len * 4;
+      while (d != end)
+        {
+          *((dbus_uint32_t*)d) = DBUS_UINT32_SWAP_LE_BE (*((dbus_uint32_t*)d));
+          d += 4;
+        }
+    }
+
+  return TRUE;
+  
+ error:
+  /* Restore previous length */
+  _dbus_string_set_length (str, old_string_len);
+  
+  return FALSE;  
+}
+
+static dbus_bool_t
+marshal_8_octets_array (DBusString          *str,
+                        int                  byte_order,
+                        const DBusOctets8   *value,
+                        int                  len)
+{
+  int old_string_len;
+  int array_start;
+
+  old_string_len = _dbus_string_get_length (str);
+
+  if (!_dbus_marshal_uint32 (str, byte_order, len * 8))
+    goto error;
+
+  array_start = _dbus_string_get_length (str);
+  
+  if (!_dbus_string_append_len (str, (const unsigned char*) value,
+                                len * 8))
+    goto error;
+  
+  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
+    {
+      const unsigned char *d;
+      const unsigned char *end;
+      
+      d = _dbus_string_get_data (str) + array_start;
+      end = d + len * 8;
+      while (d != end)
+        {
+#ifdef DBUS_HAVE_INT64
+          *((dbus_uint64_t*)d) = DBUS_UINT64_SWAP_LE_BE (*((dbus_uint64_t*)d));
+#else
+          swap_bytes (d, 8);
+#endif
+          d += 8;
+        }
+    }
+
+  return TRUE;
+  
+ error:
+  /* Restore previous length */
+  _dbus_string_set_length (str, old_string_len);
+  
+  return FALSE;  
+}
+
 /**
  * Marshals a 32 bit signed integer array
  *
@@ -377,24 +716,9 @@ _dbus_marshal_int32_array (DBusString         *str,
 			   const dbus_int32_t *value,
 			   int                 len)
 {
-  int i, old_string_len;
-
-  old_string_len = _dbus_string_get_length (str);
-
-  if (!_dbus_marshal_uint32 (str, byte_order, len * sizeof (dbus_int32_t)))
-    goto error;
-
-  for (i = 0; i < len; i++)
-    if (!_dbus_marshal_int32 (str, byte_order, value[i]))
-      goto error;
-
-  return TRUE;
-  
- error:
-  /* Restore previous length */
-  _dbus_string_set_length (str, old_string_len);
-  
-  return FALSE;
+  return marshal_4_octets_array (str, byte_order,
+                                 (const dbus_uint32_t*) value,
+                                 len);
 }
 
 /**
@@ -412,25 +736,54 @@ _dbus_marshal_uint32_array (DBusString          *str,
 			    const dbus_uint32_t  *value,
 			    int                  len)
 {
-  int i, old_string_len;
-
-  old_string_len = _dbus_string_get_length (str);
-
-  if (!_dbus_marshal_uint32 (str, byte_order, len * sizeof (dbus_uint32_t)))
-    goto error;
-
-  for (i = 0; i < len; i++)
-    if (!_dbus_marshal_uint32 (str, byte_order, value[i]))
-      goto error;
-
-  return TRUE;
-  
- error:
-  /* Restore previous length */
-  _dbus_string_set_length (str, old_string_len);
-  
-  return FALSE;  
+  return marshal_4_octets_array (str, byte_order,
+                                 value,
+                                 len);
 }
+
+#ifdef DBUS_HAVE_INT64
+
+/**
+ * Marshals a 64 bit signed integer array
+ *
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param value the array
+ * @param len the length of the array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_marshal_int64_array (DBusString         *str,
+			   int                 byte_order,
+			   const dbus_int64_t *value,
+			   int                 len)
+{
+  return marshal_8_octets_array (str, byte_order,
+                                 (const DBusOctets8*) value,
+                                 len);
+}
+
+/**
+ * Marshals a 64 bit unsigned integer array
+ *
+ * @param str the string to append the marshalled value to
+ * @param byte_order the byte order to use
+ * @param value the array
+ * @param len the length of the array
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_marshal_uint64_array (DBusString          *str,
+			    int                  byte_order,
+			    const dbus_uint64_t  *value,
+			    int                  len)
+{
+  return marshal_8_octets_array (str, byte_order,
+                                 (const DBusOctets8*) value,
+                                 len);
+}
+
+#endif /* DBUS_HAVE_INT64 */
 
 /**
  * Marshals a double array
@@ -447,32 +800,9 @@ _dbus_marshal_double_array (DBusString          *str,
 			    const double        *value,
 			    int                  len)
 {
-  int i, old_string_len, array_start;
-
-  old_string_len = _dbus_string_get_length (str);
-
-  /* Set the length to 0 temporarily */
-  if (!_dbus_marshal_uint32 (str, byte_order, 0))
-    goto error;
-      
-  array_start = _dbus_string_get_length (str);
-      
-  for (i = 0; i < len; i++)
-    if (!_dbus_marshal_double (str, byte_order, value[i]))
-      goto error;
-
-  /* Write the length now that we know it */
-  _dbus_marshal_set_uint32 (str, byte_order,
-			    _DBUS_ALIGN_VALUE (old_string_len, sizeof(dbus_uint32_t)),
-			    _dbus_string_get_length (str) - array_start);
-  
-  return TRUE;
-  
- error:
-  /* Restore previous length */
-  _dbus_string_set_length (str, old_string_len);
-  
-  return FALSE;    
+  return marshal_8_octets_array (str, byte_order,
+                                 (const DBusOctets8*) value,
+                                 len);
 }
 
 /**
@@ -518,6 +848,37 @@ _dbus_marshal_string_array (DBusString  *str,
   return FALSE;      
 }
 
+static dbus_uint32_t
+demarshal_4_octets (const DBusString *str,
+                    int               byte_order,
+                    int               pos,
+                    int              *new_pos)
+{
+  const DBusRealString *real = (const DBusRealString*) str;
+  
+  pos = _DBUS_ALIGN_VALUE (pos, 4);
+  
+  if (new_pos)
+    *new_pos = pos + 4;
+
+  return unpack_4_octets (byte_order, real->str + pos);
+}
+
+static DBusOctets8
+demarshal_8_octets (const DBusString *str,
+                    int               byte_order,
+                    int               pos,
+                    int              *new_pos)
+{
+  const DBusRealString *real = (const DBusRealString*) str;
+  
+  pos = _DBUS_ALIGN_VALUE (pos, 8);
+  
+  if (new_pos)
+    *new_pos = pos + 8;
+
+  return unpack_8_octets (byte_order, real->str + pos);
+}
 
 /**
  * Demarshals a double.
@@ -530,26 +891,15 @@ _dbus_marshal_string_array (DBusString  *str,
  */
 double
 _dbus_demarshal_double (const DBusString  *str,
-			int          byte_order,
-			int          pos,
-			int         *new_pos)
+			int                byte_order,
+			int                pos,
+			int               *new_pos)
 {
-  double retval;
-  const char *buffer;
+  DBusOctets8 r;
 
-  pos = _DBUS_ALIGN_VALUE (pos, sizeof (double));
+  r = demarshal_8_octets (str, byte_order, pos, new_pos);
 
-  buffer = _dbus_string_get_const_data_len (str, pos, sizeof (double));
-
-  retval = *(double *)buffer;
-  
-  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-    swap_bytes ((unsigned char *)&retval, sizeof (double));
-
-  if (new_pos)
-    *new_pos = pos + sizeof (double);
-  
-  return retval;  
+  return r.d;
 }
 
 /**
@@ -567,17 +917,7 @@ _dbus_demarshal_int32  (const DBusString *str,
 			int               pos,
 			int              *new_pos)
 {
-  const DBusRealString *real = (const DBusRealString*) str;
-  
-  pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_int32_t));
-  
-  if (new_pos)
-    *new_pos = pos + sizeof (dbus_int32_t);
-
-  if (byte_order == DBUS_LITTLE_ENDIAN)
-    return DBUS_INT32_FROM_LE (*(dbus_int32_t*)(real->str + pos));
-  else
-    return DBUS_INT32_FROM_BE (*(dbus_int32_t*)(real->str + pos));
+  return (dbus_int32_t) demarshal_4_octets (str, byte_order, pos, new_pos);
 }
 
 /**
@@ -595,18 +935,56 @@ _dbus_demarshal_uint32  (const DBusString *str,
 			 int         pos,
 			 int        *new_pos)
 {
-  const DBusRealString *real = (const DBusRealString*) str;
-  
-  pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_uint32_t));
-  
-  if (new_pos)
-    *new_pos = pos + sizeof (dbus_uint32_t);
-
-  if (byte_order == DBUS_LITTLE_ENDIAN)
-    return DBUS_UINT32_FROM_LE (*(dbus_uint32_t*)(real->str + pos));
-  else
-    return DBUS_UINT32_FROM_BE (*(dbus_uint32_t*)(real->str + pos));
+  return demarshal_4_octets (str, byte_order, pos, new_pos);
 }
+
+#ifdef DBUS_HAVE_INT64
+
+/**
+ * Demarshals a 64 bit signed integer.
+ *
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @returns the demarshaled integer.
+ */
+dbus_int64_t
+_dbus_demarshal_int64  (const DBusString *str,
+			int               byte_order,
+			int               pos,
+			int              *new_pos)
+{
+  DBusOctets8 r;
+
+  r = demarshal_8_octets (str, byte_order, pos, new_pos);
+
+  return r.s;
+}
+
+/**
+ * Demarshals a 64 bit unsigned integer.
+ *
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @returns the demarshaled integer.
+ */
+dbus_uint64_t
+_dbus_demarshal_uint64  (const DBusString *str,
+			 int         byte_order,
+			 int         pos,
+			 int        *new_pos)
+{
+  DBusOctets8 r;
+
+  r = demarshal_8_octets (str, byte_order, pos, new_pos);
+
+  return r.u;
+}
+
+#endif /* DBUS_HAVE_INT64 */
 
 /**
  * Demarshals an UTF-8 string.
@@ -718,6 +1096,102 @@ _dbus_demarshal_byte_array (const DBusString  *str,
   return TRUE;
 }
 
+static dbus_bool_t
+demarshal_4_octets_array (const DBusString  *str,
+                          int                byte_order,
+                          int                pos,
+                          int               *new_pos,
+                          dbus_uint32_t    **array,
+                          int               *array_len)
+{
+  int len, i;
+  dbus_uint32_t *retval;
+  int byte_len;
+  
+  byte_len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+  len = byte_len / 4;
+
+  if (len == 0)
+    {
+      *array_len = 0;
+      *array = NULL;
+
+      if (new_pos)
+	*new_pos = pos;
+      
+      return TRUE;
+    }
+
+  if (!_dbus_string_copy_data_len (str, (char**) &retval,
+                                   pos, byte_len))
+    return FALSE;
+  
+  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
+    {
+      for (i = 0; i < len; i++)
+        retval[i] = DBUS_UINT32_SWAP_LE_BE (retval[i]);
+    }
+
+  if (new_pos)
+    *new_pos = pos + byte_len;
+
+  *array_len = len;
+  *array = retval;
+  
+  return TRUE;  
+}
+
+static dbus_bool_t
+demarshal_8_octets_array (const DBusString  *str,
+                          int                byte_order,
+                          int                pos,
+                          int               *new_pos,
+                          DBusOctets8      **array,
+                          int               *array_len)
+{
+  int len, i;
+  DBusOctets8 *retval;
+  int byte_len;
+  
+  byte_len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+  len = byte_len / 8;
+
+  if (len == 0)
+    {
+      *array_len = 0;
+      *array = NULL;
+
+      if (new_pos)
+	*new_pos = pos;
+      
+      return TRUE;
+    }
+
+  if (!_dbus_string_copy_data_len (str, (char**) &retval,
+                                   pos, byte_len))
+    return FALSE;
+  
+  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
+    {
+      for (i = 0; i < len; i++)
+        {
+#ifdef DBUS_HAVE_INT64
+          retval[i].u = DBUS_UINT64_SWAP_LE_BE (retval[i].u);
+#else
+          swap_bytes (&retval[i], 8);
+#endif
+        }
+    }
+
+  if (new_pos)
+    *new_pos = pos + byte_len;
+
+  *array_len = len;
+  *array = retval;
+  
+  return TRUE;  
+}
+
 /**
  * Demarshals a 32 bit signed integer array.
  *
@@ -737,37 +1211,8 @@ _dbus_demarshal_int32_array (const DBusString  *str,
 			     dbus_int32_t     **array,
 			     int               *array_len)
 {
-  int len, i;
-  dbus_int32_t *retval;
-  
-  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos)  / sizeof (dbus_int32_t);
-
-  if (len == 0)
-    {
-      *array_len = 0;
-      *array = NULL;
-
-      if (new_pos)
-	*new_pos = pos;
-      
-      return TRUE;
-    }
-  
-  retval = dbus_new (dbus_int32_t, len);
-  
-  if (!retval)
-    return FALSE;
-
-  for (i = 0; i < len; i++)
-    retval[i] = _dbus_demarshal_int32 (str, byte_order, pos, &pos);
-
-  if (new_pos)
-    *new_pos = pos;
-
-  *array_len = len;
-  *array = retval;
-  
-  return TRUE;
+  return demarshal_4_octets_array (str, byte_order, pos, new_pos,
+                                   (dbus_uint32_t**) array, array_len);
 }
 
 /**
@@ -789,38 +1234,59 @@ _dbus_demarshal_uint32_array (const DBusString  *str,
 			      dbus_uint32_t    **array,
 			      int               *array_len)
 {
-  int len, i;
-  dbus_uint32_t *retval;
-  
-  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos) / sizeof (dbus_uint32_t);
-
-  if (len == 0)
-    {
-      *array_len = 0;
-      *array = NULL;
-
-      if (new_pos)
-	*new_pos = pos;
-      
-      return TRUE;
-    }
-  
-  retval = dbus_new (dbus_uint32_t, len);
-
-  if (!retval)
-    return FALSE;
-
-  for (i = 0; i < len; i++)
-    retval[i] = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
-
-  if (new_pos)
-    *new_pos = pos;
-
-  *array_len = len;
-  *array = retval;
-  
-  return TRUE;  
+  return demarshal_4_octets_array (str, byte_order, pos, new_pos,
+                                   array, array_len);
 }
+
+#ifdef DBUS_HAVE_INT64
+
+/**
+ * Demarshals a 64 bit signed integer array.
+ *
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @param array the array
+ * @param array_len length of the demarshaled data
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_demarshal_int64_array (const DBusString  *str,
+			     int                byte_order,
+			     int                pos,
+			     int               *new_pos,
+			     dbus_int64_t     **array,
+			     int               *array_len)
+{
+  return demarshal_8_octets_array (str, byte_order, pos, new_pos,
+                                   (DBusOctets8**) array, array_len);
+}
+
+/**
+ * Demarshals a 64 bit unsigned integer array.
+ *
+ * @param str the string containing the data
+ * @param byte_order the byte order
+ * @param pos the position in the string
+ * @param new_pos the new position of the string
+ * @param array the array
+ * @param array_len length of the demarshaled data
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_demarshal_uint64_array (const DBusString  *str,
+			      int                byte_order,
+			      int                pos,
+			      int               *new_pos,
+			      dbus_uint64_t    **array,
+			      int               *array_len)
+{
+  return demarshal_8_octets_array (str, byte_order, pos, new_pos,
+                                   (DBusOctets8**) array, array_len);
+}
+
+#endif /* DBUS_HAVE_INT64 */
 
 /**
  * Demarshals a double array.
@@ -841,37 +1307,8 @@ _dbus_demarshal_double_array (const DBusString  *str,
 			      double           **array,
 			      int               *array_len)
 {
-  int len, i;
-  double *retval;
-  
-  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos) / sizeof (double);
-
-  if (len == 0)
-    {
-      *array_len = 0;
-      *array = NULL;
-
-      if (new_pos)
-	*new_pos = pos;
-      
-      return TRUE;
-    }
-  
-  retval = dbus_new (double, len);
-
-  if (!retval)
-    return FALSE;
-
-  for (i = 0; i < len; i++)
-    retval[i] = _dbus_demarshal_double (str, byte_order, pos, &pos);
-
-  if (new_pos)
-    *new_pos = pos;
-
-  *array_len = len;
-  *array = retval;
-  
-  return TRUE; 
+  return demarshal_8_octets_array (str, byte_order, pos, new_pos,
+                                   (DBusOctets8**) array, array_len);
 }
 
 /**
@@ -991,6 +1428,18 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
 
       break;
 
+#ifdef DBUS_HAVE_INT64
+    case DBUS_TYPE_INT64:
+      *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_int64_t)) + sizeof (dbus_int64_t);
+
+      break;
+
+    case DBUS_TYPE_UINT64:
+      *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_uint64_t)) + sizeof (dbus_uint64_t);
+
+      break;
+#endif /* DBUS_HAVE_INT64 */
+      
     case DBUS_TYPE_DOUBLE:
       *end_pos = _DBUS_ALIGN_VALUE (pos, sizeof (double)) + sizeof (double);
 
@@ -1263,9 +1712,10 @@ _dbus_marshal_validate_arg (const DBusString *str,
 	    return FALSE;
 	  }
 	
-      *end_pos = pos + 1;
-      break;
+        *end_pos = pos + 1;
       }
+      break;
+      
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
       {
@@ -1282,6 +1732,22 @@ _dbus_marshal_validate_arg (const DBusString *str,
       }
       break;
 
+    case DBUS_TYPE_INT64:
+    case DBUS_TYPE_UINT64:
+      {
+        int align_8 = _DBUS_ALIGN_VALUE (pos, 8);
+        
+        if (!_dbus_string_validate_nul (str, pos,
+                                        align_8 - pos))
+          {
+            _dbus_verbose ("int64/uint64 alignment padding not initialized to nul\n");
+            return FALSE;
+          }
+
+        *end_pos = align_8 + 8;
+      }
+      break;
+      
     case DBUS_TYPE_DOUBLE:
       {
         int align_8 = _DBUS_ALIGN_VALUE (pos, 8);
@@ -1597,8 +2063,11 @@ _dbus_marshal_test (void)
 {
   DBusString str;
   char *tmp1, *tmp2;
-  dbus_int32_t array1[3] = { 0x123, 0x456, 0x789 }, *array2;
   int pos = 0, len;
+  dbus_int32_t array1[3] = { 0x123, 0x456, 0x789 }, *array2;
+#ifdef DBUS_HAVE_INT64
+  dbus_int64_t array3[3] = { 0x123ffffffff, 0x456ffffffff, 0x789ffffffff }, *array4;
+#endif
   
   if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");
@@ -1636,6 +2105,30 @@ _dbus_marshal_test (void)
   if (!_dbus_demarshal_uint32 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == 0x12345678)
     _dbus_assert_not_reached ("demarshal failed");
 
+#ifdef DBUS_HAVE_INT64
+  /* Marshal signed integers */
+  if (!_dbus_marshal_int64 (&str, DBUS_BIG_ENDIAN, DBUS_INT64_CONSTANT (-0x123456789abc7)))
+    _dbus_assert_not_reached ("could not marshal signed integer value");
+  if (!_dbus_demarshal_int64 (&str, DBUS_BIG_ENDIAN, pos, &pos) == DBUS_INT64_CONSTANT (-0x123456789abc7))
+    _dbus_assert_not_reached ("demarshal failed");
+
+  if (!_dbus_marshal_int64 (&str, DBUS_LITTLE_ENDIAN, DBUS_INT64_CONSTANT (-0x123456789abc7)))
+    _dbus_assert_not_reached ("could not marshal signed integer value");
+  if (!_dbus_demarshal_int64 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == DBUS_INT64_CONSTANT (-0x123456789abc7))
+    _dbus_assert_not_reached ("demarshal failed");
+  
+  /* Marshal unsigned integers */
+  if (!_dbus_marshal_uint64 (&str, DBUS_BIG_ENDIAN, DBUS_UINT64_CONSTANT (0x123456789abc7)))
+    _dbus_assert_not_reached ("could not marshal signed integer value");
+  if (!_dbus_demarshal_uint64 (&str, DBUS_BIG_ENDIAN, pos, &pos) == DBUS_UINT64_CONSTANT (0x123456789abc7))
+    _dbus_assert_not_reached ("demarshal failed");
+  
+  if (!_dbus_marshal_uint64 (&str, DBUS_LITTLE_ENDIAN, DBUS_UINT64_CONSTANT (0x123456789abc7)))
+    _dbus_assert_not_reached ("could not marshal signed integer value");
+  if (!_dbus_demarshal_uint64 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == DBUS_UINT64_CONSTANT (0x123456789abc7))
+    _dbus_assert_not_reached ("demarshal failed");
+#endif /* DBUS_HAVE_INT64 */
+  
   /* Marshal strings */
   tmp1 = "This is the dbus test string";
   if (!_dbus_marshal_string (&str, DBUS_BIG_ENDIAN, tmp1))
@@ -1662,6 +2155,18 @@ _dbus_marshal_test (void)
   if (len != 3)
     _dbus_assert_not_reached ("Signed integer array lengths differ!\n");
   dbus_free (array2);
+
+#ifdef DBUS_HAVE_INT64
+  /* Marshal 64-bit signed integer arrays */
+  if (!_dbus_marshal_int64_array (&str, DBUS_BIG_ENDIAN, array3, 3))
+    _dbus_assert_not_reached ("could not marshal integer array");
+  if (!_dbus_demarshal_int64_array (&str, DBUS_BIG_ENDIAN, pos, &pos, &array4, &len))
+    _dbus_assert_not_reached ("could not demarshal integer array");
+
+  if (len != 3)
+    _dbus_assert_not_reached ("Signed integer array lengths differ!\n");
+  dbus_free (array4);
+#endif
   
   _dbus_string_free (&str);
   

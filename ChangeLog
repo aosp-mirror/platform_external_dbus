@@ -1,5 +1,18 @@
 2003-04-22  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-message.c, dbus/dbus-marshal.c: add 64-bit integer
+	support, and do some code cleanups to share more code and 
+	speed up array marshal/demarshal.
+
+	* dbus-1.0.pc.in (Cflags): put libdir include file in cflags
+
+	* configure.in: generate dbus-arch-deps.h
+
+	* dbus/dbus-protocol.h (DBUS_TYPE_INT64, DBUS_TYPE_UINT64): add
+	64-bit typecodes
+
+2003-04-22  Havoc Pennington  <hp@redhat.com>
+
 	* test/data/valid-messages/opposite-endian.message: fix test
 	to use proper type for rply field
 
