@@ -50,11 +50,12 @@ main (int argc, char **argv)
     dir = "";
 
   _dbus_string_init_const (&test_data_dir, dir);
-  
+
+  printf ("%s: Running message dispatch test\n", argv[0]);
   if (!bus_dispatch_test (&test_data_dir))
     die ("dispatch");
 
-  printf ("Success\n");
+  printf ("%s: Success\n", argv[0]);
   
   return 0;
 #else /* DBUS_BUILD_TESTS */
