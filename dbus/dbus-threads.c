@@ -224,6 +224,7 @@ init_global_locks (void)
     LOCK_ADDR (list),
     LOCK_ADDR (connection_slots),
     LOCK_ADDR (server_slots),
+    LOCK_ADDR (message_slots),
     LOCK_ADDR (atomic),
     LOCK_ADDR (message_handler),
     LOCK_ADDR (bus),

@@ -29,6 +29,7 @@
 #include "dbus-memory.h"
 #include "dbus-list.h"
 #include "dbus-message-builder.h"
+#include "dbus-dataslot.h"
 #include <string.h>
 
 /**
@@ -107,6 +108,8 @@ struct DBusMessage
   dbus_uint32_t changed_stamp; /**< Incremented when iterators are invalidated. */
   
   unsigned int locked : 1; /**< Message being sent, no modifications allowed. */
+
+  DBusDataSlotList slot_list;   /**< Data stored by allocated integer ID */  
 };
 
 enum {
@@ -913,6 +916,8 @@ dbus_message_new_empty_header (void)
   message->byte_order = DBUS_COMPILER_BYTE_ORDER;
   message->client_serial = 0;
   message->reply_serial = 0;
+
+  _dbus_data_slot_list_init (&message->slot_list);
   
   i = 0;
   while (i < FIELD_LAST)
@@ -1184,6 +1189,9 @@ dbus_message_unref (DBusMessage *message)
 
   if (old_refcount == 1)
     {
+      /* This calls application callbacks! */
+      _dbus_data_slot_list_free (&message->slot_list);
+      
       _dbus_list_foreach (&message->size_counters,
                           free_size_counter, message);
       _dbus_list_clear (&message->size_counters);
@@ -4607,6 +4615,114 @@ long
 _dbus_message_loader_get_max_message_size (DBusMessageLoader  *loader)
 {
   return loader->max_message_size;
+}
+
+static DBusDataSlotAllocator slot_allocator;
+_DBUS_DEFINE_GLOBAL_LOCK (message_slots);
+
+/**
+ * Allocates an integer ID to be used for storing application-specific
+ * data on any DBusMessage. The allocated ID may then be used
+ * with dbus_message_set_data() and dbus_message_get_data().
+ * The passed-in slot must be initialized to -1, and is filled in
+ * with the slot ID. If the passed-in slot is not -1, it's assumed
+ * to be already allocated, and its refcount is incremented.
+ * 
+ * The allocated slot is global, i.e. all DBusMessage objects will
+ * have a slot with the given integer ID reserved.
+ *
+ * @param slot_p address of a global variable storing the slot
+ * @returns #FALSE on failure (no memory)
+ */
+dbus_bool_t
+dbus_message_allocate_data_slot (dbus_int32_t *slot_p)
+{
+  return _dbus_data_slot_allocator_alloc (&slot_allocator,
+                                          _DBUS_LOCK_NAME (message_slots),
+                                          slot_p);
+}
+
+/**
+ * Deallocates a global ID for message data slots.
+ * dbus_message_get_data() and dbus_message_set_data() may no
+ * longer be used with this slot.  Existing data stored on existing
+ * DBusMessage objects will be freed when the message is
+ * finalized, but may not be retrieved (and may only be replaced if
+ * someone else reallocates the slot).  When the refcount on the
+ * passed-in slot reaches 0, it is set to -1.
+ *
+ * @param slot_p address storing the slot to deallocate
+ */
+void
+dbus_message_free_data_slot (dbus_int32_t *slot_p)
+{
+  _dbus_return_if_fail (*slot_p >= 0);
+  
+  _dbus_data_slot_allocator_free (&slot_allocator, slot_p);
+}
+
+/**
+ * Stores a pointer on a DBusMessage, along
+ * with an optional function to be used for freeing
+ * the data when the data is set again, or when
+ * the message is finalized. The slot number
+ * must have been allocated with dbus_message_allocate_data_slot().
+ *
+ * @param message the message
+ * @param slot the slot number
+ * @param data the data to store
+ * @param free_data_func finalizer function for the data
+ * @returns #TRUE if there was enough memory to store the data
+ */
+dbus_bool_t
+dbus_message_set_data (DBusMessage     *message,
+                       dbus_int32_t     slot,
+                       void            *data,
+                       DBusFreeFunction free_data_func)
+{
+  DBusFreeFunction old_free_func;
+  void *old_data;
+  dbus_bool_t retval;
+
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (slot >= 0, FALSE);
+
+  retval = _dbus_data_slot_list_set (&slot_allocator,
+                                     &message->slot_list,
+                                     slot, data, free_data_func,
+                                     &old_free_func, &old_data);
+
+  if (retval)
+    {
+      /* Do the actual free outside the message lock */
+      if (old_free_func)
+        (* old_free_func) (old_data);
+    }
+
+  return retval;
+}
+
+/**
+ * Retrieves data previously set with dbus_message_set_data().
+ * The slot must still be allocated (must not have been freed).
+ *
+ * @param message the message
+ * @param slot the slot to get data from
+ * @returns the data, or #NULL if not found
+ */
+void*
+dbus_message_get_data (DBusMessage   *message,
+                       dbus_int32_t   slot)
+{
+  void *res;
+
+  _dbus_return_val_if_fail (message != NULL, NULL);
+  
+  res = _dbus_data_slot_list_get (&slot_allocator,
+                                  &message->slot_list,
+                                  slot);
+
+  return res;
 }
 
 /** @} */

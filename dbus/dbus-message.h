@@ -30,6 +30,7 @@
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-arch-deps.h>
+#include <dbus/dbus-memory.h>
 #include <stdarg.h>
 
 DBUS_BEGIN_DECLS;
@@ -230,6 +231,16 @@ dbus_bool_t dbus_message_iter_append_string_array  (DBusMessageIter      *iter,
 
 dbus_bool_t  dbus_set_error_from_message  (DBusError    *error,
                                            DBusMessage  *message);
+
+
+dbus_bool_t dbus_message_allocate_data_slot (dbus_int32_t     *slot_p);
+void        dbus_message_free_data_slot     (dbus_int32_t     *slot_p);
+dbus_bool_t dbus_message_set_data           (DBusMessage      *message,
+                                             dbus_int32_t      slot,
+                                             void             *data,
+                                             DBusFreeFunction  free_data_func);
+void*       dbus_message_get_data           (DBusMessage      *message,
+                                             dbus_int32_t      slot);
 
 DBUS_END_DECLS;
 

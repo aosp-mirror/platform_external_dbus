@@ -1,5 +1,16 @@
 2003-06-22  Havoc Pennington  <hp@pobox.com>
 
+	* mono/Message.cs: implement Message.Wrap() that ensures we only
+	have a single C# wrapper per DBusMessage, assuming it works which 
+	it probably doesn't.
+
+	* dbus/dbus-message.c (dbus_message_allocate_data_slot): new
+	(dbus_message_free_data_slot): new
+	(dbus_message_set_data): new
+	(dbus_message_get_data): new
+
+2003-06-22  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-dataslot.c (_dbus_data_slot_allocator_unref)
 	(_dbus_data_slot_allocator_alloc): rework these to keep a
 	reference count on each slot and automatically manage a global 
