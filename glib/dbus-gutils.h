@@ -31,7 +31,9 @@
 
 G_BEGIN_DECLS
 
-char** _dbus_gutils_split_path (const char *path);
+char      **_dbus_gutils_split_path     (const char *path);
+const char *_dbus_gutils_type_to_string (int         type);
+
 
 G_END_DECLS
 

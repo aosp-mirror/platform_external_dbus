@@ -403,12 +403,33 @@ method_info_get_args (MethodInfo *info)
   return info->args;
 }
 
+static int
+args_sort_by_direction (const void *a,
+                        const void *b)
+{
+  const ArgInfo *arg_a = a;
+  const ArgInfo *arg_b = b;
+
+  if (arg_a->direction == arg_b->direction)
+    return 0;
+  else if (arg_a->direction == ARG_IN)
+    return -1; /* in is less than out */
+  else
+    return 1;
+}                  
+
 void
 method_info_add_arg (MethodInfo    *info,
                      ArgInfo       *arg)
 {
   arg_info_ref (arg);
   info->args = g_slist_append (info->args, arg);
+
+  /* Keep "in" args sorted before "out" and otherwise maintain
+   * stable order (g_slist_sort is stable, at least in sufficiently
+   * new glib)
+   */
+  info->args = g_slist_sort (info->args, args_sort_by_direction);
 }
 
 SignalInfo*
@@ -459,8 +480,12 @@ void
 signal_info_add_arg (SignalInfo    *info,
                      ArgInfo       *arg)
 {
+  g_assert (arg->direction == ARG_OUT);
+  
   arg_info_ref (arg);
   info->args = g_slist_append (info->args, arg);
+
+  /* signal args don't need sorting since only "out" is allowed */
 }
 
 ArgInfo*

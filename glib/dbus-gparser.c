@@ -212,12 +212,12 @@ parser_check_doctype (Parser      *parser,
 {
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
   
-  if (strcmp (doctype, "dbus_description") != 0)
+  if (strcmp (doctype, "node") != 0)
     {
       g_set_error (error,
                    G_MARKUP_ERROR,
                    G_MARKUP_ERROR_PARSE,
-                   "D-BUS description file has the wrong document type %s, use dbus_description",
+                   "D-BUS description file has the wrong document type %s, use node or interface",
                    doctype);
       return FALSE;
     }

@@ -80,10 +80,11 @@ struct DBusGMethodInfo
  */
 struct DBusGObjectInfo
 {
+  int   format_version;         /**< Allows us to change the rest of this struct
+                                 *   by adding DBusGObjectInfo2, DBusGObjectInfo3, etc.
+                                 */
   const DBusGMethodInfo *infos; /**< Array of method pointers */
   const unsigned char *data;    /**< Introspection data */
-  void *dbus_internal_padding1; /**< Reserved for expansion */
-  void *dbus_internal_padding2; /**< Reserved for expansion */
 };
 
 void dbus_g_object_class_install_info  (GObjectClass          *object_class,

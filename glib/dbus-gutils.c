@@ -77,6 +77,40 @@ _dbus_gutils_split_path (const char *path)
   return split;
 }
 
+const char *
+_dbus_gutils_type_to_string (int type)
+{
+  switch (type)
+    {
+    case DBUS_TYPE_INVALID:
+      return "invalid";
+    case DBUS_TYPE_NIL:
+      return "nil";
+    case DBUS_TYPE_BOOLEAN:
+      return "boolean";
+    case DBUS_TYPE_INT32:
+      return "int32";
+    case DBUS_TYPE_UINT32:
+      return "uint32";
+    case DBUS_TYPE_DOUBLE:
+      return "double";
+    case DBUS_TYPE_STRING:
+      return "string";
+    case DBUS_TYPE_CUSTOM:
+      return "custom";
+    case DBUS_TYPE_ARRAY:
+      return "array";
+    case DBUS_TYPE_DICT:
+      return "dict";
+    case DBUS_TYPE_INT64:
+      return "int64";
+    case DBUS_TYPE_UINT64:
+      return "uint64";
+    default:
+      return "unknown";
+    }
+}
+
 #ifdef DBUS_BUILD_TESTS
 
 /**

@@ -1,3 +1,22 @@
+2004-05-31  Havoc Pennington  <hp@redhat.com>
+
+	* glib/dbus-gidl.c (method_info_add_arg): keep args sorted with
+	"in" before "out"
+
+	* glib/dbus-gobject.c (dbus_type_to_string): move to dbus-gutils.c
+
+	* glib/dbus-glib-tool.c (main): set up to have a --self-test
+	option that runs the tests, and start filling in some code
+	including for starters just dumping the interfaces to stdout
+
+	* glib/Makefile.am (INCLUDES): define DBUS_LOCALEDIR
+
+	* test/data/valid-introspection-files/lots-of-types.xml: test of
+	an example introspection file
+
+	* glib/dbus-gparser.c (parser_check_doctype): doctype should be
+	"node" (I think...)
+
 2004-05-31  Seth Nickell  <seth@gnome.org>
 
 	* python/dbus_bindings.pyx.in:

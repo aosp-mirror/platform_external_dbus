@@ -1,4 +1,4 @@
-INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) $(DBUS_GLIB_TOOL_CFLAGS) -DDBUS_COMPILATION=1
+INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) $(DBUS_GLIB_TOOL_CFLAGS) -DDBUS_COMPILATION=1 -DDBUS_LOCALEDIR=\"$(prefix)/@DATADIRNAME@/locale\"
 
 dbusincludedir=$(includedir)/dbus-1.0/dbus
 
@@ -41,8 +41,7 @@ libdbus_gtool_la_LIBADD = libdbus-glib-1.la
 bin_PROGRAMS=dbus-glib-tool
 
 dbus_glib_tool_SOURCES =			\
-	dbus-glib-tool.c			\
-	dbus-gtool-test.h
+	dbus-glib-tool.c
 
 dbus_glib_tool_LDADD= $(DBUS_GLIB_TOOL_LIBS) libdbus-gtool.la
 
@@ -58,7 +57,9 @@ noinst_PROGRAMS= $(TESTS)
 TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_builddir)/test/data DBUS_TEST_HOMEDIR=$(top_builddir)/dbus
 TESTS=dbus-glib-test
 
-dbus_glib_test_SOURCES=				\
+## FIXME we aren't running dbus-glib-tool --self-test
+
+dbus_glib_test_SOURCES=			\
 	dbus-gtest-main.c
 
 dbus_glib_test_LDADD= $(top_builddir)/glib/libdbus-glib-1.la

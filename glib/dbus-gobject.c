@@ -149,36 +149,6 @@ gtype_to_dbus_type (GType type)
     }
 }
 
-static const char *
-dbus_type_to_string (int type)
-{
-  switch (type)
-    {
-    case DBUS_TYPE_INVALID:
-      return "invalid";
-    case DBUS_TYPE_NIL:
-      return "nil";
-    case DBUS_TYPE_BOOLEAN:
-      return "boolean";
-    case DBUS_TYPE_INT32:
-      return "int32";
-    case DBUS_TYPE_UINT32:
-      return "uint32";
-    case DBUS_TYPE_DOUBLE:
-      return "double";
-    case DBUS_TYPE_STRING:
-      return "string";
-    case DBUS_TYPE_CUSTOM:
-      return "custom";
-    case DBUS_TYPE_ARRAY:
-      return "array";
-    case DBUS_TYPE_DICT:
-      return "dict";
-    default:
-      return "unknown";
-    }
-}
-
 static void
 introspect_properties (GObject *object, GString *xml)
 {
@@ -234,7 +204,7 @@ introspect_properties (GObject *object, GString *xml)
           g_string_append (xml, "\">\n");
           
           g_string_append (xml, "      <arg type=\"");
-          g_string_append (xml, dbus_type_to_string (dbus_type));
+          g_string_append (xml, _dbus_gutils_type_to_string (dbus_type));
           g_string_append (xml, "\"/>\n");
         }
 
@@ -245,7 +215,7 @@ introspect_properties (GObject *object, GString *xml)
           g_string_append (xml, "\">\n");
           
           g_string_append (xml, "      <arg type=\"");
-          g_string_append (xml, dbus_type_to_string (dbus_type));
+          g_string_append (xml, _dbus_gutils_type_to_string (dbus_type));
           g_string_append (xml, "\" direction=\"out\"/>\n");
         }
 
@@ -292,7 +262,7 @@ introspect_signals (GType type, GString *xml)
 	  int dbus_type = gtype_to_dbus_type (query.param_types[arg]);
 
           g_string_append (xml, "      <arg type=\"");
-          g_string_append (xml, dbus_type_to_string (dbus_type));
+          g_string_append (xml, _dbus_gutils_type_to_string (dbus_type));
           g_string_append (xml, "\"/>\n");
 	}
 
