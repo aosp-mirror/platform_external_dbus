@@ -1,3 +1,9 @@
+2003-06-20  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-transport-unix.c (unix_handle_watch): Check 
+	for hangup and error after checking read so we won't discard
+	pending data if both hangup and read are set.
+
 2003-06-19  Philip Blundell  <philb@gnu.org>
 
 	* tools/dbus-print-message.c (print_message): Handle BOOLEAN.

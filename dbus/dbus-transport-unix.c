@@ -727,12 +727,6 @@ unix_handle_watch (DBusTransport *transport,
   _dbus_assert (watch == unix_transport->read_watch ||
                 watch == unix_transport->write_watch);
   
-  if (flags & (DBUS_WATCH_HANGUP | DBUS_WATCH_ERROR))
-    {
-      _dbus_transport_disconnect (transport);
-      return TRUE;
-    }
-  
   if (watch == unix_transport->read_watch &&
       (flags & DBUS_WATCH_READABLE))
     {
@@ -779,6 +773,12 @@ unix_handle_watch (DBusTransport *transport,
     }
 #endif /* DBUS_ENABLE_VERBOSE_MODE */
 
+  if (flags & (DBUS_WATCH_HANGUP | DBUS_WATCH_ERROR))
+    {
+      _dbus_transport_disconnect (transport);
+      return TRUE;
+    }
+  
   return TRUE;
 }
 
