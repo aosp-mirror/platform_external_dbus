@@ -35,6 +35,22 @@ Important for 1.0
 
  - dbus-pending-call.c has some API and thread safety issues to review
 
+ - make dbus_connection_open() return a shared connection from a pool.
+   Add dbus_connection_open_private() that works like the current one.
+   To do this, each DBusServer could have a 128-bit GUID. This GUID
+   would be in the address from dbus_server_get_address(). On
+   connection to a server, the GUID would be provided as the first
+   thing in the auth protocol, and verified vs. the expected GUID if a
+   GUID was in the address used to connect. A hash from GUID to
+   connection would be kept, so attempts to connect to a GUID already
+   in the hash would return a shared existing connection.
+
+   The purpose of all this is to allow a dbus_g_proxy_to_string() that
+   would convert the proxy to an "IOR" and dbus_g_proxy_from_string()
+   that would decode; using these, dbus-glib users could avoid
+   DBusConnection entirely. Of course the same applies to other kinds
+   of binding.
+
 Important for 1.0 GLib Bindings
 ===
 
