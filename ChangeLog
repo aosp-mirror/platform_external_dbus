@@ -1,3 +1,10 @@
+2003-03-24  Havoc Pennington  <hp@pobox.com>
+
+	* bus/connection.c (bus_connections_setup_connection): set up 
+	the "can this user connect" function, but it always returns 
+	TRUE until we have a config file parser so we can have a config
+	file that allows connections.
+
 2003-03-23  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-threads.c (dbus_mutex_new, dbus_condvar_new): with 

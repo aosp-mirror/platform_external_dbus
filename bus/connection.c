@@ -159,6 +159,9 @@ bus_connection_disconnected (DBusConnection *connection)
                                               NULL))
     _dbus_assert_not_reached ("setting timeout functions to NULL failed");
   
+  dbus_connection_set_unix_user_function (connection,
+                                          NULL, NULL, NULL);
+  
   bus_connection_remove_transactions (connection);
 
   _dbus_list_remove (&d->connections->list, connection);
@@ -245,6 +248,8 @@ allow_user_function (DBusConnection *connection,
   d = BUS_CONNECTION_DATA (connection);
 
   _dbus_assert (d != NULL);
+
+  return TRUE; /* FIXME - this is just until we can parse a config file */
   
   return bus_context_allow_user (d->connections->context, uid);
 }
@@ -375,6 +380,10 @@ bus_connections_setup_connection (BusConnections *connections,
                                               connection, NULL))
     goto out;
 
+
+  dbus_connection_set_unix_user_function (connection,
+                                          allow_user_function,
+                                          NULL, NULL);
   
   /* Setup the connection with the dispatcher */
   if (!bus_dispatch_add_connection (connection))
@@ -408,6 +417,9 @@ bus_connections_setup_connection (BusConnections *connections,
                                                   connection,
                                                   NULL))
         _dbus_assert_not_reached ("setting timeout functions to NULL failed");
+
+      dbus_connection_set_unix_user_function (connection,
+                                              NULL, NULL, NULL);
     }
   
   return retval;

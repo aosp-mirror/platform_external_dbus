@@ -58,6 +58,9 @@ Elements:
     Lists permitted authorization mechanisms. If this element doesn't
     exist, then all known mechanisms are allowed.  If there are
     multiple <auth> elements, the last one wins (they are not merged).
+    
+    Example: <auth>EXTERNAL</auth>
+    Example: <auth>DBUS_COOKIE_SHA1</auth>
 
  <policy>
   context="(default|mandatory)"  one of the context/user/group
