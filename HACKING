@@ -104,7 +104,7 @@ To make a release of D-BUS, do the following:
    items must be indented three more spaces to conform to the
    formatting of the other releases there.
   
- - post to message-bus-list@freedesktop.org announcing the release.
+ - post to dbus@freedesktop.org announcing the release.
  
 
 Environment variables
