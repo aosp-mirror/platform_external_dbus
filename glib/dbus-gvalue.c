@@ -34,6 +34,8 @@ dbus_gvalue_demarshal (DBusMessageIter *iter, GValue *value)
       g_value_init (value, G_TYPE_##g_t);                       \
       dbus_message_iter_get_basic (iter, &value->data[0]);      \
       break
+
+  g_assert (sizeof (dbus_bool_t) == sizeof (value->data[0].v_int));
   
   switch (dbus_message_iter_get_arg_type (iter))
     {
@@ -98,7 +100,7 @@ dbus_gvalue_marshal (DBusMessageIter *iter, GValue *value)
       break;
     case G_TYPE_BOOLEAN:
       {
-        unsigned char b = g_value_get_boolean (value);
+        dbus_bool_t b = g_value_get_boolean (value);
         if (!dbus_message_iter_append_basic (iter,
                                              DBUS_TYPE_BOOLEAN,
                                              &b))

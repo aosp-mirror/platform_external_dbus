@@ -519,7 +519,7 @@ bus_driver_handle_service_exists (DBusConnection *connection,
   DBusMessage *reply;
   DBusString service_name;
   BusService *service;
-  unsigned char service_exists;
+  dbus_bool_t service_exists;
   const char *name;
   dbus_bool_t retval;
   BusRegistry *registry;

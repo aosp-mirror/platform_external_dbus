@@ -29,12 +29,13 @@
 
 #include <stddef.h>
 
-typedef unsigned int   dbus_bool_t;
 typedef unsigned short dbus_uint16_t;
 typedef short          dbus_int16_t;
 typedef unsigned int   dbus_uint32_t;
 typedef int            dbus_int32_t;
 typedef dbus_uint32_t  dbus_unichar_t;
+/* boolean size must be fixed at 4 bytes due to wire protocol! */
+typedef dbus_uint32_t  dbus_bool_t;
 
 /* Normally docs are in .c files, but there isn't a .c file for this. */
 /**

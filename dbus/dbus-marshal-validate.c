@@ -159,11 +159,6 @@ validate_body_helper (DBusTypeReader       *reader,
           break;
 
         case DBUS_TYPE_BOOLEAN:
-          if (!(*p == 0 || *p == 1))
-            return DBUS_INVALID_BOOLEAN_NOT_ZERO_OR_ONE;
-          ++p;
-          break;
-
         case DBUS_TYPE_INT32:
         case DBUS_TYPE_UINT32:
         case DBUS_TYPE_INT64:
@@ -179,6 +174,15 @@ validate_body_helper (DBusTypeReader       *reader,
                 return DBUS_INVALID_ALIGNMENT_PADDING_NOT_NUL;
               ++p;
             }
+          
+          if (current_type == DBUS_TYPE_BOOLEAN)
+            {
+              dbus_uint32_t v = _dbus_unpack_uint32 (byte_order,
+                                                     p);
+              if (!(v == 0 || v == 1))
+                return DBUS_INVALID_BOOLEAN_NOT_ZERO_OR_ONE;
+            }
+          
           p += alignment;
           break;
 

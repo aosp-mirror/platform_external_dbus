@@ -456,9 +456,9 @@ parse_basic_type (DBusString *src, char type,
   switch (type)
     {
     case DBUS_TYPE_BYTE:
-    case DBUS_TYPE_BOOLEAN:
       align = 1;
       break;
+    case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_UINT32:
     case DBUS_TYPE_INT32:
       align = 4;
@@ -514,9 +514,9 @@ parse_basic_array (DBusString *src, char type,
   switch (type)
     {
     case DBUS_TYPE_BYTE:
-    case DBUS_TYPE_BOOLEAN:
       elem_size = 1;
       break;
+    case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_UINT32:
     case DBUS_TYPE_INT32:
       elem_size = 4;

@@ -599,7 +599,7 @@ message_iter_test (DBusMessage *message)
   dbus_uint64_t v_UINT64;
 #endif
   unsigned char v_BYTE;
-  unsigned char v_BOOLEAN;
+  dbus_bool_t v_BOOLEAN;
 
   const dbus_int32_t *our_int_array;
   int len;
@@ -659,7 +659,7 @@ verify_test_message (DBusMessage *message)
   dbus_int32_t our_int;
   const char *our_str;
   double our_double;
-  unsigned char our_bool;
+  dbus_bool_t our_bool;
   unsigned char our_byte_1, our_byte_2;
   dbus_uint32_t our_uint32;
   const dbus_int32_t *our_uint32_array = (void*)0xdeadbeef;
@@ -678,7 +678,7 @@ verify_test_message (DBusMessage *message)
   int our_double_array_len;
   const unsigned char *our_byte_array = (void*)0xdeadbeef;
   int our_byte_array_len;
-  const unsigned char *our_boolean_array = (void*)0xdeadbeef;
+  const dbus_bool_t *our_boolean_array = (void*)0xdeadbeef;
   int our_boolean_array_len;
 
   dbus_message_iter_init (message, &iter);
@@ -844,8 +844,8 @@ _dbus_message_test (const char *test_data_dir)
   const double *v_ARRAY_DOUBLE = our_double_array;
   const unsigned char our_byte_array[] = { 'a', 'b', 'c', 234 };
   const unsigned char *v_ARRAY_BYTE = our_byte_array;
-  const unsigned char our_boolean_array[] = { TRUE, FALSE, TRUE, TRUE, FALSE };
-  const unsigned char *v_ARRAY_BOOLEAN = our_boolean_array;
+  const dbus_bool_t our_boolean_array[] = { TRUE, FALSE, TRUE, TRUE, FALSE };
+  const dbus_bool_t *v_ARRAY_BOOLEAN = our_boolean_array;
   char sig[64];
   const char *s;
   char *t;
@@ -860,7 +860,7 @@ _dbus_message_test (const char *test_data_dir)
 #endif
   unsigned char v_BYTE;
   unsigned char v2_BYTE;
-  unsigned char v_BOOLEAN;
+  dbus_bool_t v_BOOLEAN;
 
   message = dbus_message_new_method_call ("org.freedesktop.DBus.TestService",
                                           "/org/freedesktop/TestPath",

@@ -2141,7 +2141,7 @@ string_set_value (TestTypeNode   *node,
                                       realign_root);
 }
 
-#define BOOL_FROM_SEED(seed) (seed % 2)
+#define BOOL_FROM_SEED(seed) ((dbus_bool_t)((seed) % 2))
 
 static dbus_bool_t
 bool_write_value (TestTypeNode   *node,
@@ -2149,7 +2149,7 @@ bool_write_value (TestTypeNode   *node,
                   DBusTypeWriter *writer,
                   int             seed)
 {
-  unsigned char v;
+  dbus_bool_t v;
 
   v = BOOL_FROM_SEED (seed);
 
@@ -2163,7 +2163,7 @@ bool_read_value (TestTypeNode   *node,
                  DBusTypeReader *reader,
                  int             seed)
 {
-  unsigned char v;
+  dbus_bool_t v;
 
   check_expected_type (reader, node->klass->typecode);
 
@@ -2181,7 +2181,7 @@ bool_set_value (TestTypeNode   *node,
                 DBusTypeReader *realign_root,
                 int             seed)
 {
-  unsigned char v;
+  dbus_bool_t v;
 
   v = BOOL_FROM_SEED (seed);
 

@@ -505,8 +505,8 @@ Message::message() const
 
 Message& Message::operator<<( bool b )
 {
-  const unsigned char byte = b;
-  dbus_message_append_args( d->msg, DBUS_TYPE_BOOLEAN, &byte,
+  const dbus_bool_t right_size_bool = b;
+  dbus_message_append_args( d->msg, DBUS_TYPE_BOOLEAN, &right_size_bool,
                             DBUS_TYPE_INVALID );
 }
 

@@ -141,7 +141,6 @@ typedef union
 #endif
   double dbl;          /**< as double */
   unsigned char byt;   /**< as byte */
-  unsigned char boo;   /**< as boolean */
   char *str;           /**< as char* */
 } DBusBasicValue;
 

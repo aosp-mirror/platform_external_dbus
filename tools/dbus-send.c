@@ -179,6 +179,7 @@ main (int argc, char *argv[])
       dbus_int32_t int32;
       double d;
       unsigned char byte;
+      dbus_bool_t v_BOOLEAN;
 
       type = DBUS_TYPE_INVALID;
       arg = argv[i++];
@@ -240,13 +241,13 @@ main (int argc, char *argv[])
 	case DBUS_TYPE_BOOLEAN:
           if (strcmp(c, "true") == 0)
             {
-              byte = TRUE;
-              dbus_message_iter_append_basic (&iter, DBUS_TYPE_BOOLEAN, &c);
+              v_BOOLEAN = TRUE;
+              dbus_message_iter_append_basic (&iter, DBUS_TYPE_BOOLEAN, &v_BOOLEAN);
             }
 	  else if (strcmp(c, "false") == 0)
             {
-              byte = FALSE;
-              dbus_message_iter_append_basic (&iter, DBUS_TYPE_BOOLEAN, &c);
+              v_BOOLEAN = FALSE;
+              dbus_message_iter_append_basic (&iter, DBUS_TYPE_BOOLEAN, &v_BOOLEAN);
             }
 	  else
 	    {

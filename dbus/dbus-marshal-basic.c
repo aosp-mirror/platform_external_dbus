@@ -343,7 +343,6 @@ _dbus_marshal_set_basic (DBusString       *str,
   switch (type)
     {
     case DBUS_TYPE_BYTE:
-    case DBUS_TYPE_BOOLEAN:
       _dbus_string_set_byte (str, pos, vp->byt);
       if (old_end_pos)
         *old_end_pos = pos + 1;
@@ -351,6 +350,7 @@ _dbus_marshal_set_basic (DBusString       *str,
         *new_end_pos = pos + 1;
       return TRUE;
       break;
+    case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
       pos = _DBUS_ALIGN_VALUE (pos, 4);
@@ -457,12 +457,12 @@ _dbus_marshal_read_basic (const DBusString      *str,
   switch (type)
     {
     case DBUS_TYPE_BYTE:
-    case DBUS_TYPE_BOOLEAN:
       vp->byt = _dbus_string_get_byte (str, pos);
       (pos)++;
       break;
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_BOOLEAN:
       pos = _DBUS_ALIGN_VALUE (pos, 4);
       vp->u32 = *(dbus_uint32_t *)(str_data + pos);
       if (byte_order != DBUS_COMPILER_BYTE_ORDER)
@@ -756,12 +756,15 @@ _dbus_marshal_write_basic (DBusString *str,
   switch (type)
     {
     case DBUS_TYPE_BYTE:
-    case DBUS_TYPE_BOOLEAN:
       if (!_dbus_string_insert_byte (str, insert_at, vp->byt))
         return FALSE;
       if (pos_after)
         *pos_after = insert_at + 1;
       return TRUE;
+      break;
+    case DBUS_TYPE_BOOLEAN:
+      return marshal_4_octets (str, insert_at, vp->u32 != FALSE,
+                               byte_order, pos_after);
       break;
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
@@ -952,12 +955,12 @@ _dbus_marshal_write_fixed_multi (DBusString *str,
   
   switch (element_type)
     {
-    case DBUS_TYPE_BOOLEAN:
-      /* FIXME: we canonicalize to 0 or 1 for the single boolean case
-       * should we here too ? */
     case DBUS_TYPE_BYTE:
       return marshal_1_octets_array (str, insert_at, vp, n_elements, byte_order, pos_after);
       break;
+      /* FIXME: we canonicalize to 0 or 1 for the single boolean case
+       * should we here too ? */
+    case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
       return marshal_fixed_multi (str, insert_at, vp, n_elements, byte_order, 4, pos_after);
@@ -998,9 +1001,9 @@ _dbus_marshal_skip_basic (const DBusString      *str,
   switch (type)
     {
     case DBUS_TYPE_BYTE:
-    case DBUS_TYPE_BOOLEAN:
       (*pos)++;
       break;
+    case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
       *pos = _DBUS_ALIGN_VALUE (*pos, 4);
@@ -1082,10 +1085,10 @@ _dbus_type_get_alignment (int typecode)
   switch (typecode)
     {
     case DBUS_TYPE_BYTE:
-    case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_VARIANT:
     case DBUS_TYPE_SIGNATURE:
       return 1;
+    case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
       /* this stuff is 4 since it starts with a length */
@@ -1528,7 +1531,7 @@ _dbus_marshal_test (void)
   dbus_int64_t v_INT64;
   dbus_uint64_t v_UINT64;
   unsigned char v_BYTE;
-  unsigned char v_BOOLEAN;
+  dbus_bool_t v_BOOLEAN;
   const char *v_STRING;
   const char *v_SIGNATURE;
   const char *v_OBJECT_PATH;
