@@ -21,6 +21,8 @@ namespace DBus
 										  new Type[0]);
     private static MethodInfo Service_AddSignalCalledMI = typeof(Service).GetMethod("add_SignalCalled",
 										    new Type[] {typeof(Service.SignalCalledHandler)});
+    private static MethodInfo Service_RemoveSignalCalledMI = typeof(Service).GetMethod("remove_SignalCalled",
+										    new Type[] {typeof(Service.SignalCalledHandler)});										    
     private static MethodInfo Signal_PathNameMI = typeof(Signal).GetMethod("get_PathName",
 									   new Type[0]);
     private static MethodInfo Message_ArgumentsMI = typeof(Message).GetMethod("get_Arguments",
@@ -402,7 +404,7 @@ namespace DBus
       }
     }
     
-    public void BuildConstructor(ref TypeBuilder typeB, FieldInfo serviceF, FieldInfo pathF, MethodInfo signalCalledMI)
+    public void BuildConstructor(ref TypeBuilder typeB, FieldInfo serviceF, FieldInfo pathF, MethodInfo signalCalledMI, FieldInfo deleF)
     {
       Type[] pars = {typeof(Service), typeof(string)};
       ConstructorBuilder constructor = typeB.DefineConstructor(MethodAttributes.RTSpecialName | 
@@ -419,12 +421,19 @@ namespace DBus
       generator.Emit(OpCodes.Ldarg_0);
       generator.Emit(OpCodes.Ldarg_2);
       generator.Emit(OpCodes.Stfld, pathF);
-      
-      //generator.EmitWriteLine("myService.SignalCalled += new Service.SignalCalledHandler(Service_SignalCalled)");
+
+      //generator.EmitWriteLine("this.delegate_created = new Service.SignalCalledHandler(Service_SignalCalled)");      
       generator.Emit(OpCodes.Ldarg_1);
       generator.Emit(OpCodes.Ldarg_0);
       generator.Emit(OpCodes.Ldftn, signalCalledMI);
       generator.Emit(OpCodes.Newobj, Service_SignalCalledHandlerC);
+      generator.Emit(OpCodes.Stloc_0);
+      generator.Emit(OpCodes.Ldarg_0);
+      generator.Emit(OpCodes.Ldloc_0);
+      generator.Emit(OpCodes.Stfld, deleF);
+
+      //generator.EmitWriteLine("myService.SignalCalled += this.delegate_created");
+      generator.Emit(OpCodes.Ldloc_0);
       generator.EmitCall(OpCodes.Callvirt, Service_AddSignalCalledMI, null);
 
       //generator.EmitWriteLine("return");
@@ -451,6 +460,27 @@ namespace DBus
       
       //generator.EmitWriteLine("return");
       generator.Emit(OpCodes.Ret);
+    }
+    
+    public void BuildFinalizer (TypeBuilder tb, FieldInfo fi)
+    {
+       // Note that this is a *HORRIBLE* example of how to build a finalizer
+       // It doesn't use the try/finally to chain to Object::Finalize. However,
+       // because that is always going to be a nop, lets just ignore that here.
+       // If you are trying to find the right code, look at what mcs does ;-).
+
+       MethodBuilder mb = tb.DefineMethod("Finalize", 
+					  MethodAttributes.Family |
+					  MethodAttributes.HideBySig |
+					  MethodAttributes.Virtual, 
+					  typeof (void), 
+					  new Type [0]);
+       ILGenerator generator = mb.GetILGenerator();
+
+       //generator.EmitWriteLine("this.service.SignalCalled -= this.delegate_created");
+       generator.Emit (OpCodes.Ldfld, fi);
+       generator.Emit (OpCodes.Call, Service_RemoveSignalCalledMI);
+       generator.Emit (OpCodes.Ret);
     }
     
     public object GetSignalProxy()
@@ -516,9 +546,13 @@ namespace DBus
 	FieldBuilder pathF = typeB.DefineField("pathName", 
 					       typeof(string), 
 					       FieldAttributes.Private);
+	FieldBuilder deleF = typeB.DefineField("delegate_created", 
+					       typeof(Service.SignalCalledHandler), 
+					       FieldAttributes.Private);
+	BuildFinalizer (typeB, deleF);
 	
 	MethodInfo signalCalledMI = BuildSignalCalled(ref typeB, serviceF, pathF);
-	BuildConstructor(ref typeB, serviceF, pathF, signalCalledMI);
+	BuildConstructor(ref typeB, serviceF, pathF, signalCalledMI, deleF);
 	
 	// Build the methods
 	foreach (DictionaryEntry interfaceEntry in this.introspector.InterfaceProxies) {
