@@ -318,7 +318,7 @@ bus_registry_acquire_service (BusRegistry      *registry,
                       bus_connection_is_active (connection) ?
                       bus_connection_get_name (connection) :
                       "(inactive)",
-		      service_name);
+                      _dbus_string_get_const_data (service_name));
       goto out;
     }
       
@@ -331,7 +331,7 @@ bus_registry_acquire_service (BusRegistry      *registry,
                       bus_connection_is_active (connection) ?
                       bus_connection_get_name (connection) :
                       "(inactive)",
-		      service_name);
+                      _dbus_string_get_const_data (service_name));
       goto out;
     }
 

@@ -1,4 +1,12 @@
-2004-10-29 Colin Walters  <walters@redhat.com>
+2004-10-29  Colin Walters  <walters@redhat.com>
+
+	Patch from Matthew Rickard <mjricka@epoch.ncsc.mil>
+
+	* bus/services.c (bus_registry_acquire_service): 
+	Correctly retrieve service name from DBusString
+	for printing.
+
+2004-10-29  Colin Walters  <walters@redhat.com>
 
 	* dbus/dbus-glib.h: Update documentation to not
 	refer to internal APIs.
