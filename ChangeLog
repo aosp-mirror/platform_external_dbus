@@ -1,3 +1,10 @@
+2004-04-13  Michael Meeks  <michael@ximian.com>
+
+	* test/glib/Makefile.am: use the absolute path so the bus
+	daemon's chdir ("/") doesn't kill us dead.
+
+	* configure.in: subst ABSOLUTE_TOP_BUILDDIR
+
 2004-04-12  Jon Trowbridge  <trow@ximian.com>
 
 	* bus/config-parser.c (struct BusConfigParser): Added
@@ -40,6 +47,13 @@
 
 	* bus/bus.c (bus_context_new): Load the config file
 	with a NULL parent argument.
+
+2004-03-29  Michael Meeks  <michael@ximian.com>
+
+	* glib/dbus-gobject.c (introspect_properties): split
+	out, fix mangled 'while' flow control.
+	(introspect_signals): implement.
+	(handle_introspect): update.
 
 2004-03-29  Michael Meeks  <michael@ximian.com>
 

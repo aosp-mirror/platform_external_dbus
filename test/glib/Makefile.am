@@ -4,7 +4,7 @@ INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) -I$(top_srcdi
 ## so if adding tests not to be run in make check, don't add them to 
 ## TESTS
 if DBUS_BUILD_TESTS
-TESTS_ENVIRONMENT=DBUS_TOP_BUILDDIR=$(top_builddir) DBUS_TEST_HOMEDIR=$(top_builddir)/dbus
+TESTS_ENVIRONMENT=DBUS_TOP_BUILDDIR=$(ABSOLUTE_TOP_BUILDDIR)
 TESTS=run-test.sh
 else
 TESTS=
