@@ -2791,8 +2791,12 @@ dbus_connection_register_object (DBusConnection          *connection,
                                  void                    *object_impl,
                                  DBusObjectID            *object_id)
 {
-  _dbus_return_val_if_fail (connection != NULL, FALSE);  
-
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (vtable != NULL, FALSE);
+  _dbus_return_val_if_fail (vtable->dbus_internal_pad1 == NULL);
+  _dbus_return_val_if_fail (vtable->dbus_internal_pad2 == NULL);
+  _dbus_return_val_if_fail (vtable->dbus_internal_pad3 == NULL);
+  
   CONNECTION_LOCK (connection);
 
   return _dbus_object_registry_add_and_unlock (connection->objects,

@@ -136,7 +136,8 @@ callback_object_message (DBusObjectInfo *info,
 static const DBusObjectVTable callback_object_vtable = {
   callback_object_registered,
   callback_object_unregistered,
-  callback_object_message
+  callback_object_message,
+  NULL, NULL, NULL
 };
 
 /**

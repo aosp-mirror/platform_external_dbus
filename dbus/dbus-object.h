@@ -47,9 +47,11 @@ typedef enum
 
 struct DBusObjectInfo
 {
-  void               *object_impl; /**< Object information */
-  DBusObjectID        object_id;
-  DBusConnection     *connection;
+  void               *object_impl; /**< Object implementation pointer provided by app */
+  DBusObjectID        object_id;   /**< Object ID */
+  DBusConnection     *connection;  /**< The connection object ID is for */
+  void               *dbus_internal_pad1; /**< Padding, do not use */
+  void               *dbus_internal_pad2; /**< Padding, do not use */
 };
 
 typedef void (* DBusObjectRegisteredFunction)   (DBusObjectInfo *info);
@@ -62,6 +64,9 @@ struct DBusObjectVTable
   DBusObjectRegisteredFunction   registered;
   DBusObjectUnregisteredFunction unregistered;
   DBusObjectMessageFunction      message;
+  void (* dbus_internal_pad1) (void *);
+  void (* dbus_internal_pad2) (void *);
+  void (* dbus_internal_pad3) (void *);
 };
 
 extern const DBusObjectVTable *dbus_callback_object_vtable;
