@@ -628,6 +628,16 @@ dbus_dict_set_double_array (DBusDict     *dict,
     return FALSE;
 }
 
+/**
+ * Adds a byte array to the dict. If a value with the same key
+ * already exists, then it will be replaced by the new value.
+ *
+ * @param dict the dict
+ * @param key the key
+ * @param value the value
+ * @param len the array length
+ * @returns #TRUE on success
+ */
 dbus_bool_t
 dbus_dict_set_byte_array (DBusDict             *dict,
 			  const char           *key,
@@ -956,6 +966,16 @@ dbus_dict_get_double_array (DBusDict      *dict,
   return TRUE;
 }
 
+/**
+ * Gets a byte array from a dict using a key.
+ *
+ * @param dict the dict
+ * @param key the key
+ * @param value return location for the value
+ * @param len return location for the array length
+ * @returns #TRUE if the key exists and the value is of the correct
+ * type
+ */
 dbus_bool_t
 dbus_dict_get_byte_array (DBusDict             *dict,
 			  const char           *key,
