@@ -55,14 +55,14 @@
 
 typedef struct
 {
-  dbus_uint32_t id; /**< identifier used to refer to the key */
+  dbus_int32_t id; /**< identifier used to refer to the key */
 
   unsigned long creation_time; /**< when the key was generated,
                                 *   as unix timestamp
                                 */
 
   DBusString context; /**< Name of kind of server using this
-                       *   key, for example "desktop_session_bus"
+                       *   key, for example "login_session_bus"
                        */
   
   DBusString secret; /**< the actual key */
@@ -92,4 +92,4 @@ struct DBusKeyring
  */
 
 
-/** @} */ /* end of public API */
+/** @} */ /* end of exposed API */

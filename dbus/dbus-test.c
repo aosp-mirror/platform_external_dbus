@@ -59,6 +59,10 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   if (!_dbus_string_test ())
     die ("strings");
 
+  printf ("%s: running md5 tests\n", "dbus-test");
+  if (!_dbus_md5_test ())
+    die ("md5");
+  
   printf ("%s: running auth tests\n", "dbus-test");
   if (!_dbus_auth_test (test_data_dir))
     die ("auth");

@@ -212,6 +212,8 @@ dbus_bool_t _dbus_string_validate_nul   (const DBusString *str,
                                          int               start,
                                          int               len);
 
+void _dbus_string_zero (DBusString *str);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_STRING_H */

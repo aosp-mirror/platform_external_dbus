@@ -29,10 +29,12 @@
 
 #include <stddef.h>
 
-typedef unsigned int  dbus_bool_t;
-typedef unsigned int  dbus_uint32_t;
-typedef int           dbus_int32_t;
-typedef dbus_uint32_t dbus_unichar_t;
+typedef unsigned int   dbus_bool_t;
+typedef unsigned short dbus_uint16_t;
+typedef short          dbus_int16_t;
+typedef unsigned int   dbus_uint32_t;
+typedef int            dbus_int32_t;
+typedef dbus_uint32_t  dbus_unichar_t;
 
 /* Normally docs are in .c files, but there isn't a .c file for this. */
 /**
@@ -61,6 +63,18 @@ typedef dbus_uint32_t dbus_unichar_t;
  * @typedef dbus_int32_t
  *
  * A 32-bit signed integer on all platforms.
+ */
+
+/**
+ * @typedef dbus_uint16_t
+ *
+ * A 16-bit unsigned integer on all platforms.
+ */
+
+/**
+ * @typedef dbus_int16_t
+ *
+ * A 16-bit signed integer on all platforms.
  */
 
 /** @} */

@@ -2163,6 +2163,19 @@ _dbus_string_validate_nul (const DBusString *str,
   return TRUE;
 }
 
+/**
+ * Clears all allocated bytes in the string to zero.
+ *
+ * @param the string
+ */
+void
+_dbus_string_zero (DBusString *str)
+{
+  DBUS_STRING_PREAMBLE (str);
+
+  memset (real->str, '\0', real->allocated);
+}
+
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS

@@ -1,3 +1,12 @@
+2003-02-18  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-string.c (_dbus_string_zero): new function
+
+	* dbus/dbus-md5.c: include MD5 implementation by L. Peter Deutsch,
+	wrap it in some dbus-friendly API
+
+	* dbus/dbus-types.h: add 16-bit types
+
 2003-02-18  Joe Shaw  <joe@assbarn.com>
 
 	* dbus/dbus-auth.c (handle_server_data_stupid_test_mech): Just get
