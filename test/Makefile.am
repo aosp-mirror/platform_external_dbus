@@ -2,7 +2,7 @@
 INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
 
 if DBUS_BUILD_TESTS
-TEST_BINARIES=echo-client echo-server unbase64 bus-test
+TEST_BINARIES=echo-client echo-server unbase64 bus-test break-loader
 else
 TEST_BINARIES=
 endif
@@ -26,11 +26,15 @@ unbase64_SOURCES=				\
 bus_test_SOURCES = 				\
 	bus-test.c
 
+break_loader_SOURCES=				\
+	break-loader.c
+
 TEST_LIBS=$(DBUS_TEST_LIBS) $(top_builddir)/dbus/libdbus-convenience.la $(top_builddir)/dbus/libdbus-1.la
 
 echo_client_LDADD=$(TEST_LIBS)
 echo_server_LDADD=$(TEST_LIBS)
 unbase64_LDADD=$(TEST_LIBS)
+break_loader_LDADD= $(TEST_LIBS)
 bus_test_LDADD=$(TEST_LIBS) $(top_builddir)/bus/libdbus-daemon.la
 
 dist-hook:

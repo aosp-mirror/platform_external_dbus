@@ -96,7 +96,7 @@ libdbus_1_la_LDFLAGS= -export-symbols-regex "^[^_].*"
 ## TESTS
 if DBUS_BUILD_TESTS
 TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_srcdir)/test/data
-TESTS=dbus-test dbus-break-loader
+TESTS=dbus-test 
 else
 TESTS=
 endif

@@ -1,3 +1,11 @@
+2003-02-06  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/Makefile.am:
+	* dbus/dbus-break-loader.c:
+	* test/Makefile.am:
+	* test/break-loader.c:
+	Move dbus-break-loader to test/ and rename it to break-loader.
+
 2003-02-02  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-keyring.c, dbus/dbus-keyring.h: template files 

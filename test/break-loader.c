@@ -21,11 +21,7 @@
  *
  */
 
-#include "dbus-types.h"
-#include "dbus-test.h"
-#include "dbus-internals.h"
-#include "dbus-sysdeps.h"
-#include "dbus-marshal.h"
+#include <dbus/dbus.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
@@ -35,6 +31,13 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <string.h>
+
+#define DBUS_COMPILATION 
+#include <dbus/dbus-string.h>
+#include <dbus/dbus-internals.h>
+#include <dbus/dbus-test.h>
+#include <dbus/dbus-marshal.h>
+#undef DBUS_COMPILATION
 
 static DBusString failure_dir;
 static int total_attempts;
