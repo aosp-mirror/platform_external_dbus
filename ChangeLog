@@ -1,3 +1,12 @@
+2003-11-19  Havoc Pennington  <hp@redhat.com>
+
+	* NEWS: update
+
+        * configure.in: bump version to 0.20
+
+	* configure.in (have_qt): add yet another place to look for qt
+	(someone hand trolltech a .pc file...)
+
 2003-11-01  Havoc Pennington  <hp@redhat.com>
 
 	* doc/dbus-specification.xml: add state machine docs on the auth

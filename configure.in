@@ -3,7 +3,7 @@ AC_PREREQ(2.52)
 
 AC_INIT(dbus/dbus.h)
 
-AM_INIT_AUTOMAKE(dbus, 0.13)
+AM_INIT_AUTOMAKE(dbus, 0.20)
 
 AM_CONFIG_HEADER(config.h)
 
@@ -625,7 +625,7 @@ if test -n "$QTDIR" -a -f "$QTDIR/include/qglobal.h"; then
     have_qt=yes
     DBUS_QT_CXXFLAGS="-I$QTDIR/include"
 else
-    for dir in "${prefix}/include/qt" "/usr/include/qt-3.1" "/usr/include/qt3" "/usr/include/qt" "/usr/lib/qt/include"; do
+    for dir in "${prefix}/include/qt" "/usr/include/qt-3.1" "/usr/include/qt3" "/usr/include/qt" "/usr/lib/qt/include" "/usr/lib/qt-3.1/include"; do
         if test -f "$dir/qglobal.h"; then
             have_qt=yes
             DBUS_QT_CXXFLAGS="-I$dir"
