@@ -753,8 +753,9 @@ _dbus_connection_ref_unlocked (DBusConnection *connection)
 
 
 /* This is run without the mutex held, but after the last reference
-   to the connection has been dropped we should have no thread-related
-   problems */
+ * to the connection has been dropped we should have no thread-related
+ * problems
+ */
 static void
 _dbus_connection_last_unref (DBusConnection *connection)
 {
@@ -1041,11 +1042,11 @@ reply_handler_data_free (ReplyHandlerData *data)
  * but before message handlers added with
  * dbus_connection_register_handler() see them, regardless of the
  * reply message's name. Reply handlers are only handed a single
- * message as a reply, after a reply has been seen the handler is
+ * message as a reply, after one reply has been seen the handler is
  * removed. If a filter filters out the reply before the handler sees
- * it, the handler is not removed but the timeout will immediately
- * fire. If a filter was dumb and removed the timeout reply then
- * the reply is lost (this will give a runtime warning).
+ * it, the reply is immediately timed out and a timeout error reply is
+ * generated. If a filter removes the timeout error reply then the
+ * reply handler will never be called. Filters should not do this.
  * 
  * If #NULL is passed for the reply_handler, the timeout reply will
  * still be generated and placed into the message queue, but no
@@ -1311,7 +1312,8 @@ dbus_connection_get_n_messages (DBusConnection *connection)
 
 
 /* Call with mutex held. Will drop it while waiting and re-acquire
-   before returning */
+ * before returning
+ */
 static void
 _dbus_connection_wait_for_borrowed (DBusConnection *connection)
 {
@@ -1400,7 +1402,8 @@ dbus_connection_steal_borrowed_message (DBusConnection *connection,
 
 
 /* See dbus_connection_pop_message, but requires the caller to own
-   the lock before calling. May drop the lock while running. */
+ * the lock before calling. May drop the lock while running.
+ */
 static DBusMessage*
 _dbus_connection_pop_message_unlocked (DBusConnection *connection)
 {
@@ -1507,7 +1510,7 @@ dbus_connection_dispatch_message (DBusConnection *connection)
 
   /* Preallocate link so we can put the message back on failure */
   message_link = _dbus_list_alloc_link (NULL);
-  if (message_link)
+  if (message_link == NULL)
     return FALSE;
   
   dbus_mutex_lock (connection->mutex);
@@ -1518,11 +1521,12 @@ dbus_connection_dispatch_message (DBusConnection *connection)
 
   _dbus_connection_acquire_dispatch (connection);
   
-  /* This call may drop the lock during the execution (if waiting
-     for borrowed messages to be returned) but the order of message
-     dispatch if several threads call dispatch_message is still
-     protected by the lock, since only one will get the lock, and that
-     one will finish the message dispatching */
+  /* This call may drop the lock during the execution (if waiting for
+   * borrowed messages to be returned) but the order of message
+   * dispatch if several threads call dispatch_message is still
+   * protected by the lock, since only one will get the lock, and that
+   * one will finish the message dispatching
+   */
   message = _dbus_connection_pop_message_unlocked (connection);
   if (message == NULL)
     {
@@ -1554,7 +1558,8 @@ dbus_connection_dispatch_message (DBusConnection *connection)
 		      NULL);
 
   /* We're still protected from dispatch_message reentrancy here
-   * since we acquired the dispatcher */
+   * since we acquired the dispatcher
+   */
   dbus_mutex_unlock (connection->mutex);
   
   link = _dbus_list_get_first_link (&filter_list_copy);
@@ -1592,7 +1597,7 @@ dbus_connection_dispatch_message (DBusConnection *connection)
       else
 	{
 	  /* We already queued the timeout? Then it was filtered! */
-	  _dbus_warn ("The timeout for the reply to %d was filtered\n", reply_serial);
+	  _dbus_warn ("The timeout error with reply serial %d was filtered, so the reply handler will never be called.\n", reply_serial);
 	}
     }
   
