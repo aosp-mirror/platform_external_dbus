@@ -840,6 +840,27 @@ _dbus_type_reader_next (DBusTypeReader *reader)
  *
  */
 
+/**
+ * Initialize a write iterator, which is used to write out values in
+ * serialized D-BUS format. #DBusTypeWriter is a value iterator; it
+ * writes out values. You can't use it to write out only types.
+ *
+ * The type_pos passed in is expected to be inside an already-valid,
+ * though potentially empty, type signature. This means that the byte
+ * after type_pos must be either #DBUS_TYPE_INVALID (aka nul) or some
+ * other valid type. #DBusTypeWriter won't enforce that the signature
+ * is already valid (you can append the nul byte at the end if you
+ * like), but just be aware that you need the nul byte eventually and
+ * #DBusTypeWriter isn't going to write it for you.
+ *
+ * @param writer the writer to init
+ * @param byte_order the byte order to marshal into
+ * @param type_str the string to write typecodes into
+ * @param type_pos where to insert typecodes
+ * @param value_str the string to write values into
+ * @param value_pos where to insert values
+ * 
+ */
 void
 _dbus_type_writer_init (DBusTypeWriter *writer,
                         int             byte_order,
@@ -1374,6 +1395,8 @@ _dbus_type_writer_write_array (DBusTypeWriter *writer,
 
 typedef struct
 {
+  int byte_order;
+  int initial_offset;
   DBusString signature;
   DBusString body;
 } DataBlock;
@@ -1384,8 +1407,14 @@ typedef struct
   int saved_body_len;
 } DataBlockState;
 
+#define N_FENCE_BYTES 5
+#define FENCE_BYTES_STR "abcde"
+#define INITIAL_PADDING_BYTE '\0'
+
 static dbus_bool_t
-data_block_init (DataBlock *block)
+data_block_init (DataBlock *block,
+                 int        byte_order,
+                 int        initial_offset)
 {
   if (!_dbus_string_init (&block->signature))
     return FALSE;
@@ -1396,58 +1425,124 @@ data_block_init (DataBlock *block)
       return FALSE;
     }
 
-  return TRUE;
-}
+  if (!_dbus_string_insert_bytes (&block->signature, 0, initial_offset,
+                                  INITIAL_PADDING_BYTE) ||
+      !_dbus_string_insert_bytes (&block->body, 0, initial_offset,
+                                  INITIAL_PADDING_BYTE) ||
+      !_dbus_string_append (&block->signature, FENCE_BYTES_STR) ||
+      !_dbus_string_append (&block->body, FENCE_BYTES_STR))
+    {
+      _dbus_string_free (&block->signature);
+      _dbus_string_free (&block->body);
+      return FALSE;
+    }
 
-static void
-data_block_free (DataBlock *block)
-{
-  _dbus_string_free (&block->signature);
-  _dbus_string_free (&block->body);
+  block->byte_order = byte_order;
+  block->initial_offset = initial_offset;
+  
+  return TRUE;
 }
 
 static void
 data_block_save (DataBlock      *block,
                  DataBlockState *state)
 {
-  state->saved_sig_len = _dbus_string_get_length (&block->signature);
-  state->saved_body_len = _dbus_string_get_length (&block->body);
+  state->saved_sig_len = _dbus_string_get_length (&block->signature) - N_FENCE_BYTES;
+  state->saved_body_len = _dbus_string_get_length (&block->body) - N_FENCE_BYTES;
 }
 
 static void
 data_block_restore (DataBlock      *block,
                     DataBlockState *state)
 {
-  /* These set_length should be shortening things so should always work */
+  _dbus_string_delete (&block->signature,
+                       state->saved_sig_len,
+                       _dbus_string_get_length (&block->signature) - state->saved_sig_len - N_FENCE_BYTES);
+  _dbus_string_delete (&block->body,
+                       state->saved_body_len,
+                       _dbus_string_get_length (&block->body) - state->saved_body_len - N_FENCE_BYTES);
+}
 
-  if (!_dbus_string_set_length (&block->signature,
-                                state->saved_sig_len))
-    _dbus_assert_not_reached ("could not restore signature length");
+static void
+data_block_verify (DataBlock *block)
+{
+  if (!_dbus_string_ends_with_c_str (&block->signature,
+                                     FENCE_BYTES_STR))
+    {
+      int offset;
 
-  if (!_dbus_string_set_length (&block->body,
-                                state->saved_body_len))
-    _dbus_assert_not_reached ("could not restore body length");
+      offset = _dbus_string_get_length (&block->signature) - N_FENCE_BYTES - 8;
+      if (offset < 0)
+        offset = 0;
+      
+      _dbus_verbose_bytes_of_string (&block->signature,
+                                     offset,
+                                     _dbus_string_get_length (&block->signature) - offset);
+      _dbus_assert_not_reached ("block did not verify: bad bytes at end of signature");
+    }
+  if (!_dbus_string_ends_with_c_str (&block->body,
+                                     FENCE_BYTES_STR))
+    {
+      int offset;
+
+      offset = _dbus_string_get_length (&block->body) - N_FENCE_BYTES - 8;
+      if (offset < 0)
+        offset = 0;
+
+      _dbus_verbose_bytes_of_string (&block->body,
+                                     offset,
+                                     _dbus_string_get_length (&block->body) - offset);
+      _dbus_assert_not_reached ("block did not verify: bad bytes at end of body");
+    }
+  
+  _dbus_assert (_dbus_string_validate_nul (&block->signature,
+                                           0, block->initial_offset));
+  _dbus_assert (_dbus_string_validate_nul (&block->body,
+                                           0, block->initial_offset));
+}
+
+static void
+data_block_free (DataBlock *block)
+{
+  data_block_verify (block);
+  
+  _dbus_string_free (&block->signature);
+  _dbus_string_free (&block->body);
+}
+
+static void
+data_block_reset (DataBlock *block)
+{
+  data_block_verify (block);
+  
+  _dbus_string_delete (&block->signature,
+                       block->initial_offset,
+                       _dbus_string_get_length (&block->signature) - N_FENCE_BYTES - block->initial_offset);
+  _dbus_string_delete (&block->body,
+                       block->initial_offset,
+                       _dbus_string_get_length (&block->body) - N_FENCE_BYTES - block->initial_offset);
+
+  data_block_verify (block);
 }
 
 static void
 data_block_init_reader_writer (DataBlock      *block,
-                               int             byte_order,
                                DBusTypeReader *reader,
                                DBusTypeWriter *writer)
 {
   _dbus_type_reader_init (reader,
-                          byte_order,
+                          block->byte_order,
                           &block->signature,
-                          _dbus_string_get_length (&block->signature),
+                          _dbus_string_get_length (&block->signature) - N_FENCE_BYTES,
                           &block->body,
-                          _dbus_string_get_length (&block->body));
+                          _dbus_string_get_length (&block->body) - N_FENCE_BYTES);
 
   _dbus_type_writer_init (writer,
-                          byte_order,
+                          block->byte_order,
                           &block->signature,
-                          _dbus_string_get_length (&block->signature),
+                          _dbus_string_get_length (&block->signature) - N_FENCE_BYTES,
                           &block->body,
-                          _dbus_string_get_length (&block->body));
+                          _dbus_string_get_length (&block->body) - N_FENCE_BYTES);
 }
 
 static void
@@ -1489,9 +1584,6 @@ real_check_expected_type (DBusTypeReader *reader,
  }                                                                                      \
  check_expected_type (reader, DBUS_TYPE_INVALID);                                       \
 } while (0)
-
-#define SAMPLE_INT32           12345678
-#define SAMPLE_INT32_ALTERNATE 53781429
 
 typedef struct TestTypeNode               TestTypeNode;
 typedef struct TestTypeNodeClass          TestTypeNodeClass;
@@ -1923,7 +2015,16 @@ node_write_value (TestTypeNode   *node,
                   DBusTypeWriter *writer,
                   int             seed)
 {
-  return (* node->klass->write_value) (node, block, writer, seed);
+  dbus_bool_t retval;
+  
+  retval = (* node->klass->write_value) (node, block, writer, seed);
+
+#if 0
+  /* Handy to see where things break, but too expensive to do all the time */
+  data_block_verify (block);
+#endif
+  
+  return retval;
 }
 
 static dbus_bool_t
@@ -1979,12 +2080,15 @@ node_append_child (TestTypeNode *node,
   return TRUE;
 }
 
+static int n_iterations_completed_total = 0;
+static int n_iterations_completed_this_test = 0;
+static int n_iterations_expected_this_test = 0;
+
 typedef struct
 {
   const DBusString   *signature;
   DataBlock          *block;
   int                 type_offset;
-  int                 byte_order;
   TestTypeNode      **nodes;
   int                 n_nodes;
 } NodeIterationData;
@@ -1996,6 +2100,7 @@ run_test_nodes_iteration (void *data)
   DBusTypeReader reader;
   DBusTypeWriter writer;
   int i;
+  dbus_bool_t retval;
 
   /* Stuff to do:
    * 1. write the value
@@ -2003,15 +2108,23 @@ run_test_nodes_iteration (void *data)
    * 3. read the value
    * 4. type-iterate the signature and the value and see if they are the same type-wise
    */
+  retval = FALSE;
+  
   data_block_init_reader_writer (nid->block,
-                                 nid->byte_order,
                                  &reader, &writer);
 
+  /* DBusTypeWriter assumes it's writing into an existing signature,
+   * so doesn't add nul on its own. We have to do that.
+   */
+  if (!_dbus_string_insert_byte (&nid->block->signature,
+                                 nid->type_offset, '\0'))
+    goto out;
+  
   i = 0;
   while (i < nid->n_nodes)
     {
       if (!node_write_value (nid->nodes[i], nid->block, &writer, i))
-        return FALSE;
+        goto out;
 
       ++i;
     }
@@ -2030,7 +2143,7 @@ run_test_nodes_iteration (void *data)
   while (i < nid->n_nodes)
     {
       if (!node_read_value (nid->nodes[i], nid->block, &reader, i))
-        return FALSE;
+        goto out;
 
       if (i + 1 == nid->n_nodes)
         NEXT_EXPECTING_FALSE (&reader);
@@ -2044,8 +2157,20 @@ run_test_nodes_iteration (void *data)
    * tree to the node tree
    */
 
-  return TRUE;
+  retval = TRUE;
+  
+ out:
+  
+  data_block_reset (nid->block);
+  
+  return retval;
 }
+
+#define TEST_OOM_HANDLING 0
+/* We do start offset 0 through 9, to get various alignment cases. Still this
+ * obviously makes the test suite run 10x as slow.
+ */
+#define MAX_INITIAL_OFFSET 9
 
 static void
 run_test_nodes_in_one_configuration (TestTypeNode    **nodes,
@@ -2057,13 +2182,7 @@ run_test_nodes_in_one_configuration (TestTypeNode    **nodes,
   DataBlock block;
   NodeIterationData nid;
 
-  if (!data_block_init (&block))
-    _dbus_assert_not_reached ("no memory");
-
-  if (!_dbus_string_lengthen (&block.signature, initial_offset))
-    _dbus_assert_not_reached ("no memory");
-
-  if (!_dbus_string_lengthen (&block.body, initial_offset))
+  if (!data_block_init (&block, byte_order, initial_offset))
     _dbus_assert_not_reached ("no memory");
 
   nid.signature = signature;
@@ -2071,12 +2190,8 @@ run_test_nodes_in_one_configuration (TestTypeNode    **nodes,
   nid.type_offset = initial_offset;
   nid.nodes = nodes;
   nid.n_nodes = n_nodes;
-  nid.byte_order = byte_order;
 
-  /* FIXME put the OOM testing back once we debug everything and are willing to
-   * wait for it to run ;-)
-   */
-#if 0
+#if TEST_OOM_HANDLING
   _dbus_test_oom_handling ("running test node",
                            run_test_nodes_iteration,
                            &nid);
@@ -2110,11 +2225,8 @@ run_test_nodes (TestTypeNode **nodes,
   _dbus_verbose (">>> test nodes with signature '%s'\n",
                  _dbus_string_get_const_data (&signature));
 
-  /* We do start offset 0 through 9, to get various alignment cases. Still this
-   * obviously makes the test suite run 10x as slow.
-   */
   i = 0;
-  while (i < 10)
+  while (i <= MAX_INITIAL_OFFSET)
     {
       run_test_nodes_in_one_configuration (nodes, n_nodes, &signature,
                                            DBUS_LITTLE_ENDIAN, i);
@@ -2124,6 +2236,22 @@ run_test_nodes (TestTypeNode **nodes,
       ++i;
     }
 
+  n_iterations_completed_this_test += 1;
+  n_iterations_completed_total += 1;
+
+  if (n_iterations_completed_this_test == n_iterations_expected_this_test)
+    {
+      fprintf (stderr, " 100%% %d this test (%d cumulative)\n",
+               n_iterations_completed_this_test,
+               n_iterations_completed_total);
+    }
+  /* this happens to turn out well with mod == 1 */
+  else if ((n_iterations_completed_this_test %
+            (int)(n_iterations_expected_this_test / 10.0)) == 1)
+    {
+      fprintf (stderr, " %d%% ", (int) (n_iterations_completed_this_test / (double) n_iterations_expected_this_test * 100));
+    }
+  
   _dbus_string_free (&signature);
 }
 
@@ -2209,6 +2337,18 @@ make_and_run_values_inside_container (const TestTypeNodeClass *container_klass,
 }
 
 static void
+start_next_test (const char *format,
+                 int         expected)
+{
+  n_iterations_completed_this_test = 0;
+  n_iterations_expected_this_test = expected;
+
+  fprintf (stderr, ">>> >>> ");
+  fprintf (stderr, format, 
+           n_iterations_expected_this_test);
+}
+
+static void
 make_and_run_test_nodes (void)
 {
   int i, j, k, m;
@@ -2245,8 +2385,7 @@ make_and_run_test_nodes (void)
 
   /* FIXME test just an empty body, no types at all */
 
-  _dbus_verbose (">>> >>> Each value by itself %d iterations\n",
-                 N_VALUES);
+  start_next_test ("Each value by itself %d iterations\n", N_VALUES);
   {
     TestTypeNode *node;
     i = 0;
@@ -2258,7 +2397,7 @@ make_and_run_test_nodes (void)
       }
   }
 
-  _dbus_verbose (">>> >>> All values in one big toplevel 1 iteration\n");
+  start_next_test ("All values in one big toplevel %d iteration\n", 1);
   {
     TestTypeNode *nodes[N_VALUES];
 
@@ -2272,8 +2411,8 @@ make_and_run_test_nodes (void)
       node_destroy (nodes[i]);
   }
 
-  _dbus_verbose (">>> >>> Each value,value pair combination as toplevel, in both orders %d iterations\n",
-                 N_VALUES * N_VALUES * 2);
+  start_next_test ("Each value,value pair combination as toplevel, in both orders %d iterations\n",
+                   N_VALUES * N_VALUES);
   {
     TestTypeNode *nodes[2];
 
@@ -2292,8 +2431,8 @@ make_and_run_test_nodes (void)
       }
   }
 
-  _dbus_verbose (">>> >>> Each container containing each value %d iterations\n",
-                 N_CONTAINERS * N_VALUES);
+  start_next_test ("Each container containing each value %d iterations\n",
+                   N_CONTAINERS * N_VALUES);
   for (i = 0; i < N_CONTAINERS; i++)
     {
       const TestTypeNodeClass *container_klass = container_nodes[i];
@@ -2301,8 +2440,10 @@ make_and_run_test_nodes (void)
       make_and_run_values_inside_container (container_klass, 1);
     }
 
+  n_iterations_completed_this_test = 0;
+  n_iterations_expected_this_test = N_CONTAINERS * N_VALUES;
   _dbus_verbose (">>> >>> Each container of same container of each value %d iterations\n",
-                 N_CONTAINERS * N_VALUES);
+                 n_iterations_completed_this_test);
   for (i = 0; i < N_CONTAINERS; i++)
     {
       const TestTypeNodeClass *container_klass = container_nodes[i];
@@ -2310,8 +2451,8 @@ make_and_run_test_nodes (void)
       make_and_run_values_inside_container (container_klass, 2);
     }
 
-  _dbus_verbose (">>> >>> Each container of same container of same container of each value %d iterations\n",
-                 N_CONTAINERS * N_VALUES);
+  start_next_test ("Each container of same container of same container of each value %d iterations\n",
+                   N_CONTAINERS * N_VALUES);
   for (i = 0; i < N_CONTAINERS; i++)
     {
       const TestTypeNodeClass *container_klass = container_nodes[i];
@@ -2319,8 +2460,8 @@ make_and_run_test_nodes (void)
       make_and_run_values_inside_container (container_klass, 3);
     }
 
-  _dbus_verbose (">>> >>> Each value,value pair inside a struct %d iterations\n",
-                 N_VALUES * N_VALUES);
+  start_next_test ("Each value,value pair inside a struct %d iterations\n",
+                   N_VALUES * N_VALUES);
   {
     TestTypeNode *val1, *val2;
     TestTypeNode *node;
@@ -2348,7 +2489,8 @@ make_and_run_test_nodes (void)
     node_destroy (node);
   }
 
-  _dbus_verbose (">>> >>> all values in one big struct 1 iteration\n");
+  start_next_test ("All values in one big struct %d iteration\n",
+                   1);
   {
     TestTypeNode *node;
     TestTypeNode *child;
@@ -2364,8 +2506,8 @@ make_and_run_test_nodes (void)
     node_destroy (node);
   }
 
-  _dbus_verbose (">>> >>> Each value in a large array %d iterations\n",
-                 N_VALUES);
+  start_next_test ("Each value in a large array %d iterations\n",
+                   N_VALUES);
   {
     TestTypeNode *val;
     TestTypeNode *node;
@@ -2388,8 +2530,8 @@ make_and_run_test_nodes (void)
     node_destroy (node);
   }
 
-  _dbus_verbose (">>> >>> Each container of each container of each value %d iterations\n",
-                 N_CONTAINERS * N_CONTAINERS * N_VALUES);
+  start_next_test ("Each container of each container of each value %d iterations\n",
+                   N_CONTAINERS * N_CONTAINERS * N_VALUES);
   for (i = 0; i < N_CONTAINERS; i++)
     {
       const TestTypeNodeClass *outer_container_klass = container_nodes[i];
@@ -2419,10 +2561,8 @@ make_and_run_test_nodes (void)
       node_destroy (outer_container);
     }
 
-#if 0
-  /* This one takes a really long time, so comment it out for now */
-  _dbus_verbose (">>> >>> Each container of each container of each container of each value %d iterations\n",
-                 N_CONTAINERS * N_CONTAINERS * N_CONTAINERS * N_VALUES);
+  start_next_test ("Each container of each container of each container of each value %d iterations\n",
+                   N_CONTAINERS * N_CONTAINERS * N_CONTAINERS * N_VALUES);
   for (i = 0; i < N_CONTAINERS; i++)
     {
       const TestTypeNodeClass *outer_container_klass = container_nodes[i];
@@ -2461,10 +2601,11 @@ make_and_run_test_nodes (void)
         }
       node_destroy (outer_container);
     }
-#endif /* #if 0 expensive test */
 
-  _dbus_verbose (">>> >>> Each value,value,value triplet combination as toplevel, in all orders %d iterations\n",
-                 N_VALUES * N_VALUES * N_VALUES);
+#if 0
+  /* This one takes a really long time, so comment it out for now */
+  start_next_test ("Each value,value,value triplet combination as toplevel, in all orders %d iterations\n",
+                   N_VALUES * N_VALUES * N_VALUES);
   {
     TestTypeNode *nodes[3];
 
@@ -2486,6 +2627,14 @@ make_and_run_test_nodes (void)
         node_destroy (nodes[0]);
       }
   }
+#endif /* #if 0 expensive test */
+
+  fprintf (stderr, "%d total iterations of recursive marshaling tests\n",
+           n_iterations_completed_total);
+  fprintf (stderr, "each iteration ran at initial offsets 0 through %d in both big and little endian\n",
+           MAX_INITIAL_OFFSET);
+  fprintf (stderr, "out of memory handling %s tested\n",
+           TEST_OOM_HANDLING ? "was" : "was not");
 }
 
 dbus_bool_t _dbus_marshal_recursive_test (void);
@@ -2521,6 +2670,9 @@ main (int argc, char **argv)
  *
  */
 
+
+#define SAMPLE_INT32           12345678
+#define SAMPLE_INT32_ALTERNATE 53781429
 static dbus_int32_t
 int32_from_seed (int seed)
 {
