@@ -1,3 +1,7 @@
+2003-02-15   Zack Rusin  <zack@kde.org>
+
+	* qt/dbus-qthread.cpp:  small casting fix
+
 2003-02-15  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-errors.c: (dbus_set_error):

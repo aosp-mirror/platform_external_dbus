@@ -108,7 +108,7 @@ dbus_qcondvar_new (void)
 static void
 dbus_qcondvar_free (DBusCondVar *cond)
 {
-  QWaitCondition *cqond = static_cast<QMutex*>(mutex);
+  QWaitCondition *qcond = static_cast<QWaitCondition*>(cond);
   delete qcond;
 }
 
