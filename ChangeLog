@@ -1,3 +1,7 @@
+2003-08-31  Havoc Pennington  <hp@pobox.com>
+
+	* fix build with --disable-tests
+
 2003-08-30  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-connection.c: purge DBusMessageHandler

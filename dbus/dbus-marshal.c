@@ -1906,12 +1906,6 @@ validate_array_data (const DBusString *str,
  * returns #TRUE if a valid arg begins at "pos"
  *
  * @todo security: need to audit this function.
- *
- * @todo For array types that can't be invalid, we should not
- * walk the whole array validating it. e.g. just skip all the
- * int values in an int array. (maybe this is already done now -hp)
- *
- * @todo support DBUS_TYPE_OBJECT_PATH
  * 
  * @param str a string
  * @param byte_order the byte order to use

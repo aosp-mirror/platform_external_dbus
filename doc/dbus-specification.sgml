@@ -770,6 +770,13 @@
 	</figure>
       </para>
     </sect2>
+    <sect2 id="auth-states">
+      <title>Authentication state diagrams</title>
+      
+      <para>
+        WRITEME
+      </para>
+    </sect2>
     <sect2 id="auth-mechanisms">
       <title>Authentication mechanisms</title>
       <para>

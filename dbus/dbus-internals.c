@@ -265,7 +265,6 @@ _dbus_strdup (const char *str)
   return copy;
 }
 
-#ifdef DBUS_BUILD_TESTS /* memdup not used at the moment */
 /**
  * Duplicates a block of memory. Returns
  * #NULL on failure.
@@ -288,7 +287,6 @@ _dbus_memdup (const void  *mem,
   
   return copy;
 }
-#endif
 
 /**
  * Duplicates a string array. Result may be freed with
