@@ -1,3 +1,38 @@
+2003-09-21  Havoc Pennington  <hp@pobox.com>
+
+	Get matching rules mostly working in the bus; only actually
+	parsing the rule text remains. However, the client side of
+	"signal connections" hasn't been started, this patch is only the
+	bus side.
+	
+	* dbus/dispatch.c: fix for the matching rules changes
+	
+	* bus/driver.c (bus_driver_handle_remove_match)
+	(bus_driver_handle_add_match): send an ack reply from these
+	method calls
+
+	* glib/dbus-gproxy.c (dbus_gproxy_begin_call): fix order of
+	arguments, reported by Seth Nickell
+
+	* bus/config-parser.c (append_rule_from_element): support
+	eavesdrop=true|false attribute on policies so match rules 
+	can be prevented from snooping on the system bus.
+
+	* bus/dbus-daemon-1.1.in: consistently use terminology "sender"
+	and "destination" in attribute names; fix some docs bugs; 
+	add eavesdrop=true|false attribute
+
+	* bus/driver.c (bus_driver_handle_add_match)
+	(bus_driver_handle_remove_match): handle AddMatch, RemoveMatch
+	messages
+
+	* dbus/dbus-protocol.h (DBUS_SERVICE_ORG_FREEDESKTOP_BROADCAST): get
+	rid of broadcast service concept, signals are just always broadcast
+
+	* bus/signals.c, bus/dispatch.c, bus/connection.c, bus/bus.c:
+	mostly implement matching rules stuff (currently only exposed as signal
+	connections)
+
 2003-09-21  Mark McLoughlin  <mark@skynet.ie>
 
 	* doc/dbus-specification.sgml: Change the header field name

@@ -917,16 +917,33 @@ dbus_bool_t
 bus_client_policy_check_can_receive (BusClientPolicy *policy,
                                      BusRegistry     *registry,
                                      DBusConnection  *sender,
+                                     DBusConnection  *addressed_recipient,
+                                     DBusConnection  *proposed_recipient,
                                      DBusMessage     *message)
 {
   DBusList *link;
   dbus_bool_t allowed;
+  dbus_bool_t eavesdropping;
+  
+  /* NULL sender, proposed_recipient means the bus driver.  NULL
+   * addressed_recipient means the message didn't specify an explicit
+   * target. If proposed_recipient is NULL, then addressed_recipient
+   * is also NULL but is implicitly the bus driver.
+   */
+
+  _dbus_assert (proposed_recipient == NULL ||
+                (dbus_message_get_destination (message) == NULL ||
+                 addressed_recipient != NULL));
+  
+  eavesdropping =
+    (proposed_recipient == NULL || /* explicitly to bus driver */
+     (addressed_recipient && addressed_recipient != proposed_recipient)); /* explicitly to a different recipient */
   
   /* policy->rules is in the order the rules appeared
    * in the config file, i.e. last rule that applies wins
    */
 
-  _dbus_verbose ("  (policy) checking receive rules\n");
+  _dbus_verbose ("  (policy) checking receive rules, eavesdropping = %d\n", eavesdropping);
   
   allowed = FALSE;
   link = _dbus_list_get_first_link (&policy->rules);
@@ -949,6 +966,24 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
               _dbus_verbose ("  (policy) skipping rule for different message type\n");
               continue;
             }
+        }
+
+      /* for allow, eavesdrop=false means the rule doesn't apply when
+       * eavesdropping. eavesdrop=true means always allow.
+       */
+      if (eavesdropping && rule->allow && !rule->d.receive.eavesdrop)
+        {
+          _dbus_verbose ("  (policy) skipping allow rule since it doesn't apply to eavesdropping\n");
+          continue;
+        }
+
+      /* for deny, eavesdrop=true means the rule applies only when
+       * eavesdropping; eavesdrop=false means always deny.
+       */
+      if (!eavesdropping && !rule->allow && rule->d.receive.eavesdrop)
+        {
+          _dbus_verbose ("  (policy) skipping deny rule since it only applies to eavesdropping\n");
+          continue;
         }
       
       if (rule->d.receive.path != NULL)
@@ -1036,7 +1071,7 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
                 }
             }
         }
-
+      
       /* Use this rule */
       allowed = rule->allow;
 

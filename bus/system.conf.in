@@ -42,8 +42,8 @@
     <!-- Allow anyone to talk to the message bus -->
     <!-- FIXME I think currently these allow rules are always implicit 
          even if they aren't in here -->
-    <allow send_service="org.freedesktop.DBus"/>
-    <allow receive_service="org.freedesktop.DBus"/>
+    <allow send_destination="org.freedesktop.DBus"/>
+    <allow receive_sender="org.freedesktop.DBus"/>
   </policy>
 
   <!-- Config files are placed here that among other things, punch 

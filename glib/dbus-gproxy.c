@@ -188,8 +188,8 @@ dbus_gproxy_begin_call (DBusGProxy *proxy,
   LOCK_PROXY (proxy);
 
   message = dbus_message_new_method_call (proxy->service,
-                                          proxy->interface,
                                           proxy->path,
+                                          proxy->interface,
                                           method);
   if (message == NULL)
     goto oom;

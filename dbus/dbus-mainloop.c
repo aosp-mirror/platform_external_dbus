@@ -28,7 +28,7 @@
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-sysdeps.h>
 
-#define MAINLOOP_SPEW 1
+#define MAINLOOP_SPEW 0
 
 struct DBusLoop
 {

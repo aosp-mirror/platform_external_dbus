@@ -328,26 +328,32 @@ in the config file.
 
 .TP
 .I "<deny>"
+.I "<allow>"
 
 .PP
-A <deny> element appears below a <policy> element and prohibits 
-some action. The possible attributes of a <deny> element are:
+A <deny> element appears below a <policy> element and prohibits some
+action. The <allow> element makes an exception to previous <deny>
+statements, and works just like <deny> but with the inverse meaning.
+
+.PP
+The possible attributes of these elements are:
 .nf
    send_interface="interface_name"
    send_member="method_or_signal_name" 
    send_error="error_name" 
-   send_service="service_name" 
-   send_type="method_call|method_return|signal|error" 
+   send_destination="service_name" 
+   send_type="method_call" | "method_return" | "signal" | "error" 
    send_path="/path/name"
 
    receive_interface="interface_name"
    receive_member="method_or_signal_name" 
    receive_error="error_name" 
-   receive_service="service_name" 
-   receive_type="method_call|method_return|signal|error" 
+   receive_sender="service_name" 
+   receive_type="method_call" | "method_return" | "signal" | "error"
    receive_path="/path/name"
+   
+   eavesdrop="true" | "false"
 
-   receive="messagename"
    own="servicename"
    user="username"
    group="groupname"
@@ -359,8 +365,8 @@ Examples:
    <deny send_interface="org.freedesktop.System" send_member="Reboot"/> 
    <deny receive_interface="org.freedesktop.System" receive_member="Reboot"/>
    <deny own="org.freedesktop.System"/>
-   <deny send_service="org.freedesktop.System"/>
-   <deny receive_service="org.freedesktop.System"/>
+   <deny send_destination="org.freedesktop.System"/>
+   <deny receive_sender="org.freedesktop.System"/>
    <deny user="john"/>
    <deny group="enemies"/>
 .fi
@@ -371,7 +377,7 @@ particular action. If it matches, the action is denied (unless later
 rules in the config file allow it).
 
 .PP
-send_service and receive_service rules mean that messages may not be
+send_destination and receive_sender rules mean that messages may not be
 sent to or received from the *owner* of the given service, not that
 they may not be sent *to that service name*. That is, if a connection
 owns services A, B, C, and sending to A is denied, sending to B or C
@@ -380,6 +386,22 @@ will not work either.
 .PP
 The other send_* and receive_* attributes are purely textual/by-value
 matches against the given field in the message header.
+
+.PP
+"Eavesdropping" occurs when an application receives a message that
+was explicitly addressed to a service the application does not own.
+Eavesdropping thus only applies to messages that are addressed to
+services (i.e. it does not apply to signals).
+
+.PP
+For <allow>, eavesdrop="true" indicates that the rule matches even 
+when eavesdropping. eavesdrop="false" is the default and means that 
+the rule only allows messages to go to their specified recipient.
+For <deny>, eavesdrop="true" indicates that the rule matches 
+only when eavesdropping. eavesdrop="false" is the default for <deny>
+also, but here it means that the rule applies always, even when 
+not eavesdropping. The eavesdrop attribute can only be combined with
+receive rules (with receive_* attributes).
 
 .PP
 user and group denials mean that the given user or group may 
@@ -412,13 +434,6 @@ received" are evaluated separately.
 .PP
 Be careful with send_interface/receive_interface, because the 
 interface field in messages is optional.
-
-.TP
-.I "<allow>"
-
-.PP
-Makes an exception to previous <deny> statements. Works 
-just like <deny> but with the inverse meaning.
 
 .SH AUTHOR
 See http://www.freedesktop.org/software/dbus/doc/AUTHORS

@@ -28,36 +28,33 @@
 #include "services.h"
 #include "utils.h"
 #include "bus.h"
+#include "signals.h"
 #include "test.h"
 #include <dbus/dbus-internals.h>
 #include <string.h>
 
-typedef struct
-{
-  BusContext     *context;
-  DBusConnection *sender;
-  DBusMessage    *message;
-  BusTransaction *transaction;
-  DBusError      *error;
-} SendMessageData;
-
 static dbus_bool_t
-send_one_message (DBusConnection *connection, void *data)
+send_one_message (DBusConnection *connection,
+                  BusContext     *context,
+                  DBusConnection *sender,
+                  DBusConnection *addressed_recipient,
+                  DBusMessage    *message,
+                  BusTransaction *transaction,
+                  DBusError      *error)
 {
-  SendMessageData *d = data;
-
-  if (!bus_context_check_security_policy (d->context,
-                                          d->sender,
+  if (!bus_context_check_security_policy (context,
+                                          sender,
+                                          addressed_recipient,
                                           connection,
-                                          d->message,
+                                          message,
                                           NULL))
     return TRUE; /* silently don't send it */
   
-  if (!bus_transaction_send (d->transaction,
+  if (!bus_transaction_send (transaction,
                              connection,
-                             d->message))
+                             message))
     {
-      BUS_SET_OOM (d->error);
+      BUS_SET_OOM (error);
       return FALSE;
     }
 
@@ -65,30 +62,60 @@ send_one_message (DBusConnection *connection, void *data)
 }
 
 dbus_bool_t
-bus_dispatch_broadcast_message (BusTransaction *transaction,
-                                DBusConnection *sender,
-                                DBusMessage    *message,
-                                DBusError      *error)
+bus_dispatch_matches (BusTransaction *transaction,
+                      DBusConnection *sender,
+                      DBusConnection *addressed_recipient,
+                      DBusMessage    *message,
+                      DBusError      *error)
 {
   DBusError tmp_error;
-  SendMessageData d;
   BusConnections *connections;
+  DBusList *recipients;
+  BusMatchmaker *matchmaker;
+  DBusList *link;
+  BusContext *context;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
+  /* sender and recipient can both be NULL for the bus driver,
+   * or for signals with no particular recipient
+   */
+
+  _dbus_assert (sender == NULL || bus_connection_is_active (sender));
   _dbus_assert (dbus_message_get_sender (message) != NULL);
 
   connections = bus_transaction_get_connections (transaction);
   
   dbus_error_init (&tmp_error);
-  d.sender = sender;
-  d.context = bus_transaction_get_context (transaction);
-  d.message = message;
-  d.transaction = transaction;
-  d.error = &tmp_error;
-  
-  bus_connections_foreach_active (connections, send_one_message, &d);
+  context = bus_transaction_get_context (transaction);
+  matchmaker = bus_context_get_matchmaker (context);
 
+  recipients = NULL;
+  if (!bus_matchmaker_get_recipients (matchmaker,
+                                      bus_context_get_connections (context),
+                                      sender, addressed_recipient, message,
+                                      &recipients))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  link = _dbus_list_get_first_link (&recipients);
+  while (link != NULL)
+    {
+      DBusConnection *dest;
+
+      dest = link->data;
+
+      if (!send_one_message (dest, context, sender, addressed_recipient,
+                             message, transaction, &tmp_error))
+        break;
+
+      link = _dbus_list_get_next_link (&recipients, link);
+    }
+
+  _dbus_list_clear (&recipients);
+  
   if (dbus_error_is_set (&tmp_error))
     {
       dbus_move_error (&tmp_error, error);
@@ -107,10 +134,12 @@ bus_dispatch (DBusConnection *connection,
   BusTransaction *transaction;
   BusContext *context;
   DBusHandlerResult result;
-
+  DBusConnection *addressed_recipient;
+  
   result = DBUS_HANDLER_RESULT_HANDLED;
   
   transaction = NULL;
+  addressed_recipient = NULL;
   dbus_error_init (&error);
   
   context = bus_connection_get_context (connection);
@@ -143,26 +172,31 @@ bus_dispatch (DBusConnection *connection,
   }
 #endif /* DBUS_ENABLE_VERBOSE_MODE */
   
-  /* If service_name is NULL, this is a message to the bus daemon, not
-   * intended to actually go "on the bus"; e.g. a peer-to-peer
+  /* If service_name is NULL, if it's a signal we send it to all
+   * connections with a match rule. If it's not a signal, it goes to
+   * the bus daemon but doesn't go "on the bus"; e.g. a peer-to-peer
    * ping. Handle these immediately, especially disconnection
    * messages. There are no security policy checks on these.
    */
   if (service_name == NULL)
-    {      
+    {
       if (dbus_message_is_signal (message,
                                   DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL,
                                   "Disconnected"))
-        bus_connection_disconnected (connection);
+        {
+          bus_connection_disconnected (connection);
+          goto out;
+        }
 
-      /* DBusConnection also handles some of these automatically, we leave
-       * it to do so.
-       */
-      result = DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
-      goto out;
+      if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_SIGNAL)
+        {
+          /* DBusConnection also handles some of these automatically, we leave
+           * it to do so.
+           */
+          result = DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+          goto out;
+        }
     }
-
-  _dbus_assert (service_name != NULL); /* this message is intended for bus routing */
   
   /* Create our transaction */
   transaction = bus_transaction_new (context);
@@ -191,11 +225,12 @@ bus_dispatch (DBusConnection *connection,
        */
       service_name = dbus_message_get_destination (message);
     }
-
-  if (strcmp (service_name, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) == 0) /* to bus driver */
+  
+  if (service_name &&
+      strcmp (service_name, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) == 0) /* to bus driver */
     {
       if (!bus_context_check_security_policy (context,
-                                              connection, NULL, message, &error))
+                                              connection, NULL, NULL, message, &error))
         {
           _dbus_verbose ("Security policy rejected message\n");
           goto out;
@@ -209,22 +244,16 @@ bus_dispatch (DBusConnection *connection,
     {
       _dbus_verbose ("Received message from non-registered client. Disconnecting.\n");
       dbus_connection_disconnect (connection);
+      goto out;
     }
-  /* FIXME what if we un-special-case this service and just have a flag
-   * on services that all service owners will get messages to it, not just
-   * the primary owner.
-   */
-  else if (strcmp (service_name, DBUS_SERVICE_ORG_FREEDESKTOP_BROADCAST) == 0) /* spam! */
-    {
-      if (!bus_dispatch_broadcast_message (transaction, connection, message, &error))
-        goto out;
-    }
-  else  /* route to named service */
+  else if (service_name != NULL) /* route to named service */
     {
       DBusString service_string;
       BusService *service;
       BusRegistry *registry;
 
+      _dbus_assert (service_name != NULL);
+      
       registry = bus_connection_get_registry (connection);
       
       _dbus_string_init_const (&service_string, service_name);
@@ -239,24 +268,30 @@ bus_dispatch (DBusConnection *connection,
           goto out;
         }
       else
-        {
-          DBusConnection *recipient;
-          
-          recipient = bus_service_get_primary_owner (service);
-          _dbus_assert (recipient != NULL);
+        {          
+          addressed_recipient = bus_service_get_primary_owner (service);
+          _dbus_assert (addressed_recipient != NULL);
           
           if (!bus_context_check_security_policy (context,
-                                                  connection, recipient, message, &error))
+                                                  connection, addressed_recipient,
+                                                  addressed_recipient,
+                                                  message, &error))
             goto out;
           
           /* Dispatch the message */
-          if (!bus_transaction_send (transaction, recipient, message))
+          if (!bus_transaction_send (transaction, addressed_recipient, message))
             {
               BUS_SET_OOM (&error);
               goto out;
             }
         }
     }
+
+  /* Now match the messages against any match rules, which will send
+   * out signals and such. addressed_recipient may == NULL.
+   */
+  if (!bus_dispatch_matches (transaction, connection, addressed_recipient, message, &error))
+    goto out;
   
  out:
   if (dbus_error_is_set (&error))
@@ -673,7 +708,7 @@ check_hello_message (BusContext     *context,
                      DBusConnection *connection)
 {
   DBusMessage *message;
-  dbus_int32_t serial;
+  dbus_uint32_t serial;
   dbus_bool_t retval;
   DBusError error;
   char *name;
@@ -684,6 +719,8 @@ check_hello_message (BusContext     *context,
   name = NULL;
   acquired = NULL;
   message = NULL;
+
+  _dbus_verbose ("check_hello_message for %p\n", connection);
   
   message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
                                           DBUS_PATH_ORG_FREEDESKTOP_DBUS,
@@ -791,7 +828,7 @@ check_hello_message (BusContext     *context,
       while (!dbus_bus_set_base_service (connection, name))
         _dbus_wait_for_memory ();
       
-      scd.skip_connection = NULL;
+      scd.skip_connection = connection; /* we haven't done AddMatch so won't get it ourselves */
       scd.failed = FALSE;
       scd.expected_service_name = name;
       bus_test_clients_foreach (check_service_created_foreach,
@@ -861,6 +898,126 @@ check_hello_message (BusContext     *context,
  * but the correct thing may include OOM errors.
  */
 static dbus_bool_t
+check_add_match_all (BusContext     *context,
+                     DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_bool_t retval;
+  dbus_uint32_t serial;
+  DBusError error;
+
+  retval = FALSE;
+  dbus_error_init (&error);
+  message = NULL;
+
+  _dbus_verbose ("check_add_match_all for %p\n", connection);
+  
+  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                          "AddMatch");
+
+  if (message == NULL)
+    return TRUE;
+
+  if (!dbus_message_append_args (message, DBUS_TYPE_STRING, "", /* FIXME */
+                                 DBUS_TYPE_INVALID))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+  
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  /* send our message */
+  bus_test_run_clients_loop (TRUE);
+
+  dbus_connection_ref (connection); /* because we may get disconnected */
+  block_connection_until_message_from_bus (context, connection);
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected\n");
+      
+      dbus_connection_unref (connection);
+      
+      return TRUE;
+    }
+
+  dbus_connection_unref (connection);
+  
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a reply to %s %d on %p\n",
+                  "AddMatch", serial, connection);
+      goto out;
+    }
+
+  verbose_message_received (connection, message);
+
+  if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
+    {
+      _dbus_warn ("Message has wrong sender %s\n",
+                  dbus_message_get_sender (message) ?
+                  dbus_message_get_sender (message) : "(none)");
+      goto out;
+    }
+  
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
+    {
+      if (dbus_message_is_error (message,
+                                 DBUS_ERROR_NO_MEMORY))
+        {
+          ; /* good, this is a valid response */
+        }
+      else
+        {
+          warn_unexpected (connection, message, "not this error");
+
+          goto out;
+        }
+    }
+  else
+    {
+      if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
+        {
+          ; /* good, expected */
+          _dbus_assert (dbus_message_get_reply_serial (message) == serial);
+        }
+      else
+        {
+          warn_unexpected (connection, message, "method return for AddMatch");
+
+          goto out;
+        }
+    }
+
+  if (!check_no_leftovers (context))
+    goto out;
+  
+  retval = TRUE;
+  
+ out:
+  dbus_error_free (&error);
+  
+  if (message)
+    dbus_message_unref (message);
+  
+  return retval;
+}
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
 check_hello_connection (BusContext *context)
 {
   DBusConnection *connection;
@@ -885,7 +1042,7 @@ check_hello_connection (BusContext *context)
 
   if (!check_hello_message (context, connection))
     return FALSE;
-
+  
   if (dbus_bus_get_base_service (connection) == NULL)
     {
       /* We didn't successfully register, so we can't
@@ -895,6 +1052,9 @@ check_hello_connection (BusContext *context)
     }
   else
     {
+      if (!check_add_match_all (context, connection))
+        return FALSE;
+      
       kill_client_connection (context, connection);
     }
 
@@ -911,7 +1071,7 @@ check_nonexistent_service_activation (BusContext     *context,
                                       DBusConnection *connection)
 {
   DBusMessage *message;
-  dbus_int32_t serial;
+  dbus_uint32_t serial;
   dbus_bool_t retval;
   DBusError error;
   
@@ -1293,7 +1453,7 @@ check_send_exit_to_service (BusContext     *context,
 {
   dbus_bool_t got_error;
   DBusMessage *message;
-  dbus_int32_t serial;
+  dbus_uint32_t serial;
   dbus_bool_t retval;
   
   _dbus_verbose ("Sending exit message to the test service\n");
@@ -1462,7 +1622,7 @@ check_existent_service_activation (BusContext     *context,
                                    DBusConnection *connection)
 {
   DBusMessage *message;
-  dbus_int32_t serial;
+  dbus_uint32_t serial;
   dbus_bool_t retval;
   DBusError error;
   char *base_service;
@@ -1676,7 +1836,7 @@ check_segfault_service_activation (BusContext     *context,
                                    DBusConnection *connection)
 {
   DBusMessage *message;
-  dbus_int32_t serial;
+  dbus_uint32_t serial;
   dbus_bool_t retval;
   DBusError error;
   
@@ -1877,6 +2037,9 @@ bus_dispatch_test (const DBusString *test_data_dir)
 
   if (!check_hello_message (context, foo))
     _dbus_assert_not_reached ("hello message failed");
+
+  if (!check_add_match_all (context, foo))
+    _dbus_assert_not_reached ("AddMatch message failed");
   
   bar = dbus_connection_open ("debug-pipe:name=test-server", &error);
   if (bar == NULL)
@@ -1887,6 +2050,9 @@ bus_dispatch_test (const DBusString *test_data_dir)
 
   if (!check_hello_message (context, bar))
     _dbus_assert_not_reached ("hello message failed");
+
+  if (!check_add_match_all (context, bar))
+    _dbus_assert_not_reached ("AddMatch message failed");
   
   baz = dbus_connection_open ("debug-pipe:name=test-server", &error);
   if (baz == NULL)
@@ -1898,6 +2064,9 @@ bus_dispatch_test (const DBusString *test_data_dir)
   if (!check_hello_message (context, baz))
     _dbus_assert_not_reached ("hello message failed");
 
+  if (!check_add_match_all (context, baz))
+    _dbus_assert_not_reached ("AddMatch message failed");
+  
   if (!check_no_leftovers (context))
     {
       _dbus_warn ("Messages were left over after setting up initial connections");
@@ -1954,6 +2123,9 @@ bus_dispatch_sha1_test (const DBusString *test_data_dir)
   if (!check_hello_message (context, foo))
     _dbus_assert_not_reached ("hello message failed");
 
+  if (!check_add_match_all (context, foo))
+    _dbus_assert_not_reached ("addmatch message failed");
+  
   if (!check_no_leftovers (context))
     {
       _dbus_warn ("Messages were left over after setting up initial SHA-1 connection\n");

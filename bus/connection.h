@@ -44,16 +44,18 @@ void            bus_connections_foreach_active    (BusConnections               
                                                    BusConnectionForeachFunction  function,
                                                    void                         *data);
 BusContext*     bus_connections_get_context       (BusConnections               *connections);
+void            bus_connections_increment_stamp   (BusConnections               *connections);
 BusContext*     bus_connection_get_context        (DBusConnection               *connection);
 BusConnections* bus_connection_get_connections    (DBusConnection               *connection);
 BusRegistry*    bus_connection_get_registry       (DBusConnection               *connection);
 BusActivation*  bus_connection_get_activation     (DBusConnection               *connection);
+BusMatchmaker*  bus_connection_get_matchmaker     (DBusConnection               *connection);
 dbus_bool_t     bus_connections_check_limits      (BusConnections               *connections,
                                                    DBusConnection               *requesting_completion,
                                                    DBusError                    *error);
 void            bus_connections_expire_incomplete (BusConnections               *connections);
 
-
+dbus_bool_t     bus_connection_mark_stamp         (DBusConnection               *connection);
 
 dbus_bool_t bus_connection_is_active (DBusConnection *connection);
 const char *bus_connection_get_name  (DBusConnection *connection);
@@ -61,6 +63,15 @@ const char *bus_connection_get_name  (DBusConnection *connection);
 dbus_bool_t bus_connection_preallocate_oom_error (DBusConnection *connection);
 void        bus_connection_send_oom_error        (DBusConnection *connection,
                                                   DBusMessage    *in_reply_to);
+
+/* called by signals.c */
+dbus_bool_t bus_connection_add_match_rule      (DBusConnection *connection,
+                                                BusMatchRule   *rule);
+void        bus_connection_add_match_rule_link (DBusConnection *connection,
+                                                DBusList       *link);
+void        bus_connection_remove_match_rule   (DBusConnection *connection,
+                                                BusMatchRule   *rule);
+int         bus_connection_get_n_match_rules   (DBusConnection *connection);
 
 
 /* called by services.c */

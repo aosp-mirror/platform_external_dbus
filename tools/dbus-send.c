@@ -44,7 +44,7 @@ main (int argc, char *argv[])
   DBusMessageIter iter;
   int i;
   DBusBusType type = DBUS_BUS_SESSION;
-  const char *dest = DBUS_SERVICE_ORG_FREEDESKTOP_BROADCAST;
+  const char *dest = NULL;
   const char *name = NULL;
   const char *path = NULL;
   int message_type = DBUS_MESSAGE_TYPE_SIGNAL;

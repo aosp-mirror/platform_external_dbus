@@ -80,12 +80,15 @@
  - the invalid messages in the test suite are all useless because 
    they are invalid for the wrong reasons due to protocol changes
 
- - Nuke the org.freedesktop.Broadcast service; instead, 
-   just broadcast messages of type signal
-
  - I don't want to introduce DBusObject, but refcounting and object
    data could still be factored out into an internal "base class" 
    perhaps.
+
+ - modify the auth protocol to also support other initial-handshake
+   type of information
+
+ - document the auth protocol as a set of states and transitions, and
+   then reimplement it in those terms
 
  - Header fields names are required to be aligned on a 4 byte boundary
    at the moment. No alignment should be neccessary.

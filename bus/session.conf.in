@@ -14,10 +14,9 @@
 
   <policy context="default">
     <!-- Allow everything -->
-    <allow send_interface="*"/>
-    <allow receive_interface="*"/>
+    <allow eavesdrop="true"/>
     <allow own="*"/>
-    <allow user="*"/>  
+    <allow user="*"/>
   </policy>
 
   <!-- This is included last so local configuration can override what's 

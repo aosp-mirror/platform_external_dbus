@@ -25,6 +25,7 @@
 #include "policy.h"
 #include "services.h"
 #include "utils.h"
+#include "signals.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-timeout.h>
@@ -41,6 +42,7 @@ struct BusConnections
   BusContext *context;
   DBusHashTable *completed_by_user; /**< Number of completed connections for each UID */
   DBusTimeout *expire_timeout; /**< Timeout for expiring incomplete connections. */
+  int stamp;            /**< Incrementing number */
 };
 
 static dbus_int32_t connection_data_slot = -1;
@@ -52,6 +54,8 @@ typedef struct
   DBusConnection *connection;
   DBusList *services_owned;
   int n_services_owned;
+  DBusList *match_rules;
+  int n_match_rules;
   char *name;
   DBusList *transaction_messages; /**< Stuff we need to send as part of a transaction */
   DBusMessage *oom_message;
@@ -60,6 +64,7 @@ typedef struct
 
   long connection_tv_sec;  /**< Time when we connected (seconds component) */
   long connection_tv_usec; /**< Time when we connected (microsec component) */
+  int stamp;               /**< connections->stamp last time we were traversed */
 } BusConnectionData;
 
 static dbus_bool_t expire_incomplete_timeout (void *data);
@@ -140,12 +145,20 @@ bus_connection_disconnected (DBusConnection *connection)
 {
   BusConnectionData *d;
   BusService *service;
-
+  BusMatchmaker *matchmaker;
+  
   d = BUS_CONNECTION_DATA (connection);
   _dbus_assert (d != NULL);
 
   _dbus_verbose ("%s disconnected, dropping all service ownership and releasing\n",
                  d->name ? d->name : "(inactive)");
+
+  /* Delete our match rules */
+  if (d->n_match_rules > 0)
+    {
+      matchmaker = bus_context_get_matchmaker (d->connections->context);
+      bus_matchmaker_disconnected (matchmaker, connection);
+    }
   
   /* Drop any service ownership. FIXME Unfortunately, this requires
    * memory allocation and there doesn't seem to be a good way to
@@ -881,6 +894,40 @@ bus_connections_get_context (BusConnections *connections)
   return connections->context;
 }
 
+/*
+ * This is used to avoid covering the same connection twice when
+ * traversing connections. Note that it assumes we will
+ * bus_connection_mark_stamp() each connection at least once per
+ * INT_MAX increments of the global stamp, or wraparound would break
+ * things.
+ */
+void
+bus_connections_increment_stamp (BusConnections *connections)
+{
+  connections->stamp += 1;
+}
+
+/* Mark connection with current stamp, return TRUE if it
+ * didn't already have that stamp
+ */
+dbus_bool_t
+bus_connection_mark_stamp (DBusConnection *connection)
+{
+  BusConnectionData *d;
+  
+  d = BUS_CONNECTION_DATA (connection);
+  
+  _dbus_assert (d != NULL);
+
+  if (d->stamp == d->connections->stamp)
+    return FALSE;
+  else
+    {
+      d->stamp = d->connections->stamp;
+      return TRUE;
+    }
+}
+
 BusContext*
 bus_connection_get_context (DBusConnection *connection)
 {
@@ -927,6 +974,18 @@ bus_connection_get_activation (DBusConnection *connection)
   _dbus_assert (d != NULL);
 
   return bus_context_get_activation (d->connections->context);
+}
+
+BusMatchmaker*
+bus_connection_get_matchmaker (DBusConnection *connection)
+{
+  BusConnectionData *d;
+
+  d = BUS_CONNECTION_DATA (connection);
+
+  _dbus_assert (d != NULL);
+
+  return bus_context_get_matchmaker (d->connections->context);
 }
 
 /**
@@ -1025,6 +1084,62 @@ bus_connection_send_oom_error (DBusConnection *connection,
 }
 
 void
+bus_connection_add_match_rule_link (DBusConnection *connection,
+                                    DBusList       *link)
+{
+  BusConnectionData *d;
+
+  d = BUS_CONNECTION_DATA (connection);
+  _dbus_assert (d != NULL);
+
+  _dbus_list_append_link (&d->match_rules, link);
+
+  d->n_match_rules += 1;
+}
+
+dbus_bool_t
+bus_connection_add_match_rule (DBusConnection *connection,
+                               BusMatchRule   *rule)
+{
+    DBusList *link;
+
+  link = _dbus_list_alloc_link (rule);
+
+  if (link == NULL)
+    return FALSE;
+
+  bus_connection_add_match_rule_link (connection, link);
+
+  return TRUE;
+}
+
+void
+bus_connection_remove_match_rule (DBusConnection *connection,
+                                  BusMatchRule   *rule)
+{
+  BusConnectionData *d;
+
+  d = BUS_CONNECTION_DATA (connection);
+  _dbus_assert (d != NULL);
+
+  _dbus_list_remove_last (&d->match_rules, rule);
+
+  d->n_match_rules -= 1;
+  _dbus_assert (d->n_match_rules >= 0);
+}
+
+int
+bus_connection_get_n_match_rules (DBusConnection *connection)
+{
+  BusConnectionData *d;
+
+  d = BUS_CONNECTION_DATA (connection);
+  _dbus_assert (d != NULL);
+  
+  return d->n_match_rules;
+}
+
+void
 bus_connection_add_owned_service_link (DBusConnection *connection,
                                        DBusList       *link)
 {
@@ -1092,6 +1207,8 @@ bus_connection_complete (DBusConnection   *connection,
   _dbus_assert (d != NULL);
   _dbus_assert (d->name == NULL);
   _dbus_assert (d->policy == NULL);
+
+  _dbus_assert (!bus_connection_is_active (connection));
   
   if (!_dbus_string_copy_data (name, &d->name))
     {
@@ -1147,6 +1264,8 @@ bus_connection_complete (DBusConnection   *connection,
 
   /* See if we can remove the timeout */
   bus_connections_expire_incomplete (d->connections);
+
+  _dbus_assert (bus_connection_is_active (connection));
   
   return TRUE;
 }
@@ -1327,7 +1446,7 @@ bus_transaction_send_from_driver (BusTransaction *transaction,
    * eat it; the driver doesn't care about getting a reply.
    */
   if (!bus_context_check_security_policy (bus_transaction_get_context (transaction),
-                                          NULL, connection, message, NULL))
+                                          NULL, connection, connection, message, NULL))
     return TRUE;
 
   return bus_transaction_send (transaction, connection, message);

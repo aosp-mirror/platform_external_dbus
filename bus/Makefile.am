@@ -44,6 +44,8 @@ BUS_SOURCES=					\
 	policy.h				\
 	services.c				\
 	services.h				\
+	signals.c				\
+	signals.h				\
 	test.c					\
 	test.h					\
 	utils.c					\

@@ -84,7 +84,6 @@ extern "C" {
   
 /* Services */
 #define DBUS_SERVICE_ORG_FREEDESKTOP_DBUS      "org.freedesktop.DBus"
-#define DBUS_SERVICE_ORG_FREEDESKTOP_BROADCAST "org.freedesktop.Broadcast"
 
 /* Paths */
 #define DBUS_PATH_ORG_FREEDESKTOP_DBUS  "/org/freedesktop/DBus"
