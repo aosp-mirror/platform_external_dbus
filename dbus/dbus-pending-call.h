@@ -41,7 +41,7 @@ dbus_bool_t  dbus_pending_call_set_notify    (DBusPendingCall               *pen
                                               DBusFreeFunction               free_user_data);
 void         dbus_pending_call_cancel        (DBusPendingCall               *pending);
 dbus_bool_t  dbus_pending_call_get_completed (DBusPendingCall               *pending);
-DBusMessage* dbus_pending_call_get_reply     (DBusPendingCall               *pending);
+DBusMessage* dbus_pending_call_steal_reply   (DBusPendingCall               *pending);
 void         dbus_pending_call_block         (DBusPendingCall               *pending);
 
 dbus_bool_t dbus_pending_call_allocate_data_slot (dbus_int32_t     *slot_p);

@@ -33,6 +33,8 @@ Important for 1.0
 
  - make the mutex/condvar functions private
 
+ - dbus-pending-call.c has some API and thread safety issues to review
+
 Important for 1.0 GLib Bindings
 ===
 

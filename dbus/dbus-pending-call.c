@@ -61,6 +61,14 @@ _dbus_pending_call_new (DBusConnection    *connection,
   if (timeout_milliseconds == -1)
     timeout_milliseconds = _DBUS_DEFAULT_TIMEOUT_VALUE;
 
+  /* it would probably seem logical to pass in _DBUS_INT_MAX for
+   * infinite timeout, but then math in
+   * _dbus_connection_block_for_reply would get all overflow-prone, so
+   * smack that down.
+   */
+  if (timeout_milliseconds > _DBUS_ONE_HOUR_IN_MILLISECONDS * 6)
+    timeout_milliseconds = _DBUS_ONE_HOUR_IN_MILLISECONDS * 6;
+  
   if (!dbus_pending_call_allocate_data_slot (&notify_user_data_slot))
     return NULL;
   
@@ -102,6 +110,8 @@ _dbus_pending_call_new (DBusConnection    *connection,
 void
 _dbus_pending_call_notify (DBusPendingCall *pending)
 {
+  _dbus_assert (!pending->completed);
+  
   pending->completed = TRUE;
 
   if (pending->function)
@@ -258,21 +268,26 @@ dbus_pending_call_get_completed (DBusPendingCall *pending)
 }
 
 /**
- * Gets the reply, or returns #NULL if none has been received yet. The
- * reference count is not incremented on the returned message, so you
- * have to keep a reference count on the pending call (or add one
- * to the message).
- *
- * @todo not thread safe? I guess it has to lock though it sucks
- * @todo maybe to make this threadsafe, it should be steal_reply(), i.e. only one thread can ever get the message
+ * Gets the reply, or returns #NULL if none has been received
+ * yet. Ownership of the reply message passes to the caller. This
+ * function can only be called once per pending call, since the reply
+ * message is tranferred to the caller.
  * 
  * @param pending the pending call
  * @returns the reply message or #NULL.
  */
 DBusMessage*
-dbus_pending_call_get_reply (DBusPendingCall *pending)
+dbus_pending_call_steal_reply (DBusPendingCall *pending)
 {
-  return pending->reply;
+  DBusMessage *message;
+  
+  _dbus_return_val_if_fail (pending->completed, NULL);
+  _dbus_return_val_if_fail (pending->reply != NULL, NULL);
+  
+  message = pending->reply;
+  pending->reply = NULL;
+
+  return message;
 }
 
 /**
@@ -292,20 +307,7 @@ dbus_pending_call_get_reply (DBusPendingCall *pending)
 void
 dbus_pending_call_block (DBusPendingCall *pending)
 {
-  DBusMessage *message;
-
-  if (dbus_pending_call_get_completed (pending))
-    return;
-
-  /* message may be NULL if no reply */
-  message = _dbus_connection_block_for_reply (pending->connection,
-                                              pending->reply_serial,
-                                              dbus_timeout_get_interval (pending->timeout));
-
-  _dbus_connection_lock (pending->connection);
-  _dbus_pending_call_complete_and_unlock (pending, message);
-  if (message)
-    dbus_message_unref (message);
+  _dbus_connection_block_pending_call (pending);
 }
 
 static DBusDataSlotAllocator slot_allocator;

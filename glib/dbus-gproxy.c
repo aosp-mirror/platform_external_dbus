@@ -1386,7 +1386,7 @@ dbus_g_proxy_end_call (DBusGProxy          *proxy,
   g_return_val_if_fail (pending != NULL, FALSE);
 
   dbus_pending_call_block (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (pending));
-  message = dbus_pending_call_get_reply (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (pending));
+  message = dbus_pending_call_steal_reply (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (pending));
 
   g_assert (message != NULL);
 
@@ -1403,6 +1403,7 @@ dbus_g_proxy_end_call (DBusGProxy          *proxy,
         }
       va_end (args);
 
+      dbus_message_unref (message);
       return TRUE;
       
     case DBUS_MESSAGE_TYPE_ERROR:
@@ -1416,6 +1417,8 @@ dbus_g_proxy_end_call (DBusGProxy          *proxy,
     }
 
  error:
+  dbus_message_unref (message);
+  
   dbus_set_g_error (error, &derror);
   dbus_error_free (&derror);
   return FALSE;
