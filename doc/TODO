@@ -13,9 +13,6 @@
    that involve the properties of the source or destination
    connection.
 
- - Implement all the needed resource limits to keep clients from
-   killing the message bus.
-
  - Automatic service activation, should probably be done through a message flag.
 
  - Disconnecting the remote end on invalid UTF-8 is probably not a good 

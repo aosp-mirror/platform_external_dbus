@@ -2088,6 +2088,8 @@ _dbus_marshal_test (void)
 #ifdef DBUS_HAVE_INT64
   dbus_int64_t array3[3] = { 0x123ffffffff, 0x456ffffffff, 0x789ffffffff }, *array4;
 #endif
+  char *s;
+  DBusString t;
   
   if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");
@@ -2140,12 +2142,12 @@ _dbus_marshal_test (void)
   /* Marshal unsigned integers */
   if (!_dbus_marshal_uint64 (&str, DBUS_BIG_ENDIAN, DBUS_UINT64_CONSTANT (0x123456789abc7)))
     _dbus_assert_not_reached ("could not marshal signed integer value");
-  if (!_dbus_demarshal_uint64 (&str, DBUS_BIG_ENDIAN, pos, &pos) == DBUS_UINT64_CONSTANT (0x123456789abc7))
+  if (!(_dbus_demarshal_uint64 (&str, DBUS_BIG_ENDIAN, pos, &pos) == DBUS_UINT64_CONSTANT (0x123456789abc7)))
     _dbus_assert_not_reached ("demarshal failed");
   
   if (!_dbus_marshal_uint64 (&str, DBUS_LITTLE_ENDIAN, DBUS_UINT64_CONSTANT (0x123456789abc7)))
     _dbus_assert_not_reached ("could not marshal signed integer value");
-  if (!_dbus_demarshal_uint64 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == DBUS_UINT64_CONSTANT (0x123456789abc7))
+  if (!(_dbus_demarshal_uint64 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == DBUS_UINT64_CONSTANT (0x123456789abc7)))
     _dbus_assert_not_reached ("demarshal failed");
 #endif /* DBUS_HAVE_INT64 */
   
@@ -2186,10 +2188,212 @@ _dbus_marshal_test (void)
   if (len != 3)
     _dbus_assert_not_reached ("Signed integer array lengths differ!\n");
   dbus_free (array4);
+
+  /* set/pack 64-bit integers */
+  _dbus_string_set_length (&str, 8);
+
+  /* signed little */
+  _dbus_marshal_set_int64 (&str, DBUS_LITTLE_ENDIAN,
+                           0, DBUS_INT64_CONSTANT (-0x123456789abc7));
+  
+  _dbus_assert (DBUS_INT64_CONSTANT (-0x123456789abc7) ==
+                _dbus_unpack_int64 (DBUS_LITTLE_ENDIAN,
+                                    _dbus_string_get_const_data (&str)));
+
+  /* signed big */
+  _dbus_marshal_set_int64 (&str, DBUS_BIG_ENDIAN,
+                           0, DBUS_INT64_CONSTANT (-0x123456789abc7));
+
+  _dbus_assert (DBUS_INT64_CONSTANT (-0x123456789abc7) ==
+                _dbus_unpack_int64 (DBUS_BIG_ENDIAN,
+                                    _dbus_string_get_const_data (&str)));
+
+  /* signed little pack */
+  _dbus_pack_int64 (DBUS_INT64_CONSTANT (-0x123456789abc7),
+                    DBUS_LITTLE_ENDIAN,
+                    _dbus_string_get_data (&str));
+  
+  _dbus_assert (DBUS_INT64_CONSTANT (-0x123456789abc7) ==
+                _dbus_unpack_int64 (DBUS_LITTLE_ENDIAN,
+                                    _dbus_string_get_const_data (&str)));
+
+  /* signed big pack */
+  _dbus_pack_int64 (DBUS_INT64_CONSTANT (-0x123456789abc7),
+                    DBUS_BIG_ENDIAN,
+                    _dbus_string_get_data (&str));
+
+  _dbus_assert (DBUS_INT64_CONSTANT (-0x123456789abc7) ==
+                _dbus_unpack_int64 (DBUS_BIG_ENDIAN,
+                                    _dbus_string_get_const_data (&str)));
+
+  /* unsigned little */
+  _dbus_marshal_set_uint64 (&str, DBUS_LITTLE_ENDIAN,
+                            0, DBUS_UINT64_CONSTANT (0x123456789abc7));
+  
+  _dbus_assert (DBUS_UINT64_CONSTANT (0x123456789abc7) ==
+                _dbus_unpack_uint64 (DBUS_LITTLE_ENDIAN,
+                                     _dbus_string_get_const_data (&str)));
+
+  /* unsigned big */
+  _dbus_marshal_set_uint64 (&str, DBUS_BIG_ENDIAN,
+                            0, DBUS_UINT64_CONSTANT (0x123456789abc7));
+
+  _dbus_assert (DBUS_UINT64_CONSTANT (0x123456789abc7) ==
+                _dbus_unpack_uint64 (DBUS_BIG_ENDIAN,
+                                     _dbus_string_get_const_data (&str)));
+
+  /* unsigned little pack */
+  _dbus_pack_uint64 (DBUS_UINT64_CONSTANT (0x123456789abc7),
+                     DBUS_LITTLE_ENDIAN,
+                     _dbus_string_get_data (&str));
+  
+  _dbus_assert (DBUS_UINT64_CONSTANT (0x123456789abc7) ==
+                _dbus_unpack_uint64 (DBUS_LITTLE_ENDIAN,
+                                     _dbus_string_get_const_data (&str)));
+
+  /* unsigned big pack */
+  _dbus_pack_uint64 (DBUS_UINT64_CONSTANT (0x123456789abc7),
+                     DBUS_BIG_ENDIAN,
+                     _dbus_string_get_data (&str));
+
+  _dbus_assert (DBUS_UINT64_CONSTANT (0x123456789abc7) ==
+                _dbus_unpack_uint64 (DBUS_BIG_ENDIAN,
+                                     _dbus_string_get_const_data (&str)));
+  
 #endif
+
+  /* set/pack 32-bit integers */
+  _dbus_string_set_length (&str, 4);
+
+  /* signed little */
+  _dbus_marshal_set_int32 (&str, DBUS_LITTLE_ENDIAN,
+                           0, -0x123456);
+  
+  _dbus_assert (-0x123456 ==
+                _dbus_unpack_int32 (DBUS_LITTLE_ENDIAN,
+                                    _dbus_string_get_const_data (&str)));
+
+  /* signed big */
+  _dbus_marshal_set_int32 (&str, DBUS_BIG_ENDIAN,
+                           0, -0x123456);
+
+  _dbus_assert (-0x123456 ==
+                _dbus_unpack_int32 (DBUS_BIG_ENDIAN,
+                                    _dbus_string_get_const_data (&str)));
+
+  /* signed little pack */
+  _dbus_pack_int32 (-0x123456,
+                    DBUS_LITTLE_ENDIAN,
+                    _dbus_string_get_data (&str));
+  
+  _dbus_assert (-0x123456 ==
+                _dbus_unpack_int32 (DBUS_LITTLE_ENDIAN,
+                                    _dbus_string_get_const_data (&str)));
+
+  /* signed big pack */
+  _dbus_pack_int32 (-0x123456,
+                    DBUS_BIG_ENDIAN,
+                    _dbus_string_get_data (&str));
+
+  _dbus_assert (-0x123456 ==
+                _dbus_unpack_int32 (DBUS_BIG_ENDIAN,
+                                    _dbus_string_get_const_data (&str)));
+
+  /* unsigned little */
+  _dbus_marshal_set_uint32 (&str, DBUS_LITTLE_ENDIAN,
+                            0, 0x123456);
+  
+  _dbus_assert (0x123456 ==
+                _dbus_unpack_uint32 (DBUS_LITTLE_ENDIAN,
+                                     _dbus_string_get_const_data (&str)));
+
+  /* unsigned big */
+  _dbus_marshal_set_uint32 (&str, DBUS_BIG_ENDIAN,
+                            0, 0x123456);
+
+  _dbus_assert (0x123456 ==
+                _dbus_unpack_uint32 (DBUS_BIG_ENDIAN,
+                                     _dbus_string_get_const_data (&str)));
+
+  /* unsigned little pack */
+  _dbus_pack_uint32 (0x123456,
+                     DBUS_LITTLE_ENDIAN,
+                     _dbus_string_get_data (&str));
+  
+  _dbus_assert (0x123456 ==
+                _dbus_unpack_uint32 (DBUS_LITTLE_ENDIAN,
+                                     _dbus_string_get_const_data (&str)));
+
+  /* unsigned big pack */
+  _dbus_pack_uint32 (0x123456,
+                     DBUS_BIG_ENDIAN,
+                     _dbus_string_get_data (&str));
+
+  _dbus_assert (0x123456 ==
+                _dbus_unpack_uint32 (DBUS_BIG_ENDIAN,
+                                     _dbus_string_get_const_data (&str)));
+
+
+  /* Strings */
+  
+  _dbus_string_set_length (&str, 0);
+
+  _dbus_marshal_string (&str, DBUS_LITTLE_ENDIAN,
+                        "Hello world");
+  
+  s = _dbus_demarshal_string (&str, DBUS_LITTLE_ENDIAN, 0, NULL);
+  _dbus_assert (strcmp (s, "Hello world") == 0);
+  dbus_free (s);
+
+  _dbus_string_init_const (&t, "Hello world foo");
+  
+  _dbus_marshal_set_string (&str, DBUS_LITTLE_ENDIAN, 0,
+                            &t, _dbus_string_get_length (&t));
+  
+  s = _dbus_demarshal_string (&str, DBUS_LITTLE_ENDIAN, 0, NULL);
+  _dbus_assert (strcmp (s, "Hello world foo") == 0);
+  dbus_free (s);
+
+  _dbus_string_init_const (&t, "Hello");
+  
+  _dbus_marshal_set_string (&str, DBUS_LITTLE_ENDIAN, 0,
+                            &t, _dbus_string_get_length (&t));
+  
+  s = _dbus_demarshal_string (&str, DBUS_LITTLE_ENDIAN, 0, NULL);
+  _dbus_assert (strcmp (s, "Hello") == 0);
+  dbus_free (s);
+
+  /* Strings (big endian) */
+  
+  _dbus_string_set_length (&str, 0);
+
+  _dbus_marshal_string (&str, DBUS_BIG_ENDIAN,
+                        "Hello world");
+  
+  s = _dbus_demarshal_string (&str, DBUS_BIG_ENDIAN, 0, NULL);
+  _dbus_assert (strcmp (s, "Hello world") == 0);
+  dbus_free (s);
+
+  _dbus_string_init_const (&t, "Hello world foo");
+  
+  _dbus_marshal_set_string (&str, DBUS_BIG_ENDIAN, 0,
+                            &t, _dbus_string_get_length (&t));
+  
+  s = _dbus_demarshal_string (&str, DBUS_BIG_ENDIAN, 0, NULL);
+  _dbus_assert (strcmp (s, "Hello world foo") == 0);
+  dbus_free (s);
+
+  _dbus_string_init_const (&t, "Hello");
+  
+  _dbus_marshal_set_string (&str, DBUS_BIG_ENDIAN, 0,
+                            &t, _dbus_string_get_length (&t));
+  
+  s = _dbus_demarshal_string (&str, DBUS_BIG_ENDIAN, 0, NULL);
+  _dbus_assert (strcmp (s, "Hello") == 0);
+  dbus_free (s);
+
   
   _dbus_string_free (&str);
-  
       
   return TRUE;
 }

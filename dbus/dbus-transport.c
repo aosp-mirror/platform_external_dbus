@@ -28,7 +28,6 @@
 #include "dbus-auth.h"
 #include "dbus-address.h"
 #ifdef DBUS_BUILD_TESTS
-#include "dbus-transport-debug.h"
 #include "dbus-server-debug-pipe.h"
 #endif
 
@@ -288,19 +287,6 @@ _dbus_transport_open (const char     *address,
 	  transport = _dbus_transport_new_for_tcp_socket (host, lport, &tmp_error);
 	}
 #ifdef DBUS_BUILD_TESTS
-      else if (strcmp (method, "debug") == 0)
-	{
-	  const char *name = dbus_address_entry_get_value (entries[i], "name");
-
-	  if (name == NULL)
-            {
-              address_problem_type = "debug";
-              address_problem_field = "name";
-              goto bad_address;
-            }
-          
-          transport = _dbus_transport_debug_client_new (name, &tmp_error);
-	}
       else if (strcmp (method, "debug-pipe") == 0)
 	{
 	  const char *name = dbus_address_entry_get_value (entries[i], "name");

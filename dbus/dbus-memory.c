@@ -442,7 +442,7 @@ dbus_malloc (size_t bytes)
   
   if (bytes == 0) /* some system mallocs handle this, some don't */
     return NULL;
-#if DBUS_BUILD_TESTS
+#ifdef DBUS_BUILD_TESTS
   else if (fail_size != 0 && bytes > fail_size)
     return NULL;
   else if (guards)
@@ -493,7 +493,7 @@ dbus_malloc0 (size_t bytes)
 
   if (bytes == 0)
     return NULL;
-#if DBUS_BUILD_TESTS
+#ifdef DBUS_BUILD_TESTS
   else if (fail_size != 0 && bytes > fail_size)
     return NULL;
   else if (guards)
@@ -548,7 +548,7 @@ dbus_realloc (void  *memory,
       dbus_free (memory);
       return NULL;
     }
-#if DBUS_BUILD_TESTS
+#ifdef DBUS_BUILD_TESTS
   else if (fail_size != 0 && bytes > fail_size)
     return NULL;
   else if (guards)

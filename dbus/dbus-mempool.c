@@ -207,6 +207,7 @@ _dbus_mem_pool_free (DBusMemPool *pool)
 void*
 _dbus_mem_pool_alloc (DBusMemPool *pool)
 {
+#ifdef DBUS_BUILD_TESTS
   if (_dbus_disable_mem_pools ())
     {
       DBusMemBlock *block;
@@ -239,6 +240,7 @@ _dbus_mem_pool_alloc (DBusMemPool *pool)
         return NULL;
     }
   else
+#endif
     {
       if (_dbus_decrement_fail_alloc_counter ())
         {
@@ -334,6 +336,7 @@ dbus_bool_t
 _dbus_mem_pool_dealloc (DBusMemPool *pool,
                         void        *element)
 {
+#ifdef DBUS_BUILD_TESTS
   if (_dbus_disable_mem_pools ())
     {
       DBusMemBlock *block;
@@ -371,6 +374,7 @@ _dbus_mem_pool_dealloc (DBusMemPool *pool,
       return FALSE;
     }
   else
+#endif
     {
       DBusFreedElement *freed;
       

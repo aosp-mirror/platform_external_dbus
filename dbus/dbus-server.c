@@ -24,7 +24,6 @@
 #include "dbus-server.h"
 #include "dbus-server-unix.h"
 #ifdef DBUS_BUILD_TESTS
-#include "dbus-server-debug.h"
 #include "dbus-server-debug-pipe.h"
 #endif
 #include "dbus-address.h"
@@ -389,19 +388,6 @@ dbus_server_listen (const char     *address,
 	    break;
 	}
 #ifdef DBUS_BUILD_TESTS
-      else if (strcmp (method, "debug") == 0)
-	{
-	  const char *name = dbus_address_entry_get_value (entries[i], "name");
-
-	  if (name == NULL)
-            {
-              address_problem_type = "debug";
-              address_problem_field = "name";
-              goto bad_address;
-            }
-
-	  server = _dbus_server_debug_new (name, error);
-	}
       else if (strcmp (method, "debug-pipe") == 0)
 	{
 	  const char *name = dbus_address_entry_get_value (entries[i], "name");

@@ -359,6 +359,10 @@ _dbus_message_handler_test (const char *test_data_dir)
   if (dbus_message_handler_get_data (handler) != TEST_DATA)
     _dbus_assert_not_reached ("got wrong data");
 
+  dbus_message_handler_set_data (handler, NULL, NULL);
+  if (dbus_message_handler_get_data (handler) != NULL)
+    _dbus_assert_not_reached ("got wrong data after set");  
+  
   dbus_message_handler_set_function (handler, NULL);
   _dbus_assert (handler->function == NULL);
 

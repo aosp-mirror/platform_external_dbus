@@ -765,7 +765,7 @@ do_write (int fd, const void *buf, size_t count)
       else
         {
           _dbus_warn ("Failed to write data to pipe!\n");
-          _exit (1); /* give up, we suck */
+          exit (1); /* give up, we suck */
         }
     }
   else
@@ -783,7 +783,7 @@ write_err_and_exit (int fd, int msg)
   do_write (fd, &msg, sizeof (msg));
   do_write (fd, &en, sizeof (en));
   
-  _exit (1);
+  exit (1);
 }
 
 static void
@@ -803,7 +803,7 @@ write_status_and_exit (int fd, int status)
   do_write (fd, &msg, sizeof (msg));
   do_write (fd, &status, sizeof (status));
   
-  _exit (0);
+  exit (0);
 }
 
 static void
@@ -868,7 +868,7 @@ check_babysit_events (pid_t grandchild_pid,
       /* This isn't supposed to happen. */
       _dbus_warn ("unexpected waitpid() failure in check_babysit_events(): %s\n",
                   _dbus_strerror (errno));
-      _exit (1);
+      exit (1);
     }
   else if (ret == grandchild_pid)
     {
@@ -881,7 +881,7 @@ check_babysit_events (pid_t grandchild_pid,
     {
       _dbus_warn ("waitpid() reaped pid %d that we've never heard of\n",
                   (int) ret);
-      _exit (1);
+      exit (1);
     }
 
   if (revents & _DBUS_POLLIN)
@@ -893,7 +893,7 @@ check_babysit_events (pid_t grandchild_pid,
     {
       /* Parent is gone, so we just exit */
       _dbus_verbose ("babysitter got POLLERR or POLLHUP from parent\n");
-      _exit (0);
+      exit (0);
     }
 }
 
@@ -928,7 +928,7 @@ babysit (pid_t grandchild_pid,
   if (pipe (sigchld_pipe) < 0)
     {
       _dbus_warn ("Not enough file descriptors to create pipe in babysitter process\n");
-      _exit (1);
+      exit (1);
     }
 
   babysit_sigchld_pipe = sigchld_pipe[WRITE_END];
@@ -966,7 +966,7 @@ babysit (pid_t grandchild_pid,
         }
     }
   
-  _exit (1);
+  exit (1);
 }
 
 /**

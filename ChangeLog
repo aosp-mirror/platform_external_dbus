@@ -1,3 +1,27 @@
+2003-05-08  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-spawn.c: s/_exit/exit/ because it was keeping gcov
+	data from getting written, and there wasn't a good reason to 
+	use _exit really.
+
+	* test/decode-gcov.c (mark_inside_dbus_build_tests): don't count
+	dbus_verbose lines in test coverage
+	(main): add list of functions sorted by # of untested blocks 
+	to the coverage report
+
+	* dbus/dbus-mempool.c: put some test-only code in DBUS_BUILD_TESTS
+
+	* dbus/dbus-marshal.c (_dbus_marshal_test): extend test coverage
+
+	* dbus/dbus-message-handler.c (_dbus_message_handler_test):
+	extend test coverage
+
+	* test/data/auth/cancel.auth-script: test canceling an
+	authentication
+
+	* dbus/Makefile.am: remove dbus-server-debug.[hc] for now, as they
+	aren't used. in CVS history if we end up needing them.
+
 2003-05-04  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-message-handler.c (_dbus_message_handler_test): add

@@ -1197,14 +1197,17 @@ mark_inside_dbus_build_tests (File  *f)
   while (i < f->n_lines)
     {
       Line *l = &f->lines[i];
+      dbus_bool_t is_verbose;
+
+      is_verbose = strstr (l->text, "_dbus_verbose") != NULL;
 
       if (inside_depth == 0)
         {
           const char *a, *b;
           
-          a = strstr (l->text, "#ifdef");
+          a = strstr (l->text, "#if");
           b = strstr (l->text, "DBUS_BUILD_TESTS");
-          if (a && b)
+          if (a && b && (a < b))
             inside_depth += 1;
         }
       else
@@ -1215,7 +1218,7 @@ mark_inside_dbus_build_tests (File  *f)
             inside_depth -= 1;
         }
 
-      if (inside_depth > 0)
+      if (inside_depth > 0 || is_verbose)
         {
           /* Mark the line and its blocks */
           DBusList *blink;
@@ -1243,6 +1246,41 @@ mark_inside_dbus_build_tests (File  *f)
   while (link != NULL)
     {
       Function *func = link->data;
+
+      /* The issue is that some blocks aren't associated with a source line.
+       * Assume they are inside/outside tests according to the source
+       * line of the preceding block. For the first block, make it
+       * match the first following block with a line associated.
+       */
+      if (func->block_graph[0].lines == NULL)
+        {
+          /* find first following line */
+          i = 1;
+          while (i < func->n_blocks)
+            {
+              if (func->block_graph[i].lines != NULL)
+                {
+                  func->block_graph[0].inside_dbus_build_tests =
+                    func->block_graph[i].inside_dbus_build_tests;
+                  break;
+                }
+              
+              ++i;
+            }
+        }
+
+      /* Now mark all blocks but the first */
+      i = 1;
+      while (i < func->n_blocks)
+        {
+          if (func->block_graph[i].lines == NULL)
+            {
+              func->block_graph[i].inside_dbus_build_tests =
+                func->block_graph[i-1].inside_dbus_build_tests;
+            }
+          
+          ++i;
+        }
       
       i = 0;
       while (i < func->n_blocks)
@@ -1733,7 +1771,7 @@ print_untested_functions (File *f)
 
   if (!found)
     return;
-
+  
   printf ("Untested functions in %s\n", f->name);
   printf ("=======\n");
   
@@ -1800,6 +1838,92 @@ print_poorly_tested_functions (File  *f,
   printf ("\n");
 }
 
+static int
+func_cmp (const void *a,
+          const void *b)
+{
+  Function *af = *(Function**) a;
+  Function *bf = *(Function**) b;
+  int a_untested = af->n_nontest_blocks - af->n_nontest_blocks_executed;
+  int b_untested = bf->n_nontest_blocks - bf->n_nontest_blocks_executed;
+  
+  /* Sort by number of untested blocks */
+  return b_untested - a_untested;
+}
+
+static void
+print_n_untested_blocks_by_function (File  *f,
+                                     Stats *stats)
+{
+  DBusList *link;
+  Function **funcs;
+  int n_found;
+  int i;
+  
+  n_found = 0;
+  link = _dbus_list_get_first_link (&f->functions);
+  while (link != NULL)
+    {
+      Function *func = link->data;
+
+      if (func->n_nontest_blocks_executed <
+          func->n_nontest_blocks)
+        n_found += 1;
+      
+      link = _dbus_list_get_next_link (&f->functions, link);
+    }
+
+  if (n_found == 0)
+    return;
+
+  /* make an array so we can use qsort */
+  
+  funcs = dbus_new (Function*, n_found);
+  if (funcs == NULL)
+    return;
+  
+  i = 0;
+  link = _dbus_list_get_first_link (&f->functions);
+  while (link != NULL)
+    {
+      Function *func = link->data;
+
+      if (func->n_nontest_blocks_executed <
+          func->n_nontest_blocks)
+        {
+          funcs[i] = func;
+          ++i;
+        }
+
+      link = _dbus_list_get_next_link (&f->functions, link);
+    }
+
+  _dbus_assert (i == n_found);
+  
+  qsort (funcs, n_found, sizeof (Function*),
+         func_cmp);
+  
+  printf ("Incomplete functions in %s\n", f->name);
+  printf ("=======\n");
+
+  i = 0;
+  while (i < n_found)
+    {
+      Function *func = funcs[i];
+
+      printf ("  %s (%d/%d untested blocks)\n",
+              func->name,
+              func->n_nontest_blocks - func->n_nontest_blocks_executed,
+              func->n_nontest_blocks);
+      
+      ++i;
+    }
+
+  dbus_free (funcs);
+
+  printf ("\n");
+}
+
 static void
 print_stats (Stats      *stats,
              const char *of_what)
@@ -1813,7 +1937,7 @@ print_stats (Stats      *stats,
           stats->n_blocks_executed,
           stats->n_blocks);
 
-  printf ("     (ignored %d blocks inside DBUS_BUILD_TESTS)\n",
+  printf ("     (ignored %d blocks of test-only/debug-only code)\n",
           stats->n_blocks_inside_dbus_build_tests);
       
   printf ("  %g%% functions executed (%d of %d)\n",
@@ -1827,7 +1951,7 @@ print_stats (Stats      *stats,
           completely,
           stats->n_functions);
 
-  printf ("     (ignored %d functions inside DBUS_BUILD_TESTS)\n",
+  printf ("     (ignored %d functions of test-only/debug-only code)\n",
           stats->n_functions_inside_dbus_build_tests);
       
   printf ("  %g%% lines executed (%d of %d)\n",
@@ -1841,7 +1965,7 @@ print_stats (Stats      *stats,
           completely,
           stats->n_lines);
 
-  printf ("     (ignored %d lines inside DBUS_BUILD_TESTS)\n",
+  printf ("     (ignored %d lines of test-only/debug-only code)\n",
           stats->n_lines_inside_dbus_build_tests);
 
   printf ("\n");
@@ -2032,6 +2156,16 @@ main (int argc, char **argv)
           File *f = link->data;
 
           print_poorly_tested_functions (f, &stats);
+          
+          link = _dbus_list_get_next_link (&files, link);
+        }
+
+      link = _dbus_list_get_first_link (&files);
+      while (link != NULL)
+        {
+          File *f = link->data;
+          
+          print_n_untested_blocks_by_function (f, &stats);
           
           link = _dbus_list_get_next_link (&files, link);
         }
