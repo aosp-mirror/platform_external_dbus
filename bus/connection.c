@@ -21,7 +21,7 @@
  *
  */
 #include "connection.h"
-#include "driver.h"
+#include "dispatch.h"
 #include "loop.h"
 #include "services.h"
 #include <dbus/dbus-list.h>
@@ -54,8 +54,7 @@ connection_disconnect_handler (DBusConnection *connection,
   while ((service = _dbus_list_get_last (&d->services_owned)))
     bus_service_remove_owner (service, connection);
 
-  /* Tell bus driver that we want to get off */
-  bus_driver_remove_connection (connection);
+  bus_dispatch_remove_connection (connection);
   
   /* no more watching */
   dbus_connection_set_watch_functions (connection,
@@ -78,9 +77,12 @@ connection_watch_callback (DBusWatch     *watch,
 {
   DBusConnection *connection = data;
 
+  dbus_connection_ref (connection);
+  
   dbus_connection_handle_watch (connection, watch, condition);
 
   while (dbus_connection_dispatch_message (connection));
+  dbus_connection_unref (connection);
 }
 
 static void
@@ -159,7 +161,8 @@ bus_connection_setup (DBusConnection *connection)
                                            connection_disconnect_handler,
                                            NULL, NULL);
 
-  if (!bus_driver_add_connection (connection))
+  /* Setup the connection with the dispatcher */
+  if (!bus_dispatch_add_connection (connection))
     return FALSE;
   
   return TRUE;

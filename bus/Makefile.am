@@ -9,6 +9,8 @@ bin_PROGRAMS=dbus-daemon-1
 dbus_daemon_1_SOURCES=				\
 	connection.c				\
 	connection.h				\
+	dispatch.c				\
+	dispatch.h				\
 	driver.c				\
 	driver.h				\
 	loop.c					\

@@ -1,5 +1,24 @@
 2003-01-25  Anders Carlsson  <andersca@codefactory.se>
 
+	* bus/Makefile.am:
+	* bus/connection.c: (connection_disconnect_handler),
+	(connection_watch_callback), (bus_connection_setup):
+	* bus/dispatch.c: (send_one_message),
+	(bus_dispatch_broadcast_message), (bus_dispatch_message_handler),
+	(bus_dispatch_add_connection), (bus_dispatch_remove_connection):
+	* bus/dispatch.h:
+	* bus/driver.c: (bus_driver_send_service_deleted),
+	(bus_driver_send_service_created), (bus_driver_handle_hello),
+	(bus_driver_send_welcome_message),
+	(bus_driver_handle_list_services), (bus_driver_remove_connection),
+	(bus_driver_handle_message):
+	* bus/driver.h:
+	Refactor code, put the message dispatching in its own file. Use 
+	_DBUS_HANDLE_OOM. Also send ServiceDeleted messages when a client
+	is disconnected.
+	
+2003-01-25  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-internals.h:
 	Add _DBUS_HANDLE_OOM macro, it doesn't do anything currently.
 	

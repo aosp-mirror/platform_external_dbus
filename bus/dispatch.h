@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* driver.h  Bus client (driver)
+/* dispatch.h  Message dispatcher
  *
  * Copyright (C) 2003  CodeFactory AB
  *
@@ -21,13 +21,14 @@
  *
  */
 
-#ifndef BUS_DRIVER_H
-#define BUS_DRIVER_H
+#ifndef BUS_DISPATCH_H
+#define BUS_DISPATCH_H
 
 #include <dbus/dbus.h>
 
-void bus_driver_handle_message    (DBusConnection *connection,
-				   DBusMessage    *message);
-void bus_driver_remove_connection (DBusConnection *connection);
+dbus_bool_t bus_dispatch_add_connection    (DBusConnection *connection);
+void        bus_dispatch_remove_connection (DBusConnection *connection);
+void        bus_dispatch_broadcast_message (DBusMessage    *message);
 
-#endif /* BUS_DRIVER_H */
+
+#endif /* BUS_DISPATCH_H */
