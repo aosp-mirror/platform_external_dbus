@@ -478,6 +478,7 @@ namespace DBus
        ILGenerator generator = mb.GetILGenerator();
 
        //generator.EmitWriteLine("this.service.SignalCalled -= this.delegate_created");
+       generator.Emit (OpCodes.Ldarg_0);
        generator.Emit (OpCodes.Ldfld, fi);
        generator.Emit (OpCodes.Call, Service_RemoveSignalCalledMI);
        generator.Emit (OpCodes.Ret);

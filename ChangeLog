@@ -1,5 +1,10 @@
 2005-03-12  Joe Shaw  <joeshaw@novell.com>
 
+	* mono/ProxyBuilder.cs (BuildFinalizer): Need to load arg 0
+	onto the eval stack when removing the delegate.
+
+2005-03-12  Joe Shaw  <joeshaw@novell.com>
+
 	* mono/dbus-sharp.dll.config.in: Don't hardcode 0 for
 	LT_CURRENT.  Set it to the autoconf variable.
                                                                                 
