@@ -1,3 +1,13 @@
+2004-10-21  Colin Walters  <walters@verbum.org>
+
+	* dbus/dbus-transport-unix.c (do_authentication): Return
+	authentication status to callers.
+	(unix_handle_watch): If we completed authentication this round,
+	don't do another read.  Instead wait until the next iteration,
+	after we've read any pending data in the auth buffer.
+	(unix_do_iteration): Ditto.
+	(unix_handle_watch): Updated for new do_authentication prototype.
+
 2004-10-18  Colin Walters  <walters@verbum.org>
 
 	* bus/selinux.c (bus_selinux_enabled): Handle

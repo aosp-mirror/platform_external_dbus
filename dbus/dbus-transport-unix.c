@@ -321,14 +321,17 @@ exchange_credentials (DBusTransport *transport,
 static dbus_bool_t
 do_authentication (DBusTransport *transport,
                    dbus_bool_t    do_reading,
-                   dbus_bool_t    do_writing)
+                   dbus_bool_t    do_writing,
+		   dbus_bool_t   *auth_completed)
 {
   dbus_bool_t oom;
+  dbus_bool_t orig_auth_state;
   
   _dbus_transport_ref (transport);
 
   oom = FALSE;
   
+  orig_auth_state = _dbus_transport_get_is_authenticated (transport);
   while (!_dbus_transport_get_is_authenticated (transport) &&
          _dbus_transport_get_is_connected (transport))
     {      
@@ -379,6 +382,9 @@ do_authentication (DBusTransport *transport,
           break;
         }
     }
+
+  if (auth_completed)
+    *auth_completed = (orig_auth_state != _dbus_transport_get_is_authenticated (transport));
   
  out:
   check_read_watch (transport);
@@ -734,17 +740,27 @@ unix_handle_watch (DBusTransport *transport,
   if (watch == unix_transport->read_watch &&
       (flags & DBUS_WATCH_READABLE))
     {
+      dbus_bool_t auth_finished;
 #if 0
       _dbus_verbose ("handling read watch (%x)\n", flags);
 #endif
-      if (!do_authentication (transport, TRUE, FALSE))
+      if (!do_authentication (transport, TRUE, FALSE, &auth_finished))
         return FALSE;
-      
-      if (!do_reading (transport))
-        {
-          _dbus_verbose ("no memory to read\n");
-          return FALSE;
-        }
+
+      /* We don't want to do a read immediately following
+       * a successful authentication.  This is so we
+       * have a chance to propagate the authentication
+       * state further up.  Specifically, we need to
+       * process any pending data from the auth object.
+       */
+      if (!auth_finished)
+	{
+	  if (!do_reading (transport))
+	    {
+	      _dbus_verbose ("no memory to read\n");
+	      return FALSE;
+	    }
+	}
     }
   else if (watch == unix_transport->write_watch &&
            (flags & DBUS_WATCH_WRITABLE))
@@ -753,7 +769,7 @@ unix_handle_watch (DBusTransport *transport,
       _dbus_verbose ("handling write watch, messages_need_sending = %d\n",
                      transport->messages_need_sending);
 #endif
-      if (!do_authentication (transport, FALSE, TRUE))
+      if (!do_authentication (transport, FALSE, TRUE, NULL))
         return FALSE;
       
       if (!do_writing (transport))
@@ -922,10 +938,16 @@ unix_do_iteration (DBusTransport *transport,
             {
               dbus_bool_t need_read = (poll_fd.revents & _DBUS_POLLIN) > 0;
               dbus_bool_t need_write = (poll_fd.revents & _DBUS_POLLOUT) > 0;
+	      dbus_bool_t authentication_completed;
 
               _dbus_verbose ("in iteration, need_read=%d need_write=%d\n",
                              need_read, need_write);
-              do_authentication (transport, need_read, need_write);
+              do_authentication (transport, need_read, need_write,
+				 &authentication_completed);
+
+	      /* See comment in unix_handle_watch. */
+	      if (authentication_completed)
+		return;
                                  
               if (need_read && (flags & DBUS_ITERATION_DO_READING))
                 do_reading (transport);
