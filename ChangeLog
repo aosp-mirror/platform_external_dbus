@@ -1,5 +1,10 @@
 2002-12-27  Anders Carlsson  <andersca@codefactory.se>
 
+	* acinclude.m4: Add this file and put the 
+	PKG_CHECK_MODULE macro in it.
+
+2002-12-27  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-marshal.c: (_dbus_marshal_string),
 	(_dbus_demarshal_double), (_dbus_demarshal_int32),
 	(_dbus_demarshal_uint32), (_dbus_demarshal_string),
