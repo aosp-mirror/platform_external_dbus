@@ -53,12 +53,72 @@
  * @{
  */
 
+/**
+ * A GSource subclass for dispatching DBusConnection messages.
+ * We need this on top of the IO handlers, because sometimes
+ * there are messages to dispatch queued up but no IO pending.
+ */
+typedef struct
+{
+  GSource source; /**< the parent GSource */
+  DBusConnection *connection; /**< the connection to dispatch */
+} DBusGMessageQueue;
+
+static gboolean message_queue_prepare  (GSource     *source,
+                                        gint        *timeout);
+static gboolean message_queue_check    (GSource     *source);
+static gboolean message_queue_dispatch (GSource     *source,
+                                        GSourceFunc  callback,
+                                        gpointer     user_data);
+
+static GSourceFuncs message_queue_funcs = {
+  message_queue_prepare,
+  message_queue_check,
+  message_queue_dispatch,
+  NULL
+};
+
+static gboolean
+message_queue_prepare (GSource *source,
+                       gint    *timeout)
+{
+  DBusConnection *connection = ((DBusGMessageQueue *)source)->connection;
+  
+  *timeout = -1;
+
+  return (dbus_connection_get_dispatch_status (connection) == DBUS_DISPATCH_DATA_REMAINS);  
+}
+
+static gboolean
+message_queue_check (GSource *source)
+{
+  return FALSE;
+}
+
+static gboolean
+message_queue_dispatch (GSource     *source,
+                        GSourceFunc  callback,
+                        gpointer     user_data)
+{
+  DBusConnection *connection = ((DBusGMessageQueue *)source)->connection;
+
+  dbus_connection_ref (connection);
+  
+  while (dbus_connection_dispatch (connection) == DBUS_DISPATCH_DATA_REMAINS)
+    ;
+  
+  dbus_connection_unref (connection);
+
+  return TRUE;
+}
+
 typedef struct
 {
   GMainContext *context;      /**< the main context */
   GSList *ios;                /**< all IOHandler */
   GSList *timeouts;           /**< all TimeoutHandler */
   DBusConnection *connection; /**< NULL if this is really for a server not a connection */
+  GSource *message_queue_source; /**< DBusGMessageQueue */
 } ConnectionSetup;
 
 
@@ -80,7 +140,8 @@ static dbus_int32_t connection_slot = -1;
 static dbus_int32_t server_slot = -1;
 
 static ConnectionSetup*
-connection_setup_new (GMainContext *context)
+connection_setup_new (GMainContext   *context,
+                      DBusConnection *connection)
 {
   ConnectionSetup *cs;
 
@@ -89,7 +150,17 @@ connection_setup_new (GMainContext *context)
   g_assert (context != NULL);
   
   cs->context = context;
-  g_main_context_ref (cs->context);
+  g_main_context_ref (cs->context);  
+
+  if (connection)
+    {
+      cs->connection = connection;
+
+      cs->message_queue_source = g_source_new (&message_queue_funcs,
+                                               sizeof (DBusGMessageQueue));
+      ((DBusGMessageQueue*)cs->message_queue_source)->connection = connection;
+      g_source_attach (cs->message_queue_source, cs->context);
+    }
   
   return cs;
 }
@@ -333,6 +404,16 @@ connection_setup_free (ConnectionSetup *cs)
 
   while (cs->timeouts)
     timeout_handler_destroy_source (cs->timeouts->data);
+
+  if (cs->message_queue_source)
+    {
+      GSource *source;
+
+      source = cs->message_queue_source;
+      cs->message_queue_source = NULL;
+
+      g_source_destroy (source);
+    }
   
   g_main_context_unref (cs->context);
   g_free (cs);
@@ -434,7 +515,7 @@ connection_setup_new_from_old (GMainContext    *context,
 
   g_assert (old->context != context);
   
-  cs = connection_setup_new (context);
+  cs = connection_setup_new (context, old->connection);
   
   tmp = old->ios;
   while (tmp != NULL)
@@ -512,13 +593,11 @@ dbus_connection_setup_with_g_main (DBusConnection *connection,
     }
 
   if (cs == NULL)
-    cs = connection_setup_new (context);
+    cs = connection_setup_new (context, connection);
 
   if (!dbus_connection_set_data (connection, connection_slot, cs,
                                  (DBusFreeFunction)connection_setup_free))
     goto nomem;
-
-  cs->connection = connection;
   
   if (!dbus_connection_set_watch_functions (connection,
                                             add_watch,
@@ -590,7 +669,7 @@ dbus_server_setup_with_g_main (DBusServer   *server,
     }
 
   if (cs == NULL)
-    cs = connection_setup_new (context);
+    cs = connection_setup_new (context, NULL);
 
   if (!dbus_server_set_data (server, server_slot, cs,
                              (DBusFreeFunction)connection_setup_free))

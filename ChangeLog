@@ -1,5 +1,15 @@
 2005-01-30  Havoc Pennington  <hp@redhat.com>
 
+	* glib/dbus-gmain.c: add a custom GSource back that just checks
+	whether the message queue has anything in it; otherwise, there are 
+	cases where we won't see messages in the queue since there was no 
+	IO visible to the glib main loop
+
+	* dbus/dbus-connection-internal.h (_DBUS_DEFAULT_TIMEOUT_VALUE):
+	increase default message timeout to 25 seconds
+
+2005-01-30  Havoc Pennington  <hp@redhat.com>
+
 	* test/glib/test-profile.c (no_bus_stop_server): remove the
 	warning about the g_warning that I just fixed
 

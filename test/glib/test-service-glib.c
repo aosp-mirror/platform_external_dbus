@@ -128,8 +128,10 @@ main (int argc, char **argv)
   DBusGPendingCall *call;
   const char *v_STRING;
   guint32 v_UINT32;
-  
+
   g_type_init ();
+
+  g_printerr ("Launching test-service-glib\n");
   
   loop = g_main_loop_new (NULL, FALSE);
 
@@ -182,12 +184,12 @@ main (int argc, char **argv)
       exit (1);
     }
 
-  g_print ("GLib test service has name '%s'\n", v_STRING);
-  g_print ("GLib test service entering main loop\n");
+  g_printerr ("GLib test service has name '%s'\n", v_STRING);
+  g_printerr ("GLib test service entering main loop\n");
 
   g_main_loop_run (loop);
   
-  g_print ("Successfully completed %s\n", argv[0]);
+  g_printerr ("Successfully completed %s\n", argv[0]);
   
   return 0;
 }

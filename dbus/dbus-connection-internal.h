@@ -41,8 +41,8 @@ typedef enum
   DBUS_ITERATION_BLOCK      = 1 << 2  /**< Block if nothing to do. */
 } DBusIterationFlags;
 
-/** default timeout value when waiting for a message reply */
-#define _DBUS_DEFAULT_TIMEOUT_VALUE (15 * 1000)
+/** default timeout value when waiting for a message reply, 25 seconds */
+#define _DBUS_DEFAULT_TIMEOUT_VALUE (25 * 1000)
 
 void              _dbus_connection_lock                        (DBusConnection     *connection);
 void              _dbus_connection_unlock                      (DBusConnection     *connection);
