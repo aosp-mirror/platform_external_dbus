@@ -526,6 +526,41 @@ _dbus_string_set_length (DBusString *str,
   return set_length (real, length);
 }
 
+/**
+ * Align the length of a string to a specific alignment (typically 4 or 8)
+ * by appending nul bytes to the string.
+ *
+ * @param str a string
+ * @param alignment the alignment
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_string_align_length (DBusString *str,
+                           int         alignment)
+{
+  int new_len;
+  int delta;
+  DBUS_STRING_PREAMBLE (str);
+  _dbus_assert (alignment >= 1);
+  _dbus_assert (alignment <= 16); /* arbitrary */
+
+  new_len = _DBUS_ALIGN_VALUE (real->len, alignment);
+
+  delta = new_len - real->len;
+  _dbus_assert (delta >= 0);
+
+  if (delta == 0)
+    return TRUE;
+
+  if (!set_length (real, new_len))
+    return FALSE;
+
+  memset (real->str + (new_len - delta),
+          '\0', delta);
+
+  return TRUE;
+}
+
 static dbus_bool_t
 append (DBusRealString *real,
         const char     *buffer,

@@ -72,12 +72,14 @@ dbus_bool_t _dbus_string_steal_data_len     (DBusString        *str,
 
 int  _dbus_string_get_length         (const DBusString  *str);
 
-dbus_bool_t _dbus_string_lengthen   (DBusString *str,
-                                     int         additional_length);
-void        _dbus_string_shorten    (DBusString *str,
-                                     int         length_to_remove);
-dbus_bool_t _dbus_string_set_length (DBusString *str,
-                                     int         length);
+dbus_bool_t _dbus_string_lengthen     (DBusString *str,
+                                       int         additional_length);
+void        _dbus_string_shorten      (DBusString *str,
+                                       int         length_to_remove);
+dbus_bool_t _dbus_string_set_length   (DBusString *str,
+                                       int         length);
+dbus_bool_t _dbus_string_align_length (DBusString *str,
+                                       int         alignment);
 
 dbus_bool_t _dbus_string_append         (DBusString    *str,
                                          const char    *buffer);

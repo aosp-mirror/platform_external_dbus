@@ -21,7 +21,6 @@
  *
  */
 
-#include "dbus-types.h"
 #include "dbus-test.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,34 +32,41 @@ die (const char *failure)
   exit (1);
 }
 
-int
-main (int    argc,
-      char **argv)
+/**
+ * An exported symbol to be run in order to execute
+ * unit tests. Should not be used by
+ * any app other than our test app, this symbol
+ * won't exist in some builds of the library.
+ * (with --enable-tests=no)
+ */
+void
+dbus_internal_symbol_do_not_use_run_tests (void)
 {
-  printf ("%s: running string tests\n", argv[0]);
+  printf ("%s: running string tests\n", "dbus-test");
   if (!_dbus_string_test ())
     die ("strings");
   
-  printf ("%s: running marshalling tests\n", argv[0]);
+  printf ("%s: running marshalling tests\n", "dbus-test");
   if (!_dbus_marshal_test ())
     die ("marshalling");
 
-  printf ("%s: running message tests\n", argv[0]);
+  printf ("%s: running message tests\n", "dbus-test");
   if (!_dbus_message_test ())
     die ("messages");
   
-  printf ("%s: running memory pool tests\n", argv[0]);
+  printf ("%s: running memory pool tests\n", "dbus-test");
   if (!_dbus_mem_pool_test ())
     die ("memory pools");
   
-  printf ("%s: running linked list tests\n", argv[0]);
+  printf ("%s: running linked list tests\n", "dbus-test");
   if (!_dbus_list_test ())
     die ("lists");
 
-  printf ("%s: running hash table tests\n", argv[0]);
+  printf ("%s: running hash table tests\n", "dbus-test");
   if (!_dbus_hash_test ())
     die ("hash tables");
   
-  printf ("%s: completed successfully\n", argv[0]);
-  return 0;
+  printf ("%s: completed successfully\n", "dbus-test");
 }
+
+

@@ -46,8 +46,10 @@ const char*  dbus_message_get_name (DBusMessage *message);
 
 
 dbus_bool_t dbus_message_append_fields        (DBusMessage         *message,
+                                               int                  first_field_type,
 					       ...);
 dbus_bool_t dbus_message_append_fields_valist (DBusMessage         *message,
+                                               int                  first_field_type,
 					       va_list              var_args);
 dbus_bool_t dbus_message_append_int32         (DBusMessage         *message,
 					       dbus_int32_t         value);
@@ -65,8 +67,10 @@ dbus_bool_t dbus_message_append_byte_array    (DBusMessage         *message,
 DBusMessageIter *dbus_message_get_fields_iter     (DBusMessage     *message);
 
 dbus_bool_t dbus_message_get_fields          (DBusMessage *message,
+                                              int          first_field_type,
 					      ...);
 dbus_bool_t dbus_message_get_fields_valist   (DBusMessage *message,
+                                              int          first_field_type,
 					      va_list      var_args);
 
 void        dbus_message_iter_ref            (DBusMessageIter *iter);

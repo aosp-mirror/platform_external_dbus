@@ -22,6 +22,7 @@
  */
 #include "dbus-internals.h"
 #include "dbus-protocol.h"
+#include "dbus-test.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -29,6 +30,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <stdlib.h>
 
 /**
  * @defgroup DBusInternals D-BUS internal implementation details

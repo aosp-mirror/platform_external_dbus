@@ -1,3 +1,49 @@
+2003-01-08  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-string.c (_dbus_string_align_length): new function
+
+	* dbus/dbus-test-main.c: move main() for test app here
+	* dbus/dbus-test.c
+	(dbus_internal_symbol_do_not_use_run_tests): we have to export a
+	symbol to run tests, because dbus-test isn't in the main 
+	library
+
+        Code review nitpicks.
+	
+	* dbus/dbus-message.c (dbus_message_write_header): add newlines
+	for people with narrow emacs ;-). Assert client_serial was filled
+	in. Assert message->name != NULL.
+	(dbus_message_append_fields): have "first_field_type" arg separate
+	from va list, needed for C++ binding that also uses varargs IIRC
+	and helps with type safety
+	(dbus_message_new): add @todo about using DBusString to store
+	service/name internally
+	(dbus_message_new): don't leak ->service and ->name on OOM later
+	in the function
+	(dbus_message_unref): free the service name
+	(dbus_message_get_fields): same change to varargs
+	i.e. first_field_type
+	(_dbus_message_loader_return_buffer): assert that the message data
+	is aligned (if not it's a bug in our code). Put in verbose griping
+	about why we set corrupted = TRUE.
+	(decode_header_data): add FIXME that char* is evil.  Was going to
+	add FIXME about evil locale-specific string.h strncmp, but just
+	switched to wacky string-as-uint32 optimization. Move check for
+	"no room for field name" above get_const_data_len() to avoid
+	assertion failure in get_const_data_len if we have trailing 2
+	bytes or the like. Check for service and name fields being
+	provided twice. Don't leak service/name on error. Require field
+	names to be aligned to 4 bytes.
+
+	* dbus/dbus-marshal.c: move byte swap stuff to header
+	(_dbus_pack_int32): uscore-prefix
+	(_dbus_unpack_int32): uscore-prefix
+	(_dbus_unpack_uint32): export
+	(_dbus_demarshal_string): add @todo complaining about use of
+	memcpy()
+	(_dbus_marshal_get_field_end_pos): add @todo about bad error
+	handling allowing corrupt data to go unchecked
+
 2003-01-08  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-transport-unix.c (unix_do_iteration): add read/write 

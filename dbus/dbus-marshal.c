@@ -26,33 +26,6 @@
 
 #include <string.h>
 
-#define DBUS_UINT32_SWAP_LE_BE_CONSTANT(val)	((dbus_uint32_t) ( \
-    (((dbus_uint32_t) (val) & (dbus_uint32_t) 0x000000ffU) << 24) |  \
-    (((dbus_uint32_t) (val) & (dbus_uint32_t) 0x0000ff00U) <<  8) |  \
-    (((dbus_uint32_t) (val) & (dbus_uint32_t) 0x00ff0000U) >>  8) |  \
-    (((dbus_uint32_t) (val) & (dbus_uint32_t) 0xff000000U) >> 24)))
-
-#define DBUS_UINT32_SWAP_LE_BE(val) (DBUS_UINT32_SWAP_LE_BE_CONSTANT (val))
-
-#ifdef WORDS_BIGENDIAN
-#define DBUS_INT32_TO_BE(val)	((dbus_int32_t) (val))
-#define DBUS_UINT32_TO_BE(val)	((dbus_uint32_t) (val))
-#define DBUS_INT32_TO_LE(val)	((dbus_int32_t) DBUS_UINT32_SWAP_LE_BE (val))
-#define DBUS_UINT32_TO_LE(val)	(DBUS_UINT32_SWAP_LE_BE (val))
-#else
-#define DBUS_INT32_TO_LE(val)	((dbus_int32_t) (val))
-#define DBUS_UINT32_TO_LE(val)	((dbus_uint32_t) (val))
-#define DBUS_INT32_TO_BE(val)	((dbus_int32_t) DBUS_UINT32_SWAP_LE_BE (val))
-#define DBUS_UINT32_TO_BE(val)	(DBUS_UINT32_SWAP_LE_BE (val))
-#endif
-
-/* The transformation is symmetric, so the FROM just maps to the TO. */
-#define DBUS_INT32_FROM_LE(val)	 (DBUS_INT32_TO_LE (val))
-#define DBUS_UINT32_FROM_LE(val) (DBUS_UINT32_TO_LE (val))
-#define DBUS_INT32_FROM_BE(val)	 (DBUS_INT32_TO_BE (val))
-#define DBUS_UINT32_FROM_BE(val) (DBUS_UINT32_TO_BE (val))
-
-
 /* from ORBit */
 static void
 swap_bytes (unsigned char *data,
@@ -72,37 +45,6 @@ swap_bytes (unsigned char *data,
     }
 }
 
-static dbus_uint32_t
-unpack_uint32 (int                  byte_order,
-               const unsigned char *data)
-{
-  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
-  
-  if (byte_order == DBUS_LITTLE_ENDIAN)
-    return DBUS_UINT32_FROM_LE (*(dbus_uint32_t*)data);
-  else
-    return DBUS_UINT32_FROM_BE (*(dbus_uint32_t*)data);
-}             
-
-/**
- * Unpacks a 32 bit unsigned integer from a data pointer
- *
- * @param byte_order The byte order to use
- * @param data the data pointer
- * @returns the integer
- */
-dbus_int32_t
-dbus_unpack_int32 (int                  byte_order,
-		   const unsigned char *data)
-{
-  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
-  
-  if (byte_order == DBUS_LITTLE_ENDIAN)
-    return DBUS_INT32_FROM_LE (*(dbus_int32_t*)data);
-  else
-    return DBUS_INT32_FROM_BE (*(dbus_int32_t*)data);
-}
-
 /**
  * @defgroup DBusMarshal marshaling and unmarshaling
  * @ingroup  DBusInternals
@@ -115,6 +57,44 @@ dbus_unpack_int32 (int                  byte_order,
  */
 
 /**
+ * Unpacks a 32 bit unsigned integer from a data pointer
+ *
+ * @param byte_order The byte order to use
+ * @param data the data pointer
+ * @returns the integer
+ */
+dbus_uint32_t
+_dbus_unpack_uint32 (int                  byte_order,
+                     const unsigned char *data)
+{
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
+  
+  if (byte_order == DBUS_LITTLE_ENDIAN)
+    return DBUS_UINT32_FROM_LE (*(dbus_uint32_t*)data);
+  else
+    return DBUS_UINT32_FROM_BE (*(dbus_uint32_t*)data);
+}             
+
+/**
+ * Unpacks a 32 bit signed integer from a data pointer
+ *
+ * @param byte_order The byte order to use
+ * @param data the data pointer
+ * @returns the integer
+ */
+dbus_int32_t
+_dbus_unpack_int32 (int                  byte_order,
+                    const unsigned char *data)
+{
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
+  
+  if (byte_order == DBUS_LITTLE_ENDIAN)
+    return DBUS_INT32_FROM_LE (*(dbus_int32_t*)data);
+  else
+    return DBUS_INT32_FROM_BE (*(dbus_int32_t*)data);
+}
+
+/**
  * Packs a 32 bit unsigned integer into a data pointer.
  *
  * @param value the value
@@ -122,9 +102,29 @@ dbus_unpack_int32 (int                  byte_order,
  * @param data the data pointer
  */
 void
-dbus_pack_int32 (dbus_int32_t   value,
-		 int            byte_order,
-		 unsigned char *data)
+_dbus_pack_uint32 (dbus_uint32_t   value,
+                   int             byte_order,
+                   unsigned char  *data)
+{
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
+  
+  if ((byte_order) == DBUS_LITTLE_ENDIAN)                  
+    *((dbus_uint32_t*)(data)) = DBUS_UINT32_TO_LE (value);       
+  else
+    *((dbus_uint32_t*)(data)) = DBUS_UINT32_TO_BE (value);
+}
+
+/**
+ * Packs a 32 bit signed integer into a data pointer.
+ *
+ * @param value the value
+ * @param byte_order the byte order to use
+ * @param data the data pointer
+ */
+void
+_dbus_pack_int32 (dbus_int32_t   value,
+                  int            byte_order,
+                  unsigned char *data)
 {
   _dbus_assert (_DBUS_ALIGN_ADDRESS (data, 4) == data);
   
@@ -147,9 +147,11 @@ _dbus_marshal_double (DBusString *str,
 		      int         byte_order,
 		      double      value)
 {
+  _dbus_assert (sizeof (double) == 8);
+  
   if (!_dbus_string_set_length (str,
 				_DBUS_ALIGN_VALUE (_dbus_string_get_length (str),
-						  sizeof (double))))
+                                                   sizeof (double))))
     return FALSE;
   
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
@@ -173,7 +175,7 @@ _dbus_marshal_int32  (DBusString   *str,
 {
   if (!_dbus_string_set_length (str,
 				_DBUS_ALIGN_VALUE (_dbus_string_get_length (str),
-						  sizeof (dbus_int32_t))))
+                                                   sizeof (dbus_int32_t))))
     return FALSE;
   
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
@@ -197,7 +199,7 @@ _dbus_marshal_uint32 (DBusString    *str,
 {
   if (!_dbus_string_set_length (str,
 				_DBUS_ALIGN_VALUE (_dbus_string_get_length (str),
-						  sizeof (dbus_uint32_t))))
+                                                   sizeof (dbus_uint32_t))))
     return FALSE;
 
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
@@ -323,7 +325,7 @@ _dbus_demarshal_int32  (DBusString *str,
   if (new_pos)
     *new_pos = pos + sizeof (dbus_int32_t);
 
-  return dbus_unpack_int32 (byte_order, buffer);
+  return _dbus_unpack_int32 (byte_order, buffer);
 }
 
 /**
@@ -350,7 +352,7 @@ _dbus_demarshal_uint32  (DBusString *str,
   if (new_pos)
     *new_pos = pos + sizeof (dbus_uint32_t);
 
-  return unpack_uint32 (byte_order, buffer);
+  return _dbus_unpack_uint32 (byte_order, buffer);
 }
 
 /**
@@ -359,6 +361,9 @@ _dbus_demarshal_uint32  (DBusString *str,
  * @todo Should we check the string to make sure
  * that it's  valid UTF-8, and maybe "fix" the string
  * if it's broken?
+ *
+ * @todo Should probably demarshal to a DBusString,
+ * having memcpy() in here is Evil(tm).
  *
  * @param str the string containing the data
  * @param byte_order the byte order
@@ -433,6 +438,12 @@ _dbus_demarshal_byte_array (DBusString *str,
 /** 
  * Returns the position right after the end position 
  * end position of a field
+ *
+ * @todo warns on invalid type in a message, but
+ * probably the whole message needs to be dumped,
+ * or we might even drop the connection due
+ * to bad protocol. Needs better error handling.
+ * Possible security issue.
  *
  * @param str a string
  * @param byte_order the byte order to use
@@ -564,8 +575,8 @@ _dbus_verbose_bytes (const unsigned char *data,
         {
           if (i > 3)
             _dbus_verbose ("big: %d little: %d",
-                     unpack_uint32 (DBUS_BIG_ENDIAN, &data[i-4]),
-                     unpack_uint32 (DBUS_LITTLE_ENDIAN, &data[i-4]));
+                           _dbus_unpack_uint32 (DBUS_BIG_ENDIAN, &data[i-4]),
+                           _dbus_unpack_uint32 (DBUS_LITTLE_ENDIAN, &data[i-4]));
           
           _dbus_verbose ("\n");
         }

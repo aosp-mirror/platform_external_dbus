@@ -32,6 +32,8 @@ libdbus_1_la_SOURCES=				\
 	dbus-server-protected.h			\
 	dbus-server-unix.c			\
 	dbus-server-unix.h			\
+	dbus-test.c				\
+	dbus-test.h				\
 	dbus-threads.c				\
 	dbus-transport.c			\
 	dbus-transport.h			\
@@ -75,8 +77,7 @@ if DBUS_BUILD_TESTS
 noinst_PROGRAMS=dbus-test
 
 dbus_test_SOURCES=				\
-	dbus-test.c				\
-	dbus-test.h
+	dbus-test-main.c
 
 dbus_test_LDADD= $(DBUS_CLIENT_LIBS) libdbus-convenience.la libdbus-1.la
 

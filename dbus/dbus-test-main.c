@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-test.h  Declarations of test functions.
+/* dbus-test.c  Program to run all tests
  *
  * Copyright (C) 2002  Red Hat Inc.
  *
@@ -21,18 +21,16 @@
  *
  */
 
-#ifndef DBUS_TEST_H
-#define DBUS_TEST_H
 
-#include <dbus/dbus-types.h>
+#include "dbus-types.h"
+#include "dbus-test.h"
+#include <stdio.h>
+#include <stdlib.h>
 
-dbus_bool_t _dbus_hash_test     (void);
-dbus_bool_t _dbus_list_test     (void);
-dbus_bool_t _dbus_marshal_test  (void);
-dbus_bool_t _dbus_mem_pool_test (void);
-dbus_bool_t _dbus_string_test   (void);
-dbus_bool_t _dbus_message_test  (void);
-
-void dbus_internal_symbol_do_not_use_run_tests (void);
-
-#endif /* DBUS_TEST_H */
+int
+main (int    argc,
+      char **argv)
+{
+  dbus_internal_symbol_do_not_use_run_tests ();
+  return 0;
+}
