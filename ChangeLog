@@ -1,5 +1,10 @@
 2004-06-07  Havoc Pennington  <hp@redhat.com>
 
+	* doc/TODO: remove auto-activation item since it's done; sort
+	items by importance/milestone
+
+2004-06-07  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-message-builder.c (_dbus_message_data_load): append
 	random signature when using REQUIRED_FIELDS (this hack won't work
 	in the long term)
