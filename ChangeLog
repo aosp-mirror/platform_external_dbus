@@ -1,3 +1,16 @@
+2004-06-02  Kristian Høgsberg  <krh@redhat.com>
+
+	* glib/dbus-gproxy.c, glib/dbus-gmain.c, dbus/dbus-string.c,
+	dbus/dbus-object-tree.c, dbus/dbus-message.c: add comments to
+	quiet doxygen.
+
+	* Doxyfile.in: remove deprecated options.
+
+	* dbus/dbus-message-handler.c, dbus/dbus-message-handler.h,
+	glib/test-thread.h, glib/test-thread-client.c,
+	glib/test-thread-server.c, glib/test-profile.c,
+	glib/test-dbus-glib.c: remove these unused files.
+
 2004-06-01  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* dbus/dbus-object-tree.c

@@ -915,7 +915,7 @@ _dbus_object_subtree_unref (DBusObjectSubtree *subtree)
  * the given parent_path. The returned array should be freed with
  * dbus_free_string_array().
  *
- * @param connection the connection
+ * @param tree the object tree
  * @param parent_path the path to list the child handlers of
  * @param child_entries returns #NULL-terminated array of children
  * @returns #FALSE if no memory to allocate the child entries

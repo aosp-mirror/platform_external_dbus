@@ -178,9 +178,3 @@ DOT_CLEANUP            = YES
 # Configuration::addtions related to the search engine   
 #---------------------------------------------------------------------------
 SEARCHENGINE           = NO
-CGI_NAME               = 
-CGI_URL                = 
-DOC_URL                = 
-DOC_ABSPATH            = 
-BIN_ABSPATH            = 
-EXT_DOC_PATHS          = 

@@ -394,7 +394,9 @@ append_uint_field (DBusMessage *message,
   return FALSE;
 }
 
+/** The maximum number of bytes of overhead to append to a string */
 #define MAX_BYTES_OVERHEAD_TO_APPEND_A_STRING (1 + 1 + 3 + 1 + 8)
+
 static dbus_bool_t
 append_string_field (DBusMessage *message,
                      int          field,

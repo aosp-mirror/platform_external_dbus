@@ -29,6 +29,10 @@
  * @{
  */
 
+/**
+ * DBusGProxyManager typedef
+ */
+
 typedef struct DBusGProxyManager DBusGProxyManager;
 
 /**
@@ -49,7 +53,7 @@ struct DBusGProxy
  */
 struct DBusGProxyClass
 {
-  GObjectClass parent_class;  
+  GObjectClass parent_class;  /**< Parent class */
 };
 
 static void dbus_gproxy_init          (DBusGProxy      *proxy);
@@ -62,12 +66,12 @@ static void dbus_gproxy_emit_received (DBusGProxy      *proxy,
 
 
 /**
- * A list of proxies with a given service+path+interface, used to route incoming
- * signals.
+ * A list of proxies with a given service+path+interface, used to
+ * route incoming signals.
  */
 typedef struct
 {
-  GSList *proxies;
+  GSList *proxies; /**< The list of proxies */
 
   char name[4]; /**< service (empty string for none), nul byte,
                  *   path, nul byte,
@@ -1256,6 +1260,17 @@ dbus_gproxy_send (DBusGProxy          *proxy,
     g_error ("Out of memory\n");
 }
 
+/**
+ * Connect a signal handler to a proxy for a remote interface.  When
+ * the remote interface emits the specified signal, the proxy will
+ * emit a corresponding GLib signal.
+ *
+ * @param proxy a proxy for a remote interface
+ * @param signal_name the DBus signal name to listen for
+ * @param handler the handler to connect
+ * @param data data to pass to handler
+ * @param free_data_func callback function to destroy data
+ */
 void
 dbus_gproxy_connect_signal (DBusGProxy             *proxy,
                             const char             *signal_name,
@@ -1281,6 +1296,15 @@ dbus_gproxy_connect_signal (DBusGProxy             *proxy,
   g_free (detail);
 }
 
+/**
+ * Disconnect all signal handlers from a proxy that match the given
+ * criteria.
+ *
+ * @param proxy a proxy for a remote interface
+ * @param signal_name the DBus signal name to disconnect
+ * @param handler the handler to disconnect
+ * @param data the data that was registered with handler
+ */
 void
 dbus_gproxy_disconnect_signal (DBusGProxy             *proxy,
                                const char             *signal_name,

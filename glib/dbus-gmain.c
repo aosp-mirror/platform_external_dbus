@@ -67,14 +67,18 @@ struct DBusGSource
   void *connection_or_server; /**< DBusConnection or DBusServer */
 };
 
+/**
+ * Auxillary struct for pairing up a #DBusWatch and associated
+ * #GPollFD
+ */
 typedef struct
 {
-  int refcount;
+  int refcount;     /**< reference count */
 
-  GPollFD poll_fd;
-  DBusWatch *watch;
+  GPollFD poll_fd;  /**< the #GPollFD to use with g_source_add_poll() */
+  DBusWatch *watch; /**< the corresponding DBusWatch*/
   
-  unsigned int removed : 1;
+  unsigned int removed : 1; /**< true if this #WatchFD has been removed */
 } WatchFD;
 
 static WatchFD *

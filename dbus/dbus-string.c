@@ -2551,11 +2551,19 @@ _dbus_string_validate_path (const DBusString  *str,
   return TRUE;
 }
 
+/**
+ * Determine wether the given charater is valid as the first charater
+ * in a name.
+ */
 #define VALID_INITIAL_NAME_CHARACTER(c)         \
   ( ((c) >= 'A' && (c) <= 'Z') ||               \
     ((c) >= 'a' && (c) <= 'z') ||               \
     ((c) == '_') )
 
+/**
+ * Determine wether the given charater is valid as a second or later
+ * character in a nam
+ */
 #define VALID_NAME_CHARACTER(c)                 \
   ( ((c) >= '0' && (c) <= '9') ||               \
     ((c) >= 'A' && (c) <= 'Z') ||               \
