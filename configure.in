@@ -166,13 +166,14 @@ else
      AC_SUBST(GCJFLAGS)
 fi
 
-if test x$enable_gcj = xauto ; then
-    if test x$have_gcj = xno ; then
-        enable_gcj=no
-    else
-        enable_gcj=yes
-    fi
-fi
+dnl Commenting this out so that gcj stuff won't get built unless explicitly required
+# if test x$enable_gcj = xauto ; then
+#     if test x$have_gcj = xno ; then
+#         enable_gcj=no
+#     else
+#         enable_gcj=yes
+#     fi
+# fi
 
 if test x$enable_gcj = xyes; then
     if test x$have_gcj = xno ; then
@@ -670,6 +671,11 @@ else
         else
                 AC_MSG_ERROR([No XML library found, check config.log for failed attempts])
         fi
+fi
+
+if $dbus_use_libxml ; then
+	dnl libxml loader is broken
+	AC_MSG_ERROR([libxml loader is broken ATM, use the expat loader])
 fi
 
 AM_CONDITIONAL(DBUS_USE_EXPAT, $dbus_use_expat)
