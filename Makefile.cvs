@@ -1,6 +1,8 @@
 ## -*- makefile -*-
 
-all: configure
-
-configure: configure.in autogen.sh
+configure:
 	./autogen.sh --no-configure
+
+.SILENT: 
+
+.PHONY: configure
