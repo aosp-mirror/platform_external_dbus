@@ -202,20 +202,13 @@ dbus_bool_t   _dbus_string_pop_line              (DBusString        *source,
                                                   DBusString        *dest);
 void          _dbus_string_delete_first_word     (DBusString        *str);
 void          _dbus_string_delete_leading_blanks (DBusString        *str);
-dbus_bool_t   _dbus_string_base64_encode         (const DBusString  *source,
-                                                  int                start,
-                                                  DBusString        *dest,
-                                                  int                insert_at);
-dbus_bool_t   _dbus_string_base64_decode         (const DBusString  *source,
-                                                  int                start,
-                                                  DBusString        *dest,
-                                                  int                insert_at);
 dbus_bool_t   _dbus_string_hex_encode            (const DBusString  *source,
                                                   int                start,
                                                   DBusString        *dest,
                                                   int                insert_at);
 dbus_bool_t   _dbus_string_hex_decode            (const DBusString  *source,
                                                   int                start,
+						  int               *end_return,
                                                   DBusString        *dest,
                                                   int                insert_at);
 dbus_bool_t   _dbus_string_validate_ascii        (const DBusString  *str,

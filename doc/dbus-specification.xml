@@ -911,7 +911,7 @@
       <title>DATA Command</title>
       <para>
         The DATA command may come from either client or server, and simply 
-        contains a base64-encoded block of data to be interpreted 
+        contains a hex-encoded block of data to be interpreted 
         according to the SASL mechanism in use.
       </para>
       <para>

@@ -366,12 +366,12 @@ _dbus_auth_script_run (const DBusString *filename)
               goto out;
             }
 
-          /* Replace USERID_BASE64 with our username in base64 */
+          /* Replace USERID_HEX with our username in hex */
           {
             int where;
             
             if (_dbus_string_find (&to_send, 0,
-                                   "USERID_BASE64", &where))
+                                   "USERID_HEX", &where))
               {
                 DBusString username;
 
@@ -391,12 +391,12 @@ _dbus_auth_script_run (const DBusString *filename)
                     goto out;
                   }
 
-                _dbus_string_delete (&to_send, where, strlen ("USERID_BASE64"));
+                _dbus_string_delete (&to_send, where, strlen ("USERID_HEX"));
                 
-                if (!_dbus_string_base64_encode (&username, 0,
-                                                 &to_send, where))
+                if (!_dbus_string_hex_encode (&username, 0,
+					      &to_send, where))
                   {
-                    _dbus_warn ("no memory to subst USERID_BASE64\n");
+                    _dbus_warn ("no memory to subst USERID_HEX\n");
                     _dbus_string_free (&username);
                     _dbus_string_free (&to_send);
                     goto out;
@@ -405,7 +405,7 @@ _dbus_auth_script_run (const DBusString *filename)
                 _dbus_string_free (&username);
               }
             else if (_dbus_string_find (&to_send, 0,
-                                        "USERNAME_BASE64", &where))
+                                        "USERNAME_HEX", &where))
               {
                 DBusString username;
                 const DBusString *u;
@@ -427,12 +427,12 @@ _dbus_auth_script_run (const DBusString *filename)
                     goto out;
                   }
 
-                _dbus_string_delete (&to_send, where, strlen ("USERNAME_BASE64"));
+                _dbus_string_delete (&to_send, where, strlen ("USERNAME_HEX"));
                 
-                if (!_dbus_string_base64_encode (&username, 0,
-                                                 &to_send, where))
+                if (!_dbus_string_hex_encode (&username, 0,
+					      &to_send, where))
                   {
-                    _dbus_warn ("no memory to subst USERNAME_BASE64\n");
+                    _dbus_warn ("no memory to subst USERNAME_HEX\n");
                     _dbus_string_free (&username);
                     _dbus_string_free (&to_send);
                     goto out;

@@ -135,7 +135,7 @@
           ## this tests a successful auth of type EXTERNAL
           
           SERVER
-          SEND 'AUTH EXTERNAL USERNAME_BASE64'
+          SEND 'AUTH EXTERNAL USERNAME_HEX'
           EXPECT_COMMAND OK
           EXPECT_STATE WAITING_FOR_INPUT
           SEND 'BEGIN'

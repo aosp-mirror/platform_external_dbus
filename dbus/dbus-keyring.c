@@ -474,6 +474,7 @@ _dbus_keyring_reload (DBusKeyring *keyring,
       int id;
       long timestamp;
       int len;
+      int end;
       DBusKey *new;
 
       /* Don't load more than the max. */
@@ -542,13 +543,20 @@ _dbus_keyring_reload (DBusKeyring *keyring,
       
       keys[n_keys-1].id = id;
       keys[n_keys-1].creation_time = timestamp;
-      if (!_dbus_string_hex_decode (&line, next,
-                                    &keys[n_keys-1].secret,
-                                    0))
-        {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-          goto out;
-        }
+      if (!_dbus_string_hex_decode (&line, next, &end,
+                                    &keys[n_keys-1].secret, 0))
+	{
+	  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+	  goto out;
+	}
+
+      if (_dbus_string_get_length (&line) != end)
+	{
+	  _dbus_verbose ("invalid hex encoding in keyring file\n");
+	  _dbus_string_free (&keys[n_keys - 1].secret);
+	  n_keys -= 1;
+	  continue;
+	}
     }
 
   _dbus_verbose ("Successfully loaded %d existing keys\n",

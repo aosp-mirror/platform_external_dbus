@@ -91,7 +91,7 @@ message_from_error (const char *error)
   else if (strcmp (error, DBUS_ERROR_DISCONNECTED) == 0)
     return "Disconnected.";
   else if (strcmp (error, DBUS_ERROR_INVALID_ARGS) == 0)
-    return "Invalid argumemts.";
+    return "Invalid arguments.";
   else if (strcmp (error, DBUS_ERROR_NO_REPLY) == 0)
     return "Did not get a reply message.";
   else if (strcmp (error, DBUS_ERROR_FILE_NOT_FOUND) == 0)

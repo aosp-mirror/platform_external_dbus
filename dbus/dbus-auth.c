@@ -586,8 +586,8 @@ sha1_handle_first_client_response (DBusAuth         *auth,
                             "DATA "))
     goto out;
   
-  if (!_dbus_string_base64_encode (&tmp2, 0, &auth->outgoing,
-                                   _dbus_string_get_length (&auth->outgoing)))
+  if (!_dbus_string_hex_encode (&tmp2, 0, &auth->outgoing,
+				_dbus_string_get_length (&auth->outgoing)))
     goto out;
 
   if (!_dbus_string_append (&auth->outgoing,
@@ -734,9 +734,9 @@ handle_client_initial_response_cookie_sha1_mech (DBusAuth   *auth,
   if (!_dbus_username_from_current_process (&username))
     goto out_0;
 
-  if (!_dbus_string_base64_encode (username, 0,
-                                   response,
-                                   _dbus_string_get_length (response)))
+  if (!_dbus_string_hex_encode (username, 0,
+				response,
+				_dbus_string_get_length (response)))
     goto out_0;
 
   retval = TRUE;
@@ -919,9 +919,9 @@ handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
   if (!_dbus_string_append (&auth->outgoing, "DATA "))
     goto out_6;
 
-  if (!_dbus_string_base64_encode (&tmp, 0,
-                                   &auth->outgoing,
-                                   _dbus_string_get_length (&auth->outgoing)))
+  if (!_dbus_string_hex_encode (&tmp, 0,
+				&auth->outgoing,
+				_dbus_string_get_length (&auth->outgoing)))
     {
       _dbus_string_set_length (&auth->outgoing, old_len);
       goto out_6;
@@ -1091,9 +1091,9 @@ handle_client_initial_response_external_mech (DBusAuth         *auth,
                                  _dbus_getuid ()))
     goto failed;
 
-  if (!_dbus_string_base64_encode (&plaintext, 0,
-                                   response,
-                                   _dbus_string_get_length (response)))
+  if (!_dbus_string_hex_encode (&plaintext, 0,
+				response,
+				_dbus_string_get_length (response)))
     goto failed;
 
   _dbus_string_free (&plaintext);
@@ -1248,9 +1248,9 @@ process_auth (DBusAuth         *auth,
     }
   else
     {
-      int i;
+      int i, end;
       DBusString mech;
-      DBusString base64_response;
+      DBusString hex_response;
       DBusString decoded_response;
       
       _dbus_string_find_blank (args, 0, &i);
@@ -1258,7 +1258,7 @@ process_auth (DBusAuth         *auth,
       if (!_dbus_string_init (&mech))
         return FALSE;
 
-      if (!_dbus_string_init (&base64_response))
+      if (!_dbus_string_init (&hex_response))
         {
           _dbus_string_free (&mech);
           return FALSE;
@@ -1267,20 +1267,30 @@ process_auth (DBusAuth         *auth,
       if (!_dbus_string_init (&decoded_response))
         {
           _dbus_string_free (&mech);
-          _dbus_string_free (&base64_response);
+          _dbus_string_free (&hex_response);
           return FALSE;
         }
 
       if (!_dbus_string_copy_len (args, 0, i, &mech, 0))
         goto failed;
 
-      if (!_dbus_string_copy (args, i, &base64_response, 0))
+      _dbus_string_skip_blank (args, i, &i);
+      if (!_dbus_string_copy (args, i, &hex_response, 0))
         goto failed;
 
-      if (!_dbus_string_base64_decode (&base64_response, 0,
-                                       &decoded_response, 0))
-        goto failed;
-      
+      if (!_dbus_string_hex_decode (&hex_response, 0, &end,
+				    &decoded_response, 0))
+	goto failed;
+
+      if (_dbus_string_get_length (&hex_response) != end)
+	{
+	  if (!_dbus_string_append (&auth->outgoing,
+				    "ERROR \"Invalid hex encoding\"\r\n"))
+	    goto failed;
+
+	  goto out;
+        }
+     
       auth->mech = find_mech (&mech, auth->allowed_mechs);
       if (auth->mech != NULL)
         {
@@ -1300,8 +1310,9 @@ process_auth (DBusAuth         *auth,
             goto failed;
         }
 
+    out:
       _dbus_string_free (&mech);      
-      _dbus_string_free (&base64_response);
+      _dbus_string_free (&hex_response);
       _dbus_string_free (&decoded_response);
 
       return TRUE;
@@ -1309,7 +1320,7 @@ process_auth (DBusAuth         *auth,
     failed:
       auth->mech = NULL;
       _dbus_string_free (&mech);
-      _dbus_string_free (&base64_response);
+      _dbus_string_free (&hex_response);
       _dbus_string_free (&decoded_response);
       return FALSE;
     }
@@ -1349,6 +1360,8 @@ process_data_server (DBusAuth         *auth,
                      const DBusString *command,
                      const DBusString *args)
 {
+  int end;
+
   if (auth->mech != NULL)
     {
       DBusString decoded;
@@ -1356,10 +1369,20 @@ process_data_server (DBusAuth         *auth,
       if (!_dbus_string_init (&decoded))
         return FALSE;
 
-      if (!_dbus_string_base64_decode (args, 0, &decoded, 0))
-        {
+      if (!_dbus_string_hex_decode (args, 0, &end, &decoded, 0))
+	{
           _dbus_string_free (&decoded);
-          return FALSE;
+	  return FALSE;
+	}
+
+      if (_dbus_string_get_length (args) != end)
+	{
+          _dbus_string_free (&decoded);
+	  if (!_dbus_string_append (&auth->outgoing,
+				    "ERROR \"Invalid hex encoding\"\r\n"))
+	    return FALSE;
+
+	  return TRUE;
         }
 
 #ifdef DBUS_ENABLE_VERBOSE_MODE
@@ -1632,6 +1655,8 @@ process_data_client (DBusAuth         *auth,
                      const DBusString *command,
                      const DBusString *args)
 {
+  int end;
+
   if (auth->mech != NULL)
     {
       DBusString decoded;
@@ -1639,10 +1664,20 @@ process_data_client (DBusAuth         *auth,
       if (!_dbus_string_init (&decoded))
         return FALSE;
 
-      if (!_dbus_string_base64_decode (args, 0, &decoded, 0))
+      if (!_dbus_string_hex_decode (args, 0, &end, &decoded, 0))
         {
           _dbus_string_free (&decoded);
-          return FALSE;
+	  return FALSE;
+	}
+
+      if (_dbus_string_get_length (args) != end)
+	{
+          _dbus_string_free (&decoded);
+	  if (!_dbus_string_append (&auth->outgoing,
+				    "ERROR \"Invalid hex encoding\"\r\n"))
+	    return FALSE;
+	  
+	  return TRUE;
         }
 
 #ifdef DBUS_ENABLE_VERBOSE_MODE

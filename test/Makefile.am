@@ -9,7 +9,7 @@ INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS)
 
 
 if DBUS_BUILD_TESTS
-TEST_BINARIES=test-service unbase64 break-loader spawn-test test-segfault test-exit test-sleep-forever
+TEST_BINARIES=test-service break-loader spawn-test test-segfault test-exit test-sleep-forever
 else
 TEST_BINARIES=
 endif
@@ -26,9 +26,6 @@ test_service_SOURCES=				\
 	test-service.c				\
 	test-utils.c				\
 	test-utils.h
-
-unbase64_SOURCES=				\
-	unbase64.c
 
 break_loader_SOURCES=				\
 	break-loader.c
@@ -51,7 +48,6 @@ decode_gcov_SOURCES=				\
 TEST_LIBS=$(DBUS_TEST_LIBS) $(top_builddir)/dbus/libdbus-convenience.la
 
 test_service_LDADD=$(TEST_LIBS)
-unbase64_LDADD=$(TEST_LIBS)
 break_loader_LDADD= $(TEST_LIBS)
 spawn_test_LDADD=$(TEST_LIBS)
 decode_gcov_LDADD=$(TEST_LIBS)

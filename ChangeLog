@@ -1,3 +1,21 @@
+2004-05-17  Kristian Høgsberg  <krh@redhat.com>
+
+	Remove base64 encoding, replace with hex encoding. Original patch
+	from trow@ximian.com, added error handling.
+
+	* dbus/dbus-string.c (_dbus_string_base64_encode)
+	(_dbus_string_base64_decode): Remove.
+	(_dbus_string_hex_decode): Add end_return argument so we can
+	distinguish between OOM and invalid hex encoding.
+	(_dbus_string_test): Remove base64 tests and add test case for
+	invalid hex.
+
+	* dbus/dbus-keyring.c, dbus/dbus-auth-script.c, dbus/dbus-auth.c:
+	Replace base64 with hex.
+
+	* test/data/auth/invalid-hex-encoding.auth-script: New test case
+	for invalid hex encoded data in auth protocol.
+
 2004-05-17  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* dbus/dbus-connection.c (check_for_reply_unlocked): plug a memory

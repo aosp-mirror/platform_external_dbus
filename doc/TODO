@@ -118,10 +118,6 @@
 
  - recursive dispatch, see dbus_connection_dispatch()
 
- - the auth protocol may as well use hex encoding instead of 
-   base64, then we can dump the base64 implementation and 
-   save some bloat.
-
  - Better error checking for bogus configuration files. Currently if a 
    configuration file tries to include itself the bus crashes on start. We 
    should probably have a check against this.
