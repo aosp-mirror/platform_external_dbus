@@ -54,9 +54,11 @@ if test x$enable_verbose_mode = xyes; then
 fi
 if test x$enable_asserts = xno; then
     AC_DEFINE(DBUS_DISABLE_ASSERT,1,[Disable assertion checking])
+    AC_DEFINE(G_DISABLE_ASSERT,1,[Disable GLib assertion macros])
 fi
 if test x$enable_checks = xno; then
     AC_DEFINE(DBUS_DISABLE_CHECKS,1,[Disable public API sanity checking])
+    AC_DEFINE(G_DISABLE_CHECKS,1,[Disable GLib public API sanity checking])
 fi
 
 #### gcc warning flags
@@ -545,7 +547,7 @@ AC_SUBST(DBUS_TEST_CFLAGS)
 AC_SUBST(DBUS_TEST_LIBS)
 
 # Glib detection
-PKG_CHECK_MODULES(DBUS_GLIB, glib-2.0, have_glib=yes, have_glib=no)
+PKG_CHECK_MODULES(DBUS_GLIB, gobject-2.0, have_glib=yes, have_glib=no)
 PKG_CHECK_MODULES(DBUS_GLIB_THREADS, glib-2.0 gthread-2.0, have_glib_threads=yes, have_glib_threads=no)
 
 if test x$have_glib = xno ; then
@@ -569,6 +571,11 @@ dnl GLib flags
 AC_SUBST(DBUS_GLIB_CFLAGS)
 AC_SUBST(DBUS_GLIB_LIBS)
 AC_SUBST(DBUS_GLIB_THREADS_LIBS)
+
+DBUS_GLIB_TOOL_CFLAGS=$XML_CFLAGS
+DBUS_GLIB_TOOL_LIBS=$XML_LIBS
+AC_SUBST(DBUS_GLIB_TOOL_CFLAGS)
+AC_SUBST(DBUS_GLIB_TOOL_LIBS)
 
 # Qt detection
 have_qt=no

@@ -1,5 +1,14 @@
 2003-09-01  Havoc Pennington  <hp@pobox.com>
 
+	* glib/dbus-gparser.c: implement
+
+	* glib/dbus-gobject.c: start implementing skeletons support
+
+	* configure.in: when disabling checks/assert, also define
+	G_DISABLE_ASSERT and G_DISABLE_CHECKS
+
+2003-09-01  Havoc Pennington  <hp@pobox.com>
+
 	* glib/Makefile.am: rearrange a bunch of files and get "make
 	check" framework set up
 

@@ -24,7 +24,7 @@
 #define DBUS_GLIB_H
 
 #include <dbus/dbus.h>
-#include <glib.h>
+#include <glib-object.h>
 
 G_BEGIN_DECLS
 
@@ -35,6 +35,30 @@ void dbus_connection_setup_with_g_main (DBusConnection *connection,
 					GMainContext   *context);
 void dbus_server_setup_with_g_main     (DBusServer     *server,
 					GMainContext   *context);
+
+typedef struct DBusGObjectInfo DBusGObjectInfo;
+typedef struct DBusGMethodInfo DBusGMethodInfo;
+
+struct DBusGMethodInfo
+{
+  GCallback                 function;
+  DBusHandleMessageFunction marshaller;
+  int                       data_offset;
+};
+
+struct DBusGObjectInfo
+{
+  const DBusGMethodInfo *infos;
+  const unsigned char *data;    
+  void *dbus_internal_padding1;
+  void *dbus_internal_padding2;
+};
+
+void dbus_gobject_class_install_info  (GObjectClass          *object_class,
+                                       const DBusGObjectInfo *info);
+void dbus_connection_register_gobject (DBusConnection        *connection,
+                                       const char            *at_path,
+                                       GObject               *object);
 
 #undef DBUS_INSIDE_DBUS_GLIB_H
 

@@ -29,6 +29,7 @@
 
 G_BEGIN_DECLS
 
+typedef struct NodeInfo      NodeInfo;
 typedef struct InterfaceInfo InterfaceInfo;
 typedef struct MethodInfo    MethodInfo;
 typedef struct SignalInfo    SignalInfo;
@@ -40,9 +41,18 @@ typedef enum
   ARG_OUT
 } ArgDirection;
 
+NodeInfo*      node_info_new              (const char    *name);
+void           node_info_ref              (NodeInfo      *info);
+void           node_info_unref            (NodeInfo      *info);
+const char*    node_info_get_name         (NodeInfo      *info);
+GSList*        node_info_get_interfaces   (NodeInfo      *info);
+void           node_info_add_interface    (NodeInfo      *info,
+                                           InterfaceInfo *interface);
+
 InterfaceInfo* interface_info_new         (const char    *name);
 void           interface_info_ref         (InterfaceInfo *info);
 void           interface_info_unref       (InterfaceInfo *info);
+const char*    interface_info_get_name    (InterfaceInfo *info);
 GSList*        interface_info_get_methods (InterfaceInfo *info);
 GSList*        interface_info_get_signals (InterfaceInfo *info);
 void           interface_info_add_method  (InterfaceInfo *info,

@@ -1473,7 +1473,8 @@ _dbus_demarshal_string_array (const DBusString   *str,
 #define VERBOSE_DECOMPOSE 0
 
 /**
- * Demarshals an object path.
+ * Demarshals an object path.  A path of just "/" is
+ * represented as an empty vector of strings.
  * 
  * @param str the string containing the data
  * @param byte_order the byte order
@@ -1556,7 +1557,6 @@ _dbus_demarshal_object_path (const DBusString *str,
       i = j;
     }
   _dbus_assert (i == len);
-  _dbus_assert (retval[0] != NULL);
   
   *path = retval;
   if (path_len)

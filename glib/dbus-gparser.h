@@ -25,9 +25,9 @@
 
 #include <dbus/dbus.h>
 #include <glib.h>
+#include "dbus-gidl.h"
 
 G_BEGIN_DECLS
-
 
 typedef struct Parser Parser;
 
@@ -52,7 +52,13 @@ gboolean parser_content       (Parser      *parser,
 gboolean parser_finished      (Parser      *parser,
                                GError     **error);
 
+Parser* description_load_from_file   (const char  *filename,
+                                      GError     **error);
+Parser* description_load_from_string (const char  *str,
+                                      int          len,
+                                      GError     **error);
 
+NodeInfo* parser_get_nodes (Parser *parser);
 
 G_END_DECLS
 

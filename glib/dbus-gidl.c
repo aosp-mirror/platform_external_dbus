@@ -24,6 +24,13 @@
 
 #include "dbus-gidl.h"
 
+struct NodeInfo
+{
+  int refcount;
+  char *name;
+  GSList *interfaces;
+};
+
 struct InterfaceInfo
 {
   int refcount;
@@ -55,6 +62,20 @@ struct ArgInfo
 };
 
 static void
+free_interface_list (GSList **interfaces_p)
+{
+  GSList *tmp;
+  tmp = *interfaces_p;
+  while (tmp != NULL)
+    {
+      interface_info_unref (tmp->data);
+      tmp = tmp->next;
+    }
+  g_slist_free (*interfaces_p);
+  *interfaces_p = NULL;
+}
+
+static void
 free_method_list (GSList **methods_p)
 {
   GSList *tmp;
@@ -82,6 +103,59 @@ free_signal_list (GSList **signals_p)
   *signals_p = NULL;
 }
 
+NodeInfo*
+node_info_new (const char *name)
+{
+  NodeInfo *info;
+
+  /* name can be NULL */
+  
+  info = g_new0 (NodeInfo, 1);
+  info->refcount = 1;
+  info->name = g_strdup (name);
+
+  return info;
+}
+
+void
+node_info_ref (NodeInfo *info)
+{
+  info->refcount += 1;
+}
+
+void
+node_info_unref (NodeInfo *info)
+{
+  info->refcount -= 1;
+  if (info->refcount == 0)
+    {
+      free_interface_list (&info->interfaces);
+      g_free (info->name);
+      g_free (info);
+    }
+}
+
+const char*
+node_info_get_name (NodeInfo *info)
+{
+  return info->name;
+}
+
+GSList*
+node_info_get_interfaces (NodeInfo *info)
+{
+  return info->interfaces;
+}
+
+void
+node_info_add_interface (NodeInfo *info,
+                         InterfaceInfo    *interface)
+{
+  interface_info_ref (interface);
+  info->interfaces = g_slist_append (info->interfaces, interface);
+}
+
+
 InterfaceInfo*
 interface_info_new (const char *name)
 {
@@ -90,7 +164,7 @@ interface_info_new (const char *name)
   info = g_new0 (InterfaceInfo, 1);
   info->refcount = 1;
   info->name = g_strdup (name);
-  
+
   return info;
 }
 
@@ -111,6 +185,12 @@ interface_info_unref (InterfaceInfo *info)
       g_free (info->name);
       g_free (info);
     }
+}
+
+const char*
+interface_info_get_name (InterfaceInfo *info)
+{
+  return info->name;
 }
 
 GSList*
@@ -163,7 +243,7 @@ method_info_new (const char *name)
   info = g_new0 (MethodInfo, 1);
   info->refcount = 1;
   info->name = g_strdup (name);
-  
+
   return info;
 }
 
@@ -213,7 +293,7 @@ signal_info_new (const char *name)
   info = g_new0 (SignalInfo, 1);
   info->refcount = 1;
   info->name = g_strdup (name);
-  
+
   return info;
 }
 
@@ -264,10 +344,12 @@ arg_info_new (const char  *name,
 
   info = g_new0 (ArgInfo, 1);
   info->refcount = 1;
+
+  /* name can be NULL */
   info->name = g_strdup (name);
   info->direction = direction;
   info->type = type;
-  
+
   return info;
 }
 

@@ -87,6 +87,18 @@ extern "C" {
 #define DBUS_PATH_ORG_FREEDESKTOP_DBUS  "/org/freedesktop/DBus"
 #define DBUS_PATH_ORG_FREEDESKTOP_LOCAL "/org/freedesktop/Local"
   
+/* Interfaces, these #define don't do much other than
+ * catch typos at compile time
+ */
+#define DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS  "org.freedesktop.DBus"
+#define DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE "org.freedesktop.Introspectable"
+  
+/* This is a special interface whose methods can only be invoked
+ * by the local implementation (messages from remote apps aren't
+ * allowed to specify this interface).
+ */
+#define DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL "org.freedesktop.Local"
+  
 /* Service owner flags */
 #define DBUS_SERVICE_FLAG_PROHIBIT_REPLACEMENT 0x1
 #define DBUS_SERVICE_FLAG_REPLACE_EXISTING     0x2
@@ -100,17 +112,6 @@ extern "C" {
 /* Activation replies */
 #define DBUS_ACTIVATION_REPLY_ACTIVATED      0x0
 #define DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE 0x1
-  
-/* Interfaces, these #define don't do much other than
- * catch typos at compile time
- */
-#define DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS  "org.freedesktop.DBus"
-
-/* This is a special interface whose methods can only be invoked
- * by the local implementation (messages from remote apps aren't
- * allowed to specify this interface).
- */
-#define DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL "org.freedesktop.Local"
   
 #ifdef __cplusplus
 }
