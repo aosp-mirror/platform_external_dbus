@@ -7,8 +7,8 @@
 <article id="index">
   <articleinfo>
     <title>D-BUS Tutorial</title>
-    <releaseinfo>Version 0.1</releaseinfo>
-    <date>02 October 2003</date>
+    <releaseinfo>Version 0.2</releaseinfo>
+    <date>10 August 2004</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -56,6 +56,12 @@
           </para>
         </listitem>
       </itemizedlist>
+    </para>
+
+    <para>
+      If you just want to use D-BUS and don't care how it works, jump directly
+      to <xref linkend="concepts"/>.
+      Otherwise, read on.
     </para>
 
     <para>
@@ -245,7 +251,7 @@
       <para>
         Each object supports one or more <firstterm>interfaces</firstterm>.
         Think of an interface as a named group of methods and signals, 
-        just as it is in GLib or Qt. Interfaces define the 
+        just as it is in GLib or Qt or Java. Interfaces define the 
         <emphasis>type</emphasis> of an object instance.
       </para>
     </sect2>
@@ -407,7 +413,7 @@
         The service is in brackets to indicate that it's optional -- you only
         provide a service name to route the method call to the right application
         when using the bus daemon. If you have a direct connection to another
-        application, services aren't used.
+        application, services aren't used; there's no bus daemon.
       </para>
 
       <para>
@@ -425,29 +431,159 @@
 
   <sect1 id="glib-client">
     <title>GLib API: Using Remote Objects</title>
+
     <para>
       
+      The GLib binding is defined in the header file
+      &lt;dbus/dbus-glib.h&gt;. The API is very small, in sharp contrast to the
+      low-level &lt;dbus/dbus.h&gt;.
+
     </para>
+
+    <para>
+      The GLib bindings are incomplete, see the TODO file and comments in the
+      source code.
+    </para>
+
+    <para>
+Here is a D-BUS program using the GLib bindings.
+<programlisting>      
+int
+main (int argc, char **argv)
+{
+  DBusGConnection *connection;
+  GError *error;
+  DBusGProxy *proxy;
+  DBusGPendingCall *call;
+  char **service_list;
+  int service_list_len;
+  int i;
+  
+  g_type_init ();
+
+  error = NULL;
+  connection = dbus_g_bus_get (DBUS_BUS_SESSION,
+                               &amp;error);
+  if (connection == NULL)
+    {
+      g_printerr ("Failed to open connection to bus: %s\n",
+                  error->message);
+      g_error_free (error);
+      exit (1);
+    }
+
+  /* Create a proxy object for the "bus driver" (service org.freedesktop.DBus) */
+  
+  proxy = dbus_g_proxy_new_for_service (connection,
+                                        DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                        DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                        DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS);
+
+  /* Call ListServices method */
+  
+  call = dbus_g_proxy_begin_call (proxy, "ListServices", DBUS_TYPE_INVALID);
+
+  error = NULL;
+  if (!dbus_g_proxy_end_call (proxy, call, &amp;error,
+                              DBUS_TYPE_ARRAY, DBUS_TYPE_STRING,
+                              &amp;service_list, &amp;service_list_len,
+                              DBUS_TYPE_INVALID))
+    {
+      g_printerr ("Failed to complete ListServices call: %s\n",
+                  error->message);
+      g_error_free (error);
+      exit (1);
+    }
+
+  /* Print the results */
+ 
+  g_print ("Services on the message bus:\n");
+  i = 0;
+  while (i &lt; service_list_len)
+    {
+      g_assert (service_list[i] != NULL);
+      g_print ("  %s\n", service_list[i]);
+      ++i;
+    }
+  g_assert (service_list[i] == NULL);
+
+  g_strfreev (service_list);
+
+  return 0;
+}
+</programlisting>
+    </para>
+
+    <para>
+
+      DBusGProxy represents a remote object. dbus_g_proxy_begin_call() sends 
+      a method call to the remote object, and dbus_g_proxy_end_call() retrieves 
+      any return values or exceptions resulting from the method call. 
+      There are also DBusGProxy functions to connect and disconnect signals, 
+      not shown in the code example.
+
+    </para>
+
+    <para>
+      
+      dbus_g_bus_get() assumes that the application will use GMainLoop. The
+      created connection will be associated with the main loop such that
+      messages will be sent and received when the main loop runs.  However, in
+      the above code example the main loop never runs; D-BUS will not run the
+      loop implicitly. Instead, dbus_g_proxy_end_call() will block until the
+      method call has been sent and the reply received. A more complex GUI
+      application might run the main loop while waiting for the method call
+      reply.  (DBusGPendingCall is currently missing the "notify me when the
+      call is complete" functionality found in DBusPendingCall, but it should be
+      added.)
+
+    </para>
+
+    <para>
+      
+      Future plans (see doc/TODO) are to use G_TYPE_STRING in place of
+      DBUS_TYPE_STRING and so forth. In fact the above code is slightly
+      incorrect at the moment, since it uses g_strfreev() to free a string array
+      that was not allocated with g_malloc(). dbus_free_string_array() should
+      really be used. However, once the GLib bindings are complete the returned
+      data from dbus_g_proxy_end_call() will be allocated with g_malloc().
+
+    </para>
+
   </sect1>
 
   <sect1 id="glib-server">
     <title>GLib API: Implementing Objects</title>
+
     <para>
       
+      The GLib binding is defined in the header file
+      &lt;dbus/dbus-glib.h&gt;. To implement an object, it's also necessary
+      to use the dbus-glib-tool command line tool.
+
     </para>
+
+    <para>
+      The GLib bindings are incomplete.  Implementing an object is not yet
+      possible, see the TODO file and comments in the source code for details
+      on what work needs doing.
+    </para>
+      
   </sect1>
 
   <sect1 id="qt-client">
     <title>Qt API: Using Remote Objects</title>
     <para>
       
+      The Qt bindings are not yet documented.
+
     </para>
   </sect1>
 
   <sect1 id="qt-server">
     <title>Qt API: Implementing Objects</title>
     <para>
-      
+      The Qt bindings are not yet documented.
     </para>
   </sect1>
 
@@ -455,14 +591,16 @@
   <sect1 id="python-client">
     <title>Python API: Using Remote Objects</title>
     <para>
-      
+      The Python bindings are not yet documented, but the 
+      bindings themselves are in good shape.
     </para>
   </sect1>
 
   <sect1 id="python-server">
     <title>Python API: Implementing Objects</title>
     <para>
-      
+      The Python bindings are not yet documented, but the 
+      bindings themselves are in good shape.
     </para>
   </sect1>
 
