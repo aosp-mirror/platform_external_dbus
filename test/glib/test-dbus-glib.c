@@ -7,6 +7,13 @@
 static GMainLoop *loop = NULL;
 static int n_times_foo_received = 0;
 
+static gboolean
+timed_exit (gpointer loop)
+{
+  g_main_loop_quit (loop);
+  return TRUE;
+}
+
 static void
 foo_signal_handler (DBusGProxy  *proxy,
                     DBusMessage *signal,
@@ -200,6 +207,8 @@ main (int argc, char **argv)
 
   dbus_connection_flush (connection);
   
+  g_timeout_add (5000, timed_exit, loop);
+
   g_main_loop_run (loop);
 
   if (n_times_foo_received != 1)
