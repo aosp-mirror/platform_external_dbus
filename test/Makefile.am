@@ -1,9 +1,13 @@
 
-if DBUS_BUILD_TESTS
-
 INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
 
-noinst_PROGRAMS= echo-client echo-server
+if DBUS_BUILD_TESTS
+TESTS=echo-client echo-server
+else
+TESTS=
+endif
+
+noinst_PROGRAMS= $(TESTS)
 
 echo_client_SOURCES=				\
 	echo-client.c				\
@@ -20,4 +24,3 @@ TEST_LIBS=$(DBUS_TEST_LIBS) $(top_builddir)/dbus/libdbus-convenience.la $(top_bu
 echo_client_LDADD=$(TEST_LIBS)
 echo_server_LDADD=$(TEST_LIBS)
 
-endif

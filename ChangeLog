@@ -1,5 +1,10 @@
 2003-01-15  Havoc Pennington  <hp@redhat.com>
 
+	* test/Makefile.am: fix so that test source code ends up in the
+	distribution on make distcheck
+
+2003-01-15  Havoc Pennington  <hp@redhat.com>
+
         Release 0.1.
 	
 	* NEWS: update	
