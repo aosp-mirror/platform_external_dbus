@@ -29,7 +29,7 @@
  * @addtogroup DBusMarshal
  * @{
  */
-#define RECURSIVE_MARSHAL_TRACE 0
+#define RECURSIVE_MARSHAL_TRACE 1
 
 struct DBusTypeReaderClass
 {
@@ -944,6 +944,18 @@ _dbus_type_reader_set_basic (DBusTypeReader       *reader,
    *    original string
    */
 
+  /* FIXME I don't know how to implement this exactly, since
+   * DBusTypeWriter can't write children of a value without writing
+   * the entire parent value, and so we can't copy only the stuff
+   * following the new value.
+   *
+   * Suggestion is:
+   *  - add 'values only' mode to the writer (which essentially
+   *    just sets type_pos_is_expectation on the toplevel)
+   *  - add 'don't write for now' mode that can be toggled;
+   *  - implement a write_reader that uses those things to
+   *    realign
+   */
 
   retval = TRUE;
 
@@ -963,8 +975,7 @@ _dbus_type_reader_set_basic (DBusTypeReader       *reader,
 
 /**
  * Initialize a write iterator, which is used to write out values in
- * serialized D-BUS format. #DBusTypeWriter is a value iterator; it
- * writes out values. You can't use it to write out only types.
+ * serialized D-BUS format.
  *
  * The type_pos passed in is expected to be inside an already-valid,
  * though potentially empty, type signature. This means that the byte
@@ -1002,6 +1013,35 @@ _dbus_type_writer_init (DBusTypeWriter *writer,
   _dbus_verbose ("writer %p init remaining sig '%s'\n", writer,
                  _dbus_string_get_const_data_len (writer->type_str, writer->type_pos, 0));
 #endif
+}
+
+/**
+ * Like _dbus_type_writer_init(), except the type string
+ * passed in should correspond to an existing signature that
+ * matches what you're going to write out. The writer will
+ * check what you write vs. this existing signature.
+ *
+ * @param writer the writer to init
+ * @param byte_order the byte order to marshal into
+ * @param type_str the string with signature
+ * @param type_pos start of signature
+ * @param value_str the string to write values into
+ * @param value_pos where to insert values
+ *
+ */
+void
+_dbus_type_writer_init_values_only (DBusTypeWriter   *writer,
+                                    int               byte_order,
+                                    const DBusString *type_str,
+                                    int               type_pos,
+                                    DBusString       *value_str,
+                                    int               value_pos)
+{
+  _dbus_type_writer_init (writer, byte_order,
+                          (DBusString*)type_str, type_pos,
+                          value_str, value_pos);
+
+  writer->type_pos_is_expectation = TRUE;
 }
 
 static dbus_bool_t
@@ -1617,9 +1657,9 @@ _dbus_type_writer_write_reader (DBusTypeWriter *writer,
           DBusBasicValue val;
 
           _dbus_assert (_dbus_type_is_basic (current_type));
-          
+
           _dbus_type_reader_read_basic (reader, &val);
-          
+
           if (!_dbus_type_writer_write_basic (writer, current_type, &val))
             goto oom;
         }
@@ -1657,10 +1697,12 @@ _dbus_type_writer_write_reader (DBusTypeWriter *writer,
  * obviously makes the test suite run 10x as slow.
  */
 #define MAX_INITIAL_OFFSET 9
-/* Largest iteration count to test copying with. i.e. we only test copying with
- * some of the smaller data sets.
+
+/* Largest iteration count to test copying, realignment,
+ * etc. with. i.e. we only test this stuff with some of the smaller
+ * data sets.
  */
-#define MAX_ITERATIONS_TO_TEST_COPYING 100
+#define MAX_ITERATIONS_FOR_EXPENSIVE_TESTS 1000
 
 typedef struct
 {
@@ -1833,7 +1875,7 @@ real_check_expected_type (DBusTypeReader *reader,
                   _dbus_type_to_string (expected),
                   funcname, line);
 
-      exit (1);
+      _dbus_assert_not_reached ("read wrong type");
     }
 }
 
@@ -2313,12 +2355,9 @@ node_read_value (TestTypeNode   *node,
     return FALSE;
 
   _dbus_type_reader_init_from_mark (&restored,
-                                    reader->byte_order, /* a bit of a cheat,
-                                                         * since we didn't bother
-                                                         * to store this in DataBlock
-                                                         */
-                                    &block->signature,
-                                    &block->body,
+                                    reader->byte_order,
+                                    reader->type_str,
+                                    reader->value_str,
                                     &mark);
 
   if (!(* node->klass->read_value) (node, block, &restored, seed))
@@ -2351,13 +2390,32 @@ node_append_child (TestTypeNode *node,
   return TRUE;
 }
 
-static dbus_bool_t
-run_test_copy (DataBlock *src)
+static int n_iterations_completed_total = 0;
+static int n_iterations_completed_this_test = 0;
+static int n_iterations_expected_this_test = 0;
+
+typedef struct
 {
+  const DBusString   *signature;
+  DataBlock          *block;
+  int                 type_offset;
+  TestTypeNode      **nodes;
+  int                 n_nodes;
+} NodeIterationData;
+
+
+static dbus_bool_t
+run_test_copy (NodeIterationData *nid)
+{
+  DataBlock *src;
   DataBlock dest;
   dbus_bool_t retval;
   DBusTypeReader reader;
   DBusTypeWriter writer;
+
+  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+
+  src = nid->block;
 
   retval = FALSE;
 
@@ -2409,18 +2467,67 @@ run_test_copy (DataBlock *src)
   return retval;
 }
 
-static int n_iterations_completed_total = 0;
-static int n_iterations_completed_this_test = 0;
-static int n_iterations_expected_this_test = 0;
-
-typedef struct
+static dbus_bool_t
+run_test_values_only_write (NodeIterationData *nid)
 {
-  const DBusString   *signature;
-  DataBlock          *block;
-  int                 type_offset;
-  TestTypeNode      **nodes;
-  int                 n_nodes;
-} NodeIterationData;
+  DBusTypeReader reader;
+  DBusTypeWriter writer;
+  int i;
+  dbus_bool_t retval;
+  int sig_len;
+
+  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+
+  retval = FALSE;
+
+  data_block_reset (nid->block);
+
+  sig_len = _dbus_string_get_length (nid->signature);
+
+  _dbus_type_writer_init_values_only (&writer,
+                                      nid->block->byte_order,
+                                      nid->signature, 0,
+                                      &nid->block->body,
+                                      _dbus_string_get_length (&nid->block->body) - N_FENCE_BYTES);
+  _dbus_type_reader_init (&reader,
+                          nid->block->byte_order,
+                          nid->signature, 0,
+                          &nid->block->body,
+                          nid->block->initial_offset);
+
+  i = 0;
+  while (i < nid->n_nodes)
+    {
+      if (!node_write_value (nid->nodes[i], nid->block, &writer, i))
+        goto out;
+
+      ++i;
+    }
+
+  /* if we wrote any typecodes then this would fail */
+  _dbus_assert (sig_len == _dbus_string_get_length (nid->signature));
+
+  /* But be sure we wrote out the values correctly */
+  i = 0;
+  while (i < nid->n_nodes)
+    {
+      if (!node_read_value (nid->nodes[i], nid->block, &reader, i))
+        goto out;
+
+      if (i + 1 == nid->n_nodes)
+        NEXT_EXPECTING_FALSE (&reader);
+      else
+        NEXT_EXPECTING_TRUE (&reader);
+
+      ++i;
+    }
+
+  retval = TRUE;
+
+ out:
+  data_block_reset (nid->block);
+  return retval;
+}
 
 static dbus_bool_t
 run_test_nodes_iteration (void *data)
@@ -2482,8 +2589,14 @@ run_test_nodes_iteration (void *data)
       ++i;
     }
 
-  if (n_iterations_expected_this_test <= MAX_ITERATIONS_TO_TEST_COPYING)
-    run_test_copy (nid->block);
+  if (n_iterations_expected_this_test <= MAX_ITERATIONS_FOR_EXPENSIVE_TESTS)
+    {
+      if (!run_test_copy (nid))
+        goto out;
+
+      if (!run_test_values_only_write (nid))
+        goto out;
+    }
 
   /* FIXME type-iterate both signature and value and compare the resulting
    * tree to the node tree perhaps
