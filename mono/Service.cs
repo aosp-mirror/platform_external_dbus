@@ -128,7 +128,9 @@ namespace DBus
 	// We're only interested in signals
 	Signal signal = (Signal) message;
 	if (SignalCalled != null) {
+	  Message.Push (message);
 	  SignalCalled(signal);
+	  Message.Pop ();
 	}
       }
       

@@ -8,6 +8,25 @@ namespace DBus
   
   public class Message 
   {
+    private static Stack stack = new Stack ();
+	  
+    static public Message Current {
+      get 
+	{
+	  return stack.Count > 0 ? (Message) stack.Peek () : null;
+	}
+    }
+
+    static internal void Push (Message message)
+    {
+      stack.Push (message);
+    }
+
+    static internal void Pop ()
+    {
+      stack.Pop ();
+    }
+	  
     
     /// <summary>
     /// A pointer to the underlying Message structure
@@ -294,6 +313,22 @@ namespace DBus
 	}
     }
 
+    public string Sender 
+    {
+      get
+	{
+	  return Marshal.PtrToStringAnsi(dbus_message_get_sender(RawMessage));
+	}
+    }
+
+    public string Destination
+    {
+      get
+	{
+	  return Marshal.PtrToStringAnsi(dbus_message_get_destination(RawMessage));
+	}
+    }
+	    
     protected int Slot
     {
       get 
@@ -373,5 +408,8 @@ namespace DBus
 
     [DllImport("dbus-1")]
     private extern static IntPtr dbus_message_get_destination(IntPtr rawMessage);
+
+    [DllImport("dbus-1")]
+    private extern static IntPtr dbus_message_get_sender(IntPtr rawMessage);
   }
 }

@@ -9,6 +9,7 @@ ASSEMBLY_NAME=dbus-sharp
 DBUS_SHARP_FILES= 		\
 	Arguments.cs		\
 	Bus.cs			\
+	BusDriver.cs		\
 	Connection.cs		\
 	Custom.cs		\
 	DBusException.cs	\

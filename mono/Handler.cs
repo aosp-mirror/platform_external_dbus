@@ -177,10 +177,14 @@ namespace DBus
       }
       
       MethodInfo method = interfaceProxy.GetMethod(methodCall.Key);
+      
+      Message.Push (methodCall);
 
       // Now call the method. FIXME: Error handling
       object [] args = methodCall.Arguments.GetParameters(method);
       object retVal = method.Invoke(this.handledObject, args);
+
+      Message.Pop ();
 
       // Create the reply and send it
       MethodReturn methodReturn = new MethodReturn(methodCall);

@@ -76,6 +76,14 @@ namespace DBus
       return new Connection(rawConnection);
     }
 
+    public string BaseService
+    {
+      get
+	{
+	  return Marshal.PtrToStringAnsi (dbus_bus_get_base_service (RawConnection));
+	}
+    }
+
     public int Timeout
     {
       get
@@ -182,5 +190,8 @@ namespace DBus
     
     [DllImport ("dbus-1")]
     private extern static void dbus_connection_disconnect (IntPtr ptr);
+
+    [DllImport ("dbus-1")]
+    private extern static IntPtr dbus_bus_get_base_service (IntPtr ptr);
   }
 }

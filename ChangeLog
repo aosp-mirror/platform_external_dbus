@@ -1,3 +1,22 @@
+2004-08-30  Jon Trowbridge  <trow@ximian.com>
+
+	* mono/BusDriver.cs: Added.  This is a class for interacting with
+	the org.freedesktop.DBus service.
+
+	* mono/Message.cs: Added a mechanism to expose the message that is
+	currently being dispatched via the static Message.Current
+	property.  Added Message.Sender and Message.Destination
+	properties.
+
+	* mono/Handler.cs: Expose the dispatched message via
+	Message.Current when handling method calls.
+
+	* mono/Service.cs: Expose the dispatched message via
+	Message.Current when handling signal emissions.
+	
+	* mono/Connection.cs: Bind dbus_bus_get_base_service via the
+	Connection.BaseService property.
+
 2004-08-28  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-userdb.c (_dbus_is_console_user): remove unused variable
