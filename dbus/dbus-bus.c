@@ -329,14 +329,8 @@ dbus_bus_get (DBusBusType  type,
   BusData *bd;
   DBusBusType address_type;
 
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  if (type < 0 || type >= N_BUS_TYPES)
-    {
-      _dbus_assert_not_reached ("Invalid bus type specified.");
-
-      return NULL;
-    }
+  _dbus_return_val_if_fail (type >= 0 && type < N_BUS_TYPES, NULL);
+  _dbus_return_val_if_error_is_set (error, NULL);
 
   _DBUS_LOCK (bus);
 
@@ -429,8 +423,9 @@ dbus_bus_register (DBusConnection *connection,
   char *name;
   BusData *bd;
   dbus_bool_t retval;
-  
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_error_is_set (error, FALSE);
 
   retval = FALSE;
   
@@ -450,8 +445,9 @@ dbus_bus_register (DBusConnection *connection,
       return TRUE;
     }
   
-  message = dbus_message_new (DBUS_SERVICE_DBUS,
-			      DBUS_MESSAGE_HELLO);
+  message = dbus_message_new (DBUS_MESSAGE_HELLO,
+                              DBUS_SERVICE_DBUS);
+			      
 
   if (!message)
     {
@@ -504,12 +500,14 @@ dbus_bus_set_base_service (DBusConnection *connection,
 {
   BusData *bd;
 
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (base_service != NULL, FALSE);
+  
   bd = ensure_bus_data (connection);
   if (bd == NULL)
     return FALSE;
 
   _dbus_assert (bd->base_service == NULL);
-  _dbus_assert (base_service != NULL);
   
   bd->base_service = _dbus_strdup (base_service);
   return bd->base_service != NULL;
@@ -528,6 +526,8 @@ dbus_bus_get_base_service (DBusConnection *connection)
 {
   BusData *bd;
 
+  _dbus_return_val_if_fail (connection != NULL, NULL);
+  
   bd = ensure_bus_data (connection);
   if (bd == NULL)
     return NULL;
@@ -558,9 +558,14 @@ dbus_bus_acquire_service (DBusConnection *connection,
 {
   DBusMessage *message, *reply;
   dbus_uint32_t service_result;
+
+  _dbus_return_val_if_fail (connection != NULL, 0);
+  _dbus_return_val_if_fail (service_name != NULL, 0);
+  _dbus_return_val_if_error_is_set (error, 0);
   
-  message = dbus_message_new (DBUS_SERVICE_DBUS,
-                              DBUS_MESSAGE_ACQUIRE_SERVICE);
+  message = dbus_message_new (DBUS_MESSAGE_ACQUIRE_SERVICE,
+                              DBUS_SERVICE_DBUS);
+
 
   if (message == NULL)
     {
@@ -628,10 +633,12 @@ dbus_bus_service_exists (DBusConnection *connection,
   DBusMessage *message, *reply;
   unsigned int exists;
 
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (service_name != NULL, FALSE);
+  _dbus_return_val_if_error_is_set (error, FALSE);
   
-  message = dbus_message_new (DBUS_SERVICE_DBUS,
-                              DBUS_MESSAGE_SERVICE_EXISTS);
+  message = dbus_message_new (DBUS_MESSAGE_SERVICE_EXISTS,
+                              DBUS_SERVICE_DBUS);
   if (message == NULL)
     {
       _DBUS_SET_OOM (error);

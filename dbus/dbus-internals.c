@@ -356,6 +356,12 @@ _dbus_type_to_string (int type)
     }
 }
 
+#ifndef DBUS_DISABLE_CHECKS
+const char _dbus_return_if_fail_warning_format[] =
+"Arguments to %s were incorrect, assertion \"%s\" failed in file %s line %d.\n"
+"This is normally a bug in some application using the D-BUS library.\n";
+#endif
+
 #ifndef DBUS_DISABLE_ASSERT
 /**
  * Internals of _dbus_assert(); it's a function

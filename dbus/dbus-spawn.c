@@ -588,13 +588,6 @@ _dbus_babysitter_get_child_exited (DBusBabysitter *sitter)
   return sitter->socket_to_babysitter < 0;
 }
 
-static void
-_dbus_babysitter_block_for_child_exit (DBusBabysitter *sitter)
-{
-  while (LIVE_CHILDREN (sitter))
-    babysitter_iteration (sitter, TRUE);
-}
-
 /**
  * Sets the #DBusError with an explanation of why the spawned
  * child process exited (on a signal, or whatever). If
@@ -1161,6 +1154,13 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS
+
+static void
+_dbus_babysitter_block_for_child_exit (DBusBabysitter *sitter)
+{
+  while (LIVE_CHILDREN (sitter))
+    babysitter_iteration (sitter, TRUE);
+}
 
 static dbus_bool_t
 check_spawn_nonexistent (void *data)

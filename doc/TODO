@@ -43,17 +43,11 @@
  - there are various bits of code to manage ref/unref of data slots, that should 
    be merged into a generic facility
 
- - add _dbus_return_if_fail, _dbus_return_val_if_fail() and use on public entry 
-   points in place of _dbus_assert(). Add --disable-checks to control whether these
-   do anything.
-
  - assorted _-prefixed symbols in libdbus aren't actually used by
    libdbus, only by the message bus. These bloat up the library
    size. Not sure how to fix, really.
 
  - dbus_error_has_name(), dbus_message_name_is()
-
- - add DBUS_TYPE_INT64 ? 
 
  - if you send a message to a service then block for reply, and the service exits/crashes
    after the message bus has processed your message but before the service has replied, 

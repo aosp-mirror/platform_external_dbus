@@ -704,8 +704,8 @@ check_hello_message (BusContext     *context,
   acquired = NULL;
   message = NULL;
   
-  message = dbus_message_new (DBUS_SERVICE_DBUS,
-			      DBUS_MESSAGE_HELLO);
+  message = dbus_message_new (DBUS_MESSAGE_HELLO,
+                              DBUS_SERVICE_DBUS);
 
   if (message == NULL)
     return TRUE;
@@ -936,8 +936,8 @@ check_nonexistent_service_activation (BusContext     *context,
   
   dbus_error_init (&error);
   
-  message = dbus_message_new (DBUS_SERVICE_DBUS,
-			      DBUS_MESSAGE_ACTIVATE_SERVICE);
+  message = dbus_message_new (DBUS_MESSAGE_ACTIVATE_SERVICE,
+                              DBUS_SERVICE_DBUS);
 
   if (message == NULL)
     return TRUE;
@@ -1317,8 +1317,8 @@ check_send_exit_to_service (BusContext     *context,
   retval = FALSE;
   
   /* Kill off the test service by sending it a quit message */
-  message = dbus_message_new (service_name,
-                              "org.freedesktop.DBus.TestSuiteExit");
+  message = dbus_message_new ("org.freedesktop.DBus.TestSuiteExit",
+                              service_name);
       
   if (message == NULL)
     {
@@ -1490,8 +1490,8 @@ check_existent_service_activation (BusContext     *context,
   
   dbus_error_init (&error);
   
-  message = dbus_message_new (DBUS_SERVICE_DBUS,
-			      DBUS_MESSAGE_ACTIVATE_SERVICE);
+  message = dbus_message_new (DBUS_MESSAGE_ACTIVATE_SERVICE,
+                              DBUS_SERVICE_DBUS);
 
   if (message == NULL)
     return TRUE;
@@ -1698,8 +1698,8 @@ check_segfault_service_activation (BusContext     *context,
   
   dbus_error_init (&error);
   
-  message = dbus_message_new (DBUS_SERVICE_DBUS,
-			      DBUS_MESSAGE_ACTIVATE_SERVICE);
+  message = dbus_message_new (DBUS_MESSAGE_ACTIVATE_SERVICE,
+                              DBUS_SERVICE_DBUS);
 
   if (message == NULL)
     return TRUE;

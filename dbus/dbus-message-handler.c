@@ -192,6 +192,8 @@ dbus_message_handler_new (DBusHandleMessageFunction function,
 void
 dbus_message_handler_ref (DBusMessageHandler *handler)
 {
+  _dbus_return_if_fail (handler != NULL);
+  
   _DBUS_LOCK (message_handler);
   _dbus_assert (handler != NULL);
   
@@ -209,6 +211,8 @@ void
 dbus_message_handler_unref (DBusMessageHandler *handler)
 {
   int refcount;
+
+  _dbus_return_if_fail (handler != NULL);
   
   _DBUS_LOCK (message_handler);
   
@@ -254,6 +258,9 @@ void*
 dbus_message_handler_get_data (DBusMessageHandler *handler)
 {
   void* user_data;
+
+  _dbus_return_val_if_fail (handler != NULL, NULL);
+  
   _DBUS_LOCK (message_handler);
   user_data = handler->user_data;
   _DBUS_UNLOCK (message_handler);
@@ -276,6 +283,8 @@ dbus_message_handler_set_data (DBusMessageHandler *handler,
 {
   DBusFreeFunction old_free_func;
   void *old_user_data;
+
+  _dbus_return_if_fail (handler != NULL);
   
   _DBUS_LOCK (message_handler);
   old_free_func = handler->free_user_data;
@@ -301,6 +310,8 @@ void
 dbus_message_handler_set_function (DBusMessageHandler        *handler,
                                    DBusHandleMessageFunction  function)
 {
+  _dbus_return_if_fail (handler != NULL);
+  
   _DBUS_LOCK (message_handler);
   handler->function = function;
   _DBUS_UNLOCK (message_handler);

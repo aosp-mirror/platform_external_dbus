@@ -880,9 +880,9 @@ bus_connection_preallocate_oom_error (DBusConnection *connection)
   if (preallocated == NULL)
     return FALSE;
 
-  /* d->name may be NULL, but that should be OK */
-  message = dbus_message_new (d->name,
-                              DBUS_ERROR_NO_MEMORY);
+  /* d->name may be NULL, but that is OK */
+  message = dbus_message_new (DBUS_ERROR_NO_MEMORY,
+                              d->name);
   if (message == NULL)
     {
       dbus_connection_free_preallocated_send (connection, preallocated);

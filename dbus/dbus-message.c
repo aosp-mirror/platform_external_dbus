@@ -789,8 +789,8 @@ _dbus_message_remove_size_counter (DBusMessage  *message,
 
 static dbus_bool_t
 dbus_message_create_header (DBusMessage *message,
-                            const char  *service,
-                            const char  *name)
+                            const char  *name,
+                            const char  *service)
 {
   unsigned int flags;
   
@@ -936,22 +936,24 @@ dbus_message_new_empty_header (void)
  * @todo reverse the arguments, first 'name' then 'service'
  * as 'name' is more fundamental
  *
- * @param service service that the message should be sent to or #NULL
  * @param name name of the message
+ * @param destination_service service that the message should be sent to or #NULL
  * @returns a new DBusMessage, free with dbus_message_unref()
  * @see dbus_message_unref()
  */
 DBusMessage*
-dbus_message_new (const char *service,
-		  const char *name)
+dbus_message_new (const char *name,
+                  const char *destination_service)		  
 {
   DBusMessage *message;
 
+  _dbus_return_val_if_fail (name != NULL, NULL);
+  
   message = dbus_message_new_empty_header ();
   if (message == NULL)
     return NULL;
   
-  if (!dbus_message_create_header (message, service, name))
+  if (!dbus_message_create_header (message, name, destination_service))
     {
       dbus_message_unref (message);
       return NULL;
@@ -976,6 +978,8 @@ dbus_message_new_reply (DBusMessage *original_message)
   DBusMessage *message;
   const char *sender, *name;
 
+  _dbus_return_val_if_fail (original_message != NULL, NULL);
+  
   sender = get_string_field (original_message,
                              FIELD_SENDER, NULL);
   name = get_string_field (original_message,
@@ -983,7 +987,7 @@ dbus_message_new_reply (DBusMessage *original_message)
 
   /* sender is allowed to be null here in peer-to-peer case */
   
-  message = dbus_message_new (sender, name);
+  message = dbus_message_new (name, sender);
   
   if (message == NULL)
     return NULL;
@@ -1003,7 +1007,7 @@ dbus_message_new_reply (DBusMessage *original_message)
  *
  * @param original_message the original message
  * @param error_name the error name
- * @param error_message the error message string
+ * @param error_message the error message string or #NULL for none
  * @returns a new error message
  */
 DBusMessage*
@@ -1015,12 +1019,15 @@ dbus_message_new_error_reply (DBusMessage *original_message,
   const char *sender;
   DBusMessageIter iter;
 
+  _dbus_return_val_if_fail (original_message != NULL, NULL);
+  _dbus_return_val_if_fail (error_name != NULL, NULL);
+  
   sender = get_string_field (original_message,
                              FIELD_SENDER, NULL);
   
   _dbus_assert (sender != NULL);
   
-  message = dbus_message_new (sender, error_name);
+  message = dbus_message_new (error_name, sender);
   
   if (message == NULL)
     return NULL;
@@ -1032,11 +1039,14 @@ dbus_message_new_error_reply (DBusMessage *original_message,
       return NULL;
     }
 
-  dbus_message_append_iter_init (message, &iter);
-  if (!dbus_message_iter_append_string (&iter, error_message))
+  if (error_message != NULL)
     {
-      dbus_message_unref (message);
-      return NULL;
+      dbus_message_append_iter_init (message, &iter);
+      if (!dbus_message_iter_append_string (&iter, error_message))
+        {
+          dbus_message_unref (message);
+          return NULL;
+        }
     }
 
   dbus_message_set_is_error (message, TRUE);
@@ -1056,6 +1066,8 @@ dbus_message_copy (const DBusMessage *message)
 {
   DBusMessage *retval;
   int i;
+
+  _dbus_return_val_if_fail (message != NULL, NULL);
   
   retval = dbus_new0 (DBusMessage, 1);
   if (retval == NULL)
@@ -1121,6 +1133,8 @@ dbus_message_ref (DBusMessage *message)
 {
   dbus_atomic_t refcount;
 
+  _dbus_return_if_fail (message != NULL);
+  
   refcount = _dbus_atomic_inc (&message->refcount);
   _dbus_assert (refcount > 1);
 }
@@ -1131,7 +1145,7 @@ free_size_counter (void *element,
 {
   DBusCounter *counter = element;
   DBusMessage *message = data;
-
+  
   _dbus_counter_adjust (counter, - message->size_counter_delta);
 
   _dbus_counter_unref (counter);
@@ -1148,6 +1162,8 @@ dbus_message_unref (DBusMessage *message)
 {
   dbus_atomic_t refcount;
 
+  _dbus_return_if_fail (message != NULL);
+  
   refcount = _dbus_atomic_dec (&message->refcount);
   
   _dbus_assert (refcount >= 0);
@@ -1174,6 +1190,8 @@ dbus_message_unref (DBusMessage *message)
 const char*
 dbus_message_get_name (DBusMessage *message)
 {
+  _dbus_return_val_if_fail (message != NULL, NULL);
+  
   return get_string_field (message, FIELD_NAME, NULL);
 }
 
@@ -1191,6 +1209,8 @@ dbus_message_get_name (DBusMessage *message)
 const char*
 dbus_message_get_service (DBusMessage *message)
 {
+  _dbus_return_val_if_fail (message != NULL, NULL);
+  
   return get_string_field (message, FIELD_SERVICE, NULL);
 }
 
@@ -1220,6 +1240,8 @@ dbus_message_append_args (DBusMessage *message,
   dbus_bool_t retval;
   va_list var_args;
 
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  
   va_start (var_args, first_arg_type);
   retval = dbus_message_append_args_valist (message,
 					    first_arg_type,
@@ -1250,6 +1272,8 @@ dbus_message_append_args_valist (DBusMessage *message,
   int type, old_len;
   DBusMessageIter iter;
 
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  
   old_len = _dbus_string_get_length (&message->body);
   
   type = first_arg_type;
@@ -1405,7 +1429,8 @@ dbus_message_get_args (DBusMessage     *message,
   dbus_bool_t retval;
   va_list var_args;
 
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_error_is_set (error, FALSE);
   
   va_start (var_args, first_arg_type);
   retval = dbus_message_get_args_valist (message, error, first_arg_type, var_args);
@@ -1434,6 +1459,9 @@ dbus_message_get_args_valist (DBusMessage     *message,
 {
   DBusMessageIter iter;
 
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_error_is_set (error, FALSE);
+  
   dbus_message_iter_init (message, &iter);
   return dbus_message_iter_get_args_valist (&iter, error, first_arg_type, var_args);
 }
@@ -1459,7 +1487,8 @@ dbus_message_iter_get_args (DBusMessageIter *iter,
   dbus_bool_t retval;
   va_list var_args;
 
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  _dbus_return_val_if_fail (iter != NULL, FALSE);
+  _dbus_return_val_if_error_is_set (error, FALSE);
   
   va_start (var_args, first_arg_type);
   retval = dbus_message_iter_get_args_valist (iter, error, first_arg_type, var_args);
@@ -1499,7 +1528,8 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
   int spec_type, msg_type, i;
   dbus_bool_t retval;
 
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  _dbus_return_val_if_fail (iter != NULL, FALSE);
+  _dbus_return_val_if_error_is_set (error, FALSE);
 
   retval = FALSE;
   
@@ -1756,11 +1786,14 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
  * @param iter pointer to an iterator to initialize
  */
 void
-dbus_message_iter_init (DBusMessage *message,
+dbus_message_iter_init (DBusMessage     *message,
 			DBusMessageIter *iter)
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
+  _dbus_return_if_fail (message != NULL);
+  _dbus_return_if_fail (iter != NULL);
+  
   _dbus_assert (sizeof (DBusMessageRealIter) <= sizeof (DBusMessageIter));
   
   real->message = message;
@@ -1777,14 +1810,31 @@ dbus_message_iter_init (DBusMessage *message,
   real->array_type_pos = 0;
 }
 
-static void
+#ifndef DBUS_DISABLE_CHECKS
+static dbus_bool_t
 dbus_message_iter_check (DBusMessageRealIter *iter)
 {
-  if (iter->changed_stamp != iter->message->changed_stamp) 
-    _dbus_warn ("dbus iterator check failed: invalid iterator\n");
+  if (iter == NULL)
+    {
+      _dbus_warn ("dbus iterator check failed: iterator is NULL\n");
+      return FALSE;
+    }
+  
+  if (iter->changed_stamp != iter->message->changed_stamp)
+    {
+      _dbus_warn ("dbus iterator check failed: invalid iterator, must re-initialize it after modifying the message\n");
+      return FALSE;
+    }
+  
   if (iter->pos < 0 || iter->pos > iter->end)
-    _dbus_warn ("dbus iterator check failed: invalid position\n");
+    {
+      _dbus_warn ("dbus iterator check failed: invalid position\n");
+      return FALSE;
+    }
+
+  return TRUE;
 }
+#endif /* DBUS_DISABLE_CHECKS */
 
 static int
 skip_array_type (DBusMessageRealIter *iter, int pos)
@@ -1868,7 +1918,7 @@ dbus_message_iter_has_next (DBusMessageIter *iter)
   int end_pos;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   if (real->pos >= real->end)
     return FALSE;
@@ -1899,7 +1949,7 @@ dbus_message_iter_next (DBusMessageIter *iter)
   int end_pos;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -1929,7 +1979,7 @@ dbus_message_iter_get_arg_type (DBusMessageIter *iter)
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), DBUS_TYPE_INVALID);
 
   if (real->pos >= real->end)
     return DBUS_TYPE_INVALID;
@@ -1996,7 +2046,7 @@ dbus_message_iter_get_array_type (DBusMessageIter *iter)
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), DBUS_TYPE_INVALID);
 
   if (real->pos >= real->end)
     return DBUS_TYPE_INVALID;
@@ -2024,7 +2074,7 @@ dbus_message_iter_get_string (DBusMessageIter *iter)
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), NULL);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2058,7 +2108,7 @@ dbus_message_iter_get_named (DBusMessageIter   *iter,
   int type, pos;
   char *_name;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2098,7 +2148,7 @@ dbus_message_iter_get_byte (DBusMessageIter *iter)
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), 0);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2126,7 +2176,7 @@ dbus_message_iter_get_boolean (DBusMessageIter *iter)
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2152,7 +2202,7 @@ dbus_message_iter_get_int32 (DBusMessageIter *iter)
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), 0);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2177,7 +2227,7 @@ dbus_message_iter_get_uint32 (DBusMessageIter *iter)
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), 0);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2206,7 +2256,7 @@ dbus_message_iter_get_int64 (DBusMessageIter *iter)
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), 0);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2233,7 +2283,7 @@ dbus_message_iter_get_uint64 (DBusMessageIter *iter)
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), 0);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2260,7 +2310,7 @@ dbus_message_iter_get_double (DBusMessageIter *iter)
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), 0.0);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2293,7 +2343,7 @@ dbus_message_iter_init_array_iterator (DBusMessageIter *iter,
   int type, pos, len_pos, len, array_type_pos;
   int _array_type;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2343,7 +2393,7 @@ dbus_message_iter_init_dict_iterator (DBusMessageIter *iter,
   DBusMessageRealIter *dict_real = (DBusMessageRealIter *)dict_iter;
   int type, pos, len_pos, len;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2386,7 +2436,7 @@ dbus_message_iter_get_byte_array (DBusMessageIter  *iter,
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2421,7 +2471,7 @@ dbus_message_iter_get_boolean_array (DBusMessageIter   *iter,
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2456,7 +2506,7 @@ dbus_message_iter_get_int32_array  (DBusMessageIter *iter,
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2491,7 +2541,7 @@ dbus_message_iter_get_uint32_array  (DBusMessageIter *iter,
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2529,7 +2579,7 @@ dbus_message_iter_get_int64_array  (DBusMessageIter *iter,
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2566,7 +2616,7 @@ dbus_message_iter_get_uint64_array  (DBusMessageIter *iter,
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2602,7 +2652,7 @@ dbus_message_iter_get_double_array  (DBusMessageIter *iter,
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2641,7 +2691,7 @@ dbus_message_iter_get_string_array (DBusMessageIter *iter,
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
   int type, pos;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2671,7 +2721,7 @@ dbus_message_iter_get_dict_key (DBusMessageIter   *iter)
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), NULL);
 
   _dbus_assert (real->type == DBUS_MESSAGE_ITER_TYPE_DICT);
 
@@ -2688,10 +2738,13 @@ dbus_message_iter_get_dict_key (DBusMessageIter   *iter)
  * @param iter pointer to an iterator to initialize
  */
 void
-dbus_message_append_iter_init (DBusMessage *message,
+dbus_message_append_iter_init (DBusMessage     *message,
 			       DBusMessageIter *iter)
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  _dbus_return_if_fail (message != NULL);
+  _dbus_return_if_fail (iter != NULL);
   
   real->message = message;
   real->parent_iter = NULL;
@@ -2705,24 +2758,47 @@ dbus_message_append_iter_init (DBusMessage *message,
   real->wrote_dict_key = 0;
 }
 
-static void
+#ifndef DBUS_DISABLE_CHECKS
+static dbus_bool_t
 dbus_message_iter_append_check (DBusMessageRealIter *iter)
 {
-  _dbus_assert (!iter->message->locked);
+  if (iter == NULL)
+    {
+      _dbus_warn ("dbus iterator check failed: NULL iterator\n");
+      return FALSE;
+    }
   
+  if (iter->message->locked)
+    {
+      _dbus_warn ("dbus iterator check failed: message is locked (has already been sent)\n");
+      return FALSE;
+    }
+      
   if (iter->changed_stamp != iter->message->changed_stamp)
-    _dbus_warn ("dbus iterator check failed: invalid iterator");
+    {
+      _dbus_warn ("dbus iterator check failed: invalid iterator, must re-initialize it after modifying the message");
+      return FALSE;
+    }
   
   if (iter->pos != iter->end)
-    _dbus_warn ("dbus iterator check failed: can only append at end of message");
+    {
+      _dbus_warn ("dbus iterator check failed: can only append at end of message");
+      return FALSE;
+    }
   
   if (iter->pos != _dbus_string_get_length (&iter->message->body))
-    _dbus_warn ("dbus iterator check failed: append pos not at end of message string");
+    {
+      _dbus_warn ("dbus iterator check failed: append pos not at end of message string");
+      return FALSE;
+    }
+
+  return TRUE;
 }
+#endif /* DBUS_DISABLE_CHECKS */
 
 static dbus_bool_t
 dbus_message_iter_append_type (DBusMessageRealIter *iter,
-			       int type)
+			       int                  type)
 {
   const char *data;
   switch (iter->type)
@@ -2802,7 +2878,7 @@ dbus_message_iter_append_nil (DBusMessageIter *iter)
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!dbus_message_iter_append_type (real, DBUS_TYPE_NIL))
     return FALSE;
@@ -2825,7 +2901,7 @@ dbus_message_iter_append_boolean (DBusMessageIter *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!dbus_message_iter_append_type (real, DBUS_TYPE_BOOLEAN))
     return FALSE;
@@ -2854,7 +2930,7 @@ dbus_message_iter_append_byte (DBusMessageIter *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!dbus_message_iter_append_type (real, DBUS_TYPE_BYTE))
     return FALSE;
@@ -2884,7 +2960,7 @@ dbus_message_iter_append_int32   (DBusMessageIter *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!dbus_message_iter_append_type (real, DBUS_TYPE_INT32))
     return FALSE;
@@ -2913,7 +2989,7 @@ dbus_message_iter_append_uint32 (DBusMessageIter *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!dbus_message_iter_append_type (real, DBUS_TYPE_UINT32))
     return FALSE;
@@ -2946,7 +3022,7 @@ dbus_message_iter_append_int64   (DBusMessageIter *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!dbus_message_iter_append_type (real, DBUS_TYPE_INT64))
     return FALSE;
@@ -2977,7 +3053,7 @@ dbus_message_iter_append_uint64 (DBusMessageIter *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!dbus_message_iter_append_type (real, DBUS_TYPE_UINT64))
     return FALSE;
@@ -3008,7 +3084,7 @@ dbus_message_iter_append_double (DBusMessageIter *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!dbus_message_iter_append_type (real, DBUS_TYPE_DOUBLE))
     return FALSE;
@@ -3037,7 +3113,7 @@ dbus_message_iter_append_string (DBusMessageIter *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!dbus_message_iter_append_type (real, DBUS_TYPE_STRING))
     return FALSE;
@@ -3073,7 +3149,7 @@ dbus_message_iter_append_named (DBusMessageIter      *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!dbus_message_iter_append_type (real, DBUS_TYPE_NAMED))
     return FALSE;
@@ -3110,7 +3186,7 @@ dbus_message_iter_append_dict_key (DBusMessageIter *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
   _dbus_assert (real->type == DBUS_MESSAGE_ITER_TYPE_DICT);
   
   if (real->wrote_dict_key)
@@ -3232,7 +3308,7 @@ dbus_message_iter_append_array (DBusMessageIter      *iter,
       return FALSE;
     }
   
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!append_array_type (real, element_type, &array_type_done, &array_type_pos))
     return FALSE;
@@ -3284,7 +3360,7 @@ dbus_message_iter_append_dict (DBusMessageIter      *iter,
   DBusMessageRealIter *dict_real = (DBusMessageRealIter *)dict_iter;
   int len_pos;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!dbus_message_iter_append_type (real, DBUS_TYPE_DICT))
     return FALSE;
@@ -3331,7 +3407,7 @@ dbus_message_iter_append_boolean_array (DBusMessageIter     *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!append_array_type (real, DBUS_TYPE_BOOLEAN, NULL, NULL))
     return FALSE;
@@ -3362,7 +3438,7 @@ dbus_message_iter_append_int32_array (DBusMessageIter    *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!append_array_type (real, DBUS_TYPE_INT32, NULL, NULL))
     return FALSE;
@@ -3393,7 +3469,7 @@ dbus_message_iter_append_uint32_array (DBusMessageIter     *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!append_array_type (real, DBUS_TYPE_UINT32, NULL, NULL))
     return FALSE;
@@ -3428,7 +3504,7 @@ dbus_message_iter_append_int64_array (DBusMessageIter    *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!append_array_type (real, DBUS_TYPE_INT64, NULL, NULL))
     return FALSE;
@@ -3461,7 +3537,7 @@ dbus_message_iter_append_uint64_array (DBusMessageIter     *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!append_array_type (real, DBUS_TYPE_UINT64, NULL, NULL))
     return FALSE;
@@ -3493,7 +3569,7 @@ dbus_message_iter_append_double_array (DBusMessageIter *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!append_array_type (real, DBUS_TYPE_DOUBLE, NULL, NULL))
     return FALSE;
@@ -3524,7 +3600,7 @@ dbus_message_iter_append_byte_array (DBusMessageIter     *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!append_array_type (real, DBUS_TYPE_BYTE, NULL, NULL))
     return FALSE;
@@ -3555,7 +3631,7 @@ dbus_message_iter_append_string_array (DBusMessageIter *iter,
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  dbus_message_iter_append_check (real);
+  _dbus_return_val_if_fail (dbus_message_iter_append_check (real), FALSE);
 
   if (!append_array_type (real, DBUS_TYPE_STRING, NULL, NULL))
     return FALSE;
@@ -3582,7 +3658,8 @@ dbus_bool_t
 dbus_message_set_sender (DBusMessage  *message,
                          const char   *sender)
 {
-  _dbus_assert (!message->locked);
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (!message->locked, FALSE);
 
   if (sender == NULL)
     {
@@ -3609,8 +3686,9 @@ dbus_message_set_is_error (DBusMessage *message,
                            dbus_bool_t  is_error_reply)
 {
   char *header;
-  
-  _dbus_assert (!message->locked);
+
+  _dbus_return_if_fail (message != NULL);
+  _dbus_return_if_fail (!message->locked);
   
   header = _dbus_string_get_data_len (&message->header, 1, 1);
   
@@ -3632,6 +3710,8 @@ dbus_message_get_is_error (DBusMessage *message)
 {
   const char *header;
 
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  
   header = _dbus_string_get_const_data_len (&message->header, 1, 1);
 
   return (*header & DBUS_HEADER_FLAG_ERROR) != 0;
@@ -3647,6 +3727,8 @@ dbus_message_get_is_error (DBusMessage *message)
 const char*
 dbus_message_get_sender (DBusMessage *message)
 {
+  _dbus_return_val_if_fail (message != NULL, NULL);
+  
   return get_string_field (message, FIELD_SENDER, NULL);
 }
 
@@ -3666,7 +3748,8 @@ dbus_message_name_is (DBusMessage *message,
 {
   const char *n;
 
-  _dbus_assert (name != NULL);
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (name != NULL, FALSE);
   
   n = dbus_message_get_name (message);
 
@@ -3692,7 +3775,8 @@ dbus_message_service_is (DBusMessage  *message,
 {
   const char *s;
 
-  _dbus_assert (service != NULL);
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (service != NULL, FALSE);
   
   s = dbus_message_get_service (message);
 
@@ -3754,6 +3838,9 @@ dbus_set_error_from_message (DBusError   *error,
                              DBusMessage *message)
 {
   char *str;
+
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_error_is_set (error, FALSE);
   
   if (!dbus_message_get_is_error (message))
     return FALSE;
@@ -5485,7 +5572,7 @@ _dbus_message_test (const char *test_data_dir)
   _dbus_assert (sizeof (DBusMessageRealIter) <= sizeof (DBusMessageIter));
 
   /* Test the vararg functions */
-  message = dbus_message_new ("org.freedesktop.DBus.Test", "test.Message");
+  message = dbus_message_new ("test.Message", "org.freedesktop.DBus.Test");
   _dbus_message_set_serial (message, 1);
   dbus_message_append_args (message,
 			    DBUS_TYPE_INT32, -0x12345678,
@@ -5533,7 +5620,7 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_unref (message);
   dbus_message_unref (copy);
   
-  message = dbus_message_new ("org.freedesktop.DBus.Test", "test.Message");
+  message = dbus_message_new ("test.Message", "org.freedesktop.DBus.Test");
   _dbus_message_set_serial (message, 1);
   dbus_message_set_reply_serial (message, 0x12345678);
 

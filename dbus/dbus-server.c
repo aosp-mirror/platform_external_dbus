@@ -277,7 +277,8 @@ dbus_server_listen (const char     *address,
   const char *address_problem_field;
   const char *address_problem_other;
 
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  _dbus_return_val_if_fail (address != NULL, NULL);
+  _dbus_return_val_if_error_is_set (error, NULL);
   
   if (!dbus_parse_address (address, &entries, &len, error))
     return NULL;
@@ -452,6 +453,8 @@ dbus_server_listen (const char     *address,
 void
 dbus_server_ref (DBusServer *server)
 {
+  _dbus_return_if_fail (server != NULL);
+  
   server->refcount += 1;
 }
 
@@ -466,7 +469,8 @@ dbus_server_ref (DBusServer *server)
 void
 dbus_server_unref (DBusServer *server)
 {
-  _dbus_assert (server != NULL);
+  _dbus_return_if_fail (server != NULL);
+
   _dbus_assert (server->refcount > 0);
 
   server->refcount -= 1;
@@ -489,6 +493,8 @@ dbus_server_unref (DBusServer *server)
 void
 dbus_server_disconnect (DBusServer *server)
 {
+  _dbus_return_if_fail (server != NULL);
+  
   _dbus_assert (server->vtable->disconnect != NULL);
 
   if (server->disconnected)
@@ -506,6 +512,8 @@ dbus_server_disconnect (DBusServer *server)
 dbus_bool_t
 dbus_server_get_is_connected (DBusServer *server)
 {
+  _dbus_return_val_if_fail (server != NULL, FALSE);
+  
   return !server->disconnected;
 }
 
@@ -519,6 +527,8 @@ dbus_server_get_is_connected (DBusServer *server)
 char*
 dbus_server_get_address (DBusServer *server)
 {
+  _dbus_return_val_if_fail (server != NULL, NULL);
+  
   return _dbus_strdup (server->address);
 }
 
@@ -540,6 +550,8 @@ dbus_server_set_new_connection_function (DBusServer                *server,
                                          void                      *data,
                                          DBusFreeFunction           free_data_function)
 {
+  _dbus_return_if_fail (server != NULL);
+  
   if (server->new_connection_free_data_function != NULL)
     (* server->new_connection_free_data_function) (server->new_connection_data);
   
@@ -572,6 +584,8 @@ dbus_server_set_watch_functions (DBusServer              *server,
                                  void                    *data,
                                  DBusFreeFunction         free_data_function)
 {
+  _dbus_return_val_if_fail (server != NULL, FALSE);
+  
   return _dbus_watch_list_set_functions (server->watches,
                                          add_function,
                                          remove_function,
@@ -603,6 +617,8 @@ dbus_server_set_timeout_functions (DBusServer                *server,
 				   void                      *data,
 				   DBusFreeFunction           free_data_function)
 {
+  _dbus_return_val_if_fail (server != NULL, FALSE);
+  
   return _dbus_timeout_list_set_functions (server->timeouts,
                                            add_function, remove_function,
                                            toggled_function,
@@ -625,6 +641,8 @@ dbus_server_set_auth_mechanisms (DBusServer  *server,
 {
   char **copy;
 
+  _dbus_return_val_if_fail (server != NULL, FALSE);
+  
   if (mechanisms != NULL)
     {
       copy = _dbus_dup_string_array (mechanisms);
@@ -675,6 +693,8 @@ dbus_server_allocate_data_slot (void)
 void
 dbus_server_free_data_slot (int slot)
 {
+  _dbus_return_if_fail (slot >= 0);
+  
   _dbus_data_slot_allocator_free (&slot_allocator, slot);
 }
 
@@ -692,7 +712,7 @@ dbus_server_free_data_slot (int slot)
  * @returns #TRUE if there was enough memory to store the data
  */
 dbus_bool_t
-dbus_server_set_data (DBusServer   *server,
+dbus_server_set_data (DBusServer       *server,
                       int               slot,
                       void             *data,
                       DBusFreeFunction  free_data_func)
@@ -701,6 +721,8 @@ dbus_server_set_data (DBusServer   *server,
   void *old_data;
   dbus_bool_t retval;
 
+  _dbus_return_val_if_fail (server != NULL, FALSE);
+  
 #if 0
   dbus_mutex_lock (server->mutex);
 #endif
@@ -734,9 +756,11 @@ dbus_server_set_data (DBusServer   *server,
  */
 void*
 dbus_server_get_data (DBusServer   *server,
-                      int               slot)
+                      int           slot)
 {
   void *res;
+
+  _dbus_return_val_if_fail (server != NULL, NULL);
   
 #if 0
   dbus_mutex_lock (server->mutex);

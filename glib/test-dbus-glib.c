@@ -30,7 +30,8 @@ main (int argc, char **argv)
 
   dbus_connection_setup_with_g_main (connection, NULL);
 
-  message = dbus_message_new ("org.freedesktop.DBus", "org.freedesktop.DBus.Hello");
+  message = dbus_message_new (DBUS_MESSAGE_HELLO,
+                              DBUS_SERVICE_DBUS);
 
   dbus_error_init (&error);
   reply = dbus_connection_send_with_reply_and_block (connection, message, -1, &error);

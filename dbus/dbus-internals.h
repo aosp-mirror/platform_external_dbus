@@ -43,6 +43,14 @@ void _dbus_verbose_real       (const char *format,
                                ...) _DBUS_GNUC_PRINTF (1, 2);
 void _dbus_verbose_reset_real (void);
 
+#if defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
+#define _DBUS_FUNCTION_NAME __func__
+#elif defined(__GNUC__)
+#define _DBUS_FUNCTION_NAME __FUNCTION__
+#else
+#define _DBUS_FUNCTION_NAME "unknown function"
+#endif
+
 #ifdef DBUS_ENABLE_VERBOSE_MODE
 #  define _dbus_verbose _dbus_verbose_real
 #  define _dbus_verbose_reset _dbus_verbose_reset_real
@@ -80,6 +88,28 @@ void _dbus_real_assert_not_reached (const char *explanation,
   _dbus_real_assert_not_reached (explanation, __FILE__, __LINE__)
 #endif /* !DBUS_DISABLE_ASSERT */
 
+#ifdef DBUS_DISABLE_CHECKS
+#define _dbus_return_if_fail(condition)
+#define _dbus_return_val_if_fail(condition, val)
+#else
+extern const char _dbus_return_if_fail_warning_format[];
+
+#define _dbus_return_if_fail(condition) do {                            \
+  if (!(condition)) {                                                   \
+    _dbus_warn (_dbus_return_if_fail_warning_format,                    \
+                _DBUS_FUNCTION_NAME, #condition, __FILE__, __LINE__);   \
+    return;                                                             \
+  } } while (0)
+
+#define _dbus_return_val_if_fail(condition, val) do {                   \
+  if (!(condition)) {                                                   \
+    _dbus_warn (_dbus_return_if_fail_warning_format,                    \
+                _DBUS_FUNCTION_NAME, #condition, __FILE__, __LINE__);   \
+    return (val);                                                       \
+  } } while (0)
+
+#endif /* !DBUS_DISABLE_ASSERT */
+
 #define _DBUS_N_ELEMENTS(array) ((int) (sizeof ((array)) / sizeof ((array)[0])))
 
 #define _DBUS_POINTER_TO_INT(pointer) ((long)(pointer))
@@ -92,6 +122,9 @@ void _dbus_real_assert_not_reached (const char *explanation,
 
 #define _DBUS_ASSERT_ERROR_IS_SET(error)   _dbus_assert ((error) == NULL || dbus_error_is_set ((error)))
 #define _DBUS_ASSERT_ERROR_IS_CLEAR(error) _dbus_assert ((error) == NULL || !dbus_error_is_set ((error)))
+
+#define _dbus_return_if_error_is_set(error) _dbus_return_if_fail ((error) == NULL || !dbus_error_is_set ((error)))
+#define _dbus_return_val_if_error_is_set(error, val) _dbus_return_val_if_fail ((error) == NULL || !dbus_error_is_set ((error)), (val))
 
 /* This alignment thing is from ORBit2 */
 /* Align a value upward to a boundary, expressed as a number of bytes.

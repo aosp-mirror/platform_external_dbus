@@ -75,7 +75,7 @@ main (int argc, char *argv[])
       exit (1);
     }
 
-  message = dbus_message_new (dest, name);
+  message = dbus_message_new (name, dest);
   if (message == NULL)
     {
       fprintf (stderr, "Couldn't allocate D-BUS message\n");

@@ -139,7 +139,7 @@ dbus_error_init (DBusError *error)
 {
   DBusRealError *real;
 
-  _dbus_assert (error != NULL);
+  _dbus_return_if_fail (error != NULL);
 
   _dbus_assert (sizeof (DBusError) == sizeof (DBusRealError));
 
@@ -162,6 +162,8 @@ dbus_error_free (DBusError *error)
 {
   DBusRealError *real;
 
+  _dbus_return_if_fail (error != NULL);
+  
   real = (DBusRealError *)error;
 
   if (!real->const_message)
@@ -187,13 +189,14 @@ dbus_set_error_const (DBusError  *error,
 {
   DBusRealError *real;
 
+  _dbus_return_if_error_is_set (error);
+  _dbus_return_if_fail (name != NULL);
+  
   if (error == NULL)
     return;
 
-  /* it's a bug to pile up errors */
   _dbus_assert (error->name == NULL);
   _dbus_assert (error->message == NULL);
-  _dbus_assert (name != NULL);
 
   if (message == NULL)
     message = message_from_error (name);
@@ -219,7 +222,7 @@ void
 dbus_move_error (DBusError *src,
                  DBusError *dest)
 {
-  _dbus_assert (!dbus_error_is_set (dest));
+  _dbus_return_if_error_is_set (dest);
 
   if (dest)
     {
@@ -242,8 +245,9 @@ dbus_bool_t
 dbus_error_has_name (const DBusError *error,
                      const char      *name)
 {
-  _dbus_assert (error != NULL);
-  _dbus_assert (name != NULL);
+  _dbus_return_val_if_fail (error != NULL, FALSE);
+  _dbus_return_val_if_fail (name != NULL, FALSE);
+
   _dbus_assert ((error->name != NULL && error->message != NULL) ||
                 (error->name == NULL && error->message == NULL));
   
@@ -267,7 +271,7 @@ dbus_error_has_name (const DBusError *error,
 dbus_bool_t
 dbus_error_is_set (const DBusError *error)
 {
-  _dbus_assert (error != NULL);  
+  _dbus_return_val_if_fail (error != NULL, FALSE);  
   _dbus_assert ((error->name != NULL && error->message != NULL) ||
                 (error->name == NULL && error->message == NULL));
   return error->name != NULL;
@@ -307,9 +311,11 @@ dbus_set_error (DBusError  *error,
     return;
 
   /* it's a bug to pile up errors */
+  _dbus_return_if_error_is_set (error);
+  _dbus_return_if_fail (name != NULL);
+  
   _dbus_assert (error->name == NULL);
   _dbus_assert (error->message == NULL);
-  _dbus_assert (name != NULL);
 
   if (format == NULL)
     format = message_from_error (name);

@@ -1,3 +1,19 @@
+2003-04-24  Havoc Pennington  <hp@redhat.com>
+
+	* configure.in: add --enable-checks
+
+	* dbus/dbus-message.c (dbus_message_new): reverse name/service arguments
+
+	* dbus/dbus-connection.c (dbus_connection_preallocate_send): fix
+	to use thread locks.
+	(_dbus_connection_handler_destroyed_locked): move some private
+	functions into proper docs group
+
+	* dbus/dbus-internals.h: add _dbus_return_if_fail,
+	_dbus_return_val_if_fail
+
+	Throughout: use dbus_return_if_fail
+
 2003-04-23  James Willcox  <jwillcox@gnome.org>
 
 	* glib/dbus-glib.h:

@@ -27,8 +27,9 @@ AC_ARG_ENABLE(qt,      [  --enable-qt      enable Qt-friendly client library],en
 AC_ARG_ENABLE(glib,    [  --enable-glib    enable GLib-friendly client library],enable_glib=$enableval,enable_glib=auto)
 AC_ARG_ENABLE(tests,   [  --enable-tests   enable unit test code],enable_tests=$enableval,enable_tests=$USE_MAINTAINER_MODE)
 AC_ARG_ENABLE(ansi,    [  --enable-ansi    enable -ansi -pedantic gcc flags],enable_ansi=$enableval,enable_ansi=no)
-AC_ARG_ENABLE(verbose-mode, [  --enable-verbose-mode support verbose debug mode],enable_verbose_mode=$enableval,enable_verbose_mode=yes)
-AC_ARG_ENABLE(asserts, [  --enable-asserts include assertion checks],enable_asserts=$enableval,enable_asserts=yes)
+AC_ARG_ENABLE(verbose-mode, [  --enable-verbose-mode support verbose debug mode],enable_verbose_mode=$enableval,enable_verbose_mode=$USE_MAINTAINER_MODE)
+AC_ARG_ENABLE(asserts, [  --enable-asserts include assertion checks],enable_asserts=$enableval,enable_asserts=$USE_MAINTAINER_MODE)
+AC_ARG_ENABLE(checks,  [  --enable-checks  include sanity checks on public API],enable_checks=$enableval,enable_checks=yes)
 AC_ARG_ENABLE(gcov,    [  --enable-gcov compile with coverage profiling instrumentation (gcc only)],enable_gcov=$enableval,enable_gcov=no)
 
 AC_ARG_WITH(xml,                [  --with-xml=[libxml/expat] XML library to use])
@@ -50,6 +51,9 @@ if test x$enable_verbose_mode = xyes; then
 fi
 if test x$enable_asserts = xno; then
     AC_DEFINE(DBUS_DISABLE_ASSERT,1,[Disable assertion checking])
+fi
+if test x$enable_checks = xno; then
+    AC_DEFINE(DBUS_DISABLE_CHECKS,1,[Disable public API sanity checking])
 fi
 
 #### gcc warning flags
@@ -578,6 +582,7 @@ echo "
         Building unit tests:      ${enable_tests}
         Building verbose mode:    ${enable_verbose_mode}
         Building assertions:      ${enable_asserts}
+        Building checks:          ${enable_checks}
         Building Qt bindings:     ${have_qt}
         Building GLib bindings:   ${have_glib}
         Using XML parser:         ${with_xml}
@@ -595,8 +600,11 @@ if test x$enable_gcov = xyes; then
         echo "NOTE: building with coverage profiling is definitely for developers only."
 fi
 if test x$enable_verbose_mode = xyes; then
-        echo "NOTE: building with verbose mode increases library size, may slightly increase security risk, and may cause a slight performance decrease, but aids debugging."
+        echo "NOTE: building with verbose mode increases library size, may slightly increase security risk, and decreases performance."
 fi
 if test x$enable_asserts = xyes; then
-        echo "NOTE: building with assertions increases library size, but will help a lot when tracking down bugs in software using D-BUS."
+        echo "NOTE: building with assertions increases library size and decreases performance."
+fi
+if test x$enable_checks = xno; then
+        echo "NOTE: building without checks for arguments passed to public API makes it harder to debug apps using D-BUS, but will slightly decrease D-BUS library size and _very_ slightly improve performance."
 fi

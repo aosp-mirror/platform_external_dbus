@@ -49,8 +49,8 @@ bus_driver_send_service_deleted (const char     *service_name,
   
   _dbus_verbose ("sending service deleted: %s\n", service_name);
 
-  message = dbus_message_new (DBUS_SERVICE_BROADCAST,
-                              DBUS_MESSAGE_SERVICE_DELETED);
+  message = dbus_message_new (DBUS_MESSAGE_SERVICE_DELETED,
+                              DBUS_SERVICE_BROADCAST);
   if (message == NULL)
     {
       BUS_SET_OOM (error);
@@ -83,8 +83,8 @@ bus_driver_send_service_created (const char     *service_name,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  message = dbus_message_new (DBUS_SERVICE_BROADCAST,
-                              DBUS_MESSAGE_SERVICE_CREATED);
+  message = dbus_message_new (DBUS_MESSAGE_SERVICE_CREATED,
+                              DBUS_SERVICE_BROADCAST);
   if (message == NULL)
     {
       BUS_SET_OOM (error);
@@ -123,8 +123,8 @@ bus_driver_send_service_lost (DBusConnection *connection,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  message = dbus_message_new (bus_connection_get_name (connection),
-                              DBUS_MESSAGE_SERVICE_LOST);
+  message = dbus_message_new (DBUS_MESSAGE_SERVICE_LOST,
+                              bus_connection_get_name (connection));
   if (message == NULL)
     {
       BUS_SET_OOM (error);
@@ -163,8 +163,9 @@ bus_driver_send_service_acquired (DBusConnection *connection,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  message = dbus_message_new (bus_connection_get_name (connection),
-                              DBUS_MESSAGE_SERVICE_ACQUIRED);
+  message = dbus_message_new (DBUS_MESSAGE_SERVICE_ACQUIRED,
+                              bus_connection_get_name (connection));
+
   if (message == NULL)
     {
       BUS_SET_OOM (error);
