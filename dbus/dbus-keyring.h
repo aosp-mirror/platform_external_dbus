@@ -30,19 +30,23 @@ DBUS_BEGIN_DECLS;
 
 typedef struct DBusKeyring DBusKeyring;
 
-
-DBusKeyring* _dbus_keyring_load             (const char       *context,
-                                             DBusResultCode   *result);
-void         _dbus_keyring_ref              (DBusKeyring      *keyring);
-void         _dbus_keyring_unref            (DBusKeyring      *keyring);
-dbus_bool_t  _dbus_keyring_create_challenge (DBusKeyring      *keyring,
-                                             DBusString       *challenge);
-dbus_bool_t  _dbus_keyring_compute_response (DBusKeyring      *keyring,
-                                             const DBusString *challenge,
-                                             DBusString       *response);
-dbus_bool_t  _dbus_keyring_check_response   (DBusKeyring      *keyring,
-                                             const DBusString *challenge,
-                                             const DBusString *response);
+DBusKeyring* _dbus_keyring_new_homedir      (const DBusString  *username,
+                                             const DBusString  *context,
+                                             DBusError         *error);
+void         _dbus_keyring_ref              (DBusKeyring       *keyring);
+void         _dbus_keyring_unref            (DBusKeyring       *keyring);
+dbus_bool_t  _dbus_keyring_validate_context (const DBusString  *context);
+int          _dbus_keyring_get_best_key     (DBusKeyring       *keyring,
+                                             DBusError        **error);
+dbus_bool_t  _dbus_keyring_create_challenge (DBusString        *challenge);
+dbus_bool_t  _dbus_keyring_compute_response (DBusKeyring       *keyring,
+                                             int                key_id,
+                                             const DBusString  *challenge,
+                                             DBusString        *response);
+dbus_bool_t  _dbus_keyring_check_response   (DBusKeyring       *keyring,
+                                             int                key_id,
+                                             const DBusString  *challenge,
+                                             const DBusString  *response);
 
 
 DBUS_END_DECLS;

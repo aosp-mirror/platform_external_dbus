@@ -183,10 +183,6 @@ dbus_error_free (DBusError *error)
  * Assigns an error name and message to a DBusError.
  * Does nothing if error is #NULL.
  *
- * @todo calling dbus_error_init() in here is no good,
- * for the same reason a GError* has to be set to NULL
- * before you pass it in.
- *
  * @param error the error.
  * @param name the error name (not copied!!!)
  * @param message the error message (not copied!!!)
@@ -200,8 +196,6 @@ dbus_set_error_const (DBusError  *error,
 
   if (error == NULL)
     return;
-
-  dbus_error_init (error);
   
   real = (DBusRealError *)error;
   
@@ -216,6 +210,9 @@ dbus_set_error_const (DBusError  *error,
  *
  * If no memory can be allocated for the error message, 
  * an out-of-memory error message will be set instead.
+ *
+ * @todo stdio.h shouldn't be included in this file,
+ * should write _dbus_string_append_printf instead
  * 
  * @param error the error.
  * @param name the error name (not copied!!!)
@@ -237,16 +234,11 @@ dbus_set_error (DBusError  *error,
     return;
   
   va_start (args, format);
-
   /* Measure the message length */
-  message_length = vsnprintf (&c, 1,format, args) + 1;
-
-  message = dbus_malloc (message_length);
-
+  message_length = vsnprintf (&c, 1, format, args) + 1;
   va_end (args);
   
-  va_start (args, format);  
-  vsprintf (message, format, args2);
+  message = dbus_malloc (message_length);
   
   if (!message)
     {
@@ -255,9 +247,10 @@ dbus_set_error (DBusError  *error,
       return;
     }
   
+  va_start (args, format);  
+  vsprintf (message, format, args2);  
   va_end (args);
 
-  dbus_error_init (error);
   real = (DBusRealError *)error;
   
   real->name = name;

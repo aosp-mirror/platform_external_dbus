@@ -104,6 +104,11 @@ dbus_bool_t _dbus_credentials_match                (const DBusCredentials *expec
 
 dbus_bool_t _dbus_string_append_our_uid (DBusString *str);
 
+dbus_bool_t _dbus_homedir_from_username          (const DBusString       *username,
+                                                  DBusString             *homedir);
+dbus_bool_t _dbus_user_info_from_current_process (const DBusString      **username,
+                                                  const DBusString      **homedir,
+                                                  const DBusCredentials **credentials);
 
 typedef int dbus_atomic_t;
 
@@ -137,6 +142,11 @@ DBusResultCode _dbus_file_get_contents   (DBusString       *str,
                                           const DBusString *filename);
 DBusResultCode _dbus_string_save_to_file (const DBusString *str,
                                           const DBusString *filename);
+
+dbus_bool_t    _dbus_create_file_exclusively (const DBusString *filename,
+                                              DBusError        *error);
+dbus_bool_t    _dbus_delete_file             (const DBusString *filename,
+                                              DBusError        *error);
 
 dbus_bool_t _dbus_concat_dir_and_file (DBusString       *dir,
                                        const DBusString *next_component);

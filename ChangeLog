@@ -1,3 +1,27 @@
+2003-02-19  Havoc Pennington  <hp@pobox.com>
+
+	* Doxyfile.in (PREDEFINED): put DOXYGEN_SHOULD_SKIP_THIS in
+	Doxyfile.in, not Doxyfile
+
+	* dbus/dbus-keyring.c: do some hacking on this
+
+	* dbus/dbus-sysdeps.c (_dbus_delete_file): new
+
+	* dbus/dbus-errors.c (dbus_set_error_const): do not call
+	dbus_error_init
+	(dbus_set_error): remove dbus_error_init, check for message ==
+	NULL *before* we sprintf into it, and add @todo about including 
+	system headers in this file
+
+	* dbus/dbus-sysdeps.c (_dbus_create_file_exclusively): new
+
+	* dbus/dbus-errors.h (DBUS_ERROR_FAILED): add
+
+	* dbus/dbus-sysdeps.c (get_user_info): break this function out to
+	get various bits of user information based on either username 
+	or user ID
+	(_dbus_homedir_from_username): new function
+
 2003-02-19  Anders Carlsson  <andersca@codefactory.se>
 
 	* configure.in:

@@ -982,16 +982,67 @@ _dbus_string_parse_double (const DBusString *str,
  * @{
  */
 
+static dbus_bool_t
+store_user_info (struct passwd    *p,
+                 DBusCredentials  *credentials,
+                 DBusString       *homedir,
+                 DBusString       *username_out)
+{
+  int old_homedir_len;
+  
+  if (credentials != NULL)
+    {
+      credentials->uid = p->pw_uid;
+      credentials->gid = p->pw_gid;
+    }
+
+  old_homedir_len = 0;
+  if (homedir != NULL)
+    {
+      old_homedir_len = _dbus_string_get_length (homedir);
+      
+      if (!_dbus_string_append (homedir, p->pw_dir))
+        {
+          _dbus_verbose ("No memory to get homedir\n");
+          return FALSE;
+        }
+    }
+  
+  if (username_out &&
+      !_dbus_string_append (username_out, p->pw_name))
+    {
+      if (homedir)
+        _dbus_string_set_length (homedir, old_homedir_len);
+      _dbus_verbose ("No memory to get username\n");
+      return FALSE;
+    }
+      
+  _dbus_verbose ("Username %s has uid %d gid %d homedir %s\n",
+                 p->pw_name, (int) p->pw_uid, (int) p->pw_gid,
+                 p->pw_dir);
+
+  return TRUE;
+}
+  
 /**
- * Gets the credentials corresponding to the given username.
+ * Gets user info using either username or uid. Only
+ * one of these may be passed in, either username
+ * must be #NULL or uid must be < 0.
  *
  * @param username the username
- * @param credentials credentials to fill in
- * @returns #TRUE if the username existed and we got some credentials
+ * @param uid the user ID
+ * @param credentials to fill in or #NULL
+ * @param homedir string to append homedir to or #NULL
+ * @param username_out string to append username to or #NULL
+ *
+ * @returns #TRUE on success
  */
-dbus_bool_t
-_dbus_credentials_from_username (const DBusString *username,
-                                 DBusCredentials  *credentials)
+static dbus_bool_t
+get_user_info (const DBusString *username,
+               int               uid,
+               DBusCredentials  *credentials,
+               DBusString       *homedir,
+               DBusString       *username_out)
 {
   const char *username_c_str;
   
@@ -999,7 +1050,19 @@ _dbus_credentials_from_username (const DBusString *username,
   credentials->uid = -1;
   credentials->gid = -1;
 
-  _dbus_string_get_const_data (username, &username_c_str);
+  /* exactly one of username/uid provided */
+  _dbus_assert (username != NULL || uid >= 0);
+  _dbus_assert (username == NULL || uid < 0);
+  
+  if (username != NULL)
+    _dbus_string_get_const_data (username, &username_c_str);
+  else
+    username_c_str = NULL;
+
+  /* For now assuming that the getpwnam() and getpwuid() flavors
+   * are always symmetrical, if not we have to add more configure
+   * checks
+   */
   
 #if defined (HAVE_POSIX_GETPWNAME_R) || defined (HAVE_NONPOSIX_GETPWNAME_R)
   {
@@ -1010,20 +1073,23 @@ _dbus_credentials_from_username (const DBusString *username,
 
     p = NULL;
 #ifdef HAVE_POSIX_GETPWNAME_R
-    result = getpwnam_r (username_c_str, &p_str, buf, sizeof (buf),
-                         &p);
+    if (uid >= 0)
+      result = getpwuid_r (uid, &p_str, buf, sizeof (buf),
+                           &p);
+    else
+      result = getpwnam_r (username_c_str, &p_str, buf, sizeof (buf),
+                           &p);
 #else
-    p = getpwnam_r (username_c_str, &p_str, buf, sizeof (buf));
+    if (uid >= 0)
+      p = getpwuid_r (uid, &p_str, buf, sizeof (buf));
+    else
+      p = getpwnam_r (username_c_str, &p_str, buf, sizeof (buf));
     result = 0;
-#endif
+#endif /* !HAVE_POSIX_GETPWNAME_R */
     if (result == 0 && p == &p_str)
       {
-        credentials->uid = p->pw_uid;
-        credentials->gid = p->pw_gid;
-
-        _dbus_verbose ("Username %s has uid %d gid %d\n",
-                       username_c_str, credentials->uid, credentials->gid);
-        return TRUE;
+        return store_user_info (p, credentials, homedir,
+                                username_out);
       }
     else
       {
@@ -1036,16 +1102,15 @@ _dbus_credentials_from_username (const DBusString *username,
     /* I guess we're screwed on thread safety here */
     struct passwd *p;
 
-    p = getpwnam (username_c_str);
+    if (uid >= 0)
+      p = getpwuid (uid);
+    else
+      p = getpwnam (username_c_str);
 
     if (p != NULL)
       {
-        credentials->uid = p->pw_uid;
-        credentials->gid = p->pw_gid;
-
-        _dbus_verbose ("Username %s has uid %d gid %d\n",
-                       username_c_str, credentials->uid, credentials->gid);
-        return TRUE;
+        return store_user_info (p, credentials, homedir,
+                                username_out);
       }
     else
       {
@@ -1053,7 +1118,112 @@ _dbus_credentials_from_username (const DBusString *username,
         return FALSE;
       }
   }
-#endif  
+#endif  /* ! HAVE_GETPWNAM_R */
+}
+
+/**
+ * Gets the credentials corresponding to the given username.
+ *
+ * @param username the username
+ * @param credentials credentials to fill in
+ * @returns #TRUE if the username existed and we got some credentials
+ */
+dbus_bool_t
+_dbus_credentials_from_username (const DBusString *username,
+                                 DBusCredentials  *credentials)
+{
+  return get_user_info (username, -1, credentials, NULL, NULL);
+}
+
+static DBusMutex *user_info_lock = NULL;
+/**
+ * Initializes the global mutex for the process's user information.
+ *
+ * @returns the mutex
+ */
+DBusMutex *
+_dbus_user_info_init_lock (void)
+{
+  user_info_lock = dbus_mutex_new ();
+  return user_info_lock;
+}
+
+/**
+ * Gets information about the user running this process.
+ *
+ * @param username return location for username or #NULL
+ * @param homedir return location for home directory or #NULL
+ * @param credentials return location for credentials or #NULL
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_user_info_from_current_process (const DBusString      **username,
+                                      const DBusString      **homedir,
+                                      const DBusCredentials **credentials)
+{
+  static DBusString name;
+  static DBusString dir;
+  static DBusCredentials creds;
+  static dbus_bool_t initialized = FALSE;
+  
+  if (!dbus_mutex_lock (user_info_lock))
+    return FALSE;
+
+  if (!initialized)
+    {
+      if (!_dbus_string_init (&name, _DBUS_INT_MAX))
+        {
+          dbus_mutex_unlock (user_info_lock);
+          return FALSE;
+        }
+
+      if (!_dbus_string_init (&dir, _DBUS_INT_MAX))
+        {
+          _dbus_string_free (&name);
+          dbus_mutex_unlock (user_info_lock);
+          return FALSE;
+        }
+      
+      creds.uid = -1;
+      creds.gid = -1;
+      creds.pid = -1;
+
+      if (!get_user_info (NULL, getuid (),
+                          &creds, &dir, &name))
+        {
+          _dbus_string_free (&name);
+          _dbus_string_free (&dir);
+          dbus_mutex_unlock (user_info_lock);
+          return FALSE;
+        }
+
+      initialized = TRUE;
+    }
+
+  if (username)
+    *username = &name;
+  if (homedir)
+    *homedir = &dir;
+  if (credentials)
+    *credentials = &creds;
+  
+  dbus_mutex_unlock (user_info_lock);
+
+  return TRUE;
+}
+
+/**
+ * Gets the home directory for the given user.
+ *
+ * @param username the username
+ * @param homedir string to append home directory to
+ * @returns #TRUE if user existed and we appended their homedir
+ */
+dbus_bool_t
+_dbus_homedir_from_username (const DBusString *username,
+                             DBusString       *homedir)
+{
+  return get_user_info (username, -1, NULL, homedir, NULL);
 }
 
 /**
@@ -1504,6 +1674,68 @@ _dbus_string_save_to_file (const DBusString *str,
 
   close (fd);
   return DBUS_RESULT_SUCCESS;
+}
+
+/** Creates the given file, failing if the file already exists.
+ *
+ * @param filename the filename
+ * @param error error location
+ * @returns #TRUE if we created the file and it didn't exist
+ */
+dbus_bool_t
+_dbus_create_file_exclusively (const DBusString *filename,
+                               DBusError        *error)
+{
+  int fd;
+  const char *filename_c;
+
+  _dbus_string_get_const_data (filename, &filename_c);
+  
+  fd = open (filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
+             0600);
+  if (fd < 0)
+    {
+      dbus_set_error (error,
+                      DBUS_ERROR_FAILED,
+                      "Could not create file %s: %s\n",
+                      filename_c,
+                      _dbus_errno_to_string (errno));
+      return FALSE;
+    }
+
+  if (close (fd) < 0)
+    {
+      dbus_set_error (error,
+                      DBUS_ERROR_FAILED,
+                      "Could not close file %s: %s\n",
+                      filename_c,
+                      _dbus_errno_to_string (errno));
+      return FALSE;
+    }
+  
+  return TRUE;
+}
+
+/**
+ * Deletes the given file.
+ *
+ * @param filename the filename
+ * @param error error location
+ * 
+ * @returns #TRUE if unlink() succeeded
+ */
+dbus_bool_t
+_dbus_delete_file (const DBusString *filename,
+                   DBusError        *error)
+{
+  const char *filename_c;
+
+  _dbus_string_get_const_data (filename, &filename_c);
+
+  if (unlink (filename_c) < 0)
+    return FALSE;
+  else
+    return TRUE;
 }
 
 /**

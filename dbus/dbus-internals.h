@@ -159,6 +159,8 @@ DBusMutex *_dbus_list_init_lock            (void);
 DBusMutex *_dbus_allocated_slots_init_lock (void);
 DBusMutex *_dbus_atomic_init_lock          (void);
 DBusMutex *_dbus_message_handler_init_lock (void);
+DBusMutex *_dbus_user_info_init_lock       (void);
+
 
 DBUS_END_DECLS;
 
