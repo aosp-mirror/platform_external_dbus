@@ -1,3 +1,17 @@
+2003-11-23  Zack Rusin  <zack@kde.org>
+
+	* qt/connection.h, qt/connection.cpp: Adding the DBusConnection 
+	wrapper
+
+	* qt/message.h, qt/message.cpp: updating to the current D-BUS api,
+	switching namespaces to DBusQt, reworking the class,
+
+	* Makefile.cvs: switching dependencies so that it matches KDE 
+	schematics,
+	
+	* qt/Makefile.am: adding connection.{h,cpp} and message.{h,cpp} to 
+	the library
+
 2003-11-19  Havoc Pennington  <hp@redhat.com>
 
 	* NEWS: update
