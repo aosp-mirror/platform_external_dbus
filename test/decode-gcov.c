@@ -38,10 +38,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef DBUS_HAVE_GCC33_GCOV
-#error "gcov support not yet implemented for gcc 3.3 and greater; the file format changed"
-#endif
-
 #ifndef DBUS_HAVE_INT64
 #error "gcov support can't be built without 64-bit integer support"
 #endif
@@ -153,21 +149,98 @@ string_get_string (const DBusString *str,
   i = start;
   while (string_get_int (str, i, &n))
     {
+      unsigned char b;
+      
       i += 4;
       
       if (n == terminator)
         break;
 
-      _dbus_string_append_byte (val, n & 0xff);
-      _dbus_string_append_byte (val, (n >> 8) & 0xff);
-      _dbus_string_append_byte (val, (n >> 16) & 0xff);
-      _dbus_string_append_byte (val, (n >> 24) & 0xff);
+      b = n & 0xff;
+      if (b)
+        {
+          _dbus_string_append_byte (val, b);
+          b = (n >> 8) & 0xff;
+          if (b)
+            {
+              _dbus_string_append_byte (val, b);
+              b = (n >> 16) & 0xff;
+              if (b)
+                {
+                  _dbus_string_append_byte (val, b);
+                  b = (n >> 24) & 0xff;
+                  if (b)
+                    _dbus_string_append_byte (val, b);
+                }
+            }
+        }
     }
 
   *end = i;
   
   return TRUE;
 }
+
+#ifdef DBUS_HAVE_GCC33_GCOV
+/* In gcc33 .bbg files, there's a function name of the form:
+ *   -1, length, name (padded to 4), -1, checksum
+ */
+static dbus_bool_t
+string_get_function (const DBusString *str,
+                     int               start,
+                     DBusString       *funcname,
+                     int              *checksum,
+                     int              *next)
+{
+  int end;
+  long val;
+  int i;
+
+  i = start;
+  
+  if (!string_get_int (str, i, &val))
+    die ("no room for -1 before function name\n");
+        
+  i += 4;
+
+  if (val != -1)
+    die ("value before function name is not -1\n");
+  
+  if (!string_get_int (str, i, &val))
+    die ("no length found for function name\n");
+        
+  i += 4;
+
+  end = i + val;
+  if (end > _dbus_string_get_length (str))
+    die ("Function name length points past end of file\n");
+
+  if (!_dbus_string_append (funcname,
+                            _dbus_string_get_const_data (str) + i))
+    die ("no memory\n");
+        
+  /* skip alignment padding the length doesn't include the nul so add 1
+   */
+  i = _DBUS_ALIGN_VALUE (end + 1, 4);
+        
+  if (!string_get_int (str, i, &val) ||
+      val != -1)
+    die ("-1 at end of function name not found\n");
+        
+  i += 4;
+
+  if (!string_get_int (str, i, &val))
+    die ("no checksum found at end of function name\n");
+        
+  i += 4;
+
+  *checksum = val;
+
+  *next = i;
+
+  return TRUE;
+}
+#endif /* DBUS_HAVE_GCC33_GCOV */
 
 static void
 dump_bb_file (const DBusString *contents)
@@ -242,21 +315,50 @@ dump_bbg_file (const DBusString *contents)
   int n_arcs;
   int n_blocks;
   int n_arcs_off_tree;
-
+  
   n_arcs_off_tree = 0;
   n_blocks = 0;
   n_arcs = 0;
   n_functions = 0;
   i = 0;
-  while (string_get_int (contents, i, &val))
+  while (i < _dbus_string_get_length (contents))
     {
       long n_blocks_in_func;
       long n_arcs_in_func; 
       int j;
+
+#ifdef DBUS_HAVE_GCC33_GCOV
+      /* In gcc33 .bbg files, there's a function name of the form:
+       *   -1, length, name (padded to 4), -1, checksum
+       * after that header on each function description, it's
+       * the same as in gcc32
+       */
+
+      {
+        DBusString funcname;
+        int checksum;
+        
+        if (!_dbus_string_init (&funcname))
+          die ("no memory\n");
+
+        if (!string_get_function (contents, i,
+                                  &funcname, &checksum, &i))
+          die ("could not read function name\n");
+        
+        printf ("Function name is \"%s\" checksum %d\n",
+                _dbus_string_get_const_data (&funcname),
+                checksum);
+        
+        _dbus_string_free (&funcname);
+      }
+#endif /* DBUS_HAVE_GCC33_GCOV */
       
-      n_blocks_in_func = val;
+      if (!string_get_int (contents, i, &val))
+        die ("no count of blocks in func found\n");
       
       i += 4;
+      
+      n_blocks_in_func = val;
 
       if (!string_get_int (contents, i, &n_arcs_in_func))
         break;
@@ -330,7 +432,10 @@ dump_bbg_file (const DBusString *contents)
           n_functions, n_blocks, n_arcs, n_arcs_off_tree);
 }
 
-/* The da file contains first a count of arcs in the file,
+#ifndef DBUS_HAVE_GCC33_GCOV
+
+/* gcc 3.2 version:
+ * The da file contains first a count of arcs in the file,
  * then a count of executions for all "off tree" arcs
  * in the file.
  */
@@ -369,6 +474,135 @@ dump_da_file (const DBusString *contents)
     }
 }
 
+#else /* DBUS_HAVE_GCC33_GCOV */
+
+/* gcc 3.3 version:
+ * The da file is more complex than 3.2.
+ *
+ * We have a magic value of "-123" only it isn't really
+ * -123, it's -123 as encoded by the crackass gcov-io.h
+ * routines. Anyway, 4 bytes.
+ *
+ * We then have:
+ *
+ *   - 4 byte count of how many functions in the following list
+ *   - 4 byte length of random extra data
+ *   - the random extra data, just skip it, info pages have some
+ *     details on what might be in there or see __bb_exit_func in gcc
+ *   - then for each function (number of functions given above):
+ *     . -1, length, funcname, alignment padding, -1
+ *     . checksum
+ *     . 4 byte number of arcs in function
+ *     . 8 bytes each, a count of execution for each arc
+ *
+ * Now, the whole thing *starting with the magic* can repeat.
+ * This is caused by multiple runs of the profiled app appending
+ * to the file.
+ */
+static void
+dump_da_file (const DBusString *contents)
+{
+  int i;
+  dbus_int64_t v64;
+  long val;
+  int n_sections;
+  int total_functions;
+
+  total_functions = 0;
+  n_sections = 0;
+
+  i = 0;
+  while (i < _dbus_string_get_length (contents))
+    {
+      int claimed_n_functions;
+      int n_functions;
+      int total_arcs;
+
+      printf (".da file section %d\n", n_sections);
+      
+      if (!string_get_int (contents, i, &val))
+        die ("no magic found in .da file\n");
+
+      i += 4;
+
+      if (val != -123)
+        die ("wrong file magic in .da file\n");
+
+      if (!string_get_int (contents, i, &val))
+        die ("no function count in .da file\n");
+      i += 4;
+      claimed_n_functions = val;
+
+      printf ("%d functions expected in section %d of .da file\n",
+              claimed_n_functions, n_sections);
+      
+      if (!string_get_int (contents, i, &val))
+        die ("no extra data length in .da file\n");
+
+      i += 4;
+
+      i += val;
+
+      total_arcs = 0;
+      n_functions = 0;
+      while (n_functions < claimed_n_functions)
+        {
+          DBusString funcname;
+          int checksum;
+          int claimed_n_arcs;
+          int n_arcs;
+          
+          if (!_dbus_string_init (&funcname))
+            die ("no memory\n");
+          
+          if (!string_get_function (contents, i,
+                                    &funcname, &checksum, &i))
+            die ("could not read function name\n");
+          
+          if (!string_get_int (contents, i, &val))
+            die ("no arc count for function\n");
+          
+          i += 4;
+          claimed_n_arcs = val;
+          
+          printf ("  %d arcs in function %d %s checksum %d\n",
+                  claimed_n_arcs, n_functions,
+                  _dbus_string_get_const_data (&funcname),
+                  checksum);
+          
+          n_arcs = 0;
+          while (n_arcs < claimed_n_arcs)
+            {
+              if (!string_get_int64 (contents, i, &v64))
+                die ("did not get execution count for arc\n");
+              
+              i += 8;
+              
+              printf ("    %ld executions of arc %d (total arcs %d)\n",
+                      (long) v64, n_arcs, total_arcs + n_arcs);
+              
+              ++n_arcs;
+            }
+
+          _dbus_string_free (&funcname);
+
+          total_arcs += n_arcs;
+          ++n_functions;
+        }
+
+      printf ("total of %d functions and %d arcs in section %d\n",
+              n_functions, total_arcs, n_sections);
+      
+      total_functions += n_functions;
+      ++n_sections;
+    }
+
+  printf ("%d total function sections in %d total .da file sections\n",
+          total_functions, n_sections);
+}
+
+#endif /* DBUS_HAVE_GCC33_GCOV */
+
 typedef struct Arc Arc;
 typedef struct Block Block;
 typedef struct Function Function;
@@ -404,6 +638,7 @@ struct Block
 struct Function
 {
   char *name;
+  int checksum;
   Block *block_graph;
   int n_blocks;
   /* number of blocks in DBUS_BUILD_TESTS */
@@ -518,12 +753,32 @@ get_functions_from_bbg (const DBusString  *contents,
   n_arcs = 0;
   n_functions = 0;
   i = 0;
-  while (string_get_int (contents, i, &val))
+  while (i < _dbus_string_get_length (contents))
     {
       Function *func;
       long n_blocks_in_func;
       long n_arcs_in_func; 
       int j;
+
+#ifdef DBUS_HAVE_GCC33_GCOV
+      DBusString funcname;
+      int checksum;
+
+      /* In gcc33 .bbg files, there's a function name of the form:
+       *   -1, length, name (padded to 4), -1, checksum
+       * after that header on each function description, it's
+       * the same as in gcc32
+       */
+      if (!_dbus_string_init (&funcname))
+        die ("no memory\n");
+      
+      if (!string_get_function (contents, i,
+                                &funcname, &checksum, &i))
+        die ("could not read function name\n");
+#endif /* DBUS_HAVE_GCC33_GCOV */
+
+      if (!string_get_int (contents, i, &val))
+        break;
       
       n_blocks_in_func = val;
       
@@ -542,6 +797,12 @@ get_functions_from_bbg (const DBusString  *contents,
       if (func == NULL)
         die ("no memory\n");
 
+#ifdef DBUS_HAVE_GCC33_GCOV
+      func->name = _dbus_strdup (_dbus_string_get_const_data (&funcname));
+      func->checksum = checksum;
+      _dbus_string_free (&funcname);
+#endif
+      
       func->block_graph = dbus_new0 (Block, n_blocks_in_func);
       func->n_blocks = n_blocks_in_func;
       
@@ -601,7 +862,7 @@ get_functions_from_bbg (const DBusString  *contents,
       i += 4;
 
       if (val != -1)
-        die ("-1 separator not found\n");
+        die ("-1 separator not found in .bbg file\n");
     }
 
 #if 0
@@ -612,6 +873,149 @@ get_functions_from_bbg (const DBusString  *contents,
   _dbus_assert (n_functions == _dbus_list_get_length (functions));
 }
 
+#ifdef DBUS_HAVE_GCC33_GCOV
+static void
+add_counts_from_da (const DBusString  *contents,
+                    DBusList         **functions)
+{
+  int i;
+  dbus_int64_t v64;
+  long val;
+  int n_sections;
+  DBusList *link;
+  Function *current_func;  
+  int current_block;
+  Arc *current_arc;
+
+  n_sections = 0;
+
+  i = 0;
+  while (i < _dbus_string_get_length (contents))
+    {
+      int claimed_n_functions;
+      int n_functions;
+      
+      if (!string_get_int (contents, i, &val))
+        die ("no magic found in .da file\n");
+
+      i += 4;
+
+      if (val != -123)
+        die ("wrong file magic in .da file\n");
+
+      if (!string_get_int (contents, i, &val))
+        die ("no function count in .da file\n");
+      i += 4;
+      claimed_n_functions = val;
+      
+      if (!string_get_int (contents, i, &val))
+        die ("no extra data length in .da file\n");
+
+      i += 4;
+
+      i += val;
+
+      link = _dbus_list_get_first_link (functions);
+      if (link == NULL)
+        goto no_more_functions;
+      
+      n_functions = 0;
+      while (n_functions < claimed_n_functions && link != NULL)
+        {
+          DBusString funcname;
+          int checksum;
+          int claimed_n_arcs;
+          int n_arcs;
+
+          current_func = link->data;
+          current_block = 0;
+          current_arc = current_func->block_graph[current_block].succ;
+          
+          if (!_dbus_string_init (&funcname))
+            die ("no memory\n");
+          
+          if (!string_get_function (contents, i,
+                                    &funcname, &checksum, &i))
+            die ("could not read function name\n");
+
+          if (!_dbus_string_equal_c_str (&funcname, current_func->name))
+            {
+              fprintf (stderr, "Expecting .da info for %s but got %s\n",
+                       current_func->name,
+                       _dbus_string_get_const_data (&funcname));
+              exit (1);
+            }
+          
+          if (checksum != current_func->checksum)
+            die (".da file checksum doesn't match checksum from .bbg file\n");
+          
+          if (!string_get_int (contents, i, &val))
+            die ("no arc count for function\n");
+          
+          i += 4;
+          claimed_n_arcs = val;
+
+          /* For each arc in the profile, find the corresponding
+           * arc in the function and increment its count
+           */
+          n_arcs = 0;
+          while (n_arcs < claimed_n_arcs)
+            {
+              if (!string_get_int64 (contents, i, &v64))
+                die ("did not get execution count for arc\n");
+              
+              i += 8;
+
+              /* Find the next arc in the function that isn't on tree */
+              while (current_arc == NULL ||
+                     current_arc->on_tree)
+                {
+                  if (current_arc == NULL)
+                    {
+                      ++current_block;
+              
+                      if (current_block >= current_func->n_blocks)
+                        die ("too many blocks in function\n");
+              
+                      current_arc = current_func->block_graph[current_block].succ;
+                    }
+                  else
+                    {
+                      current_arc = current_arc->succ_next;
+                    }
+                }
+              
+              _dbus_assert (current_arc != NULL);
+              _dbus_assert (!current_arc->on_tree);
+              
+              current_arc->arc_count = v64;
+              current_arc->count_valid = TRUE;
+              current_func->block_graph[current_block].succ_count -= 1;
+              current_func->block_graph[current_arc->target].pred_count -= 1;
+              
+              ++n_arcs;
+              
+              current_arc = current_arc->succ_next;
+            }
+
+          _dbus_string_free (&funcname);
+
+          link = _dbus_list_get_next_link (functions, link);
+          ++n_functions;
+
+          if (link == NULL && n_functions < claimed_n_functions)
+            {
+              fprintf (stderr, "Ran out of functions loading .da file\n");
+              goto no_more_functions;
+            }
+        }
+
+    no_more_functions:
+      
+      ++n_sections;
+    }
+}
+#else /* DBUS_HAVE_GCC33_GCOV */
 static void
 add_counts_from_da (const DBusString  *contents,
                     DBusList         **functions)
@@ -703,6 +1107,7 @@ add_counts_from_da (const DBusString  *contents,
   printf ("%d arcs in file\n", n_arcs);
 #endif
 }
+#endif
 
 static void
 function_solve_graph (Function *func)
@@ -827,16 +1232,24 @@ function_solve_graph (Function *func)
   /* If the graph has been correctly solved, every block will have a
    * succ and pred count of zero.
    */
-  for (i = 0; i < n_blocks; i++)
-    {
-      if (block_graph[i].succ_count || block_graph[i].pred_count)
-        {
-          fprintf (stderr, "WARNING: Block graph solved incorrectly\n");
-          fprintf (stderr, " block %d has succ_count = %d pred_count = %d\n",
-                   i, (int) block_graph[i].succ_count, (int) block_graph[i].pred_count);
-          fprintf (stderr, " this error reflects a bug in decode-gcov.c\n");
-        }
-    }
+  {
+    dbus_bool_t header = FALSE;
+    for (i = 0; i < n_blocks; i++)
+      {
+        if (block_graph[i].succ_count || block_graph[i].pred_count)
+          {
+            if (!header)
+              {
+                fprintf (stderr, "WARNING: Block graph solved incorrectly for function %s\n",
+                         func->name);
+                fprintf (stderr, " this error reflects a bug in decode-gcov.c or perhaps bogus data\n");
+                header = TRUE;
+              }
+            fprintf (stderr, " block %d has succ_count = %d pred_count = %d\n",
+                     i, (int) block_graph[i].succ_count, (int) block_graph[i].pred_count);
+          }
+      }
+  }
 }
 
 static void
@@ -895,9 +1308,35 @@ load_functions_for_c_file (const DBusString *filename,
   if (!_dbus_file_get_contents (&contents, &da_filename,
                                 &error))
     {
-      fprintf (stderr, "Could not open file: %s\n",
-               error.message);
-      exit (1);
+      /* Try .libs/file.da */
+      int slash;
+
+      if (_dbus_string_find_byte_backward (&da_filename,
+                                            _dbus_string_get_length (&da_filename),
+                                            '/',
+                                            &slash))
+        {
+          DBusString libs;
+          _dbus_string_init_const (&libs, "/.libs");
+
+          if (!_dbus_string_copy (&libs, 0, &da_filename, slash))
+            die ("no memory");
+
+          dbus_error_free (&error);
+          if (!_dbus_file_get_contents (&contents, &da_filename,
+                                        &error))
+            {
+              fprintf (stderr, "Could not open file: %s\n",
+                       error.message);
+              exit (1);
+            }
+        }
+      else
+        {
+          fprintf (stderr, "Could not open file: %s\n",
+                   error.message);
+          exit (1);
+        }
     }
   
   add_counts_from_da (&contents, functions);
@@ -1007,7 +1446,7 @@ get_lines_from_bb_file (const DBusString *contents,
                       {
                         func = link->data;
                         link = _dbus_list_get_next_link (&fl->functions, link);
-                        
+
                         if (func->name == NULL)
                           {
                             if (!_dbus_string_copy_data (&f, &func->name))
@@ -1015,7 +1454,14 @@ get_lines_from_bb_file (const DBusString *contents,
                           }
                         else
                           {
-                            die ("got two names for function?\n");
+                            if (!_dbus_string_equal_c_str (&f, func->name))
+                              {
+                                fprintf (stderr, "got function name \"%s\" (%d) from .bbg file, but \"%s\" (%d) from .bb file\n",
+                                         func->name, strlen (func->name),
+                                         _dbus_string_get_const_data (&f),
+                                         _dbus_string_get_length (&f));
+
+                              }
                           }
                       }
                   }

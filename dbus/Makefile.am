@@ -150,4 +150,4 @@ dbus_test_LDADD= $(DBUS_CLIENT_LIBS) libdbus-1.la
 
 ## mop up the gcov files
 clean-local:
-	/bin/rm *.bb *.bbg *.da *.gcov || true
+	/bin/rm *.bb *.bbg *.da *.gcov .libs/*.da .libs/*.bbg || true

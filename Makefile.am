@@ -47,12 +47,33 @@ if DBUS_GCOV_ENABLED
 clean-gcov:
 	find -name "*.da" -o -name "*.gcov" | xargs rm || true
 
+clean-bbg:
+	find -name "*.bbg" -o -name "*.bb" | xargs rm || true
+
+GCOV_DIRS=dbus bus test $(GLIB_SUBDIR) $(QT_SUBDIR)
+
 ## .PHONY so it always rebuilds it
 .PHONY: coverage-report.txt
 coverage-report.txt:
-	GCOV_FILES=`find dbus bus $(GLIB_SUBDIR) $(QT_SUBDIR) -name "*.bbg"` ;		\
+	BBG_FILES=`find $(GCOV_DIRS) -name "*.bbg"` ;					\
+	for F in $$BBG_FILES ; do							\
+		F_nolibs=`echo $$F | sed -e 's/.libs\///g'` ;				\
+		if test $$F != $$F_nolibs ; then					\
+			echo "Moving $$F to $$F_nolibs"	;				\
+			mv -f $$F $$F_nolibs ;						\
+		fi ;									\
+	done	;									\
+	DA_FILES=`find $(GCOV_DIRS) -name "*.da"` ;					\
+	for F in $$DA_FILES ; do							\
+		F_nolibs=`echo $$F | sed -e 's/.libs\///g'` ;				\
+		if test $$F != $$F_nolibs ; then					\
+			echo "Moving $$F to $$F_nolibs"	;				\
+			mv -f $$F $$F_nolibs ;						\
+		fi ;									\
+	done	;									\
+	BBG_FILES=`find $(GCOV_DIRS) -name "*.bbg"` ;					\
 	C_FILES= ;									\
-	for F in $$GCOV_FILES; do							\
+	for F in $$BBG_FILES ; do							\
 		C=`echo $$F | sed -e 's/.bbg/.c/g'` ;					\
 		DA=`echo $$F | sed -e 's/.bbg/.da/g'` ;					\
 		if test -e $$DA ; then							\

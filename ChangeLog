@@ -1,3 +1,9 @@
+2003-10-14  Havoc Pennington  <hp@redhat.com>
+
+	* test/decode-gcov.c: support gcc 3.3 also, though gcc 3.3 seems
+	to have a bug keeping it from outputting the .da files sometimes
+	(string_get_string): don't append garbage nul bytes to the string.
+
 2003-10-15  Seth Nickell  <seth@gnome.org>
 
 	* python/Makefile.am:
