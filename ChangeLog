@@ -1,3 +1,8 @@
+2004-12-21  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* dbus/make-dbus-glib-error-enum.sh: omit the function keyword for
+	better POSIX compliance.
+
 2004-12-19  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-string.c (_dbus_string_insert_4_aligned) 

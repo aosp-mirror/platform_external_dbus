@@ -3,7 +3,7 @@
 SRC=$1
 DEST=$2
 
-function die()
+die()
 {
     echo $1 1>&2
     /bin/rm $DEST.tmp
