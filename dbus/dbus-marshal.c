@@ -829,6 +829,7 @@ _dbus_demarshal_string (const DBusString *str,
  * @param str the string containing the data
  * @param byte_order the byte order
  * @param pos the position in the string
+ * @param new_pos the new position of the string
  * @param array the array
  * @param array_len length of the demarshaled data
  

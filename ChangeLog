@@ -1,3 +1,13 @@
+2003-03-26  Anders Carlsson  <andersca@codefactory.se>
+
+	* Doxyfile.in:
+	* dbus/dbus-address.c:
+	* dbus/dbus-dict.c:
+	* dbus/dbus-marshal.c:
+	* dbus/dbus-server-debug-pipe.c:
+	* dbus/dbus-transport-unix.c:
+	Fix documentation warnings.
+	
 2003-03-26  Havoc Pennington  <hp@pobox.com>
 
 	* bus/test-main.c, dbus/dbus-test.c (main): check memleaks

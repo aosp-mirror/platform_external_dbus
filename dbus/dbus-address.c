@@ -170,7 +170,7 @@ dbus_address_entry_get_value (DBusAddressEntry *entry,
  * @param address the address.
  * @param entry return location to an array of entries.
  * @param array_len return location for array length.
- * @param result return location for result code.
+ * @param error address where an error can be returned.
  * @returns #TRUE on success, #FALSE otherwise.
  */
 dbus_bool_t

@@ -143,8 +143,11 @@ EXPAND_ONLY_PREDEF     = YES
 SEARCH_INCLUDES        = YES
 INCLUDE_PATH           = 
 INCLUDE_FILE_PATTERNS  = 
-PREDEFINED             = "DBUS_BEGIN_DECLS=" "DBUS_END_DECLS=" "DOXYGEN_SHOULD_SKIP_THIS"
-EXPAND_AS_DEFINED      = 
+PREDEFINED             = "DBUS_BEGIN_DECLS=" 			\
+			 "DBUS_END_DECLS=" 			\
+			 "DOXYGEN_SHOULD_SKIP_THIS" 		\
+			 "_DBUS_DEFINE_GLOBAL_LOCK(name)="	\
+			 "_DBUS_GNUC_PRINTF(from,to)="
 SKIP_FUNCTION_MACROS   = YES
 #---------------------------------------------------------------------------
 # Configuration::addtions related to external references   

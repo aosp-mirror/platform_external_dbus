@@ -209,7 +209,7 @@ _dbus_server_debug_pipe_new (const char     *server_name,
  * given debug-pipe server name.
  * 
  * @param server_name name of server to connect to
- * @param result return location for result
+ * @param error address where an error can be returned.
  * @returns #NULL on no memory or transport
  */
 DBusTransport*

@@ -1028,7 +1028,7 @@ _dbus_transport_new_for_fd (int         fd,
  *
  * @param path the path to the domain socket.
  * @param server #TRUE if this transport is on the server side of a connection
- * @param error location to store reason for failure.
+ * @param error address where an error can be returned.
  * @returns a new transport, or #NULL on failure.
  */
 DBusTransport*
@@ -1070,7 +1070,7 @@ _dbus_transport_new_for_domain_socket (const char     *path,
  * @param host the host to connect to
  * @param port the port to connect to
  * @param server #TRUE if this transport is on the server side of a connection
- * @param result location to store reason for failure.
+ * @param error location to store reason for failure.
  * @returns a new transport, or #NULL on failure.
  */
 DBusTransport*
