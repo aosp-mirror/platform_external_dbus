@@ -199,8 +199,14 @@ method_output_signature_from_object_info (const DBusGObjectInfo *object,
   return method_dir_signature_from_object_info (object, method, FALSE);
 }
 
+/**
+ * Converts the args of a message into an array of GValue.
+ *
+ * @param message the message
+ * @returns #NULL if conversion fails, otherwise the values.
+ */
 GValueArray *
-_dbus_glib_marshal_dbus_message_to_gvalue_array (DBusMessage         *message)
+_dbus_glib_marshal_dbus_message_to_gvalue_array (DBusMessage *message)
 {
   GValueArray *ret;
   DBusMessageIter iter;

@@ -1,3 +1,13 @@
+2005-02-19  Havoc Pennington  <hp@redhat.com>
+
+	* glib/dbus-gobject.c
+	(_dbus_glib_marshal_dbus_message_to_gvalue_array): add docs
+
+	* glib/dbus-glib.c: fix doxygen warnings
+
+	* glib/dbus-gparser.c (parse_annotation): error if an annotation
+	is found on an <arg>
+
 2005-02-17  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-gobject.h: Don't export

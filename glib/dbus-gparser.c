@@ -733,7 +733,7 @@ parse_annotation (Parser      *parser,
   const char *name;
   const char *value;
   
-  if (!(parser->method || parser->interface || parser->arg) || 
+  if (!(parser->method || parser->interface) || 
       parser->node_stack == NULL ||
       parser->signal ||
       parser->in_annotation)
@@ -753,8 +753,6 @@ parse_annotation (Parser      *parser,
                           NULL))
     return FALSE;
 
-  /* name can be null for args */
-  
   if (name == NULL)
     {
       g_set_error (error, G_MARKUP_ERROR,

@@ -50,7 +50,7 @@ dbus_g_connection_flush (DBusGConnection *connection)
 /**
  * Increment refcount on a #DBusGConnection
  * 
- * @param connection the connection to ref
+ * @param gconnection the connection to ref
  * @returns the connection that was ref'd
  */
 DBusGConnection*
@@ -67,7 +67,7 @@ dbus_g_connection_ref (DBusGConnection *gconnection)
 /**
  * Decrement refcount on a #DBusGConnection
  * 
- * @param connection the connection to unref
+ * @param gconnection the connection to unref
  */
 void
 dbus_g_connection_unref (DBusGConnection *gconnection)
@@ -82,7 +82,7 @@ dbus_g_connection_unref (DBusGConnection *gconnection)
 /**
  * Increment refcount on a #DBusGMessage
  * 
- * @param message the message to ref
+ * @param gmessage the message to ref
  * @returns the message that was ref'd
  */
 DBusGMessage*
@@ -98,7 +98,7 @@ dbus_g_message_ref (DBusGMessage *gmessage)
 /**
  * Decrement refcount on a #DBusGMessage
  * 
- * @param message the message to unref
+ * @param gmessage the message to unref
  */
 void
 dbus_g_message_unref (DBusGMessage *gmessage)
