@@ -39,8 +39,6 @@ struct DBusTypeReader
 {
   dbus_uint32_t byte_order : 8;
 
-  dbus_uint32_t types_only : 1; /* iterate over types not values */
-
   dbus_uint32_t finished : 1;   /* marks we're at end iterator for cases
                                  * where we don't have another way to tell
                                  */
