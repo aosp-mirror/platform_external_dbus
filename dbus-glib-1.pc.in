@@ -6,7 +6,7 @@ includedir=@includedir@
 Name: dbus-glib
 Description: GLib integration for the free desktop message bus
 Version: @VERSION@
-Requires: dbus-1.0 glib-2.0
+Requires: dbus-1 glib-2.0
 Libs: -L${libdir} -ldbus-glib-1
 Cflags: -I${includedir}/dbus-1.0
 
