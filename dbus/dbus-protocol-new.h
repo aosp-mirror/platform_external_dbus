@@ -65,12 +65,12 @@ extern "C" {
 #define DBUS_TYPE_STRING_AS_STRING         "s"
 #define DBUS_TYPE_OBJECT_PATH   ((int) 'o')
 #define DBUS_TYPE_OBJECT_PATH_AS_STRING    "o"
+#define DBUS_TYPE_SIGNATURE     ((int) 'g')
+#define DBUS_TYPE_SIGNATURE_AS_STRING      "g"
 
 /* Compound types */
 #define DBUS_TYPE_ARRAY         ((int) 'a')
 #define DBUS_TYPE_ARRAY_AS_STRING          "a"
-#define DBUS_TYPE_DICT          ((int) 'm') /* not parameterized; always map<string,variant> */
-#define DBUS_TYPE_DICT_AS_STRING           "m"
 #define DBUS_TYPE_VARIANT       ((int) 'v')
 #define DBUS_TYPE_VARIANT_AS_STRING        "v"
 
@@ -89,8 +89,13 @@ extern "C" {
 #define DBUS_STRUCT_END_CHAR     ((int) ')')
 #define DBUS_STRUCT_END_CHAR_AS_STRING     ")"
 
-/* Max length in bytes of a service or interface or member name */
-#define DBUS_MAXIMUM_NAME_LENGTH 256
+/* Max length in bytes of a service or interface or member name
+ * (not object path, paths are unlimited)
+ */
+#define DBUS_MAXIMUM_NAME_LENGTH 255
+
+/* This one is 255 so it fits in a byte */
+#define DBUS_MAXIMUM_SIGNATURE_LENGTH 255
 
 /* Max length of a match rule string */
 #define DBUS_MAXIMUM_MATCH_RULE_LENGTH 1024

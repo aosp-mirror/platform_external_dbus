@@ -79,12 +79,12 @@
 #define DBUS_TYPE_STRING_AS_STRING         "s"
 #define DBUS_TYPE_OBJECT_PATH   ((int) 'o')
 #define DBUS_TYPE_OBJECT_PATH_AS_STRING    "o"
+#define DBUS_TYPE_SIGNATURE     ((int) 'g')
+#define DBUS_TYPE_SIGNATURE_AS_STRING      "g"
 
 /* Compound types */
 #define DBUS_TYPE_ARRAY         ((int) 'a')
 #define DBUS_TYPE_ARRAY_AS_STRING          "a"
-#define DBUS_TYPE_DICT          ((int) 'm') /* not parameterized; always map<string,variant> */
-#define DBUS_TYPE_DICT_AS_STRING           "m"
 #define DBUS_TYPE_VARIANT       ((int) 'v')
 #define DBUS_TYPE_VARIANT_AS_STRING        "v"
 
@@ -103,6 +103,8 @@
 #define DBUS_STRUCT_END_CHAR     ((int) ')')
 #define DBUS_STRUCT_END_CHAR_AS_STRING     ")"
 
+#define DBUS_MAXIMUM_SIGNATURE_LENGTH 255
+
 static const char *
 _hack_dbus_type_to_string (int type)
 {
@@ -120,12 +122,14 @@ _hack_dbus_type_to_string (int type)
       return "double";
     case DBUS_TYPE_STRING:
       return "string";
+    case DBUS_TYPE_OBJECT_PATH:
+      return "object_path";
+    case DBUS_TYPE_SIGNATURE:
+      return "signature";
     case DBUS_TYPE_STRUCT:
       return "struct";
     case DBUS_TYPE_ARRAY:
       return "array";
-    case DBUS_TYPE_DICT:
-      return "dict";
     case DBUS_TYPE_VARIANT:
       return "variant";
     case DBUS_STRUCT_BEGIN_CHAR:

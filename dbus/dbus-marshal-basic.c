@@ -1919,17 +1919,6 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
 	*end_pos = _DBUS_ALIGN_VALUE (pos, 4) + len;
       }
       break;
-
-    case DBUS_TYPE_DICT:
-      {
-	int len;
-
-	/* Demarshal the length */
-	len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
-	
-	*end_pos = pos + len;
-      }
-      break;
       
     default:
       _dbus_warn ("Unknown message arg type %d\n", type);
@@ -2087,7 +2076,6 @@ validate_array_data (const DBusString *str,
     case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_ARRAY:
-    case DBUS_TYPE_DICT:
       /* This clean recursion to validate_arg is what we
        * are doing logically for all types, but we don't
        * really want to call validate_arg for every byte
@@ -2366,56 +2354,6 @@ _dbus_marshal_validate_arg (const DBusString *str,
 	*end_pos = pos;
       }
       break;
-
-    case DBUS_TYPE_DICT:
-      {
-	int dict_type;
-	int len;
-	int end;
-	
-	len = demarshal_and_validate_len (str, byte_order, pos, &pos);
-        if (len < 0)
-          return FALSE;
-
-        if (len > _dbus_string_get_length (str) - pos)
-          {
-            _dbus_verbose ("dict length outside length of the message\n");
-            return FALSE;
-          }
-	
-	end = pos + len;
-	
-	while (pos < end)
-	  {
-	    /* Validate name */
-	    if (!_dbus_marshal_validate_arg (str, byte_order, depth + 1,
-					     DBUS_TYPE_STRING, -1, pos, &pos))
-	      return FALSE;
-	    
-	    if (!_dbus_marshal_validate_type (str, pos, &dict_type, &pos))
-	      {
-		_dbus_verbose ("invalid dict entry type at offset %d\n", pos);
-		return FALSE;
-	      }
-	    
-	    /* Validate element */
-	    if (!_dbus_marshal_validate_arg (str, byte_order, depth + 1,
-					     dict_type, -1, pos, &pos))
-	      {
-		_dbus_verbose ("dict arg invalid at offset %d\n", pos);
-		return FALSE;
-	      }
-	  }
-	
-	if (pos > end)
-	  {
-	    _dbus_verbose ("dict contents exceed stated dict length\n");
-	    return FALSE;
-	  }
-        
-	*end_pos = pos;
-      }
-      break;
       
     default:
       _dbus_verbose ("Unknown message arg type %d\n", type);
@@ -2448,7 +2386,6 @@ _dbus_type_is_valid (int typecode)
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_ARRAY:
-    case DBUS_TYPE_DICT:
     case DBUS_TYPE_STRUCT:
     case DBUS_TYPE_VARIANT:
       return TRUE;
@@ -2472,6 +2409,8 @@ _dbus_type_get_alignment (int typecode)
     {
     case DBUS_TYPE_BYTE:
     case DBUS_TYPE_BOOLEAN:
+    case DBUS_TYPE_VARIANT:
+    case DBUS_TYPE_SIGNATURE:
       return 1;
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
@@ -2479,8 +2418,6 @@ _dbus_type_get_alignment (int typecode)
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_ARRAY:
-    case DBUS_TYPE_DICT:
-    case DBUS_TYPE_VARIANT:
       return 4;
     case DBUS_TYPE_INT64:
     case DBUS_TYPE_UINT64:

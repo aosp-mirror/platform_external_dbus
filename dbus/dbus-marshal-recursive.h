@@ -53,11 +53,6 @@ struct DBusTypeReader
     } array;
 
     struct {
-      int len_pos;
-
-    } dict;
-
-    struct {
       dbus_uint32_t finished : 1;
     } strct;
   } u;
@@ -71,7 +66,7 @@ struct DBusTypeWriter
   DBusString *value_str;
   int value_pos;
 
-  dbus_uint32_t inside_array : 1;
+  dbus_uint32_t type_pos_is_expectation : 1; /* type_pos is an insertion point or an expected next type */
 
   int container_type;
   union
@@ -82,11 +77,6 @@ struct DBusTypeWriter
       int element_type_pos; /* position in type_str of array element type */
       int element_type_len;
     } array;
-
-    struct {
-      int len_pos;
-
-    } dict;
   } u;
 };
 
@@ -108,27 +98,30 @@ void        _dbus_type_reader_recurse             (DBusTypeReader    *reader,
                                                    DBusTypeReader    *subreader);
 dbus_bool_t _dbus_type_reader_next                (DBusTypeReader    *reader);
 
-void        _dbus_type_writer_init          (DBusTypeWriter *writer,
-                                             int             byte_order,
-                                             DBusString     *type_str,
-                                             int             type_pos,
-                                             DBusString     *value_str,
-                                             int             value_pos);
-dbus_bool_t _dbus_type_writer_write_basic   (DBusTypeWriter *writer,
-                                             int             type,
-                                             const void     *value);
-dbus_bool_t _dbus_type_writer_write_array   (DBusTypeWriter *writer,
-                                             int             type,
-                                             const void     *array,
-                                             int             array_len);
-dbus_bool_t _dbus_type_writer_recurse       (DBusTypeWriter *writer,
-                                             int             container_type,
-                                             DBusTypeWriter *sub);
-dbus_bool_t _dbus_type_writer_recurse_array (DBusTypeWriter *writer,
-                                             const char     *element_type,
-                                             DBusTypeWriter *sub);
-dbus_bool_t _dbus_type_writer_unrecurse     (DBusTypeWriter *writer,
-                                             DBusTypeWriter *sub);
+void        _dbus_type_writer_init            (DBusTypeWriter *writer,
+                                               int             byte_order,
+                                               DBusString     *type_str,
+                                               int             type_pos,
+                                               DBusString     *value_str,
+                                               int             value_pos);
+dbus_bool_t _dbus_type_writer_write_basic     (DBusTypeWriter *writer,
+                                               int             type,
+                                               const void     *value);
+dbus_bool_t _dbus_type_writer_write_array     (DBusTypeWriter *writer,
+                                               int             type,
+                                               const void     *array,
+                                               int             array_len);
+dbus_bool_t _dbus_type_writer_recurse_struct  (DBusTypeWriter *writer,
+                                               DBusTypeWriter *sub);
+dbus_bool_t _dbus_type_writer_recurse_array   (DBusTypeWriter *writer,
+                                               const char     *element_type,
+                                               DBusTypeWriter *sub);
+dbus_bool_t _dbus_type_writer_recurse_variant (DBusTypeWriter *writer,
+                                               const char     *contained_type,
+                                               DBusTypeWriter *sub);
+dbus_bool_t _dbus_type_writer_unrecurse       (DBusTypeWriter *writer,
+                                               DBusTypeWriter *sub);
+
 
 
 #endif /* DBUS_MARSHAL_RECURSIVE_H */
