@@ -1,5 +1,15 @@
 2005-02-13  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-connection.c (dbus_connection_return_message) 
+	(dbus_connection_borrow_message): hold dispatch lock while message
+	is outstanding
+	(_dbus_connection_block_for_reply): hold dispatch lock while we
+	block for the reply, so nobody steals our reply
+	(dbus_connection_pop_message): hold the dispatch lock while we
+	pluck the message
+
+2005-02-13  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-connection.c (_dbus_connection_acquire_dispatch)
 	(_dbus_connection_release_dispatch)
 	(_dbus_connection_acquire_io_path)

@@ -196,8 +196,9 @@ struct DBusConnection
   DBusList *outgoing_messages; /**< Queue of messages we need to send, send the end of the list first. */
   DBusList *incoming_messages; /**< Queue of messages we have received, end of the list received most recently. */
 
-  DBusMessage *message_borrowed; /**< True if the first incoming message has been borrowed */
-  DBusCondVar *message_returned_cond; /**< Used with dbus_connection_borrow_message() */
+  DBusMessage *message_borrowed; /**< Filled in if the first incoming message has been borrowed;
+                                  *   dispatch_acquired will be set by the borrower
+                                  */
   
   int n_outgoing;              /**< Length of outgoing queue. */
   int n_incoming;              /**< Length of incoming queue. */
@@ -232,8 +233,8 @@ struct DBusConnection
                          */
   DBusObjectTree *objects; /**< Object path handlers registered with this connection */
   
-  unsigned int dispatch_acquired : 1; /**< Someone has dispatch path */
-  unsigned int io_path_acquired : 1;  /**< Someone has transport io path */
+  unsigned int dispatch_acquired : 1; /**< Someone has dispatch path (can drain incoming queue) */
+  unsigned int io_path_acquired : 1;  /**< Someone has transport io path (can use the transport to read/write messages) */
   
   unsigned int exit_on_disconnect : 1; /**< If #TRUE, exit after handling disconnect signal */
   
@@ -250,6 +251,8 @@ static DBusDispatchStatus _dbus_connection_get_dispatch_status_unlocked      (DB
 static void               _dbus_connection_update_dispatch_status_and_unlock (DBusConnection     *connection,
                                                                               DBusDispatchStatus  new_status);
 static void               _dbus_connection_last_unref                        (DBusConnection     *connection);
+static void               _dbus_connection_acquire_dispatch                  (DBusConnection     *connection);
+static void               _dbus_connection_release_dispatch                  (DBusConnection     *connection);
 
 static DBusMessageFilter *
 _dbus_message_filter_ref (DBusMessageFilter *filter)
@@ -1162,7 +1165,6 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection->dispatch_mutex = dispatch_mutex;
   connection->io_path_cond = io_path_cond;
   connection->io_path_mutex = io_path_mutex;
-  connection->message_returned_cond = message_returned_cond;
   connection->transport = transport;
   connection->watches = watch_list;
   connection->timeouts = timeout_list;
@@ -1540,7 +1542,6 @@ _dbus_connection_last_unref (DBusConnection *connection)
   
   dbus_condvar_free (connection->dispatch_cond);
   dbus_condvar_free (connection->io_path_cond);
-  dbus_condvar_free (connection->message_returned_cond);  
 
   dbus_mutex_free (connection->io_path_mutex);
   dbus_mutex_free (connection->dispatch_mutex);
@@ -2177,6 +2178,9 @@ check_for_reply_unlocked (DBusConnection *connection,
   DBusList *link;
 
   HAVE_LOCK_CHECK (connection);
+
+  /* popping incoming_messages requires dispatch lock */
+  _dbus_assert (connection->dispatch_acquired);
   
   link = _dbus_list_get_first_link (&connection->incoming_messages);
 
@@ -2202,7 +2206,14 @@ check_for_reply_unlocked (DBusConnection *connection,
  *
  * @todo could use performance improvements (it keeps scanning
  * the whole message queue for example) and has thread issues,
- * see comments in source
+ * see comments in source.
+ *
+ * @todo holds the dispatch lock right now so blocks other threads
+ * from reading messages. This could be fixed by having
+ * dbus_connection_dispatch() and friends wake up this thread if the
+ * needed reply is seen. That in turn could be done by using
+ * DBusPendingCall for all replies we block for, so we track which
+ * replies are interesting.
  *
  * Does not re-enter the main loop or run filter/path-registered
  * callbacks. The reply to the message will not be seen by
@@ -2253,11 +2264,11 @@ _dbus_connection_block_for_reply (DBusConnection     *connection,
                  client_serial,
                  start_tv_sec, start_tv_usec,
                  end_tv_sec, end_tv_usec);
+
+  _dbus_connection_acquire_dispatch (connection);
   
   /* Now we wait... */
-  /* THREAD TODO: This is busted. What if a dispatch() or pop_message
-   * gets the message before we do?
-   */
+  /* THREAD TODO: Evil to block here and lock all other threads out of dispatch. */
   /* always block at least once as we know we don't have the reply yet */
   _dbus_connection_do_iteration_unlocked (connection,
                                           DBUS_ITERATION_DO_READING |
@@ -2286,6 +2297,8 @@ _dbus_connection_block_for_reply (DBusConnection     *connection,
 
           _dbus_verbose ("dbus_connection_send_with_reply_and_block(): got reply\n");
 
+          _dbus_connection_release_dispatch (connection);
+          
           /* Unlocks, and calls out to user code */
           _dbus_connection_update_dispatch_status_and_unlock (connection, status);
           
@@ -2297,6 +2310,7 @@ _dbus_connection_block_for_reply (DBusConnection     *connection,
   
   if (!_dbus_connection_get_is_connected_unlocked (connection))
     {
+      _dbus_connection_release_dispatch (connection);
       CONNECTION_UNLOCK (connection);
       return NULL;
     }
@@ -2342,6 +2356,8 @@ _dbus_connection_block_for_reply (DBusConnection     *connection,
   _dbus_verbose ("dbus_connection_send_with_reply_and_block(): Waited %ld milliseconds and got no reply\n",
                  (tv_sec - start_tv_sec) * 1000 + (tv_usec - start_tv_usec) / 1000);
 
+  _dbus_connection_release_dispatch (connection);
+  
   /* unlocks and calls out to user code */
   _dbus_connection_update_dispatch_status_and_unlock (connection, status);
 
@@ -2453,26 +2469,6 @@ dbus_connection_flush (DBusConnection *connection)
   _dbus_verbose ("%s end\n", _DBUS_FUNCTION_NAME);
 }
 
-/* Call with mutex held. Will drop it while waiting and re-acquire
- * before returning
- */
-static void
-_dbus_connection_wait_for_borrowed (DBusConnection *connection)
-{
-  _dbus_assert (connection->message_borrowed != NULL);
-
-  while (connection->message_borrowed != NULL)
-    {
-#ifndef DBUS_DISABLE_CHECKS
-      connection->have_connection_lock = FALSE;
-#endif
-      dbus_condvar_wait (connection->message_returned_cond, connection->mutex);
-#ifndef DBUS_DISABLE_CHECKS
-      connection->have_connection_lock = TRUE;
-#endif
-    }
-}
-
 /**
  * Returns the first-received message from the incoming message queue,
  * leaving it in the queue. If the queue is empty, returns #NULL.
@@ -2484,18 +2480,21 @@ _dbus_connection_wait_for_borrowed (DBusConnection *connection)
  * quickly as possible and don't keep a reference to it after
  * returning it. If you need to keep the message, make a copy of it.
  *
+ * dbus_connection_dispatch() will block if called while a borrowed
+ * message is outstanding; only one piece of code can be playing with
+ * the incoming queue at a time. This function will block if called
+ * during a dbus_connection_dispatch().
+ *
  * @param connection the connection.
  * @returns next message in the incoming queue.
  */
 DBusMessage*
-dbus_connection_borrow_message  (DBusConnection *connection)
+dbus_connection_borrow_message (DBusConnection *connection)
 {
-  DBusMessage *message;
   DBusDispatchStatus status;
+  DBusMessage *message;
 
   _dbus_return_val_if_fail (connection != NULL, NULL);
-  /* can't borrow during dispatch */
-  _dbus_return_val_if_fail (!connection->dispatch_acquired, NULL);
 
   _dbus_verbose ("%s start\n", _DBUS_FUNCTION_NAME);
   
@@ -2508,21 +2507,28 @@ dbus_connection_borrow_message  (DBusConnection *connection)
   
   CONNECTION_LOCK (connection);
 
-  if (connection->message_borrowed != NULL)
-    _dbus_connection_wait_for_borrowed (connection);
-  
-  message = _dbus_list_get_first (&connection->incoming_messages);
+  _dbus_connection_acquire_dispatch (connection);
 
-  if (message) 
-    connection->message_borrowed = message;
+  /* While a message is outstanding, the dispatch lock is held */
+  _dbus_assert (connection->message_borrowed == NULL);
+
+  connection->message_borrowed = _dbus_list_get_first (&connection->incoming_messages);
   
+  message = connection->message_borrowed;
+
+  /* Note that we KEEP the dispatch lock until the message is returned */
+  if (message == NULL)
+    _dbus_connection_release_dispatch (connection);
+
   CONNECTION_UNLOCK (connection);
+  
   return message;
 }
 
 /**
  * Used to return a message after peeking at it using
- * dbus_connection_borrow_message().
+ * dbus_connection_borrow_message(). Only called if
+ * message from dbus_connection_borrow_message() was non-#NULL.
  *
  * @param connection the connection
  * @param message the message from dbus_connection_borrow_message()
@@ -2533,15 +2539,16 @@ dbus_connection_return_message (DBusConnection *connection,
 {
   _dbus_return_if_fail (connection != NULL);
   _dbus_return_if_fail (message != NULL);
-  /* can't borrow during dispatch */
-  _dbus_return_if_fail (!connection->dispatch_acquired);
+  _dbus_return_if_fail (message == connection->message_borrowed);
+  _dbus_return_if_fail (connection->dispatch_acquired);
   
   CONNECTION_LOCK (connection);
   
   _dbus_assert (message == connection->message_borrowed);
   
   connection->message_borrowed = NULL;
-  dbus_condvar_wake_all (connection->message_returned_cond);
+
+  _dbus_connection_release_dispatch (connection);
   
   CONNECTION_UNLOCK (connection);
 }
@@ -2563,8 +2570,8 @@ dbus_connection_steal_borrowed_message (DBusConnection *connection,
 
   _dbus_return_if_fail (connection != NULL);
   _dbus_return_if_fail (message != NULL);
-  /* can't borrow during dispatch */
-  _dbus_return_if_fail (!connection->dispatch_acquired);
+  _dbus_return_if_fail (message == connection->message_borrowed);
+  _dbus_return_if_fail (connection->dispatch_acquired);
   
   CONNECTION_LOCK (connection);
  
@@ -2579,7 +2586,8 @@ dbus_connection_steal_borrowed_message (DBusConnection *connection,
 		 message, connection->n_incoming);
  
   connection->message_borrowed = NULL;
-  dbus_condvar_wake_all (connection->message_returned_cond);
+
+  _dbus_connection_release_dispatch (connection);
   
   CONNECTION_UNLOCK (connection);
 }
@@ -2592,8 +2600,7 @@ _dbus_connection_pop_message_link_unlocked (DBusConnection *connection)
 {
   HAVE_LOCK_CHECK (connection);
   
-  if (connection->message_borrowed != NULL)
-    _dbus_connection_wait_for_borrowed (connection);
+  _dbus_assert (connection->message_borrowed == NULL);
   
   if (connection->n_incoming > 0)
     {
@@ -2656,6 +2663,8 @@ _dbus_connection_putback_message_link_unlocked (DBusConnection *connection,
   _dbus_assert (message_link != NULL);
   /* You can't borrow a message while a link is outstanding */
   _dbus_assert (connection->message_borrowed == NULL);
+  /* We had to have the dispatch lock across the pop/putback */
+  _dbus_assert (connection->dispatch_acquired);
 
   _dbus_list_prepend_link (&connection->incoming_messages,
                            message_link);
@@ -2685,6 +2694,11 @@ _dbus_connection_putback_message_link_unlocked (DBusConnection *connection,
  * useful in very simple programs that don't share a #DBusConnection
  * with any libraries or other modules.
  *
+ * There is a lock that covers all ways of accessing the incoming message
+ * queue, so dbus_connection_dispatch(), dbus_connection_pop_message(),
+ * dbus_connection_borrow_message(), etc. will all block while one of the others
+ * in the group is running.
+ * 
  * @param connection the connection.
  * @returns next message in the incoming queue.
  */
@@ -2704,11 +2718,14 @@ dbus_connection_pop_message (DBusConnection *connection)
     return NULL;
   
   CONNECTION_LOCK (connection);
-
+  _dbus_connection_acquire_dispatch (connection);
+  HAVE_LOCK_CHECK (connection);
+  
   message = _dbus_connection_pop_message_unlocked (connection);
 
   _dbus_verbose ("Returning popped message %p\n", message);    
-  
+
+  _dbus_connection_release_dispatch (connection);
   CONNECTION_UNLOCK (connection);
   
   return message;
