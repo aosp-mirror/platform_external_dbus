@@ -27,6 +27,8 @@
 #ifndef DBUS_TYPES_H
 #define DBUS_TYPES_H
 
+#include <stddef.h>
+
 typedef unsigned int  dbus_bool_t;
 typedef unsigned int  dbus_uint32_t;
 typedef int           dbus_int32_t;

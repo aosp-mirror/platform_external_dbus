@@ -45,4 +45,4 @@ typedef void (* DBusFreeFunction) (void *memory);
 
 DBUS_END_DECLS;
 
-#endif /* DBUS_MESSAGE_H */
+#endif /* DBUS_MEMORY_H */

@@ -12,6 +12,7 @@ dbusinclude_HEADERS=				\
 	dbus-memory.h				\
 	dbus-message.h				\
 	dbus-server.h				\
+	dbus-threads.h				\
 	dbus-types.h
 
 libdbus_1_la_SOURCES=				\
@@ -25,6 +26,7 @@ libdbus_1_la_SOURCES=				\
 	dbus-server-protected.h			\
 	dbus-server-unix.c			\
 	dbus-server-unix.h			\
+	dbus-threads.c				\
 	dbus-transport.c			\
 	dbus-transport.h			\
 	dbus-transport-protected.h		\
