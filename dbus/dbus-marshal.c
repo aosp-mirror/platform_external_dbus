@@ -1808,6 +1808,8 @@ _dbus_marshal_validate_type   (const DBusString *str,
 	*end_pos = pos + 1;
       return TRUE;
     }
+
+  _dbus_verbose ("'%c' %d invalid type code\n", (int) *data, (int) *data);
   
   return FALSE;
 }

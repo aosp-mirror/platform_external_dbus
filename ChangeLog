@@ -1,3 +1,10 @@
+2003-10-22  Havoc Pennington  <hp@redhat.com>
+
+	* bus/bus.c (bus_context_check_security_policy): fix up assertion
+
+	* bus/connection.c (bus_transaction_send_from_driver): set the
+	destination to the connection's base service
+
 2003-10-20  Havoc Pennington  <hp@redhat.com>
 
         hmm, make check is currently not passing.

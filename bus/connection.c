@@ -1862,6 +1862,13 @@ bus_transaction_send_from_driver (BusTransaction *transaction,
   if (!dbus_message_set_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
     return FALSE;
 
+  if (bus_connection_is_active (connection))
+    {
+      if (!dbus_message_set_destination (message,
+                                         bus_connection_get_name (connection)))
+        return FALSE;
+    }
+  
   /* bus driver never wants a reply */
   dbus_message_set_no_reply (message, TRUE);
   

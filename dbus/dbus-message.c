@@ -4907,13 +4907,15 @@ decode_header_data (const DBusString   *data,
 
       if (!_dbus_marshal_validate_type (data, pos, &type, &pos))
 	{
-          _dbus_verbose ("Failed to validate type of named header field\n");
+          _dbus_verbose ("Failed to validate type of named header field pos = %d\n",
+                         pos);
 	  return FALSE;
 	}
       
       if (!_dbus_marshal_validate_arg (data, byte_order, 0, type, -1, pos, &new_pos))
         {
-          _dbus_verbose ("Failed to validate argument to named header field\n");
+          _dbus_verbose ("Failed to validate argument to named header field pos = %d\n",
+                         pos);
           return FALSE;
         }
 
@@ -5180,8 +5182,8 @@ load_one_message (DBusMessageLoader *loader,
   message = NULL;
   oom = FALSE;
   
-#if 0
-  _dbus_verbose_bytes_of_string (&loader->data, 0, header_len + body_len);
+#if 1
+  _dbus_verbose_bytes_of_string (&loader->data, 0, header_len /* + body_len */);
 #endif	  
 
   if (!decode_header_data (&loader->data,

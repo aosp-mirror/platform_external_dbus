@@ -919,9 +919,9 @@ bus_context_check_security_policy (BusContext     *context,
   type = dbus_message_get_type (message);
   
   /* dispatch.c was supposed to ensure these invariants */
-  /* FIXME this assertion is failing in make check */
   _dbus_assert (dbus_message_get_destination (message) != NULL ||
-                type == DBUS_MESSAGE_TYPE_SIGNAL);
+                type == DBUS_MESSAGE_TYPE_SIGNAL ||
+                (sender == NULL && !bus_connection_is_active (proposed_recipient)));
   _dbus_assert (type == DBUS_MESSAGE_TYPE_SIGNAL ||
                 addressed_recipient != NULL ||
                 strcmp (dbus_message_get_destination (message), DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) == 0);

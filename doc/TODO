@@ -122,3 +122,7 @@
  - the auth protocol may as well use hex encoding instead of 
    base64, then we can dump the base64 implementation and 
    save some bloat.
+
+ - rename HEADER_FIELD_SERVICE -> HEADER_FIELD_DESTINATION 
+   and HEADER_FIELD_SENDER_SERVICE -> HEADER_FIELD_SENDER 
+   for both dbus-protocol.h and in the spec
