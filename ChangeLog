@@ -1,3 +1,8 @@
+2003-02-16  Alexander Larsson  <alexl@redhat.com>
+
+	* dbus/dbus-hash.c (_dbus_hash_table_unref):
+	Actually free keys and values when destroying hashtable.
+
 2003-02-16  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-auth.c: (client_try_next_mechanism):

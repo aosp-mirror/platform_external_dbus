@@ -236,6 +236,8 @@ static void           remove_entry         (DBusHashTable   *table,
                                             DBusHashEntry   *entry);
 static void           free_entry           (DBusHashTable   *table,
                                             DBusHashEntry   *entry);
+static void           free_entry_data      (DBusHashTable   *table,
+                                            DBusHashEntry   *entry);
 
 /** @} */
 
@@ -371,6 +373,20 @@ _dbus_hash_table_unref (DBusHashTable *table)
             }
         }
 #else
+      DBusHashEntry *entry;
+      int i;
+
+      /* Free the entries in the table. */
+      for (i = 0; i < table->n_buckets; i++)
+        {
+          entry = table->buckets[i];
+          while (entry != NULL)
+            {
+              free_entry_data (table, entry);
+              
+              entry = entry->next;
+            }
+        }
       /* We can do this very quickly with memory pools ;-) */
       _dbus_mem_pool_free (table->entry_pool);
 #endif
@@ -394,14 +410,20 @@ alloc_entry (DBusHashTable *table)
 }
 
 static void
-free_entry (DBusHashTable  *table,
-            DBusHashEntry  *entry)
+free_entry_data (DBusHashTable  *table,
+		 DBusHashEntry  *entry)
 {
   if (table->free_key_function)
     (* table->free_key_function) (entry->key);
   if (table->free_value_function)
     (* table->free_value_function) (entry->value);
-              
+}
+
+static void
+free_entry (DBusHashTable  *table,
+            DBusHashEntry  *entry)
+{
+  free_entry_data (table, entry);
   _dbus_mem_pool_dealloc (table->entry_pool, entry);
 }
 
