@@ -37,7 +37,6 @@ struct BusContext
 {
   int refcount;
   char *type;
-  char *bus_env_var;
   char *address;
   char *pidfile;
   DBusLoop *loop;

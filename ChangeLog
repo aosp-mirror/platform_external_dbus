@@ -1,5 +1,10 @@
 2003-10-16  Havoc Pennington  <hp@redhat.com>
 
+	* bus/bus.c (struct BusContext): remove struct field I didn't mean
+	to put there
+
+2003-10-16  Havoc Pennington  <hp@redhat.com>
+
 	* bus/connection.c (bus_pending_reply_expired): either cancel or
 	execute, not both
 	(bus_connections_check_reply): use unlink, not remove_link, as we
