@@ -11,10 +11,10 @@ namespace DBus
   public abstract class BusDriver
   {
     [Method]
-    public abstract string[] ListServices ();
+    public abstract string[] ListNames ();
 
     [Method]
-    public abstract string GetOwner (string name);
+    public abstract string GetNameOwner (string name);
 
     [Method]
     public abstract UInt32 GetConnectionUnixUser (string connectionName);
