@@ -179,8 +179,9 @@
         <literal>INT32</literal> in this example. To marshal and unmarshal 
         basic types, you simply read one value from the data
         block corresponding to each type code in the signature.
-        In addition to basic types, there are three <firstterm>container</firstterm> 
-        types: <literal>STRUCT</literal>, <literal>ARRAY</literal>, and <literal>VARIANT</literal>.
+        In addition to basic types, there are four <firstterm>container</firstterm> 
+        types: <literal>STRUCT</literal>, <literal>ARRAY</literal>, <literal>VARIANT</literal>, 
+        and <literal>DICT_ENTRY</literal>.
       </para>
 
       <para>
