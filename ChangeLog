@@ -1,3 +1,28 @@
+2004-07-29  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* bus/config-loader-libxml.c: complete the implementation of
+	libxml backend for config file loader. Doesn't work with full OOM
+	test yet. 
+	
+	* configure.in: change error when selecting libxml into a warning.
+	
+	* test/data/invalid-config-files: add two non-well-formed XML
+	files. 
+	
+	* glib/Makefile.am: libdbus_gtool always uses expat, not libxml.
+	
+	* dbus/dbus-transport-unix.c (unix_handle_watch): do not
+	disconnect in case of DBUS_WATCH_HANGUP, several do_reading() may
+	be necessary to read all the buffer. (bug #894)
+
+	* bus/activation.c (bus_activation_activate_service): fix a
+	potential assertion failure (bug #896). Small optimization in the
+	case of auto-activation messages.
+
+	* dbus/dbus-message.c (verify_test_message, _dbus_message_test):
+	add test case for byte-through-vararg bug (#901). patch by Kimmo
+	Hämäläinen. 
+
 2004-07-28  Anders Carlsson  <andersca@gnome.org>
 
 	* python/dbus.py:

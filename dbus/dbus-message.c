@@ -2622,7 +2622,7 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 #endif /* DBUS_HAVE_INT64 */
 	case DBUS_TYPE_DOUBLE:
 	  {
-	    void *ptr = va_arg (var_args, void *);
+	    void *ptr = va_arg (var_args, double *);
 	    _dbus_message_iter_get_basic_type (iter, spec_type, ptr);
 	    break;
 	  }
@@ -6696,6 +6696,7 @@ verify_test_message (DBusMessage *message)
   char *our_str;
   double our_double;
   dbus_bool_t our_bool;
+  unsigned char our_byte_1, our_byte_2;
   dbus_uint32_t our_uint32;
   dbus_int32_t *our_uint32_array;
   int our_uint32_array_len;
@@ -6730,6 +6731,9 @@ verify_test_message (DBusMessage *message)
 				   DBUS_TYPE_STRING, &our_str,
 				   DBUS_TYPE_DOUBLE, &our_double,
 				   DBUS_TYPE_BOOLEAN, &our_bool,
+				   DBUS_TYPE_BYTE, &our_byte_1,
+				   DBUS_TYPE_BYTE, &our_byte_2,
+				   DBUS_TYPE_NIL,
 				   DBUS_TYPE_ARRAY, DBUS_TYPE_UINT32,
                                    &our_uint32_array, &our_uint32_array_len,
                                    DBUS_TYPE_ARRAY, DBUS_TYPE_INT32,
@@ -6774,6 +6778,12 @@ verify_test_message (DBusMessage *message)
 
   if (!our_bool)
     _dbus_assert_not_reached ("booleans differ");
+
+  if (our_byte_1 != 42)
+    _dbus_assert_not_reached ("bytes differ!");
+
+  if (our_byte_2 != 24)
+    _dbus_assert_not_reached ("bytes differ!");
 
   if (our_uint32_array_len != 4 ||
       our_uint32_array[0] != 0x12345678 ||
@@ -7027,6 +7037,9 @@ _dbus_message_test (const char *test_data_dir)
 			    DBUS_TYPE_STRING, "Test string",
 			    DBUS_TYPE_DOUBLE, 3.14159,
 			    DBUS_TYPE_BOOLEAN, TRUE,
+			    DBUS_TYPE_BYTE, (unsigned char) 42,
+			    DBUS_TYPE_BYTE, 24,
+			    DBUS_TYPE_NIL,
 			    DBUS_TYPE_ARRAY, DBUS_TYPE_UINT32, our_uint32_array,
                             _DBUS_N_ELEMENTS (our_uint32_array),
                             DBUS_TYPE_ARRAY, DBUS_TYPE_INT32, our_int32_array,
@@ -7062,6 +7075,9 @@ _dbus_message_test (const char *test_data_dir)
   sig[i++] = DBUS_TYPE_STRING;
   sig[i++] = DBUS_TYPE_DOUBLE;
   sig[i++] = DBUS_TYPE_BOOLEAN;
+  sig[i++] = DBUS_TYPE_BYTE;
+  sig[i++] = DBUS_TYPE_BYTE;
+  sig[i++] = DBUS_TYPE_NIL;
   sig[i++] = DBUS_TYPE_ARRAY;
   sig[i++] = DBUS_TYPE_UINT32;
   sig[i++] = DBUS_TYPE_ARRAY;

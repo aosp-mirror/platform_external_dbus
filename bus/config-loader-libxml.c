@@ -30,45 +30,111 @@
 #include <errno.h>
 #include <string.h>
 
-static void*
-libxml_malloc (size_t size)
+/* About the error handling: 
+ *  - setup a "structured" error handler that catches structural
+ *    errors and some oom errors 
+ *  - assume that a libxml function returning an error code means
+ *    out-of-memory
+ */
+#define _DBUS_MAYBE_SET_OOM(e) (dbus_error_is_set(e) ? (void)0 : _DBUS_SET_OOM(e))
+
+
+static dbus_bool_t
+xml_text_start_element (BusConfigParser   *parser,
+			xmlTextReader     *reader,
+			DBusError         *error)
 {
-  return dbus_malloc (size);
+  const char *name;
+  int n_attributes;
+  const char **attribute_names, **attribute_values;
+  dbus_bool_t ret;
+  int i, status, is_empty;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  ret = FALSE;
+  attribute_names = NULL;
+  attribute_values = NULL;
+
+  name = xmlTextReaderConstName (reader);
+  n_attributes = xmlTextReaderAttributeCount (reader);
+  is_empty = xmlTextReaderIsEmptyElement (reader);
+
+  if (name == NULL || n_attributes < 0 || is_empty == -1)
+    {
+      _DBUS_MAYBE_SET_OOM (error);
+      goto out;
+    }
+
+  attribute_names = dbus_new0 (const char *, n_attributes + 1);
+  attribute_values = dbus_new0 (const char *, n_attributes + 1);
+  if (attribute_names == NULL || attribute_values == NULL)
+    {
+      _DBUS_SET_OOM (error);
+      goto out;
+    }
+  i = 0;
+  while ((status = xmlTextReaderMoveToNextAttribute (reader)) == 1)
+    {
+      _dbus_assert (i < n_attributes);
+      attribute_names[i] = xmlTextReaderConstName (reader);
+      attribute_values[i] = xmlTextReaderConstValue (reader);
+      if (attribute_names[i] == NULL || attribute_values[i] == NULL)
+	{ 
+          _DBUS_MAYBE_SET_OOM (error);
+	  goto out;
+	}
+      i++;
+    }
+  if (status == -1)
+    {
+      _DBUS_MAYBE_SET_OOM (error);
+      goto out;
+    }
+  _dbus_assert (i == n_attributes);
+
+  ret = bus_config_parser_start_element (parser, name,
+					 attribute_names, attribute_values,
+					 error);
+  if (ret && is_empty == 1)
+    ret = bus_config_parser_end_element (parser, name, error);
+
+ out:
+  dbus_free (attribute_names);
+  dbus_free (attribute_values);
+
+  return ret;
 }
 
-static void*
-libxml_realloc (void *ptr, size_t size)
+static void xml_shut_up (void *ctx, const char *msg, ...)
 {
-  return dbus_realloc (ptr, size);
+    return;
 }
 
 static void
-libxml_free (void *ptr)
-{
-  dbus_free (ptr);
-}
-
-static char*
-libxml_strdup (const char *str)
-{
-  return _dbus_strdup (str);
-}
-
-static void
-xml_text_reader_error (void                   *arg,
-                       const char             *msg,
-                       xmlParserSeverities     severity,
-                       xmlTextReaderLocatorPtr locator)
+xml_text_reader_error (void *arg, xmlErrorPtr xml_error)
 {
   DBusError *error = arg;
-  
-  if (!dbus_error_is_set (error))
+
+#if 0
+  _dbus_verbose ("XML_ERROR level=%d, domain=%d, code=%d, msg=%s\n",
+                 xml_error->level, xml_error->domain,
+                 xml_error->code, xml_error->message);
+#endif
+
+  if (!dbus_error_is_set (error) && 
+      (xml_error->level == XML_ERR_ERROR ||
+       xml_error->level == XML_ERR_FATAL))
     {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Error loading config file: %s",
-                      msg);
+      if (xml_error->code != XML_ERR_NO_MEMORY)
+        _DBUS_SET_OOM (error);
+      else
+        dbus_set_error (error, DBUS_ERROR_FAILED,
+                        "Error loading config file: '%s'",
+                        xml_error->message);
     }
 }
+
 
 BusConfigParser*
 bus_config_load (const DBusString      *file,
@@ -78,66 +144,71 @@ bus_config_load (const DBusString      *file,
 
 {
   xmlTextReader *reader;
-  const char *filename;
   BusConfigParser *parser;
-  DBusString dirname;
+  DBusString dirname, data;
+  const char *data_str;
   DBusError tmp_error;
   int ret;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  filename = _dbus_string_get_const_data (file);
   parser = NULL;
   reader = NULL;
-  dbus_error_init (&tmp_error);
 
-  if (xmlMemSetup (libxml_free,
-                   libxml_malloc,
-                   libxml_realloc,
-                   libxml_strdup) != 0)
+  if (is_toplevel)
     {
-      /* Current libxml can't possibly fail here, but just being
-       * paranoid; don't really know why xmlMemSetup() returns an
-       * error code, assuming some version of libxml had a reason.
-       */
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "xmlMemSetup() didn't work for some reason\n");
-      return NULL;
+      /* xmlMemSetup only fails if one of the functions is NULL */
+      xmlMemSetup (dbus_free,
+                   dbus_malloc,
+                   dbus_realloc,
+                   _dbus_strdup);
+      xmlInitParser ();
+      xmlSetGenericErrorFunc (NULL, xml_shut_up);
     }
 
   if (!_dbus_string_init (&dirname))
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _DBUS_SET_OOM (error);
+      return NULL;
+    }
+
+  if (!_dbus_string_init (&data))
+    {
+      _DBUS_SET_OOM (error);
+      _dbus_string_free (&dirname);
       return NULL;
     }
 
   if (!_dbus_string_get_dirname (file, &dirname))
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _DBUS_SET_OOM (error);
       goto failed;
     }
   
   parser = bus_config_parser_new (&dirname, is_toplevel, parent);
   if (parser == NULL)
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _DBUS_SET_OOM (error);
       goto failed;
     }
   
-  errno = 0;
-  reader = xmlNewTextReaderFilename (filename);
+  if (!_dbus_file_get_contents (&data, file, error))
+    goto failed;
 
+  data_str = _dbus_string_get_const_data (&data);
+
+  reader = xmlReaderForMemory (data_str, _dbus_string_get_length (&data),
+			       NULL, NULL, 0);
   if (reader == NULL)
     {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Failed to load configuration file %s: %s\n",
-                      filename,
-                      errno != 0 ? strerror (errno) : "Unknown error");
-        
+      _DBUS_SET_OOM (error);
       goto failed;
     }
 
-  xmlTextReaderSetErrorHandler (reader, xml_text_reader_error, &tmp_error);
+  xmlTextReaderSetParserProp (reader, XML_PARSER_SUBST_ENTITIES, 1);
+
+  dbus_error_init (&tmp_error);
+  xmlTextReaderSetStructuredErrorHandler (reader, xml_text_reader_error, &tmp_error);
 
   while ((ret = xmlTextReaderRead (reader)) == 1)
     {
@@ -145,31 +216,87 @@ bus_config_load (const DBusString      *file,
       
       if (dbus_error_is_set (&tmp_error))
         goto reader_out;
-      
-      /* "enum" anyone? http://dotgnu.org/pnetlib-doc/System/Xml/XmlNodeType.html for
-       * the magic numbers
-       */
+
       type = xmlTextReaderNodeType (reader);
+      if (type == -1)
+        {
+          _DBUS_MAYBE_SET_OOM (&tmp_error);
+          goto reader_out;
+        }
+
+      switch ((xmlReaderTypes) type) {
+      case XML_READER_TYPE_ELEMENT:
+	xml_text_start_element (parser, reader, &tmp_error);
+	break;
+
+      case XML_READER_TYPE_TEXT:
+      case XML_READER_TYPE_CDATA:
+	{
+	  DBusString content;
+	  const char *value;
+	  value = xmlTextReaderConstValue (reader);
+	  if (value != NULL)
+	    {
+	      _dbus_string_init_const (&content, value);
+	      bus_config_parser_content (parser, &content, &tmp_error);
+	    }
+          else
+            _DBUS_MAYBE_SET_OOM (&tmp_error);
+	  break;
+	}
+
+      case XML_READER_TYPE_DOCUMENT_TYPE:
+	{
+	  const char *name;
+	  name = xmlTextReaderConstName (reader);
+	  if (name != NULL)
+	    bus_config_parser_check_doctype (parser, name, &tmp_error);
+          else
+            _DBUS_MAYBE_SET_OOM (&tmp_error);
+	  break;
+	}
+
+      case XML_READER_TYPE_END_ELEMENT:
+	{
+	  const char *name;
+	  name = xmlTextReaderConstName (reader);
+	  if (name != NULL)
+	    bus_config_parser_end_element (parser, name, &tmp_error);
+          else
+            _DBUS_MAYBE_SET_OOM (&tmp_error);
+	  break;
+	}
+
+      case XML_READER_TYPE_DOCUMENT:
+      case XML_READER_TYPE_DOCUMENT_FRAGMENT:
+      case XML_READER_TYPE_PROCESSING_INSTRUCTION:
+      case XML_READER_TYPE_COMMENT:
+      case XML_READER_TYPE_ENTITY:
+      case XML_READER_TYPE_NOTATION:
+      case XML_READER_TYPE_WHITESPACE:
+      case XML_READER_TYPE_SIGNIFICANT_WHITESPACE:
+      case XML_READER_TYPE_END_ENTITY:
+      case XML_READER_TYPE_XML_DECLARATION:
+	/* nothing to do, just read on */
+	break;
+
+      case XML_READER_TYPE_NONE:
+      case XML_READER_TYPE_ATTRIBUTE:
+      case XML_READER_TYPE_ENTITY_REFERENCE:
+	_dbus_assert_not_reached ("unexpected nodes in XML");
+      }
+
       if (dbus_error_is_set (&tmp_error))
         goto reader_out;
-
-      /* FIXME I don't really know exactly what I need to do to
-       * resolve all entities and so on to get the full content of a
-       * node or attribute value. I'm worried about whether I need to
-       * manually handle stuff like &lt;
-       */
     }
 
   if (ret == -1)
-    {
-      if (!dbus_error_is_set (&tmp_error))
-        dbus_set_error (&tmp_error,
-                        DBUS_ERROR_FAILED,
-                        "Unknown failure loading configuration file");
-    }
-  
+    _DBUS_MAYBE_SET_OOM (&tmp_error);
+
  reader_out:
   xmlFreeTextReader (reader);
+  if (is_toplevel)
+    xmlCleanupParser(); 
   reader = NULL;
   if (dbus_error_is_set (&tmp_error))
     {
@@ -180,12 +307,14 @@ bus_config_load (const DBusString      *file,
   if (!bus_config_parser_finished (parser, error))
     goto failed;
   _dbus_string_free (&dirname);
+  _dbus_string_free (&data);
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   return parser;
   
  failed:
   _DBUS_ASSERT_ERROR_IS_SET (error);
   _dbus_string_free (&dirname);
+  _dbus_string_free (&data);
   if (parser)
     bus_config_parser_unref (parser);
   _dbus_assert (reader == NULL); /* must go to reader_out first */

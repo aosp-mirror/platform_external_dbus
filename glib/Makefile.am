@@ -39,7 +39,7 @@ bin_PROGRAMS=dbus-glib-tool
 dbus_glib_tool_SOURCES =			\
 	dbus-glib-tool.c
 
-dbus_glib_tool_LDADD= $(DBUS_GLIB_TOOL_LIBS) libdbus-gtool.la
+dbus_glib_tool_LDADD= -lexpat libdbus-gtool.la
 
 if DBUS_BUILD_TESTS
 

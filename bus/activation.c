@@ -44,7 +44,7 @@ struct BusActivation
   int refcount;
   DBusHashTable *entries;
   DBusHashTable *pending_activations;
- char *server_address;
+  char *server_address;
   BusContext *context;
   int n_pending_activations; /**< This is in fact the number of BusPendingActivationEntry,
                               * i.e. number of pending activation requests, not pending
@@ -1319,40 +1319,46 @@ bus_activation_activate_service (BusActivation  *activation,
   if (!entry) 
     return FALSE;
 
-  /* Check if the service is active */
-  _dbus_string_init_const (&service_str, service_name);
-  if (bus_registry_lookup (bus_context_get_registry (activation->context), &service_str) != NULL)
+  /* Bypass the registry lookup if we're auto-activating, bus_dispatch would not
+   * call us if the service is already active.
+   */
+  if (!auto_activation)
     {
-      _dbus_verbose ("Service \"%s\" is already active\n", service_name);
-      
-      message = dbus_message_new_method_return (activation_message);
-
-      if (!message)
-	{
-          _dbus_verbose ("No memory to create reply to activate message\n");
-	  BUS_SET_OOM (error);
-	  return FALSE;
-	}
-
-      if (!dbus_message_append_args (message,
-				     DBUS_TYPE_UINT32, DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE, 
-				     DBUS_TYPE_INVALID))
-	{
-          _dbus_verbose ("No memory to set args of reply to activate message\n");
-	  BUS_SET_OOM (error);
-	  dbus_message_unref (message);
-	  return FALSE;
-	}
-
-      retval = bus_transaction_send_from_driver (transaction, connection, message);
-      dbus_message_unref (message);
-      if (!retval)
+      /* Check if the service is active */
+      _dbus_string_init_const (&service_str, service_name);
+      if (bus_registry_lookup (bus_context_get_registry (activation->context), &service_str) != NULL)
         {
-          _dbus_verbose ("Failed to send reply\n");
-          BUS_SET_OOM (error);
-        }
+          _dbus_verbose ("Service \"%s\" is already active\n", service_name);
+      
+          message = dbus_message_new_method_return (activation_message);
 
-      return retval;
+          if (!message)
+            {
+              _dbus_verbose ("No memory to create reply to activate message\n");
+              BUS_SET_OOM (error);
+              return FALSE;
+            }
+
+          if (!dbus_message_append_args (message,
+                                         DBUS_TYPE_UINT32, DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE, 
+                                         DBUS_TYPE_INVALID))
+            {
+              _dbus_verbose ("No memory to set args of reply to activate message\n");
+              BUS_SET_OOM (error);
+              dbus_message_unref (message);
+              return FALSE;
+            }
+
+          retval = bus_transaction_send_from_driver (transaction, connection, message);
+          dbus_message_unref (message);
+          if (!retval)
+            {
+              _dbus_verbose ("Failed to send reply\n");
+              BUS_SET_OOM (error);
+            }
+
+          return retval;
+        }
     }
 
   pending_activation_entry = dbus_new0 (BusPendingActivationEntry, 1);
@@ -1504,11 +1510,8 @@ bus_activation_activate_service (BusActivation  *activation,
    * argv[0]
    */
 
-  if (activated == TRUE) 
-    {
-      pending_activation->babysitter = NULL;
-      return TRUE;
-    }
+  if (activated)
+    return TRUE;
 
   /* Now try to spawn the process */
   argv[0] = entry->exec;

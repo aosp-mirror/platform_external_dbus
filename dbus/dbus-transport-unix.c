@@ -717,11 +717,25 @@ unix_handle_watch (DBusTransport *transport,
   _dbus_assert (watch == unix_transport->read_watch ||
                 watch == unix_transport->write_watch);
   
+  /* Disconnect in case of an error.  In case of hangup do not
+   * disconnect the transport because data can still be in the buffer
+   * and do_reading may need several iteration to read it all (because
+   * of its max_bytes_read_per_iteration limit).  The condition where
+   * flags == HANGUP (without READABLE) probably never happen in fact.
+   */
+  if ((flags & DBUS_WATCH_ERROR) ||
+      ((flags & DBUS_WATCH_HANGUP) && !(flags & DBUS_WATCH_READABLE)))
+    {
+      _dbus_verbose ("Hang up or error on watch\n");
+      _dbus_transport_disconnect (transport);
+      return TRUE;
+    }
+  
   if (watch == unix_transport->read_watch &&
       (flags & DBUS_WATCH_READABLE))
     {
-#if 1
-      _dbus_verbose ("handling read watch\n");
+#if 0
+      _dbus_verbose ("handling read watch (%x)\n", flags);
 #endif
       if (!do_authentication (transport, TRUE, FALSE))
         return FALSE;
@@ -763,12 +777,6 @@ unix_handle_watch (DBusTransport *transport,
     }
 #endif /* DBUS_ENABLE_VERBOSE_MODE */
 
-  if (flags & (DBUS_WATCH_HANGUP | DBUS_WATCH_ERROR))
-    {
-      _dbus_transport_disconnect (transport);
-      return TRUE;
-    }
-  
   return TRUE;
 }
 
