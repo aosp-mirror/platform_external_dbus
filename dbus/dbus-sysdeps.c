@@ -62,12 +62,6 @@
 #define O_BINARY 0
 #endif
 
-#ifndef SUN_LEN
-/* This system is not POSIX.1g.         */
-#define SUN_LEN(ptr) ((size_t) (((struct sockaddr_un *) 0)->sun_path)  \
-       + strlen ((ptr)->sun_path))
-#endif
-
 /**
  * @addtogroup DBusInternalsUtils
  * @{
@@ -392,6 +386,9 @@ _dbus_connect_unix_socket (const char     *path,
   struct sockaddr_un addr;  
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  _dbus_verbose ("connecting to unix socket %s abstract=%d\n",
+                 path, abstract);
   
   fd = socket (PF_UNIX, SOCK_STREAM, 0);
   
@@ -411,14 +408,18 @@ _dbus_connect_unix_socket (const char     *path,
   if (abstract)
     {
 #ifdef HAVE_ABSTRACT_SOCKETS
+      /* remember that abstract names aren't nul-terminated so we rely
+       * on sun_path being filled in with zeroes above.
+       */
       addr.sun_path[0] = '\0'; /* this is what says "use abstract" */
       strncpy (&addr.sun_path[1], path, _DBUS_MAX_SUN_PATH_LENGTH - 2);
+      /* _dbus_verbose_bytes (addr.sun_path, sizeof (addr.sun_path)); */
 #else /* HAVE_ABSTRACT_SOCKETS */
       dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED,
                       "Operating system does not support abstract socket namespace\n");
       close (fd);
       return -1;
-#endif /* ! HAVE_ABSTRACT_SOCKETS */      
+#endif /* ! HAVE_ABSTRACT_SOCKETS */
     }
   else
     {
@@ -475,6 +476,9 @@ _dbus_listen_unix_socket (const char     *path,
   struct sockaddr_un addr;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  _dbus_verbose ("listening on unix socket %s abstract=%d\n",
+                 path, abstract);
   
   listen_fd = socket (PF_UNIX, SOCK_STREAM, 0);
   
@@ -492,8 +496,12 @@ _dbus_listen_unix_socket (const char     *path,
   if (abstract)
     {
 #ifdef HAVE_ABSTRACT_SOCKETS
+      /* remember that abstract names aren't nul-terminated so we rely
+       * on sun_path being filled in with zeroes above.
+       */
       addr.sun_path[0] = '\0'; /* this is what says "use abstract" */
       strncpy (&addr.sun_path[1], path, _DBUS_MAX_SUN_PATH_LENGTH - 2);
+      /* _dbus_verbose_bytes (addr.sun_path, sizeof (addr.sun_path)); */
 #else /* HAVE_ABSTRACT_SOCKETS */
       dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED,
                       "Operating system does not support abstract socket namespace\n");
@@ -524,7 +532,7 @@ _dbus_listen_unix_socket (const char     *path,
       strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH - 1);
     }
   
-  if (bind (listen_fd, (struct sockaddr*) &addr, SUN_LEN (&addr)) < 0)
+  if (bind (listen_fd, (struct sockaddr*) &addr, sizeof (addr)) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to bind socket \"%s\": %s",
@@ -548,7 +556,7 @@ _dbus_listen_unix_socket (const char     *path,
       close (listen_fd);
       return -1;
     }
-
+  
   /* Try opening up the permissions, but if we can't, just go ahead
    * and continue, maybe it will be good enough.
    */

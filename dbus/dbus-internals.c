@@ -190,6 +190,7 @@ _dbus_verbose_real (const char *format,
 {
   va_list args;
   static dbus_bool_t verbose = TRUE;
+  static dbus_bool_t need_pid = TRUE;
   
   /* things are written a bit oddly here so that
    * in the non-verbose case we just have the one
@@ -206,7 +207,18 @@ _dbus_verbose_real (const char *format,
         return;
     }
 
-  fprintf (stderr, "%lu: ", _dbus_getpid ());
+  if (need_pid)
+    {
+      int len;
+      
+      fprintf (stderr, "%lu: ", _dbus_getpid ());
+
+      len = strlen (format);
+      if (format[len-1] == '\n')
+        need_pid = TRUE;
+      else
+        need_pid = FALSE;
+    }
   
   va_start (args, format);
   vfprintf (stderr, format, args);
