@@ -37,5 +37,5 @@
  - Implement all the needed resource limits to keep clients from
    killing the message bus.
 
-
+ - Automatic service activation, should probably be done through a message flag.
 

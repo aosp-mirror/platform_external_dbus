@@ -2,9 +2,9 @@
 ]>
 <article id="index">
   <artheader>
-    <title>D-BUS Protocol Specification</title>
-    <releaseinfo>Version 0.4</releaseinfo>
-    <date>17 February 2003</date>
+    <title>D-BUS Specification</title>
+    <releaseinfo>Version 0.7</releaseinfo>
+    <date>26 March 2003</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -422,10 +422,11 @@
   <sect1 id="auth-protocol">
     <title>Authentication Protocol</title>
     <para>
-      Before the flow of messages begins, two applications 
-      must authenticate. A simple text protocol is used 
-      for authentication; this protocol is a SASL profile, 
-      and maps fairly directly from the SASL specification.
+      Before the flow of messages begins, two applications must
+      authenticate. A simple plain-text protocol is used for
+      authentication; this protocol is a SASL profile, and maps fairly
+      directly from the SASL specification. The message encoding is
+      NOT used here, only plain text messages.
     </para>
     <para>
       In examples, "C:" and "S:" indicate lines sent by the client and
@@ -1309,13 +1310,16 @@
           </informaltable>
         </para>
         <para>
-          Before an application is able to send messages to other applications it
-          must send the <literal>org.freedesktop.DBus.Hello</literal>
-          message to the message bus service. If an application tries to send
-          a message to another application, or a message to the message bus
-          service that isn't the
-          <literal>org.freedesktop.DBus.Hello</literal> message, it will
-          be disconnected from the bus.
+          Before an application is able to send messages to other
+          applications it must send the
+          <literal>org.freedesktop.DBus.Hello</literal> message to the
+          message bus service. If an application tries to send a
+          message to another application, or a message to the message
+          bus service that isn't the
+          <literal>org.freedesktop.DBus.Hello</literal> message, it
+          will be disconnected from the bus. If a client wishes to
+          disconnect from the bus, it just has to disconnect from the
+          transport used. No de-registration message is necessary.
         </para>
         <para>
           The reply message contains the name of the application's base service.

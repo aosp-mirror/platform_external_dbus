@@ -1,5 +1,13 @@
 2003-03-26  Anders Carlsson  <andersca@codefactory.se>
 
+	* doc/TODO:
+	Add note about automatic service activation.
+	
+	* doc/dbus-specification.sgml:
+	Rename the specification and clarify a few things.
+	
+2003-03-26  Anders Carlsson  <andersca@codefactory.se>
+
 	* Doxyfile.in:
 	* dbus/dbus-address.c:
 	* dbus/dbus-dict.c:
