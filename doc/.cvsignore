@@ -8,3 +8,4 @@ Makefile.in
 api
 dbus-specification.html
 dbus-test-plan.html
+dbus-tutorial.html

@@ -56,6 +56,7 @@ struct DBusError
 #define DBUS_ERROR_NO_MEMORY                  "org.freedesktop.DBus.Error.NoMemory"
 #define DBUS_ERROR_ACTIVATE_SERVICE_NOT_FOUND "org.freedesktop.DBus.Error.ServiceNotFound"
 #define DBUS_ERROR_SERVICE_DOES_NOT_EXIST     "org.freedesktop.DBus.Error.ServiceDoesNotExist"
+#define DBUS_ERROR_SERVICE_HAS_NO_OWNER       "org.freedesktop.DBus.Error.ServiceHasNoOwner"
 #define DBUS_ERROR_NO_REPLY                   "org.freedesktop.DBus.Error.NoReply"
 #define DBUS_ERROR_IO_ERROR                   "org.freedesktop.DBus.Error.IOError"
 #define DBUS_ERROR_BAD_ADDRESS                "org.freedesktop.DBus.Error.BadAddress"

@@ -172,11 +172,20 @@ main (int argc, char **argv)
 
   /* Talk to the new service */
   
-  proxy = dbus_gproxy_new_for_service (connection,
-                                       "org.freedesktop.DBus.TestSuiteEchoService",
-                                       "/org/freedesktop/TestSuite",
-                                       "org.freedesktop.TestSuite");
+  proxy = dbus_gproxy_new_for_service_owner (connection,
+					     "org.freedesktop.DBus.TestSuiteEchoService",
+					     "/org/freedesktop/TestSuite",
+					     "org.freedesktop.TestSuite",
+					     &error);
   
+  if (proxy == NULL)
+    {
+      g_printerr ("Failed to create proxy for service owner: %s\n",
+                  error->message);
+      g_error_free (error);
+      exit (1);      
+    }
+
   call = dbus_gproxy_begin_call (proxy, "Echo",
                                  DBUS_TYPE_STRING,
                                  "my string hello",

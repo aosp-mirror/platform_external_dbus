@@ -2206,6 +2206,58 @@
 
       </sect3>
 
+      <sect3 id="bus-messages-get-service-owner">
+        <title><literal>org.freedesktop.DBus.GetServiceOwner</literal></title>
+        <para>
+          As a method:
+          <programlisting>
+            STRING GetServiceOwner (in STRING service_name)
+          </programlisting>
+          Message arguments:
+          <informaltable>
+            <tgroup cols="3">
+              <thead>
+                <row>
+                  <entry>Argument</entry>
+                  <entry>Type</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>0</entry>
+                  <entry>STRING</entry>
+                  <entry>Name of the service to query</entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </informaltable>
+        Reply arguments:
+        <informaltable>
+          <tgroup cols="3">
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>STRING</entry>
+                <entry>Return value, a base service name</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+        Returns the base service name of the primary owner of the
+        service in argument. If the requested service isn't active,
+        returns a
+        <literal>org.freedesktop.DBus.Error.ServiceHasNoOwner</literal> error.
+       </para>
+      </sect3>
+
       <sect3 id="bus-messages-out-of-memory">
         <title><literal>org.freedesktop.DBus.Error.NoMemory</literal></title>
         <para>

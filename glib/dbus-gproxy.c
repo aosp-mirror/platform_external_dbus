@@ -932,12 +932,67 @@ dbus_gproxy_new_for_service_owner (DBusConnection           *connection,
                                    const char               *interface_name,
                                    GError                  **error)
 {
+  DBusGProxy *proxy;
+
+  DBusMessage *request, *reply;
+  DBusError derror;
+  char *base_service_name;
+
   g_return_val_if_fail (connection != NULL, NULL);
   g_return_val_if_fail (service_name != NULL, NULL);
   g_return_val_if_fail (path_name != NULL, NULL);
   g_return_val_if_fail (interface_name != NULL, NULL);
 
+  dbus_error_init (&derror);
 
+  proxy = NULL;
+  base_service_name = NULL;
+  reply = NULL;
+
+  request = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+					  DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+					  DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+					  "GetServiceOwner");
+  if (request == NULL)
+    g_error ("Out of memory");
+  
+  if (! dbus_message_append_args (request, 
+				  DBUS_TYPE_STRING, service_name, 
+				  DBUS_TYPE_INVALID))
+    g_error ("Out of memory");
+
+  reply = dbus_connection_send_with_reply_and_block (connection, request,
+						     2000, &derror);
+  if (reply == NULL)
+    goto error;
+
+  if (dbus_set_error_from_message (&derror, reply))
+    goto error;
+
+  if (! dbus_message_get_args (reply, &derror, 
+			       DBUS_TYPE_STRING, &base_service_name, 
+			       DBUS_TYPE_INVALID))
+    goto error;
+      
+
+  proxy = dbus_gproxy_new (connection, base_service_name,
+                           path_name, interface_name);
+
+  goto out;
+
+ error:
+  g_assert (dbus_error_is_set (&derror));
+  dbus_set_g_error (error, &derror);
+  dbus_error_free (&derror);
+
+ out:
+  if (request)
+    dbus_message_unref (request);
+  if (reply)
+    dbus_message_unref (reply);
+  dbus_free (base_service_name);
+
+  return proxy;
 }
 
 /**

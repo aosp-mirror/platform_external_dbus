@@ -756,6 +756,79 @@ bus_driver_handle_remove_match (DBusConnection *connection,
   return FALSE;
 }
 
+static dbus_bool_t
+bus_driver_handle_get_service_owner (DBusConnection *connection,
+				     BusTransaction *transaction,
+				     DBusMessage    *message,
+				     DBusError      *error)
+{
+  char *text;
+  const char *base_name;
+  DBusString str;
+  BusRegistry *registry;
+  BusService *service;
+  DBusMessage *reply;
+  
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  registry = bus_connection_get_registry (connection);
+
+  text = NULL;
+  reply = NULL;
+
+  if (! dbus_message_get_args (message, error,
+			       DBUS_TYPE_STRING, &text,
+			       DBUS_TYPE_INVALID))
+      goto failed;
+
+  _dbus_string_init_const (&str, text);
+  service = bus_registry_lookup (registry, &str);
+  if (service == NULL)
+    {
+      dbus_set_error (error, 
+		      DBUS_ERROR_SERVICE_HAS_NO_OWNER,
+		      "Could not get owner of service '%s': no such service", text);
+      goto failed;
+    }
+
+  base_name = bus_connection_get_name (bus_service_get_primary_owner (service));
+  if (base_name == NULL)
+    {
+      dbus_set_error (error,
+		      DBUS_ERROR_FAILED,
+		      "Could not determine base service for '%s'", text);
+      goto failed;
+    }
+  _dbus_assert (*base_name == ':');
+
+  reply = dbus_message_new_method_return (message);
+  if (reply == NULL)
+    goto oom;
+
+  if (! dbus_message_append_args (reply, 
+				  DBUS_TYPE_STRING, base_name,
+				  DBUS_TYPE_INVALID))
+    goto oom;
+  
+  if (! bus_transaction_send_from_driver (transaction, connection, reply))
+    goto oom;
+
+  dbus_message_unref (reply);
+  dbus_free (text);
+
+  return TRUE;
+
+ oom:
+  BUS_SET_OOM (error);
+
+ failed:
+  _DBUS_ASSERT_ERROR_IS_SET (error);
+  if (reply)
+    dbus_message_unref (reply);
+  dbus_free (text);
+  return FALSE;
+}
+
 /* For speed it might be useful to sort this in order of
  * frequency of use (but doesn't matter with only a few items
  * anyhow)
@@ -774,7 +847,8 @@ struct
   { "ServiceExists", bus_driver_handle_service_exists },
   { "ListServices", bus_driver_handle_list_services },
   { "AddMatch", bus_driver_handle_add_match },
-  { "RemoveMatch", bus_driver_handle_remove_match }
+  { "RemoveMatch", bus_driver_handle_remove_match },
+  { "GetServiceOwner", bus_driver_handle_get_service_owner }
 };
 
 dbus_bool_t
