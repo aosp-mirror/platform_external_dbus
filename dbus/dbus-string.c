@@ -1449,6 +1449,42 @@ _dbus_string_find_to (const DBusString *str,
 }
 
 /**
+ * Find the given byte scanning backward from the given start.
+ * Sets *found to -1 if the byte is not found.
+ *
+ * @param str the string
+ * @param byte the byte to find
+ * @param found return location for where it was found
+ * @returns #TRUE if found
+ */
+dbus_bool_t
+_dbus_string_find_byte_backward (const DBusString  *str,
+                                 int                start,
+                                 unsigned char      byte,
+                                 int               *found)
+{
+  int i;
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (start >= 0);
+  _dbus_assert (found != NULL);
+
+  i = start - 1;
+  while (i >= 0)
+    {
+      if (real->str[i] == byte)
+        break;
+      
+      --i;
+    }
+
+  if (found)
+    *found = i;
+
+  return i >= 0;
+}
+
+/**
  * Finds a blank (space or tab) in the string. Returns #TRUE
  * if found, #FALSE otherwise. If a blank is not found sets
  * *found to the length of the string.
@@ -3145,6 +3181,26 @@ _dbus_string_test (void)
 
   if (_dbus_string_find_to (&str, 0, 2, "Hello", NULL))
     _dbus_assert_not_reached ("Did find 'Hello'");
+
+  if (!_dbus_string_find_byte_backward (&str, _dbus_string_get_length (&str), 'H', &i))
+    _dbus_assert_not_reached ("Did not find 'H'");
+  _dbus_assert (i == 0);
+
+  if (!_dbus_string_find_byte_backward (&str, _dbus_string_get_length (&str), 'o', &i))
+    _dbus_assert_not_reached ("Did not find 'o'");
+  _dbus_assert (i == _dbus_string_get_length (&str) - 1);
+
+  if (_dbus_string_find_byte_backward (&str, _dbus_string_get_length (&str) - 1, 'o', &i))
+    _dbus_assert_not_reached ("Did find 'o'");
+  _dbus_assert (i == -1);
+
+  if (_dbus_string_find_byte_backward (&str, 1, 'e', &i))
+    _dbus_assert_not_reached ("Did find 'e'");
+  _dbus_assert (i == -1);
+
+  if (!_dbus_string_find_byte_backward (&str, 2, 'e', &i))
+    _dbus_assert_not_reached ("Didn't find 'e'");
+  _dbus_assert (i == 1);
   
   _dbus_string_free (&str);
 

@@ -48,6 +48,7 @@ dbus_bool_t _dbus_md5_test       (void);
 dbus_bool_t _dbus_sha_test       (const char *test_data_dir);
 dbus_bool_t _dbus_keyring_test   (void);
 dbus_bool_t _dbus_data_slot_test (void);
+dbus_bool_t _dbus_sysdeps_test   (void);
 
 void        dbus_internal_do_not_use_run_tests         (const char          *test_data_dir);
 dbus_bool_t dbus_internal_do_not_use_try_message_file  (const DBusString    *filename,

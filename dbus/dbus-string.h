@@ -45,192 +45,173 @@ struct DBusString
   unsigned int dummy8 : 3; /**< placeholder */
 };
 
-dbus_bool_t _dbus_string_init           (DBusString *str);
-void        _dbus_string_init_const     (DBusString *str,
-                                         const char *value);
-void        _dbus_string_init_const_len (DBusString *str,
-                                         const char *value,
-                                         int         len);
-void        _dbus_string_free           (DBusString *str);
-void        _dbus_string_lock           (DBusString *str);
+dbus_bool_t   _dbus_string_init                  (DBusString        *str);
+void          _dbus_string_init_const            (DBusString        *str,
+                                                  const char        *value);
+void          _dbus_string_init_const_len        (DBusString        *str,
+                                                  const char        *value,
+                                                  int                len);
+void          _dbus_string_free                  (DBusString        *str);
+void          _dbus_string_lock                  (DBusString        *str);
+char*         _dbus_string_get_data              (DBusString        *str);
+const char*   _dbus_string_get_const_data        (const DBusString  *str);
+char*         _dbus_string_get_data_len          (DBusString        *str,
+                                                  int                start,
+                                                  int                len);
+const char*   _dbus_string_get_const_data_len    (const DBusString  *str,
+                                                  int                start,
+                                                  int                len);
+void          _dbus_string_set_byte              (DBusString        *str,
+                                                  int                i,
+                                                  unsigned char      byte);
+unsigned char _dbus_string_get_byte              (const DBusString  *str,
+                                                  int                start);
+dbus_bool_t   _dbus_string_insert_byte           (DBusString        *str,
+                                                  int                i,
+                                                  unsigned char      byte);
+dbus_bool_t   _dbus_string_steal_data            (DBusString        *str,
+                                                  char             **data_return);
+dbus_bool_t   _dbus_string_steal_data_len        (DBusString        *str,
+                                                  char             **data_return,
+                                                  int                start,
+                                                  int                len);
+dbus_bool_t   _dbus_string_copy_data             (const DBusString  *str,
+                                                  char             **data_return);
+dbus_bool_t   _dbus_string_copy_data_len         (const DBusString  *str,
+                                                  char             **data_return,
+                                                  int                start,
+                                                  int                len);
+int           _dbus_string_get_length            (const DBusString  *str);
+dbus_bool_t   _dbus_string_lengthen              (DBusString        *str,
+                                                  int                additional_length);
+void          _dbus_string_shorten               (DBusString        *str,
+                                                  int                length_to_remove);
+dbus_bool_t   _dbus_string_set_length            (DBusString        *str,
+                                                  int                length);
+dbus_bool_t   _dbus_string_align_length          (DBusString        *str,
+                                                  int                alignment);
+dbus_bool_t   _dbus_string_append                (DBusString        *str,
+                                                  const char        *buffer);
+dbus_bool_t   _dbus_string_append_len            (DBusString        *str,
+                                                  const char        *buffer,
+                                                  int                len);
+dbus_bool_t   _dbus_string_append_int            (DBusString        *str,
+                                                  long               value);
+dbus_bool_t   _dbus_string_append_uint           (DBusString        *str,
+                                                  unsigned long      value);
+dbus_bool_t   _dbus_string_append_double         (DBusString        *str,
+                                                  double             value);
+dbus_bool_t   _dbus_string_append_byte           (DBusString        *str,
+                                                  unsigned char      byte);
+dbus_bool_t   _dbus_string_append_unichar        (DBusString        *str,
+                                                  dbus_unichar_t     ch);
+void          _dbus_string_delete                (DBusString        *str,
+                                                  int                start,
+                                                  int                len);
+dbus_bool_t   _dbus_string_move                  (DBusString        *source,
+                                                  int                start,
+                                                  DBusString        *dest,
+                                                  int                insert_at);
+dbus_bool_t   _dbus_string_copy                  (const DBusString  *source,
+                                                  int                start,
+                                                  DBusString        *dest,
+                                                  int                insert_at);
+dbus_bool_t   _dbus_string_move_len              (DBusString        *source,
+                                                  int                start,
+                                                  int                len,
+                                                  DBusString        *dest,
+                                                  int                insert_at);
+dbus_bool_t   _dbus_string_copy_len              (const DBusString  *source,
+                                                  int                start,
+                                                  int                len,
+                                                  DBusString        *dest,
+                                                  int                insert_at);
+dbus_bool_t   _dbus_string_replace_len           (const DBusString  *source,
+                                                  int                start,
+                                                  int                len,
+                                                  DBusString        *dest,
+                                                  int                replace_at,
+                                                  int                replace_len);
+void          _dbus_string_get_unichar           (const DBusString  *str,
+                                                  int                start,
+                                                  dbus_unichar_t    *ch_return,
+                                                  int               *end_return);
+dbus_bool_t   _dbus_string_parse_int             (const DBusString  *str,
+                                                  int                start,
+                                                  long              *value_return,
+                                                  int               *end_return);
+dbus_bool_t   _dbus_string_parse_uint            (const DBusString  *str,
+                                                  int                start,
+                                                  unsigned long     *value_return,
+                                                  int               *end_return);
+dbus_bool_t   _dbus_string_parse_double          (const DBusString  *str,
+                                                  int                start,
+                                                  double            *value,
+                                                  int               *end_return);
+dbus_bool_t   _dbus_string_find                  (const DBusString  *str,
+                                                  int                start,
+                                                  const char        *substr,
+                                                  int               *found);
+dbus_bool_t   _dbus_string_find_to               (const DBusString  *str,
+                                                  int                start,
+                                                  int                end,
+                                                  const char        *substr,
+                                                  int               *found);
+dbus_bool_t   _dbus_string_find_byte_backward    (const DBusString  *str,
+                                                  int                start,
+                                                  unsigned char      byte,
+                                                  int               *found);
+dbus_bool_t   _dbus_string_find_blank            (const DBusString  *str,
+                                                  int                start,
+                                                  int               *found);
+void          _dbus_string_skip_blank            (const DBusString  *str,
+                                                  int                start,
+                                                  int               *end);
+void          _dbus_string_skip_white            (const DBusString  *str,
+                                                  int                start,
+                                                  int               *end);
+dbus_bool_t   _dbus_string_equal                 (const DBusString  *a,
+                                                  const DBusString  *b);
+dbus_bool_t   _dbus_string_equal_c_str           (const DBusString  *a,
+                                                  const char        *c_str);
+dbus_bool_t   _dbus_string_equal_len             (const DBusString  *a,
+                                                  const DBusString  *b,
+                                                  int                len);
+dbus_bool_t   _dbus_string_starts_with_c_str     (const DBusString  *a,
+                                                  const char        *c_str);
+dbus_bool_t   _dbus_string_ends_with_c_str       (const DBusString  *a,
+                                                  const char        *c_str);
+dbus_bool_t   _dbus_string_pop_line              (DBusString        *source,
+                                                  DBusString        *dest);
+void          _dbus_string_delete_first_word     (DBusString        *str);
+void          _dbus_string_delete_leading_blanks (DBusString        *str);
+dbus_bool_t   _dbus_string_base64_encode         (const DBusString  *source,
+                                                  int                start,
+                                                  DBusString        *dest,
+                                                  int                insert_at);
+dbus_bool_t   _dbus_string_base64_decode         (const DBusString  *source,
+                                                  int                start,
+                                                  DBusString        *dest,
+                                                  int                insert_at);
+dbus_bool_t   _dbus_string_hex_encode            (const DBusString  *source,
+                                                  int                start,
+                                                  DBusString        *dest,
+                                                  int                insert_at);
+dbus_bool_t   _dbus_string_hex_decode            (const DBusString  *source,
+                                                  int                start,
+                                                  DBusString        *dest,
+                                                  int                insert_at);
+dbus_bool_t   _dbus_string_validate_ascii        (const DBusString  *str,
+                                                  int                start,
+                                                  int                len);
+dbus_bool_t   _dbus_string_validate_utf8         (const DBusString  *str,
+                                                  int                start,
+                                                  int                len);
+dbus_bool_t   _dbus_string_validate_nul          (const DBusString  *str,
+                                                  int                start,
+                                                  int                len);
+void          _dbus_string_zero                  (DBusString        *str);
 
-char*       _dbus_string_get_data           (DBusString        *str);
-const char* _dbus_string_get_const_data     (const DBusString  *str);
-char*       _dbus_string_get_data_len       (DBusString        *str,
-                                             int                start,
-                                             int                len);
-const char* _dbus_string_get_const_data_len (const DBusString  *str,
-                                             int                start,
-                                             int                len);
-void        _dbus_string_set_byte           (DBusString        *str,
-                                             int                i,
-                                             unsigned char      byte);
-unsigned char _dbus_string_get_byte         (const DBusString  *str,
-                                             int                start);
-dbus_bool_t _dbus_string_insert_byte        (DBusString        *str,
-                                             int                i,
-                                             unsigned char      byte);
-dbus_bool_t _dbus_string_steal_data         (DBusString        *str,
-                                             char             **data_return);
-dbus_bool_t _dbus_string_steal_data_len     (DBusString        *str,
-                                             char             **data_return,
-                                             int                start,
-                                             int                len);
-dbus_bool_t _dbus_string_copy_data          (const DBusString  *str,
-                                             char             **data_return);
-dbus_bool_t _dbus_string_copy_data_len      (const DBusString  *str,
-                                             char             **data_return,
-                                             int                start,
-                                             int                len);
-
-int  _dbus_string_get_length         (const DBusString  *str);
-
-dbus_bool_t _dbus_string_lengthen     (DBusString *str,
-                                       int         additional_length);
-void        _dbus_string_shorten      (DBusString *str,
-                                       int         length_to_remove);
-dbus_bool_t _dbus_string_set_length   (DBusString *str,
-                                       int         length);
-dbus_bool_t _dbus_string_align_length (DBusString *str,
-                                       int         alignment);
-
-dbus_bool_t _dbus_string_append         (DBusString    *str,
-                                         const char    *buffer);
-dbus_bool_t _dbus_string_append_len     (DBusString    *str,
-                                         const char    *buffer,
-                                         int            len);
-dbus_bool_t _dbus_string_append_int     (DBusString    *str,
-                                         long           value);
-dbus_bool_t _dbus_string_append_uint    (DBusString    *str,
-                                         unsigned long  value);
-dbus_bool_t _dbus_string_append_double  (DBusString    *str,
-                                         double         value);
-dbus_bool_t _dbus_string_append_byte    (DBusString    *str,
-                                         unsigned char  byte);
-dbus_bool_t _dbus_string_append_unichar (DBusString    *str,
-                                         dbus_unichar_t ch);
-
-
-void        _dbus_string_delete     (DBusString       *str,
-                                     int               start,
-                                     int               len);
-dbus_bool_t _dbus_string_move       (DBusString       *source,
-                                     int               start,
-                                     DBusString       *dest,
-                                     int               insert_at);
-dbus_bool_t _dbus_string_copy       (const DBusString *source,
-                                     int               start,
-                                     DBusString       *dest,
-                                     int               insert_at);
-dbus_bool_t _dbus_string_move_len   (DBusString       *source,
-                                     int               start,
-                                     int               len,
-                                     DBusString       *dest,
-                                     int               insert_at);
-dbus_bool_t _dbus_string_copy_len   (const DBusString *source,
-                                     int               start,
-                                     int               len,
-                                     DBusString       *dest,
-                                     int               insert_at);
-
-dbus_bool_t _dbus_string_replace_len (const DBusString *source,
-                                      int               start,
-                                      int               len,
-                                      DBusString       *dest,
-                                      int               replace_at,
-                                      int               replace_len);
-
-void       _dbus_string_get_unichar (const DBusString *str,
-                                     int               start,
-                                     dbus_unichar_t   *ch_return,
-                                     int              *end_return);
-
-dbus_bool_t _dbus_string_parse_int    (const DBusString *str,
-                                       int               start,
-                                       long             *value_return,
-                                       int              *end_return);
-dbus_bool_t _dbus_string_parse_uint   (const DBusString *str,
-                                       int               start,
-                                       unsigned long    *value_return,
-                                       int              *end_return);
-dbus_bool_t _dbus_string_parse_double (const DBusString *str,
-                                       int               start,
-                                       double           *value,
-                                       int              *end_return);
-
-dbus_bool_t _dbus_string_find         (const DBusString *str,
-                                       int               start,
-                                       const char       *substr,
-                                       int              *found);
-
-dbus_bool_t _dbus_string_find_to      (const DBusString *str,
-				       int               start,
-				       int               end,
-				       const char       *substr,
-				       int              *found);
-dbus_bool_t _dbus_string_find_blank   (const DBusString *str,
-                                       int               start,
-                                       int              *found);
-
-void        _dbus_string_skip_blank   (const DBusString *str,
-                                       int               start,
-                                       int              *end);
-
-void        _dbus_string_skip_white   (const DBusString *str,
-                                       int               start,
-                                       int              *end);
-
-dbus_bool_t _dbus_string_equal        (const DBusString *a,
-                                       const DBusString *b);
-
-dbus_bool_t _dbus_string_equal_c_str  (const DBusString *a,
-                                       const char       *c_str);
-
-dbus_bool_t _dbus_string_equal_len    (const DBusString *a,
-                                       const DBusString *b,
-                                       int               len);
-
-dbus_bool_t _dbus_string_starts_with_c_str  (const DBusString *a,
-                                             const char       *c_str);
-dbus_bool_t _dbus_string_ends_with_c_str    (const DBusString *a,
-                                             const char       *c_str);
-
-dbus_bool_t _dbus_string_pop_line              (DBusString *source,
-                                                DBusString *dest);
-void        _dbus_string_delete_first_word     (DBusString *str);
-void        _dbus_string_delete_leading_blanks (DBusString *str);
-
-
-dbus_bool_t _dbus_string_base64_encode (const DBusString *source,
-                                        int               start,
-                                        DBusString       *dest,
-                                        int               insert_at);
-dbus_bool_t _dbus_string_base64_decode (const DBusString *source,
-                                        int               start,
-                                        DBusString       *dest,
-                                        int               insert_at);
-dbus_bool_t _dbus_string_hex_encode    (const DBusString *source,
-                                        int               start,
-                                        DBusString       *dest,
-                                        int               insert_at);
-dbus_bool_t _dbus_string_hex_decode    (const DBusString *source,
-                                        int               start,
-                                        DBusString       *dest,
-                                        int               insert_at);
-
-dbus_bool_t _dbus_string_validate_ascii (const DBusString *str,
-                                         int               start,
-                                         int               len);
-
-dbus_bool_t _dbus_string_validate_utf8  (const DBusString *str,
-                                         int               start,
-                                         int               len);
-
-dbus_bool_t _dbus_string_validate_nul   (const DBusString *str,
-                                         int               start,
-                                         int               len);
-
-void _dbus_string_zero (DBusString *str);
 
 DBUS_END_DECLS;
 

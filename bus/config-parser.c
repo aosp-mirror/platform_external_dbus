@@ -22,6 +22,7 @@
  */
 #include "config-parser.h"
 #include "test.h"
+#include "utils.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-internals.h>
 #include <string.h>
@@ -82,6 +83,8 @@ struct BusConfigParser
 {
   int refcount;
 
+  DBusString basedir;  /**< Directory we resolve paths relative to */
+  
   DBusList *stack;     /**< stack of Element */
 
   char *user;          /**< user to run as */
@@ -226,7 +229,7 @@ merge_included (BusConfigParser *parser,
 }
 
 BusConfigParser*
-bus_config_parser_new (void)
+bus_config_parser_new (const DBusString *basedir)
 {
   BusConfigParser *parser;
 
@@ -234,6 +237,19 @@ bus_config_parser_new (void)
   if (parser == NULL)
     return NULL;
 
+  if (!_dbus_string_init (&parser->basedir))
+    {
+      dbus_free (parser);
+      return NULL;
+    }
+
+  if (!_dbus_string_copy (basedir, 0, &parser->basedir, 0))
+    {
+      _dbus_string_free (&parser->basedir);
+      dbus_free (parser);
+      return NULL;
+    }
+  
   parser->refcount = 1;
 
   return parser;
@@ -272,6 +288,8 @@ bus_config_parser_unref (BusConfigParser *parser)
                           NULL);
 
       _dbus_list_clear (&parser->service_dirs);
+
+      _dbus_string_free (&parser->basedir);
       
       dbus_free (parser);
     }
@@ -760,6 +778,27 @@ all_whitespace (const DBusString *str)
 }
 
 static dbus_bool_t
+make_full_path (const DBusString *basedir,
+                const DBusString *filename,
+                DBusString       *full_path)
+{
+  if (_dbus_path_is_absolute (filename))
+    {
+      return _dbus_string_copy (filename, 0, full_path, 0);
+    }
+  else
+    {
+      if (!_dbus_string_copy (basedir, 0, full_path, 0))
+        return FALSE;
+      
+      if (!_dbus_concat_dir_and_file (full_path, filename))
+        return FALSE;
+
+      return TRUE;
+    }
+}
+
+static dbus_bool_t
 include_file (BusConfigParser   *parser,
               const DBusString  *filename,
               dbus_bool_t        ignore_missing,
@@ -817,35 +856,52 @@ include_dir (BusConfigParser   *parser,
   
   if (!_dbus_string_init (&filename))
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      BUS_SET_OOM (error);
       return FALSE;
     }
 
   retval = FALSE;
   
   dir = _dbus_directory_open (dirname, error);
-    
-  /* FIXME this is just so the tests pass for now, it needs to come out
-   * once I implement make-dirname-relative-to-currently-parsed-files-dir
-   */
-  if (dir == NULL)
-    {
-      if (error)
-        dbus_error_free (error);
-      _dbus_string_free (&filename);
-      return TRUE;
-    }
 
   if (dir == NULL)
     goto failed;
-  
+
+  dbus_error_init (&tmp_error);
   while (_dbus_directory_get_next_file (dir, &filename, &tmp_error))
     {
-      if (_dbus_string_ends_with_c_str (&filename, ".conf"))
+      DBusString full_path;
+
+      if (!_dbus_string_init (&full_path))
         {
-          if (!include_file (parser, &filename, TRUE, error))
-            goto failed;
+          BUS_SET_OOM (error);
+          goto failed;
         }
+
+      if (!_dbus_string_copy (dirname, 0, &full_path, 0))
+        {
+          BUS_SET_OOM (error);
+          _dbus_string_free (&full_path);
+          goto failed;
+        }      
+
+      if (!_dbus_concat_dir_and_file (&full_path, &filename))
+        {
+          BUS_SET_OOM (error);
+          _dbus_string_free (&full_path);
+          goto failed;
+        }
+      
+      if (_dbus_string_ends_with_c_str (&full_path, ".conf"))
+        {
+          if (!include_file (parser, &full_path, TRUE, error))
+            {
+              _dbus_string_free (&full_path);
+              goto failed;
+            }
+        }
+
+      _dbus_string_free (&full_path);
     }
 
   if (dbus_error_is_set (&tmp_error))
@@ -921,20 +977,52 @@ bus_config_parser_content (BusConfigParser   *parser,
 
     case ELEMENT_INCLUDE:
       {
+        DBusString full_path;
+        
         e->had_content = TRUE;
 
-        if (!include_file (parser, content,
+        if (!_dbus_string_init (&full_path))
+          goto nomem;
+        
+        if (!make_full_path (&parser->basedir, content, &full_path))
+          {
+            _dbus_string_free (&full_path);
+            goto nomem;
+          }
+        
+        if (!include_file (parser, &full_path,
                            e->d.include.ignore_missing, error))
-          return FALSE;
+          {
+            _dbus_string_free (&full_path);
+            return FALSE;
+          }
+
+        _dbus_string_free (&full_path);
       }
       break;
 
     case ELEMENT_INCLUDEDIR:
       {
-        e->had_content = TRUE;
+        DBusString full_path;
         
-        if (!include_dir (parser, content, error))
-          return FALSE;
+        e->had_content = TRUE;
+
+        if (!_dbus_string_init (&full_path))
+          goto nomem;
+        
+        if (!make_full_path (&parser->basedir, content, &full_path))
+          {
+            _dbus_string_free (&full_path);
+            goto nomem;
+          }
+        
+        if (!include_dir (parser, &full_path, error))
+          {
+            _dbus_string_free (&full_path);
+            return FALSE;
+          }
+
+        _dbus_string_free (&full_path);
       }
       break;
       
@@ -991,18 +1079,33 @@ bus_config_parser_content (BusConfigParser   *parser,
     case ELEMENT_SERVICEDIR:
       {
         char *s;
-
-        e->had_content = TRUE;
+        DBusString full_path;
         
-        if (!_dbus_string_copy_data (content, &s))
-          goto nomem;
+        e->had_content = TRUE;
 
-        if (!_dbus_list_append (&parser->service_dirs,
-                                s))
+        if (!_dbus_string_init (&full_path))
+          goto nomem;
+        
+        if (!make_full_path (&parser->basedir, content, &full_path))
           {
+            _dbus_string_free (&full_path);
+            goto nomem;
+          }
+        
+        if (!_dbus_string_copy_data (&full_path, &s))
+          {
+            _dbus_string_free (&full_path);
+            goto nomem;
+          }
+
+        if (!_dbus_list_append (&parser->service_dirs, s))
+          {
+            _dbus_string_free (&full_path);
             dbus_free (s);
             goto nomem;
           }
+
+        _dbus_string_free (&full_path);
       }
       break;
     }
@@ -1011,7 +1114,7 @@ bus_config_parser_content (BusConfigParser   *parser,
   return TRUE;
 
  nomem:
-  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+  BUS_SET_OOM (error);
   return FALSE;
 }
 

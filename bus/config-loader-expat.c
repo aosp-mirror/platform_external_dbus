@@ -170,7 +170,8 @@ bus_config_load (const DBusString *file,
   const char *filename;
   BusConfigParser *parser;
   ExpatParseContext context;
-
+  DBusString dirname;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   parser = NULL;
@@ -186,6 +187,13 @@ bus_config_load (const DBusString *file,
       return NULL;
     }
 
+  if (!_dbus_string_init (&dirname))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_string_free (&context.content);
+      return NULL;
+    }
+  
   expat = XML_ParserCreate_MM ("UTF-8", &memsuite, NULL);
   if (expat == NULL)
     {
@@ -193,7 +201,13 @@ bus_config_load (const DBusString *file,
       goto failed;
     }
 
-  parser = bus_config_parser_new ();
+  if (!_dbus_string_get_dirname (file, &dirname))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      goto failed;
+    }
+  
+  parser = bus_config_parser_new (&dirname);
   if (parser == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -258,6 +272,7 @@ bus_config_load (const DBusString *file,
   if (!bus_config_parser_finished (parser, error))
     goto failed;
 
+  _dbus_string_free (&dirname);
   _dbus_string_free (&context.content);
   XML_ParserFree (expat);
 
@@ -267,6 +282,7 @@ bus_config_load (const DBusString *file,
  failed:
   _DBUS_ASSERT_ERROR_IS_SET (error);
 
+  _dbus_string_free (&dirname);
   _dbus_string_free (&context.content);
   if (expat)
     XML_ParserFree (expat);

@@ -1,5 +1,19 @@
 2003-04-02  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-sysdeps.c (_dbus_file_get_contents): include filenames
+	in error messages
+	(_dbus_string_get_dirname): new
+	(_dbus_sysdeps_test): new
+	(_dbus_directory_open): include dirnames in error messages
+
+	* bus/config-parser.c: interpret <include> and <includedir> and
+	<servicedir> relative to config file location if the given
+	filename is not absolute.
+
+	* dbus/dbus-string.c (_dbus_string_find_byte_backward): new
+
+2003-04-02  Havoc Pennington  <hp@redhat.com>
+
 	* bus/connection.c (bus_transaction_send_error_reply): set sender
 	service for the error, and unref the reply on success
 

@@ -163,6 +163,9 @@ dbus_bool_t    _dbus_create_directory        (const DBusString *filename,
 
 dbus_bool_t _dbus_concat_dir_and_file (DBusString       *dir,
                                        const DBusString *next_component);
+dbus_bool_t _dbus_string_get_dirname  (const DBusString *filename,
+                                       DBusString       *dirname);
+dbus_bool_t _dbus_path_is_absolute    (const DBusString *filename);
 
 typedef struct DBusDirIter DBusDirIter;
 

@@ -24,6 +24,7 @@
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
 #include "dbus-threads.h"
+#include "dbus-test.h"
 #include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1890,14 +1891,18 @@ _dbus_file_get_contents (DBusString       *str,
   if (fd < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "%s", _dbus_strerror (errno));
+                      "Failed to open \"%s\": %s",
+                      filename_c,
+                      _dbus_strerror (errno));
       return FALSE;
     }
 
   if (fstat (fd, &sb) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "%s", _dbus_strerror (errno));
+                      "Failed to stat \"%s\": %s",
+                      filename_c,
+                      _dbus_strerror (errno));
 
       _dbus_verbose ("fstat() failed: %s",
                      _dbus_strerror (errno));
@@ -1910,8 +1915,8 @@ _dbus_file_get_contents (DBusString       *str,
   if (sb.st_size > _DBUS_ONE_MEGABYTE)
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "File size %lu is too large.\n",
-                     (unsigned long) sb.st_size);
+                      "File size %lu of \"%s\" is too large.",
+                      filename_c, (unsigned long) sb.st_size);
       close (fd);
       return FALSE;
     }
@@ -1929,7 +1934,9 @@ _dbus_file_get_contents (DBusString       *str,
           if (bytes_read <= 0)
             {
               dbus_set_error (error, _dbus_error_from_errno (errno),
-                              "%s", _dbus_strerror (errno));
+                              "Error reading \"%s\": %s",
+                              filename_c,
+                              _dbus_strerror (errno));
 
               _dbus_verbose ("read() failed: %s",
                              _dbus_strerror (errno));
@@ -1949,7 +1956,8 @@ _dbus_file_get_contents (DBusString       *str,
     {
       _dbus_verbose ("Can only open regular files at the moment.\n");
       dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Not a regular file");
+                      "\"%s\" is not a regular file",
+                      filename_c);
       close (fd);
       return FALSE;
     }
@@ -2231,6 +2239,9 @@ _dbus_create_directory (const DBusString *filename,
 /**
  * Appends the given filename to the given directory.
  *
+ * @todo it might be cute to collapse multiple '/' such as "foo//"
+ * concat "//bar"
+ *
  * @param dir the directory name
  * @param next_component the filename
  * @returns #TRUE on success
@@ -2265,6 +2276,69 @@ _dbus_concat_dir_and_file (DBusString       *dir,
                             _dbus_string_get_length (dir));
 }
 
+/**
+ * Get the directory name from a complete filename
+ * @param filename the filename
+ * @param dirname string to append directory name to
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_string_get_dirname  (const DBusString *filename,
+                           DBusString       *dirname)
+{
+  int sep;
+  
+  _dbus_assert (filename != dirname);
+  _dbus_assert (filename != NULL);
+  _dbus_assert (dirname != NULL);
+
+  /* Ignore any separators on the end */
+  sep = _dbus_string_get_length (filename);
+  if (sep == 0)
+    return _dbus_string_append (dirname, "."); /* empty string passed in */
+    
+  while (sep > 0 && _dbus_string_get_byte (filename, sep - 1) == '/')
+    --sep;
+
+  _dbus_assert (sep >= 0);
+  
+  if (sep == 0)
+    return _dbus_string_append (dirname, "/");
+  
+  /* Now find the previous separator */
+  _dbus_string_find_byte_backward (filename, sep, '/', &sep);
+  if (sep < 0)
+    return _dbus_string_append (dirname, ".");
+  
+  /* skip multiple separators */
+  while (sep > 0 && _dbus_string_get_byte (filename, sep - 1) == '/')
+    --sep;
+
+  _dbus_assert (sep >= 0);
+  
+  if (sep == 0 &&
+      _dbus_string_get_byte (filename, 0) == '/')
+    return _dbus_string_append (dirname, "/");
+  else
+    return _dbus_string_copy_len (filename, 0, sep - 0,
+                                  dirname, _dbus_string_get_length (dirname));
+}
+
+/**
+ * Checks whether the filename is an absolute path
+ *
+ * @param filename the filename
+ * @returns #TRUE if an absolute path
+ */
+dbus_bool_t
+_dbus_path_is_absolute (const DBusString *filename)
+{
+  if (_dbus_string_get_length (filename) > 0)
+    return _dbus_string_get_byte (filename, 0) == '/';
+  else
+    return FALSE;
+}
+
 struct DBusDirIter
 {
   DIR *d;
@@ -2294,7 +2368,9 @@ _dbus_directory_open (const DBusString *filename,
   if (d == NULL)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "%s", _dbus_strerror (errno));
+                      "Failed to read directory \"%s\": %s",
+                      filename_c,
+                      _dbus_strerror (errno));
       return NULL;
     }
   iter = dbus_new0 (DBusDirIter, 1);
@@ -3207,4 +3283,86 @@ _dbus_change_identity  (unsigned long  uid,
   return TRUE;
 }
 
+#ifdef DBUS_BUILD_TESTS
+#include <stdlib.h>
+static void
+check_dirname (const char *filename,
+               const char *dirname)
+{
+  DBusString f, d;
+  
+  _dbus_string_init_const (&f, filename);
+
+  if (!_dbus_string_init (&d))
+    _dbus_assert_not_reached ("no memory");
+
+  if (!_dbus_string_get_dirname (&f, &d))
+    _dbus_assert_not_reached ("no memory");
+
+  if (!_dbus_string_equal_c_str (&d, dirname))
+    {
+      _dbus_warn ("For filename \"%s\" got dirname \"%s\" and expected \"%s\"\n",
+                  filename,
+                  _dbus_string_get_const_data (&d),
+                  dirname);
+      exit (1);
+    }
+
+  _dbus_string_free (&d);
+}
+
+static void
+check_path_absolute (const char *path,
+                     dbus_bool_t expected)
+{
+  DBusString p;
+
+  _dbus_string_init_const (&p, path);
+
+  if (_dbus_path_is_absolute (&p) != expected)
+    {
+      _dbus_warn ("For path \"%s\" expected absolute = %d got %d\n",
+                  path, expected, _dbus_path_is_absolute (&p));
+      exit (1);
+    }
+}
+
+/**
+ * Unit test for dbus-sysdeps.c.
+ * 
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_sysdeps_test (void)
+{
+  check_dirname ("foo", ".");
+  check_dirname ("foo/bar", "foo");
+  check_dirname ("foo//bar", "foo");
+  check_dirname ("foo///bar", "foo");
+  check_dirname ("foo/bar/", "foo");
+  check_dirname ("foo//bar/", "foo");
+  check_dirname ("foo///bar/", "foo");
+  check_dirname ("foo/bar//", "foo");
+  check_dirname ("foo//bar////", "foo");
+  check_dirname ("foo///bar///////", "foo");
+  check_dirname ("/foo", "/");
+  check_dirname ("////foo", "/");
+  check_dirname ("/foo/bar", "/foo");
+  check_dirname ("/foo//bar", "/foo");
+  check_dirname ("/foo///bar", "/foo");
+  check_dirname ("/", "/");
+  check_dirname ("///", "/");
+  check_dirname ("", ".");  
+
+  check_path_absolute ("/", TRUE);
+  check_path_absolute ("/foo", TRUE);
+  check_path_absolute ("", FALSE);
+  check_path_absolute ("foo", FALSE);
+  check_path_absolute ("foo/bar", FALSE);
+  
+  return TRUE;
+}
+#endif /* DBUS_BUILD_TESTS */
+
 /** @} end of sysdeps */
+
