@@ -76,9 +76,7 @@ dbus_bool_t dbus_set_error       (DBusError  *error,
 				  ...);
 void        dbus_set_error_const (DBusError  *error,
 				  const char *name,
-				  const char *message);
-
-			   
+				  const char *message); 
 				   
 void        dbus_set_result       (DBusResultCode *code_address,
                                    DBusResultCode  code);

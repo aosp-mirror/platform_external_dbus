@@ -126,6 +126,10 @@ dbus_result_to_string (DBusResultCode code)
 
 /**
  * Initializes a DBusError structure.
+ * 
+ * @todo calling dbus_error_init() in here is no good,
+ * for the same reason a GError* has to be set to NULL
+ * before you pass it in.
  *
  * @param error the DBusError.
  */
@@ -165,6 +169,10 @@ dbus_error_free (DBusError *error)
 /**
  * Assigns an error name and message to a DBusError.
  * Does nothing if error is #NULL.
+ *
+ * @todo calling dbus_error_init() in here is no good,
+ * for the same reason a GError* has to be set to NULL
+ * before you pass it in.
  *
  * @param error the error.
  * @param name the error name (not copied!!!)
