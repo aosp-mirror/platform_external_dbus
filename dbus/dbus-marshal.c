@@ -1,7 +1,8 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-marshal.c  Marshalling routines
  *
- * Copyright (C) 2002  CodeFactory AB
+ * Copyright (C) 2002 CodeFactory AB
+ * Copyright (C) 2003 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -1344,7 +1345,17 @@ _dbus_marshal_validate_arg (const DBusString *str,
 	    _dbus_verbose ("invalid array type\n");
 	    return FALSE;
 	  }
-	
+
+        /* NIL values take up no space, so you couldn't iterate over an array of them.
+         * array of nil seems useless anyway; the useful thing might be array of
+         * (nil OR string) but we have no framework for that.
+         */
+        if (array_type == DBUS_TYPE_NIL)
+          {
+            _dbus_verbose ("array of NIL is not allowed\n");
+            return FALSE;
+          }
+        
 	len = demarshal_and_validate_len (str, byte_order, pos, &pos);
         if (len < 0)
           return FALSE;
@@ -1356,17 +1367,27 @@ _dbus_marshal_validate_arg (const DBusString *str,
           }
 	
 	end = pos + len;
-	
+        
 	while (pos < end)
 	  {
 	    if (!_dbus_marshal_validate_arg (str, byte_order, depth + 1,
 					     array_type, pos, &pos))
 	      return FALSE;
 	  }
-	
+
+        if (pos < end)
+          {
+            /* This should not be able to happen, as long as validate_arg moves forward;
+             * but the check is here just to be paranoid.
+             */
+            _dbus_verbose ("array length %d specified was longer than actual array contents by %d\n",
+                    len, end - pos);
+            return FALSE;
+          }
+        
 	if (pos > end)
 	  {
-	    _dbus_verbose ("array contents exceeds array length\n");
+	    _dbus_verbose ("array contents exceeds array length %d by %d\n", len, pos - end);
 	    return FALSE;
 	  }
 
@@ -1374,7 +1395,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
       }
       break;
 
-      case DBUS_TYPE_DICT:
+    case DBUS_TYPE_DICT:
       {
 	int dict_type;
 	int len;
@@ -1413,9 +1434,10 @@ _dbus_marshal_validate_arg (const DBusString *str,
 	
 	if (pos > end)
 	  {
-	    _dbus_verbose ("dict contents exceeds array length\n");
+	    _dbus_verbose ("dict contents exceed stated dict length\n");
 	    return FALSE;
 	  }
+        
 	*end_pos = pos;
       }
       break;

@@ -100,32 +100,6 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
 
   check_memleaks ();
   
-  printf ("%s: running keyring tests\n", "dbus-test");
-  if (!_dbus_keyring_test ())
-    die ("keyring");
-
-  check_memleaks ();
-  
-#if 0
-  printf ("%s: running md5 tests\n", "dbus-test");
-  if (!_dbus_md5_test ())
-    die ("md5");
-
-  check_memleaks ();
-#endif
-  
-  printf ("%s: running SHA-1 tests\n", "dbus-test");
-  if (!_dbus_sha_test (test_data_dir))
-    die ("SHA-1");
-
-  check_memleaks ();
-  
-  printf ("%s: running auth tests\n", "dbus-test");
-  if (!_dbus_auth_test (test_data_dir))
-    die ("auth");
-
-  check_memleaks ();
-  
   printf ("%s: running address parse tests\n", "dbus-test");
   if (!_dbus_address_test ())
     die ("address parsing");
@@ -159,6 +133,32 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   printf ("%s: running hash table tests\n", "dbus-test");
   if (!_dbus_hash_test ())
     die ("hash tables");
+
+  check_memleaks ();
+  
+  printf ("%s: running keyring tests\n", "dbus-test");
+  if (!_dbus_keyring_test ())
+    die ("keyring");
+
+  check_memleaks ();
+  
+#if 0
+  printf ("%s: running md5 tests\n", "dbus-test");
+  if (!_dbus_md5_test ())
+    die ("md5");
+
+  check_memleaks ();
+#endif
+  
+  printf ("%s: running SHA-1 tests\n", "dbus-test");
+  if (!_dbus_sha_test (test_data_dir))
+    die ("SHA-1");
+
+  check_memleaks ();
+  
+  printf ("%s: running auth tests\n", "dbus-test");
+  if (!_dbus_auth_test (test_data_dir))
+    die ("auth");
 
   check_memleaks ();
   

@@ -1,5 +1,21 @@
 2003-04-08  Havoc Pennington  <hp@redhat.com>
 
+	* test/data/invalid-messages/array-with-mixed-types.message:
+	regression test that fails for the moment
+
+	* dbus/dbus-test.c (dbus_internal_do_not_use_run_tests): reorder
+	tests for convenience
+
+	* dbus/dbus-marshal.c (_dbus_marshal_validate_arg): don't allow
+	array of nil, it broke things.
+
+	* test/data/invalid-messages/array-of-nil.message: regression test
+
+	* test/data/valid-messages/array-of-array-of-uint32.message:
+	happened to write this so added it to suite
+	
+2003-04-08  Havoc Pennington  <hp@redhat.com>
+
 	* bus/driver.c (bus_driver_handle_acquire_service): init
 	retval/reply before checking name
 

@@ -1,0 +1,22 @@
+# Message with an array of NIL (not allowed)
+
+VALID_HEADER
+FIELD_NAME name
+TYPE STRING
+STRING 'org.freedesktop.Foo'
+END_LENGTH Header
+ALIGN 8
+START_LENGTH Body
+TYPE ARRAY
+TYPE NIL
+UINT32 5
+
+## we want it to fail because of type nil, not because the length is no good
+## so pad out the message with 5 bytes
+BYTE 1
+BYTE 2
+BYTE 3
+BYTE 4
+BYTE 5
+
+END_LENGTH Body
