@@ -282,7 +282,7 @@ _dbus_loop_remove_watch (DBusLoop          *loop,
     }
 
   _dbus_warn ("could not find watch %p function %p data %p to remove\n",
-              watch, function, data);
+              watch, (void *)function, data);
 }
 
 dbus_bool_t
@@ -336,7 +336,7 @@ _dbus_loop_remove_timeout (DBusLoop            *loop,
     }
 
   _dbus_warn ("could not find timeout %p function %p data %p to remove\n",
-              timeout, function, data);
+              timeout, (void *)function, data);
 }
 
 /* Convolutions from GLib, there really must be a better way

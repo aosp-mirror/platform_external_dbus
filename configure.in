@@ -110,6 +110,16 @@ if test "x$GCC" = "xyes"; then
     esac
 
     case " $CFLAGS " in
+    *[\ \	]-D_POSIX_C_SOURCE*) ;;
+    *) CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=199309L" ;;
+    esac
+
+    case " $CFLAGS " in
+    *[\ \	]-D_BSD_SOURCE[\ \	]*) ;;
+    *) CFLAGS="$CFLAGS -D_BSD_SOURCE" ;;
+    esac
+
+    case " $CFLAGS " in
     *[\ \	]-pedantic[\ \	]*) ;;
     *) CFLAGS="$CFLAGS -pedantic" ;;
     esac
@@ -272,19 +282,23 @@ AC_C_BIGENDIAN
 AC_MSG_CHECKING([whether to use inline assembler routines for atomic integers])
 have_atomic_inc=no
 if test x"$GCC" = xyes; then
-  case $host_cpu in
-    i386)
-      AC_MSG_RESULT([no])
-      ;;
-    i?86)
-      AC_MSG_RESULT([i486])
-      AC_DEFINE_UNQUOTED(DBUS_USE_ATOMIC_INT_486, 1, [Use atomic integer implementation for 486])
-      have_atomic_inc=yes
-      ;;
-    *)
-      AC_MSG_RESULT([no])
-      ;;
-  esac
+  if test "x$enable_ansi" = "xyes"; then
+    AC_MSG_RESULT([no])
+  else
+    case $host_cpu in
+      i386)
+        AC_MSG_RESULT([no])
+        ;;
+      i?86)
+        AC_MSG_RESULT([i486])
+        AC_DEFINE_UNQUOTED(DBUS_USE_ATOMIC_INT_486, 1, [Use atomic integer implementation for 486])
+        have_atomic_inc=yes
+        ;;
+      *)
+        AC_MSG_RESULT([no])
+        ;;
+    esac
+  fi
 fi
 if test x$have_atomic_inc = xyes ; then
   AC_DEFINE_UNQUOTED(DBUS_HAVE_ATOMIC_INT, 1, [Some atomic integer implementation present])

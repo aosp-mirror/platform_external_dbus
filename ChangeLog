@@ -1,3 +1,11 @@
+2003-06-29  Miloslav Trmac  <mitr@volny.cz>
+
+	* dbus/dbus-mainloop.c (_dbus_loop_remove_watch)
+	(_dbus_loop_remove_timeout): Cast function pointers to (void *) for %p
+
+	* configure.in: Add -D_POSIX_C_SOURCE=199309L -DBSD_SOURCE to CFLAGS
+	and disable DBUS_USE_ATOMIC_INT_486 when --enable-ansi is used
+
 2003-06-24  Havoc Pennington  <hp@pobox.com>
 
 	* mono/*.cs: Use IntPtr.Zero instead of ((IntPtr) 0)
