@@ -78,6 +78,45 @@ dbus_message_iter_get_args (DBusMessageIter *iter,
 #include <stdio.h>
 #include <stdlib.h>
 
+static int validities_seen[DBUS_VALIDITY_LAST + _DBUS_NEGATIVE_VALIDITY_COUNT];
+
+static void
+reset_validities_seen (void)
+{
+  int i;
+  i = 0;
+  while (i < _DBUS_N_ELEMENTS (validities_seen))
+    {
+      validities_seen[i] = 0;
+      ++i;
+    }
+}
+
+static void
+record_validity_seen (DBusValidity validity)
+{
+  validities_seen[validity + _DBUS_NEGATIVE_VALIDITY_COUNT] += 1;
+}
+
+static void
+print_validities_seen (dbus_bool_t not_seen)
+{
+  int i;
+  i = 0;
+  while (i < _DBUS_N_ELEMENTS (validities_seen))
+    {
+      if ((i - _DBUS_NEGATIVE_VALIDITY_COUNT) == DBUS_VALIDITY_UNKNOWN ||
+          (i - _DBUS_NEGATIVE_VALIDITY_COUNT) == DBUS_INVALID_FOR_UNKNOWN_REASON)
+        ;
+      else if ((not_seen && validities_seen[i] == 0) ||
+               (!not_seen && validities_seen[i] > 0))
+        printf ("validity %3d seen %d times\n",
+                i - _DBUS_NEGATIVE_VALIDITY_COUNT,
+                validities_seen[i]);
+      ++i;
+    }
+}
+
 static void
 check_memleaks (void)
 {
@@ -130,6 +169,8 @@ check_have_valid_message (DBusMessageLoader *loader)
     goto failed;
 #endif
 
+  record_validity_seen (DBUS_VALID);
+  
   retval = TRUE;
 
  failed:
@@ -153,6 +194,8 @@ check_invalid_message (DBusMessageLoader *loader,
       goto failed;
     }
 
+  record_validity_seen (loader->corruption_reason);
+  
   if (expected_validity != DBUS_INVALID_FOR_UNKNOWN_REASON &&
       loader->corruption_reason != expected_validity)
     {
@@ -190,6 +233,7 @@ check_incomplete_message (DBusMessageLoader *loader)
       goto failed;
     }
 
+  record_validity_seen (DBUS_VALID_BUT_INCOMPLETE);
   retval = TRUE;
 
  failed:
@@ -212,8 +256,12 @@ check_loader_results (DBusMessageLoader      *loader,
   else if (expected_validity == DBUS_VALIDITY_UNKNOWN)
     {
       /* here we just know we didn't segfault and that was the
-       * only test
+       * only test. Also, we record that we got coverage
+       * for the validity reason.
        */
+      if (_dbus_message_loader_get_is_corrupted (loader))
+        record_validity_seen (loader->corruption_reason);
+      
       return TRUE;
     }
   else
@@ -1170,6 +1218,8 @@ _dbus_message_test (const char *test_data_dir)
     DBusMessageData mdata;
     int count;
 
+    reset_validities_seen ();
+    
     count = 0;
     _dbus_message_data_iter_init (&diter);
     
@@ -1190,6 +1240,9 @@ _dbus_message_test (const char *test_data_dir)
       }
 
     printf ("%d sample messages tested\n", count);
+
+    print_validities_seen (FALSE);
+    print_validities_seen (TRUE);
   }
   
   check_memleaks ();

@@ -1,5 +1,22 @@
 2005-02-05  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-message-factory.c (generate_special): more test cases,
+	increasing coverage
+
+	* dbus/dbus-marshal-validate.c (validate_body_helper): return the
+	reason why a signature was invalid
+
+	* dbus/dbus-marshal-header.c (load_and_validate_field): fix to
+	skip the length of the string before we look at it in validation
+
+	* dbus/dbus-string-util.c (_dbus_string_test): add tests for
+	equal_substring
+
+	* dbus/dbus-message.c (_dbus_message_loader_new): default
+	max_message_length to DBUS_MAXIMUM_MESSAGE_LENGTH
+
+2005-02-05  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-marshal-validate.c (validate_body_helper): fix crash
 	if the signature of a variant was empty
 	(_dbus_validate_signature_with_reason): catch "(a)" (array inside

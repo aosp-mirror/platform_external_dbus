@@ -35,7 +35,9 @@ typedef enum
   } ChangeType;
 
 #define BYTE_ORDER_OFFSET  0
+#define TYPE_OFFSET        1
 #define BODY_LENGTH_OFFSET 4
+#define FIELDS_ARRAY_LENGTH_OFFSET 12
 
 static void
 iter_recurse (DBusMessageDataIter *iter)
@@ -165,11 +167,12 @@ generate_many_bodies_inner (DBusMessageDataIter *iter,
   DBusMessage *message;
   DBusString signature;
   DBusString body;
-  
-  message = dbus_message_new_method_call ("org.freedesktop.Foo",
+
+  /* Keeping this small makes things go faster */
+  message = dbus_message_new_method_call ("o.z.F",
                                           "/",
-                                          "org.freedesktop.Blah",
-                                          "NahNahNah");
+                                          "o.z.B",
+                                          "Nah");
   if (message == NULL)
     _dbus_assert_not_reached ("oom");
 
@@ -212,6 +215,26 @@ generate_many_bodies_inner (DBusMessageDataIter *iter,
   return *message_p != NULL;
 }
 
+static void
+generate_from_message (DBusString            *data,
+                       DBusValidity          *expected_validity,
+                       DBusMessage           *message)
+{
+  _dbus_message_set_serial (message, 1);
+  _dbus_message_lock (message);
+
+  *expected_validity = DBUS_VALID;
+  
+  /* move for efficiency, since we'll nuke the message anyway */
+  if (!_dbus_string_move (&message->header.data, 0,
+                          data, 0))
+    _dbus_assert_not_reached ("oom");
+
+  if (!_dbus_string_copy (&message->body, 0,
+                          data, _dbus_string_get_length (data)))
+    _dbus_assert_not_reached ("oom");
+}
+
 static dbus_bool_t
 generate_outer (DBusMessageDataIter   *iter,
                 DBusString            *data,
@@ -228,19 +251,7 @@ generate_outer (DBusMessageDataIter   *iter,
   
   _dbus_assert (message != NULL);
 
-  _dbus_message_set_serial (message, 1);
-  _dbus_message_lock (message);
-  
-  *expected_validity = DBUS_VALID;
-
-  /* move for efficiency, since we'll nuke the message anyway */
-  if (!_dbus_string_move (&message->header.data, 0,
-                          data, 0))
-    _dbus_assert_not_reached ("oom");
-
-  if (!_dbus_string_copy (&message->body, 0,
-                          data, _dbus_string_get_length (data)))
-    _dbus_assert_not_reached ("oom");
+  generate_from_message (data, expected_validity, message);
 
   dbus_message_unref (message);
 
@@ -263,6 +274,334 @@ generate_many_bodies (DBusMessageDataIter   *iter,
 {
   return generate_outer (iter, data, expected_validity,
                          generate_many_bodies_inner);
+}
+
+static DBusMessage*
+simple_method_call (void)
+{
+  DBusMessage *message;
+  /* Keeping this small makes stuff go faster */
+  message = dbus_message_new_method_call ("o.b.Q",
+                                          "/f/b",
+                                          "o.b.Z",
+                                          "Fro");
+  if (message == NULL)
+    _dbus_assert_not_reached ("oom");
+  return message;
+}
+
+static DBusMessage*
+simple_signal (void)
+{
+  DBusMessage *message;
+  message = dbus_message_new_signal ("/f/b",
+                                     "o.b.Z",
+                                     "Fro");
+  if (message == NULL)
+    _dbus_assert_not_reached ("oom");
+  return message;
+}
+
+static DBusMessage*
+simple_method_return (void)
+{
+  DBusMessage *message;
+  message =  dbus_message_new (DBUS_MESSAGE_TYPE_METHOD_RETURN);
+  if (message == NULL)
+    _dbus_assert_not_reached ("oom");
+
+  set_reply_serial (message);
+  
+  return message;
+}
+
+static dbus_bool_t
+generate_special (DBusMessageDataIter   *iter,
+                  DBusString            *data,
+                  DBusValidity          *expected_validity)
+{
+  int item_seq;
+  DBusMessage *message;
+  int pos;
+  dbus_int32_t v_INT32;
+
+  _dbus_assert (_dbus_string_get_length (data) == 0);
+  
+  message = NULL;
+  pos = -1;
+  v_INT32 = 42;
+  item_seq = iter_get_sequence (iter);
+
+  if (item_seq == 0)
+    {
+      message = simple_method_call ();
+      if (!dbus_message_append_args (message,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INVALID))
+        _dbus_assert_not_reached ("oom");
+                                     
+      _dbus_header_get_field_raw (&message->header,
+                                  DBUS_HEADER_FIELD_SIGNATURE,
+                                  NULL, &pos);
+      generate_from_message (data, expected_validity, message);
+      
+      /* set an invalid typecode */
+      _dbus_string_set_byte (data, pos + 1, '$');
+
+      *expected_validity = DBUS_INVALID_UNKNOWN_TYPECODE;
+    }
+  else if (item_seq == 1)
+    {
+      char long_sig[DBUS_MAXIMUM_TYPE_RECURSION_DEPTH+1];
+      const char *v_STRING;
+      int i;
+      
+      message = simple_method_call ();
+      if (!dbus_message_append_args (message,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INVALID))
+        _dbus_assert_not_reached ("oom");
+
+      i = 0;
+      while (i <= (DBUS_MAXIMUM_TYPE_RECURSION_DEPTH + 1))
+        {
+          long_sig[i] = DBUS_TYPE_ARRAY;
+          ++i;
+        }
+
+      v_STRING = long_sig;
+      if (!_dbus_header_set_field_basic (&message->header,
+                                         DBUS_HEADER_FIELD_SIGNATURE,
+                                         DBUS_TYPE_SIGNATURE,
+                                         &v_STRING))
+        _dbus_assert_not_reached ("oom");
+      
+      _dbus_header_get_field_raw (&message->header,
+                                  DBUS_HEADER_FIELD_SIGNATURE,
+                                  NULL, &pos);
+      generate_from_message (data, expected_validity, message);
+      
+      *expected_validity = DBUS_INVALID_EXCEEDED_MAXIMUM_ARRAY_RECURSION;
+    }
+  else if (item_seq == 2)
+    {
+      char long_sig[DBUS_MAXIMUM_TYPE_RECURSION_DEPTH*2+3];
+      const char *v_STRING;
+      int i;
+      
+      message = simple_method_call ();
+      if (!dbus_message_append_args (message,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INVALID))
+        _dbus_assert_not_reached ("oom");
+
+      i = 0;
+      while (i <= (DBUS_MAXIMUM_TYPE_RECURSION_DEPTH + 1))
+        {
+          long_sig[i] = DBUS_STRUCT_BEGIN_CHAR;
+          ++i;
+        }
+
+      long_sig[i] = DBUS_TYPE_INT32;
+      ++i;
+
+      while (i <= (DBUS_MAXIMUM_TYPE_RECURSION_DEPTH*2 + 3))
+        {
+          long_sig[i] = DBUS_STRUCT_END_CHAR;
+          ++i;
+        }
+      
+      v_STRING = long_sig;
+      if (!_dbus_header_set_field_basic (&message->header,
+                                         DBUS_HEADER_FIELD_SIGNATURE,
+                                         DBUS_TYPE_SIGNATURE,
+                                         &v_STRING))
+        _dbus_assert_not_reached ("oom");
+      
+      _dbus_header_get_field_raw (&message->header,
+                                  DBUS_HEADER_FIELD_SIGNATURE,
+                                  NULL, &pos);
+      generate_from_message (data, expected_validity, message);
+      
+      *expected_validity = DBUS_INVALID_EXCEEDED_MAXIMUM_STRUCT_RECURSION;
+    }
+  else if (item_seq == 3)
+    {
+      message = simple_method_call ();
+      if (!dbus_message_append_args (message,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INVALID))
+        _dbus_assert_not_reached ("oom");
+                                     
+      _dbus_header_get_field_raw (&message->header,
+                                  DBUS_HEADER_FIELD_SIGNATURE,
+                                  NULL, &pos);
+      generate_from_message (data, expected_validity, message);
+      
+      _dbus_string_set_byte (data, pos + 1, DBUS_STRUCT_BEGIN_CHAR);
+      
+      *expected_validity = DBUS_INVALID_STRUCT_STARTED_BUT_NOT_ENDED;
+    }
+  else if (item_seq == 4)
+    {
+      message = simple_method_call ();
+      if (!dbus_message_append_args (message,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INVALID))
+        _dbus_assert_not_reached ("oom");
+                                     
+      _dbus_header_get_field_raw (&message->header,
+                                  DBUS_HEADER_FIELD_SIGNATURE,
+                                  NULL, &pos);
+      generate_from_message (data, expected_validity, message);
+      
+      _dbus_string_set_byte (data, pos + 1, DBUS_STRUCT_END_CHAR);
+      
+      *expected_validity = DBUS_INVALID_STRUCT_ENDED_BUT_NOT_STARTED;
+    }
+  else if (item_seq == 5)
+    {
+      message = simple_method_call ();
+      if (!dbus_message_append_args (message,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INT32, &v_INT32,
+                                     DBUS_TYPE_INVALID))
+        _dbus_assert_not_reached ("oom");
+                                     
+      _dbus_header_get_field_raw (&message->header,
+                                  DBUS_HEADER_FIELD_SIGNATURE,
+                                  NULL, &pos);
+      generate_from_message (data, expected_validity, message);
+      
+      _dbus_string_set_byte (data, pos + 1, DBUS_STRUCT_BEGIN_CHAR);
+      _dbus_string_set_byte (data, pos + 2, DBUS_STRUCT_END_CHAR);
+      
+      *expected_validity = DBUS_INVALID_STRUCT_HAS_NO_FIELDS;
+    }
+  else if (item_seq == 6)
+    {
+      message = simple_method_call ();
+      generate_from_message (data, expected_validity, message);
+      
+      _dbus_string_set_byte (data, TYPE_OFFSET, DBUS_MESSAGE_TYPE_INVALID);
+      
+      *expected_validity = DBUS_INVALID_BAD_MESSAGE_TYPE;
+    }
+  else if (item_seq == 7)
+    {
+      /* Messages of unknown type are considered valid */
+      message = simple_method_call ();
+      generate_from_message (data, expected_validity, message);
+      
+      _dbus_string_set_byte (data, TYPE_OFFSET, 100);
+      
+      *expected_validity = DBUS_VALID;
+    }
+  else if (item_seq == 8)
+    {
+      message = simple_method_call ();
+      generate_from_message (data, expected_validity, message);
+      
+      _dbus_marshal_set_uint32 (data, BODY_LENGTH_OFFSET,
+                                DBUS_MAXIMUM_MESSAGE_LENGTH / 2 + 4,
+                                message->byte_order);
+      _dbus_marshal_set_uint32 (data, FIELDS_ARRAY_LENGTH_OFFSET,
+                                DBUS_MAXIMUM_MESSAGE_LENGTH / 2 + 4,
+                                message->byte_order);
+      *expected_validity = DBUS_INVALID_MESSAGE_TOO_LONG;
+    }
+  else if (item_seq == 9)
+    {
+      const char *v_STRING = "not a valid bus name";
+      message = simple_method_call ();
+
+      if (!_dbus_header_set_field_basic (&message->header,
+                                         DBUS_HEADER_FIELD_SENDER,
+                                         DBUS_TYPE_STRING, &v_STRING))
+        _dbus_assert_not_reached ("oom");
+      
+      generate_from_message (data, expected_validity, message);
+
+      *expected_validity = DBUS_INVALID_BAD_SENDER;
+    }
+  else if (item_seq == 10)
+    {
+      message = simple_method_call ();
+
+      if (!dbus_message_set_interface (message, DBUS_INTERFACE_ORG_FREEDESKTOP_LOCAL))
+        _dbus_assert_not_reached ("oom");
+      
+      generate_from_message (data, expected_validity, message);
+
+      *expected_validity = DBUS_INVALID_USES_LOCAL_INTERFACE;
+    }
+  else if (item_seq == 11)
+    {
+      message = simple_method_call ();
+
+      if (!dbus_message_set_path (message, DBUS_PATH_ORG_FREEDESKTOP_LOCAL))
+        _dbus_assert_not_reached ("oom");
+      
+      generate_from_message (data, expected_validity, message);
+
+      *expected_validity = DBUS_INVALID_USES_LOCAL_PATH;
+    }
+  else if (item_seq == 12)
+    {
+      /* Method calls don't have to have interface */
+      message = simple_method_call ();
+
+      if (!dbus_message_set_interface (message, NULL))
+        _dbus_assert_not_reached ("oom");
+      
+      generate_from_message (data, expected_validity, message);
+      
+      *expected_validity = DBUS_VALID;
+    }
+  else if (item_seq == 13)
+    {
+      /* Signals require an interface */
+      message = simple_signal ();
+
+      if (!dbus_message_set_interface (message, NULL))
+        _dbus_assert_not_reached ("oom");
+      
+      generate_from_message (data, expected_validity, message);
+      
+      *expected_validity = DBUS_INVALID_MISSING_INTERFACE;
+    }
+  else if (item_seq == 14)
+    {
+      message = simple_method_return ();
+
+      if (!_dbus_header_delete_field (&message->header, DBUS_HEADER_FIELD_REPLY_SERIAL))
+        _dbus_assert_not_reached ("oom");
+      
+      generate_from_message (data, expected_validity, message);
+      
+      *expected_validity = DBUS_INVALID_MISSING_REPLY_SERIAL;
+    }
+  else
+    {
+      return FALSE;
+    }
+
+  if (message)
+    dbus_message_unref (message);
+
+  iter_next (iter);
+  return TRUE;
 }
 
 static dbus_bool_t
@@ -385,6 +724,145 @@ generate_byte_changed (DBusMessageDataIter *iter,
   _dbus_string_set_byte (data, byte_seq, v_BYTE);
   *expected_validity = DBUS_VALIDITY_UNKNOWN;
 
+  return TRUE;
+}
+
+static dbus_bool_t
+find_next_typecode (DBusMessageDataIter *iter,
+                    DBusString          *data,
+                    DBusValidity        *expected_validity)
+{
+  int body_seq;
+  int byte_seq;
+  int base_depth;
+
+  base_depth = iter->depth;
+
+ restart:
+  _dbus_assert (iter->depth == (base_depth + 0));
+  _dbus_string_set_length (data, 0);
+
+  body_seq = iter_get_sequence (iter);
+  
+  if (!generate_many_bodies (iter, data, expected_validity))
+    return FALSE;
+  /* Undo the "next" in generate_many_bodies */
+  iter_set_sequence (iter, body_seq);
+  
+  iter_recurse (iter);
+  while (TRUE)
+    {
+      _dbus_assert (iter->depth == (base_depth + 1));
+      
+      byte_seq = iter_get_sequence (iter);
+
+      _dbus_assert (byte_seq <= _dbus_string_get_length (data));
+      
+      if (byte_seq == _dbus_string_get_length (data))
+        {
+          /* reset byte count */
+          iter_set_sequence (iter, 0);
+          iter_unrecurse (iter);
+          _dbus_assert (iter->depth == (base_depth + 0));
+          iter_next (iter); /* go to the next body */
+          goto restart;
+        }
+
+      _dbus_assert (byte_seq < _dbus_string_get_length (data));
+
+      if (_dbus_type_is_valid (_dbus_string_get_byte (data, byte_seq)))
+        break;
+      else
+        iter_next (iter);
+    }
+
+  _dbus_assert (byte_seq == iter_get_sequence (iter));
+  _dbus_assert (byte_seq < _dbus_string_get_length (data));
+
+  iter_unrecurse (iter);
+
+  _dbus_assert (iter->depth == (base_depth + 0));
+  
+  return TRUE;
+}
+
+static const int typecodes[] = {
+  DBUS_TYPE_INVALID,
+  DBUS_TYPE_BYTE,
+  DBUS_TYPE_BOOLEAN,
+  DBUS_TYPE_INT16,
+  DBUS_TYPE_UINT16,
+  DBUS_TYPE_INT32,
+  DBUS_TYPE_UINT32,
+  DBUS_TYPE_INT64,
+  DBUS_TYPE_UINT64,
+  DBUS_TYPE_DOUBLE,
+  DBUS_TYPE_STRING,
+  DBUS_TYPE_OBJECT_PATH,
+  DBUS_TYPE_SIGNATURE,
+  DBUS_TYPE_ARRAY,
+  DBUS_TYPE_VARIANT,
+  DBUS_STRUCT_BEGIN_CHAR,
+  DBUS_STRUCT_END_CHAR,
+  DBUS_DICT_ENTRY_BEGIN_CHAR,
+  DBUS_DICT_ENTRY_END_CHAR,
+  255 /* random invalid typecode */
+};
+  
+static dbus_bool_t
+generate_typecode_changed (DBusMessageDataIter *iter,
+                           DBusString          *data,
+                           DBusValidity        *expected_validity)
+{
+  int byte_seq;
+  int typecode_seq;
+  int base_depth;
+
+  base_depth = iter->depth;
+
+ restart:
+  _dbus_assert (iter->depth == (base_depth + 0));
+  _dbus_string_set_length (data, 0);
+  
+  if (!find_next_typecode (iter, data, expected_validity))
+    return FALSE;
+
+  iter_recurse (iter);
+  byte_seq = iter_get_sequence (iter);
+
+  _dbus_assert (byte_seq < _dbus_string_get_length (data));
+  
+  iter_recurse (iter);
+  typecode_seq = iter_get_sequence (iter);
+  iter_next (iter);
+
+  _dbus_assert (typecode_seq <= _DBUS_N_ELEMENTS (typecodes));
+  
+  if (typecode_seq == _DBUS_N_ELEMENTS (typecodes))
+    {
+      _dbus_assert (iter->depth == (base_depth + 2));
+      iter_set_sequence (iter, 0); /* reset typecode sequence */
+      iter_unrecurse (iter);
+      _dbus_assert (iter->depth == (base_depth + 1));
+      iter_next (iter); /* go to the next byte_seq */
+      iter_unrecurse (iter);
+      _dbus_assert (iter->depth == (base_depth + 0));
+      goto restart;
+    }
+
+  _dbus_assert (iter->depth == (base_depth + 2));
+  iter_unrecurse (iter);
+  _dbus_assert (iter->depth == (base_depth + 1));
+  iter_unrecurse (iter);
+  _dbus_assert (iter->depth == (base_depth + 0));
+
+#if 0
+  printf ("Changing byte %d in message %d to %c\n",
+          byte_seq, iter_get_sequence (iter), typecodes[typecode_seq]);
+#endif
+  
+  _dbus_string_set_byte (data, byte_seq, typecodes[typecode_seq]);
+  *expected_validity = DBUS_VALIDITY_UNKNOWN;
   return TRUE;
 }
 
@@ -528,9 +1006,14 @@ typedef struct
 static const DBusMessageGenerator generators[] = {
   { "trivial example of each message type", generate_trivial },
   { "assorted arguments", generate_many_bodies },
+  { "assorted special cases", generate_special },
   { "each uint32 modified", generate_uint32_changed },
   { "wrong body lengths", generate_wrong_length },
-  { "each byte modified", generate_byte_changed }
+  { "each byte modified", generate_byte_changed },
+#if 0
+  /* This is really expensive and doesn't add too much coverage */
+  { "change each typecode", generate_typecode_changed }
+#endif
 };
 
 void

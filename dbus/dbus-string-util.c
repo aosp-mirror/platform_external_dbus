@@ -377,6 +377,49 @@ _dbus_string_test (void)
       ++i;
     }
 
+  /* Test equality */
+  if (!_dbus_string_init (&str))
+    _dbus_assert_not_reached ("oom");
+
+  if (!_dbus_string_append (&str, "Hello World"))
+    _dbus_assert_not_reached ("oom");
+
+  _dbus_string_init_const (&other, "H");
+  _dbus_assert (_dbus_string_equal_substring (&str, 0, 1, &other, 0));
+  _dbus_assert (_dbus_string_equal_substring (&str, 1, 0, &other, 1));
+  _dbus_string_init_const (&other, "Hello");
+  _dbus_assert (_dbus_string_equal_substring (&str, 0, 5, &other, 0));
+  _dbus_assert (_dbus_string_equal_substring (&str, 1, 4, &other, 1));
+  _dbus_assert (_dbus_string_equal_substring (&str, 2, 3, &other, 2));
+  _dbus_assert (_dbus_string_equal_substring (&str, 3, 2, &other, 3));
+  _dbus_assert (_dbus_string_equal_substring (&str, 4, 1, &other, 4));
+  _dbus_assert (_dbus_string_equal_substring (&str, 5, 0, &other, 5));
+
+  _dbus_assert (_dbus_string_equal_substring (&other, 0, 5, &str, 0));
+  _dbus_assert (_dbus_string_equal_substring (&other, 1, 4, &str, 1));
+  _dbus_assert (_dbus_string_equal_substring (&other, 2, 3, &str, 2));
+  _dbus_assert (_dbus_string_equal_substring (&other, 3, 2, &str, 3));
+  _dbus_assert (_dbus_string_equal_substring (&other, 4, 1, &str, 4));
+  _dbus_assert (_dbus_string_equal_substring (&other, 5, 0, &str, 5));
+
+  
+  _dbus_string_init_const (&other, "World");
+  _dbus_assert (_dbus_string_equal_substring (&str, 6,  5, &other, 0));
+  _dbus_assert (_dbus_string_equal_substring (&str, 7,  4, &other, 1));
+  _dbus_assert (_dbus_string_equal_substring (&str, 8,  3, &other, 2));
+  _dbus_assert (_dbus_string_equal_substring (&str, 9,  2, &other, 3));
+  _dbus_assert (_dbus_string_equal_substring (&str, 10, 1, &other, 4));
+  _dbus_assert (_dbus_string_equal_substring (&str, 11, 0, &other, 5));
+
+  _dbus_assert (_dbus_string_equal_substring (&other, 0, 5, &str, 6));
+  _dbus_assert (_dbus_string_equal_substring (&other, 1, 4, &str, 7));
+  _dbus_assert (_dbus_string_equal_substring (&other, 2, 3, &str, 8));
+  _dbus_assert (_dbus_string_equal_substring (&other, 3, 2, &str, 9));
+  _dbus_assert (_dbus_string_equal_substring (&other, 4, 1, &str, 10));
+  _dbus_assert (_dbus_string_equal_substring (&other, 5, 0, &str, 11));
+  
+  _dbus_string_free (&str);
+  
   /* Test appending data */
   if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");

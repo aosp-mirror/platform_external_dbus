@@ -773,6 +773,7 @@ load_and_validate_field (DBusHeader     *header,
   int expected_type;
   const DBusString *value_str;
   int value_pos;
+  int str_data_pos;
   dbus_uint32_t v_UINT32;
   int bad_string_code;
   dbus_bool_t (* string_validation_func) (const DBusString *str,
@@ -812,6 +813,7 @@ load_and_validate_field (DBusHeader     *header,
   v_UINT32 = 0;
   value_str = NULL;
   value_pos = -1;
+  str_data_pos = -1;
   bad_string_code = DBUS_VALID;
 
   if (expected_type == DBUS_TYPE_UINT32)
@@ -825,6 +827,7 @@ load_and_validate_field (DBusHeader     *header,
     {
       _dbus_header_get_field_raw (header, field,
                                   &value_str, &value_pos);
+      str_data_pos = _DBUS_ALIGN_VALUE (value_pos, 4) + 4;
     }
   else
     {
@@ -844,7 +847,7 @@ load_and_validate_field (DBusHeader     *header,
       if (_dbus_string_equal_substring (&_dbus_local_interface_str,
                                         0,
                                         _dbus_string_get_length (&_dbus_local_interface_str),
-                                        value_str, value_pos))
+                                        value_str, str_data_pos))
         {
           _dbus_verbose ("Message is on the local interface\n");
           return DBUS_INVALID_USES_LOCAL_INTERFACE;
@@ -870,13 +873,10 @@ load_and_validate_field (DBusHeader     *header,
       /* OBJECT_PATH was validated generically due to its type */
       string_validation_func = NULL;
 
-      _dbus_verbose ("value_str %p value_pos %d value_str_len %d\n",
-                     value_str, value_pos,
-                     _dbus_string_get_length (value_str));
       if (_dbus_string_equal_substring (&_dbus_local_path_str,
                                         0,
                                         _dbus_string_get_length (&_dbus_local_path_str),
-                                        value_str, value_pos))
+                                        value_str, str_data_pos))
         {
           _dbus_verbose ("Message is from the local path\n");
           return DBUS_INVALID_USES_LOCAL_PATH;
@@ -910,7 +910,11 @@ load_and_validate_field (DBusHeader     *header,
       len = _dbus_marshal_read_uint32 (value_str, value_pos,
                                        header->byte_order, NULL);
 
-      if (!(*string_validation_func) (value_str, value_pos + 4, len))
+#if 0
+      _dbus_verbose ("Validating string header field; code %d if fails\n",
+                     bad_string_code);
+#endif
+      if (!(*string_validation_func) (value_str, str_data_pos, len))
         return bad_string_code;
     }
 

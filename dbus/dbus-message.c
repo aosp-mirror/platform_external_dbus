@@ -2957,11 +2957,9 @@ _dbus_message_loader_new (void)
 
   loader->corrupted = FALSE;
   loader->corruption_reason = DBUS_VALID;
-  
-  /* Try to cap message size at something that won't *totally* hose
-   * the system if we have a couple of them.
-   */
-  loader->max_message_size = _DBUS_ONE_MEGABYTE * 32;
+
+  /* this can be configured by the app, but defaults to the protocol max */
+  loader->max_message_size = DBUS_MAXIMUM_MESSAGE_LENGTH;
 
   if (!_dbus_string_init (&loader->data))
     {

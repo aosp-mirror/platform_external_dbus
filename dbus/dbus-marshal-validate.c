@@ -335,6 +335,7 @@ validate_body_helper (DBusTypeReader       *reader,
           {
             dbus_uint32_t claimed_len;
             DBusString str;
+            DBusValidity validity;
 
             claimed_len = *p;
             ++p;
@@ -344,9 +345,12 @@ validate_body_helper (DBusTypeReader       *reader,
               return DBUS_INVALID_SIGNATURE_LENGTH_OUT_OF_BOUNDS;
 
             _dbus_string_init_const_len (&str, p, claimed_len);
-            if (!_dbus_validate_signature (&str, 0,
-                                           _dbus_string_get_length (&str)))
-              return DBUS_INVALID_BAD_SIGNATURE;
+            validity =
+              _dbus_validate_signature_with_reason (&str, 0,
+                                                    _dbus_string_get_length (&str));
+
+            if (validity != DBUS_VALID)
+              return validity;
 
             p += claimed_len;
 
@@ -389,7 +393,7 @@ validate_body_helper (DBusTypeReader       *reader,
               return DBUS_INVALID_VARIANT_SIGNATURE_BAD;
 
             p += claimed_len;
-
+            
             if (*p != DBUS_TYPE_INVALID)
               return DBUS_INVALID_VARIANT_SIGNATURE_MISSING_NUL;
             ++p;
