@@ -111,8 +111,3 @@ dbus_test_SOURCES=				\
 	dbus-test-main.c
 
 dbus_test_LDADD= $(DBUS_CLIENT_LIBS) libdbus-convenience.la libdbus-1.la
-
-dbus_break_loader_SOURCES=			\
-	dbus-break-loader.c
-
-dbus_break_loader_LDADD= $(DBUS_CLIENT_LIBS) libdbus-convenience.la libdbus-1.la

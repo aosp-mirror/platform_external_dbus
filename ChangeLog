@@ -1,3 +1,11 @@
+2003-02-12  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/Makefile.am: remove break-loader from the build, since it
+	moved.
+
+	* configure.in: add --enable-gcov to turn on coverage profiling
+	flags and disable optimization
+
 2003-02-10  Havoc Pennington  <hp@pobox.com>
 
         * dbus/dbus-auth-script.c, dbus/dbus-auth-script.h: sync 
