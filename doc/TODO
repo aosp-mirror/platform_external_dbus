@@ -54,3 +54,8 @@
  - write a DTD for the dbus-daemon-1 configuration file
 
  - build and install the Doxygen manual in Makefile when --enable-docs
+
+ - if you send the same message to multiple connections, the serial number 
+   will only be right for one of them. Probably need to just write() the serial 
+   number, rather than putting it in the DBusMessage, or something.
+
