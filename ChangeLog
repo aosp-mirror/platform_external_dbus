@@ -1,3 +1,12 @@
+2004-03-23  Owen Fraser-Green  <owen@discobabe.net>
+
+	First checkin of mono bindings.
+
+	* configure.in:
+	* Makefile.am:
+	Build stuff for the bindings
+	* dbus-sharp.pc.in: Added for pkgconfig
+	
 2004-03-21  Havoc Pennington  <hp@redhat.com>
 
 	* test/test-service.c (main): remove debug spew

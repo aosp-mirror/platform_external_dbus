@@ -1,53 +1,70 @@
-
 using System;
-using System.Runtime.InteropServices;
+using System.Threading;
+using DBus;
+using Gtk;
 
-class Test {  
-  static void Main() {    
-    g_thread_init (IntPtr.Zero);
+namespace DBus.Test
+{
+  public class Test
+  {
+    public static Service service = null;
+    public static Connection connection = null;
     
-    DBus.Connection c;
+    public static int Main(string [] args)
+    {
+      TestServer testServer = new TestServer();
+      Thread serverThread = new Thread(new ThreadStart(testServer.StartServer));
+      serverThread.Start();
 
-    // c = new DBus.Connection ("unix:path=/tmp/foobar");
+      connection = Bus.GetSessionBus();
+      service = Service.Get(connection, "org.freedesktop.Test");      
 
-    try { 
-      c = DBus.Connection.GetBus (DBus.Connection.BusType.Session);
-    }
-    catch (DBus.Exception e) {
-      Console.Error.WriteLine ("Failed to open connection: {0}",
-                               e.Message);
-      return;
-    }
+      TestObject testObject = (TestObject) service.GetObject(typeof(TestObject), "/org/freedesktop/Test/TestObject");
       
-    DBus.Message m = new DBus.Message ("org.freedesktop.Foo",
-                                       "org.freedesktop.DBus.Broadcast");
+      System.Console.WriteLine(testObject.Test1("Hello"));
 
-    c.Send (m);
-    c.Flush ();
+      //RunTests(testObject);
 
-    IntPtr loop = g_main_loop_new (IntPtr.Zero, false);
+      return 0;
+    }
 
-    g_main_loop_run (loop);
-
-    g_main_loop_unref (loop);
+    public static void RunTests(TestObject testObject) 
+    {
+      System.Console.WriteLine(testObject.Test1("Hello"));
+    }
   }
 
-  internal const string GLibname = "libglib-2.0.so.0";
-  internal const string GThreadname = "libgthread-2.0.so.0";
-  
-  [DllImport (GLibname, EntryPoint="g_main_loop_new")]
-    private extern static IntPtr g_main_loop_new (IntPtr context,
-                                                  bool   is_running);
+  public class TestServer
+  {
+    public Connection connection;
+    public Service service;
 
-  [DllImport (GLibname, EntryPoint="g_main_loop_unref")]
-    private extern static void g_main_loop_unref (IntPtr loop);
+    public TestServer()
+    {
+      Application.Init();
+      
+      System.Console.WriteLine("Starting server...");
 
-  [DllImport (GLibname, EntryPoint="g_main_loop_run")]
-    private extern static void g_main_loop_run (IntPtr loop);
+      connection = Bus.GetSessionBus();
+      service = new Service(connection, "org.freedesktop.Test");
+      TestObject testObject = new TestObject();
+      service.RegisterObject(testObject, "/org/freedesktop/Test/TestObject");
+    }
+    
+    public void StartServer()
+    {
+      Application.Run();
+    }
+  }
 
-  [DllImport (GLibname, EntryPoint="g_main_loop_quit")]
-    private extern static void g_main_loop_quit (IntPtr loop);
-  
-  [DllImport (GThreadname, EntryPoint="g_thread_init")]
-    private extern static void g_thread_init (IntPtr vtable);
+  [Interface("org.freedesktop.Test.TestObject")]
+  public class TestObject
+  {
+    [Method]
+    public virtual int Test1(string x)
+    {
+      System.Console.WriteLine("Called: " + x);
+      return 5;
+    }
+  }    
 }

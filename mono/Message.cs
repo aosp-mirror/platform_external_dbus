@@ -1,129 +1,358 @@
-namespace DBus {
+namespace DBus 
+{
   
   using System;
   using System.Runtime.InteropServices;
   using System.Diagnostics;
+  using System.Collections;
   
-  public class Message {
+  public class Message 
+  {
+    
+    /// <summary>
+    /// A pointer to the underlying Message structure
+    /// </summary>
+    private IntPtr rawMessage;
+    
+    /// <summary>
+    /// The current slot number
+    /// </summary>
+    private static int slot = -1;
+    
+    // Keep in sync with C
+    public enum MessageType 
+    {
+      Invalid = 0,
+      MethodCall = 1,
+      MethodReturn = 2,
+      Error = 3,
+      Signal = 4
+    }
 
-    public Message (string name,
-                    string dest_service) {
+    private Arguments arguments = null;
+
+    protected Service service = null;
+    protected string pathName = null;
+    protected string interfaceName = null;
+    protected string name = null;    
+
+    protected Message()
+    {
+      // An empty constructor for the sake of sub-classes which know how to construct theirselves.
+    }
+    
+    protected Message(IntPtr rawMessage, Service service)
+    {
+      RawMessage = rawMessage;
+      this.service = service;
+    }
+    
+    protected Message(MessageType messageType) 
+    {
       // the assignment bumps the refcount
-      raw = dbus_message_new (name, dest_service);
-      if (raw == IntPtr.Zero)
-        throw new OutOfMemoryException ();
-      dbus_message_unref (raw);
-    }
-
-    public string Name {
-      get {
-        return dbus_message_get_name (raw);
-      }
-    }
-
-    public static Message Wrap (IntPtr ptr) {
-      IntPtr gch_ptr;
+      RawMessage = dbus_message_new((int) messageType);
       
-      gch_ptr = dbus_message_get_data (ptr, wrapper_slot);
-      if (gch_ptr != IntPtr.Zero) {
-        return (DBus.Message) ((GCHandle)gch_ptr).Target;
+      if (RawMessage == IntPtr.Zero) {
+	throw new OutOfMemoryException();
+      }
+      
+      dbus_message_unref(RawMessage);
+    }
+    
+    protected Message(MessageType messageType, Service service) : this(messageType) 
+    {
+      this.service = service;
+    }
+    
+    ~Message() 
+    {
+      RawMessage = IntPtr.Zero; // free the native object
+    }
+    
+    public static Message Wrap(IntPtr rawMessage, Service service) 
+    {
+      if (slot > -1) {
+	// If we already have a Message object associated with this rawMessage then return it
+	IntPtr rawThis = dbus_message_get_data(rawMessage, slot);
+	if (rawThis != IntPtr.Zero)
+	  return (DBus.Message) ((GCHandle)rawThis).Target;
+      } 
+      // If it doesn't exist then create a new Message around it
+      Message message = null;
+      
+      switch ((MessageType) dbus_message_get_type(rawMessage)) {
+      case MessageType.Signal:
+	message = new Signal(rawMessage, service);
+	break;
+      case MessageType.MethodCall:
+	message = new MethodCall(rawMessage, service);
+	break;
+      }
+
+      return message;
+    }
+    
+    internal IntPtr RawMessage 
+    {
+      get 
+	{
+	  return rawMessage;
+	}
+      set 
+	{
+	  if (value == rawMessage) 
+	    return;
+	  
+	  if (rawMessage != IntPtr.Zero) 
+	    {
+	      // Get the reference to this
+	      IntPtr rawThis = dbus_message_get_data(rawMessage, Slot);
+	      Debug.Assert (rawThis != IntPtr.Zero);
+	      
+	      // Blank over the reference
+	      dbus_message_set_data(rawMessage, Slot, IntPtr.Zero, IntPtr.Zero);
+	      
+	      // Free the reference
+	      ((GCHandle) rawThis).Free();
+	      
+	      // Unref the connection
+	      dbus_message_unref(rawMessage);
+	    }
+	  
+	  this.rawMessage = value;
+	  
+	  if (rawMessage != IntPtr.Zero) 
+	    {
+	      GCHandle rawThis;
+	      
+	      dbus_message_ref(rawMessage);
+	      
+	      // We store a weak reference to the C# object on the C object
+	      rawThis = GCHandle.Alloc(this, GCHandleType.WeakTrackResurrection);
+	      
+	      dbus_message_set_data(rawMessage, Slot, (IntPtr) rawThis, IntPtr.Zero);
+	    }
+	}
+    }
+    
+    public void Send(ref int serial) 
+    {
+      if (!dbus_connection_send (Service.Connection.RawConnection, RawMessage, ref serial))
+	throw new OutOfMemoryException ();
+    }
+    
+    public void Send() 
+    {
+      int ignored = 0;
+      Send(ref ignored);
+    }
+
+    public void SendWithReply() 
+    {
+      IntPtr rawPendingCall = IntPtr.Zero;
+      
+      if (!dbus_connection_send_with_reply (Service.Connection.RawConnection, RawMessage, rawPendingCall, Service.Connection.Timeout))
+	throw new OutOfMemoryException();
+    }
+     
+    public MethodReturn SendWithReplyAndBlock()
+    {
+      Error error = new Error();
+      error.Init();
+
+      IntPtr rawMessage = dbus_connection_send_with_reply_and_block(Service.Connection.RawConnection, 
+								    RawMessage, 
+								    Service.Connection.Timeout, 
+								    ref error);
+
+      if (rawMessage != IntPtr.Zero) {
+	MethodReturn methodReturn = new MethodReturn(rawMessage, Service);
+	return methodReturn;
       } else {
-        return new Message (ptr);
+	throw new DBusException(error);
       }
     }
 
-    // surely there's a convention for this pattern with the property
-    // and the real member
-    IntPtr raw_;
-    internal IntPtr raw {
-      get {
-        return raw_; 
-      }
-      set {
-        if (value == raw_)
-          return;
-        
-        if (raw_ != IntPtr.Zero) {
-          IntPtr gch_ptr;
-          
-          gch_ptr = dbus_message_get_data (raw_,
-                                           wrapper_slot);
-          Debug.Assert (gch_ptr != IntPtr.Zero);
-
-          dbus_message_set_data (raw_, wrapper_slot,
-                                 IntPtr.Zero, IntPtr.Zero);
-          
-          ((GCHandle) gch_ptr).Free ();
-          
-          dbus_message_unref (raw_);
-        }
-        
-        raw_ = value;
-
-        if (raw_ != IntPtr.Zero) {
-          GCHandle gch;
-
-          dbus_message_ref (raw_);
-
-          // We store a weak reference to the C# object on the C object
-          gch = GCHandle.Alloc (this, GCHandleType.WeakTrackResurrection);
-          
-          dbus_message_set_data (raw_, wrapper_slot,
-                                 (IntPtr) gch, IntPtr.Zero);
-        }
-      }
-    }
-
-    ~Message () {
-      raw = IntPtr.Zero; // free the native object
+    public MessageType Type
+    {
+      get 
+	{
+	  return (MessageType) dbus_message_get_type(RawMessage);
+	}
     }
     
-    Message (IntPtr r) {
-      raw = r;
+    public Service Service
+    {
+      set 
+	{
+	  if (this.service != null && (value.Name != this.service.Name)) {
+	    if (!dbus_message_set_destination(RawMessage, value.Name)) {
+	      throw new OutOfMemoryException();
+	    }
+	  }
+	  
+	  this.service = value;
+	}
+      get 
+	{
+	  return this.service;
+	}
     }
     
-    // static constructor runs before any methods 
-    static Message () {
-      DBus.Internals.Init ();
-      
-      Debug.Assert (wrapper_slot == -1);
-      
-      if (!dbus_message_allocate_data_slot (ref wrapper_slot))
-        throw new OutOfMemoryException ();
+    protected virtual string PathName
+    {
+      set 
+	{
+	  if (value != this.pathName) 
+	    {
+	      if (!dbus_message_set_path(RawMessage, value)) {
+		throw new OutOfMemoryException();
+	      }
+	      
+	      this.pathName = value;
+	    }
+	}
+      get 
+	{
+	  if (this.pathName == null) {
+	    this.pathName = Marshal.PtrToStringAnsi(dbus_message_get_path(RawMessage));
+	  }
+	  
+	  return this.pathName;
+	}
+    }
+    
+    protected virtual string InterfaceName
+    {
+      set 
+	{
+	  if (value != this.interfaceName)
+	    {
+	      dbus_message_set_interface (RawMessage, value);
+	      this.interfaceName = value;
+	    }
+	}
+      get 
+	{
+	  if (this.interfaceName == null) {
+	    this.interfaceName = Marshal.PtrToStringAnsi(dbus_message_get_interface(RawMessage));
+	  }
 
-      Debug.Assert (wrapper_slot >= 0);
+	  return this.interfaceName;
+	}
+    }
+    
+    protected virtual string Name
+    {
+      set 
+	{
+	  if (value != this.name)
+	    {
+	      dbus_message_set_member (RawMessage, value);
+	      this.name = value;
+	    }
+	}
+      get 
+	{
+	  if (this.name == null) {
+	    this.name = Marshal.PtrToStringAnsi(dbus_message_get_member(RawMessage));
+	  }
+
+
+	  return this.name;
+	}
     }
 
-    // slot used to store the C# object on the C object
-    static int wrapper_slot = -1;
+    public Arguments Arguments
+    {
+      get 
+	{
+	  if (this.arguments == null) {
+	    this.arguments = new Arguments(this);
+	  }
+	  
+	  return this.arguments;
+	}
+    }
+
+    protected int Slot
+    {
+      get 
+	{
+	  if (slot == -1) 
+	    {
+	      // We need to initialize the slot
+	      if (!dbus_message_allocate_data_slot (ref slot))
+		throw new OutOfMemoryException ();
+	      
+	      Debug.Assert (slot >= 0);
+	    }
+	  
+	  return slot;
+	}
+    }
     
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_message_new")]
-      private extern static IntPtr dbus_message_new (string name,
-                                                     string dest_service);
+    [DllImport ("dbus-1", EntryPoint="dbus_message_new")]
+    protected extern static IntPtr dbus_message_new (int messageType);
+    
+    [DllImport ("dbus-1", EntryPoint="dbus_message_unref")]
+    protected extern static void dbus_message_unref (IntPtr ptr);
+    
+    [DllImport ("dbus-1", EntryPoint="dbus_message_ref")]
+    protected extern static void dbus_message_ref (IntPtr ptr);
+    
+    [DllImport ("dbus-1", EntryPoint="dbus_message_allocate_data_slot")]
+    protected extern static bool dbus_message_allocate_data_slot (ref int slot);
+    
+    [DllImport ("dbus-1", EntryPoint="dbus_message_free_data_slot")]
+    protected extern static void dbus_message_free_data_slot (ref int slot);
+    
+    [DllImport ("dbus-1", EntryPoint="dbus_message_set_data")]
+    protected extern static bool dbus_message_set_data (IntPtr ptr,
+							int    slot,
+							IntPtr data,
+							IntPtr free_data_func);
+    
+    [DllImport ("dbus-1", EntryPoint="dbus_message_get_data")]
+    protected extern static IntPtr dbus_message_get_data (IntPtr ptr,
+							  int    slot);
+    
+    [DllImport ("dbus-1", EntryPoint="dbus_connection_send")]
+    private extern static bool dbus_connection_send (IntPtr  ptr,
+						     IntPtr  message,
+						     ref int client_serial);
 
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_message_unref")]
-      private extern static void dbus_message_unref (IntPtr ptr);
+    [DllImport ("dbus-1", EntryPoint="dbus_connection_send_with_reply")]
+    private extern static bool dbus_connection_send_with_reply (IntPtr rawConnection, IntPtr rawMessage, IntPtr rawPendingCall, int timeout);
 
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_message_ref")]
-      private extern static void dbus_message_ref (IntPtr ptr);
+    [DllImport ("dbus-1", EntryPoint="dbus_connection_send_with_reply_and_block")]
+    private extern static IntPtr dbus_connection_send_with_reply_and_block (IntPtr rawConnection, IntPtr  message, int timeout, ref Error error);
 
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_message_get_name")]
-      private extern static string dbus_message_get_name (IntPtr ptr);
+    [DllImport("dbus-1")]
+    private extern static int dbus_message_get_type(IntPtr rawMessage);
 
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_message_allocate_data_slot")]
-      private extern static bool dbus_message_allocate_data_slot (ref int slot);
+    [DllImport("dbus-1")]
+    private extern static bool dbus_message_set_path(IntPtr rawMessage, string pathName);
 
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_message_free_data_slot")]
-      private extern static void dbus_message_free_data_slot (ref int slot);
+    [DllImport("dbus-1")]
+    private extern static IntPtr dbus_message_get_path(IntPtr rawMessage);
+    
+    [DllImport("dbus-1")]
+    private extern static bool dbus_message_set_interface (IntPtr rawMessage, string interfaceName);
 
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_message_set_data")]
-      private extern static bool dbus_message_set_data (IntPtr ptr,
-                                                        int    slot,
-                                                        IntPtr data,
-                                                        IntPtr free_data_func);
+    [DllImport("dbus-1")]
+    private extern static IntPtr dbus_message_get_interface(IntPtr rawMessage);
+    
+    [DllImport("dbus-1")]
+    private extern static bool dbus_message_set_member (IntPtr rawMessage, string name);
 
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_message_get_data")]
-      private extern static IntPtr dbus_message_get_data (IntPtr ptr,
-                                                          int    slot);
+    [DllImport("dbus-1")]
+    private extern static IntPtr dbus_message_get_member(IntPtr rawMessage);
+
+    [DllImport("dbus-1")]
+    private extern static bool dbus_message_set_destination(IntPtr rawMessage, string serviceName);
+
+    [DllImport("dbus-1")]
+    private extern static IntPtr dbus_message_get_destination(IntPtr rawMessage);
   }
 }

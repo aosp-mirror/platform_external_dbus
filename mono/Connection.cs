@@ -1,192 +1,180 @@
-namespace DBus {
+namespace DBus 
+{
   
   using System;
   using System.Runtime.InteropServices;
   using System.Diagnostics;
+  using System.Reflection;
+  using System.IO;
+  using System.Collections;
   
-  public class Connection {
+  public class Connection 
+  {
+    /// <summary>
+    /// A pointer to the underlying Connection structure
+    /// </summary>
+    private IntPtr rawConnection;
+    
+    /// <summary>
+    /// The current slot number
+    /// </summary>
+    private static int slot = -1;
+    
+    private int timeout = -1;
 
-    public Connection (string address) {
+    internal Connection(IntPtr rawConnection)
+    {
+      RawConnection = rawConnection;
+    }
+    
+    public Connection(string address)
+    {
       // the assignment bumps the refcount
-      Error error = new Error ();
-      error.Init ();
-      raw = dbus_connection_open (address, ref error);
-      if (raw != IntPtr.Zero) {
-        dbus_connection_unref (raw);
+      Error error = new Error();
+      error.Init();
+      RawConnection = dbus_connection_open(address, ref error);
+      if (RawConnection != IntPtr.Zero) {
+	dbus_connection_unref(RawConnection);
       } else {
-        Exception e = new Exception (ref error);
-        error.Free ();
-        throw e;
+	throw new DBusException(error);
       }
-      dbus_connection_setup_with_g_main (raw, IntPtr.Zero);
+
+      SetupWithMain();
     }
 
-    // Keep in sync with C
-    public enum BusType {
-      Session = 0,
-      System = 1,
-      Activation = 2
-    }
-
-    public static Connection GetBus (BusType bus) {
-      Error error = new Error ();
-
-      error.Init ();
-      
-      IntPtr ptr = dbus_bus_get ((int) bus, ref error);
-      if (ptr != IntPtr.Zero) {
-        Connection c = Wrap (ptr);
-        dbus_connection_unref (ptr);
-        return c;
-      } else {
-        Exception e = new Exception (ref error);
-        error.Free ();
-        throw e;   
-      }
+    public void SetupWithMain() 
+    {      
+      dbus_connection_setup_with_g_main(RawConnection, IntPtr.Zero);
     }
     
-    public void Send (Message m,
-                      ref int serial) {
-      if (!dbus_connection_send (raw, m.raw, ref serial))
-        throw new OutOfMemoryException ();
-    }
-
-    public void Send (Message m) {
-      int ignored = 0;
-      Send (m, ref ignored);
-    }
-
-    public void Flush () {
-      dbus_connection_flush (raw);
-    }
-
-    public void Disconnect () {
-      dbus_connection_disconnect (raw);
+    ~Connection () 
+    {
+      if (RawConnection != IntPtr.Zero) 
+	{
+	  dbus_connection_disconnect(rawConnection);
+	}
+      RawConnection = IntPtr.Zero; // free the native object
     }
     
-    public static Connection Wrap (IntPtr ptr) {
-      IntPtr gch_ptr;
-      
-      gch_ptr = dbus_connection_get_data (ptr, wrapper_slot);
-      if (gch_ptr != IntPtr.Zero) {
-        return (DBus.Connection) ((GCHandle)gch_ptr).Target;
-      } else {
-        return new Connection (ptr);
-      }
+    internal static Connection Wrap(IntPtr rawConnection) 
+    {
+      if (slot > -1) {
+	// If we already have a Connection object associated with this rawConnection then return it
+	IntPtr rawThis = dbus_connection_get_data (rawConnection, slot);
+	return (DBus.Connection) ((GCHandle)rawThis).Target;
+      } 
+      else 
+	{
+	  // If it doesn't exist then create a new connection around it
+	  return new Connection(rawConnection);
+	}
     }
 
-    // surely there's a convention for this pattern with the property
-    // and the real member
-    IntPtr raw_;
-    internal IntPtr raw {
-      get {
-        return raw_; 
-      }
-      set {
-        if (value == raw_)
-          return;
-        
-        if (raw_ != IntPtr.Zero) {
-          IntPtr gch_ptr;
-          
-          gch_ptr = dbus_connection_get_data (raw_,
-                                              wrapper_slot);
-          Debug.Assert (gch_ptr != IntPtr.Zero);
-
-          dbus_connection_set_data (raw_, wrapper_slot,
-                                    IntPtr.Zero, IntPtr.Zero);
-          
-          ((GCHandle) gch_ptr).Free ();
-          
-          dbus_connection_unref (raw_);
-        }
-        
-        raw_ = value;
-
-        if (raw_ != IntPtr.Zero) {
-          GCHandle gch;
-
-          dbus_connection_ref (raw_);
-
-          // We store a weak reference to the C# object on the C object
-          gch = GCHandle.Alloc (this, GCHandleType.WeakTrackResurrection);
-          
-          dbus_connection_set_data (raw_, wrapper_slot,
-                                    (IntPtr) gch, IntPtr.Zero);
-        }
-      }
-    }
-
-    ~Connection () {
-      if (raw != IntPtr.Zero) {
-        Disconnect ();
-      }
-      raw = IntPtr.Zero; // free the native object
+    public int Timeout
+    {
+      get
+	{
+	  return this.timeout;
+	}
+      set
+	{
+	  this.timeout = value;
+	}
     }
     
-    Connection (IntPtr r) {
-      raw = r;
+    private int Slot
+    {
+      get 
+	{
+	  if (slot == -1) 
+	    {
+	      // We need to initialize the slot
+	      if (!dbus_connection_allocate_data_slot (ref slot))
+		throw new OutOfMemoryException ();
+	      
+	      Debug.Assert (slot >= 0);
+	    }
+	  
+	  return slot;
+	}
     }
     
-    // static constructor runs before any methods 
-    static Connection () {
-      DBus.Internals.Init ();
-      
-      Debug.Assert (wrapper_slot == -1);
-      
-      if (!dbus_connection_allocate_data_slot (ref wrapper_slot))
-        throw new OutOfMemoryException ();
-
-      Debug.Assert (wrapper_slot >= 0);
+    internal IntPtr RawConnection 
+    {
+      get 
+	{
+	  return rawConnection;
+	}
+      set 
+	{
+	  if (value == rawConnection)
+	    return;
+	  
+	  if (rawConnection != IntPtr.Zero) 
+	    {
+	      // Get the reference to this
+	      IntPtr rawThis = dbus_connection_get_data (rawConnection, Slot);
+	      Debug.Assert (rawThis != IntPtr.Zero);
+	      
+	      // Blank over the reference
+	      dbus_connection_set_data (rawConnection, Slot, IntPtr.Zero, IntPtr.Zero);
+	      
+	      // Free the reference
+	      ((GCHandle) rawThis).Free();
+	      
+	      // Unref the connection
+	      dbus_connection_unref(rawConnection);
+	    }
+	  
+	  this.rawConnection = value;
+	  
+	  if (rawConnection != IntPtr.Zero) 
+	    {
+	      GCHandle rawThis;
+	      
+	      dbus_connection_ref (rawConnection);
+	      
+	      // We store a weak reference to the C# object on the C object
+	      rawThis = GCHandle.Alloc (this, GCHandleType.WeakTrackResurrection);
+	      
+	      dbus_connection_set_data(rawConnection, Slot, (IntPtr) rawThis, IntPtr.Zero);
+	    }
+	}
     }
 
-    // slot used to store the C# object on the C object
-    static int wrapper_slot = -1;
+    [DllImport("dbus-glib-1")]
+    private extern static void dbus_connection_setup_with_g_main(IntPtr rawConnection,
+							     IntPtr rawContext);
     
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_connection_open")]
-      private extern static IntPtr dbus_connection_open (string address,
-                                                         ref Error error);
-
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_connection_unref")]
-      private extern static void dbus_connection_unref (IntPtr ptr);
-
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_connection_ref")]
-      private extern static void dbus_connection_ref (IntPtr ptr);
-
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_connection_allocate_data_slot")]
-      private extern static bool dbus_connection_allocate_data_slot (ref int slot);
-
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_connection_free_data_slot")]
-      private extern static void dbus_connection_free_data_slot (ref int slot);
-
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_connection_set_data")]
-      private extern static bool dbus_connection_set_data (IntPtr ptr,
-                                                           int    slot,
-                                                           IntPtr data,
-                                                           IntPtr free_data_func);
-
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_connection_send")]
-      private extern static bool dbus_connection_send (IntPtr  ptr,
-                                                       IntPtr  message,
-                                                       ref int client_serial);
-
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_connection_flush")]
-      private extern static void dbus_connection_flush (IntPtr  ptr);
+    [DllImport ("dbus-1")]
+    private extern static IntPtr dbus_connection_open (string address, ref Error error);
     
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_bus_get")]
-      private extern static IntPtr dbus_bus_get (int        which,
-                                                 ref Error  error);
+    [DllImport ("dbus-1")]
+    private extern static void dbus_connection_unref (IntPtr ptr);
     
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_connection_get_data")]
-      private extern static IntPtr dbus_connection_get_data (IntPtr ptr,
-                                                             int    slot);
-
-    [DllImport (DBus.Internals.DBusLibname, EntryPoint="dbus_connection_disconnect")]
-      private extern static void dbus_connection_disconnect (IntPtr ptr);
+    [DllImport ("dbus-1")]
+    private extern static void dbus_connection_ref (IntPtr ptr);
     
-    [DllImport (DBus.Internals.DBusGLibname, EntryPoint="dbus_connection_setup_with_g_main")]
-      private extern static void dbus_connection_setup_with_g_main (IntPtr ptr,
-                                                                    IntPtr context);
+    [DllImport ("dbus-1")]
+    private extern static bool dbus_connection_allocate_data_slot (ref int slot);
     
+    [DllImport ("dbus-1")]
+    private extern static void dbus_connection_free_data_slot (ref int slot);
+    
+    [DllImport ("dbus-1")]
+    private extern static bool dbus_connection_set_data (IntPtr ptr,
+							 int    slot,
+							 IntPtr data,
+							 IntPtr free_data_func);
+    
+    [DllImport ("dbus-1")]
+    private extern static void dbus_connection_flush (IntPtr  ptr);
+    
+    [DllImport ("dbus-1")]
+    private extern static IntPtr dbus_connection_get_data (IntPtr ptr,
+							   int    slot);
+    
+    [DllImport ("dbus-1")]
+    private extern static void dbus_connection_disconnect (IntPtr ptr);
   }
 }

@@ -14,6 +14,7 @@ endif
 
 if DBUS_USE_MCS
    MONO_SUBDIR=mono
+   MONO_PC=dbus-sharp.pc
 endif
 
 if HAVE_PYTHON
@@ -30,16 +31,18 @@ dist-local:
 SUBDIRS=dbus bus doc $(GLIB_SUBDIR) $(GCJ_SUBDIR) $(MONO_SUBDIR) $(QT_SUBDIR) $(PYTHON_SUBDIR) test tools
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = dbus-1.pc $(GLIB_PC)
+pkgconfig_DATA = dbus-1.pc $(GLIB_PC) $(MONO_PC)
 
 DISTCLEANFILES = 		\
 	dbus-1.pc		\
-	$(GLIB_PC)
+	$(GLIB_PC)		\
+	$(MONO_PC)
 
 EXTRA_DIST =			\
 	HACKING			\
 	dbus-1.pc.in		\
-	dbus-glib-1.pc.in
+	dbus-glib-1.pc.in	\
+	dbus-sharp.pc.in
 
 all-local: Doxyfile
 

@@ -1,0 +1,8 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+
+Name: DBus#
+Description: DBus# - D-BUS .NET Bindings
+Version: 0.1
+
