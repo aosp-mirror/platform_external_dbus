@@ -1,3 +1,8 @@
+2003-08-09  Anders Carlsson  <andersca@codefactory.se>
+
+	* doc/dbus-specification.sgml:
+	Add activation reply values.
+	
 2003-08-05  Havoc Pennington  <hp@redhat.com>
 
 	* configure.in: 0.12

@@ -1822,22 +1822,44 @@
               <row>
                 <entry>0</entry>
                 <entry>UINT32</entry>
-                <entry>Result code; DBUS_ACTIVATION_REPLY_ACTIVATED if
-                the service was activated successfully or
-                DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE if the service is
-                already active.</entry>
+                <entry>Return value</entry>
               </row>
             </tbody>
           </tgroup>
         </informaltable>
-        </para>
-        <para>
           Tries to launch the executable associated with a service. For more information, see <xref linkend="message-bus-activation">.
 
             [FIXME need semantics in much more detail here; for example, 
             if I activate a service then send it a message, is the message 
             queued for the new service or is there a race]
         </para>
+        <para>
+          The return value can be one of the following values:
+    <informaltable>
+            <tgroup cols=3>
+              <thead>
+                <row>
+                  <entry>Identifier</entry>
+                  <entry>Value</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+	        <row>
+                  <entry>DBUS_ACTIVATION_REPLY_ACTIVATED</entry>
+                  <entry>0x0</entry>
+                  <entry>The service was activated successfully.</entry>
+                </row>
+                <row>
+                  <entry>DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE</entry>
+                  <entry>0x1</entry>
+                  <entry>The service is already active.</entry>
+                </row>
+              </tbody>
+             </tgroup>
+           </informaltable>
+        </para>
+
       </sect3>
 
       <sect3 id="bus-messages-out-of-memory">
