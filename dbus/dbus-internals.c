@@ -292,6 +292,7 @@ _dbus_type_to_string (int type)
     }
 }
 
+#ifdef DBUS_BUILD_TESTS
 static dbus_bool_t
 run_failing_each_malloc (int                    n_mallocs,
                          const char            *description,
@@ -372,5 +373,6 @@ _dbus_test_oom_handling (const char             *description,
 
   return TRUE;
 }
+#endif /* DBUS_BUILD_TESTS */
 
 /** @} */

@@ -8,9 +8,13 @@ INCLUDES=-I$(top_srcdir) $(DBUS_BUS_CFLAGS)				\
 
 EFENCE=
 
+CONFIG_IN_FILES=				\
+	session.conf.in				\
+	system.conf.in 
+
 config_DATA=					\
-	system.conf				\
-	session.conf
+	session.conf				\
+	system.conf
 
 bin_PROGRAMS=dbus-daemon-1
 
@@ -80,3 +84,24 @@ bus_test_LDADD=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_BUS_LIBS)
 ## mop up the gcov files
 clean-local:
 	/bin/rm *.bb *.bbg *.da *.gcov || true
+
+install-data-hook:
+	$(mkinstalldirs) $(localstatedir)/run/dbus
+
+#### Init scripts fun
+SCRIPT_IN_FILES=messagebus.in
+
+## Red Hat start
+if DBUS_INIT_SCRIPTS_RED_HAT
+
+initddir=$(sysconfdir)/init.d
+
+initd_SCRIPTS= 	\
+	messagebus
+
+endif
+ ## Red Hat end
+
+#### Extra dist 
+
+EXTRA_DIST=$(CONFIG_IN_FILES) $(SCRIPT_IN_FILES)

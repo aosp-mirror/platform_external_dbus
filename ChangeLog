@@ -1,5 +1,14 @@
 2003-03-31  Havoc Pennington  <hp@redhat.com>
 
+	* bus/Makefile.am (install-data-hook): create /var/run/dbus
+
+	* bus/messagebus.in: add init script for Red Hat /etc/init.d
+
+	* configure.in: add support for specifying a style of init script
+	to install
+
+2003-03-31  Havoc Pennington  <hp@redhat.com>
+
         Fix some annoying DBusString API and fix all affected code.
 	
 	* dbus/dbus-string.c (_dbus_string_init): get rid of annoying
