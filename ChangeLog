@@ -1,3 +1,13 @@
+2002-12-26  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-marshal.c: (_dbus_marshal_string),
+	(_dbus_demarshal_double), (_dbus_demarshal_int32),
+	(_dbus_demarshal_uint32), (_dbus_demarshal_string),
+	(_dbus_marshal_test):
+	* dbus/dbus-marshal.h:
+	Add string marshal functions and have the demarshal functions
+	return the new position.
+	
 2002-12-25  Havoc Pennington  <hp@pobox.com>
 
 	* doc/dbus-sasl-profile.txt: docs on the authentication protocol, 

@@ -43,18 +43,27 @@ dbus_bool_t _dbus_marshal_int32  (DBusString    *str,
 dbus_bool_t _dbus_marshal_uint32 (DBusString    *str,
 				  int            byte_order,
 				  dbus_uint32_t  value);
+dbus_bool_t _dbus_marshal_string (DBusString    *str,
+				  int            byte_order,
+				  const char    *value);
+
 
 double        _dbus_demarshal_double (DBusString *str,
 				      int         byte_order,
-				      int         start);
+				      int         pos,
+				      int        *new_pos);
 dbus_int32_t  _dbus_demarshal_int32  (DBusString *str,
 				      int         byte_order,
-				      int         start);
+				      int         pos,
+				      int        *new_pos);
 dbus_uint32_t _dbus_demarshal_uint32 (DBusString *str,
 				      int         byte_order,
-				      int         start);
-
-
+				      int         pos,
+				      int        *new_pos);
+char *        _dbus_demarshal_string (DBusString *str,
+				      int         byte_order,
+				      int         pos,
+				      int        *new_pos);
 
 
 

@@ -24,6 +24,7 @@
 #include "dbus-marshal.h"
 #include "dbus-internals.h"
 
+#include <string.h>
 
 /* This alignment thing is from ORBit2 */
 /* Align a value upward to a boundary, expressed as a number of bytes.
@@ -108,60 +109,124 @@ _dbus_marshal_uint32 (DBusString    *str,
   return _dbus_string_append_len (str, (const char *)&value, sizeof (dbus_uint32_t));
 }
 
+dbus_bool_t
+_dbus_marshal_string (DBusString    *str,
+		      int            byte_order,
+		      const char    *value)
+{
+  int len;
+  
+  if (!_dbus_string_set_length (str,
+				DBUS_ALIGN_VALUE (_dbus_string_get_length (str),
+						  sizeof (dbus_uint32_t))))
+    return FALSE;
+
+  len = strlen (value);
+  
+  if (!_dbus_string_lengthen (str, len + 1))
+    return FALSE;
+
+  if (!_dbus_marshal_uint32 (str, byte_order, len))
+    return FALSE;
+      
+  return _dbus_string_append_len (str, value, len + 1);
+}
 
 
 double
 _dbus_demarshal_double (DBusString  *str,
 			int          byte_order,
-			int          start)
+			int          pos,
+			int         *new_pos)
 {
   double retval;
   const char *buffer;
   
-  _dbus_string_get_const_data_len (str, &buffer, start, sizeof (double));
+  _dbus_string_get_const_data_len (str, &buffer, pos, sizeof (double));
 
   retval = *(double *)buffer;
   
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
     swap_bytes ((unsigned char *)&retval, sizeof (double));
 
+  if (new_pos)
+    *new_pos = pos + sizeof (double);
+  
   return retval;  
 }
 
 dbus_int32_t
 _dbus_demarshal_int32  (DBusString *str,
 			int         byte_order,
-			int         start)
+			int         pos,
+			int        *new_pos)
 {
   dbus_int32_t retval;
   const char *buffer;
 
-  _dbus_string_get_const_data_len (str, &buffer, start, sizeof (dbus_int32_t));
+  _dbus_string_get_const_data_len (str, &buffer, pos, sizeof (dbus_int32_t));
 
   retval = *(dbus_int32_t *)buffer;
 
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
     swap_bytes ((unsigned char *)&retval, sizeof (dbus_int32_t));
 
+  if (new_pos)
+    *new_pos = pos + sizeof (dbus_int32_t);
+  
   return retval;  
 }
 
 dbus_uint32_t
 _dbus_demarshal_uint32  (DBusString *str,
 			 int         byte_order,
-			 int         start)
+			 int         pos,
+			 int        *new_pos)
 {
   dbus_uint32_t retval;
   const char *buffer;
 
-  _dbus_string_get_const_data_len (str, &buffer, start, sizeof (dbus_uint32_t));
+  _dbus_string_get_const_data_len (str, &buffer, pos, sizeof (dbus_uint32_t));
 
   retval = *(dbus_uint32_t *)buffer;
 
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
     swap_bytes ((unsigned char *)&retval, sizeof (dbus_uint32_t));
 
+  if (new_pos)
+    *new_pos = pos + sizeof (dbus_uint32_t);
+  
   return retval;  
+}
+
+char *
+_dbus_demarshal_string (DBusString *str,
+			int         byte_order,
+			int         pos,
+			int        *new_pos)
+{
+  int len;
+  char *retval;
+  const char *data;
+  
+  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+
+  retval = dbus_malloc (len + 1);
+
+  if (!retval)
+    return NULL;
+
+  _dbus_string_get_const_data_len (str, &data, pos, len + 1);
+  
+  if (!data)
+    return NULL;
+
+  memcpy (retval, data, len + 1);
+
+  if (new_pos)
+    *new_pos = pos + len + 1;
+  
+  return retval;
 }
 
 /** @} */
@@ -183,33 +248,31 @@ _dbus_marshal_test (void)
   /* Marshal doubles */
   if (!_dbus_marshal_double (&str, DBUS_BIG_ENDIAN, 3.14))
     _dbus_assert_not_reached ("could not marshal double value");
-  _dbus_assert (_dbus_demarshal_double (&str, DBUS_BIG_ENDIAN, pos) == 3.14);
-  pos += 8;
+  _dbus_assert (_dbus_demarshal_double (&str, DBUS_BIG_ENDIAN, pos, &pos) == 3.14);
+
   
   if (!_dbus_marshal_double (&str, DBUS_LITTLE_ENDIAN, 3.14))
     _dbus_assert_not_reached ("could not marshal double value");
-  _dbus_assert (_dbus_demarshal_double (&str, DBUS_LITTLE_ENDIAN, pos) == 3.14);
-  pos += 8;
+  _dbus_assert (_dbus_demarshal_double (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == 3.14);
   
   /* Marshal signed integers */
   if (!_dbus_marshal_int32 (&str, DBUS_BIG_ENDIAN, -12345678))
     _dbus_assert_not_reached ("could not marshal signed integer value");
-  _dbus_assert (_dbus_demarshal_int32 (&str, DBUS_BIG_ENDIAN, pos) == -12345678);
-  pos += 4;
+  _dbus_assert (_dbus_demarshal_int32 (&str, DBUS_BIG_ENDIAN, pos, &pos) == -12345678);
 
   if (!_dbus_marshal_int32 (&str, DBUS_LITTLE_ENDIAN, -12345678))
     _dbus_assert_not_reached ("could not marshal signed integer value");
-  _dbus_assert (_dbus_demarshal_int32 (&str, DBUS_LITTLE_ENDIAN, pos) == -12345678);
-  pos += 4;
+  _dbus_assert (_dbus_demarshal_int32 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == -12345678);
   
   /* Marshal unsigned integers */
   if (!_dbus_marshal_uint32 (&str, DBUS_LITTLE_ENDIAN, 0x12345678))
     _dbus_assert_not_reached ("could not marshal signed integer value");
-  _dbus_assert (_dbus_demarshal_uint32 (&str, DBUS_LITTLE_ENDIAN, pos) == 0x12345678);
-  pos += 4;
+  _dbus_assert (_dbus_demarshal_uint32 (&str, DBUS_LITTLE_ENDIAN, pos, &pos) == 0x12345678);
   
   _dbus_string_free (&str);
 
+  /* FIXME. Add string marshal tests */
+  
   return TRUE;
 }
 
