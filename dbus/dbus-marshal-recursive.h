@@ -27,7 +27,6 @@
 #include <config.h>
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-list.h>
-#include <dbus/dbus-marshal-basic.h> /* this can vanish when we merge */
 
 #ifndef PACKAGE
 #error "config.h not included here"
@@ -167,6 +166,9 @@ dbus_bool_t _dbus_type_reader_delete                    (DBusTypeReader        *
                                                          const DBusTypeReader  *realign_root);
 dbus_bool_t _dbus_type_reader_greater_than              (const DBusTypeReader  *lhs,
                                                          const DBusTypeReader  *rhs);
+
+dbus_bool_t _dbus_type_reader_equal_values              (const DBusTypeReader *lhs,
+                                                         const DBusTypeReader *rhs);
 
 void        _dbus_type_writer_init                 (DBusTypeWriter        *writer,
                                                     int                    byte_order,

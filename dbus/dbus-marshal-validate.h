@@ -25,7 +25,6 @@
 #define DBUS_MARSHAL_VALIDATE_H
 
 #include <config.h>
-#include <dbus/dbus-marshal-basic.h>
 
 #ifndef PACKAGE
 #error "config.h not included here"

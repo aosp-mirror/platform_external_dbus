@@ -56,6 +56,8 @@ DBUS_LIB_SOURCES=				\
 	dbus-keyring.h				\
 	dbus-marshal-header.c			\
 	dbus-marshal-header.h			\
+	dbus-marshal-byteswap.c			\
+	dbus-marshal-byteswap.h			\
 	dbus-marshal-recursive.c		\
 	dbus-marshal-recursive.h		\
 	dbus-marshal-validate.c			\
@@ -125,6 +127,7 @@ DBUS_UTIL_SOURCES=				\
 	dbus-auth-util.c			\
 	dbus-mainloop.c				\
 	dbus-mainloop.h				\
+	dbus-marshal-byteswap-util.c		\
 	dbus-marshal-recursive-util.c		\
 	dbus-marshal-validate-util.c		\
 	dbus-message-factory.c			\

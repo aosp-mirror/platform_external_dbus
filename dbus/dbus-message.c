@@ -25,6 +25,7 @@
 #include "dbus-internals.h"
 #include "dbus-marshal-recursive.h"
 #include "dbus-marshal-validate.h"
+#include "dbus-marshal-byteswap.h"
 #include "dbus-marshal-header.h"
 #include "dbus-message-private.h"
 #include "dbus-object-tree.h"
@@ -75,6 +76,57 @@ struct DBusMessageRealIter
     DBusTypeReader reader; /**< reader */
   } u; /**< the type writer or reader that does all the work */
 };
+
+static void
+get_const_signature (DBusHeader        *header,
+                     const DBusString **type_str_p,
+                     int               *type_pos_p)
+{
+  if (_dbus_header_get_field_raw (header,
+                                  DBUS_HEADER_FIELD_SIGNATURE,
+                                  type_str_p,
+                                  type_pos_p))
+    {
+      *type_pos_p += 1; /* skip the signature length which is 1 byte */
+    }
+  else
+    {
+      *type_str_p = &_dbus_empty_signature_str;
+      *type_pos_p = 0;
+    }
+}
+
+/**
+ * Swaps the message to compiler byte order if required
+ *
+ * @param message the message
+ */
+static void
+_dbus_message_byteswap (DBusMessage *message)
+{
+  const DBusString *type_str;
+  int type_pos;
+  
+  if (message->byte_order == DBUS_COMPILER_BYTE_ORDER)
+    return;
+
+  _dbus_verbose ("Swapping message into compiler byte order\n");
+  
+  get_const_signature (&message->header, &type_str, &type_pos);
+  
+  _dbus_marshal_byteswap (type_str, type_pos,
+                          message->byte_order,
+                          DBUS_COMPILER_BYTE_ORDER,
+                          &message->body, 0);
+
+  message->byte_order = DBUS_COMPILER_BYTE_ORDER;
+  
+  _dbus_header_byteswap (&message->header, DBUS_COMPILER_BYTE_ORDER);
+}
+
+#define ensure_byte_order(message)                      \
+ if (message->byte_order != DBUS_COMPILER_BYTE_ORDER)   \
+   _dbus_message_byteswap (message)
 
 /**
  * Gets the data to be sent over the network for this message.
@@ -248,25 +300,6 @@ set_or_delete_string_field (DBusMessage *message,
                                          field,
                                          typecode,
                                          &value);
-}
-
-static void
-get_const_signature (DBusHeader        *header,
-                     const DBusString **type_str_p,
-                     int               *type_pos_p)
-{
-  if (_dbus_header_get_field_raw (header,
-                                  DBUS_HEADER_FIELD_SIGNATURE,
-                                  type_str_p,
-                                  type_pos_p))
-    {
-      *type_pos_p += 1; /* skip the signature length which is 1 byte */
-    }
-  else
-    {
-      *type_str_p = &_dbus_empty_signature_str;
-      *type_pos_p = 0;
-    }
 }
 
 #if 0
@@ -1345,6 +1378,11 @@ _dbus_message_iter_init_common (DBusMessage         *message,
 {
   _dbus_assert (sizeof (DBusMessageRealIter) <= sizeof (DBusMessageIter));
 
+  /* Since the iterator will read or write who-knows-what from the
+   * message, we need to get in the right byte order
+   */
+  ensure_byte_order (message);
+  
   real->message = message;
   real->changed_stamp = message->changed_stamp;
   real->iter_type = iter_type;
@@ -1401,6 +1439,8 @@ _dbus_message_iter_check (DBusMessageRealIter *iter)
           _dbus_warn ("dbus message changed byte order since iterator was created\n");
           return FALSE;
         }
+      /* because we swap the message into compiler order when you init an iter */
+      _dbus_assert (iter->u.reader.byte_order == DBUS_COMPILER_BYTE_ORDER);
     }
   else if (iter->iter_type == DBUS_MESSAGE_ITER_TYPE_WRITER)
     {
@@ -1409,6 +1449,8 @@ _dbus_message_iter_check (DBusMessageRealIter *iter)
           _dbus_warn ("dbus message changed byte order since append iterator was created\n");
           return FALSE;
         }
+      /* because we swap the message into compiler order when you init an iter */
+      _dbus_assert (iter->u.writer.byte_order == DBUS_COMPILER_BYTE_ORDER);
     }
   else
     {

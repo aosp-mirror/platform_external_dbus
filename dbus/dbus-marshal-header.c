@@ -23,6 +23,7 @@
 
 #include "dbus-marshal-header.h"
 #include "dbus-marshal-recursive.h"
+#include "dbus-marshal-byteswap.h"
 
 /**
  * @addtogroup DBusMarshal
@@ -1446,6 +1447,27 @@ _dbus_header_get_flag (DBusHeader   *header,
   flags_p = _dbus_string_get_const_data_len (&header->data, FLAGS_OFFSET, 1);
 
   return (*flags_p & flag) != 0;
+}
+
+/**
+ * Swaps the header into the given order if required.
+ *
+ * @param header the header
+ * @param new_order the new byte order
+ */
+void
+_dbus_header_byteswap (DBusHeader *header,
+                       int         new_order)
+{
+  if (header->byte_order == new_order)
+    return;
+
+  _dbus_marshal_byteswap (&_dbus_header_signature_str,
+                          0, header->byte_order,
+                          new_order,
+                          &header->data, 0);
+
+  header->byte_order = new_order;
 }
 
 /** @} */

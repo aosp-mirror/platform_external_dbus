@@ -125,7 +125,8 @@ dbus_bool_t   _dbus_header_load                   (DBusHeader        *header,
                                                    const DBusString  *str,
                                                    int                start,
                                                    int                len);
-
+void          _dbus_header_byteswap               (DBusHeader        *header,
+                                                   int                new_order);
 
 
 

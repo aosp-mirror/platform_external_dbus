@@ -128,6 +128,12 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   _dbus_warn ("recursive marshal tests disabled\n");
 #endif
 
+  printf ("%s: running byteswap tests\n", "dbus-test");
+  if (!_dbus_marshal_byteswap_test ())
+    die ("byteswap marshaled data");
+
+  check_memleaks ();
+  
   printf ("%s: running memory tests\n", "dbus-test");
   if (!_dbus_memory_test ())
     die ("memory");

@@ -24,6 +24,8 @@
 #include "dbus-internals.h"
 #include "dbus-marshal-validate.h"
 #include "dbus-marshal-recursive.h"
+#include "dbus-marshal-basic.h"
+#include "dbus-string.h"
 
 /**
  * @addtogroup DBusMarshal
@@ -254,6 +256,11 @@ validate_body_helper (DBusTypeReader       *reader,
 
                 while (p < array_end)
                   {
+                    /* FIXME we are calling a function per array element! very bad
+                     * need if (dbus_type_is_fixed(elem_type)) here to just skip
+                     * big blocks of ints/bytes/etc.
+                     */                     
+                    
                     validity = validate_body_helper (&sub, byte_order, FALSE, p, end, &p);
                     if (validity != DBUS_VALID)
                       return validity;

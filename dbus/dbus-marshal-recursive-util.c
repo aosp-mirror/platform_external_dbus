@@ -21,11 +21,108 @@
  *
  */
 
+#include <config.h>
+
+#ifdef DBUS_BUILD_TESTS
+
 #include "dbus-marshal-recursive.h"
 #include "dbus-marshal-basic.h"
 #include "dbus-internals.h"
+#include <string.h>
 
-#ifdef DBUS_BUILD_TESTS
+static void
+basic_value_zero (DBusBasicValue *value)
+{
+
+#ifdef DBUS_HAVE_INT64
+  value->u64 = 0;
+#else
+  value->u64.first32 = 0;
+  value->u64.second32 = 0;
+#endif
+}
+
+static dbus_bool_t
+basic_value_equal (int             type,
+                   DBusBasicValue *lhs,
+                   DBusBasicValue *rhs)
+{
+  if (type == DBUS_TYPE_STRING ||
+      type == DBUS_TYPE_SIGNATURE ||
+      type == DBUS_TYPE_OBJECT_PATH)
+    {
+      return strcmp (lhs->str, rhs->str) == 0;
+    }
+  else
+    {
+#ifdef DBUS_HAVE_INT64
+      return lhs->u64 == rhs->u64;
+#else
+      return lhs->u64.first32 == rhs->u64.first32 &&
+        lhs->u64.second32 == rhs->u64.second32;
+#endif
+    }
+}
+
+static dbus_bool_t
+equal_values_helper (DBusTypeReader *lhs,
+                     DBusTypeReader *rhs)
+{
+  int lhs_type;
+  int rhs_type;
+
+  lhs_type = _dbus_type_reader_get_current_type (lhs);
+  rhs_type = _dbus_type_reader_get_current_type (rhs);
+
+  if (lhs_type != rhs_type)
+    return FALSE;
+
+  if (lhs_type == DBUS_TYPE_INVALID)
+    return TRUE;
+
+  if (_dbus_type_is_basic (lhs_type))
+    {
+      DBusBasicValue lhs_value;
+      DBusBasicValue rhs_value;
+
+      basic_value_zero (&lhs_value);
+      basic_value_zero (&rhs_value);
+      
+      _dbus_type_reader_read_basic (lhs, &lhs_value);
+      _dbus_type_reader_read_basic (rhs, &rhs_value);
+
+      return basic_value_equal (lhs_type, &lhs_value, &rhs_value);
+    }
+  else
+    {
+      DBusTypeReader lhs_sub;
+      DBusTypeReader rhs_sub;
+
+      _dbus_type_reader_recurse (lhs, &lhs_sub);
+      _dbus_type_reader_recurse (rhs, &rhs_sub);
+
+      return equal_values_helper (&lhs_sub, &rhs_sub);
+    }
+}
+
+/**
+ * See whether the two readers point to identical data blocks.
+ *
+ * @param lhs reader 1
+ * @param rhs reader 2
+ * @returns #TRUE if the data blocks have the same values
+ */
+dbus_bool_t
+_dbus_type_reader_equal_values (const DBusTypeReader *lhs,
+                                const DBusTypeReader *rhs)
+{
+  DBusTypeReader copy_lhs = *lhs;
+  DBusTypeReader copy_rhs = *rhs;
+
+  return equal_values_helper (&copy_lhs, &copy_rhs);
+}
+
+/* TESTS */
 #include "dbus-test.h"
 #include "dbus-list.h"
 #include <stdio.h>

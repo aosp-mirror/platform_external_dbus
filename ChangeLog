@@ -1,3 +1,13 @@
+2005-01-27  Havoc Pennington  <hp@redhat.com>
+
+        * dbus/dbus-message.c: byteswap the message if you init an
+	iterator to read/write from it
+	
+	* dbus/dbus-marshal-byteswap.c: new file implementing 
+	_dbus_marshal_byteswap()
+
+	* dbus/dbus-marshal-basic.c: add _dbus_swap_array()
+
 2005-01-26  Havoc Pennington  <hp@redhat.com>
 	
 	* dbus/dbus-marshal-validate-util.c: break this out (and fix

@@ -820,6 +820,53 @@ marshal_1_octets_array (DBusString          *str,
   return TRUE;
 }
 
+/**
+ * Swaps the elements of an array to the opposite byte order
+ *
+ * @param data start of array
+ * @param n_elements number of elements
+ * @param alignment size of each element
+ */
+void
+_dbus_swap_array (unsigned char *data,
+                  int            n_elements,
+                  int            alignment)
+{
+  unsigned char *d;
+  unsigned char *end;
+
+  _dbus_assert (_DBUS_ALIGN_ADDRESS (data, alignment) == data);
+
+  /* we use const_data and cast it off so DBusString can be a const string
+   * for the unit tests. don't ask.
+   */
+  d = data;
+  end = d + (n_elements * alignment);
+  
+  if (alignment == 8)
+    {
+      while (d != end)
+        {
+#ifdef DBUS_HAVE_INT64
+          *((dbus_uint64_t*)d) = DBUS_UINT64_SWAP_LE_BE (*((dbus_uint64_t*)d));
+#else
+          swap_8_bytes ((DBusBasicValue*) d);
+#endif
+          d += 8;
+        }
+    }
+  else
+    {
+      _dbus_assert (alignment == 4);
+      
+      while (d != end)
+        {
+          *((dbus_uint32_t*)d) = DBUS_UINT32_SWAP_LE_BE (*((dbus_uint32_t*)d));
+          d += 4;
+        }
+    }
+}
+
 static void
 swap_array (DBusString *str,
             int         array_start,
@@ -831,37 +878,11 @@ swap_array (DBusString *str,
 
   if (byte_order != DBUS_COMPILER_BYTE_ORDER)
     {
-      unsigned char *d;
-      unsigned char *end;
-
       /* we use const_data and cast it off so DBusString can be a const string
        * for the unit tests. don't ask.
        */
-      d = (unsigned char*) _dbus_string_get_const_data (str) + array_start;
-      end = d + n_elements * alignment;
-
-      if (alignment == 8)
-        {
-          while (d != end)
-            {
-#ifdef DBUS_HAVE_INT64
-              *((dbus_uint64_t*)d) = DBUS_UINT64_SWAP_LE_BE (*((dbus_uint64_t*)d));
-#else
-              swap_8_bytes ((DBusBasicValue*) d);
-#endif
-              d += 8;
-            }
-        }
-      else
-        {
-          _dbus_assert (alignment == 4);
-
-          while (d != end)
-            {
-              *((dbus_uint32_t*)d) = DBUS_UINT32_SWAP_LE_BE (*((dbus_uint32_t*)d));
-              d += 4;
-            }
-        }
+      _dbus_swap_array ((unsigned char*) (_dbus_string_get_const_data (str) + array_start),
+                        n_elements, alignment);
     }
 }
 

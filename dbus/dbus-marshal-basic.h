@@ -218,4 +218,8 @@ const char*   _dbus_type_to_string            (int               typecode);
 int           _dbus_first_type_in_signature   (const DBusString *str,
                                                int               pos);
 
+void _dbus_swap_array (unsigned char *data,
+                       int            n_elements,
+                       int            alignment);
+
 #endif /* DBUS_MARSHAL_BASIC_H */

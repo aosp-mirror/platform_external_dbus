@@ -33,6 +33,7 @@ dbus_bool_t _dbus_dict_test              (void);
 dbus_bool_t _dbus_list_test              (void);
 dbus_bool_t _dbus_marshal_test           (void);
 dbus_bool_t _dbus_marshal_recursive_test (void);
+dbus_bool_t _dbus_marshal_byteswap_test  (void);
 dbus_bool_t _dbus_marshal_header_test    (void);
 dbus_bool_t _dbus_marshal_validate_test  (void);
 dbus_bool_t _dbus_mem_pool_test          (void);
