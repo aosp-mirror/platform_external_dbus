@@ -2910,8 +2910,9 @@ append_array_type (DBusMessageRealIter *real,
       existing_element_type = iter_get_array_type (real, array_type_pos);
       if (existing_element_type != element_type)
 	{
-	  _dbus_warn ("Appending array of %d, when expecting array of %d\n",
-		      element_type, existing_element_type);
+	  _dbus_warn ("Appending array of %s, when expecting array of %s\n",
+		      _dbus_type_to_string (element_type),
+                      _dbus_type_to_string (existing_element_type));
 	  _dbus_string_set_length (&real->message->body, real->pos);
 	  return FALSE;
 	}
@@ -3627,7 +3628,76 @@ _dbus_message_loader_get_buffer (DBusMessageLoader  *loader,
 #define DBUS_HEADER_FIELD_SENDER_AS_UINT32  \
   FOUR_CHARS_TO_UINT32 ('s', 'n', 'd', 'r')
 
-/* FIXME impose max length on name, srvc, sndr */
+static dbus_bool_t
+decode_string_field (const DBusString   *data,
+                     HeaderField         fields[FIELD_LAST],
+                     int                 pos,
+                     int                 type,
+                     int                 field,
+                     const char         *field_name)
+{
+  DBusString tmp;
+  int string_data_pos;
+  
+  if (fields[field].offset >= 0)
+    {
+      _dbus_verbose ("%s field provided twice\n",
+                     field_name);
+      return FALSE;
+    }
+
+  if (type != DBUS_TYPE_STRING)
+    {
+      _dbus_verbose ("%s field has wrong type\n", field_name);
+      return FALSE;
+    }
+
+  /* skip padding after typecode, skip string length;
+   * we assume that the string arg has already been validated
+   * for sanity and UTF-8
+   */
+  string_data_pos = _DBUS_ALIGN_VALUE (pos, 4) + 4;
+  _dbus_assert (string_data_pos < _dbus_string_get_length (data));
+  
+  _dbus_string_init_const (&tmp,
+                           _dbus_string_get_const_data (data) + string_data_pos);
+
+  if (field == FIELD_NAME)
+    {
+      if (!_dbus_string_validate_name (&tmp, 0, _dbus_string_get_length (&tmp)))
+        {
+          _dbus_verbose ("%s field has invalid content \"%s\"\n",
+                         field_name, _dbus_string_get_const_data (&tmp));
+          return FALSE;
+        }
+      
+      if (_dbus_string_starts_with_c_str (&tmp,
+                                          DBUS_NAMESPACE_LOCAL_MESSAGE))
+        {
+          _dbus_verbose ("Message is in the local namespace\n");
+          return FALSE;
+        }
+    }
+  else
+    {
+      if (!_dbus_string_validate_service (&tmp, 0, _dbus_string_get_length (&tmp)))
+        {
+          _dbus_verbose ("%s field has invalid content \"%s\"\n",
+                         field_name, _dbus_string_get_const_data (&tmp));
+          return FALSE;
+        }
+    }
+  
+  fields[field].offset = _DBUS_ALIGN_VALUE (pos, 4);
+  
+#if 0
+  _dbus_verbose ("Found field %s name at offset %d\n",
+                 field_name, fields[field].offset);
+#endif
+
+  return TRUE;
+}
+
 static dbus_bool_t
 decode_header_data (const DBusString   *data,
 		    int		        header_len,
@@ -3672,72 +3742,7 @@ decode_header_data (const DBusString   *data,
       pos += 4;
 
       _dbus_assert (_DBUS_ALIGN_ADDRESS (field, 4) == field);
-
-      switch (DBUS_UINT32_FROM_BE (*(int*)field))
-        {
-        case DBUS_HEADER_FIELD_SERVICE_AS_UINT32:
-          if (fields[FIELD_SERVICE].offset >= 0)
-            {
-              _dbus_verbose ("%s field provided twice\n",
-                             DBUS_HEADER_FIELD_SERVICE);
-              return FALSE;
-            }
-          
-          fields[FIELD_SERVICE].offset = _DBUS_ALIGN_VALUE (pos + 1, 4);
-#if 0
-          _dbus_verbose ("Found service name at offset %d\n",
-                         fields[FIELD_SERVICE].offset);
-#endif
-          break;
-
-        case DBUS_HEADER_FIELD_NAME_AS_UINT32:
-          if (fields[FIELD_NAME].offset >= 0)
-            {              
-              _dbus_verbose ("%s field provided twice\n",
-                             DBUS_HEADER_FIELD_NAME);
-              return FALSE;
-            }
-          
-          fields[FIELD_NAME].offset = _DBUS_ALIGN_VALUE (pos + 1, 4);
-
-#if 0
-          _dbus_verbose ("Found message name at offset %d\n",
-                         fields[FIELD_NAME].offset);
-#endif
-          break;
-	case DBUS_HEADER_FIELD_SENDER_AS_UINT32:
-          if (fields[FIELD_SENDER].offset >= 0)
-            {
-              _dbus_verbose ("%s field provided twice\n",
-                             DBUS_HEADER_FIELD_SENDER);
-              return FALSE;
-            }
-          
-          fields[FIELD_SENDER].offset = _DBUS_ALIGN_VALUE (pos + 1, 4);
-
-          _dbus_verbose ("Found sender name at offset %d\n",
-                         fields[FIELD_NAME].offset);
-	  break;
-          
-	case DBUS_HEADER_FIELD_REPLY_AS_UINT32:
-          if (fields[FIELD_REPLY_SERIAL].offset >= 0)
-            {
-              _dbus_verbose ("%s field provided twice\n",
-                             DBUS_HEADER_FIELD_REPLY);
-              return FALSE;
-            }
-          
-          fields[FIELD_REPLY_SERIAL].offset = _DBUS_ALIGN_VALUE (pos + 1, 4);
-
-          _dbus_verbose ("Found reply serial at offset %d\n",
-                         fields[FIELD_REPLY_SERIAL].offset);
-	  break;
-
-        default:
-	  _dbus_verbose ("Ignoring an unknown header field: %c%c%c%c at offset %d\n",
-			 field[0], field[1], field[2], field[3], pos);
-	}
-
+      
       if (!_dbus_marshal_validate_type (data, pos, &type, &pos))
 	{
           _dbus_verbose ("Failed to validate type of named header field\n");
@@ -3756,6 +3761,54 @@ decode_header_data (const DBusString   *data,
           return FALSE;
         }
       
+      switch (DBUS_UINT32_FROM_BE (*(int*)field))
+        {
+        case DBUS_HEADER_FIELD_SERVICE_AS_UINT32:
+          if (!decode_string_field (data, fields, pos, type,
+                                    FIELD_SERVICE,
+                                    DBUS_HEADER_FIELD_SERVICE))
+            return FALSE;
+          break;
+
+        case DBUS_HEADER_FIELD_NAME_AS_UINT32:
+          if (!decode_string_field (data, fields, pos, type,
+                                    FIELD_NAME,
+                                    DBUS_HEADER_FIELD_NAME))
+            return FALSE;
+          break;
+
+	case DBUS_HEADER_FIELD_SENDER_AS_UINT32:
+          if (!decode_string_field (data, fields, pos, type,
+                                    FIELD_SENDER,
+                                    DBUS_HEADER_FIELD_SENDER))
+            return FALSE;
+	  break;
+          
+	case DBUS_HEADER_FIELD_REPLY_AS_UINT32:
+          if (fields[FIELD_REPLY_SERIAL].offset >= 0)
+            {
+              _dbus_verbose ("%s field provided twice\n",
+                             DBUS_HEADER_FIELD_REPLY);
+              return FALSE;
+            }
+
+          if (type != DBUS_TYPE_UINT32)
+            {
+              _dbus_verbose ("%s field has wrong type\n", DBUS_HEADER_FIELD_REPLY);
+              return FALSE;
+            }
+          
+          fields[FIELD_REPLY_SERIAL].offset = _DBUS_ALIGN_VALUE (pos, 4);
+
+          _dbus_verbose ("Found reply serial at offset %d\n",
+                         fields[FIELD_REPLY_SERIAL].offset);
+	  break;
+
+        default:
+	  _dbus_verbose ("Ignoring an unknown header field: %c%c%c%c at offset %d\n",
+			 field[0], field[1], field[2], field[3], pos);
+	}
+      
       pos = new_pos;
     }
 
@@ -3772,12 +3825,13 @@ decode_header_data (const DBusString   *data,
         }
     }
 
- if (fields[FIELD_NAME].offset < 0)
-   {
-     _dbus_verbose ("No %s field provided\n",
-                    DBUS_HEADER_FIELD_NAME);
-     return FALSE;
-   }
+  /* Name field is mandatory */
+  if (fields[FIELD_NAME].offset < 0)
+    {
+      _dbus_verbose ("No %s field provided\n",
+                     DBUS_HEADER_FIELD_NAME);
+      return FALSE;
+    }
   
   if (message_padding)
     *message_padding = header_len - pos;  
@@ -5076,7 +5130,7 @@ _dbus_message_test (const char *test_data_dir)
   _dbus_assert (sizeof (DBusMessageRealIter) <= sizeof (DBusMessageIter));
 
   /* Test the vararg functions */
-  message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");
+  message = dbus_message_new ("org.freedesktop.DBus.Test", "test.Message");
   _dbus_message_set_serial (message, 1);
   dbus_message_append_args (message,
 			    DBUS_TYPE_INT32, -0x12345678,
@@ -5121,7 +5175,7 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_unref (message);
   dbus_message_unref (copy);
   
-  message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");
+  message = dbus_message_new ("org.freedesktop.DBus.Test", "test.Message");
   _dbus_message_set_serial (message, 1);
   dbus_message_set_reply_serial (message, 0x12345678);
 

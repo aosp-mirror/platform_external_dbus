@@ -1,17 +1,4 @@
 
- - Service and message names should be more carefully restricted;
-   they should have a max length, may not be an empty string, 
-   and perhaps should not be allowed to be a glob such as "*" since
-   the config file could conveniently use such notation. 
-
-   Suggest requiring length > 0, length < max, 
-   name contains at least one ".", no initial ".", and valid UTF-8. 
-   That would prohibit plain "*" but not "foo.bar.baz.operator*"
-
-   For maximum convenience from all programming languages, we could go
-   further and just categorically ban nearly all non-alphanumeric
-   characters.
-
  - Message matching rules (so broadcasts can be filtered) need sorting
    out.
 
@@ -74,6 +61,3 @@
 
  - We have a limit on the number of messages a connection can send, but 
    not on how many can be buffered for a given connection.
-
- - other apps can send you a fake DBUS_MESSAGE_LOCAL_DISCONNECT; need to 
-   check for that and disallow it.

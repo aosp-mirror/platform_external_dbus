@@ -1,3 +1,17 @@
+2003-04-22  Havoc Pennington  <hp@redhat.com>
+
+	* test/data/valid-messages/opposite-endian.message: fix test
+	to use proper type for rply field
+
+        * test/data/invalid-messages: add tests for below validation
+	
+	* dbus/dbus-message.c (decode_header_data): validate field types,
+	and validate that named fields are valid names
+	(decode_name_field): consider messages in the
+	org.freedesktop.Local. namespace to be invalid.
+
+	* dbus/dbus-string.c (_dbus_string_validate_name): new
+
 2003-04-19  Havoc Pennington  <hp@pobox.com>
 
 	* bus/driver.c (bus_driver_handle_hello): check limits and 

@@ -210,6 +210,12 @@ dbus_bool_t   _dbus_string_validate_utf8         (const DBusString  *str,
 dbus_bool_t   _dbus_string_validate_nul          (const DBusString  *str,
                                                   int                start,
                                                   int                len);
+dbus_bool_t   _dbus_string_validate_name         (const DBusString  *str,
+                                                  int                start,
+                                                  int                len);
+dbus_bool_t   _dbus_string_validate_service      (const DBusString  *str,
+                                                  int                start,
+                                                  int                len);
 void          _dbus_string_zero                  (DBusString        *str);
 
 

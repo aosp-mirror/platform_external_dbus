@@ -499,6 +499,7 @@ find_breaks_based_on (const DBusString   *filename,
       goto failed;
     }
 
+  printf ("        changing one random byte 100 times\n");
   i = 0;
   while (i < 100)
     {
@@ -508,6 +509,7 @@ find_breaks_based_on (const DBusString   *filename,
       ++i;
     }
 
+  printf ("        changing length 50 times\n");
   i = 0;
   while (i < 50)
     {
@@ -516,7 +518,8 @@ find_breaks_based_on (const DBusString   *filename,
 
       ++i;
     }
-  
+
+  printf ("        removing one byte 50 times\n");
   i = 0;
   while (i < 50)
     {
@@ -526,6 +529,7 @@ find_breaks_based_on (const DBusString   *filename,
       ++i;
     }
 
+  printf ("        adding one byte 50 times\n");
   i = 0;
   while (i < 50)
     {
@@ -535,6 +539,7 @@ find_breaks_based_on (const DBusString   *filename,
       ++i;
     }
 
+  printf ("        changing ints to boundary values 50 times\n");
   i = 0;
   while (i < 50)
     {
@@ -544,6 +549,7 @@ find_breaks_based_on (const DBusString   *filename,
       ++i;
     }
 
+  printf ("        changing typecodes 50 times\n");
   i = 0;
   while (i < 50)
     {
@@ -552,7 +558,8 @@ find_breaks_based_on (const DBusString   *filename,
 
       ++i;
     }
-  
+
+  printf ("        changing message length 15 times\n");
   i = 0;
   while (i < 15)
     {
@@ -562,6 +569,7 @@ find_breaks_based_on (const DBusString   *filename,
       ++i;
     }
 
+  printf ("        randomly making 2 of above modifications 42 times\n");
   i = 0;
   while (i < 42)
     {
@@ -571,6 +579,7 @@ find_breaks_based_on (const DBusString   *filename,
       ++i;
     }
 
+  printf ("        randomly making 3 of above modifications 42 times\n");
   i = 0;
   while (i < 42)
     {
@@ -580,6 +589,7 @@ find_breaks_based_on (const DBusString   *filename,
       ++i;
     }
 
+  printf ("        randomly making 4 of above modifications 42 times\n");
   i = 0;
   while (i < 42)
     {

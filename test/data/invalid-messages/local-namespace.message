@@ -1,0 +1,12 @@
+## a message that is in the org.freedesktop.Local. namespace and thus
+## invalid
+
+## VALID_HEADER includes a LENGTH Header and LENGTH Body
+VALID_HEADER
+FIELD_NAME name
+TYPE STRING
+STRING 'org.freedesktop.Local.Disconnect'
+ALIGN 8
+END_LENGTH Header
+START_LENGTH Body
+END_LENGTH Body

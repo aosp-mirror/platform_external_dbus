@@ -28,6 +28,7 @@
 #include "dbus-marshal.h"
 #define DBUS_CAN_USE_DBUS_STRING_PRIVATE 1
 #include "dbus-string-private.h"
+#include "dbus-protocol.h"
 
 /**
  * @defgroup DBusString string class
@@ -2639,6 +2640,125 @@ _dbus_string_validate_nul (const DBusString *str,
     }
   
   return TRUE;
+}
+
+/**
+ * Checks that the given range of the string is a valid message name
+ * in the D-BUS protocol. This includes a length restriction, etc.,
+ * see the specification. It does not validate UTF-8, that has to be
+ * done separately for now.
+ *
+ * @todo this is inconsistent with most of DBusString in that
+ * it allows a start,len range that isn't in the string.
+ * 
+ * @param str the string
+ * @param start first byte index to check
+ * @param len number of bytes to check
+ * @returns #TRUE if the byte range exists and is a valid name
+ */
+dbus_bool_t
+_dbus_string_validate_name (const DBusString  *str,
+                            int                start,
+                            int                len)
+{
+  const unsigned char *s;
+  const unsigned char *end;
+  dbus_bool_t saw_dot;
+  
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start >= 0);
+  _dbus_assert (len >= 0);
+  _dbus_assert (start <= real->len);
+  
+  if (len > real->len - start)
+    return FALSE;
+
+  if (len > DBUS_MAXIMUM_NAME_LENGTH)
+    return FALSE;
+
+  if (len == 0)
+    return FALSE;
+
+  saw_dot = FALSE;
+  s = real->str + start;
+  end = s + len;
+  while (s != end)
+    {
+      if (*s == '.')
+        {
+          saw_dot = TRUE;
+          break;
+        }
+      
+      ++s;
+    }
+
+  if (!saw_dot)
+    return FALSE;
+  
+  return TRUE;
+}
+
+
+/**
+ * Checks that the given range of the string is a valid service name
+ * in the D-BUS protocol. This includes a length restriction, etc.,
+ * see the specification. It does not validate UTF-8, that has to be
+ * done separately for now.
+ *
+ * @todo this is inconsistent with most of DBusString in that
+ * it allows a start,len range that isn't in the string.
+ * 
+ * @param str the string
+ * @param start first byte index to check
+ * @param len number of bytes to check
+ * @returns #TRUE if the byte range exists and is a valid name
+ */
+dbus_bool_t
+_dbus_string_validate_service (const DBusString  *str,
+                               int                start,
+                               int                len)
+{
+  const unsigned char *s;
+  const unsigned char *end;
+  dbus_bool_t saw_dot;
+  dbus_bool_t is_base_service;
+  
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start >= 0);
+  _dbus_assert (len >= 0);
+  _dbus_assert (start <= real->len);
+  
+  if (len > real->len - start)
+    return FALSE;
+
+  if (len > DBUS_MAXIMUM_NAME_LENGTH)
+    return FALSE;
+
+  if (len == 0)
+    return FALSE;
+
+  is_base_service = _dbus_string_get_byte (str, start) == ':';
+  if (is_base_service)
+    return TRUE; /* can have any content */
+
+  /* non-base-service must have the '.' indicating a namespace */
+  
+  saw_dot = FALSE;
+  s = real->str + start;
+  end = s + len;
+  while (s != end)
+    {
+      if (*s == '.')
+        {
+          saw_dot = TRUE;
+          break;
+        }
+      
+      ++s;
+    }
+  
+  return saw_dot;
 }
 
 /**

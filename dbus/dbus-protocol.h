@@ -53,7 +53,10 @@ extern "C" {
 #define DBUS_TYPE_DICT          10
 
 #define DBUS_TYPE_LAST DBUS_TYPE_DICT
- 
+
+/* Max length in bytes of a service or message name */
+#define DBUS_MAXIMUM_NAME_LENGTH 256
+
 /* Header flags */
 #define DBUS_HEADER_FLAG_ERROR 0x1
   
@@ -92,7 +95,12 @@ extern "C" {
 #define DBUS_MESSAGE_SERVICE_DELETED       "org.freedesktop.DBus.ServiceDeleted"
 #define DBUS_MESSAGE_SERVICE_LOST          "org.freedesktop.DBus.ServiceLost"
 
-#define DBUS_MESSAGE_LOCAL_DISCONNECT      "org.freedesktop.Local.Disconnect"
+
+/* This namespace is reserved for locally-synthesized messages, you can't
+ * send messages that have this namespace.
+ */
+#define DBUS_NAMESPACE_LOCAL_MESSAGE       "org.freedesktop.Local."
+#define DBUS_MESSAGE_LOCAL_DISCONNECT      DBUS_NAMESPACE_LOCAL_MESSAGE"Disconnect"
   
 #ifdef __cplusplus
 }

@@ -1,0 +1,11 @@
+## a message with dotless name
+
+## VALID_HEADER includes a LENGTH Header and LENGTH Body
+VALID_HEADER
+FIELD_NAME name
+TYPE STRING
+STRING 'NoNamespaceHere'
+ALIGN 8
+END_LENGTH Header
+START_LENGTH Body
+END_LENGTH Body

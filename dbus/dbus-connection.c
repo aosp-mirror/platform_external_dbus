@@ -267,7 +267,7 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
   _dbus_list_append_link (&connection->incoming_messages,
                           link);
   message = link->data;
-  
+
   /* If this is a reply we're waiting on, remove timeout for it */
   reply_serial = dbus_message_get_reply_serial (message);
   if (reply_serial != -1)
