@@ -503,9 +503,9 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
   credentials->uid = -1;
   credentials->gid = -1;
   
-#ifdef SO_PEERCRED
   if (read_credentials_byte (client_fd, result))
     {
+#ifdef SO_PEERCRED
       struct ucred cr;   
       int cr_len = sizeof (cr);
    
@@ -525,15 +525,14 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
           _dbus_verbose ("Failed to getsockopt() credentials, returned len %d/%d: %s\n",
                          cr_len, (int) sizeof (cr), _dbus_strerror (errno));
         }
+#else /* !SO_PEERCRED */
+      _dbus_verbose ("Socket credentials not supported on this OS\n");
+#endif
 
       return TRUE;
     }
   else
     return FALSE;
-#else /* !SO_PEERCRED */
-  _dbus_verbose ("Socket credentials not supported on this OS\n");
-  return TRUE;
-#endif
 }
 
 /**
@@ -1052,8 +1051,57 @@ _dbus_poll (DBusPollFD *fds,
       return -1;
     }
 #else /* ! HAVE_POLL */
-  _dbus_warn ("need to implement select() fallback for systems with no poll()\n");
-  return -1;
+
+  fd_set read_set, write_set, err_set;
+  int max_fd;
+  int i;
+  struct timeval tv;
+  int ready;
+  
+  FD_ZERO (&read_set);
+  FD_ZERO (&write_set);
+  FD_ZERO (&err_set);
+
+  for (i = 0; i < n_fds; i++)
+    {
+      DBusPollFD f = fds[i];
+
+      if (f.events & _DBUS_POLLIN)
+	FD_SET (f.fd, &read_set);
+
+      if (f.events & _DBUS_POLLOUT)
+	FD_SET (f.fd, &write_set);
+
+      FD_SET (f.fd, &err_set);
+
+      max_fd = MAX (max_fd, f.fd);
+    }
+    
+  tv.tv_sec = timeout_milliseconds / 1000;
+  tv.tv_usec = (timeout_milliseconds % 1000) * 1000;
+
+  ready = select (max_fd + 1, &read_set, &write_set, &err_set, &tv);
+
+  if (ready > 0)
+    {
+      for (i = 0; i < n_fds; i++)
+	{
+	  DBusPollFD f = fds[i];
+
+	  f.revents = 0;
+
+	  if (FD_ISSET (f.fd, &read_set))
+	    f.revents |= _DBUS_POLLIN;
+
+	  if (FD_ISSET (f.fd, &write_set))
+	    f.revents |= _DBUS_POLLOUT;
+
+	  if (FD_ISSET (f.fd, &err_set))
+	    f.revents |= _DBUS_POLLERR;
+	}
+    }
+
+  return ready;
 #endif
 }
 

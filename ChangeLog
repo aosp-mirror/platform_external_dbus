@@ -1,3 +1,25 @@
+2003-02-18  Joe Shaw  <joe@assbarn.com>
+
+	* dbus/dbus-auth.c (handle_server_data_stupid_test_mech): Just get
+	credentials from our currently running process.
+	(get_word): Fix a buglet where we were copying the entire length
+	instead of relative to our position.
+
+	* dbus/dbus-hash.c (_dbus_hash_test): Don't try to allocate the
+	keys on the stack... it's 640k of data.
+
+	* dbus/dbus-sysdeps.c (_dbus_read_credentials_unix_socket): Always
+	read the credentials byte off the socket, even if we don't have
+	SO_PEERCRED.
+	(_dbus_poll): Implement poll() using select() for systems which
+	don't have it.
+
+	* glib/test-dbus-glib.c (main): Print out an error if no
+	parameters are given.
+
+	* test/data/auth/fallback.auth-script: Added.  Tests that a client
+	can fallback to a secondary auth mechanism if the first fails.
+
 2003-02-18  Havoc Pennington  <hp@pobox.com>
 
 	* AUTHORS: add Alex

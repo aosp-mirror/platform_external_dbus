@@ -321,6 +321,8 @@ handle_server_data_stupid_test_mech (DBusAuth         *auth,
                             "OK\r\n"))
     return FALSE;
 
+  _dbus_credentials_from_current_process (&auth->authorized_identity);
+
   auth->authenticated_pending_begin = TRUE;
   
   return TRUE;
@@ -799,7 +801,7 @@ get_word (const DBusString *str,
   
   if (i > *start)
     {
-      if (!_dbus_string_copy_len (str, *start, i, word, 0))
+      if (!_dbus_string_copy_len (str, *start, i - *start, word, 0))
         return FALSE;
       
       *start = i;

@@ -1,0 +1,21 @@
+## this tests that a client can fallback to a secondary auth mech 
+
+CLIENT
+
+## Will try EXTERNAL by default first without first calling AUTH alone.
+
+EXPECT_COMMAND AUTH
+SEND 'REJECTED EXTERNAL DBUS_STUPID_TEST_MECH'
+
+## Will try EXTERNAL again.
+
+EXPECT_COMMAND AUTH
+SEND 'REJECTED EXTERNAL DBUS_STUPID_TEST_MECH'
+
+## And this time we get DBUS_STUPID_TEST_MECH.
+
+EXPECT_COMMAND AUTH
+SEND 'OK'
+
+EXPECT_COMMAND BEGIN
+EXPECT_STATE AUTHENTICATED 

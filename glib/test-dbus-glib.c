@@ -1,3 +1,4 @@
+/* -*- mode: C; c-file-style: "gnu" -*- */
 #include "dbus-glib.h"
 #include <stdio.h>
 
@@ -10,6 +11,12 @@ main (int argc, char **argv)
   
   GMainLoop *loop;
   
+  if (argc < 2)
+    {
+      fprintf (stderr, "Give the server address as an argument\n");
+      return 1;
+    }
+
   loop = g_main_loop_new (NULL, FALSE);
 
   connection = dbus_connection_open (argv[1], &result);
