@@ -1,3 +1,15 @@
+2004-06-01  Seth Nickell  <seth@gnome.org>
+
+	* python/dbus_bindings.pyx.in:
+	* python/tests/test-client.py:
+
+	Round off basic type support. Add dicts (yay!), and 
+	remaining array types.
+
+	Make MessageIter more general so it works for dicts too.
+
+	Mark all loop variables as C integers.
+	
 2004-05-31  Havoc Pennington  <hp@redhat.com>
 
 	* glib/dbus-gidl.c (method_info_add_arg): keep args sorted with
@@ -25,7 +37,7 @@
 	Test Suite: 1
 	Python Bindings: 0
 
-	(fix string array memory trashing bug... oops)
+	Fix string array memory trashing bug... oops...
 
 2004-05-30  Seth Nickell  <seth@gnome.org>
 
