@@ -1,7 +1,7 @@
 
 if DBUS_BUILD_TESTS
 
-INCLUDES=$(DBUS_TEST_CFLAGS)
+INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
 
 noinst_PROGRAMS= echo-client echo-server
 
