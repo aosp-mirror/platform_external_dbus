@@ -470,7 +470,7 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
                               DBUS_TYPE_INVALID))
     return FALSE;
   
-  _dbus_verbose ("Trying to own service %s with flags 0x%x\n", name, flags);
+  _dbus_verbose ("Trying to own name %s with flags 0x%x\n", name, flags);
   
   retval = FALSE;
   reply = NULL;

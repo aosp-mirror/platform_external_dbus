@@ -97,6 +97,10 @@ struct DBusMessage
 
   unsigned int locked : 1; /**< Message being sent, no modifications allowed. */
 
+#ifndef DBUS_DISABLE_CHECKS
+  unsigned int in_cache : 1; /**< Has been "freed" since it's in the cache (this is a debug feature) */
+#endif
+  
   DBusList *size_counters;   /**< 0-N DBusCounter used to track message size. */
   long size_counter_delta;   /**< Size we incremented the size counters by.   */
 

@@ -89,7 +89,9 @@ DBusMessage*      _dbus_connection_block_for_reply             (DBusConnection  
                                                                 int                 timeout_milliseconds);
 void              _dbus_pending_call_complete_and_unlock       (DBusPendingCall    *pending,
                                                                 DBusMessage        *message);
-
+dbus_bool_t       _dbus_connection_send_unlocked               (DBusConnection     *connection,
+                                                                DBusMessage        *message,
+                                                                dbus_uint32_t      *client_serial);
 
 /**
  * @addtogroup DBusPendingCallInternals DBusPendingCall implementation details

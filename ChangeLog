@@ -1,5 +1,25 @@
 2005-01-30  Havoc Pennington  <hp@redhat.com>
 
+	* glib/dbus-gobject.c (introspect_properties): fix the XML
+	generated
+
+	* dbus/dbus-message.c (dbus_message_unref): add an in_cache flag
+	which effectively detects the use of freed messages
+
+	* glib/dbus-gobject.c (handle_introspect): modify and return the
+	reply message instead of the incoming message
+
+	* dbus/dbus-object-tree.c (handle_default_introspect_unlocked):
+	gee, maybe it should SEND THE XML instead of just making a string
+	and freeing it again ;-)
+
+	* tools/dbus-print-message.c (print_message): improve printing of
+	messages
+
+	* configure.in: add debug-glib.service to the output
+
+2005-01-30  Havoc Pennington  <hp@redhat.com>
+
         dbus-viewer introspected and displayed the bus driver
 	
 	* dbus/dbus-object-tree.c 

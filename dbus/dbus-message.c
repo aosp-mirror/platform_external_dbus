@@ -456,6 +456,8 @@ dbus_message_finalize (DBusMessage *message)
   _dbus_header_free (&message->header);
   _dbus_string_free (&message->body);
 
+  _dbus_assert (message->refcount.value == 0);
+  
   dbus_free (message);
 }
 
@@ -657,10 +659,15 @@ dbus_message_cache_or_finalize (DBusMessage *message)
   message_cache[i] = message;
   message_cache_count += 1;
   was_cached = TRUE;
+#ifndef DBUS_DISABLE_CHECKS
+  message->in_cache = TRUE;
+#endif
 
  out:
   _DBUS_UNLOCK (message_cache);
 
+  _dbus_assert (message->refcount.value == 0);
+  
   if (!was_cached)
     dbus_message_finalize (message);
 }
@@ -691,6 +698,9 @@ dbus_message_new_empty_header (void)
   message->refcount.value = 1;
   message->byte_order = DBUS_COMPILER_BYTE_ORDER;
   message->locked = FALSE;
+#ifndef DBUS_DISABLE_CHECKS
+  message->in_cache = FALSE;
+#endif
   message->size_counters = NULL;
   message->size_counter_delta = 0;
   message->changed_stamp = 0;
@@ -1067,7 +1077,8 @@ dbus_message_ref (DBusMessage *message)
 
   _dbus_return_val_if_fail (message != NULL, NULL);
   _dbus_return_val_if_fail (message->generation == _dbus_current_generation, NULL);
-
+  _dbus_return_val_if_fail (!message->in_cache, NULL);
+  
   old_refcount = _dbus_atomic_inc (&message->refcount);
   _dbus_assert (old_refcount >= 1);
 
@@ -1087,6 +1098,7 @@ dbus_message_unref (DBusMessage *message)
 
   _dbus_return_if_fail (message != NULL);
   _dbus_return_if_fail (message->generation == _dbus_current_generation);
+  _dbus_return_if_fail (!message->in_cache);
 
   old_refcount = _dbus_atomic_dec (&message->refcount);
 

@@ -192,6 +192,7 @@ show_error_dialog (GtkWindow *transient_parent,
 static gboolean
 load_child_nodes (const char *service_name,
                   NodeInfo   *parent,
+                  GString    *path,
                   GError    **error)
 {
   DBusGConnection *connection;
@@ -200,7 +201,7 @@ load_child_nodes (const char *service_name,
   connection = dbus_g_bus_get (DBUS_BUS_SESSION, error);
   if (connection == NULL)
     return FALSE;
-
+  
   tmp = node_info_get_nodes (parent);
   while (tmp != NULL)
     {
@@ -209,17 +210,37 @@ load_child_nodes (const char *service_name,
       const char *data;
       NodeInfo *child;
       NodeInfo *complete_child;
+      int save_len;
 
       complete_child = NULL;
+      call = NULL;
       
       child = tmp->data;
 
-      g_assert (*service_name == ':'); /* so we don't need new_for_name_owner */
-      proxy = dbus_g_proxy_new_for_name (connection,
-                                         service_name,
-                                         "/",
-                                         DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE);
-      g_assert (proxy != NULL);
+      save_len = path->len;
+
+      if (save_len > 1)
+        g_string_append (path, "/");
+      g_string_append (path, base_info_get_name ((BaseInfo*)child));
+
+      if (*service_name == ':')
+        {
+          proxy = dbus_g_proxy_new_for_name (connection,
+                                             service_name,
+                                             path->str,
+                                             DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE);
+          g_assert (proxy != NULL);
+        }
+      else
+        {
+          proxy = dbus_g_proxy_new_for_name_owner (connection,
+                                                   service_name,
+                                                   path->str,
+                                                   DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE,
+                                                   error);
+          if (proxy == NULL)
+            goto done;
+        }
   
       call = dbus_g_proxy_begin_call (proxy, "Introspect",
                                       DBUS_TYPE_INVALID);
@@ -231,10 +252,14 @@ load_child_nodes (const char *service_name,
       
       complete_child = description_load_from_string (data, -1, error);
       if (complete_child == NULL)
-        goto done;
+        {
+          g_printerr ("%s\n", data);
+          goto done;
+        }
       
     done:
-      dbus_g_pending_call_unref (call);
+      if (call)
+        dbus_g_pending_call_unref (call);
       g_object_unref (proxy);
 
       if (complete_child == NULL)
@@ -249,8 +274,11 @@ load_child_nodes (const char *service_name,
       node_info_unref (complete_child); /* ref still held by parent */
       
       /* Now recurse */
-      if (!load_child_nodes (service_name, complete_child, error))
+      if (!load_child_nodes (service_name, complete_child, path, error))
         return FALSE;
+
+      /* restore path */
+      g_string_set_size (path, save_len);
       
       tmp = tmp->next;
     }
@@ -267,21 +295,36 @@ load_from_service (const char *service_name,
   DBusGPendingCall *call;
   const char *data;
   NodeInfo *node;
+  GString *path;
 
   node = NULL;
   call = NULL;
+  path = NULL;
   
   connection = dbus_g_bus_get (DBUS_BUS_SESSION, error);
   if (connection == NULL)
     return NULL;
 
+#if 1
+  /* this will end up autolaunching the service when we introspect it */
+  root_proxy = dbus_g_proxy_new_for_name (connection,
+                                          service_name,
+                                          "/",
+                                          DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE);
+  g_assert (root_proxy != NULL);
+#else
+  /* this will be an error if the service doesn't exist */
   root_proxy = dbus_g_proxy_new_for_name_owner (connection,
                                                 service_name,
                                                 "/",
                                                 DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE,
                                                 error);
   if (root_proxy == NULL)
-    return NULL;
+    {
+      g_printerr ("Failed to get owner of '%s'\n", service_name);
+      return NULL;
+    }
+#endif
   
   call = dbus_g_proxy_begin_call (root_proxy, "Introspect",
                                   DBUS_TYPE_INVALID);
@@ -289,7 +332,11 @@ load_from_service (const char *service_name,
   data = NULL;
   if (!dbus_g_proxy_end_call (root_proxy, call, error, DBUS_TYPE_STRING, &data,
                               DBUS_TYPE_INVALID))
-    goto out;
+    {
+      g_printerr ("Failed to Introspect() %s\n",
+                  dbus_g_proxy_get_bus_name (root_proxy));
+      goto out;
+    }
 
   node = description_load_from_string (data, -1, error);
 
@@ -299,9 +346,11 @@ load_from_service (const char *service_name,
     goto out;
 
   base_info_set_name ((BaseInfo*)node, "/");
+
+  path = g_string_new ("/");
   
   if (!load_child_nodes (dbus_g_proxy_get_bus_name (root_proxy),
-                         node, error))
+                         node, path, error))
     {
       node_info_unref (node);
       node = NULL;
@@ -313,6 +362,10 @@ load_from_service (const char *service_name,
     dbus_g_pending_call_unref (call);
     
   g_object_unref (root_proxy);
+
+  if (path)
+    g_string_free (path, TRUE);
+  
   return node;
 }
 

@@ -204,7 +204,7 @@ introspect_properties (GObject *object, GString *xml)
           g_string_append (xml, s);
           g_string_append (xml, "\" type=\"");
           g_string_append (xml, _dbus_gutils_type_to_string (dbus_type));
-          g_string_append (xml, "\" access=\"\n");
+          g_string_append (xml, "\" access=\"");
 
           if (can_set && can_get)
             g_string_append (xml, "readwrite");
@@ -216,7 +216,7 @@ introspect_properties (GObject *object, GString *xml)
               g_string_append (xml, "write");
             }
           
-          g_string_append (xml, "\">\n");
+          g_string_append (xml, "\"/>\n");
         }
       
       g_free (s);
@@ -329,12 +329,12 @@ handle_introspect (DBusConnection *connection,
   if (ret == NULL)
     g_error ("Out of memory");
 
-  dbus_message_append_args (message,
+  dbus_message_append_args (ret,
                             DBUS_TYPE_STRING, &xml->str,
                             DBUS_TYPE_INVALID);
 
-  dbus_connection_send (connection, message, NULL);
-  dbus_message_unref (message);
+  dbus_connection_send (connection, ret, NULL);
+  dbus_message_unref (ret);
 
   g_string_free (xml, TRUE);
 

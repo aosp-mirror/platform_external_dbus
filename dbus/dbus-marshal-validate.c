@@ -178,9 +178,11 @@ validate_body_helper (DBusTypeReader       *reader,
       const unsigned char *a;
       int alignment;
 
+#if 0
       _dbus_verbose ("   validating value of type %s type reader %p type_pos %d p %p end %p %d remain\n",
                      _dbus_type_to_string (current_type), reader, reader->type_pos, p, end,
                      (int) (end - p));
+#endif
 
       /* Guarantee that p has one byte to look at */
       if (p == end)
@@ -436,9 +438,11 @@ validate_body_helper (DBusTypeReader       *reader,
           break;
         }
 
+#if 0
       _dbus_verbose ("   validated value of type %s type reader %p type_pos %d p %p end %p %d remain\n",
                      _dbus_type_to_string (current_type), reader, reader->type_pos, p, end,
                      (int) (end - p));
+#endif
 
       if (p > end)
         {

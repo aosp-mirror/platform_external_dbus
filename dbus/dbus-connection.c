@@ -357,7 +357,7 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
 
   _dbus_connection_wakeup_mainloop (connection);
   
-  _dbus_verbose ("Message %p (%d %s %s '%s') added to incoming queue %p, %d incoming\n",
+  _dbus_verbose ("Message %p (%d %s %s '%s' reply to %u) added to incoming queue %p, %d incoming\n",
                  message,
                  dbus_message_get_type (message),
                  dbus_message_get_interface (message) ?
@@ -367,6 +367,7 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
                  dbus_message_get_member (message) :
                  "no member",
                  dbus_message_get_signature (message),
+                 dbus_message_get_reply_serial (message),
                  connection,
                  connection->n_incoming);
 }
@@ -1562,7 +1563,7 @@ _dbus_connection_send_preallocated_unlocked (DBusConnection       *connection,
 
   sig = dbus_message_get_signature (message);
   
-  _dbus_verbose ("Message %p (%d %s %s '%s') added to outgoing queue %p, %d pending to send\n",
+  _dbus_verbose ("Message %p (%d %s %s '%s') for %s added to outgoing queue %p, %d pending to send\n",
                  message,
                  dbus_message_get_type (message),
                  dbus_message_get_interface (message) ?
@@ -1572,6 +1573,9 @@ _dbus_connection_send_preallocated_unlocked (DBusConnection       *connection,
                  dbus_message_get_member (message) :
                  "no member",
                  sig,
+                 dbus_message_get_destination (message) ?
+                 dbus_message_get_destination (message) :
+                 "null",
                  connection,
                  connection->n_outgoing);
 
@@ -1587,6 +1591,9 @@ _dbus_connection_send_preallocated_unlocked (DBusConnection       *connection,
       if (client_serial)
         *client_serial = dbus_message_get_serial (message);
     }
+
+  _dbus_verbose ("Message %p serial is %u\n",
+                 message, dbus_message_get_serial (message));
   
   _dbus_message_lock (message);
 
@@ -1638,7 +1645,7 @@ dbus_connection_send_preallocated (DBusConnection       *connection,
   CONNECTION_UNLOCK (connection);  
 }
 
-static dbus_bool_t
+dbus_bool_t
 _dbus_connection_send_unlocked (DBusConnection *connection,
                                 DBusMessage    *message,
                                 dbus_uint32_t  *client_serial)

@@ -615,11 +615,22 @@ handle_default_introspect_unlocked (DBusObjectTree          *tree,
   DBusHandlerResult result;
   char **children;
   int i;
+  DBusMessage *reply;
+  DBusMessageIter iter;
+  const char *v_STRING;
 
+  /* We have the connection lock here */
+  
+  _dbus_verbose (" considering default Introspect() handler...\n");
+
+  reply = NULL;
+  
   if (!dbus_message_is_method_call (message,
                                     DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE,
                                     "Introspect"))
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+
+  _dbus_verbose (" using default Introspect() handler!\n");
   
   if (!_dbus_string_init (&xml))
     return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -648,12 +659,31 @@ handle_default_introspect_unlocked (DBusObjectTree          *tree,
 
   if (!_dbus_string_append (&xml, "</node>\n"))
     goto out;
+
+  reply = dbus_message_new_method_return (message);
+  if (reply == NULL)
+    goto out;
+
+  dbus_message_iter_init_append (reply, &iter);
+  v_STRING = _dbus_string_get_const_data (&xml);
+  if (!dbus_message_iter_append_basic (&iter, DBUS_TYPE_STRING, &v_STRING))
+    goto out;
+  
+#ifdef DBUS_BUILD_TESTS
+  if (tree->connection)
+#endif
+    {
+      if (!_dbus_connection_send_unlocked (tree->connection, reply, NULL))
+        goto out;
+    }
   
   result = DBUS_HANDLER_RESULT_HANDLED;
   
  out:
   _dbus_string_free (&xml);
   dbus_free_string_array (children);
+  if (reply)
+    dbus_message_unref (reply);
   
   return result;
 }

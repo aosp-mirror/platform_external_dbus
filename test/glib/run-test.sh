@@ -67,9 +67,12 @@ elif test x$MODE = xviewer ; then
   echo "Launching dbus-viewer"
   ARGS=
   if test x$DEBUG = x ; then
-      ARGS="--services org.freedesktop.DBus"
+      ARGS="--services org.freedesktop.DBus org.freedesktop.DBus.TestSuiteGLibService"
   fi
   libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/tools/dbus-viewer $ARGS || die "could not run dbus-viewer"
+elif test x$MODE = xwait ; then
+  echo "Waiting DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS"
+  sleep 86400
 else
   echo "running test-dbus-glib"
   libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/glib/test-dbus-glib || die "test-dbus-glib failed"

@@ -483,6 +483,8 @@ basic_type_from_string (const char *str)
     return DBUS_TYPE_BYTE;
   else if (strcmp (str, "object") == 0)
     return DBUS_TYPE_OBJECT_PATH;
+  else if (strcmp (str, "variant") == 0)
+    return DBUS_TYPE_VARIANT;
   else
     return DBUS_TYPE_INVALID;
 }

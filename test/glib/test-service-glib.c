@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <glib/gi18n.h>
 
 typedef struct MyObject MyObject;
 typedef struct MyObjectClass MyObjectClass;
@@ -12,6 +13,7 @@ GType my_object_get_type (void);
 struct MyObject
 {
   GObject parent;
+  char *this_is_a_string;
 };
 
 struct MyObjectClass
@@ -20,7 +22,7 @@ struct MyObjectClass
 };
 
 #define MY_TYPE_OBJECT              (my_object_get_type ())
-#define MY_OBJECT_OBJECT(object)    (G_TYPE_CHECK_INSTANCE_CAST ((object), MY_TYPE_OBJECT, MyObject))
+#define MY_OBJECT(object)           (G_TYPE_CHECK_INSTANCE_CAST ((object), MY_TYPE_OBJECT, MyObject))
 #define MY_OBJECT_CLASS(klass)      (G_TYPE_CHECK_CLASS_CAST ((klass), MY_TYPE_OBJECT, MyObjectClass))
 #define MY_IS_OBJECT(object)        (G_TYPE_CHECK_INSTANCE_TYPE ((object), MY_TYPE_OBJECT))
 #define MY_IS_OBJECT_CLASS(klass)   (G_TYPE_CHECK_CLASS_TYPE ((klass), MY_TYPE_OBJECT))
@@ -28,6 +30,67 @@ struct MyObjectClass
 
 G_DEFINE_TYPE(MyObject, my_object, G_TYPE_OBJECT)
 
+/* Properties */
+enum
+{
+  PROP_0,
+  PROP_THIS_IS_A_STRING
+};
+
+static void
+my_object_finalize (GObject *object)
+{
+  MyObject *mobject = MY_OBJECT (object);
+
+  g_free (mobject->this_is_a_string);
+
+  (G_OBJECT_CLASS (my_object_parent_class)->finalize) (object);
+}
+
+static void
+my_object_set_property (GObject      *object,
+                        guint         prop_id,
+                        const GValue *value,
+                        GParamSpec   *pspec)
+{
+  MyObject *mobject;
+
+  mobject = MY_OBJECT (object);
+  
+  switch (prop_id)
+    {
+    case PROP_THIS_IS_A_STRING:
+      g_free (mobject->this_is_a_string);
+      mobject->this_is_a_string = g_value_dup_string (value);
+      break;
+      
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+    }
+}
+
+static void
+my_object_get_property (GObject      *object,
+                        guint         prop_id,
+                        GValue       *value,
+                        GParamSpec   *pspec)
+{
+  MyObject *mobject;
+
+  mobject = MY_OBJECT (object);
+  
+  switch (prop_id)
+    {
+    case PROP_THIS_IS_A_STRING:
+      g_value_set_string (value, mobject->this_is_a_string);
+      break;
+      
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+    }
+}
 
 static void
 my_object_init (MyObject *obj)
@@ -36,9 +99,21 @@ my_object_init (MyObject *obj)
 }
 
 static void
-my_object_class_init (MyObjectClass *obj_class)
+my_object_class_init (MyObjectClass *mobject_class)
 {
+  GObjectClass *gobject_class = G_OBJECT_CLASS (mobject_class);
+
+  gobject_class->finalize = my_object_finalize;
+  gobject_class->set_property = my_object_set_property;
+  gobject_class->get_property = my_object_get_property;
   
+  g_object_class_install_property (gobject_class,
+				   PROP_THIS_IS_A_STRING,
+				   g_param_spec_string ("this_is_a_string",
+                                                        _("Sample string"),
+                                                        _("Example of a string property"),
+                                                        "default value",
+                                                        G_PARAM_READWRITE));
 }
      
 static GMainLoop *loop;
@@ -49,6 +124,10 @@ main (int argc, char **argv)
   DBusGConnection *connection;
   GError *error;
   GObject *obj;
+  DBusGProxy *driver_proxy;
+  DBusGPendingCall *call;
+  const char *v_STRING;
+  guint32 v_UINT32;
   
   g_type_init ();
   
@@ -70,7 +149,40 @@ main (int argc, char **argv)
   dbus_g_connection_register_g_object (connection,
                                        "/org/freedesktop/my_test_object",
                                        obj);
-  
+
+  driver_proxy = dbus_g_proxy_new_for_name (connection,
+                                            DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                            DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                            DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS);
+
+  v_STRING = "org.freedesktop.DBus.TestSuiteGLibService";
+  v_UINT32 = 0;
+  call = dbus_g_proxy_begin_call (driver_proxy, "RequestName",
+                                  DBUS_TYPE_STRING,
+                                  &v_STRING,
+                                  DBUS_TYPE_UINT32,
+                                  &v_UINT32,
+                                  DBUS_TYPE_INVALID);
+  if (!dbus_g_proxy_end_call (driver_proxy, call,
+                              &error, DBUS_TYPE_UINT32, &v_UINT32,
+                              DBUS_TYPE_INVALID))
+    {
+      g_assert (error != NULL);
+      g_printerr ("Failed to get name: %s\n",
+                  error->message);
+      g_error_free (error);
+      exit (1);
+    }
+  g_assert (error == NULL);
+  dbus_g_pending_call_unref (call);
+
+  if (!(v_UINT32 == DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER))
+    {
+      g_printerr ("Got result code %u from requesting name\n", v_UINT32);
+      exit (1);
+    }
+
+  g_print ("GLib test service has name '%s'\n", v_STRING);
   g_print ("GLib test service entering main loop\n");
 
   g_main_loop_run (loop);
