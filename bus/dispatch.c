@@ -1442,6 +1442,47 @@ check_send_exit_to_service (BusContext     *context,
   return retval;
 }
 
+static dbus_bool_t
+check_got_error (BusContext     *context,
+                 DBusConnection *connection,
+                 const char     *error_name)
+{
+  DBusMessage *message;
+  dbus_bool_t retval;
+
+  retval = FALSE;
+  
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not get an expected error\n");
+      goto out;
+    }
+
+  if (!dbus_message_get_is_error (message))
+    {
+      _dbus_warn ("Expected an error, got %s\n",
+                  dbus_message_get_name (message));
+      goto out;
+    }
+
+  if (!dbus_message_name_is (message, error_name))
+    {
+      _dbus_warn ("Expected error %s, got %s instead\n",
+                  error_name,
+                  dbus_message_get_name (message));
+      goto out;
+    }
+
+  retval = TRUE;
+  
+ out:
+  if (message)
+    dbus_message_unref (message);
+  
+  return retval;
+}
+          
 #define EXISTENT_SERVICE_NAME "org.freedesktop.DBus.TestSuiteEchoService"
 
 /* returns TRUE if the correct thing happens,
@@ -1551,6 +1592,7 @@ check_existent_service_activation (BusContext     *context,
   else
     {
       dbus_bool_t got_service_deleted;
+      dbus_bool_t got_error;
       
       if (!check_base_service_activated (context, connection,
                                          message, &base_service))
@@ -1570,9 +1612,22 @@ check_existent_service_activation (BusContext     *context,
         }
 
       got_service_deleted = dbus_message_name_is (message, DBUS_MESSAGE_SERVICE_DELETED);
-
+      got_error = dbus_message_get_is_error (message);
+      
       dbus_connection_return_message (connection, message);
       message = NULL;
+
+      if (got_error)
+        {
+          if (!check_got_error (context, connection,
+                                DBUS_ERROR_SPAWN_CHILD_EXITED))
+            goto out;
+
+          /* A service deleted should be coming along now after this error.
+           * We can also get the error *after* the service deleted.
+           */
+          got_service_deleted = TRUE;
+        }
       
       if (got_service_deleted)
         {
@@ -1589,34 +1644,19 @@ check_existent_service_activation (BusContext     *context,
           if (csdd.failed)
             goto out;
 
-          /* Now we should get an error about the service exiting */
-          block_connection_until_message_from_bus (context, connection);
-          
-          /* and process everything again */
-          bus_test_run_everything (context);
-          
-          message = pop_message_waiting_for_memory (connection);
-          if (message == NULL)
+          /* Now we should get an error about the service exiting
+           * if we didn't get it before.
+           */
+          if (!got_error)
             {
-              _dbus_warn ("Did not get an error from the service %s exiting\n",
-                          EXISTENT_SERVICE_NAME);
-              goto out;
-            }
-
-          if (!dbus_message_get_is_error (message))
-            {
-              _dbus_warn ("Expected an error due to service exiting, got %s\n",
-                          dbus_message_get_name (message));
-              goto out;
-            }
-
-          if (!dbus_message_name_is (message,
-                                     DBUS_ERROR_SPAWN_CHILD_EXITED))
-            {
-              _dbus_warn ("Expected error %s on service exit, got %s instead\n",
-                          DBUS_ERROR_SPAWN_CHILD_EXITED,
-                          dbus_message_get_name (message));
-              goto out;
+              block_connection_until_message_from_bus (context, connection);
+              
+              /* and process everything again */
+              bus_test_run_everything (context);
+              
+              if (!check_got_error (context, connection,
+                                    DBUS_ERROR_SPAWN_CHILD_EXITED))
+                goto out;
             }
         }
       else
@@ -1785,7 +1825,7 @@ bus_dispatch_test (const DBusString *test_data_dir)
   if (!check_hello_message (context, baz))
     _dbus_assert_not_reached ("hello message failed");
 
-#if 0
+#if 1
   check2_try_iterations (context, foo, "existent_service_activation",
                          check_existent_service_activation);
 #endif

@@ -438,13 +438,10 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
 {
   DBusMessage *reply;
   DBusString service_name;
-  BusService *service;  
   char *name;
   int service_reply;
   int flags;
   dbus_bool_t retval;
-  DBusConnection *old_owner;
-  DBusConnection *current_owner;
   BusRegistry *registry;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
@@ -461,27 +458,14 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
   
   retval = FALSE;
   reply = NULL;
-  
-  if (*name == ':')
-    {
-      /* Not allowed; only base services can start with ':' */
-      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
-                      "Cannot acquire a service starting with ':' such as \"%s\"",
-                      name);
-
-      _dbus_verbose ("Attempt to acquire invalid base service name \"%s\"", name);
-      
-      goto out;
-    }
 
   _dbus_string_init_const (&service_name, name);
-  
-  service = bus_registry_lookup (registry, &service_name);
 
-  if (service != NULL)
-    old_owner = bus_service_get_primary_owner (service);
-  else
-    old_owner = NULL;  
+  if (!bus_registry_acquire_service (registry, connection,
+                                     &service_name, flags,
+                                     &service_reply, transaction,
+                                     error))
+    goto out;
   
   reply = dbus_message_new_reply (message);
   if (reply == NULL)
@@ -495,67 +479,8 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
       BUS_SET_OOM (error);
       goto out;
     }
-      
-  if (service == NULL)
-    {
-      service = bus_registry_ensure (registry,
-                                     &service_name, connection, transaction, error);
-      if (service == NULL)
-        goto out;
-    }
 
-  current_owner = bus_service_get_primary_owner (service);
-
-  if (old_owner == NULL)
-    {
-      _dbus_assert (current_owner == connection);
-
-      bus_service_set_prohibit_replacement (service,
-					    (flags & DBUS_SERVICE_FLAG_PROHIBIT_REPLACEMENT));      
-			
-      service_reply = DBUS_SERVICE_REPLY_PRIMARY_OWNER;      
-    }
-  else if (old_owner == connection)
-    service_reply = DBUS_SERVICE_REPLY_ALREADY_OWNER;
-  else if (!((flags & DBUS_SERVICE_FLAG_REPLACE_EXISTING)))
-    service_reply = DBUS_SERVICE_REPLY_SERVICE_EXISTS;
-  else if (bus_service_get_prohibit_replacement (service))
-    {
-      /* Queue the connection */
-      if (!bus_service_add_owner (service, connection,
-                                  transaction, error))
-        goto out;
-      
-      service_reply = DBUS_SERVICE_REPLY_IN_QUEUE;
-    }
-  else
-    {
-      /* Replace the current owner */
-
-      /* We enqueue the new owner and remove the first one because
-       * that will cause ServiceAcquired and ServiceLost messages to
-       * be sent.
-       */
-      
-      /* FIXME this is broken, if the remove_owner fails
-       * we don't undo the add_owner
-       * (easiest fix is probably to move all this to
-       * services.c and have a single routine for it)
-       */
-      
-      if (!bus_service_add_owner (service, connection,
-                                  transaction, error))
-        goto out;
-      
-      if (!bus_service_remove_owner (service, old_owner,
-                                     transaction, error))
-        goto out;
-      
-      _dbus_assert (connection == bus_service_get_primary_owner (service));
-      service_reply = DBUS_SERVICE_REPLY_PRIMARY_OWNER;
-    }
-
-  if (!dbus_message_append_args (reply, DBUS_TYPE_UINT32, service_reply, 0))
+  if (!dbus_message_append_args (reply, DBUS_TYPE_UINT32, service_reply, DBUS_TYPE_INVALID))
     {
       BUS_SET_OOM (error);
       goto out;

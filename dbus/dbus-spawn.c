@@ -879,6 +879,8 @@ check_babysit_events (pid_t grandchild_pid,
   else if (ret == grandchild_pid)
     {
       /* Child exited */
+      _dbus_verbose ("reaped child pid %ld\n", (long) ret);
+      
       write_status_and_exit (parent_pipe, status);
     }
   else
@@ -890,13 +892,13 @@ check_babysit_events (pid_t grandchild_pid,
 
   if (revents & _DBUS_POLLIN)
     {
-      /* Data to read from parent */
-
+      _dbus_verbose ("babysitter got POLLIN from parent pipe\n");
     }
 
   if (revents & (_DBUS_POLLERR | _DBUS_POLLHUP))
     {
       /* Parent is gone, so we just exit */
+      _dbus_verbose ("babysitter got POLLERR or POLLHUP from parent\n");
       _exit (0);
     }
 }

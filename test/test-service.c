@@ -17,7 +17,7 @@ quit (void)
 static void
 die (const char *message)
 {
-  fprintf (stderr, "%s", message);
+  fprintf (stderr, "*** %s", message);
   exit (1);
 }
 
@@ -110,7 +110,7 @@ main (int    argc,
   connection = dbus_bus_get (DBUS_BUS_ACTIVATION, &error);
   if (connection == NULL)
     {
-      fprintf (stderr, "Failed to open connection to activating message bus: %s\n",
+      fprintf (stderr, "*** Failed to open connection to activating message bus: %s\n",
                error.message);
       dbus_error_free (&error);
       return 1;
@@ -135,7 +135,7 @@ main (int    argc,
                                      0, &error);
   if (dbus_error_is_set (&error))
     {
-      fprintf (stderr, "Failed to acquire service: %s\n",
+      fprintf (stderr, "*** Failed to acquire service: %s\n",
                error.message);
       dbus_error_free (&error);
       exit (1);

@@ -25,6 +25,7 @@
 #define BUS_CONNECTION_H
 
 #include <dbus/dbus.h>
+#include <dbus/dbus-list.h>
 #include "bus.h"
 
 typedef dbus_bool_t (* BusConnectionForeachFunction) (DBusConnection *connection, 
@@ -53,10 +54,13 @@ void        bus_connection_send_oom_error        (DBusConnection *connection,
                                                   DBusMessage    *in_reply_to);
 
 /* called by services.c */
-dbus_bool_t bus_connection_add_owned_service    (DBusConnection *connection,
-                                                 BusService     *service);
-void        bus_connection_remove_owned_service (DBusConnection *connection,
-                                                 BusService     *service);
+dbus_bool_t bus_connection_add_owned_service      (DBusConnection *connection,
+                                                   BusService     *service);
+void        bus_connection_remove_owned_service   (DBusConnection *connection,
+                                                   BusService     *service);
+void        bus_connection_add_owned_service_link (DBusConnection *connection,
+                                                   DBusList       *link);
+
 
 /* called by driver.c */
 dbus_bool_t bus_connection_set_name (DBusConnection               *connection,
@@ -74,18 +78,24 @@ dbus_bool_t bus_connection_get_groups  (DBusConnection       *connection,
 BusPolicy*  bus_connection_get_policy  (DBusConnection       *connection);
 
 /* transaction API so we can send or not send a block of messages as a whole */
-BusTransaction* bus_transaction_new              (BusContext      *context);
-BusContext*     bus_transaction_get_context      (BusTransaction  *transaction);
-BusConnections* bus_transaction_get_connections  (BusTransaction  *transaction);
-dbus_bool_t     bus_transaction_send_message     (BusTransaction  *transaction,
-                                                  DBusConnection  *connection,
-                                                  DBusMessage     *message);
-dbus_bool_t     bus_transaction_send_error_reply (BusTransaction  *transaction,
-                                                  DBusConnection  *connection,
-                                                  const DBusError *error,
-                                                  DBusMessage     *in_reply_to);
-void            bus_transaction_cancel_and_free  (BusTransaction  *transaction);
-void            bus_transaction_execute_and_free (BusTransaction  *transaction);
 
+typedef void (* BusTransactionCancelFunction) (void *data);
+
+BusTransaction* bus_transaction_new              (BusContext                   *context);
+BusContext*     bus_transaction_get_context      (BusTransaction               *transaction);
+BusConnections* bus_transaction_get_connections  (BusTransaction               *transaction);
+dbus_bool_t     bus_transaction_send_message     (BusTransaction               *transaction,
+                                                  DBusConnection               *connection,
+                                                  DBusMessage                  *message);
+dbus_bool_t     bus_transaction_send_error_reply (BusTransaction               *transaction,
+                                                  DBusConnection               *connection,
+                                                  const DBusError              *error,
+                                                  DBusMessage                  *in_reply_to);
+void            bus_transaction_cancel_and_free  (BusTransaction               *transaction);
+void            bus_transaction_execute_and_free (BusTransaction               *transaction);
+dbus_bool_t     bus_transaction_add_cancel_hook  (BusTransaction               *transaction,
+                                                  BusTransactionCancelFunction  cancel_function,
+                                                  void                         *data,
+                                                  DBusFreeFunction              free_data_function);
 
 #endif /* BUS_CONNECTION_H */

@@ -372,6 +372,42 @@ _dbus_list_insert_after (DBusList **list,
 }
 
 /**
+ * Inserts a link into the list before the given existing link.
+ * 
+ * @param list the list to modify
+ * @param before_this_link existing link to insert before, or #NULL to append
+ * @param link the link to insert
+ */
+void
+_dbus_list_insert_before_link (DBusList **list,
+                               DBusList  *before_this_link,
+                               DBusList  *link)
+{
+  if (before_this_link == NULL)
+    _dbus_list_append_link (list, link);
+  else
+    link_before (list, before_this_link, link);
+}
+
+/**
+ * Inserts a link into the list after the given existing link.
+ * 
+ * @param list the list to modify
+ * @param after_this_link existing link to insert after, or #NULL to prepend
+ * @param link the link to insert
+ */
+void
+_dbus_list_insert_after_link (DBusList **list,
+                              DBusList  *after_this_link,
+                              DBusList  *link)
+{
+  if (after_this_link == NULL)
+    _dbus_list_prepend_link (list, link);
+  else  
+    link_after (list, after_this_link, link);
+}
+
+/**
  * Removes a value from the list. Only removes the
  * first value equal to the given data pointer,
  * even if multiple values exist which match.

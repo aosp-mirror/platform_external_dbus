@@ -63,6 +63,7 @@ struct BusPendingActivationEntry
 
 typedef struct
 {
+  int refcount;
   BusActivation *activation;
   char *service_name;
   DBusList *entries;
@@ -94,13 +95,26 @@ handle_timeout_callback (DBusTimeout   *timeout,
 }
 
 static void
-bus_pending_activation_free (BusPendingActivation *pending_activation)
+bus_pending_activation_ref (BusPendingActivation *pending_activation)
+{
+  _dbus_assert (pending_activation->refcount > 0);
+  pending_activation->refcount += 1;
+}
+
+static void
+bus_pending_activation_unref (BusPendingActivation *pending_activation)
 {
   DBusList *link;
   
   if (pending_activation == NULL) /* hash table requires this */
     return;
 
+  _dbus_assert (pending_activation->refcount > 0);
+  pending_activation->refcount -= 1;
+
+  if (pending_activation->refcount > 0)
+    return;
+  
   if (pending_activation->timeout_added)
     {
       _dbus_loop_remove_timeout (bus_context_get_loop (pending_activation->activation->context),
@@ -396,7 +410,7 @@ bus_activation_new (BusContext        *context,
     }
 
   activation->pending_activations = _dbus_hash_table_new (DBUS_HASH_STRING, NULL,
-							  (DBusFreeFunction)bus_pending_activation_free);
+							  (DBusFreeFunction)bus_pending_activation_unref);
 
   if (activation->pending_activations == NULL)
     {
@@ -466,6 +480,75 @@ child_setup (void *data)
     }
 }
 
+typedef struct
+{
+  BusPendingActivation *pending_activation;
+  DBusPreallocatedHash *hash_entry;
+} RestorePendingData;
+
+static void
+restore_pending (void *data)
+{
+  RestorePendingData *d = data;
+
+  _dbus_assert (d->pending_activation != NULL);
+  _dbus_assert (d->hash_entry != NULL);
+
+  _dbus_verbose ("Restoring pending activation for service %s, has timeout = %d\n",
+                 d->pending_activation->service_name,
+                 d->pending_activation->timeout_added);
+  
+  _dbus_hash_table_insert_string_preallocated (d->pending_activation->activation->pending_activations,
+                                               d->hash_entry,
+                                               d->pending_activation->service_name, d->pending_activation);
+
+  bus_pending_activation_ref (d->pending_activation);
+  
+  d->hash_entry = NULL;
+}
+
+static void
+free_pending_restore_data (void *data)
+{
+  RestorePendingData *d = data;
+
+  if (d->hash_entry)
+    _dbus_hash_table_free_preallocated_entry (d->pending_activation->activation->pending_activations,
+                                              d->hash_entry);
+
+  bus_pending_activation_unref (d->pending_activation);
+  
+  dbus_free (d);
+}
+
+static dbus_bool_t
+add_restore_pending_to_transaction (BusTransaction       *transaction,
+                                    BusPendingActivation *pending_activation)
+{
+  RestorePendingData *d;
+
+  d = dbus_new (RestorePendingData, 1);
+  if (d == NULL)
+    return FALSE;
+  
+  d->pending_activation = pending_activation;
+  d->hash_entry = _dbus_hash_table_preallocate_entry (d->pending_activation->activation->pending_activations);
+  
+  bus_pending_activation_ref (d->pending_activation);
+  
+  if (d->hash_entry == NULL ||
+      !bus_transaction_add_cancel_hook (transaction, restore_pending, d,
+                                        free_pending_restore_data))
+    {
+      free_pending_restore_data (d);
+      return FALSE;
+    }
+
+  _dbus_verbose ("Saved pending activation to be restored if the transaction fails\n");
+  
+  return TRUE;
+}
+
 dbus_bool_t
 bus_activation_service_created (BusActivation  *activation,
 				const char     *service_name,
@@ -521,13 +604,19 @@ bus_activation_service_created (BusActivation  *activation,
 
       link = next;
     }
+
+  if (!add_restore_pending_to_transaction (transaction, pending_activation))
+    {
+      _dbus_verbose ("Could not add cancel hook to transaction to revert removing pending activation\n");
+      BUS_SET_OOM (error);
+      goto error;
+    }
   
   _dbus_hash_table_remove_string (activation->pending_activations, service_name);
 
   return TRUE;
 
  error:
-  _dbus_hash_table_remove_string (activation->pending_activations, service_name);
   return FALSE;
 }
 
@@ -785,12 +874,13 @@ bus_activation_activate_service (BusActivation  *activation,
 	}
 
       pending_activation->activation = activation;
+      pending_activation->refcount = 1;
       
       pending_activation->service_name = _dbus_strdup (service_name);
       if (!pending_activation->service_name)
 	{
 	  BUS_SET_OOM (error);
-	  bus_pending_activation_free (pending_activation);
+	  bus_pending_activation_unref (pending_activation);
 	  bus_pending_activation_entry_free (pending_activation_entry);	  
 	  return FALSE;
 	}
@@ -803,7 +893,7 @@ bus_activation_activate_service (BusActivation  *activation,
       if (!pending_activation->timeout)
 	{
 	  BUS_SET_OOM (error);
-	  bus_pending_activation_free (pending_activation);
+	  bus_pending_activation_unref (pending_activation);
 	  bus_pending_activation_entry_free (pending_activation_entry);	  
 	  return FALSE;
 	}
@@ -815,7 +905,7 @@ bus_activation_activate_service (BusActivation  *activation,
                                    NULL))
 	{
 	  BUS_SET_OOM (error);
-	  bus_pending_activation_free (pending_activation);
+	  bus_pending_activation_unref (pending_activation);
 	  bus_pending_activation_entry_free (pending_activation_entry);	  
 	  return FALSE;
 	}
@@ -825,7 +915,7 @@ bus_activation_activate_service (BusActivation  *activation,
       if (!_dbus_list_append (&pending_activation->entries, pending_activation_entry))
 	{
 	  BUS_SET_OOM (error);
-	  bus_pending_activation_free (pending_activation);
+	  bus_pending_activation_unref (pending_activation);
 	  bus_pending_activation_entry_free (pending_activation_entry);	  
 	  return FALSE;
 	}
@@ -834,7 +924,7 @@ bus_activation_activate_service (BusActivation  *activation,
 					   pending_activation->service_name, pending_activation))
 	{
 	  BUS_SET_OOM (error);
-	  bus_pending_activation_free (pending_activation);
+	  bus_pending_activation_unref (pending_activation);
 	  return FALSE;
 	}
     }

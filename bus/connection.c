@@ -139,6 +139,8 @@ bus_connection_disconnected (DBusConnection *connection)
       if (!bus_service_remove_owner (service, connection,
                                      transaction, &error))
         {
+          _DBUS_ASSERT_ERROR_IS_SET (&error);
+          
           if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
             {
               dbus_error_free (&error);
@@ -147,7 +149,11 @@ bus_connection_disconnected (DBusConnection *connection)
               goto retry;
             }
           else
-            _dbus_assert_not_reached ("Removing service owner failed for non-memory-related reason");
+            {
+              _dbus_verbose ("Failed to remove service owner: %s %s\n",
+                             error.name, error.message);
+              _dbus_assert_not_reached ("Removing service owner failed for non-memory-related reason");
+            }
         }
         
       bus_transaction_execute_and_free (transaction);
@@ -746,18 +752,30 @@ bus_connection_send_oom_error (DBusConnection *connection,
   d->oom_preallocated = NULL;
 }
 
-dbus_bool_t
-bus_connection_add_owned_service (DBusConnection *connection,
-                                  BusService     *service)
+void
+bus_connection_add_owned_service_link (DBusConnection *connection,
+                                       DBusList       *link)
 {
   BusConnectionData *d;
 
   d = BUS_CONNECTION_DATA (connection);
   _dbus_assert (d != NULL);
 
-  if (!_dbus_list_append (&d->services_owned,
-                          service))
+  _dbus_list_append_link (&d->services_owned, link);
+}
+
+dbus_bool_t
+bus_connection_add_owned_service (DBusConnection *connection,
+                                  BusService     *service)
+{
+  DBusList *link;
+
+  link = _dbus_list_alloc_link (service);
+
+  if (link == NULL)
     return FALSE;
+
+  bus_connection_add_owned_service_link (connection, link);
 
   return TRUE;
 }
@@ -805,6 +823,13 @@ bus_connection_get_name (DBusConnection *connection)
   return d->name;
 }
 
+/**
+ * Transactions
+ *
+ * Note that this is fairly fragile; in particular, don't try to use
+ * one transaction across any main loop iterations.
+ */
+
 typedef struct
 {
   BusTransaction *transaction;
@@ -812,10 +837,18 @@ typedef struct
   DBusPreallocatedSend *preallocated;
 } MessageToSend;
 
+typedef struct
+{
+  BusTransactionCancelFunction cancel_function;
+  DBusFreeFunction free_data_function;
+  void *data;
+} CancelHook;
+
 struct BusTransaction
 {
   DBusList *connections;
   BusContext *context;
+  DBusList *cancel_hooks;
 };
 
 static void
@@ -829,6 +862,39 @@ message_to_send_free (DBusConnection *connection,
     dbus_connection_free_preallocated_send (connection, to_send->preallocated);
 
   dbus_free (to_send);
+}
+
+static void
+cancel_hook_cancel (void *element,
+                    void *data)
+{
+  CancelHook *ch = element;
+
+  _dbus_verbose ("Running transaction cancel hook\n");
+  
+  if (ch->cancel_function)
+    (* ch->cancel_function) (ch->data);  
+}
+
+static void
+cancel_hook_free (void *element,
+                  void *data)
+{
+  CancelHook *ch = element;
+
+  if (ch->free_data_function)
+    (* ch->free_data_function) (ch->data);
+
+  dbus_free (ch);
+}
+
+static void
+free_cancel_hooks (BusTransaction *transaction)
+{
+  _dbus_list_foreach (&transaction->cancel_hooks,
+                      cancel_hook_free, NULL);
+  
+  _dbus_list_clear (&transaction->cancel_hooks);
 }
 
 BusTransaction*
@@ -980,6 +1046,11 @@ bus_transaction_cancel_and_free (BusTransaction *transaction)
 
   _dbus_assert (transaction->connections == NULL);
 
+  _dbus_list_foreach (&transaction->cancel_hooks,
+                      cancel_hook_cancel, NULL);
+
+  free_cancel_hooks (transaction);
+  
   dbus_free (transaction);
 }
 
@@ -1036,6 +1107,8 @@ bus_transaction_execute_and_free (BusTransaction *transaction)
 
   _dbus_assert (transaction->connections == NULL);
 
+  free_cancel_hooks (transaction);
+  
   dbus_free (transaction);
 }
 
@@ -1088,5 +1161,33 @@ bus_transaction_send_error_reply (BusTransaction  *transaction,
 
   dbus_message_unref (reply);
   
+  return TRUE;
+}
+
+dbus_bool_t
+bus_transaction_add_cancel_hook (BusTransaction               *transaction,
+                                 BusTransactionCancelFunction  cancel_function,
+                                 void                         *data,
+                                 DBusFreeFunction              free_data_function)
+{
+  CancelHook *ch;
+
+  ch = dbus_new (CancelHook, 1);
+  if (ch == NULL)
+    return FALSE;
+  
+  ch->cancel_function = cancel_function;
+  ch->data = data;
+  ch->free_data_function = free_data_function;
+
+  /* It's important that the hooks get run in reverse order that they
+   * were added
+   */
+  if (!_dbus_list_prepend (&transaction->cancel_hooks, ch))
+    {
+      dbus_free (ch);
+      return FALSE;
+    }
+
   return TRUE;
 }

@@ -558,7 +558,7 @@ _dbus_connection_do_iteration (DBusConnection *connection,
     flags &= ~DBUS_ITERATION_DO_WRITING;
 
   if (_dbus_connection_acquire_io_path (connection,
-					(flags & DBUS_ITERATION_BLOCK)?timeout_milliseconds:0))
+					(flags & DBUS_ITERATION_BLOCK) ? timeout_milliseconds : 0))
     {
       _dbus_transport_do_iteration (connection->transport,
 				    flags, timeout_milliseconds);
@@ -1596,7 +1596,8 @@ dbus_connection_flush (DBusConnection *connection)
   DBusDispatchStatus status;
   
   dbus_mutex_lock (connection->mutex);
-  while (connection->n_outgoing > 0)
+  while (connection->n_outgoing > 0 &&
+         dbus_connection_get_is_connected (connection))
     _dbus_connection_do_iteration (connection,
                                    DBUS_ITERATION_DO_READING |
                                    DBUS_ITERATION_DO_WRITING |

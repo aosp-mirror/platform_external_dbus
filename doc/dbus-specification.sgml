@@ -1084,11 +1084,17 @@
       </para>
       <para>
         The message bus keeps track of a set of
-        <firstterm>services</firstterm>. A service is simply a name, such 
-        as <literal>com.yoyodyne.Screensaver</literal>, which can be 
-        <firstterm>owned</firstterm> by one of the connected applications. 
-        The message bus itself always owns the special service 
+        <firstterm>services</firstterm>. A service is simply a name, such as
+        <literal>com.yoyodyne.Screensaver</literal>, which can be
+        <firstterm>owned</firstterm> by one or more of the connected
+        applications.  The message bus itself always owns the special service
         <literal>org.freedesktop.DBus</literal>.
+      </para>
+      <para>
+        Services may have <firstterm>secondary owners</firstterm>. Secondary owners
+        of a service are kept in a queue; if the primary owner of a service 
+        disconnects, or releases the service, the next secondary owner becomes
+        the new owner of the service.
       </para>
       <para>
         Messages may have a <literal>srvc</literal> field (see <xref
@@ -1911,17 +1917,27 @@
         </para>
       </glossdef>
     </glossentry>
+    <glossentry id="term-secondary-owner"><glossterm>Secondary service owner</glossterm>
+      <glossdef>
+        <para>
+          Each service has a primary owner; messages sent to the service name 
+          go to the primary owner. However, certain services also maintain 
+          a queue of secondary owners "waiting in the wings." If 
+          the primary owner releases the service, then the first secondary 
+          owner in the queue automatically becomes the primary owner.
+        </para>
+      </glossdef>
+    </glossentry>
     <glossentry id="term-service"><glossterm>Service</glossterm>
       <glossdef>
         <para>
-          A service is simply a named application that other 
-          applications can refer to. For example, the 
-          hypothetical <literal>com.yoyodyne.Screensaver</literal>
-          service might accept messages that affect 
-          a screensaver from Yoyodyne Corporation.
-          An application is said to <firstterm>own</firstterm> 
-          a service if the message bus has associated the 
-          application with the service name.
+          A service is simply a named list of applications. For example, the
+          hypothetical <literal>com.yoyodyne.Screensaver</literal> service might
+          accept messages that affect a screensaver from Yoyodyne Corporation.
+          An application is said to <firstterm>own</firstterm> a service if the
+          message bus has associated the application with the service name.
+          Services may also have <firstterm>secondary owners</firstterm> (see
+          <xref linkend="term-secondary-owner">).
         </para>
       </glossdef>
     </glossentry>
