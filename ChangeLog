@@ -1,5 +1,19 @@
 2003-04-06  Havoc Pennington  <hp@pobox.com>
 
+	* bus/bus.c (bus_context_new): print the address in here, rather
+	than in main(), because we need to do it before forking the daemon
+
+	* bus/dispatch.c (send_service_nonexistent_error): set the sender 
+	on the service nonexistent error
+
+	* bus/driver.c (bus_driver_handle_acquire_service): set the
+	sender on the AcquireService reply
+
+	* test/data/valid-config-files/debug-allow-all.conf.in: Make test
+	server also listen on a UNIX socket so services can connect to it.
+
+2003-04-06  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-threads.c: Redo how the fake debug mutexes are done 
 	so it detects deadlocks and also we actually init threads when 
 	debugging.

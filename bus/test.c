@@ -370,7 +370,7 @@ bus_context_new_test (const DBusString *test_data_dir,
     }
   
   dbus_error_init (&error);
-  context = bus_context_new (&config_file, &error);
+  context = bus_context_new (&config_file, -1, &error);
   if (context == NULL)
     {
       _DBUS_ASSERT_ERROR_IS_SET (&error);

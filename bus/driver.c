@@ -478,6 +478,12 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
       goto out;
     }
 
+  if (!dbus_message_set_sender (reply, DBUS_SERVICE_DBUS))
+    {
+      BUS_SET_OOM (error);
+      goto out;
+    }
+      
   if (service == NULL)
     {
       service = bus_registry_ensure (registry,

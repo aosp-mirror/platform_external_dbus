@@ -41,6 +41,7 @@ typedef struct BusService     BusService;
 typedef struct BusTransaction BusTransaction;
 
 BusContext*     bus_context_new                      (const DBusString *config_file,
+                                                      int               print_addr_fd,
                                                       DBusError        *error);
 void            bus_context_shutdown                 (BusContext       *context);
 void            bus_context_ref                      (BusContext       *context);

@@ -216,7 +216,7 @@ main (int argc, char **argv)
     }
   
   dbus_error_init (&error);
-  context = bus_context_new (&config_file, &error);
+  context = bus_context_new (&config_file, print_addr_fd, &error);
   _dbus_string_free (&config_file);
   if (context == NULL)
     {
@@ -224,37 +224,6 @@ main (int argc, char **argv)
                   error.message);
       dbus_error_free (&error);
       exit (1);
-    }
-
-  /* Note that we don't know whether the print_addr_fd is
-   * one of the sockets we're using to listen on, or some
-   * other random thing. But I think the answer is "don't do
-   * that then"
-   */
-  if (print_addr_fd >= 0)
-    {
-      DBusString addr;
-      const char *a = bus_context_get_address (context);
-      int bytes;
-      
-      _dbus_assert (a != NULL);
-      if (!_dbus_string_init (&addr) ||
-          !_dbus_string_append (&addr, a) ||
-          !_dbus_string_append (&addr, "\n"))
-        exit (1);
-
-      bytes = _dbus_string_get_length (&addr);
-      if (_dbus_write (print_addr_fd, &addr, 0, bytes) != bytes)
-        {
-          _dbus_warn ("Failed to print message bus address: %s\n",
-                      _dbus_strerror (errno));
-          exit (1);
-        }
-
-      if (print_addr_fd > 2)
-        _dbus_close (print_addr_fd, NULL);
-
-      _dbus_string_free (&addr);
     }
   
   /* FIXME we have to handle this properly below _dbus_set_signal_handler (SIGHUP, signal_handler); */

@@ -4,6 +4,7 @@
  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
   <listen>debug-pipe:name=test-server</listen>
+  <listen>unix:tmpdir=@TEST_SOCKET_DIR@</listen>
   <servicedir>@TEST_SERVICE_DIR@</servicedir>
   <policy context="default">
     <allow send="*"/>

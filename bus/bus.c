@@ -298,6 +298,7 @@ setup_server (BusContext *context,
 
 BusContext*
 bus_context_new (const DBusString *config_file,
+                 int               print_addr_fd,
                  DBusError        *error)
 {
   BusContext *context;
@@ -498,6 +499,48 @@ bus_context_new (const DBusString *config_file,
       goto failed;
     }
 
+  /* Note that we don't know whether the print_addr_fd is
+   * one of the sockets we're using to listen on, or some
+   * other random thing. But I think the answer is "don't do
+   * that then"
+   */
+  if (print_addr_fd >= 0)
+    {
+      DBusString addr;
+      const char *a = bus_context_get_address (context);
+      int bytes;
+      
+      _dbus_assert (a != NULL);
+      if (!_dbus_string_init (&addr))
+        {
+          BUS_SET_OOM (error);
+          goto failed;
+        }
+      
+      if (!_dbus_string_append (&addr, a) ||
+          !_dbus_string_append (&addr, "\n"))
+        {
+          _dbus_string_free (&addr);
+          BUS_SET_OOM (error);
+          goto failed;
+        }
+
+      bytes = _dbus_string_get_length (&addr);
+      if (_dbus_write (print_addr_fd, &addr, 0, bytes) != bytes)
+        {
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+                          "Printing message bus address: %s\n",
+                          _dbus_strerror (errno));
+          _dbus_string_free (&addr);
+          goto failed;
+        }
+
+      if (print_addr_fd > 2)
+        _dbus_close (print_addr_fd, NULL);
+
+      _dbus_string_free (&addr);
+    }
+  
   /* Create activation subsystem */
   
   context->activation = bus_activation_new (context, &full_address,

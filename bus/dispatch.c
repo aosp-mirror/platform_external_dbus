@@ -137,7 +137,14 @@ send_service_nonexistent_error (BusTransaction *transaction,
       BUS_SET_OOM (error);
       return FALSE;
     }
-              
+
+  if (!dbus_message_set_sender (error_reply, DBUS_SERVICE_DBUS))
+    {
+      dbus_message_unref (error_reply);
+      BUS_SET_OOM (error);
+      return FALSE;
+    }      
+  
   if (!bus_transaction_send_message (transaction, connection, error_reply))
     {
       dbus_message_unref (error_reply);
