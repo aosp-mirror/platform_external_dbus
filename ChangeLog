@@ -1,5 +1,11 @@
 2003-03-31  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-sysdeps.c (_dbus_connect_unix_socket) 
+	(_dbus_listen_unix_socket): fix off-by-one error in null
+	termination spotted by Nalin
+
+2003-03-31  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-keyring.c (_dbus_keyring_new_homedir): allow setting
 	DBUS_TEST_HOMEDIR when tests are enabled, so we can test without
 	having a real home directory available.

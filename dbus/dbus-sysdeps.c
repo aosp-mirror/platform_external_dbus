@@ -346,7 +346,7 @@ _dbus_connect_unix_socket (const char     *path,
   _DBUS_ZERO (addr);
   addr.sun_family = AF_UNIX;
   strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH);
-  addr.sun_path[_DBUS_MAX_SUN_PATH_LENGTH] = '\0';
+  addr.sun_path[_DBUS_MAX_SUN_PATH_LENGTH-1] = '\0';
   
   if (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0)
     {      
@@ -405,7 +405,7 @@ _dbus_listen_unix_socket (const char     *path,
   _DBUS_ZERO (addr);
   addr.sun_family = AF_UNIX;
   strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH);
-  addr.sun_path[_DBUS_MAX_SUN_PATH_LENGTH] = '\0';
+  addr.sun_path[_DBUS_MAX_SUN_PATH_LENGTH-1] = '\0';
   
   if (bind (listen_fd, (struct sockaddr*) &addr, SUN_LEN (&addr)) < 0)
     {
