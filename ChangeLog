@@ -1,5 +1,10 @@
 2003-01-08  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/Makefile.am (dbusinclude_HEADERS): Install
+	dbus-connection.h
+
+2003-01-08  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-internals.c: (_dbus_type_to_string):
 	New function that returns a string describing a type.
 	
