@@ -1,5 +1,9 @@
 2004-12-30  John (J5) Palmieri  <johnp@redhat.com>
 
+	* python/dbus.py: s/ACTIVATION_REPLY_ACTIVE/ACTIVATION_REPLY_ACTIVATED
+
+2004-12-30  John (J5) Palmieri  <johnp@redhat.com>
+
 	* python/dbus_bindings.pyx.in: Change DBUS_ACTIVATION_REPLY_ACTIVATED
 	and DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE to match the values in
 	dbus-protocol.h.  Because they are defines and not enums they are not
