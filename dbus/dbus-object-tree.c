@@ -344,6 +344,16 @@ find_subtree (DBusObjectTree *tree,
 }
 
 static DBusObjectSubtree*
+lookup_subtree (DBusObjectTree *tree,
+              const char    **path)
+{
+#if VERBOSE_FIND
+  _dbus_verbose ("Looking for subtree\n");
+#endif
+  return find_subtree_recurse (tree->root, path, FALSE, FALSE, NULL);
+}
+
+static DBusObjectSubtree*
 find_handler (DBusObjectTree *tree,
               const char    **path)
 {
@@ -553,12 +563,10 @@ _dbus_object_tree_list_registered_unlocked (DBusObjectTree *tree,
 
   *child_entries = NULL;
   
-  subtree = find_subtree (tree, parent_path, NULL);
+  subtree = lookup_subtree (tree, parent_path);
   if (subtree == NULL)
     {
       retval = dbus_new0 (char *, 1);
-      if (retval == NULL)
-        goto out;
     }
   else
     {
@@ -1143,6 +1151,15 @@ do_test_dispatch (DBusObjectTree *tree,
   return FALSE;
 }
 
+static size_t
+string_array_length (char **array)
+{
+  size_t i;
+  for (i = 0; array[i]; i++) ;
+  return i;
+}
+
+
 static dbus_bool_t
 object_tree_test_iteration (void *data)
 {
@@ -1287,6 +1304,46 @@ object_tree_test_iteration (void *data)
   _dbus_assert (find_handler (tree, path7) != tree->root);
   _dbus_assert (find_handler (tree, path8) != tree->root);
   
+  /* test the list_registered function */
+
+  {
+    const char *root[] = { NULL };
+    char **child_entries;
+    int nb;
+
+    _dbus_object_tree_list_registered_unlocked (tree, path1, &child_entries);
+    if (child_entries != NULL)
+      {
+	nb = string_array_length (child_entries);
+	_dbus_assert (nb == 1);
+	dbus_free_string_array (child_entries);
+      }
+
+    _dbus_object_tree_list_registered_unlocked (tree, path2, &child_entries);
+    if (child_entries != NULL)
+      {
+	nb = string_array_length (child_entries);
+	_dbus_assert (nb == 2);
+	dbus_free_string_array (child_entries);
+      }
+
+    _dbus_object_tree_list_registered_unlocked (tree, path8, &child_entries);
+    if (child_entries != NULL)
+      {
+	nb = string_array_length (child_entries);
+	_dbus_assert (nb == 0);
+	dbus_free_string_array (child_entries);
+      }
+
+    _dbus_object_tree_list_registered_unlocked (tree, root, &child_entries);
+    if (child_entries != NULL)
+      {
+	nb = string_array_length (child_entries);
+	_dbus_assert (nb == 3);
+	dbus_free_string_array (child_entries);
+      }
+  }
+
   /* Check that destroying tree calls unregister funcs */
   _dbus_object_tree_unref (tree);
 

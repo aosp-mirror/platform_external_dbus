@@ -625,14 +625,11 @@ if test x$enable_abstract_sockets = xno; then
 fi
 
 if test x$have_abstract_sockets = xyes ; then
-   abstract_sockets=1
    DBUS_PATH_OR_ABSTRACT=abstract
+   AC_DEFINE(HAVE_ABSTRACT_SOCKETS,1,[Have abstract socket namespace])
 else
-   abstract_sockets=0
    DBUS_PATH_OR_ABSTRACT=path
 fi
-
-AC_DEFINE_UNQUOTED(HAVE_ABSTRACT_SOCKETS, $abstract_sockets, [Have abstract socket namespace])
 
 # this is used in addresses to prefer abstract, e.g. 
 # unix:path=/foo or unix:abstract=/foo 
