@@ -36,10 +36,11 @@ DBUS_BEGIN_DECLS;
 typedef struct DBusMessage DBusMessage;
 typedef struct DBusMessageIter DBusMessageIter;
 
-DBusMessage* dbus_message_new       (const char  *service,
-				     const char  *name);
-DBusMessage* dbus_message_new_reply (const char  *name,
-				     DBusMessage *original_message);
+DBusMessage* dbus_message_new              (const char        *service,
+					    const char        *name);
+DBusMessage* dbus_message_new_reply        (const char        *name,
+					    DBusMessage       *original_message);
+DBusMessage *dbus_message_new_from_message (const DBusMessage *message);
 
 void         dbus_message_ref   (DBusMessage *message);
 void         dbus_message_unref (DBusMessage *message);
