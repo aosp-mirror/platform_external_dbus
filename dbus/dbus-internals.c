@@ -155,6 +155,10 @@ _dbus_verbose (const char *format,
   static dbus_bool_t verbose = TRUE;
   static dbus_bool_t initted = FALSE;
 
+  /* things are written a bit oddly here so that
+   * in the non-verbose case we just have the one
+   * conditional and return immediately.
+   */
   if (!verbose)
     return;
   
@@ -162,6 +166,8 @@ _dbus_verbose (const char *format,
     {
       verbose = getenv ("DBUS_VERBOSE") != NULL;
       initted = TRUE;
+      if (!verbose)
+        return;
     }
   
   va_start (args, format);
