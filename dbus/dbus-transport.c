@@ -219,15 +219,6 @@ _dbus_transport_open (const char     *address,
           
 	  transport = _dbus_transport_new_for_tcp_socket (host, lport, FALSE, result);
 	}
-      else if (strcmp (method, "tcp") == 0)
-	{
-	  const char *path = dbus_address_entry_get_value (entries[i], "path");
-
-	  if (path == NULL)
-	    goto bad_address;
-
-	  transport = _dbus_transport_new_for_domain_socket (path, FALSE, result);
-	}
 #ifdef DBUS_BUILD_TESTS
       else if (strcmp (method, "debug") == 0)
 	{

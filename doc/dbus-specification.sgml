@@ -684,6 +684,9 @@
       </para>
     </sect2>
   </sect1>
+  <sect1>
+
+  </sect1>
   <sect1 id="addresses">
     <title>Server Addresses</title>
     <para>
@@ -1008,6 +1011,12 @@
         ownership whenever another application requests ownership of the
         service.
       </para>
+      <para>
+        When a client disconnects from the bus, all the services that
+        the clients own are deleted, or in the case of a service that
+        prohibits replacement, ownership is transferred to the next
+        client in the queue, if any.
+      </para>
     </sect2>
     <sect2 id="message-bus-routing">
       <title>Message Bus Message Routing</title>
@@ -1039,16 +1048,18 @@
         in different places, see <xref linkend="message-bus-types">.
       </para>
       <para>
-        [FIXME the file format should be much better specified than 
-        "similar to .desktop entries" esp. since desktop entries 
-        are already badly-specified. ;-)]
-        Service description files have the ".service" file
-        extension. The message bus will only load service description
-        files ending with .service; all other files will be ignored.
-        The file format is similar to that of <ulink
-                                                 url="http://www.freedesktop.org/standards/desktop-entry-spec/desktop-entry-spec.html">desktop
-          entries</ulink>. All service description files must be in
-        UTF-8 encoding.
+        [FIXME the file format should be much better specified than
+        "similar to .desktop entries" esp. since desktop entries are
+        already badly-specified. ;-)] Service description files have
+        the ".service" file extension. The message bus will only load
+        service description files ending with .service; all other
+        files will be ignored.  The file format is similar to that of
+        <ulink
+        url="http://www.freedesktop.org/standards/desktop-entry-spec/desktop-entry-spec.html">desktop
+        entries</ulink>. All service description files must be in
+        UTF-8 encoding. To ensure that there will be no name
+        collisions, service files must be namespaced using the same
+        mechanism as messages and service names.
 
         <figure>
 	  <title>Example service description file</title>
@@ -1061,16 +1072,24 @@
 	</figure>
       </para>
       <para>
-        When an application requests a service to be activated, the bus
-        daemon tries to find it in the list of activation entries. It
-        then tries to spawn the executable associated with it. If this
-        fails, it will report an error. [FIXME what happens if two 
-        .service files offer the same service; what kind of error is reported]
+        When an application requests a service to be activated, the
+        bus daemon tries to find it in the list of activation
+        entries. It then tries to spawn the executable associated with
+        it. If this fails, it will report an error. [FIXME what
+        happens if two .service files offer the same service; what
+        kind of error is reported, should we have a way for the client
+        to choose one?]
       </para>
       <para>
         The executable launched will have the environment variable
         <literal>DBUS_BUS_ADDRESS</literal> set to the address of the
         message bus so it can connect and register the appropriate services.
+      </para>
+      <para>
+        [FIXME there should be a timeout somewhere, either specified
+        in the .service file, by the client, or just a global value
+        and if the client being activated fails to connect within that
+        timeout, an error should be sent back.]
       </para>
     </sect2>
 
