@@ -25,6 +25,7 @@
 #define BUS_POLICY_H
 
 #include <dbus/dbus.h>
+#include <dbus/dbus-string.h>
 #include "bus.h"
 
 typedef struct BusPolicy     BusPolicy;
@@ -32,9 +33,9 @@ typedef struct BusPolicyRule BusPolicyRule;
 
 typedef enum
 {
-  DBUS_POLICY_RULE_SEND,
-  DBUS_POLICY_RULE_RECEIVE,
-  DBUS_POLICY_RULE_OWN
+  BUS_POLICY_RULE_SEND,
+  BUS_POLICY_RULE_RECEIVE,
+  BUS_POLICY_RULE_OWN
 } BusPolicyRuleType;
 
 struct BusPolicyRule
@@ -76,17 +77,19 @@ void           bus_policy_rule_ref   (BusPolicyRule    *rule);
 void           bus_policy_rule_unref (BusPolicyRule    *rule);
 
 BusPolicy*  bus_policy_new               (void);
-void        bus_policy_ref               (BusPolicy      *policy);
-void        bus_policy_unref             (BusPolicy      *policy);
-dbus_bool_t bus_policy_check_can_send    (BusPolicy      *policy,
-                                          DBusConnection *sender,
-                                          DBusMessage    *message);
-dbus_bool_t bus_policy_check_can_receive (BusPolicy      *policy,
-                                          DBusConnection *receiver,
-                                          DBusMessage    *message);
-dbus_bool_t bus_policy_check_can_own     (BusPolicy      *policy,
-                                          DBusConnection *connection,
-                                          const char     *service_name);
+void        bus_policy_ref               (BusPolicy        *policy);
+void        bus_policy_unref             (BusPolicy        *policy);
+dbus_bool_t bus_policy_check_can_send    (BusPolicy        *policy,
+                                          BusRegistry      *registry,
+                                          DBusConnection   *receiver,
+                                          DBusMessage      *message);
+dbus_bool_t bus_policy_check_can_receive (BusPolicy        *policy,
+                                          BusRegistry      *registry,
+                                          DBusConnection   *sender,
+                                          DBusMessage      *message);
+dbus_bool_t bus_policy_check_can_own     (BusPolicy        *policy,
+                                          DBusConnection   *connection,
+                                          const DBusString *service_name);
 
 
 

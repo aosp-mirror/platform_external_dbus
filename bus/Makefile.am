@@ -21,6 +21,8 @@ BUS_SOURCES=					\
 	driver.h				\
 	loop.c					\
 	loop.h					\
+	policy.c				\
+	policy.h				\
 	services.c				\
 	services.h				\
 	test.c					\

@@ -22,6 +22,9 @@
  */
 
 #include "policy.h"
+#include "services.h"
+#include <dbus/dbus-list.h>
+#include <dbus/dbus-internals.h>
 
 BusPolicyRule*
 bus_policy_rule_new (BusPolicyRuleType type,
@@ -59,15 +62,15 @@ bus_policy_rule_unref (BusPolicyRule *rule)
     {
       switch (rule->type)
         {
-        case DBUS_POLICY_RULE_SEND:
+        case BUS_POLICY_RULE_SEND:
           dbus_free (rule->d.send.message_name);
           dbus_free (rule->d.send.destination);
           break;
-        case DBUS_POLICY_RULE_RECEIVE:
+        case BUS_POLICY_RULE_RECEIVE:
           dbus_free (rule->d.receive.message_name);
           dbus_free (rule->d.receive.origin);
           break;
-        case DBUS_POLICY_RULE_OWN:
+        case BUS_POLICY_RULE_OWN:
           dbus_free (rule->d.own.service_name);
           break;
         }
@@ -133,31 +136,262 @@ bus_policy_unref (BusPolicy *policy)
     }
 }
 
+static void
+remove_rules_by_type_up_to (BusPolicy         *policy,
+                            BusPolicyRuleType  type,
+                            DBusList          *up_to)
+{
+  DBusList *link;
+
+  link = _dbus_list_get_first (&policy->rules);
+  while (link != up_to)
+    {
+      BusPolicyRule *rule = link->data;
+      DBusList *next = _dbus_list_get_next_link (&policy->rules, link);
+
+      bus_policy_rule_unref (rule);
+      _dbus_list_remove_link (&policy->rules, link);
+
+      link = next;
+    }
+}
+
+static void
+bus_policy_optimize (BusPolicy *policy)
+{
+  DBusList *link;
+
+  /* The idea here is that if we have:
+   * 
+   * <allow send="foo"/>
+   * <deny send="*"/>
+   *
+   * (for example) the deny will always override the allow.  So we
+   * delete the allow. Ditto for deny followed by allow, etc. This is
+   * a dumb thing to put in a config file, but the <include> feature
+   * of files allows for an "inheritance and override" pattern where
+   * it could make sense. If an included file wants to "start over"
+   * with a blanket deny, no point keeping the rules from the parent
+   * file.
+   */
+
+  link = _dbus_list_get_first (&policy->rules);
+  while (link != NULL)
+    {
+      BusPolicyRule *rule = link->data;
+      DBusList *next = _dbus_list_get_next_link (&policy->rules, link);
+      dbus_bool_t remove_preceding;
+
+      remove_preceding = FALSE;
+      
+      switch (rule->type)
+        {
+        case BUS_POLICY_RULE_SEND:
+          remove_preceding =
+            rule->d.send.message_name == NULL &&
+            rule->d.send.destination == NULL;
+          break;
+        case BUS_POLICY_RULE_RECEIVE:
+          remove_preceding =
+            rule->d.receive.message_name == NULL &&
+            rule->d.receive.origin == NULL;
+          break;
+        case BUS_POLICY_RULE_OWN:
+          remove_preceding =
+            rule->d.own.service_name == NULL;
+          break;
+        }
+                
+      if (remove_preceding)
+        remove_rules_by_type_up_to (policy, rule->type,
+                                    link);
+      
+      link = next;
+    }
+}
+
 dbus_bool_t
 bus_policy_check_can_send (BusPolicy      *policy,
-                           DBusConnection *sender,
+                           BusRegistry    *registry,
+                           DBusConnection *receiver,
                            DBusMessage    *message)
 {
+  DBusList *link;
+  dbus_bool_t allowed;
   
+  /* policy->rules is in the order the rules appeared
+   * in the config file, i.e. last rule that applies wins
+   */
 
+  allowed = FALSE;
+  link = _dbus_list_get_first (&policy->rules);
+  while (link != NULL)
+    {
+      BusPolicyRule *rule = link->data;
+
+      link = _dbus_list_get_next_link (&policy->rules, link);
+      
+      /* Rule is skipped if it specifies a different
+       * message name from the message, or a different
+       * destination from the message
+       */
+      
+      if (rule->type != BUS_POLICY_RULE_SEND)
+        continue;
+
+      if (rule->d.send.message_name != NULL)
+        {
+          if (!dbus_message_name_is (message,
+                                     rule->d.send.message_name))
+            continue;
+        }
+
+      if (rule->d.send.destination != NULL)
+        {
+          /* receiver can be NULL for messages that are sent to the
+           * message bus itself, we check the strings in that case as
+           * built-in services don't have a DBusConnection but messages
+           * to them have a destination service name.
+           */
+          if (receiver == NULL)
+            {
+              if (!dbus_message_sender_is (message,
+                                           rule->d.send.destination))
+                continue;
+            }
+          else
+            {
+              DBusString str;
+              BusService *service;
+              
+              _dbus_string_init_const (&str, rule->d.send.destination);
+              
+              service = bus_registry_lookup (registry, &str);
+              if (service == NULL)
+                continue;
+
+              if (!bus_service_has_owner (service, receiver))
+                continue;
+            }
+        }
+
+      /* Use this rule */
+      allowed = rule->allow;
+    }
+
+  return allowed;
 }
 
 dbus_bool_t
 bus_policy_check_can_receive (BusPolicy      *policy,
-                              DBusConnection *receiver,
+                              BusRegistry    *registry,
+                              DBusConnection *sender,
                               DBusMessage    *message)
 {
+  DBusList *link;
+  dbus_bool_t allowed;
+  
+  /* policy->rules is in the order the rules appeared
+   * in the config file, i.e. last rule that applies wins
+   */
 
+  allowed = FALSE;
+  link = _dbus_list_get_first (&policy->rules);
+  while (link != NULL)
+    {
+      BusPolicyRule *rule = link->data;
 
+      link = _dbus_list_get_next_link (&policy->rules, link);
+      
+      /* Rule is skipped if it specifies a different
+       * message name from the message, or a different
+       * origin from the message
+       */
+      
+      if (rule->type != BUS_POLICY_RULE_RECEIVE)
+        continue;
+
+      if (rule->d.receive.message_name != NULL)
+        {
+          if (!dbus_message_name_is (message,
+                                     rule->d.receive.message_name))
+            continue;
+        }
+
+      if (rule->d.receive.origin != NULL)
+        {          
+          /* sender can be NULL for messages that originate from the
+           * message bus itself, we check the strings in that case as
+           * built-in services don't have a DBusConnection but will
+           * still set the sender on their messages.
+           */
+          if (sender == NULL)
+            {
+              if (!dbus_message_sender_is (message,
+                                           rule->d.receive.origin))
+                continue;
+            }
+          else
+            {
+              BusService *service;
+              DBusString str;
+
+              _dbus_string_init_const (&str, rule->d.receive.origin);
+              
+              service = bus_registry_lookup (registry, &str);
+              
+              if (service == NULL)
+                continue;
+
+              if (!bus_service_has_owner (service, sender))
+                continue;
+            }
+        }
+
+      /* Use this rule */
+      allowed = rule->allow;
+    }
+
+  return allowed;
 }
 
 dbus_bool_t
-bus_policy_check_can_own (BusPolicy      *policy,
-                          DBusConnection *connection,
-                          const char     *service_name)
+bus_policy_check_can_own (BusPolicy        *policy,
+                          DBusConnection   *connection,
+                          const DBusString *service_name)
 {
+  DBusList *link;
+  dbus_bool_t allowed;
+  
+  /* policy->rules is in the order the rules appeared
+   * in the config file, i.e. last rule that applies wins
+   */
 
+  allowed = FALSE;
+  link = _dbus_list_get_first (&policy->rules);
+  while (link != NULL)
+    {
+      BusPolicyRule *rule = link->data;
 
+      link = _dbus_list_get_next_link (&policy->rules, link);
+      
+      /* Rule is skipped if it specifies a different service name from
+       * the desired one.
+       */
+      
+      if (rule->type != BUS_POLICY_RULE_OWN)
+        continue;
+
+      if (rule->d.own.service_name != NULL)
+        {
+          if (!_dbus_string_equal_c_str (service_name,
+                                         rule->d.own.service_name))
+            continue;
+        }
+
+      /* Use this rule */
+      allowed = rule->allow;
+    }
+
+  return allowed;
 }
-
-#endif /* BUS_POLICY_H */

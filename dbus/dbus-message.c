@@ -1018,6 +1018,11 @@ dbus_message_get_name (DBusMessage *message)
 /**
  * Gets the destination service of a message.
  *
+ * @todo I think if we have set_sender/get_sender,
+ * this function might be better named set_destination/
+ * get_destination for clarity, as the sender
+ * is also a service name.
+ * 
  * @param message the message
  * @returns the message destination service (should not be freed)
  */
@@ -2321,6 +2326,62 @@ dbus_message_name_is (DBusMessage *message,
   n = dbus_message_get_name (message);
 
   if (n && strcmp (n, name) == 0)
+    return TRUE;
+  else
+    return FALSE;
+}
+
+/**
+ * Checks whether the message was sent to the given service.  If the
+ * message has no service specified or has a different name, returns
+ * #FALSE.
+ *
+ * @param message the message
+ * @param service the service to check (must not be #NULL)
+ * 
+ * @returns #TRUE if the message has the given destination service
+ */
+dbus_bool_t
+dbus_message_service_is (DBusMessage  *message,
+                         const char   *service)
+{
+  const char *s;
+
+  _dbus_assert (service != NULL);
+  
+  s = dbus_message_get_service (message);
+
+  if (s && strcmp (s, service) == 0)
+    return TRUE;
+  else
+    return FALSE;
+}
+
+/**
+ * Checks whether the message has the given service as its sender.  If
+ * the message has no sender specified or has a different sender,
+ * returns #FALSE. Note that if a peer application owns multiple
+ * services, its messages will have only one of those services as the
+ * sender (usually the base service). So you can't use this
+ * function to prove the sender didn't own service Foo, you can
+ * only use it to prove that it did.
+ *
+ * @param message the message
+ * @param service the service to check (must not be #NULL)
+ * 
+ * @returns #TRUE if the message has the given origin service
+ */
+dbus_bool_t
+dbus_message_sender_is (DBusMessage  *message,
+                        const char   *service)
+{
+  const char *s;
+
+  _dbus_assert (service != NULL);
+  
+  s = dbus_message_get_sender (message);
+
+  if (s && strcmp (s, service) == 0)
     return TRUE;
   else
     return FALSE;

@@ -1,3 +1,16 @@
+2003-03-20  Havoc Pennington  <hp@pobox.com>
+
+	* bus/connection.c (bus_connection_send_oom_error): assert that
+	message has a sender
+	(connection_execute_transaction): ditto
+	(bus_connection_preallocate_oom_error): fix to set the sender, and
+	set recipient to the destination service, not the bus driver
+
+	* bus/policy.c: hacking
+
+	* dbus/dbus-message.c (dbus_message_service_is): new function
+	(dbus_message_sender_is): new
+
 2003-03-19  Havoc Pennington  <hp@redhat.com>
 
 	* bus/policy.c: start sketching code for policy restrictions on 

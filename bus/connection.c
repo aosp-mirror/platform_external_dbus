@@ -504,7 +504,8 @@ bus_connection_preallocate_oom_error (DBusConnection *connection)
   if (preallocated == NULL)
     return FALSE;
 
-  message = dbus_message_new (DBUS_SERVICE_DBUS,
+  /* d->name may be NULL, but that should be OK */
+  message = dbus_message_new (d->name,
                               DBUS_ERROR_NO_MEMORY);
   if (message == NULL)
     {
@@ -513,6 +514,14 @@ bus_connection_preallocate_oom_error (DBusConnection *connection)
     }
 
   dbus_message_set_is_error (message, TRUE);
+
+  if (!dbus_message_set_sender (message,
+                                DBUS_SERVICE_DBUS))
+    {
+      dbus_connection_free_preallocated_send (connection, preallocated);
+      dbus_message_unref (message);
+      return FALSE;
+    }
   
   /* set reply serial to placeholder value just so space is already allocated
    * for it.
@@ -546,6 +555,8 @@ bus_connection_send_oom_error (DBusConnection *connection,
                                       dbus_message_get_serial (in_reply_to)))
     _dbus_assert_not_reached ("Failed to set reply serial for preallocated oom message");
 
+  _dbus_assert (dbus_message_get_sender (d->oom_message) != NULL);
+  
   dbus_connection_send_preallocated (connection, d->oom_preallocated,
                                      d->oom_message, NULL);
 
@@ -681,6 +692,8 @@ bus_transaction_send_message (BusTransaction *transaction,
                  dbus_message_get_name (message),
                  dbus_connection_get_is_connected (connection) ?
                  "" : " (disconnected)");
+
+  _dbus_assert (dbus_message_get_sender (message) != NULL);
   
   if (!dbus_connection_get_is_connected (connection))
     return TRUE; /* silently ignore disconnected connections */
@@ -811,6 +824,8 @@ connection_execute_transaction (DBusConnection *connection,
           _dbus_list_remove_link (&d->transaction_messages,
                                   link);
 
+          _dbus_assert (dbus_message_get_sender (m->message) != NULL);
+          
           dbus_connection_send_preallocated (connection,
                                              m->preallocated,
                                              m->message,

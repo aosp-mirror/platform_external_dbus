@@ -58,6 +58,10 @@ void         dbus_message_set_is_error     (DBusMessage  *message,
 dbus_bool_t  dbus_message_get_is_error     (DBusMessage  *message);
 dbus_bool_t  dbus_message_name_is          (DBusMessage  *message,
                                             const char   *name);
+dbus_bool_t  dbus_message_service_is       (DBusMessage  *message,
+                                            const char   *service);
+dbus_bool_t  dbus_message_sender_is        (DBusMessage  *message,
+                                            const char   *service);
 dbus_int32_t dbus_message_get_serial       (DBusMessage  *message);
 dbus_bool_t  dbus_message_set_reply_serial (DBusMessage  *message,
                                             dbus_int32_t  reply_serial);
