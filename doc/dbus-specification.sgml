@@ -406,7 +406,12 @@
                 <entry>UINT32 giving the number of values in the array, 
                   followed by the given number of STRING values.
                 </entry>
-              </row>
+              </row><row>
+		<entry>DICT</entry>
+		<entry>STRING_ARRAY with the keys, followed by the given
+                 number of values encoded as type code as a byte followed by the encoded value.
+                </entry>
+	      </row>
             </tbody>
           </tgroup>
         </informaltable>

@@ -1,3 +1,44 @@
+2003-03-10  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-marshal.c: 
+	(_dbus_marshal_set_string):
+	Take a length argument so we can marshal the correct string
+	length.
+	
+	(_dbus_marshal_dict), (_dbus_demarshal_dict),
+	(_dbus_marshal_get_arg_end_pos), (_dbus_marshal_validate_arg),
+	(_dbus_marshal_test):
+	* dbus/dbus-marshal.h:	
+	Add support for marshalling and demarshalling dicts.
+	
+	* dbus/dbus-message-builder.c: (_dbus_message_data_load):
+	Add support for TYPE DICT.
+	
+	* dbus/dbus-message.c: (set_string_field):
+	Adjust header padding.
+	
+	(dbus_message_append_args_valist), (dbus_message_append_dict),
+	(dbus_message_get_args_valist), (dbus_message_iter_get_arg_type),
+	(dbus_message_iter_get_dict), (_dbus_message_loader_return_buffer),
+	(check_message_handling), (check_have_valid_message):
+	* dbus/dbus-message.h:
+	Add functions for setting and getting dicts.
+
+	* dbus/dbus-protocol.h:
+	Add DBUS_TYPE_DICT.
+	
+	* dbus/dbus.h:
+	Add dbus-dict.h
+	
+	* doc/dbus-specification.sgml:
+	Add information about how dicts are marshalled.
+	
+	* test/data/invalid-messages/dict-with-nil-value.message:
+	* test/data/invalid-messages/too-short-dict.message:
+	* test/data/valid-messages/dict-simple.message:
+	* test/data/valid-messages/dict.message:
+	Add sample messages containing dicts.
+
 2003-03-08  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-dict.h: Add DBUS_END_DECLS.

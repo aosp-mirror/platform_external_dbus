@@ -1,0 +1,29 @@
+# Dict with different values
+
+VALID_HEADER
+END_LENGTH Header
+ALIGN 8
+START_LENGTH Body
+TYPE DICT
+STRING_ARRAY { 'boolean', 'int32', 'uint32', 'double', 'string', 'boolean_array', 'int32_array', 'uint32_array', 'double_array', 'string_array' }
+TYPE BOOLEAN
+BYTE 1
+TYPE INT32
+INT32 0x12345678
+TYPE UINT32
+UINT32 0x8765432
+TYPE DOUBLE
+DOUBLE 3.141592653589
+TYPE STRING
+STRING 'This is a string'
+TYPE BOOLEAN_ARRAY
+BOOLEAN_ARRAY { true, false, false, true, false }
+TYPE INT32_ARRAY
+INT32_ARRAY { 1, -2, 3, -4, 5, -6, 7, -8, 9, -10 }
+TYPE UINT32_ARRAY
+UINT32_ARRAY { 11, 12, 314, 1911, 57692, 1237, 2834 }
+TYPE DOUBLE_ARRAY
+DOUBLE_ARRAY { 0.1, 0.2, 3.1415926, 2.7183, 10.0, 9.99 }
+TYPE STRING_ARRAY
+STRING_ARRAY { 'Hello', 'This', 'Is', 'A', 'String', 'Array!' }
+END_LENGTH Body

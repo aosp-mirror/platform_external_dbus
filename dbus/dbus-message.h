@@ -28,6 +28,7 @@
 #define DBUS_MESSAGE_H
 
 #include <dbus/dbus-macros.h>
+#include <dbus/dbus-dict.h>
 #include <dbus/dbus-types.h>
 #include <stdarg.h>
 
@@ -94,7 +95,8 @@ dbus_bool_t dbus_message_append_byte_array    (DBusMessage          *message,
 dbus_bool_t dbus_message_append_string_array  (DBusMessage          *message,
 					       const char          **value,
 					       int                   len);
-
+dbus_bool_t dbus_message_append_dict          (DBusMessage          *message,
+					       DBusDict             *dict);
 
 DBusMessageIter *dbus_message_get_args_iter   (DBusMessage *message);
 DBusResultCode   dbus_message_get_args        (DBusMessage *message,
@@ -134,6 +136,8 @@ dbus_bool_t   dbus_message_iter_get_byte_array    (DBusMessageIter   *iter,
 dbus_bool_t   dbus_message_iter_get_string_array  (DBusMessageIter   *iter,
 						   char            ***value,
 						   int               *len);
+dbus_bool_t   dbus_message_iter_get_dict          (DBusMessageIter   *iter,
+						   DBusDict         **dict);
 
 DBUS_END_DECLS;
 

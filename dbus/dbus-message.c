@@ -493,15 +493,21 @@ set_string_field (DBusMessage *message,
       DBusString v;
       int old_len;
       int new_len;
+      int len;
+      
+      clear_header_padding (message);
       
       old_len = _dbus_string_get_length (&message->header);
 
+      len = strlen (value);
+      
       _dbus_string_init_const_len (&v, value,
-                                   strlen (value) + 1); /* include nul */
+				   len + 1); /* include nul */
       if (!_dbus_marshal_set_string (&message->header,
                                      message->byte_order,
-                                     offset, &v))
-        return FALSE;
+                                     offset, &v,
+				     len))
+        goto failed;
       
       new_len = _dbus_string_get_length (&message->header);
 
@@ -509,7 +515,19 @@ set_string_field (DBusMessage *message,
                             offset,
                             new_len - old_len);
 
+      if (!append_header_padding (message))
+	goto failed;
+      
       return TRUE;
+
+    failed:
+      /* this must succeed because it was allocated on function entry and
+       * DBusString doesn't ever realloc smaller
+       */
+      if (!append_header_padding (message))
+	_dbus_assert_not_reached ("failed to reappend header padding");
+
+      return FALSE;
     }
 }
 
@@ -1162,7 +1180,15 @@ dbus_message_append_args_valist (DBusMessage *message,
 	      goto enomem;
 	  }
 	  break;
-	  
+	case DBUS_TYPE_DICT:
+	  {
+	    DBusDict *dict;
+
+	    dict = va_arg (var_args, DBusDict *);
+
+	    if (!dbus_message_append_dict (message, dict))
+	      goto enomem;
+	  }
 	default:
 	  _dbus_warn ("Unknown field type %d\n", type);
 	}
@@ -1485,6 +1511,31 @@ dbus_message_append_string_array (DBusMessage *message,
 }
 
 /**
+ * Appends a dict to the message.
+ *
+ * @param message the message
+ * @param dict the dict
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_dict (DBusMessage *message,
+			  DBusDict    *dict)
+{
+  _dbus_assert (!message->locked);
+
+  if (!_dbus_string_append_byte (&message->body, DBUS_TYPE_DICT))
+    return FALSE;
+
+  if (!_dbus_marshal_dict (&message->body, message->byte_order, dict))
+    {
+      _dbus_string_shorten (&message->body, 1);
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
+/**
  * Gets arguments from a message given a variable argument list.
  * The variable argument list should contain the type of the
  * argumen followed by a pointer to where the value should be
@@ -1696,6 +1747,16 @@ dbus_message_get_args_valist (DBusMessage *message,
 	      return DBUS_RESULT_NO_MEMORY;
 	    break;
 	  }
+	case DBUS_TYPE_DICT:
+	  {
+	    DBusDict **dict;
+
+	    dict = va_arg (var_args, DBusDict **);
+
+	    if (!dbus_message_iter_get_dict (iter, dict))
+	      return DBUS_RESULT_NO_MEMORY;
+	    break;
+	  }
 	default:	  
 	  _dbus_warn ("Unknown field type %d\n", spec_type);
 	}
@@ -1850,7 +1911,7 @@ dbus_message_iter_get_arg_type (DBusMessageIter *iter)
 
   _dbus_string_get_const_data_len (&iter->message->body, &data, iter->pos, 1);
 
-  if (*data > DBUS_TYPE_INVALID && *data <= DBUS_TYPE_STRING_ARRAY)
+  if (*data > DBUS_TYPE_INVALID && *data <= DBUS_TYPE_DICT)
     return *data;
 
   return DBUS_TYPE_INVALID;
@@ -2062,7 +2123,7 @@ dbus_message_iter_get_double_array  (DBusMessageIter *iter,
  * @param iter the iterator
  * @param value return location for array values
  * @param len return location for length of byte array
- * @returns the byte array
+ * @returns #TRUE on success
  */
 dbus_bool_t
 dbus_message_iter_get_byte_array (DBusMessageIter  *iter,
@@ -2093,7 +2154,7 @@ dbus_message_iter_get_byte_array (DBusMessageIter  *iter,
  * @param iter the iterator
  * @param value return location for string values
  * @param len return location for length of byte array
- * @returns the byte array
+ * @returns #TRUE on success
  */
 dbus_bool_t
 dbus_message_iter_get_string_array (DBusMessageIter *iter,
@@ -2106,6 +2167,30 @@ dbus_message_iter_get_string_array (DBusMessageIter *iter,
 					 iter->pos + 1, NULL, len);
 
   if (!*value)
+    return FALSE;
+  else
+    return TRUE;
+}
+
+/**
+ * Returns the dict that the iterator may point to.
+ * Note that you need to check that the iterator points
+ * to a dict prior to using this function.
+ *
+ * @param iter the iterator
+ * @param dict return location for dict
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_iter_get_dict (DBusMessageIter *iter,
+			    DBusDict       **dict)
+{
+  _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_DICT);
+
+  *dict = _dbus_demarshal_dict (&iter->message->body, iter->message->byte_order,
+				 iter->pos + 1, NULL);
+  
+  if (!*dict)
     return FALSE;
   else
     return TRUE;
@@ -2630,9 +2715,10 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
        */
       header_len = header_len_unsigned;
       body_len = body_len_unsigned;
-      
+
       if (_DBUS_ALIGN_VALUE (header_len, 8) != header_len_unsigned)
         {
+	  
           _dbus_verbose ("header length %d is not aligned to 8 bytes\n",
                          header_len);
           loader->corrupted = TRUE;
@@ -2654,8 +2740,8 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
           int next_arg;          
 
 #if 0
-	  _dbus_verbose_bytes_of_string (&loader->data, 0, header_len);
-#endif
+	  _dbus_verbose_bytes_of_string (&loader->data, 0, header_len + body_len);
+#endif	  
  	  if (!decode_header_data (&loader->data, header_len, byte_order,
                                    fields, &header_padding))
 	    {
@@ -2899,7 +2985,7 @@ check_message_handling (DBusMessage *message)
   /* If we implement message_set_arg (message, n, value)
    * then we would want to test it here
    */
-  
+
   iter = dbus_message_get_args_iter (message);
   while ((type = dbus_message_iter_get_arg_type (iter)) != DBUS_TYPE_INVALID)
     {
@@ -2967,7 +3053,18 @@ check_message_handling (DBusMessage *message)
 	    dbus_free_string_array (values);
           }
           break;
-	  
+
+	case DBUS_TYPE_DICT:
+	  {
+	    DBusDict *dict;
+
+	    if (!dbus_message_iter_get_dict (iter, &dict))
+	      return FALSE;
+
+	    dbus_dict_unref (dict);
+	  }
+	  break;
+
 	default:
 	  break;
         }
@@ -3025,6 +3122,7 @@ check_have_valid_message (DBusMessageLoader *loader)
  failed:
   if (message)
     dbus_message_unref (message);
+
   return retval;
 }
 

@@ -25,6 +25,7 @@
 #define DBUS_MARSHAL_H
 
 #include <config.h>
+#include <dbus/dbus-dict.h>
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-string.h>
@@ -88,7 +89,8 @@ void        _dbus_marshal_set_uint32 (DBusString       *str,
 dbus_bool_t _dbus_marshal_set_string (DBusString       *str,
                                       int               byte_order,
                                       int               offset,
-                                      const DBusString *value);
+                                      const DBusString *value,
+				      int               len);
 
 
 dbus_bool_t _dbus_marshal_int32       (DBusString          *str,
@@ -123,48 +125,56 @@ dbus_bool_t _dbus_marshal_string_array (DBusString          *str,
 					int                  byte_order,
 					const char         **value,
 					int                  len);
+dbus_bool_t _dbus_marshal_dict         (DBusString          *str,
+					int                  byte_order,
+					DBusDict            *dict);
 
 double         _dbus_demarshal_double       (const DBusString *str,
-                                             int               byte_order,
-                                             int               pos,
-                                             int              *new_pos);
+					     int               byte_order,
+					     int               pos,
+					     int              *new_pos);
 dbus_int32_t   _dbus_demarshal_int32        (const DBusString *str,
-                                             int               byte_order,
-                                             int               pos,
-                                             int              *new_pos);
+					     int               byte_order,
+					     int               pos,
+					     int              *new_pos);
 dbus_uint32_t  _dbus_demarshal_uint32       (const DBusString *str,
-                                             int               byte_order,
-                                             int               pos,
-                                             int              *new_pos);
+					     int               byte_order,
+					     int               pos,
+					     int              *new_pos);
 char *         _dbus_demarshal_string       (const DBusString *str,
-                                             int               byte_order,
-                                             int               pos,
-                                             int              *new_pos);
+					     int               byte_order,
+					     int               pos,
+					     int              *new_pos);
 unsigned char *_dbus_demarshal_byte_array   (const DBusString *str,
-                                             int               byte_order,
-                                             int               pos,
-                                             int              *new_pos,
-                                             int              *array_len);
+					     int               byte_order,
+					     int               pos,
+					     int              *new_pos,
+					     int              *array_len);
 dbus_int32_t * _dbus_demarshal_int32_array  (const DBusString *str,
-                                             int               byte_order,
-                                             int               pos,
-                                             int              *new_pos,
-                                             int              *array_len);
+					     int               byte_order,
+					     int               pos,
+					     int              *new_pos,
+					     int              *array_len);
 dbus_uint32_t *_dbus_demarshal_uint32_array (const DBusString *str,
-                                             int               byte_order,
-                                             int               pos,
-                                             int              *new_pos,
-                                             int              *array_len);
+					     int               byte_order,
+					     int               pos,
+					     int              *new_pos,
+					     int              *array_len);
 double *       _dbus_demarshal_double_array (const DBusString *str,
-                                             int               byte_order,
-                                             int               pos,
-                                             int              *new_pos,
-                                             int              *array_len);
+					     int               byte_order,
+					     int               pos,
+					     int              *new_pos,
+					     int              *array_len);
 char **        _dbus_demarshal_string_array (const DBusString *str,
-                                             int               byte_order,
-                                             int               pos,
-                                             int              *new_pos,
-                                             int              *array_len);
+					     int               byte_order,
+					     int               pos,
+					     int              *new_pos,
+					     int              *array_len);
+DBusDict *     _dbus_demarshal_dict         (const DBusString *str,
+					     int               byte_order,
+					     int               pos,
+					     int              *new_pos);
+
 
 
 dbus_bool_t _dbus_marshal_get_arg_end_pos (const DBusString *str,

@@ -648,6 +648,8 @@ _dbus_message_data_load (DBusString       *dest,
             code = DBUS_TYPE_DOUBLE;
           else if (_dbus_string_starts_with_c_str (&line, "STRING"))
             code = DBUS_TYPE_STRING;
+          else if (_dbus_string_starts_with_c_str (&line, "DICT"))
+            code = DBUS_TYPE_DICT;
           else
             {
               const char *s;

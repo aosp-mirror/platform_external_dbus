@@ -53,6 +53,7 @@ extern "C" {
 #define DBUS_TYPE_DOUBLE_ARRAY 10
 #define DBUS_TYPE_BYTE_ARRAY   11
 #define DBUS_TYPE_STRING_ARRAY 12
+#define DBUS_TYPE_DICT         13
   
 /* Header flags */
 #define DBUS_HEADER_FLAG_ERROR 0x1
