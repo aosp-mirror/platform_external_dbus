@@ -1,3 +1,12 @@
+2003-04-11  Havoc Pennington  <hp@pobox.com>
+
+	* bus/dispatch.c (check_existent_service_activation): accept a no
+	memory error in a place we didn't before
+
+	* bus/test.c (bus_test_run_everything): remove hacky "do it twice
+	in case the first one failed," since the test suite is less
+	broken now.
+
 2003-04-10  Havoc Pennington  <hp@pobox.com>
 
 	* bus/dispatch.c (check_segfault_service_activation): add test
@@ -9,7 +18,7 @@
 2003-04-10  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-spawn.c (_dbus_spawn_async_with_babysitter): move all
-	the possible parent failures before we fork, so that we don't q
+	the possible parent failures before we fork, so that we don't
 	fail to create a babysitter after creating the child.
 
 	* bus/activation.c (bus_activation_activate_service): kill child

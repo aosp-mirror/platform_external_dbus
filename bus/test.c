@@ -335,16 +335,9 @@ bus_test_run_bus_loop (BusContext *context,
 void
 bus_test_run_everything (BusContext *context)
 {
-  int i;
-
-  i = 0;
-  while (i < 2)
-    {
-      while (_dbus_loop_iterate (bus_context_get_loop (context), FALSE) ||
-             (client_loop == NULL || _dbus_loop_iterate (client_loop, FALSE)))
-        ;
-      ++i;
-    }
+  while (_dbus_loop_iterate (bus_context_get_loop (context), FALSE) ||
+         (client_loop == NULL || _dbus_loop_iterate (client_loop, FALSE)))
+    ;
 }
 
 BusContext*

@@ -1445,11 +1445,15 @@ check_send_exit_to_service (BusContext     *context,
 static dbus_bool_t
 check_got_error (BusContext     *context,
                  DBusConnection *connection,
-                 const char     *error_name)
+                 const char     *first_error_name,
+                 ...)
 {
   DBusMessage *message;
   dbus_bool_t retval;
-
+  va_list ap;
+  dbus_bool_t error_found;
+  const char *error_name;
+  
   retval = FALSE;
   
   message = pop_message_waiting_for_memory (connection);
@@ -1466,10 +1470,25 @@ check_got_error (BusContext     *context,
       goto out;
     }
 
-  if (!dbus_message_name_is (message, error_name))
+  error_found = FALSE;
+
+  va_start (ap, first_error_name);
+  error_name = first_error_name;
+  while (error_name != NULL)
     {
-      _dbus_warn ("Expected error %s, got %s instead\n",
-                  error_name,
+      if (dbus_message_name_is (message, error_name))
+        {
+          error_found = TRUE;
+          break;
+        }
+      error_name = va_arg (ap, char*);
+    }
+  va_end (ap);
+
+  if (!error_found)
+    {
+      _dbus_warn ("Expected error %s or other, got %s instead\n",
+                  first_error_name,
                   dbus_message_get_name (message));
       goto out;
     }
@@ -1613,7 +1632,9 @@ check_existent_service_activation (BusContext     *context,
       if (got_error)
         {
           if (!check_got_error (context, connection,
-                                DBUS_ERROR_SPAWN_CHILD_EXITED))
+                                DBUS_ERROR_SPAWN_CHILD_EXITED,
+                                DBUS_ERROR_NO_MEMORY,
+                                NULL))
             goto out;
 
           /* A service deleted should be coming along now after this error.
@@ -1648,7 +1669,8 @@ check_existent_service_activation (BusContext     *context,
               bus_test_run_everything (context);
               
               if (!check_got_error (context, connection,
-                                    DBUS_ERROR_SPAWN_CHILD_EXITED))
+                                    DBUS_ERROR_SPAWN_CHILD_EXITED,
+                                    NULL))
                 goto out;
             }
         }
