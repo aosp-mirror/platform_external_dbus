@@ -66,9 +66,9 @@
             D-BUS is <emphasis>easy to use</emphasis> because it works in terms
             of <firstterm>messages</firstterm> rather than byte streams, and
             automatically handles a lot of the hard IPC issues. Also, the D-BUS
-            library is designed to be wrapped in a way that lets users use their
-            framework's existing object/type system, rather than learning a new 
-            one specifically for IPC.
+            library is designed to be wrapped in a way that lets developers use
+            their framework's existing object/type system, rather than learning
+            a new one specifically for IPC.
           </para>
         </listitem>
       </itemizedlist>
@@ -171,9 +171,11 @@
               <row>
                 <entry>4 bytes</entry>
                 <entry>The message's serial number, an unsigned 32-bit integer in
-                  the message's byte order. Applications MUST NOT reuse the same
-                  serial number for different messages more often than 32-bit
-                  unsigned integer wraparound. Zero is not a valid serial number.
+                  the message's byte order. The serial number is a cookie used to 
+                  identify message replies; thus all outstanding unreplied-to messages 
+                  from the same connection MUST have a different serial number.
+                  Zero is not a valid serial number, but all other numbers are 
+                  allowed.
                 </entry>
               </row>
             </tbody>
@@ -183,33 +185,39 @@
       <para>
         Types that can appear in the second byte of the header:
         <informaltable>
-          <tgroup cols=2>
+          <tgroup cols=3>
             <thead>
               <row>
+                <entry>Conventional name</entry>
                 <entry>Decimal value</entry>
                 <entry>Description</entry>
               </row>
             </thead>
             <tbody>
               <row>
+                <entry>INVALID</entry>
                 <entry>0</entry>
                 <entry>This is an invalid type, if seen in a message 
                   the connection should be dropped immediately.</entry>
               </row>
               <row>
+                <entry>METHOD_CALL</entry>
                 <entry>1</entry>
                 <entry>Method call.</entry>
               </row>
               <row>
+                <entry>METHOD_RETURN</entry>
                 <entry>2</entry>
                 <entry>Method reply with returned data.</entry>
               </row>
               <row>
+                <entry>ERROR</entry>
                 <entry>3</entry>
                 <entry>Error reply. If the first argument exists and is a
                 string, it is an error message.</entry>
               </row>
               <row>
+                <entry>SIGNAL</entry>
                 <entry>4</entry>
                 <entry>Signal emission.</entry>
               </row>
@@ -220,15 +228,17 @@
       <para>
         Flags that can appear in the third byte of the header:
         <informaltable>
-          <tgroup cols=2>
+          <tgroup cols=3>
             <thead>
               <row>
+                <entry>Conventional name</entry>
                 <entry>Hex value</entry>
                 <entry>Description</entry>
               </row>
             </thead>
             <tbody>
               <row>
+                <entry>NO_REPLY_EXPECTED</entry>
                 <entry>0x1</entry>
                 <entry>This message does not expect method return replies or
                 error replies; the reply can be omitted as an
@@ -497,19 +507,228 @@
     <sect2 id="message-protocol-names">
       <title>Valid names</title>
       <para>
-        Services have names with type STRING, meaning that 
-        they must be valid UTF-8. However, there are also some 
-        additional restrictions that apply to service names 
-        specifically:
-        <itemizedlist>
-	  <listitem><para>They must contain at least one '.' (period) character</para></listitem>
-	  <listitem><para>They must not begin with a '.' (period) character</para></listitem>
-	  <listitem><para>They must not exceed 256 bytes in length</para></listitem>
-	  <listitem><para>They must be at least 1 byte in length</para></listitem>
-        </itemizedlist>
-        As a special exception, base service names (those beginning with a colon (':') character)
-        need not contain a period.
+        The various header fields of type STRING have some restrictions 
+        on the string's format.
       </para>
+      <sect3 id="message-protocol-names-service">
+        <title>Service names</title>
+        <para>
+          Services have names with type STRING, meaning that 
+          they must be valid UTF-8. However, there are also some 
+          additional restrictions that apply to service names 
+          specifically:
+          <itemizedlist>
+	    <listitem><para>They must contain at least one '.' (period) character</para></listitem>
+	    <listitem><para>They must not begin with a '.' (period) character</para></listitem>
+	    <listitem><para>They must not exceed 256 bytes in length</para></listitem>
+	    <listitem><para>They must be at least 1 byte in length</para></listitem>
+          </itemizedlist>
+          
+          As a special exception, base service names (those beginning with a colon
+          (':') character) need not contain a period.
+        </para>
+        <para>
+          FIXME really, shouldn't we ban basically everything non-alphanumeric 
+          so the name will work in all programming languages?
+        </para>
+      </sect3>
+      <sect3 id="message-protocol-names-interface">
+        <title>Interface names</title>
+        <para>
+          Interface names have the same restrictions as service names, 
+          but do not have the special exception for names beginning with 
+          a colon.
+        </para>
+        <para>
+          FIXME really, shouldn't we ban basically everything non-alphanumeric 
+          so the name will work in all programming languages?
+        </para>
+      </sect3>
+      <sect3 id="message-protocol-names-method">
+        <title>Method names</title>
+        <para>
+          Method names:
+          <itemizedlist>
+	    <listitem><para>May not contain the '.' (period) character</para></listitem>
+	    <listitem><para>Must not exceed 256 bytes in length</para></listitem>
+	    <listitem><para>Must be at least 1 byte in length</para></listitem>
+          </itemizedlist>
+        </para>
+        <para>
+          FIXME really, shouldn't we ban basically everything non-alphanumeric 
+          so the name will work in all programming languages?
+        </para>
+      </sect3>
+      <sect3 id="message-protocol-names-path">
+        <title>Path names</title>
+        <para>
+          A path must begin with an ASCII '/' (slash) character. Paths may not
+          end with a slash character unless the path is the one-byte string
+          "/". Two slash characters may not appear adjacent to one another (the
+          empty string is not a valid "subdirectory"). Paths may not exceed
+          256 bytes in length.
+        </para>
+      </sect3>
+      <sect3 id="message-protocol-names-error">
+        <title>Error names</title>
+        <para>
+          Error names have the same restrictions as interface names.
+        </para>
+        <para>
+          FIXME really, shouldn't we ban basically everything non-alphanumeric 
+          so the name will work in all programming languages?
+        </para>
+      </sect3>
+    </sect2>
+
+    <sect2 id="message-protocol-types">
+      <title>Message types</title>
+      <para>
+        Each of the message types (METHOD_CALL, METHOD_RETURN, ERROR, and
+        SIGNAL) has its own expected usage conventions and header fields.
+      </para>
+      <sect3 id="message-protocol-types-method">
+        <title>Method Calls, Returns, and Errors</title>
+        <para>
+          Some messages invoke an operation on a remote object.  These are
+          called method call messages and have the type tag METHOD_CALL. Such
+          messages map naturally to methods on objects in a typical program.
+        </para>
+        <para>
+          A method call message is expected to have a 'mebr' header field
+          indicating the name of the method. Optionally, the message has an
+          'ifce' field giving the interface the method is a part of. In the
+          absence of an 'ifce' field, if two interfaces on the same object have
+          a method with the same name, it is undefined which of the two methods
+          will be invoked. Implementations may also choose to return an error in
+          this ambiguous case. However, if a method name is unique
+          implementations should not require an interface field.
+        </para>
+        <para>
+          Method call messages also include a 'path' field indicating the 
+          object to invoke the method on. If the call is passing through 
+          a message bus, the message will also have a 'srvc' field giving 
+          the service to receive the message.
+        </para>
+        <para>
+          When an application handles a method call message, it is expected to
+          return a reply. The reply is identified by a 'rply' header field
+          indicating the serial number of the METHOD_CALL being replied to. The
+          reply can have one of two types; either METHOD_RETURN or ERROR.
+        </para>
+        <para>
+          If the reply has type METHOD_RETURN, the arguments to the reply message 
+          are the return value(s) or "out parameters" of the method call. 
+          If the reply has type ERROR, then an "exception" has been thrown, 
+          and the call fails; no return value will be provided. It makes 
+          no sense to send multiple replies to the same method call.
+        </para>
+        <para>
+          Even if a method call has no return values, a METHOD_RETURN 
+          reply is expected, so the caller will know the method 
+          was successfully processed.
+        </para>
+        <para>
+          If a METHOD_CALL message has the flag NO_REPLY_EXPECTED, 
+          then as an optimization the application receiving the method 
+          call may choose to omit the reply message (regardless of 
+          whether the reply would have been METHOD_RETURN or ERROR). 
+          However, it is also acceptable to ignore the NO_REPLY_EXPECTED
+          flag and reply anyway.
+        </para>
+        <sect4 id="message-protocol-types-method-apis">
+          <title>Mapping method calls to native APIs</title>
+          <para>
+            APIs for D-BUS may map method calls to a method call in a specific
+            programming language, such as C++, or may map a method call written
+            in an IDL to a D-BUS message.
+          </para>
+          <para>
+            In APIs of this nature, arguments to a method are often termed "in"
+            (which implies sent in the METHOD_CALL), or "out" (which implies
+            returned in the METHOD_RETURN). Some APIs such as CORBA also have
+            "inout" arguments, which are both sent and received, i.e. the caller
+            passes in a value which is modified. Mapped to D-BUS, an "inout"
+            argument is equivalent to an "in" argument, followed by an "out"
+            argument. You can't pass things "by reference" over the wire, so
+            "inout" is purely an illusion of the in-process API.
+          </para>
+          <para>
+            Given a method with zero or one return values, followed by zero or more
+            arguments, where each argument may be "in", "out", or "inout", the
+            caller constructs a message by appending each "in" or "inout" argument,
+            in order. "out" arguments are not represented in the caller's message.
+          </para>
+          <para>
+            The recipient constructs a reply by appending first the return value 
+            if any, then each "out" or "inout" argument, in order. 
+            "in" arguments are not represented in the reply message.
+          </para>
+        </sect4>
+
+      </sect3>
+
+      <sect3 id="message-protocol-types-signal">
+        <title>Signal Emission</title>
+        <para>
+          Unlike method calls, signal emissions have no replies. 
+          A signal emission is simply a single message of type SIGNAL.
+          It must have three header fields: 'path' giving the object 
+          the signal was emitted from, plus 'ifce' and 'mebr' giving the 
+          fully-qualified name of the signal.
+        </para>
+      </sect3>
+
+      <sect3 id="message-protocol-types-notation">
+        <title>Notation in this document</title>
+        <para>
+          This document uses a simple pseudo-IDL to describe particular method 
+          calls and signals. Here is an example of a method call:
+          <programlisting>
+            org.freedesktop.DBus.ActivateService (in STRING service_name, in UINT32 flags,
+                                                  out UINT32 resultcode)
+          </programlisting>
+          This means ifce = org.freedesktop.DBus, mebr = ActivateService, 
+          METHOD_CALL arguments are STRING and UINT32, METHOD_RETURN argument
+          is UINT32. Remember that the 'mebr' field can't contain any '.' (period)
+          characters so it's known that the last part of the name in
+          the "IDL" is the member name.
+        </para>
+        <para>
+          In C++ that might end up looking like this:
+          <programlisting>
+            unsigned int org::freedesktop::DBus::ActivateService (const char  *service_name, 
+                                                                  unsigned int flags);
+          </programlisting>
+          or equally valid, the return value could be done as an argument:
+          <programlisting>
+            void org::freedesktop::DBus::ActivateService (const char   *service_name, 
+                                                          unsigned int  flags,
+                                                          unsigned int *resultcode);
+          </programlisting>
+          It's really up to the API designer how they want to make 
+          this look. You could design an API where the namespace wasn't used 
+          in C++, using STL or Qt, using varargs, or whatever you wanted.
+        </para>
+        <para>
+          Signals are written as follows:
+          <programlisting>
+            org.freedesktop.DBus.ServiceLost (STRING service_name)
+          </programlisting>
+          Signals don't specify "in" vs. "out" because only 
+          a single direction is possible.
+        </para>
+        <para>
+          In this ad hoc notation, the special type name ANY means any type
+          other than NIL, and the special type name ANY_OR_NIL means any valid
+          type.
+        </para>
+        <para>
+          It isn't especially encouraged to use this lame pseudo-IDL in actual
+          API implementations; you might use the native notation for the
+          language you're using, or you might use COM or CORBA IDL, for example.
+        </para>
+      </sect3>
     </sect2>
 
   </sect1>
@@ -969,161 +1188,35 @@
     </para>
   </sect1>
 
-  <sect1 id="message-conventions">
-    <title>Message Conventions</title>
-    <para>
-      This section documents conventions that are not essential to D-BUS
-      functionality, but should generally be followed in order to simplify
-      programmer's lives.
-    </para>
-    <sect2 id="message-conventions-naming">
-      <title>Message Naming</title>
-      <para>
-        Messages are normally named in the form 
-        "org.freedesktop.Peer.Ping", which has three 
-        distinct components:
-        <variablelist>
-          <varlistentry>
-            <term>Namespace e.g. <literal>org.freedesktop</literal></term>
-            <listitem>
-              <para>
-                Message names have a Java-style namespace: a reversed domain
-                name. The components of the domain are normally lowercase.
-              </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term>Package or object e.g. <literal>Peer</literal></term>
-            <listitem>
-              <para>
-                The next part of the message name can be thought of as the name
-                of a singleton object, or as the name of a package of related
-                messages.  More than one dot-separated component might be used
-                here. (Note that D-BUS does not define any idea of object
-                instances or object references.)  The package or object name is
-                capitalized LikeThis.
-              </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term>Method or operation e.g. <literal>Ping</literal></term>
-            <listitem>
-              <para>
-                The final part of the message name is the most specific, and
-                should be a verb indicating an operation to be performed on the
-                object.  The method or operation name is capitalized LikeThis.
-              </para>
-            </listitem>
-          </varlistentry>
-        </variablelist>
-      </para>
-      <para>
-        A reply to a message conventionally has the same name as the message
-        being replied to. When following method call conventions (see <xref
-                                                                         linkend="message-conventions-method">), this convention is mandatory, 
-          because a message with multiple possible replies can't be mapped
-          to method call semantics without special-case code.
-      </para>
-    </sect2>
-    <sect2 id="message-conventions-method">
-      <title>Method Call Mapping</title>
-      <para>
-        Some implementations of D-BUS may present an API that translates object
-        method calls into D-BUS messages. This document does not specify in
-        detail how such an API should look or work. However, it does specify how
-        message-based protocols should be designed to be friendly to such an
-        API.
-      </para>
-      <para>
-        Remember that D-BUS does not have object references or object instances.
-        So when one application sends the message
-        <literal>org.freedesktop.Peer.Ping</literal>, it sends it to another
-        application, not to any kind of sub-portion of that application.
-        However, a convenience API used within the recipient application may
-        route all messages that start with
-        <literal>org.freedesktop.Peer</literal> to a particular object instance,
-        and may invoke the <literal>Ping()</literal> method on said instance in
-        order to handle the message. This is a convenience API based on 
-        method calls.
-      </para>
-      <para>
-        A "method call" consists of a message and, optionally, a reply to that
-        message. The name of the "method" is the last component of the message,
-        for example, <literal>org.freedesktop.Peer.Ping</literal> would map to
-        the method <literal>Ping()</literal> on some object.
-      </para>
-      <para>
-        Arguments to a method may be considered "in" (processed by the
-        recipient of the message), or "out" (returned to the sender of the
-        message in the reply). "inout" arguments are both sent and received,
-        i.e. the caller passes in a value which is modified. An "inout" argument 
-        is equivalent to an "in" argument, followed by an "out" argument.
-      </para>
-      <para>
-        Given a method with zero or one return values, followed by zero or more
-        arguments, where each argument may be "in", "out", or "inout", the
-        caller constructs a message by appending each "in" or "inout" argument,
-        in order. "out" arguments are not represented in the caller's message.
-      </para>
-      <para>
-        The recipient constructs a reply by appending first the return value 
-        if any, then each "out" or "inout" argument, in order. 
-        "in" arguments are not represented in the reply message.
-      </para>
-      <para>
-        The standard reply message MUST have the same name as the message being 
-        replied to, and MUST set the "rply" header field to the serial 
-        number of the message being replied to.
-      </para>
-      <para>
-        If an error occurs, an error reply may be sent in place of the standard
-        reply. Error replies can be identified by a special header flag, see
-        <xref linkend="message-protocol-header-encoding">.  Error replies have a
-        name which reflects the type of error that occurred. Error replies would
-        generally be mapped to exceptions in a programming language.  If an
-        error reply has a first argument, and that argument has type STRING,
-        then the argument must be an error message.
-      </para>
-      <para>
-        [FIXME discuss mapping of broadcast messages + matching rules 
-        to signals and slots]
-      </para>
-    </sect2>
-  </sect1>
-
   <sect1 id="standard-messages">
     <title>Standard Peer-to-Peer Messages</title>
     <para>
-      In the following message definitions, "method call notation" is presented
-      in addition to simply listing the message names and arguments. The special
-      type name ANY means any type other than NIL, and the special type name
-      ANY_OR_NIL means any valid type.
-      [FIXME the messages here are just made up to illustrate the 
-      format for defining them]
+      See <xref linkend="message-protocol-types-notation"> for details on 
+       the notation used in this section.
     </para>
     <sect2 id="standard-messages-ping">
       <title><literal>org.freedesktop.Peer.Ping</literal></title>
       <para>        
-        As a method:
         <programlisting>
-          void Ping ()
+          org.freedesktop.Peer.Ping ()
         </programlisting>
       </para>
       <para>
-        On receipt of the message <literal>org.freedesktop.Peer.Ping</literal>,
-        an application should reply with
-        <literal>org.freedesktop.Peer.Ping</literal>. Neither the 
-        message nor its reply have any arguments.
-        [FIXME the messages here are just made up to illustrate the 
-        format for defining them]
+        On receipt of the METHOD_CALL
+        message <literal>org.freedesktop.Peer.Ping</literal>, an application
+        should do nothing other than reply with a METHOD_RETURN as usual.
       </para>
     </sect2>
+
     <sect2 id="standard-messages-get-props">
       <title><literal>org.freedesktop.Props.Get</literal></title>
       <para>
-        As a method:
+        [FIXME this is just a bogus made-up method that isn't implemented 
+        or thought through, to save an example of table formatting for the 
+        argument descriptions]
         <programlisting>
-          ANY_OR_NIL Get (in STRING property_name)
+          org.freedesktop.Props.Get (in STRING property_name,
+                                     out ANY_OR_NIL property_value)
         </programlisting>
         Message arguments:
         <informaltable>
@@ -1138,36 +1231,17 @@
             <tbody>
               <row>
                 <entry>0</entry>
-                <entry>STRING</entry>
+                <entry>in STRING</entry>
                 <entry>Name of the property to get</entry>
               </row>
-            </tbody>
-          </tgroup>
-        </informaltable>
-        Reply arguments:
-        <informaltable>
-          <tgroup cols=3>
-            <thead>
               <row>
-                <entry>Argument</entry>
-                <entry>Type</entry>
-                <entry>Description</entry>
-              </row>
-            </thead>
-            <tbody>
-              <row>
-                <entry>0</entry>
-                <entry>ANY_OR_NIL</entry>
+                <entry>1</entry>
+                <entry>out ANY_OR_NIL</entry>
                 <entry>The value of the property. The type depends on the property.</entry>
               </row>
             </tbody>
           </tgroup>
         </informaltable>
-      </para>
-      <para>
-        
-        [FIXME the messages here are just made up to illustrate the 
-        format for defining them]
       </para>
     </sect2>
   </sect1>
@@ -2009,6 +2083,32 @@
         </para>
       </glossdef>
     </glossentry>
+
+    <glossentry id="term-object"><glossterm>Object</glossterm>
+      <glossdef>
+        <para>
+          Each application contains <firstterm>objects</firstterm>,
+          which have <firstterm>interfaces</firstterm> and 
+          <firstterm>methods</firstterm>. Objects are referred to 
+          by a name, called a <firstterm>path</firstterm> or 
+          <firstterm>object reference</firstterm>.
+        </para>
+      </glossdef>
+    </glossentry>
+
+    <glossentry id="term-path"><glossterm>Path</glossterm>
+      <glossdef>
+        <para>
+          Object references (object names) in D-BUS are 
+          organized into a filesystem-style hierarchy, so 
+          each object is named by a path. As in LDAP, 
+          there's no difference between "files" and "directories";
+          a path can refer to an object, while still having 
+          child objects below it.
+        </para>
+      </glossdef>
+    </glossentry>
+
     <glossentry id="peer-to-peer"><glossterm>Peer-to-peer</glossterm>
       <glossdef>
 	<para>
