@@ -36,13 +36,13 @@ struct DBusTypeReaderClass
   const char *name;
   int         id;         /* index in all_reader_classes */
   dbus_bool_t types_only; /* only iterates over types, not values */
-  void        (* recurse)          (DBusTypeReader     *sub,
-                                    DBusTypeReader     *parent);
-  int         (* get_current_type) (DBusTypeReader     *reader);
-  void        (* next)             (DBusTypeReader     *reader,
-                                    int                 current_type);
-  void        (* init_from_mark)   (DBusTypeReader     *reader,
-                                    const DBusTypeMark *mark);
+  void        (* recurse)          (DBusTypeReader        *sub,
+                                    DBusTypeReader        *parent);
+  int         (* get_current_type) (const DBusTypeReader  *reader);
+  void        (* next)             (DBusTypeReader        *reader,
+                                    int                    current_type);
+  void        (* init_from_mark)   (DBusTypeReader        *reader,
+                                    const DBusTypeMark    *mark);
 };
 
 static int
@@ -132,7 +132,7 @@ array_types_only_reader_recurse (DBusTypeReader *sub,
 }
 
 static int
-array_reader_get_array_len (DBusTypeReader *reader)
+array_reader_get_array_len (const DBusTypeReader *reader)
 {
   dbus_uint32_t array_len;
   int len_pos;
@@ -221,7 +221,7 @@ variant_reader_recurse (DBusTypeReader *sub,
 }
 
 static int
-base_reader_get_current_type (DBusTypeReader *reader)
+base_reader_get_current_type (const DBusTypeReader *reader)
 {
   int t;
 
@@ -232,7 +232,7 @@ base_reader_get_current_type (DBusTypeReader *reader)
 }
 
 static int
-struct_reader_get_current_type (DBusTypeReader *reader)
+struct_reader_get_current_type (const DBusTypeReader *reader)
 {
   int t;
 
@@ -246,7 +246,7 @@ struct_reader_get_current_type (DBusTypeReader *reader)
 }
 
 static int
-array_types_only_reader_get_current_type (DBusTypeReader *reader)
+array_types_only_reader_get_current_type (const DBusTypeReader *reader)
 {
   int t;
 
@@ -260,7 +260,7 @@ array_types_only_reader_get_current_type (DBusTypeReader *reader)
 }
 
 static int
-array_reader_get_current_type (DBusTypeReader *reader)
+array_reader_get_current_type (const DBusTypeReader *reader)
 {
   int t;
   int end_pos;
@@ -639,8 +639,8 @@ _dbus_type_reader_init_types_only_from_mark (DBusTypeReader     *reader,
 }
 
 void
-_dbus_type_reader_save_mark (DBusTypeReader *reader,
-                             DBusTypeMark   *mark)
+_dbus_type_reader_save_mark (const DBusTypeReader *reader,
+                             DBusTypeMark         *mark)
 {
   mark->type_pos_in_value_str = (reader->type_str == reader->value_str);
   mark->container_type = reader->klass->id;
@@ -655,7 +655,7 @@ _dbus_type_reader_save_mark (DBusTypeReader *reader,
 }
 
 int
-_dbus_type_reader_get_current_type (DBusTypeReader *reader)
+_dbus_type_reader_get_current_type (const DBusTypeReader *reader)
 {
   int t;
 
@@ -674,7 +674,7 @@ _dbus_type_reader_get_current_type (DBusTypeReader *reader)
 }
 
 dbus_bool_t
-_dbus_type_reader_array_is_empty (DBusTypeReader *reader)
+_dbus_type_reader_array_is_empty (const DBusTypeReader *reader)
 {
   dbus_uint32_t array_len;
 
@@ -700,8 +700,8 @@ _dbus_type_reader_array_is_empty (DBusTypeReader *reader)
 }
 
 void
-_dbus_type_reader_read_basic (DBusTypeReader    *reader,
-                              void              *value)
+_dbus_type_reader_read_basic (const DBusTypeReader    *reader,
+                              void                    *value)
 {
   int t;
 
@@ -723,10 +723,10 @@ _dbus_type_reader_read_basic (DBusTypeReader    *reader,
 }
 
 dbus_bool_t
-_dbus_type_reader_read_array_of_basic (DBusTypeReader    *reader,
-                                       int                type,
-                                       void             **array,
-                                       int               *array_len)
+_dbus_type_reader_read_array_of_basic (const DBusTypeReader    *reader,
+                                       int                      type,
+                                       void                   **array,
+                                       int                     *array_len)
 {
   _dbus_assert (!reader->klass->types_only);
 
@@ -795,8 +795,8 @@ _dbus_type_reader_recurse (DBusTypeReader *reader,
 
 /**
  * Skip to the next value on this "level". e.g. the next field in a
- * struct, the next value in an array, the next key or value in a
- * dict. Returns FALSE at the end of the current container.
+ * struct, the next value in an array. Returns FALSE at the end of the
+ * current container.
  *
  * @param reader the reader
  * @returns FALSE if nothing more to read at or below this level
@@ -830,6 +830,23 @@ _dbus_type_reader_next (DBusTypeReader *reader)
   return _dbus_type_reader_get_current_type (reader) != DBUS_TYPE_INVALID;
 }
 
+/**
+ * Check whether there's another value on this "level". e.g. the next
+ * field in a struct, the next value in an array. Returns FALSE at the
+ * end of the current container.
+ *
+ * @param reader the reader
+ * @returns FALSE if nothing more to read at or below this level
+ */
+dbus_bool_t
+_dbus_type_reader_has_next (const DBusTypeReader *reader)
+{
+  /* Not efficient but works for now. */
+  DBusTypeReader copy;
+
+  copy = *reader;
+  return _dbus_type_reader_next (&copy);
+}
 
 /*
  *
@@ -1383,6 +1400,23 @@ _dbus_type_writer_write_array (DBusTypeWriter *writer,
 {
 
 
+}
+
+/**
+ * Iterate through all values in the given reader,
+ * writing a copy of each value to the writer.
+ * The reader will be moved forward to its end position.
+ *
+ * @param writer the writer to copy to
+ * @param reader the reader to copy from
+ */
+dbus_bool_t
+_dbus_type_writer_write_reader (DBusTypeWriter *writer,
+                                DBusTypeReader *reader)
+{
+  /* FIXME */
+
+  return TRUE;
 }
 
 /** @} */ /* end of DBusMarshal group */
