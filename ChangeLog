@@ -1,3 +1,13 @@
+2003-01-18  Havoc Pennington  <hp@pobox.com>
+
+	* configure.in: default --enable-tests to $USE_MAINTAINER_MODE
+
+	* dbus/Makefile.am: fix it up so dubs-test-main.c is included in
+	the distribution
+
+	* test/Makefile.am: don't use special variable "TESTS" for echo-*
+	since we don't want to use those in make check
+
 2003-01-15  Havoc Pennington  <hp@redhat.com>
 
         Release 0.2

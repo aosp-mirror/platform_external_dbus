@@ -73,14 +73,20 @@ libdbus_1_la_LIBADD=  $(DBUS_CLIENT_LIBS) libdbus-convenience.la
 ## convention for internal symbols)
 libdbus_1_la_LDFLAGS= -export-symbols-regex "^[^_].*"
 
+## note that TESTS has special meaning (stuff to use in make check)
+## so if adding tests not to be run in make check, don't add them to 
+## TESTS
 if DBUS_BUILD_TESTS
-noinst_PROGRAMS=dbus-test
+TESTS=dbus-test
+else
+TESTS=
+endif
+
+## we use noinst_PROGRAMS not check_PROGRAMS so that we build 
+## even when not doing "make check"
+noinst_PROGRAMS=$(TESTS)
 
 dbus_test_SOURCES=				\
 	dbus-test-main.c
 
 dbus_test_LDADD= $(DBUS_CLIENT_LIBS) libdbus-convenience.la libdbus-1.la
-
-## so that "make check" works
-TESTS=dbus-test
-endif

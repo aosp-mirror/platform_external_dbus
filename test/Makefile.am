@@ -2,12 +2,12 @@
 INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
 
 if DBUS_BUILD_TESTS
-TESTS=echo-client echo-server
+TEST_BINARIES=echo-client echo-server
 else
-TESTS=
+TEST_BINARIES=
 endif
 
-noinst_PROGRAMS= $(TESTS)
+noinst_PROGRAMS= $(TEST_BINARIES)
 
 echo_client_SOURCES=				\
 	echo-client.c				\
