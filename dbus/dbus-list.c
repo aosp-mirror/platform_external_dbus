@@ -94,7 +94,11 @@ static void
 free_link (DBusList *link)
 {
   dbus_mutex_lock (list_pool_lock);
-  _dbus_mem_pool_dealloc (list_pool, link);
+  if (_dbus_mem_pool_dealloc (list_pool, link))
+    {
+      _dbus_mem_pool_free (list_pool);
+      list_pool = NULL;
+    }
   dbus_mutex_unlock (list_pool_lock);
 }
 
@@ -429,6 +433,25 @@ _dbus_list_remove_last (DBusList **list,
   return FALSE;
 }
 
+static void
+_dbus_list_unlink (DBusList **list,
+                   DBusList  *link)
+{
+  if (link->next == link)
+    {
+      /* one-element list */
+      *list = NULL;
+    }
+  else
+    {      
+      link->prev->next = link->next;
+      link->next->prev = link->prev;
+      
+      if (*list == link)
+        *list = link->next;
+    }
+}
+
 /**
  * Removes a link from the list. This is a constant-time operation.
  *
@@ -439,22 +462,8 @@ void
 _dbus_list_remove_link (DBusList **list,
                         DBusList  *link)
 {
-  if (link->next == link)
-    {
-      /* one-element list */
-      *list = NULL;
-      free_link (link);
-    }
-  else
-    {      
-      link->prev->next = link->next;
-      link->next->prev = link->prev;
-      
-      if (*list == link)
-        *list = link->next;
-
-      free_link (link);
-    }
+  _dbus_list_unlink (list, link);
+  free_link (link);
 }
 
 /**
@@ -541,6 +550,27 @@ _dbus_list_get_first (DBusList **list)
     return NULL;
   else
     return (*list)->data;
+}
+
+/**
+ * Removes the first link in the list and returns it.  This is a
+ * constant-time operation.
+ *
+ * @param list address of the list head.
+ * @returns the first link in the list, or #NULL for an empty list.
+ */
+DBusList*
+_dbus_list_pop_first_link (DBusList **list)
+{
+  DBusList *link;
+  
+  link = _dbus_list_get_first_link (list);
+  if (link == NULL)
+    return NULL;
+
+  _dbus_list_unlink (list, link);
+
+  return link;
 }
 
 /**

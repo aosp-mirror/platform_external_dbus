@@ -367,6 +367,8 @@ dbus_parse_address (const char         *address,
       link = _dbus_list_get_next_link (&entries, link);
     }
 
+  _dbus_list_clear (&entries);
+  
   return FALSE;
   
 }

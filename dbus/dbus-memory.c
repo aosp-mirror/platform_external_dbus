@@ -23,6 +23,7 @@
 
 #include "dbus-memory.h"
 #include "dbus-internals.h"
+#include "dbus-sysdeps.h"
 #include <stdlib.h>
 
 
@@ -73,10 +74,13 @@
  */
 
 #ifdef DBUS_BUILD_TESTS
-static dbus_bool_t inited = FALSE;
+static dbus_bool_t debug_initialized = FALSE;
 static int fail_counts = -1;
 static size_t fail_size = 0;
+static int fail_alloc_counter = _DBUS_INT_MAX;
 static dbus_bool_t guards = FALSE;
+static dbus_bool_t disable_mem_pools = FALSE;
+
 /** value stored in guard padding for debugging buffer overrun */
 #define GUARD_VALUE 0xdeadbeef
 /** size of the information about the block stored in guard mode */
@@ -89,27 +93,114 @@ static dbus_bool_t guards = FALSE;
 #define GUARD_START_OFFSET (GUARD_START_PAD + GUARD_INFO_SIZE)
 /** total extra size over the requested allocation for guard stuff */
 #define GUARD_EXTRA_SIZE (GUARD_START_OFFSET + GUARD_END_PAD)
-#endif
 
-#ifdef DBUS_BUILD_TESTS
 static void
-initialize_malloc_debug (void)
+_dbus_initialize_malloc_debug (void)
 {
-  if (!inited)
+  if (!debug_initialized)
     {
+      debug_initialized = TRUE;
+      
       if (_dbus_getenv ("DBUS_MALLOC_FAIL_NTH") != NULL)
 	{
 	  fail_counts = atoi (_dbus_getenv ("DBUS_MALLOC_FAIL_NTH"));
-	  _dbus_set_fail_alloc_counter (fail_counts);
+          fail_alloc_counter = fail_counts;
+          _dbus_verbose ("Will fail malloc every %d times\n", fail_counts);
 	}
       
       if (_dbus_getenv ("DBUS_MALLOC_FAIL_GREATER_THAN") != NULL)
-	fail_size = atoi (_dbus_getenv ("DBUS_MALLOC_FAIL_GREATER_THAN"));
+        {
+          fail_size = atoi (_dbus_getenv ("DBUS_MALLOC_FAIL_GREATER_THAN"));
+          _dbus_verbose ("Will fail mallocs over %d bytes\n",
+                         fail_size);
+        }
 
       if (_dbus_getenv ("DBUS_MALLOC_GUARDS") != NULL)
-        guards = TRUE;
+        {
+          guards = TRUE;
+          _dbus_verbose ("Will use malloc guards\n");
+        }
+
+      if (_dbus_getenv ("DBUS_DISABLE_MEM_POOLS") != NULL)
+        {
+          disable_mem_pools = TRUE;
+          _dbus_verbose ("Will disable memory pools\n");
+        }
+    }
+}
+
+/**
+ * Whether to turn off mem pools, useful for leak checking.
+ *
+ * @returns #TRUE if mempools should not be used.
+ */
+dbus_bool_t
+_dbus_disable_mem_pools (void)
+{
+  _dbus_initialize_malloc_debug ();
+  return disable_mem_pools;
+}
+
+/**
+ * Sets the number of allocations until we simulate a failed
+ * allocation. If set to 0, the next allocation to run
+ * fails; if set to 1, one succeeds then the next fails; etc.
+ * Set to _DBUS_INT_MAX to not fail anything. 
+ *
+ * @param until_next_fail number of successful allocs before one fails
+ */
+void
+_dbus_set_fail_alloc_counter (int until_next_fail)
+{
+  _dbus_initialize_malloc_debug ();
+
+  fail_alloc_counter = until_next_fail;
+
+  _dbus_verbose ("Set fail alloc counter = %d\n", fail_alloc_counter);
+}
+
+/**
+ * Gets the number of successful allocs until we'll simulate
+ * a failed alloc.
+ *
+ * @returns current counter value
+ */
+int
+_dbus_get_fail_alloc_counter (void)
+{
+  _dbus_initialize_malloc_debug ();
+
+  return fail_alloc_counter;
+}
+
+/**
+ * Called when about to alloc some memory; if
+ * it returns #TRUE, then the allocation should
+ * fail. If it returns #FALSE, then the allocation
+ * should not fail.
+ *
+ * @returns #TRUE if this alloc should fail
+ */
+dbus_bool_t
+_dbus_decrement_fail_alloc_counter (void)
+{
+  _dbus_initialize_malloc_debug ();
+  
+  if (fail_alloc_counter <= 0)
+    {
+      if (fail_counts >= 0)
+        fail_alloc_counter = fail_counts;
+      else
+        fail_alloc_counter = _DBUS_INT_MAX;
+
+      _dbus_verbose ("reset fail alloc counter to %d\n", fail_alloc_counter);
       
-      inited = TRUE;
+      return TRUE;
+    }
+  else
+    {
+      fail_alloc_counter -= 1;
+      return FALSE;
     }
 }
 
@@ -250,13 +341,10 @@ void*
 dbus_malloc (size_t bytes)
 {
 #ifdef DBUS_BUILD_TESTS
-  initialize_malloc_debug ();
+  _dbus_initialize_malloc_debug ();
   
   if (_dbus_decrement_fail_alloc_counter ())
     {
-      if (fail_counts != -1)
-	_dbus_set_fail_alloc_counter (fail_counts);
-
       _dbus_verbose (" FAILING malloc of %d bytes\n", bytes);
       
       return NULL;
@@ -293,13 +381,10 @@ void*
 dbus_malloc0 (size_t bytes)
 {
 #ifdef DBUS_BUILD_TESTS
-  initialize_malloc_debug ();
+  _dbus_initialize_malloc_debug ();
   
   if (_dbus_decrement_fail_alloc_counter ())
     {
-      if (fail_counts != -1)
-	_dbus_set_fail_alloc_counter (fail_counts);
-
       _dbus_verbose (" FAILING malloc0 of %d bytes\n", bytes);
       
       return NULL;
@@ -338,13 +423,10 @@ dbus_realloc (void  *memory,
               size_t bytes)
 {
 #ifdef DBUS_BUILD_TESTS
-  initialize_malloc_debug ();
+  _dbus_initialize_malloc_debug ();
   
   if (_dbus_decrement_fail_alloc_counter ())
     {
-      if (fail_counts != -1)
-	_dbus_set_fail_alloc_counter (fail_counts);
-
       _dbus_verbose (" FAILING realloc of %d bytes\n", bytes);
       
       return NULL;

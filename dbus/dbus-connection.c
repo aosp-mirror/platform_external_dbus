@@ -924,6 +924,10 @@ _dbus_connection_last_unref (DBusConnection *connection)
  * it if the count reaches zero.  It is a bug to drop the last reference
  * to a connection that has not been disconnected.
  *
+ * @todo in practice it can be quite tricky to never unref a connection
+ * that's still connected; maybe there's some way we could avoid
+ * the requirement.
+ *
  * @param connection the connection.
  */
 void
@@ -1109,10 +1113,10 @@ dbus_connection_send_preallocated (DBusConnection       *connection,
  * fail is lack of memory. Even if the connection is disconnected,
  * no error will be returned.
  *
- * If the function fails, it returns #FALSE and returns the
- * reason for failure via the result parameter.
- * The result parameter can be #NULL if you aren't interested
- * in the reason for the failure.
+ * If the function fails due to lack of memory, it returns #FALSE.
+ * The function will never fail for other reasons; even if the
+ * connection is disconnected, you can queue an outgoing message,
+ * though obviously it won't be sent.
  * 
  * @param connection the connection.
  * @param message the message to write.
@@ -1582,6 +1586,30 @@ dbus_connection_steal_borrowed_message (DBusConnection *connection,
   dbus_mutex_unlock (connection->mutex);
 }
 
+/* See dbus_connection_pop_message, but requires the caller to own
+ * the lock before calling. May drop the lock while running.
+ */
+static DBusList*
+_dbus_connection_pop_message_link_unlocked (DBusConnection *connection)
+{
+  if (connection->message_borrowed != NULL)
+    _dbus_connection_wait_for_borrowed (connection);
+  
+  if (connection->n_incoming > 0)
+    {
+      DBusList *link;
+
+      link = _dbus_list_pop_first_link (&connection->incoming_messages);
+      connection->n_incoming -= 1;
+
+      _dbus_verbose ("Message %p removed from incoming queue %p, %d incoming\n",
+                     link->data, connection, connection->n_incoming);
+
+      return link;
+    }
+  else
+    return NULL;
+}
 
 /* See dbus_connection_pop_message, but requires the caller to own
  * the lock before calling. May drop the lock while running.
@@ -1589,19 +1617,18 @@ dbus_connection_steal_borrowed_message (DBusConnection *connection,
 static DBusMessage*
 _dbus_connection_pop_message_unlocked (DBusConnection *connection)
 {
-  if (connection->message_borrowed != NULL)
-    _dbus_connection_wait_for_borrowed (connection);
+  DBusList *link;
   
-  if (connection->n_incoming > 0)
+  link = _dbus_connection_pop_message_link_unlocked (connection);
+
+  if (link != NULL)
     {
       DBusMessage *message;
-
-      message = _dbus_list_pop_first (&connection->incoming_messages);
-      connection->n_incoming -= 1;
-
-      _dbus_verbose ("Message %p removed from incoming queue %p, %d incoming\n",
-                     message, connection, connection->n_incoming);
-
+      
+      message = link->data;
+      
+      _dbus_list_free_link (link);
+      
       return message;
     }
   else
@@ -1690,16 +1717,12 @@ dbus_connection_dispatch_message (DBusConnection *connection)
   ReplyHandlerData *reply_handler_data;
   const char *name;
   dbus_int32_t reply_serial;
-
-  /* Preallocate link so we can put the message back on failure */
-  message_link = _dbus_list_alloc_link (NULL);
-  if (message_link == NULL)
-    return FALSE;
   
   dbus_mutex_lock (connection->mutex);
 
   /* We need to ref the connection since the callback could potentially
-   * drop the last ref to it */
+   * drop the last ref to it
+   */
   _dbus_connection_ref_unlocked (connection);
 
   _dbus_connection_acquire_dispatch (connection);
@@ -1710,16 +1733,16 @@ dbus_connection_dispatch_message (DBusConnection *connection)
    * protected by the lock, since only one will get the lock, and that
    * one will finish the message dispatching
    */
-  message = _dbus_connection_pop_message_unlocked (connection);
-  if (message == NULL)
+  message_link = _dbus_connection_pop_message_link_unlocked (connection);
+  if (message_link == NULL)
     {
       _dbus_connection_release_dispatch (connection);
       dbus_mutex_unlock (connection->mutex);
       dbus_connection_unref (connection);
       return FALSE;
     }
-  
-  message_link->data = message;
+
+  message = message_link->data;
   
   result = DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
 
@@ -1751,6 +1774,7 @@ dbus_connection_dispatch_message (DBusConnection *connection)
       DBusMessageHandler *handler = link->data;
       DBusList *next = _dbus_list_get_next_link (&filter_list_copy, link);
 
+      _dbus_verbose ("  running filter on message %p\n", message);
       result = _dbus_message_handler_handle_message (handler, connection,
                                                      message);
 
@@ -1790,6 +1814,9 @@ dbus_connection_dispatch_message (DBusConnection *connection)
   if (reply_handler_data)
     {
       dbus_mutex_unlock (connection->mutex);
+
+      _dbus_verbose ("  running reply handler on message %p\n", message);
+      
       result = _dbus_message_handler_handle_message (reply_handler_data->handler,
 						     connection, message);
       reply_handler_data_free (reply_handler_data);
@@ -1807,6 +1834,9 @@ dbus_connection_dispatch_message (DBusConnection *connection)
 	  /* We're still protected from dispatch_message reentrancy here
 	   * since we acquired the dispatcher */
 	  dbus_mutex_unlock (connection->mutex);
+
+          _dbus_verbose ("  running app handler on message %p\n", message);
+          
           result = _dbus_message_handler_handle_message (handler, connection,
                                                          message);
 	  dbus_mutex_lock (connection->mutex);
@@ -1815,6 +1845,9 @@ dbus_connection_dispatch_message (DBusConnection *connection)
         }
     }
 
+  _dbus_verbose ("  done dispatching %p (%s)\n", message,
+                 dbus_message_get_name (message));
+  
  out:
   _dbus_connection_release_dispatch (connection);
   dbus_mutex_unlock (connection->mutex);

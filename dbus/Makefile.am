@@ -21,7 +21,7 @@ dbusinclude_HEADERS=				\
 	dbus-threads.h				\
 	dbus-types.h
 
-libdbus_1_la_SOURCES=				\
+DBUS_SOURCES=					\
 	dbus-address.c				\
 	dbus-auth.c				\
 	dbus-auth.h				\
@@ -67,16 +67,7 @@ libdbus_1_la_SOURCES=				\
 ##	dbus-md5.c				\
 ##	dbus-md5.h				\
 
-
-## this library is linked into both libdbus and the bus 
-## itself, but does not export any symbols from libdbus.
-## i.e. the point is to contain symbols that we don't 
-## want the shared lib to export, but we do want the 
-## message bus to be able to use.
-
-noinst_LTLIBRARIES=libdbus-convenience.la
-
-libdbus_convenience_la_SOURCES=			\
+UTIL_SOURCES=					\
 	dbus-dataslot.c				\
 	dbus-dataslot.h				\
 	dbus-hash.c				\
@@ -98,7 +89,19 @@ libdbus_convenience_la_SOURCES=			\
 	dbus-sysdeps.c				\
 	dbus-sysdeps.h
 
-libdbus_1_la_LIBADD=  $(DBUS_CLIENT_LIBS) libdbus-convenience.la
+libdbus_1_la_SOURCES=				\
+	$(DBUS_SOURCES)				\
+	$(UTIL_SOURCES)
+
+libdbus_convenience_la_SOURCES=			\
+	$(DBUS_SOURCES)				\
+	$(UTIL_SOURCES)
+
+## this library is the same as libdbus, but exports all the symbols
+## and is only used for static linking within the dbus package.
+noinst_LTLIBRARIES=libdbus-convenience.la
+
+libdbus_1_la_LIBADD= $(DBUS_CLIENT_LIBS)
 ## don't export symbols that start with "_" (we use this 
 ## convention for internal symbols)
 libdbus_1_la_LDFLAGS= -export-symbols-regex "^[^_].*"
@@ -120,7 +123,7 @@ noinst_PROGRAMS=$(TESTS)
 dbus_test_SOURCES=				\
 	dbus-test-main.c
 
-dbus_test_LDADD= $(DBUS_CLIENT_LIBS) libdbus-convenience.la libdbus-1.la
+dbus_test_LDADD= $(DBUS_CLIENT_LIBS) libdbus-1.la
 
 ## mop up the gcov files
 clean-local:

@@ -162,8 +162,8 @@ undo_alignment (DBusRealString *real)
                real->str,
                real->len + 1);
 
-      real->align_offset = 0;
       real->str = real->str - real->align_offset;
+      real->align_offset = 0;
     }
 }
 

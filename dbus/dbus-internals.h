@@ -156,10 +156,16 @@ extern const char _dbus_no_memory_message[];
 void        _dbus_set_fail_alloc_counter       (int  until_next_fail);
 int         _dbus_get_fail_alloc_counter       (void);
 dbus_bool_t _dbus_decrement_fail_alloc_counter (void);
+dbus_bool_t _dbus_disable_mem_pools            (void);
 #else
 #define _dbus_set_fail_alloc_counter(n)
 #define _dbus_get_fail_alloc_counter _DBUS_INT_MAX
+
+/* These are constant expressions so that blocks
+ * they protect should be optimized away
+ */
 #define _dbus_decrement_fail_alloc_counter() FALSE
+#define _dbus_disable_mem_pools()            FALSE
 #endif /* !DBUS_BUILD_TESTS */
 
 /* Thread initializers */
@@ -169,6 +175,7 @@ DBusMutex *_dbus_server_slots_init_lock     (void);
 DBusMutex *_dbus_atomic_init_lock           (void);
 DBusMutex *_dbus_message_handler_init_lock  (void);
 DBusMutex *_dbus_user_info_init_lock        (void);
+DBusMutex *_dbus_bus_init_lock              (void);
 
 DBUS_END_DECLS;
 

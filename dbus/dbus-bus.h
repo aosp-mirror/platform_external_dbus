@@ -29,15 +29,19 @@
 
 #include <dbus/dbus-connection.h>
 
-char*       dbus_bus_register_client (DBusConnection *connection,
-                                      DBusError      *error);
-int         dbus_bus_acquire_service (DBusConnection *connection,
-				      const char     *service_name,
-				      unsigned int    flags,
-                                      DBusError      *error);
-dbus_bool_t dbus_bus_service_exists  (DBusConnection *connection,
-				      const char     *service_name,
-                                      DBusError      *error);
+dbus_bool_t dbus_bus_register         (DBusConnection *connection,
+                                       DBusError      *error);
+dbus_bool_t dbus_bus_set_base_service (DBusConnection *connection,
+                                       const char     *base_service);
+const char* dbus_bus_get_base_service (DBusConnection *connection);
+int         dbus_bus_acquire_service  (DBusConnection *connection,
+                                       const char     *service_name,
+                                       unsigned int    flags,
+                                       DBusError      *error);
+dbus_bool_t dbus_bus_service_exists   (DBusConnection *connection,
+                                       const char     *service_name,
+                                       DBusError      *error);
+
 
 
 #endif /* DBUS_BUS_H */

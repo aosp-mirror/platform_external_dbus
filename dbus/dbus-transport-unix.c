@@ -189,8 +189,10 @@ queue_messages (DBusTransport *transport)
       _dbus_verbose ("queueing received message %p\n", message);
 
       _dbus_message_add_size_counter (message, transport->live_messages_size);
-      _dbus_connection_queue_received_message (transport->connection,
-                                               message);
+      if (!_dbus_connection_queue_received_message (transport->connection,
+                                                    message))
+        /* FIXME woops! */;
+        
       dbus_message_unref (message);
     }
 

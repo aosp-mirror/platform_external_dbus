@@ -62,6 +62,7 @@ void*       _dbus_list_get_last       (DBusList **list);
 void*       _dbus_list_get_first      (DBusList **list);
 void*       _dbus_list_pop_first      (DBusList **list);
 void*       _dbus_list_pop_last       (DBusList **list);
+DBusList*   _dbus_list_pop_first_link (DBusList **list);
 dbus_bool_t _dbus_list_copy           (DBusList **list,
                                        DBusList **dest);
 int         _dbus_list_get_length     (DBusList **list);

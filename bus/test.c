@@ -27,11 +27,13 @@
 #include "test.h"
 #include "loop.h"
 #include <dbus/dbus-internals.h>
+#include <dbus/dbus-list.h>
 
 /* The "debug client" watch/timeout handlers don't dispatch messages,
  * as we manually pull them in order to verify them. This is why they
  * are different from the real handlers in connection.c
  */
+static DBusList *clients = NULL;
 
 static void
 client_watch_callback (DBusWatch     *watch,
@@ -95,10 +97,17 @@ client_disconnect_handler (DBusMessageHandler *handler,
                            DBusMessage        *message,
                            void               *user_data)
 {
+  _dbus_verbose ("Removing client %p in disconnect handler\n",
+                 connection);
+  
+  _dbus_list_remove (&clients, connection);
+  
   dbus_connection_unref (connection);
   
   return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
 }
+
+static int handler_slot = -1;
 
 dbus_bool_t
 bus_setup_debug_client (DBusConnection *connection)
@@ -106,6 +115,11 @@ bus_setup_debug_client (DBusConnection *connection)
   DBusMessageHandler *disconnect_handler;
   const char *to_handle[] = { DBUS_MESSAGE_LOCAL_DISCONNECT };
   dbus_bool_t retval;
+
+  if (handler_slot < 0)
+    handler_slot = dbus_connection_allocate_data_slot ();
+  if (handler_slot < 0)
+    return FALSE;
   
   disconnect_handler = dbus_message_handler_new (client_disconnect_handler,
                                                  NULL, NULL);
@@ -139,24 +153,71 @@ bus_setup_debug_client (DBusConnection *connection)
                                               connection, NULL))
     goto out;
 
+  if (!_dbus_list_append (&clients, connection))
+    goto out;
+
+  /* Set up handler to be destroyed */
+  if (!dbus_connection_set_data (connection, handler_slot,
+                                 disconnect_handler,
+                                 (DBusFreeFunction)
+                                 dbus_message_handler_unref))
+    goto out;
+  
   retval = TRUE;
   
  out:
   if (!retval)
     {
-      dbus_connection_unregister_handler (connection,
-                                          disconnect_handler,
-                                          to_handle,
-                                          _DBUS_N_ELEMENTS (to_handle));
+      dbus_message_handler_unref (disconnect_handler); /* unregisters it */
       
       dbus_connection_set_watch_functions (connection,
                                            NULL, NULL, NULL, NULL, NULL);
       dbus_connection_set_timeout_functions (connection,
                                              NULL, NULL, NULL, NULL, NULL);
+
+      _dbus_list_remove_last (&clients, connection);
     }
-  
-  dbus_message_handler_unref (disconnect_handler);
-  
+      
   return retval;
 }
+
+void
+bus_test_clients_foreach (BusConnectionForeachFunction  function,
+                          void                         *data)
+{
+  DBusList *link;
+  
+  link = _dbus_list_get_first_link (&clients);
+  while (link != NULL)
+    {
+      DBusConnection *connection = link->data;
+      DBusList *next = _dbus_list_get_next_link (&clients, link);
+
+      if (!(* function) (connection, data))
+        break;
+      
+      link = next;
+    }
+}
+
+dbus_bool_t
+bus_test_client_listed (DBusConnection *connection)
+{
+  DBusList *link;
+  
+  link = _dbus_list_get_first_link (&clients);
+  while (link != NULL)
+    {
+      DBusConnection *c = link->data;
+      DBusList *next = _dbus_list_get_next_link (&clients, link);
+
+      if (c == connection)
+        return TRUE;
+      
+      link = next;
+    }
+
+  return FALSE;
+}
+
 #endif

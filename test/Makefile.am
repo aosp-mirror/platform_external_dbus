@@ -35,7 +35,7 @@ break_loader_SOURCES=				\
 spawn_test_SOURCES=				\
 	spawn-test.c
 
-TEST_LIBS=$(DBUS_TEST_LIBS) $(top_builddir)/dbus/libdbus-convenience.la $(top_builddir)/dbus/libdbus-1.la
+TEST_LIBS=$(DBUS_TEST_LIBS) $(top_builddir)/dbus/libdbus-convenience.la
 
 echo_client_LDADD=$(TEST_LIBS)
 echo_server_LDADD=$(TEST_LIBS)

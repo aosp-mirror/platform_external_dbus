@@ -2,6 +2,7 @@
 /* dispatch.c  Message dispatcher
  *
  * Copyright (C) 2003  CodeFactory AB
+ * Copyright (C) 2003  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -33,6 +34,7 @@
 #include <string.h>
 
 static int message_handler_slot;
+static int message_handler_slot_refcount;
 
 typedef struct
 {
@@ -329,22 +331,46 @@ bus_dispatch_message_handler (DBusMessageHandler *handler,
   return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
 }
 
-dbus_bool_t
-bus_dispatch_add_connection (DBusConnection *connection)
+static dbus_bool_t
+message_handler_slot_ref (void)
 {
-  DBusMessageHandler *handler;
-  
   message_handler_slot = dbus_connection_allocate_data_slot ();
 
   if (message_handler_slot < 0)
     return FALSE;
 
+  message_handler_slot_refcount += 1;
+
+  return TRUE;
+}
+
+static void
+message_handler_slot_unref (void)
+{
+  _dbus_assert (message_handler_slot_refcount > 0);
+  message_handler_slot_refcount -= 1;
+  if (message_handler_slot_refcount == 0)
+    {
+      dbus_connection_free_data_slot (message_handler_slot);
+      message_handler_slot = -1;
+    }
+}
+
+dbus_bool_t
+bus_dispatch_add_connection (DBusConnection *connection)
+{
+  DBusMessageHandler *handler;
+
+  if (!message_handler_slot_ref ())
+    return FALSE;
+  
   handler = dbus_message_handler_new (bus_dispatch_message_handler, NULL, NULL);  
 
   if (!dbus_connection_add_filter (connection, handler))
     {
       dbus_message_handler_unref (handler);
-
+      message_handler_slot_unref ();
+      
       return FALSE;
     }
 
@@ -355,6 +381,7 @@ bus_dispatch_add_connection (DBusConnection *connection)
     {
       dbus_connection_remove_filter (connection, handler);
       dbus_message_handler_unref (handler);
+      message_handler_slot_unref ();
 
       return FALSE;
     }
@@ -371,15 +398,17 @@ bus_dispatch_remove_connection (DBusConnection *connection)
   dbus_connection_set_data (connection,
 			    message_handler_slot,
 			    NULL, NULL);
+
+  message_handler_slot_unref ();
 }
-
-
 
 #ifdef DBUS_BUILD_TESTS
 
 typedef dbus_bool_t (* Check1Func) (BusContext     *context);
 typedef dbus_bool_t (* Check2Func) (BusContext     *context,
                                     DBusConnection *connection);
+
+static dbus_bool_t check_no_leftovers (BusContext *context);
 
 static void
 flush_bus (BusContext *context)
@@ -388,13 +417,239 @@ flush_bus (BusContext *context)
     ;
 }
 
-static void
-kill_client_connection (DBusConnection *connection)
+typedef struct
 {
+  const char *expected_service_name;
+  dbus_bool_t failed;
+} CheckServiceDeletedData;
+
+static dbus_bool_t
+check_service_deleted_foreach (DBusConnection *connection,
+                               void           *data)
+{
+  CheckServiceDeletedData *d = data;
+  DBusMessage *message;
+  DBusError error;
+  char *service_name;
+
+  dbus_error_init (&error);
+  d->failed = TRUE;
+  service_name = NULL;
+  
+  message = dbus_connection_pop_message (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a message on %p, expecting %s\n",
+                  connection, DBUS_MESSAGE_SERVICE_DELETED);
+      goto out;
+    }
+  else if (!dbus_message_name_is (message, DBUS_MESSAGE_SERVICE_DELETED))
+    {
+      _dbus_warn ("Received message %s on %p, expecting %s\n",
+                  dbus_message_get_name (message),
+                  connection, DBUS_MESSAGE_SERVICE_DELETED);
+      goto out;
+    }
+  else
+    {
+      if (!dbus_message_get_args (message, &error,
+                                  DBUS_TYPE_STRING, &service_name,
+                                  DBUS_TYPE_INVALID))
+        {
+          if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
+            {
+              _dbus_verbose ("no memory to get service name arg\n");
+            }
+          else
+            {
+              _dbus_assert (dbus_error_is_set (&error));
+              _dbus_warn ("Did not get the expected single string argument\n");
+              goto out;
+            }
+        }
+      else if (strcmp (service_name, d->expected_service_name) != 0)
+        {
+          _dbus_warn ("expected deletion of service %s, got deletion of %s\n",
+                      d->expected_service_name,
+                      service_name);
+          goto out;
+        }
+    }
+
+  d->failed = FALSE;
+  
+ out:
+  dbus_free (service_name);
+  dbus_error_free (&error);
+  
+  if (message)
+    dbus_message_unref (message);
+
+  return !d->failed;
+}
+
+static void
+kill_client_connection (BusContext     *context,
+                        DBusConnection *connection)
+{
+  char *base_service;
+  const char *s;
+  CheckServiceDeletedData csdd;
+
+  _dbus_verbose ("killing connection %p\n", connection);
+  
+  s = dbus_bus_get_base_service (connection);
+  _dbus_assert (s != NULL);
+
+  while ((base_service = _dbus_strdup (s)) == NULL)
+    bus_wait_for_memory ();
+
+  dbus_connection_ref (connection);
+  
   /* kick in the disconnect handler that unrefs the connection */
   dbus_connection_disconnect (connection);
-  while (dbus_connection_dispatch_message (connection))
-    ;
+
+  flush_bus (context);
+
+  _dbus_assert (bus_test_client_listed (connection));
+  
+  /* Run disconnect handler in test.c */
+  if (dbus_connection_dispatch_message (connection))
+    _dbus_assert_not_reached ("something received on connection being killed other than the disconnect");
+  
+  _dbus_assert (!dbus_connection_get_is_connected (connection));
+  dbus_connection_unref (connection);
+  connection = NULL;
+  _dbus_assert (!bus_test_client_listed (connection));
+  
+  csdd.expected_service_name = base_service;
+  csdd.failed = FALSE;
+
+  bus_test_clients_foreach (check_service_deleted_foreach,
+                            &csdd);
+
+  dbus_free (base_service);
+  
+  if (csdd.failed)
+    _dbus_assert_not_reached ("didn't get the expected ServiceDeleted messages");
+  
+  if (!check_no_leftovers (context))
+    _dbus_assert_not_reached ("stuff left in message queues after disconnecting a client");
+}
+
+typedef struct
+{
+  dbus_bool_t failed;
+} CheckNoMessagesData;
+
+static dbus_bool_t
+check_no_messages_foreach (DBusConnection *connection,
+                           void           *data)
+{
+  CheckNoMessagesData *d = data;
+  DBusMessage *message;
+
+  message = dbus_connection_pop_message (connection);
+  if (message != NULL)
+    {
+      _dbus_warn ("Received message %s on %p, expecting no messages\n",
+                  dbus_message_get_name (message), connection);
+      d->failed = TRUE;
+    }
+
+  if (message)
+    dbus_message_unref (message);
+  return !d->failed;
+}
+
+typedef struct
+{
+  DBusConnection *skip_connection;
+  const char *expected_service_name;
+  dbus_bool_t failed;
+} CheckServiceCreatedData;
+
+static dbus_bool_t
+check_service_created_foreach (DBusConnection *connection,
+                               void           *data)
+{
+  CheckServiceCreatedData *d = data;
+  DBusMessage *message;
+  DBusError error;
+  char *service_name;
+
+  if (connection == d->skip_connection)
+    return TRUE;
+
+  dbus_error_init (&error);
+  d->failed = TRUE;
+  service_name = NULL;
+  
+  message = dbus_connection_pop_message (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a message on %p, expecting %s\n",
+                  connection, DBUS_MESSAGE_SERVICE_CREATED);
+      goto out;
+    }
+  else if (!dbus_message_name_is (message, DBUS_MESSAGE_SERVICE_CREATED))
+    {
+      _dbus_warn ("Received message %s on %p, expecting %s\n",
+                  dbus_message_get_name (message),
+                  connection, DBUS_MESSAGE_SERVICE_CREATED);
+      goto out;
+    }
+  else
+    {
+      if (!dbus_message_get_args (message, &error,
+                                  DBUS_TYPE_STRING, &service_name,
+                                  DBUS_TYPE_INVALID))
+        {
+          if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
+            {
+              _dbus_verbose ("no memory to get service name arg\n");
+            }
+          else
+            {
+              _dbus_assert (dbus_error_is_set (&error));
+              _dbus_warn ("Did not get the expected single string argument\n");
+              goto out;
+            }
+        }
+      else if (strcmp (service_name, d->expected_service_name) != 0)
+        {
+          _dbus_warn ("expected creation of service %s, got creation of %s\n",
+                      d->expected_service_name,
+                      service_name);
+          goto out;
+        }
+    }
+
+  d->failed = FALSE;
+  
+ out:
+  dbus_free (service_name);
+  dbus_error_free (&error);
+  
+  if (message)
+    dbus_message_unref (message);
+
+  return !d->failed;
+}
+
+static dbus_bool_t
+check_no_leftovers (BusContext *context)
+{
+  CheckNoMessagesData nmd;
+
+  nmd.failed = FALSE;
+  bus_test_clients_foreach (check_no_messages_foreach,
+                            &nmd);
+  
+  if (nmd.failed)
+    return FALSE;
+  else
+    return TRUE;
 }
 
 /* returns TRUE if the correct thing happens,
@@ -408,8 +663,12 @@ check_hello_message (BusContext     *context,
   dbus_int32_t serial;
   dbus_bool_t retval;
   DBusError error;
-
+  char *name;
+  char *acquired;
+  
   dbus_error_init (&error);
+  name = NULL;
+  acquired = NULL;
   
   message = dbus_message_new (DBUS_SERVICE_DBUS,
 			      DBUS_MESSAGE_HELLO);
@@ -460,7 +719,7 @@ check_hello_message (BusContext     *context,
     }
   else
     {
-      char *str;
+      CheckServiceCreatedData scd;
       
       if (dbus_message_name_is (message,
                                 DBUS_MESSAGE_HELLO))
@@ -474,21 +733,91 @@ check_hello_message (BusContext     *context,
           goto out;
         }
 
+    retry_get_hello_name:
       if (!dbus_message_get_args (message, &error,
-                                  DBUS_TYPE_STRING, &str,
+                                  DBUS_TYPE_STRING, &name,
                                   DBUS_TYPE_INVALID))
         {
-          _dbus_warn ("Did not get the expected single string argument\n");
-          goto out;
+          if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
+            {
+              _dbus_verbose ("no memory to get service name arg from hello\n");
+              dbus_error_free (&error);
+              bus_wait_for_memory ();
+              goto retry_get_hello_name;
+            }
+          else
+            {
+              _dbus_assert (dbus_error_is_set (&error));
+              _dbus_warn ("Did not get the expected single string argument to hello\n");
+              goto out;
+            }
         }
 
-      _dbus_verbose ("Got hello name: %s\n", str);
-      dbus_free (str);
-    }
+      _dbus_verbose ("Got hello name: %s\n", name);
+
+      while (!dbus_bus_set_base_service (connection, name))
+        bus_wait_for_memory ();
       
+      scd.skip_connection = NULL;
+      scd.failed = FALSE;
+      scd.expected_service_name = name;
+      bus_test_clients_foreach (check_service_created_foreach,
+                                &scd);
+      
+      if (scd.failed)
+        goto out;
+      
+      /* Client should also have gotten ServiceAcquired */
+      dbus_message_unref (message);
+      message = dbus_connection_pop_message (connection);
+      if (message == NULL)
+        {
+          _dbus_warn ("Expecting %s, got nothing\n",
+                      DBUS_MESSAGE_SERVICE_ACQUIRED);
+          goto out;
+        }
+      
+    retry_get_acquired_name:
+      if (!dbus_message_get_args (message, &error,
+                                  DBUS_TYPE_STRING, &acquired,
+                                  DBUS_TYPE_INVALID))
+        {
+          if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
+            {
+              _dbus_verbose ("no memory to get service name arg from acquired\n");
+              dbus_error_free (&error);
+              bus_wait_for_memory ();
+              goto retry_get_acquired_name;
+            }
+          else
+            {
+              _dbus_assert (dbus_error_is_set (&error));
+              _dbus_warn ("Did not get the expected single string argument to ServiceAcquired\n");
+              goto out;
+            }
+        }
+
+      _dbus_verbose ("Got acquired name: %s\n", acquired);
+
+      if (strcmp (acquired, name) != 0)
+        {
+          _dbus_warn ("Acquired name is %s but expected %s\n",
+                      acquired, name);
+          goto out;
+        }
+    }
+
+  if (!check_no_leftovers (context))
+    goto out;
+  
   retval = TRUE;
   
  out:
+  dbus_error_free (&error);
+  
+  dbus_free (name);
+  dbus_free (acquired);
+  
   if (message)
     dbus_message_unref (message);
   
@@ -522,7 +851,24 @@ check_hello_connection (BusContext *context)
   if (!check_hello_message (context, connection))
     return FALSE;
 
-  kill_client_connection (connection);
+  if (dbus_bus_get_base_service (connection) == NULL)
+    {
+      /* We didn't successfully register, so we can't
+       * do the usual kill_client_connection() checks
+       */
+      dbus_connection_ref (connection);
+      dbus_connection_disconnect (connection);
+      /* dispatching disconnect handler will unref once */
+      if (dbus_connection_dispatch_message (connection))
+        _dbus_assert_not_reached ("message other than disconnect dispatched after failure to register");
+      dbus_connection_unref (connection);
+      _dbus_assert (!bus_test_client_listed (connection));
+      return TRUE;
+    }
+  else
+    {
+      kill_client_connection (context, connection);
+    }
 
   return TRUE;
 }
@@ -560,6 +906,9 @@ check1_try_iterations (BusContext *context,
       if (! (*func) (context))
         _dbus_assert_not_reached ("test failed");
 
+      if (!check_no_leftovers (context))
+        _dbus_assert_not_reached ("Messages were left over, should be covered by test suite");
+      
       approx_mallocs -= 1;
     }
 
@@ -588,23 +937,29 @@ bus_dispatch_test (const DBusString *test_data_dir)
   if (foo == NULL)
     _dbus_assert_not_reached ("could not alloc connection");
 
+  if (!bus_setup_debug_client (foo))
+    _dbus_assert_not_reached ("could not set up connection");
+
+  if (!check_hello_message (context, foo))
+    _dbus_assert_not_reached ("hello message failed");
+  
   bar = dbus_connection_open ("debug-pipe:name=test-server", &result);
   if (bar == NULL)
     _dbus_assert_not_reached ("could not alloc connection");
 
+  if (!bus_setup_debug_client (bar))
+    _dbus_assert_not_reached ("could not set up connection");
+
+  if (!check_hello_message (context, bar))
+    _dbus_assert_not_reached ("hello message failed");
+  
   baz = dbus_connection_open ("debug-pipe:name=test-server", &result);
   if (baz == NULL)
     _dbus_assert_not_reached ("could not alloc connection");
 
-  if (!bus_setup_debug_client (foo) ||
-      !bus_setup_debug_client (bar) ||
-      !bus_setup_debug_client (baz))
+  if (!bus_setup_debug_client (baz))
     _dbus_assert_not_reached ("could not set up connection");
-  
-  if (!check_hello_message (context, foo))
-    _dbus_assert_not_reached ("hello message failed");
-  if (!check_hello_message (context, bar))
-    _dbus_assert_not_reached ("hello message failed");
+
   if (!check_hello_message (context, baz))
     _dbus_assert_not_reached ("hello message failed");
 
@@ -612,11 +967,24 @@ bus_dispatch_test (const DBusString *test_data_dir)
                          check_hello_connection);
 
   dbus_connection_disconnect (foo);
+  if (dbus_connection_dispatch_message (foo))
+    _dbus_assert_not_reached ("extra message in queue");
   dbus_connection_unref (foo);
+  _dbus_assert (!bus_test_client_listed (foo));
+
   dbus_connection_disconnect (bar);
+  if (dbus_connection_dispatch_message (bar))
+    _dbus_assert_not_reached ("extra message in queue");
   dbus_connection_unref (bar);
+  _dbus_assert (!bus_test_client_listed (bar));
+
   dbus_connection_disconnect (baz);
+  if (dbus_connection_dispatch_message (baz))
+    _dbus_assert_not_reached ("extra message in queue");
   dbus_connection_unref (baz);
+  _dbus_assert (!bus_test_client_listed (baz));
+
+  bus_context_unref (context);
   
   return TRUE;
 }

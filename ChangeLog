@@ -1,3 +1,73 @@
+2003-03-16  Havoc Pennington  <hp@pobox.com>
+
+	Oops - test code was only testing failure of around 30 of the
+	mallocs in the test path, but it turns out there are 500+
+	mallocs. I believe this was due to misguided linking setup such
+	that there was one copy of dbus_malloc etc. in the daemon and one
+	in the shared lib, and only daemon mallocs were tested. In any
+	case, the test case now tests all 500+ mallocs, and doesn't pass
+	yet, though there are lots of fixes in this patch.
+	
+	* dbus/dbus-connection.c (dbus_connection_dispatch_message): fix
+	this so that it doesn't need to allocate memory, since it 
+	has no way of indicating failure due to OOM (and would be 
+	annoying if it did).
+
+	* dbus/dbus-list.c (_dbus_list_pop_first_link): new function
+
+	* bus/Makefile.am: rearrange to create two self-contained
+	libraries, to avoid having libraries with overlapping symbols. 
+	that was resulting in weirdness, e.g. I'm pretty sure there 
+	were two copies of global static variables.
+
+	* dbus/dbus-internals.c: move the malloc debug stuff to 
+	dbus-memory.c
+
+	* dbus/dbus-list.c (free_link): free list mempool if it becomes
+	empty.
+
+	* dbus/dbus-memory.c (_dbus_disable_mem_pools): new function
+
+	* dbus/dbus-address.c (dbus_parse_address): free list nodes
+	on failure.
+
+	* bus/dispatch.c (bus_dispatch_add_connection): free
+	message_handler_slot when no longer using it, so 
+	memory leak checkers are happy for the test suite.
+
+	* dbus/dbus-server-debug-pipe.c (debug_finalize): free server name
+
+	* bus/bus.c (new_connection_callback): disconnect in here if 
+	bus_connections_setup_connection fails.
+
+	* bus/connection.c (bus_connections_unref): fix to free the 
+	connections
+	(bus_connections_setup_connection): if this fails, don't
+	disconnect the connection, just be sure there are no side
+	effects.
+
+	* dbus/dbus-string.c (undo_alignment): unbreak this
+
+	* dbus/dbus-auth.c (_dbus_auth_unref): free some stuff we were
+	leaking
+	(_dbus_auth_new): fix the order in which we free strings 
+	on OOM failure
+
+	* bus/connection.c (bus_connection_disconnected): fix to 
+	not send ServiceDeleted multiple times in case of memory 
+	allocation failure
+
+	* dbus/dbus-bus.c (dbus_bus_get_base_service): new function to
+	get the base service name
+	(dbus_bus_register_client): don't return base service name,
+	instead store it on the DBusConnection and have an accessor
+	function for it.
+	(dbus_bus_register_client): rename dbus_bus_register()
+
+	* bus/dispatch.c (check_hello_message): verify that other 
+	connections on the bus also got the correct results, not 
+	just the one sending hello
+
 2003-03-15  Havoc Pennington  <hp@pobox.com>
 
 	Make it pass the Hello handling test including all OOM codepaths.

@@ -94,8 +94,17 @@ new_connection_callback (DBusServer     *server,
   BusContext *context = data;
   
   if (!bus_connections_setup_connection (context->connections, new_connection))
-    _dbus_verbose ("No memory to setup new connection\n");
+    {
+      _dbus_verbose ("No memory to setup new connection\n");
 
+      /* if we don't do this, it will get unref'd without
+       * being disconnected... kind of strange really
+       * that we have to do this, people won't get it right
+       * in general.
+       */
+      dbus_connection_disconnect (new_connection);
+    }
+  
   /* on OOM, we won't have ref'd the connection so it will die. */
 }
 
@@ -223,16 +232,34 @@ bus_context_unref (BusContext *context)
 
   if (context->refcount == 0)
     {
+      _dbus_verbose ("Finalizing bus context %p\n", context);
+      
       bus_context_shutdown (context);
+
+      if (context->connections)
+        {
+          bus_connections_unref (context->connections);
+          context->connections = NULL;
+        }
       
       if (context->registry)
-        bus_registry_unref (context->registry);
-      if (context->connections)
-        bus_connections_unref (context->connections);
+        {
+          bus_registry_unref (context->registry);
+          context->registry = NULL;
+        }
+      
       if (context->activation)
-        bus_activation_unref (context->activation);
+        {
+          bus_activation_unref (context->activation);
+          context->activation = NULL;
+        }
+      
       if (context->server)
-        dbus_server_unref (context->server);
+        {
+          dbus_server_unref (context->server);
+          context->server = NULL;
+        }
+      
       dbus_free (context->address);
       dbus_free (context);
     }

@@ -209,7 +209,8 @@ init_static_locks(void)
     {&_dbus_connection_slots_init_lock},
     {&_dbus_atomic_init_lock},
     {&_dbus_message_handler_init_lock},
-    {&_dbus_user_info_init_lock}
+    {&_dbus_user_info_init_lock},
+    {&_dbus_bus_init_lock}
   };
   
   for (i = 0; i < _DBUS_N_ELEMENTS (static_locks); i++)

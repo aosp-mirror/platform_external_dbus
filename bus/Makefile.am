@@ -6,9 +6,7 @@ EFENCE=
 
 bin_PROGRAMS=dbus-daemon-1
 
-noinst_LTLIBRARIES=libdbus-daemon.la
-
-libdbus_daemon_la_SOURCES=			\
+BUS_SOURCES=					\
 	activation.c				\
 	activation.h				\
 	bus.c					\
@@ -30,18 +28,14 @@ libdbus_daemon_la_SOURCES=			\
 	utils.c					\
 	utils.h
 
-
-libdbus_daemon_la_LIBADD=				\
-	$(top_builddir)/dbus/libdbus-convenience.la
-
 dbus_daemon_1_SOURCES=				\
+	$(BUS_SOURCES)				\
 	main.c					
 
 dbus_daemon_1_LDADD=					\
 	$(EFENCE)					\
 	$(DBUS_BUS_LIBS)				\
-	$(top_builddir)/bus/libdbus-daemon.la		\
-	$(top_builddir)/dbus/libdbus-1.la
+	$(top_builddir)/dbus/libdbus-convenience.la
 
 ## note that TESTS has special meaning (stuff to use in make check)
 ## so if adding tests not to be run in make check, don't add them to 
@@ -58,9 +52,10 @@ endif
 noinst_PROGRAMS=$(TESTS)
 
 bus_test_SOURCES=				\
+	$(BUS_SOURCES)				\
 	test-main.c
 
-bus_test_LDADD= $(top_builddir)/dbus/libdbus-1.la libdbus-daemon.la
+bus_test_LDADD=$(top_builddir)/dbus/libdbus-convenience.la
 
 ## mop up the gcov files
 clean-local:

@@ -322,9 +322,9 @@ _dbus_auth_new (int size)
  enomem_3:
   _dbus_string_free (&auth->identity);
  enomem_2:
-  _dbus_string_free (&auth->incoming);
- enomem_1:
   _dbus_string_free (&auth->outgoing);
+ enomem_1:
+  _dbus_string_free (&auth->incoming);
  enomem_0:
   dbus_free (auth);
   return NULL;
@@ -1863,7 +1863,9 @@ _dbus_auth_unref (DBusAuth *auth)
 
       if (auth->keyring)
         _dbus_keyring_unref (auth->keyring);
-      
+
+      _dbus_string_free (&auth->context);
+      _dbus_string_free (&auth->challenge);
       _dbus_string_free (&auth->identity);
       _dbus_string_free (&auth->incoming);
       _dbus_string_free (&auth->outgoing);

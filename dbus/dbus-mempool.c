@@ -22,6 +22,7 @@
  */
 
 #include "dbus-mempool.h"
+#include "dbus-internals.h"
 
 /**
  * @defgroup DBusMemPool memory pools
@@ -99,6 +100,7 @@ struct DBusMemPool
 
   DBusFreedElement *free_elements; /**< a free list of elements to recycle */
   DBusMemBlock *blocks;            /**< blocks of memory from malloc() */
+  int allocated_elements;          /* Count of outstanding allocated elements */
 };
 
 /** @} */
@@ -156,6 +158,8 @@ _dbus_mem_pool_new (int element_size,
 
   pool->zero_elements = zero_elements != FALSE;
 
+  pool->allocated_elements = 0;
+  
   /* pick a size for the first block; it increases
    * for each block we need to allocate. This is
    * actually half the initial block size
@@ -202,80 +206,118 @@ _dbus_mem_pool_free (DBusMemPool *pool)
 void*
 _dbus_mem_pool_alloc (DBusMemPool *pool)
 {
-  if (_dbus_decrement_fail_alloc_counter ())
+  if (_dbus_disable_mem_pools ())
     {
-      _dbus_verbose (" FAILING mempool alloc\n");
-      return NULL;
-    }
-  
-  if (pool->free_elements)
-    {
-      DBusFreedElement *element = pool->free_elements;
-
-      pool->free_elements = pool->free_elements->next;
-
-      if (pool->zero_elements)
-        memset (element, '\0', pool->element_size);
+      DBusMemBlock *block;
+      int alloc_size;
       
-      return element;
+      /* This is obviously really silly, but it's
+       * debug-mode-only code that is compiled out
+       * when tests are disabled (_dbus_disable_mem_pools()
+       * is a constant expression FALSE so this block
+       * should vanish)
+       */
+      
+      alloc_size = sizeof (DBusMemBlock) - ELEMENT_PADDING +
+        pool->element_size;
+      
+      if (pool->zero_elements)
+        block = dbus_malloc0 (alloc_size);
+      else
+        block = dbus_malloc (alloc_size);
+
+      if (block != NULL)
+        {
+          block->next = pool->blocks;
+          pool->blocks = block;
+          pool->allocated_elements += 1;
+
+          return (void*) &block->elements[0];
+        }
+      else
+        return NULL;
     }
   else
     {
-      void *element;
-      
-      if (pool->blocks == NULL ||
-          pool->blocks->used_so_far == pool->block_size)
+      if (_dbus_decrement_fail_alloc_counter ())
         {
-          /* Need a new block */
-          DBusMemBlock *block;
-          int alloc_size;
-#ifdef DBUS_BUILD_TESTS
-          int saved_counter;
-#endif
-          
-          if (pool->block_size <= _DBUS_INT_MAX / 4) /* avoid overflow */
-            {
-              /* use a larger block size for our next block */
-              pool->block_size *= 2;
-              _dbus_assert ((pool->block_size %
-                             pool->element_size) == 0);
-            }
-
-          alloc_size = sizeof (DBusMemBlock) - ELEMENT_PADDING + pool->block_size;
-
-#ifdef DBUS_BUILD_TESTS
-          /* We save/restore the counter, so that memory pools won't
-           * cause a given function to have different number of
-           * allocations on different invocations. i.e.  when testing
-           * we want consistent alloc patterns. So we skip our
-           * malloc here for purposes of failed alloc simulation.
-           */
-          saved_counter = _dbus_get_fail_alloc_counter ();
-          _dbus_set_fail_alloc_counter (_DBUS_INT_MAX);
-#endif
-          
-          if (pool->zero_elements)
-            block = dbus_malloc0 (alloc_size);
-          else
-            block = dbus_malloc (alloc_size);
-
-#ifdef DBUS_BUILD_TESTS
-          _dbus_set_fail_alloc_counter (saved_counter);
-#endif
-          
-          if (block == NULL)
-            return NULL;
-
-          block->used_so_far = 0;
-          block->next = pool->blocks;
-          pool->blocks = block;
+          _dbus_verbose (" FAILING mempool alloc\n");
+          return NULL;
         }
+      else if (pool->free_elements)
+        {
+          DBusFreedElement *element = pool->free_elements;
+
+          pool->free_elements = pool->free_elements->next;
+
+          if (pool->zero_elements)
+            memset (element, '\0', pool->element_size);
+
+          pool->allocated_elements += 1;
       
-      element = &pool->blocks->elements[pool->blocks->used_so_far];
+          return element;
+        }
+      else
+        {
+          void *element;
+      
+          if (pool->blocks == NULL ||
+              pool->blocks->used_so_far == pool->block_size)
+            {
+              /* Need a new block */
+              DBusMemBlock *block;
+              int alloc_size;
+#ifdef DBUS_BUILD_TESTS
+              int saved_counter;
+#endif
+          
+              if (pool->block_size <= _DBUS_INT_MAX / 4) /* avoid overflow */
+                {
+                  /* use a larger block size for our next block */
+                  pool->block_size *= 2;
+                  _dbus_assert ((pool->block_size %
+                                 pool->element_size) == 0);
+                }
 
-      pool->blocks->used_so_far += pool->element_size;
+              alloc_size = sizeof (DBusMemBlock) - ELEMENT_PADDING + pool->block_size;
 
-      return element;
+#ifdef DBUS_BUILD_TESTS
+              /* We save/restore the counter, so that memory pools won't
+               * cause a given function to have different number of
+               * allocations on different invocations. i.e.  when testing
+               * we want consistent alloc patterns. So we skip our
+               * malloc here for purposes of failed alloc simulation.
+               */
+              saved_counter = _dbus_get_fail_alloc_counter ();
+              _dbus_set_fail_alloc_counter (_DBUS_INT_MAX);
+#endif
+          
+              if (pool->zero_elements)
+                block = dbus_malloc0 (alloc_size);
+              else
+                block = dbus_malloc (alloc_size);
+
+#ifdef DBUS_BUILD_TESTS
+              _dbus_set_fail_alloc_counter (saved_counter);
+              _dbus_assert (saved_counter == _dbus_get_fail_alloc_counter ());
+#endif
+          
+              if (block == NULL)
+                return NULL;
+
+              block->used_so_far = 0;
+              block->next = pool->blocks;
+              pool->blocks = block;          
+            }
+      
+          element = &pool->blocks->elements[pool->blocks->used_so_far];
+
+          pool->blocks->used_so_far += pool->element_size;
+
+          pool->allocated_elements += 1;
+      
+          return element;
+        }
     }
 }
 
@@ -285,16 +327,61 @@ _dbus_mem_pool_alloc (DBusMemPool *pool)
  * must have come from this same pool.
  * @param pool the memory pool
  * @param element the element earlier allocated.
+ * @returns #TRUE if there are no remaining allocated elements
  */
-void
+dbus_bool_t
 _dbus_mem_pool_dealloc (DBusMemPool *pool,
                         void        *element)
 {
-  DBusFreedElement *freed;
+  if (_dbus_disable_mem_pools ())
+    {
+      DBusMemBlock *block;
+      DBusMemBlock *prev;
 
-  freed = element;
-  freed->next = pool->free_elements;
-  pool->free_elements = freed;
+      /* mmm, fast. ;-) debug-only code, so doesn't matter. */
+      
+      prev = NULL;
+      block = pool->blocks;
+
+      while (block != NULL)
+        {
+          if (block->elements == (unsigned char*) element)
+            {
+              if (prev)
+                prev->next = block->next;
+              else
+                pool->blocks = block->next;
+              
+              dbus_free (block);
+
+              _dbus_assert (pool->allocated_elements > 0);
+              pool->allocated_elements -= 1;
+              
+              if (pool->allocated_elements == 0)
+                _dbus_assert (pool->blocks == NULL);
+              
+              return pool->blocks == NULL;
+            }
+          prev = block;
+          block = block->next;
+        }
+      
+      _dbus_assert_not_reached ("freed nonexistent block");
+      return FALSE;
+    }
+  else
+    {
+      DBusFreedElement *freed;
+      
+      freed = element;
+      freed->next = pool->free_elements;
+      pool->free_elements = freed;
+      
+      _dbus_assert (pool->allocated_elements > 0);
+      pool->allocated_elements -= 1;
+      
+      return pool->allocated_elements == 0;
+    }
 }
 
 /** @} */

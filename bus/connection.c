@@ -70,38 +70,38 @@ bus_connection_disconnected (DBusConnection *connection)
    * stuff, not just sending a message (so we can e.g. revert
    * removal of service owners).
    */
-  {
-    BusTransaction *transaction;
-    DBusError error;
+  while ((service = _dbus_list_get_last (&d->services_owned)))
+    {
+      BusTransaction *transaction;
+      DBusError error;
 
-    dbus_error_init (&error);
-
-    transaction = NULL;
-    while (transaction == NULL)
-      {
-        transaction = bus_transaction_new (d->connections->context);
-        bus_wait_for_memory ();
-      }
-    
-    while ((service = _dbus_list_get_last (&d->services_owned)))
-      {
-      retry:
-        if (!bus_service_remove_owner (service, connection,
-                                       transaction, &error))
-          {
-            if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
-              {
-                dbus_error_free (&error);
-                bus_wait_for_memory ();
-                goto retry;
-              }
-            else
-              _dbus_assert_not_reached ("Removing service owner failed for non-memory-related reason");
-          }
-      }
-
-    bus_transaction_execute_and_free (transaction);
-  }
+    retry:
+      
+      dbus_error_init (&error);
+        
+      transaction = NULL;
+      while (transaction == NULL)
+        {
+          transaction = bus_transaction_new (d->connections->context);
+          bus_wait_for_memory ();
+        }
+        
+      if (!bus_service_remove_owner (service, connection,
+                                     transaction, &error))
+        {
+          if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
+            {
+              dbus_error_free (&error);
+              bus_transaction_cancel_and_free (transaction);
+              bus_wait_for_memory ();
+              goto retry;
+            }
+          else
+            _dbus_assert_not_reached ("Removing service owner failed for non-memory-related reason");
+        }
+        
+      bus_transaction_execute_and_free (transaction);
+    }
 
   bus_dispatch_remove_connection (connection);
   
@@ -247,8 +247,17 @@ bus_connections_unref (BusConnections *connections)
   connections->refcount -= 1;
   if (connections->refcount == 0)
     {
-      /* FIXME free each connection... */
-      _dbus_assert_not_reached ("shutting down connections not implemented");
+      while (connections->list != NULL)
+        {
+          DBusConnection *connection;
+
+          connection = connections->list->data;
+
+          dbus_connection_ref (connection);
+          dbus_connection_disconnect (connection);
+          bus_connection_disconnected (connection);
+          dbus_connection_unref (connection);
+        }
       
       _dbus_list_clear (&connections->list);
       
@@ -261,7 +270,8 @@ bus_connections_setup_connection (BusConnections *connections,
                                   DBusConnection *connection)
 {
   BusConnectionData *d;
-
+  dbus_bool_t retval;
+  
   d = dbus_new0 (BusConnectionData, 1);
   
   if (d == NULL)
@@ -277,13 +287,8 @@ bus_connections_setup_connection (BusConnections *connections,
       dbus_free (d);
       return FALSE;
     }
-  
-  if (!_dbus_list_append (&connections->list, connection))
-    {
-      /* this will free our data when connection gets finalized */
-      dbus_connection_disconnect (connection);
-      return FALSE;
-    }
+
+  retval = FALSE;
   
   if (!dbus_connection_set_watch_functions (connection,
                                             (DBusAddWatchFunction) add_connection_watch,
@@ -291,32 +296,46 @@ bus_connections_setup_connection (BusConnections *connections,
                                             NULL,
                                             connection,
                                             NULL))
-    {
-      dbus_connection_disconnect (connection);
-      return FALSE;
-    }
+    goto out;
   
   if (!dbus_connection_set_timeout_functions (connection,
                                               (DBusAddTimeoutFunction) add_connection_timeout,
                                               (DBusRemoveTimeoutFunction) remove_connection_timeout,
                                               NULL,
                                               connection, NULL))
-    {
-      dbus_connection_disconnect (connection);
-      return FALSE;
-    }
+    goto out;
 
   
   /* Setup the connection with the dispatcher */
   if (!bus_dispatch_add_connection (connection))
-    {
-      dbus_connection_disconnect (connection);
-      return FALSE;
-    }
-
-  dbus_connection_ref (connection);
+    goto out;
   
-  return TRUE;
+  if (!_dbus_list_append (&connections->list, connection))
+    {
+      bus_dispatch_remove_connection (connection);
+      goto out;
+    }
+  
+  dbus_connection_ref (connection);
+  retval = TRUE;
+
+ out:
+  if (!retval)
+    {
+      if (!dbus_connection_set_watch_functions (connection,
+                                                NULL, NULL, NULL,
+                                                connection,
+                                                NULL))
+        _dbus_assert_not_reached ("setting watch functions to NULL failed");
+      
+      if (!dbus_connection_set_timeout_functions (connection,
+                                                  NULL, NULL, NULL,
+                                                  connection,
+                                                  NULL))
+        _dbus_assert_not_reached ("setting timeout functions to NULL failed");
+    }
+  
+  return retval;
 }
 
 
@@ -607,8 +626,10 @@ bus_transaction_send_message (BusTransaction *transaction,
   BusConnectionData *d;
   DBusList *link;
 
-  _dbus_verbose ("  trying to add message %s to transaction\n",
-                 dbus_message_get_name (message));
+  _dbus_verbose ("  trying to add message %s to transaction%s\n",
+                 dbus_message_get_name (message),
+                 dbus_connection_get_is_connected (connection) ?
+                 "" : " (disconnected)");
   
   if (!dbus_connection_get_is_connected (connection))
     return TRUE; /* silently ignore disconnected connections */
@@ -702,6 +723,8 @@ void
 bus_transaction_cancel_and_free (BusTransaction *transaction)
 {
   DBusConnection *connection;
+
+  _dbus_verbose ("TRANSACTION: cancelled\n");
   
   while ((connection = _dbus_list_pop_first (&transaction->connections)))
     connection_cancel_transaction (connection, transaction);
@@ -754,6 +777,8 @@ bus_transaction_execute_and_free (BusTransaction *transaction)
    * send the messages
    */
   DBusConnection *connection;
+
+  _dbus_verbose ("TRANSACTION: executing\n");
   
   while ((connection = _dbus_list_pop_first (&transaction->connections)))
     connection_execute_transaction (connection, transaction);
@@ -796,9 +821,6 @@ bus_transaction_send_error_reply (BusTransaction  *transaction,
 
   _dbus_assert (error != NULL);
   _DBUS_ASSERT_ERROR_IS_SET (error);
-
-  _dbus_verbose ("  trying to add error %s to transaction\n",
-                 error->name);
   
   reply = dbus_message_new_error_reply (in_reply_to,
                                         error->name,

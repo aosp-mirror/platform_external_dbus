@@ -65,8 +65,11 @@ static DBusHashTable *server_pipe_hash;
 static void
 debug_finalize (DBusServer *server)
 {
+  DBusServerDebugPipe *debug_server = (DBusServerDebugPipe*) server;
+  
   _dbus_server_finalize_base (server);
 
+  dbus_free (debug_server->name);
   dbus_free (server);
 }
 
