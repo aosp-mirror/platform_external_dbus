@@ -97,11 +97,10 @@
       </question>
       <answer>
         <para>
-          If you imagine a C++ program that implements a network 
-          service, then the bus name is the domain name 
-          of the computer running this C++ program, the object path 
-          is a C++ object instance pointer, and an interface is a C++ 
-          class (a pure virtual or abstract class, to be exact). 
+          If you imagine a C++ program that implements a network service, then
+          the bus name is the hostname of the computer running this C++ program,
+          the object path is a C++ object instance pointer, and an interface is
+          a C++ class (a pure virtual or abstract class, to be exact).
         </para>
         <para>
           In Java terms, the object path is an object reference, 
@@ -120,11 +119,12 @@
         </para>
         <para>
           However, a text editor application could as easily own multiple bus
-          names (for example, <literal>org.kde.KWrite</literal>), have multiple
-          objects (maybe <literal>/org/kde/documents/4352</literal>),
-          and each object could implement multiple interfaces, 
-          such as <literal>org.freedesktop.Introspectable</literal>, 
-          <literal>org.freedesktop.BasicTextField</literal>, 
+          names (for example, <literal>org.kde.KWrite</literal> in addition to
+          generic <literal>TextEditor</literal>), have multiple objects (maybe
+          <literal>/org/kde/documents/4352</literal> where the number changes
+          according to the document), and each object could implement multiple
+          interfaces, such as <literal>org.freedesktop.Introspectable</literal>,
+          <literal>org.freedesktop.BasicTextField</literal>,
           <literal>org.kde.RichTextDocument</literal>.
         </para>
       </answer>

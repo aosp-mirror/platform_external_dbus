@@ -107,7 +107,7 @@
         communication" or "networking" in their stated purpose: <ulink
         url="http://www.omg.org">CORBA</ulink>, <ulink
         url="http://www.opengroup.org/dce/">DCE</ulink>, <ulink
-        url="http://www.microsoft.com/com/">COM/DCOM</ulink>, <ulink
+        url="http://www.microsoft.com/com/">DCOM</ulink>, <ulink
         url="http://developer.kde.org/documentation/library/kdeqt/dcop.html">DCOP</ulink>, <ulink
         url="http://www.xmlrpc.com">XML-RPC</ulink>, <ulink
         url="http://www.w3.org/TR/SOAP/">SOAP</ulink>, <ulink
@@ -221,6 +221,12 @@
       Some basic concepts apply no matter what application framework you're
       using to write a D-BUS application. The exact code you write will be
       different for GLib vs. Qt vs. Python applications, however.
+    </para>
+    
+    <para>
+      Here is a diagram (<ulink url="diagram.png">png</ulink> <ulink
+      url="diagram.svg">svg</ulink>) that may help you visualize the concepts
+      that follow.
     </para>
 
     <sect2 id="objects">
