@@ -87,12 +87,6 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
     die ("sysdeps");
 
   check_memleaks ();
-
-  printf ("%s: running spawn tests\n", "dbus-test");
-  if (!_dbus_spawn_test (test_data_dir))
-    die ("spawn");
-
-  check_memleaks ();
   
   printf ("%s: running data slot tests\n", "dbus-test");
   if (!_dbus_data_slot_test ())
@@ -112,12 +106,6 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
 
   check_memleaks ();
   
-  printf ("%s: running message tests\n", "dbus-test");
-  if (!_dbus_message_test (test_data_dir))
-    die ("messages");
-
-  check_memleaks ();
-  
   printf ("%s: running memory pool tests\n", "dbus-test");
   if (!_dbus_mem_pool_test ())
     die ("memory pools");
@@ -130,12 +118,30 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
 
   check_memleaks ();
   
+  printf ("%s: running message tests\n", "dbus-test");
+  if (!_dbus_message_test (test_data_dir))
+    die ("messages");
+
+  check_memleaks ();
+
+  printf ("%s: running message handler tests\n", "dbus-test");
+  if (!_dbus_message_handler_test (test_data_dir))
+    die ("message handler");
+
+  check_memleaks ();
+  
   printf ("%s: running hash table tests\n", "dbus-test");
   if (!_dbus_hash_test ())
     die ("hash tables");
 
   check_memleaks ();
 
+  printf ("%s: running spawn tests\n", "dbus-test");
+  if (!_dbus_spawn_test (test_data_dir))
+    die ("spawn");
+
+  check_memleaks ();
+  
   printf ("%s: running user database tests\n", "dbus-test");
   if (!_dbus_userdb_test (test_data_dir))
     die ("user database");

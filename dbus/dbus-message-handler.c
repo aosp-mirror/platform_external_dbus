@@ -25,6 +25,7 @@
 #include "dbus-message-handler.h"
 #include "dbus-list.h"
 #include "dbus-threads.h"
+#include "dbus-test.h"
 #include "dbus-connection-internal.h"
 
 /**
@@ -318,3 +319,53 @@ dbus_message_handler_set_function (DBusMessageHandler        *handler,
 }
 
 /** @} */
+
+#ifdef DBUS_BUILD_TESTS
+static DBusHandlerResult
+test_handler (DBusMessageHandler *handler,
+              DBusConnection     *connection,
+              DBusMessage        *message,
+              void               *user_data)
+{
+  return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
+}
+
+static void
+free_test_data (void *data)
+{
+  /* does nothing */
+}
+
+/**
+ * @ingroup DBusMessageInternals
+ * Unit test for DBusMessageHandler.
+ *
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_message_handler_test (const char *test_data_dir)
+{
+  DBusMessageHandler *handler;
+
+#define TEST_DATA ((void*) 0xcafebabe)
+  
+  handler = dbus_message_handler_new (test_handler,
+                                      TEST_DATA,
+                                      free_test_data);
+
+  _dbus_assert (handler != NULL);
+  _dbus_assert (handler->function == test_handler);
+
+  if (dbus_message_handler_get_data (handler) != TEST_DATA)
+    _dbus_assert_not_reached ("got wrong data");
+
+  dbus_message_handler_set_function (handler, NULL);
+  _dbus_assert (handler->function == NULL);
+
+  dbus_message_handler_ref (handler);
+  dbus_message_handler_unref (handler);
+  dbus_message_handler_unref (handler);
+  
+  return TRUE;
+}
+#endif /* DBUS_BUILD_TESTS */

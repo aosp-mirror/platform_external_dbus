@@ -1138,6 +1138,14 @@ _dbus_keyring_test (void)
 
   printf (" %d keys in test\n", ring1->n_keys);
 
+  /* Test ref/unref */
+  _dbus_keyring_ref (ring1);
+  _dbus_keyring_ref (ring2);
+  _dbus_keyring_unref (ring1);
+  _dbus_keyring_unref (ring2);
+
+
+  /* really unref */
   _dbus_keyring_unref (ring1);
   _dbus_keyring_unref (ring2);
   

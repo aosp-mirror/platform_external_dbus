@@ -1094,6 +1094,8 @@ _dbus_hash_table_lookup_int (DBusHashTable *table,
     return NULL;
 }
 
+#ifdef DBUS_BUILD_TESTS
+/* disabled since it's only used for testing */
 /**
  * Looks up the value for a given integer in a hash table
  * of type #DBUS_HASH_POINTER. Returns %NULL if the value
@@ -1118,6 +1120,7 @@ _dbus_hash_table_lookup_pointer (DBusHashTable *table,
   else
     return NULL;
 }
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Looks up the value for a given integer in a hash table
@@ -1200,6 +1203,8 @@ _dbus_hash_table_remove_int (DBusHashTable *table,
     return FALSE;
 }
 
+#ifdef DBUS_BUILD_TESTS
+/* disabled since it's only used for testing */
 /**
  * Removes the hash entry for the given key. If no hash entry
  * for the key exists, does nothing.
@@ -1227,7 +1232,7 @@ _dbus_hash_table_remove_pointer (DBusHashTable *table,
   else
     return FALSE;
 }
-
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Removes the hash entry for the given key. If no hash entry
@@ -1332,6 +1337,8 @@ _dbus_hash_table_insert_int (DBusHashTable *table,
   return TRUE;
 }
 
+#ifdef DBUS_BUILD_TESTS
+/* disabled since it's only used for testing */
 /**
  * Creates a hash entry with the given key and value.
  * The key and value are not copied; they are stored
@@ -1372,7 +1379,7 @@ _dbus_hash_table_insert_pointer (DBusHashTable *table,
 
   return TRUE;
 }
-
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Creates a hash entry with the given key and value.

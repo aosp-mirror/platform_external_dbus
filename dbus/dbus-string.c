@@ -301,6 +301,10 @@ _dbus_string_free (DBusString *str)
   real->invalid = TRUE;
 }
 
+#ifdef DBUS_BUILD_TESTS
+/* Not using this feature at the moment,
+ * so marked DBUS_BUILD_TESTS-only
+ */
 /**
  * Locks a string such that any attempts to change the string will
  * result in aborting the program. Also, if the string is wasting a
@@ -338,6 +342,7 @@ _dbus_string_lock (DBusString *str)
         }
     }
 }
+#endif /* DBUS_BUILD_TESTS */
 
 static dbus_bool_t
 set_length (DBusRealString *real,

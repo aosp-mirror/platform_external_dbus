@@ -1,5 +1,23 @@
 2003-05-04  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-message-handler.c (_dbus_message_handler_test): add
+	unit test
+
+	* dbus/dbus-marshal.c (_dbus_demarshal_string_array): fix this
+	function, which assumed length was in # of strings, not bytes
+
+	* dbus/dbus-message.c (_dbus_message_test): add tests for some
+	missing coverage
+
+	* dbus/dbus-connection.c
+	(_dbus_connection_queue_received_message): disable function for
+	now, we are only using it in test mode
+
+	* dbus/dbus-message.c (_dbus_message_loader_queue_messages):
+	remove a mistaken FIXME
+
+2003-05-04  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-connection.c (dbus_connection_preallocate_send):
 	unlock mutex on successful return, patch from Anders Gustafsson
 

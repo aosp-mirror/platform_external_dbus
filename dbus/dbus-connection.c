@@ -221,6 +221,8 @@ _dbus_connection_wakeup_mainloop (DBusConnection *connection)
     (*connection->wakeup_main_function) (connection->wakeup_main_data);
 }
 
+#ifdef DBUS_BUILD_TESTS
+/* For now this function isn't used */
 /**
  * Adds a message to the incoming message queue, returning #FALSE
  * if there's insufficient memory to queue the message.
@@ -245,6 +247,7 @@ _dbus_connection_queue_received_message (DBusConnection *connection,
 
   return TRUE;
 }
+#endif
 
 /**
  * Adds a message-containing list link to the incoming message queue,

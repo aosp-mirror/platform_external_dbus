@@ -1160,12 +1160,11 @@ _dbus_message_data_load (DBusString       *dest,
                                                "UINT32"))
         {
           SAVE_FOR_UNALIGN (dest, 4);
-          long val;
+          unsigned long val;
           
           _dbus_string_delete_first_word (&line);
 
-          /* FIXME should have _dbus_string_parse_uint32 */
-          if (!_dbus_string_parse_int (&line, 0, &val, NULL))
+          if (!_dbus_string_parse_uint (&line, 0, &val, NULL))
             goto parse_failed;
           
           if (!_dbus_marshal_uint32 (dest, endian,

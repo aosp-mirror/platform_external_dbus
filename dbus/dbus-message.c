@@ -4478,8 +4478,9 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
           _dbus_assert (_dbus_string_get_length (&message->header) == header_len);
           _dbus_assert (_dbus_string_get_length (&message->body) == body_len);
 
-          /* Fill in caches */
-          /* FIXME there's no type check if the field has the wrong type */
+          /* Fill in caches (we checked the types of these fields
+           * earlier)
+           */
           message->reply_serial = get_uint_field (message,
                                                   FIELD_REPLY_SERIAL);
           message->client_serial = get_uint_field (message,
@@ -5224,6 +5225,11 @@ dbus_internal_do_not_use_try_message_data (const DBusString    *data,
   
   loader = _dbus_message_loader_new ();
 
+  /* check some trivial loader functions */
+  _dbus_message_loader_ref (loader);
+  _dbus_message_loader_unref (loader);
+  _dbus_message_loader_get_max_message_size (loader);
+  
   len = _dbus_string_get_length (data);
   for (i = 0; i < len; i++)
     {
@@ -5449,18 +5455,33 @@ dbus_internal_do_not_use_foreach_message_file (const char                *test_d
 static void
 verify_test_message (DBusMessage *message)
 {
+  DBusMessageIter iter, dict;
+  DBusError error;
   dbus_int32_t our_int;
   char *our_str;
   double our_double;
   dbus_bool_t our_bool;
-  dbus_int32_t *our_int_array;
   dbus_uint32_t our_uint32;
-  int our_int_array_len;
-  DBusMessageIter iter, dict;
-  DBusError error;
+  dbus_int32_t *our_uint32_array;
+  int our_uint32_array_len;
+  dbus_int32_t *our_int32_array;
+  int our_int32_array_len;
+  char **our_string_array;
+  int our_string_array_len;
 #ifdef DBUS_HAVE_INT64
   dbus_int64_t our_int64;
+  dbus_uint64_t our_uint64;
+  dbus_int64_t *our_uint64_array;
+  int our_uint64_array_len;
+  dbus_int64_t *our_int64_array;
+  int our_int64_array_len;
 #endif
+  double *our_double_array;
+  int our_double_array_len;
+  unsigned char *our_byte_array;
+  int our_byte_array_len;
+  unsigned char *our_boolean_array;
+  int our_boolean_array_len;
   
   dbus_message_iter_init (message, &iter);
 
@@ -5469,14 +5490,33 @@ verify_test_message (DBusMessage *message)
 				   DBUS_TYPE_INT32, &our_int,
 #ifdef DBUS_HAVE_INT64
                                    DBUS_TYPE_INT64, &our_int64,
+                                   DBUS_TYPE_UINT64, &our_uint64,
 #endif
 				   DBUS_TYPE_STRING, &our_str,
 				   DBUS_TYPE_DOUBLE, &our_double,
 				   DBUS_TYPE_BOOLEAN, &our_bool,
-				   DBUS_TYPE_ARRAY, DBUS_TYPE_UINT32, &our_int_array, &our_int_array_len,
+				   DBUS_TYPE_ARRAY, DBUS_TYPE_UINT32,
+                                   &our_uint32_array, &our_uint32_array_len,
+                                   DBUS_TYPE_ARRAY, DBUS_TYPE_INT32,
+                                   &our_int32_array, &our_int32_array_len,
+#ifdef DBUS_HAVE_INT64
+				   DBUS_TYPE_ARRAY, DBUS_TYPE_UINT64,
+                                   &our_uint64_array, &our_uint64_array_len,
+                                   DBUS_TYPE_ARRAY, DBUS_TYPE_INT64,
+                                   &our_int64_array, &our_int64_array_len,
+#endif
+                                   DBUS_TYPE_ARRAY, DBUS_TYPE_STRING,
+                                   &our_string_array, &our_string_array_len,
+                                   DBUS_TYPE_ARRAY, DBUS_TYPE_DOUBLE,
+                                   &our_double_array, &our_double_array_len,
+                                   DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE,
+                                   &our_byte_array, &our_byte_array_len,
+                                   DBUS_TYPE_ARRAY, DBUS_TYPE_BOOLEAN,
+                                   &our_boolean_array, &our_boolean_array_len,
 				   0))
     {
-      _dbus_verbose ("error: %s - %s\n", error.name, (error.message != NULL)?error.message: "no message");
+      _dbus_warn ("error: %s - %s\n", error.name,
+                  (error.message != NULL) ? error.message : "no message");
       _dbus_assert_not_reached ("Could not get arguments");
     }
 
@@ -5486,6 +5526,8 @@ verify_test_message (DBusMessage *message)
 #ifdef DBUS_HAVE_INT64
   if (our_int64 != -0x123456789abcd)
     _dbus_assert_not_reached ("64-bit integers differ!");
+  if (our_uint64 != 0x123456789abcd)
+    _dbus_assert_not_reached ("64-bit unsigned integers differ!");
 #endif
   
   if (our_double != 3.14159)
@@ -5498,14 +5540,87 @@ verify_test_message (DBusMessage *message)
   if (!our_bool)
     _dbus_assert_not_reached ("booleans differ");
 
-  if (our_int_array_len != 4 ||
-      our_int_array[0] != 0x12345678 ||
-      our_int_array[1] != 0x23456781 ||
-      our_int_array[2] != 0x34567812 ||
-      our_int_array[3] != 0x45678123)
-    _dbus_assert_not_reached ("array differ");
-  dbus_free (our_int_array);
+  if (our_uint32_array_len != 4 ||
+      our_uint32_array[0] != 0x12345678 ||
+      our_uint32_array[1] != 0x23456781 ||
+      our_uint32_array[2] != 0x34567812 ||
+      our_uint32_array[3] != 0x45678123)
+    _dbus_assert_not_reached ("uint array differs");
+  dbus_free (our_uint32_array);
 
+  if (our_int32_array_len != 4 ||
+      our_int32_array[0] != 0x12345678 ||
+      our_int32_array[1] != -0x23456781 ||
+      our_int32_array[2] != 0x34567812 ||
+      our_int32_array[3] != -0x45678123)
+    _dbus_assert_not_reached ("int array differs");
+  dbus_free (our_int32_array);
+
+#ifdef DBUS_HAVE_INT64
+  if (our_uint64_array_len != 4 ||
+      our_uint64_array[0] != 0x12345678 ||
+      our_uint64_array[1] != 0x23456781 ||
+      our_uint64_array[2] != 0x34567812 ||
+      our_uint64_array[3] != 0x45678123)
+    _dbus_assert_not_reached ("uint64 array differs");
+  dbus_free (our_uint64_array);
+  
+  if (our_int64_array_len != 4 ||
+      our_int64_array[0] != 0x12345678 ||
+      our_int64_array[1] != -0x23456781 ||
+      our_int64_array[2] != 0x34567812 ||
+      our_int64_array[3] != -0x45678123)
+    _dbus_assert_not_reached ("int64 array differs");
+  dbus_free (our_int64_array);
+#endif /* DBUS_HAVE_INT64 */
+  
+  if (our_string_array_len != 4)
+    _dbus_assert_not_reached ("string array has wrong length");
+
+  if (strcmp (our_string_array[0], "Foo") != 0 ||
+      strcmp (our_string_array[1], "bar") != 0 ||
+      strcmp (our_string_array[2], "") != 0 ||
+      strcmp (our_string_array[3], "woo woo woo woo") != 0)
+    _dbus_assert_not_reached ("string array differs");
+
+  dbus_free_string_array (our_string_array);
+
+  if (our_double_array_len != 3)
+    _dbus_assert_not_reached ("double array had wrong length");
+
+  /* On all IEEE machines (i.e. everything sane) exact equality
+   * should be preserved over the wire
+   */
+  if (our_double_array[0] != 0.1234 ||
+      our_double_array[1] != 9876.54321 ||
+      our_double_array[2] != -300.0)
+    _dbus_assert_not_reached ("double array had wrong values");
+
+  dbus_free (our_double_array);
+
+  if (our_byte_array_len != 4)
+    _dbus_assert_not_reached ("byte array had wrong length");
+
+  if (our_byte_array[0] != 'a' ||
+      our_byte_array[1] != 'b' ||
+      our_byte_array[2] != 'c' ||
+      our_byte_array[3] != 234)
+    _dbus_assert_not_reached ("byte array had wrong values");
+
+  dbus_free (our_byte_array);
+
+  if (our_boolean_array_len != 5)
+    _dbus_assert_not_reached ("bool array had wrong length");
+
+  if (our_boolean_array[0] != TRUE ||
+      our_boolean_array[1] != FALSE ||
+      our_boolean_array[2] != TRUE ||
+      our_boolean_array[3] != TRUE ||
+      our_boolean_array[4] != FALSE)
+    _dbus_assert_not_reached ("bool array had wrong values");
+
+  dbus_free (our_boolean_array);
+  
   if (!dbus_message_iter_next (&iter))
     _dbus_assert_not_reached ("Reached end of arguments");
 
@@ -5565,10 +5680,41 @@ _dbus_message_test (const char *test_data_dir)
   DBusMessage *copy;
   const char *name1;
   const char *name2;
-  const dbus_uint32_t our_int32_array[] = { 0x12345678, 0x23456781, 0x34567812, 0x45678123 };
-
+  const dbus_uint32_t our_uint32_array[] =
+    { 0x12345678, 0x23456781, 0x34567812, 0x45678123 };
+  const dbus_uint32_t our_int32_array[] =
+    { 0x12345678, -0x23456781, 0x34567812, -0x45678123 };
+#ifdef DBUS_HAVE_INT64
+  const dbus_uint64_t our_uint64_array[] =
+    { 0x12345678, 0x23456781, 0x34567812, 0x45678123 };
+  const dbus_uint64_t our_int64_array[] =
+    { 0x12345678, -0x23456781, 0x34567812, -0x45678123 };
+#endif
+  const char *our_string_array[] = { "Foo", "bar", "", "woo woo woo woo" };
+  const double our_double_array[] = { 0.1234, 9876.54321, -300.0 };
+  const unsigned char our_byte_array[] = { 'a', 'b', 'c', 234 };
+  const unsigned char our_boolean_array[] = { TRUE, FALSE, TRUE, TRUE, FALSE };
+  
   _dbus_assert (sizeof (DBusMessageRealIter) <= sizeof (DBusMessageIter));
 
+  message = dbus_message_new ("test.Message", "org.freedesktop.DBus.Test");
+  _dbus_assert (dbus_message_has_destination (message, "org.freedesktop.DBus.Test"));
+  _dbus_message_set_serial (message, 1234);
+  dbus_message_set_sender (message, "org.foo.bar");
+  _dbus_assert (dbus_message_has_sender (message, "org.foo.bar"));
+  dbus_message_set_sender (message, NULL);
+  _dbus_assert (!dbus_message_has_sender (message, "org.foo.bar"));
+  _dbus_assert (dbus_message_get_serial (message) == 1234);
+  _dbus_assert (dbus_message_has_destination (message, "org.freedesktop.DBus.Test"));
+
+  _dbus_assert (dbus_message_get_is_error (message) == FALSE);
+  dbus_message_set_is_error (message, TRUE);
+  _dbus_assert (dbus_message_get_is_error (message) == TRUE);
+  dbus_message_set_is_error (message, FALSE);
+  _dbus_assert (dbus_message_get_is_error (message) == FALSE);
+  
+  dbus_message_unref (message);
+  
   /* Test the vararg functions */
   message = dbus_message_new ("test.Message", "org.freedesktop.DBus.Test");
   _dbus_message_set_serial (message, 1);
@@ -5576,11 +5722,27 @@ _dbus_message_test (const char *test_data_dir)
 			    DBUS_TYPE_INT32, -0x12345678,
 #ifdef DBUS_HAVE_INT64
                             DBUS_TYPE_INT64, -0x123456789abcd,
+                            DBUS_TYPE_UINT64, 0x123456789abcd,
 #endif
 			    DBUS_TYPE_STRING, "Test string",
 			    DBUS_TYPE_DOUBLE, 3.14159,
 			    DBUS_TYPE_BOOLEAN, TRUE,
-			    DBUS_TYPE_ARRAY, DBUS_TYPE_UINT32, our_int32_array, 4,
+			    DBUS_TYPE_ARRAY, DBUS_TYPE_UINT32, our_uint32_array,
+                            _DBUS_N_ELEMENTS (our_uint32_array),
+                            DBUS_TYPE_ARRAY, DBUS_TYPE_INT32, our_int32_array,
+                            _DBUS_N_ELEMENTS (our_int32_array),
+                            DBUS_TYPE_ARRAY, DBUS_TYPE_UINT64, our_uint64_array,
+                            _DBUS_N_ELEMENTS (our_uint64_array),
+                            DBUS_TYPE_ARRAY, DBUS_TYPE_INT64, our_int64_array,
+                            _DBUS_N_ELEMENTS (our_int64_array),
+                            DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, our_string_array,
+                            _DBUS_N_ELEMENTS (our_string_array),
+                            DBUS_TYPE_ARRAY, DBUS_TYPE_DOUBLE, our_double_array,
+                            _DBUS_N_ELEMENTS (our_double_array),
+                            DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, our_byte_array,
+                            _DBUS_N_ELEMENTS (our_byte_array),
+                            DBUS_TYPE_ARRAY, DBUS_TYPE_BOOLEAN, our_boolean_array,
+                            _DBUS_N_ELEMENTS (our_boolean_array),
 			    0);
   
   dbus_message_append_iter_init (message, &iter);
@@ -5663,6 +5825,10 @@ _dbus_message_test (const char *test_data_dir)
   _dbus_message_lock (message);
   loader = _dbus_message_loader_new ();
 
+  /* check ref/unref */
+  _dbus_message_loader_ref (loader);
+  _dbus_message_loader_unref (loader);
+  
   /* Write the header data one byte at a time */
   data = _dbus_string_get_const_data (&message->header);
   for (i = 0; i < _dbus_string_get_length (&message->header); i++)

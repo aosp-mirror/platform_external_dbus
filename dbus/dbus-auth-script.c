@@ -278,6 +278,10 @@ _dbus_auth_script_run (const DBusString *filename)
               goto out;
             }
 
+          /* test ref/unref */
+          _dbus_auth_ref (auth);
+          _dbus_auth_unref (auth);
+          
           _dbus_credentials_from_current_process (&creds);
           _dbus_auth_set_credentials (auth, &creds);
         }
@@ -299,6 +303,10 @@ _dbus_auth_script_run (const DBusString *filename)
               goto out;
             }
 
+          /* test ref/unref */
+          _dbus_auth_ref (auth);
+          _dbus_auth_unref (auth);
+          
           _dbus_credentials_from_current_process (&creds);
           _dbus_auth_set_credentials (auth, &creds);
           _dbus_auth_set_context (auth, &context);

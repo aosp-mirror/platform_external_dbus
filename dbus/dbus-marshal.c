@@ -1004,9 +1004,9 @@ _dbus_demarshal_uint64  (const DBusString *str,
  */
 char *
 _dbus_demarshal_string (const DBusString *str,
-			int         byte_order,
-			int         pos,
-			int        *new_pos)
+			int               byte_order,
+			int               pos,
+			int              *new_pos)
 {
   int len;
   char *retval;
@@ -1330,12 +1330,14 @@ _dbus_demarshal_string_array (const DBusString   *str,
 			      char             ***array,
 			      int                *array_len)
 {
-  int len, i, j;
+  int bytes_len, i;
+  int len, allocated;
+  int end_pos;
   char **retval;
-
-  len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
-
-  if (len == 0)
+  
+  bytes_len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
+  
+  if (bytes_len == 0)
     {
       *array_len = 0;
       *array = NULL;
@@ -1345,32 +1347,50 @@ _dbus_demarshal_string_array (const DBusString   *str,
       
       return TRUE;
     }
+
+  len = 0;
+  allocated = 4;
+  end_pos = pos + bytes_len;
   
-  retval = dbus_new (char *, len + 1);
+  retval = dbus_new (char *, allocated);
 
   if (!retval)
     return FALSE;
 
-  retval[len] = NULL;
-  
-  for (i = 0; i < len; i++)
+  while (pos < end_pos)
     {
-      retval[i] = _dbus_demarshal_string (str, byte_order, pos, &pos);
-
-      if (retval[i] == 0)
+      retval[len] = _dbus_demarshal_string (str, byte_order, pos, &pos);
+      
+      if (retval[len] == NULL)
 	goto error;
+      
+      len += 1;
+
+      if (len >= allocated - 1) /* -1 for NULL termination */
+        {
+          char **newp;
+          newp = dbus_realloc (retval,
+                               sizeof (char*) * allocated * 2);
+          if (newp == NULL)
+            goto error;
+
+          allocated *= 2;
+          retval = newp;
+        }
     }
+      
+  retval[len] = NULL;
 
- if (new_pos)
+  if (new_pos)
     *new_pos = pos;
-
- *array = retval;
- *array_len = len;
+  
+  *array = retval;
+  *array_len = len;
   
   return TRUE;
 
  error:
-  for (j = 0; j < i; j++)
+  for (i = 0; i < len; i++)
     dbus_free (retval[i]);
   dbus_free (retval);
 
