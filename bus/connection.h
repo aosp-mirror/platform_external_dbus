@@ -27,6 +27,9 @@
 #include <dbus/dbus.h>
 #include "services.h"
 
+typedef void (* BusConnectionForeachFunction) (DBusConnection *connection, 
+					       void           *data);
+
 dbus_bool_t bus_connection_init (void);
 
 dbus_bool_t bus_connection_setup (DBusConnection *connection);
@@ -38,9 +41,11 @@ void        bus_connection_remove_owned_service (DBusConnection *connection,
                                                  BusService     *service);
 
 /* called by driver.c */
-dbus_bool_t bus_connection_set_name (DBusConnection   *connection,
-				     const DBusString *name);
-const char *bus_connection_get_name (DBusConnection   *connection);
+dbus_bool_t bus_connection_set_name (DBusConnection               *connection,
+				     const DBusString             *name);
+const char *bus_connection_get_name (DBusConnection               *connection);
+void        bus_connection_foreach  (BusConnectionForeachFunction  function,
+				     void                         *data);
 
 
 #endif /* BUS_CONNECTION_H */

@@ -1,5 +1,29 @@
 2003-01-25  Anders Carlsson  <andersca@codefactory.se>
 
+	* bus/connection.c: (bus_connection_foreach):
+	* bus/connection.h:
+	Add new bus_connection_foreach function.
+	
+	* bus/driver.c: (send_one_message), (bus_driver_broadcast_message):
+	Add function that broadcasts a message to all clients.
+	
+	(bus_driver_send_service_created), (bus_driver_handle_hello),
+	(bus_driver_send_welcome_message),
+	(bus_driver_handle_list_services), (bus_driver_message_handler):
+	Implement functions that take care of listing services, and notifying
+	clients when new services are created.
+	
+	* bus/services.c: (bus_services_list):
+	* bus/services.h:
+	Add new function that returns an array of strings with the currently
+	registered services.
+	
+	* glib/dbus-glib.h:
+	* glib/dbus-gmain.c:
+	Update copyright year.
+	
+2003-01-25  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-connection.c: (dbus_connection_send_message):
 	Unlock the message in case it was sent earlier.
 	

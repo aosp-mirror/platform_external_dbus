@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-glib.h GLib integration
  *
- * Copyright (C) 2002  CodeFactory AB
+ * Copyright (C) 2002, 2003  CodeFactory AB
  *
  * Licensed under the Academic Free License version 1.2
  * 

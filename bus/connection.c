@@ -224,3 +224,10 @@ bus_connection_get_name (DBusConnection *connection)
   
   return d->name;
 }
+
+void
+bus_connection_foreach (BusConnectionForeachFunction  function,
+			void                         *data)
+{
+  _dbus_list_foreach (&connections, function, data);
+}

@@ -163,3 +163,42 @@ bus_service_foreach (BusServiceForeachFunction  function,
       (* function) (service, data);
     }
 }
+
+char **
+bus_services_list (int *array_len)
+{
+  int i, j, len;
+  char **retval;
+  DBusHashIter iter;
+   
+  len = _dbus_hash_table_get_n_entries (service_hash);
+  retval = dbus_new (char *, len);
+
+  if (retval == NULL)
+    return NULL;
+
+  _dbus_hash_iter_init (service_hash, &iter);
+  i = 0;
+  while (_dbus_hash_iter_next (&iter))
+    {
+      BusService *service = _dbus_hash_iter_get_value (&iter);
+
+      retval[i] = _dbus_strdup (service->name);
+      if (retval[i] == NULL)
+	goto error;
+
+      i++;
+    }
+
+  if (array_len)
+    *array_len = len;
+  
+  return retval;
+  
+ error:
+  for (j = 0; j < i; j++)
+    dbus_free (retval[i]);
+  dbus_free (retval);
+
+  return NULL;
+}

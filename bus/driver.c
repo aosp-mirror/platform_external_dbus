@@ -24,6 +24,7 @@
 #include "connection.h"
 #include "driver.h"
 #include "services.h"
+#include <dbus/dbus-message-internal.h>
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-string.h>
 #include <string.h>
@@ -31,9 +32,51 @@
 #define BUS_DRIVER_SERVICE_NAME "org.freedesktop.DBus"
 #define BUS_DRIVER_HELLO_NAME "org.freedesktop.DBus.Hello"
 #define BUS_DRIVER_WELCOME_NAME "org.freedesktop.DBus.Welcome"
+#define BUS_DRIVER_LIST_SERVICES_NAME "org.freedesktop.DBus.ListServices"
+#define BUS_DRIVER_SERVICES_NAME "org.freedesktop.DBus.Services"
+
+#define BUS_DRIVER_SERVICE_CREATED_NAME "org.freedesktop.DBus.ServiceCreated"
+#define BUS_DRIVER_SERVICE_DELETED_NAME "org.freedesktop.DBus.ServiceDeleted"
 
 static dbus_bool_t  bus_driver_send_welcome_message (DBusConnection *connection,
 						     DBusMessage    *hello_message);
+
+static void
+send_one_message (DBusConnection *connection, void *data)
+{
+  dbus_connection_send_message (connection, data, NULL, NULL);
+}
+
+static void
+bus_driver_broadcast_message (DBusMessage *message)
+{
+  bus_connection_foreach (send_one_message, message);
+}
+
+static dbus_bool_t
+bus_driver_send_service_created (DBusConnection *connection, const char *name)
+{
+  DBusMessage *message;
+
+  message = dbus_message_new (NULL, BUS_DRIVER_SERVICE_CREATED_NAME);
+
+  if (!message)
+    return FALSE;
+
+  if (!dbus_message_append_fields (message,
+				   DBUS_TYPE_STRING, name,
+				   0))
+    {
+      dbus_message_unref (message);
+      return FALSE;
+    }
+  
+  dbus_message_set_sender (message, BUS_DRIVER_SERVICE_NAME);
+  bus_driver_broadcast_message (message);
+  dbus_message_unref (message);
+  
+  return TRUE;
+}
 
 static dbus_bool_t
 create_unique_client_name (const char *name,
@@ -98,8 +141,8 @@ create_unique_client_name (const char *name,
 }
 
 static dbus_bool_t
-bus_driver_handle_hello_message (DBusConnection *connection,
-				 DBusMessage    *message)
+bus_driver_handle_hello (DBusConnection *connection,
+			 DBusMessage    *message)
 {
   DBusResultCode result;
   char *name;
@@ -139,13 +182,19 @@ bus_driver_handle_hello_message (DBusConnection *connection,
   bus_connection_set_name (connection, &unique_name);
 
   /* We need to assign the sender to the message here */
-  _dbus_message_set_sender (message,
-			    bus_connection_get_name (connection));
+  dbus_message_set_sender (message,
+			   bus_connection_get_name (connection));
   
   _dbus_string_free (&unique_name);
 
   retval = bus_driver_send_welcome_message (connection, message);
 
+  if (!retval)
+    return FALSE;
+  
+  /* Broadcast a ServiceCreated message */
+  retval = bus_driver_send_service_created (connection, bus_connection_get_name (connection));
+  
   return retval;
 }
 
@@ -167,7 +216,7 @@ bus_driver_send_welcome_message (DBusConnection *connection,
     return FALSE;
 
   /* FIXME: Return value */
-  _dbus_message_set_sender (welcome, BUS_DRIVER_SERVICE_NAME);
+  dbus_message_set_sender (welcome, BUS_DRIVER_SERVICE_NAME);
   
   if (!dbus_message_append_fields (welcome,
 				   DBUS_TYPE_STRING, name,
@@ -183,6 +232,39 @@ bus_driver_send_welcome_message (DBusConnection *connection,
   return retval;
 }
 
+static void
+bus_driver_handle_list_services (DBusConnection *connection,
+				 DBusMessage    *message)
+{
+  DBusMessage *reply;
+  int len, i;
+  char **services;
+
+  reply = dbus_message_new_reply (BUS_DRIVER_SERVICES_NAME, message);
+  
+  if (reply == NULL)
+    return;
+
+  services = bus_services_list (&len);
+
+  if (!services)
+    return;
+  
+  if (!dbus_message_append_fields (reply,
+				   DBUS_TYPE_STRING_ARRAY, services, len,
+				   0))
+    goto error;
+
+  if (!dbus_connection_send_message (connection, reply, NULL, NULL))
+    goto error;
+  
+ error:
+  dbus_message_unref (reply);
+  for (i = 0; i < len; i++)
+    dbus_free (services[i]);
+  dbus_free (services);
+}
+
 /* This is where all the magic occurs */
 static DBusHandlerResult
 bus_driver_message_handler (DBusMessageHandler *handler,
@@ -195,13 +277,15 @@ bus_driver_message_handler (DBusMessageHandler *handler,
   service = dbus_message_get_service (message);
   name = dbus_message_get_name (message);
 
-  _dbus_message_set_sender (message,
-			    bus_connection_get_name (connection));
+  dbus_message_set_sender (message,
+			   bus_connection_get_name (connection));
   
   if (strcmp (service, BUS_DRIVER_SERVICE_NAME) == 0)
     {
       if (strcmp (name, BUS_DRIVER_HELLO_NAME) == 0)
-	bus_driver_handle_hello_message (connection, message);
+	bus_driver_handle_hello (connection, message);
+      else if (strcmp (name, BUS_DRIVER_LIST_SERVICES_NAME) == 0)
+	bus_driver_handle_list_services (connection, message);
     }
   else
     {

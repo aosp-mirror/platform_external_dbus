@@ -50,4 +50,6 @@ const char*     bus_service_get_name          (BusService                *servic
 void            bus_service_foreach           (BusServiceForeachFunction  function,
 					       void                      *data);
 
+char          **bus_services_list (int *array_len);
+
 #endif /* BUS_SERVICES_H */
