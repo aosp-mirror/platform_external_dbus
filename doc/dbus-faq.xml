@@ -1,0 +1,649 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd"
+[
+]>
+
+<article id="index">
+  <articleinfo>
+    <title>D-BUS FAQ</title>
+    <releaseinfo>Version 0.1</releaseinfo>
+    <date>22 January 2005</date>
+    <authorgroup>
+      <author>
+	<firstname>Havoc</firstname>
+	<surname>Pennington</surname>
+	<affiliation>
+	  <orgname>Red Hat, Inc.</orgname>
+	  <address>
+	    <email>hp@pobox.com</email>
+	  </address>
+	</affiliation>
+      </author>
+      <author>
+	<firstname>David</firstname>
+	<surname>Wheeler</surname>
+      </author>
+    </authorgroup>
+  </articleinfo>
+
+  <qandaset id="faq">
+
+    <qandaentry>
+      <question>
+        <para>
+          What is D-BUS?
+        </para>
+      </question>
+      <answer>
+        <para>
+          This is probably best answered by reading the D-BUS <ulink url="dbus-tutorial.html">tutorial</ulink>. In
+          short, it is a system consisting of 1) a wire protocol for exposing a
+          typical object-oriented language/framework to other applications; and
+          2) a bus daemon that allows applications to find and monitor one another.
+        </para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+        <para>
+          Is D-BUS stable/finished?
+        </para>
+      </question>
+      <answer>
+        <para>
+          D-BUS has not yet reached 1.0. The <ulink url="README">README</ulink>
+          file has a discussion of the API/ABI stability guarantees before and
+          after 1.0. In short, there are no guarantees before 1.0, and stability
+          of both protocol and reference library will be maintained after 1.0.
+          As of January 2005 we don't expect major protocol or API changes prior
+          to the 1.0 release, but anything is possible.
+        </para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+        <para>
+          How is the reference implementation licensed? Can I use it in 
+          proprietary applications?
+        </para>
+      </question>
+      <answer>
+        <para>
+          The short answer is yes, you can use it in proprietary applications.
+          You should read the <ulink url="COPYING">COPYING</ulink> file, which
+          offers you the choice of two licenses. These are the GPL and the
+          AFL. The GPL requires that your application be licensed under the GPL
+          as well. The AFL is an "X-style" or "BSD-style" license compatible
+          with proprietary licensing, but it does have some requirements; in
+          particular it prohibits you from filing a lawsuit alleging that the
+          D-BUS software infringes your patents <emphasis>while you continue to
+          use D-BUS</emphasis>.  If you're going to sue, you have to stop using
+          the software. Read the licenses to determine their meaning, this FAQ
+          entry is not intended to change the meaning or terms of the licenses.
+        </para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+        <para>
+          What is the difference between a bus name, and object path, 
+          and an interface?
+        </para>
+      </question>
+      <answer>
+        <para>
+          If you imagine a C++ program that implements a network 
+          service, then the bus name is the domain name 
+          of the computer running this C++ program, the object path 
+          is a C++ object instance pointer, and an interface is a C++ 
+          class (a pure virtual or abstract class, to be exact). 
+        </para>
+        <para>
+          In Java terms, the object path is an object reference, 
+          and an interface is a Java interface.
+        </para>
+        <para>
+          People get confused because if they write an application 
+          with a single object instance and a single interface, 
+          then the bus name, object path, and interface look 
+          redundant. For example, you might have a text editor 
+          that uses the bus name <literal>org.freedesktop.TextEditor</literal>,
+          has a global singleton object called 
+          <literal>/org/freedesktop/TextEditor</literal>, and 
+          that singleton object could implement the interface 
+          <literal>org.freedesktop.TextEditor</literal>.
+        </para>
+        <para>
+          However, a text editor application could as easily own multiple bus
+          names (for example, <literal>org.kde.KWrite</literal>), have multiple
+          objects (maybe <literal>/org/kde/documents/4352</literal>),
+          and each object could implement multiple interfaces, 
+          such as <literal>org.freedesktop.Introspectable</literal>, 
+          <literal>org.freedesktop.BasicTextField</literal>, 
+          <literal>org.kde.RichTextDocument</literal>.
+        </para>
+      </answer>
+    </qandaentry>
+
+
+    <qandaentry id="service">
+      <question>
+        <para>
+          What is a "service"?
+        </para>
+      </question>
+      <answer>
+        <para>
+          A service is a program that can be launched by the bus daemon 
+          to provide some functionality to other programs. Services
+          are normally launched according to the bus name they will 
+          have.
+        </para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry id="components">
+      <question>
+        <para>
+          Is D-BUS a "component system"?
+        </para>
+      </question>
+      <answer>
+        <para>
+          D-BUS is not a component system. "Component system" was originally
+          defined by COM, and was essentially a workaround for the limitations
+          of the C++ object system (adding introspection, runtime location of
+          objects, ABI guarantees, and so forth). With the C# language and CLR,
+          Microsoft added these features to the primary object system, leaving
+          COM obsolete. Similarly, Java has much less need for something like
+          COM than C++ did. Even QObject (from Qt) and GObject (from GLib) offer
+          some of the same features found in COM.
+        </para>
+        <para>
+          Component systems are not about GUI control embedding. Embedding
+          a spreadsheet in a word processor document is a matter of defining
+          some specific <emphasis>interfaces</emphasis> that objects
+          can implement. These interfaces provide methods related to 
+          GUI controls. So an object implementing those interfaces 
+          can be embedded.
+        </para>
+        <para>
+          The word "component" just means "object with some fancy features" and
+          in modern languages all objects are effectively "components."
+        </para>
+        <para>
+          A third, orthogonal feature is interprocess communication or IPC.
+          D-BUS is an IPC system. Given an object (or "component" if you must), 
+          you can expose the functionality of that object over an IPC system.
+          Examples of IPC systems are DCOM, CORBA, SOAP, XML-RPC, and D-BUS.
+          You can use any of these IPC systems with any object/component system,
+          though some of them are "tuned" for specific object systems.
+          You can think of an IPC system primarily as a wire protocol.
+        </para>
+        <para>
+          If you combine an IPC system with a set of GUI control interfaces, 
+          then you can have an out-of-process or dynamically-loaded GUI control.
+        </para>
+        <para>
+          Summarizing, there are three orthogonal things:
+          <orderedlist>
+            <listitem>
+              <para>
+                Object/component system
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Control embedding interfaces
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Interprocess communication system or wire protocol
+              </para>
+            </listitem>
+          </orderedlist>
+        </para>
+        <para>
+          Another related concept is the <firstterm>plugin</firstterm> or
+          <firstterm>extension</firstterm>.  Generic plugin systems such as the
+          <ulink url="http://eclipse.org">Eclipse</ulink> system are not so different
+          from component/object systems, though perhaps a "plugin" tends to be a
+          bundle of objects with a user-visible name and can be
+          downloaded/packaged as a unit.
+        </para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry id="speed">
+      <question>
+        <para>
+          How fast is the D-BUS reference implementation?
+        </para>
+      </question>
+      <answer>
+        <para>
+          Of course it depends a bit on what you're doing. 
+          <ulink url="http://lists.freedesktop.org/pipermail/dbus/2004-November/001779.html">
+            This mail</ulink> contains some benchmarking.  At the time of that
+          benchmark, D-BUS one-to-one communication was about 2.5x slower than
+          simply pushing the data raw over a socket. After the recent rewrite of
+          the marshaling code, D-BUS is slower than that because a lot of
+          optimization work was lost. But it can probably be sped up again.
+        </para>
+        <para>
+          D-BUS communication with the intermediate bus daemon should be 
+          (and as last profiled, was) about twice as slow as one-to-one 
+          mode, because a round trip involves four socket reads/writes rather 
+          than two socket reads/writes.
+        </para>
+        <para>
+          The overhead comes from a couple of places; part of it is simply 
+          "abstraction penalty" (there are layers of code to support 
+          multiple main loops, multiple transport types, security, etc.).
+          Probably the largest part comes from data validation
+          (because the reference implementation does not trust incoming data).
+          It would be simple to add a "no validation" mode, but probably 
+          not a good idea all things considered.
+        </para>
+        <para>
+          Raw bandwidth isn't the only concern; D-BUS is designed to 
+          enable asynchronous communication and avoid round trips.
+          This is frequently a more important performance issue 
+          than throughput.
+        </para>
+      </answer>
+    </qandaentry>
+
+
+    <qandaentry id="size">
+      <question>
+        <para>
+          How large is the D-BUS reference implementation?
+        </para>
+      </question>
+      <answer>
+        <para>
+          A production build (with assertions, unit tests, and verbose logging
+          disabled) is on the order of a 150K shared library.
+        </para>
+        <para>
+          A much, much smaller implementation would be possible by omitting out
+          of memory handling, hardcoding a main loop (or always using blocking
+          I/O), skipping validation, and otherwise simplifying things.
+        </para>
+      </answer>
+    </qandaentry>
+    
+    <qandaentry id="other-ipc">
+      <question>
+        <para>
+          How does D-BUS differ from other interprocess communication
+          or networking protocols?
+        </para>
+      </question>
+      <answer>
+        <para>
+          The best place to start is to read the D-BUS <ulink url="dbus-tutorial.html">tutorial</ulink>, so 
+          you have a concrete idea what D-BUS actually is. If you 
+          understand other protocols on a wire format level, you 
+          may also want to read the D-BUS <ulink url="dbus-specification.html">specification</ulink> to see what 
+          D-BUS looks like on a low level.
+        </para>
+        <para>
+          As the <ulink url="dbus-tutorial.html">tutorial</ulink> and <ulink url="dbus-specification.html">specification</ulink> both explain, D-BUS is tuned 
+          for some specific use cases. Thus, it probably isn't tuned 
+          for what you want to do, unless you are doing the things 
+          D-BUS was designed for. Don't make the mistake of thinking 
+          that any system labeled "IPC" is the same thing.
+        </para>
+        <para>
+          The D-BUS authors would not recommend using D-BUS 
+          for applications where it doesn't make sense.
+          The following questions compare D-BUS to some other 
+          protocols primarily to help you understand D-BUS 
+          and decide whether it's appropriate; D-BUS is neither intended
+          nor claimed to be the right choice for every application.
+        </para>
+        <para>
+          It should be possible to bridge D-BUS to other IPC systems, 
+          just as D-BUS can be bridged to object systems.
+        </para>
+        <para>
+          Note: the D-BUS mailing list subscribers are <emphasis>very much not
+          interested</emphasis> in debating which IPC system is the One True
+          System. So if you want to discuss that, please use another forum.
+        </para>
+      </answer>      
+    </qandaentry>
+
+    
+    <qandaentry id="corba">
+      <question>
+        <para>
+          How does D-BUS differ from CORBA?
+        </para>
+      </question>
+      <answer>
+        <para>
+          Start by reading <xref linkend="other-ipc"/>.
+        </para>
+        <para>
+          <ulink url="http://www.omg.org">CORBA</ulink> is designed to support
+         object-oriented IPC between objects, automatically marshalling
+         parameters as necessary. CORBA is strongly supported by the <ulink
+         url="http://www.omg.org">Open Management Group (OMG)</ulink>, which
+         produces various standards and supporting documents for CORBA and has
+         the backing of many large organizations.  There are many CORBA ORBs
+         available, both proprietary ORBs and free / open source software ORBs
+         (the latter include <ulink
+         url="http://orbit-resource.sourceforge.net/">ORBit</ulink>, <ulink
+         url="http://www.mico.org/">MICO</ulink>, and <ulink
+         url="http://www.theaceorb.com/">The ACE Orb (TAO)</ulink>).  Many
+         organizations continue to use CORBA ORBs for various kinds of IPC.
+        </para>
+        <para>
+          Both GNOME and KDE have used CORBA and then moved away from it.  KDE
+          had more success with a system called DCOP, and GNOME layered a system
+          called Bonobo on top of CORBA. Without custom extensions, CORBA does
+          not support many of the things one wants to do in a desktop
+          environment with the GNOME/KDE architecture.
+        </para>
+        <para>
+          CORBA on the other hand has a number of features of interest for
+          enterprise and web application development, though XML systems such as
+          SOAP are the latest fad.
+        </para>
+        <para>
+          Like D-BUS, CORBA uses a fast binary protocol (IIOP). Both systems
+          work in terms of objects and methods, and have concepts such as
+          "oneway" calls. Only D-BUS has direct support for "signals" as in
+          GLib/Qt (or Java listeners, or C# delegates).
+        </para>
+        <para>
+          D-BUS hardcodes and specifies a lot of things that CORBA leaves open-ended,
+          because CORBA is more generic and D-BUS has two specific use-cases in mind.
+          This makes D-BUS a bit simpler.
+        </para>
+        <para>
+          However, unlike CORBA D-BUS does <emphasis>not</emphasis> specify the
+          API for the language bindings. Instead, "native" bindings adapted
+          specifically to the conventions of a framework such as QObject,
+          GObject, C#, Java, Python, etc. are encouraged. The libdbus reference
+          implementation is designed to be a backend for bindings of this
+          nature, rather than to be used directly. The rationale is that an IPC
+          system API should not "leak" all over a program; it should come into
+          play only just before data goes over the wire. As an aside, OMG is
+          apparently working on a simpler C++ binding for CORBA.
+        </para>
+        <para>
+          Many CORBA implementations such as ORBit are faster than the libdbus
+          reference implementation.  One reason is that D-BUS considers data
+          from the other end of the connection to be untrusted and extensively
+          validates it. But generally speaking other priorities were placed
+          ahead of raw speed in the libdbus implementation. A fast D-BUS
+          implementation along the lines of ORBit should be possible, of course.
+        </para>
+        <para>
+          On a more trivial note, D-BUS involves substantially fewer acronyms
+          than CORBA.
+        </para>
+      </answer>
+    </qandaentry>
+
+
+    <qandaentry id="xmlrpcsoap">
+      <question>
+        <para>
+          How does D-BUS differ from XML-RPC and SOAP?
+        </para>
+      </question>
+      <answer>
+        <para>
+          Start by reading <xref linkend="other-ipc"/>.
+        </para>
+        <para>
+          In <ulink url="http://www.w3.org/TR/SOAP/">SOAP</ulink> and <ulink
+            url="http://www.xmlrpc.com">XML-RPC</ulink>, RPC calls are transformed
+          into an XML-based format, then sent over the wire (typically using the
+          HTTP protocol), where they are processed and returned.  XML-RPC is the
+          simple protocol (its spec is only a page or two), and SOAP is the
+          full-featured protocol.
+        </para>
+        <para>
+          XML-RPC and SOAP impose XML parsing overhead that is normally
+          irrelevant in the context of the Internet, but significant for
+          constant fine-grained IPC among applications in a desktop session.
+        </para>
+        <para>
+          D-BUS offers persistent connections and with the bus daemon 
+          supports lifecycle tracking of other applications connected
+          to the bus. With XML-RPC and SOAP, typically each method call 
+          exists in isolation and has its own HTTP connection.
+        </para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry id="dce">
+      <question>
+        <para>
+          How does D-BUS differ from DCE?
+        </para>
+      </question>
+      <answer>
+        <para>
+          Start by reading <xref linkend="other-ipc"/>.
+        </para>
+        <para>
+          <ulink url="http://www.opengroup.org/dce/">Distributed Computing
+          Environment (DCE)</ulink> is an industry-standard vendor-neutral
+          standard that includes an IPC mechanism.  <ulink
+          url="http://www.opengroup.org/comm/press/05-01-12.htm">The Open Group
+          has released an implementation as open source software</ulink>.  DCE
+          is quite capable, and includes a vast amount of functionality such as
+          a distributed time service.  As the name implies, DCE is intended for
+          use in a large, multi-computer distributed application. D-BUS would
+          not be well-suited for this.
+        </para>
+      </answer>
+    </qandaentry>    
+
+
+    <qandaentry id="dcom">
+      <question>
+        <para>
+          How does D-BUS differ from DCOM and COM?
+        </para>
+      </question>
+      <answer>
+        <para>
+          Start by reading <xref linkend="other-ipc"/>.
+        </para>
+        <para>
+          Comparing D-BUS to COM is apples and oranges; 
+          see <xref linkend="components"/>.
+        </para>
+        <para>
+          DCOM (distributed COM) is a Windows IPC system designed for use with
+          the COM object system. It's similar in some ways to DCE and CORBA.
+        </para>
+      </answer>
+    </qandaentry>    
+
+    <qandaentry id="internet-communications-engine">
+      <question>
+        <para>
+          How does D-BUS differ from ZeroC's Internet Communications Engine (Ice)
+        </para>
+      </question>
+      <answer>
+        <para>
+          Start by reading <xref linkend="other-ipc"/>.
+        </para>
+        <para>
+          The <ulink url="http://www.zeroc.com/ice.html"> Internet
+          Communications Engine (Ice)</ulink> is a powerful IPC mechanism more
+          on the level of SOAP or CORBA than D-BUS.  Ice has a "dual-license"
+          business around it; i.e. you can use it under the GPL, or pay for a
+          proprietary license.
+        </para>
+      </answer>
+    </qandaentry>    
+
+    <qandaentry id="inter-client-exchange">
+      <question>
+        <para>
+          How does D-BUS differ from Inter-Client Exchange (ICE)?
+        </para>
+      </question>
+      <answer>
+        <para>
+          <ulink url="http://www.x.org/X11R6.8.1/docs/ICE/ice.pdf">ICE</ulink>
+          was developed for the X Session Management protocol (XSMP), as part of
+          the X Window System (X11R6.1). The idea was to allow desktop sessions
+          to contain nongraphical clients in addition to X clients.
+        </para>
+        <para>
+          ICE is a binary protocol designed for desktop use, and KDE's DCOP
+          builds on ICE.  ICE is substantially simpler than D-BUS (in contrast
+          to most of the other IPC systems mentioned here, which are more
+          complex). ICE doesn't really define a mapping to objects and methods
+          (DCOP adds that layer).  The reference implementation of ICE (libICE)
+          is often considered to be horrible (and horribly insecure).
+        </para>
+        <para>
+          DCOP and XSMP are the only two widely-used applications of ICE,
+          and both could in principle be replaced by D-BUS. (Though whether 
+          GNOME and KDE will bother is an open question.)
+        </para>
+      </answer>
+    </qandaentry>
+
+    
+
+    <qandaentry id="dcop">
+      <question>
+        <para>
+          How does D-BUS differ from DCOP?
+        </para>
+      </question>
+      <answer>
+        <para>
+          Start by reading <xref linkend="other-ipc"/>.
+        </para>
+        <para>
+          D-BUS is intentionally pretty similar to <ulink
+          url="http://developer.kde.org/documentation/library/kdeqt/dcop.html">DCOP</ulink>,
+          and can be thought of as a "DCOP the next generation" suitable for 
+          sharing between the various open source desktop projects.
+        </para>
+        <para>
+          D-BUS is a bit more complex than DCOP, though the Qt binding for D-BUS
+          should not be more complex for programmers. The additional complexity
+          of D-BUS arises from its separation of object references vs. bus names
+          vs. interfaces as distinct concepts, and its support for one-to-one
+          connections in addition to connections over the bus. The libdbus
+          reference implementation has a lot of API to support multiple bindings
+          and main loops, and performs data validation and out-of-memory handling 
+          in order to support secure applications such as the systemwide bus.
+        </para>
+        <para>
+          D-BUS is probably somewhat slower than DCOP due to data validation 
+          and more "layers" in the reference implementation. A comparison 
+          hasn't been posted to the list though.
+        </para>
+        <para>
+          At this time, KDE has not committed to using D-BUS, but there have
+          been discussions of KDE bridging D-BUS and DCOP, or even changing
+          DCOP's implementation to use D-BUS internally (so that GNOME and KDE
+          would end up using exactly the same bus). See the KDE mailing list 
+          archives for some of these discussions.
+        </para>
+      </answer>
+    </qandaentry>
+
+
+    <qandaentry id="yet-more-ipc">
+      <question>
+        <para>
+          How does D-BUS differ from [yet more IPC mechanisms]?
+        </para>
+      </question>
+      <answer>
+        <para>
+          Start by reading <xref linkend="other-ipc"/>.
+        </para>
+        <para>
+          There are countless uses of network sockets in the world.  <ulink
+          url="http://www.mbus.org/">MBUS</ulink>, Sun ONC/RPC, Jabber/XMPP,
+          SIP, are some we can think of quickly.
+        </para>
+      </answer>
+    </qandaentry>
+
+
+    <qandaentry id="which-ipc">
+      <question>
+        <para>
+          Which IPC mechanism should I use?
+        </para>
+      </question>
+      <answer>
+        <para>
+          Start by reading <xref linkend="other-ipc"/>.
+        </para>
+        <para>
+          If you're writing an Internet or Intranet application, XML-RPC or SOAP
+          work for many people. These are standard, available for most
+          languages, simple to debug and easy to use.
+        </para>
+        <para>
+          If you're writing a desktop application for UNIX, 
+          then D-BUS is of course our recommendation for 
+          talking to other parts of the desktop session.
+          (With the caveat that you should use a stable release 
+          of D-BUS; until we reach 1.0, there isn't a stable release.)
+        </para>
+        <para>
+          If you're doing something complicated such as clustering, 
+          distributed swarms, peer-to-peer, or whatever then 
+          the authors of this FAQ don't have expertise in these
+          areas and you should ask someone else or try a search engine.
+        </para>
+        <para>
+          Note: the D-BUS mailing list is probably not the place to 
+          discuss which system is appropriate for your application, 
+          though you are welcome to ask specific questions about 
+          D-BUS <emphasis>after reading this FAQ, the tutorial, and 
+            searching the list archives</emphasis>. The best way 
+          to search the list archives is probably to use 
+          an Internet engine such as Google. On Google, 
+          include "site:freedesktop.org" in your search.
+        </para>
+      </answer>
+    </qandaentry>
+
+
+    <qandaentry>
+      <question>
+        <para>
+          How can I submit a bug or patch?
+        </para>
+      </question>
+      <answer>
+        <para>
+          The D-BUS <ulink url="http://dbus.freedesktop.org">web site</ulink>
+          has a link to the bug tracker, which is the best place to store
+          patches.  You can also post them to the list, especially if you want
+          to discuss the patch or get feedback.
+        </para>
+      </answer>
+    </qandaentry>
+
+  </qandaset>
+
+</article>

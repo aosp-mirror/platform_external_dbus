@@ -20,6 +20,10 @@
 	  </address>
 	</affiliation>
       </author>
+      <author>
+	<firstname>David</firstname>
+	<surname>Wheeler</surname>
+      </author>
     </authorgroup>
   </articleinfo>
 
@@ -101,11 +105,16 @@
       <para>
         There are many, many technologies in the world that have "Inter-process
         communication" or "networking" in their stated purpose: <ulink
-        url="http://www.mbus.org/">MBUS</ulink>, <ulink
         url="http://www.omg.org">CORBA</ulink>, <ulink
+        url="http://www.opengroup.org/dce/">DCE</ulink>, <ulink
+        url="http://www.microsoft.com/com/">COM/DCOM</ulink>, <ulink
+        url="http://developer.kde.org/documentation/library/kdeqt/dcop.html">DCOP</ulink>, <ulink
         url="http://www.xmlrpc.com">XML-RPC</ulink>, <ulink
-        url="http://www.w3.org/TR/SOAP/">SOAP</ulink>, and probably hundreds
-        more.  Each of these is tailored for particular kinds of application.
+        url="http://www.w3.org/TR/SOAP/">SOAP</ulink>, <ulink
+        url="http://www.mbus.org/">MBUS</ulink>, <ulink
+        url="http://www.zeroc.com/ice.html">Internet Communications Engine (ICE)</ulink>,
+        and probably hundreds more.
+        Each of these is tailored for particular kinds of application.
         D-BUS is designed for two specific cases:
         <itemizedlist>
           <listitem>
@@ -130,7 +139,8 @@
         have significant previous experience with different IPC solutions
         such as CORBA and DCOP. D-BUS is built on that experience and 
         carefully tailored to meet the needs of these desktop projects 
-        in particular.
+        in particular. D-BUS may or may not be appropriate for other 
+        applications; the FAQ has some comparisons to other IPC systems.
       </para>
       <para>
         The problem solved by the systemwide or communication-with-the-OS case 

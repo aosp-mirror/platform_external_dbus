@@ -1,4 +1,5 @@
 EXTRA_DIST= 					\
+	dbus-faq.xml				\
 	dbus-specification.xml			\
 	dbus-test-plan.xml			\
 	dbus-tutorial.xml			\
@@ -6,6 +7,7 @@ EXTRA_DIST= 					\
 	file-boilerplate.c
 
 HTML_FILES=					\
+	dbus-faq.html				\
 	dbus-specification.html			\
 	dbus-test-plan.html			\
 	dbus-tutorial.html
@@ -23,6 +25,10 @@ dbus-test-plan.html: dbus-test-plan.xml
 
 dbus-tutorial.html: dbus-tutorial.xml
 	$(XMLTO) html-nochunks $<
+
+dbus-faq.html: dbus-faq.xml
+	$(XMLTO) html-nochunks $<
+
 endif
 
 maintainer-clean-local:
