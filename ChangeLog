@@ -1,3 +1,9 @@
+2004-05-28  Seth Nickell  <seth@gnome.org>
+
+	* python/examples/Makefile.am:
+
+	Forget to add Makefile.am. Do not pass go.
+
 2004-05-28  Michael Meeks  <michael@ximian.com>
 
 	* glib/dbus-gvalue.c (dbus_gvalue_marshal, dbus_gvalue_demarshal): 
