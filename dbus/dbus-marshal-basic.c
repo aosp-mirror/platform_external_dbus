@@ -383,6 +383,7 @@ _dbus_marshal_set_basic (DBusString       *str,
       break;
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
+      pos = _DBUS_ALIGN_VALUE (pos, 4);
       set_4_octets (str, pos, vp->u32, byte_order);
       if (old_end_pos)
         *old_end_pos = pos + 4;
@@ -393,14 +394,13 @@ _dbus_marshal_set_basic (DBusString       *str,
     case DBUS_TYPE_INT64:
     case DBUS_TYPE_UINT64:
     case DBUS_TYPE_DOUBLE:
-      {
-        set_8_octets (str, pos, *vp, byte_order);
-        if (old_end_pos)
+      pos = _DBUS_ALIGN_VALUE (pos, 8);
+      set_8_octets (str, pos, *vp, byte_order);
+      if (old_end_pos)
         *old_end_pos = pos + 8;
-        if (new_end_pos)
-          *new_end_pos = pos + 8;
-        return TRUE;
-      }
+      if (new_end_pos)
+        *new_end_pos = pos + 8;
+      return TRUE;
       break;
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
