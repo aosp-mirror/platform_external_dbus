@@ -1,3 +1,8 @@
+2003-04-25  Havoc Pennington  <hp@redhat.com>
+
+	* glib/dbus-gmain.c (remove_watch): fix for a crash when watches
+	were toggled without add/remove, fix from Anders Gustafsson
+
 2003-04-24  Havoc Pennington  <hp@redhat.com>
 
 	* test/data/valid-config-files/basic.conf: add <limit> tags to

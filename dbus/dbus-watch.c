@@ -261,7 +261,10 @@ _dbus_watch_list_set_functions (DBusWatchList           *watch_list,
         {
           DBusList *next = _dbus_list_get_next_link (&watch_list->watches,
                                                      link);
-      
+
+          _dbus_verbose ("Adding a watch on fd %d using newly-set add watch function\n",
+                         dbus_watch_get_fd (link->data));
+          
           if (!(* add_function) (link->data, data))
             {
               /* remove it all again and return FALSE */
@@ -272,7 +275,10 @@ _dbus_watch_list_set_functions (DBusWatchList           *watch_list,
                 {
                   DBusList *next = _dbus_list_get_next_link (&watch_list->watches,
                                                              link2);
-
+                  
+                  _dbus_verbose ("Removing watch on fd %d using newly-set remove function because initial add failed\n",
+                                 dbus_watch_get_fd (link2->data));
+                  
                   (* remove_function) (link2->data, data);
                   
                   link2 = next;
@@ -289,6 +295,8 @@ _dbus_watch_list_set_functions (DBusWatchList           *watch_list,
 
   if (watch_list->remove_watch_function != NULL)
     {
+      _dbus_verbose ("Removing all pre-existing watches\n");
+      
       _dbus_list_foreach (&watch_list->watches,
                           (DBusForeachFunction) watch_list->remove_watch_function,
                           watch_list->watch_data);
@@ -325,6 +333,9 @@ _dbus_watch_list_add_watch (DBusWatchList *watch_list,
 
   if (watch_list->add_watch_function != NULL)
     {
+      _dbus_verbose ("Adding watch on fd %d\n",
+                     dbus_watch_get_fd (watch));
+      
       if (!(* watch_list->add_watch_function) (watch,
                                                watch_list->watch_data))
         {
@@ -350,10 +361,15 @@ _dbus_watch_list_remove_watch  (DBusWatchList *watch_list,
 {
   if (!_dbus_list_remove (&watch_list->watches, watch))
     _dbus_assert_not_reached ("Nonexistent watch was removed");
-
+  
   if (watch_list->remove_watch_function != NULL)
-    (* watch_list->remove_watch_function) (watch,
-                                           watch_list->watch_data);
+    {
+      _dbus_verbose ("Removing watch on fd %d\n",
+                     dbus_watch_get_fd (watch));
+      
+      (* watch_list->remove_watch_function) (watch,
+                                             watch_list->watch_data);
+    }
   
   _dbus_watch_unref (watch);
 }
@@ -379,8 +395,13 @@ _dbus_watch_list_toggle_watch (DBusWatchList           *watch_list,
   watch->enabled = enabled;
   
   if (watch_list->watch_toggled_function != NULL)
-    (* watch_list->watch_toggled_function) (watch,
-                                            watch_list->watch_data);
+    {
+      _dbus_verbose ("Toggling watch on fd %d to %d\n",
+                     dbus_watch_get_fd (watch), watch->enabled);
+      
+      (* watch_list->watch_toggled_function) (watch,
+                                              watch_list->watch_data);
+    }
 }
 
 /**
@@ -493,6 +514,10 @@ dbus_watch_set_data (DBusWatch        *watch,
                      void             *data,
                      DBusFreeFunction  free_data_function)
 {
+  _dbus_verbose ("Setting watch fd %d data to data = %p function = %p from data = %p function = %p\n",
+                 dbus_watch_get_fd (watch),
+                 data, free_data_function, watch->data, watch->free_data_function);
+  
   if (watch->free_data_function != NULL)
     (* watch->free_data_function) (watch->data);
   

@@ -275,6 +275,10 @@ remove_watch (DBusWatch *watch,
   dbus_source->poll_fds = g_list_remove (dbus_source->poll_fds, poll_fd);
   g_hash_table_remove (dbus_source->watches, poll_fd);
   g_source_remove_poll ((GSource *)dbus_source, poll_fd);
+
+  dbus_watch_set_data (watch, NULL, NULL); /* needed due to watch_toggled
+                                            * breaking add/remove symmetry
+                                            */
   
   g_free (poll_fd);
 }
