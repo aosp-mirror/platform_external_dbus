@@ -3,7 +3,7 @@ AC_PREREQ(2.52)
 
 AC_INIT(dbus/dbus.h)
 
-AM_INIT_AUTOMAKE(dbus, 0.12)
+AM_INIT_AUTOMAKE(dbus, 0.13)
 
 AM_CONFIG_HEADER(config.h)
 
@@ -750,6 +750,13 @@ else
 fi
 
 AC_SUBST(DBUS_SYSTEM_SOCKET)
+AC_DEFINE_UNQUOTED(DBUS_SYSTEM_SOCKET,"$DBUS_SYSTEM_SOCKET",[The name of the socket the system bus listens on by default])
+
+## system bus only listens on local domain sockets, and never 
+## on an abstract socket (so only root can create the socket)
+DBUS_SYSTEM_BUS_DEFAULT_ADDRESS="unix:path=$DBUS_SYSTEM_SOCKET"
+AC_SUBST(DBUS_SYSTEM_BUS_DEFAULT_ADDRESS)
+AC_DEFINE_UNQUOTED(DBUS_SYSTEM_BUS_DEFAULT_ADDRESS, "$DBUS_SYSTEM_BUS_DEFAULT_ADDRESS",[The default D-BUS address of the system bus])
 
 #### Set up the pid file
 if ! test -z "$with_system_pid_file"; then
@@ -894,6 +901,7 @@ echo "
         Init scripts style:       ${with_init_scripts}
         Abstract socket names:    ${have_abstract_sockets}
         System bus socket:        ${DBUS_SYSTEM_SOCKET}
+        System bus address:       ${DBUS_SYSTEM_BUS_DEFAULT_ADDRESS}
         System bus PID file:      ${DBUS_SYSTEM_PID_FILE}
         Session bus socket dir:   ${DBUS_SESSION_SOCKET_DIR}
         'make check' socket dir:  ${TEST_SOCKET_DIR}

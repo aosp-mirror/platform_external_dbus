@@ -11,15 +11,15 @@ all-local: dbus-specification.html dbus-test-plan.html
 endif
 
 dbus-specification.html: dbus-specification.sgml
-	$(DB2HTML) -o . --nochunks $< &&	\
-	rm -r $(srcdir)/dbus-specification/stylesheet-images &&		\
-	(if test -d $(srcdir)/dbus-specification ; then	\
+	$(DB2HTML) -o . --nochunks $< &&				\
+	rm -rf $(srcdir)/dbus-specification/stylesheet-images &&	\
+	(if test -d $(srcdir)/dbus-specification ; then			\
 	rmdir $(srcdir)/dbus-specification ; fi)
 
 dbus-test-plan.html: dbus-test-plan.sgml
-	$(DB2HTML) -o . --nochunks $< &&		\
-	rm -r $(srcdir)/dbus-test-plan/stylesheet-images &&		\
-	(if test -d $(srcdir)/dbus-test-plan ; then	\
+	$(DB2HTML) -o . --nochunks $< &&			\
+	rm -rf $(srcdir)/dbus-test-plan/stylesheet-images &&	\
+	(if test -d $(srcdir)/dbus-test-plan ; then		\
 	rmdir $(srcdir)/dbus-test-plan ; fi)
 
 maintainer-clean-local:

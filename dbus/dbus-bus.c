@@ -146,11 +146,7 @@ init_connections_unlocked (void)
              {
                /* Use default system bus address if none set in environment */
                bus_connection_addresses[DBUS_BUS_SYSTEM] =
-#ifdef HAVE_ABSTRACT_SOCKETS
-                 _dbus_strdup ("unix:abstract=" DBUS_SYSTEM_BUS_PATH);
-#else
-                 _dbus_strdup ("unix:path=" DBUS_SYSTEM_BUS_PATH);
-#endif
+                 _dbus_strdup (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS);
                if (bus_connection_addresses[DBUS_BUS_SYSTEM] == NULL)
                  return FALSE;
              }

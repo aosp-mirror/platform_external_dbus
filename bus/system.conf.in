@@ -30,7 +30,7 @@
        means use abstract namespace, don't really create filesystem 
        file; only Linux supports this. Use path=/whatever on other 
        systems.) -->
-  <listen>unix:@DBUS_PATH_OR_ABSTRACT@=@DBUS_SYSTEM_SOCKET@</listen>
+  <listen>@DBUS_SYSTEM_BUS_DEFAULT_ADDRESS@</listen>
 
   <policy context="default">
     <!-- Deny everything then punch holes -->

@@ -1,3 +1,16 @@
+D-BUS 0.13
+===
+
+This is probably the last release before landing the large API changes
+on the "dbus-object-names" branch.
+
+- fix system bus to always use filesystem socket; anyone 
+  can create any abstract socket, which isn't secure 
+  since if you can crash the system bus you'd be able
+  to replace it.
+- add DTD for configuration file
+- improve specification a bit
+
 D-BUS 0.12
 ===
 

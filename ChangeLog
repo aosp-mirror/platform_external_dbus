@@ -1,3 +1,22 @@
+2003-09-28  Havoc Pennington  <hp@pobox.com>
+
+	* configure.in: 0.13
+
+	* doc/Makefile.am (dbus-test-plan.html): accept nonexistence of
+	stylesheet-images for benefit of Debian
+	
+	Change back to using filesystem-linked sockets for the system
+	bus, so only root can create the default system bus address.
+	
+	* bus/system.conf.in: change to use
+	DBUS_SYSTEM_BUS_DEFAULT_ADDRESS
+
+	* dbus/Makefile.am (INCLUDES): remove DBUS_SYSTEM_BUS_PATH define
+	from here.
+
+	* configure.in: define DBUS_SYSTEM_BUS_DEFAULT_ADDRESS
+	here, and AC_DEFINE DBUS_SYSTEM_PATH
+
 2003-08-09  Anders Carlsson  <andersca@codefactory.se>
 
 	* doc/TODO:

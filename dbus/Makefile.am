@@ -1,6 +1,5 @@
 
-INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION		\
-	-DDBUS_SYSTEM_BUS_PATH=\""@DBUS_SYSTEM_SOCKET@"\"
+INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION
 
 dbusincludedir=$(includedir)/dbus-1.0/dbus
 dbusarchincludedir=$(libdir)/dbus-1.0/include/dbus
