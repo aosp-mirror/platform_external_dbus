@@ -1,3 +1,7 @@
+2003-03-05  Anders Carlsson  <andersca@codefactory.se>
+
+	* README: Add some things.
+
 2003-03-04  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-message.c (dbus_message_append_args_valist): Add a break;

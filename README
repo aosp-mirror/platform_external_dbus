@@ -1,1 +1,52 @@
 D-BUS is a simple IPC library based on messages.
+
+Configuration flags
+===
+
+These are the configuration flags that can be given to the ./configure program.
+
+--enable-qt      	enable Qt-friendly client library
+--enable-glib    	enable GLib-friendly client library
+--enable-tests  	enable unit test code
+--enable-ansi    	enable -ansi -pedantic gcc flags
+--enable-verbose-mode 	support verbose debug mode
+--enable-asserts 	include assertion checks
+--enable-gcov 		compile with coverage profiling instrumentation (gcc only)],enable_gcov=$enableval,enable_gcov=no)
+
+
+Environment variables
+===
+
+These are the environment variables that are used by the D-BUS client library
+
+DBUS_VERBOSE=1
+Turns on printing verbose messages. This only works if D-BUS has been
+compiled with --enable-verbose-mode
+
+DBUS_MALLOC_FAIL_NTH=n
+Can be set to a number, causing every nth call to dbus_alloc or
+dbus_realloc to fail. This only works if D-BUS has been compiled with
+--enable-tests.
+
+DBUS_MALLOC_FAIL_GREATER_THAN=n
+Can be set to a number, causing every call to dbus_alloc or
+dbus_realloc to fail if the number of bytes to be allocated is greater
+than the specified number. This only works if D-BUS has been compiled with
+--enable-tests.
+
+
+Tests
+===
+
+These are the test programs that are built if dbus is compiled using
+--enable-tests.
+
+dbus/dbus-test
+This is the main unit test program that tests all aspects of the D-BUS
+client library.
+
+test/break-loader
+A test that tries to break the message loader by passing it invalid messages.
+
+test/bus-test
+A test that simulates a bus daemon and tests it.
