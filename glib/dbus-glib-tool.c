@@ -25,6 +25,7 @@
 #include "dbus-gidl.h"
 #include "dbus-gparser.h"
 #include "dbus-gutils.h"
+#include "dbus-glib-tool.h"
 #include "dbus-binding-tool-glib.h"
 #include <locale.h>
 #include <libintl.h>
@@ -32,6 +33,8 @@
 #define N_(x) x
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <sys/stat.h>
 #include <string.h>
 
 #ifdef DBUS_BUILD_TESTS
@@ -215,6 +218,30 @@ dbus_binding_tool_error_quark (void)
   return quark;
 }
 
+static void lose (const char *fmt, ...) G_GNUC_NORETURN G_GNUC_PRINTF (1, 2);
+static void lose_gerror (const char *prefix, GError *error) G_GNUC_NORETURN;
+
+static void
+lose (const char *str, ...)
+{
+  va_list args;
+
+  va_start (args, str);
+
+  vfprintf (stderr, str, args);
+  fputc ('\n', stderr);
+
+  va_end (args);
+
+  exit (1);
+}
+
+static void
+lose_gerror (const char *prefix, GError *error) 
+{
+  lose ("%s: %s", prefix, error->message);
+}
+
 static void
 usage (int ecode)
 {
@@ -237,6 +264,8 @@ int
 main (int argc, char **argv)
 {
   const char *prev_arg;
+  const char *output_file;
+  char *output_file_tmp;
   int i;
   GSList *files;
   DBusBindingOutputMode outputmode;
@@ -244,6 +273,10 @@ main (int argc, char **argv)
   GSList *tmp;
   GIOChannel *channel;
   GError *error;
+  time_t newest_src;
+  struct stat srcbuf;
+  struct stat targetbuf;
+  gboolean force;
 
   setlocale (LC_ALL, "");
   bindtextdomain (GETTEXT_PACKAGE, DBUS_LOCALEDIR);
@@ -256,6 +289,8 @@ main (int argc, char **argv)
   end_of_args = FALSE;
   files = NULL;
   prev_arg = NULL;
+  output_file = NULL;
+  force = FALSE;
   i = 1;
   while (i < argc)
     {
@@ -269,6 +304,8 @@ main (int argc, char **argv)
             usage (0);
           else if (strcmp (arg, "--version") == 0)
             version ();
+          else if (strcmp (arg, "--force") == 0)
+            force = TRUE;
 #ifdef DBUS_BUILD_TESTS
           else if (strcmp (arg, "--self-test") == 0)
             run_all_tests (NULL);
@@ -284,6 +321,10 @@ main (int argc, char **argv)
 		outputmode = DBUS_BINDING_OUTPUT_GLIB_CLIENT;
 	      else
 		usage (1);
+	    }
+	  else if (strncmp (arg, "--output=", 9) == 0)
+	    {
+	      output_file = arg + 9;
 	    }
           else if (arg[0] == '-' &&
                    arg[1] == '-' &&
@@ -307,18 +348,45 @@ main (int argc, char **argv)
     }
 
   error = NULL;
-  channel = g_io_channel_unix_new (fileno (stdout));
-  if (!g_io_channel_set_encoding (channel, NULL, &error))
-    {
-      fprintf (stderr, _("Couldn't set channel encoding to NULL: %s\n"),
-	       error->message);
-      exit (1);
-    }
 
   files = g_slist_reverse (files);
 
-  tmp = files;
-  while (tmp != NULL)
+  if (output_file && !force)
+    {
+      newest_src = 0;
+      for (tmp = files; tmp != NULL; tmp = tmp->next)
+	{
+	  const char *filename;
+
+	  filename = tmp->data;
+	  if (stat (filename, &srcbuf) < 0)
+	    lose ("Couldn't stat %s: %s", filename, g_strerror (errno));
+
+	  if (srcbuf.st_mtime > newest_src)
+	    newest_src = srcbuf.st_mtime;
+	}
+
+      if (stat (output_file, &targetbuf) > 0
+	  && targetbuf.st_mtime >= newest_src)
+	exit (0);
+    }
+  
+  if (output_file)
+    {
+      output_file_tmp = g_strconcat (output_file, ".tmp", NULL);
+
+      if (!(channel = g_io_channel_new_file (output_file_tmp, "w", &error)))
+	lose_gerror (_("Couldn't open temporary file"), error);
+    }
+  else
+    {
+      channel = g_io_channel_unix_new (fileno (stdout));
+    }
+  if (!g_io_channel_set_encoding (channel, NULL, &error))
+    lose_gerror (_("Couldn't set channel encoding to NULL"), error);
+
+
+  for (tmp = files; tmp != NULL; tmp = tmp->next)
     {
       NodeInfo *node;
       GError *error;
@@ -331,11 +399,7 @@ main (int argc, char **argv)
                                          &error);
       if (node == NULL)
         {
-          g_assert (error != NULL);
-          fprintf (stderr, _("Unable to load \"%s\": %s\n"),
-                   filename, error->message);
-          g_error_free (error);
-          exit (1);
+	  lose_gerror (_("Unable to load \"%s\""), error);
         }
       else
 	{
@@ -346,17 +410,11 @@ main (int argc, char **argv)
 	      break;
 	    case DBUS_BINDING_OUTPUT_GLIB_SERVER:
 	      if (!dbus_binding_tool_output_glib_server ((BaseInfo *) node, channel, &error))
-		{
-		  g_error (_("Compilation failed: %s\n"), error->message);
-		  exit (1);
-		}
+		lose_gerror (_("Compilation failed"), error);
 	      break;
 	    case DBUS_BINDING_OUTPUT_GLIB_CLIENT:
 	      if (!dbus_binding_tool_output_glib_client ((BaseInfo *) node, channel, &error))
-		{
-		  g_error (_("Compilation failed: %s\n"), error->message);
-		  exit (1);
-		}
+		lose_gerror (_("Compilation failed"), error);
 	      break;
 	    case DBUS_BINDING_OUTPUT_NONE:
 	      break;
@@ -365,16 +423,20 @@ main (int argc, char **argv)
 
       if (node)
         node_info_unref (node);
-      
-      tmp = tmp->next;
     }
 
-  if (!g_io_channel_flush (channel, &error))
+  if (g_io_channel_shutdown (channel, TRUE, &error) != G_IO_STATUS_NORMAL)
+    lose_gerror (_("Failed to shutdown IO channel"), error);
+  g_io_channel_unref (channel);
+
+  if (output_file)
     {
-      g_error (_("Failed to flush IO channel: %s"), error->message);
-      exit (1);
+      if (rename (output_file_tmp, output_file) < 0)
+	lose ("Failed to rename %s to %s: %s", output_file_tmp, output_file,
+	      g_strerror (errno));
+      g_free (output_file_tmp);
     }
-  
+
   return 0;
 }
 
@@ -383,8 +445,7 @@ main (int argc, char **argv)
 static void
 test_die (const char *failure)
 {
-  fprintf (stderr, "Unit test failed: %s\n", failure);
-  exit (1);
+  lose ("Unit test failed: %s", failure);
 }
 
 /**

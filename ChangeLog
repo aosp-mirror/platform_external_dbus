@@ -1,3 +1,20 @@
+2005-02-19  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-binding-tool-glib.c
+	(dbus_binding_tool_output_glib_server): Fix iochannel refcounting.
+
+	* glib/dbus-glib-tool.c: Include dbus-glib-tool.h, as well
+	as errno.h and sys/stat.h.
+	(lose): New function, prints error with
+	newline and exits.
+	(lose_gerror): Similar, but takes GError for message.
+	(main): Add --output argument to specify output file to write to,
+	instead of always printing to stdout.  In this mode, determine
+	timestamps on source files to see whether any are newer than the
+	target file.  If not, exit.  Also convert a number of error
+	messages to use lose (since it's shorter), and switch to using
+	g_io_channel_shutdown.
+
 2005-02-19  Havoc Pennington  <hp@redhat.com>
 
 	* glib/dbus-gobject.c

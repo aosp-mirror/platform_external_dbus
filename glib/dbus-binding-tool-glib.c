@@ -527,8 +527,8 @@ dbus_binding_tool_output_glib_server (BaseInfo *info, GIOChannel *channel, GErro
 
   WRITE_OR_LOSE ("#include <dbus/dbus-glib.h>\n");
 
-  g_io_channel_ref (data.channel);
   data.channel = channel;
+  g_io_channel_ref (data.channel);
   if (!generate_glue (info, &data, error))
     goto io_lose;
   
