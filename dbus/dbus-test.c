@@ -111,6 +111,12 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
     die ("object registry");
   
   check_memleaks ();
+
+  printf ("%s: running object tests\n", "dbus-test");
+  if (!_dbus_object_test ())
+    die ("object");
+  
+  check_memleaks ();
   
   printf ("%s: running marshalling tests\n", "dbus-test");
   if (!_dbus_marshal_test ())

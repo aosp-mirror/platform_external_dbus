@@ -1,5 +1,14 @@
 2003-07-08  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-object.c: implement some of this
+
+	* dbus/dbus-object-registry.c
+	(_dbus_object_registry_add_and_unlock): fill in the object_id out
+	param
+	(_dbus_object_registry_new): handle OOM
+
+2003-07-08  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-object.h: sketch out an API for registering objects
 	with a connection, that allows us to use as little as 24 bytes
 	per object and lets application code represent an object in 

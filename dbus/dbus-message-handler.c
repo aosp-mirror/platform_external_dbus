@@ -325,7 +325,7 @@ free_test_data (void *data)
 }
 
 /**
- * @ingroup DBusMessageInternals
+ * @ingroup DBusMessageHandlerInternals
  * Unit test for DBusMessageHandler.
  *
  * @returns #TRUE on success.

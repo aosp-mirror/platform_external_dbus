@@ -2942,6 +2942,51 @@ dbus_connection_unregister_handler (DBusConnection     *connection,
   CONNECTION_UNLOCK (connection);
 }
 
+/**
+ * Registers an object with the connection. This object is assigned an
+ * object ID, and will be visible under this ID and with the provided
+ * interfaces to the peer application on the other end of the
+ * connection. The object instance should be passed in as object_impl;
+ * the instance can be any datatype, as long as it fits in a void*.
+ *
+ * As a side effect of calling this function, the "registered"
+ * callback in the #DBusObjectVTable will be invoked.
+ * 
+ * @param connection the connection to register the instance with
+ * @param interfaces #NULL-terminated array of interface names the instance supports
+ * @param vtable virtual table of functions for manipulating the instance
+ * @param object_impl object instance
+ * @param object_id if non-#NULL, object ID to initialize with the new object's ID
+ * @returns #FALSE if not enough memory to register the object instance
+ */
+dbus_bool_t
+dbus_connection_register_object (DBusConnection          *connection,
+                                 const char             **interfaces,
+                                 const DBusObjectVTable  *vtable,
+                                 void                    *object_impl,
+                                 DBusObjectID            *object_id)
+{
+
+  return FALSE;
+}
+
+/**
+ * Reverses the effects of dbus_connection_register_object(),
+ * and invokes the "unregistered" callback in the #DBusObjectVTable
+ * for the given object. The passed-in object ID must be a valid,
+ * registered object ID or the results are undefined.
+ *
+ * @param connection the connection to unregister the object ID from
+ * @param object_id the object ID to unregister
+ */
+void
+dbus_connection_unregister_object (DBusConnection     *connection,
+                                   const DBusObjectID *object_id)
+{
+  
+
+}
+
 static DBusDataSlotAllocator slot_allocator;
 _DBUS_DEFINE_GLOBAL_LOCK (connection_slots);
 

@@ -31,6 +31,7 @@
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-arch-deps.h>
 #include <dbus/dbus-memory.h>
+#include <dbus/dbus-errors.h>
 #include <stdarg.h>
 
 DBUS_BEGIN_DECLS;

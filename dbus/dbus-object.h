@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-object.h  DBusObject type
+/* dbus-object.h  Objects
  *
  * Copyright (C) 2003  Red Hat Inc.
  *
@@ -29,18 +29,19 @@
 
 #include <dbus/dbus-arch-deps.h>
 #include <dbus/dbus-types.h>
+#include <dbus/dbus-message.h>
 #include <dbus/dbus-objectid.h>
-#include <dbus/dbus-connection.h>
 
 DBUS_BEGIN_DECLS;
 
+typedef struct DBusConnection     DBusConnection;
 typedef struct DBusObjectVTable   DBusObjectVTable;
 typedef struct DBusObjectInfo     DBusObjectInfo;
 typedef struct DBusCallbackObject DBusCallbackObject;
 
 struct DBusObjectInfo
 {
-  void               *object_impl;
+  void               *object_impl; /**< Object information */
   DBusObjectID        object_id;
   DBusConnection     *connection;
 };
@@ -57,26 +58,18 @@ struct DBusObjectVTable
   DBusObjectMessageFunction      message;
 };
 
-dbus_bool_t dbus_connection_register_object   (DBusConnection          *connection,
-                                               const char             **interfaces,
-                                               const DBusObjectVTable  *vtable,
-                                               void                    *object_impl,
-                                               DBusObjectID            *object_id);
-void        dbus_connection_unregister_object (DBusConnection          *connection,
-                                               const DBusObjectID      *object_id);
-
 extern const DBusObjectVTable *dbus_callback_object_vtable;
 
 DBusCallbackObject* dbus_callback_object_new          (DBusObjectMessageFunction   function,
                                                        void                       *user_data,
                                                        DBusFreeFunction            free_user_data);
-void                dbus_callback_object_ref          (DBusCallbackObject         *handler);
-void                dbus_callback_object_unref        (DBusCallbackObject         *handler);
-void*               dbus_callback_object_get_data     (DBusCallbackObject         *handler);
-void                dbus_callback_object_set_data     (DBusCallbackObject         *handler,
+void                dbus_callback_object_ref          (DBusCallbackObject         *callback);
+void                dbus_callback_object_unref        (DBusCallbackObject         *callback);
+void*               dbus_callback_object_get_data     (DBusCallbackObject         *callback);
+void                dbus_callback_object_set_data     (DBusCallbackObject         *callback,
                                                        void                       *data,
                                                        DBusFreeFunction            free_user_data);
-void                dbus_callback_object_set_function (DBusCallbackObject         *handler,
+void                dbus_callback_object_set_function (DBusCallbackObject         *callback,
                                                        DBusObjectMessageFunction   function);
 
 

@@ -66,7 +66,9 @@ _dbus_object_registry_new (DBusConnection *connection)
   DBusObjectRegistry *registry;
 
   registry = dbus_new0 (DBusObjectRegistry, 1);
-
+  if (registry == NULL)
+    return NULL;
+  
   registry->refcount = 1;
   registry->connection = connection;
 
@@ -230,7 +232,9 @@ _dbus_object_registry_add_and_unlock (DBusObjectRegistry      *registry,
   registry->entries[i].object_impl = object_impl;
 
   info_from_entry (registry, &info, &registry->entries[i]);
-
+  if (object_id)
+    *object_id = info.object_id;
+  
   /* Drop lock and invoke application code */
   _dbus_connection_unlock (registry->connection);
 
@@ -317,8 +321,8 @@ _dbus_object_registry_free_all_unlocked (DBusObjectRegistry *registry)
 dbus_bool_t
 _dbus_object_registry_test (void)
 {
-
-
+  /* FIXME */
+  
   return TRUE;
 }
 

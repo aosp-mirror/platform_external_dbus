@@ -28,12 +28,11 @@
 #define DBUS_CONNECTION_H
 
 #include <dbus/dbus-errors.h>
-#include <dbus/dbus-message.h>
 #include <dbus/dbus-memory.h>
+#include <dbus/dbus-object.h>
 
 DBUS_BEGIN_DECLS;
 
-typedef struct DBusConnection DBusConnection;
 typedef struct DBusWatch DBusWatch;
 typedef struct DBusTimeout DBusTimeout;
 typedef struct DBusMessageHandler DBusMessageHandler;
@@ -172,7 +171,17 @@ void        dbus_connection_unregister_handler (DBusConnection      *connection,
                                                 const char         **messages_to_handle,
                                                 int                  n_messages);
 
+/* Objects */
+dbus_bool_t dbus_connection_register_object   (DBusConnection          *connection,
+                                               const char             **interfaces,
+                                               const DBusObjectVTable  *vtable,
+                                               void                    *object_impl,
+                                               DBusObjectID            *object_id);
+void        dbus_connection_unregister_object (DBusConnection          *connection,
+                                               const DBusObjectID      *object_id);
 
+
+/* Other */
 dbus_bool_t dbus_connection_allocate_data_slot (dbus_int32_t     *slot_p);
 void        dbus_connection_free_data_slot     (dbus_int32_t     *slot_p);
 dbus_bool_t dbus_connection_set_data           (DBusConnection   *connection,
