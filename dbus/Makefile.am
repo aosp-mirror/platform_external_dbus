@@ -101,10 +101,6 @@ libdbus_1_la_LIBADD=  $(DBUS_CLIENT_LIBS) libdbus-convenience.la
 ## convention for internal symbols)
 libdbus_1_la_LDFLAGS= -export-symbols-regex "^[^_].*"
 
-## FIXME it would be less annoying when hacking if we didn't have 
-## to relink these test binaries, so moving them to the test/* 
-## subdir would be nice.
-
 ## note that TESTS has special meaning (stuff to use in make check)
 ## so if adding tests not to be run in make check, don't add them to 
 ## TESTS

@@ -25,6 +25,8 @@ libdbus_daemon_la_SOURCES=			\
 	loop.h					\
 	services.c				\
 	services.h				\
+	test.c					\
+	test.h					\
 	utils.c					\
 	utils.h
 
@@ -40,3 +42,26 @@ dbus_daemon_1_LDADD=					\
 	$(DBUS_BUS_LIBS)				\
 	$(top_builddir)/bus/libdbus-daemon.la		\
 	$(top_builddir)/dbus/libdbus-1.la
+
+## note that TESTS has special meaning (stuff to use in make check)
+## so if adding tests not to be run in make check, don't add them to 
+## TESTS
+if DBUS_BUILD_TESTS
+TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_srcdir)/test/data
+TESTS=bus-test 
+else
+TESTS=
+endif
+
+## we use noinst_PROGRAMS not check_PROGRAMS so that we build 
+## even when not doing "make check"
+noinst_PROGRAMS=$(TESTS)
+
+bus_test_SOURCES=				\
+	test-main.c
+
+bus_test_LDADD= $(top_builddir)/dbus/libdbus-convenience.la libdbus-daemon.la
+
+## mop up the gcov files
+clean-local:
+	/bin/rm *.bb *.bbg *.da *.gcov || true

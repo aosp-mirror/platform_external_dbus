@@ -1,3 +1,8 @@
+2003-03-13  Havoc Pennington  <hp@pobox.com>
+
+	* bus/test.c, bus/test.h, bus/Makefile.am, bus/test-main.c: 
+	set up a test framework as for the library
+
 2003-03-12  Havoc Pennington  <hp@pobox.com>
 
 	Throughout: purge global variables, introduce BusActivation, 

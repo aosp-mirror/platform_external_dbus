@@ -24,6 +24,8 @@
 #ifndef BUS_BUS_H
 #define BUS_BUS_H
 
+#include <config.h>
+
 #include <dbus/dbus.h>
 #include <dbus/dbus-string.h>
 
