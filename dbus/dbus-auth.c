@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-auth.c Authentication
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2003 Red Hat Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -172,9 +172,6 @@ static dbus_bool_t process_data_server  (DBusAuth         *auth,
 static dbus_bool_t process_error_server (DBusAuth         *auth,
                                          const DBusString *command,
                                          const DBusString *args);
-static dbus_bool_t process_mechanisms   (DBusAuth         *auth,
-                                         const DBusString *command,
-                                         const DBusString *args);
 static dbus_bool_t process_rejected     (DBusAuth         *auth,
                                          const DBusString *command,
                                          const DBusString *args);
@@ -190,7 +187,7 @@ static dbus_bool_t process_error_client (DBusAuth         *auth,
 
 
 static dbus_bool_t client_try_next_mechanism (DBusAuth *auth);
-
+static dbus_bool_t send_rejected             (DBusAuth *auth);
 
 static DBusAuthCommandHandler
 server_handlers[] = {
@@ -200,11 +197,10 @@ server_handlers[] = {
   { "DATA", process_data_server },
   { "ERROR", process_error_server },
   { NULL, NULL }
-};                  
+};
 
 static DBusAuthCommandHandler
 client_handlers[] = {
-  { "MECHANISMS", process_mechanisms },
   { "REJECTED", process_rejected },
   { "OK", process_ok },
   { "DATA", process_data_client },
@@ -391,20 +387,6 @@ handle_decode_stupid_test_mech (DBusAuth         *auth,
 }
 
 static dbus_bool_t
-do_rejection (DBusAuth *auth)
-{
-  if (_dbus_string_append (&auth->outgoing,
-                           "REJECTED\r\n"))
-    {
-      shutdown_mech (auth);
-      _dbus_verbose ("rejected client auth\n");
-      return TRUE;
-    }
-  else
-    return FALSE;
-}
-
-static dbus_bool_t
 handle_server_data_external_mech (DBusAuth         *auth,
                                   const DBusString *data)
 {
@@ -413,7 +395,7 @@ handle_server_data_external_mech (DBusAuth         *auth,
   if (auth->credentials.uid < 0)
     {
       _dbus_verbose ("no credentials, mechanism EXTERNAL can't authenticate\n");
-      return do_rejection (auth);
+      return send_rejected (auth);
     }
   
   if (_dbus_string_get_length (data) > 0)
@@ -421,7 +403,7 @@ handle_server_data_external_mech (DBusAuth         *auth,
       if (_dbus_string_get_length (&auth->identity) > 0)
         {
           /* Tried to send two auth identities, wtf */
-          return do_rejection (auth);
+          return send_rejected (auth);
         }
       else
         {
@@ -463,13 +445,13 @@ handle_server_data_external_mech (DBusAuth         *auth,
     {
       if (!_dbus_credentials_from_uid_string (&auth->identity,
                                               &desired_identity))
-        return do_rejection (auth);
+        return send_rejected (auth);
     }
 
   if (desired_identity.uid < 0)
     {
       _dbus_verbose ("desired UID %d is no good\n", desired_identity.uid);
-      return do_rejection (auth);
+      return send_rejected (auth);
     }
   
   if (_dbus_credentials_match (&auth->credentials,
@@ -492,7 +474,7 @@ handle_server_data_external_mech (DBusAuth         *auth,
     }
   else
     {
-      return do_rejection (auth);
+      return send_rejected (auth);
     }
 }
 
@@ -600,7 +582,7 @@ find_mech (const DBusString *name)
 }
 
 static dbus_bool_t
-send_mechanisms (DBusAuth *auth)
+send_rejected (DBusAuth *auth)
 {
   DBusString command;
   int i;
@@ -609,7 +591,7 @@ send_mechanisms (DBusAuth *auth)
     return FALSE;
   
   if (!_dbus_string_append (&command,
-                            "MECHANISMS"))
+                            "REJECTED"))
     goto nomem;
 
   i = 0;
@@ -657,7 +639,7 @@ process_auth (DBusAuth         *auth,
   else if (_dbus_string_get_length (args) == 0)
     {
       /* No args to the auth, send mechanisms */
-      if (!send_mechanisms (auth))
+      if (!send_rejected (auth))
         return FALSE;
 
       return TRUE;
@@ -711,7 +693,7 @@ process_auth (DBusAuth         *auth,
       else
         {
           /* Unsupported mechanism */
-          if (!send_mechanisms (auth))
+          if (!send_rejected (auth))
             return FALSE;
         }
 
@@ -826,9 +808,9 @@ get_word (const DBusString *str,
 }
 
 static dbus_bool_t
-process_mechanisms (DBusAuth         *auth,
-                    const DBusString *command,
-                    const DBusString *args)
+record_mechanisms (DBusAuth         *auth,
+                   const DBusString *command,
+                   const DBusString *args)
 {
   int next;
   int len;
@@ -968,12 +950,11 @@ process_rejected (DBusAuth         *auth,
   
   if (!auth->already_got_mechanisms)
     {
-      /* Ask for mechanisms */
-      if (!_dbus_string_append (&auth->outgoing,
-                                "AUTH\r\n"))
+      if (!record_mechanisms (auth, command, args))
         return FALSE;
     }
-  else if (DBUS_AUTH_CLIENT (auth)->mechs_to_try != NULL)
+  
+  if (DBUS_AUTH_CLIENT (auth)->mechs_to_try != NULL)
     {
       client_try_next_mechanism (auth);
     }
