@@ -1381,7 +1381,7 @@ dbus_message_iter_init (DBusMessage     *message,
                           &message->body,
                           0);
 
-  return _dbus_type_reader_has_next (&real->u.reader);
+  return _dbus_type_reader_get_current_type (&real->u.reader) != DBUS_TYPE_INVALID;
 }
 
 #ifndef DBUS_DISABLE_CHECKS

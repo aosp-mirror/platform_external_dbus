@@ -2740,8 +2740,9 @@ dbus_connection_dispatch (DBusConnection *connection)
         }
               
       if (!_dbus_string_append_printf (&str,
-                                       "Method \"%s\" on interface \"%s\" doesn't exist\n",
+                                       "Method \"%s\" with signature \"%s\" on interface \"%s\" doesn't exist\n",
                                        dbus_message_get_member (message),
+                                       dbus_message_get_signature (message),
                                        dbus_message_get_interface (message)))
         {
           _dbus_string_free (&str);
