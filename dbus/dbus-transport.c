@@ -127,6 +127,10 @@ _dbus_transport_init_base (DBusTransport             *transport,
   transport->receive_credentials_pending = server;
   transport->is_server = server;
 
+  transport->unix_user_function = NULL;
+  transport->unix_user_data = NULL;
+  transport->free_unix_user_data = NULL;
+  
   /* Try to default to something that won't totally hose the system,
    * but doesn't impose too much of a limitation.
    */
@@ -155,6 +159,9 @@ _dbus_transport_finalize_base (DBusTransport *transport)
 {
   if (!transport->disconnected)
     _dbus_transport_disconnect (transport);
+
+  if (transport->free_unix_user_data != NULL)
+    (* transport->free_unix_user_data) (transport->unix_user_data);
   
   _dbus_message_loader_unref (transport->loader);
   _dbus_auth_unref (transport->auth);
@@ -334,6 +341,8 @@ _dbus_transport_get_is_connected (DBusTransport *transport)
  * Returns #TRUE if we have been authenticated.  Will return #TRUE
  * even if the transport is disconnected.
  *
+ * @todo needs to drop connection->mutex when calling the unix_user_function
+ *
  * @param transport the transport
  * @returns whether we're authenticated
  */
@@ -363,23 +372,45 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
       if (transport->authenticated && transport->is_server)
         {
           DBusCredentials auth_identity;
-          DBusCredentials our_identity;
 
-          _dbus_credentials_from_current_process (&our_identity);
           _dbus_auth_get_identity (transport->auth, &auth_identity);
-          
-          if (!_dbus_credentials_match (&our_identity,
-                                        &auth_identity))
+
+          if (transport->unix_user_function != NULL)
             {
-              _dbus_verbose ("Client authorized as UID %d but our UID is %d, disconnecting\n",
-                             auth_identity.uid, our_identity.uid);
-              _dbus_transport_disconnect (transport);
-              return FALSE;
+              /* FIXME we hold the connection lock here and should drop it */
+              if (!(* transport->unix_user_function) (transport->connection,
+                                                      auth_identity.uid,
+                                                      transport->unix_user_data))
+                {
+                  _dbus_verbose ("Client UID %d was rejected, disconnecting\n",
+                                 auth_identity.uid);
+                  _dbus_transport_disconnect (transport);
+                  return FALSE;
+                }
+              else
+                {
+                  _dbus_verbose ("Client UID %d authorized\n", auth_identity.uid);
+                }
             }
           else
             {
-              _dbus_verbose ("Client authorized as UID %d matching our UID %d\n",
-                             auth_identity.uid, our_identity.uid);
+              DBusCredentials our_identity;
+              
+              _dbus_credentials_from_current_process (&our_identity);
+              
+              if (!_dbus_credentials_match (&our_identity,
+                                            &auth_identity))
+                {
+                  _dbus_verbose ("Client authorized as UID %d but our UID is %d, disconnecting\n",
+                                 auth_identity.uid, our_identity.uid);
+                  _dbus_transport_disconnect (transport);
+                  return FALSE;
+                }
+              else
+                {
+                  _dbus_verbose ("Client authorized as UID %d matching our UID %d\n",
+                                 auth_identity.uid, our_identity.uid);
+                }
             }
         }
       
@@ -735,6 +766,64 @@ long
 _dbus_transport_get_max_live_messages_size (DBusTransport  *transport)
 {
   return transport->max_live_messages_size;
+}
+
+/**
+ * See dbus_connection_get_unix_user().
+ *
+ * @param transport the transport
+ * @param uid return location for the user ID
+ * @returns #TRUE if uid is filled in with a valid user ID
+ */
+dbus_bool_t
+_dbus_transport_get_unix_user (DBusTransport *transport,
+                               unsigned long *uid)
+{
+  DBusCredentials auth_identity;
+
+  *uid = _DBUS_INT_MAX; /* better than some root or system user in
+                         * case of bugs in the caller. Caller should
+                         * never use this value on purpose, however.
+                         */
+  
+  if (!transport->authenticated)
+    return FALSE;
+  
+  _dbus_auth_get_identity (transport->auth, &auth_identity);
+
+  if (auth_identity.uid >= 0)
+    {
+      *uid = auth_identity.uid;
+      return TRUE;
+    }
+  else
+    return FALSE;
+}
+
+/**
+ * See dbus_connection_set_unix_user_function().
+ *
+ * @param transport the transport
+ * @param function the predicate
+ * @param data data to pass to the predicate
+ * @param free_data_function function to free the data
+ * @param old_data the old user data to be freed
+ * @param old_free_data_function old free data function to free it with
+ */
+void
+_dbus_transport_set_unix_user_function (DBusTransport             *transport,
+                                        DBusAllowUnixUserFunction  function,
+                                        void                      *data,
+                                        DBusFreeFunction           free_data_function,
+                                        void                     **old_data,
+                                        DBusFreeFunction          *old_free_data_function)
+{  
+  *old_data = transport->unix_user_data;
+  *old_free_data_function = transport->free_unix_user_data;
+
+  transport->unix_user_function = function;
+  transport->unix_user_data = data;
+  transport->free_unix_user_data = free_data_function;
 }
 
 /** @} */

@@ -69,12 +69,15 @@ typedef void        (* DBusWatchToggledFunction)   (DBusWatch      *watch,
                                                     void           *data);
 typedef void        (* DBusRemoveWatchFunction)    (DBusWatch      *watch,
                                                     void           *data);
-typedef void        (* DBusWakeupMainFunction)     (void           *data);
 typedef dbus_bool_t (* DBusAddTimeoutFunction)     (DBusTimeout    *timeout,
                                                     void           *data);
 typedef void        (* DBusTimeoutToggledFunction) (DBusTimeout    *timeout,
                                                     void           *data);
 typedef void        (* DBusRemoveTimeoutFunction)  (DBusTimeout    *timeout,
+                                                    void           *data);
+typedef void        (* DBusWakeupMainFunction)     (void           *data);
+typedef dbus_bool_t (* DBusAllowUnixUserFunction)  (DBusConnection *connection,
+                                                    unsigned long   uid,
                                                     void           *data);
 
 DBusConnection*    dbus_connection_open                      (const char                 *address,
@@ -123,7 +126,12 @@ void               dbus_connection_set_wakeup_main_function  (DBusConnection    
 dbus_bool_t        dbus_connection_handle_watch              (DBusConnection             *connection,
                                                               DBusWatch                  *watch,
                                                               unsigned int                condition);
-
+dbus_bool_t        dbus_connection_get_unix_user             (DBusConnection             *connection,
+                                                              unsigned long              *uid);
+void               dbus_connection_set_unix_user_function    (DBusConnection             *connection,
+                                                              DBusAllowUnixUserFunction   function,
+                                                              void                       *data,
+                                                              DBusFreeFunction            free_data_function);
 
 int          dbus_watch_get_fd      (DBusWatch        *watch);
 unsigned int dbus_watch_get_flags   (DBusWatch        *watch);

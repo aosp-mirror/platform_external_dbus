@@ -94,6 +94,8 @@ Elements:
   own="servicename"
   send_to="servicename"
   receive_from="servicename"
+  user="username"
+  group="groupname"
 
     Examples:
        <deny send="org.freedesktop.System.Reboot"/> 
@@ -101,6 +103,8 @@ Elements:
        <deny own="org.freedesktop.System"/>
        <deny send_to="org.freedesktop.System"/>
        <deny receive_from="org.freedesktop.System"/>
+       <deny user="john"/>
+       <deny group="enemies"/>
 
     send_to and receive_from mean that messages may not be sent to 
     or received from the *owner* of the given service, not that 
@@ -108,17 +112,23 @@ Elements:
     a connection owns services A, B, C, and sending to A is denied, 
     sending to B or C will not work either.
 
-    For "servicename" or "messagename" the character "*" can be
-    substituted, meaning "any." Complex globs like "foo.bar.*" aren't
-    allowed for now because they'd be work to implement and maybe 
-    encourage sloppy security anyway.
+    user and group denials mean that the given user or group may 
+    not connect to the message bus.
 
-    FIXME should we allow send/send_to and receive/receive_from 
-    to both be specified, in which case they would be ANDed together?
+    For "servicename" or "messagename" or "username" or "groupname"
+    the character "*" can be substituted, meaning "any." Complex globs
+    like "foo.bar.*" aren't allowed for now because they'd be work to
+    implement and maybe encourage sloppy security anyway.
+
+    It does not make sense to deny a user or group inside a <policy>
+    for a user or group; user/group denials can only be inside
+    context="default" or context="required" policies.
+
+    A single <deny> rule may specify both send and send_to, OR both
+    receive and receive_from. In this case, the denial applies only if
+    both attributes match the message being denied.
     e.g. <deny send="foo.bar" send_to="foo.blah"/> would deny 
     messages of the given name AND to the given service.
-
-    Probably need to see how hard/slow all this will be to implement.
 
  <allow>
   send="messagename"
@@ -126,6 +136,8 @@ Elements:
   own="servicename"
   send_to="servicename"
   receive_from="servicename"
+  user="username"
+  group="groupname"
 
     Makes an exception to previous <deny> statements. Works 
     just like <deny> but with the inverse meaning.

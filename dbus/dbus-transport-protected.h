@@ -86,6 +86,11 @@ struct DBusTransport
   long max_live_messages_size;                /**< Max total size of received messages. */
 
   DBusCounter *live_messages_size;            /**< Counter for size of all live messages. */
+
+
+  DBusAllowUnixUserFunction unix_user_function; /**< Function for checking whether a user is authorized. */
+  void *unix_user_data;                         /**< Data for unix_user_function */
+  DBusFreeFunction free_unix_user_data;         /**< Function to free unix_user_data */
   
   unsigned int disconnected : 1;              /**< #TRUE if we are disconnected. */
   unsigned int authenticated : 1;             /**< Cache of auth state; use _dbus_transport_get_is_authenticated() to query value */

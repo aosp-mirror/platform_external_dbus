@@ -27,16 +27,23 @@
 #include "connection.h"
 #include "services.h"
 #include "utils.h"
+#include "policy.h"
+#include <dbus/dbus-list.h>
+#include <dbus/dbus-hash.h>
 #include <dbus/dbus-internals.h>
 
 struct BusContext
 {
   int refcount;
-  char *address;  
+  char *address;
   DBusServer *server;
   BusConnections *connections;
   BusActivation *activation;
   BusRegistry *registry;
+  DBusList *default_rules;      /**< Default policy rules */
+  DBusList *override_rules;     /**< Override policy rules */
+  DBusHashTable *rules_by_uid;  /**< per-UID policy rules */
+  DBusHashTable *rules_by_gid;  /**< per-GID policy rules */
 };
 
 static dbus_bool_t
@@ -109,6 +116,14 @@ new_connection_callback (DBusServer     *server,
   /* on OOM, we won't have ref'd the connection so it will die. */
 }
 
+static void
+free_rule_func (void *data)
+{
+  BusPolicyRule *rule = data;
+
+  bus_policy_rule_unref (rule);
+}
+
 BusContext*
 bus_context_new (const char  *address,
                  const char **service_dirs,
@@ -159,6 +174,24 @@ bus_context_new (const char  *address,
 
   context->registry = bus_registry_new (context);
   if (context->registry == NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+  
+  context->rules_by_uid = _dbus_hash_table_new (DBUS_HASH_INT,
+                                                NULL,
+                                                free_rule_func);
+  if (context->rules_by_uid == NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+
+  context->rules_by_gid = _dbus_hash_table_new (DBUS_HASH_INT,
+                                                NULL,
+                                                free_rule_func);
+  if (context->rules_by_gid == NULL)
     {
       BUS_SET_OOM (error);
       goto failed;
@@ -259,6 +292,18 @@ bus_context_unref (BusContext *context)
         {
           dbus_server_unref (context->server);
           context->server = NULL;
+        }
+
+      if (context->rules_by_uid)
+        {
+          _dbus_hash_table_unref (context->rules_by_uid);
+          context->rules_by_uid = NULL;
+        }
+
+      if (context->rules_by_gid)
+        {
+          _dbus_hash_table_unref (context->rules_by_gid);
+          context->rules_by_gid = NULL;
         }
       
       dbus_free (context->address);

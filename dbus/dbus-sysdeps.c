@@ -651,6 +651,14 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
   struct cmsghdr *cmsg = (struct cmsghdr *) cmsgmem;
 #endif
 
+  /* The POSIX spec certainly doesn't promise this, but
+   * we need these assertions to fail as soon as we're wrong about
+   * it so we can do the porting fixups
+   */
+  _dbus_assert (sizeof (pid_t) <= sizeof (credentials->pid));
+  _dbus_assert (sizeof (uid_t) <= sizeof (credentials->uid));
+  _dbus_assert (sizeof (gid_t) <= sizeof (credentials->gid));
+  
   credentials->pid = -1;
   credentials->uid = -1;
   credentials->gid = -1;
@@ -1353,6 +1361,14 @@ _dbus_credentials_from_uid_string (const DBusString      *uid_str,
 void
 _dbus_credentials_from_current_process (DBusCredentials *credentials)
 {
+  /* The POSIX spec certainly doesn't promise this, but
+   * we need these assertions to fail as soon as we're wrong about
+   * it so we can do the porting fixups
+   */
+  _dbus_assert (sizeof (pid_t) <= sizeof (credentials->pid));
+  _dbus_assert (sizeof (uid_t) <= sizeof (credentials->uid));
+  _dbus_assert (sizeof (gid_t) <= sizeof (credentials->gid));
+  
   credentials->pid = getpid ();
   credentials->uid = getuid ();
   credentials->gid = getgid ();

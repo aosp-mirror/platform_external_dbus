@@ -2211,6 +2211,64 @@ dbus_connection_handle_watch (DBusConnection              *connection,
 }
 
 /**
+ * Gets the UNIX user ID of the connection if any.
+ * Returns #TRUE if the uid is filled in.
+ * Always returns #FALSE on non-UNIX platforms.
+ *
+ * @param connection the connection
+ * @param uid return location for the user ID
+ * @returns #TRUE if uid is filled in with a valid user ID
+ */
+dbus_bool_t
+dbus_connection_get_unix_user (DBusConnection *connection,
+                               unsigned long  *uid)
+{
+  dbus_bool_t result;
+
+  dbus_mutex_lock (connection->mutex);
+  result = _dbus_transport_get_unix_user (connection->transport,
+                                          uid);
+  dbus_mutex_unlock (connection->mutex);
+
+  return result;
+}
+
+/**
+ * Sets a predicate function used to determine whether a given user ID
+ * is allowed to connect. When an incoming connection has
+ * authenticated with a particular user ID, this function is called;
+ * if it returns #TRUE, the connection is allowed to proceed,
+ * otherwise the connection is disconnected.
+ *
+ * If the function is set to #NULL (as it is by default), then
+ * only the same UID as the server process will be allowed to
+ * connect.
+ *
+ * @param connection the connection
+ * @param function the predicate
+ * @param data data to pass to the predicate
+ * @param free_data_function function to free the data
+ */
+void
+dbus_connection_set_unix_user_function (DBusConnection             *connection,
+                                        DBusAllowUnixUserFunction   function,
+                                        void                       *data,
+                                        DBusFreeFunction            free_data_function)
+{
+  void *old_data = NULL;
+  DBusFreeFunction old_free_function = NULL;
+
+  dbus_mutex_lock (connection->mutex);
+  _dbus_transport_set_unix_user_function (connection->transport,
+                                          function, data, free_data_function,
+                                          &old_data, &old_free_function);
+  dbus_mutex_unlock (connection->mutex);
+
+  if (old_free_function != NULL)
+    (* old_free_function) (old_data);    
+}
+
+/**
  * Adds a message filter. Filters are handlers that are run on
  * all incoming messages, prior to the normal handlers
  * registered with dbus_connection_register_handler().

@@ -1,3 +1,9 @@
+2003-03-20  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-connection.c (dbus_connection_set_unix_user_function):
+	new function
+	(dbus_connection_get_unix_user): new function
+
 2003-03-20  Havoc Pennington  <hp@pobox.com>
 
 	* bus/connection.c (bus_connection_send_oom_error): assert that
