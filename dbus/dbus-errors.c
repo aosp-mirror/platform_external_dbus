@@ -2,6 +2,7 @@
 /* dbus-errors.c Error reporting
  *
  * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2003  CodeFactory AB
  *
  * Licensed under the Academic Free License version 1.2
  * 

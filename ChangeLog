@@ -1,3 +1,10 @@
+2003-02-13  Richard Hult  <rhult@codefactory.se>
+
+	* bus/main.c: Fix build.
+
+	* dbus/dbus-errors.h: 
+	* dbus/dbus-errors.c: Fix copyright for Anders.
+
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/Makefile.am:
