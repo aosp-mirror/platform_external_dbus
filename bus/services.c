@@ -29,6 +29,7 @@
 #include "services.h"
 #include "connection.h"
 #include "utils.h"
+#include "activation.h"
 
 struct BusService
 {
@@ -42,13 +43,15 @@ struct BusService
 struct BusRegistry
 {
   int refcount;
+
+  BusContext *context;
   
   DBusHashTable *service_hash;
   DBusMemPool   *service_pool;
 };
 
 BusRegistry*
-bus_registry_new (void)
+bus_registry_new (BusContext *context)
 {
   BusRegistry *registry;
 
@@ -57,7 +60,8 @@ bus_registry_new (void)
     return NULL;
 
   registry->refcount = 1;
-
+  registry->context = context;
+  
   registry->service_hash = _dbus_hash_table_new (DBUS_HASH_STRING,
                                                  NULL, NULL);
   if (registry->service_hash == NULL)
@@ -158,6 +162,14 @@ bus_registry_ensure (BusRegistry               *registry,
       return NULL;
     }
 
+  if (!bus_activation_service_created (bus_context_get_activation (registry->context),
+				       service->name, error))
+    {
+      dbus_free (service->name);
+      _dbus_mem_pool_dealloc (registry->service_pool, service);
+      return NULL;
+    }
+  
   if (!bus_service_add_owner (service, owner_if_created,
                               transaction, error))
     {

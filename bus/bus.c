@@ -141,7 +141,7 @@ bus_context_new (const char  *address,
       goto failed;
     }
 
-  context->activation = bus_activation_new (address, service_dirs,
+  context->activation = bus_activation_new (context, address, service_dirs,
                                             error);
   if (context->activation == NULL)
     {
@@ -156,7 +156,7 @@ bus_context_new (const char  *address,
       goto failed;
     }
 
-  context->registry = bus_registry_new ();
+  context->registry = bus_registry_new (context);
   if (context->registry == NULL)
     {
       BUS_SET_OOM (error);

@@ -27,15 +27,19 @@
 #include <dbus/dbus.h>
 #include "bus.h"
 
-BusActivation* bus_activation_new              (const char     *address,
-                                                const char    **paths,
-                                                DBusError      *error);
+BusActivation* bus_activation_new              (BusContext     *context,
+						const char     *address,
+						const char    **paths,
+						DBusError      *error);
 void           bus_activation_ref              (BusActivation  *activation);
 void           bus_activation_unref            (BusActivation  *activation);
 dbus_bool_t    bus_activation_activate_service (BusActivation  *activation,
-                                                const char     *service_name,
-                                                DBusError      *error);
-
-
+						DBusConnection *connection, 
+						DBusMessage    *activation_message,
+						const char     *service_name,
+						DBusError      *error);
+dbus_bool_t    bus_activation_service_created  (BusActivation  *activation,
+						const char     *service_name,
+						DBusError      *error);
 
 #endif /* BUS_ACTIVATION_H */

@@ -22,9 +22,11 @@
  */
 #include "activation.h"
 #include "desktop-file.h"
+#include "services.h"
 #include "utils.h"
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-hash.h>
+#include <dbus/dbus-list.h>
 #include <sys/types.h>
 #include <dirent.h>
 #include <errno.h>
@@ -37,7 +39,9 @@ struct BusActivation
 {
   int refcount;
   DBusHashTable *entries;
+  DBusHashTable *pending_activations;
   char *server_address;
+  BusContext *context;
 };
 
 typedef struct
@@ -45,6 +49,57 @@ typedef struct
   char *name;
   char *exec;
 } BusActivationEntry;
+
+typedef struct BusPendingActivationEntry BusPendingActivationEntry;
+
+struct BusPendingActivationEntry
+{
+  DBusMessage *activation_message;
+  DBusConnection *connection;
+};
+
+typedef struct
+{
+  char *service_name;
+  DBusList *entries;
+} BusPendingActivation;
+
+static void
+bus_pending_activation_entry_free (BusPendingActivationEntry *entry)
+{
+  if (entry->activation_message)
+    dbus_message_unref (entry->activation_message);
+  
+  if (entry->connection)
+    dbus_connection_unref (entry->connection);
+
+  dbus_free (entry);
+}
+
+static void
+bus_pending_activation_free (BusPendingActivation *activation)
+{
+  DBusList *link;
+  
+  if (!activation)
+    return;
+
+  dbus_free (activation->service_name);
+
+  link = _dbus_list_get_first_link (&activation->entries);
+
+  while (link != NULL)
+    {
+      BusPendingActivationEntry *entry = link->data;
+
+      bus_pending_activation_entry_free (entry);
+
+      link = _dbus_list_get_next_link (&activation->entries, link);
+    }
+  _dbus_list_clear (&activation->entries);
+  
+  dbus_free (activation);
+}
 
 static void
 bus_activation_entry_free (BusActivationEntry *entry)
@@ -264,7 +319,8 @@ load_directory (BusActivation *activation,
 }
 
 BusActivation*
-bus_activation_new (const char  *address,
+bus_activation_new (BusContext  *context,
+		    const char  *address,
                     const char **directories,
                     DBusError   *error)
 {
@@ -279,6 +335,7 @@ bus_activation_new (const char  *address,
     }
   
   activation->refcount = 1;
+  activation->context = context;
   
   /* FIXME: We should split up the server addresses. */
   activation->server_address = _dbus_strdup (address);
@@ -296,6 +353,15 @@ bus_activation_new (const char  *address,
       goto failed;
     }
 
+  activation->pending_activations = _dbus_hash_table_new (DBUS_HASH_STRING, NULL,
+							  (DBusFreeFunction)bus_pending_activation_free);
+
+  if (activation->pending_activations == NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+  
   /* Load service files */
   i = 0;
   while (directories[i] != NULL)
@@ -332,6 +398,8 @@ bus_activation_unref (BusActivation *activation)
       dbus_free (activation->server_address);
       if (activation->entries)
         _dbus_hash_table_unref (activation->entries);
+      if (activation->pending_activations)
+	_dbus_hash_table_unref (activation->pending_activations);
       dbus_free (activation);
     }
 }
@@ -349,12 +417,81 @@ child_setup (void *data)
 }
 
 dbus_bool_t
-bus_activation_activate_service (BusActivation *activation,
-                                 const char    *service_name,
-				 DBusError     *error)
+bus_activation_service_created (BusActivation *activation,
+				const char    *service_name,
+				DBusError     *error)
+{
+  BusPendingActivation *pending_activation;
+  DBusMessage *message;
+  DBusList *link;
+  
+  /* Check if it's a pending activation */
+  pending_activation = _dbus_hash_table_lookup_string (activation->pending_activations, service_name);
+
+  if (!pending_activation)
+    return TRUE;
+
+  link = _dbus_list_get_first_link (&pending_activation->entries);
+  while (link != NULL)
+    {
+      BusPendingActivationEntry *entry = link->data;
+      DBusList *next = _dbus_list_get_next_link (&pending_activation->entries, link);
+      
+      if (dbus_connection_get_is_connected (entry->connection))
+	{
+	  message = dbus_message_new_reply (entry->activation_message);
+	  if (!message)
+	    {
+	      BUS_SET_OOM (error);
+	      goto error;
+	    }
+
+	  if (!dbus_message_append_args (message,
+					 DBUS_TYPE_UINT32, DBUS_ACTIVATION_REPLY_ACTIVATED,
+					 0))
+	    {
+	      dbus_message_unref (message);
+	      BUS_SET_OOM (error);
+	      goto error;
+	    }
+
+	  if (!dbus_connection_send (entry->connection, message, NULL))
+	    {
+	      dbus_message_unref (message);
+	      BUS_SET_OOM (error);
+	      goto error;
+	    }
+	}
+
+      bus_pending_activation_entry_free (entry);
+      
+      _dbus_list_remove_link (&pending_activation->entries, link);      
+      link = next;
+    }
+  
+  _dbus_hash_table_remove_string (activation->pending_activations, service_name);
+
+  return TRUE;
+
+ error:
+  _dbus_hash_table_remove_string (activation->pending_activations, service_name);
+  return FALSE;
+}
+
+dbus_bool_t
+bus_activation_activate_service (BusActivation  *activation,
+				 DBusConnection *connection,
+				 DBusMessage    *activation_message,
+                                 const char     *service_name,
+				 DBusError      *error)
 {
   BusActivationEntry *entry;
+  BusPendingActivation *pending_activation;
+  BusPendingActivationEntry *pending_activation_entry;
+  DBusMessage *message;
+  DBusString service_str;
   char *argv[2];
+  dbus_bool_t retval;
   
   entry = _dbus_hash_table_lookup_string (activation->entries, service_name);
 
@@ -366,6 +503,94 @@ bus_activation_activate_service (BusActivation *activation,
       return FALSE;
     }
 
+  /* Check if the service is active */
+  _dbus_string_init_const (&service_str, service_name);
+  if (bus_registry_lookup (bus_context_get_registry (activation->context), &service_str) != NULL)
+    {
+      message = dbus_message_new_reply (activation_message);
+
+      if (!message)
+	{
+	  BUS_SET_OOM (error);
+	  return FALSE;
+	}
+
+      if (!dbus_message_append_args (message,
+				     DBUS_TYPE_UINT32, DBUS_ACTIVATION_REPLY_ALREADY_ACTIVE, 
+				     0))
+	{
+	  BUS_SET_OOM (error);
+	  dbus_message_unref (message);
+	  return FALSE;
+	}
+
+      retval = dbus_connection_send (connection, message, NULL);
+      dbus_message_unref (message);
+      if (!retval)
+	BUS_SET_OOM (error);
+
+      return retval;
+    }
+
+  pending_activation_entry = dbus_new0 (BusPendingActivationEntry, 1);
+  if (!pending_activation_entry)
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  pending_activation_entry->activation_message = activation_message;
+  dbus_message_ref (activation_message);
+  pending_activation_entry->connection = connection;
+  dbus_connection_ref (connection);
+  
+  /* Check if the service is being activated */
+  pending_activation = _dbus_hash_table_lookup_string (activation->pending_activations, service_name);
+  if (pending_activation)
+    {
+      if (!_dbus_list_append (&pending_activation->entries, entry))
+	{
+	  BUS_SET_OOM (error);
+	  bus_pending_activation_entry_free (pending_activation_entry);
+
+	  return FALSE;
+	}
+    }
+  else
+    {
+      pending_activation = dbus_new0 (BusPendingActivation, 1);
+      if (!pending_activation)
+	{
+	  BUS_SET_OOM (error);
+	  bus_pending_activation_entry_free (pending_activation_entry);	  
+	  return FALSE;
+	}
+      pending_activation->service_name = _dbus_strdup (service_name);
+      if (!pending_activation->service_name)
+	{
+	  BUS_SET_OOM (error);
+	  bus_pending_activation_free (pending_activation);
+	  bus_pending_activation_entry_free (pending_activation_entry);	  
+	  return FALSE;
+	}
+
+      if (!_dbus_list_append (&pending_activation->entries, entry))
+	{
+	  BUS_SET_OOM (error);
+	  bus_pending_activation_free (pending_activation);
+	  bus_pending_activation_entry_free (pending_activation_entry);	  
+	  return FALSE;
+	}
+      
+      if (!_dbus_hash_table_insert_string (activation->pending_activations,
+					   pending_activation->service_name, pending_activation))
+	{
+	  BUS_SET_OOM (error);
+	  bus_pending_activation_free (pending_activation);
+	  return FALSE;
+	}
+    }
+  
   /* FIXME we need to support a full command line, not just a single
    * argv[0]
    */
@@ -377,7 +602,11 @@ bus_activation_activate_service (BusActivation *activation,
   if (!_dbus_spawn_async (argv,
 			  child_setup, activation, 
 			  error))
-    return FALSE;
-
+    {
+      _dbus_hash_table_remove_string (activation->pending_activations,
+				      pending_activation->service_name);
+      return FALSE;
+    }
+  
   return TRUE;
 }

@@ -32,7 +32,7 @@
 typedef void (* BusServiceForeachFunction) (BusService       *service,
                                             void             *data);
 
-BusRegistry* bus_registry_new           (void);
+BusRegistry* bus_registry_new           (BusContext                  *context);
 void         bus_registry_ref           (BusRegistry                 *registry);
 void         bus_registry_unref         (BusRegistry                 *registry);
 BusService*  bus_registry_lookup        (BusRegistry                 *registry,

@@ -1,3 +1,23 @@
+2003-03-16  Anders Carlsson  <andersca@codefactory.se>
+
+	* bus/activation.c: (bus_pending_activation_entry_free),
+	(bus_pending_activation_free), (bus_activation_new),
+	(bus_activation_unref), (bus_activation_service_created),
+	(bus_activation_activate_service):
+	* bus/activation.h:
+	* bus/bus.c: (bus_context_new):
+	* bus/desktop-file.c: (new_section):
+	* bus/driver.c: (bus_driver_send_service_deleted),
+	(bus_driver_handle_activate_service):
+	* bus/services.c: (bus_registry_new), (bus_registry_ensure):
+	* bus/services.h:
+	* dbus/dbus-connection.c:
+	(dbus_connection_send_with_reply_and_block):
+	* dbus/dbus-message.c: (dbus_message_append_args_valist):
+	* dbus/dbus-protocol.h:
+	Make activation work better. Now pending activations will be queued
+	and the daemon won't try to activate services that are already registered.
+	
 2003-03-16  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-bus.c (ensure_bus_data): handle failure to set

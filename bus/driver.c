@@ -45,7 +45,7 @@ bus_driver_send_service_deleted (const char     *service_name,
   dbus_bool_t retval;
   
   _dbus_verbose ("sending service deleted: %s\n", service_name);
-  
+
   message = dbus_message_new (DBUS_SERVICE_BROADCAST,
                               DBUS_MESSAGE_SERVICE_DELETED);
   if (message == NULL)
@@ -625,7 +625,7 @@ bus_driver_handle_activate_service (DBusConnection *connection,
 
   retval = FALSE;
 
-  if (!bus_activation_activate_service (activation, name, error))
+  if (!bus_activation_activate_service (activation, connection, message, name, error))
     goto out;
 
   retval = TRUE;

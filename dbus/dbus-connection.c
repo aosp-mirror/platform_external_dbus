@@ -1488,7 +1488,7 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
       timeout_milliseconds = (end_tv_sec - tv_sec) * 1000 +
         (end_tv_usec - tv_usec) / 1000;
       _dbus_verbose ("%d milliseconds remain\n", timeout_milliseconds);
-      _dbus_assert (timeout_milliseconds > 0);
+      _dbus_assert (timeout_milliseconds >= 0);
       
       if (status == DBUS_DISPATCH_NEED_MEMORY)
         {

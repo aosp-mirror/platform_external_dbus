@@ -1167,7 +1167,7 @@ dbus_message_append_args_valist (DBusMessage *message,
 	case DBUS_TYPE_STRING_ARRAY:
 	  {
 	    int len;
-	    char **data;
+	    const char **data;
 	    
 	    data = va_arg (var_args, const char **);
 	    len = va_arg (var_args, int);

@@ -272,8 +272,8 @@ new_section (BusDesktopFile *desktop_file,
   name_copy = _dbus_strdup (name);
   if (name_copy == NULL)
     return NULL;
-  
-  n = desktop_file->n_sections + 1;
+
+  n = desktop_file->n_sections;
   desktop_file->sections[n].section_name = name_copy;
 
   desktop_file->sections[n].n_lines = 0;
@@ -287,7 +287,7 @@ new_section (BusDesktopFile *desktop_file,
       return NULL;
     }
 
-  desktop_file->n_sections = n;
+  desktop_file->n_sections += 1;
   
   return &desktop_file->sections[n];  
 }
