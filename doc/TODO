@@ -1,7 +1,4 @@
 
- - Message matching rules (so broadcasts can be filtered) need sorting
-   out.
-
  - How we will handle DCOP needs sorting out. Among other things, we
    need to check that service and service-ownership semantics map to DCOP 
    reasonably well.
@@ -93,3 +90,6 @@
  - add dbus_message_has_path(), maybe has_member/interface
 
  - The OBJECT_PATH type is not documented in the spec.
+
+ - re_align_field_recurse() in dbus-message.c is broken because it 
+   crashes on some types of header field values. security problem.

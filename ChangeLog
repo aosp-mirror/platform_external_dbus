@@ -1,3 +1,23 @@
+2003-10-11  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-message.c (_dbus_message_test): add more test
+	coverage, but #if 0 for now since they uncover a bug 
+	not fixed yet; I think in re_align_field_recurse()
+	(re_align_field_recurse): add FIXME about broken assertion
+
+	* dbus/dbus-sysdeps.c (_dbus_sysdeps_test): add more test coverage
+
+	* bus/connection.c: share a couple code bits with expirelist.c
+
+	* bus/expirelist.h, bus/expirelist.c: implement a generic
+	expire-items-after-N-seconds facility, was going to share between
+	expiring connections and replies, decided not to use for expiring
+	connections for now.
+
+	* bus/connection.c: add tracking of expected replies
+
+	* COPYING: include AFL 2.0 (still need to change all the file headers)
+
 2003-10-09  Havoc Pennington  <hp@redhat.com>
 
 	* configure.in: define DBUS_HAVE_GCC33_GCOV if we have

@@ -26,6 +26,7 @@
 #include "services.h"
 #include "utils.h"
 #include "signals.h"
+#include "expirelist.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-timeout.h>
@@ -672,8 +673,9 @@ bus_connections_expire_incomplete (BusConnections *connections)
       
           _dbus_assert (d != NULL);
       
-          elapsed = ((double) tv_sec - (double) d->connection_tv_sec) * 1000.0 +
-            ((double) tv_usec - (double) d->connection_tv_usec) / 1000.0;
+          elapsed = ELAPSED_MILLISECONDS_SINCE (d->connection_tv_sec,
+                                                d->connection_tv_usec,
+                                                tv_sec, tv_usec);
 
           if (elapsed >= (double) auth_timeout)
             {
@@ -693,25 +695,9 @@ bus_connections_expire_incomplete (BusConnections *connections)
           link = next;
         }
     }
-  
-  if (next_interval >= 0)
-    {
-      _dbus_timeout_set_interval (connections->expire_timeout,
-                                  next_interval);
-      _dbus_timeout_set_enabled (connections->expire_timeout, TRUE);
 
-      _dbus_verbose ("Enabled incomplete connections timeout with interval %d, %d incomplete connections\n",
-                     next_interval, connections->n_incomplete);
-    }
-  else if (dbus_timeout_get_enabled (connections->expire_timeout))
-    {
-      _dbus_timeout_set_enabled (connections->expire_timeout, FALSE);
-
-      _dbus_verbose ("Disabled incomplete connections timeout, %d incomplete connections\n",
-                     connections->n_incomplete);
-    }
-  else
-    _dbus_verbose ("No need to disable incomplete connections timeout\n");
+  bus_expire_timeout_set_interval (connections->expire_timeout,
+                                   next_interval);
 }
 
 static dbus_bool_t

@@ -40,6 +40,8 @@ BUS_SOURCES=					\
 	dispatch.h				\
 	driver.c				\
 	driver.h				\
+	expirelist.c				\
+	expirelist.h				\
 	policy.c				\
 	policy.h				\
 	services.c				\

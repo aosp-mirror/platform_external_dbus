@@ -3381,6 +3381,24 @@ _dbus_sysdeps_test (void)
       exit (1);
     }
 
+  _dbus_string_init_const (&str, "0xff");
+  if (!_dbus_string_parse_double (&str,
+				  0, &val, &pos))
+    {
+      _dbus_warn ("Failed to parse double");
+      exit (1);
+    }
+  if (val != 0xff)
+    {
+      _dbus_warn ("Failed to parse 0xff correctly, got: %f", val);
+      exit (1);
+    }
+  if (pos != 4)
+    {
+      _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
+      exit (1);
+    }
+  
   check_path_absolute ("/", TRUE);
   check_path_absolute ("/foo", TRUE);
   check_path_absolute ("", FALSE);

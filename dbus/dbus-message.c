@@ -489,6 +489,9 @@ re_align_field_recurse (DBusMessage *message,
     case DBUS_TYPE_NAMED:
     case DBUS_TYPE_ARRAY:
     case DBUS_TYPE_DICT:
+      /* FIXME This is no good; we have to handle undefined header fields
+       * also. SECURITY and spec compliance issue.
+       */
       _dbus_assert_not_reached ("no defined header fields may contain a named, array or dict value");
       break;
     case DBUS_TYPE_INVALID:
@@ -540,7 +543,7 @@ re_align_field_recurse (DBusMessage *message,
       /* this must succeed because it was allocated on function entry and
        * DBusString doesn't ever realloc smaller
        */
-    _dbus_string_insert_bytes (&message->header, pos, -delta, 0);
+      _dbus_string_insert_bytes (&message->header, pos, -delta, 0);
     }
 
   return FALSE;
@@ -729,7 +732,7 @@ set_string_field (DBusMessage *message,
 	      len = strlen (old_value);
 
 	      _dbus_string_init_const_len (&v, old_value,
-					  len + 1); /* include nul */
+                                           len + 1); /* include nul */
 	      if (!_dbus_marshal_set_string (&message->header,
 					     message->byte_order,
 					     offset, &v, len))
@@ -741,7 +744,7 @@ set_string_field (DBusMessage *message,
 	}
 
       dbus_free (old_value);
-
+      
       return TRUE;
 
     failed:
@@ -6553,12 +6556,16 @@ _dbus_message_test (const char *test_data_dir)
   _dbus_assert (dbus_message_has_destination (message, "org.freedesktop.DBus.TestService"));
   _dbus_assert (dbus_message_is_method_call (message, "Foo.TestInterface",
                                              "TestMethod"));
+  _dbus_assert (strcmp (dbus_message_get_path (message),
+                        "/org/freedesktop/TestPath") == 0);
   _dbus_message_set_serial (message, 1234);
   /* string length including nul byte not a multiple of 4 */
-  dbus_message_set_sender (message, "org.foo.bar1");
+  if (!dbus_message_set_sender (message, "org.foo.bar1"))
+    _dbus_assert_not_reached ("out of memory");
   _dbus_assert (dbus_message_has_sender (message, "org.foo.bar1"));
   dbus_message_set_reply_serial (message, 5678);
-  dbus_message_set_sender (message, NULL);
+  if (!dbus_message_set_sender (message, NULL))
+    _dbus_assert_not_reached ("out of memory");
   _dbus_assert (!dbus_message_has_sender (message, "org.foo.bar1"));
   _dbus_assert (dbus_message_get_serial (message) == 1234);
   _dbus_assert (dbus_message_get_reply_serial (message) == 5678);
@@ -6569,6 +6576,58 @@ _dbus_message_test (const char *test_data_dir)
   _dbus_assert (dbus_message_get_no_reply (message) == TRUE);
   dbus_message_set_no_reply (message, FALSE);
   _dbus_assert (dbus_message_get_no_reply (message) == FALSE);
+
+#if 0
+  /* Set/get some header fields */
+  
+  if (!dbus_message_set_path (message, "/foo"))
+    _dbus_assert_not_reached ("out of memory");
+  _dbus_assert (strcmp (dbus_message_get_path (message),
+                        "/foo") == 0);
+
+  if (!dbus_message_set_interface (message, "org.Foo"))
+    _dbus_assert_not_reached ("out of memory");
+  _dbus_assert (strcmp (dbus_message_get_interface (message),
+                        "org.Foo") == 0);
+  
+  if (!dbus_message_set_member (message, "Bar"))
+    _dbus_assert_not_reached ("out of memory");
+  _dbus_assert (strcmp (dbus_message_get_member (message),
+                        "Bar") == 0);
+
+  /* Set/get them with longer values */
+  if (!dbus_message_set_path (message, "/foo/bar"))
+    _dbus_assert_not_reached ("out of memory");
+  _dbus_assert (strcmp (dbus_message_get_path (message),
+                        "/foo/bar") == 0);
+
+  if (!dbus_message_set_interface (message, "org.Foo.Bar"))
+    _dbus_assert_not_reached ("out of memory");
+  _dbus_assert (strcmp (dbus_message_get_interface (message),
+                        "org.Foo.Bar") == 0);
+  
+  if (!dbus_message_set_member (message, "BarFoo"))
+    _dbus_assert_not_reached ("out of memory");
+  _dbus_assert (strcmp (dbus_message_get_member (message),
+                        "BarFoo") == 0);
+
+  /* Realloc shorter again */
+  
+  if (!dbus_message_set_path (message, "/foo"))
+    _dbus_assert_not_reached ("out of memory");
+  _dbus_assert (strcmp (dbus_message_get_path (message),
+                        "/foo") == 0);
+
+  if (!dbus_message_set_interface (message, "org.Foo"))
+    _dbus_assert_not_reached ("out of memory");
+  _dbus_assert (strcmp (dbus_message_get_interface (message),
+                        "org.Foo") == 0);
+  
+  if (!dbus_message_set_member (message, "Bar"))
+    _dbus_assert_not_reached ("out of memory");
+  _dbus_assert (strcmp (dbus_message_get_member (message),
+                        "Bar") == 0);
+#endif
   
   dbus_message_unref (message);
   

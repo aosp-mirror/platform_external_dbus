@@ -76,6 +76,12 @@ main (int argc, char **argv)
   if (!_dbus_threads_init_debug ())
     die ("initializing debug threads");
 #endif
+
+  printf ("%s: Running expire list test\n", argv[0]);
+  if (!bus_expire_list_test (&test_data_dir))
+    die ("expire list");
+  
+  check_memleaks (argv[0]);
   
   printf ("%s: Running config file parser test\n", argv[0]);
   if (!bus_config_parser_test (&test_data_dir))
