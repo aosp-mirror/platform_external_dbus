@@ -14,6 +14,7 @@ endif
 ## it if we didn't get the proper output
 
 dbus-specification.html: dbus-specification.sgml
+	rm -f $@ &&							\
 	$(DB2HTML) -o . --nochunks $< > $@.stdout &&			\
 	(test -e $@ && rm -f $@.stdout || mv $@.stdout $@) &&		\
 	rm -rf $(srcdir)/dbus-specification/stylesheet-images &&	\
@@ -21,6 +22,7 @@ dbus-specification.html: dbus-specification.sgml
 	rmdir $(srcdir)/dbus-specification ; fi)
 
 dbus-test-plan.html: dbus-test-plan.sgml
+	rm -f $@ &&						\
 	$(DB2HTML) -o . --nochunks $< > $@.stdout &&		\
 	(test -e $@ && rm -f $@.stdout || mv $@.stdout $@) &&	\
 	rm -rf $(srcdir)/dbus-test-plan/stylesheet-images &&	\
