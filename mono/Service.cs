@@ -23,6 +23,9 @@ namespace DBus
     private static AssemblyBuilder proxyAssembly;
     private ModuleBuilder module = null;
 
+    // Add a match for signals. FIXME: Can we filter the service?
+    private const string MatchRule = "type='signal'";
+
     internal Service(string name, Connection connection)
     {
       this.name = name;
@@ -45,6 +48,12 @@ namespace DBus
       this.connection = connection;
       this.name = name;
       this.local = true;
+    }
+
+    ~Service ()
+    {
+      if (this.filterCalled != null)
+        RemoveFilter ();
     }
 
     public static bool HasOwner(Connection connection, string name)
@@ -113,9 +122,17 @@ namespace DBus
 				      IntPtr.Zero))
 	throw new OutOfMemoryException();
 
-      // Add a match for signals. FIXME: Can we filter the service?
-      string rule = "type='signal'";
-      dbus_bus_add_match(connection.RawConnection, rule, IntPtr.Zero);
+      dbus_bus_add_match(connection.RawConnection, MatchRule, IntPtr.Zero);
+    }
+
+    private void RemoveFilter() 
+    {
+      dbus_connection_remove_filter (Connection.RawConnection,
+				     this.filterCalled,
+				     IntPtr.Zero);
+      this.filterCalled = null;
+
+      dbus_bus_remove_match (connection.RawConnection, MatchRule, IntPtr.Zero);
     }
 
     private int Service_FilterCalled(IntPtr rawConnection,
@@ -200,9 +217,19 @@ namespace DBus
 							  IntPtr freeData);
 
     [DllImport("dbus-1")]
+    private extern static void dbus_connection_remove_filter(IntPtr rawConnection,
+							     DBusHandleMessageFunction filter,
+							     IntPtr userData);
+
+    [DllImport("dbus-1")]
     private extern static void dbus_bus_add_match(IntPtr rawConnection,
 						  string rule,
 						  IntPtr erro);
+
+    [DllImport("dbus-1")]
+    private extern static void dbus_bus_remove_match(IntPtr rawConnection,
+						     string rule,
+						     IntPtr erro);
 
   }
 }

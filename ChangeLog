@@ -1,3 +1,27 @@
+2005-02-10  Joe Shaw  <joeshaw@novell.com>
+
+	* dbus/dbus-connection.c
+	(_dbus_connection_queue_received_message_link,
+	_dbus_connection_message_sent): Add the path to
+	the verbose output.
+	(_dbus_connection_send_preallocated_and_unlock): Added.  Calls
+	_dbus_connection_send_preallocated_unlocked(), updated the
+	dispatch status, and unlocks.  Fixes a bug where certain
+	situations (like a broken pipe) could cause a Disconnect message
+	to not be sent, tricking the bus into thinking a service was still
+	there when the process had quit.
+	(_dbus_connection_send_preallocated): Call
+	_dbus_connection_send_preallocated_and_unlock().
+	(_dbus_connection_send_and_unlock): Added.  Calls
+	_dbus_connection_send_preallocated_and_unlock().
+	(dbus_connection_send): Call _dbus_connection_send_and_unlock().
+	(dbus_connection_send_with_reply): Update the dispatch status and
+	unlock.
+
+	* mono/Service.cs (~Service): Added.  Removes the filter so that
+	we don't get unmanaged code calling back into a GCed delegate.
+	(RemoveFilter); Added.
+
 2005-02-09  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-message.c (dbus_message_iter_open_container):
