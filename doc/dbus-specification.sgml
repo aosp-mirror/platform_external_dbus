@@ -1,0 +1,313 @@
+<!doctype article PUBLIC "-//OASIS//DTD DocBook V3.1//EN" [
+]>
+<article id="index">
+  <artheader>
+    <title>D-BUS Protocol Specification</title>
+    <releaseinfo>Version 0.1</releaseinfo>
+    <date>22 January 2003</date>
+    <authorgroup>
+      <author>
+	<firstname>Havoc</firstname>
+	<surname>Pennington</surname>
+	<affiliation>
+	  <address>
+	    <email>hp@pobox.com</email>
+	  </address>
+	</affiliation>
+      </author>
+    </authorgroup>
+  </artheader>
+
+  <sect1 id="introduction">
+    <title>Introduction</title>
+    <para>
+      D-BUS is a system for low-latency, low-overhead, easy to use
+      interprocess communication (IPC). In more detail:
+      <itemizedlist>
+        <listitem>
+          <para>
+            D-BUS is <emphasis>low-latency</emphasis> because it is designed 
+            to avoid round trips and allow asynchronous operation, much like 
+            the X protocol.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            D-BUS is <emphasis>low-overhead</emphasis> because it is uses a
+            binary protocol, and does not have to convert to and from a text
+            format such as XML. Because D-BUS is intended for potentially
+            high-resolution same-machine IPC, not primarily for Internet IPC,
+            this is an interesting optimization.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            D-BUS is <emphasis>easy to use</emphasis> because it works in terms
+            of <firstterm>messages</firstterm> rather than byte streams, and
+            does not require users to understand any complex concepts such as a
+            new type system or elaborate APIs. Libraries implementing D-BUS 
+            may choose to abstract messages as "method calls" (see 
+            <xref linkend="method-conventions">).
+          </para>
+        </listitem>
+      </itemizedlist>
+    </para>
+    <para>
+      The base D-BUS protocol is a peer-to-peer protocol, specified in <xref
+      linkend="message-protocol">. That is, it is a system for one application
+      to talk to a single other application. However, the primary intended
+      application of D-BUS is the D-BUS <firstterm>message bus</firstterm>,
+      specified in <xref linkend="message-bus">. The message bus is a special
+      application that accepts connections from multiple other applications, and
+      forwards messages among them.
+    </para>
+  </sect1>
+
+  <sect1 id="message-protocol">
+    <title>Message Protocol</title>
+    <para>
+      A <firstterm>message</firstterm> consists of a
+      <firstterm>header</firstterm> and a <firstterm>body</firstterm>. If you
+      think of a message as a package, the header is the address, and the body
+      contains the package contents. The message delivery system uses the header
+      information to figure out where to send the message and how to interpret
+      it; the recipient inteprets the body of the message.
+    </para>
+    
+    <para>
+      The body of the message is made up of zero or more
+      <firstterm>arguments</firstterm>, which are typed 
+      values, such as an integer or a byte array.
+    </para>
+
+    <sect2 id="message-protocol-header-encoding">
+      <title>Header Encoding</title>
+      <para>
+        [document the required header fields and how they are encoded]
+      </para>
+    </sect2>
+
+    <sect2 id="message-protocol-header-fields">
+      <title>Header Fields</title>
+      <para>
+        In addition to the required header information mentioned 
+        in <xref linkend="message-protocol-header-encoding">, 
+          the header may contain zero or more named 
+          header fields. These fields are named to allow 
+          future versions of this protocol specification to 
+          add new fields; implementations must ignore fields 
+          they do not understand. Implementations must not 
+          invent their own header fields; only changes to 
+          this specification may introduce new header fields.
+      </para>
+    </sect2>
+    <sect2 id="message-protocol-arguments">
+      <title>Message Arguments</title>
+      <para>
+        The message body is made up of arguments. Each argument
+        is a type code, followed by the value of the argument 
+        in a type-dependent format.
+      </para>
+      <para>
+        The types are:
+      </para>
+      <para>
+        The types are encoded as follows:
+      </para>
+    </sect2>
+  </sect1>
+
+  <sect1 id="auth-protocol">
+    <title>Authentication Protocol</title>
+    <para>
+      Before the flow of messages begins, two applications 
+      must authenticate. A simple text protocol is used 
+      for authentication; this protocol is a SASL profile, 
+      and maps fairly directly from the SASL specification.
+    </para>
+    <para>
+      [move the dbus-sasl-profile.txt stuff into here and clean it up]
+    </para>
+  </sect1>
+
+  <sect1 id="addresses">
+    <title>Server Addresses</title>
+    <para>
+      [document the string format of an address, and how it maps 
+      to unix domain sockets, tcp, or whatever]
+    </para>
+  </sect1>
+
+  <sect1 id="method-conventions">
+    <title>Method Call Mapping</title>
+    <para>
+      [document how something that looks like a method call is conventionally
+      represented in terms of messages, for method-call-style API bindings]
+    </para>
+  </sect1>
+
+  <sect1 id="standard-messages">
+    <title>Standard Peer-to-Peer Messages</title>
+    <para>
+    </para>
+    <sect2 id="standard-messages-ping">
+      <title>Ping Protocol</title>
+      <para>
+        <literal>org.freedesktop.Peer.Ping</literal> 
+        generates <literal>org.freedesktop.Peer.PingReply</literal> 
+      </para>
+    </sect2>
+  </sect1>
+
+  <sect1 id="message-bus">
+    <title>Message Bus Specification</title>
+    <sect2 id="message-bus-overview">
+      <title>Message Bus Overview</title>
+      <para>
+        The message bus accepts connections from one or more applications. 
+        Once connected, applications can send and receive messages from 
+        the message bus, as in the peer-to-peer case.
+      </para>
+      <para>
+        The message bus keeps track of a set of
+        <firstterm>services</firstterm>. A service is simply a name, such 
+        as <literal>com.yoyodyne.Screensaver</literal>, which can be 
+        <firstterm>owned</firstterm> by one of the connected applications. 
+        The message bus itself always owns the special service 
+        <literal>org.freedesktop.DBus</literal>.
+      </para>
+      <para>
+        Messages may have a <literal>srvc</literal> field (see <xref
+        linkend="message-protocol-header-fields">).  When the message bus
+        receives a message, if the <literal>srvc</literal> field is absent, the
+        message is taken to be a standard peer-to-peer message and interpreted
+        by the message bus itself. For example, sending
+          an <literal>org.freedesktop.Peer.Ping</literal> message with no 
+          <literal>srvc</literal> will cause the message bus itself to reply 
+          to the ping immediately; the message bus would never make 
+          this message visible to other applications.
+      </para>
+      <para>
+        If the <literal>srvc</literal> field is present, then it indicates a
+        request for the message bus to route the message. In the usual case,
+        messages are routed to the owner of the named service.
+        Messages may also be <firstterm>broadcast</firstterm>
+        by sending them to the special service 
+        <literal>org.freedesktop.Broadcast</literal>. Broadcast messages 
+        are sent to all applications with <firstterm>message matching rules</firstterm>
+        that match the message.
+      </para>
+      <para>
+        Continuing the <literal>org.freedesktop.Peer.Ping</literal> example, if
+        the ping message were sent with a <literal>srvc</literal> name of
+        <literal>com.yoyodyne.Screensaver</literal>, then the ping would be
+        forwarded, and the Yoyodyne Corporation screensaver application would be
+        expected to reply to the ping. If
+        <literal>org.freedesktop.Peer.Ping</literal> were sent to
+        <literal>org.freedesktop.Broadcast</literal>, then multiple applications
+        might receive the ping, and all would normally reply to it.
+      </para>
+    </sect2>
+    <sect2 id="message-bus-messages">
+      <title>Message Bus Messages</title>
+      <para>
+        The special message bus service <literal>org.freedesktop.DBus</literal>
+        responds to a number of messages, allowing applications to 
+        interact with the message bus.
+      </para>
+      <para>
+        [document the messages here]
+      </para>
+    </sect2>
+    <sect2 id="message-bus-activation">
+      <title>Message Bus Service Activation</title>
+      <para>
+        [document file format, filesystem locations, etc. for activation]
+      </para>
+    </sect2>
+    <sect2 id="message-bus-location">
+      <title>Finding The Message Bus</title>
+      <para>
+        Two standard message bus instances are defined here, along with how 
+        to locate them.
+      </para>
+      <para>
+        Each time a user logs in, a <firstterm>desktop session message
+        bus</firstterm> may be started. All applications in the user's login
+        session may interact with one another using this message bus.  [specify
+        how to find the address of the desktop session message bus via
+        environment variable and/or X property]
+      </para>
+      <para>
+        A computer may have a <firstterm>system message bus</firstterm>,
+        accessible to all applications on the system. This message bus may be
+        used to broadcast system events, such as adding new hardware devices.
+        [specify how to find the address of the system message bus]
+      </para>
+    </sect2>
+  </sect1>
+
+  <appendix id="implementation-notes">
+    <title>Implementation notes</title>
+    <sect1 id="implementation-notes-subsection">
+      <title></title>
+      <para>
+
+      </para>
+    </sect1>
+  </appendix>
+  <glossary><title>Glossary</title>
+    <para>
+      This glossary defines some of the terms used in this specification.
+    </para>
+
+    <glossentry id="term-broadcast"><glossterm>Broadcast</glossterm>
+      <glossdef>
+        <para>
+          A message sent to the special <literal>org.freedesktop.Broadcast</literal>
+          service; the message bus will forward the broadcast message 
+          to all clients that have expressed interest in it.
+        </para>
+      </glossdef>
+    </glossentry>
+      
+    <glossentry id="term-message"><glossterm>Message</glossterm>
+      <glossdef>
+        <para>
+          A message is the atomic unit of communication via the D-BUS
+          protocol. It consists of a <firstterm>header</firstterm> and a
+          <firstterm>body</firstterm>; the body is made up of
+          <firstterm>arguments</firstterm>.
+        </para>
+      </glossdef>
+    </glossentry>
+
+    <glossentry id="term-message-bus"><glossterm>Message Bus</glossterm>
+      <glossdef>
+        <para>
+          The message bus is a special application that forwards 
+          or broadcasts messages between a group of applications
+          connected to the message bus. It also manages 
+          <firstterm>services</firstterm>.
+        </para>
+      </glossdef>
+    </glossentry>
+
+    <glossentry id="term-service"><glossterm>Service</glossterm>
+      <glossdef>
+        <para>
+          A service is simply a named application that other 
+          applications can refer to. For example, the 
+          hypothetical <literal>com.yoyodyne.Screensaver</literal>
+          service might accept messages that affect 
+          a screensaver from Yoyodyne Corporation.
+          An application is said to <firstterm>own</firstterm> 
+          a service if the message bus has associated the 
+          application with the service name.
+        </para>
+      </glossdef>
+    </glossentry>
+
+  </glossary>
+</article>
+

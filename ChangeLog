@@ -1,5 +1,9 @@
 2003-01-22  Havoc Pennington  <hp@pobox.com>
 
+	* doc/dbus-specification.sgml: Start to document the protocol.
+
+2003-01-22  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-connection.c
 	(dbus_connection_send_message_with_reply_and_block): add some @todo
 
