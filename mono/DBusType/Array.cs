@@ -36,12 +36,12 @@ namespace DBus.DBusType
       IntPtr arrayIter = Marshal.AllocCoTaskMem(Arguments.DBusMessageIterSize);
       
       int elementTypeCode;
-      bool empty = dbus_message_iter_init_array_iterator(iter, arrayIter, out elementTypeCode);
+      bool notEmpty = dbus_message_iter_init_array_iterator(iter, arrayIter, out elementTypeCode);
       this.elementType = (Type) Arguments.DBusTypes[(char) elementTypeCode];
 
       elements = new ArrayList();
 
-      if (!empty) {
+      if (notEmpty) {
 	do {
 	  object [] pars = new Object[2];
 	  pars[0] = arrayIter;

@@ -31,11 +31,11 @@ namespace DBus.DBusType
     {
       IntPtr dictIter = Marshal.AllocCoTaskMem(Arguments.DBusMessageIterSize);
       
-      bool empty = dbus_message_iter_init_dict_iterator(iter, dictIter);
+      bool notEmpty = dbus_message_iter_init_dict_iterator(iter, dictIter);
 
       this.val = new Hashtable();
 
-      if (!empty) {
+      if (notEmpty) {
 	do {
 	  string key = dbus_message_iter_get_dict_key(dictIter);
 	  

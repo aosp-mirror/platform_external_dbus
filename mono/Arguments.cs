@@ -181,9 +181,9 @@ namespace DBus
       string key = "";
 
       // Iterate through the parameters getting the type codes to a string
-      bool empty = dbus_message_iter_init(message.RawMessage, iter);
+      bool notEmpty = dbus_message_iter_init(message.RawMessage, iter);
 
-      if (!empty) {
+      if (notEmpty) {
 	do {
 	  char code = (char) dbus_message_iter_get_arg_type(iter);
 	  if (code == '\0')
@@ -221,7 +221,7 @@ namespace DBus
     {
       private Arguments arguments;
       private bool started = false;
-      private bool empty = false;
+      private bool notEmpty = false;
       private IntPtr iter = Marshal.AllocCoTaskMem(Arguments.DBusMessageIterSize);
       
       public ArgumentsEnumerator(Arguments arguments)
@@ -241,13 +241,13 @@ namespace DBus
 	  return dbus_message_iter_next(iter);
 	} else {
 	  started = true;
-	  return !empty;
+	  return notEmpty;
 	}
       }
       
       public void Reset()
       {
-	empty = dbus_message_iter_init(arguments.message.RawMessage, iter);
+	notEmpty = dbus_message_iter_init(arguments.message.RawMessage, iter);
 	started = false;
       }
       
