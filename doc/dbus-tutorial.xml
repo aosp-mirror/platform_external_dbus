@@ -32,24 +32,25 @@
       <itemizedlist>
         <listitem>
           <para>
-            A library, libdbus, that allows two applications to connect
-            to each other and exchange messages.
+            A library, <firstterm>libdbus</firstterm>, that allows two
+            applications to connect to each other and exchange messages.
           </para>
         </listitem>
         <listitem>
           <para>
-            A message bus daemon executable, built on libdbus, that multiple 
-            applications can connect to. The daemon can route messages 
-            from one application to zero or more other applications.
+            A <firstterm>message bus daemon</firstterm> executable, built on
+            libdbus, that multiple applications can connect to. The daemon can
+            route messages from one application to zero or more other
+            applications.
           </para>
         </listitem>
         <listitem>
           <para>
-            Wrapper libraries based on particular application frameworks. 
-            For example, libdbus-glib and libdbus-qt. There are also 
-            bindings to languages such as Python. These wrapper libraries
-            are the API most people should use, as they simplify the 
-            details of D-BUS programming.
+            <firstterm>Wrapper libraries</firstterm> based on particular
+            application frameworks.  For example, libdbus-glib and
+            libdbus-qt. There are also bindings to languages such as
+            Python. These wrapper libraries are the API most people should use,
+            as they simplify the details of D-BUS programming.
           </para>
         </listitem>
       </itemizedlist>
