@@ -1148,6 +1148,8 @@ _dbus_string_insert_8_aligned (DBusString         *str,
   if (!align_insert_point_then_open_gap (str, &insert_at, 8, 8))
     return FALSE;
 
+  _dbus_assert (_DBUS_ALIGN_VALUE (insert_at, 8) == (unsigned) insert_at);
+  
   ASSIGN_8_OCTETS (real->str + insert_at, octets);
 
   return TRUE;

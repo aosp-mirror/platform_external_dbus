@@ -195,6 +195,20 @@ pack_4_octets (dbus_uint32_t   value,
 }
 
 static void
+swap_8_octets (DBusOctets8    *value,
+               int             byte_order)
+{
+  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
+    {
+#ifdef DBUS_HAVE_INT64
+      value->u = DBUS_UINT64_SWAP_LE_BE (value->u);
+#else
+      swap_bytes ((unsigned char *)value, 8);
+#endif
+    }
+}
+
+static void
 pack_8_octets (DBusOctets8     value,
                int             byte_order,
                unsigned char  *data)
@@ -208,8 +222,7 @@ pack_8_octets (DBusOctets8     value,
     *((dbus_uint64_t*)(data)) = DBUS_UINT64_TO_BE (value.u);
 #else
   memcpy (data, &value, 8);
-  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-    swap_bytes ((unsigned char *)data, 8);
+  swap_8_octets ((DBusOctets8*)data, byte_order);
 #endif
 }
 
@@ -483,10 +496,9 @@ marshal_8_octets (DBusString *str,
                   DBusOctets8 value)
 {
   _dbus_assert (sizeof (value) == 8);
-  
-  if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-    pack_8_octets (value, byte_order, (unsigned char*) &value); /* pack into self, swapping as we go */
 
+  swap_8_octets (&value, byte_order);
+  
   return _dbus_string_insert_8_aligned (str, insert_at,
                                         (const unsigned char *)&value);
 }
