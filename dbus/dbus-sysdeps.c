@@ -3281,6 +3281,16 @@ _dbus_change_identity  (dbus_uid_t     uid,
                         dbus_gid_t     gid,
                         DBusError     *error)
 {
+  /* setgroups() only works if we are a privileged process,
+   * so we don't return error on failure; the only possible
+   * failure is that we don't have perms to do it.
+   * FIXME not sure this is right, maybe if setuid()
+   * is going to work then setgroups() should also work.
+   */
+  if (setgroups (0, NULL) < 0)
+    dbus_warn ("Failed to drop supplementary groups: %s\n",
+               _dbus_strerror (errno));
+  
   /* Set GID first, or the setuid may remove our permission
    * to change the GID
    */
