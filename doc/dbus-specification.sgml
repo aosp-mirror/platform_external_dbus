@@ -218,13 +218,12 @@
 
       <para>
         Header field names MUST consist of 4 non-nul bytes.  The field name is
-        NOT nul terminated; it occupies exactly 4 bytes. Following the name, 
-        the field MUST have a type code, and then a properly-aligned value 
-        of that type. 
-        See <xref linkend="message-protocol-arguments"> for a description 
-          of how each type is encoded. If an implementation sees a header 
-          field name that it does not understand, it MUST ignore 
-          that field.
+        NOT nul terminated; it occupies exactly 4 bytes. Following the name, the
+        field MUST have a type code represented as a single unsigned byte, and
+        then a properly-aligned value of that type.  See <xref
+        linkend="message-protocol-arguments"> for a description of how each type
+        is encoded. If an implementation sees a header field name that it does
+        not understand, it MUST ignore that field.
       </para>
 
       <para>
@@ -288,9 +287,10 @@
     <sect2 id="message-protocol-arguments">
       <title>Message Arguments</title>
       <para>
-        The message body is made up of arguments. Each argument
-        is a type code, followed by the value of the argument 
-        in a type-dependent format.
+        The message body is made up of arguments. Each argument is a type code,
+        represented by a single unsigned byte, followed by the aligned value of
+        the argument in a type-dependent format. Alignment padding between the 
+        typecode and the value is initialized to zero.
       </para>
       <para>
         <informaltable>

@@ -1282,6 +1282,8 @@ _dbus_message_data_load (DBusString       *dest,
     }
   
   retval = TRUE;
+
+  _dbus_verbose_bytes_of_string (dest, 0, _dbus_string_get_length (dest));
   
  out:
   if (length_hash != NULL)
