@@ -75,6 +75,8 @@ struct DBusServer
   /**< Callback to invoke to free new_connection_data
    * when server is finalized or data is replaced.
    */
+
+  char **auth_mechanisms; /**< Array of allowed authentication mechanisms */
   
   unsigned int disconnected : 1;              /**< TRUE if we are disconnected. */
 };

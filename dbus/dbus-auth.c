@@ -159,6 +159,10 @@ struct DBusAuth
   DBusKeyring *keyring;             /**< Keyring for cookie mechanism. */
   int cookie_id;                    /**< ID of cookie to use */
   DBusString challenge;             /**< Challenge sent to client */
+
+  char **allowed_mechs;             /**< Mechanisms we're allowed to use,
+                                     * or #NULL if we can use any
+                                     */
   
   unsigned int needed_memory : 1;   /**< We needed memory to continue since last
                                      * successful getting something done
@@ -1134,13 +1138,19 @@ all_mechanisms[] = {
 };
 
 static const DBusAuthMechanismHandler*
-find_mech (const DBusString *name)
+find_mech (const DBusString  *name,
+           char             **allowed_mechs)
 {
   int i;
   
+  if (allowed_mechs != NULL &&
+      !_dbus_string_array_contains ((const char**) allowed_mechs,
+                                    _dbus_string_get_const_data (name)))
+    return NULL;
+  
   i = 0;
   while (all_mechanisms[i].mechanism != NULL)
-    {
+    {      
       if (_dbus_string_equal_c_str (name,
                                     all_mechanisms[i].mechanism))
 
@@ -1259,7 +1269,7 @@ process_auth (DBusAuth         *auth,
                                        &decoded_response, 0))
         goto failed;
       
-      auth->mech = find_mech (&mech);
+      auth->mech = find_mech (&mech, auth->allowed_mechs);
       if (auth->mech != NULL)
         {
           _dbus_verbose ("Trying mechanism %s with initial response of %d bytes\n",
@@ -1418,7 +1428,7 @@ record_mechanisms (DBusAuth         *auth,
       if (!get_word (args, &next, &m))
         goto nomem;
 
-      mech = find_mech (&m);
+      mech = find_mech (&m, auth->allowed_mechs);
 
       if (mech != NULL)
         {
@@ -1462,11 +1472,32 @@ client_try_next_mechanism (DBusAuth *auth)
 {
   const DBusAuthMechanismHandler *mech;
   DBusString auth_command;
+  DBusAuthClient *client;
 
-  if (DBUS_AUTH_CLIENT (auth)->mechs_to_try == NULL)
+  client = DBUS_AUTH_CLIENT (auth);
+  
+  /* Pop any mechs not in the list of allowed mechanisms */
+  mech = NULL;
+  while (client->mechs_to_try != NULL)
+    {
+      mech = client->mechs_to_try->data;
+
+      if (auth->allowed_mechs != NULL && 
+          !_dbus_string_array_contains ((const char**) auth->allowed_mechs,
+                                        mech->mechanism))
+        {
+          /* don't try this one after all */
+          _dbus_verbose ("Mechanism %s isn't in the list of allowed mechanisms\n",
+                         mech->mechanism);
+          mech = NULL;
+          _dbus_list_pop_first (& client->mechs_to_try);
+        }
+      else
+        break; /* we'll try this one */
+    }
+  
+  if (mech == NULL)
     return FALSE;
-
-  mech = DBUS_AUTH_CLIENT (auth)->mechs_to_try->data;
 
   if (!_dbus_string_init (&auth_command))
     return FALSE;
@@ -1859,8 +1890,41 @@ _dbus_auth_unref (DBusAuth *auth)
       _dbus_string_free (&auth->identity);
       _dbus_string_free (&auth->incoming);
       _dbus_string_free (&auth->outgoing);
+
+      dbus_free_string_array (auth->allowed_mechs);
+      
       dbus_free (auth);
     }
+}
+
+/**
+ * Sets an array of authentication mechanism names
+ * that we are willing to use.
+ *
+ * @param auth the auth conversation
+ * @param mechanisms #NULL-terminated array of mechanism names
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_auth_set_mechanisms (DBusAuth    *auth,
+                           const char **mechanisms)
+{
+  char **copy;
+
+  if (mechanisms != NULL)
+    {
+      copy = _dbus_dup_string_array (mechanisms);
+      if (copy == NULL)
+        return FALSE;
+    }
+  else
+    copy = NULL;
+  
+  dbus_free_string_array (auth->allowed_mechs);
+
+  auth->allowed_mechs = copy;
+
+  return TRUE;
 }
 
 /**

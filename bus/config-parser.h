@@ -55,8 +55,10 @@ dbus_bool_t      bus_config_parser_finished      (BusConfigParser   *parser,
                                                   DBusError         *error);
 
 /* Functions for extracting the parse results */
-const char*      bus_config_parser_get_user      (BusConfigParser   *parser);
-DBusList**       bus_config_parser_get_addresses (BusConfigParser   *parser);
+const char*      bus_config_parser_get_user       (BusConfigParser   *parser);
+DBusList**       bus_config_parser_get_addresses  (BusConfigParser   *parser);
+DBusList**       bus_config_parser_get_mechanisms (BusConfigParser   *parser);
+dbus_bool_t      bus_config_parser_get_fork       (BusConfigParser   *parser);
 
 /* Loader functions (backended off one of the XML parsers).  Returns a
  * finished ConfigParser.

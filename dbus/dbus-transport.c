@@ -907,4 +907,20 @@ _dbus_transport_set_unix_user_function (DBusTransport             *transport,
   transport->free_unix_user_data = free_data_function;
 }
 
+/**
+ * Sets the SASL authentication mechanisms supported by this transport.
+ *
+ * @param transport the transport
+ * @param mechanisms the #NULL-terminated array of mechanisms
+ *
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_transport_set_auth_mechanisms (DBusTransport  *transport,
+                                     const char    **mechanisms)
+{
+  return _dbus_auth_set_mechanisms (transport->auth, mechanisms);
+}
+
+
 /** @} */

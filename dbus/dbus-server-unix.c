@@ -90,6 +90,13 @@ handle_new_client_fd (DBusServer *server,
       return FALSE;
     }
 
+  if (!_dbus_transport_set_auth_mechanisms (transport,
+                                            (const char **) server->auth_mechanisms))
+    {
+      _dbus_transport_unref (transport);
+      return FALSE;
+    }
+  
   /* note that client_fd is now owned by the transport, and will be
    * closed on transport disconnection/finalization
    */

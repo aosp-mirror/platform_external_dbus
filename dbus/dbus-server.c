@@ -143,6 +143,8 @@ _dbus_server_finalize_base (DBusServer *server)
   _dbus_counter_unref (server->connection_counter);
 
   dbus_free (server->address);
+
+  dbus_free_string_array (server->auth_mechanisms);
 }
 
 /**
@@ -597,6 +599,37 @@ dbus_server_handle_watch (DBusServer              *server,
   _dbus_watch_sanitize_condition (watch, &condition);
   
   return (* server->vtable->handle_watch) (server, watch, condition);
+}
+
+/**
+ * Sets the authentication mechanisms that this server offers
+ * to clients, as a list of SASL mechanisms. This function
+ * only affects connections created *after* it is called.
+ * Pass #NULL instead of an array to use all available mechanisms.
+ *
+ * @param server the server
+ * @param mechanisms #NULL-terminated array of mechanisms
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+dbus_server_set_auth_mechanisms (DBusServer  *server,
+                                 const char **mechanisms)
+{
+  char **copy;
+
+  if (mechanisms != NULL)
+    {
+      copy = _dbus_dup_string_array (mechanisms);
+      if (copy == NULL)
+        return FALSE;
+    }
+  else
+    copy = NULL;
+
+  dbus_free_string_array (server->auth_mechanisms);
+  server->auth_mechanisms = copy;
+
+  return TRUE;
 }
 
 /**

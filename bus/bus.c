@@ -141,8 +141,15 @@ free_rule_list_func (void *data)
 static dbus_bool_t
 setup_server (BusContext *context,
               DBusServer *server,
+              char      **auth_mechanisms,
               DBusError  *error)
-{  
+{
+  if (!dbus_server_set_auth_mechanisms (server, (const char**) auth_mechanisms))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+  
   dbus_server_set_new_connection_function (server,
                                            new_connection_callback,
                                            context, NULL);
@@ -181,6 +188,10 @@ bus_context_new (const DBusString *config_file,
   BusConfigParser *parser;
   DBusString full_address;
   const char *service_dirs[] = { NULL, NULL };
+  const char *user;
+  char **auth_mechanisms;
+  DBusList **auth_mechanisms_list;
+  int len;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -189,6 +200,7 @@ bus_context_new (const DBusString *config_file,
 
   parser = NULL;
   context = NULL;
+  auth_mechanisms = NULL;
   
   parser = bus_config_load (config_file, error);
   if (parser == NULL)
@@ -202,6 +214,36 @@ bus_context_new (const DBusString *config_file,
     }
   
   context->refcount = 1;
+
+  /* Build an array of auth mechanisms */
+  
+  auth_mechanisms_list = bus_config_parser_get_mechanisms (parser);
+  len = _dbus_list_get_length (auth_mechanisms_list);
+
+  if (len > 0)
+    {
+      int i;
+
+      auth_mechanisms = dbus_new0 (char*, len + 1);
+      if (auth_mechanisms == NULL)
+        goto failed;
+      
+      i = 0;
+      link = _dbus_list_get_first_link (auth_mechanisms_list);
+      while (link != NULL)
+        {
+          auth_mechanisms[i] = _dbus_strdup (link->data);
+          if (auth_mechanisms[i] == NULL)
+            goto failed;
+          link = _dbus_list_get_next_link (auth_mechanisms_list, link);
+        }
+    }
+  else
+    {
+      auth_mechanisms = NULL;
+    }
+
+  /* Listen on our addresses */
   
   addresses = bus_config_parser_get_addresses (parser);  
   
@@ -213,7 +255,7 @@ bus_context_new (const DBusString *config_file,
       server = dbus_server_listen (link->data, error);
       if (server == NULL)
         goto failed;
-      else if (!setup_server (context, server, error))
+      else if (!setup_server (context, server, auth_mechanisms, error))
         goto failed;
 
       if (!_dbus_list_append (&context->servers, server))
@@ -225,6 +267,31 @@ bus_context_new (const DBusString *config_file,
       link = _dbus_list_get_next_link (addresses, link);
     }
 
+  /* Here we change our credentials if required,
+   * as soon as we've set up our sockets
+   */
+  user = bus_config_parser_get_user (parser);
+  if (user != NULL)
+    {
+      DBusCredentials creds;
+      DBusString u;
+
+      _dbus_string_init_const (&u, user);
+
+      if (!_dbus_credentials_from_username (&u, &creds) ||
+          creds.uid < 0 ||
+          creds.gid < 0)
+        {
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+                          "Could not get UID and GID for username \"%s\"",
+                          user);
+          goto failed;
+        }
+      
+      if (!_dbus_change_identity (creds.uid, creds.gid, error))
+        goto failed;
+    }
+  
   /* We have to build the address backward, so that
    * <listen> later in the config file have priority
    */
@@ -265,6 +332,8 @@ bus_context_new (const DBusString *config_file,
       BUS_SET_OOM (error);
       goto failed;
     }
+
+  /* Create activation subsystem */
   
   context->activation = bus_activation_new (context, &full_address,
                                             service_dirs, error);
@@ -306,12 +375,20 @@ bus_context_new (const DBusString *config_file,
       goto failed;
     }
 
+  /* Now become a daemon if appropriate */
+  if (bus_config_parser_get_fork (parser))
+    {
+      if (!_dbus_become_daemon (error))
+        goto failed;
+    }
+  
   bus_config_parser_unref (parser);
   _dbus_string_free (&full_address);
+  dbus_free_string_array (auth_mechanisms);
   
   return context;
   
- failed:
+ failed:  
   if (parser != NULL)
     bus_config_parser_unref (parser);
 
@@ -319,6 +396,7 @@ bus_context_new (const DBusString *config_file,
     bus_context_unref (context);
 
   _dbus_string_free (&full_address);
+  dbus_free_string_array (auth_mechanisms);
   return NULL;
 }
 

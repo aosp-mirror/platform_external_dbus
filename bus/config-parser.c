@@ -37,7 +37,8 @@ typedef enum
   ELEMENT_POLICY,
   ELEMENT_LIMIT,
   ELEMENT_ALLOW,
-  ELEMENT_DENY
+  ELEMENT_DENY,
+  ELEMENT_FORK
 } ElementType;
 
 typedef struct
@@ -84,6 +85,10 @@ struct BusConfigParser
   char *user;          /**< user to run as */
 
   DBusList *listen_on; /**< List of addresses to listen to */
+
+  DBusList *mechanisms; /**< Auth mechanisms */
+  
+  unsigned int fork : 1; /**< TRUE to fork into daemon mode */
 };
 
 static const char*
@@ -111,6 +116,8 @@ element_type_to_name (ElementType type)
       return "allow";
     case ELEMENT_DENY:
       return "deny";
+    case ELEMENT_FORK:
+      return "fork";
     }
 
   _dbus_assert_not_reached ("bad element type");
@@ -195,9 +202,15 @@ merge_included (BusConfigParser *parser,
       included->user = NULL;
     }
 
+  if (included->fork)
+    parser->fork = TRUE;
+  
   while ((link = _dbus_list_pop_first_link (&included->listen_on)))
     _dbus_list_append_link (&parser->listen_on, link);
 
+  while ((link = _dbus_list_pop_first_link (&included->mechanisms)))
+    _dbus_list_append_link (&parser->mechanisms, link);
+  
   return TRUE;
 }
 
@@ -409,12 +422,40 @@ start_busconfig_child (BusConfigParser   *parser,
 
       return TRUE;
     }
+  else if (strcmp (element_name, "fork") == 0)
+    {
+      if (!check_no_attributes (parser, "fork", attribute_names, attribute_values, error))
+        return FALSE;
+
+      if (push_element (parser, ELEMENT_FORK) == NULL)
+        {
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          return FALSE;
+        }
+
+      parser->fork = TRUE;
+      
+      return TRUE;
+    }
   else if (strcmp (element_name, "listen") == 0)
     {
       if (!check_no_attributes (parser, "listen", attribute_names, attribute_values, error))
         return FALSE;
 
       if (push_element (parser, ELEMENT_LISTEN) == NULL)
+        {
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          return FALSE;
+        }
+
+      return TRUE;
+    }
+  else if (strcmp (element_name, "auth") == 0)
+    {
+      if (!check_no_attributes (parser, "auth", attribute_names, attribute_values, error))
+        return FALSE;
+
+      if (push_element (parser, ELEMENT_AUTH) == NULL)
         {
           dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           return FALSE;
@@ -654,6 +695,7 @@ bus_config_parser_end_element (BusConfigParser   *parser,
     case ELEMENT_LIMIT:
     case ELEMENT_ALLOW:
     case ELEMENT_DENY:
+    case ELEMENT_FORK:
       break;
     }
 
@@ -715,6 +757,7 @@ bus_config_parser_content (BusConfigParser   *parser,
     case ELEMENT_LIMIT:
     case ELEMENT_ALLOW:
     case ELEMENT_DENY:
+    case ELEMENT_FORK:
       if (all_whitespace (content))
         return TRUE;
       else
@@ -800,8 +843,19 @@ bus_config_parser_content (BusConfigParser   *parser,
 
     case ELEMENT_AUTH:
       {
+        char *s;
+        
         e->had_content = TRUE;
-        /* FIXME */
+
+        if (!_dbus_string_copy_data (content, &s))
+          goto nomem;
+
+        if (!_dbus_list_append (&parser->mechanisms,
+                                s))
+          {
+            dbus_free (s);
+            goto nomem;
+          }
       }
       break;
     }
@@ -849,6 +903,18 @@ DBusList**
 bus_config_parser_get_addresses (BusConfigParser *parser)
 {
   return &parser->listen_on;
+}
+
+DBusList**
+bus_config_parser_get_mechanisms (BusConfigParser *parser)
+{
+  return &parser->mechanisms;
+}
+
+dbus_bool_t
+bus_config_parser_get_fork (BusConfigParser   *parser)
+{
+  return parser->fork;
 }
 
 #ifdef DBUS_BUILD_TESTS

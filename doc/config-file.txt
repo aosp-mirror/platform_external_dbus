@@ -53,6 +53,15 @@ Elements:
  
     The last <user> entry in the file "wins", the others are ignored.
 
+    The user is changed after the bus has completed initialization. 
+    So sockets etc. will be created before changing user, but no 
+    data will be read from clients before changing user.
+
+ <fork>
+    
+    If present, the bus daemon becomes a real daemon (forks 
+    into the background, etc.)
+
  <listen>
 
     Add an address that the bus should listen on. The 
@@ -72,6 +81,7 @@ Elements:
     Lists permitted authorization mechanisms. If this element doesn't
     exist, then all known mechanisms are allowed.  If there are
     multiple <auth> elements, the last one wins (they are not merged).
+    The order in which mechanisms are listed is not meaningful.
     
     Example: <auth>EXTERNAL</auth>
     Example: <auth>DBUS_COOKIE_SHA1</auth>

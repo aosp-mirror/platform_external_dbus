@@ -313,6 +313,21 @@ _dbus_write_two (int               fd,
 #endif /* !HAVE_WRITEV */   
 }
 
+#define _DBUS_MAX_SUN_PATH_LENGTH 99
+
+/**
+ * @def _DBUS_MAX_SUN_PATH_LENGTH
+ *
+ * Maximum length of the path to a UNIX domain socket,
+ * sockaddr_un::sun_path member. POSIX requires that all systems
+ * support at least 100 bytes here, including the nul termination.
+ * We use 99 for the max value to allow for the nul.
+ *
+ * We could probably also do sizeof (addr.sun_path)
+ * but this way we are the same on all platforms
+ * which is probably a good idea.
+ */
+
 /**
  * Creates a socket and connects it to the UNIX domain socket at the
  * given path.  The connection fd is returned, and is set up as
@@ -345,8 +360,7 @@ _dbus_connect_unix_socket (const char     *path,
 
   _DBUS_ZERO (addr);
   addr.sun_family = AF_UNIX;
-  strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH);
-  addr.sun_path[_DBUS_MAX_SUN_PATH_LENGTH-1] = '\0';
+  strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH - 1);
   
   if (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0)
     {      
@@ -377,7 +391,13 @@ _dbus_connect_unix_socket (const char     *path,
 /**
  * Creates a socket and binds it to the given path,
  * then listens on the socket. The socket is
- * set to be nonblocking. 
+ * set to be nonblocking.
+ *
+ * @todo we'd like to be able to use the abstract namespace on linux
+ * (see "man 7 unix"). The question is whether to silently move all
+ * paths into that namespace if we can (I think that's best) or to
+ * require it to be specified explicitly in the dbus address.  Also,
+ * need to sort out how to check for abstract namespace support.
  *
  * @param path the socket name
  * @param error return location for errors
@@ -402,10 +422,27 @@ _dbus_listen_unix_socket (const char     *path,
       return -1;
     }
 
+  /* FIXME discussed security implications of this with Nalin,
+   * and we couldn't think of where it would kick our ass, but
+   * it still seems a bit sucky. It also has non-security suckage;
+   * really we'd prefer to exit if the socket is already in use.
+   * But there doesn't seem to be a good way to do this.
+   *
+   * Just to be extra careful, I threw in the stat() - clearly
+   * the stat() can't *fix* any security issue, but it probably
+   * makes it harder to exploit.
+   */
+  {
+    struct stat sb;
+
+    if (stat (path, &sb) == 0 &&
+        S_ISSOCK (sb.st_mode))
+      unlink (path);
+  }
+  
   _DBUS_ZERO (addr);
   addr.sun_family = AF_UNIX;
-  strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH);
-  addr.sun_path[_DBUS_MAX_SUN_PATH_LENGTH-1] = '\0';
+  strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH - 1);
   
   if (bind (listen_fd, (struct sockaddr*) &addr, SUN_LEN (&addr)) < 0)
     {
@@ -431,6 +468,13 @@ _dbus_listen_unix_socket (const char     *path,
       close (listen_fd);
       return -1;
     }
+
+  /* Try opening up the permissions, but if we can't, just go ahead
+   * and continue, maybe it will be good enough.
+   */
+  if (chmod (path, 0777) < 0)
+    _dbus_warn ("Could not set mode 0777 on socket %s\n",
+                path);
   
   return listen_fd;
 }
@@ -3061,6 +3105,103 @@ _dbus_print_backtrace (void)
 #else
   _dbus_verbose ("  D-BUS not compiled with backtrace support\n");
 #endif
+}
+
+/**
+ * Does the chdir, fork, setsid, etc. to become a daemon process.
+ *
+ * @param error return location for errors
+ * @returns #FALSE on failure
+ */
+dbus_bool_t
+_dbus_become_daemon (DBusError *error)
+{
+  const char *s;
+
+  /* This is so we don't prevent unmounting of devices. We divert
+   * all messages to syslog
+   */
+  if (chdir ("/") < 0)
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Could not chdir() to root directory");
+      return FALSE;
+    }
+
+  s = _dbus_getenv ("DBUS_DEBUG_OUTPUT");
+  if (s == NULL || *s == '\0')
+    {
+      int dev_null_fd;
+
+      /* silently ignore failures here, if someone
+       * doesn't have /dev/null we may as well try
+       * to continue anyhow
+       */
+
+      dev_null_fd = open ("/dev/null", O_RDWR);
+      if (dev_null_fd >= 0)
+        {
+         dup2 (dev_null_fd, 0);
+         dup2 (dev_null_fd, 1);
+         dup2 (dev_null_fd, 2);
+       }
+    }
+
+  /* Get a predictable umask */
+  umask (022);
+
+  switch (fork ())
+    {
+    case -1:
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to fork daemon: %s", _dbus_strerror (errno));
+      return FALSE;
+      break;
+
+    case 0:      
+      break;
+
+    default:
+      _exit (0);
+      break;
+    }
+
+  if (setsid () == -1)
+    _dbus_assert_not_reached ("setsid() failed");
+  
+  return TRUE;
+}
+
+/**
+ * Changes the user and group the bus is running as.
+ *
+ * @param uid the new user ID
+ * @param gid the new group ID
+ * @param error return location for errors
+ * @returns #FALSE on failure
+ */
+dbus_bool_t
+_dbus_change_identity  (unsigned long  uid,
+                        unsigned long  gid,
+                        DBusError     *error)
+{
+  if (setuid (uid) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to set UID to %lu: %s", uid,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+
+  if (setgid (gid) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to set GID to %lu: %s", gid,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+  
+  return TRUE;
 }
 
 /** @} end of sysdeps */

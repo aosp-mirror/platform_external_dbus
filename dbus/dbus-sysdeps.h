@@ -217,6 +217,12 @@ dbus_bool_t _dbus_close            (int               fd,
 
 void        _dbus_print_backtrace  (void);
 
+dbus_bool_t _dbus_become_daemon    (DBusError *error);
+
+dbus_bool_t _dbus_change_identity  (unsigned long  uid,
+                                    unsigned long  gid,
+                                    DBusError     *error);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_SYSDEPS_H */

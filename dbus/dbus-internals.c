@@ -107,18 +107,6 @@
  *
  * Maximum value of type "int"
  */
-/**
- * @def _DBUS_MAX_SUN_PATH_LENGTH
- *
- * Maximum length of the path to a UNIX domain socket,
- * sockaddr_un::sun_path member. POSIX requires that all systems
- * support at least 100 bytes here, including the nul termination.
- * We use 99 for the max value to allow for the nul.
- *
- * We could probably also do sizeof (addr.sun_path)
- * but this way we are the same on all platforms
- * which is probably a good idea.
- */
 
 /**
  * @typedef DBusForeachFunction
@@ -248,6 +236,71 @@ _dbus_strdup (const char *str)
   memcpy (copy, str, len + 1);
   
   return copy;
+}
+
+/**
+ * Duplicates a string array. Result may be freed with
+ * dbus_free_string_array(). Returns #NULL if memory allocation fails.
+ * If the array to be duplicated is #NULL, returns #NULL.
+ * 
+ * @param array array to duplicate.
+ * @returns newly-allocated copy.
+ */
+char**
+_dbus_dup_string_array (const char **array)
+{
+  int len;
+  int i;
+  char **copy;
+  
+  if (array == NULL)
+    return NULL;
+
+  for (len = 0; array[len] != NULL; ++len)
+    ;
+
+  copy = dbus_new0 (char*, len + 1);
+  if (copy == NULL)
+    return NULL;
+
+  i = 0;
+  while (i < len)
+    {
+      copy[i] = _dbus_strdup (array[i]);
+      if (copy[i] == NULL)
+        {
+          dbus_free_string_array (copy);
+          return NULL;
+        }
+
+      ++i;
+    }
+
+  return copy;
+}
+
+/**
+ * Checks whether a string array contains the given string.
+ * 
+ * @param array array to search.
+ * @param str string to look for
+ * @returns #TRUE if array contains string
+ */
+dbus_bool_t
+_dbus_string_array_contains (const char **array,
+                             const char  *str)
+{
+  int i;
+
+  i = 0;
+  while (array[i] != NULL)
+    {
+      if (strcmp (array[i], str) == 0)
+        return TRUE;
+      ++i;
+    }
+
+  return FALSE;
 }
 
 /**

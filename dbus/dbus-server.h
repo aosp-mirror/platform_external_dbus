@@ -70,6 +70,8 @@ void        dbus_server_set_max_connections         (DBusServer                *
 int         dbus_server_get_max_connections         (DBusServer                *server);
 int         dbus_server_get_n_connections           (DBusServer                *server);
 
+dbus_bool_t dbus_server_set_auth_mechanisms         (DBusServer                *server,
+                                                     const char               **mechanisms);
 
 int         dbus_server_allocate_data_slot (void);
 void        dbus_server_free_data_slot     (int               slot);

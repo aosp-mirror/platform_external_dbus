@@ -2,13 +2,29 @@
      Add a system-local.conf and edit that rather than changing this 
      file directly. -->
 
+<!-- Note that there are any number of ways you can hose yourself
+     security-wise by screwing up this file; in particular, you
+     probably don't want to listen on any more addresses, add any more
+     auth mechanisms, run as a different user, etc. -->
+
 <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
-  <user>fixme</user>
+
+  <!-- Run as special user -->
+  <user>messagebus</user>
+
+  <!-- Fork into daemon mode -->
+  <fork/>
+
+  <!-- Only allow socket-credentials-based authentication -->
+  <auth>EXTERNAL</auth>
+
+  <!-- Only listen on a local socket -->
   <listen>unix:path=@EXPANDED_LOCALSTATEDIR@/@DBUS_SYSTEM_SOCKET@</listen>
+
   <policy context="default">
-    <!-- Deny everything -->
+    <!-- Deny everything then punch holes -->
     <deny send="*"/>
     <deny receive="*"/>
     <deny own="*"/>

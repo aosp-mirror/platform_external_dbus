@@ -1,3 +1,30 @@
+2003-04-01  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-server.c (dbus_server_set_auth_mechanisms): new
+	function
+
+	* dbus/dbus-auth.c (_dbus_auth_set_mechanisms): new
+
+	* dbus/dbus-internals.c (_dbus_dup_string_array): new function
+
+	* dbus/dbus-sysdeps.c (_dbus_listen_unix_socket): chmod the
+	socket 0777, and unlink any existing socket.
+
+	* bus/bus.c (bus_context_new): change our UID/GID and fork if
+	the configuration file so specifies; set up auth mechanism 
+	restrictions
+
+	* bus/config-parser.c (bus_config_parser_content): add support
+	for <fork> option and fill in code for <auth> 
+
+	* bus/system.conf.in: add <fork/> to default configuration, 
+	and limit auth mechanisms to EXTERNAL
+
+	* doc/config-file.txt (Elements): add <fork>
+
+	* dbus/dbus-sysdeps.c (_dbus_become_daemon): new function
+	(_dbus_change_identity): new function
+
 2003-03-31  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-sysdeps.c (_dbus_connect_unix_socket) 

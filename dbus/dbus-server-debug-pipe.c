@@ -283,6 +283,15 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
 
   server_fd = -1;
 
+  if (!_dbus_transport_set_auth_mechanisms (server_transport,
+                                            (const char**) server->auth_mechanisms))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_transport_unref (server_transport);
+      _dbus_transport_unref (client_transport);
+      return FALSE;
+    }
+  
   connection = _dbus_connection_new_for_transport (server_transport);
   _dbus_transport_unref (server_transport);
   server_transport = NULL;

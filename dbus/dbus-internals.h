@@ -128,12 +128,15 @@ do {                                                                            
 #define _DBUS_ALIGN_ADDRESS(this, boundary) \
   ((void*)_DBUS_ALIGN_VALUE(this, boundary))
 
-char* _dbus_strdup (const char *str);
+char*       _dbus_strdup                (const char  *str);
+dbus_bool_t _dbus_string_array_contains (const char **array,
+                                         const char  *str);
+char**      _dbus_dup_string_array      (const char **array);
+
 
 #define _DBUS_INT_MIN	(-_DBUS_INT_MAX - 1)
 #define _DBUS_INT_MAX	2147483647
 #define _DBUS_UINT_MAX	0xffffffff
-#define _DBUS_MAX_SUN_PATH_LENGTH 99
 #define _DBUS_ONE_KILOBYTE 1024
 #define _DBUS_ONE_MEGABYTE 1024 * _DBUS_ONE_KILOBYTE
 #define _DBUS_ONE_HOUR_IN_MILLISECONDS (1000 * 60 * 60)

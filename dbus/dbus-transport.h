@@ -64,7 +64,8 @@ void               _dbus_transport_set_unix_user_function     (DBusTransport    
                                                                DBusFreeFunction           free_data_function,
                                                                void                     **old_data,
                                                                DBusFreeFunction          *old_free_data_function);
-
+dbus_bool_t        _dbus_transport_set_auth_mechanisms        (DBusTransport             *transport,
+                                                               const char               **mechanisms);
 
 
 
