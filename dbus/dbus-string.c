@@ -59,6 +59,12 @@
  * because it could keep us from detecting bogus huge lengths. i.e. if
  * we passed in some bogus huge length it would be taken to mean
  * "current length of string" instead of "broken crack"
+ *
+ * @todo #DBusString needs a lot of cleaning up; some of the
+ * API is no longer used, and the API is pretty inconsistent.
+ * In particular all the "append" APIs, especially those involving
+ * alignment but probably lots of them, are no longer used by the
+ * marshaling code which always does "inserts" now.
  */
 
 /**
@@ -1151,6 +1157,32 @@ _dbus_string_insert_8_aligned (DBusString         *str,
   _dbus_assert (_DBUS_ALIGN_VALUE (insert_at, 8) == (unsigned) insert_at);
   
   ASSIGN_8_OCTETS (real->str + insert_at, octets);
+
+  return TRUE;
+}
+
+
+/**
+ * Inserts padding at *insert_at such to align it to the given
+ * boundary. Initializes the padding to nul bytes. Sets *insert_at
+ * to the aligned position.
+ *
+ * @param str the DBusString
+ * @param insert_at location to be aligned
+ * @param alignment alignment boundary (1, 4, or 8)
+ * @returns #FALSE if not enough memory.
+ */
+dbus_bool_t
+_dbus_string_insert_alignment (DBusString        *str,
+                               int               *insert_at,
+                               int                alignment)
+{
+  DBUS_STRING_PREAMBLE (str);
+  
+  if (!align_insert_point_then_open_gap (str, insert_at, 8, 0))
+    return FALSE;
+
+  _dbus_assert (_DBUS_ALIGN_VALUE (*insert_at, 8) == (unsigned) *insert_at);
 
   return TRUE;
 }

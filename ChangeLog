@@ -1,3 +1,14 @@
+2005-01-03  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-sysdeps.c (_dbus_sysdeps_test): fix using == on
+	floating point
+
+	* dbus/dbus-string.c (_dbus_string_insert_alignment): new function
+
+2005-01-02  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-internals.h (_DBUS_ALIGN_OFFSET): new macro
+
 2005-01-01  Havoc Pennington  <hp@redhat.com>
 
 	* configure.in: add -Wfloat-equal

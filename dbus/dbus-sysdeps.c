@@ -3510,7 +3510,7 @@ _dbus_sysdeps_test (void)
       _dbus_warn ("Failed to parse double");
       exit (1);
     }
-  if (val != 3.5)
+  if (ABS(3.5 - val) > 1e-6)
     {
       _dbus_warn ("Failed to parse 3.5 correctly, got: %f", val);
       exit (1);
@@ -3528,7 +3528,7 @@ _dbus_sysdeps_test (void)
       _dbus_warn ("Failed to parse double");
       exit (1);
     }
-  if (val != 0xff)
+  if (ABS (0xff - val) < 1e-6)
     {
       _dbus_warn ("Failed to parse 0xff correctly, got: %f", val);
       exit (1);

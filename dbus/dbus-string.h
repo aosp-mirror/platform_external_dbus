@@ -153,6 +153,9 @@ dbus_bool_t   _dbus_string_insert_4_aligned      (DBusString        *str,
 dbus_bool_t   _dbus_string_insert_8_aligned      (DBusString        *str,
                                                   int                insert_at,
                                                   const unsigned char octets[8]);
+dbus_bool_t   _dbus_string_insert_alignment      (DBusString        *str,
+                                                  int               *insert_at,
+                                                  int                alignment);
 void          _dbus_string_delete                (DBusString        *str,
                                                   int                start,
                                                   int                len);
