@@ -1640,6 +1640,12 @@ set_limit (BusConfigParser *parser,
       must_be_int = TRUE;
       parser->limits.max_services_per_connection = value;
     }
+  else if (strcmp (name, "max_match_rules_per_connection") == 0)
+    {
+      must_be_positive = TRUE;
+      must_be_int = TRUE;
+      parser->limits.max_match_rules_per_connection = value;
+    }
   else if (strcmp (name, "max_replies_per_connection") == 0)
     {
       must_be_positive = TRUE;

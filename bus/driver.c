@@ -447,7 +447,7 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
   DBusString service_name;
   char *name;
   int service_reply;
-  int flags;
+  dbus_uint32_t flags;
   dbus_bool_t retval;
   BusRegistry *registry;
 
@@ -842,7 +842,6 @@ bus_driver_handle_get_connection_unix_user (DBusConnection *connection,
   DBusConnection *conn;
   DBusMessage *reply;
   unsigned long uid;
-  const char *base_name;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -919,7 +918,6 @@ bus_driver_handle_get_connection_unix_process_id (DBusConnection *connection,
   DBusConnection *conn;
   DBusMessage *reply;
   unsigned long pid;
-  const char *base_name;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 

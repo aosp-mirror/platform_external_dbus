@@ -280,6 +280,8 @@ Available limit names are:
                                      progress at the same time
       "max_services_per_connection": max number of services a single 
                                      connection can own
+      "max_match_rules_per_connection": max number of match rules for a single 
+                                        connection
       "max_replies_per_connection" : max number of pending method 
                                      replies per connection
                                      (number of calls-in-progress)

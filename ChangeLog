@@ -1,3 +1,14 @@
+2004-08-25  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* bus/config-parser.c (set_limit):
+	* bus/dbus-daemon-1.1.in:
+	* test/data/valid-config-files/many-rules.conf: set the
+	max_match_rules_per_connection limt from the config file. 
+
+	* doc/busconfig.dtd: update the DTD.
+
+	* bus/driver.c: remove some unused variables.
+
 2004-08-24  Mikael Hallendal  <micke@imendio.com>
 
 	* dbus/dbus-glib-lowlevel.h: Removed dbus_bus_get_with_g_main since 
