@@ -1116,6 +1116,12 @@ dbus_message_set_sender (DBusMessage  *message,
   message->sender = _dbus_strdup (sender);
 }
 
+const char*
+dbus_message_get_sender (DBusMessage *message)
+{
+  return message->sender;
+}
+
 /** @} */
 
 /**

@@ -48,7 +48,7 @@ const char* dbus_message_get_name    (DBusMessage *message);
 const char* dbus_message_get_service (DBusMessage *message);
 void        dbus_message_set_sender  (DBusMessage *message,
 				      const char  *sender);
-
+const char* dbus_message_get_sender  (DBusMessage *message);
 
 dbus_bool_t dbus_message_append_fields        (DBusMessage          *message,
 					       int                   first_field_type,

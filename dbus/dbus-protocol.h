@@ -55,6 +55,18 @@ extern "C" {
 #define DBUS_HEADER_FIELD_SERVICE "srvc"
 #define DBUS_HEADER_FIELD_REPLY	  "rply"
 #define DBUS_HEADER_FIELD_SENDER  "sndr"
+
+/* Services */
+#define DBUS_SERVICE_DBUS      "org.freedesktop.DBus"
+#define DBUS_SERVICE_BROADCAST "org.freedesktop.DBus.Broadcast"
+  
+/* Messages */
+#define DBUS_MESSAGE_HELLO           "org.freedesktop.DBus.Hello"
+#define DBUS_MESSAGE_LIST_SERVICES   "org.freedesktop.DBus.ListServices"
+#define DBUS_MESSAGE_SERVICE_CREATED "org.freedesktop.DBus.ServiceCreated"
+#define DBUS_MESSAGE_SERVICE_DELETED "org.freedesktop.DBus.ServiceDeleted"
+#define DBUS_MESSAGE_SERVICES        "org.freedesktop.DBus.Services"
+#define DBUS_MESSAGE_WELCOME         "org.freedesktop.DBus.Welcome"
   
 #ifdef __cplusplus
 }

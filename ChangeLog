@@ -1,5 +1,17 @@
 2003-01-25  Anders Carlsson  <andersca@codefactory.se>
 
+	* dbus/dbus-internals.h:
+	Add _DBUS_HANDLE_OOM macro, it doesn't do anything currently.
+	
+	* dbus/dbus-message.c: (dbus_message_get_sender):
+	* dbus/dbus-message.h:
+	Implement dbus_message_get_sender.
+	
+	* dbus/dbus-protocol.h:
+	Add message and service defines.
+	
+2003-01-25  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-connection.c: (dbus_connection_send_message):
 	* dbus/dbus-message-internal.h:
 	* dbus/dbus-message.c: (_dbus_message_get_client_serial),
