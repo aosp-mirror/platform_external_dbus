@@ -23,6 +23,8 @@
 
 #include "dbus-marshal.h"
 #include "dbus-internals.h"
+#define DBUS_CAN_USE_DBUS_STRING_PRIVATE 1
+#include "dbus-string-private.h"
 
 #include <string.h>
 
@@ -538,20 +540,21 @@ _dbus_demarshal_double (const DBusString  *str,
  */
 dbus_int32_t
 _dbus_demarshal_int32  (const DBusString *str,
-			int         byte_order,
-			int         pos,
-			int        *new_pos)
+			int               byte_order,
+			int               pos,
+			int              *new_pos)
 {
-  const char *buffer;
-
+  const DBusRealString *real = (const DBusRealString*) str;
+  
   pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_int32_t));
   
-  _dbus_string_get_const_data_len (str, &buffer, pos, sizeof (dbus_int32_t));
-
   if (new_pos)
     *new_pos = pos + sizeof (dbus_int32_t);
 
-  return _dbus_unpack_int32 (byte_order, buffer);
+  if (byte_order == DBUS_LITTLE_ENDIAN)
+    return DBUS_INT32_FROM_LE (*(dbus_int32_t*)(real->str + pos));
+  else
+    return DBUS_INT32_FROM_BE (*(dbus_int32_t*)(real->str + pos));
 }
 
 /**
@@ -569,16 +572,17 @@ _dbus_demarshal_uint32  (const DBusString *str,
 			 int         pos,
 			 int        *new_pos)
 {
-  const char *buffer;
-
+  const DBusRealString *real = (const DBusRealString*) str;
+  
   pos = _DBUS_ALIGN_VALUE (pos, sizeof (dbus_uint32_t));
   
-  _dbus_string_get_const_data_len (str, &buffer, pos, sizeof (dbus_uint32_t));
-
   if (new_pos)
     *new_pos = pos + sizeof (dbus_uint32_t);
 
-  return _dbus_unpack_uint32 (byte_order, buffer);
+  if (byte_order == DBUS_LITTLE_ENDIAN)
+    return DBUS_UINT32_FROM_LE (*(dbus_uint32_t*)(real->str + pos));
+  else
+    return DBUS_UINT32_FROM_BE (*(dbus_uint32_t*)(real->str + pos));
 }
 
 /**

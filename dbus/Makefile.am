@@ -89,6 +89,7 @@ libdbus_convenience_la_SOURCES=			\
 	dbus-message-builder.h			\
 	dbus-string.c				\
 	dbus-string.h				\
+	dbus-string-private.h			\
 	dbus-sysdeps.c				\
 	dbus-sysdeps.h
 

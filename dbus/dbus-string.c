@@ -25,6 +25,9 @@
 #include "dbus-string.h"
 /* we allow a system header here, for speed/convenience */
 #include <string.h>
+#include "dbus-marshal.h"
+#define DBUS_CAN_USE_DBUS_STRING_PRIVATE 1
+#include "dbus-string-private.h"
 
 /**
  * @defgroup DBusString string class
@@ -62,24 +65,6 @@
  *
  * @{
  */
-
-/**
- * @brief Internals of DBusString.
- * 
- * DBusString internals. DBusString is an opaque objects, it must be
- * used via accessor functions.
- */
-typedef struct
-{
-  unsigned char *str;            /**< String data, plus nul termination */
-  int            len;            /**< Length without nul */
-  int            allocated;      /**< Allocated size of data */
-  int            max_length;     /**< Max length of this string, without nul byte */
-  unsigned int   constant : 1;   /**< String data is not owned by DBusString */
-  unsigned int   locked : 1;     /**< DBusString has been locked and can't be changed */
-  unsigned int   invalid : 1;    /**< DBusString is invalid (e.g. already freed) */
-  unsigned int   align_offset : 3; /**< str - align_offset is the actual malloc block */
-} DBusRealString;
 
 /**
  * We allocate 1 byte for nul termination, plus 7 bytes for possible
@@ -166,6 +151,20 @@ fixup_alignment (DBusRealString *real)
 
   _dbus_assert (real->align_offset < 8);
   _dbus_assert (_DBUS_ALIGN_ADDRESS (real->str, 8) == real->str);
+}
+
+static void
+undo_alignment (DBusRealString *real)
+{
+  if (real->align_offset != 0)
+    {
+      memmove (real->str - real->align_offset,
+               real->str,
+               real->len + 1);
+
+      real->align_offset = 0;
+      real->str = real->str - real->align_offset;
+    }
 }
 
 /**
@@ -296,7 +295,7 @@ _dbus_string_free (DBusString *str)
   
   if (real->constant)
     return;
-  dbus_free (real->str);
+  dbus_free (real->str - real->align_offset);
 
   real->invalid = TRUE;
 }
@@ -577,6 +576,8 @@ _dbus_string_steal_data (DBusString        *str,
 {
   DBUS_STRING_PREAMBLE (str);
   _dbus_assert (data_return != NULL);
+
+  undo_alignment (real);
   
   *data_return = real->str;
 
@@ -586,6 +587,7 @@ _dbus_string_steal_data (DBusString        *str,
       /* hrm, put it back then */
       real->str = *data_return;
       *data_return = NULL;
+      fixup_alignment (real);
       return FALSE;
     }
 
@@ -2447,7 +2449,6 @@ _dbus_string_zero (DBusString *str)
 
   memset (real->str, '\0', real->allocated);
 }
-
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS
