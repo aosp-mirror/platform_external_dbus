@@ -1,5 +1,17 @@
 2005-01-11  Joe Shaw  <joeshaw@novell.com>
 
+	Patch from Tambet Ingo <tambet@ximian.com>
+
+	* mono/DBusType/Array.cs (Get): Get the underlying element type by
+	calling type.GetElementType().  The code previously depended on
+	broken Mono behavior, which was fixed in Mono 1.1.3.
+
+	* mono/DBusType/Dict.cs (constructor): Fix the parameters for
+	Activator.CreateInstance() so that the class's constructor is
+	called with the right parameters.
+
+2005-01-11  Joe Shaw  <joeshaw@novell.com>
+
 	Patch from Timo Teräs <ext-timo.teras@nokia.com>
 
 	* dbus/dbus-connection.c

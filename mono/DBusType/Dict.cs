@@ -41,8 +41,9 @@ namespace DBus.DBusType
 	  
 	  // Get the argument type and get the value
 	  Type elementType = (Type) DBus.Arguments.DBusTypes[(char) dbus_message_iter_get_arg_type(dictIter)];
-	  object [] pars = new Object[1];
+	  object [] pars = new Object[2];
 	  pars[0] = dictIter;
+	  pars[1] = service;
 	  DBusType.IDBusType dbusType = (DBusType.IDBusType) Activator.CreateInstance(elementType, pars);
 	  this.val.Add(key, dbusType);
 	} while (dbus_message_iter_next(dictIter));

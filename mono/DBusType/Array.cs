@@ -106,6 +106,9 @@ namespace DBus.DBusType
 
     public object Get(System.Type type)
     {
+      if (type.IsArray)
+        type = type.GetElementType ();
+
       if (Arguments.Suits(elementType, type.UnderlyingSystemType)) {
 	this.val = System.Array.CreateInstance(type.UnderlyingSystemType, elements.Count);
 	int i = 0;
