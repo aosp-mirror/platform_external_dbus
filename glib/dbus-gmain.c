@@ -231,7 +231,7 @@ dbus_server_dispatch (GSource     *source,
   return TRUE;
 }
      
-static void
+static dbus_bool_t
 add_watch (DBusWatch *watch,
 	   gpointer   data)
 {
@@ -257,6 +257,8 @@ add_watch (DBusWatch *watch,
 
   dbus_source->poll_fds = g_list_prepend (dbus_source->poll_fds, poll_fd);
   g_hash_table_insert (dbus_source->watches, poll_fd, watch);
+
+  return TRUE;
 }
 
 static void
@@ -285,7 +287,7 @@ timeout_handler (gpointer data)
   return FALSE;
 }
 
-static void
+static dbus_bool_t
 add_timeout (DBusTimeout *timeout,
 	     void        *data)
 {
@@ -295,6 +297,8 @@ add_timeout (DBusTimeout *timeout,
 			       timeout_handler, timeout);
   
   dbus_timeout_set_data (timeout, GUINT_TO_POINTER (timeout_tag), NULL);
+
+  return TRUE;
 }
 
 static void
@@ -356,16 +360,18 @@ dbus_connection_setup_with_g_main (DBusConnection *connection)
 
   source = create_source (connection, &dbus_connection_funcs);
 
-  dbus_connection_set_watch_functions (connection,
-                                       add_watch,
-                                       remove_watch,
-                                       source, NULL);
+  if (!dbus_connection_set_watch_functions (connection,
+                                            add_watch,
+                                            remove_watch,
+                                            source, NULL))
+    goto nomem;
 
-  dbus_connection_set_timeout_functions (connection,
-                                         add_timeout,
-                                         remove_timeout,
-                                         NULL, NULL);
-      
+  if (!dbus_connection_set_timeout_functions (connection,
+                                              add_timeout,
+                                              remove_timeout,
+                                              NULL, NULL))
+    goto nomem;
+    
   dbus_connection_set_wakeup_main_function (connection,
 					    wakeup_main,
 					    NULL, NULL);

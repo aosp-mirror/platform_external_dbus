@@ -60,7 +60,7 @@ noinst_PROGRAMS=$(TESTS)
 bus_test_SOURCES=				\
 	test-main.c
 
-bus_test_LDADD= $(top_builddir)/dbus/libdbus-convenience.la libdbus-daemon.la
+bus_test_LDADD= $(top_builddir)/dbus/libdbus-1.la libdbus-daemon.la
 
 ## mop up the gcov files
 clean-local:

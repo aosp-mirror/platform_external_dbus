@@ -56,17 +56,15 @@ typedef enum
                                  *   can be present in current state). */
 } DBusWatchFlags;
 
-typedef void (* DBusAddWatchFunction)      (DBusWatch      *watch,
-					    void           *data);
-
-typedef void (* DBusRemoveWatchFunction)   (DBusWatch      *watch,
-					    void           *data);
-
-typedef void (* DBusWakeupMainFunction)    (void           *data);
-typedef void (* DBusAddTimeoutFunction)    (DBusTimeout    *timeout,
-					    void           *data);
-typedef void (* DBusRemoveTimeoutFunction) (DBusTimeout    *timeout,
-					    void           *data);
+typedef dbus_bool_t (* DBusAddWatchFunction)      (DBusWatch      *watch,
+                                                   void           *data);
+typedef void        (* DBusRemoveWatchFunction)   (DBusWatch      *watch,
+                                                   void           *data);
+typedef void        (* DBusWakeupMainFunction)    (void           *data);
+typedef dbus_bool_t (* DBusAddTimeoutFunction)    (DBusTimeout    *timeout,
+                                                   void           *data);
+typedef void        (* DBusRemoveTimeoutFunction) (DBusTimeout    *timeout,
+                                                   void           *data);
 
 DBusConnection* dbus_connection_open                   (const char     *address,
 							DBusResultCode *result);
@@ -99,24 +97,24 @@ DBusMessage *dbus_connection_send_with_reply_and_block (DBusConnection     *conn
                                                         DBusError          *error);
 
 
+dbus_bool_t dbus_connection_set_watch_functions      (DBusConnection            *connection,
+                                                      DBusAddWatchFunction       add_function,
+                                                      DBusRemoveWatchFunction    remove_function,
+                                                      void                      *data,
+                                                      DBusFreeFunction           free_data_function);
+dbus_bool_t dbus_connection_set_timeout_functions    (DBusConnection            *connection,
+                                                      DBusAddTimeoutFunction     add_function,
+                                                      DBusRemoveTimeoutFunction  remove_function,
+                                                      void                      *data,
+                                                      DBusFreeFunction           free_data_function);
+void        dbus_connection_set_wakeup_main_function (DBusConnection            *connection,
+                                                      DBusWakeupMainFunction     wakeup_main_function,
+                                                      void                      *data,
+                                                      DBusFreeFunction           free_data_function);
+void        dbus_connection_handle_watch             (DBusConnection            *connection,
+                                                      DBusWatch                 *watch,
+                                                      unsigned int               condition);
 
-void dbus_connection_set_watch_functions      (DBusConnection            *connection,
-					       DBusAddWatchFunction       add_function,
-					       DBusRemoveWatchFunction    remove_function,
-					       void                      *data,
-					       DBusFreeFunction           free_data_function);
-void dbus_connection_set_timeout_functions    (DBusConnection            *connection,
-					       DBusAddTimeoutFunction     add_function,
-					       DBusRemoveTimeoutFunction  remove_function,
-					       void                      *data,
-					       DBusFreeFunction           free_data_function);
-void dbus_connection_set_wakeup_main_function (DBusConnection            *connection,
-					       DBusWakeupMainFunction     wakeup_main_function,
-					       void                      *data,
-					       DBusFreeFunction           free_data_function);
-void dbus_connection_handle_watch             (DBusConnection            *connection,
-					       DBusWatch                 *watch,
-					       unsigned int               condition);
 
 
 

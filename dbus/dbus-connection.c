@@ -1810,31 +1810,44 @@ dbus_connection_dispatch_message (DBusConnection *connection)
  * 
  * It is not allowed to reference a DBusWatch after it has been passed
  * to remove_function.
+ *
+ * If #FALSE is returned due to lack of memory, the failure may be due
+ * to a #FALSE return from the new add_function. If so, the
+ * add_function may have been called successfully one or more times,
+ * but the remove_function will also have been called to remove any
+ * successful adds. i.e. if #FALSE is returned the net result
+ * should be that dbus_connection_set_watch_functions() has no effect,
+ * but the add_function and remove_function may have been called.
  * 
  * @param connection the connection.
  * @param add_function function to begin monitoring a new descriptor.
  * @param remove_function function to stop monitoring a descriptor.
  * @param data data to pass to add_function and remove_function.
  * @param free_data_function function to be called to free the data.
+ * @returns #FALSE on failure (no memory)
  */
-void
+dbus_bool_t
 dbus_connection_set_watch_functions (DBusConnection              *connection,
                                      DBusAddWatchFunction         add_function,
                                      DBusRemoveWatchFunction      remove_function,
                                      void                        *data,
                                      DBusFreeFunction             free_data_function)
 {
+  dbus_bool_t retval;
+  
   dbus_mutex_lock (connection->mutex);
   /* ref connection for slightly better reentrancy */
   _dbus_connection_ref_unlocked (connection);
   
-  _dbus_watch_list_set_functions (connection->watches,
-                                  add_function, remove_function,
-                                  data, free_data_function);
+  retval = _dbus_watch_list_set_functions (connection->watches,
+                                           add_function, remove_function,
+                                           data, free_data_function);
   
   dbus_mutex_unlock (connection->mutex);
   /* drop our paranoid refcount */
   dbus_connection_unref (connection);
+
+  return retval;
 }
 
 /**
@@ -1855,25 +1868,30 @@ dbus_connection_set_watch_functions (DBusConnection              *connection,
  * @param remove_function function to remove a timeout.
  * @param data data to pass to add_function and remove_function.
  * @param free_data_function function to be called to free the data.
+ * @returns #FALSE on failure (no memory)
  */
-void
+dbus_bool_t
 dbus_connection_set_timeout_functions   (DBusConnection            *connection,
 					 DBusAddTimeoutFunction     add_function,
 					 DBusRemoveTimeoutFunction  remove_function,
 					 void                      *data,
 					 DBusFreeFunction           free_data_function)
 {
+  dbus_bool_t retval;
+  
   dbus_mutex_lock (connection->mutex);
   /* ref connection for slightly better reentrancy */
   _dbus_connection_ref_unlocked (connection);
   
-  _dbus_timeout_list_set_functions (connection->timeouts,
-				    add_function, remove_function,
-				    data, free_data_function);
+  retval = _dbus_timeout_list_set_functions (connection->timeouts,
+                                             add_function, remove_function,
+                                             data, free_data_function);
   
   dbus_mutex_unlock (connection->mutex);
   /* drop our paranoid refcount */
-  dbus_connection_unref (connection);  
+  dbus_connection_unref (connection);
+
+  return retval;
 }
 
 /**

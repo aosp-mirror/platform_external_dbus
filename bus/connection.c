@@ -108,11 +108,18 @@ bus_connection_disconnected (DBusConnection *connection)
   bus_dispatch_remove_connection (connection);
   
   /* no more watching */
-  dbus_connection_set_watch_functions (connection,
-                                       NULL, NULL,
-                                       connection,
-                                       NULL);
+  if (!dbus_connection_set_watch_functions (connection,
+                                            NULL, NULL,
+                                            connection,
+                                            NULL))
+    _dbus_assert_not_reached ("setting watch functions to NULL failed");
 
+  if (!dbus_connection_set_timeout_functions (connection,
+                                              NULL, NULL,
+                                              connection,
+                                              NULL))
+    _dbus_assert_not_reached ("setting timeout functions to NULL failed");
+  
   bus_connection_remove_transactions (connection);
 
   _dbus_list_remove (&d->connections->list, connection);
@@ -140,12 +147,12 @@ connection_watch_callback (DBusWatch     *watch,
   dbus_connection_unref (connection);
 }
 
-static void
+static dbus_bool_t
 add_connection_watch (DBusWatch      *watch,
                       DBusConnection *connection)
 {
-  bus_loop_add_watch (watch, connection_watch_callback, connection,
-                      NULL);
+  return bus_loop_add_watch (watch, connection_watch_callback, connection,
+                             NULL);
 }
 
 static void
@@ -153,6 +160,27 @@ remove_connection_watch (DBusWatch      *watch,
                          DBusConnection *connection)
 {
   bus_loop_remove_watch (watch, connection_watch_callback, connection);
+}
+
+static void
+connection_timeout_callback (DBusTimeout   *timeout,
+                             void          *data)
+{
+  dbus_timeout_handle (timeout);
+}
+
+static dbus_bool_t
+add_connection_timeout (DBusTimeout    *timeout,
+                        DBusConnection *connection)
+{
+  return bus_loop_add_timeout (timeout, connection_timeout_callback, connection, NULL);
+}
+
+static void
+remove_connection_timeout (DBusTimeout    *timeout,
+                           DBusConnection *connection)
+{
+  bus_loop_remove_timeout (timeout, connection_timeout_callback, connection);
 }
 
 static void
@@ -249,18 +277,35 @@ bus_connections_setup_connection (BusConnections *connections,
       dbus_connection_disconnect (connection);
       return FALSE;
     }
-
-  dbus_connection_ref (connection);
   
-  dbus_connection_set_watch_functions (connection,
-                                       (DBusAddWatchFunction) add_connection_watch,
-                                       (DBusRemoveWatchFunction) remove_connection_watch,
-                                       connection,
-                                       NULL);
+  if (!dbus_connection_set_watch_functions (connection,
+                                            (DBusAddWatchFunction) add_connection_watch,
+                                            (DBusRemoveWatchFunction) remove_connection_watch,
+                                            connection,
+                                            NULL))
+    {
+      dbus_connection_disconnect (connection);
+      return FALSE;
+    }
+  
+  if (!dbus_connection_set_timeout_functions (connection,
+                                              (DBusAddTimeoutFunction) add_connection_timeout,
+                                              (DBusRemoveTimeoutFunction) remove_connection_timeout,
+                                              connection, NULL))
+    {
+      dbus_connection_disconnect (connection);
+      return FALSE;
+    }
+
   
   /* Setup the connection with the dispatcher */
   if (!bus_dispatch_add_connection (connection))
-    return FALSE;
+    {
+      dbus_connection_disconnect (connection);
+      return FALSE;
+    }
+
+  dbus_connection_ref (connection);
   
   return TRUE;
 }

@@ -43,7 +43,7 @@ void       _dbus_watch_sanitize_condition (DBusWatch *watch,
 
 DBusWatchList* _dbus_watch_list_new           (void);
 void           _dbus_watch_list_free          (DBusWatchList           *watch_list);
-void           _dbus_watch_list_set_functions (DBusWatchList           *watch_list,
+dbus_bool_t    _dbus_watch_list_set_functions (DBusWatchList           *watch_list,
                                                DBusAddWatchFunction     add_function,
                                                DBusRemoveWatchFunction  remove_function,
                                                void                    *data,

@@ -27,6 +27,7 @@
 #include "services.h"
 #include "utils.h"
 #include "bus.h"
+#include "test.h"
 #include <dbus/dbus-internals.h>
 #include <string.h>
 
@@ -142,11 +143,9 @@ send_service_nonexistent_error (BusTransaction *transaction,
   return TRUE;
 }
 
-static DBusHandlerResult
-bus_dispatch_message_handler (DBusMessageHandler *handler,
-			      DBusConnection     *connection,
-			      DBusMessage        *message,
-			      void               *user_data)
+static void
+bus_dispatch (DBusConnection *connection,
+              DBusMessage    *message)
 {
   const char *sender, *service_name, *message_name;
   DBusError error;
@@ -313,6 +312,15 @@ bus_dispatch_message_handler (DBusMessageHandler *handler,
     }
 
   dbus_connection_unref (connection);
+}
+
+static DBusHandlerResult
+bus_dispatch_message_handler (DBusMessageHandler *handler,
+			      DBusConnection     *connection,
+			      DBusMessage        *message,
+			      void               *user_data)
+{
+  bus_dispatch (connection, message);
   
   return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;
 }
@@ -361,3 +369,70 @@ bus_dispatch_remove_connection (DBusConnection *connection)
 			    NULL, NULL);
 }
 
+
+
+#ifdef DBUS_BUILD_TESTS
+
+static void
+run_test_bus (BusContext *context)
+{
+  
+  
+}
+
+static dbus_bool_t
+check_hello_message (BusContext     *context,
+                     DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_int32_t serial;
+  
+  message = dbus_message_new (DBUS_SERVICE_DBUS,
+			      DBUS_MESSAGE_HELLO);
+
+  if (message == NULL)
+    _dbus_assert_not_reached ("no memory");
+
+  if (!dbus_connection_send (connection, message, &serial))
+    _dbus_assert_not_reached ("no memory");
+
+  return TRUE;
+}
+
+dbus_bool_t
+bus_dispatch_test (const DBusString *test_data_dir)
+{
+  BusContext *context;
+  DBusError error;
+  const char *activation_dirs[] = { NULL, NULL };
+  DBusConnection *foo;
+  DBusConnection *bar;
+  DBusConnection *baz;
+  DBusResultCode result;
+
+  return TRUE; /* FIXME */
+  
+  dbus_error_init (&error);
+  context = bus_context_new ("debug:name=test-server",
+                             activation_dirs,
+                             &error);
+  if (context == NULL)
+    _dbus_assert_not_reached ("could not alloc context");
+  
+  foo = dbus_connection_open ("debug:name=test-server", &result);
+  if (foo == NULL)
+    _dbus_assert_not_reached ("could not alloc connection");
+
+  bar = dbus_connection_open ("debug:name=test-server", &result);
+  if (bar == NULL)
+    _dbus_assert_not_reached ("could not alloc connection");
+
+  baz = dbus_connection_open ("debug:name=test-server", &result);
+  if (baz == NULL)
+    _dbus_assert_not_reached ("could not alloc connection");
+  
+  
+  
+  return TRUE;
+}
+#endif /* DBUS_BUILD_TESTS */

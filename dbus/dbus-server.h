@@ -45,31 +45,28 @@ void        dbus_server_ref              (DBusServer     *server);
 void        dbus_server_unref            (DBusServer     *server);
 void        dbus_server_disconnect       (DBusServer     *server);
 dbus_bool_t dbus_server_get_is_connected (DBusServer     *server);
+void        dbus_server_set_new_connection_function (DBusServer                *server,
+                                                     DBusNewConnectionFunction  function,
+                                                     void                      *data,
+                                                     DBusFreeFunction           free_data_function);
+dbus_bool_t dbus_server_set_watch_functions         (DBusServer                *server,
+                                                     DBusAddWatchFunction       add_function,
+                                                     DBusRemoveWatchFunction    remove_function,
+                                                     void                      *data,
+                                                     DBusFreeFunction           free_data_function);
+dbus_bool_t dbus_server_set_timeout_functions       (DBusServer                *server,
+                                                     DBusAddTimeoutFunction     add_function,
+                                                     DBusRemoveTimeoutFunction  remove_function,
+                                                     void                      *data,
+                                                     DBusFreeFunction           free_data_function);
+void        dbus_server_handle_watch                (DBusServer                *server,
+                                                     DBusWatch                 *watch,
+                                                     unsigned int               condition);
+void        dbus_server_set_max_connections         (DBusServer                *server,
+                                                     int                        max_connections);
+int         dbus_server_get_max_connections         (DBusServer                *server);
+int         dbus_server_get_n_connections           (DBusServer                *server);
 
-void dbus_server_set_new_connection_function (DBusServer                *server,
-                                              DBusNewConnectionFunction  function,
-                                              void                      *data,
-                                              DBusFreeFunction           free_data_function);
-void dbus_server_set_watch_functions         (DBusServer                *server,
-                                              DBusAddWatchFunction       add_function,
-                                              DBusRemoveWatchFunction    remove_function,
-                                              void                      *data,
-                                              DBusFreeFunction           free_data_function);
-void dbus_server_set_timeout_functions       (DBusServer                *server,
-					      DBusAddTimeoutFunction     add_function,
-					      DBusRemoveTimeoutFunction  remove_function,
-					      void                      *data,
-					      DBusFreeFunction           free_data_function);
-void dbus_server_handle_watch                (DBusServer                *server,
-                                              DBusWatch                 *watch,
-                                              unsigned int               condition);
-
-
-void dbus_server_set_max_connections         (DBusServer                *server,
-                                              int                        max_connections);
-int  dbus_server_get_max_connections         (DBusServer                *server);
-
-int  dbus_server_get_n_connections           (DBusServer                *server);
 
 int         dbus_server_allocate_data_slot (void);
 void        dbus_server_free_data_slot     (int               slot);

@@ -181,15 +181,50 @@ _dbus_timeout_list_free (DBusTimeoutList *timeout_list)
  * @param remove_function the remove timeout function.
  * @param data the data for those functions.
  * @param free_data_function the function to free the data.
+ * @returns #FALSE if no memory
  *
  */
-void
+dbus_bool_t
 _dbus_timeout_list_set_functions (DBusTimeoutList           *timeout_list,
 				  DBusAddTimeoutFunction     add_function,
 				  DBusRemoveTimeoutFunction  remove_function,
 				  void                      *data,
 				  DBusFreeFunction           free_data_function)
 {
+  /* Add timeouts with the new function, failing on OOM */
+  if (add_function != NULL)
+    {
+      DBusList *link;
+      
+      link = _dbus_list_get_first_link (&timeout_list->timeouts);
+      while (link != NULL)
+        {
+          DBusList *next = _dbus_list_get_next_link (&timeout_list->timeouts,
+                                                     link);
+      
+          if (!(* add_function) (link->data, data))
+            {
+              /* remove it all again and return FALSE */
+              DBusList *link2;
+              
+              link2 = _dbus_list_get_first_link (&timeout_list->timeouts);
+              while (link2 != link)
+                {
+                  DBusList *next = _dbus_list_get_next_link (&timeout_list->timeouts,
+                                                             link2);
+
+                  (* remove_function) (link2->data, data);
+                  
+                  link2 = next;
+                }
+
+              return FALSE;
+            }
+      
+          link = next;
+        }
+    }
+  
   /* Remove all current timeouts from previous timeout handlers */
 
   if (timeout_list->remove_timeout_function != NULL)
@@ -207,13 +242,7 @@ _dbus_timeout_list_set_functions (DBusTimeoutList           *timeout_list,
   timeout_list->timeout_data = data;
   timeout_list->timeout_free_data_function = free_data_function;
 
-  /* Re-add all pending timeouts */
-  if (timeout_list->add_timeout_function != NULL)
-    {
-      _dbus_list_foreach (&timeout_list->timeouts,
-			  (DBusForeachFunction) timeout_list->add_timeout_function,
-			  timeout_list->timeout_data);
-    }
+  return TRUE;
 }
 
 /**
@@ -234,14 +263,21 @@ _dbus_timeout_list_add_timeout (DBusTimeoutList *timeout_list,
   _dbus_timeout_ref (timeout);
 
   if (timeout_list->add_timeout_function != NULL)
-    (* timeout_list->add_timeout_function) (timeout,
-					    timeout_list->timeout_data);
+    {
+      if (!(* timeout_list->add_timeout_function) (timeout,
+                                                   timeout_list->timeout_data))
+        {
+          _dbus_list_remove_last (&timeout_list->timeouts, timeout);
+          _dbus_timeout_unref (timeout);
+          return FALSE;
+        }
+    }
 
   return TRUE;
 }
 
 /**
- * Removes a timeout from the watch list, invoking the
+ * Removes a timeout from the timeout list, invoking the
  * application's DBusRemoveTimeoutFunction if appropriate.
  *
  * @param timeout_list the timeout list.

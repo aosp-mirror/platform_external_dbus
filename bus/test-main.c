@@ -22,16 +22,41 @@
  */
 
 #include "test.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <dbus/dbus-string.h>
+#include <dbus/dbus-sysdeps.h>
+
+static void
+die (const char *failure)
+{
+  fprintf (stderr, "Unit test failed: %s\n", failure);
+  exit (1);
+}
 
 int
 main (int argc, char **argv)
 {
 #ifdef DBUS_BUILD_TESTS
+  const char *dir;
+  DBusString test_data_dir;
 
+  if (argc > 1)
+    dir = argv[1];
+  else
+    dir = _dbus_getenv ("DBUS_TEST_DATA");
+
+  if (dir == NULL)
+    dir = "";
+
+  _dbus_string_init_const (&test_data_dir, dir);
   
+  if (!bus_dispatch_test (&test_data_dir))
+    die ("dispatch");
   
   return 0;
 #else /* DBUS_BUILD_TESTS */
+      
   return 0;
 #endif
 }

@@ -392,19 +392,20 @@ dbus_server_set_new_connection_function (DBusServer                *server,
  * @param remove_function function to stop monitoring a descriptor.
  * @param data data to pass to add_function and remove_function.
  * @param free_data_function function to be called to free the data.
+ * @returns #FALSE on failure (no memory)
  */
-void
+dbus_bool_t
 dbus_server_set_watch_functions (DBusServer              *server,
                                  DBusAddWatchFunction     add_function,
                                  DBusRemoveWatchFunction  remove_function,
                                  void                    *data,
                                  DBusFreeFunction         free_data_function)
 {
-  _dbus_watch_list_set_functions (server->watches,
-                                  add_function,
-                                  remove_function,
-                                  data,
-                                  free_data_function);
+  return _dbus_watch_list_set_functions (server->watches,
+                                         add_function,
+                                         remove_function,
+                                         data,
+                                         free_data_function);
 }
 
 /**
@@ -419,17 +420,18 @@ dbus_server_set_watch_functions (DBusServer              *server,
  * @param remove_function function to remove a timeout.
  * @param data data to pass to add_function and remove_function.
  * @param free_data_function function to be called to free the data.
+ * @returns #FALSE on failure (no memory)
  */
-void
+dbus_bool_t
 dbus_server_set_timeout_functions (DBusServer                *server,
 				   DBusAddTimeoutFunction     add_function,
 				   DBusRemoveTimeoutFunction  remove_function,
 				   void                      *data,
 				   DBusFreeFunction           free_data_function)
 {
-  _dbus_timeout_list_set_functions (server->timeouts,
-				    add_function, remove_function,
-				    data, free_data_function); 
+  return _dbus_timeout_list_set_functions (server->timeouts,
+                                           add_function, remove_function,
+                                           data, free_data_function); 
 }
 
 /**

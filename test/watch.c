@@ -45,19 +45,26 @@ free_watch_data (void *data)
   dbus_free (wd);
 }
 
-static void
+static dbus_bool_t
 add_connection_watch (DBusWatch      *watch,
                       DBusConnection *connection)
 {
   WatchData *wd;
 
+  if (!_dbus_list_append (&watches, watch))
+    return FALSE;
+  
   wd = dbus_new0 (WatchData, 1);
+  if (wd == NULL)
+    {
+      _dbus_list_remove_last (&watches, watch);
+      return FALSE;
+    }  
   wd->type = WATCH_CONNECTION;
   wd->data = connection;
 
-  dbus_connection_ref (connection);
-  
-  _dbus_list_append (&watches, watch);
+  dbus_connection_ref (connection);  
+
   dbus_watch_set_data (watch, wd, free_watch_data);
 
   watch_list_serial += 1;
@@ -67,6 +74,8 @@ add_connection_watch (DBusWatch      *watch,
           dbus_watch_get_flags (watch) & DBUS_WATCH_WRITABLE ? "write " : "",
           dbus_watch_get_fd (watch));
 #endif
+
+  return TRUE;
  }
 
 static void
@@ -86,19 +95,26 @@ remove_connection_watch (DBusWatch      *watch,
 #endif
 }
 
-static void
+static dbus_bool_t
 add_server_watch (DBusWatch      *watch,
                   DBusServer     *server)
 {
   WatchData *wd;
   
+  if (!_dbus_list_append (&watches, watch))
+    return FALSE;
+  
   wd = dbus_new0 (WatchData, 1);
+  if (wd == NULL)
+    {
+      _dbus_list_remove_last (&watches, watch);
+      return FALSE;
+    }
+  
   wd->type = WATCH_SERVER;
   wd->data = server;
 
   dbus_server_ref (server);
-  
-  _dbus_list_append (&watches, watch);
 
   dbus_watch_set_data (watch, wd, free_watch_data);
 
@@ -109,6 +125,8 @@ add_server_watch (DBusWatch      *watch,
           dbus_watch_get_flags (watch) & DBUS_WATCH_WRITABLE ? "write " : "",
           dbus_watch_get_fd (watch));
 #endif
+
+  return TRUE;
 }
 
 static void
@@ -324,11 +342,12 @@ quit_mainloop (void)
 void
 setup_connection (DBusConnection *connection)
 {
-  dbus_connection_set_watch_functions (connection,
-                                       (DBusAddWatchFunction) add_connection_watch,
-                                       (DBusRemoveWatchFunction) remove_connection_watch,
-                                       connection,
-                                       NULL);
+  if (!dbus_connection_set_watch_functions (connection,
+                                            (DBusAddWatchFunction) add_connection_watch,
+                                            (DBusRemoveWatchFunction) remove_connection_watch,
+                                            connection,
+                                            NULL))
+    _dbus_assert_not_reached ("not enough memory");
 
   dbus_connection_ref (connection);
   _dbus_list_append (&connections, connection);
@@ -337,9 +356,10 @@ setup_connection (DBusConnection *connection)
 void
 setup_server (DBusServer *server)
 {
-  dbus_server_set_watch_functions (server,
-                                   (DBusAddWatchFunction) add_server_watch,
-                                   (DBusRemoveWatchFunction) remove_server_watch,
-                                   server,
-                                   NULL);
+  if (!dbus_server_set_watch_functions (server,
+                                        (DBusAddWatchFunction) add_server_watch,
+                                        (DBusRemoveWatchFunction) remove_server_watch,
+                                        server,
+                                        NULL))
+    _dbus_assert_not_reached ("not enough memory");
 }

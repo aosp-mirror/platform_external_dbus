@@ -31,7 +31,7 @@
 #include <dbus/dbus.h>
 #include <dbus/dbus-string.h>
 
-dbus_bool_t bus_test_foo (const DBusString *test_data_dir);
+dbus_bool_t bus_dispatch_test (const DBusString *test_data_dir);
 
 #endif
 

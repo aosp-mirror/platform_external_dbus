@@ -44,7 +44,7 @@ void         _dbus_timeout_unref (DBusTimeout        *timeout);
 
 DBusTimeoutList *_dbus_timeout_list_new            (void);
 void             _dbus_timeout_list_free           (DBusTimeoutList           *timeout_list);
-void             _dbus_timeout_list_set_functions  (DBusTimeoutList           *timeout_list,
+dbus_bool_t      _dbus_timeout_list_set_functions  (DBusTimeoutList           *timeout_list,
 						    DBusAddTimeoutFunction     add_function,
 						    DBusRemoveTimeoutFunction  remove_function,
 						    void                      *data,

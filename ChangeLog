@@ -1,3 +1,31 @@
+2003-03-13  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-timeout.c (_dbus_timeout_list_set_functions): handle
+	out of memory
+
+	* dbus/dbus-watch.c (_dbus_watch_list_set_functions): handle out
+	of memory
+
+	* dbus/dbus-connection.h: Make AddWatchFunction and
+	AddTimeoutFunction return a bool so they can fail on out-of-memory
+
+	* bus/bus.c (bus_context_new): set up timeout handlers
+
+	* bus/connection.c (bus_connections_setup_connection): set up
+	timeout handlers
+
+	* glib/dbus-gmain.c: adapt to the fact that set_functions stuff
+	can fail
+
+	* bus/bus.c (bus_context_new): adapt to changes
+
+	* bus/connection.c: adapt to changes
+
+	* test/watch.c: adapt to DBusWatch changes
+
+	* bus/dispatch.c (bus_dispatch_test): started adding this but
+	didn't finish
+	
 2003-03-14  Anders Carlsson  <andersca@codefactory.se>
 
 	* bus/dispatch.c (send_service_nonexistent_error): Fix typo.

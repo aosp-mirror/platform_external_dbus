@@ -49,12 +49,12 @@ server_watch_callback (DBusWatch     *watch,
   dbus_server_handle_watch (context->server, watch, condition);
 }
 
-static void
+static dbus_bool_t
 add_server_watch (DBusWatch  *watch,
                   BusContext *context)
 {
-  bus_loop_add_watch (watch, server_watch_callback, context,
-                      NULL);
+  return bus_loop_add_watch (watch, server_watch_callback, context,
+                             NULL);
 }
 
 static void
@@ -62,6 +62,27 @@ remove_server_watch (DBusWatch  *watch,
                      BusContext *context)
 {
   bus_loop_remove_watch (watch, server_watch_callback, context);
+}
+
+static void
+server_timeout_callback (DBusTimeout   *timeout,
+                         void          *data)
+{
+  dbus_timeout_handle (timeout);
+}
+
+static dbus_bool_t
+add_server_timeout (DBusTimeout *timeout,
+                    BusContext  *context)
+{
+  return bus_loop_add_timeout (timeout, server_timeout_callback, context, NULL);
+}
+
+static void
+remove_server_timeout (DBusTimeout *timeout,
+                       BusContext  *context)
+{
+  bus_loop_remove_timeout (timeout, server_timeout_callback, context);
 }
 
 static void
@@ -136,11 +157,24 @@ bus_context_new (const char  *address,
                                            new_connection_callback,
                                            context, NULL);
   
-  dbus_server_set_watch_functions (context->server,
-                                   (DBusAddWatchFunction) add_server_watch,
-                                   (DBusRemoveWatchFunction) remove_server_watch,
-                                   context,
-                                   NULL);
+  if (!dbus_server_set_watch_functions (context->server,
+                                        (DBusAddWatchFunction) add_server_watch,
+                                        (DBusRemoveWatchFunction) remove_server_watch,
+                                        context,
+                                        NULL))
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+
+  if (!dbus_server_set_timeout_functions (context->server,
+                                          (DBusAddTimeoutFunction) add_server_timeout,
+                                          (DBusRemoveTimeoutFunction) remove_server_timeout,
+                                          context, NULL))
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
   
   return context;
   
@@ -152,6 +186,22 @@ bus_context_new (const char  *address,
 void
 bus_context_shutdown (BusContext  *context)
 {
+  if (context->server == NULL ||
+      !dbus_server_get_is_connected (context->server))
+    return;
+  
+  if (!dbus_server_set_watch_functions (context->server,
+                                        NULL, NULL,
+                                        context,
+                                        NULL))
+    _dbus_assert_not_reached ("setting watch functions to NULL failed");
+  
+  if (!dbus_server_set_timeout_functions (context->server,
+                                          NULL, NULL,
+                                          context,
+                                          NULL))
+    _dbus_assert_not_reached ("setting timeout functions to NULL failed");
+  
   dbus_server_disconnect (context->server);
 }
 
@@ -170,6 +220,8 @@ bus_context_unref (BusContext *context)
 
   if (context->refcount == 0)
     {
+      bus_context_shutdown (context);
+      
       if (context->registry)
         bus_registry_unref (context->registry);
       if (context->connections)

@@ -26,19 +26,29 @@
 
 #include <dbus/dbus.h>
 
-typedef void (* BusWatchFunction) (DBusWatch     *watch,
-                                   unsigned int   condition,
-                                   void          *data);
+typedef void (* BusWatchFunction)   (DBusWatch     *watch,
+                                     unsigned int   condition,
+                                     void          *data);
+typedef void (* BusTimeoutFunction) (DBusTimeout   *timeout,
+                                     void          *data);
 
-dbus_bool_t bus_loop_add_watch    (DBusWatch        *watch,
-                                   BusWatchFunction  function,
-                                   void             *data,
-                                   DBusFreeFunction  free_data_func);
-void        bus_loop_remove_watch (DBusWatch        *watch,
-                                   BusWatchFunction  function,
-                                   void             *data);
-void        bus_loop_run          (void);
-void        bus_loop_quit         (void);
+dbus_bool_t bus_loop_add_watch      (DBusWatch          *watch,
+                                     BusWatchFunction    function,
+                                     void               *data,
+                                     DBusFreeFunction    free_data_func);
+void        bus_loop_remove_watch   (DBusWatch          *watch,
+                                     BusWatchFunction    function,
+                                     void               *data);
+dbus_bool_t bus_loop_add_timeout    (DBusTimeout        *timeout,
+                                     BusTimeoutFunction  function,
+                                     void               *data,
+                                     DBusFreeFunction    free_data_func);
+void        bus_loop_remove_timeout (DBusTimeout        *timeout,
+                                     BusTimeoutFunction  function,
+                                     void               *data);
+void        bus_loop_run            (void);
+void        bus_loop_quit           (void);
+
 
 
 #endif /* BUS_LOOP_H */

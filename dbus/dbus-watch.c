@@ -159,7 +159,7 @@ struct DBusWatchList
   DBusList *watches;           /**< Watch objects. */
 
   DBusAddWatchFunction add_watch_function;    /**< Callback for adding a watch. */
-  DBusAddWatchFunction remove_watch_function; /**< Callback for removing a watch. */
+  DBusRemoveWatchFunction remove_watch_function; /**< Callback for removing a watch. */
   void *watch_data;                           /**< Data for watch callbacks */
   DBusFreeFunction watch_free_data_function;  /**< Free function for watch callback data */
 };
@@ -212,15 +212,50 @@ _dbus_watch_list_free (DBusWatchList *watch_list)
  * @param remove_function the remove watch function.
  * @param data the data for those functions.
  * @param free_data_function the function to free the data.
+ * @returns #FALSE if not enough memory
  *
  */
-void
+dbus_bool_t
 _dbus_watch_list_set_functions (DBusWatchList           *watch_list,
                                 DBusAddWatchFunction     add_function,
                                 DBusRemoveWatchFunction  remove_function,
                                 void                    *data,
                                 DBusFreeFunction         free_data_function)
 {
+  /* Add watches with the new watch function, failing on OOM */
+  if (add_function != NULL)
+    {
+      DBusList *link;
+      
+      link = _dbus_list_get_first_link (&watch_list->watches);
+      while (link != NULL)
+        {
+          DBusList *next = _dbus_list_get_next_link (&watch_list->watches,
+                                                     link);
+      
+          if (!(* add_function) (link->data, data))
+            {
+              /* remove it all again and return FALSE */
+              DBusList *link2;
+              
+              link2 = _dbus_list_get_first_link (&watch_list->watches);
+              while (link2 != link)
+                {
+                  DBusList *next = _dbus_list_get_next_link (&watch_list->watches,
+                                                             link2);
+
+                  (* remove_function) (link2->data, data);
+                  
+                  link2 = next;
+                }
+
+              return FALSE;
+            }
+      
+          link = next;
+        }
+    }
+  
   /* Remove all current watches from previous watch handlers */
 
   if (watch_list->remove_watch_function != NULL)
@@ -238,13 +273,7 @@ _dbus_watch_list_set_functions (DBusWatchList           *watch_list,
   watch_list->watch_data = data;
   watch_list->watch_free_data_function = free_data_function;
 
-  /* Re-add all pending watches */
-  if (watch_list->add_watch_function != NULL)
-    {
-      _dbus_list_foreach (&watch_list->watches,
-                          (DBusForeachFunction) watch_list->add_watch_function,
-                          watch_list->watch_data);
-    }
+  return TRUE;
 }
 
 /**
@@ -265,8 +294,15 @@ _dbus_watch_list_add_watch (DBusWatchList *watch_list,
   _dbus_watch_ref (watch);
 
   if (watch_list->add_watch_function != NULL)
-    (* watch_list->add_watch_function) (watch,
-                                        watch_list->watch_data);
+    {
+      if (!(* watch_list->add_watch_function) (watch,
+                                               watch_list->watch_data))
+        {
+          _dbus_list_remove_last (&watch_list->watches, watch);
+          _dbus_watch_unref (watch);
+          return FALSE;
+        }
+    }
   
   return TRUE;
 }
