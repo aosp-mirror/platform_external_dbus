@@ -1029,7 +1029,7 @@ check_get_connection_unix_user (BusContext     *context,
         {
           if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
             {
-              _dbus_verbose ("no memory to get uid by GetProperty\n");
+              _dbus_verbose ("no memory to get uid by GetConnectionUnixUser\n");
               dbus_error_free (&error);
               _dbus_wait_for_memory ();
               goto retry_get_property;
@@ -1037,7 +1037,7 @@ check_get_connection_unix_user (BusContext     *context,
           else
             {
               _dbus_assert (dbus_error_is_set (&error));
-              _dbus_warn ("Did not get the expected DBUS_TYPE_UINT32 from GetProperty\n");
+              _dbus_warn ("Did not get the expected DBUS_TYPE_UINT32 from GetConnectionUnixUser\n");
               goto out;
             }
         }
@@ -1056,6 +1056,159 @@ check_get_connection_unix_user (BusContext     *context,
   
   return retval;
 }
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
+check_get_connection_unix_process_id (BusContext     *context,
+				      DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_uint32_t serial;
+  dbus_bool_t retval;
+  DBusError error;
+  const char *base_service_name;
+  dbus_uint32_t pid;
+
+  retval = FALSE;
+  dbus_error_init (&error);
+  message = NULL;
+
+  _dbus_verbose ("check_get_connection_unix_process_id for %p\n", connection);
+  
+  message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_PATH_ORG_FREEDESKTOP_DBUS,
+                                          DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                                          "GetConnectionUnixProcessID");
+
+  if (message == NULL)
+    return TRUE;
+
+  base_service_name = dbus_bus_get_base_service (connection);
+
+  if (!dbus_message_append_args (message, 
+                                 DBUS_TYPE_STRING, base_service_name,
+                                 DBUS_TYPE_INVALID))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  /* send our message */
+  bus_test_run_clients_loop (TRUE);
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  dbus_connection_ref (connection); /* because we may get disconnected */
+  block_connection_until_message_from_bus (context, connection);
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected\n");
+      
+      dbus_connection_unref (connection);
+      
+      return TRUE;
+    }
+
+  dbus_connection_unref (connection);
+
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a reply to %s %d on %p\n",
+                  "GetConnectionUnixProcessID", serial, connection);
+      goto out;
+    }
+
+  verbose_message_received (connection, message);
+
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
+    {
+      if (dbus_message_is_error (message, DBUS_ERROR_NO_MEMORY))
+        {
+          ; /* good, this is a valid response */
+        }
+      else
+        {
+          warn_unexpected (connection, message, "not this error");
+
+          goto out;
+        }
+    }
+  else
+    {
+      if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
+        {
+          ; /* good, expected */
+        }
+      else
+        {
+          warn_unexpected (connection, message,
+	                   "method_return for GetConnectionUnixProcessID");
+
+          goto out;
+        }
+
+    retry_get_property:
+
+      if (!dbus_message_get_args (message, &error,
+                                  DBUS_TYPE_UINT32, &pid,
+                                  DBUS_TYPE_INVALID))
+        {
+          if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
+            {
+              _dbus_verbose ("no memory to get pid by GetConnectionUnixProcessID\n");
+              dbus_error_free (&error);
+              _dbus_wait_for_memory ();
+              goto retry_get_property;
+            }
+          else
+            {
+              _dbus_assert (dbus_error_is_set (&error));
+              _dbus_warn ("Did not get the expected DBUS_TYPE_UINT32 from GetConnectionUnixProcessID\n");
+              goto out;
+            }
+        } else {
+
+	  /* test if returned pid is the same as our own pid
+	   *
+	   * @todo It would probably be good to restructure the tests
+	   *       in a way so our parent is the bus that we're testing
+	   *       cause then we can test that the pid returned matches
+	   *       getppid()
+	   */
+	  if (pid != (dbus_uint32_t) _dbus_getpid ())
+	    {
+              _dbus_assert (dbus_error_is_set (&error));
+              _dbus_warn ("Result from GetConnectionUnixProcessID is not our own pid\n");
+              goto out;
+	    }
+	}
+    }
+
+  if (!check_no_leftovers (context))
+    goto out;
+
+  retval = TRUE;
+
+ out:
+  dbus_error_free (&error);
+  
+  if (message)
+    dbus_message_unref (message);
+  
+  return retval;
+}
+
 /* returns TRUE if the correct thing happens,
  * but the correct thing may include OOM errors.
  */
@@ -2787,6 +2940,12 @@ bus_dispatch_test (const DBusString *test_data_dir)
 
   if (!check_add_match_all (context, baz))
     _dbus_assert_not_reached ("AddMatch message failed");
+
+  if (!check_get_connection_unix_user (context, baz))
+    _dbus_assert_not_reached ("GetConnectionUnixUser message failed");
+
+  if (!check_get_connection_unix_process_id (context, baz))
+    _dbus_assert_not_reached ("GetConnectionUnixProcessID message failed");
   
   if (!check_no_leftovers (context))
     {

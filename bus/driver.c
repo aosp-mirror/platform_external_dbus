@@ -907,6 +907,83 @@ bus_driver_handle_get_connection_unix_user (DBusConnection *connection,
 }
 
 static dbus_bool_t
+bus_driver_handle_get_connection_unix_process_id (DBusConnection *connection,
+						  BusTransaction *transaction,
+						  DBusMessage    *message,
+						  DBusError      *error)
+{
+  char *service;
+  DBusString str;
+  BusRegistry *registry;
+  BusService *serv;
+  DBusConnection *conn;
+  DBusMessage *reply;
+  unsigned long pid;
+  const char *base_name;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  registry = bus_connection_get_registry (connection);
+
+  service = NULL;
+  reply = NULL;
+
+  if (! dbus_message_get_args (message, error,
+			       DBUS_TYPE_STRING, &service,
+			       DBUS_TYPE_INVALID))
+      goto failed;
+
+  _dbus_verbose ("asked for PID of connection %s\n", service);
+
+  _dbus_string_init_const (&str, service);
+  serv = bus_registry_lookup (registry, &str);
+  if (serv == NULL)
+    {
+      dbus_set_error (error, 
+		      DBUS_ERROR_SERVICE_HAS_NO_OWNER,
+		      "Could not get owner of service '%s': no such service", service);
+      goto failed;
+    }
+
+  conn = bus_service_get_primary_owner (serv);
+
+  reply = dbus_message_new_method_return (message);
+  if (reply == NULL)
+    goto oom;
+
+  if (!dbus_connection_get_unix_process_id (conn, &pid))
+    {
+      dbus_set_error (error,
+                      DBUS_ERROR_UNIX_PROCESS_ID_UNKNOWN,
+                      "Could not determine PID for '%s'", service);
+      goto failed;
+    }
+
+  if (! dbus_message_append_args (reply,
+                                  DBUS_TYPE_UINT32, (dbus_uint32_t) pid,
+                                  DBUS_TYPE_INVALID))
+    goto oom;
+
+  if (! bus_transaction_send_from_driver (transaction, connection, reply))
+    goto oom;
+
+  dbus_message_unref (reply);
+  dbus_free (service);
+
+  return TRUE;
+
+ oom:
+  BUS_SET_OOM (error);
+
+ failed:
+  _DBUS_ASSERT_ERROR_IS_SET (error);
+  if (reply)
+    dbus_message_unref (reply);
+  dbus_free (service);
+  return FALSE;
+}
+
+static dbus_bool_t
 bus_driver_handle_reload_config (DBusConnection *connection,
 				 BusTransaction *transaction,
 				 DBusMessage    *message,
@@ -953,6 +1030,7 @@ struct
   { "RemoveMatch", bus_driver_handle_remove_match },
   { "GetServiceOwner", bus_driver_handle_get_service_owner },
   { "GetConnectionUnixUser", bus_driver_handle_get_connection_unix_user },
+  { "GetConnectionUnixProcessID", bus_driver_handle_get_connection_unix_process_id },
   { "ReloadConfig", bus_driver_handle_reload_config }
 };
 

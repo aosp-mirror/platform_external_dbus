@@ -2985,6 +2985,37 @@ dbus_connection_get_unix_user (DBusConnection *connection,
 }
 
 /**
+ * Gets the process ID of the connection if any.
+ * Returns #TRUE if the uid is filled in.
+ * Always returns #FALSE prior to authenticating the
+ * connection.
+ *
+ * @param connection the connection
+ * @param pid return location for the process ID
+ * @returns #TRUE if uid is filled in with a valid process ID
+ */
+dbus_bool_t
+dbus_connection_get_unix_process_id (DBusConnection *connection,
+				     unsigned long  *pid)
+{
+  dbus_bool_t result;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (pid != NULL, FALSE);
+  
+  CONNECTION_LOCK (connection);
+
+  if (!_dbus_transport_get_is_authenticated (connection->transport))
+    result = FALSE;
+  else
+    result = _dbus_transport_get_unix_process_id (connection->transport,
+						  pid);
+  CONNECTION_UNLOCK (connection);
+
+  return result;
+}
+
+/**
  * Sets a predicate function used to determine whether a given user ID
  * is allowed to connect. When an incoming connection has
  * authenticated with a particular user ID, this function is called;

@@ -138,6 +138,8 @@ void               dbus_connection_set_dispatch_status_function (DBusConnection 
                                                                  DBusFreeFunction            free_data_function);
 dbus_bool_t        dbus_connection_get_unix_user                (DBusConnection             *connection,
                                                                  unsigned long              *uid);
+dbus_bool_t        dbus_connection_get_unix_process_id          (DBusConnection             *connection,
+                                                                 unsigned long              *pid);
 void               dbus_connection_set_unix_user_function       (DBusConnection             *connection,
                                                                  DBusAllowUnixUserFunction   function,
                                                                  void                       *data,

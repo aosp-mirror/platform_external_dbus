@@ -59,6 +59,8 @@ void               _dbus_transport_set_max_received_size  (DBusTransport        
 long               _dbus_transport_get_max_received_size  (DBusTransport              *transport);
 dbus_bool_t        _dbus_transport_get_unix_user          (DBusTransport              *transport,
                                                            unsigned long              *uid);
+dbus_bool_t        _dbus_transport_get_unix_process_id     (DBusTransport              *transport,
+                                                           unsigned long              *pid);
 void               _dbus_transport_set_unix_user_function (DBusTransport              *transport,
                                                            DBusAllowUnixUserFunction   function,
                                                            void                       *data,

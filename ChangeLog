@@ -1,3 +1,35 @@
+2004-07-19  David Zeuthen  <david@fubar.dk>
+
+	* dbus/dbus-protocol.h: Add DBUS_ERROR_UNIX_PROCESS_ID_UNKNOWN
+
+	* bus/dispatch.c:
+	(check_get_connection_unix_user): Debug says GetProperty; but the
+	method is called GetConnectionUnixUser
+	(check_get_connection_unix_process_id): New function
+	(bus_dispatch_test): Actually call check_get_connection_unix_user();
+	also call check_get_connection_unix_process_id()
+	
+	* bus/driver.c:
+	(bus_driver_handle_get_connection_unix_process_id): New function,
+	handles GetConnectionUnixProcessID on the org.freedesktop.DBus
+	interface
+	
+	* dbus/dbus-auth.c:
+	(handle_server_data_external_mech): Set pid from the credentials
+	obtained from the socket
+	
+	* dbus/dbus-connection.c:
+	(dbus_connection_get_unix_process_id): New function
+	
+	* dbus/dbus-connection.h: 
+	Add prototype for dbus_connection_get_unix_process_id
+	
+	* dbus/dbus-transport.c:
+	(_dbus_transport_get_unix_process_id): New function
+	
+	* dbus/dbus-transport.h:
+	Add prototype for _dbus_transport_get_unix_process_id
+	
 2004-07-19  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* dbus/dbus-message.c: Message counter fix, patch by Christian

@@ -938,6 +938,38 @@ _dbus_transport_get_unix_user (DBusTransport *transport,
 }
 
 /**
+ * See dbus_connection_get_unix_process_id().
+ *
+ * @param transport the transport
+ * @param pid return location for the process ID
+ * @returns #TRUE if uid is filled in with a valid process ID
+ */
+dbus_bool_t
+_dbus_transport_get_unix_process_id (DBusTransport *transport,
+				     unsigned long *pid)
+{
+  DBusCredentials auth_identity;
+
+  *pid = DBUS_PID_UNSET; /* Caller should never use this value on purpose,
+			  * but we set it to a safe number, INT_MAX,
+			  * just to root out possible bugs in bad callers.
+			  */
+  
+  if (!transport->authenticated)
+    return FALSE;
+  
+  _dbus_auth_get_identity (transport->auth, &auth_identity);
+
+  if (auth_identity.pid != DBUS_PID_UNSET)
+    {
+      *pid = auth_identity.pid;
+      return TRUE;
+    }
+  else
+    return FALSE;
+}
+
+/**
  * See dbus_connection_set_unix_user_function().
  *
  * @param transport the transport

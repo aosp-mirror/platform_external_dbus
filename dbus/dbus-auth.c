@@ -1048,9 +1048,9 @@ handle_server_data_external_mech (DBusAuth         *auth,
                      DBUS_AUTH_NAME (auth),
                      auth->desired_identity.uid,
                      auth->credentials.uid);
-      
+
+      auth->authorized_identity.pid = auth->credentials.pid;
       auth->authorized_identity.uid = auth->desired_identity.uid;
-      
       return TRUE;
     }
   else
