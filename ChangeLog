@@ -1,5 +1,11 @@
 2002-12-16  Anders Carlsson  <andersca@codefactory.se>
 
+	* glib/dbus-glib.h:
+	* glib/dbus-gthread.c: (dbus_gthread_init):
+	Don't use the gdbus prefix for public functions.
+	
+2002-12-16  Anders Carlsson  <andersca@codefactory.se>
+
 	* Makefile.am:
 	* configure.in:
 	Add GLib checks and fixup .pc files

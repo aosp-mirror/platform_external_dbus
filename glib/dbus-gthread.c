@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-gthread.c GThread integration
+/* dbus-gthread.c  GThread integration
  *
  * Copyright (C) 2002  CodeFactory AB
  *
@@ -78,7 +78,7 @@ void
 dbus_gthread_init (void)
 {
   if (!g_thread_supported ())
-    g_error ("g_thread_init() must be called before gdbus_threads_init()");
+    g_error ("g_thread_init() must be called before dbus_threads_init()");
     
   dbus_threads_init (&functions);
 }
