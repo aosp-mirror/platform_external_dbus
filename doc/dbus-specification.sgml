@@ -413,10 +413,267 @@
       and maps fairly directly from the SASL specification.
     </para>
     <para>
-      [move the dbus-sasl-profile.txt stuff into here and clean it up]
+      In examples, "C:" and "S:" indicate lines sent by the client and
+      server respectively.
     </para>
-  </sect1>
+    <sect2 id="auth-protocol-overview">
+      <title>Protocol Overview</title>
+      <para>
+The protocol is a line-based protocol, where each line ends with
+\r\n. Each line begins with an all-caps ASCII command name containing
+only the character range [A-Z], a space, then any arguments for the
+command, then the \r\n ending the line. The protocol is
+case-sensitive. All bytes must be in the ASCII character set.
 
+Commands from the client to the server are as follows:
+
+       <itemizedlist>
+	  <listitem><para>AUTH [mechanism] [initial-response]</para></listitem>
+	  <listitem><para>CANCEL</para></listitem
+	  <listitem><para>BEGIN</para></listitem>
+	  <listitem><para>DATA &lt;data in base 64 encoding&gt;</para></listitem>
+	  <listitem><para>ERROR [human-readable error explanation]</para></listitem>
+	</itemizedlist>
+
+From server to client are as follows:
+
+        <itemizedlist>
+	  <listitem><para>REJECTED &lt;space-separated list of mechanism names&gt;</para></listitem>
+	  <listitem><para>OK</para></listitem>
+	  <listitem><para>DATA &lt;data in base 64 encoding&gt;</para></listitem>
+	  <listitem><para>ERROR</para></listitem>
+	</itemizedlist>
+      </para>
+    </sect2>
+    <sect2 id="auth-nul-byte">
+      <title>Special credentials-passing nul byte</title>
+      <para>
+Immediately after connecting to the server, the client must send a
+single nul byte. This byte may be accompanied by credentials
+information on some operating systems that use sendmsg() with
+SCM_CREDS or SCM_CREDENTIALS to pass credentials over UNIX domain
+sockets. However, the nul byte MUST be sent even on other kinds of
+socket, and even on operating systems that do not require a byte to be
+sent in order to transmit credentials. The text protocol described in
+this document begins after the single nul byte. If the first byte
+received from the client is not a nul byte, the server may disconnect 
+that client.
+</para>
+<para>
+A nul byte in any context other than the initial byte is an error; 
+the protocol is ASCII-only.
+</para>
+<para>
+The credentials sent along with the nul byte may be used with the 
+SASL mechanism EXTERNAL.
+
+      </para>
+    </sect2>
+    <sect2 id="auth-command-auth">
+      <title>AUTH command</title>
+<para>
+   If an AUTH command has no arguments, it is a request to list
+   available mechanisms. The server SHOULD respond with a REJECTED
+   command listing the mechanisms it understands.
+</para>
+<para>
+   If an AUTH command specifies a mechanism, and the server supports
+   said mechanism, the server SHOULD begin exchanging SASL
+   challenge-response data with the client using DATA commands.
+</para>
+<para>
+   If the server does not support the mechanism given in the AUTH
+   command, it SHOULD send a REJECTED command listing the mechanisms
+   it does support.
+</para>
+<para>
+   If the [initial-response] argument is provided, it is intended for
+   use with mechanisms that have no initial challenge (or an empty
+   initial challenge), as if it were the argument to an initial DATA
+   command. If the selected mechanism has an initial challenge, the
+   server should reject authentication by sending REJECTED.
+</para>
+<para>
+   If authentication succeeds after exchanging DATA commands, 
+   an OK command should be sent to the client. 
+</para>
+<para>
+   The first octet received by the client after the \r\n of the OK
+   command MUST be the first octet of the authenticated/encrypted 
+   stream of D-BUS messages.
+</para>
+<para>
+   The first octet received by the server after the \r\n of the BEGIN
+   command from the client MUST be the first octet of the
+   authenticated/encrypted stream of D-BUS messages.
+</para>
+    </sect2>
+  <sect2 id="auth-command-cancel">
+    <title>CANCEL Command</title>
+    <para>
+   At any time up to sending the BEGIN command, the client may send a
+   CANCEL command. On receiving the CANCEL command, the server MUST
+   send a REJECTED command and abort the current authentication
+   exchange.
+    </para>
+  </sect2>
+  <sect2 id="auth-command-data">
+    <title>DATA Command</title>
+    <para>
+   The DATA command may come from either client or server, and simply 
+   contains a base64-encoded block of data to be interpreted 
+   according to the SASL mechanism in use.
+    </para>
+    <para>
+   Some SASL mechanisms support sending an "empty string"; 
+   FIXME we need some way to do this.
+    </para>
+  </sect2>
+  <sect2 id="auth-command-begin">
+    <title>BEGIN Command</title>
+    <para>
+   The BEGIN command acknowledges that the client has received an 
+   OK command from the server, and that the stream of messages
+   is about to begin. 
+   </para>
+   <para>
+   The first octet received by the server after the \r\n of the BEGIN
+   command from the client MUST be the first octet of the
+   authenticated/encrypted stream of D-BUS messages.
+    </para>
+  </sect2>
+  <sect2 id="auth-command-rejected">
+    <title>REJECTED Command</title>
+    <para>
+   The REJECTED command indicates that the current authentication
+   exchange has failed, and further exchange of DATA is inappropriate.
+   The client would normally try another mechanism, or try providing
+   different responses to challenges.
+   </para><para>
+   Optionally, the REJECTED command has a space-separated list of
+   available auth mechanisms as arguments. If a server ever provides
+   a list of supported mechanisms, it MUST provide the same list 
+   each time it sends a REJECTED message. Clients are free to 
+   ignore all lists received after the first.
+    </para>
+  </sect2>
+  <sect2 id="auth-command-ok">
+    <title>OK Command</title>
+    <para>
+   The OK command indicates that the client has been authenticated,
+   and that further communication will be a stream of D-BUS messages
+   (optionally encrypted, as negotiated) rather than this protocol.
+   </para>
+   <para>
+   The first octet received by the client after the \r\n of the OK
+   command MUST be the first octet of the authenticated/encrypted 
+   stream of D-BUS messages.
+   </para>
+   <para>
+   The client MUST respond to the OK command by sending a BEGIN
+   command, followed by its stream of messages, or by disconnecting.
+   The server MUST NOT accept additional commands using this protocol 
+   after the OK command has been sent.
+    </para>
+  </sect2>
+  <sect2 id="auth-command-error">
+    <title>ERROR Command</title>
+    <para>
+   The ERROR command indicates that either server or client did not
+   know a command, does not accept the given command in the current
+   context, or did not understand the arguments to the command. This
+   allows the protocol to be extended; a client or server can send a
+   command present or permitted only in new protocol versions, and if
+   an ERROR is received instead of an appropriate response, fall back
+   to using some other technique.
+ </para><para>
+   If an ERROR is sent, the server or client MUST continue as if the
+   command causing the ERROR had never been received.
+    </para>
+  </sect2>
+  <sect2 id="auth-examples">
+      <title>Authentication examples</title>
+      
+      <para>
+      <figure>
+	  <title>Example of successful magic cookie authentication</title>
+	  <programlisting>
+(MAGIC_COOKIE is a made up mechanism)
+
+  C: AUTH MAGIC_COOKIE BsAY3g4gBNo=
+  S: OK
+  C: BEGIN
+          </programlisting>
+	</figure>
+      <figure>
+	  <title>Example of finding out mechanisms then picking one</title>
+	  <programlisting>
+  C: AUTH
+  S: REJECTED KERBEROS_V4 SKEY
+  C: AUTH SKEY bW9yZ2Fu
+  S: DATA OTUgUWE1ODMwOA==
+  C: DATA Rk9VUiBNQU5OIFNPT04gRklSIFZBUlkgTUFTSA==
+  S: OK
+  C: BEGIN
+          </programlisting>
+	</figure>
+      <figure>
+	  <title>Example of client sends unknown command then falls back to regular auth</title>
+	  <programlisting>
+  C: FOOBAR
+  S: ERROR
+  C: AUTH MAGIC_COOKIE BsAY3g4gBNo=
+  S: OK
+  C: BEGIN
+          </programlisting>
+	</figure>
+      <figure>
+	  <title>Example of server doesn't support initial auth mechanism</title>
+	  <programlisting>
+  C: AUTH MAGIC_COOKIE BsAY3g4gBNo=
+  S: REJECTED KERBEROS_V4 SKEY
+  C: AUTH SKEY bW9yZ2Fu
+  S: DATA OTUgUWE1ODMwOA==
+  C: DATA Rk9VUiBNQU5OIFNPT04gRklSIFZBUlkgTUFTSA==
+  S: OK
+  C: BEGIN
+          </programlisting>
+	</figure>
+      <figure>
+	  <title>Example of wrong password or the like followed by successful retry</title>
+	  <programlisting>
+  C: AUTH MAGIC_COOKIE BsAY3g4gBNo=
+  S: REJECTED KERBEROS_V4 SKEY
+  C: AUTH SKEY bW9yZ2Fu
+  S: DATA OTUgUWE1ODMwOA==
+  C: DATA Rk9VUiBNQU5OIFNPT04gRklSIFZBUlkgTUFTSA==
+  S: REJECTED
+  C: AUTH SKEY bW9yZ2Fu
+  S: DATA OTUgUWE1ODMwOA==
+  C: DATA Rk9VUiBNQU5OIFNPT04gRklSIFZBUlkgTUFTSA==
+  S: OK
+  C: BEGIN
+          </programlisting>
+	</figure>
+      <figure>
+	  <title>Example of skey cancelled and restarted</title>
+	  <programlisting>
+  C: AUTH MAGIC_COOKIE BsAY3g4gBNo=
+  S: REJECTED KERBEROS_V4 SKEY
+  C: AUTH SKEY bW9yZ2Fu
+  S: DATA OTUgUWE1ODMwOA==
+  C: CANCEL
+  S: REJECTED
+  C: AUTH SKEY bW9yZ2Fu
+  S: DATA OTUgUWE1ODMwOA==
+  C: DATA Rk9VUiBNQU5OIFNPT04gRklSIFZBUlkgTUFTSA==
+  S: OK
+  C: BEGIN
+          </programlisting>
+	</figure>
+      </para>
+    </sect2>
+  </sect1>
   <sect1 id="addresses">
     <title>Server Addresses</title>
     <para>

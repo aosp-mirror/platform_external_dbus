@@ -1,5 +1,10 @@
 2003-02-17  Anders Carlsson  <andersca@codefactory.se>
 
+	* doc/dbus-specification.sgml:
+	Specification updates.
+	
+2003-02-17  Anders Carlsson  <andersca@codefactory.se>
+
 	* bus/activation.c: (bus_activation_init), (child_setup),
 	(bus_activation_activate_service):
 	* bus/activation.h:
