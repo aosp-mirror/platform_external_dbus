@@ -1,3 +1,15 @@
+2004-12-23  John (J5) Palmieri  <johnp@redhat.com>
+	* Patch from Rob Taylor <robtaylor@fastmail.fm>
+
+	* python/dbus_bindings.pyx.in (bus_get_unix_user): New
+	lowlevel binding
+
+	* python/dbus.py (get_unix_user): Added binding to 
+	call dbus_bindings.bus_get_unix_user
+
+	* python/extract.py: Modified the proto_pat regex to
+	handle unsigned long
+
 2004-12-21  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* dbus/make-dbus-glib-error-enum.sh: omit the function keyword for
