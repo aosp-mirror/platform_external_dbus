@@ -1,3 +1,13 @@
+2002-12-27  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-marshal.c: (_dbus_marshal_string),
+	(_dbus_demarshal_double), (_dbus_demarshal_int32),
+	(_dbus_demarshal_uint32), (_dbus_demarshal_string),
+	(_dbus_marshal_test):
+	Make the demarshalling routines align the pos argument.
+	Add string marshalling tests and fix the obvious bugs 
+	discovered.
+	
 2002-12-26  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-auth.c: fixes fixes fixes
