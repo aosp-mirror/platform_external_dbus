@@ -270,9 +270,9 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
   _dbus_string_free (&address);
   
   client_fd = -1;
-  
+
   server_transport = _dbus_transport_new_for_fd (server_fd,
-                                                 TRUE, NULL);
+                                                 &server->guid_hex, NULL);
   if (server_transport == NULL)
     {
       _dbus_transport_unref (client_transport);

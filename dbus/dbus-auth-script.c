@@ -231,10 +231,12 @@ _dbus_auth_script_run (const DBusString *filename)
   DBusString from_auth;
   DBusAuthState state;
   DBusString context;
+  DBusString guid;
   
   retval = FALSE;
   auth = NULL;
 
+  _dbus_string_init_const (&guid, "5fa01f4202cd837709a3274ca0df9d00");
   _dbus_string_init_const (&context, "org_freedesktop_test");
   
   if (!_dbus_string_init (&file))
@@ -334,7 +336,7 @@ _dbus_auth_script_run (const DBusString *filename)
               goto out;
             }
 
-          auth = _dbus_auth_server_new ();
+          auth = _dbus_auth_server_new (&guid);
           if (auth == NULL)
             {
               _dbus_warn ("no memory to create DBusAuth\n");

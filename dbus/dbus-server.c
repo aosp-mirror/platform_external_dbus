@@ -75,33 +75,30 @@ init_guid (DBusGUID *guid)
  */
 static char*
 copy_address_with_guid_appended (const DBusString *address,
-                                 const DBusGUID   *guid)
+                                 const DBusString *guid_hex)
 {
   DBusString with_guid;
-  DBusString guid_str;
   char *retval;
   
   if (!_dbus_string_init (&with_guid))
     return NULL;
 
-  _dbus_string_init_const_len (&guid_str, guid->as_bytes,
-                               sizeof (guid->as_bytes));
-
-  if (!_dbus_string_copy (address, 0, &with_guid, 0) ||
+  if (!_dbus_string_copy (address, 0, &with_guid,
+                          _dbus_string_get_length (&with_guid)) ||
       !_dbus_string_append (&with_guid, ",guid=") ||
-      !_dbus_string_hex_encode (&guid_str, 0,
-                                &with_guid, _dbus_string_get_length (&with_guid)))
+      !_dbus_string_copy (guid_hex, 0,
+                          &with_guid, _dbus_string_get_length (&with_guid)))
     {
       _dbus_string_free (&with_guid);
       return NULL;
     }
 
   retval = NULL;
-  _dbus_string_copy_data (&with_guid, &retval);
+  _dbus_string_steal_data (&with_guid, &retval);
 
   _dbus_string_free (&with_guid);
       
-  return retval; /* may be NULL if copy failed */
+  return retval; /* may be NULL if steal_data failed */
 }
 
 /**
@@ -117,7 +114,9 @@ dbus_bool_t
 _dbus_server_init_base (DBusServer             *server,
                         const DBusServerVTable *vtable,
                         const DBusString       *address)
-{  
+{
+  DBusString guid_raw;
+  
   server->vtable = vtable;
   server->refcount.value = 1;
 
@@ -125,10 +124,20 @@ _dbus_server_init_base (DBusServer             *server,
   server->watches = NULL;
   server->timeouts = NULL;
 
+  if (!_dbus_string_init (&server->guid_hex))
+    return FALSE;
+
   init_guid (&server->guid);
 
+  _dbus_string_init_const_len (&guid_raw, server->guid.as_bytes,
+                               sizeof (server->guid.as_bytes));
+  if (!_dbus_string_hex_encode (&guid_raw, 0,
+                                &server->guid_hex,
+                                _dbus_string_get_length (&server->guid_hex)))
+    goto failed;
+  
   server->address = copy_address_with_guid_appended (address,
-                                                     &server->guid);
+                                                     &server->guid_hex);
   if (server->address == NULL)
     goto failed;
   
@@ -171,6 +180,7 @@ _dbus_server_init_base (DBusServer             *server,
       dbus_free (server->address);
       server->address = NULL;
     }
+  _dbus_string_free (&server->guid_hex);
   
   return FALSE;
 }
@@ -205,6 +215,8 @@ _dbus_server_finalize_base (DBusServer *server)
   dbus_free (server->address);
 
   dbus_free_string_array (server->auth_mechanisms);
+
+  _dbus_string_free (&server->guid_hex);
 }
 
 

@@ -1114,13 +1114,13 @@ static DBusTransportVTable unix_vtable = {
  * boil down to a full duplex file descriptor.
  *
  * @param fd the file descriptor.
- * @param server #TRUE if this transport is on the server side of a connection
+ * @param server_guid non-#NULL if this transport is on the server side of a connection
  * @param address the transport's address
  * @returns the new transport, or #NULL if no memory.
  */
 DBusTransport*
 _dbus_transport_new_for_fd (int               fd,
-                            dbus_bool_t       server,
+                            const DBusString *server_guid,
                             const DBusString *address)
 {
   DBusTransportUnix *unix_transport;
@@ -1151,7 +1151,7 @@ _dbus_transport_new_for_fd (int               fd,
   
   if (!_dbus_transport_init_base (&unix_transport->base,
                                   &unix_vtable,
-                                  server, address))
+                                  server_guid, address))
     goto failed_4;
   
   unix_transport->fd = fd;

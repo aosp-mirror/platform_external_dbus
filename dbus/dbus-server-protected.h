@@ -31,6 +31,7 @@
 #include <dbus/dbus-watch.h>
 #include <dbus/dbus-resources.h>
 #include <dbus/dbus-dataslot.h>
+#include <dbus/dbus-string.h>
 
 DBUS_BEGIN_DECLS
 
@@ -67,7 +68,9 @@ struct DBusServer
   const DBusServerVTable *vtable;             /**< Virtual methods for this instance. */
   DBusMutex *mutex;                           /**< Lock on the server object */
 
-  DBusGUID guid;                              /**< Globally unique ID of server */ 
+  DBusGUID guid;                              /**< Globally unique ID of server */
+
+  DBusString guid_hex;                        /**< Hex-encoded version of GUID */
   
   DBusWatchList *watches;                     /**< Our watches */
   DBusTimeoutList *timeouts;                  /**< Our timeouts */  

@@ -190,7 +190,7 @@ no_bus_thread_func (void *data)
   g_printerr ("Starting client thread %p\n", g_thread_self());  
   
   dbus_error_init (&error);
-  connection = dbus_connection_open (messages_address, &error);
+  connection = dbus_connection_open_private (messages_address, &error);
   if (connection == NULL)
     {
       g_printerr ("could not open connection: %s\n", error.message);
@@ -361,7 +361,7 @@ with_bus_thread_func (void *data)
     }
   
   dbus_error_init (&error);
-  connection = dbus_connection_open (address, &error);
+  connection = dbus_connection_open_private (address, &error);
   if (connection == NULL)
     {
       g_printerr ("could not open connection to bus: %s\n", error.message);

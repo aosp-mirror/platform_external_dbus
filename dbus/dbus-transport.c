@@ -75,19 +75,22 @@ live_messages_size_notify (DBusCounter *counter,
 }
 
 /**
- * Initializes the base class members of DBusTransport.
- * Chained up to by subclasses in their constructor.
+ * Initializes the base class members of DBusTransport.  Chained up to
+ * by subclasses in their constructor.  The server GUID is the
+ * globally unique ID for the server creating this connection
+ * and will be #NULL for the client side of a connection. The GUID
+ * is in hex format.
  *
  * @param transport the transport being created.
  * @param vtable the subclass vtable.
- * @param server #TRUE if this transport is on the server side of a connection
+ * @param server_guid non-#NULL if this transport is on the server side of a connection
  * @param address the address of the transport
  * @returns #TRUE on success.
  */
 dbus_bool_t
 _dbus_transport_init_base (DBusTransport             *transport,
                            const DBusTransportVTable *vtable,
-                           dbus_bool_t                server,
+                           const DBusString          *server_guid,
                            const DBusString          *address)
 {
   DBusMessageLoader *loader;
@@ -99,8 +102,8 @@ _dbus_transport_init_base (DBusTransport             *transport,
   if (loader == NULL)
     return FALSE;
   
-  if (server)
-    auth = _dbus_auth_server_new ();
+  if (server_guid)
+    auth = _dbus_auth_server_new (server_guid);
   else
     auth = _dbus_auth_client_new ();
   if (auth == NULL)
@@ -117,7 +120,7 @@ _dbus_transport_init_base (DBusTransport             *transport,
       return FALSE;
     }  
   
-  if (server)
+  if (server_guid)
     {
       _dbus_assert (address == NULL);
       address_copy = NULL;
@@ -142,9 +145,9 @@ _dbus_transport_init_base (DBusTransport             *transport,
   transport->live_messages_size = counter;
   transport->authenticated = FALSE;
   transport->disconnected = FALSE;
-  transport->send_credentials_pending = !server;
-  transport->receive_credentials_pending = server;
-  transport->is_server = server;
+  transport->is_server = (server_guid != NULL);
+  transport->send_credentials_pending = !transport->is_server;
+  transport->receive_credentials_pending = transport->is_server;
   transport->address = address_copy;
   
   transport->unix_user_function = NULL;
@@ -195,33 +198,22 @@ _dbus_transport_finalize_base (DBusTransport *transport)
 }
 
 /**
- * Opens a new transport for the given address.  (This opens a
- * client-side-of-the-connection transport.)
- *
- * @todo error messages on bad address could really be better.
- * DBusResultCode is a bit limiting here.
+ * Try to open a new transport for the given address entry.  (This
+ * opens a client-side-of-the-connection transport.)
  * 
- * @param address the address.
+ * @param entry the address entry
  * @param error location to store reason for failure.
  * @returns new transport of #NULL on failure.
  */
 DBusTransport*
-_dbus_transport_open (const char     *address,
-                      DBusError      *error)
+_dbus_transport_open (DBusAddressEntry *entry,
+                      DBusError        *error)
 {
   DBusTransport *transport;
-  DBusAddressEntry **entries;
-  DBusError tmp_error;
-  DBusError first_error;
-  int len, i;
   const char *address_problem_type;
   const char *address_problem_field;
   const char *address_problem_other;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  if (!dbus_parse_address (address, &entries, &len, error))
-    return NULL;
+  const char *method;     
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
@@ -229,125 +221,96 @@ _dbus_transport_open (const char     *address,
   address_problem_type = NULL;
   address_problem_field = NULL;
   address_problem_other = NULL;
-
-  dbus_error_init (&tmp_error);
-  dbus_error_init (&first_error);
-  for (i = 0; i < len; i++)
-    {
-      const char *method;
-
-      method = dbus_address_entry_get_method (entries[i]);
+  
+  method = dbus_address_entry_get_method (entry);
+  _dbus_assert (method != NULL);
       
-      if (strcmp (method, "unix") == 0)
-	{
-	  const char *path = dbus_address_entry_get_value (entries[i], "path");
-          const char *tmpdir = dbus_address_entry_get_value (entries[i], "tmpdir");
-          const char *abstract = dbus_address_entry_get_value (entries[i], "abstract");
+  if (strcmp (method, "unix") == 0)
+    {
+      const char *path = dbus_address_entry_get_value (entry, "path");
+      const char *tmpdir = dbus_address_entry_get_value (entry, "tmpdir");
+      const char *abstract = dbus_address_entry_get_value (entry, "abstract");
           
-	  if (tmpdir != NULL)
-            {
-              address_problem_other = "cannot use the \"tmpdir\" option for an address to connect to, only in an address to listen on";
-              goto bad_address;
-            }
-          
-	  if (path == NULL && abstract == NULL)
-            {
-              address_problem_type = "unix";
-              address_problem_field = "path or abstract";  
-              goto bad_address;
-            }
-
-	  if (path != NULL && abstract != NULL)
-            {
-              address_problem_other = "can't specify both \"path\" and \"abstract\" options in an address";
-              goto bad_address;
-            }
-
-          if (path)
-            transport = _dbus_transport_new_for_domain_socket (path, FALSE,
-                                                               &tmp_error);
-          else
-            transport = _dbus_transport_new_for_domain_socket (abstract, TRUE,
-                                                               &tmp_error);
-	}
-      else if (strcmp (method, "tcp") == 0)
-	{
-	  const char *host = dbus_address_entry_get_value (entries[i], "host");
-          const char *port = dbus_address_entry_get_value (entries[i], "port");
-          DBusString  str;
-          long lport;
-          dbus_bool_t sresult;
-          
-          if (port == NULL)
-            {
-              address_problem_type = "tcp";
-              address_problem_field = "port";
-              goto bad_address;
-            }
-
-          _dbus_string_init_const (&str, port);
-          sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
-          _dbus_string_free (&str);
-          
-          if (sresult == FALSE || lport <= 0 || lport > 65535)
-            {
-              address_problem_other = "Port is not an integer between 0 and 65535";
-              goto bad_address;
-            }
-          
-	  transport = _dbus_transport_new_for_tcp_socket (host, lport, &tmp_error);
-	}
-#ifdef DBUS_BUILD_TESTS
-      else if (strcmp (method, "debug-pipe") == 0)
-	{
-	  const char *name = dbus_address_entry_get_value (entries[i], "name");
-
-          if (name == NULL)
-            {
-              address_problem_type = "debug-pipe";
-              address_problem_field = "name";
-              goto bad_address;
-            }
-          
-	  transport = _dbus_transport_debug_pipe_new (name, &tmp_error);
-	}
-#endif
-      else
+      if (tmpdir != NULL)
         {
-          address_problem_other = "Unknown address type (examples of valid types are \"unix\" and \"tcp\")";
+          address_problem_other = "cannot use the \"tmpdir\" option for an address to connect to, only in an address to listen on";
+          goto bad_address;
+        }
+          
+      if (path == NULL && abstract == NULL)
+        {
+          address_problem_type = "unix";
+          address_problem_field = "path or abstract";  
           goto bad_address;
         }
 
-      if (transport)
-	break;
+      if (path != NULL && abstract != NULL)
+        {
+          address_problem_other = "can't specify both \"path\" and \"abstract\" options in an address";
+          goto bad_address;
+        }
 
-      _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
-      
-      if (i == 0)
-        dbus_move_error (&tmp_error, &first_error);
+      if (path)
+        transport = _dbus_transport_new_for_domain_socket (path, FALSE,
+                                                           error);
       else
-        dbus_error_free (&tmp_error);
+        transport = _dbus_transport_new_for_domain_socket (abstract, TRUE,
+                                                           error);
     }
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
-  
-  if (transport == NULL)
+  else if (strcmp (method, "tcp") == 0)
     {
-      _DBUS_ASSERT_ERROR_IS_SET (&first_error);
-      dbus_move_error (&first_error, error);
+      const char *host = dbus_address_entry_get_value (entry, "host");
+      const char *port = dbus_address_entry_get_value (entry, "port");
+      DBusString  str;
+      long lport;
+      dbus_bool_t sresult;
+          
+      if (port == NULL)
+        {
+          address_problem_type = "tcp";
+          address_problem_field = "port";
+          goto bad_address;
+        }
+
+      _dbus_string_init_const (&str, port);
+      sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
+      _dbus_string_free (&str);
+          
+      if (sresult == FALSE || lport <= 0 || lport > 65535)
+        {
+          address_problem_other = "Port is not an integer between 0 and 65535";
+          goto bad_address;
+        }
+          
+      transport = _dbus_transport_new_for_tcp_socket (host, lport, error);
     }
+#ifdef DBUS_BUILD_TESTS
+  else if (strcmp (method, "debug-pipe") == 0)
+    {
+      const char *name = dbus_address_entry_get_value (entry, "name");
+
+      if (name == NULL)
+        {
+          address_problem_type = "debug-pipe";
+          address_problem_field = "name";
+          goto bad_address;
+        }
+          
+      transport = _dbus_transport_debug_pipe_new (name, error);
+    }
+#endif
   else
     {
-      dbus_error_free (&first_error);
+      address_problem_other = "Unknown address type (examples of valid types are \"unix\" and \"tcp\")";
+      goto bad_address;
     }
+
+  if (transport == NULL)
+    _DBUS_ASSERT_ERROR_IS_SET (error);
   
-  dbus_address_entries_free (entries);
   return transport;
-
+  
  bad_address:
-  dbus_address_entries_free (entries);
-
   if (address_problem_type != NULL)
     dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
                     "Address of type %s was missing argument %s",

@@ -231,7 +231,8 @@ init_global_locks (void)
     LOCK_ADDR (bus),
     LOCK_ADDR (shutdown_funcs),
     LOCK_ADDR (system_users),
-    LOCK_ADDR (message_cache)
+    LOCK_ADDR (message_cache),
+    LOCK_ADDR (shared_connections)
 #undef LOCK_ADDR
   };
 

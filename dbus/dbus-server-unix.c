@@ -99,7 +99,7 @@ handle_new_client_fd_and_unlock (DBusServer *server,
       return TRUE;
     }
   
-  transport = _dbus_transport_new_for_fd (client_fd, TRUE, NULL);
+  transport = _dbus_transport_new_for_fd (client_fd, &server->guid_hex, NULL);
   if (transport == NULL)
     {
       close (client_fd);

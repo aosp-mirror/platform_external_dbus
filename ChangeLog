@@ -1,3 +1,31 @@
+2005-02-26  Havoc Pennington  <hp@redhat.com>
+
+	* doc/TODO: remove the "guid" item
+
+	* test/glib/test-profile.c (no_bus_thread_func): use open_private
+	(with_bus_thread_func): use open_private
+
+	* dbus/dbus-connection.c (dbus_connection_open_private): new
+	function that works like the old dbus_connection_open()
+	(dbus_connection_open): now returns an existing connection if
+	possible
+
+	* dbus/dbus-server-unix.c (handle_new_client_fd_and_unlock): pass
+	through the GUID to the transport
+
+	* dbus/dbus-server.c (_dbus_server_init_base): keep around the
+	GUID in hex-encoded form.
+
+	* dbus/dbus-server-debug-pipe.c (_dbus_transport_debug_pipe_new):
+	pass GUID argument in to the transport
+
+	* dbus/dbus-transport-unix.c (_dbus_transport_new_for_fd): add
+	guid argument
+
+	* dbus/dbus-transport.c (_dbus_transport_init_base): add guid argument
+
+	* dbus/dbus-auth.c (_dbus_auth_server_new): add guid argument
+
 2005-02-25  Havoc Pennington  <hp@redhat.com>
 
 	* doc/dbus-specification.xml: document the GUID thing

@@ -113,7 +113,7 @@ struct DBusTransport
 
 dbus_bool_t _dbus_transport_init_base     (DBusTransport             *transport,
                                            const DBusTransportVTable *vtable,
-                                           dbus_bool_t                server,
+                                           const DBusString          *server_guid,
                                            const DBusString          *address);
 void        _dbus_transport_finalize_base (DBusTransport             *transport);
 

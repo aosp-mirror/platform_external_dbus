@@ -41,7 +41,7 @@ typedef enum
   DBUS_AUTH_STATE_AUTHENTICATED
 } DBusAuthState;
 
-DBusAuth*     _dbus_auth_server_new          (void);
+DBusAuth*     _dbus_auth_server_new          (const DBusString       *guid);
 DBusAuth*     _dbus_auth_client_new          (void);
 DBusAuth*     _dbus_auth_ref                 (DBusAuth               *auth);
 void          _dbus_auth_unref               (DBusAuth               *auth);

@@ -26,12 +26,13 @@
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-connection.h>
 #include <dbus/dbus-protocol.h>
+#include <dbus/dbus-address.h>
 
 DBUS_BEGIN_DECLS
 
 typedef struct DBusTransport DBusTransport;
 
-DBusTransport*     _dbus_transport_open                   (const char                 *address,
+DBusTransport*     _dbus_transport_open                   (DBusAddressEntry           *entry,
                                                            DBusError                  *error);
 DBusTransport*     _dbus_transport_ref                    (DBusTransport              *transport);
 void               _dbus_transport_unref                  (DBusTransport              *transport);
