@@ -22,6 +22,7 @@
  */
 #include "message.h"
 
+#include <cstdlib>
 
 namespace DBusQt {
 

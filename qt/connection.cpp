@@ -120,6 +120,10 @@ Message Connection::sendWithReplyAndBlock( const Message &m )
   return Message( reply );
 }
 
+void* Connection::virtual_hook( int, void*  )
+{
+}
+
 /////////////////////////////////////////////////////////
 
 #include "connection.moc"
