@@ -45,9 +45,9 @@ bus_driver_send_service_deleted (const char *service_name)
   
   BUS_HANDLE_OOM (dbus_message_set_sender (message, DBUS_SERVICE_DBUS));
 
-  BUS_HANDLE_OOM (dbus_message_append_fields (message,
-					      DBUS_TYPE_STRING, service_name,
-					      0));
+  BUS_HANDLE_OOM (dbus_message_append_args (message,
+					    DBUS_TYPE_STRING, service_name,
+					    0));
   bus_dispatch_broadcast_message (message);
   dbus_message_unref (message);  
 }
@@ -62,9 +62,9 @@ bus_driver_send_service_created (const char *service_name)
   
   BUS_HANDLE_OOM (dbus_message_set_sender (message, DBUS_SERVICE_DBUS));
   
-  BUS_HANDLE_OOM (dbus_message_append_fields (message,
-					      DBUS_TYPE_STRING, service_name,
-					      0));
+  BUS_HANDLE_OOM (dbus_message_append_args (message,
+					    DBUS_TYPE_STRING, service_name,
+					    0));
   bus_dispatch_broadcast_message (message);
   dbus_message_unref (message);
 }
@@ -79,9 +79,9 @@ bus_driver_send_service_lost (DBusConnection *connection,
 					      DBUS_MESSAGE_SERVICE_LOST));
   
   BUS_HANDLE_OOM (dbus_message_set_sender (message, DBUS_SERVICE_DBUS));
-  BUS_HANDLE_OOM (dbus_message_append_fields (message,
-					      DBUS_TYPE_STRING, service_name,
-					      0));
+  BUS_HANDLE_OOM (dbus_message_append_args (message,
+					    DBUS_TYPE_STRING, service_name,
+					    0));
   BUS_HANDLE_OOM (dbus_connection_send_message (connection, message, NULL, NULL));
   
   dbus_message_unref (message);
@@ -97,9 +97,9 @@ bus_driver_send_service_acquired (DBusConnection *connection,
 					      DBUS_MESSAGE_SERVICE_ACQUIRED));
   
   BUS_HANDLE_OOM (dbus_message_set_sender (message, DBUS_SERVICE_DBUS));
-  BUS_HANDLE_OOM (dbus_message_append_fields (message,
-					      DBUS_TYPE_STRING, service_name,
-					      0));
+  BUS_HANDLE_OOM (dbus_message_append_args (message,
+					    DBUS_TYPE_STRING, service_name,
+					    0));
   BUS_HANDLE_OOM (dbus_connection_send_message (connection, message, NULL, NULL));
   
   dbus_message_unref (message);
@@ -182,7 +182,7 @@ bus_driver_handle_hello (DBusConnection *connection,
   BUS_HANDLE_OOM (bus_connection_set_name (connection, &unique_name));
 
   BUS_HANDLE_OOM (dbus_message_set_sender (message,
-					     bus_connection_get_name (connection)));
+					   bus_connection_get_name (connection)));
   
   _dbus_string_free (&unique_name);
 
@@ -206,9 +206,9 @@ bus_driver_send_welcome_message (DBusConnection *connection,
   
   BUS_HANDLE_OOM (dbus_message_set_sender (welcome, DBUS_SERVICE_DBUS));
   
-  BUS_HANDLE_OOM (dbus_message_append_fields (welcome,
-						DBUS_TYPE_STRING, name,
-						NULL));
+  BUS_HANDLE_OOM (dbus_message_append_args (welcome,
+					    DBUS_TYPE_STRING, name,
+					    NULL));
   
   BUS_HANDLE_OOM (dbus_connection_send_message (connection, welcome, NULL, NULL));
 
@@ -227,9 +227,9 @@ bus_driver_handle_list_services (DBusConnection *connection,
 
   BUS_HANDLE_OOM (services = bus_services_list (&len));
 
-  BUS_HANDLE_OOM (dbus_message_append_fields (reply,
-						DBUS_TYPE_STRING_ARRAY, services, len,
-						0));
+  BUS_HANDLE_OOM (dbus_message_append_args (reply,
+					    DBUS_TYPE_STRING_ARRAY, services, len,
+					    0));
 
   BUS_HANDLE_OOM (dbus_connection_send_message (connection, reply, NULL, NULL));
 
@@ -255,10 +255,10 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
   int service_reply;
   int flags;
   
-  BUS_HANDLE_OOM ((result = dbus_message_get_fields (message,
-						       DBUS_TYPE_STRING, &name,
-						       DBUS_TYPE_UINT32, &flags,
-						       0)) != DBUS_RESULT_NO_MEMORY);
+  BUS_HANDLE_OOM ((result = dbus_message_get_args (message,
+						   DBUS_TYPE_STRING, &name,
+						   DBUS_TYPE_UINT32, &flags,
+						   0)) != DBUS_RESULT_NO_MEMORY);
   
   if (result != DBUS_RESULT_SUCCESS)
     {
@@ -324,7 +324,7 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
       service_reply = DBUS_SERVICE_REPLY_PRIMARY_OWNER;
     }
 
-  BUS_HANDLE_OOM (dbus_message_append_fields (reply, DBUS_TYPE_UINT32, service_reply, 0));
+  BUS_HANDLE_OOM (dbus_message_append_args (reply, DBUS_TYPE_UINT32, service_reply, 0));
 
   /* Send service reply */
   BUS_HANDLE_OOM (dbus_connection_send_message (connection, reply, NULL, NULL));
@@ -342,28 +342,28 @@ bus_driver_handle_service_exists (DBusConnection *connection,
   BusService *service;
   char *name;
   
-  BUS_HANDLE_OOM ((result = dbus_message_get_fields (message,
-						       DBUS_TYPE_STRING, &name,
-						       0)) != DBUS_RESULT_NO_MEMORY);
- if (result != DBUS_RESULT_SUCCESS)
+  BUS_HANDLE_OOM ((result = dbus_message_get_args (message,
+						   DBUS_TYPE_STRING, &name,
+						   0)) != DBUS_RESULT_NO_MEMORY);
+  if (result != DBUS_RESULT_SUCCESS)
     {
       dbus_free (name);
       dbus_connection_disconnect (connection);
       return;
     }
 
- _dbus_string_init_const (&service_name, name);
- service = bus_service_lookup (&service_name, FALSE);
+  _dbus_string_init_const (&service_name, name);
+  service = bus_service_lookup (&service_name, FALSE);
  
- BUS_HANDLE_OOM ((reply = dbus_message_new_reply (message)));
- BUS_HANDLE_OOM (dbus_message_set_sender (reply, DBUS_SERVICE_DBUS));
+  BUS_HANDLE_OOM ((reply = dbus_message_new_reply (message)));
+  BUS_HANDLE_OOM (dbus_message_set_sender (reply, DBUS_SERVICE_DBUS));
 
- BUS_HANDLE_OOM (dbus_message_append_fields (reply,
-					       DBUS_TYPE_UINT32, service != NULL,
-					       0));
- BUS_HANDLE_OOM (dbus_connection_send_message (connection, reply, NULL, NULL));
- dbus_message_unref (reply);
- dbus_free (name);
+  BUS_HANDLE_OOM (dbus_message_append_args (reply,
+					    DBUS_TYPE_UINT32, service != NULL,
+					    0));
+  BUS_HANDLE_OOM (dbus_connection_send_message (connection, reply, NULL, NULL));
+  dbus_message_unref (reply);
+  dbus_free (name);
 }
 
 void

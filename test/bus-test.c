@@ -167,9 +167,9 @@ main (int    argc,
 
   message = dbus_message_new (DBUS_SERVICE_DBUS,
 			      DBUS_MESSAGE_HELLO);
-  dbus_message_append_fields (message,
-			      DBUS_TYPE_STRING, "test",
-			      0);
+  dbus_message_append_args (message,
+			    DBUS_TYPE_STRING, "test",
+			    0);
 
   handler = dbus_message_handler_new (message_handler, NULL, NULL);
   dbus_connection_add_filter (connection, handler);

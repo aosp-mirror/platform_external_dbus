@@ -950,22 +950,22 @@ dbus_message_get_service (DBusMessage *message)
  * with 0.
  *
  * @param message the message
- * @param first_field_type type of the first field
- * @param ... value of first field, list of additional type-value pairs
+ * @param first_argument_type type of the first argument
+ * @param ... value of first argument, list of additional type-value pairs
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_message_append_fields (DBusMessage *message,
-                            int first_field_type,
-			    ...)
+dbus_message_append_args (DBusMessage *message,
+			  int first_arg_type,
+			  ...)
 {
   dbus_bool_t retval;
   va_list var_args;
 
-  va_start (var_args, first_field_type);
-  retval = dbus_message_append_fields_valist (message,
-                                              first_field_type,
-                                              var_args);
+  va_start (var_args, first_arg_type);
+  retval = dbus_message_append_args_valist (message,
+					    first_arg_type,
+					    var_args);
   va_end (var_args);
 
   return retval;
@@ -974,22 +974,22 @@ dbus_message_append_fields (DBusMessage *message,
 /**
  * This function takes a va_list for use by language bindings
  *
- * @see dbus_message_append_fields.  
+ * @see dbus_message_append_args.  
  * @param message the message
- * @param first_field_type type of first field
- * @param var_args value of first field, then list of type/value pairs
+ * @param first_arg_type type of first argument
+ * @param var_args value of first argument, then list of type/value pairs
  * @returns #TRUE on success
  */
 dbus_bool_t
-dbus_message_append_fields_valist (DBusMessage *message,
-                                   int          first_field_type,
-				   va_list      var_args)
+dbus_message_append_args_valist (DBusMessage *message,
+				 int          first_arg_type,
+				 va_list      var_args)
 {
   int type, old_len;
 
   old_len = _dbus_string_get_length (&message->body);
   
-  type = first_field_type;
+  type = first_arg_type;
 
   while (type != 0)
     {
@@ -1193,28 +1193,26 @@ dbus_message_append_string_array (DBusMessage *message,
 }
 
 /**
- * Gets fields from a message given a variable argument list.
+ * Gets arguments from a message given a variable argument list.
  * The variable argument list should contain the type of the
- * field followed by a pointer to where the value should be
+ * argumen followed by a pointer to where the value should be
  * stored. The list is terminated with 0.
  *
- *  @todo rename get_args to avoid confusion with header fields
- * 
  * @param message the message
- * @param first_field_type the first field type
- * @param ... location for first field value, then list of type-location pairs
+ * @param first_arg_type the first argument type
+ * @param ... location for first argument value, then list of type-location pairs
  * @returns result code
  */
 DBusResultCode
-dbus_message_get_fields (DBusMessage *message,
-                         int          first_field_type,
-			 ...)
+dbus_message_get_args (DBusMessage *message,
+		       int          first_arg_type,
+		       ...)
 {
   DBusResultCode retval;
   va_list var_args;
 
-  va_start (var_args, first_field_type);
-  retval = dbus_message_get_fields_valist (message, first_field_type, var_args);
+  va_start (var_args, first_arg_type);
+  retval = dbus_message_get_args_valist (message, first_arg_type, var_args);
   va_end (var_args);
 
   return retval;
@@ -1230,45 +1228,43 @@ dbus_message_get_fields (DBusMessage *message,
  * to the arg that's bad, as that would be a security hole
  * (allow one app to force another to leak memory)
  *
- * @todo We need to free the field data when an error occurs.
+ * @todo We need to free the argument data when an error occurs.
  *
- * @todo rename get_args_valist to avoid confusion with header fields
- *
- * @see dbus_message_get_fields
+ * @see dbus_message_get_args
  * @param message the message
- * @param first_field_type type of the first field
- * @param var_args return location for first field, followed by list of type/location pairs
+ * @param first_arg_type type of the first argument
+ * @param var_args return location for first argument, followed by list of type/location pairs
  * @returns result code
  */
 DBusResultCode
-dbus_message_get_fields_valist (DBusMessage *message,
-                                int          first_field_type,
-				va_list      var_args)
+dbus_message_get_args_valist (DBusMessage *message,
+			      int          first_arg_type,
+			      va_list      var_args)
 {
   int spec_type, msg_type, i;
   DBusMessageIter *iter;
 
-  iter = dbus_message_get_fields_iter (message);
+  iter = dbus_message_get_args_iter (message);
 
   if (iter == NULL)
     return DBUS_RESULT_NO_MEMORY;
   
-  spec_type = first_field_type;
+  spec_type = first_arg_type;
   i = 0;
   
   while (spec_type != 0)
     {
-      msg_type = dbus_message_iter_get_field_type (iter);      
+      msg_type = dbus_message_iter_get_arg_type (iter);      
       
       if (msg_type != spec_type)
 	{
-	  _dbus_verbose ("Field %d is specified to be of type \"%s\", but "
+	  _dbus_verbose ("Argument %d is specified to be of type \"%s\", but "
 			 "is actually of type \"%s\"\n", i,
 			 _dbus_type_to_string (spec_type),
 			 _dbus_type_to_string (msg_type));
 	  dbus_message_iter_unref (iter);
 
-	  return DBUS_RESULT_INVALID_FIELDS;
+	  return DBUS_RESULT_INVALID_ARGS;
 	}
 
       switch (spec_type)
@@ -1356,7 +1352,7 @@ dbus_message_get_fields_valist (DBusMessage *message,
 	  _dbus_verbose ("More fields than exist in the message were specified or field is corrupt\n");
 
 	  dbus_message_iter_unref (iter);  
-	  return DBUS_RESULT_INVALID_FIELDS;
+	  return DBUS_RESULT_INVALID_ARGS;
 	}
       i++;
     }
@@ -1366,7 +1362,7 @@ dbus_message_get_fields_valist (DBusMessage *message,
 }
 
 /**
- * Returns a DBusMessageIter representing the fields of the
+ * Returns a DBusMessageIter representing the arguments of the
  * message passed in.
  *
  * @todo IMO the message iter should follow the GtkTextIter pattern,
@@ -1375,13 +1371,11 @@ dbus_message_get_fields_valist (DBusMessage *message,
  * ref/unref is kind of annoying to deal with, and slower too.
  * This implies not ref'ing the message from the iter.
  *
- * @todo rename get_args_iter to avoid confusion with header fields
- * 
  * @param message the message
  * @returns a new iter.
  */
 DBusMessageIter *
-dbus_message_get_fields_iter (DBusMessage *message)
+dbus_message_get_args_iter (DBusMessage *message)
 {
   DBusMessageIter *iter;
   
@@ -1479,14 +1473,14 @@ dbus_message_iter_next (DBusMessageIter *iter)
 }
 
 /**
- * Returns the field type of the field that the
+ * Returns the argument type of the argument that the
  * message iterator points at.
  *
  * @param iter the message iter
  * @returns the field type
  */
 int
-dbus_message_iter_get_field_type (DBusMessageIter *iter)
+dbus_message_iter_get_arg_type (DBusMessageIter *iter)
 {
   const char *data;
 
@@ -1513,7 +1507,7 @@ dbus_message_iter_get_field_type (DBusMessageIter *iter)
 char *
 dbus_message_iter_get_string (DBusMessageIter *iter)
 {
-  _dbus_assert (dbus_message_iter_get_field_type (iter) == DBUS_TYPE_STRING);
+  _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_STRING);
 
   return _dbus_demarshal_string (&iter->message->body, iter->message->byte_order,
                                  iter->pos + 1, NULL);
@@ -1583,7 +1577,7 @@ unsigned char *
 dbus_message_iter_get_byte_array (DBusMessageIter *iter,
                                   int             *len)
 {
-  _dbus_assert (dbus_message_iter_get_field_type (iter) == DBUS_TYPE_BYTE_ARRAY);
+  _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_BYTE_ARRAY);
 
   return _dbus_demarshal_byte_array (&iter->message->body, iter->message->byte_order,
 				     iter->pos + 1, NULL, len);
@@ -1605,7 +1599,7 @@ char **
 dbus_message_iter_get_string_array (DBusMessageIter *iter,
 				    int             *len)
 {
-  _dbus_assert (dbus_message_iter_get_field_type (iter) == DBUS_TYPE_STRING_ARRAY);
+  _dbus_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_STRING_ARRAY);
 
   return _dbus_demarshal_string_array (&iter->message->body, iter->message->byte_order,
 				       iter->pos + 1, NULL, len);
@@ -2270,11 +2264,11 @@ message_iter_test (DBusMessage *message)
   DBusMessageIter *iter;
   char *str;
   
-  iter = dbus_message_get_fields_iter (message);
+  iter = dbus_message_get_args_iter (message);
 
   /* String tests */
-  if (dbus_message_iter_get_field_type (iter) != DBUS_TYPE_STRING)
-    _dbus_assert_not_reached ("Field type isn't string");
+  if (dbus_message_iter_get_arg_type (iter) != DBUS_TYPE_STRING)
+    _dbus_assert_not_reached ("Argument type isn't string");
 
   str = dbus_message_iter_get_string (iter);
   if (strcmp (str, "Test string") != 0)
@@ -2282,11 +2276,11 @@ message_iter_test (DBusMessage *message)
   dbus_free (str);
 
   if (!dbus_message_iter_next (iter))
-    _dbus_assert_not_reached ("Reached end of fields");
+    _dbus_assert_not_reached ("Reached end of arguments");
 
   /* Signed integer tests */
-  if (dbus_message_iter_get_field_type (iter) != DBUS_TYPE_INT32)
-    _dbus_assert_not_reached ("Field type isn't int32");
+  if (dbus_message_iter_get_arg_type (iter) != DBUS_TYPE_INT32)
+    _dbus_assert_not_reached ("Argument type isn't int32");
 
   if (dbus_message_iter_get_int32 (iter) != -0x12345678)
     _dbus_assert_not_reached ("Signed integers differ");
@@ -2295,24 +2289,24 @@ message_iter_test (DBusMessage *message)
     _dbus_assert_not_reached ("Reached end of fields");
   
   /* Unsigned integer tests */
-  if (dbus_message_iter_get_field_type (iter) != DBUS_TYPE_UINT32)
-    _dbus_assert_not_reached ("Field type isn't int32");
+  if (dbus_message_iter_get_arg_type (iter) != DBUS_TYPE_UINT32)
+    _dbus_assert_not_reached ("Argument type isn't int32");
 
   if (dbus_message_iter_get_int32 (iter) != 0xedd1e)
     _dbus_assert_not_reached ("Unsigned integers differ");
 
   if (!dbus_message_iter_next (iter))
-    _dbus_assert_not_reached ("Reached end of fields");
+    _dbus_assert_not_reached ("Reached end of arguments");
 
   /* Double tests */
-  if (dbus_message_iter_get_field_type (iter) != DBUS_TYPE_DOUBLE)
-    _dbus_assert_not_reached ("Field type isn't double");
+  if (dbus_message_iter_get_arg_type (iter) != DBUS_TYPE_DOUBLE)
+    _dbus_assert_not_reached ("Argument type isn't double");
 
   if (dbus_message_iter_get_double (iter) != 3.14159)
     _dbus_assert_not_reached ("Doubles differ");
 
   if (dbus_message_iter_next (iter))
-    _dbus_assert_not_reached ("Didn't reach end of fields");
+    _dbus_assert_not_reached ("Didn't reach end of arguments");
   
   dbus_message_iter_unref (iter);
 }
@@ -2340,12 +2334,12 @@ check_message_handling (DBusMessage *message)
       goto failed;
     }
   
-  /* If we implement message_set_field (message, n, value)
+  /* If we implement message_set_arg (message, n, value)
    * then we would want to test it here
    */
   
-  iter = dbus_message_get_fields_iter (message);
-  while ((type = dbus_message_iter_get_field_type (iter)) != DBUS_TYPE_INVALID)
+  iter = dbus_message_get_args_iter (message);
+  while ((type = dbus_message_iter_get_arg_type (iter)) != DBUS_TYPE_INVALID)
     {
       switch (type)
         {
@@ -2851,22 +2845,22 @@ _dbus_message_test (const char *test_data_dir)
   /* Test the vararg functions */
   message = dbus_message_new ("org.freedesktop.DBus.Test", "testMessage");
   _dbus_message_set_client_serial (message, 1);
-  dbus_message_append_fields (message,
-			      DBUS_TYPE_INT32, -0x12345678,
-			      DBUS_TYPE_STRING, "Test string",
-			      DBUS_TYPE_DOUBLE, 3.14159,
-			      0);
+  dbus_message_append_args (message,
+			    DBUS_TYPE_INT32, -0x12345678,
+			    DBUS_TYPE_STRING, "Test string",
+			    DBUS_TYPE_DOUBLE, 3.14159,
+			    0);
   _dbus_verbose_bytes_of_string (&message->header, 0,
                                  _dbus_string_get_length (&message->header));
   _dbus_verbose_bytes_of_string (&message->body, 0,
                                  _dbus_string_get_length (&message->body));
   
-  if (dbus_message_get_fields (message,
-			       DBUS_TYPE_INT32, &our_int,
-			       DBUS_TYPE_STRING, &our_str,
-			       DBUS_TYPE_DOUBLE, &our_double,
-			       0) != DBUS_RESULT_SUCCESS)
-    _dbus_assert_not_reached ("Could not get fields");
+  if (dbus_message_get_args (message,
+			     DBUS_TYPE_INT32, &our_int,
+			     DBUS_TYPE_STRING, &our_str,
+			     DBUS_TYPE_DOUBLE, &our_double,
+			     0) != DBUS_RESULT_SUCCESS)
+    _dbus_assert_not_reached ("Could not get arguments");
 
   if (our_int != -0x12345678)
     _dbus_assert_not_reached ("integers differ!");

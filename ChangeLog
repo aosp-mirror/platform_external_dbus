@@ -1,5 +1,33 @@
 2003-02-13  Anders Carlsson  <andersca@codefactory.se>
 
+	* bus/driver.c: (bus_driver_send_service_deleted),
+	(bus_driver_send_service_created), (bus_driver_send_service_lost),
+	(bus_driver_send_service_acquired), (bus_driver_handle_hello),
+	(bus_driver_send_welcome_message),
+	(bus_driver_handle_list_services),
+	(bus_driver_handle_acquire_service),
+	(bus_driver_handle_service_exists):
+	* dbus/dbus-bus.c: (dbus_bus_register_client),
+	(dbus_bus_acquire_service), (dbus_bus_service_exists):
+	* dbus/dbus-errors.c: (dbus_result_to_string):
+	* dbus/dbus-errors.h:
+	* dbus/dbus-message.c: (dbus_message_append_args),
+	(dbus_message_append_args_valist), (dbus_message_get_args),
+	(dbus_message_get_args_valist), (dbus_message_get_args_iter),
+	(dbus_message_iter_get_arg_type), (dbus_message_iter_get_string),
+	(dbus_message_iter_get_byte_array),
+	(dbus_message_iter_get_string_array), (message_iter_test),
+	(check_message_handling), (_dbus_message_test):
+	* dbus/dbus-message.h:
+	* test/bus-test.c: (main):
+	Change fields to arguments in messages, so that they won't be
+	confused with header fields.
+	
+	* glib/test-dbus-glib.c: (main):
+	Remove append_fields from hello message.
+	
+2003-02-13  Anders Carlsson  <andersca@codefactory.se>
+
 	* dbus/dbus-errors.c:
 	* dbus/dbus-message.c:
 	* dbus/dbus-string.c:

@@ -111,8 +111,8 @@ dbus_result_to_string (DBusResultCode code)
       return "Address already in use";
     case DBUS_RESULT_DISCONNECTED:
       return "Disconnected.";
-    case DBUS_RESULT_INVALID_FIELDS:
-      return "Invalid fields.";
+    case DBUS_RESULT_INVALID_ARGS:
+      return "Invalid argumemts.";
     case DBUS_RESULT_NO_REPLY:
       return "Did not get a reply message.";
     case DBUS_RESULT_FILE_NOT_FOUND:

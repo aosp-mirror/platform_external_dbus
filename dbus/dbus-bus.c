@@ -64,9 +64,9 @@ dbus_bus_register_client (DBusConnection *connection,
   if (!reply)
     return NULL;
 
-  code = dbus_message_get_fields (reply,
-				  DBUS_TYPE_STRING, &name,
-				  0);
+  code = dbus_message_get_args (reply,
+				DBUS_TYPE_STRING, &name,
+				0);
   if (code != DBUS_RESULT_SUCCESS)
     {
       dbus_set_result (result, code);
@@ -106,10 +106,10 @@ dbus_bus_acquire_service (DBusConnection *connection,
       return -1;
     }
  
-  if (!dbus_message_append_fields (message,
-				   DBUS_TYPE_STRING, service_name,
-				   DBUS_TYPE_UINT32, flags,
-				   0))
+  if (!dbus_message_append_args (message,
+				 DBUS_TYPE_STRING, service_name,
+				 DBUS_TYPE_UINT32, flags,
+				 0))
     {
       dbus_message_unref (message);
       dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
@@ -122,9 +122,9 @@ dbus_bus_acquire_service (DBusConnection *connection,
   if (!reply)
     return -1;
 
-  code = dbus_message_get_fields (reply,
-				  DBUS_TYPE_UINT32, &service_result,
-				  0);
+  code = dbus_message_get_args (reply,
+				DBUS_TYPE_UINT32, &service_result,
+				0);
   if (code != DBUS_RESULT_SUCCESS)
     {
       dbus_set_result (result, code);
@@ -161,9 +161,9 @@ dbus_bus_service_exists (DBusConnection *connection,
       return FALSE;
     }
   
-  if (!dbus_message_append_fields (message,
-				   DBUS_TYPE_STRING, service_name,
-				   0))
+  if (!dbus_message_append_args (message,
+				 DBUS_TYPE_STRING, service_name,
+				 0))
     {
       dbus_message_unref (message);
       dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
@@ -176,9 +176,9 @@ dbus_bus_service_exists (DBusConnection *connection,
   if (!reply)
     return FALSE;
 
-  code = dbus_message_get_fields (reply,
-				  DBUS_TYPE_UINT32, &exists,
-				  0);
+  code = dbus_message_get_args (reply,
+				DBUS_TYPE_UINT32, &exists,
+				0);
   if (code != DBUS_RESULT_SUCCESS)
     {
       dbus_set_result (result, code);

@@ -53,52 +53,52 @@ void        dbus_message_set_is_error         (DBusMessage *message,
 					       dbus_bool_t  is_error_reply);
 dbus_bool_t dbus_message_get_is_error         (DBusMessage *message);
 
+dbus_bool_t dbus_message_append_args         (DBusMessage          *message,
+					      int                   first_arg_type,
+					      ...);
+dbus_bool_t dbus_message_append_args_valist  (DBusMessage          *message,
+					      int                   first_arg_type,
+					      va_list               var_args);
+dbus_bool_t dbus_message_append_int32        (DBusMessage          *message,
+					      dbus_int32_t          value);
+dbus_bool_t dbus_message_append_uint32       (DBusMessage          *message,
+					      dbus_uint32_t         value);
+dbus_bool_t dbus_message_append_double       (DBusMessage          *message,
+					      double                value);
+dbus_bool_t dbus_message_append_string       (DBusMessage          *message,
+					      const char           *value);
+dbus_bool_t dbus_message_append_byte_array   (DBusMessage          *message,
+					      unsigned const char  *value,
+					      int                   len);
+dbus_bool_t dbus_message_append_string_array (DBusMessage          *message,
+					      const char          **value,
+					      int                   len);
 
-dbus_bool_t dbus_message_append_fields        (DBusMessage          *message,
-					       int                   first_field_type,
+
+DBusMessageIter *dbus_message_get_args_iter   (DBusMessage *message);
+DBusResultCode   dbus_message_get_args        (DBusMessage *message,
+					       int          first_arg_type,
 					       ...);
-dbus_bool_t dbus_message_append_fields_valist (DBusMessage          *message,
-					       int                   first_field_type,
-					       va_list               var_args);
-dbus_bool_t dbus_message_append_int32         (DBusMessage          *message,
-					       dbus_int32_t          value);
-dbus_bool_t dbus_message_append_uint32        (DBusMessage          *message,
-					       dbus_uint32_t         value);
-dbus_bool_t dbus_message_append_double        (DBusMessage          *message,
-					       double                value);
-dbus_bool_t dbus_message_append_string        (DBusMessage          *message,
-					       const char           *value);
-dbus_bool_t dbus_message_append_byte_array    (DBusMessage          *message,
-					       unsigned const char  *value,
-					       int                   len);
-dbus_bool_t dbus_message_append_string_array  (DBusMessage          *message,
-					       const char          **value,
-					       int                   len);
+DBusResultCode   dbus_message_get_args_valist (DBusMessage *message,
+					       int          first_arg_type,
+					       va_list      var_args);
 
 
 
-DBusMessageIter *dbus_message_get_fields_iter     (DBusMessage     *message);
-DBusResultCode   dbus_message_get_fields          (DBusMessage     *message,
-						   int              first_field_type,
-						   ...);
-DBusResultCode  dbus_message_get_fields_valist   (DBusMessage     *message,
-						  int              first_field_type,
-						  va_list          var_args);
-
-void             dbus_message_iter_ref            (DBusMessageIter *iter);
-void             dbus_message_iter_unref          (DBusMessageIter *iter);
-
-dbus_bool_t      dbus_message_iter_has_next       (DBusMessageIter *iter);
-dbus_bool_t      dbus_message_iter_next           (DBusMessageIter *iter);
-int              dbus_message_iter_get_field_type (DBusMessageIter *iter);
-int              dbus_message_iter_get_int32      (DBusMessageIter *iter);
-int              dbus_message_iter_get_uint32     (DBusMessageIter *iter);
-double           dbus_message_iter_get_double     (DBusMessageIter *iter);
-char *           dbus_message_iter_get_string     (DBusMessageIter *iter);
-unsigned char *  dbus_message_iter_get_byte_array (DBusMessageIter *iter,
+void           dbus_message_iter_ref              (DBusMessageIter *iter);
+void           dbus_message_iter_unref            (DBusMessageIter *iter);
+dbus_bool_t    dbus_message_iter_has_next         (DBusMessageIter *iter);
+dbus_bool_t    dbus_message_iter_next             (DBusMessageIter *iter);
+int            dbus_message_iter_get_arg_type     (DBusMessageIter *iter);
+int            dbus_message_iter_get_int32        (DBusMessageIter *iter);
+int            dbus_message_iter_get_uint32       (DBusMessageIter *iter);
+double         dbus_message_iter_get_double       (DBusMessageIter *iter);
+char *         dbus_message_iter_get_string       (DBusMessageIter *iter);
+unsigned char *dbus_message_iter_get_byte_array   (DBusMessageIter *iter,
 						   int             *len);
-char **          dbus_message_iter_get_string_array (DBusMessageIter *iter,
-						     int             *len);
+char **        dbus_message_iter_get_string_array (DBusMessageIter *iter,
+						   int             *len);
+
 
 
 
