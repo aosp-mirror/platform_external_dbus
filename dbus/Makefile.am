@@ -49,6 +49,8 @@ DBUS_LIB_SOURCES=				\
 	dbus-objectid.c				\
 	dbus-object-registry.c			\
 	dbus-object-registry.h			\
+	dbus-object-tree.c			\
+	dbus-object-tree.h			\
 	dbus-pending-call.c			\
 	dbus-resources.c			\
 	dbus-resources.h			\

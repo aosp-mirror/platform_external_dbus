@@ -198,6 +198,54 @@ void                  dbus_connection_send_preallocated      (DBusConnection    
                                                               dbus_uint32_t        *client_serial);
 
 
+/* Object tree functionality */
+
+typedef struct DBusObjectTreeVTable DBusObjectTreeVTable;
+
+typedef void              (* DBusObjectTreeUnregisterFunction) (DBusConnection  *connection,
+                                                                const char     **path,
+                                                                void            *user_data);
+typedef DBusHandlerResult (* DBusObjectTreeMessageFunction)    (DBusConnection  *connection,
+                                                                DBusMessage     *message,
+                                                                void            *user_data);
+typedef dbus_bool_t       (* DBusObjectTreeSubdirsFunction)    (DBusConnection  *connection,
+                                                                const char     **path,
+                                                                char          ***subdirs,
+                                                                int             *n_subdirs,
+                                                                void            *user_data);
+typedef dbus_bool_t       (* DBusObjectTreeObjectsFunction)    (DBusConnection  *connection,
+                                                                const char     **path,
+                                                                DBusObjectID   **object_ids,
+                                                                int             *n_object_ids,
+                                                                void            *user_data);
+typedef dbus_bool_t       (* DBusObjectTreeMethodsFunction)    (DBusConnection  *connection,
+                                                                const char     **path,
+                                                                DBusObjectID   **object_ids,
+                                                                int             *n_object_ids,
+                                                                void            *user_data);
+
+struct DBusObjectTreeVTable
+{
+  DBusObjectTreeUnregisterFunction   unregister_function;
+  DBusObjectTreeMessageFunction      message_function;
+  DBusObjectTreeSubdirsFunction      subdirs_function;
+  DBusObjectTreeObjectsFunction      objects_function;
+  DBusObjectTreeMethodsFunction      methods_function;
+  
+  void (* dbus_internal_pad1) (void *);
+  void (* dbus_internal_pad2) (void *);
+  void (* dbus_internal_pad3) (void *);
+  void (* dbus_internal_pad4) (void *);
+};
+
+dbus_bool_t dbus_connection_register_object_tree   (DBusConnection              *connection,
+                                                    const char                 **path,
+                                                    const DBusObjectTreeVTable  *vtable,
+                                                    void                        *user_data);
+void        dbus_connection_unregister_object_tree (DBusConnection              *connection,
+                                                    const char                 **path);
+
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_CONNECTION_H */

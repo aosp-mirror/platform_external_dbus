@@ -112,6 +112,12 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir)
   
   check_memleaks ();
 
+  printf ("%s: running object tree tests\n", "dbus-test");
+  if (!_dbus_object_tree_test ())
+    die ("object tree");
+  
+  check_memleaks ();
+  
   printf ("%s: running object tests\n", "dbus-test");
   if (!_dbus_object_test ())
     die ("object");

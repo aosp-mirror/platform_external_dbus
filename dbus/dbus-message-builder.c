@@ -411,7 +411,7 @@ _dbus_message_data_load (DBusString       *dest,
           DBusString name;
           int message_type;
 
-          if (_dbus_string_get_length (&line) < strlen ("VALID_HEADER "))
+          if (_dbus_string_get_length (&line) < (int) strlen ("VALID_HEADER "))
             {
               _dbus_warn ("no args to VALID_HEADER\n");
               goto parse_failed;

@@ -1,3 +1,14 @@
+2003-08-25  Havoc Pennington  <hp@pobox.com>
+
+        Just noticed that dbus_message_test is hosed, I wonder when I
+	broke that. I thought make check was passing earlier...
+	
+	* dbus/dbus-object-tree.c: add new "object tree" to match DCOP 
+	container tree, will replace most of dbus-object-registry
+
+	* dbus/dbus-string.c (_dbus_string_append_printf_valist): fix C99
+	screwup
+
 2003-08-19  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-message.c (decode_string_field): support FIELD_SENDER

@@ -1002,9 +1002,9 @@ _dbus_string_append_printf_valist  (DBusString        *str,
                                     const char        *format,
                                     va_list            args)
 {
-  DBUS_STRING_PREAMBLE (str);
   int len;
   char c;
+  DBUS_STRING_PREAMBLE (str);
   
   /* Measure the message length without terminating nul */
   len = vsnprintf (&c, 1, format, args);
