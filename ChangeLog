@@ -1,3 +1,8 @@
+2003-05-16  Havoc Pennington  <hp@redhat.com>
+
+	* bus/policy.c (free_rule_list_func): avoid a crash when passed
+	NULL as DBusHashTable is annoyingly likely to do.
+
 2003-05-16  Colin Walters  <walters@verbum.org>
 
 	* tools/dbus-monitor.c: Add --session argument and usage()
