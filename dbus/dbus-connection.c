@@ -2460,8 +2460,6 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
 						      pending))
     goto error;
  
-  dbus_pending_call_unref (pending);
- 
   if (!_dbus_connection_send_unlocked_no_update (connection, message, NULL))
     {
       _dbus_connection_detach_pending_call_and_unlock (connection,
@@ -2606,6 +2604,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
     {
       _dbus_verbose ("Pending call completed by dispatch in %s\n", _DBUS_FUNCTION_NAME);
       _dbus_connection_update_dispatch_status_and_unlock (connection, status);
+      dbus_pending_call_unref (pending);
       return;
     }
   
@@ -2626,6 +2625,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
           CONNECTION_LOCK (connection);
           status = _dbus_connection_get_dispatch_status_unlocked (connection);
           _dbus_connection_update_dispatch_status_and_unlock (connection, status);
+          dbus_pending_call_unref (pending);
           
           return;
         }
@@ -2641,6 +2641,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
        */
       
       _dbus_pending_call_complete_and_unlock (pending, NULL);
+      dbus_pending_call_unref (pending);
       return;
     }
   else if (tv_sec < start_tv_sec)
@@ -2694,6 +2695,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
   CONNECTION_LOCK (connection);
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
   _dbus_connection_update_dispatch_status_and_unlock (connection, status);
+  dbus_pending_call_unref (pending);
 }
 
 /**
