@@ -1,3 +1,9 @@
+2004-05-18  Kristian Høgsberg  <krh@redhat.com>
+
+	* dbus/dbus-auth.c: Factor out protocol reply code into functions
+	send_auth(), send_data(), send_rejected(), send_error(),
+	send_ok(), send_begin() and send_cancel().
+
 2004-05-17  Kristian Høgsberg  <krh@redhat.com>
 
 	Remove base64 encoding, replace with hex encoding. Original patch

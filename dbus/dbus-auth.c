@@ -231,7 +231,16 @@ static dbus_bool_t process_error_client (DBusAuth         *auth,
 
 
 static dbus_bool_t client_try_next_mechanism (DBusAuth *auth);
+static dbus_bool_t send_auth                 (DBusAuth *auth,
+                                              const DBusAuthMechanismHandler *mech);
+static dbus_bool_t send_data                 (DBusAuth *auth,
+                                              DBusString *data);
 static dbus_bool_t send_rejected             (DBusAuth *auth);
+static dbus_bool_t send_error                (DBusAuth *auth,
+                                              const char *message);
+static dbus_bool_t send_ok                   (DBusAuth *auth);
+static dbus_bool_t send_begin                (DBusAuth *auth);
+static dbus_bool_t send_cancel               (DBusAuth *auth);
 
 static DBusAuthCommandHandler
 server_handlers[] = {
@@ -451,7 +460,6 @@ sha1_handle_first_client_response (DBusAuth         *auth,
   DBusString tmp;
   DBusString tmp2;
   dbus_bool_t retval;
-  int old_len;
   DBusError error;
   
   retval = FALSE;
@@ -491,8 +499,6 @@ sha1_handle_first_client_response (DBusAuth         *auth,
       return FALSE;
     }
 
-  old_len = _dbus_string_get_length (&auth->outgoing);
-  
   /* we cache the keyring for speed, so here we drop it if it's the
    * wrong one. FIXME caching the keyring here is useless since we use
    * a different DBusAuth for every connection.
@@ -582,16 +588,7 @@ sha1_handle_first_client_response (DBusAuth         *auth,
                                 _dbus_string_get_length (&tmp2)))
     goto out;
 
-  if (!_dbus_string_append (&auth->outgoing,
-                            "DATA "))
-    goto out;
-  
-  if (!_dbus_string_hex_encode (&tmp2, 0, &auth->outgoing,
-				_dbus_string_get_length (&auth->outgoing)))
-    goto out;
-
-  if (!_dbus_string_append (&auth->outgoing,
-                            "\r\n"))
+  if (!send_data (auth, &tmp2))
     goto out;
       
   retval = TRUE;
@@ -601,8 +598,7 @@ sha1_handle_first_client_response (DBusAuth         *auth,
   _dbus_string_free (&tmp);
   _dbus_string_zero (&tmp2);
   _dbus_string_free (&tmp2);
-  if (!retval)
-    _dbus_string_set_length (&auth->outgoing, old_len);
+
   return retval;
 }
 
@@ -682,8 +678,7 @@ sha1_handle_second_client_response (DBusAuth         *auth,
       goto out_3;
     }
       
-  if (!_dbus_string_append (&auth->outgoing,
-                            "OK\r\n"))
+  if (!send_ok (auth))
     goto out_3;
 
   _dbus_verbose ("%s: authenticated client with UID "DBUS_UID_FORMAT" using DBUS_COOKIE_SHA1\n",
@@ -762,14 +757,13 @@ handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
   DBusString tmp;
   int i, j;
   long val;
-  int old_len;
   
   retval = FALSE;                 
   
   if (!_dbus_string_find_blank (data, 0, &i))
     {
-      if (_dbus_string_append (&auth->outgoing,
-                               "ERROR \"Server did not send context/ID/challenge properly\"\r\n"))
+      if (send_error (auth,
+                      "Server did not send context/ID/challenge properly"))
         retval = TRUE;
       goto out_0;
     }
@@ -784,8 +778,8 @@ handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
   _dbus_string_skip_blank (data, i, &i);
   if (!_dbus_string_find_blank (data, i, &j))
     {
-      if (_dbus_string_append (&auth->outgoing,
-                               "ERROR \"Server did not send context/ID/challenge properly\"\r\n"))
+      if (send_error (auth,
+                      "Server did not send context/ID/challenge properly"))
         retval = TRUE;
       goto out_1;
     }
@@ -810,24 +804,21 @@ handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
 
   if (!_dbus_keyring_validate_context (&context))
     {
-      if (_dbus_string_append (&auth->outgoing,
-                               "ERROR \"Server sent invalid cookie context\"\r\n"))
+      if (send_error (auth, "Server sent invalid cookie context"))
         retval = TRUE;
       goto out_3;
     }
 
   if (!_dbus_string_parse_int (&cookie_id_str, 0, &val, NULL))
     {
-      if (_dbus_string_append (&auth->outgoing,
-                               "ERROR \"Could not parse cookie ID as an integer\"\r\n"))
+      if (send_error (auth, "Could not parse cookie ID as an integer"))
         retval = TRUE;
       goto out_3;
     }
 
   if (_dbus_string_get_length (&server_challenge) == 0)
     {
-      if (_dbus_string_append (&auth->outgoing,
-                               "ERROR \"Empty server challenge string\"\r\n"))
+      if (send_error (auth, "Empty server challenge string"))
         retval = TRUE;
       goto out_3;
     }
@@ -856,8 +847,7 @@ handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
               _dbus_verbose ("%s: Error loading keyring: %s\n",
                              DBUS_AUTH_NAME (auth), error.message);
               
-              if (_dbus_string_append (&auth->outgoing,
-                                       "ERROR \"Could not load cookie file\"\r\n"))
+              if (send_error (auth, "Could not load cookie file"))
                 retval = TRUE; /* retval is only about mem */
               
               dbus_error_free (&error);
@@ -896,8 +886,7 @@ handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
   if (_dbus_string_get_length (&correct_hash) == 0)
     {
       /* couldn't find the cookie ID or something */
-      if (_dbus_string_append (&auth->outgoing,
-                               "ERROR \"Don't have the requested cookie ID\"\r\n"))
+      if (send_error (auth, "Don't have the requested cookie ID"))
         retval = TRUE;
       goto out_6;
     }
@@ -915,24 +904,9 @@ handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
                           _dbus_string_get_length (&tmp)))
     goto out_6;
 
-  old_len = _dbus_string_get_length (&auth->outgoing);
-  if (!_dbus_string_append (&auth->outgoing, "DATA "))
+  if (!send_data (auth, &tmp))
     goto out_6;
 
-  if (!_dbus_string_hex_encode (&tmp, 0,
-				&auth->outgoing,
-				_dbus_string_get_length (&auth->outgoing)))
-    {
-      _dbus_string_set_length (&auth->outgoing, old_len);
-      goto out_6;
-    }
-
-  if (!_dbus_string_append (&auth->outgoing, "\r\n"))
-    {
-      _dbus_string_set_length (&auth->outgoing, old_len);
-      goto out_6;
-    }
-  
   retval = TRUE;
 
  out_6:
@@ -992,8 +966,7 @@ handle_server_data_external_mech (DBusAuth         *auth,
   if (_dbus_string_get_length (&auth->identity) == 0 &&
       !auth->already_asked_for_initial_response)
     {
-      if (_dbus_string_append (&auth->outgoing,
-                               "DATA\r\n"))
+      if (send_data (auth, NULL))
         {
           _dbus_verbose ("%s: sending empty challenge asking client for auth identity\n",
                          DBUS_AUTH_NAME (auth));
@@ -1038,8 +1011,7 @@ handle_server_data_external_mech (DBusAuth         *auth,
                                &auth->credentials))
     {
       /* client has authenticated */      
-      if (!_dbus_string_append (&auth->outgoing,
-                                "OK\r\n"))
+      if (!send_ok (auth))
         return FALSE;
 
       _dbus_verbose ("%s: authenticated client with UID "DBUS_UID_FORMAT
@@ -1175,6 +1147,93 @@ find_mech (const DBusString  *name,
 }
 
 static dbus_bool_t
+send_auth (DBusAuth *auth, const DBusAuthMechanismHandler *mech)
+{
+  DBusString auth_command;
+
+  if (!_dbus_string_init (&auth_command))
+    return FALSE;
+      
+  if (!_dbus_string_append (&auth_command,
+                            "AUTH "))
+    {
+      _dbus_string_free (&auth_command);
+      return FALSE;
+    }  
+  
+  if (!_dbus_string_append (&auth_command,
+                            mech->mechanism))
+    {
+      _dbus_string_free (&auth_command);
+      return FALSE;
+    }
+
+  if (mech->client_initial_response_func != NULL)
+    {
+      if (!_dbus_string_append (&auth_command, " "))
+        {
+          _dbus_string_free (&auth_command);
+          return FALSE;
+        }
+      
+      if (!(* mech->client_initial_response_func) (auth, &auth_command))
+        {
+          _dbus_string_free (&auth_command);
+          return FALSE;
+        }
+    }
+  
+  if (!_dbus_string_append (&auth_command,
+                            "\r\n"))
+    {
+      _dbus_string_free (&auth_command);
+      return FALSE;
+    }
+
+  if (!_dbus_string_copy (&auth_command, 0,
+                          &auth->outgoing,
+                          _dbus_string_get_length (&auth->outgoing)))
+    {
+      _dbus_string_free (&auth_command);
+      return FALSE;
+    }
+
+  _dbus_string_free (&auth_command);
+  auth->mech = mech;      
+
+  return TRUE;
+}
+
+static dbus_bool_t
+send_data (DBusAuth *auth, DBusString *data)
+{
+  int old_len;
+
+  if (data == NULL || _dbus_string_get_length (data) == 0)
+    return _dbus_string_append (&auth->outgoing, "DATA\r\n");
+  else
+    {
+      old_len = _dbus_string_get_length (&auth->outgoing);
+      if (!_dbus_string_append (&auth->outgoing, "DATA "))
+        goto out;
+
+      if (!_dbus_string_hex_encode (data, 0, &auth->outgoing,
+                                    _dbus_string_get_length (&auth->outgoing)))
+        goto out;
+
+      if (!_dbus_string_append (&auth->outgoing, "\r\n"))
+        goto out;
+
+      return TRUE;
+
+    out:
+      _dbus_string_set_length (&auth->outgoing, old_len);
+
+      return FALSE;
+    }
+}
+
+static dbus_bool_t
 send_rejected (DBusAuth *auth)
 {
   DBusString command;
@@ -1225,6 +1284,31 @@ send_rejected (DBusAuth *auth)
 }
 
 static dbus_bool_t
+send_error (DBusAuth *auth, const char *message)
+{
+  return _dbus_string_append_printf (&auth->outgoing,
+                                     "ERROR \"%s\"\r\n", message);
+}
+
+static dbus_bool_t
+send_ok (DBusAuth *auth)
+{
+  return _dbus_string_append (&auth->outgoing, "OK\r\n");
+}
+
+static dbus_bool_t
+send_begin (DBusAuth *auth)
+{
+  return _dbus_string_append (&auth->outgoing, "BEGIN\r\n");
+}
+
+static dbus_bool_t
+send_cancel (DBusAuth *auth)
+{
+  return _dbus_string_append (&auth->outgoing, "CANCEL\r\n");
+}
+
+static dbus_bool_t
 process_auth (DBusAuth         *auth,
               const DBusString *command,
               const DBusString *args)
@@ -1232,8 +1316,7 @@ process_auth (DBusAuth         *auth,
   if (auth->mech)
     {
       /* We are already using a mechanism, client is on crack */
-      if (!_dbus_string_append (&auth->outgoing,
-                                "ERROR \"Sent AUTH while another AUTH in progress\"\r\n"))
+      if (!send_error (auth, "Sent AUTH while another AUTH in progress"))
         return FALSE;
 
       return TRUE;
@@ -1284,8 +1367,7 @@ process_auth (DBusAuth         *auth,
 
       if (_dbus_string_get_length (&hex_response) != end)
 	{
-	  if (!_dbus_string_append (&auth->outgoing,
-				    "ERROR \"Invalid hex encoding\"\r\n"))
+	  if (!send_error (auth, "Invalid hex encoding"))
 	    goto failed;
 
 	  goto out;
@@ -1378,8 +1460,7 @@ process_data_server (DBusAuth         *auth,
       if (_dbus_string_get_length (args) != end)
 	{
           _dbus_string_free (&decoded);
-	  if (!_dbus_string_append (&auth->outgoing,
-				    "ERROR \"Invalid hex encoding\"\r\n"))
+	  if (!send_error (auth, "Invalid hex encoding"))
 	    return FALSE;
 
 	  return TRUE;
@@ -1403,8 +1484,7 @@ process_data_server (DBusAuth         *auth,
     }
   else
     {
-      if (!_dbus_string_append (&auth->outgoing,
-                                "ERROR \"Not currently in an auth conversation\"\r\n"))
+      if (!send_error (auth, "Not currently in an auth conversation"))
         return FALSE;
     }
   
@@ -1522,7 +1602,6 @@ static dbus_bool_t
 client_try_next_mechanism (DBusAuth *auth)
 {
   const DBusAuthMechanismHandler *mech;
-  DBusString auth_command;
   DBusAuthClient *client;
 
   client = DBUS_AUTH_CLIENT (auth);
@@ -1550,61 +1629,14 @@ client_try_next_mechanism (DBusAuth *auth)
   if (mech == NULL)
     return FALSE;
 
-  if (!_dbus_string_init (&auth_command))
+  if (!send_auth (auth, mech))
     return FALSE;
-      
-  if (!_dbus_string_append (&auth_command,
-                            "AUTH "))
-    {
-      _dbus_string_free (&auth_command);
-      return FALSE;
-    }  
-  
-  if (!_dbus_string_append (&auth_command,
-                            mech->mechanism))
-    {
-      _dbus_string_free (&auth_command);
-      return FALSE;
-    }
 
-  if (mech->client_initial_response_func != NULL)
-    {
-      if (!_dbus_string_append (&auth_command, " "))
-        {
-          _dbus_string_free (&auth_command);
-          return FALSE;
-        }
-      
-      if (!(* mech->client_initial_response_func) (auth, &auth_command))
-        {
-          _dbus_string_free (&auth_command);
-          return FALSE;
-        }
-    }
-  
-  if (!_dbus_string_append (&auth_command,
-                            "\r\n"))
-    {
-      _dbus_string_free (&auth_command);
-      return FALSE;
-    }
-
-  if (!_dbus_string_copy (&auth_command, 0,
-                          &auth->outgoing,
-                          _dbus_string_get_length (&auth->outgoing)))
-    {
-      _dbus_string_free (&auth_command);
-      return FALSE;
-    }
-
-  auth->mech = mech;      
   _dbus_list_pop_first (& DBUS_AUTH_CLIENT (auth)->mechs_to_try);
 
   _dbus_verbose ("%s: Trying mechanism %s\n",
                  DBUS_AUTH_NAME (auth),
                  auth->mech->mechanism);
-
-  _dbus_string_free (&auth_command);
   
   return TRUE;
 }
@@ -1641,8 +1673,7 @@ process_ok (DBusAuth         *auth,
             const DBusString *command,
             const DBusString *args)
 {
-  if (!_dbus_string_append (&auth->outgoing,
-                            "BEGIN\r\n"))
+  if (!send_begin (auth))
     return FALSE;
   
   auth->authenticated_pending_output = TRUE;
@@ -1673,8 +1704,7 @@ process_data_client (DBusAuth         *auth,
       if (_dbus_string_get_length (args) != end)
 	{
           _dbus_string_free (&decoded);
-	  if (!_dbus_string_append (&auth->outgoing,
-				    "ERROR \"Invalid hex encoding\"\r\n"))
+	  if (!send_error (auth, "Invalid hex encoding"))
 	    return FALSE;
 	  
 	  return TRUE;
@@ -1700,8 +1730,7 @@ process_data_client (DBusAuth         *auth,
     }
   else
     {
-      if (!_dbus_string_append (&auth->outgoing,
-                                "ERROR \"Got DATA when not in an auth exchange\"\r\n"))
+      if (!send_error (auth, "Got DATA when not in an auth exchange"))
         return FALSE;
     }
   
@@ -1716,8 +1745,7 @@ process_error_client (DBusAuth         *auth,
   /* Cancel current mechanism, as we don't have anything
    * more clever to do.
    */
-  if (!_dbus_string_append (&auth->outgoing,
-                            "CANCEL\r\n"))
+  if (!send_cancel (auth))
     return FALSE;
   
   return TRUE;
@@ -1728,8 +1756,7 @@ process_unknown (DBusAuth         *auth,
                  const DBusString *command,
                  const DBusString *args)
 {
-  if (!_dbus_string_append (&auth->outgoing,
-                            "ERROR \"Unknown command\"\r\n"))
+  if (!send_error (auth, "Unknown command"))
     return FALSE;
 
   return TRUE;
@@ -1769,7 +1796,7 @@ process_command (DBusAuth *auth)
   if (eol > _DBUS_ONE_MEGABYTE)
     {
       /* This is a giant line, someone is trying to hose us. */
-      if (!_dbus_string_append (&auth->outgoing, "ERROR \"Command too long\"\r\n"))
+      if (!send_error (auth, "Command too long"))
         goto out;
       else
         goto next_command;
@@ -1783,7 +1810,7 @@ process_command (DBusAuth *auth)
     {
       _dbus_verbose ("%s: Command contained non-ASCII chars or embedded nul\n",
                      DBUS_AUTH_NAME (auth));
-      if (!_dbus_string_append (&auth->outgoing, "ERROR \"Command contained non-ASCII\"\r\n"))
+      if (!send_error (auth, "Command contained non-ASCII"))
         goto out;
       else
         goto next_command;
@@ -1907,16 +1934,9 @@ _dbus_auth_client_new (void)
 
   auth->handlers = client_handlers;
 
-  /* Add a default mechanism to try */
-  if (!_dbus_list_append (& DBUS_AUTH_CLIENT (auth)->mechs_to_try,
-                          (void*) &all_mechanisms[0]))
-    {
-      _dbus_auth_unref (auth);
-      return NULL;
-    }
-
-  /* Now try the mechanism we just added */
-  if (!client_try_next_mechanism (auth))
+  /* Start the auth conversation by sending AUTH for our default
+   * mechanism */
+  if (!send_auth (auth, &all_mechanisms[0]))
     {
       _dbus_auth_unref (auth);
       return NULL;
