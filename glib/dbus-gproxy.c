@@ -922,7 +922,7 @@ marshal_dbus_message_to_g_marshaller (GClosure     *closure,
 
   g_return_if_fail (c_marshaller != NULL);
   
-  value_array = dbus_glib_marshal_dbus_message_to_gvalue_array (message);
+  value_array = _dbus_glib_marshal_dbus_message_to_gvalue_array (message);
 
   g_return_if_fail (value_array != NULL);
   

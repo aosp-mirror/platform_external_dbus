@@ -200,7 +200,7 @@ method_output_signature_from_object_info (const DBusGObjectInfo *object,
 }
 
 GValueArray *
-dbus_glib_marshal_dbus_message_to_gvalue_array (DBusMessage         *message)
+_dbus_glib_marshal_dbus_message_to_gvalue_array (DBusMessage         *message)
 {
   GValueArray *ret;
   DBusMessageIter iter;
@@ -818,7 +818,7 @@ invoke_object_method (GObject         *object,
   memset (&closure, 0, sizeof (closure));
   
   /* Convert method IN parameters to GValueArray */
-  value_array = dbus_glib_marshal_dbus_message_to_gvalue_array (message);
+  value_array = _dbus_glib_marshal_dbus_message_to_gvalue_array (message);
 
   g_return_val_if_fail (value_array != NULL, DBUS_HANDLER_RESULT_NOT_YET_HANDLED);
 

@@ -28,7 +28,7 @@
 
 G_BEGIN_DECLS
 
-GValueArray*       dbus_glib_marshal_dbus_message_to_gvalue_array (DBusMessage         *message);
+GValueArray*       _dbus_glib_marshal_dbus_message_to_gvalue_array (DBusMessage         *message);
 
 G_END_DECLS
 

@@ -1,5 +1,16 @@
 2005-02-17  Colin Walters  <walters@verbum.org>
 
+	* glib/dbus-gobject.h: Don't export
+	_dbus_glib_marshal_dbus_message_to_gvalue_array.
+	
+	* glib/dbus-gobject.c (_dbus_glib_marshal_dbus_message_to_gvalue_array): Do rename.
+	(invoke_object_method): Handle it.
+
+	* glib/dbus-gproxy.c (marshal_dbus_message_to_g_marshaller):
+	Handle rename.
+	
+2005-02-17  Colin Walters  <walters@verbum.org>
+
 	* bus/.cvsignore, doc/.cvsignore
 	* test/data/valid-service-files/.cvsignore, test/glib/.cvsignore:
 	Update.
