@@ -46,7 +46,7 @@ TEST_DBUS_SHARP_FILES=Test.cs
 
 ASSEMBLY=$(ASSEMBLY_NAME).dll
 
-DISTCLEANFILES=AssemblyInfo.cs $(ASSEMBLY).config $(ASSEMBLY)
+DISTCLEANFILES=AssemblyInfo.cs $(ASSEMBLY).config $(ASSEMBLY) $(ASSEMBLY).mdb
 
 all-am: $(TARGET)
 

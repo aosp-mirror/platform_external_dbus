@@ -1,5 +1,5 @@
 NOINST_EXES=echo-server.exe echo-client.exe bus-listener.exe
-DISTCLEANFILES=$(NOINST_EXES)
+DISTCLEANFILES=$(NOINST_EXES) $(NOINST_EXES:%=%.mdb)
 
 all: $(NOINST_EXES)
 
