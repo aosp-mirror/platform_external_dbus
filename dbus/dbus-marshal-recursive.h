@@ -68,7 +68,7 @@ struct DBusTypeWriter
 
   dbus_uint32_t type_pos_is_expectation : 1; /* type_pos is an insertion point or an expected next type */
 
-  int container_type;
+  dbus_uint32_t container_type : 8;
   union
   {
     struct {
