@@ -8,7 +8,7 @@ dbus-send \- Send a message to a message bus
 .SH SYNOPSIS
 .PP
 .B dbus-send
-[\-\-system] [\-\-dest=SERVICE] [\-\-print-reply] <message name> [contents ...]
+[\-\-system | \-\-session] [\-\-dest=SERVICE] [\-\-print-reply] <message name> [contents ...]
 
 .SH DESCRIPTION
 
@@ -20,22 +20,23 @@ information about the big picture.
 There are two well-known message buses: the systemwide message bus 
 (installed on many systems as the "messagebus" service) and the 
 per-user-login-session message bus (started each time a user logs in).
-\fIdbus-send\fP sends messages to the session bus by default, and 
-to the system bus if you specify \-\-system.
+The \-\-system and \-\-session options direct \fIdbus-send\fP to send
+messages to the system or session buses respectively.  If neither is
+specified, \fIdbus-send\fP sends to the session bus.
 
 .PP 
-Nearly all uses of \fIdbus-send\fP must provide the \-\-dest 
-argument which is the name of a service on the bus to send 
-the message to. The other required argument is the name 
-of the message to send. Following arguments are the message 
-contents (message arguments).
+Nearly all uses of \fIdbus-send\fP must provide the \-\-dest argument
+which is the name of a service on the bus to send the message to. If
+\-\-dest is omitted, a default service name of
+"org.freedesktop.DBus.Broadcast" is used.  
 
 .PP
-The message arguments are given as a type name, a colon, 
-and then the value of the argument. The possible type names 
-are: string, int32, uint32, double, byte, boolean.
-D-BUS supports more types than these, but \fIdbus-send\fP
-does not currently.
+The name of the message to send must always be specified. Following
+arguments, if any, are the message contents (message arguments).
+These are given as a type name, a colon, and then the value of the
+argument. The possible type names are: string, int32, uint32, double,
+byte, boolean.  (D-BUS supports more types than these, but
+\fIdbus-send\fP currently does not.)
 
 .PP
 Here is an example invocation:
@@ -57,7 +58,10 @@ Specify the service to receive the message.
 Block for a reply to the message sent, and print any reply received.
 .TP
 .I "--system"
-Use the system message bus instead of the session bus.
+Send to the system message bus.
+.TP
+.I "--session"
+Send to the session message bus.  (This is the default.)
 
 .SH AUTHOR
 dbus-send was written by Philip Blundell.

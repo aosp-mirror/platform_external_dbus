@@ -1,3 +1,9 @@
+2003-06-21  Philip Blundell  <philb@gnu.org>
+
+	* tools/dbus-monitor.1: Updated.
+
+	* tools/dbus-send.1: Likewise.
+
 2003-06-20  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/dbus-transport-unix.c (unix_handle_watch): Check 
