@@ -29,6 +29,7 @@ dist-local:
 	fi 
 
 SUBDIRS=dbus bus doc $(GLIB_SUBDIR) $(GCJ_SUBDIR) $(MONO_SUBDIR) $(QT_SUBDIR) $(PYTHON_SUBDIR) test tools
+DIST_SUBDIRS=dbus bus doc glib qt gcj mono python test tools
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = dbus-1.pc $(GLIB_PC) $(MONO_PC)

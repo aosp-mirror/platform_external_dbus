@@ -4,6 +4,7 @@ if HAVE_GLIB
 endif
 
 SUBDIRS=$(GLIB_SUBDIR)
+DIST_SUBDIRS=glib
 
 INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
 
