@@ -1,3 +1,17 @@
+2002-12-28  Harri Porten  <porten@kde.org>
+
+	* configure.in: added check for C++ compiler and a very cheesy
+	check for the Qt integration
+
+	* Makefile.am (SUBDIRS): compile qt subdir if support is enabled
+
+	* qt/Makefile.am: added 
+
+	* qt/.cvsignore: added	
+
+	* qt/dbus-qthread.cc, qt/dbus-qthread.cpp: renamed former to
+	latter, added #ifdef QT_THREAD_SUPPORT guard.
+
 2002-12-28  Kristian Rietveld  <kris@gtk.org>
 
 	* dbus/Makefile.am: fixup export-symbols-regex.

@@ -4,7 +4,11 @@ if HAVE_GLIB
     GLIB_PC=dbus-glib-1.0.pc
 endif
 
-SUBDIRS=dbus $(GLIB_SUBDIR) bus test doc 
+if HAVE_QT
+   QT_SUBDIR=qt
+endif
+
+SUBDIRS=dbus $(GLIB_SUBDIR) $(QT_SUBDIR) bus test doc 
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = dbus-1.0.pc $(GLIB_PC)

@@ -122,7 +122,7 @@ _dbus_connection_have_messages_to_send (DBusConnection *connection)
 }
 
 /**
- * Gets the next outgoing message. The message remanins in the
+ * Gets the next outgoing message. The message remains in the
  * queue, and the caller does not own a reference to it.
  *
  * @param connection the connection.

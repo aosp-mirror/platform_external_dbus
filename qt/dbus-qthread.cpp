@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-qthread.c  Qt threads integration
+/* dbus-qthread.cpp  Qt threads integration
  *
  * Copyright (C) 2002  Zack Rusin <zack@kde.org>
  *
@@ -21,8 +21,10 @@
  *
  */
 
-#include <qmutex.h>
 #include <dbus/dbus.h>
+#include <qmutex.h>
+
+#if defined(QT_THREAD_SUPPORT)
 
 static DBusMutex * dbus_qmutex_new    (void);
 static void        dbus_qmutex_free   (DBusMutex *mutex);
@@ -83,3 +85,5 @@ dbus_qthread_init (void)
 }
 
 }
+
+#endif // QT_THREAD_SUPPORT
