@@ -29,6 +29,7 @@
 #include "dbus-address.h"
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-transport-debug.h"
+#include "dbus-server-debug-pipe.h"
 #endif
 
 /**
@@ -229,7 +230,16 @@ _dbus_transport_open (const char     *address,
 
 	  transport = _dbus_transport_debug_client_new (name, result);
 	}
-#endif      
+      else if (strcmp (method, "debug-pipe") == 0)
+	{
+	  const char *name = dbus_address_entry_get_value (entries[i], "name");
+
+	  if (name == NULL)
+	    goto bad_address;
+
+	  transport = _dbus_transport_debug_pipe_new (name, result);
+	}
+#endif
       else
 	goto bad_address;
 

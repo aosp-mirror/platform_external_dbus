@@ -1,3 +1,25 @@
+2003-03-14  Havoc Pennington  <hp@pobox.com>
+
+	* bus/dispatch.c (bus_dispatch_test): do test using debug-pipe 
+	transport, tests more of the real codepath. Set up clients 
+	with bus_setup_debug_client.
+
+	* bus/test.c (bus_setup_debug_client): function to set up debug 
+	"clients" on the main loop
+
+	* dbus/dbus-transport.c (_dbus_transport_open): add debug-pipe 
+	support
+
+	* dbus/dbus-server.c (dbus_server_listen): add debug-pipe 
+	server type
+
+	* dbus/dbus-server-debug.c: support a debug server based on pipes
+
+	* dbus/dbus-sysdeps.c (_dbus_full_duplex_pipe): new function
+	(_dbus_close): new function
+	
+	* configure.in: check for socketpair
+
 2003-03-14  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-memory.c: add a "detect buffer overwrites on free" 

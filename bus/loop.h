@@ -50,6 +50,4 @@ void        bus_loop_run            (void);
 void        bus_loop_quit           (void);
 dbus_bool_t bus_loop_iterate        (dbus_bool_t         block);
 
-
-
 #endif /* BUS_LOOP_H */

@@ -77,11 +77,17 @@ static dbus_bool_t inited = FALSE;
 static int fail_counts = -1;
 static size_t fail_size = 0;
 static dbus_bool_t guards = FALSE;
+/** value stored in guard padding for debugging buffer overrun */
 #define GUARD_VALUE 0xdeadbeef
+/** size of the information about the block stored in guard mode */
 #define GUARD_INFO_SIZE 8
+/** size of the GUARD_VALUE-filled padding after the header info  */
 #define GUARD_START_PAD 16
+/** size of the GUARD_VALUE-filled padding at the end of the block */
 #define GUARD_END_PAD 16
+/** size of stuff at start of block */
 #define GUARD_START_OFFSET (GUARD_START_PAD + GUARD_INFO_SIZE)
+/** total extra size over the requested allocation for guard stuff */
 #define GUARD_EXTRA_SIZE (GUARD_START_OFFSET + GUARD_END_PAD)
 #endif
 
@@ -107,6 +113,9 @@ initialize_malloc_debug (void)
     }
 }
 
+/**
+ * Where the block came from.
+ */
 typedef enum
 {
   SOURCE_UNKNOWN,

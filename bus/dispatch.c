@@ -379,7 +379,7 @@ bus_dispatch_remove_connection (DBusConnection *connection)
 
 static void
 flush_bus (BusContext *context)
-{
+{  
   while (bus_loop_iterate (FALSE))
     ;
 }
@@ -435,23 +435,28 @@ bus_dispatch_test (const DBusString *test_data_dir)
   DBusResultCode result;
 
   dbus_error_init (&error);
-  context = bus_context_new ("debug:name=test-server",
+  context = bus_context_new ("debug-pipe:name=test-server",
                              activation_dirs,
                              &error);
   if (context == NULL)
     _dbus_assert_not_reached ("could not alloc context");
   
-  foo = dbus_connection_open ("debug:name=test-server", &result);
+  foo = dbus_connection_open ("debug-pipe:name=test-server", &result);
   if (foo == NULL)
     _dbus_assert_not_reached ("could not alloc connection");
 
-  bar = dbus_connection_open ("debug:name=test-server", &result);
+  bar = dbus_connection_open ("debug-pipe:name=test-server", &result);
   if (bar == NULL)
     _dbus_assert_not_reached ("could not alloc connection");
 
-  baz = dbus_connection_open ("debug:name=test-server", &result);
+  baz = dbus_connection_open ("debug-pipe:name=test-server", &result);
   if (baz == NULL)
     _dbus_assert_not_reached ("could not alloc connection");
+
+  if (!bus_setup_debug_client (foo) ||
+      !bus_setup_debug_client (bar) ||
+      !bus_setup_debug_client (baz))
+    _dbus_assert_not_reached ("could not set up connection");
   
   if (!check_hello_message (context, foo))
     _dbus_assert_not_reached ("hello message failed");

@@ -2754,4 +2754,78 @@ _dbus_stat (const DBusString *filename,
   return TRUE;
 }
 
+/**
+ * Creates a full-duplex pipe (as in socketpair()).
+ * Sets both ends of the pipe nonblocking.
+ *
+ * @param fd1 return location for one end
+ * @param fd2 return location for the other end
+ * @param error error return
+ * @returns #FALSE on failure (if error is set)
+ */
+dbus_bool_t
+_dbus_full_duplex_pipe (int       *fd1,
+                        int       *fd2,
+                        DBusError *error)
+{
+#ifdef HAVE_SOCKETPAIR
+  int fds[2];
+
+  if (socketpair (AF_UNIX, SOCK_STREAM, 0, fds) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not create full-duplex pipe");
+      return FALSE;
+    }
+
+  if (!_dbus_set_fd_nonblocking (fds[0], NULL) ||
+      !_dbus_set_fd_nonblocking (fds[1], NULL))
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not set full-duplex pipe nonblocking");
+      
+      close (fds[0]);
+      close (fds[1]);
+      
+      return FALSE;
+    }
+  
+  *fd1 = fds[0];
+  *fd2 = fds[1];
+  
+  return TRUE;  
+#else
+  _dbus_warn ("_dbus_full_duplex_pipe() not implemented on this OS\n");
+  dbus_set_error (error, DBUS_ERROR_FAILED,
+                  "_dbus_full_duplex_pipe() not implemented on this OS");
+  return FALSE;
+#endif
+}
+
+/**
+ * Closes a file descriptor.
+ *
+ * @param fd the file descriptor
+ * @param error error object
+ * @returns #FALSE if error set
+ */
+dbus_bool_t
+_dbus_close (int        fd,
+             DBusError *error)
+{
+ again:
+  if (close (fd) < 0)
+    {
+      if (errno == EINTR)
+        goto again;
+
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not close fd %d", fd);
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
+
 /** @} end of sysdeps */

@@ -25,6 +25,7 @@
 #include "dbus-server-unix.h"
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-server-debug.h"
+#include "dbus-server-debug-pipe.h"
 #endif
 #include "dbus-address.h"
 
@@ -271,6 +272,18 @@ dbus_server_listen (const char     *address,
 	    goto bad_address;
 
 	  server = _dbus_server_debug_new (name, result);
+
+	  if (server)
+	    break;
+	}
+      else if (strcmp (method, "debug-pipe") == 0)
+	{
+	  const char *name = dbus_address_entry_get_value (entries[i], "name");
+
+	  if (name == NULL)
+	    goto bad_address;
+
+	  server = _dbus_server_debug_pipe_new (name, result);
 
 	  if (server)
 	    break;

@@ -888,7 +888,7 @@ unix_disconnect (DBusTransport *transport)
   
   free_watches (transport);
   
-  close (unix_transport->fd);
+  _dbus_close (unix_transport->fd, NULL);
   unix_transport->fd = -1;
 }
 
@@ -1161,7 +1161,7 @@ _dbus_transport_new_for_domain_socket (const char     *path,
   if (transport == NULL)
     {
       dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
-      close (fd);
+      _dbus_close (fd, NULL);
       fd = -1;
     }
   
@@ -1199,7 +1199,7 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
   if (transport == NULL)
     {
       dbus_set_result (result, DBUS_RESULT_NO_MEMORY);
-      close (fd);
+      _dbus_close (fd, NULL);
       fd = -1;
     }
 

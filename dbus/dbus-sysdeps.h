@@ -196,9 +196,14 @@ typedef struct
   unsigned long ctime;
 } DBusStat;
 
-dbus_bool_t _dbus_stat (const DBusString *filename,
-                        DBusStat         *statbuf,
-                        DBusError        *error);
+dbus_bool_t _dbus_stat             (const DBusString *filename,
+                                    DBusStat         *statbuf,
+                                    DBusError        *error);
+dbus_bool_t _dbus_full_duplex_pipe (int              *fd1,
+                                    int              *fd2,
+                                    DBusError        *error);
+dbus_bool_t _dbus_close            (int               fd,
+                                    DBusError        *error);
 
 DBUS_END_DECLS;
 

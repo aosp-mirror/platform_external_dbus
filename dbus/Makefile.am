@@ -44,6 +44,8 @@ libdbus_1_la_SOURCES=				\
 	dbus-server-protected.h			\
 	dbus-server-debug.c			\
 	dbus-server-debug.h			\
+	dbus-server-debug-pipe.c		\
+	dbus-server-debug-pipe.h		\
 	dbus-server-unix.c			\
 	dbus-server-unix.h			\
 	dbus-sha.c				\

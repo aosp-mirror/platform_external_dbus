@@ -428,8 +428,9 @@ sha1_compute_hash (DBusAuth         *auth,
   return retval;
 }
 
-/* http://www.ietf.org/rfc/rfc2831.txt suggests at least 64 bits of
- * entropy, we use 128
+/** http://www.ietf.org/rfc/rfc2831.txt suggests at least 64 bits of
+ * entropy, we use 128. This is the number of bytes in the random
+ * challenge.
  */
 #define N_CHALLENGE_BYTES (128/8)
 

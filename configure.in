@@ -134,7 +134,7 @@ AC_C_BIGENDIAN
 AC_CHECK_LIB(socket,socket)
 AC_CHECK_LIB(nsl,gethostbyname)
 
-AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv)
+AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv socketpair)
 
 AC_CACHE_CHECK([for posix getpwnam_r],
 		ac_cv_func_posix_getpwnam_r,

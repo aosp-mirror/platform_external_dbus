@@ -1,7 +1,8 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* test.h  unit test routines
+/* dbus-server-debug-pipe.h In-proc debug server implementation 
  *
- * Copyright (C) 2003 Red Hat, Inc.
+ * Copyright (C) 2003  CodeFactory AB
+ * Copyright (C) 2003  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 
@@ -20,21 +21,20 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+#ifndef DBUS_SERVER_DEBUG_PIPE_H
+#define DBUS_SERVER_DEBUG_PIPE_H
 
-#ifndef BUS_TEST_H
-#define BUS_TEST_H
+#include <dbus/dbus-internals.h>
+#include <dbus/dbus-server-protected.h>
+#include <dbus/dbus-transport.h>
 
-#include <config.h>
+DBUS_BEGIN_DECLS;
 
-#ifdef DBUS_BUILD_TESTS
+DBusServer* _dbus_server_debug_pipe_new    (const char     *server_name,
+                                            DBusResultCode *result);
+DBusTransport* _dbus_transport_debug_pipe_new (const char     *server_name,
+                                               DBusResultCode *result);
 
-#include <dbus/dbus.h>
-#include <dbus/dbus-string.h>
+DBUS_END_DECLS;
 
-dbus_bool_t bus_dispatch_test (const DBusString *test_data_dir);
-
-dbus_bool_t bus_setup_debug_client  (DBusConnection *connection);
-
-#endif
-
-#endif /* BUS_TEST_H */
+#endif /* DBUS_SERVER_DEBUG_PIPE_H */
