@@ -1765,7 +1765,7 @@ _dbus_message_iter_get_args_valist (DBusMessageIter *iter,
                    spec_element_type == DBUS_TYPE_OBJECT_PATH)
             {
               char ***str_array_p;
-              int i;
+              int n_elements;
               char **str_array;
 
               str_array_p = va_arg (var_args, char***);
@@ -1777,14 +1777,14 @@ _dbus_message_iter_get_args_valist (DBusMessageIter *iter,
               /* Count elements in the array */
               _dbus_type_reader_recurse (&real->u.reader, &array);
 
-              i = 0;
-              if (_dbus_type_reader_has_next (&array))
+              n_elements = 0;
+              while (_dbus_type_reader_get_current_type (&array) != DBUS_TYPE_INVALID)
                 {
-                  while (_dbus_type_reader_next (&array))
-                    ++i;
+                  ++n_elements;
+                  _dbus_type_reader_next (&array);
                 }
 
-              str_array = dbus_new0 (char*, i + 1);
+              str_array = dbus_new0 (char*, n_elements + 1);
               if (str_array == NULL)
                 {
                   _DBUS_SET_OOM (error);
@@ -1795,29 +1795,32 @@ _dbus_message_iter_get_args_valist (DBusMessageIter *iter,
               _dbus_type_reader_recurse (&real->u.reader, &array);
 
               i = 0;
-              if (_dbus_type_reader_has_next (&array))
+              while (i < n_elements)
                 {
-                  do
+                  const char *s;
+                  _dbus_type_reader_read_basic (&array,
+                                                &s);
+                  
+                  str_array[i] = _dbus_strdup (s);
+                  if (str_array[i] == NULL)
                     {
-                      const char *s;
-                      _dbus_type_reader_read_basic (&array,
-                                                    &s);
-
-                      str_array[i] = _dbus_strdup (s);
-                      if (str_array[i] == NULL)
-                        {
-                          dbus_free_string_array (str_array);
-                          _DBUS_SET_OOM (error);
-                          goto out;
-                        }
-
-                      ++i;
+                      dbus_free_string_array (str_array);
+                      _DBUS_SET_OOM (error);
+                      goto out;
                     }
-                  while (_dbus_type_reader_next (&array));
+                  
+                  ++i;
+                  
+                  if (!_dbus_type_reader_next (&array))
+                    _dbus_assert (i == n_elements);
                 }
 
+              _dbus_assert (_dbus_type_reader_get_current_type (&array) == DBUS_TYPE_INVALID);
+              _dbus_assert (i == n_elements);
+              _dbus_assert (str_array[i] == NULL);
+
               *str_array_p = str_array;
-              *n_elements_p = i;
+              *n_elements_p = n_elements;
             }
 #ifndef DBUS_DISABLE_CHECKS
           else

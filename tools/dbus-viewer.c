@@ -76,22 +76,27 @@ tree_window_new (DBusGConnection *connection,
 
   vbox = gtk_vbox_new (FALSE, 6);
   gtk_container_add (GTK_CONTAINER (w->window), vbox);
-  
-  hbox = gtk_hbox_new (FALSE, 6);
-  gtk_container_add (GTK_CONTAINER (vbox), hbox);
-
 
   /* Create names option menu */
   if (connection)
     {
+      GtkCellRenderer *cell;
       w->names_model = names_model;
 
       combo = gtk_combo_box_new_with_model (w->names_model);
 
+      cell = gtk_cell_renderer_text_new ();
+      gtk_cell_layout_pack_start (GTK_CELL_LAYOUT (combo), cell, TRUE);
+      gtk_cell_layout_set_attributes (GTK_CELL_LAYOUT (combo), cell,
+                                      "text", 0,
+                                      NULL);
+      
       gtk_box_pack_start (GTK_BOX (vbox), combo, FALSE, FALSE, 0);
     }
   
   /* Create tree view */
+  hbox = gtk_hbox_new (FALSE, 6);
+  gtk_container_add (GTK_CONTAINER (vbox), hbox);
   
   sw = gtk_scrolled_window_new (NULL, NULL);
   gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (sw),

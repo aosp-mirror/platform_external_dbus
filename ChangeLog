@@ -1,5 +1,12 @@
 2005-01-30  Havoc Pennington  <hp@redhat.com>
 
+	* tools/dbus-names-model.c (have_names_notify): fix this
+
+	* dbus/dbus-message.c (_dbus_message_iter_get_args_valist): clean
+	up the string array handling a bit 
+
+2005-01-30  Havoc Pennington  <hp@redhat.com>
+
 	* glib/dbus-glib.c (dbus_g_pending_call_set_notify): new function
 	(dbus_g_pending_call_cancel): new function
 

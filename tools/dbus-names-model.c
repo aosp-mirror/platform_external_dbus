@@ -25,62 +25,10 @@
 
 enum
 {
-  MODEL_COLUMN_NAME_DATA,
+  MODEL_COLUMN_NAME,
   
   MODEL_COLUMN_LAST
 };
-
-typedef struct
-{
-  int   refcount;
-  char *name;
-} NameData;
-
-static NameData*
-name_data_new (const char *name)
-{
-  NameData *nd;
-
-  nd = g_new0 (NameData, 1);
-
-  nd->refcount = 1;
-  nd->name = g_strdup (name);
-
-  return nd;
-}
-
-static NameData*
-name_data_ref (NameData *nd)
-{
-  nd->refcount += 1;
-  return nd;
-}
-
-static void
-name_data_unref (NameData *nd)
-{
-  nd->refcount -= 1;
-  if (nd->refcount == 0)
-    {
-      g_free (nd->name);
-      g_free (nd);
-    }
-}
-
-static GType
-name_data_get_gtype (void)
-{
-  static GType our_type = 0;
-
-  if (our_type == 0)
-    our_type = g_boxed_type_register_static ("NameData",
-                                             (GBoxedCopyFunc) name_data_ref,
-                                             (GBoxedFreeFunc) name_data_unref);
-
-  return our_type;
-}
-
-#define NAME_DATA_TYPE (name_data_get_gtype())
 
 
 typedef struct NamesModel NamesModel;
@@ -134,26 +82,29 @@ have_names_notify (DBusGPendingCall *call,
       g_assert (error != NULL);
       
       g_printerr (_("Failed to load names on the bus: %s\n"), error->message);
+      g_error_free (error);
       return;
     }
 
   i = 0;
   while (names[i])
     {
-      NameData *nd;
       GtkTreeIter iter;
-      
-      nd = name_data_new (names[i]);
 
+      g_assert (i < n_elements);
+
+#if 0
+      g_printerr ("%d of %d: %s\n",
+                  i, n_elements, names[i]);
+#endif
+      
       gtk_tree_store_append (GTK_TREE_STORE (names_model),
                              &iter, NULL);
 
       gtk_tree_store_set (GTK_TREE_STORE (names_model),
                           &iter,
-                          MODEL_COLUMN_NAME_DATA, nd,
+                          MODEL_COLUMN_NAME, names[i],
                           -1);
-
-      name_data_unref (nd);
       
       ++i;
     }
@@ -315,7 +266,7 @@ names_model_init (NamesModel *names_model)
 
   tree_store = GTK_TREE_STORE (names_model);
 
-  types[0] = NAME_DATA_TYPE;
+  types[0] = G_TYPE_STRING; /* name */
   gtk_tree_store_set_column_types (tree_store, MODEL_COLUMN_LAST, types);
 }
 
