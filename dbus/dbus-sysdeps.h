@@ -134,6 +134,8 @@ void        _dbus_credentials_from_current_process (DBusCredentials       *crede
 dbus_bool_t _dbus_credentials_match                (const DBusCredentials *expected_credentials,
                                                     const DBusCredentials *provided_credentials);
 
+dbus_bool_t _dbus_get_user_id                    (const DBusString  *username,
+                                                  dbus_uid_t        *uid);
 dbus_bool_t _dbus_string_append_our_uid (DBusString *str);
 
 dbus_bool_t _dbus_homedir_from_username          (const DBusString       *username,

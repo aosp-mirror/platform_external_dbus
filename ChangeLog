@@ -1,3 +1,13 @@
+2003-04-13  Havoc Pennington  <hp@pobox.com>
+
+	* bus/config-parser.c: Load up the BusPolicy and BusPolicyRules
+	
+	* dbus/dbus-sysdeps.c (_dbus_get_user_id): new function
+
+	* bus/policy.c (bus_policy_append_mandatory_rule)
+	(bus_policy_append_default_rule, bus_policy_append_user_rule)
+	(bus_policy_append_group_rule): new functions
+
 2003-04-12  Havoc Pennington  <hp@pobox.com>
 
 	* bus/config-parser.c (bus_config_parser_new): fix a memleak

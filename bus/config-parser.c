@@ -47,6 +47,18 @@ typedef enum
   ELEMENT_TYPE
 } ElementType;
 
+typedef enum
+{
+  /* we ignore policies for unknown groups/users */
+  POLICY_IGNORED,
+
+  /* non-ignored */
+  POLICY_DEFAULT,
+  POLICY_MANDATORY,
+  POLICY_USER,
+  POLICY_GROUP
+} PolicyType;
+
 typedef struct
 {
   ElementType type;
@@ -62,16 +74,9 @@ typedef struct
 
     struct
     {
-      char *context;
-      char *user;
-      char *group;
-      DBusList *rules;
+      PolicyType type;
+      unsigned long gid_or_uid;      
     } policy;
-
-    struct
-    {
-      int foo;
-    } limit;
 
   } d;
 
@@ -637,6 +642,8 @@ start_busconfig_child (BusConfigParser   *parser,
           return FALSE;
         }
 
+      e->d.policy.type = POLICY_IGNORED;
+      
       if (!locate_attributes (parser, "policy",
                               attribute_names,
                               attribute_values,
@@ -661,11 +668,11 @@ start_busconfig_child (BusConfigParser   *parser,
         {
           if (strcmp (context, "default") == 0)
             {
-
+              e->d.policy.type = POLICY_DEFAULT;
             }
           else if (strcmp (context, "mandatory") == 0)
             {
-
+              e->d.policy.type = POLICY_MANDATORY;
             }
           else
             {
@@ -674,19 +681,30 @@ start_busconfig_child (BusConfigParser   *parser,
                               context);
               return FALSE;
             }
-          
-          /* FIXME */
-
         }
       else if (user != NULL)
         {
-          /* FIXME */
+          DBusString username;
+          _dbus_string_init_const (&username, user);
 
+          if (_dbus_get_user_id (&username,
+                                 &e->d.policy.gid_or_uid))
+            e->d.policy.type = POLICY_USER;
+          else
+            _dbus_warn ("Unknown username \"%s\" in message bus configuration file\n",
+                        user);
         }
       else if (group != NULL)
         {
-          /* FIXME */
+          DBusString group_name;
+          _dbus_string_init_const (&group_name, group);
 
+          if (_dbus_get_group_id (&group_name,
+                                  &e->d.policy.gid_or_uid))
+            e->d.policy.type = POLICY_GROUP;
+          else
+            _dbus_warn ("Unknown group \"%s\" in message bus configuration file\n",
+                        group);          
         }
       else
         {
@@ -705,6 +723,272 @@ start_busconfig_child (BusConfigParser   *parser,
 }
 
 static dbus_bool_t
+append_rule_from_element (BusConfigParser   *parser,
+                          const char        *element_name,
+                          const char       **attribute_names,
+                          const char       **attribute_values,
+                          dbus_bool_t        allow,
+                          DBusError         *error)
+{
+  const char *send;
+  const char *receive;
+  const char *own;
+  const char *send_to;
+  const char *receive_from;
+  const char *user;
+  const char *group;
+  BusPolicyRule *rule;
+  
+  if (!locate_attributes (parser, element_name,
+                          attribute_names,
+                          attribute_values,
+                          error,
+                          "send", &send,
+                          "receive", &receive,
+                          "own", &own,
+                          "send_to", &send_to,
+                          "receive_from", &receive_from,
+                          "user", &user,
+                          "group", &group,
+                          NULL))
+    return FALSE;
+
+  if (!(send || receive || own || send_to || receive_from ||
+        user || group))
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Element <%s> must have one or more attributes",
+                      element_name);
+      return FALSE;
+    }
+  
+  if (((send && own) ||
+       (send && receive) ||
+       (send && receive_from) ||
+       (send && user) ||
+       (send && group)) ||
+
+      ((receive && own) ||
+       (receive && send_to) ||
+       (receive && user) ||
+       (receive && group)) ||
+
+      ((own && send_to) ||
+       (own && receive_from) ||
+       (own && user) ||
+       (own && group)) ||
+
+      ((send_to && receive_from) ||
+       (send_to && user) ||
+       (send_to && group)) ||
+
+      ((receive_from && user) ||
+       (receive_from && group)) ||
+
+      (user && group))
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Invalid combination of attributes on element <%s>, "
+                      "only send/send_to or receive/receive_from may be paired",
+                      element_name);
+      return FALSE;
+    }
+
+  rule = NULL;
+
+  /* In BusPolicyRule, NULL represents wildcard.
+   * In the config file, '*' represents it.
+   */
+#define IS_WILDCARD(str) ((str) && ((str)[0]) == '*' && ((str)[1]) == '\0')
+
+  if (send || send_to)
+    {
+      rule = bus_policy_rule_new (BUS_POLICY_RULE_SEND, allow); 
+      if (rule == NULL)
+        goto nomem;
+
+      if (IS_WILDCARD (send))
+        send = NULL;
+      if (IS_WILDCARD (send_to))
+        send_to = NULL;
+      
+      rule->d.send.message_name = _dbus_strdup (send);
+      rule->d.send.destination = _dbus_strdup (send_to);
+      if (send && rule->d.send.message_name == NULL)
+        goto nomem;
+      if (send_to && rule->d.send.destination == NULL)
+        goto nomem;
+    }
+  else if (receive || receive_from)
+    {
+      rule = bus_policy_rule_new (BUS_POLICY_RULE_RECEIVE, allow); 
+      if (rule == NULL)
+        goto nomem;
+
+      if (IS_WILDCARD (receive))
+        receive = NULL;
+
+      if (IS_WILDCARD (receive_from))
+        receive_from = NULL;
+      
+      rule->d.receive.message_name = _dbus_strdup (receive);
+      rule->d.receive.origin = _dbus_strdup (receive_from);
+      if (receive && rule->d.receive.message_name == NULL)
+        goto nomem;
+      if (receive_from && rule->d.receive.origin == NULL)
+        goto nomem;
+    }
+  else if (own)
+    {
+      rule = bus_policy_rule_new (BUS_POLICY_RULE_OWN, allow); 
+      if (rule == NULL)
+        goto nomem;
+
+      if (IS_WILDCARD (own))
+        own = NULL;
+      
+      rule->d.own.service_name = _dbus_strdup (own);
+      if (own && rule->d.own.service_name == NULL)
+        goto nomem;
+    }
+  else if (user)
+    {      
+      if (IS_WILDCARD (user))
+        {
+          rule = bus_policy_rule_new (BUS_POLICY_RULE_USER, allow); 
+          if (rule == NULL)
+            goto nomem;
+
+          /* FIXME the wildcard needs storing in the rule somehow */
+        }
+      else
+        {
+          DBusString username;
+          dbus_uid_t uid;
+          
+          _dbus_string_init_const (&username, user);
+      
+          if (_dbus_get_user_id (&username, &uid))
+            {
+              rule = bus_policy_rule_new (BUS_POLICY_RULE_USER, allow); 
+              if (rule == NULL)
+                goto nomem;
+              
+              rule->d.user.user = _dbus_strdup (user);
+              if (rule->d.user.user == NULL)
+                goto nomem;
+              rule->d.user.uid = uid;
+            }
+          else
+            {
+              _dbus_warn ("Unknown username \"%s\" on element <%s>\n",
+                          user, element_name);
+            }
+        }
+    }
+  else if (group)
+    {
+      if (IS_WILDCARD (group))
+        {
+          rule = bus_policy_rule_new (BUS_POLICY_RULE_GROUP, allow); 
+          if (rule == NULL)
+            goto nomem;
+
+          /* FIXME the wildcard needs storing in the rule somehow */
+        }
+      else
+        {
+          DBusString groupname;
+          dbus_gid_t gid;
+          
+          _dbus_string_init_const (&groupname, group);
+          
+          if (_dbus_get_user_id (&groupname, &gid))
+            {
+              rule = bus_policy_rule_new (BUS_POLICY_RULE_GROUP, allow); 
+              if (rule == NULL)
+                goto nomem;
+              
+              rule->d.group.group = _dbus_strdup (group);
+              if (rule->d.group.group == NULL)
+                goto nomem;
+              rule->d.group.gid = gid;
+            }
+          else
+            {
+              _dbus_warn ("Unknown group \"%s\" on element <%s>\n",
+                          group, element_name);
+            }
+        }
+    }
+  else
+    _dbus_assert_not_reached ("Did not handle some combination of attributes on <allow> or <deny>");
+
+  if (rule != NULL)
+    {
+      Element *pe;
+      
+      pe = peek_element (parser);      
+      _dbus_assert (pe != NULL);
+      _dbus_assert (pe->type == ELEMENT_POLICY);
+
+      switch (pe->d.policy.type)
+        {
+        case POLICY_IGNORED:
+          /* drop the rule on the floor */
+          break;
+          
+        case POLICY_DEFAULT:
+          if (!bus_policy_append_default_rule (parser->policy, rule))
+            goto nomem;
+          break;
+        case POLICY_MANDATORY:
+          if (!bus_policy_append_mandatory_rule (parser->policy, rule))
+            goto nomem;
+          break;
+        case POLICY_USER:
+          if (!BUS_POLICY_RULE_IS_PER_CLIENT (rule))
+            {
+              dbus_set_error (error, DBUS_ERROR_FAILED,
+                              "<%s> rule cannot be per-user because it has bus-global semantics",
+                              element_name);
+              goto failed;
+            }
+          
+          if (!bus_policy_append_user_rule (parser->policy, pe->d.policy.gid_or_uid,
+                                            rule))
+            goto nomem;
+          break;
+        case POLICY_GROUP:
+          if (!BUS_POLICY_RULE_IS_PER_CLIENT (rule))
+            {
+              dbus_set_error (error, DBUS_ERROR_FAILED,
+                              "<%s> rule cannot be per-group because it has bus-global semantics",
+                              element_name);
+              goto failed;
+            }
+          
+          if (!bus_policy_append_group_rule (parser->policy, pe->d.policy.gid_or_uid,
+                                             rule))
+            goto nomem;
+          break;
+        }
+      
+      bus_policy_rule_unref (rule);
+      rule = NULL;
+    }
+  
+  return TRUE;
+
+ nomem:
+  BUS_SET_OOM (error);
+ failed:
+  if (rule)
+    bus_policy_rule_unref (rule);
+  return FALSE;
+}
+
+static dbus_bool_t
 start_policy_child (BusConfigParser   *parser,
                     const char        *element_name,
                     const char       **attribute_names,
@@ -713,6 +997,11 @@ start_policy_child (BusConfigParser   *parser,
 {
   if (strcmp (element_name, "allow") == 0)
     {
+      if (!append_rule_from_element (parser, element_name,
+                                     attribute_names, attribute_values,
+                                     TRUE, error))
+        return FALSE;
+      
       if (push_element (parser, ELEMENT_ALLOW) == NULL)
         {
           BUS_SET_OOM (error);
@@ -723,6 +1012,11 @@ start_policy_child (BusConfigParser   *parser,
     }
   else if (strcmp (element_name, "deny") == 0)
     {
+      if (!append_rule_from_element (parser, element_name,
+                                     attribute_names, attribute_values,
+                                     FALSE, error))
+        return FALSE;
+      
       if (push_element (parser, ELEMENT_DENY) == NULL)
         {
           BUS_SET_OOM (error);

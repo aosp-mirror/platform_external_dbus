@@ -1478,6 +1478,30 @@ _dbus_credentials_from_username (const DBusString *username,
 }
 
 /**
+ * Gets user ID given username
+ *
+ * @param username the username
+ * @param uid return location for UID
+ * @returns #TRUE if username existed and we got the UID
+ */
+dbus_bool_t
+_dbus_get_user_id (const DBusString  *username,
+                   dbus_uid_t        *uid)
+{
+  DBusCredentials creds;
+
+  if (!_dbus_credentials_from_username (username, &creds))
+    return FALSE;
+
+  if (creds.uid == DBUS_UID_UNSET)
+    return FALSE;
+
+  *uid = creds.uid;
+
+  return TRUE;
+}
+
+/**
  * Gets the credentials corresponding to the given user ID.
  *
  * @param user_id the user ID
