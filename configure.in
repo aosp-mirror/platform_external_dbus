@@ -826,6 +826,7 @@ mono/Makefile
 bus/Makefile
 tools/Makefile
 test/Makefile
+test/glib/Makefile
 doc/Makefile
 dbus-1.pc
 dbus-glib-1.pc

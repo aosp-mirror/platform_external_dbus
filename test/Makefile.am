@@ -1,5 +1,12 @@
 
+if HAVE_GLIB
+    GLIB_SUBDIR=glib
+endif
+
+SUBDIRS=$(GLIB_SUBDIR)
+
 INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
+
 
 if DBUS_BUILD_TESTS
 TEST_BINARIES=test-service unbase64 break-loader spawn-test test-segfault test-exit test-sleep-forever

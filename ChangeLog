@@ -1,3 +1,19 @@
+2003-09-03  Havoc Pennington  <hp@pobox.com>
+
+	* test/glib/Makefile.am: add this with random glib-linked test
+	programs
+
+	* glib/Makefile.am: remove the random test programs from here,
+	leave only the unit tests
+
+	* glib/dbus-gobject.c (_dbus_gobject_test): add test for 
+	uscore/javacaps conversion, and fix	
+	(get_object_property, set_object_property): change to .NET
+	convention for mapping props to methods, set_FooBar/get_FooBar, 
+	since one language has such a convention we may as well copy it. 
+	Plus real methods in either getFooBar or get_foo_bar style won't 
+	collide with this convention.
+
 2003-09-01  Havoc Pennington  <hp@pobox.com>
 
 	* glib/dbus-gparser.c: implement

@@ -35,7 +35,7 @@ static GStaticMutex info_hash_mutex = G_STATIC_MUTEX_INIT;
 static GHashTable *info_hash = NULL;
 
 static char*
-javacaps_to_uscore (const char *caps)
+wincaps_to_uscore (const char *caps)
 {
   const char *p;
   GString *str;
@@ -62,7 +62,7 @@ javacaps_to_uscore (const char *caps)
 }
 
 static char*
-uscore_to_javacaps (const char *uscore)
+uscore_to_wincaps (const char *uscore)
 {
   const char *p;
   GString *str;
@@ -233,11 +233,11 @@ handle_introspect (DBusConnection *connection,
 
       can_get = (spec->flags & G_PARAM_READABLE) != 0;
 
-      s = uscore_to_javacaps (spec->name);
+      s = uscore_to_wincaps (spec->name);
       
       if (can_set)
         {
-          g_string_append (xml, "    <method name=\"set");
+          g_string_append (xml, "    <method name=\"set_");
           g_string_append (xml, s);
           g_string_append (xml, "\">\n");
           
@@ -248,7 +248,7 @@ handle_introspect (DBusConnection *connection,
 
       if (can_get)
         {
-          g_string_append (xml, "    <method name=\"get");
+          g_string_append (xml, "    <method name=\"get_");
           g_string_append (xml, s);
           g_string_append (xml, "\">\n");
           
@@ -578,13 +578,13 @@ gobject_message_function (DBusConnection  *connection,
   /* If no metainfo, we can still do properties and signals
    * via standard GLib introspection
    */
-  setter = (member[0] == 's' && member[1] == 'e' && member[2] == 't');
-  getter = (member[0] == 'g' && member[1] == 'e' && member[2] == 't');
+  setter = (member[0] == 's' && member[1] == 'e' && member[2] == 't' && member[3] == '_');
+  getter = (member[0] == 'g' && member[1] == 'e' && member[2] == 't' && member[3] == '_');
 
   if (!(setter || getter))
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
-  s = javacaps_to_uscore (&member[3]);
+  s = wincaps_to_uscore (&member[4]);
 
   pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (object),
                                         s);
@@ -757,6 +757,7 @@ dbus_connection_register_gobject (DBusConnection        *connection,
 /** @} */ /* end of public API */
 
 #ifdef DBUS_BUILD_TESTS
+#include <stdlib.h>
 
 /**
  * @ingroup DBusGLibInternals
@@ -766,14 +767,48 @@ dbus_connection_register_gobject (DBusConnection        *connection,
 dbus_bool_t
 _dbus_gobject_test (const char *test_data_dir)
 {
-  static struct { const char *javacaps; const char *uscore; } name_pairs[] = {
-    { "setFoo", "set_foo" },
-    { "foo", "foo" },
-    { "getFooBar", "get_foo_bar" },
-    { "Hello", "hello" },
-    { "frobateUIHandler", "frobate_ui_handler" }
+  int i;
+  static struct { const char *wincaps; const char *uscore; } name_pairs[] = {
+    { "SetFoo", "set_foo" },
+    { "Foo", "foo" },
+    { "GetFooBar", "get_foo_bar" },
+    { "Hello", "hello" }
+    
+    /* Impossible-to-handle cases */
+    /* { "FrobateUIHandler", "frobate_ui_handler" } */
   };
 
+  i = 0;
+  while (i < (int) G_N_ELEMENTS (name_pairs))
+    {
+      char *uscore;
+      char *wincaps;
+
+      uscore = wincaps_to_uscore (name_pairs[i].wincaps);
+      wincaps = uscore_to_wincaps (name_pairs[i].uscore);
+
+      if (strcmp (uscore, name_pairs[i].uscore) != 0)
+        {
+          g_printerr ("\"%s\" should have been converted to \"%s\" not \"%s\"\n",
+                      name_pairs[i].wincaps, name_pairs[i].uscore,
+                      uscore);
+          exit (1);
+        }
+      
+      if (strcmp (wincaps, name_pairs[i].wincaps) != 0)
+        {
+          g_printerr ("\"%s\" should have been converted to \"%s\" not \"%s\"\n",
+                      name_pairs[i].uscore, name_pairs[i].wincaps,
+                      wincaps);
+          exit (1);
+        }
+      
+      g_free (uscore);
+      g_free (wincaps);
+
+      ++i;
+    }
+  
   return TRUE;
 }
 
