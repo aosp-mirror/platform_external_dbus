@@ -1,5 +1,16 @@
 2002-12-26  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-auth.c: fixes fixes fixes
+
+	* dbus/dbus-transport-unix.c: wire up support for
+	encoding/decoding data on the wire
+
+	* dbus/dbus-auth.c (_dbus_auth_encode_data) 
+	(_dbus_auth_decode_data): append to target string 
+	instead of nuking it.
+
+2002-12-26  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/dbus-marshal.h (DBUS_COMPILER_BYTE_ORDER): #ifdef
 	WORDS_BIGENDIAN then compiler byte order is DBUS_BIG_ENDIAN,
 	doh

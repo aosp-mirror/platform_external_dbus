@@ -173,6 +173,9 @@ static dbus_bool_t process_error_client (DBusAuth         *auth,
                                          const DBusString *args);
 
 
+static dbus_bool_t client_try_next_mechanism (DBusAuth *auth);
+
+
 static DBusAuthCommandHandler
 server_handlers[] = {
   { "AUTH", process_auth },
@@ -331,7 +334,8 @@ handle_encode_stupid_test_mech (DBusAuth         *auth,
                                 const DBusString *plaintext,
                                 DBusString       *encoded)
 {
-  if (!_dbus_string_base64_encode (plaintext, 0, encoded, 0))
+  if (!_dbus_string_base64_encode (plaintext, 0, encoded,
+                                   _dbus_string_get_length (encoded)))
     return FALSE;
   
   return TRUE;
@@ -342,7 +346,8 @@ handle_decode_stupid_test_mech (DBusAuth         *auth,
                                 const DBusString *encoded,
                                 DBusString       *plaintext)
 {
-  if (!_dbus_string_base64_decode (encoded, 0, plaintext, 0))
+  if (!_dbus_string_base64_decode (encoded, 0, plaintext,
+                                   _dbus_string_get_length (plaintext)))
     return FALSE;
   
   return TRUE;
@@ -679,6 +684,58 @@ process_mechanisms (DBusAuth         *auth,
 }
 
 static dbus_bool_t
+client_try_next_mechanism (DBusAuth *auth)
+{
+  const DBusAuthMechanismHandler *mech;
+  DBusString auth_command;
+
+  if (DBUS_AUTH_CLIENT (auth)->mechs_to_try == NULL)
+    return FALSE;
+
+  mech = DBUS_AUTH_CLIENT (auth)->mechs_to_try->data;
+
+  if (!_dbus_string_init (&auth_command, _DBUS_INT_MAX))
+    return FALSE;
+      
+  if (!_dbus_string_append (&auth_command,
+                            "AUTH "))
+    {
+      _dbus_string_free (&auth_command);
+      return FALSE;
+    }
+
+  if (!_dbus_string_append (&auth_command,
+                            mech->mechanism))
+    {
+      _dbus_string_free (&auth_command);
+      return FALSE;
+    }
+        
+  if (!_dbus_string_append (&auth_command,
+                            "\r\n"))
+    {
+      _dbus_string_free (&auth_command);
+      return FALSE;
+    }
+
+  if (!_dbus_string_copy (&auth_command, 0,
+                          &auth->outgoing,
+                          _dbus_string_get_length (&auth->outgoing)))
+    {
+      _dbus_string_free (&auth_command);
+      return FALSE;
+    }
+
+  auth->mech = mech;      
+  _dbus_list_pop_first (& DBUS_AUTH_CLIENT (auth)->mechs_to_try);
+
+  _dbus_verbose ("Trying mechanism %s\n",
+                 auth->mech->mechanism);
+
+  return TRUE;
+}
+
+static dbus_bool_t
 process_rejected (DBusAuth         *auth,
                   const DBusString *command,
                   const DBusString *args)
@@ -694,49 +751,7 @@ process_rejected (DBusAuth         *auth,
     }
   else if (DBUS_AUTH_CLIENT (auth)->mechs_to_try != NULL)
     {
-      /* Try next mechanism */
-      const DBusAuthMechanismHandler *mech;
-      DBusString auth_command;
-
-      mech = DBUS_AUTH_CLIENT (auth)->mechs_to_try->data;
-
-      if (!_dbus_string_init (&auth_command, _DBUS_INT_MAX))
-        return FALSE;
-      
-      if (!_dbus_string_append (&auth_command,
-                                "AUTH "))
-        {
-          _dbus_string_free (&auth_command);
-          return FALSE;
-        }
-
-      if (!_dbus_string_append (&auth->outgoing,
-                                mech->mechanism))
-        {
-          _dbus_string_free (&auth_command);
-          return FALSE;
-        }
-        
-      if (!_dbus_string_append (&auth->outgoing,
-                                "\r\n"))
-        {
-          _dbus_string_free (&auth_command);
-          return FALSE;
-        }
-
-      if (!_dbus_string_copy (&auth_command, 0,
-                              &auth->outgoing,
-                              _dbus_string_get_length (&auth->outgoing)))
-        {
-          _dbus_string_free (&auth_command);
-          return FALSE;
-        }
-
-      auth->mech = mech;      
-      _dbus_list_pop_first (& DBUS_AUTH_CLIENT (auth)->mechs_to_try);
-
-      _dbus_verbose ("Trying mechanism %s\n",
-                     auth->mech->mechanism);
+      client_try_next_mechanism (auth);
     }
   else
     {
@@ -978,9 +993,16 @@ _dbus_auth_client_new (void)
 
   auth->handlers = client_handlers;
 
-  /* Request an auth */
-  if (!_dbus_string_append (&auth->outgoing,
-                            "AUTH DBUS_STUPID_TEST_MECH\r\n"))
+  /* Add a default mechanism to try */
+  if (!_dbus_list_append (& DBUS_AUTH_CLIENT (auth)->mechs_to_try,
+                          (void*) &all_mechanisms[0]))
+    {
+      _dbus_auth_unref (auth);
+      return NULL;
+    }
+
+  /* Now try the mechanism we just added */
+  if (!client_try_next_mechanism (auth))
     {
       _dbus_auth_unref (auth);
       return NULL;
@@ -1215,7 +1237,7 @@ _dbus_auth_needs_encoding (DBusAuth *auth)
  *
  * @param auth the auth conversation
  * @param plaintext the plain text data
- * @param encoded initialized string to fill in with encoded data
+ * @param encoded initialized string to where encoded data is appended
  * @returns #TRUE if we had enough memory and successfully encoded
  */
 dbus_bool_t
@@ -1223,6 +1245,8 @@ _dbus_auth_encode_data (DBusAuth         *auth,
                         const DBusString *plaintext,
                         DBusString       *encoded)
 {
+  _dbus_assert (plaintext != encoded);
+  
   if (!auth->authenticated)
     return FALSE;
   
@@ -1235,7 +1259,8 @@ _dbus_auth_encode_data (DBusAuth         *auth,
     }
   else
     {
-      return _dbus_string_copy (plaintext, 0, encoded, 0);
+      return _dbus_string_copy (plaintext, 0, encoded,
+                                _dbus_string_get_length (encoded));
     }
 }
 
@@ -1270,9 +1295,12 @@ _dbus_auth_needs_decoding (DBusAuth *auth)
  * the peer. If no encoding was negotiated, just copies the bytes (you
  * can avoid this by checking _dbus_auth_needs_decoding()).
  *
+ * @todo We need to be able to distinguish "out of memory" error
+ * from "the data is hosed" error.
+ *
  * @param auth the auth conversation
  * @param encoded the encoded data
- * @param plaintext initialized string to fill in with decoded data
+ * @param plaintext initialized string where decoded data is appended
  * @returns #TRUE if we had enough memory and successfully decoded
  */
 dbus_bool_t
@@ -1280,6 +1308,8 @@ _dbus_auth_decode_data (DBusAuth         *auth,
                         const DBusString *encoded,
                         DBusString       *plaintext)
 {
+  _dbus_assert (plaintext != encoded);
+  
   if (!auth->authenticated)
     return FALSE;
   
@@ -1292,7 +1322,8 @@ _dbus_auth_decode_data (DBusAuth         *auth,
     }
   else
     {
-      return _dbus_string_copy (encoded, 0, plaintext, 0);
+      return _dbus_string_copy (encoded, 0, plaintext,
+                                _dbus_string_get_length (plaintext));
     }
 }
 

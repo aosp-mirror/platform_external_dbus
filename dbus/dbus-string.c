@@ -1407,6 +1407,7 @@ _dbus_string_base64_encode (const DBusString *source,
   const unsigned char *triplet_end;
   const unsigned char *final_end;
   DBUS_STRING_COPY_PREAMBLE (source, start, dest, insert_at);  
+  _dbus_assert (source != dest);
   
   /* For each 24 bits (3 bytes) of input, we have 4 chars of
    * output.
@@ -1508,6 +1509,7 @@ _dbus_string_base64_decode (const DBusString *source,
   int sextet_count;
   int pad_count;
   DBUS_STRING_COPY_PREAMBLE (source, start, dest, insert_at);
+  _dbus_assert (source != dest);
   
   source_len = real_source->len - start;
   s = real_source->str + start;

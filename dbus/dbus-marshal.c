@@ -342,6 +342,25 @@ _dbus_verbose_bytes (const unsigned char *data,
   _dbus_verbose ("\n");
 }
 
+/**
+ * Dump the given part of the string to verbose log.
+ *
+ * @param str the string
+ * @param start the start of range to dump
+ * @param len length of range
+ */
+void
+_dbus_verbose_bytes_of_string (const DBusString    *str,
+                               int                  start,
+                               int                  len)
+{
+  const char *d;
+
+  _dbus_string_get_const_data_len (str, &d, start, len);
+
+  _dbus_verbose_bytes (d, len);
+}
+
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS

@@ -61,6 +61,9 @@ struct DBusTransportUnix
                                          *   outgoing message that have
                                          *   been written.
                                          */
+  DBusString encoded_message;           /**< Encoded version of current
+                                         *   outgoing message.
+                                         */
 };
 
 static void
@@ -95,6 +98,8 @@ unix_finalize (DBusTransport *transport)
   DBusTransportUnix *unix_transport = (DBusTransportUnix*) transport;
   
   free_watches (transport);
+
+  _dbus_string_free (&unix_transport->encoded_message);
   
   _dbus_transport_finalize_base (transport);
 
@@ -292,6 +297,100 @@ write_data_from_auth (DBusTransport *transport)
 }
 
 static void
+recover_unused_bytes (DBusTransport *transport)
+{
+  
+  if (_dbus_auth_needs_decoding (transport->auth))
+    {
+      DBusString plaintext;
+      DBusString encoded;
+      DBusString *buffer;
+      int orig_len;
+      
+      if (!_dbus_string_init (&plaintext, _DBUS_INT_MAX))
+        goto nomem;
+
+      if (!_dbus_string_init (&encoded, _DBUS_INT_MAX))
+        {
+          _dbus_string_free (&plaintext);
+          goto nomem;
+        }
+      
+      if (!_dbus_auth_get_unused_bytes (transport->auth,
+                                        &encoded))
+        {
+          _dbus_string_free (&plaintext);
+          _dbus_string_free (&encoded);
+          goto nomem;
+        }
+      
+      if (!_dbus_auth_decode_data (transport->auth,
+                                   &encoded, &plaintext))
+        {
+          _dbus_string_free (&plaintext);
+          _dbus_string_free (&encoded);
+          goto nomem;
+        }
+      
+      _dbus_message_loader_get_buffer (transport->loader,
+                                       &buffer);
+      
+      orig_len = _dbus_string_get_length (buffer);
+
+      if (!_dbus_string_move (&plaintext, 0, buffer,
+                              orig_len))
+        {
+          _dbus_string_free (&plaintext);
+          _dbus_string_free (&encoded);
+          goto nomem;
+        }
+      
+      _dbus_verbose (" %d unused bytes sent to message loader\n", 
+                     _dbus_string_get_length (buffer) -
+                     orig_len);
+      
+      _dbus_message_loader_return_buffer (transport->loader,
+                                          buffer,
+                                          _dbus_string_get_length (buffer) -
+                                          orig_len);
+
+      _dbus_string_free (&plaintext);
+      _dbus_string_free (&encoded);
+    }
+  else
+    {
+      DBusString *buffer;
+      int orig_len;
+
+      _dbus_message_loader_get_buffer (transport->loader,
+                                       &buffer);
+                
+      orig_len = _dbus_string_get_length (buffer);
+                
+      if (!_dbus_auth_get_unused_bytes (transport->auth,
+                                        buffer))
+        goto nomem;
+                
+      _dbus_verbose (" %d unused bytes sent to message loader\n", 
+                     _dbus_string_get_length (buffer) -
+                     orig_len);
+      
+      _dbus_message_loader_return_buffer (transport->loader,
+                                          buffer,
+                                          _dbus_string_get_length (buffer) -
+                                          orig_len);
+    }
+  
+  queue_messages (transport);
+
+  return;
+
+ nomem:
+  _dbus_verbose ("Not enough memory to transfer unused bytes from auth conversation\n");
+  do_io_error (transport);
+}
+
+static void
 do_authentication (DBusTransport *transport,
                    dbus_bool_t    do_reading,
                    dbus_bool_t    do_writing)
@@ -327,35 +426,8 @@ do_authentication (DBusTransport *transport,
           break;
       
         case DBUS_AUTH_STATE_AUTHENTICATED_WITH_UNUSED_BYTES:
-          {
-            DBusString *buffer;
-            int orig_len;
-
-            _dbus_verbose (" auth state: auth with unused bytes\n");
-            
-            _dbus_message_loader_get_buffer (transport->loader,
-                                             &buffer);
-
-            orig_len = _dbus_string_get_length (buffer);
-            
-            if (!_dbus_auth_get_unused_bytes (transport->auth,
-                                              buffer))
-              {
-                _dbus_verbose ("Not enough memory to transfer unused bytes from auth conversation\n");
-                do_io_error (transport);
-              }
-
-            _dbus_verbose (" %d unused bytes sent to message loader\n", 
-                           _dbus_string_get_length (buffer) -
-                           orig_len);
-            
-            _dbus_message_loader_return_buffer (transport->loader,
-                                                buffer,
-                                                _dbus_string_get_length (buffer) -
-                                                orig_len);
-
-            queue_messages (transport);
-          }
+          _dbus_verbose (" auth state: auth with unused bytes\n");
+          recover_unused_bytes (transport);
           break;
           
         case DBUS_AUTH_STATE_AUTHENTICATED:
@@ -392,6 +464,7 @@ do_writing (DBusTransport *transport)
       const DBusString *header;
       const DBusString *body;
       int header_len, body_len;
+      int total_bytes_to_write;
       
       if (total > unix_transport->max_bytes_written_per_iteration)
         {
@@ -404,30 +477,67 @@ do_writing (DBusTransport *transport)
       _dbus_assert (message != NULL);
       _dbus_message_lock (message);
 
+      _dbus_verbose ("writing message %p\n", message);
+      
       _dbus_message_get_network_data (message,
                                       &header, &body);
 
       header_len = _dbus_string_get_length (header);
       body_len = _dbus_string_get_length (body);
-      
-      if (unix_transport->message_bytes_written < header_len)
+
+      if (_dbus_auth_needs_encoding (transport->auth))
         {
+          if (_dbus_string_get_length (&unix_transport->encoded_message) == 0)
+            {
+              if (!_dbus_auth_encode_data (transport->auth,
+                                           header, &unix_transport->encoded_message))
+                goto out;
+              
+              if (!_dbus_auth_encode_data (transport->auth,
+                                           body, &unix_transport->encoded_message))
+                {
+                  _dbus_string_set_length (&unix_transport->encoded_message, 0);
+                  goto out;
+                }
+            }
+          
+          total_bytes_to_write = _dbus_string_get_length (&unix_transport->encoded_message);
+
+          _dbus_verbose ("encoded message is %d bytes\n",
+                         total_bytes_to_write);
+          
           bytes_written =
-            _dbus_write_two (unix_transport->fd,
-                             header,
-                             unix_transport->message_bytes_written,
-                             header_len - unix_transport->message_bytes_written,
-                             body,
-                             0, body_len);
+            _dbus_write (unix_transport->fd,
+                         &unix_transport->encoded_message,
+                         unix_transport->message_bytes_written,
+                         total_bytes_to_write - unix_transport->message_bytes_written);
         }
       else
         {
-          bytes_written =
-            _dbus_write (unix_transport->fd,
-                         body,
-                         (unix_transport->message_bytes_written - header_len),
-                         body_len -
-                         (unix_transport->message_bytes_written - header_len));
+          total_bytes_to_write = header_len + body_len;
+
+          _dbus_verbose ("message is %d bytes\n",
+                         total_bytes_to_write);          
+          
+          if (unix_transport->message_bytes_written < header_len)
+            {
+              bytes_written =
+                _dbus_write_two (unix_transport->fd,
+                                 header,
+                                 unix_transport->message_bytes_written,
+                                 header_len - unix_transport->message_bytes_written,
+                                 body,
+                                 0, body_len);
+            }
+          else
+            {
+              bytes_written =
+                _dbus_write (unix_transport->fd,
+                             body,
+                             (unix_transport->message_bytes_written - header_len),
+                             body_len -
+                             (unix_transport->message_bytes_written - header_len));
+            }
         }
 
       if (bytes_written < 0)
@@ -447,19 +557,22 @@ do_writing (DBusTransport *transport)
         }
       else
         {          
-          _dbus_verbose (" wrote %d bytes\n", bytes_written);
+          _dbus_verbose (" wrote %d bytes of %d\n", bytes_written,
+                         total_bytes_to_write);
           
           total += bytes_written;
           unix_transport->message_bytes_written += bytes_written;
 
           _dbus_assert (unix_transport->message_bytes_written <=
-                        (header_len + body_len));
+                        total_bytes_to_write);
           
-          if (unix_transport->message_bytes_written == (header_len + body_len))
+          if (unix_transport->message_bytes_written == total_bytes_to_write)
             {
+              unix_transport->message_bytes_written = 0;
+              _dbus_string_set_length (&unix_transport->encoded_message, 0);
+
               _dbus_connection_message_sent (transport->connection,
                                              message);
-              unix_transport->message_bytes_written = 0;
             }
         }
     }
@@ -493,16 +606,59 @@ do_reading (DBusTransport *transport)
 
   if (transport->disconnected)
     goto out;
-  
-  _dbus_message_loader_get_buffer (transport->loader,
-                                   &buffer);
-  
-  bytes_read = _dbus_read (unix_transport->fd,
-                           buffer, unix_transport->max_bytes_read_per_iteration);
 
-  _dbus_message_loader_return_buffer (transport->loader,
-                                      buffer,
-                                      bytes_read < 0 ? 0 : bytes_read);
+  if (_dbus_auth_needs_decoding (transport->auth))
+    {
+      DBusString encoded;
+
+      if (!_dbus_string_init (&encoded, _DBUS_INT_MAX))
+        goto out; /* not enough memory for the moment */
+
+      bytes_read = _dbus_read (unix_transport->fd,
+                               &encoded,
+                               unix_transport->max_bytes_read_per_iteration);
+
+      if (bytes_read > 0)
+        {
+          int orig_len;
+          
+          _dbus_message_loader_get_buffer (transport->loader,
+                                           &buffer);
+
+          orig_len = _dbus_string_get_length (buffer);
+          
+          if (!_dbus_auth_decode_data (transport->auth,
+                                       &encoded, buffer))
+            {
+              /* FIXME argh, we are really fucked here - nowhere to
+               * put "encoded" while we wait for more memory.  Just
+               * screw it for now and disconnect.  The failure may be
+               * due to badly-encoded data instead of lack of memory
+               * anyhow.
+               */
+              _dbus_verbose ("Disconnected from remote app due to failure decoding data\n");
+              do_io_error (transport);
+            }
+
+          _dbus_message_loader_return_buffer (transport->loader,
+                                              buffer,
+                                              _dbus_string_get_length (buffer) - orig_len);
+        }
+
+      _dbus_string_free (&encoded);
+    }
+  else
+    {
+      _dbus_message_loader_get_buffer (transport->loader,
+                                       &buffer);
+      
+      bytes_read = _dbus_read (unix_transport->fd,
+                               buffer, unix_transport->max_bytes_read_per_iteration);
+      
+      _dbus_message_loader_return_buffer (transport->loader,
+                                          buffer,
+                                          bytes_read < 0 ? 0 : bytes_read);
+    }
   
   if (bytes_read < 0)
     {
@@ -748,10 +904,18 @@ _dbus_transport_new_for_fd (int         fd,
   if (unix_transport == NULL)
     return NULL;
 
+  if (!_dbus_string_init (&unix_transport->encoded_message,
+                          _DBUS_INT_MAX))
+    {
+      dbus_free (unix_transport);
+      return NULL;
+    }
+  
   if (!_dbus_transport_init_base (&unix_transport->base,
                                   &unix_vtable,
                                   server))
     {
+      _dbus_string_free (&unix_transport->encoded_message);
       dbus_free (unix_transport);
       return NULL;
     }

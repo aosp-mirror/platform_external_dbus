@@ -116,6 +116,12 @@ _dbus_read (int               fd,
     {
       /* put length back (doesn't actually realloc) */
       _dbus_string_set_length (buffer, start + bytes_read);
+
+#if 0
+      if (bytes_read > 0)
+        _dbus_verbose_bytes_of_string (buffer, start, bytes_read);
+#endif
+      
       return bytes_read;
     }
 }
@@ -148,6 +154,11 @@ _dbus_write (int               fd,
   if (errno == EINTR)
     goto again;
 
+#if 0
+  if (bytes_written > 0)
+    _dbus_verbose_bytes_of_string (buffer, start, bytes_written);
+#endif
+  
   return bytes_written;
 }
 

@@ -83,8 +83,13 @@ typedef void (* DBusForeachFunction) (void *element,
 dbus_bool_t _dbus_set_fd_nonblocking (int             fd,
                                       DBusResultCode *result);
 
-void _dbus_verbose_bytes (const unsigned char *data,
-                          int                  len);
+void _dbus_verbose_bytes           (const unsigned char *data,
+                                    int                  len);
+void _dbus_verbose_bytes_of_string (const DBusString    *str,
+                                    int                  start,
+                                    int                  len);
+
+
 
 DBUS_END_DECLS;
 
