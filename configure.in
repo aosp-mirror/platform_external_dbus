@@ -166,14 +166,14 @@ else
      AC_SUBST(GCJFLAGS)
 fi
 
-dnl Commenting this out so that gcj stuff won't get built unless explicitly required
-# if test x$enable_gcj = xauto ; then
-#     if test x$have_gcj = xno ; then
-#         enable_gcj=no
-#     else
-#         enable_gcj=yes
-#     fi
-# fi
+echo "enable_gcj=$enable_gcj"
+if test x$enable_gcj = xauto ; then
+    if test x$have_gcj = xno ; then
+        enable_gcj=no
+    else
+        enable_gcj=yes
+    fi
+fi
 
 if test x$enable_gcj = xyes; then
     if test x$have_gcj = xno ; then
