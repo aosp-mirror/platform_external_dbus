@@ -1,3 +1,23 @@
+2003-04-10  Havoc Pennington  <hp@pobox.com>
+
+	* bus/dispatch.c: lots of fixes
+	
+	* dbus/dbus-mainloop.c (_dbus_loop_dispatch): export
+	(_dbus_loop_iterate): remove old "quit if no callbacks" code,
+	that was crack, broke the test service.
+
+	* dbus/dbus-transport.c (_dbus_transport_open): fix error
+	handling to avoid piling up errors if we get a failure on the 
+	first address.
+
+	* dbus/dbus-internals.c (_dbus_real_assert_not_reached): include
+	pid in assertion failures.
+
+	* dbus/dbus-mainloop.c (_dbus_loop_iterate): use static arrays up
+	to some fixed size of file descriptor array. Don't return TRUE
+	anytime a timeout exists, that led to lots of busy loop silliness
+	in the tests.
+
 2003-04-09  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-mainloop.c (check_timeout): fix timeouts, I thought

@@ -193,7 +193,10 @@ connection_watch_callback (DBusWatch     *watch,
 {
   DBusConnection *connection = data;
   dbus_bool_t retval;
-  
+
+#if 0
+  _dbus_verbose ("Calling handle_watch\n");
+#endif
   retval = dbus_connection_handle_watch (connection, watch, condition);
 
   return retval;
@@ -863,7 +866,10 @@ bus_transaction_send_message (BusTransaction *transaction,
   BusConnectionData *d;
   DBusList *link;
 
-  _dbus_verbose ("  trying to add message %s to transaction%s\n",
+  _dbus_verbose ("  trying to add %s %s to transaction%s\n",
+                 dbus_message_get_is_error (message) ? "error" :
+                 dbus_message_get_reply_serial (message) != 0 ? "reply" :
+                 "message",
                  dbus_message_get_name (message),
                  dbus_connection_get_is_connected (connection) ?
                  "" : " (disconnected)");

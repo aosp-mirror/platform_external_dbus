@@ -301,6 +301,11 @@ bus_test_run_clients_loop (dbus_bool_t block_once)
 {
   if (client_loop == NULL)
     return;
+
+  /* dispatch before we block so pending dispatches
+   * won't make our block return early
+   */
+  _dbus_loop_dispatch (client_loop);
   
   /* Do one blocking wait, since we're expecting data */
   _dbus_loop_iterate (client_loop, block_once);
@@ -314,6 +319,11 @@ void
 bus_test_run_bus_loop (BusContext *context,
                        dbus_bool_t block_once)
 {
+  /* dispatch before we block so pending dispatches
+   * won't make our block return early
+   */
+  _dbus_loop_dispatch (bus_context_get_loop (context));
+  
   /* Do one blocking wait, since we're expecting data */
   _dbus_loop_iterate (bus_context_get_loop (context), block_once);
 

@@ -404,11 +404,22 @@ do_writing (DBusTransport *transport)
   
   /* No messages without authentication! */
   if (!_dbus_transport_get_is_authenticated (transport))
-    return TRUE;
+    {
+      _dbus_verbose ("Not authenticated, not writing anything\n");
+      return TRUE;
+    }
 
   if (transport->disconnected)
-    return TRUE;
+    {
+      _dbus_verbose ("Not connected, not writing anything\n");
+      return TRUE;
+    }
 
+#if 0
+  _dbus_verbose ("do_writing(), have_messages = %d\n",
+                 _dbus_connection_have_messages_to_send (transport->connection));
+#endif
+  
   oom = FALSE;
   total = 0;
 
@@ -528,7 +539,7 @@ do_writing (DBusTransport *transport)
             }
         }
       else
-        {          
+        {
           _dbus_verbose (" wrote %d bytes of %d\n", bytes_written,
                          total_bytes_to_write);
           
@@ -677,6 +688,7 @@ do_reading (DBusTransport *transport)
       if (_dbus_transport_queue_messages (transport) == DBUS_DISPATCH_NEED_MEMORY)
         {
           oom = TRUE;
+          _dbus_verbose (" out of memory when queueing messages we just read in the transport\n");
           goto out;
         }
       
@@ -726,7 +738,8 @@ unix_handle_watch (DBusTransport *transport,
            (flags & DBUS_WATCH_WRITABLE))
     {
 #if 0
-      _dbus_verbose ("handling write watch\n");
+      _dbus_verbose ("handling write watch, messages_need_sending = %d\n",
+                     transport->messages_need_sending);
 #endif
       if (!do_authentication (transport, FALSE, TRUE))
         return FALSE;
@@ -734,6 +747,20 @@ unix_handle_watch (DBusTransport *transport,
       if (!do_writing (transport))
         return FALSE;
     }
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+  else
+    {
+      if (watch == unix_transport->read_watch)
+        _dbus_verbose ("asked to handle read watch with non-read condition 0x%x\n",
+                       flags);
+      else if (watch == unix_transport->write_watch)
+        _dbus_verbose ("asked to handle write watch with non-write condition 0x%x\n",
+                       flags);
+      else
+        _dbus_verbose ("asked to handle watch %p on fd %d that we don't recognize\n",
+                       watch, dbus_watch_get_fd (watch));
+    }
+#endif /* DBUS_ENABLE_VERBOSE_MODE */
 
   return TRUE;
 }

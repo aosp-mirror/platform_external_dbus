@@ -213,6 +213,8 @@ _dbus_transport_open (const char     *address,
 {
   DBusTransport *transport;
   DBusAddressEntry **entries;
+  DBusError tmp_error;
+  DBusError first_error;
   int len, i;
   const char *address_problem_type;
   const char *address_problem_field;
@@ -223,15 +225,21 @@ _dbus_transport_open (const char     *address,
   if (!dbus_parse_address (address, &entries, &len, error))
     return NULL;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
   transport = NULL;
   address_problem_type = NULL;
   address_problem_field = NULL;
   address_problem_other = NULL;
-  
+
+  dbus_error_init (&tmp_error);
+  dbus_error_init (&first_error);
   for (i = 0; i < len; i++)
     {
-      const char *method = dbus_address_entry_get_method (entries[i]);
+      const char *method;
 
+      method = dbus_address_entry_get_method (entries[i]);
+      
       if (strcmp (method, "unix") == 0)
 	{
 	  const char *path = dbus_address_entry_get_value (entries[i], "path");
@@ -250,7 +258,7 @@ _dbus_transport_open (const char     *address,
               goto bad_address;
             }
 
-          transport = _dbus_transport_new_for_domain_socket (path, error);
+          transport = _dbus_transport_new_for_domain_socket (path, &tmp_error);
 	}
       else if (strcmp (method, "tcp") == 0)
 	{
@@ -277,7 +285,7 @@ _dbus_transport_open (const char     *address,
               goto bad_address;
             }
           
-	  transport = _dbus_transport_new_for_tcp_socket (host, lport, error);
+	  transport = _dbus_transport_new_for_tcp_socket (host, lport, &tmp_error);
 	}
 #ifdef DBUS_BUILD_TESTS
       else if (strcmp (method, "debug") == 0)
@@ -290,8 +298,8 @@ _dbus_transport_open (const char     *address,
               address_problem_field = "name";
               goto bad_address;
             }
-
-	  transport = _dbus_transport_debug_client_new (name, error);
+          
+          transport = _dbus_transport_debug_client_new (name, &tmp_error);
 	}
       else if (strcmp (method, "debug-pipe") == 0)
 	{
@@ -303,8 +311,8 @@ _dbus_transport_open (const char     *address,
               address_problem_field = "name";
               goto bad_address;
             }
-
-	  transport = _dbus_transport_debug_pipe_new (name, error);
+          
+	  transport = _dbus_transport_debug_pipe_new (name, &tmp_error);
 	}
 #endif
       else
@@ -314,9 +322,29 @@ _dbus_transport_open (const char     *address,
         }
 
       if (transport)
-	break;	  
+	break;
+
+      _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+      
+      if (i == 0)
+        dbus_move_error (&tmp_error, &first_error);
+      else
+        dbus_error_free (&tmp_error);
     }
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+  
+  if (transport == NULL)
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (&first_error);
+      dbus_move_error (&first_error, error);
+    }
+  else
+    {
+      dbus_error_free (&first_error);
+    }
+  
   dbus_address_entries_free (entries);
   return transport;
 
@@ -771,6 +799,8 @@ dbus_bool_t
 _dbus_transport_queue_messages (DBusTransport *transport)
 {
   DBusDispatchStatus status;
+
+  _dbus_verbose ("_dbus_transport_queue_messages()\n");
   
   /* Queue any messages */
   while ((status = _dbus_transport_get_dispatch_status (transport)) == DBUS_DISPATCH_DATA_REMAINS)

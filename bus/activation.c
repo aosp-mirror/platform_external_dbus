@@ -722,6 +722,8 @@ bus_activation_activate_service (BusActivation  *activation,
   _dbus_string_init_const (&service_str, service_name);
   if (bus_registry_lookup (bus_context_get_registry (activation->context), &service_str) != NULL)
     {
+      _dbus_verbose ("Service \"%s\" is already active\n", service_name);
+      
       message = dbus_message_new_reply (activation_message);
 
       if (!message)

@@ -26,6 +26,8 @@
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-sysdeps.h>
 
+#define MAINLOOP_SPEW 1
+
 struct DBusLoop
 {
   int refcount;
@@ -403,21 +405,29 @@ check_timeout (unsigned long    tv_sec,
 
   *timeout = msec_remaining;
 
-#if 0
-  printf ("Timeout expires in %d milliseconds\n", *timeout);
+#if MAINLOOP_SPEW
+  _dbus_verbose ("  timeout expires in %d milliseconds\n", *timeout);
 #endif
   
   return msec_remaining == 0;
 }
 
-static void
+dbus_bool_t
 _dbus_loop_dispatch (DBusLoop *loop)
 {
+
+#if MAINLOOP_SPEW
+  _dbus_verbose ("  %d connections to dispatch\n", _dbus_list_get_length (&loop->need_dispatch));
+#endif
+  
+  if (loop->need_dispatch == NULL)
+    return FALSE;
+  
  next:
   while (loop->need_dispatch != NULL)
     {
       DBusConnection *connection = _dbus_list_pop_first (&loop->need_dispatch);
-
+      
       while (TRUE)
         {
           DBusDispatchStatus status;
@@ -436,13 +446,14 @@ _dbus_loop_dispatch (DBusLoop *loop)
             }
         }
     }
+
+  return TRUE;
 }
 
 dbus_bool_t
 _dbus_loop_queue_dispatch (DBusLoop       *loop,
                            DBusConnection *connection)
 {
-  
   if (_dbus_list_append (&loop->need_dispatch, connection))
     {
       dbus_connection_ref (connection);
@@ -459,11 +470,14 @@ _dbus_loop_queue_dispatch (DBusLoop       *loop,
 dbus_bool_t
 _dbus_loop_iterate (DBusLoop     *loop,
                     dbus_bool_t   block)
-{
+{  
+#define N_STATIC_DESCRIPTORS 64
   dbus_bool_t retval;
   DBusPollFD *fds;
+  DBusPollFD static_fds[N_STATIC_DESCRIPTORS];
   int n_fds;
   WatchCallback **watches_for_fds;
+  WatchCallback *static_watches_for_fds[N_STATIC_DESCRIPTORS];
   int i;
   DBusList *link;
   int n_ready;
@@ -479,16 +493,13 @@ _dbus_loop_iterate (DBusLoop     *loop,
   oom_watch_pending = FALSE;
   orig_depth = loop->depth;
   
-#if 0
-  _dbus_verbose (" iterate %d timeouts %d watches\n",
-                 loop->timeout_count, loop->watch_count);
+#if MAINLOOP_SPEW
+  _dbus_verbose ("Iteration block=%d depth=%d timeout_count=%d watch_count=%d\n",
+                 block, loop->depth, loop->timeout_count, loop->watch_count);
 #endif
   
   if (loop->callbacks == NULL)
-    {
-      _dbus_loop_quit (loop);
-      goto next_iteration;
-    }
+    goto next_iteration;
 
   /* count enabled watches */
   n_fds = 0;
@@ -512,18 +523,30 @@ _dbus_loop_iterate (DBusLoop     *loop,
   /* fill our array of fds and watches */
   if (n_fds > 0)
     {
-      fds = dbus_new0 (DBusPollFD, n_fds);
-      while (fds == NULL)
+      if (n_fds > N_STATIC_DESCRIPTORS)
         {
-          _dbus_wait_for_memory ();
           fds = dbus_new0 (DBusPollFD, n_fds);
-        }
+
+          while (fds == NULL)
+            {
+              _dbus_wait_for_memory ();
+              fds = dbus_new0 (DBusPollFD, n_fds);
+            }
           
-      watches_for_fds = dbus_new (WatchCallback*, n_fds);
-      while (watches_for_fds == NULL)
-        {
-          _dbus_wait_for_memory ();
           watches_for_fds = dbus_new (WatchCallback*, n_fds);
+          while (watches_for_fds == NULL)
+            {
+              _dbus_wait_for_memory ();
+              watches_for_fds = dbus_new (WatchCallback*, n_fds);
+            }
+        }
+      else
+        {
+          memset (static_fds, '\0', sizeof (static_fds[0]) * n_fds);
+          memset (static_watches_for_fds, '\0', sizeof (static_watches_for_fds[0]) * n_fds);
+          
+          fds = static_fds;
+          watches_for_fds = static_watches_for_fds;
         }
       
       i = 0;
@@ -544,6 +567,13 @@ _dbus_loop_iterate (DBusLoop     *loop,
                    */
                   wcb->last_iteration_oom = FALSE;
                   oom_watch_pending = TRUE;
+
+                  retval = TRUE; /* return TRUE here to keep the loop going,
+                                  * since we don't know the watch is inactive
+                                  */
+                  
+                  _dbus_verbose ("  skipping watch on fd %d as it was out of memory last time\n",
+                                 dbus_watch_get_fd (wcb->watch));
                 }
               else if (dbus_watch_get_enabled (wcb->watch))
                 {
@@ -572,8 +602,6 @@ _dbus_loop_iterate (DBusLoop     *loop,
     {
       unsigned long tv_sec;
       unsigned long tv_usec;
-
-      retval = TRUE;
       
       _dbus_get_current_time (&tv_sec, &tv_usec);
           
@@ -610,8 +638,8 @@ _dbus_loop_iterate (DBusLoop     *loop,
   if (!block || loop->need_dispatch != NULL)
     {
       timeout = 0;
-#if 0
-      printf ("timeout is 0 as we aren't blocking\n");
+#if MAINLOOP_SPEW
+      _dbus_verbose ("  timeout is 0 as we aren't blocking\n");
 #endif
     }
 
@@ -620,6 +648,10 @@ _dbus_loop_iterate (DBusLoop     *loop,
    */
   if (oom_watch_pending)
     timeout = MIN (timeout, _dbus_get_oom_wait ());
+
+#if MAINLOOP_SPEW
+  _dbus_verbose ("  polling on %d descriptors timeout %ld\n", n_fds, timeout);
+#endif
   
   n_ready = _dbus_poll (fds, n_fds, timeout);
 
@@ -658,12 +690,14 @@ _dbus_loop_iterate (DBusLoop     *loop,
                   tcb->last_tv_sec = tv_sec;
                   tcb->last_tv_usec = tv_usec;
 
-#if 0
-                  printf ("  invoking timeout\n");
+#if MAINLOOP_SPEW
+                  _dbus_verbose ("  invoking timeout\n");
 #endif
                   
                   (* tcb->function) (tcb->timeout,
                                      cb->data);
+
+                  retval = TRUE;
                 }
             }
 
@@ -715,6 +749,11 @@ _dbus_loop_iterate (DBusLoop     *loop,
                                           ((Callback*)wcb)->data))
                     wcb->last_iteration_oom = TRUE;
 
+#if MAINLOOP_SPEW
+                  _dbus_verbose ("  Invoked watch, oom = %d\n",
+                                 wcb->last_iteration_oom);
+#endif
+                  
                   retval = TRUE;
                 }
             }
@@ -724,14 +763,17 @@ _dbus_loop_iterate (DBusLoop     *loop,
     }
       
  next_iteration:
-  dbus_free (fds);
-  dbus_free (watches_for_fds);
+  if (fds && fds != static_fds)
+    dbus_free (fds);
+  if (watches_for_fds && watches_for_fds != static_watches_for_fds)
+    dbus_free (watches_for_fds);
+  
+  if (_dbus_loop_dispatch (loop))
+    retval = TRUE;
 
-  if (loop->need_dispatch != NULL)
-    {
-      retval = TRUE;
-      _dbus_loop_dispatch (loop);
-    }
+#if MAINLOOP_SPEW
+  _dbus_verbose ("Returning %d\n", retval);
+#endif
   
   return retval;
 }
@@ -741,10 +783,15 @@ _dbus_loop_run (DBusLoop *loop)
 {
   int our_exit_depth;
 
+  _dbus_assert (loop->depth >= 0);
+  
   _dbus_loop_ref (loop);
   
   our_exit_depth = loop->depth;
   loop->depth += 1;
+
+  _dbus_verbose ("Running main loop, depth %d -> %d\n",
+                 loop->depth - 1, loop->depth);
   
   while (loop->depth != our_exit_depth)
     _dbus_loop_iterate (loop, TRUE);
@@ -755,9 +802,12 @@ _dbus_loop_run (DBusLoop *loop)
 void
 _dbus_loop_quit (DBusLoop *loop)
 {
-  _dbus_assert (loop->depth > 0);
+  _dbus_assert (loop->depth > 0);  
   
   loop->depth -= 1;
+
+  _dbus_verbose ("Quit main loop, depth %d -> %d\n",
+                 loop->depth + 1, loop->depth);
 }
 
 int
@@ -774,6 +824,7 @@ _dbus_get_oom_wait (void)
 void
 _dbus_wait_for_memory (void)
 {
+  _dbus_verbose ("Waiting for more memory\n");
   _dbus_sleep_milliseconds (_dbus_get_oom_wait ());
 }
 

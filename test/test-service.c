@@ -2,7 +2,7 @@
 #include "test-utils.h"
 
 static DBusLoop *loop;
-static dbus_bool_t already_quit;
+static dbus_bool_t already_quit = FALSE;
 
 static void
 quit (void)
@@ -140,7 +140,8 @@ main (int    argc,
       dbus_error_free (&error);
       exit (1);
     }
-  
+
+  _dbus_verbose ("*** Test service entering main loop\n");
   _dbus_loop_run (loop);
 
   test_connection_shutdown (loop, connection);

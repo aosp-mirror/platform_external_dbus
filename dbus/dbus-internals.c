@@ -363,8 +363,8 @@ _dbus_real_assert (dbus_bool_t  condition,
 {
   if (!condition)
     {
-      _dbus_warn ("Assertion failed \"%s\" file \"%s\" line %d\n",
-                  condition_text, file, line);
+      _dbus_warn ("Assertion failed \"%s\" file \"%s\" line %d process %lu\n",
+                  condition_text, file, line, _dbus_getpid ());
       _dbus_abort ();
     }
 }
@@ -384,8 +384,8 @@ _dbus_real_assert_not_reached (const char *explanation,
                                const char *file,
                                int         line)
 {
-  _dbus_warn ("File \"%s\" line %d should not have been reached: %s\n",
-              file, line, explanation);
+  _dbus_warn ("File \"%s\" line %d process %lu should not have been reached: %s\n",
+              file, line, _dbus_getpid (), explanation);
   _dbus_abort ();
 }
 #endif /* DBUS_DISABLE_ASSERT */
@@ -442,12 +442,14 @@ _dbus_test_oom_handling (const char             *description,
   
   _dbus_set_fail_alloc_counter (_DBUS_INT_MAX);
 
+  _dbus_verbose ("Running once to count mallocs\n");
+  
   if (!(* func) (data))
     return FALSE;
   
   approx_mallocs = _DBUS_INT_MAX - _dbus_get_fail_alloc_counter ();
 
-  _dbus_verbose ("=================\n%s: about %d mallocs total\n=================\n",
+  _dbus_verbose ("\n=================\n%s: about %d mallocs total\n=================\n",
                  description, approx_mallocs);
 
   _dbus_set_fail_alloc_failures (1);
@@ -466,7 +468,7 @@ _dbus_test_oom_handling (const char             *description,
   if (!run_failing_each_malloc (approx_mallocs, description, func, data))
     return FALSE;
   
-  _dbus_verbose ("=================\n%s: all iterations passed\n=================\n",
+  _dbus_verbose ("\n=================\n%s: all iterations passed\n=================\n",
                  description);
 
   return TRUE;

@@ -3453,9 +3453,6 @@ decode_header_data (const DBusString   *data,
 
       _dbus_assert (_DBUS_ALIGN_ADDRESS (field, 4) == field);
 
-      /* I believe FROM_BE is right, but if not we'll find out
-       * I guess. ;-)
-       */
       switch (DBUS_UINT32_FROM_BE (*(int*)field))
         {
         case DBUS_HEADER_FIELD_SERVICE_AS_UINT32:
@@ -3732,7 +3729,10 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
 
   	  message = dbus_message_new_empty_header ();
 	  if (message == NULL)
-            return FALSE;
+            {
+              _dbus_verbose ("Failed to allocate empty message\n");
+              return FALSE;
+            }
 
           message->byte_order = byte_order;
           message->header_padding = header_padding;
@@ -3747,6 +3747,7 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
           
 	  if (!_dbus_list_append (&loader->messages, message))
             {
+              _dbus_verbose ("Failed to append new message to loader queue\n");
               dbus_message_unref (message);
               return FALSE;
             }
@@ -3759,6 +3760,7 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
           
 	  if (!_dbus_string_move_len (&loader->data, 0, header_len, &message->header, 0))
             {
+              _dbus_verbose ("Failed to move header into new message\n");
               _dbus_list_remove_last (&loader->messages, message);
               dbus_message_unref (message);
               return FALSE;
@@ -3768,6 +3770,8 @@ _dbus_message_loader_queue_messages (DBusMessageLoader *loader)
             {
               dbus_bool_t result;
 
+              _dbus_verbose ("Failed to move body into new message\n");
+              
               /* put the header back, we'll try again later */
               result = _dbus_string_copy_len (&message->header, 0, header_len,
                                               &loader->data, 0);

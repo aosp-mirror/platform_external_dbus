@@ -313,12 +313,14 @@ _dbus_connection_message_sent (DBusConnection *connection,
   _dbus_assert (message == _dbus_list_get_last (&connection->outgoing_messages));
   
   _dbus_list_pop_last (&connection->outgoing_messages);
-  dbus_message_unref (message);
   
   connection->n_outgoing -= 1;
 
-  _dbus_verbose ("Message %p removed from outgoing queue %p, %d left to send\n",
-                 message, connection, connection->n_outgoing);
+  _dbus_verbose ("Message %p (%s) removed from outgoing queue %p, %d left to send\n",
+                 message, dbus_message_get_name (message),
+                 connection, connection->n_outgoing);
+
+  dbus_message_unref (message);
   
   if (connection->n_outgoing == 0)
     _dbus_transport_messages_pending (connection->transport,
@@ -1721,8 +1723,9 @@ _dbus_connection_pop_message_link_unlocked (DBusConnection *connection)
       link = _dbus_list_pop_first_link (&connection->incoming_messages);
       connection->n_incoming -= 1;
 
-      _dbus_verbose ("Message %p removed from incoming queue %p, %d incoming\n",
-                     link->data, connection, connection->n_incoming);
+      _dbus_verbose ("Message %p (%s) removed from incoming queue %p, %d incoming\n",
+                     link->data, dbus_message_get_name (link->data),
+                     connection, connection->n_incoming);
 
       return link;
     }
@@ -1777,8 +1780,10 @@ dbus_connection_pop_message (DBusConnection *connection)
     return NULL;
   
   dbus_mutex_lock (connection->mutex);
-  
+
   message = _dbus_connection_pop_message_unlocked (connection);
+
+  _dbus_verbose ("Returning popped message %p\n", message);    
   
   dbus_mutex_unlock (connection->mutex);
   
@@ -2065,7 +2070,8 @@ dbus_connection_dispatch (DBusConnection *connection)
            */
 	  dbus_mutex_unlock (connection->mutex);
 
-          _dbus_verbose ("  running app handler on message %p\n", message);
+          _dbus_verbose ("  running app handler on message %p (%s)\n",
+                         message, dbus_message_get_name (message));
           
           result = _dbus_message_handler_handle_message (handler, connection,
                                                          message);

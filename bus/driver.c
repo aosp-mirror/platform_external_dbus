@@ -1,7 +1,8 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* driver.c  Bus client (driver)
  *
- * Copyright (C) 2003  CodeFactory AB
+ * Copyright (C) 2003 CodeFactory AB
+ * Copyright (C) 2003 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 1.2
  * 

@@ -63,6 +63,7 @@ void        _dbus_loop_run            (DBusLoop            *loop);
 void        _dbus_loop_quit           (DBusLoop            *loop);
 dbus_bool_t _dbus_loop_iterate        (DBusLoop            *loop,
                                        dbus_bool_t          block);
+dbus_bool_t _dbus_loop_dispatch       (DBusLoop            *loop);
 
 int  _dbus_get_oom_wait    (void);
 void _dbus_wait_for_memory (void);
