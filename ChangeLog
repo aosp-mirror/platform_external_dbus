@@ -1,5 +1,21 @@
 2003-04-05  Havoc Pennington  <hp@pobox.com>
 
+	* bus/loop.c (bus_loop_iterate): fix the timeout code, using 
+	magic from GLib
+
+	* dbus/dbus-spawn.c (_dbus_babysitter_unref): set sitter_pid 
+	to -1 once we've reaped the babysitter
+	(_dbus_babysitter_handle_watch): do as much work as we can, not
+	just one go of it
+
+	* bus/activation.c: add code using DBusBabysitter so that we
+	handle it when a service fails to start up properly.
+	(bus_activation_service_created): don't remove the activation
+	entries as we go, just let them get removed when we free the pending
+	activation. Unref reply messages after sending them.
+
+2003-04-05  Havoc Pennington  <hp@pobox.com>
+
 	* test/decode-gcov.c (main): print per-directory stats in the report
 
 	* Makefile.am (coverage-report.txt): don't include test/* in gcov stats

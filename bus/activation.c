@@ -29,6 +29,7 @@
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-spawn.h>
+#include <dbus/dbus-timeout.h>
 #include <sys/types.h>
 #include <dirent.h>
 #include <errno.h>
@@ -62,8 +63,12 @@ struct BusPendingActivationEntry
 
 typedef struct
 {
+  BusActivation *activation;
   char *service_name;
   DBusList *entries;
+  DBusBabysitter *babysitter;
+  DBusTimeout *timeout;
+  unsigned int timeout_added : 1;
 } BusPendingActivation;
 
 static void
@@ -74,21 +79,53 @@ bus_pending_activation_entry_free (BusPendingActivationEntry *entry)
   
   if (entry->connection)
     dbus_connection_unref (entry->connection);
-
+  
   dbus_free (entry);
 }
 
 static void
-bus_pending_activation_free (BusPendingActivation *activation)
+handle_timeout_callback (DBusTimeout   *timeout,
+                         void          *data)
+{
+  BusPendingActivation *pending_activation = data;
+
+  while (!dbus_timeout_handle (pending_activation->timeout))
+    bus_wait_for_memory ();
+}
+
+static void
+bus_pending_activation_free (BusPendingActivation *pending_activation)
 {
   DBusList *link;
   
-  if (!activation)
+  if (pending_activation == NULL) /* hash table requires this */
     return;
 
-  dbus_free (activation->service_name);
+  if (pending_activation->timeout_added)
+    {
+      bus_loop_remove_timeout (bus_context_get_loop (pending_activation->activation->context),
+                               pending_activation->timeout,
+                               handle_timeout_callback, pending_activation);
+      pending_activation->timeout_added = FALSE;
+    }
 
-  link = _dbus_list_get_first_link (&activation->entries);
+  if (pending_activation->timeout)
+    _dbus_timeout_unref (pending_activation->timeout);
+  
+  if (pending_activation->babysitter)
+    {
+      if (!_dbus_babysitter_set_watch_functions (pending_activation->babysitter,
+                                                 NULL, NULL, NULL,
+                                                 pending_activation->babysitter,
+                                                 NULL))
+        _dbus_assert_not_reached ("setting watch functions to NULL failed");
+      
+      _dbus_babysitter_unref (pending_activation->babysitter);
+    }
+  
+  dbus_free (pending_activation->service_name);
+
+  link = _dbus_list_get_first_link (&pending_activation->entries);
 
   while (link != NULL)
     {
@@ -96,11 +133,11 @@ bus_pending_activation_free (BusPendingActivation *activation)
 
       bus_pending_activation_entry_free (entry);
 
-      link = _dbus_list_get_next_link (&activation->entries, link);
+      link = _dbus_list_get_next_link (&pending_activation->entries, link);
     }
-  _dbus_list_clear (&activation->entries);
+  _dbus_list_clear (&pending_activation->entries);
   
-  dbus_free (activation);
+  dbus_free (pending_activation);
 }
 
 static void
@@ -478,11 +515,10 @@ bus_activation_service_created (BusActivation  *activation,
 	      BUS_SET_OOM (error);
 	      goto error;
 	    }
+
+          dbus_message_unref (message);
 	}
 
-      bus_pending_activation_entry_free (entry);
-      
-      _dbus_list_remove_link (&pending_activation->entries, link);      
       link = next;
     }
   
@@ -493,6 +529,165 @@ bus_activation_service_created (BusActivation  *activation,
  error:
   _dbus_hash_table_remove_string (activation->pending_activations, service_name);
   return FALSE;
+}
+
+/**
+ * FIXME @todo the error messages here would ideally be preallocated
+ * so we don't need to allocate memory to send them.
+ * Using the usual tactic, prealloc an OOM message, then
+ * if we can't alloc the real error send the OOM error instead.
+ */
+static dbus_bool_t
+try_send_activation_failure (BusPendingActivation *pending_activation,
+                             const DBusError      *how)
+{
+  BusActivation *activation;
+  DBusMessage *message;
+  DBusList *link;
+  BusTransaction *transaction;
+  
+  activation = pending_activation->activation;
+
+  transaction = bus_transaction_new (activation->context);
+  if (transaction == NULL)
+    return FALSE;
+  
+  link = _dbus_list_get_first_link (&pending_activation->entries);
+  while (link != NULL)
+    {
+      BusPendingActivationEntry *entry = link->data;
+      DBusList *next = _dbus_list_get_next_link (&pending_activation->entries, link);
+      
+      if (dbus_connection_get_is_connected (entry->connection))
+	{
+	  message = dbus_message_new_error_reply (entry->activation_message,
+                                                  how->name,
+                                                  how->message);
+	  if (!message)
+            goto error;
+
+	  if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS))
+            {
+	      dbus_message_unref (message);
+	      goto error;
+	    }
+          
+	  if (!bus_transaction_send_message (transaction, entry->connection, message))
+	    {
+	      dbus_message_unref (message);
+	      goto error;
+	    }
+
+          dbus_message_unref (message);
+	}
+
+      link = next;
+    }
+
+  bus_transaction_execute_and_free (transaction);
+  
+  return TRUE;
+
+ error:
+  if (transaction)
+    bus_transaction_cancel_and_free (transaction);
+  return FALSE;
+}
+
+/**
+ * Free the pending activation and send an error message to all the
+ * connections that were waiting for it.
+ */
+static void
+pending_activation_failed (BusPendingActivation *pending_activation,
+                           const DBusError      *how)
+{
+  /* FIXME use preallocated OOM messages instead of bus_wait_for_memory() */
+  while (!try_send_activation_failure (pending_activation, how))
+    bus_wait_for_memory ();
+
+  /* Destroy this pending activation */
+  _dbus_hash_table_remove_string (pending_activation->activation->pending_activations,
+                                  pending_activation->service_name);
+}
+
+static dbus_bool_t
+babysitter_watch_callback (DBusWatch     *watch,
+                           unsigned int   condition,
+                           void          *data)
+{
+  BusPendingActivation *pending_activation = data;
+  dbus_bool_t retval;
+  DBusBabysitter *babysitter;
+
+  babysitter = pending_activation->babysitter;
+  
+  _dbus_babysitter_ref (babysitter);
+  
+  retval = _dbus_babysitter_handle_watch (babysitter, watch, condition);
+
+  if (_dbus_babysitter_get_child_exited (babysitter))
+    {
+      DBusError error;
+
+      dbus_error_init (&error);
+      _dbus_babysitter_set_child_exit_error (babysitter, &error);
+
+      /* Destroys the pending activation */
+      pending_activation_failed (pending_activation, &error);
+
+      dbus_error_free (&error);
+    }
+  
+  _dbus_babysitter_unref (babysitter);
+
+  return retval;
+}
+
+static dbus_bool_t
+add_babysitter_watch (DBusWatch      *watch,
+                      void           *data)
+{
+  BusPendingActivation *pending_activation = data;
+
+  return bus_loop_add_watch (bus_context_get_loop (pending_activation->activation->context),
+                             watch, babysitter_watch_callback, pending_activation,
+                             NULL);
+}
+
+static void
+remove_babysitter_watch (DBusWatch      *watch,
+                         void           *data)
+{
+  BusPendingActivation *pending_activation = data;
+  
+  bus_loop_remove_watch (bus_context_get_loop (pending_activation->activation->context),
+                         watch, babysitter_watch_callback, pending_activation);
+}
+
+static dbus_bool_t
+pending_activation_timed_out (void *data)
+{
+  BusPendingActivation *pending_activation = data;
+  DBusError error;
+  
+  /* Kill the spawned process, since it sucks
+   * (not sure this is what we want to do, but
+   * may as well try it for now)
+   */
+  _dbus_babysitter_kill_child (pending_activation->babysitter);
+
+  dbus_error_init (&error);
+
+  dbus_set_error (&error, DBUS_ERROR_TIMED_OUT,
+                  "Activation of %s timed out",
+                  pending_activation->service_name);
+
+  pending_activation_failed (pending_activation, &error);
+
+  dbus_error_free (&error);
+
+  return TRUE;
 }
 
 dbus_bool_t
@@ -586,6 +781,9 @@ bus_activation_activate_service (BusActivation  *activation,
 	  bus_pending_activation_entry_free (pending_activation_entry);	  
 	  return FALSE;
 	}
+
+      pending_activation->activation = activation;
+      
       pending_activation->service_name = _dbus_strdup (service_name);
       if (!pending_activation->service_name)
 	{
@@ -595,6 +793,33 @@ bus_activation_activate_service (BusActivation  *activation,
 	  return FALSE;
 	}
 
+      pending_activation->timeout =
+        _dbus_timeout_new (bus_context_get_activation_timeout (activation->context),
+                           pending_activation_timed_out,
+                           pending_activation,
+                           NULL);
+      if (!pending_activation->timeout)
+	{
+	  BUS_SET_OOM (error);
+	  bus_pending_activation_free (pending_activation);
+	  bus_pending_activation_entry_free (pending_activation_entry);	  
+	  return FALSE;
+	}
+
+      if (!bus_loop_add_timeout (bus_context_get_loop (activation->context),
+                                 pending_activation->timeout,
+                                 handle_timeout_callback,
+                                 pending_activation,
+                                 NULL))
+	{
+	  BUS_SET_OOM (error);
+	  bus_pending_activation_free (pending_activation);
+	  bus_pending_activation_entry_free (pending_activation_entry);	  
+	  return FALSE;
+	}
+
+      pending_activation->timeout_added = TRUE;
+      
       if (!_dbus_list_append (&pending_activation->entries, pending_activation_entry))
 	{
 	  BUS_SET_OOM (error);
@@ -620,10 +845,26 @@ bus_activation_activate_service (BusActivation  *activation,
   argv[0] = entry->exec;
   argv[1] = NULL;
 
-  if (!_dbus_spawn_async_with_babysitter (NULL, argv,
+  if (!_dbus_spawn_async_with_babysitter (&pending_activation->babysitter, argv,
                                           child_setup, activation, 
                                           error))
     {
+      _dbus_hash_table_remove_string (activation->pending_activations,
+				      pending_activation->service_name);
+      return FALSE;
+    }
+
+  _dbus_assert (pending_activation->babysitter != NULL);
+  
+  if (!_dbus_babysitter_set_watch_functions (pending_activation->babysitter,
+                                             add_babysitter_watch,
+                                             remove_babysitter_watch,
+                                             NULL,
+                                             pending_activation,
+                                             NULL))
+    {
+      BUS_SET_OOM (error);
+      
       _dbus_hash_table_remove_string (activation->pending_activations,
 				      pending_activation->service_name);
       return FALSE;

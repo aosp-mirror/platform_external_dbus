@@ -312,6 +312,90 @@ bus_loop_remove_timeout (BusLoop            *loop,
               timeout, function, data);
 }
 
+/* Convolutions from GLib, there really must be a better way
+ * to do this.
+ */
+static dbus_bool_t
+check_timeout (unsigned long    tv_sec,
+               unsigned long    tv_usec,
+               TimeoutCallback *tcb,
+               int             *timeout)
+{
+  long sec;
+  long msec;
+  unsigned long expiration_tv_sec;
+  unsigned long expiration_tv_usec;
+  long interval_seconds;
+  long interval_milliseconds;
+  int interval;
+
+  interval = dbus_timeout_get_interval (tcb->timeout);
+  
+  interval_seconds = interval / 1000;
+  interval_milliseconds = interval - interval_seconds * 1000;
+  
+  expiration_tv_sec = tcb->last_tv_sec + interval_seconds;
+  expiration_tv_usec = tcb->last_tv_usec + interval_milliseconds * 1000;
+  if (expiration_tv_usec >= 1000000)
+    {
+      expiration_tv_usec -= 1000000;
+      expiration_tv_sec += 1;
+    }
+  
+  sec = expiration_tv_sec - tv_sec;
+  msec = (expiration_tv_usec - tv_usec) / 1000;
+
+#if 0
+  printf ("Interval is %ld seconds %ld msecs\n",
+          interval_seconds,
+          interval_milliseconds);
+  printf ("Now is %lu seconds %lu usecs\n",
+          tv_sec, tv_usec);
+  printf ("Exp is %lu seconds %lu usecs\n",
+          expiration_tv_sec, expiration_tv_usec);
+  printf ("Pre-correction, remaining sec %ld msec %ld\n", sec, msec);
+#endif
+  
+  /* We do the following in a rather convoluted fashion to deal with
+   * the fact that we don't have an integral type big enough to hold
+   * the difference of two timevals in millseconds.
+   */
+  if (sec < 0 || (sec == 0 && msec < 0))
+    msec = 0;
+  else
+    {
+      if (msec < 0)
+	{
+	  msec += 1000;
+	  sec -= 1;
+	}
+      
+      if (sec > interval_seconds ||
+	  (sec == interval_seconds && msec > interval_milliseconds))
+	{
+	  /* The system time has been set backwards, reset the timeout */
+          tcb->last_tv_sec = tv_sec;
+          tcb->last_tv_usec = tv_usec;
+          
+          msec = MIN (_DBUS_INT_MAX, interval);
+
+          _dbus_verbose ("System clock went backward\n");
+	}
+      else
+	{
+	  msec = MIN (_DBUS_INT_MAX, (unsigned int)msec + 1000 * (unsigned int)sec);
+	}
+    }
+
+  *timeout = msec;
+
+#if 0
+  printf ("Timeout expires in %d milliseconds\n", *timeout);
+#endif
+  
+  return msec == 0;
+}
+
 /* Returns TRUE if we have any timeouts or ready file descriptors,
  * which is just used in test code as a debug hack
  */
@@ -447,34 +531,15 @@ bus_loop_iterate (BusLoop     *loop,
               dbus_timeout_get_enabled (TIMEOUT_CALLBACK (cb)->timeout))
             {
               TimeoutCallback *tcb = TIMEOUT_CALLBACK (cb);
-              unsigned long interval;
-              unsigned long elapsed;
+              int msecs_remaining;
 
-              if (tcb->last_tv_sec > tv_sec ||
-                  (tcb->last_tv_sec == tv_sec &&
-                   tcb->last_tv_usec > tv_usec))
-                {
-                  /* Clock went backward, pretend timeout
-                   * was just installed.
-                   */
-                  tcb->last_tv_sec = tv_sec;
-                  tcb->last_tv_usec = tv_usec;
-                  _dbus_verbose ("System clock went backward\n");
-                }
-                  
-              interval = dbus_timeout_get_interval (tcb->timeout);
+              check_timeout (tv_sec, tv_usec, tcb, &msecs_remaining);
 
-              elapsed =
-                (tv_sec - tcb->last_tv_sec) * 1000 +
-                (tv_usec - tcb->last_tv_usec) / 1000;
-
-              if (interval < elapsed)
-                timeout = 0;
-              else if (timeout < 0)
-                timeout = interval - elapsed;
+              if (timeout < 0)
+                timeout = msecs_remaining;
               else
-                timeout = MIN (((unsigned long)timeout), interval - elapsed);
-
+                timeout = MIN (msecs_remaining, timeout);
+              
               _dbus_assert (timeout >= 0);
                   
               if (timeout == 0)
@@ -486,7 +551,12 @@ bus_loop_iterate (BusLoop     *loop,
     }
 
   if (!block)
-    timeout = 0;
+    {
+      timeout = 0;
+#if 0
+      printf ("timeout is 0 as we aren't blocking\n");
+#endif
+    }
 
   /* if a watch is OOM, don't wait longer than the OOM
    * wait to re-enable it
@@ -522,41 +592,17 @@ bus_loop_iterate (BusLoop     *loop,
               dbus_timeout_get_enabled (TIMEOUT_CALLBACK (cb)->timeout))
             {
               TimeoutCallback *tcb = TIMEOUT_CALLBACK (cb);
-              unsigned long interval;
-              unsigned long elapsed;
-                  
-              if (tcb->last_tv_sec > tv_sec ||
-                  (tcb->last_tv_sec == tv_sec &&
-                   tcb->last_tv_usec > tv_usec))
-                {
-                  /* Clock went backward, pretend timeout
-                   * was just installed.
-                   */
-                  tcb->last_tv_sec = tv_sec;
-                  tcb->last_tv_usec = tv_usec;
-                  _dbus_verbose ("System clock went backward\n");
-                  goto next_timeout;
-                }
-                  
-              interval = dbus_timeout_get_interval (tcb->timeout);
-
-              elapsed =
-                (tv_sec - tcb->last_tv_sec) * 1000 +
-                (tv_usec - tcb->last_tv_usec) / 1000;
-
-#if 0
-              _dbus_verbose ("  interval = %lu elapsed = %lu\n",
-                             interval, elapsed);
-#endif
+              int msecs_remaining;
               
-              if (interval <= elapsed)
+              if (check_timeout (tv_sec, tv_usec,
+                                 tcb, &msecs_remaining))
                 {
                   /* Save last callback time and fire this timeout */
                   tcb->last_tv_sec = tv_sec;
                   tcb->last_tv_usec = tv_usec;
 
 #if 0
-                  _dbus_verbose ("  invoking timeout\n");
+                  printf ("  invoking timeout\n");
 #endif
                   
                   (* tcb->function) (tcb->timeout,
@@ -564,7 +610,6 @@ bus_loop_iterate (BusLoop     *loop,
                 }
             }
 
-        next_timeout:
           link = next;
         }
     }

@@ -1070,9 +1070,11 @@ check_existent_service_activation (BusContext     *context,
 
   bus_test_run_everything (context);
 
-  /* now wait for the message bus to hear back from the activated service */
-  bus_test_run_bus_loop (context);
-
+  if (dbus_connection_get_dispatch_status (connection) ==
+      DBUS_DISPATCH_COMPLETE)
+    /* now wait for the message bus to hear back from the activated service */
+    bus_test_run_bus_loop (context);
+  
   /* and process everything again */
   bus_test_run_everything (context);
 

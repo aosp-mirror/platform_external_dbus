@@ -293,6 +293,8 @@ _dbus_babysitter_unref (DBusBabysitter *sitter)
               else
                 _dbus_verbose ("Babysitter exited abnormally\n");
             }
+
+          sitter->sitter_pid = -1;
         }
       
       if (sitter->error_watch)
@@ -699,6 +701,10 @@ _dbus_babysitter_handle_watch (DBusBabysitter  *sitter,
     handle_error_pipe (sitter, revents);
   else if (fd == sitter->socket_to_babysitter)
     handle_babysitter_socket (sitter, revents);
+
+  while (LIVE_CHILDREN (sitter) &&
+         babysitter_iteration (sitter, FALSE))
+    ;
   
   return TRUE;
 }

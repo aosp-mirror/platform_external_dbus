@@ -47,6 +47,7 @@ struct BusContext
   DBusList *mandatory_rules;    /**< Mandatory policy rules */
   DBusHashTable *rules_by_uid;  /**< per-UID policy rules */
   DBusHashTable *rules_by_gid;  /**< per-GID policy rules */
+  int activation_timeout;       /**< How long to wait for an activation to time out */
 };
 
 static int server_data_slot = -1;
@@ -333,6 +334,12 @@ bus_context_new (const DBusString *config_file,
   
   context->refcount = 1;
 
+#ifdef DBUS_BUILD_TESTS
+  context->activation_timeout = 6000;   /* 6/10 second */ /* FIXME */
+#else
+  context->activation_timeout = 10000; /* 10 seconds */
+#endif
+  
   context->loop = bus_loop_new ();
   if (context->loop == NULL)
     {
@@ -852,4 +859,11 @@ bus_context_create_connection_policy (BusContext      *context,
  failed:
   bus_policy_unref (policy);
   return NULL;
+}
+
+int
+bus_context_get_activation_timeout (BusContext *context)
+{
+  
+  return context->activation_timeout;
 }

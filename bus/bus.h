@@ -54,5 +54,6 @@ dbus_bool_t     bus_context_allow_user               (BusContext       *context,
                                                       unsigned long     uid);
 BusPolicy*      bus_context_create_connection_policy (BusContext       *context,
                                                       DBusConnection   *connection);
+int             bus_context_get_activation_timeout   (BusContext       *context);
 
 #endif /* BUS_BUS_H */
