@@ -1,3 +1,10 @@
+2003-03-18  Havoc Pennington  <hp@redhat.com>
+
+	* doc/TODO: some notes on high-level todo items. Little nitpick
+	stuff is all in @todo, so no need to add it here.
+
+	* doc/config-file.txt: some notes on how config file might look
+
 2003-03-18  Anders Carlsson  <andersca@codefactory.se>
 
 	* configure.in: 0.6

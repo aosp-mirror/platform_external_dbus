@@ -1,0 +1,154 @@
+
+D-BUS message bus daemon configuration
+===
+
+The message bus daemon has a configuration file that specializes it
+for a particular application. For example, one configuration 
+file might set up the message bus to be a systemwide message bus, 
+while another might set it up to be a per-user login session bus.
+
+The configuration file also establishes resource limits, security
+parameters, and so forth.
+
+The configuration file is not part of any interoperability
+specification and its backward compatibility is not guaranteed; this
+document is documentation, not specification.
+
+A DTD should be written here eventually, but for now I suck.
+
+Doctype declaration:
+
+   <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+    "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+
+Elements:
+
+ <busconfig>
+ 
+    Root element.
+
+ <include>
+  ignore_missing="(yes|no)"   optional attribute, defaults to no
+   
+    Include a file <include>filename.conf</include> at this point.
+
+ <user>
+
+    The user account the daemon should run as, as either a username or
+    a UID. If the daemon doesn't have and cannot change to this UID on
+    startup, it will exit.  If this element is not present, the daemon 
+    will not change or care about its UID.
+ 
+    The last <user> entry in the file "wins", the others are ignored.
+
+ <listen>
+  address="name"    mandatory attribute
+
+    Add an address that the bus should listen on. The 
+    address is in the standard D-BUS format that contains 
+    a transport name plus possible parameters/options.
+
+    Example: <listen address="unix:path=/tmp/foo"/>
+
+    If there are multiple <listen> elements, then the bus listens 
+    on multiple addresses.
+
+ <auth>
+
+    Lists permitted authorization mechanisms. If this element doesn't
+    exist, then all known mechanisms are allowed.  If there are
+    multiple <auth> elements, the last one wins (they are not merged).
+
+ <policy>
+  context="(default|required)"   one of the context/user/group
+                                 attributes is mandatory
+  user="username or userid"
+  group="group name or gid"
+
+    Encloses a policy to be applied to a particular set of 
+    connections to the bus. A policy is made up of <limit>, 
+    <allow>, <deny> elements.
+  
+    Policies are applied to a connection as follows:
+       - all context="default" policies are applied
+       - all group="connection's user's group" policies are applied
+       - all user="connection's auth user" policies are applied
+       - all context="required" policies are applied
+
+    Policies applied later will override those applied earlier, 
+    when the policies overlap. Multiple policies with the same 
+    user/group/context are applied in the order they appear 
+    in the config file.
+
+ <limit>
+  name="resource name"  mandatory
+  
+    Appears below a <policy> element and establishes a resource
+    limit. For example:
+      <limit name="max_message_size">64</limit>
+      <limit name="max_connections">512</limit>
+
+ <deny>
+  send="messagename"
+  receive="messagename"
+  own="servicename"
+  send_to="servicename"
+  receive_from="servicename"
+
+    Examples:
+       <deny send="org.freedesktop.System.Reboot"/> 
+       <deny receive="org.freedesktop.System.Reboot"/>
+       <deny own="org.freedesktop.System"/>
+       <deny send_to="org.freedesktop.System"/>
+       <deny receive_from="org.freedesktop.System"/>
+
+    send_to and receive_from mean that messages may not be sent to 
+    or received from the *owner* of the given service, not that 
+    they may not be sent *to that service name*. That is, if 
+    a connection owns services A, B, C, and sending to A is denied, 
+    sending to B or C will not work either.
+
+    For "servicename" or "messagename" the character "*" can be
+    substituted, meaning "any." Complex globs like "foo.bar.*" aren't
+    allowed for now because they'd be work to implement and maybe 
+    encourage sloppy security anyway.
+
+    FIXME should we allow send/send_to and receive/receive_from 
+    to both be specified, in which case they would be ANDed together?
+    e.g. <deny send="foo.bar" send_to="foo.blah"/> would deny 
+    messages of the given name AND to the given service.
+
+    Probably need to see how hard/slow all this will be to implement.
+
+ <allow>
+  send="messagename"
+  receive="messagename"
+  own="servicename"
+  send_to="servicename"
+  receive_from="servicename"
+
+    Makes an exception to previous <deny> statements. Works 
+    just like <deny> but with the inverse meaning.
+
+    An <allow> only punches holes in the equivalent <deny>, it does
+    not unconditionally allow the message. For example:
+
+      <deny send="*"/>
+      <deny send_to="*"/>
+      <allow send="org.foo.Bar"/>
+
+    Here the policy still doesn't allow sending any messages, because 
+    no recipients have been allowed. You have to add 
+    <allow send_to="something"/> to make the policy useful.
+
+  
+
+    
+
+
+ 
+ 
+
+ 
+   
+   
