@@ -1,3 +1,7 @@
+2005-03-01  Colin Walters  <walters@verbum.org>
+
+	* doc/TODO: Remove introspection signature TODO.
+
 2005-02-27  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-gidl.c (property_info_get_type, arg_info_get_type):

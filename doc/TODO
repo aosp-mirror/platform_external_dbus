@@ -29,8 +29,6 @@ Important for 1.0
 
  - Ping isn't handled
 
- - fix introspection format to handle all signatures
-
  - dbus-pending-call.c has some API and thread safety issues to review
 
  - transmit GUID from server to client in the auth protocol, so 
