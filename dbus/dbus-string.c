@@ -1416,10 +1416,10 @@ _dbus_string_skip_blank (const DBusString *str,
 }
 
 /**
- * Assigns a newline-terminated line from the front of the string
- * to the given dest string. The dest string's previous contents are
- * deleted. If the source string contains no newline, moves the
- * entire source string to the dest string.
+ * Assigns a newline-terminated or \r\n-terminated line from the front
+ * of the string to the given dest string. The dest string's previous
+ * contents are deleted. If the source string contains no newline,
+ * moves the entire source string to the dest string.
  * 
  * @param source the source string
  * @param dest the destination string (contents are replaced)
@@ -1455,12 +1455,23 @@ _dbus_string_pop_line (DBusString *source,
       return FALSE;
     }
 
-  /* dump the newline */
+  /* dump the newline and the \r if we have one */
   if (have_newline)
     {
+      dbus_bool_t have_cr;
+      
       _dbus_assert (_dbus_string_get_length (dest) > 0);
+
+      if (_dbus_string_get_length (dest) > 1 &&
+          _dbus_string_get_byte (dest,
+                                 _dbus_string_get_length (dest) - 2) == '\r')
+        have_cr = TRUE;
+      else
+        have_cr = FALSE;
+        
       _dbus_string_set_length (dest,
-                               _dbus_string_get_length (dest) - 1);
+                               _dbus_string_get_length (dest) -
+                               (have_cr ? 2 : 1));
     }
   
   return TRUE;
@@ -2542,6 +2553,10 @@ _dbus_string_test (void)
     _dbus_assert_not_reached ("didn't find 'He'");
   _dbus_assert (i == 0);
 
+  if (!_dbus_string_find (&str, 0, "Hello", &i))
+    _dbus_assert_not_reached ("didn't find 'Hello'");
+  _dbus_assert (i == 0);
+  
   if (!_dbus_string_find (&str, 0, "ello", &i))
     _dbus_assert_not_reached ("didn't find 'ello'");
   _dbus_assert (i == 1);

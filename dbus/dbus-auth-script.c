@@ -82,8 +82,6 @@ append_quoted_string (DBusString       *dest,
       ++i;
     }
 
-  if (!_dbus_string_append_byte (dest, '\0'))
-    return FALSE;
   return TRUE;
 }
 
@@ -280,6 +278,20 @@ _dbus_auth_script_run (const DBusString *filename)
               goto out;
             }
 
+          {
+            const char *s4;
+            _dbus_string_get_const_data (&to_send, &s4);
+            _dbus_verbose ("Sending '%s'\n", s4);
+          }
+          
+          if (!_dbus_string_append (&to_send, "\r\n"))
+            {
+              _dbus_warn ("failed to append \r\n from line %d\n",
+                          line_no);
+              _dbus_string_free (&to_send);
+              goto out;
+            }
+          
           if (!_dbus_auth_bytes_received (auth, &to_send))
             {
               _dbus_warn ("not enough memory to call bytes_received\n");
@@ -340,8 +352,8 @@ _dbus_auth_script_run (const DBusString *filename)
               const char *s1, *s2;
               _dbus_string_get_const_data (&line, &s1);
               _dbus_string_get_const_data (&received, &s2);
-              _dbus_warn ("expected command '%s' and got '%s' line %d\n",
-                          s1, s2, line_no);
+              _dbus_warn ("line %d expected command '%s' and got '%s'\n",
+                          line_no, s1, s2);
               _dbus_string_free (&received);
               goto out;
             }
@@ -386,7 +398,7 @@ _dbus_auth_script_run (const DBusString *filename)
     _dbus_auth_unref (auth);
 
   _dbus_string_free (&file);
-  _dbus_string_free (&file);
+  _dbus_string_free (&line);
   _dbus_string_free (&from_auth);
   
   return retval;

@@ -1,5 +1,16 @@
 2003-02-12  Havoc Pennington  <hp@pobox.com>
 
+	* dbus/dbus-string.c (_dbus_string_pop_line): fix to also strip
+	\r off of popped lines
+
+	* dbus/dbus-auth.c (_dbus_auth_test): write code to run auth
+	scripts
+
+	* dbus/dbus-auth-script.c (_dbus_auth_script_run): when doing a
+	SEND, append \r\n
+
+2003-02-12  Havoc Pennington  <hp@pobox.com>
+
 	* dbus/Makefile.am: remove break-loader from the build, since it
 	moved.
 
