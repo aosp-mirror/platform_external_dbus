@@ -1,5 +1,16 @@
 2005-01-21  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-bus.c: add more return_if_fail checks
+
+	* dbus/dbus-message.c (load_message): have the "no validation"
+	mode (have to edit the code to toggle the mode for now though)
+
+	* dbus/dbus-marshal-header.c (_dbus_header_load): have a mode that
+	skips all validation; I want to use this at least for benchmark
+	baseline, I'm not sure if it should be a publicly-available switch.
+
+2005-01-21  Havoc Pennington  <hp@redhat.com>
+
 	* glib/dbus-gmain.c: don't put the GLib bindings in the same
 	toplevel doxygen group as the low-level API stuff
 

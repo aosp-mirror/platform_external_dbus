@@ -564,6 +564,7 @@ dbus_bus_get_unix_user (DBusConnection *connection,
 
   _dbus_return_val_if_fail (connection != NULL, DBUS_UID_UNSET);
   _dbus_return_val_if_fail (name != NULL, DBUS_UID_UNSET);
+  _dbus_return_val_if_fail (_dbus_check_is_valid_bus_name (name), DBUS_UID_UNSET);
   _dbus_return_val_if_error_is_set (error, DBUS_UID_UNSET);
   
   message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
@@ -645,6 +646,7 @@ dbus_bus_request_name (DBusConnection *connection,
 
   _dbus_return_val_if_fail (connection != NULL, 0);
   _dbus_return_val_if_fail (name != NULL, 0);
+  _dbus_return_val_if_fail (_dbus_check_is_valid_bus_name (name), 0);
   _dbus_return_val_if_error_is_set (error, 0);
   
   message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
@@ -718,6 +720,7 @@ dbus_bus_name_has_owner (DBusConnection *connection,
 
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (name != NULL, FALSE);
+  _dbus_return_val_if_fail (_dbus_check_is_valid_bus_name (name), FALSE);
   _dbus_return_val_if_error_is_set (error, FALSE);
   
   message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
@@ -786,6 +789,9 @@ dbus_bus_start_service_by_name (DBusConnection *connection,
   DBusMessage *msg;
   DBusMessage *reply;
 
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (_dbus_check_is_valid_bus_name (name), FALSE);
+  
   msg = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
                                       DBUS_PATH_ORG_FREEDESKTOP_DBUS,
                                       DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
@@ -884,6 +890,8 @@ dbus_bus_add_match (DBusConnection *connection,
 {
   DBusMessage *msg;
 
+  _dbus_return_if_fail (rule != NULL);
+
   msg = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
                                       DBUS_PATH_ORG_FREEDESKTOP_DBUS,
                                       DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
@@ -928,6 +936,8 @@ dbus_bus_remove_match (DBusConnection *connection,
 {
   DBusMessage *msg;
 
+  _dbus_return_if_fail (rule != NULL);
+  
   msg = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
                                       DBUS_PATH_ORG_FREEDESKTOP_DBUS,
                                       DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,

@@ -32,6 +32,15 @@
 #endif
 
 /**
+ * This is used rather than a bool for high visibility
+ */
+typedef enum
+{
+  DBUS_VALIDATION_MODE_WE_TRUST_THIS_DATA_ABSOLUTELY,
+  DBUS_VALIDATION_MODE_DATA_IS_UNTRUSTED
+} DBusValidationMode;
+
+/**
  * This is primarily used in unit testing, so we can verify that each
  * invalid message is invalid for the expected reasons. Thus we really
  * want a distinct enum value for every codepath leaving the validator

@@ -115,7 +115,8 @@ dbus_bool_t   _dbus_header_have_message_untrusted (int                max_messag
                                                    const DBusString  *str,
                                                    int                start,
                                                    int                len);
-dbus_bool_t   _dbus_header_load_untrusted         (DBusHeader        *header,
+dbus_bool_t   _dbus_header_load                   (DBusHeader        *header,
+                                                   DBusValidationMode mode,
                                                    DBusValidity      *validity,
                                                    int                byte_order,
                                                    int                fields_array_len,

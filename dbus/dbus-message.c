@@ -3032,7 +3032,10 @@ load_message (DBusMessageLoader *loader,
   DBusValidity validity;
   const DBusString *type_str;
   int type_pos;
+  DBusValidationMode mode;
 
+  mode = DBUS_VALIDATION_MODE_DATA_IS_UNTRUSTED;
+  
   oom = FALSE;
 
 #if 0
@@ -3043,14 +3046,15 @@ load_message (DBusMessageLoader *loader,
   _dbus_assert (_dbus_string_get_length (&message->header.data) == 0);
   _dbus_assert ((header_len + body_len) <= _dbus_string_get_length (&loader->data));
 
-  if (!_dbus_header_load_untrusted (&message->header,
-                                    &validity,
-                                    byte_order,
-                                    fields_array_len,
-                                    header_len,
-                                    body_len,
-                                    &loader->data, 0,
-                                    _dbus_string_get_length (&loader->data)))
+  if (!_dbus_header_load (&message->header,
+                          mode,
+                          &validity,
+                          byte_order,
+                          fields_array_len,
+                          header_len,
+                          body_len,
+                          &loader->data, 0,
+                          _dbus_string_get_length (&loader->data)))
     {
       _dbus_verbose ("Failed to load header for new message code %d\n", validity);
       if (validity == DBUS_VALID)
@@ -3063,23 +3067,25 @@ load_message (DBusMessageLoader *loader,
   message->byte_order = byte_order;
 
   /* 2. VALIDATE BODY */
-
-  get_const_signature (&message->header, &type_str, &type_pos);
-
-  /* Because the bytes_remaining arg is NULL, this validates that the
-   * body is the right length
-   */
-  validity = _dbus_validate_body_with_reason (type_str,
-                                              type_pos,
-                                              byte_order,
-                                              NULL,
-                                              &loader->data,
-                                              header_len,
-                                              body_len);
-  if (validity != DBUS_VALID)
+  if (mode != DBUS_VALIDATION_MODE_WE_TRUST_THIS_DATA_ABSOLUTELY)
     {
-      _dbus_verbose ("Failed to validate message body code %d\n", validity);
-      goto failed;
+      get_const_signature (&message->header, &type_str, &type_pos);
+      
+      /* Because the bytes_remaining arg is NULL, this validates that the
+       * body is the right length
+       */
+      validity = _dbus_validate_body_with_reason (type_str,
+                                                  type_pos,
+                                                  byte_order,
+                                                  NULL,
+                                                  &loader->data,
+                                                  header_len,
+                                                  body_len);
+      if (validity != DBUS_VALID)
+        {
+          _dbus_verbose ("Failed to validate message body code %d\n", validity);
+          goto failed;
+        }
     }
 
   /* 3. COPY OVER BODY AND QUEUE MESSAGE */

@@ -13,9 +13,9 @@ cd $CHECKOUTDIR || die "could not changedir to $CHECKOUTDIR"
 
 echo "Checking out to directory "`pwd`
 
-#cvs co dbus || die "failed to cvs update"
-
-cd dbus
+/bin/rm -rf dbus/doc || true ## get rid of old doxygen, etc.
+cvs co dbus || die "failed to cvs update"
+cd dbus || die "could not cd to dbus"
 
 echo "Configuring and building docs"
 

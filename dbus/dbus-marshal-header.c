@@ -917,12 +917,12 @@ load_and_validate_field (DBusHeader     *header,
 }
 
 /**
- * Creates a message header from untrusted data. The return value
- * is #TRUE if there was enough memory and the data was valid. If it
- * returns #TRUE, the header will be created. If it returns #FALSE
- * and *validity == #DBUS_VALID, then there wasn't enough memory.  If
- * it returns #FALSE and *validity != #DBUS_VALID then the data was
- * invalid.
+ * Creates a message header from potentially-untrusted data. The
+ * return value is #TRUE if there was enough memory and the data was
+ * valid. If it returns #TRUE, the header will be created. If it
+ * returns #FALSE and *validity == #DBUS_VALID, then there wasn't
+ * enough memory.  If it returns #FALSE and *validity != #DBUS_VALID
+ * then the data was invalid.
  *
  * The byte_order, fields_array_len, and body_len args should be from
  * _dbus_header_have_message_untrusted(). Validation performed in
@@ -930,6 +930,7 @@ load_and_validate_field (DBusHeader     *header,
  * already done.
  *
  * @param header the header (must be initialized)
+ * @param mode whether to do validation
  * @param validity return location for invalidity reason
  * @param byte_order byte order from header
  * @param fields_array_len claimed length of fields array
@@ -941,15 +942,16 @@ load_and_validate_field (DBusHeader     *header,
  * @returns #FALSE if no memory or data was invalid, #TRUE otherwise
  */
 dbus_bool_t
-_dbus_header_load_untrusted (DBusHeader       *header,
-                             DBusValidity     *validity,
-                             int               byte_order,
-                             int               fields_array_len,
-                             int               header_len,
-                             int               body_len,
-                             const DBusString *str,
-                             int               start,
-                             int               len)
+_dbus_header_load (DBusHeader        *header,
+                   DBusValidationMode mode,
+                   DBusValidity      *validity,
+                   int                byte_order,
+                   int                fields_array_len,
+                   int                header_len,
+                   int                body_len,
+                   const DBusString  *str,
+                   int                start,
+                   int                len)
 {
   int leftover;
   DBusValidity v;
@@ -973,15 +975,22 @@ _dbus_header_load_untrusted (DBusHeader       *header,
       return FALSE;
     }
 
-  v = _dbus_validate_body_with_reason (&_dbus_header_signature_str, 0,
-                                       byte_order,
-                                       &leftover,
-                                       str, start, len);
-
-  if (v != DBUS_VALID)
+  if (mode == DBUS_VALIDATION_MODE_WE_TRUST_THIS_DATA_ABSOLUTELY)
     {
-      *validity = v;
-      goto invalid;
+      leftover = len - header_len - body_len - start;
+    }
+  else
+    {
+      v = _dbus_validate_body_with_reason (&_dbus_header_signature_str, 0,
+                                           byte_order,
+                                           &leftover,
+                                           str, start, len);
+      
+      if (v != DBUS_VALID)
+        {
+          *validity = v;
+          goto invalid;
+        }
     }
 
   _dbus_assert (leftover < len);
@@ -991,13 +1000,22 @@ _dbus_header_load_untrusted (DBusHeader       *header,
   _dbus_assert (start + header_len == (int) _DBUS_ALIGN_VALUE (padding_start, 8));
   _dbus_assert (start + header_len == padding_start + padding_len);
 
-  if (!_dbus_string_validate_nul (str, padding_start, padding_len))
+  if (mode != DBUS_VALIDATION_MODE_WE_TRUST_THIS_DATA_ABSOLUTELY)
     {
-      *validity = DBUS_INVALID_ALIGNMENT_PADDING_NOT_NUL;
-      goto invalid;
+      if (!_dbus_string_validate_nul (str, padding_start, padding_len))
+        {
+          *validity = DBUS_INVALID_ALIGNMENT_PADDING_NOT_NUL;
+          goto invalid;
+        }
     }
 
   header->padding = padding_len;
+
+  if (mode == DBUS_VALIDATION_MODE_WE_TRUST_THIS_DATA_ABSOLUTELY)
+    {
+      *validity = DBUS_VALID;
+      return TRUE;
+    }
 
   /* We now know the data is well-formed, but we have to check that
    * it's valid.
