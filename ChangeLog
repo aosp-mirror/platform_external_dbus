@@ -1,9 +1,15 @@
+2004-04-25  Kristian Høgsberg  <krh@redhat.com>
+
+	* test/data/valid-messages/standard-*.message: Update message
+	test scripts to new header field names.
+
 2004-04-22  John (J5) Palmieri  <johnp@redhat.com>
-	(randomly_do_n_things): tracked down buffer overflow
-	to times_we_did_each_thing array which would chop off
-	the first character of the failure_dir string. Increased
-	the size of the array to 7 to reflect the number of
-	random mutation functions we have. 
+
+	* test/break-loader.c (randomly_do_n_things): tracked down buffer
+	overflow to times_we_did_each_thing array which would chop off the
+	first character of the failure_dir string. Increased the size of
+	the array to 7 to reflect the number of random mutation functions
+	we have.
 
 2004-04-21  Kristian Høgsberg  <krh@redhat.com>
 
