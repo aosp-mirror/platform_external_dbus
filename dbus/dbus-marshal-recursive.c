@@ -858,6 +858,102 @@ _dbus_type_reader_get_signature (const DBusTypeReader  *reader,
   *len_p = find_len_of_complete_type (reader->type_str, reader->type_pos);
 }
 
+
+/* In the variable-length case, we have to fix alignment after we insert.
+ * The strategy is as follows:
+ *
+ *  - pad a new string to have the same alignment as the
+ *    start of the current basic value
+ *  - write the new basic value
+ *  - copy from the original reader to the new string,
+ *    which will fix the alignment of types following
+ *    the new value
+ *    - this copy has to start at realign_root,
+ *      but not really write anything until it
+ *      passes the value being set
+ *    - as an optimization, we can stop copying
+ *      when the source and dest values are both
+ *      on an 8-boundary, since we know all following
+ *      padding and alignment will be identical
+ *  - copy the new string back to the original
+ *    string, replacing the relevant part of the
+ *    original string
+ */
+static dbus_bool_t
+reader_set_basic_variable_length (DBusTypeReader       *reader,
+                                  int                   current_type,
+                                  const void           *value,
+                                  const DBusTypeReader *realign_root)
+{
+  dbus_bool_t retval;
+  DBusString replacement;
+  int padding;
+  DBusTypeWriter writer;
+  DBusTypeReader realign_reader;
+
+  _dbus_assert (realign_root != NULL);
+
+  retval = FALSE;
+  
+  if (!_dbus_string_init (&replacement))
+    return FALSE;
+
+  /* ALIGN_OFFSET is the offset to add to get to an 8-boundary; so 8 -
+   * ALIGN_OFFSET is the padding to have the same align properties in
+   * our replacement string as we do at the position being replaced
+   */
+  padding = 8 - _DBUS_ALIGN_OFFSET (reader->value_pos, 8);
+  _dbus_assert (padding >= 0);
+
+  if (!_dbus_string_lengthen (&replacement, padding))
+    goto out;
+
+  /* Write the new basic value */
+  
+  _dbus_type_writer_init_values_only (&writer,
+                                      reader->byte_order,
+                                      reader->type_str,
+                                      reader->type_pos,
+                                      &replacement,
+                                      _dbus_string_get_length (&replacement));
+
+  if (!_dbus_type_writer_write_basic (&writer, current_type, value))
+    goto out;
+
+  /* Rewrite the values following the new basic value, which should
+   * fix their alignment
+   */
+  realign_reader = *realign_root;
+
+  _dbus_type_writer_init_values_only (&writer,
+                                      realign_reader.byte_order,
+                                      realign_reader.type_str,
+                                      realign_reader.type_pos,
+                                      &replacement,
+                                      _dbus_string_get_length (&replacement));
+
+  if (!_dbus_type_writer_write_reader (&writer,
+                                       &realign_reader,
+                                       reader))
+    goto out;
+
+  /* Move the replacement into position
+   * (realign_reader should now be at the end of the block to be replaced)
+   */
+  if (!_dbus_string_replace_len (&replacement, padding,
+                                 _dbus_string_get_length (&replacement) - padding,
+                                 (DBusString*) reader->value_str,
+                                 reader->value_pos,
+                                 realign_reader.value_pos - reader->value_pos))
+    goto out;
+
+  retval = TRUE;
+
+ out:
+  _dbus_string_free (&replacement);
+  return retval;
+}
+
 static void
 reader_set_basic_fixed_length (DBusTypeReader *reader,
                                int             current_type,
@@ -907,61 +1003,39 @@ _dbus_type_reader_set_basic (DBusTypeReader       *reader,
                              const DBusTypeReader *realign_root)
 {
   int current_type;
-  dbus_bool_t retval;
-
-  retval = FALSE;
 
   current_type = _dbus_type_reader_get_current_type (reader);
 
   _dbus_assert (_dbus_type_is_basic (current_type));
 
-  if (!_dbus_type_length_varies (current_type))
+  if (_dbus_type_length_varies (current_type))
+    {
+      _dbus_assert (realign_root != NULL);
+      return reader_set_basic_variable_length (reader, current_type,
+                                               value, realign_root);
+    }
+  else
     {
       reader_set_basic_fixed_length (reader, current_type, value);
       return TRUE;
     }
+}
 
-  _dbus_assert (realign_root != NULL);
+/**
+ * Compares two readers, which must be iterating over the same value data.
+ * Returns #TRUE if the first parameter is further along than the second parameter.
+ *
+ * @param lhs left-hand-side (first) parameter
+ * @param rhs left-hand-side (first) parameter
+ * @returns whether lhs is greater than rhs
+ */
+dbus_bool_t
+_dbus_type_reader_greater_than (const DBusTypeReader  *lhs,
+                                const DBusTypeReader  *rhs)
+{
+  _dbus_assert (lhs->value_str == rhs->value_str);
 
-  /* In the harder case, we have to fix alignment after we insert.
-   * The basic strategy is as follows:
-   *
-   *  - pad a new string to have the same alignment as the
-   *    start of the current basic value
-   *  - write the new basic value
-   *  - copy from the original reader to the new string,
-   *    which will fix the alignment of types following
-   *    the new value
-   *    - this copy has to start at realign_root,
-   *      but not really write anything until it
-   *      passes the value being set
-   *    - as an optimization, we can stop copying
-   *      when the source and dest values are both
-   *      on an 8-boundary, since we know all following
-   *      padding and alignment will be identical
-   *  - copy the new string back to the original
-   *    string, replacing the relevant part of the
-   *    original string
-   */
-
-  /* FIXME I don't know how to implement this exactly, since
-   * DBusTypeWriter can't write children of a value without writing
-   * the entire parent value, and so we can't copy only the stuff
-   * following the new value.
-   *
-   * Suggestion is:
-   *  - add 'values only' mode to the writer (which essentially
-   *    just sets type_pos_is_expectation on the toplevel)
-   *  - add 'don't write for now' mode that can be toggled;
-   *  - implement a write_reader that uses those things to
-   *    realign
-   */
-
-  retval = TRUE;
-
- out:
-
-  return retval;
+  return lhs->value_pos > rhs->value_pos;
 }
 
 /*
@@ -1008,10 +1082,13 @@ _dbus_type_writer_init (DBusTypeWriter *writer,
   writer->value_pos = value_pos;
   writer->container_type = DBUS_TYPE_INVALID;
   writer->type_pos_is_expectation = FALSE;
+  writer->enabled = TRUE;
 
 #if RECURSIVE_MARSHAL_TRACE
   _dbus_verbose ("writer %p init remaining sig '%s'\n", writer,
-                 _dbus_string_get_const_data_len (writer->type_str, writer->type_pos, 0));
+                 writer->type_str ?
+                 _dbus_string_get_const_data_len (writer->type_str, writer->type_pos, 0) :
+                 "unknown");
 #endif
 }
 
@@ -1049,12 +1126,15 @@ _dbus_type_writer_write_basic_no_typecode (DBusTypeWriter *writer,
                                            int             type,
                                            const void     *value)
 {
-  return _dbus_marshal_write_basic (writer->value_str,
-                                    writer->value_pos,
-                                    type,
-                                    value,
-                                    writer->byte_order,
-                                    &writer->value_pos);
+  if (writer->enabled)
+    return _dbus_marshal_write_basic (writer->value_str,
+                                      writer->value_pos,
+                                      type,
+                                      value,
+                                      writer->byte_order,
+                                      &writer->value_pos);
+  else
+    return TRUE;
 }
 
 /* If our parent is an array, things are a little bit complicated.
@@ -1098,8 +1178,10 @@ writer_recurse_init_and_check (DBusTypeWriter *writer,
   else
     sub->type_pos_is_expectation = FALSE;
 
+  sub->enabled = writer->enabled;
+
 #ifndef DBUS_DISABLE_CHECKS
-  if (writer->type_pos_is_expectation)
+  if (writer->type_pos_is_expectation && writer->type_str)
     {
       int expected;
 
@@ -1120,7 +1202,9 @@ writer_recurse_init_and_check (DBusTypeWriter *writer,
                  writer,
                  _dbus_type_to_string (writer->container_type),
                  writer->type_pos, writer->value_pos, writer->type_pos_is_expectation,
-                 _dbus_string_get_const_data_len (writer->type_str, writer->type_pos, 0));
+                 writer->type_str ?
+                 _dbus_string_get_const_data_len (writer->type_str, writer->type_pos, 0) :
+                 "unknown");
   _dbus_verbose ("  type writer %p recurse sub %s   type_pos = %d value_pos = %d is_expectation = %d\n",
                  sub,
                  _dbus_type_to_string (sub->container_type),
@@ -1141,8 +1225,13 @@ write_or_verify_typecode (DBusTypeWriter *writer,
 #if RECURSIVE_MARSHAL_TRACE
   _dbus_verbose ("  type writer %p write_or_verify start type_pos = %d remaining sig '%s'\n",
                  writer, writer->type_pos,
-                 _dbus_string_get_const_data_len (writer->type_str, writer->type_pos, 0));
+                 writer->type_str ?
+                 _dbus_string_get_const_data_len (writer->type_str, writer->type_pos, 0) :
+                 "unknown");
 #endif
+
+  if (writer->type_str == NULL)
+    return TRUE;
 
   if (writer->type_pos_is_expectation)
     {
@@ -1200,21 +1289,24 @@ writer_recurse_struct (DBusTypeWriter   *writer,
    */
 
   /* Ensure that we'll be able to add alignment padding and the typecode */
-  if (!_dbus_string_alloc_space (sub->value_str, 8))
-    return FALSE;
-
-  if (!_dbus_string_alloc_space (sub->type_str, 1))
-    return FALSE;
+  if (writer->enabled)
+    {
+      if (!_dbus_string_alloc_space (sub->value_str, 8))
+        return FALSE;
+    }
 
   if (!write_or_verify_typecode (sub, DBUS_STRUCT_BEGIN_CHAR))
     _dbus_assert_not_reached ("failed to insert struct typecode after prealloc");
 
-  if (!_dbus_string_insert_bytes (sub->value_str,
-                                  sub->value_pos,
-                                  _DBUS_ALIGN_VALUE (sub->value_pos, 8) - sub->value_pos,
-                                  '\0'))
-    _dbus_assert_not_reached ("should not have failed to insert alignment padding for struct");
-  sub->value_pos = _DBUS_ALIGN_VALUE (sub->value_pos, 8);
+  if (writer->enabled)
+    {
+      if (!_dbus_string_insert_bytes (sub->value_str,
+                                      sub->value_pos,
+                                      _DBUS_ALIGN_VALUE (sub->value_pos, 8) - sub->value_pos,
+                                      '\0'))
+        _dbus_assert_not_reached ("should not have failed to insert alignment padding for struct");
+      sub->value_pos = _DBUS_ALIGN_VALUE (sub->value_pos, 8);
+    }
 
   return TRUE;
 }
@@ -1232,7 +1324,8 @@ writer_recurse_array (DBusTypeWriter   *writer,
   int aligned;
 
 #ifndef DBUS_DISABLE_CHECKS
-  if (writer->container_type == DBUS_TYPE_ARRAY)
+  if (writer->container_type == DBUS_TYPE_ARRAY &&
+      writer->type_str)
     {
       if (!_dbus_string_equal_substring (contained_type,
                                          contained_type_start,
@@ -1249,16 +1342,22 @@ writer_recurse_array (DBusTypeWriter   *writer,
     }
 #endif /* DBUS_DISABLE_CHECKS */
 
-  /* 3 pad + 4 bytes for the array length, and 4 bytes possible padding
-   * before array values
-   */
-  if (!_dbus_string_alloc_space (sub->value_str, 3 + 4 + 4))
-    return FALSE;
+  if (writer->enabled)
+    {
+      /* 3 pad + 4 bytes for the array length, and 4 bytes possible padding
+       * before array values
+       */
+      if (!_dbus_string_alloc_space (sub->value_str, 3 + 4 + 4))
+        return FALSE;
+    }
 
-  sub->type_pos += 1; /* move to point to the element type, since type_pos
-                       * should be the expected type for further writes
-                       */
-  sub->u.array.element_type_pos = sub->type_pos;
+  if (writer->type_str != NULL)
+    {
+      sub->type_pos += 1; /* move to point to the element type, since type_pos
+                           * should be the expected type for further writes
+                           */
+      sub->u.array.element_type_pos = sub->type_pos;
+    }
 
   if (!writer->type_pos_is_expectation)
     {
@@ -1280,50 +1379,58 @@ writer_recurse_array (DBusTypeWriter   *writer,
         _dbus_assert_not_reached ("should not have failed to insert array element typecodes");
     }
 
-  /* If the parent is an array, we hold type_pos pointing at the array element type;
-   * otherwise advance it to reflect the array value we just recursed into
-   */
-  if (writer->container_type != DBUS_TYPE_ARRAY)
-    writer->type_pos += 1 + contained_type_len;
-  else
-    _dbus_assert (writer->type_pos_is_expectation); /* because it's an array */
-
-  /* Write the length */
-  sub->u.array.len_pos = _DBUS_ALIGN_VALUE (sub->value_pos, 4);
-
-  if (!_dbus_type_writer_write_basic_no_typecode (sub, DBUS_TYPE_UINT32,
-                                                  &value))
-    _dbus_assert_not_reached ("should not have failed to insert array len");
-
-  _dbus_assert (sub->u.array.len_pos == sub->value_pos - 4);
-
-  /* Write alignment padding for array elements
-   * Note that we write the padding *even for empty arrays*
-   * to avoid wonky special cases
-   */
-  alignment = element_type_get_alignment (contained_type, contained_type_start);
-
-  aligned = _DBUS_ALIGN_VALUE (sub->value_pos, alignment);
-  if (aligned != sub->value_pos)
+  if (writer->type_str != NULL)
     {
-      if (!_dbus_string_insert_bytes (sub->value_str,
-                                      sub->value_pos,
-                                      aligned - sub->value_pos,
-                                      '\0'))
-        _dbus_assert_not_reached ("should not have failed to insert alignment padding");
-
-      sub->value_pos = aligned;
+      /* If the parent is an array, we hold type_pos pointing at the array element type;
+       * otherwise advance it to reflect the array value we just recursed into
+       */
+      if (writer->container_type != DBUS_TYPE_ARRAY)
+        writer->type_pos += 1 + contained_type_len;
+      else
+        _dbus_assert (writer->type_pos_is_expectation); /* because it's an array */
     }
-  sub->u.array.start_pos = sub->value_pos;
 
-  _dbus_assert (sub->u.array.start_pos == sub->value_pos);
-  _dbus_assert (sub->u.array.len_pos < sub->u.array.start_pos);
+  if (writer->enabled)
+    {
+      /* Write the length */
+      sub->u.array.len_pos = _DBUS_ALIGN_VALUE (sub->value_pos, 4);
+
+      if (!_dbus_type_writer_write_basic_no_typecode (sub, DBUS_TYPE_UINT32,
+                                                      &value))
+        _dbus_assert_not_reached ("should not have failed to insert array len");
+
+      _dbus_assert (sub->u.array.len_pos == sub->value_pos - 4);
+
+      /* Write alignment padding for array elements
+       * Note that we write the padding *even for empty arrays*
+       * to avoid wonky special cases
+       */
+      alignment = element_type_get_alignment (contained_type, contained_type_start);
+
+      aligned = _DBUS_ALIGN_VALUE (sub->value_pos, alignment);
+      if (aligned != sub->value_pos)
+        {
+          if (!_dbus_string_insert_bytes (sub->value_str,
+                                          sub->value_pos,
+                                          aligned - sub->value_pos,
+                                          '\0'))
+            _dbus_assert_not_reached ("should not have failed to insert alignment padding");
+
+          sub->value_pos = aligned;
+        }
+      sub->u.array.start_pos = sub->value_pos;
+
+      _dbus_assert (sub->u.array.start_pos == sub->value_pos);
+      _dbus_assert (sub->u.array.len_pos < sub->u.array.start_pos);
 
 #if RECURSIVE_MARSHAL_TRACE
-  _dbus_verbose ("  type writer %p recurse array done remaining sig '%s' array start_pos = %d len_pos = %d\n", sub,
-                 _dbus_string_get_const_data_len (sub->type_str, sub->type_pos, 0),
-                 sub->u.array.start_pos, sub->u.array.len_pos);
+      _dbus_verbose ("  type writer %p recurse array done remaining sig '%s' array start_pos = %d len_pos = %d\n", sub,
+                     sub->type_str ?
+                     _dbus_string_get_const_data_len (sub->type_str, sub->type_pos, 0) :
+                     "unknown",
+                     sub->u.array.start_pos, sub->u.array.len_pos);
 #endif
+    }
 
   return TRUE;
 }
@@ -1362,16 +1469,31 @@ writer_recurse_variant (DBusTypeWriter   *writer,
                         int               contained_type_len,
                         DBusTypeWriter   *sub)
 {
-  /* Allocate space for the worst case, which is 1 byte sig
-   * length, nul byte at end of sig, and 7 bytes padding to
-   * 8-boundary.
-   */
-  if (!_dbus_string_alloc_space (sub->value_str, contained_type_len + 9))
-    return FALSE;
+  if (writer->enabled)
+    {
+      /* Allocate space for the worst case, which is 1 byte sig
+       * length, nul byte at end of sig, and 7 bytes padding to
+       * 8-boundary.
+       */
+      if (!_dbus_string_alloc_space (sub->value_str, contained_type_len + 9))
+        return FALSE;
+    }
 
   /* write VARIANT typecode to the parent's type string */
   if (!write_or_verify_typecode (writer, DBUS_TYPE_VARIANT))
     return FALSE;
+
+  /* If not enabled, mark that we have no type_str anymore ... */
+
+  if (!writer->enabled)
+    {
+      sub->type_str = NULL;
+      sub->type_pos = -1;
+
+      return TRUE;
+    }
+
+  /* If we're enabled then continue ... */
 
   if (!_dbus_string_insert_byte (sub->value_str,
                                  sub->value_pos,
@@ -1489,17 +1611,20 @@ _dbus_type_writer_unrecurse (DBusTypeWriter *writer,
     }
   else if (sub->container_type == DBUS_TYPE_ARRAY)
     {
-      dbus_uint32_t len;
+      if (sub->enabled)
+        {
+          dbus_uint32_t len;
 
-      /* Set the array length */
-      len = sub->value_pos - sub->u.array.start_pos;
-      _dbus_marshal_set_uint32 (sub->value_str,
-                                sub->u.array.len_pos,
-                                len,
-                                sub->byte_order);
+          /* Set the array length */
+          len = sub->value_pos - sub->u.array.start_pos;
+          _dbus_marshal_set_uint32 (sub->value_str,
+                                    sub->u.array.len_pos,
+                                    len,
+                                    sub->byte_order);
 #if RECURSIVE_MARSHAL_TRACE
-      _dbus_verbose ("    filled in sub array len to %u at len_pos %d\n",
-                     len, sub->u.array.len_pos);
+          _dbus_verbose ("    filled in sub array len to %u at len_pos %d\n",
+                         len, sub->u.array.len_pos);
+        }
 #endif
     }
 
@@ -1545,12 +1670,15 @@ _dbus_type_writer_unrecurse (DBusTypeWriter *writer,
    *   and we just finished writing it and won't use type_pos again
    *       writer->type_pos should remain as-is
    */
-  if (sub->container_type == DBUS_TYPE_STRUCT &&
-      (writer->container_type == DBUS_TYPE_STRUCT ||
-       writer->container_type == DBUS_TYPE_INVALID))
+  if (writer->type_str != NULL)
     {
-      /* Advance the parent to the next struct field */
-      writer->type_pos = sub->type_pos;
+      if (sub->container_type == DBUS_TYPE_STRUCT &&
+          (writer->container_type == DBUS_TYPE_STRUCT ||
+           writer->container_type == DBUS_TYPE_INVALID))
+        {
+          /* Advance the parent to the next struct field */
+          writer->type_pos = sub->type_pos;
+        }
     }
 
   writer->value_pos = sub->value_pos;
@@ -1558,7 +1686,9 @@ _dbus_type_writer_unrecurse (DBusTypeWriter *writer,
 #if RECURSIVE_MARSHAL_TRACE
   _dbus_verbose ("  type writer %p unrecursed type_pos = %d value_pos = %d remaining sig '%s'\n",
                  writer, writer->type_pos, writer->value_pos,
-                 _dbus_string_get_const_data_len (writer->type_str, writer->type_pos, 0));
+                 writer->type_str ?
+                 _dbus_string_get_const_data_len (writer->type_str, writer->type_pos, 0) :
+                 "unknown");
 #endif
 
   return TRUE;
@@ -1572,8 +1702,11 @@ _dbus_type_writer_write_basic (DBusTypeWriter *writer,
   dbus_bool_t retval;
 
   /* First ensure that our type realloc will succeed */
-  if (!_dbus_string_alloc_space (writer->type_str, 1))
-    return FALSE;
+  if (writer->type_str != NULL)
+    {
+      if (!_dbus_string_alloc_space (writer->type_str, 1))
+        return FALSE;
+    }
 
   retval = FALSE;
 
@@ -1605,26 +1738,40 @@ _dbus_type_writer_write_array (DBusTypeWriter *writer,
 }
 
 /**
- * Iterate through all values in the given reader,
- * writing a copy of each value to the writer.
- * The reader will be moved forward to its end position.
+ * Iterate through all values in the given reader, writing a copy of
+ * each value to the writer.  The reader will be moved forward to its
+ * end position.
+ *
+ * If a reader start_after is provided, it should be a reader for the
+ * same data as the reader to be written. Only values occurring after
+ * the value pointed to by start_after will be written to the writer.
  *
  * @param writer the writer to copy to
  * @param reader the reader to copy from
+ * @param start_after #NULL or a reader showing where to start
  */
 dbus_bool_t
-_dbus_type_writer_write_reader (DBusTypeWriter *writer,
-                                DBusTypeReader *reader)
+_dbus_type_writer_write_reader (DBusTypeWriter       *writer,
+                                DBusTypeReader       *reader,
+                                const DBusTypeReader *start_after)
 {
   DBusTypeWriter orig;
   int orig_type_len;
   int orig_value_len;
   int new_bytes;
   int current_type;
+  int orig_enabled;
 
   orig = *writer;
   orig_type_len = _dbus_string_get_length (writer->type_str);
   orig_value_len = _dbus_string_get_length (writer->value_str);
+  orig_enabled = writer->enabled;
+
+  if (start_after)
+    {
+      _dbus_type_writer_set_enabled (writer,
+                                     _dbus_type_reader_greater_than (reader, start_after));
+    }
 
   while ((current_type = _dbus_type_reader_get_current_type (reader)) != DBUS_TYPE_INVALID)
     {
@@ -1646,7 +1793,7 @@ _dbus_type_writer_write_reader (DBusTypeWriter *writer,
                                                         &subwriter))
             goto oom;
 
-          if (!_dbus_type_writer_write_reader (&subwriter, &subreader))
+          if (!_dbus_type_writer_write_reader (&subwriter, &subreader, start_after))
             goto oom;
 
           if (!_dbus_type_writer_unrecurse (writer, &subwriter))
@@ -1667,6 +1814,7 @@ _dbus_type_writer_write_reader (DBusTypeWriter *writer,
       _dbus_type_reader_next (reader);
     }
 
+  _dbus_type_writer_set_enabled (writer, orig_enabled);
   return TRUE;
 
  oom:
@@ -1681,6 +1829,22 @@ _dbus_type_writer_write_reader (DBusTypeWriter *writer,
   *writer = orig;
 
   return FALSE;
+}
+
+/**
+ * If disabled, a writer can still be iterated forward and recursed/unrecursed
+ * but won't write any values. Types will still be written unless the
+ * writer is a "values only" writer, because the writer needs access to
+ * a valid signature to be able to iterate.
+ *
+ * @param writer the type writer
+ * @param enabled #TRUE if values should be written
+ */
+void
+_dbus_type_writer_set_enabled (DBusTypeWriter   *writer,
+                               dbus_bool_t       enabled)
+{
+  writer->enabled = enabled != FALSE;
 }
 
 /** @} */ /* end of DBusMarshal group */
@@ -2432,7 +2596,7 @@ run_test_copy (NodeIterationData *nid)
                                  dest.initial_offset, '\0'))
     goto out;
 
-  if (!_dbus_type_writer_write_reader (&writer, &reader))
+  if (!_dbus_type_writer_write_reader (&writer, &reader, NULL))
     goto out;
 
   /* Data blocks should now be identical */
@@ -3518,6 +3682,7 @@ signature_from_seed (char *buf,
     "x",
     "a(ii)",
     "asax"
+    "asau(xxxx)"
   };
 
   s = sample_signatures[seed % _DBUS_N_ELEMENTS(sample_signatures)];
@@ -3605,7 +3770,7 @@ struct_write_value (TestTypeNode   *node,
           TestTypeNode *child = link->data;
           DBusList *next = _dbus_list_get_next_link (&container->children, link);
 
-          if (!node_write_value (child, block, &sub, i))
+          if (!node_write_value (child, block, &sub, seed + i))
             {
               data_block_restore (block, &saved);
               return FALSE;
@@ -3654,7 +3819,7 @@ struct_read_value (TestTypeNode   *node,
           TestTypeNode *child = link->data;
           DBusList *next = _dbus_list_get_next_link (&container->children, link);
 
-          if (!node_read_value (child, block, &sub, i))
+          if (!node_read_value (child, block, &sub, seed + i))
             return FALSE;
 
           if (i == (n_copies - 1) && next == NULL)
@@ -3759,7 +3924,7 @@ array_write_value (TestTypeNode   *node,
           TestTypeNode *child = link->data;
           DBusList *next = _dbus_list_get_next_link (&container->children, link);
 
-          if (!node_write_value (child, block, &sub, i))
+          if (!node_write_value (child, block, &sub, seed + i))
             goto oom;
 
           link = next;
@@ -3812,7 +3977,7 @@ array_read_value (TestTypeNode   *node,
               TestTypeNode *child = link->data;
               DBusList *next = _dbus_list_get_next_link (&container->children, link);
 
-              if (!node_read_value (child, block, &sub, i))
+              if (!node_read_value (child, block, &sub, seed + i))
                 return FALSE;
 
               if (i == (n_copies - 1) && next == NULL)
@@ -3891,7 +4056,7 @@ variant_write_value (TestTypeNode   *node,
                                   &sub))
     goto oom;
 
-  if (!node_write_value (child, block, &sub, VARIANT_SEED))
+  if (!node_write_value (child, block, &sub, seed + VARIANT_SEED))
     goto oom;
 
   if (!_dbus_type_writer_unrecurse (writer, &sub))
@@ -3925,7 +4090,7 @@ variant_read_value (TestTypeNode   *node,
 
   _dbus_type_reader_recurse (reader, &sub);
 
-  if (!node_read_value (child, block, &sub, VARIANT_SEED))
+  if (!node_read_value (child, block, &sub, seed + VARIANT_SEED))
     return FALSE;
 
   NEXT_EXPECTING_FALSE (&sub);
