@@ -141,12 +141,6 @@ Elements:
     no recipients have been allowed. You have to add 
     <allow send_to="something"/> to make the policy useful.
 
-  
-
-    
-
-
- 
  
 
  
