@@ -1,3 +1,8 @@
+2003-01-11  Havoc Pennington  <hp@pobox.com>
+
+	* configure.in: change --enable-test/--enable-ansi action-if-given
+	to enable_foo=$enableval instead of enable_foo=yes
+
 2003-01-08  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-string.c (_dbus_string_align_length): new function
