@@ -7,9 +7,13 @@ EFENCE=
 bin_PROGRAMS=dbus-daemon-1
 
 dbus_daemon_1_SOURCES=				\
+	connection.c				\
+	connection.h				\
 	loop.c					\
 	loop.h					\
-	main.c
+	main.c					\
+	services.c				\
+	services.h
 
 dbus_daemon_1_LDADD=					\
 	$(EFENCE)					\

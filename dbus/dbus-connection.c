@@ -29,6 +29,7 @@
 #include "dbus-list.h"
 #include "dbus-hash.h"
 #include "dbus-message-internal.h"
+#include "dbus-threads.h"
 
 /**
  * @defgroup DBusConnection DBusConnection
@@ -57,6 +58,15 @@
  * @{
  */
 
+/** Opaque typedef for DBusDataSlot */
+typedef struct DBusDataSlot DBusDataSlot;
+/** DBusDataSlot is used to store application data on the connection */
+struct DBusDataSlot
+{
+  void *data;                      /**< The application data */
+  DBusFreeFunction free_data_func; /**< Free the application data */
+};
+
 /**
  * Implementation details of DBusConnection. All fields are private.
  */
@@ -80,7 +90,11 @@ struct DBusConnection
   DBusList *filter_list;        /**< List of filters. */
   int filters_serial;           /**< Increments when the list of filters is changed. */
   int handlers_serial;          /**< Increments when the handler table is changed. */
+  DBusDataSlot *data_slots;        /**< Data slots */
+  int           n_slots; /**< Slots allocated so far. */
 };
+
+static void _dbus_connection_free_data_slots (DBusConnection *connection);
 
 /**
  * Adds a message to the incoming message queue, returning #FALSE
@@ -313,6 +327,9 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection->watches = watch_list;
   connection->handler_table = handler_table;
   connection->filter_list = NULL;
+
+  connection->data_slots = NULL;
+  connection->n_slots = 0;
   
   _dbus_transport_ref (transport);
   _dbus_transport_set_connection (transport, connection);
@@ -449,13 +466,15 @@ dbus_connection_unref (DBusConnection *connection)
     {
       DBusHashIter iter;
       DBusList *link;
-
+      
       /* free error data as a side effect */
       dbus_connection_set_error_function (connection,
                                           NULL, NULL, NULL);
 
       _dbus_watch_list_free (connection->watches);
       connection->watches = NULL;
+
+      _dbus_connection_free_data_slots (connection);
       
       _dbus_hash_iter_init (connection->handler_table, &iter);
       while (_dbus_hash_iter_next (&iter))
@@ -1057,6 +1076,195 @@ dbus_connection_unregister_handler (DBusConnection     *connection,
     }
 
   connection->handlers_serial += 1;
+}
+
+static int *allocated_slots = NULL;
+static int  n_allocated_slots = 0;
+static int  n_used_slots = 0;
+static DBusStaticMutex allocated_slots_lock = DBUS_STATIC_MUTEX_INIT;
+
+/**
+ * Allocates an integer ID to be used for storing application-specific
+ * data on any DBusConnection. The allocated ID may then be used
+ * with dbus_connection_set_data() and dbus_connection_get_data().
+ * If allocation fails, -1 is returned.
+ *
+ * @returns -1 on failure, otherwise the data slot ID
+ */
+int
+dbus_connection_allocate_data_slot (void)
+{
+  int slot;
+  
+  if (!dbus_static_mutex_lock (&allocated_slots_lock))
+    return -1;
+
+  if (n_used_slots < n_allocated_slots)
+    {
+      slot = 0;
+      while (slot < n_allocated_slots)
+        {
+          if (allocated_slots[slot] < 0)
+            {
+              allocated_slots[slot] = slot;
+              n_used_slots += 1;
+              break;
+            }
+          ++slot;
+        }
+
+      _dbus_assert (slot < n_allocated_slots);
+    }
+  else
+    {
+      int *tmp;
+      
+      slot = -1;
+      tmp = dbus_realloc (allocated_slots,
+                          sizeof (int) * (n_allocated_slots + 1));
+      if (tmp == NULL)
+        goto out;
+
+      allocated_slots = tmp;
+      slot = n_allocated_slots;
+      n_allocated_slots += 1;
+      n_used_slots += 1;
+      allocated_slots[slot] = slot;
+    }
+
+  _dbus_assert (slot >= 0);
+  _dbus_assert (slot < n_allocated_slots);
+  
+ out:
+  dbus_static_mutex_unlock (&allocated_slots_lock);
+  return slot;
+}
+
+/**
+ * Deallocates a global ID for connection data slots.
+ * dbus_connection_get_data() and dbus_connection_set_data()
+ * may no longer be used with this slot.
+ * Existing data stored on existing DBusConnection objects
+ * will be freed when the connection is finalized,
+ * but may not be retrieved (and may only be replaced
+ * if someone else reallocates the slot).
+ *
+ * @param slot the slot to deallocate
+ */
+void
+dbus_connection_free_data_slot (int slot)
+{
+  dbus_static_mutex_lock (&allocated_slots_lock);
+
+  _dbus_assert (slot < n_allocated_slots);
+  _dbus_assert (allocated_slots[slot] == slot);
+  
+  allocated_slots[slot] = -1;
+  n_used_slots -= 1;
+
+  if (n_used_slots == 0)
+    {
+      dbus_free (allocated_slots);
+      allocated_slots = NULL;
+      n_allocated_slots = 0;
+    }
+  
+  dbus_static_mutex_unlock (&allocated_slots_lock);
+}
+
+/**
+ * Stores a pointer on a DBusConnection, along
+ * with an optional function to be used for freeing
+ * the data when the data is set again, or when
+ * the connection is finalized. The slot number
+ * must have been allocated with dbus_connection_allocate_data_slot().
+ *
+ * @param connection the connection
+ * @param slot the slot number
+ * @param data the data to store
+ * @param free_data_func finalizer function for the data
+ * @returns #TRUE if there was enough memory to store the data
+ */
+dbus_bool_t
+dbus_connection_set_data (DBusConnection   *connection,
+                          int               slot,
+                          void             *data,
+                          DBusFreeFunction  free_data_func)
+{
+  _dbus_assert (slot < n_allocated_slots);
+  _dbus_assert (allocated_slots[slot] == slot);
+  
+  if (slot >= connection->n_slots)
+    {
+      DBusDataSlot *tmp;
+      int i;
+      
+      tmp = dbus_realloc (connection->data_slots,
+                          sizeof (DBusDataSlot) * (slot + 1));
+      if (tmp == NULL)
+        return FALSE;
+      
+      connection->data_slots = tmp;
+      i = connection->n_slots;
+      connection->n_slots = slot + 1;
+      while (i < connection->n_slots)
+        {
+          connection->data_slots[i].data = NULL;
+          connection->data_slots[i].free_data_func = NULL;
+          ++i;
+        }
+    }
+
+  _dbus_assert (slot < connection->n_slots);
+  
+  if (connection->data_slots[slot].free_data_func)
+    (* connection->data_slots[slot].free_data_func) (connection->data_slots[slot].data);
+
+  connection->data_slots[slot].data = data;
+  connection->data_slots[slot].free_data_func = free_data_func;
+
+  return TRUE;
+}
+
+/**
+ * Retrieves data previously set with dbus_connection_set_data().
+ * The slot must still be allocated (must not have been freed).
+ *
+ * @param connection the connection
+ * @param slot the slot to get data from
+ * @returns the data, or #NULL if not found
+ */
+void*
+dbus_connection_get_data (DBusConnection   *connection,
+                          int               slot)
+{
+  _dbus_assert (slot < n_allocated_slots);
+  _dbus_assert (allocated_slots[slot] == slot);
+
+  if (slot >= connection->n_slots)
+    return NULL;
+
+  return connection->data_slots[slot].data;
+}
+
+static void
+_dbus_connection_free_data_slots (DBusConnection *connection)
+{
+  int i;
+
+  i = 0;
+  while (i < connection->n_slots)
+    {
+      if (connection->data_slots[i].free_data_func)
+        (* connection->data_slots[i].free_data_func) (connection->data_slots[i].data);
+      connection->data_slots[i].data = NULL;
+      connection->data_slots[i].free_data_func = NULL;
+      ++i;
+    }
+
+  dbus_free (connection->data_slots);
+  connection->data_slots = NULL;
+  connection->n_slots = 0;
 }
 
 /** @} */

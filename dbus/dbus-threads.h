@@ -75,7 +75,22 @@ void        dbus_mutex_free   (DBusMutex *mutex);
 dbus_bool_t dbus_mutex_lock   (DBusMutex *mutex);
 dbus_bool_t dbus_mutex_unlock (DBusMutex *mutex);
 
-void dbus_threads_init (const DBusThreadFunctions *functions);
+dbus_bool_t dbus_threads_init (const DBusThreadFunctions *functions);
+
+typedef struct DBusStaticMutex DBusStaticMutex;
+
+struct DBusStaticMutex
+{
+  void *pad1;
+  void *pad2;
+  void *pad3;
+  void *pad4;
+};
+
+#define DBUS_STATIC_MUTEX_INIT { NULL, NULL, NULL, NULL }
+
+dbus_bool_t dbus_static_mutex_lock   (DBusStaticMutex *mutex);
+dbus_bool_t dbus_static_mutex_unlock (DBusStaticMutex *mutex);
 
 DBUS_END_DECLS;
 

@@ -220,7 +220,7 @@ typedef struct
   int n_entries_on_init;     /**< used to detect table resize since initialization */
 } DBusRealHashIter;
 
-static DBusHashEntry* find_int_function    (DBusHashTable   *table,
+static DBusHashEntry* find_direct_function (DBusHashTable   *table,
                                             void            *key,
                                             dbus_bool_t      create_if_not_found,
                                             DBusHashEntry ***bucket);
@@ -310,7 +310,8 @@ _dbus_hash_table_new (DBusHashType     type,
   switch (table->key_type)
     {
     case DBUS_HASH_INT:
-      table->find_function = find_int_function;
+    case DBUS_HASH_POINTER:
+      table->find_function = find_direct_function;
       break;
     case DBUS_HASH_STRING:
       table->find_function = find_string_function;
@@ -808,10 +809,10 @@ find_string_function (DBusHashTable   *table,
 }
 
 static DBusHashEntry*
-find_int_function (DBusHashTable   *table,
-                   void            *key,
-                   dbus_bool_t      create_if_not_found,
-                   DBusHashEntry ***bucket)
+find_direct_function (DBusHashTable   *table,
+                      void            *key,
+                      dbus_bool_t      create_if_not_found,
+                      DBusHashEntry ***bucket)
 {
   DBusHashEntry *entry;
   unsigned int idx;
@@ -940,6 +941,7 @@ rebuild_table (DBusHashTable *table)
               idx = string_hash (entry->key) & table->mask;
               break;
             case DBUS_HASH_INT:
+            case DBUS_HASH_POINTER:
               idx = RANDOM_INDEX (table, entry->key);
               break;
             default:
@@ -1011,6 +1013,31 @@ _dbus_hash_table_lookup_int (DBusHashTable *table,
 }
 
 /**
+ * Looks up the value for a given integer in a hash table
+ * of type #DBUS_HASH_POINTER. Returns %NULL if the value
+ * is not present. (A not-present entry is indistinguishable
+ * from an entry with a value of %NULL.)
+ * @param table the hash table.
+ * @param key the integer to look up.
+ * @returns the value of the hash entry.
+ */
+void*
+_dbus_hash_table_lookup_pointer (DBusHashTable *table,
+                                 void          *key)
+{
+  DBusHashEntry *entry;
+
+  _dbus_assert (table->key_type == DBUS_HASH_POINTER);
+  
+  entry = (* table->find_function) (table, key, FALSE, NULL);
+
+  if (entry)
+    return entry->value;
+  else
+    return NULL;
+}
+
+/**
  * Removes the hash entry for the given key. If no hash entry
  * for the key exists, does nothing.
  *
@@ -1065,6 +1092,35 @@ _dbus_hash_table_remove_int (DBusHashTable *table,
   else
     return FALSE;
 }
+
+/**
+ * Removes the hash entry for the given key. If no hash entry
+ * for the key exists, does nothing.
+ *
+ * @param table the hash table.
+ * @param key the hash key.
+ * @returns #TRUE if the entry existed
+ */
+dbus_bool_t
+_dbus_hash_table_remove_pointer (DBusHashTable *table,
+                                 void          *key)
+{
+  DBusHashEntry *entry;
+  DBusHashEntry **bucket;
+  
+  _dbus_assert (table->key_type == DBUS_HASH_POINTER);
+  
+  entry = (* table->find_function) (table, key, FALSE, &bucket);
+  
+  if (entry)
+    {
+      remove_entry (table, bucket, entry);
+      return TRUE;
+    }
+  else
+    return FALSE;
+}
+
 
 /**
  * Creates a hash entry with the given key and value.
@@ -1143,6 +1199,47 @@ _dbus_hash_table_insert_int (DBusHashTable *table,
     (* table->free_value_function) (entry->value);
   
   entry->key = _DBUS_INT_TO_POINTER (key);
+  entry->value = value;
+
+  return TRUE;
+}
+
+/**
+ * Creates a hash entry with the given key and value.
+ * The key and value are not copied; they are stored
+ * in the hash table by reference. If an entry with the
+ * given key already exists, the previous key and value
+ * are overwritten (and freed if the hash table has
+ * a key_free_function and/or value_free_function).
+ *
+ * Returns #FALSE if memory for the new hash entry
+ * can't be allocated.
+ * 
+ * @param table the hash table.
+ * @param key the hash entry key.
+ * @param value the hash entry value.
+ */
+dbus_bool_t
+_dbus_hash_table_insert_pointer (DBusHashTable *table,
+                                 void          *key,
+                                 void          *value)
+{
+  DBusHashEntry *entry;
+
+  _dbus_assert (table->key_type == DBUS_HASH_POINTER);
+  
+  entry = (* table->find_function) (table, key, TRUE, NULL);
+
+  if (entry == NULL)
+    return FALSE; /* no memory */
+
+  if (table->free_key_function && entry->key != key)
+    (* table->free_key_function) (entry->key);
+  
+  if (table->free_value_function && entry->value != value)
+    (* table->free_value_function) (entry->value);
+  
+  entry->key = key;
   entry->value = value;
 
   return TRUE;

@@ -173,7 +173,11 @@ bus_loop_run (void)
           initial_serial = watch_list_serial;
           i = 0;
           while (i < n_fds)
-            {              
+            {
+              /* FIXME I think this "restart if we change the watches"
+               * approach could result in starving watches
+               * toward the end of the list.
+               */
               if (initial_serial != watch_list_serial)
                 goto next_iteration;
 

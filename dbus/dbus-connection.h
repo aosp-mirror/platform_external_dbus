@@ -122,6 +122,16 @@ void        dbus_connection_unregister_handler (DBusConnection      *connection,
                                                 const char         **messages_to_handle,
                                                 int                  n_messages);
 
+
+int         dbus_connection_allocate_data_slot (void);
+void        dbus_connection_free_data_slot     (int               slot);
+dbus_bool_t dbus_connection_set_data           (DBusConnection   *connection,
+                                                int               slot,
+                                                void             *data,
+                                                DBusFreeFunction  free_data_func);
+void*       dbus_connection_get_data           (DBusConnection   *connection,
+                                                int               slot);
+
 DBUS_END_DECLS;
 
 #endif /* DBUS_CONNECTION_H */

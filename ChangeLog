@@ -1,3 +1,21 @@
+2003-01-05  Havoc Pennington  <hp@pobox.com>
+
+	* bus/connection.c: implement routines for handling connections,
+	first thing is keeping a list of owned services on each connection
+	and setting up watches etc.
+
+	* bus/services.c: implement a mapping from service names to lists
+	of connections
+
+	* dbus/dbus-hash.c: add DBUS_HASH_POINTER
+
+	* dbus/dbus-threads.c (dbus_static_mutex_lock): add functions
+	to use static mutexes for global data
+
+	* dbus/dbus-connection.c (dbus_connection_set_data): add new
+	collection of functions to set/get application-specific data
+	on the DBusConnection.
+
 2003-01-04  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-sysdeps.c (_dbus_sleep_milliseconds): new function

@@ -32,6 +32,11 @@ static DBusThreadFunctions thread_functions =
   NULL, NULL, NULL, NULL
 };
 
+static DBusMutex *static_mutex_init_lock = NULL;
+
+/** This is used for the no-op default mutex pointer, just to be distinct from #NULL */
+#define _DBUS_DUMMY_MUTEX ((void*)0xABCDEF)
+
 /**
  * @defgroup DBusThreads Thread functions
  * @ingroup  DBus
@@ -56,7 +61,7 @@ dbus_mutex_new (void)
   if (thread_functions.mutex_new)
     return (* thread_functions.mutex_new) ();
   else
-    return NULL;
+    return _DBUS_DUMMY_MUTEX;
 }
 
 /**
@@ -106,9 +111,13 @@ dbus_mutex_unlock (DBusMutex *mutex)
  * in efficiency. Note that this function must be called
  * BEFORE using any other D-BUS functions.
  *
+ * @todo right now this function can only be called once,
+ * maybe we should instead silently ignore multiple calls.
+ *
  * @param functions functions for using threads
+ * @returns #TRUE on success, #FALSE if no memory
  */
-void
+dbus_bool_t
 dbus_threads_init (const DBusThreadFunctions *functions)
 {
   _dbus_assert (functions != NULL);
@@ -134,7 +143,7 @@ dbus_threads_init (const DBusThreadFunctions *functions)
   if (thread_functions.mask != 0)
     {
       _dbus_warn ("dbus_threads_init() may only be called one time\n");
-      return;
+      return FALSE;
     }
   
   thread_functions.mutex_new = functions->mutex_new;
@@ -143,6 +152,60 @@ dbus_threads_init (const DBusThreadFunctions *functions)
   thread_functions.mutex_unlock = functions->mutex_unlock;
   
   thread_functions.mask = functions->mask;
+
+  static_mutex_init_lock = dbus_mutex_new ();
+
+  if (static_mutex_init_lock == NULL)
+    {
+      thread_functions.mask = 0;
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
+/** Accesses the field of DBusStaticMutex that
+ * stores the DBusMutex used to implement.
+ */
+#define _DBUS_STATIC_MUTEX_IMPL(mutex) ((mutex)->pad1)
+
+/**
+ * Lock a static mutex
+ *
+ * @param mutex the mutex to lock
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_static_mutex_lock (DBusStaticMutex *mutex)
+{
+  if (_DBUS_STATIC_MUTEX_IMPL (mutex))
+    return dbus_mutex_lock (_DBUS_STATIC_MUTEX_IMPL (mutex));
+
+  if (!dbus_mutex_lock (static_mutex_init_lock))
+    return FALSE;
+
+  if (_DBUS_STATIC_MUTEX_IMPL (mutex) == NULL)
+    _DBUS_STATIC_MUTEX_IMPL (mutex) = dbus_mutex_new ();
+  
+  dbus_mutex_unlock (static_mutex_init_lock);
+
+  if (_DBUS_STATIC_MUTEX_IMPL (mutex))
+    return dbus_mutex_lock (_DBUS_STATIC_MUTEX_IMPL (mutex));
+  else
+    return FALSE;
+}
+
+/**
+ * Unlock a static mutex
+ * @param mutex the mutex to lock
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_static_mutex_unlock (DBusStaticMutex *mutex)
+{
+  _dbus_assert (_DBUS_STATIC_MUTEX_IMPL (mutex) != NULL);
+  
+  return dbus_mutex_unlock (_DBUS_STATIC_MUTEX_IMPL (mutex));
 }
 
 /** @} */
