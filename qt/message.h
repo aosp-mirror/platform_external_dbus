@@ -25,6 +25,7 @@
 
 #include <qvariant.h>
 #include <qstring.h>
+#include <qstringlist.h>
 
 #include "dbus/dbus.h"
 
@@ -36,7 +37,7 @@ namespace DBusQt {
     class iterator {
     public:
       iterator();
-      iterator( const iterator & );
+      iterator( const iterator& );
       iterator( DBusMessage* msg );
       ~iterator();
 
@@ -49,13 +50,15 @@ namespace DBusQt {
       bool operator!=( const iterator& it );
 
       QVariant var() const;
-    private:
+    protected:
+      QVariant marshallBaseType( DBusMessageIter* i );
       void fillVar();
       struct IteratorData;
       IteratorData *d;
     };
 
     Message( int messageType );
+    Message( DBusMessage * );//hide this one from the public implementation
     Message( const QString& service, const QString& path,
              const QString& interface, const QString& method );
     Message( const Message& replayingTo );
@@ -115,6 +118,7 @@ namespace DBusQt {
     //Message& operator<<();
 
   protected:
+    friend class Connection;
     DBusMessage* message() const;
 
   private:

@@ -39,7 +39,8 @@ namespace DBusQt {
   {
     Q_OBJECT
   public:
-    Connection( const QString& host = QString::null );
+    Connection( const QString& host = QString::null,
+                QObject* parent = 0);
 
     bool isConnected() const;
     bool isAuthenticated() const;
@@ -54,7 +55,7 @@ namespace DBusQt {
     void flush();
     void send( const Message& );
     void sendWithReply( const Message& );
-    void sendWithReplyAndBlock( const Message& );
+    Message sendWithReplyAndBlock( const Message& );
 
   protected slots:
     void dispatchRead();

@@ -33,9 +33,11 @@ struct Connection::Private
   int connectionSlot;
   DBusError error;
   Integrator *integrator;
+  int timeout;
 };
 
-Connection::Connection( const QString& host )
+Connection::Connection( const QString& host, QObject *parent )
+  : QObject( parent )
 {
   d = new Private;
 
@@ -46,6 +48,7 @@ Connection::Connection( const QString& host )
 void Connection::init( const QString& host )
 {
   dbus_error_init( &d->error );
+  d->timeout = -1;
   d->connection = dbus_connection_open( host.ascii(), &d->error );
   d->integrator = new Integrator( d->connection, this );
   connect( d->integrator, SIGNAL(readReady()),
@@ -94,10 +97,27 @@ Connection::Connection( DBusConnection *connection, QObject *parent  )
   : QObject( parent )
 {
   d = new Private;
+  dbus_error_init( &d->error );
+  d->timeout = -1;
   d->connection = connection;
   d->integrator = new Integrator( d->connection, this );
   connect( d->integrator, SIGNAL(readReady()),
            SLOT(dispatchRead()) );
+}
+
+void Connection::send( const Message& )
+{
+}
+
+void Connection::sendWithReply( const Message& )
+{
+}
+
+Message Connection::sendWithReplyAndBlock( const Message &m )
+{
+  DBusMessage *reply;
+  reply = dbus_connection_send_with_reply_and_block( d->connection, m.message(), d->timeout, &d->error );
+  return Message( reply );
 }
 
 /////////////////////////////////////////////////////////

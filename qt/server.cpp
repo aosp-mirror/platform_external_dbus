@@ -58,6 +58,11 @@ bool Server::isConnected() const
   return dbus_server_get_is_connected( d->server );
 }
 
+void Server::disconnect()
+{
+  dbus_server_disconnect( d->server );
+}
+
 QString Server::address() const
 {
   //FIXME: leak?

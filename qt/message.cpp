@@ -29,6 +29,7 @@ struct Message::iterator::IteratorData {
   DBusMessageIter *iter;
   QVariant         var;
   bool             end;
+  DBusMessage	  *mesg;
 };
 
 /**
@@ -44,10 +45,16 @@ Message::iterator::iterator()
  * Constructs iterator for the message.
  * @param msg message whose fields we want to iterate
  */
-Message::iterator::iterator( DBusMessage* msg)
+Message::iterator::iterator( DBusMessage* msg )
 {
   d = new IteratorData;
-  dbus_message_iter_init( msg, d->iter );
+  d->mesg = msg;
+  d->iter = static_cast<DBusMessageIter *>( malloc( sizeof(DBusMessageIter) ) );
+  dbus_message_iter_init( d->mesg, d->iter );
+  if ( !d->iter ) {
+    qDebug("No iterator??");
+  }
+  fillVar();
   d->end = false;
 }
 
@@ -68,6 +75,7 @@ Message::iterator::iterator( const iterator& itr )
  */
 Message::iterator::~iterator()
 {
+  free( d->iter );
   delete d; d=0;
 }
 
@@ -169,6 +177,33 @@ Message::iterator::operator!=( const iterator& it )
   return !operator==( it );
 }
 
+QVariant Message::iterator::marshallBaseType( DBusMessageIter* i )
+{
+  QVariant ret;
+  switch (dbus_message_iter_get_arg_type(i)) {
+  case DBUS_TYPE_INT32:
+    ret = QVariant( dbus_message_iter_get_int32(i) );
+    break;
+  case DBUS_TYPE_UINT32:
+    ret = QVariant( dbus_message_iter_get_uint32(i) );
+    break;
+  case DBUS_TYPE_DOUBLE:
+    ret = QVariant( dbus_message_iter_get_double(i) );
+    break;
+  case DBUS_TYPE_STRING:
+    {
+      char *str = dbus_message_iter_get_string(i);
+      ret = QVariant( QString::fromLatin1(str) );
+      dbus_free(str);
+    }
+    break;
+  default:
+    ret = QVariant();
+    break;
+  }
+  return ret;
+}
+
 /**
  * Fills QVariant based on what current DBusMessageIter helds.
  */
@@ -177,17 +212,49 @@ Message::iterator::fillVar()
 {
   switch ( dbus_message_iter_get_arg_type( d->iter ) ) {
   case DBUS_TYPE_INT32:
-    d->var = QVariant( dbus_message_iter_get_int32( d->iter ) );
-    break;
   case DBUS_TYPE_UINT32:
-    d->var = QVariant( dbus_message_iter_get_uint32( d->iter ) );
-    break;
   case DBUS_TYPE_DOUBLE:
-    d->var = QVariant( dbus_message_iter_get_double( d->iter ) );
-    break;
   case DBUS_TYPE_STRING:
-    d->var = QVariant( QString(dbus_message_iter_get_string( d->iter )) );
+    d->var = marshallBaseType( d->iter );
     break;
+  case DBUS_TYPE_ARRAY: {
+    switch ( dbus_message_iter_get_array_type( d->iter ) ) {
+    case DBUS_TYPE_STRING: {
+      QStringList tempList;
+      int count;
+      char** charArray;
+      dbus_message_iter_get_string_array( d->iter, &charArray, &count );
+      for ( int i=0; i < count; i++ ) {
+        tempList.append( QString( charArray[i] ) );
+      }
+      d->var = QVariant( tempList );
+      dbus_free( charArray );
+      break;
+    }
+    default:
+      qDebug( "Array of type not implemented" );
+      d->var = QVariant();
+      break;
+    }
+    break;
+  }
+  case DBUS_TYPE_DICT: {
+    qDebug( "Got a hash!" );
+    QMap<QString, QVariant> tempMap;
+    DBusMessageIter dictIter;
+    dbus_message_iter_init_dict_iterator( d->iter, &dictIter );
+    do {
+      char *key = dbus_message_iter_get_dict_key( &dictIter );
+      tempMap[key] = marshallBaseType( &dictIter );
+      dbus_free( key );
+      dbus_message_iter_next( &dictIter );
+    } while( dbus_message_iter_has_next( &dictIter ) );
+    d->var = QVariant( tempMap );
+    break;
+    qDebug( "Hash/Dict type not implemented" );
+    d->var = QVariant();
+    break;
+  }
   default:
     qDebug( "not implemented" );
     d->var = QVariant();
@@ -208,6 +275,12 @@ Message::iterator::var() const
 struct Message::Private {
   DBusMessage *msg;
 };
+
+Message::Message( DBusMessage *m )
+{
+  d = new Private;
+  d->msg = m;
+}
 
 /**
  *
@@ -269,7 +342,9 @@ Message Message::operator=( const Message& other )
  */
 Message::~Message()
 {
-  dbus_message_unref( d->msg );
+  if ( d->msg ) {
+    dbus_message_unref( d->msg );
+  }
   delete d; d=0;
 }
 
