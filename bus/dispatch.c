@@ -88,11 +88,38 @@ bus_dispatch_message_handler (DBusMessageHandler *handler,
       _dbus_string_init_const (&service_string, service_name);
       service = bus_service_lookup (&service_string, FALSE);
 
-      _dbus_assert (bus_service_get_primary_owner (service) != NULL);
+      if (!service)
+	{
+	  DBusMessage *error_reply;
+	  DBusString error_message;
+	  const char *error_str;
+	  
+	  /* Trying to send a message to a non-existant service,
+	     bounce back an error message. */
+	  
+	  BUS_HANDLE_OOM (_dbus_string_init (&error_message, _DBUS_INT_MAX));
+
+	  BUS_HANDLE_OOM (_dbus_string_append (&error_message, "Service \""));
+	  BUS_HANDLE_OOM (_dbus_string_append (&error_message, service_name));
+	  BUS_HANDLE_OOM (_dbus_string_append (&error_message, "does not exist"));	  
+
+	  _dbus_string_get_const_data (&error_message, &error_str);
+	  BUS_HANDLE_OOM (error_reply = dbus_message_new_error_reply (message, DBUS_ERROR_SERVICE_DOES_NOT_EXIST,
+								      error_str));
+	  _dbus_string_free (&error_message);
+
+	  /* Dispatch the message */
+	  BUS_HANDLE_OOM (dbus_connection_send_message (connection, error_reply, NULL, NULL));
+	  dbus_message_unref (error_reply);
+	}
+      else
+	{
+	  _dbus_assert (bus_service_get_primary_owner (service) != NULL);
       
-      /* Dispatch the message */
-      BUS_HANDLE_OOM (dbus_connection_send_message (bus_service_get_primary_owner (service),
-						    message, NULL, NULL));
+	  /* Dispatch the message */
+	  BUS_HANDLE_OOM (dbus_connection_send_message (bus_service_get_primary_owner (service),
+							message, NULL, NULL));
+	}
     }
 
   return DBUS_HANDLER_RESULT_ALLOW_MORE_HANDLERS;

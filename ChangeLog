@@ -1,5 +1,12 @@
 2003-02-16  Anders Carlsson  <andersca@codefactory.se>
 
+	* bus/dispatch.c: (bus_dispatch_message_handler):
+	* dbus/dbus-errors.h:
+	Return an error if someone tries to send a message to a service
+	that doesn't exist.
+	
+2003-02-16  Anders Carlsson  <andersca@codefactory.se>
+
 	* bus/activation.c: (load_directory), (bus_activation_init),
 	(bus_activation_activate_service):
 	* bus/activation.h:
