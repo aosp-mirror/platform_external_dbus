@@ -111,7 +111,7 @@ main (int argc, char *argv[])
       exit (1);
     }
 
-  dbus_connection_setup_with_g_main (connection);
+  dbus_connection_setup_with_g_main (connection, NULL);
 
   handler = dbus_message_handler_new (handler_func, NULL, NULL);
   dbus_connection_add_filter (connection, handler);

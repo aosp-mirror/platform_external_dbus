@@ -55,6 +55,8 @@ struct DBusGSource
   GList *poll_fds;      /**< descriptors we're watching */
   GHashTable *watches;  /**< hash of DBusWatch objects */
 
+  GMainContext *context; /**< the GMainContext to use, NULL for default */
+
   void *connection_or_server; /**< DBusConnection or DBusServer */
 };
 
@@ -304,15 +306,18 @@ static dbus_bool_t
 add_timeout (DBusTimeout *timeout,
 	     void        *data)
 {
-  guint timeout_tag;
+  DBusGSource *dbus_source = data;
+  GSource *source;
 
   if (!dbus_timeout_get_enabled (timeout))
     return TRUE;
   
-  timeout_tag = g_timeout_add (dbus_timeout_get_interval (timeout),
-			       timeout_handler, timeout);
+  source = g_timeout_source_new (dbus_timeout_get_interval (timeout));
+  g_source_set_callback (source, timeout_handler, timeout, NULL);
+  g_source_attach (source, dbus_source->context);
   
-  dbus_timeout_set_data (timeout, GUINT_TO_POINTER (timeout_tag), NULL);
+  dbus_timeout_set_data (timeout, GUINT_TO_POINTER (g_source_get_id (source)),
+      			 NULL);
 
   return TRUE;
 }
@@ -352,7 +357,9 @@ free_source (GSource *source)
 static void
 wakeup_main (void *data)
 {
-  g_main_context_wakeup (NULL);
+  DBusGSource *dbus_source = data;
+
+  g_main_context_wakeup (dbus_source->context);
 }
 
 
@@ -364,7 +371,8 @@ wakeup_main (void *data)
 
 static GSource*
 create_source (void         *connection_or_server,
-               GSourceFuncs *funcs)
+               GSourceFuncs *funcs,
+	       GMainContext *context)
 {
   GSource *source;
   DBusGSource *dbus_source;
@@ -374,6 +382,7 @@ create_source (void         *connection_or_server,
   dbus_source = (DBusGSource *)source;  
   dbus_source->watches = g_hash_table_new (NULL, NULL);
   dbus_source->connection_or_server = connection_or_server;
+  dbus_source->context = context;
 
   return source;
 }
@@ -385,11 +394,12 @@ create_source (void         *connection_or_server,
  * @param connection the connection
  */
 void
-dbus_connection_setup_with_g_main (DBusConnection *connection)
+dbus_connection_setup_with_g_main (DBusConnection *connection,
+				   GMainContext   *context)
 {
   GSource *source;
 
-  source = create_source (connection, &dbus_connection_funcs);
+  source = create_source (connection, &dbus_connection_funcs, context);
 
   if (!dbus_connection_set_watch_functions (connection,
                                             add_watch,
@@ -407,9 +417,9 @@ dbus_connection_setup_with_g_main (DBusConnection *connection)
     
   dbus_connection_set_wakeup_main_function (connection,
 					    wakeup_main,
-					    NULL, NULL);
+					    source, NULL);
       
-  g_source_attach (source, NULL);
+  g_source_attach (source, context);
 
   g_static_mutex_lock (&connection_slot_lock);
   if (connection_slot == -1 )
@@ -436,11 +446,11 @@ dbus_connection_setup_with_g_main (DBusConnection *connection)
  * @param server the server
  */
 void
-dbus_server_setup_with_g_main (DBusServer *server)
+dbus_server_setup_with_g_main (DBusServer *server, GMainContext *context)
 {
   GSource *source;
 
-  source = create_source (server, &dbus_server_funcs);
+  source = create_source (server, &dbus_server_funcs, context);
 
   dbus_server_set_watch_functions (server,
                                    add_watch,
@@ -454,7 +464,7 @@ dbus_server_setup_with_g_main (DBusServer *server)
                                      timeout_toggled,
                                      NULL, NULL);
   
-  g_source_attach (source, NULL);
+  g_source_attach (source, context);
 
   g_static_mutex_lock (&server_slot_lock);
   if (server_slot == -1 )

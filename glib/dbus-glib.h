@@ -27,7 +27,9 @@
 #include <glib.h>
 
 void dbus_gthread_init                 (void);
-void dbus_connection_setup_with_g_main (DBusConnection *connection);
-void dbus_server_setup_with_g_main     (DBusServer     *server);
+void dbus_connection_setup_with_g_main (DBusConnection *connection,
+					GMainContext   *context);
+void dbus_server_setup_with_g_main     (DBusServer     *server,
+					GMainContext   *context);
 
 #endif /* DBUS_GLIB_H */

@@ -1,3 +1,17 @@
+2003-04-23  James Willcox  <jwillcox@gnome.org>
+
+	* glib/dbus-glib.h:
+	* glib/dbus-gmain.c: (add_timeout), (wakeup_main), (create_source),
+	(dbus_connection_setup_with_g_main),
+	(dbus_server_setup_with_g_main):
+	* glib/test-dbus-glib.c: (main):
+	* glib/test-thread-client.c: (main):
+	* glib/test-thread-server.c: (new_connection_callback), (main):
+	* tools/dbus-monitor.c: (main):
+
+	Added a GMainContext argument to dbus_connection_setup_with_g_main()
+	and dbus_server_setup_with_g_main().
+
 2003-04-20  Havoc Pennington  <hp@pobox.com>
 
 	* doc/dbus-specification.sgml: document the restrictions on
