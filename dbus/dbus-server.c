@@ -22,6 +22,9 @@
  */
 #include "dbus-server.h"
 #include "dbus-server-unix.h"
+#ifdef DBUS_BUILD_TESTS
+#include "dbus-server-debug.h"
+#endif
 
 /**
  * @defgroup DBusServer DBusServer
@@ -61,11 +64,22 @@ _dbus_server_init_base (DBusServer             *server,
   if (server->watches == NULL)
     return FALSE;
 
+  server->timeouts = _dbus_timeout_list_new ();
+  if (server->timeouts == NULL)
+    {
+      _dbus_watch_list_free (server->watches);
+      server->watches = NULL;
+      return FALSE;
+    }
+  
   server->connection_counter = _dbus_counter_new ();
   if (server->connection_counter == NULL)
     {
       _dbus_watch_list_free (server->watches);
       server->watches = NULL;
+      _dbus_timeout_list_free (server->timeouts);
+      server->timeouts = NULL;
+      
       return FALSE;
     }
 
@@ -89,6 +103,7 @@ _dbus_server_finalize_base (DBusServer *server)
     dbus_server_disconnect (server);
 
   _dbus_watch_list_free (server->watches);
+  _dbus_timeout_list_free (server->timeouts);
   _dbus_counter_unref (server->connection_counter);
 }
 
@@ -119,6 +134,19 @@ _dbus_server_remove_watch  (DBusServer *server,
   _dbus_watch_list_remove_watch (server->watches, watch);
 }
 
+dbus_bool_t
+_dbus_server_add_timeout (DBusServer  *server,
+			  DBusTimeout *timeout)
+{
+  return _dbus_timeout_list_add_timeout (server->timeouts, timeout);
+}
+
+void
+_dbus_server_remove_timeout (DBusServer  *server,
+			     DBusTimeout *timeout)
+{
+  _dbus_timeout_list_remove_timeout (server->timeouts, timeout);  
+}
 
 /** @} */
 
@@ -160,8 +188,12 @@ dbus_server_listen (const char     *address,
 {
   DBusServer *server;
 
+#if 1
   /* For now just pretend the address is a unix domain socket path */
   server = _dbus_server_new_for_domain_socket (address, result);
+#else
+  server = _dbus_server_debug_new (address, result);
+#endif
   
   return server;
 }
@@ -283,6 +315,31 @@ dbus_server_set_watch_functions (DBusServer              *server,
                                   remove_function,
                                   data,
                                   free_data_function);
+}
+
+/**
+ * Sets the timeout functions for the connection. These functions are
+ * responsible for making the application's main loop aware of timeouts.
+ *
+ * This function behaves exactly like dbus_connection_set_timeout_functions();
+ * see the documentation for that routine.
+ *
+ * @param server the server.
+ * @param add_function function to add a timeout.
+ * @param remove_function function to remove a timeout.
+ * @param data data to pass to add_function and remove_function.
+ * @param free_data_function function to be called to free the data.
+ */
+void
+dbus_server_set_timeout_functions (DBusServer                *server,
+				   DBusAddTimeoutFunction     add_function,
+				   DBusRemoveTimeoutFunction  remove_function,
+				   void                      *data,
+				   DBusFreeFunction           free_data_function)
+{
+  _dbus_timeout_list_set_functions (server->timeouts,
+				    add_function, remove_function,
+				    data, free_data_function); 
 }
 
 /**

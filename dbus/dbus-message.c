@@ -721,6 +721,60 @@ dbus_message_new_reply (const char  *name,
   return message;
 }
 
+DBusMessage *
+dbus_message_new_from_message (const DBusMessage *message)
+{
+  DBusMessage *retval;
+  int i;
+  
+  retval = dbus_new0 (DBusMessage, 1);
+  if (retval == NULL)
+    return NULL;
+  
+  retval->refcount = 1;
+  retval->byte_order = message->byte_order;
+
+  if (!_dbus_string_init (&retval->header, _DBUS_INT_MAX))
+    {
+      dbus_free (retval);
+      return NULL;
+    }
+  
+  if (!_dbus_string_init (&retval->body, _DBUS_INT_MAX))
+    {
+      _dbus_string_free (&retval->header);
+      dbus_free (retval);
+      return NULL;
+    }
+
+  if (!_dbus_string_copy (&message->header, 0,
+			  &retval->header, 0))
+    {
+      _dbus_string_free (&retval->header);
+      _dbus_string_free (&retval->body);
+      dbus_free (retval);
+
+      return NULL;
+    }
+
+  if (!_dbus_string_copy (&message->body, 0,
+			  &retval->body, 0))
+    {
+      _dbus_string_free (&retval->header);
+      _dbus_string_free (&retval->body);
+      dbus_free (retval);
+
+      return NULL;
+    }
+
+  for (i = 0; i < FIELD_LAST; i++)
+    {
+      retval->header_fields[i].offset = message->header_fields[i].offset;
+    }
+  
+  return retval;
+}
+
 
 /**
  * Increments the reference count of a DBusMessage.
@@ -2043,7 +2097,7 @@ check_message_handling (DBusMessage *message)
   iter = NULL;
   
   client_serial = _dbus_message_get_client_serial (message);
-  _dbus_message_set_client_serial (message);
+  _dbus_message_set_client_serial (message, client_serial);
 
   if (client_serial != _dbus_message_get_client_serial (message))
     {

@@ -223,6 +223,26 @@ _dbus_connection_remove_watch (DBusConnection *connection,
                                    watch);
 }
 
+dbus_bool_t
+_dbus_connection_add_timeout (DBusConnection *connection,
+			      DBusTimeout    *timeout)
+{
+ if (connection->timeouts) /* null during finalize */
+    return _dbus_timeout_list_add_timeout (connection->timeouts,
+					   timeout);
+  else
+    return FALSE;  
+}
+
+void
+_dbus_connection_remove_timeout (DBusConnection *connection,
+				 DBusTimeout    *timeout)
+{
+  if (connection->timeouts) /* null during finalize */
+    _dbus_timeout_list_remove_timeout (connection->timeouts,
+				       timeout);
+}
+
 /**
  * Tells the connection that the transport has been disconnected.
  * Results in calling the application disconnect callback.
@@ -498,7 +518,7 @@ dbus_connection_unref (DBusConnection *connection)
 {
   _dbus_assert (connection != NULL);
   _dbus_assert (connection->refcount > 0);
-  
+
   connection->refcount -= 1;
   if (connection->refcount == 0)
     {
@@ -518,13 +538,13 @@ dbus_connection_unref (DBusConnection *connection)
           _dbus_counter_unref (connection->connection_counter);
           connection->connection_counter = NULL;
         }
-      
+
       _dbus_watch_list_free (connection->watches);
       connection->watches = NULL;
-
+      
       _dbus_timeout_list_free (connection->timeouts);
       connection->timeouts = NULL;
-      
+
       _dbus_connection_free_data_slots (connection);
       
       _dbus_hash_iter_init (connection->handler_table, &iter);
@@ -1036,8 +1056,14 @@ dbus_connection_set_watch_functions (DBusConnection              *connection,
  * The DBusTimeout can be queried for the timer interval using
  * dbus_timeout_get_interval.
  *
- * Once a timeout occurs, dbus_timeout_handle should be call to invoke
+ * Once a timeout occurs, dbus_timeout_handle should be called to invoke
  * the timeout's callback.
+ *
+ * @param connection the connection.
+ * @param add_function function to add a timeout.
+ * @param remove_function function to remove a timeout.
+ * @param data data to pass to add_function and remove_function.
+ * @param free_data_function function to be called to free the data.
  */
 void
 dbus_connection_set_timeout_functions   (DBusConnection            *connection,

@@ -26,6 +26,9 @@
 #include "dbus-connection-internal.h"
 #include "dbus-watch.h"
 #include "dbus-auth.h"
+#ifdef DBUS_BUILD_TESTS
+#include "dbus-transport-debug.h"
+#endif
 
 /**
  * @defgroup DBusTransport DBusTransport object
@@ -197,11 +200,15 @@ _dbus_transport_open (const char     *address,
    * appropriate transport.
    */
 
+#if 1
   /* Pretend it's just a unix domain socket name for now */
   transport = _dbus_transport_new_for_domain_socket (address,
                                                      FALSE,
                                                      result);
-  
+#else
+  transport = _dbus_transport_debug_client_new (address,
+						result);
+#endif
   return transport;
 }
 

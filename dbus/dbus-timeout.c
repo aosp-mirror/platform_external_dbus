@@ -66,6 +66,7 @@ _dbus_timeout_new (int                 interval,
   timeout->refcount = 1;
   timeout->interval = interval;
 
+  timeout->handler = handler;
   timeout->handler_data = data;
   timeout->free_handler_data_function = free_data_function;
   

@@ -25,6 +25,7 @@
 
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-server.h>
+#include <dbus/dbus-timeout.h>
 #include <dbus/dbus-watch.h>
 #include <dbus/dbus-resources.h>
 
@@ -53,7 +54,8 @@ struct DBusServer
   int refcount;                               /**< Reference count. */
   const DBusServerVTable *vtable;             /**< Virtual methods for this instance. */
   DBusWatchList *watches;                     /**< Our watches */
-
+  DBusTimeoutList *timeouts;                  /**< Our timeouts */
+  
   DBusCounter *connection_counter;            /**< Number of non-finalized DBusConnection
                                                *   to this server
                                                */
@@ -72,13 +74,18 @@ struct DBusServer
   unsigned int disconnected : 1;              /**< TRUE if we are disconnected. */
 };
 
-dbus_bool_t  _dbus_server_init_base     (DBusServer             *server,
-                                        const DBusServerVTable *vtable);
-void        _dbus_server_finalize_base (DBusServer             *server);
-dbus_bool_t _dbus_server_add_watch     (DBusServer             *server,
-                                        DBusWatch              *watch);
-void        _dbus_server_remove_watch  (DBusServer             *server,
-                                        DBusWatch              *watch);
+dbus_bool_t _dbus_server_init_base      (DBusServer             *server,
+					 const DBusServerVTable *vtable);
+void        _dbus_server_finalize_base  (DBusServer             *server);
+dbus_bool_t _dbus_server_add_watch      (DBusServer             *server,
+					 DBusWatch              *watch);
+void        _dbus_server_remove_watch   (DBusServer             *server,
+					 DBusWatch              *watch);
+dbus_bool_t _dbus_server_add_timeout    (DBusServer             *server,
+					 DBusTimeout            *timeout);
+void        _dbus_server_remove_timeout (DBusServer             *server,
+					 DBusTimeout            *timeout);
+
 
 
 DBUS_END_DECLS;

@@ -32,6 +32,8 @@ libdbus_1_la_SOURCES=				\
 	dbus-resources.h			\
 	dbus-server.c				\
 	dbus-server-protected.h			\
+	dbus-server-debug.c			\
+	dbus-server-debug.h			\
 	dbus-server-unix.c			\
 	dbus-server-unix.h			\
 	dbus-test.c				\
@@ -41,6 +43,8 @@ libdbus_1_la_SOURCES=				\
 	dbus-threads.c				\
 	dbus-transport.c			\
 	dbus-transport.h			\
+	dbus-transport-debug.c			\
+	dbus-transport-debug.h			\
 	dbus-transport-protected.h		\
 	dbus-transport-unix.c			\
 	dbus-transport-unix.h			\
