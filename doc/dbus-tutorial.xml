@@ -50,7 +50,9 @@
             application frameworks.  For example, libdbus-glib and
             libdbus-qt. There are also bindings to languages such as
             Python. These wrapper libraries are the API most people should use,
-            as they simplify the details of D-BUS programming.
+            as they simplify the details of D-BUS programming. libdbus is 
+            intended to be a low-level backend for the higher level bindings.
+            Much of the libdbus API is only useful for binding implementation.
           </para>
         </listitem>
       </itemizedlist>

@@ -5,6 +5,14 @@ See also the file HACKING for notes of interest to developers working on D-BUS.
 See http://www.freedesktop.org/software/dbus/ for lots of documentation, 
 mailing lists, etc.
 
+Note
+===
+
+A core concept of the D-BUS implementation is that "libdbus" is
+intended to be a low-level API, similar to Xlib. Most programmers are
+intended to use the bindings to GLib, Qt, Python, Mono, Java, or
+whatever. These bindings have varying levels of completeness.
+
 Configuration flags
 ===
 
