@@ -1,0 +1,12 @@
+.deps
+.libs
+Makefile
+Makefile.in
+*.lo
+*.la
+dbus-send
+dbus-monitor
+*.bb
+*.bbg
+*.gcov
+*.da

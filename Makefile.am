@@ -8,7 +8,7 @@ if HAVE_QT
    QT_SUBDIR=qt
 endif
 
-SUBDIRS=dbus bus test doc $(GLIB_SUBDIR) $(QT_SUBDIR) 
+SUBDIRS=dbus bus test doc $(GLIB_SUBDIR) $(QT_SUBDIR) tools
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = dbus-1.0.pc $(GLIB_PC)

@@ -524,6 +524,7 @@ dbus/Makefile
 glib/Makefile
 qt/Makefile
 bus/Makefile
+tools/Makefile
 test/Makefile
 doc/Makefile
 dbus-1.0.pc

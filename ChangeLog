@@ -1,4 +1,9 @@
 2003-04-13  Havoc Pennington  <hp@pobox.com>
+	
+        * tools/dbus-send.c, tools/dbus-monitor.c: two utility programs
+	from Philip Blundell to send messages and monitor them.
+	
+2003-04-13  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-mainloop.c: fix some reentrancy issues by refcounting 
 	callbacks
