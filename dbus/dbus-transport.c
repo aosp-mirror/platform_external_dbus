@@ -184,7 +184,8 @@ _dbus_transport_finalize_base (DBusTransport *transport)
  * Opens a new transport for the given address.  (This opens a
  * client-side-of-the-connection transport.)
  *
- * @todo right now the address is just a Unix domain socket path.
+ * @todo error messages on bad address could really be better.
+ * DBusResultCode is a bit limiting here.
  * 
  * @param address the address.
  * @param result location to store reason for failure.

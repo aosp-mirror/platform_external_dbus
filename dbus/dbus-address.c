@@ -73,6 +73,8 @@ dbus_address_entry_free (DBusAddressEntry *entry)
 /**
  * Frees a #NULL-terminated array of address entries.
  *
+ * @todo dbus_address_entry_free() seems to leak list nodes
+ * 
  * @param entries the array.
  */
 void
@@ -157,6 +159,11 @@ dbus_address_entry_get_value (DBusAddressEntry *entry,
  *
  * method:key=value,key=value;method:key=value
  *
+ * @todo document address format in the specification
+ *
+ * @todo need to be able to escape ';' and ',' in the
+ * key values, and the parsing needs to handle that.
+ * 
  * @param address the address.
  * @param entry return location to an array of entries.
  * @param array_len return location for array length.

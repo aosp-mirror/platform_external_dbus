@@ -191,6 +191,9 @@ _dbus_server_remove_timeout (DBusServer  *server,
  * dbus_server_set_watch_functions() should be called
  * immediately to render the server fully functional.
  *
+ * @todo error messages on bad address could really be better.
+ * DBusResultCode is a bit limiting here.
+ *
  * @param address the address of this server.
  * @param result location to store rationale for failure.
  * @returns a new DBusServer, or #NULL on failure.
@@ -235,9 +238,10 @@ dbus_server_listen (const char     *address,
 	  server = _dbus_server_debug_new (name, result);
 
 	  if (server)
-	    break;	  
+	    break;
 	}
-      else goto bad_address;
+      else
+        goto bad_address;
     }
   
   dbus_address_entries_free (entries);

@@ -1,3 +1,15 @@
+2003-01-30  Havoc Pennington  <hp@pobox.com>
+
+	* dbus/dbus-server.c (dbus_server_listen): @todo about how we need
+	a better way to report errors here. e.g.  "unix address lacks
+	path" or something. also "no such file" when the path doesn't
+	exist, etc.
+
+	* dbus/dbus-address.c (dbus_address_entries_free): add @todo about
+	leaking list nodes
+	(dbus_parse_address): add @todo about documenting address format, 
+	and allowing , and ; to be escaped
+
 2003-01-30  Anders Carlsson  <andersca@codefactory.se>
 
 	* dbus/Makefile.am:
