@@ -400,6 +400,13 @@ struct Function
   char *name;
   Block *block_graph;
   int n_blocks;
+  /* number of blocks in DBUS_BUILD_TESTS */
+  int n_test_blocks;
+  int n_test_blocks_executed;
+  /* number of blocks outside DBUS_BUILD_TESTS */
+  int n_nontest_blocks;
+  int n_nontest_blocks_executed;
+  /* Summary result flags */
   unsigned int unused : 1;
   unsigned int inside_dbus_build_tests : 1;
   unsigned int partial : 1; /* only some of the blocks were executed */
@@ -1181,35 +1188,6 @@ fill_line_content (const DBusString *str,
 }
 
 static void
-mark_unused_functions (File  *f)
-{
-  int i;
-  DBusList *link;
-
-  link = _dbus_list_get_first_link (&f->functions);
-  while (link != NULL)
-    {
-      Function *func = link->data;
-      dbus_bool_t used;
-
-      used = FALSE;
-      i = 0;
-      while (i < func->n_blocks)
-        {
-          if (func->block_graph[i].exec_count > 0)
-            used = TRUE;
-          
-          ++i;
-        }
-
-      if (!used)
-        func->unused = TRUE;
-
-      link = _dbus_list_get_next_link (&f->functions, link);
-    }
-}
-
-static void
 mark_inside_dbus_build_tests (File  *f)
 {
   int i;
@@ -1287,7 +1265,7 @@ mark_inside_dbus_build_tests (File  *f)
 }
 
 static void
-mark_partials (File  *f)
+mark_coverage (File  *f)
 {
   int i;
   DBusList *link;
@@ -1327,25 +1305,49 @@ mark_partials (File  *f)
     {
       Function *func = link->data;
       int i;
-      int n_blocks;
-      int n_blocks_executed;
+      int n_test_blocks;
+      int n_test_blocks_executed;
+      int n_nontest_blocks;
+      int n_nontest_blocks_executed;
+      
+      n_test_blocks = 0;
+      n_test_blocks_executed = 0;
+      n_nontest_blocks = 0;
+      n_nontest_blocks_executed = 0;      
 
-      n_blocks = 0;
-      n_blocks_executed = 0;
       i = 0;
       while (i < func->n_blocks)
         {
-          /* Break as soon as any block is not a test block */
-          if (func->block_graph[i].exec_count > 0)
-            n_blocks_executed += 1;
+          if (!func->block_graph[i].inside_dbus_build_tests)
+            {
+              n_nontest_blocks += 1;
 
-          n_blocks += 1;
+              if (func->block_graph[i].exec_count > 0)
+                n_nontest_blocks_executed += 1;
+            }
+          else
+            {
+              n_test_blocks += 1;
+
+              if (func->block_graph[i].exec_count > 0)
+                n_test_blocks_executed += 1;
+            }
+
           ++i;
         }
-
-      if (n_blocks_executed > 0 &&
-          n_blocks_executed < n_blocks)
+      
+      if (n_nontest_blocks_executed > 0 &&
+          n_nontest_blocks_executed < n_nontest_blocks)
         func->partial = TRUE;
+
+      if (n_nontest_blocks_executed == 0 &&
+          n_nontest_blocks > 0)
+        func->unused = TRUE;
+      
+      func->n_test_blocks = n_test_blocks;
+      func->n_test_blocks_executed = n_test_blocks_executed;
+      func->n_nontest_blocks = n_nontest_blocks;
+      func->n_nontest_blocks_executed = n_nontest_blocks_executed;
       
       link = _dbus_list_get_next_link (&f->functions, link);
     }
@@ -1392,9 +1394,8 @@ load_c_file (const DBusString *filename)
 
   load_block_line_associations (filename, f);
 
-  mark_unused_functions (f);
   mark_inside_dbus_build_tests (f);
-  mark_partials (f);
+  mark_coverage (f);
   
   return f;
 }
@@ -1502,24 +1503,15 @@ merge_stats_for_file (Stats *stats,
           if (func->partial)
             stats->n_functions_partial += 1;
         }
-          
-      i = 0;
-      while (i < func->n_blocks)
-        {
-          Block *b = &func->block_graph[i];
 
-          if (b->inside_dbus_build_tests)
-            stats->n_blocks_inside_dbus_build_tests += 1;
-          else
-            {
-              if (b->exec_count > 0)
-                stats->n_blocks_executed += 1;
-              
-              stats->n_blocks += 1;
-            }
-          
-          ++i;
-        }
+      stats->n_blocks_inside_dbus_build_tests +=
+        func->n_test_blocks;
+      
+      stats->n_blocks_executed +=
+        func->n_nontest_blocks_executed;
+      
+      stats->n_blocks +=
+        func->n_nontest_blocks;
 
       link = _dbus_list_get_next_link (&f->functions, link);
     }
@@ -1763,6 +1755,54 @@ print_untested_functions (File *f)
 }
 
 static void
+print_poorly_tested_functions (File  *f,
+                               Stats *stats)
+{
+  DBusList *link;
+  dbus_bool_t found;
+
+#define TEST_FRACTION(function) ((function)->n_nontest_blocks_executed / (double) (function)->n_nontest_blocks)
+
+#define AVERAGE_COVERAGE ((stats)->n_blocks_executed / (double) (stats)->n_blocks)
+  
+#define POORLY_TESTED(function) (!(function)->unused &&                 \
+                                 (function)->n_nontest_blocks > 0 &&    \
+                                 TEST_FRACTION (function) < AVERAGE_COVERAGE)
+  
+  found = FALSE;
+  link = _dbus_list_get_first_link (&f->functions);
+  while (link != NULL)
+    {
+      Function *func = link->data;
+
+      if (POORLY_TESTED (func))
+        found = TRUE;
+      
+      link = _dbus_list_get_next_link (&f->functions, link);
+    }
+
+  if (!found)
+    return;
+
+  printf ("Below average functions in %s\n", f->name);
+  printf ("=======\n");
+  
+  link = _dbus_list_get_first_link (&f->functions);
+  while (link != NULL)
+    {
+      Function *func = link->data;
+
+      if (POORLY_TESTED (func))
+        printf ("  %s (%d%%)\n", func->name,
+                (int) (TEST_FRACTION (func) * 100));
+      
+      link = _dbus_list_get_next_link (&f->functions, link);
+    }
+
+  printf ("\n");
+}
+
+static void
 print_stats (Stats      *stats,
              const char *of_what)
 {
@@ -1984,6 +2024,16 @@ main (int argc, char **argv)
           File *f = link->data;
 
           print_untested_functions (f);
+          
+          link = _dbus_list_get_next_link (&files, link);
+        }
+
+      link = _dbus_list_get_first_link (&files);
+      while (link != NULL)
+        {
+          File *f = link->data;
+
+          print_poorly_tested_functions (f, &stats);
           
           link = _dbus_list_get_next_link (&files, link);
         }

@@ -1,5 +1,16 @@
 2003-04-11  Havoc Pennington  <hp@pobox.com>
 
+	* test/decode-gcov.c: add "below average functions" to the
+	coverage report, and change how some of the code works.
+
+	* bus/test-main.c: bracket some stuff in DBUS_BUILD_TESTS so it's
+	not in the coverage stats.
+
+	* test/test-service.c (main): use _dbus_verbose not fprintf in a
+	couple places so running the test suite doesn't result in megaspam.
+
+2003-04-11  Havoc Pennington  <hp@pobox.com>
+
 	* bus/dispatch.c (check_existent_service_activation): accept a no
 	memory error in a place we didn't before
 

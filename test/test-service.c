@@ -110,8 +110,8 @@ main (int    argc,
   connection = dbus_bus_get (DBUS_BUS_ACTIVATION, &error);
   if (connection == NULL)
     {
-      fprintf (stderr, "*** Failed to open connection to activating message bus: %s\n",
-               error.message);
+      _dbus_verbose ("*** Failed to open connection to activating message bus: %s\n",
+                     error.message);
       dbus_error_free (&error);
       return 1;
     }
@@ -135,8 +135,8 @@ main (int    argc,
                                      0, &error);
   if (dbus_error_is_set (&error))
     {
-      fprintf (stderr, "*** Failed to acquire service: %s\n",
-               error.message);
+      _dbus_verbose ("*** Failed to acquire service: %s\n",
+                     error.message);
       dbus_error_free (&error);
       exit (1);
     }

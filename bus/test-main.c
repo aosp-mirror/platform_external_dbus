@@ -28,6 +28,7 @@
 #include <dbus/dbus-sysdeps.h>
 #include <dbus/dbus-internals.h>
 
+#ifdef DBUS_BUILD_TESTS
 static void
 die (const char *failure)
 {
@@ -48,6 +49,7 @@ check_memleaks (const char *name)
       die ("memleaks");
     }
 }
+#endif /* DBUS_BUILD_TESTS */
 
 int
 main (int argc, char **argv)
