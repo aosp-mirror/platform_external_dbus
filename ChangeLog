@@ -1,3 +1,8 @@
+2003-02-01  Alexander Larsson  <alexl@redhat.com>
+
+	* dbus/dbus-message.c (dbus_message_append_fields):
+	Add some more doc comments.
+
 2003-02-01  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-break-loader.c (randomly_modify_length): change 

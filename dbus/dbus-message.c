@@ -944,8 +944,10 @@ dbus_message_get_service (DBusMessage *message)
 /**
  * Appends fields to a message given a variable argument
  * list. The variable argument list should contain the type
- * of the field followed by the value to add.
- * The list is terminated with 0.
+ * of the argument followed by the value to add. Array values
+ * are specified by an int giving the length of the array
+ * followed by a pointer to the array. The list is terminated
+ * with 0.
  *
  * @param message the message
  * @param first_field_type type of the first field
