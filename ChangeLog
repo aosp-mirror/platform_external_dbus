@@ -1,3 +1,30 @@
+2003-04-10  Alexander Larsson  <alexl@redhat.com>
+
+	* dbus/dbus-marshal.[ch]:
+	Add array_type_pos argument to _dbus_marshal_validate_arg.
+	Let you pass a NULL end_pos to _dbus_marshal_validate_type.
+	
+	* dbus/dbus-message.[ch]:
+	Multi-dimensional arrays have full type specification in the
+	outermost array. Iter code re-arranged to handle this.
+	Added some more iter tests.
+	
+	* doc/dbus-specification.sgml:
+	Add me to authors.
+	Remove old FIXME.
+	Update new array encoding description.
+	Correct DBUS_SERVICE_FLAGS_REPLACE_EXISTING description.
+	
+	* test/data/invalid-messages/array-with-mixed-types.message:
+	* test/data/valid-messages/array-of-array-of-uint32.message:
+	Change to the new array format.
+	
+	* test/data/invalid-messages/too-short-dict.message:
+	Fix bug in test.
+	
+	* test/data/valid-messages/recursive-types.message:
+	Fix up and extend test.
+
 2003-04-10  Havoc Pennington  <hp@pobox.com>
 
 	* bus/dispatch.c: lots of fixes

@@ -1027,8 +1027,8 @@ _dbus_marshal_get_arg_end_pos (const DBusString *str,
       {
 	int len;
 
-	/* Demarshal the length (element type is at pos + 0 */
-	len = _dbus_demarshal_uint32 (str, byte_order, pos + 1, &pos);
+	/* Demarshal the length  */
+	len = _dbus_demarshal_uint32 (str, byte_order, pos, &pos);
 	
 	*end_pos = pos + len;
       }
@@ -1169,7 +1169,8 @@ _dbus_marshal_validate_type   (const DBusString *str,
   if (*data > DBUS_TYPE_INVALID && *data <= DBUS_TYPE_LAST)
     {
       *type = *data;
-      *end_pos = pos + 1;
+      if (end_pos != NULL)
+	*end_pos = pos + 1;
       return TRUE;
     }
   
@@ -1194,6 +1195,8 @@ _dbus_marshal_validate_type   (const DBusString *str,
  * @param byte_order the byte order to use
  * @param depth current recursion depth, to prevent excessive recursion
  * @param type the type of the argument
+ * @param array_type_pos the position of the current array type, or
+ *        -1 if not in an array
  * @param pos the pos where the arg starts
  * @param end_pos pointer where the position right
  * after the end position will follow
@@ -1204,6 +1207,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
                             int	              byte_order,
                             int               depth,
 			    int               type,
+			    int               array_type_pos,
                             int               pos,
                             int              *end_pos)
 {
@@ -1340,21 +1344,38 @@ _dbus_marshal_validate_arg (const DBusString *str,
 	int end;
 	int array_type;
 
-	if (!_dbus_marshal_validate_type (str, pos, &array_type, &pos))
+	if (array_type_pos == -1)
+	  {
+	    array_type_pos = pos;
+
+	    do
+	      {
+		if (!_dbus_marshal_validate_type (str, pos, &array_type, &pos))
+		  {
+		    _dbus_verbose ("invalid array type\n");
+		    return FALSE;
+		  }
+		
+		/* NIL values take up no space, so you couldn't iterate over an array of them.
+		 * array of nil seems useless anyway; the useful thing might be array of
+		 * (nil OR string) but we have no framework for that.
+		 */
+		if (array_type == DBUS_TYPE_NIL)
+		  {
+		    _dbus_verbose ("array of NIL is not allowed\n");
+		    return FALSE;
+		  }
+	      }
+	    while (array_type == DBUS_TYPE_ARRAY);
+	  }
+	else
+	  array_type_pos++;
+
+	if (!_dbus_marshal_validate_type (str, array_type_pos, &array_type, NULL))
 	  {
 	    _dbus_verbose ("invalid array type\n");
 	    return FALSE;
 	  }
-
-        /* NIL values take up no space, so you couldn't iterate over an array of them.
-         * array of nil seems useless anyway; the useful thing might be array of
-         * (nil OR string) but we have no framework for that.
-         */
-        if (array_type == DBUS_TYPE_NIL)
-          {
-            _dbus_verbose ("array of NIL is not allowed\n");
-            return FALSE;
-          }
         
 	len = demarshal_and_validate_len (str, byte_order, pos, &pos);
         if (len < 0)
@@ -1371,7 +1392,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
 	while (pos < end)
 	  {
 	    if (!_dbus_marshal_validate_arg (str, byte_order, depth + 1,
-					     array_type, pos, &pos))
+					     array_type, array_type_pos, pos, &pos))
 	      return FALSE;
 	  }
 
@@ -1417,7 +1438,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
 	  {
 	    /* Validate name */
 	    if (!_dbus_marshal_validate_arg (str, byte_order, depth + 1,
-					     DBUS_TYPE_STRING, pos, &pos))
+					     DBUS_TYPE_STRING, -1, pos, &pos))
 	      return FALSE;
 	    
 	    if (!_dbus_marshal_validate_type (str, pos, &dict_type, &pos))
@@ -1428,7 +1449,7 @@ _dbus_marshal_validate_arg (const DBusString *str,
 	    
 	    /* Validate element */
 	    if (!_dbus_marshal_validate_arg (str, byte_order, depth + 1,
-					     dict_type, pos, &pos))
+					     dict_type, -1, pos, &pos))
 	      return FALSE;
 	  }
 	

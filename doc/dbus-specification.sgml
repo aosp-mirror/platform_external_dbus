@@ -10,6 +10,7 @@
 	<firstname>Havoc</firstname>
 	<surname>Pennington</surname>
 	<affiliation>
+	  <orgname>Red Hat, Inc</orgname>
 	  <address>
 	    <email>hp@pobox.com</email>
 	  </address>
@@ -22,6 +23,16 @@
 	  <orgname>CodeFactory AB</orgname>
 	  <address>
             <email>andersca@codefactory.se</email>
+          </address>
+	</affiliation>
+      </author>
+      <author>
+	<firstname>Alexander</firstname>
+	<surname>Larsson</surname>
+	<affiliation>
+	  <orgname>Red Hat, Inc</orgname>
+	  <address>
+            <email>alexl@redhat.com</email>
           </address>
 	</affiliation>
       </author>
@@ -283,9 +294,6 @@
         in a type-dependent format.
       </para>
       <para>
-        [FIXME perhaps we should add type BYTE with the primary 
-        advantage being that it occupies 1 byte vs. 7 for UINT32,
-        or perhaps space savings aren't worth the complexity]
         <informaltable>
           <tgroup cols=3>
             <thead>
@@ -307,7 +315,7 @@
               </row><row>
 		<entry>BYTE</entry>
 		<entry>2</entry>
-		<entry>8-bit unsigned integer.</entry>
+		<entry>8-bit unsigned integer</entry>
               </row><row>
 		<entry>BOOLEAN</entry>
 		<entry>3</entry>
@@ -365,10 +373,10 @@
                 by the type code of the next argument.</entry>
               </row><row>
                 <entry>BYTE</entry>
-                <entry>a byte.</entry>
+                <entry>A byte.</entry>
               </row><row>
                 <entry>BOOLEAN</entry>
-                <entry>a byte, with valid values 0 and 1.</entry>
+                <entry>A byte, with valid values 0 and 1.</entry>
               </row><row>
                 <entry>INT32</entry>
                 <entry>32-bit signed integer in the message's byte order, aligned to 4-byte boundary.</entry>
@@ -393,11 +401,13 @@
                 </entry>
               </row><row>
                 <entry>ARRAY</entry>
-                <entry>a byte giving the element type of the array followed
-                by an UINT32 (aligned to 4 bytes) giving the length of the
-                array data in bytes. This is then followed by a number of
-                entries with the same type, encoded like that type normally
-                would be encoded alone.
+                <entry>A sequence of bytes giving the element type of the array, terminated
+                by a type different from ARRAY (just one byte for one-dimensional arrays, but
+                larger for multi-dimensional arrays), followed by an UINT32 (aligned to 4 bytes)
+                giving the length of the array data in bytes. This is followed by each array entry
+                encoded the way it would normally be encoded, except arrays, which are encoded
+                without the type information, since that is already declared above. Arrays containing
+                NIL are not allowed.
                 </entry>
               </row><row>
                 <entry>DICT</entry>
@@ -1524,7 +1534,9 @@
 	        <row>
 		  <entry>DBUS_SERVICE_FLAGS_REPLACE_EXISTING</entry>
 		  <entry>0x2</entry>
-		  <entry>Only become the owner of the service if there is no current owner.</entry>
+		  <entry>Try to replace the current owner if there is one. If this flag
+                  is not set the application will only become the owner of the service if
+                  there is no current owner.</entry>
 	        </row>
 	      </tbody>
 	    </tgroup>
