@@ -165,6 +165,8 @@ namespace DBus
 
       if (type.IsArray)
         constructorType = typeof (System.Array);
+      else if (type.IsEnum)
+        constructorType = Enum.GetUnderlyingType (type);
       else
         constructorType = type.UnderlyingSystemType;
 
