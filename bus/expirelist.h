@@ -32,7 +32,7 @@ typedef struct BusExpireList BusExpireList;
 typedef struct BusExpireItem BusExpireItem;
 
 typedef void (* BusExpireFunc) (BusExpireList *list,
-                                BusExpireItem *item,
+                                DBusList      *link,
                                 void          *data);
 
 struct BusExpireList

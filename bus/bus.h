@@ -45,7 +45,7 @@ typedef struct BusMatchRule     BusMatchRule;
 
 typedef struct
 {
-  long max_incoming_bytes;          /**< How many incoming messages for a single connection */
+  long max_incoming_bytes;          /**< How many incoming message bytes for a single connection */
   long max_outgoing_bytes;          /**< How many outgoing bytes can be queued for a single connection */
   long max_message_size;            /**< Max size of a single message in bytes */
   int activation_timeout;           /**< How long to wait for an activation to time out */
@@ -56,6 +56,8 @@ typedef struct
   int max_pending_activations;      /**< Max number of pending activations for the entire bus */
   int max_services_per_connection;  /**< Max number of owned services for a single connection */
   int max_match_rules_per_connection; /**< Max number of match rules for a single connection */
+  int max_replies_per_connection;     /**< Max number of replies that can be pending for each connection */
+  int reply_timeout;                  /**< How long to wait before timing out a reply */
 } BusLimits;
 
 BusContext*       bus_context_new                                (const DBusString *config_file,
@@ -87,7 +89,10 @@ int               bus_context_get_max_connections_per_user       (BusContext    
 int               bus_context_get_max_pending_activations        (BusContext       *context);
 int               bus_context_get_max_services_per_connection    (BusContext       *context);
 int               bus_context_get_max_match_rules_per_connection (BusContext       *context);
+int               bus_context_get_max_replies_per_connection     (BusContext       *context);
+int               bus_context_get_reply_timeout                  (BusContext       *context);
 dbus_bool_t       bus_context_check_security_policy              (BusContext       *context,
+                                                                  BusTransaction   *transaction,
                                                                   DBusConnection   *sender,
                                                                   DBusConnection   *addressed_recipient,
                                                                   DBusConnection   *proposed_recipient,

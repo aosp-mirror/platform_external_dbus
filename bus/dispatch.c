@@ -42,7 +42,7 @@ send_one_message (DBusConnection *connection,
                   BusTransaction *transaction,
                   DBusError      *error)
 {
-  if (!bus_context_check_security_policy (context,
+  if (!bus_context_check_security_policy (context, transaction,
                                           sender,
                                           addressed_recipient,
                                           connection,
@@ -229,7 +229,7 @@ bus_dispatch (DBusConnection *connection,
   if (service_name &&
       strcmp (service_name, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) == 0) /* to bus driver */
     {
-      if (!bus_context_check_security_policy (context,
+      if (!bus_context_check_security_policy (context, transaction,
                                               connection, NULL, NULL, message, &error))
         {
           _dbus_verbose ("Security policy rejected message\n");
@@ -272,7 +272,7 @@ bus_dispatch (DBusConnection *connection,
           addressed_recipient = bus_service_get_primary_owner (service);
           _dbus_assert (addressed_recipient != NULL);
           
-          if (!bus_context_check_security_policy (context,
+          if (!bus_context_check_security_policy (context, transaction,
                                                   connection, addressed_recipient,
                                                   addressed_recipient,
                                                   message, &error))

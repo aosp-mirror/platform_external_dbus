@@ -141,7 +141,13 @@ do_expiration_with_current_time (BusExpireList *list,
       if (elapsed >= (double) list->expire_after)
         {
           _dbus_verbose ("Expiring an item %p\n", item);
-          (* list->expire_func) (list, item, list->data);
+
+          /* If the expire function fails, we just end up expiring
+           * this item next time we walk through the list. Which is in
+           * indeterminate time since we don't know what next_interval
+           * will be.
+           */
+          (* list->expire_func) (list, link, list->data);
         }
       else
         {
@@ -201,12 +207,12 @@ typedef struct
 
 static void
 test_expire_func (BusExpireList *list,
-                  BusExpireItem *item,
+                  DBusList      *link,
                   void          *data)
 {
   TestExpireItem *t;
 
-  t = (TestExpireItem*) item;
+  t = (TestExpireItem*) link->data;
 
   t->expire_count += 1;
 }

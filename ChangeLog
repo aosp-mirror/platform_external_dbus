@@ -1,3 +1,17 @@
+2003-10-14  Havoc Pennington  <hp@redhat.com>
+
+	* bus/connection.c: implement pending reply tracking using
+	BusExpireList
+
+	* bus/bus.c (bus_context_check_security_policy): verify that a
+	reply is pending in order to allow a reply to be sent. Deny 
+	messages of unknown type.
+
+	* bus/dbus-daemon-1.1.in: update to mention new resource limits
+
+	* bus/bus.c (bus_context_get_max_replies_per_connection): new
+	(bus_context_get_reply_timeout): new
+
 2003-10-13  Seth Nickell  <seth@gnome.org>
 
 	* python/Makefile.am:

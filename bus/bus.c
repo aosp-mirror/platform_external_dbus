@@ -872,6 +872,18 @@ bus_context_get_max_match_rules_per_connection (BusContext *context)
   return context->limits.max_match_rules_per_connection;
 }
 
+int
+bus_context_get_max_replies_per_connection (BusContext *context)
+{
+  return context->limits.max_replies_per_connection;
+}
+
+int
+bus_context_get_reply_timeout (BusContext *context)
+{
+  return context->limits.reply_timeout;
+}
+
 /*
  * addressed_recipient is the recipient specified in the message.
  *
@@ -887,6 +899,7 @@ bus_context_get_max_match_rules_per_connection (BusContext *context)
  */
 dbus_bool_t
 bus_context_check_security_policy (BusContext     *context,
+                                   BusTransaction *transaction,
                                    DBusConnection *sender,
                                    DBusConnection *addressed_recipient,
                                    DBusConnection *proposed_recipient,
@@ -895,10 +908,16 @@ bus_context_check_security_policy (BusContext     *context,
 {
   BusClientPolicy *sender_policy;
   BusClientPolicy *recipient_policy;
-
-  _dbus_assert (dbus_message_get_destination (message) == NULL || /* Signal */
-                (addressed_recipient != NULL ||
-                 strcmp (dbus_message_get_destination (message), DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) == 0)); /* Destination specified or is the bus driver */
+  int type;
+  
+  type = dbus_message_get_type (message);
+  
+  /* dispatch.c was supposed to ensure these invariants */
+  _dbus_assert (dbus_message_get_destination (message) != NULL ||
+                type == DBUS_MESSAGE_TYPE_SIGNAL);
+  _dbus_assert (type == DBUS_MESSAGE_TYPE_SIGNAL ||
+                addressed_recipient != NULL ||
+                strcmp (dbus_message_get_destination (message), DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) == 0);
   
   if (sender != NULL)
     {
@@ -906,6 +925,44 @@ bus_context_check_security_policy (BusContext     *context,
         {
           sender_policy = bus_connection_get_policy (sender);
           _dbus_assert (sender_policy != NULL);
+
+          switch (type)
+            {
+            case DBUS_MESSAGE_TYPE_METHOD_CALL:
+            case DBUS_MESSAGE_TYPE_SIGNAL:
+
+              /* Continue below to check security policy */
+              break;
+              
+            case DBUS_MESSAGE_TYPE_METHOD_RETURN:
+            case DBUS_MESSAGE_TYPE_ERROR:
+              /* These are only allowed if the reply is listed
+               * as pending, or the connection is eavesdropping.
+               * The idea is to prohibit confusing/fake replies.
+               * FIXME In principle a client that's asked to eavesdrop
+               * specifically should probably get bogus replies
+               * even to itself, but here we prohibit that.
+               */
+              
+              if (proposed_recipient != NULL /* not to the bus driver */ &&
+                  addressed_recipient == proposed_recipient /* not eavesdropping */ &&
+                  !bus_connections_check_reply (bus_connection_get_connections (sender),
+                                                transaction,
+                                                sender, addressed_recipient, message,
+                                                error))
+                return FALSE;
+
+              /* Continue below to check security policy, since reply was expected */
+              break;
+              
+            default:
+              _dbus_verbose ("security check disallowing message of unknown type\n");
+
+              dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                              "Message bus will not accept messages of unknown type\n");
+              
+              return FALSE;
+            }
         }
       else
         {
@@ -1029,6 +1086,23 @@ bus_context_check_security_policy (BusContext     *context,
       return FALSE;
     }
 
+  if (type == DBUS_MESSAGE_TYPE_METHOD_CALL)
+    {
+      /* Record that we will allow a reply here in the future (don't
+       * bother if the recipient is the bus). Only the addressed recipient
+       * may reply.
+       */
+      if (sender && addressed_recipient &&
+          !bus_connections_expect_reply (bus_connection_get_connections (sender),
+                                         transaction,
+                                         sender, addressed_recipient,
+                                         message, error))
+        {
+          _dbus_verbose ("Failed to record reply expectation or problem with the message expecting a reply\n");
+          return FALSE;
+        }
+    }
+  
   _dbus_verbose ("security policy allowing message\n");
   return TRUE;
 }

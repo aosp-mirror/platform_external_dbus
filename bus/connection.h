@@ -55,6 +55,19 @@ dbus_bool_t     bus_connections_check_limits      (BusConnections               
                                                    DBusError                    *error);
 void            bus_connections_expire_incomplete (BusConnections               *connections);
 
+dbus_bool_t     bus_connections_expect_reply      (BusConnections               *connections,
+                                                   BusTransaction               *transaction,
+                                                   DBusConnection               *will_get_reply,
+                                                   DBusConnection               *will_send_reply,
+                                                   DBusMessage                  *reply_to_this,
+                                                   DBusError                    *error);
+dbus_bool_t     bus_connections_check_reply       (BusConnections               *connections,
+                                                   BusTransaction               *transaction,
+                                                   DBusConnection               *sending_reply,
+                                                   DBusConnection               *receiving_reply,
+                                                   DBusMessage                  *reply,
+                                                   DBusError                    *error);
+
 dbus_bool_t     bus_connection_mark_stamp         (DBusConnection               *connection);
 
 dbus_bool_t bus_connection_is_active (DBusConnection *connection);

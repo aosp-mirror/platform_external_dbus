@@ -280,6 +280,11 @@ Available limit names are:
                                      progress at the same time
       "max_services_per_connection": max number of services a single 
                                      connection can own
+      "max_replies_per_connection" : max number of pending method 
+                                     replies per connection
+                                     (number of calls-in-progress)
+      "reply_timeout"              : milliseconds (thousandths) 
+                                     until a method call times out   
 .fi
 
 .PP

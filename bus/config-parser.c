@@ -336,6 +336,9 @@ bus_config_parser_new (const DBusString *basedir,
   parser->limits.max_services_per_connection = 256;
 
   parser->limits.max_match_rules_per_connection = 128;
+
+  parser->limits.reply_timeout = 5 * 60 * 1000; /* 5 minutes */
+  parser->limits.max_replies_per_connection = 32;
   
   parser->refcount = 1;
 
@@ -1397,6 +1400,12 @@ set_limit (BusConfigParser *parser,
       must_be_int = TRUE;
       parser->limits.auth_timeout = value;
     }
+  else if (strcmp (name, "reply_timeout") == 0)
+    {
+      must_be_positive = TRUE;
+      must_be_int = TRUE;
+      parser->limits.reply_timeout = value;
+    }
   else if (strcmp (name, "max_completed_connections") == 0)
     {
       must_be_positive = TRUE;
@@ -1426,6 +1435,12 @@ set_limit (BusConfigParser *parser,
       must_be_positive = TRUE;
       must_be_int = TRUE;
       parser->limits.max_services_per_connection = value;
+    }
+  else if (strcmp (name, "max_replies_per_connection") == 0)
+    {
+      must_be_positive = TRUE;
+      must_be_int = TRUE;
+      parser->limits.max_replies_per_connection = value;
     }
   else
     {

@@ -31,9 +31,6 @@
    some basic spec'ing out of the GLib/Qt level stubs/skels stuff will be 
    needed to understand the right approach.
 
- - there are various bits of code to manage ref/unref of data slots, that should 
-   be merged into a generic facility
-
  - assorted _-prefixed symbols in libdbus aren't actually used by
    libdbus, only by the message bus. These bloat up the library
    size. Not sure how to fix, really.
@@ -73,7 +70,10 @@
    async calls.
 
  - the invalid messages in the test suite are all useless because 
-   they are invalid for the wrong reasons due to protocol changes
+   they are invalid for the wrong reasons due to protocol changes.
+   (Consider extending test suite to validate that they are 
+   invalid for right reason, e.g. an "INVALID_ERROR Foo" line 
+   in the message files)
 
  - I don't want to introduce DBusObject, but refcounting and object
    data could still be factored out into an internal "base class" 
@@ -111,3 +111,10 @@
  - the GLib bindings varargs take DBUS_TYPE_WHATEVER and 
    return stuff allocated with dbus_malloc(); should this 
    be made more "G" at some expense in code duplication?
+
+ - need to define bus behavior if you send a message to 
+   yourself; is it an error, or allowed? If allowed, 
+   we need to have a test for it in the test suite.
+
+ - the max_replies_per_connection resource limit isn't implemented
+

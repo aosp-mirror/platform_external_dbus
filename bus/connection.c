@@ -55,6 +55,7 @@ struct BusConnections
   DBusHashTable *completed_by_user; /**< Number of completed connections for each UID */
   DBusTimeout *expire_timeout; /**< Timeout for expiring incomplete connections. */
   int stamp;            /**< Incrementing number */
+  BusExpireList *pending_replies; /**< List of pending replies */
 };
 
 static dbus_int32_t connection_data_slot = -1;
@@ -78,6 +79,13 @@ typedef struct
   long connection_tv_usec; /**< Time when we connected (microsec component) */
   int stamp;               /**< connections->stamp last time we were traversed */
 } BusConnectionData;
+
+static void bus_pending_reply_expired (BusExpireList *list,
+                                       DBusList      *link,
+                                       void          *data);
+
+static void bus_connection_drop_pending_replies (BusConnections  *connections,
+                                                 DBusConnection  *connection);
 
 static dbus_bool_t expire_incomplete_timeout (void *data);
 
@@ -268,12 +276,14 @@ bus_connection_disconnected (DBusConnection *connection)
       _dbus_assert (d->connections->n_incomplete >= 0);
       _dbus_assert (d->connections->n_completed >= 0);
     }
+
+  bus_connection_drop_pending_replies (d->connections, connection);
   
   /* frees "d" as side effect */
   dbus_connection_set_data (connection,
                             connection_data_slot,
                             NULL, NULL);
-
+  
   dbus_connection_unref (connection);
 }
 
@@ -430,16 +440,25 @@ bus_connections_new (BusContext *context)
 
   _dbus_timeout_set_enabled (connections->expire_timeout, FALSE);
 
+  connections->pending_replies = bus_expire_list_new (bus_context_get_loop (context),
+                                                      bus_context_get_reply_timeout (context),
+                                                      bus_pending_reply_expired,
+                                                      connections);
+  if (connections->pending_replies == NULL)
+    goto failed_4;
+  
   if (!_dbus_loop_add_timeout (bus_context_get_loop (context),
                                connections->expire_timeout,
                                call_timeout_callback, NULL, NULL))
-    goto failed_4;
+    goto failed_5;
   
   connections->refcount = 1;
   connections->context = context;
   
   return connections;
 
+ failed_5:
+  bus_expire_list_free (connections->pending_replies);
  failed_4:
   _dbus_timeout_unref (connections->expire_timeout);
  failed_3:
@@ -491,11 +510,14 @@ bus_connections_unref (BusConnections *connections)
           dbus_connection_ref (connection);
           dbus_connection_disconnect (connection);
           bus_connection_disconnected (connection);
-          dbus_connection_unref (connection);          
+          dbus_connection_unref (connection);
         }
 
       _dbus_assert (connections->n_completed == 0);
 
+      _dbus_assert (connections->pending_replies->n_items == 0);
+      bus_expire_list_free (connections->pending_replies);
+      
       _dbus_loop_remove_timeout (bus_context_get_loop (connections->context),
                                  connections->expire_timeout,
                                  call_timeout_callback, NULL);
@@ -1318,6 +1340,352 @@ bus_connections_check_limits (BusConnections  *connections,
   return TRUE;
 }
 
+static dbus_bool_t
+bus_pending_reply_send_no_reply (BusConnections  *connections,
+                                 BusTransaction  *transaction,
+                                 BusPendingReply *pending)
+{
+  DBusMessage *message;
+  DBusMessageIter iter;
+  dbus_bool_t retval;
+
+  retval = FALSE;
+  
+  message = dbus_message_new (DBUS_MESSAGE_TYPE_ERROR);
+  if (message == NULL)
+    return FALSE;
+  
+  dbus_message_set_no_reply (message, TRUE);
+  
+  if (!dbus_message_set_reply_serial (message,
+                                      pending->reply_serial))
+    goto out;
+
+  if (!dbus_message_set_error_name (message,
+                                    DBUS_ERROR_NO_REPLY))
+    goto out;
+  
+  dbus_message_append_iter_init (message, &iter);
+  if (!dbus_message_iter_append_string (&iter, "Message did not receive a reply (timeout by message bus)"))
+    goto out;
+    
+  if (!bus_transaction_send_from_driver (transaction, pending->will_get_reply,
+                                         message))
+    goto out;
+
+  retval = TRUE;
+
+ out:
+  dbus_message_unref (message);
+  return retval;
+}
+
+static void
+bus_pending_reply_expired (BusExpireList *list,
+                           DBusList      *link,
+                           void          *data)
+{
+  BusPendingReply *pending = link->data;
+  BusConnections *connections = data;
+  BusTransaction *transaction;
+  
+  /* No reply is forthcoming. So nuke it if we can. If not,
+   * leave it in the list to try expiring again later when we
+   * get more memory.
+   */
+  transaction = bus_transaction_new (connections->context);
+  if (transaction == NULL)
+    return;
+  
+  if (bus_pending_reply_send_no_reply (connections,
+                                       transaction,
+                                       pending))
+    {
+      _dbus_list_remove_link (&connections->pending_replies->items,
+                              link);
+      dbus_free (pending);
+      bus_transaction_cancel_and_free (transaction);
+    }
+
+  bus_transaction_execute_and_free (transaction);
+}
+
+static void
+bus_connection_drop_pending_replies (BusConnections  *connections,
+                                     DBusConnection  *connection)
+{
+  /* The DBusConnection is almost 100% finalized here, so you can't
+   * do anything with it except check for pointer equality
+   */
+  DBusList *link;
+  
+  link = _dbus_list_get_first_link (&connections->pending_replies->items);
+  while (link != NULL)
+    {
+      DBusList *next;
+      BusPendingReply *pending;
+
+      next = _dbus_list_get_next_link (&connections->pending_replies->items,
+                                       link);
+      pending = link->data;
+
+      if (pending->will_get_reply == connection)
+        {
+          /* We don't need to track this pending reply anymore */
+
+          _dbus_list_remove_link (&connections->pending_replies->items,
+                                  link);
+          dbus_free (pending);
+        }
+      else if (pending->will_send_reply == connection)
+        {
+          /* The reply isn't going to be sent, so set things
+           * up so it will be expired right away
+           */
+
+          pending->will_send_reply = NULL;
+          pending->expire_item.added_tv_sec = 0;
+          pending->expire_item.added_tv_usec = 0;
+
+          bus_expire_timeout_set_interval (connections->pending_replies->timeout,
+                                           0);
+        }
+      
+      link = next;
+    }
+}
+
+
+typedef struct
+{
+  BusPendingReply *pending;
+  BusConnections  *connections;
+} CancelPendingReplyData;
+
+static void
+cancel_pending_reply (void *data)
+{
+  CancelPendingReplyData *d = data;
+
+  if (!_dbus_list_remove (&d->connections->pending_replies->items,
+                          d->pending))
+    _dbus_assert_not_reached ("pending reply did not exist to be cancelled");
+
+  dbus_free (d->pending); /* since it's been cancelled */
+}
+
+static void
+cancel_pending_reply_data_free (void *data)
+{
+  CancelPendingReplyData *d = data;
+
+  /* d->pending should be either freed or still
+   * in the list of pending replies (owned by someone
+   * else)
+   */
+  
+  dbus_free (d);
+}
+
+/*
+ * Record that a reply is allowed; return TRUE on success.
+ */
+dbus_bool_t
+bus_connections_expect_reply (BusConnections  *connections,
+                              BusTransaction  *transaction,
+                              DBusConnection  *will_get_reply,
+                              DBusConnection  *will_send_reply,
+                              DBusMessage     *reply_to_this,
+                              DBusError       *error)
+{
+  BusPendingReply *pending;
+  dbus_uint32_t reply_serial;
+  DBusList *link;
+  CancelPendingReplyData *cprd;
+
+  _dbus_assert (will_get_reply != NULL);
+  _dbus_assert (will_send_reply != NULL);
+  _dbus_assert (reply_to_this != NULL);
+  
+  if (dbus_message_get_no_reply (reply_to_this))
+    return TRUE; /* we won't allow a reply, since client doesn't care for one. */
+  
+  reply_serial = dbus_message_get_reply_serial (reply_to_this);
+
+  link = _dbus_list_get_first_link (&connections->pending_replies->items);
+  while (link != NULL)
+    {
+      pending = link->data;
+
+      if (pending->reply_serial == reply_serial &&
+          pending->will_get_reply == will_get_reply &&
+          pending->will_send_reply == will_send_reply)
+        {
+          dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                          "Message has the same reply serial as a currently-outstanding existing method call");
+          return FALSE;
+        }
+      
+      link = _dbus_list_get_next_link (&connections->pending_replies->items,
+                                       link);
+    }
+  
+  pending = dbus_new0 (BusPendingReply, 1);
+  if (pending == NULL)
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  cprd = dbus_new0 (CancelPendingReplyData, 1);
+  if (cprd == NULL)
+    {
+      BUS_SET_OOM (error);
+      dbus_free (pending);
+      return FALSE;
+    }
+  
+  if (!_dbus_list_prepend (&connections->pending_replies->items,
+                           pending))
+    {
+      BUS_SET_OOM (error);
+      dbus_free (cprd);
+      dbus_free (pending);
+      return FALSE;
+    }
+
+  if (!bus_transaction_add_cancel_hook (transaction,
+                                        cancel_pending_reply,
+                                        cprd,
+                                        cancel_pending_reply_data_free))
+    {
+      BUS_SET_OOM (error);
+      _dbus_list_remove (&connections->pending_replies->items, pending);
+      dbus_free (cprd);
+      dbus_free (pending);
+      return FALSE;
+    }
+                                        
+  cprd->pending = pending;
+  cprd->connections = connections;
+  
+  _dbus_get_current_time (&pending->expire_item.added_tv_sec,
+                          &pending->expire_item.added_tv_usec);
+
+  pending->will_get_reply = will_get_reply;
+  pending->will_send_reply = will_send_reply;
+  pending->reply_serial = reply_serial;
+
+  return TRUE;
+}
+
+typedef struct
+{
+  DBusList        *link;
+  BusConnections  *connections;
+} CheckPendingReplyData;
+
+static void
+cancel_check_pending_reply (void *data)
+{
+  CheckPendingReplyData *d = data;
+
+  _dbus_list_prepend_link (&d->connections->pending_replies->items,
+                           d->link);
+  d->link = NULL;
+}
+
+static void
+check_pending_reply_data_free (void *data)
+{
+  CheckPendingReplyData *d = data;
+
+  if (d->link != NULL)
+    {
+      BusPendingReply *pending = d->link->data;
+
+      dbus_free (pending);
+      _dbus_list_free_link (d->link);
+    }
+  
+  dbus_free (d);
+}
+
+/*
+ * Check whether a reply is allowed, remove BusPendingReply
+ * if so, return TRUE if so.
+ */
+dbus_bool_t
+bus_connections_check_reply (BusConnections *connections,
+                             BusTransaction *transaction,
+                             DBusConnection *sending_reply,
+                             DBusConnection *receiving_reply,
+                             DBusMessage    *reply,
+                             DBusError      *error)
+{
+  CheckPendingReplyData *cprd;
+  DBusList *link;
+  dbus_uint32_t reply_serial;
+  
+  _dbus_assert (sending_reply != NULL);
+  _dbus_assert (receiving_reply != NULL);
+
+  reply_serial = dbus_message_get_reply_serial (reply);
+
+  link = _dbus_list_get_first_link (&connections->pending_replies->items);
+  while (link != NULL)
+    {
+      BusPendingReply *pending = link->data;
+
+      if (pending->reply_serial == reply_serial &&
+          pending->will_get_reply == receiving_reply &&
+          pending->will_send_reply == sending_reply)
+        {
+          _dbus_verbose ("Found pending reply\n");
+          break;
+        }
+      
+      link = _dbus_list_get_next_link (&connections->pending_replies->items,
+                                       link);
+    }
+
+  if (link == NULL)
+    {
+      _dbus_verbose ("No pending reply expected, disallowing this reply\n");
+      
+      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                      "%s message sent with reply serial %u, but no such reply was requested (or it has timed out already)\n",
+                      dbus_message_get_type (reply) == DBUS_MESSAGE_TYPE_METHOD_RETURN ?
+                      "method return" : "error",
+                      reply_serial);
+      return FALSE;
+    }
+
+  cprd = dbus_new0 (CheckPendingReplyData, 1);
+  if (cprd == NULL)
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+  
+  if (!bus_transaction_add_cancel_hook (transaction,
+                                        cancel_check_pending_reply,
+                                        cprd,
+                                        check_pending_reply_data_free))
+    {
+      BUS_SET_OOM (error);
+      dbus_free (cprd);
+      return FALSE;
+    }
+
+  cprd->link = link;
+  cprd->connections = connections;
+  
+  _dbus_list_remove_link (&connections->pending_replies->items,
+                          link);
+
+  return TRUE;
+}
 
 /*
  * Transactions
@@ -1443,6 +1811,7 @@ bus_transaction_send_from_driver (BusTransaction *transaction,
    * eat it; the driver doesn't care about getting a reply.
    */
   if (!bus_context_check_security_policy (bus_transaction_get_context (transaction),
+                                          transaction,
                                           NULL, connection, connection, message, NULL))
     return TRUE;
 
