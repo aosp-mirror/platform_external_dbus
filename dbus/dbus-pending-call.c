@@ -143,7 +143,7 @@ _dbus_pending_call_notify (DBusPendingCall *pending)
 DBusPendingCall *
 dbus_pending_call_ref (DBusPendingCall *pending)
 {
-  _dbus_return_if_fail (pending != NULL);
+  _dbus_return_val_if_fail (pending != NULL, NULL);
 
   _dbus_atomic_inc (&pending->refcount);
 

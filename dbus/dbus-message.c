@@ -2361,15 +2361,16 @@ dbus_message_iter_get_args_valist (DBusMessageIter *iter,
  *
  * @param message the message
  * @param iter pointer to an iterator to initialize
+ * @returns #FALSE if the message has no arguments
  */
-void
+dbus_bool_t
 dbus_message_iter_init (DBusMessage     *message,
 			DBusMessageIter *iter)
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
 
-  _dbus_return_if_fail (message != NULL);
-  _dbus_return_if_fail (iter != NULL);
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (iter != NULL, FALSE);
   
   _dbus_assert (sizeof (DBusMessageRealIter) <= sizeof (DBusMessageIter));
   
@@ -2385,6 +2386,8 @@ dbus_message_iter_init (DBusMessage     *message,
   real->container_length_pos = 0;
   real->wrote_dict_key = 0;
   real->array_type_pos = 0;
+
+  return real->end > real->pos;
 }
 
 #ifndef DBUS_DISABLE_CHECKS
@@ -2946,8 +2949,9 @@ dbus_message_iter_get_double (DBusMessageIter *iter)
  * @param iter the iterator
  * @param array_iter pointer to an iterator to initialize
  * @param array_type gets set to the type of the array elements
+ * @returns #FALSE if the array is empty
  */
-void
+dbus_bool_t
 dbus_message_iter_init_array_iterator (DBusMessageIter *iter,
 				       DBusMessageIter *array_iter,
 				       int             *array_type)
@@ -2957,7 +2961,7 @@ dbus_message_iter_init_array_iterator (DBusMessageIter *iter,
   int type, pos, len_pos, len, array_type_pos;
   int _array_type;
 
-  _dbus_return_if_fail (dbus_message_iter_check (real));
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -2985,6 +2989,8 @@ dbus_message_iter_init_array_iterator (DBusMessageIter *iter,
   
   if (array_type != NULL)
     *array_type = _array_type;
+
+  return len > 0;
 }
 
 
@@ -2995,8 +3001,9 @@ dbus_message_iter_init_array_iterator (DBusMessageIter *iter,
  *
  * @param iter the iterator
  * @param dict_iter pointer to an iterator to initialize
+ * @returns #FALSE if the dict is empty
  */
-void
+dbus_bool_t
 dbus_message_iter_init_dict_iterator (DBusMessageIter *iter,
 				      DBusMessageIter *dict_iter)
 {
@@ -3004,7 +3011,7 @@ dbus_message_iter_init_dict_iterator (DBusMessageIter *iter,
   DBusMessageRealIter *dict_real = (DBusMessageRealIter *)dict_iter;
   int type, pos, len_pos, len;
 
-  _dbus_return_if_fail (dbus_message_iter_check (real));
+  _dbus_return_val_if_fail (dbus_message_iter_check (real), FALSE);
 
   pos = dbus_message_iter_get_data_start (real, &type);
   
@@ -3025,6 +3032,8 @@ dbus_message_iter_init_dict_iterator (DBusMessageIter *iter,
   dict_real->container_start = pos;
   dict_real->container_length_pos = len_pos;
   dict_real->wrote_dict_key = 0;
+
+  return len > 0;
 }
 
 /**
@@ -6055,6 +6064,39 @@ message_iter_test (DBusMessage *message)
   if (dbus_message_iter_get_byte (&iter) != 0xF0)
     _dbus_assert_not_reached ("wrong value after custom");
 
+  if (!dbus_message_iter_next (&iter))
+    _dbus_assert_not_reached ("Reached end of arguments");
+
+  if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_ARRAY)
+    _dbus_assert_not_reached ("no array");
+
+  if (dbus_message_iter_get_array_type (&iter) != DBUS_TYPE_INT32)
+    _dbus_assert_not_reached ("Array type not int32");
+
+  if (dbus_message_iter_init_array_iterator (&iter, &array, NULL))
+    _dbus_assert_not_reached ("non empty array");
+  
+  if (!dbus_message_iter_next (&iter))
+    _dbus_assert_not_reached ("Reached end of arguments");
+
+  if (dbus_message_iter_get_byte (&iter) != 0xF0)
+    _dbus_assert_not_reached ("wrong value after empty array");
+
+  if (!dbus_message_iter_next (&iter))
+    _dbus_assert_not_reached ("Reached end of arguments");
+
+  if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_DICT)
+    _dbus_assert_not_reached ("non dict");
+
+  if (dbus_message_iter_init_dict_iterator (&iter, &dict))
+    _dbus_assert_not_reached ("non empty dict");
+
+  if (!dbus_message_iter_next (&iter))
+    _dbus_assert_not_reached ("Reached end of arguments");
+
+  if (dbus_message_iter_get_byte (&iter) != 0xF0)
+    _dbus_assert_not_reached ("wrong value after empty dict");
+
   if (dbus_message_iter_next (&iter))
     _dbus_assert_not_reached ("Didn't reach end of arguments");
 }
@@ -7192,6 +7234,14 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_iter_append_custom (&iter, "MyTypeName",
                                    "data", 5);
   
+  dbus_message_iter_append_byte (&iter, 0xF0);
+
+  dbus_message_iter_append_array (&iter, &child_iter, DBUS_TYPE_INT32);
+
+  dbus_message_iter_append_byte (&iter, 0xF0);
+
+  dbus_message_iter_append_dict (&iter, &child_iter);
+
   dbus_message_iter_append_byte (&iter, 0xF0);
 
   message_iter_test (message);

@@ -2116,7 +2116,10 @@ _dbus_marshal_validate_arg (const DBusString *str,
         
 	len = demarshal_and_validate_len (str, byte_order, pos, &pos);
         if (len < 0)
-          return FALSE;
+	  {
+	    _dbus_verbose ("invalid array length (<0)\n");
+	    return FALSE;
+	  }
 
         if (len > _dbus_string_get_length (str) - pos)
           {
@@ -2126,10 +2129,13 @@ _dbus_marshal_validate_arg (const DBusString *str,
 	
 	end = pos + len;
 
-        if (!validate_array_data (str, byte_order, depth + 1,
-                                  array_type, array_type_pos,
-                                  pos, &pos, end))
-          return FALSE;
+        if (len > 0 && !validate_array_data (str, byte_order, depth + 1,
+					     array_type, array_type_pos,
+					     pos, &pos, end))
+	  {
+	    _dbus_verbose ("invalid array data\n");
+	    return FALSE;
+	  }
 
         if (pos < end)
           {

@@ -150,7 +150,7 @@ dbus_bool_t dbus_message_iter_get_args_valist (DBusMessageIter *iter,
 					       va_list          var_args);
 
 
-void                   dbus_message_iter_init            (DBusMessage      *message,
+dbus_bool_t            dbus_message_iter_init            (DBusMessage      *message,
                                                           DBusMessageIter  *iter);
 dbus_bool_t            dbus_message_iter_has_next        (DBusMessageIter  *iter);
 dbus_bool_t            dbus_message_iter_next            (DBusMessageIter  *iter);
@@ -173,10 +173,10 @@ dbus_bool_t            dbus_message_iter_get_custom      (DBusMessageIter  *iter
                                                           unsigned char   **value,
                                                           int              *len);
 
-void        dbus_message_iter_init_array_iterator (DBusMessageIter   *iter,
+dbus_bool_t dbus_message_iter_init_array_iterator (DBusMessageIter   *iter,
 						   DBusMessageIter   *array_iter,
 						   int               *array_type);
-void        dbus_message_iter_init_dict_iterator  (DBusMessageIter   *iter,
+dbus_bool_t dbus_message_iter_init_dict_iterator  (DBusMessageIter   *iter,
 						   DBusMessageIter   *dict_iter);
 dbus_bool_t dbus_message_iter_get_byte_array      (DBusMessageIter   *iter,
 						   unsigned char    **value,

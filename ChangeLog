@@ -1,3 +1,16 @@
+2004-03-21  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* dbus/dbus-marshal.c (_dbus_marshal_validate_arg): accept empty
+	arrays
+
+	* dbus/dbus-message.h, bus/dbus-message.c (dbus_message_iter_init)
+	(dbus_message_iter_init_array_iterator)
+	(dbus_message_iter_init_dict_iterator): return a dbus_bool_t to
+	indicate whether the iterator is empty
+
+	* dbus/dbus-pending-call.c, dbus/dbus-server.c: silence compiler
+	warnings
+
 2004-03-19  Havoc Pennington  <hp@redhat.com>
 
 	* NEWS: 0.21 updates

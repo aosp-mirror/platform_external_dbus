@@ -455,7 +455,7 @@ dbus_server_listen (const char     *address,
 DBusServer *
 dbus_server_ref (DBusServer *server)
 {
-  _dbus_return_if_fail (server != NULL);
+  _dbus_return_val_if_fail (server != NULL, NULL);
   
   server->refcount += 1;
 
