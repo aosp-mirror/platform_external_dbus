@@ -644,12 +644,12 @@ dbus_connection_send_message (DBusConnection *connection,
   _dbus_verbose ("Message %p added to outgoing queue, %d pending to send\n",
                  message, connection->n_outgoing);
 
-  /* Unlock the message, resetting its header. */
-  _dbus_message_unlock (message);
+  if (_dbus_message_get_client_serial (message) == -1)
+    {
+      serial = _dbus_connection_get_next_client_serial (connection);
+      _dbus_message_set_client_serial (message, serial);
+    }
   
-  serial = _dbus_connection_get_next_client_serial (connection);
-  _dbus_message_set_client_serial (message, serial);
-
   if (client_serial)
     *client_serial = serial;
   

@@ -1,3 +1,12 @@
+2003-01-25  Anders Carlsson  <andersca@codefactory.se>
+
+	* dbus/dbus-connection.c: (dbus_connection_send_message):
+	* dbus/dbus-message-internal.h:
+	* dbus/dbus-message.c: (_dbus_message_get_client_serial),
+	(dbus_message_write_header):
+	Remove _dbus_messag_unlock and don't set the client serial on a 
+	message if one already exists.
+	
 2003-01-24  Havoc Pennington  <hp@pobox.com>
 
 	* dbus/dbus-list.c (alloc_link): put a thread lock on the global

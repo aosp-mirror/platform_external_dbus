@@ -125,6 +125,19 @@ _dbus_message_set_client_serial (DBusMessage  *message,
 }
 
 /**
+ * Returns the client serial of a message or
+ * -1 if none has been specified.
+ *
+ * @param message the message
+ * @returns the client serial
+ */
+dbus_int32_t
+_dbus_message_get_client_serial (DBusMessage *message)
+{
+  return message->client_serial;
+}
+
+/**
  * Returns the serial that the message is
  * a reply to.
  *
@@ -236,25 +249,6 @@ dbus_message_write_header (DBusMessage *message)
   _dbus_string_get_data_len (&message->header, &len_data, 4, 4);
   _dbus_pack_int32 (_dbus_string_get_length (&message->header),
                     DBUS_COMPILER_BYTE_ORDER, len_data);
-}
-
-/**
- * Unlocks a message so that it can be re-sent to another client.
- *
- * @see _dbus_message_lock
- * @param message the message to unlock.
- */
-void
-_dbus_message_unlock (DBusMessage *message)
-{
-  if (!message->locked)
-    return;
-  
-  /* Restore header */
-  _dbus_string_set_length (&message->header, 0);
-
-  message->client_serial = -1;
-  message->locked = FALSE;
 }
 
 /**
