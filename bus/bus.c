@@ -37,6 +37,7 @@ struct BusContext
   int refcount;
   char *type;
   char *address;
+  char *pidfile;
   DBusLoop *loop;
   DBusList *servers;
   BusConnections *connections;
@@ -632,6 +633,9 @@ bus_context_new (const DBusString *config_file,
             goto failed;
         }
     }
+
+  /* keep around the pid filename so we can delete it later */
+  context->pidfile = _dbus_strdup (pidfile);
   
   bus_config_parser_unref (parser);
   _dbus_string_free (&full_address);
@@ -760,6 +764,20 @@ bus_context_unref (BusContext *context)
       
       dbus_free (context->type);
       dbus_free (context->address);
+
+      if (context->pidfile)
+	{
+          DBusString u;
+          _dbus_string_init_const (&u, context->pidfile);
+
+          /* Deliberately ignore errors here, since there's not much
+	   * we can do about it, and we're exiting anyways.
+	   */
+	  _dbus_delete_file (&u, NULL);
+
+          dbus_free (context->pidfile); 
+	}
+
       dbus_free (context);
 
       server_data_slot_unref ();
