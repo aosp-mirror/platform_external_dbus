@@ -2135,7 +2135,7 @@ dbus_message_iter_get_named (DBusMessageIter   *iter,
     return FALSE;
   
   if (!_dbus_demarshal_byte_array (&real->message->body, real->message->byte_order,
-				   pos + 1, NULL, value, len))
+				   pos, NULL, value, len))
     {
       dbus_free (_name);
       return FALSE;
