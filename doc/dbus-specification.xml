@@ -2277,19 +2277,14 @@
         <para>
           This message is sent to a specific application when it loses primary
           ownership of a service.
-
-          [FIXME instead of ServiceLost/ServiceCreated going only to 
-          a specific app, why not just OwnerChanged that covers both 
-          lost and created and changed owner and deleted]
         </para>
       </sect3>
 
-      <sect3 id="bus-messages-service-created">
-        <title><literal>org.freedesktop.DBus.ServiceCreated</literal></title>
+      <sect3 id="bus-messages-service-owner-changed">
+        <title><literal>org.freedesktop.DBus.ServiceOwnerChanged</literal></title>
         <para>
-          As a method:
           <programlisting>
-            ServiceCreated (in STRING service_name)
+            ServiceOwnerChanged (STRING service_name, STRING old_owner, STRING new_owner)
           </programlisting>
           Message arguments:
           <informaltable>
@@ -2309,46 +2304,15 @@
                 </row>
 	        <row>
 		  <entry>1</entry>
-		  <entry>UINT32</entry>
-		  <entry>Flags</entry>
+		  <entry>STRING</entry>
+		  <entry>Base service of previous owner, empty string if the
+		  service is newly created</entry>
 	        </row>
-              </tbody>
-            </tgroup>
-          </informaltable>
-        </para>
-        <para>
-          This message is broadcast to all applications when a service has been
-          successfully registered on the message bus.
-        </para>
-      </sect3>
-
-      <sect3 id="bus-messages-service-deleted">
-        <title><literal>org.freedesktop.DBus.ServiceDeleted</literal></title>
-        <para>
-          As a method:
-          <programlisting>
-            ServiceDeleted (in STRING service_name)
-          </programlisting>
-          Message arguments:
-          <informaltable>
-            <tgroup cols="3">
-              <thead>
-                <row>
-                  <entry>Argument</entry>
-                  <entry>Type</entry>
-                  <entry>Description</entry>
-                </row>
-              </thead>
-              <tbody>
-                <row>
-                  <entry>0</entry>
-                  <entry>STRING</entry>
-                  <entry>Name of the service</entry>
-                </row>
 	        <row>
-		  <entry>1</entry>
-		  <entry>UINT32</entry>
-		  <entry>Flags</entry>
+		  <entry>2</entry>
+		  <entry>STRING</entry>
+		  <entry>Base service of new owner, empty string if the
+		  service is no longer available</entry>
 	        </row>
               </tbody>
             </tgroup>
@@ -2356,7 +2320,8 @@
         </para>
         <para>
           This message is broadcast to all applications when a service has been
-          deleted from the message bus.
+          successfully registered on the message bus, has been deleted
+          or its primary owner has changed.
         </para>
       </sect3>
 

@@ -93,8 +93,7 @@ bus_dispatch_matches (BusTransaction *transaction,
   matchmaker = bus_context_get_matchmaker (context);
 
   recipients = NULL;
-  if (!bus_matchmaker_get_recipients (matchmaker,
-                                      bus_context_get_connections (context),
+  if (!bus_matchmaker_get_recipients (matchmaker, connections,
                                       sender, addressed_recipient, message,
                                       &recipients))
     {
@@ -482,62 +481,104 @@ verbose_message_received (DBusConnection *connection,
                  connection);
 }
 
+typedef enum
+{
+  SERVICE_CREATED,
+  OWNER_CHANGED,
+  SERVICE_DELETED
+} ServiceInfoKind;
+
 typedef struct
 {
+  ServiceInfoKind expected_kind;
   const char *expected_service_name;
   dbus_bool_t failed;
-} CheckServiceDeletedData;
+  DBusConnection *skip_connection;
+} CheckServiceOwnerChangedData;
 
 static dbus_bool_t
-check_service_deleted_foreach (DBusConnection *connection,
-                               void           *data)
+check_service_owner_changed_foreach (DBusConnection *connection,
+				     void           *data)
 {
-  CheckServiceDeletedData *d = data;
+  CheckServiceOwnerChangedData *d = data;
   DBusMessage *message;
   DBusError error;
-  char *service_name;
+  char *service_name, *old_owner, *new_owner;
+
+  if (d->expected_kind == SERVICE_CREATED 
+      && connection == d->skip_connection)
+    return TRUE;
 
   dbus_error_init (&error);
   d->failed = TRUE;
-  service_name = NULL;
   
   message = pop_message_waiting_for_memory (connection);
   if (message == NULL)
     {
       _dbus_warn ("Did not receive a message on %p, expecting %s\n",
-                  connection, "ServiceDeleted");
+                  connection, "ServiceOwnerChanged");
       goto out;
     }
   else if (!dbus_message_is_signal (message,
                                     DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                    "ServiceDeleted"))
+                                    "ServiceOwnerChanged"))
     {
-      warn_unexpected (connection, message, "ServiceDeleted");
+      warn_unexpected (connection, message, "ServiceOwnerChanged");
 
       goto out;
     }
   else
     {
-      if (!dbus_message_get_args (message, &error,
-                                  DBUS_TYPE_STRING, &service_name,
-                                  DBUS_TYPE_INVALID))
+    reget_service_info_data:
+      service_name = NULL;
+      old_owner = NULL;
+      new_owner = NULL;
+
+      dbus_message_get_args (message, &error,
+                             DBUS_TYPE_STRING, &service_name,
+                             DBUS_TYPE_STRING, &old_owner,
+                             DBUS_TYPE_STRING, &new_owner,
+                             DBUS_TYPE_INVALID);
+
+      if (dbus_error_is_set (&error))
+	{
+	  if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
+	    {
+              dbus_free (service_name);
+              dbus_free (old_owner);
+              dbus_free (new_owner);
+              dbus_error_free (&error);
+              _dbus_wait_for_memory ();              
+              goto reget_service_info_data;
+	    }
+	  else
+	    {
+	      _dbus_warn ("Did not get the expected arguments\n");
+	      goto out;
+	    }
+	}
+
+      if ((d->expected_kind == SERVICE_CREATED    && ( old_owner[0] || !new_owner[0]))
+          || (d->expected_kind == OWNER_CHANGED   && (!old_owner[0] || !new_owner[0]))
+          || (d->expected_kind == SERVICE_DELETED && (!old_owner[0] ||  new_owner[0])))
         {
-          if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
-            {
-              _dbus_verbose ("no memory to get service name arg\n");
-            }
-          else
-            {
-              _dbus_assert (dbus_error_is_set (&error));
-              _dbus_warn ("Did not get the expected single string argument\n");
-              goto out;
-            }
+          _dbus_warn ("inconsistent ServiceOwnerChanged arguments");
+          goto out;
         }
-      else if (strcmp (service_name, d->expected_service_name) != 0)
+
+      if (strcmp (service_name, d->expected_service_name) != 0)
         {
-          _dbus_warn ("expected deletion of service %s, got deletion of %s\n",
+          _dbus_warn ("expected info on service %s, got info on %s\n",
                       d->expected_service_name,
                       service_name);
+          goto out;
+        }
+
+      if (*service_name == ':' && new_owner[0] 
+          && strcmp (service_name, new_owner) != 0)
+        {
+          _dbus_warn ("inconsistent ServiceOwnedChanged message (\"%s\" [ %s -> %s ])\n",
+                      service_name, old_owner, new_owner);
           goto out;
         }
     }
@@ -546,6 +587,8 @@ check_service_deleted_foreach (DBusConnection *connection,
   
  out:
   dbus_free (service_name);
+  dbus_free (old_owner);
+  dbus_free (new_owner);
   dbus_error_free (&error);
   
   if (message)
@@ -554,13 +597,14 @@ check_service_deleted_foreach (DBusConnection *connection,
   return !d->failed;
 }
 
+
 static void
 kill_client_connection (BusContext     *context,
                         DBusConnection *connection)
 {
   char *base_service;
   const char *s;
-  CheckServiceDeletedData csdd;
+  CheckServiceOwnerChangedData socd;
 
   _dbus_verbose ("killing connection %p\n", connection);
   
@@ -588,16 +632,18 @@ kill_client_connection (BusContext     *context,
   connection = NULL;
   _dbus_assert (!bus_test_client_listed (connection));
   
-  csdd.expected_service_name = base_service;
-  csdd.failed = FALSE;
-
-  bus_test_clients_foreach (check_service_deleted_foreach,
-                            &csdd);
+  socd.expected_kind = SERVICE_DELETED;
+  socd.expected_service_name = base_service;
+  socd.failed = FALSE;
+  socd.skip_connection = NULL;
+  
+  bus_test_clients_foreach (check_service_owner_changed_foreach,
+                            &socd);
 
   dbus_free (base_service);
   
-  if (csdd.failed)
-    _dbus_assert_not_reached ("didn't get the expected ServiceDeleted messages");
+  if (socd.failed)
+    _dbus_assert_not_reached ("didn't get the expected ServiceOwnerChanged (deletion) messages");
   
   if (!check_no_leftovers (context))
     _dbus_assert_not_reached ("stuff left in message queues after disconnecting a client");
@@ -643,81 +689,6 @@ check_no_messages_foreach (DBusConnection *connection,
 
   if (message)
     dbus_message_unref (message);
-  return !d->failed;
-}
-
-typedef struct
-{
-  DBusConnection *skip_connection;
-  const char *expected_service_name;
-  dbus_bool_t failed;
-} CheckServiceCreatedData;
-
-static dbus_bool_t
-check_service_created_foreach (DBusConnection *connection,
-                               void           *data)
-{
-  CheckServiceCreatedData *d = data;
-  DBusMessage *message;
-  DBusError error;
-  char *service_name;
-
-  if (connection == d->skip_connection)
-    return TRUE;
-
-  dbus_error_init (&error);
-  d->failed = TRUE;
-  service_name = NULL;
-  
-  message = pop_message_waiting_for_memory (connection);
-  if (message == NULL)
-    {
-      _dbus_warn ("Did not receive a message on %p, expecting %s\n",
-                  connection, "ServiceCreated");
-      goto out;
-    }
-  else if (!dbus_message_is_signal (message,
-                                    DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                    "ServiceCreated"))
-    {
-      warn_unexpected (connection, message, "ServiceCreated");
-      goto out;
-    }
-  else
-    {
-      if (!dbus_message_get_args (message, &error,
-                                  DBUS_TYPE_STRING, &service_name,
-                                  DBUS_TYPE_INVALID))
-        {
-          if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
-            {
-              _dbus_verbose ("no memory to get service name arg\n");
-            }
-          else
-            {
-              _dbus_assert (dbus_error_is_set (&error));
-              _dbus_warn ("Did not get the expected single string argument\n");
-              goto out;
-            }
-        }
-      else if (strcmp (service_name, d->expected_service_name) != 0)
-        {
-          _dbus_warn ("expected creation of service %s, got creation of %s\n",
-                      d->expected_service_name,
-                      service_name);
-          goto out;
-        }
-    }
-
-  d->failed = FALSE;
-  
- out:
-  dbus_free (service_name);
-  dbus_error_free (&error);
-  
-  if (message)
-    dbus_message_unref (message);
-
   return !d->failed;
 }
 
@@ -826,7 +797,7 @@ check_hello_message (BusContext     *context,
     }
   else
     {
-      CheckServiceCreatedData scd;
+      CheckServiceOwnerChangedData socd;
       
       if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
         {
@@ -864,13 +835,14 @@ check_hello_message (BusContext     *context,
       while (!dbus_bus_set_base_service (connection, name))
         _dbus_wait_for_memory ();
       
-      scd.skip_connection = connection; /* we haven't done AddMatch so won't get it ourselves */
-      scd.failed = FALSE;
-      scd.expected_service_name = name;
-      bus_test_clients_foreach (check_service_created_foreach,
-                                &scd);
+      socd.expected_kind = SERVICE_CREATED;
+      socd.expected_service_name = name;
+      socd.failed = FALSE;
+      socd.skip_connection = connection; /* we haven't done AddMatch so won't get it ourselves */
+      bus_test_clients_foreach (check_service_owner_changed_foreach,
+                                &socd);
       
-      if (scd.failed)
+      if (socd.failed)
         goto out;
       
       /* Client should also have gotten ServiceAcquired */
@@ -879,6 +851,13 @@ check_hello_message (BusContext     *context,
       if (message == NULL)
         {
           _dbus_warn ("Expecting %s, got nothing\n",
+                      "ServiceAcquired");
+          goto out;
+        }
+      if (! dbus_message_is_signal (message, DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+				    "ServiceAcquired"))
+        {
+          _dbus_warn ("Expecting %s, got smthg else\n",
                       "ServiceAcquired");
           goto out;
         }
@@ -1489,9 +1468,6 @@ check_nonexistent_service_activation (BusContext     *context,
   DBusMessage *message;
   dbus_uint32_t serial;
   dbus_bool_t retval;
-  DBusError error;
-  
-  dbus_error_init (&error);
   
   message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
                                           DBUS_PATH_ORG_FREEDESKTOP_DBUS,
@@ -1593,10 +1569,7 @@ check_nonexistent_service_auto_activation (BusContext     *context,
   DBusMessage *message;
   dbus_uint32_t serial;
   dbus_bool_t retval;
-  DBusError error;
     
-  dbus_error_init (&error);
-
   message = dbus_message_new_method_call (NONEXISTENT_SERVICE_NAME,
                                           "/org/freedesktop/TestSuite",
                                           "org.freedesktop.TestSuite",
@@ -1690,66 +1663,87 @@ check_base_service_activated (BusContext     *context,
   DBusMessage *message;
   dbus_bool_t retval;
   DBusError error;
-  char *base_service;
+  char *base_service, *base_service_from_bus, *old_owner;
   
-  base_service = NULL;
   retval = FALSE;
   
   dbus_error_init (&error);
+  base_service = NULL;
+  old_owner = NULL;
+  base_service_from_bus = NULL;
 
   message = initial_message;
   dbus_message_ref (message);  
 
   if (dbus_message_is_signal (message,
                               DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                              "ServiceCreated"))
+                              "ServiceOwnerChanged"))
     {
-      char *service_name;
-      CheckServiceCreatedData scd;
+      CheckServiceOwnerChangedData socd;
 
     reget_service_name_arg:
+      base_service = NULL;
+      old_owner = NULL;
+      base_service_from_bus = NULL;
+
       if (!dbus_message_get_args (message, &error,
-                                  DBUS_TYPE_STRING, &service_name,
+                                  DBUS_TYPE_STRING, &base_service,
+				  DBUS_TYPE_STRING, &old_owner,
+                                  DBUS_TYPE_STRING, &base_service_from_bus,
                                   DBUS_TYPE_INVALID))
         {
           if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
             {
               dbus_error_free (&error);
+              dbus_free (base_service);
+              dbus_free (old_owner);
+              dbus_free (base_service_from_bus);
               _dbus_wait_for_memory ();
               goto reget_service_name_arg;
             }
           else
             {
               _dbus_warn ("Message %s doesn't have a service name: %s\n",
-                          "ServiceCreated",
+                          "ServiceOwnerChanged (creation)",
                           error.message);
-              dbus_error_free (&error);
               goto out;
             }
         }
 
-      if (*service_name != ':')
+      if (*base_service != ':')
         {
           _dbus_warn ("Expected base service activation, got \"%s\" instead\n",
-                      service_name);
+                      base_service);
           goto out;
         }
-              
-      base_service = service_name;
-      service_name = NULL;
+         
+      if (strcmp (base_service, base_service_from_bus) != 0)
+	{
+          _dbus_warn ("Expected base service activation, got \"%s\" instead with owner \"%s\"\n",
+                      base_service, base_service_from_bus);
+          goto out;
+        }
+
+      if (old_owner[0])
+        {
+          _dbus_warn ("Received an old_owner argument during base service activation, \"%s\"\n",
+                      old_owner);
+          goto out;
+        }
+     
+      socd.expected_kind = SERVICE_CREATED;
+      socd.expected_service_name = base_service;
+      socd.failed = FALSE;
+      socd.skip_connection = connection;
+      bus_test_clients_foreach (check_service_owner_changed_foreach,
+                                &socd);
       
-      scd.skip_connection = connection;
-      scd.failed = FALSE;
-      scd.expected_service_name = base_service;
-      bus_test_clients_foreach (check_service_created_foreach,
-                                &scd);
-      
-      if (scd.failed)
+      if (socd.failed)
         goto out;
     }
   else
     {
-      warn_unexpected (connection, message, "ServiceCreated for base service");
+      warn_unexpected (connection, message, "ServiceOwnerChanged (creation) for base service");
 
       goto out;
     }
@@ -1765,10 +1759,11 @@ check_base_service_activated (BusContext     *context,
  out:
   if (message)
     dbus_message_unref (message);
+  dbus_free (base_service);
+  dbus_free (base_service_from_bus);
+  dbus_free (old_owner);
+  dbus_error_free (&error);
 
-  if (base_service)
-    dbus_free (base_service);
-  
   return retval;
 }
 
@@ -1793,28 +1788,39 @@ check_service_activated (BusContext     *context,
 
   if (dbus_message_is_signal (message,
                               DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                              "ServiceCreated"))
+                              "ServiceOwnerChanged"))
     {
-      char *service_name;
-      CheckServiceCreatedData scd;
+      CheckServiceOwnerChangedData socd;
+      char *service_name, *base_service_from_bus, *old_owner;
 
     reget_service_name_arg:
+      service_name = NULL;
+      old_owner = NULL;
+      base_service_from_bus = NULL;
+
       if (!dbus_message_get_args (message, &error,
                                   DBUS_TYPE_STRING, &service_name,
+ 				  DBUS_TYPE_STRING, &old_owner,
+                                  DBUS_TYPE_STRING, &base_service_from_bus,
                                   DBUS_TYPE_INVALID))
         {
           if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
             {
               dbus_error_free (&error);
+ 	      dbus_free (service_name);
+ 	      dbus_free (old_owner);
+ 	      dbus_free (base_service_from_bus);
               _dbus_wait_for_memory ();
               goto reget_service_name_arg;
             }
           else
             {
               _dbus_warn ("Message %s doesn't have a service name: %s\n",
-                          "ServiceCreated",
+                          "ServiceOwnerChanged (creation)",
                           error.message);
-              dbus_error_free (&error);
+ 	      dbus_free (service_name);
+ 	      dbus_free (old_owner);
+ 	      dbus_free (base_service_from_bus);
               goto out;
             }
         }
@@ -1824,18 +1830,43 @@ check_service_activated (BusContext     *context,
           _dbus_warn ("Expected to see service %s created, saw %s instead\n",
                       activated_name, service_name);
           dbus_free (service_name);
+          dbus_free (old_owner);
+          dbus_free (base_service_from_bus);
           goto out;
         }
-      
-      scd.skip_connection = connection;
-      scd.failed = FALSE;
-      scd.expected_service_name = service_name;
-      bus_test_clients_foreach (check_service_created_foreach,
-                                &scd);
-          
-      dbus_free (service_name);
 
-      if (scd.failed)
+      if (strcmp (base_service_name, base_service_from_bus) != 0)
+        {
+          _dbus_warn ("ServiceOwnerChanged reports wrong base service: %s owner, expected %s instead\n",
+                      base_service_from_bus, base_service_name);
+          dbus_free (service_name);
+          dbus_free (old_owner);
+          dbus_free (base_service_from_bus);
+          goto out;
+        }
+      dbus_free (base_service_from_bus);
+
+      if (old_owner[0])
+        {
+          _dbus_warn ("expected a %s, got a %s\n",
+                      "ServiceOwnerChanged (creation)",
+                      "ServiceOwnerChanged (change)");
+          dbus_free (service_name);
+          dbus_free (old_owner);
+          goto out;
+        }
+      dbus_free (old_owner);
+
+      socd.expected_kind = SERVICE_CREATED;
+      socd.skip_connection = connection;
+      socd.failed = FALSE;
+      socd.expected_service_name = service_name;
+      bus_test_clients_foreach (check_service_owner_changed_foreach,
+                                &socd);
+
+      dbus_free (service_name);
+          
+      if (socd.failed)
         goto out;
           
       dbus_message_unref (message);
@@ -1849,7 +1880,7 @@ check_service_activated (BusContext     *context,
     }
   else
     {
-      warn_unexpected (connection, message, "ServiceCreated for the activated name");
+      warn_unexpected (connection, message, "ServiceOwnerChanged for the activated name");
       
       goto out;
     }
@@ -1870,7 +1901,6 @@ check_service_activated (BusContext     *context,
         {
           _dbus_warn ("Did not have activation result first argument to %s: %s\n",
                       "ActivateService", error.message);
-          dbus_error_free (&error);
           goto out;
         }
 
@@ -1904,6 +1934,7 @@ check_service_activated (BusContext     *context,
  out:
   if (message)
     dbus_message_unref (message);
+  dbus_error_free (&error);
   
   return retval;
 }
@@ -1928,10 +1959,10 @@ check_service_auto_activated (BusContext     *context,
 
   if (dbus_message_is_signal (message,
                               DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                              "ServiceCreated"))
+                              "ServiceOwnerChanged"))
     {
       char *service_name;
-      CheckServiceCreatedData scd;
+      CheckServiceOwnerChangedData socd;
       
     reget_service_name_arg:
       if (!dbus_message_get_args (message, &error,
@@ -1947,7 +1978,7 @@ check_service_auto_activated (BusContext     *context,
           else
             {
               _dbus_warn ("Message %s doesn't have a service name: %s\n",
-                          "ServiceCreated",
+                          "ServiceOwnerChanged",
                           error.message);
               dbus_error_free (&error);
               goto out;
@@ -1962,15 +1993,16 @@ check_service_auto_activated (BusContext     *context,
           goto out;
         }
       
-      scd.skip_connection = connection;
-      scd.failed = FALSE;
-      scd.expected_service_name = service_name;
-      bus_test_clients_foreach (check_service_created_foreach,
-				&scd);
+      socd.expected_kind = SERVICE_CREATED;
+      socd.expected_service_name = service_name;
+      socd.failed = FALSE;
+      socd.skip_connection = connection; 
+      bus_test_clients_foreach (check_service_owner_changed_foreach,
+				&socd);
       
       dbus_free (service_name);
       
-      if (scd.failed)
+      if (socd.failed)
         goto out;
       
       /* Note that this differs from regular activation in that we don't get a
@@ -1982,7 +2014,7 @@ check_service_auto_activated (BusContext     *context,
     }
   else
     {
-      warn_unexpected (connection, message, "ServiceCreated for the activated name");
+      warn_unexpected (connection, message, "ServiceOwnerChanged for the activated name");
       
       goto out;
     }
@@ -2003,28 +2035,32 @@ check_service_deactivated (BusContext     *context,
                            const char     *base_service)
 {
   dbus_bool_t retval;
-  CheckServiceDeletedData csdd;
+  CheckServiceOwnerChangedData socd;
 
   retval = FALSE;
   
-  /* Now we are expecting ServiceDeleted messages for the base
+  /* Now we are expecting ServiceOwnerChanged (deletion) messages for the base
    * service and the activated_name.  The base service
    * notification is required to come last.
    */
-  csdd.expected_service_name = activated_name;
-  csdd.failed = FALSE;
-  bus_test_clients_foreach (check_service_deleted_foreach,
-                            &csdd);      
+  socd.expected_kind = SERVICE_DELETED;
+  socd.expected_service_name = activated_name;
+  socd.failed = FALSE;
+  socd.skip_connection = NULL;
+  bus_test_clients_foreach (check_service_owner_changed_foreach,
+                            &socd);      
 
-  if (csdd.failed)
+  if (socd.failed)
     goto out;
       
-  csdd.expected_service_name = base_service;
-  csdd.failed = FALSE;
-  bus_test_clients_foreach (check_service_deleted_foreach,
-                            &csdd);
+  socd.expected_kind = SERVICE_DELETED;
+  socd.expected_service_name = base_service;
+  socd.failed = FALSE;
+  socd.skip_connection = NULL;
+  bus_test_clients_foreach (check_service_owner_changed_foreach,
+                            &socd);
 
-  if (csdd.failed)
+  if (socd.failed)
     goto out;
 
   retval = TRUE;
@@ -2244,6 +2280,73 @@ check_got_error (BusContext     *context,
   return retval;
 }
           
+typedef enum
+{ 
+  GOT_SERVICE_CREATED,
+  GOT_SERVICE_DELETED,
+  GOT_ERROR,
+  GOT_SOMETHING_ELSE 
+} GotServiceInfo;
+
+static GotServiceInfo
+check_got_service_info (DBusMessage *message)
+{
+  GotServiceInfo message_kind;
+
+  if (dbus_message_is_signal (message,
+                              DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
+                              "ServiceOwnerChanged"))
+    {
+      DBusError error;
+      char *service_name, *old_owner, *new_owner;
+      dbus_error_init (&error);
+
+    reget_service_info_data:
+      service_name = NULL;
+      old_owner = NULL;
+      new_owner = NULL;
+
+      dbus_message_get_args (message, &error,
+                             DBUS_TYPE_STRING, &service_name,
+                             DBUS_TYPE_STRING, &old_owner,
+                             DBUS_TYPE_STRING, &new_owner,
+                             DBUS_TYPE_INVALID);
+      if (dbus_error_is_set (&error))
+        {
+          if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
+            {
+              dbus_error_free (&error);
+              dbus_free (service_name);
+              dbus_free (old_owner);
+              dbus_free (new_owner);
+              goto reget_service_info_data;
+            }
+          else
+            {
+              _dbus_warn ("unexpected arguments for ServiceOwnerChanged message");
+              message_kind = GOT_SOMETHING_ELSE;
+            }
+        }
+      else if (!old_owner[0])
+        message_kind = GOT_SERVICE_CREATED;
+      else if (!new_owner[0])
+        message_kind = GOT_SERVICE_DELETED;
+      else
+        message_kind = GOT_SOMETHING_ELSE;
+
+      dbus_free (service_name);
+      dbus_free (old_owner);
+      dbus_free (new_owner);
+      dbus_error_free (&error);
+    }
+  else if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
+    message_kind = GOT_ERROR;
+  else
+    message_kind = GOT_SOMETHING_ELSE;
+
+  return message_kind;
+}
+
 #define EXISTENT_SERVICE_NAME "org.freedesktop.DBus.TestSuiteEchoService"
 
 /* returns TRUE if the correct thing happens,
@@ -2256,12 +2359,9 @@ check_existent_service_activation (BusContext     *context,
   DBusMessage *message;
   dbus_uint32_t serial;
   dbus_bool_t retval;
-  DBusError error;
   char *base_service;
 
   base_service = NULL;
-  
-  dbus_error_init (&error);
   
   message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
                                           DBUS_PATH_ORG_FREEDESKTOP_DBUS,
@@ -2348,8 +2448,7 @@ check_existent_service_activation (BusContext     *context,
     }
   else
     {
-      dbus_bool_t got_service_deleted;
-      dbus_bool_t got_error;
+      GotServiceInfo message_kind;
       
       if (!check_base_service_activated (context, connection,
                                          message, &base_service))
@@ -2368,65 +2467,72 @@ check_existent_service_activation (BusContext     *context,
           goto out;
         }
 
-      got_service_deleted = dbus_message_is_signal (message,
-                                                    DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                                    "ServiceDeleted");
-      got_error = dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR;
-      
+      message_kind = check_got_service_info (message);
+
       dbus_connection_return_message (connection, message);
       message = NULL;
 
-      if (got_error)
-        {
+      switch (message_kind)
+	{
+	case GOT_SOMETHING_ELSE:
+          _dbus_warn ("Unexpected message after ActivateService "
+                      "(should be an error or a service announcement");
+	  goto out;
+
+	case GOT_ERROR:
           if (!check_got_error (context, connection,
                                 DBUS_ERROR_SPAWN_CHILD_EXITED,
                                 DBUS_ERROR_NO_MEMORY,
                                 NULL))
             goto out;
-
           /* A service deleted should be coming along now after this error.
            * We can also get the error *after* the service deleted.
            */
-          got_service_deleted = TRUE;
-        }
-      
-      if (got_service_deleted)
-        {
-          /* The service started up and got a base address, but then
-           * failed to register under EXISTENT_SERVICE_NAME
-           */
-          CheckServiceDeletedData csdd;
-          
-          csdd.expected_service_name = base_service;
-          csdd.failed = FALSE;
-          bus_test_clients_foreach (check_service_deleted_foreach,
-                                    &csdd);
 
-          if (csdd.failed)
-            goto out;
+	  /* fall through */
 
-          /* Now we should get an error about the service exiting
-           * if we didn't get it before.
-           */
-          if (!got_error)
-            {
-              block_connection_until_message_from_bus (context, connection);
+	case GOT_SERVICE_DELETED:
+	  {
+	    /* The service started up and got a base address, but then
+	     * failed to register under EXISTENT_SERVICE_NAME
+	     */
+	    CheckServiceOwnerChangedData socd;
+
+	    socd.expected_kind = SERVICE_DELETED;
+	    socd.expected_service_name = base_service;
+	    socd.failed = FALSE;
+	    socd.skip_connection = NULL;
+	    
+	    bus_test_clients_foreach (check_service_owner_changed_foreach,
+				      &socd);
+
+	    if (socd.failed)
+	      goto out;
+
+	    /* Now we should get an error about the service exiting
+	     * if we didn't get it before.
+	     */
+	    if (message_kind != GOT_ERROR)
+	      {
+		block_connection_until_message_from_bus (context, connection);
               
-              /* and process everything again */
-              bus_test_run_everything (context);
+		/* and process everything again */
+		bus_test_run_everything (context);
               
-              if (!check_got_error (context, connection,
-                                    DBUS_ERROR_SPAWN_CHILD_EXITED,
-                                    NULL))
-                goto out;
-            }
-        }
-      else
-        {
+		if (!check_got_error (context, connection,
+				      DBUS_ERROR_SPAWN_CHILD_EXITED,
+				      NULL))
+		  goto out;
+	      }
+	    break;
+	  }
+
+	case GOT_SERVICE_CREATED:
           message = pop_message_waiting_for_memory (connection);
           if (message == NULL)
             {
-              _dbus_warn ("Failed to pop message we just put back! should have been a ServiceCreated\n");
+              _dbus_warn ("Failed to pop message we just put back! "
+			  "should have been a ServiceOwnerChanged (creation)\n");
               goto out;
             }
           
@@ -2437,7 +2543,6 @@ check_existent_service_activation (BusContext     *context,
           dbus_message_unref (message);
           message = NULL;
 
-
           if (!check_no_leftovers (context))
             {
               _dbus_warn ("Messages were left over after successful activation\n");
@@ -2447,9 +2552,11 @@ check_existent_service_activation (BusContext     *context,
           if (!check_send_exit_to_service (context, connection,
                                            EXISTENT_SERVICE_NAME, base_service))
             goto out;
-        }
+
+	  break;
+	}
     }
-  
+
   retval = TRUE;
   
  out:
@@ -2472,9 +2579,6 @@ check_segfault_service_activation (BusContext     *context,
   DBusMessage *message;
   dbus_uint32_t serial;
   dbus_bool_t retval;
-  DBusError error;
-  
-  dbus_error_init (&error);
   
   message = dbus_message_new_method_call (DBUS_SERVICE_ORG_FREEDESKTOP_DBUS,
                                           DBUS_PATH_ORG_FREEDESKTOP_DBUS,
@@ -2578,11 +2682,6 @@ check_segfault_service_auto_activation (BusContext     *context,
   DBusMessage *message;
   dbus_uint32_t serial;
   dbus_bool_t retval;
-  DBusError error;
-
-  dbus_error_init (&error);
-
-  dbus_error_init (&error);
 
   message = dbus_message_new_method_call ("org.freedesktop.DBus.TestSuiteSegfaultService",
                                           "/org/freedesktop/TestSuite",
@@ -2679,12 +2778,9 @@ check_existent_service_auto_activation (BusContext     *context,
   DBusMessage *message;
   dbus_uint32_t serial;
   dbus_bool_t retval;
-  DBusError error;
   char *base_service;
 
   base_service = NULL;
-
-  dbus_error_init (&error);
 
   message = dbus_message_new_method_call (EXISTENT_SERVICE_NAME,
                                           "/org/freedesktop/TestSuite",
@@ -2729,7 +2825,6 @@ check_existent_service_auto_activation (BusContext     *context,
 
   retval = FALSE;
   
-  /* Should get ServiceCreated for the base service, or an error. */
   message = pop_message_waiting_for_memory (connection);
   if (message == NULL)
     {
@@ -2739,38 +2834,13 @@ check_existent_service_auto_activation (BusContext     *context,
     }
 
   verbose_message_received (connection, message);
-  _dbus_verbose ("  (after sending %s)\n", "ActivateService");
+  _dbus_verbose ("  (after sending %s)\n", "auto activation");
 
-  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
+  /* we should get zero or two ServiceOwnerChanged signals */
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_SIGNAL)
     {
-      if (!dbus_message_has_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
-        {
-          _dbus_warn ("Message has wrong sender %s\n",
-                      dbus_message_get_sender (message) ?
-                      dbus_message_get_sender (message) : "(none)");
-	  goto out;
-        }
+      GotServiceInfo message_kind;
 
-      if (dbus_message_is_error (message, DBUS_ERROR_NO_MEMORY) ||
-	  dbus_message_is_error (message, DBUS_ERROR_SPAWN_CHILD_EXITED) ||
-	  dbus_message_is_error (message, DBUS_ERROR_TIMED_OUT))
-        {
-          ; /* good, those are expected */
-	  retval = TRUE;
-	  goto out;
-        }
-      else
-        {
-          _dbus_warn ("Did not expect error %s\n",
-                      dbus_message_get_error_name (message));
-          goto out;
-        }
-    }
-  else
-    {
-      dbus_bool_t got_service_deleted;
-      dbus_bool_t got_error;
-      
       if (!check_base_service_activated (context, connection,
                                          message, &base_service))
 	goto out;
@@ -2781,113 +2851,101 @@ check_existent_service_auto_activation (BusContext     *context,
       /* We may need to block here for the test service to exit or finish up */
       block_connection_until_message_from_bus (context, connection);
 
-      /* Should get ServiceCreated for the activated service name,
-       * ServiceDeleted on the base service name, or an error.
+      /* Should get a service creation notification for the activated
+       * service name, or a service deletion on the base service name
        */
       message = dbus_connection_borrow_message (connection);
       if (message == NULL)
         {
-          _dbus_warn ("Did not receive any messages after base service creation notification\n");
+	  _dbus_warn ("No message after auto activation "
+		      "(should be a service announcement)");
+	  dbus_connection_return_message (connection, message);
+	  message = NULL;
           goto out;
         }
 
-      got_service_deleted = dbus_message_is_signal (message,
-                                                    DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                                    "ServiceDeleted");
-      got_error = dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR;
+      message_kind = check_got_service_info (message);
 
       dbus_connection_return_message (connection, message);
       message = NULL;
 
-      if (got_error)
-        {
-          if (!check_got_error (context, connection,
-                                DBUS_ERROR_SPAWN_CHILD_EXITED,
-                                DBUS_ERROR_NO_MEMORY,
-                                NULL))
-            goto out;
-
-          /* A service deleted should be coming along now after this error.
-           * We can also get the error *after* the service deleted.
-           */
-          got_service_deleted = TRUE;
-        }
-      
-      if (got_service_deleted)
-        {
-          /* The service started up and got a base address, but then
-           * failed to register under EXISTENT_SERVICE_NAME
-           */
-          CheckServiceDeletedData csdd;
-          
-          csdd.expected_service_name = base_service;
-          csdd.failed = FALSE;
-          bus_test_clients_foreach (check_service_deleted_foreach,
-                                    &csdd);
-
-          if (csdd.failed)
-            goto out;
-	  
-          /* Now we should get an error about the service exiting
-           * if we didn't get it before.
-           */
-          if (!got_error)
-            {
-              block_connection_until_message_from_bus (context, connection);
-              
-              /* and process everything again */
-              bus_test_run_everything (context);
-
-              if (!check_got_error (context, connection,
-                                    DBUS_ERROR_SPAWN_CHILD_EXITED,
-                                    NULL))
-                goto out;
-            }
-        }
-      else
-        {
+      switch (message_kind) 
+	{
+	case GOT_SERVICE_CREATED:
 	  message = pop_message_waiting_for_memory (connection);
 	  if (message == NULL)
-            {
-              _dbus_warn ("Failed to pop message we just put back! should have been a ServiceCreated\n");
-              goto out;
-            }
-
-	  /* Check that ServiceCreated was correctly received */
-          if (!check_service_auto_activated (context, connection, EXISTENT_SERVICE_NAME,
+	    {
+	      _dbus_warn ("Failed to pop message we just put back! "
+			  "should have been a ServiceOwnerChanged (creation)\n");
+	      goto out;
+	    }
+	    
+	  /* Check that ServiceOwnerChanged (creation) was correctly received */
+	  if (!check_service_auto_activated (context, connection, EXISTENT_SERVICE_NAME,
 					     base_service, message))
-            goto out;
+	    goto out;
+	  
+	  dbus_message_unref (message);
+	  message = NULL;
 
-          dbus_message_unref (message);
-          message = NULL;
-	}
+	  break;
 
-      /* Note: if this test is run in OOM mode, it will block when the bus
-       * doesn't send a reply due to OOM.
-       */
-      block_connection_until_message_from_bus (context, connection);
-      
-      message = pop_message_waiting_for_memory (connection);
-      if (message == NULL)
-	{
-	  _dbus_warn ("Failed to pop message! Should have been reply from echo message\n");
+	case GOT_SERVICE_DELETED:
+	  {
+	    /* The service started up and got a base address, but then
+	     * failed to register under EXISTENT_SERVICE_NAME
+	     */
+	    CheckServiceOwnerChangedData socd;
+          
+	    socd.expected_kind = SERVICE_DELETED;
+	    socd.expected_service_name = base_service;
+	    socd.failed = FALSE;
+	    socd.skip_connection = NULL;
+	    bus_test_clients_foreach (check_service_owner_changed_foreach,
+				      &socd);
+
+	    if (socd.failed)
+	      goto out;
+
+	    break;
+	  }
+
+        case GOT_ERROR:
+	case GOT_SOMETHING_ELSE:
+	  _dbus_warn ("Unexpected message after auto activation\n");
 	  goto out;
 	}
-
-      if (dbus_message_get_reply_serial (message) != serial)
-	{
-	  _dbus_warn ("Wrong reply serial\n");
-	  goto out;
-	}
-
-      dbus_message_unref (message);
-      message = NULL;
-      
-      if (!check_send_exit_to_service (context, connection,
-				       EXISTENT_SERVICE_NAME,
-				       base_service))
-	goto out;
     }
+
+  /* OK, now we've dealt with ServiceOwnerChanged signals, now should
+   * come the method reply (or error) from the initial method call
+   */
+
+  /* Note: if this test is run in OOM mode, it will block when the bus
+   * doesn't send a reply due to OOM.
+   */
+  block_connection_until_message_from_bus (context, connection);
+      
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Failed to pop message! Should have been reply from echo message\n");
+      goto out;
+    }
+
+  if (dbus_message_get_reply_serial (message) != serial)
+    {
+      _dbus_warn ("Wrong reply serial\n");
+      goto out;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+      
+  if (!check_send_exit_to_service (context, connection,
+				   EXISTENT_SERVICE_NAME,
+				   base_service))
+    goto out;
   
   retval = TRUE;
 

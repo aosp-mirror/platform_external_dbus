@@ -164,7 +164,10 @@ bus_registry_ensure (BusRegistry               *registry,
       return NULL;
     }
 
-  if (!bus_driver_send_service_created (service->name, transaction, error))
+  if (!bus_driver_send_service_owner_changed (service->name, 
+					      NULL,
+					      bus_connection_get_name (owner_if_created),
+					      transaction, error))
     {
       bus_service_unref (service);
       return NULL;
@@ -726,20 +729,31 @@ bus_service_remove_owner (BusService     *service,
     }
   else if (_dbus_list_length_is_one (&service->owners))
     {
-      if (!bus_driver_send_service_deleted (service->name,
-                                            transaction, error))
+      if (!bus_driver_send_service_owner_changed (service->name,
+ 						  bus_connection_get_name (owner),
+ 						  NULL,
+ 						  transaction, error))
         return FALSE;
     }
   else
     {
       DBusList *link;
+      DBusConnection *new_owner;
       link = _dbus_list_get_first_link (&service->owners);
       _dbus_assert (link != NULL);
       link = _dbus_list_get_next_link (&service->owners, link);
       _dbus_assert (link != NULL);
 
+      new_owner = link->data;
+
+      if (!bus_driver_send_service_owner_changed (service->name,
+ 						  bus_connection_get_name (owner),
+ 						  bus_connection_get_name (new_owner),
+ 						  transaction, error))
+        return FALSE;
+
       /* This will be our new owner */
-      if (!bus_driver_send_service_acquired (link->data,
+      if (!bus_driver_send_service_acquired (new_owner,
                                              service->name,
                                              transaction,
                                              error))

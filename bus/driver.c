@@ -39,56 +39,25 @@ static dbus_bool_t bus_driver_send_welcome_message (DBusConnection *connection,
                                                     DBusError      *error);
 
 dbus_bool_t
-bus_driver_send_service_deleted (const char     *service_name,
-                                 BusTransaction *transaction,
-                                 DBusError      *error)
+bus_driver_send_service_owner_changed (const char     *service_name,
+				       const char     *old_owner,
+				       const char     *new_owner,
+				       BusTransaction *transaction,
+				       DBusError      *error)
 {
   DBusMessage *message;
   dbus_bool_t retval;
+  const char null_service[] = { '\000' };
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  _dbus_verbose ("sending service deleted: %s\n", service_name);
+  _dbus_verbose ("sending service owner changed: %s [%s -> %s]", service_name, 
+                 old_owner ? old_owner : null_service, 
+                 new_owner ? new_owner : null_service);
 
   message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_DBUS,
                                      DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                     "ServiceDeleted");
-  
-  if (message == NULL)
-    {
-      BUS_SET_OOM (error);
-      return FALSE;
-    }
-  
-  if (!dbus_message_set_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS) ||
-      !dbus_message_append_args (message,
-                                 DBUS_TYPE_STRING, service_name,
-                                 DBUS_TYPE_INVALID))
-    {
-      dbus_message_unref (message);
-      BUS_SET_OOM (error);
-      return FALSE;
-    }
-
-  retval = bus_dispatch_matches (transaction, NULL, NULL, message, error);
-  dbus_message_unref (message);
-
-  return retval;
-}
-
-dbus_bool_t
-bus_driver_send_service_created (const char     *service_name,
-                                 BusTransaction *transaction,
-                                 DBusError      *error)
-{
-  DBusMessage *message;
-  dbus_bool_t retval;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  message = dbus_message_new_signal (DBUS_PATH_ORG_FREEDESKTOP_DBUS,
-                                     DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS,
-                                     "ServiceCreated");
+                                     "ServiceOwnerChanged");
   
   if (message == NULL)
     {
@@ -97,25 +66,24 @@ bus_driver_send_service_created (const char     *service_name,
     }
   
   if (!dbus_message_set_sender (message, DBUS_SERVICE_ORG_FREEDESKTOP_DBUS))
-    {
-      dbus_message_unref (message);
-      BUS_SET_OOM (error);
-      return FALSE;
-    }
-  
+    goto oom;
+
   if (!dbus_message_append_args (message,
                                  DBUS_TYPE_STRING, service_name,
+                                 DBUS_TYPE_STRING, old_owner ? old_owner : null_service,
+                                 DBUS_TYPE_STRING, new_owner ? new_owner : null_service,
                                  DBUS_TYPE_INVALID))
-    {
-      dbus_message_unref (message);
-      BUS_SET_OOM (error);
-      return FALSE;
-    }
-  
+    goto oom;
+
   retval = bus_dispatch_matches (transaction, NULL, NULL, message, error);
   dbus_message_unref (message);
 
   return retval;
+
+ oom:
+  dbus_message_unref (message);
+  BUS_SET_OOM (error);
+  return FALSE;
 }
 
 dbus_bool_t

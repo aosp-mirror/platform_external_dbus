@@ -32,9 +32,6 @@ dbus_bool_t bus_driver_handle_message        (DBusConnection *connection,
                                               BusTransaction *transaction,
                                               DBusMessage    *message,
                                               DBusError      *error);
-dbus_bool_t bus_driver_send_service_deleted  (const char     *service_name,
-                                              BusTransaction *transaction,
-                                              DBusError      *error);
 dbus_bool_t bus_driver_send_service_lost     (DBusConnection *connection,
                                               const char     *service_name,
                                               BusTransaction *transaction,
@@ -43,8 +40,10 @@ dbus_bool_t bus_driver_send_service_acquired (DBusConnection *connection,
                                               const char     *service_name,
                                               BusTransaction *transaction,
                                               DBusError      *error);
-dbus_bool_t bus_driver_send_service_created  (const char     *service_name,
-                                              BusTransaction *transaction,
-                                              DBusError      *error);
+dbus_bool_t bus_driver_send_service_owner_changed  (const char     *service_name,
+						    const char     *old_owner,
+						    const char     *new_owner,
+						    BusTransaction *transaction,
+						    DBusError      *error);
 
 #endif /* BUS_DRIVER_H */

@@ -1,3 +1,14 @@
+2004-09-24  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* doc/dbus-specification.xml: document ServiceOwnerChanged
+	signal.
+	
+	* bus/driver.c, bus/driver.h, bus/services.c: Use
+	ServiceOwnerChanged signal instead of ServiceCreated and
+	ServiceDeleted.
+	
+	* bus/dispatch.c: update testcase for the new signal.
+
 2004-09-20  Jon Trowbridge  <trow@ximian.com>
 
 	Patch from Nat Friedman <nat@novell.com>
