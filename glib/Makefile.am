@@ -34,12 +34,12 @@ libdbus_gtool_la_SOURCES =			\
 
 libdbus_gtool_la_LIBADD = libdbus-glib-1.la
 
-bin_PROGRAMS=dbus-glib-tool
+bin_PROGRAMS=dbus-binding-tool
 
-dbus_glib_tool_SOURCES =			\
+dbus_binding_tool_SOURCES =			\
 	dbus-glib-tool.c
 
-dbus_glib_tool_LDADD= -lexpat libdbus-gtool.la
+dbus_binding_tool_LDADD= -lexpat libdbus-gtool.la
 
 if DBUS_BUILD_TESTS
 

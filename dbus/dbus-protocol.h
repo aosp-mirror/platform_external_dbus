@@ -212,8 +212,10 @@ extern "C" {
 /* Interfaces, these #define don't do much other than
  * catch typos at compile time
  */
-#define DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS  "org.freedesktop.DBus"
+#define DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS           "org.freedesktop.DBus"
 #define DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE "org.freedesktop.Introspectable"
+#define DBUS_INTERFACE_ORG_FREEDESKTOP_PROPERTIES     "org.freedesktop.Properties"
+#define DBUS_INTERFACE_ORG_FREEDESKTOP_PEER           "org.freedesktop.Peer"
 
 /* This is a special interface whose methods can only be invoked
  * by the local implementation (messages from remote apps aren't

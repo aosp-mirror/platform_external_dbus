@@ -198,28 +198,27 @@ introspect_properties (GObject *object, GString *xml)
 
       s = uscore_to_wincaps (spec->name);
       
-      if (can_set)
+      if (can_set || can_get)
         {
-          g_string_append (xml, "    <method name=\"set_");
+          g_string_append (xml, "    <property name=\"");
           g_string_append (xml, s);
-          g_string_append (xml, "\">\n");
-          
-          g_string_append (xml, "      <arg type=\"");
+          g_string_append (xml, "\" type=\"");
           g_string_append (xml, _dbus_gutils_type_to_string (dbus_type));
-          g_string_append (xml, "\"/>\n");
-        }
+          g_string_append (xml, "\" access=\"\n");
 
-      if (can_get)
-        {
-          g_string_append (xml, "    <method name=\"get_");
-          g_string_append (xml, s);
-          g_string_append (xml, "\">\n");
+          if (can_set && can_get)
+            g_string_append (xml, "readwrite");
+          else if (can_get)
+            g_string_append (xml, "read");
+          else
+            {
+              g_assert (can_set);
+              g_string_append (xml, "write");
+            }
           
-          g_string_append (xml, "      <arg type=\"");
-          g_string_append (xml, _dbus_gutils_type_to_string (dbus_type));
-          g_string_append (xml, "\" direction=\"out\"/>\n");
+          g_string_append (xml, "\">\n");
         }
-
+      
       g_free (s);
     }
 
@@ -290,10 +289,10 @@ handle_introspect (DBusConnection *connection,
   
   xml = g_string_new (NULL);
 
+  g_string_append (xml, "<node>\n");
+  
   introspect_signals (G_OBJECT_TYPE (object), xml);
   introspect_properties (object, xml);
-	  
-  g_string_append (xml, "<node>\n");
 
   /* Append child nodes */
   for (i = 0; children[i]; i++)
@@ -322,23 +321,24 @@ handle_introspect (DBusConnection *connection,
 }
 
 static DBusMessage*
-set_object_property (DBusConnection *connection,
-                     DBusMessage    *message,
-                     GObject        *object,
-                     GParamSpec     *pspec)
+set_object_property (DBusConnection  *connection,
+                     DBusMessage     *message,
+                     DBusMessageIter *iter,
+                     GObject         *object,
+                     GParamSpec      *pspec)
 {
   GValue value = { 0, };
   DBusMessage *ret;
-  DBusMessageIter iter;
+  DBusMessageIter sub;
 
-  dbus_message_iter_init (message, &iter);
-
+  dbus_message_iter_recurse (iter, &sub);
+  
   /* The g_object_set_property() will transform some types, e.g. it
    * will let you use a uchar to set an int property etc. Note that
    * any error in value range or value conversion will just
    * g_warning(). These GObject skels are not for secure applications.
    */
-  if (dbus_gvalue_demarshal (&iter, &value))
+  if (dbus_gvalue_demarshal (&sub, &value))
     {
       g_object_set_property (object,
                              pspec->name,
@@ -405,10 +405,12 @@ gobject_message_function (DBusConnection  *connection,
   const DBusGObjectInfo *info;
   GParamSpec *pspec;
   GObject *object;
-  const char *member;
   gboolean setter;
   gboolean getter;
   char *s;
+  const char *wincaps_propname;
+  const char *wincaps_propiface;
+  DBusMessageIter iter;
 
   object = G_OBJECT (user_data);
 
@@ -416,8 +418,6 @@ gobject_message_function (DBusConnection  *connection,
                                    DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE,
                                    "Introspect"))
     return handle_introspect (connection, message, object);
-
-  member = dbus_message_get_member (message);
 
   /* Try the metainfo, which lets us invoke methods */
 
@@ -439,13 +439,39 @@ gobject_message_function (DBusConnection  *connection,
   /* If no metainfo, we can still do properties and signals
    * via standard GLib introspection
    */
-  setter = (member[0] == 's' && member[1] == 'e' && member[2] == 't' && member[3] == '_');
-  getter = (member[0] == 'g' && member[1] == 'e' && member[2] == 't' && member[3] == '_');
+  getter = FALSE;
+  setter = FALSE;
+  if (dbus_message_is_method_call (message,
+                                   DBUS_INTERFACE_ORG_FREEDESKTOP_PROPERTIES,
+                                   "Get"))
+    getter = TRUE;
+  else if (dbus_message_is_method_call (message,
+                                        DBUS_INTERFACE_ORG_FREEDESKTOP_PROPERTIES,
+                                        "Set"))
+    setter = TRUE;
 
   if (!(setter || getter))
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
-  s = wincaps_to_uscore (&member[4]);
+  dbus_message_iter_init (message, &iter);
+
+  if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_STRING)
+    {
+      g_warning ("Property get or set does not have an interface string as first arg\n");
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+    }
+  dbus_message_iter_get_basic (&iter, &wincaps_propiface);
+  dbus_message_iter_next (&iter);
+
+  if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_STRING)
+    {
+      g_warning ("Property get or set does not have a property name string as second arg\n");
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+    }
+  dbus_message_iter_get_basic (&iter, &wincaps_propname);
+  dbus_message_iter_next (&iter);
+  
+  s = wincaps_to_uscore (wincaps_propname);
 
   pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (object),
                                         s);
@@ -458,11 +484,18 @@ gobject_message_function (DBusConnection  *connection,
 
       if (setter)
         {
-          ret = set_object_property (connection, message,
+          if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_VARIANT)
+            {
+              g_warning ("Property set does not have a variant value as third arg\n");
+              return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+            }
+          
+          ret = set_object_property (connection, message, &iter,
                                      object, pspec);
+          dbus_message_iter_next (&iter);
         }
       else if (getter)
-        {
+        {     
           ret = get_object_property (connection, message,
                                      object, pspec);
         }
@@ -474,6 +507,9 @@ gobject_message_function (DBusConnection  *connection,
 
       g_assert (ret != NULL);
 
+      if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_INVALID)
+        g_warning ("Property get or set had too many arguments\n");
+      
       dbus_connection_send (connection, ret, NULL);
       dbus_message_unref (ret);
       return DBUS_HANDLER_RESULT_HANDLED;

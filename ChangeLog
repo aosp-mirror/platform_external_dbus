@@ -1,3 +1,27 @@
+2005-01-29  Havoc Pennington  <hp@redhat.com>
+
+	* glib/Makefile.am: rename dbus-glib-tool to dbus-binding-tool;
+	though it uses glib, it could be extended for any binding in
+	principle
+
+	* glib/dbus-gobject.c (gobject_message_function): change to the
+	new way properties work
+
+	* dbus/dbus-protocol.h: add the new interfaces
+
+	* doc/dbus-specification.xml: document the introspection format,
+	Introspectable interface, and add an org.freedesktop.Properties
+	interface.
+
+	* glib/dbus-gparser.c: add support for a <property> element
+
+	* glib/dbus-gidl.c: add PropertyInfo
+
+	* glib/dbus-gobject.c (handle_introspect): put the outermost
+	<node> outside the signal and property descriptions.
+	(introspect_properties): export properties as <property> rather
+	than as method calls
+
 2005-01-28  Havoc Pennington  <hp@redhat.com>
 
 	* doc/TODO, doc/dbus-specification.xml: spec and TODO tweaks

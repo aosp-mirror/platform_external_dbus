@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-gparser.c parse DBus description files
  *
- * Copyright (C) 2003  Red Hat, Inc.
+ * Copyright (C) 2003, 2005  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -169,6 +169,7 @@ struct Parser
   InterfaceInfo *interface;
   MethodInfo *method;
   SignalInfo *signal;
+  PropertyInfo *property;
   ArgInfo *arg;
 };
 
@@ -238,11 +239,12 @@ parse_node (Parser      *parser,
   if (parser->interface ||
       parser->method ||
       parser->signal ||
+      parser->property ||
       parser->arg)
     {
       g_set_error (error, G_MARKUP_ERROR,
                    G_MARKUP_ERROR_PARSE,
-                   _("Can't put a <%s> element here"),
+                   _("Can't put <%s> element here"),
                    element_name);
       return FALSE;      
     }
@@ -264,6 +266,25 @@ parse_node (Parser      *parser,
       return FALSE;
     }
 
+  /* Root element name must be absolute */
+  if (parser->node_stack == NULL && name && *name != '/')
+    {
+      g_set_error (error, G_MARKUP_ERROR,
+                   G_MARKUP_ERROR_PARSE,
+                   _("\"%s\" attribute on <%s> element must be an absolute object path, \"%s\" not OK"),
+                   "name", element_name, name);
+      return FALSE;
+    }
+
+  /* Other element names must not be absolute */
+  if (parser->node_stack != NULL && name && *name == '/')
+    {
+      g_set_error (error, G_MARKUP_ERROR,
+                   G_MARKUP_ERROR_PARSE,
+                   _("\"%s\" attribute on <%s> element must not be an absolute object path, \"%s\" starts with /"),
+                   "name", element_name, name);
+      return FALSE;
+    }
   
   node = node_info_new (name);
 
@@ -293,12 +314,13 @@ parse_interface (Parser      *parser,
   if (parser->interface ||
       parser->method ||
       parser->signal ||
+      parser->property ||
       parser->arg ||
       (parser->node_stack == NULL))
     {
       g_set_error (error, G_MARKUP_ERROR,
                    G_MARKUP_ERROR_PARSE,
-                   _("Can't put a <%s> element here"),
+                   _("Can't put <%s> element here"),
                    element_name);
       return FALSE;      
     }
@@ -345,11 +367,12 @@ parse_method (Parser      *parser,
       parser->node_stack == NULL ||
       parser->method ||
       parser->signal ||
+      parser->property ||
       parser->arg)
     {
       g_set_error (error, G_MARKUP_ERROR,
                    G_MARKUP_ERROR_PARSE,
-                   _("Can't put a <%s> element here"),
+                   _("Can't put <%s> element here"),
                    element_name);
       return FALSE;      
     }
@@ -395,12 +418,13 @@ parse_signal (Parser      *parser,
   if (parser->interface == NULL ||
       parser->node_stack == NULL ||
       parser->signal ||
-      parser->signal ||
+      parser->method ||
+      parser->property ||
       parser->arg)
     {
       g_set_error (error, G_MARKUP_ERROR,
                    G_MARKUP_ERROR_PARSE,
-                   _("Can't put a <%s> element here"),
+                   _("Can't put <%s> element here"),
                    element_name);
       return FALSE;      
     }
@@ -463,10 +487,122 @@ basic_type_from_string (const char *str)
     return DBUS_TYPE_INVALID;
 }
 
+/* FIXME we have to allow type signatures, not just basic types
+ */
 static int
-type_from_string (const char *str)
+type_from_string (const char *str,
+                  const char *element_name,
+                  GError    **error)
 {
-  return basic_type_from_string (str);
+  int t;
+  
+  t = basic_type_from_string (str);
+
+  if (t == DBUS_TYPE_INVALID)
+    {
+      g_set_error (error, G_MARKUP_ERROR,
+                   G_MARKUP_ERROR_PARSE,
+                   _("Type \"%s\" not understood on <%s> element "),
+                   str, element_name);
+    }
+
+  return t;
+}
+
+static gboolean
+parse_property (Parser      *parser,
+                const char  *element_name,
+                const char **attribute_names,
+                const char **attribute_values,
+                GError     **error)
+{
+  const char *name;
+  const char *access;
+  const char *type;
+  PropertyInfo *property;
+  NodeInfo *top;
+  PropertyAccessFlags access_flags;
+  int t;
+  
+  if (parser->interface == NULL ||
+      parser->node_stack == NULL ||
+      parser->signal ||
+      parser->method ||
+      parser->property ||
+      parser->arg)
+    {
+      g_set_error (error, G_MARKUP_ERROR,
+                   G_MARKUP_ERROR_PARSE,
+                   _("Can't put <%s> element here"),
+                   element_name);
+      return FALSE;      
+    }
+
+  name = NULL;
+  if (!locate_attributes (element_name, attribute_names,
+                          attribute_values, error,
+                          "name", &name,
+                          "access", &access,
+                          "type", &type,
+                          NULL))
+    return FALSE;
+
+  if (name == NULL)
+    {
+      g_set_error (error, G_MARKUP_ERROR,
+                   G_MARKUP_ERROR_PARSE,
+                   _("\"%s\" attribute required on <%s> element "),
+                   "name", element_name);
+      return FALSE;
+    }
+
+  if (access == NULL)
+    {
+      g_set_error (error, G_MARKUP_ERROR,
+                   G_MARKUP_ERROR_PARSE,
+                   _("\"%s\" attribute required on <%s> element "),
+                   "access", element_name);
+      return FALSE;
+    }
+
+  if (type == NULL)
+    {
+      g_set_error (error, G_MARKUP_ERROR,
+                   G_MARKUP_ERROR_PARSE,
+                   _("\"%s\" attribute required on <%s> element "),
+                   "type", element_name);
+      return FALSE;
+    }
+
+  t = type_from_string (type, element_name, error);
+  if (t == DBUS_TYPE_INVALID)
+    return FALSE;
+
+  access_flags = 0;
+  if (strcmp (access, "readwrite") == 0)
+    access_flags = PROPERTY_READ | PROPERTY_WRITE;
+  else if (strcmp (access, "read") == 0)
+    access_flags = PROPERTY_READ;
+  else if (strcmp (access, "write") == 0)
+    access_flags = PROPERTY_WRITE;
+  else
+    {
+      g_set_error (error, G_MARKUP_ERROR,
+                   G_MARKUP_ERROR_PARSE,
+                   _("access=\"%s\" must have value readwrite, read, or write on %s\n"),
+                   access, element_name);
+      return FALSE;
+    }
+  
+  top = parser->node_stack->data;
+  
+  property = property_info_new (name, t, access_flags);
+  interface_info_add_property (parser->interface, property);
+  property_info_unref (property);
+
+  parser->property = property;
+  
+  return TRUE;
 }
 
 static gboolean
@@ -485,11 +621,12 @@ parse_arg (Parser      *parser,
   
   if (!(parser->method || parser->signal) ||
       parser->node_stack == NULL ||
+      parser->property ||
       parser->arg)
     {
       g_set_error (error, G_MARKUP_ERROR,
                    G_MARKUP_ERROR_PARSE,
-                   _("Can't put a <%s> element here"),
+                   _("Can't put <%s> element here"),
                    element_name);
       return FALSE;      
     }
@@ -525,20 +662,31 @@ parse_arg (Parser      *parser,
         g_assert_not_reached ();
     }
 
+  dir = ARG_INVALID;
+  
   if (strcmp (direction, "in") == 0)
     dir = ARG_IN;
   else if (strcmp (direction, "out") == 0)
     dir = ARG_OUT;
-  else
+  
+  if (dir == ARG_INVALID ||
+      (parser->signal && dir == ARG_IN))
     {
-      g_set_error (error, G_MARKUP_ERROR,
-                   G_MARKUP_ERROR_PARSE,
-                   _("\"%s\" attribute on <%s> has value \"in\" or \"out\""),
-                   "direction", element_name);
+      if (parser->signal)
+        g_set_error (error, G_MARKUP_ERROR,
+                     G_MARKUP_ERROR_PARSE,
+                     _("Signals must have direction=\"out\" (just omit the direction attribute)"));
+      else
+        g_set_error (error, G_MARKUP_ERROR,
+                     G_MARKUP_ERROR_PARSE,
+                     _("\"%s\" attribute on <%s> has value \"in\" or \"out\""),
+                     "direction", element_name);
       return FALSE;
     }
 
-  t = type_from_string (type);
+  t = type_from_string (type, element_name, error);
+  if (t == DBUS_TYPE_INVALID)
+    return FALSE;
   
   arg = arg_info_new (name, dir, t);
   if (parser->method)
@@ -588,6 +736,12 @@ parser_start_element (Parser      *parser,
                          attribute_values, error))
         return FALSE;
     }
+  else if (ELEMENT_IS ("property"))
+    {
+      if (!parse_property (parser, element_name, attribute_names,
+                           attribute_values, error))
+        return FALSE;
+    }
   else if (ELEMENT_IS ("arg"))
     {
       if (!parse_arg (parser, element_name, attribute_names,
@@ -624,6 +778,10 @@ parser_end_element (Parser      *parser,
     {
       parser->signal = NULL;
     }
+  else if (ELEMENT_IS ("property"))
+    {
+      parser->property = NULL;
+    }
   else if (ELEMENT_IS ("arg"))
     {
       parser->arg = NULL;
@@ -655,6 +813,8 @@ parser_content (Parser      *parser,
 {
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
+  /* FIXME check that it's all whitespace */
+  
   return TRUE;
 }
 

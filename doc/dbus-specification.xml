@@ -1119,12 +1119,22 @@
             exceptions.
           </para>
           <para>
+            In converting from native APIs to D-BUS, it is perhaps nice to 
+            map D-BUS naming conventions ("FooBar") to native conventions 
+            such as "fooBar" or "foo_bar" automatically. This is OK 
+            as long as you can say that the native API is one that 
+            was specifically written for D-BUS. It makes the most sense
+            when writing object implementations that will be exported 
+            over the bus. Object proxies used to invoke remote D-BUS 
+            objects probably need the ability to call any D-BUS method,
+            and thus a magic name mapping like this could be a problem.
+          </para>
+          <para>
             This specification doesn't require anything of native API bindings;
             the preceding is only a suggested convention for consistency 
             among bindings.
           </para>
         </sect4>
-
       </sect3>
 
       <sect3 id="message-protocol-types-signal">
@@ -2053,25 +2063,183 @@
     </para>
   </sect1>
 
-  <sect1 id="standard-messages">
-    <title>Standard One-to-One Messages</title>
+  <sect1 id="naming-conventions">
+    <title>Naming Conventions</title>
+    
+    <para>
+      D-BUS namespaces are all lowercase and correspond to reversed domain
+      names, as with Java. e.g. "org.freedesktop"
+    </para>
+    <para>
+      Interface, signal, method, and property names are "WindowsStyleCaps", note
+      that the first letter is capitalized, unlike Java.
+    </para>
+    <para>
+      Object paths are normally all lowercase with underscores used rather than
+      hyphens.
+    </para>
+  </sect1>
+    
+  <sect1 id="standard-interfaces">
+    <title>Standard Interfaces</title>
     <para>
       See <xref linkend="message-protocol-types-notation"/> for details on 
-       the notation used in this section.
+       the notation used in this section. There are some standard interfaces
+      that may be useful across various D-BUS applications.
     </para>
-    <sect2 id="standard-messages-ping">
-      <title><literal>org.freedesktop.Peer.Ping</literal></title>
-      <para>        
+    <sect2 id="standard-interfaces-peer">
+      <title><literal>org.freedesktop.Peer</literal></title>
+      <para>
+        The <literal>org.freedesktop.Peer</literal> interface 
+        has one method:
         <programlisting>
           org.freedesktop.Peer.Ping ()
         </programlisting>
       </para>
       <para>
-        On receipt of the <literal>METHOD_CALL</literal>
-        message <literal>org.freedesktop.Peer.Ping</literal>, an application
-        should do nothing other than reply with a <literal>METHOD_RETURN</literal> as usual.
+        On receipt of the <literal>METHOD_CALL</literal> message
+        <literal>org.freedesktop.Peer.Ping</literal>, an application should do
+        nothing other than reply with a <literal>METHOD_RETURN</literal> as
+        usual.  It does not matter which object path a ping is sent to.  The
+        reference implementation should simply handle this method on behalf of
+        all objects, though it doesn't yet. (The point is, you're really pinging
+        the peer process, not a specific object.)
       </para>
     </sect2>
+
+    <sect2 id="standard-interfaces-introspectable">
+      <title><literal>org.freedesktop.Introspectable</literal></title>
+      <para>
+        This interface has one method:
+        <programlisting>
+          org.freedesktop.Introspectable.Introspect (out STRING xml_data)
+        </programlisting>
+      </para>
+      <para>
+        Objects instances may implement
+        <literal>Introspect</literal> which returns an XML description of
+        the object, including its interfaces (with signals and methods), objects
+        below it in the object path tree, and its properties.
+      </para>
+      <para>
+        <xref linkend="introspection-format"/> describes the format of this XML string.
+      </para>
+    </sect2>
+    <sect2 id="standard-interfaces-properties">
+      <title><literal>org.freedesktop.Properties</literal></title>
+      <para>
+        Many native APIs will have a concept of object <firstterm>properties</firstterm> 
+        or <firstterm>attributes</firstterm>. These can be exposed via the 
+        <literal>org.freedesktop.Properties</literal> interface.
+      </para>
+      <para>
+        <programlisting>
+              org.freedesktop.Properties.Get (in STRING interface_name,
+                                              in STRING property_name,
+                                              out VARIANT value);
+              org.freedesktop.Properties.Set (in STRING interface_name,
+                                              in STRING property_name,
+                                              in VARIANT value);
+        </programlisting>
+      </para>
+      <para>
+        The available properties and whether they are writable can be determined
+        by calling <literal>org.freedesktop.Introspectable.Introspect</literal>,
+        see <xref linkend="standard-interfaces-introspectable"/>.
+      </para>
+    </sect2>
+  </sect1>
+
+  <sect1 id="introspection-format">
+    <title>Introspection Data Format</title>
+    <para>
+      As described in <xref linkend="standard-interfaces-introspectable"/>, 
+      objects may be introspected at runtime, returning an XML string 
+      that describes the object. The same XML format may be used in 
+      other contexts as well, for example as an "IDL" for generating 
+      static language bindings.
+    </para>
+    <para>
+      Here is an example of introspection data:
+      <programlisting>
+        &lt;!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+         "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd"&gt;
+        &lt;node name="/org/freedesktop/sample_object"&gt;
+          &lt;interface name="org.freedesktop.SampleInterface"&gt;
+            &lt;method name="Frobate"&gt;
+              &lt;arg name="foo" type="int32" direction="in"/&gt;
+              &lt;arg name="bar" type="string" direction="out"/&gt;
+            &lt;/method&gt;
+            &lt;signal name="Changed"&gt;
+              &lt;arg name="new_value" type="boolean"/&gt;
+            &lt;/signal&gt;
+            &lt;property name="Bar" type="byte" access="readwrite"/&gt;
+          &lt;/interface&gt;
+          &lt;node name="child_of_sample_object"/&gt;
+          &lt;node name="another_child_of_sample_object"/&gt;
+       &lt;/node&gt;
+      </programlisting>
+    </para>
+    <para>
+      A more formal DTD and spec needs writing, but here are some quick notes.
+      <itemizedlist>
+        <listitem>
+          <para>
+            Only the root &lt;node&gt; element can omit the node name, as it's
+            known to be the object that was introspected.  If the root
+            &lt;node&gt; does have a name attribute, it should be an absolute
+            object path. If child &lt;node&gt; have object paths, they should be
+            relative.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            If a child &lt;node&gt; has any sub-elements, then they 
+            must represent a complete introspection of the child.
+            If a child &lt;node&gt; is empty, then it may or may 
+            not have sub-elements; the child must be introspected
+            in order to find out. The intent is that if an object 
+            knows that its children are "fast" to introspect
+            it can go ahead and return their information, but 
+            otherwise it can omit it.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The direction element on &lt;arg&gt; may be omitted, 
+            in which case it defaults to "in" for method calls 
+            and "out" for signals. Signals only allow "out" 
+            so while direction may be specified, it's pointless.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The possible directions are "in" and "out", 
+            unlike CORBA there is no "inout"
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The possible property access flags are 
+            "readwrite", "read", and "write"
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The current type="uint32" stuff is totally broken,
+            instead we have to do full signatures. 
+            However, then this format will suck for human readability. 
+            So, some thinking to do here.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Multiple interfaces can of course be listed for 
+            one &lt;node&gt;.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </para>
 
   </sect1>
 

@@ -57,7 +57,7 @@ pretty_print_list (GSList *list,
                    int     depth)
 {
   GSList *tmp;
-
+  
   tmp = list;
   while (tmp != NULL)
     {
@@ -106,6 +106,7 @@ pretty_print (BaseInfo *base,
 
         pretty_print_list (interface_info_get_methods (i), depth + 1);
         pretty_print_list (interface_info_get_signals (i), depth + 1);
+        pretty_print_list (interface_info_get_properties (i), depth + 1);
 
         indent (depth);
         printf ("}\n");
@@ -139,6 +140,22 @@ pretty_print (BaseInfo *base,
         printf (")\n");
       }
       break;
+    case INFO_TYPE_PROPERTY:
+      {
+        PropertyInfo *a = (PropertyInfo*) base;
+        int pt = property_info_get_type (a);
+        PropertyAccessFlags acc = property_info_get_access (a);
+
+        printf ("%s%s %s",
+                acc & PROPERTY_READ ? "read" : "",
+                acc & PROPERTY_WRITE ? "write" : "",
+                _dbus_gutils_type_to_string (pt));
+        if (name)
+          printf (" %s\n", name);
+        else
+          printf ("\n");
+      }
+      break;
     case INFO_TYPE_ARG:
       {
         ArgInfo *a = (ArgInfo*) base;
@@ -160,16 +177,16 @@ pretty_print (BaseInfo *base,
 static void
 usage (int ecode)
 {
-  fprintf (stderr, "dbus-glib-tool [--version] [--help]\n");
+  fprintf (stderr, "dbus-binding-tool [--version] [--help] [--pretty-print]\n");
   exit (ecode);
 }
 
 static void
 version (void)
 {
-  printf ("D-BUS GLib Tool %s\n"
-          "Copyright (C) 2003, 2004 Red Hat, Inc.\n"
-          "This is free software; see the source for copying conditions.\n"
+  printf ("D-BUS Binding Tool %s\n"
+          "Copyright (C) 2003-2005 Red Hat, Inc.\n"
+          "This is free software; xsee the source for copying conditions.\n"
           "There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n",
           VERSION);
   exit (0);
@@ -313,11 +330,11 @@ run_all_tests (const char *test_data_dir)
   else
     printf ("No test data!\n");
 
-  printf ("%s: running gtool tests\n", "dbus-glib-tool");
+  printf ("%s: running binding tests\n", "dbus-binding-tool");
   if (!_dbus_gtool_test (test_data_dir))
     test_die ("gtool");
 
-  printf ("%s: completed successfully\n", "dbus-glib-tool");
+  printf ("%s: completed successfully\n", "dbus-binding-tool");
 }
 
 #endif /* DBUS_BUILD_TESTS */

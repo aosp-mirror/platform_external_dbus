@@ -2,7 +2,7 @@
 /* dbus-gidl.c data structure describing an interface, to be generated from IDL
  *             or something
  *
- * Copyright (C) 2003  Red Hat, Inc.
+ * Copyright (C) 2003, 2005  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
  *
@@ -46,6 +46,7 @@ struct InterfaceInfo
   /* Since we have BaseInfo now these could be one list */
   GSList *methods;
   GSList *signals;
+  GSList *properties;
 };
 
 struct MethodInfo
@@ -58,6 +59,13 @@ struct SignalInfo
 {
   BaseInfo base;
   GSList *args;
+};
+
+struct PropertyInfo
+{
+  BaseInfo base;
+  int type;
+  PropertyAccessFlags access;
 };
 
 struct ArgInfo
@@ -110,6 +118,9 @@ base_info_unref (BaseInfo *info)
       break;
     case INFO_TYPE_METHOD:
       method_info_unref ((MethodInfo*) info);
+      break;
+    case INFO_TYPE_PROPERTY:
+      property_info_unref ((PropertyInfo*) info);
       break;
     case INFO_TYPE_ARG:
       arg_info_unref ((ArgInfo*) info);
@@ -207,6 +218,20 @@ free_signal_list (GSList **signals_p)
     }
   g_slist_free (*signals_p);
   *signals_p = NULL;
+}
+
+static void
+free_property_list (GSList **props_p)
+{
+  GSList *tmp;
+  tmp = *props_p;
+  while (tmp != NULL)
+    {
+      property_info_unref (tmp->data);
+      tmp = tmp->next;
+    }
+  g_slist_free (*props_p);
+  *props_p = NULL;
 }
 
 NodeInfo*
@@ -307,6 +332,7 @@ interface_info_unref (InterfaceInfo *info)
     {
       free_method_list (&info->methods);
       free_signal_list (&info->signals);
+      free_property_list (&info->properties);
       base_info_free (info);
     }
 }
@@ -329,6 +355,12 @@ interface_info_get_signals (InterfaceInfo *info)
   return info->signals;
 }
 
+GSList*
+interface_info_get_properties (InterfaceInfo *info)
+{
+  return info->properties;
+}
+
 void
 interface_info_add_method (InterfaceInfo *info,
                            MethodInfo    *method)
@@ -345,6 +377,14 @@ interface_info_add_signal (InterfaceInfo *info,
   info->signals = g_slist_append (info->signals, signal);
 }
 
+void
+interface_info_add_property (InterfaceInfo *info,
+                             PropertyInfo  *property)
+{
+  property_info_ref (property);
+  info->properties = g_slist_append (info->properties, property);
+}
+
 static void
 free_arg_list (GSList **args_p)
 {
@@ -352,6 +392,8 @@ free_arg_list (GSList **args_p)
   tmp = *args_p;
   while (tmp != NULL)
     {
+      ArgInfo *ai = tmp->data;
+      g_assert (ai->base.type == INFO_TYPE_ARG);
       arg_info_unref (tmp->data);
       tmp = tmp->next;
     }
@@ -484,8 +526,62 @@ signal_info_add_arg (SignalInfo    *info,
   
   arg_info_ref (arg);
   info->args = g_slist_append (info->args, arg);
-
+  
   /* signal args don't need sorting since only "out" is allowed */
+}
+
+PropertyInfo*
+property_info_new (const char          *name,
+                   int                  type,
+                   PropertyAccessFlags  access)
+{
+  PropertyInfo *info;
+
+  info = g_new0 (PropertyInfo, 1);
+  info->base.refcount = 1;
+  info->base.name = g_strdup (name);
+  info->base.type = INFO_TYPE_PROPERTY;
+
+  info->type = type;
+  info->access = access;
+  
+  return info;
+}
+
+PropertyInfo*
+property_info_ref (PropertyInfo *info)
+{
+  info->base.refcount += 1;
+  
+  return info;
+}
+
+void
+property_info_unref (PropertyInfo *info)
+{
+  info->base.refcount -= 1;
+  if (info->base.refcount == 0)
+    {
+      base_info_free (info);
+    }
+}
+
+const char*
+property_info_get_name (PropertyInfo *info)
+{
+  return info->base.name;
+}
+
+int
+property_info_get_type (PropertyInfo *info)
+{
+  return info->type;
+}
+
+PropertyAccessFlags
+property_info_get_access (PropertyInfo *info)
+{
+  return info->access;
 }
 
 ArgInfo*
