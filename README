@@ -11,7 +11,7 @@ These are the configuration flags that can be given to the ./configure program.
 --enable-ansi    	enable -ansi -pedantic gcc flags
 --enable-verbose-mode 	support verbose debug mode
 --enable-asserts 	include assertion checks
---enable-gcov 		compile with coverage profiling instrumentation (gcc only)],enable_gcov=$enableval,enable_gcov=no)
+--enable-gcov 		compile with coverage profiling instrumentation (gcc only)
 
 
 Environment variables
