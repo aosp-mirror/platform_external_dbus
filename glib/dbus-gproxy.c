@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2003, 2004 Red Hat, Inc.
  *
- * Licensed under the Academic Free License version 2.0
+ * Licensed under the Academic Free License version 2.1
  * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -903,7 +903,7 @@ dbus_g_proxy_new_for_service (DBusGConnection *connection,
   g_return_val_if_fail (interface_name != NULL, NULL);
   
   proxy = dbus_g_proxy_new (connection, service_name,
-                           path_name, interface_name);
+                            path_name, interface_name);
 
   return proxy;
 }

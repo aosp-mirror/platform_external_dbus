@@ -10,7 +10,7 @@
  * code from tclHash.c; the Tcl license follows this standad D-BUS
  * license information.
  *
- * Licensed under the Academic Free License version 2.0
+ * Licensed under the Academic Free License version 2.1
  * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

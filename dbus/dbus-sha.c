@@ -4,7 +4,7 @@
  * Copyright (C) 2003 Red Hat Inc.
  * Copyright (C) 1995 A. M. Kuchling
  *
- * Licensed under the Academic Free License version 2.0
+ * Licensed under the Academic Free License version 2.1
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

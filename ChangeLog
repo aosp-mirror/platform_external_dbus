@@ -1,3 +1,8 @@
+2004-08-09  Havoc Pennington  <hp@redhat.com>
+
+	* COPYING: switch to Academic Free License version 2.1 instead of
+	2.0, to resolve complaints about patent termination clause.
+
 2004-07-31  John (J5) Palmieri  <johnp@redhat.com>
 
 	* README: added documentation for the --enable-python 

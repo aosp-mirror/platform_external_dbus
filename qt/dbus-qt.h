@@ -4,7 +4,7 @@
  *
  * Copyright (C)  2002  DBus Developers
  *
- * Licensed under the Academic Free License version 2.0
+ * Licensed under the Academic Free License version 2.1
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
