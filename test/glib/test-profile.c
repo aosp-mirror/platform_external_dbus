@@ -185,7 +185,7 @@ main (int argc, char *argv[])
   int i;
   
   g_thread_init (NULL);
-  dbus_gthread_init ();
+  dbus_g_thread_init ();
 
   dbus_error_init (&error);
   server = dbus_server_listen ("unix:tmpdir="DBUS_TEST_SOCKET_DIR,

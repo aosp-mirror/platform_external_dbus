@@ -82,3 +82,7 @@
 
  - Nuke the org.freedesktop.Broadcast service; instead, 
    just broadcast messages of type signal
+
+ - I don't want to introduce DBusObject, but refcounting and object
+   data could still be factored out into an internal "base class" 
+   perhaps.

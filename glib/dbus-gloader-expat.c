@@ -163,31 +163,32 @@ expat_CharacterDataHandler (void           *userData,
                        s, len);
 }
 
-Parser*
+NodeInfo*
 description_load_from_file (const char       *filename,
                             GError          **error)
 {
   char *contents;
   gsize len;
-  Parser *parser;
+  NodeInfo *nodes;
   
   contents = NULL;
   if (!g_file_get_contents (filename, &contents, &len, error))
     return NULL;
 
-  parser = description_load_from_string (contents, len, error);
+  nodes = description_load_from_string (contents, len, error);
   g_free (contents);
 
-  return parser;
+  return nodes;
 }
 
-Parser*
+NodeInfo*
 description_load_from_string (const char  *str,
                               int          len,
                               GError     **error)
 {
   XML_Parser expat;
   ExpatParseContext context;
+  NodeInfo *nodes;
   
   g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
@@ -242,8 +243,11 @@ description_load_from_string (const char  *str,
   XML_ParserFree (expat);
   g_string_free (context.content, TRUE);
 
-  g_return_val_if_fail (error == NULL || *error == NULL, NULL);  
-  return context.parser;
+  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
+  nodes = parser_get_nodes (context.parser);
+  node_info_ref (nodes);
+  parser_unref (context.parser);
+  return nodes;
 
  failed:
   g_return_val_if_fail (error == NULL || *error != NULL, NULL);
@@ -255,3 +259,4 @@ description_load_from_string (const char  *str,
     parser_unref (context.parser);
   return NULL;
 }
+

@@ -5,8 +5,7 @@ dbusincludedir=$(includedir)/dbus-1.0/dbus
 lib_LTLIBRARIES=libdbus-glib-1.la
 
 dbusinclude_HEADERS=				\
-	dbus-glib.h				\
-	dbus-gproxy.h
+	dbus-glib.h
 
 libdbus_glib_1_la_SOURCES = 			\
 	dbus-gmain.c				\
@@ -14,23 +13,36 @@ libdbus_glib_1_la_SOURCES = 			\
 	dbus-gproxy.c				\
 	dbus-gtest.c				\
 	dbus-gtest.h				\
-	dbus-gthread.c
+	dbus-gthread.c				\
+	dbus-gutils.c				\
+	dbus-gutils.h
 
 libdbus_glib_1_la_LIBADD= $(DBUS_GLIB_LIBS) $(top_builddir)/dbus/libdbus-1.la
+## don't export symbols that start with "_" (we use this 
+## convention for internal symbols)
+libdbus_glib_1_la_LDFLAGS= -export-symbols-regex "^[^_].*"
+
+# convenience lib used here and by dbus-viewer
+noinst_LTLIBRARIES=libdbus-gtool.la
+
+libdbus_gtool_la_SOURCES =			\
+	dbus-gidl.c				\
+	dbus-gidl.h				\
+	dbus-gloader-expat.c			\
+	dbus-gparser.c				\
+	dbus-gparser.h				\
+	dbus-gutils.c				\
+	dbus-gutils.h
+
+libdbus_gtool_la_LIBADD = libdbus-glib-1.la
 
 bin_PROGRAMS=dbus-glib-tool
 
 dbus_glib_tool_SOURCES =			\
-	dbus-gidl.c				\
-	dbus-gidl.h				\
 	dbus-glib-tool.c			\
-	dbus-gloader-expat.c			\
-	dbus-gparser.c				\
-	dbus-gparser.h				\
 	dbus-gtool-test.h
 
-
-dbus_glib_tool_LDADD= $(DBUS_GLIB_TOOL_LIBS) libdbus-glib-1.la $(top_builddir)/dbus/libdbus-1.la
+dbus_glib_tool_LDADD= $(DBUS_GLIB_TOOL_LIBS) libdbus-gtool.la
 
 if DBUS_BUILD_TESTS
 
@@ -54,3 +66,4 @@ else
 TESTS=
 
 endif
+

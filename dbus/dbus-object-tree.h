@@ -44,7 +44,9 @@ DBusHandlerResult _dbus_object_tree_dispatch_and_unlock   (DBusObjectTree       
                                                            DBusMessage                 *message);
 void              _dbus_object_tree_free_all_unlocked     (DBusObjectTree              *tree);
 
-
+dbus_bool_t _dbus_object_tree_list_registered_and_unlock (DBusObjectTree *tree,
+                                                          const char    **parent_path,
+                                                          char         ***child_entries);
 DBUS_END_DECLS;
 
 #endif /* DBUS_OBJECT_TREE_H */

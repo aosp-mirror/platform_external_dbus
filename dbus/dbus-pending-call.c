@@ -38,6 +38,8 @@
  * @{
  */
 
+static dbus_int32_t notify_user_data_slot = -1;
+
 /**
  * Creates a new pending reply object.
  *
@@ -58,11 +60,17 @@ _dbus_pending_call_new (DBusConnection    *connection,
   
   if (timeout_milliseconds == -1)
     timeout_milliseconds = _DBUS_DEFAULT_TIMEOUT_VALUE;
+
+  if (!dbus_pending_call_allocate_data_slot (&notify_user_data_slot))
+    return NULL;
   
   pending = dbus_new (DBusPendingCall, 1);
   
   if (pending == NULL)
-    return NULL;
+    {
+      dbus_pending_call_free_data_slot (&notify_user_data_slot);
+      return NULL;
+    }
 
   timeout = _dbus_timeout_new (timeout_milliseconds,
                                timeout_handler,
@@ -70,6 +78,7 @@ _dbus_pending_call_new (DBusConnection    *connection,
 
   if (timeout == NULL)
     {
+      dbus_pending_call_free_data_slot (&notify_user_data_slot);
       dbus_free (pending);
       return NULL;
     }
@@ -77,6 +86,8 @@ _dbus_pending_call_new (DBusConnection    *connection,
   pending->refcount.value = 1;
   pending->connection = connection;
   pending->timeout = timeout;
+
+  _dbus_data_slot_list_init (&pending->slot_list);
   
   return pending;
 }
@@ -94,7 +105,13 @@ _dbus_pending_call_notify (DBusPendingCall *pending)
   pending->completed = TRUE;
 
   if (pending->function)
-    (* pending->function) (pending, pending->user_data);
+    {
+      void *user_data;
+      user_data = dbus_pending_call_get_data (pending,
+                                              notify_user_data_slot);
+      
+      (* pending->function) (pending, user_data);
+    }
 }
 
 /** @} */
@@ -154,9 +171,8 @@ dbus_pending_call_unref (DBusPendingCall *pending)
       _dbus_assert (!pending->timeout_added);  
 
       /* this assumes we aren't holding connection lock... */
-      if (pending->free_user_data)
-        (* pending->free_user_data) (pending->user_data);
-
+      _dbus_data_slot_list_free (&pending->slot_list);
+      
       if (pending->timeout != NULL)
         _dbus_timeout_unref (pending->timeout);
       
@@ -174,6 +190,8 @@ dbus_pending_call_unref (DBusPendingCall *pending)
         }
       
       dbus_free (pending);
+
+      dbus_pending_call_free_data_slot (&notify_user_data_slot);
     }
 }
 
@@ -185,28 +203,24 @@ dbus_pending_call_unref (DBusPendingCall *pending)
  * @param function notifier function
  * @param user_data data to pass to notifier function
  * @param free_user_data function to free the user data
- * 
+ * @returns #FALSE if not enough memory
  */
-void
+dbus_bool_t
 dbus_pending_call_set_notify (DBusPendingCall              *pending,
                               DBusPendingCallNotifyFunction function,
                               void                         *user_data,
                               DBusFreeFunction              free_user_data)
 {
-  DBusFreeFunction old_free_func;
-  void *old_user_data;
+  _dbus_return_val_if_fail (pending != NULL, FALSE);
 
-  _dbus_return_if_fail (pending != NULL);
-
-  old_free_func = pending->free_user_data;
-  old_user_data = pending->user_data;
-
-  pending->user_data = user_data;
-  pending->free_user_data = free_user_data;
+  /* could invoke application code! */
+  if (!dbus_pending_call_set_data (pending, notify_user_data_slot,
+                                   user_data, free_user_data))
+    return FALSE;
+  
   pending->function = function;
 
-  if (old_free_func)
-    (* old_free_func) (old_user_data);
+  return TRUE;
 }
 
 /**
@@ -230,9 +244,10 @@ dbus_pending_call_cancel (DBusPendingCall *pending)
  * Checks whether the pending call has received a reply
  * yet, or not.
  *
+ * @todo not thread safe? I guess it has to lock though it sucks
+ *
  * @param pending the pending call
- * @returns #TRUE if a reply has been received
- */
+ * @returns #TRUE if a reply has been received */
 dbus_bool_t
 dbus_pending_call_get_completed (DBusPendingCall *pending)
 {
@@ -245,6 +260,9 @@ dbus_pending_call_get_completed (DBusPendingCall *pending)
  * have to keep a reference count on the pending call (or add one
  * to the message).
  *
+ * @todo not thread safe? I guess it has to lock though it sucks
+ * @todo maybe to make this threadsafe, it should be steal_reply(), i.e. only one thread can ever get the message
+ * 
  * @param pending the pending call
  * @returns the reply message or #NULL.
  */
@@ -260,6 +278,9 @@ dbus_pending_call_get_reply (DBusPendingCall *pending)
  * main loop or process other messages, it simply waits for the reply
  * in question.
  *
+ * If the pending call is already completed, this function returns
+ * immediately.
+ *
  * @todo when you start blocking, the timeout is reset, but it should
  * really only use time remaining since the pending call was created.
  *
@@ -269,6 +290,9 @@ void
 dbus_pending_call_block (DBusPendingCall *pending)
 {
   DBusMessage *message;
+
+  if (dbus_pending_call_get_completed (pending))
+    return;
   
   message = _dbus_connection_block_for_reply (pending->connection,
                                               pending->reply_serial,
@@ -277,6 +301,113 @@ dbus_pending_call_block (DBusPendingCall *pending)
   _dbus_connection_lock (pending->connection);
   _dbus_pending_call_complete_and_unlock (pending, message);
   dbus_message_unref (message);
+}
+
+static DBusDataSlotAllocator slot_allocator;
+_DBUS_DEFINE_GLOBAL_LOCK (pending_call_slots);
+
+/**
+ * Allocates an integer ID to be used for storing application-specific
+ * data on any DBusPendingCall. The allocated ID may then be used
+ * with dbus_pending_call_set_data() and dbus_pending_call_get_data().
+ * The passed-in slot must be initialized to -1, and is filled in
+ * with the slot ID. If the passed-in slot is not -1, it's assumed
+ * to be already allocated, and its refcount is incremented.
+ * 
+ * The allocated slot is global, i.e. all DBusPendingCall objects will
+ * have a slot with the given integer ID reserved.
+ *
+ * @param slot_p address of a global variable storing the slot
+ * @returns #FALSE on failure (no memory)
+ */
+dbus_bool_t
+dbus_pending_call_allocate_data_slot (dbus_int32_t *slot_p)
+{
+  return _dbus_data_slot_allocator_alloc (&slot_allocator,
+                                          _DBUS_LOCK_NAME (pending_call_slots),
+                                          slot_p);
+}
+
+/**
+ * Deallocates a global ID for #DBusPendingCall data slots.
+ * dbus_pending_call_get_data() and dbus_pending_call_set_data() may
+ * no longer be used with this slot.  Existing data stored on existing
+ * DBusPendingCall objects will be freed when the #DBusPendingCall is
+ * finalized, but may not be retrieved (and may only be replaced if
+ * someone else reallocates the slot).  When the refcount on the
+ * passed-in slot reaches 0, it is set to -1.
+ *
+ * @param slot_p address storing the slot to deallocate
+ */
+void
+dbus_pending_call_free_data_slot (dbus_int32_t *slot_p)
+{
+  _dbus_return_if_fail (*slot_p >= 0);
+  
+  _dbus_data_slot_allocator_free (&slot_allocator, slot_p);
+}
+
+/**
+ * Stores a pointer on a #DBusPendingCall, along
+ * with an optional function to be used for freeing
+ * the data when the data is set again, or when
+ * the pending call is finalized. The slot number
+ * must have been allocated with dbus_pending_call_allocate_data_slot().
+ *
+ * @param pending the pending_call
+ * @param slot the slot number
+ * @param data the data to store
+ * @param free_data_func finalizer function for the data
+ * @returns #TRUE if there was enough memory to store the data
+ */
+dbus_bool_t
+dbus_pending_call_set_data (DBusPendingCall  *pending,
+                            dbus_int32_t      slot,
+                            void             *data,
+                            DBusFreeFunction  free_data_func)
+{
+  DBusFreeFunction old_free_func;
+  void *old_data;
+  dbus_bool_t retval;
+
+  _dbus_return_val_if_fail (pending != NULL, FALSE);
+  _dbus_return_val_if_fail (slot >= 0, FALSE);
+
+  retval = _dbus_data_slot_list_set (&slot_allocator,
+                                     &pending->slot_list,
+                                     slot, data, free_data_func,
+                                     &old_free_func, &old_data);
+
+  if (retval)
+    {
+      if (old_free_func)
+        (* old_free_func) (old_data);
+    }
+
+  return retval;
+}
+
+/**
+ * Retrieves data previously set with dbus_pending_call_set_data().
+ * The slot must still be allocated (must not have been freed).
+ *
+ * @param pending the pending_call
+ * @param slot the slot to get data from
+ * @returns the data, or #NULL if not found
+ */
+void*
+dbus_pending_call_get_data (DBusPendingCall   *pending,
+                            dbus_int32_t       slot)
+{
+  void *res;
+
+  _dbus_return_val_if_fail (pending != NULL, NULL);
+
+  res = _dbus_data_slot_list_get (&slot_allocator,
+                                  &pending->slot_list,
+                                  slot);
+
+  return res;
 }
 
 /** @} */

@@ -89,7 +89,7 @@ all-local:
 	for D in $(TESTDIRS); do								\
 		test -d $(top_builddir)/test/$$D || mkdir $(top_builddir)/test/$$D || exit 1 ;	\
 	done ;											\
-	if test $(srcdir) != . ; then								\
+	if ! (test $(srcdir) = . || test $(srcdir) -ef .) ; then								\
 		FILES=`(cd $(srcdir) && $(FIND_TESTS))` ;					\
 	        for F in $$FILES; do								\
 			SRC=$(srcdir)/$$F ;							\

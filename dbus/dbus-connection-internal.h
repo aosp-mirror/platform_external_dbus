@@ -30,6 +30,7 @@
 #include <dbus/dbus-resources.h>
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-timeout.h>
+#include <dbus/dbus-dataslot.h>
 
 DBUS_BEGIN_DECLS;
 
@@ -104,9 +105,9 @@ struct DBusPendingCall
 {
   DBusAtomic refcount;                            /**< reference count */
 
+  DBusDataSlotList slot_list;                     /**< Data stored by allocated integer ID */
+  
   DBusPendingCallNotifyFunction function;         /**< Notifier when reply arrives. */
-  void                     *user_data;            /**< user data for function */
-  DBusFreeFunction          free_user_data;       /**< free the user data */
 
   DBusConnection *connection;                     /**< Connections we're associated with */
   DBusMessage *reply;                             /**< Reply (after we've received it) */

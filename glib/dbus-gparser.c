@@ -262,7 +262,15 @@ parse_node (Parser      *parser,
       return FALSE;
     }
 
+  
   node = node_info_new (name);
+
+  if (parser->node_stack != NULL)
+    {
+      node_info_add_node (parser->node_stack->data,
+                          node);
+    }
+  
   parser->node_stack = g_slist_prepend (parser->node_stack,
                                         node);
   

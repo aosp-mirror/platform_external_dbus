@@ -66,7 +66,7 @@ main (int argc, char *argv[])
   int i;
 
   g_thread_init (NULL);
-  dbus_gthread_init ();
+  dbus_g_thread_init ();
 
   if(argc < 2)
     {

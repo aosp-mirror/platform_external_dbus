@@ -165,7 +165,7 @@ dbus_gcondvar_wake_all (DBusCondVar *cond)
  * other function in the D-BUS API.
  */
 void
-dbus_gthread_init (void)
+dbus_g_thread_init (void)
 {
   if (!g_thread_supported ())
     g_error ("g_thread_init() must be called before dbus_threads_init()");

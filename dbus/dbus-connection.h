@@ -240,6 +240,9 @@ dbus_bool_t dbus_connection_register_fallback      (DBusConnection              
 void        dbus_connection_unregister_object_path (DBusConnection              *connection,
                                                     const char                 **path);
 
+dbus_bool_t dbus_connection_list_registered        (DBusConnection              *connection,
+                                                    const char               **parent_path,
+                                                    char                      ***child_entries);
 
 DBUS_END_DECLS;
 

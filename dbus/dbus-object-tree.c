@@ -25,6 +25,7 @@
 #include "dbus-internals.h"
 #include "dbus-hash.h"
 #include "dbus-protocol.h"
+#include "dbus-string.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -34,13 +35,7 @@
  * @brief DBusObjectTree is used by DBusConnection to track the object tree
  *
  * Types and functions related to DBusObjectTree. These
- * are all internal.
- *
- * @todo this is totally broken, because of the following case:
- *    /foo, /foo/bar, /foo/baz
- *  if we then receive a message to /foo/baz we need to hand it
- * to /foo/baz and /foo but not /foo/bar. So we should be
- * using a real tree structure as with GConfListeners.
+ * are all library-internal.
  *
  * @{
  */
@@ -542,6 +537,101 @@ _dbus_object_tree_free_all_unlocked (DBusObjectTree *tree)
   tree->root = NULL;
 }
 
+static dbus_bool_t
+_dbus_object_tree_list_registered_unlocked (DBusObjectTree *tree,
+                                            const char    **parent_path,
+                                            char         ***child_entries)
+{
+  DBusObjectSubtree *subtree;
+  char **retval;
+  
+  _dbus_assert (parent_path != NULL);
+  _dbus_assert (child_entries != NULL);
+
+  *child_entries = NULL;
+  
+  subtree = find_subtree (tree, parent_path, NULL);
+  if (subtree == NULL)
+    {
+      retval = dbus_new0 (char *, 1);
+      if (retval == NULL)
+        goto out;
+    }
+  else
+    {
+      int i;
+      retval = dbus_new0 (char*, subtree->n_subtrees + 1);
+      if (retval == NULL)
+        goto out;
+      i = 0;
+      while (i < subtree->n_subtrees)
+        {
+          retval[i] = _dbus_strdup (subtree->subtrees[i]->name);
+          if (retval[i] == NULL)
+            {
+              dbus_free_string_array (retval);
+              retval = NULL;
+              goto out;
+            }
+          ++i;
+        }
+    }
+
+ out:
+    
+  *child_entries = retval;
+  return retval != NULL;
+}
+
+static DBusHandlerResult
+handle_default_introspect_unlocked (DBusObjectTree          *tree,
+                                    DBusMessage             *message,
+                                    const char             **path)
+{
+  DBusString xml;
+  DBusHandlerResult result;
+  char **children;
+  int i;
+
+  if (!dbus_message_is_method_call (message,
+                                    DBUS_INTERFACE_ORG_FREEDESKTOP_INTROSPECTABLE,
+                                    "Introspect"))
+    return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+  
+  if (!_dbus_string_init (&xml))
+    return DBUS_HANDLER_RESULT_NEED_MEMORY;
+
+  result = DBUS_HANDLER_RESULT_NEED_MEMORY;
+
+  children = NULL;
+  if (!_dbus_object_tree_list_registered_unlocked (tree, path, &children))
+    goto out;
+
+  if (!_dbus_string_append (&xml, "<node>\n"))
+    goto out;
+
+  i = 0;
+  while (children[i] != NULL)
+    {
+      if (!_dbus_string_append_printf (&xml, "  <node name=\"%s\"/>\n",
+                                       children[i]))
+        goto out;
+
+      ++i;
+    }
+
+  if (!_dbus_string_append (&xml, "</node>\n"))
+    goto out;
+  
+  result = DBUS_HANDLER_RESULT_HANDLED;
+  
+ out:
+  _dbus_string_free (&xml);
+  dbus_free_string_array (children);
+  
+  return result;
+}
+
 /**
  * Tries to dispatch a message by directing it to handler for the
  * object path listed in the message header, if any. Messages are
@@ -572,12 +662,23 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
   path = NULL;
   if (!dbus_message_get_path_decomposed (message, &path))
     {
+#ifdef DBUS_BUILD_TESTS
+      if (tree->connection)
+#endif
+        _dbus_connection_unlock (tree->connection);
+      
       _dbus_verbose ("No memory to get decomposed path\n");
+
       return DBUS_HANDLER_RESULT_NEED_MEMORY;
     }
 
   if (path == NULL)
     {
+#ifdef DBUS_BUILD_TESTS
+      if (tree->connection)
+#endif
+        _dbus_connection_unlock (tree->connection);
+      
       _dbus_verbose ("No path field in message\n");
       return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
@@ -649,30 +750,40 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
                                          message,
                                          user_data);
 
-          if (result != DBUS_HANDLER_RESULT_NOT_YET_HANDLED)
-            goto free_and_return;
-
 #ifdef DBUS_BUILD_TESTS
           if (tree->connection)
 #endif
             _dbus_connection_lock (tree->connection);
+
+          if (result != DBUS_HANDLER_RESULT_NOT_YET_HANDLED)
+            goto free_and_return;
         }
 
       link = next;
+    }
+
+ free_and_return:
+
+  if (result == DBUS_HANDLER_RESULT_NOT_YET_HANDLED)
+    {
+      /* This hardcoded default handler does a minimal Introspect()
+       */
+      result = handle_default_introspect_unlocked (tree, message,
+                                                   (const char**) path);
     }
 
 #ifdef DBUS_BUILD_TESTS
   if (tree->connection)
 #endif
     _dbus_connection_unlock (tree->connection);
-
- free_and_return:
+  
   while (list != NULL)
     {
       link = _dbus_list_get_first_link (&list);
       _dbus_object_subtree_unref (link->data);
       _dbus_list_remove_link (&list, link);
     }
+  
   dbus_free_string_array (path);
 
   return result;
@@ -770,6 +881,35 @@ _dbus_object_subtree_unref (DBusObjectSubtree *subtree)
     }
 }
 
+/**
+ * Lists the registered fallback handlers and object path handlers at
+ * the given parent_path. The returned array should be freed with
+ * dbus_free_string_array().
+ *
+ * @param connection the connection
+ * @param parent_path the path to list the child handlers of
+ * @param child_entries returns #NULL-terminated array of children
+ * @returns #FALSE if no memory to allocate the child entries
+ */
+dbus_bool_t
+_dbus_object_tree_list_registered_and_unlock (DBusObjectTree *tree,
+                                              const char    **parent_path,
+                                              char         ***child_entries)
+{
+  dbus_bool_t result;
+
+  result = _dbus_object_tree_list_registered_unlocked (tree,
+                                                       parent_path,
+                                                       child_entries);
+  
+#ifdef DBUS_BUILD_TESTS
+  if (tree->connection)
+#endif
+    _dbus_connection_unlock (tree->connection);
+
+  return result;
+}
+     
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS

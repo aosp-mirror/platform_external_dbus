@@ -26,42 +26,130 @@
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 
+struct BaseInfo
+{
+  unsigned int refcount : 28;
+  unsigned int type     : 4;
+  char *name;
+};
+
 struct NodeInfo
 {
-  int refcount;
-  char *name;
+  BaseInfo base;
   GSList *interfaces;
+  GSList *nodes;
 };
 
 struct InterfaceInfo
 {
-  int refcount;
-  char *name;
+  BaseInfo base;
+  /* Since we have BaseInfo now these could be one list */
   GSList *methods;
   GSList *signals;
 };
 
 struct MethodInfo
 {
-  int refcount;
+  BaseInfo base;
   GSList *args;
-  char *name;
 };
 
 struct SignalInfo
 {
-  int refcount;
+  BaseInfo base;
   GSList *args;
-  char *name;
 };
 
 struct ArgInfo
 {
-  int refcount;
-  char *name;
+  BaseInfo base;
   int type;
   ArgDirection direction;
 };
+
+void
+base_info_ref (BaseInfo *info)
+{
+  g_return_if_fail (info != NULL);
+  g_return_if_fail (info->refcount > 0);
+  
+  info->refcount += 1;
+}
+
+static void
+base_info_free (void *ptr)
+{
+  BaseInfo *info;
+
+  info = ptr;
+  
+  g_free (info->name);
+  g_free (info);
+}
+
+void
+base_info_unref (BaseInfo *info)
+{
+  g_return_if_fail (info != NULL);
+  g_return_if_fail (info->refcount > 0);
+  
+  /* This is sort of bizarre, BaseInfo was tacked on later */
+
+  switch (info->type)
+    {
+    case INFO_TYPE_NODE:
+      node_info_unref ((NodeInfo*) info);
+      break;
+    case INFO_TYPE_INTERFACE:
+      interface_info_unref ((InterfaceInfo*) info);
+      break;
+    case INFO_TYPE_SIGNAL:
+      signal_info_unref ((SignalInfo*) info);
+      break;
+    case INFO_TYPE_METHOD:
+      method_info_unref ((MethodInfo*) info);
+      break;
+    case INFO_TYPE_ARG:
+      arg_info_unref ((ArgInfo*) info);
+      break;
+    }
+}
+
+InfoType
+base_info_get_type (BaseInfo      *info)
+{
+  return info->type;
+}
+
+const char*
+base_info_get_name (BaseInfo *info)
+{
+  return info->name;
+}
+
+void
+base_info_set_name (BaseInfo      *info,
+                    const char    *name)
+{
+  char *old;
+
+  old = info->name;
+  info->name = g_strdup (name);
+  g_free (old);
+}
+
+GType
+base_info_get_gtype (void)
+{
+  static GType our_type = 0;
+  
+  if (our_type == 0)
+    our_type = g_boxed_type_register_static ("BaseInfo",
+                                             (GBoxedCopyFunc) base_info_ref,
+                                             (GBoxedFreeFunc) base_info_unref);
+
+  return our_type;
+}
 
 static void
 free_interface_list (GSList **interfaces_p)
@@ -75,6 +163,20 @@ free_interface_list (GSList **interfaces_p)
     }
   g_slist_free (*interfaces_p);
   *interfaces_p = NULL;
+}
+
+static void
+free_node_list (GSList **nodes_p)
+{
+  GSList *tmp;
+  tmp = *nodes_p;
+  while (tmp != NULL)
+    {
+      node_info_unref (tmp->data);
+      tmp = tmp->next;
+    }
+  g_slist_free (*nodes_p);
+  *nodes_p = NULL;
 }
 
 static void
@@ -113,34 +215,35 @@ node_info_new (const char *name)
   /* name can be NULL */
   
   info = g_new0 (NodeInfo, 1);
-  info->refcount = 1;
-  info->name = g_strdup (name);
-
+  info->base.refcount = 1;
+  info->base.name = g_strdup (name);
+  info->base.type = INFO_TYPE_NODE;
+  
   return info;
 }
 
 void
 node_info_ref (NodeInfo *info)
 {
-  info->refcount += 1;
+  info->base.refcount += 1;
 }
 
 void
 node_info_unref (NodeInfo *info)
 {
-  info->refcount -= 1;
-  if (info->refcount == 0)
+  info->base.refcount -= 1;
+  if (info->base.refcount == 0)
     {
       free_interface_list (&info->interfaces);
-      g_free (info->name);
-      g_free (info);
+      free_node_list (&info->nodes);
+      base_info_free (info);
     }
 }
 
 const char*
 node_info_get_name (NodeInfo *info)
 {
-  return info->name;
+  return info->base.name;
 }
 
 GSList*
@@ -157,6 +260,19 @@ node_info_add_interface (NodeInfo *info,
   info->interfaces = g_slist_append (info->interfaces, interface);
 }
 
+GSList*
+node_info_get_nodes (NodeInfo *info)
+{
+  return info->nodes;
+}
+
+void
+node_info_add_node (NodeInfo *info,
+                    NodeInfo *node)
+{
+  node_info_ref (node);
+  info->nodes = g_slist_append (info->nodes, node);
+}
 
 InterfaceInfo*
 interface_info_new (const char *name)
@@ -164,35 +280,35 @@ interface_info_new (const char *name)
   InterfaceInfo *info;
 
   info = g_new0 (InterfaceInfo, 1);
-  info->refcount = 1;
-  info->name = g_strdup (name);
-
+  info->base.refcount = 1;
+  info->base.name = g_strdup (name);
+  info->base.type = INFO_TYPE_INTERFACE;
+  
   return info;
 }
 
 void
 interface_info_ref (InterfaceInfo *info)
 {
-  info->refcount += 1;
+  info->base.refcount += 1;
 }
 
 void
 interface_info_unref (InterfaceInfo *info)
 {
-  info->refcount -= 1;
-  if (info->refcount == 0)
+  info->base.refcount -= 1;
+  if (info->base.refcount == 0)
     {
       free_method_list (&info->methods);
       free_signal_list (&info->signals);
-      g_free (info->name);
-      g_free (info);
+      base_info_free (info);
     }
 }
 
 const char*
 interface_info_get_name (InterfaceInfo *info)
 {
-  return info->name;
+  return info->base.name;
 }
 
 GSList*
@@ -243,34 +359,34 @@ method_info_new (const char *name)
   MethodInfo *info;
 
   info = g_new0 (MethodInfo, 1);
-  info->refcount = 1;
-  info->name = g_strdup (name);
-
+  info->base.refcount = 1;
+  info->base.name = g_strdup (name);
+  info->base.type = INFO_TYPE_METHOD;
+  
   return info;
 }
 
 void
 method_info_ref (MethodInfo *info)
 {
-  info->refcount += 1;
+  info->base.refcount += 1;
 }
 
 void
 method_info_unref (MethodInfo *info)
 {
-  info->refcount -= 1;
-  if (info->refcount == 0)
+  info->base.refcount -= 1;
+  if (info->base.refcount == 0)
     {
       free_arg_list (&info->args);
-      g_free (info->name);
-      g_free (info);
+      base_info_free (info);
     }
 }
 
 const char*
 method_info_get_name (MethodInfo *info)
 {
-  return info->name;
+  return info->base.name;
 }
 
 GSList*
@@ -293,34 +409,34 @@ signal_info_new (const char *name)
   SignalInfo *info;
 
   info = g_new0 (SignalInfo, 1);
-  info->refcount = 1;
-  info->name = g_strdup (name);
-
+  info->base.refcount = 1;
+  info->base.name = g_strdup (name);
+  info->base.type = INFO_TYPE_SIGNAL;
+  
   return info;
 }
 
 void
 signal_info_ref (SignalInfo *info)
 {
-  info->refcount += 1;
+  info->base.refcount += 1;
 }
 
 void
 signal_info_unref (SignalInfo *info)
 {
-  info->refcount -= 1;
-  if (info->refcount == 0)
+  info->base.refcount -= 1;
+  if (info->base.refcount == 0)
     {
       free_arg_list (&info->args);
-      g_free (info->name);
-      g_free (info);
+      base_info_free (info);
     }
 }
 
 const char*
 signal_info_get_name (SignalInfo *info)
 {
-  return info->name;
+  return info->base.name;
 }
 
 GSList*
@@ -345,10 +461,11 @@ arg_info_new (const char  *name,
   ArgInfo *info;
 
   info = g_new0 (ArgInfo, 1);
-  info->refcount = 1;
-
+  info->base.refcount = 1;
+  info->base.type = INFO_TYPE_ARG;
+  
   /* name can be NULL */
-  info->name = g_strdup (name);
+  info->base.name = g_strdup (name);
   info->direction = direction;
   info->type = type;
 
@@ -358,23 +475,22 @@ arg_info_new (const char  *name,
 void
 arg_info_ref (ArgInfo *info)
 {
-  info->refcount += 1;
+  info->base.refcount += 1;
 }
 
 void
 arg_info_unref (ArgInfo *info)
 {
-  info->refcount -= 1;
-  if (info->refcount == 0)
+  info->base.refcount -= 1;
+  if (info->base.refcount == 0)
     {
-      g_free (info->name);
-      g_free (info);
+      base_info_free (info);
     }
 }
 const char*
 arg_info_get_name (ArgInfo *info)
 {
-  return info->name;
+  return info->base.name;
 }
 
 int

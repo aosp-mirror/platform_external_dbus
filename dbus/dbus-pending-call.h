@@ -35,7 +35,7 @@ DBUS_BEGIN_DECLS;
 
 void         dbus_pending_call_ref           (DBusPendingCall               *pending);
 void         dbus_pending_call_unref         (DBusPendingCall               *pending);
-void         dbus_pending_call_set_notify    (DBusPendingCall               *pending,
+dbus_bool_t  dbus_pending_call_set_notify    (DBusPendingCall               *pending,
                                               DBusPendingCallNotifyFunction  function,
                                               void                          *user_data,
                                               DBusFreeFunction               free_user_data);
@@ -43,6 +43,15 @@ void         dbus_pending_call_cancel        (DBusPendingCall               *pen
 dbus_bool_t  dbus_pending_call_get_completed (DBusPendingCall               *pending);
 DBusMessage* dbus_pending_call_get_reply     (DBusPendingCall               *pending);
 void         dbus_pending_call_block         (DBusPendingCall               *pending);
+
+dbus_bool_t dbus_pending_call_allocate_data_slot (dbus_int32_t     *slot_p);
+void        dbus_pending_call_free_data_slot     (dbus_int32_t     *slot_p);
+dbus_bool_t dbus_pending_call_set_data           (DBusPendingCall  *pending,
+                                                  dbus_int32_t      slot,
+                                                  void             *data,
+                                                  DBusFreeFunction  free_data_func);
+void*       dbus_pending_call_get_data           (DBusPendingCall  *pending,
+                                                  dbus_int32_t      slot);
 
 DBUS_END_DECLS;
 

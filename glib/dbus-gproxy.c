@@ -20,7 +20,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#include "dbus-gproxy.h"
+#include "dbus-glib.h"
 
 /**
  * @addtogroup DBusGLibInternals
@@ -165,23 +165,59 @@ dbus_gproxy_unref (DBusGProxy *proxy)
  * To collect the results of the call (which may be an error,
  * or a reply), use dbus_gproxy_end_call().
  *
+ * @todo this particular function shouldn't die on out of memory,
+ * since you should be able to do a call with large arguments.
+ * 
  * @param proxy a proxy for a remote interface
  * @param method the name of the method to invoke
  * @param first_arg_type type of the first argument
  *
  * @returns opaque pending call object
- * 
- */
+ *  */
 DBusPendingCall*
 dbus_gproxy_begin_call (DBusGProxy *proxy,
                         const char *method,
                         int         first_arg_type,
                         ...)
 {
+  DBusPendingCall *pending;
+  DBusMessage *message;
+  va_list args;
+  
   g_return_val_if_fail (proxy != NULL, NULL);
   LOCK_PROXY (proxy);
 
+  message = dbus_message_new_method_call (proxy->service,
+                                          proxy->interface,
+                                          proxy->path,
+                                          method);
+  if (message == NULL)
+    goto oom;
+
+  va_start (args, first_arg_type);
+  if (!dbus_message_append_args_valist (message, first_arg_type,
+                                        args))
+    goto oom;
+  va_end (args);
+
+  if (!dbus_connection_send_with_reply (proxy->connection,
+                                        message,
+                                        &pending,
+                                        -1))
+    goto oom;
+  
   UNLOCK_PROXY (proxy);
+
+  return pending;
+
+ oom:
+  /* FIXME we should create a pending call that's
+   * immediately completed with an error status without
+   * ever going on the wire.
+   */
+  
+  g_error ("Out of memory");
+  return NULL;
 }
 
 /**
@@ -189,7 +225,9 @@ dbus_gproxy_begin_call (DBusGProxy *proxy,
  * initiated with dbus_gproxy_end_call(). This function will block if
  * the results haven't yet been received; use
  * dbus_pending_call_set_notify() to be notified asynchronously that a
- * pending call has been completed.
+ * pending call has been completed. Use
+ * dbus_pending_call_get_completed() to check whether a call has been
+ * completed. If it's completed, it will not block.
  *
  * If the call results in an error, the error is set as normal for
  * GError and the function returns #FALSE.
@@ -198,12 +236,15 @@ dbus_gproxy_begin_call (DBusGProxy *proxy,
  * method are stored in the provided varargs list.
  * The list should be terminated with DBUS_TYPE_INVALID.
  *
+ * This function doesn't affect the reference count of the
+ * #DBusPendingCall, the caller of dbus_gproxy_begin_call() still owns
+ * a reference.
+ *
  * @param proxy a proxy for a remote interface
  * @param pending the pending call from dbus_gproxy_begin_call()
  * @param error return location for an error
  * @param first_arg_type type of first "out" argument
- * @returns #FALSE if an error is set
- */
+ * @returns #FALSE if an error is set */
 gboolean
 dbus_gproxy_end_call (DBusGProxy          *proxy,
                       DBusPendingCall     *pending,
@@ -211,10 +252,37 @@ dbus_gproxy_end_call (DBusGProxy          *proxy,
                       int                  first_arg_type,
                       ...)
 {
+  DBusMessage *message;
+  va_list args;
+  DBusError derror;
+  
   g_return_val_if_fail (proxy != NULL, FALSE);
+  g_return_val_if_fail (pending != NULL, FALSE);
+  
   LOCK_PROXY (proxy);
 
+  dbus_pending_call_block (pending);
+  message = dbus_pending_call_get_reply (pending);
+
+  g_assert (message != NULL);
+
+  dbus_error_init (&derror);
+  va_start (args, first_arg_type);
+  if (!dbus_message_get_args_valist (message, &derror, first_arg_type, args))
+    {
+      va_end (args);
+      goto error;
+    }
+  va_end (args);
+
   UNLOCK_PROXY (proxy);
+
+  return TRUE;
+
+ error:
+  dbus_set_g_error (error, &derror);
+  dbus_error_free (&derror);
+  return FALSE;
 }
 
 /**
@@ -224,18 +292,17 @@ dbus_gproxy_end_call (DBusGProxy          *proxy,
  * dbus_connection_flush().
  *
  * The message is modified to be addressed to the target interface.
- * That is, a destination service field or whatever is needed
- * will be added to the message.
+ * That is, a destination service field or whatever is needed will be
+ * added to the message. The basic point of this function is to add
+ * the necessary header fields, otherwise it's equivalent to
+ * dbus_connection_send().
  *
  * This function adds a reference to the message, so the caller
  * still owns its original reference.
- *
- * @todo fix for sending to interfaces and object IDs
  * 
  * @param proxy a proxy for a remote interface
  * @param message the message to address and send
- * @param client_serial return location for message's serial, or #NULL
- */
+ * @param client_serial return location for message's serial, or #NULL */
 void
 dbus_gproxy_send (DBusGProxy          *proxy,
                   DBusMessage         *message,
@@ -247,17 +314,19 @@ dbus_gproxy_send (DBusGProxy          *proxy,
   if (proxy->service)
     {
       if (!dbus_message_set_destination (message, proxy->service))
-        g_error ("Out of memory\n");
+        g_error ("Out of memory");
     }
   if (proxy->interface)
     {
-      /* FIXME */
+      if (!dbus_message_set_interface (message, proxy->interface))
+        g_error ("Out of memory");
     }
   if (proxy->path)
     {
-      /* FIXME */
+      if (!dbus_message_set_path (message, proxy->path))
+        g_error ("Out of memory");
     }
-
+  
   if (!dbus_connection_send (proxy->connection, message, client_serial))
     g_error ("Out of memory\n");
 

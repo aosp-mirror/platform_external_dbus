@@ -223,6 +223,7 @@ init_global_locks (void)
 #define LOCK_ADDR(name) (& _dbus_lock_##name)
     LOCK_ADDR (list),
     LOCK_ADDR (connection_slots),
+    LOCK_ADDR (pending_call_slots),
     LOCK_ADDR (server_slots),
     LOCK_ADDR (message_slots),
     LOCK_ADDR (atomic),

@@ -28,6 +28,7 @@
 
 dbus_bool_t _dbus_gmain_test   (const char *test_data_dir);
 dbus_bool_t _dbus_gobject_test (const char *test_data_dir);
+dbus_bool_t _dbus_gutils_test  (const char *test_data_dir);
 
 void dbus_glib_internal_do_not_use_run_tests (const char *test_data_dir);
 

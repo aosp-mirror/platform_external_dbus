@@ -3101,7 +3101,6 @@ dbus_connection_register_object_path (DBusConnection              *connection,
  * path. You can use this to establish a default message handling
  * policy for a whole "subdirectory."
  *
- *
  * @param connection the connection
  * @param path #NULL-terminated array of path elements
  * @param vtable the virtual table
@@ -3136,6 +3135,7 @@ dbus_connection_register_fallback (DBusConnection              *connection,
 /**
  * Unregisters the handler registered with exactly the given path.
  * It's a bug to call this function for a path that isn't registered.
+ * Can unregister both fallback paths and object paths.
  *
  * @param connection the connection
  * @param path the #NULL-terminated array of path elements
@@ -3152,6 +3152,32 @@ dbus_connection_unregister_object_path (DBusConnection              *connection,
 
   return _dbus_object_tree_unregister_and_unlock (connection->objects,
                                                   path);
+}
+
+/**
+ * Lists the registered fallback handlers and object path handlers at
+ * the given parent_path. The returned array should be freed with
+ * dbus_free_string_array().
+ *
+ * @param connection the connection
+ * @param parent_path the path to list the child handlers of
+ * @param child_entries returns #NULL-terminated array of children
+ * @returns #FALSE if no memory to allocate the child entries
+ */
+dbus_bool_t
+dbus_connection_list_registered (DBusConnection              *connection,
+                                 const char                 **parent_path,
+                                 char                      ***child_entries)
+{
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (parent_path != NULL, FALSE);
+  _dbus_return_val_if_fail (child_entries != NULL, FALSE);
+
+  CONNECTION_LOCK (connection);
+
+  return _dbus_object_tree_list_registered_and_unlock (connection->objects,
+                                                       parent_path,
+                                                       child_entries);
 }
 
 static DBusDataSlotAllocator slot_allocator;

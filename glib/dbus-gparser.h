@@ -52,11 +52,11 @@ gboolean parser_content       (Parser      *parser,
 gboolean parser_finished      (Parser      *parser,
                                GError     **error);
 
-Parser* description_load_from_file   (const char  *filename,
-                                      GError     **error);
-Parser* description_load_from_string (const char  *str,
-                                      int          len,
-                                      GError     **error);
+NodeInfo* description_load_from_file   (const char  *filename,
+                                        GError     **error);
+NodeInfo* description_load_from_string (const char  *str,
+                                        int          len,
+                                        GError     **error);
 
 NodeInfo* parser_get_nodes (Parser *parser);
 

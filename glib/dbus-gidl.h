@@ -27,10 +27,11 @@
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 
 #include <dbus/dbus.h>
-#include <glib.h>
+#include <glib-object.h>
 
 G_BEGIN_DECLS
 
+typedef struct BaseInfo      BaseInfo;
 typedef struct NodeInfo      NodeInfo;
 typedef struct InterfaceInfo InterfaceInfo;
 typedef struct MethodInfo    MethodInfo;
@@ -43,13 +44,36 @@ typedef enum
   ARG_OUT
 } ArgDirection;
 
+typedef enum
+{
+  INFO_TYPE_NODE,
+  INFO_TYPE_INTERFACE,
+  INFO_TYPE_METHOD,
+  INFO_TYPE_SIGNAL,
+  INFO_TYPE_ARG
+
+} InfoType;
+
+void           base_info_ref              (BaseInfo      *info);
+void           base_info_unref            (BaseInfo      *info);
+InfoType       base_info_get_type         (BaseInfo      *info);
+const char*    base_info_get_name         (BaseInfo      *info);
+void           base_info_set_name         (BaseInfo      *info,
+                                           const char    *name);
+GType          base_info_get_gtype        (void);
+#define        BASE_INFO_TYPE             (base_info_get_gtype ())
+
+
 NodeInfo*      node_info_new              (const char    *name);
 void           node_info_ref              (NodeInfo      *info);
 void           node_info_unref            (NodeInfo      *info);
 const char*    node_info_get_name         (NodeInfo      *info);
 GSList*        node_info_get_interfaces   (NodeInfo      *info);
+GSList*        node_info_get_nodes        (NodeInfo      *info);
 void           node_info_add_interface    (NodeInfo      *info,
                                            InterfaceInfo *interface);
+void           node_info_add_node         (NodeInfo      *info,
+                                           NodeInfo      *child);
 
 InterfaceInfo* interface_info_new         (const char    *name);
 void           interface_info_ref         (InterfaceInfo *info);

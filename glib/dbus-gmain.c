@@ -25,6 +25,10 @@
 #include "dbus-glib.h"
 #include "dbus-gtest.h"
 
+#include <libintl.h>
+#define _(x) dgettext (GETTEXT_PACKAGE, x)
+#define N_(x) x
+
 /**
  * @defgroup DBusGLib GLib bindings
  * @ingroup  DBus
@@ -492,6 +496,43 @@ dbus_server_setup_with_g_main (DBusServer   *server,
 
  nomem:
   g_error ("Not enough memory to set up DBusServer for use with GLib");
+}
+
+/**
+ * The implementation of DBUS_GERROR error domain. See documentation
+ * for GError in GLib reference manual.
+ *
+ * @returns the error domain quark for use with GError
+ */
+GQuark
+dbus_g_error_quark (void)
+{
+  static GQuark quark = 0;
+  if (quark == 0)
+    quark = g_quark_from_static_string ("g-exec-error-quark");
+  return quark;
+}
+
+
+/**
+ * Set a GError return location from a DBusError.
+ *
+ * @todo expand the DBUS_GERROR enum and take advantage of it here
+ * 
+ * @param gerror location to store a GError, or #NULL
+ * @param derror the DBusError
+ */
+void
+dbus_set_g_error (GError   **gerror,
+                  DBusError *derror)
+{
+  g_return_if_fail (derror != NULL);
+  g_return_if_fail (dbus_error_is_set (derror));
+  
+  g_set_error (gerror, DBUS_GERROR,
+               DBUS_GERROR_FAILED,
+               _("D-BUS error %s: %s"),
+               derror->name, derror->message);  
 }
 
 /** @} */ /* end of public API */

@@ -178,7 +178,7 @@ main (int argc, char *argv[])
   DBusError error;
 
   g_thread_init (NULL);
-  dbus_gthread_init ();
+  dbus_g_thread_init ();
   
   if (argc < 2)
     {
