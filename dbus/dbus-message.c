@@ -2097,7 +2097,10 @@ check_message_handling (DBusMessage *message)
   iter = NULL;
   
   client_serial = _dbus_message_get_client_serial (message);
-  _dbus_message_set_client_serial (message, client_serial);
+
+  /* can't use set_client_serial due to the assertions at the start of it */
+  set_int_field (message, FIELD_CLIENT_SERIAL,
+                 client_serial);
 
   if (client_serial != _dbus_message_get_client_serial (message))
     {
