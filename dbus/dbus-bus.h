@@ -31,18 +31,26 @@
 
 DBUS_BEGIN_DECLS;
 
-dbus_bool_t dbus_bus_register         (DBusConnection *connection,
-                                       DBusError      *error);
-dbus_bool_t dbus_bus_set_base_service (DBusConnection *connection,
-                                       const char     *base_service);
-const char* dbus_bus_get_base_service (DBusConnection *connection);
-int         dbus_bus_acquire_service  (DBusConnection *connection,
-                                       const char     *service_name,
-                                       unsigned int    flags,
-                                       DBusError      *error);
-dbus_bool_t dbus_bus_service_exists   (DBusConnection *connection,
-                                       const char     *service_name,
-                                       DBusError      *error);
+typedef enum
+{
+  DBUS_BUS_SESSION, /**< The login session bus */
+  DBUS_BUS_SYSTEM /**< The system bus */
+} DBusBusType;
+
+DBusConnection *dbus_bus_get              (DBusBusType     type,
+					   DBusError      *error);
+dbus_bool_t     dbus_bus_register         (DBusConnection *connection,
+					   DBusError      *error);
+dbus_bool_t     dbus_bus_set_base_service (DBusConnection *connection,
+					   const char     *base_service);
+const char*     dbus_bus_get_base_service (DBusConnection *connection);
+int             dbus_bus_acquire_service  (DBusConnection *connection,
+					   const char     *service_name,
+					   unsigned int    flags,
+					   DBusError      *error);
+dbus_bool_t     dbus_bus_service_exists   (DBusConnection *connection,
+					   const char     *service_name,
+					   DBusError      *error);
 
 DBUS_END_DECLS;
 

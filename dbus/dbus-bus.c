@@ -51,6 +51,7 @@ typedef struct
 {
   char *base_service; /**< Base service name of this connection */
 
+  DBusConnection **connection; /**< Pointer to bus_connections entry */
 } BusData;
 
 /** The slot we have reserved to store BusData
@@ -64,6 +65,7 @@ static int bus_data_slot_refcount = 0;
  * Lock for bus_data_slot and bus_data_slot_refcount
  */
 _DBUS_DEFINE_GLOBAL_LOCK (bus);
+
 
 static dbus_bool_t
 data_slot_ref (void)
@@ -114,6 +116,9 @@ bus_data_free (void *data)
 {
   BusData *bd = data;
 
+  if (bd->connection)
+    *bd->connection = NULL;
+  
   dbus_free (bd->base_service);
   dbus_free (bd);
 
@@ -162,6 +167,96 @@ ensure_bus_data (DBusConnection *connection)
  * @addtogroup DBusBus
  * @{
  */
+
+/** Number of bus types */
+#define BUS_TYPES 2
+
+static DBusConnection *bus_connections[BUS_TYPES];
+
+/**
+ * Connects to a bus daemon and registers the client with it.
+ * If a connection to the bus already exists, then that connection is returned.
+ *
+ * @todo alex thinks we should nullify the connection when we get a disconnect-message.
+ *
+ * @param type bus type
+ * @param error address where an error can be returned.
+ * @returns a DBusConnection
+ */
+DBusConnection *
+dbus_bus_get (DBusBusType  type,
+	      DBusError   *error)
+{
+  const char *name, *value;
+  DBusConnection *connection;
+  BusData *bd;
+
+  if (type <= 0 || type >= BUS_TYPES)
+    {
+      _dbus_assert_not_reached ("Invalid bus type specified.");
+
+      return NULL;
+    }
+
+  _DBUS_LOCK (bus);
+  
+  if (bus_connections[type] != NULL)
+    {
+      connection = bus_connections[type];
+      dbus_connection_ref (connection);
+      
+      _DBUS_UNLOCK (bus);
+      return connection;
+    }
+
+  switch (type)
+    {
+    case DBUS_BUS_SESSION:
+      name = "DBUS_SESSION_BUS_ADDRESS";
+      break;
+    case DBUS_BUS_SYSTEM:
+      name = "DBUS_SYSTEM_BUS_ADDRESS";
+      break;
+    }
+
+  value = _dbus_getenv (name);
+
+  if (!value)
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+		      "Could not get bus daemon address.");
+      _DBUS_UNLOCK (bus);
+      
+      return NULL;
+    }
+
+  connection = dbus_connection_open (value, error);
+  
+  if (!connection)
+    {
+      _DBUS_UNLOCK (bus);
+      return NULL;
+    }
+  
+  if (!dbus_bus_register (connection, error))
+    {
+      dbus_connection_disconnect (connection);
+      dbus_connection_unref (connection);
+
+      _DBUS_UNLOCK (bus);
+      return NULL;
+    }
+
+  bus_connections[type] = connection;
+  bd = ensure_bus_data (connection);
+  _dbus_assert (bd != NULL);
+
+  bd->connection = &bus_connections[type];
+
+  _DBUS_UNLOCK (bus);  
+  return connection;
+}
+
 
 /**
  * Registers a connection with the bus. This must be the first

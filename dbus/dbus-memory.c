@@ -190,7 +190,7 @@ _dbus_get_fail_alloc_counter (void)
  * Sets how many mallocs to fail when the fail alloc counter reaches
  * 0.
  *
- * @param number to fail
+ * @param failures_per_failure number to fail
  */
 void
 _dbus_set_fail_alloc_failures (int failures_per_failure)
