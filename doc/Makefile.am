@@ -15,7 +15,6 @@ HTML_FILES=					\
 
 if DBUS_XML_DOCS_ENABLED
 all-local: $(HTML_FILES)
-endif
 
 dbus-specification.html: dbus-specification.xml
 	$(XMLTO) html-nochunks $<
@@ -25,6 +24,7 @@ dbus-test-plan.html: dbus-test-plan.xml
 
 dbus-tutorial.html: dbus-tutorial.xml
 	$(XMLTO) html-nochunks $<
+endif
 
 maintainer-clean-local:
 	rm -f $(HTML_FILES)

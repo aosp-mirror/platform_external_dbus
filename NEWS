@@ -1,3 +1,19 @@
+D-BUS 0.21
+===
+
+- implement "auto activation" flag on messages, so the destination 
+  service can be launched automatically
+- fix a bug in custom type marshaling
+- optimize case where multiple apps activate the same service
+  (avoid "thundering herd")
+- add dynamic service file discovery/reloading
+- fix a busy loop when blocking for a reply
+- fix a 64-bit crash involving varargs
+- fix a bus crash when processing an AcquireService
+- allow appending TYPE_BYTE via append_args_valist
+- fix dicts-inside-dicts
+- enhancements to Python and Qt bindings
+
 D-BUS 0.20
 ===
 

@@ -10,7 +10,16 @@ dbusinclude_HEADERS=				\
 
 libdbus_qt_1_la_SOURCES = 			\
 	dbus-qthread.cpp message.cpp connection.cpp \
-	integrator.cpp server.cpp
+	integrator.cpp server.cpp integrator.h
+
+connection.cpp: connection.moc
+integrator.cpp: integrator.moc
+server.cpp: server.moc
+
+CLEANFILES=connection.moc integrator.moc server.moc
 
 libdbus_qt_1_la_LIBADD= $(DBUS_QT_LIBS) $(top_builddir)/dbus/libdbus-1.la
 libdbus_qt_1_la_LDFLAGS= -version-info 1:0
+
+%.moc: %.h
+	$(QT_MOC) $< > $@

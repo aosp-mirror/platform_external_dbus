@@ -3,7 +3,7 @@ AC_PREREQ(2.52)
 
 AC_INIT(dbus/dbus.h)
 
-AM_INIT_AUTOMAKE(dbus, 0.20)
+AM_INIT_AUTOMAKE(dbus, 0.21)
 
 AM_CONFIG_HEADER(config.h)
 
@@ -695,6 +695,8 @@ AC_SUBST(DBUS_GTK_CFLAGS)
 AC_SUBST(DBUS_GTK_LIBS)
 
 # Qt detection
+AC_PATH_PROG(QT_MOC, moc, no)
+
 have_qt=no
 AC_MSG_CHECKING([for qglobal.h])
 if test -n "$QTDIR" -a -f "$QTDIR/include/qglobal.h"; then

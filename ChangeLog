@@ -1,3 +1,17 @@
+2004-03-19  Havoc Pennington  <hp@redhat.com>
+
+	* NEWS: 0.21 updates
+
+	* configure.in: 0.21
+
+	* doc/Makefile.am: add all XMLTO usage to DBUS_XML_DOCS_ENABLED
+	
+	* python/Makefile.am: change to avoid dist of dbus_bindings.c so
+	you don't need pyrex to make dist
+
+	* qt/Makefile.am (libdbus_qt_1_la_SOURCES): add integrator.h to
+	sources; run moc
+	
 2004-03-18  Richard Hult  <richard@imendio.com>
 
 	* dbus/dbus-message.c (dbus_message_get_auto_activation) 
