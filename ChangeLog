@@ -1,5 +1,8 @@
 2003-06-29  Miloslav Trmac  <mitr@volny.cz>
 
+	* dbus/dbus-message.c (append_int_field, append_uint_field): Don't
+	hardcode FIELD_REPLY_SERIAL.
+
 	* dbus/dbus-mainloop.c (_dbus_loop_remove_watch)
 	(_dbus_loop_remove_timeout): Cast function pointers to (void *) for %p
 

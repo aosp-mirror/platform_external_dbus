@@ -307,7 +307,7 @@ append_int_field (DBusMessage *message,
   if (!_dbus_string_align_length (&message->header, 4))
     goto failed;
   
-  message->header_fields[FIELD_REPLY_SERIAL].offset =
+  message->header_fields[field].offset =
     _dbus_string_get_length (&message->header);
   
   if (!_dbus_marshal_int32 (&message->header, message->byte_order,
@@ -358,7 +358,7 @@ append_uint_field (DBusMessage *message,
   if (!_dbus_string_align_length (&message->header, 4))
     goto failed;
   
-  message->header_fields[FIELD_REPLY_SERIAL].offset =
+  message->header_fields[field].offset =
     _dbus_string_get_length (&message->header);
   
   if (!_dbus_marshal_uint32 (&message->header, message->byte_order,
