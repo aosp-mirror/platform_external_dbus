@@ -129,7 +129,7 @@ _dbus_server_init_base (DBusServer             *server,
 
   init_guid (&server->guid);
 
-  _dbus_string_init_const_len (&guid_raw, server->guid.as_bytes,
+  _dbus_string_init_const_len (&guid_raw, (signed char*) server->guid.as_bytes,
                                sizeof (server->guid.as_bytes));
   if (!_dbus_string_hex_encode (&guid_raw, 0,
                                 &server->guid_hex,

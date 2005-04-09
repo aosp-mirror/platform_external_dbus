@@ -2520,6 +2520,28 @@ check_for_reply_unlocked (DBusConnection *connection,
 }
 
 /**
+ * When a function that blocks has been called with a timeout, and we
+ * run out of memory, the time to wait for memory is based on the
+ * timeout. If the caller was willing to block a long time we wait a
+ * relatively long time for memory, if they were only willing to block
+ * briefly then we retry for memory at a rapid rate.
+ *
+ * @timeout_milliseconds the timeout requested for blocking
+ */
+static void
+_dbus_memory_pause_based_on_timeout (int timeout_milliseconds)
+{
+  if (timeout_milliseconds == -1)
+    _dbus_sleep_milliseconds (1000);
+  else if (timeout_milliseconds < 100)
+    ; /* just busy loop */
+  else if (timeout_milliseconds <= 1000)
+    _dbus_sleep_milliseconds (timeout_milliseconds / 3);
+  else
+    _dbus_sleep_milliseconds (1000);
+}
+
+/**
  * Blocks until a pending call times out or gets a reply.
  *
  * Does not re-enter the main loop or run filter/path-registered
@@ -2663,13 +2685,8 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
            * it.
            */
           _dbus_verbose ("dbus_connection_send_with_reply_and_block() waiting for more memory\n");
-          
-          if (timeout_milliseconds < 100)
-            ; /* just busy loop */
-          else if (timeout_milliseconds <= 1000)
-            _dbus_sleep_milliseconds (timeout_milliseconds / 3);
-          else
-            _dbus_sleep_milliseconds (1000);
+
+          _dbus_memory_pause_based_on_timeout (timeout_milliseconds);
         }
       else
         {          
@@ -2801,6 +2818,81 @@ dbus_connection_flush (DBusConnection *connection)
   _dbus_connection_update_dispatch_status_and_unlock (connection, status);
 
   _dbus_verbose ("%s end\n", _DBUS_FUNCTION_NAME);
+}
+
+/**
+ * This function is intended for use with applications that don't want
+ * to write a main loop and deal with #DBusWatch and #DBusTimeout. An
+ * example usage would be:
+ * 
+ * @code
+ *   while (dbus_connection_read_write_dispatch (connection, -1))
+ *     ; // empty loop body
+ * @endcode
+ * 
+ * In this usage you would normally have set up a filter function to look
+ * at each message as it is dispatched. The loop terminates when the last
+ * message from the connection (the disconnected signal) is processed.
+ * 
+ * If there are messages to dispatch, this function will
+ * dbus_connection_dispatch() once, and return. If there are no
+ * messages to dispatch, this function will block until it can read or
+ * write, then read or write, then return.
+ *
+ * The way to think of this function is that it either makes some sort
+ * of progress, or it blocks.
+ *
+ * The return value indicates whether the disconnect message has been
+ * processed, NOT whether the connection is connected. This is
+ * important because even after disconnecting, you want to process any
+ * messages you received prior to the disconnect.
+ *
+ * @param connection the connection
+ * @param timeout_milliseconds max time to block or -1 for infinite
+ * @returns #TRUE if the disconnect message has not been processed
+ */
+dbus_bool_t
+dbus_connection_read_write_dispatch (DBusConnection *connection,
+                                     int             timeout_milliseconds)
+{
+  DBusDispatchStatus dstatus;
+  dbus_bool_t dispatched_disconnected;
+  
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (timeout_milliseconds >= 0 || timeout_milliseconds == -1, FALSE);
+  dstatus = dbus_connection_get_dispatch_status (connection);
+
+  if (dstatus == DBUS_DISPATCH_DATA_REMAINS)
+    {
+      _dbus_verbose ("doing dispatch in %s\n", _DBUS_FUNCTION_NAME);
+      dbus_connection_dispatch (connection);
+      CONNECTION_LOCK (connection);
+    }
+  else if (dstatus == DBUS_DISPATCH_NEED_MEMORY)
+    {
+      _dbus_verbose ("pausing for memory in %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_memory_pause_based_on_timeout (timeout_milliseconds);
+      CONNECTION_LOCK (connection);
+    }
+  else
+    {
+      CONNECTION_LOCK (connection);
+      if (_dbus_connection_get_is_connected_unlocked (connection))
+        {
+          _dbus_verbose ("doing iteration in %s\n", _DBUS_FUNCTION_NAME);
+          _dbus_connection_do_iteration_unlocked (connection,
+                                                  DBUS_ITERATION_DO_READING |
+                                                  DBUS_ITERATION_DO_WRITING |
+                                                  DBUS_ITERATION_BLOCK,
+                                                  timeout_milliseconds);
+        }
+    }
+  
+  HAVE_LOCK_CHECK (connection);
+  dispatched_disconnected = connection->n_incoming == 0 &&
+    connection->disconnect_message_link == NULL;
+  CONNECTION_UNLOCK (connection);
+  return !dispatched_disconnected; /* TRUE if we have not processed disconnected */
 }
 
 /**

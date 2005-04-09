@@ -99,6 +99,8 @@ dbus_bool_t        dbus_connection_get_is_authenticated         (DBusConnection 
 void               dbus_connection_set_exit_on_disconnect       (DBusConnection             *connection,
                                                                  dbus_bool_t                 exit_on_disconnect);
 void               dbus_connection_flush                        (DBusConnection             *connection);
+dbus_bool_t        dbus_connection_read_write_dispatch          (DBusConnection             *connection,
+                                                                 int                         timeout_milliseconds);
 DBusMessage*       dbus_connection_borrow_message               (DBusConnection             *connection);
 void               dbus_connection_return_message               (DBusConnection             *connection,
                                                                  DBusMessage                *message);

@@ -385,6 +385,7 @@ main (int argc, char **argv)
   else
     {
       channel = g_io_channel_unix_new (fileno (stdout));
+      output_file_tmp = NULL; /* silence gcc */
     }
   if (!g_io_channel_set_encoding (channel, NULL, &error))
     lose_gerror (_("Couldn't set channel encoding to NULL"), error);

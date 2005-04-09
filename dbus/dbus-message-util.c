@@ -715,7 +715,7 @@ verify_test_message (DBusMessage *message)
   double v_DOUBLE;
   dbus_bool_t our_bool;
   unsigned char our_byte_1, our_byte_2;
-  const dbus_int32_t *our_uint32_array = (void*)0xdeadbeef;
+  const dbus_uint32_t *our_uint32_array = (void*)0xdeadbeef;
   int our_uint32_array_len;
   dbus_int32_t *our_int32_array = (void*)0xdeadbeef;
   int our_int32_array_len;
@@ -911,14 +911,14 @@ _dbus_message_test (const char *test_data_dir)
   const char *name2;
   const dbus_uint32_t our_uint32_array[] =
     { 0x12345678, 0x23456781, 0x34567812, 0x45678123 };
-  const dbus_uint32_t our_int32_array[] =
+  const dbus_int32_t our_int32_array[] =
     { 0x12345678, -0x23456781, 0x34567812, -0x45678123 };
   const dbus_uint32_t *v_ARRAY_UINT32 = our_uint32_array;
   const dbus_int32_t *v_ARRAY_INT32 = our_int32_array;
 #ifdef DBUS_HAVE_INT64
   const dbus_uint64_t our_uint64_array[] =
     { 0x12345678, 0x23456781, 0x34567812, 0x45678123 };
-  const dbus_uint64_t our_int64_array[] =
+  const dbus_int64_t our_int64_array[] =
     { 0x12345678, -0x23456781, 0x34567812, -0x45678123 };
   const dbus_uint64_t *v_ARRAY_UINT64 = our_uint64_array;
   const dbus_int64_t *v_ARRAY_INT64 = our_int64_array;

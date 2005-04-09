@@ -1,3 +1,16 @@
+2005-04-09  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-message-util.c (_dbus_message_test): fix signedness
+	warning
+
+	* glib/dbus-glib-tool.c (main): fix warning
+
+	* glib/dbus-binding-tool-glib.c (generate_glue): fix warning
+
+	* dbus/dbus-connection.c (dbus_connection_read_write_dispatch):
+	add a new function that can be used in simple applications that
+	don't have a main loop and are willing to block
+
 2005-04-05  David Zeuthen  <davidz@redhat.com>
 
 	Fix https://bugs.freedesktop.org/show_bug.cgi?id=2889

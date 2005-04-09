@@ -383,6 +383,9 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 		  direction = 'O';
 		  break;
 		case ARG_INVALID:
+                default:
+                  g_assert_not_reached ();
+                  direction = 0; /* silence gcc */
 		  break;
 		}
 	      g_string_append_c (object_introspection_data_blob, direction);
