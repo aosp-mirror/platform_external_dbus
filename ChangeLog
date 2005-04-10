@@ -1,7 +1,13 @@
 2005-04-09  Havoc Pennington  <hp@redhat.com>
 
-	* dbus/dbus-message-util.c (_dbus_message_test): fix signedness
-	warning
+	* dbus/dbus-string.c (copy): change a memcpy to memmove due to
+	possible overlap, fix from Daniel Reed
+	(fixup_alignment): fix signedness warnings
+	(_dbus_string_append_unichar): ditto
+
+2005-04-09  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-message-util.c (_dbus_message_test): fix signedness warning
 
 	* glib/dbus-glib-tool.c (main): fix warning
 

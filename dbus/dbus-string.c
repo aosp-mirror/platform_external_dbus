@@ -76,8 +76,8 @@
 static void
 fixup_alignment (DBusRealString *real)
 {
-  char *aligned;
-  char *real_block;
+  unsigned char *aligned;
+  unsigned char *real_block;
   unsigned int old_align_offset;
 
   /* we have to have extra space in real->allocated for the align offset and nul byte */
@@ -238,7 +238,7 @@ _dbus_string_init_const_len (DBusString *str,
   
   real = (DBusRealString*) str;
   
-  real->str = (char*) value;
+  real->str = (unsigned char*) value;
   real->len = len;
   real->allocated = real->len + _DBUS_STRING_ALLOCATION_PADDING; /* a lie, just to avoid special-case assertions... */
   real->max_length = real->len + 1;
@@ -296,7 +296,7 @@ _dbus_string_lock (DBusString *str)
 #define MAX_WASTE 48
   if (real->allocated - MAX_WASTE > real->len)
     {
-      char *new_str;
+      unsigned char *new_str;
       int new_allocated;
 
       new_allocated = real->len + _DBUS_STRING_ALLOCATION_PADDING;
@@ -318,7 +318,7 @@ reallocate_for_length (DBusRealString *real,
                        int             new_length)
 {
   int new_allocated;
-  char *new_str;
+  unsigned char *new_str;
 
   /* at least double our old allocation to avoid O(n), avoiding
    * overflow
@@ -418,7 +418,7 @@ _dbus_string_get_data (DBusString *str)
 {
   DBUS_STRING_PREAMBLE (str);
   
-  return real->str;
+  return (char*) real->str;
 }
 #endif /* _dbus_string_get_data */
 
@@ -435,7 +435,7 @@ _dbus_string_get_const_data (const DBusString  *str)
 {
   DBUS_CONST_STRING_PREAMBLE (str);
   
-  return real->str;
+  return (const char*) real->str;
 }
 #endif /* _dbus_string_get_const_data */
 
@@ -463,7 +463,7 @@ _dbus_string_get_data_len (DBusString *str,
   _dbus_assert (start <= real->len);
   _dbus_assert (len <= real->len - start);
   
-  return real->str + start;
+  return (char*) real->str + start;
 }
 
 /* only do the function if we don't have the macro */
@@ -487,7 +487,7 @@ _dbus_string_get_const_data_len (const DBusString  *str,
   _dbus_assert (start <= real->len);
   _dbus_assert (len <= real->len - start);
   
-  return real->str + start;
+  return (const char*) real->str + start;
 }
 #endif /* _dbus_string_get_const_data_len */
 
@@ -613,7 +613,7 @@ _dbus_string_steal_data (DBusString        *str,
 
   undo_alignment (real);
   
-  *data_return = real->str;
+  *data_return = (char*) real->str;
 
   old_max_length = real->max_length;
   
@@ -621,7 +621,7 @@ _dbus_string_steal_data (DBusString        *str,
   if (!_dbus_string_init (str))
     {
       /* hrm, put it back then */
-      real->str = *data_return;
+      real->str = (unsigned char*) *data_return;
       *data_return = NULL;
       fixup_alignment (real);
       return FALSE;
@@ -1210,7 +1210,7 @@ _dbus_string_append_printf_valist  (DBusString        *str,
       return FALSE;
     }
   
-  vsprintf (real->str + (real->len - len),
+  vsprintf ((char*) (real->str + (real->len - len)),
             format, args_copy);
 
   va_end (args_copy);
@@ -1298,7 +1298,7 @@ _dbus_string_append_unichar (DBusString    *str,
   int len;
   int first;
   int i;
-  char *out;
+  unsigned char *out;
   
   DBUS_STRING_PREAMBLE (str);
 
@@ -1405,9 +1405,9 @@ copy (DBusRealString *source,
   if (!open_gap (len, dest, insert_at))
     return FALSE;
   
-  memcpy (dest->str + insert_at,
-          source->str + start,
-          len);
+  memmove (dest->str + insert_at,
+           source->str + start,
+           len);
 
   return TRUE;
 }
