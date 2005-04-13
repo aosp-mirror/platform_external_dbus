@@ -1,3 +1,9 @@
+2005-04-13  Havoc Pennington  <hp@redhat.com>
+
+	* glib/dbus-gmain.c (message_queue_dispatch): only dispatch one
+	message at a time to avoid monopolizing the main loop, bug 
+	#2953 from Benjamin Otte
+
 2005-04-09  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-string.c (copy): change a memcpy to memmove due to

@@ -103,9 +103,9 @@ message_queue_dispatch (GSource     *source,
   DBusConnection *connection = ((DBusGMessageQueue *)source)->connection;
 
   dbus_connection_ref (connection);
-  
-  while (dbus_connection_dispatch (connection) == DBUS_DISPATCH_DATA_REMAINS)
-    ;
+
+  /* Only dispatch once - we don't want to starve other GSource */
+  dbus_connection_dispatch (connection);
   
   dbus_connection_unref (connection);
 
