@@ -1,5 +1,10 @@
 2005-04-13  David Zeuthen  <davidz@redhat.com>
 
+	* doc/TODO: Added an "important for 1.0" item about selinux
+	allow/deny messages
+
+2005-04-13  David Zeuthen  <davidz@redhat.com>
+
 	* bus/selinux.c: Add c-file-style to top of file
 	(log_audit_callback): Don't free the data here anymore
 	(bus_selinux_check): Don't take spid and tpid since appending

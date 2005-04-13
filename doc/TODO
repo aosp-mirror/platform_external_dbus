@@ -35,6 +35,9 @@ Important for 1.0
    connections can be shared even if the address used to connect
    to them didn't have a GUID in it.
 
+ - Add test harness for selinux allow/deny cf. this message
+   http://lists.freedesktop.org/archives/dbus/2005-April/002506.html
+
 Important for 1.0 GLib Bindings
 ===
 
