@@ -1,4 +1,5 @@
-/* selinux.c  SELinux security checks for D-BUS
+/* -*- mode: C; c-file-style: "gnu" -*-
+ * selinux.c  SELinux security checks for D-BUS
  *
  * Author: Matthew Rickard <mjricka@epoch.ncsc.mil>
  *
@@ -131,8 +132,6 @@ log_audit_callback (void *data, security_class_t class, char *buf, size_t buflef
 {
   DBusString *audmsg = data;
   _dbus_string_copy_to_buffer (audmsg, buf, bufleft);
-  _dbus_string_free (audmsg);
-  dbus_free (audmsg);
 }
 
 /**
@@ -363,20 +362,10 @@ bus_selinux_check (BusSELinuxID        *sender_sid,
                    BusSELinuxID        *override_sid,
                    security_class_t     target_class,
                    access_vector_t      requested,
-		   unsigned long        spid,
-		   unsigned long        tpid,
 		   DBusString          *auxdata)
 {
   if (!selinux_enabled)
     return TRUE;
-
-  if (auxdata)
-    {
-      if (spid && _dbus_string_append (auxdata, " spid="))
-	_dbus_string_append_uint (auxdata, spid);
-      if (tpid && _dbus_string_append (auxdata, " tpid="))
-	_dbus_string_append_uint (auxdata, tpid);
-    }
   
   /* Make the security check.  AVC checks enforcing mode here as well. */
   if (avc_has_perm (SELINUX_SID_FROM_BUS (sender_sid),
@@ -404,39 +393,54 @@ bus_selinux_check (BusSELinuxID        *sender_sid,
 dbus_bool_t
 bus_selinux_allows_acquire_service (DBusConnection     *connection,
                                     BusSELinuxID       *service_sid,
-				    const char         *service_name)
+				    const char         *service_name,
+				    DBusError          *error)
 {
 #ifdef HAVE_SELINUX
   BusSELinuxID *connection_sid;
   unsigned long spid;
-  DBusString *auxdata;
+  DBusString auxdata;
+  dbus_bool_t ret;
   
   if (!selinux_enabled)
     return TRUE;
-
+  
   connection_sid = bus_connection_get_selinux_id (connection);
   if (!dbus_connection_get_unix_process_id (connection, &spid))
     spid = 0;
 
-  auxdata = dbus_new0 (DBusString, 1);
-  if (auxdata)
+  if (!_dbus_string_init (&auxdata))
+    goto oom;
+ 
+  if (!_dbus_string_append (&auxdata, "service="))
+    goto oom;
+
+  if (!_dbus_string_append (&auxdata, service_name))
+    goto oom;
+
+  if (spid)
     {
-      if (!_dbus_string_init (auxdata))
-	{
-	  dbus_free (auxdata);
-	  auxdata = NULL;
-	}
-      else if (_dbus_string_append (auxdata, "service="))
-	_dbus_string_append (auxdata, service_name);
+      if (!_dbus_string_append (&auxdata, " spid="))
+	goto oom;
+
+      if (!_dbus_string_append_uint (&auxdata, spid))
+	goto oom;
     }
   
-  return bus_selinux_check (connection_sid,
-			    service_sid,
-			    SECCLASS_DBUS,
-			    DBUS__ACQUIRE_SVC,
-			    spid,
-			    0,
-			    auxdata);
+  ret = bus_selinux_check (connection_sid,
+			   service_sid,
+			   SECCLASS_DBUS,
+			   DBUS__ACQUIRE_SVC,
+			   &auxdata);
+
+  _dbus_string_free (&auxdata);
+  return ret;
+
+ oom:
+  _dbus_string_free (&auxdata);
+  BUS_SET_OOM (error);
+  return FALSE;
+
 #else
   return TRUE;
 #endif /* HAVE_SELINUX */
@@ -459,13 +463,15 @@ bus_selinux_allows_send (DBusConnection     *sender,
 			 const char         *interface,
 			 const char         *member,
 			 const char         *error_name,
-			 const char         *destination)
+			 const char         *destination,
+			 DBusError          *error)
 {
 #ifdef HAVE_SELINUX
   BusSELinuxID *recipient_sid;
   BusSELinuxID *sender_sid;
   unsigned long spid, tpid;
-  DBusString *auxdata;
+  DBusString auxdata;
+  dbus_bool_t ret;
 
   if (!selinux_enabled)
     return TRUE;
@@ -475,27 +481,63 @@ bus_selinux_allows_send (DBusConnection     *sender,
   if (!proposed_recipient || !dbus_connection_get_unix_process_id (proposed_recipient, &tpid))
     tpid = 0;
 
-  auxdata = dbus_new0 (DBusString, 1);
-  if (auxdata)
+  if (!_dbus_string_init (&auxdata))
+    goto oom;
+
+  if (!_dbus_string_append (&auxdata, "msgtype="))
+    goto oom;
+
+  if (!_dbus_string_append (&auxdata, msgtype))
+    goto oom;
+
+  if (interface)
     {
-      if (!_dbus_string_init (auxdata))
-	{
-	  dbus_free (auxdata);
-	  auxdata = NULL;
-	}
-      else
-	{
-	  if (_dbus_string_append (auxdata, "msgtype="))
-	    _dbus_string_append (auxdata, msgtype);
-	  if (interface && _dbus_string_append (auxdata, " interface="))
-	    _dbus_string_append (auxdata, interface);
-	  if (member && _dbus_string_append (auxdata, " member="))
-	    _dbus_string_append (auxdata, member);
-	  if (error_name && _dbus_string_append (auxdata, " error_name="))
-	    _dbus_string_append (auxdata, error_name);
-	  if (destination && _dbus_string_append (auxdata, " dest="))
-	    _dbus_string_append (auxdata, destination);
-	}
+      if (!_dbus_string_append (&auxdata, " interface="))
+	goto oom;
+      if (!_dbus_string_append (&auxdata, interface))
+	goto oom;
+    }
+
+  if (member)
+    {
+      if (!_dbus_string_append (&auxdata, " member="))
+	goto oom;
+      if (!_dbus_string_append (&auxdata, member))
+	goto oom;
+    }
+
+  if (error_name)
+    {
+      if (!_dbus_string_append (&auxdata, " error_name="))
+	goto oom;
+      if (!_dbus_string_append (&auxdata, error_name))
+	goto oom;
+    }
+
+  if (destination)
+    {
+      if (!_dbus_string_append (&auxdata, " dest="))
+	goto oom;
+      if (!_dbus_string_append (&auxdata, destination))
+	goto oom;
+    }
+
+  if (spid)
+    {
+      if (!_dbus_string_append (&auxdata, " spid="))
+	goto oom;
+
+      if (!_dbus_string_append_uint (&auxdata, spid))
+	goto oom;
+    }
+
+  if (tpid)
+    {
+      if (!_dbus_string_append (&auxdata, " tpid="))
+	goto oom;
+
+      if (!_dbus_string_append_uint (&auxdata, tpid))
+	goto oom;
     }
 
   sender_sid = bus_connection_get_selinux_id (sender);
@@ -505,9 +547,21 @@ bus_selinux_allows_send (DBusConnection     *sender,
   else
     recipient_sid = BUS_SID_FROM_SELINUX (bus_sid);
 
-  return bus_selinux_check (sender_sid, recipient_sid,
-                            SECCLASS_DBUS, DBUS__SEND_MSG,
-			    spid, tpid, auxdata);
+  ret = bus_selinux_check (sender_sid, 
+			   recipient_sid,
+			   SECCLASS_DBUS, 
+			   DBUS__SEND_MSG,
+			   &auxdata);
+
+  _dbus_string_free (&auxdata);
+
+  return ret;
+
+ oom:
+  _dbus_string_free (&auxdata);
+  BUS_SET_OOM (error);
+  return FALSE;
+  
 #else
   return TRUE;
 #endif /* HAVE_SELINUX */

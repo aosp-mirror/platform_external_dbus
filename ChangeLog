@@ -1,3 +1,22 @@
+2005-04-13  David Zeuthen  <davidz@redhat.com>
+
+	* bus/selinux.c: Add c-file-style to top of file
+	(log_audit_callback): Don't free the data here anymore
+	(bus_selinux_check): Don't take spid and tpid since appending
+	that to auxdata may OOM.
+	(bus_selinux_allows_acquire_service): Handle OOM and signal back
+	to the caller if we are OOM by taking an error object.
+	(bus_selinux_allows_send): -do-
+
+	* bus/selinux.h: Fix prototypes for bus_selinux_allows_acquire_service
+	and bus_selinux_allows_send
+
+	* bus/bus.c (bus_context_check_security_policy): Pass error and
+	pass on OOM thrown by bus_selinux_allows_send()
+
+	* bus/services.c (bus_registry_acquire_service): Pass error and
+	pass on OOM thrown by bus_selinux_allows_acquire_service()
+
 2005-04-13  Havoc Pennington  <hp@redhat.com>
 
 	* glib/dbus-gmain.c (message_queue_dispatch): only dispatch one

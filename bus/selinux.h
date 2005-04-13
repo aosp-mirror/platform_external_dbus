@@ -48,14 +48,17 @@ const char*    bus_selinux_get_policy_root (void);
 
 dbus_bool_t bus_selinux_allows_acquire_service (DBusConnection *connection,
                                                 BusSELinuxID   *service_sid,
-						const char     *service_name);
+						const char     *service_name,
+						DBusError      *error);
+
 dbus_bool_t bus_selinux_allows_send            (DBusConnection *sender,
                                                 DBusConnection *proposed_recipient,
 						const char     *msgtype, /* Supplementary audit data */
 						const char     *interface,
 						const char     *member,
 						const char     *error_name,
-						const char     *destination);
+						const char     *destination,
+						DBusError      *error);
 
 BusSELinuxID* bus_selinux_init_connection_id (DBusConnection *connection,
                                               DBusError      *error);
