@@ -419,7 +419,7 @@ bus_config_parser_new (const DBusString      *basedir,
       parser->limits.max_pending_activations = 256;
       parser->limits.max_services_per_connection = 256;
       
-      parser->limits.max_match_rules_per_connection = 128;
+      parser->limits.max_match_rules_per_connection = 512;
       
       parser->limits.reply_timeout = 5 * 60 * 1000; /* 5 minutes */
       parser->limits.max_replies_per_connection = 32;

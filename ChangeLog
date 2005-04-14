@@ -1,5 +1,10 @@
 2005-04-13  David Zeuthen  <davidz@redhat.com>
 
+	* bus/config-parser.c (bus_config_parser_new): Bump this to a
+	more reasonable, yet still totally arbitrary, value :-). 
+
+2005-04-13  David Zeuthen  <davidz@redhat.com>
+
 	* doc/TODO: Added an "important for 1.0" item about selinux
 	allow/deny messages
 
