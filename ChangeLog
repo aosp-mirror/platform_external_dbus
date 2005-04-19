@@ -1,3 +1,9 @@
+2005-04-18  David Zeuthen  <davidz@redhat.com>
+
+	* glib/dbus-gmain.c (io_handler_destroy_source): 
+	(timeout_handler_destroy_source, connection_setup_free): 
+	Also unref the source to avoid memory leaks.
+
 2005-04-13  David Zeuthen  <davidz@redhat.com>
 
 	* bus/config-parser.c (bus_config_parser_new): Bump this to a

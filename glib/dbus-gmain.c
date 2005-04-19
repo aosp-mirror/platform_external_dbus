@@ -191,6 +191,7 @@ io_handler_destroy_source (void *data)
       handler->source = NULL;
       handler->cs->ios = g_slist_remove (handler->cs->ios, handler);
       g_source_destroy (source);
+      g_source_unref (source);
     }
 }
 
@@ -328,6 +329,7 @@ timeout_handler_destroy_source (void *data)
       handler->source = NULL;
       handler->cs->timeouts = g_slist_remove (handler->cs->timeouts, handler);
       g_source_destroy (source);
+      g_source_unref (source);
     }
 }
 
@@ -411,6 +413,7 @@ connection_setup_free (ConnectionSetup *cs)
       cs->message_queue_source = NULL;
 
       g_source_destroy (source);
+      g_source_unref (source);
     }
   
   g_main_context_unref (cs->context);
