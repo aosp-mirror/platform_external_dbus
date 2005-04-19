@@ -527,7 +527,7 @@ _dbus_header_create (DBusHeader  *header,
   DBusTypeWriter writer;
   DBusTypeWriter array;
 
-  _dbus_assert ((interface && member) ||
+  _dbus_assert (((interface || message_type != DBUS_MESSAGE_TYPE_SIGNAL) && member) ||
                 (error_name) ||
                 !(interface || member || error_name));
   _dbus_assert (_dbus_string_get_length (&header->data) == 0);

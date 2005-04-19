@@ -1,3 +1,9 @@
+2005-04-19  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-marshal-header.c (_dbus_header_create): Fix assert
+	so that it allows messages that are not signals to pass in 
+	NULL as the interface.
+
 2005-04-18  David Zeuthen  <davidz@redhat.com>
 
 	* glib/dbus-gmain.c (io_handler_destroy_source): 
