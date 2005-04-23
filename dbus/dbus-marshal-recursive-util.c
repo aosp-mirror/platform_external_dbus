@@ -2458,8 +2458,9 @@ string_write_value (TestTypeNode   *node,
                     DBusTypeWriter *writer,
                     int             seed)
 {
-  char buf[MAX_SAMPLE_STRING_LEN];
+  char buf[MAX_SAMPLE_STRING_LEN + 1]="";
   const char *v_string = buf;
+
 
   string_from_seed (buf, node->klass->subclass_detail,
                     seed);
@@ -2475,7 +2476,8 @@ string_read_value (TestTypeNode   *node,
                    int             seed)
 {
   const char *v;
-  char buf[MAX_SAMPLE_STRING_LEN];
+  char buf[MAX_SAMPLE_STRING_LEN + 1];
+  v = buf;
 
   check_expected_type (reader, node->klass->typecode);
 
@@ -2501,7 +2503,7 @@ string_set_value (TestTypeNode   *node,
                   DBusTypeReader *realign_root,
                   int             seed)
 {
-  char buf[MAX_SAMPLE_STRING_LEN];
+  char buf[MAX_SAMPLE_STRING_LEN + 1];
   const char *v_string = buf;
 
   string_from_seed (buf, node->klass->subclass_detail,
@@ -2730,7 +2732,7 @@ object_path_write_value (TestTypeNode   *node,
                          DBusTypeWriter *writer,
                          int             seed)
 {
-  char buf[MAX_SAMPLE_OBJECT_PATH_LEN];
+  char buf[MAX_SAMPLE_OBJECT_PATH_LEN + 1];
   const char *v_string = buf;
 
   object_path_from_seed (buf, seed);
@@ -2746,7 +2748,7 @@ object_path_read_value (TestTypeNode   *node,
                         int             seed)
 {
   const char *v;
-  char buf[MAX_SAMPLE_OBJECT_PATH_LEN];
+  char buf[MAX_SAMPLE_OBJECT_PATH_LEN + 1];
 
   check_expected_type (reader, node->klass->typecode);
 
@@ -2771,7 +2773,7 @@ object_path_set_value (TestTypeNode   *node,
                        DBusTypeReader *realign_root,
                        int             seed)
 {
-  char buf[MAX_SAMPLE_OBJECT_PATH_LEN];
+  char buf[MAX_SAMPLE_OBJECT_PATH_LEN + 1];
   const char *v_string = buf;
 
   object_path_from_seed (buf, seed);
@@ -2786,8 +2788,6 @@ static void
 signature_from_seed (char *buf,
                      int   seed)
 {
-  int i;
-  const char *s;
   /* try to avoid ascending, descending, or alternating length to help find bugs */
   const char *sample_signatures[] = {
     "asax"
@@ -2798,13 +2798,7 @@ signature_from_seed (char *buf,
     "a(ii)"
   };
 
-  s = sample_signatures[seed % _DBUS_N_ELEMENTS(sample_signatures)];
-
-  for (i = 0; s[i]; i++)
-    {
-      buf[i] = s[i];
-    }
-  buf[i] = '\0';
+  strcpy (buf, sample_signatures[seed % _DBUS_N_ELEMENTS(sample_signatures)]);
 }
 
 static dbus_bool_t
@@ -2813,7 +2807,7 @@ signature_write_value (TestTypeNode   *node,
                        DBusTypeWriter *writer,
                        int             seed)
 {
-  char buf[MAX_SAMPLE_SIGNATURE_LEN];
+  char buf[MAX_SAMPLE_SIGNATURE_LEN + 1];
   const char *v_string = buf;
 
   signature_from_seed (buf, seed);
@@ -2829,7 +2823,7 @@ signature_read_value (TestTypeNode   *node,
                       int             seed)
 {
   const char *v;
-  char buf[MAX_SAMPLE_SIGNATURE_LEN];
+  char buf[MAX_SAMPLE_SIGNATURE_LEN + 1];
 
   check_expected_type (reader, node->klass->typecode);
 
@@ -2855,7 +2849,7 @@ signature_set_value (TestTypeNode   *node,
                      DBusTypeReader *realign_root,
                      int             seed)
 {
-  char buf[MAX_SAMPLE_SIGNATURE_LEN];
+  char buf[MAX_SAMPLE_SIGNATURE_LEN + 1];
   const char *v_string = buf;
 
   signature_from_seed (buf, seed);

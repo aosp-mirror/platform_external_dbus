@@ -1,3 +1,11 @@
+2005-04-23  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-marshal-recursive-util.c: Fixed buffer overflow
+	in numerous places that did not account for the NULL terminator
+	(signature_from_seed): changed the manual string copy loop to 
+	just use strcpy instead
+	make check should now pass
+
 2005-04-19  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-marshal-header.c (_dbus_header_create): Fix assert
