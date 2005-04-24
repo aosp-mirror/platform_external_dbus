@@ -373,6 +373,9 @@ find_handler (DBusObjectTree *tree,
   _dbus_verbose ("Looking for deepest handler\n");
 #endif
   _dbus_assert (exact_match != NULL);
+
+  *exact_match = FALSE; /* ensure always initialized */
+  
   return find_subtree_recurse (tree->root, path, FALSE, NULL, exact_match);
 }
 
@@ -903,6 +906,37 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
 }
 
 /**
+ * Looks up the data passed to _dbus_object_tree_register() for a
+ * handler at the given path.
+ *
+ * @param tree the global object tree
+ * @param path NULL-terminated array of path elements giving path to subtree
+ * @returns the object's user_data or #NULL if none found
+ */
+void*
+_dbus_object_tree_get_user_data_unlocked (DBusObjectTree *tree,
+                                          const char    **path)
+{
+  dbus_bool_t exact_match;
+  DBusObjectSubtree *subtree;
+
+  _dbus_assert (tree != NULL);
+  _dbus_assert (path != NULL);
+  
+  /* Find the deepest path that covers the path in the message */
+  subtree = find_handler (tree, (const char**) path, &exact_match);
+
+  if ((subtree == NULL) || !exact_match)
+    {
+      _dbus_verbose ("%s: No object at specified path found\n",
+                     _DBUS_FUNCTION_NAME);
+      return NULL;
+    }
+
+  return subtree->user_data;
+}
+
+/**
  * Allocates a subtree object.
  *
  * @param name name to duplicate.
@@ -1311,6 +1345,9 @@ do_register (DBusObjectTree *tree,
                                    &tree_test_data[i]))
     return FALSE;
 
+  _dbus_assert (_dbus_object_tree_get_user_data_unlocked (tree, path) ==
+                &tree_test_data[i]);
+  
   return TRUE;
 }
 
@@ -1717,6 +1754,7 @@ object_tree_test_iteration (void *data)
     goto out;
 
   _dbus_object_tree_unregister_and_unlock (tree, path0);
+  _dbus_assert (_dbus_object_tree_get_user_data_unlocked (tree, path0) == NULL);
 
   _dbus_assert (!find_subtree (tree, path0, NULL));
   _dbus_assert (find_subtree (tree, path1, NULL));
@@ -1729,6 +1767,7 @@ object_tree_test_iteration (void *data)
   _dbus_assert (find_subtree (tree, path8, NULL));
   
   _dbus_object_tree_unregister_and_unlock (tree, path1);
+  _dbus_assert (_dbus_object_tree_get_user_data_unlocked (tree, path1) == NULL);
 
   _dbus_assert (!find_subtree (tree, path0, NULL));
   _dbus_assert (!find_subtree (tree, path1, NULL));
@@ -1741,6 +1780,7 @@ object_tree_test_iteration (void *data)
   _dbus_assert (find_subtree (tree, path8, NULL));
 
   _dbus_object_tree_unregister_and_unlock (tree, path2);
+  _dbus_assert (_dbus_object_tree_get_user_data_unlocked (tree, path2) == NULL);
 
   _dbus_assert (!find_subtree (tree, path0, NULL));
   _dbus_assert (!find_subtree (tree, path1, NULL));
@@ -1753,6 +1793,7 @@ object_tree_test_iteration (void *data)
   _dbus_assert (find_subtree (tree, path8, NULL));
   
   _dbus_object_tree_unregister_and_unlock (tree, path3);
+  _dbus_assert (_dbus_object_tree_get_user_data_unlocked (tree, path3) == NULL);
 
   _dbus_assert (!find_subtree (tree, path0, NULL));
   _dbus_assert (!find_subtree (tree, path1, NULL));
@@ -1765,6 +1806,7 @@ object_tree_test_iteration (void *data)
   _dbus_assert (find_subtree (tree, path8, NULL));
   
   _dbus_object_tree_unregister_and_unlock (tree, path4);
+  _dbus_assert (_dbus_object_tree_get_user_data_unlocked (tree, path4) == NULL);
 
   _dbus_assert (!find_subtree (tree, path0, NULL));
   _dbus_assert (!find_subtree (tree, path1, NULL));
@@ -1777,6 +1819,7 @@ object_tree_test_iteration (void *data)
   _dbus_assert (find_subtree (tree, path8, NULL));
   
   _dbus_object_tree_unregister_and_unlock (tree, path5);
+  _dbus_assert (_dbus_object_tree_get_user_data_unlocked (tree, path5) == NULL);
 
   _dbus_assert (!find_subtree (tree, path0, NULL));
   _dbus_assert (!find_subtree (tree, path1, NULL));
@@ -1789,6 +1832,7 @@ object_tree_test_iteration (void *data)
   _dbus_assert (find_subtree (tree, path8, NULL));
   
   _dbus_object_tree_unregister_and_unlock (tree, path6);
+  _dbus_assert (_dbus_object_tree_get_user_data_unlocked (tree, path6) == NULL);
 
   _dbus_assert (!find_subtree (tree, path0, NULL));
   _dbus_assert (!find_subtree (tree, path1, NULL));
@@ -1801,6 +1845,7 @@ object_tree_test_iteration (void *data)
   _dbus_assert (find_subtree (tree, path8, NULL));
 
   _dbus_object_tree_unregister_and_unlock (tree, path7);
+  _dbus_assert (_dbus_object_tree_get_user_data_unlocked (tree, path7) == NULL);
 
   _dbus_assert (!find_subtree (tree, path0, NULL));
   _dbus_assert (!find_subtree (tree, path1, NULL));
@@ -1813,6 +1858,7 @@ object_tree_test_iteration (void *data)
   _dbus_assert (find_subtree (tree, path8, NULL));
 
   _dbus_object_tree_unregister_and_unlock (tree, path8);
+  _dbus_assert (_dbus_object_tree_get_user_data_unlocked (tree, path8) == NULL);
 
   _dbus_assert (!find_subtree (tree, path0, NULL));
   _dbus_assert (!find_subtree (tree, path1, NULL));

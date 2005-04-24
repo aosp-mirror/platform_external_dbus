@@ -188,9 +188,17 @@ main (int    argc,
   if (!dbus_connection_register_object_path (connection,
                                              echo_path,
                                              &echo_vtable,
-                                             NULL))
+                                             (void*) 0xdeadbeef))
     die ("No memory");
 
+  {
+    void *d;
+    if (!dbus_connection_get_object_path_data (connection, echo_path, &d))
+      die ("No memory");
+    if (d != (void*) 0xdeadbeef)
+      die ("dbus_connection_get_object_path_data() doesn't seem to work right\n");
+  }
+  
   result = dbus_bus_request_name (connection, "org.freedesktop.DBus.TestSuiteEchoService",
                                   0, &error);
   if (dbus_error_is_set (&error))

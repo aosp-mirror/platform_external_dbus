@@ -243,6 +243,10 @@ dbus_bool_t dbus_connection_register_fallback      (DBusConnection              
 dbus_bool_t dbus_connection_unregister_object_path (DBusConnection              *connection,
                                                     const char                  *path);
 
+dbus_bool_t dbus_connection_get_object_path_data   (DBusConnection              *connection,
+                                                    const char                  *path,
+                                                    void                       **data_p);
+
 dbus_bool_t dbus_connection_list_registered        (DBusConnection              *connection,
                                                     const char                  *parent_path,
                                                     char                      ***child_entries);

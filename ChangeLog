@@ -1,3 +1,22 @@
+2005-04-23  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-message.c (dbus_message_append_args): fix doc comment,
+	reported by Tony Houghton
+
+	* test/test-service.c (main): test
+	dbus_connection_get_object_path_data()
+
+	* dbus/dbus-object-tree.c (find_handler): be sure we always init
+	the exact_match
+	(_dbus_object_tree_get_user_data_unlocked): new function used by
+	dbus_connection_get_object_path_data()
+	(do_register): add assertion test for get_user_data_unlocked
+	(object_tree_test_iteration): more tests
+
+	* dbus/dbus-connection.c (dbus_connection_get_object_path_data):
+	new function from Dan Reed to let you get the user data from 
+	dbus_connection_register_object_path()
+
 2005-04-23  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-marshal-recursive-util.c: Fixed buffer overflow

@@ -4301,6 +4301,43 @@ dbus_connection_unregister_object_path (DBusConnection              *connection,
 }
 
 /**
+ * Gets the user data passed to dbus_connection_register_object_path()
+ * or dbus_connection_register_fallback(). If nothing was registered
+ * at this path, the data is filled in with #NULL.
+ *
+ * @param connection the connection
+ * @param path the path you registered with
+ * @param data_p location to store the user data, or #NULL
+ * @returns #FALSE if not enough memory
+ */
+dbus_bool_t
+dbus_connection_get_object_path_data (DBusConnection *connection,
+                                      const char     *path,
+                                      void          **data_p)
+{
+  char **decomposed_path;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (path != NULL, FALSE);
+  _dbus_return_val_if_fail (data_p != NULL, FALSE);
+
+  *data_p = NULL;
+  
+  if (!_dbus_decompose_path (path, strlen (path), &decomposed_path, NULL))
+    return FALSE;
+  
+  CONNECTION_LOCK (connection);
+
+  *data_p = _dbus_object_tree_get_user_data_unlocked (connection->objects, (const char**) decomposed_path);
+
+  CONNECTION_UNLOCK (connection);
+
+  dbus_free_string_array (decomposed_path);
+
+  return TRUE;
+}
+
+/**
  * Lists the registered fallback handlers and object path handlers at
  * the given parent_path. The returned array should be freed with
  * dbus_free_string_array().

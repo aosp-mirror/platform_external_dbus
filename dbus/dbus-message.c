@@ -1142,25 +1142,15 @@ dbus_message_get_type (DBusMessage *message)
  * rather than this function.
  *
  * To append a basic type, specify its type code followed by the
- * value. For example:
+ * address of the value. For example:
  *
  * @code
- * DBUS_TYPE_INT32, 42,
- * DBUS_TYPE_STRING, "Hello World"
- * @endcode
- * or
- * @code
- * dbus_int32_t val = 42;
- * DBUS_TYPE_INT32, val
- * @endcode
  *
- * Be sure that your provided value is the right size. For example, this
- * won't work:
- * @code
- * DBUS_TYPE_INT64, 42
+ * dbus_int32_t v_INT32 = 42;
+ * const char *v_STRING = "Hello World";
+ * DBUS_TYPE_INT32, &v_INT32,
+ * DBUS_TYPE_STRING, &v_STRING,
  * @endcode
- * Because the "42" will be a 32-bit integer. You need to cast to
- * 64-bit.
  *
  * To append an array of fixed-length basic types, pass in the
  * DBUS_TYPE_ARRAY typecode, the element typecode, the address of
