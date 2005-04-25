@@ -1,3 +1,29 @@
+2005-04-25  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/dbus_bindings.pyx.in (send_with_reply_handlers): New send
+	method for doing async calls
+	(_pending_call_notification): New C function for handling pendning call
+	callbacks
+	(set_notify): New method for setting pending call notification
+	
+	* python/dbus.py: new version tuple "version" is set at (0, 40, 0)
+	Async capabilities added to remote method calls
+	(Sender): class removed
+	(RemoteService): class removed
+	(ObjectTree): class removed for now
+	(RemoteObject): Renamed to ProxyObject
+	(RemoteMethod): Renamed to ProxyMethod
+	(method): Decorator added for decorating python methods as dbus methods
+	(signal): Decorator added for decorating python methods as signal emitters
+	(ObjectType): Metaclass added for generating introspection data and the
+	method callback vtable
+	(Interface): Wrapper class added to wrap objects in a dbus interface
+	(Object): Uses ObjectType as its metaclass and exports Introspect
+	of the org.freedesktop.DBus.Introspectable interface
+	(ValidationException, UnknownMethodException): new exceptions
+
+	* python/examples/*: Modified to fit with the new bindings
+
 2005-04-23  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-message.c (dbus_message_append_args): fix doc comment,
