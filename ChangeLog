@@ -1,5 +1,9 @@
 2005-04-25  John (J5) Palmieri  <johnp@redhat.com>
 
+	* NEWS: Update to 0.33
+
+2005-04-25  John (J5) Palmieri  <johnp@redhat.com>
+
 	* python/dbus_bindings.pyx.in (send_with_reply_handlers): New send
 	method for doing async calls
 	(_pending_call_notification): New C function for handling pendning call

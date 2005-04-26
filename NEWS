@@ -1,3 +1,13 @@
+D-BUS 0.33 (25 Apr 2005)
+===
+
+- downgrade requirement from GTK+-2.6 to 2.4 for building gtk components
+- python binding API's have been overhalled to be more "pythonic" and cleaner
+- python bindings now export dbus.version which is set to (0,40,0)
+- python bindings now implement the org.freedesktop.DBus.Introspectable interface
+- make check has been fixed
+- many, many major bug fixes
+
 D-BUS 0.32 (29 Mar 2005)
 ===
 
