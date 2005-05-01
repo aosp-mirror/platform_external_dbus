@@ -1,3 +1,20 @@
+2005-05-01  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/dbus_bindings.pyx.in: 
+	- added new type classes for hinting to the marashaler what type 
+	to send over the wire
+	- added int16 and uint16 marshalers
+	- Fixed a bug in the type constants that caused int32 to go out
+	as uint16 over the wire
+	* python/dbus.py: split up into different files and renamed _dbus.py
+	* python/__init__.py, python/_util.py, python/decorators.py, 
+	python/exceptions.py, python/proxies.py, python/services.py,
+	python/types.py: new files split off from dbus.py
+	* python/Makefile.am: Add new files, remove dbus.py and 
+	install all python files to <python module dir>/dbus
+	* python/examples/*: Added #!/usr/bin/env python to the top of
+	every example.  Patch provided by Tatavarty Kalyan
+
 2005-04-25  John (J5) Palmieri  <johnp@redhat.com>
 
 	* NEWS: Update to 0.33
