@@ -1048,6 +1048,15 @@ dbus_g_object_class_install_info (GObjectClass          *object_class,
   g_static_rw_lock_writer_unlock (&info_hash_lock);
 }
 
+static void
+unregister_gobject (DBusGConnection *connection, GObject *dead)
+{
+  char *path;
+  path = g_object_steal_data (dead, "dbus_glib_object_path");
+  dbus_connection_unregister_object_path (DBUS_CONNECTION_FROM_G_CONNECTION (connection), path);
+  g_free (path);
+}
+
 /**
  * Registers a GObject at the given path. Properties, methods, and signals
  * of the object can then be accessed remotely. Methods are only available
@@ -1073,12 +1082,13 @@ dbus_g_connection_register_g_object (DBusGConnection       *connection,
   if (!dbus_connection_register_object_path (DBUS_CONNECTION_FROM_G_CONNECTION (connection),
                                              at_path,
                                              &gobject_dbus_vtable,
-                                             object))
+                                             object)) {
     g_error ("Failed to register GObject with DBusConnection");
+    return;
+  }
 
-  /* FIXME set up memory management (so we break the
-   * registration if object or connection vanishes)
-   */
+  g_object_set_data (object, "dbus_glib_object_path", g_strdup (at_path));
+  g_object_weak_ref (object, (GWeakNotify)unregister_gobject, connection);
 }
 
 /** @} */ /* end of public API */

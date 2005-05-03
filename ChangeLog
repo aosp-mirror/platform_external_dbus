@@ -1,3 +1,10 @@
+2005-05-03  Ross Burton  <ross@burtonini.com>
+
+	* glib/dbus-gobject.c (dbus_g_connection_register_g_object):
+	Return if we get an error during registration.  Set up a
+	weak reference on object to unregister if object is destroyed.
+	(unregister_gobject): New function.
+	
 2005-05-01  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/dbus_bindings.pyx.in: 
