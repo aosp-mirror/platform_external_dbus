@@ -1,4 +1,13 @@
-2005-05-04  John (J5) Palmieir  <johnp@redhat.com>
+2005-05-05  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Fix my name in previous changelog ;)
+
+	* python/proxies.py (ProxyObject.__getattr__): add further patch
+	from Anthony Baxter to throw an AttributeError when python 
+	__special__ functions are called instead of marshling them over 
+	the bus (Bug#1685 comment 3).
+
+2005-05-04  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/Makefile.am: changed to use pyexecdir for the binding
 	shared libraries (Bug#2494)
