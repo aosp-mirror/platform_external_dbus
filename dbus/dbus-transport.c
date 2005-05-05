@@ -153,6 +153,8 @@ _dbus_transport_init_base (DBusTransport             *transport,
   transport->unix_user_function = NULL;
   transport->unix_user_data = NULL;
   transport->free_unix_user_data = NULL;
+
+  transport->expected_guid = NULL;
   
   /* Try to default to something that won't totally hose the system,
    * but doesn't impose too much of a limitation.
@@ -195,6 +197,7 @@ _dbus_transport_finalize_base (DBusTransport *transport)
                             0, NULL, NULL);
   _dbus_counter_unref (transport->live_messages_size);
   dbus_free (transport->address);
+  dbus_free (transport->expected_guid);
 }
 
 /**
@@ -213,7 +216,9 @@ _dbus_transport_open (DBusAddressEntry *entry,
   const char *address_problem_type;
   const char *address_problem_field;
   const char *address_problem_other;
-  const char *method;     
+  const char *method;
+  const char *expected_guid_orig;
+  char *expected_guid;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
@@ -221,6 +226,14 @@ _dbus_transport_open (DBusAddressEntry *entry,
   address_problem_type = NULL;
   address_problem_field = NULL;
   address_problem_other = NULL;
+  expected_guid_orig = dbus_address_entry_get_value (entry, "guid");
+  expected_guid = _dbus_strdup (expected_guid_orig);
+
+  if (expected_guid_orig != NULL && expected_guid == NULL)
+    {
+      _DBUS_SET_OOM (error);
+      return NULL;
+    }
   
   method = dbus_address_entry_get_method (entry);
   _dbus_assert (method != NULL);
@@ -306,11 +319,20 @@ _dbus_transport_open (DBusAddressEntry *entry,
     }
 
   if (transport == NULL)
-    _DBUS_ASSERT_ERROR_IS_SET (error);
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_free (expected_guid);
+    }
+  else
+    {
+      transport->expected_guid = expected_guid;
+    }
   
   return transport;
   
  bad_address:
+  dbus_free (expected_guid);
+  
   if (address_problem_type != NULL)
     dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
                     "Address of type %s was missing argument %s",
@@ -442,6 +464,35 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
               maybe_authenticated = FALSE;
             }
         }
+
+      if (maybe_authenticated && !transport->is_server)
+        {
+          const char *server_guid;
+
+          server_guid = _dbus_auth_get_guid_from_server (transport->auth);
+          _dbus_assert (server_guid != NULL);
+
+          if (transport->expected_guid &&
+              strcmp (transport->expected_guid, server_guid) != 0)
+            {
+              _dbus_verbose ("Client expected GUID '%s' and we got '%s' from the server\n",
+                             transport->expected_guid, server_guid);
+              _dbus_transport_disconnect (transport);
+              _dbus_connection_unref_unlocked (transport->connection);
+              return FALSE;
+            }
+
+          if (transport->expected_guid == NULL)
+            {
+              transport->expected_guid = _dbus_strdup (server_guid);
+
+              if (transport->expected_guid == NULL)
+                {
+                  _dbus_verbose ("No memory to complete auth in %s\n", _DBUS_FUNCTION_NAME);
+                  return FALSE;
+                }
+            }
+        }
       
       /* If we've authenticated as some identity, check that the auth
        * identity is the same as our own identity.  In the future, we
@@ -518,7 +569,7 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
                 }
             }
         }
-
+      
       transport->authenticated = maybe_authenticated;
 
       _dbus_connection_unref_unlocked (transport->connection);

@@ -31,10 +31,6 @@ Important for 1.0
 
  - dbus-pending-call.c has some API and thread safety issues to review
 
- - transmit GUID from server to client in the auth protocol, so 
-   connections can be shared even if the address used to connect
-   to them didn't have a GUID in it.
-
  - Add test harness for selinux allow/deny cf. this message
    http://lists.freedesktop.org/archives/dbus/2005-April/002506.html
 
@@ -62,6 +58,9 @@ Might as Well for 1.0
 
 Can Be Post 1.0
 ===
+
+ - if the GUID is obtained only during authentication, not in the address, 
+   we could still share the connection
 
  - Allow a dbus_g_proxy_to_string()/g_object_to_string() that
    would convert the proxy to an "IOR" and dbus_g_proxy_from_string()

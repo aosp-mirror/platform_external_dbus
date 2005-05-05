@@ -1337,7 +1337,7 @@
 
         <itemizedlist>
 	  <listitem><para>REJECTED &lt;space-separated list of mechanism names&gt;</para></listitem>
-	  <listitem><para>OK</para></listitem>
+	  <listitem><para>OK &lt;GUID in hex&gt;</para></listitem>
 	  <listitem><para>DATA &lt;data in hex encoding&gt;</para></listitem>
 	  <listitem><para>ERROR</para></listitem>
 	</itemizedlist>
@@ -1478,6 +1478,10 @@
         The server must not accept additional commands using this protocol 
         after the OK command has been sent.
       </para>
+      <para>
+        The OK command has one argument, which is the GUID of the server.
+        See <xref linkend="addresses"/> for more on server GUIDs.
+      </para>
     </sect2>
     <sect2 id="auth-command-error">
       <title>ERROR Command</title>
@@ -1516,7 +1520,7 @@
             (MAGIC_COOKIE is a made up mechanism)
 
             C: AUTH MAGIC_COOKIE 3138363935333137393635383634
-            S: OK
+            S: OK 1234deadbeef
             C: BEGIN
           </programlisting>
 	</figure>
@@ -1528,7 +1532,7 @@
             C: AUTH SKEY 7ab83f32ee
             S: DATA 8799cabb2ea93e
             C: DATA 8ac876e8f68ee9809bfa876e6f9876g8fa8e76e98f
-            S: OK
+            S: OK 1234deadbeef
             C: BEGIN
           </programlisting>
 	</figure>
@@ -1538,7 +1542,7 @@
             C: FOOBAR
             S: ERROR
             C: AUTH MAGIC_COOKIE 3736343435313230333039
-            S: OK
+            S: OK 1234deadbeef
             C: BEGIN
           </programlisting>
 	</figure>
@@ -1550,7 +1554,7 @@
             C: AUTH SKEY 7ab83f32ee
             S: DATA 8799cabb2ea93e
             C: DATA 8ac876e8f68ee9809bfa876e6f9876g8fa8e76e98f
-            S: OK
+            S: OK 1234deadbeef
             C: BEGIN
           </programlisting>
 	</figure>
@@ -1566,7 +1570,7 @@
             C: AUTH SKEY 7ab83f32ee
             S: DATA 8799cabb2ea93e
             C: DATA 8ac876e8f68ee9809bfa876e6f9876g8fa8e76e98f
-            S: OK
+            S: OK 1234deadbeef
             C: BEGIN
           </programlisting>
 	</figure>
@@ -1582,7 +1586,7 @@
             C: AUTH SKEY 7ab83f32ee
             S: DATA 8799cabb2ea93e
             C: DATA 8ac876e8f68ee9809bfa876e6f9876g8fa8e76e98f
-            S: OK
+            S: OK 1234deadbeef
             C: BEGIN
           </programlisting>
 	</figure>

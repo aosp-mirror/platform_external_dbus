@@ -96,7 +96,9 @@ struct DBusTransport
   DBusCounter *live_messages_size;            /**< Counter for size of all live messages. */
 
 
-  char *address;                              /**< Address of this server */
+  char *address;                              /**< Address of the server we are connecting to (#NULL for the server side of a transport) */
+
+  char *expected_guid;                        /**< GUID we expect the server to have, #NULL on server side or if we don't have an expectation */
   
   DBusAllowUnixUserFunction unix_user_function; /**< Function for checking whether a user is authorized. */
   void *unix_user_data;                         /**< Data for unix_user_function */

@@ -199,6 +199,8 @@ typedef struct
   DBusAuth base;    /**< Parent class */
 
   DBusList *mechs_to_try; /**< Mechanisms we got from the server that we're going to try using */
+
+  DBusString guid_from_server; /**< GUID received from server */
   
 } DBusAuthClient;
 
@@ -226,7 +228,8 @@ static dbus_bool_t send_rejected             (DBusAuth *auth);
 static dbus_bool_t send_error                (DBusAuth *auth,
                                               const char *message);
 static dbus_bool_t send_ok                   (DBusAuth *auth);
-static dbus_bool_t send_begin                (DBusAuth *auth);
+static dbus_bool_t send_begin                (DBusAuth *auth,
+                                              const DBusString *args_from_ok);
 static dbus_bool_t send_cancel               (DBusAuth *auth);
 
 /**
@@ -1329,25 +1332,69 @@ send_error (DBusAuth *auth, const char *message)
 static dbus_bool_t
 send_ok (DBusAuth *auth)
 {
-  if (_dbus_string_append (&auth->outgoing, "OK\r\n"))
+  int orig_len;
+
+  orig_len = _dbus_string_get_length (&auth->outgoing);
+  
+  if (_dbus_string_append (&auth->outgoing, "OK ") &&
+      _dbus_string_copy (& DBUS_AUTH_SERVER (auth)->guid,
+                         0,
+                         &auth->outgoing,
+                         _dbus_string_get_length (&auth->outgoing)) &&
+      _dbus_string_append (&auth->outgoing, "\r\n"))
     {
       goto_state (auth, &server_state_waiting_for_begin);
       return TRUE;
     }
   else
-    return FALSE;
+    {
+      _dbus_string_set_length (&auth->outgoing, orig_len);
+      return FALSE;
+    }
 }
 
 static dbus_bool_t
-send_begin (DBusAuth *auth)
+send_begin (DBusAuth         *auth,
+            const DBusString *args_from_ok)
 {
-  if (_dbus_string_append (&auth->outgoing, "BEGIN\r\n"))
+  int end_of_hex;
+  
+  /* "args_from_ok" should be the GUID, whitespace already pulled off the front */
+  _dbus_assert (_dbus_string_get_length (& DBUS_AUTH_CLIENT (auth)->guid_from_server) == 0);
+
+  /* We decode the hex string to binary, using guid_from_server as scratch... */
+  
+  end_of_hex = 0;
+  if (!_dbus_string_hex_decode (args_from_ok, 0, &end_of_hex,
+                                & DBUS_AUTH_CLIENT (auth)->guid_from_server, 0))
+    return FALSE;
+
+  /* now clear out the scratch */
+  _dbus_string_set_length (& DBUS_AUTH_CLIENT (auth)->guid_from_server, 0);
+  
+  if (end_of_hex != _dbus_string_get_length (args_from_ok) ||
+      end_of_hex == 0)
     {
+      _dbus_verbose ("Bad GUID from server, parsed %d bytes and had %d bytes from server\n",
+                     end_of_hex, _dbus_string_get_length (args_from_ok));
+      goto_state (auth, &common_state_need_disconnect);
+      return TRUE;
+    }
+
+  if (_dbus_string_copy (args_from_ok, 0, &DBUS_AUTH_CLIENT (auth)->guid_from_server, 0) &&
+      _dbus_string_append (&auth->outgoing, "BEGIN\r\n"))
+    {
+      _dbus_verbose ("Got GUID '%s' from the server\n",
+                     _dbus_string_get_const_data (& DBUS_AUTH_CLIENT (auth)->guid_from_server));
+      
       goto_state (auth, &common_state_authenticated);
       return TRUE;
     }
   else
-    return FALSE;
+    {
+      _dbus_string_set_length (& DBUS_AUTH_CLIENT (auth)->guid_from_server, 0);
+      return FALSE;
+    }
 }
 
 static dbus_bool_t
@@ -1364,8 +1411,8 @@ send_cancel (DBusAuth *auth)
 
 static dbus_bool_t
 process_data (DBusAuth             *auth,
-             const DBusString     *args,
-             DBusAuthDataFunction  data_func)
+              const DBusString     *args,
+              DBusAuthDataFunction  data_func)
 {
   int end;
   DBusString decoded;
@@ -1710,7 +1757,7 @@ handle_client_state_waiting_for_data (DBusAuth         *auth,
       return process_rejected (auth, args);
 
     case DBUS_AUTH_COMMAND_OK:
-      return send_begin (auth);
+      return send_begin (auth, args);
 
     case DBUS_AUTH_COMMAND_ERROR:
       return send_cancel (auth);
@@ -1735,7 +1782,7 @@ handle_client_state_waiting_for_ok (DBusAuth         *auth,
       return process_rejected (auth, args);
 
     case DBUS_AUTH_COMMAND_OK:
-      return send_begin (auth);
+      return send_begin (auth, args);
 
     case DBUS_AUTH_COMMAND_DATA:
     case DBUS_AUTH_COMMAND_ERROR:
@@ -1974,10 +2021,19 @@ DBusAuth*
 _dbus_auth_client_new (void)
 {
   DBusAuth *auth;
+  DBusString guid_str;
+
+  if (!_dbus_string_init (&guid_str))
+    return NULL;
 
   auth = _dbus_auth_new (sizeof (DBusAuthClient));
   if (auth == NULL)
-    return NULL;
+    {
+      _dbus_string_free (&guid_str);
+      return NULL;
+    }
+
+  DBUS_AUTH_CLIENT (auth)->guid_from_server = guid_str;
 
   auth->side = auth_side_client;
   auth->state = &client_state_need_send_auth;
@@ -2027,6 +2083,7 @@ _dbus_auth_unref (DBusAuth *auth)
 
       if (DBUS_AUTH_IS_CLIENT (auth))
         {
+          _dbus_string_free (& DBUS_AUTH_CLIENT (auth)->guid_from_server);
           _dbus_list_clear (& DBUS_AUTH_CLIENT (auth)->mechs_to_try);
         }
       else
@@ -2399,6 +2456,23 @@ _dbus_auth_get_identity (DBusAuth               *auth,
     *credentials = auth->authorized_identity;
   else
     _dbus_credentials_clear (credentials);
+}
+
+/**
+ * Gets the GUID from the server if we've authenticated; gets
+ * #NULL otherwise.
+ * @param auth the auth object
+ * @returns the GUID in ASCII hex format
+ */
+const char*
+_dbus_auth_get_guid_from_server (DBusAuth *auth)
+{
+  _dbus_assert (DBUS_AUTH_IS_CLIENT (auth));
+  
+  if (auth->state == &common_state_authenticated)
+    return _dbus_string_get_const_data (& DBUS_AUTH_CLIENT (auth)->guid_from_server);
+  else
+    return NULL;
 }
 
 /**

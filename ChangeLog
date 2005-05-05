@@ -1,3 +1,20 @@
+2005-05-05  Havoc Pennington  <hp@redhat.com>
+
+	* configure.in (LT_*): add notes on how the libtool versioning
+	works to save thinking. Increment soname to indicate protocol
+	breakage (though really the library interface hasn't changed I
+	guess)
+
+	* dbus/dbus-transport.c (_dbus_transport_get_is_authenticated):
+	verify the GUID received from server matches what we were
+	expecting, if we had an expectation
+
+	* dbus/dbus-auth.c (send_ok): send GUID along with the OK command
+	(_dbus_auth_get_guid_from_server): new function
+	(send_begin): parse the OK args
+
+	* doc/dbus-specification.xml: add GUID to the auth protocol
+
 2005-05-05  John (J5) Palmieri  <johnp@redhat.com>
 
 	* Fix my name in previous changelog ;)
