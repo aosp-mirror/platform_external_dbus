@@ -56,7 +56,7 @@
  * Does the chdir, fork, setsid, etc. to become a daemon process.
  *
  * @param pidfile #NULL, or pidfile to create
- * @param print_pid_fd file descriptor to print pid to, or -1 for none
+ * @param print_pid_fd file descriptor to print daemon's pid to, or -1 for none
  * @param error return location for errors
  * @returns #FALSE on failure
  */
@@ -142,7 +142,7 @@ _dbus_become_daemon (const DBusString *pidfile,
 	      return FALSE;
 	    }
 	  
-	  if (!_dbus_string_append_int (&pid, _dbus_getpid ()) ||
+	  if (!_dbus_string_append_int (&pid, child_pid) ||
 	      !_dbus_string_append (&pid, "\n"))
 	    {
 	      _dbus_string_free (&pid);

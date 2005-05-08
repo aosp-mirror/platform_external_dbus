@@ -1,3 +1,9 @@
+2005-05-08  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-sysdeps-util.c (_dbus_become_daemon): write the
+	daemon's pid, not the parent's pid, to the file descriptor.
+	Reported by Taj Morton.
+
 2005-05-05  Havoc Pennington  <hp@redhat.com>
 
 	* configure.in (LT_*): add notes on how the libtool versioning
