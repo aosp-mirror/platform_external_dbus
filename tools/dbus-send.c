@@ -27,11 +27,90 @@
 
 #include "dbus-print-message.h"
 
+static const char *appname;
+
 static void
-usage (char *name, int ecode)
+usage (int ecode)
 {
-  fprintf (stderr, "Usage: %s [--help] [--system | --session] [--dest=NAME] [--type=TYPE] [--print-reply] [--reply-timeout=MSEC] <destination object path> <message name> [contents ...]\n", name);
+  fprintf (stderr, "Usage: %s [--help] [--system | --session] [--dest=NAME] [--type=TYPE] [--print-reply] [--reply-timeout=MSEC] <destination object path> <message name> [contents ...]\n", appname);
   exit (ecode);
+}
+
+static void
+append_arg (DBusMessageIter *iter, int type, const char *value)
+{
+  dbus_uint32_t uint32;
+  dbus_int32_t int32;
+  double d;
+  unsigned char byte;
+  dbus_bool_t v_BOOLEAN;
+  
+  /* FIXME - we are ignoring OOM returns on all these functions */
+  switch (type)
+    {
+    case DBUS_TYPE_BYTE:
+      byte = strtoul (value, NULL, 0);
+      dbus_message_iter_append_basic (iter, DBUS_TYPE_BYTE, &byte);
+      break;
+
+    case DBUS_TYPE_DOUBLE:
+      d = strtod (value, NULL);
+      dbus_message_iter_append_basic (iter, DBUS_TYPE_DOUBLE, &d);
+      break;
+
+    case DBUS_TYPE_INT32:
+      int32 = strtol (value, NULL, 0);
+      dbus_message_iter_append_basic (iter, DBUS_TYPE_INT32, &int32);
+      break;
+
+    case DBUS_TYPE_UINT32:
+      uint32 = strtoul (value, NULL, 0);
+      dbus_message_iter_append_basic (iter, DBUS_TYPE_UINT32, &uint32);
+      break;
+
+    case DBUS_TYPE_STRING:
+      dbus_message_iter_append_basic (iter, DBUS_TYPE_STRING, &value);
+      break;
+
+    case DBUS_TYPE_OBJECT_PATH:
+      dbus_message_iter_append_basic (iter, DBUS_TYPE_OBJECT_PATH, &value);
+      break;
+
+    case DBUS_TYPE_BOOLEAN:
+      if (strcmp (value, "true") == 0)
+	{
+	  v_BOOLEAN = TRUE;
+	  dbus_message_iter_append_basic (iter, DBUS_TYPE_BOOLEAN, &v_BOOLEAN);
+	}
+      else if (strcmp (value, "false") == 0)
+	{
+	  v_BOOLEAN = FALSE;
+	  dbus_message_iter_append_basic (iter, DBUS_TYPE_BOOLEAN, &v_BOOLEAN);
+	}
+      else
+	{
+	  fprintf (stderr, "%s: Expected \"true\" or \"false\" instead of \"%s\"\n", appname, value);
+	  exit (1);
+	}
+      break;
+
+    default:
+      fprintf (stderr, "%s: Unsupported data type %c\n", appname, (char) type);
+      exit (1);
+    }
+}
+
+static void
+append_array (DBusMessageIter *iter, int type, const char *value)
+{
+  const char *c;
+
+  append_arg (iter, type, value);
+  c = value;
+  while ((c = strchr (c + 1, ',')) != NULL)
+    {
+      append_arg (iter, type, c);
+    }
 }
 
 int
@@ -50,9 +129,11 @@ main (int argc, char *argv[])
   const char *path = NULL;
   int message_type = DBUS_MESSAGE_TYPE_SIGNAL;
   const char *type_str = NULL;
+
+  appname = argv[0];
   
   if (argc < 3)
-    usage (argv[0], 1);
+    usage (1);
 
   print_reply = FALSE;
   reply_timeout = -1;
@@ -80,19 +161,19 @@ main (int argc, char *argv[])
       else if (strstr (arg, "--type=") == arg)
 	type_str = strchr (arg, '=') + 1;
       else if (!strcmp(arg, "--help"))
-	usage (argv[0], 0);
+	usage (0);
       else if (arg[0] == '-')
-	usage (argv[0], 1);
+	usage (1);
       else if (path == NULL)
         path = arg;
       else if (name == NULL)
         name = arg;
       else
-        usage (argv[0], 1);
+        usage (1);
     }
 
   if (name == NULL)
-    usage (argv[0], 1);
+    usage (1);
 
   if (type_str != NULL)
     {
@@ -175,11 +256,9 @@ main (int argc, char *argv[])
       char *arg;
       char *c;
       int type;
-      dbus_uint32_t uint32;
-      dbus_int32_t int32;
-      double d;
-      unsigned char byte;
-      dbus_bool_t v_BOOLEAN;
+      int container_type;
+      DBusMessageIter *target_iter;
+      DBusMessageIter container_iter;
 
       type = DBUS_TYPE_INVALID;
       arg = argv[i++];
@@ -193,6 +272,25 @@ main (int argc, char *argv[])
 
       *(c++) = 0;
 
+      container_type = DBUS_TYPE_INVALID;
+
+      if (strcmp (arg, "variant") == 0)
+	container_type = DBUS_TYPE_VARIANT;
+      else if (strcmp (arg, "array") == 0)
+	container_type = DBUS_TYPE_ARRAY;
+
+      if (container_type != DBUS_TYPE_INVALID)
+	{
+	  arg = c;
+	  c = strchr (arg, ':');
+	  if (c == NULL)
+	    {
+	      fprintf (stderr, "%s: Data item \"%s\" is badly formed\n", argv[0], arg);
+	      exit (1);
+	    }
+	  *(c++) = 0;
+	}
+
       if (arg[0] == 0 || !strcmp (arg, "string"))
 	type = DBUS_TYPE_STRING;
       else if (!strcmp (arg, "int32"))
@@ -205,60 +303,39 @@ main (int argc, char *argv[])
 	type = DBUS_TYPE_BYTE;
       else if (!strcmp (arg, "boolean"))
 	type = DBUS_TYPE_BOOLEAN;
+      else if (!strcmp (arg, "objpath"))
+	type = DBUS_TYPE_OBJECT_PATH;
       else
 	{
-	  fprintf (stderr, "%s: Unknown type \"%s\"\n", argv[0], arg);
+	  fprintf (stderr, "%s: Unknown type \"%s\"\n", appname, arg);
 	  exit (1);
 	}
 
-      /* FIXME - we are ignoring OOM returns on all these functions */
-      switch (type)
+      if (container_type != DBUS_TYPE_INVALID)
 	{
-	case DBUS_TYPE_BYTE:
-	  byte = strtoul (c, NULL, 0);
-	  dbus_message_iter_append_basic (&iter, DBUS_TYPE_BYTE, &byte);
-	  break;
+	  char sig[2];
+	  sig[0] = type;
+	  sig[1] = '\0';
+	  dbus_message_iter_open_container (&iter,
+					    container_type,
+					    sig,
+					    &container_iter);
+	  target_iter = &container_iter;
+	}
+      else
+	target_iter = &iter;
 
-	case DBUS_TYPE_DOUBLE:
-	  d = strtod (c, NULL);
-	  dbus_message_iter_append_basic (&iter, DBUS_TYPE_DOUBLE, &d);
-	  break;
+      if (container_type == DBUS_TYPE_ARRAY)
+	{
+	  append_array (target_iter, type, c);
+	}
+      else
+	append_arg (target_iter, type, c);
 
-	case DBUS_TYPE_INT32:
-	  int32 = strtol (c, NULL, 0);
-	  dbus_message_iter_append_basic (&iter, DBUS_TYPE_INT32, &int32);
-	  break;
-
-	case DBUS_TYPE_UINT32:
-	  uint32 = strtoul (c, NULL, 0);
-	  dbus_message_iter_append_basic (&iter, DBUS_TYPE_UINT32, &uint32);
-	  break;
-
-	case DBUS_TYPE_STRING:
-	  dbus_message_iter_append_basic (&iter, DBUS_TYPE_STRING, &c);
-	  break;
-
-	case DBUS_TYPE_BOOLEAN:
-          if (strcmp(c, "true") == 0)
-            {
-              v_BOOLEAN = TRUE;
-              dbus_message_iter_append_basic (&iter, DBUS_TYPE_BOOLEAN, &v_BOOLEAN);
-            }
-	  else if (strcmp(c, "false") == 0)
-            {
-              v_BOOLEAN = FALSE;
-              dbus_message_iter_append_basic (&iter, DBUS_TYPE_BOOLEAN, &v_BOOLEAN);
-            }
-	  else
-	    {
-	      fprintf (stderr, "%s: Expected \"true\" or \"false\" instead of \"%s\"\n", argv[0], c);
-	      exit (1);
-	    }
-	  break;
-
-	default:
-	  fprintf (stderr, "%s: Unsupported data type\n", argv[0]);
-	  exit (1);
+      if (container_type != DBUS_TYPE_INVALID)
+	{
+	  dbus_message_iter_close_container (&iter,
+					     &container_iter);
 	}
     }
 

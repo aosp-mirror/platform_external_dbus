@@ -1,5 +1,31 @@
 2005-05-11  Colin Walters  <walters@verbum.org>
 
+	* tools/dbus-send.c (append_array): New function.
+	(append_arg): Broken out from main.
+	(main): Add cheesy hack to send arrays and variants.
+	(usage): Update.
+	* tools/dbus-print-message.c (print_iter): Broken out
+	from main.
+
+2005-05-11  Colin Walters  <walters@verbum.org>
+
+	* dbus/dbus-signature.c (dbus_signature_iter_get_signature):
+	New function, returns signature string for signature iter.
+	* dbus/dbus-signature.h: Prototype it.
+	* dbus/dbus-message.c (dbus_message_iter_get_signature):
+	New function, returns signature string for message iter.
+	(dbus_message_iter_get_array_len): New function, returns
+	length of array.
+	(dbus_message_iter_get_fixed_array): Fix assertion; this
+	function should be used when the iter is pointing to the
+	contents of an array
+	* dbus/dbus-message.h: Prototypes.
+	* dbus/dbus-marshal-recursive.c (_dbus_type_reader_get_array_length):
+	New function; returns length of an array.
+	* dbus/dbus-marshal-recursive.h: Prototype it.
+	
+2005-05-11  Colin Walters  <walters@verbum.org>
+
 	* dbus/dbus-sysdeps-util.c <!HAVE_POSIX_GETPWNAM_R>: Fix
 	compilation error.
 	

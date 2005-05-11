@@ -39,6 +39,94 @@ type_to_name (int message_type)
     }
 }
 
+static void
+print_iter (DBusMessageIter *iter, int depth)
+{
+  do
+    {
+      int type = dbus_message_iter_get_arg_type (iter);
+      const char *str;
+      dbus_uint32_t uint32;
+      dbus_int32_t int32;
+      double d;
+      unsigned char byte;
+      dbus_bool_t boolean;
+
+      if (type == DBUS_TYPE_INVALID)
+	break;
+
+      while (depth-- > 0)
+	putc (' ', stdout);
+
+      switch (type)
+	{
+	case DBUS_TYPE_STRING:
+          dbus_message_iter_get_basic (iter, &str);
+	  printf ("string \"%s\"\n", str);
+	  break;
+
+	case DBUS_TYPE_INT32:
+          dbus_message_iter_get_basic (iter, &int32);
+	  printf ("int32 %d\n", int32);
+	  break;
+
+	case DBUS_TYPE_UINT32:
+          dbus_message_iter_get_basic (iter, &uint32);
+	  printf ("uint32 %u\n", uint32);
+	  break;
+
+	case DBUS_TYPE_DOUBLE:
+	  dbus_message_iter_get_basic (iter, &d);
+	  printf ("double %g\n", d);
+	  break;
+
+	case DBUS_TYPE_BYTE:
+	  dbus_message_iter_get_basic (iter, &byte);
+	  printf ("byte %d\n", byte);
+	  break;
+
+	case DBUS_TYPE_BOOLEAN:
+          dbus_message_iter_get_basic (iter, &boolean);
+	  printf ("boolean %s\n", boolean ? "true" : "false");
+	  break;
+
+	case DBUS_TYPE_VARIANT:
+	  {
+	    DBusMessageIter subiter;
+
+	    dbus_message_iter_recurse (iter, &subiter);
+
+	    printf ("variant:");
+	    print_iter (&subiter, depth);
+	    break;
+	  }
+	case DBUS_TYPE_ARRAY:
+	  {
+	    int current_type;
+	    DBusMessageIter subiter;
+
+	    dbus_message_iter_recurse (iter, &subiter);
+
+	    printf("[");
+	    while ((current_type = dbus_message_iter_get_arg_type (&subiter)) != DBUS_TYPE_INVALID)
+	      {
+		print_iter (&subiter, depth);
+		dbus_message_iter_next (&subiter);
+		if (dbus_message_iter_get_arg_type (&subiter) != DBUS_TYPE_INVALID)
+		  printf (",");
+	      }
+	    printf("]");
+	    break;
+	  }
+	    
+	default:
+	  printf (" (dbus-monitor too dumb to decipher arg type '%c')\n", type);
+	  break;
+	}
+      
+    } while (dbus_message_iter_next (iter));
+}
+
 void
 print_message (DBusMessage *message)
 {
@@ -46,7 +134,6 @@ print_message (DBusMessage *message)
   const char *sender;
   const char *destination;
   int message_type;
-  int count;
 
   message_type = dbus_message_get_type (message);
   sender = dbus_message_get_sender (message);
@@ -81,59 +168,7 @@ print_message (DBusMessage *message)
     }
 
   dbus_message_iter_init (message, &iter);
-  count = 0;
+  print_iter (&iter, 1);
   
-  do
-    {
-      int type = dbus_message_iter_get_arg_type (&iter);
-      const char *str;
-      dbus_uint32_t uint32;
-      dbus_int32_t int32;
-      double d;
-      unsigned char byte;
-      dbus_bool_t boolean;
-
-      if (type == DBUS_TYPE_INVALID)
-	break;
-
-      switch (type)
-	{
-	case DBUS_TYPE_STRING:
-          dbus_message_iter_get_basic (&iter, &str);
-	  printf (" %d string \"%s\"\n", count, str);
-	  break;
-
-	case DBUS_TYPE_INT32:
-          dbus_message_iter_get_basic (&iter, &int32);
-	  printf (" %d int32 %d\n", count, int32);
-	  break;
-
-	case DBUS_TYPE_UINT32:
-          dbus_message_iter_get_basic (&iter, &uint32);
-	  printf (" %d uint32 %u\n", count, uint32);
-	  break;
-
-	case DBUS_TYPE_DOUBLE:
-	  dbus_message_iter_get_basic (&iter, &d);
-	  printf (" %d double %g\n", count, d);
-	  break;
-
-	case DBUS_TYPE_BYTE:
-	  dbus_message_iter_get_basic (&iter, &byte);
-	  printf (" %d byte %d\n", count, byte);
-	  break;
-
-	case DBUS_TYPE_BOOLEAN:
-          dbus_message_iter_get_basic (&iter, &boolean);
-	  printf (" %d boolean %s\n", count, boolean ? "true" : "false");
-	  break;
-
-	default:
-	  printf (" (dbus-monitor too dumb to decipher arg type '%c')\n", type);
-	  break;
-	}
-      
-      count += 1;
-    } while (dbus_message_iter_next (&iter));
 }
 
