@@ -607,7 +607,7 @@ fill_group_info (DBusGroupInfo    *info,
       result = getgrgid_r (gid, &g_str, buf, sizeof (buf),
                            &g);
 #else
-    p = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf));
+    g = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf));
     result = 0;
 #endif /* !HAVE_POSIX_GETPWNAM_R */
     if (result == 0 && g == &g_str)

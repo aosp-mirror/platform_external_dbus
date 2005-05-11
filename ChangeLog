@@ -1,3 +1,8 @@
+2005-05-11  Colin Walters  <walters@verbum.org>
+
+	* dbus/dbus-sysdeps-util.c <!HAVE_POSIX_GETPWNAM_R>: Fix
+	compilation error.
+	
 2005-05-08  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-sysdeps-util.c (_dbus_become_daemon): write the
