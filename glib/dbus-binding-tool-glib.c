@@ -34,11 +34,12 @@
 #include <string.h>
 #include <unistd.h>
 
-#define MARSHAL_PREFIX "dbus_glib_marshal"
+#define MARSHAL_PREFIX "dbus_glib_marshal_"
 
 typedef struct
 {
   gboolean ignore_unsupported;
+  const char* prefix;
   GIOChannel *channel;
   
   GError **error;
@@ -115,14 +116,16 @@ compute_marshaller (MethodInfo *method, GError **error)
 }
 
 static char *
-compute_marshaller_name (MethodInfo *method, GError **error)
+compute_marshaller_name (MethodInfo *method, const char *prefix, GError **error)
 {
   GSList *elt;
   GString *ret;
 
   /* All methods required to return boolean for now;
    * will be conditional on method info later */
-  ret = g_string_new (MARSHAL_PREFIX "_BOOLEAN_");
+  ret = g_string_new (MARSHAL_PREFIX);
+  g_string_append (ret, prefix);
+  g_string_append (ret, "_BOOLEAN_");
 
   /* Append input arguments */
   for (elt = method_info_get_args (method); elt; elt = elt->next)
@@ -342,7 +345,7 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 					  method_c_name))
 	    goto io_lose;
 
-          marshaller_name = compute_marshaller_name (method, error);
+          marshaller_name = compute_marshaller_name (method, data->prefix, error);
 	  if (!marshaller_name)
 	    goto io_lose;
 
@@ -452,7 +455,7 @@ write_marshaller (gpointer key, gpointer value, gpointer user_data)
 }
 
 gboolean
-dbus_binding_tool_output_glib_server (BaseInfo *info, GIOChannel *channel, GError **error)
+dbus_binding_tool_output_glib_server (BaseInfo *info, GIOChannel *channel, const char *prefix, GError **error)
 {
   gboolean ret;
   GPtrArray *argv;
@@ -468,6 +471,7 @@ dbus_binding_tool_output_glib_server (BaseInfo *info, GIOChannel *channel, GErro
 
   memset (&data, 0, sizeof (data));
 
+  data.prefix = prefix;
   data.generated = g_hash_table_new_full (g_str_hash, g_str_equal, (GDestroyNotify) g_free, NULL);
   data.error = error;
   genmarshal_stdout = NULL;
@@ -501,7 +505,7 @@ dbus_binding_tool_output_glib_server (BaseInfo *info, GIOChannel *channel, GErro
   g_ptr_array_add (argv, "glib-genmarshal");
   g_ptr_array_add (argv, "--header");
   g_ptr_array_add (argv, "--body");
-  g_ptr_array_add (argv, "--prefix=" MARSHAL_PREFIX);
+  g_ptr_array_add (argv, g_strdup_printf ("--prefix=%s%s", MARSHAL_PREFIX, prefix));
   g_ptr_array_add (argv, tempfile_name);
   g_ptr_array_add (argv, NULL);
   if (!g_spawn_async_with_pipes (NULL, (char**)argv->pdata, NULL,

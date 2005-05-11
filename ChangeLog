@@ -1,3 +1,13 @@
+2005-05-11  Ross Burton  <ross@burtonini.com>
+
+	* glib/dbus-glib-tool.c: Add --prefix argument.
+	* glib/dbus-binding-tool-glib.h: Add prefix argument.
+	* glib/dbus-binding-tool-glib.c (compute_marshaller_name):
+	Add prefix argument.
+	(generate_glue): Pass prefix argument down.
+	(dbus_binding_tool_output_glib_server): Pass prefix to
+	glib-genmarshal.
+	
 2005-05-11  Colin Walters  <walters@verbum.org>
 
 	* tools/dbus-send.c (append_array): New function.

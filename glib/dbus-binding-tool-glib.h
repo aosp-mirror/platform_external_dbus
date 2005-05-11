@@ -28,7 +28,7 @@ G_BEGIN_DECLS
 #define DBUS_GLIB_ANNOTATION_C_SYMBOL "org.freedesktop.DBus.GLib.CSymbol"
 
 gboolean dbus_binding_tool_output_glib_client (BaseInfo *info, GIOChannel *channel, gboolean ignore_unsupported, GError **error);
-gboolean dbus_binding_tool_output_glib_server (BaseInfo *info, GIOChannel *channel, GError **error);
+gboolean dbus_binding_tool_output_glib_server (BaseInfo *info, GIOChannel *channel, const char *prefix, GError **error);
 
 G_END_DECLS
 

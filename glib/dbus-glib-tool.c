@@ -265,6 +265,7 @@ main (int argc, char **argv)
 {
   const char *prev_arg;
   const char *output_file;
+  const char *prefix;
   char *output_file_tmp;
   int i;
   GSList *files;
@@ -291,6 +292,7 @@ main (int argc, char **argv)
   files = NULL;
   prev_arg = NULL;
   output_file = NULL;
+  prefix = "";
   ignore_unsupported = FALSE;
   force = FALSE;
   i = 1;
@@ -330,6 +332,10 @@ main (int argc, char **argv)
 	    {
 	      output_file = arg + 9;
 	    }
+          else if (strncmp (arg, "--prefix=", 9) == 0)
+            {
+              prefix = arg + 9;
+            }
           else if (arg[0] == '-' &&
                    arg[1] == '-' &&
                    arg[2] == '\0')
@@ -414,7 +420,7 @@ main (int argc, char **argv)
 	      pretty_print ((BaseInfo*) node, 0);
 	      break;
 	    case DBUS_BINDING_OUTPUT_GLIB_SERVER:
-	      if (!dbus_binding_tool_output_glib_server ((BaseInfo *) node, channel, &error))
+	      if (!dbus_binding_tool_output_glib_server ((BaseInfo *) node, channel, prefix, &error))
 		lose_gerror (_("Compilation failed"), error);
 	      break;
 	    case DBUS_BINDING_OUTPUT_GLIB_CLIENT:
