@@ -1613,6 +1613,41 @@ dbus_message_iter_recurse (DBusMessageIter  *iter,
 }
 
 /**
+ * Returns the current signature of a message iterator.  This
+ * is useful primarily for dealing with variants; one can
+ * recurse into a variant and determine the signature of
+ * the variant's value.
+ *
+ * @param iter the message iterator
+ * @returns the contained signature, or NULL if out of memory
+ */
+char *
+dbus_message_iter_get_signature (DBusMessageIter *iter)
+{
+  const DBusString *sig;
+  DBusString retstr;
+  char *ret;
+  int start, len;
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  _dbus_return_val_if_fail (_dbus_message_iter_check (real), NULL);
+
+  if (!_dbus_string_init (&retstr))
+    return NULL;
+
+  _dbus_type_reader_get_signature (&real->u.reader, &sig,
+				   &start, &len);
+  if (!_dbus_string_append_len (&retstr,
+				_dbus_string_get_const_data (sig) + start,
+				len))
+    return NULL;
+  if (!_dbus_string_steal_data (&retstr, &ret))
+    return NULL;
+  _dbus_string_free (&retstr);
+  return ret;
+}
+
+/**
  * Reads a basic-typed value from the message iterator.
  * Basic types are the non-containers such as integer and string.
  *
@@ -1661,6 +1696,22 @@ dbus_message_iter_get_basic (DBusMessageIter  *iter,
 }
 
 /**
+ * Returns the number of elements in the array;
+ *
+ * @param iter the iterator
+ * @returns the number of elements in the array
+ */
+int
+dbus_message_iter_get_array_len (DBusMessageIter *iter)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  _dbus_return_val_if_fail (_dbus_message_iter_check (real), 0);
+
+  return _dbus_type_reader_get_array_length (&real->u.reader);
+}
+
+/**
  * Reads a block of fixed-length values from the message iterator.
  * Fixed-length values are those basic types that are not string-like,
  * such as integers, bool, double. The block read will be from the
@@ -1686,7 +1737,7 @@ dbus_message_iter_get_fixed_array (DBusMessageIter  *iter,
 
   _dbus_return_if_fail (_dbus_message_iter_check (real));
   _dbus_return_if_fail (value != NULL);
-  _dbus_return_if_fail (dbus_type_is_fixed (_dbus_type_reader_get_element_type (&real->u.reader)));
+  _dbus_return_if_fail (dbus_type_is_fixed (_dbus_type_reader_get_current_type (&real->u.reader)));
 
   _dbus_type_reader_read_fixed_multi (&real->u.reader,
                                       value, n_elements);

@@ -50,6 +50,8 @@ void            dbus_signature_iter_init             (DBusSignatureIter       *i
 
 int             dbus_signature_iter_get_current_type (const DBusSignatureIter *iter);
 
+char *          dbus_signature_iter_get_signature    (const DBusSignatureIter *iter);
+
 int             dbus_signature_iter_get_element_type (const DBusSignatureIter *iter);
 
 dbus_bool_t     dbus_signature_iter_next             (DBusSignatureIter       *iter);

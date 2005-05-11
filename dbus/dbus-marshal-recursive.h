@@ -146,6 +146,7 @@ int         _dbus_type_reader_get_element_type          (const DBusTypeReader  *
 int         _dbus_type_reader_get_value_pos             (const DBusTypeReader  *reader);
 void        _dbus_type_reader_read_basic                (const DBusTypeReader  *reader,
                                                          void                  *value);
+int         _dbus_type_reader_get_array_length          (const DBusTypeReader  *reader);
 void        _dbus_type_reader_read_fixed_multi          (const DBusTypeReader  *reader,
                                                          void                  *value,
                                                          int                   *n_elements);

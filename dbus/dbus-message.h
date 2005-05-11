@@ -150,12 +150,14 @@ dbus_bool_t dbus_message_iter_init             (DBusMessage     *message,
                                                 DBusMessageIter *iter);
 dbus_bool_t dbus_message_iter_has_next         (DBusMessageIter *iter);
 dbus_bool_t dbus_message_iter_next             (DBusMessageIter *iter);
+char*       dbus_message_iter_get_signature    (DBusMessageIter *iter);
 int         dbus_message_iter_get_arg_type     (DBusMessageIter *iter);
 int         dbus_message_iter_get_element_type (DBusMessageIter *iter);
 void        dbus_message_iter_recurse          (DBusMessageIter *iter,
                                                 DBusMessageIter *sub);
 void        dbus_message_iter_get_basic        (DBusMessageIter *iter,
                                                 void            *value);
+int         dbus_message_iter_get_array_len    (DBusMessageIter *iter);
 void        dbus_message_iter_get_fixed_array  (DBusMessageIter *iter,
                                                 void            *value,
                                                 int             *n_elements);

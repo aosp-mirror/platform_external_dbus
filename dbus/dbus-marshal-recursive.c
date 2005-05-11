@@ -986,6 +986,21 @@ _dbus_type_reader_read_basic (const DBusTypeReader    *reader,
 }
 
 /**
+ * Returns the number of values remaining in the current array reader.
+ *
+ * @param reader the reader to read from
+ * @returns the number of elements remaining in the array
+ */
+int
+_dbus_type_reader_get_array_length (const DBusTypeReader  *reader)
+{
+  _dbus_assert (!reader->klass->types_only);
+  _dbus_assert (reader->klass == &array_reader_class);
+
+  return array_reader_get_array_len (reader);
+}
+
+/**
  * Reads a block of fixed-length basic values, from the current point
  * in an array to the end of the array.  Does not work for arrays of
  * string or container types.

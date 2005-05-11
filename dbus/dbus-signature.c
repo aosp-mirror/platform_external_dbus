@@ -82,6 +82,36 @@ dbus_signature_iter_get_current_type (const DBusSignatureIter *iter)
 }
 
 /**
+ * Returns the full type signature represented by the current
+ * iterator as a C string.
+ *
+ * @param iter pointer to an iterator 
+ * @returns current signature; or NULL on OOM.  Should be freed with #dbus_free
+ */
+char *
+dbus_signature_iter_get_signature (const DBusSignatureIter *iter)
+{
+  DBusSignatureRealIter *real_iter = (DBusSignatureRealIter *) iter;
+  DBusString str;
+  char *ret;
+  int pos;
+  
+  if (!_dbus_string_init (&str))
+    return NULL;
+
+  pos = 0;
+  _dbus_type_signature_next (real_iter->pos, &pos);
+
+  if (!_dbus_string_append_len (&str, real_iter->pos, pos))
+    return NULL;
+  if (!_dbus_string_steal_data (&str, &ret))
+    ret = NULL;
+  _dbus_string_free (&str);
+
+  return ret; 
+}
+
+/**
  * Convenience function for returning the element type of an array;
  * This function allows you to avoid initializing a sub-iterator and
  * getting its current type.
