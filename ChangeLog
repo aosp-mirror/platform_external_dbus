@@ -1,3 +1,16 @@
+2005-05-16  John (J5) Palmieri  <johnp@redhat.com>
+
+	* glib/dbus-gmain.c (io_handler_dispatch): fix deadlock
+	when using recursive g_main_loops
+
+	* python/_dbus.py (class Bus): add the ProxyObjectClass
+	alias for ProxyObject to make it easier for the Twisted 
+	networking framework to integrate dbus.
+
+	* python/proxies.py (class ProxyObject): add the ProxyMethodClass
+	alias for ProxyMethod to make it easier for the Twisted 
+	networking framework to integrate dbus. 
+
 2005-05-11  Ross Burton  <ross@burtonini.com>
 
 	* glib/dbus-glib-tool.c: Add --prefix argument.

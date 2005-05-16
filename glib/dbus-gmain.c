@@ -240,13 +240,7 @@ io_handler_dispatch (GIOChannel   *source,
   handler = NULL;
 
   if (connection)
-    {
-      /* Dispatch messages */
-      while (dbus_connection_dispatch (connection) == DBUS_DISPATCH_DATA_REMAINS)
-        ;
-      
-      dbus_connection_unref (connection);
-    }
+    dbus_connection_unref (connection);
   
   return TRUE;
 }
