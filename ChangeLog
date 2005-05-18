@@ -1,3 +1,11 @@
+2005-05-18  Havoc Pennington  <hp@redhat.com>
+
+	* configure.in: use GLIB_GNU_GETTEXT to get INTLLIBS and require
+	gettext. Not really worth requiring yet perhaps, but any
+	production quality 1.0 would require it so we should go ahead and
+	get things set up. We do have a couple token calls to
+	bindtextdomain in the code already.
+
 2005-05-16  John (J5) Palmieri  <johnp@redhat.com>
 
 	* glib/dbus-gmain.c (io_handler_dispatch): fix deadlock
