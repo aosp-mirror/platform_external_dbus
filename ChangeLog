@@ -1,3 +1,7 @@
+2005-05-19  John (J5) Palmieri  <johnp@redhat.com>
+	
+	* python/dbus_bindings.pyx.in: s/TYPE_PATH/TYPE_OBJECT_PATH
+
 2005-05-18  Havoc Pennington  <hp@redhat.com>
 
 	* configure.in: use GLIB_GNU_GETTEXT to get INTLLIBS and require
