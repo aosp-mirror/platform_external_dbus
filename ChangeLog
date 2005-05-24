@@ -1,3 +1,17 @@
+2005-05-24  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/decorators.py: add explicitly_pass_message decorator
+	for passing in the dbus message as keyword for edge case signal
+	handling
+
+	* python/matchrules.py (SignalMatchRule.__repr__): fix output
+	to conform with what dbus expects for match rules
+	(SignalMatchRule.execute): add the dbus message as a keyword
+	if the signal handler has requested it
+
+	* python/examples/example/signal-recipient.py: added some more
+	examples on how to hook up to signals
+
 2005-05-23  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/decorators.py: import dbus_bindings
