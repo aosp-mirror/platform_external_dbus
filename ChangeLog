@@ -1,3 +1,8 @@
+2005-05-25  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/__init__.py: Python bindings deserve a minor version
+	update.  Upped to (0, 40, 2)
+
 2005-05-24  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/decorators.py: add explicitly_pass_message decorator
