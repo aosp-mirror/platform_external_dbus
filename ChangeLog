@@ -1,3 +1,15 @@
+2005-05-23  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/decorators.py: import dbus_bindings
+
+	* python/matchrules.py (SignalMatchRule, SignalMatchTree, 
+	SignalMatchNode): new classes that implement wildcard signal
+	callback matching using a tree lookup. Heavily modified from a
+	patch sent by Celso Pinto (fd.o bug #3241)
+
+	* _dbus.py (add_signal_receiver, remove_signal_receiver, _signal_func):
+	use new match classes to handle signals.
+
 2005-05-19  John (J5) Palmieri  <johnp@redhat.com>
 	
 	* python/dbus_bindings.pyx.in: s/TYPE_PATH/TYPE_OBJECT_PATH
