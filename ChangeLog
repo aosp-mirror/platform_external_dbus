@@ -1,3 +1,11 @@
+2005-05-25  Colin Walters  <walters@verbum.org>
+
+	* dbus/dbus-protocol.h: Move various bus service #defines such
+	  as DBUS_SERVICE_DBUS and DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT to
+	  dbus/dbus-shared.h.
+	* dbus/dbus-shared.h: Various defines moved here.
+	* dbus/dbus-marshal-header.c: Include dbus-shared.h.
+
 2005-05-25  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/__init__.py: Python bindings deserve a minor version

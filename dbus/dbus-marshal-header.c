@@ -21,6 +21,7 @@
  *
  */
 
+#include "dbus/dbus-shared.h"
 #include "dbus-marshal-header.h"
 #include "dbus-marshal-recursive.h"
 #include "dbus-marshal-byteswap.h"

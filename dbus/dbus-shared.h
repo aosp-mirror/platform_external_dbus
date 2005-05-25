@@ -46,6 +46,41 @@ typedef enum
   DBUS_HANDLER_RESULT_NEED_MEMORY      /**< Need more memory to return another result */
 } DBusHandlerResult;
 
+/* Services */
+#define DBUS_SERVICE_DBUS      "org.freedesktop.DBus"
+
+/* Paths */
+#define DBUS_PATH_DBUS  "/org/freedesktop/DBus"
+#define DBUS_PATH_LOCAL "/org/freedesktop/DBus/Local"
+
+/* Interfaces, these #define don't do much other than
+ * catch typos at compile time
+ */
+#define DBUS_INTERFACE_DBUS           "org.freedesktop.DBus"
+#define DBUS_INTERFACE_INTROSPECTABLE "org.freedesktop.DBus.Introspectable"
+#define DBUS_INTERFACE_PROPERTIES     "org.freedesktop.DBus.Properties"
+#define DBUS_INTERFACE_PEER           "org.freedesktop.DBus.Peer"
+
+/* This is a special interface whose methods can only be invoked
+ * by the local implementation (messages from remote apps aren't
+ * allowed to specify this interface).
+ */
+#define DBUS_INTERFACE_LOCAL "org.freedesktop.DBus.Local"
+
+/* Owner flags */
+#define DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT 0x1
+#define DBUS_NAME_FLAG_REPLACE_EXISTING     0x2
+
+/* Replies to request for a name */
+#define DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER  1
+#define DBUS_REQUEST_NAME_REPLY_IN_QUEUE       2
+#define DBUS_REQUEST_NAME_REPLY_EXISTS         3
+#define DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER  4
+
+/* Replies to service starts */
+#define DBUS_START_REPLY_SUCCESS         1
+#define DBUS_START_REPLY_ALREADY_RUNNING 2
+
 #ifdef __cplusplus
 }
 #endif
