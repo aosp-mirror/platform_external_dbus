@@ -29,7 +29,8 @@
 	* test/test-service.c (path_message_func, filter_func):
 	s/dbus_connection_disconnect/dbus_connection_close
 	
-		
+	* doc/TODO: remove connection_open/connection_disconnect lacks symmetry 	item that was just fixed
+	
 2005-05-25  Colin Walters  <walters@verbum.org>
 
 	* dbus/dbus-protocol.h: Move various bus service #defines such

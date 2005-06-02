@@ -51,9 +51,6 @@ Might as Well for 1.0
 
  - add dbus_message_has_path(), maybe has_member/interface
 
- - connection_open/connection_disconnect lacks symmetry, open/close
-   or connect/disconnect
-
  - protocol version in each message is pretty silly
 
 Can Be Post 1.0
