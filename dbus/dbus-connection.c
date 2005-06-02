@@ -1622,7 +1622,7 @@ _dbus_connection_open_internal (const char     *address,
                   !connection_record_shared_unlocked (connection, guid))
                 {
                   _DBUS_SET_OOM (&tmp_error);
-                  dbus_connection_disconnect (connection);
+                  dbus_connection_close (connection);
                   dbus_connection_unref (connection);
                   connection = NULL;
                 }
@@ -1918,7 +1918,7 @@ dbus_connection_unref (DBusConnection *connection)
  * Any further attempts to send data will result in errors.  This
  * function does not affect the connection's reference count.  It's
  * safe to disconnect a connection more than once; all calls after the
- * first do nothing. It's impossible to "reconnect" a connection, a
+ * first do nothing. It's impossible to "reopen" a connection, a
  * new connection must be created. This function may result in a call
  * to the DBusDispatchStatusFunction set with
  * dbus_connection_set_dispatch_status_function(), as the disconnect
@@ -1927,7 +1927,7 @@ dbus_connection_unref (DBusConnection *connection)
  * @param connection the connection.
  */
 void
-dbus_connection_disconnect (DBusConnection *connection)
+dbus_connection_close (DBusConnection *connection)
 {
   DBusDispatchStatus status;
   
@@ -1959,7 +1959,7 @@ _dbus_connection_get_is_connected_unlocked (DBusConnection *connection)
  * connections are connected when they are opened.  A connection may
  * become disconnected when the remote application closes its end, or
  * exits; a connection may also be disconnected with
- * dbus_connection_disconnect().
+ * dbus_connection_close().
  *
  * @param connection the connection.
  * @returns #TRUE if the connection is still alive.

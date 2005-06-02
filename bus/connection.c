@@ -501,7 +501,7 @@ bus_connections_unref (BusConnections *connections)
           connection = connections->incomplete->data;
 
           dbus_connection_ref (connection);
-          dbus_connection_disconnect (connection);
+          dbus_connection_close (connection);
           bus_connection_disconnected (connection);
           dbus_connection_unref (connection);
         }
@@ -516,7 +516,7 @@ bus_connections_unref (BusConnections *connections)
           connection = connections->completed->data;
 
           dbus_connection_ref (connection);
-          dbus_connection_disconnect (connection);
+          dbus_connection_close (connection);
           bus_connection_disconnected (connection);
           dbus_connection_unref (connection);
         }
@@ -653,7 +653,7 @@ bus_connections_setup_connection (BusConnections *connections,
        * completing authentication. But random may or may not really
        * help with that, a more elaborate solution might be required.
        */
-      dbus_connection_disconnect (connections->incomplete->data);
+      dbus_connection_close (connections->incomplete->data);
     }
   
   retval = TRUE;
@@ -739,7 +739,7 @@ bus_connections_expire_incomplete (BusConnections *connections)
           if (elapsed >= (double) auth_timeout)
             {
               _dbus_verbose ("Timing out authentication for connection %p\n", connection);
-              dbus_connection_disconnect (connection);
+              dbus_connection_close (connection);
             }
           else
             {

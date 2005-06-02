@@ -396,7 +396,7 @@ dbus_bus_get (DBusBusType  type,
   if (!dbus_bus_register (connection, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
-      dbus_connection_disconnect (connection);
+      dbus_connection_close (connection);
       dbus_connection_unref (connection);
 
       _DBUS_UNLOCK (bus);

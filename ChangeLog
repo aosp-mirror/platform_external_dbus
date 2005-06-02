@@ -1,3 +1,25 @@
+2005-06-02  John (J5) Palmieri <johnp@redhat.com>
+
+	*  dbus/dbus-connection.c, dbus/dbus-connection.h 
+	(dbus_connection_disconnect): renamed to dbus_connection_close 
+	for API symmetry with dbus_connection_open
+	(_dbus_connection_open_internal): 
+	s/dbus_connection_disconnect/dbus_connection_close
+
+	* dbus/dbus-bus.c (dbus_bus_get):
+	s/dbus_connection_disconnect/dbus_connection_close
+
+	* bus/connection.c (bus_connections_unref, 
+	bus_connections_setup_connection, bus_connections_expire_incomplete):
+	s/dbus_connection_disconnect/dbus_connection_close
+
+	* bus/dispatch.c (bus_dispatch, kill_client_connection, 
+	kill_client_connection_unchecked, check_hello_connection):
+	s/dbus_connection_disconnect/dbus_connection_close
+
+	* bus/bus.c (new_connection_callback):
+	s/dbus_connection_disconnect/dbus_connection_close
+		
 2005-05-25  Colin Walters  <walters@verbum.org>
 
 	* dbus/dbus-protocol.h: Move various bus service #defines such

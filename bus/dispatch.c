@@ -242,7 +242,7 @@ bus_dispatch (DBusConnection *connection,
   else if (!bus_connection_is_active (connection)) /* clients must talk to bus driver first */
     {
       _dbus_verbose ("Received message from non-registered client. Disconnecting.\n");
-      dbus_connection_disconnect (connection);
+      dbus_connection_close (connection);
       goto out;
     }
   else if (service_name != NULL) /* route to named service */
@@ -634,7 +634,7 @@ kill_client_connection (BusContext     *context,
   dbus_connection_ref (connection);
   
   /* kick in the disconnect handler that unrefs the connection */
-  dbus_connection_disconnect (connection);
+  dbus_connection_close (connection);
 
   bus_test_run_everything (context);
   
@@ -675,7 +675,7 @@ kill_client_connection_unchecked (DBusConnection *connection)
   _dbus_verbose ("Unchecked kill of connection %p\n", connection);
 
   dbus_connection_ref (connection);
-  dbus_connection_disconnect (connection);
+  dbus_connection_close (connection);
   /* dispatching disconnect handler will unref once */
   if (bus_connection_dispatch_one_message (connection))
     _dbus_assert_not_reached ("message other than disconnect dispatched after failure to register");
@@ -1490,7 +1490,7 @@ check_hello_connection (BusContext *context)
 
   if (!bus_setup_debug_client (connection))
     {
-      dbus_connection_disconnect (connection);
+      dbus_connection_close (connection);
       dbus_connection_unref (connection);
       return TRUE;
     }

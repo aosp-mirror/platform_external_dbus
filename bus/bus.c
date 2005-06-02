@@ -177,7 +177,7 @@ new_connection_callback (DBusServer     *server,
        * that we have to do this, people won't get it right
        * in general.
        */
-      dbus_connection_disconnect (new_connection);
+      dbus_connection_close (new_connection);
     }
 
   dbus_connection_set_max_received_size (new_connection,
