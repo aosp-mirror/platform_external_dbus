@@ -219,7 +219,7 @@ no_bus_thread_func (void *data)
   g_printerr ("Client thread %p exiting main loop\n",
               g_thread_self());
 
-  dbus_connection_disconnect (connection);
+  dbus_connection_close (connection);
   
   g_main_loop_unref (cd.loop);
   g_main_context_unref (context);
@@ -396,7 +396,7 @@ with_bus_thread_func (void *data)
   g_printerr ("Client thread %p exiting main loop\n",
               g_thread_self());
 
-  dbus_connection_disconnect (connection);
+  dbus_connection_close (connection);
   
   g_main_loop_unref (cd.loop);
   g_main_context_unref (context);

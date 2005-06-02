@@ -92,7 +92,7 @@ path_message_func (DBusConnection  *connection,
                                         "org.freedesktop.TestSuite",
                                         "Exit"))
     {
-      dbus_connection_disconnect (connection);
+      dbus_connection_close (connection);
       quit ();
       return DBUS_HANDLER_RESULT_HANDLED;
     }
@@ -146,7 +146,7 @@ filter_func (DBusConnection     *connection,
                               DBUS_INTERFACE_LOCAL,
                               "Disconnected"))
     {
-      dbus_connection_disconnect (connection);
+      dbus_connection_close (connection);
       quit ();
       return DBUS_HANDLER_RESULT_HANDLED;
     }

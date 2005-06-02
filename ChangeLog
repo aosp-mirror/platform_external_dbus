@@ -19,6 +19,16 @@
 
 	* bus/bus.c (new_connection_callback):
 	s/dbus_connection_disconnect/dbus_connection_close
+
+	* tools/dbus-send.c (main):
+	s/dbus_connection_disconnect/dbus_connection_close
+
+	* test/glib/test-profile.c (no_bus_thread_func, with_bus_thread_func):
+	s/dbus_connection_disconnect/dbus_connection_close
+	
+	* test/test-service.c (path_message_func, filter_func):
+	s/dbus_connection_disconnect/dbus_connection_close
+	
 		
 2005-05-25  Colin Walters  <walters@verbum.org>
 
