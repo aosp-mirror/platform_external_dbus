@@ -1,6 +1,8 @@
 Important for 1.0
 ===
 
+ - Remove all deprecated functions
+
  - Audit @todo and FIXME for security issues
 
  - The convenience functions in dbus-bus.h should perhaps have

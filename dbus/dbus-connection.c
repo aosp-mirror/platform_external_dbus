@@ -1947,6 +1947,18 @@ dbus_connection_close (DBusConnection *connection)
   _dbus_connection_update_dispatch_status_and_unlock (connection, status);
 }
 
+/** Alias for dbus_connection_close(). This method is DEPRECATED and will be
+ *  removed for 1.0. Change your code to use dbus_connection_close() instead.
+ *
+ * @param connection the connection.
+ * @deprecated
+ */
+void
+dbus_connection_disconnect (DBusConnection *connection)
+{
+  dbus_connection_close (connection);
+}
+
 static dbus_bool_t
 _dbus_connection_get_is_connected_unlocked (DBusConnection *connection)
 {
