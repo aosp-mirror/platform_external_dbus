@@ -772,7 +772,8 @@ invoke_object_method (GObject         *object,
     guint n_params;
     const GType *types;
     DBusGValueMarshalCtx context;
-
+    GError *error = NULL;
+    
     context.gconnection = DBUS_G_CONNECTION_FROM_CONNECTION (connection);
     context.proxy = NULL;
 
@@ -780,12 +781,16 @@ invoke_object_method (GObject         *object,
     n_params = types_array->len;
     types = (const GType*) types_array->data;
 
-    value_array = dbus_gvalue_demarshal_message (&context, message, n_params, types, NULL);
+    value_array = dbus_gvalue_demarshal_message (&context, message, n_params, types, &error);
     if (value_array == NULL)
       {
 	g_free (in_signature); 
 	g_array_free (types_array, TRUE);
-	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+	reply = dbus_message_new_error (message, "org.freedesktop.DBus.GLib.ErrorError", error->message);
+	dbus_connection_send (connection, reply, NULL);
+	dbus_message_unref (reply);
+	g_error_free (error);
+	return DBUS_HANDLER_RESULT_HANDLED;
       }
     g_array_free (types_array, TRUE);
   }

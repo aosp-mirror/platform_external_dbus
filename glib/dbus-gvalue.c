@@ -1300,7 +1300,7 @@ marshal_strv (DBusMessageIter   *iter,
   DBusMessageIter subiter;
   char **array;
   char **elt;
-  gboolean ret;
+  gboolean ret = FALSE;
 
   g_assert (G_VALUE_TYPE (value) == g_strv_get_type ());
 
@@ -1336,7 +1336,7 @@ marshal_garray_basic (DBusMessageIter   *iter,
   GArray *array;
   guint elt_size;
   const char *subsignature_str;
-  gboolean ret;
+  gboolean ret = FALSE;
 
   elt_gtype = dbus_g_type_get_collection_specialization (G_VALUE_TYPE (value));
   /* FIXME - this means we can't send an array of DBusGValue right now... */
@@ -1417,7 +1417,7 @@ marshal_proxy_array (DBusMessageIter   *iter,
   DBusMessageIter subiter;
   GPtrArray *array;
   const char *subsignature_str;
-  gboolean ret;
+  gboolean ret = FALSE;
   guint i;
 
   subsignature_str = dbus_gtype_to_signature (DBUS_TYPE_G_PROXY);
@@ -1553,7 +1553,7 @@ marshal_variant (DBusMessageIter          *iter,
   DBusMessageIter subiter;
   char *variant_sig;
   GValue *real_value;
-  gboolean ret;
+  gboolean ret = FALSE;
 
   real_value = g_value_get_boxed (value);
   value_gtype = G_VALUE_TYPE (real_value);

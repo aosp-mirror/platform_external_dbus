@@ -1,3 +1,9 @@
+2005-06-13  Ross Burton <ross@burtonini.com>.
+
+	* glib/dbus-gobject.c: Handle errors on message
+	demarshalling by sending error message back.
+	* glib/dbus-gvalue.c: Initialize return variables.
+
 2005-06-13  Colin Walters  <walters@verbum.org>
 
 	* glib/Makefile.am: Fix thinko in last patch.
