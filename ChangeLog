@@ -1,5 +1,9 @@
 2005-06-13  Colin Walters  <walters@verbum.org>
 
+	* glib/Makefile.am: Fix thinko in last patch.
+
+2005-06-13  Colin Walters  <walters@verbum.org>
+
 	* glib/Makefile.am: Move dbus-gtype-specialized.c
 	and dbus-gtype-specialized.h into a _HEADERS variable,
 	install them.

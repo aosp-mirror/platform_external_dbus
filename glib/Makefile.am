@@ -16,12 +16,12 @@ libdbus_glib_1_la_SOURCES = 			\
 	dbus-gutils.c				\
 	dbus-gutils.h				\
 	dbus-gvalue.c				\
+	dbus-gtype-specialized.c	        \
 	dbus-gvalue.h				\
 	dbus-gvalue-utils.c			\
 	dbus-gvalue-utils.h
 
 libdbus_glib_HEADERS =                  \
-	dbus-gtype-specialized.c	\
 	dbus-gtype-specialized.h
 
 libdbus_glibdir = $(includedir)/dbus-1.0/dbus
