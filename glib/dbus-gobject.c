@@ -22,12 +22,15 @@
  */
 
 #include <config.h>
+#include <gobject/gvaluecollector.h>
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus-glib-lowlevel.h>
 #include "dbus-gtest.h"
 #include "dbus-gutils.h"
 #include "dbus-gobject.h"
 #include "dbus-gvalue.h"
+#include "dbus-gmarshal.h"
+#include "dbus-gvalue-utils.h"
 #include <string.h>
 
 /**
@@ -35,8 +38,9 @@
  * @{
  */
 
-static GStaticRWLock info_hash_lock = G_STATIC_RW_LOCK_INIT;
+static GStaticRWLock globals_lock = G_STATIC_RW_LOCK_INIT;
 static GHashTable *info_hash = NULL;
+static GHashTable *marshal_table = NULL;
 
 static char*
 uscore_to_wincaps (const char *uscore)
@@ -129,7 +133,7 @@ static const char *
 method_arg_info_from_object_info (const DBusGObjectInfo *object,
 				  const DBusGMethodInfo *method)
 {
-  return string_table_lookup (get_method_data (object, method), 2);
+  return string_table_lookup (get_method_data (object, method), 3);/*RB was 2*/
 }
 
 static const char *
@@ -199,42 +203,6 @@ method_output_signature_from_object_info (const DBusGObjectInfo *object,
   return method_dir_signature_from_object_info (object, method, FALSE);
 }
 
-/**
- * Converts the args of a message into an array of GValue.
- *
- * @param message the message
- * @returns #NULL if conversion fails, otherwise the values.
- */
-GValueArray *
-_dbus_glib_marshal_dbus_message_to_gvalue_array (DBusMessage *message)
-{
-  GValueArray *ret;
-  DBusMessageIter iter;
-  int dtype;
-
-  ret = g_value_array_new (6);  /* 6 is a typical maximum for arguments */
-  dbus_message_iter_init (message, &iter);
-  
-  while ((dtype = dbus_message_iter_get_arg_type (&iter)) != DBUS_TYPE_INVALID)
-    {
-      GValue value = { 0, };
-
-      if (!dbus_gvalue_demarshal (&iter, &value))
-        {
-          g_warning ("Unable to convert arg type %d to GValue", dtype);
-          g_value_array_free (ret);
-          ret = NULL;
-          goto out;
-        }
-      g_value_array_append (ret, &value);
-      
-      dbus_message_iter_next (&iter);
-    }
-
- out:
-  return ret;
-}
-
 static void
 gobject_unregister_function (DBusConnection  *connection,
                              void            *user_data)
@@ -267,7 +235,7 @@ introspect_properties (GObject *object, GString *xml)
       gboolean can_get;
       GParamSpec *spec = specs[i];
       
-      dbus_type = dbus_gtype_to_dbus_type (G_PARAM_SPEC_VALUE_TYPE (spec));
+      dbus_type = dbus_gtype_to_signature (G_PARAM_SPEC_VALUE_TYPE (spec));
       if (dbus_type == NULL)
 	continue;
       
@@ -347,7 +315,7 @@ introspect_signals (GType type, GString *xml)
       
       g_signal_query (ids[i], &query);
 
-      if (query.return_type)
+      if (query.return_type != G_TYPE_NONE)
 	continue; /* FIXME: these could be listed as methods ? */
 
       g_string_append (xml, "    <signal name=\"");
@@ -356,8 +324,11 @@ introspect_signals (GType type, GString *xml)
 
       for (arg = 0; arg < query.n_params; arg++)
 	{
-	  const char *dbus_type = dbus_gtype_to_dbus_type (query.param_types[arg]);
+	  const char *dbus_type = dbus_gtype_to_signature (query.param_types[arg]);
 
+	  if (!dbus_type)
+	    continue;
+	  
           g_string_append (xml, "      <arg type=\"");
           g_string_append (xml, dbus_type);
           g_string_append (xml, "\"/>\n");
@@ -428,7 +399,7 @@ introspect_interfaces (GObject *object, GString *xml)
 {
   GType classtype;
 
-  g_static_rw_lock_reader_lock (&info_hash_lock);
+  g_static_rw_lock_reader_lock (&globals_lock);
 
   for (classtype = G_TYPE_FROM_INSTANCE (object); classtype != 0; classtype = g_type_parent (classtype))
     {
@@ -475,7 +446,7 @@ introspect_interfaces (GObject *object, GString *xml)
 	}
     }
 
-  g_static_rw_lock_reader_lock (&info_hash_lock);
+  g_static_rw_lock_reader_unlock (&globals_lock);
 }
 
 static DBusHandlerResult
@@ -560,15 +531,15 @@ set_object_property (DBusConnection  *connection,
   GValue value = { 0, };
   DBusMessage *ret;
   DBusMessageIter sub;
+  DBusGValueMarshalCtx context;
 
   dbus_message_iter_recurse (iter, &sub);
-  
-  /* The g_object_set_property() will transform some types, e.g. it
-   * will let you use a uchar to set an int property etc. Note that
-   * any error in value range or value conversion will just
-   * g_warning(). These GObject skels are not for secure applications.
-   */
-  if (dbus_gvalue_demarshal (&sub, &value))
+
+  context.gconnection = DBUS_G_CONNECTION_FROM_CONNECTION (connection);
+  context.proxy = NULL;
+
+  g_value_init (&value, pspec->value_type);
+  if (dbus_gvalue_demarshal (&context, &sub, &value, NULL))
     {
       g_object_set_property (object,
                              pspec->name,
@@ -644,7 +615,7 @@ lookup_object_and_method (GObject      *object,
   signature = dbus_message_get_signature (message);
   ret = FALSE;
 
-  g_static_rw_lock_reader_lock (&info_hash_lock);
+  g_static_rw_lock_reader_lock (&globals_lock);
 
   if (!info_hash)
     goto out;
@@ -674,6 +645,7 @@ lookup_object_and_method (GObject      *object,
 	      expected_interface = method_interface_from_object_info (*object_ret, method);
 	      expected_member = method_name_from_object_info (*object_ret, method);
 	      expected_signature = method_input_signature_from_object_info (*object_ret, method);
+
 	      if ((interface == NULL
 		   || strcmp (expected_interface, interface) == 0)
 		  && strcmp (expected_member, member) == 0
@@ -689,7 +661,7 @@ lookup_object_and_method (GObject      *object,
 	}
     }
  out:
-  g_static_rw_lock_reader_lock (&info_hash_lock);
+  g_static_rw_lock_reader_unlock (&globals_lock);
   return ret;
 }
 
@@ -759,21 +731,31 @@ invoke_object_method (GObject         *object,
 		      DBusConnection  *connection,
 		      DBusMessage     *message)
 {
-  gboolean had_error;
+  gboolean had_error, call_only;
   GError *gerror;
   GValueArray *value_array;
   GValue object_value = {0,};
   GValue error_value = {0,};
   GValue return_value = {0,};
   GClosure closure;
-  char *out_signature;
-  int out_signature_len;
-  GArray *out_param_values;
-  int i;
+  char *in_signature;
+  char *out_signature = NULL;
+  int current_type;
+  DBusSignatureIter out_signature_iter;
+  GArray *out_param_values = NULL;
+  GValueArray *out_param_gvalues = NULL;
+  int out_param_count;
+  int out_param_pos, out_param_gvalue_pos;
   DBusHandlerResult result;
   DBusMessage *reply;
 
   gerror = NULL;
+
+  if (strcmp (string_table_lookup (get_method_data (object_info, method), 2), "A") == 0) {
+    call_only = TRUE;
+  } else {
+    call_only = FALSE;
+  }
 
   /* This is evil.  We do this to work around the fact that
    * the generated glib marshallers check a flag in the closure object
@@ -781,52 +763,115 @@ invoke_object_method (GObject         *object,
    * a new closure for each invocation.
    */
   memset (&closure, 0, sizeof (closure));
+
+  in_signature = method_input_signature_from_object_info (object_info, method); 
   
   /* Convert method IN parameters to GValueArray */
-  value_array = _dbus_glib_marshal_dbus_message_to_gvalue_array (message);
+  {
+    GArray *types_array;
+    guint n_params;
+    const GType *types;
+    DBusGValueMarshalCtx context;
 
-  g_return_val_if_fail (value_array != NULL, DBUS_HANDLER_RESULT_NOT_YET_HANDLED);
+    context.gconnection = DBUS_G_CONNECTION_FROM_CONNECTION (connection);
+    context.proxy = NULL;
+
+    types_array = dbus_gtypes_from_arg_signature (in_signature, FALSE);
+    n_params = types_array->len;
+    types = (const GType*) types_array->data;
+
+    value_array = dbus_gvalue_demarshal_message (&context, message, n_params, types, NULL);
+    if (value_array == NULL)
+      {
+	g_free (in_signature); 
+	g_array_free (types_array, TRUE);
+	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+      }
+    g_array_free (types_array, TRUE);
+  }
 
   /* Prepend object as first argument */ 
   g_value_init (&object_value, G_TYPE_OBJECT);
   g_value_set_object (&object_value, object);
   g_value_array_prepend (value_array, &object_value);
 
+  if (call_only) {
+    GValue context_value = {0,};
+    DBusGMethodInvocation *context;
+    context = g_new (DBusGMethodInvocation, 1);
+    context->connection = dbus_g_connection_ref (DBUS_G_CONNECTION_FROM_CONNECTION (connection));
+    context->message = dbus_g_message_ref (DBUS_G_MESSAGE_FROM_MESSAGE (message));
+    context->object = object_info;
+    context->method = method;
+    g_value_init (&context_value, G_TYPE_POINTER);
+    g_value_set_pointer (&context_value, context);
+    g_value_array_append (value_array, &context_value);
+  } else {
   out_signature = method_output_signature_from_object_info (object_info, method); 
-  out_signature_len = strlen (out_signature);
+
+  /* Count number of output parameters */
+  dbus_signature_iter_init (&out_signature_iter, out_signature);
+  out_param_count = 0;
+  while ((current_type = dbus_signature_iter_get_current_type (&out_signature_iter)) != DBUS_TYPE_INVALID)
+    {
+      out_param_count++;
+      dbus_signature_iter_next (&out_signature_iter);
+    }
 
   /* Create an array to store the actual values of OUT
    * parameters.  Then, create a GValue boxed POINTER
    * to each of those values, and append to the invocation,
    * so the method can return the OUT parameters.
    */
-  out_param_values = g_array_new (FALSE, TRUE, sizeof (DBusBasicGValue));
-  for (i = 0; i < out_signature_len; i++)
+  out_param_values = g_array_sized_new (FALSE, TRUE, sizeof (GTypeCValue), out_param_count);
+
+  /* We have a special array of GValues for toplevel GValue return
+   * types.
+   */
+  out_param_gvalues = g_value_array_new (out_param_count);
+  out_param_pos = 0;
+  out_param_gvalue_pos = 0;
+  dbus_signature_iter_init (&out_signature_iter, out_signature);
+  while ((current_type = dbus_signature_iter_get_current_type (&out_signature_iter)) != DBUS_TYPE_INVALID)
     {
       GValue value = {0, };
-      DBusBasicGValue basic;
+      GTypeCValue storage;
 
-      memset (&basic, 0, sizeof (basic));
-
-      /* FIXME - broken for container types */
-
-      g_array_append_val (out_param_values, basic);
       g_value_init (&value, G_TYPE_POINTER);
-      g_value_set_pointer (&value, &(g_array_index (out_param_values, DBusBasicGValue, i)));
+
+      /* We special case variants to make method invocation a bit nicer */
+      if (current_type != DBUS_TYPE_VARIANT)
+	{
+	  memset (&storage, 0, sizeof (storage));
+	  g_array_append_val (out_param_values, storage);
+	  g_value_set_pointer (&value, &(g_array_index (out_param_values, GTypeCValue, out_param_pos)));
+	  out_param_pos++;
+	}
+      else
+	{
+	  g_value_array_append (out_param_gvalues, NULL);
+	  g_value_set_pointer (&value, out_param_gvalues->values + out_param_gvalue_pos);
+	  out_param_gvalue_pos++;
+	}
       g_value_array_append (value_array, &value);
+      dbus_signature_iter_next (&out_signature_iter);
     }
 
   /* Append GError as final argument */
   g_value_init (&error_value, G_TYPE_POINTER);
   g_value_set_pointer (&error_value, &gerror);
   g_value_array_append (value_array, &error_value);
-
+  }
   /* Actually invoke method */
   g_value_init (&return_value, G_TYPE_BOOLEAN);
   method->marshaller (&closure, &return_value,
 		      value_array->n_values,
 		      value_array->values,
 		      NULL, method->function);
+  if (call_only) {
+    result = DBUS_HANDLER_RESULT_HANDLED;
+    goto done;
+  }
   had_error = !g_value_get_boolean (&return_value);
 
   if (!had_error)
@@ -839,16 +884,34 @@ invoke_object_method (GObject         *object,
 
       /* Append OUT arguments to reply */
       dbus_message_iter_init_append (reply, &iter);
-      for (i = 0; i < out_signature_len; i++)
+      dbus_signature_iter_init (&out_signature_iter, out_signature);
+      out_param_pos = 0;
+      out_param_gvalue_pos = 0;
+      while ((current_type = dbus_signature_iter_get_current_type (&out_signature_iter)) != DBUS_TYPE_INVALID)
 	{
-	  DBusBasicGValue *value;
-
-	  /* FIXME - broken for container types */
-
-	  value = &(g_array_index (out_param_values, DBusBasicGValue, i));
-	  if (!dbus_message_iter_append_basic (&iter, out_signature[i], value))
-	    goto nomem;
+	  GValue gvalue = {0, };
 	  
+	  g_value_init (&gvalue, dbus_gtype_from_signature_iter (&out_signature_iter, FALSE));
+	  if (current_type != DBUS_TYPE_VARIANT)
+	    {
+	      if (!dbus_gvalue_take (&gvalue,
+				     &(g_array_index (out_param_values, GTypeCValue, out_param_pos))))
+		g_assert_not_reached ();
+	      out_param_pos++;
+	    }
+	  else
+	    {
+	      g_value_set_static_boxed (&gvalue, out_param_gvalues->values + out_param_gvalue_pos);
+	      out_param_gvalue_pos++;
+	    }
+	      
+	  if (!dbus_gvalue_marshal (&iter, &gvalue))
+	    goto nomem;
+	  /* Here we actually free the allocated value; we
+	   * took ownership of it with dbus_gvalue_take.
+	   */
+	  g_value_unset (&gvalue);
+	  dbus_signature_iter_next (&out_signature_iter);
 	}
     }
   else
@@ -860,36 +923,72 @@ invoke_object_method (GObject         *object,
       dbus_message_unref (reply);
     }
 
-  /* Assume that if there was an error, no return values are
-   * set */
-  if (!had_error)
-    {
-      /* Be sure to free all returned STRING arguments for now;
-       * later this should be specified via method info parameter
-       * annotation; probably we want to support custom free funcs too */
-      for (i = 0; i < out_signature_len; i++)
-	{
-	  DBusBasicGValue *value;
-
-	  value = &(g_array_index (out_param_values, DBusBasicGValue, i));
-	  if (out_signature[i] == DBUS_TYPE_STRING)
-	    g_free (value->gpointer_val);
-	}
-    } 
-
   result = DBUS_HANDLER_RESULT_HANDLED;
  done:
+  g_free (in_signature);
   g_free (out_signature);
-  g_array_free (out_param_values, TRUE);
+  if (!call_only) {
+    g_array_free (out_param_values, TRUE);
+    g_value_array_free (out_param_gvalues);
+    g_value_unset (&object_value);
+    g_value_unset (&error_value);
+  }
   g_value_array_free (value_array);
-  g_value_unset (&object_value);
-  g_value_unset (&error_value);
   g_value_unset (&return_value);
   return result;
  nomem:
   result = DBUS_HANDLER_RESULT_NEED_MEMORY;
   goto done;
 }
+
+void
+dbus_g_method_return (DBusGMethodInvocation *context, ...)
+{
+  DBusMessage *reply;
+  DBusMessageIter iter;
+  va_list args;
+  char *out_sig;
+  GArray *argsig;
+  guint i;
+
+  reply = dbus_message_new_method_return (dbus_g_message_get_message (context->message));
+  out_sig = method_output_signature_from_object_info (context->object, context->method);
+  argsig = dbus_gtypes_from_arg_signature (out_sig, FALSE);
+
+  dbus_message_iter_init_append (reply, &iter);
+
+  va_start (args, context);
+  for (i = 0; i < argsig->len; i++) {
+    GValue value = {0,};
+    char *error;
+    g_value_init (&value, g_array_index (argsig, GType, i));
+    error = NULL;
+    G_VALUE_COLLECT (&value, args, 0, &error);
+    if (error) {
+      g_warning(error);
+      g_free (error);
+    }
+    dbus_gvalue_marshal (&iter, &value);
+  }
+  va_end (args);
+
+  dbus_connection_send (dbus_g_connection_get_connection (context->connection), reply, NULL);
+  dbus_message_unref (reply);
+
+  dbus_g_connection_unref (context->connection);
+  dbus_g_message_unref (context->message);
+  g_free (context);
+}
+
+void
+dbus_g_method_return_error (DBusGMethodInvocation *context, GError *error)
+{
+  DBusMessage *reply;
+  reply = gerror_to_dbus_error_message (context->object, dbus_g_message_get_message (context->message), error);
+  dbus_connection_send (dbus_g_connection_get_connection (context->connection), reply, NULL);
+  dbus_message_unref (reply);
+}
+
 
 static DBusHandlerResult
 gobject_message_function (DBusConnection  *connection,
@@ -1009,6 +1108,125 @@ static DBusObjectPathVTable gobject_dbus_vtable = {
   NULL
 };
 
+typedef struct {
+  GClosure         closure;
+  DBusGConnection *connection;
+  GObject         *object;
+  char            *signame;
+} DBusGSignalClosure;
+
+static GClosure *
+dbus_g_signal_closure_new (DBusGConnection *connection,
+			   GObject         *object,
+			   const char      *signame)
+{
+  DBusGSignalClosure *closure;
+  
+  closure = (DBusGSignalClosure*) g_closure_new_simple (sizeof (DBusGSignalClosure), NULL);
+
+  closure->connection = dbus_g_connection_ref (connection);
+  closure->object = object;
+  closure->signame = g_strdup (signame);
+  return (GClosure*) closure;
+}
+
+static void
+dbus_g_signal_closure_finalize (gpointer data,
+				GClosure *closure)
+{
+  DBusGSignalClosure *sigclosure = (DBusGSignalClosure *) closure;
+
+  dbus_g_connection_unref (sigclosure->connection);
+  g_free (sigclosure->signame);
+}
+
+static void
+signal_emitter_marshaller (GClosure        *closure,
+			   GValue          *retval,
+			   guint            n_param_values,
+			   const GValue    *param_values,
+			   gpointer         invocation_hint,
+			   gpointer         marshal_data)
+{
+  DBusGSignalClosure *sigclosure;
+  DBusMessage *signal;
+  DBusMessageIter iter;
+  guint i;
+  const char *path;
+
+  sigclosure = (DBusGSignalClosure *) closure;
+  
+  g_assert (retval == NULL);
+
+  path = _dbus_gobject_get_path (sigclosure->object);
+
+  g_assert (path != NULL);
+
+  signal = dbus_message_new_signal (path,
+				    "org.gtk.objects",
+				    sigclosure->signame);
+  if (!signal)
+    {
+      g_error ("out of memory");
+      return;
+    }
+
+  dbus_message_iter_init_append (signal, &iter);
+
+  /* First argument is the object itself, and we can't marshall that */
+  for (i = 1; i < n_param_values; i++)
+    {
+      if (!dbus_gvalue_marshal (&iter,
+				(GValue *) (&(param_values[i]))))
+	{
+	  g_warning ("failed to marshal parameter %d for signal %s",
+		     i, sigclosure->signame);
+	  goto out;
+	}
+    }
+  dbus_connection_send (DBUS_CONNECTION_FROM_G_CONNECTION (sigclosure->connection),
+			signal, NULL);
+ out:
+  dbus_message_unref (signal);
+}
+
+static void
+export_signals (DBusGConnection *connection, GObject *object)
+{
+  guint i;
+  guint *ids, n_ids;
+
+  ids = g_signal_list_ids (G_TYPE_FROM_INSTANCE (object), &n_ids);
+  if (!n_ids)
+    return;
+
+  /* FIXME: recurse to parent types ? */
+  for (i = 0; i < n_ids; i++)
+    {
+      GSignalQuery query;
+      GClosure *closure;
+      
+      g_signal_query (ids[i], &query);
+
+      if (query.return_type != G_TYPE_NONE) {
+	g_warning("Not exporting signal '%s' as it has a return type %s", query.signal_name, g_type_name (query.return_type));
+	continue; /* FIXME: these could be listed as methods ? */
+      }
+
+      closure = dbus_g_signal_closure_new (connection, object, query.signal_name);
+      g_closure_set_marshal (closure, signal_emitter_marshaller);
+
+      g_signal_connect_closure_by_id (object,
+				      ids[i],
+				      0,
+				      closure,
+				      FALSE);
+
+      g_closure_add_finalize_notifier (closure, NULL,
+				       dbus_g_signal_closure_finalize);
+    }
+}
+
 /** @} */ /* end of internals */
 
 /**
@@ -1017,7 +1235,7 @@ static DBusObjectPathVTable gobject_dbus_vtable = {
  */
 
 /**
- * Install introspection information about the given object class
+ * Install introspection information about the given object GType
  * sufficient to allow methods on the object to be invoked by name.
  * The introspection information is normally generated by
  * dbus-glib-tool, then this function is called in the
@@ -1027,16 +1245,24 @@ static DBusObjectPathVTable gobject_dbus_vtable = {
  * object registered with dbus_g_connection_register_g_object() can have
  * their methods invoked remotely.
  *
- * @param object_class class struct of the object
+ * @param object_type GType for the object
  * @param info introspection data generated by dbus-glib-tool
  */
 void
-dbus_g_object_class_install_info (GObjectClass          *object_class,
-                                  const DBusGObjectInfo *info)
+dbus_g_object_type_install_info (GType                  object_type,
+				 const DBusGObjectInfo *info)
 {
+  GObjectClass *object_class;
+
+  g_return_if_fail (G_TYPE_IS_OBJECT (object_type));
+
+  dbus_g_value_types_init ();
+
+  object_class = g_type_class_peek (object_type);
+
   g_return_if_fail (G_IS_OBJECT_CLASS (object_class));
 
-  g_static_rw_lock_writer_lock (&info_hash_lock);
+  g_static_rw_lock_writer_lock (&globals_lock);
 
   if (info_hash == NULL)
     {
@@ -1045,7 +1271,7 @@ dbus_g_object_class_install_info (GObjectClass          *object_class,
 
   g_hash_table_replace (info_hash, object_class, (void*) info);
 
-  g_static_rw_lock_writer_unlock (&info_hash_lock);
+  g_static_rw_lock_writer_unlock (&globals_lock);
 }
 
 static void
@@ -1087,11 +1313,174 @@ dbus_g_connection_register_g_object (DBusGConnection       *connection,
     return;
   }
 
+  export_signals (connection, object);
+
   g_object_set_data (object, "dbus_glib_object_path", g_strdup (at_path));
   g_object_weak_ref (object, (GWeakNotify)unregister_gobject, connection);
 }
 
+GObject *
+dbus_g_connection_lookup_g_object (DBusGConnection       *connection,
+				   const char            *at_path)
+{
+  gpointer ret;
+  if (!dbus_connection_get_object_path_data (DBUS_CONNECTION_FROM_G_CONNECTION (connection), at_path, &ret))
+    return NULL;
+  return ret;
+}
+
+typedef struct {
+  GType    rettype;
+  guint    n_params;
+  GType   *params;
+} DBusGFuncSignature;
+
+static guint
+funcsig_hash (gconstpointer key)
+{
+  const DBusGFuncSignature *sig = key;
+  GType *types;
+  guint ret;
+
+  ret = sig->rettype;
+  types = sig->params;
+
+  while (*types != G_TYPE_INVALID)
+    {
+      ret += (int) (*types);
+      types++;
+    }
+      
+  return ret;
+}
+
+static gboolean
+funcsig_equal (gconstpointer aval,
+	       gconstpointer bval)
+{
+  const DBusGFuncSignature *a = aval;
+  const DBusGFuncSignature *b = bval;
+  const GType *atypes;
+  const GType *btypes;
+
+  if (a->rettype != b->rettype)
+    return FALSE;
+
+  atypes = a->params;
+  btypes = b->params;
+
+  while (*atypes != G_TYPE_INVALID)
+    {
+      if (*btypes != *atypes)
+	return FALSE;
+      atypes++;
+      btypes++;
+    }
+  if (*btypes != G_TYPE_INVALID)
+    return FALSE;
+      
+  return TRUE;
+}
+
+GClosureMarshal
+_dbus_gobject_lookup_marshaller (GType        rettype,
+				 guint        n_params,
+				 const GType *param_types)
+{
+  GClosureMarshal ret;
+  DBusGFuncSignature sig;
+
+  sig.rettype = rettype;
+  sig.n_params = n_params;
+  sig.params = (GType*) param_types;
+  
+  g_static_rw_lock_reader_lock (&globals_lock);
+
+  if (marshal_table)
+    ret = g_hash_table_lookup (marshal_table, &sig);
+  else
+    ret = NULL;
+
+  g_static_rw_lock_reader_unlock (&globals_lock);
+
+  if (ret == NULL)
+    {
+      if (rettype == G_TYPE_NONE)
+	{
+	  if (n_params == 0)
+	    ret = g_cclosure_marshal_VOID__VOID;
+	  else if (n_params == 1)
+	    {
+	      switch (param_types[0])
+		{
+		case G_TYPE_BOOLEAN:
+		  ret = g_cclosure_marshal_VOID__BOOLEAN;
+		case G_TYPE_UCHAR:
+		  ret = g_cclosure_marshal_VOID__UCHAR;
+		case G_TYPE_INT:
+		  ret = g_cclosure_marshal_VOID__INT;
+		case G_TYPE_UINT:
+		  ret = g_cclosure_marshal_VOID__UINT;
+		case G_TYPE_DOUBLE:
+		  ret = g_cclosure_marshal_VOID__DOUBLE;
+		case G_TYPE_STRING:
+		  ret = g_cclosure_marshal_VOID__STRING;
+		}
+	    }
+	}
+      else if (n_params == 3
+	       && param_types[0] == G_TYPE_STRING
+	       && param_types[1] == G_TYPE_STRING
+	       && param_types[2] == G_TYPE_STRING)
+	{
+	  ret = _dbus_g_marshal_NONE__STRING_STRING_STRING;
+	}
+    }
+
+  return ret;
+}
+
+/**
+ * Register a GClosureMarshal to be used for signal invocations.
+ * This function will not be needed once GLib includes libffi.
+ *
+ * @param rettype a GType for the return type of the function
+ * @param n_types number of function parameters
+ * @param param_types a C array of GTypes values
+ * @param marshaller a GClosureMarshal to be used for invocation
+ */
+void
+dbus_g_object_register_marshaller (GType            rettype,
+				   guint            n_types,
+				   const GType      *param_types,
+				   GClosureMarshal   marshaller)
+{
+  DBusGFuncSignature *sig;
+  
+  g_static_rw_lock_writer_lock (&globals_lock);
+
+  if (marshal_table == NULL)
+    marshal_table = g_hash_table_new_full (funcsig_hash,
+					   funcsig_equal,
+					   g_free,
+					   NULL);
+  sig = g_new0 (DBusGFuncSignature, 1);
+  sig->rettype = rettype;
+  sig->n_params = n_types;
+  sig->params = g_new (GType, n_types);
+  memcpy (sig->params, param_types, n_types * sizeof (GType));
+
+  g_hash_table_insert (marshal_table, sig, marshaller);
+
+  g_static_rw_lock_writer_unlock (&globals_lock);
+}
+
 /** @} */ /* end of public API */
+
+const char * _dbus_gobject_get_path (GObject *obj)
+{
+  return g_object_get_data (obj, "dbus_glib_object_path");
+}
 
 #ifdef DBUS_BUILD_TESTS
 #include <stdlib.h>

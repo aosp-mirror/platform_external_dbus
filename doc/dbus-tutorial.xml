@@ -449,20 +449,294 @@
     <title>GLib API: Using Remote Objects</title>
 
     <para>
-      
       The GLib binding is defined in the header file
-      &lt;dbus/dbus-glib.h&gt;. The API is very small, in sharp contrast to the
-      low-level &lt;dbus/dbus.h&gt;.
-
+      &lt;dbus/dbus-glib.h&gt;.
     </para>
 
-    <para>
-      The GLib bindings are incomplete, see the TODO file and comments in the
-      source code.
-    </para>
-
-    <para>
-Here is a D-BUS program using the GLib bindings.
+    <sect2 id="glib-typemappings">
+      <title>D-BUS - GLib type mappings</title>
+      <para>
+	The heart of the GLib bindings for D-BUS is the mapping it
+	provides between D-BUS "type signatures" and GLib types
+	(<literal>GType</literal>). The D-BUS type system is composed of
+	a number of "basic" types, along with several "container" types.
+      </para>
+      <sect3 id="glib-basic-typemappings">
+	<title>Basic type mappings</title>
+	<para>
+	  Below is a list of the basic types, along with their associated
+	  mapping to a <literal>GType</literal>.
+	  <informaltable>
+	    <tgroup cols="4">
+	      <thead>
+		<row>
+		  <entry>D-BUS basic type</entry>
+		  <entry>GType</entry>
+		  <entry>Free function</entry>
+		  <entry>Notes</entry>
+		</row>
+	      </thead>
+	      <tbody>
+		<row>
+		  <entry><literal>BYTE</literal></entry>
+		  <entry><literal>G_TYPE_UCHAR</literal></entry>
+		  <entry></entry>
+		  <entry></entry>
+		  </row><row>
+		  <entry><literal>BOOLEAN</literal></entry>
+		  <entry><literal>G_TYPE_BOOLEAN</literal></entry>
+		  <entry></entry>
+		  <entry></entry>
+		  </row><row>
+		  <entry><literal>INT16</literal></entry>
+		  <entry><literal>G_TYPE_INT</literal></entry>
+		  <entry></entry>
+		  <entry>Will be changed to a G_TYPE_INT16 once GLib has it</entry>
+		  </row><row>
+		  <entry><literal>UINT16</literal></entry>
+		  <entry><literal>G_TYPE_UINT</literal></entry>
+		  <entry></entry>
+		  <entry>Will be changed to a G_TYPE_UINT16 once GLib has it</entry>
+		  </row><row>
+		  <entry><literal>INT32</literal></entry>
+		  <entry><literal>G_TYPE_INT</literal></entry>
+		  <entry></entry>
+		  <entry>Will be changed to a G_TYPE_INT32 once GLib has it</entry>
+		  </row><row>
+		  <entry><literal>UINT32</literal></entry>
+		  <entry><literal>G_TYPE_UINT</literal></entry>
+		  <entry></entry>
+		  <entry>Will be changed to a G_TYPE_UINT32 once GLib has it</entry>
+		  </row><row>
+		  <entry><literal>INT64</literal></entry>
+		  <entry><literal>G_TYPE_GINT64</literal></entry>
+		  <entry></entry>
+		  <entry></entry>
+		  </row><row>
+		  <entry><literal>UINT64</literal></entry>
+		  <entry><literal>G_TYPE_GUINT64</literal></entry>
+		  <entry></entry>
+		  <entry></entry>
+		  </row><row>
+		  <entry><literal>DOUBLE</literal></entry>
+		  <entry><literal>G_TYPE_DOUBLE</literal></entry>
+		  <entry></entry>
+		  <entry></entry>
+		  </row><row>
+		  <entry><literal>STRING</literal></entry>
+		  <entry><literal>G_TYPE_STRING</literal></entry>
+		  <entry>g_free</entry>
+		  <entry></entry>
+		  </row><row>
+		  <entry><literal>OBJECT_PATH</literal></entry>
+		  <entry><literal>DBUS_TYPE_G_PROXY</literal></entry>
+		  <entry>g_object_unref</entry>
+		  <entry>The returned proxy does not have an interface set; use <literal>dbus_g_proxy_set_interface</literal> to invoke methods</entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </informaltable>
+	  As you can see, the basic mapping is fairly straightforward.
+	</para>
+      </sect3>
+      <sect3 id="glib-container-typemappings">
+	<title>Container type mappings</title>
+	<para>
+	  The D-BUS type system also has a number of "container"
+	  types, such as <literal>DBUS_TYPE_ARRAY</literal> and
+	  <literal>DBUS_TYPE_STRUCT</literal>.  The D-BUS type system
+	  is fully recursive, so one can for example have an array of
+	  array of strings (i.e. type signature
+	  <literal>aas</literal>).
+	</para>
+	<para>
+	  However, not all of these types are in common use; for
+	  example, at the time of this writing the author knows of no
+	  one using <literal>DBUS_TYPE_STRUCT</literal>, or a
+	  <literal>DBUS_TYPE_ARRAY</literal> containing any non-basic
+	  type.  The approach the GLib bindings take is pragmatic; try
+	  to map the most common types in the most obvious way, and
+	  let using less common and more complex types be less
+	  "natural".
+	</para>
+	<para>
+	  First, D-BUS type signatures which have an "obvious"
+	  corresponding builtin GLib type are mapped using that type:
+	  <informaltable>
+	    <tgroup cols="6">
+	      <thead>
+		<row>
+		  <entry>D-BUS type signature</entry>
+		  <entry>Description</entry>
+		  <entry>GType</entry>
+		  <entry>C typedef</entry>
+		  <entry>Free function</entry>
+		  <entry>Notes</entry>
+		</row>
+	      </thead>
+	      <tbody>
+		<row>
+		  <entry><literal>as</literal></entry>
+		  <entry>Array of strings</entry>
+		  <entry><literal>G_TYPE_STRV</literal></entry>
+		  <entry><literal>char **</literal></entry>
+		  <entry>g_strfreev</entry>
+		  <entry></entry>
+		  </row><row>
+		  <entry><literal>v</literal></entry>
+		  <entry>Generic value container</entry>
+		  <entry><literal>G_TYPE_VALUE</literal></entry>
+		  <entry><literal>GValue *</literal></entry>
+		  <entry>g_value_unset</entry>
+		  <entry>The calling conventions for values expect that method callers have allocated return values; see below.</entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </informaltable>
+	</para>
+	<para>
+	  The next most common recursive type signatures are arrays of
+	  basic values.  The most obvious mapping for arrays of basic
+	  types is a <literal>GArray</literal>.  Now, GLib does not
+	  provide a builtin <literal>GType</literal> for
+	  <literal>GArray</literal>.  However, we actually need more than
+	  that - we need a "parameterized" type which includes the
+	  contained type.  Why we need this we will see below.
+	</para>
+	<para>
+	  The approach taken is to create these types in the D-BUS GLib
+	  bindings; however, there is nothing D-BUS specific about them.
+	  In the future, we hope to include such "fundamental" types in GLib
+	  itself.
+	  <informaltable>
+	    <tgroup cols="6">
+	      <thead>
+		<row>
+		  <entry>D-BUS type signature</entry>
+		  <entry>Description</entry>
+		  <entry>GType</entry>
+		  <entry>C typedef</entry>
+		  <entry>Free function</entry>
+		  <entry>Notes</entry>
+		</row>
+	      </thead>
+	      <tbody>
+		<row>
+		  <entry><literal>ay</literal></entry>
+		  <entry>Array of bytes</entry>
+		  <entry><literal>DBUS_TYPE_G_BYTE_ARRAY</literal></entry>
+		  <entry><literal>GArray *</literal></entry>
+		  <entry>g_array_free</entry>
+		  <entry></entry>
+		</row>
+		<row>
+		  <entry><literal>au</literal></entry>
+		  <entry>Array of uint</entry>
+		  <entry><literal>DBUS_TYPE_G_UINT_ARRAY</literal></entry>
+		  <entry><literal>GArray *</literal></entry>
+		  <entry>g_array_free</entry>
+		  <entry></entry>
+		</row>
+		<row>
+		  <entry><literal>ai</literal></entry>
+		  <entry>Array of int</entry>
+		  <entry><literal>DBUS_TYPE_G_INT_ARRAY</literal></entry>
+		  <entry><literal>GArray *</literal></entry>
+		  <entry>g_array_free</entry>
+		  <entry></entry>
+		</row>
+		<row>
+		  <entry><literal>ax</literal></entry>
+		  <entry>Array of int64</entry>
+		  <entry><literal>DBUS_TYPE_G_INT64_ARRAY</literal></entry>
+		  <entry><literal>GArray *</literal></entry>
+		  <entry>g_array_free</entry>
+		  <entry></entry>
+		</row>
+		<row>
+		  <entry><literal>at</literal></entry>
+		  <entry>Array of uint64</entry>
+		  <entry><literal>DBUS_TYPE_G_UINT64_ARRAY</literal></entry>
+		  <entry><literal>GArray *</literal></entry>
+		  <entry>g_array_free</entry>
+		  <entry></entry>
+		</row>
+		<row>
+		  <entry><literal>ad</literal></entry>
+		  <entry>Array of double</entry>
+		  <entry><literal>DBUS_TYPE_G_DOUBLE_ARRAY</literal></entry>
+		  <entry><literal>GArray *</literal></entry>
+		  <entry>g_array_free</entry>
+		  <entry></entry>
+		</row>
+		<row>
+		  <entry><literal>ab</literal></entry>
+		  <entry>Array of boolean</entry>
+		  <entry><literal>DBUS_TYPE_G_BOOLEAN_ARRAY</literal></entry>
+		  <entry><literal>GArray *</literal></entry>
+		  <entry>g_array_free</entry>
+		  <entry></entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </informaltable>
+	</para>
+	<para>
+	  D-BUS also includes a special type DBUS_TYPE_DICT_ENTRY which
+	  is only valid in arrays.  It's intended to be mapped to a "dictionary"
+	  type by bindings.  The obvious GLib mapping here is GHashTable.  Again,
+	  however, there is no builtin <literal>GType</literal> for a GHashTable.
+	  Moreover, just like for arrays, we need a parameterized type so that
+	  the bindings can communiate which types are contained in the hash table.
+	</para>
+	<para>
+	  At present, only strings are supported.  Work is in progress to
+	  include more types.
+	  <informaltable>
+	    <tgroup cols="6">
+	      <thead>
+		<row>
+		  <entry>D-BUS type signature</entry>
+		  <entry>Description</entry>
+		  <entry>GType</entry>
+		  <entry>C typedef</entry>
+		  <entry>Free function</entry>
+		  <entry>Notes</entry>
+		</row>
+	      </thead>
+	      <tbody>
+		<row>
+		  <entry><literal>a{ss}</literal></entry>
+		  <entry>Dictionary mapping strings to strings</entry>
+		  <entry><literal>DBUS_TYPE_G_STRING_STRING_HASHTABLE</literal></entry>
+		  <entry><literal>GHashTable *</literal></entry>
+		  <entry>g_hash_table_destroy</entry>
+		  <entry></entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </informaltable>
+	</para>
+      </sect3>
+      <sect3 id="glib-generic-typemappings">
+	<title>Arbitrarily recursive type mappings</title>
+	<para>
+	  Finally, it is possible users will want to write or invoke D-BUS
+	  methods which have arbitrarily complex type signatures not
+	  directly supported by these bindings.  For this case, we have a
+	  <literal>DBusGValue</literal> which acts as a kind of special
+	  variant value which may be iterated over manually.  The
+	  <literal>GType</literal> associated is
+	  <literal>DBUS_TYPE_G_VALUE</literal>.
+	</para>
+	<para>
+	  TODO insert usage of <literal>DBUS_TYPE_G_VALUE</literal> here.
+	</para>
+      </sect3>
+    </sect2>
+    <sect2 id="sample-program-1">
+      <title>A sample program</title>
+      <para>Here is a D-BUS program using the GLib bindings.
 <programlisting>      
 int
 main (int argc, char **argv)
@@ -470,10 +744,8 @@ main (int argc, char **argv)
   DBusGConnection *connection;
   GError *error;
   DBusGProxy *proxy;
-  DBusGPendingCall *call;
   char **name_list;
-  int name_list_len;
-  int i;
+  char **name_list_ptr;
   
   g_type_init ();
 
@@ -495,15 +767,10 @@ main (int argc, char **argv)
                                      DBUS_PATH_ORG_FREEDESKTOP_DBUS,
                                      DBUS_INTERFACE_ORG_FREEDESKTOP_DBUS);
 
-  /* Call ListNames method */
-  
-  call = dbus_g_proxy_begin_call (proxy, "ListNames", DBUS_TYPE_INVALID);
-
+  /* Call ListNames method, wait for reply */
   error = NULL;
-  if (!dbus_g_proxy_end_call (proxy, call, &amp;error,
-                              DBUS_TYPE_ARRAY, DBUS_TYPE_STRING,
-                              &amp;name_list, &amp;name_list_len,
-                              DBUS_TYPE_INVALID))
+  if (!dbus_g_proxy_invoke (proxy, "ListNames", &amp;error, G_TYPE_INVALID,
+                            G_TYPE_STRV, &amp;name_list, G_TYPE_INVALID))
     {
       g_printerr ("Failed to complete ListNames call: %s\n",
                   error-&gt;message);
@@ -514,77 +781,348 @@ main (int argc, char **argv)
   /* Print the results */
  
   g_print ("Names on the message bus:\n");
-  i = 0;
-  while (i &lt; name_list_len)
+  
+  for (name_list_ptr = name_list; *name_list_ptr; name_list_ptr++)
     {
-      g_assert (name_list[i] != NULL);
-      g_print ("  %s\n", name_list[i]);
-      ++i;
+      g_print ("  %s\n", *name_list_ptr);
     }
-  g_assert (name_list[i] == NULL);
-
   g_strfreev (name_list);
+
+  g_object_unref (proxy);
 
   return 0;
 }
 </programlisting>
     </para>
+    </sect2>
+    <sect2 id="glib-program-setup">
+      <title>Program initalization</title>
+      <para>
+	A connection to the bus is acquired using
+	<literal>dbus_g_bus_get</literal>.  Next, a proxy
+	is created for the object "/org/freedesktop/DBus" with
+	interface <literal>org.freedesktop.DBus</literal>
+	on the service <literal>org.freedesktop.DBus</literal>.
+	This is a proxy for the message bus itself.
+      </para>
+    </sect2>
+    <sect2 id="glib-method-invocation">
+      <title>Understanding method invocation</title>
+      <para>
+	You have a number of choices for method invocation.  First, as
+	used above, <literal>dbus_g_proxy_invoke</literal> sends a
+	method call to the remote object, and blocks until reply is
+	recieved.  The outgoing arguments are specified in the varargs
+	array, terminated with <literal>G_TYPE_INVALID</literal>.
+	Next, pointers to return values are specified, followed again
+	by <literal>G_TYPE_INVALID</literal>.
+      </para>
+      <para>
+	To invoke a method asynchronously, use
+	<literal>dbus_g_proxy_begin_call</literal>.  This returns a
+	<literal>DBusGPendingCall</literal> object; you may then set a
+	notification function using
+	<literal>dbus_g_pending_call_set_notify</literal>.
+      </para>
+    </sect2>
+    <sect2 id="glib-signal-connection">
+      <title>Connecting to object signals</title>
+      <para>
+	You may connect to signals using
+	<literal>dbus_g_proxy_add_signal</literal> and
+	<literal>dbus_g_proxy_connect_signal</literal>.  At the
+	moment, <literal>dbus_g_proxy_add_signal</literal> requires
+	the D-BUS types of the remote object; this will likely be
+	changed later.
+      </para>
+    </sect2>
+    <sect2 id="glib-more-examples">
+      <title>More examples of method invocation</title>
+      <sect3 id="glib-sending-stuff">
+	<title>Sending an integer and string, receiving an array of bytes</title>
+	<para>
+<programlisting>
+  GArray *arr;
+  
+  error = NULL;
+  if (!dbus_g_proxy_invoke (proxy, "Foobar", &amp;error,
+                            G_TYPE_INT, 42, G_TYPE_STRING, "hello",
+			    G_TYPE_INVALID,
+			    DBUS_TYPE_G_UCHAR_ARRAY, &amp;arr, G_TYPE_INVALID))
+    {
+      g_printerr ("Failed to complete Foobar: %s\n",
+                  error-&gt;message);
+      g_error_free (error);
+      exit (1);
+    }
+   g_assert (arr != NULL);
+   printf ("got back %u values", arr->len);
+</programlisting>
+	</para>
+      </sect3>
+      <sect3 id="glib-sending-hash">
+	<title>Sending a GHashTable</title>
+	<para>
+<programlisting>
+  GHashTable *hash = g_hash_table_new (g_str_hash, g_str_equal);
+  guint32 ret;
+  
+  g_hash_table_insert (hash, "foo", "bar");
+  g_hash_table_insert (hash, "baz", "whee");
 
-    <para>
+  error = NULL;
+  if (!dbus_g_proxy_invoke (proxy, "HashSize", &amp;error,
+                            DBUS_TYPE_G_STRING_STRING_HASH, hash, G_TYPE_INVALID,
+			    G_TYPE_UINT, &amp;ret, G_TYPE_INVALID))
+    {
+      g_printerr ("Failed to complete HashSize: %s\n",
+                  error-&gt;message);
+      g_error_free (error);
+      exit (1);
+    }
+  g_assert (ret == 2);
+  g_hash_table_destroy (hash);
+</programlisting>
+	</para>
+      </sect3>
+      <sect3 id="glib-receiving-bool-int">
+	<title>Receiving a boolean and a string</title>
+	<para>
+<programlisting>
+  gboolean boolret;
+  char *strret;
+  
+  error = NULL;
+  if (!dbus_g_proxy_invoke (proxy, "GetStuff", &amp;error,
+			    G_TYPE_INVALID,
+                            G_TYPE_BOOLEAN, &amp;boolret,
+                            G_TYPE_STRING, &amp;strret,
+			    G_TYPE_INVALID))
+    {
+      g_printerr ("Failed to complete GetStuff: %s\n",
+                  error-&gt;message);
+      g_error_free (error);
+      exit (1);
+    }
+  printf ("%s %s", boolret ? "TRUE" : "FALSE", strret);
+  g_free (strret);
+</programlisting>
+	</para>
+      </sect3>
+      <sect3 id="glib-sending-str-arrays">
+	<title>Sending two arrays of strings</title>
+	<para>
+<programlisting>
+  /* NULL terminate */
+  char *strs_static[] = {"foo", "bar", "baz", NULL};
+  /* Take pointer to array; cannot pass array directly */
+  char **strs_static_p = strs_static;
+  char **strs_dynamic;
 
-      DBusGProxy represents a remote object. dbus_g_proxy_begin_call() sends 
-      a method call to the remote object, and dbus_g_proxy_end_call() retrieves 
-      any return values or exceptions resulting from the method call. 
-      There are also DBusGProxy functions to connect and disconnect signals, 
-      not shown in the code example.
+  strs_dynamic = g_new (char *, 4);
+  strs_dynamic[0] = g_strdup ("hello");
+  strs_dynamic[1] = g_strdup ("world");
+  strs_dynamic[2] = g_strdup ("!");
+  /* NULL terminate */
+  strs_dynamic[3] = NULL;
+  
+  error = NULL;
+  if (!dbus_g_proxy_invoke (proxy, "TwoStrArrays", &amp;error,
+                            G_TYPE_STRV, strs_static_p,
+                            G_TYPE_STRV, strs_dynamic,
+			    G_TYPE_INVALID,
+			    G_TYPE_INVALID))
+    {
+      g_printerr ("Failed to complete TwoStrArrays: %s\n",
+                  error-&gt;message);
+      g_error_free (error);
+      exit (1);
+    }
+   g_strfreev (strs_dynamic);
+</programlisting>
+	</para>
+      </sect3>
+      <sect3 id="glib-getting-str-array">
+	<title>Sending a boolean, receiving an array of strings</title>
+	<para>
+<programlisting>
+  char **strs;
+  char **strs_p;
+  gboolean blah;
 
-    </para>
+  error = NULL;
+  blah = TRUE;
+  if (!dbus_g_proxy_invoke (proxy, "GetStrs", &amp;error,
+                            G_TYPE_BOOLEAN, blah,
+			    G_TYPE_INVALID,
+                            G_TYPE_STRV, &amp;strs,
+			    G_TYPE_INVALID))
+    {
+      g_printerr ("Failed to complete GetStrs: %s\n",
+                  error-&gt;message);
+      g_error_free (error);
+      exit (1);
+    }
+   for (strs_p = strs; *strs_p; strs_p++)
+     printf ("got string: \"%s\"", *strs_p);
+   g_strfreev (strs);
+</programlisting>
+	</para>
+      </sect3>
+      <sect3 id="glib-sending-variant">
+	<title>Sending a variant</title>
+	<para>
+<programlisting>
+  GValue val = {0, };
 
-    <para>
-      
-      dbus_g_bus_get() assumes that the application will use GMainLoop. The
-      created connection will be associated with the main loop such that
-      messages will be sent and received when the main loop runs.  However, in
-      the above code example the main loop never runs; D-BUS will not run the
-      loop implicitly. Instead, dbus_g_proxy_end_call() will block until the
-      method call has been sent and the reply received. A more complex GUI
-      application might run the main loop while waiting for the method call
-      reply.  (DBusGPendingCall is currently missing the "notify me when the
-      call is complete" functionality found in DBusPendingCall, but it should be
-      added.)
+  g_value_init (&amp;val, G_TYPE_STRING);
+  g_value_set_string (&amp;val, "hello world");
+  
+  error = NULL;
+  if (!dbus_g_proxy_invoke (proxy, "SendVariant", &amp;error,
+                            G_TYPE_VALUE, &amp;val, G_TYPE_INVALID,
+			    G_TYPE_INVALID))
+    {
+      g_printerr ("Failed to complete SendVariant: %s\n",
+                  error-&gt;message);
+      g_error_free (error);
+      exit (1);
+    }
+  g_assert (ret == 2);
+  g_value_unset (&amp;val);
+</programlisting>
+	</para>
+      </sect3>
+      <sect3 id="glib-receiving-variant">
+	<title>Receiving a variant</title>
+	<para>
+<programlisting>
+  GValue val = {0, };
 
-    </para>
-
-    <para>
-      
-      Future plans (see doc/TODO) are to use G_TYPE_STRING in place of
-      DBUS_TYPE_STRING and so forth. In fact the above code is slightly
-      incorrect at the moment, since it uses g_strfreev() to free a string array
-      that was not allocated with g_malloc(). dbus_free_string_array() should
-      really be used. However, once the GLib bindings are complete the returned
-      data from dbus_g_proxy_end_call() will be allocated with g_malloc().
-
-    </para>
-
+  error = NULL;
+  if (!dbus_g_proxy_invoke (proxy, "GetVariant", &amp;error, G_TYPE_INVALID,
+                            G_TYPE_VALUE, &amp;val, G_TYPE_INVALID))
+    {
+      g_printerr ("Failed to complete GetVariant: %s\n",
+                  error-&gt;message);
+      g_error_free (error);
+      exit (1);
+    }
+  if (G_VALUE_TYPE (&amp;val) == G_TYPE_STRING)
+    printf ("%s\n", g_value_get_string (&amp;val));
+  else if (G_VALUE_TYPE (&amp;val) == G_TYPE_INT)
+    printf ("%d\n", g_value_get_int (&amp;val));
+  else
+    ...
+  g_value_unset (&amp;val);
+</programlisting>
+	</para>
+      </sect3>
+    </sect2>
   </sect1>
 
   <sect1 id="glib-server">
     <title>GLib API: Implementing Objects</title>
-
     <para>
-      
-      The GLib binding is defined in the header file
-      &lt;dbus/dbus-glib.h&gt;. To implement an object, it's also necessary
-      to use the dbus-glib-tool command line tool.
-
+      At the moment, to expose a GObject via D-BUS, you must
+      write XML by hand which describes the methods exported
+      by the object.  In the future, this manual step will
+      be obviated by the upcoming GLib introspection support.
     </para>
-
     <para>
-      The GLib bindings are incomplete.  Implementing an object is not yet
-      possible, see the TODO file and comments in the source code for details
-      on what work needs doing.
+      Here is a sample XML file which describes an object that exposes
+      one method, named <literal>ManyArgs</literal>.
+<programlisting>
+&lt;?xml version="1.0" encoding="UTF-8" ?&gt;
+
+&lt;node name="/com/example/MyObject"&gt;
+
+  &lt;interface name="com.example.MyObject"&gt;
+    &lt;annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object"/&gt;
+    &lt;method name="ManyArgs"&gt;
+      &lt;!-- This is optional, and in this case is redunundant --&gt;
+      &lt;annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object_many_args"/&gt;
+      &lt;arg type="u" name="x" direction="in" /&gt;
+      &lt;arg type="s" name="str" direction="in" /&gt;
+      &lt;arg type="d" name="trouble" direction="in" /&gt;
+      &lt;arg type="d" name="d_ret" direction="out" /&gt;
+      &lt;arg type="s" name="str_ret" direction="out" /&gt;
+    &lt;/method&gt;
+  &lt;/interface&gt;
+&lt;/node&gt;
+</programlisting>
     </para>
-      
+    <para>
+      This XML is in the same format as the D-BUS introspection XML
+      format. Except we must include an "annotation" which give the C
+      symbols corresponding to the object implementation prefix
+      (<literal>my_object</literal>).  In addition, if particular
+      methods symbol names deviate from C convention
+      (i.e. <literal>ManyArgs</literal> -&gt;
+      <literal>many_args</literal>), you may specify an annotation
+      giving the C symbol.
+    </para>
+    <para>
+      Once you have written this XML, run <literal>dbus-binding-tool --mode=glib-server <replaceable>FILENAME</replaceable> &gt; <replaceable>HEADER_NAME</replaceable>.</literal> to
+      generate a header file.  For example: <command>dbus-binding-tool --mode=glib-server my-objet.xml &gt; my-object-glue.h</command>.
+    </para>
+    <para>
+      Next, include the generated header in your program, and invoke
+      <literal>dbus_g_object_class_install_info</literal>, passing the
+      object class and "object info" included in the header.  For
+      example:
+      <programlisting>
+	dbus_g_object_type_install_info (COM_FOO_TYPE_MY_OBJECT, &amp;com_foo_my_object_info);
+      </programlisting>
+      This should be done exactly once per object class.
+    </para>
+    <para>
+      To actually implement the method, just define a C function named e.g.
+      <literal>my_object_many_args</literal> in the same file as the info
+      header is included.  At the moment, it is required that this function
+      conform to the following rules:
+      <itemizedlist>
+	<listitem>
+	  <para>
+	    The function must return a value of type <literal>gboolean</literal>;
+	    <literal>TRUE</literal> on success, and <literal>FALSE</literal>
+	    otherwise.
+	  </para>
+	</listitem>
+	<listitem>
+	  <para>
+	    The first parameter is a pointer to an instance of the object.
+	  </para>
+	</listitem>
+	<listitem>
+	  <para>
+	    Following the object instance pointer are the method
+	    input values.
+	  </para>
+	</listitem>
+	<listitem>
+	  <para>
+	    Following the input values are pointers to return values.
+	  </para>
+	</listitem>
+	<listitem>
+	  <para>
+	    The final parameter must be a <literal>GError **</literal>.
+	    If the function returns <literal>FALSE</literal> for an
+	    error, the error parameter must be initalized with
+	    <literal>g_set_error</literal>.
+	  </para>
+	</listitem>
+      </itemizedlist>
+    </para>
+    <para>
+      Finally, you can export an object using <literal>dbus_g_connection_register_g_object</literal>.  For example:
+      <programlisting>
+	  dbus_g_connection_register_g_object (connection,
+                                               "/com/foo/MyObject",
+                                               obj);
+      </programlisting>
+    </para>
   </sect1>
 
   <sect1 id="qt-client">

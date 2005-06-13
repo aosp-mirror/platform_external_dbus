@@ -23,6 +23,7 @@
 #include "dbus-names-model.h"
 #include <glib/gi18n.h>
 #include <string.h>
+#include <dbus/dbus-protocol.h>
 
 enum
 {
@@ -76,8 +77,8 @@ have_names_notify (DBusGPendingCall *call,
   error = NULL;
   if (!dbus_g_proxy_end_call (names_model->driver_proxy,
                               names_model->pending_list_names,
-                              &error, DBUS_TYPE_ARRAY, DBUS_TYPE_STRING,
-                              &names, &n_elements, DBUS_TYPE_INVALID))
+                              &error, G_TYPE_STRV,
+                              &names, &n_elements, G_TYPE_INVALID))
     {
       g_assert (names == NULL);
       g_assert (error != NULL);
@@ -210,7 +211,7 @@ names_model_reload (NamesModel *names_model)
   names_model->pending_list_names =
     dbus_g_proxy_begin_call (names_model->driver_proxy,
                              "ListNames",
-                             DBUS_TYPE_INVALID);
+                             G_TYPE_INVALID);
 
   dbus_g_pending_call_set_notify (names_model->pending_list_names,
                                   have_names_notify, names_model, NULL);
@@ -252,9 +253,10 @@ names_model_set_connection (NamesModel      *names_model,
 
       dbus_g_proxy_add_signal (names_model->driver_proxy,
                                "NameOwnerChanged",
-                               DBUS_TYPE_STRING_AS_STRING
-                               DBUS_TYPE_STRING_AS_STRING
-                               DBUS_TYPE_STRING_AS_STRING);
+                               G_TYPE_STRING,
+                               G_TYPE_STRING,
+                               G_TYPE_STRING,
+			       G_TYPE_INVALID);
       
       dbus_g_proxy_connect_signal (names_model->driver_proxy,
                                    "NameOwnerChanged", 

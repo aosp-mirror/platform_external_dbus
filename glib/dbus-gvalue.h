@@ -2,40 +2,49 @@
 #define DBUS_GOBJECT_VALUE_H
 
 #include <dbus/dbus.h>
+#include <dbus/dbus-signature.h>
 #include <glib.h>
 #include <glib-object.h>
+#include "dbus/dbus-glib.h"
 
 G_BEGIN_DECLS
 
-/* Used for return value storage */
-typedef union
-{
-  gboolean gboolean_val;
-  guchar guchar_val;
-  gint int_val;
-  gint64 gint64_val;
-  guint64 guint64_val;
-  double double_val;
-  gpointer gpointer_val;
-  char * chararray_val;
-} DBusBasicGValue;
+typedef struct {
+  DBusGConnection    *gconnection;
+  DBusGProxy         *proxy;
+} DBusGValueMarshalCtx;
 
-const char *   dbus_gvalue_genmarshal_name_from_type (const char *type);
+void           dbus_g_value_types_init        (void);
 
-const char *   dbus_gvalue_ctype_from_type           (const char *type, gboolean in);
+GType          dbus_gtype_from_signature      (const char              *signature,
+					       gboolean                 is_client);
 
-const char *   dbus_gtype_to_dbus_type    (GType            type);
+GType          dbus_gtype_from_signature_iter (DBusSignatureIter       *sigiter,
+					       gboolean                 is_client);
 
-gboolean       dbus_gvalue_init           (int              type,
-					   GValue          *value);
+const char *   dbus_gtype_to_signature        (GType                    type);
 
-gboolean       dbus_gvalue_demarshal      (DBusMessageIter *iter,
-					   GValue          *value);
-gboolean       dbus_gvalue_marshal        (DBusMessageIter *iter,
-					   GValue          *value);
+GArray *       dbus_gtypes_from_arg_signature (const char              *signature,
+					       gboolean                 is_client);
 
-gboolean       dbus_gvalue_store          (GValue          *value,
-					   gpointer         storage);
+gboolean       dbus_gvalue_demarshal          (DBusGValueMarshalCtx    *context,
+					       DBusMessageIter         *iter,
+					       GValue                  *value,
+					       GError                 **error);
+
+gboolean       dbus_gvalue_demarshal_variant  (DBusGValueMarshalCtx    *context,
+					       DBusMessageIter         *iter,
+					       GValue                  *value,
+					       GError                 **error);
+
+GValueArray *  dbus_gvalue_demarshal_message  (DBusGValueMarshalCtx    *context,
+					       DBusMessage             *message,
+					       guint                    n_params,
+					       const GType             *types, 
+					       GError                 **error);
+
+gboolean       dbus_gvalue_marshal            (DBusMessageIter         *iter,
+					       GValue                  *value);
 
 G_END_DECLS
 

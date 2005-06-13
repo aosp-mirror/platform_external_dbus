@@ -1,3 +1,187 @@
+2005-06-12  Colin Walters  <walters@verbum.org>
+
+	Async signals and various bugfixes and testing by
+	Ross Burton <ross@burtonini.com>.
+
+	* glib/dbus-gvalue.h: (struct DBusBasicGValue): Delete.
+	(dbus_gvalue_genmarshal_name_from_type)
+	(dbus_gvalue_ctype_from_type): Moved to dbus-binding-tool-glib.c.
+	(dbus_gtype_to_dbus_type): Renamed to dbus_gtype_from_signature.
+	(dbus_g_value_types_init, dbus_gtype_from_signature)
+	(dbus_gtype_from_signature_iter, dbus_gtype_to_signature)
+	(dbus_gtypes_from_arg_signature): New function prototypes.
+	(dbus_gvalue_demarshal): Take context and error arguments.
+	(dbus_gvalue_demarshal_variant): New function.
+	(dbus_gvalue_demarshal_message): New function.
+	(dbus_gvalue_store): Delete.
+
+	* glib/dbus-gvalue.c:
+
+	File has been almost entirely rewritten; now we special-case
+	more types such as DBUS_TYPE_SIGNATURE, handle arrays and
+	hash tables correctly, etc.  Full support for recursive values
+	is not yet complete.
+
+	* glib/dbus-gproxy.c (dbus_g_proxy_class_init): Change last
+	argument of signal to G_TYPE_POINTER since we now pass a
+	structure.
+	(lookup_g_marshaller): Delete in favor of
+	_dbus_gobject_lookup_marshaller.
+	(marshal_dbus_message_to_g_marshaller): Use
+	_dbus_gobject_lookup_marshaller and dbus_gvalue_demarshal_message
+	to handle remote signal callbacks.
+	(dbus_g_proxy_new_from_proxy): New function; creates a new
+	DBusGProxy by copying an existing one.
+	(dbus_g_proxy_get_interface, dbus_g_proxy_set_interface)
+	(dbus_g_proxy_get_path): New functions.
+	(dbus_g_proxy_marshal_args_to_message): New function;
+	factored out of existing code.
+	(DBUS_G_VALUE_ARRAY_COLLECT_ALL): Collect all arguments
+	from a varargs array.
+	(dbus_g_proxy_begin_call_internal): New function.
+	(dbus_g_proxy_end_call_internal): New function.
+	(dbus_g_proxy_begin_call): Take GTypes instead of DBus types
+	as arguments; simply invoke dbus_g_proxy_begin_call_internal
+	after collecting args into value array.
+	(dbus_g_proxy_end_call): Take GTypes instead of DBus types;
+	invoke dbus_g_proxy_end_call_internal.
+	(dbus_g_proxy_invoke): Simply invoke begin_call_interanl and
+	end_call_internal.
+	(dbus_g_proxy_call_no_reply): Take GTypes instead of DBus
+	types.
+	(array_free_all): New function.
+	(dbus_g_proxy_add_signal): Take GTypes.
+
+	* glib/dbus-gobject.h:
+	(_dbus_glib_marshal_dbus_message_to_gvalue_array): Delete.
+	(_dbus_gobject_get_path, _dbus_gobject_lookup_marshaller):
+	Prototype.
+
+	* glib/dbus-gobject.c: Add a global marshal_table hash which
+	stores mappings from type signatures to marshallers.  Change lots
+	of invocations of dbus_gtype_to_dbus_type to
+	dbus_gtype_to_signature.
+	(_dbus_glib_marshal_dbus_message_to_gvalue_array): Delete.
+	(introspect_signals): Fix test for query.return_type.
+	(set_object_property): Update invocation of dbus_gvalue_demarshal.
+	(invoke_object_method): Many changes.  Handle asynchronous
+	invocations.  Convert arguments with
+	dbus_gvalue_demarshal_message.  Handle errors.  Use
+	DBusSignatureIter instead of strlen on args. Handle all arguments
+	generically.  Special-case variants.
+	(dbus_g_method_return, dbus_g_method_return_error): New function.
+	(DBusGSignalClosure): New structure, closes over signal
+	information.
+	(dbus_g_signal_closure_new): New function.
+	(dbus_g_signal_closure_finalize): New function.
+	(signal_emitter_marshaller): New function; is special marshaller
+	which emits signals on bus.
+	(export_signals): New function; introspects object signals and
+	connects to them.
+	(dbus_g_object_type_install_info): Take GType instead of
+	GObjectClass.
+	(dbus_g_connection_register_g_object): Invoke export_signals.
+	(dbus_g_connection_lookup_g_object): New function.
+	(DBusGFuncSignature) New structure; used for mapping type
+	signatures to marshallers.
+	(funcsig_hash): New function; hashes DBusGFuncSignature.
+	(funcsig_equal): New function; compares DBusGFuncSignature.
+	(_dbus_gobject_lookup_marshaller): New function.
+	(dbus_g_object_register_marshaller): New function; used to
+	register a marshaller at runtime for a particular signature.
+
+	* glib/dbus-gmain.c (_dbus_gmain_test): Add various tests.
+
+	* glib/dbus-binding-tool-glib.h: Add DBUS_GLIB_ANNOTATION_ASYNC
+	which notes a server method implementation should be
+	asynchronous.
+
+	* glib/dbus-binding-tool-glib.c
+	(dbus_binding_tool_output_glib_server): Call
+	dbus_g_value_types_init.
+	(write_formal_parameters): Use dbus_gtype_from_signature.  Handle
+	variants specially.
+	(dbus_g_type_get_lookup_function): Turn GType into an invocation
+	of a lookup function.
+	(write_args_for_direction): Use dbus_g_type_get_lookup_function.
+	(write_untyped_out_args): New method; write output arguments.
+	(write_formal_declarations_for_direction): Function for
+	writing prototypes.
+	(write_formal_parameters_for_direction): Function for
+	writing implementations.
+	(write_typed_args_for_direction): Function for writing
+	arguments prefixed with GTypes.
+	(write_async_method_client): Write out async version
+	of method.
+
+	* glib/dbus-binding-tool-glib.c: Include dbus-gvalue-utils.h.
+	(dbus_g_type_get_marshal_name): Move mapping from GType
+	to marshal name into here.
+	(dbus_g_type_get_c_name): Move into here.
+	(compute_marshaller): Convert signature to type with
+	dbus_gtype_from_signature, use dbus_g_type_get_marshal_name.
+	(compute_marshaller_name): Ditto.
+	(compute_marshaller): Handle async signal annotations.
+	(gather_marshallers): Return if we don't have a known
+	prefix.
+	(generate_glue): Collect introspection blob here, and
+	write all of the blob at the end.  This allows an object
+	with multiple interfaces to work.
+	Mark async methods in introspection blob.
+
+	* glib/Makefile.am (libdbus_glib_1_la_SOURCES): Add
+	dbus-gtype-specialized.c, dbus-gtype-specialized.h,
+	dbus-gvalue-utils.h, dbus-gvalue-utils.c.
+
+	* dbus/dbus-glib.h: Don't include dbus-protocol.h; this
+	avoids people accidentally using DBUS_TYPE_* which should
+	not be necessary anymore.
+	Do include dbus-gtype-specialized.h, which are utilities
+	for GLib container types.
+	Add various #defines for types such as
+	DBUS_TYPE_G_BOOLEAN_ARRAY.
+	(DBusGValueIterator, DBusGValue): Define, not fully used
+	yet.
+	(dbus_g_value_get_g_type): Type for recursive value.
+	(dbus_g_value_open, dbus_g_value_iterator_get_value)
+	(dbus_g_value_iterator_get_values, dbus_g_value_iterator_recurse)
+	(dbus_g_value_free): Prototypes.
+	(dbus_g_object_register_marshaller, dbus_g_proxy_new_from_proxy): Prototype.
+	(dbus_g_proxy_set_interface): Prototype.
+	(dbus_g_proxy_begin_call, dbus_g_proxy_end_call)
+	(dbus_g_proxy_call_no_reply): Take GLib types instead of DBus
+	types.
+	(dbus_g_proxy_get_path, dbus_g_proxy_get_interface):
+	Accessors.
+	(DBusGAsyncData, DBusGMethodInvocation): Structures for
+	doing async invocations.
+	(dbus_g_method_return, dbus_g_method_return_error):
+	Prototypes.
+	* doc/dbus-tutorial.xml: Update GLib section.
+	
+	* tools/dbus-viewer.c (load_child_nodes): Update
+	for new invocation type of dbus_g_proxy_end_call.
+	(load_from_service_thread_func): Ditto.
+
+	* tools/print-introspect.c (main): Ditto.
+
+	* tools/dbus-names-model.c (have_names_notify)
+	(names_model_reload, names_model_set_connection)
+	Use GTypes.
+
+	* python/Makefile.am (INCLUDES): Define DBUS_COMPILATION,
+	needed since Python bindings use GLib bindings.
+
+	* test/glib/Makefile.am (INCLUDES): Define DBUS_COMPILATION.
+	Add --prefix argument.
+
+	* tools/Makefile.am: Define DBUS_COMPILATION.  Remove
+	unneeded --ignore-unsupported arg.
+	
+	* test/glib/test-service-glib.c: 
+	* test/glib/test-service-glib.xml:
+	* test/glib/test-dbus-glib.c: Add many more tests.
+
 2005-06-06  David Zeuthen  <davidz@redhat.com>
 
 	* doc/TODO: Add item about need to remove deprecated functions.

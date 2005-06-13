@@ -41,7 +41,7 @@ main (int argc, char *argv[])
   GError *error;
   const char *service;
   const char *path;
-  const char *introspect_data;
+  char *introspect_data;
   
   if (argc != 3)
     usage (argv[0], 1);
@@ -64,9 +64,9 @@ main (int argc, char *argv[])
   proxy = dbus_g_proxy_new_for_name (connection,
 				     service, path,
 				     DBUS_INTERFACE_INTROSPECTABLE);
-  call = dbus_g_proxy_begin_call (proxy, "Introspect", DBUS_TYPE_INVALID);
-  if (!dbus_g_proxy_end_call (proxy, call, &error, DBUS_TYPE_STRING,
-			      &introspect_data, DBUS_TYPE_INVALID))
+  call = dbus_g_proxy_begin_call (proxy, "Introspect", G_TYPE_INVALID);
+  if (!dbus_g_proxy_end_call (proxy, call, &error, G_TYPE_STRING,
+			      &introspect_data, G_TYPE_INVALID))
     {
       fprintf (stderr, "Failed to get introspection data: %s\n",
                error->message);
@@ -75,8 +75,8 @@ main (int argc, char *argv[])
     }
       
   printf ("%s", introspect_data);
+  g_free (introspect_data);
 
-  dbus_g_pending_call_unref (call);
   g_object_unref (proxy);
 
   exit (0);

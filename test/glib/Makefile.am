@@ -1,4 +1,4 @@
-INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS)
+INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) -DDBUS_COMPILATION
 
 ## note that TESTS has special meaning (stuff to use in make check)
 ## so if adding tests not to be run in make check, don't add them to 
@@ -45,10 +45,10 @@ test_service_glib_SOURCES=				\
 BUILT_SOURCES = test-service-glib-glue.h test-service-glib-bindings.h
 
 test-service-glib-glue.h: test-service-glib.xml $(top_builddir)/glib/dbus-binding-tool
-	$(top_builddir)/glib/dbus-binding-tool --mode=glib-server --output=test-service-glib-glue.h test-service-glib.xml
+	$(top_builddir)/glib/dbus-binding-tool --prefix=my_object --mode=glib-server --output=test-service-glib-glue.h test-service-glib.xml
 
 test-service-glib-bindings.h: test-service-glib.xml $(top_builddir)/glib/dbus-binding-tool
-	$(top_builddir)/glib/dbus-binding-tool --mode=glib-client --output=test-service-glib-bindings.h test-service-glib.xml
+	$(top_builddir)/glib/dbus-binding-tool --prefix=my_object --mode=glib-client --output=test-service-glib-bindings.h test-service-glib.xml
 
 CLEANFILES = test-service-glib-glue.h test-service-glib-bindings.h
 

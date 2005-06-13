@@ -1,37 +1,94 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
 <node name="/org/freedesktop/DBus/Tests/MyTestObject">
-
   <interface name="org.freedesktop.DBus.Tests.MyObject">
-    <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object"/>
-
     <method name="DoNothing">
-      <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object_do_nothing"/>
     </method>
 
     <method name="Increment">
-      <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object_increment"/>
       <arg type="u" name="x" />
       <arg type="u" direction="out" />
     </method>
 
     <method name="ThrowError">
-      <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object_throw_error"/>
     </method>
 
     <method name="Uppercase">
-      <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object_uppercase"/>
       <arg type="s" direction="in" />
       <arg type="s" direction="out" />
     </method>
 
     <method name="ManyArgs">
-      <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="my_object_many_args"/>
       <arg type="u" name="x" direction="in" />
       <arg type="s" name="str" direction="in" />
       <arg type="d" name="trouble" direction="in" />
       <arg type="d" name="d_ret" direction="out" />
       <arg type="s" name="str_ret" direction="out" />
+    </method>
+
+    <method name="ManyReturn">
+      <arg type="u" direction="out" />
+      <arg type="s" direction="out" />
+      <arg type="i" direction="out" />
+      <arg type="u" direction="out" />
+      <arg type="u" direction="out" />
+      <arg type="s" direction="out" />
+    </method>
+
+    <method name="Stringify">
+      <arg type="v" name="val" direction="in"/>
+      <arg type="s" direction="out"/>
+    </method>
+
+    <method name="Unstringify">
+      <arg type="s" name="val" direction="in"/>
+      <arg type="v" direction="out"/>
+    </method>
+
+    <method name="Recursive1">
+      <arg type="au" direction="in"/>
+      <arg type="u" direction="out"/>
+    </method>
+
+    <method name="Recursive2">
+      <arg type="u" direction="in"/>
+      <arg type="au" direction="out"/>
+    </method>
+
+    <method name="ManyUppercase">
+      <arg type="as" direction="in"/>
+      <arg type="as" direction="out"/>
+    </method>
+
+    <method name="StrHashLen">
+      <arg type="a{ss}" direction="in"/>
+      <arg type="u" direction="out"/>
+    </method>
+
+    <method name="GetHash">
+      <arg type="a{ss}" direction="out"/>
+    </method>
+
+    <method name="Objpath">
+      <arg type="o" direction="in"/>
+      <arg type="o" direction="out"/>
+    </method>
+
+    <method name="IncrementVal">
+    </method>
+
+    <method name="GetVal">
+      <arg type="u" direction="out" />
+    </method>
+
+    <method name="EmitFrobnicate">
+    </method>
+
+  </interface>
+
+  <interface name="org.freedesktop.DBus.Tests.FooObject">
+    <method name="GetValue">
+      <arg type="u" direction="out" />
     </method>
 
   </interface>

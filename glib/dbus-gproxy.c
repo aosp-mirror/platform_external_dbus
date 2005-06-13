@@ -24,8 +24,8 @@
 #include <dbus/dbus-glib-lowlevel.h>
 #include <dbus/dbus-signature.h>
 #include "dbus-gutils.h"
-#include "dbus-gmarshal.h"
 #include "dbus-gvalue.h"
+#include "dbus-gvalue-utils.h"
 #include "dbus-gobject.h"
 #include <string.h>
 #include <glib/gi18n.h>
@@ -737,7 +737,7 @@ dbus_g_proxy_class_init (DBusGProxyClass *klass)
                   0,
                   NULL, NULL,
                   marshal_dbus_message_to_g_marshaller,
-                  G_TYPE_NONE, 2, DBUS_TYPE_MESSAGE, G_TYPE_STRING);
+                  G_TYPE_NONE, 2, DBUS_TYPE_MESSAGE, G_TYPE_POINTER);
 }
 
 static void
@@ -816,80 +816,6 @@ create_signal_name (const char *interface,
   return g_string_free (str, FALSE);
 }
 
-static GSignalCMarshaller
-lookup_g_marshaller (DBusGProxy *proxy,
-                     const char *signature)
-{
-  /* The "proxy" arg would eventually be used if you could provide
-   * a marshaller when adding a signal to the proxy
-   */
-
-#define MATCH1(sig, t0)         ((sig)[0] == (DBUS_TYPE_##t0) && (sig)[1] == '\0')
-#define MATCH2(sig, t0, t1)     ((sig)[0] == (DBUS_TYPE_##t0) && (sig)[1] == (DBUS_TYPE_##t1) && (sig)[2] == '\0')
-#define MATCH3(sig, t0, t1, t2) ((sig)[0] == (DBUS_TYPE_##t0) && (sig)[1] == (DBUS_TYPE_##t1) && (sig)[2] == (DBUS_TYPE_##t2) && (sig)[3] == '\0')
-  
-  switch (*signature)
-    {
-    case '\0':
-      return g_cclosure_marshal_VOID__VOID;
-
-    case DBUS_TYPE_BOOLEAN:
-      if (MATCH1 (signature, BOOLEAN))
-        return g_cclosure_marshal_VOID__BOOLEAN;
-      break;
-      
-    case DBUS_TYPE_BYTE:
-      if (MATCH1 (signature, BYTE))
-        return g_cclosure_marshal_VOID__UCHAR;
-      break;
-
-    case DBUS_TYPE_INT16:
-      if (MATCH1 (signature, INT16))
-        return g_cclosure_marshal_VOID__INT;
-      break;
-
-    case DBUS_TYPE_UINT16:
-      if (MATCH1 (signature, UINT16))
-        return g_cclosure_marshal_VOID__UINT;
-      break;
-      
-    case DBUS_TYPE_INT32:
-      if (MATCH1 (signature, INT32))
-        return g_cclosure_marshal_VOID__INT;
-      break;
-
-    case DBUS_TYPE_UINT32:
-      if (MATCH1 (signature, UINT32))
-        return g_cclosure_marshal_VOID__UINT;
-      break;
-
-    case DBUS_TYPE_DOUBLE:
-      if (MATCH1 (signature, DOUBLE))
-        return g_cclosure_marshal_VOID__DOUBLE;
-      break;
-
-    case DBUS_TYPE_OBJECT_PATH:
-      if (MATCH1 (signature, OBJECT_PATH))
-        return g_cclosure_marshal_VOID__STRING;
-      break;
-
-    case DBUS_TYPE_SIGNATURE:
-      if (MATCH1 (signature, SIGNATURE))
-        return g_cclosure_marshal_VOID__STRING;
-      break;
-      
-    case DBUS_TYPE_STRING:
-      if (MATCH1 (signature, STRING))
-        return g_cclosure_marshal_VOID__STRING;
-      /* This is for NameOwnerChanged */
-      else if (MATCH3 (signature, STRING, STRING, STRING))
-        return _dbus_g_marshal_NONE__STRING_STRING_STRING;
-      break;
-    }
-
-  return NULL;
-}
-
 static void
 marshal_dbus_message_to_g_marshaller (GClosure     *closure,
                                       GValue       *return_value,
@@ -909,25 +835,36 @@ marshal_dbus_message_to_g_marshaller (GClosure     *closure,
   GSignalCMarshaller c_marshaller;
   DBusGProxy *proxy;
   DBusMessage *message;
-  const char *signature;
+  GArray *gsignature;
+  const GType *types;
 
   g_assert (n_param_values == 3);
 
   proxy = g_value_get_object (&param_values[0]);
   message = g_value_get_boxed (&param_values[1]);
-  signature = g_value_get_string (&param_values[2]);
+  gsignature = g_value_get_pointer (&param_values[2]);
 
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
   g_return_if_fail (message != NULL);
-  g_return_if_fail (signature != NULL);
-  
-  c_marshaller = lookup_g_marshaller (proxy, signature);
+  g_return_if_fail (gsignature != NULL);
+
+  c_marshaller = _dbus_gobject_lookup_marshaller (G_TYPE_NONE, gsignature->len,
+						  (GType*) gsignature->data);
 
   g_return_if_fail (c_marshaller != NULL);
   
-  value_array = _dbus_glib_marshal_dbus_message_to_gvalue_array (message);
+  {
+    DBusGValueMarshalCtx context;
+    context.gconnection = DBUS_G_CONNECTION_FROM_CONNECTION (proxy->manager->connection);
+    context.proxy = proxy;
 
-  g_return_if_fail (value_array != NULL);
+    types = (const GType*) gsignature->data;
+    value_array = dbus_gvalue_demarshal_message (&context, message,
+						 gsignature->len, types, NULL);
+  }
+
+  if (value_array == NULL)
+    return;
   
   g_value_init (&value, G_TYPE_FROM_INSTANCE (proxy));
   g_value_set_instance (&value, proxy);
@@ -966,37 +903,40 @@ dbus_g_proxy_emit_remote_signal (DBusGProxy  *proxy,
 
   if (q != 0)
     {
-      const char *signature;
-
-      signature = g_datalist_id_get_data (&proxy->signal_signatures, q);
-      if (signature == NULL)
-        {
-#if 0
-          /* this should not trigger a warning, as you shouldn't have to
-           * add signals you don't care about
-           */
-          g_warning ("Signal '%s' has not been added to this proxy object\n",
-                     name);
-#endif
-        }
-      else if (!dbus_message_has_signature (message, signature))
-        {
-          g_warning ("Signature '%s' expected for signal '%s', actual signature '%s'\n",
-                     signature,
-                     name,
-                     dbus_message_get_signature (message));
-        }
-      else
-        {
-          g_signal_emit (proxy,
-                         signals[RECEIVED],
-                         q,
-                         message,
-                         signature);
-        }
+      GArray *gsignature;
+      GArray *msg_gsignature;
+      guint i;
+      
+      gsignature = g_datalist_id_get_data (&proxy->signal_signatures, q);
+      if (gsignature == NULL)
+	goto out;
+      
+      msg_gsignature = dbus_gtypes_from_arg_signature (dbus_message_get_signature (message),
+						       TRUE);
+      for (i = 0; i < gsignature->len; i++)
+	{
+	  if (msg_gsignature->len == i
+	      || g_array_index (gsignature, GType, i) != g_array_index (msg_gsignature, GType, i))
+	    goto mismatch;
+	}
+      if (msg_gsignature->len != i)
+	goto mismatch;
+      
+      g_signal_emit (proxy,
+		     signals[RECEIVED],
+		     q,
+		     message,
+		     msg_gsignature);
     }
 
+ out:
   g_free (name);
+  return;
+ mismatch:
+  g_warning ("Unexpected message signature '%s' for signal '%s'\n",
+	     dbus_message_get_signature (message),
+	     name);
+  goto out;
 }
 
 /** @} End of DBusGLibInternals */
@@ -1204,6 +1144,33 @@ dbus_g_proxy_new_for_name_owner (DBusGConnection          *connection,
 }
 
 /**
+ * Creates a proxy using an existing proxy as a template, substituting
+ * the specified interface and path.  Either or both may be NULL.
+ *
+ * @param proxy the proxy to use as a template
+ * @param path of the object inside the peer to call methods on
+ * @param interface name of the interface to call methods on
+ * @returns new proxy object
+ * 
+ */
+DBusGProxy*
+dbus_g_proxy_new_from_proxy (DBusGProxy        *proxy,
+			     const char        *interface,
+			     const char        *path)
+{
+  g_return_val_if_fail (proxy != NULL, NULL);
+
+  if (interface == NULL)
+    interface = proxy->interface;
+  if (path == NULL)
+    path = proxy->path;
+
+  return dbus_g_proxy_new (DBUS_G_CONNECTION_FROM_CONNECTION (proxy->manager->connection),
+			   proxy->name,
+			   path, interface);
+}
+
+/**
  * Creates a proxy for an object in peer application (one
  * we're directly connected to). That is, this function is
  * intended for use when there's no message bus involved,
@@ -1255,36 +1222,62 @@ dbus_g_proxy_get_bus_name (DBusGProxy        *proxy)
 }
 
 /**
- * Invokes a method on a remote interface. This function does not
- * block; instead it returns an opaque #DBusPendingCall object that
- * tracks the pending call.  The method call will not be sent over the
- * wire until the application returns to the main loop, or blocks in
- * dbus_connection_flush() to write out pending data.  The call will
- * be completed after a timeout, or when a reply is received.
- * To collect the results of the call (which may be an error,
- * or a reply), use dbus_g_proxy_end_call().
+ * Gets the object interface proxy is bound to (may be #NULL in some cases).
  *
- * @todo this particular function shouldn't die on out of memory,
- * since you should be able to do a call with large arguments.
- * 
- * @param proxy a proxy for a remote interface
- * @param method the name of the method to invoke
- * @param first_arg_type type of the first argument
- *
- * @returns opaque pending call object
- *  */
-DBusGPendingCall*
-dbus_g_proxy_begin_call (DBusGProxy *proxy,
-                        const char *method,
-                        int         first_arg_type,
-                        ...)
+ * @param proxy the proxy
+ * @returns an object interface 
+ */
+const char*
+dbus_g_proxy_get_interface (DBusGProxy        *proxy)
 {
-  DBusPendingCall *pending;
-  DBusMessage *message;
-  va_list args;
-  
   g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), NULL);
   g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), NULL);
+
+  return proxy->interface;
+}
+
+/**
+ * Sets the object interface proxy is bound to
+ *
+ * @param proxy the proxy
+ * @param interface_name an object interface 
+ */
+void
+dbus_g_proxy_set_interface (DBusGProxy        *proxy,
+			    const char        *interface_name)
+{
+  /* FIXME - need to unregister when we switch interface for now
+   * later should support idea of unset interface
+   */
+  dbus_g_proxy_manager_unregister (proxy->manager, proxy);
+  g_free (proxy->interface);
+  proxy->interface = g_strdup (interface_name);
+  dbus_g_proxy_manager_register (proxy->manager, proxy);
+}
+
+/**
+ * Gets the path this proxy is bound to
+ *
+ * @param proxy the proxy
+ * @returns an object path
+ */
+const char*
+dbus_g_proxy_get_path (DBusGProxy        *proxy)
+{
+  g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), NULL);
+  g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), NULL);
+
+  return proxy->path;
+}
+
+static DBusMessage *
+dbus_g_proxy_marshal_args_to_message (DBusGProxy  *proxy,
+				      const char  *method,
+				      GValueArray *args)
+{
+  DBusMessage *message;
+  DBusMessageIter msgiter;
+  guint i;
 
   message = dbus_message_new_method_call (proxy->name,
                                           proxy->path,
@@ -1293,209 +1286,91 @@ dbus_g_proxy_begin_call (DBusGProxy *proxy,
   if (message == NULL)
     goto oom;
 
-  va_start (args, first_arg_type);
-  if (!dbus_message_append_args_valist (message, first_arg_type,
-                                        args))
-    goto oom;
-  va_end (args);
+  dbus_message_iter_init_append (message, &msgiter);
+  for (i = 0; i < args->n_values; i++)
+    {
+      GValue *gvalue;
 
+      gvalue = g_value_array_get_nth (args, i);
+
+      if (!dbus_gvalue_marshal (&msgiter, gvalue))
+	g_assert_not_reached ();
+    }
+  return message;
+ oom:
+  return NULL;
+}
+
+#define DBUS_G_VALUE_ARRAY_COLLECT_ALL(VALARRAY, FIRST_ARG_TYPE, ARGS) \
+do { \
+  GType valtype; \
+  int i = 0; \
+  VALARRAY = g_value_array_new (6); \
+  valtype = FIRST_ARG_TYPE; \
+  while (valtype != G_TYPE_INVALID) \
+    { \
+      const char *collect_err; \
+      GValue *val; \
+      g_value_array_append (VALARRAY, NULL); \
+      val = g_value_array_get_nth (VALARRAY, i); \
+      g_value_init (val, valtype); \
+      collect_err = NULL; \
+      G_VALUE_COLLECT (val, ARGS, G_VALUE_NOCOPY_CONTENTS, &collect_err); \
+      valtype = va_arg (ARGS, GType); \
+      i++; \
+    } \
+} while (0)
+
+static DBusGPendingCall *
+dbus_g_proxy_begin_call_internal (DBusGProxy    *proxy,
+				  const char    *method,
+				  GValueArray   *args)
+{
+  DBusMessage *message;
+  DBusPendingCall *pending;
+
+  g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), FALSE);
+  g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), FALSE);
+
+  pending = NULL;
+
+  message = dbus_g_proxy_marshal_args_to_message (proxy, method, args);
+  if (!message)
+    goto oom;
+  
   if (!dbus_connection_send_with_reply (proxy->manager->connection,
                                         message,
                                         &pending,
                                         -1))
     goto oom;
+  g_assert (pending != NULL);
 
   return DBUS_G_PENDING_CALL_FROM_PENDING_CALL (pending);
-
  oom:
-  /* FIXME we should create a pending call that's
-   * immediately completed with an error status without
-   * ever going on the wire.
-   */
-  
   g_error ("Out of memory");
   return NULL;
 }
 
-/**
- * Collects the results of a method call. The method call was normally
- * initiated with dbus_g_proxy_end_call(). This function will block if
- * the results haven't yet been received; use
- * dbus_g_pending_call_set_notify() to be notified asynchronously that a
- * pending call has been completed. If it's completed, it will not block.
- *
- * If the call results in an error, the error is set as normal for
- * GError and the function returns #FALSE.
- *
- * Otherwise, the "out" parameters and return value of the
- * method are stored in the provided varargs list.
- * The list should be terminated with #DBUS_TYPE_INVALID.
- *
- * This function doesn't affect the reference count of the
- * #DBusGPendingCall, the caller of dbus_g_proxy_begin_call() still owns
- * a reference.
- *
- * @todo this should be changed to make a g_malloc() copy of the
- * data returned probably; right now the data vanishes
- * when you free the PendingCall which is sort of strange.
- *
- * @param proxy a proxy for a remote interface
- * @param pending the pending call from dbus_g_proxy_begin_call()
- * @param error return location for an error
- * @param first_arg_type type of first "out" argument
- * @returns #FALSE if an error is set
- */
-gboolean
-dbus_g_proxy_end_call (DBusGProxy          *proxy,
-                       DBusGPendingCall    *pending,
-                       GError             **error,
-                       int                  first_arg_type,
-                       ...)
+static gboolean
+dbus_g_proxy_end_call_internal (DBusGProxy       *proxy,
+				DBusGPendingCall *pending,
+				GError          **error,
+				GType             first_arg_type,
+				va_list           args)
 {
-  DBusMessage *message;
-  va_list args;
-  DBusError derror;
-  
-  g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), FALSE);
-  g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), FALSE);
-  g_return_val_if_fail (pending != NULL, FALSE);
-
-  dbus_pending_call_block (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (pending));
-  message = dbus_pending_call_steal_reply (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (pending));
-
-  g_assert (message != NULL);
-
-  dbus_error_init (&derror);
-
-  switch (dbus_message_get_type (message))
-    {
-    case DBUS_MESSAGE_TYPE_METHOD_RETURN:
-      va_start (args, first_arg_type);
-      if (!dbus_message_get_args_valist (message, &derror, first_arg_type, args))
-        {
-          va_end (args);
-          goto error;
-        }
-      va_end (args);
-
-      dbus_message_unref (message);
-      return TRUE;
-      
-    case DBUS_MESSAGE_TYPE_ERROR:
-      dbus_set_error_from_message (&derror, message);
-      goto error;
-
-    default:
-      dbus_set_error (&derror, DBUS_ERROR_FAILED,
-                      "Reply was neither a method return nor an exception");
-      goto error;
-    }
-
- error:
-  dbus_message_unref (message);
-  
-  dbus_set_g_error (error, &derror);
-  dbus_error_free (&derror);
-  return FALSE;
-}
-
-/**
- * Function for invoking a method and receiving reply values.
- * Normally this is not used directly - calls to it are generated
- * from client-side wrappers (see dbus-binding-tool).
- *
- * This function takes two type signatures, one for method arguments,
- * and one for return values.  The remaining arguments after the
- * error parameter should be values of the input arguments,
- * followed by pointer values to storage for return values.
- *
- * @param proxy a proxy for a remote interface
- * @param method method to invoke
- * @param insig signature of input values
- * @param outsig signature of output values
- * @param error return location for an error
- * @returns #FALSE if an error is set, TRUE otherwise
- */
-gboolean
-dbus_g_proxy_invoke (DBusGProxy        *proxy,
-		     const char        *method,
-		     const char        *insig,
-		     const char        *outsig,
-		     GError           **error,
-		     ...)
-{
-  DBusPendingCall *pending;
-  DBusMessage *message;
   DBusMessage *reply;
-  va_list args;
+  DBusMessageIter msgiter;
+  DBusError derror;
   va_list args_unwind;
   int n_retvals_processed;
-  DBusMessageIter msgiter;
-  DBusSignatureIter sigiter;
-  int expected_type;
   gboolean ret;
-  DBusError derror;
-  
-  g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), FALSE);
-  g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), FALSE);
+  GType valtype;
 
-  va_start (args, error);
-  /* Keep around a copy of output arguments so we
-   * can free on error. */
-  G_VA_COPY (args_unwind, args);
-
-  ret = FALSE;
-  pending = NULL;
   reply = NULL;
+  ret = FALSE;
   n_retvals_processed = 0;
-  message = dbus_message_new_method_call (proxy->name,
-                                          proxy->path,
-                                          proxy->interface,
-                                          method);
-  if (message == NULL)
-    goto oom;
-
-  dbus_signature_iter_init (&sigiter, insig);
-  dbus_message_iter_init_append (message, &msgiter);
-  while ((expected_type = dbus_signature_iter_get_current_type (&sigiter)) != DBUS_TYPE_INVALID)
-    {
-      GValue gvalue = {0, };
-      char *collect_err;
-
-      if (!dbus_gvalue_init (expected_type, &gvalue))
-	{
-	  g_set_error (error, DBUS_GERROR,
-		       DBUS_GERROR_INVALID_ARGS,
-		       _("Unsupported type '%c'"), expected_type);
-	  goto out;
-	} 
-      
-      G_VALUE_COLLECT (&gvalue, args, G_VALUE_NOCOPY_CONTENTS, &collect_err);
-
-      if (collect_err)
-	{
-	  g_set_error (error, DBUS_GERROR,
-		       DBUS_GERROR_INVALID_ARGS,
-		       collect_err);
-	  goto out;
-	}
-
-      /* Anything we can init must be marshallable */
-      if (!dbus_gvalue_marshal (&msgiter, &gvalue))
-	g_assert_not_reached ();
-      g_value_unset (&gvalue);
-
-      dbus_signature_iter_next (&sigiter);
-    }
-
-  if (!dbus_connection_send_with_reply (proxy->manager->connection,
-                                        message,
-                                        &pending,
-                                        -1))
-    goto oom;
-
-  dbus_pending_call_block (pending);
-  reply = dbus_pending_call_steal_reply (pending);
+  dbus_pending_call_block (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (pending));
+  reply = dbus_pending_call_steal_reply (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (pending));
 
   g_assert (reply != NULL);
 
@@ -1505,53 +1380,86 @@ dbus_g_proxy_invoke (DBusGProxy        *proxy,
     {
     case DBUS_MESSAGE_TYPE_METHOD_RETURN:
 
-      dbus_signature_iter_init (&sigiter, outsig);
       dbus_message_iter_init (reply, &msgiter);
-      while ((expected_type = dbus_signature_iter_get_current_type (&sigiter)) != DBUS_TYPE_INVALID)
+      valtype = first_arg_type;
+      while (valtype != G_TYPE_INVALID)
 	{
 	  int arg_type;
-	  gpointer *value_ret;
+	  gpointer return_storage;
 	  GValue gvalue = { 0, };
+	  DBusGValueMarshalCtx context;
 
-	  value_ret = va_arg (args, gpointer *);
+	  context.gconnection = DBUS_G_CONNECTION_FROM_CONNECTION (proxy->manager->connection);
+	  context.proxy = proxy;
+
 
 	  arg_type = dbus_message_iter_get_arg_type (&msgiter);
-	  if (expected_type != arg_type)
+	  if (arg_type == DBUS_TYPE_INVALID)
+	    g_set_error (error, DBUS_GERROR,
+			 DBUS_GERROR_INVALID_ARGS,
+			 _("Too few arguments in reply"));
+
+	  return_storage = va_arg (args, gpointer);
+	  if (return_storage == NULL)
+	    goto next;
+
+	  /* We handle variants specially; the caller is expected
+	   * to have already allocated storage for them.
+	   */
+	  if (arg_type == DBUS_TYPE_VARIANT
+	      && g_type_is_a (valtype, G_TYPE_VALUE))
 	    {
-	      if (arg_type == DBUS_TYPE_INVALID)
+	      if (!dbus_gvalue_demarshal_variant (&context, &msgiter, (GValue*) return_storage, NULL))
+		{
+		  g_set_error (error,
+			       DBUS_GERROR,
+			       DBUS_GERROR_INVALID_ARGS,
+			       _("Couldn't convert argument, expected \"%s\""),
+			       g_type_name (valtype));
+		  goto out;
+		}
+	    }
+	  else
+	    {
+	      g_value_init (&gvalue, valtype);
+
+	      /* FIXME, should use error here instead of NULL */ 
+	      if (!dbus_gvalue_demarshal (&context, &msgiter, &gvalue, NULL))
+		{
+		  g_set_error (error,
+			       DBUS_GERROR,
+			       DBUS_GERROR_INVALID_ARGS,
+			       _("Couldn't convert argument, expected \"%s\""),
+			       g_type_name (valtype));
+		  goto out;
+		}
+
+	      if (G_VALUE_TYPE (&gvalue) != valtype)
+		{
 		  g_set_error (error, DBUS_GERROR,
 			       DBUS_GERROR_INVALID_ARGS,
-			       _("Too few arguments in reply"));
-	      else
-		  g_set_error (error, DBUS_GERROR,
-			       DBUS_GERROR_INVALID_ARGS,
-			       _("Reply argument was \"%c\", expected \"%c\""),
-			       arg_type, expected_type);  
-	      goto out;
+			       _("Reply argument was \"%s\", expected \"%s\""),
+			       g_type_name (G_VALUE_TYPE (&gvalue)),
+			       g_type_name (valtype));  
+		  goto out;
+		}
+
+	      /* Anything that can be demarshaled must be storable */
+	      if (!dbus_gvalue_store (&gvalue, (gpointer*) return_storage))
+		g_assert_not_reached ();
+	      /* Ownership of the value passes to the client, don't unset */
 	    }
 	  
-	  if (!dbus_gvalue_demarshal (&msgiter, &gvalue))
-	    {
-	      g_set_error (error,
-			   DBUS_GERROR,
-			   DBUS_GERROR_INVALID_ARGS,
-			   _("Couldn't convert argument type \"%c\""), expected_type);
-	      goto out;
-	    }
-	  /* Anything that can be demarshaled must be storable */
-	  if (!dbus_gvalue_store (&gvalue, value_ret))
-	    g_assert_not_reached ();
-	  g_value_unset (&gvalue);
-	  
+	next:
 	  n_retvals_processed++;
-	  dbus_signature_iter_next (&sigiter);
 	  dbus_message_iter_next (&msgiter);
+	  valtype = va_arg (args, GType);
 	}
       if (dbus_message_iter_get_arg_type (&msgiter) != DBUS_TYPE_INVALID)
 	{
 	  g_set_error (error, DBUS_GERROR,
 		       DBUS_GERROR_INVALID_ARGS,
-		       _("Too many arguments"));
+		       _("Too many arguments in reply"));
 	  goto out;
 	}
       break;
@@ -1589,16 +1497,132 @@ dbus_g_proxy_invoke (DBusGProxy        *proxy,
   va_end (args_unwind);
 
   if (pending)
-    dbus_pending_call_unref (pending);
-  if (message)
-    dbus_message_unref (message);
+    dbus_g_pending_call_unref (pending);
   if (reply)
     dbus_message_unref (reply);
   return ret;
- oom:
-  g_error ("Out of memory");
-  ret = FALSE;
-  goto out;
+}
+
+
+/**
+ * Invokes a method on a remote interface. This function does not
+ * block; instead it returns an opaque #DBusPendingCall object that
+ * tracks the pending call.  The method call will not be sent over the
+ * wire until the application returns to the main loop, or blocks in
+ * dbus_connection_flush() to write out pending data.  The call will
+ * be completed after a timeout, or when a reply is received.
+ * To collect the results of the call (which may be an error,
+ * or a reply), use dbus_g_proxy_end_call().
+ *
+ * @todo this particular function shouldn't die on out of memory,
+ * since you should be able to do a call with large arguments.
+ * 
+ * @param proxy a proxy for a remote interface
+ * @param method the name of the method to invoke
+ * @param first_arg_type type of the first argument
+ *
+ * @returns opaque pending call object
+ *  */
+DBusGPendingCall*
+dbus_g_proxy_begin_call (DBusGProxy *proxy,
+			 const char  *method,
+			 GType       first_arg_type,
+                        ...)
+{
+  DBusGPendingCall *pending;
+  va_list args;
+  GValueArray *arg_values;
+  
+  va_start (args, first_arg_type);
+
+  DBUS_G_VALUE_ARRAY_COLLECT_ALL (arg_values, first_arg_type, args);
+  
+  pending = dbus_g_proxy_begin_call_internal (proxy, method, arg_values);
+
+  g_value_array_free (arg_values);
+
+  va_end (args);
+
+  return pending;
+}
+
+/**
+ * Collects the results of a method call. The method call was normally
+ * initiated with dbus_g_proxy_end_call(). This function will block if
+ * the results haven't yet been received; use
+ * dbus_g_pending_call_set_notify() to be notified asynchronously that a
+ * pending call has been completed. If it's completed, it will not block.
+ *
+ * If the call results in an error, the error is set as normal for
+ * GError and the function returns #FALSE.
+ *
+ * Otherwise, the "out" parameters and return value of the
+ * method are stored in the provided varargs list.
+ * The list should be terminated with G_TYPE_INVALID.
+ *
+ * This function unrefs the pending call.
+ *
+ * @param proxy a proxy for a remote interface
+ * @param pending the pending call from dbus_g_proxy_begin_call()
+ * @param error return location for an error
+ * @param first_arg_type type of first "out" argument
+ * @returns #FALSE if an error is set
+ */
+gboolean
+dbus_g_proxy_end_call (DBusGProxy          *proxy,
+                       DBusGPendingCall    *pending,
+                       GError             **error,
+                       GType                first_arg_type,
+                       ...)
+{
+  gboolean ret;
+  va_list args;
+
+  va_start (args, first_arg_type);
+
+  ret = dbus_g_proxy_end_call_internal (proxy, pending, error, first_arg_type, args);
+
+  va_end (args);
+  
+  return ret;
+}
+
+/**
+ * Function for invoking a method and receiving reply values.
+ * Normally this is not used directly - calls to it are generated
+ * from client-side wrappers (see dbus-binding-tool).
+ *
+ * @param proxy a proxy for a remote interface
+ * @param method method to invoke
+ * @param error return location for an error
+ * @returns #FALSE if an error is set, TRUE otherwise
+ */
+gboolean
+dbus_g_proxy_invoke (DBusGProxy        *proxy,
+		     const char        *method,
+		     GError           **error,
+		     GType              first_arg_type,
+		     ...)
+{
+  gboolean ret;
+  DBusGPendingCall *pending;
+  va_list args;
+  GValueArray *in_args;
+
+  va_start (args, first_arg_type);
+
+  DBUS_G_VALUE_ARRAY_COLLECT_ALL (in_args, first_arg_type, args);
+
+  pending = dbus_g_proxy_begin_call_internal (proxy, method, in_args);
+
+  g_value_array_free (in_args);
+
+  first_arg_type = va_arg (args, GType);
+  ret = dbus_g_proxy_end_call_internal (proxy, pending, error, first_arg_type, args);
+
+  va_end (args);
+
+  return ret;
 }
 
 /**
@@ -1614,30 +1638,29 @@ dbus_g_proxy_invoke (DBusGProxy        *proxy,
  */
 void
 dbus_g_proxy_call_no_reply (DBusGProxy               *proxy,
-                           const char               *method,
-                           int                       first_arg_type,
-                           ...)
+			    const char               *method,
+			    GType                     first_arg_type,
+			    ...)
 {
   DBusMessage *message;
   va_list args;
+  GValueArray *in_args;
   
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
   g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
 
-  message = dbus_message_new_method_call (proxy->name,
-                                          proxy->path,
-                                          proxy->interface,
-                                          method);
-  if (message == NULL)
+  va_start (args, first_arg_type);
+  DBUS_G_VALUE_ARRAY_COLLECT_ALL (in_args, first_arg_type, args);
+
+  message = dbus_g_proxy_marshal_args_to_message (proxy, method, in_args);
+
+  g_value_array_free (in_args);
+  va_end (args);
+
+  if (!message)
     goto oom;
 
   dbus_message_set_no_reply (message, TRUE);
-  
-  va_start (args, first_arg_type);
-  if (!dbus_message_append_args_valist (message, first_arg_type,
-                                        args))
-    goto oom;
-  va_end (args);
 
   if (!dbus_connection_send (proxy->manager->connection,
                              message,
@@ -1696,41 +1719,63 @@ dbus_g_proxy_send (DBusGProxy          *proxy,
     g_error ("Out of memory\n");
 }
 
+static void
+array_free_all (gpointer array)
+{
+  g_array_free (array, TRUE);
+}
+
 /**
- * Specifies the signature of a signal, such that it's possible to
- * connect to the signal on this proxy.
+ * Specifies the argument signature of a signal;.only necessary
+ * if the remote object does not support introspection.  The arguments
+ * specified are the GLib types expected.
  *
  * @param proxy the proxy for a remote interface
  * @param signal_name the name of the signal
- * @param signature D-BUS signature of the signal
+ * @param first_type the first argument type, or G_TYPE_INVALID if none
  */
 void
 dbus_g_proxy_add_signal  (DBusGProxy        *proxy,
                           const char        *signal_name,
-                          const char        *signature)
+			  GType              first_type,
+                          ...)
 {
   GQuark q;
   char *name;
+  GArray *gtypesig;
+  GType gtype;
+  va_list args;
 
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
   g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
   g_return_if_fail (signal_name != NULL);
-  g_return_if_fail (signature != NULL);
-#ifndef G_DISABLE_CHECKS
-  if (lookup_g_marshaller (proxy, signature) == NULL)
-    g_warning ("No marshaller for signature '%s', we need to add API for providing your own",
-               signature);
-#endif
   
   name = create_signal_name (proxy->interface, signal_name);
   
   q = g_quark_from_string (name);
   
   g_return_if_fail (g_datalist_id_get_data (&proxy->signal_signatures, q) == NULL);
+
+  gtypesig = g_array_new (FALSE, TRUE, sizeof (GType));
+
+  va_start (args, first_type);
+  gtype = first_type;
+  while (gtype != G_TYPE_INVALID)
+    {
+      g_array_append_val (gtypesig, gtype);
+      gtype = va_arg (args, GType);
+    }
+  va_end (args);
+
+#ifndef G_DISABLE_CHECKS
+  if (_dbus_gobject_lookup_marshaller (G_TYPE_NONE, gtypesig->len, (const GType*) gtypesig->data) == NULL)
+    g_warning ("No marshaller for signature of signal '%s'", signal_name);
+#endif
+
   
   g_datalist_id_set_data_full (&proxy->signal_signatures,
-                               q, g_strdup (signature),
-                               g_free);
+                               q, gtypesig,
+                               array_free_all);
 
   g_free (name);
 }

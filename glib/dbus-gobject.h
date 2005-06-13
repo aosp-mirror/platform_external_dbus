@@ -24,11 +24,19 @@
 #define DBUS_GLIB_OBJECT_H
 
 #include <dbus/dbus.h>
+#include <dbus/dbus-signature.h>
 #include <glib.h>
+#include "dbus/dbus-glib.h"
 
 G_BEGIN_DECLS
 
-GValueArray*       _dbus_glib_marshal_dbus_message_to_gvalue_array (DBusMessage         *message);
+const char *       _dbus_gobject_get_path (GObject *obj);
+
+GClosureMarshal    _dbus_gobject_lookup_marshaller (GType        rettype,
+						    guint        n_params,
+						    const GType *param_types);
+  
+						    
 
 G_END_DECLS
 

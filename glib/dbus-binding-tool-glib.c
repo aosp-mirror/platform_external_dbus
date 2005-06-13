@@ -26,6 +26,7 @@
 #include "dbus-gparser.h"
 #include "dbus-gutils.h"
 #include "dbus-gvalue.h"
+#include "dbus-gvalue-utils.h"
 #include "dbus-glib-tool.h"
 #include "dbus-binding-tool-glib.h"
 #include <glib/gi18n.h>
@@ -45,11 +46,66 @@ typedef struct
   GError **error;
   
   GHashTable *generated;
+  GString *blob;
+  guint count;
 } DBusBindingToolCData;
 
 static gboolean gather_marshallers (BaseInfo *base, DBusBindingToolCData *data, GError **error);
 static gboolean generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error);
 static gboolean generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error);
+
+static const char *
+dbus_g_type_get_marshal_name (GType gtype)
+{
+  switch (G_TYPE_FUNDAMENTAL (gtype))
+    {
+    case G_TYPE_BOOLEAN:
+      return "BOOLEAN";
+    case G_TYPE_UCHAR:
+      return "UCHAR";
+    case G_TYPE_INT:
+      return "INT";
+    case G_TYPE_UINT:
+      return "UINT";
+    case G_TYPE_INT64:
+      return "INT64";
+    case G_TYPE_UINT64:
+      return "UINT64";
+    case G_TYPE_DOUBLE:
+      return "DOUBLE";
+    case G_TYPE_STRING:
+      return "STRING";
+    case G_TYPE_POINTER:
+      return "POINTER";
+    case G_TYPE_BOXED:
+      return "BOXED";
+    case G_TYPE_OBJECT:
+      return "OBJECT";
+    default:
+      return NULL;
+    }
+}
+
+/* This entire function is kind of...ugh. */
+static const char *
+dbus_g_type_get_c_name (GType gtype)
+{
+  if (dbus_g_type_is_collection (gtype))
+    return "GArray";
+  if (dbus_g_type_is_map (gtype))
+    return "GHashTable";
+  
+  if (g_type_is_a (gtype, G_TYPE_STRING))
+    return "char *";
+
+  /* This one is even more hacky...we get an extra *
+   * because G_TYPE_STRV is a G_TYPE_BOXED
+   */
+  if (g_type_is_a (gtype, G_TYPE_STRV))
+    return "char *";
+  
+  return g_type_name (gtype);
+}
 
 static char *
 compute_marshaller (MethodInfo *method, GError **error)
@@ -71,9 +127,10 @@ compute_marshaller (MethodInfo *method, GError **error)
       if (arg_info_get_direction (arg) == ARG_IN)
 	{
 	  const char *marshal_name;
+	  GType gtype;
 
-	  marshal_name = dbus_gvalue_genmarshal_name_from_type (arg_info_get_type (arg));
-	  if (!marshal_name)
+	  gtype = dbus_gtype_from_signature (arg_info_get_type (arg), FALSE);
+	  if (gtype == G_TYPE_INVALID)
 	    {
 	      g_set_error (error,
 			   DBUS_BINDING_TOOL_ERROR,
@@ -83,6 +140,10 @@ compute_marshaller (MethodInfo *method, GError **error)
 	      g_string_free (ret, TRUE);
 	      return NULL;
 	    }
+
+	  marshal_name = dbus_g_type_get_marshal_name (gtype);
+	  g_assert (marshal_name);
+
 	  if (!first)
 	    g_string_append (ret, ",");
 	  else
@@ -91,6 +152,12 @@ compute_marshaller (MethodInfo *method, GError **error)
 	}
     }
 
+  if (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_ASYNC) != NULL) {
+    if (!first)
+      g_string_append (ret, ",");
+    g_string_append (ret, "POINTER");
+    first = FALSE;
+  } else {
   /* Append pointer for each out arg storage */
   for (elt = method_info_get_args (method); elt; elt = elt->next)
     {
@@ -105,11 +172,12 @@ compute_marshaller (MethodInfo *method, GError **error)
 	  g_string_append (ret, "POINTER");
 	}
     }
-
   /* Final GError parameter */
   if (!first)
     g_string_append (ret, ",");
   g_string_append (ret, "POINTER");
+
+  }
 
   return g_string_free (ret, FALSE);
 
@@ -136,25 +204,31 @@ compute_marshaller_name (MethodInfo *method, const char *prefix, GError **error)
 	{
 	  const char *marshal_name;
 	  const char *type;
+	  GType gtype;
 
 	  type = arg_info_get_type (arg);
-	  marshal_name = dbus_gvalue_genmarshal_name_from_type (type);
-	  if (!marshal_name)
+	  gtype = dbus_gtype_from_signature (type, FALSE);
+	  if (gtype == G_TYPE_INVALID)
 	    {
 	      g_set_error (error,
 			   DBUS_BINDING_TOOL_ERROR,
 			   DBUS_BINDING_TOOL_ERROR_UNSUPPORTED_CONVERSION,
-			   _("Unsupported conversion from D-BUS type %s to glib-genmarshal type"),
+			   _("Unsupported conversion from D-BUS type %s to glib type"),
 			   type);
 	      g_string_free (ret, TRUE);
 	      return NULL;
 	    }
+	  marshal_name = dbus_g_type_get_marshal_name (gtype);
+	  g_assert (marshal_name != NULL);
 
 	  g_string_append (ret, "_");
-	  g_string_append (ret, dbus_gvalue_genmarshal_name_from_type (type));
+	  g_string_append (ret, marshal_name);
 	}
     }
 
+  if (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_ASYNC) != NULL) {
+    g_string_append (ret, "_POINTER");
+  } else {
   /* Append pointer for each out arg storage */
   for (elt = method_info_get_args (method); elt; elt = elt->next)
     {
@@ -165,9 +239,9 @@ compute_marshaller_name (MethodInfo *method, const char *prefix, GError **error)
 	  g_string_append (ret, "_POINTER");
 	}
     }
-
   /* Final GError parameter */
   g_string_append (ret, "_POINTER");
+  }
 
   return g_string_free (ret, FALSE);
 }
@@ -210,7 +284,8 @@ gather_marshallers (BaseInfo *base, DBusBindingToolCData *data, GError **error)
       interface_c_name = interface_info_get_annotation (interface, DBUS_GLIB_ANNOTATION_C_SYMBOL);
       if (interface_c_name == NULL)
         {
-          return TRUE;
+	  if (!data->prefix)
+	    return TRUE;
         }
 
       methods = interface_info_get_methods (interface);
@@ -223,10 +298,6 @@ gather_marshallers (BaseInfo *base, DBusBindingToolCData *data, GError **error)
           char *marshaller_name;
 
           method = (MethodInfo *) tmp->data;
-          if (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_C_SYMBOL) == NULL)
-            {
-              continue;
-            }
 
           marshaller_name = compute_marshaller (method, error);
 	  if (!marshaller_name)
@@ -291,12 +362,56 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 {
   if (base_info_get_type (base) == INFO_TYPE_NODE)
     {
+      GString *object_introspection_data_blob;
+      GIOChannel *channel;
+      guint i;
+
+      channel = data->channel;
+      
+      object_introspection_data_blob = g_string_new_len ("", 0);
+      
+      data->blob = object_introspection_data_blob;
+      data->count = 0;
+
+      if (!write_printf_to_iochannel ("static const DBusGMethodInfo dbus_glib_%s_methods[] = {\n", channel, error, data->prefix))
+	goto io_lose;
+
       if (!generate_glue_list (node_info_get_nodes ((NodeInfo *) base),
 			       data, error))
 	return FALSE;
       if (!generate_glue_list (node_info_get_interfaces ((NodeInfo *) base),
 			       data, error))
 	return FALSE;
+
+      WRITE_OR_LOSE ("};\n\n");
+
+      /* Information about the object. */
+
+      if (!write_printf_to_iochannel ("const DBusGObjectInfo dbus_glib_%s_object_info = {\n",
+				      channel, error, data->prefix))
+	goto io_lose;
+      WRITE_OR_LOSE ("  0,\n");
+      if (!write_printf_to_iochannel ("  dbus_glib_%s_methods,\n", channel, error, data->prefix))
+	goto io_lose;
+      if (!write_printf_to_iochannel ("  %d,\n", channel, error, data->count))
+	goto io_lose;
+      WRITE_OR_LOSE("  \"");
+      for (i = 0; i < object_introspection_data_blob->len; i++)
+	{
+	  if (object_introspection_data_blob->str[i] != '\0')
+	    {
+	      if (!g_io_channel_write_chars (channel, object_introspection_data_blob->str + i, 1, NULL, error))
+		return FALSE;
+	    }
+	  else
+	    {
+	      if (!g_io_channel_write_chars (channel, "\\0", -1, NULL, error))
+		return FALSE;
+	    }
+	}
+      WRITE_OR_LOSE ("\"\n};\n\n");
+
+      g_string_free (object_introspection_data_blob, TRUE);
     }
   else
     {
@@ -304,41 +419,43 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
       InterfaceInfo *interface;
       GSList *methods;
       GSList *tmp;
-      gsize i;
-      int count;
       const char *interface_c_name;
       GString *object_introspection_data_blob;
 
       channel = data->channel;
+      object_introspection_data_blob = data->blob;
 
       interface = (InterfaceInfo *) base;
       interface_c_name = interface_info_get_annotation (interface, DBUS_GLIB_ANNOTATION_C_SYMBOL);
       if (interface_c_name == NULL)
         {
-          return TRUE;
+	  if (data->prefix == NULL)
+	    return TRUE;
+	  interface_c_name = data->prefix;
         }
 
-      object_introspection_data_blob = g_string_new_len ("", 0);
-
       methods = interface_info_get_methods (interface);
-      count = 0;
 
       /* Table of marshalled methods. */
 
-      if (!write_printf_to_iochannel ("static const DBusGMethodInfo dbus_glib_%s_methods[] = {\n", channel, error, interface_info_get_annotation (interface, DBUS_GLIB_ANNOTATION_C_SYMBOL)))
-	goto io_lose;
       for (tmp = methods; tmp != NULL; tmp = g_slist_next (tmp))
         {
           MethodInfo *method;
           char *marshaller_name;
-	  const char *method_c_name;
+	  char *method_c_name;
+          gboolean async = FALSE;
 	  GSList *args;
 
           method = (MethodInfo *) tmp->data;
-	  method_c_name = method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_C_SYMBOL);
+	  method_c_name = g_strdup (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_C_SYMBOL));
           if (method_c_name == NULL)
-            {
-              continue;
+	    {
+	      char *method_name_uscored;
+	      method_name_uscored = _dbus_gutils_wincaps_to_uscore (method_info_get_name (method));
+              method_c_name = g_strdup_printf ("%s_%s",
+					       interface_c_name,
+					       method_name_uscored);
+	      g_free (method_name_uscored);
             }
 
           if (!write_printf_to_iochannel ("  { (GCallback) %s, ", channel, error,
@@ -357,6 +474,9 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 	      goto io_lose;
 	    }
 
+          if (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_ASYNC) != NULL)
+            async = TRUE;
+
 	  /* Object method data blob format:
 	   * <iface>\0<name>\0(<argname>\0<argdirection>\0<argtype>\0)*\0
 	   */
@@ -365,6 +485,9 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 	  g_string_append_c (object_introspection_data_blob, '\0');
 
 	  g_string_append (object_introspection_data_blob, method_info_get_name (method));
+	  g_string_append_c (object_introspection_data_blob, '\0');
+
+	  g_string_append_c (object_introspection_data_blob, async ? 'A' : 'S');
 	  g_string_append_c (object_introspection_data_blob, '\0');
 
 	  for (args = method_info_get_args (method); args; args = args->next)
@@ -400,37 +523,8 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 
 	  g_string_append_c (object_introspection_data_blob, '\0');
 
-          count++;
+          data->count++;
         }
-      WRITE_OR_LOSE ("};\n\n");
-
-      /* Information about the object. */
-
-      if (!write_printf_to_iochannel ("const DBusGObjectInfo dbus_glib_%s_object_info = {\n",
-				      channel, error, interface_c_name))
-	goto io_lose;
-      WRITE_OR_LOSE ("  0,\n");
-      if (!write_printf_to_iochannel ("  dbus_glib_%s_methods,\n", channel, error, interface_c_name))
-	goto io_lose;
-      if (!write_printf_to_iochannel ("  %d,\n", channel, error, count))
-	goto io_lose;
-      WRITE_OR_LOSE("  \"");
-      for (i = 0; i < object_introspection_data_blob->len; i++)
-	{
-	  if (object_introspection_data_blob->str[i] != '\0')
-	    {
-	      if (!g_io_channel_write_chars (channel, object_introspection_data_blob->str + i, 1, NULL, error))
-		return FALSE;
-	    }
-	  else
-	    {
-	      if (!g_io_channel_write_chars (channel, "\\0", -1, NULL, error))
-		return FALSE;
-	    }
-	}
-      WRITE_OR_LOSE ("\"\n};\n\n");
-
-      g_string_free (object_introspection_data_blob, TRUE);
     }
   return TRUE;
  io_lose:
@@ -470,6 +564,8 @@ dbus_binding_tool_output_glib_server (BaseInfo *info, GIOChannel *channel, const
   gsize bytes_read, bytes_written;
 
   memset (&data, 0, sizeof (data));
+
+  dbus_g_value_types_init ();
 
   data.prefix = prefix;
   data.generated = g_hash_table_new_full (g_str_hash, g_str_equal, (GDestroyNotify) g_free, NULL);
@@ -607,6 +703,8 @@ write_formal_parameters (InterfaceInfo *iface, MethodInfo *method, GIOChannel *c
     {
       ArgInfo *arg;
       const char *type_str;
+      const char *type_suffix;
+      GType gtype;
       int direction;
 
       arg = args->data;
@@ -615,9 +713,8 @@ write_formal_parameters (InterfaceInfo *iface, MethodInfo *method, GIOChannel *c
 
       direction = arg_info_get_direction (arg);
 
-      type_str = dbus_gvalue_ctype_from_type (arg_info_get_type (arg), direction == ARG_IN);
-
-      if (!type_str)
+      gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+      if (gtype == G_TYPE_INVALID)
 	{
 	  g_set_error (error,
 		       DBUS_BINDING_TOOL_ERROR,
@@ -628,18 +725,37 @@ write_formal_parameters (InterfaceInfo *iface, MethodInfo *method, GIOChannel *c
 		       interface_info_get_name (iface));
 	  return FALSE;
 	}
+      type_str = dbus_g_type_get_c_name (gtype);
+      g_assert (type_str);
+      /* Variants are special...*/
+      if (gtype == G_TYPE_VALUE)
+	{
+	  if (direction == ARG_IN)
+	    type_suffix = "*";
+	  else
+	    type_suffix = "";
+	}
+      else if ((g_type_is_a (gtype, G_TYPE_BOXED)
+	      || g_type_is_a (gtype, G_TYPE_OBJECT)
+	   || g_type_is_a (gtype, G_TYPE_POINTER)))
+	type_suffix = "*";
+      else
+	type_suffix = "";
+
 
       switch (direction)
 	{
 	case ARG_IN:
-	  if (!write_printf_to_iochannel ("%s IN_%s", channel, error,
+	  if (!write_printf_to_iochannel ("const %s%s IN_%s", channel, error,
 					  type_str,
+					  type_suffix,
 					  arg_info_get_name (arg)))
 	    goto io_lose;
 	  break;
 	case ARG_OUT:
-	  if (!write_printf_to_iochannel ("%s* OUT_%s", channel, error,
+	  if (!write_printf_to_iochannel ("%s%s* OUT_%s", channel, error,
 					  type_str,
+					  type_suffix,
 					  arg_info_get_name (arg)))
 	    goto io_lose;
 	  break;
@@ -653,32 +769,71 @@ write_formal_parameters (InterfaceInfo *iface, MethodInfo *method, GIOChannel *c
   return FALSE;
 }
 
-static gboolean
-write_args_sig_for_direction (InterfaceInfo *iface, MethodInfo *method, GIOChannel *channel, int direction, GError **error)
+#define MAP_FUNDAMENTAL(NAME) \
+   case G_TYPE_ ## NAME: \
+     return g_strdup ("G_TYPE_" #NAME);
+#define MAP_KNOWN(NAME) \
+    if (gtype == NAME) \
+      return g_strdup (#NAME)
+static char *
+dbus_g_type_get_lookup_function (GType gtype)
 {
-  GSList *args;
-
-  WRITE_OR_LOSE ("\"");
-
-  for (args = method_info_get_args (method); args; args = args->next)
+  char *type_lookup;
+  switch (gtype)
     {
-      ArgInfo *arg;
-
-      arg = args->data;
-
-      if (direction != arg_info_get_direction (arg))
-	continue;
-
-      if (!write_printf_to_iochannel ("%s", channel, error, arg_info_get_type (arg)))
-	goto io_lose;
+      MAP_FUNDAMENTAL(CHAR);
+      MAP_FUNDAMENTAL(UCHAR);
+      MAP_FUNDAMENTAL(BOOLEAN);
+      MAP_FUNDAMENTAL(LONG);
+      MAP_FUNDAMENTAL(ULONG);
+      MAP_FUNDAMENTAL(INT);
+      MAP_FUNDAMENTAL(UINT);
+      MAP_FUNDAMENTAL(INT64);
+      MAP_FUNDAMENTAL(UINT64);
+      MAP_FUNDAMENTAL(FLOAT);
+      MAP_FUNDAMENTAL(DOUBLE);
+      MAP_FUNDAMENTAL(STRING);
     }
-
-  WRITE_OR_LOSE ("\", ");
-
-  return TRUE;
- io_lose:
-  return FALSE;
+  if (dbus_g_type_is_collection (gtype))
+    {
+      GType elt_gtype;
+      char *sublookup;
+      
+      elt_gtype = dbus_g_type_get_collection_specialization (gtype);
+      sublookup = dbus_g_type_get_lookup_function (elt_gtype);
+      g_assert (sublookup);
+      type_lookup = g_strdup_printf ("dbus_g_type_get_collection (\"GArray\", %s)",
+				     sublookup);
+      g_free (sublookup);
+      return type_lookup;
+    }
+  else if (dbus_g_type_is_map (gtype))
+    {
+      GType key_gtype;
+      char *key_lookup;
+      GType value_gtype;
+      char *value_lookup;
+      
+      key_gtype = dbus_g_type_get_map_key_specialization (gtype);
+      value_gtype = dbus_g_type_get_map_value_specialization (gtype);
+      key_lookup = dbus_g_type_get_lookup_function (key_gtype);
+      g_assert (key_lookup);
+      value_lookup = dbus_g_type_get_lookup_function (value_gtype);
+      g_assert (value_lookup);
+      type_lookup = g_strdup_printf ("dbus_g_type_get_map (\"GHashTable\", %s, %s)",
+				     key_lookup, value_lookup);
+      g_free (key_lookup);
+      g_free (value_lookup);
+      return type_lookup;
+    }
+  MAP_KNOWN(G_TYPE_VALUE);
+  MAP_KNOWN(G_TYPE_STRV);
+  MAP_KNOWN(DBUS_TYPE_G_PROXY);
+  MAP_KNOWN(DBUS_TYPE_G_PROXY_ARRAY);
+  return NULL;
 }
+#undef MAP_FUNDAMENTAL
+#undef MAP_KNOWN
 
 static gboolean
 write_args_for_direction (InterfaceInfo *iface, MethodInfo *method, GIOChannel *channel, int direction, GError **error)
@@ -688,25 +843,38 @@ write_args_for_direction (InterfaceInfo *iface, MethodInfo *method, GIOChannel *
   for (args = method_info_get_args (method); args; args = args->next)
     {
       ArgInfo *arg;
+      GType gtype;
+      char *type_lookup;
 
       arg = args->data;
 
       if (direction != arg_info_get_direction (arg))
 	continue;
 
+      gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+      g_assert (gtype != G_TYPE_INVALID);
+      type_lookup = dbus_g_type_get_lookup_function (gtype);
+      g_assert (type_lookup != NULL);
+
       switch (direction)
 	{
+
 	case ARG_IN:
-	  if (!write_printf_to_iochannel ("IN_%s, ", channel, error, arg_info_get_name (arg)))
+	  if (!write_printf_to_iochannel ("%s, IN_%s, ", channel, error,
+					  type_lookup,
+					  arg_info_get_name (arg)))
 	    goto io_lose;
 	  break;
 	case ARG_OUT:
-	  if (!write_printf_to_iochannel ("OUT_%s, ", channel, error, arg_info_get_name (arg)))
+	  if (!write_printf_to_iochannel ("%s, OUT_%s, ", channel, error,
+					  type_lookup,
+					  arg_info_get_name (arg)))
 	    goto io_lose;
 	  break;
 	case ARG_INVALID:
 	  break;
 	}
+      g_free (type_lookup);
     }
 
   return TRUE;
@@ -722,13 +890,301 @@ check_supported_parameters (MethodInfo *method)
   for (args = method_info_get_args (method); args; args = args->next)
     {
       ArgInfo *arg;
+      GType gtype;
+
       arg = args->data;
-      if (!dbus_gvalue_ctype_from_type (arg_info_get_type (arg),
-					arg_info_get_direction (arg)))
+      gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+      if (gtype == G_TYPE_INVALID)
 	return FALSE;
     }
   return TRUE;
 }
+
+static gboolean
+write_untyped_out_args (InterfaceInfo *iface, MethodInfo *method, GIOChannel *channel, GError **error)
+{
+  GSList *args;
+
+  for (args = method_info_get_args (method); args; args = args->next)
+    {
+      ArgInfo *arg;
+
+      arg = args->data;
+      if (arg_info_get_direction (arg) != ARG_OUT)
+        continue;
+            
+      if (!write_printf_to_iochannel ("OUT_%s, ", channel, error,
+                                      arg_info_get_name (arg)))
+        goto io_lose;
+     }
+
+   return TRUE;
+ io_lose:
+  return FALSE;
+}
+
+static gboolean
+write_formal_declarations_for_direction (InterfaceInfo *iface, MethodInfo *method, GIOChannel *channel, const int direction, GError **error)
+ {
+   GSList *args;
+ 
+   for (args = method_info_get_args (method); args; args = args->next)
+     {
+       ArgInfo *arg;
+      GType gtype;
+      const char *type_str, *type_suffix;
+      int dir;
+
+       arg = args->data;
+
+      dir = arg_info_get_direction (arg);
+
+      gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+      type_str = dbus_g_type_get_c_name (gtype);
+
+      if (!type_str)
+       {
+         g_set_error (error,
+                      DBUS_BINDING_TOOL_ERROR,
+                      DBUS_BINDING_TOOL_ERROR_UNSUPPORTED_CONVERSION,
+                      _("Unsupported conversion from D-BUS type signature \"%s\" to glib C type in method \"%s\" of interface \"%s\""),
+                      arg_info_get_type (arg),
+                      method_info_get_name (method),
+                      interface_info_get_name (iface));
+         return FALSE;
+       }
+
+      /* Variants are special...*/
+      if (gtype == G_TYPE_VALUE)
+	{
+	  if (direction == ARG_IN)
+	    type_suffix = "*";
+	  else
+	    type_suffix = "";
+	}
+      else if ((g_type_is_a (gtype, G_TYPE_BOXED)
+	      || g_type_is_a (gtype, G_TYPE_OBJECT)
+	   || g_type_is_a (gtype, G_TYPE_POINTER)))
+	type_suffix = "*";
+      else
+	type_suffix = "";
+
+      if (direction != dir)
+        continue;
+
+          switch (dir)
+       {
+       case ARG_IN:
+         if (!write_printf_to_iochannel ("  %s%s IN_%s;\n", channel, error,
+                                         type_str, type_suffix,
+                                         arg_info_get_name (arg)))
+           goto io_lose;
+         break;
+       case ARG_OUT:
+         if (!write_printf_to_iochannel ("  %s%s OUT_%s;\n", channel, error,
+                                         type_str, type_suffix,
+                                         arg_info_get_name (arg)))
+           goto io_lose;
+         break;
+       case ARG_INVALID:
+         break;
+       }
+     }
+   return TRUE;
+ io_lose:
+  return FALSE;
+ }
+
+static gboolean
+write_formal_parameters_for_direction (InterfaceInfo *iface, MethodInfo *method, int dir, GIOChannel *channel, GError **error)
+{
+  GSList *args;
+
+  for (args = method_info_get_args (method); args; args = args->next)
+    {
+      ArgInfo *arg;
+      const char *type_str;
+      const char *type_suffix;
+      GType gtype;
+      int direction;
+
+      arg = args->data;
+
+      direction = arg_info_get_direction (arg);
+      if (dir != direction) continue;
+      
+      WRITE_OR_LOSE (", ");
+
+      gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+      type_str = dbus_g_type_get_c_name (gtype);
+      /* Variants are special...*/
+      if (gtype == G_TYPE_VALUE)
+	{
+	  if (direction == ARG_IN)
+	    type_suffix = "*";
+	  else
+	    type_suffix = "";
+	}
+      else if ((g_type_is_a (gtype, G_TYPE_BOXED)
+	      || g_type_is_a (gtype, G_TYPE_OBJECT)
+	   || g_type_is_a (gtype, G_TYPE_POINTER)))
+	type_suffix = "*";
+      else
+	type_suffix = "";
+
+      if (!type_str)
+	{
+	  g_set_error (error,
+		       DBUS_BINDING_TOOL_ERROR,
+		       DBUS_BINDING_TOOL_ERROR_UNSUPPORTED_CONVERSION,
+		       _("Unsupported conversion from D-BUS type signature \"%s\" to glib C type in method \"%s\" of interface \"%s\""),
+		       arg_info_get_type (arg),
+		       method_info_get_name (method),
+		       interface_info_get_name (iface));
+	  return FALSE;
+	}
+ 
+       switch (direction)
+ 	{
+ 	case ARG_IN:
+	  if (!write_printf_to_iochannel ("const %s%s IN_%s", channel, error,
+					  type_str,
+					  type_suffix,
+					  arg_info_get_name (arg)))
+ 	    goto io_lose;
+ 	  break;
+ 	case ARG_OUT:
+	  if (!write_printf_to_iochannel ("%s%s* OUT_%s", channel, error,
+					  type_str,
+					  type_suffix,
+					  arg_info_get_name (arg)))
+ 	    goto io_lose;
+ 	  break;
+ 	case ARG_INVALID:
+	  break;
+	}
+    }
+  return TRUE;
+ io_lose:
+  return FALSE;
+}
+
+static gboolean
+write_typed_args_for_direction (InterfaceInfo *iface, MethodInfo *method, GIOChannel *channel, const int direction, GError **error)
+ {
+  GSList *args;
+  
+  for (args = method_info_get_args (method); args; args = args->next)
+    {
+      ArgInfo *arg;
+      int dir;
+      GType gtype;
+      const char *type_lookup;
+      
+      arg = args->data;
+
+      dir = arg_info_get_direction (arg);
+
+      if (dir != direction)
+        continue;
+
+      gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+      type_lookup = dbus_g_type_get_lookup_function (gtype);
+
+      if (!write_printf_to_iochannel ("%s, &%s_%s, ", channel, error, type_lookup, direction == ARG_IN ? "IN" : "OUT", arg_info_get_name (arg)))
+          goto io_lose;
+    }
+  return TRUE;
+ io_lose:
+  return FALSE;
+}
+
+static gboolean
+write_async_method_client (GIOChannel *channel, InterfaceInfo *interface, MethodInfo *method, GError **error)
+{
+  char *method_name, *iface_prefix;
+  iface_prefix = iface_to_c_prefix (interface_info_get_name (interface));
+  method_name = compute_client_method_name (iface_prefix, method);
+  
+  /* Write the typedef for the client callback */
+  if (!write_printf_to_iochannel ("typedef void (*%s_reply) (", channel, error, method_name))
+    goto io_lose;
+  {
+    GSList *args;
+    for (args = method_info_get_args (method); args; args = args->next)
+      {
+	ArgInfo *arg;
+	const char *type_suffix, *type_str;
+	GType gtype;
+	
+	arg = args->data;
+	
+	if (arg_info_get_direction (arg) != ARG_OUT)
+	  continue;
+	gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+	if (gtype != G_TYPE_VALUE && (g_type_is_a (gtype, G_TYPE_BOXED)
+	     || g_type_is_a (gtype, G_TYPE_OBJECT)
+	     || g_type_is_a (gtype, G_TYPE_POINTER)))
+	  type_suffix = "*";
+	else
+	  type_suffix = "";
+	type_str = dbus_g_type_get_c_name (dbus_gtype_from_signature (arg_info_get_type (arg), TRUE));
+	if (!write_printf_to_iochannel ("%s %sOUT_%s, ", channel, error, type_str, type_suffix, arg_info_get_name (arg)))
+	  goto io_lose;
+      }
+  }
+  WRITE_OR_LOSE ("GError *error, gpointer userdata);\n\n");
+  
+  
+  /* Write the callback when the call returns */
+  WRITE_OR_LOSE ("static void\n");
+  if (!write_printf_to_iochannel ("%s_async_callback (DBusGPendingCall *pending, DBusGAsyncData *data)\n", channel, error, method_name))
+    goto io_lose;
+  WRITE_OR_LOSE ("{\n");
+  WRITE_OR_LOSE ("  GError *error = NULL;\n");
+  if (!write_formal_declarations_for_direction (interface, method, channel, ARG_OUT, error))
+    goto io_lose;
+  WRITE_OR_LOSE ("  dbus_g_proxy_end_call (data->proxy, pending, &error, ");
+  if (!write_typed_args_for_direction (interface, method, channel, ARG_OUT, error))
+    goto io_lose;
+  WRITE_OR_LOSE("G_TYPE_INVALID);\n");
+  if (!write_printf_to_iochannel ("  (*(%s_reply)data->cb) (", channel, error, method_name))
+    goto io_lose;
+  if (!write_untyped_out_args (interface, method, channel, error))
+    goto io_lose;
+  WRITE_OR_LOSE ("error, data->userdata);\n");
+  WRITE_OR_LOSE ("  return;\n}\n\n");
+  
+
+  /* Write the main wrapper function */
+  WRITE_OR_LOSE ("static\n#ifdef G_HAVE_INLINE\ninline\n#endif\ngboolean\n");
+  if (!write_printf_to_iochannel ("%s_async (DBusGProxy *proxy", channel, error,
+                                  method_name))
+    goto io_lose;
+  if (!write_formal_parameters_for_direction (interface, method, ARG_IN, channel, error))
+    goto io_lose;
+  
+  if (!write_printf_to_iochannel (", %s_reply callback, gpointer userdata)\n\n", channel, error, method_name))
+    goto io_lose;
+  
+  WRITE_OR_LOSE ("{\n");
+  WRITE_OR_LOSE ("  DBusGPendingCall *pending;\n  DBusGAsyncData *stuff;\n  stuff = g_new (DBusGAsyncData, 1);\n  stuff->proxy = proxy;\n  stuff->cb = callback;\n  stuff->userdata = userdata;\n");
+  if (!write_printf_to_iochannel ("  pending = dbus_g_proxy_begin_call (proxy, \"%s\", ", channel, error, method_info_get_name (method)))
+    goto io_lose;
+  if (!write_args_for_direction (interface, method, channel, ARG_IN, error))
+    goto io_lose;
+  WRITE_OR_LOSE ("G_TYPE_INVALID);\n");
+
+  if (!write_printf_to_iochannel ("  dbus_g_pending_call_set_notify(pending, (DBusGPendingCallNotify)%s_async_callback, stuff, g_free);\n", channel, error, method_name))
+    goto io_lose;
+
+  WRITE_OR_LOSE ("  return TRUE;\n}\n\n");
+
+  g_free (method_name);
+  return TRUE;
+ io_lose:
+  return FALSE;
+ }
 
 static gboolean
 generate_client_glue_list (GSList *list, DBusBindingToolCData *data, GError **error)
@@ -818,21 +1274,19 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
 					  method_info_get_name (method)))
 	    goto io_lose;
 
-	  if (!write_args_sig_for_direction (interface, method, channel, ARG_IN, error))
-	    goto io_lose;
-
-	  if (!write_args_sig_for_direction (interface, method, channel, ARG_OUT, error))
-	    goto io_lose;
-
 	  WRITE_OR_LOSE ("error, ");
 
 	  if (!write_args_for_direction (interface, method, channel, ARG_IN, error))
 	    goto io_lose;
 
+	  WRITE_OR_LOSE ("G_TYPE_INVALID, ");
+
 	  if (!write_args_for_direction (interface, method, channel, ARG_OUT, error))
 	    goto io_lose;
 
-	  WRITE_OR_LOSE ("NULL);\n}\n\n");
+	  WRITE_OR_LOSE ("G_TYPE_INVALID);\n}\n\n");
+
+	  write_async_method_client (channel, interface, method, error);
 	}
 
       if (!write_printf_to_iochannel ("#endif /* defined DBUS_GLIB_CLIENT_WRAPPERS_%s */\n\n", channel, error, iface_prefix))
@@ -852,6 +1306,8 @@ dbus_binding_tool_output_glib_client (BaseInfo *info, GIOChannel *channel, gbool
 {
   DBusBindingToolCData data;
   gboolean ret;
+
+  dbus_g_value_types_init ();
 
   memset (&data, 0, sizeof (data));
   

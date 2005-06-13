@@ -25,7 +25,6 @@
 #define DBUS_GLIB_H
 
 #include <glib-object.h>
-#include <dbus/dbus-protocol.h>
 #include <dbus/dbus-shared.h>
 
 G_BEGIN_DECLS
@@ -115,12 +114,88 @@ struct DBusGObjectInfo
   const char *data;             /**< Introspection data */
 };
 
-void dbus_g_object_class_install_info    (GObjectClass          *object_class,
+void dbus_g_object_type_install_info     (GType                 object_type,
                                           const DBusGObjectInfo *info);
-void dbus_g_connection_register_g_object (DBusGConnection       *connection,
-                                          const char            *at_path,
-                                          GObject               *object);
 
+void       dbus_g_connection_register_g_object (DBusGConnection       *connection,
+						const char            *at_path,
+						GObject               *object);
+GObject *  dbus_g_connection_lookup_g_object   (DBusGConnection       *connection,
+						const char            *at_path);
+
+
+/**
+ * Generic recursive value
+ */
+
+typedef struct DBusGValueIterator DBusGValueIterator;
+struct DBusGValueIterator
+{
+  void *dummy1;         /**< Don't use this */
+  void *dummy2;         /**< Don't use this */
+  guint32 dummy3;     /**< Don't use this */
+  int dummy4;           /**< Don't use this */
+  int dummy5;           /**< Don't use this */
+  int dummy6;           /**< Don't use this */
+  int dummy7;           /**< Don't use this */
+  int dummy8;           /**< Don't use this */
+  int dummy9;           /**< Don't use this */
+  int dummy10;          /**< Don't use this */
+  int dummy11;          /**< Don't use this */
+  int pad1;             /**< Don't use this */
+  int pad2;             /**< Don't use this */
+  void *pad3;           /**< Don't use this */
+  void *pad4;           /**< Don't use this */
+  void *pad5;           /**< Don't use this */
+};
+
+typedef struct DBusGValue DBusGValue;
+
+#ifdef DBUS_COMPILATION
+#include "glib/dbus-gtype-specialized.h"
+#else
+#include <dbus/dbus-gtype-specialized.h>
+#endif
+
+/* definitions for some basic array types */
+#define DBUS_TYPE_G_BOOLEAN_ARRAY  (dbus_g_type_get_collection ("GArray", G_TYPE_BOOLEAN))
+#define DBUS_TYPE_G_UCHAR_ARRAY    (dbus_g_type_get_collection ("GArray", G_TYPE_UCHAR))
+#define DBUS_TYPE_G_UINT_ARRAY     (dbus_g_type_get_collection ("GArray", G_TYPE_UINT))
+#define DBUS_TYPE_G_INT_ARRAY      (dbus_g_type_get_collection ("GArray", G_TYPE_INT))
+#define DBUS_TYPE_G_UINT64_ARRAY   (dbus_g_type_get_collection ("GArray", G_TYPE_UINT64))
+#define DBUS_TYPE_G_INT64_ARRAY    (dbus_g_type_get_collection ("GArray", G_TYPE_INT64))
+#define DBUS_TYPE_G_OBJECT_ARRAY   (dbus_g_type_get_collection ("GPtrArray", G_TYPE_OBJECT))
+
+#define DBUS_TYPE_G_STRING_STRING_HASHTABLE (dbus_g_type_get_map ("GHashTable", G_TYPE_STRING, G_TYPE_STRING))
+
+/* D-BUS-specific types */
+#define DBUS_TYPE_G_PROXY_ARRAY          (dbus_g_type_get_collection ("GPtrArray", DBUS_TYPE_G_PROXY))
+
+/* Generic recursive value */
+GType        dbus_g_value_get_g_type               (void) G_GNUC_CONST;
+#define DBUS_TYPE_G_VALUE                (dbus_g_value_get_g_type ())
+
+void         dbus_g_value_open              (DBusGValue          *value,
+					     DBusGValueIterator  *iter);
+
+GType        dbus_g_value_iterator_get_value        (DBusGValueIterator   *iter,
+						     GValue               *value);
+
+gboolean     dbus_g_value_iterator_get_values       (DBusGValueIterator   *iter,
+						     GError              **error,
+						     GValue               *first_val,
+						     ...);
+
+void         dbus_g_value_iterator_recurse          (DBusGValueIterator   *iter,
+						     DBusGValueIterator   *sub);
+
+void         dbus_g_value_free              (DBusGValue          *value);
+
+
+void         dbus_g_object_register_marshaller  (GType             rettype,
+						 guint             n_types,
+						 const GType      *param_types,
+						 GClosureMarshal   marshaller);
 
 typedef struct DBusGProxy       DBusGProxy;
 typedef struct DBusGProxyClass  DBusGProxyClass;
@@ -143,12 +218,20 @@ DBusGProxy*       dbus_g_proxy_new_for_name_owner    (DBusGConnection   *connect
                                                       const char        *path,
                                                       const char        *interface,
                                                       GError           **error);
+DBusGProxy*       dbus_g_proxy_new_from_proxy        (DBusGProxy        *proxy,
+                                                      const char        *interface,
+                                                      const char        *path_name);
 DBusGProxy*       dbus_g_proxy_new_for_peer          (DBusGConnection   *connection,
                                                       const char        *path_name,
                                                       const char        *interface_name);
+
+void              dbus_g_proxy_set_interface         (DBusGProxy        *proxy,
+						      const char        *interface_name);
 void              dbus_g_proxy_add_signal            (DBusGProxy        *proxy,
-                                                      const char        *signal_name,
-                                                      const char        *signature);
+						      const char        *signal_name,
+						      GType              first_type, 
+						      ...);
+
 void              dbus_g_proxy_connect_signal        (DBusGProxy        *proxy,
                                                       const char        *signal_name,
                                                       GCallback          handler,
@@ -160,26 +243,45 @@ void              dbus_g_proxy_disconnect_signal     (DBusGProxy        *proxy,
                                                       void              *data);
 DBusGPendingCall* dbus_g_proxy_begin_call            (DBusGProxy        *proxy,
                                                       const char        *method,
-                                                      int                first_arg_type,
+                                                      GType              first_arg_type,
                                                       ...);
 gboolean          dbus_g_proxy_end_call              (DBusGProxy        *proxy,
                                                       DBusGPendingCall  *pending,
                                                       GError           **error,
-                                                      int                first_arg_type,
+                                                      GType              first_arg_type,
                                                       ...);
 void              dbus_g_proxy_call_no_reply         (DBusGProxy        *proxy,
                                                       const char        *method,
-                                                      int                first_arg_type,
+                                                      GType              first_arg_type,
                                                       ...);
+
+const char*       dbus_g_proxy_get_path              (DBusGProxy        *proxy);
 
 const char*       dbus_g_proxy_get_bus_name          (DBusGProxy        *proxy);
 
+const char*       dbus_g_proxy_get_interface         (DBusGProxy        *proxy);
+
 gboolean          dbus_g_proxy_invoke                (DBusGProxy        *proxy,
 						      const char        *method,
-						      const char        *insig,
-						      const char        *outsig,
 						      GError           **error,
+						      GType              first_arg_type,
 						      ...);
+
+typedef struct {
+  DBusGProxy *proxy;
+  gpointer cb;
+  gpointer userdata;
+} DBusGAsyncData;
+
+typedef struct {
+  DBusGConnection *connection;
+  DBusGMessage *message;
+  const DBusGObjectInfo *object;
+  const DBusGMethodInfo *method;
+} DBusGMethodInvocation;
+
+void dbus_g_method_return (DBusGMethodInvocation *context, ...);
+void dbus_g_method_return_error (DBusGMethodInvocation *context, GError *error);
 
 #undef DBUS_INSIDE_DBUS_GLIB_H
 

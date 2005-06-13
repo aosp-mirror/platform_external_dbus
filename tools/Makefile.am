@@ -1,4 +1,4 @@
-INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) $(DBUS_X_CFLAGS) $(DBUS_GTK_THREADS_CFLAGS) -DDBUS_LOCALEDIR=\"$(prefix)/@DATADIRNAME@/locale\"
+INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) $(DBUS_X_CFLAGS) $(DBUS_GTK_THREADS_CFLAGS) -DDBUS_LOCALEDIR=\"$(prefix)/@DATADIRNAME@/locale\" -DDBUS_COMPILATION
 
 if HAVE_GLIB
 GLIB_TOOLS=dbus-monitor
@@ -7,7 +7,7 @@ nodist_libdbus_glib_HEADERS = dbus-glib-bindings.h
 libdbus_glibdir = $(includedir)/dbus-1.0/dbus
 
 dbus-glib-bindings.h: dbus-bus-introspect.xml $(top_builddir)/glib/dbus-binding-tool
-	$(top_builddir)/glib/dbus-binding-tool --ignore-unsupported --mode=glib-client --output=dbus-glib-bindings.h dbus-bus-introspect.xml # FIXME - remove --ignore-unsupported when we can do arrays
+	$(top_builddir)/glib/dbus-binding-tool --mode=glib-client --output=dbus-glib-bindings.h dbus-bus-introspect.xml
 
 BUILT_SOURCES = dbus-glib-bindings.h dbus-bus-introspect.xml
 

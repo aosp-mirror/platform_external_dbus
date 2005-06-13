@@ -20,6 +20,7 @@ struct MyObject
 {
   GObject parent;
   char *this_is_a_string;
+  guint val;
 };
 
 struct MyObjectClass
@@ -46,13 +47,37 @@ typedef enum
 
 gboolean my_object_do_nothing (MyObject *obj, GError **error);
 
-gboolean my_object_increment (MyObject *obj, gint32 x, int *ret, GError **error);
+gboolean my_object_increment (MyObject *obj, gint32 x, gint32 *ret, GError **error);
 
 gboolean my_object_throw_error (MyObject *obj, GError **error);
 
 gboolean my_object_uppercase (MyObject *obj, const char *str, char **ret, GError **error);
 
 gboolean my_object_many_args (MyObject *obj, guint32 x, const char *str, double trouble, double *d_ret, char **str_ret, GError **error);
+
+gboolean my_object_many_return (MyObject *obj, guint32 *arg0, char **arg1, gint32 *arg2, guint32 *arg3, guint32 *arg4, char **arg5, GError **error);
+
+gboolean my_object_recursive1 (MyObject *obj, GArray *array, guint32 *len_ret, GError **error);
+gboolean my_object_recursive2 (MyObject *obj, guint32 reqlen, GArray **array, GError **error);
+
+gboolean my_object_objpath (MyObject *obj, GObject *in, GObject **arg1, GError **error);
+
+gboolean my_object_stringify (MyObject *obj, GValue *value, char **ret, GError **error);
+gboolean my_object_unstringify (MyObject *obj, const char *str, GValue *value, GError **error);
+
+gboolean my_object_many_uppercase (MyObject *obj, const char * const *in, char ***out, GError **error);
+
+gboolean my_object_str_hash_len (MyObject *obj, GHashTable *table, guint *len, GError **error);
+
+gboolean my_object_get_hash (MyObject *obj, GHashTable **table, GError **error);
+
+gboolean my_object_increment_val (MyObject *obj, GError **error);
+
+gboolean my_object_get_val (MyObject *obj, guint *ret, GError **error);
+
+gboolean my_object_get_value (MyObject *obj, guint *ret, GError **error);
+
+gboolean my_object_emit_frobnicate (MyObject *obj, GError **error);
 
 #include "test-service-glib-glue.h"
 
@@ -64,6 +89,15 @@ enum
   PROP_0,
   PROP_THIS_IS_A_STRING
 };
+
+enum
+{
+  FROBNICATE,
+  LAST_SIGNAL
+};
+
+static void *parent_class;
+static guint signals[LAST_SIGNAL] = { 0 };
 
 static void
 my_object_finalize (GObject *object)
@@ -123,7 +157,7 @@ my_object_get_property (GObject      *object,
 static void
 my_object_init (MyObject *obj)
 {
-  
+  obj->val = 0;
 }
 
 static void
@@ -142,6 +176,15 @@ my_object_class_init (MyObjectClass *mobject_class)
                                                         _("Example of a string property"),
                                                         "default value",
                                                         G_PARAM_READWRITE));
+  signals[FROBNICATE] =
+    g_signal_new ("frobnicate",
+		  G_OBJECT_CLASS_TYPE (mobject_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
+                  0,
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__INT,
+                  G_TYPE_NONE, 1, G_TYPE_INT);
+
 }
 
 GQuark
@@ -154,6 +197,9 @@ my_object_error_quark (void)
   return quark;
 }
 
+static GObject *obj;
+static GObject *obj2;
+
 gboolean
 my_object_do_nothing (MyObject *obj, GError **error)
 {
@@ -161,7 +207,7 @@ my_object_do_nothing (MyObject *obj, GError **error)
 }
 
 gboolean
-my_object_increment (MyObject *obj, gint32 x, int *ret, GError **error)
+my_object_increment (MyObject *obj, gint32 x, gint32 *ret, GError **error)
 {
   *ret = x +1;
   return TRUE;
@@ -191,7 +237,172 @@ my_object_many_args (MyObject *obj, guint32 x, const char *str, double trouble, 
   *str_ret = g_ascii_strup (str, -1);
   return TRUE;
 }
-     
+
+gboolean
+my_object_many_return (MyObject *obj, guint32 *arg0, char **arg1, gint32 *arg2, guint32 *arg3, guint32 *arg4, char **arg5, GError **error)
+{
+  *arg0 = 42;
+  *arg1 = g_strdup ("42");
+  *arg2 = -67;
+  *arg3 = 2;
+  *arg4 = 26;
+  *arg5 = g_strdup ("hello world");
+  return TRUE;
+}
+
+gboolean
+my_object_stringify (MyObject *obj, GValue *value, char **ret, GError **error)
+{
+  GValue valstr = {0, };
+
+  g_value_init (&valstr, G_TYPE_STRING);
+  if (!g_value_transform (value, &valstr))
+    {
+      g_set_error (error,
+		   MY_OBJECT_ERROR,
+		   MY_OBJECT_ERROR_FOO,
+		   "couldn't transform value");
+      return FALSE;
+    }
+  *ret = g_value_dup_string (&valstr);
+  g_value_unset (&valstr);
+  return TRUE;
+}
+
+gboolean
+my_object_unstringify (MyObject *obj, const char *str, GValue *value, GError **error)
+{
+  if (str[0] == '\0' || !g_ascii_isdigit (str[0])) {
+    g_value_init (value, G_TYPE_STRING);
+    g_value_set_string (value, str);
+  } else {
+    g_value_init (value, G_TYPE_INT);
+    g_value_set_int (value, (int) g_ascii_strtoull (str, NULL, 10));
+  } 
+  return TRUE;
+}
+
+gboolean
+my_object_recursive1 (MyObject *obj, GArray *array, guint32 *len_ret, GError **error)
+{
+  *len_ret = array->len;
+  return TRUE;
+}
+
+gboolean
+my_object_recursive2 (MyObject *obj, guint32 reqlen, GArray **ret, GError **error)
+{
+  guint32 val;
+  GArray *array;
+  
+  array = g_array_new (FALSE, TRUE, sizeof (guint32));
+
+  while (reqlen > 0) {
+    val = 42;
+    g_array_append_val (array, val);
+    val = 26;
+    g_array_append_val (array, val);
+    reqlen--;
+  }
+  val = 2;
+  g_array_append_val (array, val);
+  *ret = array;
+  return TRUE;
+}
+
+gboolean
+my_object_many_uppercase (MyObject *obj, const char * const *in, char ***out, GError **error)
+{
+  int len;
+  int i;
+
+  len = g_strv_length ((char**) in);
+
+  *out = g_new0 (char *, len + 1);
+  for (i = 0; i < len; i++)
+    {
+      (*out)[i] = g_ascii_strup (in[i], -1);
+    }
+  (*out)[i] = NULL;
+  
+  return TRUE;
+}
+
+gboolean
+my_object_objpath (MyObject *obj, GObject *incoming, GObject **outgoing, GError **error)
+{
+  if ((GObject*) obj != incoming)
+    {
+      g_set_error (error,
+		   MY_OBJECT_ERROR,
+		   MY_OBJECT_ERROR_FOO,
+		   "invalid incoming object");
+      return FALSE;
+    }
+  *outgoing = g_object_ref (obj2);
+  return TRUE;
+}
+
+static void
+hash_foreach (gpointer key, gpointer val, gpointer user_data)
+{
+  const char *keystr = key;
+  const char *valstr = val;
+  guint *count = user_data;
+
+  *count += (strlen (keystr) + strlen (valstr));
+  g_print ("%s -> %s\n", keystr, valstr);
+}
+
+gboolean
+my_object_str_hash_len (MyObject *obj, GHashTable *table, guint *len, GError **error)
+{
+  *len = 0;
+  g_hash_table_foreach (table, hash_foreach, len);
+  return TRUE;
+}
+
+gboolean
+my_object_get_hash (MyObject *obj, GHashTable **ret, GError **error)
+{
+  GHashTable *table;
+
+  table = g_hash_table_new (g_str_hash, g_str_equal);
+  g_hash_table_insert (table, "foo", "bar");
+  g_hash_table_insert (table, "baz", "whee");
+  g_hash_table_insert (table, "cow", "crack");
+  *ret = table;
+  return TRUE;
+}
+
+gboolean
+my_object_increment_val (MyObject *obj, GError **error)
+{
+  obj->val++;
+  return TRUE;
+}
+
+gboolean
+my_object_get_val (MyObject *obj, guint *ret, GError **error)
+{
+  *ret = obj->val;
+  return TRUE;
+}
+
+gboolean
+my_object_get_value (MyObject *obj, guint *ret, GError **error)
+{
+  *ret = obj->val;
+  return TRUE;
+}
+
+gboolean
+my_object_emit_frobnicate (MyObject *obj, GError **error)
+{
+  g_signal_emit (obj, signals[FROBNICATE], 0, 42);
+  return TRUE;
+}
+
 static GMainLoop *loop;
 
 #define TEST_SERVICE_NAME "org.freedesktop.DBus.TestSuiteGLibService"
@@ -201,13 +412,15 @@ main (int argc, char **argv)
 {
   DBusGConnection *connection;
   GError *error;
-  GObject *obj;
   DBusGProxy *driver_proxy;
   guint32 request_name_ret;
 
   g_type_init ();
 
   g_printerr ("Launching test-service-glib\n");
+
+  g_log_set_always_fatal (G_LOG_LEVEL_CRITICAL);
+  g_log_set_always_fatal (G_LOG_LEVEL_WARNING);
   
   loop = g_main_loop_new (NULL, FALSE);
 
@@ -223,12 +436,16 @@ main (int argc, char **argv)
     }
 
   obj = g_object_new (MY_TYPE_OBJECT, NULL);
+  obj2 = g_object_new (MY_TYPE_OBJECT, NULL);
 
-  dbus_g_object_class_install_info (G_OBJECT_GET_CLASS (obj),
-				    &dbus_glib_my_object_object_info);
+  dbus_g_object_type_install_info (MY_TYPE_OBJECT,
+				   &dbus_glib_my_object_object_info);
   dbus_g_connection_register_g_object (connection,
                                        "/org/freedesktop/DBus/Tests/MyTestObject",
                                        obj);
+  dbus_g_connection_register_g_object (connection,
+                                       "/org/freedesktop/DBus/Tests/MyTestObject2",
+                                       obj2);
 
   driver_proxy = dbus_g_proxy_new_for_name (connection,
                                             DBUS_SERVICE_DBUS,

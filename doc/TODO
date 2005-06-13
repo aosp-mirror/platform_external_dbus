@@ -39,12 +39,11 @@ Important for 1.0
 Important for 1.0 GLib Bindings
 ===
 
- - finish dbus-glib-tool support for adding introspection 
-   data to GObject and autoexporting GObject using same
+ - Annotations for "do not take ownership of this return value" on server
 
- - Need to make sure that dbus-glib.h never returns any 
-   dbus_malloc() memory, only g_malloc(). 
-   dbus_g_proxy_end_call() is the major offender. 
+ - Fix signals
+
+ - Fix errors - need to get specific error back, not UnmappedError crap
 
  - DBusGProxy doesn't emit "destroy" when it should
 
