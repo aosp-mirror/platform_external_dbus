@@ -1595,6 +1595,7 @@ dbus_g_proxy_end_call (DBusGProxy          *proxy,
  * @param proxy a proxy for a remote interface
  * @param method method to invoke
  * @param error return location for an error
+ * @param first_arg_type type of first "in" argument
  * @returns #FALSE if an error is set, TRUE otherwise
  */
 gboolean

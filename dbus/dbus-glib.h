@@ -267,21 +267,17 @@ gboolean          dbus_g_proxy_invoke                (DBusGProxy        *proxy,
 						      GType              first_arg_type,
 						      ...);
 
+typedef struct DBusGMethodInvocation DBusGMethodInvocation;
+
+void dbus_g_method_return (DBusGMethodInvocation *context, ...);
+
+void dbus_g_method_return_error (DBusGMethodInvocation *context, GError *error);
+
 typedef struct {
   DBusGProxy *proxy;
   gpointer cb;
   gpointer userdata;
 } DBusGAsyncData;
-
-typedef struct {
-  DBusGConnection *connection;
-  DBusGMessage *message;
-  const DBusGObjectInfo *object;
-  const DBusGMethodInfo *method;
-} DBusGMethodInvocation;
-
-void dbus_g_method_return (DBusGMethodInvocation *context, ...);
-void dbus_g_method_return_error (DBusGMethodInvocation *context, GError *error);
 
 #undef DBUS_INSIDE_DBUS_GLIB_H
 

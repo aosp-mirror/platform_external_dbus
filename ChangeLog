@@ -1,3 +1,16 @@
+2005-06-14  Ross Burton <ross@burtonini.com>.
+
+	* glib/dbus-glib.h: Make DBusGMethodInvocation
+	a private structure.  Rearrange prototypes a bit.
+	
+	* glib/dbus-gproxy.c (dbus_g_proxy_invoke): Add
+	documentation for first_arg_type.
+	
+	* glib/dbus-gobject.c: Move DBusGMethodInvocation
+	here, add documentation.  Move dbus_g_method_return
+	and dbus_g_method_return_error into public API
+	section.
+
 2005-06-14  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-gobject.c (_dbus_gobject_lookup_marshaller):

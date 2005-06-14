@@ -724,6 +724,17 @@ gerror_to_dbus_error_message (const DBusGObjectInfo *object_info,
   return reply;
 }
 
+/**
+ * The context of an asynchronous method call.  See dbus_g_method_return() and
+ * dbus_g_method_return_error().
+ */
+struct DBusGMethodInvocation {
+  DBusGConnection *connection; /**< The connection */
+  DBusGMessage *message; /**< The message which generated the method call */
+  const DBusGObjectInfo *object; /**< The object the method was called on */
+  const DBusGMethodInfo *method; /**< The method called */
+};
+
 static DBusHandlerResult
 invoke_object_method (GObject         *object,
 		      const DBusGObjectInfo *object_info,
@@ -945,55 +956,6 @@ invoke_object_method (GObject         *object,
   result = DBUS_HANDLER_RESULT_NEED_MEMORY;
   goto done;
 }
-
-void
-dbus_g_method_return (DBusGMethodInvocation *context, ...)
-{
-  DBusMessage *reply;
-  DBusMessageIter iter;
-  va_list args;
-  char *out_sig;
-  GArray *argsig;
-  guint i;
-
-  reply = dbus_message_new_method_return (dbus_g_message_get_message (context->message));
-  out_sig = method_output_signature_from_object_info (context->object, context->method);
-  argsig = dbus_gtypes_from_arg_signature (out_sig, FALSE);
-
-  dbus_message_iter_init_append (reply, &iter);
-
-  va_start (args, context);
-  for (i = 0; i < argsig->len; i++) {
-    GValue value = {0,};
-    char *error;
-    g_value_init (&value, g_array_index (argsig, GType, i));
-    error = NULL;
-    G_VALUE_COLLECT (&value, args, 0, &error);
-    if (error) {
-      g_warning(error);
-      g_free (error);
-    }
-    dbus_gvalue_marshal (&iter, &value);
-  }
-  va_end (args);
-
-  dbus_connection_send (dbus_g_connection_get_connection (context->connection), reply, NULL);
-  dbus_message_unref (reply);
-
-  dbus_g_connection_unref (context->connection);
-  dbus_g_message_unref (context->message);
-  g_free (context);
-}
-
-void
-dbus_g_method_return_error (DBusGMethodInvocation *context, GError *error)
-{
-  DBusMessage *reply;
-  reply = gerror_to_dbus_error_message (context->object, dbus_g_message_get_message (context->message), error);
-  dbus_connection_send (dbus_g_connection_get_connection (context->connection), reply, NULL);
-  dbus_message_unref (reply);
-}
-
 
 static DBusHandlerResult
 gobject_message_function (DBusConnection  *connection,
@@ -1484,6 +1446,65 @@ dbus_g_object_register_marshaller (GType            rettype,
   g_hash_table_insert (marshal_table, sig, marshaller);
 
   g_static_rw_lock_writer_unlock (&globals_lock);
+}
+
+/**
+ * Send a return message for a given method invocation, with arguments.
+ *
+ * @param context the method context
+ */
+void
+dbus_g_method_return (DBusGMethodInvocation *context, ...)
+{
+  DBusMessage *reply;
+  DBusMessageIter iter;
+  va_list args;
+  char *out_sig;
+  GArray *argsig;
+  guint i;
+
+  reply = dbus_message_new_method_return (dbus_g_message_get_message (context->message));
+  out_sig = method_output_signature_from_object_info (context->object, context->method);
+  argsig = dbus_gtypes_from_arg_signature (out_sig, FALSE);
+
+  dbus_message_iter_init_append (reply, &iter);
+
+  va_start (args, context);
+  for (i = 0; i < argsig->len; i++) {
+    GValue value = {0,};
+    char *error;
+    g_value_init (&value, g_array_index (argsig, GType, i));
+    error = NULL;
+    G_VALUE_COLLECT (&value, args, 0, &error);
+    if (error) {
+      g_warning(error);
+      g_free (error);
+    }
+    dbus_gvalue_marshal (&iter, &value);
+  }
+  va_end (args);
+
+  dbus_connection_send (dbus_g_connection_get_connection (context->connection), reply, NULL);
+  dbus_message_unref (reply);
+
+  dbus_g_connection_unref (context->connection);
+  dbus_g_message_unref (context->message);
+  g_free (context);
+}
+
+/**
+ * Send a error message for a given method invocation.
+ *
+ * @param context the method context
+ * @param error the error to send.
+ */
+void
+dbus_g_method_return_error (DBusGMethodInvocation *context, GError *error)
+{
+  DBusMessage *reply;
+  reply = gerror_to_dbus_error_message (context->object, dbus_g_message_get_message (context->message), error);
+  dbus_connection_send (dbus_g_connection_get_connection (context->connection), reply, NULL);
+  dbus_message_unref (reply);
 }
 
 /** @} */ /* end of public API */
