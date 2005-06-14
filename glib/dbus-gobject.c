@@ -1420,16 +1420,22 @@ _dbus_gobject_lookup_marshaller (GType        rettype,
 		{
 		case G_TYPE_BOOLEAN:
 		  ret = g_cclosure_marshal_VOID__BOOLEAN;
+		  break;
 		case G_TYPE_UCHAR:
 		  ret = g_cclosure_marshal_VOID__UCHAR;
+		  break;
 		case G_TYPE_INT:
 		  ret = g_cclosure_marshal_VOID__INT;
+		  break;
 		case G_TYPE_UINT:
 		  ret = g_cclosure_marshal_VOID__UINT;
+		  break;
 		case G_TYPE_DOUBLE:
 		  ret = g_cclosure_marshal_VOID__DOUBLE;
+		  break;
 		case G_TYPE_STRING:
 		  ret = g_cclosure_marshal_VOID__STRING;
+		  break;
 		}
 	    }
 	}

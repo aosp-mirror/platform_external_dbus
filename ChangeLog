@@ -1,3 +1,8 @@
+2005-06-14  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-gobject.c (_dbus_gobject_lookup_marshaller):
+	Add missing return statements, noticed by Ross Burton.
+	
 2005-06-13  Ross Burton <ross@burtonini.com>.
 
 	* glib/dbus-gobject.c: Handle errors on message
