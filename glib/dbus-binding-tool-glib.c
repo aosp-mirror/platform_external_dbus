@@ -152,32 +152,35 @@ compute_marshaller (MethodInfo *method, GError **error)
 	}
     }
 
-  if (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_ASYNC) != NULL) {
-    if (!first)
-      g_string_append (ret, ",");
-    g_string_append (ret, "POINTER");
-    first = FALSE;
-  } else {
-  /* Append pointer for each out arg storage */
-  for (elt = method_info_get_args (method); elt; elt = elt->next)
+  if (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_ASYNC) != NULL)
     {
-      ArgInfo *arg = elt->data;
-
-      if (arg_info_get_direction (arg) == ARG_OUT)
-	{
-	  if (!first)
-	    g_string_append (ret, ",");
-	  else
-	    first = FALSE;
-	  g_string_append (ret, "POINTER");
-	}
+      if (!first)
+	g_string_append (ret, ",");
+      g_string_append (ret, "POINTER");
+      first = FALSE;
     }
-  /* Final GError parameter */
-  if (!first)
-    g_string_append (ret, ",");
-  g_string_append (ret, "POINTER");
+  else
+    {
+      /* Append pointer for each out arg storage */
+      for (elt = method_info_get_args (method); elt; elt = elt->next)
+	{
+	  ArgInfo *arg = elt->data;
 
-  }
+	  if (arg_info_get_direction (arg) == ARG_OUT)
+	    {
+	      if (!first)
+		g_string_append (ret, ",");
+	      else
+		first = FALSE;
+	      g_string_append (ret, "POINTER");
+	    }
+	}
+      /* Final GError parameter */
+      if (!first)
+	g_string_append (ret, ",");
+      g_string_append (ret, "POINTER");
+
+    }
 
   return g_string_free (ret, FALSE);
 
@@ -226,22 +229,25 @@ compute_marshaller_name (MethodInfo *method, const char *prefix, GError **error)
 	}
     }
 
-  if (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_ASYNC) != NULL) {
-    g_string_append (ret, "_POINTER");
-  } else {
-  /* Append pointer for each out arg storage */
-  for (elt = method_info_get_args (method); elt; elt = elt->next)
+  if (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_ASYNC) != NULL)
     {
-      ArgInfo *arg = elt->data;
-
-      if (arg_info_get_direction (arg) == ARG_OUT)
-	{
-	  g_string_append (ret, "_POINTER");
-	}
+      g_string_append (ret, "_POINTER");
     }
-  /* Final GError parameter */
-  g_string_append (ret, "_POINTER");
-  }
+  else
+    {
+      /* Append pointer for each out arg storage */
+      for (elt = method_info_get_args (method); elt; elt = elt->next)
+	{
+	  ArgInfo *arg = elt->data;
+
+	  if (arg_info_get_direction (arg) == ARG_OUT)
+	    {
+	      g_string_append (ret, "_POINTER");
+	    }
+	}
+      /* Final GError parameter */
+      g_string_append (ret, "_POINTER");
+    }
 
   return g_string_free (ret, FALSE);
 }

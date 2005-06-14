@@ -572,11 +572,12 @@ signature_iter_to_g_type_struct (DBusSignatureIter *origiter, gboolean is_client
 
   iter = *origiter;
 
-  while ((current_type = dbus_signature_iter_get_current_type (&iter)) != DBUS_TYPE_INVALID) {
-    subtype = dbus_gtype_from_signature_iter (&iter, is_client);
-    if (subtype == G_TYPE_INVALID)
-      return G_TYPE_INVALID;
-  }
+  while ((current_type = dbus_signature_iter_get_current_type (&iter)) != DBUS_TYPE_INVALID)
+    {
+      subtype = dbus_gtype_from_signature_iter (&iter, is_client);
+      if (subtype == G_TYPE_INVALID)
+	return G_TYPE_INVALID;
+    }
   return DBUS_TYPE_G_VALUE ();
 #endif
 }

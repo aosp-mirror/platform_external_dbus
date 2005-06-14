@@ -1,3 +1,9 @@
+2005-06-14  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-binding-tool-glib.c:
+	* glib/dbus-gobject.c:
+	* glib/dbus-gvalue.c: Fix indentation and brace style.
+	
 2005-06-14  Ross Burton <ross@burtonini.com>.
 
 	* glib/dbus-glib.h: Make DBusGMethodInvocation

@@ -762,11 +762,10 @@ invoke_object_method (GObject         *object,
 
   gerror = NULL;
 
-  if (strcmp (string_table_lookup (get_method_data (object_info, method), 2), "A") == 0) {
+  if (strcmp (string_table_lookup (get_method_data (object_info, method), 2), "A") == 0)
     call_only = TRUE;
-  } else {
+  else
     call_only = FALSE;
-  }
 
   /* This is evil.  We do this to work around the fact that
    * the generated glib marshallers check a flag in the closure object
@@ -811,83 +810,87 @@ invoke_object_method (GObject         *object,
   g_value_set_object (&object_value, object);
   g_value_array_prepend (value_array, &object_value);
 
-  if (call_only) {
-    GValue context_value = {0,};
-    DBusGMethodInvocation *context;
-    context = g_new (DBusGMethodInvocation, 1);
-    context->connection = dbus_g_connection_ref (DBUS_G_CONNECTION_FROM_CONNECTION (connection));
-    context->message = dbus_g_message_ref (DBUS_G_MESSAGE_FROM_MESSAGE (message));
-    context->object = object_info;
-    context->method = method;
-    g_value_init (&context_value, G_TYPE_POINTER);
-    g_value_set_pointer (&context_value, context);
-    g_value_array_append (value_array, &context_value);
-  } else {
-  out_signature = method_output_signature_from_object_info (object_info, method); 
-
-  /* Count number of output parameters */
-  dbus_signature_iter_init (&out_signature_iter, out_signature);
-  out_param_count = 0;
-  while ((current_type = dbus_signature_iter_get_current_type (&out_signature_iter)) != DBUS_TYPE_INVALID)
+  if (call_only)
     {
-      out_param_count++;
-      dbus_signature_iter_next (&out_signature_iter);
+      GValue context_value = {0,};
+      DBusGMethodInvocation *context;
+      context = g_new (DBusGMethodInvocation, 1);
+      context->connection = dbus_g_connection_ref (DBUS_G_CONNECTION_FROM_CONNECTION (connection));
+      context->message = dbus_g_message_ref (DBUS_G_MESSAGE_FROM_MESSAGE (message));
+      context->object = object_info;
+      context->method = method;
+      g_value_init (&context_value, G_TYPE_POINTER);
+      g_value_set_pointer (&context_value, context);
+      g_value_array_append (value_array, &context_value);
     }
-
-  /* Create an array to store the actual values of OUT
-   * parameters.  Then, create a GValue boxed POINTER
-   * to each of those values, and append to the invocation,
-   * so the method can return the OUT parameters.
-   */
-  out_param_values = g_array_sized_new (FALSE, TRUE, sizeof (GTypeCValue), out_param_count);
-
-  /* We have a special array of GValues for toplevel GValue return
-   * types.
-   */
-  out_param_gvalues = g_value_array_new (out_param_count);
-  out_param_pos = 0;
-  out_param_gvalue_pos = 0;
-  dbus_signature_iter_init (&out_signature_iter, out_signature);
-  while ((current_type = dbus_signature_iter_get_current_type (&out_signature_iter)) != DBUS_TYPE_INVALID)
+  else
     {
-      GValue value = {0, };
-      GTypeCValue storage;
+      out_signature = method_output_signature_from_object_info (object_info, method); 
 
-      g_value_init (&value, G_TYPE_POINTER);
+      /* Count number of output parameters */
+      dbus_signature_iter_init (&out_signature_iter, out_signature);
+      out_param_count = 0;
+      while ((current_type = dbus_signature_iter_get_current_type (&out_signature_iter)) != DBUS_TYPE_INVALID)
+	{
+	  out_param_count++;
+	  dbus_signature_iter_next (&out_signature_iter);
+	}
 
-      /* We special case variants to make method invocation a bit nicer */
-      if (current_type != DBUS_TYPE_VARIANT)
+      /* Create an array to store the actual values of OUT
+       * parameters.  Then, create a GValue boxed POINTER
+       * to each of those values, and append to the invocation,
+       * so the method can return the OUT parameters.
+       */
+      out_param_values = g_array_sized_new (FALSE, TRUE, sizeof (GTypeCValue), out_param_count);
+
+      /* We have a special array of GValues for toplevel GValue return
+       * types.
+       */
+      out_param_gvalues = g_value_array_new (out_param_count);
+      out_param_pos = 0;
+      out_param_gvalue_pos = 0;
+      dbus_signature_iter_init (&out_signature_iter, out_signature);
+      while ((current_type = dbus_signature_iter_get_current_type (&out_signature_iter)) != DBUS_TYPE_INVALID)
 	{
-	  memset (&storage, 0, sizeof (storage));
-	  g_array_append_val (out_param_values, storage);
-	  g_value_set_pointer (&value, &(g_array_index (out_param_values, GTypeCValue, out_param_pos)));
-	  out_param_pos++;
+	  GValue value = {0, };
+	  GTypeCValue storage;
+
+	  g_value_init (&value, G_TYPE_POINTER);
+
+	  /* We special case variants to make method invocation a bit nicer */
+	  if (current_type != DBUS_TYPE_VARIANT)
+	    {
+	      memset (&storage, 0, sizeof (storage));
+	      g_array_append_val (out_param_values, storage);
+	      g_value_set_pointer (&value, &(g_array_index (out_param_values, GTypeCValue, out_param_pos)));
+	      out_param_pos++;
+	    }
+	  else
+	    {
+	      g_value_array_append (out_param_gvalues, NULL);
+	      g_value_set_pointer (&value, out_param_gvalues->values + out_param_gvalue_pos);
+	      out_param_gvalue_pos++;
+	    }
+	  g_value_array_append (value_array, &value);
+	  dbus_signature_iter_next (&out_signature_iter);
 	}
-      else
-	{
-	  g_value_array_append (out_param_gvalues, NULL);
-	  g_value_set_pointer (&value, out_param_gvalues->values + out_param_gvalue_pos);
-	  out_param_gvalue_pos++;
-	}
-      g_value_array_append (value_array, &value);
-      dbus_signature_iter_next (&out_signature_iter);
+
+      /* Append GError as final argument */
+      g_value_init (&error_value, G_TYPE_POINTER);
+      g_value_set_pointer (&error_value, &gerror);
+      g_value_array_append (value_array, &error_value);
     }
-
-  /* Append GError as final argument */
-  g_value_init (&error_value, G_TYPE_POINTER);
-  g_value_set_pointer (&error_value, &gerror);
-  g_value_array_append (value_array, &error_value);
-  }
   /* Actually invoke method */
   g_value_init (&return_value, G_TYPE_BOOLEAN);
   method->marshaller (&closure, &return_value,
 		      value_array->n_values,
 		      value_array->values,
 		      NULL, method->function);
-  if (call_only) {
-    result = DBUS_HANDLER_RESULT_HANDLED;
-    goto done;
-  }
+  if (call_only)
+    {
+      result = DBUS_HANDLER_RESULT_HANDLED;
+      goto done;
+    }
   had_error = !g_value_get_boolean (&return_value);
 
   if (!had_error)
@@ -943,12 +946,13 @@ invoke_object_method (GObject         *object,
  done:
   g_free (in_signature);
   g_free (out_signature);
-  if (!call_only) {
-    g_array_free (out_param_values, TRUE);
-    g_value_array_free (out_param_gvalues);
-    g_value_unset (&object_value);
-    g_value_unset (&error_value);
-  }
+  if (!call_only)
+    {
+      g_array_free (out_param_values, TRUE);
+      g_value_array_free (out_param_gvalues);
+      g_value_unset (&object_value);
+      g_value_unset (&error_value);
+    }
   g_value_array_free (value_array);
   g_value_unset (&return_value);
   return result;
@@ -1175,11 +1179,12 @@ export_signals (DBusGConnection *connection, GObject *object)
       
       g_signal_query (ids[i], &query);
 
-      if (query.return_type != G_TYPE_NONE) {
-	g_warning("Not exporting signal '%s' as it has a return type %s", query.signal_name, g_type_name (query.return_type));
-	continue; /* FIXME: these could be listed as methods ? */
-      }
-
+      if (query.return_type != G_TYPE_NONE)
+	{
+	  g_warning("Not exporting signal '%s' as it has a return type %s", query.signal_name, g_type_name (query.return_type));
+	  continue; /* FIXME: these could be listed as methods ? */
+	}
+      
       closure = dbus_g_signal_closure_new (connection, object, query.signal_name);
       g_closure_set_marshal (closure, signal_emitter_marshaller);
 
@@ -1275,10 +1280,11 @@ dbus_g_connection_register_g_object (DBusGConnection       *connection,
   if (!dbus_connection_register_object_path (DBUS_CONNECTION_FROM_G_CONNECTION (connection),
                                              at_path,
                                              &gobject_dbus_vtable,
-                                             object)) {
-    g_error ("Failed to register GObject with DBusConnection");
-    return;
-  }
+                                             object))
+    {
+      g_error ("Failed to register GObject with DBusConnection");
+      return;
+    }
 
   export_signals (connection, object);
 
@@ -1470,18 +1476,20 @@ dbus_g_method_return (DBusGMethodInvocation *context, ...)
   dbus_message_iter_init_append (reply, &iter);
 
   va_start (args, context);
-  for (i = 0; i < argsig->len; i++) {
-    GValue value = {0,};
-    char *error;
-    g_value_init (&value, g_array_index (argsig, GType, i));
-    error = NULL;
-    G_VALUE_COLLECT (&value, args, 0, &error);
-    if (error) {
-      g_warning(error);
-      g_free (error);
+  for (i = 0; i < argsig->len; i++)
+    {
+      GValue value = {0,};
+      char *error;
+      g_value_init (&value, g_array_index (argsig, GType, i));
+      error = NULL;
+      G_VALUE_COLLECT (&value, args, 0, &error);
+      if (error)
+	{
+	  g_warning(error);
+	  g_free (error);
+	}
+      dbus_gvalue_marshal (&iter, &value);
     }
-    dbus_gvalue_marshal (&iter, &value);
-  }
   va_end (args);
 
   dbus_connection_send (dbus_g_connection_get_connection (context->connection), reply, NULL);
