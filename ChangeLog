@@ -1,3 +1,27 @@
+2005-06-15  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-marshal-validate.h: Added a new validation
+	error code DBUS_VALIDITY_UNKNOWN_OOM_ERROR = -4 for 
+	out of memory errors when validating signitures
+
+	* dbus/dbus-marshal-header.c: use DBUS_VALIDITY_UNKNOWN_OOM_ERROR
+	in places where we previously used DBUS_VALID and a FALSE return 
+	value to indicate OOM
+	
+	* dbus/dbus-marshal-validate.c (_dbus_validate_signature_with_reason):
+	Use a stack to track the number of elements inside containers.  The 
+	stack values are then used to validate that dict entries have only two
+	elements within them.
+	(validate_body_helper): check the reason for failure when validating
+	varients
+	
+	* dbus/dbus-message.c (load_message): use 
+	DBUS_VALIDITY_UNKNOWN_OOM_ERROR in places where we previously used 
+	DBUS_VALID and a FALSE return value to indicate OOM
+
+	* doc/TODO: remove "- validate dict entry number of fields" as this
+	patch fixes it
+
 2005-06-14  David Zeuthen  <davidz@redhat.com>
 
 	* bus/bus.c (process_config_every_time): Drop existing conf-dir

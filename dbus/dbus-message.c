@@ -3205,7 +3205,12 @@ load_message (DBusMessageLoader *loader,
                           _dbus_string_get_length (&loader->data)))
     {
       _dbus_verbose ("Failed to load header for new message code %d\n", validity);
-      if (validity == DBUS_VALID)
+
+      /* assert here so we can catch any code that still uses DBUS_VALID to indicate
+         oom errors.  They should use DBUS_VALIDITY_UNKNOWN_OOM_ERROR instead */
+      _dbus_assert (validity != DBUS_VALID);
+
+      if (validity == DBUS_VALIDITY_UNKNOWN_OOM_ERROR)
         oom = TRUE;
       else
         {

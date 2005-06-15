@@ -926,9 +926,10 @@ load_and_validate_field (DBusHeader     *header,
  * Creates a message header from potentially-untrusted data. The
  * return value is #TRUE if there was enough memory and the data was
  * valid. If it returns #TRUE, the header will be created. If it
- * returns #FALSE and *validity == #DBUS_VALID, then there wasn't
- * enough memory.  If it returns #FALSE and *validity != #DBUS_VALID
- * then the data was invalid.
+ * returns #FALSE and *validity == #DBUS_VALIDITY_UNKNOWN_OOM_ERROR, 
+ * then there wasn't enough memory.  If it returns #FALSE 
+ * and *validity != #DBUS_VALIDITY_UNKNOWN_OOM_ERROR then the data was 
+ * invalid.
  *
  * The byte_order, fields_array_len, and body_len args should be from
  * _dbus_header_have_message_untrusted(). Validation performed in
@@ -977,7 +978,7 @@ _dbus_header_load (DBusHeader        *header,
   if (!_dbus_string_copy_len (str, start, header_len, &header->data, 0))
     {
       _dbus_verbose ("Failed to copy buffer into new header\n");
-      *validity = DBUS_VALID;
+      *validity = DBUS_VALIDITY_UNKNOWN_OOM_ERROR;
       return FALSE;
     }
 
