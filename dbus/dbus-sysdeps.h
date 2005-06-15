@@ -255,6 +255,8 @@ dbus_bool_t  _dbus_directory_get_next_file (DBusDirIter      *iter,
                                             DBusError        *error);
 void         _dbus_directory_close         (DBusDirIter      *iter);
 
+dbus_bool_t  _dbus_check_dir_is_private_to_user    (DBusString *dir,
+                                                    DBusError *error);
 
 void        _dbus_generate_random_bytes_buffer (char       *buffer,
                                                 int         n_bytes);

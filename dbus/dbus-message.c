@@ -2431,6 +2431,36 @@ dbus_message_get_path (DBusMessage   *message)
 }
 
 /**
+ * Checks if the message has a path
+ *
+ * @param message the message
+ * @returns #TRUE if there is a path field in the header
+ */
+dbus_bool_t
+dbus_message_has_path (DBusMessage   *message,
+                       const char    *path)
+{
+  const char *msg_path;
+  msg_path = dbus_message_get_path (message);
+  
+  if (msg_path == NULL)
+    {
+      if (path == NULL)
+        return TRUE;
+      else
+        return FALSE;
+    }
+
+  if (path == NULL)
+    return FALSE;
+   
+  if (strcmp (msg_path, path) == 0)
+    return TRUE;
+
+  return FALSE;
+}
+
+/**
  * Gets the object path this message is being sent to
  * (for DBUS_MESSAGE_TYPE_METHOD_CALL) or being emitted
  * from (for DBUS_MESSAGE_TYPE_SIGNAL) in a decomposed
@@ -2521,6 +2551,37 @@ dbus_message_get_interface (DBusMessage *message)
 }
 
 /**
+ * Checks if the message has an interface
+ *
+ * @param message the message
+ * @returns #TRUE if there is a interface field in the header
+ */
+dbus_bool_t
+dbus_message_has_interface (DBusMessage   *message,
+                            const char    *interface)
+{
+  const char *msg_interface;
+  msg_interface = dbus_message_get_interface (message);
+   
+  if (msg_interface == NULL)
+    {
+      if (interface == NULL)
+        return TRUE;
+      else
+        return FALSE;
+    }
+
+  if (interface == NULL)
+    return FALSE;
+     
+  if (strcmp (msg_interface, interface) == 0)
+    return TRUE;
+
+  return FALSE;
+
+}
+
+/**
  * Sets the interface member being invoked
  * (DBUS_MESSAGE_TYPE_METHOD_CALL) or emitted
  * (DBUS_MESSAGE_TYPE_SIGNAL).
@@ -2567,6 +2628,37 @@ dbus_message_get_member (DBusMessage *message)
                                 DBUS_TYPE_STRING,
                                 &v);
   return v;
+}
+
+/**
+ * Checks if the message has an interface member
+ *
+ * @param message the message
+ * @returns #TRUE if there is a member field in the header
+ */
+dbus_bool_t
+dbus_message_has_member (DBusMessage   *message,
+                         const char    *member)
+{
+  const char *msg_member;
+  msg_member = dbus_message_get_member (message);
+ 
+  if (msg_member == NULL)
+    {
+      if (member == NULL)
+        return TRUE;
+      else
+        return FALSE;
+    }
+
+  if (member == NULL)
+    return FALSE;
+    
+  if (strcmp (msg_member, member) == 0)
+    return TRUE;
+
+  return FALSE;
+
 }
 
 /**

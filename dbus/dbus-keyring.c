@@ -415,6 +415,9 @@ _dbus_keyring_reload (DBusKeyring *keyring,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
+  if (!_dbus_check_dir_is_private_to_user (&keyring->directory, error))
+    return FALSE;
+    
   if (!_dbus_string_init (&contents))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -427,7 +430,7 @@ _dbus_keyring_reload (DBusKeyring *keyring,
       _dbus_string_free (&contents);
       return FALSE;
     }
-
+   
   keys = NULL;
   n_keys = 0;
   retval = FALSE;

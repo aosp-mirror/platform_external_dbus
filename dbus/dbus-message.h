@@ -85,12 +85,18 @@ int           dbus_message_get_type         (DBusMessage   *message);
 dbus_bool_t   dbus_message_set_path         (DBusMessage   *message,
                                              const char    *object_path);
 const char*   dbus_message_get_path         (DBusMessage   *message);
+dbus_bool_t   dbus_message_has_path         (DBusMessage   *message, 
+                                             const char    *object_path);  
 dbus_bool_t   dbus_message_set_interface    (DBusMessage   *message,
-                                             const char    *interface);
+                                             const char    *interface);       
 const char*   dbus_message_get_interface    (DBusMessage   *message);
+dbus_bool_t   dbus_message_has_interface    (DBusMessage   *message, 
+                                             const char    *interface);
 dbus_bool_t   dbus_message_set_member       (DBusMessage   *message,
                                              const char    *member);
 const char*   dbus_message_get_member       (DBusMessage   *message);
+dbus_bool_t   dbus_message_has_member       (DBusMessage   *message, 
+                                             const char    *member);
 dbus_bool_t   dbus_message_set_error_name   (DBusMessage   *message,
                                              const char    *name);
 const char*   dbus_message_get_error_name   (DBusMessage   *message);
