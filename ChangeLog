@@ -1,5 +1,16 @@
 2005-06-15  John (J5) Palmieri  <johnp@redhat.com>
 
+	* NEWS: Update to 0.34
+
+2005-06-15  David Zeuthen  <davidz@redhat.com>
+
+	* configure.in (LT_CURRENT): Revert back to 1 as the library
+	hasn't changed and we've certainly not committed to protocol
+	stability yet.  All this does is to break ABI. See commit note
+	from hp@redhat.com 2005-05-05 for details.
+	
+2005-06-15  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-connection.c (_dbus_connection_peer_filter): New method 
 	(_dbus_connection_run_builtin_filters): New method
 	(dbus_connection_dispatch): Run the builtin filters which in turn

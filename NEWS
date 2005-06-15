@@ -1,3 +1,20 @@
+D-BUS 0.34 (15 June 2005)
+===
+- dbus_connection_disconnect is deprecated in favor of dbus_connection_close
+- The bus can now use D_NOTIFY (if available) to check when configuration files 
+  have changed and reload them
+- New dbus_message_has_path/member/interface API added
+- The Ping message from the org.freedesktop.DBus.Peer interface is now handled
+- Complete glib bindings overhaul (and are still under construction)
+- Tutorial now has an updated GLib section 
+- GLib bindings can now send/receive hash tables, arrays and other complex types
+- Python bindings overhaul (most public facing API's done)
+- Python bindings have been split up into separate files
+- Python added new type classes for hinting to the marshaler what type
+  to send over the wire
+- Python bindings now have decorators for specifying exported methods and signals
+- Numerous bug fixes
+
 D-BUS 0.33 (25 Apr 2005)
 ===
 
@@ -5,6 +22,7 @@ D-BUS 0.33 (25 Apr 2005)
 - python binding API's have been overhalled to be more "pythonic" and cleaner
 - python bindings now export dbus.version which is set to (0,40,0)
 - python bindings now implement the org.freedesktop.DBus.Introspectable interface
+- python binding match rules are now more flexable
 - make check has been fixed
 - many, many major bug fixes
 
