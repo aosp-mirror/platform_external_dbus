@@ -864,8 +864,8 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
 #ifdef HAVE_CMSGCRED
   if (cmsg->cmsg_len < sizeof (cmsgmem) || cmsg->cmsg_type != SCM_CREDS)
     {
-      dbus_set_error (error, DBUS_ERROR_FAILED);
-      _dbus_verbose ("Message from recvmsg() was not SCM_CREDS\n");
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Message from recvmsg() was not SCM_CREDS");
       return FALSE;
     }
 #endif

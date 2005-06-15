@@ -1,3 +1,8 @@
+2005-06-15  Colin Walters  <walters@verbum.org>
+
+	* dbus/dbus-sysdeps.c <HAVE_CMSGCRED> (_dbus_read_credentials_unix_socket):
+	Fix call to dbus_set_error.  (Patch from Michael Banck, #3461)
+	
 2005-06-15  John (J5) Palmieri  <johnp@redhat.com>
 
 	* NEWS: Update to 0.34
