@@ -1,5 +1,17 @@
 2005-06-15  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/dbus-connection.c (_dbus_connection_peer_filter): New method 
+	(_dbus_connection_run_builtin_filters): New method
+	(dbus_connection_dispatch): Run the builtin filters which in turn
+	runs the peer filter which handles Ping messages.
+
+	* doc/TODO: 
+	 - Ping isn't handled: This patch fixes it
+	 
+	 - Add a test case for the Ping message: added TODO item
+
+2005-06-15  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-message.c:
 	(dbus_message_has_path): New method
 	(dbus_message_has_interface): New method

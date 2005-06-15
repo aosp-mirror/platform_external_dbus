@@ -3362,6 +3362,53 @@ dbus_connection_get_dispatch_status (DBusConnection *connection)
 }
 
 /**
+* Filter funtion for handling the Peer standard interface
+**/
+static DBusHandlerResult
+_dbus_connection_peer_filter (DBusConnection *connection,
+                              DBusMessage    *message)
+{
+  if (dbus_message_is_method_call (message,
+                                   DBUS_INTERFACE_PEER,
+                                   "Ping"))
+    {
+      DBusMessage *ret;
+      dbus_bool_t sent;
+      
+      ret = dbus_message_new_method_return (message);
+      if (ret == NULL)
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+      
+      sent = dbus_connection_send (connection, ret, NULL);
+      dbus_message_unref (ret);
+
+      if (!sent)
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+      
+      return DBUS_HANDLER_RESULT_HANDLED;
+    }
+                                   
+  
+  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+}
+
+/**
+* Processes all builtin filter functions
+*
+* If the spec specifies a standard interface
+* they should be processed from this method
+**/
+static DBusHandlerResult
+_dbus_connection_run_builtin_filters (DBusConnection *connection,
+                                      DBusMessage    *message)
+{
+  /* We just run one filter for now but have the option to run more
+     if the spec calls for it in the future */
+
+  return _dbus_connection_peer_filter (connection, message);
+}
+
+/**
  * Processes data buffered while handling watches, queueing zero or
  * more incoming messages. Then pops the first-received message from
  * the current incoming message queue, runs any handlers for it, and
@@ -3469,7 +3516,11 @@ dbus_connection_dispatch (DBusConnection *connection)
       result = DBUS_HANDLER_RESULT_HANDLED;
       goto out;
     }
-  
+ 
+  result = _dbus_connection_run_builtin_filters (connection, message);
+  if (result != DBUS_HANDLER_RESULT_NOT_YET_HANDLED)
+    goto out;
+ 
   if (!_dbus_list_copy (&connection->filter_list, &filter_list_copy))
     {
       _dbus_connection_release_dispatch (connection);

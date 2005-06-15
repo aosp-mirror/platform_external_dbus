@@ -18,15 +18,12 @@ Important for 1.0
 
  - just before 1.0, try a HAVE_INT64=0 build and be sure it runs
 
- - in dbus-keyring.c, enforce that the keyring dir is not 
-   world readable/writable
-
- - Ping isn't handled
-
  - dbus-pending-call.c has some API and thread safety issues to review
 
  - Add test harness for selinux allow/deny cf. this message
    http://lists.freedesktop.org/archives/dbus/2005-April/002506.html
+
+ - Add a test case for handling the Ping message 
 
 Important for 1.0 GLib Bindings
 ===
