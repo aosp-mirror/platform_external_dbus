@@ -30,6 +30,7 @@
 #include "config-parser.h"
 #include "signals.h"
 #include "selinux.h"
+#include "dir-watch.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-internals.h>
@@ -478,6 +479,15 @@ process_config_every_time (BusContext      *context,
       goto failed;
     }
 
+  /* Drop existing conf-dir watches (if applicable) and watch all conf directories */
+
+  if (is_reload)
+    bus_drop_all_directory_watches ();
+
+  _dbus_list_foreach (bus_config_parser_get_conf_dirs (parser),
+		      (DBusForeachFunction) bus_watch_directory,
+		      NULL);
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = TRUE;
 
@@ -720,6 +730,7 @@ bus_context_new (const DBusString *config_file,
       _DBUS_ASSERT_ERROR_IS_SET (error);
       goto failed;
     }
+
   if (parser != NULL)
     bus_config_parser_unref (parser);
   

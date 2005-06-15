@@ -115,6 +115,8 @@ struct BusConfigParser
 
   DBusList *service_dirs; /**< Directories to look for services in */
 
+  DBusList *conf_dirs;   /**< Directories to look for policy configuration in */
+
   BusPolicy *policy;     /**< Security policy */
 
   BusLimits limits;      /**< Limits */
@@ -322,6 +324,9 @@ merge_included (BusConfigParser *parser,
 
   while ((link = _dbus_list_pop_first_link (&included->service_dirs)))
     _dbus_list_append_link (&parser->service_dirs, link);
+
+  while ((link = _dbus_list_pop_first_link (&included->conf_dirs)))
+    _dbus_list_append_link (&parser->conf_dirs, link);
   
   return TRUE;
 }
@@ -467,6 +472,12 @@ bus_config_parser_unref (BusConfigParser *parser)
                           NULL);
 
       _dbus_list_clear (&parser->service_dirs);
+
+      _dbus_list_foreach (&parser->conf_dirs,
+                          (DBusForeachFunction) dbus_free,
+                          NULL);
+
+      _dbus_list_clear (&parser->conf_dirs);
 
       _dbus_list_foreach (&parser->mechanisms,
                           (DBusForeachFunction) dbus_free,
@@ -1965,6 +1976,7 @@ include_dir (BusConfigParser   *parser,
   dbus_bool_t retval;
   DBusError tmp_error;
   DBusDirIter *dir;
+  char *s;
   
   if (!_dbus_string_init (&filename))
     {
@@ -2021,7 +2033,21 @@ include_dir (BusConfigParser   *parser,
       dbus_move_error (&tmp_error, error);
       goto failed;
     }
-  
+
+
+  if (!_dbus_string_copy_data (dirname, &s))
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+
+  if (!_dbus_list_append (&parser->conf_dirs, s))
+    {
+      dbus_free (s);
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+
   retval = TRUE;
   
  failed:
@@ -2356,6 +2382,12 @@ DBusList**
 bus_config_parser_get_service_dirs (BusConfigParser *parser)
 {
   return &parser->service_dirs;
+}
+
+DBusList**
+bus_config_parser_get_conf_dirs (BusConfigParser *parser)
+{
+  return &parser->conf_dirs;
 }
 
 dbus_bool_t

@@ -67,6 +67,7 @@ DBusList**  bus_config_parser_get_mechanisms   (BusConfigParser *parser);
 dbus_bool_t bus_config_parser_get_fork         (BusConfigParser *parser);
 const char* bus_config_parser_get_pidfile      (BusConfigParser *parser);
 DBusList**  bus_config_parser_get_service_dirs (BusConfigParser *parser);
+DBusList**  bus_config_parser_get_conf_dirs    (BusConfigParser *parser);
 BusPolicy*  bus_config_parser_steal_policy     (BusConfigParser *parser);
 void        bus_config_parser_get_limits       (BusConfigParser *parser,
                                                 BusLimits       *limits);
@@ -80,6 +81,5 @@ BusConfigParser* bus_config_load (const DBusString      *file,
                                   dbus_bool_t            is_toplevel,
                                   const BusConfigParser *parent,
                                   DBusError             *error);
-
 
 #endif /* BUS_CONFIG_PARSER_H */

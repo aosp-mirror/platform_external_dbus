@@ -1,3 +1,25 @@
+2005-06-14  David Zeuthen  <davidz@redhat.com>
+
+	* bus/bus.c (process_config_every_time): Drop existing conf-dir
+	watches (if applicable) and add new watches
+
+	* bus/main.c (signal_handler): Handle SIGIO if using D_NOTIFY
+	(main): Setup SIGIO signal handler if using D_NOTIFY
+
+	* bus/config-parser.h: Add prototype bus_config_parser_get_conf_dirs
+
+	* bus/config-parser.c (struct BusConfigParser): Add conf_dirs list
+	(merge_included): Also merge conf_dirs list
+	(bus_config_parser_unref): Clear conf_dirs list
+	(include_dir): Add directory to conf_dirs list
+	(bus_config_parser_get_conf_dirs): New function
+
+	* bus/dir-watch.[ch]: New files
+
+	* bus/Makefile.am (BUS_SOURCES): Add dir-watch.[ch]
+
+	* configure.in: Add checks for D_NOTIFY on Linux
+
 2005-06-14  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-binding-tool-glib.c:

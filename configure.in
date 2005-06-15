@@ -7,6 +7,8 @@ AM_INIT_AUTOMAKE(dbus, 0.34)
 
 AM_CONFIG_HEADER(config.h)
 
+AC_CANONICAL_TARGET
+
 # Honor aclocal flags
 ACLOCAL="$ACLOCAL $ACLOCAL_FLAGS"
 
@@ -821,6 +823,22 @@ if test x$have_selinux = xyes ; then
 else
     SELINUX_LIBS=
 fi
+
+# dnotify checks
+if test x$target_os = xlinux-gnu; then
+	AC_ARG_ENABLE(dnotify,
+	[  --disable-dnotify         Disable using dnotify on Linux],
+	[case "${enableval}" in
+	  yes) dnotify=false ;;
+	  no)  dnotify=true ;;
+	  *) AC_MSG_ERROR(bad value ${enableval} for --disable-dnotify) ;;
+	esac],[dnotify=true])
+fi
+dnl check if dnotify backend is enabled
+if test x$dnotify = xtrue; then
+   AC_DEFINE(DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX,1,[Use dnotify on Linux])
+fi
+
 
 #### Set up final flags
 DBUS_CLIENT_CFLAGS=

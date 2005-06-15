@@ -44,6 +44,10 @@ signal_handler (int sig)
 
   switch (sig)
     {
+#ifdef DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX 
+    case SIGIO: 
+      /* explicit fall-through */
+#endif /* DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX  */
     case SIGHUP:
       _dbus_string_init_const (&str, "foo");
       if (!_dbus_write (reload_pipe[RELOAD_WRITE_END], &str, 0, 1))
@@ -397,9 +401,12 @@ main (int argc, char **argv)
     }
 
   setup_reload_pipe (bus_context_get_loop (context));
- 
+
   _dbus_set_signal_handler (SIGHUP, signal_handler);
   _dbus_set_signal_handler (SIGTERM, signal_handler);
+#ifdef DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX 
+  _dbus_set_signal_handler (SIGIO, signal_handler);
+#endif /* DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX */
   
   _dbus_verbose ("We are on D-Bus...\n");
   _dbus_loop_run (bus_context_get_loop (context));

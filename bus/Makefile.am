@@ -36,6 +36,8 @@ BUS_SOURCES=					\
 	connection.h				\
 	desktop-file.c				\
 	desktop-file.h				\
+	dir-watch.c				\
+	dir-watch.h				\
 	dispatch.c				\
 	dispatch.h				\
 	driver.c				\
