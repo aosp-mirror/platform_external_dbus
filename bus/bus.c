@@ -732,7 +732,10 @@ bus_context_new (const DBusString *config_file,
     }
 
   if (parser != NULL)
-    bus_config_parser_unref (parser);
+    {
+      bus_config_parser_unref (parser);
+      parser = NULL;
+    }
   
   /* Here we change our credentials if required,
    * as soon as we've set up our sockets and pidfile

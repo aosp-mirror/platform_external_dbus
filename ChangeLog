@@ -1,5 +1,10 @@
 2005-06-16  Colin Walters  <walters@verbum.org>
 
+	* bus/bus.c (bus_context_new): Set parser to NULL
+	after we unref it (Patch from Chris Boscolo, #2174).
+	
+2005-06-16  Colin Walters  <walters@verbum.org>
+
 	* python/dbus_bindings.pyx.in: Import size_t,
 	__int64_t, __uint64_t, and __signed.
 
