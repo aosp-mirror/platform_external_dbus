@@ -45,10 +45,10 @@ test_service_glib_SOURCES=				\
 BUILT_SOURCES = test-service-glib-glue.h test-service-glib-bindings.h
 
 test-service-glib-glue.h: test-service-glib.xml $(top_builddir)/glib/dbus-binding-tool
-	$(top_builddir)/glib/dbus-binding-tool --prefix=my_object --mode=glib-server --output=test-service-glib-glue.h test-service-glib.xml
+	$(top_builddir)/glib/dbus-binding-tool --prefix=my_object --mode=glib-server --output=test-service-glib-glue.h $(srcdir)/test-service-glib.xml
 
 test-service-glib-bindings.h: test-service-glib.xml $(top_builddir)/glib/dbus-binding-tool
-	$(top_builddir)/glib/dbus-binding-tool --prefix=my_object --mode=glib-client --output=test-service-glib-bindings.h test-service-glib.xml
+	$(top_builddir)/glib/dbus-binding-tool --prefix=my_object --mode=glib-client --output=test-service-glib-bindings.h $(srcdir)/test-service-glib.xml
 
 CLEANFILES = test-service-glib-glue.h test-service-glib-bindings.h
 

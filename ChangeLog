@@ -1,5 +1,13 @@
 2005-06-16  Colin Walters  <walters@verbum.org>
 
+	* dbus/Makefile.am:
+	* mono/doc/Makefile.am:
+	* test/glib/Makefile.am:
+
+	Fix srcdir != builddir issues (Patch from Chris Wilson, #3477)
+
+2005-06-16  Colin Walters  <walters@verbum.org>
+
 	* dbus/dbus-marshal-header.c (_dbus_header_load): Set
 	header byte order from expected byte order (Patch from Chris Wilson, #3475).
 

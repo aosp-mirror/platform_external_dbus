@@ -11,7 +11,7 @@ GLIB_INCLUDES=					\
 	$(DBUS_GLIB_BUILT_INCLUDES)
 
 dbus-glib-error-enum.h: dbus-protocol.h make-dbus-glib-error-enum.sh
-	$(srcdir)/make-dbus-glib-error-enum.sh dbus-protocol.h $@
+	$(srcdir)/make-dbus-glib-error-enum.sh $(srcdir)/dbus-protocol.h $@
 
 endif
 
