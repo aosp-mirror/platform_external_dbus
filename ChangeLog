@@ -1,5 +1,17 @@
 2005-06-16  Colin Walters  <walters@verbum.org>
 
+	* python/dbus_bindings.pyx.in: Import size_t,
+	__int64_t, __uint64_t, and __signed.
+
+	* dbus/dbus-sysdeps.c <HAVE_CMSGCRED> (write_credentials_byte):
+	Define cmsg struct, output it.
+	(_dbus_read_credentials_unix_socket):
+	Use cmsg struct.
+	
+	Patch from Joe Markus Clarke for FreeBSD support.
+	
+2005-06-16  Colin Walters  <walters@verbum.org>
+
 	* tools/dbus-send.c (append_array): Use strtok.
 	(append_dict): New function.
 	(type_from_name): New function, extracted from main.
