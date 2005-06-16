@@ -103,14 +103,77 @@ append_arg (DBusMessageIter *iter, int type, const char *value)
 static void
 append_array (DBusMessageIter *iter, int type, const char *value)
 {
-  const char *c;
+  const char *val;
+  char *dupval = strdup (value);
 
-  append_arg (iter, type, value);
-  c = value;
-  while ((c = strchr (c + 1, ',')) != NULL)
+  val = strtok (dupval, ",");
+  while (val != NULL)
     {
-      append_arg (iter, type, c);
+      append_arg (iter, type, val);
+      val = strtok (NULL, ",");
     }
+  free (dupval);
+}
+
+static void
+append_dict (DBusMessageIter *iter, int keytype, int valtype, const char *value)
+{
+  const char *val;
+  char *dupval = strdup (value);
+
+  val = strtok (dupval, ",");
+  while (val != NULL)
+    {
+      DBusMessageIter subiter;
+      char sig[3];
+      sig[0] = keytype;
+      sig[1] = valtype;
+      sig[2] = '\0';
+      
+      dbus_message_iter_open_container (iter,
+					DBUS_TYPE_DICT_ENTRY,
+					sig,
+					&subiter);
+
+      append_arg (&subiter, keytype, val);
+      val = strtok (NULL, ",");
+      if (val == NULL)
+	{
+	  fprintf (stderr, "%s: Malformed dictionary\n", appname);
+	  exit (1);
+	}
+      append_arg (&subiter, valtype, val);
+
+      dbus_message_iter_close_container (iter, &subiter);
+      val = strtok (NULL, ",");
+    } 
+  free (dupval);
+}
+
+static int
+type_from_name (const char *arg)
+{
+  int type;
+  if (!strcmp (arg, "string"))
+    type = DBUS_TYPE_STRING;
+  else if (!strcmp (arg, "int32"))
+    type = DBUS_TYPE_INT32;
+  else if (!strcmp (arg, "uint32"))
+    type = DBUS_TYPE_UINT32;
+  else if (!strcmp (arg, "double"))
+    type = DBUS_TYPE_DOUBLE;
+  else if (!strcmp (arg, "byte"))
+    type = DBUS_TYPE_BYTE;
+  else if (!strcmp (arg, "boolean"))
+    type = DBUS_TYPE_BOOLEAN;
+  else if (!strcmp (arg, "objpath"))
+    type = DBUS_TYPE_OBJECT_PATH;
+  else
+    {
+      fprintf (stderr, "%s: Unknown type \"%s\"\n", appname, arg);
+      exit (1);
+    }
+  return type;
 }
 
 int
@@ -215,6 +278,7 @@ main (int argc, char *argv[])
                                               path,
                                               name,
                                               last_dot + 1);
+      dbus_message_set_auto_start (message, TRUE);
     }
   else if (message_type == DBUS_MESSAGE_TYPE_SIGNAL)
     {
@@ -256,6 +320,7 @@ main (int argc, char *argv[])
       char *arg;
       char *c;
       int type;
+      int secondary_type;
       int container_type;
       DBusMessageIter *target_iter;
       DBusMessageIter container_iter;
@@ -278,6 +343,8 @@ main (int argc, char *argv[])
 	container_type = DBUS_TYPE_VARIANT;
       else if (strcmp (arg, "array") == 0)
 	container_type = DBUS_TYPE_ARRAY;
+      else if (strcmp (arg, "dict") == 0)
+	container_type = DBUS_TYPE_DICT_ENTRY;
 
       if (container_type != DBUS_TYPE_INVALID)
 	{
@@ -291,27 +358,35 @@ main (int argc, char *argv[])
 	  *(c++) = 0;
 	}
 
-      if (arg[0] == 0 || !strcmp (arg, "string"))
+      if (arg[0] == 0)
 	type = DBUS_TYPE_STRING;
-      else if (!strcmp (arg, "int32"))
-	type = DBUS_TYPE_INT32;
-      else if (!strcmp (arg, "uint32"))
-	type = DBUS_TYPE_UINT32;
-      else if (!strcmp (arg, "double"))
-	type = DBUS_TYPE_DOUBLE;
-      else if (!strcmp (arg, "byte"))
-	type = DBUS_TYPE_BYTE;
-      else if (!strcmp (arg, "boolean"))
-	type = DBUS_TYPE_BOOLEAN;
-      else if (!strcmp (arg, "objpath"))
-	type = DBUS_TYPE_OBJECT_PATH;
       else
-	{
-	  fprintf (stderr, "%s: Unknown type \"%s\"\n", appname, arg);
-	  exit (1);
-	}
+	type = type_from_name (arg);
 
-      if (container_type != DBUS_TYPE_INVALID)
+      if (container_type == DBUS_TYPE_DICT_ENTRY)
+	{
+	  arg = c;
+	  c = strchr (c, ':');
+	  if (c == NULL)
+	    {
+	      fprintf (stderr, "%s: Data item \"%s\" is badly formed\n", argv[0], arg);
+	      exit (1);
+	    }
+	  *(c++) = 0;
+	  secondary_type = type_from_name (arg);
+	  char sig[5];
+	  sig[0] = DBUS_DICT_ENTRY_BEGIN_CHAR;
+	  sig[1] = type;
+	  sig[2] = secondary_type;
+	  sig[3] = DBUS_DICT_ENTRY_END_CHAR;
+	  sig[4] = '\0';
+	  dbus_message_iter_open_container (&iter,
+					    DBUS_TYPE_ARRAY,
+					    sig,
+					    &container_iter);
+	  target_iter = &container_iter;
+	}
+      else if (container_type != DBUS_TYPE_INVALID)
 	{
 	  char sig[2];
 	  sig[0] = type;
@@ -328,6 +403,10 @@ main (int argc, char *argv[])
       if (container_type == DBUS_TYPE_ARRAY)
 	{
 	  append_array (target_iter, type, c);
+	}
+      else if (container_type == DBUS_TYPE_DICT_ENTRY)
+	{
+	  append_dict (target_iter, type, secondary_type, c);
 	}
       else
 	append_arg (target_iter, type, c);

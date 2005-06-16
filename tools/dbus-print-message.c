@@ -118,6 +118,19 @@ print_iter (DBusMessageIter *iter, int depth)
 	    printf("]");
 	    break;
 	  }
+	case DBUS_TYPE_DICT_ENTRY:
+	  {
+	    DBusMessageIter subiter;
+
+	    dbus_message_iter_recurse (iter, &subiter);
+
+	    printf("{");
+	    print_iter (&subiter, depth);
+	    dbus_message_iter_next (&subiter);
+	    print_iter (&subiter, depth);
+	    printf("}");
+	    break;
+	  }
 	    
 	default:
 	  printf (" (dbus-monitor too dumb to decipher arg type '%c')\n", type);
