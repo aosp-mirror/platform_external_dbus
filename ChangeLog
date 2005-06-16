@@ -1,5 +1,10 @@
 2005-06-16  Colin Walters  <walters@verbum.org>
 
+	* glib/dbus-gvalue.c (marshal_basic): Marshal NULL string
+	values as the empty string (#2948).
+	
+2005-06-16  Colin Walters  <walters@verbum.org>
+
 	* dbus/Makefile.am:
 	* mono/doc/Makefile.am:
 	* test/glib/Makefile.am:

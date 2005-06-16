@@ -1275,6 +1275,8 @@ marshal_basic (DBusMessageIter *iter, GValue *value)
       /* FIXME, the GValue string may not be valid UTF-8 */
       {
         const char *v = g_value_get_string (value);
+	if (!v)
+	  v = "";
         if (!dbus_message_iter_append_basic (iter,
                                              DBUS_TYPE_STRING,
                                              &v))
