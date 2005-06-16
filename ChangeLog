@@ -1,5 +1,9 @@
 2005-06-16  Colin Walters  <walters@verbum.org>
 
+	* doc/TODO: Update for GLib bindings.
+	
+2005-06-16  Colin Walters  <walters@verbum.org>
+
 	* glib/dbus-binding-tool-glib.c:
 	* glib/dbus-gobject.c:
 	* glib/dbus-gproxy.c:  Add Nokia copyright; Patch
