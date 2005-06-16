@@ -90,7 +90,7 @@ byteswap_body_helper (DBusTypeReader       *reader,
             p = _DBUS_ALIGN_ADDRESS (p, 4);
 
             array_len = _dbus_unpack_uint32 (old_byte_order, p);
-            
+
             *((dbus_uint32_t*)p) = DBUS_UINT32_SWAP_LE_BE (*((dbus_uint32_t*)p));
             p += 4;
 
@@ -102,12 +102,15 @@ byteswap_body_helper (DBusTypeReader       *reader,
                 elem_type = _dbus_type_reader_get_element_type (reader);
                 alignment = _dbus_type_get_alignment (elem_type);
 
+		_dbus_assert ((array_len / alignment) < DBUS_MAXIMUM_ARRAY_LENGTH);
+
                 p = _DBUS_ALIGN_ADDRESS (p, alignment);
                 
                 if (dbus_type_is_fixed (elem_type))
                   {
                     if (alignment > 1)
-                      _dbus_swap_array (p, array_len / alignment, alignment);
+		      _dbus_swap_array (p, array_len / alignment, alignment);
+		    p += array_len;
                   }
                 else
                   {

@@ -1040,6 +1040,7 @@ _dbus_header_load (DBusHeader        *header,
   _dbus_type_reader_next (&reader);
 
   _dbus_assert (v_byte == byte_order);
+  header->byte_order = byte_order;
 
   /* MESSAGE TYPE */
   _dbus_assert (_dbus_type_reader_get_current_type (&reader) == DBUS_TYPE_BYTE);

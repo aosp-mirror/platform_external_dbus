@@ -1,3 +1,12 @@
+2005-06-16  Colin Walters  <walters@verbum.org>
+
+	* dbus/dbus-marshal-header.c (_dbus_header_load): Set
+	header byte order from expected byte order (Patch from Chris Wilson, #3475).
+
+	* dbus/dbus-marshal-byteswap.c (byteswap_body_helper): 
+	Increment pointer after swapping fixed array.  Add assertion
+	for array length.
+		
 2005-06-15  Colin Walters  <walters@verbum.org>
 
 	* dbus/dbus-sysdeps.c <HAVE_CMSGCRED> (_dbus_read_credentials_unix_socket):
