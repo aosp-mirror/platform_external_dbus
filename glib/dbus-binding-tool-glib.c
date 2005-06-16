@@ -2,6 +2,7 @@
 /* dbus-binding-tool-glib.c: Output C glue
  *
  * Copyright (C) 2003, 2004, 2005 Red Hat, Inc.
+ * Copyright (C) 2005 Nokia
  *
  * Licensed under the Academic Free License version 2.1
  *

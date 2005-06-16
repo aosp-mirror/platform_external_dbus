@@ -1,5 +1,12 @@
 2005-06-16  Colin Walters  <walters@verbum.org>
 
+	* glib/dbus-binding-tool-glib.c:
+	* glib/dbus-gobject.c:
+	* glib/dbus-gproxy.c:  Add Nokia copyright; Patch
+	from Ross Burton, for his GLib bindings work.
+
+2005-06-16  Colin Walters  <walters@verbum.org>
+
 	* glib/dbus-gobject.c (funcsig_hash, funcsig_equal): Use n_params
 	to iterate instead of walking to G_TYPE_INVALID.
 
@@ -160,7 +167,7 @@
 	* glib/dbus-gobject.c:
 	* glib/dbus-gvalue.c: Fix indentation and brace style.
 	
-2005-06-14  Ross Burton <ross@burtonini.com>.
+2005-06-14  Ross Burton <ross@openedhand.com>.
 
 	* glib/dbus-glib.h: Make DBusGMethodInvocation
 	a private structure.  Rearrange prototypes a bit.
@@ -178,7 +185,7 @@
 	* glib/dbus-gobject.c (_dbus_gobject_lookup_marshaller):
 	Add missing return statements, noticed by Ross Burton.
 	
-2005-06-13  Ross Burton <ross@burtonini.com>.
+2005-06-13  Ross Burton <ross@openedhand.com>.
 
 	* glib/dbus-gobject.c: Handle errors on message
 	demarshalling by sending error message back.
@@ -197,7 +204,7 @@
 2005-06-12  Colin Walters  <walters@verbum.org>
 
 	Async signals and various bugfixes and testing by
-	Ross Burton <ross@burtonini.com>.
+	Ross Burton <ross@openedhand.com>.
 
 	* glib/dbus-gvalue.h: (struct DBusBasicGValue): Delete.
 	(dbus_gvalue_genmarshal_name_from_type)
@@ -484,7 +491,7 @@
 	alias for ProxyMethod to make it easier for the Twisted 
 	networking framework to integrate dbus. 
 
-2005-05-11  Ross Burton  <ross@burtonini.com>
+2005-05-11  Ross Burton  <ross@openedhand.com>
 
 	* glib/dbus-glib-tool.c: Add --prefix argument.
 	* glib/dbus-binding-tool-glib.h: Add prefix argument.
@@ -569,7 +576,7 @@
 	* python/_dbus.py, python/proxies.py: implement __repr__ in a couple
 	of classes so that print obj doesn't throw an exception (Bug #1685)
 
-2005-05-03  Ross Burton  <ross@burtonini.com>
+2005-05-03  Ross Burton  <ross@openedhand.com>
 
 	* glib/dbus-gobject.c (dbus_g_connection_register_g_object):
 	Return if we get an error during registration.  Set up a
