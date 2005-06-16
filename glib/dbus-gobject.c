@@ -1314,11 +1314,12 @@ funcsig_hash (gconstpointer key)
   const DBusGFuncSignature *sig = key;
   GType *types;
   guint ret;
+  guint i;
 
   ret = sig->rettype;
   types = sig->params;
 
-  while (*types != G_TYPE_INVALID)
+  for (i = 0; i < sig->n_params; i++)
     {
       ret += (int) (*types);
       types++;
@@ -1335,22 +1336,22 @@ funcsig_equal (gconstpointer aval,
   const DBusGFuncSignature *b = bval;
   const GType *atypes;
   const GType *btypes;
+  guint i, j;
 
-  if (a->rettype != b->rettype)
+  if (a->rettype != b->rettype
+      || a->n_params != b->n_params)
     return FALSE;
 
   atypes = a->params;
   btypes = b->params;
 
-  while (*atypes != G_TYPE_INVALID)
+  for (i = 0; i < a->n_params; i++)
     {
       if (*btypes != *atypes)
 	return FALSE;
       atypes++;
       btypes++;
     }
-  if (*btypes != G_TYPE_INVALID)
-    return FALSE;
       
   return TRUE;
 }

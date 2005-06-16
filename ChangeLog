@@ -1,5 +1,12 @@
 2005-06-16  Colin Walters  <walters@verbum.org>
 
+	* glib/dbus-gobject.c (funcsig_hash, funcsig_equal): Use n_params
+	to iterate instead of walking to G_TYPE_INVALID.
+
+	Patch based on a patch from Ryan Gammon.
+
+2005-06-16  Colin Walters  <walters@verbum.org>
+
 	* bus/bus.c (bus_context_new): Set parser to NULL
 	after we unref it (Patch from Chris Boscolo, #2174).
 	
