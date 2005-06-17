@@ -48,6 +48,8 @@ typedef struct
   
   GHashTable *generated;
   GString *blob;
+  GString *signal_blob;
+  GString *property_blob;
   guint count;
 } DBusBindingToolCData;
 
@@ -365,13 +367,37 @@ write_printf_to_iochannel (const char *fmt, GIOChannel *channel, GError **error,
 }
 
 static gboolean
+write_quoted_string (GIOChannel *channel, GString *string, GError **error)
+{
+  guint i;
+
+  WRITE_OR_LOSE ("\"");
+  for (i = 0; i < string->len; i++)
+    {
+      if (string->str[i] != '\0')
+	{
+	  if (!g_io_channel_write_chars (channel, string->str + i, 1, NULL, error))
+	    return FALSE;
+	}
+      else
+	{
+	  if (!g_io_channel_write_chars (channel, "\\0", -1, NULL, error))
+	    return FALSE;
+	}
+    }
+  WRITE_OR_LOSE ("\\0\"");
+  return TRUE;
+ io_lose:
+  return FALSE;
+}
+
+static gboolean
 generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 {
   if (base_info_get_type (base) == INFO_TYPE_NODE)
     {
       GString *object_introspection_data_blob;
       GIOChannel *channel;
-      guint i;
 
       channel = data->channel;
       
@@ -379,6 +405,9 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
       
       data->blob = object_introspection_data_blob;
       data->count = 0;
+
+      data->signal_blob = g_string_new_len ("", 0);
+      data->property_blob = g_string_new_len ("", 0);
 
       if (!write_printf_to_iochannel ("static const DBusGMethodInfo dbus_glib_%s_methods[] = {\n", channel, error, data->prefix))
 	goto io_lose;
@@ -402,29 +431,28 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 	goto io_lose;
       if (!write_printf_to_iochannel ("  %d,\n", channel, error, data->count))
 	goto io_lose;
-      WRITE_OR_LOSE("  \"");
-      for (i = 0; i < object_introspection_data_blob->len; i++)
-	{
-	  if (object_introspection_data_blob->str[i] != '\0')
-	    {
-	      if (!g_io_channel_write_chars (channel, object_introspection_data_blob->str + i, 1, NULL, error))
-		return FALSE;
-	    }
-	  else
-	    {
-	      if (!g_io_channel_write_chars (channel, "\\0", -1, NULL, error))
-		return FALSE;
-	    }
-	}
-      WRITE_OR_LOSE ("\"\n};\n\n");
+
+      if (!write_quoted_string (channel, object_introspection_data_blob, error))
+	goto io_lose;
+      WRITE_OR_LOSE (",\n");
+      if (!write_quoted_string (channel, data->signal_blob, error))
+	goto io_lose;
+      WRITE_OR_LOSE (",\n");
+      if (!write_quoted_string (channel, data->property_blob, error))
+	goto io_lose;
+      WRITE_OR_LOSE ("\n};\n\n");
 
       g_string_free (object_introspection_data_blob, TRUE);
+      g_string_free (data->signal_blob, TRUE);
+      g_string_free (data->property_blob, TRUE);
     }
   else
     {
       GIOChannel *channel;
       InterfaceInfo *interface;
       GSList *methods;
+      GSList *signals;
+      GSList *properties;
       GSList *tmp;
       const char *interface_c_name;
       GString *object_introspection_data_blob;
@@ -532,6 +560,34 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 
           data->count++;
         }
+
+      signals = interface_info_get_signals (interface);
+
+      for (tmp = signals; tmp != NULL; tmp = g_slist_next (tmp))
+        {
+          SignalInfo *sig;
+	  
+	  sig = tmp->data;
+
+	  g_string_append (data->signal_blob, interface_info_get_name (interface));
+	  g_string_append_c (data->signal_blob, '\0');
+	  g_string_append (data->signal_blob, signal_info_get_name (sig));
+	  g_string_append_c (data->signal_blob, '\0');
+	}
+
+      properties = interface_info_get_properties (interface);
+
+      for (tmp = properties; tmp != NULL; tmp = g_slist_next (tmp))
+        {
+          PropertyInfo *prop;
+	  
+	  prop = tmp->data;
+
+	  g_string_append (data->property_blob, interface_info_get_name (interface));
+	  g_string_append_c (data->property_blob, '\0');
+	  g_string_append (data->property_blob, property_info_get_name (prop));
+	  g_string_append_c (data->property_blob, '\0');
+	}
     }
   return TRUE;
  io_lose:

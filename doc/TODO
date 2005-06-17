@@ -30,11 +30,6 @@ Important for 1.0 GLib Bindings
 
  - Annotations for "do not take ownership of this return value" on server
 
- - Fix/test signals
-
- - Don't autoexport signals and properties; use metadata either in
-   code (preferable) or annotation in XML
-
  - Fix TYPE_OBJECT_PATH marshalling; see:
    http://lists.freedesktop.org/archives/dbus/2005-June/002774.html
 

@@ -10,6 +10,7 @@
 #include <glib/gi18n.h>
 #include <glib-object.h>
 #include <glib/gquark.h>
+#include "my-object-marshal.h"
 
 typedef struct MyObject MyObject;
 typedef struct MyObjectClass MyObjectClass;
@@ -77,6 +78,8 @@ gboolean my_object_get_val (MyObject *obj, guint *ret, GError **error);
 
 gboolean my_object_get_value (MyObject *obj, guint *ret, GError **error);
 
+gboolean my_object_emit_signals (MyObject *obj, GError **error);
+
 gboolean my_object_emit_frobnicate (MyObject *obj, GError **error);
 
 #include "test-service-glib-glue.h"
@@ -93,10 +96,11 @@ enum
 enum
 {
   FROBNICATE,
+  SIG0,
+  SIG1,
   LAST_SIGNAL
 };
 
-static void *parent_class;
 static guint signals[LAST_SIGNAL] = { 0 };
 
 static void
@@ -185,6 +189,23 @@ my_object_class_init (MyObjectClass *mobject_class)
                   g_cclosure_marshal_VOID__INT,
                   G_TYPE_NONE, 1, G_TYPE_INT);
 
+  signals[SIG0] =
+    g_signal_new ("sig0",
+		  G_OBJECT_CLASS_TYPE (mobject_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
+                  0,
+                  NULL, NULL,
+                  my_object_marshal_VOID__STRING_INT_STRING,
+                  G_TYPE_NONE, 3, G_TYPE_STRING, G_TYPE_INT, G_TYPE_STRING);
+
+  signals[SIG1] =
+    g_signal_new ("sig1",
+		  G_OBJECT_CLASS_TYPE (mobject_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
+                  0,
+                  NULL, NULL,
+                  my_object_marshal_VOID__STRING_BOXED,
+                  G_TYPE_NONE, 2, G_TYPE_STRING, G_TYPE_VALUE);
 }
 
 GQuark
@@ -400,6 +421,21 @@ gboolean
 my_object_emit_frobnicate (MyObject *obj, GError **error)
 {
   g_signal_emit (obj, signals[FROBNICATE], 0, 42);
+  return TRUE;
+}
+
+gboolean
+my_object_emit_signals (MyObject *obj, GError **error)
+{
+  GValue val = {0, };
+
+  g_signal_emit (obj, signals[SIG0], 0, "foo", 22, "moo");
+
+  g_value_init (&val, G_TYPE_STRING);
+  g_value_set_string (&val, "bar");
+  g_signal_emit (obj, signals[SIG1], 0, "baz", &val);
+  g_value_unset (&val);
+
   return TRUE;
 }
 

@@ -109,9 +109,11 @@ struct DBusGObjectInfo
   int   format_version;         /**< Allows us to change the rest of this struct
                                  *   by adding DBusGObjectInfo2, DBusGObjectInfo3, etc.
                                  */
-  const DBusGMethodInfo *infos; /**< Array of method pointers */
-  int   n_infos;                /**< Length of the infos array */
+  const DBusGMethodInfo *method_infos; /**< Array of method pointers */
+  int   n_method_infos;                /**< Length of the infos array */
   const char *data;             /**< Introspection data */
+  const char *exported_signals;  /**< Exported signals */
+  const char *exported_properties;  /**< Exported properties */
 };
 
 void dbus_g_object_type_install_info     (GType                 object_type,
@@ -189,13 +191,16 @@ gboolean     dbus_g_value_iterator_get_values       (DBusGValueIterator   *iter,
 void         dbus_g_value_iterator_recurse          (DBusGValueIterator   *iter,
 						     DBusGValueIterator   *sub);
 
-void         dbus_g_value_free              (DBusGValue          *value);
+void         dbus_g_value_free                      (DBusGValue          *value);
 
 
-void         dbus_g_object_register_marshaller  (GType             rettype,
-						 guint             n_types,
-						 const GType      *param_types,
-						 GClosureMarshal   marshaller);
+void         dbus_g_object_register_marshaller      (GClosureMarshal  marshaller,
+						     GType            rettype,
+						     ...);
+void         dbus_g_object_register_marshaller_array(GClosureMarshal  marshaller,
+						     GType            rettype,
+						     guint            n_types,
+						     const GType*     types);
 
 typedef struct DBusGProxy       DBusGProxy;
 typedef struct DBusGProxyClass  DBusGProxyClass;

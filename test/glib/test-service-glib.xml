@@ -84,12 +84,23 @@
     <method name="EmitFrobnicate">
     </method>
 
+    <!-- Export signals -->
+    <signal name="Frobnicate"/>
   </interface>
+
+  <!-- Test multiple interfaces on the same object -->
 
   <interface name="org.freedesktop.DBus.Tests.FooObject">
     <method name="GetValue">
       <arg type="u" direction="out" />
     </method>
+
+    <method name="EmitSignals">
+    </method>
+
+    <signal name="Sig0"/>
+
+    <signal name="Sig1"/>
 
   </interface>
 

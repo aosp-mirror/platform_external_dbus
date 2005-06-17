@@ -7,10 +7,14 @@
 #include <glib/dbus-gidl.h>
 #include <glib/dbus-gparser.h>
 #include <glib-object.h>
+#include "my-object-marshal.h"
 
 static GMainLoop *loop = NULL;
 static int n_times_foo_received = 0;
 static int n_times_frobnicate_received = 0;
+static int n_times_sig0_received = 0;
+static int n_times_sig1_received = 0;
+static guint exit_timeout = 0;
 
 static gboolean
 timed_exit (gpointer loop)
@@ -27,6 +31,7 @@ foo_signal_handler (DBusGProxy  *proxy,
   n_times_foo_received += 1;
 
   g_main_loop_quit (loop);
+  g_source_remove (exit_timeout);
 }
 
 static void
@@ -39,6 +44,44 @@ frobnicate_signal_handler (DBusGProxy  *proxy,
   g_assert (val == 42);
 
   g_main_loop_quit (loop);
+  g_source_remove (exit_timeout);
+}
+
+static void
+sig0_signal_handler (DBusGProxy  *proxy,
+		     const char  *str0,
+		     int          val,
+		     const char  *str1,
+		     void        *user_data)
+{
+  n_times_sig0_received += 1;
+
+  g_assert (!strcmp (str0, "foo"));
+
+  g_assert (val == 22);
+
+  g_assert (!strcmp (str1, "moo"));
+
+  g_main_loop_quit (loop);
+  g_source_remove (exit_timeout);
+}
+
+static void
+sig1_signal_handler (DBusGProxy  *proxy,
+		     const char  *str0,
+		     GValue      *value,
+		     void        *user_data)
+{
+  n_times_sig1_received += 1;
+
+  g_assert (!strcmp (str0, "baz"));
+
+  g_assert (G_VALUE_HOLDS_STRING (value));
+
+  g_assert (!strcmp (g_value_get_string (value), "bar"));
+
+  g_main_loop_quit (loop);
+  g_source_remove (exit_timeout);
 }
 
 static void lose (const char *fmt, ...) G_GNUC_NORETURN G_GNUC_PRINTF (1, 2);
@@ -216,9 +259,7 @@ main (int argc, char **argv)
                               G_TYPE_INVALID);
   
   dbus_g_connection_flush (connection);
-  
-  g_timeout_add (5000, timed_exit, loop);
-
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
   g_main_loop_run (loop);
 
   if (n_times_foo_received != 1)
@@ -643,16 +684,81 @@ main (int argc, char **argv)
 
   
   dbus_g_connection_flush (connection);
-  
-#if 0
-  g_timeout_add (5000, timed_exit, loop);
-
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
   g_main_loop_run (loop);
 
   if (n_times_frobnicate_received != 1)
     lose ("Frobnicate signal received %d times, should have been 1", n_times_frobnicate_received);
-#endif
 
+  if (!dbus_g_proxy_invoke (proxy, "EmitFrobnicate", &error,
+			    G_TYPE_INVALID, G_TYPE_INVALID))
+    lose_gerror ("Failed to complete EmitFrobnicate call", error);
+  
+  dbus_g_connection_flush (connection);
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
+
+  if (n_times_frobnicate_received != 2)
+    lose ("Frobnicate signal received %d times, should have been 2", n_times_frobnicate_received);
+
+  g_object_unref (G_OBJECT (proxy));
+
+  proxy = dbus_g_proxy_new_for_name_owner (connection,
+                                           "org.freedesktop.DBus.TestSuiteGLibService",
+                                           "/org/freedesktop/DBus/Tests/MyTestObject",
+                                           "org.freedesktop.DBus.Tests.FooObject",
+                                           &error);
+  
+  if (proxy == NULL)
+    lose_gerror ("Failed to create proxy for name owner", error);
+
+  dbus_g_object_register_marshaller (my_object_marshal_VOID__STRING_INT_STRING, 
+				     G_TYPE_NONE, G_TYPE_STRING, G_TYPE_INT, G_TYPE_STRING, G_TYPE_INVALID);
+
+  dbus_g_object_register_marshaller (my_object_marshal_VOID__STRING_BOXED, 
+				     G_TYPE_NONE, G_TYPE_STRING, G_TYPE_VALUE, G_TYPE_INVALID);
+
+  dbus_g_proxy_add_signal (proxy, "Sig0", G_TYPE_STRING, G_TYPE_INT, G_TYPE_STRING, G_TYPE_INVALID);
+  dbus_g_proxy_add_signal (proxy, "Sig1", G_TYPE_STRING, G_TYPE_VALUE);
+  
+  dbus_g_proxy_connect_signal (proxy, "Sig0",
+                               G_CALLBACK (sig0_signal_handler),
+                               NULL, NULL);
+  dbus_g_proxy_connect_signal (proxy, "Sig1",
+                               G_CALLBACK (sig1_signal_handler),
+                               NULL, NULL);
+
+  dbus_g_proxy_call_no_reply (proxy, "EmitSignals", G_TYPE_INVALID);
+
+  dbus_g_connection_flush (connection);
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
+
+  if (n_times_sig0_received != 1)
+    lose ("Sig0 signal received %d times, should have been 1", n_times_sig0_received);
+  if (n_times_sig1_received != 1)
+    lose ("Sig1 signal received %d times, should have been 1", n_times_sig1_received);
+
+  dbus_g_proxy_call_no_reply (proxy, "EmitSignals", G_TYPE_INVALID);
+  dbus_g_proxy_call_no_reply (proxy, "EmitSignals", G_TYPE_INVALID);
+
+  dbus_g_connection_flush (connection);
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
+
+  if (n_times_sig0_received != 3)
+    lose ("Sig0 signal received %d times, should have been 3", n_times_sig0_received);
+  if (n_times_sig1_received != 3)
+    lose ("Sig1 signal received %d times, should have been 3", n_times_sig1_received);
+  
   g_object_unref (G_OBJECT (proxy));
 
   proxy = dbus_g_proxy_new_for_name_owner (connection,
@@ -680,7 +786,6 @@ main (int argc, char **argv)
     gboolean found_properties;
     gboolean found_myobject;
     gboolean found_fooobject;
-    gboolean found_gtk_myobject;
 
     node = description_load_from_string (v_STRING_2, strlen (v_STRING_2), &error);
     if (!node)
@@ -688,7 +793,6 @@ main (int argc, char **argv)
 
     found_introspectable = FALSE;
     found_properties = FALSE;
-    found_gtk_myobject = FALSE;
     found_myobject = FALSE;
     found_fooobject = FALSE;
     for (elt = node_info_get_interfaces (node); elt ; elt = elt->next)
@@ -699,8 +803,6 @@ main (int argc, char **argv)
 	  found_introspectable = TRUE;
 	else if (!found_properties && strcmp (interface_info_get_name (iface), "org.freedesktop.DBus.Properties") == 0)
 	  found_properties = TRUE;
-	else if (strcmp (interface_info_get_name (iface), "org.gtk.objects.MyObject") == 0)
-	  found_gtk_myobject = TRUE;
 	else if (!found_myobject && strcmp (interface_info_get_name (iface), "org.freedesktop.DBus.Tests.MyObject") == 0)
 	  {
 	    GSList *elt;
@@ -729,7 +831,7 @@ main (int argc, char **argv)
 	  lose ("Unexpected or duplicate interface %s", interface_info_get_name (iface));
       }
 
-    if (!(found_introspectable && found_gtk_myobject && found_myobject && found_properties))
+    if (!(found_introspectable && found_myobject && found_properties))
       lose ("Missing interface"); 
   }
   g_free (v_STRING_2);

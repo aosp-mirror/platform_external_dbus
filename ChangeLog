@@ -1,3 +1,65 @@
+2005-06-17  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-gproxy.c (dbus_g_proxy_emit_remote_signal): Don't
+	spew warnings if we get malformed remote signals.
+
+	* glib/dbus-gobject.c (propsig_iterate): New function.
+	(lookup_object_info): New function, extracted from
+	lookup_object_and_method.
+	(introspect_properties, introspect_signals): Delete; these
+	are merged into write_interface.
+	(write_interface): Write out signals and properties here;
+	dump the org.gtk.object stuff and use the interface given
+	in the introspection data blob.  Also fix up property XML.
+	(lookup_values): New function.
+	(introspect_interfaces): Gather a mapping from interface to a
+	list of its methods, signals, and properties, then write out
+	each interface.
+	(lookup_object_and_method): Use lookup_object_info.
+	(struct DBusGSignalClosure): Add interface.
+	(dbus_g_signal_closure_new): Add interface. Don't dup signame;
+	we can just use the constant data.
+	(dbus_g_signal_closure_finalize): Don't free signal name.
+	(signal_emitter_marshaller): Use interface from signal closure.
+	(export_signals): Only export signals mentioned in introspection
+	blob.
+	(dbus_g_connection_register_g_object): Warn if we have no
+	introspection data for an object.
+	(funcsig_equal): Remove unused variable.
+	(dbus_g_object_register_marshaller): Take varargs instead of
+	list.
+	(dbus_g_object_register_marshaller_array): New function,
+	extracted from old dbus_g_object_register_marshaller.
+
+	* glib/dbus-binding-tool-glib.c (struct DBusBindingToolCData): Add
+	signals and property data.
+	(write_quoted_string): New function, extracted from generate_glue.
+	(generate_glue): Write signals and properties to introspection
+	blob.
+
+	* dbus/dbus-glib.h (struct DBusGObjectInfo): Include
+	exported_signals and exported_properties.
+	(dbus_g_object_register_marshaller): Update prototype.
+	(dbus_g_object_register_marshaller_array): Prototype.
+	
+	* test/glib/test-dbus-glib.c: Extend testing to cover new signals.
+
+	* test/glib/test-service-glib.c: Add new test signals and method
+	to emit them.
+
+	* test/glib/test-service-glib.xml: Add some test signals.
+
+	* test/glib/Makefile.am (BUILT_SOURCES): Add my-object-marshal.c
+	and my-object-marshal.h
+	(test_service_glib_SOURCES, test_dbus_glib_SOURCES): Add
+	my-object-marshal.c.
+	(my-object-marshal.c, my-object-marshal.h): Implement.
+
+	* test/glib/.cvsignore: Update.
+
+	* doc/TODO: Remove two GLib TODO items fixed by this
+	patch.
+
 2005-06-16  Colin Walters  <walters@verbum.org>
 
 	* doc/TODO: Update for GLib bindings.

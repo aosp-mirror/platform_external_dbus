@@ -35,14 +35,16 @@ endif
 noinst_PROGRAMS= test-dbus-glib test-service-glib $(THREAD_APPS)
 
 test_dbus_glib_SOURCES=				\
+	my-object-marshal.c                             \
 	test-dbus-glib.c
 
 test_dbus_glib_LDADD= $(DBUS_GLIB_TOOL_LIBS) $(top_builddir)/glib/libdbus-glib-1.la $(top_builddir)/glib/libdbus-gtool.la
 
-test_service_glib_SOURCES=				\
-	test-service-glib.c
+BUILT_SOURCES = test-service-glib-glue.h test-service-glib-bindings.h my-object-marshal.c my-object-marshal.h 
 
-BUILT_SOURCES = test-service-glib-glue.h test-service-glib-bindings.h
+test_service_glib_SOURCES=				\
+	my-object-marshal.c                             \
+	test-service-glib.c 
 
 test-service-glib-glue.h: test-service-glib.xml $(top_builddir)/glib/dbus-binding-tool
 	$(top_builddir)/glib/dbus-binding-tool --prefix=my_object --mode=glib-server --output=test-service-glib-glue.h $(srcdir)/test-service-glib.xml
@@ -50,7 +52,14 @@ test-service-glib-glue.h: test-service-glib.xml $(top_builddir)/glib/dbus-bindin
 test-service-glib-bindings.h: test-service-glib.xml $(top_builddir)/glib/dbus-binding-tool
 	$(top_builddir)/glib/dbus-binding-tool --prefix=my_object --mode=glib-client --output=test-service-glib-bindings.h $(srcdir)/test-service-glib.xml
 
-CLEANFILES = test-service-glib-glue.h test-service-glib-bindings.h
+my-object-marshal.c: Makefile my-object-marshal.list
+	@GLIB_GENMARSHAL@ --prefix=my_object_marshal $(srcdir)/my-object-marshal.list --header --body > my-object-marshal.c
+
+my-object-marshal.h: Makefile my-object-marshal.list
+	@GLIB_GENMARSHAL@ --prefix=my_object_marshal $(srcdir)/my-object-marshal.list --header > my-object-marshal.h
+
+
+CLEANFILES = $(BUILT_SOURCES)
 
 test_service_glib_LDADD= $(top_builddir)/glib/libdbus-glib-1.la
 

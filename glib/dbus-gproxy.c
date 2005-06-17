@@ -934,9 +934,12 @@ dbus_g_proxy_emit_remote_signal (DBusGProxy  *proxy,
   g_free (name);
   return;
  mismatch:
+#if 0
+  /* Don't spew on remote errors */
   g_warning ("Unexpected message signature '%s' for signal '%s'\n",
 	     dbus_message_get_signature (message),
 	     name);
+#endif
   goto out;
 }
 

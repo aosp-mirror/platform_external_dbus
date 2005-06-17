@@ -204,6 +204,49 @@ method_output_signature_from_object_info (const DBusGObjectInfo *object,
   return method_dir_signature_from_object_info (object, method, FALSE);
 }
 
+static const char *
+propsig_iterate (const char *data, const char **iface, const char **name)
+{
+  *iface = data;
+
+  data = string_table_next (data);
+  *name = data;
+
+  return string_table_next (data);
+}
+
+static const DBusGObjectInfo *
+lookup_object_info (GObject *object)
+{
+  const DBusGObjectInfo *ret;
+  GType classtype;
+  
+  ret = NULL;
+  
+  g_static_rw_lock_reader_lock (&globals_lock);
+
+  if (info_hash == NULL)
+    goto out;
+
+  for (classtype = G_TYPE_FROM_INSTANCE (object); classtype != 0; classtype = g_type_parent (classtype))
+    {
+      const DBusGObjectInfo *info;
+
+      info = g_hash_table_lookup (info_hash, g_type_class_peek (classtype));
+
+      if (info != NULL && info->format_version == 0)
+	{
+	  ret = info;
+	  break;
+	}
+    }
+
+ out:
+  g_static_rw_lock_reader_unlock (&globals_lock);
+
+  return ret;
+}
+
 static void
 gobject_unregister_function (DBusConnection  *connection,
                              void            *user_data)
@@ -216,148 +259,39 @@ gobject_unregister_function (DBusConnection  *connection,
 
 }
 
-static void
-introspect_properties (GObject *object, GString *xml)
-{
-  unsigned int i;
-  unsigned int n_specs;
-  GType last_type;
-  GParamSpec **specs;
-
-  last_type = G_TYPE_INVALID;
-  specs = g_object_class_list_properties (G_OBJECT_GET_CLASS (object),
-                                          &n_specs);
-
-  for (i = 0; i < n_specs; i++ )
-    {
-      char *s;
-      const char *dbus_type;
-      gboolean can_set;
-      gboolean can_get;
-      GParamSpec *spec = specs[i];
-      
-      dbus_type = dbus_gtype_to_signature (G_PARAM_SPEC_VALUE_TYPE (spec));
-      if (dbus_type == NULL)
-	continue;
-      
-      if (spec->owner_type != last_type)
-	{
-          if (last_type != G_TYPE_INVALID)
-            g_string_append (xml, "  </interface>\n");
-
-
-          /* FIXME what should the namespace on the interface be in
-           * general?  should people be able to set it for their
-           * objects?
-           */
-          g_string_append (xml, "  <interface name=\"org.gtk.objects.");
-          g_string_append (xml, g_type_name (spec->owner_type));
-          g_string_append (xml, "\">\n");
-
-          last_type = spec->owner_type;
-	}
-
-      can_set = ((spec->flags & G_PARAM_WRITABLE) != 0 &&
-		 (spec->flags & G_PARAM_CONSTRUCT_ONLY) == 0);
-      
-      can_get = (spec->flags & G_PARAM_READABLE) != 0;
-
-      s = uscore_to_wincaps (spec->name);
-      
-      if (can_set || can_get)
-        {
-          g_string_append (xml, "    <property name=\"");
-          g_string_append (xml, s);
-          g_string_append (xml, "\" type=\"");
-          g_string_append (xml, dbus_type);
-          g_string_append (xml, "\" access=\"");
-
-          if (can_set && can_get)
-            g_string_append (xml, "readwrite");
-          else if (can_get)
-            g_string_append (xml, "read");
-          else
-            {
-              g_assert (can_set);
-              g_string_append (xml, "write");
-            }
-          
-          g_string_append (xml, "\"/>\n");
-        }
-      
-      g_free (s);
-    }
-
-  if (last_type != G_TYPE_INVALID)
-    g_string_append (xml, "  </interface>\n");
-
-  g_free (specs);
-}
-
-static void
-introspect_signals (GType type, GString *xml)
-{
-  guint i;
-  guint *ids, n_ids;
-
-  ids = g_signal_list_ids (type, &n_ids);
-  if (!n_ids)
-    return;
-
-  g_string_append (xml, "  <interface name=\"org.gtk.objects.");
-  g_string_append (xml, g_type_name (type));
-  g_string_append (xml, "\">\n");
-
-  /* FIXME: recurse to parent types ? */
-  for (i = 0; i < n_ids; i++)
-    {
-      guint arg;
-      GSignalQuery query;
-      
-      g_signal_query (ids[i], &query);
-
-      if (query.return_type != G_TYPE_NONE)
-	continue; /* FIXME: these could be listed as methods ? */
-
-      g_string_append (xml, "    <signal name=\"");
-      g_string_append (xml, query.signal_name);
-      g_string_append (xml, "\">\n");
-
-      for (arg = 0; arg < query.n_params; arg++)
-	{
-	  const char *dbus_type = dbus_gtype_to_signature (query.param_types[arg]);
-
-	  if (!dbus_type)
-	    continue;
-	  
-          g_string_append (xml, "      <arg type=\"");
-          g_string_append (xml, dbus_type);
-          g_string_append (xml, "\"/>\n");
-	}
-
-      g_string_append (xml, "    </signal>\n");
-    }
-
-  g_string_append (xml, "  </interface>\n");
-}
-
 typedef struct
 {
   GString *xml;
+  GType gtype;
   const DBusGObjectInfo *object_info;
-} DBusGlibWriteIterfaceData;
+} DBusGLibWriteIterfaceData;
+
+typedef struct
+{
+  GSList *methods;
+  GSList *signals;
+  GSList *properties;
+} DBusGLibWriteInterfaceValues;
 
 static void
 write_interface (gpointer key, gpointer val, gpointer user_data)
 {
   const char *name;
   GSList *methods;
+  GSList *signals;
+  GSList *properties;
   GString *xml;
   const DBusGObjectInfo *object_info;
-  DBusGlibWriteIterfaceData *data;
+  DBusGLibWriteIterfaceData *data;
+  DBusGLibWriteInterfaceValues *values;
 
   name = key;
-  methods = val;
+
+  values = val;
+  methods = values->methods;
+  signals = values->signals;
+  properties = values->properties;
+
   data = user_data;
   xml = data->xml;
   object_info = data->object_info;
@@ -390,64 +324,177 @@ write_interface (gpointer key, gpointer val, gpointer user_data)
 
 	}
       g_string_append (xml, "    </method>\n");
-    }
 
+    }
+  g_slist_free (values->methods);
+
+  for (; signals; signals = signals->next)
+    {
+      guint id;
+      guint arg;
+      const char *signame;
+      GSignalQuery query;
+      char *s;
+
+      signame = signals->data;
+
+      s = _dbus_gutils_wincaps_to_uscore (signame);
+      
+      id = g_signal_lookup (s, data->gtype);
+      g_assert (id != 0);
+
+      g_signal_query (id, &query);
+      g_assert (query.return_type == G_TYPE_NONE);
+
+      g_string_append_printf (xml, "    <signal name=\"%s\">\n", signame);
+
+      for (arg = 0; arg < query.n_params; arg++)
+	{
+	  const char *dbus_type = dbus_gtype_to_signature (query.param_types[arg]);
+
+	  g_assert (dbus_type != NULL);
+
+          g_string_append (xml, "      <arg type=\"");
+          g_string_append (xml, dbus_type);
+          g_string_append (xml, "\"/>\n");
+	}
+
+      g_string_append (xml, "    </signal>\n");
+      g_free (s);
+    }
+  g_slist_free (values->signals);
+
+  for (; properties; properties = properties->next)
+    {
+      const char *propname;
+      GParamSpec *spec;
+      const char *dbus_type;
+      gboolean can_set;
+      gboolean can_get;
+      char *s;
+
+      propname = properties->data;
+
+      s = _dbus_gutils_wincaps_to_uscore (spec->name);
+
+      spec = g_object_class_find_property (g_type_class_peek (data->gtype), s);
+      g_assert (spec != NULL);
+      g_free (s);
+      
+      dbus_type = dbus_gtype_to_signature (G_PARAM_SPEC_VALUE_TYPE (spec));
+      g_assert (dbus_type != NULL);
+      
+      can_set = ((spec->flags & G_PARAM_WRITABLE) != 0 &&
+		 (spec->flags & G_PARAM_CONSTRUCT_ONLY) == 0);
+      
+      can_get = (spec->flags & G_PARAM_READABLE) != 0;
+      
+      if (can_set || can_get)
+	{
+	  g_string_append_printf (xml, "    <property name=\"%s\" ", propname);
+	  g_string_append (xml, "type=\"");
+	  g_string_append (xml, dbus_type);
+	  g_string_append (xml, "\" access=\"");
+
+	  if (can_set && can_get)
+	    g_string_append (xml, "readwrite");
+	  else if (can_get)
+	    g_string_append (xml, "read");
+	  else
+	    {
+	      g_assert (can_set);
+	      g_string_append (xml, "write");
+	    }
+          
+	  g_string_append (xml, "\"/>\n");
+	}
+      
+      g_free (s);
+
+      g_string_append (xml, "    </property>\n");
+    }
+  g_slist_free (values->properties);
+
+  g_free (values);
   g_string_append (xml, "  </interface>\n");
+}
+
+static DBusGLibWriteInterfaceValues *
+lookup_values (GHashTable *interfaces, const char *method_interface)
+{
+  DBusGLibWriteInterfaceValues *values;
+  if ((values = g_hash_table_lookup (interfaces, (gpointer) method_interface)) == NULL)
+    {
+      values = g_new0 (DBusGLibWriteInterfaceValues, 1);
+      g_hash_table_insert (interfaces, (gpointer) method_interface, values);
+    }
+  return values;
 }
 
 static void
 introspect_interfaces (GObject *object, GString *xml)
 {
-  GType classtype;
+  const DBusGObjectInfo *info;
+  DBusGLibWriteIterfaceData data;
+  int i;
+  GHashTable *interfaces;
+  DBusGLibWriteInterfaceValues *values;
+  const char *propsig;
 
-  g_static_rw_lock_reader_lock (&globals_lock);
+  info = lookup_object_info (object);
 
-  for (classtype = G_TYPE_FROM_INSTANCE (object); classtype != 0; classtype = g_type_parent (classtype))
+  g_assert (info != NULL);
+
+  /* Gather a list of all interfaces, indexed into their methods */
+  interfaces = g_hash_table_new (g_str_hash, g_str_equal);
+  for (i = 0; i < info->n_method_infos; i++)
     {
-      const DBusGObjectInfo *info;
-      DBusGlibWriteIterfaceData data;
+      const char *method_name;
+      const char *method_interface;
+      const char *method_args;
+      const DBusGMethodInfo *method;
 
-      info = g_hash_table_lookup (info_hash,
-				  g_type_class_peek (classtype));
+      method = &(info->method_infos[i]);
 
-      if (info != NULL && info->format_version == 0)
-	{
-	  int i;
-	  GHashTable *interfaces;
+      method_interface = method_interface_from_object_info (info, method);
+      method_name = method_name_from_object_info (info, method);
+      method_args = method_arg_info_from_object_info (info, method);
 
-	  /* Gather a list of all interfaces, indexed into their methods */
-	  interfaces = g_hash_table_new (g_str_hash, g_str_equal);
-	  for (i = 0; i < info->n_infos; i++)
-	    {
-	      const char *method_name;
-	      const char *method_interface;
-	      const char *method_args;
-	      const DBusGMethodInfo *method;
-	      GSList *methods;
-
-	      method = &(info->infos[i]);
-
-	      method_interface = method_interface_from_object_info (info, method);
-	      method_name = method_name_from_object_info (info, method);
-	      method_args = method_arg_info_from_object_info (info, method);
-
-	      if ((methods = g_hash_table_lookup (interfaces, method_interface)) == NULL)
-		  methods = g_slist_prepend (NULL, (gpointer) method);
-	      else
-		  methods = g_slist_prepend (methods, (gpointer) method);
-	      g_hash_table_insert (interfaces, (gpointer) method_interface, methods);
-	    }
-
-	  memset (&data, 0, sizeof (data));
-	  data.xml = xml;
-	  data.object_info = info;
-	  g_hash_table_foreach (interfaces, write_interface, &data);
-
-	  g_hash_table_destroy (interfaces);
-	}
+      values = lookup_values (interfaces, method_interface);
+      values->methods = g_slist_prepend (values->methods, (gpointer) method);
     }
 
-  g_static_rw_lock_reader_unlock (&globals_lock);
+  propsig = info->exported_signals;
+  while (*propsig)
+    {
+      const char *iface;
+      const char *signame;
+
+      propsig = propsig_iterate (propsig, &iface, &signame);
+
+      values = lookup_values (interfaces, iface);
+      values->signals = g_slist_prepend (values->signals, (gpointer) signame);
+    }
+
+  propsig = info->exported_properties;
+  while (*propsig)
+    {
+      const char *iface;
+      const char *propname;
+
+      propsig = propsig_iterate (propsig, &iface, &propname);
+
+      values = lookup_values (interfaces, iface);
+      values->properties = g_slist_prepend (values->properties, (gpointer) propname);
+    }
+  
+  memset (&data, 0, sizeof (data));
+  data.xml = xml;
+  data.gtype = G_TYPE_FROM_INSTANCE (object);
+  data.object_info = info;
+  g_hash_table_foreach (interfaces, write_interface, &data);
+  
+  g_hash_table_destroy (interfaces);
 }
 
 static DBusHandlerResult
@@ -492,8 +539,6 @@ handle_introspect (DBusConnection *connection,
   g_string_append (xml, "    </method>\n");
   g_string_append (xml, "  </interface>\n");
   
-  introspect_signals (G_OBJECT_TYPE (object), xml);
-  introspect_properties (object, xml);
   introspect_interfaces (object, xml);
 
   /* Append child nodes */
@@ -605,64 +650,47 @@ lookup_object_and_method (GObject      *object,
 			  const DBusGObjectInfo **object_ret,
 			  const DBusGMethodInfo **method_ret)
 {
-  GType classtype;
   const char *interface;
   const char *member;
   const char *signature;
   gboolean ret;
+  const DBusGObjectInfo *info;
+  int i;
 
   interface = dbus_message_get_interface (message);
   member = dbus_message_get_member (message);
   signature = dbus_message_get_signature (message);
   ret = FALSE;
 
-  g_static_rw_lock_reader_lock (&globals_lock);
-
-  if (!info_hash)
-    goto out;
+  info = lookup_object_info (object);
+  *object_ret = info;
   
-  for (classtype = G_TYPE_FROM_INSTANCE (object); classtype != 0; classtype = g_type_parent (classtype))
+  for (i = 0; i < info->n_method_infos; i++)
     {
-      const DBusGObjectInfo *info;
+      const char *expected_member;
+      const char *expected_interface;
+      char *expected_signature;
+      const DBusGMethodInfo *method;
 
-      info = g_hash_table_lookup (info_hash,
-				  g_type_class_peek (classtype));
+      method = &(info->method_infos[i]);
 
-      *object_ret = info;
+      /* Check method interface/name and input signature */ 
+      expected_interface = method_interface_from_object_info (*object_ret, method);
+      expected_member = method_name_from_object_info (*object_ret, method);
+      expected_signature = method_input_signature_from_object_info (*object_ret, method);
 
-      if (info != NULL && info->format_version == 0)
+      if ((interface == NULL
+	   || strcmp (expected_interface, interface) == 0)
+	  && strcmp (expected_member, member) == 0
+	  && strcmp (expected_signature, signature) == 0)
 	{
-	  int i;
-	  for (i = 0; i < info->n_infos; i++)
-	    {
-	      const char *expected_member;
-	      const char *expected_interface;
-	      char *expected_signature;
-	      const DBusGMethodInfo *method;
-
-	      method = &(info->infos[i]);
-
-	      /* Check method interface/name and input signature */ 
-	      expected_interface = method_interface_from_object_info (*object_ret, method);
-	      expected_member = method_name_from_object_info (*object_ret, method);
-	      expected_signature = method_input_signature_from_object_info (*object_ret, method);
-
-	      if ((interface == NULL
-		   || strcmp (expected_interface, interface) == 0)
-		  && strcmp (expected_member, member) == 0
-		  && strcmp (expected_signature, signature) == 0)
-		{
-		  g_free (expected_signature);
-		  *method_ret = method;
-		  ret = TRUE;
-		  goto out;
-		}
-	      g_free (expected_signature);
-	    }
+	  g_free (expected_signature);
+	  *method_ret = method;
+	  return TRUE;
 	}
+      g_free (expected_signature);
     }
- out:
-  g_static_rw_lock_reader_unlock (&globals_lock);
+
   return ret;
 }
 
@@ -1084,13 +1112,15 @@ typedef struct {
   GClosure         closure;
   DBusGConnection *connection;
   GObject         *object;
-  char            *signame;
+  const char      *signame;
+  const char      *sigiface;
 } DBusGSignalClosure;
 
 static GClosure *
 dbus_g_signal_closure_new (DBusGConnection *connection,
 			   GObject         *object,
-			   const char      *signame)
+			   const char      *signame,
+			   const char      *sigiface)
 {
   DBusGSignalClosure *closure;
   
@@ -1098,7 +1128,8 @@ dbus_g_signal_closure_new (DBusGConnection *connection,
 
   closure->connection = dbus_g_connection_ref (connection);
   closure->object = object;
-  closure->signame = g_strdup (signame);
+  closure->signame = signame;
+  closure->sigiface = sigiface;
   return (GClosure*) closure;
 }
 
@@ -1109,7 +1140,6 @@ dbus_g_signal_closure_finalize (gpointer data,
   DBusGSignalClosure *sigclosure = (DBusGSignalClosure *) closure;
 
   dbus_g_connection_unref (sigclosure->connection);
-  g_free (sigclosure->signame);
 }
 
 static void
@@ -1135,7 +1165,7 @@ signal_emitter_marshaller (GClosure        *closure,
   g_assert (path != NULL);
 
   signal = dbus_message_new_signal (path,
-				    "org.gtk.objects",
+				    sigclosure->sigiface,
 				    sigclosure->signame);
   if (!signal)
     {
@@ -1163,34 +1193,52 @@ signal_emitter_marshaller (GClosure        *closure,
 }
 
 static void
-export_signals (DBusGConnection *connection, GObject *object)
+export_signals (DBusGConnection *connection, const DBusGObjectInfo *info, GObject *object)
 {
-  guint i;
-  guint *ids, n_ids;
+  GType gtype;
+  const char *sigdata;
+  const char *iface;
+  const char *signame;
 
-  ids = g_signal_list_ids (G_TYPE_FROM_INSTANCE (object), &n_ids);
-  if (!n_ids)
-    return;
+  gtype = G_TYPE_FROM_INSTANCE (object);
 
-  /* FIXME: recurse to parent types ? */
-  for (i = 0; i < n_ids; i++)
+  sigdata = info->exported_signals;
+  
+  while (*sigdata != '\0')
     {
+      guint id;
       GSignalQuery query;
       GClosure *closure;
+      char *s;
+
+      sigdata = propsig_iterate (sigdata, &iface, &signame);
       
-      g_signal_query (ids[i], &query);
+      s = _dbus_gutils_wincaps_to_uscore (signame);
+
+      id = g_signal_lookup (s, gtype);
+      if (id == 0)
+	{
+	  g_warning ("signal \"%s\" (from \"%s\") exported but not found in object class \"%s\"",
+		     s, signame, g_type_name (gtype));
+	  g_free (s);
+	  continue;
+	}
+
+      g_signal_query (id, &query);
 
       if (query.return_type != G_TYPE_NONE)
 	{
-	  g_warning("Not exporting signal '%s' as it has a return type %s", query.signal_name, g_type_name (query.return_type));
+	  g_warning ("Not exporting signal \"%s\" for object class \"%s\" as it has a return type \"%s\"",
+		     s, g_type_name (gtype), g_type_name (query.return_type));
+	  g_free (s);
 	  continue; /* FIXME: these could be listed as methods ? */
 	}
       
-      closure = dbus_g_signal_closure_new (connection, object, query.signal_name);
+      closure = dbus_g_signal_closure_new (connection, object, signame, (char*) iface);
       g_closure_set_marshal (closure, signal_emitter_marshaller);
 
       g_signal_connect_closure_by_id (object,
-				      ids[i],
+				      id,
 				      0,
 				      closure,
 				      FALSE);
@@ -1274,9 +1322,18 @@ dbus_g_connection_register_g_object (DBusGConnection       *connection,
                                      const char            *at_path,
                                      GObject               *object)
 {
+  const DBusGObjectInfo *info;
   g_return_if_fail (connection != NULL);
   g_return_if_fail (at_path != NULL);
   g_return_if_fail (G_IS_OBJECT (object));
+
+  info = lookup_object_info (object);
+  if (info == NULL)
+    {
+      g_warning ("No introspection data registered for object class \"%s\"",
+		 g_type_name (G_TYPE_FROM_INSTANCE (object)));
+      return;
+    }
 
   if (!dbus_connection_register_object_path (DBUS_CONNECTION_FROM_G_CONNECTION (connection),
                                              at_path,
@@ -1287,7 +1344,7 @@ dbus_g_connection_register_g_object (DBusGConnection       *connection,
       return;
     }
 
-  export_signals (connection, object);
+  export_signals (connection, info, object);
 
   g_object_set_data (object, "dbus_glib_object_path", g_strdup (at_path));
   g_object_weak_ref (object, (GWeakNotify)unregister_gobject, connection);
@@ -1337,7 +1394,7 @@ funcsig_equal (gconstpointer aval,
   const DBusGFuncSignature *b = bval;
   const GType *atypes;
   const GType *btypes;
-  guint i, j;
+  guint i;
 
   if (a->rettype != b->rettype
       || a->n_params != b->n_params)
@@ -1422,22 +1479,56 @@ _dbus_gobject_lookup_marshaller (GType        rettype,
 }
 
 /**
- * Register a GClosureMarshal to be used for signal invocations.
+ * Register a GClosureMarshal to be used for signal invocations,
+ * giving its return type and a list of parameter types,
+ * followed by G_TYPE_INVALID.
+
  * This function will not be needed once GLib includes libffi.
  *
+ * @param marshaller a GClosureMarshal to be used for invocation
+ * @param rettype a GType for the return type of the function
+ * @param ... The parameter GTypes, followed by G_TYPE_INVALID
+ */
+void
+dbus_g_object_register_marshaller (GClosureMarshal  marshaller,
+				   GType            rettype,
+				   ...)
+{
+  va_list args;
+  GArray *types;
+  GType gtype;
+
+  va_start (args, rettype);
+
+  types = g_array_new (TRUE, TRUE, sizeof (GType));
+
+  while ((gtype = va_arg (args, GType)) != G_TYPE_INVALID)
+    g_array_append_val (types, gtype);
+
+  dbus_g_object_register_marshaller_array (marshaller, rettype,
+					   types->len, (GType*) types->data);
+
+  g_array_free (types, TRUE);
+  va_end (args);
+}
+
+/**
+ * Register a GClosureMarshal to be used for signal invocations.
+ * See also #dbus_g_object_register_marshaller
+ *
+ * @param marshaller a GClosureMarshal to be used for invocation
  * @param rettype a GType for the return type of the function
  * @param n_types number of function parameters
  * @param param_types a C array of GTypes values
- * @param marshaller a GClosureMarshal to be used for invocation
  */
 void
-dbus_g_object_register_marshaller (GType            rettype,
-				   guint            n_types,
-				   const GType      *param_types,
-				   GClosureMarshal   marshaller)
+dbus_g_object_register_marshaller_array (GClosureMarshal  marshaller,
+					 GType            rettype,
+					 guint            n_types,
+					 const GType*     types)
 {
   DBusGFuncSignature *sig;
-  
+
   g_static_rw_lock_writer_lock (&globals_lock);
 
   if (marshal_table == NULL)
@@ -1449,7 +1540,7 @@ dbus_g_object_register_marshaller (GType            rettype,
   sig->rettype = rettype;
   sig->n_params = n_types;
   sig->params = g_new (GType, n_types);
-  memcpy (sig->params, param_types, n_types * sizeof (GType));
+  memcpy (sig->params, types, n_types * sizeof (GType));
 
   g_hash_table_insert (marshal_table, sig, marshaller);
 
