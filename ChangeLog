@@ -1,5 +1,10 @@
 2005-06-17  Colin Walters  <walters@verbum.org>
 
+	* tools/dbus-names-model.c (have_names_notify): Fix call
+	to dbus_g_proxy_end_call.
+	
+2005-06-17  Colin Walters  <walters@verbum.org>
+
 	* glib/dbus-gproxy.c (dbus_g_proxy_emit_remote_signal): Don't
 	spew warnings if we get malformed remote signals.
 

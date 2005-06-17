@@ -65,7 +65,6 @@ have_names_notify (DBusGPendingCall *call,
   NamesModel *names_model;
   GError *error;
   char **names;
-  int n_elements;
   int i;
 
   names_model = NAMES_MODEL (data);
@@ -77,8 +76,8 @@ have_names_notify (DBusGPendingCall *call,
   error = NULL;
   if (!dbus_g_proxy_end_call (names_model->driver_proxy,
                               names_model->pending_list_names,
-                              &error, G_TYPE_STRV,
-                              &names, &n_elements, G_TYPE_INVALID))
+                              &error,
+			      G_TYPE_STRV, &names, G_TYPE_INVALID))
     {
       g_assert (names == NULL);
       g_assert (error != NULL);
@@ -92,8 +91,6 @@ have_names_notify (DBusGPendingCall *call,
   while (names[i])
     {
       GtkTreeIter iter;
-
-      g_assert (i < n_elements);
 
 #if 0
       g_printerr ("%d of %d: %s\n",
