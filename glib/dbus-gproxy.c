@@ -42,12 +42,12 @@
  * DBusGProxyManager typedef
  */
 
-typedef struct DBusGProxyManager DBusGProxyManager;
+typedef struct _DBusGProxyManager DBusGProxyManager;
 
 /**
  * Internals of DBusGProxy
  */
-struct DBusGProxy
+struct _DBusGProxy
 {
   GObject parent;             /**< Parent instance */
   
@@ -62,7 +62,7 @@ struct DBusGProxy
 /**
  * Class struct for DBusGProxy
  */
-struct DBusGProxyClass
+struct _DBusGProxyClass
 {
   GObjectClass parent_class;  /**< Parent class */
 };
@@ -95,7 +95,7 @@ typedef struct
  * those signals are emitted on. In order to do this it also has to
  * track the owners of the names proxies are bound to.
  */
-struct DBusGProxyManager
+struct _DBusGProxyManager
 {
   GStaticMutex lock; /**< Thread lock */
   int refcount;      /**< Reference count */

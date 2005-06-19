@@ -1,3 +1,14 @@
+2005-06-18  Murray Cumming  <murrayc@murrayc.com>
+
+	* dbus/dbus-glib.h:
+	* glib/dbus-gobject.c:
+	* glib/dbus-gproxy.c:
+	* glib/dbus-gvalue.c: Predeclare structs as 
+	typedef struct _Something Something instead of 
+  	typedef struct Something Something, so we can 
+	redeclare the prototypes. Other GNOME libraries 
+	do this already.
+
 2005-06-17  Colin Walters  <walters@verbum.org>
 
 	* tools/dbus-names-model.c (have_names_notify): Fix call

@@ -757,7 +757,7 @@ gerror_to_dbus_error_message (const DBusGObjectInfo *object_info,
  * The context of an asynchronous method call.  See dbus_g_method_return() and
  * dbus_g_method_return_error().
  */
-struct DBusGMethodInvocation {
+struct _DBusGMethodInvocation {
   DBusGConnection *connection; /**< The connection */
   DBusGMessage *message; /**< The message which generated the method call */
   const DBusGObjectInfo *object; /**< The object the method was called on */

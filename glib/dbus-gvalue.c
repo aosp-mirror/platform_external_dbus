@@ -38,7 +38,7 @@ static gboolean demarshal_static_variant (DBusGValueMarshalCtx    *context,
 static gpointer dbus_g_value_copy (gpointer value);
 
 
-struct DBusGValue
+struct _DBusGValue
 {
   enum {
     DBUS_G_VALUE_TYPE_TOPLEVEL,
