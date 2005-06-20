@@ -1245,6 +1245,7 @@ export_signals (DBusGConnection *connection, const DBusGObjectInfo *info, GObjec
 
       g_closure_add_finalize_notifier (closure, NULL,
 				       dbus_g_signal_closure_finalize);
+      g_free (s);
     }
 }
 
@@ -1549,6 +1550,7 @@ dbus_g_object_register_marshaller_array (GClosureMarshal  marshaller,
 
 /**
  * Send a return message for a given method invocation, with arguments.
+ * This function also frees the sending context.
  *
  * @param context the method context
  */
@@ -1575,7 +1577,7 @@ dbus_g_method_return (DBusGMethodInvocation *context, ...)
       char *error;
       g_value_init (&value, g_array_index (argsig, GType, i));
       error = NULL;
-      G_VALUE_COLLECT (&value, args, 0, &error);
+      G_VALUE_COLLECT (&value, args, G_VALUE_NOCOPY_CONTENTS, &error);
       if (error)
 	{
 	  g_warning(error);
@@ -1595,6 +1597,7 @@ dbus_g_method_return (DBusGMethodInvocation *context, ...)
 
 /**
  * Send a error message for a given method invocation.
+ * This function also frees the sending context.
  *
  * @param context the method context
  * @param error the error to send.
@@ -1606,6 +1609,7 @@ dbus_g_method_return_error (DBusGMethodInvocation *context, GError *error)
   reply = gerror_to_dbus_error_message (context->object, dbus_g_message_get_message (context->message), error);
   dbus_connection_send (dbus_g_connection_get_connection (context->connection), reply, NULL);
   dbus_message_unref (reply);
+  g_free (context);
 }
 
 /** @} */ /* end of public API */

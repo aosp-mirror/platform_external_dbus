@@ -1,3 +1,13 @@
+2005-06-20  Colin Walters  <walters@verbum.org>
+
+	Patch suggested by Ross Burton <ross@openedhand.com>
+
+	* glib/dbus-gobject.c (export_signals): Free signal name.
+	(g_value_init): Use G_VALUE_NOCOPY_CONTENTS to plug
+	memory leak.  Add a bit of documentation.
+	(dbus_g_method_return_error): Free context, and note we do
+	so.
+
 2005-06-18  Murray Cumming  <murrayc@murrayc.com>
 
 	* dbus/dbus-glib.h:
