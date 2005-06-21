@@ -1260,6 +1260,7 @@ bus/dbus-daemon.1
 Makefile
 dbus/Makefile
 glib/Makefile
+glib/examples/Makefile
 python/Makefile
 python/examples/Makefile
 qt/Makefile

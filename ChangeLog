@@ -1,5 +1,22 @@
 2005-06-20  Colin Walters  <walters@verbum.org>
 
+	* configure.in: Add glib/examples.
+
+	* glib/Makefile.am: Add examples/
+
+	* glib/examples/.cvsignore
+	* glib/examples/Makefile.am
+	* glib/examples/example-client.c
+	* glib/examples/example-service.c
+	* glib/examples/example-service.xml
+	* glib/examples/example-signal-emitter.c
+	* glib/examples/example-signal-emitter.xml
+	* glib/examples/example-signal-recipient.c:
+	New files; GLib binding examples, ported from
+	python/examples.
+
+2005-06-20  Colin Walters  <walters@verbum.org>
+
 	* dbus/dbus-glib.h: 
 	* glib/dbus-gproxy.c: Rename dbus_g_proxy_invoke to
 	dbus_g_proxy_call.

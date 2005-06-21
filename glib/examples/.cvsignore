@@ -1,0 +1,17 @@
+.deps
+.libs
+Makefile
+Makefile.in
+*.lo
+*.la
+example-client
+example-service
+example-service-glue.h
+example-signal-recipient
+example-signal-emitter
+example-signal-emitter-glue.h
+run-with-tmp-session-bus.conf
+*.bb
+*.bbg
+*.da
+*.gcov
