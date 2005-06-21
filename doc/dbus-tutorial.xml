@@ -769,8 +769,8 @@ main (int argc, char **argv)
 
   /* Call ListNames method, wait for reply */
   error = NULL;
-  if (!dbus_g_proxy_invoke (proxy, "ListNames", &amp;error, G_TYPE_INVALID,
-                            G_TYPE_STRV, &amp;name_list, G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (proxy, "ListNames", &amp;error, G_TYPE_INVALID,
+                          G_TYPE_STRV, &amp;name_list, G_TYPE_INVALID))
     {
       g_printerr ("Failed to complete ListNames call: %s\n",
                   error-&gt;message);
@@ -810,7 +810,7 @@ main (int argc, char **argv)
       <title>Understanding method invocation</title>
       <para>
 	You have a number of choices for method invocation.  First, as
-	used above, <literal>dbus_g_proxy_invoke</literal> sends a
+	used above, <literal>dbus_g_proxy_call</literal> sends a
 	method call to the remote object, and blocks until reply is
 	recieved.  The outgoing arguments are specified in the varargs
 	array, terminated with <literal>G_TYPE_INVALID</literal>.
@@ -845,10 +845,10 @@ main (int argc, char **argv)
   GArray *arr;
   
   error = NULL;
-  if (!dbus_g_proxy_invoke (proxy, "Foobar", &amp;error,
-                            G_TYPE_INT, 42, G_TYPE_STRING, "hello",
-			    G_TYPE_INVALID,
-			    DBUS_TYPE_G_UCHAR_ARRAY, &amp;arr, G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (proxy, "Foobar", &amp;error,
+                          G_TYPE_INT, 42, G_TYPE_STRING, "hello",
+			  G_TYPE_INVALID,
+			  DBUS_TYPE_G_UCHAR_ARRAY, &amp;arr, G_TYPE_INVALID))
     {
       g_printerr ("Failed to complete Foobar: %s\n",
                   error-&gt;message);
@@ -871,9 +871,9 @@ main (int argc, char **argv)
   g_hash_table_insert (hash, "baz", "whee");
 
   error = NULL;
-  if (!dbus_g_proxy_invoke (proxy, "HashSize", &amp;error,
-                            DBUS_TYPE_G_STRING_STRING_HASH, hash, G_TYPE_INVALID,
-			    G_TYPE_UINT, &amp;ret, G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (proxy, "HashSize", &amp;error,
+                          DBUS_TYPE_G_STRING_STRING_HASH, hash, G_TYPE_INVALID,
+			  G_TYPE_UINT, &amp;ret, G_TYPE_INVALID))
     {
       g_printerr ("Failed to complete HashSize: %s\n",
                   error-&gt;message);
@@ -893,11 +893,11 @@ main (int argc, char **argv)
   char *strret;
   
   error = NULL;
-  if (!dbus_g_proxy_invoke (proxy, "GetStuff", &amp;error,
-			    G_TYPE_INVALID,
-                            G_TYPE_BOOLEAN, &amp;boolret,
-                            G_TYPE_STRING, &amp;strret,
-			    G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (proxy, "GetStuff", &amp;error,
+			  G_TYPE_INVALID,
+                          G_TYPE_BOOLEAN, &amp;boolret,
+                          G_TYPE_STRING, &amp;strret,
+			  G_TYPE_INVALID))
     {
       g_printerr ("Failed to complete GetStuff: %s\n",
                   error-&gt;message);
@@ -927,11 +927,11 @@ main (int argc, char **argv)
   strs_dynamic[3] = NULL;
   
   error = NULL;
-  if (!dbus_g_proxy_invoke (proxy, "TwoStrArrays", &amp;error,
-                            G_TYPE_STRV, strs_static_p,
-                            G_TYPE_STRV, strs_dynamic,
-			    G_TYPE_INVALID,
-			    G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (proxy, "TwoStrArrays", &amp;error,
+                          G_TYPE_STRV, strs_static_p,
+                          G_TYPE_STRV, strs_dynamic,
+			  G_TYPE_INVALID,
+			  G_TYPE_INVALID))
     {
       g_printerr ("Failed to complete TwoStrArrays: %s\n",
                   error-&gt;message);
@@ -952,11 +952,11 @@ main (int argc, char **argv)
 
   error = NULL;
   blah = TRUE;
-  if (!dbus_g_proxy_invoke (proxy, "GetStrs", &amp;error,
-                            G_TYPE_BOOLEAN, blah,
-			    G_TYPE_INVALID,
-                            G_TYPE_STRV, &amp;strs,
-			    G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (proxy, "GetStrs", &amp;error,
+                          G_TYPE_BOOLEAN, blah,
+			  G_TYPE_INVALID,
+                          G_TYPE_STRV, &amp;strs,
+			  G_TYPE_INVALID))
     {
       g_printerr ("Failed to complete GetStrs: %s\n",
                   error-&gt;message);
@@ -979,9 +979,9 @@ main (int argc, char **argv)
   g_value_set_string (&amp;val, "hello world");
   
   error = NULL;
-  if (!dbus_g_proxy_invoke (proxy, "SendVariant", &amp;error,
-                            G_TYPE_VALUE, &amp;val, G_TYPE_INVALID,
-			    G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (proxy, "SendVariant", &amp;error,
+                          G_TYPE_VALUE, &amp;val, G_TYPE_INVALID,
+			  G_TYPE_INVALID))
     {
       g_printerr ("Failed to complete SendVariant: %s\n",
                   error-&gt;message);
@@ -1000,8 +1000,8 @@ main (int argc, char **argv)
   GValue val = {0, };
 
   error = NULL;
-  if (!dbus_g_proxy_invoke (proxy, "GetVariant", &amp;error, G_TYPE_INVALID,
-                            G_TYPE_VALUE, &amp;val, G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (proxy, "GetVariant", &amp;error, G_TYPE_INVALID,
+                          G_TYPE_VALUE, &amp;val, G_TYPE_INVALID))
     {
       g_printerr ("Failed to complete GetVariant: %s\n",
                   error-&gt;message);

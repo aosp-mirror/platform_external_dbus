@@ -1592,9 +1592,11 @@ dbus_g_proxy_end_call (DBusGProxy          *proxy,
 }
 
 /**
- * Function for invoking a method and receiving reply values.
- * Normally this is not used directly - calls to it are generated
- * from client-side wrappers (see dbus-binding-tool).
+ * Function for synchronously invoking a method and receiving reply
+ * values.  This function is equivalent to dbus_g_proxy_begin_call
+ * followed by dbus_g_proxy_end_call.  All of the input arguments are
+ * specified first, followed by G_TYPE_INVALID, followed by all of the
+ * output values, followed by G_TYPE_INVALID.
  *
  * @param proxy a proxy for a remote interface
  * @param method method to invoke
@@ -1603,11 +1605,11 @@ dbus_g_proxy_end_call (DBusGProxy          *proxy,
  * @returns #FALSE if an error is set, TRUE otherwise
  */
 gboolean
-dbus_g_proxy_invoke (DBusGProxy        *proxy,
-		     const char        *method,
-		     GError           **error,
-		     GType              first_arg_type,
-		     ...)
+dbus_g_proxy_call (DBusGProxy        *proxy,
+		   const char        *method,
+		   GError           **error,
+		   GType              first_arg_type,
+		   ...)
 {
   gboolean ret;
   DBusGPendingCall *pending;

@@ -268,14 +268,14 @@ main (int argc, char **argv)
   /* Activate test servie */ 
   g_print ("Activating TestSuiteGLibService\n");
   error = NULL;
-  if (!dbus_g_proxy_invoke (driver, "StartServiceByName", &error,
-			    G_TYPE_STRING,
-			    "org.freedesktop.DBus.TestSuiteGLibService",
-			    G_TYPE_UINT,
-			    0,
-			    G_TYPE_INVALID,
-			    G_TYPE_UINT, &result,
-			    G_TYPE_INVALID)) {
+  if (!dbus_g_proxy_call (driver, "StartServiceByName", &error,
+			  G_TYPE_STRING,
+			  "org.freedesktop.DBus.TestSuiteGLibService",
+			  G_TYPE_UINT,
+			  0,
+			  G_TYPE_INVALID,
+			  G_TYPE_UINT, &result,
+			  G_TYPE_INVALID)) {
     lose_gerror ("Failed to complete Activate call", error);
   }
 
@@ -304,11 +304,11 @@ main (int argc, char **argv)
     lose_gerror ("Failed to complete DoNothing call", error);
 
   error = NULL;
-  if (!dbus_g_proxy_invoke (proxy, "Increment", &error,
-			    G_TYPE_UINT, 42,
-			    G_TYPE_INVALID,
-			    G_TYPE_UINT, &v_UINT32_2,
-			    G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (proxy, "Increment", &error,
+			  G_TYPE_UINT, 42,
+			  G_TYPE_INVALID,
+			  G_TYPE_UINT, &v_UINT32_2,
+			  G_TYPE_INVALID))
     lose_gerror ("Failed to complete Increment call", error);
 
   if (v_UINT32_2 != 43)
@@ -678,8 +678,8 @@ main (int argc, char **argv)
                                G_CALLBACK (frobnicate_signal_handler),
                                NULL, NULL);
   
-  if (!dbus_g_proxy_invoke (proxy, "EmitFrobnicate", &error,
-			    G_TYPE_INVALID, G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (proxy, "EmitFrobnicate", &error,
+			  G_TYPE_INVALID, G_TYPE_INVALID))
     lose_gerror ("Failed to complete EmitFrobnicate call", error);
 
   
@@ -690,8 +690,8 @@ main (int argc, char **argv)
   if (n_times_frobnicate_received != 1)
     lose ("Frobnicate signal received %d times, should have been 1", n_times_frobnicate_received);
 
-  if (!dbus_g_proxy_invoke (proxy, "EmitFrobnicate", &error,
-			    G_TYPE_INVALID, G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (proxy, "EmitFrobnicate", &error,
+			  G_TYPE_INVALID, G_TYPE_INVALID))
     lose_gerror ("Failed to complete EmitFrobnicate call", error);
   
   dbus_g_connection_flush (connection);

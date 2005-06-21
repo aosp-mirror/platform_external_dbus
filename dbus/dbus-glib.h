@@ -116,8 +116,8 @@ struct _DBusGObjectInfo
   const char *exported_properties;  /**< Exported properties */
 };
 
-void dbus_g_object_type_install_info     (GType                 object_type,
-                                          const DBusGObjectInfo *info);
+void       dbus_g_object_type_install_info     (GType                 object_type,
+                                                const DBusGObjectInfo *info);
 
 void       dbus_g_connection_register_g_object (DBusGConnection       *connection,
 						const char            *at_path,
@@ -246,6 +246,18 @@ void              dbus_g_proxy_disconnect_signal     (DBusGProxy        *proxy,
                                                       const char        *signal_name,
                                                       GCallback          handler,
                                                       void              *data);
+
+gboolean          dbus_g_proxy_call                  (DBusGProxy        *proxy,
+						      const char        *method,
+						      GError           **error,
+						      GType              first_arg_type,
+						      ...);
+
+void              dbus_g_proxy_call_no_reply         (DBusGProxy        *proxy,
+                                                      const char        *method,
+                                                      GType              first_arg_type,
+                                                      ...);
+
 DBusGPendingCall* dbus_g_proxy_begin_call            (DBusGProxy        *proxy,
                                                       const char        *method,
                                                       GType              first_arg_type,
@@ -255,10 +267,6 @@ gboolean          dbus_g_proxy_end_call              (DBusGProxy        *proxy,
                                                       GError           **error,
                                                       GType              first_arg_type,
                                                       ...);
-void              dbus_g_proxy_call_no_reply         (DBusGProxy        *proxy,
-                                                      const char        *method,
-                                                      GType              first_arg_type,
-                                                      ...);
 
 const char*       dbus_g_proxy_get_path              (DBusGProxy        *proxy);
 
@@ -266,17 +274,11 @@ const char*       dbus_g_proxy_get_bus_name          (DBusGProxy        *proxy);
 
 const char*       dbus_g_proxy_get_interface         (DBusGProxy        *proxy);
 
-gboolean          dbus_g_proxy_invoke                (DBusGProxy        *proxy,
-						      const char        *method,
-						      GError           **error,
-						      GType              first_arg_type,
-						      ...);
-
 typedef struct _DBusGMethodInvocation DBusGMethodInvocation;
 
-void dbus_g_method_return (DBusGMethodInvocation *context, ...);
+void              dbus_g_method_return               (DBusGMethodInvocation *context, ...);
 
-void dbus_g_method_return_error (DBusGMethodInvocation *context, GError *error);
+void              dbus_g_method_return_error         (DBusGMethodInvocation *context, GError *error);
 
 typedef struct {
   DBusGProxy *proxy;

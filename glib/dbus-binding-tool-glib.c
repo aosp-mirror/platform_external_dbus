@@ -1333,7 +1333,7 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
 	  
 	  WRITE_OR_LOSE ("{\n");
 	  
-	  if (!write_printf_to_iochannel ("  return dbus_g_proxy_invoke (proxy, \"%s\", ", channel, error,
+	  if (!write_printf_to_iochannel ("  return dbus_g_proxy_call (proxy, \"%s\", ", channel, error,
 					  method_info_get_name (method)))
 	    goto io_lose;
 

@@ -1,5 +1,15 @@
 2005-06-20  Colin Walters  <walters@verbum.org>
 
+	* dbus/dbus-glib.h: 
+	* glib/dbus-gproxy.c: Rename dbus_g_proxy_invoke to
+	dbus_g_proxy_call.
+
+	* glib/dbus-binding-tool-glib.c: 
+	* doc/dbus-tutorial.xml: 
+	* test/glib/test-dbus-glib.c: Update for rename.
+	
+2005-06-20  Colin Walters  <walters@verbum.org>
+
 	Patch suggested by Ross Burton <ross@openedhand.com>
 
 	* glib/dbus-gobject.c (export_signals): Free signal name.
