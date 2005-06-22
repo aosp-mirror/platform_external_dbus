@@ -1,3 +1,9 @@
+2005-06-22  Colin Walters  <walters@verbum.org>
+	
+	Patch from Ross Burton <ross@openedhand.com>
+
+	* glib/dbus-gobject.c (dbus_g_method_return): Free out_sig.
+
 2005-06-20  Colin Walters  <walters@verbum.org>
 
 	* configure.in: Add glib/examples.
