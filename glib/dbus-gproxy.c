@@ -1135,7 +1135,7 @@ dbus_g_proxy_new_for_name_owner (DBusGConnection          *connection,
 
  error:
   g_assert (dbus_error_is_set (&derror));
-  dbus_set_g_error (error, &derror);
+  dbus_g_error_set (error, derror.name, derror.message);
   dbus_error_free (&derror);
 
  out:
@@ -1469,14 +1469,14 @@ dbus_g_proxy_end_call_internal (DBusGProxy       *proxy,
       break;
     case DBUS_MESSAGE_TYPE_ERROR:
       dbus_set_error_from_message (&derror, reply);
-      dbus_set_g_error (error, &derror);
+      dbus_g_error_set (error, derror.name, derror.message);
       dbus_error_free (&derror);
       goto out;
       break;
     default:
       dbus_set_error (&derror, DBUS_ERROR_FAILED,
                       "Reply was neither a method return nor an exception");
-      dbus_set_g_error (error, &derror);
+      dbus_g_error_set (error, derror.name, derror.message);
       dbus_error_free (&derror);
       goto out;
       break;

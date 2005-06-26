@@ -474,7 +474,7 @@ validate_signature (const char *str,
   
   if (!dbus_signature_validate (str, &derror))
     {
-      dbus_set_g_error (error, &derror);
+      dbus_g_error_set (error, derror.name, derror.message);
       return FALSE;
     }
   return TRUE;

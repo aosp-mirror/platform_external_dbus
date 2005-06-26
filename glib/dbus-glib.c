@@ -26,6 +26,7 @@
 #include <dbus/dbus-glib-lowlevel.h>
 #include "dbus-gtest.h"
 #include "dbus-gutils.h"
+#include <string.h>
 
 #include <libintl.h>
 #define _(x) dgettext (GETTEXT_PACKAGE, x)
@@ -148,26 +149,87 @@ dbus_g_error_quark (void)
   return quark;
 }
 
+#include "dbus-glib-error-switch.h"
 
 /**
- * Set a GError return location from a DBusError.
+ * Set a GError return location from a D-BUS error name and message.
+ * This function should only be used in the implementation of service
+ * methods.
  *
- * @todo expand the DBUS_GERROR enum and take advantage of it here
- * 
  * @param gerror location to store a GError, or #NULL
- * @param derror the DBusError
+ * @param name the D-BUS error name
+ * @param msg the D-BUS error detailed message
  */
 void
-dbus_set_g_error (GError   **gerror,
-                  DBusError *derror)
+dbus_g_error_set (GError    **gerror,
+                  const char *name,
+		  const char *msg)
 {
-  g_return_if_fail (derror != NULL);
-  g_return_if_fail (dbus_error_is_set (derror));
-  
-  g_set_error (gerror, DBUS_GERROR,
-               DBUS_GERROR_FAILED,
-               _("D-BUS error %s: %s"),
-               derror->name, derror->message);  
+  int code;
+  g_return_if_fail (name != NULL);
+  g_return_if_fail (msg != NULL);
+
+  code = dbus_error_to_gerror_code (name);
+  if (code == DBUS_GERROR_REMOTE_EXCEPTION)
+    g_set_error (gerror, DBUS_GERROR,
+		 code,
+		 "%s%c%s",
+		 msg,
+		 '\0',
+		 name);
+  else
+    g_set_error (gerror, DBUS_GERROR,
+		 code,
+		 "%s",
+		 msg);
+}
+
+/**
+ * Determine whether D-BUS error name for a remote exception matches
+ * the given name.  This function is intended to be invoked on a
+ * GError returned from an invocation of a remote method, e.g. via
+ * dbus_g_proxy_end_call.  It will silently return FALSE for errors
+ * which are not remote D-BUS exceptions (i.e. with a domain other
+ * than DBUS_GERROR or a code other than
+ * DBUS_GERROR_REMOTE_EXCEPTION).
+ *
+ * @param gerror the GError given from the remote method
+ * @param name the D-BUS error name
+ * @param msg the D-BUS error detailed message
+ * @returns TRUE iff the remote error has the given name
+ */
+gboolean
+dbus_g_error_has_name (GError *error, const char *name)
+{
+  g_return_val_if_fail (error != NULL, FALSE);
+
+  if (error->domain != DBUS_GERROR
+      || error->code != DBUS_GERROR_REMOTE_EXCEPTION)
+    return FALSE;
+
+  return !strcmp (dbus_g_error_get_name (error), name);
+}
+
+/**
+ * Return the D-BUS name for a remote exception.
+ * This function may only be invoked on a GError returned from an
+ * invocation of a remote method, e.g. via dbus_g_proxy_end_call.
+ * Moreover, you must ensure that the error's domain is DBUS_GERROR,
+ * and the code is DBUS_GERROR_REMOTE_EXCEPTION.
+ *
+ * @param gerror the GError given from the remote method
+ * @param name the D-BUS error name
+ * @param msg the D-BUS error detailed message
+ * @returns the D-BUS error name
+ */
+const char *
+dbus_g_error_get_name (GError *error)
+{
+  g_return_val_if_fail (error != NULL, NULL);
+  g_return_val_if_fail (error->domain == DBUS_GERROR, NULL);
+  g_return_val_if_fail (error->code == DBUS_GERROR_REMOTE_EXCEPTION, NULL);
+
+  return error->message + strlen (error->message) + 1;
 }
 
 /**
@@ -395,7 +457,28 @@ dbus_g_pending_call_cancel (DBusGPendingCall *call)
 gboolean
 _dbus_glib_test (const char *test_data_dir)
 {
+  DBusError err;
+  GError *gerror = NULL;
+
+  dbus_error_init (&err);
+  dbus_set_error_const (&err, DBUS_ERROR_NO_MEMORY, "Out of memory!");
+
+  dbus_g_error_set (&gerror, err.name, err.message);
+  g_assert (gerror != NULL);
+  g_assert (gerror->domain == DBUS_GERROR);
+  g_assert (gerror->code == DBUS_GERROR_NO_MEMORY);
+  g_assert (!strcmp (gerror->message, "Out of memory!"));
   
+  dbus_error_init (&err);
+  g_clear_error (&gerror);
+
+  dbus_g_error_set (&gerror, "com.example.Foo.BlahFailed", "blah failed");
+  g_assert (gerror != NULL);
+  g_assert (gerror->domain == DBUS_GERROR);
+  g_assert (gerror->code == DBUS_GERROR_REMOTE_EXCEPTION);
+  g_assert (dbus_g_error_has_name (gerror, "com.example.Foo.BlahFailed"));
+  g_assert (!strcmp (gerror->message, "blah failed"));
+
   return TRUE;
 }
 

@@ -318,6 +318,8 @@ main (int argc, char **argv)
   error = NULL;
   if (dbus_g_proxy_end_call (proxy, call, &error, G_TYPE_INVALID) != FALSE)
     lose ("ThrowError call unexpectedly succeeded!");
+  if (!dbus_g_error_has_name (error, "org.freedesktop.DBus.Tests.MyObject.Foo"))
+    lose ("ThrowError call returned unexpected error %s", dbus_g_error_get_name (error));
 
   g_print ("ThrowError failed (as expected) returned error: %s\n", error->message);
   g_clear_error (&error);

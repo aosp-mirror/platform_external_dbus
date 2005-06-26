@@ -720,7 +720,7 @@ dbus_g_bus_get (DBusBusType     type,
   connection = dbus_bus_get (type, &derror);
   if (connection == NULL)
     {
-      dbus_set_g_error (error, &derror);
+      dbus_g_error_set (error, derror.name, derror.message);
       dbus_error_free (&derror);
       return NULL;
     }

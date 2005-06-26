@@ -1,3 +1,40 @@
+2005-06-26  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-glib.c (dbus_set_g_error): Delete.
+	(dbus_g_error_set): New public function from its ashes; used by
+	both service-side method implementation and GLib bindings
+	internals.
+	(dbus_g_error_has_name, dbus_g_error_get_name): New function.
+	(_dbus_glib_test): Add some tests.
+
+	* test/glib/test-dbus-glib.c (main): Test dbus_g_error_has_name.
+
+	* test/glib/test-service-glib.c (my_object_throw_error): Use
+	dbus_g_error_set.
+
+	* glib/dbus-gobject.c (gerror_to_dbus_error_message): Handle
+	errors thrown by dbus_g_error_set.
+
+	* glib/dbus-gmain.c (dbus_g_bus_get): Change to dbus_g_error_set.
+
+	* glib/dbus-gparser.c (validate_signature): Ditto.
+
+	* glib/dbus-gproxy.c (dbus_g_proxy_new_for_name_owner) 
+	(dbus_g_proxy_end_call_internal): Ditto.
+
+	* glib/Makefile.am: Generate dbus-glib-error-switch.h, which
+	converts DBUS_ERROR_x to DBUS_GERROR_x.
+	(libdbus_glib_1_la_SOURCES, BUILT_SOURCES, CLEANFILES): Add it.
+
+	* doc/TODO: Remove error TODO.
+
+	* doc/dbus-tutorial.xml: Update with documentation about error
+	handling.
+
+	* dbus/make-dbus-glib-error-enum.sh: Tighten up regexp to make
+	sure we only change DBUS_ERROR to DBUS_GERROR, not all ERROR to
+	GERROR.  Also add DBUS_GERROR_REMOTE_EXCEPTION.
+
 2005-06-22  Colin Walters  <walters@verbum.org>
 	
 	Patch from Ross Burton <ross@openedhand.com>

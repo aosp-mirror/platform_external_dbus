@@ -745,10 +745,17 @@ gerror_to_dbus_error_message (const DBusGObjectInfo *object_info,
     }
   else
     {
-      char *error_name;
-      error_name = gerror_domaincode_to_dbus_error_name (object_info, error->domain, error->code);
-      reply = dbus_message_new_error (message, error_name, error->message);
-      g_free (error_name); 
+      if (error->domain == DBUS_GERROR)
+	reply = dbus_message_new_error (message,
+					dbus_g_error_get_name (error),
+					error->message);
+      else
+	{
+	  char *error_name;
+	  error_name = gerror_domaincode_to_dbus_error_name (object_info, error->domain, error->code);
+	  reply = dbus_message_new_error (message, error_name, error->message);
+	  g_free (error_name); 
+	}
     }
   return reply;
 }

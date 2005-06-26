@@ -6,6 +6,7 @@ Makefile.in
 *.la
 dbus-glib-test
 dbus-binding-tool
+dbus-glib-error-switch.h
 *.bb
 *.bbg
 *.da

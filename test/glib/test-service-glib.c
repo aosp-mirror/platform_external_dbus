@@ -237,10 +237,9 @@ my_object_increment (MyObject *obj, gint32 x, gint32 *ret, GError **error)
 gboolean
 my_object_throw_error (MyObject *obj, GError **error)
 {
-  g_set_error (error,
-	       MY_OBJECT_ERROR,
-	       MY_OBJECT_ERROR_FOO,
-	       "this method always loses");
+  dbus_g_error_set (error,
+		    "org.freedesktop.DBus.Tests.MyObject.Foo",
+		    "this method always loses");    
   return FALSE;
 }
 

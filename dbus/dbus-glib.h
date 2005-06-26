@@ -81,6 +81,13 @@ typedef enum
 #include <dbus/dbus-glib-error-enum.h>    
 } DBusGError;
 
+void             dbus_g_error_set         (GError     **error,
+					   const char  *name,
+					   const char  *msg);
+gboolean         dbus_g_error_has_name    (GError      *error,
+					   const char  *name);
+const char *     dbus_g_error_get_name    (GError      *error);
+
 void             dbus_g_thread_init (void);
 DBusGConnection* dbus_g_bus_get     (DBusBusType   type,
                                      GError      **error);

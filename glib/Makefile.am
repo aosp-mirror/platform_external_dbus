@@ -4,7 +4,15 @@ INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) $(DBUS_GLIB_T
 
 lib_LTLIBRARIES=libdbus-glib-1.la
 
+dbus-glib-error-switch.h: $(top_srcdir)/dbus/dbus-protocol.h make-dbus-glib-error-switch.sh
+	$(srcdir)/make-dbus-glib-error-switch.sh $(top_srcdir)/dbus/dbus-protocol.h $@
+
+BUILT_SOURCES = dbus-glib-error-switch.h
+
+CLEANFILES = $(BUILT_SOURCES)
+
 libdbus_glib_1_la_SOURCES = 			\
+	dbus-glib-error-switch.h		\
 	dbus-glib.c				\
 	dbus-gmain.c				\
 	dbus-gmarshal.c				\
