@@ -1,3 +1,8 @@
+2005-06-26  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-tutorial.xml: fix names of interface/service/path, fix
+	from Don Park
+
 2005-06-26  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-glib.c (dbus_set_g_error): Delete.
