@@ -1,3 +1,15 @@
+2005-06-27  Colin Walters  <walters@verbum.org>
+
+	* test/glib/test-dbus-glib.c: 
+	* test/glib/test-service-glib.c:
+	* test/glib/test-service-glib.xml:
+	Test hash table signal emitting.
+
+	* glib/dbus-gobject.c (_dbus_gobject_lookup_marshaller): Convert
+	types to their fundamental basis types, since this is what
+	marshallers operate on.  Also add an entry for VOID__BOXED.
+	(dbus_g_object_register_marshaller_array): Convert to fundamental.
+
 2005-06-26  Havoc Pennington  <hp@redhat.com>
 
 	* doc/dbus-tutorial.xml: fix names of interface/service/path, fix

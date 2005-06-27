@@ -14,6 +14,7 @@ static int n_times_foo_received = 0;
 static int n_times_frobnicate_received = 0;
 static int n_times_sig0_received = 0;
 static int n_times_sig1_received = 0;
+static int n_times_sig2_received = 0;
 static guint exit_timeout = 0;
 
 static gboolean
@@ -79,6 +80,24 @@ sig1_signal_handler (DBusGProxy  *proxy,
   g_assert (G_VALUE_HOLDS_STRING (value));
 
   g_assert (!strcmp (g_value_get_string (value), "bar"));
+
+  g_main_loop_quit (loop);
+  g_source_remove (exit_timeout);
+}
+
+static void
+sig2_signal_handler (DBusGProxy  *proxy,
+		     GHashTable  *table,
+		     void        *user_data)
+{
+  n_times_sig2_received += 1;
+
+  g_assert (g_hash_table_size (table) == 2);
+
+  g_assert (g_hash_table_lookup (table, "baz") != NULL);
+  g_assert (!strcmp (g_hash_table_lookup (table, "baz"), "cow"));
+  g_assert (g_hash_table_lookup (table, "bar") != NULL);
+  g_assert (!strcmp (g_hash_table_lookup (table, "bar"), "foo"));
 
   g_main_loop_quit (loop);
   g_source_remove (exit_timeout);
@@ -721,13 +740,17 @@ main (int argc, char **argv)
 				     G_TYPE_NONE, G_TYPE_STRING, G_TYPE_VALUE, G_TYPE_INVALID);
 
   dbus_g_proxy_add_signal (proxy, "Sig0", G_TYPE_STRING, G_TYPE_INT, G_TYPE_STRING, G_TYPE_INVALID);
-  dbus_g_proxy_add_signal (proxy, "Sig1", G_TYPE_STRING, G_TYPE_VALUE);
+  dbus_g_proxy_add_signal (proxy, "Sig1", G_TYPE_STRING, G_TYPE_VALUE, G_TYPE_INVALID);
+  dbus_g_proxy_add_signal (proxy, "Sig2", DBUS_TYPE_G_STRING_STRING_HASHTABLE, G_TYPE_INVALID);
   
   dbus_g_proxy_connect_signal (proxy, "Sig0",
                                G_CALLBACK (sig0_signal_handler),
                                NULL, NULL);
   dbus_g_proxy_connect_signal (proxy, "Sig1",
                                G_CALLBACK (sig1_signal_handler),
+                               NULL, NULL);
+  dbus_g_proxy_connect_signal (proxy, "Sig2",
+                               G_CALLBACK (sig2_signal_handler),
                                NULL, NULL);
 
   dbus_g_proxy_call_no_reply (proxy, "EmitSignals", G_TYPE_INVALID);
@@ -742,6 +765,15 @@ main (int argc, char **argv)
     lose ("Sig0 signal received %d times, should have been 1", n_times_sig0_received);
   if (n_times_sig1_received != 1)
     lose ("Sig1 signal received %d times, should have been 1", n_times_sig1_received);
+
+  dbus_g_proxy_call_no_reply (proxy, "EmitSignal2", G_TYPE_INVALID);
+  dbus_g_connection_flush (connection);
+
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
+
+  if (n_times_sig2_received != 1)
+    lose ("Sig2 signal received %d times, should have been 1", n_times_sig2_received);
 
   dbus_g_proxy_call_no_reply (proxy, "EmitSignals", G_TYPE_INVALID);
   dbus_g_proxy_call_no_reply (proxy, "EmitSignals", G_TYPE_INVALID);

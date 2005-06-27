@@ -79,6 +79,7 @@ gboolean my_object_get_val (MyObject *obj, guint *ret, GError **error);
 gboolean my_object_get_value (MyObject *obj, guint *ret, GError **error);
 
 gboolean my_object_emit_signals (MyObject *obj, GError **error);
+gboolean my_object_emit_signal2 (MyObject *obj, GError **error);
 
 gboolean my_object_emit_frobnicate (MyObject *obj, GError **error);
 
@@ -98,6 +99,7 @@ enum
   FROBNICATE,
   SIG0,
   SIG1,
+  SIG2,
   LAST_SIGNAL
 };
 
@@ -206,6 +208,15 @@ my_object_class_init (MyObjectClass *mobject_class)
                   NULL, NULL,
                   my_object_marshal_VOID__STRING_BOXED,
                   G_TYPE_NONE, 2, G_TYPE_STRING, G_TYPE_VALUE);
+
+  signals[SIG2] =
+    g_signal_new ("sig2",
+		  G_OBJECT_CLASS_TYPE (mobject_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
+                  0,
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__BOXED,
+                  G_TYPE_NONE, 1, DBUS_TYPE_G_STRING_STRING_HASHTABLE);
 }
 
 GQuark
@@ -435,6 +446,19 @@ my_object_emit_signals (MyObject *obj, GError **error)
   g_signal_emit (obj, signals[SIG1], 0, "baz", &val);
   g_value_unset (&val);
 
+  return TRUE;
+}
+
+gboolean
+my_object_emit_signal2 (MyObject *obj, GError **error)
+{
+  GHashTable *table;
+
+  table = g_hash_table_new (g_str_hash, g_str_equal);
+  g_hash_table_insert (table, "baz", "cow");
+  g_hash_table_insert (table, "bar", "foo");
+  g_signal_emit (obj, signals[SIG2], 0, table);
+  g_hash_table_destroy (table);
   return TRUE;
 }
 

@@ -102,6 +102,11 @@
 
     <signal name="Sig1"/>
 
+    <method name="EmitSignal2">
+    </method>
+
+    <signal name="Sig2"/>
+
   </interface>
 
 </node>

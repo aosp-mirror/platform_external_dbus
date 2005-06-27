@@ -1429,10 +1429,18 @@ _dbus_gobject_lookup_marshaller (GType        rettype,
 {
   GClosureMarshal ret;
   DBusGFuncSignature sig;
+  GType *params;
+  guint i;
+
+  /* Convert to fundamental types */
+  rettype = G_TYPE_FUNDAMENTAL (rettype);
+  params = g_new (GType, n_params);
+  for (i = 0; i < n_params; i++)
+    params[i] = G_TYPE_FUNDAMENTAL (param_types[i]);
 
   sig.rettype = rettype;
   sig.n_params = n_params;
-  sig.params = (GType*) param_types;
+  sig.params = params;
   
   g_static_rw_lock_reader_lock (&globals_lock);
 
@@ -1451,7 +1459,7 @@ _dbus_gobject_lookup_marshaller (GType        rettype,
 	    ret = g_cclosure_marshal_VOID__VOID;
 	  else if (n_params == 1)
 	    {
-	      switch (param_types[0])
+	      switch (params[0])
 		{
 		case G_TYPE_BOOLEAN:
 		  ret = g_cclosure_marshal_VOID__BOOLEAN;
@@ -1471,18 +1479,22 @@ _dbus_gobject_lookup_marshaller (GType        rettype,
 		case G_TYPE_STRING:
 		  ret = g_cclosure_marshal_VOID__STRING;
 		  break;
+		case G_TYPE_BOXED:
+		  ret = g_cclosure_marshal_VOID__BOXED;
+		  break;
 		}
 	    }
 	}
       else if (n_params == 3
-	       && param_types[0] == G_TYPE_STRING
-	       && param_types[1] == G_TYPE_STRING
-	       && param_types[2] == G_TYPE_STRING)
+	       && params[0] == G_TYPE_STRING
+	       && params[1] == G_TYPE_STRING
+	       && params[2] == G_TYPE_STRING)
 	{
 	  ret = _dbus_g_marshal_NONE__STRING_STRING_STRING;
 	}
     }
 
+  g_free (params);
   return ret;
 }
 
@@ -1536,6 +1548,7 @@ dbus_g_object_register_marshaller_array (GClosureMarshal  marshaller,
 					 const GType*     types)
 {
   DBusGFuncSignature *sig;
+  guint i;
 
   g_static_rw_lock_writer_lock (&globals_lock);
 
@@ -1545,10 +1558,11 @@ dbus_g_object_register_marshaller_array (GClosureMarshal  marshaller,
 					   g_free,
 					   NULL);
   sig = g_new0 (DBusGFuncSignature, 1);
-  sig->rettype = rettype;
+  sig->rettype = G_TYPE_FUNDAMENTAL (rettype);
   sig->n_params = n_types;
   sig->params = g_new (GType, n_types);
-  memcpy (sig->params, types, n_types * sizeof (GType));
+  for (i = 0; i < n_types; i++)
+    sig->params[i] = G_TYPE_FUNDAMENTAL (types[i]);
 
   g_hash_table_insert (marshal_table, sig, marshaller);
 
