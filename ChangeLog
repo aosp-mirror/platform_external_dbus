@@ -1,3 +1,11 @@
+2005-06-28  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/dbus_bindings.pyx.in (cunregister_function_handler,
+	cmessage_function_handler): Patch from 
+	Anthony Baxter <anthony@interlink.com.au> fixes threading problems
+	by using the Py_GILState_Ensure/Release to synchronize with the
+	python runtime.
+	
 2005-06-28  Ray Strode  <rstrode@redhat.com>
 
 	*  dbus/dbus-spawn.c (_dbus_babysitter_unref): kill
