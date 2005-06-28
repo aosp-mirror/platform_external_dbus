@@ -252,6 +252,9 @@ _dbus_babysitter_ref (DBusBabysitter *sitter)
 
 /**
  * Decrement the reference count on the babysitter object.
+ * When the reference count of the babysitter object reaches
+ * zero, the babysitter is killed and the child that was being
+ * babysat gets emancipated.
  *
  * @param sitter the babysitter
  */
@@ -266,6 +269,13 @@ _dbus_babysitter_unref (DBusBabysitter *sitter)
     {      
       if (sitter->socket_to_babysitter >= 0)
         {
+          /* If we haven't forked other babysitters
+           * since this babysitter and socket were
+           * created then this close will cause the
+           * babysitter to wake up from poll with
+           * a hangup and then the babysitter will
+           * quit itself.
+           */
           close (sitter->socket_to_babysitter);
           sitter->socket_to_babysitter = -1;
         }
@@ -276,14 +286,27 @@ _dbus_babysitter_unref (DBusBabysitter *sitter)
           sitter->error_pipe_from_child = -1;
         }
 
-      if (sitter->sitter_pid != -1)
+      if (sitter->sitter_pid > 0)
         {
           int status;
           int ret;
 
-          /* Reap the babysitter */
+          /* It's possible the babysitter died on its own above 
+           * from the close, or was killed randomly
+           * by some other process, so first try to reap it
+           */
+          ret = waitpid (sitter->sitter_pid, &status, WNOHANG);
+
+          /* If we couldn't reap the child then kill it, and
+           * try again
+           */
+          if (ret == 0)
+            kill (sitter->sitter_pid, SIGKILL);
+
         again:
-          ret = waitpid (sitter->sitter_pid, &status, 0);
+          if (ret == 0)
+            ret = waitpid (sitter->sitter_pid, &status, 0);
+
           if (ret < 0)
             {
               if (errno == EINTR)

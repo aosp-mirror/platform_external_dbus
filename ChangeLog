@@ -1,3 +1,8 @@
+2005-06-28  Ray Strode  <rstrode@redhat.com>
+
+	*  dbus/dbus-spawn.c (_dbus_babysitter_unref): kill
+	babysitter helper process on last unref, bug #2813.
+
 2005-06-27  Colin Walters  <walters@verbum.org>
 
 	* test/glib/test-dbus-glib.c: 
