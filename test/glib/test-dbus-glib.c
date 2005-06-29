@@ -749,11 +749,14 @@ main (int argc, char **argv)
 
   {
     guint val;
+    char *ret_path;
     DBusGProxy *ret_proxy;
 
     g_print ("Calling (wrapped) objpath\n");
-    if (!org_freedesktop_DBus_Tests_MyObject_objpath (proxy, proxy, &ret_proxy, &error))
-      lose_gerror ("Failed to complete (wrapped) Objpath call", error);
+    if (!dbus_g_proxy_call (proxy, "Objpath", &error,
+			    DBUS_TYPE_G_PROXY, proxy, G_TYPE_INVALID,
+			    DBUS_TYPE_G_PROXY, &ret_proxy, G_TYPE_INVALID))
+      lose_gerror ("Failed to complete Objpath call", error);
     if (strcmp ("/org/freedesktop/DBus/Tests/MyTestObject2",
 		dbus_g_proxy_get_path (ret_proxy)) != 0)
       lose ("(wrapped) objpath call returned unexpected proxy %s",
@@ -802,20 +805,25 @@ main (int argc, char **argv)
 
     g_print ("Calling objpath again\n");
     ret_proxy = NULL;
-    if (!org_freedesktop_DBus_Tests_MyObject_objpath (proxy, proxy, &ret_proxy, &error))
+
+    if (!dbus_g_proxy_call (proxy, "Objpath", &error,
+			    DBUS_TYPE_G_OBJECT_PATH,
+			    dbus_g_proxy_get_path (proxy),
+			    G_TYPE_INVALID,
+			    DBUS_TYPE_G_OBJECT_PATH,
+			    &ret_path,
+			    G_TYPE_INVALID))
       lose_gerror ("Failed to complete (wrapped) Objpath call 2", error);
-    if (strcmp ("/org/freedesktop/DBus/Tests/MyTestObject2",
-		dbus_g_proxy_get_path (ret_proxy)) != 0)
-      lose ("(wrapped) objpath call 2 returned unexpected proxy %s",
-	    dbus_g_proxy_get_path (ret_proxy));
-    {
-      const char *iface = dbus_g_proxy_get_interface (ret_proxy);
-      g_print ("returned proxy has interface \"%s\"\n",
-	       iface ? iface : "(NULL)");
-    }
+    if (strcmp ("/org/freedesktop/DBus/Tests/MyTestObject2", ret_path) != 0)
+      lose ("(wrapped) objpath call 2 returned unexpected path %s",
+	    ret_path);
 
-    dbus_g_proxy_set_interface (ret_proxy, "org.freedesktop.DBus.Tests.FooObject");
-
+    ret_proxy = dbus_g_proxy_new_for_name_owner (connection,
+						 "org.freedesktop.DBus.TestSuiteGLibService",
+						 ret_path,
+						 "org.freedesktop.DBus.Tests.FooObject",
+						 &error);
+    
     val = 0;
     if (!org_freedesktop_DBus_Tests_FooObject_get_value (ret_proxy, &val, &error))
       lose_gerror ("Failed to complete (wrapped) GetValue call", error);

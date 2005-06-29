@@ -1,3 +1,27 @@
+2005-06-29  Colin Walters  <walters@verbum.org>
+
+	* dbus/dbus-glib.h: Delete DBUS_TYPE_G_PROXY_ARRAY.  Add
+	DBUS_TYPE_G_OBJECT_PATH.
+
+	* glib/dbus-gvalue.c (dbus_g_value_types_init): Remove marshallers
+	for G_TYPE_OBJECT and DBUS_TYPE_G_PROXY_ARRAY (the latter should
+	be handled more generically).  Add DBUS_TYPE_G_OBJECT_PATH.
+	(dbus_g_object_path_get_g_type): New function.
+	(dbus_gtype_from_signature_iter): Map DBUS_TYPE_OBJECT_PATH
+	to DBUS_TYPE_G_OBJECT_PATH by default.
+	(demarshal_proxy): Remove unused name variable.
+	(demarshal_object_path, marshal_object_path): New functions.
+	(demarshal_proxy_array, marshal_proxy_array): Delete.
+	
+	* glib/dbus-binding-tool-glib.c (dbus_g_type_get_c_name): Map
+	DBUS_TYPE_G_OBJECT_PATH to char *.
+	(dbus_g_type_get_lookup_function): Map builtin
+	DBUS_TYPE_G_OBJECT_PATH.
+
+	* test/glib/test-dbus-glib.c
+	* test/glib/test-service-glib.c (my_object_objpath): 
+	Adapt tests to new object path marshalling.
+
 2005-06-29  John (J5) Palmieri  <johnp@redhat.com>
 
 	* configure.in: force check for Python >= 2.4

@@ -177,12 +177,12 @@ typedef struct _DBusGValue DBusGValue;
 
 #define DBUS_TYPE_G_STRING_STRING_HASHTABLE (dbus_g_type_get_map ("GHashTable", G_TYPE_STRING, G_TYPE_STRING))
 
-/* D-BUS-specific types */
-#define DBUS_TYPE_G_PROXY_ARRAY          (dbus_g_type_get_collection ("GPtrArray", DBUS_TYPE_G_PROXY))
-
 /* Generic recursive value */
 GType        dbus_g_value_get_g_type               (void) G_GNUC_CONST;
 #define DBUS_TYPE_G_VALUE                (dbus_g_value_get_g_type ())
+
+GType        dbus_g_object_path_get_g_type         (void) G_GNUC_CONST;
+#define DBUS_TYPE_G_OBJECT_PATH (dbus_g_object_path_get_g_type ())
 
 void         dbus_g_value_open              (DBusGValue          *value,
 					     DBusGValueIterator  *iter);

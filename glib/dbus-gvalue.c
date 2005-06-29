@@ -88,15 +88,15 @@ static gboolean demarshal_proxy                 (DBusGValueMarshalCtx      *cont
 						 DBusMessageIter           *iter,
 						 GValue                    *value,
 						 GError                   **error);
-static gboolean marshal_object                  (DBusMessageIter           *iter,
+static gboolean marshal_object_path             (DBusMessageIter           *iter,
 						 GValue                    *value);
-static gboolean demarshal_object                (DBusGValueMarshalCtx      *context,
+static gboolean demarshal_object_path           (DBusGValueMarshalCtx      *context,
 						 DBusMessageIter           *iter,
 						 GValue                    *value,
 						 GError                   **error);
-static gboolean marshal_proxy_array             (DBusMessageIter           *iter,
+static gboolean marshal_object                  (DBusMessageIter           *iter,
 						 GValue                    *value);
-static gboolean demarshal_proxy_array           (DBusGValueMarshalCtx      *context,
+static gboolean demarshal_object                (DBusGValueMarshalCtx      *context,
 						 DBusMessageIter           *iter,
 						 GValue                    *value,
 						 GError                   **error);
@@ -395,6 +395,18 @@ dbus_g_value_types_init (void)
 
   {
     static const DBusGTypeMarshalVtable vtable = {
+      marshal_object_path,
+      demarshal_object_path
+    };
+    static const DBusGTypeMarshalData typedata = {
+      DBUS_TYPE_OBJECT_PATH_AS_STRING,
+      &vtable
+    };
+    set_type_metadata (DBUS_TYPE_G_OBJECT_PATH, &typedata);
+  }
+
+  {
+    static const DBusGTypeMarshalVtable vtable = {
       marshal_object,
       demarshal_object
     };
@@ -405,19 +417,24 @@ dbus_g_value_types_init (void)
     set_type_metadata (G_TYPE_OBJECT, &typedata);
   }
 
-  {
-    static const DBusGTypeMarshalVtable vtable = {
-      marshal_proxy_array,
-      demarshal_proxy_array
-    };
-    static const DBusGTypeMarshalData typedata = {
-      DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_OBJECT_PATH_AS_STRING,
-      &vtable
-    };
-    set_type_metadata (DBUS_TYPE_G_PROXY_ARRAY, &typedata);
-  }
-
   types_initialized = TRUE;
+}
+
+/**
+ * Get the GLib type ID for a DBusGObjectPath boxed type.
+ *
+ * @returns GLib type
+ */
+GType
+dbus_g_object_path_get_g_type (void)
+{
+  static GType type_id = 0;
+
+  if (!type_id)
+    type_id = g_boxed_type_register_static ("DBusGObjectPath",
+					    (GBoxedCopyFunc) g_strdup,
+					    (GBoxedFreeFunc) g_free);
+  return type_id;
 }
 
 /**
@@ -592,7 +609,7 @@ dbus_gtype_from_signature_iter (DBusSignatureIter *iter, gboolean is_client)
   if (dbus_typecode_maps_to_basic (current_type))
     return basic_typecode_to_gtype (current_type);
   else if (current_type == DBUS_TYPE_OBJECT_PATH)
-    return is_client ? DBUS_TYPE_G_PROXY : G_TYPE_OBJECT;
+    return DBUS_TYPE_G_OBJECT_PATH;
   else
     {
       DBusSignatureIter subiter;
@@ -827,7 +844,6 @@ demarshal_proxy (DBusGValueMarshalCtx    *context,
 		 GValue                  *value,
 		 GError                 **error)
 {
-  const char *name;
   DBusGProxy *new_proxy;
   const char *objpath;
   int current_type;
@@ -837,12 +853,29 @@ demarshal_proxy (DBusGValueMarshalCtx    *context,
 
   g_assert (context->proxy != NULL);
   
-  name = dbus_g_proxy_get_bus_name (context->proxy);
-      
   dbus_message_iter_get_basic (iter, &objpath);
 
   new_proxy = dbus_g_proxy_new_from_proxy (context->proxy, NULL, objpath);
   g_value_set_object_take_ownership (value, new_proxy);
+
+  return TRUE;
+}
+
+static gboolean
+demarshal_object_path (DBusGValueMarshalCtx    *context,
+		       DBusMessageIter         *iter,
+		       GValue                  *value,
+		       GError                 **error)
+{
+  const char *objpath;
+  int current_type;
+
+  current_type = dbus_message_iter_get_arg_type (iter);
+  g_assert (current_type == DBUS_TYPE_OBJECT_PATH);
+
+  dbus_message_iter_get_basic (iter, &objpath);
+
+  g_value_set_boxed_take_ownership (value, g_strdup (objpath));
 
   return TRUE;
 }
@@ -945,50 +978,6 @@ demarshal_garray_basic (DBusGValueMarshalCtx    *context,
   g_assert (msgarray_len >= 0);
   g_array_append_vals (ret, msgarray, (guint) msgarray_len);
 
-  g_value_set_boxed_take_ownership (value, ret);
-  
-  return TRUE;
-}
-
-static gboolean
-demarshal_proxy_array (DBusGValueMarshalCtx    *context,
-		       DBusMessageIter         *iter,
-		       GValue                  *value,
-		       GError                 **error)
-{
-  DBusMessageIter subiter;
-  GPtrArray *ret;
-  guint len;
-  guint i;
-  int current_type;
-
-  g_assert (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_ARRAY);
-
-  dbus_message_iter_recurse (iter, &subiter);
-
-  len = dbus_message_iter_get_array_len (&subiter);
-  g_assert (len >= 0);
-  ret = g_ptr_array_sized_new (len);
-  
-  i = 0;
-  while ((current_type = dbus_message_iter_get_arg_type (&subiter)) != DBUS_TYPE_INVALID)
-    {
-      GValue subval = {0, };
-      g_assert (i < len);
-
-      if (!demarshal_proxy (context, &subiter, &subval, error))
-	{
-	  for (i = 0; i < ret->len; i++)
-	    g_object_unref (g_ptr_array_index (ret, i));
-	  g_ptr_array_free (ret, TRUE);
-	  return FALSE;
-	}
-
-      g_ptr_array_index (ret, i) = g_value_get_boxed (&subval);
-      /* Don't unset value, now owned by ret */
-
-      i++;
-    }
   g_value_set_boxed_take_ownership (value, ret);
   
   return TRUE;
@@ -1393,6 +1382,23 @@ marshal_proxy (DBusMessageIter         *iter,
 }
 
 static gboolean
+marshal_object_path (DBusMessageIter         *iter,
+		     GValue                  *value)
+{
+  const char *path;
+
+  g_assert (G_VALUE_TYPE (value) == DBUS_TYPE_G_OBJECT_PATH);
+
+  path = (const char*) g_value_get_boxed (value);
+  
+  if (!dbus_message_iter_append_basic (iter,
+				       DBUS_TYPE_OBJECT_PATH,
+				       &path))
+    return FALSE;
+  return TRUE;
+}
+
+static gboolean
 marshal_object (DBusMessageIter         *iter,
 		GValue                  *value)
 {
@@ -1411,46 +1417,6 @@ marshal_object (DBusMessageIter         *iter,
 				       &path))
     return FALSE;
   return TRUE;
-}
-
-static gboolean
-marshal_proxy_array (DBusMessageIter   *iter,
-		     GValue            *value)
-{
-  DBusMessageIter subiter;
-  GPtrArray *array;
-  const char *subsignature_str;
-  gboolean ret = FALSE;
-  guint i;
-
-  subsignature_str = dbus_gtype_to_signature (DBUS_TYPE_G_PROXY);
-  g_assert (subsignature_str != NULL);
-
-  array = g_value_get_boxed (value);
-
-  if (!dbus_message_iter_open_container (iter,
-					 DBUS_TYPE_ARRAY,
-					 subsignature_str,
-					 &subiter))
-    goto out;
-
-  for (i = 0; i < array->len; i++)
-    {
-      GValue val = {0, };
-
-      g_value_init (&val, DBUS_TYPE_G_PROXY);
-      g_value_set_static_boxed (&val, g_ptr_array_index (array, i));
-
-      marshal_proxy (&subiter, &val);
-
-      g_value_unset (&val);
-    }
-
-  if (!dbus_message_iter_close_container (iter, &subiter))
-    goto out;
-  ret = TRUE;
- out:
-  return ret;
 }
 
 struct DBusGLibHashMarshalData

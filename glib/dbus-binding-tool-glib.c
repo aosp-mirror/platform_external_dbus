@@ -98,7 +98,8 @@ dbus_g_type_get_c_name (GType gtype)
   if (dbus_g_type_is_map (gtype))
     return "GHashTable";
   
-  if (g_type_is_a (gtype, G_TYPE_STRING))
+  if (g_type_is_a (gtype, G_TYPE_STRING)
+      || g_type_is_a (gtype, DBUS_TYPE_G_OBJECT_PATH))
     return "char *";
 
   /* This one is even more hacky...we get an extra *
@@ -892,7 +893,7 @@ dbus_g_type_get_lookup_function (GType gtype)
   MAP_KNOWN(G_TYPE_VALUE);
   MAP_KNOWN(G_TYPE_STRV);
   MAP_KNOWN(DBUS_TYPE_G_PROXY);
-  MAP_KNOWN(DBUS_TYPE_G_PROXY_ARRAY);
+  MAP_KNOWN(DBUS_TYPE_G_OBJECT_PATH);
   return NULL;
 }
 #undef MAP_FUNDAMENTAL
