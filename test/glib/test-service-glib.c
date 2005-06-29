@@ -83,6 +83,8 @@ gboolean my_object_emit_signal2 (MyObject *obj, GError **error);
 
 gboolean my_object_emit_frobnicate (MyObject *obj, GError **error);
 
+gboolean my_object_terminate (MyObject *obj, GError **error);
+
 #include "test-service-glib-glue.h"
 
 GQuark my_object_error_quark (void);
@@ -463,6 +465,13 @@ my_object_emit_signal2 (MyObject *obj, GError **error)
 }
 
 static GMainLoop *loop;
+
+gboolean
+my_object_terminate (MyObject *obj, GError **error)
+{
+  g_main_loop_quit (loop);
+  return TRUE;
+}
 
 #define TEST_SERVICE_NAME "org.freedesktop.DBus.TestSuiteGLibService"
 

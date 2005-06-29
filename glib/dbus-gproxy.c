@@ -56,6 +56,10 @@ struct _DBusGProxy
   char *path;                 /**< Path messages go to or NULL */
   char *interface;            /**< Interface messages go to or NULL */
 
+  DBusGPendingCall *name_call;/**< Pending call to retrieve name owner */
+  guint for_owner : 1;        /**< Whether or not this proxy is for a name owner */
+  guint associated : 1;       /**< Whether or not this proxy is associated (for name proxies) */
+
   GData *signal_signatures;   /**< D-BUS signatures for each signal */
 };
 
@@ -74,6 +78,13 @@ static void dbus_g_proxy_dispose            (GObject         *object);
 static void dbus_g_proxy_destroy            (DBusGProxy      *proxy);
 static void dbus_g_proxy_emit_remote_signal (DBusGProxy      *proxy,
                                              DBusMessage     *message);
+
+static gboolean dbus_g_pending_call_end (DBusGConnection   *connection,
+					 DBusGProxy        *proxycon,
+					 DBusGPendingCall  *pending,
+					 GError           **error,
+					 GType              first_arg_type,
+					 ...);
 
 /**
  * A list of proxies with a given name+path+interface, used to
@@ -104,7 +115,17 @@ struct _DBusGProxyManager
   GHashTable *proxy_lists; /**< Hash used to route incoming signals
                             *   and iterate over proxies
                             */
-
+  GHashTable *owner_names; /**< Hash to keep track of mapping from
+			    *   base name -> [name,name,...] for proxies which
+			    *   are for names.
+			    */
+  GSList *pending_nameowner_calls;  /**< List to keep track of pending
+				     *   GetNameOwner calls
+				     */
+  GSList *unassociated_proxies;     /**< List of name proxies for which
+				     *   there was no result for
+				     *   GetNameOwner
+				     */
 };
 
 static DBusGProxyManager *dbus_g_proxy_manager_ref    (DBusGProxyManager *manager);
@@ -203,7 +224,22 @@ dbus_g_proxy_manager_unref (DBusGProxyManager *manager)
           
           g_hash_table_destroy (manager->proxy_lists);
           manager->proxy_lists = NULL;
+
         }
+
+      if (manager->owner_names)
+	{
+	  /* Since we destroyed all proxies, none can be tracking
+	   * name owners
+	   */
+          g_assert (g_hash_table_size (manager->owner_names) == 0);
+
+	  g_hash_table_destroy (manager->owner_names);
+	  manager->owner_names = NULL;
+	}
+
+      g_assert (manager->pending_nameowner_calls == NULL);
+      g_assert (manager->unassociated_proxies == NULL);
       
       g_static_mutex_free (&manager->lock);
 
@@ -412,6 +448,389 @@ g_proxy_get_match_rule (DBusGProxy *proxy)
                             proxy->path, proxy->interface);
 }
 
+typedef struct
+{
+  char *name;
+  guint refcount;
+} DBusGProxyNameOwnerInfo;
+
+static gint
+find_name_in_info (gconstpointer a, gconstpointer b)
+{
+  const DBusGProxyNameOwnerInfo *info = a;
+  const char *name = b;
+
+  return strcmp (info->name, name);
+}
+
+typedef struct
+{
+  const char *name;
+  const char *owner;
+  DBusGProxyNameOwnerInfo *info;
+} DBusGProxyNameOwnerForeachData;
+
+static void
+name_owner_foreach (gpointer key, gpointer val, gpointer data)
+{
+  const char *owner;
+  DBusGProxyNameOwnerForeachData *foreach_data;
+  GSList *names;
+  GSList *link;
+
+  owner = key;
+  names = val;
+  foreach_data = data;
+
+  if (foreach_data->owner != NULL)
+    return;
+
+  g_assert (foreach_data->info == NULL);
+
+  link = g_slist_find_custom (names, foreach_data->name, find_name_in_info);
+  if (link)
+    {
+      foreach_data->owner = owner;
+      foreach_data->info = link->data;
+    }
+}
+
+static gboolean
+dbus_g_proxy_manager_lookup_name_owner (DBusGProxyManager        *manager,
+					const char               *name,
+					DBusGProxyNameOwnerInfo **info,
+					const char              **owner)
+{
+  DBusGProxyNameOwnerForeachData foreach_data;
+
+  foreach_data.name = name;
+  foreach_data.owner = NULL;
+  foreach_data.info = NULL;
+  
+  g_hash_table_foreach (manager->owner_names, name_owner_foreach, &foreach_data);
+
+  *info = foreach_data.info;
+  *owner = foreach_data.owner;
+  return *info != NULL;
+}
+
+static void
+insert_nameinfo (DBusGProxyManager       *manager,
+		 const char              *owner,
+		 DBusGProxyNameOwnerInfo *info)
+{
+  GSList *names;
+  gboolean insert;
+
+  names = g_hash_table_lookup (manager->owner_names, owner);
+
+  /* Only need to g_hash_table_insert the first time */
+  insert = (names == NULL);
+
+  names = g_slist_append (names, info); 
+
+  if (insert)
+    g_hash_table_insert (manager->owner_names, g_strdup (owner), names);
+}
+
+static void
+dbus_g_proxy_manager_monitor_name_owner (DBusGProxyManager  *manager,
+					 const char         *owner,
+					 const char         *name)
+{
+  GSList *names;
+  GSList *link;
+  DBusGProxyNameOwnerInfo *nameinfo;
+
+  names = g_hash_table_lookup (manager->owner_names, owner);
+  link = g_slist_find_custom (names, name, find_name_in_info);
+  
+  if (!link)
+    {
+      nameinfo = g_new0 (DBusGProxyNameOwnerInfo, 1);
+      nameinfo->name = g_strdup (name);
+      nameinfo->refcount = 1;
+
+      insert_nameinfo (manager, owner, nameinfo);
+    }
+  else
+    {
+      nameinfo = link->data;
+      nameinfo->refcount++;
+    }
+}
+
+static void
+dbus_g_proxy_manager_unmonitor_name_owner (DBusGProxyManager  *manager,
+					   const char         *name)
+{
+  DBusGProxyNameOwnerInfo *info;
+  const char *owner;
+  gboolean ret;
+
+  ret = dbus_g_proxy_manager_lookup_name_owner (manager, name, &info, &owner);
+  g_assert (ret);
+  g_assert (info != NULL);
+  g_assert (owner != NULL);
+
+  info->refcount--;
+  if (info->refcount == 0)
+    {
+      GSList *names;
+      GSList *link;
+
+      names = g_hash_table_lookup (manager->owner_names, owner);
+      link = g_slist_find_custom (names, name, find_name_in_info);
+      names = g_slist_delete_link (names, link);
+      if (names != NULL)
+	g_hash_table_insert (manager->owner_names, g_strdup (owner), names);
+      else
+	g_hash_table_remove (manager->owner_names, owner);
+
+      g_free (info->name);
+      g_free (info);
+    }
+}
+
+typedef struct
+{
+  const char *name;
+  GSList *destroyed;
+} DBusGProxyUnassociateData;
+
+static void
+unassociate_proxies (gpointer key, gpointer val, gpointer user_data)
+{
+  const char *tri;
+  DBusGProxyList *list;
+  const char *name;
+  GSList *tmp;
+  DBusGProxyUnassociateData *data;
+
+  tri = key;
+  list = val;
+  data = user_data;
+  name = data->name;
+  
+  for (tmp = list->proxies; tmp; tmp = tmp->next)
+    {
+      DBusGProxy *proxy = DBUS_G_PROXY (tmp->data);
+      DBusGProxyManager *manager;
+
+      manager = proxy->manager;
+
+      if (!strcmp (proxy->name, name))
+	{
+	  if (!proxy->for_owner)
+	    {
+	      g_assert (proxy->associated);
+	      g_assert (proxy->name_call == NULL);
+
+	      proxy->associated = FALSE;
+	      manager->unassociated_proxies = g_slist_prepend (manager->unassociated_proxies, proxy);
+	    }
+	  else
+	    {
+	      data->destroyed = g_slist_prepend (data->destroyed, proxy);
+	    }
+	}
+    }
+}
+
+static void
+dbus_g_proxy_manager_replace_name_owner (DBusGProxyManager  *manager,
+					 const char         *name,
+					 const char         *prev_owner,
+					 const char         *new_owner)
+{
+  GSList *names;
+	  
+  if (prev_owner[0] == '\0')
+    {
+      GSList *tmp;
+      GSList *removed;
+
+      /* We have a new service, look at unassociated proxies */
+
+      removed = NULL;
+
+      for (tmp = manager->unassociated_proxies; tmp ; tmp = tmp->next)
+	{
+	  DBusGProxy *proxy;
+
+	  proxy = tmp->data;
+
+	  if (!strcmp (proxy->name, name))
+	    {
+	      removed = g_slist_prepend (removed, tmp);
+	      
+	      dbus_g_proxy_manager_monitor_name_owner (manager, new_owner, name);
+	      proxy->associated = TRUE;
+	    }
+	}
+
+      for (tmp = removed; tmp; tmp = tmp->next)
+	manager->unassociated_proxies = g_slist_delete_link (manager->unassociated_proxies, tmp->data);
+      g_slist_free (removed);
+    }
+  else
+    {
+      DBusGProxyNameOwnerInfo *info;
+      GSList *link;
+
+      /* Name owner changed or deleted */ 
+
+      names = g_hash_table_lookup (manager->owner_names, prev_owner);
+
+      link = g_slist_find_custom (names, name, find_name_in_info);
+
+      info = NULL;
+      if (link != NULL)
+	{
+	  info = link->data;
+	  
+	  names = g_slist_delete_link (names, link);
+
+	  if (names == NULL)
+	    g_hash_table_remove (manager->owner_names, prev_owner);
+	}
+
+      if (new_owner[0] == '\0')
+	{
+	  DBusGProxyUnassociateData data;
+	  GSList *tmp;
+
+	  data.name = name;
+	  data.destroyed = NULL;
+
+	  /* A service went away, we need to unassociate proxies */
+	  g_hash_table_foreach (manager->proxy_lists,
+				unassociate_proxies, &data);
+
+	  UNLOCK_MANAGER (manager);
+
+	  for (tmp = data.destroyed; tmp; tmp = tmp->next)
+	    dbus_g_proxy_destroy (tmp->data);
+	  g_slist_free (data.destroyed);
+
+	  LOCK_MANAGER (manager);
+	}
+      else
+	{
+	  insert_nameinfo (manager, new_owner, info);
+	}
+    }
+}
+
+static void
+got_name_owner_cb (DBusGPendingCall *pending,
+		   void             *user_data)
+{
+  DBusGProxy *proxy;
+  GError *error;
+  char *owner;
+  GSList *link;
+
+  proxy = user_data;
+  error = NULL;
+  owner = NULL;
+
+  LOCK_MANAGER (proxy->manager);
+
+  link = g_slist_find (proxy->manager->pending_nameowner_calls, pending);
+  g_assert (link != NULL);
+  
+  if (!dbus_g_pending_call_end (DBUS_G_CONNECTION_FROM_CONNECTION (proxy->manager->connection),
+				NULL,
+				pending,
+				&error,
+				G_TYPE_STRING, &owner,
+				G_TYPE_INVALID))
+    {
+      if (error->domain == DBUS_GERROR && error->code == DBUS_GERROR_NAME_HAS_NO_OWNER)
+	{
+	  proxy->manager->unassociated_proxies = g_slist_prepend (proxy->manager->unassociated_proxies, proxy);
+	}
+      else
+	g_warning ("Couldn't get name owner (%s): %s",
+		   dbus_g_error_get_name (error),
+		   error->message);
+
+      g_clear_error (&error);
+      goto out;
+    }
+  else
+    {
+      dbus_g_proxy_manager_monitor_name_owner (proxy->manager, owner, proxy->name);
+      proxy->associated = TRUE;
+    }
+
+ out:
+  proxy->name_call = NULL;
+  proxy->manager->pending_nameowner_calls = g_slist_delete_link (proxy->manager->pending_nameowner_calls, link);
+  UNLOCK_MANAGER (proxy->manager);
+  g_free (owner);
+}
+
+static char *
+get_name_owner (DBusConnection     *connection,
+		const char         *name,
+		GError            **error)
+{
+  DBusError derror;
+  DBusMessage *request, *reply;
+  char *base_name;
+  
+  dbus_error_init (&derror);
+
+  base_name = NULL;
+  reply = NULL;
+
+  request = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+					  DBUS_PATH_DBUS,
+					  DBUS_INTERFACE_DBUS,
+					  "GetNameOwner");
+  if (request == NULL)
+    g_error ("Out of memory");
+  
+  if (!dbus_message_append_args (request, 
+				 DBUS_TYPE_STRING, &name, 
+				 DBUS_TYPE_INVALID))
+    g_error ("Out of memory");
+
+  reply =
+    dbus_connection_send_with_reply_and_block (connection,
+                                               request,
+                                               2000, &derror);
+  if (reply == NULL)
+    goto error;
+
+  if (dbus_set_error_from_message (&derror, reply))
+    goto error;
+
+  if (!dbus_message_get_args (reply, &derror, 
+			      DBUS_TYPE_STRING, &base_name, 
+			      DBUS_TYPE_INVALID))
+    goto error;
+
+  base_name = g_strdup (base_name);
+  goto out;
+
+ error:
+  g_assert (dbus_error_is_set (&derror));
+  dbus_g_error_set (error, derror.name, derror.message);
+  dbus_error_free (&derror);
+
+ out:
+  if (request)
+    dbus_message_unref (request);
+  if (reply)
+    dbus_message_unref (reply);
+
+  return base_name;
+}
+
+
 static void
 dbus_g_proxy_manager_register (DBusGProxyManager *manager,
                                DBusGProxy        *proxy)
@@ -422,11 +841,26 @@ dbus_g_proxy_manager_register (DBusGProxyManager *manager,
 
   if (manager->proxy_lists == NULL)
     {
+      g_assert (manager->owner_names == NULL);
+
       list = NULL;
       manager->proxy_lists = g_hash_table_new_full (tristring_hash,
                                                     tristring_equal,
                                                     NULL,
                                                     (GFreeFunc) g_proxy_list_free);
+      manager->owner_names = g_hash_table_new_full (g_str_hash,
+                                                    g_str_equal,
+                                                    g_free,
+                                                    NULL);
+      /* FIXME - for now we listen for all NameOwnerChanged; once
+       * Anders' detail patch lands we should add individual rules
+       */
+      dbus_bus_add_match (manager->connection,
+                          "type='signal',sender='" DBUS_SERVICE_DBUS
+			  "',path='" DBUS_PATH_DBUS
+			  "',interface='" DBUS_INTERFACE_DBUS
+			  "',member='NameOwnerChanged'",
+			  NULL);
     }
   else
     {
@@ -469,6 +903,61 @@ dbus_g_proxy_manager_register (DBusGProxyManager *manager,
   g_assert (g_slist_find (list->proxies, proxy) == NULL);
   
   list->proxies = g_slist_prepend (list->proxies, proxy);
+
+  if (!proxy->for_owner)
+    {
+      const char *owner;
+      DBusGProxyNameOwnerInfo *info;
+
+      if (!dbus_g_proxy_manager_lookup_name_owner (manager, proxy->name, &info, &owner))
+	{
+	  DBusPendingCall *pending;
+	  DBusGPendingCall *gpending;
+	  DBusMessage *request, *reply;
+
+	  g_assert (owner == NULL);
+  
+	  reply = NULL;
+	  
+	  request = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+						  DBUS_PATH_DBUS,
+						  DBUS_INTERFACE_DBUS,
+						  "GetNameOwner");
+	  if (request == NULL)
+	    g_error ("Out of memory");
+	  
+	  if (!dbus_message_append_args (request, 
+					 DBUS_TYPE_STRING, &(proxy->name), 
+					 DBUS_TYPE_INVALID))
+	    g_error ("Out of memory");
+
+	  if (!dbus_connection_send_with_reply (manager->connection,
+						request,
+						&pending,
+						-1))
+	    g_error ("Out of memory");
+	  g_assert (pending != NULL);
+
+	  gpending = DBUS_G_PENDING_CALL_FROM_PENDING_CALL (pending);
+
+	  /* It's safe to keep a reference to proxy here;
+	   * when the proxy is unreffed we cancel the call
+	   */
+	  dbus_g_pending_call_set_notify (gpending,
+					  got_name_owner_cb,
+					  proxy,
+					  NULL);
+	  
+	  proxy->associated = FALSE;
+	  proxy->name_call = gpending;
+	  manager->pending_nameowner_calls = g_slist_prepend (manager->pending_nameowner_calls, gpending);
+	}
+      else
+	{
+	  info->refcount++;
+	  proxy->associated = TRUE;
+	}
+    }
   
   UNLOCK_MANAGER (manager);
 }
@@ -507,6 +996,37 @@ dbus_g_proxy_manager_unregister (DBusGProxyManager *manager,
   list->proxies = g_slist_remove (list->proxies, proxy);
 
   g_assert (g_slist_find (list->proxies, proxy) == NULL);
+
+  if (!proxy->for_owner)
+    {
+      if (!proxy->associated)
+	{
+	  GSList *link;
+
+	  if (proxy->name_call != NULL)
+	    {
+	      link = g_slist_find (manager->pending_nameowner_calls, proxy->name_call);
+	      g_assert (link != NULL);
+	  
+	      dbus_g_pending_call_cancel (proxy->name_call);
+
+	      manager->pending_nameowner_calls = g_slist_delete_link (manager->pending_nameowner_calls, link);
+	    }
+	  else
+	    {
+	      link = g_slist_find (manager->unassociated_proxies, proxy);
+	      g_assert (link != NULL);
+
+	      manager->unassociated_proxies = g_slist_delete_link (manager->unassociated_proxies, link);
+	    }
+	}
+      else
+	{
+	  g_assert (proxy->name_call == NULL);
+	  
+	  dbus_g_proxy_manager_unmonitor_name_owner (manager, proxy->name);
+	}
+    }
 
   if (list->proxies == NULL)
     {
@@ -620,9 +1140,45 @@ dbus_g_proxy_manager_filter (DBusConnection    *connection,
   else
     {
       char *tri;
-      DBusGProxyList *list;
+      GSList *full_list;
+      GSList *owned_names;
+      GSList *tmp;
+      const char *sender;
+
+      /* First we handle NameOwnerChanged internally */
+      if (dbus_message_is_signal (message,
+				  DBUS_INTERFACE_DBUS,
+				  "NameOwnerChanged"))
+	{
+	  const char *name;
+	  const char *prev_owner;
+	  const char *new_owner;
+	  DBusError derr;
+
+	  dbus_error_init (&derr);
+	  if (!dbus_message_get_args (message,
+				      &derr,
+				      DBUS_TYPE_STRING,
+				      &name,
+				      DBUS_TYPE_STRING,
+				      &prev_owner,
+				      DBUS_TYPE_STRING,
+				      &new_owner,
+				      DBUS_TYPE_INVALID))
+	    {
+	      /* Ignore this error */
+	      dbus_error_free (&derr);
+	    }
+	  else if (manager->owner_names != NULL)
+	    {
+	      dbus_g_proxy_manager_replace_name_owner (manager, name, prev_owner, new_owner);
+	    }
+	}
+
+      sender = dbus_message_get_sender (message);
 
       /* dbus spec requires these, libdbus validates */
+      g_assert (sender != NULL);
       g_assert (dbus_message_get_path (message) != NULL);
       g_assert (dbus_message_get_interface (message) != NULL);
       g_assert (dbus_message_get_member (message) != NULL);
@@ -630,9 +1186,38 @@ dbus_g_proxy_manager_filter (DBusConnection    *connection,
       tri = tristring_from_message (message);
 
       if (manager->proxy_lists)
-        list = g_hash_table_lookup (manager->proxy_lists, tri);
+	{
+	  DBusGProxyList *owner_list;
+	  owner_list = g_hash_table_lookup (manager->proxy_lists, tri);
+	  if (owner_list)
+	    full_list = g_slist_copy (owner_list->proxies);
+	  else
+	    full_list = NULL;
+	}
       else
-        list = NULL;
+	full_list = NULL;
+
+      g_free (tri);
+
+      if (manager->owner_names)
+	{
+	  owned_names = g_hash_table_lookup (manager->owner_names, sender);
+	  for (tmp = owned_names; tmp; tmp = tmp->next)
+	    {
+	      DBusGProxyList *owner_list;
+	      DBusGProxyNameOwnerInfo *nameinfo;
+
+	      nameinfo = tmp->data;
+	      g_assert (nameinfo->refcount > 0);
+	      tri = tristring_alloc_from_strings (0, nameinfo->name,
+						  dbus_message_get_path (message),
+						  dbus_message_get_interface (message));
+
+	      owner_list = g_hash_table_lookup (manager->proxy_lists, tri);
+	      full_list = g_slist_concat (full_list, g_slist_copy (owner_list->proxies));
+	      g_free (tri);
+	    }
+	}
 
 #if 0
       g_print ("proxy got %s,%s,%s = list %p\n",
@@ -642,35 +1227,22 @@ dbus_g_proxy_manager_filter (DBusConnection    *connection,
                list);
 #endif
       
-      g_free (tri);
-
       /* Emit the signal */
       
-      if (list != NULL)
-        {
-          GSList *tmp;
-          GSList *copy;
-
-          copy = g_slist_copy (list->proxies);
-          g_slist_foreach (copy, (GFunc) g_object_ref, NULL);
-          
-          tmp = copy;
-          while (tmp != NULL)
-            {
-              DBusGProxy *proxy;
-
-              proxy = DBUS_G_PROXY (tmp->data);
-
-              UNLOCK_MANAGER (manager);
-              dbus_g_proxy_emit_remote_signal (proxy, message);
-              g_object_unref (G_OBJECT (proxy));
-              LOCK_MANAGER (manager);
-              
-              tmp = tmp->next;
-            }
-
-          g_slist_free (copy);
-        }
+      g_slist_foreach (full_list, (GFunc) g_object_ref, NULL);
+      
+      for (tmp = full_list; tmp; tmp = tmp->next)
+	{
+	  DBusGProxy *proxy;
+	  
+	  proxy = DBUS_G_PROXY (tmp->data);
+	  
+	  UNLOCK_MANAGER (manager);
+	  dbus_g_proxy_emit_remote_signal (proxy, message);
+	  g_object_unref (G_OBJECT (proxy));
+	  LOCK_MANAGER (manager);
+	}
+      g_slist_free (full_list);
     }
 
   UNLOCK_MANAGER (manager);
@@ -887,7 +1459,7 @@ dbus_g_proxy_emit_remote_signal (DBusGProxy  *proxy,
   GQuark q;
 
   g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
-  
+
   interface = dbus_message_get_interface (message);
   signal = dbus_message_get_member (message);
 
@@ -1004,6 +1576,10 @@ dbus_g_proxy_new (DBusGConnection *connection,
   proxy->path = g_strdup (path_name);
   proxy->interface = g_strdup (interface_name);
 
+  proxy->for_owner = (proxy->name[0] == ':');
+  proxy->name_call = NULL;
+  proxy->associated = FALSE;
+
   dbus_g_proxy_manager_register (proxy->manager, proxy);
   
   return proxy;
@@ -1041,17 +1617,13 @@ dbus_g_proxy_new_for_name (DBusGConnection *connection,
                            const char      *path_name,
                            const char      *interface_name)
 {
-  DBusGProxy *proxy;
-
   g_return_val_if_fail (connection != NULL, NULL);
   g_return_val_if_fail (name != NULL, NULL);
   g_return_val_if_fail (path_name != NULL, NULL);
   g_return_val_if_fail (interface_name != NULL, NULL);
-  
-  proxy = dbus_g_proxy_new (connection, name,
-                            path_name, interface_name);
 
-  return proxy;
+  return dbus_g_proxy_new (connection, name,
+			   path_name, interface_name);
 }
 
 /**
@@ -1085,65 +1657,19 @@ dbus_g_proxy_new_for_name_owner (DBusGConnection          *connection,
                                  GError                  **error)
 {
   DBusGProxy *proxy;
-  DBusMessage *request, *reply;
-  DBusError derror;
-  const char *unique_name;
-  
+  char *unique_name;
+
   g_return_val_if_fail (connection != NULL, NULL);
   g_return_val_if_fail (name != NULL, NULL);
   g_return_val_if_fail (path_name != NULL, NULL);
   g_return_val_if_fail (interface_name != NULL, NULL);
 
-  dbus_error_init (&derror);
-
-  proxy = NULL;
-  unique_name = NULL;
-  reply = NULL;
-
-  request = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
-					  DBUS_PATH_DBUS,
-					  DBUS_INTERFACE_DBUS,
-					  "GetNameOwner");
-  if (request == NULL)
-    g_error ("Out of memory");
-  
-  if (! dbus_message_append_args (request, 
-				  DBUS_TYPE_STRING, &name, 
-				  DBUS_TYPE_INVALID))
-    g_error ("Out of memory");
-
-  reply =
-    dbus_connection_send_with_reply_and_block (DBUS_CONNECTION_FROM_G_CONNECTION (connection),
-                                               request,
-                                               2000, &derror);
-  if (reply == NULL)
-    goto error;
-
-  if (dbus_set_error_from_message (&derror, reply))
-    goto error;
-
-  if (! dbus_message_get_args (reply, &derror, 
-			       DBUS_TYPE_STRING, &unique_name, 
-			       DBUS_TYPE_INVALID))
-    goto error;
-      
+  if (!(unique_name = get_name_owner (DBUS_CONNECTION_FROM_G_CONNECTION (connection), name, error)))
+    return NULL;
 
   proxy = dbus_g_proxy_new (connection, unique_name,
-                            path_name, interface_name);
-
-  goto out;
-
- error:
-  g_assert (dbus_error_is_set (&derror));
-  dbus_g_error_set (error, derror.name, derror.message);
-  dbus_error_free (&derror);
-
- out:
-  if (request)
-    dbus_message_unref (request);
-  if (reply)
-    dbus_message_unref (reply);
-
+			    path_name, interface_name);
+  g_free (unique_name);
   return proxy;
 }
 
@@ -1356,16 +1882,18 @@ dbus_g_proxy_begin_call_internal (DBusGProxy    *proxy,
 }
 
 static gboolean
-dbus_g_proxy_end_call_internal (DBusGProxy       *proxy,
-				DBusGPendingCall *pending,
-				GError          **error,
-				GType             first_arg_type,
-				va_list           args)
+dbus_g_pending_call_end_valist (DBusGConnection   *connection,
+				DBusGProxy        *proxycon,
+				DBusGPendingCall  *pending,
+				GError           **error,
+				GType              first_arg_type,
+				va_list            args)
 {
   DBusMessage *reply;
   DBusMessageIter msgiter;
   DBusError derror;
   va_list args_unwind;
+  guint over;
   int n_retvals_processed;
   gboolean ret;
   GType valtype;
@@ -1373,6 +1901,7 @@ dbus_g_proxy_end_call_internal (DBusGProxy       *proxy,
   reply = NULL;
   ret = FALSE;
   n_retvals_processed = 0;
+  over = 0;
   dbus_pending_call_block (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (pending));
   reply = dbus_pending_call_steal_reply (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (pending));
 
@@ -1393,15 +1922,18 @@ dbus_g_proxy_end_call_internal (DBusGProxy       *proxy,
 	  GValue gvalue = { 0, };
 	  DBusGValueMarshalCtx context;
 
-	  context.gconnection = DBUS_G_CONNECTION_FROM_CONNECTION (proxy->manager->connection);
-	  context.proxy = proxy;
+	  context.gconnection = connection;
+	  context.proxy = proxycon;
 
 
 	  arg_type = dbus_message_iter_get_arg_type (&msgiter);
 	  if (arg_type == DBUS_TYPE_INVALID)
-	    g_set_error (error, DBUS_GERROR,
-			 DBUS_GERROR_INVALID_ARGS,
-			 _("Too few arguments in reply"));
+	    {
+	      g_set_error (error, DBUS_GERROR,
+			   DBUS_GERROR_INVALID_ARGS,
+			   _("Too few arguments in reply"));
+	      goto out;
+	    }
 
 	  return_storage = va_arg (args, gpointer);
 	  if (return_storage == NULL)
@@ -1459,11 +1991,19 @@ dbus_g_proxy_end_call_internal (DBusGProxy       *proxy,
 	  dbus_message_iter_next (&msgiter);
 	  valtype = va_arg (args, GType);
 	}
-      if (dbus_message_iter_get_arg_type (&msgiter) != DBUS_TYPE_INVALID)
+      
+      while (dbus_message_iter_get_arg_type (&msgiter) != DBUS_TYPE_INVALID)
+	{
+	  over++;
+	  dbus_message_iter_next (&msgiter);
+	}
+
+      if (over > 0)
 	{
 	  g_set_error (error, DBUS_GERROR,
 		       DBUS_GERROR_INVALID_ARGS,
-		       _("Too many arguments in reply"));
+		       _("Too many arguments in reply; expected %d, got %d"),
+		       n_retvals_processed, over);
 	  goto out;
 	}
       break;
@@ -1505,6 +2045,42 @@ dbus_g_proxy_end_call_internal (DBusGProxy       *proxy,
   if (reply)
     dbus_message_unref (reply);
   return ret;
+}
+
+static gboolean
+dbus_g_pending_call_end (DBusGConnection   *connection,
+			 DBusGProxy        *proxycon,
+			 DBusGPendingCall  *pending,
+			 GError           **error,
+			 GType              first_arg_type,
+			 ...)
+{
+  va_list args;
+  gboolean ret;
+
+  va_start (args, first_arg_type);
+
+  ret = dbus_g_pending_call_end_valist (connection, proxycon, pending,
+					error, first_arg_type, args);
+
+  va_end (args);
+
+  return ret;
+}
+
+static gboolean
+dbus_g_proxy_end_call_internal (DBusGProxy       *proxy,
+				DBusGPendingCall *pending,
+				GError          **error,
+				GType             first_arg_type,
+				va_list           args)
+{
+  return dbus_g_pending_call_end_valist (DBUS_G_CONNECTION_FROM_CONNECTION (proxy->manager->connection),
+					 proxy,
+					 pending,
+					 error,
+					 first_arg_type,
+					 args);
 }
 
 

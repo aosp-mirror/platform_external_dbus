@@ -1,3 +1,63 @@
+2005-06-29  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-gproxy.c (struct _DBusGProxy): Add new member
+	name_call for keeping track of any outgoing GetNameOwner call.
+	Also add for_owner and associated.
+	(struct _DBusGProxyManager): Add owner_names, which is hash table
+	that maps a base name to a list of names it owns (that we're
+	interested in).  Add pending_nameowner_calls which is a list of
+	all outstanding GetNameOwner; avoids us having to iterate over
+	every proxy.  Add unassociated_proxies which keeps track of name
+	proxies with no associated name owner.
+	(dbus_g_proxy_manager_unref): Destroy owner_names.
+	(struct DBusGProxyNameOwnerInfo): New struct for keeping track of
+	name refcounts.
+	(find_name_in_info, name_owner_foreach)
+	(dbus_g_proxy_manager_lookup_name_owner, insert_nameinfo)
+	(dbus_g_proxy_manager_monitor_name_owner)
+	(dbus_g_proxy_manager_unmonitor_name_owner)
+	(unassociate_proxies, dbus_g_proxy_manager_replace_name_owner):
+	New functions; they manipulate the owner_names mapping.
+	(got_name_owner_cb): New function.
+	(get_name_owner): New function, extracted from
+	dbus_g_proxy_new_for_name_owner.
+	(dbus_g_proxy_manager_register): For now we need to keep track of
+	all NameOwnerChanged.  Also if the proxy is for a name, if we
+	don't already know the name owner, queue a new GetNameOwner
+	request and add it to our list of unassociated proxies.  Otherwise
+	inc the refcount.
+	(dbus_g_proxy_manager_unregister): If this proxy is for a name,
+	cancel any pending GetNameOwner call, etc.
+	(dbus_g_proxy_manager_filter): Handle NameOwnerChanged.  Also use
+	the owner_names mapping to look up the current names for the
+	signal source, and dispatch to any proxies for that name.
+	(dbus_g_proxy_new): Initialize new members.
+	(dbus_g_proxy_new_for_name): Delete unused proxy variable.
+	(dbus_g_proxy_new_for_name_owner): Use get_name_owner.
+	(dbus_g_pending_call_end_valist): New function, extracted from
+	dbus_g_proxy_end_call_internal.  Useful when we don't have a proxy
+	but want to use the GLib infrastructure.  Also note how many
+	arguments in reply were over.
+	(dbus_g_pending_call_end): New function, just call
+	dbus_g_pending_call_end_valist.
+	(dbus_g_proxy_end_call_internal): Just call
+	dbus_g_pending_call_end_valist.
+
+	* glib/dbus-gobject.c (_dbus_gobject_lookup_marshaller): Fix lookup
+	of builtin marshaller for STRING_STRING_STRING.
+
+	* test/glib/test-dbus-glib.c: 
+	* test/glib/test-service-glib.c:
+	* test/glib/test-service-glib.xml:
+	Extend tests to cover name proxies, destruction of owner proxies,
+	etc.
+	
+	* glib/examples/example-signal-recipient.c
+	(dbus_g_proxy_new_for_name_owner): Create a name proxy.
+	
+	* tools/dbus-send.c (main): Print D-BUS error name in addition
+	to message.
+
 2005-06-28  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/dbus_bindings.pyx.in (cunregister_function_handler,

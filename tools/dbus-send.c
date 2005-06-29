@@ -428,7 +428,8 @@ main (int argc, char *argv[])
                                                          &error);
       if (dbus_error_is_set (&error))
         {
-          fprintf (stderr, "Error: %s\n",
+          fprintf (stderr, "Error %s: %s\n",
+		   error.name,
                    error.message);
           exit (1);
         }

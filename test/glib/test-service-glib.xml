@@ -86,6 +86,9 @@
 
     <!-- Export signals -->
     <signal name="Frobnicate"/>
+
+    <method name="Terminate">
+    </method>
   </interface>
 
   <!-- Test multiple interfaces on the same object -->
@@ -106,6 +109,9 @@
     </method>
 
     <signal name="Sig2"/>
+
+    <method name="Terminate">
+    </method>
 
   </interface>
 

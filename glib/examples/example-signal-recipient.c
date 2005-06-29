@@ -60,11 +60,10 @@ main (int argc, char **argv)
   /* We use _for_name_owner in order to track this particular service
    * instance, which lets us receive signals.
    */
-  remote_object = dbus_g_proxy_new_for_name_owner (bus,
-						   "org.designfu.TestService",
-						   "/org/designfu/TestService/object",
-						   "org.designfu.TestService",
-						   &error);
+  remote_object = dbus_g_proxy_new_for_name (bus,
+					     "org.designfu.TestService",
+					     "/org/designfu/TestService/object",
+					     "org.designfu.TestService");
   if (!remote_object)
     lose_gerror ("Failed to get name owner", error);
 

@@ -1484,13 +1484,13 @@ _dbus_gobject_lookup_marshaller (GType        rettype,
 		  break;
 		}
 	    }
-	}
-      else if (n_params == 3
-	       && params[0] == G_TYPE_STRING
-	       && params[1] == G_TYPE_STRING
-	       && params[2] == G_TYPE_STRING)
-	{
-	  ret = _dbus_g_marshal_NONE__STRING_STRING_STRING;
+	  else if (n_params == 3
+		   && params[0] == G_TYPE_STRING
+		   && params[1] == G_TYPE_STRING
+		   && params[2] == G_TYPE_STRING)
+	    {
+	      ret = _dbus_g_marshal_NONE__STRING_STRING_STRING;
+	    }
 	}
     }
 

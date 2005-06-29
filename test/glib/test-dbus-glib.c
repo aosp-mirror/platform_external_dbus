@@ -6,22 +6,67 @@
 #include "test-service-glib-bindings.h"
 #include <glib/dbus-gidl.h>
 #include <glib/dbus-gparser.h>
+#include <glib.h>
 #include <glib-object.h>
 #include "my-object-marshal.h"
 
 static GMainLoop *loop = NULL;
+static const char *await_terminating_service = NULL;
 static int n_times_foo_received = 0;
 static int n_times_frobnicate_received = 0;
+static int n_times_frobnicate_received_2 = 0;
 static int n_times_sig0_received = 0;
 static int n_times_sig1_received = 0;
 static int n_times_sig2_received = 0;
 static guint exit_timeout = 0;
+static gboolean proxy_destroyed = FALSE;
+static gboolean proxy_destroy_and_nameowner = FALSE;
+static gboolean proxy_destroy_and_nameowner_complete = FALSE;
 
 static gboolean
 timed_exit (gpointer loop)
 {
+  g_print ("timed exit!\n");
   g_main_loop_quit (loop);
   return TRUE;
+}
+
+static void
+proxy_destroyed_cb (DBusGProxy *proxy, gpointer user_data)
+{
+  proxy_destroyed = TRUE;
+  if (proxy_destroy_and_nameowner && !proxy_destroy_and_nameowner_complete && await_terminating_service == NULL)
+    {
+      g_main_loop_quit (loop);
+      proxy_destroy_and_nameowner_complete = TRUE;
+    } 
+}
+
+static void
+name_owner_changed (DBusGProxy *proxy,
+		    const char *name,
+		    const char *prev_owner,
+		    const char *new_owner,
+		    gpointer   user_data)
+{
+  g_print ("(signal NameOwnerChanged) name owner changed for %s from %s to %s\n",
+	   name, prev_owner, new_owner);
+  if (await_terminating_service &&
+      !strcmp (name, await_terminating_service)
+      && !strcmp ("", new_owner))
+    {
+      g_print ("Caught expected ownership loss for %s\n", name); 
+      await_terminating_service = NULL;
+      if (proxy_destroy_and_nameowner && !proxy_destroy_and_nameowner_complete && proxy_destroyed)
+	{
+	  g_main_loop_quit (loop);
+	  proxy_destroy_and_nameowner_complete = TRUE;
+	} 
+      else if (!proxy_destroy_and_nameowner)
+	{
+	  g_main_loop_quit (loop);
+	}
+    }
 }
 
 static void
@@ -30,6 +75,8 @@ foo_signal_handler (DBusGProxy  *proxy,
                     void        *user_data)
 {
   n_times_foo_received += 1;
+
+  g_print ("Got Foo signal\n");
 
   g_main_loop_quit (loop);
   g_source_remove (exit_timeout);
@@ -43,9 +90,21 @@ frobnicate_signal_handler (DBusGProxy  *proxy,
   n_times_frobnicate_received += 1;
 
   g_assert (val == 42);
+  g_print ("Got Frobnicate signal\n");
 
   g_main_loop_quit (loop);
   g_source_remove (exit_timeout);
+}
+
+static void
+frobnicate_signal_handler_2 (DBusGProxy  *proxy,
+			     int          val,
+			     void        *user_data)
+{
+  n_times_frobnicate_received_2 += 1;
+
+  g_assert (val == 42);
+  g_print ("Got Frobnicate signal (again)\n");
 }
 
 static void
@@ -62,6 +121,8 @@ sig0_signal_handler (DBusGProxy  *proxy,
   g_assert (val == 22);
 
   g_assert (!strcmp (str1, "moo"));
+
+  g_print ("Got Sig0 signal\n");
 
   g_main_loop_quit (loop);
   g_source_remove (exit_timeout);
@@ -81,6 +142,8 @@ sig1_signal_handler (DBusGProxy  *proxy,
 
   g_assert (!strcmp (g_value_get_string (value), "bar"));
 
+  g_print ("Got Sig1 signal\n");
+
   g_main_loop_quit (loop);
   g_source_remove (exit_timeout);
 }
@@ -98,6 +161,8 @@ sig2_signal_handler (DBusGProxy  *proxy,
   g_assert (!strcmp (g_hash_table_lookup (table, "baz"), "cow"));
   g_assert (g_hash_table_lookup (table, "bar") != NULL);
   g_assert (!strcmp (g_hash_table_lookup (table, "bar"), "foo"));
+
+  g_print ("Got Sig2 signal\n");
 
   g_main_loop_quit (loop);
   g_source_remove (exit_timeout);
@@ -124,7 +189,22 @@ lose (const char *str, ...)
 static void
 lose_gerror (const char *prefix, GError *error) 
 {
-  lose ("%s: %s", prefix, error->message);
+  if (error->domain == DBUS_GERROR && error->code == DBUS_GERROR_REMOTE_EXCEPTION)
+    lose ("%s (%s): %s", prefix, dbus_g_error_get_name (error),
+	  error->message);
+  else
+    lose ("%s: %s", prefix, error->message);
+}
+
+static void
+run_mainloop (void)
+{
+  GMainContext *ctx;
+
+  ctx = g_main_loop_get_context (loop);
+
+  while (g_main_context_pending (ctx))
+    g_main_context_iteration (ctx, FALSE);
 }
 
 int
@@ -134,16 +214,14 @@ main (int argc, char **argv)
   GError *error;
   DBusGProxy *driver;
   DBusGProxy *proxy;
+  DBusGProxy *proxy2;
   DBusGPendingCall *call;
   char **name_list;
   guint name_list_len;
   guint i;
   guint32 result;
-  const char *v_STRING;
   char *v_STRING_2;
-  guint32 v_UINT32;
   guint32 v_UINT32_2;
-  double v_DOUBLE;
   double v_DOUBLE_2;
     
   g_type_init ();
@@ -166,10 +244,22 @@ main (int argc, char **argv)
   /* Create a proxy object for the "bus driver" */
   
   driver = dbus_g_proxy_new_for_name (connection,
-                                      DBUS_SERVICE_DBUS,
-                                      DBUS_PATH_DBUS,
-                                      DBUS_INTERFACE_DBUS);
+				      DBUS_SERVICE_DBUS,
+				      DBUS_PATH_DBUS,
+				      DBUS_INTERFACE_DBUS);
 
+  dbus_g_proxy_add_signal (driver,
+			   "NameOwnerChanged",
+			   G_TYPE_STRING,
+			   G_TYPE_STRING,
+			   G_TYPE_STRING,
+			   G_TYPE_INVALID);
+  
+  dbus_g_proxy_connect_signal (driver,
+			       "NameOwnerChanged", 
+			       G_CALLBACK (name_owner_changed),
+			       NULL,
+			       NULL);
   /* Call ListNames method */
   
   call = dbus_g_proxy_begin_call (driver, "ListNames", G_TYPE_INVALID);
@@ -193,6 +283,7 @@ main (int argc, char **argv)
 
   g_strfreev (name_list);
 
+  g_print ("calling ThisMethodDoesNotExist\n");
   /* Test handling of unknown method */
   call = dbus_g_proxy_begin_call (driver, "ThisMethodDoesNotExist",
                                   G_TYPE_STRING,
@@ -208,8 +299,11 @@ main (int argc, char **argv)
 
   g_print ("Got EXPECTED error from calling unknown method: %s\n", error->message);
   g_error_free (error);
+
+  run_mainloop ();
   
   /* Activate a service */
+  g_print ("Activating echo service\n");
   call = dbus_g_proxy_begin_call (driver, "StartServiceByName",
                                   G_TYPE_STRING,
                                   "org.freedesktop.DBus.TestSuiteEchoService",
@@ -226,6 +320,7 @@ main (int argc, char **argv)
   g_print ("Starting echo service result = 0x%x\n", result);
 
   /* Activate a service again */
+  g_print ("Activating echo service again\n");
   call = dbus_g_proxy_begin_call (driver, "StartServiceByName",
                                   G_TYPE_STRING,
                                   "org.freedesktop.DBus.TestSuiteEchoService",
@@ -243,6 +338,7 @@ main (int argc, char **argv)
 
   /* Talk to the new service */
   
+  g_print ("Creating proxy for echo service\n");
   proxy = dbus_g_proxy_new_for_name_owner (connection,
                                            "org.freedesktop.DBus.TestSuiteEchoService",
                                            "/org/freedesktop/TestSuite",
@@ -252,6 +348,9 @@ main (int argc, char **argv)
   if (proxy == NULL)
     lose_gerror ("Failed to create proxy for name owner", error);
 
+  run_mainloop ();
+
+  g_print ("Calling Echo\n");
   call = dbus_g_proxy_begin_call (proxy, "Echo",
                                   G_TYPE_STRING,
                                   "my string hello",
@@ -268,6 +367,7 @@ main (int argc, char **argv)
 
   /* Test oneway call and signal handling */
 
+  g_print ("Testing Foo emission\n");
   dbus_g_proxy_add_signal (proxy, "Foo", G_TYPE_DOUBLE, G_TYPE_INVALID);
   
   dbus_g_proxy_connect_signal (proxy, "Foo",
@@ -305,6 +405,8 @@ main (int argc, char **argv)
 
   g_object_unref (G_OBJECT (proxy));
 
+  run_mainloop ();
+
   proxy = dbus_g_proxy_new_for_name_owner (connection,
                                            "org.freedesktop.DBus.TestSuiteGLibService",
                                            "/org/freedesktop/DBus/Tests/MyTestObject",
@@ -314,14 +416,14 @@ main (int argc, char **argv)
   if (proxy == NULL)
     lose_gerror ("Failed to create proxy for name owner", error);
 
-  g_print ("Beginning method calls\n");
-
+  g_print ("Calling DoNothing\n");
   call = dbus_g_proxy_begin_call (proxy, "DoNothing",
                                   G_TYPE_INVALID);
   error = NULL;
   if (!dbus_g_proxy_end_call (proxy, call, &error, G_TYPE_INVALID))
     lose_gerror ("Failed to complete DoNothing call", error);
 
+  g_print ("Calling Increment\n");
   error = NULL;
   if (!dbus_g_proxy_call (proxy, "Increment", &error,
 			  G_TYPE_UINT, 42,
@@ -333,6 +435,7 @@ main (int argc, char **argv)
   if (v_UINT32_2 != 43)
     lose ("Increment call returned %d, should be 43", v_UINT32_2);
 
+  g_print ("Calling ThrowError\n");
   call = dbus_g_proxy_begin_call (proxy, "ThrowError", G_TYPE_INVALID);
   error = NULL;
   if (dbus_g_proxy_end_call (proxy, call, &error, G_TYPE_INVALID) != FALSE)
@@ -343,6 +446,7 @@ main (int argc, char **argv)
   g_print ("ThrowError failed (as expected) returned error: %s\n", error->message);
   g_clear_error (&error);
 
+  g_print ("Calling Uppercase\n");
   call = dbus_g_proxy_begin_call (proxy, "Uppercase",
 				  G_TYPE_STRING, "foobar",
 				  G_TYPE_INVALID);
@@ -355,9 +459,9 @@ main (int argc, char **argv)
     lose ("Uppercase call returned unexpected string %s", v_STRING_2);
   g_free (v_STRING_2);
 
-  v_STRING = "bazwhee";
-  v_UINT32 = 26;
-  v_DOUBLE = G_PI;
+  run_mainloop ();
+
+  g_print ("Calling ManyArgs\n");
   call = dbus_g_proxy_begin_call (proxy, "ManyArgs",
 				  G_TYPE_UINT, 26,
 				  G_TYPE_STRING, "bazwhee",
@@ -375,27 +479,32 @@ main (int argc, char **argv)
     lose ("ManyArgs call returned unexpected string %s", v_STRING_2);
   g_free (v_STRING_2);
 
+  g_print ("Calling (wrapped) do_nothing\n");
   if (!org_freedesktop_DBus_Tests_MyObject_do_nothing (proxy, &error))
     lose_gerror ("Failed to complete (wrapped) DoNothing call", error);
 
+  g_print ("Calling (wrapped) increment\n");
   if (!org_freedesktop_DBus_Tests_MyObject_increment (proxy, 42, &v_UINT32_2, &error))
     lose_gerror ("Failed to complete (wrapped) Increment call", error);
 
   if (v_UINT32_2 != 43)
     lose ("(wrapped) increment call returned %d, should be 43", v_UINT32_2);
 
+  g_print ("Calling (wrapped) throw_error\n");
   if (org_freedesktop_DBus_Tests_MyObject_throw_error (proxy, &error) != FALSE)
     lose ("(wrapped) ThrowError call unexpectedly succeeded!");
 
   g_print ("(wrapped) ThrowError failed (as expected) returned error: %s\n", error->message);
   g_clear_error (&error);
 
+  g_print ("Calling (wrapped) uppercase\n");
   if (!org_freedesktop_DBus_Tests_MyObject_uppercase (proxy, "foobar", &v_STRING_2, &error)) 
     lose_gerror ("Failed to complete (wrapped) Uppercase call", error);
   if (strcmp ("FOOBAR", v_STRING_2) != 0)
     lose ("(wrapped) Uppercase call returned unexpected string %s", v_STRING_2);
   g_free (v_STRING_2);
 
+  g_print ("Calling (wrapped) many_args\n");
   if (!org_freedesktop_DBus_Tests_MyObject_many_args (proxy, 26, "bazwhee", G_PI,
 						      &v_DOUBLE_2, &v_STRING_2, &error))
     lose_gerror ("Failed to complete (wrapped) ManyArgs call", error);
@@ -416,6 +525,7 @@ main (int argc, char **argv)
     guint32 arg4;
     char *arg5;
     
+    g_print ("Calling (wrapped) many_return\n");
     if (!org_freedesktop_DBus_Tests_MyObject_many_return (proxy, &arg0, &arg1, &arg2, &arg3, &arg4, &arg5, &error))
       lose_gerror ("Failed to complete (wrapped) ManyReturn call", error);
 
@@ -440,12 +550,15 @@ main (int argc, char **argv)
     g_free (arg5);
   }
 
+  run_mainloop ();
+
   {
     GValue value = {0, };
 
     g_value_init (&value, G_TYPE_STRING);
     g_value_set_string (&value, "foo");
 
+    g_print ("Calling (wrapped) stringify, with string\n");
     if (!org_freedesktop_DBus_Tests_MyObject_stringify (proxy,
 							&value,
 							&v_STRING_2,
@@ -459,6 +572,7 @@ main (int argc, char **argv)
     g_value_init (&value, G_TYPE_INT);
     g_value_set_int (&value, 42);
 
+    g_print ("Calling (wrapped) stringify, with int\n");
     if (!org_freedesktop_DBus_Tests_MyObject_stringify (proxy,
 							&value,
 							&v_STRING_2,
@@ -471,6 +585,7 @@ main (int argc, char **argv)
 
     g_value_init (&value, G_TYPE_INT);
     g_value_set_int (&value, 88);
+    g_print ("Calling (wrapped) stringify, with another int\n");
     if (!org_freedesktop_DBus_Tests_MyObject_stringify (proxy,
 							&value,
 							NULL,
@@ -478,6 +593,7 @@ main (int argc, char **argv)
       lose_gerror ("Failed to complete (wrapped) stringify call 3", error);
     g_value_unset (&value);
 
+    g_print ("Calling (wrapped) unstringify, for string\n");
     if (!org_freedesktop_DBus_Tests_MyObject_unstringify (proxy,
 							  "foo",
 							  &value,
@@ -491,6 +607,7 @@ main (int argc, char **argv)
 	
     g_value_unset (&value);
 
+    g_print ("Calling (wrapped) unstringify, for int\n");
     if (!org_freedesktop_DBus_Tests_MyObject_unstringify (proxy,
 							  "10",
 							  &value,
@@ -504,6 +621,8 @@ main (int argc, char **argv)
 
     g_value_unset (&value);
   }
+
+  run_mainloop ();
 
   {
     GArray *array;
@@ -523,6 +642,7 @@ main (int argc, char **argv)
     g_array_append_val (array, val);
 
     arraylen = 0;
+    g_print ("Calling (wrapped) recursive1\n");
     if (!org_freedesktop_DBus_Tests_MyObject_recursive1 (proxy, array,
 							 &arraylen, &error))
       lose_gerror ("Failed to complete (wrapped) recursive1 call", error);
@@ -534,6 +654,7 @@ main (int argc, char **argv)
     GArray *array = NULL;
     guint32 *arrayvals;
     
+    g_print ("Calling (wrapped) recursive2\n");
     if (!org_freedesktop_DBus_Tests_MyObject_recursive2 (proxy, 2, &array, &error))
       lose_gerror ("Failed to complete (wrapped) Recursive2 call", error);
 
@@ -553,6 +674,8 @@ main (int argc, char **argv)
     g_array_free (array, TRUE);
   }
 
+  run_mainloop ();
+
   {
     char **strs;
     char **strs_ret;
@@ -564,6 +687,7 @@ main (int argc, char **argv)
     strs[3] = NULL;
 
     strs_ret = NULL;
+    g_print ("Calling (wrapped) many_uppercase\n");
     if (!org_freedesktop_DBus_Tests_MyObject_many_uppercase (proxy, strs, &strs_ret, &error)) 
       lose_gerror ("Failed to complete (wrapped) ManyUppercase call", error);
     g_assert (strs_ret != NULL);
@@ -574,6 +698,7 @@ main (int argc, char **argv)
     if (strcmp ("HELLO", strs_ret[2]) != 0)
       lose ("(wrapped) ManyUppercase call returned unexpected string %s", strs_ret[2]);
 
+    g_free (strs);
     g_strfreev (strs_ret);
   }
 
@@ -586,6 +711,7 @@ main (int argc, char **argv)
     g_hash_table_insert (table, "xxx", "cow!");
 
     len = 0;
+    g_print ("Calling (wrapped) str_hash_len\n");
     if (!org_freedesktop_DBus_Tests_MyObject_str_hash_len (proxy, table, &len, &error))
       lose_gerror ("(wrapped) StrHashLen call failed", error);
     if (len != 13) 
@@ -597,6 +723,7 @@ main (int argc, char **argv)
     GHashTable *table;
     const char *val;
 
+    g_print ("Calling (wrapped) get_hash\n");
     if (!org_freedesktop_DBus_Tests_MyObject_get_hash (proxy, &table, &error))
       lose_gerror ("(wrapped) GetHash call failed", error);
     val = g_hash_table_lookup (table, "foo");
@@ -618,10 +745,13 @@ main (int argc, char **argv)
     g_hash_table_destroy (table);
   }
 
+  run_mainloop ();
+
   {
     guint val;
     DBusGProxy *ret_proxy;
 
+    g_print ("Calling (wrapped) objpath\n");
     if (!org_freedesktop_DBus_Tests_MyObject_objpath (proxy, proxy, &ret_proxy, &error))
       lose_gerror ("Failed to complete (wrapped) Objpath call", error);
     if (strcmp ("/org/freedesktop/DBus/Tests/MyTestObject2",
@@ -629,6 +759,7 @@ main (int argc, char **argv)
       lose ("(wrapped) objpath call returned unexpected proxy %s",
 	    dbus_g_proxy_get_path (ret_proxy));
 
+    g_print ("Doing get/increment val tests\n");
     val = 1;
     if (!org_freedesktop_DBus_Tests_MyObject_get_val (ret_proxy, &val, &error))
       lose_gerror ("Failed to complete (wrapped) GetVal call", error);
@@ -669,6 +800,7 @@ main (int argc, char **argv)
 
     g_object_unref (G_OBJECT (ret_proxy));
 
+    g_print ("Calling objpath again\n");
     ret_proxy = NULL;
     if (!org_freedesktop_DBus_Tests_MyObject_objpath (proxy, proxy, &ret_proxy, &error))
       lose_gerror ("Failed to complete (wrapped) Objpath call 2", error);
@@ -691,14 +823,18 @@ main (int argc, char **argv)
       lose ("(wrapped) GetValue returned invalid value %d", val);
   }
 
+  run_mainloop ();
+
   /* Signal handling tests */
   
+  g_print ("Testing signal handling\n");
   dbus_g_proxy_add_signal (proxy, "Frobnicate", G_TYPE_INT, G_TYPE_INVALID);
   
   dbus_g_proxy_connect_signal (proxy, "Frobnicate",
                                G_CALLBACK (frobnicate_signal_handler),
                                NULL, NULL);
   
+  g_print ("Calling EmitFrobnicate\n");
   if (!dbus_g_proxy_call (proxy, "EmitFrobnicate", &error,
 			  G_TYPE_INVALID, G_TYPE_INVALID))
     lose_gerror ("Failed to complete EmitFrobnicate call", error);
@@ -711,6 +847,7 @@ main (int argc, char **argv)
   if (n_times_frobnicate_received != 1)
     lose ("Frobnicate signal received %d times, should have been 1", n_times_frobnicate_received);
 
+  g_print ("Calling EmitFrobnicate again\n");
   if (!dbus_g_proxy_call (proxy, "EmitFrobnicate", &error,
 			  G_TYPE_INVALID, G_TYPE_INVALID))
     lose_gerror ("Failed to complete EmitFrobnicate call", error);
@@ -724,6 +861,9 @@ main (int argc, char **argv)
 
   g_object_unref (G_OBJECT (proxy));
 
+  run_mainloop ();
+
+  g_print ("Creating proxy for FooObject interface\n");
   proxy = dbus_g_proxy_new_for_name_owner (connection,
                                            "org.freedesktop.DBus.TestSuiteGLibService",
                                            "/org/freedesktop/DBus/Tests/MyTestObject",
@@ -753,6 +893,7 @@ main (int argc, char **argv)
                                G_CALLBACK (sig2_signal_handler),
                                NULL, NULL);
 
+  g_print ("Calling FooObject EmitSignals\n");
   dbus_g_proxy_call_no_reply (proxy, "EmitSignals", G_TYPE_INVALID);
 
   dbus_g_connection_flush (connection);
@@ -766,6 +907,7 @@ main (int argc, char **argv)
   if (n_times_sig1_received != 1)
     lose ("Sig1 signal received %d times, should have been 1", n_times_sig1_received);
 
+  g_print ("Calling FooObject EmitSignals and EmitSignal2\n");
   dbus_g_proxy_call_no_reply (proxy, "EmitSignal2", G_TYPE_INVALID);
   dbus_g_connection_flush (connection);
 
@@ -775,6 +917,7 @@ main (int argc, char **argv)
   if (n_times_sig2_received != 1)
     lose ("Sig2 signal received %d times, should have been 1", n_times_sig2_received);
 
+  g_print ("Calling FooObject EmitSignals two more times\n");
   dbus_g_proxy_call_no_reply (proxy, "EmitSignals", G_TYPE_INVALID);
   dbus_g_proxy_call_no_reply (proxy, "EmitSignals", G_TYPE_INVALID);
 
@@ -792,18 +935,171 @@ main (int argc, char **argv)
     lose ("Sig0 signal received %d times, should have been 3", n_times_sig0_received);
   if (n_times_sig1_received != 3)
     lose ("Sig1 signal received %d times, should have been 3", n_times_sig1_received);
-  
+
+  /* Terminate again */
+  g_print ("Terminating service\n");
+  await_terminating_service = "org.freedesktop.DBus.TestSuiteGLibService";
+  dbus_g_proxy_call_no_reply (proxy, "Terminate", G_TYPE_INVALID);
+
+  proxy_destroyed = FALSE;
+  proxy_destroy_and_nameowner = TRUE;
+  proxy_destroy_and_nameowner_complete = FALSE;
+
+  g_signal_connect (G_OBJECT (proxy),
+		    "destroy",
+		    G_CALLBACK (proxy_destroyed_cb),
+		    NULL);
+
+  dbus_g_connection_flush (connection);
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
+
+  if (await_terminating_service != NULL)
+    lose ("Didn't see name loss for \"org.freedesktop.DBus.TestSuiteGLibService\"");
+  if (!proxy_destroyed)
+    lose ("Didn't get proxy_destroyed");
+  g_print ("Proxy destroyed successfully\n");
+
   g_object_unref (G_OBJECT (proxy));
 
+  run_mainloop ();
+
+  /* Create a new proxy for the name; should not be associated */
+  proxy = dbus_g_proxy_new_for_name (connection,
+				     "org.freedesktop.DBus.TestSuiteGLibService",
+				     "/org/freedesktop/DBus/Tests/MyTestObject",
+				     "org.freedesktop.DBus.Tests.MyObject");
+  g_assert (proxy != NULL);
+
+  proxy_destroyed = FALSE;
+  proxy_destroy_and_nameowner = FALSE;
+  proxy_destroy_and_nameowner_complete = FALSE;
+
+  g_signal_connect (G_OBJECT (proxy),
+		    "destroy",
+		    G_CALLBACK (proxy_destroyed_cb),
+		    NULL);
+  
+  if (!dbus_g_proxy_call (driver, "GetNameOwner", &error,
+			  G_TYPE_STRING,
+			  "org.freedesktop.DBus.TestSuiteGLibService",
+			  G_TYPE_INVALID,
+			  G_TYPE_STRING,
+			  &v_STRING_2,
+			  G_TYPE_INVALID)) {
+    if (error->domain == DBUS_GERROR && error->code == DBUS_GERROR_NAME_HAS_NO_OWNER)
+      g_print ("Got expected error \"org.freedesktop.DBus.Error.NameHasNoOwner\"\n");
+    else
+      lose_gerror ("Unexpected error from GetNameOwner", error);
+  } else
+    lose ("GetNameOwner unexpectedly succeeded!");
+  g_clear_error (&error);
+
+  /* This will have the side-effect of activating the service, thus
+   * causing a NameOwnerChanged, which should let our name proxy
+   * get signals
+   */
+  g_print ("Calling Uppercase for name proxy\n");
+  if (!dbus_g_proxy_call (proxy, "Uppercase", &error,
+			  G_TYPE_STRING, "bazwhee",
+			  G_TYPE_INVALID,
+			  G_TYPE_STRING, &v_STRING_2,
+			  G_TYPE_INVALID))
+    lose_gerror ("Failed to complete Uppercase call", error);
+  g_free (v_STRING_2);
+
+  dbus_g_proxy_add_signal (proxy, "Frobnicate", G_TYPE_INT, G_TYPE_INVALID);
+  
+  dbus_g_proxy_connect_signal (proxy, "Frobnicate",
+                               G_CALLBACK (frobnicate_signal_handler),
+                               NULL, NULL);
+  
+  g_print ("Calling EmitFrobnicate\n");
+  if (!dbus_g_proxy_call (proxy, "EmitFrobnicate", &error,
+			  G_TYPE_INVALID, G_TYPE_INVALID))
+    lose_gerror ("Failed to complete EmitFrobnicate call", error);
+
+  n_times_frobnicate_received = 0;
+
+  dbus_g_connection_flush (connection);
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
+
+  if (n_times_frobnicate_received != 1)
+    lose ("Frobnicate signal received %d times, should have been 1", n_times_frobnicate_received);
+
+  /* Now terminate the service, then start it again (implicitly) and wait for signals */
+  g_print ("Terminating service (2)\n");
+  await_terminating_service = "org.freedesktop.DBus.TestSuiteGLibService";
+  dbus_g_proxy_call_no_reply (proxy, "Terminate", G_TYPE_INVALID);
+  dbus_g_connection_flush (connection);
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
+  if (await_terminating_service != NULL)
+    lose ("Didn't see name loss for \"org.freedesktop.DBus.TestSuiteGLibService\"");
+
+  if (proxy_destroyed)
+    lose ("Unexpectedly got proxy_destroyed!");
+
+  n_times_frobnicate_received = 0;
+
+  g_print ("Calling EmitFrobnicate (2)\n");
+  if (!dbus_g_proxy_call (proxy, "EmitFrobnicate", &error,
+			  G_TYPE_INVALID, G_TYPE_INVALID))
+    lose_gerror ("Failed to complete EmitFrobnicate call", error);
+
+  dbus_g_connection_flush (connection);
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
+
+  if (n_times_frobnicate_received != 1)
+    lose ("Frobnicate signal received %d times, should have been 1", n_times_frobnicate_received);
+
+  if (proxy_destroyed)
+    lose ("Unexpectedly got proxy_destroyed!");
+  
+  /* Create another proxy for the name; should be associated immediately */
+  proxy2 = dbus_g_proxy_new_for_name (connection,
+				     "org.freedesktop.DBus.TestSuiteGLibService",
+				     "/org/freedesktop/DBus/Tests/MyTestObject",
+				     "org.freedesktop.DBus.Tests.MyObject");
+  g_assert (proxy2 != NULL);
+
+  dbus_g_proxy_add_signal (proxy2, "Frobnicate", G_TYPE_INT, G_TYPE_INVALID);
+  
+  dbus_g_proxy_connect_signal (proxy2, "Frobnicate",
+                               G_CALLBACK (frobnicate_signal_handler_2),
+                               NULL, NULL);
+
+  g_print ("Calling EmitFrobnicate (3)\n");
+  if (!dbus_g_proxy_call (proxy, "EmitFrobnicate", &error,
+			  G_TYPE_INVALID, G_TYPE_INVALID))
+    lose_gerror ("Failed to complete EmitFrobnicate call", error);
+
+  dbus_g_connection_flush (connection);
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
+
+  if (n_times_frobnicate_received != 2)
+    lose ("Frobnicate signal received %d times for 1st proxy, should have been 2", n_times_frobnicate_received);
+  if (n_times_frobnicate_received_2 != 1)
+    lose ("Frobnicate signal received %d times for 2nd proxy, should have been 1", n_times_frobnicate_received_2);
+
+  g_object_unref (G_OBJECT (proxy));
+  g_object_unref (G_OBJECT (proxy2));
+
+  run_mainloop ();
+
+  /* Test introspection */
   proxy = dbus_g_proxy_new_for_name_owner (connection,
                                            "org.freedesktop.DBus.TestSuiteGLibService",
                                            "/org/freedesktop/DBus/Tests/MyTestObject",
                                            "org.freedesktop.DBus.Introspectable",
                                            &error);
-  
   if (proxy == NULL)
     lose_gerror ("Failed to create proxy for name owner", error);
 
+  g_print ("Testing introspect\n");
   call = dbus_g_proxy_begin_call (proxy, "Introspect",
 				  G_TYPE_INVALID);
   error = NULL;
