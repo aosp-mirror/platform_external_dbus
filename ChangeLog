@@ -1,4 +1,11 @@
 2005-06-29  Colin Walters  <walters@verbum.org>
+	
+	Patch from Ross Burton <ross@openedhand.com>
+	
+	* glib/dbus-gobject.c (invoke_object_method): Unset object
+	value in all cases, not only in async case.
+
+2005-06-29  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-gproxy.c (struct _DBusGProxy): Add new member
 	name_call for keeping track of any outgoing GetNameOwner call.

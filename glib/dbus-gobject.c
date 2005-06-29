@@ -845,7 +845,8 @@ invoke_object_method (GObject         *object,
   g_value_init (&object_value, G_TYPE_OBJECT);
   g_value_set_object (&object_value, object);
   g_value_array_prepend (value_array, &object_value);
-
+  g_value_unset (&object_value);
+  
   if (call_only)
     {
       GValue context_value = {0,};
@@ -986,7 +987,6 @@ invoke_object_method (GObject         *object,
     {
       g_array_free (out_param_values, TRUE);
       g_value_array_free (out_param_gvalues);
-      g_value_unset (&object_value);
       g_value_unset (&error_value);
     }
   g_value_array_free (value_array);
