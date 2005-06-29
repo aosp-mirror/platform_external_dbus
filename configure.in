@@ -1218,7 +1218,7 @@ if test x$enable_python = xno; then
 else
     AC_MSG_NOTICE([Checking to see if we can build Python bindings])
     have_python=no
-    AM_PATH_PYTHON(2.2)
+    AM_PATH_PYTHON(2.4)
 
     if test -z "$PYTHON" ; then
         AC_MSG_WARN([Python not found])

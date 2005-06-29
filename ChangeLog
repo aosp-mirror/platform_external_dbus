@@ -1,3 +1,7 @@
+2005-06-29  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: force check for Python >= 2.4
+
 2005-06-29  Colin Walters  <walters@verbum.org>
 	
 	Patch from Ross Burton <ross@openedhand.com>
