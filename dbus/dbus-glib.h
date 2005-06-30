@@ -81,9 +81,6 @@ typedef enum
 #include <dbus/dbus-glib-error-enum.h>    
 } DBusGError;
 
-void             dbus_g_error_set         (GError     **error,
-					   const char  *name,
-					   const char  *msg);
 gboolean         dbus_g_error_has_name    (GError      *error,
 					   const char  *name);
 const char *     dbus_g_error_get_name    (GError      *error);
@@ -125,6 +122,10 @@ struct _DBusGObjectInfo
 
 void       dbus_g_object_type_install_info     (GType                 object_type,
                                                 const DBusGObjectInfo *info);
+
+void       dbus_g_error_domain_register        (GQuark                domain,
+						const char *          default_iface,
+						GType                 code_enum);
 
 void       dbus_g_connection_register_g_object (DBusGConnection       *connection,
 						const char            *at_path,

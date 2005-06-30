@@ -26,6 +26,7 @@
 #include <dbus/dbus-glib-lowlevel.h>
 #include "dbus-gtest.h"
 #include "dbus-gutils.h"
+#include "dbus-gobject.h"
 #include <string.h>
 
 #include <libintl.h>
@@ -147,41 +148,6 @@ dbus_g_error_quark (void)
   if (quark == 0)
     quark = g_quark_from_static_string ("g-exec-error-quark");
   return quark;
-}
-
-#include "dbus-glib-error-switch.h"
-
-/**
- * Set a GError return location from a D-BUS error name and message.
- * This function should only be used in the implementation of service
- * methods.
- *
- * @param gerror location to store a GError, or #NULL
- * @param name the D-BUS error name
- * @param msg the D-BUS error detailed message
- */
-void
-dbus_g_error_set (GError    **gerror,
-                  const char *name,
-		  const char *msg)
-{
-  int code;
-  g_return_if_fail (name != NULL);
-  g_return_if_fail (msg != NULL);
-
-  code = dbus_error_to_gerror_code (name);
-  if (code == DBUS_GERROR_REMOTE_EXCEPTION)
-    g_set_error (gerror, DBUS_GERROR,
-		 code,
-		 "%s%c%s",
-		 msg,
-		 '\0',
-		 name);
-  else
-    g_set_error (gerror, DBUS_GERROR,
-		 code,
-		 "%s",
-		 msg);
 }
 
 /**
@@ -463,7 +429,7 @@ _dbus_glib_test (const char *test_data_dir)
   dbus_error_init (&err);
   dbus_set_error_const (&err, DBUS_ERROR_NO_MEMORY, "Out of memory!");
 
-  dbus_g_error_set (&gerror, err.name, err.message);
+  dbus_set_g_error (&gerror, &err);
   g_assert (gerror != NULL);
   g_assert (gerror->domain == DBUS_GERROR);
   g_assert (gerror->code == DBUS_GERROR_NO_MEMORY);
@@ -471,13 +437,6 @@ _dbus_glib_test (const char *test_data_dir)
   
   dbus_error_init (&err);
   g_clear_error (&gerror);
-
-  dbus_g_error_set (&gerror, "com.example.Foo.BlahFailed", "blah failed");
-  g_assert (gerror != NULL);
-  g_assert (gerror->domain == DBUS_GERROR);
-  g_assert (gerror->code == DBUS_GERROR_REMOTE_EXCEPTION);
-  g_assert (dbus_g_error_has_name (gerror, "com.example.Foo.BlahFailed"));
-  g_assert (!strcmp (gerror->message, "blah failed"));
 
   return TRUE;
 }

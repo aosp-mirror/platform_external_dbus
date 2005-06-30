@@ -61,7 +61,7 @@ my-object-marshal.h: Makefile my-object-marshal.list
 
 CLEANFILES = $(BUILT_SOURCES)
 
-test_service_glib_LDADD= $(top_builddir)/glib/libdbus-glib-1.la
+test_service_glib_LDADD= $(top_builddir)/glib/libdbus-glib-1.la $(DBUS_GLIB_THREADS_LIBS) 
 
 else
 ### not building tests

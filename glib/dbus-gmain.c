@@ -28,6 +28,7 @@
 #include "dbus-gtest.h"
 #include "dbus-gutils.h"
 #include "dbus-gvalue.h"
+#include "dbus-gobject.h"
 #include "dbus-gvalue-utils.h"
 #include <string.h>
 
@@ -720,7 +721,7 @@ dbus_g_bus_get (DBusBusType     type,
   connection = dbus_bus_get (type, &derror);
   if (connection == NULL)
     {
-      dbus_g_error_set (error, derror.name, derror.message);
+      dbus_set_g_error (error, &derror);
       dbus_error_free (&derror);
       return NULL;
     }

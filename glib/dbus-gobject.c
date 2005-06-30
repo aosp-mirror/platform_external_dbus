@@ -39,9 +39,16 @@
  * @{
  */
 
+typedef struct
+{
+  char *default_iface;
+  GType code_enum;
+} DBusGErrorInfo;
+
 static GStaticRWLock globals_lock = G_STATIC_RW_LOCK_INIT;
 static GHashTable *info_hash = NULL;
 static GHashTable *marshal_table = NULL;
+static GData *error_metadata = NULL;
 
 static char*
 uscore_to_wincaps (const char *uscore)
@@ -696,6 +703,7 @@ lookup_object_and_method (GObject      *object,
 
 static char *
 gerror_domaincode_to_dbus_error_name (const DBusGObjectInfo *object_info,
+				      const char *msg_interface,
 				      GQuark domain, gint code)
 {
   const char *domain_str;
@@ -704,6 +712,36 @@ gerror_domaincode_to_dbus_error_name (const DBusGObjectInfo *object_info,
 
   domain_str = object_error_domain_prefix_from_object_info (object_info);
   code_str = object_error_code_from_object_info (object_info, domain, code);
+
+  if (!domain_str || !code_str)
+    {
+      DBusGErrorInfo *info;
+
+      g_static_rw_lock_reader_lock (&globals_lock);
+
+      if (error_metadata != NULL)
+	info = g_datalist_id_get_data (&error_metadata, domain);
+      else
+	info = NULL;
+
+      g_static_rw_lock_reader_unlock (&globals_lock);
+
+      if (info)
+	{
+	  GEnumValue *value;
+	  GEnumClass *klass;
+
+	  klass = g_type_class_ref (info->code_enum);
+	  value = g_enum_get_value (klass, code);
+	  g_type_class_unref (klass);
+
+	  domain_str = info->default_iface;
+	  code_str = value->value_nick;
+	}
+    }
+
+  if (!domain_str)
+    domain_str = msg_interface;
 
   if (!domain_str || !code_str)
     {
@@ -752,7 +790,9 @@ gerror_to_dbus_error_message (const DBusGObjectInfo *object_info,
       else
 	{
 	  char *error_name;
-	  error_name = gerror_domaincode_to_dbus_error_name (object_info, error->domain, error->code);
+	  error_name = gerror_domaincode_to_dbus_error_name (object_info,
+							     dbus_message_get_interface (message),
+							     error->domain, error->code);
 	  reply = dbus_message_new_error (message, error_name, error->message);
 	  g_free (error_name); 
 	}
@@ -1256,6 +1296,40 @@ export_signals (DBusGConnection *connection, const DBusGObjectInfo *info, GObjec
     }
 }
 
+#include "dbus-glib-error-switch.h"
+
+void
+dbus_set_g_error (GError    **gerror,
+		  DBusError  *error)
+{
+  int code;
+
+  code = dbus_error_to_gerror_code (error->name);
+  if (code != DBUS_GERROR_REMOTE_EXCEPTION)
+    g_set_error (gerror, DBUS_GERROR,
+		 code,
+		 "%s",
+		 error->message);
+  else
+    g_set_error (gerror, DBUS_GERROR,
+		 code,
+		 "%s%c%s",
+		 error->message,
+		 '\0',
+		 error->name);
+}
+
+static void
+dbus_g_error_info_free (gpointer p)
+{
+  DBusGErrorInfo *info;
+
+  info = p;
+
+  g_free (info->default_iface);
+  g_free (info);
+}
+
 /** @} */ /* end of internals */
 
 /**
@@ -1287,7 +1361,7 @@ dbus_g_object_type_install_info (GType                  object_type,
 
   dbus_g_value_types_init ();
 
-  object_class = g_type_class_peek (object_type);
+  object_class = g_type_class_ref (object_type);
 
   g_return_if_fail (G_IS_OBJECT_CLASS (object_class));
 
@@ -1299,6 +1373,55 @@ dbus_g_object_type_install_info (GType                  object_type,
     }
 
   g_hash_table_replace (info_hash, object_class, (void*) info);
+
+  g_static_rw_lock_writer_unlock (&globals_lock);
+
+  g_type_class_unref (object_class);
+}
+
+/**
+ * Register a GError domain and set of codes with D-BUS.  You must
+ * have created a GEnum for the error codes.  This function will not
+ * be needed with an introspection-capable GLib.
+ *
+ * @param domain the GError domain 
+ * @param default_iface the D-BUS interface used for error values by default, or #NULL
+ * @param code_enum a GType for a GEnum of the error codes
+ */
+void
+dbus_g_error_domain_register (GQuark                domain,
+			      const char           *default_iface,
+			      GType                 code_enum)
+{
+  DBusGErrorInfo *info;
+  
+  g_return_if_fail (g_quark_to_string (domain) != NULL);
+  g_return_if_fail (code_enum != G_TYPE_INVALID);
+  g_return_if_fail (G_TYPE_FUNDAMENTAL (code_enum) == G_TYPE_ENUM);
+
+  g_static_rw_lock_writer_lock (&globals_lock);
+
+  if (error_metadata == NULL)
+    g_datalist_init (&error_metadata);
+
+  info = g_datalist_id_get_data (&error_metadata, domain);
+
+  if (info != NULL)
+    {
+      g_warning ("Metadata for error domain \"%s\" already registered\n",
+		 g_quark_to_string (domain));
+    }
+  else
+    {
+      info = g_new0 (DBusGErrorInfo, 1);
+      info->default_iface = g_strdup (default_iface);
+      info->code_enum = code_enum;
+
+      g_datalist_id_set_data_full (&error_metadata,
+				   domain,
+				   info,
+				   dbus_g_error_info_free);
+    }
 
   g_static_rw_lock_writer_unlock (&globals_lock);
 }

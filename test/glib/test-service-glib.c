@@ -44,7 +44,9 @@ typedef enum
   MY_OBJECT_ERROR_BAR
 } MyObjectError;
 
-#define MY_OBJECT_ERROR my_object_error_quark ()
+#define MY_OBJECT_ERROR (my_object_error_quark ())
+
+#define MY_TYPE_ERROR (my_object_error_get_type ()) 
 
 gboolean my_object_do_nothing (MyObject *obj, GError **error);
 
@@ -85,9 +87,15 @@ gboolean my_object_emit_frobnicate (MyObject *obj, GError **error);
 
 gboolean my_object_terminate (MyObject *obj, GError **error);
 
+gboolean my_object_async_increment (MyObject *obj, gint32 x, DBusGMethodInvocation *context);
+
+gboolean my_object_async_throw_error (MyObject *obj, DBusGMethodInvocation *context);
+
 #include "test-service-glib-glue.h"
 
 GQuark my_object_error_quark (void);
+
+GType my_object_error_get_type (void);
 
 /* Properties */
 enum
@@ -231,6 +239,30 @@ my_object_error_quark (void)
   return quark;
 }
 
+/* This should really be standard. */
+#define ENUM_ENTRY(NAME, DESC) { NAME, "" #NAME "", DESC }
+
+GType
+my_object_error_get_type (void)
+{
+	static GType etype = 0;
+
+	if (etype == 0)
+	{
+		static const GEnumValue values[] =
+		{
+
+			ENUM_ENTRY (MY_OBJECT_ERROR_FOO, "Foo"),
+			ENUM_ENTRY (MY_OBJECT_ERROR_BAR, "Bar"),
+			{ 0, 0, 0 }
+		};
+
+		etype = g_enum_register_static ("MyObjectError", values);
+	}
+
+	return etype;
+}
+
 static GObject *obj;
 static GObject *obj2;
 
@@ -250,9 +282,11 @@ my_object_increment (MyObject *obj, gint32 x, gint32 *ret, GError **error)
 gboolean
 my_object_throw_error (MyObject *obj, GError **error)
 {
-  dbus_g_error_set (error,
-		    "org.freedesktop.DBus.Tests.MyObject.Foo",
-		    "this method always loses");    
+  g_set_error (error,
+	       MY_OBJECT_ERROR,
+	       MY_OBJECT_ERROR_FOO,
+	       "%s",
+	       "this method always loses");    
   return FALSE;
 }
 
@@ -464,6 +498,53 @@ my_object_emit_signal2 (MyObject *obj, GError **error)
   return TRUE;
 }
 
+typedef struct {
+  gint32 x;
+  DBusGMethodInvocation *context;
+} IncrementData;
+
+static gboolean
+do_async_increment (IncrementData *data)
+{
+  gint32 newx = data->x + 1;
+  dbus_g_method_return (data->context, newx);
+  g_free (data);
+  return FALSE;
+}
+
+gboolean
+my_object_async_increment (MyObject *obj, gint32 x, DBusGMethodInvocation *context)
+{
+  IncrementData *data = g_new0 (IncrementData, 1);
+  data->x = x;
+  data->context = context;
+  g_idle_add ((GSourceFunc)do_async_increment, data);
+  return TRUE;
+}
+
+static gboolean
+do_async_error (IncrementData *data)
+{
+  GError *error;
+  error = g_error_new (MY_OBJECT_ERROR,
+		       MY_OBJECT_ERROR_FOO,
+		       "%s",
+		       "this method always loses");
+  dbus_g_method_return_error (data->context, error);
+  g_free (data);
+  return FALSE;
+}
+
+gboolean
+my_object_async_throw_error (MyObject *obj, DBusGMethodInvocation *context)
+{
+  IncrementData *data = g_new0(IncrementData, 1);
+  data->context = context;
+  g_idle_add ((GSourceFunc)do_async_error,  data);
+  return TRUE;
+}
+
+
 static GMainLoop *loop;
 
 gboolean
@@ -484,6 +565,14 @@ main (int argc, char **argv)
   guint32 request_name_ret;
 
   g_type_init ();
+  g_thread_init (NULL); dbus_g_thread_init ();
+
+  dbus_g_object_type_install_info (MY_TYPE_OBJECT,
+				   &dbus_glib_my_object_object_info);
+
+  dbus_g_error_domain_register (MY_OBJECT_ERROR,
+				NULL,
+				MY_TYPE_ERROR);
 
   g_printerr ("Launching test-service-glib\n");
 
@@ -506,8 +595,6 @@ main (int argc, char **argv)
   obj = g_object_new (MY_TYPE_OBJECT, NULL);
   obj2 = g_object_new (MY_TYPE_OBJECT, NULL);
 
-  dbus_g_object_type_install_info (MY_TYPE_OBJECT,
-				   &dbus_glib_my_object_object_info);
   dbus_g_connection_register_g_object (connection,
                                        "/org/freedesktop/DBus/Tests/MyTestObject",
                                        obj);

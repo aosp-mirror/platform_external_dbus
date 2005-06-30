@@ -441,7 +441,8 @@ main (int argc, char **argv)
   if (dbus_g_proxy_end_call (proxy, call, &error, G_TYPE_INVALID) != FALSE)
     lose ("ThrowError call unexpectedly succeeded!");
   if (!dbus_g_error_has_name (error, "org.freedesktop.DBus.Tests.MyObject.Foo"))
-    lose ("ThrowError call returned unexpected error %s", dbus_g_error_get_name (error));
+    lose ("ThrowError call returned unexpected error \"%s\": %s", dbus_g_error_get_name (error),
+	  error->message);
 
   g_print ("ThrowError failed (as expected) returned error: %s\n", error->message);
   g_clear_error (&error);
@@ -490,11 +491,24 @@ main (int argc, char **argv)
   if (v_UINT32_2 != 43)
     lose ("(wrapped) increment call returned %d, should be 43", v_UINT32_2);
 
+  v_UINT32_2 = 0;
+  if (!org_freedesktop_DBus_Tests_MyObject_async_increment (proxy, 42, &v_UINT32_2, &error))
+    lose_gerror ("Failed to complete (wrapped) AsyncIncrement call", error);
+
+  if (v_UINT32_2 != 43)
+    lose ("(wrapped) async increment call returned %d, should be 43", v_UINT32_2);
+
   g_print ("Calling (wrapped) throw_error\n");
   if (org_freedesktop_DBus_Tests_MyObject_throw_error (proxy, &error) != FALSE)
     lose ("(wrapped) ThrowError call unexpectedly succeeded!");
 
   g_print ("(wrapped) ThrowError failed (as expected) returned error: %s\n", error->message);
+  g_clear_error (&error);
+
+  if (org_freedesktop_DBus_Tests_MyObject_async_throw_error (proxy, &error) != FALSE)
+    lose ("(wrapped) AsyncThrowError call unexpectedly succeeded!");
+
+  g_print ("(wrapped) AsyncThrowError failed (as expected) returned error: %s\n", error->message);
   g_clear_error (&error);
 
   g_print ("Calling (wrapped) uppercase\n");

@@ -77,6 +77,16 @@
     <method name="IncrementVal">
     </method>
 
+    <method name="AsyncIncrement">
+      <annotation name="org.freedesktop.DBus.GLib.Async" value=""/>
+      <arg type="u" name="x" />
+      <arg type="u" direction="out" />
+    </method>
+
+    <method name="AsyncThrowError">
+      <annotation name="org.freedesktop.DBus.GLib.Async" value=""/>
+    </method>
+    
     <method name="GetVal">
       <arg type="u" direction="out" />
     </method>

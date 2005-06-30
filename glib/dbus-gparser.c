@@ -23,6 +23,7 @@
 #include "dbus-gparser.h"
 #include "dbus/dbus-glib-lowlevel.h"
 #include "dbus-gidl.h"
+#include "dbus-gobject.h"
 #include "dbus/dbus-signature.h"
 #include <string.h>
 
@@ -474,7 +475,7 @@ validate_signature (const char *str,
   
   if (!dbus_signature_validate (str, &derror))
     {
-      dbus_g_error_set (error, derror.name, derror.message);
+      dbus_set_g_error (&derror, error);
       return FALSE;
     }
   return TRUE;
