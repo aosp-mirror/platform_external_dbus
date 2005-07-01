@@ -170,7 +170,7 @@ dbus_typecode_maps_to_basic (int typecode)
   return typecode_to_gtype (typecode) != G_TYPE_INVALID;
 }
 
-static gboolean
+static GType
 basic_typecode_to_gtype (int typecode)
 {
   g_assert (dbus_type_is_basic (typecode));
@@ -306,7 +306,36 @@ dbus_g_value_types_init (void)
     };
     register_basic (DBUS_TYPE_STRING, &typedata);
   }
-  
+  /* fundamental GTypes that don't map 1:1 with D-BUS types */
+  {
+    static const DBusGTypeMarshalData typedata = {
+      DBUS_TYPE_BYTE_AS_STRING,
+      &basic_vtable,
+    };
+    set_type_metadata (G_TYPE_CHAR, &typedata);
+  }
+  {
+    static const DBusGTypeMarshalData typedata = {
+      DBUS_TYPE_INT32_AS_STRING,
+      &basic_vtable,
+    };
+    set_type_metadata (G_TYPE_LONG, &typedata);
+  }
+  {
+    static const DBusGTypeMarshalData typedata = {
+      DBUS_TYPE_UINT32_AS_STRING,
+      &basic_vtable,
+    };
+    set_type_metadata (G_TYPE_ULONG, &typedata);
+  }
+  {
+    static const DBusGTypeMarshalData typedata = {
+      DBUS_TYPE_DOUBLE_AS_STRING,
+      &basic_vtable,
+    };
+    set_type_metadata (G_TYPE_FLOAT, &typedata);
+  }
+
   /* Register complex types with builtin GType mappings */
   {
     static const DBusGTypeMarshalVtable vtable = {

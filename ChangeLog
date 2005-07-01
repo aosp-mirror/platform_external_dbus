@@ -1,3 +1,12 @@
+2005-07-01  Colin Walters  <walters@verbum.org>
+
+	Patch from Jonathan Matthew <jonathan@kaolin.hn.org>
+	
+	* glib/dbus-gvalue.c (basic_typecode_to_gtype): Fix return type.
+	(dbus_g_value_types_init): Marshal G_TYPE_CHAR as DBUS_TYPE_BYTE,
+	G_TYPE_LONG as DBUS_TYPE_INT32, G_TYPE_ULONG as DBUS_TYPE_UINT32,
+	and G_TYPE_FLOAT as DBUS_TYPE_DOUBLE.
+
 2005-06-30  Colin Walters  <walters@verbum.org>
 
 	* test/glib/test-dbus-glib.c:
