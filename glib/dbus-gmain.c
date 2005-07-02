@@ -765,9 +765,9 @@ _dbus_gmain_test (const char *test_data_dir)
   g_assert (gtype == rectype);
 
   gtype = dbus_gtype_from_signature ("o", FALSE);
-  g_assert (gtype == G_TYPE_OBJECT);
+  g_assert (gtype == DBUS_TYPE_G_OBJECT_PATH);
   gtype = dbus_gtype_from_signature ("o", TRUE);
-  g_assert (gtype == DBUS_TYPE_G_PROXY);
+  g_assert (gtype == DBUS_TYPE_G_OBJECT_PATH);
   
   return TRUE;
 }

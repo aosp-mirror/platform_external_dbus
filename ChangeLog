@@ -1,3 +1,7 @@
+2005-07-02  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-gmain.c (_dbus_gmain_test): Fix test.
+
 2005-07-01  Colin Walters  <walters@verbum.org>
 
 	Patch from Jonathan Matthew <jonathan@kaolin.hn.org>
