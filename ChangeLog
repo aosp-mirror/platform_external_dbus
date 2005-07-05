@@ -1,3 +1,10 @@
+2005-07-05  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-gproxy.c (marshal_dbus_message_to_g_marshaller):
+	Remove value refcount leak, original patch from Jorn Baayen
+	<jorn@openedhand.com>.  Also remove useless extra value in favor
+	of prepending to value array directly.
+
 2005-07-02  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-gmain.c (_dbus_gmain_test): Fix test.

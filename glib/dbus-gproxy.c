@@ -1404,7 +1404,6 @@ marshal_dbus_message_to_g_marshaller (GClosure     *closure,
    */
 #define MAX_SIGNATURE_ARGS 20
   GValueArray *value_array;
-  GValue value = {0, };
   GSignalCMarshaller c_marshaller;
   DBusGProxy *proxy;
   DBusMessage *message;
@@ -1439,9 +1438,9 @@ marshal_dbus_message_to_g_marshaller (GClosure     *closure,
   if (value_array == NULL)
     return;
   
-  g_value_init (&value, G_TYPE_FROM_INSTANCE (proxy));
-  g_value_set_instance (&value, proxy);
-  g_value_array_prepend (value_array, &value);
+  g_value_array_prepend (value_array, NULL);
+  g_value_init (g_value_array_get_nth (value_array, 0), G_TYPE_FROM_INSTANCE (proxy));
+  g_value_set_instance (g_value_array_get_nth (value_array, 0), proxy);
 
   (* c_marshaller) (closure, return_value, value_array->n_values,
 		    value_array->values, invocation_hint, marshal_data);
