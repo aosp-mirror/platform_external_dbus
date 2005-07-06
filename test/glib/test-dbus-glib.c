@@ -23,6 +23,9 @@ static gboolean proxy_destroyed = FALSE;
 static gboolean proxy_destroy_and_nameowner = FALSE;
 static gboolean proxy_destroy_and_nameowner_complete = FALSE;
 
+static void lose (const char *fmt, ...) G_GNUC_NORETURN G_GNUC_PRINTF (1, 2);
+static void lose_gerror (const char *prefix, GError *error) G_GNUC_NORETURN;
+
 static gboolean
 timed_exit (gpointer loop)
 {
@@ -168,8 +171,59 @@ sig2_signal_handler (DBusGProxy  *proxy,
   g_source_remove (exit_timeout);
 }
 
-static void lose (const char *fmt, ...) G_GNUC_NORETURN G_GNUC_PRINTF (1, 2);
-static void lose_gerror (const char *prefix, GError *error) G_GNUC_NORETURN;
+static DBusGProxyCall *echo_call;
+static guint n_times_echo_cb_entered;
+static void
+echo_received_cb (DBusGProxy *proxy,
+		  DBusGProxyCall *call,
+		  gpointer data)
+{
+  GError *error;
+  char *echo_data;
+
+  g_assert (call == echo_call);
+  g_assert (data == NULL);
+
+  error = NULL;
+  echo_data = NULL;
+  n_times_echo_cb_entered++;
+
+  if (!dbus_g_proxy_end_call (proxy, call, &error,
+			      G_TYPE_STRING,
+			      &echo_data,
+			      G_TYPE_INVALID))
+    lose_gerror ("Failed to complete async Echo", error);
+  g_assert (echo_data != NULL);
+  g_print ("Async echo gave \"%s\"", echo_data); 
+  g_main_loop_quit (loop);
+  g_source_remove (exit_timeout);
+}
+
+static void
+increment_received_cb (DBusGProxy *proxy,
+		       DBusGProxyCall *call,
+		       gpointer data)
+{
+  GError *error;
+  char *echo_data;
+  guint val;
+
+  g_assert (!strcmp (data, "moo"));
+
+  error = NULL;
+  echo_data = NULL;
+  if (!dbus_g_proxy_end_call (proxy, call, &error,
+			      G_TYPE_UINT, &val,
+			      G_TYPE_INVALID))
+    lose_gerror ("Failed to complete (async) Increment call", error);
+
+  if (val != 43)
+    lose ("Increment call returned %d, should be 43", val);
+  
+  g_print ("Async increment gave \"%d\"", val); 
+  g_main_loop_quit (loop);
+  g_source_remove (exit_timeout);
+}
 
 static void
 lose (const char *str, ...)
@@ -215,10 +269,10 @@ main (int argc, char **argv)
   DBusGProxy *driver;
   DBusGProxy *proxy;
   DBusGProxy *proxy2;
-  DBusGPendingCall *call;
   char **name_list;
   guint name_list_len;
   guint i;
+  DBusGProxyCall *call;
   guint32 result;
   char *v_STRING_2;
   guint32 v_UINT32_2;
@@ -262,12 +316,11 @@ main (int argc, char **argv)
 			       NULL);
   /* Call ListNames method */
   
-  call = dbus_g_proxy_begin_call (driver, "ListNames", G_TYPE_INVALID);
-
   error = NULL;
-  if (!dbus_g_proxy_end_call (driver, call, &error,
-                              G_TYPE_STRV, &name_list,
-                              G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (driver, "ListNames", &error,
+			  G_TYPE_INVALID,
+			  G_TYPE_STRV, &name_list,
+			  G_TYPE_INVALID))
     lose_gerror ("Failed to complete ListNames call", error);
 
   g_print ("Names on the message bus:\n");
@@ -285,53 +338,42 @@ main (int argc, char **argv)
 
   g_print ("calling ThisMethodDoesNotExist\n");
   /* Test handling of unknown method */
-  call = dbus_g_proxy_begin_call (driver, "ThisMethodDoesNotExist",
-                                  G_TYPE_STRING,
-                                  "blah blah blah blah blah",
-                                  G_TYPE_INT,
-                                  10,
-                                  G_TYPE_INVALID);
-
-  error = NULL;
-  if (dbus_g_proxy_end_call (driver, call, &error,
-			     G_TYPE_INVALID))
+  if (dbus_g_proxy_call (driver, "ThisMethodDoesNotExist", &error,
+			 G_TYPE_STRING,
+			 "blah blah blah blah blah",
+			 G_TYPE_INT,
+			 10,
+			 G_TYPE_INVALID, G_TYPE_INVALID) != FALSE)
     lose ("Calling nonexistent method succeeded!");
 
   g_print ("Got EXPECTED error from calling unknown method: %s\n", error->message);
-  g_error_free (error);
+  g_clear_error (&error);
 
   run_mainloop ();
   
   /* Activate a service */
   g_print ("Activating echo service\n");
-  call = dbus_g_proxy_begin_call (driver, "StartServiceByName",
-                                  G_TYPE_STRING,
-                                  "org.freedesktop.DBus.TestSuiteEchoService",
-                                  G_TYPE_UINT,
-                                  0,
-                                  G_TYPE_INVALID);
-
-  error = NULL;
-  if (!dbus_g_proxy_end_call (driver, call, &error,
-                              G_TYPE_UINT, &result,
-                              G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (driver, "StartServiceByName", &error,
+			  G_TYPE_STRING,
+			  "org.freedesktop.DBus.TestSuiteEchoService",
+			  G_TYPE_UINT, 0,
+			  G_TYPE_INVALID,
+			  G_TYPE_UINT, &result,
+			  G_TYPE_INVALID))
     lose_gerror ("Failed to complete Activate call", error);
 
   g_print ("Starting echo service result = 0x%x\n", result);
 
   /* Activate a service again */
   g_print ("Activating echo service again\n");
-  call = dbus_g_proxy_begin_call (driver, "StartServiceByName",
-                                  G_TYPE_STRING,
-                                  "org.freedesktop.DBus.TestSuiteEchoService",
-                                  G_TYPE_UINT,
-                                  0,
-                                  DBUS_TYPE_INVALID);
-
-  error = NULL;
-  if (!dbus_g_proxy_end_call (driver, call, &error,
-			      G_TYPE_UINT, &result,
-			      G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (driver, "StartServiceByName", &error,
+			  G_TYPE_STRING,
+			  "org.freedesktop.DBus.TestSuiteEchoService",
+			  G_TYPE_UINT,
+			  0,
+			  G_TYPE_INVALID,
+			  G_TYPE_UINT, &result,
+			  G_TYPE_INVALID))
     lose_gerror ("Failed to complete Activate call", error);
 
   g_print ("Duplicate start of echo service = 0x%x\n", result);
@@ -351,19 +393,24 @@ main (int argc, char **argv)
   run_mainloop ();
 
   g_print ("Calling Echo\n");
-  call = dbus_g_proxy_begin_call (proxy, "Echo",
-                                  G_TYPE_STRING,
-                                  "my string hello",
-                                  G_TYPE_INVALID);
-
-  error = NULL;
-  if (!dbus_g_proxy_end_call (proxy, call, &error,
-                              G_TYPE_STRING, &v_STRING_2,
-                              G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (proxy, "Echo", &error,
+			  G_TYPE_STRING, "my string hello",
+			  G_TYPE_INVALID,
+			  G_TYPE_STRING, &v_STRING_2,
+			  G_TYPE_INVALID))
     lose_gerror ("Failed to complete Echo call", error);
 
   g_print ("String echoed = \"%s\"\n", v_STRING_2);
   g_free (v_STRING_2);
+
+  g_print ("Calling Echo (async)\n");
+  echo_call = dbus_g_proxy_begin_call (proxy, "Echo",
+				       echo_received_cb, NULL, NULL,
+				       G_TYPE_STRING, "my string hello",
+				       G_TYPE_INVALID);
+  dbus_g_connection_flush (connection);
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
 
   /* Test oneway call and signal handling */
 
@@ -417,10 +464,8 @@ main (int argc, char **argv)
     lose_gerror ("Failed to create proxy for name owner", error);
 
   g_print ("Calling DoNothing\n");
-  call = dbus_g_proxy_begin_call (proxy, "DoNothing",
-                                  G_TYPE_INVALID);
-  error = NULL;
-  if (!dbus_g_proxy_end_call (proxy, call, &error, G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (proxy, "DoNothing", &error,
+			  G_TYPE_INVALID, G_TYPE_INVALID))
     lose_gerror ("Failed to complete DoNothing call", error);
 
   g_print ("Calling Increment\n");
@@ -431,15 +476,24 @@ main (int argc, char **argv)
 			  G_TYPE_UINT, &v_UINT32_2,
 			  G_TYPE_INVALID))
     lose_gerror ("Failed to complete Increment call", error);
+  g_assert (n_times_echo_cb_entered == 1);
 
   if (v_UINT32_2 != 43)
     lose ("Increment call returned %d, should be 43", v_UINT32_2);
 
+  call = dbus_g_proxy_begin_call (proxy, "Increment",
+				  increment_received_cb, g_strdup ("moo"), g_free,
+				  G_TYPE_UINT, 42,
+				  G_TYPE_INVALID);
+  dbus_g_connection_flush (connection);
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
+
   g_print ("Calling ThrowError\n");
-  call = dbus_g_proxy_begin_call (proxy, "ThrowError", G_TYPE_INVALID);
-  error = NULL;
-  if (dbus_g_proxy_end_call (proxy, call, &error, G_TYPE_INVALID) != FALSE)
+  if (dbus_g_proxy_call (proxy, "ThrowError", &error,
+			 G_TYPE_INVALID, G_TYPE_INVALID) != FALSE)
     lose ("ThrowError call unexpectedly succeeded!");
+
   if (!dbus_g_error_has_name (error, "org.freedesktop.DBus.Tests.MyObject.Foo"))
     lose ("ThrowError call returned unexpected error \"%s\": %s", dbus_g_error_get_name (error),
 	  error->message);
@@ -447,14 +501,13 @@ main (int argc, char **argv)
   g_print ("ThrowError failed (as expected) returned error: %s\n", error->message);
   g_clear_error (&error);
 
-  g_print ("Calling Uppercase\n");
-  call = dbus_g_proxy_begin_call (proxy, "Uppercase",
-				  G_TYPE_STRING, "foobar",
-				  G_TYPE_INVALID);
   error = NULL;
-  if (!dbus_g_proxy_end_call (proxy, call, &error,
-			      G_TYPE_STRING, &v_STRING_2,
-			      G_TYPE_INVALID))
+  g_print ("Calling Uppercase\n");
+  if (!dbus_g_proxy_call (proxy, "Uppercase", &error,
+			  G_TYPE_STRING, "foobar",
+			  G_TYPE_INVALID,
+			  G_TYPE_STRING, &v_STRING_2,
+			  G_TYPE_INVALID))
     lose_gerror ("Failed to complete Uppercase call", error);
   if (strcmp ("FOOBAR", v_STRING_2) != 0)
     lose ("Uppercase call returned unexpected string %s", v_STRING_2);
@@ -463,16 +516,14 @@ main (int argc, char **argv)
   run_mainloop ();
 
   g_print ("Calling ManyArgs\n");
-  call = dbus_g_proxy_begin_call (proxy, "ManyArgs",
-				  G_TYPE_UINT, 26,
-				  G_TYPE_STRING, "bazwhee",
-				  G_TYPE_DOUBLE, G_PI,
-				  G_TYPE_INVALID);
-  error = NULL;
-  if (!dbus_g_proxy_end_call (proxy, call, &error,
-			      G_TYPE_DOUBLE, &v_DOUBLE_2,
-			      G_TYPE_STRING, &v_STRING_2,
-			      G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (proxy, "ManyArgs", &error,
+			  G_TYPE_UINT, 26,
+			  G_TYPE_STRING, "bazwhee",
+			  G_TYPE_DOUBLE, G_PI,
+			  G_TYPE_INVALID,
+			  G_TYPE_DOUBLE, &v_DOUBLE_2,
+			  G_TYPE_STRING, &v_STRING_2,
+			  G_TYPE_INVALID))
     lose_gerror ("Failed to complete ManyArgs call", error);
   if (v_DOUBLE_2 < 55 || v_DOUBLE_2 > 56)
     lose ("ManyArgs call returned unexpected double value %f", v_DOUBLE_2);
@@ -827,9 +878,9 @@ main (int argc, char **argv)
 			    DBUS_TYPE_G_OBJECT_PATH,
 			    &ret_path,
 			    G_TYPE_INVALID))
-      lose_gerror ("Failed to complete (wrapped) Objpath call 2", error);
+      lose_gerror ("Failed to complete Objpath call 2", error);
     if (strcmp ("/org/freedesktop/DBus/Tests/MyTestObject2", ret_path) != 0)
-      lose ("(wrapped) objpath call 2 returned unexpected path %s",
+      lose ("Objpath call 2 returned unexpected path %s",
 	    ret_path);
 
     ret_proxy = dbus_g_proxy_new_for_name_owner (connection,
@@ -837,6 +888,7 @@ main (int argc, char **argv)
 						 ret_path,
 						 "org.freedesktop.DBus.Tests.FooObject",
 						 &error);
+    g_free (ret_path);
     
     val = 0;
     if (!org_freedesktop_DBus_Tests_FooObject_get_value (ret_proxy, &val, &error))
@@ -982,7 +1034,7 @@ main (int argc, char **argv)
     lose ("Didn't get proxy_destroyed");
   g_print ("Proxy destroyed successfully\n");
 
-  g_object_unref (G_OBJECT (proxy));
+  /* Don't need to unref, proxy was destroyed */
 
   run_mainloop ();
 
@@ -1122,12 +1174,10 @@ main (int argc, char **argv)
     lose_gerror ("Failed to create proxy for name owner", error);
 
   g_print ("Testing introspect\n");
-  call = dbus_g_proxy_begin_call (proxy, "Introspect",
-				  G_TYPE_INVALID);
-  error = NULL;
-  if (!dbus_g_proxy_end_call (proxy, call, &error,
-			      G_TYPE_STRING, &v_STRING_2,
-			      G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (proxy, "Introspect", &error,
+			  G_TYPE_INVALID,
+			  G_TYPE_STRING, &v_STRING_2,
+			  G_TYPE_INVALID))
     lose_gerror ("Failed to complete Introspect call", error);
 
   /* Could just do strcmp(), but that seems more fragile */

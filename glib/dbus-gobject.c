@@ -46,7 +46,6 @@ typedef struct
 } DBusGErrorInfo;
 
 static GStaticRWLock globals_lock = G_STATIC_RW_LOCK_INIT;
-static GHashTable *info_hash = NULL;
 static GHashTable *marshal_table = NULL;
 static GData *error_metadata = NULL;
 
@@ -222,6 +221,16 @@ propsig_iterate (const char *data, const char **iface, const char **name)
   return string_table_next (data);
 }
 
+static GQuark
+dbus_g_object_type_dbus_metadata_quark (void)
+{
+  static GQuark quark;
+
+  if (!quark)
+    quark = g_quark_from_static_string ("DBusGObjectTypeDBusMetadataQuark");
+  return quark;
+}
+
 static const DBusGObjectInfo *
 lookup_object_info (GObject *object)
 {
@@ -230,16 +239,11 @@ lookup_object_info (GObject *object)
   
   ret = NULL;
   
-  g_static_rw_lock_reader_lock (&globals_lock);
-
-  if (info_hash == NULL)
-    goto out;
-
   for (classtype = G_TYPE_FROM_INSTANCE (object); classtype != 0; classtype = g_type_parent (classtype))
     {
       const DBusGObjectInfo *info;
 
-      info = g_hash_table_lookup (info_hash, g_type_class_peek (classtype));
+      info = g_type_get_qdata (classtype, dbus_g_object_type_dbus_metadata_quark ()); 
 
       if (info != NULL && info->format_version == 0)
 	{
@@ -247,9 +251,6 @@ lookup_object_info (GObject *object)
 	  break;
 	}
     }
-
- out:
-  g_static_rw_lock_reader_unlock (&globals_lock);
 
   return ret;
 }
@@ -1355,28 +1356,13 @@ void
 dbus_g_object_type_install_info (GType                  object_type,
 				 const DBusGObjectInfo *info)
 {
-  GObjectClass *object_class;
-
-  g_return_if_fail (G_TYPE_IS_OBJECT (object_type));
+  g_return_if_fail (G_TYPE_IS_CLASSED (object_type));
 
   dbus_g_value_types_init ();
 
-  object_class = g_type_class_ref (object_type);
-
-  g_return_if_fail (G_IS_OBJECT_CLASS (object_class));
-
-  g_static_rw_lock_writer_lock (&globals_lock);
-
-  if (info_hash == NULL)
-    {
-      info_hash = g_hash_table_new (NULL, NULL); /* direct hash */
-    }
-
-  g_hash_table_replace (info_hash, object_class, (void*) info);
-
-  g_static_rw_lock_writer_unlock (&globals_lock);
-
-  g_type_class_unref (object_class);
+  g_type_set_qdata (object_type,
+		    dbus_g_object_type_dbus_metadata_quark (),
+		    (gpointer) info);
 }
 
 /**

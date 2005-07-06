@@ -112,30 +112,6 @@ dbus_g_message_unref (DBusGMessage *gmessage)
 }
 
 /**
- * Increments refcount on a pending call.
- *
- * @param call the call
- * @returns the same call
- */
-DBusGPendingCall*
-dbus_g_pending_call_ref (DBusGPendingCall  *call)
-{
-  dbus_pending_call_ref (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (call));
-  return call;
-}
-
-/**
- * Decrements refcount on a pending call.
- *
- * @param call the call
- */
-void
-dbus_g_pending_call_unref (DBusGPendingCall  *call)
-{
-  dbus_pending_call_unref (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (call));
-}
-
-/**
  * The implementation of DBUS_GERROR error domain. See documentation
  * for GError in GLib reference manual.
  *
@@ -235,24 +211,6 @@ dbus_message_get_g_type (void)
 }
 
 /**
- * Get the GLib type ID for a DBusPendingCall boxed type.
- *
- * @returns GLib type
- */
-GType
-dbus_pending_call_get_g_type (void)
-{
-  static GType our_type = 0;
-  
-  if (our_type == 0)
-    our_type = g_boxed_type_register_static ("DBusPendingCall",
-                                             (GBoxedCopyFunc) dbus_pending_call_ref,
-                                             (GBoxedFreeFunc) dbus_pending_call_unref);
-
-  return our_type;
-}
-
-/**
  * Get the GLib type ID for a DBusGConnection boxed type.
  *
  * @returns GLib type
@@ -289,24 +247,6 @@ dbus_g_message_get_g_type (void)
 }
 
 /**
- * Get the GLib type ID for a DBusGPendingCall boxed type.
- *
- * @returns GLib type
- */
-GType
-dbus_g_pending_call_get_g_type (void)
-{
-  static GType our_type = 0;
-  
-  if (our_type == 0)
-    our_type = g_boxed_type_register_static ("DBusGPendingCall",
-                                             (GBoxedCopyFunc) dbus_g_pending_call_ref,
-                                             (GBoxedFreeFunc) dbus_g_pending_call_unref);
-
-  return our_type;
-}
-
-/**
  * Get the DBusConnection corresponding to this DBusGConnection.
  * The return value does not have its refcount incremented.
  *
@@ -328,86 +268,6 @@ DBusMessage*
 dbus_g_message_get_message (DBusGMessage *gmessage)
 {
   return DBUS_MESSAGE_FROM_G_MESSAGE (gmessage);
-}
-
-typedef struct
-{
-  DBusGPendingCallNotify func;
-  void *data;
-  GDestroyNotify free_data_func;
-} GPendingNotifyClosure;
-
-static void
-d_pending_call_notify (DBusPendingCall *dcall,
-                       void            *data)
-{
-  GPendingNotifyClosure *closure = data;
-  DBusGPendingCall *gcall = DBUS_G_PENDING_CALL_FROM_PENDING_CALL (dcall);
-
-  (* closure->func) (gcall, closure->data);
-}
-
-static void
-d_pending_call_free (void *data)
-{
-  GPendingNotifyClosure *closure = data;
-  
-  if (closure->free_data_func)
-    (* closure->free_data_func) (closure->data);
-
-  g_free (closure);
-}
-  
-/**
- * Sets up a notification to be invoked when the pending call
- * is ready to be ended without blocking.
- * You can call dbus_g_proxy_end_call() at any time,
- * but it will block if no reply or error has been received yet.
- * This function lets you handle the reply asynchronously.
- *
- * @param call the pending call
- * @param callback the callback
- * @param callback_data data for the callback
- * @param free_data_func free the callback data with this
- */
-void
-dbus_g_pending_call_set_notify (DBusGPendingCall      *call,
-                                DBusGPendingCallNotify callback,
-                                void                  *callback_data,
-                                GDestroyNotify         free_data_func)
-{
-  GPendingNotifyClosure *closure;
-  DBusPendingCall *dcall;
-
-  g_return_if_fail (callback != NULL);
-  
-  closure = g_new (GPendingNotifyClosure, 1);
-
-  closure->func = callback;
-  closure->data = callback_data;
-  closure->free_data_func = free_data_func;
-
-  dcall = DBUS_PENDING_CALL_FROM_G_PENDING_CALL (call);
-  dbus_pending_call_set_notify (dcall, d_pending_call_notify,
-                                closure,
-                                d_pending_call_free);
-}
-
-/**
- * Cancels a pending call. Does not affect the reference count
- * of the call, but it means you will never be notified of call
- * completion, and can't call dbus_g_proxy_end_call().
- *
- * @param call the call
- */
-void
-dbus_g_pending_call_cancel (DBusGPendingCall *call)
-{
-  DBusPendingCall *dcall;
-  
-  dcall = DBUS_PENDING_CALL_FROM_G_PENDING_CALL (call);
-
-  dbus_pending_call_cancel (dcall);
 }
 
 /** @} */ /* end of public API */

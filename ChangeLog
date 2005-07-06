@@ -1,3 +1,107 @@
+2005-07-06  Colin Walters  <walters@verbum.org>
+
+	* dbus/dbus-glib.h (DBusGPendingCall, DBusGPendingCallNotify)
+	(DBUS_TYPE_G_PENDING_CALL, dbus_g_pending_call_get_g_type)
+	(dbus_g_pending_call_ref, dbus_g_pending_call_unref): Delete.
+	(dbus_g_pending_call_set_notify, dbus_g_pending_call_cancel):
+	Delete in favor of dbus_g_proxy_begin_call and
+	dbus_g_proxy_cancel_call.
+	(DBusGProxyCall, DBusGProxyCallNotify): New.
+	(dbus_g_proxy_begin_call): Change prototype to take callback, user
+	data, and destroy function.  This replaces
+	dbus_g_pending_call_set_notify.
+	(dbus_g_proxy_cancel_call): Prototype.
+	(DBusGAsyncData): Delete, shouldn't be needed anymore.
+
+	* glib/dbus-gproxy.c (struct _DBusGProxy): Add call_id_counter and
+	pending_calls map.
+	(struct _DBusGProxyManager): Add bus_proxy member, which is an
+	internal proxy for calls to the bus. Remove
+	pending_nameowner_calls, now the internal proxy keeps track.
+	(dbus_g_proxy_manager_unref): Unref bus proxy, remove reference to
+	pending_nameowner_calls.
+	(got_name_owner_cb): Update prototype, and use
+	dbus_g_proxy_end_call.
+	(got_name_owner_cb): Remove reference to pending_nameowner_calls.
+	(dbus_g_proxy_manager_register): Delete directly libdbus code in
+	favor of using internal proxy.
+	(dbus_g_proxy_manager_unregister): Update to use
+	dbus_g_proxy_cancel_call for any pending GetNameOwner call.
+	(dbus_g_proxy_init): Initialize pending calls map.
+	(dbus_g_proxy_constructor): New.
+	(dbus_g_proxy_class_init): Add get/set property functions,
+	constructor, and add NAME, PATH, and INTERFACE properties.
+	(cancel_pending_call): New function.
+	(dbus_g_proxy_dispose): Iterate over any outstanding calls and
+	cancel them.
+	(dbus_g_proxy_set_property, dbus_g_proxy_get_property): New.
+	(GPendingNotifyClosure): New structure.
+	(d_pending_call_notify, d_pending_call_free): Moved here from
+	dbus-glib.c.
+	(DBUS_G_VALUE_ARRAY_COLLECT_ALL): Moved around to satisfy function
+	ordering.
+	(manager_begin_bus_call): New internal function for talking to
+	internal bus proxy.
+	(dbus_g_proxy_new): Construct object using GObjet properties.
+	(dbus_g_proxy_begin_call_internal): Update to take user data, etc.
+	Create closure of same, and insert call into map of pending calls.
+	(dbus_g_proxy_end_call_internal): Take call id instead of pending
+	call.  Look up pending call in current set.  Remove it when we've
+	completed.
+	(dbus_g_pending_call_end, dbus_g_proxy_end_call_internal): Delete.
+	(dbus_g_proxy_begin_call): Change API to take callback, user data,
+	and destroy function directly.
+	(dbus_g_proxy_end_call): Update to take DBusGProxyCall.
+	(dbus_g_proxy_call): Invoke with NULL callback.
+	(dbus_g_proxy_cancel_call): New function, replaces
+	dbus_g_pending_call_cancel.
+
+	* glib/dbus-gparser.c (validate_signature): Fix call to
+	dbus_set_g_error.
+
+	* glib/dbus-gobject.c (dbus_g_object_type_dbus_metadata_quark):
+	New quark for attaching metadata to GType.
+	(info_hash): Delete.
+	(lookup_object_info): Look up using quark.
+	(dbus_g_object_type_install_info): Check that a type is classed,
+	not that it's an object.  Also just install type data using quark
+	instead of using global hash.
+
+	* glib/dbus-glib.c (dbus_g_pending_call_ref) 
+	(dbus_g_pending_call_unref, dbus_pending_call_get_g_type)
+	(GPendingNotifyClosure): Delete.
+	(d_pending_call_notify, d_pending_call_free): Move to dbus-gproxy.c.
+	(dbus_g_pending_call_set_notify, dbus_g_pending_call_cancel): Delete.
+
+	* glib/dbus-binding-tool-glib.c (generate_client_glue): Disable async
+	client method generation until we can fix it...
+	
+	* tools/dbus-viewer.c (load_child_nodes): Use dbus_g_proxy_call.
+	(load_from_service_thread_func): Ditto.
+
+	* tools/dbus-names-model.c (struct NamesModel): Hold
+	DBusGProxyCall.
+	(have_names_notify): Update prototype, use
+	dbus_g_proxy_cancel_call.
+	(names_model_reload): Update for new dbus_g_proxy_begin_call API.
+
+	* tools/dbus-monitor.c (filter_func): Update for print_message
+	API change.
+
+	* test/glib/test-dbus-glib.c: Add more tests for async
+	invocations.  Update many begin_call/end_call pairs to just use
+	dbus_g_proxy_call.
+
+	* tools/dbus-send.c (main): Add --print-reply=literal mode.  This
+	allows us to dump print-introspect.c.
+
+	* tools/dbus-print-message.h (print_message): Add literal argument
+	to print_message which is intended to allow printing arguments without
+	metadata like "string=".
+
+	* tools/dbus-print-message.c (print_iter): Add literal argument.
+	(print_message): Allow printing string messages literally.
+
 2005-07-05  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-gproxy.c (marshal_dbus_message_to_g_marshaller):

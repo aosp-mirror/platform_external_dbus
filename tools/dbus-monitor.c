@@ -32,7 +32,7 @@ filter_func (DBusConnection     *connection,
              DBusMessage        *message,
              void               *user_data)
 {
-  print_message (message);
+  print_message (message, FALSE);
   
   if (dbus_message_is_signal (message,
                               DBUS_INTERFACE_LOCAL,

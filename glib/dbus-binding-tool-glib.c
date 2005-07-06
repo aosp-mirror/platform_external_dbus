@@ -1350,7 +1350,9 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
 
 	  WRITE_OR_LOSE ("G_TYPE_INVALID);\n}\n\n");
 
+#if 0
 	  write_async_method_client (channel, interface, method, error);
+#endif
 	}
 
       if (!write_printf_to_iochannel ("#endif /* defined DBUS_GLIB_CLIENT_WRAPPERS_%s */\n\n", channel, error, iface_prefix))

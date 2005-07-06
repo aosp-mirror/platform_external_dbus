@@ -43,7 +43,7 @@ struct NamesModel
   GtkListStore parent;
   DBusGConnection *connection;
   DBusGProxy *driver_proxy;
-  DBusGPendingCall *pending_list_names;
+  DBusGProxyCall *pending_list_names;
 };
 
 struct NamesModelClass
@@ -59,7 +59,8 @@ struct NamesModelClass
 #define NAMES_MODEL_GET_CLASS(obj)    (G_TYPE_INSTANCE_GET_CLASS ((obj), TYPE_NAMES_MODEL, NamesModelClass))
 
 static void
-have_names_notify (DBusGPendingCall *call,
+have_names_notify (DBusGProxy       *proxy,
+		   DBusGProxyCall   *call,
                    void             *data)
 {
   NamesModel *names_model;
@@ -69,7 +70,7 @@ have_names_notify (DBusGPendingCall *call,
 
   names_model = NAMES_MODEL (data);
 
-  g_assert (names_model->pending_list_names);
+  g_assert (names_model->pending_list_names == call);
   g_assert (names_model->driver_proxy);
 
   names = NULL;
@@ -195,8 +196,8 @@ names_model_reload (NamesModel *names_model)
 
   if (names_model->pending_list_names)
     {
-      dbus_g_pending_call_cancel (names_model->pending_list_names);
-      dbus_g_pending_call_unref (names_model->pending_list_names);
+      dbus_g_proxy_cancel_call (names_model->driver_proxy,
+				names_model->pending_list_names);
       names_model->pending_list_names = NULL;
     }
   
@@ -208,10 +209,8 @@ names_model_reload (NamesModel *names_model)
   names_model->pending_list_names =
     dbus_g_proxy_begin_call (names_model->driver_proxy,
                              "ListNames",
+			     have_names_notify, names_model, NULL,
                              G_TYPE_INVALID);
-
-  dbus_g_pending_call_set_notify (names_model->pending_list_names,
-                                  have_names_notify, names_model, NULL);
 }
 
 static void

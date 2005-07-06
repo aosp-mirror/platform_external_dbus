@@ -147,14 +147,12 @@ load_child_nodes (const char *service_name,
   while (tmp != NULL)
     {
       DBusGProxy *proxy;
-      DBusGPendingCall *call;
       char *data;
       NodeInfo *child;
       NodeInfo *complete_child;
       int save_len;
 
       complete_child = NULL;
-      call = NULL;
       
       child = tmp->data;
 
@@ -183,17 +181,11 @@ load_child_nodes (const char *service_name,
             goto done;
         }
   
-      call = dbus_g_proxy_begin_call (proxy, "Introspect",
-                                      G_TYPE_INVALID);
-      
-      data = NULL;
-      if (!dbus_g_proxy_end_call (proxy, call, error, G_TYPE_STRING, &data,
-                                  G_TYPE_INVALID))
-	{
-	  call = NULL;
+      if (!dbus_g_proxy_call (proxy, "Introspect", error,
+			      G_TYPE_STRING, &data,
+			      G_TYPE_INVALID,
+			      G_TYPE_INVALID))
 	  goto done;
-	}
-      call = NULL;
       
       complete_child = description_load_from_string (data, -1, error);
       g_free (data);
@@ -204,8 +196,6 @@ load_child_nodes (const char *service_name,
         }
       
     done:
-      if (call)
-        dbus_g_pending_call_unref (call);
       g_object_unref (proxy);
 
       if (complete_child == NULL)
@@ -271,7 +261,6 @@ static void*
 load_from_service_thread_func (void *thread_data)
 {  
   DBusGProxy *root_proxy;
-  DBusGPendingCall *call;
   const char *data;
   NodeInfo *node;
   GString *path;
@@ -280,7 +269,6 @@ load_from_service_thread_func (void *thread_data)
   lfsd = thread_data;
 
   node = NULL;
-  call = NULL;
   path = NULL;
  
 #if 1
@@ -304,19 +292,15 @@ load_from_service_thread_func (void *thread_data)
     }
 #endif
   
-  call = dbus_g_proxy_begin_call (root_proxy, "Introspect",
-                                  G_TYPE_INVALID);
-
-  data = NULL;
-  if (!dbus_g_proxy_end_call (root_proxy, call, &lfsd->error, G_TYPE_STRING, &data,
-                              G_TYPE_INVALID))
+  if (!dbus_g_proxy_call (root_proxy, "Introspect", &lfsd->error,
+			  G_TYPE_INVALID,
+			  G_TYPE_STRING, &data,
+			  G_TYPE_INVALID))
     {
-      call = NULL;
       g_printerr ("Failed to Introspect() %s\n",
-                  dbus_g_proxy_get_bus_name (root_proxy));
+		  dbus_g_proxy_get_bus_name (root_proxy));
       goto out;
     }
-  call = NULL;
 
   node = description_load_from_string (data, -1, &lfsd->error);
 
@@ -338,9 +322,6 @@ load_from_service_thread_func (void *thread_data)
     }
   
  out:
-  if (call)
-    dbus_g_pending_call_unref (call);
-    
   g_object_unref (root_proxy);
 
   if (path)

@@ -32,7 +32,7 @@ static const char *appname;
 static void
 usage (int ecode)
 {
-  fprintf (stderr, "Usage: %s [--help] [--system | --session] [--dest=NAME] [--type=TYPE] [--print-reply] [--reply-timeout=MSEC] <destination object path> <message name> [contents ...]\n", appname);
+  fprintf (stderr, "Usage: %s [--help] [--system | --session] [--dest=NAME] [--type=TYPE] [--print-reply=(literal)] [--reply-timeout=MSEC] <destination object path> <message name> [contents ...]\n", appname);
   exit (ecode);
 }
 
@@ -183,6 +183,7 @@ main (int argc, char *argv[])
   DBusError error;
   DBusMessage *message;
   int print_reply;
+  int print_reply_literal;
   int reply_timeout;
   DBusMessageIter iter;
   int i;
@@ -199,6 +200,7 @@ main (int argc, char *argv[])
     usage (1);
 
   print_reply = FALSE;
+  print_reply_literal = FALSE;
   reply_timeout = -1;
   
   for (i = 1; i < argc && name == NULL; i++)
@@ -209,10 +211,12 @@ main (int argc, char *argv[])
 	type = DBUS_BUS_SYSTEM;
       else if (strcmp (arg, "--session") == 0)
 	type = DBUS_BUS_SESSION;
-      else if (strcmp (arg, "--print-reply") == 0)
+      else if (strncmp (arg, "--print-reply", 13) == 0)
 	{
 	  print_reply = TRUE;
 	  message_type = DBUS_MESSAGE_TYPE_METHOD_CALL;
+	  if (*(arg + 13) != '\0')
+	    print_reply_literal = TRUE;
 	}
       else if (strstr (arg, "--reply-timeout=") == arg)
 	{
@@ -436,7 +440,7 @@ main (int argc, char *argv[])
 
       if (reply)
         {
-          print_message (reply);
+          print_message (reply, print_reply_literal);
           dbus_message_unref (reply);
         }
     }

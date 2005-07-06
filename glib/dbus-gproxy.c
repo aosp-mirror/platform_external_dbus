@@ -32,6 +32,9 @@
 #include <glib/gi18n.h>
 #include <gobject/gvaluecollector.h>
 
+#define DBUS_G_PROXY_CALL_TO_ID(x) (GPOINTER_TO_UINT(x))
+#define DBUS_G_PROXY_ID_TO_CALL(x) (GUINT_TO_POINTER(x))
+
 /**
  * @addtogroup DBusGLibInternals
  *
@@ -56,11 +59,16 @@ struct _DBusGProxy
   char *path;                 /**< Path messages go to or NULL */
   char *interface;            /**< Interface messages go to or NULL */
 
-  DBusGPendingCall *name_call;/**< Pending call to retrieve name owner */
+  DBusGProxyCall *name_call;  /**< Pending call id to retrieve name owner */
   guint for_owner : 1;        /**< Whether or not this proxy is for a name owner */
   guint associated : 1;       /**< Whether or not this proxy is associated (for name proxies) */
 
+  /* FIXME: make threadsafe? */
+  guint call_id_counter;      /**< Integer counter for pending calls */
+
   GData *signal_signatures;   /**< D-BUS signatures for each signal */
+
+  GHashTable *pending_calls;  /**< Calls made on this proxy which have not yet returned */
 };
 
 /**
@@ -73,18 +81,42 @@ struct _DBusGProxyClass
 
 static void dbus_g_proxy_init               (DBusGProxy      *proxy);
 static void dbus_g_proxy_class_init         (DBusGProxyClass *klass);
+static GObject *dbus_g_proxy_constructor    (GType                  type,
+					     guint                  n_construct_properties,
+					     GObjectConstructParam *construct_properties);
+static void     dbus_g_proxy_set_property       (GObject               *object,
+						 guint                  prop_id,
+						 const GValue          *value,
+						 GParamSpec            *pspec);
+static void     dbus_g_proxy_get_property       (GObject               *object,
+						 guint                  prop_id,
+						 GValue                *value,
+						 GParamSpec            *pspec);
+
 static void dbus_g_proxy_finalize           (GObject         *object);
 static void dbus_g_proxy_dispose            (GObject         *object);
 static void dbus_g_proxy_destroy            (DBusGProxy      *proxy);
 static void dbus_g_proxy_emit_remote_signal (DBusGProxy      *proxy,
                                              DBusMessage     *message);
 
-static gboolean dbus_g_pending_call_end (DBusGConnection   *connection,
-					 DBusGProxy        *proxycon,
-					 DBusGPendingCall  *pending,
-					 GError           **error,
-					 GType              first_arg_type,
-					 ...);
+static DBusGProxyCall *manager_begin_bus_call (DBusGProxyManager    *manager,
+					       const char          *method,
+					       DBusGProxyCallNotify notify,
+					       gpointer             data,
+					       GDestroyNotify       destroy,
+					       GType                first_arg_type,
+					       ...);
+static guint dbus_g_proxy_begin_call_internal (DBusGProxy          *proxy,
+					       const char          *method,
+					       DBusGProxyCallNotify notify,
+					       gpointer             data,
+					       GDestroyNotify       destroy,
+					       GValueArray         *args);
+static gboolean dbus_g_proxy_end_call_internal (DBusGProxy        *proxy,
+						guint              call_id,
+						GError           **error,
+						GType              first_arg_type,
+						va_list            args);
 
 /**
  * A list of proxies with a given name+path+interface, used to
@@ -112,6 +144,8 @@ struct _DBusGProxyManager
   int refcount;      /**< Reference count */
   DBusConnection *connection; /**< Connection we're associated with. */
 
+  DBusGProxy *bus_proxy; /**< Special internal proxy used to talk to the bus */
+
   GHashTable *proxy_lists; /**< Hash used to route incoming signals
                             *   and iterate over proxies
                             */
@@ -119,9 +153,6 @@ struct _DBusGProxyManager
 			    *   base name -> [name,name,...] for proxies which
 			    *   are for names.
 			    */
-  GSList *pending_nameowner_calls;  /**< List to keep track of pending
-				     *   GetNameOwner calls
-				     */
   GSList *unassociated_proxies;     /**< List of name proxies for which
 				     *   there was no result for
 				     *   GetNameOwner
@@ -168,7 +199,7 @@ dbus_g_proxy_manager_get (DBusConnection *connection)
 
   manager->refcount = 1;
   manager->connection = connection;
-  
+
   g_static_mutex_init (&manager->lock);
 
   /* Proxy managers keep the connection alive, which means that
@@ -215,6 +246,9 @@ dbus_g_proxy_manager_unref (DBusGProxyManager *manager)
     {
       UNLOCK_MANAGER (manager);
 
+      if (manager->bus_proxy)
+	g_object_unref (manager->bus_proxy);
+
       if (manager->proxy_lists)
         {
           /* can't have any proxies left since they hold
@@ -238,7 +272,6 @@ dbus_g_proxy_manager_unref (DBusGProxyManager *manager)
 	  manager->owner_names = NULL;
 	}
 
-      g_assert (manager->pending_nameowner_calls == NULL);
       g_assert (manager->unassociated_proxies == NULL);
       
       g_static_mutex_free (&manager->lock);
@@ -723,13 +756,13 @@ dbus_g_proxy_manager_replace_name_owner (DBusGProxyManager  *manager,
 }
 
 static void
-got_name_owner_cb (DBusGPendingCall *pending,
+got_name_owner_cb (DBusGProxy       *bus_proxy,
+		   DBusGProxyCall   *call,
 		   void             *user_data)
 {
   DBusGProxy *proxy;
   GError *error;
   char *owner;
-  GSList *link;
 
   proxy = user_data;
   error = NULL;
@@ -737,15 +770,9 @@ got_name_owner_cb (DBusGPendingCall *pending,
 
   LOCK_MANAGER (proxy->manager);
 
-  link = g_slist_find (proxy->manager->pending_nameowner_calls, pending);
-  g_assert (link != NULL);
-  
-  if (!dbus_g_pending_call_end (DBUS_G_CONNECTION_FROM_CONNECTION (proxy->manager->connection),
-				NULL,
-				pending,
-				&error,
-				G_TYPE_STRING, &owner,
-				G_TYPE_INVALID))
+  if (!dbus_g_proxy_end_call (bus_proxy, call, &error,
+			      G_TYPE_STRING, &owner,
+			      G_TYPE_INVALID))
     {
       if (error->domain == DBUS_GERROR && error->code == DBUS_GERROR_NAME_HAS_NO_OWNER)
 	{
@@ -767,7 +794,6 @@ got_name_owner_cb (DBusGPendingCall *pending,
 
  out:
   proxy->name_call = NULL;
-  proxy->manager->pending_nameowner_calls = g_slist_delete_link (proxy->manager->pending_nameowner_calls, link);
   UNLOCK_MANAGER (proxy->manager);
   g_free (owner);
 }
@@ -911,46 +937,14 @@ dbus_g_proxy_manager_register (DBusGProxyManager *manager,
 
       if (!dbus_g_proxy_manager_lookup_name_owner (manager, proxy->name, &info, &owner))
 	{
-	  DBusPendingCall *pending;
-	  DBusGPendingCall *gpending;
-	  DBusMessage *request, *reply;
-
-	  g_assert (owner == NULL);
-  
-	  reply = NULL;
-	  
-	  request = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
-						  DBUS_PATH_DBUS,
-						  DBUS_INTERFACE_DBUS,
-						  "GetNameOwner");
-	  if (request == NULL)
-	    g_error ("Out of memory");
-	  
-	  if (!dbus_message_append_args (request, 
-					 DBUS_TYPE_STRING, &(proxy->name), 
-					 DBUS_TYPE_INVALID))
-	    g_error ("Out of memory");
-
-	  if (!dbus_connection_send_with_reply (manager->connection,
-						request,
-						&pending,
-						-1))
-	    g_error ("Out of memory");
-	  g_assert (pending != NULL);
-
-	  gpending = DBUS_G_PENDING_CALL_FROM_PENDING_CALL (pending);
-
-	  /* It's safe to keep a reference to proxy here;
-	   * when the proxy is unreffed we cancel the call
-	   */
-	  dbus_g_pending_call_set_notify (gpending,
-					  got_name_owner_cb,
-					  proxy,
-					  NULL);
+	  proxy->name_call = manager_begin_bus_call (manager, "GetNameOwner",
+						     got_name_owner_cb,
+						     proxy, NULL,
+						     G_TYPE_STRING,
+						     proxy->name, 
+						     G_TYPE_INVALID);
 	  
 	  proxy->associated = FALSE;
-	  proxy->name_call = gpending;
-	  manager->pending_nameowner_calls = g_slist_prepend (manager->pending_nameowner_calls, gpending);
 	}
       else
 	{
@@ -1003,14 +997,10 @@ dbus_g_proxy_manager_unregister (DBusGProxyManager *manager,
 	{
 	  GSList *link;
 
-	  if (proxy->name_call != NULL)
+	  if (proxy->name_call != 0)
 	    {
-	      link = g_slist_find (manager->pending_nameowner_calls, proxy->name_call);
-	      g_assert (link != NULL);
-	  
-	      dbus_g_pending_call_cancel (proxy->name_call);
-
-	      manager->pending_nameowner_calls = g_slist_delete_link (manager->pending_nameowner_calls, link);
+	      dbus_g_proxy_cancel_call (manager->bus_proxy, proxy->name_call);
+	      proxy->name_call = 0;
 	    }
 	  else
 	    {
@@ -1022,7 +1012,7 @@ dbus_g_proxy_manager_unregister (DBusGProxyManager *manager,
 	}
       else
 	{
-	  g_assert (proxy->name_call == NULL);
+	  g_assert (proxy->name_call == 0);
 	  
 	  dbus_g_proxy_manager_unmonitor_name_owner (manager, proxy->name);
 	}
@@ -1267,6 +1257,13 @@ marshal_dbus_message_to_g_marshaller (GClosure     *closure,
                                       const GValue *param_values,
                                       gpointer      invocation_hint,
                                       gpointer      marshal_data);
+enum
+{
+  PROP_0,
+  PROP_NAME,
+  PROP_PATH,
+  PROP_INTERFACE
+};
 
 enum
 {
@@ -1282,6 +1279,31 @@ static void
 dbus_g_proxy_init (DBusGProxy *proxy)
 {
   g_datalist_init (&proxy->signal_signatures);
+  proxy->pending_calls = g_hash_table_new_full (NULL, NULL, NULL,
+						(GDestroyNotify) dbus_pending_call_unref);
+}
+
+static GObject *
+dbus_g_proxy_constructor (GType                  type,
+			  guint                  n_construct_properties,
+			  GObjectConstructParam *construct_properties)
+{
+  DBusGProxy *proxy;
+  DBusGProxyClass *klass;
+  GObjectClass *parent_class;  
+
+  klass = DBUS_G_PROXY_CLASS (g_type_class_peek (DBUS_TYPE_G_PROXY));
+
+  parent_class = G_OBJECT_CLASS (g_type_class_peek_parent (klass));
+
+  proxy = DBUS_G_PROXY (parent_class->constructor (type, n_construct_properties,
+						    construct_properties));
+
+  proxy->for_owner = (proxy->name[0] == ':');
+  proxy->name_call = 0;
+  proxy->associated = FALSE;
+
+  return G_OBJECT (proxy);
 }
 
 static void
@@ -1290,9 +1312,37 @@ dbus_g_proxy_class_init (DBusGProxyClass *klass)
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   
   parent_class = g_type_class_peek_parent (klass);
+
+  object_class->set_property = dbus_g_proxy_set_property;
+  object_class->get_property = dbus_g_proxy_get_property;
+
+  g_object_class_install_property (object_class,
+				   PROP_NAME,
+				   g_param_spec_string ("name",
+							"name",
+							"name",
+							NULL,
+							G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+
+  g_object_class_install_property (object_class,
+				   PROP_PATH,
+				   g_param_spec_string ("path",
+							"path",
+							"path",
+							NULL,
+							G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+
+  g_object_class_install_property (object_class,
+				   PROP_INTERFACE,
+				   g_param_spec_string ("interface",
+							"interface",
+							"interface",
+							NULL,
+							G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   
   object_class->finalize = dbus_g_proxy_finalize;
   object_class->dispose = dbus_g_proxy_dispose;
+  object_class->constructor = dbus_g_proxy_constructor;
   
   signals[DESTROY] =
     g_signal_new ("destroy",
@@ -1314,18 +1364,31 @@ dbus_g_proxy_class_init (DBusGProxyClass *klass)
 }
 
 static void
+cancel_pending_call (gpointer key, gpointer val, gpointer data)
+{
+  DBusGProxyCall *call = key;
+  DBusGProxy *proxy = data;
+
+  dbus_g_proxy_cancel_call (proxy, call);
+}
+
+static void
 dbus_g_proxy_dispose (GObject *object)
 {
   DBusGProxy *proxy;
 
   proxy = DBUS_G_PROXY (object);
 
-  if (proxy->manager)
+  /* Cancel outgoing pending calls */
+  g_hash_table_foreach (proxy->pending_calls, cancel_pending_call, proxy);
+  g_hash_table_destroy (proxy->pending_calls);
+
+  if (proxy->manager && proxy != proxy->manager->bus_proxy)
     {
       dbus_g_proxy_manager_unregister (proxy->manager, proxy);
       dbus_g_proxy_manager_unref (proxy->manager);
-      proxy->manager = NULL;
     }
+  proxy->manager = NULL;
   
   g_datalist_clear (&proxy->signal_signatures);
   
@@ -1357,6 +1420,56 @@ dbus_g_proxy_destroy (DBusGProxy *proxy)
    * from GtkObject?
    */
   g_object_run_dispose (G_OBJECT (proxy));
+}
+
+static void
+dbus_g_proxy_set_property (GObject *object,
+			   guint prop_id,
+			   const GValue *value,
+			   GParamSpec *pspec)
+{
+  DBusGProxy *proxy = DBUS_G_PROXY (object);
+
+  switch (prop_id)
+    {
+    case PROP_NAME:
+      proxy->name = g_strdup (g_value_get_string (value));
+      break;
+    case PROP_PATH:
+      proxy->path = g_strdup (g_value_get_string (value));
+      break;
+    case PROP_INTERFACE:
+      proxy->interface = g_strdup (g_value_get_string (value));
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+    }
+}
+
+static void 
+dbus_g_proxy_get_property (GObject *object,
+			   guint prop_id,
+			   GValue *value,
+			   GParamSpec *pspec)
+{
+  DBusGProxy *proxy = DBUS_G_PROXY (object);
+
+  switch (prop_id)
+    {
+    case PROP_NAME:
+      g_value_set_string (value, proxy->name);
+      break;
+    case PROP_PATH:
+      g_value_set_string (value, proxy->path);
+      break;
+    case PROP_INTERFACE:
+      g_value_set_string (value, proxy->interface);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+    }
 }
 
 /* this is to avoid people using g_signal_connect() directly,
@@ -1514,6 +1627,91 @@ dbus_g_proxy_emit_remote_signal (DBusGProxy  *proxy,
   goto out;
 }
 
+typedef struct
+{
+  DBusGProxy *proxy;
+  guint call_id;
+  DBusGProxyCallNotify func;
+  void *data;
+  GDestroyNotify free_data_func;
+} GPendingNotifyClosure;
+
+static void
+d_pending_call_notify (DBusPendingCall *dcall,
+                       void            *data)
+{
+  GPendingNotifyClosure *closure = data;
+
+  (* closure->func) (closure->proxy, DBUS_G_PROXY_ID_TO_CALL (closure->call_id), closure->data);
+}
+
+static void
+d_pending_call_free (void *data)
+{
+  GPendingNotifyClosure *closure = data;
+  
+  if (closure->free_data_func)
+    (* closure->free_data_func) (closure->data);
+
+  g_free (closure);
+}
+  
+#define DBUS_G_VALUE_ARRAY_COLLECT_ALL(VALARRAY, FIRST_ARG_TYPE, ARGS) \
+do { \
+  GType valtype; \
+  int i = 0; \
+  VALARRAY = g_value_array_new (6); \
+  valtype = FIRST_ARG_TYPE; \
+  while (valtype != G_TYPE_INVALID) \
+    { \
+      const char *collect_err; \
+      GValue *val; \
+      g_value_array_append (VALARRAY, NULL); \
+      val = g_value_array_get_nth (VALARRAY, i); \
+      g_value_init (val, valtype); \
+      collect_err = NULL; \
+      G_VALUE_COLLECT (val, ARGS, G_VALUE_NOCOPY_CONTENTS, &collect_err); \
+      valtype = va_arg (ARGS, GType); \
+      i++; \
+    } \
+} while (0)
+
+DBusGProxyCall *
+manager_begin_bus_call (DBusGProxyManager    *manager,
+			const char           *method,
+			DBusGProxyCallNotify  notify,
+			gpointer              user_data,
+			GDestroyNotify        destroy,
+			GType                 first_arg_type,
+			...)
+{
+  DBusGProxyCall *call;
+  va_list args;
+  GValueArray *arg_values;
+  
+  va_start (args, first_arg_type);
+
+  if (!manager->bus_proxy)
+    {
+      manager->bus_proxy = g_object_new (DBUS_TYPE_G_PROXY,
+					 "name", DBUS_SERVICE_DBUS,
+					 "path", DBUS_PATH_DBUS,
+					 "interface", DBUS_INTERFACE_DBUS,
+					 NULL);
+      manager->bus_proxy->manager = manager;
+    }
+
+  DBUS_G_VALUE_ARRAY_COLLECT_ALL (arg_values, first_arg_type, args);
+  
+  call = DBUS_G_PROXY_ID_TO_CALL (dbus_g_proxy_begin_call_internal (manager->bus_proxy, method, notify, user_data, destroy, arg_values));
+
+  g_value_array_free (arg_values);
+
+  va_end (args);
+
+  return call;
+}
+
 /** @} End of DBusGLibInternals */
 
 /** @addtogroup DBusGLib
@@ -1563,21 +1761,13 @@ dbus_g_proxy_new (DBusGConnection *connection,
 
   g_assert (connection != NULL);
   
-  proxy = g_object_new (DBUS_TYPE_G_PROXY, NULL);
+  proxy = g_object_new (DBUS_TYPE_G_PROXY, "name", name, "path", path_name, "interface", interface_name, NULL);
 
   /* These should all be construct-only mandatory properties,
    * for now we just don't let people use g_object_new().
    */
   
   proxy->manager = dbus_g_proxy_manager_get (DBUS_CONNECTION_FROM_G_CONNECTION (connection));
-  
-  proxy->name = g_strdup (name);
-  proxy->path = g_strdup (path_name);
-  proxy->interface = g_strdup (interface_name);
-
-  proxy->for_owner = (proxy->name[0] == ':');
-  proxy->name_call = NULL;
-  proxy->associated = FALSE;
 
   dbus_g_proxy_manager_register (proxy->manager, proxy);
   
@@ -1830,33 +2020,18 @@ dbus_g_proxy_marshal_args_to_message (DBusGProxy  *proxy,
   return NULL;
 }
 
-#define DBUS_G_VALUE_ARRAY_COLLECT_ALL(VALARRAY, FIRST_ARG_TYPE, ARGS) \
-do { \
-  GType valtype; \
-  int i = 0; \
-  VALARRAY = g_value_array_new (6); \
-  valtype = FIRST_ARG_TYPE; \
-  while (valtype != G_TYPE_INVALID) \
-    { \
-      const char *collect_err; \
-      GValue *val; \
-      g_value_array_append (VALARRAY, NULL); \
-      val = g_value_array_get_nth (VALARRAY, i); \
-      g_value_init (val, valtype); \
-      collect_err = NULL; \
-      G_VALUE_COLLECT (val, ARGS, G_VALUE_NOCOPY_CONTENTS, &collect_err); \
-      valtype = va_arg (ARGS, GType); \
-      i++; \
-    } \
-} while (0)
-
-static DBusGPendingCall *
-dbus_g_proxy_begin_call_internal (DBusGProxy    *proxy,
-				  const char    *method,
-				  GValueArray   *args)
+static guint
+dbus_g_proxy_begin_call_internal (DBusGProxy          *proxy,
+				  const char          *method,
+				  DBusGProxyCallNotify notify,
+				  gpointer             user_data,
+				  GDestroyNotify       destroy,
+				  GValueArray         *args)
 {
   DBusMessage *message;
   DBusPendingCall *pending;
+  GPendingNotifyClosure *closure;
+  guint call_id;
 
   g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), FALSE);
   g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), FALSE);
@@ -1874,16 +2049,32 @@ dbus_g_proxy_begin_call_internal (DBusGProxy    *proxy,
     goto oom;
   g_assert (pending != NULL);
 
-  return DBUS_G_PENDING_CALL_FROM_PENDING_CALL (pending);
+  call_id = ++proxy->call_id_counter;
+
+  if (notify != NULL)
+    {
+      closure = g_new (GPendingNotifyClosure, 1);
+      closure->proxy = proxy; /* No need to ref as the lifecycle is tied to proxy */
+      closure->call_id = call_id;
+      closure->func = notify;
+      closure->data = user_data;
+      closure->free_data_func = destroy;
+      dbus_pending_call_set_notify (pending, d_pending_call_notify,
+				    closure,
+				    d_pending_call_free);
+    }
+
+  g_hash_table_insert (proxy->pending_calls, GUINT_TO_POINTER (call_id), pending);
+  
+  return call_id;
  oom:
   g_error ("Out of memory");
-  return NULL;
+  return 0;
 }
 
 static gboolean
-dbus_g_pending_call_end_valist (DBusGConnection   *connection,
-				DBusGProxy        *proxycon,
-				DBusGPendingCall  *pending,
+dbus_g_proxy_end_call_internal (DBusGProxy        *proxy,
+				guint              call_id,
 				GError           **error,
 				GType              first_arg_type,
 				va_list            args)
@@ -1896,13 +2087,17 @@ dbus_g_pending_call_end_valist (DBusGConnection   *connection,
   int n_retvals_processed;
   gboolean ret;
   GType valtype;
+  DBusPendingCall *pending;
 
   reply = NULL;
   ret = FALSE;
   n_retvals_processed = 0;
   over = 0;
-  dbus_pending_call_block (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (pending));
-  reply = dbus_pending_call_steal_reply (DBUS_PENDING_CALL_FROM_G_PENDING_CALL (pending));
+
+  pending = g_hash_table_lookup (proxy->pending_calls, GUINT_TO_POINTER (call_id));
+  
+  dbus_pending_call_block (pending);
+  reply = dbus_pending_call_steal_reply (pending);
 
   g_assert (reply != NULL);
 
@@ -1921,9 +2116,8 @@ dbus_g_pending_call_end_valist (DBusGConnection   *connection,
 	  GValue gvalue = { 0, };
 	  DBusGValueMarshalCtx context;
 
-	  context.gconnection = connection;
-	  context.proxy = proxycon;
-
+	  context.gconnection = DBUS_G_CONNECTION_FROM_CONNECTION (proxy->manager->connection);
+	  context.proxy = proxy;
 
 	  arg_type = dbus_message_iter_get_arg_type (&msgiter);
 	  if (arg_type == DBUS_TYPE_INVALID)
@@ -2039,76 +2233,44 @@ dbus_g_pending_call_end_valist (DBusGConnection   *connection,
     }
   va_end (args_unwind);
 
-  if (pending)
-    dbus_g_pending_call_unref (pending);
+  g_hash_table_remove (proxy->pending_calls, GUINT_TO_POINTER (call_id));
+
   if (reply)
     dbus_message_unref (reply);
   return ret;
 }
 
-static gboolean
-dbus_g_pending_call_end (DBusGConnection   *connection,
-			 DBusGProxy        *proxycon,
-			 DBusGPendingCall  *pending,
-			 GError           **error,
-			 GType              first_arg_type,
-			 ...)
-{
-  va_list args;
-  gboolean ret;
-
-  va_start (args, first_arg_type);
-
-  ret = dbus_g_pending_call_end_valist (connection, proxycon, pending,
-					error, first_arg_type, args);
-
-  va_end (args);
-
-  return ret;
-}
-
-static gboolean
-dbus_g_proxy_end_call_internal (DBusGProxy       *proxy,
-				DBusGPendingCall *pending,
-				GError          **error,
-				GType             first_arg_type,
-				va_list           args)
-{
-  return dbus_g_pending_call_end_valist (DBUS_G_CONNECTION_FROM_CONNECTION (proxy->manager->connection),
-					 proxy,
-					 pending,
-					 error,
-					 first_arg_type,
-					 args);
-}
-
-
 /**
- * Invokes a method on a remote interface. This function does not
- * block; instead it returns an opaque #DBusPendingCall object that
- * tracks the pending call.  The method call will not be sent over the
- * wire until the application returns to the main loop, or blocks in
- * dbus_connection_flush() to write out pending data.  The call will
- * be completed after a timeout, or when a reply is received.
- * To collect the results of the call (which may be an error,
- * or a reply), use dbus_g_proxy_end_call().
+ * Asynchronously invokes a method on a remote interface. The method
+ * call will not be sent over the wire until the application returns
+ * to the main loop, or blocks in dbus_connection_flush() to write out
+ * pending data.  The call will be completed after a timeout, or when
+ * a reply is received.  When the call returns, the callback specified
+ * will be invoked; you can then collect the results of the call
+ * (which may be an error, or a reply), use dbus_g_proxy_end_call().
  *
  * @todo this particular function shouldn't die on out of memory,
  * since you should be able to do a call with large arguments.
  * 
  * @param proxy a proxy for a remote interface
  * @param method the name of the method to invoke
+ * @param notify callback to be invoked when method returns
+ * @param user_data user data passed to callback
+ * @param destroy function called to destroy user_data
  * @param first_arg_type type of the first argument
  *
- * @returns opaque pending call object
+ * @returns call identifier
  *  */
-DBusGPendingCall*
-dbus_g_proxy_begin_call (DBusGProxy *proxy,
-			 const char  *method,
-			 GType       first_arg_type,
-                        ...)
+DBusGProxyCall *
+dbus_g_proxy_begin_call (DBusGProxy          *proxy,
+			 const char          *method,
+			 DBusGProxyCallNotify notify,
+			 gpointer             user_data,
+			 GDestroyNotify       destroy,
+			 GType                first_arg_type,
+			 ...)
 {
-  DBusGPendingCall *pending;
+  guint call_id;
   va_list args;
   GValueArray *arg_values;
   
@@ -2116,21 +2278,21 @@ dbus_g_proxy_begin_call (DBusGProxy *proxy,
 
   DBUS_G_VALUE_ARRAY_COLLECT_ALL (arg_values, first_arg_type, args);
   
-  pending = dbus_g_proxy_begin_call_internal (proxy, method, arg_values);
+  call_id = dbus_g_proxy_begin_call_internal (proxy, method, notify, user_data, destroy, arg_values);
 
   g_value_array_free (arg_values);
 
   va_end (args);
 
-  return pending;
+  return DBUS_G_PROXY_ID_TO_CALL (call_id);
 }
 
 /**
  * Collects the results of a method call. The method call was normally
- * initiated with dbus_g_proxy_end_call(). This function will block if
- * the results haven't yet been received; use
- * dbus_g_pending_call_set_notify() to be notified asynchronously that a
- * pending call has been completed. If it's completed, it will not block.
+ * initiated with dbus_g_proxy_end_call(). You may use this function
+ * outside of the callback given to dbus_g_proxy_begin_call; in that
+ * case this function will block if the results haven't yet been
+ * received.
  *
  * If the call results in an error, the error is set as normal for
  * GError and the function returns #FALSE.
@@ -2139,17 +2301,15 @@ dbus_g_proxy_begin_call (DBusGProxy *proxy,
  * method are stored in the provided varargs list.
  * The list should be terminated with G_TYPE_INVALID.
  *
- * This function unrefs the pending call.
- *
  * @param proxy a proxy for a remote interface
- * @param pending the pending call from dbus_g_proxy_begin_call()
+ * @param call_id the pending call ID from dbus_g_proxy_begin_call()
  * @param error return location for an error
  * @param first_arg_type type of first "out" argument
  * @returns #FALSE if an error is set
  */
 gboolean
 dbus_g_proxy_end_call (DBusGProxy          *proxy,
-                       DBusGPendingCall    *pending,
+                       DBusGProxyCall      *call,
                        GError             **error,
                        GType                first_arg_type,
                        ...)
@@ -2159,7 +2319,7 @@ dbus_g_proxy_end_call (DBusGProxy          *proxy,
 
   va_start (args, first_arg_type);
 
-  ret = dbus_g_proxy_end_call_internal (proxy, pending, error, first_arg_type, args);
+  ret = dbus_g_proxy_end_call_internal (proxy, GPOINTER_TO_UINT (call), error, first_arg_type, args);
 
   va_end (args);
   
@@ -2187,7 +2347,7 @@ dbus_g_proxy_call (DBusGProxy        *proxy,
 		   ...)
 {
   gboolean ret;
-  DBusGPendingCall *pending;
+  guint call_id;
   va_list args;
   GValueArray *in_args;
 
@@ -2195,12 +2355,12 @@ dbus_g_proxy_call (DBusGProxy        *proxy,
 
   DBUS_G_VALUE_ARRAY_COLLECT_ALL (in_args, first_arg_type, args);
 
-  pending = dbus_g_proxy_begin_call_internal (proxy, method, in_args);
+  call_id = dbus_g_proxy_begin_call_internal (proxy, method, NULL, NULL, NULL, in_args);
 
   g_value_array_free (in_args);
 
   first_arg_type = va_arg (args, GType);
-  ret = dbus_g_proxy_end_call_internal (proxy, pending, error, first_arg_type, args);
+  ret = dbus_g_proxy_end_call_internal (proxy, call_id, error, first_arg_type, args);
 
   va_end (args);
 
@@ -2253,6 +2413,35 @@ dbus_g_proxy_call_no_reply (DBusGProxy               *proxy,
   
  oom:
   g_error ("Out of memory");
+}
+
+/**
+ * Cancels a pending method call. The method call was normally
+ * initiated with dbus_g_proxy_begin_call().  This function
+ * may not be used on pending calls that have already been
+ * ended with dbus_g_proxy_end_call.
+ *
+ * @param proxy a proxy for a remote interface
+ * @param call_id the pending call ID from dbus_g_proxy_begin_call()
+ */
+void
+dbus_g_proxy_cancel_call (DBusGProxy        *proxy,
+			  DBusGProxyCall    *call)
+{
+  guint call_id;
+  DBusPendingCall *pending;
+  
+  g_return_if_fail (DBUS_IS_G_PROXY (proxy));
+  g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
+
+  call_id = DBUS_G_PROXY_CALL_TO_ID (call);
+
+  pending = g_hash_table_lookup (proxy->pending_calls, GUINT_TO_POINTER (call_id));
+  g_return_if_fail (pending != NULL);
+
+  dbus_pending_call_cancel (pending);
+
+  g_hash_table_remove (proxy->pending_calls, GUINT_TO_POINTER (call_id));
 }
 
 /**
