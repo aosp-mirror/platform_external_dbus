@@ -1204,7 +1204,8 @@ dbus_g_proxy_manager_filter (DBusConnection    *connection,
 						  dbus_message_get_interface (message));
 
 	      owner_list = g_hash_table_lookup (manager->proxy_lists, tri);
-	      full_list = g_slist_concat (full_list, g_slist_copy (owner_list->proxies));
+	      if (owner_list != NULL)
+		full_list = g_slist_concat (full_list, g_slist_copy (owner_list->proxies));
 	      g_free (tri);
 	    }
 	}
@@ -2033,9 +2034,6 @@ dbus_g_proxy_begin_call_internal (DBusGProxy          *proxy,
   GPendingNotifyClosure *closure;
   guint call_id;
 
-  g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), FALSE);
-  g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), FALSE);
-
   pending = NULL;
 
   message = dbus_g_proxy_marshal_args_to_message (proxy, method, args);
@@ -2152,26 +2150,8 @@ dbus_g_proxy_end_call_internal (DBusGProxy        *proxy,
 	    {
 	      g_value_init (&gvalue, valtype);
 
-	      /* FIXME, should use error here instead of NULL */ 
-	      if (!dbus_gvalue_demarshal (&context, &msgiter, &gvalue, NULL))
-		{
-		  g_set_error (error,
-			       DBUS_GERROR,
-			       DBUS_GERROR_INVALID_ARGS,
-			       _("Couldn't convert argument, expected \"%s\""),
-			       g_type_name (valtype));
-		  goto out;
-		}
-
-	      if (G_VALUE_TYPE (&gvalue) != valtype)
-		{
-		  g_set_error (error, DBUS_GERROR,
-			       DBUS_GERROR_INVALID_ARGS,
-			       _("Reply argument was \"%s\", expected \"%s\""),
-			       g_type_name (G_VALUE_TYPE (&gvalue)),
-			       g_type_name (valtype));  
-		  goto out;
-		}
+	      if (!dbus_gvalue_demarshal (&context, &msgiter, &gvalue, error))
+		goto out;
 
 	      /* Anything that can be demarshaled must be storable */
 	      if (!dbus_gvalue_store (&gvalue, (gpointer*) return_storage))
@@ -2274,6 +2254,9 @@ dbus_g_proxy_begin_call (DBusGProxy          *proxy,
   va_list args;
   GValueArray *arg_values;
   
+  g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), FALSE);
+  g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), FALSE);
+
   va_start (args, first_arg_type);
 
   DBUS_G_VALUE_ARRAY_COLLECT_ALL (arg_values, first_arg_type, args);

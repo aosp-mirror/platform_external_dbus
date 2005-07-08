@@ -358,13 +358,14 @@ write_interface (gpointer key, gpointer val, gpointer user_data)
 
       for (arg = 0; arg < query.n_params; arg++)
 	{
-	  const char *dbus_type = dbus_gtype_to_signature (query.param_types[arg]);
+	  char *dbus_type = dbus_gtype_to_signature (query.param_types[arg]);
 
 	  g_assert (dbus_type != NULL);
 
           g_string_append (xml, "      <arg type=\"");
           g_string_append (xml, dbus_type);
           g_string_append (xml, "\"/>\n");
+	  g_free (dbus_type);
 	}
 
       g_string_append (xml, "    </signal>\n");
@@ -376,7 +377,7 @@ write_interface (gpointer key, gpointer val, gpointer user_data)
     {
       const char *propname;
       GParamSpec *spec;
-      const char *dbus_type;
+      char *dbus_type;
       gboolean can_set;
       gboolean can_get;
       char *s;
@@ -417,6 +418,7 @@ write_interface (gpointer key, gpointer val, gpointer user_data)
 	  g_string_append (xml, "\"/>\n");
 	}
       
+      g_free (dbus_type);
       g_free (s);
 
       g_string_append (xml, "    </property>\n");

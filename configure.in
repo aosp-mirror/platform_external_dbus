@@ -1272,6 +1272,7 @@ Makefile
 dbus/Makefile
 glib/Makefile
 glib/examples/Makefile
+glib/examples/statemachine/Makefile
 python/Makefile
 python/examples/Makefile
 qt/Makefile

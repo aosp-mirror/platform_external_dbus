@@ -195,6 +195,7 @@ echo_received_cb (DBusGProxy *proxy,
     lose_gerror ("Failed to complete async Echo", error);
   g_assert (echo_data != NULL);
   g_print ("Async echo gave \"%s\"", echo_data); 
+  g_free (echo_data);
   g_main_loop_quit (loop);
   g_source_remove (exit_timeout);
 }
@@ -898,6 +899,34 @@ main (int argc, char **argv)
   }
 
   run_mainloop ();
+
+  {
+    GPtrArray *objs;
+    guint i;
+
+    g_print ("Calling GetObjs\n");
+
+    if (!dbus_g_proxy_call (proxy, "GetObjs", &error, G_TYPE_INVALID,
+			    dbus_g_type_get_collection ("GPtrArray", DBUS_TYPE_G_OBJECT_PATH),
+			    &objs,
+			    G_TYPE_INVALID))
+      lose_gerror ("Failed to complete GetObjs call", error);
+    if (objs->len != 2)
+      lose ("GetObjs call returned unexpected number of objects %d, expected 2",
+	    objs->len);
+
+    if (strcmp ("/org/freedesktop/DBus/Tests/MyTestObject",
+		g_ptr_array_index (objs, 0)) != 0)
+      lose ("GetObjs call returned unexpected path \"%s\" in position 0; expected /org/freedesktop/DBus/Tests/MyTestObject", (char*) g_ptr_array_index (objs, 0));
+
+    if (strcmp ("/org/freedesktop/DBus/Tests/MyTestObject2",
+		g_ptr_array_index (objs, 1)) != 0)
+      lose ("GetObjs call returned unexpected path \"%s\" in position 1; expected /org/freedesktop/DBus/Tests/MyTestObject2", (char*) g_ptr_array_index (objs, 1));
+
+    for (i = 0; i < objs->len; i++)
+      g_free (g_ptr_array_index (objs, i));
+    g_ptr_array_free (objs, TRUE);
+  }
 
   /* Signal handling tests */
   

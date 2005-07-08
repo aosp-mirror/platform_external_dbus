@@ -21,8 +21,10 @@
  *
  */
 
+#include <config.h>
 #include "dbus/dbus-glib.h"
 #include "dbus-gvalue-utils.h"
+#include "dbus-gtest.h"
 #include <glib.h>
 #include <string.h>
 #include <gobject/gvaluecollector.h>
@@ -572,6 +574,9 @@ gvalue_from_ptrarray_value (GValue *value, gpointer instance)
 {
   switch (g_type_fundamental (G_VALUE_TYPE (value)))
     {
+    case G_TYPE_STRING:
+      g_value_set_string (value, instance);
+      break;
     case G_TYPE_POINTER:
       g_value_set_pointer (value, instance);
       break;
@@ -593,6 +598,9 @@ ptrarray_value_from_gvalue (const GValue *value)
 {
   switch (g_type_fundamental (G_VALUE_TYPE (value)))
     {
+    case G_TYPE_STRING:
+      return (gpointer) g_value_get_string (value);
+      break;
     case G_TYPE_POINTER:
       return g_value_get_pointer (value);
       break;
@@ -659,11 +667,105 @@ ptrarray_copy (GType type, gpointer src)
 }
 
 static void
+ptrarray_append (DBusGTypeSpecializedAppendContext *ctx, const GValue *value)
+{
+  GPtrArray *array;
+
+  array = g_value_get_boxed (ctx->val);
+
+  g_ptr_array_add (array, ptrarray_value_from_gvalue (value));
+}
+
+static void
 ptrarray_free (GType type, gpointer val)
 {
-  GArray *array;
+  GPtrArray *array;
   array = val;
-  g_array_free (array, TRUE);
+  g_ptr_array_free (array, TRUE);
+}
+
+static gpointer
+slist_constructor (GType type)
+{
+  return NULL;
+}
+
+static void
+slist_iterator (GType                                   list_type,
+		gpointer                                instance,
+		DBusGTypeSpecializedCollectionIterator  iterator,
+		gpointer                                user_data)
+{
+  GSList *slist;
+  GType elt_gtype;
+
+  slist = instance;
+
+  elt_gtype = dbus_g_type_get_collection_specialization (list_type);
+
+  while (slist != NULL)
+    {
+      GValue val = {0, };
+      g_value_init (&val, elt_gtype);
+      gvalue_from_ptrarray_value (&val, slist->data);
+      iterator (&val, user_data);
+    }
+}
+
+static void
+slist_copy_elt (const GValue *val, gpointer user_data)
+{
+  GSList *dest = user_data;
+  GValue val_copy = {0, }; 
+  
+  g_value_init (&val_copy, G_VALUE_TYPE (val));
+  g_value_copy (val, &val_copy);
+
+  g_slist_append (dest, ptrarray_value_from_gvalue (&val_copy));
+}
+
+static gpointer
+slist_copy (GType type, gpointer src)
+{
+  GSList *new;
+  GValue slist_val = {0, };
+
+  g_value_init (&slist_val, type);
+  g_value_set_static_boxed (&slist_val, src);
+
+  new = slist_constructor (type);
+  dbus_g_type_collection_value_iterate (&slist_val, slist_copy_elt, new);
+
+  return new;
+}
+
+static void
+slist_append (DBusGTypeSpecializedAppendContext *ctx, const GValue *value)
+{
+  GSList *list;
+
+  list = g_value_get_boxed (ctx->val);
+  list = g_slist_prepend (list, ptrarray_value_from_gvalue (value));
+  g_value_set_static_boxed (ctx->val, list);
+}
+
+static void
+slist_end_append (DBusGTypeSpecializedAppendContext *ctx)
+{
+  GSList *list;
+
+  list = g_value_get_boxed (ctx->val);
+  list = g_slist_reverse (list);
+
+  g_value_set_static_boxed (ctx->val, list);
+}
+
+static void
+slist_free (GType type, gpointer val)
+{
+  GSList *list;
+  list = val;
+  g_slist_free (list);
 }
 
 void
@@ -674,11 +776,10 @@ dbus_g_type_specialized_builtins_init (void)
       array_constructor,
       array_free,
       array_copy,
-      NULL,
-      NULL,
-      NULL
     },
     array_fixed_accessor,
+    NULL,
+    NULL,
     NULL
   };
 
@@ -689,15 +790,28 @@ dbus_g_type_specialized_builtins_init (void)
       ptrarray_constructor,
       ptrarray_free,
       ptrarray_copy,
-      NULL,
-      NULL,
-      NULL
     },
     NULL,
-    ptrarray_iterator
+    ptrarray_iterator,
+    ptrarray_append,
+    NULL,
   };
 
   dbus_g_type_register_collection ("GPtrArray", &ptrarray_vtable, 0);
+
+  static const DBusGTypeSpecializedCollectionVtable slist_vtable = {
+    {
+      slist_constructor,
+      slist_free,
+      slist_copy,
+    },
+    NULL,
+    slist_iterator,
+    slist_append,
+    slist_end_append,
+  };
+
+  dbus_g_type_register_collection ("GSList", &slist_vtable, 0);
 
   static const DBusGTypeSpecializedMapVtable hashtable_vtable = {
     {
@@ -713,3 +827,132 @@ dbus_g_type_specialized_builtins_init (void)
 
   dbus_g_type_register_map ("GHashTable", &hashtable_vtable, 0);
 }
+
+#ifdef DBUS_BUILD_TESTS
+
+typedef struct
+{
+  gboolean seen_foo;
+  gboolean seen_baz;
+} TestSpecializedHashData;
+
+static void
+test_specialized_hash (const GValue *key, const GValue *val, gpointer user_data)
+{
+  TestSpecializedHashData *data = user_data;
+
+  g_assert (G_VALUE_HOLDS_STRING (key));
+  g_assert (G_VALUE_HOLDS_STRING (val));
+
+  if (!strcmp (g_value_get_string (key), "foo"))
+    {
+      data->seen_foo = TRUE;
+      g_assert (!strcmp (g_value_get_string (val), "bar"));
+    }
+  else if (!strcmp (g_value_get_string (key), "baz"))
+    {
+      data->seen_baz = TRUE;
+      g_assert (!strcmp (g_value_get_string (val), "moo"));
+    }
+  else
+    {
+      g_assert_not_reached ();
+    }
+}
+
+gboolean
+_dbus_gvalue_utils_test (const char *datadir)
+{
+  GType type;
+
+  dbus_g_type_specialized_init ();
+  dbus_g_type_specialized_builtins_init ();
+
+  type = dbus_g_type_get_collection ("GArray", G_TYPE_UINT);
+  g_assert (dbus_g_type_is_collection (type));
+  g_assert (dbus_g_type_get_collection_specialization (type) == G_TYPE_UINT);
+  {
+    GArray *instance;
+
+    instance = dbus_g_type_specialized_construct (type);
+
+    g_assert (instance->len == 0);
+
+    g_array_free (instance, TRUE);
+  }
+
+  type = dbus_g_type_get_map ("GHashTable", G_TYPE_STRING, G_TYPE_STRING);
+  g_assert (dbus_g_type_is_map (type));
+  g_assert (dbus_g_type_get_map_key_specialization (type) == G_TYPE_STRING);
+  g_assert (dbus_g_type_get_map_value_specialization (type) == G_TYPE_STRING);
+  {
+    GHashTable *instance;
+    GValue val = { 0, };
+    TestSpecializedHashData hashdata;
+
+    instance = dbus_g_type_specialized_construct (type);
+
+    g_assert (g_hash_table_size (instance) == 0);
+    g_hash_table_insert (instance, g_strdup ("foo"), g_strdup ("bar"));
+    g_hash_table_insert (instance, g_strdup ("baz"), g_strdup ("moo"));
+    g_assert (g_hash_table_size (instance) == 2);
+
+    g_value_init (&val, type);
+    g_value_set_boxed_take_ownership (&val, instance);
+    hashdata.seen_foo = FALSE;
+    hashdata.seen_baz = FALSE;
+    dbus_g_type_map_value_iterate (&val,
+				   test_specialized_hash, 
+				   &hashdata);
+    
+    g_assert (hashdata.seen_foo);
+    g_assert (hashdata.seen_baz);
+
+    g_value_unset (&val);
+  }
+
+  type = dbus_g_type_get_collection ("GPtrArray", G_TYPE_STRING);
+  g_assert (dbus_g_type_is_collection (type));
+  g_assert (dbus_g_type_get_collection_specialization (type) == G_TYPE_STRING);
+  {
+    GPtrArray *instance;
+    DBusGTypeSpecializedAppendContext ctx;
+    GValue val = {0, };
+    GValue eltval = {0, };
+
+    instance = dbus_g_type_specialized_construct (type);
+
+    g_assert (instance->len == 0);
+
+    g_value_init (&val, type);
+    g_value_set_boxed_take_ownership (&val, instance);
+
+    dbus_g_type_specialized_collection_init_append (&val, &ctx);
+
+    g_value_init (&eltval, G_TYPE_STRING);
+    g_value_set_static_string (&eltval, "foo");
+    dbus_g_type_specialized_collection_append (&ctx, &eltval);
+
+    g_value_reset (&eltval);
+    g_value_set_static_string (&eltval, "bar");
+    dbus_g_type_specialized_collection_append (&ctx, &eltval);
+
+    g_value_reset (&eltval);
+    g_value_set_static_string (&eltval, "baz");
+    dbus_g_type_specialized_collection_append (&ctx, &eltval);
+
+    dbus_g_type_specialized_collection_end_append (&ctx);
+
+    g_assert (instance->len == 3);
+
+    g_assert (!strcmp ("foo", g_ptr_array_index (instance, 0)));
+    g_assert (!strcmp ("bar", g_ptr_array_index (instance, 1)));
+    g_assert (!strcmp ("baz", g_ptr_array_index (instance, 2)));
+
+    g_value_unset (&val);
+  }
+
+  return TRUE;
+}
+
+#endif /* DBUS_BUILD_TESTS */

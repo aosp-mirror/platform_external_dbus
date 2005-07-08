@@ -25,6 +25,7 @@
 #include "dbus-gtest.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <glib.h>
 
 #ifdef DBUS_BUILD_TESTS
 static void
@@ -55,6 +56,12 @@ dbus_glib_internal_do_not_use_run_tests (const char *test_data_dir)
     printf ("Test data in %s\n", test_data_dir);
   else
     printf ("No test data!\n");
+
+  g_type_init ();
+
+  printf ("%s: running GValue util tests\n", "dbus-glib-test");
+  if (!_dbus_gvalue_utils_test (test_data_dir))
+    die ("gvalue utils");
 
   printf ("%s: running glib tests\n", "dbus-glib-test");
   if (!_dbus_glib_test (test_data_dir))

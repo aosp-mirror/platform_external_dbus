@@ -99,6 +99,8 @@ main (int argc, char **argv)
   guint request_name_result;
 
   g_type_init ();
+
+  dbus_g_object_type_install_info (TEST_TYPE_OBJECT, &dbus_glib_test_object_object_info);
   
   mainloop = g_main_loop_new (NULL, FALSE);
 
@@ -119,8 +121,6 @@ main (int argc, char **argv)
     lose_gerror ("Failed to acquire org.designfu.TestService", error);
 
   obj = g_object_new (TEST_TYPE_OBJECT, NULL);
-
-  dbus_g_object_type_install_info (TEST_TYPE_OBJECT, &dbus_glib_test_object_object_info);
 
   dbus_g_connection_register_g_object (bus, "/org/designfu/TestService/object", G_OBJECT (obj));
 

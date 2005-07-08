@@ -1,3 +1,5 @@
+SUBDIRS = . statemachine
+
 INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) -DDBUS_COMPILATION
 
 ## Makefile.am bits for sample client/server pair

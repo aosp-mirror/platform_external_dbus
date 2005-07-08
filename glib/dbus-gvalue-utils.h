@@ -64,7 +64,6 @@ gboolean       dbus_gvalue_store                     (GValue          *value,
 gboolean       dbus_gvalue_take                      (GValue          *value,
 						      GTypeCValue     *cvalue);
 
-
 G_END_DECLS
 
 #endif

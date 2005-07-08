@@ -48,21 +48,37 @@ typedef void   (*DBusGTypeSpecializedMapIterator)           (const GValue *key_v
 
 gpointer       dbus_g_type_specialized_construct            (GType type);
 
+typedef struct {
+  /* public */
+  GValue *val;
+  GType specialization_type;
+  /* padding */
+  gpointer b;
+  guint c;
+  gpointer d;
+} DBusGTypeSpecializedAppendContext;
+
+void           dbus_g_type_specialized_collection_init_append  (GValue *val, DBusGTypeSpecializedAppendContext *ctx);
+
+void           dbus_g_type_specialized_collection_append       (DBusGTypeSpecializedAppendContext *ctx, const GValue *elt);
+
+void           dbus_g_type_specialized_collection_end_append   (DBusGTypeSpecializedAppendContext *ctx);
+
 gboolean       dbus_g_type_collection_get_fixed             (GValue                                 *value,
 							     gpointer                               *data,
 							     guint                                  *len);
 
-void           dbus_g_type_collection_value_iterate         (GValue                                 *value,
+void           dbus_g_type_collection_value_iterate         (const GValue                           *value,
 							     DBusGTypeSpecializedCollectionIterator  iterator,
 							     gpointer                                user_data);
 
-void           dbus_g_type_map_value_iterate                (GValue                                 *value,
+void           dbus_g_type_map_value_iterate                (const GValue                           *value,
 							     DBusGTypeSpecializedMapIterator         iterator,
 							     gpointer                                user_data);
 
-typedef gpointer (*DBusGTypeSpecializedConstructor) (GType type);
-typedef void     (*DBusGTypeSpecializedFreeFunc)    (GType type, gpointer val);
-typedef gpointer (*DBusGTypeSpecializedCopyFunc)    (GType type, gpointer src);
+typedef gpointer (*DBusGTypeSpecializedConstructor)     (GType type);
+typedef void     (*DBusGTypeSpecializedFreeFunc)        (GType type, gpointer val);
+typedef gpointer (*DBusGTypeSpecializedCopyFunc)        (GType type, gpointer src);
 
 typedef struct {
   DBusGTypeSpecializedConstructor    constructor;
@@ -74,12 +90,16 @@ typedef struct {
 } DBusGTypeSpecializedVtable;
 
 typedef gboolean (*DBusGTypeSpecializedCollectionFixedAccessorFunc) (GType type, gpointer instance, gpointer *values, guint *len);
-typedef void (*DBusGTypeSpecializedCollectionIteratorFunc) (GType type, gpointer instance, DBusGTypeSpecializedCollectionIterator iterator, gpointer user_data);
+typedef void (*DBusGTypeSpecializedCollectionIteratorFunc)          (GType type, gpointer instance, DBusGTypeSpecializedCollectionIterator iterator, gpointer user_data);
+typedef void     (*DBusGTypeSpecializedCollectionAppendFunc)        (DBusGTypeSpecializedAppendContext *ctx, const GValue *val);
+typedef void     (*DBusGTypeSpecializedCollectionEndAppendFunc)     (DBusGTypeSpecializedAppendContext *ctx);
 
 typedef struct {
   DBusGTypeSpecializedVtable                        base_vtable;
   DBusGTypeSpecializedCollectionFixedAccessorFunc   fixed_accessor;
   DBusGTypeSpecializedCollectionIteratorFunc        iterator;
+  DBusGTypeSpecializedCollectionAppendFunc          append_func;
+  DBusGTypeSpecializedCollectionEndAppendFunc       end_append_func;
 } DBusGTypeSpecializedCollectionVtable;
 
 typedef void (*DBusGTypeSpecializedMapIteratorFunc) (GType type, gpointer instance, DBusGTypeSpecializedMapIterator iterator, gpointer user_data);

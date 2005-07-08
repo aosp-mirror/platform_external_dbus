@@ -22,7 +22,7 @@ GType          dbus_gtype_from_signature      (const char              *signatur
 GType          dbus_gtype_from_signature_iter (DBusSignatureIter       *sigiter,
 					       gboolean                 is_client);
 
-const char *   dbus_gtype_to_signature        (GType                    type);
+char *         dbus_gtype_to_signature        (GType                    type);
 
 GArray *       dbus_gtypes_from_arg_signature (const char              *signature,
 					       gboolean                 is_client);
@@ -44,7 +44,7 @@ GValueArray *  dbus_gvalue_demarshal_message  (DBusGValueMarshalCtx    *context,
 					       GError                 **error);
 
 gboolean       dbus_gvalue_marshal            (DBusMessageIter         *iter,
-					       GValue                  *value);
+					       const GValue            *value);
 
 G_END_DECLS
 

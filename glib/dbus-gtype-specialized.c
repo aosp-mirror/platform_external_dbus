@@ -401,7 +401,7 @@ dbus_g_type_collection_get_fixed (GValue   *value,
 }
 
 void
-dbus_g_type_collection_value_iterate (GValue                                 *value,
+dbus_g_type_collection_value_iterate (const GValue                           *value,
 				      DBusGTypeSpecializedCollectionIterator  iterator,
 				      gpointer                                user_data)
 {
@@ -420,8 +420,48 @@ dbus_g_type_collection_value_iterate (GValue                                 *va
 									    iterator, user_data);
 }
 
+typedef struct {
+  GValue *val;
+  GType specialization_type;
+  DBusGTypeSpecializedData *specdata;
+} DBusGTypeSpecializedAppendContextReal;
+
 void
-dbus_g_type_map_value_iterate (GValue                                 *value,
+dbus_g_type_specialized_collection_init_append (GValue *value, DBusGTypeSpecializedAppendContext *ctx)
+{
+  DBusGTypeSpecializedAppendContextReal *realctx = (DBusGTypeSpecializedAppendContextReal *) ctx;
+  GType gtype;
+  DBusGTypeSpecializedData *specdata;
+  
+  g_return_if_fail (specialized_types_is_initialized ());
+  g_return_if_fail (G_VALUE_HOLDS_BOXED (value));
+  gtype = G_VALUE_TYPE (value);
+  specdata = lookup_specialization_data (gtype);
+  g_return_if_fail (specdata != NULL);
+  
+  realctx->val = value;
+  realctx->specialization_type = specdata->types[0];
+  realctx->specdata = specdata;
+}
+
+void
+dbus_g_type_specialized_collection_append (DBusGTypeSpecializedAppendContext *ctx,
+					   const GValue *elt)
+{
+  DBusGTypeSpecializedAppendContextReal *realctx = (DBusGTypeSpecializedAppendContextReal *) ctx;
+  ((DBusGTypeSpecializedCollectionVtable *) realctx->specdata->klass->vtable)->append_func (ctx, elt);
+}
+
+void
+dbus_g_type_specialized_collection_end_append (DBusGTypeSpecializedAppendContext *ctx)
+{
+  DBusGTypeSpecializedAppendContextReal *realctx = (DBusGTypeSpecializedAppendContextReal *) ctx;
+  if (((DBusGTypeSpecializedCollectionVtable *) realctx->specdata->klass->vtable)->end_append_func != NULL)
+    ((DBusGTypeSpecializedCollectionVtable *) realctx->specdata->klass->vtable)->end_append_func (ctx);
+}
+
+void
+dbus_g_type_map_value_iterate (const GValue                           *value,
 			       DBusGTypeSpecializedMapIterator         iterator,
 			       gpointer                                user_data)
 {

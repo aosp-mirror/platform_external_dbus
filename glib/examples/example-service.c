@@ -106,6 +106,8 @@ main (int argc, char **argv)
 
   g_type_init ();
   
+  dbus_g_object_type_install_info (SOME_TYPE_OBJECT, &dbus_glib_some_object_object_info);
+
   mainloop = g_main_loop_new (NULL, FALSE);
 
   bus = dbus_g_bus_get (DBUS_BUS_SESSION, &error);
@@ -125,8 +127,6 @@ main (int argc, char **argv)
     lose_gerror ("Failed to acquire org.designfu.SampleService", error);
 
   obj = g_object_new (SOME_TYPE_OBJECT, NULL);
-
-  dbus_g_object_type_install_info (SOME_TYPE_OBJECT, &dbus_glib_some_object_object_info);
 
   dbus_g_connection_register_g_object (bus, "/SomeObject", G_OBJECT (obj));
 

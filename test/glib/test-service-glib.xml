@@ -74,6 +74,10 @@
       <arg type="o" direction="out"/>
     </method>
 
+    <method name="GetObjs">
+      <arg type="ao" direction="out"/>
+    </method>
+
     <method name="IncrementVal">
     </method>
 

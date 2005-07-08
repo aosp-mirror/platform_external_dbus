@@ -65,6 +65,8 @@ gboolean my_object_recursive2 (MyObject *obj, guint32 reqlen, GArray **array, GE
 
 gboolean my_object_objpath (MyObject *obj, const char *in, char **arg1, GError **error);
 
+gboolean my_object_get_objs (MyObject *obj, GPtrArray **objs, GError **error);
+
 gboolean my_object_stringify (MyObject *obj, GValue *value, char **ret, GError **error);
 gboolean my_object_unstringify (MyObject *obj, const char *str, GValue *value, GError **error);
 
@@ -407,6 +409,17 @@ my_object_objpath (MyObject *obj, const char *incoming, char **outgoing, GError 
       return FALSE;
     }
   *outgoing = g_strdup ("/org/freedesktop/DBus/Tests/MyTestObject2");
+  return TRUE;
+}
+
+gboolean
+my_object_get_objs (MyObject *obj, GPtrArray **objs, GError **error)
+{
+  *objs = g_ptr_array_new ();
+
+  g_ptr_array_add (*objs, g_strdup ("/org/freedesktop/DBus/Tests/MyTestObject"));
+  g_ptr_array_add (*objs, g_strdup ("/org/freedesktop/DBus/Tests/MyTestObject2"));
+
   return TRUE;
 }
 

@@ -1,3 +1,104 @@
+2005-07-08  Colin Walters  <walters@verbum.org>
+
+	* tools/Makefile.am: Kill of print-introspect in favor of using
+	dbus-send --print-reply=literal.
+
+	* test/glib/test-service-glib.xml: 
+	* test/glib/test-service-glib.c (my_object_get_objs): New test
+	for "ao".
+
+	* test/glib/test-dbus-glib.c (echo_received_cb): Free echo data.
+	(main): Test GetObjs.
+
+	* glib/examples/statemachine/Makefile.am:
+	* glib/examples/statemachine/sm-marshal.list:
+	* glib/examples/statemachine/statemachine-client.c:
+	* glib/examples/statemachine/statemachine-server.c:
+	* glib/examples/statemachine/statemachine-server.xml:
+	* glib/examples/statemachine/statemachine.c:
+	* glib/examples/statemachine/statemachine.h:
+	* glib/examples/statemachine/statemachine.xml:
+
+	New example.
+
+	* glib/examples/example-service.c (main): Move invocation
+	of dbus_g_object_type_install_info earlier, to emphasize it
+	should only be done once.
+
+	* glib/examples/example-signal-emitter.c (main): Ditto.
+
+	* glib/examples/Makefile.am (SUBDIRS): Include statemachine.
+
+	* glib/dbus-gvalue.h (dbus_gtype_to_signature)
+	(dbus_gvalue_marshal): Update prototypes.
+
+	* glib/dbus-gvalue.c: Update all marshalling functions to take
+	const GValue instead of GValue.
+	(signature_iter_to_g_type_array): Return a GPtrArray for nonfixed
+	types.
+	(dbus_gvalue_to_signature): Update for dbus_gtype_to_signature
+	change.
+	(dbus_gtype_to_signature): Handle generic collecitons and maps.
+	Return a newly-allocated string.
+	(demarshal_proxy, demarshal_object_path, demarshal_object)
+	(demarshal_strv, demarshal_ghashtable): Set error, don't assert if
+	we get the wrong types from message.
+	(get_type_demarshaller): New function, extracted from
+	dbus_gvalue_demarshal.
+	(demarshal_collection): New function, demarshals generic
+	collection.
+	(dbus_gvalue_demarshal): Just invoke result of
+	get_type_demarshaller.  Throw error if we don't have one.
+	(marshal_garray_basic): Abort on OOM.
+	(get_type_marshaller): New function, extracted from
+	dbus_gvalue_marshal.
+	(collection_marshal_iterator, marshal_collection): New functions;
+	implements generic marshalling for an iteratable specialized
+	collection.
+	(dbus_gvalue_marshal): Just invoke result of get_type_marshaller.
+
+	* glib/dbus-gvalue-utils.c (gvalue_from_ptrarray_value): Handle
+	G_TYPE_STRING.
+	(ptrarray_value_from_gvalue): Ditto.
+	(ptrarray_append, ptrarray_free): New functions.
+	(slist_constructor, slist_iterator, slist_copy_elt, slist_copy) 
+	(slist_append, slist_end_append, slist_free): New functions.
+	(dbus_g_type_specialized_builtins_init): Add append fuctions
+	for GPtrArray and GSList.  Register GSList.
+	(test_specialized_hash, _dbus_gvalue_utils_test): New functions.
+
+	* glib/dbus-gtype-specialized.h (DBusGTypeSpecializedAppendContext):
+	New.
+	(dbus_g_type_specialized_collection_init_append)
+	(dbus_g_type_specialized_collection_append)
+	(dbus_g_type_specialized_collection_end_append): Prototype.
+	(DBusGTypeSpecializedCollectionVtable): Add append_func and
+	end_append_func.
+
+	* glib/dbus-gtype-specialized.c (dbus_g_type_specialized_collection_init_append) 
+	(dbus_g_type_specialized_collection_append) 
+	(dbus_g_type_specialized_collection_end_append): New functions.
+	(dbus_g_type_map_value_iterate): Take const GValue.
+	(dbus_g_type_collection_value_iterate): Ditto.
+
+	* glib/dbus-gtest.c (dbus_glib_internal_do_not_use_run_tests): Run
+	_dbus_gvalue_utils_test.
+	
+	* glib/dbus-gtest.h: Prototype it.
+
+	* glib/dbus-gproxy.c (dbus_g_proxy_manager_filter): Avoid
+	using uninitialized owner_list.
+	(dbus_g_proxy_begin_call_internal): Move return_if_fail to
+	public API.
+	(dbus_g_proxy_end_call_internal): Update to use error set
+	from dbus_gvalue_demarshal instead of setting it here.
+	(dbus_g_proxy_begin_call): Move return_if_fail here.
+
+	* glib/dbus-gobject.c (write_interface): Update for
+	dbus_gtype_to_signature returning new string.
+
+	* configure.in: Add glib/examples/statemachine.
+
 2005-07-08  Joe Shaw  <joeshaw@novell.com>
 
 	* configure.in: Add a configure option, --with-console-auth-dir
