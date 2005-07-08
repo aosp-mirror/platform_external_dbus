@@ -30,10 +30,11 @@ Important for 1.0 GLib Bindings
 
  - Annotations for "do not take ownership of this return value" on server
 
- - Fix TYPE_OBJECT_PATH marshalling; see:
-   http://lists.freedesktop.org/archives/dbus/2005-June/002774.html
+ - Support a{sv}
 
- - DBusGProxy doesn't emit "destroy" when it should
+ - Test point-to-point mode
+
+ - Add support for getting sender
 
 Might as Well for 1.0
 ===
@@ -118,3 +119,9 @@ Can Be Post 1.0
    do per-display by simply including GUID in the service name.
 
  - optimization and profiling!
+
+Should Be Post 1.0
+===
+
+ - look into supporting the concept of a "connection" generically
+

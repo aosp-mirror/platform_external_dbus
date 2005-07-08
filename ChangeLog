@@ -1,5 +1,10 @@
 2005-07-08  Colin Walters  <walters@verbum.org>
 
+	* doc/TODO: Update GLib todo bits, also add a post-1.0 TODO for a
+	connection concept.
+	
+2005-07-08  Colin Walters  <walters@verbum.org>
+	
 	* tools/Makefile.am: Kill of print-introspect in favor of using
 	dbus-send --print-reply=literal.
 
