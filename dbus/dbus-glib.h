@@ -280,11 +280,14 @@ void              dbus_g_method_return               (DBusGMethodInvocation *con
 
 void              dbus_g_method_return_error         (DBusGMethodInvocation *context, GError *error);
 
+/* Probably possible to replace this with a closure */
+typedef struct {
+  GCallback cb;
+  gpointer userdata;
+} DBusGAsyncData;
+
 #undef DBUS_INSIDE_DBUS_GLIB_H
 
 G_END_DECLS
 
 #endif /* DBUS_GLIB_H */
-
-
-

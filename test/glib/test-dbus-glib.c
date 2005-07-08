@@ -194,7 +194,7 @@ echo_received_cb (DBusGProxy *proxy,
 			      G_TYPE_INVALID))
     lose_gerror ("Failed to complete async Echo", error);
   g_assert (echo_data != NULL);
-  g_print ("Async echo gave \"%s\"", echo_data); 
+  g_print ("Async echo gave \"%s\"\n", echo_data); 
   g_free (echo_data);
   g_main_loop_quit (loop);
   g_source_remove (exit_timeout);
@@ -221,10 +221,27 @@ increment_received_cb (DBusGProxy *proxy,
   if (val != 43)
     lose ("Increment call returned %d, should be 43", val);
   
-  g_print ("Async increment gave \"%d\"", val); 
+  g_print ("Async increment gave \"%d\"\n", val); 
   g_main_loop_quit (loop);
   g_source_remove (exit_timeout);
 }
+
+static void
+increment_async_cb (DBusGProxy *proxy, guint val, GError *error, gpointer data)
+{
+  if (error)
+    lose_gerror ("Failed to complete (wrapped async) Increment call", error);
+
+  if (data != NULL)
+    lose ("(wrapped async) Increment call gave unexpected data");
+  if (val != 43)
+    lose ("(wrapped async) Increment call returned %d, should be 43", val);
+
+  g_print ("(wrapped async) increment gave \"%d\"\n", val); 
+  g_main_loop_quit (loop);
+  g_source_remove (exit_timeout);
+}
+
 
 static void
 lose (const char *str, ...)
@@ -542,6 +559,13 @@ main (int argc, char **argv)
 
   if (v_UINT32_2 != 43)
     lose ("(wrapped) increment call returned %d, should be 43", v_UINT32_2);
+
+  g_print ("Calling (wrapped async) increment\n");
+  if (!org_freedesktop_DBus_Tests_MyObject_increment_async (proxy, 42, increment_async_cb, NULL))
+    lose_gerror ("Failed to complete (wrapped) Increment call", error);
+  dbus_g_connection_flush (connection);
+  exit_timeout = g_timeout_add (5000, timed_exit, loop);
+  g_main_loop_run (loop);
 
   v_UINT32_2 = 0;
   if (!org_freedesktop_DBus_Tests_MyObject_async_increment (proxy, 42, &v_UINT32_2, &error))

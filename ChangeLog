@@ -1,3 +1,14 @@
+2005-07-08  Ross Burton  <ross@openedhand.com>
+
+	* dbus/dbus-glib.h:
+	Add DBysGAsyncData for the async bindings.
+
+	* glib/dbus-binding-tool-glib.c:
+	Re-enable the async bindings.
+
+	* test/glib/test-dbus-glib.c:
+	Add a test for the generated async bindings.
+
 2005-07-08  Colin Walters  <walters@verbum.org>
 
 	* doc/TODO: Update GLib todo bits, also add a post-1.0 TODO for a

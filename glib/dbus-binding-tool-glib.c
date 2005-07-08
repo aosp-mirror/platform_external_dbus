@@ -98,8 +98,7 @@ dbus_g_type_get_c_name (GType gtype)
   if (dbus_g_type_is_map (gtype))
     return "GHashTable";
   
-  if (g_type_is_a (gtype, G_TYPE_STRING)
-      || g_type_is_a (gtype, DBUS_TYPE_G_OBJECT_PATH))
+  if (g_type_is_a (gtype, G_TYPE_STRING))
     return "char *";
 
   /* This one is even more hacky...we get an extra *
@@ -107,6 +106,8 @@ dbus_g_type_get_c_name (GType gtype)
    */
   if (g_type_is_a (gtype, G_TYPE_STRV))
     return "char *";
+  if (g_type_is_a (gtype, DBUS_TYPE_G_OBJECT_PATH))
+    return "char";
   
   return g_type_name (gtype);
 }
@@ -1171,7 +1172,7 @@ write_async_method_client (GIOChannel *channel, InterfaceInfo *interface, Method
   method_name = compute_client_method_name (iface_prefix, method);
   
   /* Write the typedef for the client callback */
-  if (!write_printf_to_iochannel ("typedef void (*%s_reply) (", channel, error, method_name))
+  if (!write_printf_to_iochannel ("typedef void (*%s_reply) (DBusGProxy *proxy, ", channel, error, method_name))
     goto io_lose;
   {
     GSList *args;
@@ -1202,17 +1203,18 @@ write_async_method_client (GIOChannel *channel, InterfaceInfo *interface, Method
   
   /* Write the callback when the call returns */
   WRITE_OR_LOSE ("static void\n");
-  if (!write_printf_to_iochannel ("%s_async_callback (DBusGPendingCall *pending, DBusGAsyncData *data)\n", channel, error, method_name))
+  if (!write_printf_to_iochannel ("%s_async_callback (DBusGProxy *proxy, DBusGProxyCall *call, void *user_data)\n", channel, error, method_name))
     goto io_lose;
   WRITE_OR_LOSE ("{\n");
-  WRITE_OR_LOSE ("  GError *error = NULL;\n");
+  WRITE_OR_LOSE ("  DBusGAsyncData *data = user_data;\n  GError *error = NULL;\n");
   if (!write_formal_declarations_for_direction (interface, method, channel, ARG_OUT, error))
     goto io_lose;
-  WRITE_OR_LOSE ("  dbus_g_proxy_end_call (data->proxy, pending, &error, ");
+  /* TODO: handle return boolean of end_call */
+  WRITE_OR_LOSE ("  dbus_g_proxy_end_call (proxy, call, &error, ");
   if (!write_typed_args_for_direction (interface, method, channel, ARG_OUT, error))
     goto io_lose;
   WRITE_OR_LOSE("G_TYPE_INVALID);\n");
-  if (!write_printf_to_iochannel ("  (*(%s_reply)data->cb) (", channel, error, method_name))
+  if (!write_printf_to_iochannel ("  (*(%s_reply)data->cb) (proxy, ", channel, error, method_name))
     goto io_lose;
   if (!write_untyped_out_args (interface, method, channel, error))
     goto io_lose;
@@ -1221,7 +1223,7 @@ write_async_method_client (GIOChannel *channel, InterfaceInfo *interface, Method
   
 
   /* Write the main wrapper function */
-  WRITE_OR_LOSE ("static\n#ifdef G_HAVE_INLINE\ninline\n#endif\ngboolean\n");
+  WRITE_OR_LOSE ("static\n#ifdef G_HAVE_INLINE\ninline\n#endif\nDBusGProxyCall*\n");
   if (!write_printf_to_iochannel ("%s_async (DBusGProxy *proxy", channel, error,
                                   method_name))
     goto io_lose;
@@ -1232,17 +1234,12 @@ write_async_method_client (GIOChannel *channel, InterfaceInfo *interface, Method
     goto io_lose;
   
   WRITE_OR_LOSE ("{\n");
-  WRITE_OR_LOSE ("  DBusGPendingCall *pending;\n  DBusGAsyncData *stuff;\n  stuff = g_new (DBusGAsyncData, 1);\n  stuff->proxy = proxy;\n  stuff->cb = callback;\n  stuff->userdata = userdata;\n");
-  if (!write_printf_to_iochannel ("  pending = dbus_g_proxy_begin_call (proxy, \"%s\", ", channel, error, method_info_get_name (method)))
+  WRITE_OR_LOSE ("  DBusGAsyncData *stuff;\n  stuff = g_new (DBusGAsyncData, 1);\n  stuff->cb = G_CALLBACK (callback);\n  stuff->userdata = userdata;\n");
+  if (!write_printf_to_iochannel ("  return dbus_g_proxy_begin_call (proxy, \"%s\", %s_async_callback, stuff, g_free, ", channel, error, method_info_get_name (method), method_name))
     goto io_lose;
   if (!write_args_for_direction (interface, method, channel, ARG_IN, error))
     goto io_lose;
-  WRITE_OR_LOSE ("G_TYPE_INVALID);\n");
-
-  if (!write_printf_to_iochannel ("  dbus_g_pending_call_set_notify(pending, (DBusGPendingCallNotify)%s_async_callback, stuff, g_free);\n", channel, error, method_name))
-    goto io_lose;
-
-  WRITE_OR_LOSE ("  return TRUE;\n}\n\n");
+  WRITE_OR_LOSE ("G_TYPE_INVALID);\n}\n");
 
   g_free (method_name);
   return TRUE;
@@ -1350,9 +1347,7 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
 
 	  WRITE_OR_LOSE ("G_TYPE_INVALID);\n}\n\n");
 
-#if 0
 	  write_async_method_client (channel, interface, method, error);
-#endif
 	}
 
       if (!write_printf_to_iochannel ("#endif /* defined DBUS_GLIB_CLIENT_WRAPPERS_%s */\n\n", channel, error, iface_prefix))
