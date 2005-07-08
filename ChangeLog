@@ -1,3 +1,10 @@
+2005-07-08  Joe Shaw  <joeshaw@novell.com>
+
+	* configure.in: Add a configure option, --with-console-auth-dir
+	
+	* dbus/dbus-sysdeps-util.c (_dbus_user_at_console): Use the
+	new setting.  Patch from Kay Sievers.
+
 2005-07-06  Colin Walters  <walters@verbum.org>
 
 	* dbus/dbus-glib.h (DBusGPendingCall, DBusGPendingCallNotify)

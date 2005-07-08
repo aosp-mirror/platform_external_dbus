@@ -359,7 +359,7 @@ _dbus_user_at_console (const char *username,
       return FALSE;
     }
 
-  if (!_dbus_string_append (&f, DBUS_CONSOLE_DIR))
+  if (!_dbus_string_append (&f, DBUS_CONSOLE_AUTH_DIR))
     {
       _DBUS_SET_OOM (error);
       goto out;

@@ -99,8 +99,6 @@ typedef unsigned long dbus_gid_t;
 #define DBUS_UID_FORMAT "%lu"
 #define DBUS_GID_FORMAT "%lu"
 
-#define DBUS_CONSOLE_DIR "/var/run/console/"
-
 /**
  * Struct representing socket credentials
  */

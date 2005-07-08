@@ -70,6 +70,7 @@ AC_ARG_WITH(session-socket-dir, [  --with-session-socket-dir=[dirname] Where to 
 AC_ARG_WITH(test-socket-dir,    [  --with-test-socket-dir=[dirname]    Where to put sockets for make check])
 AC_ARG_WITH(system-pid-file,    [  --with-system-pid-file=[pidfile]    PID file for systemwide daemon])
 AC_ARG_WITH(system-socket,      [  --with-system-socket=[filename]     UNIX domain socket for systemwide daemon])
+AC_ARG_WITH(console-auth-dir,   [  --with-console-auth-dir=[dirname]   directory to check for console ownerhip])
 
 dnl DBUS_BUILD_TESTS controls unit tests built in to .c files 
 dnl and also some stuff in the test/ subdir
@@ -1167,6 +1168,16 @@ fi
 
 AC_SUBST(DBUS_SYSTEM_PID_FILE)
 
+#### Directory to check for console ownership
+if ! test -z "$with_console_auth_dir"; then
+   DBUS_CONSOLE_AUTH_DIR=$with_console_auth_dir
+else
+   DBUS_CONSOLE_AUTH_DIR=/var/run/console/
+fi
+
+AC_SUBST(DBUS_CONSOLE_AUTH_DIR)
+AC_DEFINE_UNQUOTED(DBUS_CONSOLE_AUTH_DIR, "$DBUS_CONSOLE_AUTH_DIR", [Directory to check for console ownerhip])
+
 #### Tell tests where to find certain stuff in builddir
 ABSOLUTE_TOP_BUILDDIR=`cd ${ac_top_builddir}. && pwd`
 
@@ -1360,6 +1371,7 @@ echo "
         System bus address:       ${DBUS_SYSTEM_BUS_DEFAULT_ADDRESS}
         System bus PID file:      ${DBUS_SYSTEM_PID_FILE}
         Session bus socket dir:   ${DBUS_SESSION_SOCKET_DIR}
+        Console auth dir:         ${DBUS_CONSOLE_AUTH_DIR}
         'make check' socket dir:  ${TEST_SOCKET_DIR}
 "
 
