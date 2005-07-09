@@ -226,6 +226,15 @@ hash_func_from_gtype (GType gtype, GHashFunc *func)
     }
 }
 
+static void
+unset_and_free_g_value (gpointer val)
+{
+  GValue *value = val;
+
+  g_value_unset (value);
+  g_free (value);
+}
+
 static gboolean
 hash_free_from_gtype (GType gtype, GDestroyNotify *func)
 {
@@ -244,7 +253,7 @@ hash_free_from_gtype (GType gtype, GDestroyNotify *func)
     default:
       if (gtype == G_TYPE_VALUE)
 	{
-	  *func = (GDestroyNotify) g_value_unset;
+	  *func = unset_and_free_g_value;
 	  return TRUE;
 	}
       return FALSE;
@@ -439,6 +448,17 @@ dbus_g_hash_table_insert_steal_values (GHashTable *table,
   val = hash_value_from_gvalue (value_val);
 
   g_hash_table_insert (table, key, val);
+}
+
+static void
+hashtable_append (DBusGTypeSpecializedAppendContext *ctx,
+		  GValue                            *key,
+		  GValue                            *val)
+{
+  GHashTable *table;
+
+  table = g_value_get_boxed (ctx->val);
+  dbus_g_hash_table_insert_steal_values (table, key, val);
 }
 
 static gpointer
@@ -667,7 +687,7 @@ ptrarray_copy (GType type, gpointer src)
 }
 
 static void
-ptrarray_append (DBusGTypeSpecializedAppendContext *ctx, const GValue *value)
+ptrarray_append (DBusGTypeSpecializedAppendContext *ctx, GValue *value)
 {
   GPtrArray *array;
 
@@ -740,7 +760,7 @@ slist_copy (GType type, gpointer src)
 }
 
 static void
-slist_append (DBusGTypeSpecializedAppendContext *ctx, const GValue *value)
+slist_append (DBusGTypeSpecializedAppendContext *ctx, GValue *value)
 {
   GSList *list;
 
@@ -822,7 +842,8 @@ dbus_g_type_specialized_builtins_init (void)
       NULL,
       NULL
     },
-    hashtable_iterator
+    hashtable_iterator,
+    hashtable_append
   };
 
   dbus_g_type_register_map ("GHashTable", &hashtable_vtable, 0);
@@ -853,6 +874,35 @@ test_specialized_hash (const GValue *key, const GValue *val, gpointer user_data)
     {
       data->seen_baz = TRUE;
       g_assert (!strcmp (g_value_get_string (val), "moo"));
+    }
+  else
+    {
+      g_assert_not_reached ();
+    }
+}
+
+static void
+test_specialized_hash_2 (const GValue *key, const GValue *val, gpointer user_data)
+{
+  TestSpecializedHashData *data = user_data;
+  const GValue *realval;
+
+  g_assert (G_VALUE_HOLDS_STRING (key));
+  g_assert (G_VALUE_TYPE (val) == G_TYPE_VALUE);
+
+  realval = g_value_get_boxed (val);
+
+  if (!strcmp (g_value_get_string (key), "foo"))
+    {
+      data->seen_foo = TRUE;
+      g_assert (G_VALUE_HOLDS_UINT (realval));
+      g_assert (g_value_get_uint (realval) == 20);
+    }
+  else if (!strcmp (g_value_get_string (key), "baz"))
+    {
+      data->seen_baz = TRUE;
+      g_assert (G_VALUE_HOLDS_STRING (realval));
+      g_assert (!strcmp ("bar", g_value_get_string (realval)));
     }
   else
     {
@@ -911,6 +961,62 @@ _dbus_gvalue_utils_test (const char *datadir)
     g_value_unset (&val);
   }
 
+  type = dbus_g_type_get_map ("GHashTable", G_TYPE_STRING, G_TYPE_VALUE);
+  g_assert (dbus_g_type_is_map (type));
+  g_assert (dbus_g_type_get_map_key_specialization (type) == G_TYPE_STRING);
+  g_assert (dbus_g_type_get_map_value_specialization (type) == G_TYPE_VALUE);
+  {
+    GHashTable *instance;
+    GValue val = { 0, };
+    TestSpecializedHashData hashdata;
+    DBusGTypeSpecializedAppendContext ctx;
+    GValue *eltval;
+
+    instance = dbus_g_type_specialized_construct (type);
+    g_value_init (&val, type);
+    g_value_set_boxed_take_ownership (&val, instance);
+
+    dbus_g_type_specialized_init_append (&val, &ctx);
+
+    {
+      GValue keyval = { 0, };
+      GValue valval = { 0, };
+      g_value_init (&keyval, G_TYPE_STRING);
+      g_value_set_string (&keyval, "foo"); 
+
+      g_value_init (&valval, G_TYPE_VALUE);
+      eltval = g_new0 (GValue, 1);
+      g_value_init (eltval, G_TYPE_UINT);
+      g_value_set_uint (eltval, 20);
+      g_value_set_boxed_take_ownership (&valval, eltval);
+      dbus_g_type_specialized_map_append (&ctx, &keyval, &valval);
+    }
+
+    {
+      GValue keyval = { 0, };
+      GValue valval = { 0, };
+      g_value_init (&keyval, G_TYPE_STRING);
+      g_value_set_string (&keyval, "baz"); 
+      g_value_init (&valval, G_TYPE_VALUE);
+      eltval = g_new0 (GValue, 1);
+      g_value_init (eltval, G_TYPE_STRING);
+      g_value_set_string (eltval, "bar");
+      g_value_set_boxed_take_ownership (&valval, eltval);
+      dbus_g_type_specialized_map_append (&ctx, &keyval, &valval);
+    }
+
+    hashdata.seen_foo = FALSE;
+    hashdata.seen_baz = FALSE;
+    dbus_g_type_map_value_iterate (&val,
+				   test_specialized_hash_2, 
+				   &hashdata);
+    
+    g_assert (hashdata.seen_foo);
+    g_assert (hashdata.seen_baz);
+
+    g_value_unset (&val);
+  }
+
   type = dbus_g_type_get_collection ("GPtrArray", G_TYPE_STRING);
   g_assert (dbus_g_type_is_collection (type));
   g_assert (dbus_g_type_get_collection_specialization (type) == G_TYPE_STRING);
@@ -927,7 +1033,7 @@ _dbus_gvalue_utils_test (const char *datadir)
     g_value_init (&val, type);
     g_value_set_boxed_take_ownership (&val, instance);
 
-    dbus_g_type_specialized_collection_init_append (&val, &ctx);
+    dbus_g_type_specialized_init_append (&val, &ctx);
 
     g_value_init (&eltval, G_TYPE_STRING);
     g_value_set_static_string (&eltval, "foo");

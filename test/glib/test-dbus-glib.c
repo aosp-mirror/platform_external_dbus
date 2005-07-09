@@ -26,6 +26,13 @@ static gboolean proxy_destroy_and_nameowner_complete = FALSE;
 static void lose (const char *fmt, ...) G_GNUC_NORETURN G_GNUC_PRINTF (1, 2);
 static void lose_gerror (const char *prefix, GError *error) G_GNUC_NORETURN;
 
+static void
+unset_and_free_gvalue (gpointer val)
+{
+  g_value_unset (val);
+  g_free (val);
+}
+
 static gboolean
 timed_exit (gpointer loop)
 {
@@ -40,6 +47,7 @@ proxy_destroyed_cb (DBusGProxy *proxy, gpointer user_data)
   proxy_destroyed = TRUE;
   if (proxy_destroy_and_nameowner && !proxy_destroy_and_nameowner_complete && await_terminating_service == NULL)
     {
+      g_source_remove (exit_timeout);
       g_main_loop_quit (loop);
       proxy_destroy_and_nameowner_complete = TRUE;
     } 
@@ -62,11 +70,13 @@ name_owner_changed (DBusGProxy *proxy,
       await_terminating_service = NULL;
       if (proxy_destroy_and_nameowner && !proxy_destroy_and_nameowner_complete && proxy_destroyed)
 	{
+	  g_source_remove (exit_timeout);
 	  g_main_loop_quit (loop);
 	  proxy_destroy_and_nameowner_complete = TRUE;
 	} 
       else if (!proxy_destroy_and_nameowner)
 	{
+	  g_source_remove (exit_timeout);
 	  g_main_loop_quit (loop);
 	}
     }
@@ -838,6 +848,50 @@ main (int argc, char **argv)
   run_mainloop ();
 
   {
+    GValue *val;
+    GHashTable *table;
+    GHashTable *ret_table;
+
+    table = g_hash_table_new_full (g_str_hash, g_str_equal,
+				   g_free, unset_and_free_gvalue);
+    
+    val = g_new0 (GValue, 1);
+    g_value_init (val, G_TYPE_UINT);
+    g_value_set_uint (val, 42);
+    g_hash_table_insert (table, g_strdup ("foo"), val);
+
+    val = g_new0 (GValue, 1);
+    g_value_init (val, G_TYPE_STRING);
+    g_value_set_string (val, "hello");
+    g_hash_table_insert (table, g_strdup ("bar"), val);
+
+    ret_table = NULL;
+    g_print ("Calling ManyStringify\n");
+    if (!dbus_g_proxy_call (proxy, "ManyStringify", &error,
+			    dbus_g_type_get_map ("GHashTable", G_TYPE_STRING, G_TYPE_VALUE), table,
+			    G_TYPE_INVALID,
+			    dbus_g_type_get_map ("GHashTable", G_TYPE_STRING, G_TYPE_VALUE), &ret_table,
+			    G_TYPE_INVALID))
+      lose_gerror ("Failed to complete ManyStringify call", error);
+
+    g_assert (ret_table != NULL);
+    g_assert (g_hash_table_size (ret_table) == 2);
+
+    val = g_hash_table_lookup (ret_table, "foo");
+    g_assert (val != NULL);
+    g_assert (G_VALUE_HOLDS_STRING (val));
+    g_assert (!strcmp ("42", g_value_get_string (val)));
+
+    val = g_hash_table_lookup (ret_table, "bar");
+    g_assert (val != NULL);
+    g_assert (G_VALUE_HOLDS_STRING (val));
+    g_assert (!strcmp ("hello", g_value_get_string (val)));
+
+    g_hash_table_destroy (table);
+    g_hash_table_destroy (ret_table);
+  }
+
+  {
     guint val;
     char *ret_path;
     DBusGProxy *ret_proxy;
@@ -1135,6 +1189,9 @@ main (int argc, char **argv)
     lose_gerror ("Failed to complete Uppercase call", error);
   g_free (v_STRING_2);
 
+  if (getenv ("DBUS_GLIB_TEST_SLEEP_AFTER_ACTIVATION1"))
+    g_usleep (8 * G_USEC_PER_SEC);
+
   dbus_g_proxy_add_signal (proxy, "Frobnicate", G_TYPE_INT, G_TYPE_INVALID);
   
   dbus_g_proxy_connect_signal (proxy, "Frobnicate",
@@ -1174,6 +1231,9 @@ main (int argc, char **argv)
   if (!dbus_g_proxy_call (proxy, "EmitFrobnicate", &error,
 			  G_TYPE_INVALID, G_TYPE_INVALID))
     lose_gerror ("Failed to complete EmitFrobnicate call", error);
+
+  if (getenv ("DBUS_GLIB_TEST_SLEEP_AFTER_ACTIVATION2"))
+    g_usleep (8 * G_USEC_PER_SEC);
 
   dbus_g_connection_flush (connection);
   exit_timeout = g_timeout_add (5000, timed_exit, loop);

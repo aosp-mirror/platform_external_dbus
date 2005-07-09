@@ -63,6 +63,8 @@ gboolean my_object_many_return (MyObject *obj, guint32 *arg0, char **arg1, gint3
 gboolean my_object_recursive1 (MyObject *obj, GArray *array, guint32 *len_ret, GError **error);
 gboolean my_object_recursive2 (MyObject *obj, guint32 reqlen, GArray **array, GError **error);
 
+gboolean my_object_many_stringify (MyObject *obj, GHashTable *vals, GHashTable **ret, GError **error);
+
 gboolean my_object_objpath (MyObject *obj, const char *in, char **arg1, GError **error);
 
 gboolean my_object_get_objs (MyObject *obj, GPtrArray **objs, GError **error);
@@ -394,6 +396,38 @@ my_object_many_uppercase (MyObject *obj, const char * const *in, char ***out, GE
     }
   (*out)[i] = NULL;
   
+  return TRUE;
+}
+
+static void
+hash_foreach_stringify (gpointer key, gpointer val, gpointer user_data)
+{
+  const char *keystr = key;
+  const GValue *value = val;
+  GValue *sval;
+  GHashTable *ret = user_data;
+
+  sval = g_new0 (GValue, 1);
+  g_value_init (sval, G_TYPE_STRING);
+  if (!g_value_transform (value, sval))
+    g_assert_not_reached ();
+
+  g_hash_table_insert (ret, g_strdup (keystr), sval);
+}
+
+static void
+unset_and_free_gvalue (gpointer val)
+{
+  g_value_unset (val);
+  g_free (val);
+}
+
+gboolean
+my_object_many_stringify (MyObject *obj, GHashTable /* char * -> GValue * */ *vals, GHashTable /* char * -> GValue * */ **ret, GError **error)
+{
+  *ret = g_hash_table_new_full (g_str_hash, g_str_equal,
+				g_free, unset_and_free_gvalue);
+  g_hash_table_foreach (vals, hash_foreach_stringify, *ret);
   return TRUE;
 }
 

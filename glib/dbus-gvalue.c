@@ -22,6 +22,8 @@
  *
  */
 
+#include "config.h"
+#include "dbus-gtest.h"
 #include "dbus-gvalue.h"
 #include "dbus-gobject.h"
 #include "dbus-gvalue-utils.h"
@@ -76,12 +78,6 @@ static gboolean demarshal_variant               (DBusGValueMarshalCtx      *cont
 						 DBusMessageIter           *iter,
 						 GValue                    *value,
 						 GError                   **error);
-static gboolean marshal_garray_basic            (DBusMessageIter           *iter,
-						 const GValue              *value);
-static gboolean demarshal_garray_basic          (DBusGValueMarshalCtx      *context,
-						 DBusMessageIter           *iter,
-						 GValue                    *value,
-						 GError                   **error);
 static gboolean marshal_proxy                   (DBusMessageIter           *iter,
 						 const GValue             *value);
 static gboolean demarshal_proxy                 (DBusGValueMarshalCtx      *context,
@@ -102,14 +98,26 @@ static gboolean demarshal_object                (DBusGValueMarshalCtx      *cont
 						 GError                   **error);
 static gboolean marshal_map                     (DBusMessageIter           *iter,
 						 const GValue              *value);
-static gboolean demarshal_ghashtable            (DBusGValueMarshalCtx      *context,
+static gboolean demarshal_map                   (DBusGValueMarshalCtx      *context,
 						 DBusMessageIter           *iter,
 						 GValue                    *value,
 						 GError                   **error);
 
 static gboolean marshal_collection              (DBusMessageIter           *iter,
 						 const GValue              *value);
+static gboolean marshal_collection_ptrarray     (DBusMessageIter           *iter,
+						 const GValue              *value);
+static gboolean marshal_collection_array        (DBusMessageIter           *iter,
+						 const GValue              *value);
 static gboolean demarshal_collection            (DBusGValueMarshalCtx      *context,
+						 DBusMessageIter           *iter,
+						 GValue                    *value,
+						 GError                   **error);
+static gboolean demarshal_collection_ptrarray   (DBusGValueMarshalCtx      *context,
+						 DBusMessageIter           *iter,
+						 GValue                    *value,
+						 GError                   **error);
+static gboolean demarshal_collection_array      (DBusGValueMarshalCtx      *context,
 						 DBusMessageIter           *iter,
 						 GValue                    *value,
 						 GError                   **error);
@@ -198,30 +206,6 @@ register_basic (int typecode, const DBusGTypeMarshalData *typedata)
   set_type_metadata (basic_typecode_to_gtype (typecode), typedata);
 }
 
-static void
-register_array (int typecode, const DBusGTypeMarshalData *typedata)
-{
-  GType elt_gtype;
-  GType gtype;
-
-  elt_gtype = basic_typecode_to_gtype (typecode); 
-  gtype = dbus_g_type_get_collection ("GArray", elt_gtype);
-  set_type_metadata (gtype, typedata); 
-}
-
-static void
-register_dict (int key_type, int value_type, const DBusGTypeMarshalData *typedata)
-{
-  GType key_gtype;
-  GType value_gtype;
-  GType gtype;
-
-  key_gtype = basic_typecode_to_gtype (key_type); 
-  value_gtype = basic_typecode_to_gtype (value_type); 
-  gtype = dbus_g_type_get_map ("GHashTable", key_gtype, value_gtype);
-  set_type_metadata (gtype, typedata); 
-}
-
 void
 dbus_g_value_types_init (void)
 {
@@ -239,14 +223,6 @@ dbus_g_value_types_init (void)
   static const DBusGTypeMarshalVtable basic_vtable = {
     marshal_basic,
     demarshal_basic
-  };
-  static const DBusGTypeMarshalVtable garray_basic_vtable = {
-    marshal_garray_basic,
-    demarshal_garray_basic
-  };
-  static const DBusGTypeMarshalVtable ghashtable_vtable = {
-    marshal_map,
-    demarshal_ghashtable
   };
 
   /* Register basic types */
@@ -374,56 +350,8 @@ dbus_g_value_types_init (void)
     set_type_metadata (G_TYPE_STRV, &typedata);
   };
 
-  { 
-    static const DBusGTypeMarshalData typedata = {
-      DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_BOOLEAN_AS_STRING,
-      &garray_basic_vtable
-    };
-    register_array (DBUS_TYPE_BOOLEAN, &typedata);
-  }
-  { 
-    static const DBusGTypeMarshalData typedata = {
-      DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_BYTE_AS_STRING,
-      &garray_basic_vtable
-    };
-    register_array (DBUS_TYPE_BYTE, &typedata);
-  }
-  { 
-    static const DBusGTypeMarshalData typedata = {
-      DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_UINT32_AS_STRING,
-      &garray_basic_vtable
-    };
-    register_array (DBUS_TYPE_UINT32, &typedata);
-  }
-  { 
-    static const DBusGTypeMarshalData typedata = {
-      DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_INT32_AS_STRING,
-      &garray_basic_vtable
-    };
-    register_array (DBUS_TYPE_INT32, &typedata);
-  }
-  { 
-    static const DBusGTypeMarshalData typedata = {
-      DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_UINT64_AS_STRING,
-      &garray_basic_vtable
-    };
-    register_array (DBUS_TYPE_UINT64, &typedata);
-  }
-  { 
-    static const DBusGTypeMarshalData typedata = {
-      DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_INT64_AS_STRING,
-      &garray_basic_vtable
-    };
-    register_array (DBUS_TYPE_INT64, &typedata);
-  }
-  { 
-    static const DBusGTypeMarshalData typedata = {
-      DBUS_TYPE_ARRAY_AS_STRING DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_STRING_AS_STRING DBUS_DICT_ENTRY_END_CHAR_AS_STRING,
-      &ghashtable_vtable,
-    };
-    register_dict (DBUS_TYPE_STRING, DBUS_TYPE_STRING, &typedata);
-  }
 
+  /* Register some types specific to the D-BUS GLib bindings */
   {
     static const DBusGTypeMarshalVtable vtable = {
       marshal_proxy,
@@ -535,6 +463,7 @@ dbus_g_value_iterator_get_values (DBusGValueIterator *iter,
 
       context.gconnection = (iterval->value.recurse.toplevel)->value.toplevel.connection;
       context.proxy = (iterval->value.recurse.toplevel)->value.toplevel.proxy;
+
       if (!dbus_gvalue_demarshal (&context,
 				  &(iterval->value.recurse.iterator),
 				  value,
@@ -661,6 +590,10 @@ dbus_gtype_from_signature_iter (DBusSignatureIter *iter, gboolean is_client)
       DBusSignatureIter subiter;
 
       g_assert (dbus_type_is_container (current_type));
+
+      if (current_type == DBUS_TYPE_VARIANT)
+	return g_value_get_type ();
+      
       dbus_signature_iter_recurse (iter, &subiter);
 
       if (current_type == DBUS_TYPE_ARRAY)
@@ -673,8 +606,6 @@ dbus_gtype_from_signature_iter (DBusSignatureIter *iter, gboolean is_client)
 	}
       else if (current_type == DBUS_TYPE_STRUCT)
 	return signature_iter_to_g_type_struct (&subiter, is_client);
-      else if (current_type == DBUS_TYPE_VARIANT)
-	return g_value_get_type ();
       else if (current_type == DBUS_TYPE_DICT_ENTRY)
 	return G_TYPE_INVALID;
       else
@@ -721,10 +652,6 @@ dbus_gtype_to_signature (GType gtype)
   char *ret;
   DBusGTypeMarshalData *typedata;
 
-  typedata = g_type_get_qdata (gtype, dbus_g_type_metadata_data_quark ());
-  if (typedata == NULL)
-    return NULL;
-
   if (dbus_g_type_is_collection (gtype))
     {
       GType elt_gtype;
@@ -751,7 +678,12 @@ dbus_gtype_to_signature (GType gtype)
       g_free (val_subsig);
     }
   else
-    ret = g_strdup (typedata->sig);
+    {
+      typedata = g_type_get_qdata (gtype, dbus_g_type_metadata_data_quark ());
+      if (typedata == NULL)
+	return NULL;
+      ret = g_strdup (typedata->sig);
+    }
   
   return ret;
 }
@@ -1066,53 +998,18 @@ demarshal_strv (DBusGValueMarshalCtx    *context,
 }
 
 static gboolean
-demarshal_garray_basic (DBusGValueMarshalCtx    *context,
-			DBusMessageIter         *iter,
-			GValue                  *value,
-			GError                 **error)
-{
-  DBusMessageIter subiter;
-  GArray *ret;
-  GType elt_gtype;
-  int elt_size;
-  void *msgarray;
-  int msgarray_len;
-
-  dbus_message_iter_recurse (iter, &subiter);
-
-  elt_gtype = dbus_g_type_get_collection_specialization (G_VALUE_TYPE (value));
-  g_assert (elt_gtype != G_TYPE_INVALID);
-  g_assert (dbus_g_type_is_fixed (elt_gtype));
-
-  elt_size = dbus_g_type_fixed_get_size (elt_gtype);
-  
-  ret = g_array_new (FALSE, TRUE, elt_size);
-
-  msgarray = NULL;
-  dbus_message_iter_get_fixed_array (&subiter,
-				     &msgarray,
-				     &msgarray_len);
-  g_assert (msgarray != NULL);
-  g_assert (msgarray_len >= 0);
-  g_array_append_vals (ret, msgarray, (guint) msgarray_len);
-
-  g_value_set_boxed_take_ownership (value, ret);
-  
-  return TRUE;
-}
-
-static gboolean
-demarshal_ghashtable (DBusGValueMarshalCtx    *context,
-		      DBusMessageIter         *iter,
-		      GValue                  *value,
-		      GError                 **error)
+demarshal_map (DBusGValueMarshalCtx    *context,
+	       DBusMessageIter         *iter,
+	       GValue                  *value,
+	       GError                 **error)
 {
   GType gtype;
   DBusMessageIter subiter;
   int current_type;
-  GHashTable *ret;
+  gpointer ret;
   GType key_gtype;
   GType value_gtype;
+  DBusGTypeSpecializedAppendContext appendctx;
 
   current_type = dbus_message_iter_get_arg_type (iter);
   if (current_type != DBUS_TYPE_ARRAY)
@@ -1140,14 +1037,12 @@ demarshal_ghashtable (DBusGValueMarshalCtx    *context,
     }
 
   key_gtype = dbus_g_type_get_map_key_specialization (gtype);
-  g_assert (dbus_gtype_is_valid_hash_key (key_gtype));
   value_gtype = dbus_g_type_get_map_value_specialization (gtype);
-  g_assert (dbus_gtype_is_valid_hash_value (value_gtype));
 
-  ret = g_hash_table_new_full (dbus_g_hash_func_from_gtype (key_gtype),
-			       dbus_g_hash_equal_from_gtype (key_gtype),
-			       dbus_g_hash_free_from_gtype (key_gtype),
-			       dbus_g_hash_free_from_gtype (value_gtype));
+  ret = dbus_g_type_specialized_construct (gtype);
+  g_value_set_boxed_take_ownership (value, ret);
+
+  dbus_g_type_specialized_init_append (value, &appendctx);
 
   while ((current_type = dbus_message_iter_get_arg_type (&subiter)) != DBUS_TYPE_INVALID)
     {
@@ -1176,14 +1071,11 @@ demarshal_ghashtable (DBusGValueMarshalCtx    *context,
 				  error))
 	return FALSE;
 
-      dbus_g_hash_table_insert_steal_values (ret,
-					     &key_value,
-					     &value_value);
-      /* Ownership of values passes to hash table, don't unset */
+      dbus_g_type_specialized_map_append (&appendctx, &key_value, &value_value);
+      /* Ownership of values passes to map, don't unset */
 
       dbus_message_iter_next (&subiter);
     }
-  g_value_set_boxed_take_ownership (value, ret);
   
   return TRUE;
 }
@@ -1200,6 +1092,8 @@ get_type_demarshaller (GType type)
 	return demarshal_recurse;
       if (dbus_g_type_is_collection (type))
 	return demarshal_collection;
+      if (dbus_g_type_is_map (type))
+	return demarshal_map;
 
       g_warning ("No demarshaller registered for type \"%s\"", g_type_name (type));
       return NULL;
@@ -1213,6 +1107,24 @@ demarshal_collection (DBusGValueMarshalCtx    *context,
 		      DBusMessageIter         *iter,
 		      GValue                  *value,
 		      GError                 **error)
+{
+  GType coltype;
+  GType subtype;
+  
+  coltype = G_VALUE_TYPE (value);
+  subtype = dbus_g_type_get_collection_specialization (coltype);
+
+  if (dbus_g_type_is_fixed (subtype))
+    return demarshal_collection_array (context, iter, value, error);
+  else
+    return demarshal_collection_ptrarray (context, iter, value, error);
+}
+
+static gboolean
+demarshal_collection_ptrarray (DBusGValueMarshalCtx    *context,
+			       DBusMessageIter         *iter,
+			       GValue                  *value,
+			       GError                 **error)
 {
   GType coltype;
   GType subtype;
@@ -1254,7 +1166,7 @@ demarshal_collection (DBusGValueMarshalCtx    *context,
   instance = dbus_g_type_specialized_construct (coltype);
   g_value_set_boxed_take_ownership (value, instance);
 
-  dbus_g_type_specialized_collection_init_append (value, &ctx);
+  dbus_g_type_specialized_init_append (value, &ctx);
 
   while ((current_type = dbus_message_iter_get_arg_type (&subiter)) != DBUS_TYPE_INVALID)
     {
@@ -1273,6 +1185,42 @@ demarshal_collection (DBusGValueMarshalCtx    *context,
       dbus_message_iter_next (&subiter);
     }
   dbus_g_type_specialized_collection_end_append (&ctx);
+  
+  return TRUE;
+}
+
+static gboolean
+demarshal_collection_array (DBusGValueMarshalCtx    *context,
+			    DBusMessageIter         *iter,
+			    GValue                  *value,
+			    GError                 **error)
+{
+  DBusMessageIter subiter;
+  GArray *ret;
+  GType elt_gtype;
+  int elt_size;
+  void *msgarray;
+  int msgarray_len;
+
+  dbus_message_iter_recurse (iter, &subiter);
+
+  elt_gtype = dbus_g_type_get_collection_specialization (G_VALUE_TYPE (value));
+  g_assert (elt_gtype != G_TYPE_INVALID);
+  g_assert (dbus_g_type_is_fixed (elt_gtype));
+
+  elt_size = dbus_g_type_fixed_get_size (elt_gtype);
+  
+  ret = g_array_new (FALSE, TRUE, elt_size);
+
+  msgarray = NULL;
+  dbus_message_iter_get_fixed_array (&subiter,
+				     &msgarray,
+				     &msgarray_len);
+  g_assert (msgarray != NULL);
+  g_assert (msgarray_len >= 0);
+  g_array_append_vals (ret, msgarray, (guint) msgarray_len);
+
+  g_value_set_boxed_take_ownership (value, ret);
   
   return TRUE;
 }
@@ -1545,50 +1493,6 @@ marshal_strv (DBusMessageIter   *iter,
 }
 
 static gboolean
-marshal_garray_basic (DBusMessageIter   *iter,
-		      const GValue      *value)
-{
-  GType elt_gtype;
-  DBusMessageIter subiter;
-  GArray *array;
-  guint elt_size;
-  char *subsignature_str;
-
-  elt_gtype = dbus_g_type_get_collection_specialization (G_VALUE_TYPE (value));
-  /* FIXME - this means we can't send an array of DBusGValue right now... */
-  subsignature_str = dbus_gtype_to_signature (elt_gtype);
-  g_assert (subsignature_str != NULL);
-  
-  elt_size = dbus_g_type_fixed_get_size (elt_gtype);
-
-  array = g_value_get_boxed (value);
-
-  if (!dbus_message_iter_open_container (iter,
-					 DBUS_TYPE_ARRAY,
-					 subsignature_str,
-					 &subiter))
-    goto oom;
-
-  /* TODO - This assumes that basic values are the same size
-   * is this always true?  If it is we can probably avoid
-   * a lot of the overhead in _marshal_basic_instance...
-   */
-  if (!dbus_message_iter_append_fixed_array (&subiter,
-					     subsignature_str[0],
-					     &(array->data),
-					     array->len))
-    goto oom;
-
-  if (!dbus_message_iter_close_container (iter, &subiter))
-    goto oom;
-  g_free (subsignature_str);
-  return TRUE;
- oom:
-  g_error ("out of memory");
-  return FALSE;
-}
-
-static gboolean
 marshal_proxy (DBusMessageIter         *iter,
 	       const GValue            *value)
 {
@@ -1791,6 +1695,8 @@ get_type_marshaller (GType type)
 	return marshal_recurse;
       if (dbus_g_type_is_collection (type))
 	return marshal_collection;
+      if (dbus_g_type_is_map (type))
+	return marshal_map;
 
       g_warning ("No marshaller registered for type \"%s\"", g_type_name (type));
       return NULL;
@@ -1822,6 +1728,22 @@ collection_marshal_iterator (const GValue *eltval,
 static gboolean
 marshal_collection (DBusMessageIter         *iter,
 		    const GValue            *value)
+{
+  GType coltype;
+  GType subtype;
+  
+  coltype = G_VALUE_TYPE (value);
+  subtype = dbus_g_type_get_collection_specialization (coltype);
+
+  if (dbus_g_type_is_fixed (subtype))
+    return marshal_collection_array (iter, value);
+  else
+    return marshal_collection_ptrarray (iter, value);
+}
+
+static gboolean
+marshal_collection_ptrarray (DBusMessageIter         *iter,
+			     const GValue            *value)
 {
   GType coltype;
   GType elt_gtype;
@@ -1861,6 +1783,51 @@ marshal_collection (DBusMessageIter         *iter,
   return FALSE;
 }
 
+
+static gboolean
+marshal_collection_array (DBusMessageIter   *iter,
+			  const GValue      *value)
+{
+  GType elt_gtype;
+  DBusMessageIter subiter;
+  GArray *array;
+  guint elt_size;
+  char *subsignature_str;
+
+  elt_gtype = dbus_g_type_get_collection_specialization (G_VALUE_TYPE (value));
+  g_assert (dbus_g_type_is_fixed (elt_gtype));
+  subsignature_str = dbus_gtype_to_signature (elt_gtype);
+  g_assert (subsignature_str != NULL);
+  
+  elt_size = dbus_g_type_fixed_get_size (elt_gtype);
+
+  array = g_value_get_boxed (value);
+
+  if (!dbus_message_iter_open_container (iter,
+					 DBUS_TYPE_ARRAY,
+					 subsignature_str,
+					 &subiter))
+    goto oom;
+
+  /* TODO - This assumes that basic values are the same size
+   * is this always true?  If it is we can probably avoid
+   * a lot of the overhead in _marshal_basic_instance...
+   */
+  if (!dbus_message_iter_append_fixed_array (&subiter,
+					     subsignature_str[0],
+					     &(array->data),
+					     array->len))
+    goto oom;
+
+  if (!dbus_message_iter_close_container (iter, &subiter))
+    goto oom;
+  g_free (subsignature_str);
+  return TRUE;
+ oom:
+  g_error ("out of memory");
+  return FALSE;
+}
+
 static gboolean
 marshal_recurse (DBusMessageIter         *iter,
 		 const GValue            *value)
@@ -1882,3 +1849,54 @@ dbus_gvalue_marshal (DBusMessageIter         *iter,
     return FALSE;
   return marshaller (iter, value);
 }
+
+#ifdef DBUS_BUILD_TESTS
+
+static void
+assert_type_maps_to (GType gtype, const char *expected_sig)
+{
+  char *sig;
+  sig = dbus_gtype_to_signature (gtype);
+  g_assert (sig != NULL);
+  g_assert (!strcmp (expected_sig, sig));
+  g_free (sig);
+}
+
+static void
+assert_signature_maps_to (const char *sig, GType expected_gtype)
+{
+  g_assert (dbus_gtype_from_signature (sig, TRUE) == expected_gtype);
+}
+
+static void
+assert_bidirectional_mapping (GType gtype, const char *expected_sig)
+{
+  assert_type_maps_to (gtype, expected_sig);
+  assert_signature_maps_to (expected_sig, gtype);
+}
+
+/**
+ * @ingroup DBusGLibInternals
+ * Unit test for general glib stuff
+ * @returns #TRUE on success.
+ */
+gboolean
+_dbus_gvalue_test (const char *test_data_dir)
+{
+  dbus_g_value_types_init ();
+  
+  assert_bidirectional_mapping (G_TYPE_STRING, DBUS_TYPE_STRING_AS_STRING);
+  assert_bidirectional_mapping (G_TYPE_UCHAR, DBUS_TYPE_BYTE_AS_STRING);
+  assert_bidirectional_mapping (G_TYPE_UINT, DBUS_TYPE_UINT32_AS_STRING);
+
+  assert_bidirectional_mapping (dbus_g_type_get_map ("GHashTable", G_TYPE_STRING, G_TYPE_VALUE),
+				DBUS_TYPE_ARRAY_AS_STRING DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_VARIANT_AS_STRING DBUS_DICT_ENTRY_END_CHAR_AS_STRING);
+  assert_bidirectional_mapping (dbus_g_type_get_collection ("GPtrArray", DBUS_TYPE_G_OBJECT_PATH),
+				DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_OBJECT_PATH_AS_STRING);
+  assert_bidirectional_mapping (dbus_g_type_get_collection ("GArray", G_TYPE_INT),
+				DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_INT32_AS_STRING);
+
+  return TRUE;
+}
+
+#endif /* DBUS_BUILD_TESTS */

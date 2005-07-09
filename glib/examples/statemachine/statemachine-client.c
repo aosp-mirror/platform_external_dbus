@@ -59,8 +59,9 @@ typedef struct
 {
   char *name;
   char *state;
+  gdouble progress;
   DBusGProxy *proxy;
-  DBusGProxyCall *get_initial_state_call;
+  DBusGProxyCall *get_progress_call;
 } MachineInfo;
 
 typedef struct
@@ -91,6 +92,15 @@ proxy_to_iter (GtkTreeModel *model, DBusGProxy *proxy, GtkTreeIter *iter)
 }
 
 static void
+signal_row_change (ClientState *state, GtkTreeIter *iter)
+{
+  GtkTreePath *path;
+  path = gtk_tree_model_get_path (state->store, iter);
+  gtk_tree_model_row_changed (state->store, path, iter);
+  gtk_tree_path_free (path);
+}
+
+static void
 get_machine_info_cb (DBusGProxy *proxy,
 		     DBusGProxyCall *call,
 		     gpointer data)
@@ -115,13 +125,67 @@ get_machine_info_cb (DBusGProxy *proxy,
   info->name = name;
   g_free (info->state);
   info->state = statename;
-  {
-    GtkTreePath *path;
-    path = gtk_tree_model_get_path (state->store, &iter);
-    gtk_tree_model_row_changed (state->store, path, &iter);
-    gtk_tree_path_free (path);
-  }
-  info->get_initial_state_call = NULL;
+  signal_row_change (state, &iter);
+}
+
+static void
+set_proxy_acquisition_progress (ClientState *state,
+				DBusGProxy *proxy,
+				double progress)
+{
+  MachineInfo *info;
+  GtkTreeIter iter;
+
+  if (!proxy_to_iter (state->store, proxy, &iter))
+    g_assert_not_reached ();
+  gtk_tree_model_get (state->store, &iter, 0, &info, -1);
+
+  /* Ignore machines in unknown state */
+  if (!info->state)
+    return;
+  
+  if (strcmp (info->state, "Acquired"))
+    lose ("Got AcquisitionProgress signal in bad state %s",
+	  info->state);
+
+  g_print ("Got acquisition progress change for %p (%s) to %f\n", proxy, info->name ? info->name : "(unknown)", progress);
+
+  info->progress = progress;
+
+  signal_row_change (state, &iter);
+}
+
+static void
+proxy_acquisition_changed_cb (DBusGProxy *proxy,
+			      double progress,
+			      gpointer user_data)
+{
+  set_proxy_acquisition_progress (user_data, proxy, progress);
+}
+
+static void
+get_acquiring_progress_cb (DBusGProxy *proxy,
+			   DBusGProxyCall *call,
+			   gpointer user_data)
+{
+  GError *error = NULL;
+  MachineInfo *info;
+  GtkTreeIter iter;
+  ClientState *state = user_data;
+  gdouble progress;
+
+  if (!proxy_to_iter (state->store, proxy, &iter))
+    g_assert_not_reached ();
+  gtk_tree_model_get (state->store, &iter, 0, &info, -1);
+
+  g_assert (info->get_progress_call == call);
+
+  if (!dbus_g_proxy_end_call (proxy, call, &error,
+			      G_TYPE_DOUBLE, &progress, G_TYPE_INVALID))
+    lose_gerror ("Failed to complete GetAcquiringProgress call", error);
+  info->get_progress_call = NULL;
+
+  set_proxy_acquisition_progress (state, proxy, progress);
 }
 
 static void
@@ -139,25 +203,27 @@ proxy_state_changed_cb (DBusGProxy *proxy,
 
   g_print ("Got state change for %p (%s) to %s\n", proxy, info->name ? info->name : "(unknown)", statename);
 
-  /* If we got a signal for the state, we shouldn't update
-   * based on the (possibly stale) call
-   */
-  if (info->get_initial_state_call != NULL)
-    {
-      g_print ("Cancelling outstanding GetInfo call for %p due to signal\n", proxy);
-      dbus_g_proxy_cancel_call (proxy, info->get_initial_state_call);
-      info->get_initial_state_call = NULL;
-    }
-
   g_free (info->state);
   info->state = g_strdup (statename);
 
-  {
-    GtkTreePath *path;
-    path = gtk_tree_model_get_path (state->store, &iter);
-    gtk_tree_model_row_changed (state->store, path, &iter);
-    gtk_tree_path_free (path);
-  }
+  if (!strcmp (info->state, "Acquired"))
+    {
+      g_print ("Starting GetAcquiringProgress call for %p\n", info->proxy);
+      if (info->get_progress_call != NULL)
+	{
+	  dbus_g_proxy_cancel_call (info->proxy, info->get_progress_call);
+	  info->get_progress_call = NULL;
+	}
+      info->get_progress_call = 
+	dbus_g_proxy_begin_call (info->proxy, "GetAcquiringProgress",
+				 get_acquiring_progress_cb,
+				 state, NULL,
+				 G_TYPE_INVALID);
+    }
+  else
+    info->progress = 0.0;
+
+  signal_row_change (state, &iter);
 }
 
 static void
@@ -172,6 +238,7 @@ add_machine (ClientState *state,
   info = g_new0 (MachineInfo, 1);
   info->name = g_strdup (name);
   info->state = g_strdup (mstate);
+  info->progress = 0.0;
 
   info->proxy = dbus_g_proxy_new_for_name (state->bus,
 					   "com.example.StateServer",
@@ -181,14 +248,11 @@ add_machine (ClientState *state,
   if (!info->state)
     {
       g_print ("Starting GetInfo call for %p\n", info->proxy);
-      info->get_initial_state_call
-	= dbus_g_proxy_begin_call (info->proxy, "GetInfo",
-				   get_machine_info_cb,
-				   state, NULL,
-				   G_TYPE_INVALID);
+      dbus_g_proxy_begin_call (info->proxy, "GetInfo",
+			       get_machine_info_cb,
+			       state, NULL,
+			       G_TYPE_INVALID);
     }
-  else
-    info->get_initial_state_call = NULL;
 
   /* Watch for state changes */
   dbus_g_proxy_add_signal (info->proxy, "StateChanged",
@@ -197,6 +261,15 @@ add_machine (ClientState *state,
   dbus_g_proxy_connect_signal (info->proxy,
 			       "StateChanged", 
 			       G_CALLBACK (proxy_state_changed_cb),
+			       state,
+			       NULL);
+
+  dbus_g_proxy_add_signal (info->proxy, "AcquisitionProgress",
+			   G_TYPE_DOUBLE, G_TYPE_INVALID);
+  
+  dbus_g_proxy_connect_signal (info->proxy,
+			       "AcquisitionProgress", 
+			       G_CALLBACK (proxy_acquisition_changed_cb),
 			       state,
 			       NULL);
 
@@ -306,6 +379,12 @@ do_a_state_change (ClientState *state)
       g_print ("Sending Start request to machine %s\n", info->name);
       dbus_g_proxy_call_no_reply (info->proxy, "Start", G_TYPE_INVALID);
     }
+  else if (!strcmp (info->state, "Loading"))
+    {
+      
+      g_print ("Sending Reacquire request to machine %s\n", info->name);
+      dbus_g_proxy_call_no_reply (info->proxy, "Reacquire", G_TYPE_INVALID);
+    }
   else
     {
       g_print ("Sending Shutdown request to machine %s\n", info->name);
@@ -318,7 +397,7 @@ do_something_random_2 (gpointer data)
 {
   ClientState *state = data;
   do_a_state_change (state);
-  g_timeout_add (g_random_int_range (500, 3000), do_something_random_2, state);
+  g_timeout_add (g_random_int_range (2000, 5000), do_something_random_2, state);
   return FALSE;
 }
 
@@ -328,12 +407,13 @@ do_something_random (gpointer data)
   ClientState *state = data;
   gint n_children;
 
-  switch (g_random_int_range (0, 2))
+  switch (g_random_int_range (0, 3))
     {
     case 0:
       send_create_machine (state);
       break;
     case 1:
+    case 2:
       do_a_state_change (state);
       break;
     default:
@@ -341,8 +421,11 @@ do_something_random (gpointer data)
     }
       
   n_children = gtk_tree_model_iter_n_children (state->store, NULL);
-  if (n_children >= 8)
-    g_timeout_add (g_random_int_range (500, 3000), do_something_random_2, state);
+  if (n_children >= 5)
+    {
+      g_print ("MAX children reached, switching to state changes only\n");
+      g_timeout_add (g_random_int_range (500, 3000), do_something_random_2, state);
+    }
   else
     g_timeout_add (g_random_int_range (500, 3000), do_something_random, state);
   return FALSE;
@@ -406,6 +489,34 @@ sort_by_state (GtkTreeModel *model,
 		 info_b ? info_b->state : "");
 }
 
+static void 
+set_cell_progress (GtkTreeViewColumn *tree_column,
+		   GtkCellRenderer   *cell,
+		   GtkTreeModel      *tree_model,
+		   GtkTreeIter       *iter,
+		   gpointer           data)
+{
+  MachineInfo *info;
+  
+  gtk_tree_model_get (tree_model, iter, 0, &info, -1);
+  
+  g_object_set (cell, "value", (int) (info->progress * 100), NULL);
+}
+
+static gint
+sort_by_progress (GtkTreeModel *model,
+		  GtkTreeIter  *a,
+		  GtkTreeIter  *b,
+		  gpointer      user_data)
+{
+  MachineInfo *info_a, *info_b;
+
+  gtk_tree_model_get (model, a, 0, &info_a, -1);
+  gtk_tree_model_get (model, b, 0, &info_b, -1);
+
+  return info_a->progress > info_b->progress ? 1 : -1;
+}
+
 static void
 get_machines_cb (DBusGProxy *proxy, DBusGProxyCall *call, gpointer data)
 {
@@ -456,6 +567,17 @@ get_machines_cb (DBusGProxy *proxy, DBusGProxyCall *call, gpointer data)
   gtk_tree_view_column_set_resizable (col, TRUE);
   gtk_tree_sortable_set_sort_func (GTK_TREE_SORTABLE (state->store), 
 				   0, sort_by_state, NULL, NULL);
+  gtk_tree_view_column_set_sort_column_id (col, 0);
+  gtk_tree_view_append_column (GTK_TREE_VIEW (state->view), col);
+
+  rend = gtk_cell_renderer_progress_new ();
+  col = gtk_tree_view_column_new_with_attributes (_("Progress"), 
+						  rend, 
+						  NULL);
+  gtk_tree_view_column_set_cell_data_func (col, rend, set_cell_progress, NULL, NULL);
+  gtk_tree_view_column_set_resizable (col, TRUE);
+  gtk_tree_sortable_set_sort_func (GTK_TREE_SORTABLE (state->store), 
+				   0, sort_by_progress, NULL, NULL);
   gtk_tree_view_column_set_sort_column_id (col, 0);
   gtk_tree_view_append_column (GTK_TREE_VIEW (state->view), col);
   

@@ -103,8 +103,8 @@ sm_object_state_get_type (void)
 
 	  ENUM_ENTRY (SM_OBJECT_STATE_SHUTDOWN, "Shutdown"),
 	  ENUM_ENTRY (SM_OBJECT_STATE_INITIALIZED, "Loading"),
-	  ENUM_ENTRY (SM_OBJECT_STATE_ACQUIRED, "Resource acquired"),
-	  ENUM_ENTRY (SM_OBJECT_STATE_OPERATING, "Operating normally"),
+	  ENUM_ENTRY (SM_OBJECT_STATE_ACQUIRED, "Acquired"),
+	  ENUM_ENTRY (SM_OBJECT_STATE_OPERATING, "Operating"),
 	  { 0, 0, 0 }
 	};
 
@@ -175,6 +175,21 @@ sm_object_get_property (GObject *object,
     }
 }
 
+static const char *
+state_to_string (SMObjectState state)
+{
+  GEnumValue *value;
+  GEnumClass *prop_class;
+  const char *ret;
+  
+  prop_class = g_type_class_ref (SM_TYPE_OBJECT_STATE);
+  value = g_enum_get_value (prop_class, state);
+  ret = value->value_nick;
+
+  g_type_class_unref (prop_class);
+  return ret;
+}
+
 static void
 queue_task (SMObject *object, guint delay, GSourceFunc func)
 {
@@ -188,6 +203,8 @@ idle_state_change (gpointer data)
 {
   SMObject *object = data;
 
+  g_print ("doing idle state change for %s to %s\n",
+	   object->name, state_to_string (object->requested_state));
   state_change (object, object->requested_state);
   return FALSE;
 }
@@ -197,7 +214,8 @@ idle_further_acquire (gpointer data)
 {
   SMObject *object = data;
 
-  object->acquisition_progress += g_random_double_range (0.05, 0.5);
+  g_print ("doing idle acquisition for machine %s\n", object->name);
+  object->acquisition_progress += g_random_double_range (0.20, 0.7);
   if (object->acquisition_progress > 1.0)
     {
       object->acquisition_progress = 1.0;
@@ -220,26 +238,10 @@ clear_pending_tasks (SMObject *object)
   object->pending_tasks = NULL;
 }
 
-static const char *
-state_to_string (SMObjectState state)
-{
-  GEnumValue *value;
-  GEnumClass *prop_class;
-  const char *ret;
-  
-  prop_class = g_type_class_ref (SM_TYPE_OBJECT_STATE);
-  value = g_enum_get_value (prop_class, state);
-  ret = value->value_nick;
-
-  g_type_class_unref (prop_class);
-  return ret;
-}
-
 static void
 state_change (SMObject *object, SMObjectState new_state)
 {
   g_signal_emit (object, sm_object_signals[STATE_CHANGED], 0,
-		 state_to_string (object->state),
 		 state_to_string (new_state));
 
   clear_pending_tasks (object);
@@ -288,7 +290,7 @@ sm_object_start (SMObject *object, GError **error)
 gboolean
 sm_object_shutdown (SMObject *object, GError **error)
 {
-  if (object->state != SM_OBJECT_STATE_INITIALIZED)
+  if (object->state == SM_OBJECT_STATE_SHUTDOWN)
     {
       g_set_error (error,
 		   SM_ERROR,
@@ -321,7 +323,7 @@ sm_object_reinitialize (SMObject *object, GError **error)
 gboolean
 sm_object_reacquire (SMObject *object, GError **error)
 {
-  if (object->state != SM_OBJECT_STATE_ACQUIRED)
+  if (object->state == SM_OBJECT_STATE_ACQUIRED)
     {
       g_set_error (error,
 		   SM_ERROR,

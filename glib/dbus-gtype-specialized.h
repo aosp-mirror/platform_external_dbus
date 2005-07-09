@@ -58,11 +58,16 @@ typedef struct {
   gpointer d;
 } DBusGTypeSpecializedAppendContext;
 
-void           dbus_g_type_specialized_collection_init_append  (GValue *val, DBusGTypeSpecializedAppendContext *ctx);
+void           dbus_g_type_specialized_init_append             (GValue *val, DBusGTypeSpecializedAppendContext *ctx);
 
-void           dbus_g_type_specialized_collection_append       (DBusGTypeSpecializedAppendContext *ctx, const GValue *elt);
+void           dbus_g_type_specialized_collection_append       (DBusGTypeSpecializedAppendContext *ctx, GValue *elt);
 
 void           dbus_g_type_specialized_collection_end_append   (DBusGTypeSpecializedAppendContext *ctx);
+
+void           dbus_g_type_specialized_map_append              (DBusGTypeSpecializedAppendContext *ctx,
+								GValue                            *key,
+								GValue                            *val);
+								
 
 gboolean       dbus_g_type_collection_get_fixed             (GValue                                 *value,
 							     gpointer                               *data,
@@ -90,8 +95,8 @@ typedef struct {
 } DBusGTypeSpecializedVtable;
 
 typedef gboolean (*DBusGTypeSpecializedCollectionFixedAccessorFunc) (GType type, gpointer instance, gpointer *values, guint *len);
-typedef void (*DBusGTypeSpecializedCollectionIteratorFunc)          (GType type, gpointer instance, DBusGTypeSpecializedCollectionIterator iterator, gpointer user_data);
-typedef void     (*DBusGTypeSpecializedCollectionAppendFunc)        (DBusGTypeSpecializedAppendContext *ctx, const GValue *val);
+typedef void     (*DBusGTypeSpecializedCollectionIteratorFunc)      (GType type, gpointer instance, DBusGTypeSpecializedCollectionIterator iterator, gpointer user_data);
+typedef void     (*DBusGTypeSpecializedCollectionAppendFunc)        (DBusGTypeSpecializedAppendContext *ctx, GValue *val);
 typedef void     (*DBusGTypeSpecializedCollectionEndAppendFunc)     (DBusGTypeSpecializedAppendContext *ctx);
 
 typedef struct {
@@ -103,10 +108,12 @@ typedef struct {
 } DBusGTypeSpecializedCollectionVtable;
 
 typedef void (*DBusGTypeSpecializedMapIteratorFunc) (GType type, gpointer instance, DBusGTypeSpecializedMapIterator iterator, gpointer user_data);
+typedef void (*DBusGTypeSpecializedMapAppendFunc)   (DBusGTypeSpecializedAppendContext *ctx, GValue *key, GValue *val);
 
 typedef struct {
   DBusGTypeSpecializedVtable                        base_vtable;
   DBusGTypeSpecializedMapIteratorFunc               iterator;
+  DBusGTypeSpecializedMapAppendFunc                 append_func;
 } DBusGTypeSpecializedMapVtable;
 
 void           dbus_g_type_specialized_init           (void);

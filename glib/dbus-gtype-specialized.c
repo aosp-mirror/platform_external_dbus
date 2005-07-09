@@ -427,7 +427,7 @@ typedef struct {
 } DBusGTypeSpecializedAppendContextReal;
 
 void
-dbus_g_type_specialized_collection_init_append (GValue *value, DBusGTypeSpecializedAppendContext *ctx)
+dbus_g_type_specialized_init_append (GValue *value, DBusGTypeSpecializedAppendContext *ctx)
 {
   DBusGTypeSpecializedAppendContextReal *realctx = (DBusGTypeSpecializedAppendContextReal *) ctx;
   GType gtype;
@@ -446,7 +446,7 @@ dbus_g_type_specialized_collection_init_append (GValue *value, DBusGTypeSpeciali
 
 void
 dbus_g_type_specialized_collection_append (DBusGTypeSpecializedAppendContext *ctx,
-					   const GValue *elt)
+					   GValue                            *elt)
 {
   DBusGTypeSpecializedAppendContextReal *realctx = (DBusGTypeSpecializedAppendContextReal *) ctx;
   ((DBusGTypeSpecializedCollectionVtable *) realctx->specdata->klass->vtable)->append_func (ctx, elt);
@@ -458,6 +458,15 @@ dbus_g_type_specialized_collection_end_append (DBusGTypeSpecializedAppendContext
   DBusGTypeSpecializedAppendContextReal *realctx = (DBusGTypeSpecializedAppendContextReal *) ctx;
   if (((DBusGTypeSpecializedCollectionVtable *) realctx->specdata->klass->vtable)->end_append_func != NULL)
     ((DBusGTypeSpecializedCollectionVtable *) realctx->specdata->klass->vtable)->end_append_func (ctx);
+}
+
+void
+dbus_g_type_specialized_map_append (DBusGTypeSpecializedAppendContext *ctx,
+				    GValue                            *key,
+				    GValue                            *val)
+{
+  DBusGTypeSpecializedAppendContextReal *realctx = (DBusGTypeSpecializedAppendContextReal *) ctx;
+  ((DBusGTypeSpecializedMapVtable *) realctx->specdata->klass->vtable)->append_func (ctx, key, val);
 }
 
 void

@@ -104,6 +104,26 @@ sm_server_get_property (GObject *object,
     }
 }
 
+static void
+machine_state_changed_cb (SMObject *obj, const char *state, gpointer data)
+{
+  char *name;
+
+  g_object_get (obj, "name", &name, NULL);
+  g_print ("Machine %s switching to state %s\n", name, state);
+  g_free (name);
+}
+
+static void
+machine_acquisition_changed_cb (SMObject *obj, gdouble progress, gpointer data)
+{
+  char *name;
+
+  g_object_get (obj, "name", &name, NULL);
+  g_print ("Machine %s got progress %f\n", name, progress);
+  g_free (name);
+}
+
 gboolean
 sm_server_create_machine (SMServer *server, const char *name, GError **error)
 {
@@ -129,6 +149,13 @@ sm_server_create_machine (SMServer *server, const char *name, GError **error)
   g_hash_table_insert (server->machines, g_strdup (name), machine);
 
   g_print ("Created state machine with name %s at %s\n", name, path);
+
+  g_signal_connect_object (machine, "state-changed",
+			   G_CALLBACK (machine_state_changed_cb),
+			   NULL, 0);
+  g_signal_connect_object (machine, "acquisition-progress",
+			   G_CALLBACK (machine_acquisition_changed_cb),
+			   NULL, 0);
 
   g_signal_emit (server, sm_server_signals[MACHINE_CREATED], 0, name, path);
   

@@ -1,3 +1,55 @@
+2005-07-08  Colin Walters  <walters@verbum.org>
+
+	* test/glib/test-service-glib.xml: 
+	* test/glib/test-service-glib.c:
+	* test/glib/test-dbus-glib.c: Test a{sv}.
+
+	* glib/examples/statemachine/statemachine.c:
+	* glib/examples/statemachine/statemachine-server.c:
+	* glib/examples/statemachine/statemachine-client.c: Fix some bugs,
+	add progress bar, etc.
+
+	* glib/dbus-gvalue.c (register_array, register_dict): Delete; not
+	needed anymore due to generic array/map marshalling.
+	(dbus_g_value_types_init): Don't register basic arrays or the
+	string/string hash.
+	(dbus_gtype_from_signature_iter): Don't try to recurse into
+	variants.
+	(dbus_gtype_to_signature): Check collection/map before type
+	metadata.
+	(demarshal_garray_basic): Renamed to demarshal_collection_array.
+	(demarshal_ghashtable): Renamed to demarshal_map; fix to use new
+	generic map creation/append functions instead of hash table
+	specifically.
+	(get_type_demarshaller): Handle maps.
+	(demarshal_collection): Dispatch on collection type to either
+	demarshal_collection_ptrarray or demarshal_collection_array.
+	(get_type_marshaller): Handle maps.
+	(marshal_collection): Dispatch collection type to either
+	marshal_collection_ptrarray or marshal_collection_array.
+	(_dbus_gvalue_test): New test.
+
+	* glib/dbus-gvalue-utils.c (unset_and_free_g_value): New function.
+	(hash_free_from_gtype): Use it to free GValues.
+	(hashtable_append): New function.
+	(ptrarray_append): Fix prototype.
+	(slist_append): Ditto.
+	(_dbus_gvalue_utils_test): Extend tests.
+
+	* glib/dbus-gtype-specialized.c
+	(dbus_g_type_specialized_init_append): Renamed from
+	dbus_g_type_specialized_collection_init_append.  Remove const from
+	value, since we steal it.
+	(dbus_g_type_specialized_map_append): New function.
+
+	* glib/dbus-gtype-specialized.h: Update prototypes.
+	Add DBusGTypeSpecializedMapAppendFunc.
+
+	* glib/dbus-gtest.c (dbus_glib_internal_do_not_use_run_tests): Run
+	_dbus_gvalue_test.
+	
+	* glib/dbus-gtest.h: Prototype it.
+
 2005-07-08  Ross Burton  <ross@openedhand.com>
 
 	* dbus/dbus-glib.h:
