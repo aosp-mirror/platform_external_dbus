@@ -554,8 +554,21 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 	      g_string_append_c (object_introspection_data_blob, direction);
 	      g_string_append_c (object_introspection_data_blob, '\0');
 
-	      if (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_CONST) != NULL)
-		g_string_append_c (object_introspection_data_blob, 'C');
+	      if (arg_info_get_annotation (arg, DBUS_GLIB_ANNOTATION_CONST) != NULL)
+		{
+		  if (arg_info_get_direction (arg) == ARG_IN)
+		    {
+		      g_set_error (error,
+				   DBUS_BINDING_TOOL_ERROR,
+				   DBUS_BINDING_TOOL_ERROR_INVALID_ANNOTATION,
+				   "Input argument \"%s\" has const annotation in method \"%s\" of interface \"%s\"\n",
+				   arg_info_get_name (arg),
+				   method_info_get_name (method),
+				   interface_info_get_name (interface));
+		      return FALSE;
+		    }
+		  g_string_append_c (object_introspection_data_blob, 'C');
+		}
 	      else
 		g_string_append_c (object_introspection_data_blob, 'F');
 	      g_string_append_c (object_introspection_data_blob, '\0');

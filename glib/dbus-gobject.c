@@ -162,7 +162,7 @@ arg_iterate (const char    *data,
       *in = FALSE;
       break;
     default:
-      g_warning ("invalid arg direction");
+      g_warning ("invalid arg direction '%c'", *data);
       break;
     }
 
@@ -176,7 +176,7 @@ arg_iterate (const char    *data,
       *constval = TRUE;
       break;
     default:
-      g_warning ("invalid arg const value");
+      g_warning ("invalid arg const value '%c'", *data);
       break;
     }
   
@@ -843,8 +843,6 @@ invoke_object_method (GObject         *object,
   gboolean had_error, call_only;
   GError *gerror;
   GValueArray *value_array;
-  GValue object_value = {0,};
-  GValue error_value = {0,};
   GValue return_value = {0,};
   GClosure closure;
   char *in_signature;
@@ -860,6 +858,9 @@ invoke_object_method (GObject         *object,
 
   gerror = NULL;
 
+  /* Determine whether or not this method should be invoked in a new
+     thread
+   */
   if (strcmp (string_table_lookup (get_method_data (object_info, method), 2), "A") == 0)
     call_only = TRUE;
   else
@@ -904,10 +905,9 @@ invoke_object_method (GObject         *object,
   }
 
   /* Prepend object as first argument */ 
-  g_value_init (&object_value, G_TYPE_OBJECT);
-  g_value_set_object (&object_value, object);
-  g_value_array_prepend (value_array, &object_value);
-  g_value_unset (&object_value);
+  g_value_array_prepend (value_array, NULL);
+  g_value_init (g_value_array_get_nth (value_array, 0), G_TYPE_OBJECT);
+  g_value_set_object (g_value_array_get_nth (value_array, 0), object);
   
   if (call_only)
     {
@@ -975,9 +975,9 @@ invoke_object_method (GObject         *object,
 	}
 
       /* Append GError as final argument */
-      g_value_init (&error_value, G_TYPE_POINTER);
-      g_value_set_pointer (&error_value, &gerror);
-      g_value_array_append (value_array, &error_value);
+      g_value_array_append (value_array, NULL);
+      g_value_init (g_value_array_get_nth (value_array, value_array->n_values - 1), G_TYPE_POINTER);
+      g_value_set_pointer (g_value_array_get_nth (value_array, value_array->n_values - 1), &gerror);
     }
   /* Actually invoke method */
   g_value_init (&return_value, G_TYPE_BOOLEAN);
@@ -997,9 +997,7 @@ invoke_object_method (GObject         *object,
       DBusMessageIter iter;
       const char *arg_metadata;
 
-      /* Grab the metadata and iterate over it so we can determine
-       * whether or not a value is constant
-       */
+      /* Grab the argument metadata and iterate over it */
       arg_metadata = method_arg_info_from_object_info (object_info, method);
 
       reply = dbus_message_new_method_return (message);
@@ -1008,22 +1006,36 @@ invoke_object_method (GObject         *object,
 
       /* Append OUT arguments to reply */
       dbus_message_iter_init_append (reply, &iter);
-      dbus_signature_iter_init (&out_signature_iter, out_signature);
       out_param_pos = 0;
       out_param_gvalue_pos = 0;
-      while ((current_type = dbus_signature_iter_get_current_type (&out_signature_iter)) != DBUS_TYPE_INVALID)
+      while (*arg_metadata)
 	{
 	  GValue gvalue = {0, };
 	  const char *arg_name;
 	  gboolean arg_in;
 	  gboolean constval;
 	  const char *arg_signature;
+	  DBusSignatureIter argsigiter;
 
-	  g_assert (*arg_metadata);
-	  arg_metadata = arg_iterate (arg_metadata, &arg_name, &arg_in, &constval, &arg_signature);
+	  do
+	    {
+	      /* Look for constness; skip over input arguments */
+	      arg_metadata = arg_iterate (arg_metadata, &arg_name, &arg_in, &constval, &arg_signature);
+	    }
+	  while (arg_in && *arg_metadata);
+
+	  /* If the last argument we saw was input, we must be done iterating over
+  	   * output arguments.
+	   */
+	  if (arg_in)
+	    break;
+
+	  dbus_signature_iter_init (&argsigiter, arg_signature);
 	  
-	  g_value_init (&gvalue, dbus_gtype_from_signature_iter (&out_signature_iter, FALSE));
-	  if (current_type != DBUS_TYPE_VARIANT)
+	  g_print ("looking at arg %s (%s)\n", arg_name, constval ? "TRUE" : "FALSE"); 
+
+	  g_value_init (&gvalue, dbus_gtype_from_signature_iter (&argsigiter, FALSE));
+	  if (G_VALUE_TYPE (&gvalue) != G_TYPE_VALUE)
 	    {
 	      if (!dbus_gvalue_take (&gvalue,
 				     &(g_array_index (out_param_values, GTypeCValue, out_param_pos))))
@@ -1044,7 +1056,6 @@ invoke_object_method (GObject         *object,
 	   */
 	  if (!constval)
 	    g_value_unset (&gvalue);
-	  dbus_signature_iter_next (&out_signature_iter);
 	}
     }
   else
@@ -1064,7 +1075,6 @@ invoke_object_method (GObject         *object,
     {
       g_array_free (out_param_values, TRUE);
       g_value_array_free (out_param_gvalues);
-      g_value_unset (&error_value);
     }
   g_value_array_free (value_array);
   g_value_unset (&return_value);

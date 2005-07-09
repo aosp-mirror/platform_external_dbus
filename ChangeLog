@@ -1,5 +1,22 @@
 2005-07-09  Colin Walters  <walters@verbum.org>
 
+	* glib/dbus-gparser.c (parse_annotation): Add annotations to
+	argument if available, not method.
+
+	* glib/dbus-gobject.c (arg_iterate): More verbose warnings.
+	(invoke_object_method): First, remove some redundant
+	GValues (object_value, error_value) in favor of working on
+	array directly.  Second, rework constness to be less buggy.
+	Now we iterate directly over the argument metadata instead
+	of parallel iterating over output signature and metadata.
+
+	* glib/dbus-glib-tool.h: Add INVALID_ANNOTATION error.
+
+	* glib/dbus-binding-tool-glib.c (generate_glue): Barf on const
+	annotation on input args.
+	
+2005-07-09  Colin Walters  <walters@verbum.org>
+
 	* glib/dbus-binding-tool-glib.h (DBUS_GLIB_ANNOTATION_CONST):
 	Define.
 

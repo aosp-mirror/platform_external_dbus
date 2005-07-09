@@ -666,7 +666,6 @@ parse_arg (Parser      *parser,
                                       method_info_get_n_args (parser->method) :
                                       signal_info_get_n_args (parser->signal));
                                       
-  
   arg = arg_info_new (name ? name : generated_name, dir, type);
   if (parser->method)
     method_info_add_arg (parser->method, arg);
@@ -732,12 +731,12 @@ parse_annotation (Parser      *parser,
       return FALSE;
     }
 
-  if (parser->method)
+  if (parser->arg)
+    arg_info_add_annotation (parser->arg, name, value);
+  else if (parser->method)
     method_info_add_annotation (parser->method, name, value);
   else if (parser->interface)
     interface_info_add_annotation (parser->interface, name, value);
-  else if (parser->arg)
-    arg_info_add_annotation (parser->arg, name, value);
   else
     g_assert_not_reached ();
 
