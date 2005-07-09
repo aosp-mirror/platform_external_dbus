@@ -144,8 +144,11 @@ method_arg_info_from_object_info (const DBusGObjectInfo *object,
 }
 
 static const char *
-arg_iterate (const char *data, const char **name, gboolean *in,
-	     const char **type)
+arg_iterate (const char    *data,
+	     const char   **name,
+	     gboolean      *in,
+	     gboolean      *constval,
+	     const char   **type)
 {
   *name = data;
 
@@ -160,6 +163,20 @@ arg_iterate (const char *data, const char **name, gboolean *in,
       break;
     default:
       g_warning ("invalid arg direction");
+      break;
+    }
+
+  data = string_table_next (data);
+  switch (*data)
+    {
+    case 'F':
+      *constval = FALSE;
+      break;
+    case 'C':
+      *constval = TRUE;
+      break;
+    default:
+      g_warning ("invalid arg const value");
       break;
     }
   
@@ -185,9 +202,10 @@ method_dir_signature_from_object_info (const DBusGObjectInfo *object,
     {
       const char *name;
       gboolean arg_in;
+      gboolean constval;
       const char *type;
 
-      arg = arg_iterate (arg, &name, &arg_in, &type);
+      arg = arg_iterate (arg, &name, &arg_in, &constval, &type);
 
       if (arg_in == in)
 	g_string_append (ret, type);
@@ -245,7 +263,7 @@ lookup_object_info (GObject *object)
 
       info = g_type_get_qdata (classtype, dbus_g_object_type_dbus_metadata_quark ()); 
 
-      if (info != NULL && info->format_version == 0)
+      if (info != NULL && info->format_version >= 0)
 	{
 	  ret = info;
 	  break;
@@ -322,9 +340,10 @@ write_interface (gpointer key, gpointer val, gpointer user_data)
 	{
 	  const char *name;
 	  gboolean arg_in;
+	  gboolean constval;
 	  const char *type;
 	  
-	  args = arg_iterate (args, &name, &arg_in, &type);
+	  args = arg_iterate (args, &name, &arg_in, &constval, &type);
 
 	  /* FIXME - handle container types */
 	  g_string_append_printf (xml, "      <arg name=\"%s\" type=\"%s\" direction=\"%s\"/>\n",
@@ -976,6 +995,12 @@ invoke_object_method (GObject         *object,
   if (!had_error)
     {
       DBusMessageIter iter;
+      const char *arg_metadata;
+
+      /* Grab the metadata and iterate over it so we can determine
+       * whether or not a value is constant
+       */
+      arg_metadata = method_arg_info_from_object_info (object_info, method);
 
       reply = dbus_message_new_method_return (message);
       if (reply == NULL)
@@ -989,6 +1014,13 @@ invoke_object_method (GObject         *object,
       while ((current_type = dbus_signature_iter_get_current_type (&out_signature_iter)) != DBUS_TYPE_INVALID)
 	{
 	  GValue gvalue = {0, };
+	  const char *arg_name;
+	  gboolean arg_in;
+	  gboolean constval;
+	  const char *arg_signature;
+
+	  g_assert (*arg_metadata);
+	  arg_metadata = arg_iterate (arg_metadata, &arg_name, &arg_in, &constval, &arg_signature);
 	  
 	  g_value_init (&gvalue, dbus_gtype_from_signature_iter (&out_signature_iter, FALSE));
 	  if (current_type != DBUS_TYPE_VARIANT)
@@ -1007,9 +1039,11 @@ invoke_object_method (GObject         *object,
 	  if (!dbus_gvalue_marshal (&iter, &gvalue))
 	    goto nomem;
 	  /* Here we actually free the allocated value; we
-	   * took ownership of it with dbus_gvalue_take.
+	   * took ownership of it with dbus_gvalue_take, unless
+	   * an annotation has specified this value as constant.
 	   */
-	  g_value_unset (&gvalue);
+	  if (!constval)
+	    g_value_unset (&gvalue);
 	  dbus_signature_iter_next (&out_signature_iter);
 	}
     }

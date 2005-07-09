@@ -58,14 +58,14 @@ gboolean my_object_uppercase (MyObject *obj, const char *str, char **ret, GError
 
 gboolean my_object_many_args (MyObject *obj, guint32 x, const char *str, double trouble, double *d_ret, char **str_ret, GError **error);
 
-gboolean my_object_many_return (MyObject *obj, guint32 *arg0, char **arg1, gint32 *arg2, guint32 *arg3, guint32 *arg4, char **arg5, GError **error);
+gboolean my_object_many_return (MyObject *obj, guint32 *arg0, char **arg1, gint32 *arg2, guint32 *arg3, guint32 *arg4, const char **arg5, GError **error);
 
 gboolean my_object_recursive1 (MyObject *obj, GArray *array, guint32 *len_ret, GError **error);
 gboolean my_object_recursive2 (MyObject *obj, guint32 reqlen, GArray **array, GError **error);
 
 gboolean my_object_many_stringify (MyObject *obj, GHashTable *vals, GHashTable **ret, GError **error);
 
-gboolean my_object_objpath (MyObject *obj, const char *in, char **arg1, GError **error);
+gboolean my_object_objpath (MyObject *obj, const char *in, const char **arg1, GError **error);
 
 gboolean my_object_get_objs (MyObject *obj, GPtrArray **objs, GError **error);
 
@@ -310,14 +310,14 @@ my_object_many_args (MyObject *obj, guint32 x, const char *str, double trouble, 
 }
 
 gboolean
-my_object_many_return (MyObject *obj, guint32 *arg0, char **arg1, gint32 *arg2, guint32 *arg3, guint32 *arg4, char **arg5, GError **error)
+my_object_many_return (MyObject *obj, guint32 *arg0, char **arg1, gint32 *arg2, guint32 *arg3, guint32 *arg4, const char **arg5, GError **error)
 {
   *arg0 = 42;
   *arg1 = g_strdup ("42");
   *arg2 = -67;
   *arg3 = 2;
   *arg4 = 26;
-  *arg5 = g_strdup ("hello world");
+  *arg5 = "hello world"; /* Annotation specifies as const */
   return TRUE;
 }
 
@@ -432,7 +432,7 @@ my_object_many_stringify (MyObject *obj, GHashTable /* char * -> GValue * */ *va
 }
 
 gboolean
-my_object_objpath (MyObject *obj, const char *incoming, char **outgoing, GError **error)
+my_object_objpath (MyObject *obj, const char *incoming, const char **outgoing, GError **error)
 {
   if (strcmp (incoming, "/org/freedesktop/DBus/Tests/MyTestObject"))
     {
@@ -442,7 +442,7 @@ my_object_objpath (MyObject *obj, const char *incoming, char **outgoing, GError 
 		   "invalid incoming object");
       return FALSE;
     }
-  *outgoing = g_strdup ("/org/freedesktop/DBus/Tests/MyTestObject2");
+  *outgoing = "/org/freedesktop/DBus/Tests/MyTestObject2";
   return TRUE;
 }
 

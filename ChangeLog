@@ -1,3 +1,33 @@
+2005-07-09  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-binding-tool-glib.h (DBUS_GLIB_ANNOTATION_CONST):
+	Define.
+
+	* glib/dbus-binding-tool-glib.c (generate_glue): Handle Const
+	annotation.
+
+	* glib/dbus-gobject.c (arg_iterate): Update to parse constval too.
+	(method_dir_signature_from_object_info): Handle arg_iterate change.
+	(write_interface): Ditto.
+	(lookup_object_info): Don't barf if format_version is > 0.
+	(invoke_object_method): Handle arg constness.
+
+	* glib/dbus-gidl.c (struct ArgInfo): Add annotations.
+	(arg_info_new): Create.
+	(arg_info_unref): Destroy.
+	(arg_info_get_annotations, arg_info_get_annotation) 
+	(arg_info_add_annotation): New functions.
+
+	* glib/dbus-gidl.h: Prototype them.
+
+	* glib/dbus-gparser.c (parse_annotation): Allow annotations in
+	args, disallow them in properties.
+	(parse_annotation): Handle arg annotations.
+
+	* test/glib/test-service-glib.xml: 
+	* test/glib/test-service-glib.c: Update to make some methods
+	const.
+
 2005-07-08  Colin Walters  <walters@verbum.org>
 
 	* test/glib/test-service-glib.xml: 

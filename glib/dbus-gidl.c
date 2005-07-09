@@ -75,6 +75,7 @@ struct ArgInfo
   BaseInfo base;
   char *type;
   ArgDirection direction;
+  GHashTable *annotations;
 };
 
 static void
@@ -699,6 +700,9 @@ arg_info_new (const char  *name,
   info->base.name = g_strdup (name);
   info->direction = direction;
   info->type = g_strdup (type);
+  info->annotations = g_hash_table_new_full (g_str_hash, g_str_equal,
+					     (GDestroyNotify) g_free,
+					     (GDestroyNotify) g_free);
 
   return info;
 }
@@ -717,10 +721,12 @@ arg_info_unref (ArgInfo *info)
   info->base.refcount -= 1;
   if (info->base.refcount == 0)
     {
+      g_hash_table_destroy (info->annotations);
       base_info_free (info);
       g_free (info->type);
     }
 }
+
 const char*
 arg_info_get_name (ArgInfo *info)
 {
@@ -738,6 +744,30 @@ arg_info_get_direction (ArgInfo *info)
 {
   return info->direction;
 }
+
+GSList*
+arg_info_get_annotations (ArgInfo *info)
+{
+  return get_hash_keys (info->annotations);
+}
+
+const char*
+arg_info_get_annotation (ArgInfo    *info,
+			 const char *annotation)
+{
+  return g_hash_table_lookup (info->annotations, annotation);
+}
+
+void
+arg_info_add_annotation (ArgInfo             *info,
+			 const char          *name,
+			 const char          *value)
+{
+  g_hash_table_insert (info->annotations,
+		       g_strdup (name),
+		       g_strdup (value));
+}
+
 
 #ifdef DBUS_BUILD_TESTS
 

@@ -143,6 +143,13 @@ void                arg_info_unref                (ArgInfo             *info);
 const char*         arg_info_get_name             (ArgInfo             *info);
 const char*         arg_info_get_type             (ArgInfo             *info);
 ArgDirection        arg_info_get_direction        (ArgInfo             *info);
+GSList*             arg_info_get_annotations      (ArgInfo             *info);
+const char*         arg_info_get_annotation       (ArgInfo             *info,
+						   const char          *annotation);
+void                arg_info_add_annotation       (ArgInfo             *info,
+						   const char          *name,
+						   const char          *value);
+
 
 G_END_DECLS
 

@@ -554,6 +554,12 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 	      g_string_append_c (object_introspection_data_blob, direction);
 	      g_string_append_c (object_introspection_data_blob, '\0');
 
+	      if (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_CONST) != NULL)
+		g_string_append_c (object_introspection_data_blob, 'C');
+	      else
+		g_string_append_c (object_introspection_data_blob, 'F');
+	      g_string_append_c (object_introspection_data_blob, '\0');
+
 	      g_string_append (object_introspection_data_blob, arg_info_get_type (arg));
 	      g_string_append_c (object_introspection_data_blob, '\0');
 	    }

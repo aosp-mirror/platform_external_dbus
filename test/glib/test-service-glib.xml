@@ -32,7 +32,9 @@
       <arg type="i" direction="out" />
       <arg type="u" direction="out" />
       <arg type="u" direction="out" />
-      <arg type="s" direction="out" />
+      <arg type="s" direction="out">
+	<annotation name="org.freedesktop.DBus.GLib.Const" value=""/>
+      </arg>
     </method>
 
     <method name="Stringify">
@@ -71,7 +73,9 @@
 
     <method name="Objpath">
       <arg type="o" direction="in"/>
-      <arg type="o" direction="out"/>
+      <arg type="o" direction="out">
+	<annotation name="org.freedesktop.DBus.GLib.Const" value=""/>
+      </arg>
     </method>
 
     <method name="GetObjs">

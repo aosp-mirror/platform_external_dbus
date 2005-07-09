@@ -694,9 +694,10 @@ parse_annotation (Parser      *parser,
   const char *name;
   const char *value;
   
-  if (!(parser->method || parser->interface) || 
+  if (!(parser->method || parser->interface || parser->arg) || 
       parser->node_stack == NULL ||
       parser->signal ||
+      parser->property ||
       parser->in_annotation)
     {
       g_set_error (error, G_MARKUP_ERROR,
@@ -735,6 +736,8 @@ parse_annotation (Parser      *parser,
     method_info_add_annotation (parser->method, name, value);
   else if (parser->interface)
     interface_info_add_annotation (parser->interface, name, value);
+  else if (parser->arg)
+    arg_info_add_annotation (parser->arg, name, value);
   else
     g_assert_not_reached ();
 
