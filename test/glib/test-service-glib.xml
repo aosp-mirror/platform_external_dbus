@@ -10,6 +10,20 @@
       <arg type="u" direction="out" />
     </method>
 
+    <method name="IncrementRetval">
+      <arg type="u" name="x" />
+      <arg type="u" direction="out">
+	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
+      </arg>
+    </method>
+
+    <method name="IncrementRetvalError">
+      <arg type="u" name="x" />
+      <arg type="u" direction="out">
+	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value="error"/>
+      </arg>
+    </method>
+
     <method name="ThrowError">
     </method>
 

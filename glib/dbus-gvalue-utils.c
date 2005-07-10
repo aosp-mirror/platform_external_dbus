@@ -206,6 +206,58 @@ dbus_gvalue_take (GValue          *value,
   return TRUE;
 }
 
+gboolean
+_dbus_gtype_can_signal_error (GType gtype)
+{
+  switch (gtype)
+    {
+    case G_TYPE_BOOLEAN:
+    case G_TYPE_INT:
+    case G_TYPE_UINT:
+    case G_TYPE_STRING:
+    case G_TYPE_BOXED:
+    case G_TYPE_OBJECT:
+      return TRUE;
+    default:
+      return FALSE;
+    }
+}
+
+gboolean
+_dbus_gvalue_signals_error (const GValue *value)
+{
+  /* Hardcoded rules for return value semantics for certain
+   * types.  Perhaps in the future we'd want an annotation
+   * specifying which return values are errors, but in
+   * reality people will probably just use boolean and
+   * boxed, and there the semantics are pretty standard.
+   */
+  switch (G_TYPE_FUNDAMENTAL (G_VALUE_TYPE (value)))
+    {
+    case G_TYPE_BOOLEAN:
+      return (g_value_get_boolean (value) == FALSE);
+      break;
+    case G_TYPE_INT:
+      return (g_value_get_int (value) < 0);
+      break;
+    case G_TYPE_UINT:
+      return (g_value_get_uint (value) == 0);
+      break;
+    case G_TYPE_STRING:
+      return (g_value_get_string (value) == NULL);
+      break;
+    case G_TYPE_BOXED:
+      return (g_value_get_boxed (value) == NULL);
+      break;
+    case G_TYPE_OBJECT:
+      return (g_value_get_boxed (value) == NULL);
+      break;
+    default:
+      g_assert_not_reached ();
+    }
+}
+
+
 static gboolean
 hash_func_from_gtype (GType gtype, GHashFunc *func)
 {
@@ -1060,5 +1112,7 @@ _dbus_gvalue_utils_test (const char *datadir)
 
   return TRUE;
 }
+
+
 
 #endif /* DBUS_BUILD_TESTS */

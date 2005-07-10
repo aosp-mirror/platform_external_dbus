@@ -11,6 +11,13 @@ BUILT_SOURCES = dbus-glib-error-switch.h
 
 CLEANFILES = $(BUILT_SOURCES)
 
+DBUS_GLIB_INTERNALS = \
+	dbus-gtype-specialized.c	        \
+	dbus-gutils.c				\
+	dbus-gutils.h				\
+	dbus-gvalue-utils.c			\
+	dbus-gvalue-utils.h
+
 libdbus_glib_1_la_SOURCES = 			\
 	dbus-glib-error-switch.h		\
 	dbus-glib.c				\
@@ -23,13 +30,9 @@ libdbus_glib_1_la_SOURCES = 			\
 	dbus-gtest.c				\
 	dbus-gtest.h				\
 	dbus-gthread.c				\
-	dbus-gutils.c				\
-	dbus-gutils.h				\
 	dbus-gvalue.c				\
-	dbus-gtype-specialized.c	        \
 	dbus-gvalue.h				\
-	dbus-gvalue-utils.c			\
-	dbus-gvalue-utils.h
+	$(DBUS_GLIB_INTERNALS)
 
 libdbus_glib_HEADERS =                  \
 	dbus-gtype-specialized.h
@@ -44,14 +47,12 @@ libdbus_glib_1_la_LDFLAGS= -export-symbols-regex "^[^_].*" -version-info $(LT_CU
 # convenience lib used here and by dbus-viewer
 noinst_LTLIBRARIES=libdbus-gtool.la
 
-libdbus_gtool_la_SOURCES =			\
+libdbus_gtool_la_SOURCES = $(DBUS_GLIB_INTERNALS) \
 	dbus-gidl.c				\
 	dbus-gidl.h				\
 	dbus-gloader-expat.c			\
 	dbus-gparser.c				\
-	dbus-gparser.h				\
-	dbus-gutils.c				\
-	dbus-gutils.h
+	dbus-gparser.h
 
 libdbus_gtool_la_LIBADD = libdbus-glib-1.la
 

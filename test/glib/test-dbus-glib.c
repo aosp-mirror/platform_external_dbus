@@ -504,11 +504,11 @@ main (int argc, char **argv)
 			  G_TYPE_UINT, &v_UINT32_2,
 			  G_TYPE_INVALID))
     lose_gerror ("Failed to complete Increment call", error);
-  g_assert (n_times_echo_cb_entered == 1);
-
   if (v_UINT32_2 != 43)
     lose ("Increment call returned %d, should be 43", v_UINT32_2);
 
+  v_UINT32_2 = 0;
+  g_print ("Calling Increment (async)\n");
   call = dbus_g_proxy_begin_call (proxy, "Increment",
 				  increment_received_cb, g_strdup ("moo"), g_free,
 				  G_TYPE_UINT, 42,
@@ -516,6 +516,30 @@ main (int argc, char **argv)
   dbus_g_connection_flush (connection);
   exit_timeout = g_timeout_add (5000, timed_exit, loop);
   g_main_loop_run (loop);
+
+  g_print ("Calling IncrementRetval\n");
+  error = NULL;
+  v_UINT32_2 = 0;
+  if (!dbus_g_proxy_call (proxy, "IncrementRetval", &error,
+			  G_TYPE_UINT, 42,
+			  G_TYPE_INVALID,
+			  G_TYPE_UINT, &v_UINT32_2,
+			  G_TYPE_INVALID))
+    lose_gerror ("Failed to complete Increment call", error);
+  if (v_UINT32_2 != 43)
+    lose ("IncrementRetval call returned %d, should be 43", v_UINT32_2);
+
+  g_print ("Calling IncrementRetvalError\n");
+  error = NULL;
+  v_UINT32_2 = 0;
+  if (!dbus_g_proxy_call (proxy, "IncrementRetvalError", &error,
+			  G_TYPE_UINT, 5,
+			  G_TYPE_INVALID,
+			  G_TYPE_UINT, &v_UINT32_2,
+			  G_TYPE_INVALID))
+    lose_gerror ("Failed to complete Increment call", error);
+  if (v_UINT32_2 != 6)
+    lose ("IncrementRetval call returned %d, should be 6", v_UINT32_2);
 
   g_print ("Calling ThrowError\n");
   if (dbus_g_proxy_call (proxy, "ThrowError", &error,
@@ -527,6 +551,19 @@ main (int argc, char **argv)
 	  error->message);
 
   g_print ("ThrowError failed (as expected) returned error: %s\n", error->message);
+  g_clear_error (&error);
+
+  g_print ("Calling IncrementRetvalError (for error)\n");
+  error = NULL;
+  v_UINT32_2 = 0;
+  if (dbus_g_proxy_call (proxy, "IncrementRetvalError", &error,
+			 G_TYPE_UINT, 20,
+			 G_TYPE_INVALID,
+			 G_TYPE_UINT, &v_UINT32_2,
+			 G_TYPE_INVALID) != FALSE)
+    lose ("IncrementRetvalError call unexpectedly succeeded!");
+  if (!dbus_g_error_has_name (error, "org.freedesktop.DBus.Tests.MyObject.Foo"))
+    lose ("IncrementRetvalError call returned unexpected error \"%s\": %s", dbus_g_error_get_name (error), error->message);
   g_clear_error (&error);
 
   error = NULL;

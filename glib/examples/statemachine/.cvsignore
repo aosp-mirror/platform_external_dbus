@@ -7,6 +7,7 @@ Makefile.in
 statemachine-client
 statemachine-server
 statemachine-glue.h
+statemachine-server-glue.h
 run-with-tmp-session-bus.conf
 sm-marshal.[ch]
 *.bb

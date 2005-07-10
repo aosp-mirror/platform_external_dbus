@@ -1,3 +1,41 @@
+2005-07-10  Colin Walters  <walters@verbum.org>
+
+	* doc/TODO: Knock off some GLib items with this patch.
+
+	* glib/dbus-gvalue-utils.c (_dbus_gtype_can_signal_error) 
+	(_dbus_gvalue_signals_error): New functions.
+
+	* glib/dbus-gvalue-utils.h: Prototype them.
+
+	* glib/dbus-gobject.c (arg_iterate): Update to handle return vals
+	and change to not output const/retval flags for input args.  All
+	callers updated.
+	(invoke_object_method): Refactor to handle return values.  Add
+	some more comments in various places.  Remove debug g_print.
+
+	* glib/dbus-binding-tool-glib.h (DBUS_GLIB_ANNOTATION_RETURNVAL): New.
+
+	* glib/dbus-binding-tool-glib.c (dbus_g_type_get_marshal_name):
+	Handle G_TYPE_NONE.
+	(compute_gsignature): New function; refactored from code from
+	compute_marshaller and compute_marshaller_name.  Enhance to
+	handle return values and async ops more cleanly.  Update for
+	async ops returning NONE instead of BOOLEAN.
+	(compute_marshaller, compute_marshaller_name): Call compute_gsignature
+	and output appropriate string.
+	(generate_glue): Handle return value annotation.  Also don't dump
+	constness flag for input arguments.
+
+	* glib/Makefile.am (DBUS_GLIB_INTERNALS): New variable; contains
+	files shared between installed library and utilities.
+	(libdbus_glib_1_la_SOURCES): Move some stuf into DBUS_GLIB_INTERNALS.
+	(libdbus_gtool_la_SOURCES): Suck in DBUS_GLIB_INTERNALS so the
+	binding tool can access gtype utility functions.
+
+	* test/glib/test-service-glib.c: 
+	* test/glib/test-service-glib.xml: 
+	* test/glib/test-dbus-glib.c: Add some tests for return values.
+
 2005-07-09  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-gparser.c (parse_annotation): Add annotations to

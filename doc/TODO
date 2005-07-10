@@ -28,10 +28,6 @@ Important for 1.0
 Important for 1.0 GLib Bindings
 ===
 
- - Annotations for "do not take ownership of this return value" on server
-
- - Support a{sv}
-
  - Test point-to-point mode
 
  - Add support for getting sender

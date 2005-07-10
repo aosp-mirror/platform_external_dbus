@@ -64,6 +64,10 @@ gboolean       dbus_gvalue_store                     (GValue          *value,
 gboolean       dbus_gvalue_take                      (GValue          *value,
 						      GTypeCValue     *cvalue);
 
+gboolean       _dbus_gtype_can_signal_error          (GType                    gtype);
+gboolean       _dbus_gvalue_signals_error            (const GValue            *value);
+
+
 G_END_DECLS
 
 #endif

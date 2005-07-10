@@ -143,45 +143,91 @@ method_arg_info_from_object_info (const DBusGObjectInfo *object,
   return string_table_lookup (get_method_data (object, method), 3);/*RB was 2*/
 }
 
+typedef enum
+{
+  RETVAL_NONE,    
+  RETVAL_NOERROR,    
+  RETVAL_ERROR
+} RetvalType;
+
 static const char *
 arg_iterate (const char    *data,
 	     const char   **name,
 	     gboolean      *in,
 	     gboolean      *constval,
+	     RetvalType    *retval,
 	     const char   **type)
 {
-  *name = data;
+  gboolean inarg;
+
+  if (name)
+    *name = data;
 
   data = string_table_next (data);
   switch (*data)
     {
     case 'I':
-      *in = TRUE;
+      inarg = TRUE;
       break;
     case 'O':
-      *in = FALSE;
+      inarg = FALSE;
       break;
     default:
       g_warning ("invalid arg direction '%c'", *data);
+      inarg = FALSE;
       break;
     }
+  if (in)
+    *in = inarg;
 
-  data = string_table_next (data);
-  switch (*data)
+  if (!inarg)
     {
-    case 'F':
-      *constval = FALSE;
-      break;
-    case 'C':
-      *constval = TRUE;
-      break;
-    default:
-      g_warning ("invalid arg const value '%c'", *data);
-      break;
+      data = string_table_next (data);
+      switch (*data)
+	{
+	case 'F':
+	  if (constval)
+	    *constval = FALSE;
+	  break;
+	case 'C':
+	  if (constval)
+	    *constval = TRUE;
+	  break;
+	default:
+	  g_warning ("invalid arg const value '%c'", *data);
+	  break;
+	}
+      data = string_table_next (data);
+      switch (*data)
+	{
+	case 'N':
+	  if (retval)
+	    *retval = RETVAL_NONE;
+	  break;
+	case 'E':
+	  if (retval)
+	    *retval = RETVAL_ERROR;
+	  break;
+	case 'R':
+	  if (retval)
+	    *retval = RETVAL_NOERROR;
+	  break;
+	default:
+	  g_warning ("invalid arg ret value '%c'", *data);
+	  break;
+	}
+    }
+  else
+    {
+      if (constval)
+	*constval = FALSE;
+      if (retval)
+	*retval = FALSE;
     }
   
   data = string_table_next (data);
-  *type = data;
+  if (type)
+    *type = data;
 
   return string_table_next (data);
 }
@@ -202,10 +248,9 @@ method_dir_signature_from_object_info (const DBusGObjectInfo *object,
     {
       const char *name;
       gboolean arg_in;
-      gboolean constval;
       const char *type;
 
-      arg = arg_iterate (arg, &name, &arg_in, &constval, &type);
+      arg = arg_iterate (arg, &name, &arg_in, NULL, NULL, &type);
 
       if (arg_in == in)
 	g_string_append (ret, type);
@@ -340,10 +385,9 @@ write_interface (gpointer key, gpointer val, gpointer user_data)
 	{
 	  const char *name;
 	  gboolean arg_in;
-	  gboolean constval;
 	  const char *type;
 	  
-	  args = arg_iterate (args, &name, &arg_in, &constval, &type);
+	  args = arg_iterate (args, &name, &arg_in, NULL, NULL, &type);
 
 	  /* FIXME - handle container types */
 	  g_string_append_printf (xml, "      <arg name=\"%s\" type=\"%s\" direction=\"%s\"/>\n",
@@ -846,15 +890,17 @@ invoke_object_method (GObject         *object,
   GValue return_value = {0,};
   GClosure closure;
   char *in_signature;
-  char *out_signature = NULL;
-  int current_type;
-  DBusSignatureIter out_signature_iter;
   GArray *out_param_values = NULL;
   GValueArray *out_param_gvalues = NULL;
   int out_param_count;
   int out_param_pos, out_param_gvalue_pos;
   DBusHandlerResult result;
   DBusMessage *reply;
+  gboolean have_retval;
+  gboolean retval_signals_error;
+  gboolean retval_is_synthetic;
+  gboolean retval_is_constant;
+  const char *arg_metadata;
 
   gerror = NULL;
 
@@ -865,6 +911,11 @@ invoke_object_method (GObject         *object,
     call_only = TRUE;
   else
     call_only = FALSE;
+
+  have_retval = FALSE;
+  retval_signals_error = FALSE;
+  retval_is_synthetic = FALSE;
+  retval_is_constant = FALSE;
 
   /* This is evil.  We do this to work around the fact that
    * the generated glib marshallers check a flag in the closure object
@@ -924,21 +975,72 @@ invoke_object_method (GObject         *object,
     }
   else
     {
-      out_signature = method_output_signature_from_object_info (object_info, method); 
+      RetvalType retval;
+      gboolean arg_in;
+      gboolean arg_const;
+      const char *argsig;
 
-      /* Count number of output parameters */
-      dbus_signature_iter_init (&out_signature_iter, out_signature);
+      arg_metadata = method_arg_info_from_object_info (object_info, method);
+      
+      /* Count number of output parameters, and look for a return value */
       out_param_count = 0;
-      while ((current_type = dbus_signature_iter_get_current_type (&out_signature_iter)) != DBUS_TYPE_INVALID)
+      while (*arg_metadata)
 	{
-	  out_param_count++;
-	  dbus_signature_iter_next (&out_signature_iter);
+	  arg_metadata = arg_iterate (arg_metadata, NULL, &arg_in, &arg_const, &retval, &argsig);
+	  if (arg_in)
+	    continue;
+	  if (retval != RETVAL_NONE)
+	    {
+	      DBusSignatureIter tmp_sigiter;
+	      /* This is the function return value */
+	      g_assert (!have_retval);
+	      have_retval = TRUE;
+	      retval_is_synthetic = FALSE;
+
+	      switch (retval)
+		{
+		case RETVAL_NONE:
+		  g_assert_not_reached ();
+		  break;
+		case RETVAL_NOERROR:
+		  retval_signals_error = FALSE;
+		  break;
+		case RETVAL_ERROR:
+		  retval_signals_error = TRUE;
+		  break;
+		}
+
+	      retval_is_constant = arg_const;
+
+	      /* Initialize our return GValue with the specified type */
+	      dbus_signature_iter_init (&tmp_sigiter, argsig);
+	      g_value_init (&return_value, dbus_gtype_from_signature_iter (&tmp_sigiter, FALSE));
+	    }
+	  else
+	    {
+	      /* It's a regular output value */
+	      out_param_count++;
+	    }
 	}
 
-      /* Create an array to store the actual values of OUT
-       * parameters.  Then, create a GValue boxed POINTER
-       * to each of those values, and append to the invocation,
-       * so the method can return the OUT parameters.
+      /* For compatibility, if we haven't found a return value, we assume
+       * the function returns a gboolean for signalling an error
+       * (and therefore also takes a GError).  We also note that it
+       * is a "synthetic" return value; i.e. we aren't going to be
+       * sending it over the bus, it's just to signal an error.
+       */
+      if (!have_retval)
+	{
+	  have_retval = TRUE;
+	  retval_is_synthetic = TRUE;
+	  retval_signals_error = TRUE;
+	  g_value_init (&return_value, G_TYPE_BOOLEAN);
+	}
+
+      /* Create an array to store the actual values of OUT parameters
+       * (other than the real function return, if any).  Then, create
+       * a GValue boxed POINTER to each of those values, and append to
+       * the invocation, so the method can return the OUT parameters.
        */
       out_param_values = g_array_sized_new (FALSE, TRUE, sizeof (GTypeCValue), out_param_count);
 
@@ -948,16 +1050,32 @@ invoke_object_method (GObject         *object,
       out_param_gvalues = g_value_array_new (out_param_count);
       out_param_pos = 0;
       out_param_gvalue_pos = 0;
-      dbus_signature_iter_init (&out_signature_iter, out_signature);
-      while ((current_type = dbus_signature_iter_get_current_type (&out_signature_iter)) != DBUS_TYPE_INVALID)
+
+      /* Reset argument metadata pointer */
+      arg_metadata = method_arg_info_from_object_info (object_info, method);
+      
+      /* Iterate over output arguments again, this time allocating space for
+       * them as appopriate.
+       */
+      while (*arg_metadata)
 	{
 	  GValue value = {0, };
 	  GTypeCValue storage;
+	  DBusSignatureIter tmp_sigiter;
+	  GType current_gtype;
+
+	  arg_metadata = arg_iterate (arg_metadata, NULL, &arg_in, NULL, &retval, &argsig);
+	  /* Skip over input arguments and the return value, if any */
+	  if (arg_in || retval != RETVAL_NONE)
+	    continue;
+
+	  dbus_signature_iter_init (&tmp_sigiter, argsig);
+	  current_gtype = dbus_gtype_from_signature_iter (&tmp_sigiter, FALSE);
 
 	  g_value_init (&value, G_TYPE_POINTER);
 
 	  /* We special case variants to make method invocation a bit nicer */
-	  if (current_type != DBUS_TYPE_VARIANT)
+	  if (current_gtype != G_TYPE_VALUE)
 	    {
 	      memset (&storage, 0, sizeof (storage));
 	      g_array_append_val (out_param_values, storage);
@@ -971,17 +1089,20 @@ invoke_object_method (GObject         *object,
 	      out_param_gvalue_pos++;
 	    }
 	  g_value_array_append (value_array, &value);
-	  dbus_signature_iter_next (&out_signature_iter);
 	}
+    }
 
-      /* Append GError as final argument */
+  /* Append GError as final argument if necessary */
+  if (retval_signals_error)
+    {
+      g_assert (have_retval);
       g_value_array_append (value_array, NULL);
       g_value_init (g_value_array_get_nth (value_array, value_array->n_values - 1), G_TYPE_POINTER);
       g_value_set_pointer (g_value_array_get_nth (value_array, value_array->n_values - 1), &gerror);
     }
+  
   /* Actually invoke method */
-  g_value_init (&return_value, G_TYPE_BOOLEAN);
-  method->marshaller (&closure, &return_value,
+  method->marshaller (&closure, have_retval ? &return_value : NULL,
 		      value_array->n_values,
 		      value_array->values,
 		      NULL, method->function);
@@ -990,22 +1111,35 @@ invoke_object_method (GObject         *object,
       result = DBUS_HANDLER_RESULT_HANDLED;
       goto done;
     }
-  had_error = !g_value_get_boolean (&return_value);
+  if (retval_signals_error)
+    had_error = _dbus_gvalue_signals_error (&return_value);
+  else
+    had_error = FALSE;
 
   if (!had_error)
     {
       DBusMessageIter iter;
-      const char *arg_metadata;
-
-      /* Grab the argument metadata and iterate over it */
-      arg_metadata = method_arg_info_from_object_info (object_info, method);
 
       reply = dbus_message_new_method_return (message);
       if (reply == NULL)
 	goto nomem;
 
-      /* Append OUT arguments to reply */
+      /* Append output arguments to reply */
       dbus_message_iter_init_append (reply, &iter);
+
+      /* First, append the return value, unless it's synthetic */
+      if (have_retval && !retval_is_synthetic)
+	{
+	  if (!dbus_gvalue_marshal (&iter, &return_value))
+	    goto nomem;
+	  if (!retval_is_constant)
+	    g_value_unset (&return_value);
+	}
+
+      /* Grab the argument metadata and iterate over it */
+      arg_metadata = method_arg_info_from_object_info (object_info, method);
+      
+      /* Now append any remaining return values */
       out_param_pos = 0;
       out_param_gvalue_pos = 0;
       while (*arg_metadata)
@@ -1014,26 +1148,26 @@ invoke_object_method (GObject         *object,
 	  const char *arg_name;
 	  gboolean arg_in;
 	  gboolean constval;
+	  RetvalType retval;
 	  const char *arg_signature;
 	  DBusSignatureIter argsigiter;
 
 	  do
 	    {
-	      /* Look for constness; skip over input arguments */
-	      arg_metadata = arg_iterate (arg_metadata, &arg_name, &arg_in, &constval, &arg_signature);
+	      /* Iterate over only output values; skip over input
+		 arguments and the return value */
+	      arg_metadata = arg_iterate (arg_metadata, &arg_name, &arg_in, &constval, &retval, &arg_signature);
 	    }
-	  while (arg_in && *arg_metadata);
+	  while ((arg_in || retval != RETVAL_NONE) && *arg_metadata);
 
-	  /* If the last argument we saw was input, we must be done iterating over
-  	   * output arguments.
+	  /* If the last argument we saw was input or the return
+  	   * value, we must be done iterating over output arguments.
 	   */
-	  if (arg_in)
+	  if (arg_in || retval != RETVAL_NONE)
 	    break;
 
 	  dbus_signature_iter_init (&argsigiter, arg_signature);
 	  
-	  g_print ("looking at arg %s (%s)\n", arg_name, constval ? "TRUE" : "FALSE"); 
-
 	  g_value_init (&gvalue, dbus_gtype_from_signature_iter (&argsigiter, FALSE));
 	  if (G_VALUE_TYPE (&gvalue) != G_TYPE_VALUE)
 	    {
@@ -1070,14 +1204,12 @@ invoke_object_method (GObject         *object,
   result = DBUS_HANDLER_RESULT_HANDLED;
  done:
   g_free (in_signature);
-  g_free (out_signature);
   if (!call_only)
     {
       g_array_free (out_param_values, TRUE);
       g_value_array_free (out_param_gvalues);
     }
   g_value_array_free (value_array);
-  g_value_unset (&return_value);
   return result;
  nomem:
   result = DBUS_HANDLER_RESULT_NEED_MEMORY;

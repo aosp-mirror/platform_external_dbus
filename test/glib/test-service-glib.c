@@ -52,6 +52,10 @@ gboolean my_object_do_nothing (MyObject *obj, GError **error);
 
 gboolean my_object_increment (MyObject *obj, gint32 x, gint32 *ret, GError **error);
 
+gint32   my_object_increment_retval (MyObject *obj, gint32 x);
+
+gint32   my_object_increment_retval_error (MyObject *obj, gint32 x, GError **error);
+
 gboolean my_object_throw_error (MyObject *obj, GError **error);
 
 gboolean my_object_uppercase (MyObject *obj, const char *str, char **ret, GError **error);
@@ -91,9 +95,9 @@ gboolean my_object_emit_frobnicate (MyObject *obj, GError **error);
 
 gboolean my_object_terminate (MyObject *obj, GError **error);
 
-gboolean my_object_async_increment (MyObject *obj, gint32 x, DBusGMethodInvocation *context);
+void my_object_async_increment (MyObject *obj, gint32 x, DBusGMethodInvocation *context);
 
-gboolean my_object_async_throw_error (MyObject *obj, DBusGMethodInvocation *context);
+void my_object_async_throw_error (MyObject *obj, DBusGMethodInvocation *context);
 
 #include "test-service-glib-glue.h"
 
@@ -281,6 +285,27 @@ my_object_increment (MyObject *obj, gint32 x, gint32 *ret, GError **error)
 {
   *ret = x +1;
   return TRUE;
+}
+
+gint32
+my_object_increment_retval (MyObject *obj, gint32 x)
+{
+  return x + 1;
+}
+
+gint32
+my_object_increment_retval_error (MyObject *obj, gint32 x, GError **error)
+{
+  if (x + 1 > 10)
+    {
+      g_set_error (error,
+		   MY_OBJECT_ERROR,
+		   MY_OBJECT_ERROR_FOO,
+		   "%s",
+		   "x is bigger than 9");    
+      return FALSE;
+    }
+  return x + 1;
 }
 
 gboolean
@@ -559,14 +584,13 @@ do_async_increment (IncrementData *data)
   return FALSE;
 }
 
-gboolean
+void
 my_object_async_increment (MyObject *obj, gint32 x, DBusGMethodInvocation *context)
 {
   IncrementData *data = g_new0 (IncrementData, 1);
   data->x = x;
   data->context = context;
   g_idle_add ((GSourceFunc)do_async_increment, data);
-  return TRUE;
 }
 
 static gboolean
@@ -582,13 +606,12 @@ do_async_error (IncrementData *data)
   return FALSE;
 }
 
-gboolean
+void
 my_object_async_throw_error (MyObject *obj, DBusGMethodInvocation *context)
 {
   IncrementData *data = g_new0(IncrementData, 1);
   data->context = context;
   g_idle_add ((GSourceFunc)do_async_error,  data);
-  return TRUE;
 }
 
 
@@ -623,10 +646,15 @@ main (int argc, char **argv)
 
   g_printerr ("Launching test-service-glib\n");
 
-  g_log_set_always_fatal (G_LOG_LEVEL_CRITICAL);
-  g_log_set_always_fatal (G_LOG_LEVEL_WARNING);
-  
   loop = g_main_loop_new (NULL, FALSE);
+
+  {
+    GLogLevelFlags fatal_mask;
+    
+    fatal_mask = g_log_set_always_fatal (G_LOG_FATAL_MASK);
+    fatal_mask |= G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL;
+    g_log_set_always_fatal (fatal_mask);
+  }
 
   error = NULL;
   connection = dbus_g_bus_get (DBUS_BUS_STARTER,

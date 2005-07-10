@@ -62,6 +62,8 @@ dbus_g_type_get_marshal_name (GType gtype)
 {
   switch (G_TYPE_FUNDAMENTAL (gtype))
     {
+    case G_TYPE_NONE:
+      return "NONE";
     case G_TYPE_BOOLEAN:
       return "BOOLEAN";
     case G_TYPE_UCHAR:
@@ -112,148 +114,195 @@ dbus_g_type_get_c_name (GType gtype)
   return g_type_name (gtype);
 }
 
-static char *
-compute_marshaller (MethodInfo *method, GError **error)
+static gboolean
+compute_gsignature (MethodInfo *method, GType *rettype, GArray **params, GError **error)
 {
   GSList *elt;
-  GString *ret;
-  gboolean first;
+  GType retval_type;
+  GArray *ret;
+  gboolean is_async;
+  const char *arg_type;
+  gboolean retval_signals_error;
+  
+  is_async = method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_ASYNC) != NULL;
+  retval_signals_error = FALSE;
 
-  /* All methods required to return boolean for now;
-   * will be conditional on method info later */
-  ret = g_string_new ("BOOLEAN:");
+  ret = g_array_new (TRUE, TRUE, sizeof (GType));
 
-  first = TRUE;
-  /* Append input arguments */
-  for (elt = method_info_get_args (method); elt; elt = elt->next)
+  if (is_async)
+    retval_type = G_TYPE_NONE;
+  else
     {
-      ArgInfo *arg = elt->data;
+      gboolean found_retval;
 
-      if (arg_info_get_direction (arg) == ARG_IN)
+      /* Look for return value */
+      found_retval = FALSE;
+      for (elt = method_info_get_args (method); elt; elt = elt->next)
 	{
-	  const char *marshal_name;
-	  GType gtype;
-
-	  gtype = dbus_gtype_from_signature (arg_info_get_type (arg), FALSE);
-	  if (gtype == G_TYPE_INVALID)
+	  ArgInfo *arg = elt->data;
+	  const char *returnval_annotation;
+      
+	  returnval_annotation = arg_info_get_annotation (arg, DBUS_GLIB_ANNOTATION_RETURNVAL);
+	  if (returnval_annotation != NULL)
 	    {
-	      g_set_error (error,
-			   DBUS_BINDING_TOOL_ERROR,
-			   DBUS_BINDING_TOOL_ERROR_UNSUPPORTED_CONVERSION,
-			   _("Unsupported conversion from D-BUS type %s to glib-genmarshal type"),
-			   arg_info_get_type (arg));
-	      g_string_free (ret, TRUE);
-	      return NULL;
+	      arg_type = arg_info_get_type (arg);
+	      retval_type = dbus_gtype_from_signature (arg_type, FALSE);
+	      if (retval_type == G_TYPE_INVALID)
+		goto invalid_type;
+	      found_retval = TRUE;
+	      if (!strcmp (returnval_annotation, "error"))
+		retval_signals_error = TRUE;
+	      break;
 	    }
-
-	  marshal_name = dbus_g_type_get_marshal_name (gtype);
-	  g_assert (marshal_name);
-
-	  if (!first)
-	    g_string_append (ret, ",");
-	  else
-	    first = FALSE;
-	  g_string_append (ret, marshal_name);
+	}
+      if (!found_retval)
+	{
+	  retval_type = G_TYPE_BOOLEAN;
+	  retval_signals_error = TRUE;
 	}
     }
 
-  if (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_ASYNC) != NULL)
+  *rettype = retval_type;
+
+  /* Handle all input arguments */
+  for (elt = method_info_get_args (method); elt; elt = elt->next)
     {
-      if (!first)
-	g_string_append (ret, ",");
-      g_string_append (ret, "POINTER");
-      first = FALSE;
+      ArgInfo *arg = elt->data;
+      if (arg_info_get_direction (arg) == ARG_IN)
+	{
+	  GType gtype;
+	  
+	  arg_type = arg_info_get_type (arg);
+	  gtype = dbus_gtype_from_signature (arg_type, FALSE);
+	  if (gtype == G_TYPE_INVALID)
+	    goto invalid_type;
+	  
+	  g_array_append_val (ret, gtype);
+	}
     }
-  else
+
+  if (!is_async)
     {
       /* Append pointer for each out arg storage */
       for (elt = method_info_get_args (method); elt; elt = elt->next)
 	{
 	  ArgInfo *arg = elt->data;
 
+	  /* Skip return value */
+	  if (arg_info_get_annotation (arg, DBUS_GLIB_ANNOTATION_RETURNVAL) != NULL)
+	    continue;
+      
 	  if (arg_info_get_direction (arg) == ARG_OUT)
 	    {
-	      if (!first)
-		g_string_append (ret, ",");
-	      else
-		first = FALSE;
-	      g_string_append (ret, "POINTER");
+	      GType gtype;
+	      arg_type = arg_info_get_type (arg);
+	      gtype = dbus_gtype_from_signature (arg_type, FALSE);
+	      if (gtype == G_TYPE_INVALID)
+		goto invalid_type;
+	      /* We actually just need a pointer for the return value
+		 storage */
+	      gtype = G_TYPE_POINTER;
+	      g_array_append_val (ret, gtype);
 	    }
 	}
-      /* Final GError parameter */
-      if (!first)
-	g_string_append (ret, ",");
-      g_string_append (ret, "POINTER");
 
+      if (retval_signals_error)
+	{
+	  /* Final GError parameter */
+	  GType gtype = G_TYPE_POINTER;
+	  g_array_append_val (ret, gtype);
+	}
+    }
+  else
+    {
+      /* Context pointer */
+      GType gtype = G_TYPE_POINTER;
+      g_array_append_val (ret, gtype);
     }
 
-  return g_string_free (ret, FALSE);
+  *params = ret;
+  return TRUE;
 
+ invalid_type:
+  g_set_error (error,
+	       DBUS_BINDING_TOOL_ERROR,
+	       DBUS_BINDING_TOOL_ERROR_UNSUPPORTED_CONVERSION,
+	       _("Unsupported conversion from D-BUS type %s to glib-genmarshal type"),
+	       arg_type);
+  return FALSE;
+}
+  
+
+static char *
+compute_marshaller (MethodInfo *method, GError **error)
+{
+  GArray *signature;
+  GType rettype;
+  const char *marshal_name;
+  GString *ret;
+  guint i;
+
+  if (!compute_gsignature (method, &rettype, &signature, error))
+    return NULL;
+
+  ret = g_string_new ("");
+  marshal_name = dbus_g_type_get_marshal_name (rettype);
+  g_assert (marshal_name != NULL);
+  g_string_append (ret, marshal_name);
+  g_string_append_c (ret, ':');
+  for (i = 0; i < signature->len; i++)
+    {
+      marshal_name = dbus_g_type_get_marshal_name (g_array_index (signature, GType, i));
+      g_assert (marshal_name != NULL);
+      g_string_append (ret, marshal_name);
+      if (i < signature->len - 1)
+	g_string_append_c (ret, ',');
+    }
+  if (signature->len == 0)
+    {
+      marshal_name = dbus_g_type_get_marshal_name (G_TYPE_NONE);
+      g_assert (marshal_name != NULL);
+      g_string_append (ret, marshal_name);
+    }
+  g_array_free (signature, TRUE);
+  return g_string_free (ret, FALSE);
 }
 
 static char *
 compute_marshaller_name (MethodInfo *method, const char *prefix, GError **error)
 {
-  GSList *elt;
   GString *ret;
+  GArray *signature;
+  GType rettype;
+  const char *marshal_name;
+  guint i;
 
-  /* All methods required to return boolean for now;
-   * will be conditional on method info later */
+  if (!compute_gsignature (method, &rettype, &signature, error))
+    return NULL;
+
   ret = g_string_new (MARSHAL_PREFIX);
   g_string_append (ret, prefix);
-  g_string_append (ret, "_BOOLEAN_");
+  g_string_append_c (ret, '_');
 
-  /* Append input arguments */
-  for (elt = method_info_get_args (method); elt; elt = elt->next)
+  marshal_name = dbus_g_type_get_marshal_name (rettype);
+  g_assert (marshal_name != NULL);
+  g_string_append (ret, marshal_name);
+  g_string_append (ret, "__");
+  for (i = 0; i < signature->len; i++)
     {
-      ArgInfo *arg = elt->data;
-
-      if (arg_info_get_direction (arg) == ARG_IN)
-	{
-	  const char *marshal_name;
-	  const char *type;
-	  GType gtype;
-
-	  type = arg_info_get_type (arg);
-	  gtype = dbus_gtype_from_signature (type, FALSE);
-	  if (gtype == G_TYPE_INVALID)
-	    {
-	      g_set_error (error,
-			   DBUS_BINDING_TOOL_ERROR,
-			   DBUS_BINDING_TOOL_ERROR_UNSUPPORTED_CONVERSION,
-			   _("Unsupported conversion from D-BUS type %s to glib type"),
-			   type);
-	      g_string_free (ret, TRUE);
-	      return NULL;
-	    }
-	  marshal_name = dbus_g_type_get_marshal_name (gtype);
-	  g_assert (marshal_name != NULL);
-
-	  g_string_append (ret, "_");
-	  g_string_append (ret, marshal_name);
-	}
+      marshal_name = dbus_g_type_get_marshal_name (g_array_index (signature, GType, i));
+      g_assert (marshal_name != NULL);
+      g_string_append (ret, marshal_name);
+      if (i < signature->len - 1)
+	g_string_append_c (ret, '_');
     }
-
-  if (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_ASYNC) != NULL)
+  if (signature->len == 0)
     {
-      g_string_append (ret, "_POINTER");
+      marshal_name = dbus_g_type_get_marshal_name (G_TYPE_NONE);
+      g_assert (marshal_name != NULL);
+      g_string_append (ret, marshal_name);
     }
-  else
-    {
-      /* Append pointer for each out arg storage */
-      for (elt = method_info_get_args (method); elt; elt = elt->next)
-	{
-	  ArgInfo *arg = elt->data;
-
-	  if (arg_info_get_direction (arg) == ARG_OUT)
-	    {
-	      g_string_append (ret, "_POINTER");
-	    }
-	}
-      /* Final GError parameter */
-      g_string_append (ret, "_POINTER");
-    }
-
+  g_array_free (signature, TRUE);
   return g_string_free (ret, FALSE);
 }
 
@@ -482,6 +531,7 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 	  char *method_c_name;
           gboolean async = FALSE;
 	  GSList *args;
+	  gboolean found_retval = FALSE;
 
           method = (MethodInfo *) tmp->data;
 	  method_c_name = g_strdup (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_C_SYMBOL));
@@ -531,6 +581,7 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 	    {
 	      ArgInfo *arg;
 	      char direction;
+	      const char *returnval_annotation;
 
 	      arg = args->data;
 
@@ -561,17 +612,86 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 		      g_set_error (error,
 				   DBUS_BINDING_TOOL_ERROR,
 				   DBUS_BINDING_TOOL_ERROR_INVALID_ANNOTATION,
-				   "Input argument \"%s\" has const annotation in method \"%s\" of interface \"%s\"\n",
+				   "Input argument \"%s\" cannot have const annotation in method \"%s\" of interface \"%s\"\n",
 				   arg_info_get_name (arg),
 				   method_info_get_name (method),
 				   interface_info_get_name (interface));
 		      return FALSE;
 		    }
 		  g_string_append_c (object_introspection_data_blob, 'C');
+		  g_string_append_c (object_introspection_data_blob, '\0');
 		}
-	      else
-		g_string_append_c (object_introspection_data_blob, 'F');
-	      g_string_append_c (object_introspection_data_blob, '\0');
+	      else if (arg_info_get_direction (arg) == ARG_OUT)
+		{
+		  g_string_append_c (object_introspection_data_blob, 'F');
+		  g_string_append_c (object_introspection_data_blob, '\0');
+		}
+
+	      returnval_annotation = arg_info_get_annotation (arg, DBUS_GLIB_ANNOTATION_RETURNVAL);
+	      if (returnval_annotation != NULL)
+		{
+		  GType gtype;
+
+		  if (found_retval)
+		    {
+		      g_set_error (error,
+				   DBUS_BINDING_TOOL_ERROR,
+				   DBUS_BINDING_TOOL_ERROR_INVALID_ANNOTATION,
+				   "Multiple arguments with return value annotation in method \"%s\" of interface \"%s\"\n",
+				   method_info_get_name (method),
+				   interface_info_get_name (interface));
+		      return FALSE;
+		    }
+		  found_retval = TRUE;
+		  if (arg_info_get_direction (arg) == ARG_IN)
+		    {
+		      g_set_error (error,
+				   DBUS_BINDING_TOOL_ERROR,
+				   DBUS_BINDING_TOOL_ERROR_INVALID_ANNOTATION,
+				   "Input argument \"%s\" cannot have return value annotation in method \"%s\" of interface \"%s\"\n",
+				   arg_info_get_name (arg),
+				   method_info_get_name (method),
+				   interface_info_get_name (interface));
+		      return FALSE;
+		    }
+		  if (!strcmp ("", returnval_annotation))
+		    g_string_append_c (object_introspection_data_blob, 'R');
+		  else if (!strcmp ("error", returnval_annotation))
+		    {
+		      gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+		      if (!_dbus_gtype_can_signal_error (gtype))
+			{
+			  g_set_error (error,
+				       DBUS_BINDING_TOOL_ERROR,
+				       DBUS_BINDING_TOOL_ERROR_INVALID_ANNOTATION,
+				       "Output argument \"%s\" cannot signal error with type \"%s\" in method \"%s\" of interface \"%s\"\n",
+				       arg_info_get_name (arg),
+				       g_type_name (gtype),
+				       method_info_get_name (method),
+				       interface_info_get_name (interface));
+			  return FALSE;
+			}
+		      g_string_append_c (object_introspection_data_blob, 'E');
+		    }
+		  else
+		    {
+		      g_set_error (error,
+				   DBUS_BINDING_TOOL_ERROR,
+				   DBUS_BINDING_TOOL_ERROR_INVALID_ANNOTATION,
+				   "Invalid ReturnVal annotation for argument \"%s\" in method \"%s\" of interface \"%s\"\n",
+				   arg_info_get_name (arg),
+				   method_info_get_name (method),
+				   interface_info_get_name (interface));
+		      return FALSE;
+		    }
+		      
+		  g_string_append_c (object_introspection_data_blob, '\0');
+		}
+	      else if (arg_info_get_direction (arg) == ARG_OUT)
+		{
+		  g_string_append_c (object_introspection_data_blob, 'N');
+		  g_string_append_c (object_introspection_data_blob, '\0');
+		}
 
 	      g_string_append (object_introspection_data_blob, arg_info_get_type (arg));
 	      g_string_append_c (object_introspection_data_blob, '\0');
