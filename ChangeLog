@@ -1,3 +1,47 @@
+2005-07-11  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-gvalue.c (struct _DBusGValue): Delete.
+	(dbus_g_value_types_init): Remove assertion.
+	(dbus_g_value_get_g_type, dbus_g_value_open)
+	(dbus_g_value_iterator_get_values, dbus_g_value_get_signature)
+	(dbus_g_value_copy, dbus_g_value_free): Delete unimplemented
+	functions related to DBusGValue.  Now we marshal/demarshal
+	structures as GValueArray.
+	(dbus_gtype_from_signature_iter): Return G_TYPE_VALUE_ARRAY for
+	structures.
+	(signature_iter_to_g_type_array): Don't call
+	signature_iter_to_g_type_struct.
+	(signature_iter_to_g_type_struct): Delete.
+	(dbus_gvalue_to_signature): Delete.
+	(dbus_gvalue_to_signature): New function with same name as other
+	one; we can convert structures to signatures.
+	(demarshal_valuearray): New function.
+	(get_type_demarshaller): Use it.
+	(demarshal_recurse): Delete.
+	(marshal_proxy): New function.
+	(marshal_map): Warn if we can't determine signature from type.
+	(marshal_collection_ptrarray): Ditto.
+	(marshal_collection_array): Ditto.
+	(get_type_marshaller): Use marshal_valuearray.
+	(marshal_recurse): Delete.
+	(_dbus_gvalue_test): Add some tests.
+
+	* dbus/dbus-glib.h (struct _DBusGValueIterator): 
+	(dbus_g_value_get_g_type, DBUS_TYPE_G_VALUE)
+	(dbus_g_value_open, dbus_g_value_iterator_get_value)
+	(dbus_g_value_iterator_get_values, dbus_g_value_iterator_recurse)
+	(dbus_g_value_free): Remove prototypes.
+
+	* glib/dbus-binding-tool-glib.c (dbus_g_type_get_lookup_function): Handle
+	G_TYPE_VALUE_ARRAY.
+
+	* glib/examples/example-service.c:
+	* glib/examples/example-client.c: Implement GetTuple.
+
+	* test/glib/test-dbus-glib.c:
+	* test/glib/test-service-glib.c:
+	* test/glib/test-service-glib.xml: Add structure tests.
+
 2005-07-10  Colin Walters  <walters@verbum.org>
 
 	* doc/TODO: Knock off some GLib items with this patch.

@@ -885,6 +885,51 @@ main (int argc, char **argv)
   run_mainloop ();
 
   {
+    GValueArray *vals;
+    GValueArray *vals_ret;
+    GValue *val;
+
+    vals = g_value_array_new (3);
+
+    g_value_array_append (vals, NULL);
+    g_value_init (g_value_array_get_nth (vals, vals->n_values - 1), G_TYPE_STRING);
+    g_value_set_string (g_value_array_get_nth (vals, 0), "foo");
+
+    g_value_array_append (vals, NULL);
+    g_value_init (g_value_array_get_nth (vals, vals->n_values - 1), G_TYPE_UINT);
+    g_value_set_uint (g_value_array_get_nth (vals, vals->n_values - 1), 42);
+
+    g_value_array_append (vals, NULL);
+    g_value_init (g_value_array_get_nth (vals, vals->n_values - 1), G_TYPE_VALUE);
+    val = g_new0 (GValue, 1);
+    g_value_init (val, G_TYPE_UCHAR);
+    g_value_set_uchar (val, '!');
+    g_value_set_boxed (g_value_array_get_nth (vals, vals->n_values - 1), val);
+
+    vals_ret = NULL;
+    g_print ("Calling SendCar\n");
+    if (!dbus_g_proxy_call (proxy, "SendCar", &error,
+			    G_TYPE_VALUE_ARRAY, vals,
+			    G_TYPE_INVALID,
+			    G_TYPE_VALUE_ARRAY, &vals_ret,
+			    G_TYPE_INVALID))
+      lose_gerror ("Failed to complete SendCar call", error);
+
+    g_assert (vals_ret != NULL);
+    g_assert (vals_ret->n_values == 2);
+
+    g_assert (G_VALUE_HOLDS_UINT (g_value_array_get_nth (vals_ret, 0)));
+    g_assert (g_value_get_uint (g_value_array_get_nth (vals_ret, 0)) == 43);
+    
+    g_assert (G_VALUE_TYPE (g_value_array_get_nth (vals_ret, 1)) == DBUS_TYPE_G_OBJECT_PATH);
+    g_assert (!strcmp ("/org/freedesktop/DBus/Tests/MyTestObject2",
+		       g_value_get_boxed (g_value_array_get_nth (vals_ret, 1))));
+
+    g_value_array_free (vals);
+    g_value_array_free (vals_ret);
+  }
+
+  {
     GValue *val;
     GHashTable *table;
     GHashTable *ret_table;

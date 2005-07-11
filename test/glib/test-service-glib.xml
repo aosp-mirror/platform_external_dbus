@@ -81,6 +81,11 @@
       <arg type="u" direction="out"/>
     </method>
 
+    <method name="SendCar">
+      <arg type="(suv)" direction="in"/>
+      <arg type="(uo)" direction="out"/>
+    </method>
+
     <method name="GetHash">
       <arg type="a{ss}" direction="out"/>
     </method>

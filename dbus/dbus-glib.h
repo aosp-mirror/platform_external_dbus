@@ -115,34 +115,6 @@ void       dbus_g_connection_register_g_object (DBusGConnection       *connectio
 GObject *  dbus_g_connection_lookup_g_object   (DBusGConnection       *connection,
 						const char            *at_path);
 
-
-/**
- * Generic recursive value
- */
-
-typedef struct _DBusGValueIterator DBusGValueIterator;
-struct _DBusGValueIterator
-{
-  void *dummy1;         /**< Don't use this */
-  void *dummy2;         /**< Don't use this */
-  guint32 dummy3;     /**< Don't use this */
-  int dummy4;           /**< Don't use this */
-  int dummy5;           /**< Don't use this */
-  int dummy6;           /**< Don't use this */
-  int dummy7;           /**< Don't use this */
-  int dummy8;           /**< Don't use this */
-  int dummy9;           /**< Don't use this */
-  int dummy10;          /**< Don't use this */
-  int dummy11;          /**< Don't use this */
-  int pad1;             /**< Don't use this */
-  int pad2;             /**< Don't use this */
-  void *pad3;           /**< Don't use this */
-  void *pad4;           /**< Don't use this */
-  void *pad5;           /**< Don't use this */
-};
-
-typedef struct _DBusGValue DBusGValue;
-
 #ifdef DBUS_COMPILATION
 #include "glib/dbus-gtype-specialized.h"
 #else
@@ -160,29 +132,8 @@ typedef struct _DBusGValue DBusGValue;
 
 #define DBUS_TYPE_G_STRING_STRING_HASHTABLE (dbus_g_type_get_map ("GHashTable", G_TYPE_STRING, G_TYPE_STRING))
 
-/* Generic recursive value */
-GType        dbus_g_value_get_g_type               (void) G_GNUC_CONST;
-#define DBUS_TYPE_G_VALUE                (dbus_g_value_get_g_type ())
-
 GType        dbus_g_object_path_get_g_type         (void) G_GNUC_CONST;
 #define DBUS_TYPE_G_OBJECT_PATH (dbus_g_object_path_get_g_type ())
-
-void         dbus_g_value_open              (DBusGValue          *value,
-					     DBusGValueIterator  *iter);
-
-GType        dbus_g_value_iterator_get_value        (DBusGValueIterator   *iter,
-						     GValue               *value);
-
-gboolean     dbus_g_value_iterator_get_values       (DBusGValueIterator   *iter,
-						     GError              **error,
-						     GValue               *first_val,
-						     ...);
-
-void         dbus_g_value_iterator_recurse          (DBusGValueIterator   *iter,
-						     DBusGValueIterator   *sub);
-
-void         dbus_g_value_free                      (DBusGValue          *value);
-
 
 void         dbus_g_object_register_marshaller      (GClosureMarshal  marshaller,
 						     GType            rettype,

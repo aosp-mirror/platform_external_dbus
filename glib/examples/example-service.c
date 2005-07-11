@@ -51,7 +51,7 @@ struct SomeObjectClass
 G_DEFINE_TYPE(SomeObject, some_object, G_TYPE_OBJECT)
 
 gboolean some_object_hello_world (SomeObject *obj, const char *hello_message, char ***ret, GError **error);
-gboolean some_object_get_tuple (SomeObject *obj, DBusGValue **ret, GError **error);
+gboolean some_object_get_tuple (SomeObject *obj, GValueArray **ret, GError **error);
 gboolean some_object_get_dict (SomeObject *obj, GHashTable **ret, GError **error);
 
 #include "example-service-glue.h"
@@ -79,9 +79,16 @@ some_object_hello_world (SomeObject *obj, const char *hello_message, char ***ret
 }
 
 gboolean
-some_object_get_tuple (SomeObject *obj, DBusGValue **ret, GError **error)
+some_object_get_tuple (SomeObject *obj, GValueArray **ret, GError **error)
 {
-  /* FIXME */
+  *ret = g_value_array_new (6);
+  g_value_array_prepend (*ret, NULL);
+  g_value_init (g_value_array_get_nth (*ret, 0), G_TYPE_STRING);
+  g_value_set_string (g_value_array_get_nth (*ret, 0), "hello");
+  g_value_array_prepend (*ret, NULL);
+  g_value_init (g_value_array_get_nth (*ret, 0), G_TYPE_UINT);
+  g_value_set_uint (g_value_array_get_nth (*ret, 0), 42);
+  
   return TRUE;
 }
 
@@ -105,6 +112,14 @@ main (int argc, char **argv)
   guint request_name_result;
 
   g_type_init ();
+
+  {
+    GLogLevelFlags fatal_mask;
+    
+    fatal_mask = g_log_set_always_fatal (G_LOG_FATAL_MASK);
+    fatal_mask |= G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL;
+    g_log_set_always_fatal (fatal_mask);
+  }
   
   dbus_g_object_type_install_info (SOME_TYPE_OBJECT, &dbus_glib_some_object_object_info);
 

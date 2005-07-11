@@ -41,11 +41,20 @@ main (int argc, char **argv)
   GError *error = NULL;
   char **reply_list;
   char **reply_ptr;
-  DBusGValue *hello_reply_struct;
+  GValueArray *hello_reply_struct;
   GHashTable *hello_reply_dict;
   char *introspect_data;
+  guint i;
 
   g_type_init ();
+
+  {
+    GLogLevelFlags fatal_mask;
+    
+    fatal_mask = g_log_set_always_fatal (G_LOG_FATAL_MASK);
+    fatal_mask |= G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL;
+    g_log_set_always_fatal (fatal_mask);
+  }
 
   bus = dbus_g_bus_get (DBUS_BUS_SESSION, &error);
   if (!bus)
@@ -62,12 +71,10 @@ main (int argc, char **argv)
     lose_gerror ("Failed to complete HelloWorld", error);
 
   
-  /* FIXME - we don't support recursive values yet */
-#if 0  
   if (!dbus_g_proxy_call (remote_object, "GetTuple", &error,
-			  DBUS_TYPE_G_VALUE, &hello_reply_struct, G_TYPE_INVALID))
+			  G_TYPE_INVALID,
+			  G_TYPE_VALUE_ARRAY, &hello_reply_struct, G_TYPE_INVALID))
     lose_gerror ("Failed to complete GetTuple", error);
-#endif  
   
   if (!dbus_g_proxy_call (remote_object, "GetDict", &error,
 			  G_TYPE_INVALID,
@@ -80,11 +87,18 @@ main (int argc, char **argv)
   printf ("\n");
   g_strfreev (reply_list);
 
-  /* FIXME; do something with hello_reply_struct */
-#if 0
-  dbus_g_value_free (hello_reply_struct);
+  for (i = 0; i < hello_reply_struct->n_values; i++)
+    {
+      GValue strval = { 0, };
+
+      g_value_init (&strval, G_TYPE_STRING);
+      if (!g_value_transform (g_value_array_get_nth (hello_reply_struct, i), &strval))
+	g_value_set_static_string (&strval, "(couldn't transform to string)");
+      g_print ("%s: %s\n", g_type_name (G_VALUE_TYPE (g_value_array_get_nth (hello_reply_struct, i))),
+	       g_value_get_string (&strval));
+    }
+  g_value_array_free (hello_reply_struct);
   printf ("\n");
-#endif
 
   g_hash_table_foreach (hello_reply_dict, print_hash_value, NULL);
   g_hash_table_destroy (hello_reply_dict);
