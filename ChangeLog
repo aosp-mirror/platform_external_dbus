@@ -1,3 +1,45 @@
+2005-07-12  John (J5) Palmieri  <johnp@redhat.com>
+	* python/dbus_bindings.pyx.in: removed
+
+	* python/dbus_bindings.pyx: Added.
+	- Fixed some memleaks (patch from 
+	Sean Meiners <sean.meiners@linspireinc.com>)
+	- Broke out the #include "dbus_h_wrapper.h" and put it in its
+	own pxd file (Pyrex definition)
+	- Broke out glib dependancies into its own pyx module
+	
+	* python/dbus_bindings.pdx: Added.
+	- Defines C class Connection for exporting to other modules
+
+	* python/dbus_glib_bindings.pyx: Added.
+	- New module to handle lowlevel dbus-glib mainloop integration
+
+	* python/glib.py: Added.
+	- Registers the glib mainloop when you import this module
+
+	* python/services.py: Removed (renamed to service.py)
+	
+	* python/service.py: Added.
+	- (class Server): renamed Name
+
+	* python/__init__.py: Bump ro version (0,41,0)
+	-don't import the decorators or service module
+	by default.  These now reside in the dbus.service namespace
+
+	* python/_dbus.py (Bus::__init__): Add code run the main loop 
+	setup function on creation 
+
+	* python/examples/example-service.py,
+	python/examples/example-signal-emitter.py: update examples
+
+	* python/examples/gconf-proxy-service.py,
+	python/examples/gconf-proxy-service2.py: TODO fix these up
+
+	* doc/TODO: Addition
+	- Added a Python Bindings 1.0 section
+	- added "Add match on args or match on details to match rules"
+
+
 2005-07-12  Colin Walters  <walters@verbum.org>
 
 	* glib/examples/statemachine/Makefile.am (statemachine-server-glue.h) 

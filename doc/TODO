@@ -25,12 +25,25 @@ Important for 1.0
 
  - Add a test case for handling the Ping message 
 
+ - Add match on args or match on details to match rules
+
 Important for 1.0 GLib Bindings
 ===
 
  - Test point-to-point mode
 
  - Add support for getting sender
+
+Important for 1.0 Python bindings
+===
+
+ - Hammer down API
+
+ - Fix removing of signals from the match tree
+
+ - Fix refcounting and userdata lifecycles
+
+ - Write a generic mainloop
 
 Might as Well for 1.0
 ===
