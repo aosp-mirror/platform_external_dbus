@@ -1,3 +1,13 @@
+2005-07-12  Colin Walters  <walters@verbum.org>
+
+	* glib/examples/statemachine/Makefile.am (statemachine-server-glue.h) 
+	(statemachine-glue.h): 
+	* glib/examples/Makefile.am (example-service-glue.h) 
+	(example-signal-emitter-glue.h): 
+	* glib/Makefile.am (dbus-glib-error-switch.h): 
+	Add libtool --mode=execute so we use the built library instead
+	of any installed one.
+
 2005-07-11  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-gvalue.c (struct _DBusGValue): Delete.
