@@ -31,6 +31,7 @@
 #include <string.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <sys/select.h>
 #ifdef DBUS_BUILD_X11
 #include <X11/Xlib.h>
 #endif

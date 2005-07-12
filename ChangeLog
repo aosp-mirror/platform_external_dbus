@@ -1,3 +1,9 @@
+2005-07-12  Colin Walters  <walters@verbum.org>
+
+	Patch from Jim Gettys <Jim.Gettys@hp.com>.
+
+	* tools/dbus-launch.c: Include sys/select.h.
+
 2005-07-12  John (J5) Palmieri  <johnp@redhat.com>
 	* python/dbus_bindings.pyx.in: removed
 
