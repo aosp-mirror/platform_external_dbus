@@ -39,8 +39,12 @@ usage (int ecode)
 static void
 append_arg (DBusMessageIter *iter, int type, const char *value)
 {
+  dbus_uint16_t uint16;
+  dbus_int16_t int16;
   dbus_uint32_t uint32;
   dbus_int32_t int32;
+  dbus_uint64_t uint64;
+  dbus_int64_t int64;
   double d;
   unsigned char byte;
   dbus_bool_t v_BOOLEAN;
@@ -58,6 +62,16 @@ append_arg (DBusMessageIter *iter, int type, const char *value)
       dbus_message_iter_append_basic (iter, DBUS_TYPE_DOUBLE, &d);
       break;
 
+    case DBUS_TYPE_INT16:
+      int16 = strtol (value, NULL, 0);
+      dbus_message_iter_append_basic (iter, DBUS_TYPE_INT16, &int16);
+      break;
+
+    case DBUS_TYPE_UINT16:
+      uint16 = strtoul (value, NULL, 0);
+      dbus_message_iter_append_basic (iter, DBUS_TYPE_UINT16, &uint16);
+      break;
+
     case DBUS_TYPE_INT32:
       int32 = strtol (value, NULL, 0);
       dbus_message_iter_append_basic (iter, DBUS_TYPE_INT32, &int32);
@@ -66,6 +80,16 @@ append_arg (DBusMessageIter *iter, int type, const char *value)
     case DBUS_TYPE_UINT32:
       uint32 = strtoul (value, NULL, 0);
       dbus_message_iter_append_basic (iter, DBUS_TYPE_UINT32, &uint32);
+      break;
+
+    case DBUS_TYPE_INT64:
+      int64 = strtoll (value, NULL, 0);
+      dbus_message_iter_append_basic (iter, DBUS_TYPE_INT64, &int64);
+      break;
+
+    case DBUS_TYPE_UINT64:
+      uint64 = strtoull (value, NULL, 0);
+      dbus_message_iter_append_basic (iter, DBUS_TYPE_UINT64, &uint64);
       break;
 
     case DBUS_TYPE_STRING:
@@ -156,10 +180,18 @@ type_from_name (const char *arg)
   int type;
   if (!strcmp (arg, "string"))
     type = DBUS_TYPE_STRING;
+  else if (!strcmp (arg, "int16"))
+    type = DBUS_TYPE_INT16;
+  else if (!strcmp (arg, "uint16"))
+    type = DBUS_TYPE_UINT16;
   else if (!strcmp (arg, "int32"))
     type = DBUS_TYPE_INT32;
   else if (!strcmp (arg, "uint32"))
     type = DBUS_TYPE_UINT32;
+  else if (!strcmp (arg, "int64"))
+    type = DBUS_TYPE_INT64;
+  else if (!strcmp (arg, "uint64"))
+    type = DBUS_TYPE_UINT64;
   else if (!strcmp (arg, "double"))
     type = DBUS_TYPE_DOUBLE;
   else if (!strcmp (arg, "byte"))

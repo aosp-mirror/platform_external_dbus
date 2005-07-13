@@ -1,3 +1,8 @@
+2005-07-13  David Zeuthen  <davidz@redhat.com>
+
+	* tools/dbus-send.c (append_arg, type_from_name): Also support 16 and
+	64 bit signed and unsigned parameters
+
 2005-07-13  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/.cvsignore: remove dbus_bindings.pyx, add dbus_bindings.pxd
