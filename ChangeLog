@@ -1,3 +1,14 @@
+2005-07-13  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/.cvsignore: remove dbus_bindings.pyx, add dbus_bindings.pxd
+
+	* python/service.py (class Name): renamed BusName to make it clearer
+	what the object is for (a name on the bus)
+
+	* python/examples/example-service.py,
+	python/examples/example-signal-emitter.py: change the Name object to
+	BusName
+
 2005-07-12  Colin Walters  <walters@verbum.org>
 
 	Patch from Jim Gettys <Jim.Gettys@hp.com>.
