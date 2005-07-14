@@ -136,6 +136,8 @@ DBUS_UTIL_SOURCES=				\
 	dbus-message-factory.c			\
 	dbus-message-factory.h			\
 	dbus-message-util.c			\
+	dbus-shell.c				\
+	dbus-shell.h				\
 	dbus-spawn.c				\
 	dbus-spawn.h				\
 	dbus-string-util.c			\

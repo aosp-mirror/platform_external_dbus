@@ -260,24 +260,24 @@ bus_dispatch (DBusConnection *connection,
 
       if (service == NULL && dbus_message_get_auto_start (message))
         {
-	  BusActivation *activation;
+          BusActivation *activation;
+          /* We can't do the security policy check here, since the addressed
+           * recipient service doesn't exist yet. We do it before sending the
+           * message after the service has been created.
+           */
+          activation = bus_connection_get_activation (connection);
 
-	  /* We can't do the security policy check here, since the addressed
-	   * recipient service doesn't exist yet. We do it before sending the
-	   * message after the service has been created.
-	   */
-	  activation = bus_connection_get_activation (connection);
-
-	  if (!bus_activation_activate_service (activation, connection, transaction, TRUE,
-						message, service_name, &error))
-	    {
-	      _DBUS_ASSERT_ERROR_IS_SET (&error);
-	      _dbus_verbose ("bus_activation_activate_service() failed\n");
-	      goto out;
-	    }
-	  
-	  goto out;
-	}
+          if (!bus_activation_activate_service (activation, connection, transaction, TRUE,
+                                                message, service_name, &error))
+            {
+              _DBUS_ASSERT_ERROR_IS_SET (&error);
+              _dbus_verbose ("bus_activation_activate_service() failed\n");
+               ("Failed: %s\n", error.name);
+              goto out;
+            }
+          
+          goto out;
+        }
       else if (service == NULL)
         {
           dbus_set_error (&error,
@@ -287,7 +287,7 @@ bus_dispatch (DBusConnection *connection,
           goto out;
         }
       else
-        {          
+        {
           addressed_recipient = bus_service_get_primary_owner (service);
           _dbus_assert (addressed_recipient != NULL);
           
@@ -339,7 +339,6 @@ bus_dispatch (DBusConnection *connection,
            * the OOM error
            */
           _dbus_assert (transaction != NULL);
-          
           if (!bus_transaction_send_error_reply (transaction, connection,
                                                  &error, message))
             {
@@ -353,6 +352,7 @@ bus_dispatch (DBusConnection *connection,
                 }
             }
         }
+     
       
       dbus_error_free (&error);
     }
@@ -521,7 +521,7 @@ typedef struct
 
 static dbus_bool_t
 check_service_owner_changed_foreach (DBusConnection *connection,
-				     void           *data)
+                                     void           *data)
 {
   CheckServiceOwnerChangedData *d = data;
   DBusMessage *message;
@@ -564,19 +564,19 @@ check_service_owner_changed_foreach (DBusConnection *connection,
                              DBUS_TYPE_INVALID);
 
       if (dbus_error_is_set (&error))
-	{
-	  if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
-	    {
+        {
+          if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
+            {
               dbus_error_free (&error);
               _dbus_wait_for_memory ();              
               goto reget_service_info_data;
-	    }
-	  else
-	    {
-	      _dbus_warn ("Did not get the expected arguments\n");
-	      goto out;
-	    }
-	}
+            }
+          else
+            {
+              _dbus_warn ("Did not get the expected arguments\n");
+              goto out;
+            }
+        }
 
       if ((d->expected_kind == SERVICE_CREATED    && ( old_owner[0] || !new_owner[0]))
           || (d->expected_kind == OWNER_CHANGED   && (!old_owner[0] || !new_owner[0]))
@@ -901,7 +901,7 @@ check_hello_message (BusContext     *context,
           goto out;
         }
       if (! dbus_message_is_signal (message, DBUS_INTERFACE_DBUS,
-				    "NameAcquired"))
+                                    "NameAcquired"))
         {
           _dbus_warn ("Expecting %s, got smthg else\n",
                       "NameAcquired");
@@ -1144,7 +1144,7 @@ check_get_connection_unix_user (BusContext     *context,
       else
         {
           warn_unexpected (connection, message,
-	                   "method_return for GetConnectionUnixUser");
+                           "method_return for GetConnectionUnixUser");
 
           goto out;
         }
@@ -1190,7 +1190,7 @@ check_get_connection_unix_user (BusContext     *context,
  */
 static dbus_bool_t
 check_get_connection_unix_process_id (BusContext     *context,
-				      DBusConnection *connection)
+                                      DBusConnection *connection)
 {
   DBusMessage *message;
   dbus_uint32_t serial;
@@ -1281,7 +1281,7 @@ check_get_connection_unix_process_id (BusContext     *context,
       else
         {
           warn_unexpected (connection, message,
-	                   "method_return for GetConnectionUnixProcessID");
+                           "method_return for GetConnectionUnixProcessID");
 
           goto out;
         }
@@ -1307,20 +1307,20 @@ check_get_connection_unix_process_id (BusContext     *context,
             }
         } else {
 
-	  /* test if returned pid is the same as our own pid
-	   *
-	   * @todo It would probably be good to restructure the tests
-	   *       in a way so our parent is the bus that we're testing
-	   *       cause then we can test that the pid returned matches
-	   *       getppid()
-	   */
-	  if (pid != (dbus_uint32_t) _dbus_getpid ())
-	    {
+          /* test if returned pid is the same as our own pid
+           *
+           * @todo It would probably be good to restructure the tests
+           *       in a way so our parent is the bus that we're testing
+           *       cause then we can test that the pid returned matches
+           *       getppid()
+           */
+          if (pid != (dbus_uint32_t) _dbus_getpid ())
+            {
               _dbus_assert (dbus_error_is_set (&error));
               _dbus_warn ("Result from GetConnectionUnixProcessID is not our own pid\n");
               goto out;
-	    }
-	}
+            }
+        }
     }
 
   if (!check_no_leftovers (context))
@@ -1753,7 +1753,7 @@ check_base_service_activated (BusContext     *context,
 
       if (!dbus_message_get_args (message, &error,
                                   DBUS_TYPE_STRING, &base_service,
-				  DBUS_TYPE_STRING, &old_owner,
+                                  DBUS_TYPE_STRING, &old_owner,
                                   DBUS_TYPE_STRING, &base_service_from_bus,
                                   DBUS_TYPE_INVALID))
         {
@@ -1780,7 +1780,7 @@ check_base_service_activated (BusContext     *context,
         }
          
       if (strcmp (base_service, base_service_from_bus) != 0)
-	{
+        {
           _dbus_warn ("Expected base service activation, got \"%s\" instead with owner \"%s\"\n",
                       base_service, base_service_from_bus);
           goto out;
@@ -1856,7 +1856,7 @@ check_service_activated (BusContext     *context,
 
       if (!dbus_message_get_args (message, &error,
                                   DBUS_TYPE_STRING, &service_name,
- 				  DBUS_TYPE_STRING, &old_owner,
+                                   DBUS_TYPE_STRING, &old_owner,
                                   DBUS_TYPE_STRING, &base_service_from_bus,
                                   DBUS_TYPE_INVALID))
         {
@@ -1983,10 +1983,10 @@ check_service_activated (BusContext     *context,
 
 static dbus_bool_t
 check_service_auto_activated (BusContext     *context,
-			      DBusConnection *connection,
-			      const char     *activated_name,
-			      const char     *base_service_name,
-			      DBusMessage    *initial_message)
+                              DBusConnection *connection,
+                              const char     *activated_name,
+                              const char     *base_service_name,
+                              DBusMessage    *initial_message)
 {
   DBusMessage *message;
   dbus_bool_t retval;
@@ -2039,7 +2039,7 @@ check_service_auto_activated (BusContext     *context,
       socd.failed = FALSE;
       socd.skip_connection = connection; 
       bus_test_clients_foreach (check_service_owner_changed_foreach,
-				&socd);
+                                &socd);
       
       if (socd.failed)
         goto out;
@@ -2513,13 +2513,13 @@ check_existent_service_no_auto_start (BusContext     *context,
       message = NULL;
 
       switch (message_kind)
-	{
-	case GOT_SOMETHING_ELSE:
+        {
+        case GOT_SOMETHING_ELSE:
           _dbus_warn ("Unexpected message after ActivateService "
                       "(should be an error or a service announcement");
-	  goto out;
+          goto out;
 
-	case GOT_ERROR:
+        case GOT_ERROR:
           if (!check_got_error (context, connection,
                                 DBUS_ERROR_SPAWN_CHILD_EXITED,
                                 DBUS_ERROR_NO_MEMORY,
@@ -2529,50 +2529,50 @@ check_existent_service_no_auto_start (BusContext     *context,
            * We can also get the error *after* the service deleted.
            */
 
-	  /* fall through */
+          /* fall through */
 
-	case GOT_SERVICE_DELETED:
-	  {
-	    /* The service started up and got a base address, but then
-	     * failed to register under EXISTENT_SERVICE_NAME
-	     */
-	    CheckServiceOwnerChangedData socd;
+        case GOT_SERVICE_DELETED:
+          {
+            /* The service started up and got a base address, but then
+             * failed to register under EXISTENT_SERVICE_NAME
+             */
+            CheckServiceOwnerChangedData socd;
 
-	    socd.expected_kind = SERVICE_DELETED;
-	    socd.expected_service_name = base_service;
-	    socd.failed = FALSE;
-	    socd.skip_connection = NULL;
-	    
-	    bus_test_clients_foreach (check_service_owner_changed_foreach,
-				      &socd);
+            socd.expected_kind = SERVICE_DELETED;
+            socd.expected_service_name = base_service;
+            socd.failed = FALSE;
+            socd.skip_connection = NULL;
+            
+            bus_test_clients_foreach (check_service_owner_changed_foreach,
+                                      &socd);
 
-	    if (socd.failed)
-	      goto out;
+            if (socd.failed)
+              goto out;
 
-	    /* Now we should get an error about the service exiting
-	     * if we didn't get it before.
-	     */
-	    if (message_kind != GOT_ERROR)
-	      {
-		block_connection_until_message_from_bus (context, connection, "error about service exiting");
+            /* Now we should get an error about the service exiting
+             * if we didn't get it before.
+             */
+            if (message_kind != GOT_ERROR)
+              {
+                block_connection_until_message_from_bus (context, connection, "error about service exiting");
               
-		/* and process everything again */
-		bus_test_run_everything (context);
+                /* and process everything again */
+                bus_test_run_everything (context);
               
-		if (!check_got_error (context, connection,
-				      DBUS_ERROR_SPAWN_CHILD_EXITED,
-				      NULL))
-		  goto out;
-	      }
-	    break;
-	  }
+                if (!check_got_error (context, connection,
+                                      DBUS_ERROR_SPAWN_CHILD_EXITED,
+                                      NULL))
+                  goto out;
+              }
+            break;
+          }
 
-	case GOT_SERVICE_CREATED:
+        case GOT_SERVICE_CREATED:
           message = pop_message_waiting_for_memory (connection);
           if (message == NULL)
             {
               _dbus_warn ("Failed to pop message we just put back! "
-			  "should have been a NameOwnerChanged (creation)\n");
+                          "should have been a NameOwnerChanged (creation)\n");
               goto out;
             }
           
@@ -2593,8 +2593,8 @@ check_existent_service_no_auto_start (BusContext     *context,
                                            EXISTENT_SERVICE_NAME, base_service))
             goto out;
 
-	  break;
-	}
+          break;
+        }
     }
 
   retval = TRUE;
@@ -2887,7 +2887,7 @@ check_existent_service_auto_start (BusContext     *context,
 
       if (!check_base_service_activated (context, connection,
                                          message, &base_service))
-	goto out;
+        goto out;
 
       base_service_message = message;
       message = NULL;
@@ -2901,10 +2901,10 @@ check_existent_service_auto_start (BusContext     *context,
       message = dbus_connection_borrow_message (connection);
       if (message == NULL)
         {
-	  _dbus_warn ("No message after auto activation "
-		      "(should be a service announcement)");
-	  dbus_connection_return_message (connection, message);
-	  message = NULL;
+          _dbus_warn ("No message after auto activation "
+                      "(should be a service announcement)");
+          dbus_connection_return_message (connection, message);
+          message = NULL;
           goto out;
         }
 
@@ -2914,51 +2914,51 @@ check_existent_service_auto_start (BusContext     *context,
       message = NULL;
 
       switch (message_kind) 
-	{
-	case GOT_SERVICE_CREATED:
-	  message = pop_message_waiting_for_memory (connection);
-	  if (message == NULL)
-	    {
-	      _dbus_warn ("Failed to pop message we just put back! "
-			  "should have been a NameOwnerChanged (creation)\n");
-	      goto out;
-	    }
-	    
-	  /* Check that ServiceOwnerChanged (creation) was correctly received */
-	  if (!check_service_auto_activated (context, connection, EXISTENT_SERVICE_NAME,
-					     base_service, message))
-	    goto out;
-	  
-	  dbus_message_unref (message);
-	  message = NULL;
-
-	  break;
-
-	case GOT_SERVICE_DELETED:
-	  {
-	    /* The service started up and got a base address, but then
-	     * failed to register under EXISTENT_SERVICE_NAME
-	     */
-	    CheckServiceOwnerChangedData socd;
+        {
+        case GOT_SERVICE_CREATED:
+          message = pop_message_waiting_for_memory (connection);
+          if (message == NULL)
+            {
+              _dbus_warn ("Failed to pop message we just put back! "
+                          "should have been a NameOwnerChanged (creation)\n");
+              goto out;
+            }
+            
+          /* Check that ServiceOwnerChanged (creation) was correctly received */
+          if (!check_service_auto_activated (context, connection, EXISTENT_SERVICE_NAME,
+                                             base_service, message))
+            goto out;
           
-	    socd.expected_kind = SERVICE_DELETED;
-	    socd.expected_service_name = base_service;
-	    socd.failed = FALSE;
-	    socd.skip_connection = NULL;
-	    bus_test_clients_foreach (check_service_owner_changed_foreach,
-				      &socd);
+          dbus_message_unref (message);
+          message = NULL;
 
-	    if (socd.failed)
-	      goto out;
+          break;
 
-	    break;
-	  }
+        case GOT_SERVICE_DELETED:
+          {
+            /* The service started up and got a base address, but then
+             * failed to register under EXISTENT_SERVICE_NAME
+             */
+            CheckServiceOwnerChangedData socd;
+          
+            socd.expected_kind = SERVICE_DELETED;
+            socd.expected_service_name = base_service;
+            socd.failed = FALSE;
+            socd.skip_connection = NULL;
+            bus_test_clients_foreach (check_service_owner_changed_foreach,
+                                      &socd);
+
+            if (socd.failed)
+              goto out;
+
+            break;
+          }
 
         case GOT_ERROR:
-	case GOT_SOMETHING_ELSE:
-	  _dbus_warn ("Unexpected message after auto activation\n");
-	  goto out;
-	}
+        case GOT_SOMETHING_ELSE:
+          _dbus_warn ("Unexpected message after auto activation\n");
+          goto out;
+        }
     }
 
   /* OK, now we've dealt with ServiceOwnerChanged signals, now should
@@ -2987,8 +2987,347 @@ check_existent_service_auto_start (BusContext     *context,
   message = NULL;
       
   if (!check_send_exit_to_service (context, connection,
-				   EXISTENT_SERVICE_NAME,
-				   base_service))
+                                   EXISTENT_SERVICE_NAME,
+                                   base_service))
+    goto out;
+  
+  retval = TRUE;
+
+ out:
+  if (message)
+    dbus_message_unref (message);
+
+  if (base_service_message)
+    dbus_message_unref (base_service_message);
+
+  return retval;
+}
+
+#define SHELL_FAIL_SERVICE_NAME "org.freedesktop.DBus.TestSuiteShellEchoServiceFail"
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
+check_shell_fail_service_auto_start (BusContext     *context,
+                                     DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_uint32_t serial;
+  dbus_bool_t retval;
+
+  message = dbus_message_new_method_call (SHELL_FAIL_SERVICE_NAME,
+                                          "/org/freedesktop/TestSuite",
+                                          "org.freedesktop.TestSuite",
+                                          "Echo");
+  
+  if (message == NULL)
+    return TRUE;
+  
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  bus_test_run_everything (context);
+  block_connection_until_message_from_bus (context, connection, "reply to shell Echo on service which should fail to auto-start");
+  bus_test_run_everything (context);
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      return TRUE;
+    }
+  
+  retval = FALSE;
+  
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a reply to %s %d on %p\n",
+                  "Echo message (auto activation)", serial, connection);
+      goto out;
+    }
+
+  verbose_message_received (connection, message);
+
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
+    {
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
+        {
+          _dbus_warn ("Message has wrong sender %s\n",
+                      dbus_message_get_sender (message) ?
+                      dbus_message_get_sender (message) : "(none)");
+          goto out;
+        }
+      
+      if (dbus_message_is_error (message,
+                                 DBUS_ERROR_NO_MEMORY))
+        {
+          ; /* good, this is a valid response */
+        }
+      else if (dbus_message_is_error (message,
+                                      DBUS_ERROR_INVALID_ARGS))
+        {
+          _dbus_verbose("got invalid args\n");
+          ; /* good, this is expected also */
+        }
+      else
+        {
+          warn_unexpected (connection, message, "not this error");
+
+          goto out;
+        }
+    }
+  else
+    {
+      _dbus_warn ("Did not expect to successfully auto-start shell fail service\n");
+      goto out;
+    }
+
+  retval = TRUE;
+  
+ out:
+  if (message)
+    dbus_message_unref (message);
+  
+  return retval;
+}
+
+#define SHELL_SUCCESS_SERVICE_NAME "org.freedesktop.DBus.TestSuiteShellEchoServiceSuccess"
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
+check_shell_service_success_auto_start (BusContext     *context,
+                                        DBusConnection *connection)
+{
+  DBusMessage *message;
+  DBusMessage *base_service_message;
+  dbus_uint32_t serial;
+  dbus_bool_t retval;
+  const char *base_service;
+  const char *argv[7] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+
+  base_service_message = NULL;
+
+  message = dbus_message_new_method_call (SHELL_SUCCESS_SERVICE_NAME,
+                                          "/org/freedesktop/TestSuite",
+                                          "org.freedesktop.TestSuite",
+                                          "Echo");
+  
+  if (message == NULL)
+    return TRUE;
+
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  bus_test_run_everything (context);
+
+  /* now wait for the message bus to hear back from the activated
+   * service.
+   */
+  block_connection_until_message_from_bus (context, connection, "reply to Echo on shell success service");
+  bus_test_run_everything (context);
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      return TRUE;
+    }
+
+  retval = FALSE;
+  
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive any messages after auto start %d on %p\n",
+                  serial, connection);
+      goto out;
+    }
+
+  verbose_message_received (connection, message);
+  _dbus_verbose ("  (after sending %s)\n", "auto start");
+
+  /* we should get zero or two ServiceOwnerChanged signals */
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_SIGNAL)
+    {
+      GotServiceInfo message_kind;
+
+      if (!check_base_service_activated (context, connection,
+                                         message, &base_service))
+        goto out;
+
+      base_service_message = message;
+      message = NULL;
+
+      /* We may need to block here for the test service to exit or finish up */
+      block_connection_until_message_from_bus (context, connection, "service to exit");
+
+      /* Should get a service creation notification for the activated
+       * service name, or a service deletion on the base service name
+       */
+      message = dbus_connection_borrow_message (connection);
+      if (message == NULL)
+        {
+          _dbus_warn ("No message after auto activation "
+                      "(should be a service announcement)");
+          dbus_connection_return_message (connection, message);
+          message = NULL;
+          goto out;
+        }
+
+      message_kind = check_got_service_info (message);
+
+      dbus_connection_return_message (connection, message);
+      message = NULL;
+
+      switch (message_kind) 
+        {
+        case GOT_SERVICE_CREATED:
+          message = pop_message_waiting_for_memory (connection);
+          if (message == NULL)
+            {
+              _dbus_warn ("Failed to pop message we just put back! "
+                          "should have been a NameOwnerChanged (creation)\n");
+              goto out;
+            }
+            
+          /* Check that ServiceOwnerChanged (creation) was correctly received */
+          if (!check_service_auto_activated (context, connection, SHELL_SUCCESS_SERVICE_NAME,
+                                             base_service, message))
+            goto out;
+          
+          dbus_message_unref (message);
+          message = NULL;
+
+          break;
+
+        case GOT_SERVICE_DELETED:
+          {
+            /* The service started up and got a base address, but then
+             * failed to register under SHELL_SUCCESS_SERVICE_NAME
+             */
+            CheckServiceOwnerChangedData socd;
+          
+            socd.expected_kind = SERVICE_DELETED;
+            socd.expected_service_name = base_service;
+            socd.failed = FALSE;
+            socd.skip_connection = NULL;
+            bus_test_clients_foreach (check_service_owner_changed_foreach,
+                                      &socd);
+
+            if (socd.failed)
+              goto out;
+
+            break;
+          }
+
+        case GOT_ERROR:
+        case GOT_SOMETHING_ELSE:
+          _dbus_warn ("Unexpected message after auto activation\n");
+          goto out;
+        }
+    }
+
+  /* OK, now we've dealt with ServiceOwnerChanged signals, now should
+   * come the method reply (or error) from the initial method call
+   */
+
+  /* Note: if this test is run in OOM mode, it will block when the bus
+   * doesn't send a reply due to OOM.
+   */
+  block_connection_until_message_from_bus (context, connection, "reply from echo message after auto-activation");
+      
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Failed to pop message! Should have been reply from echo message\n");
+      goto out;
+    }
+
+  if (dbus_message_get_reply_serial (message) != serial)
+    {
+      _dbus_warn ("Wrong reply serial\n");
+      goto out;
+    }
+
+  if (!dbus_message_get_args (message, NULL,
+                                       DBUS_TYPE_STRING, &argv[0], 
+                                       DBUS_TYPE_STRING, &argv[1],
+                                       DBUS_TYPE_STRING, &argv[2],
+                                       DBUS_TYPE_STRING, &argv[3],
+                                       DBUS_TYPE_STRING, &argv[4],
+                                       DBUS_TYPE_STRING, &argv[5],
+                                       DBUS_TYPE_STRING, &argv[6],
+                                       DBUS_TYPE_INVALID))
+    {
+      _dbus_warn ("Error getting arguments from return");
+      goto out;
+    }
+
+   /* don't worry about arg[0] as it may be different 
+      depending on the path to the tests
+   */
+  if (strcmp("-test", argv[1]) != 0)
+    {
+      _dbus_warn ("Unexpected argv[1] in shell success service test (expected: %s, got: %s)", 
+                  "-test", argv[1]);
+      goto out;
+    } 
+
+  if (strcmp("that", argv[2]) != 0)
+    {
+      _dbus_warn ("Unexpected argv[2] in shell success service test (expected: %s, got: %s)", 
+                   "that", argv[2]);
+      goto out;
+    } 
+
+  if (strcmp("we get", argv[3]) != 0)
+    {
+      _dbus_warn ("Unexpected argv[3] in shell success service test (expected: %s, got: %s)", 
+                   "we get", argv[3]);
+      goto out;
+    } 
+   
+  if (strcmp("back", argv[4]) != 0)
+    {
+      _dbus_warn ("Unexpected argv[4] in shell success service test (expected: %s, got: %s)", 
+                   "back", argv[4]);
+      goto out;
+    } 
+
+  if (strcmp("--what", argv[5]) != 0)
+    {
+      _dbus_warn ("Unexpected argv[5] in shell success service test (expected: %s, got: %s)", 
+                   "--what", argv[5]);
+      goto out;
+    } 
+
+  if (strcmp("we put in", argv[6]) != 0)
+    {
+      _dbus_warn ("Unexpected argv[6] in shell success service test (expected: %s, got: %s)", 
+                   "we put in", argv[6]);
+      goto out;
+    } 
+
+  dbus_message_unref (message);
+  message = NULL;
+      
+  if (!check_send_exit_to_service (context, connection,
+                                   SHELL_SUCCESS_SERVICE_NAME,
+                                   base_service))
     goto out;
   
   retval = TRUE;
@@ -3174,10 +3513,13 @@ bus_dispatch_test (const DBusString *test_data_dir)
                          check_existent_service_no_auto_start);
   
   check2_try_iterations (context, foo, "nonexistent_service_auto_start",
-			 check_nonexistent_service_auto_start);
+                         check_nonexistent_service_auto_start);
   
   check2_try_iterations (context, foo, "segfault_service_auto_start",
-			 check_segfault_service_auto_start);
+                         check_segfault_service_auto_start);
+
+  check2_try_iterations (context, foo, "shell_fail_service_auto_start",
+                         check_shell_fail_service_auto_start);
 
 #if 0
   /* Note: need to resolve some issues with the testing code in order to run
@@ -3185,11 +3527,14 @@ bus_dispatch_test (const DBusString *test_data_dir)
    * when oom happens, without blocking the test).
    */
   check2_try_iterations (context, foo, "existent_service_auto_auto_start",
-			 check_existent_service_auto_start);
+                         check_existent_service_auto_start);
 #endif
   
   if (!check_existent_service_auto_start (context, foo))
     _dbus_assert_not_reached ("existent service auto start failed");
+
+  if (!check_shell_service_success_auto_start (context, foo))
+    _dbus_assert_not_reached ("shell success service auto start failed");
 
   _dbus_verbose ("Disconnecting foo, bar, and baz\n");
 

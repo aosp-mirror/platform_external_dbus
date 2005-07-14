@@ -20,3 +20,5 @@ test-segfault
 test-service
 test-sleep-forever
 decode-gcov
+shell-test
+test-shell-service

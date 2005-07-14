@@ -1190,6 +1190,7 @@ AC_SUBST(TEST_$1)
 
 TEST_PATH(SERVICE_DIR, data/valid-service-files)
 TEST_PATH(SERVICE_BINARY, test-service)
+TEST_PATH(SHELL_SERVICE_BINARY, test-shell-service)
 TEST_PATH(GLIB_SERVICE_BINARY, glib/test-service-glib)
 TEST_PATH(EXIT_BINARY, test-exit)
 TEST_PATH(SEGFAULT_BINARY, test-segfault)
@@ -1298,6 +1299,8 @@ test/data/valid-config-files/debug-allow-all-sha1.conf
 test/data/valid-service-files/debug-echo.service
 test/data/valid-service-files/debug-segfault.service
 test/data/valid-service-files/debug-glib.service
+test/data/valid-service-files/debug-shell-echo-success.service
+test/data/valid-service-files/debug-shell-echo-fail.service
 ])
 
 ### FIXME it's bizarre that have_qt and have_glib are used

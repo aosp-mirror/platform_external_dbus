@@ -1,3 +1,37 @@
+2005-07-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/activation.c: clean up all tabs to be 8 spaces 
+	(bus_activation_activate_service): make sure we clean up
+	if activation fails
+
+	* bus/dispatch.c: clean up all tabs to be 8 spaces 
+	(check_shell_fail_service_auto_start): New function
+	tests to make sure we get fail properly when trying to auto start a service
+	with a faulty command line
+	(check_shell_service_success_auto_start): New function tests to make sure
+	auto started services get the arguments on the command line
+
+	* test/test-shell-service.c: Added service for testing auto-starting with 
+	command line arguments
+
+	* test/data/valid-service-files/debug-shell-echo-fail.service.in, 
+	test/data/valid-service-files/debug-shell-echo-success.service.in:
+	Added service files for testing auto-starting with command line arguments
+
+	* */.cvsignore: added a bunch of generated files to various .cvsignore files
+
+2005-07-14  Rodrigo Moya  <rodrigo@novell.com>
+
+	* dbus/dbus-shell.[ch]: copy/pasted code from GLib.
+	
+	* dbus/Makefile.am: added new files to build.
+
+	* bus/activation.c (bus_activation_activate_service): support
+	activation commands with parameters.
+
+	* test/shell-test.c: added test program for the shell parsing
+	code.
+
 2005-07-13  David Zeuthen  <davidz@redhat.com>
 
 	* tools/dbus-send.c (append_arg, type_from_name): Also support 16 and

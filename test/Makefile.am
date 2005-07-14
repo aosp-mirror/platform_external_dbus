@@ -11,9 +11,13 @@ INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS)
 
 if DBUS_BUILD_TESTS
 ## break-loader removed for now
-TEST_BINARIES=test-service spawn-test test-segfault test-exit test-sleep-forever
+TEST_BINARIES=test-service test-shell-service shell-test spawn-test test-segfault test-exit test-sleep-forever
+
+#enable stand alone make check test
+TESTS=shell-test
 else
 TEST_BINARIES=
+TESTS=
 endif
 
 if DBUS_GCOV_ENABLED
@@ -31,6 +35,14 @@ test_service_SOURCES=				\
 
 ##break_loader_SOURCES=				\
 ##	break-loader.c
+
+test_shell_service_SOURCES =			\
+	test-shell-service.c			\
+	test-utils.c				\
+	test-utils.h
+
+shell_test_SOURCES=                             \
+        shell-test.c
 
 spawn_test_SOURCES=				\
 	spawn-test.c
@@ -51,6 +63,8 @@ TEST_LIBS=$(DBUS_TEST_LIBS) $(top_builddir)/dbus/libdbus-convenience.la
 
 test_service_LDADD=$(TEST_LIBS)
 ## break_loader_LDADD= $(TEST_LIBS)
+test_shell_service_LDADD=$(TEST_LIBS)
+shell_test_LDADD=$(TEST_LIBS)
 spawn_test_LDADD=$(TEST_LIBS)
 decode_gcov_LDADD=$(TEST_LIBS)
 

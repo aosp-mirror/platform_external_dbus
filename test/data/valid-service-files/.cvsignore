@@ -1,4 +1,5 @@
 debug-echo.service
 debug-segfault.service
 debug-glib.service
-
+debug-shell-echo-fail.service
+debug-shell-echo-success.service
