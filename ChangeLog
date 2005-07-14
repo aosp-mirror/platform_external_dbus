@@ -1,3 +1,16 @@
+2005-07-14  Colin Walters  <walters@verbum.org>
+
+	* bus/driver.c
+	(bus_driver_handle_get_connection_unix_security_context): New function.
+	(message_handlers): Add.
+
+	* bus/selinux.c (bus_selinux_append_context): New function; appends
+	security context to message.
+
+	* bus/selinux.h: Prototype.
+
+	* dbus/dbus-protocol.h (DBUS_ERROR_UNIX_SECURITY_CONTEXT_UNKNOWN): New.
+
 2005-07-14  John (J5) Palmieri  <johnp@redhat.com>
 
 	* bus/activation.c: clean up all tabs to be 8 spaces 
