@@ -2045,6 +2045,7 @@ dbus_g_proxy_begin_call_internal (DBusGProxy          *proxy,
                                         &pending,
                                         -1))
     goto oom;
+  dbus_message_unref (message);
   g_assert (pending != NULL);
 
   call_id = ++proxy->call_id_counter;
