@@ -1,3 +1,8 @@
+2005-07-15  Colin Walters  <walters@verbum.org>
+
+	* bus/selinux.c (bus_selinux_append_context): Wrap in
+	HAVE_SELINUX.
+
 2005-07-14  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/_dbus.py (Bus::remove_signal_receiver):

@@ -571,6 +571,7 @@ dbus_bool_t
 bus_selinux_append_context (DBusMessage    *message,
 			    BusSELinuxID   *context)
 {
+#ifdef HAVE_SELINUX
   /* Note if you change how the context is marshalled (e.g. to ay),
    * you also need to change driver.c for the appropriate return value.
    */
@@ -578,6 +579,9 @@ bus_selinux_append_context (DBusMessage    *message,
 				   DBUS_TYPE_STRING,
 				   SELINUX_SID_FROM_BUS (context),
 				   DBUS_TYPE_INVALID);
+#else
+  return FALSE;
+#endif
 }
 
 /**
