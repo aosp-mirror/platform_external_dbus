@@ -15,7 +15,7 @@
   <type>system</type>
 
   <!-- Run as special user -->
-  <user>messagebus</user>
+  <user>@DBUS_USER@</user>
 
   <!-- Fork into daemon mode -->
   <fork/>
