@@ -1,3 +1,14 @@
+2005-07-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/_dbus.py (Bus::remove_signal_receiver):
+	don't add a callback to the match if none has been passed in
+	
+	* python/matchrules.py (SignalMatchTree::remove): if the rule
+	being matched does not have a callback treat it as a wildcard
+	fix matching logic
+
+	* doc/dbus-tutorial.xml: Add Python tutorial
+
 2005-07-14  Colin Walters  <walters@verbum.org>
 
 	* bus/driver.c

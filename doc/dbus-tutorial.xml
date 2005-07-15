@@ -7,8 +7,8 @@
 <article id="index">
   <articleinfo>
     <title>D-BUS Tutorial</title>
-    <releaseinfo>Version 0.3</releaseinfo>
-    <date>18 January 2005</date>
+    <releaseinfo>Version 0.4</releaseinfo>
+    <date>14 July 2005</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -24,6 +24,17 @@
 	<firstname>David</firstname>
 	<surname>Wheeler</surname>
       </author>
+      <author>
+	<firstname>John</firstname>
+	<surname>Palmieri</surname>
+	<affiliation>
+	  <orgname>Red Hat, Inc.</orgname>
+	  <address>
+	    <email>johnp@redhat.com</email>
+	  </address>
+	</affiliation>
+      </author>
+
     </authorgroup>
   </articleinfo>
 
@@ -1159,6 +1170,488 @@ main (int argc, char **argv)
     </para>
   </sect1>
 
+  <sect1 id="python-client">
+    <title>Python API: Using Remote Objects</title>
+    <para>
+      The Python bindings provide a simple to use interface for talking over D-BUS.
+      Where possible much of the inner-workings of D-BUS are hidden behind what looks
+      like normal Python objects.
+    </para>
+    <sect2 id="python-typemappings">
+      <title>D-BUS - Python type mappings</title>
+      <para>
+        While python itself is a largely untyped language D-BUS provides a simple type system
+        for talking with other languages which may be strongly typed.  Python for the most part
+        tries automatically map python objects to types on the bus.  It is none the less good to 
+        know what the type mappings are so one can better utilize services over the bus.
+      </para>
+      <sect3 id="python-basic-typemappings">
+        <title>Basic type mappings</title>
+	<para>
+	  Below is a list of the basic types, along with their associated
+	  mapping to a Python object.
+	  <informaltable>
+	    <tgroup cols="3">
+	      <thead>
+		<row>
+		  <entry>D-BUS basic type</entry>
+		  <entry>Python object</entry>
+		  <entry>Notes</entry>
+		</row>
+	      </thead>
+	      <tbody>
+		<row>
+		  <entry><literal>BYTE</literal></entry>
+		  <entry><literal>dbus.Byte</literal></entry>
+		  <entry></entry>
+		  </row><row>
+		  <entry><literal>BOOLEAN</literal></entry>
+		  <entry><literal>dbus.Boolean</literal></entry>
+		  <entry>Any variable assigned a True or False boolean value will automatically be converted into a BOOLEAN over the bus</entry>
+		  </row><row>
+		  <entry><literal>INT16</literal></entry>
+		  <entry><literal>dbus.Int16</literal></entry>
+		  <entry></entry>
+		  </row><row>
+		  <entry><literal>UINT16</literal></entry>
+		  <entry><literal>dbus.UInt16</literal></entry>
+		  <entry></entry>
+		  </row><row>
+		  <entry><literal>INT32</literal></entry>
+		  <entry><literal>dbus.Int32</literal></entry>
+		  <entry>This is the default mapping for Python integers</entry>
+		  </row><row>
+		  <entry><literal>UINT32</literal></entry>
+		  <entry><literal>dbus.UInt32</literal></entry>
+		  <entry></entry>
+		  </row><row>
+		  <entry><literal>INT64</literal></entry>
+		  <entry><literal>dbus.Int64</literal></entry>
+		  <entry></entry>
+		  </row><row>
+		  <entry><literal>UINT64</literal></entry>
+		  <entry><literal>dbus.UInt64</literal></entry>
+		  <entry></entry>
+		  </row><row>
+		  <entry><literal>DOUBLE</literal></entry>
+		  <entry><literal>dbus.Double</literal></entry>
+		  <entry>Any variable assigned a floating point number will automatically be converted into a DOUBLE over the bus</entry>
+		  </row><row>
+		  <entry><literal>STRING</literal></entry>
+		  <entry><literal>dbus.String</literal></entry>
+		  <entry>Any variable assigned a quoted string will automatically be converted into a STRING over the bus</entry>
+		  </row><row>
+		  <entry><literal>OBJECT_PATH</literal></entry>
+		  <entry><literal>dbus.ObjectPath</literal></entry>
+		  <entry></entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </informaltable>
+	</para>
+      </sect3>
+      <sect3 id="python-container-typemappings">
+	<title>Container type mappings</title>
+	<para>
+	  The D-BUS type system also has a number of "container"
+	  types, such as <literal>DBUS_TYPE_ARRAY</literal> and
+	  <literal>DBUS_TYPE_STRUCT</literal>.  The D-BUS type system
+	  is fully recursive, so one can for example have an array of
+	  array of strings (i.e. type signature
+	  <literal>aas</literal>).
+	</para>
+	<para>
+	  D-BUS container types have native corresponding built-in Python types
+	  so it is easy to use them.
+	  <informaltable>
+	    <tgroup cols="3">
+	      <thead>
+		<row>
+		  <entry>D-BUS type</entry>
+		  <entry>Python type</entry>
+		  <entry>Notes</entry>
+		</row>
+	      </thead>
+	      <tbody>
+		<row>
+		  <entry><literal>ARRAY</literal></entry>
+		  <entry><literal>Python lists</literal></entry>
+		  <entry>Python lists, denoted by square brackets [], are converted into arrays and visa versa.
+		  The one restriction is that when sending a Python list each element of the list must be of the same
+		  type.  This is because D-BUS arrays can contain only one element type.  Use Python tuples for mixed types.</entry>
+		  </row>
+		<row>
+		  <entry><literal>STRUCT</literal></entry>
+		  <entry><literal>Python tuple</literal></entry>
+		  <entry>Python tuples, denoted by parentheses (,), are converted into structs and visa versa.
+		  Tuples can have mixed types.</entry>
+		</row>
+		<row>
+		  <entry><literal>DICTIONARY</literal></entry>
+		  <entry><literal>Python dictionary</literal></entry>
+		  <entry>D-BUS doesn't have an explicit dictionary type.  Instead it uses LISTS of DICT_ENTRIES to
+		  represent a dictionary.  A DICT_ENTRY is simply a two element struct containing a key/value pair.
+		  Python dictionaries are automatically converted to a LIST of DICT_ENTRIES and visa versa.</entry>
+		</row>
+		<row>
+		  <entry><literal>VARIANT</literal></entry>
+		  <entry><literal>any type</literal></entry>
+		  <entry>A variant is a container for any type.  Python exports its methods to accept only variants 
+		   since we are an untyped language and can demarshal into any Python type.</entry>
+		</row>
+
+	      </tbody>
+	    </tgroup>
+	  </informaltable>
+	</para>
+      </sect3>
+    </sect2>
+    <sect2 id="python-invoking-methods">
+      <title>Invoking Methods</title>
+      <para>Here is a D-BUS program using the Python bindings to get a listing of all names on the session bus.
+<programlisting>      
+import dbus
+
+bus = dbus.SessionBus()
+proxy_obj = bus.bus.get_object('org.freedesktop.DBus', '/org/freedesktop/DBus')
+dbus_iface = dbus.Interface(proxy_obj, 'org.freedesktop.DBus')
+
+print dbus_iface.ListNames()
+</programlisting>
+      </para>
+      <para>
+        Notice I get an interface on the proxy object and use that to make the call.  While the specifications
+	state that you do not need to specify an interface if the call is unambiguous (i.e. only one method implements
+	that name) due to a bug on the bus that drops messages which don't have an interface field you need to specify
+	interfaces at this time.  In any event it is always good practice to specify the interface of the method you 
+	wish to call to avoid any side effects should a method of the same name be implemented on another interface.
+      </para>
+      <para>
+        You can specify the interface for a single call using the dbus_interface keyword.
+<programlisting>
+proxy_obj.ListNames(dbus_interface = 'org.freedesktop.DBus')
+</programlisting>
+      </para>
+      <para>
+        This is all fine and good if all you want to do is call methods on the bus and then exit.  In order to 
+        do more complex things such as use a GUI or make asynchronous calls you will need a mainloop.  You would use
+	asynchronous calls because in GUI applications it is very bad to block for any long period of time.  This cause
+	the GUI to seem to freeze.  Since replies to D-BUS messages can take an indeterminate amount of time using async 
+	calls allows you to return control to the GUI while you wait for the reply.  This is exceedingly easy to do in
+	Python.  Here is an example using the GLib/GTK+ mainloop.
+<programlisting>
+import gtk
+import dbus
+if getattr(dbus, 'version', (0,0,0)) >= (0,41,0):
+    import dbus.glib
+
+def print_list_names_reply(list):
+    print str(list) 
+
+def print_error(e):
+    print str(e)
+    
+bus = dbus.SessionBus()
+proxy_obj = bus.bus.get_object('org.freedesktop.DBus', '/org/freedesktop/DBus')
+dbus_iface = dbus.Interface(proxy_obj, 'org.freedesktop.DBus')
+
+dbus_iface.ListNames(reply_handler=print_list_names_reply, error_handler=print_error)
+
+gtk.main()
+</programlisting>
+      </para>
+      <para>
+        In the above listing you will notice the reply_handler and error_handler keywords.  These tell the method that
+	it should be called async and to call print_list_names_reply or print_error depending if you get a reply or an error.
+	The signature for replys depends on the number of arguments being sent back.  Error handlers always take one parameter
+	which is the error object returned.
+      </para>
+      <para>
+        You will also notice that I check the version of the dbus bindings before importing dbus.glib.  In older versions
+	glib was the only available mainloop.  As of version 0.41.0 we split out the glib dependency to allow for other mainloops
+	to be implemented.  Notice also the python binding version does not match up with the D-BUS version.  Once we reach 1.0
+	this should change with Python changes simply tracking the D-BUS changes.
+        While the glib mainloop is the only mainloop currently implemented, integrating other mainloops should
+	be very easy to do.  There are plans for creating a a generic mainloop to be the default for non gui programs.
+      </para>
+    </sect2>
+    <sect2 id="python-listening-for-signals">
+      <title>Listening for Signals</title>
+      <para>
+        Signals are emitted by objects on the bus to notify listening programs that an event has occurred.  There are a couple of ways
+        to register a signal handler on the bus.  One way is to attach to an already created proxy using the connect_to_signal method
+	which takes a signal name and handler as arguments.  Let us look at an example of connecting to the HAL service to receive
+	signals when devices are added and removed and when devices register a capability.  This example assumes you have HAL already running.
+<programlisting>
+import gtk
+import dbus
+if getattr(dbus, 'version', (0,0,0)) >= (0,41,0):
+    import dbus.glib
+
+def device_added_callback(udi):
+    print 'Device with udi %s was added' % (udi)
+
+def device_removed_callback(udi):
+    print 'Device with udi %s was added' % (udi)
+
+def device_capability_callback(udi, capability):
+    print 'Device with udi %s added capability %s' % (udi, capability)
+
+bus = dbus.SystemBus()
+hal_manager_obj = bus.get_object('org.freedesktop.Hal', 
+                                 '/org/freedesktop/Hal/Manager')
+hal_manager = dbus.Interface(hal_manager_obj,
+                             'org.freedesktop.Hal.Manager')
+
+hal_manager.connect_to_signal('DeviceAdded', device_added_callback)
+hal_manager.connect_to_signal('DeviceRemoved', device_removed_callback)
+hal_manager.connect_to_signal('NewCapability', device_capability_callback)
+
+gtk.main()
+</programlisting>
+      </para>
+      <para>
+        The drawback of using this method is that the service that you are connecting to has to be around when you register
+	your signal handler.  While HAL is guaranteed to be around on systems that use it this is not always the case for every
+	service on the bus.  Say our program started up before HAL, we could connect to the signal by adding a signal receiver
+	directly to the bus.
+<programlisting>
+bus.add_signal_receiver(device_added_callback,
+                        'DeviceAdded',
+                        'org.freedesktop.Hal.Manager',
+                        'org.freedesktop.Hal',
+                        '/org/freedesktop/Hal/Manager')
+
+bus.add_signal_receiver(device_removed_callback,
+                        'DeviceRemoved',
+                        'org.freedesktop.Hal.Manager',
+                        'org.freedesktop.Hal',
+                        '/org/freedesktop/Hal/Manager')
+
+bus.add_signal_receiver(device_capability_callback,
+                        'DeviceAdded',
+                        'org.freedesktop.Hal.Manager',
+                        'org.freedesktop.Hal',
+                        '/org/freedesktop/Hal/Manager')
+</programlisting>
+      </para>
+      <para>
+        All this can be done without creating the proxy object if one wanted to but in most cases you would want to have 
+	a reference to the object so once a signal was received operations could be executed on the object.
+      </para>
+      <sidebar>
+        <title>Cost of Creating a Proxy Object</title>
+	<para>
+	  Note that creating proxy objects can have an associated processing cost.  When introspection is implemented
+	  a proxy may wait for introspection data before processing any requests.  It is generally good practice to
+	  create proxies once and reuse the proxy when calling into the object.  Constantly creating the same proxy 
+	  over and over again can become a bottleneck for your program.
+	</para>
+      </sidebar>
+      <para>
+        TODO: example of getting information about devices from HAL
+      </para>
+    </sect2>
+  </sect1>
+
+  <sect1 id="python-server">
+    <title>Python API: Implementing Objects</title>
+    <para>
+      Implementing object on the bus is just as easy as invoking methods or listening for signals on the bus.
+    </para>
+    <sidebar>
+      <title>Version Alert</title>
+      <para>
+        The Python D-BUS bindings require version 2.4 or greater of Python when creating D-BUS objects.
+      </para>
+    </sidebar>
+
+    <sect2 id="python-inheriting-from-dbus-object">
+      <title>Inheriting From dbus.service.Object</title>
+      <para>
+        In order to export a Python object over the bus one must first get a bus name and then create
+        a Python object that inherits from dbus.service.Object.  The following is the start of an example
+	HelloWorld object that we want to export over the session bus.
+<programlisting>
+import dbus
+import dbus.service
+if getattr(dbus, 'version', (0,0,0)) >= (0,41,0):
+    import dbus.glib
+
+class HelloWorldObject(dbus.service.Object):
+    def __init__(self, bus_name):
+        dbus.service.Object.__init__(self, '/org/freedesktop/HelloWorldObject', bus_name)
+
+session_bus = dbus.SessionBus()
+bus_name = dbus.service.BusName('org.freedesktop.HelloWorld', bus=session_bus)
+object = HelloWorldObject(bus_name)
+
+gtk.main()
+</programlisting>
+      </para>
+      <para>
+        Here we got the session bus, then created a BusName object which requests a name on the bus.
+	We pass that bus name to the HelloWorldObject object which inherits from dbus.service.Object.
+	We now have an object on the bus but it is pretty useless.
+      </para>
+    </sect2>
+    <sect2 id="python-exporting-methods">
+      <title>Exporting Methods Over The Bus</title>
+      <para>
+        Let's make this object do something and export a method over the bus.
+<programlisting>
+import dbus
+import dbus.service
+if getattr(dbus, 'version', (0,0,0)) >= (0,41,0):
+    import dbus.glib
+
+class HelloWorldObject(dbus.service.Object):
+    def __init__(self, bus_name):
+        dbus.service.Object.__init__(self, '/org/freedesktop/HelloWorldObject', bus_name)
+
+    @dbus.service.method('org.freedesktop.HelloWorldIFace')
+    def hello(self):
+        return 'Hello from the HelloWorldObject'
+      
+session_bus = dbus.SessionBus()
+bus_name = dbus.service.BusName('org.freedesktop.HelloWorld', bus=session_bus)
+object = HelloWorldObject(bus_name)
+
+gtk.main()
+</programlisting>
+      </para>
+      <sidebar>
+        <title>Python Decorators</title>
+	<para>
+	  Notice the @ symbol on the line before the hello method.  This is a new directive introduced in
+	  Python 2.4.  It is called a decorator and it "decorates" methods.  All you have to know is that
+	  it provides metadata that can then be used to alter the behavior of the method being decorated.
+	  In this case we are telling the bindings that the hello method should be exported as a D-BUS method
+	  over the bus.
+	</para>
+      </sidebar>
+      <para>
+        As you can see we exported the hello method as part of the org.freedesktop.HelloWorldIFace interface.
+	It takes no arguments and returns a string to the calling program. Let's create a proxy and invoke this
+	method.
+<programlisting>      
+import dbus
+
+bus = dbus.SessionBus()
+proxy_obj = bus.bus.get_object('org.freedesktop.HelloWorld', '/org/freedesktop/HelloWorldObject')
+iface = dbus.Interface(proxy_obj, 'org.freedesktop.HelloWorldIFace')
+
+print iface.hello()
+</programlisting>
+      </para>
+      <para>
+        When invoking methods exported over the bus the bindings automatically know how many parameters
+	the method exports.  You can even make a method that exports an arbitrary number of parameters.
+	Also, whatever you return will automatically be transfered as a reply over the bus. Some examples.
+<programlisting>
+    @dbus.service.method('org.freedesktop.HelloWorldIFace')
+    def one_arg(self, first_arg):
+        return 'I got arg %s' % first_arg
+      
+    @dbus.service.method('org.freedesktop.HelloWorldIFace')
+    def two_args(self, first_arg, second_arg):
+        return ('I got 2 args', first_arg, second_arg)
+
+    @dbus.service.method('org.freedesktop.HelloWorldIFace')
+    def return_list(self):
+        return [1, 2, 3, 4, 5, 6]
+    
+    @dbus.service.method('org.freedesktop.HelloWorldIFace')
+    def return_dict(self):
+        return {one: '1ne', two: '2wo', three: '3ree'}
+</programlisting>
+      </para>
+    </sect2>
+    <sect2 id="python-emitting-signals">
+      <title>Emitting Signals</title>
+      <para>
+        Setting up signals to emit is just as easy as exporting methods.  It uses the same syntax as methods.
+<programlisting>
+import dbus
+import dbus.service
+if getattr(dbus, 'version', (0,0,0)) >= (0,41,0):
+    import dbus.glib
+
+class HelloWorldObject(dbus.service.Object):
+    def __init__(self, bus_name):
+        dbus.service.Object.__init__(self, '/org/freedesktop/HelloWorldObject', bus_name)
+
+    @dbus.service.method('org.freedesktop.HelloWorldIFace')
+    def hello(self):
+        return 'Hello from the HelloWorldObject'
+      
+    @dbus.service.signal('org.freedesktop.HelloWorldIFace')
+    def hello_signal(self, message):
+        pass
+	
+session_bus = dbus.SessionBus()
+bus_name = dbus.service.BusName('org.freedesktop.HelloWorld', bus=session_bus)
+object = HelloWorldObject(bus_name)
+
+object.hello_signal('I sent a hello signal')
+
+gtk.main()
+</programlisting>
+      </para>
+      <para>
+        Adding a @dbus.service.signal decorator to a method turns it into a signal emitter.  You can put code
+	in this method to do things like keep track of how many times you call the emitter or to print out debug
+	messages but for the most part a pass noop will do.  Whenever you call the emitter a signal will be emitted
+	with the parameters you passed in as arguments.  In the above example we send the message 'I sent a hello signal'
+	with the signal.
+      </para>
+    </sect2>
+    <sect2 id="python-inheriting-and-overriding">
+      <title>Inheriting from HelloWorldObject</title>
+      <para>
+        One of the cool things you can do in Python is inherit from another D-BUS object.  We use this trick in
+	the bindings to provide a default implementation for the org.freedesktop.DBus.Introspectable interface.
+	Let's inherit from the HelloWorldObject example above and overide the hello method to say goodbye.
+<programlisting>
+class HelloWorldGoodbyeObject(HelloWorldObject):
+    def __init__(self, bus_name):
+        HelloWorldObject.__init__(self, '/org/freedesktop/HelloWorldGoodbyeObject', bus_name)
+
+    @dbus.service.method('org.freedesktop.HelloWorldGoodbyeIFace')
+    def hello(self):
+        return 'Goodbye'
+
+goodbye_object = HelloWorldGoodbyeObject(bus_name)
+</programlisting>
+      </para>
+       <para>
+       Let's now call both methods with a little help from interfaces.
+<programlisting>      
+import dbus
+
+bus = dbus.SessionBus()
+proxy_obj = bus.bus.get_object('org.freedesktop.HelloWorld', '/org/freedesktop/HelloWorldGoodbyeObject')
+
+print proxy_obj.hello(dbus_interface='org.freedesktop.HelloWorldIFace')
+print proxy_obj.hello(dbus_interface='org.freedesktop.HelloWorldGoodbyeIFace')
+</programlisting>
+      </para>
+      <para>
+        This should print out 'Hello from the HelloWorldObject' followed by a 'Goodbye'.
+      </para>
+    </sect2>
+    <sect2 id="python-conclusion">
+      <title>Conclusion</title>
+      <para>
+        As you can see, using D-BUS from Python is an extremely easy proposition.  Hopefully
+	the tutorial has been helpful in getting you started.  If you need anymore help please
+	feel free to post on the <ulink url="http://lists.freedesktop.org/mailman/listinfo/dbus/">mailing list</ulink>.
+	The Python bindings are still in a state of flux and there may be API changes in the future.
+	This tutorial will be updated if such changes occur.
+      </para>
+    </sect2>
+  </sect1>
+
   <sect1 id="qt-client">
     <title>Qt API: Using Remote Objects</title>
     <para>
@@ -1174,22 +1667,4 @@ main (int argc, char **argv)
       The Qt bindings are not yet documented.
     </para>
   </sect1>
-
-
-  <sect1 id="python-client">
-    <title>Python API: Using Remote Objects</title>
-    <para>
-      The Python bindings are not yet documented, but the 
-      bindings themselves are in good shape.
-    </para>
-  </sect1>
-
-  <sect1 id="python-server">
-    <title>Python API: Implementing Objects</title>
-    <para>
-      The Python bindings are not yet documented, but the 
-      bindings themselves are in good shape.
-    </para>
-  </sect1>
-
 </article>
