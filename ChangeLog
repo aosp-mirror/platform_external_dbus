@@ -1,3 +1,16 @@
+2005-07-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/dispatch.c, test/test-service.c: Add testcase
+	for sending messages to oneself (TODO item).
+
+	* python/service.py (class Object): Swap ordering of bus_name 
+	and object_path parameters to better support inheritance.
+
+	* doc/dbus-tutorial.xml: change Python docs to reflect change
+	in parameter ordering and fix the inheritance section.
+
+	* doc/TODO: remove sending message to oneself TODO item
+
 2005-07-15  Ross Burton  <ross@openedhand.com>
 
 	* glib/dbus-gproxy.c:

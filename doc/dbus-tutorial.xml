@@ -7,8 +7,8 @@
 <article id="index">
   <articleinfo>
     <title>D-BUS Tutorial</title>
-    <releaseinfo>Version 0.4</releaseinfo>
-    <date>14 July 2005</date>
+    <releaseinfo>Version 0.4.1</releaseinfo>
+    <date>15 July 2005</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -1479,8 +1479,8 @@ if getattr(dbus, 'version', (0,0,0)) >= (0,41,0):
     import dbus.glib
 
 class HelloWorldObject(dbus.service.Object):
-    def __init__(self, bus_name):
-        dbus.service.Object.__init__(self, '/org/freedesktop/HelloWorldObject', bus_name)
+    def __init__(self, bus_name, object_path='/org/freedesktop/HelloWorldObject'):
+        dbus.service.Object.__init__(self, bus_name, object_path)
 
 session_bus = dbus.SessionBus()
 bus_name = dbus.service.BusName('org.freedesktop.HelloWorld', bus=session_bus)
@@ -1506,8 +1506,8 @@ if getattr(dbus, 'version', (0,0,0)) >= (0,41,0):
     import dbus.glib
 
 class HelloWorldObject(dbus.service.Object):
-    def __init__(self, bus_name):
-        dbus.service.Object.__init__(self, '/org/freedesktop/HelloWorldObject', bus_name)
+    def __init__(self, bus_name, object_path='/org/freedesktop/HelloWorldObject'):
+        dbus.service.Object.__init__(self, bus_name, object_path)
 
     @dbus.service.method('org.freedesktop.HelloWorldIFace')
     def hello(self):
@@ -1578,8 +1578,8 @@ if getattr(dbus, 'version', (0,0,0)) >= (0,41,0):
     import dbus.glib
 
 class HelloWorldObject(dbus.service.Object):
-    def __init__(self, bus_name):
-        dbus.service.Object.__init__(self, '/org/freedesktop/HelloWorldObject', bus_name)
+    def __init__(self, bus_name, object_path='/org/freedesktop/HelloWorldObject'):
+        dbus.service.Object.__init__(self, bus_name, object_path)
 
     @dbus.service.method('org.freedesktop.HelloWorldIFace')
     def hello(self):
@@ -1614,8 +1614,8 @@ gtk.main()
 	Let's inherit from the HelloWorldObject example above and overide the hello method to say goodbye.
 <programlisting>
 class HelloWorldGoodbyeObject(HelloWorldObject):
-    def __init__(self, bus_name):
-        HelloWorldObject.__init__(self, '/org/freedesktop/HelloWorldGoodbyeObject', bus_name)
+    def __init__(self, bus_name, object_path='/org/freedesktop/HelloWorldGoodbyeObject'):
+        HelloWorldObject.__init__(self, bus_name, object_path)
 
     @dbus.service.method('org.freedesktop.HelloWorldGoodbyeIFace')
     def hello(self):

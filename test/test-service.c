@@ -3,6 +3,7 @@
 
 static DBusLoop *loop;
 static dbus_bool_t already_quit = FALSE;
+static dbus_bool_t hello_from_self_reply_recived = FALSE;
 
 static void
 quit (void)
@@ -19,6 +20,155 @@ die (const char *message)
 {
   fprintf (stderr, "*** test-service: %s", message);
   exit (1);
+}
+
+static void
+check_hello_from_self_reply (DBusPendingCall *pcall, 
+                             void *user_data)
+{
+  DBusMessage *reply;
+  DBusMessage *echo_message, *echo_reply;
+  DBusError error;
+  DBusConnection *connection;
+  
+  int type;
+  
+  dbus_error_init (&error);
+ 
+  connection = dbus_bus_get (DBUS_BUS_STARTER, &error);
+  if (connection == NULL)
+    {
+      fprintf (stderr, "*** Failed to open connection to activating message bus: %s\n",
+               error.message);
+      dbus_error_free (&error);
+      die("no memory");
+    }
+
+  
+  echo_message = (DBusMessage *)user_data;
+    
+  reply = dbus_pending_call_steal_reply (pcall);
+    
+  type = dbus_message_get_type (reply);
+    
+  if (type == DBUS_MESSAGE_TYPE_METHOD_RETURN)
+    {
+      const char *s;
+      printf ("Reply from HelloFromSelf recived\n");
+     
+      if (!dbus_message_get_args (echo_message,
+                              &error,
+                              DBUS_TYPE_STRING, &s,
+                              DBUS_TYPE_INVALID))
+        {
+            echo_reply = dbus_message_new_error (echo_message,
+                                      error.name,
+                                      error.message);
+
+            if (echo_reply == NULL)
+              die ("No memory\n");
+
+        } 
+      else
+        {  
+          echo_reply = dbus_message_new_method_return (echo_message);
+          if (echo_reply == NULL)
+            die ("No memory\n");
+  
+          if (!dbus_message_append_args (echo_reply,
+                                 DBUS_TYPE_STRING, &s,
+                                 DBUS_TYPE_INVALID))
+            die ("No memory");
+        }
+        
+      if (!dbus_connection_send (connection, echo_reply, NULL))
+        die ("No memory\n");
+      
+      dbus_message_unref (echo_reply);
+    }
+  else if (type == DBUS_MESSAGE_TYPE_ERROR)
+    {
+      dbus_set_error_from_message (&error, reply);
+      printf ("Error type in reply: %s\n", error.message);
+
+      if (strcmp (error.name, DBUS_ERROR_NO_MEMORY) != 0)
+        {
+            echo_reply = dbus_message_new_error (echo_reply,
+                                      error.name,
+                                      error.message);
+
+            if (echo_reply == NULL)
+              die ("No memory\n");
+
+            if (!dbus_connection_send (connection, echo_reply, NULL))
+              die ("No memory\n");
+
+            dbus_message_unref (echo_reply);
+        }
+      dbus_error_free (&error);
+    }
+  else
+     _dbus_assert_not_reached ("Unexpected message recived\n");
+
+  hello_from_self_reply_recived = TRUE;
+  
+  dbus_message_unref (reply);
+  dbus_message_unref (echo_message);
+  dbus_pending_call_unref (pcall);
+}
+
+static DBusHandlerResult
+handle_run_hello_from_self (DBusConnection     *connection,
+                                               DBusMessage        *message)
+{
+  DBusError error;
+  DBusMessage *reply, *self_message;
+  DBusPendingCall *pcall;
+  char *s;
+
+  _dbus_verbose ("sending reply to Echo method\n");
+  
+  dbus_error_init (&error);
+  
+  if (!dbus_message_get_args (message,
+                              &error,
+                              DBUS_TYPE_STRING, &s,
+                              DBUS_TYPE_INVALID))
+    {
+      reply = dbus_message_new_error (message,
+                                      error.name,
+                                      error.message);
+
+      if (reply == NULL)
+        die ("No memory\n");
+
+      if (!dbus_connection_send (connection, reply, NULL))
+        die ("No memory\n");
+
+      dbus_message_unref (reply);
+
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+    }
+    printf ("Sending HelloFromSelf\n");
+
+ _dbus_verbose ("*** Sending message to self\n");
+ self_message = dbus_message_new_method_call ("org.freedesktop.DBus.TestSuiteEchoService",
+                                          "/org/freedesktop/TestSuite",
+                                          "org.freedesktop.TestSuite",
+                                          "HelloFromSelf");
+  
+  if (self_message == NULL)
+    die ("No memory");
+  
+  if (!dbus_connection_send_with_reply (connection, self_message, &pcall, -1))
+    die("No memory");
+  
+  dbus_message_ref (message);
+  if (!dbus_pending_call_set_notify (pcall, check_hello_from_self_reply, (void *)message, NULL))
+    die("No memory");
+    
+  printf ("Sent HelloFromSelf\n");
+  return DBUS_HANDLER_RESULT_HANDLED;
 }
 
 static DBusHandlerResult
@@ -123,6 +273,27 @@ path_message_func (DBusConnection  *connection,
       
       return DBUS_HANDLER_RESULT_HANDLED;
     }
+    
+  else if (dbus_message_is_method_call (message,
+                                   "org.freedesktop.TestSuite",
+                                   "RunHelloFromSelf"))
+    {
+      return handle_run_hello_from_self (connection, message);
+    }
+  else if (dbus_message_is_method_call (message,
+                                        "org.freedesktop.TestSuite",
+                                        "HelloFromSelf"))
+    {
+        DBusMessage *reply;
+        printf ("Recived the HelloFromSelf message\n");
+        
+        reply = dbus_message_new_method_return (message);
+        if (reply == NULL)
+          die ("No memory");
+        
+        if (!dbus_connection_send (connection, reply, NULL))
+          die ("No memory");
+    }
   else
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
@@ -160,9 +331,9 @@ int
 main (int    argc,
       char **argv)
 {
-  DBusConnection *connection;
   DBusError error;
   int result;
+  DBusConnection *connection;
   
   dbus_error_init (&error);
   connection = dbus_bus_get (DBUS_BUS_STARTER, &error);
@@ -209,10 +380,10 @@ main (int    argc,
       dbus_error_free (&error);
       exit (1);
     }
-
+  
   _dbus_verbose ("*** Test service entering main loop\n");
   _dbus_loop_run (loop);
-
+  
   test_connection_shutdown (loop, connection);
 
   dbus_connection_remove_filter (connection, filter_func, NULL);

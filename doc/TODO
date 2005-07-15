@@ -12,10 +12,6 @@ Important for 1.0
    dbus-marshal-recursive.c (this is mostly done now, just needs some
    cleanup)
 
- - need to define bus behavior if you send a message to 
-   yourself; is it an error, or allowed? If allowed, 
-   we need to have a test for it in the test suite.
-
  - just before 1.0, try a HAVE_INT64=0 build and be sure it runs
 
  - dbus-pending-call.c has some API and thread safety issues to review

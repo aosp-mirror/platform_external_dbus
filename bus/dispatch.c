@@ -2810,6 +2810,79 @@ check_segfault_service_auto_start (BusContext     *context,
 }
 
 #define TEST_ECHO_MESSAGE "Test echo message"
+#define TEST_RUN_HELLO_FROM_SELF_MESSAGE "Test sending message to self"
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
+check_existent_hello_from_self (BusContext     *context,
+                                DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_uint32_t serial;
+  dbus_bool_t retval;
+  const char *base_service;
+  const char *text;
+
+  message = dbus_message_new_method_call (EXISTENT_SERVICE_NAME,
+                                          "/org/freedesktop/TestSuite",
+                                          "org.freedesktop.TestSuite",
+                                          "RunHelloFromSelf");
+  
+  if (message == NULL)
+    return TRUE;
+
+  text = TEST_RUN_HELLO_FROM_SELF_MESSAGE;
+  if (!dbus_message_append_args (message,
+                                 DBUS_TYPE_STRING, &text,
+                                 DBUS_TYPE_INVALID))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  bus_test_run_everything (context);
+
+  /* Note: if this test is run in OOM mode, it will block when the bus
+   * doesn't send a reply due to OOM.
+   */
+  block_connection_until_message_from_bus (context, connection, "reply from running hello from self");
+      
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Failed to pop message! Should have been reply from RunHelloFromSelf message\n");
+      goto out;
+    }
+
+  if (dbus_message_get_reply_serial (message) != serial)
+    {
+      _dbus_warn ("Wrong reply serial\n");
+      goto out;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+      
+  retval = TRUE;
+
+ out:
+  if (message)
+    dbus_message_unref (message);
+
+  return retval;
+}
+
 
 /* returns TRUE if the correct thing happens,
  * but the correct thing may include OOM errors.
@@ -2985,7 +3058,10 @@ check_existent_service_auto_start (BusContext     *context,
 
   dbus_message_unref (message);
   message = NULL;
-      
+
+  if (!check_existent_hello_from_self (context, connection))
+    goto out;
+
   if (!check_send_exit_to_service (context, connection,
                                    EXISTENT_SERVICE_NAME,
                                    base_service))
