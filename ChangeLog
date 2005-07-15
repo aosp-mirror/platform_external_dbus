@@ -1,5 +1,11 @@
 2005-07-15  John (J5) Palmieri  <johnp@redhat.com>
 
+	* python/examples/example-service.py,
+	python/examples/example-signal-emitter.py: Fixed up examples
+	for API changes
+
+2005-07-15  John (J5) Palmieri  <johnp@redhat.com>
+
 	* python/__init__.py: Upped to version (0,42,0) because of
 	the API change
 
