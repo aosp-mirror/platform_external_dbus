@@ -1,3 +1,7 @@
+2005-07-15  Colin Walters  <walters@verbum.org>
+
+	* doc/TODO: Add note about convenience wrappers.
+
 2005-07-15  John (J5) Palmieri  <johnp@redhat.com>
 
 	* NEWS: Update to 0.35
