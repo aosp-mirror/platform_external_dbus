@@ -1,5 +1,19 @@
 2005-07-15  John (J5) Palmieri  <johnp@redhat.com>
 
+	* glib/Makefile.am: Add make-dbus-glib-error-switch.sh to EXTRA_DIST
+	so distcheck doesn't fail
+
+	* glib/examples/Makefile.am: Add example-service.xml and 
+	example-signal-emitter.xml to EXTRA_DIST so distcheck doesn't fail
+
+	* glib/examples/statemachine/Makefile.am: Add statemachine.xml and
+	statemachine-server.xml to EXTRA_DIST so distcheck doesn't fail
+
+	* python/Makefile.am: Preprend $(srcdir)/ to source files so the
+	compiler looks in the right places during distcheck
+
+2005-07-15  John (J5) Palmieri  <johnp@redhat.com>
+
 	* glib/example/Makefile.am: Fix a typo which cause make distcheck
 	to fail
 

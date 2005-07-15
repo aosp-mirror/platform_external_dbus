@@ -73,7 +73,7 @@ regenerate-built-sources:
 	echo '#include "dbus-gmarshal.h"' > dbus-gmarshal.c &&					    \
         @GLIB_GENMARSHAL@ --prefix=_dbus_g_marshal dbus-gmarshal.list --body >> dbus-gmarshal.c
 
-EXTRA_DIST=dbus-gmarshal.list
+EXTRA_DIST=dbus-gmarshal.list make-dbus-glib-error-switch.sh
 
 if DBUS_BUILD_TESTS
 

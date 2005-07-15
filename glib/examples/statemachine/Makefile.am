@@ -8,7 +8,7 @@ if HAVE_GTK
 noinst_PROGRAMS += statemachine-client
 endif
 
-EXTRA_DIST = statemachine.h statemachine-server.h sm-marshal.list
+EXTRA_DIST = statemachine.h statemachine-server.h sm-marshal.list statemachine-server.xml statemachine.xml
 
 statemachine_server_SOURCES= statemachine-server.c sm-marshal.c statemachine.c
 statemachine_server_LDADD= $(top_builddir)/glib/libdbus-glib-1.la

@@ -34,3 +34,5 @@ example-signal-emitter-glue.h: example-signal-emitter.xml
 	libtool --mode=execute $(top_builddir)/glib/dbus-binding-tool --prefix=test_object --mode=glib-server --output=example-signal-emitter-glue.h $(srcdir)/example-signal-emitter.xml
 
 CLEANFILES = $(BUILT_SOURCES)
+
+EXTRA_DIST = example-service.xml example-signal-emitter.xml 
