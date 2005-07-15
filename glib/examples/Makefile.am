@@ -22,7 +22,7 @@ example-service-glue.h: example-service.xml
 
 noinst_PROGRAMS += example-signal-recipient example-signal-emitter
 
-example_signal_recipient_SOURCES=_SOURCES= example-signal-recipient.c
+example_signal_recipient_SOURCES= example-signal-recipient.c
 example_signal_recipient_LDADD= $(top_builddir)/glib/libdbus-glib-1.la
 
 example_signal_emitter_SOURCES= example-signal-emitter.c

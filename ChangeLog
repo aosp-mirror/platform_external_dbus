@@ -1,5 +1,10 @@
 2005-07-15  John (J5) Palmieri  <johnp@redhat.com>
 
+	* glib/example/Makefile.am: Fix a typo which cause make distcheck
+	to fail
+
+2005-07-15  John (J5) Palmieri  <johnp@redhat.com>
+
 	* python/examples/example-service.py,
 	python/examples/example-signal-emitter.py: Fixed up examples
 	for API changes
