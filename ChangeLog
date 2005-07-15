@@ -1,5 +1,10 @@
 2005-07-15  John (J5) Palmieri  <johnp@redhat.com>
 
+	* python/__init__.py: Upped to version (0,42,0) because of
+	the API change
+
+2005-07-15  John (J5) Palmieri  <johnp@redhat.com>
+
 	* ChangeLog: fix date in last entry
 
 	* configure.in, bus/system.conf.in: add the ability to configure 
