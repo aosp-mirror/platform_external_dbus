@@ -1,3 +1,32 @@
+D-BUS 0.35 (15 July 2005)
+===
+- --with-dbus-user added to the configure scripts for configuring the 
+  user the system bus runs on
+- --with-console-auth-dir added to configure scripts for configuring the
+  directory to look in for console user locks
+- service files for auto-starting D-Bus services now has the ability to pass
+  in command line arguments to the executable
+- Huge auto-start bug squashed which caused some services not to start when
+  requested in rapid succession
+- SE-Linux security contexts can now be appended to messages for inspection
+  by services that enforce their own security policies
+- Colin says the GLib binding are ready for general consumption
+- New GLib tutorial
+- New GLib example code
+- Python bindings are now version (0,42,0)
+- Python bindings API has changed on the service side
+- dbus.service has been split out as a seperate module
+- dbus.service.Service is renamed to dbus.service.BusName
+- dbus.service.Object has swapped the bus_name and object_path constructor
+  parameters to make it easier to do inheritance over the bus
+- dbus.glib has been seperated out in order to lessen the dependency on glib
+  and to allow other mainloops to be integrated with the bindings including
+  a planned generic mainloop for non-gui apps.
+- Python bindings now aquire the GIL when calling back into the python
+  interpreter.  Fixes crashes when using threading and other random segfaults.
+- New Python tutorial
+- Numerous D-Bus bug fixes all around
+
 D-BUS 0.34 (15 June 2005)
 ===
 - dbus_connection_disconnect is deprecated in favor of dbus_connection_close
