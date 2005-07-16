@@ -366,7 +366,7 @@ bus_selinux_check (BusSELinuxID        *sender_sid,
 {
   if (!selinux_enabled)
     return TRUE;
-  
+
   /* Make the security check.  AVC checks enforcing mode here as well. */
   if (avc_has_perm (SELINUX_SID_FROM_BUS (sender_sid),
                     override_sid ?
@@ -472,6 +472,7 @@ bus_selinux_allows_send (DBusConnection     *sender,
   unsigned long spid, tpid;
   DBusString auxdata;
   dbus_bool_t ret;
+  dbus_bool_t string_alloced;
 
   if (!selinux_enabled)
     return TRUE;
@@ -481,8 +482,10 @@ bus_selinux_allows_send (DBusConnection     *sender,
   if (!proposed_recipient || !dbus_connection_get_unix_process_id (proposed_recipient, &tpid))
     tpid = 0;
 
+  string_alloced = FALSE;
   if (!_dbus_string_init (&auxdata))
     goto oom;
+  string_alloced = TRUE;
 
   if (!_dbus_string_append (&auxdata, "msgtype="))
     goto oom;
@@ -558,7 +561,8 @@ bus_selinux_allows_send (DBusConnection     *sender,
   return ret;
 
  oom:
-  _dbus_string_free (&auxdata);
+  if (string_alloced)
+    _dbus_string_free (&auxdata);
   BUS_SET_OOM (error);
   return FALSE;
   
@@ -569,18 +573,36 @@ bus_selinux_allows_send (DBusConnection     *sender,
 
 dbus_bool_t
 bus_selinux_append_context (DBusMessage    *message,
-			    BusSELinuxID   *context)
+			    BusSELinuxID   *sid,
+			    DBusError      *error)
 {
 #ifdef HAVE_SELINUX
-  /* Note if you change how the context is marshalled (e.g. to ay),
-   * you also need to change driver.c for the appropriate return value.
-   */
-  return dbus_message_append_args (message,
-				   DBUS_TYPE_STRING,
-				   SELINUX_SID_FROM_BUS (context),
-				   DBUS_TYPE_INVALID);
+  char *context;
+
+  if (avc_sid_to_context (SELINUX_SID_FROM_BUS (sid), &context) < 0)
+    {
+      if (errno == ENOMEM)
+        BUS_SET_OOM (error);
+      else
+        dbus_set_error (error, DBUS_ERROR_FAILED,
+                        "Error getting context from SID: %s\n",
+			_dbus_strerror (errno));
+      return FALSE;
+    }
+  if (!dbus_message_append_args (message,
+				 DBUS_TYPE_ARRAY,
+				 DBUS_TYPE_BYTE,
+				 &context,
+				 strlen (context),
+				 DBUS_TYPE_INVALID))
+    {
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
+  freecon (context);
+  return TRUE;
 #else
-  return FALSE;
+  return TRUE;
 #endif
 }
 
@@ -893,14 +915,19 @@ bus_selinux_shutdown (void)
   if (!selinux_enabled)
     return;
 
-  sidput (bus_sid);
-  bus_sid = SECSID_WILD;
-  
+  _dbus_verbose ("AVC shutdown\n");
+
+  if (bus_sid != SECSID_WILD)
+    {
+      sidput (bus_sid);
+      bus_sid = SECSID_WILD;
+      
 #ifdef DBUS_ENABLE_VERBOSE_MODE
-  bus_avc_print_stats ();
+      bus_avc_print_stats ();
 #endif /* DBUS_ENABLE_VERBOSE_MODE */
 
-  avc_destroy ();
+      avc_destroy ();
+    }
 #endif /* HAVE_SELINUX */
 }
 

@@ -1015,10 +1015,10 @@ bus_driver_handle_get_connection_unix_process_id (DBusConnection *connection,
 }
 
 static dbus_bool_t
-bus_driver_handle_get_connection_unix_security_context (DBusConnection *connection,
-							BusTransaction *transaction,
-							DBusMessage    *message,
-							DBusError      *error)
+bus_driver_handle_get_connection_selinux_security_context (DBusConnection *connection,
+							   BusTransaction *transaction,
+							   DBusMessage    *message,
+							   DBusError      *error)
 {
   const char *service;
   DBusString str;
@@ -1062,13 +1062,13 @@ bus_driver_handle_get_connection_unix_security_context (DBusConnection *connecti
   if (!context)
     {
       dbus_set_error (error,
-                      DBUS_ERROR_UNIX_SECURITY_CONTEXT_UNKNOWN,
+                      DBUS_ERROR_SELINUX_SECURITY_CONTEXT_UNKNOWN,
                       "Could not determine security context for '%s'", service);
       goto failed;
     }
 
-  if (! bus_selinux_append_context (reply, context))
-    goto oom;
+  if (! bus_selinux_append_context (reply, context, error))
+    goto failed;
 
   if (! bus_transaction_send_from_driver (transaction, connection, reply))
     goto oom;
@@ -1167,10 +1167,10 @@ struct
     DBUS_TYPE_STRING_AS_STRING,
     DBUS_TYPE_UINT32_AS_STRING,
     bus_driver_handle_get_connection_unix_process_id },
-  { "GetConnectionUnixSecurityContext",
+  { "GetConnectionSELinuxSecurityContext",
     DBUS_TYPE_STRING_AS_STRING,
-    DBUS_TYPE_STRING_AS_STRING,
-    bus_driver_handle_get_connection_unix_security_context },
+    DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_BYTE_AS_STRING,
+    bus_driver_handle_get_connection_selinux_security_context },
   { "ReloadConfig",
     "",
     "",
