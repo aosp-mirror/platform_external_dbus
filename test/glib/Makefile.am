@@ -78,3 +78,8 @@ test_profile_SOURCES=				\
 
 test_profile_LDADD= $(DBUS_GLIB_THREADS_LIBS) $(top_builddir)/glib/libdbus-glib-1.la 
 endif
+
+EXTRA_DIST = \
+	my-object-marshal.list  \
+	test-service-glib.xml
+

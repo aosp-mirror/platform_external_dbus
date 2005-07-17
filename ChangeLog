@@ -1,3 +1,41 @@
+2005-07-17  John (J5) Palmieri  <johnp@redhat.com>
+
+	* NEWS: Update to 0.35.2
+
+2005-07-17  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/_dbus.py: Remove import of the dbus.services
+	module as it no longer exists (patch from Dimitur Kirov)
+
+	* python/service.py (Object::__init__): Fixed typo
+	s/name/bus_name (patch from Dimitur Kirov)
+
+	* python/examples/example-signal-emitter.py: import dbus.glib
+	to get the main loop and use glib mainloop instead of gtk so
+	X doesn't have to be running.
+
+	* python/examples/example-signal-recipient.py: import dbus.glib
+	to get the main loop and use glib mainloop instead of gtk so
+	X doesn't have to be running. Import the decorators module
+	directly.
+
+	* test/glib/Makefile.am:  Added DIST_EXTRA files that distcheck
+	didn't pick up on but are needed to build
+
+	* configure.in: upped version to 0.35.2
+
+	* bus/driver.c, bus/selinux.c, bus/selinux.h, dbus/dbus-protocol.h:
+	added Colin Walters' SELinux API rename patch from head 
+	s/unix sercurity context/selinux security context/
+
+2005-07-16  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/Makefile.am: dbus_binding.pxd.in should be included 
+	in EXTRA_DIST not dbus_binding.pxd
+	fix up $(srcdir) hopefully for the last time
+
+	* NEWS: Update to 0.35.1
+	
 2005-07-15  Colin Walters  <walters@verbum.org>
 
 	* doc/TODO: Add note about convenience wrappers.

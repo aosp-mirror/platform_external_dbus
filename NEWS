@@ -1,3 +1,15 @@
+D-BUS 0.35.2 (17 July 2005)
+===
+- Rename Unix Security Context to SELinux Security Context in API
+- Fixed more dist errors that distcheck didn't pick up on
+- Fixed various bugs in the python bindings that prevented them from working
+
+D-BUS 0.35.1 (16 July 2005)
+===
+- Fixed dist error where python/dbus_bindings.pxd was being shipped 
+  instead of dbus_bindings.pxd.in
+- Use this instead of the 0.35 tarball 
+
 D-BUS 0.35 (15 July 2005)
 ===
 - --with-dbus-user added to the configure scripts for configuring the 
