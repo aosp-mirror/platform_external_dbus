@@ -35,7 +35,26 @@
 	fix up $(srcdir) hopefully for the last time
 
 	* NEWS: Update to 0.35.1
-	
+
+2005-07-16  Colin Walters  <walters@verbum.org>
+
+	* bus/driver.c (bus_driver_handle_get_connection_selinux_security_context): Renamed
+	from bus_driver_handle_get_connection_unix_security_context.  Update for
+	error usage.
+	(message_handlers): Update for renames.
+
+	* bus/selinux.c (bus_selinux_allows_send): Handle OOM on
+	_dbus_string_init failure correctly.
+	(bus_selinux_append_context): Convert SID to context.  Append it
+	as a byte array.
+	(bus_selinux_shutdown): Handle the case where bus_selinux_full_init
+	hasn't been called.
+
+	* bus/selinux.h: Update prototype.
+
+	* dbus/dbus-protocol.h (DBUS_ERROR_SELINUX_SECURITY_CONTEXT_UNKNOWN): Renamed
+	from DBUS_ERROR_UNIX_SECURITY_CONTEXT_UNKNOWN.
+
 2005-07-15  Colin Walters  <walters@verbum.org>
 
 	* doc/TODO: Add note about convenience wrappers.
