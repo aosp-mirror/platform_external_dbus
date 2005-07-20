@@ -1,3 +1,10 @@
+2005-07-20  John (J5) Palmieir  <johnp@redhat.com>
+
+	* python/_dbus.py, _util.py, decorators.py, extract.py, matchrules.py.
+	proxies.py, service.py: Cleanup of code after running it through the
+	pyflakes code checker mostly dealing with undefined names.  
+	(Bug #3828, Patch from Anthony Baxter <anthony@interlink.com.au>)
+
 2005-07-17  John (J5) Palmieri  <johnp@redhat.com>
 
 	* NEWS: Update to 0.35.2
