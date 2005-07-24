@@ -974,6 +974,57 @@ main (int argc, char **argv)
   }
 
   {
+    GPtrArray *in_array;
+    GPtrArray *out_array;
+    char **strs;
+    GArray *uints;
+
+    in_array = g_ptr_array_new ();
+
+    strs = g_new0 (char *, 3);
+    strs[0] = "foo";
+    strs[1] = "bar";
+    strs[2] = NULL;
+    g_ptr_array_add (in_array, strs);
+
+    strs = g_new0 (char *, 4);
+    strs[0] = "baz";
+    strs[1] = "whee";
+    strs[2] = "moo";
+    strs[3] = NULL;
+    g_ptr_array_add (in_array, strs);
+
+    out_array = NULL;
+    g_print ("Calling RecArrays\n");
+    if (!dbus_g_proxy_call (proxy, "RecArrays", &error,
+			    dbus_g_type_get_collection ("GPtrArray", G_TYPE_STRV), in_array,
+			    G_TYPE_INVALID,
+			    dbus_g_type_get_collection ("GPtrArray",
+							dbus_g_type_get_collection ("GPtrArray",
+										    G_TYPE_UINT)), &out_array, 
+			    G_TYPE_INVALID))
+      lose_gerror ("Failed to complete RecArrays call", error);
+    g_free (g_ptr_array_index (in_array, 0));
+    g_free (g_ptr_array_index (in_array, 1));
+
+    g_assert (out_array);
+    g_assert (out_array->len == 2);
+    uints = g_ptr_array_index (out_array, 0);
+    g_assert (uints);
+    g_assert (uints->len == 3);
+    g_assert (g_array_index (uints, guint, 0) == 10);
+    g_assert (g_array_index (uints, guint, 1) == 42);
+    g_assert (g_array_index (uints, guint, 2) == 27);
+    g_array_free (uints, TRUE);
+    uints = g_ptr_array_index (out_array, 1);
+    g_assert (uints);
+    g_assert (uints->len == 1);
+    g_assert (g_array_index (uints, guint, 0) == 30);
+    g_array_free (uints, TRUE);
+    g_ptr_array_free (out_array, TRUE);
+  }
+
+  {
     guint val;
     char *ret_path;
     DBusGProxy *ret_proxy;

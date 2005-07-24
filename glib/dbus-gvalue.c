@@ -416,16 +416,11 @@ static GType
 signature_iter_to_g_type_array (DBusSignatureIter *iter, gboolean is_client)
 {
   GType elt_gtype;
-  DBusGTypeMarshalData *typedata;
 
   elt_gtype = dbus_gtype_from_signature_iter (iter, is_client);
   if (elt_gtype == G_TYPE_INVALID)
     return G_TYPE_INVALID;
 
-  typedata = g_type_get_qdata (elt_gtype, dbus_g_type_metadata_data_quark ());
-  if (typedata == NULL)
-    return G_TYPE_INVALID;
-  
   if (elt_gtype == G_TYPE_OBJECT)
     return DBUS_TYPE_G_OBJECT_ARRAY;
   if (elt_gtype == G_TYPE_STRING)

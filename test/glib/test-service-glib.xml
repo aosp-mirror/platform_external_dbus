@@ -90,6 +90,11 @@
       <arg type="a{ss}" direction="out"/>
     </method>
 
+    <method name="RecArrays">
+      <arg type="aas" name="val" direction="in"/>
+      <arg type="aau" direction="out"/>
+    </method>
+
     <method name="Objpath">
       <arg type="o" direction="in"/>
       <arg type="o" direction="out">
