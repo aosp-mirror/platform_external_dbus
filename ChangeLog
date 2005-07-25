@@ -1,3 +1,8 @@
+2005-07-25  Ross Burton  <ross@openedhand.com>
+
+	* glib/dbus-gproxy.c:
+	Remove matches when all proxies are unregistered.
+
 2005-07-24  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-gvalue.c (signature_iter_to_g_type_array): Don't require

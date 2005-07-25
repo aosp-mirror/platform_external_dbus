@@ -1020,9 +1020,15 @@ dbus_g_proxy_manager_unregister (DBusGProxyManager *manager,
 
   if (list->proxies == NULL)
     {
+      char *rule;
       g_hash_table_remove (manager->proxy_lists,
                            tri);
       list = NULL;
+
+      rule = g_proxy_get_match_rule (proxy);
+      dbus_bus_remove_match (manager->connection,
+                             rule, NULL);
+      g_free (rule);
     }
   
   if (g_hash_table_size (manager->proxy_lists) == 0)
