@@ -510,7 +510,7 @@ dbus_message_finalize (DBusMessage *message)
  */
 
 /** Avoid caching huge messages */
-#define MAX_MESSAGE_SIZE_TO_CACHE _DBUS_ONE_MEGABYTE
+#define MAX_MESSAGE_SIZE_TO_CACHE 10 * _DBUS_ONE_KILOBYTE
 
 /** Avoid caching too many messages */
 #define MAX_MESSAGE_CACHE_SIZE    5
