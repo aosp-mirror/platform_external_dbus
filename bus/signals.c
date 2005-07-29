@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* signals.c  Bus signal connection implementation
  *
- * Copyright (C) 2003  Red Hat, Inc.
+ * Copyright (C) 2003, 2005  Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
  *
@@ -39,6 +39,9 @@ struct BusMatchRule
   char *sender;
   char *destination;
   char *path;
+
+  char **args;
+  int args_len;
 };
 
 BusMatchRule*
@@ -83,11 +86,33 @@ bus_match_rule_unref (BusMatchRule *rule)
       dbus_free (rule->sender);
       dbus_free (rule->destination);
       dbus_free (rule->path);
+
+      /* can't use dbus_free_string_array() since there
+       * are embedded NULL
+       */
+      if (rule->args)
+        {
+          int i;
+
+          i = 0;
+          while (i < rule->args_len)
+            {
+              if (rule->args[i])
+                dbus_free (rule->args[i]);
+              ++i;
+            }
+
+          dbus_free (rule->args);
+        }
+      
       dbus_free (rule);
     }
 }
 
 #ifdef DBUS_ENABLE_VERBOSE_MODE
+/* Note this function does not do escaping, so it's only
+ * good for debug spew at the moment
+ */
 static char*
 match_rule_to_string (BusMatchRule *rule)
 {
@@ -167,6 +192,34 @@ match_rule_to_string (BusMatchRule *rule)
       
       if (!_dbus_string_append_printf (&str, "destination='%s'", rule->destination))
         goto nomem;
+    }
+
+  if (rule->flags & BUS_MATCH_ARGS)
+    {
+      int i;
+      
+      _dbus_assert (rule->args != NULL);
+
+      i = 0;
+      while (i < rule->args_len)
+        {
+          if (rule->args[i] != NULL)
+            {
+              if (_dbus_string_get_length (&str) > 0)
+                {
+                  if (!_dbus_string_append (&str, ","))
+                    goto nomem;
+                }
+              
+              if (!_dbus_string_append_printf (&str,
+                                               "arg%d='%s'",
+                                               i,
+                                               rule->args[i]))
+                goto nomem;
+            }
+          
+          ++i;
+        }
     }
   
   if (!_dbus_string_steal_data (&str, &ret))
@@ -288,6 +341,62 @@ bus_match_rule_set_path (BusMatchRule *rule,
   rule->flags |= BUS_MATCH_PATH;
   dbus_free (rule->path);
   rule->path = new;
+
+  return TRUE;
+}
+
+dbus_bool_t
+bus_match_rule_set_arg (BusMatchRule *rule,
+                        int           arg,
+                        const char   *value)
+{
+  char *new;
+
+  _dbus_assert (value != NULL);
+
+  new = _dbus_strdup (value);
+  if (new == NULL)
+    return FALSE;
+
+  /* args_len is the number of args not including null termination
+   * in the char**
+   */
+  if (arg >= rule->args_len)
+    {
+      char **new_args;
+      int new_args_len;
+      int i;
+
+      new_args_len = arg + 1;
+
+      /* add another + 1 here for null termination */
+      new_args = dbus_realloc (rule->args,
+                               sizeof(rule->args[0]) * (new_args_len + 1));
+      if (new_args == NULL)
+        {
+          dbus_free (new);
+          return FALSE;
+        }
+
+      /* NULL the new slots */
+      i = rule->args_len;
+      while (i <= new_args_len) /* <= for null termination */
+        {
+          new_args[i] = NULL;
+          ++i;
+        }
+      
+      rule->args = new_args;
+      rule->args_len = new_args_len;
+    }
+
+  rule->flags |= BUS_MATCH_ARGS;
+
+  dbus_free (rule->args[arg]);
+  rule->args[arg] = new;
+
+  /* NULL termination didn't get busted */
+  _dbus_assert (rule->args[rule->args_len] == NULL);
 
   return TRUE;
 }
@@ -478,6 +587,8 @@ find_value (const DBusString *str,
 
 /* duplicates aren't allowed so the real legitimate max is only 6 or
  * so. Leaving extra so we don't have to bother to update it.
+ * FIXME this is sort of busted now with arg matching, but we let
+ * you match on up to 10 args for now
  */
 #define MAX_RULE_TOKENS 16
 
@@ -569,6 +680,72 @@ tokenize_rule (const DBusString *rule_text,
   _dbus_string_free (&value);
   
   return retval;
+}
+
+static dbus_bool_t
+bus_match_rule_parse_arg_match (BusMatchRule     *rule,
+                                const char       *key,
+                                const DBusString *value,
+                                DBusError        *error)
+{
+  DBusString key_str;
+  unsigned long arg;
+  int end;
+
+  /* For now, arg0='foo' always implies that 'foo' is a
+   * DBUS_TYPE_STRING. Someday we could add an arg0type='int32' thing
+   * if we wanted, which would specify another type, in which case
+   * arg0='5' would have the 5 parsed as an int rather than string.
+   */
+  
+  /* First we need to parse arg0 = 0, arg27 = 27 */
+
+  _dbus_string_init_const (&key_str, key);
+
+  if (_dbus_string_get_length (&key_str) < 4)
+    {
+      dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                      "Key '%s' in match rule starts with 'arg' but lacks an arg number. Should be 'arg0' or 'arg7' for example.\n", key);
+      goto failed;
+    }
+
+  if (!_dbus_string_parse_uint (&key_str, 3, &arg, &end) ||
+      end != _dbus_string_get_length (&key_str))
+    {
+      dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                      "Key '%s' in match rule starts with 'arg' but could not parse arg number. Should be 'arg0' or 'arg7' for example.\n", key);
+      goto failed;
+    }
+
+  /* If we didn't check this we could allocate a huge amount of RAM */
+  if (arg > DBUS_MAXIMUM_MATCH_RULE_ARG_NUMBER)
+    {
+      dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                      "Key '%s' in match rule has arg number %lu but the maximum is %d.\n", key, (unsigned long) arg, DBUS_MAXIMUM_MATCH_RULE_ARG_NUMBER);
+      goto failed;
+    }
+  
+  if ((rule->flags & BUS_MATCH_ARGS) &&
+      rule->args_len > (int) arg &&
+      rule->args[arg] != NULL)
+    {
+      dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                      "Key '%s' specified twice in match rule\n", key);
+      goto failed;
+    }
+  
+  if (!bus_match_rule_set_arg (rule, arg,
+                               _dbus_string_get_const_data (value)))
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+
+  return TRUE;
+
+ failed:
+  _DBUS_ASSERT_ERROR_IS_SET (error);
+  return FALSE;
 }
 
 /*
@@ -758,6 +935,11 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
               goto failed;
             }
         }
+      else if (strncmp (key, "arg", 3) == 0)
+        {
+          if (!bus_match_rule_parse_arg_match (rule, key, &tmp_str, error))
+            goto failed;
+        }
       else
         {
           dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
@@ -909,6 +1091,30 @@ match_rule_equal (BusMatchRule *a,
       strcmp (a->destination, b->destination) != 0)
     return FALSE;
 
+  if (a->flags & BUS_MATCH_ARGS)
+    {
+      int i;
+      
+      if (a->args_len != b->args_len)
+        return FALSE;
+      
+      i = 0;
+      while (i < a->args_len)
+        {
+          if ((a->args[i] != NULL) != (b->args[i] != NULL))
+            return FALSE;
+
+          if (a->args[i] != NULL)
+            {
+              _dbus_assert (b->args[i] != NULL);
+              if (strcmp (a->args[i], b->args[i]) != 0)
+                return FALSE;
+            }
+          
+          ++i;
+        }
+    }
+  
   return TRUE;
 }
 
@@ -1073,7 +1279,6 @@ connection_is_primary_owner (DBusConnection *connection,
 
 static dbus_bool_t
 match_rule_matches (BusMatchRule    *rule,
-                    BusConnections  *connections,
                     DBusConnection  *sender,
                     DBusConnection  *addressed_recipient,
                     DBusMessage     *message)
@@ -1177,6 +1382,47 @@ match_rule_matches (BusMatchRule    *rule,
         return FALSE;
     }
 
+  if (rule->flags & BUS_MATCH_ARGS)
+    {
+      int i;
+      DBusMessageIter iter;
+      
+      _dbus_assert (rule->args != NULL);
+
+      dbus_message_iter_init (message, &iter);
+      
+      i = 0;
+      while (i < rule->args_len)
+        {
+          int current_type;
+          const char *expected_arg;
+
+          expected_arg = rule->args[i];
+          
+          current_type = dbus_message_iter_get_arg_type (&iter);
+
+          if (expected_arg != NULL)
+            {
+              const char *actual_arg;
+              
+              if (current_type != DBUS_TYPE_STRING)
+                return FALSE;
+
+              actual_arg = NULL;
+              dbus_message_iter_get_basic (&iter, &actual_arg);
+              _dbus_assert (actual_arg != NULL);
+
+              if (strcmp (expected_arg, actual_arg) != 0)
+                return FALSE;
+            }
+          
+          if (current_type != DBUS_TYPE_INVALID)
+            dbus_message_iter_next (&iter);
+
+          ++i;
+        }
+    }
+  
   return TRUE;
 }
 
@@ -1228,7 +1474,7 @@ bus_matchmaker_get_recipients (BusMatchmaker   *matchmaker,
       }
 #endif
       
-      if (match_rule_matches (rule, connections,
+      if (match_rule_matches (rule,
                               sender, addressed_recipient, message))
         {
           _dbus_verbose ("Rule matched\n");
@@ -1363,15 +1609,112 @@ test_parsing (void *data)
       bus_match_rule_unref (rule);
     }
 
+  /* argN */
+  rule = check_parse (TRUE, "arg0='foo'");
+  if (rule != NULL)
+    {
+      _dbus_assert (rule->flags == BUS_MATCH_ARGS);
+      _dbus_assert (rule->args != NULL);
+      _dbus_assert (rule->args_len == 1);
+      _dbus_assert (rule->args[0] != NULL);
+      _dbus_assert (rule->args[1] == NULL);
+      _dbus_assert (strcmp (rule->args[0], "foo") == 0);
+
+      bus_match_rule_unref (rule);
+    }
+  
+  rule = check_parse (TRUE, "arg1='foo'");
+  if (rule != NULL)
+    {
+      _dbus_assert (rule->flags == BUS_MATCH_ARGS);
+      _dbus_assert (rule->args != NULL);
+      _dbus_assert (rule->args_len == 2);
+      _dbus_assert (rule->args[0] == NULL);
+      _dbus_assert (rule->args[1] != NULL);
+      _dbus_assert (rule->args[2] == NULL);
+      _dbus_assert (strcmp (rule->args[1], "foo") == 0);
+
+      bus_match_rule_unref (rule);
+    }
+
+  rule = check_parse (TRUE, "arg2='foo'");
+  if (rule != NULL)
+    {
+      _dbus_assert (rule->flags == BUS_MATCH_ARGS);
+      _dbus_assert (rule->args != NULL);
+      _dbus_assert (rule->args_len == 3);
+      _dbus_assert (rule->args[0] == NULL);
+      _dbus_assert (rule->args[1] == NULL);
+      _dbus_assert (rule->args[2] != NULL);
+      _dbus_assert (rule->args[3] == NULL);
+      _dbus_assert (strcmp (rule->args[2], "foo") == 0);
+
+      bus_match_rule_unref (rule);
+    }
+  
+  rule = check_parse (TRUE, "arg40='foo'");
+  if (rule != NULL)
+    {
+      _dbus_assert (rule->flags == BUS_MATCH_ARGS);
+      _dbus_assert (rule->args != NULL);
+      _dbus_assert (rule->args_len == 41);
+      _dbus_assert (rule->args[0] == NULL);
+      _dbus_assert (rule->args[1] == NULL);
+      _dbus_assert (rule->args[40] != NULL);
+      _dbus_assert (rule->args[41] == NULL);
+      _dbus_assert (strcmp (rule->args[40], "foo") == 0);
+
+      bus_match_rule_unref (rule);
+    }
+  
+  rule = check_parse (TRUE, "arg63='foo'");
+  if (rule != NULL)
+    {
+      _dbus_assert (rule->flags == BUS_MATCH_ARGS);
+      _dbus_assert (rule->args != NULL);
+      _dbus_assert (rule->args_len == 64);
+      _dbus_assert (rule->args[0] == NULL);
+      _dbus_assert (rule->args[1] == NULL);
+      _dbus_assert (rule->args[63] != NULL);
+      _dbus_assert (rule->args[64] == NULL);
+      _dbus_assert (strcmp (rule->args[63], "foo") == 0);
+
+      bus_match_rule_unref (rule);
+    }
+  
+  /* Too-large argN */
+  rule = check_parse (FALSE, "arg300='foo'");
+  _dbus_assert (rule == NULL);
+  rule = check_parse (FALSE, "arg64='foo'");
+  _dbus_assert (rule == NULL);
+
+  /* No N in argN */
+  rule = check_parse (FALSE, "arg='foo'");
+  _dbus_assert (rule == NULL);
+  rule = check_parse (FALSE, "argv='foo'");
+  _dbus_assert (rule == NULL);
+  rule = check_parse (FALSE, "arg3junk='foo'");
+  _dbus_assert (rule == NULL);
+  rule = check_parse (FALSE, "argument='foo'");
+  _dbus_assert (rule == NULL);
+  
   /* Reject duplicates */
   rule = check_parse (FALSE, "type='signal',type='method_call'");
   _dbus_assert (rule == NULL);
 
+  /* Duplicates with the argN code */
+  rule = check_parse (FALSE, "arg0='foo',arg0='bar'");
+  _dbus_assert (rule == NULL);
+  rule = check_parse (FALSE, "arg3='foo',arg3='bar'");
+  _dbus_assert (rule == NULL);
+  rule = check_parse (FALSE, "arg30='foo',arg30='bar'");
+  _dbus_assert (rule == NULL);
+  
   /* Reject broken keys */
   rule = check_parse (FALSE, "blah='signal'");
   _dbus_assert (rule == NULL);
 
-  /* Reject broken valuess */
+  /* Reject broken values */
   rule = check_parse (FALSE, "type='chouin'");
   _dbus_assert (rule == NULL);
   rule = check_parse (FALSE, "interface='abc@def++'");
@@ -1400,8 +1743,189 @@ test_parsing (void *data)
   /* But with non-whitespace chars and no =value, it's not OK */
   rule = check_parse (FALSE, "type");
   _dbus_assert (rule == NULL);
-
+  
   return TRUE;
+}
+
+static struct {
+  const char *first;
+  const char *second;
+} equality_tests[] = {
+  { "type='signal'", "type='signal'" },
+  { "type='signal',interface='foo.bar'", "interface='foo.bar',type='signal'" },
+  { "type='signal',member='bar'", "member='bar',type='signal'" },
+  { "type='method_call',sender=':1.0'", "sender=':1.0',type='method_call'" },
+  { "type='method_call',destination=':1.0'", "destination=':1.0',type='method_call'" },
+  { "type='method_call',path='/foo/bar'", "path='/foo/bar',type='method_call'" },
+  { "type='method_call',arg0='blah'", "arg0='blah',type='method_call'" },
+  { "type='method_call',arg0='boo'", "arg0='boo',type='method_call'" },
+  { "type='method_call',arg0='blah',arg1='baz'", "arg0='blah',arg1='baz',type='method_call'" },
+  { "type='method_call',arg3='foosh'", "arg3='foosh',type='method_call'" },
+  { "arg3='fool'", "arg3='fool'" },
+  { "member='food'", "member='food'" }
+};
+
+static void
+test_equality (void)
+{
+  int i;
+  
+  i = 0;
+  while (i < _DBUS_N_ELEMENTS (equality_tests))
+    {
+      BusMatchRule *first;
+      BusMatchRule *second;
+      int j;
+      
+      first = check_parse (TRUE, equality_tests[i].first);
+      _dbus_assert (first != NULL);
+      second = check_parse (TRUE, equality_tests[i].second);
+      _dbus_assert (second != NULL);
+
+      if (!match_rule_equal (first, second))
+        {
+          _dbus_warn ("rule %s and %s should have been equal\n",
+                      equality_tests[i].first,
+                      equality_tests[i].second);
+          exit (1);
+        }
+
+      bus_match_rule_unref (second);
+
+      /* Check that the rule is not equal to any of the
+       * others besides its pair match
+       */
+      j = 0;
+      while (j < _DBUS_N_ELEMENTS (equality_tests))
+        {
+          if (i != j)
+            {
+              second = check_parse (TRUE, equality_tests[j].second);
+
+              if (match_rule_equal (first, second))
+                {
+                  _dbus_warn ("rule %s and %s should not have been equal\n",
+                              equality_tests[i].first,
+                              equality_tests[j].second);
+                  exit (1);
+                }
+              
+              bus_match_rule_unref (second);
+            }
+          
+          ++j;
+        }
+
+      bus_match_rule_unref (first);
+
+      ++i;
+    }
+}
+
+static const char*
+should_match_message_1[] = {
+  "type='signal'",
+  "member='Frobated'",
+  "arg0='foobar'",
+  "type='signal',member='Frobated'",
+  "type='signal',member='Frobated',arg0='foobar'",
+  "member='Frobated',arg0='foobar'",
+  "type='signal',arg0='foobar'",
+  NULL
+};
+
+static const char*
+should_not_match_message_1[] = {
+  "type='method_call'",
+  "type='error'",
+  "type='method_return'",
+  "type='signal',member='Oopsed'",
+  "arg0='blah'",
+  "arg1='foobar'",
+  "arg2='foobar'",
+  "arg3='foobar'",
+  "arg0='3'",
+  "arg1='3'",
+  "arg0='foobar',arg1='abcdef'",
+  "arg0='foobar',arg1='abcdef',arg2='abcdefghi',arg3='abcdefghi',arg4='abcdefghi'",
+  "arg0='foobar',arg1='abcdef',arg4='abcdefghi',arg3='abcdefghi',arg2='abcdefghi'",
+  NULL
+};
+
+static void
+check_matches (dbus_bool_t  expected_to_match,
+               int          number,
+               DBusMessage *message,
+               const char  *rule_text)
+{
+  BusMatchRule *rule;
+  dbus_bool_t matched;
+
+  rule = check_parse (TRUE, rule_text);
+  _dbus_assert (rule != NULL);
+
+  /* We can't test sender/destination rules since we pass NULL here */
+  matched = match_rule_matches (rule, NULL, NULL, message);
+
+  if (matched != expected_to_match)
+    {
+      _dbus_warn ("Expected rule %s to %s message %d, failed\n",
+                  rule_text, expected_to_match ?
+                  "match" : "not match", number);
+      exit (1);
+    }
+
+  bus_match_rule_unref (rule);
+}
+
+static void
+check_matching (DBusMessage *message,
+                int          number,
+                const char **should_match,
+                const char **should_not_match)
+{
+  int i;
+
+  i = 0;
+  while (should_match[i] != NULL)
+    {
+      check_matches (TRUE, number, message, should_match[i]);
+      ++i;
+    }
+
+  i = 0;
+  while (should_not_match[i] != NULL)
+    {
+      check_matches (FALSE, number, message, should_not_match[i]);
+      ++i;
+    }
+}
+
+static void
+test_matching (void)
+{
+  DBusMessage *message1;
+  const char *v_STRING;
+  dbus_int32_t v_INT32;
+
+  message1 = dbus_message_new (DBUS_MESSAGE_TYPE_SIGNAL);
+  _dbus_assert (message1 != NULL);
+  if (!dbus_message_set_member (message1, "Frobated"))
+    _dbus_assert_not_reached ("oom");
+
+  v_STRING = "foobar";
+  v_INT32 = 3;
+  if (!dbus_message_append_args (message1,
+                                 DBUS_TYPE_STRING, &v_STRING,
+                                 DBUS_TYPE_INT32, &v_INT32,
+                                 NULL))
+    _dbus_assert_not_reached ("oom");
+  
+  check_matching (message1, 1,
+                  should_match_message_1,
+                  should_not_match_message_1);
+  
+  dbus_message_unref (message1);
 }
 
 dbus_bool_t
@@ -1416,6 +1940,10 @@ bus_signals_test (const DBusString *test_data_dir)
 
   if (!_dbus_test_oom_handling ("parsing match rules", test_parsing, NULL))
     _dbus_assert_not_reached ("Parsing match rules test failed");
+
+  test_equality ();
+
+  test_matching ();
   
   return TRUE;
 }

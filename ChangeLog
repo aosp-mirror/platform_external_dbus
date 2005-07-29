@@ -1,3 +1,15 @@
+2005-07-29  Havoc Pennington  <hp@redhat.com>
+
+	* bus/signals.c (bus_signals_test): add match_rule_equal() tests
+	(match_rule_matches): remove unused arg
+	(test_matching): add tests for match_rule_matches()
+
+	* bus/signals.c (bus_match_rule_parse_arg_match): add ability to
+	do arg0='foo' arg5='bar' in the match rules
+	(match_rule_matches): don't match if the arg0='foo' doesn't match.
+
+	* dbus/dbus-protocol.h (DBUS_MAXIMUM_MATCH_RULE_ARG_NUMBER): add this
+
 2005-07-29  Ross Burton  <ross@openedhand.com>
 
 	* dbus/dbus-connection.c:

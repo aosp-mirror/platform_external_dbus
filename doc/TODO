@@ -127,6 +127,9 @@ Can Be Post 1.0
 
  - optimization and profiling!
 
+ - Match rules aren't in the spec (probably a lot of methods on the bus
+   are not)
+
 Should Be Post 1.0
 ===
 
