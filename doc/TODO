@@ -21,8 +21,6 @@ Important for 1.0
 
  - Add a test case for handling the Ping message 
 
- - Add match on args or match on details to match rules
-
 Important for 1.0 GLib Bindings
 ===
 
