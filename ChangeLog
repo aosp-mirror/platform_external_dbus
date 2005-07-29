@@ -1,3 +1,8 @@
+2005-07-29  Ross Burton  <ross@openedhand.com>
+
+	* dbus/dbus-connection.c:
+	Don't create a DBusCondVar which is never used.
+
 2005-07-27  Ross Burton  <ross@openedhand.com>
 
 	* dbus/dbus-message.c:

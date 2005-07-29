@@ -1076,7 +1076,6 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   DBusMutex *mutex;
   DBusMutex *io_path_mutex;
   DBusMutex *dispatch_mutex;
-  DBusCondVar *message_returned_cond;
   DBusCondVar *dispatch_cond;
   DBusCondVar *io_path_cond;
   DBusList *disconnect_link;
@@ -1091,7 +1090,6 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   mutex = NULL;
   io_path_mutex = NULL;
   dispatch_mutex = NULL;
-  message_returned_cond = NULL;
   dispatch_cond = NULL;
   io_path_cond = NULL;
   disconnect_link = NULL;
@@ -1128,10 +1126,6 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
 
   dispatch_mutex = _dbus_mutex_new ();
   if (dispatch_mutex == NULL)
-    goto error;
-  
-  message_returned_cond = _dbus_condvar_new ();
-  if (message_returned_cond == NULL)
     goto error;
   
   dispatch_cond = _dbus_condvar_new ();
@@ -1213,9 +1207,6 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   
   if (dispatch_cond != NULL)
     _dbus_condvar_free (dispatch_cond);
-  
-  if (message_returned_cond != NULL)
-    _dbus_condvar_free (message_returned_cond);
   
   if (mutex != NULL)
     _dbus_mutex_free (mutex);
