@@ -1,5 +1,10 @@
 2005-07-29  Havoc Pennington  <hp@redhat.com>
 
+	* test/glib/test-profile.c (write_junk): initialize the junk
+	buffer so valgrind doesn't have a breakdown
+
+2005-07-29  Havoc Pennington  <hp@redhat.com>
+
 	* bus/signals.c (bus_signals_test): add match_rule_equal() tests
 	(match_rule_matches): remove unused arg
 	(test_matching): add tests for match_rule_matches()

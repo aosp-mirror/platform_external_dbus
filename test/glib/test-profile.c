@@ -48,7 +48,7 @@
  */
 #define N_CLIENT_THREADS 1
 /* It seems like at least 750000 or so iterations reduces the variability to sane levels */
-#define N_ITERATIONS 750000
+#define N_ITERATIONS 25000
 #define N_PROGRESS_UPDATES 20
 /* Don't make PAYLOAD_SIZE too huge because it gets used as a static buffer size */
 #define PAYLOAD_SIZE 0
@@ -654,7 +654,7 @@ write_junk (int fd,
   int val;
   char *buf;
   char *allocated;
-  char not_allocated[512+PAYLOAD_SIZE];
+  char not_allocated[512+PAYLOAD_SIZE] = { '\0', };
 
   g_assert (count < (int) sizeof(not_allocated));
   
@@ -978,6 +978,7 @@ plain_sockets_thread_func (void *data)
 
   cd.iterations = 1;
   cd.loop = g_main_loop_new (context, FALSE);
+  cd.vtable = data;
 
   channel = g_io_channel_unix_new (fd);
   

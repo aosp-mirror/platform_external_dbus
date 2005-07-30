@@ -28,6 +28,13 @@ Important for 1.0 GLib Bindings
 
  - Add support for getting sender
 
+ - format_version in the object info doesn't look like it's handled correctly. The creator
+   of the object info should specify some fixed number per struct version; the library
+   should handle only specific numbers it knows about. There's no assumption that all 
+   numbers >= the given one are compatible. The idea is that new versions of the lib
+   can offer totally different object info structs, but old versions
+   keep working.
+
 Important for 1.0 Python bindings
 ===
 
