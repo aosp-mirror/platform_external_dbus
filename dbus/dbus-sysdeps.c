@@ -1193,8 +1193,6 @@ _dbus_check_dir_is_private_to_user (DBusString *dir, DBusError *error)
   return TRUE;
 }
 
-#ifdef DBUS_BUILD_TESTS
-/* Not currently used, so only built when tests are enabled */
 /**
  * Parses an unsigned integer contained in a DBusString. Either return
  * parameter may be #NULL if you aren't interested in it. The integer
@@ -1233,7 +1231,6 @@ _dbus_string_parse_uint (const DBusString *str,
 
   return TRUE;
 }
-#endif /* DBUS_BUILD_TESTS */
 
 #ifdef DBUS_BUILD_TESTS
 static dbus_bool_t
