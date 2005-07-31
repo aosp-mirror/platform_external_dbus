@@ -21,6 +21,8 @@ Important for 1.0
 
  - Add a test case for handling the Ping message 
 
+ - publish the introspection dtd at its URL
+ 
 Important for 1.0 GLib Bindings
 ===
 
