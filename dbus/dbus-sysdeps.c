@@ -1161,6 +1161,7 @@ _dbus_string_parse_int (const DBusString *str,
 * Checks to make sure the given directory is 
 * private to the user 
 *
+* @param dir the name of the directory
 * @param error error return
 * @returns #FALSE on failure
 **/

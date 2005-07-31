@@ -2292,7 +2292,7 @@ dbus_g_proxy_begin_call (DBusGProxy          *proxy,
  * The list should be terminated with G_TYPE_INVALID.
  *
  * @param proxy a proxy for a remote interface
- * @param call_id the pending call ID from dbus_g_proxy_begin_call()
+ * @param call the pending call ID from dbus_g_proxy_begin_call()
  * @param error return location for an error
  * @param first_arg_type type of first "out" argument
  * @returns #FALSE if an error is set
@@ -2412,7 +2412,7 @@ dbus_g_proxy_call_no_reply (DBusGProxy               *proxy,
  * ended with dbus_g_proxy_end_call.
  *
  * @param proxy a proxy for a remote interface
- * @param call_id the pending call ID from dbus_g_proxy_begin_call()
+ * @param call the pending call ID from dbus_g_proxy_begin_call()
  */
 void
 dbus_g_proxy_cancel_call (DBusGProxy        *proxy,

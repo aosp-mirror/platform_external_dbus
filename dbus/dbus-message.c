@@ -2434,6 +2434,7 @@ dbus_message_get_path (DBusMessage   *message)
  * Checks if the message has a path
  *
  * @param message the message
+ * @param path the path name
  * @returns #TRUE if there is a path field in the header
  */
 dbus_bool_t
@@ -2554,6 +2555,7 @@ dbus_message_get_interface (DBusMessage *message)
  * Checks if the message has an interface
  *
  * @param message the message
+ * @param interface the interface name
  * @returns #TRUE if there is a interface field in the header
  */
 dbus_bool_t
@@ -2634,6 +2636,7 @@ dbus_message_get_member (DBusMessage *message)
  * Checks if the message has an interface member
  *
  * @param message the message
+ * @param member the member name
  * @returns #TRUE if there is a member field in the header
  */
 dbus_bool_t

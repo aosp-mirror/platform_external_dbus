@@ -35,7 +35,9 @@ typedef struct
 } DBusSignatureRealIter;
 
 /**
- * @addtogroup DBusSignature
+ * @defgroup DBusSignature Type signature parsing
+ * @ingroup  DBus
+ * @brief Parsing D-BUS type signatures
  * @{
  */
 
@@ -200,7 +202,7 @@ dbus_signature_iter_recurse (const DBusSignatureIter *iter,
  * Check a type signature for validity.
  *
  * @param signature a potentially invalid type signature
- * @error error return
+ * @param error error return
  * @returns TRUE iif signature is valid
  */
 dbus_bool_t
@@ -222,7 +224,7 @@ dbus_signature_validate (const char       *signature,
  * one complete type.
  *
  * @param signature a potentially invalid type signature
- * @error error return
+ * @param error error return
  * @returns TRUE iif signature is valid and has exactly one complete type
  */
 dbus_bool_t

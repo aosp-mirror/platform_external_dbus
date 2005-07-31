@@ -1,5 +1,9 @@
 2005-07-30  Havoc Pennington  <hp@redhat.com>
 
+	* fix a bunch of Doxygen warnings and mistakes
+
+2005-07-30  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-sysdeps.c (_dbus_string_parse_uint): remove #ifdef
 	DBUS_BUILD_TESTS since it's now used in production code
 

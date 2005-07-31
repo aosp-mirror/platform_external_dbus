@@ -1826,7 +1826,7 @@ dbus_g_object_register_marshaller (GClosureMarshal  marshaller,
  * @param marshaller a GClosureMarshal to be used for invocation
  * @param rettype a GType for the return type of the function
  * @param n_types number of function parameters
- * @param param_types a C array of GTypes values
+ * @param types a C array of GTypes values
  */
 void
 dbus_g_object_register_marshaller_array (GClosureMarshal  marshaller,

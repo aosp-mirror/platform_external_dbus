@@ -135,7 +135,7 @@ dbus_g_error_quark (void)
  * than DBUS_GERROR or a code other than
  * DBUS_GERROR_REMOTE_EXCEPTION).
  *
- * @param gerror the GError given from the remote method
+ * @param error the GError given from the remote method
  * @param name the D-BUS error name
  * @param msg the D-BUS error detailed message
  * @returns TRUE iff the remote error has the given name
@@ -159,7 +159,7 @@ dbus_g_error_has_name (GError *error, const char *name)
  * Moreover, you must ensure that the error's domain is DBUS_GERROR,
  * and the code is DBUS_GERROR_REMOTE_EXCEPTION.
  *
- * @param gerror the GError given from the remote method
+ * @param error the GError given from the remote method
  * @param name the D-BUS error name
  * @param msg the D-BUS error detailed message
  * @returns the D-BUS error name
