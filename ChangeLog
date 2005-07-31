@@ -1,3 +1,8 @@
+2005-07-31  Havoc Pennington  <hp@redhat.com>
+
+	* tools/dbus-viewer.c (load_child_nodes): fix invocation of
+	dbus_g_proxy_call, fix from Piotr Zielinski bug #3920
+
 2005-07-30  Havoc Pennington  <hp@redhat.com>
 
 	* fix a bunch of Doxygen warnings and mistakes

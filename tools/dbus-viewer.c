@@ -182,8 +182,8 @@ load_child_nodes (const char *service_name,
         }
   
       if (!dbus_g_proxy_call (proxy, "Introspect", error,
+                              G_TYPE_INVALID,
 			      G_TYPE_STRING, &data,
-			      G_TYPE_INVALID,
 			      G_TYPE_INVALID))
 	  goto done;
       
