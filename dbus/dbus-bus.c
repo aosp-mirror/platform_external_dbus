@@ -55,10 +55,6 @@
  * Block of message-bus-related data we attach to each
  * #DBusConnection used with these convenience functions.
  *
- *
- * @todo get rid of most of these; they should be done
- * with DBusGProxy and the Qt equivalent, i.e. the same
- * way any other interface would be used.
  */
 typedef struct
 {
@@ -623,14 +619,61 @@ dbus_bus_get_unix_user (DBusConnection *connection,
 
 
 /**
- * Asks the bus to assign the given name to this connection.
+ * Asks the bus to assign the given name to this connection by invoking
+ * the RequestName method on the bus. This method is fully documented
+ * in the D-BUS specification. For quick reference, the flags and
+ * result codes are discussed here, but the specification is the
+ * canonical version of this information.
  *
- * @todo these docs are not complete, need to document the
- * return value and flags
+ * The #DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT flag indicates that
+ * if the name is successfully requested, other applications
+ * will not be able to take over the name. i.e. the name's
+ * owner (the application calling this function) must let go of
+ * the name, it will not lose it involuntarily.
+ *
+ * The #DBUS_NAME_FLAG_REPLACE_EXISTING flag indicates that the caller
+ * would like to take over the name from the current owner.
+ * If the current name owner used #DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT
+ * then this flag indicates that the caller would like to be placed
+ * in the queue to own the name when the current owner lets go.
+ *
+ * If no flags are given, an application will receive the requested
+ * name only if the name is currently unowned; and it will give
+ * up the name if another application asks to take it over using
+ * #DBUS_NAME_FLAG_REPLACE_EXISTING.
+ *
+ * This function returns a result code. The possible result codes
+ * are as follows.
  * 
- * @todo if we get an error reply, it has to be converted into
- * DBusError and returned
+ * #DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER means that the name had no
+ * existing owner, and the caller is now the primary owner; or that
+ * the name had an owner, and the caller specified
+ * #DBUS_NAME_FLAG_REPLACE_EXISTING, and the current owner did not
+ * specify #DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT.
  *
+ * #DBUS_REQUEST_NAME_REPLY_IN_QUEUE happens only if the current owner
+ * specified #DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT and the caller specified
+ * #DBUS_NAME_FLAG_REPLACE_EXISTING. In this case the caller ends up in
+ * a queue to own the name after the current owner gives it up.
+ *
+ * #DBUS_REQUEST_NAME_REPLY_EXISTS happens if the name has an owner
+ * #already and DBUS_NAME_FLAG_REPLACE_EXISTING was not specified.
+ *
+ * #DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER happens if an application
+ * requests a name it already owns.
+ *
+ * When a service represents an application, say "text editor," then
+ * it should specify #DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT if it wants
+ * the first editor started to be the user's editor vs. the last one
+ * started.  Then any editor that can be the user's editor should
+ * specify #DBUS_NAME_FLAG_REPLACE_EXISTING to either take over
+ * (last-started-wins) or be queued up (first-started-wins) according
+ * to whether #DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT was given.
+ * 
+ * @todo this all seems sort of broken. Shouldn't the flags be a property
+ * of the name, not the app requesting the name? What are the use-cases
+ * other than the "text editor" thing and how are we supporting them?
+ * 
  * @param connection the connection
  * @param name the name to request
  * @param flags flags
@@ -771,15 +814,16 @@ dbus_bus_name_has_owner (DBusConnection *connection,
  * The returned result will be one of be one of
  * #DBUS_START_REPLY_SUCCESS or #DBUS_START_REPLY_ALREADY_RUNNING if
  * successful.  Pass #NULL if you don't care about the result.
+ * 
+ * The flags parameter is for future expansion, currently you should
+ * specify 0.
  *
  * @param connection the connection
  * @param name the name we want the new service to request
- * @param flags the flags
+ * @param flags the flags (should always be 0 for now)
  * @param result a place to store the result or #NULL
  * @param error location to store any errors
  * @returns #TRUE if the activation succeeded, #FALSE if not
- *
- * @todo document what the flags do
  */
 dbus_bool_t
 dbus_bus_start_service_by_name (DBusConnection *connection,

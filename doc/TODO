@@ -23,6 +23,9 @@ Important for 1.0
 
  - publish the introspection dtd at its URL
  
+ - RequestName flags seem a bit strange; see the docs for dbus_bus_request_name() 
+   and think about use cases in better detail.
+
 Important for 1.0 GLib Bindings
 ===
 

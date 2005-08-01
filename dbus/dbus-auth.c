@@ -42,10 +42,6 @@
  * challenge/response, but we don't currently allow that in our
  * protocol.
  *
- * @todo DBusAuth really needs to be rewritten as an explicit state
- * machine. Right now it's too hard to prove to yourself by inspection
- * that it works.
- *
  * @todo right now sometimes both ends will block waiting for input
  * from the other end, e.g. if there's an error during
  * DBUS_COOKIE_SHA1.

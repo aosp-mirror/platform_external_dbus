@@ -308,7 +308,7 @@ append_unescaped_value (DBusString       *unescaped,
  *
  * method:key=value,key=value;method:key=value
  *
- * @todo document address format in the specification
+ * See the D-BUS specification for complete docs on the format.
  * 
  * @param address the address.
  * @param entry return location to an array of entries.
