@@ -373,8 +373,8 @@ write_interface (gpointer key, gpointer val, gpointer user_data)
   for (; methods; methods = methods->next)
     {
       DBusGMethodInfo *method;
-      method = methods->data;
       const char *args;
+      method = methods->data;
 
       g_string_append_printf (xml, "    <method name=\"%s\">\n",
 			      method_name_from_object_info (object_info, method));

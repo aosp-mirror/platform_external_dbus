@@ -1,3 +1,13 @@
+2005-08-01  Colin Walters  <walters@verbum.org>
+
+	Patch from Joe Markus Clarke:	
+
+	* glib/dbus-gvalue.c (dbus_g_value_types_init): 
+	* glib/dbus-gvalue-utils.c (dbus_g_type_specialized_builtins_init) 
+	* glib/dbus-gobject.c (write_interface):
+
+	Don't use C99 style initializers (bug #3933).
+
 2005-07-31  Havoc Pennington  <hp@redhat.com>
 
 	* tools/dbus-viewer.c (load_child_nodes): fix invocation of

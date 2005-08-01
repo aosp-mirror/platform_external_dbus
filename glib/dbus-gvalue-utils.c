@@ -855,7 +855,6 @@ dbus_g_type_specialized_builtins_init (void)
     NULL
   };
 
-  dbus_g_type_register_collection ("GArray", &array_vtable, 0);
 
   static const DBusGTypeSpecializedCollectionVtable ptrarray_vtable = {
     {
@@ -869,7 +868,6 @@ dbus_g_type_specialized_builtins_init (void)
     NULL,
   };
 
-  dbus_g_type_register_collection ("GPtrArray", &ptrarray_vtable, 0);
 
   static const DBusGTypeSpecializedCollectionVtable slist_vtable = {
     {
@@ -882,8 +880,6 @@ dbus_g_type_specialized_builtins_init (void)
     slist_append,
     slist_end_append,
   };
-
-  dbus_g_type_register_collection ("GSList", &slist_vtable, 0);
 
   static const DBusGTypeSpecializedMapVtable hashtable_vtable = {
     {
@@ -898,6 +894,9 @@ dbus_g_type_specialized_builtins_init (void)
     hashtable_append
   };
 
+  dbus_g_type_register_collection ("GSList", &slist_vtable, 0);
+  dbus_g_type_register_collection ("GArray", &array_vtable, 0);
+  dbus_g_type_register_collection ("GPtrArray", &ptrarray_vtable, 0);
   dbus_g_type_register_map ("GHashTable", &hashtable_vtable, 0);
 }
 
