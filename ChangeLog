@@ -1,6 +1,14 @@
 2005-08-01  Colin Walters  <walters@verbum.org>
 
 	Patch from Joe Markus Clarke:	
+	
+	* tools/dbus-send.c (main): 
+	
+	Don't use C99 style initializers (bug #3933).
+	
+2005-08-01  Colin Walters  <walters@verbum.org>
+
+	Patch from Joe Markus Clarke:	
 
 	* glib/dbus-gvalue.c (dbus_g_value_types_init): 
 	* glib/dbus-gvalue-utils.c (dbus_g_type_specialized_builtins_init) 

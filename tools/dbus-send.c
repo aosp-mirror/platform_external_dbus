@@ -401,6 +401,7 @@ main (int argc, char *argv[])
 
       if (container_type == DBUS_TYPE_DICT_ENTRY)
 	{
+	  char sig[5];
 	  arg = c;
 	  c = strchr (c, ':');
 	  if (c == NULL)
@@ -410,7 +411,6 @@ main (int argc, char *argv[])
 	    }
 	  *(c++) = 0;
 	  secondary_type = type_from_name (arg);
-	  char sig[5];
 	  sig[0] = DBUS_DICT_ENTRY_BEGIN_CHAR;
 	  sig[1] = type;
 	  sig[2] = secondary_type;
