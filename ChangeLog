@@ -2,6 +2,13 @@
 
 	Patch from Joe Markus Clarke:	
 	
+	* glib/dbus-gidl.c (property_info_unref, arg_info_unref): Fix
+	use-after-free.
+
+2005-08-01  Colin Walters  <walters@verbum.org>
+	
+	Patch from Joe Markus Clarke:	
+	
 	* tools/dbus-send.c (main): 
 	
 	Don't use C99 style initializers (bug #3933).

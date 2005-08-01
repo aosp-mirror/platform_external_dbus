@@ -662,8 +662,8 @@ property_info_unref (PropertyInfo *info)
   info->base.refcount -= 1;
   if (info->base.refcount == 0)
     {
-      base_info_free (info);
       g_free (info->type);
+      base_info_free (info);
     }
 }
 
@@ -722,8 +722,8 @@ arg_info_unref (ArgInfo *info)
   if (info->base.refcount == 0)
     {
       g_hash_table_destroy (info->annotations);
-      base_info_free (info);
       g_free (info->type);
+      base_info_free (info);
     }
 }
 
