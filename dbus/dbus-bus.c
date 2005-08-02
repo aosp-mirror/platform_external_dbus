@@ -526,8 +526,11 @@ dbus_bus_set_unique_name (DBusConnection *connection,
  * Gets the unique name of the connection.  Only possible after the
  * connection has been registered with the message bus.
  *
+ * The name remains valid for the duration of the connection and
+ * should not be freed by the caller.
+ * 
  * @param connection the connection
- * @returns the unique name
+ * @returns the unique name or NULL on error
  */
 const char*
 dbus_bus_get_unique_name (DBusConnection *connection)
