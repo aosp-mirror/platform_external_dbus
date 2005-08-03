@@ -1,3 +1,8 @@
+2005-08-03  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-gobject.c: Add tests on hardcoded object info; this should
+	catch any incompatible changes accidentally made.
+
 2005-08-03  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-sysdeps.c (_dbus_read_credentials_unix_socket): fix
