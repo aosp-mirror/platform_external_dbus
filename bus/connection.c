@@ -199,12 +199,8 @@ bus_connection_disconnected (DBusConnection *connection)
       
       dbus_error_init (&error);
         
-      transaction = NULL;
-      while (transaction == NULL)
-        {
-          transaction = bus_transaction_new (d->connections->context);
-          _dbus_wait_for_memory ();
-        }
+      while ((transaction = bus_transaction_new (d->connections->context)) == NULL)
+        _dbus_wait_for_memory ();
         
       if (!bus_service_remove_owner (service, connection,
                                      transaction, &error))

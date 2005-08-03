@@ -48,7 +48,7 @@
  */
 #define N_CLIENT_THREADS 1
 /* It seems like at least 750000 or so iterations reduces the variability to sane levels */
-#define N_ITERATIONS 25000
+#define N_ITERATIONS 2000
 #define N_PROGRESS_UPDATES 20
 /* Don't make PAYLOAD_SIZE too huge because it gets used as a static buffer size */
 #define PAYLOAD_SIZE 0
