@@ -463,7 +463,6 @@ my_object_many_stringify (MyObject *obj, GHashTable /* char * -> GValue * */ *va
 gboolean
 my_object_rec_arrays (MyObject *obj, GPtrArray *in, GPtrArray **ret, GError **error)
 {
-  guint i;
   char **strs;
   GArray *ints;
   guint v_UINT;

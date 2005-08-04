@@ -29,39 +29,39 @@
 
 G_BEGIN_DECLS
 
-void           dbus_g_type_specialized_builtins_init (void);
+void          _dbus_g_type_specialized_builtins_init (void);
 
-gboolean       dbus_g_type_is_fixed                  (GType gtype); 
-guint          dbus_g_type_fixed_get_size            (GType gtype); 
+gboolean       _dbus_g_type_is_fixed                  (GType gtype); 
+guint          _dbus_g_type_fixed_get_size            (GType gtype); 
 
-gboolean       dbus_gvalue_set_from_pointer          (GValue *value,
+gboolean       _dbus_gvalue_set_from_pointer          (GValue *value,
 						      gconstpointer storage);
 
 typedef void (*DBusGHashValueForeachFunc) (GValue * key, GValue *val, gpointer data);
 
-void           dbus_g_hash_table_value_foreach       (GHashTable                *table,
+void           _dbus_g_hash_table_value_foreach       (GHashTable                *table,
 						      GType                      hash_type,
 						      DBusGHashValueForeachFunc  func,
 						      gpointer                   data);
 
-void           dbus_g_hash_table_insert_values       (GHashTable                *table,
+void           _dbus_g_hash_table_insert_values       (GHashTable                *table,
 						      GValue                    *key_val,
 						      GValue                    *value_val);
-void           dbus_g_hash_table_insert_steal_values (GHashTable *table,
+void           _dbus_g_hash_table_insert_steal_values (GHashTable *table,
 						      GValue     *key_val,
 						      GValue     *value_val);
 
-gboolean       dbus_gtype_is_valid_hash_key          (GType type);
-gboolean       dbus_gtype_is_valid_hash_value        (GType type);
+gboolean       _dbus_gtype_is_valid_hash_key          (GType type);
+gboolean       _dbus_gtype_is_valid_hash_value        (GType type);
 
-GHashFunc      dbus_g_hash_func_from_gtype           (GType gtype);
-GEqualFunc     dbus_g_hash_equal_from_gtype          (GType gtype);
-GDestroyNotify dbus_g_hash_free_from_gtype           (GType gtype);
+GHashFunc      _dbus_g_hash_func_from_gtype           (GType gtype);
+GEqualFunc     _dbus_g_hash_equal_from_gtype          (GType gtype);
+GDestroyNotify _dbus_g_hash_free_from_gtype           (GType gtype);
 
-gboolean       dbus_gvalue_store                     (GValue          *value,
+gboolean       _dbus_gvalue_store                     (GValue          *value,
 						      gpointer         storage);
 
-gboolean       dbus_gvalue_take                      (GValue          *value,
+gboolean       _dbus_gvalue_take                      (GValue          *value,
 						      GTypeCValue     *cvalue);
 
 gboolean       _dbus_gtype_can_signal_error          (GType                    gtype);

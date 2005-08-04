@@ -29,6 +29,7 @@
 #include "dbus-gtest.h"
 #include "dbus-gutils.h"
 #include "dbus-gobject.h"
+#include "dbus-gsignature.h"
 #include "dbus-gvalue.h"
 #include "dbus-gmarshal.h"
 #include "dbus-gvalue-utils.h"
@@ -421,7 +422,7 @@ write_interface (gpointer key, gpointer val, gpointer user_data)
 
       for (arg = 0; arg < query.n_params; arg++)
 	{
-	  char *dbus_type = dbus_gtype_to_signature (query.param_types[arg]);
+	  char *dbus_type = _dbus_gtype_to_signature (query.param_types[arg]);
 
 	  g_assert (dbus_type != NULL);
 
@@ -453,7 +454,7 @@ write_interface (gpointer key, gpointer val, gpointer user_data)
       g_assert (spec != NULL);
       g_free (s);
       
-      dbus_type = dbus_gtype_to_signature (G_PARAM_SPEC_VALUE_TYPE (spec));
+      dbus_type = _dbus_gtype_to_signature (G_PARAM_SPEC_VALUE_TYPE (spec));
       g_assert (dbus_type != NULL);
       
       can_set = ((spec->flags & G_PARAM_WRITABLE) != 0 &&
@@ -658,7 +659,7 @@ set_object_property (DBusConnection  *connection,
   context.proxy = NULL;
 
   g_value_init (&value, pspec->value_type);
-  if (dbus_gvalue_demarshal (&context, &sub, &value, NULL))
+  if (_dbus_gvalue_demarshal (&context, &sub, &value, NULL))
     {
       g_object_set_property (object,
                              pspec->name,
@@ -706,7 +707,7 @@ get_object_property (DBusConnection *connection,
 
   dbus_message_iter_init_append (message, &iter);
 
-  if (!dbus_gvalue_marshal (&iter, &value))
+  if (!_dbus_gvalue_marshal (&iter, &value))
     {
       dbus_message_unref (ret);
       ret = dbus_message_new_error (message,
@@ -937,11 +938,11 @@ invoke_object_method (GObject         *object,
     context.gconnection = DBUS_G_CONNECTION_FROM_CONNECTION (connection);
     context.proxy = NULL;
 
-    types_array = dbus_gtypes_from_arg_signature (in_signature, FALSE);
+    types_array = _dbus_gtypes_from_arg_signature (in_signature, FALSE);
     n_params = types_array->len;
     types = (const GType*) types_array->data;
 
-    value_array = dbus_gvalue_demarshal_message (&context, message, n_params, types, &error);
+    value_array = _dbus_gvalue_demarshal_message (&context, message, n_params, types, &error);
     if (value_array == NULL)
       {
 	g_free (in_signature); 
@@ -1014,7 +1015,7 @@ invoke_object_method (GObject         *object,
 
 	      /* Initialize our return GValue with the specified type */
 	      dbus_signature_iter_init (&tmp_sigiter, argsig);
-	      g_value_init (&return_value, dbus_gtype_from_signature_iter (&tmp_sigiter, FALSE));
+	      g_value_init (&return_value, _dbus_gtype_from_signature_iter (&tmp_sigiter, FALSE));
 	    }
 	  else
 	    {
@@ -1070,7 +1071,7 @@ invoke_object_method (GObject         *object,
 	    continue;
 
 	  dbus_signature_iter_init (&tmp_sigiter, argsig);
-	  current_gtype = dbus_gtype_from_signature_iter (&tmp_sigiter, FALSE);
+	  current_gtype = _dbus_gtype_from_signature_iter (&tmp_sigiter, FALSE);
 
 	  g_value_init (&value, G_TYPE_POINTER);
 
@@ -1130,7 +1131,7 @@ invoke_object_method (GObject         *object,
       /* First, append the return value, unless it's synthetic */
       if (have_retval && !retval_is_synthetic)
 	{
-	  if (!dbus_gvalue_marshal (&iter, &return_value))
+	  if (!_dbus_gvalue_marshal (&iter, &return_value))
 	    goto nomem;
 	  if (!retval_is_constant)
 	    g_value_unset (&return_value);
@@ -1168,10 +1169,10 @@ invoke_object_method (GObject         *object,
 
 	  dbus_signature_iter_init (&argsigiter, arg_signature);
 	  
-	  g_value_init (&gvalue, dbus_gtype_from_signature_iter (&argsigiter, FALSE));
+	  g_value_init (&gvalue, _dbus_gtype_from_signature_iter (&argsigiter, FALSE));
 	  if (G_VALUE_TYPE (&gvalue) != G_TYPE_VALUE)
 	    {
-	      if (!dbus_gvalue_take (&gvalue,
+	      if (!_dbus_gvalue_take (&gvalue,
 				     &(g_array_index (out_param_values, GTypeCValue, out_param_pos))))
 		g_assert_not_reached ();
 	      out_param_pos++;
@@ -1182,10 +1183,10 @@ invoke_object_method (GObject         *object,
 	      out_param_gvalue_pos++;
 	    }
 	      
-	  if (!dbus_gvalue_marshal (&iter, &gvalue))
+	  if (!_dbus_gvalue_marshal (&iter, &gvalue))
 	    goto nomem;
 	  /* Here we actually free the allocated value; we
-	   * took ownership of it with dbus_gvalue_take, unless
+	   * took ownership of it with _dbus_gvalue_take, unless
 	   * an annotation has specified this value as constant.
 	   */
 	  if (!constval)
@@ -1404,7 +1405,7 @@ signal_emitter_marshaller (GClosure        *closure,
   /* First argument is the object itself, and we can't marshall that */
   for (i = 1; i < n_param_values; i++)
     {
-      if (!dbus_gvalue_marshal (&iter,
+      if (!_dbus_gvalue_marshal (&iter,
 				(GValue *) (&(param_values[i]))))
 	{
 	  g_warning ("failed to marshal parameter %d for signal %s",
@@ -1536,7 +1537,7 @@ dbus_g_object_type_install_info (GType                  object_type,
 {
   g_return_if_fail (G_TYPE_IS_CLASSED (object_type));
 
-  dbus_g_value_types_init ();
+  _dbus_g_value_types_init ();
 
   g_type_set_qdata (object_type,
 		    dbus_g_object_type_dbus_metadata_quark (),
@@ -1874,7 +1875,7 @@ dbus_g_method_return (DBusGMethodInvocation *context, ...)
 
   reply = dbus_message_new_method_return (dbus_g_message_get_message (context->message));
   out_sig = method_output_signature_from_object_info (context->object, context->method);
-  argsig = dbus_gtypes_from_arg_signature (out_sig, FALSE);
+  argsig = _dbus_gtypes_from_arg_signature (out_sig, FALSE);
 
   dbus_message_iter_init_append (reply, &iter);
 
@@ -1891,7 +1892,7 @@ dbus_g_method_return (DBusGMethodInvocation *context, ...)
 	  g_warning(error);
 	  g_free (error);
 	}
-      dbus_gvalue_marshal (&iter, &value);
+      _dbus_gvalue_marshal (&iter, &value);
     }
   va_end (args);
 

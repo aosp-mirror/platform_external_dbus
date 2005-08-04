@@ -59,20 +59,20 @@ fixed_type_get_size (GType type)
 }
 
 gboolean
-dbus_g_type_is_fixed (GType type)
+_dbus_g_type_is_fixed (GType type)
 {
   return fixed_type_get_size (type) > 0;
 }
 
 guint
-dbus_g_type_fixed_get_size (GType type)
+_dbus_g_type_fixed_get_size (GType type)
 {
-  g_assert (dbus_g_type_is_fixed (type));
+  g_assert (_dbus_g_type_is_fixed (type));
   return fixed_type_get_size (type);
 }
 
 gboolean
-dbus_gvalue_store (GValue          *value,
+_dbus_gvalue_store (GValue          *value,
 		   gpointer        storage)
 {
   /* FIXME - can we use the GValue lcopy_value method
@@ -128,7 +128,7 @@ dbus_gvalue_store (GValue          *value,
 }
 
 gboolean
-dbus_gvalue_set_from_pointer (GValue          *value,
+_dbus_gvalue_set_from_pointer (GValue          *value,
 			      gconstpointer    storage)
 {
   /* FIXME - is there a better way to do this? */
@@ -182,7 +182,7 @@ dbus_gvalue_set_from_pointer (GValue          *value,
 }
 
 gboolean
-dbus_gvalue_take (GValue          *value,
+_dbus_gvalue_take (GValue          *value,
 		  GTypeCValue     *cvalue)
 {
   GType g_type;
@@ -313,21 +313,21 @@ hash_free_from_gtype (GType gtype, GDestroyNotify *func)
 }
 
 gboolean
-dbus_gtype_is_valid_hash_key (GType type)
+_dbus_gtype_is_valid_hash_key (GType type)
 {
   GHashFunc func;
   return hash_func_from_gtype (type, &func);
 }
 
 gboolean
-dbus_gtype_is_valid_hash_value (GType type)
+_dbus_gtype_is_valid_hash_value (GType type)
 {
   GDestroyNotify func;
   return hash_free_from_gtype (type, &func);
 }
 
 GHashFunc
-dbus_g_hash_func_from_gtype (GType gtype)
+_dbus_g_hash_func_from_gtype (GType gtype)
 {
   GHashFunc func;
   gboolean ret;
@@ -337,9 +337,9 @@ dbus_g_hash_func_from_gtype (GType gtype)
 }
 
 GEqualFunc
-dbus_g_hash_equal_from_gtype (GType gtype)
+_dbus_g_hash_equal_from_gtype (GType gtype)
 {
-  g_assert (dbus_gtype_is_valid_hash_key (gtype));
+  g_assert (_dbus_gtype_is_valid_hash_key (gtype));
 
   switch (gtype)
     {
@@ -358,7 +358,7 @@ dbus_g_hash_equal_from_gtype (GType gtype)
 }
 
 GDestroyNotify
-dbus_g_hash_free_from_gtype (GType gtype)
+_dbus_g_hash_free_from_gtype (GType gtype)
 {
   GDestroyNotify func;
   gboolean ret;
@@ -490,7 +490,7 @@ hashtable_iterator (GType                           hash_type,
 }
 
 void
-dbus_g_hash_table_insert_steal_values (GHashTable *table,
+_dbus_g_hash_table_insert_steal_values (GHashTable *table,
 				       GValue     *key_val,
 				       GValue     *value_val)
 {
@@ -510,7 +510,7 @@ hashtable_append (DBusGTypeSpecializedAppendContext *ctx,
   GHashTable *table;
 
   table = g_value_get_boxed (ctx->val);
-  dbus_g_hash_table_insert_steal_values (table, key, val);
+  _dbus_g_hash_table_insert_steal_values (table, key, val);
 }
 
 static gpointer
@@ -523,10 +523,10 @@ hashtable_constructor (GType type)
   key_gtype = dbus_g_type_get_map_key_specialization (type);
   value_gtype = dbus_g_type_get_map_value_specialization (type);
 
-  ret = g_hash_table_new_full (dbus_g_hash_func_from_gtype (key_gtype),
-			       dbus_g_hash_equal_from_gtype (key_gtype),
-			       dbus_g_hash_free_from_gtype (key_gtype),
-			       dbus_g_hash_free_from_gtype (value_gtype));
+  ret = g_hash_table_new_full (_dbus_g_hash_func_from_gtype (key_gtype),
+			       _dbus_g_hash_equal_from_gtype (key_gtype),
+			       _dbus_g_hash_free_from_gtype (key_gtype),
+			       _dbus_g_hash_free_from_gtype (value_gtype));
   return ret;
 }
 
@@ -543,7 +543,7 @@ hashtable_insert_values (GHashTable       *table,
   g_value_init (&value_copy, G_VALUE_TYPE (value_val));
   g_value_copy (value_val, &value_copy);
   
-  dbus_g_hash_table_insert_steal_values (table, &key_copy, &value_copy);
+  _dbus_g_hash_table_insert_steal_values (table, &key_copy, &value_copy);
 }
 
 static void
@@ -587,7 +587,7 @@ array_constructor (GType type)
   elt_type = dbus_g_type_get_collection_specialization (type);
   g_assert (elt_type != G_TYPE_INVALID);
 
-  elt_size = dbus_g_type_fixed_get_size (elt_type);
+  elt_size = _dbus_g_type_fixed_get_size (elt_type);
 
   /* These are "safe" defaults */ 
   zero_terminated = TRUE; /* ((struct _DBusGRealArray*) garray)->zero_terminated; */
@@ -626,7 +626,7 @@ array_fixed_accessor (GType type, gpointer instance, gpointer *values, guint *le
   GArray *array = instance;
 
   elt_type = dbus_g_type_get_collection_specialization (type);
-  if (!dbus_g_type_is_fixed (elt_type))
+  if (!_dbus_g_type_is_fixed (elt_type))
     return FALSE;
 
   *values = array->data;
@@ -841,7 +841,7 @@ slist_free (GType type, gpointer val)
 }
 
 void
-dbus_g_type_specialized_builtins_init (void)
+_dbus_g_type_specialized_builtins_init (void)
 {
   static const DBusGTypeSpecializedCollectionVtable array_vtable = {
     {
@@ -967,7 +967,7 @@ _dbus_gvalue_utils_test (const char *datadir)
   GType type;
 
   dbus_g_type_specialized_init ();
-  dbus_g_type_specialized_builtins_init ();
+ _dbus_g_type_specialized_builtins_init ();
 
   type = dbus_g_type_get_collection ("GArray", G_TYPE_UINT);
   g_assert (dbus_g_type_is_collection (type));

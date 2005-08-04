@@ -30,6 +30,7 @@
 #include "dbus-gvalue.h"
 #include "dbus-gobject.h"
 #include "dbus-gvalue-utils.h"
+#include "dbus-gsignature.h"
 #include <string.h>
 
 #include <libintl.h>
@@ -714,7 +715,7 @@ dbus_g_bus_get (DBusBusType     type,
 
   g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
-  dbus_g_value_types_init ();
+  _dbus_g_value_types_init ();
   
   dbus_error_init (&derror);
 
@@ -744,30 +745,30 @@ dbus_g_bus_get (DBusBusType     type,
 gboolean
 _dbus_gmain_test (const char *test_data_dir)
 {
+  GType type;
   GType rectype;
-  GType gtype;
 
   g_type_init ();
-  dbus_g_value_types_init ();
+  _dbus_g_value_types_init ();
 
   rectype = dbus_g_type_get_collection ("GArray", G_TYPE_UINT);
   g_assert (rectype != G_TYPE_INVALID);
   g_assert (!strcmp (g_type_name (rectype), "GArray+guint"));
 
-  gtype = dbus_gtype_from_signature ("au", TRUE);
-  g_assert (gtype == rectype);
+  type = _dbus_gtype_from_signature ("au", TRUE);
+  g_assert (type == rectype);
 
   rectype = dbus_g_type_get_map ("GHashTable", G_TYPE_STRING, G_TYPE_STRING);
   g_assert (rectype != G_TYPE_INVALID);
   g_assert (!strcmp (g_type_name (rectype), "GHashTable+gchararray+gchararray"));
 
-  gtype = dbus_gtype_from_signature ("a{ss}", TRUE);
-  g_assert (gtype == rectype);
+  type = _dbus_gtype_from_signature ("a{ss}", TRUE);
+  g_assert (type == rectype);
 
-  gtype = dbus_gtype_from_signature ("o", FALSE);
-  g_assert (gtype == DBUS_TYPE_G_OBJECT_PATH);
-  gtype = dbus_gtype_from_signature ("o", TRUE);
-  g_assert (gtype == DBUS_TYPE_G_OBJECT_PATH);
+  type = _dbus_gtype_from_signature ("o", FALSE);
+  g_assert (type == DBUS_TYPE_G_OBJECT_PATH);
+  type = _dbus_gtype_from_signature ("o", TRUE);
+  g_assert (type == DBUS_TYPE_G_OBJECT_PATH);
   
   return TRUE;
 }

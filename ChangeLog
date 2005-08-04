@@ -1,3 +1,37 @@
+2005-08-04  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-gvalue-utils.h (_dbus_g_type_specialized_builtins_init)
+	(dbus_g_type_is_fixed, dbus_g_type_fixed_get_size)
+	(dbus_gvalue_set_from_pointer, dbus_g_hash_table_value_foreach)
+	(dbus_g_hash_table_insert_values, dbus_g_hash_table_insert_steal_values)
+	(dbus_gtype_is_valid_hash_key, dbus_gtype_is_valid_hash_value)
+	(dbus_g_hash_func_from_gtype, dbus_g_hash_free_from_gtype)
+	(dbus_g_hash_equal_from_gtype, dbus_gvalue_stor, dbus_gvalue_take):
+	* glib/dbus-gvalue.h (dbus_g_value_types_init)
+	(dbus_gvalue_demarshal, dbus_gvalue_demarshal_variant)
+	(dbus_gvalue_demarshal_message, dbus_gvalue_marshal):
+	
+	Prefix name with _ to ensure they're not exported.  All callers
+	updated.
+
+	* glib/dbus-gvalue.c (typecode_to_gtype)
+	(dbus_typecode_maps_to_basic, basic_typecode_to_gtype)
+	(signature_iter_to_g_type_dict)
+	(signature_iter_to_g_type_array)
+	(dbus_gtype_from_signature_iter, dbus_gtype_from_signature)
+	(dbus_gtypes_from_arg_signature):
+	Move to dbus-gsignature.c.
+
+	* glib/dbus-binding-tool-glib.c (dbus_binding_tool_output_glib_server): Call
+	dbus_g_type_specialized_builtins_init instead of dbus_g_value_types_init.
+	(dbus_binding_tool_output_glib_client): Ditto.
+
+	* glib/Makefile.am (DBUS_GLIB_INTERNALS): Add dbus-gsignature.c
+	and dbus-gsignature.h
+
+	* test/glib/test-service-glib.c (my_object_rec_arrays): Delete
+	unused variable.
+
 2005-08-03  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-gobject.c: Add tests on hardcoded object info; this should

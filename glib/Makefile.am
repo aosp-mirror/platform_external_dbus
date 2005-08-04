@@ -15,6 +15,9 @@ DBUS_GLIB_INTERNALS = \
 	dbus-gtype-specialized.c	        \
 	dbus-gutils.c				\
 	dbus-gutils.h				\
+	dbus-gsignature.c			\
+	dbus-gsignature.h			\
+	dbus-gvalue.h				\
 	dbus-gvalue-utils.c			\
 	dbus-gvalue-utils.h
 
@@ -29,9 +32,9 @@ libdbus_glib_1_la_SOURCES = 			\
 	dbus-gproxy.c				\
 	dbus-gtest.c				\
 	dbus-gtest.h				\
-	dbus-gthread.c				\
 	dbus-gvalue.c				\
 	dbus-gvalue.h				\
+	dbus-gthread.c				\
 	$(DBUS_GLIB_INTERNALS)
 
 libdbus_glib_HEADERS =                  \

@@ -23,10 +23,12 @@
  */
 
 #include <config.h>
+#include "dbus/dbus-glib.h"
 #include "dbus-gidl.h"
 #include "dbus-gparser.h"
 #include "dbus-gutils.h"
-#include "dbus-gvalue.h"
+#include "dbus-gtype-specialized.h"
+#include "dbus-gsignature.h"
 #include "dbus-gvalue-utils.h"
 #include "dbus-glib-tool.h"
 #include "dbus-binding-tool-glib.h"
@@ -146,7 +148,7 @@ compute_gsignature (MethodInfo *method, GType *rettype, GArray **params, GError 
 	  if (returnval_annotation != NULL)
 	    {
 	      arg_type = arg_info_get_type (arg);
-	      retval_type = dbus_gtype_from_signature (arg_type, FALSE);
+	      retval_type = _dbus_gtype_from_signature (arg_type, FALSE);
 	      if (retval_type == G_TYPE_INVALID)
 		goto invalid_type;
 	      found_retval = TRUE;
@@ -173,7 +175,7 @@ compute_gsignature (MethodInfo *method, GType *rettype, GArray **params, GError 
 	  GType gtype;
 	  
 	  arg_type = arg_info_get_type (arg);
-	  gtype = dbus_gtype_from_signature (arg_type, FALSE);
+	  gtype = _dbus_gtype_from_signature (arg_type, FALSE);
 	  if (gtype == G_TYPE_INVALID)
 	    goto invalid_type;
 	  
@@ -196,7 +198,7 @@ compute_gsignature (MethodInfo *method, GType *rettype, GArray **params, GError 
 	    {
 	      GType gtype;
 	      arg_type = arg_info_get_type (arg);
-	      gtype = dbus_gtype_from_signature (arg_type, FALSE);
+	      gtype = _dbus_gtype_from_signature (arg_type, FALSE);
 	      if (gtype == G_TYPE_INVALID)
 		goto invalid_type;
 	      /* We actually just need a pointer for the return value
@@ -658,7 +660,7 @@ generate_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error)
 		    g_string_append_c (object_introspection_data_blob, 'R');
 		  else if (!strcmp ("error", returnval_annotation))
 		    {
-		      gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+		      gtype = _dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
 		      if (!_dbus_gtype_can_signal_error (gtype))
 			{
 			  g_set_error (error,
@@ -769,7 +771,8 @@ dbus_binding_tool_output_glib_server (BaseInfo *info, GIOChannel *channel, const
 
   memset (&data, 0, sizeof (data));
 
-  dbus_g_value_types_init ();
+  dbus_g_type_specialized_init ();
+  _dbus_g_type_specialized_builtins_init ();
 
   data.prefix = prefix;
   data.generated = g_hash_table_new_full (g_str_hash, g_str_equal, (GDestroyNotify) g_free, NULL);
@@ -917,7 +920,7 @@ write_formal_parameters (InterfaceInfo *iface, MethodInfo *method, GIOChannel *c
 
       direction = arg_info_get_direction (arg);
 
-      gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+      gtype = _dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
       if (gtype == G_TYPE_INVALID)
 	{
 	  g_set_error (error,
@@ -1056,7 +1059,7 @@ write_args_for_direction (InterfaceInfo *iface, MethodInfo *method, GIOChannel *
       if (direction != arg_info_get_direction (arg))
 	continue;
 
-      gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+      gtype = _dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
       g_assert (gtype != G_TYPE_INVALID);
       type_lookup = dbus_g_type_get_lookup_function (gtype);
       g_assert (type_lookup != NULL);
@@ -1098,7 +1101,7 @@ check_supported_parameters (MethodInfo *method)
       GType gtype;
 
       arg = args->data;
-      gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+      gtype = _dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
       if (gtype == G_TYPE_INVALID)
 	return FALSE;
     }
@@ -1144,7 +1147,7 @@ write_formal_declarations_for_direction (InterfaceInfo *iface, MethodInfo *metho
 
       dir = arg_info_get_direction (arg);
 
-      gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+      gtype = _dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
       type_str = dbus_g_type_get_c_name (gtype);
 
       if (!type_str)
@@ -1220,7 +1223,7 @@ write_formal_parameters_for_direction (InterfaceInfo *iface, MethodInfo *method,
       
       WRITE_OR_LOSE (", ");
 
-      gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+      gtype = _dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
       type_str = dbus_g_type_get_c_name (gtype);
       /* Variants are special...*/
       if (gtype == G_TYPE_VALUE)
@@ -1293,7 +1296,7 @@ write_typed_args_for_direction (InterfaceInfo *iface, MethodInfo *method, GIOCha
       if (dir != direction)
         continue;
 
-      gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+      gtype = _dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
       type_lookup = dbus_g_type_get_lookup_function (gtype);
 
       if (!write_printf_to_iochannel ("%s, &%s_%s, ", channel, error, type_lookup, direction == ARG_IN ? "IN" : "OUT", arg_info_get_name (arg)))
@@ -1326,14 +1329,14 @@ write_async_method_client (GIOChannel *channel, InterfaceInfo *interface, Method
 	
 	if (arg_info_get_direction (arg) != ARG_OUT)
 	  continue;
-	gtype = dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
+	gtype = _dbus_gtype_from_signature (arg_info_get_type (arg), TRUE);
 	if (gtype != G_TYPE_VALUE && (g_type_is_a (gtype, G_TYPE_BOXED)
 	     || g_type_is_a (gtype, G_TYPE_OBJECT)
 	     || g_type_is_a (gtype, G_TYPE_POINTER)))
 	  type_suffix = "*";
 	else
 	  type_suffix = "";
-	type_str = dbus_g_type_get_c_name (dbus_gtype_from_signature (arg_info_get_type (arg), TRUE));
+	type_str = dbus_g_type_get_c_name (_dbus_gtype_from_signature (arg_info_get_type (arg), TRUE));
 	if (!write_printf_to_iochannel ("%s %sOUT_%s, ", channel, error, type_str, type_suffix, arg_info_get_name (arg)))
 	  goto io_lose;
       }
@@ -1508,12 +1511,13 @@ dbus_binding_tool_output_glib_client (BaseInfo *info, GIOChannel *channel, gbool
   DBusBindingToolCData data;
   gboolean ret;
 
-  dbus_g_value_types_init ();
-
   memset (&data, 0, sizeof (data));
   
   data.channel = channel;
   data.ignore_unsupported = ignore_unsupported;
+
+  dbus_g_type_specialized_init ();
+  _dbus_g_type_specialized_builtins_init ();
 
   WRITE_OR_LOSE ("/* Generated by dbus-binding-tool; do not edit! */\n\n");
   WRITE_OR_LOSE ("#include <glib/gtypes.h>\n");

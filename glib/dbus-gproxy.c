@@ -25,6 +25,7 @@
 #include <dbus/dbus-glib-lowlevel.h>
 #include <dbus/dbus-signature.h>
 #include "dbus-gutils.h"
+#include "dbus-gsignature.h"
 #include "dbus-gvalue.h"
 #include "dbus-gvalue-utils.h"
 #include "dbus-gobject.h"
@@ -1551,7 +1552,7 @@ marshal_dbus_message_to_g_marshaller (GClosure     *closure,
     context.proxy = proxy;
 
     types = (const GType*) gsignature->data;
-    value_array = dbus_gvalue_demarshal_message (&context, message,
+    value_array = _dbus_gvalue_demarshal_message (&context, message,
 						 gsignature->len, types, NULL);
   }
 
@@ -1603,7 +1604,7 @@ dbus_g_proxy_emit_remote_signal (DBusGProxy  *proxy,
       if (gsignature == NULL)
 	goto out;
       
-      msg_gsignature = dbus_gtypes_from_arg_signature (dbus_message_get_signature (message),
+      msg_gsignature = _dbus_gtypes_from_arg_signature (dbus_message_get_signature (message),
 						       TRUE);
       for (i = 0; i < gsignature->len; i++)
 	{
@@ -2019,7 +2020,7 @@ dbus_g_proxy_marshal_args_to_message (DBusGProxy  *proxy,
 
       gvalue = g_value_array_get_nth (args, i);
 
-      if (!dbus_gvalue_marshal (&msgiter, gvalue))
+      if (!_dbus_gvalue_marshal (&msgiter, gvalue))
 	g_assert_not_reached ();
     }
   return message;
@@ -2143,7 +2144,7 @@ dbus_g_proxy_end_call_internal (DBusGProxy        *proxy,
 	  if (arg_type == DBUS_TYPE_VARIANT
 	      && g_type_is_a (valtype, G_TYPE_VALUE))
 	    {
-	      if (!dbus_gvalue_demarshal_variant (&context, &msgiter, (GValue*) return_storage, NULL))
+	      if (!_dbus_gvalue_demarshal_variant (&context, &msgiter, (GValue*) return_storage, NULL))
 		{
 		  g_set_error (error,
 			       DBUS_GERROR,
@@ -2157,11 +2158,11 @@ dbus_g_proxy_end_call_internal (DBusGProxy        *proxy,
 	    {
 	      g_value_init (&gvalue, valtype);
 
-	      if (!dbus_gvalue_demarshal (&context, &msgiter, &gvalue, error))
+	      if (!_dbus_gvalue_demarshal (&context, &msgiter, &gvalue, error))
 		goto out;
 
 	      /* Anything that can be demarshaled must be storable */
-	      if (!dbus_gvalue_store (&gvalue, (gpointer*) return_storage))
+	      if (!_dbus_gvalue_store (&gvalue, (gpointer*) return_storage))
 		g_assert_not_reached ();
 	      /* Ownership of the value passes to the client, don't unset */
 	    }

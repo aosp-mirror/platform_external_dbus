@@ -14,36 +14,27 @@ typedef struct {
   DBusGProxy         *proxy;
 } DBusGValueMarshalCtx;
 
-void           dbus_g_value_types_init        (void);
+void           _dbus_g_value_types_init        (void);
 
-GType          dbus_gtype_from_signature      (const char              *signature,
-					       gboolean                 is_client);
+char *         _dbus_gtype_to_signature        (GType                    type);
 
-GType          dbus_gtype_from_signature_iter (DBusSignatureIter       *sigiter,
-					       gboolean                 is_client);
-
-char *         dbus_gtype_to_signature        (GType                    type);
-
-GArray *       dbus_gtypes_from_arg_signature (const char              *signature,
-					       gboolean                 is_client);
-
-gboolean       dbus_gvalue_demarshal          (DBusGValueMarshalCtx    *context,
+gboolean       _dbus_gvalue_demarshal          (DBusGValueMarshalCtx    *context,
 					       DBusMessageIter         *iter,
 					       GValue                  *value,
 					       GError                 **error);
 
-gboolean       dbus_gvalue_demarshal_variant  (DBusGValueMarshalCtx    *context,
+gboolean       _dbus_gvalue_demarshal_variant  (DBusGValueMarshalCtx    *context,
 					       DBusMessageIter         *iter,
 					       GValue                  *value,
 					       GError                 **error);
 
-GValueArray *  dbus_gvalue_demarshal_message  (DBusGValueMarshalCtx    *context,
+GValueArray *  _dbus_gvalue_demarshal_message  (DBusGValueMarshalCtx    *context,
 					       DBusMessage             *message,
 					       guint                    n_params,
 					       const GType             *types, 
 					       GError                 **error);
 
-gboolean       dbus_gvalue_marshal            (DBusMessageIter         *iter,
+gboolean       _dbus_gvalue_marshal            (DBusMessageIter         *iter,
 					       const GValue            *value);
 
 G_END_DECLS
