@@ -1,5 +1,10 @@
 2005-08-09  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-errors.c: apply patch from Timo Teras to make a
+	malloc'd copy of the name parameter
+
+2005-08-09  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-message.c (dbus_message_set_reply_serial): print
 	warning if the reply serial is set to 0
 

@@ -180,7 +180,10 @@ dbus_error_free (DBusError *error)
   real = (DBusRealError *)error;
 
   if (!real->const_message)
-    dbus_free (real->message);
+    {
+      dbus_free (real->name);
+      dbus_free (real->message);
+    }
 
   dbus_error_init (error);
 }
@@ -306,7 +309,7 @@ dbus_error_is_set (const DBusError *error)
  * @todo should be called dbus_error_set()
  *
  * @param error the error.
- * @param name the error name (not copied!!!)
+ * @param name the error name
  * @param format printf-style format string.
  */
 void
@@ -359,11 +362,16 @@ dbus_set_error (DBusError  *error,
       _dbus_string_free (&str);
       goto nomem;
     }
-  
-  real->name = name;
-  real->const_message = FALSE;
-
   _dbus_string_free (&str);
+  
+  real->name = _dbus_strdup (name);
+  if (real->name == NULL)
+    {
+      dbus_free (real->message);
+      real->message = NULL;
+      goto nomem;
+    }
+  real->const_message = FALSE;
 
   return;
   
