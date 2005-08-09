@@ -402,6 +402,7 @@ dbus_message_set_reply_serial (DBusMessage   *message,
 {
   _dbus_return_val_if_fail (message != NULL, FALSE);
   _dbus_return_val_if_fail (!message->locked, FALSE);
+  _dbus_return_val_if_fail (reply_serial != 0, FALSE); /* 0 is invalid */
 
   return _dbus_header_set_field_basic (&message->header,
                                        DBUS_HEADER_FIELD_REPLY_SERIAL,

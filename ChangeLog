@@ -1,3 +1,8 @@
+2005-08-09  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-message.c (dbus_message_set_reply_serial): print
+	warning if the reply serial is set to 0
+
 2005-08-04  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-gvalue-utils.h (_dbus_g_type_specialized_builtins_init)
