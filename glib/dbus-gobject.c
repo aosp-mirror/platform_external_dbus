@@ -1494,7 +1494,7 @@ dbus_set_g_error (GError    **gerror,
     g_set_error (gerror, DBUS_GERROR,
 		 code,
 		 "%s%c%s",
-		 error->message,
+		 error->message ? error->message : "",
 		 '\0',
 		 error->name);
 }
