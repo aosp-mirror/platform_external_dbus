@@ -1,3 +1,9 @@
+2005-08-17  Ross Burton  <ross@burtonini.com>
+
+	* glib/dbus-gproxy.c:
+	(dbus_g_proxy_call_no_reply): unref the message once sent.
+	(dbus_g_proxy_call): protect against NULL proxy.
+
 2005-08-16  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/__init__.py: Version updated (0, 43, 0)

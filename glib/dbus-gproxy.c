@@ -2342,6 +2342,9 @@ dbus_g_proxy_call (DBusGProxy        *proxy,
   va_list args;
   GValueArray *in_args;
 
+  g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), FALSE);
+  g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), FALSE);
+
   va_start (args, first_arg_type);
 
   DBUS_G_VALUE_ARRAY_COLLECT_ALL (in_args, first_arg_type, args);
@@ -2399,7 +2402,7 @@ dbus_g_proxy_call_no_reply (DBusGProxy               *proxy,
                              message,
                              NULL))
     goto oom;
-
+  dbus_message_unref (message);
   return;
   
  oom:
