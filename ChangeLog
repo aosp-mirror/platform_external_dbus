@@ -1,3 +1,10 @@
+2005-08-18  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/dbus.pth: New path file to fix up problems when installing
+	c libraries to lib64 and python files to lib.
+
+	* python/Makefile.am: install dbus.pth in the correct spot
+
 2005-08-17  John (J5) Palmieri  <johnp@redhat.com>
 	* ChangeLog: clean up my last entry a bit
 
