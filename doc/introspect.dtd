@@ -4,14 +4,17 @@
 
 <!-- see D-BUS specification for documentation -->
 
-<!ELEMENT node (interface*,node*)>
-<!ATTLIST node name CDATA #REQUIRED>
+<!ELEMENT node (node|interface)*>
+<!ATTLIST node name CDATA #IMPLIED>
 
-<!ELEMENT interface (annotation*,method*,signal*,property*)>
+<!ELEMENT interface (method|signal|property|annotation)*>
 <!ATTLIST interface name CDATA #REQUIRED>
 
-<!ELEMENT method (annotation*,arg*)>
+<!ELEMENT method (arg|annotation)*>
 <!ATTLIST method name CDATA #REQUIRED>
+
+<!ELEMENT signal (arg|annotation)*>
+<!ATTLIST signal name CDATA #REQUIRED>
 
 <!ELEMENT arg EMPTY>
 <!ATTLIST arg name CDATA #IMPLIED>
@@ -21,12 +24,10 @@
      The DTD format can't express that subtlety. -->
 <!ATTLIST arg direction (in|out) "in">
 
-<!ELEMENT signal (arg,annotation)>
-<!ATTLIST signal name CDATA #REQUIRED>
-
-<!ELEMENT property (annotation)>  <!-- AKA "attribute" -->
+<!-- AKA "attribute" -->
+<!ELEMENT property (annotation)*>
 <!ATTLIST property name CDATA #REQUIRED>
-<!ATTLIST property type CDATA #REQUIRED>
+<!ATTLIST property type CDATA #REQUIRED> 
 <!ATTLIST property access (read|write|readwrite) #REQUIRED>
 
 <!ELEMENT annotation EMPTY>  <!-- Generic metadata -->

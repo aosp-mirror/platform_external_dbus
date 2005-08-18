@@ -6,7 +6,8 @@ EXTRA_DIST= 					\
 	dbus-test-plan.xml			\
 	dbus-tutorial.xml			\
 	dcop-howto.txt				\
-	file-boilerplate.c
+	file-boilerplate.c			\
+	introspect.xsl
 
 HTML_FILES=					\
 	dbus-faq.html				\

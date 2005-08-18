@@ -1,3 +1,45 @@
+2005-08-17  John (J5) Palmieri  <johnp@redhat.com>
+	* ChangeLog: clean up my last entry a bit
+
+	* doc/introspect.xsl: New stylesheet for converting introspection data
+	into browser renderable xhtml. Contributed by Lennart Poettering.
+
+	* doc/introspect.dtd: Fixups in the introspect format from Lennart
+	Poettering.
+
+	* doc/dbus-tutorial.xml: 
+	- Add Colin Walter to the Authors section for authoring the GLib
+	section
+	- Add descriptions of the new signature and type functionality
+	in the Python complex type mapping section
+	- Add a sidenote on the new args matching functionality in 
+	the Python bindings
+	- Fixed up some of the examples to use the gobject.MainLoop
+	instead of gtk.main
+	
+	* python/_dbus.py:
+	(Bus::_create_args_dict): New. Converts a hash of arg matches
+	to a more useable format
+	(Bus::add_signal_receiver): add a **keywords parameter for catching
+	arg match parameters
+	(Bus::remove_signal_receiver): add a **keywords parameter for catching
+	arg match parameters
+	
+	* python/matchrules.py:
+	(MatchTree::exec_matches): Check for arg matches
+	(SignalMatchRule::add_args_match): New method
+	(SignalMatchRule::execute): Added args_list parameter as an optimization
+	so we don't have to marshal the args more than once
+	(SignalMatchRule::match_args_from_list): New method that checks to see
+	if the rule's arg matches match an argument list.  Only arguments
+	set in the rule are checked.
+	(SignalMatchRule::match_args_from_rule): New method that checks to see
+	if the rule's arg matches match another rule's.  All args have to match
+	in order for this method to return true.  If either rule has more args
+	then it is not a match.
+	(SignalMatchRule::is_match): Add args match
+	(SignalMatchRule::repr): Add args to the final output if they exist
+
 2005-08-17  Ross Burton  <ross@burtonini.com>
 
 	* glib/dbus-gproxy.c:
@@ -11,37 +53,40 @@
 	* python/dbus_bindings.pyx: 
 	- Fixed type objects to have self passed into __init__
 	- Added the Variant type
-	- Add the ability to specify types or signatures for Array, Variant and Dictionary
-	- (Connection::send_with_reply_handlers): return a PendingCall object
-	- (_pending_call_notification): handle the case when an error is returned 
+	- Add the ability to specify types or signatures for Array, Variant 
+	and Dictionary
+	(Connection::send_with_reply_handlers): return a PendingCall object
+	(_pending_call_notification): handle the case when an error is returned 
 	without an error message in the body
-	- (MessageIter::get_boolean): return True or False instead of an integer
-	- (MessageIter::python_value_to_dbus_sig): add direct checking of types and
-	add checks for objects with embeded signatures or types (Array, Variant and 
-	Dictionary)
-	- (MessageIter::append_byte): handle case when the value is a dbus.Byte
-	- (MessageIter::append_dict): handle embeded types or signatures
-	- (MessageIter::append_array): handle embeded types or signatures
-	- (MessageIter::append_variant): new method
+	(MessageIter::get_boolean): return True or False instead of an integer
+	(MessageIter::python_value_to_dbus_sig): add direct checking of types 
+	and add checks for objects with embeded signatures or types (Array, 
+	Variant and Dictionary)
+	(MessageIter::append_byte): handle case when the value is a dbus.Byte
+	(MessageIter::append_dict): handle embeded types or signatures
+	(MessageIter::append_array): handle embeded types or signatures
+	(MessageIter::append_variant): new method
 	
 	* python/proxies.py:
-	- (DeferedMethod): New. Dummy executable object used when queuing calls blocking on
-	introspection data
-	- (ProxyMethod::__call__): add the timeout keyword for specifying longer or
-	shorter timeouts for method calls
-	- (ProxyObject): Add first pass at an introspection state machine
-	- (ProxyObject::__init__): Add introspect keyword for turing off an on 
+	(DeferedMethod): New. Dummy executable object used when queuing calls 
+	blocking on introspection data
+	(ProxyMethod::__call__): add the timeout keyword for specifying longer 
+	or shorter timeouts for method calls
+	(ProxyObject): Add first pass at an introspection state machine
+	(ProxyObject::__init__): Add introspect keyword for turing off an on 
 	introspection. 
-	- (ProxyObject::_Introspect): Internal Introspect call that bypasses the usual
-	mechanisms for sending messages.  This is to avoid a deadlock where the Intospect
-	call would be queued waiting for the Introspect call to finish ;-)
-	- (ProxyObject::_introspect_reply_handler): New.  This method is called when
-	introspection returns with no error
-	- (ProxyObject::_introspect_error_handler): New.  This method is called when
-	introspection encounters an error
-	- (ProxyObject::__getattr__): Code to handle different introspection states.
-	Queue async calls or block blocking calls if we are introspecting.  Pass through
-	as normal if we are not or are done with introspecting.
+	(ProxyObject::_Introspect): Internal Introspect call that bypasses 
+	the usual mechanisms for sending messages.  This is to avoid a deadlock
+	where the Intospect call would be queued waiting for the Introspect 
+	call to finish ;-)
+	(ProxyObject::_introspect_reply_handler): New.  This method is called 
+	when introspection returns with no error
+	(ProxyObject::_introspect_error_handler): New.  This method is called 
+	when introspection encounters an error
+	(ProxyObject::__getattr__): Code to handle different introspection 
+	states.  Queue async calls or block blocking calls if we are 
+	introspecting.  Pass through as normal if we are not or are done with 
+	introspecting.
 	
 	* python/service.py: Import signal and method from decorators.py
 

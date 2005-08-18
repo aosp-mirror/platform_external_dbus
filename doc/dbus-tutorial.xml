@@ -34,7 +34,16 @@
 	  </address>
 	</affiliation>
       </author>
-
+      <author>
+	<firstname>Colin</firstname>
+	<surname>Walters</surname>
+	<affiliation>
+	  <orgname>Red Hat, Inc.</orgname>
+	  <address>
+	    <email>walters@redhat.com</email>
+	  </address>
+	</affiliation>
+      </author>
     </authorgroup>
   </articleinfo>
 
@@ -1195,7 +1204,7 @@ main (int argc, char **argv)
 	      <thead>
 		<row>
 		  <entry>D-BUS basic type</entry>
-		  <entry>Python object</entry>
+		  <entry>Python wrapper</entry>
 		  <entry>Notes</entry>
 		</row>
 	      </thead>
@@ -1269,6 +1278,7 @@ main (int argc, char **argv)
 		<row>
 		  <entry>D-BUS type</entry>
 		  <entry>Python type</entry>
+                  <entry>Python wrapper</entry>
 		  <entry>Notes</entry>
 		</row>
 	      </thead>
@@ -1276,28 +1286,63 @@ main (int argc, char **argv)
 		<row>
 		  <entry><literal>ARRAY</literal></entry>
 		  <entry><literal>Python lists</literal></entry>
+                  <entry><literal>dbus.Array</literal></entry>
 		  <entry>Python lists, denoted by square brackets [], are converted into arrays and visa versa.
 		  The one restriction is that when sending a Python list each element of the list must be of the same
-		  type.  This is because D-BUS arrays can contain only one element type.  Use Python tuples for mixed types.</entry>
+		  type.  This is because D-BUS arrays can contain only one element type.  Use Python tuples for mixed types.
+                  
+                  When using the wrapper you may also specify a type or signature of the elements contained in the Array.
+                  This is manditory when passing an empty Array to a method on the bus because Python can not guess at the 
+                  contents of an empty array.  For example if a method is expecting an Array of int32's and you need to pass
+                  it an empty Array you would do it as such:
+                  
+                  <programlisting>emptyint32array = dbus.Array([], type=dbus.Int32)</programlisting>
+
+                  or
+
+                  <programlisting>emptyint32array = dbus.Array([], signature="i")</programlisting>
+
+                  Note that dbus.Array derives from list so it acts just like a python list.
+                  </entry>
 		  </row>
 		<row>
 		  <entry><literal>STRUCT</literal></entry>
 		  <entry><literal>Python tuple</literal></entry>
+                  <entry><literal>dbus.Struct</literal></entry>
 		  <entry>Python tuples, denoted by parentheses (,), are converted into structs and visa versa.
 		  Tuples can have mixed types.</entry>
 		</row>
 		<row>
 		  <entry><literal>DICTIONARY</literal></entry>
 		  <entry><literal>Python dictionary</literal></entry>
+                  <entry><literal>dbus.Dictionary</literal></entry>
 		  <entry>D-BUS doesn't have an explicit dictionary type.  Instead it uses LISTS of DICT_ENTRIES to
 		  represent a dictionary.  A DICT_ENTRY is simply a two element struct containing a key/value pair.
-		  Python dictionaries are automatically converted to a LIST of DICT_ENTRIES and visa versa.</entry>
+		  Python dictionaries are automatically converted to a LIST of DICT_ENTRIES and visa versa.
+                  
+                  Since dictonaries are described as lists of dict_entries we also need the signature in order
+                  to pass empty dictionaries.  The wrapper provides a way of specifying this through the key_type/value_type
+                  type parameters or the signature parameters.  To send an empty Dictionary where the key is a string
+                  and the value is a string you would do it as such:
+                  
+                  <programlisting>emptystringstringdict = dbus.Dictionary({}, key_type=dbus.String, value_type=dbus.Value)</programlisting>
+
+                  or
+
+                  <programlisting>emptystringstringdict = dbus.Dictionary({}, signature="ss")</programlisting>
+        
+                  Note that dbus.Dictionary derives from dict so it acts just like a python dictionary.
+                  </entry>
 		</row>
 		<row>
 		  <entry><literal>VARIANT</literal></entry>
 		  <entry><literal>any type</literal></entry>
+                  <entry><literal>dbus.Variant</literal></entry>
 		  <entry>A variant is a container for any type.  Python exports its methods to accept only variants 
-		   since we are an untyped language and can demarshal into any Python type.</entry>
+		   since we are an untyped language and can demarshal into any Python type.
+                   
+                   To send a variant you must first wrap it in a<literal>dbus.Variant</literal>.  If no type or signiture is 
+                   given to the variant the marshaler will get the type from the contents.</entry>
 		</row>
 
 	      </tbody>
@@ -1340,7 +1385,7 @@ proxy_obj.ListNames(dbus_interface = 'org.freedesktop.DBus')
 	calls allows you to return control to the GUI while you wait for the reply.  This is exceedingly easy to do in
 	Python.  Here is an example using the GLib/GTK+ mainloop.
 <programlisting>
-import gtk
+import gobject 
 import dbus
 if getattr(dbus, 'version', (0,0,0)) >= (0,41,0):
     import dbus.glib
@@ -1357,7 +1402,8 @@ dbus_iface = dbus.Interface(proxy_obj, 'org.freedesktop.DBus')
 
 dbus_iface.ListNames(reply_handler=print_list_names_reply, error_handler=print_error)
 
-gtk.main()
+mainloop = gobject.MainLoop()
+mainloop.run()
 </programlisting>
       </para>
       <para>
@@ -1383,7 +1429,7 @@ gtk.main()
 	which takes a signal name and handler as arguments.  Let us look at an example of connecting to the HAL service to receive
 	signals when devices are added and removed and when devices register a capability.  This example assumes you have HAL already running.
 <programlisting>
-import gtk
+import gobject 
 import dbus
 if getattr(dbus, 'version', (0,0,0)) >= (0,41,0):
     import dbus.glib
@@ -1407,7 +1453,8 @@ hal_manager.connect_to_signal('DeviceAdded', device_added_callback)
 hal_manager.connect_to_signal('DeviceRemoved', device_removed_callback)
 hal_manager.connect_to_signal('NewCapability', device_capability_callback)
 
-gtk.main()
+mainloop = gobject.MainLoop()
+mainloop.run()
 </programlisting>
       </para>
       <para>
@@ -1439,6 +1486,28 @@ bus.add_signal_receiver(device_capability_callback,
         All this can be done without creating the proxy object if one wanted to but in most cases you would want to have 
 	a reference to the object so once a signal was received operations could be executed on the object.
       </para>
+      <sidebar>
+        <title>Signal matching on arguments</title>
+        <para>
+          Starting with D-Bus 0.36 and the (0, 43, 0) version of the python 
+          bindings you can now add a match on arguments being sent in a signal.
+          This is useful for instance for only getting NameOwnerChanged
+          signals for your service.  Lets say we create a name on the bus called
+          'org.foo.MyName' we could also add a match to just get 
+          NameOwnerChanges for that name as such:
+<programlisting>
+bus.add_signal_receiver(myname_changed,
+                        'NameOwnerChanged',
+                        'org.freedesktop.DBus',
+                        'org.freedesktop.DBus',
+                        '/org/freedesktop/DBus',
+                        arg0='org.foo.MyName')
+</programlisting>
+
+          It is as simple as that.  To match the second arg you would use arg1=,
+          the third arg2=, etc.
+        </para>
+      </sidebar>
       <sidebar>
         <title>Cost of Creating a Proxy Object</title>
 	<para>
@@ -1473,6 +1542,7 @@ bus.add_signal_receiver(device_capability_callback,
         a Python object that inherits from dbus.service.Object.  The following is the start of an example
 	HelloWorld object that we want to export over the session bus.
 <programlisting>
+import gobject 
 import dbus
 import dbus.service
 if getattr(dbus, 'version', (0,0,0)) >= (0,41,0):
@@ -1486,7 +1556,8 @@ session_bus = dbus.SessionBus()
 bus_name = dbus.service.BusName('org.freedesktop.HelloWorld', bus=session_bus)
 object = HelloWorldObject(bus_name)
 
-gtk.main()
+mainloop = gobject.MainLoop()
+mainloop.run()
 </programlisting>
       </para>
       <para>
@@ -1500,6 +1571,7 @@ gtk.main()
       <para>
         Let's make this object do something and export a method over the bus.
 <programlisting>
+import gobject
 import dbus
 import dbus.service
 if getattr(dbus, 'version', (0,0,0)) >= (0,41,0):
@@ -1517,7 +1589,8 @@ session_bus = dbus.SessionBus()
 bus_name = dbus.service.BusName('org.freedesktop.HelloWorld', bus=session_bus)
 object = HelloWorldObject(bus_name)
 
-gtk.main()
+mainloop = gobject.MainLoop()
+mainloop.run()
 </programlisting>
       </para>
       <sidebar>
@@ -1572,6 +1645,7 @@ print iface.hello()
       <para>
         Setting up signals to emit is just as easy as exporting methods.  It uses the same syntax as methods.
 <programlisting>
+import gobject
 import dbus
 import dbus.service
 if getattr(dbus, 'version', (0,0,0)) >= (0,41,0):
@@ -1595,7 +1669,8 @@ object = HelloWorldObject(bus_name)
 
 object.hello_signal('I sent a hello signal')
 
-gtk.main()
+mainloop = gobject.MainLoop()
+mainloop.run()
 </programlisting>
       </para>
       <para>
