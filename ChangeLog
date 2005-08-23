@@ -1,3 +1,7 @@
+2005-08-23  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Release 0.36
+
 2005-08-23  Colin Walters  <walters@verbum.org>
 
 	* test/glib/Makefile.am: Don't multiply-define EXTRA_DIST.

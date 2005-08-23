@@ -1,3 +1,25 @@
+D-BUS 0.36 (23 August 2005)
+===
+- Maximum sized of cached messages have been reduced to 10K
+- Match rules now allow matching on arguments inside the message
+- introspect.xsl XSLT style sheet added for formatting introspection
+  data into XHTML for analysis
+- Python bindings:
+  - now have working type objects for explicit
+    typecasting
+  - Variant type has been added
+  - Dictionaries, Variants and Arrays can all be passed the signiture or
+    type(s) of their children
+  - the optional timeout= keyword has been added when making method calls
+  - match on args has been implemented
+  - a .pth file has been added for dealing with libraries and python files
+    being in different directories such as in 64bit installs
+  - various bug fixes
+- GLib bindings:
+  - deeply recursive types now supported
+  - many symbols are no longer exported as part of the public API
+  - various memleak and other bug fixes
+
 D-BUS 0.35.2 (17 July 2005)
 ===
 - Rename Unix Security Context to SELinux Security Context in API
