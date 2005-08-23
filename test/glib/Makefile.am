@@ -10,7 +10,7 @@ else
 TESTS=
 endif
 
-EXTRA_DIST=run-test.sh test-service-glib.xml
+EXTRA_DIST=run-test.sh test-service-glib.xml my-object-marshal.list test-service-glib.xml
 
 if DBUS_BUILD_TESTS
 
@@ -78,8 +78,3 @@ test_profile_SOURCES=				\
 
 test_profile_LDADD= $(DBUS_GLIB_THREADS_LIBS) $(top_builddir)/glib/libdbus-glib-1.la 
 endif
-
-EXTRA_DIST = \
-	my-object-marshal.list  \
-	test-service-glib.xml
-

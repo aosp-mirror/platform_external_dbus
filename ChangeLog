@@ -1,3 +1,8 @@
+2005-08-23  Colin Walters  <walters@verbum.org>
+
+	* test/glib/Makefile.am (test_profile_LDADD): Don't multiply-define
+	EXTRA_DIST.
+
 2005-08-23  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/dbus_glib_bindings.pyx: reorder imports and c definitions
