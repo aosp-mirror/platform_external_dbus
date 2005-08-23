@@ -1,3 +1,9 @@
+2005-08-23  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/dbus_glib_bindings.pyx: reorder imports and c definitions
+	to fix some wranings. We now use dbus_bindings.DBusConnection instead
+	of defining DBusConnection ourselves.
+
 2005-08-18  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/dbus.pth: New path file to fix up problems when installing
