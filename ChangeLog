@@ -1,3 +1,17 @@
+2005-08-24  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Release 0.36.1
+
+	* python/_dbus.py: 
+	(Interface::connect_to_signal): propigate keywords for match on args
+	(Bus::add_signal_receiver): Fix typo s/dbus_inteface/dbus_interface
+
+	* python/proxies.py (ProxyObject::connect_to_signal):
+	propigate keywords for match on args
+
+	* Makefile.am: point everything to pyexecdir since python borks
+	on multilib
+
 2005-08-23  John (J5) Palmieri  <johnp@redhat.com>
 
 	* Release 0.36

@@ -1,3 +1,10 @@
+D-BUS 0.36.1 (24 August 2005)
+===
+- Python Bindings:
+  - fixed to work with hal-device-manager
+  - For 64bit builds everything is installed to lib64/python2.4/
+    since Python can't handle multilib
+
 D-BUS 0.36 (23 August 2005)
 ===
 - Maximum sized of cached messages have been reduced to 10K
