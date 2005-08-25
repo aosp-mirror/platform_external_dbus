@@ -1202,6 +1202,7 @@ TEST_PATH(SERVICE_DIR, data/valid-service-files)
 TEST_PATH(SERVICE_BINARY, test-service)
 TEST_PATH(SHELL_SERVICE_BINARY, test-shell-service)
 TEST_PATH(GLIB_SERVICE_BINARY, glib/test-service-glib)
+TEST_PATH(PYTHON_SERVICE_BINARY, python/test-service.py)
 TEST_PATH(EXIT_BINARY, test-exit)
 TEST_PATH(SEGFAULT_BINARY, test-segfault)
 TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)
@@ -1300,6 +1301,7 @@ bus/Makefile
 tools/Makefile
 test/Makefile
 test/glib/Makefile
+test/python/Makefile
 doc/Makefile
 dbus-1.pc
 dbus-glib-1.pc
@@ -1311,6 +1313,7 @@ test/data/valid-service-files/debug-segfault.service
 test/data/valid-service-files/debug-glib.service
 test/data/valid-service-files/debug-shell-echo-success.service
 test/data/valid-service-files/debug-shell-echo-fail.service
+test/data/valid-service-files/debug-python.service
 ])
 
 ### FIXME it's bizarre that have_qt and have_glib are used

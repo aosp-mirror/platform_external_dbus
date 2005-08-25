@@ -1,5 +1,13 @@
 2005-08-24  John (J5) Palmieri  <johnp@redhat.com>
 
+	* test/python: Add python regression test
+
+	* configure.in: Add test/python/Makefile
+
+	* test/Makefile.am: Add the python directory to SUBDIRS
+
+2005-08-24  John (J5) Palmieri  <johnp@redhat.com>
+
 	* Release 0.36.1
 
 	* python/_dbus.py: 

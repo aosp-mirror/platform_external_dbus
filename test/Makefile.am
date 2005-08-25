@@ -2,9 +2,12 @@
 if HAVE_GLIB
     GLIB_SUBDIR=glib
 endif
+if HAVE_PYTHON
+    PYTHON_SUBDIR=python
+endif
 
-SUBDIRS=$(GLIB_SUBDIR)
-DIST_SUBDIRS=glib
+SUBDIRS=$(GLIB_SUBDIR) $(PYTHON_SUBDIR)
+DIST_SUBDIRS=glib python
 
 INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
 
