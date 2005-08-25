@@ -24,7 +24,16 @@ Important for 1.0
  - publish the introspection dtd at its URL
  
  - RequestName flags seem a bit strange; see the docs for dbus_bus_request_name() 
-   and think about use cases in better detail.
+   and think about use cases in better detail. 
+   Proposal on list:
+   http://lists.freedesktop.org/archives/dbus/2005-August/003207.html
+
+   Kind of a major API change, but seems high-value.
+
+ - figure out what the deal is with trailing nul bytes in 
+   abstract socket names
+   http://lists.freedesktop.org/archives/dbus/2005-August/003179.html
+
 
 Important for 1.0 GLib Bindings
 ===
