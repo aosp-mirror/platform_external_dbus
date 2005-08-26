@@ -189,6 +189,7 @@ print_message (DBusMessage *message, dbus_bool_t literal)
 
   dbus_message_iter_init (message, &iter);
   print_iter (&iter, literal, 1);
+  fflush (stdout);
   
 }
 

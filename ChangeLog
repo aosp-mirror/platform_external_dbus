@@ -1,3 +1,9 @@
+2005-08-26  Colin Walters  <walters@verbum.org>
+
+	* tools/dbus-print-message.c (print_message): Flush stdout
+	after printing a message, so that redirecting to a file, then
+	hitting Ctrl-C works.
+
 2005-08-25  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/dbus_bindings.pyx: Tracked down a major memleak and fixed it
