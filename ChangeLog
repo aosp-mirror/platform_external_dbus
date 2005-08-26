@@ -1,3 +1,11 @@
+2005-08-25  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/dbus_bindings.pyx: Tracked down a major memleak and fixed it
+	(EmptyMessage): new class that subclasses Message.  This is a workaround
+	to a Pyrex bug that fails to call __del__ when the Message object goes out
+	of scope.  For some reason subclassing Message fixes this bug
+	(Bus::send_with_reply_and_block): use EmptyMessage instead of Message
+
 2005-08-25  Colin Walters  <walters@verbum.org>
 
 	* glib/dbus-gproxy.c (dbus_g_proxy_call): Doc update, thanks
