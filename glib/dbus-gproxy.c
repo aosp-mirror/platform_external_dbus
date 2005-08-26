@@ -2322,7 +2322,8 @@ dbus_g_proxy_end_call (DBusGProxy          *proxy,
  * values.  This function is equivalent to dbus_g_proxy_begin_call
  * followed by dbus_g_proxy_end_call.  All of the input arguments are
  * specified first, followed by G_TYPE_INVALID, followed by all of the
- * output values, followed by G_TYPE_INVALID.
+ * output values, followed by a second G_TYPE_INVALID.  Note that  
+ * this means you must always specify G_TYPE_INVALID twice.
  *
  * @param proxy a proxy for a remote interface
  * @param method method to invoke

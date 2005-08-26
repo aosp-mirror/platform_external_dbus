@@ -1,3 +1,8 @@
+2005-08-25  Colin Walters  <walters@verbum.org>
+
+	* glib/dbus-gproxy.c (dbus_g_proxy_call): Doc update, thanks
+	to Ryan Lortie for the suggestion.
+
 2005-08-24  John (J5) Palmieri  <johnp@redhat.com>
 
 	* test/python: Add python regression test
