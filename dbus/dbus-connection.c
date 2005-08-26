@@ -3900,9 +3900,9 @@ dbus_connection_set_timeout_functions   (DBusConnection            *connection,
 }
 
 /**
- * Sets the mainloop wakeup function for the connection. Thi function is
+ * Sets the mainloop wakeup function for the connection. This function is
  * responsible for waking up the main loop (if its sleeping) when some some
- * change has happened to the connection that the mainloop needs to reconsiders
+ * change has happened to the connection that the mainloop needs to reconsider
  * (e.g. a message has been queued for writing).
  * When using Qt, this typically results in a call to QEventLoop::wakeUp().
  * When using GLib, it would call g_main_context_wakeup().
