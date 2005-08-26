@@ -29,6 +29,6 @@ fi
 
 ln -s $DBUS_TOP_BUILDDIR/python $DBUS_TOP_BUILDDIR/python/dbus
 echo "running test-client.py"
-$DBUS_TOP_BUILDDIR/test/python/test-client.py || die "test-client.py failed"
+libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/python/test-client.py || die "test-client.py failed"
 rm $DBUS_TOP_BUILDDIR/python/dbus
 

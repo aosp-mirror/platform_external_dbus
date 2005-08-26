@@ -6,8 +6,10 @@ builddir = os.environ["DBUS_TOP_BUILDDIR"]
 pydir = builddir + "/python"
 
 sys.path.insert(0, pydir)
+sys.path.insert(0, pydir + "/.libs")
 
 import dbus
+import dbus_bindings
 
 if not dbus.__file__.startswith(pydir):
     raise Exception("DBus modules are not being picked up from the package")

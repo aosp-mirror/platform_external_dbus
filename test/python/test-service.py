@@ -6,6 +6,7 @@ builddir = os.environ["DBUS_TOP_BUILDDIR"]
 pydir = builddir + "/python"
 
 sys.path.insert(0, pydir)
+sys.path.insert(0, pydir + '/.libs')
 
 import dbus
 
@@ -29,6 +30,5 @@ class TestObject(dbus.service.Object):
 session_bus = dbus.SessionBus()
 name = dbus.service.BusName("org.freedesktop.DBus.TestSuitePythonService", bus=session_bus)
 object = TestObject(name)
-
 loop = gobject.MainLoop()
 loop.run()

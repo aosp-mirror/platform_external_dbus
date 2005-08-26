@@ -5,6 +5,11 @@
 	to a Pyrex bug that fails to call __del__ when the Message object goes out
 	of scope.  For some reason subclassing Message fixes this bug
 	(Bus::send_with_reply_and_block): use EmptyMessage instead of Message
+	- s/Message(_create=0)/EmptyMessage everywhere else
+	
+	* test/python/test-{server|client}.py: add the python/.libs directory
+	to the lookup path so dbus_bindings and dbus_glib_bindings don't
+	get picked up from the system
 
 2005-08-25  Colin Walters  <walters@verbum.org>
 
