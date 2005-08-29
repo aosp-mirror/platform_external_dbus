@@ -453,8 +453,9 @@ bus_policy_allow_user (BusPolicy        *policy,
                      uid);
       return FALSE;
     }
-  
-  allowed = FALSE;
+
+  /* Default to "user owning bus" or root can connect */
+  allowed = uid == _dbus_getuid ();
 
   allowed = list_allows_user (allowed,
                               &policy->default_rules,

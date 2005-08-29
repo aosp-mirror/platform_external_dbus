@@ -1,3 +1,8 @@
+D-BUS 0.36.2 (29 August 2005)
+===
+- Security: Restrict other users from connecting to another users 
+  session bus
+
 D-BUS 0.36.1 (24 August 2005)
 ===
 - Python Bindings:

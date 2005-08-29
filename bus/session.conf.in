@@ -19,8 +19,6 @@
     <allow eavesdrop="true"/>
     <!-- Allow anyone to own anything -->
     <allow own="*"/>
-    <!-- Allow any user to connect -->
-    <allow user="*"/>
   </policy>
 
   <!-- This is included last so local configuration can override what's 

@@ -1,3 +1,16 @@
+2005-08-29  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Release 0.36.2
+
+	* Add Havoc's patch that never got applied to HEAD (Bug #2436):
+
+	* bus/policy.c (bus_policy_allow_user): change default "user is
+	allowed" to be "user has same uid as the bus itself"; any
+	allow/deny rules will override.
+
+	* bus/session.conf.in: don't allow all users, since now by default
+	the user that ran the bus can connect.
+
 2005-08-26  Colin Walters  <walters@verbum.org>
 
 	* tools/dbus-print-message.c (print_message): Flush stdout
