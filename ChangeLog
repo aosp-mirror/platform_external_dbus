@@ -1,3 +1,8 @@
+2005-08-30  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/dbus_bindings.pyx (_pending_call_notification): Obtain the
+	GIL global lock when calling back into Python
+
 2005-08-29  John (J5) Palmieri  <johnp@redhat.com>
 
 	* Release 0.36.2
