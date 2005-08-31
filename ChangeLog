@@ -1,5 +1,18 @@
 2005-08-30  John (J5) Palmieri  <johnp@redhat.com>
 
+	* python/dbus_bindings.pyx 
+	(_pending_call_notification, cunregister_function_handler, 
+	cmessage_function_handler): All callback functions have been rearranged 
+	to workaround a bug in Pyrex when working with the GIL which is Python's 
+	global lock when dealing with threads.  They have been split into
+	a wrapper function (which assumes the name of the old function) and
+	a _GIL_safe_<function name> function which contains the functionality
+	of the old function.  This ensures that Pyrex does not write code
+	the lock is released.
+	
+
+2005-08-30  John (J5) Palmieri  <johnp@redhat.com>
+
 	* python/dbus_bindings.pyx (_pending_call_notification): Obtain the
 	GIL global lock when calling back into Python
 
