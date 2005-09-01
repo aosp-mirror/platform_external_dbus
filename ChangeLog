@@ -1,3 +1,41 @@
+2005-08-31  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/Makefile.am: Break on pyrexc errors instead of ignoring them
+
+	* python/dbus_bindings.pyx: Memory management foo
+	(global): remove hacky _user_data_references global list
+	(GIL_safe_cunregister_function_handler): userdata now stuffed into
+	tuples. Unref user_data
+	(GIL_safe_cmessage_function_handler): userdata now stuffed into tuples
+	(Connection::__del__): Remove and replace with __dealloc__ method
+	(Connection::add_filter): Stuff user_data into a tuple.  Use Py_INCREF
+	to keep tuple from being deallocated instead of the global var hack
+	(Connection::register_object_path): Stuff user_data into a tuple.
+	Use Py_INCREF to keep tuple from being deallocated instead of the 
+	global var hack
+	(Connection::register_fallback): Stuff user_data into a tuple.
+	Use Py_INCREF to keep tuple from being deallocated instead of the 
+	global var hack
+	(GIL_safe_pending_call_notification): Don't unref the message
+	because it gets unreffed when going out of scope.  Py_XDECREF
+	the user_data
+	(PendingCall::__del__): Remove and replace with __dealloc__ method
+	(PendingCall::set_notify): ref the pending call because we will
+	need it to stick around for when the notify callback gets called
+	(Message::__del__): Remove and replace with __dealloc__ method
+
+	* python/dbus_glib_bindings.pyx (init_gthreads): Changed to 
+	gthreads_init to match up with the dbus call
+
+	* python/glib.py (init_threads): Changed to threads_init to match
+	up with gobject.threads_init().  init_threads is kept for backwards
+	compat but will most likely be deprecated in the future
+
+	* test/python/test-client.py: 
+	- revamp to use Python's unittest functionality
+	- add async call tests
+	- setup threads in glib and dbus so we make sure locks are working
+	
 2005-08-30  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/dbus_bindings.pyx 
