@@ -1,3 +1,12 @@
+2005-09-05  Olivier Andrieu  <oliv__a@users.sourceforge.net>
+
+	* dbus/dbus-object-tree.c (find_subtree_recurse):
+	a couple of optimizations (bug #710):
+	- do a binary search in the tree
+	- insert a new child at the right place directly, no need for
+	  qsort anymore
+	- do the "double alloc" thing when allocating children
+
 2005-08-31  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/Makefile.am: Break on pyrexc errors instead of ignoring them

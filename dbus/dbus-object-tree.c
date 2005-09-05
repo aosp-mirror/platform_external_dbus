@@ -74,7 +74,7 @@ struct DBusObjectSubtree
   void                              *user_data;           /**< Data for functions */
   DBusObjectSubtree                **subtrees;            /**< Child nodes */
   int                                n_subtrees;          /**< Number of child nodes */
-  unsigned int                       subtrees_sorted : 1; /**< Whether children are sorted */
+  int                                max_subtrees;        /**< Number of allocated entries in subtrees */
   unsigned int                       invoke_as_fallback : 1; /**< Whether to invoke message_function when child nodes don't handle the message */
   char                               name[1]; /**< Allocated as large as necessary */
 };
@@ -152,36 +152,6 @@ _dbus_object_tree_unref (DBusObjectTree *tree)
     }
 }
 
-static int
-subtree_cmp (DBusObjectSubtree *subtree_a,
-             DBusObjectSubtree *subtree_b)
-{
-  return strcmp (subtree_a->name, subtree_b->name);
-}
-
-static int
-subtree_qsort_cmp (const void *a,
-                   const void *b)
-{
-  DBusObjectSubtree **subtree_a_p = (void*) a;
-  DBusObjectSubtree **subtree_b_p = (void*) b;
-
-  return subtree_cmp (*subtree_a_p, *subtree_b_p);
-}
-
-static void
-ensure_sorted (DBusObjectSubtree *subtree)
-{
-  if (subtree->subtrees && !subtree->subtrees_sorted)
-    {
-      qsort (subtree->subtrees,
-             subtree->n_subtrees,
-             sizeof (DBusObjectSubtree*),
-             subtree_qsort_cmp);
-      subtree->subtrees_sorted = TRUE;
-    }
-}
-
 /** Set to 1 to get a bunch of debug spew about finding the
  * subtree nodes
  */
@@ -194,7 +164,7 @@ find_subtree_recurse (DBusObjectSubtree  *subtree,
                       int                *index_in_parent,
                       dbus_bool_t        *exact_match)
 {
-  int i;
+  int i, j;
   dbus_bool_t return_deepest_match;
 
   return_deepest_match = exact_match != NULL;
@@ -217,22 +187,18 @@ find_subtree_recurse (DBusObjectSubtree  *subtree,
                  subtree->name, path[0]);
 #endif
   
-  ensure_sorted (subtree);
-
-  /* FIXME we should do a binary search here instead
-   * of O(n)
-   */
-
   i = 0;
-  while (i < subtree->n_subtrees)
+  j = subtree->n_subtrees;
+  while (i < j)
     {
-      int v;
+      int k, v;
 
-      v = strcmp (path[0], subtree->subtrees[i]->name);
+      k = (i + j) / 2;
+      v = strcmp (path[0], subtree->subtrees[k]->name);
 
 #if VERBOSE_FIND
       _dbus_verbose ("  %s cmp %s = %d\n",
-                     path[0], subtree->subtrees[i]->name,
+                     path[0], subtree->subtrees[k]->name,
                      v);
 #endif
       
@@ -241,16 +207,16 @@ find_subtree_recurse (DBusObjectSubtree  *subtree,
           if (index_in_parent)
             {
 #if VERBOSE_FIND
-              _dbus_verbose ("  storing parent index %d\n", i);
+              _dbus_verbose ("  storing parent index %d\n", k);
 #endif
-              *index_in_parent = i;
+              *index_in_parent = k;
             }
 
           if (return_deepest_match)
             {
               DBusObjectSubtree *next;
 
-              next = find_subtree_recurse (subtree->subtrees[i],
+              next = find_subtree_recurse (subtree->subtrees[k],
                                            &path[1], create_if_not_found, 
                                            index_in_parent, exact_match);
               if (next == NULL &&
@@ -268,19 +234,20 @@ find_subtree_recurse (DBusObjectSubtree  *subtree,
                 return next;
             }
           else
-            return find_subtree_recurse (subtree->subtrees[i],
+            return find_subtree_recurse (subtree->subtrees[k],
                                          &path[1], create_if_not_found, 
                                          index_in_parent, exact_match);
         }
       else if (v < 0)
         {
-          goto not_found;
+          j = k;
         }
-
-      ++i;
+      else
+        {
+          i = k + 1;
+        }
     }
 
- not_found:
 #if VERBOSE_FIND
   _dbus_verbose ("  no match found, current tree %s, create_if_not_found = %d\n",
                  subtree->name, create_if_not_found);
@@ -289,8 +256,7 @@ find_subtree_recurse (DBusObjectSubtree  *subtree,
   if (create_if_not_found)
     {
       DBusObjectSubtree* child;
-      DBusObjectSubtree **new_subtrees;
-      int new_n_subtrees;
+      int child_pos, new_n_subtrees;
 
 #if VERBOSE_FIND
       _dbus_verbose ("  creating subtree %s\n",
@@ -302,25 +268,41 @@ find_subtree_recurse (DBusObjectSubtree  *subtree,
       if (child == NULL)
         return NULL;
 
-      /* FIXME we should do the "double alloc each time" standard thing */
       new_n_subtrees = subtree->n_subtrees + 1;
-      new_subtrees = dbus_realloc (subtree->subtrees,
-                                   new_n_subtrees * sizeof (DBusObjectSubtree*));
-      if (new_subtrees == NULL)
+      if (new_n_subtrees > subtree->max_subtrees)
         {
-          child->unregister_function = NULL;
-          child->message_function = NULL;
-          _dbus_object_subtree_unref (child);
-          return NULL;
+          int new_max_subtrees;
+          DBusObjectSubtree **new_subtrees;
+
+          new_max_subtrees = subtree->max_subtrees == 0 ? 1 : 2 * subtree->max_subtrees;
+          new_subtrees = dbus_realloc (subtree->subtrees,
+                                       new_max_subtrees * sizeof (DBusObjectSubtree*));
+          if (new_subtrees == NULL)
+            {
+              _dbus_object_subtree_unref (child);
+              return NULL;
+            }
+          subtree->subtrees = new_subtrees;
+          subtree->max_subtrees = new_max_subtrees;
         }
 
-      new_subtrees[subtree->n_subtrees] = child;
-      if (index_in_parent)
-        *index_in_parent = subtree->n_subtrees;
-      subtree->subtrees_sorted = FALSE;
-      subtree->n_subtrees = new_n_subtrees;
-      subtree->subtrees = new_subtrees;
+      /* The binary search failed, so i == j points to the 
+         place the child should be inserted. */
+      child_pos = i;
+      _dbus_assert (child_pos < new_n_subtrees &&
+                    new_n_subtrees <= subtree->max_subtrees);
+      if (child_pos + 1 < new_n_subtrees)
+	{
+	  memmove (&subtree->subtrees[child_pos+1], 
+		   &subtree->subtrees[child_pos], 
+		   (new_n_subtrees - child_pos - 1) * 
+		   sizeof subtree->subtrees[0]);
+	}
+      subtree->subtrees[child_pos] = child;
 
+      if (index_in_parent)
+        *index_in_parent = child_pos;
+      subtree->n_subtrees = new_n_subtrees;
       child->parent = subtree;
 
       return find_subtree_recurse (child,
@@ -993,7 +975,7 @@ _dbus_object_subtree_new (const char                  *name,
   subtree->refcount.value = 1;
   subtree->subtrees = NULL;
   subtree->n_subtrees = 0;
-  subtree->subtrees_sorted = TRUE;
+  subtree->max_subtrees = 0;
   subtree->invoke_as_fallback = FALSE;
 
   return subtree;
@@ -1233,9 +1215,9 @@ path_contains (const char **container,
 
       if (container[i] == NULL)
         return STR_PREFIX; /* container ran out, child continues;
-			* thus the container is a parent of the
-			* child.
-			*/
+                            * thus the container is a parent of the
+                            * child.
+                            */
 
       _dbus_assert (container[i] != NULL);
       _dbus_assert (child[i] != NULL);
@@ -1244,8 +1226,8 @@ path_contains (const char **container,
 
       if (v != 0)
         return STR_DIFFERENT; /* they overlap until here and then are different,
-			   * not overlapping
-			   */
+                               * not overlapping
+                               */
 
       ++i;
     }
