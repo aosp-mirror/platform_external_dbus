@@ -167,7 +167,7 @@ noinst_LTLIBRARIES=libdbus-convenience.la
 libdbus_1_la_LIBADD= $(DBUS_CLIENT_LIBS)
 ## don't export symbols that start with "_" (we use this 
 ## convention for internal symbols)
-libdbus_1_la_LDFLAGS= -export-symbols-regex "^[^_].*" -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
+libdbus_1_la_LDFLAGS= -export-symbols-regex "^[^_].*" -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -no-undefined
 
 ## note that TESTS has special meaning (stuff to use in make check)
 ## so if adding tests not to be run in make check, don't add them to 

@@ -6,7 +6,7 @@ GLIB_TOOLS=dbus-monitor
 nodist_libdbus_glib_HEADERS = dbus-glib-bindings.h
 libdbus_glibdir = $(includedir)/dbus-1.0/dbus
 
-dbus-glib-bindings.h: dbus-bus-introspect.xml $(top_builddir)/glib/dbus-binding-tool
+dbus-glib-bindings.h: dbus-bus-introspect.xml $(top_builddir)/glib/dbus-binding-tool$(EXEEXT)
 	$(top_builddir)/glib/dbus-binding-tool --mode=glib-client --output=dbus-glib-bindings.h dbus-bus-introspect.xml
 
 BUILT_SOURCES = dbus-glib-bindings.h dbus-bus-introspect.xml
@@ -22,7 +22,7 @@ GTK_TOOLS=
 endif
 
 if HAVE_GLIB
-dbus-bus-introspect.xml: $(top_builddir)/bus/dbus-daemon dbus-launch dbus-send $(top_builddir)/bus/dbus-daemon Makefile
+dbus-bus-introspect.xml: $(top_builddir)/bus/dbus-daemon$(EXEEXT) dbus-launch$(EXEEXT) dbus-send$(EXEEXT) $(top_builddir)/bus/dbus-daemon$(EXEEXT) Makefile
 	DBUS_TOP_BUILDDIR=$(top_builddir) $(srcdir)/run-with-tmp-session-bus.sh ./dbus-send --print-reply=literal --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.Introspectable.Introspect > dbus-bus-introspect.xml.tmp && mv dbus-bus-introspect.xml.tmp dbus-bus-introspect.xml
 endif
 
@@ -54,7 +54,7 @@ dbus_viewer_SOURCES=				\
 dbus_send_LDADD= $(top_builddir)/dbus/libdbus-1.la
 dbus_monitor_LDADD= $(top_builddir)/glib/libdbus-glib-1.la
 dbus_launch_LDADD= $(DBUS_X_LIBS)
-dbus_viewer_LDADD= $(DBUS_GLIB_TOOL_LIBS) $(top_builddir)/glib/libdbus-gtool.la $(DBUS_GTK_THREADS_LIBS)
+dbus_viewer_LDADD= $(top_builddir)/glib/libdbus-gtool.la $(DBUS_GTK_THREADS_LIBS) $(DBUS_GLIB_TOOL_LIBS)
 
 man_MANS = dbus-send.1 dbus-monitor.1 dbus-launch.1 dbus-cleanup-sockets.1
 EXTRA_DIST = $(man_MANS) run-with-tmp-session-bus.sh

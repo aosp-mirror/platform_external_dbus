@@ -383,7 +383,7 @@ generate_special (DBusMessageDataIter   *iter,
         _dbus_assert_not_reached ("oom");
 
       i = 0;
-      while (i <= (DBUS_MAXIMUM_TYPE_RECURSION_DEPTH + 1))
+      while (i < (DBUS_MAXIMUM_TYPE_RECURSION_DEPTH + 1))
         {
           long_sig[i] = DBUS_TYPE_ARRAY;
           ++i;
@@ -428,7 +428,7 @@ generate_special (DBusMessageDataIter   *iter,
       long_sig[i] = DBUS_TYPE_INT32;
       ++i;
 
-      while (i <= (DBUS_MAXIMUM_TYPE_RECURSION_DEPTH*2 + 3))
+      while (i < (DBUS_MAXIMUM_TYPE_RECURSION_DEPTH*2 + 3))
         {
           long_sig[i] = DBUS_STRUCT_END_CHAR;
           ++i;

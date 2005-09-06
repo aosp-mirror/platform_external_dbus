@@ -1,3 +1,35 @@
+2005-09-06  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Released 0.50
+
+	* Patch from Steve Grubb:
+	- bus/activation.c (bus_activation_service_reload_test): clean up
+	some indentation
+	- dbus/dbus-keyring.c (_dbus_keyring_reload): fix conditional 
+	- dbus/dbus-message-factory.c (generate_special): fix a couple of
+	buffer overflows in the test suite.  This is non critical because
+	it can not be exploited and this code is only run when doing a 
+	make check.
+
+	* Patch from Yaakov Selkowitz: Build fixes for Cygwin
+	- configure.in: Don't check and link against kdecore, only qt headers
+	- dbus/Makefile.am: Add -no-undefined to libdbus_1_la_LDFLAGS
+	- gcj/org/freedesktop/dbus/Makefile.am:
+	add libdbus_gcj_1_la_LDFLAGS = -no-undefined
+	- glib/Makefile.am: Add -no-undefined to libdbus_glib_1_la_LDFLAGS
+	and $(DBUS_GLIB_LIBS) to dbus_binding_tool_LDADD
+	- qt/Makefile.am: Add -no-undefined to libdbus_qt_1_la_LDFLAGS
+	- tools/Makefile.am: Add platform extentions to binaries 
+	(i.e. .exe on windows)
+
+	* configure.in: 
+	- Make it so if no suitable version of python is found we only 
+	disable building python instead of exiting the configure script
+	- Require version 2.4 of glib for glib bindings
+	- Up version to 0.50
+
+	* python/__init__.py: Sync version with libdbus to (0,50,0)
+	
 2005-09-05  Olivier Andrieu  <oliv__a@users.sourceforge.net>
 
 	* dbus/dbus-object-tree.c (find_subtree_recurse):

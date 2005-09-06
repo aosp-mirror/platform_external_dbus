@@ -30,7 +30,7 @@ $(top_srcdir)/qt/server.h: server.moc
 CLEANFILES=connection.moc integrator.moc server.moc
 
 libdbus_qt_1_la_LIBADD= $(DBUS_QT_LIBS) $(top_builddir)/dbus/libdbus-1.la
-libdbus_qt_1_la_LDFLAGS= -version-info 1:0
+libdbus_qt_1_la_LDFLAGS= -version-info 1:0 -no-undefined
 
 %.moc: %.h
 	$(QT_MOC) $< > $@

@@ -1886,13 +1886,15 @@ bus_activation_service_reload_test (const DBusString *test_data_dir)
   if (!init_service_reload_test (&directory))
     _dbus_assert_not_reached ("could not initiate service reload test");
  
-  if (!do_service_reload_test (&directory, FALSE));
+  if (!do_service_reload_test (&directory, FALSE))
+    ; /* Do nothing? */
   
   /* Do OOM tests */
   if (!init_service_reload_test (&directory))
     _dbus_assert_not_reached ("could not initiate service reload test");
  
-  if (!do_service_reload_test (&directory, TRUE));
+  if (!do_service_reload_test (&directory, TRUE))
+    ; /* Do nothing? */
  
   /* Cleanup test directory */
   if (!cleanup_service_reload_test (&directory))

@@ -32,7 +32,7 @@ java_object_files = $(java_sources:.java=.lo)
 	$(LIBTOOL) --mode=compile $(CXX) $(INCLUDES) $(CXXFLAGS) $(CPPFLAGS) -c -o '$@' '$<'
 
 .java.lo:
-	$(LIBTOOL) --mode=compile $(GCJ) $(GCJ_FLAGS) -c -o '$@' '$<'
+	$(LIBTOOL) --mode=compile $(GCJ) $(INCLUDES) $(GCJ_FLAGS) -c -o '$@' '$<'
 
 libdbus_gcj_1_la_SOURCES =
 
@@ -43,6 +43,8 @@ libdbus_gcj_1_la_DEPENDENCIES = 	\
 	$(java_class_files)
 
 
+libdbus_gcj_1_la_LDFLAGS = -no-undefined
+
 libdbus_gcj_1_la_LIBADD = 		\
 	$(native_object_files)		\
 	$(java_object_files)
@@ -51,5 +53,5 @@ EXTRA_libdbus_gcj_1_la_SOURCES = 	\
 	$(native_sources)		\
 	$(java_sources)
 
-libdbus_gcj_1_la_LINK = $(LIBTOOL) --tag=CXX --mode=link $(CXX) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
+libdbus_gcj_1_la_LINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 

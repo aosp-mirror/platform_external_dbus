@@ -42,10 +42,10 @@ libdbus_glib_HEADERS =                  \
 
 libdbus_glibdir = $(includedir)/dbus-1.0/dbus
 
-libdbus_glib_1_la_LIBADD= $(DBUS_GLIB_LIBS) $(top_builddir)/dbus/libdbus-1.la
+libdbus_glib_1_la_LIBADD= $(top_builddir)/dbus/libdbus-1.la $(DBUS_GLIB_LIBS)
 ## don't export symbols that start with "_" (we use this 
 ## convention for internal symbols)
-libdbus_glib_1_la_LDFLAGS= -export-symbols-regex "^[^_].*" -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
+libdbus_glib_1_la_LDFLAGS= -export-symbols-regex "^[^_].*" -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -no-undefined
 
 # convenience lib used here and by dbus-viewer
 noinst_LTLIBRARIES=libdbus-gtool.la
@@ -67,7 +67,7 @@ dbus_binding_tool_SOURCES =			\
 	dbus-glib-tool.h			\
 	dbus-glib-tool.c
 
-dbus_binding_tool_LDADD= -lexpat libdbus-gtool.la
+dbus_binding_tool_LDADD= libdbus-gtool.la $(DBUS_GLIB_LIBS) -lexpat
 
 ## we just rebuilt these manually and check them into cvs; easier than
 ## convincing automake/make to do this properly

@@ -571,7 +571,7 @@ _dbus_keyring_reload (DBusKeyring *keyring,
       if (!add_new_key (&keys, &n_keys, error))
         {
           _dbus_verbose ("Failed to generate new key: %s\n",
-                         error ? "(unknown)" : error->message);
+                         error ? error->message : "(unknown)");
           goto out;
         }
 

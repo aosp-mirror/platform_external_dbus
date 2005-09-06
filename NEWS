@@ -1,3 +1,18 @@
+D-BUS 0.50 (06 September 2005)
+===
+This is a minor release from 0.36.2.  The series number has changed 
+not because of any technical reasons but as an indication that we
+are moving closer to 1.0.  It is hoped that this will be the last
+series to see major changes, most of which will be isolated to the
+GLib and Python bindings, as we transition to concentrate more on
+bug busting and code auditing.
+
+- D-Bus builds on the Cygwin platform
+- Makefile cleanups
+- Various bug fixes
+- Optimization of the dbus object tree 
+- Memleaks and GIL crasher bugs have been fixed in the Python bindings
+
 D-BUS 0.36.2 (29 August 2005)
 ===
 - Security: Restrict other users from connecting to another users 

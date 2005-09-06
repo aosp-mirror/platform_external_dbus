@@ -3,7 +3,7 @@ AC_PREREQ(2.52)
 
 AC_INIT(dbus/dbus.h)
 
-AM_INIT_AUTOMAKE(dbus, 0.37)
+AM_INIT_AUTOMAKE(dbus, 0.50)
 
 AM_CONFIG_HEADER(config.h)
 
@@ -859,8 +859,8 @@ AC_SUBST(DBUS_TEST_CFLAGS)
 AC_SUBST(DBUS_TEST_LIBS)
 
 # Glib detection
-PKG_CHECK_MODULES(DBUS_GLIB, gobject-2.0, have_glib=yes, have_glib=no)
-PKG_CHECK_MODULES(DBUS_GLIB_THREADS, glib-2.0 gthread-2.0, have_glib_threads=yes, have_glib_threads=no)
+PKG_CHECK_MODULES(DBUS_GLIB, gobject-2.0 >= 2.4, have_glib=yes, have_glib=no)
+PKG_CHECK_MODULES(DBUS_GLIB_THREADS, gthread-2.0 >= 2.4, have_glib_threads=yes, have_glib_threads=no)
 
 if test x$have_glib = xno ; then
     AC_MSG_WARN([GLib development libraries not found])
@@ -940,6 +940,7 @@ else
         if test -f "$dir/qglobal.h"; then
             have_qt=yes
             DBUS_QT_CXXFLAGS="-I$dir"
+            DBUS_QT_LIBS="-L$QTDIR/lib -lqt-mt"
        fi
     done
 fi
@@ -947,18 +948,6 @@ if test x"$have_qt" = x"yes"; then
    AC_MSG_RESULT([found])
 else
    AC_MSG_RESULT([not found])
-fi
-
-dnl linking to kdecore will give us a bit of help from libtool
-if (! kde-config >& /dev/null); then
-    have_qt=no
-else
-    kdelibs=`kde-config --install lib --expandvars 2>/dev/null`
-    if test -z $kdelibs -o ! -f $kdelibs/libkdecore.la; then
-        have_qt=no
-    else
-        DBUS_QT_LIBS="$kdelibs/libkdecore.la"
-    fi
 fi
 
 if test x$have_qt = xno ; then
@@ -1239,13 +1228,21 @@ AC_SUBST(DBUS_SESSION_SOCKET_DIR)
 if test x$enable_python = xno; then
     have_python=no
 else
+    have_python_version=2.4
     AC_MSG_NOTICE([Checking to see if we can build Python bindings])
     have_python=no
-    AM_PATH_PYTHON(2.4)
+    AM_PATH_PYTHON()
 
     if test -z "$PYTHON" ; then
         AC_MSG_WARN([Python not found])
     else
+        AC_MSG_CHECKING([whether $PYTHON version >= $have_python_version])
+        AM_PYTHON_CHECK_VERSION([$PYTHON], [$have_python_version],
+                              [have_python_version="yes"],
+                              [have_python_version="too old"])
+    
+        AC_MSG_RESULT($have_python_version)
+    
         AC_CHECK_PROGS(PYREX, pyrexc)
 
         if test -z "$PYREX" ; then
@@ -1256,16 +1253,16 @@ else
 
         AM_CHECK_PYTHON_HEADERS(have_python_headers=yes,have_python_headers=no)
 
-	if test x$have_pyrex = xyes -a x$have_python_headers = xyes ; then
+	if test x$have_pyrex = xyes -a x$have_python_headers = xyes -a "x$have_python_version" = xyes ; then
 	    have_python=yes
         fi
     fi
 
     if test x$have_python = xno ; then
         if test x$enable_python = xyes ; then
-            AC_MSG_ERROR([Building python explicitly requested, but can't build python bindings])
+            AC_MSG_ERROR([Building python explicitly requested, but can't build python bindings because either Pyrex, Python headers or a suitable Python version was not found])
         else
-            AC_MSG_WARN([Couldn't find either Pyrex or the Python headers, not building Python bindings])
+            AC_MSG_WARN([Couldn't find either Pyrex, the Python headers or a suitable version of Python, not building Python bindings])
         fi
     fi               
 fi
