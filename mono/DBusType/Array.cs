@@ -17,7 +17,7 @@ namespace DBus.DBusType
     private ArrayList elements;
     private Type elementType;
     private Service service = null;
-    
+
     private Array()
     {
     }
@@ -53,14 +53,30 @@ namespace DBus.DBusType
 
       Marshal.FreeCoTaskMem(arrayIter);
     }
+
+    public string GetElementCodeAsString ()
+    {
+      string ret = System.String.Empty;
+      Type t = val.GetType ().GetElementType ();
+
+      while (true) {
+        ret += Arguments.GetCodeAsString (Arguments.MatchType(t));
+
+        if (t.IsArray)
+          t = t.GetElementType ();
+        else
+          break;
+      }
+     
+      return ret; 
+    }
     
     public void Append(IntPtr iter)
     {
       IntPtr arrayIter = Marshal.AllocCoTaskMem (Arguments.DBusMessageIterSize);
 
       if (!dbus_message_iter_open_container (iter,
-					     (int) Code,
-					     Arguments.GetCodeAsString (elementType),
+					     (int) Code, GetElementCodeAsString(),
 					     arrayIter)) {
 	throw new ApplicationException("Failed to append array argument: " + val);
       }
@@ -82,7 +98,8 @@ namespace DBus.DBusType
 
     public static bool Suits(System.Type type) 
     {
-      if (type.IsArray) {
+      Type type2 = type.GetElementType ();
+      if (type.IsArray || (type2 != null && type2.IsArray)) {
 	return true;
       }
       

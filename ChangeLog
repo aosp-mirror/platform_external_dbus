@@ -1,3 +1,15 @@
+2005-09-08  Joe Shaw  <joeshaw@novell.com>
+
+	Patches from James Willcox <snorp@snorp.net>
+
+	* mono/Makefile.am: Add Int16.cs and UInt16.cs
+
+	* mono/DBusType/Array.cs: Handle multidimensional arrays, and
+	support array "out" parameters.
+
+	* mono/DBusType/Int16.cs, mono/DBusType/UInt16.cs: New files,
+	for 16-bit int support.
+
 2005-09-06  John (J5) Palmieri  <johnp@redhat.com>
 
 	* Released 0.50

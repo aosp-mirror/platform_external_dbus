@@ -31,10 +31,12 @@ DBUS_SHARP_FILES= 				\
 	$(srcdir)/DBusType/Boolean.cs		\
 	$(srcdir)/DBusType/Byte.cs		\
 	$(srcdir)/DBusType/Double.cs		\
+	$(srcdir)/DBusType/Int16.cs		\
 	$(srcdir)/DBusType/Int32.cs		\
 	$(srcdir)/DBusType/Int64.cs		\
 	$(srcdir)/DBusType/ObjectPath.cs	\
 	$(srcdir)/DBusType/String.cs		\
+	$(srcdir)/DBusType/UInt16.cs		\
 	$(srcdir)/DBusType/UInt32.cs		\
 	$(srcdir)/DBusType/UInt64.cs
 
