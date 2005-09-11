@@ -1668,14 +1668,22 @@ record_mechanisms (DBusAuth         *auth,
            * it lists things in that order anyhow.
            */
 
-          _dbus_verbose ("%s: Adding mechanism %s to list we will try\n",
-                         DBUS_AUTH_NAME (auth), mech->mechanism);
-          
-          if (!_dbus_list_append (& DBUS_AUTH_CLIENT (auth)->mechs_to_try,
-                                  (void*) mech))
+          if (mech != &all_mechanisms[0])
             {
-              _dbus_string_free (&m);
-              goto nomem;
+              _dbus_verbose ("%s: Adding mechanism %s to list we will try\n",
+                             DBUS_AUTH_NAME (auth), mech->mechanism);
+          
+              if (!_dbus_list_append (& DBUS_AUTH_CLIENT (auth)->mechs_to_try,
+                                      (void*) mech))
+                {
+                  _dbus_string_free (&m);
+                  goto nomem;
+                }
+            }
+          else
+            {
+              _dbus_verbose ("%s: Already tried mechanism %s; not adding to list we will try\n",
+                             DBUS_AUTH_NAME (auth), mech->mechanism);
             }
         }
       else

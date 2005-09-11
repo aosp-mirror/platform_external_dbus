@@ -482,7 +482,7 @@ _dbus_keyring_reload (DBusKeyring *keyring,
       DBusKey *new;
 
       /* Don't load more than the max. */
-      if (n_keys >= (add_new ? MAX_KEYS_IN_FILE : MAX_KEYS_IN_FILE - 1))
+      if (n_keys >= (add_new ? MAX_KEYS_IN_FILE - 1 : MAX_KEYS_IN_FILE))
         break;
       
       next = 0;

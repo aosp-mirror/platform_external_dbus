@@ -377,8 +377,8 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
       if (pending != NULL)
 	{
 	  if (pending->timeout_added)
-	    _dbus_connection_remove_timeout (connection,
-                                             pending->timeout);
+            _dbus_connection_remove_timeout_unlocked (connection,
+                                                      pending->timeout);
 
 	  pending->timeout_added = FALSE;
 	}
@@ -594,14 +594,15 @@ protected_change_watch (DBusConnection         *connection,
  * available. Otherwise records the watch to be added when said
  * function is available. Also re-adds the watch if the
  * DBusAddWatchFunction changes. May fail due to lack of memory.
+ * Connection lock should be held when calling this.
  *
  * @param connection the connection.
  * @param watch the watch to add.
  * @returns #TRUE on success.
  */
 dbus_bool_t
-_dbus_connection_add_watch (DBusConnection *connection,
-                            DBusWatch      *watch)
+_dbus_connection_add_watch_unlocked (DBusConnection *connection,
+                                     DBusWatch      *watch)
 {
   return protected_change_watch (connection, watch,
                                  _dbus_watch_list_add_watch,
@@ -612,13 +613,14 @@ _dbus_connection_add_watch (DBusConnection *connection,
  * Removes a watch using the connection's DBusRemoveWatchFunction
  * if available. It's an error to call this function on a watch
  * that was not previously added.
+ * Connection lock should be held when calling this.
  *
  * @param connection the connection.
  * @param watch the watch to remove.
  */
 void
-_dbus_connection_remove_watch (DBusConnection *connection,
-                               DBusWatch      *watch)
+_dbus_connection_remove_watch_unlocked (DBusConnection *connection,
+                                        DBusWatch      *watch)
 {
   protected_change_watch (connection, watch,
                           NULL,
@@ -637,9 +639,9 @@ _dbus_connection_remove_watch (DBusConnection *connection,
  * @param enabled whether to enable or disable
  */
 void
-_dbus_connection_toggle_watch (DBusConnection *connection,
-                               DBusWatch      *watch,
-                               dbus_bool_t     enabled)
+_dbus_connection_toggle_watch_unlocked (DBusConnection *connection,
+                                        DBusWatch      *watch,
+                                        dbus_bool_t     enabled)
 {
   _dbus_assert (watch != NULL);
 
@@ -710,14 +712,15 @@ protected_change_timeout (DBusConnection           *connection,
  * function is available. Also re-adds the timeout if the
  * DBusAddTimeoutFunction changes. May fail due to lack of memory.
  * The timeout will fire repeatedly until removed.
+ * Connection lock should be held when calling this.
  *
  * @param connection the connection.
  * @param timeout the timeout to add.
  * @returns #TRUE on success.
  */
 dbus_bool_t
-_dbus_connection_add_timeout (DBusConnection *connection,
-			      DBusTimeout    *timeout)
+_dbus_connection_add_timeout_unlocked (DBusConnection *connection,
+                                       DBusTimeout    *timeout)
 {
   return protected_change_timeout (connection, timeout,
                                    _dbus_timeout_list_add_timeout,
@@ -728,13 +731,14 @@ _dbus_connection_add_timeout (DBusConnection *connection,
  * Removes a timeout using the connection's DBusRemoveTimeoutFunction
  * if available. It's an error to call this function on a timeout
  * that was not previously added.
+ * Connection lock should be held when calling this.
  *
  * @param connection the connection.
  * @param timeout the timeout to remove.
  */
 void
-_dbus_connection_remove_timeout (DBusConnection *connection,
-				 DBusTimeout    *timeout)
+_dbus_connection_remove_timeout_unlocked (DBusConnection *connection,
+                                          DBusTimeout    *timeout)
 {
   protected_change_timeout (connection, timeout,
                             NULL,
@@ -746,15 +750,16 @@ _dbus_connection_remove_timeout (DBusConnection *connection,
  * Toggles a timeout and notifies app via connection's
  * DBusTimeoutToggledFunction if available. It's an error to call this
  * function on a timeout that was not previously added.
+ * Connection lock should be held when calling this.
  *
  * @param connection the connection.
  * @param timeout the timeout to toggle.
  * @param enabled whether to enable or disable
  */
 void
-_dbus_connection_toggle_timeout (DBusConnection   *connection,
-                                 DBusTimeout      *timeout,
-                                 dbus_bool_t       enabled)
+_dbus_connection_toggle_timeout_unlocked (DBusConnection   *connection,
+                                          DBusTimeout      *timeout,
+                                          dbus_bool_t       enabled)
 {
   protected_change_timeout (connection, timeout,
                             NULL, NULL,
@@ -770,14 +775,14 @@ _dbus_connection_attach_pending_call_unlocked (DBusConnection  *connection,
   
   _dbus_assert (pending->reply_serial != 0);
 
-  if (!_dbus_connection_add_timeout (connection, pending->timeout))
+  if (!_dbus_connection_add_timeout_unlocked (connection, pending->timeout))
     return FALSE;
   
   if (!_dbus_hash_table_insert_int (connection->pending_replies,
                                     pending->reply_serial,
                                     pending))
     {
-      _dbus_connection_remove_timeout (connection, pending->timeout);
+      _dbus_connection_remove_timeout_unlocked (connection, pending->timeout);
 
       HAVE_LOCK_CHECK (connection);
       return FALSE;
@@ -807,8 +812,8 @@ free_pending_call_on_hash_removal (void *data)
     {
       if (pending->timeout_added)
         {
-          _dbus_connection_remove_timeout (pending->connection,
-                                           pending->timeout);
+          _dbus_connection_remove_timeout_unlocked (pending->connection,
+                                                    pending->timeout);
           pending->timeout_added = FALSE;
         }
 
@@ -2353,8 +2358,8 @@ reply_handler_timeout (void *data)
       pending->timeout_link = NULL;
     }
 
-  _dbus_connection_remove_timeout (connection,
-				   pending->timeout);
+  _dbus_connection_remove_timeout_unlocked (connection,
+				            pending->timeout);
   pending->timeout_added = FALSE;
 
   _dbus_verbose ("%s middle\n", _DBUS_FUNCTION_NAME);
@@ -3264,6 +3269,8 @@ _dbus_connection_get_dispatch_status_unlocked (DBusConnection *connection)
               _dbus_connection_queue_synthesized_message_link (connection,
                                                                connection->disconnect_message_link);
               connection->disconnect_message_link = NULL;
+
+              status = DBUS_DISPATCH_DATA_REMAINS;
             }
 
           /* Dump the outgoing queue, we aren't going to be able to

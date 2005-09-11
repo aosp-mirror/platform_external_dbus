@@ -123,8 +123,8 @@ _dbus_timeout_unref (DBusTimeout *timeout)
 /**
  * Changes the timeout interval. Note that you have to disable and
  * re-enable the timeout using the timeout toggle function
- * (_dbus_connection_toggle_timeout() etc.) to notify the application
- * of this change.
+ * (_dbus_connection_toggle_timeout_unlocked() etc.) to notify the
+ * application of this change.
  *
  * @param timeout the timeout
  * @param interval the new interval
@@ -140,7 +140,7 @@ _dbus_timeout_set_interval (DBusTimeout *timeout,
 
 /**
  * Changes the timeout's enabled-ness. Note that you should use
- * _dbus_connection_toggle_timeout() etc. instead, if
+ * _dbus_connection_toggle_timeout_unlocked() etc. instead, if
  * the timeout is passed out to an application main loop.
  * i.e. you can't use this function in the D-BUS library, it's
  * only used in the message bus daemon implementation.

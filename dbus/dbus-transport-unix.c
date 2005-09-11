@@ -76,8 +76,8 @@ free_watches (DBusTransport *transport)
   if (unix_transport->read_watch)
     {
       if (transport->connection)
-        _dbus_connection_remove_watch (transport->connection,
-                                       unix_transport->read_watch);
+        _dbus_connection_remove_watch_unlocked (transport->connection,
+                                                unix_transport->read_watch);
       _dbus_watch_invalidate (unix_transport->read_watch);
       _dbus_watch_unref (unix_transport->read_watch);
       unix_transport->read_watch = NULL;
@@ -86,8 +86,8 @@ free_watches (DBusTransport *transport)
   if (unix_transport->write_watch)
     {
       if (transport->connection)
-        _dbus_connection_remove_watch (transport->connection,
-                                       unix_transport->write_watch);
+        _dbus_connection_remove_watch_unlocked (transport->connection,
+                                                unix_transport->write_watch);
       _dbus_watch_invalidate (unix_transport->write_watch);
       _dbus_watch_unref (unix_transport->write_watch);
       unix_transport->write_watch = NULL;
@@ -162,9 +162,9 @@ check_write_watch (DBusTransport *transport)
                  unix_transport->fd,
                  _dbus_connection_has_messages_to_send_unlocked (transport->connection));
 
-  _dbus_connection_toggle_watch (transport->connection,
-                                 unix_transport->write_watch,
-                                 needed);
+  _dbus_connection_toggle_watch_unlocked (transport->connection,
+                                          unix_transport->write_watch,
+                                          needed);
 
   _dbus_transport_unref (transport);
 }
@@ -222,9 +222,9 @@ check_read_watch (DBusTransport *transport)
     }
 
   _dbus_verbose ("  setting read watch enabled = %d\n", need_read_watch);
-  _dbus_connection_toggle_watch (transport->connection,
-                                 unix_transport->read_watch,
-                                 need_read_watch);
+  _dbus_connection_toggle_watch_unlocked (transport->connection,
+                                          unix_transport->read_watch,
+                                          need_read_watch);
 
   _dbus_transport_unref (transport);
 }
@@ -899,15 +899,15 @@ unix_connection_set (DBusTransport *transport)
                            _dbus_connection_handle_watch,
                            transport->connection, NULL);
   
-  if (!_dbus_connection_add_watch (transport->connection,
-                                   unix_transport->write_watch))
+  if (!_dbus_connection_add_watch_unlocked (transport->connection,
+                                            unix_transport->write_watch))
     return FALSE;
 
-  if (!_dbus_connection_add_watch (transport->connection,
-                                   unix_transport->read_watch))
+  if (!_dbus_connection_add_watch_unlocked (transport->connection,
+                                            unix_transport->read_watch))
     {
-      _dbus_connection_remove_watch (transport->connection,
-                                     unix_transport->write_watch);
+      _dbus_connection_remove_watch_unlocked (transport->connection,
+                                              unix_transport->write_watch);
       return FALSE;
     }
 

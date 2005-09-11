@@ -271,8 +271,7 @@ bus_dispatch (DBusConnection *connection,
                                                 message, service_name, &error))
             {
               _DBUS_ASSERT_ERROR_IS_SET (&error);
-              _dbus_verbose ("bus_activation_activate_service() failed\n");
-               ("Failed: %s\n", error.name);
+              _dbus_verbose ("bus_activation_activate_service() failed: %s\n", error.name);
               goto out;
             }
           
@@ -2475,6 +2474,8 @@ check_existent_service_no_auto_start (BusContext     *context,
       else if (dbus_message_is_error (message,
                                       DBUS_ERROR_SPAWN_CHILD_EXITED) ||
                dbus_message_is_error (message,
+                                      DBUS_ERROR_SPAWN_CHILD_SIGNALED) ||
+               dbus_message_is_error (message,
                                       DBUS_ERROR_SPAWN_EXEC_FAILED))
         {
           ; /* good, this is expected also */
@@ -2821,8 +2822,6 @@ check_existent_hello_from_self (BusContext     *context,
 {
   DBusMessage *message;
   dbus_uint32_t serial;
-  dbus_bool_t retval;
-  const char *base_service;
   const char *text;
 
   message = dbus_message_new_method_call (EXISTENT_SERVICE_NAME,
@@ -2862,25 +2861,20 @@ check_existent_hello_from_self (BusContext     *context,
   if (message == NULL)
     {
       _dbus_warn ("Failed to pop message! Should have been reply from RunHelloFromSelf message\n");
-      goto out;
+      return FALSE;
     }
 
   if (dbus_message_get_reply_serial (message) != serial)
     {
       _dbus_warn ("Wrong reply serial\n");
-      goto out;
+      dbus_message_unref (message);
+      return FALSE;
     }
 
   dbus_message_unref (message);
   message = NULL;
       
-  retval = TRUE;
-
- out:
-  if (message)
-    dbus_message_unref (message);
-
-  return retval;
+  return TRUE;
 }
 
 

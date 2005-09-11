@@ -56,21 +56,21 @@ dbus_bool_t       _dbus_connection_has_messages_to_send_unlocked (DBusConnection
 DBusMessage*      _dbus_connection_get_message_to_send         (DBusConnection     *connection);
 void              _dbus_connection_message_sent                (DBusConnection     *connection,
                                                                 DBusMessage        *message);
-dbus_bool_t       _dbus_connection_add_watch                   (DBusConnection     *connection,
+dbus_bool_t       _dbus_connection_add_watch_unlocked          (DBusConnection     *connection,
                                                                 DBusWatch          *watch);
-void              _dbus_connection_remove_watch                (DBusConnection     *connection,
+void              _dbus_connection_remove_watch_unlocked       (DBusConnection     *connection,
                                                                 DBusWatch          *watch);
-void              _dbus_connection_toggle_watch                (DBusConnection     *connection,
+void              _dbus_connection_toggle_watch_unlocked       (DBusConnection     *connection,
                                                                 DBusWatch          *watch,
                                                                 dbus_bool_t         enabled);
 dbus_bool_t       _dbus_connection_handle_watch                (DBusWatch          *watch,
                                                                 unsigned int        condition,
                                                                 void               *data);
-dbus_bool_t       _dbus_connection_add_timeout                 (DBusConnection     *connection,
+dbus_bool_t       _dbus_connection_add_timeout_unlocked        (DBusConnection     *connection,
                                                                 DBusTimeout        *timeout);
-void              _dbus_connection_remove_timeout              (DBusConnection     *connection,
+void              _dbus_connection_remove_timeout_unlocked     (DBusConnection     *connection,
                                                                 DBusTimeout        *timeout);
-void              _dbus_connection_toggle_timeout              (DBusConnection     *connection,
+void              _dbus_connection_toggle_timeout_unlocked     (DBusConnection     *connection,
                                                                 DBusTimeout        *timeout,
                                                                 dbus_bool_t         enabled);
 DBusConnection*   _dbus_connection_new_for_transport           (DBusTransport      *transport);
