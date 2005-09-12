@@ -22,3 +22,4 @@ test-sleep-forever
 decode-gcov
 shell-test
 test-shell-service
+test-names

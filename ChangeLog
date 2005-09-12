@@ -1,3 +1,9 @@
+2005-09-12  Waldo Bastian  <bastian@kde.org>
+
+	* dbus/dbus-marshal-validate.c,
+	doc/dbus-specification.xml, test/Makefile.am,
+	test/test-names.c: allow hyphens in bus names.
+
 2005-09-11  Mark McLoughlin  <mark@skynet.ie>
 
 	* test/data/auth/fallback.auth-script: we don't

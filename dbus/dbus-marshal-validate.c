@@ -677,7 +677,7 @@ _dbus_validate_body_with_reason (const DBusString *expected_signature,
 }
 
 /**
- * Determine wether the given charater is valid as the first charater
+ * Determine wether the given character is valid as the first character
  * in a name.
  */
 #define VALID_INITIAL_NAME_CHARACTER(c)         \
@@ -686,7 +686,7 @@ _dbus_validate_body_with_reason (const DBusString *expected_signature,
     ((c) == '_') )
 
 /**
- * Determine wether the given charater is valid as a second or later
+ * Determine wether the given character is valid as a second or later
  * character in a name
  */
 #define VALID_NAME_CHARACTER(c)                 \
@@ -922,53 +922,24 @@ _dbus_validate_error_name (const DBusString  *str,
   return _dbus_validate_interface (str, start, len);
 }
 
-/* This assumes the first char exists and is ':' */
-static dbus_bool_t
-_dbus_validate_unique_name (const DBusString  *str,
-                            int                start,
-                            int                len)
-{
-  const unsigned char *s;
-  const unsigned char *end;
-  const unsigned char *name;
+/**
+ * Determine wether the given character is valid as the first character
+ * in a bus name.
+ */
+#define VALID_INITIAL_BUS_NAME_CHARACTER(c)         \
+  ( ((c) >= 'A' && (c) <= 'Z') ||               \
+    ((c) >= 'a' && (c) <= 'z') ||               \
+    ((c) == '_') || ((c) == '-'))
 
-  _dbus_assert (start >= 0);
-  _dbus_assert (len >= 0);
-  _dbus_assert (start <= _dbus_string_get_length (str));
-
-  if (len > _dbus_string_get_length (str) - start)
-    return FALSE;
-
-  if (len > DBUS_MAXIMUM_NAME_LENGTH)
-    return FALSE;
-
-  _dbus_assert (len > 0);
-
-  name = _dbus_string_get_const_data (str) + start;
-  end = name + len;
-  _dbus_assert (*name == ':');
-  s = name + 1;
-
-  while (s != end)
-    {
-      if (*s == '.')
-        {
-          if (_DBUS_UNLIKELY ((s + 1) == end))
-            return FALSE;
-          if (_DBUS_UNLIKELY (!VALID_NAME_CHARACTER (*(s + 1))))
-            return FALSE;
-          ++s; /* we just validated the next char, so skip two */
-        }
-      else if (_DBUS_UNLIKELY (!VALID_NAME_CHARACTER (*s)))
-        {
-          return FALSE;
-        }
-
-      ++s;
-    }
-
-  return TRUE;
-}
+/**
+ * Determine wether the given character is valid as a second or later
+ * character in a bus name
+ */
+#define VALID_BUS_NAME_CHARACTER(c)                 \
+  ( ((c) >= '0' && (c) <= '9') ||               \
+    ((c) >= 'A' && (c) <= 'Z') ||               \
+    ((c) >= 'a' && (c) <= 'z') ||               \
+    ((c) == '_') || ((c) == '-'))
 
 /**
  * Checks that the given range of the string is a valid bus name in
@@ -988,12 +959,86 @@ _dbus_validate_bus_name (const DBusString  *str,
                          int                start,
                          int                len)
 {
-  if (_DBUS_UNLIKELY (len == 0))
+  const unsigned char *s;
+  const unsigned char *end;
+  const unsigned char *iface;
+  const unsigned char *last_dot;
+
+  _dbus_assert (start >= 0);
+  _dbus_assert (len >= 0);
+  _dbus_assert (start <= _dbus_string_get_length (str));
+
+  if (len > _dbus_string_get_length (str) - start)
     return FALSE;
-  if (_dbus_string_get_byte (str, start) == ':')
-    return _dbus_validate_unique_name (str, start, len);
+
+  if (len > DBUS_MAXIMUM_NAME_LENGTH)
+    return FALSE;
+
+  if (len == 0)
+    return FALSE;
+
+  last_dot = NULL;
+  iface = _dbus_string_get_const_data (str) + start;
+  end = iface + len;
+  s = iface;
+
+  /* check special cases of first char so it doesn't have to be done
+   * in the loop. Note we know len > 0
+   */
+  if (*s == ':')
+  {
+    /* unique name */
+    ++s;
+    while (s != end)
+      {
+        if (*s == '.')
+          {
+            if (_DBUS_UNLIKELY ((s + 1) == end))
+              return FALSE;
+            if (_DBUS_UNLIKELY (!VALID_BUS_NAME_CHARACTER (*(s + 1))))
+              return FALSE;
+            ++s; /* we just validated the next char, so skip two */
+          }
+        else if (_DBUS_UNLIKELY (!VALID_BUS_NAME_CHARACTER (*s)))
+          {
+            return FALSE;
+          }
+
+        ++s;
+      }
+
+    return TRUE;
+  }
+  else if (_DBUS_UNLIKELY (*s == '.')) /* disallow starting with a . */
+    return FALSE;
+  else if (_DBUS_UNLIKELY (!VALID_INITIAL_BUS_NAME_CHARACTER (*s)))
+    return FALSE;
   else
-    return _dbus_validate_interface (str, start, len);
+    ++s;
+
+  while (s != end)
+    {
+      if (*s == '.')
+        {
+          if (_DBUS_UNLIKELY ((s + 1) == end))
+            return FALSE;
+          else if (_DBUS_UNLIKELY (!VALID_INITIAL_BUS_NAME_CHARACTER (*(s + 1))))
+            return FALSE;
+          last_dot = s;
+          ++s; /* we just validated the next char, so skip two */
+        }
+      else if (_DBUS_UNLIKELY (!VALID_BUS_NAME_CHARACTER (*s)))
+        {
+          return FALSE;
+        }
+
+      ++s;
+    }
+
+  if (_DBUS_UNLIKELY (last_dot == NULL))
+    return FALSE;
+
+  return TRUE;
 }
 
 /**

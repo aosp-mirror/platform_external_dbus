@@ -974,7 +974,7 @@
           additional restrictions that apply to interface names 
           specifically:
           <itemizedlist>
-            <listitem><para>They are composed of 1 or more elements separated by
+            <listitem><para>Interface names are composed of 1 or more elements separated by
                 a period ('.') character. All elements must contain at least 
                 one character.
                 </para>
@@ -984,25 +984,54 @@
                 </para>
             </listitem>
 
-	    <listitem><para>They must contain at least one '.' (period)
+	    <listitem><para>Interface names must contain at least one '.' (period)
               character (and thus at least two elements).
               </para></listitem>
 
-	    <listitem><para>They must not begin with a '.' (period) character.</para></listitem>
-	    <listitem><para>They must not exceed the maximum name length.</para></listitem>
+	    <listitem><para>Interface names must not begin with a '.' (period) character.</para></listitem>
+	    <listitem><para>Interface names must not exceed the maximum name length.</para></listitem>
           </itemizedlist>
         </para>
       </sect3>
       <sect3 id="message-protocol-names-bus">
         <title>Bus names</title>
         <para>
-          Bus names have the same restrictions as interface names, with a
-          special exception for unique connection names. A unique name's first
-          element must start with a colon (':') character. After the colon, any
-          characters in "[A-Z][a-z][0-9]_" may appear. Elements after
-          the first must follow the usual rules, except that they may start with
-          a digit. Bus names not starting with a colon have none of these 
-          exceptions and follow the same rules as interface names.
+          Connections have one or more bus names associated with them.
+          A connection has exactly one bus name that is a unique connection
+          name. The unique connection name remains with the connection for
+          its entire lifetime.
+          A bus name is of type <literal>STRING</literal>,
+          meaning that it must be valid UTF-8. However, there are also
+          some additional restrictions that apply to bus names 
+          specifically:
+          <itemizedlist>
+            <listitem><para>Bus names that start with a colon (':')
+                character are unique connection names.
+                </para>
+            </listitem>
+            <listitem><para>Bus names are composed of 1 or more elements separated by
+                a period ('.') character. All elements must contain at least 
+                one character.
+                </para>
+            </listitem>
+            <listitem><para>Each element must only contain the ASCII characters 
+                "[A-Z][a-z][0-9]_-". Only elements that are part of a unique
+                connection name may begin with a digit, elements in
+                other bus names must not begin with a digit.
+                </para>
+            </listitem>
+
+	    <listitem><para>Bus names must contain at least one '.' (period)
+              character (and thus at least two elements).
+              </para></listitem>
+
+	    <listitem><para>Bus names must not begin with a '.' (period) character.</para></listitem>
+	    <listitem><para>Bus names must not exceed the maximum name length.</para></listitem>
+          </itemizedlist>
+        </para>
+        <para>
+          Note that the hyphen ('-') character is allowed in bus names but
+          not in interface names.
         </para>
       </sect3>
       <sect3 id="message-protocol-names-member">
