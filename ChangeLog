@@ -1,3 +1,6 @@
+2005-09-23  Harald Fernengel  <harry@kdevelop.org>
+	* dbus/qt: New Qt bindings
+
 2005-09-12  Waldo Bastian  <bastian@kde.org>
 
 	* dbus/dbus-marshal-validate.c,
