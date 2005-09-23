@@ -24,8 +24,6 @@
 #include <QtCore/qcoreapplication.h>
 
 #include "qdbusconnection.h"
-#include "qdbuserror.h"
-#include "qdbusmessage.h"
 #include "qdbusconnection_p.h"
 
 QT_STATIC_CONST_IMPL char *QDBusConnection::default_connection_name = "qt_dbus_default_connection";

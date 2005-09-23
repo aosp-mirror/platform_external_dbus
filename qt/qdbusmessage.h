@@ -23,7 +23,8 @@
 #ifndef QDBUSMESSAGE_H
 #define QDBUSMESSAGE_H
 
-#include "qdbusmacros.h"
+#include "dbus/qdbus.h"
+
 #include <QtCore/qlist.h>
 #include <QtCore/qvariant.h>
 

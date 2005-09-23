@@ -23,7 +23,7 @@
 #ifndef QDBUSSERVER_H
 #define QDBUSSERVER_H
 
-#include "qdbusmacros.h"
+#include "dbus/qdbus.h"
 #include <QtCore/qobject.h>
 #include <QtCore/qstring.h>
 

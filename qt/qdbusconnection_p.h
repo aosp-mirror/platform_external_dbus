@@ -35,6 +35,8 @@
 #ifndef QDBUSCONNECTION_P_H
 #define QDBUSCONNECTION_P_H
 
+#include "qdbuserror.h"
+
 #include <QtCore/qatomic.h>
 #include <QtCore/qhash.h>
 #include <QtCore/qobject.h>
@@ -42,8 +44,6 @@
 #include <QtCore/qvarlengtharray.h>
 
 #include <dbus/dbus.h>
-
-#include "qdbuserror.h"
 
 class QDBusMessage;
 class QSocketNotifier;

@@ -15,6 +15,10 @@ dbus-glib-error-enum.h: dbus-protocol.h make-dbus-glib-error-enum.sh
 
 endif
 
+if HAVE_QT
+QT_INCLUDES=qdbus.h
+endif
+
 dbusincludedir=$(includedir)/dbus-1.0/dbus
 dbusarchincludedir=$(libdir)/dbus-1.0/include/dbus
 
@@ -35,7 +39,8 @@ dbusinclude_HEADERS=				\
 	dbus-shared.h				\
 	dbus-threads.h				\
 	dbus-types.h				\
-	$(GLIB_INCLUDES)
+	$(GLIB_INCLUDES)			\
+	$(QT_INCLUDES)
 
 dbusarchinclude_HEADERS=			\
 	dbus-arch-deps.h

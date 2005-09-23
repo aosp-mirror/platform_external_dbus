@@ -5,9 +5,12 @@ endif
 if HAVE_PYTHON
     PYTHON_SUBDIR=python
 endif
+if HAVE_QTESTLIB
+    QT_SUBDIR=qt
+endif
 
-SUBDIRS=$(GLIB_SUBDIR) $(PYTHON_SUBDIR)
-DIST_SUBDIRS=glib python
+SUBDIRS=$(GLIB_SUBDIR) $(PYTHON_SUBDIR) $(QT_SUBDIR)
+DIST_SUBDIRS=glib python qt
 
 INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
 

@@ -23,9 +23,20 @@
 #ifndef QDBUS_H
 #define QDBUS_H
 
-#include <QtDBUS/qdbusconnection.h>
-#include <QtDBUS/qdbuserror.h>
-#include <QtDBUS/qdbusmessage.h>
-#include <QtDBUS/qdbusserver.h>
+#include <QtCore/qglobal.h>
+
+#ifndef DBUS_COMPILATION
+# define QDBUS_EXPORT Q_DECL_IMPORT
+# include <dbus/qdbusconnection.h>
+# include <dbus/qdbuserror.h>
+# include <dbus/qdbusmessage.h>
+# include <dbus/qdbusserver.h>
+#else
+# define QDBUS_EXPORT Q_DECL_EXPORT
+# include <qt/qdbusconnection.h>
+# include <qt/qdbuserror.h>
+# include <qt/qdbusmessage.h>
+# include <qt/qdbusserver.h>
+#endif
 
 #endif

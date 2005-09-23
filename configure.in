@@ -943,7 +943,7 @@ fi
 
 if test x$enable_qt = xno; then
    have_qt=no;
-   fi
+fi
 
 QT_MOC=`$PKG_CONFIG --variable=exec_prefix QtCore`
 QT_MOC=${QT_MOC}/bin/moc
@@ -954,6 +954,22 @@ dnl Qt flags
 AC_SUBST(DBUS_QT_CFLAGS)
 AC_SUBST(DBUS_QT_LIBS)
 AC_SUBST(QT_MOC)
+
+dnl QTestLib detection
+PKG_CHECK_MODULES(DBUS_QTESTLIB, QtTest, have_qtest=yes, have_qtest=no)
+
+if test x$have_qtest = xno ; then
+    AC_MSG_WARN([Qt Unit Test library not found])
+fi
+
+if test x$have_qt = xno; then
+    have_qtest=no
+fi
+
+AM_CONDITIONAL(HAVE_QTESTLIB, test x$have_qtest = xyes)
+
+AC_SUBST(DBUS_QTESTLIB_CFLAGS)
+AC_SUBST(DBUS_QTESTLIB_LIBS)
 
 ### X11 detection
 AC_PATH_XTRA
@@ -1276,6 +1292,7 @@ tools/Makefile
 test/Makefile
 test/glib/Makefile
 test/python/Makefile
+test/qt/Makefile
 doc/Makefile
 dbus-1.pc
 dbus-glib-1.pc

@@ -23,7 +23,7 @@
 #ifndef QDBUSERROR_H
 #define QDBUSERROR_H
 
-#include "qdbusmacros.h"
+#include "dbus/qdbus.h"
 #include <QtCore/qstring.h>
 
 struct DBusError;

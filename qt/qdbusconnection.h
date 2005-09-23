@@ -23,7 +23,7 @@
 #ifndef QDBUSCONNECTION_H
 #define QDBUSCONNECTION_H
 
-#include "qdbusmacros.h"
+#include "dbus/qdbus.h"
 #include <QtCore/qstring.h>
 
 class QDBusConnectionPrivate;

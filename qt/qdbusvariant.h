@@ -23,7 +23,7 @@
 #ifndef QDBUSVARIANT_H
 #define QDBUSVARIANT_H
 
-#include "qdbusmacros.h"
+#include "dbus/qdbus.h"
 
 #include <QtCore/qmetatype.h>
 #include <QtCore/qstring.h>
