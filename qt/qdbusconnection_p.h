@@ -32,6 +32,9 @@
 //
 //
 
+#ifndef QDBUSCONNECTION_P_H
+#define QDBUSCONNECTION_P_H
+
 #include <QtCore/qatomic.h>
 #include <QtCore/qhash.h>
 #include <QtCore/qobject.h>
@@ -124,3 +127,5 @@ public:
     ObjectHookHash objectHooks;
     QList<DBusTimeout *> pendingTimeouts;
 };
+
+#endif
