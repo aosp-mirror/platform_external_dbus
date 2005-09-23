@@ -3,7 +3,7 @@ AC_PREREQ(2.52)
 
 AC_INIT(dbus/dbus.h)
 
-AM_INIT_AUTOMAKE(dbus, 0.51)
+AM_INIT_AUTOMAKE(dbus, 0.37)
 
 AM_CONFIG_HEADER(config.h)
 
@@ -859,8 +859,8 @@ AC_SUBST(DBUS_TEST_CFLAGS)
 AC_SUBST(DBUS_TEST_LIBS)
 
 # Glib detection
-PKG_CHECK_MODULES(DBUS_GLIB, gobject-2.0 >= 2.4, have_glib=yes, have_glib=no)
-PKG_CHECK_MODULES(DBUS_GLIB_THREADS, gthread-2.0 >= 2.4, have_glib_threads=yes, have_glib_threads=no)
+PKG_CHECK_MODULES(DBUS_GLIB, gobject-2.0, have_glib=yes, have_glib=no)
+PKG_CHECK_MODULES(DBUS_GLIB_THREADS, glib-2.0 gthread-2.0, have_glib_threads=yes, have_glib_threads=no)
 
 if test x$have_glib = xno ; then
     AC_MSG_WARN([GLib development libraries not found])
@@ -927,28 +927,9 @@ AC_SUBST(DBUS_GTK_LIBS)
 AC_SUBST(DBUS_GTK_THREADS_CFLAGS)
 AC_SUBST(DBUS_GTK_THREADS_LIBS)
 
-# Qt detection
-AC_PATH_PROG(QT_MOC, moc, no)
 
-have_qt=no
-AC_MSG_CHECKING([for qglobal.h])
-if test -n "$QTDIR" -a -f "$QTDIR/include/qglobal.h"; then
-    have_qt=yes
-    DBUS_QT_CXXFLAGS="-I$QTDIR/include"
-else
-    for dir in "${prefix}/include/qt" "/usr/include/qt-3.1" "/usr/include/qt3" "/usr/include/qt" "/usr/lib/qt/include" "/usr/lib/qt-3.1/include"; do
-        if test -f "$dir/qglobal.h"; then
-            have_qt=yes
-            DBUS_QT_CXXFLAGS="-I$dir"
-            DBUS_QT_LIBS="-L$QTDIR/lib -lqt-mt"
-       fi
-    done
-fi
-if test x"$have_qt" = x"yes"; then
-   AC_MSG_RESULT([found])
-else
-   AC_MSG_RESULT([not found])
-fi
+dnl Qt detection
+PKG_CHECK_MODULES(DBUS_QT, QtCore >= 4.0, have_qt=yes, have_qt=no)
 
 if test x$have_qt = xno ; then
     AC_MSG_WARN([Qt development libraries not found])
@@ -962,13 +943,17 @@ fi
 
 if test x$enable_qt = xno; then
    have_qt=no;
-fi
+   fi
+
+QT_MOC=`$PKG_CONFIG --variable=exec_prefix QtCore`
+QT_MOC=${QT_MOC}/bin/moc
 
 AM_CONDITIONAL(HAVE_QT, test x$have_qt = xyes)
 
 dnl Qt flags
-AC_SUBST(DBUS_QT_CXXFLAGS)
+AC_SUBST(DBUS_QT_CFLAGS)
 AC_SUBST(DBUS_QT_LIBS)
+AC_SUBST(QT_MOC)
 
 ### X11 detection
 AC_PATH_XTRA
@@ -1228,21 +1213,13 @@ AC_SUBST(DBUS_SESSION_SOCKET_DIR)
 if test x$enable_python = xno; then
     have_python=no
 else
-    have_python_version=2.4
     AC_MSG_NOTICE([Checking to see if we can build Python bindings])
     have_python=no
-    AM_PATH_PYTHON()
+    AM_PATH_PYTHON(2.4)
 
     if test -z "$PYTHON" ; then
         AC_MSG_WARN([Python not found])
     else
-        AC_MSG_CHECKING([whether $PYTHON version >= $have_python_version])
-        AM_PYTHON_CHECK_VERSION([$PYTHON], [$have_python_version],
-                              [have_python_version="yes"],
-                              [have_python_version="too old"])
-    
-        AC_MSG_RESULT($have_python_version)
-    
         AC_CHECK_PROGS(PYREX, pyrexc)
 
         if test -z "$PYREX" ; then
@@ -1253,16 +1230,16 @@ else
 
         AM_CHECK_PYTHON_HEADERS(have_python_headers=yes,have_python_headers=no)
 
-	if test x$have_pyrex = xyes -a x$have_python_headers = xyes -a "x$have_python_version" = xyes ; then
+	if test x$have_pyrex = xyes -a x$have_python_headers = xyes ; then
 	    have_python=yes
         fi
     fi
 
     if test x$have_python = xno ; then
         if test x$enable_python = xyes ; then
-            AC_MSG_ERROR([Building python explicitly requested, but can't build python bindings because either Pyrex, Python headers or a suitable Python version was not found])
+            AC_MSG_ERROR([Building python explicitly requested, but can't build python bindings])
         else
-            AC_MSG_WARN([Couldn't find either Pyrex, the Python headers or a suitable version of Python, not building Python bindings])
+            AC_MSG_WARN([Couldn't find either Pyrex or the Python headers, not building Python bindings])
         fi
     fi               
 fi

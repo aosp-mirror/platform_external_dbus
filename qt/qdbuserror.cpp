@@ -1,7 +1,6 @@
-// -*- Mode: C++; c-basic-offset: 2; indent-tabs-mode: nil; -*-
-/* server.h: Qt wrapper for DBusServer
+/* qdbuserror.h QDBusError object
  *
- * Copyright (C) 2003  Zack Rusin <zack@kde.org>
+ * Copyright (C) 2005 Harald Fernengel <harry@kdevelop.org>
  *
  * Licensed under the Academic Free License version 2.1
  *
@@ -20,38 +19,28 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#ifndef DBUS_QT_SERVER_H
-#define DBUS_QT_SERVER_H
 
-#include <qobject.h>
+#include "qdbuserror.h"
 
-#include "dbus/dbus.h"
+#include <QtCore/qdebug.h>
 
-namespace DBusQt
+#include <dbus/dbus.h>
+
+QDBusError::QDBusError(const DBusError *error)
 {
-  class Connection;
-  class Server : public QObject
-  {
-    Q_OBJECT
-  public:
-    Server( const QString& addr = QString::null, QObject *parent=0 );
-    ~Server();
+    if (!error || !dbus_error_is_set(error))
+        return;
 
-    bool isConnected() const;
-    QString address() const;
-
-  public slots:
-    void listen( const QString& addr );
-    void disconnect();
-  signals:
-    void newConnection( Connection* );
-
-  private:
-    void init( const QString& addr );
-  private:
-    struct Private;
-    Private *d;
-  };
+    nm = QString::fromUtf8(error->name);
+    msg = QString::fromUtf8(error->message);
 }
 
+#ifndef QT_NO_DEBUG
+QDebug operator<<(QDebug dbg, const QDBusError &msg)
+{
+    dbg.nospace() << "QDBusError(" << msg.name() << ", " << msg.message() << ")";
+    return dbg.space();
+}
 #endif
+
+

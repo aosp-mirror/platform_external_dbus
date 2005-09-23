@@ -1,36 +1,49 @@
 if HAVE_QT
-INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_QT_CXXFLAGS)
+INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_QT_CFLAGS)
 
 dbusincludedir=$(includedir)/dbus-1.0/dbus
 
 lib_LTLIBRARIES=libdbus-qt-1.la
 
-dbusinclude_HEADERS=				\
-	dbus-qt.h message.h connection.h        \
-	server.h
+dbusinclude_HEADERS=	\
+	qdbuserror.h \
+	qdbusmacros.h \
+	qdbusmessage.h \
+	qdbusserver.h \
+	qdbus.h \
+	qdbusmarshall.h \
+	qdbusvariant.h
 
 libdbus_qt_1_la_SOURCES = 			\
-	dbus-qthread.cpp \
-	$(top_srcdir)/qt/message.cpp \
-	$(top_srcdir)/qt/connection.cpp \
-	$(top_srcdir)/qt/integrator.cpp \
-	$(top_srcdir)/qt/server.cpp \
-	$(top_srcdir)/qt/connection.h \
-	$(top_srcdir)/qt/integrator.h \
-	$(top_srcdir)/qt/server.h
+	$(top_srcdir)/qt/qdbusconnection.cpp    \
+	$(top_srcdir)/qt/qdbuserror.cpp         \
+	$(top_srcdir)/qt/qdbusintegrator.cpp    \
+	$(top_srcdir)/qt/qdbusmarshall.cpp      \
+	$(top_srcdir)/qt/qdbusmessage.cpp       \
+	$(top_srcdir)/qt/qdbusserver.cpp        \
+	$(top_srcdir)/qt/qdbusconnection.h      \
+	$(top_srcdir)/qt/qdbuserror.h           \
+	$(top_srcdir)/qt/qdbusmacros.h          \
+	$(top_srcdir)/qt/qdbusmessage.h         \
+	$(top_srcdir)/qt/qdbusserver.h          \
+	$(top_srcdir)/qt/qdbusconnection_p.h    \
+	$(top_srcdir)/qt/qdbus.h                \
+	$(top_srcdir)/qt/qdbusmarshall.h        \
+	$(top_srcdir)/qt/qdbusmessage_p.h       \
+	$(top_srcdir)/qt/qdbusvariant.h
 
 
-$(top_srcdir)/qt/connection.cpp: connection.moc
-$(top_srcdir)/qt/integrator.cpp: integrator.moc
-$(top_srcdir)/qt/server.cpp: server.moc
-$(top_srcdir)/qt/connection.h: connection.moc
-$(top_srcdir)/qt/integrator.h: integrator.moc
-$(top_srcdir)/qt/server.h: server.moc
+$(top_srcdir)/qt/qdbusserver.cpp: qdbusserver.moc
+$(top_srcdir)/qt/qdbusconnection.cpp: qdbusconnection.moc
 
-CLEANFILES=connection.moc integrator.moc server.moc
+CLEANFILES=qdbusserver.moc qdbusconnection.moc
 
 libdbus_qt_1_la_LIBADD= $(DBUS_QT_LIBS) $(top_builddir)/dbus/libdbus-1.la
 libdbus_qt_1_la_LDFLAGS= -version-info 1:0 -no-undefined
+
+# _p.h files are a exception
+qdbusconnection.moc: qdbusconnection_p.h
+	$(QT_MOC) -o qdbusconnection.moc $(top_srcdir)/qt/qdbusconnection_p.h
 
 %.moc: %.h
 	$(QT_MOC) $< > $@
