@@ -1,5 +1,11 @@
 2005-09-26  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/Python.pyx: Fixed memory leaks when throwing errors.
+	We now copy the message from a DBusError and then free 
+	the error object befor throwing the error
+
+2005-09-26  John (J5) Palmieri  <johnp@redhat.com>
+
 	* Integrate patches from Lennart Poettering <mzsqb at 0pointer.de>:
 	- dbus/dbus-bus.c
 	(internal_bus_get): new method that take over the heavy lifting
