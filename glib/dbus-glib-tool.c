@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <time.h>
 
 #ifdef DBUS_BUILD_TESTS
 static void run_all_tests (const char *test_data_dir);
@@ -45,7 +46,7 @@ typedef enum {
   DBUS_BINDING_OUTPUT_NONE,
   DBUS_BINDING_OUTPUT_PRETTY,
   DBUS_BINDING_OUTPUT_GLIB_SERVER,
-  DBUS_BINDING_OUTPUT_GLIB_CLIENT,
+  DBUS_BINDING_OUTPUT_GLIB_CLIENT
 } DBusBindingOutputMode;
 
 static void

@@ -4,6 +4,10 @@
 	We now copy the message from a DBusError and then free 
 	the error object befor throwing the error
 
+	* glib/dbus-glib-tool.c: removed extra comma at the end of the
+	DBusBindingOutputMode enum which was causing a warning.
+	#include <time.h> so using time_t is explicitly defined
+
 2005-09-26  John (J5) Palmieri  <johnp@redhat.com>
 
 	* Integrate patches from Lennart Poettering <mzsqb at 0pointer.de>:
