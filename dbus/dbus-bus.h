@@ -33,6 +33,9 @@ DBUS_BEGIN_DECLS
 
 DBusConnection *dbus_bus_get              (DBusBusType     type,
 					   DBusError      *error);
+DBusConnection *dbus_bus_get_private      (DBusBusType     type,
+					   DBusError      *error);
+
 dbus_bool_t     dbus_bus_register         (DBusConnection *connection,
 					   DBusError      *error);
 dbus_bool_t     dbus_bus_set_unique_name  (DBusConnection *connection,

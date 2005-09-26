@@ -1,3 +1,21 @@
+2005-09-26  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Integrate patches from Lennart Poettering <mzsqb at 0pointer.de>:
+	- dbus/dbus-bus.c
+	(internal_bus_get): new method that take over the heavy lifting
+	of dbus_bus_get and adds the ability to get a private connection
+	to the bus
+	(dbus_bus_get): wrapper to internal_bus_get that provides the same
+	interface as in previous versions
+	(dbus_bus_get_private): new method that is a wrapper to 
+	internal_bus_get to get a private connection to the bus
+
+	- dbus/dbus-bus.h
+	(dbus_bus_get_private): add as a public libdbus interface
+
+	- dbus-1.pc.in: output system_bus_default_address and 
+	sysconfdir variables so apps can use them when compiling
+
 2005-09-23  Harald Fernengel  <harry@kdevelop.org>
 	* dbus/qt: New Qt bindings
 

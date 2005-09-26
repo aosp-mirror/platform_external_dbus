@@ -302,27 +302,9 @@ ensure_bus_data (DBusConnection *connection)
   return bd;
 }
 
-/** @} */ /* end of implementation details docs */
-
-/**
- * @addtogroup DBusBus
- * @{
- */
-
-/**
- * Connects to a bus daemon and registers the client with it.  If a
- * connection to the bus already exists, then that connection is
- * returned.  Caller owns a reference to the bus.
- *
- * @todo alex thinks we should nullify the connection when we get a disconnect-message.
- *
- * @param type bus type
- * @param error address where an error can be returned.
- * @returns a DBusConnection with new ref
- */
-DBusConnection *
-dbus_bus_get (DBusBusType  type,
-	      DBusError   *error)
+static DBusConnection *
+internal_bus_get (DBusBusType  type,
+	      DBusError   *error, dbus_bool_t private)
 {
   const char *address;
   DBusConnection *connection;
@@ -356,7 +338,7 @@ dbus_bus_get (DBusBusType  type,
       bus_connection_addresses[activation_bus_type] != NULL)
     type = activation_bus_type;
   
-  if (bus_connections[type] != NULL)
+  if (!private && bus_connections[type] != NULL)
     {
       connection = bus_connections[type];
       dbus_connection_ref (connection);
@@ -374,7 +356,10 @@ dbus_bus_get (DBusBusType  type,
       return NULL;
     }
 
-  connection = dbus_connection_open (address, error);
+  if (private)
+    connection = dbus_connection_open_private(address, error);
+  else
+    connection = dbus_connection_open (address, error);
   
   if (!connection)
     {
@@ -399,7 +384,9 @@ dbus_bus_get (DBusBusType  type,
       return NULL;
     }
 
-  bus_connections[type] = connection;
+  if (!private)
+    bus_connections[type] = connection;
+  
   bd = ensure_bus_data (connection);
   _dbus_assert (bd != NULL);
 
@@ -409,6 +396,46 @@ dbus_bus_get (DBusBusType  type,
   return connection;
 }
 
+
+/** @} */ /* end of implementation details docs */
+
+/**
+ * @addtogroup DBusBus
+ * @{
+ */
+
+/**
+ * Connects to a bus daemon and registers the client with it.  If a
+ * connection to the bus already exists, then that connection is
+ * returned.  Caller owns a reference to the bus.
+ *
+ * @todo alex thinks we should nullify the connection when we get a disconnect-message.
+ *
+ * @param type bus type
+ * @param error address where an error can be returned.
+ * @returns a DBusConnection with new ref
+ */
+DBusConnection *
+dbus_bus_get (DBusBusType  type,
+	      DBusError   *error) {
+  return internal_bus_get(type, error, FALSE);
+}
+
+/**
+ * Connects to a bus daemon and registers the client with it.  Unlike
+ * dbus_bus_get(), always creates a new connection. This connection
+ * will not be saved or recycled by libdbus. Caller owns a reference
+ * to the bus.
+ *
+ * @param type bus type
+ * @param error address where an error can be returned.
+ * @returns a DBusConnection with new ref
+ */
+DBusConnection *
+dbus_bus_get_private (DBusBusType  type,
+	      DBusError   *error) {
+  return internal_bus_get(type, error, TRUE);
+}
 
 /**
  * Registers a connection with the bus. This must be the first
