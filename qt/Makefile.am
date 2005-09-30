@@ -3,7 +3,7 @@ INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_QT_CFLAGS) -DDBUS_COMPILAT
 
 dbusincludedir=$(includedir)/dbus-1.0/dbus
 
-lib_LTLIBRARIES=libdbus-qt-1.la
+lib_LTLIBRARIES=libdbus-qt4-1.la
 
 dbusinclude_HEADERS=	\
 	qdbuserror.h \
@@ -12,7 +12,7 @@ dbusinclude_HEADERS=	\
 	qdbusconnection.h \
 	qdbusvariant.h
 
-libdbus_qt_1_la_SOURCES = 			\
+libdbus_qt4_1_la_SOURCES = 			\
 	$(top_srcdir)/qt/qdbusconnection.cpp    \
 	$(top_srcdir)/qt/qdbuserror.cpp         \
 	$(top_srcdir)/qt/qdbusintegrator.cpp    \
@@ -35,8 +35,8 @@ $(top_srcdir)/qt/qdbusconnection.cpp: qdbusconnection.moc
 
 CLEANFILES=qdbusserver.moc qdbusconnection.moc
 
-libdbus_qt_1_la_LIBADD= $(DBUS_QT_LIBS) $(top_builddir)/dbus/libdbus-1.la
-libdbus_qt_1_la_LDFLAGS= -version-info 1:0 -no-undefined
+libdbus_qt4_1_la_LIBADD= $(DBUS_QT_LIBS) $(top_builddir)/dbus/libdbus-1.la
+libdbus_qt4_1_la_LDFLAGS= -version-info 1:0 -no-undefined
 
 # _p.h files are a exception
 qdbusconnection.moc: qdbusconnection_p.h

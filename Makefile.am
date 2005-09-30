@@ -8,6 +8,10 @@ if HAVE_QT
    QT_SUBDIR=qt
 endif
 
+if HAVE_QT3
+   QT3_SUBDIR=qt3
+endif
+
 if DBUS_USE_GCJ
    GCJ_SUBDIR=gcj
 endif
@@ -28,8 +32,8 @@ dist-local:
 		echo "You have to build with Qt and GLib to make dist" ;	\
 	fi 
 
-SUBDIRS=dbus bus doc $(GLIB_SUBDIR) $(GCJ_SUBDIR) $(MONO_SUBDIR) $(QT_SUBDIR) $(PYTHON_SUBDIR) tools test
-DIST_SUBDIRS=dbus bus doc glib qt gcj mono python tools test
+SUBDIRS=dbus bus doc $(GLIB_SUBDIR) $(GCJ_SUBDIR) $(MONO_SUBDIR) $(QT_SUBDIR) $(QT3_SUBDIR) $(PYTHON_SUBDIR) tools test
+DIST_SUBDIRS=dbus bus doc glib qt qt3 gcj mono python tools test
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = dbus-1.pc $(GLIB_PC) $(MONO_PC)
