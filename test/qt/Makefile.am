@@ -14,13 +14,13 @@ noinst_PROGRAMS= $(TEST_BINARIES)
 qdbusconnection_SOURCES= \
 	tst_qdbusconnection.cpp
 
-$(top_srcdir)/test/qt/tst_qdbusconnection.cpp: tst_qdbusconnection.moc
+tst_qdbusconnection.cpp: tst_qdbusconnection.moc
 
-TEST_LIBS=$(DBUS_QTESTLIB_LIBS) $(top_builddir)/qt/libdbus-qt-1.la
+tst_qdbusconnection.moc:
+	$(QT_MOC) tst_qdbusconnection.cpp > tst_qdbusconnection.moc
+
+TEST_LIBS=$(DBUS_QTESTLIB_LIBS) $(top_builddir)/qt/libdbus-qt4-1.la
 
 qdbusconnection_LDADD=$(TEST_LIBS)
 
 CLEANFILES=tst_qdbusconnection.moc
-
-%.moc: %.cpp
-	$(QT_MOC) $< > $@

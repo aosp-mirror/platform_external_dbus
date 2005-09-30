@@ -3,7 +3,7 @@
 
 #include <QtTest/QtTest>
 
-#include <qdbus.h>
+#include <dbus/qdbus.h>
 
 class tst_QDBusConnection: public QObject
 {
