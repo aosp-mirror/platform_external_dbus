@@ -3363,8 +3363,8 @@ dbus_connection_get_dispatch_status (DBusConnection *connection)
 * Filter funtion for handling the Peer standard interface
 **/
 static DBusHandlerResult
-_dbus_connection_peer_filter (DBusConnection *connection,
-                              DBusMessage    *message)
+_dbus_connection_peer_filter_unlocked_no_update (DBusConnection *connection,
+                                                 DBusMessage    *message)
 {
   if (dbus_message_is_method_call (message,
                                    DBUS_INTERFACE_PEER,
@@ -3376,8 +3376,9 @@ _dbus_connection_peer_filter (DBusConnection *connection,
       ret = dbus_message_new_method_return (message);
       if (ret == NULL)
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
-      
-      sent = dbus_connection_send (connection, ret, NULL);
+     
+      sent = _dbus_connection_send_unlocked_no_update (connection, ret, NULL);
+
       dbus_message_unref (ret);
 
       if (!sent)
@@ -3397,13 +3398,13 @@ _dbus_connection_peer_filter (DBusConnection *connection,
 * they should be processed from this method
 **/
 static DBusHandlerResult
-_dbus_connection_run_builtin_filters (DBusConnection *connection,
-                                      DBusMessage    *message)
+_dbus_connection_run_builtin_filters_unlocked_no_update (DBusConnection *connection,
+                                                           DBusMessage    *message)
 {
   /* We just run one filter for now but have the option to run more
      if the spec calls for it in the future */
 
-  return _dbus_connection_peer_filter (connection, message);
+  return _dbus_connection_peer_filter_unlocked_no_update (connection, message);
 }
 
 /**
@@ -3514,8 +3515,8 @@ dbus_connection_dispatch (DBusConnection *connection)
       result = DBUS_HANDLER_RESULT_HANDLED;
       goto out;
     }
- 
-  result = _dbus_connection_run_builtin_filters (connection, message);
+
+  result = _dbus_connection_run_builtin_filters_unlocked_no_update (connection, message);
   if (result != DBUS_HANDLER_RESULT_NOT_YET_HANDLED)
     goto out;
  

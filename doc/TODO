@@ -19,8 +19,6 @@ Important for 1.0
  - Add test harness for selinux allow/deny cf. this message
    http://lists.freedesktop.org/archives/dbus/2005-April/002506.html
 
- - Add a test case for handling the Ping message 
-
  - publish the introspection dtd at its URL
  
  - RequestName flags seem a bit strange; see the docs for dbus_bus_request_name() 

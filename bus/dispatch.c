@@ -2877,6 +2877,65 @@ check_existent_hello_from_self (BusContext     *context,
   return TRUE;
 }
 
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
+check_existent_ping (BusContext     *context,
+                     DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_uint32_t serial;
+  message = dbus_message_new_method_call (EXISTENT_SERVICE_NAME,
+                                          "/org/freedesktop/TestSuite",
+                                          "org.freedesktop.DBus.Peer",
+                                          "Ping");
+  
+  if (message == NULL)
+    return TRUE;
+
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  bus_test_run_everything (context);
+
+  /* Note: if this test is run in OOM mode, it will block when the bus
+   * doesn't send a reply due to OOM.
+   */
+  block_connection_until_message_from_bus (context, connection, "reply from running Ping");
+      
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Failed to pop message! Should have been reply from Ping message\n");
+      return FALSE;
+    }
+
+  if (dbus_message_get_reply_serial (message) != serial)
+    {
+      _dbus_warn ("Wrong reply serial\n");
+      dbus_message_unref (message);
+      return FALSE;
+    }
+
+  if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_METHOD_RETURN)
+    {
+      _dbus_warn ("Unexpected message return during Ping\n");
+      dbus_message_unref (message);
+      return FALSE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+      
+  return TRUE;
+}
 
 /* returns TRUE if the correct thing happens,
  * but the correct thing may include OOM errors.
@@ -3052,6 +3111,9 @@ check_existent_service_auto_start (BusContext     *context,
 
   dbus_message_unref (message);
   message = NULL;
+
+  if (!check_existent_ping (context, connection))
+    goto out;
 
   if (!check_existent_hello_from_self (context, connection))
     goto out;

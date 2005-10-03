@@ -1,3 +1,19 @@
+2005-10-03  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/driver.c (bus_driver_handle_introspect): Add signals
+	to the introspect data. (patch from Daniel P. Berrange 
+	<dan at berrange.com>)
+
+	* bus/dispatch.c (check_existent_ping): Add testcase for Ping
+	
+	* dbus/dbus-connection.c (_dbus_connection_peer_filter,
+	_dbus_connection_run_builtin_filters): Changed these to
+	be unlock_no_update functions and call 
+	_dbus_connection_send_unlocked_no_update instead of
+	dbus_connection_send to avoid locking errors.
+	
+	* doc/TODO: Removed the make Ping test TODO
+	
 2005-09-26  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/Python.pyx: Fixed memory leaks when throwing errors.

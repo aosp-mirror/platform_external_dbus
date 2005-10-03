@@ -1280,6 +1280,45 @@ bus_driver_handle_introspect (DBusConnection *connection,
       
       ++i;
     }
+
+  if (!_dbus_string_append_printf (&xml, "    <signal name=\"NameOwnerChanged\">\n"))
+    goto oom;
+  
+  if (!_dbus_string_append_printf (&xml, "      <arg type=\"s\"/>\n"))
+    goto oom;
+  
+  if (!_dbus_string_append_printf (&xml, "      <arg type=\"s\"/>\n"))
+    goto oom;
+  
+  if (!_dbus_string_append_printf (&xml, "      <arg type=\"s\"/>\n"))
+    goto oom;
+  
+  if (!_dbus_string_append_printf (&xml, "    </signal>\n"))
+    goto oom;
+
+
+
+  if (!_dbus_string_append_printf (&xml, "    <signal name=\"NameLost\">\n"))
+    goto oom;
+  
+  if (!_dbus_string_append_printf (&xml, "      <arg type=\"s\"/>\n"))
+    goto oom;
+  
+  if (!_dbus_string_append_printf (&xml, "    </signal>\n"))
+    goto oom;
+
+
+
+  if (!_dbus_string_append_printf (&xml, "    <signal name=\"NameAcquired\">\n"))
+    goto oom;
+  
+  if (!_dbus_string_append_printf (&xml, "      <arg type=\"s\"/>\n"))
+    goto oom;
+  
+  if (!_dbus_string_append_printf (&xml, "    </signal>\n"))
+    goto oom;
+
+
   
   if (!_dbus_string_append (&xml, "  </interface>\n"))
     goto oom;
