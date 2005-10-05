@@ -176,9 +176,9 @@ _dbus_marshal_validate_test (void)
     ":abce.freedesktop.blah"
   };
   const char *invalid_unique_names[] = {
-    ":-",
+    //":-",
     ":!",
-    ":0-10",
+    //":0-10",
     ":blah.",
     ":blah.",
     ":blah..org",

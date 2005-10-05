@@ -1,3 +1,49 @@
+2005-10-05  John (J5) Palmieri  <johnp@redhat.com>
+
+	* glib/dbus-gvalue.c (marshal_variant): call _dbus_gvalue_marshal 
+	instead of marshal basic so we can handle recursive types in a variant
+
+	* test/glib/test-dbus-glib.c: Add test for marshaling recurive types
+	in variants
+
+	* test/glib/test-service-glib.c, test-service-glib.xml
+	(my_object_echo_variant [EchoVariant], 
+	my_object_process_variant_of_array_of_ints123
+	[ProcessVariantOfArrayOfInts123]): 
+	Add two test methods
+
+	* python/introspect_parser.py: New module for parsing introspect
+	data.
+
+	* python/dbus_bindings.pyx:
+	(various places): when throwing errors fix to use errormsg instead 
+	of message local variable because Pyrex can get confused with other 
+	message variables (initial patch by Robert McQueen 
+	<robert.mcqueen at collabora.co.uk>)
+	(MessageIter::parse_signature_block): new method for getting the next
+	block in a signiture.
+	(MessageIter::append_strict): new method for appending values strictly
+	using the passed in signature instead of guessing at the type
+	(MessageItter:: append_dict, append_struct, append_array): use 
+	signatures to marshal children if the signature is available
+	
+	* python/exceptions.py (IntrospectionParserException): new exception
+
+	* python/proxies.py (ProxyMethod::__call__): Marshal args with 
+	introspected signatures if available, else we fall back to the
+	old way of doing things.
+	(ProxyObject::_introspect_reply_handler ): parse introspection data
+	
+	* python/service.py (ObjectType::_reflect_on_method): Properly
+	terminate <method> if there are no args in the reflection data
+
+	* test/python/test-client.py: add tests for talking with the GLib
+	test server.  This gives us better coverage for introspection since
+	python to python will always generate arguments as variants.  It also
+	allows us to test the robustness of the GLib bindings and interlanguage
+	communications.
+
+	
 2005-10-03  John (J5) Palmieri  <johnp@redhat.com>
 
 	* bus/driver.c (bus_driver_handle_introspect): Add signals

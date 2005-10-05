@@ -1138,7 +1138,34 @@ main (int argc, char **argv)
       g_free (g_ptr_array_index (objs, i));
     g_ptr_array_free (objs, TRUE);
   }
+  
+  {
+    GValue *variant;
+    GArray *array;
+    gint i;
 
+    g_print ("Calling ProcessVariantOfArrayOfInts123\n");
+
+    array = g_array_sized_new (FALSE, FALSE, sizeof(gint), 3);
+    i = 1;
+    g_array_append_val (array, i);
+    i++;
+    g_array_append_val (array, i);
+    i++;
+    g_array_append_val (array, i);
+
+    variant = g_new0 (GValue, 1);
+    g_value_init (variant, dbus_g_type_get_collection ("GArray", G_TYPE_INT));
+    g_value_set_boxed_take_ownership (variant, array);
+
+    if (!dbus_g_proxy_call (proxy, "ProcessVariantOfArrayOfInts123", &error,
+                            G_TYPE_VALUE, variant,
+                            G_TYPE_INVALID,
+			    G_TYPE_INVALID))
+      lose_gerror ("Failed to send a vairant of array of ints 1, 2 and 3!", error);
+
+    g_value_unset (variant);
+  }
   /* Signal handling tests */
   
   g_print ("Testing signal handling\n");

@@ -20,13 +20,7 @@ if not dbus.__file__.startswith(pydir):
 if not dbus_bindings.__file__.startswith(pydir):
     raise Exception("DBus modules are not being picked up from the package")
 
-class TestDBusBindings(unittest.TestCase):
-    def setUp(self):
-        self.bus = dbus.SessionBus()
-        self.remote_object = self.bus.get_object("org.freedesktop.DBus.TestSuitePythonService", "/org/freedesktop/DBus/TestSuitePythonObject")
-        self.iface = dbus.Interface(self.remote_object, "org.freedesktop.DBus.TestSuiteInterface")
-
-        self.test_types_vals = [1, 12323231, 3.14159265, 99999999.99,
+test_types_vals = [1, 12323231, 3.14159265, 99999999.99,
                  "dude", "123", "What is all the fuss about?", "gob@gob.com",
                  [1,2,3], ["how", "are", "you"], [1.23,2.3], [1], ["Hello"],
                  (1,2,3), (1,), (1,"2",3), ("2", "what"), ("you", 1.2),
@@ -34,6 +28,13 @@ class TestDBusBindings(unittest.TestCase):
                  [[1,2,3],[2,3,4]], [["a","b"],["c","d"]],
                  ([1,2,3],"c", 1.2, ["a","b","c"], {"a": (1,"v"), "b": (2,"d")})
                  ]
+
+
+class TestDBusBindings(unittest.TestCase):
+    def setUp(self):
+        self.bus = dbus.SessionBus()
+        self.remote_object = self.bus.get_object("org.freedesktop.DBus.TestSuitePythonService", "/org/freedesktop/DBus/TestSuitePythonObject")
+        self.iface = dbus.Interface(self.remote_object, "org.freedesktop.DBus.TestSuiteInterface")
 
     def testInterfaceKeyword(self):
         #test dbus_interface parameter
@@ -52,7 +53,7 @@ class TestDBusBindings(unittest.TestCase):
         #test sending python types and getting them back
         print "\n********* Testing Python Types ***********"
                  
-        for send_val in self.test_types_vals:
+        for send_val in test_types_vals:
             print "Testing %s"% str(send_val)
             recv_val = self.iface.Echo(send_val)
             self.assertEquals(send_val, recv_val)
@@ -82,8 +83,8 @@ class TestDBusBindings(unittest.TestCase):
 
                 self.test_controler.assert_(val, False)
         
-        last_type = self.test_types_vals[-1]
-        for send_val in self.test_types_vals:
+        last_type = test_types_vals[-1]
+        for send_val in test_types_vals:
             print "Testing %s"% str(send_val)
             check = async_check(self, send_val, last_type == send_val) 
             recv_val = self.iface.Echo(send_val, 
@@ -91,7 +92,45 @@ class TestDBusBindings(unittest.TestCase):
                                        error_handler = check.error_handler)
             
         main_loop.run()
-   
+
+class TestDBusPythonToGLibBindings(unittest.TestCase):
+    def setUp(self):
+        self.bus = dbus.SessionBus()
+        self.remote_object = self.bus.get_object("org.freedesktop.DBus.TestSuiteGLibService", "/org/freedesktop/DBus/Tests/MyTestObject")
+        self.iface = dbus.Interface(self.remote_object, "org.freedesktop.DBus.Tests.MyObject")
+			    
+    def testIntrospection(self):
+	#test introspection
+        print "\n********* Introspection Test ************"
+        print self.remote_object.Introspect(dbus_interface="org.freedesktop.DBus.Introspectable")
+        print "Introspection test passed"
+        self.assert_(True)
+
+    def testCalls(self):
+        print "\n********* Call Test ************"
+        result =  self.iface.ManyArgs(1000, 'Hello GLib', 2)
+        print result
+        self.assert_(result == [2002.0, 'HELLO GLIB'])
+	
+        arg0 = {"Dude": 1, "john": "palmieri", "python": 2.4}
+        result = self.iface.ManyStringify(arg0)
+        print result
+       
+        print "Call test passed"
+        self.assert_(True)
+
+    #this crashes glib so disable it for now
+    #until glib is fixed
+    """
+    def testPythonTypes(self):
+        print "\n********* Testing Python Types ***********"
+                 
+        for send_val in test_types_vals:
+            print "Testing %s"% str(send_val)
+            recv_val = self.iface.EchoVariant(send_val)
+            self.assertEquals(send_val, recv_val)
+    """
+
 if __name__ == '__main__':
     gobject.threads_init()
     dbus.glib.init_threads()

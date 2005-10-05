@@ -97,6 +97,10 @@ gboolean my_object_emit_signal2 (MyObject *obj, GError **error);
 
 gboolean my_object_emit_frobnicate (MyObject *obj, GError **error);
 
+gboolean my_object_echo_variant (MyObject *obj, GValue *variant, GValue *ret, GError **error);
+
+gboolean my_object_process_variant_of_array_of_ints123 (MyObject *obj, GValue *variant, GError **error);
+
 gboolean my_object_terminate (MyObject *obj, GError **error);
 
 void my_object_async_increment (MyObject *obj, gint32 x, DBusGMethodInvocation *context);
@@ -661,6 +665,43 @@ my_object_get_value (MyObject *obj, guint *ret, GError **error)
 {
   *ret = obj->val;
   return TRUE;
+}
+
+gboolean
+my_object_echo_variant (MyObject *obj, GValue *variant, GValue *ret, GError **error)
+{
+    g_value_init (ret, G_VALUE_TYPE(variant));
+    g_value_copy (variant, ret);
+
+    return TRUE;
+}
+
+gboolean 
+my_object_process_variant_of_array_of_ints123 (MyObject *obj, GValue *variant, GError **error)
+{
+  GArray *array;
+  int i;
+  int j;
+
+  j = 0;
+
+  array = (GArray *)g_value_get_boxed (variant);
+
+  for (i = 0; i <= 2; i++)
+    {
+      j = g_array_index (array, int, i);
+      if (j != i + 1)
+        goto error;
+    }
+
+  return TRUE;
+
+error:
+  *error = g_error_new (MY_OBJECT_ERROR,
+		       MY_OBJECT_ERROR_FOO,
+		       "Error decoding a variant of type ai (i + 1 = %i, j = %i)",
+		       i, j + 1);
+  return FALSE;
 }
 
 gboolean

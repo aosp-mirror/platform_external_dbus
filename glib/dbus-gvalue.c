@@ -1476,7 +1476,7 @@ marshal_variant (DBusMessageIter          *iter,
 					 &subiter))
     goto out;
 
-  if (!marshal_basic (&subiter, real_value))
+  if (!_dbus_gvalue_marshal (&subiter, real_value))
     goto out;
 
   if (!dbus_message_iter_close_container (iter, &subiter))
