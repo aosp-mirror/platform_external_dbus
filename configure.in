@@ -653,6 +653,7 @@ if test x$dbus_have_struct_cmsgcred = xyes; then
     AC_DEFINE(HAVE_CMSGCRED,1,[Have cmsgcred structure])
 fi
 
+AC_CHECK_FUNCS(getpeerucred getpeereid)
 
 #### Abstract sockets
 

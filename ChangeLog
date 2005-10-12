@@ -1,3 +1,22 @@
+2005-10-12  John (J5) Palmieri  <johnp@redhat.com>
+
+	patches from Michael Krivoruchko <misha at sun.com>: 
+	
+	* dbus/dbus-connection.c (_dbus_connection_queue_received_message_link,
+	_dbus_connection_message_sent, 
+	_dbus_connection_send_preallocated_unlocked_no_update, 
+	_dbus_connection_pop_message_link_unlocked): handle the case when path 
+	is NULL when calling _dbus_verbose
+
+	* configure.in: check for functions getpeerucred and getpeereid
+
+	* dbus/dbus-sysdeps.c (_dbus_read_credentials_unix_socket): provides 
+	support of auth EXTERNAL on Solaris 10+ (getpeerucred), FreeBSD 4.6+, 
+	OpenBSD 3.0+ and FreeBSD 5.0+ as well as MacOSX 10.2+ (getpeereid). 
+	Patch was only tested on Solaris 10 x86 so it might be issues
+	with other platforms (i.e. BSDs and MacOSX)
+	
+
 2005-10-05  John (J5) Palmieri  <johnp@redhat.com>
 
 	* glib/dbus-gvalue.c (marshal_variant): call _dbus_gvalue_marshal 

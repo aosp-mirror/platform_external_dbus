@@ -57,7 +57,9 @@
 #ifdef HAVE_BACKTRACE
 #include <execinfo.h>
 #endif
-
+#ifdef HAVE_GETPEERUCRED
+#include <ucred.h>
+#endif
 
 #ifndef O_BINARY
 #define O_BINARY 0
@@ -923,7 +925,33 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
     credentials->pid = cmsg.cred.cmcred_pid;
     credentials->uid = cmsg.cred.cmcred_euid;
     credentials->gid = cmsg.cred.cmcred_groups[0];
-#else /* !SO_PEERCRED && !HAVE_CMSGCRED */
+#elif defined(HAVE_GETPEEREID)
+    uid_t euid;
+    gid_t egid;
+    if (getpeereid (client_fd, &euid, &egid) == 0)
+      {
+        credentials->uid = euid;
+        credentials->gid = egid;
+      }
+    else
+      {
+        _dbus_verbose ("Failed to getpeereid() credentials: %s\n", _dbus_strerror (errno));
+      }
+#elif defined(HAVE_GETPEERUCRED)
+    ucred_t * ucred = NULL;
+    if (getpeerucred (client_fd, &ucred) == 0)
+      {
+        credentials->pid = ucred_getpid (ucred);
+        credentials->uid = ucred_geteuid (ucred);
+        credentials->gid = ucred_getegid (ucred);
+      }
+    else
+      {
+        _dbus_verbose ("Failed to getpeerucred() credentials: %s\n", _dbus_strerror (errno));
+      }
+    if (ucred != NULL)
+      ucred_free (ucred);
+#else /* !SO_PEERCRED && !HAVE_CMSGCRED && !HAVE_GETPEEREID && !HAVE_GETPEERUCRED */
     _dbus_verbose ("Socket credentials not supported on this OS\n");
 #endif
   }

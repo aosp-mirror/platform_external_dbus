@@ -391,7 +391,9 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
   _dbus_verbose ("Message %p (%d %s %s %s '%s' reply to %u) added to incoming queue %p, %d incoming\n",
                  message,
                  dbus_message_get_type (message),
-		 dbus_message_get_path (message),
+                 dbus_message_get_path (message) ?
+                 dbus_message_get_path (message) :
+                 "no path",
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface",
@@ -515,7 +517,9 @@ _dbus_connection_message_sent (DBusConnection *connection,
   _dbus_verbose ("Message %p (%d %s %s %s '%s') removed from outgoing queue %p, %d left to send\n",
                  message,
                  dbus_message_get_type (message),
-		 dbus_message_get_path (message),
+                 dbus_message_get_path (message) ?
+                 dbus_message_get_path (message) :
+                 "no path",
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface",
@@ -2163,7 +2167,9 @@ _dbus_connection_send_preallocated_unlocked_no_update (DBusConnection       *con
   _dbus_verbose ("Message %p (%d %s %s %s '%s') for %s added to outgoing queue %p, %d pending to send\n",
                  message,
                  dbus_message_get_type (message),
-		 dbus_message_get_path (message),
+                 dbus_message_get_path (message) ?
+                 dbus_message_get_path (message) :
+                 "no path",
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface",
@@ -3046,7 +3052,9 @@ _dbus_connection_pop_message_link_unlocked (DBusConnection *connection)
       _dbus_verbose ("Message %p (%d %s %s %s '%s') removed from incoming queue %p, %d incoming\n",
                      link->data,
                      dbus_message_get_type (link->data),
-		     dbus_message_get_path (link->data), 
+                     dbus_message_get_path (link->data) ?
+                     dbus_message_get_path (link->data) :
+                     "no path",
                      dbus_message_get_interface (link->data) ?
                      dbus_message_get_interface (link->data) :
                      "no interface",
