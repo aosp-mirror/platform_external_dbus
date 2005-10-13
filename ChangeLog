@@ -1,3 +1,10 @@
+2005-10-13  John (J5) Palmieri  <johnp@redhat.com>
+
+	* (configure.in) Set mono, mono-docs and Qt3 to default
+	to no instead of auto when building.  These bindings do not
+	have full time maintainers and will not be supported for the
+	1.0 release.
+
 2005-10-12  John (J5) Palmieri  <johnp@redhat.com>
 
 	patches from Michael Krivoruchko <misha at sun.com>: 
