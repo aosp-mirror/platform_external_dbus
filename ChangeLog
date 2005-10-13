@@ -1,5 +1,10 @@
 2005-10-13  John (J5) Palmieri  <johnp@redhat.com>
 
+	* python/service.py(ObjectType::_reflect_on_signal, _reflect_on_method): 	reclaim memory outside of the loop and use del istead of just setting
+	the key to None
+
+2005-10-13  John (J5) Palmieri  <johnp@redhat.com>
+
 	* python/service.py (ObjectType::_reflect_on_signal): Always close
 	signal tag even when there are no arguments
 
