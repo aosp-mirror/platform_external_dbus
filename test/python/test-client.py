@@ -2,6 +2,7 @@
 import sys
 import os
 import unittest
+import time
 
 builddir = os.environ["DBUS_TOP_BUILDDIR"]
 pydir = builddir + "/python"
@@ -28,7 +29,6 @@ test_types_vals = [1, 12323231, 3.14159265, 99999999.99,
                  [[1,2,3],[2,3,4]], [["a","b"],["c","d"]],
                  ([1,2,3],"c", 1.2, ["a","b","c"], {"a": (1,"v"), "b": (2,"d")})
                  ]
-
 
 class TestDBusBindings(unittest.TestCase):
     def setUp(self):
@@ -57,7 +57,17 @@ class TestDBusBindings(unittest.TestCase):
             print "Testing %s"% str(send_val)
             recv_val = self.iface.Echo(send_val)
             self.assertEquals(send_val, recv_val)
-   
+
+    def testBenchmarkIntrospect(self):
+        print "\n********* Benchmark Introspect ************"
+	a = time.time()
+	print a
+        print self.iface.GetComplexArray()
+	b = time.time()
+	print b
+	print "Delta: %f" % (b - a)
+        self.assert_(True)
+
     def testAsyncCalls(self):
         #test sending python types and getting them back async
         print "\n********* Testing Async Calls ***********"

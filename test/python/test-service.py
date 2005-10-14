@@ -16,6 +16,7 @@ if not dbus.__file__.startswith(pydir):
 import dbus.service
 import dbus.glib
 import gobject
+import random
 
 class TestObject(dbus.service.Object):
     def __init__(self, bus_name, object_path="/org/freedesktop/DBus/TestSuitePythonObject"):
@@ -26,6 +27,14 @@ class TestObject(dbus.service.Object):
     @dbus.service.method("org.freedesktop.DBus.TestSuiteInterface")
     def Echo(self, arg):
         return arg
+
+    @dbus.service.method("org.freedesktop.DBus.TestSuiteInterface")
+    def GetComplexArray(self):
+        ret = []
+        for i in range(0,100):
+            ret.append((random.randint(0,100), random.randint(0,100), str(random.randint(0,100))))
+
+        return dbus.Array(ret, signature="(uus)")
 
 session_bus = dbus.SessionBus()
 name = dbus.service.BusName("org.freedesktop.DBus.TestSuitePythonService", bus=session_bus)

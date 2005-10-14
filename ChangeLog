@@ -1,6 +1,24 @@
+2005-10-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* python/dbus_bindings.pyx (MessageIter::append_strict): check for
+	STRUCT_BEGIN not TYPE_STRUCT in indicate we are marshalling a struct
+
+	* python/service.py (Object::_message_cb): handle exceptions correctly
+	by sending them over the wire to the calling app.  This makes sure
+	the client returns immediately instead of waiting the 15 seconds to
+	timeout.
+
+	* test/python/test-client.py (TestDBusBindings::testBenchmarkIntrospect): 
+	Add a test to benchmark how long it takes to introspect a service and 
+	call a method which returns a large element (pretty fast)
+
+	* test/python/test-service.py (TestObject::GetComplexArray): new test 
+	method which pushes a lot of data
+
 2005-10-13  John (J5) Palmieri  <johnp@redhat.com>
 
-	* python/service.py(ObjectType::_reflect_on_signal, _reflect_on_method): 	reclaim memory outside of the loop and use del istead of just setting
+	* python/service.py(ObjectType::_reflect_on_signal, _reflect_on_method): 	
+	reclaim memory outside of the loop and use del istead of just setting
 	the key to None
 
 2005-10-13  John (J5) Palmieri  <johnp@redhat.com>
