@@ -1,3 +1,29 @@
+2005-10-17  John (J5) Palmieri  <johnp@redhat.com>
+
+	* glib/dbus-gvalue-utils.c (hash_free_from_gtype): handle gdouble
+	and G_TYPE_VALUE_ARRAY (DBUS_TYPE_STRUCT)
+	(gvalue_from_hash_value, hash_value_from_gvalue): handle gdouble
+
+	* glib/dbus-gvalue.c (dbus_gvalue_to_signature): add missing
+	DBUS_STRUCT_BEGIN_CHAR and DBUS_STRUCT_END_CHAR charaters
+	when constructing struct signatures
+
+	* python/_dbus.py (Bus): handle private connections using the
+	private keyword in the constructor. defaults to private=False
+	(Bus::close): new method to close a connection to the bus
+
+	* python/dbus_bindings.pyx (Connection::close): renamed method
+	was previously called disconnect
+	(bus_get): now supports getting a private connection
+
+	* python/proxies.py (ProxyMethod::__call__): check if ignore_reply
+	keyword is set to True.  if it is, execute the method without waiting
+	for a reply
+	(ProxyObject::_introspect_execute_queue): new method for executing
+	all the pending methods that were waiting for the introspect to
+	finish.  this is called when introspect either succeeds or fails
+	(ProxyObject::_introspect_error_handler): call queued methods
+
 2005-10-14  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/dbus_bindings.pyx (MessageIter::append_strict): check for

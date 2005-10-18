@@ -32,6 +32,10 @@ echo "running test-client.py"
 #uncomment this if you need to see the output from the service for debugging
 #otherwise keep it commented so we can test activation
 #libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/python/test-service.py &
+#libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/glib/test-service-glib &
+#sleep 1
+#ps
+#sleep 9
 
 libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/python/test-client.py || die "test-client.py failed"
 rm $DBUS_TOP_BUILDDIR/python/dbus

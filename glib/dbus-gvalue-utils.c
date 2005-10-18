@@ -299,6 +299,7 @@ hash_free_from_gtype (GType gtype, GDestroyNotify *func)
     case G_TYPE_UINT:
       *func = NULL;
       return TRUE;
+    case G_TYPE_DOUBLE:
     case G_TYPE_STRING:
       *func = g_free;
       return TRUE;
@@ -308,6 +309,12 @@ hash_free_from_gtype (GType gtype, GDestroyNotify *func)
 	  *func = unset_and_free_g_value;
 	  return TRUE;
 	}
+      else if (gtype == G_TYPE_VALUE_ARRAY)
+        {
+          *func = g_value_array_free;
+	  return TRUE;
+        }
+
       return FALSE;
     }
 }
@@ -387,6 +394,9 @@ gvalue_from_hash_value (GValue *value, gpointer instance)
     case G_TYPE_UINT:
       g_value_set_uint (value, GPOINTER_TO_UINT (instance));
       break;
+    case G_TYPE_DOUBLE:
+      g_value_set_double (value, *(gdouble *) instance);
+      break;
     case G_TYPE_STRING:
       g_value_set_static_string (value, instance);
       break;
@@ -425,6 +435,13 @@ hash_value_from_gvalue (GValue *value)
       break;
     case G_TYPE_UINT:
       return GUINT_TO_POINTER (g_value_get_uint (value));
+      break;
+    case G_TYPE_DOUBLE:
+      {
+        gdouble *p = (gdouble *) g_malloc0 (sizeof (gdouble));
+        *p = g_value_get_double (value);
+        return (gpointer) p;
+      }
       break;
     case G_TYPE_STRING:
       return (gpointer) g_value_get_string (value);

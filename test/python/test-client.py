@@ -25,9 +25,9 @@ test_types_vals = [1, 12323231, 3.14159265, 99999999.99,
                  "dude", "123", "What is all the fuss about?", "gob@gob.com",
                  [1,2,3], ["how", "are", "you"], [1.23,2.3], [1], ["Hello"],
                  (1,2,3), (1,), (1,"2",3), ("2", "what"), ("you", 1.2),
-                 {1:"a", 2:"b"}, {"a":1, "b":2}, {1:1.1, 2:2.2}, {1.1:"a", 1.2:"b"}, 
-                 [[1,2,3],[2,3,4]], [["a","b"],["c","d"]],
-                 ([1,2,3],"c", 1.2, ["a","b","c"], {"a": (1,"v"), "b": (2,"d")})
+                 {1:"a", 2:"b"}, {"a":1, "b":2}, #{"a":(1,"B")},
+                 {1:1.1, 2:2.2}, [[1,2,3],[2,3,4]], [["a","b"],["c","d"]],
+                 #([1,2,3],"c", 1.2, ["a","b","c"], {"a": (1,"v"), "b": (2,"d")})
                  ]
 
 class TestDBusBindings(unittest.TestCase):
@@ -129,9 +129,6 @@ class TestDBusPythonToGLibBindings(unittest.TestCase):
         print "Call test passed"
         self.assert_(True)
 
-    #this crashes glib so disable it for now
-    #until glib is fixed
-    """
     def testPythonTypes(self):
         print "\n********* Testing Python Types ***********"
                  
@@ -139,11 +136,9 @@ class TestDBusPythonToGLibBindings(unittest.TestCase):
             print "Testing %s"% str(send_val)
             recv_val = self.iface.EchoVariant(send_val)
             self.assertEquals(send_val, recv_val)
-    """
 
 if __name__ == '__main__':
     gobject.threads_init()
     dbus.glib.init_threads()
 
     unittest.main()
-

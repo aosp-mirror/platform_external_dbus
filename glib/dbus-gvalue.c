@@ -402,7 +402,7 @@ dbus_gvalue_to_signature (const GValue *val)
 
       array = g_value_get_boxed (val);
       
-      str = g_string_new ("");
+      str = g_string_new (DBUS_STRUCT_BEGIN_CHAR_AS_STRING);
       for (i = 0; i < array->n_values; i++)
 	{
 	  char *sig;
@@ -410,6 +410,8 @@ dbus_gvalue_to_signature (const GValue *val)
 	  g_string_append (str, sig);
 	  g_free (sig);
 	}
+      g_string_append (str, DBUS_STRUCT_END_CHAR_AS_STRING);
+      
       return g_string_free (str, FALSE);
     }
   else

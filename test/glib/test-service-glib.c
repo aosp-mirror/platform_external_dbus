@@ -670,7 +670,9 @@ my_object_get_value (MyObject *obj, guint *ret, GError **error)
 gboolean
 my_object_echo_variant (MyObject *obj, GValue *variant, GValue *ret, GError **error)
 {
-    g_value_init (ret, G_VALUE_TYPE(variant));
+    GType t;
+    t = G_VALUE_TYPE(variant);
+    g_value_init (ret, t);
     g_value_copy (variant, ret);
 
     return TRUE;
