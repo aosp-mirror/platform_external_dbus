@@ -933,10 +933,10 @@ AC_SUBST(DBUS_GTK_THREADS_LIBS)
 dnl Qt3 detection
 AC_PATH_PROG(QT3_MOC, moc, no)
 
-have_qt=no
+have_qt3=no
 AC_MSG_CHECKING([for qglobal.h])
 if test -n "$QTDIR" -a -f "$QTDIR/include/qglobal.h"; then
-    have_qt=yes
+    have_qt3=yes
     DBUS_QT3_CXXFLAGS="-I$QTDIR/include"
 else
     for dir in "${prefix}/include/qt" "/usr/include/qt-3.1" "/usr/include/qt3" "/usr/include/qt" "/usr/lib/qt/include" "/usr/lib/qt-3.1/include"; do
@@ -947,13 +947,13 @@ else
        fi
     done
 fi
-if test x"$have_qt3" = x"yes"; then
+if test x$have_qt3 = xyes; then
    AC_MSG_RESULT([found])
 else
    AC_MSG_RESULT([not found])
 fi
 
-if test x$have_qt3 = xno ; then
+if test x$have_qt3 = xno; then
     AC_MSG_WARN([Qt3 development libraries not found])
 fi
 
