@@ -23,6 +23,8 @@ if not dbus_bindings.__file__.startswith(pydir):
 
 test_types_vals = [1, 12323231, 3.14159265, 99999999.99,
                  "dude", "123", "What is all the fuss about?", "gob@gob.com",
+                 u'\\u310c\\u310e\\u3114', u'\\u0413\\u0414\\u0415',
+                 u'\\u2200software \\u2203crack', u'\\xf4\\xe5\\xe8',
                  [1,2,3], ["how", "are", "you"], [1.23,2.3], [1], ["Hello"],
                  (1,2,3), (1,), (1,"2",3), ("2", "what"), ("you", 1.2),
                  {1:"a", 2:"b"}, {"a":1, "b":2}, #{"a":(1,"B")},

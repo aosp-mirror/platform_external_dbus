@@ -1,3 +1,17 @@
+2005-10-24  Robert McQueen <robot101@debian.org>
+
+	* python/dbus_bindings.pyx (String, MessageIter): make D-Bus strings
+	derive from unicode instead of str, and encode/decode UTF-8 when
+	marshalling/unmarshalling bus messages
+
+	* python/introspect_parser.py: encode introspection data as UTF-8
+	before passing the buffer into libxml2
+
+	* test/python/test-client.py: add unicode test strings
+
+	* test/data/valid-service-files/.cvsignore, test/python/.cvsignore:
+	ignore generated python test files
+
 2005-10-17  John (J5) Palmieri  <johnp@redhat.com>
 
 	* glib/dbus-gvalue-utils.c (hash_free_from_gtype): handle gdouble
