@@ -1446,10 +1446,13 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
 
       for (tmp = methods; tmp != NULL; tmp = g_slist_next (tmp))
         {
-          MethodInfo *method;
+	  MethodInfo *method;
 	  char *method_name;
+	  gboolean is_noreply;
 
           method = (MethodInfo *) tmp->data;
+
+	  is_noreply = method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_NOREPLY) != NULL;
 
 	  if (data->ignore_unsupported && !check_supported_parameters (method))
 	    {
@@ -1473,22 +1476,40 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
 	  WRITE_OR_LOSE (", GError **error)\n\n");
 	  
 	  WRITE_OR_LOSE ("{\n");
-	  
-	  if (!write_printf_to_iochannel ("  return dbus_g_proxy_call (proxy, \"%s\", ", channel, error,
-					  method_info_get_name (method)))
-	    goto io_lose;
 
-	  WRITE_OR_LOSE ("error, ");
-
-	  if (!write_args_for_direction (interface, method, channel, ARG_IN, error))
-	    goto io_lose;
-
-	  WRITE_OR_LOSE ("G_TYPE_INVALID, ");
-
-	  if (!write_args_for_direction (interface, method, channel, ARG_OUT, error))
-	    goto io_lose;
-
-	  WRITE_OR_LOSE ("G_TYPE_INVALID);\n}\n\n");
+	  if (is_noreply) {
+	    if (!write_printf_to_iochannel ("  dbus_g_proxy_call_no_reply (proxy, \"%s\", ", channel, error,
+					    method_info_get_name (method)))
+	      goto io_lose;
+	    
+	    if (!write_args_for_direction (interface, method, channel, ARG_IN, error))
+	      goto io_lose;
+	    
+	    WRITE_OR_LOSE ("G_TYPE_INVALID, ");
+	    
+	    if (!write_args_for_direction (interface, method, channel, ARG_OUT, error))
+	      goto io_lose;
+	    
+	    WRITE_OR_LOSE ("G_TYPE_INVALID);\n");
+	    
+	    WRITE_OR_LOSE ("  return TRUE;\n}\n\n");
+	  } else {
+	    if (!write_printf_to_iochannel ("  return dbus_g_proxy_call (proxy, \"%s\", ", channel, error,
+					    method_info_get_name (method)))
+	      goto io_lose;
+	    
+	    WRITE_OR_LOSE ("error, ");
+	    
+	    if (!write_args_for_direction (interface, method, channel, ARG_IN, error))
+	      goto io_lose;
+	    
+	    WRITE_OR_LOSE ("G_TYPE_INVALID, ");
+	    
+	    if (!write_args_for_direction (interface, method, channel, ARG_OUT, error))
+	      goto io_lose;
+	    
+	    WRITE_OR_LOSE ("G_TYPE_INVALID);\n}\n\n");
+	  }
 
 	  write_async_method_client (channel, interface, method, error);
 	}

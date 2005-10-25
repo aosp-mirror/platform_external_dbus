@@ -10,7 +10,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it bwill be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -29,6 +29,7 @@ G_BEGIN_DECLS
 #define DBUS_GLIB_ANNOTATION_ASYNC "org.freedesktop.DBus.GLib.Async"
 #define DBUS_GLIB_ANNOTATION_CONST "org.freedesktop.DBus.GLib.Const"
 #define DBUS_GLIB_ANNOTATION_RETURNVAL "org.freedesktop.DBus.GLib.ReturnVal"
+#define DBUS_GLIB_ANNOTATION_NOREPLY "org.freedesktop.DBus.Method.NoReply"
 
 gboolean dbus_binding_tool_output_glib_client (BaseInfo *info, GIOChannel *channel, gboolean ignore_unsupported, GError **error);
 gboolean dbus_binding_tool_output_glib_server (BaseInfo *info, GIOChannel *channel, const char *prefix, GError **error);

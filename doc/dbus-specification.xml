@@ -2454,6 +2454,11 @@
 	     <entry>(string)</entry>
 	     <entry>The C symbol; may be used for methods and interfaces</entry>
 	   </row>
+	   <row>
+	     <entry>org.freedesktop.DBus.Method.NoReply</entry>
+	     <entry>true,false</entry>
+	     <entry>If set, don't expect a reply to the method call; defaults to false.</entry>
+	   </row>
 	 </tbody>
        </tgroup>
      </informaltable>

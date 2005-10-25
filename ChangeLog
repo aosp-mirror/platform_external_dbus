@@ -1,3 +1,12 @@
+2005-10-25  Ross Burton  <ross@openedhand.com>
+
+	* doc/dbus-specification.xml:
+	Document the NoReply annotation.
+
+	* glib/dbus-binding-tool-glib.h:
+	* glib/dbus-binding-tool-glib.c:
+	Respect the NoReply annotation.
+
 2005-10-24  Robert McQueen <robot101@debian.org>
 
 	* python/dbus_bindings.pyx (String, MessageIter): make D-Bus strings
