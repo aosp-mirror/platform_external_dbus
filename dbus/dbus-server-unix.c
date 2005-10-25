@@ -232,7 +232,7 @@ unix_disconnect (DBusServer *server)
   HAVE_LOCK_CHECK (server);
 }
 
-static DBusServerVTable unix_vtable = {
+static const DBusServerVTable unix_vtable = {
   unix_finalize,
   unix_disconnect
 };

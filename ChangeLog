@@ -1,5 +1,14 @@
 2005-10-25  Ross Burton  <ross@openedhand.com>
 
+	* dbus/dbus-auth.c:
+	* dbus/dbus-server-unix.c:
+	* dbus/dbus-transport-unix.c:
+	* glib/dbus-gmain.c:
+	* glib/dbus-gobject.c:
+	Add some const keywords.
+
+2005-10-25  Ross Burton  <ross@openedhand.com>
+
 	* doc/dbus-specification.xml:
 	Document the NoReply annotation.
 

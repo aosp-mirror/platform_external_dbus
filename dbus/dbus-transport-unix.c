@@ -1097,7 +1097,7 @@ unix_get_unix_fd (DBusTransport *transport,
   return TRUE;
 }
 
-static DBusTransportVTable unix_vtable = {
+static const DBusTransportVTable unix_vtable = {
   unix_finalize,
   unix_handle_watch,
   unix_disconnect,

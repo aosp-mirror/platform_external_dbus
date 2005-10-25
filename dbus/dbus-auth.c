@@ -1832,7 +1832,7 @@ typedef struct {
   DBusAuthCommand command; /**< Corresponding enum */
 } DBusAuthCommandName;
 
-static DBusAuthCommandName auth_command_names[] = {
+static const DBusAuthCommandName auth_command_names[] = {
   { "AUTH",     DBUS_AUTH_COMMAND_AUTH },
   { "CANCEL",   DBUS_AUTH_COMMAND_CANCEL },
   { "DATA",     DBUS_AUTH_COMMAND_DATA },

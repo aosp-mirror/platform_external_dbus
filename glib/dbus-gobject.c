@@ -1329,7 +1329,7 @@ gobject_message_function (DBusConnection  *connection,
   return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
-static DBusObjectPathVTable gobject_dbus_vtable = {
+static const DBusObjectPathVTable gobject_dbus_vtable = {
   gobject_unregister_function,
   gobject_message_function,
   NULL

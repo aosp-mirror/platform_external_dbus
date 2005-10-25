@@ -76,7 +76,7 @@ static gboolean message_queue_dispatch (GSource     *source,
                                         GSourceFunc  callback,
                                         gpointer     user_data);
 
-static GSourceFuncs message_queue_funcs = {
+static const GSourceFuncs message_queue_funcs = {
   message_queue_prepare,
   message_queue_check,
   message_queue_dispatch,
