@@ -1,3 +1,11 @@
+2005-10-27  Ross Burton  <ross@openedhand.com>
+
+	* dbus/dbus-marshal-header.c:
+	Remove dead code.
+
+	* glib/dbus-gobject.c:
+	Stop compiler warning.
+
 2005-10-25  Ross Burton  <ross@openedhand.com>
 
 	* dbus/dbus-auth.c:

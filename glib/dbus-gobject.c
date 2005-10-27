@@ -447,6 +447,7 @@ write_interface (gpointer key, gpointer val, gpointer user_data)
       char *s;
 
       propname = properties->data;
+      spec = NULL;
 
       s = _dbus_gutils_wincaps_to_uscore (spec->name);
 
