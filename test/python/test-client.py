@@ -144,6 +144,12 @@ class TestDBusBindings(unittest.TestCase):
                     self.assert_(ret in returns, "%s should return one of %s" % (method._method_name, repr(returns)))
         print
 
+    def testInheritance(self):
+        print "\n********* Testing inheritance from dbus.method.Interface ***********"
+        ret = self.iface.CheckInheritance()
+        print "CheckInheritance returned %s\n", str(ret)
+        self.assert_(ret, "overriding CheckInheritance from TestInterface failed")
+
 class TestDBusPythonToGLibBindings(unittest.TestCase):
     def setUp(self):
         self.bus = dbus.SessionBus()

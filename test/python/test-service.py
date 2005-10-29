@@ -18,7 +18,12 @@ import dbus.glib
 import gobject
 import random
 
-class TestObject(dbus.service.Object):
+class TestInterface(dbus.service.Interface):
+    @dbus.service.method("org.freedesktop.DBus.TestSuiteInterface", in_signature='', out_signature='b')
+    def CheckInheritance(self):
+        return False
+
+class TestObject(dbus.service.Object, TestInterface):
     def __init__(self, bus_name, object_path="/org/freedesktop/DBus/TestSuitePythonObject"):
         dbus.service.Object.__init__(self, bus_name, object_path)
 
@@ -71,6 +76,9 @@ class TestObject(dbus.service.Object):
     @dbus.service.method("org.freedesktop.DBus.TestSuiteInterface", in_signature='u', out_signature='a{ss}')
     def ReturnDict(self, test):
         return self.returnValue(test)
+
+    def CheckInheritance(self):
+        return True
 
 session_bus = dbus.SessionBus()
 name = dbus.service.BusName("org.freedesktop.DBus.TestSuitePythonService", bus=session_bus)

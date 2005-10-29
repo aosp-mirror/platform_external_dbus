@@ -1,5 +1,38 @@
 2005-10-29  Robert McQueen  <robot101@debian.org>
 
+	* python/service.py: Major changes to allow multiple inheritance
+	from classes that define D-Bus interfaces:
+	
+	 1. Create a new Interface class which is the parent class of
+	    Object, and make the ObjectType metaclass into InterfaceType.
+	
+	 2. Patch written with Rob Taylor to replace use of method_vtable
+	    with code that walks the class's __MRO__ (method resolution order)
+	    to behave like Python does when invoking methods and allow
+	    overriding as you'd expect. Code is quite tricky because
+	    we have to find two methods, the one to invoke which has the
+	    right name and isn't decorated with the /wrong/ interface,
+	    and the one to pick up the signatures from which is decorated
+	    with the right interface.
+	
+	    The same caveats apply as to normal multiple inheritance -
+	    this has undefined behaviour if you try and inherit from two
+	    classes that define a method with the same name but are
+	    decorated with different interfaces. You should decorate
+	    your overriding method with the interface you want.
+	
+	 3. Replace grungy introspection XML generation code in the metaclass
+	    with dictionaries that cope correctly with multiple inheritance
+	    and the overriding of methods. This also uses the signature
+	    decorations to provide correct introspection data, including
+	    the debut appearance of the types of your return values. :D
+
+	* test/python/test-client.py, test/python/test-service.py: Add a test
+	case to try invoking an method that overrides one inherited from a
+	D-Bus interface class.
+
+2005-10-29  Robert McQueen  <robot101@debian.org>
+
 	* python/dbus_bindings.pyx: Tweak 'raise AssertionError' to assert().
 	Add checking for the end of struct character when marshalling a
 	struct in MessageIter.append_strict.
