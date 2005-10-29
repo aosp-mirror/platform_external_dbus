@@ -9,6 +9,7 @@ dbus-monitor \- debug probe to print message bus messages
 .PP
 .B dbus-monitor
 [\-\-system | \-\-session]
+[watch expressions]
 
 .SH DESCRIPTION
 
@@ -25,6 +26,11 @@ The \-\-system and \-\-session options direct \fIdbus-monitor\fP to
 monitor the system or session buses respectively.  If neither is
 specified, \fIdbus-monitor\fP monitors the session bus.
 
+.PP
+In order to get \fIdbus-monitor\fP to see the messages you are interested
+in, you should specify a set of watch expressions as you would expect to
+be passed to the \fIdbus_bus_add_watch\fP function.
+
 .PP 
 The message bus configuration may keep \fIdbus-monitor\fP from seeing
 all messages, especially if you run the monitor as a non-root user.
@@ -36,6 +42,15 @@ Monitor the system message bus.
 .TP
 .I "--session"
 Monitor the session message bus.  (This is the default.)
+
+.SH EXAMPLE
+Here is an example of using dbus-monitor to watch for the gnome typing
+monitor to say things
+.nf
+
+  dbus-monitor "type='signal',sender='org.gnome.TypingMonitor',interface='org.gnome.TypingMonitor'"
+
+.fi
 
 .SH AUTHOR
 dbus-monitor was written by Philip Blundell.

@@ -5,7 +5,7 @@ INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) $(DBUS_GLIB_T
 lib_LTLIBRARIES=libdbus-glib-1.la
 
 dbus-glib-error-switch.h: $(top_srcdir)/dbus/dbus-protocol.h make-dbus-glib-error-switch.sh
-	libtool --mode=execute $(srcdir)/make-dbus-glib-error-switch.sh $(top_srcdir)/dbus/dbus-protocol.h $@
+	$(LIBTOOL) --mode=execute $(srcdir)/make-dbus-glib-error-switch.sh $(top_srcdir)/dbus/dbus-protocol.h $@
 
 BUILT_SOURCES = dbus-glib-error-switch.h
 

@@ -19,10 +19,10 @@ statemachine_client_LDADD= $(top_builddir)/glib/libdbus-glib-1.la $(DBUS_GTK_THR
 BUILT_SOURCES = statemachine-server-glue.h statemachine-glue.h
 
 statemachine-server-glue.h: statemachine-server.xml
-	libtool --mode=execute $(top_builddir)/glib/dbus-binding-tool --prefix=sm_server --mode=glib-server --output=$@ $<
+	$(LIBTOOL) --mode=execute $(top_builddir)/glib/dbus-binding-tool --prefix=sm_server --mode=glib-server --output=$@ $<
 
 statemachine-glue.h: statemachine.xml
-	libtool --mode=execute $(top_builddir)/glib/dbus-binding-tool --prefix=sm_object --mode=glib-server --output=$@ $<
+	$(LIBTOOL) --mode=execute $(top_builddir)/glib/dbus-binding-tool --prefix=sm_object --mode=glib-server --output=$@ $<
 
 sm-marshal.c: Makefile sm-marshal.list
 	@GLIB_GENMARSHAL@ --prefix=sm_marshal $(srcdir)/sm-marshal.list --header --body > $@.tmp && mv $@.tmp $@

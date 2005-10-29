@@ -1,3 +1,15 @@
+2005-10-29  Robert McQueen  <robot101@debian.org>
+
+	* glib/Makefile.am, glib/examples/Makefile.am,
+	glib/examples/statemachine/Makefile.am: Merge patch from Ubuntu by
+	Daniel Stone to replace explicit calls to libtool with $(LIBTOOL).
+
+	* test/python/.cvsignore: Add run-with-tmp-session-bus.conf.
+
+	* tools/dbus-monitor.1, tools/dbus-monitor.c: Merge dbus-monitor patch
+	from Ubuntu by Daniel Silverstone to allow specifying match rules on
+	the command line.
+
 2005-10-27  Ross Burton  <ross@openedhand.com>
 
 	* dbus/dbus-marshal-header.c:
