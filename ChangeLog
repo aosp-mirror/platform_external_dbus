@@ -1,5 +1,20 @@
 2005-10-29  Robert McQueen  <robot101@debian.org>
 
+	* python/dbus_bindings.pyx: Tweak 'raise AssertionError' to assert().
+	Add checking for the end of struct character when marshalling a
+	struct in MessageIter.append_strict.
+
+	* python/examples/example-service.py,
+	python/examples/gconf-proxy-service.py,
+	python/examples/gconf-proxy-service2.py: Update to use gobject
+	mainloop directly rather than appearing to depend on gtk.
+
+	* python/test/test-client.py, python/test/test-server.py: Remove
+	obsolete and broken test scripts for old bindings. We have up to date
+	and working tests in test/python/.
+
+2005-10-29  Robert McQueen  <robot101@debian.org>
+
 	* python/decorators.py: Add optional arguments to the method and
 	signal decorators to allow you to specify the signature of arguments
 	and return values. Preserve the doc strings of signal functions in the
