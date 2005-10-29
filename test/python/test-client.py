@@ -88,7 +88,7 @@ class TestDBusBindings(unittest.TestCase):
 
                 self.test_controler.assertEquals(val, self.expected_result)
                 
-            def error_handler(error):
+            def error_handler(self, error):
                 print error
                 if self.do_exit:
                     main_loop.quit()
@@ -104,6 +104,45 @@ class TestDBusBindings(unittest.TestCase):
                                        error_handler = check.error_handler)
             
         main_loop.run()
+
+    def testReturnMarshalling(self):
+        print "\n********* Testing return marshalling ***********"
+
+        # these values are the same as in the server, and the
+        # methods should only succeed when they are called with
+        # the right value number, because they have out_signature
+        # decorations, and return an unmatching type when called
+        # with a different number
+        values = ["", ("",""), ("","",""), [], {}, ["",""], ["","",""]]
+        methods = [
+                    (self.iface.ReturnOneString, set([0]), set([0])),
+                    (self.iface.ReturnTwoStrings, set([1, 5]), set([5])),
+                    (self.iface.ReturnStruct, set([1, 5]), set([1])),
+                    # all of our test values are sequences so will marshall correctly into an array :P
+                    (self.iface.ReturnArray, set(range(len(values))), set([3, 5, 6])),
+                    (self.iface.ReturnDict, set([0, 3, 4]), set([4]))
+                ]
+
+        for (method, success_values, return_values) in methods:
+            print "\nTrying correct behaviour of", method._method_name
+            for value in range(len(values)):
+                try:
+                    ret = method(value)
+                except Exception, e:
+                    print "%s(%s) raised %s" % (method._method_name, repr(values[value]), e.__class__)
+
+                    # should fail if it tried to marshal the wrong type
+                    self.assert_(value not in success_values, "%s should succeed when we ask it to return %s\n%s" % (method._method_name, repr(values[value]), e))
+                else:
+                    print "%s(%s) returned %s" % (method._method_name, repr(values[value]), repr(ret))
+
+                    # should only succeed if it's the right return type
+                    self.assert_(value in success_values, "%s should fail when we ask it to return %s" % (method._method_name, repr(values[value])))
+
+                    # check the value is right too :D
+                    returns = map(lambda n: values[n], return_values)
+                    self.assert_(ret in returns, "%s should return one of %s" % (method._method_name, repr(returns)))
+        print
 
 class TestDBusPythonToGLibBindings(unittest.TestCase):
     def setUp(self):

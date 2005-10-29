@@ -1,5 +1,28 @@
 2005-10-29  Robert McQueen  <robot101@debian.org>
 
+	* python/decorators.py: Add optional arguments to the method and
+	signal decorators to allow you to specify the signature of arguments
+	and return values. Preserve the doc strings of signal functions in the
+	decorated version, for pydoc and friends.
+
+	* python/dbus_bindings.pyx, python/proxies.py: Replace the
+	parse_signature_block function with an iterable dbus.Signature()
+	type. Fix a bug in MessageIter.append_strict where you could append
+	anything by claiming it was a string.
+
+	* python/service.py: Use the out_signature decoration on methods to
+	marshal return values, meaning you no longer require dbus.Array()
+	or dbus.Dictionary() to indicate the type when returning empty
+	arrays or dictionaries. Fix a bug where exceptions which are defined
+	in __main__ are not turned into error replies.
+
+	* test/python/test-client.py, test/python/test-service.py: Add test
+	for correct marshalling of return values according to out_signature.
+	Fix a bug in the async call test where the error_handler is missing a
+	self argument.
+
+2005-10-29  Robert McQueen  <robot101@debian.org>
+
 	* glib/Makefile.am, glib/examples/Makefile.am,
 	glib/examples/statemachine/Makefile.am: Merge patch from Ubuntu by
 	Daniel Stone to replace explicit calls to libtool with $(LIBTOOL).
