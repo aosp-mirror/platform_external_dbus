@@ -147,7 +147,7 @@ class TestDBusBindings(unittest.TestCase):
     def testInheritance(self):
         print "\n********* Testing inheritance from dbus.method.Interface ***********"
         ret = self.iface.CheckInheritance()
-        print "CheckInheritance returned %s\n", str(ret)
+        print "CheckInheritance returned %s" % ret
         self.assert_(ret, "overriding CheckInheritance from TestInterface failed")
 
 class TestDBusPythonToGLibBindings(unittest.TestCase):

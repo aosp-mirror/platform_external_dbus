@@ -1,3 +1,11 @@
+2005-11-03  Robert McQueen  <robot101@debian.org>
+
+	* python/_dbus.py, python/proxies.py, python/service.py: Add __repr__
+	functions to dbus.Bus, dbus.service.BusName and dbus.service.Object,
+	tweak others to be consistent.
+
+	* test/python/test-client.py: Tweak output of testInheritance.
+
 2005-10-29  Robert McQueen  <robot101@debian.org>
 
 	* python/service.py: Major changes to allow multiple inheritance
