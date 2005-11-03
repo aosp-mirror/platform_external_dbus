@@ -83,11 +83,14 @@ class TestDBusBindings(unittest.TestCase):
                 self.test_controler = test_controler
 
             def callback(self, val):
-                if self.do_exit:
-                    main_loop.quit()
+                try:
+                    if self.do_exit:
+                        main_loop.quit()
 
-                self.test_controler.assertEquals(val, self.expected_result)
-                
+                    self.test_controler.assertEquals(val, self.expected_result)
+                except Exception, e:
+                    print "%s:\n%s" % (e.__class__, e)
+
             def error_handler(self, error):
                 print error
                 if self.do_exit:

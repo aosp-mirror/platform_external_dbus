@@ -1,5 +1,23 @@
 2005-11-03  Robert McQueen  <robot101@debian.org>
 
+	* python/service.py: Heavy refactoring of method invocation, with
+	hopefully no effect on functionality. Nuked _dispatch_dbus_method_call
+	in favour of a new _message_cb that uses seperate functions for
+	looking up the method to call, marshalling the return values, and
+	sending exceptions as errors, and is easier to follow as a
+	consequence.  Fixes some corner cases about returning things that
+	don't match your declared out_signature, allows exceptions to define
+	_dbus_error_name and have it be sent over the bus as the error name,
+	and paves the way for cool stuff like heeding the message no reply
+	flag, asynchronous method implementations, informing the method of the
+	sender, and including backtraces in the error messages.
+
+	* test/python/test-client.py: Catch and print exceptions thrown in the
+	async callback tests, rather than passing them to the low-level
+	bindings to be ignored in a noisy and frustrating manner.
+
+2005-11-03  Robert McQueen  <robot101@debian.org>
+
 	* python/_dbus.py, python/proxies.py, python/service.py: Add __repr__
 	functions to dbus.Bus, dbus.service.BusName and dbus.service.Object,
 	tweak others to be consistent.
