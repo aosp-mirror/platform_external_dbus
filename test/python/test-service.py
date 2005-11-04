@@ -80,6 +80,22 @@ class TestObject(dbus.service.Object, TestInterface):
     def CheckInheritance(self):
         return True
 
+    @dbus.service.method('org.freedesktop.DBus.TestSuiteInterface', in_signature='bbv', out_signature='v', async_callbacks=('return_cb', 'error_cb'))
+    def AsynchronousMethod(self, async, fail, variant, return_cb, error_cb):
+        try:
+            if async:
+                gobject.timeout_add(500, self.AsynchronousMethod, False, fail, variant, return_cb, error_cb)
+                return
+            else:
+                if fail:
+                    raise RuntimeError
+                else:
+                    return_cb(variant)
+
+                return False # do not run again
+        except Exception, e:
+            error_cb(e)
+
 session_bus = dbus.SessionBus()
 name = dbus.service.BusName("org.freedesktop.DBus.TestSuitePythonService", bus=session_bus)
 object = TestObject(name)

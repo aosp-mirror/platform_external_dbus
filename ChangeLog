@@ -1,3 +1,26 @@
+2005-11-04  Robert McQueen  <robot101@debian.org>
+
+	* python/dbus_bindings.pyx, test/python/test-client.py: Fix
+	marshalling of boolean values. Add some booleans to the values in
+	the test client.
+
+	* python/decorators.py, python/service.py: Add an 'async_callbacks'
+	argument to the dbus.service.method decorator, which allows you to
+	name arguments to take two callback functions for replying with
+	return values or an exception.
+
+	* test/python/test-client.py, test/python/test-service.py: Add test
+	case using asynchronous method reply functions, both return values and
+	errors, and from within both the function itself and from a mainloop
+	callback.
+
+	* python/decorators.py, python/service.py: Perform checking that the
+	number of method/signal arguments matches the number of types in the
+	signature at class loading time, not when you first introspect the
+	class.
+
+	* python/service.py: Remove debug print left by the last commit.
+
 2005-11-03  Robert McQueen  <robot101@debian.org>
 
 	* python/service.py: Heavy refactoring of method invocation, with

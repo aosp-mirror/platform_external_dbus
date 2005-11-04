@@ -29,6 +29,7 @@ test_types_vals = [1, 12323231, 3.14159265, 99999999.99,
                  (1,2,3), (1,), (1,"2",3), ("2", "what"), ("you", 1.2),
                  {1:"a", 2:"b"}, {"a":1, "b":2}, #{"a":(1,"B")},
                  {1:1.1, 2:2.2}, [[1,2,3],[2,3,4]], [["a","b"],["c","d"]],
+                 True, False,
                  #([1,2,3],"c", 1.2, ["a","b","c"], {"a": (1,"v"), "b": (2,"d")})
                  ]
 
@@ -152,6 +153,21 @@ class TestDBusBindings(unittest.TestCase):
         ret = self.iface.CheckInheritance()
         print "CheckInheritance returned %s" % ret
         self.assert_(ret, "overriding CheckInheritance from TestInterface failed")
+
+    def testAsyncMethods(self):
+        print "\n********* Testing asynchronous method implementation *******"
+        for (async, fail) in ((False, False), (False, True), (True, False), (True, True)):
+            try:
+                val = ('a', 1, False, [1,2], {1:2})
+                print "calling AsynchronousMethod with %s %s %s" % (async, fail, val)
+                ret = self.iface.AsynchronousMethod(async, fail, val)
+            except Exception, e:
+                print "%s:\n%s" % (e.__class__, e)
+                self.assert_(fail)
+            else:
+                self.assert_(not fail)
+                print val, ret
+                self.assert_(val == ret)
 
 class TestDBusPythonToGLibBindings(unittest.TestCase):
     def setUp(self):
