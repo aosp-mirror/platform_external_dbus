@@ -1094,23 +1094,34 @@ bus_driver_handle_reload_config (DBusConnection *connection,
 				 DBusError      *error)
 {
   BusContext *context;
-  dbus_bool_t retval;
+  DBusMessage *reply;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  retval = FALSE;
-
+  reply = NULL;
+  
   context = bus_connection_get_context (connection);
   if (!bus_context_reload_config (context, error))
-    {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
-      goto out;
-    }
+    goto failed;
 
-  retval = TRUE;
-  
- out:
-  return retval;
+  reply = dbus_message_new_method_return (message);
+  if (reply == NULL)
+    goto oom;
+
+  if (! bus_transaction_send_from_driver (transaction, connection, reply))
+    goto oom;
+
+  dbus_message_unref (reply);
+  return TRUE;
+
+ oom:
+  BUS_SET_OOM (error);
+
+ failed:
+  _DBUS_ASSERT_ERROR_IS_SET (error);
+  if (reply)
+    dbus_message_unref (reply);
+  return FALSE;
 }
 
 /* For speed it might be useful to sort this in order of
