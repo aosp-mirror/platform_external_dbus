@@ -14,6 +14,7 @@ import dbus
 import dbus_bindings
 import gobject
 import dbus.glib
+import dbus.service
 
 if not dbus.__file__.startswith(pydir):
     raise Exception("DBus modules are not being picked up from the package")
@@ -168,6 +169,65 @@ class TestDBusBindings(unittest.TestCase):
                 self.assert_(not fail)
                 print val, ret
                 self.assert_(val == ret)
+
+    def testBusInstanceCaching(self):
+        print "\n********* Testing dbus.Bus instance sharing *********"
+
+        # unfortunately we can't test the system bus here
+        # but the codepaths are the same
+        for (cls, type, func) in ((dbus.SessionBus, dbus.Bus.TYPE_SESSION, dbus.Bus.get_session), (dbus.StarterBus, dbus.Bus.TYPE_STARTER, dbus.Bus.get_starter)):
+            print "\nTesting %s:" % cls.__name__
+
+            share_cls = cls()
+            share_type = dbus.Bus(bus_type=type)
+            share_func = func()
+
+            private_cls = cls(private=True)
+            private_type = dbus.Bus(bus_type=type, private=True)
+            private_func = func(private=True)
+
+            print " - checking shared instances are the same..."
+            self.assert_(share_cls == share_type, '%s should equal %s' % (share_cls, share_type))
+            self.assert_(share_type == share_func, '%s should equal %s' % (share_type, share_func))
+
+            print " - checking private instances are distinct from the shared instance..."
+            self.assert_(share_cls != private_cls, '%s should not equal %s' % (share_cls, private_cls))
+            self.assert_(share_type != private_type, '%s should not equal %s' % (share_type, private_type))
+            self.assert_(share_func != private_func, '%s should not equal %s' % (share_func, private_func))
+
+            print " - checking private instances are distinct from each other..."
+            self.assert_(private_cls != private_type, '%s should not equal %s' % (private_cls, private_type))
+            self.assert_(private_type != private_func, '%s should not equal %s' % (private_type, private_func))
+            self.assert_(private_func != private_cls, '%s should not equal %s' % (private_func, private_cls))
+
+    def testBusNameCreation(self):
+        print '\n******** Testing BusName creation ********'
+        test = [('org.freedesktop.DBus.Python.TestName', True),
+                ('org.freedesktop.DBus.Python.TestName', True),
+                ('org.freedesktop.DBus.Python.InvalidName&^*%$', False),
+                ('org.freedesktop.DBus.TestSuitePythonService', False)]
+        # For some reason this actually succeeds
+        # ('org.freedesktop.DBus', False)]
+
+        # make a method call to ensure the test service is active
+        self.iface.Echo("foo")
+
+        names = {}
+        for (name, succeed) in test:
+            try:
+                print "requesting %s" % name
+                busname = dbus.service.BusName(name)
+            except Exception, e:
+                print "%s:\n%s" % (e.__class__, e)
+                self.assert_(not succeed, 'did not expect registering bus name %s to fail' % name)
+            else:
+                print busname
+                self.assert_(succeed, 'expected registering bus name %s to fail'% name)
+                if name in names:
+                    self.assert_(names[name] == busname, 'got a new instance for same name %s' % name)
+                    print "instance of %s re-used, good!" % name
+                else:
+                    names[name] = busname
 
 class TestDBusPythonToGLibBindings(unittest.TestCase):
     def setUp(self):

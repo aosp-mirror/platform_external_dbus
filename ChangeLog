@@ -1,3 +1,27 @@
+2005-11-07  Robert McQueen  <robot101@debian.org>
+
+	* python/_dbus.py: Add WeakReferenceDictionary cache of dbus.Bus
+	instances to stop madness of creating new instances representing
+	the same bus connection all the time, rendering any tracking of
+	match rules and bus names quite meaningless. Caught a bug where
+	the private argument to SessionBus() and friends was being passed
+	in as use_default_mainloop by mistake. Still some problems with
+	multiple dbus_binding.Connection instances representing the same
+	low-level connection (eg when you use both SessionBus() and
+	StarterBus() in same process), but it's a lot better now than it
+	was.
+
+	* python/dbus_bindings.pyx: Add constants with the return values
+	for bus_request_name().
+
+	* python/service.py: Store bus name instances in a per-dbus.Bus cache
+	and retrieve the same instances for the same name, so deletion can be
+	done with refcounting. Also now throws some kind of error if you
+	don't actually get the name you requested, unlike previously...
+
+	* test/python/test-client.py: Add tests for instance caching of buses
+	and bus name objects.
+
 2005-11-04  Robert McQueen  <robot101@debian.org>
 
 	* python/dbus_bindings.pyx, test/python/test-client.py: Fix
