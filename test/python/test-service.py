@@ -77,6 +77,40 @@ class TestObject(dbus.service.Object, TestInterface):
     def ReturnDict(self, test):
         return self.returnValue(test)
 
+    @dbus.service.signal("org.freedesktop.DBus.TestSuiteInterface", signature='s')
+    def SignalOneString(self, test):
+        pass
+
+    @dbus.service.signal("org.freedesktop.DBus.TestSuiteInterface", signature='ss')
+    def SignalTwoStrings(self, test, test2):
+        pass
+
+    @dbus.service.signal("org.freedesktop.DBus.TestSuiteInterface", signature='(ss)')
+    def SignalStruct(self, test):
+        pass
+
+    @dbus.service.signal("org.freedesktop.DBus.TestSuiteInterface", signature='as')
+    def SignalArray(self, test):
+        pass
+
+    @dbus.service.signal("org.freedesktop.DBus.TestSuiteInterface", signature='a{ss}')
+    def SignalDict(self, test):
+        pass
+
+    @dbus.service.method("org.freedesktop.DBus.TestSuiteInterface", in_signature='su', out_signature='')
+    def EmitSignal(self, signal, value):
+        sig = getattr(self, signal, None)
+        assert(sig != None)
+
+        val = self.returnValue(value)
+        # make two string case work by passing arguments in by tuple
+        if (signal == 'SignalTwoStrings' and (value == 1 or value == 5)):
+            val = tuple(val)
+        else:
+            val = tuple([val])
+
+        sig(*val)
+
     def CheckInheritance(self):
         return True
 

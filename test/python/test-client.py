@@ -110,8 +110,8 @@ class TestDBusBindings(unittest.TestCase):
             
         main_loop.run()
 
-    def testReturnMarshalling(self):
-        print "\n********* Testing return marshalling ***********"
+    def testStrictMarshalling(self):
+        print "\n********* Testing strict return & signal marshalling ***********"
 
         # these values are the same as in the server, and the
         # methods should only succeed when they are called with
@@ -120,33 +120,51 @@ class TestDBusBindings(unittest.TestCase):
         # with a different number
         values = ["", ("",""), ("","",""), [], {}, ["",""], ["","",""]]
         methods = [
-                    (self.iface.ReturnOneString, set([0]), set([0])),
-                    (self.iface.ReturnTwoStrings, set([1, 5]), set([5])),
-                    (self.iface.ReturnStruct, set([1, 5]), set([1])),
+                    (self.iface.ReturnOneString, 'SignalOneString', set([0]), set([0])),
+                    (self.iface.ReturnTwoStrings, 'SignalTwoStrings', set([1, 5]), set([5])),
+                    (self.iface.ReturnStruct, 'SignalStruct', set([1, 5]), set([1])),
                     # all of our test values are sequences so will marshall correctly into an array :P
-                    (self.iface.ReturnArray, set(range(len(values))), set([3, 5, 6])),
-                    (self.iface.ReturnDict, set([0, 3, 4]), set([4]))
+                    (self.iface.ReturnArray, 'SignalArray', set(range(len(values))), set([3, 5, 6])),
+                    (self.iface.ReturnDict, 'SignalDict', set([0, 3, 4]), set([4]))
                 ]
 
-        for (method, success_values, return_values) in methods:
+        for (method, signal, success_values, return_values) in methods:
             print "\nTrying correct behaviour of", method._method_name
             for value in range(len(values)):
                 try:
                     ret = method(value)
                 except Exception, e:
-                    print "%s(%s) raised %s" % (method._method_name, repr(values[value]), e.__class__)
+                    print "%s(%r) raised %s" % (method._method_name, values[value], e.__class__)
 
                     # should fail if it tried to marshal the wrong type
-                    self.assert_(value not in success_values, "%s should succeed when we ask it to return %s\n%s" % (method._method_name, repr(values[value]), e))
+                    self.assert_(value not in success_values, "%s should succeed when we ask it to return %r\n%s\n%s" % (method._method_name, values[value], e.__class__, e))
                 else:
-                    print "%s(%s) returned %s" % (method._method_name, repr(values[value]), repr(ret))
+                    print "%s(%r) returned %r" % (method._method_name, values[value], ret)
 
                     # should only succeed if it's the right return type
-                    self.assert_(value in success_values, "%s should fail when we ask it to return %s" % (method._method_name, repr(values[value])))
+                    self.assert_(value in success_values, "%s should fail when we ask it to return %r" % (method._method_name, values[value]))
 
                     # check the value is right too :D
                     returns = map(lambda n: values[n], return_values)
-                    self.assert_(ret in returns, "%s should return one of %s" % (method._method_name, repr(returns)))
+                    self.assert_(ret in returns, "%s should return one of %r" % (method._method_name, returns))
+
+            print "\nTrying correct emission of", signal
+            for value in range(len(values)):
+                try:
+                    self.iface.EmitSignal(signal, value)
+                except Exception, e:
+                    print "EmitSignal(%s, %r) raised %s" % (signal, values[value], e.__class__)
+
+                    # should fail if it tried to marshal the wrong type
+                    self.assert_(value not in success_values, "EmitSignal(%s) should succeed when we ask it to return %r\n%s\n%s" % (signal, values[value], e.__class__, e))
+                else:
+                    print "EmitSignal(%s, %r) appeared to succeed" % (signal, values[value])
+
+                    # should only succeed if it's the right return type
+                    self.assert_(value in success_values, "EmitSignal(%s) should fail when we ask it to return %r" % (signal, values[value]))
+
+                    # FIXME: wait for the signal here
+
         print
 
     def testInheritance(self):
@@ -228,6 +246,8 @@ class TestDBusBindings(unittest.TestCase):
                     print "instance of %s re-used, good!" % name
                 else:
                     names[name] = busname
+
+            print
 
 class TestDBusPythonToGLibBindings(unittest.TestCase):
     def setUp(self):

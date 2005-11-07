@@ -1,5 +1,25 @@
 2005-11-07  Robert McQueen  <robot101@debian.org>
 
+	* python/decorators.py: Change emit_signal function to use the
+	signature annotation of the signal when marhsalling the arguments from
+	the service. Fix a bug where the code checking signature length
+	against argument length referenced the wrong variable.
+
+	* python/introspect_parser.py: Avoid adding the type signature of
+	signal arguments to any methods which occur after them in the
+	introspection data (!) by making the parser a little more careful
+	about its current state.
+
+	* python/service.py: Remove debug prints from last commit (again :D).
+
+	* test/python/test-client.py, test/python/test-service.py: Add test
+	signals with signature decorators to test the strict marshalling code
+	gives errors at the right time. Could do with checking the signals
+	actually get emitted too, given that the test does nothing with
+	signals at the moment...
+
+2005-11-07  Robert McQueen  <robot101@debian.org>
+
 	* python/_dbus.py: Add WeakReferenceDictionary cache of dbus.Bus
 	instances to stop madness of creating new instances representing
 	the same bus connection all the time, rendering any tracking of
