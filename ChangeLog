@@ -1,3 +1,8 @@
+2005-11-15  Robert McQueen  <robot101@debian.org>
+
+	* python/service.py: Include the traceback in the error reply when we
+	send an exception over the bus. _BEST_ _PATCH_ _EVER_
+
 2005-11-14  David Zeuthen  <davidz@redhat.com>
 
 	Patch from Timo Hoenig <thoenig@suse.de>.
