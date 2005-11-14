@@ -1,3 +1,30 @@
+2005-11-14  David Zeuthen  <davidz@redhat.com>
+
+	Patch from Timo Hoenig <thoenig@suse.de>.
+
+	* bus/bus.c: I've recently investigated why the automatic reload
+	of configuration files does not work as expected.
+
+	Currently, reloading configuration files does only work when
+	running dbus-daemon with --nodaemon.  If we are running as daemon
+	we're hitting a dnotify bug once we fork the process.
+
+	We're initializing the dnotify fds before calling fork().  Once
+	the child process forked it does still have the fds (and they
+	still show up in /proc/`pidof dbus-daemon`/fd/) but we're not
+	getting SIGIO as changes are made to the configuration files.
+
+	The attached patch moves the initialization of the dnotify fds to
+	process_config_postinit().  This is safe for all current code
+	paths and solves the dnotify disfunction.  If we're running
+	dbus-daemon as daemon the fds for dnotify are now being
+	initialized after fork() for the child process.
+
+	* configure.in: The current configure.in check for dnotify probes
+	'x$target_os' for being 'xlinux-gnu'.  I've changed the check to
+	match for 'xlinux', too. Additionally I have adapted the configure
+	option's style to match with the others.
+
 2005-11-14  Robert McQueen  <robot101@debian.org>
 
 	* python/decorators.py, python/service.py: Add a new argument to the
