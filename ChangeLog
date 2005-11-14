@@ -1,3 +1,13 @@
+2005-11-14  Robert McQueen  <robot101@debian.org>
+
+	* python/decorators.py, python/service.py: Add a new argument to the
+	dbus.service.method decorator called sender_keyword, which if set,
+	specifies the name of an argument which will be provided the bus
+	name of the method caller.
+
+	* test/python/test-client.py, test/python/test-service.py: Add a
+	method and test to check the sender_keyword functionality.
+
 2005-11-07  John (J5) Palmieri  <johnp@redhat.com>
 
 	* bus/driver.c (bus_driver_handle_reload_config): Make sure we send an 

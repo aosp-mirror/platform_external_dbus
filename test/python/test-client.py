@@ -218,6 +218,11 @@ class TestDBusBindings(unittest.TestCase):
             self.assert_(private_type != private_func, '%s should not equal %s' % (private_type, private_func))
             self.assert_(private_func != private_cls, '%s should not equal %s' % (private_func, private_cls))
 
+    def testSenderName(self):
+        print '\n******** Testing sender name keyword ********'
+        myself = self.iface.WhoAmI()
+        print "I am", myself
+
     def testBusNameCreation(self):
         print '\n******** Testing BusName creation ********'
         test = [('org.freedesktop.DBus.Python.TestName', True),

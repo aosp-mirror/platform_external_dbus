@@ -130,6 +130,10 @@ class TestObject(dbus.service.Object, TestInterface):
         except Exception, e:
             error_cb(e)
 
+    @dbus.service.method('org.freedesktop.DBus.TestSuiteInterface', in_signature='', out_signature='s', sender_keyword='sender')
+    def WhoAmI(self, sender):
+        return sender
+
 session_bus = dbus.SessionBus()
 name = dbus.service.BusName("org.freedesktop.DBus.TestSuitePythonService", bus=session_bus)
 object = TestObject(name)
