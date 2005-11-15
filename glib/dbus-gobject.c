@@ -1858,6 +1858,40 @@ dbus_g_object_register_marshaller_array (GClosureMarshal  marshaller,
   g_static_rw_lock_writer_unlock (&globals_lock);
 }
 
+
+/**
+ * Get the reply message to append reply values
+ * Used as a sidedoor when you can't generate dbus values
+ * of the correct type due to glib binding limitations
+ *
+ * @param context the method context
+ */
+DBusMessage *
+dbus_g_method_return_get_reply (DBusGMethodInvocation *context)
+{
+    return dbus_message_new_method_return (dbus_g_message_get_message (context->message));
+}
+
+/**
+ * Send a manually created reply message
+ * Used as a sidedoor when you can't generate dbus values
+ * of the correct type due to glib binding limitations
+ *
+ * @param context the method context
+ * @param reply the reply message, will be unreffed
+ */
+void
+dbus_g_method_return_send_reply (DBusGMethodInvocation *context, DBusMessage *reply)
+{
+  dbus_connection_send (dbus_g_connection_get_connection (context->connection), reply, NULL);
+  dbus_message_unref (reply);
+
+  dbus_g_connection_unref (context->connection);
+  dbus_g_message_unref (context->message);
+  g_free (context);
+}
+
+
 /**
  * Send a return message for a given method invocation, with arguments.
  * This function also frees the sending context.

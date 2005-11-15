@@ -1,5 +1,17 @@
 2005-11-15  Robert McQueen  <robot101@debian.org>
 
+	* dbus/dbus-glib-lowlevel.h, glib/dbus-gobject.c: Patch from Rob
+	Taylor to add two methods, dbus_g_method_return_get_reply and
+	dbus_g_method_return_send_reply, to allow you to get the reply
+	message from a DBusGMethodInvocation, append arbitrary stuff to it,
+	and send it. The GLib bindings can't marshal a return value of
+	something like a(s) if the array is empty - ultimately they should be
+	made to heed the signature of the out arguments as the Python bindings
+	now can, but this is a workable interim solution which might have
+	other applications.
+
+2005-11-15  Robert McQueen  <robot101@debian.org>
+
 	* bus/driver.c, bus/services.c, bus/services.h: Add a ReleaseName
 	method to org.freedesktop.DBus to release a bus name or give up
 	waiting in the queue for it.
