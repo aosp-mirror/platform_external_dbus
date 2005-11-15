@@ -434,6 +434,70 @@ bus_registry_acquire_service (BusRegistry      *registry,
 }
 
 dbus_bool_t
+bus_registry_release_service (BusRegistry      *registry,
+                              DBusConnection   *connection,
+                              const DBusString *service_name,
+                              dbus_uint32_t    *result,
+                              BusTransaction   *transaction,
+                              DBusError        *error)
+{
+  dbus_bool_t retval;
+  BusService *service;
+
+  retval = FALSE;
+
+  if (!_dbus_validate_bus_name (service_name, 0,
+                                _dbus_string_get_length (service_name)))
+    {
+      dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
+                      "Given bus name \"%s\" is not valid",
+                      _dbus_string_get_const_data (service_name));
+
+      _dbus_verbose ("Attempt to release invalid service name\n");
+
+      goto out;
+    }
+
+  if (_dbus_string_get_byte (service_name, 0) == ':')
+    {
+      /* Not allowed; the base service name cannot be created or released */
+      dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
+                      "Cannot release a service starting with ':' such as \"%s\"",
+                      _dbus_string_get_const_data (service_name));
+
+      _dbus_verbose ("Attempt to release invalid base service name \"%s\"",
+                     _dbus_string_get_const_data (service_name));
+
+      goto out;
+    }
+
+  service = bus_registry_lookup (registry, service_name);
+
+  if (service == NULL)
+    {
+      *result = DBUS_RELEASE_NAME_REPLY_NON_EXISTENT;
+    }
+  else if (!bus_service_has_owner (service, connection))
+    {
+      *result = DBUS_RELEASE_NAME_REPLY_NOT_OWNER;
+    }
+  else
+    {
+      if (!bus_service_remove_owner (service, connection,
+                                     transaction, error))
+        goto out;
+
+      _dbus_assert (!bus_service_has_owner (service, connection));
+      *result = DBUS_RELEASE_NAME_REPLY_RELEASED;
+    }
+
+  retval = TRUE;
+
+ out:
+  return retval;
+}
+
+dbus_bool_t
 bus_registry_set_service_context_table (BusRegistry   *registry,
 					DBusHashTable *table)
 {

@@ -2567,7 +2567,8 @@
         A connection can request additional names to be associated with it using
         the <literal>org.freedesktop.DBus.RequestName</literal> message. <xref
         linkend="message-protocol-names-bus"/> describes the format of a valid
-        name.
+        name. These names can be released again using the
+        <literal>org.freedesktop.DBus.ReleaseName</literal> message.
       </para>
 
       <sect3 id="bus-messages-request-name">
@@ -2695,6 +2696,101 @@
 		  <entry>DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER</entry>
 		  <entry>4</entry>
 		  <entry>The application trying to request ownership of a name is already the owner of it.</entry>
+	        </row>
+	      </tbody>
+	    </tgroup>
+	  </informaltable>
+        </para>
+       </sect3>
+
+       <sect3 id="bus-messages-release-name">
+        <title><literal>org.freedesktop.DBus.ReleaseName</literal></title>
+        <para>
+          As a method:
+          <programlisting>
+            UINT32 ReleaseName (in STRING name)
+          </programlisting>
+          Message arguments:
+          <informaltable>
+            <tgroup cols="3">
+              <thead>
+                <row>
+                  <entry>Argument</entry>
+                  <entry>Type</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>0</entry>
+                  <entry>STRING</entry>
+                  <entry>Name to release</entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </informaltable>
+          Reply arguments:
+          <informaltable>
+            <tgroup cols="3">
+              <thead>
+                <row>
+                  <entry>Argument</entry>
+                  <entry>Type</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>0</entry>
+                  <entry>UINT32</entry>
+                  <entry>Return value</entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </informaltable>
+        </para>
+        <para>
+          This method call should be sent to
+          <literal>org.freedesktop.DBus</literal> and asks the message bus to
+          release the method caller's claim to the given name. If the caller is
+          the primary owner, a new primary owner will be selected from the
+          queue if any other owners are waiting. If the caller is waiting in
+          the queue for the name, the caller will removed from the queue and
+          will not be made an owner of the name if it later becomes available.
+          If there are no other owners in the queue for the name, it will be
+          removed from the bus entirely.
+
+          The return code can be one of the following values:
+
+          <informaltable>
+            <tgroup cols="3">
+              <thead>
+                <row>
+                  <entry>Conventional Name</entry>
+                  <entry>Value</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+	        <row>
+                  <entry>DBUS_RELEASE_NAME_REPLY_RELEASED</entry>
+                  <entry>1</entry> <entry>The caller has released his claim on
+                  the given name. Either the caller was the primary owner of
+                  the name, and the name is now unused or taken by somebody
+                  waiting in the queue for the name, or the caller was waiting
+                  in the queue for the name and has now been removed from the
+                  queue.</entry>
+	        </row>
+	        <row>
+		  <entry>DBUS_RELEASE_NAME_REPLY_NON_EXISTENT</entry>
+		  <entry>2</entry>
+		  <entry>The given name does not exist on this bus.</entry>
+	        </row>
+	        <row>
+		  <entry>DBUS_RELEASE_NAME_REPLY_NOT_OWNER</entry>
+		  <entry>3</entry>
+		  <entry>The caller was not the primary owner of this name,
+                  and was also not waiting in the queue to own this name.</entry>
 	        </row>
 	      </tbody>
 	    </tgroup>

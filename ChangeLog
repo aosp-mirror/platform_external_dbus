@@ -1,5 +1,28 @@
 2005-11-15  Robert McQueen  <robot101@debian.org>
 
+	* bus/driver.c, bus/services.c, bus/services.h: Add a ReleaseName
+	method to org.freedesktop.DBus to release a bus name or give up
+	waiting in the queue for it.
+
+	* dbus/dbus-bus.c, dbus/dbus-bus.h, dbus/dbus-shared.h: Add a
+	dbus_bus_release_name method to send the ReleaseName method calls.
+	Add constants for the return values to dbus/dbus-shared.h.
+
+	* doc/dbus-specification.xml: Document the new ReleaseName method
+	in the specification.
+
+	* python/dbus_bindings.pyx: Add a low-level python binding for the
+	release name method.
+
+	* python/exceptions.py, python/service.py: Make freeing BusName
+	objects release the name. Add a NameExistsException, and fix a
+	bug with creating UnknownMethodException.
+
+	* test/python/test-client.py: Add tests for freeing BusName
+	objects causing names to be released.
+
+2005-11-14  Robert McQueen  <robot101@debian.org>
+
 	* python/service.py: Include the traceback in the error reply when we
 	send an exception over the bus. _BEST_ _PATCH_ _EVER_
 

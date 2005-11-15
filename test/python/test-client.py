@@ -252,7 +252,16 @@ class TestDBusBindings(unittest.TestCase):
                 else:
                     names[name] = busname
 
+                del busname
+
             print
+
+        del names
+
+        bus = dbus.Bus()
+        ret = dbus.dbus_bindings.bus_name_has_owner(bus._connection, 'org.freedesktop.DBus.Python.TestName')
+        self.assert_(not ret, 'deleting reference failed to release BusName org.freedesktop.DBus.Python.TestName')
+
 
 class TestDBusPythonToGLibBindings(unittest.TestCase):
     def setUp(self):

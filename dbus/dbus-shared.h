@@ -77,6 +77,11 @@ typedef enum
 #define DBUS_REQUEST_NAME_REPLY_EXISTS         3
 #define DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER  4
 
+/* Replies to releasing a name */
+#define DBUS_RELEASE_NAME_REPLY_RELEASED        1
+#define DBUS_RELEASE_NAME_REPLY_NON_EXISTENT    2
+#define DBUS_RELEASE_NAME_REPLY_NOT_OWNER       3
+
 /* Replies to service starts */
 #define DBUS_START_REPLY_SUCCESS         1
 #define DBUS_START_REPLY_ALREADY_RUNNING 2

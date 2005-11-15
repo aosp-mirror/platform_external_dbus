@@ -48,6 +48,9 @@ int             dbus_bus_request_name     (DBusConnection *connection,
 					   const char     *name,
 					   unsigned int    flags,
 					   DBusError      *error);
+int             dbus_bus_release_name     (DBusConnection *connection,
+					   const char     *name,
+					   DBusError      *error);
 dbus_bool_t     dbus_bus_name_has_owner   (DBusConnection *connection,
 					   const char     *name,
 					   DBusError      *error);

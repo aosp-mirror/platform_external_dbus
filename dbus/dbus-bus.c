@@ -777,6 +777,71 @@ dbus_bus_request_name (DBusConnection *connection,
   return result;
 }
 
+int
+dbus_bus_release_name (DBusConnection *connection,
+                       const char     *name,
+                       DBusError      *error)
+{
+  DBusMessage *message, *reply;
+  dbus_uint32_t result;
+
+  _dbus_return_val_if_fail (connection != NULL, 0);
+  _dbus_return_val_if_fail (name != NULL, 0);
+  _dbus_return_val_if_fail (_dbus_check_is_valid_bus_name (name), 0);
+  _dbus_return_val_if_error_is_set (error, 0);
+
+  message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+                                          DBUS_PATH_DBUS,
+                                          DBUS_INTERFACE_DBUS,
+                                          "ReleaseName");
+
+  if (message == NULL)
+    {
+      _DBUS_SET_OOM (error);
+      return -1;
+    }
+
+  if (!dbus_message_append_args (message,
+                                 DBUS_TYPE_STRING, &name,
+                                 DBUS_TYPE_INVALID))
+    {
+      dbus_message_unref (message);
+      _DBUS_SET_OOM (error);
+      return -1;
+    }
+
+  reply = dbus_connection_send_with_reply_and_block (connection, message, -1,
+                                                     error);
+
+  dbus_message_unref (message);
+
+  if (reply == NULL)
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      return -1;
+    }
+
+  if (dbus_set_error_from_message (error, reply))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_message_unref (reply);
+      return -1;
+    }
+
+  if (!dbus_message_get_args (reply, error,
+                              DBUS_TYPE_UINT32, &result,
+                              DBUS_TYPE_INVALID))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_message_unref (reply);
+      return -1;
+    }
+
+  dbus_message_unref (reply);
+
+  return result;
+}
+
 /**
  * Checks whether a certain name has an owner.
  *

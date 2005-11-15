@@ -470,7 +470,7 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
   DBusMessage *reply;
   DBusString service_name;
   const char *name;
-  int service_reply;
+  dbus_uint32_t service_reply;
   dbus_uint32_t flags;
   dbus_bool_t retval;
   BusRegistry *registry;
@@ -524,6 +524,67 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
     dbus_message_unref (reply);
   return retval;
 } 
+
+static dbus_bool_t
+bus_driver_handle_release_service (DBusConnection *connection,
+                                   BusTransaction *transaction,
+                                   DBusMessage    *message,
+                                   DBusError      *error)
+{
+  DBusMessage *reply;
+  DBusString service_name;
+  const char *name;
+  dbus_uint32_t service_reply;
+  dbus_bool_t retval;
+  BusRegistry *registry;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  registry = bus_connection_get_registry (connection);
+
+  if (!dbus_message_get_args (message, error,
+                              DBUS_TYPE_STRING, &name,
+                              DBUS_TYPE_INVALID))
+    return FALSE;
+
+  _dbus_verbose ("Trying to release name %s\n", name);
+
+  retval = FALSE;
+  reply = NULL;
+
+  _dbus_string_init_const (&service_name, name);
+
+  if (!bus_registry_release_service (registry, connection,
+                                     &service_name, &service_reply,
+                                     transaction, error))
+    goto out;
+
+  reply = dbus_message_new_method_return (message);
+  if (reply == NULL)
+    {
+      BUS_SET_OOM (error);
+      goto out;
+    }
+
+  if (!dbus_message_append_args (reply, DBUS_TYPE_UINT32, &service_reply, DBUS_TYPE_INVALID))
+    {
+      BUS_SET_OOM (error);
+      goto out;
+    }
+
+  if (!bus_transaction_send_from_driver (transaction, connection, reply))
+    {
+      BUS_SET_OOM (error);
+      goto out;
+    }
+
+  retval = TRUE;
+
+ out:
+  if (reply)
+    dbus_message_unref (reply);
+  return retval;
+}
 
 static dbus_bool_t
 bus_driver_handle_service_exists (DBusConnection *connection,
@@ -1142,6 +1203,10 @@ struct
     DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_UINT32_AS_STRING,
     DBUS_TYPE_UINT32_AS_STRING,
     bus_driver_handle_acquire_service },
+  { "ReleaseName",
+    DBUS_TYPE_STRING_AS_STRING,
+    DBUS_TYPE_UINT32_AS_STRING,
+    bus_driver_handle_release_service },
   { "StartServiceByName",
     DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_UINT32_AS_STRING,
     DBUS_TYPE_UINT32_AS_STRING,
