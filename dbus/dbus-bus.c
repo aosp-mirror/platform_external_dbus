@@ -655,20 +655,17 @@ dbus_bus_get_unix_user (DBusConnection *connection,
  * result codes are discussed here, but the specification is the
  * canonical version of this information.
  *
- * The #DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT flag indicates that
- * if the name is successfully requested, other applications
- * will not be able to take over the name. i.e. the name's
- * owner (the application calling this function) must let go of
- * the name, it will not lose it involuntarily.
+ * The #DBUS_NAME_FLAG_ALLOW_REPLACEMENT flag indicates that the caller
+ * will allow other services to take over the name from the current owner.
  *
  * The #DBUS_NAME_FLAG_REPLACE_EXISTING flag indicates that the caller
  * would like to take over the name from the current owner.
- * If the current name owner used #DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT
+ * If the current name owner did not use #DBUS_NAME_FLAG_ALLOW_REPLACEMENT
  * then this flag indicates that the caller would like to be placed
  * in the queue to own the name when the current owner lets go.
  *
  * If no flags are given, an application will receive the requested
- * name only if the name is currently unowned; and it will give
+ * name only if the name is currently unowned; it will NOT give
  * up the name if another application asks to take it over using
  * #DBUS_NAME_FLAG_REPLACE_EXISTING.
  *
@@ -678,27 +675,31 @@ dbus_bus_get_unix_user (DBusConnection *connection,
  * #DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER means that the name had no
  * existing owner, and the caller is now the primary owner; or that
  * the name had an owner, and the caller specified
- * #DBUS_NAME_FLAG_REPLACE_EXISTING, and the current owner did not
- * specify #DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT.
+ * #DBUS_NAME_FLAG_REPLACE_EXISTING, and the current owner
+ * specified #DBUS_NAME_FLAG_ALLOW_REPLACEMENT.
  *
- * #DBUS_REQUEST_NAME_REPLY_IN_QUEUE happens only if the current owner
- * specified #DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT and the caller specified
- * #DBUS_NAME_FLAG_REPLACE_EXISTING. In this case the caller ends up in
- * a queue to own the name after the current owner gives it up.
+ * #DBUS_REQUEST_NAME_REPLY_IN_QUEUE happens only if the caller does NOT
+ * specify #DBUS_NAME_FLAG_DO_NOT_QUEUE and either the current owner
+ * did NOT specify #DBUS_NAME_FLAG_ALLOW_REPLACEMENT or the caller did NOT
+ * specify #DBUS_NAME_FLAG_REPLACE_EXISTING. In this case the caller ends up 
+ * in a queue to own the name after the current owner gives it up.
  *
  * #DBUS_REQUEST_NAME_REPLY_EXISTS happens if the name has an owner
- * #already and DBUS_NAME_FLAG_REPLACE_EXISTING was not specified.
+ * already and the caller specifies #DBUS_NAME_FLAG_DO_NOT_QUEUE
+ * and either the current owner has NOT specified 
+ * #DBUS_NAME_FLAG_ALLOW_REPLACEMENT or the caller did NOT specify 
+ * #DBUS_NAME_FLAG_REPLACE_EXISTING.
  *
  * #DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER happens if an application
  * requests a name it already owns.
  *
  * When a service represents an application, say "text editor," then
- * it should specify #DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT if it wants
- * the first editor started to be the user's editor vs. the last one
+ * it should specify #DBUS_NAME_FLAG_ALLOW_REPLACEMENT if it wants
+ * the last editor started to be the user's editor vs. the first one
  * started.  Then any editor that can be the user's editor should
  * specify #DBUS_NAME_FLAG_REPLACE_EXISTING to either take over
  * (last-started-wins) or be queued up (first-started-wins) according
- * to whether #DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT was given.
+ * to whether #DBUS_NAME_FLAG_ALLOW_REPLACEMENT was given.
  * 
  * @todo this all seems sort of broken. Shouldn't the flags be a property
  * of the name, not the app requesting the name? What are the use-cases
@@ -1096,5 +1097,17 @@ dbus_bus_remove_match (DBusConnection *connection,
 
   dbus_message_unref (msg);
 }
+
+#ifdef DBUS_BUILD_TESTS
+const char *
+dbus_bus_connection_get_unique_name (DBusConnection *connection)
+{
+  BusData *bd;
+  bd = dbus_connection_get_data (connection, bus_data_slot);
+  
+  return bd->unique_name;
+}
+#endif /* DBUS_BUILD_TESTS */
+
 
 /** @} */

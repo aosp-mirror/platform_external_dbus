@@ -28,11 +28,6 @@ Important for 1.0
 
    Kind of a major API change, but seems high-value.
 
- - figure out what the deal is with trailing nul bytes in 
-   abstract socket names
-   http://lists.freedesktop.org/archives/dbus/2005-August/003179.html
-
-
 Important for 1.0 GLib Bindings
 ===
 

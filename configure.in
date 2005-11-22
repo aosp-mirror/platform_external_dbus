@@ -1349,6 +1349,7 @@ test/Makefile
 test/glib/Makefile
 test/python/Makefile
 test/qt/Makefile
+test/name-test/Makefile
 doc/Makefile
 dbus-1.pc
 dbus-glib-1.pc

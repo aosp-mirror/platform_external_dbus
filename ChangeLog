@@ -1,3 +1,106 @@
+2005-11-22  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: Add test/name-test/Makefile to the generated
+	Makefile list
+
+	* dbus/dbus-shared.h (#define DBUS_NAME_FLAG_ALLOW_REPLACEMENT):
+	New flag which replaces DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT
+	(#define DBUS_NAME_FLAG_DO_NOT_QUEUE): New flag for specifying
+	not to queue an ower if it can't be the primary owner
+
+	* bus/bus.h: Add new internal BusOwner struct
+
+	* bus/driver.c (bus_driver_handle_hello): Send flags (0 for default)
+	to bus_registry_ensure and don't set the prohibit_replacement flag
+	since they are now set per BusOwner and not per name.
+	(bus_driver_handle_list_queued_owners): bus method (ListQueuedOwners) 
+	that returns the list of connections in a name's connection queue
+	
+	* bus/services.c (struct BusService): remove prohibit_replacement field
+	(struct BusOwner): new struct for keeping track of queued connections
+	and their associated flags for the queue
+	(struct BusRegistry): add a BusOwner memory pool
+	(bus_registry_new): initialize the BusOwner memory pool
+	(bus_registry_unref): free the BusOwner memory pool
+	(_bus_service_find_owner_link): new internal method for
+	searching the queue for a specific connection
+	(bus_owner_set_flags): new method for adding setting the flags on a
+	bus owner
+	(bus_owner_new): new method that creates a BusOwner object from the
+	pool and sets its flags
+	(bus_owner_ref, bus_owner_unref): ref counting for BusOwner objects
+	(bus_registry_ensure): Add the flags parameter
+	(bus_registry_acquire_service): Switch from using raw connections to
+	using the BusOwner struct
+	Add new state machine for dealing with the new set of flags
+	(bus_registry_set_service_context_table, struct OwnershipCancelData, 
+	cancel_ownership, free_ownership_cancel_data, 
+	add_cancel_ownership_to_transaction, struct OwnershipRestoreData, 
+	restore_ownership, free_ownership_restore_data, 
+	add_restore_ownership_to_transaction): Switch to using BusOwner 
+	instead of raw connections
+	(bus_service_add_owner): Add flags parameter
+	Switch to using BusOwner instead of raw connections
+	Add state machine for dealing with the new set of flags
+	(bus_service_swap_owner): Swaps the first and second owners in the
+	queue.  Used to make sure proper signals are sent when a service looses 
+	or gains primary ownership.  We never insert an owner at the top of the
+	queue.  Instead we insert it in the second position and then swap.
+	(bus_service_remove_owner): Remove the owner from the queue sending
+	out the NameLost and NameOwnerChanged signals if the we were the 
+	primary owner
+	(bus_service_get_primary_owners_connection): New method that extracts
+	the connection from the primary owner
+	(bus_service_get_primary_owner): Returns the BusOwner instead of the 
+	connection
+	(bus_service_get_allow_replacement): Changed from the old 
+	bus_service_get_prohibit_replacement method.  Checks the flags of the 
+	primary owner and returns if it can be replaced or not
+	(bus_service_set_prohibit_replacement): removed
+	(bus_service_has_owner): returns TRUE if and owner with
+	the specified connection exists in the queue
+	
+	* dbus/dbus-bus.c (dbus_bus_connection_get_unique_name): New helper
+	method that only compiles if tests are enabled.  Allows us to get the 
+	unique name of a connection so we can check it against the queue when
+	doing regression tests
+
+	* bus/activation.c (bus_activation_send_pending_auto_activate),
+	bus/dispatch.c (bus_dispatch),  
+	bus/driver.c (bus_driver_handle_get_service_owner, 
+	bus_driver_handle_get_connection_unix_user, 
+	bus_driver_handle_get_connection_unix_process_id,
+	bus_driver_handle_get_connection_selinux_security_context),
+	bus/signals.c (connection_is_primary_owner): 
+	use bus_service_get_primary_owners_connection instead of
+	bus_service_get_primary_owner
+
+	* dbus/dbus-sysdeps.c (_dbus_connect_unix_socket, 
+	_dbus_listen_unix_socket): Calculate the length of the socket
+	path and use that instead of using a fixed length which was
+	causing socket names to contain many trailing Nul bytes.
+
+	* dbus/dbus-glib-lowlevel.h, glib/dbus-gobject.c
+	(dbus_g_method_get_sender): New method for extracting the sender 
+	from a DBusGMethodInvocation
+	(dbus_g_method_return_get_reply): changed name to 
+	dbus_g_method_get_reply
+	(dbus_g_method_return_send_reply): changed name to
+	dbus_g_method_send reply
+
+	* doc/dbus-specification.xml: New docs that describe how the new
+	queueing system works and talks about the changes to the how
+	we specify socket names
+
+	* glib/examples/example-service.c, 
+	glib/examples/example-signal-emitter.c,
+	glib/examples/statemachine/statemachine-server.c:
+	Changed the RequestName flags to the new system
+
+	* test/name-test/ (test-names.c, run-test.sh, Makefile.am): New
+	regression test suite for testing various states of the new
+	queueing system
+	
 2005-11-15  Robert McQueen  <robot101@debian.org>
 
 	* dbus/dbus-glib-lowlevel.h, glib/dbus-gobject.c: Patch from Rob

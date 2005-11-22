@@ -40,6 +40,7 @@ typedef struct BusPolicyRule    BusPolicyRule;
 typedef struct BusRegistry      BusRegistry;
 typedef struct BusSELinuxID     BusSELinuxID;
 typedef struct BusService       BusService;
+typedef struct BusOwner		BusOwner;
 typedef struct BusTransaction   BusTransaction;
 typedef struct BusMatchmaker    BusMatchmaker;
 typedef struct BusMatchRule     BusMatchRule;

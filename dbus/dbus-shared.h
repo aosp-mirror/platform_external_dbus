@@ -68,8 +68,9 @@ typedef enum
 #define DBUS_INTERFACE_LOCAL "org.freedesktop.DBus.Local"
 
 /* Owner flags */
-#define DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT 0x1
-#define DBUS_NAME_FLAG_REPLACE_EXISTING     0x2
+#define DBUS_NAME_FLAG_ALLOW_REPLACEMENT 0x1
+#define DBUS_NAME_FLAG_REPLACE_EXISTING  0x2
+#define DBUS_NAME_FLAG_DO_NOT_QUEUE      0x4
 
 /* Replies to request for a name */
 #define DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER  1

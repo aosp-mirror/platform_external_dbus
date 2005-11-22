@@ -2229,13 +2229,37 @@
       the next one specified, and so forth. For example
       <programlisting>unix:path=/tmp/dbus-test;unix:path=/tmp/dbus-test2</programlisting>
     </para>
+
+  </sect1>
+  
+  <sect1 id="transports">
+    <title>Transports</title>
     <para>
       [FIXME we need to specify in detail each transport and its possible arguments]
+    
       Current transports include: unix domain sockets (including 
       abstract namespace on linux), TCP/IP, and a debug/testing transport using 
       in-process pipes. Future possible transports include one that 
       tunnels over X11 protocol.
     </para>
+  
+    <sect2 id="transports-unix-domain-sockets">
+      <title>Unix Domain Sockets</title>
+      <para>
+        Unix domain sockets can be either paths in the file system or on Linux 
+	kernels, they can be abstract which are similar to paths but i
+	do not show up in the file system.  
+      </para>
+
+      <para>
+        When a socket is opened by the D-Bus library it truncates the path 
+	name right befor the first trailing Nul byte.  This is true for both
+	normal paths and abstract paths.  Note that this is a departure from
+	previous versions of D-Bus that would create sockets with a fixed 
+	length path name.  Names which were shorter than the fixed length
+	would be padded by Nul bytes.
+      </para>
+    </sect2>
   </sect1>
 
   <sect1 id="naming-conventions">
@@ -2625,8 +2649,79 @@
         <para>
           This method call should be sent to
           <literal>org.freedesktop.DBus</literal> and asks the message bus to
-          assign the given name to the method caller.  The flags argument
-          contains any of the following values logically ORed together:
+          assign the given name to the method caller. Each name maintains a
+          queue of possible owners, where the head of the queue is the primary
+          or current owner of the name. Each potential owner in the queue
+          maintains the DBUS_NAME_FLAG_ALLOW_REPLACEMENT and
+          DBUS_NAME_FLAG_DO_NOT_QUEUE settings from its latest RequestName
+          call.  When RequestName is invoked the following occurs:
+          <itemizedlist>
+            <listitem>
+              <para>
+                If the method caller is currently the primary owner of the name,
+                the DBUS_NAME_FLAG_ALLOW_REPLACEMENT and DBUS_NAME_FLAG_DO_NOT_QUEUE
+                values are updated with the values from the new RequestName call, 
+                and nothing further happens.
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                If the current primary owner (head of the queue) has
+                DBUS_NAME_FLAG_ALLOW_REPLACEMENT set, and the RequestName
+                invocation has the DBUS_NAME_FLAG_REPLACE_EXISTING flag, then
+                the caller of RequestName replaces the current primary owner at
+                the head of the queue and the current primary owner moves to the
+                second position in the queue. If the caller of RequestName was 
+                in the queue previously its flags are updated with the values from 
+                the new RequestName in addition to moving it to the head of the queue.
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                If replacement is not possible, and the method caller is
+                currently in the queue but not the primary owner, its flags are
+                updated with the values from the new RequestName call.
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                If replacement is not possible, and the method caller is
+                currently not in the queue, the method caller is appended to the
+                queue.
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                If any connection in the queue has DBUS_NAME_FLAG_DO_NOT_QUEUE
+                set and is not the primary owner, it is removed from the
+                queue. This can apply to the previous primary owner (if it
+                was replaced) or the method caller (if it updated the
+                DBUS_NAME_FLAG_DO_NOT_QUEUE flag while still stuck in the
+                queue, or if it was just added to the queue with that flag set).
+              </para>
+            </listitem>
+          </itemizedlist>
+        </para>
+        <para>
+          Note that DBUS_NAME_FLAG_REPLACE_EXISTING results in "jumping the
+          queue," even if another application already in the queue had specified
+          DBUS_NAME_FLAG_REPLACE_EXISTING.  This comes up if a primary owner
+          that does not allow replacement goes away, and the next primary owner
+          does allow replacement. In this case, queued items that specified
+          DBUS_NAME_FLAG_REPLACE_EXISTING <emphasis>do not</emphasis>
+          automatically replace the new primary owner. In other words,
+          DBUS_NAME_FLAG_REPLACE_EXISTING is not saved, it is only used at the
+          time RequestName is called. This is deliberate to avoid an infinite loop
+          anytime two applications are both DBUS_NAME_FLAG_ALLOW_REPLACEMENT 
+          and DBUS_NAME_FLAG_REPLACE_EXISTING.
+        </para>
+        <para>
+          The flags argument contains any of the following values logically ORed
+          together:
 
           <informaltable>
             <tgroup cols="3">
@@ -2639,23 +2734,51 @@
               </thead>
               <tbody>
 	        <row>
-		  <entry>DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT</entry>
+		  <entry>DBUS_NAME_FLAG_ALLOW_REPLACEMENT</entry>
 		  <entry>0x1</entry>
 		  <entry>
-                    If the application succeeds in becoming the owner of the specified name,
-                    then ownership of the name can't be transferred until the application
-                    disconnects. If this flag is not set, then any application trying to become
-                    the owner of the name will succeed and the previous owner will be
-                    sent a <literal>org.freedesktop.DBus.NameLost</literal> signal.
+
+                    If an application A specifies this flag and succeeds in
+                    becoming the owner of the name, and another application B
+                    later calls RequestName with the
+                    DBUS_NAME_FLAG_REPLACE_EXISTING flag, then application A
+                    will lose ownership and receive a
+                    <literal>org.freedesktop.DBus.NameLost</literal> signal, and
+                    application B will become the new owner. If DBUS_NAME_FLAG_ALLOW_REPLACEMENT
+                    is not specified by application A, or DBUS_NAME_FLAG_REPLACE_EXISTING
+                    is not specified by application B, then application B will not replace
+                    application A as the owner.
+
                   </entry>
 	        </row>
 	        <row>
 		  <entry>DBUS_NAME_FLAG_REPLACE_EXISTING</entry>
 		  <entry>0x2</entry>
 		  <entry>
+
                     Try to replace the current owner if there is one. If this
                     flag is not set the application will only become the owner of
-                    the name if there is no current owner.
+                    the name if there is no current owner. If this flag is set,
+                    the application will replace the current owner if
+                    the current owner specified DBUS_NAME_FLAG_ALLOW_REPLACEMENT.
+
+                  </entry>
+	        </row>
+	        <row>
+		  <entry>DBUS_NAME_FLAG_DO_NOT_QUEUE</entry>
+		  <entry>0x4</entry>
+		  <entry>
+
+                    Without this flag, if an application requests a name that is
+                    already owned, the application will be placed in a queue to
+                    own the name when the current owner gives it up. If this
+                    flag is given, the application will not be placed in the
+                    queue, the request for the name will simply fail.  This flag
+                    also affects behavior when an application is replaced as
+                    name owner; by default the application moves back into the
+                    waiting queue, unless this flag was provided when the application
+                    became the name owner.
+
                   </entry>
 	        </row>
 	      </tbody>
@@ -2679,18 +2802,27 @@
 		  <entry>1</entry> <entry>The caller is now the primary owner of
 		  the name, replacing any previous owner. Either the name had no
 		  owner before, or the caller specified
-		  DBUS_NAME_FLAG_REPLACE_EXISTING and the current owner did not
-		  specify DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT.</entry>
+		  DBUS_NAME_FLAG_REPLACE_EXISTING and the current owner specified
+                  DBUS_NAME_FLAG_ALLOW_REPLACEMENT.</entry>
 	        </row>
 	        <row>
 		  <entry>DBUS_REQUEST_NAME_REPLY_IN_QUEUE</entry>
 		  <entry>2</entry>
-		  <entry>The name already had an owner, DBUS_NAME_FLAG_REPLACE_EXISTING was not specified, and the current owner specified DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT.</entry>
+
+		  <entry>The name already had an owner,
+                    DBUS_NAME_FLAG_DO_NOT_QUEUE was not specified, and either
+                    the current owner did not specify
+                    DBUS_NAME_FLAG_ALLOW_REPLACEMENT or the requesting
+                    application did not specify DBUS_NAME_FLAG_REPLACE_EXISTING.
+                    </entry>
 	        </row>
 	        <row>
-		  <entry>DBUS_REQUEST_NAME_REPLY_EXISTS</entry>
-		  <entry>3</entry>
-		  <entry>The name already has an owner, and DBUS_NAME_FLAG_REPLACE_EXISTING was not specified.</entry>
+		  <entry>DBUS_REQUEST_NAME_REPLY_EXISTS</entry> <entry>3</entry>
+		  <entry>The name already has an owner,
+		  DBUS_NAME_FLAG_DO_NOT_QUEUE was specified, and either
+		  DBUS_NAME_FLAG_ALLOW_REPLACEMENT was not specified by the
+		  current owner, or DBUS_NAME_FLAG_REPLACE_EXISTING was not
+		  specified by the requesting application.</entry>
 	        </row>
 	        <row>
 		  <entry>DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER</entry>

@@ -980,7 +980,7 @@ bus_activation_send_pending_auto_activation_messages (BusActivation  *activation
         {
           DBusConnection *addressed_recipient;
           
-          addressed_recipient = bus_service_get_primary_owner (service);
+          addressed_recipient = bus_service_get_primary_owners_connection (service);
 
           /* Check the security policy, which has the side-effect of adding an
            * expected pending reply.

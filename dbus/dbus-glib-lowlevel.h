@@ -57,9 +57,12 @@ DBusMessage*     dbus_g_message_get_message       (DBusGMessage    *gmessage);
  * g-functions anyhow)
  */
 
-DBusMessage * dbus_g_method_return_get_reply (DBusGMethodInvocation *context);
+gchar*            dbus_g_method_get_sender    (DBusGMethodInvocation *context);
 
-void dbus_g_method_return_send_reply (DBusGMethodInvocation *context, DBusMessage *reply);
+DBusMessage*      dbus_g_method_get_reply     (DBusGMethodInvocation *context);
+
+void              dbus_g_method_send_reply    (DBusGMethodInvocation *context, 
+                                               DBusMessage *reply);
 
 G_END_DECLS
 

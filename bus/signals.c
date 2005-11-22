@@ -1274,7 +1274,7 @@ connection_is_primary_owner (DBusConnection *connection,
   if (service == NULL)
     return FALSE; /* Service doesn't exist so connection can't own it. */
 
-  return bus_service_get_primary_owner (service) == connection;
+  return bus_service_get_primary_owners_connection (service) == connection;
 }
 
 static dbus_bool_t

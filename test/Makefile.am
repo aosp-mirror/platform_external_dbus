@@ -9,8 +9,8 @@ if HAVE_QTESTLIB
     QT_SUBDIR=qt
 endif
 
-SUBDIRS=$(GLIB_SUBDIR) $(PYTHON_SUBDIR) $(QT_SUBDIR)
-DIST_SUBDIRS=glib python qt
+SUBDIRS=name-test $(GLIB_SUBDIR) $(PYTHON_SUBDIR) $(QT_SUBDIR)
+DIST_SUBDIRS=glib python qt name-test
 
 INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
 

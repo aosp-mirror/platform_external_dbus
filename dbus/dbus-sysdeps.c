@@ -398,6 +398,7 @@ _dbus_connect_unix_socket (const char     *path,
                            DBusError      *error)
 {
   int fd;
+  size_t path_len;
   struct sockaddr_un addr;  
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
@@ -419,15 +420,23 @@ _dbus_connect_unix_socket (const char     *path,
 
   _DBUS_ZERO (addr);
   addr.sun_family = AF_UNIX;
+  path_len = strlen (path);
 
   if (abstract)
     {
 #ifdef HAVE_ABSTRACT_SOCKETS
-      /* remember that abstract names aren't nul-terminated so we rely
-       * on sun_path being filled in with zeroes above.
-       */
       addr.sun_path[0] = '\0'; /* this is what says "use abstract" */
-      strncpy (&addr.sun_path[1], path, _DBUS_MAX_SUN_PATH_LENGTH - 2);
+      path_len++; /* Account for the extra nul byte added to the start of sun_path */
+
+      if (path_len > _DBUS_MAX_SUN_PATH_LENGTH)
+        {
+          dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                      "Abstract socket name too long\n");
+          close (fd);
+          return -1;
+	}
+	
+      strncpy (&addr.sun_path[1], path, path_len);
       /* _dbus_verbose_bytes (addr.sun_path, sizeof (addr.sun_path)); */
 #else /* HAVE_ABSTRACT_SOCKETS */
       dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED,
@@ -438,10 +447,18 @@ _dbus_connect_unix_socket (const char     *path,
     }
   else
     {
-      strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH - 1);
+      if (path_len > _DBUS_MAX_SUN_PATH_LENGTH)
+        {
+          dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                      "Socket name too long\n");
+          close (fd);
+          return -1;
+	}
+
+      strncpy (addr.sun_path, path, path_len);
     }
   
-  if (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0)
+  if (connect (fd, (struct sockaddr*) &addr, _DBUS_STRUCT_OFFSET (struct sockaddr_un, sun_path) + path_len) < 0)
     {      
       dbus_set_error (error,
                       _dbus_error_from_errno (errno),
@@ -489,6 +506,7 @@ _dbus_listen_unix_socket (const char     *path,
 {
   int listen_fd;
   struct sockaddr_un addr;
+  size_t path_len;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -507,6 +525,7 @@ _dbus_listen_unix_socket (const char     *path,
 
   _DBUS_ZERO (addr);
   addr.sun_family = AF_UNIX;
+  path_len = strlen (path);
   
   if (abstract)
     {
@@ -515,7 +534,17 @@ _dbus_listen_unix_socket (const char     *path,
        * on sun_path being filled in with zeroes above.
        */
       addr.sun_path[0] = '\0'; /* this is what says "use abstract" */
-      strncpy (&addr.sun_path[1], path, _DBUS_MAX_SUN_PATH_LENGTH - 2);
+      path_len++; /* Account for the extra nul byte added to the start of sun_path */
+
+      if (path_len > _DBUS_MAX_SUN_PATH_LENGTH)
+        {
+          dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                      "Abstract socket name too long\n");
+          close (listen_fd);
+          return -1;
+	}
+      
+      strncpy (&addr.sun_path[1], path, path_len);
       /* _dbus_verbose_bytes (addr.sun_path, sizeof (addr.sun_path)); */
 #else /* HAVE_ABSTRACT_SOCKETS */
       dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED,
@@ -544,10 +573,18 @@ _dbus_listen_unix_socket (const char     *path,
           unlink (path);
       }
 
-      strncpy (addr.sun_path, path, _DBUS_MAX_SUN_PATH_LENGTH - 1);
+      if (path_len > _DBUS_MAX_SUN_PATH_LENGTH)
+        {
+          dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                      "Abstract socket name too long\n");
+          close (listen_fd);
+          return -1;
+	}
+	
+      strncpy (addr.sun_path, path, path_len);
     }
   
-  if (bind (listen_fd, (struct sockaddr*) &addr, sizeof (addr)) < 0)
+  if (bind (listen_fd, (struct sockaddr*) &addr, _DBUS_STRUCT_OFFSET (struct sockaddr_un, sun_path) + path_len) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to bind socket \"%s\": %s",

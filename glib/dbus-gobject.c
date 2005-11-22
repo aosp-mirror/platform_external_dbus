@@ -1858,6 +1858,28 @@ dbus_g_object_register_marshaller_array (GClosureMarshal  marshaller,
   g_static_rw_lock_writer_unlock (&globals_lock);
 }
 
+/**
+ * Get the sender of a message so we can send a
+ * "reply" later (i.e. send a message directly
+ * to a service which invoked the method at a 
+ * later time).
+ *
+ * @param context the method context
+ *
+ * @return the unique name of teh sender
+ */
+gchar *
+dbus_g_method_get_sender (DBusGMethodInvocation *context)
+{
+  const gchar *sender;
+
+  sender = dbus_message_get_sender (dbus_g_message_get_message (context->message));
+
+  if (sender == NULL)
+    return NULL;
+    
+  return strdup (sender);
+}
 
 /**
  * Get the reply message to append reply values
@@ -1867,9 +1889,9 @@ dbus_g_object_register_marshaller_array (GClosureMarshal  marshaller,
  * @param context the method context
  */
 DBusMessage *
-dbus_g_method_return_get_reply (DBusGMethodInvocation *context)
+dbus_g_method_get_reply (DBusGMethodInvocation *context)
 {
-    return dbus_message_new_method_return (dbus_g_message_get_message (context->message));
+  return dbus_message_new_method_return (dbus_g_message_get_message (context->message));
 }
 
 /**
@@ -1881,7 +1903,7 @@ dbus_g_method_return_get_reply (DBusGMethodInvocation *context)
  * @param reply the reply message, will be unreffed
  */
 void
-dbus_g_method_return_send_reply (DBusGMethodInvocation *context, DBusMessage *reply)
+dbus_g_method_send_reply (DBusGMethodInvocation *context, DBusMessage *reply)
 {
   dbus_connection_send (dbus_g_connection_get_connection (context->connection), reply, NULL);
   dbus_message_unref (reply);

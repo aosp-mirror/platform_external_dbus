@@ -308,12 +308,10 @@ bus_driver_handle_hello (DBusConnection *connection,
 
   /* Create the service */
   service = bus_registry_ensure (registry,
-                                 &unique_name, connection, transaction, error);
+                                 &unique_name, connection, 0, transaction, error);
   if (service == NULL)
     goto out_0;
   
-  bus_service_set_prohibit_replacement (service, TRUE);
-
   _dbus_assert (bus_connection_is_active (connection));
   retval = TRUE;
   
@@ -883,7 +881,7 @@ bus_driver_handle_get_service_owner (DBusConnection *connection,
     }
   else
     {
-      base_name = bus_connection_get_name (bus_service_get_primary_owner (service));
+      base_name = bus_connection_get_name (bus_service_get_primary_owners_connection (service));
       if (base_name == NULL)
         {
           /* FIXME - how is this error possible? */
@@ -920,6 +918,113 @@ bus_driver_handle_get_service_owner (DBusConnection *connection,
   _DBUS_ASSERT_ERROR_IS_SET (error);
   if (reply)
     dbus_message_unref (reply);
+  return FALSE;
+}
+
+static dbus_bool_t
+bus_driver_handle_list_queued_owners (DBusConnection *connection,
+				      BusTransaction *transaction,
+				      DBusMessage    *message,
+				      DBusError      *error)
+{
+  const char *text;
+  DBusList *base_names;
+  DBusList *link;
+  DBusString str;
+  BusRegistry *registry;
+  BusService *service;
+  DBusMessage *reply;
+  DBusMessageIter iter, array_iter;
+  char *dbus_service_name = DBUS_SERVICE_DBUS;
+  
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  registry = bus_connection_get_registry (connection);
+
+  base_names = NULL;
+  text = NULL;
+  reply = NULL;
+
+  if (! dbus_message_get_args (message, error,
+			       DBUS_TYPE_STRING, &text,
+			       DBUS_TYPE_INVALID))
+      goto failed;
+
+  _dbus_string_init_const (&str, text);
+  service = bus_registry_lookup (registry, &str);
+  if (service == NULL &&
+      _dbus_string_equal_c_str (&str, DBUS_SERVICE_DBUS))
+    {
+      /* ORG_FREEDESKTOP_DBUS owns itself */
+      if (! _dbus_list_append (&base_names, dbus_service_name))
+        goto oom;
+    }
+  else if (service == NULL)
+    {
+      dbus_set_error (error, 
+                      DBUS_ERROR_NAME_HAS_NO_OWNER,
+                      "Could not get owners of name '%s': no such name", text);
+      goto failed;
+    }
+  else
+    {
+      if (!bus_service_list_queued_owners (service, 
+                                           &base_names,
+                                           error))
+        goto failed;
+    }
+
+  _dbus_assert (base_names != NULL);
+
+  reply = dbus_message_new_method_return (message);
+  if (reply == NULL)
+    goto oom;
+
+  dbus_message_iter_init_append (reply, &iter);
+  if (!dbus_message_iter_open_container (&iter,
+                                         DBUS_TYPE_ARRAY,
+                                         DBUS_TYPE_STRING_AS_STRING,
+                                         &array_iter))
+    goto oom;
+  
+  link = _dbus_list_get_first_link (&base_names);
+  while (link != NULL)
+    {
+      char *uname;
+
+      _dbus_assert (link->data != NULL);
+      uname = (char *)link->data;
+    
+      if (!dbus_message_iter_append_basic (&array_iter, 
+                                           DBUS_TYPE_STRING,
+                                           &uname))
+        goto oom;
+
+      link = _dbus_list_get_next_link (&base_names, link);
+    }
+
+  if (! dbus_message_iter_close_container (&iter, &array_iter))
+    goto oom;
+                                    
+ 
+  if (! bus_transaction_send_from_driver (transaction, connection, reply))
+    goto oom;
+
+  dbus_message_unref (reply);
+
+  return TRUE;
+
+ oom:
+  BUS_SET_OOM (error);
+
+ failed:
+  _DBUS_ASSERT_ERROR_IS_SET (error);
+  if (reply)
+    dbus_message_unref (reply);
+
+  if (base_names)
+    _dbus_list_clear (&base_names);
+
   return FALSE;
 }
 
@@ -962,7 +1067,7 @@ bus_driver_handle_get_connection_unix_user (DBusConnection *connection,
       goto failed;
     }
 
-  conn = bus_service_get_primary_owner (serv);
+  conn = bus_service_get_primary_owners_connection (serv);
 
   reply = dbus_message_new_method_return (message);
   if (reply == NULL)
@@ -1038,7 +1143,7 @@ bus_driver_handle_get_connection_unix_process_id (DBusConnection *connection,
       goto failed;
     }
 
-  conn = bus_service_get_primary_owner (serv);
+  conn = bus_service_get_primary_owners_connection (serv);
 
   reply = dbus_message_new_method_return (message);
   if (reply == NULL)
@@ -1113,7 +1218,7 @@ bus_driver_handle_get_connection_selinux_security_context (DBusConnection *conne
       goto failed;
     }
 
-  conn = bus_service_get_primary_owner (serv);
+  conn = bus_service_get_primary_owners_connection (serv);
 
   reply = dbus_message_new_method_return (message);
   if (reply == NULL)
@@ -1235,6 +1340,10 @@ struct
     DBUS_TYPE_STRING_AS_STRING,
     DBUS_TYPE_STRING_AS_STRING,
     bus_driver_handle_get_service_owner },
+  { "ListQueuedOwners",
+    DBUS_TYPE_STRING_AS_STRING,
+    DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_STRING_AS_STRING,
+    bus_driver_handle_list_queued_owners },
   { "GetConnectionUnixUser",
     DBUS_TYPE_STRING_AS_STRING,
     DBUS_TYPE_UINT32_AS_STRING,

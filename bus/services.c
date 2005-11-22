@@ -42,8 +42,17 @@ struct BusService
   BusRegistry *registry;
   char *name;
   DBusList *owners;
-  
-  unsigned int prohibit_replacement : 1;
+};
+
+struct BusOwner
+{
+  int refcount;
+
+  BusService *service;
+  DBusConnection *conn;
+
+  unsigned int allow_replacement : 1;
+  unsigned int do_not_queue : 1;
 };
 
 struct BusRegistry
@@ -54,6 +63,7 @@ struct BusRegistry
   
   DBusHashTable *service_hash;
   DBusMemPool   *service_pool;
+  DBusMemPool   *owner_pool;
 
   DBusHashTable *service_sid_table;
 };
@@ -77,7 +87,14 @@ bus_registry_new (BusContext *context)
   
   registry->service_pool = _dbus_mem_pool_new (sizeof (BusService),
                                                TRUE);
+
   if (registry->service_pool == NULL)
+    goto failed;
+
+  registry->owner_pool = _dbus_mem_pool_new (sizeof (BusOwner),
+                                             TRUE);
+
+  if (registry->owner_pool == NULL)
     goto failed;
 
   registry->service_sid_table = NULL;
@@ -110,6 +127,8 @@ bus_registry_unref  (BusRegistry *registry)
         _dbus_hash_table_unref (registry->service_hash);
       if (registry->service_pool)
         _dbus_mem_pool_free (registry->service_pool);
+      if (registry->owner_pool)
+        _dbus_mem_pool_free (registry->owner_pool);
       if (registry->service_sid_table)
         _dbus_hash_table_unref (registry->service_sid_table);
       
@@ -129,10 +148,98 @@ bus_registry_lookup (BusRegistry      *registry,
   return service;
 }
 
+static DBusList *
+_bus_service_find_owner_link (BusService *service,
+                              DBusConnection *connection)
+{
+  DBusList *link;
+  
+  link = _dbus_list_get_first_link (&service->owners);
+
+  while (link != NULL)
+    {
+      BusOwner *bus_owner;
+
+      bus_owner = (BusOwner *) link->data;
+      if (bus_owner->conn == connection) 
+        break;
+
+      link = _dbus_list_get_next_link (&service->owners, link);
+    }
+
+  return link;
+}
+
+static void
+bus_owner_set_flags (BusOwner *owner,
+                     dbus_uint32_t flags)
+{
+   owner->allow_replacement = 
+        (flags & DBUS_NAME_FLAG_ALLOW_REPLACEMENT) != FALSE;
+
+   owner->do_not_queue =
+        (flags & DBUS_NAME_FLAG_DO_NOT_QUEUE) != FALSE;
+}
+
+static BusOwner *
+bus_owner_new (BusService *service, 
+               DBusConnection *conn, 
+	       dbus_uint32_t flags)
+{
+  BusOwner *result;
+
+  result = _dbus_mem_pool_alloc (service->registry->owner_pool);
+  if (result != NULL)
+    {
+      result->refcount = 1;
+      /* don't ref the connection because we don't want
+         to block the connection from going away.
+         transactions take care of reffing the connection
+         but we need to use refcounting on the owner
+         so that the owner does not get freed before
+         we can deref the connection in the transaction
+       */
+      result->conn = conn;
+      result->service = service;
+
+      if (!bus_connection_add_owned_service (conn, service))
+        {
+          _dbus_mem_pool_dealloc (service->registry->owner_pool, result);
+          return NULL;
+        }
+        
+      bus_owner_set_flags (result, flags);
+    }
+  return result;
+}
+
+static BusOwner *
+bus_owner_ref (BusOwner *owner)
+{
+  _dbus_assert (owner->refcount > 0);
+  owner->refcount += 1;
+
+  return owner;
+}
+
+static void
+bus_owner_unref  (BusOwner *owner)
+{
+  _dbus_assert (owner->refcount > 0);
+  owner->refcount -= 1;
+
+  if (owner->refcount == 0)
+    {
+      bus_connection_remove_owned_service (owner->conn, owner->service);
+      _dbus_mem_pool_dealloc (owner->service->registry->owner_pool, owner);
+    }
+}
+
 BusService*
 bus_registry_ensure (BusRegistry               *registry,
                      const DBusString          *service_name,
-                     DBusConnection            *owner_if_created,
+                     DBusConnection            *owner_connection_if_created,
+                     dbus_uint32_t              flags,
                      BusTransaction            *transaction,
                      DBusError                 *error)
 {
@@ -140,7 +247,7 @@ bus_registry_ensure (BusRegistry               *registry,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  _dbus_assert (owner_if_created != NULL);
+  _dbus_assert (owner_connection_if_created != NULL);
   _dbus_assert (transaction != NULL);
 
   service = _dbus_hash_table_lookup_string (registry->service_hash,
@@ -172,7 +279,7 @@ bus_registry_ensure (BusRegistry               *registry,
 
   if (!bus_driver_send_service_owner_changed (service->name, 
 					      NULL,
-					      bus_connection_get_name (owner_if_created),
+					      bus_connection_get_name (owner_connection_if_created),
 					      transaction, error))
     {
       bus_service_unref (service);
@@ -186,8 +293,8 @@ bus_registry_ensure (BusRegistry               *registry,
       return NULL;
     }
   
-  if (!bus_service_add_owner (service, owner_if_created,
-                              transaction, error))
+  if (!bus_service_add_owner (service, owner_connection_if_created, flags,
+                                              transaction, error))
     {
       bus_service_unref (service);
       return NULL;
@@ -275,13 +382,14 @@ bus_registry_acquire_service (BusRegistry      *registry,
                               DBusError        *error)
 {
   dbus_bool_t retval;
-  DBusConnection *old_owner;
-  DBusConnection *current_owner;
+  DBusConnection *old_owner_conn;
+  DBusConnection *current_owner_conn;
   BusClientPolicy *policy;
   BusService *service;
   BusActivation  *activation;
   BusSELinuxID *sid;
-  
+  BusOwner *primary_owner;
+ 
   retval = FALSE;
 
   if (!_dbus_validate_bus_name (service_name, 0,
@@ -366,37 +474,70 @@ bus_registry_acquire_service (BusRegistry      *registry,
   service = bus_registry_lookup (registry, service_name);
 
   if (service != NULL)
-    old_owner = bus_service_get_primary_owner (service);
+    {
+      primary_owner = bus_service_get_primary_owner (service);
+      if (primary_owner != NULL)
+        old_owner_conn = primary_owner->conn;
+      else
+        old_owner_conn = NULL;
+    }
   else
-    old_owner = NULL;
+    old_owner_conn = NULL;
       
   if (service == NULL)
     {
       service = bus_registry_ensure (registry,
-                                     service_name, connection, transaction, error);
+                                     service_name, connection, flags,
+                                     transaction, error);
       if (service == NULL)
         goto out;
     }
 
-  current_owner = bus_service_get_primary_owner (service);
-
-  if (old_owner == NULL)
+  primary_owner = bus_service_get_primary_owner (service);
+  if (primary_owner == NULL)
+    goto out;
+    
+  current_owner_conn = primary_owner->conn;
+     
+  if (old_owner_conn == NULL)
     {
-      _dbus_assert (current_owner == connection);
+      _dbus_assert (current_owner_conn == connection);
 
-      bus_service_set_prohibit_replacement (service,
-					    (flags & DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT));      
-			
       *result = DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER;      
     }
-  else if (old_owner == connection)
-    *result = DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER;
-  else if (!((flags & DBUS_NAME_FLAG_REPLACE_EXISTING)))
-    *result = DBUS_REQUEST_NAME_REPLY_EXISTS;
-  else if (bus_service_get_prohibit_replacement (service))
+  else if (old_owner_conn == connection)
+    {
+      bus_owner_set_flags (primary_owner, flags);
+      *result = DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER;
+    }
+  else if (((flags & DBUS_NAME_FLAG_DO_NOT_QUEUE) &&
+           !(bus_service_get_allow_replacement (service))) ||
+	   ((flags & DBUS_NAME_FLAG_DO_NOT_QUEUE) &&
+           !(flags & DBUS_NAME_FLAG_REPLACE_EXISTING))) 
+    {
+      DBusList *link;
+      BusOwner *temp_owner;
+    /* Since we can't be queued if we are already in the queue
+       remove us */
+
+      link = _bus_service_find_owner_link (service, connection);
+      if (link != NULL)
+        {
+          _dbus_list_unlink (&service->owners, link);
+          temp_owner = (BusOwner *)link->data;
+          bus_owner_unref (temp_owner); 
+          _dbus_list_free_link (link);
+        }
+      
+      *result = DBUS_REQUEST_NAME_REPLY_EXISTS;
+    }
+  else if (!(flags & DBUS_NAME_FLAG_DO_NOT_QUEUE) &&
+           (!(flags & DBUS_NAME_FLAG_REPLACE_EXISTING) ||
+	    !(bus_service_get_allow_replacement (service))))
     {
       /* Queue the connection */
-      if (!bus_service_add_owner (service, connection,
+      if (!bus_service_add_owner (service, connection, 
+                                  flags,
                                   transaction, error))
         goto out;
       
@@ -412,14 +553,25 @@ bus_registry_acquire_service (BusRegistry      *registry,
        */
       
       if (!bus_service_add_owner (service, connection,
+                                  flags,
                                   transaction, error))
         goto out;
 
-      if (!bus_service_remove_owner (service, old_owner,
-                                     transaction, error))
-        goto out;
-      
-      _dbus_assert (connection == bus_service_get_primary_owner (service));
+      if (primary_owner->do_not_queue)
+        {
+          if (!bus_service_remove_owner (service, old_owner_conn,
+                                         transaction, error))
+            goto out;
+        }
+      else
+        {
+          if (!bus_service_swap_owner (service, old_owner_conn,
+                                       transaction, error))
+            goto out;
+        }
+        
+    
+      _dbus_assert (connection == bus_service_get_primary_owner (service)->conn);
       *result = DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER;
     }
 
@@ -528,10 +680,10 @@ bus_registry_set_service_context_table (BusRegistry   *registry,
 
 static void
 bus_service_unlink_owner (BusService      *service,
-                          DBusConnection  *owner)
+                          BusOwner        *owner)
 {
   _dbus_list_remove_last (&service->owners, owner);
-  bus_connection_remove_owned_service (owner, service);
+  bus_owner_unref (owner);
 }
 
 static void
@@ -570,7 +722,7 @@ bus_service_relink (BusService           *service,
  */
 typedef struct
 {
-  DBusConnection *connection; /**< the connection */
+  BusOwner *owner;            /**< the owner */
   BusService *service;        /**< service to cancel ownership of */
 } OwnershipCancelData;
 
@@ -583,7 +735,7 @@ cancel_ownership (void *data)
    * changes, since we're reverting something that was
    * cancelled (effectively never really happened)
    */
-  bus_service_unlink_owner (d->service, d->connection);
+  bus_service_unlink_owner (d->service, d->owner);
   
   if (d->service->owners == NULL)
     bus_service_unlink (d->service);
@@ -594,7 +746,8 @@ free_ownership_cancel_data (void *data)
 {
   OwnershipCancelData *d = data;
 
-  dbus_connection_unref (d->connection);
+  dbus_connection_unref (d->owner->conn);
+  bus_owner_unref (d->owner);
   bus_service_unref (d->service);
   
   dbus_free (d);
@@ -603,7 +756,7 @@ free_ownership_cancel_data (void *data)
 static dbus_bool_t
 add_cancel_ownership_to_transaction (BusTransaction *transaction,
                                      BusService     *service,
-                                     DBusConnection *connection)
+                                     BusOwner       *owner)
 {
   OwnershipCancelData *d;
 
@@ -612,7 +765,7 @@ add_cancel_ownership_to_transaction (BusTransaction *transaction,
     return FALSE;
   
   d->service = service;
-  d->connection = connection;
+  d->owner = owner;
 
   if (!bus_transaction_add_cancel_hook (transaction, cancel_ownership, d,
                                         free_ownership_cancel_data))
@@ -622,18 +775,23 @@ add_cancel_ownership_to_transaction (BusTransaction *transaction,
     }
 
   bus_service_ref (d->service);
-  dbus_connection_ref (d->connection);
-  
+  bus_owner_ref (owner);
+  dbus_connection_ref (d->owner->conn);
+ 
   return TRUE;
 }
 
 /* this function is self-cancelling if you cancel the transaction */
 dbus_bool_t
 bus_service_add_owner (BusService     *service,
-                       DBusConnection *owner,
+                       DBusConnection *connection,
+                       dbus_uint32_t  flags,
                        BusTransaction *transaction,
                        DBusError      *error)
 {
+  BusOwner *bus_owner;
+  DBusList *bus_owner_link;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
  /* Send service acquired message first, OOM will result
@@ -641,42 +799,83 @@ bus_service_add_owner (BusService     *service,
   */
   if (service->owners == NULL)
     {
-      if (!bus_driver_send_service_acquired (owner, service->name, transaction, error))
+      if (!bus_driver_send_service_acquired (connection, service->name, transaction, error))
         return FALSE;
     }
   
-  if (!_dbus_list_append (&service->owners,
-                          owner))
+  bus_owner_link = _bus_service_find_owner_link (service, connection);
+  
+  if (bus_owner_link == NULL)
     {
-      BUS_SET_OOM (error);
-      return FALSE;
-    }
+      bus_owner = bus_owner_new (service, connection, flags);
+      if (bus_owner == NULL)
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
 
-  if (!bus_connection_add_owned_service (owner, service))
+      bus_owner_set_flags (bus_owner, flags);
+      if (!(flags & DBUS_NAME_FLAG_REPLACE_EXISTING) || service->owners == NULL)
+        {
+          if (!_dbus_list_append (&service->owners,
+                                  bus_owner))
+            {
+              bus_owner_unref (bus_owner);
+              BUS_SET_OOM (error);
+              return FALSE;
+            }
+        }
+      else
+        {
+          if (!_dbus_list_insert_after (&service->owners,
+                                         _dbus_list_get_first_link (&service->owners),
+                                         bus_owner))
+            {
+              bus_owner_unref (bus_owner);
+              BUS_SET_OOM (error);
+              return FALSE;
+            }
+        }      
+    } 
+  else 
     {
-      _dbus_list_remove_last (&service->owners, owner);
-      BUS_SET_OOM (error);
-      return FALSE;
+      /* Update the link since we are already in the queue
+       * No need for operations that can produce OOM
+       */
+
+      bus_owner = (BusOwner *) bus_owner_link->data;
+      if (flags & DBUS_NAME_FLAG_REPLACE_EXISTING)
+        {
+	  DBusList *link;
+          _dbus_list_unlink (&service->owners, bus_owner_link);
+	  link = _dbus_list_get_first_link (&service->owners);
+	  _dbus_assert (link != NULL);
+	  
+          _dbus_list_insert_after_link (&service->owners, link, bus_owner_link);
+        }
+      
+      bus_owner_set_flags (bus_owner, flags);
+      return TRUE;
     }
 
   if (!add_cancel_ownership_to_transaction (transaction,
                                             service,
-                                            owner))
+                                            bus_owner))
     {
-      bus_service_unlink_owner (service, owner);
+      bus_service_unlink_owner (service, bus_owner);
       BUS_SET_OOM (error);
       return FALSE;
     }
-  
+
   return TRUE;
 }
 
 typedef struct
 {
-  DBusConnection *connection;
+  BusOwner       *owner;
   BusService     *service;
-  DBusConnection *before_connection; /* restore to position before this connection in owners list */
-  DBusList       *connection_link;
+  BusOwner       *before_owner; /* restore to position before this connection in owners list */
+  DBusList       *owner_link;
   DBusList       *service_link;
   DBusPreallocatedHash *hash_entry;
 } OwnershipRestoreData;
@@ -688,7 +887,7 @@ restore_ownership (void *data)
   DBusList *link;
 
   _dbus_assert (d->service_link != NULL);
-  _dbus_assert (d->connection_link != NULL);
+  _dbus_assert (d->owner_link != NULL);
   
   if (d->service->owners == NULL)
     {
@@ -707,13 +906,13 @@ restore_ownership (void *data)
   link = _dbus_list_get_first_link (&d->service->owners);
   while (link != NULL)
     {
-      if (link->data == d->before_connection)
+      if (link->data == d->before_owner)
         break;
 
       link = _dbus_list_get_next_link (&d->service->owners, link);
     }
   
-  _dbus_list_insert_before_link (&d->service->owners, link, d->connection_link);
+  _dbus_list_insert_before_link (&d->service->owners, link, d->owner_link);
 
   /* Note that removing then restoring this changes the order in which
    * ServiceDeleted messages are sent on destruction of the
@@ -721,11 +920,11 @@ restore_ownership (void *data)
    * that the base service is destroyed last, and we never even
    * tentatively remove the base service.
    */
-  bus_connection_add_owned_service_link (d->connection, d->service_link);
+  bus_connection_add_owned_service_link (d->owner->conn, d->service_link);
   
   d->hash_entry = NULL;
   d->service_link = NULL;
-  d->connection_link = NULL;
+  d->owner_link = NULL;
 }
 
 static void
@@ -735,13 +934,14 @@ free_ownership_restore_data (void *data)
 
   if (d->service_link)
     _dbus_list_free_link (d->service_link);
-  if (d->connection_link)
-    _dbus_list_free_link (d->connection_link);
+  if (d->owner_link)
+    _dbus_list_free_link (d->owner_link);
   if (d->hash_entry)
     _dbus_hash_table_free_preallocated_entry (d->service->registry->service_hash,
                                               d->hash_entry);
 
-  dbus_connection_unref (d->connection);
+  dbus_connection_unref (d->owner->conn);
+  bus_owner_unref (d->owner);
   bus_service_unref (d->service);
   
   dbus_free (d);
@@ -750,7 +950,7 @@ free_ownership_restore_data (void *data)
 static dbus_bool_t
 add_restore_ownership_to_transaction (BusTransaction *transaction,
                                       BusService     *service,
-                                      DBusConnection *connection)
+                                      BusOwner       *owner)
 {
   OwnershipRestoreData *d;
   DBusList *link;
@@ -760,24 +960,25 @@ add_restore_ownership_to_transaction (BusTransaction *transaction,
     return FALSE;
   
   d->service = service;
-  d->connection = connection;
+  d->owner = owner;
   d->service_link = _dbus_list_alloc_link (service);
-  d->connection_link = _dbus_list_alloc_link (connection);
+  d->owner_link = _dbus_list_alloc_link (owner);
   d->hash_entry = _dbus_hash_table_preallocate_entry (service->registry->service_hash);
   
   bus_service_ref (d->service);
-  dbus_connection_ref (d->connection);
+  bus_owner_ref (d->owner);
+  dbus_connection_ref (d->owner->conn);
 
-  d->before_connection = NULL;
+  d->before_owner = NULL;
   link = _dbus_list_get_first_link (&service->owners);
   while (link != NULL)
     {
-      if (link->data == connection)
+      if (link->data == owner)
         {
           link = _dbus_list_get_next_link (&service->owners, link);
 
           if (link)
-            d->before_connection = link->data;
+            d->before_owner = link->data;
 
           break;
         }
@@ -786,7 +987,7 @@ add_restore_ownership_to_transaction (BusTransaction *transaction,
     }
   
   if (d->service_link == NULL ||
-      d->connection_link == NULL ||
+      d->owner_link == NULL ||
       d->hash_entry == NULL ||
       !bus_transaction_add_cancel_hook (transaction, restore_ownership, d,
                                         free_ownership_restore_data))
@@ -798,13 +999,92 @@ add_restore_ownership_to_transaction (BusTransaction *transaction,
   return TRUE;
 }
 
+dbus_bool_t
+bus_service_swap_owner (BusService     *service,
+                        DBusConnection *connection,
+                        BusTransaction *transaction,
+                        DBusError      *error)
+{
+  DBusList *swap_link;
+  BusOwner *primary_owner;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  /* We send out notifications before we do any work we
+   * might have to undo if the notification-sending failed
+   */
+  
+  /* Send service lost message */
+  primary_owner = bus_service_get_primary_owner (service);
+  if (primary_owner == NULL || primary_owner->conn != connection)
+    _dbus_assert_not_reached ("Tried to swap a non primary owner");
+
+    
+  if (!bus_driver_send_service_lost (connection, service->name,
+                                     transaction, error))
+    return FALSE;
+
+  if (service->owners == NULL)
+    {
+      _dbus_assert_not_reached ("Tried to swap owner of a service that has no owners");
+    }
+  else if (_dbus_list_length_is_one (&service->owners))
+    {
+      _dbus_assert_not_reached ("Tried to swap owner of a service that has no other owners in the queue");
+    }
+  else
+    {
+      DBusList *link;
+      BusOwner *new_owner;
+      DBusConnection *new_owner_conn;
+      link = _dbus_list_get_first_link (&service->owners);
+      _dbus_assert (link != NULL);
+      link = _dbus_list_get_next_link (&service->owners, link);
+      _dbus_assert (link != NULL);
+
+      new_owner = (BusOwner *)link->data;
+      new_owner_conn = new_owner->conn;
+
+      if (!bus_driver_send_service_owner_changed (service->name,
+ 						  bus_connection_get_name (connection),
+ 						  bus_connection_get_name (new_owner_conn),
+ 						  transaction, error))
+        return FALSE;
+
+      /* This will be our new owner */
+      if (!bus_driver_send_service_acquired (new_owner_conn,
+                                             service->name,
+                                             transaction,
+                                             error))
+        return FALSE;
+    }
+
+  if (!add_restore_ownership_to_transaction (transaction, service, primary_owner))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  /* unlink the primary and make it the second link */
+  swap_link = _dbus_list_get_first_link (&service->owners);
+  _dbus_list_unlink (&service->owners, swap_link);
+
+  _dbus_list_insert_after_link (&service->owners,
+                                _dbus_list_get_first_link (&service->owners),
+				swap_link);
+
+  return TRUE;
+}
+
 /* this function is self-cancelling if you cancel the transaction */
 dbus_bool_t
 bus_service_remove_owner (BusService     *service,
-                          DBusConnection *owner,
+                          DBusConnection *connection,
                           BusTransaction *transaction,
                           DBusError      *error)
 {
+  BusOwner *primary_owner;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   /* We send out notifications before we do any work we
@@ -812,11 +1092,26 @@ bus_service_remove_owner (BusService     *service,
    */
   
   /* Send service lost message */
-  if (bus_service_get_primary_owner (service) == owner)
+  primary_owner = bus_service_get_primary_owner (service);
+  if (primary_owner != NULL && primary_owner->conn == connection)
     {
-      if (!bus_driver_send_service_lost (owner, service->name,
+      if (!bus_driver_send_service_lost (connection, service->name,
                                          transaction, error))
         return FALSE;
+    }
+  else
+    {
+      /* if we are not the primary owner then just remove us from the queue */
+      DBusList *link;
+      BusOwner *temp_owner;
+
+      link = _bus_service_find_owner_link (service, connection);
+      _dbus_list_unlink (&service->owners, link);
+      temp_owner = (BusOwner *)link->data;
+      bus_owner_unref (temp_owner); 
+      _dbus_list_free_link (link);
+
+      return TRUE; 
     }
 
   if (service->owners == NULL)
@@ -826,7 +1121,7 @@ bus_service_remove_owner (BusService     *service,
   else if (_dbus_list_length_is_one (&service->owners))
     {
       if (!bus_driver_send_service_owner_changed (service->name,
- 						  bus_connection_get_name (owner),
+ 						  bus_connection_get_name (connection),
  						  NULL,
  						  transaction, error))
         return FALSE;
@@ -834,35 +1129,37 @@ bus_service_remove_owner (BusService     *service,
   else
     {
       DBusList *link;
-      DBusConnection *new_owner;
+      BusOwner *new_owner;
+      DBusConnection *new_owner_conn;
       link = _dbus_list_get_first_link (&service->owners);
       _dbus_assert (link != NULL);
       link = _dbus_list_get_next_link (&service->owners, link);
       _dbus_assert (link != NULL);
 
-      new_owner = link->data;
+      new_owner = (BusOwner *)link->data;
+      new_owner_conn = new_owner->conn;
 
       if (!bus_driver_send_service_owner_changed (service->name,
- 						  bus_connection_get_name (owner),
- 						  bus_connection_get_name (new_owner),
+ 						  bus_connection_get_name (connection),
+ 						  bus_connection_get_name (new_owner_conn),
  						  transaction, error))
         return FALSE;
 
       /* This will be our new owner */
-      if (!bus_driver_send_service_acquired (new_owner,
+      if (!bus_driver_send_service_acquired (new_owner_conn,
                                              service->name,
                                              transaction,
                                              error))
         return FALSE;
     }
 
-  if (!add_restore_ownership_to_transaction (transaction, service, owner))
+  if (!add_restore_ownership_to_transaction (transaction, service, primary_owner))
     {
       BUS_SET_OOM (error);
       return FALSE;
     }
-  
-  bus_service_unlink_owner (service, owner);
+ 
+  bus_service_unlink_owner (service, primary_owner);
 
   if (service->owners == NULL)
     bus_service_unlink (service);
@@ -896,7 +1193,20 @@ bus_service_unref (BusService *service)
     }
 }
 
-DBusConnection*
+DBusConnection *
+bus_service_get_primary_owners_connection (BusService *service)
+{
+  BusOwner *owner;
+
+  owner = bus_service_get_primary_owner (service);
+
+  if (owner != NULL)
+    return owner->conn;
+  else
+    return NULL;
+}
+
+BusOwner*
 bus_service_get_primary_owner (BusService *service)
 {
   return _dbus_list_get_first (&service->owners);
@@ -908,34 +1218,64 @@ bus_service_get_name (BusService *service)
   return service->name;
 }
 
-void
-bus_service_set_prohibit_replacement (BusService  *service,
-				      dbus_bool_t  prohibit_replacement)
-{
-  service->prohibit_replacement = prohibit_replacement != FALSE;
-}
-
 dbus_bool_t
-bus_service_get_prohibit_replacement (BusService *service)
+bus_service_get_allow_replacement (BusService *service)
 {
-  return service->prohibit_replacement;
+  BusOwner *owner;
+  DBusList *link;
+ 
+  _dbus_assert (service->owners != NULL);
+
+  link = _dbus_list_get_first_link (&service->owners);
+  owner = (BusOwner *) link->data;
+
+  return owner->allow_replacement;
 }
 
 dbus_bool_t
 bus_service_has_owner (BusService     *service,
-		       DBusConnection *owner)
+		       DBusConnection *connection)
 {
   DBusList *link;
 
+  link = _bus_service_find_owner_link (service, connection);
+ 
+  if (link == NULL)
+    return FALSE;
+  else
+    return TRUE;
+}
+
+dbus_bool_t 
+bus_service_list_queued_owners (BusService *service,
+                                DBusList  **return_list,
+                                DBusError  *error)
+{
+  DBusList *link;
+
+  _dbus_assert (*return_list == NULL);
+
   link = _dbus_list_get_first_link (&service->owners);
+  _dbus_assert (link != NULL);
   
   while (link != NULL)
     {
-      if (link->data == owner)
-	return TRUE;
-      
+      BusOwner *owner;
+      const char *uname;
+
+      owner = (BusOwner *) link->data;
+      uname = bus_connection_get_name (owner->conn);
+
+      if (!_dbus_list_append (return_list, uname))
+        goto oom;
+
       link = _dbus_list_get_next_link (&service->owners, link);
     }
-
+  
+  return TRUE;
+  
+ oom:
+  _dbus_list_clear (return_list);
+  BUS_SET_OOM (error);
   return FALSE;
 }

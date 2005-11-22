@@ -287,7 +287,7 @@ bus_dispatch (DBusConnection *connection,
         }
       else
         {
-          addressed_recipient = bus_service_get_primary_owner (service);
+          addressed_recipient = bus_service_get_primary_owners_connection (service);
           _dbus_assert (addressed_recipient != NULL);
           
           if (!bus_context_check_security_policy (context, transaction,
