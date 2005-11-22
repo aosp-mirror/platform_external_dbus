@@ -1,5 +1,11 @@
 2005-11-22  John (J5) Palmieri  <johnp@redhat.com>
 
+	* configure.in:
+	- Change version to 0.60 for impending release
+	- upped the sonames because of ABI and API breakage
+
+2005-11-22  John (J5) Palmieri  <johnp@redhat.com>
+
 	* configure.in: Add test/name-test/Makefile to the generated
 	Makefile list
 

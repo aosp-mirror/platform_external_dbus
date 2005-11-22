@@ -3,7 +3,7 @@ AC_PREREQ(2.52)
 
 AC_INIT(dbus/dbus.h)
 
-AM_INIT_AUTOMAKE(dbus, 0.51)
+AM_INIT_AUTOMAKE(dbus, 0.60)
 
 AM_CONFIG_HEADER(config.h)
 
@@ -25,7 +25,7 @@ AM_MAINTAINER_MODE
 #
 
 ## increment if the interface has additions, changes, removals.
-LT_CURRENT=1
+LT_CURRENT=2
 
 ## increment any time the source changes; set to
 ##  0 if you increment CURRENT
