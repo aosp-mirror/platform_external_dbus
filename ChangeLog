@@ -1,3 +1,14 @@
+2005-11-27  Robert McQueen  <robot101@debian.org>
+
+	* python/dbus_bindings.pyx: Fix a bug where doing a strict append
+	with type v of an instance of dbus.Variant(foo, type='x') caused
+	it to be boxed twice before sending over the bus.
+
+	* python/dbus_bindings.pyx, python/service.py,
+	test/python/test-client.py: Update the constants for the new
+	request_name flags, and update comments/test cases now that queueing
+	is the default action.
+
 2005-11-22  John (J5) Palmieri  <johnp@redhat.com>
 
 	* configure.in:
