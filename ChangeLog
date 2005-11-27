@@ -1,3 +1,13 @@
+2005-11-27  Robert McQueen  <robot101@debian.org>
+
+	* python/dbus_bindings.pyx: Repair my previous commit which reverted
+	part of the preceding one. Oops. Merge patch by Johan Hedberg
+	<johan.hedberg@nokia.com> to fix marshalling of 16-bit integer values
+	on big-endian platforms.
+
+	* test/python/test-client.py: Add some 16-bit integers to the test
+	values.
+
 2005-11-27  Carlos Garcia Campos  <carlosgc@gnome.org>
 
 	* glib/dbus-gobject.c: Append a GValue instead of a basic type in
