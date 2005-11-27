@@ -388,8 +388,8 @@ _dbus_gtype_to_signature (GType gtype)
   return ret;
 }
 
-static char *
-dbus_gvalue_to_signature (const GValue *val)
+char *
+_dbus_gvalue_to_signature (const GValue *val)
 {
   GType gtype;
 
@@ -406,7 +406,7 @@ dbus_gvalue_to_signature (const GValue *val)
       for (i = 0; i < array->n_values; i++)
 	{
 	  char *sig;
-	  sig = dbus_gvalue_to_signature (g_value_array_get_nth (array, i));
+	  sig = _dbus_gvalue_to_signature (g_value_array_get_nth (array, i));
 	  g_string_append (str, sig);
 	  g_free (sig);
 	}
@@ -1465,7 +1465,7 @@ marshal_variant (DBusMessageIter          *iter,
   real_value = g_value_get_boxed (value);
   value_gtype = G_VALUE_TYPE (real_value);
 
-  variant_sig = dbus_gvalue_to_signature (real_value);
+  variant_sig = _dbus_gvalue_to_signature (real_value);
   if (variant_sig == NULL)
     {
       g_warning ("Cannot marshal type \"%s\" in variant", g_type_name (value_gtype));

@@ -690,31 +690,52 @@ get_object_property (DBusConnection *connection,
                      GObject        *object,
                      GParamSpec     *pspec)
 {
-  GType value_type;
+  GType value_gtype;
   GValue value = {0, };
+  gchar *variant_sig;
   DBusMessage *ret;
-  DBusMessageIter iter;
-
-  value_type = G_PARAM_SPEC_VALUE_TYPE (pspec);
+  DBusMessageIter iter, subiter;
 
   ret = dbus_message_new_method_return (message);
   if (ret == NULL)
     g_error ("out of memory");
 
-  g_value_init (&value, value_type);
+
+  g_value_init (&value, pspec->value_type);
   g_object_get_property (object, pspec->name, &value);
 
-  value_type = G_VALUE_TYPE (&value);
+  variant_sig = _dbus_gvalue_to_signature (&value);
+  if (variant_sig == NULL)
+    {
+      value_gtype = G_VALUE_TYPE (&value);
+      g_warning ("Cannot marshal type \"%s\" in variant", g_type_name (value_gtype));
+      g_value_unset (&value);
+      return ret;
+    }
 
-  dbus_message_iter_init_append (message, &iter);
+  dbus_message_iter_init_append (ret, &iter);
+  if (!dbus_message_iter_open_container (&iter,
+					 DBUS_TYPE_VARIANT,
+					 variant_sig,
+					 &subiter))
+    {
+      g_free (variant_sig);
+      g_value_unset (&value);
+      return ret;
+    }
 
-  if (!_dbus_gvalue_marshal (&iter, &value))
+  if (!_dbus_gvalue_marshal (&subiter, &value))
     {
       dbus_message_unref (ret);
       ret = dbus_message_new_error (message,
                                     DBUS_ERROR_UNKNOWN_METHOD,
                                     "Can't convert GType of object property to a D-BUS type");
     }
+
+  dbus_message_iter_close_container (&iter, &subiter);
+
+  g_value_unset (&value);
+  g_free (variant_sig);
 
   return ret;
 }
@@ -1307,7 +1328,7 @@ gobject_message_function (DBusConnection  *connection,
           dbus_message_iter_next (&iter);
         }
       else if (getter)
-        {     
+        {
           ret = get_object_property (connection, message,
                                      object, pspec);
         }
@@ -1321,7 +1342,7 @@ gobject_message_function (DBusConnection  *connection,
 
       if (dbus_message_iter_get_arg_type (&iter) != DBUS_TYPE_INVALID)
         g_warning ("Property get or set had too many arguments\n");
-      
+
       dbus_connection_send (connection, ret, NULL);
       dbus_message_unref (ret);
       return DBUS_HANDLER_RESULT_HANDLED;

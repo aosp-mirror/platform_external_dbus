@@ -1,3 +1,8 @@
+2005-11-27  Carlos Garcia Campos  <carlosgc@gnome.org>
+
+	* glib/dbus-gobject.c: Append a GValue instead of a basic type in
+	method return message for property getters
+
 2005-11-27  Robert McQueen  <robot101@debian.org>
 
 	* python/dbus_bindings.pyx: Fix a bug where doing a strict append

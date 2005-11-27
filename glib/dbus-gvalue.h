@@ -17,6 +17,7 @@ typedef struct {
 void           _dbus_g_value_types_init        (void);
 
 char *         _dbus_gtype_to_signature        (GType                    type);
+char *         _dbus_gvalue_to_signature       (const GValue            *val);
 
 gboolean       _dbus_gvalue_demarshal          (DBusGValueMarshalCtx    *context,
 					       DBusMessageIter         *iter,
