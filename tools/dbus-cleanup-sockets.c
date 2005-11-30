@@ -376,14 +376,12 @@ version (void)
 int
 main (int argc, char **argv)
 {
-  const char *prev_arg;
   int i;
   int saw_doubledash;
   const char *dirname;
 
   saw_doubledash = FALSE;
   dirname = NULL;
-  prev_arg = NULL;
   i = 1;
   while (i < argc)
     {
@@ -412,8 +410,6 @@ main (int argc, char **argv)
 
           dirname = arg;
         }
-
-      prev_arg = arg;
 
       ++i;
     }

@@ -223,10 +223,6 @@ model_update (GtkTreeModel  *model,
               const char   **path,
               NodeInfo      *node)
 {
-  GtkTreeStore *store;
-
-  store = GTK_TREE_STORE (model);
-
   if (path[0] == NULL)
     {
       /* Setting '/' */

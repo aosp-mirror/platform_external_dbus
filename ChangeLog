@@ -1,4 +1,14 @@
 2005-11-30  John (J5) Palmieri  <johnp@redhat.com>
+	* dbus/dbus-auth.c, dbus/dbus-connection.c, dbus/dbus-keyring.c,
+	dbus/dbus-server-debug-pipe.c, glib/dbus-binding-tool-glib.c
+	glib/dbus-glib-tool.c, glib/dbus-gparser.c, glib/dbus-gproxy.c
+	test/test-segfault.c, test/test-utils.c,
+	test/glib/test-dbus-glib.c, tools/dbus-cleanup-sockets.c
+	tools/dbus-launch.c, tools/dbus-tree-view.c, tools/dbus-viewer.c:
+	Various cleanup of dead code and compiler warnings (patch from
+	Kjartan Maraas <kmaraas at gnome.org>) 
+
+2005-11-30  John (J5) Palmieri  <johnp@redhat.com>
 
 	* glib/dbus-gmain.c (connection_setup_add_watch): plugged a leak
 	(patch from Carlos Garnacho Parro <carlosg at gnome.org>

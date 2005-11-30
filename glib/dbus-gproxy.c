@@ -635,13 +635,11 @@ typedef struct
 static void
 unassociate_proxies (gpointer key, gpointer val, gpointer user_data)
 {
-  const char *tri;
   DBusGProxyList *list;
   const char *name;
   GSList *tmp;
   DBusGProxyUnassociateData *data;
 
-  tri = key;
   list = val;
   data = user_data;
   name = data->name;

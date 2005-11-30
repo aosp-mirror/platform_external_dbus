@@ -137,7 +137,7 @@ read_line (int        fd,
   
   while (TRUE)
     {
-      size_t chunk;    
+      ssize_t chunk;    
       size_t to_read;
       
     again:
@@ -190,7 +190,7 @@ read_pid (int        fd,
   
   while (TRUE)
     {
-      size_t chunk;    
+      ssize_t chunk;    
       size_t to_read;
       
     again:
@@ -323,7 +323,6 @@ kill_bus_when_session_ends (void)
   int x_fd;
   fd_set read_set;
   fd_set err_set;
-  int ret;
   struct sigaction act;
   sigset_t empty_mask;
 #ifdef DBUS_BUILD_X11
@@ -336,7 +335,7 @@ kill_bus_when_session_ends (void)
   act.sa_handler = signal_handler;
   act.sa_mask    = empty_mask;
   act.sa_flags   = 0;
-  sigaction (SIGHUP,  &act, 0);
+  sigaction (SIGHUP,  &act, NULL);
   
 #ifdef DBUS_BUILD_X11
   xdisplay = XOpenDisplay (NULL);
@@ -386,8 +385,8 @@ kill_bus_when_session_ends (void)
           FD_SET (x_fd, &err_set);
         }
       
-      ret = select (MAX (tty_fd, x_fd) + 1,
-                    &read_set, NULL, &err_set, NULL);
+      select (MAX (tty_fd, x_fd) + 1,
+              &read_set, NULL, &err_set, NULL);
 
       if (got_sighup)
         {

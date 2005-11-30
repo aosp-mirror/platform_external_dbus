@@ -144,6 +144,7 @@ locate_attributes (const char  *element_name,
   return retval;
 }
 
+#if 0
 static gboolean
 check_no_attributes (const char  *element_name,
                      const char **attribute_names,
@@ -162,6 +163,7 @@ check_no_attributes (const char  *element_name,
 
   return TRUE;
 }
+#endif
 
 struct Parser
 {
@@ -367,7 +369,6 @@ parse_method (Parser      *parser,
 {
   const char *name;
   MethodInfo *method;
-  NodeInfo *top;
   
   if (parser->interface == NULL ||
       parser->node_stack == NULL ||
@@ -400,8 +401,6 @@ parse_method (Parser      *parser,
       return FALSE;
     }
 
-  top = parser->node_stack->data;
-  
   method = method_info_new (name);
   interface_info_add_method (parser->interface, method);
   method_info_unref (method);
@@ -420,7 +419,6 @@ parse_signal (Parser      *parser,
 {
   const char *name;
   SignalInfo *signal;
-  NodeInfo *top;
   
   if (parser->interface == NULL ||
       parser->node_stack == NULL ||
@@ -453,8 +451,6 @@ parse_signal (Parser      *parser,
       return FALSE;
     }
 
-  top = parser->node_stack->data;
-  
   signal = signal_info_new (name);
   interface_info_add_signal (parser->interface, signal);
   signal_info_unref (signal);
@@ -492,7 +488,6 @@ parse_property (Parser      *parser,
   const char *access;
   const char *type;
   PropertyInfo *property;
-  NodeInfo *top;
   PropertyAccessFlags access_flags;
   
   if (parser->interface == NULL ||
@@ -564,8 +559,6 @@ parse_property (Parser      *parser,
                    access, element_name);
       return FALSE;
     }
-  
-  top = parser->node_stack->data;
   
   property = property_info_new (name, type, access_flags);
   interface_info_add_property (parser->interface, property);

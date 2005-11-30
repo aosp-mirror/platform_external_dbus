@@ -1,4 +1,5 @@
 /* This is simply a process that segfaults */
+#include <stdlib.h>
 #include <signal.h>
 
 #include <sys/time.h>
@@ -17,7 +18,7 @@ main (int argc, char **argv)
   
   raise (SIGSEGV);
 
-  p = 0;
+  p = NULL;
   *p = 'a';
   
   return 0;

@@ -2762,7 +2762,7 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
   
   _dbus_return_val_if_fail (connection != NULL, NULL);
   _dbus_return_val_if_fail (message != NULL, NULL);
-  _dbus_return_val_if_fail (timeout_milliseconds >= 0 || timeout_milliseconds == -1, FALSE);  
+  _dbus_return_val_if_fail (timeout_milliseconds >= 0 || timeout_milliseconds == -1, NULL);
   _dbus_return_val_if_error_is_set (error, NULL);
   
   if (!dbus_connection_send_with_reply (connection, message,

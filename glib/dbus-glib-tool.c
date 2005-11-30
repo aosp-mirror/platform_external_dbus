@@ -264,7 +264,6 @@ version (void)
 int
 main (int argc, char **argv)
 {
-  const char *prev_arg;
   const char *output_file;
   const char *prefix;
   char *output_file_tmp;
@@ -291,7 +290,6 @@ main (int argc, char **argv)
   outputmode = DBUS_BINDING_OUTPUT_NONE;
   end_of_args = FALSE;
   files = NULL;
-  prev_arg = NULL;
   output_file = NULL;
   prefix = "";
   ignore_unsupported = FALSE;
@@ -352,8 +350,6 @@ main (int argc, char **argv)
         }
       else
         files = g_slist_prepend (files, (char*) arg);
-      
-      prev_arg = arg;
       
       ++i;
     }

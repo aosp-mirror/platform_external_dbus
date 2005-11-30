@@ -543,8 +543,6 @@ sha1_handle_first_client_response (DBusAuth         *auth,
   
   if (auth->keyring == NULL)
     {
-      DBusError error;
-
       dbus_error_init (&error);
       auth->keyring = _dbus_keyring_new_homedir (data,
                                                  &auth->context,

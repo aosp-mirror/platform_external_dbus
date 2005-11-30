@@ -484,7 +484,6 @@ version (void)
 int
 main (int argc, char **argv)
 {
-  const char *prev_arg;
   int i;
   GSList *files;
   gboolean end_of_args;
@@ -506,7 +505,6 @@ main (int argc, char **argv)
   services = FALSE;
   end_of_args = FALSE;
   files = NULL;
-  prev_arg = NULL;
   i = 1;
   while (i < argc)
     {
@@ -537,8 +535,6 @@ main (int argc, char **argv)
         }
       else
         files = g_slist_prepend (files, (char*) arg);
-      
-      prev_arg = arg;
       
       ++i;
     }

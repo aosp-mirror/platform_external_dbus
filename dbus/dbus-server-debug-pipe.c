@@ -289,7 +289,7 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       _dbus_transport_unref (server_transport);
       _dbus_transport_unref (client_transport);
-      return FALSE;
+      return NULL;
     }
   
   connection = _dbus_connection_new_for_transport (server_transport);

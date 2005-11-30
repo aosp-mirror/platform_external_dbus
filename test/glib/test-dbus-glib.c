@@ -216,13 +216,11 @@ increment_received_cb (DBusGProxy *proxy,
 		       gpointer data)
 {
   GError *error;
-  char *echo_data;
   guint val;
 
   g_assert (!strcmp (data, "moo"));
 
   error = NULL;
-  echo_data = NULL;
   if (!dbus_g_proxy_end_call (proxy, call, &error,
 			      G_TYPE_UINT, &val,
 			      G_TYPE_INVALID))

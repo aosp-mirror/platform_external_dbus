@@ -1423,7 +1423,6 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
       InterfaceInfo *interface;
       GSList *methods;
       GSList *tmp;
-      int count;
       char *iface_prefix;
 
       channel = data->channel;
@@ -1431,7 +1430,6 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
       interface = (InterfaceInfo *) base;
 
       methods = interface_info_get_methods (interface);
-      count = 0;
 
       iface_prefix = iface_to_c_prefix (interface_info_get_name (interface));
 

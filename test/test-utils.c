@@ -41,8 +41,6 @@ static void
 connection_timeout_callback (DBusTimeout   *timeout,
                              void          *data)
 {
-  CData *cd = data;
-
   /* Can return FALSE on OOM but we just let it fire again later */
   dbus_timeout_handle (timeout);
 }

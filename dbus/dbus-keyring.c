@@ -730,7 +730,7 @@ _dbus_keyring_new_homedir (const DBusString *username,
   if (!_dbus_string_init (&homedir))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      return FALSE;
+      return NULL;
     }
 
   _dbus_string_init_const (&dotdir, ".dbus-keyrings");
@@ -855,7 +855,7 @@ _dbus_keyring_new_homedir (const DBusString *username,
   if (keyring)
     _dbus_keyring_unref (keyring);
   _dbus_string_free (&homedir);
-  return FALSE;
+  return NULL;
 
 }
 
