@@ -460,7 +460,7 @@ parse_key_value (BusDesktopFileParser *parser, DBusError *error)
   
   if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
     line_end = parser->len;
-
+  
   p = parser->pos;
   key_start = p;
   while (p < line_end &&
@@ -476,6 +476,17 @@ parse_key_value (BusDesktopFileParser *parser, DBusError *error)
     }
 
   /* We ignore locales for now */
+  if (p < line_end && _dbus_string_get_byte (&parser->data, p) == '[')
+    {
+      if (line_end == parser->len)
+	parser->pos = parser->len;
+      else
+	parser->pos = line_end + 1;
+	  
+      parser->line_num += 1;
+
+      return TRUE;
+    }
   
   /* Skip space before '=' */
   while (p < line_end && _dbus_string_get_byte (&parser->data, p) == ' ')
@@ -647,14 +658,13 @@ bus_desktop_file_load (DBusString *filename,
   parser.pos = 0;
   parser.len = _dbus_string_get_length (&parser.data);
   parser.current_section = -1;
-  
+
   while (parser.pos < parser.len)
     {
       if (_dbus_string_get_byte (&parser.data, parser.pos) == '[')
 	{
 	  if (!parse_section_start (&parser, error))
             {
-              _dbus_string_free (&parser.data);
               return NULL;
             }
 	}
@@ -665,7 +675,6 @@ bus_desktop_file_load (DBusString *filename,
 	{
 	  if (!parse_key_value (&parser, error))
             {
-              _dbus_string_free (&parser.data);
               return NULL;
             }
 	}

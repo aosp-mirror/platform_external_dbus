@@ -1,4 +1,14 @@
 2005-11-30  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/desktop-file.c (parse_key_value): Ignore locales allowing 
+	the parser to continue instead of returning error
+	(bus_desktop_file_load): Do not free parser data when
+	parse_section_start or parse_key_value fails because it was 
+	already freed by parser_free (patch from Carlos Garcia Campos  
+	<carlosgc at gnome.org>)
+
+2005-11-30  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-auth.c, dbus/dbus-connection.c, dbus/dbus-keyring.c,
 	dbus/dbus-server-debug-pipe.c, glib/dbus-binding-tool-glib.c
 	glib/dbus-glib-tool.c, glib/dbus-gparser.c, glib/dbus-gproxy.c
