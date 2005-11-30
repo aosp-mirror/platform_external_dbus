@@ -1,5 +1,14 @@
 2005-11-30  John (J5) Palmieri  <johnp@redhat.com>
 
+	* Released 0.60
+
+2005-11-30  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-list.c (_dbus_list_insert_after_link, _dbus_list_insert_after):
+	remove #ifdef DBUS_BUILD_TESTS since we use these methods in production code
+
+2005-11-30  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-connection.c (dbus_connection_read_write): Add new
 	method for getting messages off the bus in the absence of a
 	mainloop.  This method is much like 
