@@ -286,6 +286,7 @@ connection_setup_add_watch (ConnectionSetup *cs,
   cs->ios = g_slist_prepend (cs->ios, handler);
   
   dbus_watch_set_data (watch, handler, io_handler_watch_freed);
+  g_io_channel_unref (channel);
 }
 
 static void

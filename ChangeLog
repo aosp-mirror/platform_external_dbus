@@ -1,3 +1,8 @@
+2005-11-30  John (J5) Palmieri  <johnp@redhat.com>
+
+	* glib/dbus-gmain.c (connection_setup_add_watch): plugged a leak
+	(patch from Carlos Garnacho Parro <carlosg at gnome.org>
+
 2005-11-27  Robert McQueen  <robot101@debian.org>
 
 	* python/dbus_bindings.pyx: Repair my previous commit which reverted
