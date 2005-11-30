@@ -2847,11 +2847,11 @@ dbus_connection_flush (DBusConnection *connection)
  * In this usage you would normally have set up a filter function to look
  * at each message as it is dispatched. The loop terminates when the last
  * message from the connection (the disconnected signal) is processed.
- * 
- * If there are messages to dispatch, this function will
- * dbus_connection_dispatch() once, and return. If there are no
- * messages to dispatch, this function will block until it can read or
- * write, then read or write, then return.
+ *
+ * If there are messages to dispatch and the dispatch flag is set, this
+ * function will dbus_connection_dispatch() once, and return. If there are no
+ * messages to dispatch, this function will block until it can read or write,
+ * then read or write, then return.
  *
  * The way to think of this function is that it either makes some sort
  * of progress, or it blocks.
@@ -2863,11 +2863,13 @@ dbus_connection_flush (DBusConnection *connection)
  *
  * @param connection the connection
  * @param timeout_milliseconds max time to block or -1 for infinite
+ * @param dispatch dispatch new messages or leave them on the incoming queue
  * @returns #TRUE if the disconnect message has not been processed
  */
 dbus_bool_t
-dbus_connection_read_write_dispatch (DBusConnection *connection,
-                                     int             timeout_milliseconds)
+_dbus_connection_read_write_dispatch (DBusConnection *connection,
+                                     int             timeout_milliseconds, 
+                                     dbus_bool_t     dispatch)
 {
   DBusDispatchStatus dstatus;
   dbus_bool_t dispatched_disconnected;
@@ -2876,7 +2878,7 @@ dbus_connection_read_write_dispatch (DBusConnection *connection,
   _dbus_return_val_if_fail (timeout_milliseconds >= 0 || timeout_milliseconds == -1, FALSE);
   dstatus = dbus_connection_get_dispatch_status (connection);
 
-  if (dstatus == DBUS_DISPATCH_DATA_REMAINS)
+  if (dispatch && dstatus == DBUS_DISPATCH_DATA_REMAINS)
     {
       _dbus_verbose ("doing dispatch in %s\n", _DBUS_FUNCTION_NAME);
       dbus_connection_dispatch (connection);
@@ -2907,6 +2909,68 @@ dbus_connection_read_write_dispatch (DBusConnection *connection,
     connection->disconnect_message_link == NULL;
   CONNECTION_UNLOCK (connection);
   return !dispatched_disconnected; /* TRUE if we have not processed disconnected */
+}
+
+
+/**
+ * This function is intended for use with applications that don't want
+ * to write a main loop and deal with #DBusWatch and #DBusTimeout. An
+ * example usage would be:
+ * 
+ * @code
+ *   while (dbus_connection_read_write_dispatch (connection, -1))
+ *     ; // empty loop body
+ * @endcode
+ * 
+ * In this usage you would normally have set up a filter function to look
+ * at each message as it is dispatched. The loop terminates when the last
+ * message from the connection (the disconnected signal) is processed.
+ * 
+ * If there are messages to dispatch, this function will
+ * dbus_connection_dispatch() once, and return. If there are no
+ * messages to dispatch, this function will block until it can read or
+ * write, then read or write, then return.
+ *
+ * The way to think of this function is that it either makes some sort
+ * of progress, or it blocks.
+ *
+ * The return value indicates whether the disconnect message has been
+ * processed, NOT whether the connection is connected. This is
+ * important because even after disconnecting, you want to process any
+ * messages you received prior to the disconnect.
+ *
+ * @param connection the connection
+ * @param timeout_milliseconds max time to block or -1 for infinite
+ * @returns #TRUE if the disconnect message has not been processed
+ */
+dbus_bool_t
+dbus_connection_read_write_dispatch (DBusConnection *connection,
+                                     int             timeout_milliseconds)
+{
+   return _dbus_connection_read_write_dispatch(connection, timeout_milliseconds, TRUE);
+}
+
+/** 
+ * This function is intended for use with applications that don't want to
+ * write a main loop and deal with #DBusWatch and #DBusTimeout.
+ * 
+ * If there are no messages to dispatch, this function will block until it can
+ * read or write, then read or write, then return.
+ *
+ * The return value indicates whether the disconnect message has been
+ * processed, NOT whether the connection is connected. This is important
+ * because even after disconnecting, you want to process any messages you
+ * received prior to the disconnect.
+ *
+ * @param connection the connection 
+ * @param timeout_milliseconds max time to block or -1 for infinite 
+ * @returns #TRUE if the disconnect message has not been processed
+ */
+dbus_bool_t 
+dbus_connection_read_write (DBusConnection *connection, 
+                            int             timeout_milliseconds) 
+{ 
+   return _dbus_connection_read_write_dispatch(connection, timeout_milliseconds, FALSE);
 }
 
 /**

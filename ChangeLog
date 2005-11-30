@@ -1,5 +1,15 @@
 2005-11-30  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/dbus-connection.c (dbus_connection_read_write): Add new
+	method for getting messages off the bus in the absence of a
+	mainloop.  This method is much like 
+	dbus_connection_read_write_dispatch except it does not dispatch
+	the messages to a registered filter function.  Instead it
+	allows a developer to process messages by directly popping
+	them off the bus.
+
+2005-11-30  John (J5) Palmieri  <johnp@redhat.com>
+
 	* bus/desktop-file.c (parse_key_value): Ignore locales allowing 
 	the parser to continue instead of returning error
 	(bus_desktop_file_load): Do not free parser data when

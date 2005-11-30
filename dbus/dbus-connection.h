@@ -102,6 +102,8 @@ void               dbus_connection_set_exit_on_disconnect       (DBusConnection 
 void               dbus_connection_flush                        (DBusConnection             *connection);
 dbus_bool_t        dbus_connection_read_write_dispatch          (DBusConnection             *connection,
                                                                  int                         timeout_milliseconds);
+dbus_bool_t        dbus_connection_read_write                   (DBusConnection             *connection,
+                                                                 int                         timeout_milliseconds);
 DBusMessage*       dbus_connection_borrow_message               (DBusConnection             *connection);
 void               dbus_connection_return_message               (DBusConnection             *connection,
                                                                  DBusMessage                *message);
