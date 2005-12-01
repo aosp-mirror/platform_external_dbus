@@ -34,7 +34,7 @@ done
 
 echo "Packing docs into tarball"
 cp README HACKING AUTHORS NEWS ChangeLog doc/ || die "could not copy in assorted files"
-tar cfz dbus-docs.tar.gz doc/*.dtd doc/*.xml doc/*.html doc/*.txt doc/api/html/*.html doc/api/html/*.css doc/api/html/*.png doc/HACKING doc/AUTHORS doc/NEWS doc/ChangeLog doc/TODO doc/README doc/*.png doc/*.svg || die "could not tar up docs"
+tar cfz dbus-docs.tar.gz doc/*.dtd doc/*.xsl doc/*.xml doc/*.html doc/*.txt doc/api/html/*.html doc/api/html/*.css doc/api/html/*.png doc/api/html/*.gif doc/HACKING doc/AUTHORS doc/NEWS doc/ChangeLog doc/TODO doc/README doc/*.png doc/*.svg || die "could not tar up docs"
 
 tar tfz dbus-docs.tar.gz | sort > tarball.list || die "could not list tarball contents"
 find doc -not -type d | grep -v CVS | grep -v -E '.~[0-9.]+~' | grep -v Makefile | grep -vE '.c$' | grep -v man3dbus | grep -v .cvsignore | sort > filesystem.list || die "could not list doc/* contents"
