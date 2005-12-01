@@ -307,10 +307,11 @@ QString QDBusConnection::baseService() const
 
 bool QDBusConnection::requestName(const QString &name, NameRequestMode mode)
 {
-    static const int DBusModes[] = { 0, DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT,
+    //FIXME: DBUS_NAME_FLAGS_* are bit fields not enumeration
+    static const int DBusModes[] = { 0, DBUS_NAME_FLAG_ALLOW_REPLACEMENT,
         DBUS_NAME_FLAG_REPLACE_EXISTING };
-    Q_ASSERT(mode == 0 || mode == DBUS_NAME_FLAG_PROHIBIT_REPLACEMENT ||
-             mode == DBUS_NAME_FLAG_REPLACE_EXISTING);
+    Q_ASSERT(mode == 0 || mode == AllowReplace ||
+             mode == ReplaceExisting );
 
     DBusError error;
     dbus_error_init (&error);

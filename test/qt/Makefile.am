@@ -17,7 +17,7 @@ qdbusconnection_SOURCES= \
 tst_qdbusconnection.cpp: tst_qdbusconnection.moc
 
 tst_qdbusconnection.moc:
-	$(QT_MOC) tst_qdbusconnection.cpp > tst_qdbusconnection.moc
+	$(QT_MOC) $(srcdir)/tst_qdbusconnection.cpp > tst_qdbusconnection.moc
 
 TEST_LIBS=$(DBUS_QTESTLIB_LIBS) $(top_builddir)/qt/libdbus-qt4-1.la
 

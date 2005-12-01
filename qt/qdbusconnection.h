@@ -46,7 +46,7 @@ public:
     bool isConnected() const;
     QDBusError lastError() const;
 
-    enum NameRequestMode { NoReplace = 0, ProhibitReplace = 1, ReplaceExisting = 2 };
+    enum NameRequestMode { NoReplace = 0, AllowReplace = 1, ReplaceExisting = 2 };
     bool requestName(const QString &name, NameRequestMode mode = NoReplace);
 
     QString baseService() const;

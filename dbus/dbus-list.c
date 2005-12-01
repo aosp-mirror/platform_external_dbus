@@ -126,7 +126,6 @@ link_before (DBusList **list,
     }
 }
 
-#ifdef DBUS_BUILD_TESTS
 static void
 link_after (DBusList **list,
             DBusList  *after_this_link,
@@ -146,7 +145,6 @@ link_after (DBusList **list,
       link->next->prev = link;
     }
 }
-#endif /* DBUS_BUILD_TESTS */
 
 /** @} */
 
