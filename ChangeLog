@@ -1,3 +1,8 @@
+2005-12-06  Robert McQueen  <robot101@debian.org>
+
+	* python/service.py: s/sucessful/successful/ so we're allocating to
+	and reading from the same variable. Oops.
+
 2005-11-30  John (J5) Palmieri  <johnp@redhat.com>
 
 	* Released 0.60
