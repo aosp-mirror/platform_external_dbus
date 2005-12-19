@@ -1,3 +1,7 @@
+2005-12-19  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/bus.c (dbus_bus_release_name): Add documentation
+
 2005-12-06  Robert McQueen  <robot101@debian.org>
 
 	* python/service.py: s/sucessful/successful/ so we're allocating to

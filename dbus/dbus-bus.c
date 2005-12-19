@@ -778,6 +778,17 @@ dbus_bus_request_name (DBusConnection *connection,
   return result;
 }
 
+
+/**
+ * Asks the bus to unassign the given name to this connection by invoking
+ * the ReleaseName method on the bus. This method is fully documented
+ * in the D-BUS specification.
+ *
+ * @param connection the connection
+ * @param name the name to remove 
+ * @param error location to store the error
+ * @returns a result code, -1 if error is set
+ */ 
 int
 dbus_bus_release_name (DBusConnection *connection,
                        const char     *name,
