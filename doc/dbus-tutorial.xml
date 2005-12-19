@@ -15,9 +15,7 @@
 	<surname>Pennington</surname>
 	<affiliation>
 	  <orgname>Red Hat, Inc.</orgname>
-	  <address>
-	    <email>hp@pobox.com</email>
-	  </address>
+	  <address><email>hp@pobox.com</email></address>
 	</affiliation>
       </author>
       <author>
@@ -29,9 +27,7 @@
 	<surname>Palmieri</surname>
 	<affiliation>
 	  <orgname>Red Hat, Inc.</orgname>
-	  <address>
-	    <email>johnp@redhat.com</email>
-	  </address>
+	  <address><email>johnp@redhat.com</email></address>
 	</affiliation>
       </author>
       <author>
@@ -39,9 +35,7 @@
 	<surname>Walters</surname>
 	<affiliation>
 	  <orgname>Red Hat, Inc.</orgname>
-	  <address>
-	    <email>walters@redhat.com</email>
-	  </address>
+	  <address><email>walters@redhat.com</email></address>
 	</affiliation>
       </author>
     </authorgroup>
@@ -470,7 +464,7 @@
 
     <para>
       The GLib binding is defined in the header file
-      &lt;dbus/dbus-glib.h&gt;.
+      <literal>&lt;dbus/dbus-glib.h&gt;</literal>.
     </para>
 
     <sect2 id="glib-typemappings">
@@ -511,22 +505,22 @@
 		  <entry><literal>INT16</literal></entry>
 		  <entry><literal>G_TYPE_INT</literal></entry>
 		  <entry></entry>
-		  <entry>Will be changed to a G_TYPE_INT16 once GLib has it</entry>
+		  <entry>Will be changed to a <literal>G_TYPE_INT16</literal> once GLib has it</entry>
 		  </row><row>
 		  <entry><literal>UINT16</literal></entry>
 		  <entry><literal>G_TYPE_UINT</literal></entry>
 		  <entry></entry>
-		  <entry>Will be changed to a G_TYPE_UINT16 once GLib has it</entry>
+		  <entry>Will be changed to a <literal>G_TYPE_UINT16</literal> once GLib has it</entry>
 		  </row><row>
 		  <entry><literal>INT32</literal></entry>
 		  <entry><literal>G_TYPE_INT</literal></entry>
 		  <entry></entry>
-		  <entry>Will be changed to a G_TYPE_INT32 once GLib has it</entry>
+		  <entry>Will be changed to a <literal>G_TYPE_INT32</literal> once GLib has it</entry>
 		  </row><row>
 		  <entry><literal>UINT32</literal></entry>
 		  <entry><literal>G_TYPE_UINT</literal></entry>
 		  <entry></entry>
-		  <entry>Will be changed to a G_TYPE_UINT32 once GLib has it</entry>
+		  <entry>Will be changed to a <literal>G_TYPE_UINT32</literal> once GLib has it</entry>
 		  </row><row>
 		  <entry><literal>INT64</literal></entry>
 		  <entry><literal>G_TYPE_GINT64</literal></entry>
@@ -545,12 +539,12 @@
 		  </row><row>
 		  <entry><literal>STRING</literal></entry>
 		  <entry><literal>G_TYPE_STRING</literal></entry>
-		  <entry>g_free</entry>
+		  <entry><literal>g_free</literal></entry>
 		  <entry></entry>
 		  </row><row>
 		  <entry><literal>OBJECT_PATH</literal></entry>
 		  <entry><literal>DBUS_TYPE_G_PROXY</literal></entry>
-		  <entry>g_object_unref</entry>
+		  <entry><literal>g_object_unref</literal></entry>
 		  <entry>The returned proxy does not have an interface set; use <literal>dbus_g_proxy_set_interface</literal> to invoke methods</entry>
 		</row>
 	      </tbody>
@@ -581,7 +575,7 @@
 	</para>
 	<para>
 	  First, D-BUS type signatures which have an "obvious"
-	  corresponding builtin GLib type are mapped using that type:
+	  corresponding built-in GLib type are mapped using that type:
 	  <informaltable>
 	    <tgroup cols="6">
 	      <thead>
@@ -600,14 +594,14 @@
 		  <entry>Array of strings</entry>
 		  <entry><literal>G_TYPE_STRV</literal></entry>
 		  <entry><literal>char **</literal></entry>
-		  <entry>g_strfreev</entry>
+		  <entry><literal>g_strfreev</literal></entry>
 		  <entry></entry>
 		  </row><row>
 		  <entry><literal>v</literal></entry>
 		  <entry>Generic value container</entry>
 		  <entry><literal>G_TYPE_VALUE</literal></entry>
 		  <entry><literal>GValue *</literal></entry>
-		  <entry>g_value_unset</entry>
+		  <entry><literal>g_value_unset</literal></entry>
 		  <entry>The calling conventions for values expect that method callers have allocated return values; see below.</entry>
 		</row>
 	      </tbody>
@@ -836,7 +830,7 @@ main (int argc, char **argv)
       <para>
 	You have a number of choices for method invocation.  First, as
 	used above, <literal>dbus_g_proxy_call</literal> sends a
-	method call to the remote object, and blocks until reply is
+	method call to the remote object, and blocks until a reply is
 	recieved.  The outgoing arguments are specified in the varargs
 	array, terminated with <literal>G_TYPE_INVALID</literal>.
 	Next, pointers to return values are specified, followed again
@@ -1073,6 +1067,83 @@ main (int argc, char **argv)
 	</para>
       </sect3>
     </sect2>
+
+    <sect2 id="glib-generated-bindings">
+      <title>Generated Bindings</title>
+      <para>
+        By using the Introspection XML files, convenient client-side bindings
+        can be automatically created to ease the use of a remote DBus object.
+      </para>
+      <para>
+        Here is a sample XML file which describes an object that exposes
+        one method, named <literal>ManyArgs</literal>.
+        <programlisting>
+&lt;?xml version="1.0" encoding="UTF-8" ?&gt;
+&lt;node name="/com/example/MyObject"&gt;
+  &lt;interface name="com.example.MyObject"&gt;
+    &lt;method name="ManyArgs"&gt;
+      &lt;arg type="u" name="x" direction="in" /&gt;
+      &lt;arg type="s" name="str" direction="in" /&gt;
+      &lt;arg type="d" name="trouble" direction="in" /&gt;
+      &lt;arg type="d" name="d_ret" direction="out" /&gt;
+      &lt;arg type="s" name="str_ret" direction="out" /&gt;
+    &lt;/method&gt;
+  &lt;/interface&gt;
+&lt;/node&gt;
+</programlisting>
+      </para>
+      <para>
+        Run <literal>dbus-binding-tool --mode=glib-client
+          <replaceable>FILENAME</replaceable> &gt;
+          <replaceable>HEADER_NAME</replaceable></literal> to generate the header
+        file.  For example: <command>dbus-binding-tool --mode=glib-client
+          my-object.xml &gt; my-object-bindings.h</command>.  This will generate
+        inline functions with the following prototypes:
+        <programlisting>
+/* This is a blocking call */
+gboolean
+com_example_MyObject_many_args (DBusGProxy *proxy, const guint IN_x,
+                                const char * IN_str, const gdouble IN_trouble,
+                                gdouble* OUT_d_ret, char ** OUT_str_ret,
+                                GError **error);
+
+/* This is a non-blocking call */
+DBusGProxyCall*
+com_example_MyObject_many_args_async (DBusGProxy *proxy, const guint IN_x,
+                                      const char * IN_str, const gdouble IN_trouble,
+                                      com_example_MyObject_many_args_reply callback,
+                                      gpointer userdata);
+
+/* This is the typedef for the non-blocking callback */
+typedef void
+(*com_example_MyObject_many_args_reply)
+(DBusGProxy *proxy, gdouble OUT_d_ret, char * OUT_str_ret,
+ GError *error, gpointer userdata);
+</programlisting>
+        The first argument in all functions is a <literal>DBusGProxy
+        *</literal>, which you should create with the usual
+        <literal>dbus_g_proxy_new_*</literal> functions.  Following that are the
+        "in" arguments, and then either the "out" arguments and a
+        <literal>GError *</literal> for the synchronous (blocking) function, or
+        callback and user data arguments for the asynchronous (non-blocking)
+        function.  The callback in the asynchronous function passes the
+        <literal>DBusGProxy *</literal>, the returned "out" arguments, an
+        <literal>GError *</literal> which is set if there was an error otherwise
+        <literal>NULL</literal>, and the user data.
+      </para>
+      <para>
+        As with the server-side bindings support (see <xref
+        linkend="glib-server"/>), the exact behaviour of the client-side
+        bindings can be manipulated using "annotations".  Currently the only
+        annotation used by the client bindings is
+        <literal>org.freedesktop.DBus.GLib.NoReply</literal>, which sets the
+        flag indicating that the client isn't expecting a reply to the method
+        call, so a reply shouldn't be sent.  This is often used to speed up
+        rapid method calls where there are no "out" arguments, and not knowing
+        if the method succeeded is an acceptable compromise to half the traffic
+        on the bus.
+      </para>
+    </sect2>
   </sect1>
 
   <sect1 id="glib-server">
@@ -1118,13 +1189,13 @@ main (int argc, char **argv)
     </para>
     <para>
       Once you have written this XML, run <literal>dbus-binding-tool --mode=glib-server <replaceable>FILENAME</replaceable> &gt; <replaceable>HEADER_NAME</replaceable>.</literal> to
-      generate a header file.  For example: <command>dbus-binding-tool --mode=glib-server my-objet.xml &gt; my-object-glue.h</command>.
+      generate a header file.  For example: <command>dbus-binding-tool --mode=glib-server my-object.xml &gt; my-object-glue.h</command>.
     </para>
     <para>
       Next, include the generated header in your program, and invoke
-      <literal>dbus_g_object_class_install_info</literal>, passing the
-      object class and "object info" included in the header.  For
-      example:
+      <literal>dbus_g_object_class_install_info</literal> in the class
+      initializer, passing the object class and "object info" included in the
+      header.  For example:
       <programlisting>
 	dbus_g_object_type_install_info (COM_FOO_TYPE_MY_OBJECT, &amp;com_foo_my_object_info);
       </programlisting>
@@ -1177,6 +1248,151 @@ main (int argc, char **argv)
                                                obj);
       </programlisting>
     </para>
+
+    <sect2 id="glib-annotations">
+      <title>Server-side Annotations</title>
+      <para>
+        There are several annotations that are used when generating the
+        server-side bindings.  The most common annotation is
+        <literal>org.freedesktop.DBus.GLib.CSymbol</literal> but there are other
+        annotations which are often useful.
+        <variablelist>
+          <varlistentry>
+            <term><literal>org.freedesktop.DBus.GLib.CSymbol</literal></term>
+            <listitem>
+              <para>
+                This annotation is used to specify the C symbol names for
+                the various types (interface, method, etc), if it differs from the
+                name DBus generates.
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><literal>org.freedesktop.DBus.GLib.Async</literal></term>
+            <listitem>
+              <para>
+                This annotation marks the method implementation as an
+                asynchronous function, which doesn't return a response straight
+                away but will send the response at some later point to complete
+                the call.  This is used to implement non-blocking services where
+                method calls can take time.
+              </para>
+              <para>
+                When a method is asynchronous, the function prototype is
+                different. It is required that the function conform to the
+                following rules:
+                <itemizedlist>
+                  <listitem>
+                    <para>
+                      The function must return a value of type <literal>gboolean</literal>;
+                      <literal>TRUE</literal> on success, and <literal>FALSE</literal>
+                      otherwise. TODO: the return value is currently ignored.
+                    </para>
+                  </listitem>
+                  <listitem>
+                    <para>
+                      The first parameter is a pointer to an instance of the object.
+                    </para>
+                  </listitem>
+                  <listitem>
+                    <para>
+                      Following the object instance pointer are the method
+                      input values.
+                    </para>
+                  </listitem>
+                  <listitem>
+                    <para>
+                      The final parameter must be a
+                      <literal>DBusGMethodInvocation *</literal>.  This is used
+                      when sending the response message back to the client, by
+                      calling <literal>dbus_g_method_return</literal> or
+                      <literal>dbus_g_method_return_error</literal>.
+                    </para>
+                  </listitem>
+                </itemizedlist>
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><literal>org.freedesktop.DBus.GLib.Const</literal></term>
+            <listitem>
+              <para>This attribute can only be applied to "out"
+              <literal>&lt;arg&gt;</literal> nodes, and specifies that the
+              parameter isn't being copied when returned.  For example, this
+              turns a 's' argument from a <literal>char **</literal> to a
+              <literal>const char **</literal>, and results in the argument not
+              being freed by DBus after the message is sent.
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><literal>org.freedesktop.DBus.GLib.ReturnVal</literal></term>
+            <listitem>
+              <para>
+                This attribute can only be applied to "out"
+                <literal>&lt;arg&gt;</literal> nodes, and alters the expected
+                function signature.  It currently can be set to two values:
+                <literal>""</literal> or <literal>"error"</literal>.  The
+                argument marked with this attribute is not returned via a
+                pointer argument, but by the function's return value.  If the
+                attribute's value is the empty string, the <literal>GError
+                *</literal> argument is also omitted so there is no standard way
+                to return an error value.  This is very useful for interfacing
+                with existing code, as it is possible to match existing APIs.
+                If the attribute's value is <literal>"error"</literal>, then the
+                final argument is a <literal>GError *</literal> as usual.
+              </para>
+              <para>
+                Some examples to demonstrate the usage. This introspection XML:
+                <programlisting>
+&lt;method name="Increment"&gt;
+  &lt;arg type="u" name="x" /&gt;
+  &lt;arg type="u" direction="out" /&gt;
+&lt;/method&gt;
+                </programlisting>
+                Expects the following function declaration:
+                <programlisting>
+gboolean
+my_object_increment (MyObject *obj, gint32 x, gint32 *ret, GError **error);
+                </programlisting>
+              </para>
+              <para>
+                This introspection XML:
+                <programlisting>
+&lt;method name="IncrementRetval"&gt;
+  &lt;arg type="u" name="x" /&gt;
+  &lt;arg type="u" direction="out" &gt;
+    &lt;annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/&gt;
+  &lt;/arg&gt;
+&lt;/method&gt;
+                </programlisting>
+                Expects the following function declaration:
+                <programlisting>
+gint32
+my_object_increment_retval (MyObject *obj, gint32 x)
+                </programlisting>
+              </para>
+              <para>
+                This introspection XML:
+                <programlisting>
+&lt;method name="IncrementRetvalError"&gt;
+  &lt;arg type="u" name="x" /&gt;
+  &lt;arg type="u" direction="out" &gt;
+    &lt;annotation name="org.freedesktop.DBus.GLib.ReturnVal" value="error"/&gt;
+  &lt;/arg&gt;
+&lt;/method&gt;
+                </programlisting>
+                Expects the following function declaration:
+                <programlisting>
+gint32
+my_object_increment_retval_error (MyObject *obj, gint32 x, GError **error)
+                </programlisting>
+              </para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+      </para>
+    </sect2>
   </sect1>
 
   <sect1 id="python-client">
