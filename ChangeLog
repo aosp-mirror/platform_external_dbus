@@ -1,3 +1,7 @@
+2005-12-19 John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-shared.h: add DOxygen markup to quiet warnings
+
 2005-12-19 John (J5) Palmieri  <johnp@redhat.com> 
 
 	* dbus/dbus-macros.h: correct DOxygen end of section (s/}@/@})
