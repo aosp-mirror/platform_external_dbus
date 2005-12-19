@@ -1,3 +1,7 @@
+2005-12-19 John (J5) Palmieri  <johnp@redhat.com> 
+
+	* dbus/dbus-macros.h: correct DOxygen end of section (s/}@/@})
+
 2005-12-19  Ross Burton  <ross@openedhand.com>
 
 	* doc/dbus-tutorial.xml:

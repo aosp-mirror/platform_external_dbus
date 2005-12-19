@@ -91,6 +91,6 @@
  * A null pointer, defined appropriately for C or C++.
  */
 
-/** }@ */
+/** @} */
 
 #endif /* DBUS_MACROS_H */
