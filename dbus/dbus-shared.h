@@ -34,10 +34,10 @@ extern "C" {
 
 /* Normally docs are in .c files, but there isn't a .c file for this. */
 /**
- * @defgroup DBusShared Shared macros
+ * @defgroup DBusShared Shared constants 
  * @ingroup  DBus
  *
- * Shared macros.
+ * Shared constants.
  *
  * @brief Stuff used by both dbus/dbus.h low-level and C/C++ binding APIs 
  * @{
@@ -73,7 +73,7 @@ typedef enum
 #define DBUS_INTERFACE_PROPERTIES     "org.freedesktop.DBus.Properties"
 #define DBUS_INTERFACE_PEER           "org.freedesktop.DBus.Peer"
 
-/* This is a special interface whose methods can only be invoked
+/** This is a special interface whose methods can only be invoked
  * by the local implementation (messages from remote apps aren't
  * allowed to specify this interface).
  */

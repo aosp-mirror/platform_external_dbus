@@ -33,14 +33,26 @@
 extern "C" {
 #endif
 
-/* Message byte order */
-#define DBUS_LITTLE_ENDIAN ('l')  /* LSB first */
-#define DBUS_BIG_ENDIAN    ('B')  /* MSB first */
+/* Normally docs are in .c files, but there isn't a .c file for this. */
+/**
+ * @defgroup DBusProtocol Protocol constants
+ * @ingroup  DBus
+ *
+ * D-Bus protocol constants
+ *
+ * @brief  Defines constants which are part of the D-Bus protocol
+ * @{
+ */
 
-/* Protocol version */
+
+/* Message byte order */
+#define DBUS_LITTLE_ENDIAN ('l')  /**< LSB first */
+#define DBUS_BIG_ENDIAN    ('B')  /**< MSB first */
+
+/** Protocol version */
 #define DBUS_MAJOR_PROTOCOL_VERSION 1
 
-/* Never a legitimate type */
+/** Never a legitimate type */
 #define DBUS_TYPE_INVALID       ((int) '\0')
 #define DBUS_TYPE_INVALID_AS_STRING        "\0"
 
@@ -61,7 +73,6 @@ extern "C" {
 #define DBUS_TYPE_INT64_AS_STRING          "x"
 #define DBUS_TYPE_UINT64        ((int) 't')
 #define DBUS_TYPE_UINT64_AS_STRING         "t"
-
 #define DBUS_TYPE_DOUBLE        ((int) 'd')
 #define DBUS_TYPE_DOUBLE_AS_STRING         "d"
 #define DBUS_TYPE_STRING        ((int) 's')
@@ -77,7 +88,7 @@ extern "C" {
 #define DBUS_TYPE_VARIANT       ((int) 'v')
 #define DBUS_TYPE_VARIANT_AS_STRING        "v"
 
-/* STRUCT and DICT_ENTRY are sort of special since their codes can't
+/** STRUCT and DICT_ENTRY are sort of special since their codes can't
  * appear in a type string, instead
  * DBUS_STRUCT_BEGIN_CHAR/DBUS_DICT_ENTRY_BEGIN_CHAR have to appear
  */
@@ -86,7 +97,7 @@ extern "C" {
 #define DBUS_TYPE_DICT_ENTRY    ((int) 'e')
 #define DBUS_TYPE_DICT_ENTRY_AS_STRING     "e"
 
-/* Does not count INVALID */
+/** Does not count INVALID */
 #define DBUS_NUMBER_OF_TYPES    (16)
 
 /* characters other than typecodes that appear in type signatures */
@@ -99,7 +110,7 @@ extern "C" {
 #define DBUS_DICT_ENTRY_END_CHAR     ((int) '}')
 #define DBUS_DICT_ENTRY_END_CHAR_AS_STRING     "}"
 
-/* Max length in bytes of a bus name, interface, or member (not object
+/** Max length in bytes of a bus name, interface, or member (not object
  * path, paths are unlimited). This is limited because lots of stuff
  * is O(n) in this number, plus it would be obnoxious to type in a
  * paragraph-long method name so most likely something like that would
@@ -107,20 +118,20 @@ extern "C" {
  */
 #define DBUS_MAXIMUM_NAME_LENGTH 255
 
-/* This one is 255 so it fits in a byte */
+/** This one is 255 so it fits in a byte */
 #define DBUS_MAXIMUM_SIGNATURE_LENGTH 255
 
-/* Max length of a match rule string; to keep people from hosing the
+/** Max length of a match rule string; to keep people from hosing the
  * daemon with some huge rule
  */
 #define DBUS_MAXIMUM_MATCH_RULE_LENGTH 1024
 
-/* Max arg number you can match on in a match rule, e.g.
+/** Max arg number you can match on in a match rule, e.g.
  * arg0='hello' is OK, arg3489720987='hello' is not
  */
 #define DBUS_MAXIMUM_MATCH_RULE_ARG_NUMBER 63
   
-/* Max length of a marshaled array in bytes (64M, 2^26) We use signed
+/** Max length of a marshaled array in bytes (64M, 2^26) We use signed
  * int for lengths so must be INT_MAX or less.  We need something a
  * bit smaller than INT_MAX because the array is inside a message with
  * header info, etc.  so an INT_MAX array wouldn't allow the message
@@ -131,17 +142,17 @@ extern "C" {
  * sending it in multiple incremental messages anyhow.
  */
 #define DBUS_MAXIMUM_ARRAY_LENGTH (67108864)
-/* Number of bits you need in an unsigned to store the max array size */
+/** Number of bits you need in an unsigned to store the max array size */
 #define DBUS_MAXIMUM_ARRAY_LENGTH_BITS 26
 
-/* The maximum total message size including header and body; similar
+/** The maximum total message size including header and body; similar
  * rationale to max array size.
  */
 #define DBUS_MAXIMUM_MESSAGE_LENGTH (DBUS_MAXIMUM_ARRAY_LENGTH * 2)
-/* Number of bits you need in an unsigned to store the max message size */
+/** Number of bits you need in an unsigned to store the max message size */
 #define DBUS_MAXIMUM_MESSAGE_LENGTH_BITS 27
 
-/* Depth of recursion in the type tree. This is automatically limited
+/** Depth of recursion in the type tree. This is automatically limited
  * to DBUS_MAXIMUM_SIGNATURE_LENGTH since you could only have an array
  * of array of array of ... that fit in the max signature.  But that's
  * probably a bit too large.
@@ -172,7 +183,7 @@ extern "C" {
 
 #define DBUS_HEADER_FIELD_LAST DBUS_HEADER_FIELD_SIGNATURE
 
-/* Header format is defined as a signature:
+/** Header format is defined as a signature:
  *   byte                            byte order
  *   byte                            message type ID
  *   byte                            flags
@@ -249,6 +260,7 @@ extern "C" {
 #define DBUS_INTROSPECT_1_0_XML_SYSTEM_IDENTIFIER "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd"
 #define DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE "<!DOCTYPE node PUBLIC \""DBUS_INTROSPECT_1_0_XML_PUBLIC_IDENTIFIER"\"\n\""DBUS_INTROSPECT_1_0_XML_SYSTEM_IDENTIFIER"\">\n"
 
+/** @} */
 
 #ifdef __cplusplus
 }
