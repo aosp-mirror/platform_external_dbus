@@ -1311,8 +1311,24 @@ static gboolean
 write_async_method_client (GIOChannel *channel, InterfaceInfo *interface, MethodInfo *method, GError **error)
 {
   char *method_name, *iface_prefix;
+  char *interface_c_name;
+
   iface_prefix = iface_to_c_prefix (interface_info_get_name (interface));
-  method_name = compute_client_method_name (iface_prefix, method);
+  interface_c_name = interface_info_get_annotation (interface, DBUS_GLIB_ANNOTATION_C_SYMBOL);
+  if (interface_c_name == NULL)
+    {
+      interface_c_name = iface_prefix;
+    }
+
+  method_name = g_strdup (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_C_SYMBOL));
+  if (method_name == NULL)
+    {
+      char *method_name_uscored;
+      method_name_uscored = _dbus_gutils_wincaps_to_uscore (method_info_get_name (method));
+      method_name = g_strdup_printf ("%s_%s", interface_c_name, method_name_uscored);
+      g_free (method_name_uscored);
+    }
+  g_free(iface_prefix);
   
   /* Write the typedef for the client callback */
   if (!write_printf_to_iochannel ("typedef void (*%s_reply) (DBusGProxy *proxy, ", channel, error, method_name))
@@ -1424,6 +1440,7 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
       GSList *methods;
       GSList *tmp;
       char *iface_prefix;
+      char *interface_c_name;
 
       channel = data->channel;
 
@@ -1432,6 +1449,12 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
       methods = interface_info_get_methods (interface);
 
       iface_prefix = iface_to_c_prefix (interface_info_get_name (interface));
+      interface_c_name = interface_info_get_annotation (interface, DBUS_GLIB_ANNOTATION_C_SYMBOL);
+      if (interface_c_name == NULL)
+      {
+          interface_c_name = iface_prefix;
+      }
+      
 
       if (!write_printf_to_iochannel ("#ifndef DBUS_GLIB_CLIENT_WRAPPERS_%s\n"
 				      "#define DBUS_GLIB_CLIENT_WRAPPERS_%s\n\n",
@@ -1445,10 +1468,20 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
       for (tmp = methods; tmp != NULL; tmp = g_slist_next (tmp))
         {
 	  MethodInfo *method;
-	  char *method_name;
+	  char *method_c_name;
 	  gboolean is_noreply;
 
           method = (MethodInfo *) tmp->data;
+	  method_c_name = g_strdup (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_C_SYMBOL));
+          if (method_c_name == NULL)
+	    {
+	      char *method_name_uscored;
+	      method_name_uscored = _dbus_gutils_wincaps_to_uscore (method_info_get_name (method));
+              method_c_name = g_strdup_printf ("%s_%s",
+					       interface_c_name,
+					       method_name_uscored);
+	      g_free (method_name_uscored);
+            }
 
 	  is_noreply = method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_NOREPLY) != NULL;
 
@@ -1460,13 +1493,12 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
 	      continue;
 	    }
 
-	  method_name = compute_client_method_name (iface_prefix, method);
 
 	  WRITE_OR_LOSE ("static\n#ifdef G_HAVE_INLINE\ninline\n#endif\ngboolean\n");
 	  if (!write_printf_to_iochannel ("%s (DBusGProxy *proxy", channel, error,
-					  method_name))
+					  method_c_name))
 	    goto io_lose;
-	  g_free (method_name);
+	  g_free (method_c_name);
 
 	  if (!write_formal_parameters (interface, method, channel, error))
 	    goto io_lose;

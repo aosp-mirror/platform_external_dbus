@@ -1,3 +1,9 @@
+2006-01-05  Robert McQueen  <robot101@debian.org>
+
+	* glib/dbus-binding-tool-glib.c: Patch from Ricardo Kekki
+	<ricardo.kekki@movial.fi> to make dbus-binding-tool heed C symbol name
+	annotations when generating glib client bindings.
+
 2005-12-19 John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-shared.h: Call it shared constants instead of shared macros
