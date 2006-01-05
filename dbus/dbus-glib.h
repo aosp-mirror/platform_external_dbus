@@ -153,6 +153,15 @@ typedef struct _DBusGProxyClass  DBusGProxyClass;
 #define DBUS_IS_G_PROXY_CLASS(klass)   (G_TYPE_CHECK_CLASS_TYPE ((klass), DBUS_TYPE_G_PROXY))
 #define DBUS_G_PROXY_GET_CLASS(obj)    (G_TYPE_INSTANCE_GET_CLASS ((obj), DBUS_TYPE_G_PROXY, DBusGProxyClass))
 
+struct _DBusGProxy
+{
+  GObject parent;
+};
+
+struct _DBusGProxyClass
+{
+  GObjectClass parent_class;  /**< Parent class */
+};
 
 typedef struct _DBusGProxyCall DBusGProxyCall;
 typedef void (* DBusGProxyCallNotify) (DBusGProxy       *proxy,

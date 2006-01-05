@@ -35,6 +35,9 @@
 
 #define DBUS_G_PROXY_CALL_TO_ID(x) (GPOINTER_TO_UINT(x))
 #define DBUS_G_PROXY_ID_TO_CALL(x) (GUINT_TO_POINTER(x))
+#define DBUS_G_PROXY_GET_PRIVATE(o)  \
+       (G_TYPE_INSTANCE_GET_PRIVATE ((o), DBUS_TYPE_G_PROXY, DBusGProxyPrivate))
+
 
 /**
  * @addtogroup DBusGLibInternals
@@ -48,13 +51,13 @@
 
 typedef struct _DBusGProxyManager DBusGProxyManager;
 
+typedef struct _DBusGProxyPrivate DBusGProxyPrivate;
+
 /**
  * Internals of DBusGProxy
  */
-struct _DBusGProxy
+struct _DBusGProxyPrivate
 {
-  GObject parent;             /**< Parent instance */
-  
   DBusGProxyManager *manager; /**< Proxy manager */
   char *name;                 /**< Name messages go to or NULL */
   char *path;                 /**< Path messages go to or NULL */
@@ -70,14 +73,6 @@ struct _DBusGProxy
   GData *signal_signatures;   /**< D-BUS signatures for each signal */
 
   GHashTable *pending_calls;  /**< Calls made on this proxy which have not yet returned */
-};
-
-/**
- * Class struct for DBusGProxy
- */
-struct _DBusGProxyClass
-{
-  GObjectClass parent_class;  /**< Parent class */
 };
 
 static void dbus_g_proxy_init               (DBusGProxy      *proxy);
@@ -421,10 +416,12 @@ tristring_alloc_from_strings (size_t      padding_before,
 static char*
 tristring_from_proxy (DBusGProxy *proxy)
 {
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
+
   return tristring_alloc_from_strings (0,
-                                       proxy->name,
-                                       proxy->path,
-                                       proxy->interface);
+                                       priv->name,
+                                       priv->path,
+                                       priv->interface);
 }
 
 static char*
@@ -448,11 +445,12 @@ static DBusGProxyList*
 g_proxy_list_new (DBusGProxy *first_proxy)
 {
   DBusGProxyList *list;
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(first_proxy);
   
   list = (void*) tristring_alloc_from_strings (G_STRUCT_OFFSET (DBusGProxyList, name),
-                                               first_proxy->name,
-                                               first_proxy->path,
-                                               first_proxy->interface);
+                                               priv->name,
+                                               priv->path,
+                                               priv->interface);
   list->proxies = NULL;
 
   return list;
@@ -472,14 +470,15 @@ g_proxy_list_free (DBusGProxyList *list)
 static char*
 g_proxy_get_match_rule (DBusGProxy *proxy)
 {
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
   /* FIXME Escaping is required here */
   
-  if (proxy->name)
+  if (priv->name)
     return g_strdup_printf ("type='signal',sender='%s',path='%s',interface='%s'",
-                            proxy->name, proxy->path, proxy->interface);
+                            priv->name, priv->path, priv->interface);
   else
     return g_strdup_printf ("type='signal',path='%s',interface='%s'",
-                            proxy->path, proxy->interface);
+                            priv->path, priv->interface);
 }
 
 typedef struct
@@ -647,18 +646,19 @@ unassociate_proxies (gpointer key, gpointer val, gpointer user_data)
   for (tmp = list->proxies; tmp; tmp = tmp->next)
     {
       DBusGProxy *proxy = DBUS_G_PROXY (tmp->data);
+      DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
       DBusGProxyManager *manager;
 
-      manager = proxy->manager;
+      manager = priv->manager;
 
-      if (!strcmp (proxy->name, name))
+      if (!strcmp (priv->name, name))
 	{
-	  if (!proxy->for_owner)
+	  if (!priv->for_owner)
 	    {
-	      g_assert (proxy->associated);
-	      g_assert (proxy->name_call == NULL);
+	      g_assert (priv->associated);
+	      g_assert (priv->name_call == NULL);
 
-	      proxy->associated = FALSE;
+	      priv->associated = FALSE;
 	      manager->unassociated_proxies = g_slist_prepend (manager->unassociated_proxies, proxy);
 	    }
 	  else
@@ -688,16 +688,15 @@ dbus_g_proxy_manager_replace_name_owner (DBusGProxyManager  *manager,
 
       for (tmp = manager->unassociated_proxies; tmp ; tmp = tmp->next)
 	{
-	  DBusGProxy *proxy;
+	  DBusGProxy *proxy = tmp->data;
+	  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
 
-	  proxy = tmp->data;
-
-	  if (!strcmp (proxy->name, name))
+	  if (!strcmp (priv->name, name))
 	    {
 	      removed = g_slist_prepend (removed, tmp);
 	      
 	      dbus_g_proxy_manager_monitor_name_owner (manager, new_owner, name);
-	      proxy->associated = TRUE;
+	      priv->associated = TRUE;
 	    }
 	}
 
@@ -759,15 +758,15 @@ got_name_owner_cb (DBusGProxy       *bus_proxy,
 		   DBusGProxyCall   *call,
 		   void             *user_data)
 {
-  DBusGProxy *proxy;
+  DBusGProxy *proxy = user_data;
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
   GError *error;
   char *owner;
 
-  proxy = user_data;
   error = NULL;
   owner = NULL;
 
-  LOCK_MANAGER (proxy->manager);
+  LOCK_MANAGER (priv->manager);
 
   if (!dbus_g_proxy_end_call (bus_proxy, call, &error,
 			      G_TYPE_STRING, &owner,
@@ -775,7 +774,7 @@ got_name_owner_cb (DBusGProxy       *bus_proxy,
     {
       if (error->domain == DBUS_GERROR && error->code == DBUS_GERROR_NAME_HAS_NO_OWNER)
 	{
-	  proxy->manager->unassociated_proxies = g_slist_prepend (proxy->manager->unassociated_proxies, proxy);
+	  priv->manager->unassociated_proxies = g_slist_prepend (priv->manager->unassociated_proxies, proxy);
 	}
       else
 	g_warning ("Couldn't get name owner (%s): %s",
@@ -787,13 +786,13 @@ got_name_owner_cb (DBusGProxy       *bus_proxy,
     }
   else
     {
-      dbus_g_proxy_manager_monitor_name_owner (proxy->manager, owner, proxy->name);
-      proxy->associated = TRUE;
+      dbus_g_proxy_manager_monitor_name_owner (priv->manager, owner, priv->name);
+      priv->associated = TRUE;
     }
 
  out:
-  proxy->name_call = NULL;
-  UNLOCK_MANAGER (proxy->manager);
+  priv->name_call = NULL;
+  UNLOCK_MANAGER (priv->manager);
   g_free (owner);
 }
 
@@ -861,6 +860,7 @@ dbus_g_proxy_manager_register (DBusGProxyManager *manager,
                                DBusGProxy        *proxy)
 {
   DBusGProxyList *list;
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
 
   LOCK_MANAGER (manager);
 
@@ -929,26 +929,26 @@ dbus_g_proxy_manager_register (DBusGProxyManager *manager,
   
   list->proxies = g_slist_prepend (list->proxies, proxy);
 
-  if (!proxy->for_owner)
+  if (!priv->for_owner)
     {
       const char *owner;
       DBusGProxyNameOwnerInfo *info;
 
-      if (!dbus_g_proxy_manager_lookup_name_owner (manager, proxy->name, &info, &owner))
+      if (!dbus_g_proxy_manager_lookup_name_owner (manager, priv->name, &info, &owner))
 	{
-	  proxy->name_call = manager_begin_bus_call (manager, "GetNameOwner",
+	  priv->name_call = manager_begin_bus_call (manager, "GetNameOwner",
 						     got_name_owner_cb,
 						     proxy, NULL,
 						     G_TYPE_STRING,
-						     proxy->name, 
+						     priv->name, 
 						     G_TYPE_INVALID);
 	  
-	  proxy->associated = FALSE;
+	  priv->associated = FALSE;
 	}
       else
 	{
 	  info->refcount++;
-	  proxy->associated = TRUE;
+	  priv->associated = TRUE;
 	}
     }
   
@@ -960,6 +960,7 @@ dbus_g_proxy_manager_unregister (DBusGProxyManager *manager,
                                 DBusGProxy        *proxy)
 {
   DBusGProxyList *list;
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
   char *tri;
   
   LOCK_MANAGER (manager);
@@ -990,16 +991,16 @@ dbus_g_proxy_manager_unregister (DBusGProxyManager *manager,
 
   g_assert (g_slist_find (list->proxies, proxy) == NULL);
 
-  if (!proxy->for_owner)
+  if (!priv->for_owner)
     {
-      if (!proxy->associated)
+      if (!priv->associated)
 	{
 	  GSList *link;
 
-	  if (proxy->name_call != 0)
+	  if (priv->name_call != 0)
 	    {
-	      dbus_g_proxy_cancel_call (manager->bus_proxy, proxy->name_call);
-	      proxy->name_call = 0;
+	      dbus_g_proxy_cancel_call (manager->bus_proxy, priv->name_call);
+	      priv->name_call = 0;
 	    }
 	  else
 	    {
@@ -1011,9 +1012,9 @@ dbus_g_proxy_manager_unregister (DBusGProxyManager *manager,
 	}
       else
 	{
-	  g_assert (proxy->name_call == 0);
+	  g_assert (priv->name_call == 0);
 	  
-	  dbus_g_proxy_manager_unmonitor_name_owner (manager, proxy->name);
+	  dbus_g_proxy_manager_unmonitor_name_owner (manager, priv->name);
 	}
     }
 
@@ -1253,8 +1254,7 @@ dbus_g_proxy_manager_filter (DBusConnection    *connection,
 
 
 /*      ---------- DBusGProxy --------------   */
-
-#define DBUS_G_PROXY_DESTROYED(proxy)  (DBUS_G_PROXY (proxy)->manager == NULL)
+#define DBUS_G_PROXY_DESTROYED(proxy)  (DBUS_G_PROXY_GET_PRIVATE(proxy)->manager == NULL)
 
 static void
 marshal_dbus_message_to_g_marshaller (GClosure     *closure,
@@ -1268,7 +1268,8 @@ enum
   PROP_0,
   PROP_NAME,
   PROP_PATH,
-  PROP_INTERFACE
+  PROP_INTERFACE,
+  PROP_CONNECTION
 };
 
 enum
@@ -1284,9 +1285,13 @@ static guint signals[LAST_SIGNAL] = { 0 };
 static void
 dbus_g_proxy_init (DBusGProxy *proxy)
 {
-  g_datalist_init (&proxy->signal_signatures);
-  proxy->pending_calls = g_hash_table_new_full (NULL, NULL, NULL,
-						(GDestroyNotify) dbus_pending_call_unref);
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
+  
+  g_datalist_init (&priv->signal_signatures);
+  priv->pending_calls = g_hash_table_new_full (NULL, NULL, NULL,
+				(GDestroyNotify) dbus_pending_call_unref);
+  priv->name_call = 0;
+  priv->associated = FALSE;
 }
 
 static GObject *
@@ -1305,10 +1310,6 @@ dbus_g_proxy_constructor (GType                  type,
   proxy = DBUS_G_PROXY (parent_class->constructor (type, n_construct_properties,
 						    construct_properties));
 
-  proxy->for_owner = (proxy->name[0] == ':');
-  proxy->name_call = 0;
-  proxy->associated = FALSE;
-
   return G_OBJECT (proxy);
 }
 
@@ -1318,6 +1319,8 @@ dbus_g_proxy_class_init (DBusGProxyClass *klass)
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   
   parent_class = g_type_class_peek_parent (klass);
+
+  g_type_class_add_private (klass, sizeof (DBusGProxyPrivate));
 
   object_class->set_property = dbus_g_proxy_set_property;
   object_class->get_property = dbus_g_proxy_get_property;
@@ -1344,6 +1347,14 @@ dbus_g_proxy_class_init (DBusGProxyClass *klass)
 							"interface",
 							"interface",
 							NULL,
+							G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  
+  g_object_class_install_property (object_class,
+				   PROP_CONNECTION,
+				   g_param_spec_boxed ("connection",
+							"connection",
+							"connection",
+							DBUS_TYPE_G_CONNECTION,
 							G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   
   object_class->finalize = dbus_g_proxy_finalize;
@@ -1381,22 +1392,22 @@ cancel_pending_call (gpointer key, gpointer val, gpointer data)
 static void
 dbus_g_proxy_dispose (GObject *object)
 {
-  DBusGProxy *proxy;
+  DBusGProxy *proxy = DBUS_G_PROXY (object);
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
 
-  proxy = DBUS_G_PROXY (object);
 
   /* Cancel outgoing pending calls */
-  g_hash_table_foreach (proxy->pending_calls, cancel_pending_call, proxy);
-  g_hash_table_destroy (proxy->pending_calls);
+  g_hash_table_foreach (priv->pending_calls, cancel_pending_call, proxy);
+  g_hash_table_destroy (priv->pending_calls);
 
-  if (proxy->manager && proxy != proxy->manager->bus_proxy)
+  if (priv->manager && proxy != priv->manager->bus_proxy)
     {
-      dbus_g_proxy_manager_unregister (proxy->manager, proxy);
-      dbus_g_proxy_manager_unref (proxy->manager);
+      dbus_g_proxy_manager_unregister (priv->manager, proxy);
+      dbus_g_proxy_manager_unref (priv->manager);
     }
-  proxy->manager = NULL;
+  priv->manager = NULL;
   
-  g_datalist_clear (&proxy->signal_signatures);
+  g_datalist_clear (&priv->signal_signatures);
   
   g_signal_emit (object, signals[DESTROY], 0);
   
@@ -1406,15 +1417,14 @@ dbus_g_proxy_dispose (GObject *object)
 static void
 dbus_g_proxy_finalize (GObject *object)
 {
-  DBusGProxy *proxy;
+  DBusGProxy *proxy = DBUS_G_PROXY (object);
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
   
-  proxy = DBUS_G_PROXY (object);
-
   g_return_if_fail (DBUS_G_PROXY_DESTROYED (proxy));
   
-  g_free (proxy->name);
-  g_free (proxy->path);
-  g_free (proxy->interface);
+  g_free (priv->name);
+  g_free (priv->path);
+  g_free (priv->interface);
   
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -1435,17 +1445,28 @@ dbus_g_proxy_set_property (GObject *object,
 			   GParamSpec *pspec)
 {
   DBusGProxy *proxy = DBUS_G_PROXY (object);
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
+  DBusGConnection *connection;
 
   switch (prop_id)
     {
     case PROP_NAME:
-      proxy->name = g_strdup (g_value_get_string (value));
+      priv->name = g_strdup (g_value_get_string (value));
+      priv->for_owner = (priv->name[0] == ':');
       break;
     case PROP_PATH:
-      proxy->path = g_strdup (g_value_get_string (value));
+      priv->path = g_strdup (g_value_get_string (value));
       break;
     case PROP_INTERFACE:
-      proxy->interface = g_strdup (g_value_get_string (value));
+      priv->interface = g_strdup (g_value_get_string (value));
+      break;
+    case PROP_CONNECTION:
+      connection = g_value_get_boxed(value);
+      if(connection != NULL)
+      {
+          priv->manager = dbus_g_proxy_manager_get (DBUS_CONNECTION_FROM_G_CONNECTION (connection));
+          dbus_g_proxy_manager_register (priv->manager, proxy);
+      }
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -1460,17 +1481,21 @@ dbus_g_proxy_get_property (GObject *object,
 			   GParamSpec *pspec)
 {
   DBusGProxy *proxy = DBUS_G_PROXY (object);
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
 
   switch (prop_id)
     {
     case PROP_NAME:
-      g_value_set_string (value, proxy->name);
+      g_value_set_string (value, priv->name);
       break;
     case PROP_PATH:
-      g_value_set_string (value, proxy->path);
+      g_value_set_string (value, priv->path);
       break;
     case PROP_INTERFACE:
-      g_value_set_string (value, proxy->interface);
+      g_value_set_string (value, priv->interface);
+      break;
+    case PROP_CONNECTION:
+      g_value_set_boxed (value, DBUS_G_CONNECTION_FROM_CONNECTION(priv->manager->connection));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -1528,6 +1553,7 @@ marshal_dbus_message_to_g_marshaller (GClosure     *closure,
   DBusMessage *message;
   GArray *gsignature;
   const GType *types;
+  DBusGProxyPrivate *priv;
 
   g_assert (n_param_values == 3);
 
@@ -1539,6 +1565,8 @@ marshal_dbus_message_to_g_marshaller (GClosure     *closure,
   g_return_if_fail (message != NULL);
   g_return_if_fail (gsignature != NULL);
 
+  priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
+
   c_marshaller = _dbus_gobject_lookup_marshaller (G_TYPE_NONE, gsignature->len,
 						  (GType*) gsignature->data);
 
@@ -1546,7 +1574,7 @@ marshal_dbus_message_to_g_marshaller (GClosure     *closure,
   
   {
     DBusGValueMarshalCtx context;
-    context.gconnection = DBUS_G_CONNECTION_FROM_CONNECTION (proxy->manager->connection);
+    context.gconnection = DBUS_G_CONNECTION_FROM_CONNECTION (priv->manager->connection);
     context.proxy = proxy;
 
     types = (const GType*) gsignature->data;
@@ -1575,6 +1603,7 @@ dbus_g_proxy_emit_remote_signal (DBusGProxy  *proxy,
   const char *signal;
   char *name;
   GQuark q;
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
 
   g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
 
@@ -1598,7 +1627,7 @@ dbus_g_proxy_emit_remote_signal (DBusGProxy  *proxy,
       GArray *msg_gsignature;
       guint i;
       
-      gsignature = g_datalist_id_get_data (&proxy->signal_signatures, q);
+      gsignature = g_datalist_id_get_data (&priv->signal_signatures, q);
       if (gsignature == NULL)
 	goto out;
       
@@ -1692,6 +1721,7 @@ manager_begin_bus_call (DBusGProxyManager    *manager,
 			...)
 {
   DBusGProxyCall *call;
+  DBusGProxyPrivate *priv;
   va_list args;
   GValueArray *arg_values;
   
@@ -1703,8 +1733,10 @@ manager_begin_bus_call (DBusGProxyManager    *manager,
 					 "name", DBUS_SERVICE_DBUS,
 					 "path", DBUS_PATH_DBUS,
 					 "interface", DBUS_INTERFACE_DBUS,
+                                         "connection", NULL,
 					 NULL);
-      manager->bus_proxy->manager = manager;
+      priv = DBUS_G_PROXY_GET_PRIVATE(manager->bus_proxy);
+      priv->manager = manager;
     }
 
   DBUS_G_VALUE_ARRAY_COLLECT_ALL (arg_values, first_arg_type, args);
@@ -1767,16 +1799,12 @@ dbus_g_proxy_new (DBusGConnection *connection,
 
   g_assert (connection != NULL);
   
-  proxy = g_object_new (DBUS_TYPE_G_PROXY, "name", name, "path", path_name, "interface", interface_name, NULL);
+  proxy = g_object_new (DBUS_TYPE_G_PROXY, 
+                        "name", name, 
+                        "path", path_name, 
+                        "interface", interface_name, 
+                        "connection", connection, NULL);
 
-  /* These should all be construct-only mandatory properties,
-   * for now we just don't let people use g_object_new().
-   */
-  
-  proxy->manager = dbus_g_proxy_manager_get (DBUS_CONNECTION_FROM_G_CONNECTION (connection));
-
-  dbus_g_proxy_manager_register (proxy->manager, proxy);
-  
   return proxy;
 }
 
@@ -1883,15 +1911,19 @@ dbus_g_proxy_new_from_proxy (DBusGProxy        *proxy,
 			     const char        *interface,
 			     const char        *path)
 {
+  DBusGProxyPrivate *priv;
+
   g_return_val_if_fail (proxy != NULL, NULL);
 
+  priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
+  
   if (interface == NULL)
-    interface = proxy->interface;
+    interface = priv->interface;
   if (path == NULL)
-    path = proxy->path;
+    path = priv->path;
 
-  return dbus_g_proxy_new (DBUS_G_CONNECTION_FROM_CONNECTION (proxy->manager->connection),
-			   proxy->name,
+  return dbus_g_proxy_new (DBUS_G_CONNECTION_FROM_CONNECTION (priv->manager->connection),
+			   priv->name,
 			   path, interface);
 }
 
@@ -1940,10 +1972,14 @@ dbus_g_proxy_new_for_peer (DBusGConnection          *connection,
 const char*
 dbus_g_proxy_get_bus_name (DBusGProxy        *proxy)
 {
+  DBusGProxyPrivate *priv;
+
   g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), NULL);
   g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), NULL);
 
-  return proxy->name;
+  priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
+
+  return priv->name;
 }
 
 /**
@@ -1955,10 +1991,14 @@ dbus_g_proxy_get_bus_name (DBusGProxy        *proxy)
 const char*
 dbus_g_proxy_get_interface (DBusGProxy        *proxy)
 {
+  DBusGProxyPrivate *priv;
+  
   g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), NULL);
   g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), NULL);
 
-  return proxy->interface;
+  priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
+
+  return priv->interface;
 }
 
 /**
@@ -1971,13 +2011,14 @@ void
 dbus_g_proxy_set_interface (DBusGProxy        *proxy,
 			    const char        *interface_name)
 {
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
   /* FIXME - need to unregister when we switch interface for now
    * later should support idea of unset interface
    */
-  dbus_g_proxy_manager_unregister (proxy->manager, proxy);
-  g_free (proxy->interface);
-  proxy->interface = g_strdup (interface_name);
-  dbus_g_proxy_manager_register (proxy->manager, proxy);
+  dbus_g_proxy_manager_unregister (priv->manager, proxy);
+  g_free (priv->interface);
+  priv->interface = g_strdup (interface_name);
+  dbus_g_proxy_manager_register (priv->manager, proxy);
 }
 
 /**
@@ -1989,10 +2030,14 @@ dbus_g_proxy_set_interface (DBusGProxy        *proxy,
 const char*
 dbus_g_proxy_get_path (DBusGProxy        *proxy)
 {
+  DBusGProxyPrivate *priv;
+  
   g_return_val_if_fail (DBUS_IS_G_PROXY (proxy), NULL);
   g_return_val_if_fail (!DBUS_G_PROXY_DESTROYED (proxy), NULL);
 
-  return proxy->path;
+  priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
+
+  return priv->path;
 }
 
 static DBusMessage *
@@ -2003,10 +2048,11 @@ dbus_g_proxy_marshal_args_to_message (DBusGProxy  *proxy,
   DBusMessage *message;
   DBusMessageIter msgiter;
   guint i;
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
 
-  message = dbus_message_new_method_call (proxy->name,
-                                          proxy->path,
-                                          proxy->interface,
+  message = dbus_message_new_method_call (priv->name,
+                                          priv->path,
+                                          priv->interface,
                                           method);
   if (message == NULL)
     goto oom;
@@ -2038,6 +2084,7 @@ dbus_g_proxy_begin_call_internal (DBusGProxy          *proxy,
   DBusPendingCall *pending;
   GPendingNotifyClosure *closure;
   guint call_id;
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
 
   pending = NULL;
 
@@ -2045,7 +2092,7 @@ dbus_g_proxy_begin_call_internal (DBusGProxy          *proxy,
   if (!message)
     goto oom;
   
-  if (!dbus_connection_send_with_reply (proxy->manager->connection,
+  if (!dbus_connection_send_with_reply (priv->manager->connection,
                                         message,
                                         &pending,
                                         -1))
@@ -2053,7 +2100,7 @@ dbus_g_proxy_begin_call_internal (DBusGProxy          *proxy,
   dbus_message_unref (message);
   g_assert (pending != NULL);
 
-  call_id = ++proxy->call_id_counter;
+  call_id = ++priv->call_id_counter;
 
   if (notify != NULL)
     {
@@ -2068,7 +2115,7 @@ dbus_g_proxy_begin_call_internal (DBusGProxy          *proxy,
 				    d_pending_call_free);
     }
 
-  g_hash_table_insert (proxy->pending_calls, GUINT_TO_POINTER (call_id), pending);
+  g_hash_table_insert (priv->pending_calls, GUINT_TO_POINTER (call_id), pending);
   
   return call_id;
  oom:
@@ -2092,13 +2139,14 @@ dbus_g_proxy_end_call_internal (DBusGProxy        *proxy,
   gboolean ret;
   GType valtype;
   DBusPendingCall *pending;
+  DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
 
   reply = NULL;
   ret = FALSE;
   n_retvals_processed = 0;
   over = 0;
 
-  pending = g_hash_table_lookup (proxy->pending_calls, GUINT_TO_POINTER (call_id));
+  pending = g_hash_table_lookup (priv->pending_calls, GUINT_TO_POINTER (call_id));
   
   dbus_pending_call_block (pending);
   reply = dbus_pending_call_steal_reply (pending);
@@ -2120,7 +2168,7 @@ dbus_g_proxy_end_call_internal (DBusGProxy        *proxy,
 	  GValue gvalue = { 0, };
 	  DBusGValueMarshalCtx context;
 
-	  context.gconnection = DBUS_G_CONNECTION_FROM_CONNECTION (proxy->manager->connection);
+	  context.gconnection = DBUS_G_CONNECTION_FROM_CONNECTION (priv->manager->connection);
 	  context.proxy = proxy;
 
 	  arg_type = dbus_message_iter_get_arg_type (&msgiter);
@@ -2219,7 +2267,7 @@ dbus_g_proxy_end_call_internal (DBusGProxy        *proxy,
     }
   va_end (args_unwind);
 
-  g_hash_table_remove (proxy->pending_calls, GUINT_TO_POINTER (call_id));
+  g_hash_table_remove (priv->pending_calls, GUINT_TO_POINTER (call_id));
 
   if (reply)
     dbus_message_unref (reply);
@@ -2380,9 +2428,12 @@ dbus_g_proxy_call_no_reply (DBusGProxy               *proxy,
   DBusMessage *message;
   va_list args;
   GValueArray *in_args;
+  DBusGProxyPrivate *priv;
   
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
   g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
+
+  priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
 
   va_start (args, first_arg_type);
   DBUS_G_VALUE_ARRAY_COLLECT_ALL (in_args, first_arg_type, args);
@@ -2397,7 +2448,7 @@ dbus_g_proxy_call_no_reply (DBusGProxy               *proxy,
 
   dbus_message_set_no_reply (message, TRUE);
 
-  if (!dbus_connection_send (proxy->manager->connection,
+  if (!dbus_connection_send (priv->manager->connection,
                              message,
                              NULL))
     goto oom;
@@ -2423,18 +2474,21 @@ dbus_g_proxy_cancel_call (DBusGProxy        *proxy,
 {
   guint call_id;
   DBusPendingCall *pending;
+  DBusGProxyPrivate *priv;
   
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
   g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
 
+  priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
+
   call_id = DBUS_G_PROXY_CALL_TO_ID (call);
 
-  pending = g_hash_table_lookup (proxy->pending_calls, GUINT_TO_POINTER (call_id));
+  pending = g_hash_table_lookup (priv->pending_calls, GUINT_TO_POINTER (call_id));
   g_return_if_fail (pending != NULL);
 
   dbus_pending_call_cancel (pending);
 
-  g_hash_table_remove (proxy->pending_calls, GUINT_TO_POINTER (call_id));
+  g_hash_table_remove (priv->pending_calls, GUINT_TO_POINTER (call_id));
 }
 
 /**
@@ -2460,26 +2514,30 @@ dbus_g_proxy_send (DBusGProxy          *proxy,
                    DBusMessage         *message,
                    dbus_uint32_t       *client_serial)
 {
+  DBusGProxyPrivate *priv;
+  
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
   g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
   
-  if (proxy->name)
+  priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
+  
+  if (priv->name)
     {
-      if (!dbus_message_set_destination (message, proxy->name))
+      if (!dbus_message_set_destination (message, priv->name))
         g_error ("Out of memory");
     }
-  if (proxy->path)
+  if (priv->path)
     {
-      if (!dbus_message_set_path (message, proxy->path))
+      if (!dbus_message_set_path (message, priv->path))
         g_error ("Out of memory");
     }
-  if (proxy->interface)
+  if (priv->interface)
     {
-      if (!dbus_message_set_interface (message, proxy->interface))
+      if (!dbus_message_set_interface (message, priv->interface))
         g_error ("Out of memory");
     }
   
-  if (!dbus_connection_send (proxy->manager->connection, message, client_serial))
+  if (!dbus_connection_send (priv->manager->connection, message, client_serial))
     g_error ("Out of memory\n");
 }
 
@@ -2509,16 +2567,19 @@ dbus_g_proxy_add_signal  (DBusGProxy        *proxy,
   GArray *gtypesig;
   GType gtype;
   va_list args;
+  DBusGProxyPrivate *priv;
 
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
   g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
   g_return_if_fail (signal_name != NULL);
   
-  name = create_signal_name (proxy->interface, signal_name);
+  priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
+
+  name = create_signal_name (priv->interface, signal_name);
   
   q = g_quark_from_string (name);
   
-  g_return_if_fail (g_datalist_id_get_data (&proxy->signal_signatures, q) == NULL);
+  g_return_if_fail (g_datalist_id_get_data (&priv->signal_signatures, q) == NULL);
 
   gtypesig = g_array_new (FALSE, TRUE, sizeof (GType));
 
@@ -2537,7 +2598,7 @@ dbus_g_proxy_add_signal  (DBusGProxy        *proxy,
 #endif
 
   
-  g_datalist_id_set_data_full (&proxy->signal_signatures,
+  g_datalist_id_set_data_full (&priv->signal_signatures,
                                q, gtypesig,
                                array_free_all);
 
@@ -2565,18 +2626,20 @@ dbus_g_proxy_connect_signal (DBusGProxy             *proxy,
   char *name;
   GClosure *closure;
   GQuark q;
+  DBusGProxyPrivate *priv;
 
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
   g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
   g_return_if_fail (signal_name != NULL);
   g_return_if_fail (handler != NULL);
   
-  name = create_signal_name (proxy->interface, signal_name);
+  priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
+  name = create_signal_name (priv->interface, signal_name);
 
   q = g_quark_try_string (name);
 
 #ifndef G_DISABLE_CHECKS
-  if (q == 0 || g_datalist_id_get_data (&proxy->signal_signatures, q) == NULL)
+  if (q == 0 || g_datalist_id_get_data (&priv->signal_signatures, q) == NULL)
     {
       g_warning ("Must add the signal '%s' with dbus_g_proxy_add_signal() prior to connecting to it\n", name);
       g_free (name);
@@ -2611,13 +2674,15 @@ dbus_g_proxy_disconnect_signal (DBusGProxy             *proxy,
 {
   char *name;
   GQuark q;
+  DBusGProxyPrivate *priv;
   
   g_return_if_fail (DBUS_IS_G_PROXY (proxy));
   g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
   g_return_if_fail (signal_name != NULL);
   g_return_if_fail (handler != NULL);
 
-  name = create_signal_name (proxy->interface, signal_name);
+  priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
+  name = create_signal_name (priv->interface, signal_name);
 
   q = g_quark_try_string (name);
   
