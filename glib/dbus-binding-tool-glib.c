@@ -97,11 +97,19 @@ dbus_g_type_get_marshal_name (GType gtype)
 static const char *
 dbus_g_type_get_c_name (GType gtype)
 {
+  GType subtype;
   if (dbus_g_type_is_collection (gtype))
-    return "GArray";
+    {
+      subtype = dbus_g_type_get_collection_specialization(gtype);
+      if (_dbus_g_type_is_fixed (subtype))
+        return "GArray";
+      else
+        return "GPtrArray";
+    }
+
   if (dbus_g_type_is_map (gtype))
     return "GHashTable";
-  
+
   if (g_type_is_a (gtype, G_TYPE_STRING))
     return "char *";
 
@@ -110,9 +118,10 @@ dbus_g_type_get_c_name (GType gtype)
    */
   if (g_type_is_a (gtype, G_TYPE_STRV))
     return "char *";
+
   if (g_type_is_a (gtype, DBUS_TYPE_G_OBJECT_PATH))
     return "char";
-  
+
   return g_type_name (gtype);
 }
 
@@ -1005,13 +1014,24 @@ dbus_g_type_get_lookup_function (GType gtype)
     {
       GType elt_gtype;
       char *sublookup;
-      
+
       elt_gtype = dbus_g_type_get_collection_specialization (gtype);
       sublookup = dbus_g_type_get_lookup_function (elt_gtype);
       g_assert (sublookup);
-      type_lookup = g_strdup_printf ("dbus_g_type_get_collection (\"GArray\", %s)",
-				     sublookup);
+
+      if (_dbus_g_type_is_fixed (elt_gtype))
+        {
+          type_lookup = g_strdup_printf ("dbus_g_type_get_collection "
+              "(\"GArray\", %s)", sublookup);
+        }
+      else
+        {
+          type_lookup = g_strdup_printf ("dbus_g_type_get_collection "
+              "(\"GPtrArray\", %s)", sublookup);
+        }
+
       g_free (sublookup);
+
       return type_lookup;
     }
   else if (dbus_g_type_is_map (gtype))

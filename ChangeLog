@@ -1,3 +1,10 @@
+2006-01-19  Robert McQueen  <robot101@debian.org>
+
+	* glib/dbus-binding-tool-glib.c: Patch from Rob Taylor
+	<rob.taylor@collabora.co.uk> to add support for generating bindings
+	to arrays that are represented as GPtrArrays rather than GArrays (ie
+	size-variable things, such as strings, objects, structs, etc).
+
 2006-01-05  Robert McQueen  <robot101@debian.org>
 
 	* dbus/dbus-glib.h, glib/dbus-gproxy.c: Patch from Ricardo Kekki
