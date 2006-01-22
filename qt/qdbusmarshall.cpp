@@ -69,9 +69,9 @@ static QVariant qFetchParameter(DBusMessageIter *it)
     case DBUS_TYPE_BOOLEAN:
         return qIterGet<dbus_bool_t>(it);
     case DBUS_TYPE_INT64:
-        return qIterGet<dbus_int64_t>(it);
+        return static_cast<qlonglong>(qIterGet<dbus_int64_t>(it));
     case DBUS_TYPE_UINT64:
-        return qIterGet<dbus_uint64_t>(it);
+        return static_cast<qulonglong>(qIterGet<dbus_uint64_t>(it));
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_SIGNATURE:
