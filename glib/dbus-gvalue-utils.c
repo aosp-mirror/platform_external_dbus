@@ -311,10 +311,29 @@ hash_free_from_gtype (GType gtype, GDestroyNotify *func)
 	}
       else if (gtype == G_TYPE_VALUE_ARRAY)
         {
-          *func = g_value_array_free;
-	  return TRUE;
+          *func = (GDestroyNotify) g_value_array_free;
+          return TRUE;
         }
-
+      else if (dbus_g_type_is_collection (gtype))
+        {
+          const DBusGTypeSpecializedCollectionVtable* vtable;
+          vtable = dbus_g_type_collection_peek_vtable (gtype);
+          if (vtable->base_vtable.simple_free_func)
+            {
+              *func = vtable->base_vtable.simple_free_func;
+              return TRUE;
+            }
+        }
+      else if (dbus_g_type_is_map (gtype))
+        {
+          const DBusGTypeSpecializedMapVtable* vtable;
+          vtable = dbus_g_type_map_peek_vtable (gtype);
+          if (vtable->base_vtable.simple_free_func)
+            {
+              *func = vtable->base_vtable.simple_free_func;
+              return TRUE;
+            }
+        }
       return FALSE;
     }
 }
@@ -587,7 +606,7 @@ hashtable_copy (GType type, gpointer src)
 }
 
 static void
-hashtable_free (GType type, gpointer val)
+hashtable_simple_free (gpointer val)
 {
   g_hash_table_destroy (val);
 }
@@ -629,7 +648,7 @@ array_copy (GType type, gpointer src)
 }
 
 static void
-array_free (GType type, gpointer val)
+array_simple_free (gpointer val)
 {
   GArray *array;
   array = val;
@@ -768,6 +787,7 @@ ptrarray_append (DBusGTypeSpecializedAppendContext *ctx, GValue *value)
 static void
 ptrarray_free (GType type, gpointer val)
 {
+  /* XXX: this function appears to leak the contents of the array */
   GPtrArray *array;
   array = val;
   g_ptr_array_free (array, TRUE);
@@ -852,6 +872,7 @@ slist_end_append (DBusGTypeSpecializedAppendContext *ctx)
 static void
 slist_free (GType type, gpointer val)
 {
+  /* XXX: this function appears to leak the contents of the list */
   GSList *list;
   list = val;
   g_slist_free (list);
@@ -860,11 +881,18 @@ slist_free (GType type, gpointer val)
 void
 _dbus_g_type_specialized_builtins_init (void)
 {
+  /* types with a simple_free function can be freed at run-time without
+   * the destroy function needing to know the type, so they can be
+   * stored in hash tables */
+
   static const DBusGTypeSpecializedCollectionVtable array_vtable = {
     {
       array_constructor,
-      array_free,
+      NULL,
       array_copy,
+      array_simple_free,
+      NULL,
+      NULL,
     },
     array_fixed_accessor,
     NULL,
@@ -878,6 +906,9 @@ _dbus_g_type_specialized_builtins_init (void)
       ptrarray_constructor,
       ptrarray_free,
       ptrarray_copy,
+      NULL,
+      NULL,
+      NULL,
     },
     NULL,
     ptrarray_iterator,
@@ -891,6 +922,9 @@ _dbus_g_type_specialized_builtins_init (void)
       slist_constructor,
       slist_free,
       slist_copy,
+      NULL,
+      NULL,
+      NULL,
     },
     NULL,
     slist_iterator,
@@ -901,9 +935,9 @@ _dbus_g_type_specialized_builtins_init (void)
   static const DBusGTypeSpecializedMapVtable hashtable_vtable = {
     {
       hashtable_constructor,
-      hashtable_free,
-      hashtable_copy,
       NULL,
+      hashtable_copy,
+      hashtable_simple_free,
       NULL,
       NULL
     },

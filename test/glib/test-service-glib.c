@@ -101,6 +101,8 @@ gboolean my_object_echo_variant (MyObject *obj, GValue *variant, GValue *ret, GE
 
 gboolean my_object_process_variant_of_array_of_ints123 (MyObject *obj, GValue *variant, GError **error);
 
+gboolean my_object_dict_of_dicts (MyObject *obj, GHashTable *dict, GHashTable **ret, GError **error);
+
 gboolean my_object_terminate (MyObject *obj, GError **error);
 
 void my_object_async_increment (MyObject *obj, gint32 x, DBusGMethodInvocation *context);
@@ -704,6 +706,51 @@ error:
 		       "Error decoding a variant of type ai (i + 1 = %i, j = %i)",
 		       i, j + 1);
   return FALSE;
+}
+
+
+typedef struct _HashAndString HashAndString;
+
+struct _HashAndString
+{
+  GHashTable *hash;
+  gchar* string;
+};
+
+static void
+hash_foreach_prepend_string (gpointer key, gpointer val, gpointer user_data)
+{
+  HashAndString *data = (HashAndString*) user_data;
+  gchar *in = (gchar*) val;
+  g_hash_table_insert (data->hash, g_strdup ((gchar*) key),
+                       g_strjoin (" ", data->string, in, NULL));
+}
+
+
+static void
+hash_foreach_mangle_dict_of_strings (gpointer key, gpointer val, gpointer user_data)
+{
+  GHashTable *out = (GHashTable*) user_data;
+  GHashTable *in_dict = (GHashTable *) val;
+  HashAndString *data = g_new0 (HashAndString, 1);
+
+  data->string = (gchar*) key;
+  data->hash = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                            g_free, g_free);
+  g_hash_table_foreach (in_dict, hash_foreach_prepend_string, data);
+
+  g_hash_table_insert(out, g_strdup ((gchar*) key), data->hash);
+}
+
+gboolean
+my_object_dict_of_dicts (MyObject *obj, GHashTable *in,
+                                GHashTable **out, GError **error)
+{
+  *out = g_hash_table_new_full (g_str_hash, g_str_equal,
+				(GDestroyNotify) g_free,
+                                (GDestroyNotify) g_hash_table_destroy);
+  g_hash_table_foreach (in, hash_foreach_mangle_dict_of_strings, *out);
+  return TRUE;
 }
 
 gboolean

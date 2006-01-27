@@ -137,6 +137,11 @@
       <arg type="v" direction="in" />
     </method>
 
+    <method name="DictOfDicts">
+      <arg type="a{sa{ss}}" direction="in"/>
+      <arg type="a{sa{ss}}" direction="out"/>
+    </method>
+
     <method name="EmitFrobnicate">
     </method>
 

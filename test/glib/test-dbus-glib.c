@@ -1164,6 +1164,95 @@ main (int argc, char **argv)
 
     g_value_unset (variant);
   }
+
+  for (i=0; i<3; i++)
+  {
+    gchar *val;
+    GHashTable *table;
+    GHashTable *subtable;
+    GHashTable *ret_table;
+
+    table = g_hash_table_new_full (g_str_hash, g_str_equal,
+				   (GDestroyNotify) (g_free),
+                                   (GDestroyNotify) (g_hash_table_destroy));
+
+    subtable = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                      (GDestroyNotify) (g_free),
+                                      (GDestroyNotify) (g_free));
+    g_hash_table_insert (subtable, g_strdup ("foo"), g_strdup("1"));
+    g_hash_table_insert (subtable, g_strdup ("bar"), g_strdup("2"));
+    g_hash_table_insert (subtable, g_strdup ("baz"), g_strdup("3"));
+
+    g_hash_table_insert (table, g_strdup("dict1"), subtable);
+
+    subtable = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                      (GDestroyNotify) (g_free),
+                                      (GDestroyNotify) (g_free));
+    g_hash_table_insert (subtable, g_strdup ("foo"), g_strdup("4"));
+    g_hash_table_insert (subtable, g_strdup ("bar"), g_strdup("5"));
+    g_hash_table_insert (subtable, g_strdup ("baz"), g_strdup("6"));
+
+    g_hash_table_insert (table, g_strdup("dict2"), subtable);
+
+    subtable = NULL;
+
+    ret_table = NULL;
+
+    g_print ("Calling DictOfDicts\n");
+    if (!dbus_g_proxy_call (proxy, "DictOfDicts", &error,
+			    dbus_g_type_get_map ("GHashTable", G_TYPE_STRING,
+                              dbus_g_type_get_map ("GHashTable", G_TYPE_STRING,
+                                G_TYPE_STRING)), table,
+			    G_TYPE_INVALID,
+			    dbus_g_type_get_map ("GHashTable", G_TYPE_STRING,
+                              dbus_g_type_get_map ("GHashTable", G_TYPE_STRING,
+                                G_TYPE_STRING)), &ret_table,
+			    G_TYPE_INVALID))
+      lose_gerror ("Failed to complete DictOfDicts call", error);
+
+    g_assert (ret_table != NULL);
+    g_assert (g_hash_table_size (ret_table) == 2);
+
+    subtable = g_hash_table_lookup (ret_table, "dict1");
+    g_assert(subtable);
+    g_assert (g_hash_table_size (subtable) == 3);
+
+    val = g_hash_table_lookup (subtable, "foo");
+    g_assert (val != NULL);
+    g_assert (!strcmp ("dict1 1", val));
+
+    val = g_hash_table_lookup (subtable, "bar");
+    g_assert (val != NULL);
+    g_assert (!strcmp ("dict1 2", val));
+
+    val = g_hash_table_lookup (subtable, "baz");
+    g_assert (val != NULL);
+    g_assert (!strcmp ("dict1 3", val));
+
+    subtable = g_hash_table_lookup (ret_table, "dict2");
+    g_assert(subtable);
+    g_assert (g_hash_table_size (subtable) == 3);
+
+    val = g_hash_table_lookup (subtable, "foo");
+    g_assert (val != NULL);
+    g_assert (!strcmp ("dict2 4", val));
+
+    val = g_hash_table_lookup (subtable, "bar");
+    g_assert (val != NULL);
+    g_assert (!strcmp ("dict2 5", val));
+
+    val = g_hash_table_lookup (subtable, "baz");
+    g_assert (val != NULL);
+    g_assert (!strcmp ("dict2 6", val));
+
+    g_hash_table_destroy (table);
+    g_hash_table_destroy (ret_table);
+
+    g_mem_profile ();
+  }
+
+
+
   /* Signal handling tests */
   
   g_print ("Testing signal handling\n");

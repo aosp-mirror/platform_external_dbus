@@ -1,5 +1,17 @@
 2006-01-27  Robert McQueen  <robot101@debian.org>
 
+	* glib/dbus-gtype-specialized.[ch], glib/dbus-gvalue-utils.c: Patch
+	by me and Rob Taylor to add a simple_free function to D-Bus map
+	and collection types, which allows those types which can be freed
+	with a GDestroyNotify (such as GHashTables and GArrays, but not
+	GPtrArrays) to be stored as the values in hashtables.
+
+	* test/glib/test-dbus-glib.c, test/glib/test-service-glib.{c,xml}:
+	Patch by Rob Taylor to add nested dicts to the glib tests to check
+	the above code works, and appears not to leak when called repeatedly.
+
+2006-01-27  Robert McQueen  <robot101@debian.org>
+
 	* glib/dbus-gvalue.c (demarshal_valuearray): Patch from Rob Taylor
 	to free a D-Bus allocated string with dbus_free () instead of
 	g_free ().

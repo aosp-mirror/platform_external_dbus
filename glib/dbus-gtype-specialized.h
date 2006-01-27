@@ -89,7 +89,7 @@ typedef struct {
   DBusGTypeSpecializedConstructor    constructor;
   DBusGTypeSpecializedFreeFunc       free_func;
   DBusGTypeSpecializedCopyFunc       copy_func;
-  gpointer                           padding1;
+  GDestroyNotify                     simple_free_func; /* for type-independent freeing if possible */
   gpointer                           padding2;
   gpointer                           padding3;
 } DBusGTypeSpecializedVtable;
@@ -125,6 +125,8 @@ void           dbus_g_type_register_collection        (const char               
 void           dbus_g_type_register_map               (const char                                   *name,
 						       const DBusGTypeSpecializedMapVtable          *vtable,
 						       guint                                         flags);
+const DBusGTypeSpecializedMapVtable* dbus_g_type_map_peek_vtable (GType map_type);
+const DBusGTypeSpecializedCollectionVtable* dbus_g_type_collection_peek_vtable (GType collection_type);
 
 G_END_DECLS
 

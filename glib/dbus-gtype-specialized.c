@@ -91,7 +91,15 @@ proxy_value_free (GValue *value)
       data = lookup_specialization_data (type);
       g_assert (data != NULL);
 
-      data->klass->vtable->free_func (type, value->data[0].v_pointer);
+      if (data->klass->vtable->free_func)
+        {
+          data->klass->vtable->free_func (type, value->data[0].v_pointer);
+        }
+      else
+        {
+          g_assert (data->klass->vtable->simple_free_func != NULL);
+          data->klass->vtable->simple_free_func (value->data[0].v_pointer);
+        }
     }
 }
 
@@ -226,6 +234,29 @@ dbus_g_type_register_map (const char                            *name,
   g_return_if_fail (specialized_types_is_initialized ());
   register_container (name, DBUS_G_SPECTYPE_MAP, (const DBusGTypeSpecializedVtable*) vtable);
 }
+
+const DBusGTypeSpecializedMapVtable* dbus_g_type_map_peek_vtable (GType map_type)
+{
+  DBusGTypeSpecializedData *data;
+  g_return_val_if_fail (dbus_g_type_is_map(map_type), NULL);
+
+  data = lookup_specialization_data (map_type);
+  g_assert (data != NULL);
+
+  return (DBusGTypeSpecializedMapVtable *)(data->klass->vtable);
+}
+
+const DBusGTypeSpecializedCollectionVtable* dbus_g_type_collection_peek_vtable (GType collection_type)
+{
+  DBusGTypeSpecializedData *data;
+  g_return_val_if_fail (dbus_g_type_is_collection(collection_type), NULL);
+
+  data = lookup_specialization_data (collection_type);
+  g_assert (data != NULL);
+
+  return (DBusGTypeSpecializedCollectionVtable *)(data->klass->vtable);
+}
+
 
 static GType
 register_specialized_instance (const DBusGTypeSpecializedContainer   *klass,
