@@ -26,6 +26,7 @@
 G_BEGIN_DECLS
 
 #define DBUS_GLIB_ANNOTATION_C_SYMBOL "org.freedesktop.DBus.GLib.CSymbol"
+#define DBUS_GLIB_ANNOTATION_CLIENT_C_SYMBOL "org.freedesktop.DBus.GLib.ClientCSymbol"
 #define DBUS_GLIB_ANNOTATION_ASYNC "org.freedesktop.DBus.GLib.Async"
 #define DBUS_GLIB_ANNOTATION_CONST "org.freedesktop.DBus.GLib.Const"
 #define DBUS_GLIB_ANNOTATION_RETURNVAL "org.freedesktop.DBus.GLib.ReturnVal"

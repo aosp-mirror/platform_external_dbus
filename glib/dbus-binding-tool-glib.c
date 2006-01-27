@@ -898,16 +898,13 @@ iface_to_c_prefix (const char *iface)
 static char *
 compute_client_method_name (const char *iface_prefix, MethodInfo *method)
 {
-  GString *ret;
-  char *method_name_uscored;
+  char *method_name_uscored, *ret;
 
-  ret = g_string_new (iface_prefix);
-  
   method_name_uscored = _dbus_gutils_wincaps_to_uscore (method_info_get_name (method));
-  g_string_append_c (ret, '_');
-  g_string_append (ret, method_name_uscored);
+  ret = g_strdup_printf ("%s_%s", iface_prefix, method_name_uscored);
   g_free (method_name_uscored);
-  return g_string_free (ret, FALSE);
+
+  return ret;
 }
 
 static gboolean
@@ -1331,25 +1328,22 @@ static gboolean
 write_async_method_client (GIOChannel *channel, InterfaceInfo *interface, MethodInfo *method, GError **error)
 {
   char *method_name, *iface_prefix;
-  char *interface_c_name;
+  const char *interface_c_name;
 
   iface_prefix = iface_to_c_prefix (interface_info_get_name (interface));
-  interface_c_name = interface_info_get_annotation (interface, DBUS_GLIB_ANNOTATION_C_SYMBOL);
+  interface_c_name = interface_info_get_annotation (interface, DBUS_GLIB_ANNOTATION_CLIENT_C_SYMBOL);
   if (interface_c_name == NULL)
     {
-      interface_c_name = iface_prefix;
+      interface_c_name = (const char *) iface_prefix;
     }
 
-  method_name = g_strdup (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_C_SYMBOL));
+  method_name = g_strdup (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_CLIENT_C_SYMBOL));
   if (method_name == NULL)
     {
-      char *method_name_uscored;
-      method_name_uscored = _dbus_gutils_wincaps_to_uscore (method_info_get_name (method));
-      method_name = g_strdup_printf ("%s_%s", interface_c_name, method_name_uscored);
-      g_free (method_name_uscored);
+      method_name = compute_client_method_name (interface_c_name, method);
     }
   g_free(iface_prefix);
-  
+
   /* Write the typedef for the client callback */
   if (!write_printf_to_iochannel ("typedef void (*%s_reply) (DBusGProxy *proxy, ", channel, error, method_name))
     goto io_lose;
@@ -1423,6 +1417,7 @@ write_async_method_client (GIOChannel *channel, InterfaceInfo *interface, Method
   g_free (method_name);
   return TRUE;
  io_lose:
+  g_free (method_name);
   return FALSE;
  }
 
@@ -1460,7 +1455,7 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
       GSList *methods;
       GSList *tmp;
       char *iface_prefix;
-      char *interface_c_name;
+      const char *interface_c_name;
 
       channel = data->channel;
 
@@ -1469,12 +1464,11 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
       methods = interface_info_get_methods (interface);
 
       iface_prefix = iface_to_c_prefix (interface_info_get_name (interface));
-      interface_c_name = interface_info_get_annotation (interface, DBUS_GLIB_ANNOTATION_C_SYMBOL);
+      interface_c_name = interface_info_get_annotation (interface, DBUS_GLIB_ANNOTATION_CLIENT_C_SYMBOL);
       if (interface_c_name == NULL)
       {
-          interface_c_name = iface_prefix;
+          interface_c_name = (const char *) iface_prefix;
       }
-      
 
       if (!write_printf_to_iochannel ("#ifndef DBUS_GLIB_CLIENT_WRAPPERS_%s\n"
 				      "#define DBUS_GLIB_CLIENT_WRAPPERS_%s\n\n",
@@ -1492,15 +1486,10 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
 	  gboolean is_noreply;
 
           method = (MethodInfo *) tmp->data;
-	  method_c_name = g_strdup (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_C_SYMBOL));
+	  method_c_name = g_strdup (method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_CLIENT_C_SYMBOL));
           if (method_c_name == NULL)
 	    {
-	      char *method_name_uscored;
-	      method_name_uscored = _dbus_gutils_wincaps_to_uscore (method_info_get_name (method));
-              method_c_name = g_strdup_printf ("%s_%s",
-					       interface_c_name,
-					       method_name_uscored);
-	      g_free (method_name_uscored);
+              method_c_name = compute_client_method_name (interface_c_name, method);
             }
 
 	  is_noreply = method_info_get_annotation (method, DBUS_GLIB_ANNOTATION_NOREPLY) != NULL;
@@ -1569,6 +1558,8 @@ generate_client_glue (BaseInfo *base, DBusBindingToolCData *data, GError **error
 	  g_free (iface_prefix);
 	  goto io_lose;
 	}
+
+      g_free (iface_prefix);
     }
   return TRUE;
  io_lose:

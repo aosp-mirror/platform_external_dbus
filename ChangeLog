@@ -1,5 +1,12 @@
 2006-01-27  Robert McQueen  <robot101@debian.org>
 
+	* glib/dbus-binding-tool-glib.[ch]: Patch based on Ricardo Kekki's
+	patch to use an annotation org.freedesktop.DBus.GLib.ClientCSymbol
+	when generating the client-side methods, instead of overloading
+	CSymbol which broke everything horribly. My apologies.
+
+2006-01-27  Robert McQueen  <robot101@debian.org>
+
 	* glib/dbus-gtype-specialized.[ch], glib/dbus-gvalue-utils.c: Patch
 	by me and Rob Taylor to add a simple_free function to D-Bus map
 	and collection types, which allows those types which can be freed
