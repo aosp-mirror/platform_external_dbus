@@ -1,3 +1,9 @@
+2006-01-27  Robert McQueen  <robot101@debian.org>
+
+	* glib/dbus-gvalue.c (demarshal_valuearray): Patch from Rob Taylor
+	to free a D-Bus allocated string with dbus_free () instead of
+	g_free ().
+
 2006-01-27  Iain Holmes  <iain@openedhand.com>
 
 	* glib/dbus-gproxy.c (dbus_g_proxy_dispose): Protect the dispose

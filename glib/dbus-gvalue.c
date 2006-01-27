@@ -741,7 +741,7 @@ demarshal_valuearray (DBusGValueMarshalCtx    *context,
       current_sig = dbus_message_iter_get_signature (&subiter);
       elt_type = _dbus_gtype_from_signature (current_sig, TRUE);
 
-      g_free (current_sig);
+      dbus_free (current_sig);
       if (elt_type == G_TYPE_INVALID)
 	{
 	  g_value_array_free (ret);
