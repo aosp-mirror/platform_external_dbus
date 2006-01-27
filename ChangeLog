@@ -1,3 +1,8 @@
+2006-01-27  Iain Holmes  <iain@openedhand.com>
+
+	* glib/dbus-gproxy.c (dbus_g_proxy_dispose): Protect the dispose
+	method from being called multiple times.
+
 2006-01-19  Robert McQueen  <robot101@debian.org>
 
 	* glib/dbus-binding-tool-glib.c: Patch from Rob Taylor

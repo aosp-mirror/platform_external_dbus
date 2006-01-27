@@ -1395,10 +1395,15 @@ dbus_g_proxy_dispose (GObject *object)
   DBusGProxy *proxy = DBUS_G_PROXY (object);
   DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
 
+  if (priv->pending_calls == NULL) 
+    {
+      return;
+    }
 
   /* Cancel outgoing pending calls */
   g_hash_table_foreach (priv->pending_calls, cancel_pending_call, proxy);
   g_hash_table_destroy (priv->pending_calls);
+  priv->pending_calls = NULL;
 
   if (priv->manager && proxy != priv->manager->bus_proxy)
     {
