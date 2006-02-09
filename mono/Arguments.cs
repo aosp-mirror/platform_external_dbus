@@ -10,7 +10,7 @@ namespace DBus
 	public class Arguments : IEnumerable, IDisposable
   {
     // Must follow sizeof(DBusMessageIter)
-    internal const int DBusMessageIterSize = 14*4;
+    internal static readonly int DBusMessageIterSize = Marshal.SizeOf (typeof(_DBusMessageIter));
     private static Hashtable dbusTypes = null;
     private Message message;
     private IntPtr appenderIter;
@@ -240,6 +240,25 @@ namespace DBus
       return new ArgumentsEnumerator(this);
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private class _DBusMessageIter
+    {
+       IntPtr dummy1;
+       IntPtr dummy2;
+       int    dummy3;
+       int    dummy4;
+       int    dummy5;
+       int    dummy6;
+       int    dummy7;
+       int    dummy8;
+       int    dummy9;
+       int    dummy10;
+       int    dummy11;
+       int    pad1;
+       int    pad2;
+       IntPtr pad3;
+   }
+	    
     private class ArgumentsEnumerator : IEnumerator
     {
       private Arguments arguments;
