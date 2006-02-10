@@ -1,5 +1,11 @@
 2006-02-10  John (J5) Palmieri  <johnp@redhat.com>
 
+	* bus/connection.c (bus_connections_expect_reply): Make
+	pending reply limit not common to all connections (Bug #5416)
+	Patch from Kimmo Hämäläinen <kimmo.hamalainen at nokia.com>
+
+2006-02-10  John (J5) Palmieri  <johnp@redhat.com>
+
 	* tools/dbus-launch.c: Fixed csh syntax output (Bug #5720)
 
 2006-02-10  John (J5) Palmieri  <johnp@redhat.com>

@@ -1606,7 +1606,8 @@ bus_connections_expect_reply (BusConnections  *connections,
       
       link = _dbus_list_get_next_link (&connections->pending_replies->items,
                                        link);
-      ++count;
+      if (pending->will_get_reply == will_get_reply)
+        ++count;
     }
   
   if (count >=
