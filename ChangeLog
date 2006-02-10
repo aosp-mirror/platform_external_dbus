@@ -1,5 +1,10 @@
 2006-02-10  John (J5) Palmieri  <johnp@redhat.com>
 
+	* mono/doc/Makefile.am: Fix parallel make problem with mono-doc
+	(Bug #4213) Patch from Doug Goldstein <cardoe at gentoo.org>
+
+2006-02-10  John (J5) Palmieri  <johnp@redhat.com>
+
 	* bus/connection.c (bus_connections_expect_reply): Make
 	pending reply limit not common to all connections (Bug #5416)
 	Patch from Kimmo Hämäläinen <kimmo.hamalainen at nokia.com>

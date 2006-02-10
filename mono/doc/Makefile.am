@@ -22,7 +22,9 @@ noinst_DATA = $(TARGETS)
 ASSEMBLER = $(MONODOC) --assemble
 UPDATER = $(MONODOC) --update
 
-dbus-sharp-docs.zip dbus-sharp-docs.tree: $(srcdir)/en/*/*.xml $(srcdir)/en/*.xml
+dbus-sharp-docs.zip: dbus-sharp-docs.tree
+
+dbus-sharp-docs.tree: $(srcdir)/en/*/*.xml $(srcdir)/en/*.xml
 	$(ASSEMBLER) --ecma $(srcdir)/en -o dbus-sharp-docs
 
 update:
