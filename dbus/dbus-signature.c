@@ -192,9 +192,10 @@ dbus_signature_iter_recurse (const DBusSignatureIter *iter,
   _dbus_return_if_fail (dbus_type_is_container (dbus_signature_iter_get_current_type (iter)));
 
   *real_sub_iter = *real_iter;
+  real_sub_iter->in_array = FALSE;
   real_sub_iter->pos++;
 
-  if (dbus_signature_iter_get_current_type (subiter) == DBUS_TYPE_ARRAY)
+  if (dbus_signature_iter_get_current_type (iter) == DBUS_TYPE_ARRAY)
     real_sub_iter->in_array = TRUE;
 }
 

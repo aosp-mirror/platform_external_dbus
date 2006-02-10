@@ -1,5 +1,11 @@
 2006-02-10  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/dbus-signature.c (dbus_signature_iter_recurse): Correctly
+	deal with nested arrays (Bug #5823) Patch by Thiago Macieira 
+	<thiago.macieira at trolltech.com>
+
+2006-02-10  John (J5) Palmieri  <johnp@redhat.com>
+
 	* mono/doc/Makefile.am: Fix parallel make problem with mono-doc
 	(Bug #4213) Patch from Doug Goldstein <cardoe at gentoo.org>
 
