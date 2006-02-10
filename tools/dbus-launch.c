@@ -884,7 +884,7 @@ main (int argc, char **argv)
       else
 	{
 	  if (c_shell_syntax)
-	    printf ("setenv DBUS_SESSION_BUS_ADDRESS '%s'\n", bus_address);	
+	    printf ("setenv DBUS_SESSION_BUS_ADDRESS '%s';\n", bus_address);	
 	  else
 	    {
 	      printf ("DBUS_SESSION_BUS_ADDRESS='%s'\n", bus_address);
@@ -892,7 +892,7 @@ main (int argc, char **argv)
 		printf ("export DBUS_SESSION_BUS_ADDRESS\n");
 	    }
 	  if (c_shell_syntax)
-	    printf ("set DBUS_SESSION_BUS_PID=%ld\n", (long) bus_pid);
+	    printf ("set DBUS_SESSION_BUS_PID=%ld;\n", (long) bus_pid);
 	  else
 	    printf ("DBUS_SESSION_BUS_PID=%ld\n", (long) bus_pid);
 	}

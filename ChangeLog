@@ -1,5 +1,9 @@
 2006-02-10  John (J5) Palmieri  <johnp@redhat.com>
 
+	* tools/dbus-launch.c: Fixed csh syntax output (Bug #5720)
+
+2006-02-10  John (J5) Palmieri  <johnp@redhat.com>
+
 	* gcj/Makefile.am: point to correct jar command (Bug #4529)
 	patch from Doug Goldstein <cardoe at gentoo.org>
 
