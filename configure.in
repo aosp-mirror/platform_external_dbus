@@ -211,6 +211,8 @@ fi
 if test x$enable_gcj = xyes; then
     if test x$have_gcj = xno ; then
 	AC_MSG_ERROR([Building gcj explicitly required, but gcj not found])
+    else 
+        AC_CHECK_PROGS(JAR, gcj-jar fastjar jar)
     fi
 fi
 
@@ -1412,7 +1414,8 @@ echo "
 if test x$enable_gcj = xyes ; then
 echo \
 "        gcj:            	  ${GCJ}
-	gcjflags:	          ${GCJFLAGS}"
+	gcjflags:	          ${GCJFLAGS}
+	jar:                      ${JAR}"
 else
 echo \
 "        gcj:                      (not enabled)"

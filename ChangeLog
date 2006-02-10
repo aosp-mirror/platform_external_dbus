@@ -1,4 +1,9 @@
-2006-02-09  Joe Shaw  <joeshaw@novell.com
+2006-02-10  John (J5) Palmieri  <johnp@redhat.com>
+
+	* gcj/Makefile.am: point to correct jar command (Bug #4529)
+	patch from Doug Goldstein <cardoe at gentoo.org>
+
+2006-02-09  Joe Shaw  <joeshaw@novell.com>
 
 	* mono/Arguments.cs: Fix a magic number in the mono bindings
 	that doesn't work on 64 bit arches.  Patch from Peter Johanson.

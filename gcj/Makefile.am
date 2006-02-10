@@ -1,5 +1,4 @@
 SUBDIRS=org
-JAR=jar
 
 CLEANFILES=dbus-1.jar
 
