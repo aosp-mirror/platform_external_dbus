@@ -29,7 +29,7 @@
 
 G_BEGIN_DECLS
 
-void          _dbus_g_type_specialized_builtins_init (void);
+void           _dbus_g_type_specialized_builtins_init (void);
 
 gboolean       _dbus_g_type_is_fixed                  (GType gtype); 
 guint          _dbus_g_type_fixed_get_size            (GType gtype); 

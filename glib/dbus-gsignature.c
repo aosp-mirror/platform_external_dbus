@@ -117,6 +117,25 @@ signature_iter_to_g_type_array (DBusSignatureIter *iter, gboolean is_client)
   return G_TYPE_INVALID; 
 }
 
+static GType
+signature_iter_to_g_type_struct (DBusSignatureIter *iter, gboolean is_client)
+{
+  GArray *types;
+  GType ret;
+  types = g_array_new (FALSE, FALSE, sizeof (GType));
+  do
+    {
+      GType curtype;
+      curtype = _dbus_gtype_from_signature_iter (iter, is_client);
+      g_array_append_val (types, curtype);
+    }
+  while (dbus_signature_iter_next (iter));
+
+  ret = dbus_g_type_get_structv ("GValueArray", types->len, (GType*) types->data);
+  g_array_free (types, TRUE);
+  return ret;
+}
+
 GType
 _dbus_gtype_from_signature_iter (DBusSignatureIter *iter, gboolean is_client)
 {
@@ -136,8 +155,6 @@ _dbus_gtype_from_signature_iter (DBusSignatureIter *iter, gboolean is_client)
 
       if (current_type == DBUS_TYPE_VARIANT)
 	return G_TYPE_VALUE;
-      if (current_type == DBUS_TYPE_STRUCT)
-	return G_TYPE_VALUE_ARRAY;
       
       dbus_signature_iter_recurse (iter, &subiter);
 
@@ -149,6 +166,10 @@ _dbus_gtype_from_signature_iter (DBusSignatureIter *iter, gboolean is_client)
 	  else 
 	    return signature_iter_to_g_type_array (&subiter, is_client);
 	}
+      else if (current_type == DBUS_TYPE_STRUCT)
+        {
+          return signature_iter_to_g_type_struct (&subiter, is_client);
+        }
       else
 	{
 	  g_assert_not_reached ();

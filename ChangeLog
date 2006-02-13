@@ -1,3 +1,19 @@
+2006-02-13  Robert McQueen  <robot101@debian.org>
+
+	* glib/dbus-binding-tool-glib.c, glib/dbus-gmain.c,
+	glib/dbus-gsignature.c, glib/dbus-gtype-specialized.c,
+	glib/dbus-gtype-specialized.h, glib/dbus-gvalue-utils.c,
+	glib/dbus-gvalue-utils.h, glib/dbus-gvalue.c:
+	Patch from Rob Taylor <rob.taylor@collabora.co.uk> to add a big
+	missing piece of the glib bindings jigsaw puzzle. This modifies
+	the existing specialised types to have N type parameters (rather
+	than the current 1 or 2 for arrays and dictionaries respectively).
+	You can then use this to get a glib type to represent any arbitrary
+	D-Bus struct type using dbus_g_type_get_struct. The only
+	implementation of these types is with GValueArrays as before,
+	but it's now possible to store these in arrays, emit them in
+	signals, etc.
+
 2006-02-10  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-signature.c (dbus_signature_iter_recurse): Correctly

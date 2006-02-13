@@ -28,7 +28,8 @@
 
 typedef enum {
   DBUS_G_SPECTYPE_COLLECTION,
-  DBUS_G_SPECTYPE_MAP
+  DBUS_G_SPECTYPE_MAP,
+  DBUS_G_SPECTYPE_STRUCT
 } DBusGTypeSpecializedType;
 
 typedef struct {
@@ -37,7 +38,8 @@ typedef struct {
 } DBusGTypeSpecializedContainer;
 
 typedef struct {
-  GType types[6];
+  guint num_types;
+  GType *types;
   const DBusGTypeSpecializedContainer     *klass;
 } DBusGTypeSpecializedData;
 
@@ -70,6 +72,7 @@ lookup_specialization_data (GType type)
 {
   return g_type_get_qdata (type, specialized_type_data_quark ());
 }
+
 
 /* Copied from gboxed.c */
 static void
@@ -151,7 +154,9 @@ proxy_collect_value (GValue      *value,
 	  value->data[1].v_uint = G_VALUE_NOCOPY_CONTENTS;
 	}
       else
-	value->data[0].v_pointer = data->klass->vtable->copy_func (type, collect_values[0].v_pointer);
+        {
+	  value->data[0].v_pointer = data->klass->vtable->copy_func (type, collect_values[0].v_pointer);
+        }
     }
 
   return NULL;
@@ -188,18 +193,21 @@ proxy_lcopy_value (const GValue *value,
 }
 
 static char *
-build_specialization_name (const char *prefix, GType first_type, GType second_type)
+build_specialization_name (const char *prefix, guint num_types, GType *types)
 {
   GString *fullname;
+  guint i;
 
   fullname = g_string_new (prefix);
-  g_string_append_c (fullname, '+');
-  g_string_append (fullname, g_type_name (first_type));
-  if (second_type != G_TYPE_INVALID)
+
+  g_string_append_c (fullname, '_');
+  for (i=0; i < num_types; i++)
     {
-      g_string_append_c (fullname, '+');
-      g_string_append (fullname, g_type_name (second_type));
+      if (i!=0)
+        g_string_append_c (fullname, '+');
+      g_string_append (fullname, g_type_name (types[i]));
     }
+  g_string_append_c (fullname, '_');
   return g_string_free (fullname, FALSE);
 }
 
@@ -235,6 +243,16 @@ dbus_g_type_register_map (const char                            *name,
   register_container (name, DBUS_G_SPECTYPE_MAP, (const DBusGTypeSpecializedVtable*) vtable);
 }
 
+void
+dbus_g_type_register_struct (const char                             *name,
+			     const DBusGTypeSpecializedStructVtable *vtable,
+			     guint                                   flags)
+{
+  g_return_if_fail (specialized_types_is_initialized ());
+  register_container (name, DBUS_G_SPECTYPE_STRUCT, (const DBusGTypeSpecializedVtable*) vtable);
+}
+
+
 const DBusGTypeSpecializedMapVtable* dbus_g_type_map_peek_vtable (GType map_type)
 {
   DBusGTypeSpecializedData *data;
@@ -257,12 +275,22 @@ const DBusGTypeSpecializedCollectionVtable* dbus_g_type_collection_peek_vtable (
   return (DBusGTypeSpecializedCollectionVtable *)(data->klass->vtable);
 }
 
+const DBusGTypeSpecializedStructVtable* dbus_g_type_struct_peek_vtable (GType struct_type)
+{
+  DBusGTypeSpecializedData *data;
+  g_return_val_if_fail (dbus_g_type_is_struct (struct_type), NULL);
+
+  data = lookup_specialization_data (struct_type);
+  g_assert (data != NULL);
+
+  return (DBusGTypeSpecializedStructVtable *)(data->klass->vtable);
+}
 
 static GType
 register_specialized_instance (const DBusGTypeSpecializedContainer   *klass,
 			       char                                  *name,
-			       GType                                  first_type,
-			       GType                                  second_type)
+			       guint                                  num_types,
+			       GType                                 *types)
 {
   GType ret;
   
@@ -297,8 +325,8 @@ register_specialized_instance (const DBusGTypeSpecializedContainer   *klass,
     {
       DBusGTypeSpecializedData *data;
       data = g_new0 (DBusGTypeSpecializedData, 1);
-      data->types[0] = first_type;
-      data->types[1] = second_type;
+      data->num_types = num_types;
+      data->types = g_memdup (types, sizeof (GType) * num_types);
       data->klass = klass;
       g_type_set_qdata (ret, specialized_type_data_quark (), data);
     }
@@ -308,8 +336,8 @@ register_specialized_instance (const DBusGTypeSpecializedContainer   *klass,
 
 static GType
 lookup_or_register_specialized (const char  *container,
-				GType       first_type,
-				GType       second_type)
+				guint        num_types,
+				GType       *types)
 {
   GType ret;
   char *name;
@@ -320,14 +348,14 @@ lookup_or_register_specialized (const char  *container,
   klass = g_hash_table_lookup (specialized_containers, container);
   g_return_val_if_fail (klass != NULL, G_TYPE_INVALID);
 
-  name = build_specialization_name (container, first_type, second_type);
+  name = build_specialization_name (container, num_types, types);
   ret = g_type_from_name (name);
   if (ret == G_TYPE_INVALID)
     {
       /* Take ownership of name */
       ret = register_specialized_instance (klass, name,
-					   first_type,
-					   second_type);
+					   num_types,
+					   types);
     }
   else
     g_free (name);
@@ -338,7 +366,7 @@ GType
 dbus_g_type_get_collection (const char *container,
 			    GType       specialization)
 {
-  return lookup_or_register_specialized (container, specialization, G_TYPE_INVALID);
+  return lookup_or_register_specialized (container, 1, &specialization);
 }
 
 GType
@@ -346,8 +374,41 @@ dbus_g_type_get_map (const char   *container,
 		     GType         key_specialization,
 		     GType         value_specialization)
 {
-  return lookup_or_register_specialized (container, key_specialization, value_specialization);
+  GType types[2] = {key_specialization, value_specialization};
+  return lookup_or_register_specialized (container, 2, types);
 }
+
+GType
+dbus_g_type_get_structv (const char   *container,
+                        guint         num_items,
+                        GType        *types)
+{
+  return lookup_or_register_specialized (container, num_items, types);
+}
+
+GType
+dbus_g_type_get_struct (const char *container,
+                        GType first_type,
+                        ...)
+{
+  GArray *types;
+  GType curtype;
+  va_list args;
+  va_start (args, first_type);
+
+  types = g_array_new (FALSE, FALSE, sizeof (GType));
+  curtype = first_type;
+  while (curtype != G_TYPE_INVALID)
+    {
+      g_array_append_val (types, curtype);
+      curtype = va_arg (args, GType);
+    }
+  va_end (args);
+  return lookup_or_register_specialized (container, types->len, (GType*)types->data);
+
+}
+
+
 
 gboolean
 dbus_g_type_is_collection (GType gtype)
@@ -369,13 +430,27 @@ dbus_g_type_is_map (GType gtype)
   return data->klass->type == DBUS_G_SPECTYPE_MAP;
 }
 
+gboolean
+dbus_g_type_is_struct (GType gtype)
+{
+  DBusGTypeSpecializedData *data;
+  data = lookup_specialization_data (gtype);
+  if (data == NULL)
+    return FALSE;
+  return data->klass->type == DBUS_G_SPECTYPE_STRUCT;
+}
+
+
 static GType
 get_specialization_index (GType gtype, guint i)
 {
   DBusGTypeSpecializedData *data;
 
   data = lookup_specialization_data (gtype);
-  return data->types[i];
+  if (i < data->num_types)
+    return data->types[i];
+  else
+    return G_TYPE_INVALID;
 }
 
 GType
@@ -398,6 +473,25 @@ dbus_g_type_get_map_value_specialization (GType gtype)
   g_return_val_if_fail (dbus_g_type_is_map (gtype), G_TYPE_INVALID);
   return get_specialization_index (gtype, 1);
 }
+
+GType
+dbus_g_type_get_struct_member_type (GType gtype, guint index)
+{
+  g_return_val_if_fail (dbus_g_type_is_struct (gtype), G_TYPE_INVALID);
+  return get_specialization_index (gtype, index);
+}
+
+guint
+dbus_g_type_get_struct_size (GType gtype)
+{
+  DBusGTypeSpecializedData *data;
+  g_return_val_if_fail (dbus_g_type_is_struct (gtype), G_TYPE_INVALID);
+
+  data = lookup_specialization_data (gtype);
+  return data->num_types;
+}
+
+
 
 gpointer
 dbus_g_type_specialized_construct (GType type)
@@ -469,7 +563,8 @@ dbus_g_type_specialized_init_append (GValue *value, DBusGTypeSpecializedAppendCo
   gtype = G_VALUE_TYPE (value);
   specdata = lookup_specialization_data (gtype);
   g_return_if_fail (specdata != NULL);
-  
+  g_return_if_fail (specdata->num_types != 0);
+
   realctx->val = value;
   realctx->specialization_type = specdata->types[0];
   realctx->specdata = specdata;
@@ -519,3 +614,160 @@ dbus_g_type_map_value_iterate (const GValue                           *value,
 								     g_value_get_boxed (value),
 								     iterator, user_data);
 }
+
+gboolean
+dbus_g_type_struct_get_member (const GValue *value,
+			       guint         index,
+			       GValue       *dest)
+{
+  DBusGTypeSpecializedData *data;
+  GType gtype;
+
+  g_return_val_if_fail (specialized_types_is_initialized (), FALSE);
+  g_return_val_if_fail (G_VALUE_HOLDS_BOXED (value), FALSE);
+
+  gtype = G_VALUE_TYPE (value);
+  data = lookup_specialization_data (gtype);
+  g_return_val_if_fail (data != NULL, FALSE);
+
+  return ((DBusGTypeSpecializedStructVtable *) (data->klass->vtable))->get_member(gtype,
+											   g_value_get_boxed (value),
+											   index, dest);
+}
+
+gboolean
+dbus_g_type_struct_set_member (GValue       *value,
+			       guint         index,
+			       const GValue *src)
+{
+  DBusGTypeSpecializedData *data;
+  GType gtype;
+
+  g_return_val_if_fail (specialized_types_is_initialized (), FALSE);
+  g_return_val_if_fail (G_VALUE_HOLDS_BOXED (value), FALSE);
+
+  gtype = G_VALUE_TYPE (value);
+  data = lookup_specialization_data (gtype);
+  g_return_val_if_fail (data != NULL, FALSE);
+
+  return ((DBusGTypeSpecializedStructVtable *) (data->klass->vtable))->set_member(gtype,
+											   g_value_get_boxed (value),
+											   index, src);
+}
+
+/**
+ * dbus_g_type_struct_get:
+ * @value: a GValue containing a DBusGTypeStruct type
+ * @member: struct member to get
+ * @...: location in which to return the value of this member,
+ *       followed optionally by more member/return locations pairs, followed by
+ *       by G_MAXUINT
+ *
+ * Collects the selected values of this struct into the return locations
+ * provided.
+ *
+ * Returns: FALSE on failure
+ */
+
+gboolean
+dbus_g_type_struct_get                   (const GValue *value,
+                                          guint first_member,
+                                          ...)
+{
+  va_list var_args;
+  GType type;
+  guint size,i;
+  gchar *error;
+  GValue val = {0,};
+
+  g_return_val_if_fail (dbus_g_type_is_struct (G_VALUE_TYPE (value)), FALSE);
+
+  va_start (var_args, first_member);
+  size = dbus_g_type_get_struct_size (G_VALUE_TYPE (value));
+  i = first_member;
+  while (i != G_MAXUINT)
+    {
+      if (i >= size)
+        goto error;
+
+      type = dbus_g_type_get_struct_member_type (G_VALUE_TYPE (value),i);
+
+      g_value_init (&val, type);
+      dbus_g_type_struct_get_member (value, i, &val);
+
+      G_VALUE_LCOPY (&val, var_args, 0, &error);
+      if (error)
+        {
+          g_warning ("%s, %s", G_STRFUNC, error);
+          g_free (error);
+          g_value_unset (&val);
+          goto error;
+        }
+      g_value_unset (&val);
+      i = va_arg (var_args, guint);
+    }
+  va_end (var_args);
+  return TRUE;
+error:
+  va_end (var_args);
+  return FALSE;
+}
+
+/**
+ * dbus_g_type_struct_set:
+ * @value: a GValue containing a DBusGTypeStruct type
+ * @member: struct member to set
+ * @...: value for the first member, followed optionally by
+ *       more member/value pairs, followed by G_MAXUINT
+ *
+ * Sets the selected members of the struct in @value.
+ *
+ * Returns: FALSE on failure
+ */
+
+gboolean
+dbus_g_type_struct_set                   (GValue *value,
+                                          guint first_member,
+                                          ...)
+{
+  va_list var_args;
+  GType type;
+  guint size,i;
+  gchar *error;
+  GValue val = {0,};
+
+  g_return_val_if_fail (dbus_g_type_is_struct (G_VALUE_TYPE (value)), FALSE);
+
+  va_start (var_args, first_member);
+  size = dbus_g_type_get_struct_size (G_VALUE_TYPE (value));
+  i = first_member;
+  while (i != G_MAXUINT)
+    {
+      if (i >= size)
+        goto error;
+
+      type = dbus_g_type_get_struct_member_type (G_VALUE_TYPE (value),i);
+
+      g_value_init (&val, type);
+
+      G_VALUE_COLLECT (&val, var_args, 0, &error);
+      if (error)
+        {
+          g_warning ("%s, %s", G_STRFUNC, error);
+          g_free (error);
+          g_value_unset (&val);
+          goto error;
+        }
+
+      dbus_g_type_struct_set_member (value, i, &val);
+
+      g_value_unset (&val);
+      i = va_arg (var_args, guint);
+    }
+  va_end (var_args);
+  return TRUE;
+error:
+  va_end (var_args);
+  return FALSE;
+}
+

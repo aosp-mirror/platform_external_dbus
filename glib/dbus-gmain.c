@@ -754,14 +754,14 @@ _dbus_gmain_test (const char *test_data_dir)
 
   rectype = dbus_g_type_get_collection ("GArray", G_TYPE_UINT);
   g_assert (rectype != G_TYPE_INVALID);
-  g_assert (!strcmp (g_type_name (rectype), "GArray+guint"));
+  g_assert (!strcmp (g_type_name (rectype), "GArray_guint_"));
 
   type = _dbus_gtype_from_signature ("au", TRUE);
   g_assert (type == rectype);
 
   rectype = dbus_g_type_get_map ("GHashTable", G_TYPE_STRING, G_TYPE_STRING);
   g_assert (rectype != G_TYPE_INVALID);
-  g_assert (!strcmp (g_type_name (rectype), "GHashTable+gchararray+gchararray"));
+  g_assert (!strcmp (g_type_name (rectype), "GHashTable_gchararray+gchararray_"));
 
   type = _dbus_gtype_from_signature ("a{ss}", TRUE);
   g_assert (type == rectype);

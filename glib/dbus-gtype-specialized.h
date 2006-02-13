@@ -34,11 +34,21 @@ GType          dbus_g_type_get_collection                   (const char *contain
 GType          dbus_g_type_get_map                          (const char *container,
 							     GType       key_specialization,
 							     GType       value_specialization);
+GType          dbus_g_type_get_structv                      (const char *container,
+							     guint       num_items,
+							     GType      *types);
+GType          dbus_g_type_get_struct                       (const char *container,
+                                                             GType       first_type,
+                                                             ...);
 gboolean       dbus_g_type_is_collection                    (GType       gtype);
 gboolean       dbus_g_type_is_map                           (GType       gtype);
+gboolean       dbus_g_type_is_struct                        (GType       gtype);
 GType          dbus_g_type_get_collection_specialization    (GType       gtype);
 GType          dbus_g_type_get_map_key_specialization       (GType       gtype);
 GType          dbus_g_type_get_map_value_specialization     (GType       gtype);
+GType          dbus_g_type_get_struct_member_type           (GType       gtype,
+                                                             guint       index);
+guint          dbus_g_type_get_struct_size                  (GType       gtype);
 
 typedef void   (*DBusGTypeSpecializedCollectionIterator)    (const GValue *val,
 							     gpointer      user_data);
@@ -81,6 +91,21 @@ void           dbus_g_type_map_value_iterate                (const GValue       
 							     DBusGTypeSpecializedMapIterator         iterator,
 							     gpointer                                user_data);
 
+gboolean       dbus_g_type_struct_get_member            (const GValue *value,
+                                                         guint index,
+                                                         GValue *dest);
+gboolean       dbus_g_type_struct_set_member            (GValue *value,
+                                                         guint index,
+                                                         const GValue *src);
+
+gboolean       dbus_g_type_struct_get                   (const GValue *value,
+                                                         guint member,
+                                                         ...);
+
+gboolean       dbus_g_type_struct_set                   (GValue *value,
+                                                         guint member,
+                                                         ...);
+
 typedef gpointer (*DBusGTypeSpecializedConstructor)     (GType type);
 typedef void     (*DBusGTypeSpecializedFreeFunc)        (GType type, gpointer val);
 typedef gpointer (*DBusGTypeSpecializedCopyFunc)        (GType type, gpointer src);
@@ -116,6 +141,15 @@ typedef struct {
   DBusGTypeSpecializedMapAppendFunc                 append_func;
 } DBusGTypeSpecializedMapVtable;
 
+typedef gboolean (*DBusGTypeSpecializedStructGetMember) (GType type, gpointer instance, guint member, GValue *ret_value);
+typedef gboolean (*DBusGTypeSpecializedStructSetMember) (GType type, gpointer instance, guint member, const GValue *new_value);
+
+typedef struct {
+  DBusGTypeSpecializedVtable                        base_vtable;
+  DBusGTypeSpecializedStructGetMember               get_member;
+  DBusGTypeSpecializedStructSetMember               set_member;
+} DBusGTypeSpecializedStructVtable;
+
 void           dbus_g_type_specialized_init           (void);
 
 void           dbus_g_type_register_collection        (const char                                   *name,
@@ -127,6 +161,15 @@ void           dbus_g_type_register_map               (const char               
 						       guint                                         flags);
 const DBusGTypeSpecializedMapVtable* dbus_g_type_map_peek_vtable (GType map_type);
 const DBusGTypeSpecializedCollectionVtable* dbus_g_type_collection_peek_vtable (GType collection_type);
+
+void           dbus_g_type_register_struct             (const char                                   *name,
+						       const DBusGTypeSpecializedStructVtable        *vtable,
+						       guint                                          flags);
+
+const DBusGTypeSpecializedMapVtable* dbus_g_type_map_peek_vtable (GType map_type);
+const DBusGTypeSpecializedCollectionVtable* dbus_g_type_collection_peek_vtable (GType collection_type);
+
+const DBusGTypeSpecializedStructVtable* dbus_g_type_struct_peek_vtable (GType struct_type);
 
 G_END_DECLS
 

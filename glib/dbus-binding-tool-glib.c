@@ -98,6 +98,10 @@ static const char *
 dbus_g_type_get_c_name (GType gtype)
 {
   GType subtype;
+  if (dbus_g_type_is_struct (gtype))
+    {
+      return "GValueArray";
+    }
   if (dbus_g_type_is_collection (gtype))
     {
       subtype = dbus_g_type_get_collection_specialization(gtype);
@@ -1050,6 +1054,28 @@ dbus_g_type_get_lookup_function (GType gtype)
       g_free (value_lookup);
       return type_lookup;
     }
+  else if (dbus_g_type_is_struct (gtype))
+    {
+      GType value_gtype;
+      GString *string;
+      char *value_lookup = NULL;
+      guint size, i;
+
+      string = g_string_new ("dbus_g_type_get_struct (\"GValueArray\"");
+
+      size = dbus_g_type_get_struct_size (gtype);
+      for (i=0; i < size; i++)
+        {
+          value_gtype = dbus_g_type_get_struct_member_type(gtype, i);
+          value_lookup = dbus_g_type_get_lookup_function (value_gtype);
+          g_assert (value_lookup);
+          g_string_append_printf (string, ", %s", value_lookup);
+          g_free (value_lookup);
+        }
+      g_string_append (string, ", G_TYPE_INVALID)");
+      return g_string_free (string, FALSE);
+    }
+
   MAP_KNOWN(G_TYPE_VALUE);
   MAP_KNOWN(G_TYPE_STRV);
   MAP_KNOWN(G_TYPE_VALUE_ARRAY);

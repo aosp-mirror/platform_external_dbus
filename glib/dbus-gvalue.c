@@ -107,6 +107,13 @@ static gboolean demarshal_collection_array      (DBusGValueMarshalCtx      *cont
 						 DBusMessageIter           *iter,
 						 GValue                    *value,
 						 GError                   **error);
+static gboolean marshal_struct                  (DBusMessageIter           *iter,
+						 const GValue              *value);
+static gboolean demarshal_struct                (DBusGValueMarshalCtx      *context,
+						 DBusMessageIter           *iter,
+						 GValue                    *value,
+						 GError                   **error);
+
 
 typedef gboolean (*DBusGValueMarshalFunc)       (DBusMessageIter           *iter,
 						 const GValue              *value);
@@ -346,6 +353,7 @@ dbus_g_object_path_get_g_type (void)
   return type_id;
 }
 
+
 char *
 _dbus_gtype_to_signature (GType gtype)
 {
@@ -377,6 +385,21 @@ _dbus_gtype_to_signature (GType gtype)
       g_free (key_subsig);
       g_free (val_subsig);
     }
+  else if (dbus_g_type_is_struct (gtype))
+    {
+      guint i, size;
+      GString *sig;
+      size = dbus_g_type_get_struct_size (gtype);
+      sig = g_string_sized_new (size+2); /*some sensible starting size*/
+      g_string_assign (sig, DBUS_STRUCT_BEGIN_CHAR_AS_STRING);
+      for (i=0; i < size; i++)
+        {
+          g_string_append (sig, _dbus_gtype_to_signature (
+              dbus_g_type_get_struct_member_type (gtype, i)));
+        }
+      g_string_append (sig, DBUS_STRUCT_END_CHAR_AS_STRING);
+      ret = g_string_free (sig, FALSE);
+    }
   else
     {
       typedata = g_type_get_qdata (gtype, dbus_g_type_metadata_data_quark ());
@@ -384,7 +407,6 @@ _dbus_gtype_to_signature (GType gtype)
 	return NULL;
       ret = g_strdup (typedata->sig);
     }
-  
   return ret;
 }
 
@@ -851,6 +873,76 @@ demarshal_map (DBusGValueMarshalCtx    *context,
   return TRUE;
 }
 
+static gboolean
+demarshal_struct (DBusGValueMarshalCtx    *context,
+                  DBusMessageIter         *iter,
+                  GValue                  *value,
+                  GError                 **error)
+{
+  int current_type;
+  DBusMessageIter subiter;
+  guint i, size;
+  GValue val = {0,};
+  GType elt_type;
+
+  current_type = dbus_message_iter_get_arg_type (iter);
+  if (current_type != DBUS_TYPE_STRUCT)
+    {
+      g_set_error (error,
+                   DBUS_GERROR,
+                   DBUS_GERROR_INVALID_ARGS,
+                   _("Expected D-BUS struct, got type code \'%c\'"), (guchar) current_type);
+      return FALSE;
+    }
+
+  dbus_message_iter_recurse (iter, &subiter);
+
+  g_value_set_boxed_take_ownership (value,
+    dbus_g_type_specialized_construct (G_VALUE_TYPE (value)));
+
+  size = dbus_g_type_get_struct_size (G_VALUE_TYPE (value));
+
+  for (i=0; i < size; i++)
+    {
+
+      elt_type = dbus_g_type_get_struct_member_type (G_VALUE_TYPE(value), i);
+      if (elt_type == G_TYPE_INVALID)
+        {
+          g_value_unset (value);
+          g_set_error (error,
+                       DBUS_GERROR,
+                       DBUS_GERROR_INVALID_ARGS,
+                       _("Couldn't demarshal argument, "
+                         "struct type %s has no member %d"),
+                       g_type_name (G_VALUE_TYPE(value)), i);
+          return FALSE;
+        }
+
+      g_value_init (&val, elt_type);
+
+      if (!_dbus_gvalue_demarshal (context, &subiter, &val, error))
+        {
+          g_value_unset (&val);
+          g_value_unset (value);
+          return FALSE;
+        }
+      if (!dbus_g_type_struct_set_member (value, i, &val))
+        {
+          g_value_unset (&val);
+          g_value_unset (value);
+          return FALSE;
+        }
+
+      dbus_message_iter_next (&subiter);
+      g_value_unset (&val);
+    }
+
+  g_assert (dbus_message_iter_get_arg_type (&subiter) == DBUS_TYPE_INVALID);
+
+  return TRUE;
+}
+
+
 static DBusGValueDemarshalFunc
 get_type_demarshaller (GType type)
 {
@@ -865,6 +957,8 @@ get_type_demarshaller (GType type)
 	return demarshal_collection;
       if (dbus_g_type_is_map (type))
 	return demarshal_map;
+      if (dbus_g_type_is_struct (type))
+        return demarshal_struct;
 
       g_warning ("No demarshaller registered for type \"%s\"", g_type_name (type));
       return NULL;
@@ -1453,6 +1547,48 @@ marshal_map (DBusMessageIter   *iter,
 }
 
 static gboolean
+marshal_struct (DBusMessageIter   *iter,
+                const GValue      *value)
+{
+  GType gtype;
+  DBusMessageIter subiter;
+  gboolean ret;
+  guint size, i;
+  GValue val = {0,};
+
+  gtype = G_VALUE_TYPE (value);
+
+  ret = FALSE;
+
+  size = dbus_g_type_get_struct_size (gtype);
+
+  if (!dbus_message_iter_open_container (iter,
+                                         DBUS_TYPE_STRUCT,
+                                         NULL,
+                                         &subiter))
+    goto oom;
+
+  for (i = 0; i < size; i++)
+    {
+      g_value_init (&val, dbus_g_type_get_struct_member_type
+          (G_VALUE_TYPE(value), i));
+      if (!dbus_g_type_struct_get_member (value, i, &val))
+        return FALSE;
+      if (!_dbus_gvalue_marshal (&subiter, &val))
+        return FALSE;
+      g_value_unset(&val);
+    }
+
+  if (!dbus_message_iter_close_container (iter, &subiter))
+    goto oom;
+
+  return TRUE;
+ oom:
+  g_error ("out of memory");
+  return FALSE;
+}
+
+static gboolean
 marshal_variant (DBusMessageIter          *iter,
 		 const GValue             *value)
 {
@@ -1504,6 +1640,8 @@ get_type_marshaller (GType type)
 	return marshal_collection;
       if (dbus_g_type_is_map (type))
 	return marshal_map;
+      if (dbus_g_type_is_struct (type))
+	return marshal_struct;
 
       g_warning ("No marshaller registered for type \"%s\"", g_type_name (type));
       return NULL;
@@ -1697,17 +1835,15 @@ _dbus_gvalue_test (const char *test_data_dir)
   assert_bidirectional_mapping (G_TYPE_UCHAR, DBUS_TYPE_BYTE_AS_STRING);
   assert_bidirectional_mapping (G_TYPE_UINT, DBUS_TYPE_UINT32_AS_STRING);
 
-  assert_signature_maps_to (DBUS_STRUCT_BEGIN_CHAR_AS_STRING DBUS_TYPE_STRING_AS_STRING DBUS_STRUCT_END_CHAR_AS_STRING, G_TYPE_VALUE_ARRAY);
-  assert_signature_maps_to (DBUS_STRUCT_BEGIN_CHAR_AS_STRING DBUS_STRUCT_END_CHAR_AS_STRING, G_TYPE_VALUE_ARRAY);
-  assert_signature_maps_to (DBUS_STRUCT_BEGIN_CHAR_AS_STRING DBUS_TYPE_UINT32_AS_STRING DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_STRING_AS_STRING DBUS_STRUCT_END_CHAR_AS_STRING, G_TYPE_VALUE_ARRAY);
-
   assert_bidirectional_mapping (dbus_g_type_get_map ("GHashTable", G_TYPE_STRING, G_TYPE_VALUE),
-				DBUS_TYPE_ARRAY_AS_STRING DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_VARIANT_AS_STRING DBUS_DICT_ENTRY_END_CHAR_AS_STRING);
+			      DBUS_TYPE_ARRAY_AS_STRING DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_VARIANT_AS_STRING DBUS_DICT_ENTRY_END_CHAR_AS_STRING);
   assert_bidirectional_mapping (dbus_g_type_get_collection ("GPtrArray", DBUS_TYPE_G_OBJECT_PATH),
 				DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_OBJECT_PATH_AS_STRING);
   assert_bidirectional_mapping (dbus_g_type_get_collection ("GArray", G_TYPE_INT),
 				DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_INT32_AS_STRING);
 
+  assert_bidirectional_mapping (dbus_g_type_get_struct ("GValueArray", G_TYPE_INT, G_TYPE_STRING, DBUS_TYPE_G_OBJECT_PATH, G_TYPE_INVALID),
+  				DBUS_STRUCT_BEGIN_CHAR_AS_STRING DBUS_TYPE_INT32_AS_STRING DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_OBJECT_PATH_AS_STRING DBUS_STRUCT_END_CHAR_AS_STRING );
   return TRUE;
 }
 
