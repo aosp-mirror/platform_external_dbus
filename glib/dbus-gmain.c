@@ -698,11 +698,11 @@ dbus_server_setup_with_g_main (DBusServer   *server,
 
 /**
  * Returns a connection to the given address.
- * 
+ *
  * (Internally, calls dbus_connection_open() then calls
  * dbus_connection_setup_with_g_main() on the result.)
  *
- * @param address address of the connection to open 
+ * @param address address of the connection to open
  * @param error address where an error can be returned.
  * @returns a DBusConnection
  */
@@ -716,10 +716,10 @@ dbus_g_connection_open (const gchar  *address,
   g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
   _dbus_g_value_types_init ();
-  
+
   dbus_error_init (&derror);
 
-  connection = dbus_connection_open (socket, &derror);
+  connection = dbus_connection_open (address, &derror);
   if (connection == NULL)
     {
       dbus_set_g_error (error, &derror);

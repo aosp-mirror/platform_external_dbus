@@ -1,3 +1,17 @@
+2006-02-16  Robert McQueen  <robot101@debian.org>
+
+	* glib/dbus-gmain.c: Make the previous commit compile.
+
+	* python/_dbus.py, python/matchrules.py: Patch from Ole Andre
+	Ravnaas <ole.andre.ravnaas@collabora.co.uk> to allow you to
+	specify sender_keyword="foo", path_keyword="bar" when adding
+	a signal listener, so that you can bind to signals generically
+	but still do something useful in your callback.
+
+	* python/dbus_bindings.pyx: Demarshal the byte type as unsigned
+	chars so that they're not cast to chars and made negative. Thanks
+	to Jakub Stachowski for reporting this and testing the fix.
+
 2006-02-15  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-glib.h:
